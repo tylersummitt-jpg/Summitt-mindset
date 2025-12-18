@@ -1,35 +1,141 @@
-// src/app/subscribe/page.tsx
-import Link from "next/link";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter, useSearchParams } from "next/navigation";
+
+type Plan = "monthly" | "annual";
 
 export default function SubscribePage() {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [canceled, setCanceled] = useState<boolean>(false);
+
+  // Check if user canceled checkout
+  useEffect(() => {
+    if (searchParams.get("canceled") === "1") {
+      setCanceled(true);
+    }
+  }, [searchParams]);
+
+  // Redirect to sign-in if not logged in
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.push("/sign-in?redirect_url=/subscribe");
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  async function handleCheckout(plan: Plan) {
+    try {
+      setError(null);
+      setCanceled(false);
+      setLoadingPlan(plan);
+
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, userId: user?.id }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.warn("Checkout failed:", res.status, text);
+        setError(text || "Failed to start checkout. Please try again in a minute.");
+        setLoadingPlan(null);
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!data.url) {
+        throw new Error("No checkout URL returned");
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Something went wrong.");
+      setLoadingPlan(null);
+    }
+  }
+
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <p>Loading...</p>
+      </main>
+    );
+  }
+
   return (
-    <main className="bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold mb-4">Join the Summitt Membership</h1>
-        <p className="text-gray-700 mb-6">
-          One simple subscription gives you full access to the Summitt Assessment
-          results, Ask Pat AI, and the growing Pat Summitt leadership library.
+    <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <div className="max-w-lg w-full space-y-6 text-center">
+
+        <h1 className="text-3xl font-semibold">Join Summitt Mindset</h1>
+        <p className="text-sm text-gray-600">
+          Start your 7-day free trial. Cancel anytime.
         </p>
 
-        <div className="bg-white border rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-2">$25/month</h2>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-4">
-            <li>Full Summitt Assessment breakdown (all 12 principles)</li>
-            <li>Ask Pat AI access</li>
-            <li>All current and future learning modules</li>
-            <li>Progress tracking over time</li>
-          </ul>
-          <button className="px-6 py-3 border rounded text-sm font-semibold">
-            Continue to Checkout (Stripe later)
+        {/* Canceled checkout notice */}
+        {canceled && (
+          <p className="text-sm text-red-600">
+            Looks like you canceled checkout — no worries, you can try again anytime.
+          </p>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2 mt-4">
+          {/* MONTHLY PLAN */}
+          <button
+            onClick={() => handleCheckout("monthly")}
+            disabled={!!loadingPlan}
+            className="border rounded-lg px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-60"
+          >
+            <div className="font-medium flex items-baseline justify-between">
+              <span>Monthly</span>
+              <span className="text-xl">$25</span>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">
+              Billed monthly after your 7-day free trial.
+            </p>
+          </button>
+
+          {/* ANNUAL PLAN */}
+          <button
+            onClick={() => handleCheckout("annual")}
+            disabled={!!loadingPlan}
+            className="border rounded-lg px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-60"
+          >
+            <div className="font-medium flex items-baseline justify-between">
+              <span>Annual</span>
+              <span className="text-xl">$120</span>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">
+              Best value — save over 60% vs monthly.
+            </p>
           </button>
         </div>
 
-        <p className="text-xs text-gray-500">
-          Already a member?{" "}
-          <Link href="/dashboard" className="underline">
-            Go to your dashboard.
-          </Link>
+        {loadingPlan && (
+          <p className="text-sm text-gray-700">
+            Redirecting to secure checkout…
+          </p>
+        )}
+
+        {error && (
+          <p className="text-sm text-red-600">{error}</p>
+        )}
+
+        <p className="text-xs text-gray-500 mt-4">
+          7-day free trial. 14-day results-based guarantee.
         </p>
+
       </div>
     </main>
   );
