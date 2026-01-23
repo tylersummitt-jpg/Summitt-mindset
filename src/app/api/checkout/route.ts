@@ -1,9 +1,9 @@
-// src/app/api/checkout/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  // ✅ Do NOT set apiVersion
+  // Stripe uses your account’s pinned version automatically
 });
 
 export async function POST() {
@@ -23,6 +23,7 @@ export async function POST() {
       cancel_url: `${baseUrl}/subscribe`,
     });
 
+    // ✅ Preserve your existing redirect behavior
     return NextResponse.redirect(session.url!, { status: 303 });
   } catch (error) {
     console.error("Stripe checkout error:", error);

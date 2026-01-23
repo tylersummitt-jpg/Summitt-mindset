@@ -1,5 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
+import { supabaseServer } from "@/lib/supabase-server";
+import {
+  resolveUserTimezone,
+  getDateKeyInTimezone,
+} from "@/lib/timezone";
 
+/**
+ * Safely merge Clerk public_metadata using REST API
+ */
 async function updateMetadata(userId: string, newFields: any) {
   const userRes = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
     headers: {
@@ -35,10 +43,13 @@ async function updateMetadata(userId: string, newFields: any) {
   }
 }
 
+function normalizeText(input: string): string {
+  return (input || "").trim().replace(/\s+/g, " ");
+}
+
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
-
     if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -47,6 +58,11 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const pageDay = body?.day;
+    const videoIdShown =
+      typeof body?.videoIdShown === "string" &&
+      body.videoIdShown.trim().length > 0
+        ? body.videoIdShown.trim()
+        : null;
 
     if (typeof pageDay !== "number") {
       return new Response(JSON.stringify({ error: "Invalid day" }), {
@@ -54,15 +70,15 @@ export async function POST(req: Request) {
       });
     }
 
-    // Fetch user
+    // ----------------------------
+    // Fetch user + metadata
+    // ----------------------------
     const userRes = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
-      headers: {
-        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
     });
 
     if (!userRes.ok) {
-      throw new Error("Failed to fetch user for day completion");
+      throw new Error("Failed to fetch user");
     }
 
     const user = await userRes.json();
@@ -71,25 +87,134 @@ export async function POST(req: Request) {
     const currentDay =
       typeof metadata.currentDay === "number" ? metadata.currentDay : 1;
 
-    // 🔒 Only allow completing the current day
+    // ----------------------------
+    // 🔒 Prevent completing out of order
+    // ----------------------------
     if (pageDay !== currentDay) {
       return new Response(JSON.stringify({ ok: true, ignored: true }), {
         status: 200,
       });
     }
 
-    const totalDaysCompleted =
-      typeof metadata.totalDaysCompleted === "number"
-        ? metadata.totalDaysCompleted
-        : 0;
+    // ----------------------------
+    // 🗓️ CALENDAR GUARD (timezone-safe)
+    // ----------------------------
+    const timezone = resolveUserTimezone(metadata.timezone);
+    const now = new Date();
+    const todayKey = getDateKeyInTimezone(now, timezone);
 
-    const daysInRow =
-      typeof metadata.daysInRow === "number" ? metadata.daysInRow : 0;
+    if (metadata.lastCompletedAt) {
+      const lastDate = new Date(metadata.lastCompletedAt);
+      const lastKey = getDateKeyInTimezone(lastDate, timezone);
 
+      if (lastKey === todayKey) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            reason: "already_completed_today",
+          }),
+          { status: 200 }
+        );
+      }
+    }
+
+    // ----------------------------
+    // 🧠 DAILY PROMPT MUST EXIST
+    // ----------------------------
+    const { data: promptRow } = await supabaseServer
+      .from("daily_prompts")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .eq("day_number", pageDay)
+      .single();
+
+    if (!promptRow) {
+      return new Response(
+        JSON.stringify({ ok: false, reason: "prompt_missing" }),
+        { status: 400 }
+      );
+    }
+
+    // ----------------------------
+    // ✍️ JOURNAL REQUIRED
+    // ----------------------------
+    const { data: journalRow } = await supabaseServer
+      .from("journal_entries")
+      .select("content")
+      .eq("clerk_user_id", userId)
+      .eq("day_number", pageDay)
+      .single();
+
+    const normalizedJournal = normalizeText(journalRow?.content ?? "");
+
+    if (!normalizedJournal) {
+      return new Response(
+        JSON.stringify({ ok: false, reason: "journal_required" }),
+        { status: 200 }
+      );
+    }
+
+    // ----------------------------
+    // 📌 DAILY SUMMARY
+    // ----------------------------
+    await supabaseServer.from("daily_summaries").upsert(
+      {
+        clerk_user_id: userId,
+        day_number: pageDay,
+        daily_summaries: normalizedJournal.slice(0, 240),
+      },
+      { onConflict: "clerk_user_id,day_number" }
+    );
+
+    // ----------------------------
+    // 📅 WEEKLY SUMMARY (every 7 days)
+    // ----------------------------
+    if (pageDay % 7 === 0) {
+      const weekEnd = pageDay;
+      const weekStart = pageDay - 6;
+
+      const { data: summaries } = await supabaseServer
+        .from("daily_summaries")
+        .select("daily_summaries")
+        .eq("clerk_user_id", userId)
+        .gte("day_number", weekStart)
+        .lte("day_number", weekEnd)
+        .order("day_number");
+
+      if (summaries?.length) {
+        const text = summaries
+          .map((s) => s.daily_summaries || "")
+          .join(" ");
+
+        await supabaseServer.from("weekly_summaries").upsert(
+          {
+            clerk_user_id: userId,
+            week_start_day: weekStart,
+            week_end_day: weekEnd,
+            weekly_summary: text.slice(0, 500),
+          },
+          { onConflict: "clerk_user_id,week_start_day" }
+        );
+      }
+    }
+
+    // ----------------------------
+    // 🎥 TRACK SHOWN VIDEO IDS
+    // ----------------------------
+    const nextShownVideoIds =
+      videoIdShown && Array.isArray(metadata.shownVideoIds)
+        ? [...new Set([...metadata.shownVideoIds, videoIdShown])].slice(0, 80)
+        : metadata.shownVideoIds || [];
+
+    // ----------------------------
+    // 🔐 UPDATE CLERK METADATA
+    // ----------------------------
     await updateMetadata(userId, {
       currentDay: currentDay + 1,
-      totalDaysCompleted: totalDaysCompleted + 1,
-      daysInRow: daysInRow + 1,
+      totalDaysCompleted: (metadata.totalDaysCompleted ?? 0) + 1,
+      daysInRow: (metadata.daysInRow ?? 0) + 1,
+      lastCompletedAt: now.toISOString(),
+      shownVideoIds: nextShownVideoIds,
     });
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });

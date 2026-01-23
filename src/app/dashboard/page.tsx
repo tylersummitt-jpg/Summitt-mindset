@@ -1,5 +1,9 @@
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { supabaseServer } from "@/lib/supabase-server";
+
+const MILESTONES = [35, 40, 50, 75, 100, 150, 200];
 
 type PathDay = {
   day: number;
@@ -28,129 +32,119 @@ function generate30DayPath(goal: string): PathDay[] {
   });
 }
 
+function milestoneLabel(n: number) {
+  if (n === 35) return "You’re building real momentum.";
+  if (n === 40) return "You’re doing uncommon work.";
+  if (n === 50) return "This is a standard now.";
+  if (n === 75) return "Most people don’t reach this.";
+  if (n === 100) return "That’s identity-level consistency.";
+  if (n === 150) return "You’ve changed how you live.";
+  if (n === 200) return "This is who you are now.";
+  return "That kind of consistency compounds.";
+}
+
 export default async function DashboardPage() {
   const user = await currentUser();
+  if (!user) return null;
 
-  if (!user) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <p>You must be signed in to access your dashboard.</p>
-      </div>
-    );
-  }
+  const metadata = user.publicMetadata as any;
 
-  const publicMetadata = user.publicMetadata as any;
+  const onboardingCompleted =
+    metadata?.onboardingCompleted === true ||
+    metadata?.onboardingingCompleted === true;
 
-  const subscribed = publicMetadata?.summittSubscribed === true;
-  const plan =
-    typeof publicMetadata?.summittPlan === "string"
-      ? publicMetadata.summittPlan
-      : "N/A";
-
-  const onboardingCompleted = publicMetadata?.onboardingCompleted === true;
   const goal =
-    typeof publicMetadata?.summittGoal === "string"
-      ? publicMetadata.summittGoal
-      : null;
+    typeof metadata?.summittGoal === "string" ? metadata.summittGoal : null;
 
   const currentDay =
-    typeof publicMetadata?.currentDay === "number"
-      ? publicMetadata.currentDay
-      : 1;
+    typeof metadata?.currentDay === "number" ? metadata.currentDay : 1;
 
   const totalDaysCompleted =
-    typeof publicMetadata?.totalDaysCompleted === "number"
-      ? publicMetadata.totalDaysCompleted
+    typeof metadata?.totalDaysCompleted === "number"
+      ? metadata.totalDaysCompleted
       : 0;
 
-  const daysInRow =
-    typeof publicMetadata?.daysInRow === "number"
-      ? publicMetadata.daysInRow
-      : 0;
+  const inTrainingCamp = currentDay <= 30;
 
-  const path =
-    onboardingCompleted && goal
-      ? generate30DayPath(goal)
-      : [];
-
-  return (
-    <main className="max-w-4xl mx-auto py-10 px-6">
-      <h1 className="text-3xl font-bold mb-2">
-        Welcome back, {user.firstName || "Member"}!
-      </h1>
-      <p className="text-gray-600 mb-6">
-        Your Summitt Mindset journey continues.
-      </p>
-
-      {/* Progress Identity */}
-      <section className="grid grid-cols-2 gap-4 mb-8">
-        <div className="border rounded-lg p-5 bg-white shadow-sm text-center">
-          <p className="text-3xl font-bold">{totalDaysCompleted}</p>
-          <p className="text-gray-600 text-sm">Total Days Completed</p>
-        </div>
-
-        <div className="border rounded-lg p-5 bg-white shadow-sm text-center">
-          <p className="text-3xl font-bold">{daysInRow}</p>
-          <p className="text-gray-600 text-sm">
-            Days in a Row {daysInRow >= 2 && "🔥"}
+  // ===========================
+  // TRAINING CAMP (Days 1–30)
+  // ===========================
+  if (inTrainingCamp) {
+    if (!onboardingCompleted) {
+      return (
+        <main className="max-w-xl mx-auto py-16 px-6 text-center">
+          <h1 className="text-3xl font-semibold mb-3">
+            Finish Training Camp Setup
+          </h1>
+          <p className="text-gray-600 mb-8">
+            Quick setup to personalize your 30-day path.
           </p>
-        </div>
-      </section>
 
-      {/* Membership Status */}
-      <section className="border rounded-lg p-5 mb-8 bg-white shadow-sm">
-        <h2 className="text-xl font-semibold mb-2">Membership Status</h2>
+          <Link
+            href="/onboarding"
+            className="inline-block bg-black text-white rounded-md px-6 py-3 font-semibold hover:bg-gray-900"
+          >
+            Continue Onboarding →
+          </Link>
+        </main>
+      );
+    }
 
-        <p>
-          <strong>Status:</strong>{" "}
-          {subscribed ? "Active Member" : "Not Subscribed"}
+    if (!goal) {
+      redirect("/onboarding/goal");
+    }
+
+    const path = generate30DayPath(goal);
+
+    // 🔑 Fetch most recent weekly Coach Pat note (single paragraph only)
+    const { data: latestWeekly } = await supabaseServer
+      .from("weekly_summaries")
+      .select("weekly_summary")
+      .eq("clerk_user_id", user.id)
+      .order("week_end_day", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return (
+      <main className="max-w-4xl mx-auto py-10 px-6">
+        <h1 className="text-3xl font-bold mb-2">
+          Training Camp — Day {currentDay}
+        </h1>
+        <p className="text-gray-600 mb-8">
+          Show up. Practice with intention. Reflect honestly.
         </p>
 
-        <p>
-          <strong>Plan:</strong> {plan}
-        </p>
-
-        {!subscribed && (
-          <div className="mt-4">
-            <Link
-              href="/subscribe"
-              className="inline-block border border-black px-4 py-2 rounded-md text-sm font-semibold hover:bg-black hover:text-white transition"
-            >
-              Start Free Trial
-            </Link>
-          </div>
+        {latestWeekly?.weekly_summary && (
+          <section className="border rounded-lg p-6 mb-8 bg-white shadow-sm">
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              A Note from Coach Pat
+            </p>
+            <p className="text-gray-900 leading-relaxed">
+              {latestWeekly.weekly_summary}
+            </p>
+          </section>
         )}
-      </section>
 
-      {/* 30-Day Path */}
-      {onboardingCompleted && goal && (
+        <section className="border rounded-lg p-6 mb-8 bg-white shadow-sm text-center">
+          <p className="text-3xl font-bold">{totalDaysCompleted}</p>
+          <p className="text-gray-600 text-sm">Total Days Practiced</p>
+        </section>
+
         <section className="border rounded-lg p-5 mb-8 bg-white shadow-sm">
-          <h2 className="text-2xl font-semibold mb-2">
-            Your 30-Day Path
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Built around your goal:{" "}
-            <span className="font-semibold text-blue-600">{goal}</span>
-          </p>
+          <h2 className="text-2xl font-semibold mb-4">Your 30-Day Path</h2>
 
           <div className="space-y-3">
-            {path.map((day) => {
-              const isPast = day.day < currentDay;
-              const isCurrent = day.day === currentDay;
-
-              const baseClasses =
-                "border rounded-md p-4 transition";
+            {path.map((d) => {
+              const isPast = d.day < currentDay;
+              const isCurrent = d.day === currentDay;
 
               if (isPast) {
                 return (
                   <div
-                    key={day.day}
-                    className={`${baseClasses} bg-gray-100 text-gray-500`}
+                    key={d.day}
+                    className="border rounded-md p-4 bg-gray-100 text-gray-500"
                   >
-                    <h3 className="font-semibold">
-                      {day.title} ✓
-                    </h3>
-                    <p className="text-sm mt-1">Completed</p>
+                    {d.title} ✓
                   </div>
                 );
               }
@@ -158,57 +152,72 @@ export default async function DashboardPage() {
               if (isCurrent) {
                 return (
                   <Link
-                    key={day.day}
-                    href={`/dashboard/day-${day.day}`}
-                    className={`${baseClasses} block bg-blue-50 border-blue-400 hover:bg-blue-100`}
+                    key={d.day}
+                    href={`/dashboard/day/${d.day}`}
+                    className="block border rounded-md p-4 bg-blue-50 hover:bg-blue-100"
                   >
-                    <h3 className="font-semibold">{day.title}</h3>
-                    <p className="text-gray-600 text-sm mt-1">
-                      {day.description}
-                    </p>
+                    {d.title}
                   </Link>
                 );
               }
 
               return (
                 <div
-                  key={day.day}
-                  className={`${baseClasses} bg-gray-50 text-gray-400`}
+                  key={d.day}
+                  className="border rounded-md p-4 bg-gray-50 text-gray-400"
                 >
-                  <h3 className="font-semibold">
-                    {day.title} 🔒
-                  </h3>
-                  <p className="text-sm mt-1">Unlocks later</p>
+                  {d.title} 🔒
                 </div>
               );
             })}
           </div>
 
-          <div className="mt-6">
-            <Link
-              href={`/dashboard/day-${currentDay}`}
-              className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
-            >
-              Continue Day {currentDay} →
-            </Link>
-          </div>
+          <Link
+            href={`/dashboard/day/${currentDay}`}
+            className="inline-block mt-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
+          >
+            Continue Today’s Practice →
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
+  // ===========================
+  // IN-SEASON PRACTICE (Day 31+)
+  // ===========================
+  const lastMilestone = MILESTONES.filter((m) => m <= totalDaysCompleted).at(-1);
+  const justHitMilestone =
+    lastMilestone !== undefined && lastMilestone === totalDaysCompleted;
+
+  return (
+    <main className="max-w-xl mx-auto py-16 px-6 text-center">
+      <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
+        In-Season Practice
+      </p>
+
+      <h1 className="text-3xl font-semibold mb-3">Today’s Practice</h1>
+
+      <p className="text-gray-600 mb-8">
+        No catching up. No backlog. Just today.
+      </p>
+
+      <Link
+        href={`/dashboard/day/${currentDay}`}
+        className="block bg-black text-white rounded-md py-4 font-semibold mb-10 hover:bg-gray-900"
+      >
+        Continue Today’s Practice
+      </Link>
+
+      {justHitMilestone && lastMilestone !== undefined && (
+        <section className="border-l-4 border-green-600 bg-green-50 rounded-lg p-6 mb-8 shadow-sm text-left">
+          <h2 className="text-lg font-semibold mb-2">Milestone Reached</h2>
+          <p className="text-gray-800">
+            You’ve completed <strong>{lastMilestone}</strong> days of practice.{" "}
+            {milestoneLabel(lastMilestone)}
+          </p>
         </section>
       )}
-
-      {/* Ask Pat AI */}
-      <section className="border rounded-lg p-5 mb-8 bg-white shadow-sm">
-        <h2 className="text-xl font-semibold mb-4">Ask Pat AI</h2>
-        <p className="text-gray-600 mb-4">
-          Ask Coach Pat anything. Leadership, mindset, or life.
-        </p>
-
-        <Link
-          href="/ask-pat"
-          className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-        >
-          Open Ask Pat
-        </Link>
-      </section>
     </main>
   );
 }

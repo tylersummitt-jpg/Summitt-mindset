@@ -4,8 +4,12 @@ import { Navbar } from "@/components/Navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Summitt Leadership",
-  description: "Pat Summitt-inspired leadership, mindset, and coaching platform.",
+  title: {
+    default: "Summitt Mindset",
+    template: "%s | Summitt Mindset",
+  },
+  description:
+    "A daily mindset and leadership practice inspired by Coach Pat Summitt.",
 };
 
 export default function RootLayout({
@@ -16,14 +20,22 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50 text-gray-900">
-        <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+        <ClerkProvider
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        >
           <div className="flex flex-col min-h-screen">
             <Navbar />
+
             <main className="flex-1">{children}</main>
+
             <footer className="border-t bg-white">
               <div className="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500 flex justify-between">
-                <span>© {new Date().getFullYear()} Summitt Leadership</span>
-                <span>Inspired by Pat Summitt&apos;s Definite Dozen</span>
+                <span>
+                  © {new Date().getFullYear()} Summitt Mindset
+                </span>
+                <span>
+                  Inspired by Pat Summitt&apos;s Definite Dozen
+                </span>
               </div>
             </footer>
           </div>

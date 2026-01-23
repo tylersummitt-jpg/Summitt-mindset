@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getTopRelevantChunks } from "@/lib/ask-pat/chunks";
+import { supabaseServer } from "@/lib/supabase-server";
+import { auth } from "@clerk/nextjs/server";
 
 export const runtime = "nodejs";
 
@@ -19,6 +21,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1️⃣ Auth — identify the athlete
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { question } = await req.json();
     if (!question || typeof question !== "string") {
       return NextResponse.json(
@@ -27,10 +35,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Embed the question
+    const trimmedQuestion = question.trim();
+
+    // 2️⃣ SAVE QUESTION TO MEMORY (raw memory)
+    // Ask Pat questions are non-daily memory → day_number = 0
+    await supabaseServer.from("journal_entries").insert({
+      clerk_user_id: userId,
+      day_number: 0, // ← IMPORTANT FIX
+      content: trimmedQuestion,
+    });
+
+    // 3️⃣ Load recent MEMORY (compressed + safe)
+    const memoryLines: string[] = [];
+
+    // Last 7 daily summaries
+    const { data: dailySummaries } = await supabaseServer
+      .from("daily_summaries")
+      .select("daily_summaries, day_number")
+      .eq("clerk_user_id", userId)
+      .order("day_number", { ascending: false })
+      .limit(7);
+
+    if (dailySummaries && dailySummaries.length > 0) {
+      memoryLines.push("RECENT DAILY PRACTICE:");
+      for (const row of dailySummaries.reverse()) {
+        memoryLines.push(`- Day ${row.day_number}: ${row.daily_summaries}`);
+      }
+    }
+
+    // Most recent weekly summary (if exists)
+    const { data: weeklySummary } = await supabaseServer
+      .from("weekly_summaries")
+      .select("weekly_summary")
+      .eq("clerk_user_id", userId)
+      .order("week_end_day", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (weeklySummary?.weekly_summary) {
+      memoryLines.push("");
+      memoryLines.push("WEEKLY REFLECTION:");
+      memoryLines.push(weeklySummary.weekly_summary);
+    }
+
+    const athleteContext =
+      memoryLines.length > 0
+        ? memoryLines.join("\n")
+        : "No recent practice reflections available.";
+
+    // 4️⃣ Embed the question
     const embed = await openai.embeddings.create({
       model: "text-embedding-3-small",
-      input: question,
+      input: trimmedQuestion,
     });
 
     const queryEmbedding = embed.data[0]?.embedding;
@@ -38,10 +94,10 @@ export async function POST(req: NextRequest) {
       throw new Error("Embedding failed.");
     }
 
-    // 2. Retrieve top chunks from Pat’s books
+    // 5️⃣ Retrieve Pat’s book context
     const topChunks = getTopRelevantChunks(queryEmbedding, 6);
 
-    const contextText =
+    const bookContext =
       topChunks.length > 0
         ? topChunks
             .map(
@@ -53,46 +109,45 @@ export async function POST(req: NextRequest) {
             .join("\n\n")
         : "No relevant excerpts were found.";
 
-    // 3. Narrative-driven Pat Summitt system prompt
+    // 6️⃣ Memory-aware Pat Summitt system prompt
     const systemPrompt = `
-You are speaking as **Pat Summitt**, legendary head coach of the University of Tennessee Lady Volunteers women's basketball program.
-Your job is to teach leadership, discipline, character, accountability, and toughness through **longer narrative-driven stories**.
+You are **Pat Summitt**, legendary head coach of the University of Tennessee Lady Volunteers.
 
-### STYLE RULES
-- Use **long-form stories** (Option C) that walk the user through a moment in your coaching career.
-- Whenever you mention a player, assistant coach, or staff member, **briefly explain who they were** (e.g., "Chamique Holdsclaw — one of the greatest players I ever coached").
-- Narratives must feel real, grounded, and tied to leadership — not fluff.
-- Speak with the directness, honesty, and standards you were known for.
-- No buzzwords. No corporate jargon. Just Pat.
+You are coaching THIS PERSON — not a generic leader.
 
-### STRUCTURE FOR EVERY ANSWER
-1. **OPEN WITH A STORY**
-   - A scene from practice, a game, a locker room moment, or a leadership challenge.
-   - Include who was involved, what happened, and why it mattered.
+====================
+ATHLETE CONTEXT (REAL PRACTICE & REFLECTION)
+${athleteContext}
+====================
 
-2. **TEACH THE PRINCIPLE**
-   - Tie the narrative to effort, accountability, discipline, or a Definite Dozen value.
-   - Speak practically. Give tough love when needed.
+COACHING INSTRUCTIONS
+- Reference patterns you see in their practice when relevant
+- Be honest, firm, and specific
+- Do not summarize their reflections — COACH them
 
-3. **COACH THE USER DIRECTLY**
-   - Tell them exactly what they need to do.
-   - Clear, simple, firm, and actionable guidance.
+STYLE RULES
+- Teach through real stories from your career
+- No corporate language
+- No fluff
 
-4. **END WITH A SUMMITT-STYLE CHALLENGE**
-   - Short. Memorable. Push them to act.
+ANSWER STRUCTURE
+1. Open with a story
+2. Teach the principle
+3. Coach the user directly
+4. End with a Summitt-style challenge
 
-### CONTEXT (FROM HER BOOKS — USE THIS AS SOURCE MATERIAL)
-${contextText}
+SOURCE MATERIAL (FROM YOUR BOOKS)
+${bookContext}
 `.trim();
 
-    // 4. Chat completion using the new narrative style
+    // 7️⃣ Ask Pat
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: question },
+        { role: "user", content: trimmedQuestion },
       ],
-      temperature: 0.6, // slightly creative for storytelling
+      temperature: 0.6,
     });
 
     const answer =
