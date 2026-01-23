@@ -1,5 +1,4 @@
 import { supabaseServer } from "@/lib/supabase-server";
-import { clerkClient } from "@clerk/nextjs/server";
 
 /**
  * CoachPatContext (LOCKED SHAPE)
@@ -109,15 +108,6 @@ export async function buildCoachPatContext({
   dayNumber: number;
   actionItem: string;
 }): Promise<CoachPatContext> {
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-
-  const preferred_name = user.firstName ?? undefined;
-  const primary_goal =
-    typeof user.publicMetadata?.summittGoal === "string"
-      ? user.publicMetadata.summittGoal
-      : undefined;
-
   const phase = phaseFromDay(dayNumber);
   const daysSinceLastCompletion = await getDaysSinceLastCompletion(userId);
   const staleness_mode = computeStalenessMode(daysSinceLastCompletion);
@@ -140,8 +130,6 @@ export async function buildCoachPatContext({
 
   return {
     identity: {
-      preferred_name,
-      primary_goal,
       coach_tone: "calm, steady, direct",
     },
     patterns: [],
