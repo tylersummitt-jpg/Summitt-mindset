@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
@@ -44,28 +46,13 @@ export async function GET(req: Request) {
       "Show up today with intention and hold the standard, even in small moments.";
 
     // ----------------------------
-    // Identity (LIGHT, SAFE)
-    // ----------------------------
-    const preferredName =
-      typeof user.firstName === "string" && user.firstName.trim().length > 0
-        ? user.firstName.trim()
-        : undefined;
-
-    const primaryGoal =
-      typeof user.publicMetadata?.summittGoal === "string" &&
-      user.publicMetadata.summittGoal.trim().length > 0
-        ? user.publicMetadata.summittGoal.trim()
-        : undefined;
-
-    // ----------------------------
     // Generate ephemeral Coach Pat note
+    // (identity is resolved INSIDE context builder)
     // ----------------------------
     const note = await generateCoachPatNote({
       userId,
       dayNumber,
       actionItem,
-      preferredName,
-      primaryGoal,
     });
 
     return NextResponse.json({ note });
