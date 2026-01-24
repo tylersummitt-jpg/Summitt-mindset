@@ -1,28 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { Suspense, useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Plan = "monthly" | "annual";
 
-export default function SubscribePage() {
+function SubscribePageInner() {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [canceled, setCanceled] = useState<boolean>(false);
+  const [canceled, setCanceled] = useState(false);
 
-  // Check if user canceled checkout
   useEffect(() => {
     if (searchParams.get("canceled") === "1") {
       setCanceled(true);
     }
   }, [searchParams]);
 
-  // Redirect to sign-in if not logged in
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) {
@@ -43,24 +43,16 @@ export default function SubscribePage() {
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        console.warn("Checkout failed:", res.status, text);
-        setError(text || "Failed to start checkout. Please try again in a minute.");
+        setError(await res.text());
         setLoadingPlan(null);
         return;
       }
 
       const data = await res.json();
+      if (!data.url) throw new Error("No checkout URL returned");
 
-      if (!data.url) {
-        throw new Error("No checkout URL returned");
-      }
-
-      // Redirect to Stripe Checkout
       window.location.href = data.url;
-
     } catch (err: any) {
-      console.error(err);
       setError(err.message || "Something went wrong.");
       setLoadingPlan(null);
     }
@@ -69,7 +61,7 @@ export default function SubscribePage() {
   if (!isLoaded || !isSignedIn) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p>Loading...</p>
+        <p>Loading…</p>
       </main>
     );
   }
@@ -77,66 +69,34 @@ export default function SubscribePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="max-w-lg w-full space-y-6 text-center">
-
         <h1 className="text-3xl font-semibold">Join Summitt Mindset</h1>
-        <p className="text-sm text-gray-600">
-          Start your 7-day free trial. Cancel anytime.
-        </p>
 
-        {/* Canceled checkout notice */}
         {canceled && (
           <p className="text-sm text-red-600">
-            Looks like you canceled checkout — no worries, you can try again anytime.
+            Looks like you canceled checkout — no worries.
           </p>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 mt-4">
-          {/* MONTHLY PLAN */}
-          <button
-            onClick={() => handleCheckout("monthly")}
-            disabled={!!loadingPlan}
-            className="border rounded-lg px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-60"
-          >
-            <div className="font-medium flex items-baseline justify-between">
-              <span>Monthly</span>
-              <span className="text-xl">$25</span>
-            </div>
-            <p className="text-xs text-gray-600 mt-1">
-              Billed monthly after your 7-day free trial.
-            </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <button onClick={() => handleCheckout("monthly")} disabled={!!loadingPlan}>
+            Monthly — $25
           </button>
-
-          {/* ANNUAL PLAN */}
-          <button
-            onClick={() => handleCheckout("annual")}
-            disabled={!!loadingPlan}
-            className="border rounded-lg px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-60"
-          >
-            <div className="font-medium flex items-baseline justify-between">
-              <span>Annual</span>
-              <span className="text-xl">$120</span>
-            </div>
-            <p className="text-xs text-gray-600 mt-1">
-              Best value — save over 60% vs monthly.
-            </p>
+          <button onClick={() => handleCheckout("annual")} disabled={!!loadingPlan}>
+            Annual — $120
           </button>
         </div>
 
-        {loadingPlan && (
-          <p className="text-sm text-gray-700">
-            Redirecting to secure checkout…
-          </p>
-        )}
-
-        {error && (
-          <p className="text-sm text-red-600">{error}</p>
-        )}
-
-        <p className="text-xs text-gray-500 mt-4">
-          7-day free trial. 14-day results-based guarantee.
-        </p>
-
+        {loadingPlan && <p>Redirecting to checkout…</p>}
+        {error && <p className="text-red-600">{error}</p>}
       </div>
     </main>
+  );
+}
+
+export default function SubscribePage() {
+  return (
+    <Suspense fallback={<p className="text-center mt-20">Loading…</p>}>
+      <SubscribePageInner />
+    </Suspense>
   );
 }
