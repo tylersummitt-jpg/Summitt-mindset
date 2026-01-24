@@ -13,6 +13,13 @@ import { getDailyCoachPatMessageForSMS } from "@/lib/daily-coach-pat-message";
  * It simply returns the exact Coach Pat message
  * that WOULD be sent via SMS today.
  */
+
+// ✅ REQUIRED: ensure this route is never statically evaluated
+export const dynamic = "force-dynamic";
+
+// ✅ REQUIRED: Clerk + Supabase + OpenAI must run in Node
+export const runtime = "nodejs";
+
 export async function GET() {
   try {
     const { userId } = await auth();
