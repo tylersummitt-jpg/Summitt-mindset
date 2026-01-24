@@ -5,22 +5,18 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { auth } from "@clerk/nextjs/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const apiKey = process.env.OPENAI_API_KEY;
-
-const openai = new OpenAI({
-  apiKey,
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY missing in environment");
+  }
+  return new OpenAI({ apiKey });
+}
 
 export async function POST(req: NextRequest) {
   try {
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "OPENAI_API_KEY missing in .env.local" },
-        { status: 500 }
-      );
-    }
-
     // 1️⃣ Auth — identify the athlete
     const { userId } = await auth();
     if (!userId) {
@@ -29,19 +25,18 @@ export async function POST(req: NextRequest) {
 
     const { question } = await req.json();
     if (!question || typeof question !== "string") {
-      return NextResponse.json(
-        { error: "Question is required." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Question is required." }, { status: 400 });
     }
 
     const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) {
+      return NextResponse.json({ error: "Question is required." }, { status: 400 });
+    }
 
     // 2️⃣ SAVE QUESTION TO MEMORY (raw memory)
-    // Ask Pat questions are non-daily memory → day_number = 0
     await supabaseServer.from("journal_entries").insert({
       clerk_user_id: userId,
-      day_number: 0, // ← IMPORTANT FIX
+      day_number: 0,
       content: trimmedQuestion,
     });
 
@@ -79,9 +74,10 @@ export async function POST(req: NextRequest) {
     }
 
     const athleteContext =
-      memoryLines.length > 0
-        ? memoryLines.join("\n")
-        : "No recent practice reflections available.";
+      memoryLines.length > 0 ? memoryLines.join("\n") : "No recent practice reflections available.";
+
+    // ✅ OpenAI client created ONLY at request time
+    const openai = getOpenAIClient();
 
     // 4️⃣ Embed the question
     const embed = await openai.embeddings.create({
@@ -90,9 +86,7 @@ export async function POST(req: NextRequest) {
     });
 
     const queryEmbedding = embed.data[0]?.embedding;
-    if (!queryEmbedding) {
-      throw new Error("Embedding failed.");
-    }
+    if (!queryEmbedding) throw new Error("Embedding failed.");
 
     // 5️⃣ Retrieve Pat’s book context
     const topChunks = getTopRelevantChunks(queryEmbedding, 6);
@@ -102,9 +96,7 @@ export async function POST(req: NextRequest) {
         ? topChunks
             .map(
               (chunk, idx) =>
-                `Excerpt ${idx + 1} (Book: ${chunk.bookId}, Section: ${
-                  chunk.sectionTitle
-                }):\n${chunk.text}`
+                `Excerpt ${idx + 1} (Book: ${chunk.bookId}, Section: ${chunk.sectionTitle}):\n${chunk.text}`
             )
             .join("\n\n")
         : "No relevant excerpts were found.";
@@ -151,8 +143,7 @@ ${bookContext}
     });
 
     const answer =
-      completion.choices[0]?.message?.content ??
-      "I don't have an answer right now.";
+      completion.choices[0]?.message?.content ?? "I don't have an answer right now.";
 
     return NextResponse.json({ answer });
   } catch (err) {

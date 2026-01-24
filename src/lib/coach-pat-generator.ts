@@ -6,9 +6,11 @@ import {
   COACH_PAT_GENERATION_CONFIG,
 } from "@/lib/coach-pat-prompts";
 
-const apiKey = process.env.OPENAI_API_KEY;
-
-const openai = new OpenAI({ apiKey });
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY missing in environment");
+  return new OpenAI({ apiKey });
+}
 
 export type GenerateCoachPatNoteInput = {
   userId: string;
@@ -21,11 +23,8 @@ export async function generateCoachPatNote({
   dayNumber,
   actionItem,
 }: GenerateCoachPatNoteInput): Promise<string> {
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY missing in environment");
-  }
+  const openai = getOpenAIClient();
 
-  // ✅ identity is BUILT INSIDE this call
   const context = await buildCoachPatContext({
     userId,
     dayNumber,
