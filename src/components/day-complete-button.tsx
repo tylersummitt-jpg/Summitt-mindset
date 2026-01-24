@@ -63,19 +63,21 @@ export default function DayCompleteButton({
 
       // 3. Guards
       if (data?.reason === "journal_required") {
-        setError("Write one honest sentence before completing today’s practice.");
+        setError(
+          "Write one honest sentence before completing today’s practice."
+        );
         return;
       }
 
-      // 👇 IMPORTANT: treat already-completed as SUCCESS UX
+      // Treat already-completed as SUCCESS UX
       if (data?.reason === "already_completed_today") {
         setSuccessMessage("You already showed up today.");
         setShowSuccess(true);
         return;
       }
 
-      // 👇 FIX: trust `success`, not `ok`
-      if (!res.ok || data?.success !== true) {
+      // ✅ FIX: trust API contract
+      if (!res.ok || data?.ok !== true) {
         throw new Error("Day completion failed");
       }
 
