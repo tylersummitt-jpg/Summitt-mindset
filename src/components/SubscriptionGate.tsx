@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, Suspense } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -9,7 +9,11 @@ type SubscriptionGateProps = {
   redirectAfterSubscribe?: string;
 };
 
-export function SubscriptionGate({
+/**
+ * Internal gate logic that may read search params.
+ * MUST be wrapped in Suspense.
+ */
+function SubscriptionGateInner({
   children,
   redirectAfterSubscribe = "/dashboard",
 }: SubscriptionGateProps) {
@@ -105,4 +109,22 @@ export function SubscriptionGate({
 
   // --- SUBSCRIBED ---
   return <>{children}</>;
+}
+
+/**
+ * Public SubscriptionGate
+ * Always safe to use in App Router pages.
+ */
+export function SubscriptionGate(props: SubscriptionGateProps) {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center">
+          <p>Loading…</p>
+        </main>
+      }
+    >
+      <SubscriptionGateInner {...props} />
+    </Suspense>
+  );
 }
