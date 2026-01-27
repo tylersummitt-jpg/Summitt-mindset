@@ -6,8 +6,14 @@ import { completeDay } from "@/lib/complete-day";
 
 /**
  * ======================================================
- * SMS INBOUND (CANONICAL + GUARDED)
+ * SMS INBOUND (CANONICAL)
  * ======================================================
+ *
+ * DOMAIN CONTRACT
+ * ------------------------------------------------------
+ * - SMS completion uses the SAME rules as app completion
+ * - Domain failures return { ok:false, reason }
+ * - Transport never hides domain intent
  */
 
 const MIN_REPLY_LENGTH = 12;
@@ -18,21 +24,27 @@ function normalizeText(input: string) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { ok: false, reason: "invalid_body" },
+        { status: 200 }
+      );
+    }
+
     const { userId, message } = body;
 
     if (typeof userId !== "string" || typeof message !== "string") {
       return NextResponse.json(
-        { error: "Invalid payload" },
-        { status: 400 }
+        { ok: false, reason: "invalid_payload" },
+        { status: 200 }
       );
     }
 
     const normalizedMessage = normalizeText(message);
 
-    // ---------------------------------------------
-    // 🛑 REPLY TOO SHORT GUARD
-    // ---------------------------------------------
     if (normalizedMessage.length < MIN_REPLY_LENGTH) {
       return NextResponse.json({
         ok: false,
@@ -41,9 +53,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // ---------------------------------------------
-    // Load user + progression
-    // ---------------------------------------------
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
 
@@ -53,14 +62,12 @@ export async function POST(req: Request) {
 
     if (!currentDay) {
       return NextResponse.json(
-        { error: "No active day" },
-        { status: 400 }
+        { ok: false, reason: "no_current_day" },
+        { status: 200 }
       );
     }
 
-    // ---------------------------------------------
-    // 🛑 IDEMPOTENCY GUARD (already completed today)
-    // ---------------------------------------------
+    // Idempotency guard
     if (metadata.lastCompletedAt) {
       return NextResponse.json({
         ok: true,
@@ -72,9 +79,6 @@ export async function POST(req: Request) {
     const trainingCampTrack =
       metadata.trainingCampTrack === "women" ? "women" : "standard";
 
-    // ---------------------------------------------
-    // Ensure daily prompt exists
-    // ---------------------------------------------
     const { promptId, actionItem, reflectionPrompt } =
       await ensureDailyPrompt({
         userId,
@@ -82,9 +86,6 @@ export async function POST(req: Request) {
         trainingCampTrack,
       });
 
-    // ---------------------------------------------
-    // Save journal entry (SMS source)
-    // ---------------------------------------------
     await supabaseServer.from("journal_entries").upsert(
       {
         clerk_user_id: userId,
@@ -98,29 +99,17 @@ export async function POST(req: Request) {
       { onConflict: "clerk_user_id,day_number" }
     );
 
-    // ---------------------------------------------
-    // Complete the day (CANONICAL)
-    // ---------------------------------------------
     const result = await completeDay({
       userId,
       source: "sms",
     });
 
-    if (!result.ok) {
-      return NextResponse.json(result);
-    }
-
-    return NextResponse.json({
-      ok: true,
-      completedDay: result.completedDay,
-      nextDay: result.nextDay,
-      source: "sms",
-    });
+    return NextResponse.json(result, { status: 200 });
   } catch (err) {
-    console.error("SMS inbound error:", err);
+    console.error("[SMS INBOUND] SERVER ERROR:", err);
 
     return NextResponse.json(
-      { error: "Failed to process inbound SMS" },
+      { ok: false, reason: "server_error" },
       { status: 500 }
     );
   }

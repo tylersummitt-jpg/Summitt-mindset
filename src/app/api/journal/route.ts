@@ -4,107 +4,150 @@ import { supabaseServer } from "@/lib/supabase-server";
 
 /**
  * ======================================================
+ * JOURNAL API (CANONICAL)
+ * ======================================================
+ *
+ * DOMAIN CONTRACT
+ * ------------------------------------------------------
+ * - Journal reads/writes are NOT progression.
+ * - Missing journal rows are expected states.
+ * - Domain outcomes return 200 with explicit payloads.
+ *
+ * HTTP status codes are reserved for:
+ * - 500 → true server errors only
+ */
+
+/**
+ * ======================================================
  * GET — Load journal content for a given day
  * ======================================================
  */
 export async function GET(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        { ok: false, reason: "unauthenticated" },
+        { status: 200 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const dayParam = searchParams.get("day");
+    const dayNumber = Number(dayParam);
+
+    if (!Number.isFinite(dayNumber)) {
+      return NextResponse.json(
+        { ok: false, reason: "invalid_day" },
+        { status: 200 }
+      );
+    }
+
+    const { data, error } = await supabaseServer
+      .from("journal_entries")
+      .select("content")
+      .eq("clerk_user_id", userId)
+      .eq("day_number", dayNumber)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json(
+        { ok: false, reason: "journal_lookup_failed" },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      content: data?.content ?? "",
+    });
+  } catch (err) {
+    console.error("[JOURNAL GET] SERVER ERROR:", err);
+
+    return NextResponse.json(
+      { ok: false, reason: "server_error" },
+      { status: 500 }
+    );
   }
-
-  const { searchParams } = new URL(req.url);
-  const dayParam = searchParams.get("day");
-  const dayNumber = Number(dayParam);
-
-  if (!Number.isFinite(dayNumber)) {
-    return NextResponse.json({ error: "Invalid day" }, { status: 400 });
-  }
-
-  const { data, error } = await supabaseServer
-    .from("journal_entries")
-    .select("content")
-    .eq("clerk_user_id", userId)
-    .eq("day_number", dayNumber)
-    .single();
-
-  // PGRST116 = no rows found (acceptable for first load)
-  if (error && error.code !== "PGRST116") {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ content: data?.content ?? "" });
 }
 
 /**
  * ======================================================
- * POST — Upsert journal entry (canonical write path)
+ * POST — Upsert journal entry (CANONICAL WRITE PATH)
  * ======================================================
  */
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const { userId } = await auth();
 
-  const body = await req.json();
-  const {
-    day,
-    content,
-    promptId,
-    reflectionPrompt,
-    actionItem,
-    source = "app",
-  } = body;
+    if (!userId) {
+      return NextResponse.json(
+        { ok: false, reason: "unauthenticated" },
+        { status: 200 }
+      );
+    }
 
-  /**
-   * --------------------------------------------------
-   * Validate required fields
-   * --------------------------------------------------
-   */
-  if (typeof day !== "number" || typeof content !== "string") {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { ok: false, reason: "invalid_body" },
+        { status: 200 }
+      );
+    }
+
+    const {
+      day,
+      content,
+      promptId,
+      reflectionPrompt,
+      actionItem,
+      source = "app",
+    } = body;
+
+    if (typeof day !== "number" || typeof content !== "string") {
+      return NextResponse.json(
+        { ok: false, reason: "invalid_journal_payload" },
+        { status: 200 }
+      );
+    }
+
+    const payload: any = {
+      clerk_user_id: userId,
+      day_number: day,
+      content,
+      reflection_prompt: reflectionPrompt,
+      action_item: actionItem,
+      source,
+    };
+
+    // Only attach prompt_id if valid UUID
+    if (typeof promptId === "string" && promptId.length === 36) {
+      payload.prompt_id = promptId;
+    }
+
+    const { error } = await supabaseServer
+      .from("journal_entries")
+      .upsert(payload, {
+        onConflict: "clerk_user_id,day_number",
+      });
+
+    if (error) {
+      return NextResponse.json(
+        { ok: false, reason: "journal_write_failed" },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[JOURNAL POST] SERVER ERROR:", err);
+
     return NextResponse.json(
-      { error: "Invalid journal payload" },
-      { status: 400 }
+      { ok: false, reason: "server_error" },
+      { status: 500 }
     );
   }
-
-  /**
-   * --------------------------------------------------
-   * Build payload safely
-   * --------------------------------------------------
-   * - UUIDs only go into UUID columns
-   * - Semantic IDs (e.g. "is-day-31") are ignored
-   * - (clerk_user_id, day_number) is the true identity
-   */
-  const payload: any = {
-    clerk_user_id: userId,
-    day_number: day,
-    content,
-    reflection_prompt: reflectionPrompt,
-    action_item: actionItem,
-    source,
-  };
-
-  // Only attach prompt_id if it is a valid UUID
-  if (typeof promptId === "string" && promptId.length === 36) {
-    payload.prompt_id = promptId;
-  }
-
-  /**
-   * --------------------------------------------------
-   * Upsert journal entry
-   * --------------------------------------------------
-   */
-  const { error } = await supabaseServer
-    .from("journal_entries")
-    .upsert(payload, {
-      onConflict: "clerk_user_id,day_number",
-    });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true });
 }

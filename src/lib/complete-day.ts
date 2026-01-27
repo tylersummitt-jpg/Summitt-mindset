@@ -9,6 +9,19 @@ import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
  * ======================================================
  *
  * The ONLY place where day progression happens.
+ *
+ * DOMAIN CONTRACT
+ * ------------------------------------------------------
+ * This function NEVER throws for expected domain states.
+ * All failures are returned as:
+ *   { ok: false, reason: string }
+ *
+ * Transport layers (API routes, SMS handlers, etc.)
+ * must NOT encode domain failures in HTTP status codes.
+ *
+ * Completion must NEVER write to journal_entries.
+ * Journaling is autosave-only and canonical.
+ *
  * Safe, idempotent, timezone-aware.
  */
 
@@ -80,14 +93,18 @@ export async function completeDay({
   });
 
   // --------------------------------------------------
-  // ✍️ JOURNAL REQUIRED (CURRENT DAY ONLY)
+  // ✍️ JOURNAL REQUIRED (VERIFY EXISTENCE ONLY)
   // --------------------------------------------------
-  const { data: journalRow } = await supabaseServer
+  const { data: journalRow, error: journalError } = await supabaseServer
     .from("journal_entries")
     .select("content")
     .eq("clerk_user_id", userId)
     .eq("day_number", currentDay)
-    .single();
+    .maybeSingle();
+
+  if (journalError) {
+    return { ok: false, reason: "journal_lookup_failed" };
+  }
 
   const normalizedJournal = normalizeText(journalRow?.content ?? "");
 
@@ -108,7 +125,7 @@ export async function completeDay({
   );
 
   // --------------------------------------------------
-  // 📅 WEEKLY SUMMARY (every 7 days)
+  // 📅 WEEKLY SUMMARY (EVERY 7 DAYS)
   // --------------------------------------------------
   if (currentDay % 7 === 0) {
     const weekEnd = currentDay;

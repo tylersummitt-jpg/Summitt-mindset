@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-
 import { getDailyCoachPatMessageForSMS } from "@/lib/daily-coach-pat-message";
 
 /**
- * DEBUG ONLY
+ * ======================================================
+ * DEBUG — DAILY SMS PREVIEW (LOCAL ONLY)
+ * ======================================================
  *
- * Local preview endpoint for Daily SMS.
- * This does NOT send SMS.
- * This does NOT update Clerk or Supabase.
+ * This route:
+ * - NEVER sends SMS
+ * - NEVER mutates data
+ * - NEVER advances progression
  *
- * It simply returns the exact Coach Pat message
- * that WOULD be sent via SMS today.
+ * It is a pure read-only preview endpoint.
  */
 
-// ✅ REQUIRED: ensure this route is never statically evaluated
 export const dynamic = "force-dynamic";
-
-// ✅ REQUIRED: Clerk + Supabase + OpenAI must run in Node
 export const runtime = "nodejs";
 
 export async function GET() {
@@ -26,22 +24,23 @@ export async function GET() {
 
     if (!userId) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+        { ok: false, reason: "unauthenticated" },
+        { status: 200 }
       );
     }
 
     const result = await getDailyCoachPatMessageForSMS(userId);
 
     return NextResponse.json({
+      ok: true,
       preview: true,
       ...result,
     });
   } catch (err) {
-    console.error("Daily SMS preview error:", err);
+    console.error("[SMS PREVIEW] SERVER ERROR:", err);
 
     return NextResponse.json(
-      { error: "Failed to generate SMS preview" },
+      { ok: false, reason: "server_error" },
       { status: 500 }
     );
   }

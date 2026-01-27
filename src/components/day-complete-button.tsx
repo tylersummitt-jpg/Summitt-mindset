@@ -43,12 +43,12 @@ export default function DayCompleteButton({
       setError(null);
       setLoading(true);
 
-      // 1. Force journal save
+      // 1. Ensure journal autosave completes
       if (onBeforeComplete) {
         await onBeforeComplete();
       }
 
-      // 2. Complete day
+      // 2. Call completion API
       const res = await fetch("/api/day/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,31 +59,51 @@ export default function DayCompleteButton({
         }),
       });
 
-      const data = await res.json();
-
-      // 3. Guards
-      if (data?.reason === "journal_required") {
-        setError(
-          "Write one honest sentence before completing today’s practice."
-        );
-        return;
+      // Network-level failure
+      if (!res.ok) {
+        throw new Error("Network error completing day");
       }
 
-      // Treat already-completed as SUCCESS UX
-      if (data?.reason === "already_completed_today") {
-        setSuccessMessage("You already showed up today.");
+      const data = await res.json();
+
+      // 3. Expected domain responses (NO throwing)
+
+      if (data?.ok === false) {
+        switch (data.reason) {
+          case "journal_required":
+            setError(
+              "Write one honest sentence before completing today’s practice."
+            );
+            return;
+
+          case "already_completed_today":
+            setSuccessMessage("You already showed up today.");
+            setShowSuccess(true);
+            return;
+
+          case "journal_lookup_failed":
+            setError("We couldn’t verify today’s journal. Please try again.");
+            return;
+
+          case "no_current_day":
+            setError("Your day couldn’t be determined. Please refresh.");
+            return;
+
+          default:
+            setError("Unable to complete today. Please try again.");
+            return;
+        }
+      }
+
+      // 4. Success
+      if (data?.ok === true) {
+        setSuccessMessage(getRandomCompletionMessage());
         setShowSuccess(true);
         return;
       }
 
-      // ✅ FIX: trust API contract
-      if (!res.ok || data?.ok !== true) {
-        throw new Error("Day completion failed");
-      }
-
-      // 4. Success
-      setSuccessMessage(getRandomCompletionMessage());
-      setShowSuccess(true);
+      // 5. Defensive fallback (should never hit)
+      throw new Error("Unexpected completion response");
     } catch (err) {
       console.error("Failed to complete day", err);
       setError("Something went wrong completing your day. Try again.");
@@ -92,7 +112,7 @@ export default function DayCompleteButton({
     }
   }
 
-  // Auto-redirect after confirmation
+  // Auto-redirect after success
   useEffect(() => {
     if (!showSuccess) return;
 
