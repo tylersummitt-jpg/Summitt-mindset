@@ -10,19 +10,12 @@ import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
  *
  * The ONLY place where day progression happens.
  *
- * DOMAIN CONTRACT
- * ------------------------------------------------------
- * This function NEVER throws for expected domain states.
- * All failures are returned as:
- *   { ok: false, reason: string }
+ * Completion responsibilities:
+ * - verify journal exists
+ * - generate contextualized daily memory
+ * - advance progression safely
  *
- * Transport layers (API routes, SMS handlers, etc.)
- * must NOT encode domain failures in HTTP status codes.
- *
- * Completion must NEVER write to journal_entries.
- * Journaling is autosave-only and canonical.
- *
- * Safe, idempotent, timezone-aware.
+ * Raw journal entries are NEVER modified here.
  */
 
 export type CompleteDaySource = "app" | "sms";
@@ -37,6 +30,41 @@ function normalizeText(input: string): string {
 
 function numberOrZero(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Builds a single contextualized reflection sentence.
+ * This is the atomic memory unit used by Coach Pat / SMS / Ask Pat.
+ */
+function buildContextualizedReflection({
+  reflectionPrompt,
+  actionItem,
+  journalContent,
+}: {
+  reflectionPrompt: string | null;
+  actionItem: string | null;
+  journalContent: string;
+}): string {
+  const answer = normalizeText(journalContent);
+  if (!answer) return "";
+
+  const prompt = normalizeText(reflectionPrompt || "");
+  const action = normalizeText(actionItem || "");
+
+  // Gentle, coach-style synthesis (second person, time-agnostic)
+  if (prompt && action) {
+    return `You reflected on "${prompt.toLowerCase()}", and today you practiced by ${answer.toLowerCase()}.`;
+  }
+
+  if (prompt) {
+    return `You reflected on "${prompt.toLowerCase()}", and noted that ${answer.toLowerCase()}.`;
+  }
+
+  if (action) {
+    return `You focused on ${action.toLowerCase()}, and today you noticed that ${answer.toLowerCase()}.`;
+  }
+
+  return `Today, you reflected and noted that ${answer.toLowerCase()}.`;
 }
 
 export async function completeDay({
@@ -93,11 +121,11 @@ export async function completeDay({
   });
 
   // --------------------------------------------------
-  // ✍️ JOURNAL REQUIRED (VERIFY EXISTENCE ONLY)
+  // ✍️ LOAD JOURNAL + CONTEXT
   // --------------------------------------------------
   const { data: journalRow, error: journalError } = await supabaseServer
     .from("journal_entries")
-    .select("content")
+    .select("content, reflection_prompt, action_item")
     .eq("clerk_user_id", userId)
     .eq("day_number", currentDay)
     .maybeSingle();
@@ -113,13 +141,26 @@ export async function completeDay({
   }
 
   // --------------------------------------------------
-  // 📌 DAILY SUMMARY
+  // 🧠 BUILD CONTEXTUALIZED DAILY MEMORY
+  // --------------------------------------------------
+  const contextualizedReflection = buildContextualizedReflection({
+    reflectionPrompt: journalRow?.reflection_prompt ?? null,
+    actionItem: journalRow?.action_item ?? null,
+    journalContent: normalizedJournal,
+  });
+
+  if (!contextualizedReflection) {
+    return { ok: false, reason: "memory_build_failed" };
+  }
+
+  // --------------------------------------------------
+  // 📌 DAILY SUMMARY (MEANINGFUL MEMORY)
   // --------------------------------------------------
   await supabaseServer.from("daily_summaries").upsert(
     {
       clerk_user_id: userId,
       day_number: currentDay,
-      daily_summaries: normalizedJournal.slice(0, 240),
+      daily_summaries: contextualizedReflection.slice(0, 300),
     },
     { onConflict: "clerk_user_id,day_number" }
   );
@@ -147,7 +188,7 @@ export async function completeDay({
           clerk_user_id: userId,
           week_start_day: weekStart,
           week_end_day: weekEnd,
-          weekly_summary: text.slice(0, 500),
+          weekly_summary: text.slice(0, 600),
         },
         { onConflict: "clerk_user_id,week_start_day" }
       );
