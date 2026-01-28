@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
 const COMPLETION_MESSAGES = [
   "You showed up today.",
@@ -21,16 +20,16 @@ function getRandomCompletionMessage() {
 type Props = {
   dayNumber: number;
   onBeforeComplete?: () => Promise<void>;
+  onAfterComplete?: () => Promise<void>;
   videoIdShown?: string | null;
 };
 
 export default function DayCompleteButton({
   dayNumber,
   onBeforeComplete,
+  onAfterComplete,
   videoIdShown = null,
 }: Props) {
-  const router = useRouter();
-
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -43,12 +42,12 @@ export default function DayCompleteButton({
       setError(null);
       setLoading(true);
 
-      // 1. Ensure journal autosave completes
+      // 1) Ensure journal autosave completes
       if (onBeforeComplete) {
         await onBeforeComplete();
       }
 
-      // 2. Call completion API
+      // 2) Call completion API
       const res = await fetch("/api/day/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,15 +58,13 @@ export default function DayCompleteButton({
         }),
       });
 
-      // Network-level failure
       if (!res.ok) {
         throw new Error("Network error completing day");
       }
 
       const data = await res.json();
 
-      // 3. Expected domain responses (NO throwing)
-
+      // 3) Domain failures (expected)
       if (data?.ok === false) {
         switch (data.reason) {
           case "journal_required":
@@ -79,14 +76,10 @@ export default function DayCompleteButton({
           case "already_completed_today":
             setSuccessMessage("You already showed up today.");
             setShowSuccess(true);
-            return;
 
-          case "journal_lookup_failed":
-            setError("We couldn’t verify today’s journal. Please try again.");
-            return;
-
-          case "no_current_day":
-            setError("Your day couldn’t be determined. Please refresh.");
+            if (onAfterComplete) {
+              await onAfterComplete();
+            }
             return;
 
           default:
@@ -95,14 +88,19 @@ export default function DayCompleteButton({
         }
       }
 
-      // 4. Success
+      // 4) Success
       if (data?.ok === true) {
         setSuccessMessage(getRandomCompletionMessage());
         setShowSuccess(true);
+
+        // ✅ Generate Coach Pat reply immediately after completion
+        if (onAfterComplete) {
+          await onAfterComplete();
+        }
+
         return;
       }
 
-      // 5. Defensive fallback (should never hit)
       throw new Error("Unexpected completion response");
     } catch (err) {
       console.error("Failed to complete day", err);
@@ -112,20 +110,20 @@ export default function DayCompleteButton({
     }
   }
 
-  // Auto-redirect after success
+  // ✅ AUTO-HIDE SUCCESS OVERLAY AFTER 1.5s
   useEffect(() => {
     if (!showSuccess) return;
 
     const timer = setTimeout(() => {
-      router.push("/dashboard");
-      router.refresh();
+      setShowSuccess(false);
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [showSuccess, router]);
+  }, [showSuccess]);
 
   return (
     <>
+      {/* ✅ SUCCESS OVERLAY */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-white rounded-xl px-8 py-6 shadow-lg text-center max-w-sm w-full">
@@ -140,18 +138,16 @@ export default function DayCompleteButton({
         </div>
       )}
 
+      {/* ✅ MAIN BUTTON */}
       <button
         onClick={handleComplete}
         disabled={loading || showSuccess}
         className="w-full bg-black text-white rounded-md py-3 font-semibold hover:bg-gray-900 disabled:opacity-50"
       >
-        {loading
-          ? "Completing…"
-          : showSuccess
-          ? "Practice complete"
-          : "Complete Today’s Practice"}
+        {loading ? "Completing…" : "Complete Today’s Practice"}
       </button>
 
+      {/* ✅ ERROR */}
       {error && (
         <p className="mt-3 text-sm text-gray-700 text-center">{error}</p>
       )}

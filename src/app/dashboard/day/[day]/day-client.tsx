@@ -16,6 +16,11 @@ type Props = {
   };
 };
 
+type CoachMessage = {
+  role: "user" | "coach";
+  content: string;
+};
+
 export default function DayClient({
   dayNumber,
   promptId,
@@ -25,117 +30,157 @@ export default function DayClient({
   video,
 }: Props) {
   // ----------------------------
-  // JOURNAL STATE
+  // Journal State
   // ----------------------------
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // ----------------------------
-  // LOAD EXISTING JOURNAL
+  // Completion State ✅ NEW
+  // ----------------------------
+  const [completed, setCompleted] = useState(false);
+
+  // ----------------------------
+  // Coach Conversation State
+  // ----------------------------
+  const [thread, setThread] = useState<CoachMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachUnlocked, setCoachUnlocked] = useState(false);
+
+  // ----------------------------
+  // Load Journal
   // ----------------------------
   useEffect(() => {
     async function loadJournal() {
-      try {
-        const res = await fetch(`/api/journal?day=${dayNumber}`, {
-          credentials: "include",
-        });
-        const data = await res.json();
-        setContent(data.content ?? "");
-      } catch (err) {
-        console.error("Failed to load journal", err);
-      } finally {
-        setLoading(false);
-      }
+      const res = await fetch(`/api/journal?day=${dayNumber}`, {
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      setContent(data.content ?? "");
+      setLoading(false);
     }
 
     loadJournal();
   }, [dayNumber]);
 
   // ----------------------------
-  // SAVE JOURNAL (AUTHORITATIVE)
+  // Save Journal
   // ----------------------------
   async function saveJournal(value: string) {
-    try {
-      await fetch("/api/journal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          day: dayNumber,
-          content: value,
-          promptId,
-          reflectionPrompt,
-          actionItem,
-          source: "app",
-        }),
-      });
-    } catch (err) {
-      console.error("Failed to save journal", err);
-    }
+    await fetch("/api/journal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        day: dayNumber,
+        content: value,
+        promptId,
+        reflectionPrompt,
+        actionItem,
+        source: "app",
+      }),
+    });
   }
 
-  // ----------------------------
-  // HANDLE TYPING (DEBOUNCED)
-  // ----------------------------
   function handleChange(value: string) {
     setContent(value);
 
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
     saveTimeoutRef.current = setTimeout(() => {
       saveJournal(value);
     }, 800);
   }
 
-  // ----------------------------
-  // FINAL SAVE (ON COMPLETE)
-  // ----------------------------
   async function handleFinalSave() {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     await saveJournal(content);
   }
 
   // ----------------------------
-  // LOADING STATE
+  // After Completion → Coach Responds
   // ----------------------------
-  if (loading) {
-    return <p className="text-sm text-gray-500">Loading reflection…</p>;
+  async function generateCoachReplyFromJournal() {
+    if (!content.trim()) return;
+
+    setCoachLoading(true);
+
+    const res = await fetch("/api/coach-reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        day: dayNumber,
+        message: content.trim(),
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data?.ok) {
+      setThread(data.thread);
+      setCoachUnlocked(true);
+
+      // ✅ Mark day completed so button disappears forever
+      setCompleted(true);
+    }
+
+    setCoachLoading(false);
   }
+
+  // ----------------------------
+  // Follow-up Reply
+  // ----------------------------
+  async function sendChatMessage() {
+    if (!chatInput.trim()) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput("");
+    setCoachLoading(true);
+
+    const res = await fetch("/api/coach-reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        day: dayNumber,
+        message: userMessage,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data?.ok) {
+      setThread(data.thread);
+      setCoachUnlocked(true);
+    }
+
+    setCoachLoading(false);
+  }
+
+  if (loading) return <p>Loading…</p>;
 
   return (
     <div className="space-y-10">
-      {/* 🧠 COACH PAT */}
-      <section className="rounded-lg border border-gray-200 bg-gray-50 p-6">
-        <p className="text-sm font-semibold text-gray-700 mb-2">
-          A Note from Coach Pat
-        </p>
-        <p className="text-gray-800 leading-relaxed whitespace-pre-line">
-          {coachNote}
-        </p>
+      {/* ✅ Coach Note */}
+      <section className="rounded-lg border bg-gray-50 p-6">
+        <p className="text-sm font-semibold mb-2">A Note from Coach Pat</p>
+        <p className="whitespace-pre-line">{coachNote}</p>
       </section>
 
-      {/* ✅ DAILY PRACTICE */}
+      {/* ✅ Daily Practice */}
       <section className="rounded-lg border p-6">
-        <p className="text-sm font-semibold text-gray-700 mb-2">
-          Today’s Practice
-        </p>
-        <p className="text-gray-900 leading-relaxed whitespace-pre-line">
-          {actionItem}
-        </p>
+        <p className="text-sm font-semibold mb-2">Today’s Practice</p>
+        <p className="whitespace-pre-line">{actionItem}</p>
       </section>
 
-      {/* ✍️ REFLECTION */}
+      {/* ✅ Reflection */}
       <section>
-        <p className="text-sm font-semibold text-gray-700 mb-2">
-          Reflection
-        </p>
-
-        <p className="text-gray-800 mb-3">{reflectionPrompt}</p>
+        <p className="text-sm font-semibold mb-2">Reflection</p>
+        <p className="mb-3">{reflectionPrompt}</p>
 
         <textarea
           className="w-full border rounded-md p-3 text-sm"
@@ -146,22 +191,66 @@ export default function DayClient({
         />
       </section>
 
-      {/* 🎥 OPTIONAL FILM STUDY */}
+      {/* ✅ COMPLETE BUTTON (Only Before Completion) */}
+      {!completed && (
+        <DayCompleteButton
+          dayNumber={dayNumber}
+          onBeforeComplete={handleFinalSave}
+          onAfterComplete={generateCoachReplyFromJournal}
+          videoIdShown={video?.id ?? null}
+        />
+      )}
+
+      {/* ✅ Calm Completion Marker */}
+      {completed && (
+        <div className="text-center text-sm text-gray-500">
+          ✓ Today’s practice is complete.
+        </div>
+      )}
+
+      {/* ✅ Coach Thread */}
+      {coachUnlocked && (
+        <section className="border rounded-lg p-6 space-y-4">
+          <p className="text-sm font-semibold">Coach Pat (optional)</p>
+
+          <div className="space-y-3 text-sm">
+            {thread.map((m, i) => (
+              <div
+                key={i}
+                className={m.role === "coach" ? "" : "italic text-gray-600"}
+              >
+                {m.content}
+              </div>
+            ))}
+          </div>
+
+          <textarea
+            rows={2}
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="Write back if you want…"
+            className="w-full border rounded-md p-2 text-sm"
+          />
+
+          <button
+            onClick={sendChatMessage}
+            disabled={coachLoading}
+            className="w-full bg-black text-white rounded-md py-2 font-semibold"
+          >
+            {coachLoading ? "Coach Pat is responding…" : "Send"}
+          </button>
+        </section>
+      )}
+
+      {/* ✅ Optional Film Study LAST */}
       {video?.vimeo_id && (
         <section className="rounded-lg border p-6">
-          <p className="text-sm font-semibold text-gray-700 mb-2">
-            Optional Film Study
-          </p>
-
-          {video.title && (
-            <p className="text-gray-800 mb-3">{video.title}</p>
-          )}
+          <p className="text-sm font-semibold mb-2">Optional Film Study</p>
 
           <div className="relative w-full aspect-video rounded-md overflow-hidden bg-black">
             <iframe
               src={`https://player.vimeo.com/video/${video.vimeo_id}`}
               className="absolute inset-0 w-full h-full"
-              allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
             />
           </div>
@@ -171,13 +260,6 @@ export default function DayClient({
           </p>
         </section>
       )}
-
-      {/* ✅ COMPLETE DAY */}
-      <DayCompleteButton
-        dayNumber={dayNumber}
-        onBeforeComplete={handleFinalSave}
-        videoIdShown={video?.id ?? null}
-      />
     </div>
   );
 }
