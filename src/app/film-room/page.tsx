@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
-import { SubscriptionGate } from "@/components/SubscriptionGate";
 
 type Video = {
   id: string;
@@ -22,6 +23,14 @@ const PROGRAM_ORDER = [
 ];
 
 export default async function FilmRoomPage() {
+  // ✅ SERVER-SIDE MEMBERSHIP CHECK
+  const user = await currentUser();
+  if (!user) redirect("/sign-in");
+
+  const subscribed = user.publicMetadata?.summittSubscribed === true;
+  if (!subscribed) redirect("/subscribe");
+
+  // ✅ Load videos
   const { data, error } = await supabaseServer
     .from("film_videos")
     .select(
@@ -42,35 +51,25 @@ export default async function FilmRoomPage() {
 
   if (error || !data) {
     return (
-      <SubscriptionGate>
-        <main className="max-w-6xl mx-auto py-12 px-6">
-          <h1 className="text-3xl font-semibold">Film Room</h1>
-          <p className="text-red-500 mt-4">Error loading videos.</p>
-        </main>
-      </SubscriptionGate>
+      <main className="max-w-6xl mx-auto py-12 px-6">
+        <h1 className="text-3xl font-semibold">Film Room</h1>
+        <p className="text-red-500 mt-4">Error loading videos.</p>
+      </main>
     );
   }
 
   const allVideos: Video[] = data as Video[];
 
-  // 🔹 Featured Spotlight (can override exclusions)
   const featuredVideos = allVideos
     .filter((v) => v.is_featured)
-    .sort(
-      (a, b) =>
-        a.principle_order - b.principle_order ||
-        a.order_index - b.order_index
-    )
     .slice(0, 6);
 
-  // 🔹 Main Film Room grid (strictly excludes Daily OS content)
   const gridVideos = allVideos.filter(
     (v) =>
       v.program !== "Summitt Mindset" &&
       v.principle !== "daily_system"
   );
 
-  // Group by program → principle (grid only)
   const grouped = PROGRAM_ORDER.map((program) => {
     const programVideos = gridVideos.filter((v) => v.program === program);
 
@@ -101,119 +100,99 @@ export default async function FilmRoomPage() {
   }).filter((p) => p.principles.length > 0);
 
   return (
-    <SubscriptionGate>
-      <main className="max-w-6xl mx-auto py-12 px-6">
-        {/* Header */}
-        <header className="mb-12">
-          <h1 className="text-3xl font-semibold text-neutral-900 dark:text-neutral-100">
-            Film Room
-          </h1>
-          <p className="mt-2 text-neutral-600 dark:text-neutral-400 max-w-2xl">
-            Optional film study. Never required. Use it when you want clarity,
-            perspective, or reinforcement.
-          </p>
-        </header>
+    <main className="max-w-6xl mx-auto py-12 px-6">
+      <header className="mb-12">
+        <h1 className="text-3xl font-semibold">
+          Film Room
+        </h1>
+        <p className="mt-2 text-gray-600 max-w-2xl">
+          Optional film study. Never required.
+        </p>
+      </header>
 
-        {/* Featured Spotlight */}
-        {featuredVideos.length > 0 && (
-          <section className="mb-20">
-            <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 mb-6">
-              Film Room Spotlight
+      {featuredVideos.length > 0 && (
+        <section className="mb-20">
+          <h2 className="text-2xl font-semibold mb-6">
+            Spotlight
+          </h2>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredVideos.map((v) => (
+              <Link
+                key={v.id}
+                href={`/film-room/${v.id}`}
+                className="rounded-xl border bg-white overflow-hidden hover:shadow-md transition"
+              >
+                {v.thumbnail_url && (
+                  <img
+                    src={v.thumbnail_url}
+                    alt={v.title}
+                    className="aspect-video w-full object-cover"
+                  />
+                )}
+
+                <div className="p-5">
+                  <h3 className="font-semibold mb-1">
+                    {v.title}
+                  </h3>
+
+                  <div className="mt-4 text-sm font-semibold">
+                    Watch →
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="space-y-20">
+        {grouped.map((program) => (
+          <section key={program.program}>
+            <h2 className="text-2xl font-semibold mb-8">
+              {program.program}
             </h2>
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {featuredVideos.map((v) => (
-                <Link
-                  key={v.id}
-                  href={`/film-room/${v.id}`}
-                  className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-900 overflow-hidden transition hover:shadow-md"
-                >
-                  {v.thumbnail_url && (
-                    <img
-                      src={v.thumbnail_url}
-                      alt={v.title}
-                      className="aspect-video w-full object-cover"
-                      loading="lazy"
-                    />
-                  )}
+            <div className="space-y-12">
+              {program.principles.map((principle) => (
+                <div key={principle.principle}>
+                  <h3 className="text-lg font-medium mb-4">
+                    {principle.principle}
+                  </h3>
 
-                  <div className="p-5">
-                    <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
-                      {v.title}
-                    </h3>
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {principle.videos.map((v) => (
+                      <Link
+                        key={v.id}
+                        href={`/film-room/${v.id}`}
+                        className="rounded-xl border bg-white overflow-hidden hover:shadow-md transition"
+                      >
+                        {v.thumbnail_url && (
+                          <img
+                            src={v.thumbnail_url}
+                            alt={v.title}
+                            className="aspect-video w-full object-cover"
+                          />
+                        )}
 
-                    {v.speaker && (
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        {v.speaker}
-                      </p>
-                    )}
+                        <div className="p-5">
+                          <h4 className="font-semibold mb-1">
+                            {v.title}
+                          </h4>
 
-                    <div className="mt-4 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                      Watch →
-                    </div>
+                          <div className="mt-4 text-sm font-semibold">
+                            Watch →
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           </section>
-        )}
-
-        {/* Programs */}
-        <div className="space-y-20">
-          {grouped.map((program) => (
-            <section key={program.program}>
-              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 mb-8">
-                {program.program}
-              </h2>
-
-              <div className="space-y-12">
-                {program.principles.map((principle) => (
-                  <div key={principle.principle}>
-                    <h3 className="text-lg font-medium text-neutral-700 dark:text-neutral-300 mb-4">
-                      {principle.principle}
-                    </h3>
-
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      {principle.videos.map((v) => (
-                        <Link
-                          key={v.id}
-                          href={`/film-room/${v.id}`}
-                          className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-900 overflow-hidden transition hover:shadow-md"
-                        >
-                          {v.thumbnail_url && (
-                            <img
-                              src={v.thumbnail_url}
-                              alt={v.title}
-                              className="aspect-video w-full object-cover"
-                              loading="lazy"
-                            />
-                          )}
-
-                          <div className="p-5">
-                            <h4 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
-                              {v.title}
-                            </h4>
-
-                            {v.speaker && (
-                              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                {v.speaker}
-                              </p>
-                            )}
-
-                            <div className="mt-4 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                              Watch →
-                            </div>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      </main>
-    </SubscriptionGate>
+        ))}
+      </div>
+    </main>
   );
 }
