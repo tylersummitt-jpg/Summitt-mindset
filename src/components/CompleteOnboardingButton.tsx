@@ -19,7 +19,8 @@ export default function CompleteOnboardingButton() {
         throw new Error("Failed to complete onboarding");
       }
 
-      router.push("/dashboard");
+      // ✅ Retention Hook: Start Day 1 Immediately
+      router.push("/dashboard/day/1");
     } catch (err) {
       console.error(err);
       alert("Something went wrong. Please try again.");
@@ -31,9 +32,9 @@ export default function CompleteOnboardingButton() {
     <button
       onClick={handleComplete}
       disabled={loading}
-      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg disabled:opacity-50"
+      className="bg-black hover:bg-gray-900 text-white px-6 py-3 rounded-md text-lg font-semibold disabled:opacity-50"
     >
-      {loading ? "Finishing..." : "Go to Dashboard →"}
+      {loading ? "Starting..." : "Start Day 1 Now →"}
     </button>
   );
 }

@@ -208,16 +208,34 @@ export async function completeDay({
       : shownVideoIds;
 
   // --------------------------------------------------
+  // 🏆 TRAINING CAMP START BADGE (DAY 1 ONLY)
+  // --------------------------------------------------
+  const earnedTrainingCampStart =
+    currentDay === 1 && metadata.trainingCampStarted !== true;
+
+  // --------------------------------------------------
   // 🔐 UPDATE CLERK METADATA (SINGLE WRITE)
   // --------------------------------------------------
   await client.users.updateUserMetadata(userId, {
     publicMetadata: {
       ...metadata,
+
+      // ✅ Progression
       currentDay: currentDay + 1,
       totalDaysCompleted: totalDaysCompleted + 1,
       daysInRow: daysInRow + 1,
       lastCompletedAt: now.toISOString(),
+
+      // ✅ Video tracking
       shownVideoIds: nextShownVideoIds,
+
+      // ✅ Achievement Anchor (earned once)
+      trainingCampStarted:
+        metadata.trainingCampStarted === true ? true : earnedTrainingCampStart,
+
+      trainingCampStartedAt:
+        metadata.trainingCampStartedAt ??
+        (earnedTrainingCampStart ? now.toISOString() : null),
     },
   });
 

@@ -1,0 +1,86 @@
+export default function PrivacyPage() {
+  return (
+    <main className="max-w-3xl mx-auto py-16 px-6 space-y-10">
+      <header>
+        <h1 className="text-4xl font-bold mb-3">Privacy Policy</h1>
+        <p className="text-gray-600 text-sm">
+          Last updated: {new Date().toLocaleDateString()}
+        </p>
+      </header>
+
+      <section className="space-y-4">
+        <p className="text-gray-700">
+          Summitt Mindset exists to help members build daily consistency through
+          reflection, coaching, and habit-based leadership practices.
+        </p>
+
+        <p className="text-gray-700">
+          We take privacy seriously. This policy explains what we collect, how
+          we use it, and your rights as a member.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">1. Information We Collect</h2>
+        <ul className="list-disc pl-5 text-gray-700 space-y-2">
+          <li>Account information (email, name, login credentials)</li>
+          <li>Daily journaling reflections you choose to submit</li>
+          <li>Subscription and billing status (via Stripe)</li>
+          <li>Preferences such as timezone and coaching delivery time</li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">2. How We Use Information</h2>
+        <p className="text-gray-700">
+          Your information is used only to provide the Summitt Mindset service,
+          including:
+        </p>
+        <ul className="list-disc pl-5 text-gray-700 space-y-2">
+          <li>Personalizing your daily practice and coaching</li>
+          <li>Delivering SMS or email reminders (if enabled)</li>
+          <li>Improving retention and member outcomes</li>
+          <li>Providing support if you request help</li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">3. SMS Privacy + Consent</h2>
+        <p className="text-gray-700">
+          If you opt into SMS coaching, you consent to receive daily messages
+          from Summitt Mindset.
+        </p>
+
+        <p className="text-gray-700 font-medium">
+          Message frequency varies. Msg &amp; data rates may apply. Reply STOP
+          to cancel. Reply HELP for help.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">4. Data Sharing</h2>
+        <p className="text-gray-700">
+          We do not sell your personal data. We only share information with
+          trusted providers required to operate the platform (such as Stripe,
+          Clerk, Supabase, Twilio).
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">5. Your Rights</h2>
+        <p className="text-gray-700">
+          You may request access, deletion, or export of your data at any time
+          by emailing support.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">6. Contact</h2>
+        <p className="text-gray-700">
+          Questions? Email us anytime at:
+        </p>
+        <p className="font-semibold">support@summittmindset.com</p>
+      </section>
+    </main>
+  );
+}

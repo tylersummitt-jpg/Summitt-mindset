@@ -12,42 +12,49 @@ export default async function OnboardingPage() {
     );
   }
 
-  const subscribed = user.publicMetadata?.summittSubscribed === true;
-
-  if (!subscribed) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <p>You need an active membership to begin onboarding.</p>
-      </div>
-    );
-  }
-
-  // Later: if user has already completed onboarding, redirect to dashboard.
-  // For now, we always show the onboarding welcome screen.
-
   return (
-    <div className="max-w-2xl mx-auto py-16 px-6">
-      <h1 className="text-3xl font-bold mb-4">Welcome to Training Camp</h1>
-      <p className="text-gray-600 mb-8">
-        This 3-minute setup will customize your Summitt Mindset experience,
-        set your primary goal, and prepare your personalized 30-Day Path.
-      </p>
+    <div className="text-center space-y-10">
+      {/* ✅ Summit Ethos */}
+      <header className="space-y-4">
+        <h1 className="text-4xl font-bold">
+          You’re in the right place.
+        </h1>
 
-      <div className="border rounded-lg p-6 shadow-sm bg-white mb-10">
-        <h2 className="text-xl font-semibold mb-3">What to expect:</h2>
-        <ul className="list-disc pl-5 space-y-2 text-gray-700">
-          <li>Pick your primary focus for the next 30 days.</li>
-          <li>Set your SMS / email coaching preferences.</li>
-          <li>View your personalized 30-Day Game Plan.</li>
+        <p className="text-lg text-gray-600 leading-relaxed">
+          Summitt Mindset is a calm daily system for people who want to climb
+          toward something meaningful.
+        </p>
+
+        <p className="text-gray-600">
+          No overwhelm. No pressure. Just one step today.
+        </p>
+      </header>
+
+      {/* ✅ What This Is */}
+      <section className="border rounded-xl bg-white shadow-sm p-6 text-left space-y-4">
+        <p className="font-semibold text-gray-900">
+          Here’s how it works:
+        </p>
+
+        <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
+          <li>One daily practice (3–7 minutes).</li>
+          <li>One honest reflection.</li>
+          <li>Coach Pat guides you quietly.</li>
+          <li>Momentum builds naturally.</li>
         </ul>
-      </div>
+      </section>
 
+      {/* ✅ CTA */}
       <Link
         href="/onboarding/goal"
-        className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg"
+        className="inline-block bg-black text-white px-8 py-4 rounded-md font-semibold text-lg hover:bg-gray-900"
       >
-        Start Training Camp →
+        Start Your Training Camp →
       </Link>
+
+      <p className="text-xs text-gray-500">
+        This takes less than 3 minutes.
+      </p>
     </div>
   );
 }

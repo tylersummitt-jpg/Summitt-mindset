@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function GoalClient() {
   const router = useRouter();
   const [saving, setSaving] = useState<string | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const goals = [
@@ -29,14 +30,18 @@ export default function GoalClient() {
         body: JSON.stringify({ goal }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
+        const data = await res.json();
         setError(data?.error || "Something went wrong.");
         return;
       }
 
-      router.push("/onboarding/training-focus");
+      // ✅ Celebration moment
+      setCelebrating(true);
+
+      setTimeout(() => {
+        router.push("/onboarding/training-focus");
+      }, 900);
     } catch (e) {
       setError("Something went wrong.");
     } finally {
@@ -45,7 +50,16 @@ export default function GoalClient() {
   }
 
   return (
-    <div>
+    <div className="relative">
+      {/* ✅ Celebration Overlay */}
+      {celebrating && (
+        <div className="absolute inset-0 bg-white/90 flex items-center justify-center rounded-xl z-10">
+          <p className="text-lg font-semibold text-gray-900">
+            Great choice. That’s your summit.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-4 mb-8">
         {goals.map((goal) => (
           <div
@@ -60,7 +74,9 @@ export default function GoalClient() {
               disabled={saving !== null}
               className={[
                 "px-4 py-2 rounded-md text-sm font-semibold transition",
-                saving === goal ? "bg-gray-300 text-gray-700" : "bg-black text-white hover:bg-gray-900",
+                saving === goal
+                  ? "bg-gray-300 text-gray-700"
+                  : "bg-black text-white hover:bg-gray-900",
               ].join(" ")}
             >
               {saving === goal ? "Saving…" : "Select"}

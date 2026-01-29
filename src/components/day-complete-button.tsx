@@ -35,6 +35,11 @@ export default function DayCompleteButton({
   const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ Day 1 Feedback State
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+
   async function handleComplete() {
     if (loading || showSuccess) return;
 
@@ -42,12 +47,10 @@ export default function DayCompleteButton({
       setError(null);
       setLoading(true);
 
-      // 1) Ensure journal autosave completes
       if (onBeforeComplete) {
         await onBeforeComplete();
       }
 
-      // 2) Call completion API
       const res = await fetch("/api/day/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,42 +61,39 @@ export default function DayCompleteButton({
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("Network error completing day");
-      }
+      if (!res.ok) throw new Error("Network error completing day");
 
       const data = await res.json();
 
-      // 3) Domain failures (expected)
       if (data?.ok === false) {
-        switch (data.reason) {
-          case "journal_required":
-            setError(
-              "Write one honest sentence before completing today’s practice."
-            );
-            return;
-
-          case "already_completed_today":
-            setSuccessMessage("You already showed up today.");
-            setShowSuccess(true);
-
-            if (onAfterComplete) {
-              await onAfterComplete();
-            }
-            return;
-
-          default:
-            setError("Unable to complete today. Please try again.");
-            return;
+        if (data.reason === "journal_required") {
+          setError("Write one honest sentence before completing today.");
+          return;
         }
+
+        if (data.reason === "already_completed_today") {
+          setSuccessMessage("You already showed up today.");
+          setShowSuccess(true);
+
+          if (onAfterComplete) await onAfterComplete();
+          return;
+        }
+
+        setError("Unable to complete today. Please try again.");
+        return;
       }
 
-      // 4) Success
+      // ✅ SUCCESS
       if (data?.ok === true) {
-        setSuccessMessage(getRandomCompletionMessage());
+        // ✅ Day 1 gets special celebration
+        if (dayNumber === 1) {
+          setSuccessMessage("Training Camp has begun.");
+        } else {
+          setSuccessMessage(getRandomCompletionMessage());
+        }
+
         setShowSuccess(true);
 
-        // ✅ Generate Coach Pat reply immediately after completion
         if (onAfterComplete) {
           await onAfterComplete();
         }
@@ -110,16 +110,37 @@ export default function DayCompleteButton({
     }
   }
 
-  // ✅ AUTO-HIDE SUCCESS OVERLAY AFTER 1.5s
+  // ✅ Auto-hide overlay + trigger survey if Day 1
   useEffect(() => {
     if (!showSuccess) return;
 
     const timer = setTimeout(() => {
       setShowSuccess(false);
+
+      // ✅ Day 1 Survey triggers after success fades
+      if (dayNumber === 1) {
+        setShowSurvey(true);
+      }
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [showSuccess]);
+  }, [showSuccess, dayNumber]);
+
+  async function sendFeedback(wasEasy: boolean) {
+    setSendingFeedback(true);
+
+    await fetch("/api/feedback/day1", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        wasEasy,
+        message: feedbackText.trim(),
+      }),
+    });
+
+    setSendingFeedback(false);
+    setShowSurvey(false);
+  }
 
   return (
     <>
@@ -138,14 +159,51 @@ export default function DayCompleteButton({
         </div>
       )}
 
+      {/* ✅ DAY 1 SURVEY */}
+      {showSurvey && (
+        <div className="border rounded-xl bg-white shadow-sm p-6 space-y-4">
+          <p className="font-semibold text-gray-900">
+            Quick question — was today easy?
+          </p>
+
+          <textarea
+            rows={2}
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Optional: anything unclear?"
+            className="w-full border rounded-md p-2 text-sm"
+          />
+
+          <div className="flex gap-3">
+            <button
+              disabled={sendingFeedback}
+              onClick={() => sendFeedback(true)}
+              className="flex-1 bg-black text-white rounded-md py-2 font-semibold"
+            >
+              Yes ✅
+            </button>
+
+            <button
+              disabled={sendingFeedback}
+              onClick={() => sendFeedback(false)}
+              className="flex-1 border rounded-md py-2 font-semibold"
+            >
+              Not really
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ✅ MAIN BUTTON */}
-      <button
-        onClick={handleComplete}
-        disabled={loading || showSuccess}
-        className="w-full bg-black text-white rounded-md py-3 font-semibold hover:bg-gray-900 disabled:opacity-50"
-      >
-        {loading ? "Completing…" : "Complete Today’s Practice"}
-      </button>
+      {!showSurvey && (
+        <button
+          onClick={handleComplete}
+          disabled={loading || showSuccess}
+          className="w-full bg-black text-white rounded-md py-3 font-semibold hover:bg-gray-900 disabled:opacity-50"
+        >
+          {loading ? "Completing…" : "Complete Today’s Practice"}
+        </button>
+      )}
 
       {/* ✅ ERROR */}
       {error && (
