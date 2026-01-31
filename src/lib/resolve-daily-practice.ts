@@ -1,4 +1,3 @@
-import { clerkClient } from "@clerk/nextjs/server";
 import {
   resolveTrainingCampDay,
   type TrainingCampTrack,
@@ -6,6 +5,7 @@ import {
 } from "@/lib/training-camp-resolver";
 import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
 import { inSeasonPromptId } from "@/lib/in-season-selector";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 
 export type DailyPhase = "Training Camp" | "In-Season";
 
@@ -43,10 +43,7 @@ function normalizeText(input: string): string {
 export async function resolveDailyPracticeForUser(
   userId: string
 ): Promise<DailyPracticeResolved> {
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-
-  const metadata = user.publicMetadata || {};
+  const metadata = await getClerkPublicMetadata(userId);
 
   const currentDay =
     typeof metadata.currentDay === "number" && metadata.currentDay > 0

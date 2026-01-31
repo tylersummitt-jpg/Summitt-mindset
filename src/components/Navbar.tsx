@@ -2,26 +2,62 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/summitt-assessment", label: "Summitt Assessment" },
-  { href: "/ask-pat", label: "Ask Pat AI" },
-  { href: "/film-room", label: "Film Room" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/subscribe", label: "Subscribe" },
-];
+/**
+ * ======================================================
+ * Navbar (Calm Global Shell)
+ * ======================================================
+ *
+ * Rules:
+ * - Daily Practice stays central
+ * - Membership + Billing lives under Account
+ * - Subscribe disappears once subscribed
+ */
 
 export function Navbar() {
   const pathname = usePathname();
+  const { user, isLoaded, isSignedIn } = useUser();
+
+  // ----------------------------
+  // Subscription State
+  // ----------------------------
+  const subscribedRaw = user?.publicMetadata?.summittSubscribed;
+  const plan = user?.publicMetadata?.summittPlan as string | undefined;
+
+  const isSubscribed =
+    subscribedRaw === true ||
+    subscribedRaw === "true" ||
+    plan === "monthly" ||
+    plan === "annual";
+
+  // ----------------------------
+  // Links (dynamic)
+  // ----------------------------
+  const navLinks = [
+    { href: "/", label: "Home" },
+    { href: "/dashboard", label: "Daily Practice" },
+    { href: "/ask-pat", label: "Ask Pat" },
+    { href: "/film-room", label: "Film Room" },
+
+    // ✅ Account always visible once signed in
+    ...(isSignedIn ? [{ href: "/user", label: "Account" }] : []),
+
+    // ✅ Subscribe only shown if NOT subscribed
+    ...(isLoaded && (!isSignedIn || !isSubscribed)
+      ? [{ href: "/subscribe", label: "Subscribe" }]
+      : []),
+  ];
 
   return (
     <header className="border-b bg-white">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        {/* Brand */}
         <Link href="/" className="font-bold text-lg tracking-tight">
           Summitt Mindset
         </Link>
 
+        {/* Navigation */}
         <nav className="flex gap-4 text-sm">
           {navLinks.map((link) => {
             const isActive =

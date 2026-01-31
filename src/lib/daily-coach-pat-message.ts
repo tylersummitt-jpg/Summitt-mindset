@@ -1,10 +1,7 @@
-import { clerkClient } from "@clerk/nextjs/server";
 import { resolveDailyPracticeForUser } from "@/lib/resolve-daily-practice";
 import { generateCoachPatNote } from "@/lib/coach-pat-generator";
-import {
-  resolveUserTimezone,
-  getDateKeyInTimezone,
-} from "@/lib/timezone";
+import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 
 export type DailyCoachPatMessageResult =
   | {
@@ -36,21 +33,11 @@ export type DailyCoachPatMessageResult =
  * - send SMS
  * - write Supabase
  * - update Clerk
- *
- * It is used by:
- * - /debug/daily-sms-preview
- * - future Twilio outbound sender
- *
- * Source of truth:
- * - resolveDailyPracticeForUser()
  */
 export async function getDailyCoachPatMessageForSMS(
   userId: string
 ): Promise<DailyCoachPatMessageResult> {
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-
-  const metadata = user.publicMetadata || {};
+  const metadata = await getClerkPublicMetadata(userId);
 
   // ----------------------------
   // SUBSCRIPTION GUARD

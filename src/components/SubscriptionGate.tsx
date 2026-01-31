@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, Suspense } from "react";
+import { ReactNode, useEffect, Suspense, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -9,10 +9,6 @@ type SubscriptionGateProps = {
   redirectAfterSubscribe?: string;
 };
 
-/**
- * Internal gate logic that may read search params.
- * MUST be wrapped in Suspense.
- */
 function SubscriptionGateInner({
   children,
   redirectAfterSubscribe = "/dashboard",
@@ -22,6 +18,17 @@ function SubscriptionGateInner({
   const searchParams = useSearchParams();
 
   const fromParam = searchParams?.get("from");
+
+  // ✅ hydration grace timer
+  const [graceExpired, setGraceExpired] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setGraceExpired(true);
+    }, 6000); // ✅ 6 seconds max grace window
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // --- AUTH REDIRECT ---
   useEffect(() => {
@@ -45,18 +52,12 @@ function SubscriptionGateInner({
   if (!isSignedIn) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p>Redirecting to sign in…</p>
+        <p>Redirecting…</p>
       </main>
     );
   }
 
-  /**
-   * 🔑 CRITICAL FIX
-   *
-   * - Clerk metadata can lag on first client render
-   * - Treat `true` OR `"true"` as subscribed
-   * - Allow trialing users
-   */
+  // ✅ Subscription truth
   const subscribedRaw = user?.publicMetadata?.summittSubscribed;
   const plan = user?.publicMetadata?.summittPlan as string | undefined;
 
@@ -66,8 +67,8 @@ function SubscriptionGateInner({
     plan === "monthly" ||
     plan === "annual";
 
-  // --- SAFETY: brief grace window while metadata hydrates ---
-  if (subscribedRaw === undefined) {
+  // ✅ Grace window while webhook updates Clerk
+  if (subscribedRaw === undefined && !graceExpired) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p>Finalizing your membership…</p>
@@ -78,12 +79,12 @@ function SubscriptionGateInner({
   // --- NOT SUBSCRIBED ---
   if (!isSubscribed) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <main className="flex min-h-screen flex-col items-center justify-center px-6">
         <div className="max-w-lg w-full space-y-6 text-center">
           <h1 className="text-3xl font-semibold">Membership required</h1>
+
           <p className="text-sm text-gray-600">
             This part of Summitt Mindset is for active members only.
-            Start your 7-day free trial to unlock full access.
           </p>
 
           <button
@@ -93,28 +94,23 @@ function SubscriptionGateInner({
               }`;
               router.push(target);
             }}
-            className="inline-flex items-center justify-center rounded-md border border-black px-6 py-3 text-sm font-semibold hover:bg-black hover:text-white transition"
+            className="rounded-md bg-black text-white px-6 py-3 font-semibold hover:bg-gray-900 transition"
           >
-            Join Summitt Mindset
+            Start Free Trial →
           </button>
 
           <p className="text-xs text-gray-500">
-            You can cancel anytime during your trial. After that, your
-            membership continues automatically unless you cancel.
+            Cancel anytime during your first 7 days.
           </p>
         </div>
       </main>
     );
   }
 
-  // --- SUBSCRIBED ---
+  // ✅ SUBSCRIBED
   return <>{children}</>;
 }
 
-/**
- * Public SubscriptionGate
- * Always safe to use in App Router pages.
- */
 export function SubscriptionGate(props: SubscriptionGateProps) {
   return (
     <Suspense

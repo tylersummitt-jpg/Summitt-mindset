@@ -1,7 +1,8 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
-import { clerkClient } from "@clerk/nextjs/server";
 import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 
 /**
  * ======================================================
@@ -76,9 +77,10 @@ export async function completeDay({
   source: CompleteDaySource;
   videoIdShown?: string | null;
 }): Promise<CompleteDayResult> {
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const metadata = user.publicMetadata || {};
+  // --------------------------------------------------
+  // 🔑 Read current metadata (REST, fresh)
+  // --------------------------------------------------
+  const metadata = await getClerkPublicMetadata(userId);
 
   const currentDay =
     typeof metadata.currentDay === "number" && metadata.currentDay > 0
@@ -214,29 +216,25 @@ export async function completeDay({
     currentDay === 1 && metadata.trainingCampStarted !== true;
 
   // --------------------------------------------------
-  // 🔐 UPDATE CLERK METADATA (SINGLE WRITE)
+  // 🔐 UPDATE CLERK METADATA (CANONICAL MERGE PATCH)
   // --------------------------------------------------
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: {
-      ...metadata,
+  await updateClerkPublicMetadata(userId, {
+    // ✅ Progression
+    currentDay: currentDay + 1,
+    totalDaysCompleted: totalDaysCompleted + 1,
+    daysInRow: daysInRow + 1,
+    lastCompletedAt: now.toISOString(),
 
-      // ✅ Progression
-      currentDay: currentDay + 1,
-      totalDaysCompleted: totalDaysCompleted + 1,
-      daysInRow: daysInRow + 1,
-      lastCompletedAt: now.toISOString(),
+    // ✅ Video tracking
+    shownVideoIds: nextShownVideoIds,
 
-      // ✅ Video tracking
-      shownVideoIds: nextShownVideoIds,
+    // ✅ Achievement Anchor (earned once)
+    trainingCampStarted:
+      metadata.trainingCampStarted === true ? true : earnedTrainingCampStart,
 
-      // ✅ Achievement Anchor (earned once)
-      trainingCampStarted:
-        metadata.trainingCampStarted === true ? true : earnedTrainingCampStart,
-
-      trainingCampStartedAt:
-        metadata.trainingCampStartedAt ??
-        (earnedTrainingCampStart ? now.toISOString() : null),
-    },
+    trainingCampStartedAt:
+      metadata.trainingCampStartedAt ??
+      (earnedTrainingCampStart ? now.toISOString() : null),
   });
 
   return {

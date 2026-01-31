@@ -3,11 +3,13 @@
  * Clerk Public Metadata Updater (CANONICAL)
  * ======================================================
  *
- * Clerk SDK does NOT support server-side metadata helpers.
- * We must use Clerk REST API directly.
+ * Clerk server SDK metadata helpers are NOT trusted here.
+ * We patch metadata via Clerk REST API with a safe merge.
  *
  * This is the ONLY safe way to patch metadata at scale.
  */
+
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 
 export async function updateClerkPublicMetadata(
   userId: string,
@@ -17,20 +19,8 @@ export async function updateClerkPublicMetadata(
     throw new Error("Missing CLERK_SECRET_KEY");
   }
 
-  // 1) Fetch existing metadata
-  const userRes = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
-    headers: {
-      Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
-    },
-  });
-
-  if (!userRes.ok) {
-    const text = await userRes.text();
-    throw new Error(`Failed to fetch Clerk user: ${text}`);
-  }
-
-  const user = await userRes.json();
-  const existing = user.public_metadata || {};
+  // 1) Fetch existing metadata (fresh)
+  const existing = await getClerkPublicMetadata(userId);
 
   // 2) Merge safely
   const merged = {

@@ -1,60 +1,37 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
-
-type ConfirmState = "idle" | "saving" | "success" | "error";
-
-function SubscribeSuccessInner() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { user, isLoaded } = useUser();
-
-  const sessionId = searchParams.get("session_id");
-  const [state, setState] = useState<ConfirmState>("idle");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!sessionId || !isLoaded) return;
-
-    async function confirm() {
-      try {
-        setState("saving");
-        const res = await fetch("/api/stripe/confirm-subscription", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
-        });
-
-        if (!res.ok) throw new Error(await res.text());
-        await res.json();
-        if (user) await user.reload();
-        setState("success");
-      } catch (err: any) {
-        setError(err.message);
-        setState("error");
-      }
-    }
-
-    confirm();
-  }, [sessionId, isLoaded, user]);
-
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      {state === "saving" && <p>Finalizing your membership…</p>}
-      {state === "success" && <button onClick={() => router.push("/dashboard")}>Go to Dashboard</button>}
-      {state === "error" && <p className="text-red-600">{error}</p>}
-    </main>
-  );
-}
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SubscribeSuccessPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Give webhook 2 seconds to hydrate Clerk metadata
+    const t = setTimeout(() => {
+      router.push("/dashboard");
+    }, 2000);
+
+    return () => clearTimeout(t);
+  }, [router]);
+
   return (
-    <Suspense fallback={<p>Finalizing…</p>}>
-      <SubscribeSuccessInner />
-    </Suspense>
+    <main className="flex min-h-screen items-center justify-center text-center px-6">
+      <div className="space-y-4 max-w-md">
+        <h1 className="text-3xl font-semibold">
+          Welcome to Summitt Mindset.
+        </h1>
+
+        <p className="text-gray-600">
+          Your membership is active.
+          <br />
+          Coach Pat will meet you inside today’s practice.
+        </p>
+
+        <p className="text-sm text-gray-500">
+          Taking you to Day 1…
+        </p>
+      </div>
+    </main>
   );
 }

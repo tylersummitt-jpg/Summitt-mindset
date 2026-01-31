@@ -19,7 +19,15 @@ export default function CompleteOnboardingButton() {
         throw new Error("Failed to complete onboarding");
       }
 
-      // ✅ Retention Hook: Start Day 1 Immediately
+      /**
+       * ✅ IMPORTANT
+       * Clerk metadata can lag briefly after update.
+       * Refresh ensures currentDay + onboardingCompleted
+       * are present before Day 1 loads.
+       */
+      router.refresh();
+
+      // ✅ Begin Day 1 immediately
       router.push("/dashboard/day/1");
     } catch (err) {
       console.error(err);
