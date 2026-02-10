@@ -1,5 +1,3 @@
-// src/app/layout.tsx
-
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Navbar } from "@/components/Navbar";
@@ -58,6 +56,7 @@ export default function RootLayout({
                 <div className="flex gap-4 underline">
                   <a href="/privacy">Privacy Policy</a>
                   <a href="/terms">Terms</a>
+                  <a href="/sms">SMS Disclosure</a>
                 </div>
 
                 {/* Right Brand Ethos */}
