@@ -1,17 +1,64 @@
 /**
  * ======================================================
- * Onboarding Layout (Retention Shell)
+ * Onboarding Layout (Retention Shell + Subscription Gate)
  * ======================================================
  *
- * Removes distractions.
- * Makes onboarding feel like a guided climb.
+ * Product rule:
+ * Subscribe FIRST → then complete onboarding.
+ *
+ * This layout gates ALL onboarding routes:
+ * - /onboarding
+ * - /onboarding/goal
+ * - /onboarding/outcome
+ * - /onboarding/schedule
+ * - /onboarding/miss-plan
+ * - /onboarding/training-focus
+ * - /onboarding/sms
+ * - /onboarding/complete
  */
 
-export default function OnboardingLayout({
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+
+function isSubscribedFromMetadata(md: Record<string, any>) {
+  const subscribedRaw = md?.summittSubscribed;
+  const plan = md?.summittPlan;
+
+  return (
+    subscribedRaw === true ||
+    subscribedRaw === "true" ||
+    plan === "monthly" ||
+    plan === "annual"
+  );
+}
+
+export default async function OnboardingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await currentUser();
+
+  // --------------------------------------------------
+  // Must be signed in
+  // --------------------------------------------------
+  if (!user) {
+    redirect("/sign-in?redirect_url=/onboarding");
+  }
+
+  const md = (user.publicMetadata || {}) as Record<string, any>;
+  const isSubscribed = isSubscribedFromMetadata(md);
+
+  // --------------------------------------------------
+  // Must be subscribed
+  // --------------------------------------------------
+  if (!isSubscribed) {
+    redirect("/subscribe?from=onboarding");
+  }
+
+  // --------------------------------------------------
+  // Render onboarding shell
+  // --------------------------------------------------
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
       <div className="w-full max-w-2xl py-16 space-y-10">

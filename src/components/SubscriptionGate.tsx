@@ -36,6 +36,22 @@ function SubscriptionGateInner({
 
     if (!isSignedIn) {
       const currentPath = window.location.pathname;
+
+      /**
+       * ======================================================
+       * IMPORTANT
+       * ======================================================
+       *
+       * We pass redirect_url so that if a user tries to access:
+       * /ask-pat
+       * /film-room
+       * etc.
+       *
+       * They return to that page after signing in.
+       *
+       * If no redirect_url is present, /post-sign-in will
+       * send them to Today by default.
+       */
       router.push(`/sign-in?redirect_url=${encodeURIComponent(currentPath)}`);
     }
   }, [isLoaded, isSignedIn, router]);
@@ -67,8 +83,20 @@ function SubscriptionGateInner({
     plan === "monthly" ||
     plan === "annual";
 
-  // ✅ Grace window while webhook updates Clerk
-  if (subscribedRaw === undefined && !graceExpired) {
+  /**
+   * ======================================================
+   * Grace window while webhook updates Clerk
+   * ======================================================
+   *
+   * Sometimes summittSubscribed arrives first.
+   * Sometimes summittPlan arrives first.
+   *
+   * We only show the grace screen if BOTH are missing.
+   */
+  const waitingForWebhook =
+    subscribedRaw === undefined && (plan === undefined || plan === null);
+
+  if (waitingForWebhook && !graceExpired) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p>Finalizing your membership…</p>

@@ -17,6 +17,11 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
  * - advance progression safely
  *
  * Raw journal entries are NEVER modified here.
+ *
+ * ======================================================
+ * 2026-02 Upgrade:
+ * - Daily summary is now more human + coachable (still deterministic)
+ * - Weekly summary is now framed with onboarding outcome when available
  */
 
 export type CompleteDaySource = "app" | "sms";
@@ -33,39 +38,73 @@ function numberOrZero(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+function isValidDate(d: Date): boolean {
+  return d instanceof Date && !Number.isNaN(d.getTime());
+}
+
+function safeString(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  return t.length ? t : null;
+}
+
 /**
- * Builds a single contextualized reflection sentence.
- * This is the atomic memory unit used by Coach Pat / SMS / Ask Pat.
+ * ======================================================
+ * Deterministic memory sentence (atomic)
+ * ======================================================
+ *
+ * Goal:
+ * - human
+ * - coachable
+ * - short
+ * - time-agnostic
+ *
+ * This is the unit used by:
+ * - Coach Pat
+ * - Ask Pat grounding
+ * - Weekly summary
  */
 function buildContextualizedReflection({
-  reflectionPrompt,
   actionItem,
   journalContent,
 }: {
-  reflectionPrompt: string | null;
   actionItem: string | null;
   journalContent: string;
 }): string {
   const answer = normalizeText(journalContent);
   if (!answer) return "";
 
-  const prompt = normalizeText(reflectionPrompt || "");
   const action = normalizeText(actionItem || "");
 
-  // Gentle, coach-style synthesis (second person, time-agnostic)
-  if (prompt && action) {
-    return `You reflected on "${prompt.toLowerCase()}", and today you practiced by ${answer.toLowerCase()}.`;
-  }
-
-  if (prompt) {
-    return `You reflected on "${prompt.toLowerCase()}", and noted that ${answer.toLowerCase()}.`;
-  }
-
+  // We do NOT want to quote prompts.
+  // Prompts are for the user, not for memory.
+  //
+  // We also want to avoid awkward phrasing like:
+  // "you practiced by ..."
+  //
+  // We keep it clean:
+  // "Today you practiced: X. You noticed: Y."
   if (action) {
-    return `You focused on ${action.toLowerCase()}, and today you noticed that ${answer.toLowerCase()}.`;
+    return `Today you practiced: ${action}. You noticed: ${answer}.`;
   }
 
-  return `Today, you reflected and noted that ${answer.toLowerCase()}.`;
+  return `Today you practiced with intention. You noticed: ${answer}.`;
+}
+
+/**
+ * Weekly framing:
+ * This is the identity anchor that makes summaries meaningful.
+ */
+function buildWeeklyFraming({
+  onboardingOutcome,
+  onboardingArena,
+}: {
+  onboardingOutcome: string | null;
+  onboardingArena: string | null;
+}): string | null {
+  if (onboardingOutcome) return `Training toward: ${onboardingOutcome}.`;
+  if (onboardingArena) return `Training in: ${onboardingArena}.`;
+  return null;
 }
 
 export async function completeDay({
@@ -103,23 +142,37 @@ export async function completeDay({
 
   if (typeof metadata.lastCompletedAt === "string") {
     const last = new Date(metadata.lastCompletedAt);
-    const lastKey = getDateKeyInTimezone(last, timezone);
 
-    if (lastKey === todayKey) {
-      return { ok: false, reason: "already_completed_today" };
+    // ✅ Guard against invalid date strings
+    if (isValidDate(last)) {
+      const lastKey = getDateKeyInTimezone(last, timezone);
+
+      if (lastKey === todayKey) {
+        return { ok: false, reason: "already_completed_today" };
+      }
     }
   }
 
   // --------------------------------------------------
   // 🧠 ENSURE DAILY PROMPT (CURRENT DAY ONLY)
   // --------------------------------------------------
+  // IMPORTANT:
+  // This ensures daily_prompts is populated for BOTH:
+  // - Training Camp (deterministic)
+  // - In-Season (generated once, then immutable)
+  //
+  // This is critical because past days must always load from daily_prompts.
   const trainingCampTrack =
     metadata.trainingCampTrack === "women" ? "women" : "standard";
 
-  await ensureDailyPrompt({
+  const primaryGoal =
+    typeof metadata.summittGoal === "string" ? metadata.summittGoal : undefined;
+
+  const ensuredPrompt = await ensureDailyPrompt({
     userId,
     dayNumber: currentDay,
     trainingCampTrack,
+    primaryGoal,
   });
 
   // --------------------------------------------------
@@ -143,11 +196,16 @@ export async function completeDay({
   }
 
   // --------------------------------------------------
-  // 🧠 BUILD CONTEXTUALIZED DAILY MEMORY
+  // 🧠 BUILD CONTEXTUALIZED DAILY MEMORY (DETERMINISTIC)
   // --------------------------------------------------
+  // We prefer the stored journal action_item, but fall back to ensuredPrompt.
+  const actionItem =
+    normalizeText(journalRow?.action_item ?? "") ||
+    normalizeText(ensuredPrompt?.actionItem ?? "") ||
+    null;
+
   const contextualizedReflection = buildContextualizedReflection({
-    reflectionPrompt: journalRow?.reflection_prompt ?? null,
-    actionItem: journalRow?.action_item ?? null,
+    actionItem,
     journalContent: normalizedJournal,
   });
 
@@ -158,14 +216,22 @@ export async function completeDay({
   // --------------------------------------------------
   // 📌 DAILY SUMMARY (MEANINGFUL MEMORY)
   // --------------------------------------------------
-  await supabaseServer.from("daily_summaries").upsert(
-    {
-      clerk_user_id: userId,
-      day_number: currentDay,
-      daily_summaries: contextualizedReflection.slice(0, 300),
-    },
-    { onConflict: "clerk_user_id,day_number" }
-  );
+  const { error: dailySummaryError } = await supabaseServer
+    .from("daily_summaries")
+    .upsert(
+      {
+        clerk_user_id: userId,
+        day_number: currentDay,
+        daily_summaries: contextualizedReflection.slice(0, 300),
+      },
+      { onConflict: "clerk_user_id,day_number" }
+    );
+
+  // ✅ Fail-closed: memory is part of the OS
+  if (dailySummaryError) {
+    console.error("DAILY SUMMARY UPSERT ERROR:", dailySummaryError);
+    return { ok: false, reason: "daily_summary_upsert_failed" };
+  }
 
   // --------------------------------------------------
   // 📅 WEEKLY SUMMARY (EVERY 7 DAYS)
@@ -174,7 +240,7 @@ export async function completeDay({
     const weekEnd = currentDay;
     const weekStart = currentDay - 6;
 
-    const { data: summaries } = await supabaseServer
+    const { data: summaries, error: weeklyLoadError } = await supabaseServer
       .from("daily_summaries")
       .select("daily_summaries")
       .eq("clerk_user_id", userId)
@@ -182,27 +248,57 @@ export async function completeDay({
       .lte("day_number", weekEnd)
       .order("day_number");
 
+    if (weeklyLoadError) {
+      console.error("WEEKLY SUMMARY LOAD ERROR:", weeklyLoadError);
+      return { ok: false, reason: "weekly_summary_load_failed" };
+    }
+
     if (summaries?.length) {
       const text = summaries.map((s) => s.daily_summaries || "").join(" ");
 
-      await supabaseServer.from("weekly_summaries").upsert(
-        {
-          clerk_user_id: userId,
-          week_start_day: weekStart,
-          week_end_day: weekEnd,
-          weekly_summary: text.slice(0, 600),
-        },
-        { onConflict: "clerk_user_id,week_start_day" }
-      );
+      // ======================================================
+      // NEW: Weekly framing (onboarding identity anchor)
+      // ======================================================
+      const onboardingOutcome = safeString(metadata.onboardingOutcome);
+      const onboardingArena = safeString(metadata.onboardingArena);
+
+      const framing = buildWeeklyFraming({
+        onboardingOutcome,
+        onboardingArena,
+      });
+
+      const combined = framing ? `${framing} ${text}` : text;
+
+      const { error: weeklyUpsertError } = await supabaseServer
+        .from("weekly_summaries")
+        .upsert(
+          {
+            clerk_user_id: userId,
+            week_start_day: weekStart,
+            week_end_day: weekEnd,
+            weekly_summary: combined.slice(0, 600),
+          },
+          { onConflict: "clerk_user_id,week_start_day" }
+        );
+
+      if (weeklyUpsertError) {
+        console.error("WEEKLY SUMMARY UPSERT ERROR:", weeklyUpsertError);
+        return { ok: false, reason: "weekly_summary_upsert_failed" };
+      }
     }
   }
 
   // --------------------------------------------------
   // 🎥 TRACK SHOWN VIDEO IDS (APP ONLY)
   // --------------------------------------------------
-  const shownVideoIds = Array.isArray(metadata.shownVideoIds)
+  const shownVideoIdsRaw = Array.isArray(metadata.shownVideoIds)
     ? metadata.shownVideoIds
     : [];
+
+  // ✅ Ensure only strings get stored
+  const shownVideoIds = shownVideoIdsRaw.filter(
+    (v: unknown) => typeof v === "string" && v.trim().length > 0
+  );
 
   const nextShownVideoIds =
     source === "app" && videoIdShown

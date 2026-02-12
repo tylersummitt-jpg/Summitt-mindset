@@ -1,7 +1,8 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser, auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
+import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 
 const MILESTONES = [35, 40, 50, 75, 100, 150, 200];
 
@@ -45,13 +46,13 @@ function milestoneLabel(n: number) {
 
 export default async function DashboardPage() {
   const user = await currentUser();
-  if (!user) return null;
+  const { userId } = await auth();
+
+  if (!user || !userId) return null;
 
   const metadata = user.publicMetadata as any;
 
-  const onboardingCompleted =
-    metadata?.onboardingCompleted === true ||
-    metadata?.onboardingingCompleted === true;
+  const onboardingCompleted = metadata?.onboardingCompleted === true;
 
   const goal =
     typeof metadata?.summittGoal === "string" ? metadata.summittGoal : null;
@@ -65,6 +66,31 @@ export default async function DashboardPage() {
       : 0;
 
   const inTrainingCamp = currentDay <= 30;
+
+  // ======================================================
+  // TIMEZONE-AWARE "COMPLETED TODAY" LOCK
+  // ======================================================
+  const timezone = resolveUserTimezone(metadata?.timezone);
+  const now = new Date();
+  const todayKey = getDateKeyInTimezone(now, timezone);
+
+  let completedToday = false;
+
+  if (typeof metadata?.lastCompletedAt === "string") {
+    const last = new Date(metadata.lastCompletedAt);
+    const lastKey = getDateKeyInTimezone(last, timezone);
+
+    completedToday = lastKey === todayKey;
+  }
+
+  /**
+   * If completed today:
+   * - currentDay already advanced
+   * - lock tomorrow until after midnight
+   */
+  const maxAccessibleDay = completedToday
+    ? Math.max(currentDay - 1, 1)
+    : currentDay;
 
   // ===========================
   // TRAINING CAMP (Days 1–30)
@@ -100,7 +126,7 @@ export default async function DashboardPage() {
     const { data: latestWeekly } = await supabaseServer
       .from("weekly_summaries")
       .select("weekly_summary")
-      .eq("clerk_user_id", user.id)
+      .eq("clerk_user_id", userId) // ✅ CANONICAL
       .order("week_end_day", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -108,8 +134,9 @@ export default async function DashboardPage() {
     return (
       <main className="max-w-4xl mx-auto py-10 px-6">
         <h1 className="text-3xl font-bold mb-2">
-          Training Camp — Day {currentDay}
+          Training Camp — Day {maxAccessibleDay}
         </h1>
+
         <p className="text-gray-600 mb-8">
           Show up. Practice with intention. Reflect honestly.
         </p>
@@ -135,8 +162,11 @@ export default async function DashboardPage() {
 
           <div className="space-y-3">
             {path.map((d) => {
-              const isPast = d.day < currentDay;
-              const isCurrent = d.day === currentDay;
+              const isPast = d.day < maxAccessibleDay;
+              const isCurrent = d.day === maxAccessibleDay;
+
+              // Tomorrow is special: show "Tomorrow"
+              const isTomorrow = d.day === maxAccessibleDay + 1;
 
               if (isPast) {
                 return (
@@ -161,6 +191,20 @@ export default async function DashboardPage() {
                 );
               }
 
+              if (isTomorrow) {
+                return (
+                  <div
+                    key={d.day}
+                    className="border rounded-md p-4 bg-gray-50 text-gray-500"
+                  >
+                    {d.title}{" "}
+                    <span className="ml-2 text-xs uppercase tracking-wide text-gray-400">
+                      Tomorrow
+                    </span>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={d.day}
@@ -173,7 +217,7 @@ export default async function DashboardPage() {
           </div>
 
           <Link
-            href={`/dashboard/day/${currentDay}`}
+            href={`/dashboard/day/${maxAccessibleDay}`}
             className="inline-block mt-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
           >
             Continue Today’s Practice →
@@ -203,7 +247,7 @@ export default async function DashboardPage() {
       </p>
 
       <Link
-        href={`/dashboard/day/${currentDay}`}
+        href={`/dashboard/day/${maxAccessibleDay}`}
         className="block bg-black text-white rounded-md py-4 font-semibold mb-10 hover:bg-gray-900"
       >
         Continue Today’s Practice

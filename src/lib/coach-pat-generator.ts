@@ -1,3 +1,5 @@
+// src/lib/coach-pat-generator.ts
+
 import OpenAI from "openai";
 import { buildCoachPatContext } from "@/lib/coach-pat-context";
 import {

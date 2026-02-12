@@ -2,6 +2,11 @@
 
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+
+export const runtime = "nodejs";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const monthlyPriceId = process.env.STRIPE_PRICE_ID_MONTHLY;
@@ -14,6 +19,8 @@ if (!stripeSecretKey) {
 
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
+type Plan = "monthly" | "annual";
+
 export async function POST(req: Request) {
   try {
     if (!stripe) {
@@ -23,18 +30,28 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
-    const { plan, userId } = body as {
-      plan?: "monthly" | "annual";
-      userId?: string | null;
-    };
-
-    if (!plan) {
-      return new NextResponse("Missing plan", { status: 400 });
+    // ✅ Canonical auth
+    const { userId } = await auth();
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    if (!userId) {
-      return new NextResponse("Missing userId", { status: 400 });
+    const user = await currentUser();
+    const userEmail =
+      user?.emailAddresses?.[0]?.emailAddress || null;
+
+    if (!userEmail) {
+      return new NextResponse(
+        "Unable to determine user email for checkout",
+        { status: 500 }
+      );
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const plan = body?.plan as Plan | undefined;
+
+    if (plan !== "monthly" && plan !== "annual") {
+      return new NextResponse("Missing or invalid plan", { status: 400 });
     }
 
     const priceId = plan === "annual" ? annualPriceId : monthlyPriceId;
@@ -46,25 +63,36 @@ export async function POST(req: Request) {
       );
     }
 
+    // 🔎 Check if we already have a Stripe customer ID saved
+    const publicMetadata = await getClerkPublicMetadata(userId);
+    const existingCustomerId =
+      typeof publicMetadata?.stripeCustomerId === "string"
+        ? publicMetadata.stripeCustomerId
+        : null;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+
       client_reference_id: userId,
 
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
 
       allow_promotion_codes: true,
 
+      // 🔥 Correct behavior for subscription mode
+      customer: existingCustomerId || undefined,
+      customer_email: existingCustomerId ? undefined : userEmail,
+
+      metadata: {
+        userId,
+        plan,
+      },
+
       subscription_data: {
         trial_period_days: 7,
-
-        // 🔥 THIS IS THE FIX 🔥
         metadata: {
           userId,
+          plan,
         },
       },
 
@@ -73,10 +101,23 @@ export async function POST(req: Request) {
     });
 
     if (!session.url) {
-      return new NextResponse(
-        "Failed to create checkout session",
-        { status: 500 }
-      );
+      return new NextResponse("Failed to create checkout session", {
+        status: 500,
+      });
+    }
+
+    // Optional: Pre-link customer id immediately
+    const customerId =
+      typeof session.customer === "string" ? session.customer : null;
+
+    if (customerId && customerId !== existingCustomerId) {
+      try {
+        await updateClerkPublicMetadata(userId, {
+          stripeCustomerId: customerId,
+        });
+      } catch (err) {
+        console.warn("Unable to pre-link stripeCustomerId:", err);
+      }
     }
 
     return NextResponse.json({ url: session.url });

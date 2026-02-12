@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 
 export const runtime = "nodejs";
 
@@ -17,31 +18,121 @@ const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 /**
  * ======================================================
- * Clerk Metadata Patch (Single Source of Truth)
+ * Helpers
  * ======================================================
  */
-async function updateClerkMetadata(
-  userId: string,
-  publicMetadata: Record<string, any>
-) {
-  const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${clerkSecretKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      public_metadata: publicMetadata,
-    }),
-  });
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("❌ Clerk metadata update failed:", text);
-    throw new Error(text);
+function resolvePlanFromSubscription(
+  sub: Stripe.Subscription
+): "monthly" | "annual" | "unknown" {
+  const interval = sub.items.data[0]?.price?.recurring?.interval;
+
+  if (interval === "year") return "annual";
+  if (interval === "month") return "monthly";
+  return "unknown";
+}
+
+function isActiveStatus(status: Stripe.Subscription.Status): boolean {
+  return status === "active" || status === "trialing";
+}
+
+/**
+ * Robustly find Clerk userId for a subscription event.
+ *
+ * Priority order:
+ * 1) subscription.metadata.userId
+ * 2) customer.metadata.userId
+ * 3) checkout session lookup by subscription id
+ */
+async function resolveUserIdForSubscription(
+  subscription: Stripe.Subscription
+): Promise<string | null> {
+  // 1) subscription metadata
+  const mdUserId = subscription.metadata?.userId;
+  if (typeof mdUserId === "string" && mdUserId.trim()) return mdUserId.trim();
+
+  // 2) customer metadata
+  const customerId =
+    typeof subscription.customer === "string" ? subscription.customer : null;
+
+  if (customerId) {
+    try {
+      const customer = await stripe!.customers.retrieve(customerId);
+
+      // Stripe can return DeletedCustomer
+      if ((customer as any)?.deleted) {
+        return null;
+      }
+
+      const cUserId = (customer as Stripe.Customer)?.metadata?.userId;
+      if (typeof cUserId === "string" && cUserId.trim()) return cUserId.trim();
+    } catch (err) {
+      console.warn("Unable to retrieve customer for userId lookup:", err);
+    }
   }
 
-  console.log("✅ Clerk metadata updated:", userId);
+  // 3) checkout session search by subscription
+  try {
+    const sessions = await stripe!.checkout.sessions.list({
+      subscription: subscription.id,
+      limit: 1,
+    });
+
+    const s = sessions.data?.[0];
+
+    const sessionUserId =
+      typeof s?.client_reference_id === "string" ? s.client_reference_id : null;
+
+    if (sessionUserId && sessionUserId.trim()) return sessionUserId.trim();
+
+    const metaUserId = (s?.metadata as any)?.userId;
+    if (typeof metaUserId === "string" && metaUserId.trim())
+      return metaUserId.trim();
+  } catch (err) {
+    console.warn("Unable to list checkout sessions for subscription:", err);
+  }
+
+  return null;
+}
+
+/**
+ * Stripe Invoice typing can vary by Stripe SDK version and invoice shape.
+ * We extract subscription id robustly without relying on invoice.subscription typing.
+ *
+ * Priority:
+ * 1) invoice.lines.data[0].subscription (common in many invoice shapes)
+ * 2) (invoice as any).subscription (fallback)
+ */
+function extractSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  try {
+    const lineSub =
+      invoice.lines?.data?.[0] &&
+      typeof (invoice.lines.data[0] as any)?.subscription === "string"
+        ? ((invoice.lines.data[0] as any).subscription as string)
+        : null;
+
+    if (lineSub) return lineSub;
+
+    const topLevel = (invoice as any)?.subscription;
+    if (typeof topLevel === "string" && topLevel.trim()) return topLevel.trim();
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Robustly find Clerk userId for invoice events.
+ */
+async function resolveUserIdForInvoice(
+  invoice: Stripe.Invoice
+): Promise<string | null> {
+  const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
+  if (!subscriptionId) return null;
+
+  const subscription = await stripe!.subscriptions.retrieve(subscriptionId);
+  return resolveUserIdForSubscription(subscription);
 }
 
 /**
@@ -72,21 +163,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    /**
-     * ======================================================
-     * ✅ EVENT 1 — Checkout Completed (Initial Purchase)
-     * ======================================================
-     */
+    // ======================================================
+    // EVENT 1 — Checkout Completed
+    // ======================================================
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      const userId = session.client_reference_id;
-      if (!userId) return NextResponse.json({ received: true });
+      const userId =
+        typeof session.client_reference_id === "string"
+          ? session.client_reference_id
+          : typeof (session.metadata as any)?.userId === "string"
+          ? (session.metadata as any).userId
+          : null;
+
+      if (!userId) {
+        console.warn("checkout.session.completed missing userId");
+        return NextResponse.json({ received: true });
+      }
 
       const subscriptionId =
-        typeof session.subscription === "string"
-          ? session.subscription
-          : null;
+        typeof session.subscription === "string" ? session.subscription : null;
 
       const customerId =
         typeof session.customer === "string" ? session.customer : null;
@@ -96,51 +192,44 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      // Ensure Stripe customer has metadata too (backup for future events)
+      try {
+        await stripe.customers.update(customerId, {
+          metadata: { userId },
+        });
+      } catch (err) {
+        console.warn("Unable to set Stripe customer metadata:", err);
+      }
+
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      const plan = resolvePlanFromSubscription(subscription);
 
-      const interval =
-        subscription.items.data[0]?.price?.recurring?.interval;
-
-      const plan =
-        interval === "year"
-          ? "annual"
-          : interval === "month"
-          ? "monthly"
-          : "unknown";
-
-      await updateClerkMetadata(userId, {
-        summittSubscribed: true,
+      await updateClerkPublicMetadata(userId, {
+        summittSubscribed: isActiveStatus(subscription.status),
         summittPlan: plan,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
       });
+
+      console.log("✅ checkout.session.completed → metadata updated", userId);
     }
 
-    /**
-     * ======================================================
-     * ✅ EVENT 2 — Subscription Updated
-     * ======================================================
-     */
+    // ======================================================
+    // EVENT 2 — Subscription Updated
+    // ======================================================
     if (event.type === "customer.subscription.updated") {
       const subscription = event.data.object as Stripe.Subscription;
 
-      const userId = subscription.metadata?.userId;
-      if (!userId) return NextResponse.json({ received: true });
+      const userId = await resolveUserIdForSubscription(subscription);
+      if (!userId) {
+        console.warn("subscription.updated missing userId", subscription.id);
+        return NextResponse.json({ received: true });
+      }
 
-      const status = subscription.status;
+      const plan = resolvePlanFromSubscription(subscription);
 
-      const interval =
-        subscription.items.data[0]?.price?.recurring?.interval;
-
-      const plan =
-        interval === "year"
-          ? "annual"
-          : interval === "month"
-          ? "monthly"
-          : "unknown";
-
-      await updateClerkMetadata(userId, {
-        summittSubscribed: status === "active" || status === "trialing",
+      await updateClerkPublicMetadata(userId, {
+        summittSubscribed: isActiveStatus(subscription.status),
         summittPlan: plan,
         stripeCustomerId:
           typeof subscription.customer === "string"
@@ -148,75 +237,65 @@ export async function POST(req: NextRequest) {
             : null,
         stripeSubscriptionId: subscription.id,
       });
+
+      console.log("✅ customer.subscription.updated → metadata updated", userId);
     }
 
-    /**
-     * ======================================================
-     * ✅ EVENT 3 — Subscription Deleted (Canceled)
-     * ======================================================
-     */
+    // ======================================================
+    // EVENT 3 — Subscription Deleted (Canceled)
+    // ======================================================
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription;
 
-      const userId = subscription.metadata?.userId;
-      if (!userId) return NextResponse.json({ received: true });
+      const userId = await resolveUserIdForSubscription(subscription);
+      if (!userId) {
+        console.warn("subscription.deleted missing userId", subscription.id);
+        return NextResponse.json({ received: true });
+      }
 
       console.log("🚫 Subscription canceled → locking access", userId);
 
-      await updateClerkMetadata(userId, {
+      await updateClerkPublicMetadata(userId, {
         summittSubscribed: false,
         summittPlan: null,
+        stripeSubscriptionId: subscription.id,
       });
     }
 
-    /**
-     * ======================================================
-     * ✅ EVENT 4 — Payment Failed
-     * ======================================================
-     */
+    // ======================================================
+    // EVENT 4 — Payment Failed
+    // ======================================================
     if (event.type === "invoice.payment_failed") {
-      const invoice = event.data.object as Stripe.Invoice & {
-        subscription?: string;
-      };
+      const invoice = event.data.object as Stripe.Invoice;
 
-      const subscriptionId = invoice.subscription;
-      if (!subscriptionId) return NextResponse.json({ received: true });
-
-      const subscription =
-        await stripe.subscriptions.retrieve(subscriptionId);
-
-      const userId = subscription.metadata?.userId;
-      if (!userId) return NextResponse.json({ received: true });
+      const userId = await resolveUserIdForInvoice(invoice);
+      if (!userId) {
+        console.warn("invoice.payment_failed missing userId");
+        return NextResponse.json({ received: true });
+      }
 
       console.log("⚠️ Payment failed → locking access", userId);
 
-      await updateClerkMetadata(userId, {
+      await updateClerkPublicMetadata(userId, {
         summittSubscribed: false,
       });
     }
 
-    /**
-     * ======================================================
-     * ✅ EVENT 5 — Payment Restored
-     * ======================================================
-     */
+    // ======================================================
+    // EVENT 5 — Payment Restored
+    // ======================================================
     if (event.type === "invoice.paid") {
-      const invoice = event.data.object as Stripe.Invoice & {
-        subscription?: string;
-      };
+      const invoice = event.data.object as Stripe.Invoice;
 
-      const subscriptionId = invoice.subscription;
-      if (!subscriptionId) return NextResponse.json({ received: true });
-
-      const subscription =
-        await stripe.subscriptions.retrieve(subscriptionId);
-
-      const userId = subscription.metadata?.userId;
-      if (!userId) return NextResponse.json({ received: true });
+      const userId = await resolveUserIdForInvoice(invoice);
+      if (!userId) {
+        console.warn("invoice.paid missing userId");
+        return NextResponse.json({ received: true });
+      }
 
       console.log("✅ Payment restored → unlocking access", userId);
 
-      await updateClerkMetadata(userId, {
+      await updateClerkPublicMetadata(userId, {
         summittSubscribed: true,
       });
     }

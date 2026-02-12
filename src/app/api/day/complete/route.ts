@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { completeDay } from "@/lib/complete-day";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 
 /**
  * ======================================================
@@ -19,6 +20,13 @@ import { completeDay } from "@/lib/complete-day";
  * - 500 → unexpected server crashes
  *
  * Transport must never hide domain intent.
+ *
+ * NEW CANONICAL RULE:
+ * ------------------------------------------------------
+ * Client must only complete the CURRENT day.
+ * If client sends a day that does not match metadata.currentDay,
+ * we return a domain error:
+ *   { ok:false, reason:"day_mismatch" }
  */
 
 export async function POST(req: Request) {
@@ -43,22 +51,56 @@ export async function POST(req: Request) {
     }
 
     const pageDay = body?.day;
+
     const videoIdShown =
       typeof body?.videoIdShown === "string" &&
       body.videoIdShown.trim().length > 0
         ? body.videoIdShown.trim()
         : null;
 
-    if (typeof pageDay !== "number") {
+    if (typeof pageDay !== "number" || !Number.isFinite(pageDay)) {
       return NextResponse.json(
         { ok: false, reason: "invalid_day" },
         { status: 200 }
       );
     }
 
-    // --------------------------------------------------
+    // ======================================================
+    // ✅ CANONICAL DAY MATCH GUARD
+    // ======================================================
+    // We only allow completing the current day.
+    // This prevents completing the wrong day due to:
+    // - multiple tabs
+    // - stale page
+    // - manual URL navigation
+    // - race conditions
+    const md = await getClerkPublicMetadata(userId);
+
+    const currentDay =
+      typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : null;
+
+    if (!currentDay) {
+      return NextResponse.json(
+        { ok: false, reason: "no_current_day" },
+        { status: 200 }
+      );
+    }
+
+    if (pageDay !== currentDay) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "day_mismatch",
+          expectedDay: currentDay,
+          gotDay: pageDay,
+        },
+        { status: 200 }
+      );
+    }
+
+    // ======================================================
     // CANONICAL COMPLETION
-    // --------------------------------------------------
+    // ======================================================
     const result = await completeDay({
       userId,
       source: "app",

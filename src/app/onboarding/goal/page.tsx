@@ -7,6 +7,12 @@ export default async function GoalPage() {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
 
+  const md = (user.publicMetadata || {}) as Record<string, any>;
+
+  if (md?.onboardingCompleted === true) {
+    redirect("/post-sign-in");
+  }
+
   return (
     <div>
       <OnboardingProgress currentStep={1} />
