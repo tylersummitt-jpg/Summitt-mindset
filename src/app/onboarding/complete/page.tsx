@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
@@ -17,7 +18,9 @@ import { resolveTrainingCampDay } from "@/lib/training-camp-resolver";
  * - Do NOT allow completion without pledge
  */
 
-export default async function CompletePage() {
+export const dynamic = "force-dynamic";
+
+export default async function CompletePage(): Promise<ReactElement> {
   const user = await currentUser();
 
   if (!user) {
@@ -41,8 +44,7 @@ export default async function CompletePage() {
     redirect("/onboarding");
   }
 
-  const trainingCampTrack =
-    md?.trainingCampTrack === "women" ? "women" : "standard";
+  const trainingCampTrack = md?.trainingCampTrack === "women" ? "women" : "standard";
 
   // Preview Day 1 practice WITHOUT needing metadata.currentDay
   let practice: { actionItem: string; reflectionPrompt: string } | null = null;
@@ -91,9 +93,7 @@ export default async function CompletePage() {
               Day 1 Practice Preview
             </p>
 
-            <p className="text-lg font-semibold text-gray-900">
-              Today’s Practice
-            </p>
+            <p className="text-lg font-semibold text-gray-900">Today’s Practice</p>
 
             <p className="text-gray-700 mt-2 whitespace-pre-line">
               {practice.actionItem}
@@ -101,9 +101,7 @@ export default async function CompletePage() {
           </div>
 
           <div>
-            <p className="text-sm font-semibold text-gray-900 mb-1">
-              Reflection
-            </p>
+            <p className="text-sm font-semibold text-gray-900 mb-1">Reflection</p>
 
             <p className="text-gray-600 whitespace-pre-line">
               {practice.reflectionPrompt}
@@ -138,9 +136,7 @@ export default async function CompletePage() {
         <CompleteOnboardingButton />
       </section>
 
-      <p className="text-xs text-gray-500">
-        Coach Pat will guide you one day at a time.
-      </p>
+      <p className="text-xs text-gray-500">Coach Pat will guide you one day at a time.</p>
     </div>
   );
 }

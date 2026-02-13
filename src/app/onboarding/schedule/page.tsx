@@ -1,9 +1,12 @@
+import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OnboardingProgress from "@/components/onboarding-progress";
 import ScheduleClient from "./schedule-client";
 
-export default async function SchedulePage() {
+export const dynamic = "force-dynamic";
+
+export default async function SchedulePage(): Promise<ReactElement> {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
 
@@ -14,8 +17,7 @@ export default async function SchedulePage() {
   }
 
   const hasOutcome =
-    typeof md?.onboardingOutcome === "string" &&
-    md.onboardingOutcome.length > 0;
+    typeof md?.onboardingOutcome === "string" && md.onboardingOutcome.length > 0;
 
   if (!hasOutcome) {
     redirect("/onboarding/outcome");

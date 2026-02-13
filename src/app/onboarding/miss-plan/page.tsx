@@ -1,11 +1,23 @@
+import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OnboardingProgress from "@/components/onboarding-progress";
 import MissPlanClient from "./miss-plan-client";
 
-export default async function MissPlanPage() {
+/**
+ * ======================================================
+ * Onboarding — Miss Plan Step
+ * ======================================================
+ */
+
+export const dynamic = "force-dynamic";
+
+export default async function MissPlanPage(): Promise<ReactElement> {
   const user = await currentUser();
-  if (!user) redirect("/sign-in");
+
+  if (!user) {
+    redirect("/sign-in");
+  }
 
   const md = (user.publicMetadata || {}) as Record<string, any>;
 
@@ -13,8 +25,7 @@ export default async function MissPlanPage() {
     redirect("/post-sign-in");
   }
 
-  const hasSchedule =
-    typeof md?.onboardingPracticeTimeOfDay === "string";
+  const hasSchedule = typeof md?.onboardingPracticeTimeOfDay === "string";
 
   if (!hasSchedule) {
     redirect("/onboarding/schedule");

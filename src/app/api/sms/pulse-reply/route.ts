@@ -6,22 +6,8 @@ export const runtime = "nodejs";
 
 /**
  * ======================================================
- * POST /api/sms/pulse-reply (CANONICAL)
+ * Day 4–5 SMS Pulse Reply Intake (CANONICAL)
  * ======================================================
- *
- * Accepts:
- * - token (signed)
- * - message (1 word, 2-3 allowed)
- *
- * Writes to:
- * - feedback_events
- *
- * Stream:
- * - Stream A (private truth)
- *
- * IMPORTANT:
- * - No auth required (token is identity)
- * - Must never allow cross-user submission
  */
 
 function normalizeText(input: unknown): string | null {
@@ -30,58 +16,35 @@ function normalizeText(input: unknown): string | null {
   return t.length ? t : null;
 }
 
-function countWords(text: string) {
-  const t = text.trim().replace(/\s+/g, " ");
-  if (!t) return 0;
-  return t.split(" ").length;
-}
+function classifyPulseWord(raw: string): "positive" | "negative" | "neutral" {
+  const t = raw.toLowerCase();
 
-function classifyPulseWord(word: string): {
-  reason_code: string;
-  pulse_sentiment: "positive" | "negative" | "neutral";
-} {
-  const w = word.toLowerCase();
+  const positive = new Set([
+    "good","great","amazing","helpful","calm","easy","clear","strong",
+    "solid","needed","perfect","better","love","loving","powerful",
+    "steady","focused","motivating",
+  ]);
 
-  // We keep this intentionally small and calm.
-  // The point is trend detection, not NLP perfection.
-  const negative = [
-    "hard",
-    "busy",
-    "confusing",
-    "unclear",
-    "overwhelming",
-    "stressful",
-    "frustrating",
-    "tough",
-    "difficult",
-  ];
+  const negative = new Set([
+    "hard","busy","confusing","overwhelming","tough","stressful",
+    "heavy","unclear","frustrating","annoying","inconsistent",
+    "impossible","lost","stuck","bad",
+  ]);
 
-  const positive = [
-    "good",
-    "great",
-    "steady",
-    "helpful",
-    "clear",
-    "calm",
-    "better",
-    "strong",
-    "easy",
-  ];
+  if (t.includes("too busy")) return "negative";
+  if (t.includes("so good")) return "positive";
 
-  if (negative.some((x) => w.includes(x))) {
-    return { reason_code: "pulse_negative", pulse_sentiment: "negative" };
-  }
+  const first = t.split(" ")[0];
 
-  if (positive.some((x) => w.includes(x))) {
-    return { reason_code: "pulse_positive", pulse_sentiment: "positive" };
-  }
+  if (positive.has(first)) return "positive";
+  if (negative.has(first)) return "negative";
 
-  return { reason_code: "pulse_neutral", pulse_sentiment: "neutral" };
+  return "neutral";
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = await req.json().catch(() => ({}));
 
     const token = normalizeText(body?.token);
     const message = normalizeText(body?.message);
@@ -89,35 +52,35 @@ export async function POST(req: Request) {
     if (!token || !message) {
       return NextResponse.json(
         { ok: false, reason: "missing_fields" },
-        { status: 400 }
+        { status: 200 }
       );
     }
 
-    // Guard: one word, but allow 2–3
-    const words = countWords(message);
-    if (words > 3) {
-      return NextResponse.json(
-        { ok: false, reason: "too_many_words" },
-        { status: 400 }
-      );
-    }
-
-    // Verify token → gives us clerk_user_id + day_number
     const verified = verifyPulseToken(token);
 
-    if (!verified.ok) {
+    // Explicit type narrowing
+    if (!verified || verified.ok !== true) {
       return NextResponse.json(
         { ok: false, reason: "invalid_token" },
-        { status: 400 }
+        { status: 200 }
       );
     }
 
-    const { clerk_user_id, day_number } = verified.payload;
+    const clerk_user_id = verified.clerk_user_id;
+    const day_number = verified.day_number;
 
-    const { reason_code, pulse_sentiment } = classifyPulseWord(message);
+    const wordCount = message.split(" ").filter(Boolean).length;
 
-    // Once guard: never allow duplicates for this user
-    // (even if they reload and resubmit)
+    if (wordCount > 3) {
+      return NextResponse.json(
+        { ok: false, reason: "too_many_words" },
+        { status: 200 }
+      );
+    }
+
+    const sentimentClass = classifyPulseWord(message);
+
+    // Idempotency check
     const { data: existing } = await supabaseServer
       .from("feedback_events")
       .select("id")
@@ -129,7 +92,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, ignored: true }, { status: 200 });
     }
 
-    // Write reply
     await supabaseServer.from("feedback_events").insert({
       clerk_user_id,
       source: "sms",
@@ -138,17 +100,18 @@ export async function POST(req: Request) {
       day_number,
       rating: null,
       sentiment: null,
-      reason_code,
-      message: message.slice(0, 80),
+      reason_code: "sms_pulse_fit_language",
+      message,
       share_permission: false,
       metadata: {
         canonical: true,
-        pulse_sentiment,
+        sentimentClass,
+        wordCount,
       },
     });
 
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[PULSE REPLY] SERVER ERROR:", err);
 
     return NextResponse.json(

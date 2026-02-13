@@ -1,6 +1,9 @@
+import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 function isSubscribedFromMetadata(md: Record<string, any>) {
   const subscribedRaw = md?.summittSubscribed;
@@ -14,7 +17,7 @@ function isSubscribedFromMetadata(md: Record<string, any>) {
   );
 }
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage(): Promise<ReactElement> {
   const user = await currentUser();
 
   if (!user) {

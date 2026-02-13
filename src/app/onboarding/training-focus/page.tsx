@@ -1,9 +1,12 @@
+import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import TrainingFocusClient from "./training-focus-client";
 import OnboardingProgress from "@/components/onboarding-progress";
 
-export default async function TrainingFocusPage() {
+export const dynamic = "force-dynamic";
+
+export default async function TrainingFocusPage(): Promise<ReactElement> {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
 
@@ -14,10 +17,11 @@ export default async function TrainingFocusPage() {
   }
 
   const hasMissPlan =
-    typeof md?.onboardingMissPlan === "string" &&
-    md.onboardingMissPlan.length > 0;
+    typeof md?.onboardingMissPlan === "string" && md.onboardingMissPlan.length > 0;
 
-  if (!hasMissPlan) redirect("/onboarding/miss-plan");
+  if (!hasMissPlan) {
+    redirect("/onboarding/miss-plan");
+  }
 
   return (
     <div>
