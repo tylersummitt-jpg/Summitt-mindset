@@ -10,21 +10,35 @@ function safeDayNumber(raw: unknown): number | null {
   return Math.floor(n);
 }
 
+function isSubscribedFromMetadata(md: Record<string, any>) {
+  const subscribedRaw = md?.summittSubscribed;
+  const plan = md?.summittPlan;
+
+  return (
+    subscribedRaw === true ||
+    subscribedRaw === "true" ||
+    plan === "monthly" ||
+    plan === "annual"
+  );
+}
+
 /**
  * ======================================================
  * Day Route Gate (CANONICAL)
  * ======================================================
  *
- * Rule:
- * - If user completes a day today, tomorrow’s day stays locked
- *   until after midnight (timezone-aware).
+ * Rules:
+ * - Must be signed in
+ * - Must be subscribed
+ * - Must be onboarded
+ * - If completed today, tomorrow stays locked until midnight (timezone-aware)
  */
 export default async function DayLayout({
   children,
   params,
 }: {
   children: ReactNode;
-  params: Promise<{ day: string }>; // ✅ Next.js 15 fix
+  params: Promise<{ day: string }>;
 }) {
   const user = await currentUser();
 
@@ -32,7 +46,17 @@ export default async function DayLayout({
     redirect("/sign-in");
   }
 
-  const md = user.publicMetadata || {};
+  const md = (user.publicMetadata || {}) as Record<string, any>;
+
+  // 🔒 Must be subscribed
+  if (!isSubscribedFromMetadata(md)) {
+    redirect("/subscribe");
+  }
+
+  // 🔒 Must be onboarded
+  if (md?.onboardingCompleted !== true) {
+    redirect("/onboarding");
+  }
 
   const currentDay = safeDayNumber(md.currentDay);
   if (!currentDay) {

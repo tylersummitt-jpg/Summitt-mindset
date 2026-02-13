@@ -1,65 +1,91 @@
+// src/app/api/coach-pat/daily/route.ts
+
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
+import { supabaseServer } from "@/lib/supabase-server";
+import { generateDailyCoachPatMessage } from "@/lib/daily-coach-pat-engine";
 
-import {
-  resolveTrainingCampDay,
-  type TrainingCampTrack,
-} from "@/lib/training-camp-resolver";
-import { generateCoachPatNote } from "@/lib/coach-pat-generator";
+const MAX_COACH_PAT_NOTES_PER_DAY = 30;
+
+function todayKeyUTC() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export async function GET(req: Request) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ ok: false }, { status: 200 });
     }
 
-    const user = await currentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // ----------------------------
+    // RATE LIMIT (cost guard)
+    // ----------------------------
+    const dayKey = todayKeyUTC();
+
+    const { data: usageRows, error: usageErr } = await supabaseServer
+      .from("coach_pat_daily_usage")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .eq("day_key", dayKey);
+
+    if (usageErr) {
+      return NextResponse.json(
+        { ok: false, reason: "usage_check_failed" },
+        { status: 200 }
+      );
     }
 
+    if ((usageRows?.length ?? 0) >= MAX_COACH_PAT_NOTES_PER_DAY) {
+      return NextResponse.json(
+        { ok: false, reason: "rate_limited" },
+        { status: 200 }
+      );
+    }
+
+    const { error: insertErr } = await supabaseServer
+      .from("coach_pat_daily_usage")
+      .insert({
+        clerk_user_id: userId,
+        day_key: dayKey,
+      });
+
+    if (insertErr) {
+      return NextResponse.json(
+        { ok: false, reason: "usage_insert_failed" },
+        { status: 200 }
+      );
+    }
+
+    // ----------------------------
+    // DAY PARAM (optional override)
+    // ----------------------------
     const url = new URL(req.url);
     const dayParam = url.searchParams.get("day");
-    const dayNumber = Number(dayParam);
+    const dayNumber = dayParam ? Number(dayParam) : undefined;
 
-    if (!Number.isFinite(dayNumber) || dayNumber < 1) {
-      return NextResponse.json({ error: "Invalid day" }, { status: 400 });
-    }
-
-    // ----------------------------
-    // Resolve Training Camp practice
-    // ----------------------------
-    const trackRaw = user.publicMetadata?.trainingCampTrack;
-    const trainingCampTrack: TrainingCampTrack =
-      trackRaw === "women" ? "women" : "standard";
-
-    const practice = await resolveTrainingCampDay({
-      dayNumber,
-      trainingCampTrack,
-    });
-
-    const actionItem =
-      practice?.action_item ??
-      "Show up today with intention and hold the standard, even in small moments.";
-
-    // ----------------------------
-    // Generate ephemeral Coach Pat note
-    // (identity is resolved INSIDE context builder)
-    // ----------------------------
-    const note = await generateCoachPatNote({
+    const result = await generateDailyCoachPatMessage({
       userId,
       dayNumber,
-      actionItem,
     });
 
-    return NextResponse.json({ note });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, reason: result.reason },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json(
+      { ok: true, note: result.note, cached: result.cached ?? false },
+      { status: 200 }
+    );
   } catch (err) {
     console.error("Coach Pat daily API error:", err);
     return NextResponse.json(
-      { error: "Failed to generate Coach Pat note" },
+      { ok: false, reason: "server_error" },
       { status: 500 }
     );
   }

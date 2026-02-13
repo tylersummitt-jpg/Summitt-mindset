@@ -1,14 +1,11 @@
-import { resolveDailyPracticeForUser } from "@/lib/resolve-daily-practice";
-import { generateCoachPatNote } from "@/lib/coach-pat-generator";
+// src/lib/daily-coach-pat-message.ts
+
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { generateDailyCoachPatMessage } from "@/lib/daily-coach-pat-engine";
 
 export type DailyCoachPatMessageResult =
-  | {
-      send: true;
-      text: string;
-      dayNumber: number;
-    }
+  | { send: true; text: string; dayNumber: number }
   | {
       send: false;
       reason:
@@ -23,16 +20,15 @@ export type DailyCoachPatMessageResult =
  * Daily Coach Pat SMS Generator (CANONICAL)
  * ======================================================
  *
- * This function determines:
+ * Determines:
  * - whether an SMS should be sent today
  * - what day the user is on
- * - what practice is active
- * - what Coach Pat should say
+ * - returns the SAME cached coach note used in-app
  *
  * It does NOT:
  * - send SMS
- * - write Supabase
- * - update Clerk
+ * - write journal entries
+ * - complete days
  */
 export async function getDailyCoachPatMessageForSMS(
   userId: string
@@ -57,7 +53,7 @@ export async function getDailyCoachPatMessageForSMS(
   }
 
   // ----------------------------
-  // TIMEZONE-AWARE CALENDAR GUARD
+  // TIMEZONE-AWARE "already completed today" guard
   // ----------------------------
   const timezone = resolveUserTimezone(metadata.timezone);
 
@@ -74,32 +70,20 @@ export async function getDailyCoachPatMessageForSMS(
   }
 
   // ----------------------------
-  // CANONICAL PRACTICE RESOLUTION
+  // CANONICAL NOTE (CACHED ENGINE)
   // ----------------------------
-  let practice;
-  try {
-    practice = await resolveDailyPracticeForUser(userId);
-  } catch (err) {
-    console.error("Daily SMS resolver error:", err);
-    return { send: false, reason: "not_ready" };
-  }
-
-  // ----------------------------
-  // COACH PAT NOTE GENERATION
-  // ----------------------------
-  const text = await generateCoachPatNote({
+  const result = await generateDailyCoachPatMessage({
     userId,
-    dayNumber: practice.currentDay,
-    actionItem: practice.actionItem,
+    dayNumber: currentDay,
   });
 
-  if (!text) {
+  if (!result.ok || !result.note) {
     return { send: false, reason: "not_ready" };
   }
 
   return {
     send: true,
-    text,
-    dayNumber: practice.currentDay,
+    text: result.note,
+    dayNumber: result.dayNumber,
   };
 }

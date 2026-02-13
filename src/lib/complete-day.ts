@@ -1,8 +1,12 @@
+// src/lib/complete-day.ts
+
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { compressReflectionToMemoryAtom } from "@/lib/memory/compress-reflection";
+import { extractWeeklyPatternsFromMemoryAtoms } from "@/lib/memory/pattern-extractor";
 
 /**
  * ======================================================
@@ -13,10 +17,18 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
  *
  * Completion responsibilities:
  * - verify journal exists
- * - generate contextualized daily memory
+ * - generate coach-safe daily memory (deterministic, non-verbatim)
+ * - update weekly summary safely (identity + patterns, not diary glue)
  * - advance progression safely
  *
  * Raw journal entries are NEVER modified here.
+ *
+ * ======================================================
+ * Memory Safety Rules (non-negotiable)
+ * - Never store verbatim journaling
+ * - Never store quotes
+ * - Never mention journaling / entries
+ * - Never store timestamps (today/yesterday/etc.)
  */
 
 export type CompleteDaySource = "app" | "sms";
@@ -33,39 +45,65 @@ function numberOrZero(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+function isValidDate(d: Date): boolean {
+  return d instanceof Date && !Number.isNaN(d.getTime());
+}
+
+function safeString(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  return t.length ? t : null;
+}
+
 /**
- * Builds a single contextualized reflection sentence.
- * This is the atomic memory unit used by Coach Pat / SMS / Ask Pat.
+ * Weekly framing:
+ * This is the identity anchor that makes weekly summaries meaningful.
  */
-function buildContextualizedReflection({
-  reflectionPrompt,
-  actionItem,
-  journalContent,
+function buildWeeklyFraming({
+  onboardingOutcome,
+  onboardingArena,
 }: {
-  reflectionPrompt: string | null;
-  actionItem: string | null;
-  journalContent: string;
+  onboardingOutcome: string | null;
+  onboardingArena: string | null;
+}): string | null {
+  if (onboardingOutcome) return `Training toward: ${onboardingOutcome}.`;
+  if (onboardingArena) return `Training in: ${onboardingArena}.`;
+  return null;
+}
+
+function buildWeeklySummaryText({
+  framing,
+  patterns,
+  atoms,
+}: {
+  framing: string | null;
+  patterns: string[];
+  atoms: string[];
 }): string {
-  const answer = normalizeText(journalContent);
-  if (!answer) return "";
+  const parts: string[] = [];
 
-  const prompt = normalizeText(reflectionPrompt || "");
-  const action = normalizeText(actionItem || "");
+  if (framing) parts.push(framing);
 
-  // Gentle, coach-style synthesis (second person, time-agnostic)
-  if (prompt && action) {
-    return `You reflected on "${prompt.toLowerCase()}", and today you practiced by ${answer.toLowerCase()}.`;
+  // Patterns are the moat. Keep these early in the string.
+  for (const p of patterns.slice(0, 2)) {
+    parts.push(p);
   }
 
-  if (prompt) {
-    return `You reflected on "${prompt.toLowerCase()}", and noted that ${answer.toLowerCase()}.`;
+  // Add a short, steady recap without becoming diary-like.
+  // We use atoms (already safe) but we keep it compact.
+  if (atoms.length) {
+    const recap = atoms.slice(0, 3).join(" "); // safest: only a few
+    parts.push(recap);
   }
 
-  if (action) {
-    return `You focused on ${action.toLowerCase()}, and today you noticed that ${answer.toLowerCase()}.`;
-  }
+  // Hard sanitize
+  const combined = normalizeText(parts.join(" "))
+    .replace(/["']/g, "")
+    .replace(/\b(journal|journaling|entry|wrote|writing)\b/gi, "")
+    .trim();
 
-  return `Today, you reflected and noted that ${answer.toLowerCase()}.`;
+  // Keep within weekly cap upstream
+  return combined;
 }
 
 export async function completeDay({
@@ -95,7 +133,7 @@ export async function completeDay({
   const daysInRow = numberOrZero(metadata.daysInRow);
 
   // --------------------------------------------------
-  // 🗓️ TIMEZONE-SAFE TODAY CHECK
+  // 🗓️ TIMEZONE-SAFE TODAY CHECK (prevent double completion)
   // --------------------------------------------------
   const timezone = resolveUserTimezone(metadata.timezone);
   const now = new Date();
@@ -103,10 +141,12 @@ export async function completeDay({
 
   if (typeof metadata.lastCompletedAt === "string") {
     const last = new Date(metadata.lastCompletedAt);
-    const lastKey = getDateKeyInTimezone(last, timezone);
 
-    if (lastKey === todayKey) {
-      return { ok: false, reason: "already_completed_today" };
+    if (isValidDate(last)) {
+      const lastKey = getDateKeyInTimezone(last, timezone);
+      if (lastKey === todayKey) {
+        return { ok: false, reason: "already_completed_today" };
+      }
     }
   }
 
@@ -116,18 +156,22 @@ export async function completeDay({
   const trainingCampTrack =
     metadata.trainingCampTrack === "women" ? "women" : "standard";
 
-  await ensureDailyPrompt({
+  const primaryGoal =
+    typeof metadata.summittGoal === "string" ? metadata.summittGoal : undefined;
+
+  const ensuredPrompt = await ensureDailyPrompt({
     userId,
     dayNumber: currentDay,
     trainingCampTrack,
+    primaryGoal,
   });
 
   // --------------------------------------------------
-  // ✍️ LOAD JOURNAL + CONTEXT
+  // ✍️ LOAD JOURNAL (REQUIRED)
   // --------------------------------------------------
   const { data: journalRow, error: journalError } = await supabaseServer
     .from("journal_entries")
-    .select("content, reflection_prompt, action_item")
+    .select("content, action_item")
     .eq("clerk_user_id", userId)
     .eq("day_number", currentDay)
     .maybeSingle();
@@ -136,45 +180,55 @@ export async function completeDay({
     return { ok: false, reason: "journal_lookup_failed" };
   }
 
-  const normalizedJournal = normalizeText(journalRow?.content ?? "");
-
-  if (!normalizedJournal) {
+  const rawJournal = normalizeText(journalRow?.content ?? "");
+  if (!rawJournal) {
     return { ok: false, reason: "journal_required" };
   }
 
   // --------------------------------------------------
-  // 🧠 BUILD CONTEXTUALIZED DAILY MEMORY
+  // 🧠 DAILY MEMORY ATOM (DETERMINISTIC, SAFE)
   // --------------------------------------------------
-  const contextualizedReflection = buildContextualizedReflection({
-    reflectionPrompt: journalRow?.reflection_prompt ?? null,
-    actionItem: journalRow?.action_item ?? null,
-    journalContent: normalizedJournal,
+  // We prefer stored action_item, fallback to ensured prompt actionItem.
+  const actionItem =
+    normalizeText(journalRow?.action_item ?? "") ||
+    normalizeText(ensuredPrompt?.actionItem ?? "") ||
+    null;
+
+  const memoryAtom = compressReflectionToMemoryAtom({
+    actionItem,
+    journalContent: rawJournal,
+    maxChars: 300,
   });
 
-  if (!contextualizedReflection) {
+  if (!memoryAtom) {
     return { ok: false, reason: "memory_build_failed" };
   }
 
-  // --------------------------------------------------
-  // 📌 DAILY SUMMARY (MEANINGFUL MEMORY)
-  // --------------------------------------------------
-  await supabaseServer.from("daily_summaries").upsert(
-    {
-      clerk_user_id: userId,
-      day_number: currentDay,
-      daily_summaries: contextualizedReflection.slice(0, 300),
-    },
-    { onConflict: "clerk_user_id,day_number" }
-  );
+  const { error: dailySummaryError } = await supabaseServer
+    .from("daily_summaries")
+    .upsert(
+      {
+        clerk_user_id: userId,
+        day_number: currentDay,
+        daily_summaries: memoryAtom,
+      },
+      { onConflict: "clerk_user_id,day_number" }
+    );
+
+  // ✅ Fail-closed: memory is part of the OS
+  if (dailySummaryError) {
+    console.error("DAILY SUMMARY UPSERT ERROR:", dailySummaryError);
+    return { ok: false, reason: "daily_summary_upsert_failed" };
+  }
 
   // --------------------------------------------------
-  // 📅 WEEKLY SUMMARY (EVERY 7 DAYS)
+  // 📅 WEEKLY SUMMARY (EVERY 7 DAYS) — SAFE + PATTERNED
   // --------------------------------------------------
   if (currentDay % 7 === 0) {
     const weekEnd = currentDay;
     const weekStart = currentDay - 6;
 
-    const { data: summaries } = await supabaseServer
+    const { data: summaries, error: weeklyLoadError } = await supabaseServer
       .from("daily_summaries")
       .select("daily_summaries")
       .eq("clerk_user_id", userId)
@@ -182,27 +236,62 @@ export async function completeDay({
       .lte("day_number", weekEnd)
       .order("day_number");
 
-    if (summaries?.length) {
-      const text = summaries.map((s) => s.daily_summaries || "").join(" ");
+    if (weeklyLoadError) {
+      console.error("WEEKLY SUMMARY LOAD ERROR:", weeklyLoadError);
+      return { ok: false, reason: "weekly_summary_load_failed" };
+    }
 
-      await supabaseServer.from("weekly_summaries").upsert(
-        {
-          clerk_user_id: userId,
-          week_start_day: weekStart,
-          week_end_day: weekEnd,
-          weekly_summary: text.slice(0, 600),
-        },
-        { onConflict: "clerk_user_id,week_start_day" }
-      );
+    const atoms =
+      summaries?.map((s: any) => normalizeText(s?.daily_summaries ?? "")).filter(Boolean) ??
+      [];
+
+    if (atoms.length) {
+      const onboardingOutcome = safeString(metadata.onboardingOutcome);
+      const onboardingArena = safeString(metadata.onboardingArena);
+
+      const framing = buildWeeklyFraming({
+        onboardingOutcome,
+        onboardingArena,
+      });
+
+      // Deterministic patterns from safe atoms
+      const patterns = extractWeeklyPatternsFromMemoryAtoms(atoms);
+
+      const weeklySummary = buildWeeklySummaryText({
+        framing,
+        patterns,
+        atoms,
+      }).slice(0, 600);
+
+      const { error: weeklyUpsertError } = await supabaseServer
+        .from("weekly_summaries")
+        .upsert(
+          {
+            clerk_user_id: userId,
+            week_start_day: weekStart,
+            week_end_day: weekEnd,
+            weekly_summary: weeklySummary,
+          },
+          { onConflict: "clerk_user_id,week_start_day" }
+        );
+
+      if (weeklyUpsertError) {
+        console.error("WEEKLY SUMMARY UPSERT ERROR:", weeklyUpsertError);
+        return { ok: false, reason: "weekly_summary_upsert_failed" };
+      }
     }
   }
 
   // --------------------------------------------------
   // 🎥 TRACK SHOWN VIDEO IDS (APP ONLY)
   // --------------------------------------------------
-  const shownVideoIds = Array.isArray(metadata.shownVideoIds)
+  const shownVideoIdsRaw = Array.isArray(metadata.shownVideoIds)
     ? metadata.shownVideoIds
     : [];
+
+  const shownVideoIds = shownVideoIdsRaw.filter(
+    (v: unknown) => typeof v === "string" && v.trim().length > 0
+  );
 
   const nextShownVideoIds =
     source === "app" && videoIdShown
@@ -219,16 +308,13 @@ export async function completeDay({
   // 🔐 UPDATE CLERK METADATA (CANONICAL MERGE PATCH)
   // --------------------------------------------------
   await updateClerkPublicMetadata(userId, {
-    // ✅ Progression
     currentDay: currentDay + 1,
     totalDaysCompleted: totalDaysCompleted + 1,
     daysInRow: daysInRow + 1,
     lastCompletedAt: now.toISOString(),
 
-    // ✅ Video tracking
     shownVideoIds: nextShownVideoIds,
 
-    // ✅ Achievement Anchor (earned once)
     trainingCampStarted:
       metadata.trainingCampStarted === true ? true : earnedTrainingCampStart,
 

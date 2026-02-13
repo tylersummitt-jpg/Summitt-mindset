@@ -2,13 +2,10 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { resolveTrainingCampDay } from "@/lib/training-camp-resolver";
 import { selectInSeasonActionForDay, inSeasonPromptId } from "@/lib/in-season-selector";
 import { generateInSeasonReflectionPrompt } from "@/lib/in-season-reflection-generator";
+import { trainingCampPromptId } from "@/lib/prompt-ids";
 
 function normalizeText(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
-}
-
-function trainingCampPromptId(day: number): string {
-  return `tc-day-${day}`;
 }
 
 /**

@@ -5,18 +5,21 @@ import "./globals.css";
 
 /**
  * ======================================================
- * Root Layout (Global Shell)
+ * Root Layout (Global Shell) — AUTHORITATIVE
  * ======================================================
  *
  * This is the permanent frame of Summitt Mindset.
  *
- * Principles:
+ * DESIGN PRINCIPLES:
  * - Calm
+ * - Premium
  * - Minimal
  * - Retention-first
- * - No “course” or “assessment” framing
  *
- * Footer must stay simple + compliant (Twilio).
+ * IMPORTANT:
+ * - Light mode only by design (launch decision)
+ * - No visual experiments here
+ * - Any brand changes should happen via CSS tokens
  */
 
 export const metadata: Metadata = {
@@ -35,20 +38,30 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-gray-50 text-gray-900">
+      <body className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
         <ClerkProvider
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
         >
           <div className="flex flex-col min-h-screen">
-            {/* ✅ NAVBAR (simple, focused) */}
+            {/* ======================================================
+                NAVBAR
+               ====================================================== */}
             <Navbar />
 
-            {/* ✅ MAIN CONTENT */}
+            {/* ======================================================
+                MAIN CONTENT
+                - Pages render on warm paper background
+                - Individual pages control their own surfaces
+               ====================================================== */}
             <main className="flex-1">{children}</main>
 
-            {/* ✅ FOOTER (Compliance + Calm Brand Anchor) */}
-            <footer className="border-t bg-white">
-              <div className="max-w-6xl mx-auto px-4 py-6 text-xs text-gray-500 flex flex-col md:flex-row justify-between gap-4">
+            {/* ======================================================
+                FOOTER
+                - Anchors the brand
+                - Uses true white surface for contrast
+               ====================================================== */}
+            <footer className="border-t border-[var(--border)] bg-[var(--surface)]">
+              <div className="max-w-6xl mx-auto px-4 py-6 text-xs text-[var(--muted)] flex flex-col md:flex-row justify-between gap-4">
                 {/* Left */}
                 <span>© {new Date().getFullYear()} Summitt Mindset</span>
 

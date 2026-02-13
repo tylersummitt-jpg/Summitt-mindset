@@ -13,6 +13,10 @@ import { useUser } from "@clerk/nextjs";
  * - Daily Practice stays central
  * - Membership + Billing lives under Account
  * - Subscribe disappears once subscribed
+ *
+ * Visual rules:
+ * - Neutral by default
+ * - Summitt Orange used sparingly for active / hover
  */
 
 export function Navbar() {
@@ -40,24 +44,30 @@ export function Navbar() {
     { href: "/ask-pat", label: "Ask Pat" },
     { href: "/film-room", label: "Film Room" },
 
-    // ✅ Account always visible once signed in
     ...(isSignedIn ? [{ href: "/user", label: "Account" }] : []),
 
-    // ✅ Subscribe only shown if NOT subscribed
     ...(isLoaded && (!isSignedIn || !isSubscribed)
       ? [{ href: "/subscribe", label: "Subscribe" }]
       : []),
   ];
 
   return (
-    <header className="border-b bg-white">
+    <header className="border-b border-[var(--border)] bg-[var(--surface)]">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Brand */}
-        <Link href="/" className="font-bold text-lg tracking-tight">
-          Summitt Mindset
+        {/* ======================================================
+            Brand
+           ====================================================== */}
+        <Link
+          href="/"
+          className="font-semibold text-lg tracking-tight"
+        >
+          <span className="text-[var(--text)]">Summitt</span>{" "}
+          <span className="text-[var(--brand)]">Mindset</span>
         </Link>
 
-        {/* Navigation */}
+        {/* ======================================================
+            Navigation
+           ====================================================== */}
         <nav className="flex gap-4 text-sm">
           {navLinks.map((link) => {
             const isActive =
@@ -70,10 +80,10 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 className={
-                  "px-2 py-1 rounded transition " +
+                  "px-2 py-1 rounded transition-colors " +
                   (isActive
-                    ? "font-semibold border-b-2 border-gray-900"
-                    : "text-gray-600 hover:text-gray-900")
+                    ? "font-semibold text-[var(--text)] border-b-2 border-[var(--brand)]"
+                    : "text-[var(--muted)] hover:text-[var(--text)]")
                 }
               >
                 {link.label}

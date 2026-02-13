@@ -7,14 +7,24 @@ import { redirect } from "next/navigation";
  * Dashboard Layout Gate (CANONICAL)
  * ======================================================
  *
- * Users may NOT enter the Daily Practice system
- * until onboarding is complete.
- *
- * This prevents:
- * - skipped personalization
- * - broken metadata state
- * - retention loss on Day 1
+ * Rule:
+ * - /dashboard is the Daily OS (paid member area)
+ * - Must be signed in
+ * - Must be subscribed
+ * - Must have completed onboarding
  */
+
+function isSubscribedFromMetadata(md: Record<string, any>) {
+  const subscribedRaw = md?.summittSubscribed;
+  const plan = md?.summittPlan;
+
+  return (
+    subscribedRaw === true ||
+    subscribedRaw === "true" ||
+    plan === "monthly" ||
+    plan === "annual"
+  );
+}
 
 export default async function DashboardLayout({
   children,
@@ -27,10 +37,18 @@ export default async function DashboardLayout({
     redirect("/sign-in");
   }
 
-  const onboardingCompleted =
-    user.publicMetadata?.onboardingCompleted === true;
+  const md = (user.publicMetadata || {}) as Record<string, any>;
 
-  // ✅ HARD GATE — onboarding is mandatory
+  const isSubscribed = isSubscribedFromMetadata(md);
+
+  // 🔒 HARD GATE — subscription required
+  if (!isSubscribed) {
+    redirect("/subscribe");
+  }
+
+  const onboardingCompleted = md?.onboardingCompleted === true;
+
+  // 🔒 HARD GATE — onboarding required
   if (!onboardingCompleted) {
     redirect("/onboarding");
   }
