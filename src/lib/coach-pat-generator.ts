@@ -18,6 +18,23 @@ function normalizeText(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
 }
 
+function stripMarkdown(text: string): string {
+  let t = text || "";
+
+  // Remove bullets
+  t = t.replace(/^\s*[-*•]\s+/gm, "");
+
+  // Remove numbering
+  t = t.replace(/^\s*\d+\.\s+/gm, "");
+
+  // Remove markdown emphasis
+  t = t.replace(/\*\*(.*?)\*\*/g, "$1");
+  t = t.replace(/\*(.*?)\*/g, "$1");
+  t = t.replace(/_(.*?)_/g, "$1");
+
+  return normalizeText(t);
+}
+
 function splitIntoSentences(text: string): string[] {
   const cleaned = normalizeText(text);
   if (!cleaned) return [];
@@ -40,26 +57,39 @@ function enforceMaxFourSentences(text: string): string {
     return "Today is about staying steady. Keep it simple. Do the work in front of you. That’s enough.";
   }
 
-  if (sentences.length <= 4) {
-    return sentences.join(" ");
-  }
-
   return sentences.slice(0, 4).join(" ");
 }
 
 /**
  * Remove phrases that break the “no memory talk” rule.
+ * This is not the only guard — prompts do most of the work.
  */
 function stripForbiddenPhrases(text: string): string {
   const forbidden = [
     "last week",
     "last month",
+    "yesterday",
+    "earlier",
+    "previous",
     "you said",
     "you wrote",
+    "you mentioned",
+    "as you mentioned",
+    "as you said",
+    "as you wrote",
     "based on",
     "from your summary",
     "from your summaries",
-    "as you mentioned",
+    "from your memory",
+    "from your journal",
+    "in your journal",
+    "in your journaling",
+    "your journaling",
+    "your entry",
+    "write this down",
+    "write it down",
+    "in your reflection",
+    "reflect on",
   ];
 
   let cleaned = text;
@@ -69,10 +99,42 @@ function stripForbiddenPhrases(text: string): string {
     cleaned = cleaned.replace(regex, "");
   }
 
-  return cleaned;
+  return normalizeText(cleaned);
 }
 
-function buildContextBrief(context: Awaited<ReturnType<typeof buildCoachPatContext>>): string {
+/**
+ * Strip direct quotes, because quoting is how "echo" sneaks in.
+ */
+function stripQuotes(text: string): string {
+  let t = text || "";
+  t = t.replace(/[“”]/g, '"');
+  t = t.replace(/[‘’]/g, "'");
+  t = t.replace(/".*?"/g, "");
+  t = t.replace(/'.*?'/g, "");
+  return normalizeText(t);
+}
+
+/**
+ * Last line of defense:
+ * - remove weird double spaces
+ * - ensure one paragraph
+ */
+function finalizeOutput(text: string): string {
+  let t = normalizeText(text);
+
+  // Remove line breaks
+  t = t.replace(/\n+/g, " ");
+
+  // Remove stray punctuation
+  t = t.replace(/\s+([,.!?])/g, "$1");
+  t = t.replace(/([,.!?]){2,}/g, "$1");
+
+  return normalizeText(t);
+}
+
+function buildContextBrief(
+  context: Awaited<ReturnType<typeof buildCoachPatContext>>
+): string {
   const { identity, patterns, recent_summary, today_context, today_practice } =
     context;
 
@@ -132,10 +194,6 @@ export async function generateCoachPatNote({
 
   const brief = buildContextBrief(context);
 
-  /**
-   * Behavioral guidance override layer
-   * We explicitly steer tone based on staleness.
-   */
   let modeInstruction = "";
 
   switch (context.today_context.staleness_mode) {
@@ -174,14 +232,19 @@ MODE INSTRUCTION:
 ${modeInstruction}
 
 Write today’s Coach Pat note.
-Rules:
-- 1 paragraph
+
+HARD RULES
+- 1 paragraph only
 - 4 sentences MAX
 - Calm, steady, direct
-- No memory references
+- Do NOT mention journaling, reflection, writing, or entries
+- Do NOT quote the user
+- Do NOT say “you said / you wrote / you mentioned”
+- Do NOT reference memory, summaries, patterns, or past days
 - No dates
 - No therapy language
 - No fluff
+- No bullet points
 `,
       },
     ],
@@ -191,8 +254,17 @@ Rules:
     completion.choices[0]?.message?.content?.trim() ||
     "Today is about staying steady. Keep it simple. Do the work in front of you. That’s enough.";
 
+  raw = stripMarkdown(raw);
+  raw = stripQuotes(raw);
   raw = stripForbiddenPhrases(raw);
   raw = enforceMaxFourSentences(raw);
+  raw = finalizeOutput(raw);
+
+  // Safety fallback
+  if (!raw || raw.length < 20) {
+    raw =
+      "Today is about staying steady. Keep it simple. Do the work in front of you. That’s enough.";
+  }
 
   return raw;
 }

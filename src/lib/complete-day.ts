@@ -45,14 +45,17 @@ function numberOrZero(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function isValidDate(d: Date): boolean {
-  return d instanceof Date && !Number.isNaN(d.getTime());
-}
-
 function safeString(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const t = raw.trim();
   return t.length ? t : null;
+}
+
+function stripTimeWords(text: string): string {
+  return (text || "")
+    .replace(/\b(today|yesterday|tomorrow|this week|last week|this month|last month)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -89,21 +92,67 @@ function buildWeeklySummaryText({
     parts.push(p);
   }
 
-  // Add a short, steady recap without becoming diary-like.
-  // We use atoms (already safe) but we keep it compact.
+  // Add a short recap without becoming diary-like.
   if (atoms.length) {
-    const recap = atoms.slice(0, 3).join(" "); // safest: only a few
+    const recap = atoms.slice(0, 3).join(" ");
     parts.push(recap);
   }
 
   // Hard sanitize
-  const combined = normalizeText(parts.join(" "))
+  let combined = normalizeText(parts.join(" "))
     .replace(/["']/g, "")
     .replace(/\b(journal|journaling|entry|wrote|writing)\b/gi, "")
     .trim();
 
-  // Keep within weekly cap upstream
-  return combined;
+  combined = stripTimeWords(combined);
+
+  return normalizeText(combined);
+}
+
+/**
+ * ======================================================
+ * Completion Lock
+ * ======================================================
+ *
+ * Prevents double completion in same local day,
+ * even under race conditions / double taps / SMS spam.
+ *
+ * Uses Supabase unique index:
+ * (clerk_user_id, day_key)
+ */
+async function tryInsertCompletionLock({
+  userId,
+  dayKey,
+  source,
+  dayNumber,
+  timezone,
+}: {
+  userId: string;
+  dayKey: string;
+  source: CompleteDaySource;
+  dayNumber: number;
+  timezone: string;
+}): Promise<{ ok: true } | { ok: false; reason: "already_completed_today" | "lock_failed" }> {
+  const { error } = await supabaseServer.from("daily_completion_events").insert({
+    clerk_user_id: userId,
+    day_key: dayKey,
+    source,
+    day_number: dayNumber,
+    timezone,
+  });
+
+  if (!error) return { ok: true };
+
+  // Postgres unique violation = 23505
+  // Supabase error shape usually includes `code`
+  const code = (error as any)?.code;
+
+  if (code === "23505") {
+    return { ok: false, reason: "already_completed_today" };
+  }
+
+  console.error("COMPLETION LOCK INSERT ERROR:", error);
+  return { ok: false, reason: "lock_failed" };
 }
 
 export async function completeDay({
@@ -133,21 +182,25 @@ export async function completeDay({
   const daysInRow = numberOrZero(metadata.daysInRow);
 
   // --------------------------------------------------
-  // 🗓️ TIMEZONE-SAFE TODAY CHECK (prevent double completion)
+  // 🗓️ TIMEZONE-SAFE TODAY KEY
   // --------------------------------------------------
   const timezone = resolveUserTimezone(metadata.timezone);
   const now = new Date();
   const todayKey = getDateKeyInTimezone(now, timezone);
 
-  if (typeof metadata.lastCompletedAt === "string") {
-    const last = new Date(metadata.lastCompletedAt);
+  // --------------------------------------------------
+  // 🔒 HARD LOCK (race-safe)
+  // --------------------------------------------------
+  const lock = await tryInsertCompletionLock({
+    userId,
+    dayKey: todayKey,
+    source,
+    dayNumber: currentDay,
+    timezone,
+  });
 
-    if (isValidDate(last)) {
-      const lastKey = getDateKeyInTimezone(last, timezone);
-      if (lastKey === todayKey) {
-        return { ok: false, reason: "already_completed_today" };
-      }
-    }
+  if (!lock.ok) {
+    return { ok: false, reason: lock.reason };
   }
 
   // --------------------------------------------------
@@ -188,7 +241,6 @@ export async function completeDay({
   // --------------------------------------------------
   // 🧠 DAILY MEMORY ATOM (DETERMINISTIC, SAFE)
   // --------------------------------------------------
-  // We prefer stored action_item, fallback to ensured prompt actionItem.
   const actionItem =
     normalizeText(journalRow?.action_item ?? "") ||
     normalizeText(ensuredPrompt?.actionItem ?? "") ||
@@ -215,7 +267,7 @@ export async function completeDay({
       { onConflict: "clerk_user_id,day_number" }
     );
 
-  // ✅ Fail-closed: memory is part of the OS
+  // Fail-closed: memory is part of the OS
   if (dailySummaryError) {
     console.error("DAILY SUMMARY UPSERT ERROR:", dailySummaryError);
     return { ok: false, reason: "daily_summary_upsert_failed" };
@@ -242,8 +294,9 @@ export async function completeDay({
     }
 
     const atoms =
-      summaries?.map((s: any) => normalizeText(s?.daily_summaries ?? "")).filter(Boolean) ??
-      [];
+      summaries
+        ?.map((s: any) => normalizeText(s?.daily_summaries ?? ""))
+        .filter(Boolean) ?? [];
 
     if (atoms.length) {
       const onboardingOutcome = safeString(metadata.onboardingOutcome);
@@ -254,7 +307,6 @@ export async function completeDay({
         onboardingArena,
       });
 
-      // Deterministic patterns from safe atoms
       const patterns = extractWeeklyPatternsFromMemoryAtoms(atoms);
 
       const weeklySummary = buildWeeklySummaryText({

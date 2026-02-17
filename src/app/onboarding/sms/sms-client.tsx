@@ -6,11 +6,19 @@ import { useRouter } from "next/navigation";
 type SmsTimePreference = "morning" | "afternoon" | "evening";
 
 function normalizeTimeOfDayToSmsPref(raw: string | null): SmsTimePreference {
-  // onboarding uses: morning | midday | evening
-  // sms uses: morning | afternoon | evening
   if (raw === "morning") return "morning";
   if (raw === "midday") return "afternoon";
   return "evening";
+}
+
+function normalizeToE164(input: string): string | null {
+  const digits = input.replace(/\D/g, "");
+
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (input.startsWith("+") && digits.length >= 11) return `+${digits}`;
+
+  return null;
 }
 
 export default function SmsClient({
@@ -24,12 +32,12 @@ export default function SmsClient({
     return normalizeTimeOfDayToSmsPref(defaultTimeOfDay);
   }, [defaultTimeOfDay]);
 
-  const [smsEnabled, setSmsEnabled] = useState<boolean>(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
   const [smsTimePreference, setSmsTimePreference] =
     useState<SmsTimePreference>(defaultPref);
 
-  // Twilio wants an affirmative consent moment.
-  const [consentChecked, setConsentChecked] = useState<boolean>(true);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,47 +45,72 @@ export default function SmsClient({
   async function handleContinue() {
     setError(null);
 
-    // If they want SMS, we require explicit consent checkbox.
-    if (smsEnabled && !consentChecked) {
-      setError("Please confirm consent to receive training texts.");
-      return;
-    }
+    if (smsEnabled) {
+      const normalized = normalizeToE164(phoneInput);
 
-    setSaving(true);
-
-    try {
-      const res = await fetch("/api/onboarding/sms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          smsEnabled,
-          smsTimePreference,
-          smsDisclosureAccepted: smsEnabled ? true : false,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error || "Something went wrong.");
+      if (!normalized) {
+        setError("Please enter a valid mobile number.");
         return;
       }
 
-      router.push("/onboarding/complete");
-    } catch (e) {
-      setError("Something went wrong.");
-    } finally {
-      setSaving(false);
+      if (!consentChecked) {
+        setError("Please confirm consent to receive training texts.");
+        return;
+      }
+
+      setSaving(true);
+
+      try {
+        const res = await fetch("/api/onboarding/sms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            smsEnabled: true,
+            smsTimePreference,
+            phoneNumber: normalized,
+            smsDisclosureAccepted: true,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          setError(data?.error || "Something went wrong.");
+          return;
+        }
+
+        router.push("/onboarding/complete");
+      } catch {
+        setError("Something went wrong.");
+      } finally {
+        setSaving(false);
+      }
+
+      return;
     }
+
+    // SMS disabled
+    await fetch("/api/onboarding/sms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        smsEnabled: false,
+      }),
+    });
+
+    router.push("/onboarding/complete");
   }
 
   return (
     <div className="space-y-8">
-      {/* Toggle */}
       <div className="border rounded-xl bg-white shadow-sm p-6 space-y-4">
         <div className="flex items-start justify-between gap-6">
-          <div className="space-y-1">
-            <p className="font-semibold text-gray-900">Daily Training Text</p>
+          <div>
+            <p className="font-semibold text-gray-900">
+              Daily Training Text
+            </p>
             <p className="text-sm text-gray-600">
               One message per day with your practice and a calm Coach Pat nudge.
             </p>
@@ -85,110 +118,75 @@ export default function SmsClient({
 
           <button
             type="button"
-            onClick={() => setSmsEnabled((v) => !v)}
+            onClick={() => {
+              setSmsEnabled((v) => {
+                const next = !v;
+                if (!next) setConsentChecked(false);
+                return next;
+              });
+            }}
             className={[
               "px-4 py-2 rounded-md text-sm font-semibold transition",
               smsEnabled
-                ? "bg-black text-white hover:bg-gray-900"
-                : "bg-gray-200 text-gray-800 hover:bg-gray-300",
+                ? "bg-black text-white"
+                : "bg-gray-200 text-gray-800",
             ].join(" ")}
-            aria-pressed={smsEnabled}
           >
             {smsEnabled ? "On" : "Off"}
           </button>
         </div>
 
-        {/* Time choice */}
-        <div className="pt-4 border-t space-y-3">
-          <p className="text-sm font-medium text-gray-900">
-            When should we send it?
-          </p>
+        {smsEnabled && (
+          <div className="space-y-4 pt-4 border-t">
+            <div>
+              <label className="text-sm font-medium text-gray-900">
+                Mobile Number
+              </label>
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                placeholder="(614) 555-1234"
+                className="mt-2 w-full border rounded-lg p-3 text-sm"
+              />
+            </div>
 
-          <div className="grid sm:grid-cols-3 gap-3">
-            {(["morning", "afternoon", "evening"] as SmsTimePreference[]).map(
-              (opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setSmsTimePreference(opt)}
-                  disabled={!smsEnabled}
-                  className={[
-                    "border rounded-lg p-3 text-sm font-semibold transition",
-                    !smsEnabled ? "opacity-50 cursor-not-allowed" : "",
-                    smsTimePreference === opt
-                      ? "border-black bg-white"
-                      : "border-gray-200 bg-white hover:bg-gray-50",
-                  ].join(" ")}
-                >
-                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                </button>
-              )
-            )}
+            <div className="grid sm:grid-cols-3 gap-3">
+              {(["morning", "afternoon", "evening"] as SmsTimePreference[]).map(
+                (opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setSmsTimePreference(opt)}
+                    className={[
+                      "border rounded-lg p-3 text-sm font-semibold",
+                      smsTimePreference === opt
+                        ? "border-black"
+                        : "border-gray-200",
+                    ].join(" ")}
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </button>
+                )
+              )}
+            </div>
+
+            <label className="flex items-start gap-3 text-sm text-gray-800">
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => setConsentChecked(e.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                I agree to receive 1 training text per day from Summitt Mindset.
+                Msg & data rates may apply. Reply STOP to cancel.
+              </span>
+            </label>
           </div>
-
-          <p className="text-xs text-gray-500">
-            We’ll use your local timezone.
-          </p>
-        </div>
+        )}
       </div>
 
-      {/* ✅ Twilio Compliance Disclosure Block */}
-      <div className="border rounded-xl bg-gray-50 p-6 space-y-3">
-        <p className="text-sm font-semibold text-gray-900">
-          Text message details
-        </p>
-
-        <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
-          <li>
-            By enabling SMS, you agree to receive <strong>1 text per day</strong>{" "}
-            from Summitt Mindset (training reminders + your daily practice).
-          </li>
-          <li>
-            Message frequency may vary slightly during onboarding and weekly
-            reflection moments.
-          </li>
-          <li>
-            <strong>Msg &amp; data rates may apply.</strong>
-          </li>
-          <li>
-            Reply <strong>STOP</strong> to cancel. Reply <strong>HELP</strong>{" "}
-            for help.
-          </li>
-          <li>
-            Consent is not a condition of purchase.
-          </li>
-        </ul>
-
-        <div className="pt-3 border-t">
-          <label className="flex items-start gap-3 text-sm text-gray-800">
-            <input
-              type="checkbox"
-              checked={consentChecked}
-              onChange={(e) => setConsentChecked(e.target.checked)}
-              disabled={!smsEnabled}
-              className="mt-1"
-            />
-            <span>
-              I agree to receive training texts from Summitt Mindset at the phone
-              number on my account.
-            </span>
-          </label>
-
-          <p className="text-xs text-gray-500 mt-3">
-            View our{" "}
-            <a className="underline" href="/privacy" target="_blank" rel="noreferrer">
-              Privacy Policy
-            </a>{" "}
-            and{" "}
-            <a className="underline" href="/terms" target="_blank" rel="noreferrer">
-              Terms
-            </a>
-            .
-          </p>
-        </div>
-      </div>
-
-      {/* Nav + continue */}
       <div className="flex justify-between items-center">
         <button
           type="button"
@@ -203,8 +201,8 @@ export default function SmsClient({
           onClick={handleContinue}
           disabled={saving}
           className={[
-            "px-6 py-3 rounded-md text-white font-semibold transition",
-            saving ? "bg-gray-400" : "bg-black hover:bg-gray-900",
+            "px-6 py-3 rounded-md text-white font-semibold",
+            saving ? "bg-gray-400" : "bg-black",
           ].join(" ")}
         >
           {saving ? "Saving…" : "Continue →"}

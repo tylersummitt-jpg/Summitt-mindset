@@ -19,6 +19,7 @@ export default function OutcomeClient({
   arena: string;
 }): ReactElement {
   const router = useRouter();
+
   const [saving, setSaving] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,17 +51,31 @@ export default function OutcomeClient({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data?.error || "Something went wrong.");
+        setSaving(null);
         return;
       }
 
+      /**
+       * ======================================================
+       * IMPORTANT
+       * ======================================================
+       *
+       * DO NOT use setTimeout + router.push in onboarding.
+       * Safari + Next.js can drop the navigation silently.
+       *
+       * Instead:
+       * - set celebrating
+       * - push immediately
+       *
+       * The next page will render right away.
+       */
       setCelebrating(true);
 
-      setTimeout(() => {
-        router.push("/onboarding/schedule");
-      }, 850);
+      // ✅ Navigate immediately (canonical)
+      router.push("/onboarding/schedule");
+      router.refresh();
     } catch {
       setError("Something went wrong.");
-    } finally {
       setSaving(null);
     }
   }
