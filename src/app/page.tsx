@@ -142,10 +142,11 @@ export default async function HomePage() {
 
           <div className="relative w-full h-[420px] rounded-2xl overflow-hidden">
             <Image
-              src="/brand/pat-hero.jpg"
+              src="/brand/pat-hero.jpeg"
               alt="Coach Pat Summitt cutting down the net"
               fill
               priority
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover grayscale"
             />
           </div>
