@@ -123,6 +123,10 @@ export default async function HomePage() {
               </div>
             )}
 
+            {/* ======================================================
+                Public CTA Section
+               ====================================================== */}
+
             <div className="flex flex-col sm:flex-row gap-3">
               <Link
                 href="/subscribe"
@@ -131,12 +135,6 @@ export default async function HomePage() {
                 Start 7-Day Free Trial
               </Link>
 
-              <Link
-                href="/ask-pat"
-                className="px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--brand-soft)] text-center"
-              >
-                Explore Ask Pat
-              </Link>
             </div>
           </div>
 

@@ -5,19 +5,16 @@ import { NextResponse } from "next/server";
 
 /**
  * ======================================================
- * Clerk Middleware — Twilio-Safe + Version Compatible
+ * Clerk Middleware — Twilio Safe Public Routes
  * ======================================================
  *
- * Your Clerk version does NOT support:
- * - clerkMiddleware({ publicRoutes })
- * - auth().protect()
- *
- * So we implement the classic pattern:
- * - Allow public routes
- * - For everything else:
- *   - if not signed in -> redirect to /sign-in
- *
- * This guarantees Twilio can access public pages.
+ * Public:
+ * - Marketing pages
+ * - Policies
+ * - Subscribe
+ * - Twilio verification
+ * - Auth pages
+ * - Webhooks
  */
 
 const isPublicRoute = createRouteMatcher([
@@ -26,6 +23,7 @@ const isPublicRoute = createRouteMatcher([
   "/terms",
   "/sms",
   "/twilio",
+  "/subscribe(.*)",
 
   // Clerk auth pages should always be public
   "/sign-in(.*)",
@@ -37,12 +35,10 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // Allow Twilio + public visitors to see these pages without auth
   if (isPublicRoute(req)) {
     return NextResponse.next();
   }
 
-  // For all other routes: require signed-in user
   const { userId } = await auth();
 
   if (!userId) {
@@ -54,8 +50,5 @@ export default clerkMiddleware(async (auth, req) => {
 });
 
 export const config = {
-  matcher: [
-    // Run Clerk middleware on all routes except static files and Next internals
-    "/((?!_next|.*\\..*).*)",
-  ],
+  matcher: ["/((?!_next|.*\\..*).*)"],
 };

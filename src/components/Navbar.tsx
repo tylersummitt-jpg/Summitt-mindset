@@ -6,26 +6,19 @@ import { useUser } from "@clerk/nextjs";
 
 /**
  * ======================================================
- * Navbar (Calm Global Shell)
+ * Navbar — Twilio-Compliant Public + App Split
  * ======================================================
  *
- * Rules:
- * - Daily Practice stays central
- * - Membership + Billing lives under Account
- * - Subscribe disappears once subscribed
- *
- * Visual rules:
- * - Neutral by default
- * - Summitt Orange used sparingly for active / hover
+ * IMPORTANT:
+ * - Logged OUT users should NEVER see gated app links
+ * - Twilio reviewers must never hit login walls from navbar
+ * - Public pages only when not signed in
  */
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, isLoaded, isSignedIn } = useUser();
 
-  // ----------------------------
-  // Subscription State
-  // ----------------------------
   const subscribedRaw = user?.publicMetadata?.summittSubscribed;
   const plan = user?.publicMetadata?.summittPlan as string | undefined;
 
@@ -35,39 +28,40 @@ export function Navbar() {
     plan === "monthly" ||
     plan === "annual";
 
-  // ----------------------------
-  // Links (dynamic)
-  // ----------------------------
-  const navLinks = [
+  // --------------------------------------------------
+  // PUBLIC NAV (logged out)
+  // --------------------------------------------------
+  const publicLinks = [
+    { href: "/", label: "Home" },
+    { href: "/subscribe", label: "Subscribe" },
+    { href: "/sms", label: "SMS" },
+    { href: "/privacy", label: "Privacy" },
+    { href: "/terms", label: "Terms" },
+    { href: "/sign-in", label: "Sign In" },
+  ];
+
+  // --------------------------------------------------
+  // APP NAV (logged in)
+  // --------------------------------------------------
+  const appLinks = [
     { href: "/", label: "Home" },
     { href: "/dashboard", label: "Daily Practice" },
     { href: "/ask-pat", label: "Ask Pat" },
     { href: "/film-room", label: "Film Room" },
-
-    ...(isSignedIn ? [{ href: "/user", label: "Account" }] : []),
-
-    ...(isLoaded && (!isSignedIn || !isSubscribed)
-      ? [{ href: "/subscribe", label: "Subscribe" }]
-      : []),
+    { href: "/user", label: "Account" },
+    ...(!isSubscribed ? [{ href: "/subscribe", label: "Subscribe" }] : []),
   ];
+
+  const navLinks = isSignedIn ? appLinks : publicLinks;
 
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)]">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* ======================================================
-            Brand
-           ====================================================== */}
-        <Link
-          href="/"
-          className="font-semibold text-lg tracking-tight"
-        >
+        <Link href="/" className="font-semibold text-lg tracking-tight">
           <span className="text-[var(--text)]">Summitt</span>{" "}
           <span className="text-[var(--brand)]">Mindset</span>
         </Link>
 
-        {/* ======================================================
-            Navigation
-           ====================================================== */}
         <nav className="flex gap-4 text-sm">
           {navLinks.map((link) => {
             const isActive =

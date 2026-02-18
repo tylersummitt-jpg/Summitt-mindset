@@ -8,6 +8,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type Plan = "monthly" | "annual";
 
+/**
+ * ======================================================
+ * Subscribe Page — Twilio-Compliant Public Version
+ * ======================================================
+ *
+ * IMPORTANT:
+ * - Page must render publicly (no forced login)
+ * - Login only required at checkout
+ * - Stripe session still requires auth
+ */
+
 function SubscribePageInner() {
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
@@ -17,24 +28,29 @@ function SubscribePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [canceled, setCanceled] = useState(false);
 
+  // --------------------------------------------------
+  // Handle Stripe cancel return
+  // --------------------------------------------------
   useEffect(() => {
     if (searchParams.get("canceled") === "1") {
       setCanceled(true);
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (!isSignedIn) {
-      router.push("/sign-in?redirect_url=/subscribe");
-    }
-  }, [isLoaded, isSignedIn, router]);
-
+  // --------------------------------------------------
+  // Checkout handler
+  // --------------------------------------------------
   async function handleCheckout(plan: Plan) {
     try {
       setError(null);
       setCanceled(false);
       setLoadingPlan(plan);
+
+      // If not signed in → send to login first
+      if (!isSignedIn) {
+        router.push("/sign-in?redirect_url=/subscribe");
+        return;
+      }
 
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
@@ -59,14 +75,9 @@ function SubscribePageInner() {
     }
   }
 
-  if (!isLoaded || !isSignedIn) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p>Loading…</p>
-      </main>
-    );
-  }
-
+  // --------------------------------------------------
+  // PUBLIC PAGE RENDER (always visible)
+  // --------------------------------------------------
   return (
     <main className="min-h-screen bg-[var(--bg)] flex items-center justify-center px-4 py-20">
       <div className="max-w-xl w-full">
@@ -75,7 +86,7 @@ function SubscribePageInner() {
            ====================================================== */}
         <div className="text-center mb-10">
           <p className="text-xs uppercase tracking-widest text-[var(--muted)] mb-3">
-            Be part of the Founding Member Launch
+            Founding Member Launch
           </p>
 
           <h1 className="text-3xl md:text-4xl font-semibold mb-3">
@@ -83,12 +94,13 @@ function SubscribePageInner() {
           </h1>
 
           <p className="text-[var(--muted)] text-lg">
+            Summitt Mindset is a paid membership offering a short daily
+            practice (3–7 minutes), journaling, and optional SMS coaching
+            inspired by Coach Pat Summitt.
+          </p>
+
+          <p className="text-[var(--muted)] text-lg mt-4">
             7-day free trial. <strong>You won’t be charged today.</strong>
-            <br />
-            Lock in our lowest price: <strong>$19.99/month</strong> (as long as
-            your membership stays active).
-            <br />
-            Help shape the future of Summitt Mindset.
           </p>
         </div>
 
@@ -160,7 +172,7 @@ function SubscribePageInner() {
             Trust + Reassurance
            ====================================================== */}
         <div className="text-center text-sm text-[var(--muted)] space-y-2">
-          <p>7-day free trial. You won’t be charged today. Cancel anytime.</p>
+          <p>Cancel anytime. Secure checkout via Stripe.</p>
           <p>
             “Successful people are simply those with successful habits.”
             <span className="ml-2">— Pat Summitt</span>

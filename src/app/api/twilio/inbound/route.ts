@@ -7,7 +7,6 @@ import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
 import { completeDay } from "@/lib/complete-day";
-import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import { generateCoachReply } from "@/lib/coach-reply-generator";
 
 export const runtime = "nodejs";
@@ -15,23 +14,12 @@ export const dynamic = "force-dynamic";
 
 /**
  * ======================================================
- * TWILIO INBOUND WEBHOOK (CANONICAL)
+ * TWILIO INBOUND WEBHOOK (CANONICAL - SINGLE MESSAGE MODE)
  * ======================================================
  *
- * Uses Supabase table sms_identities:
- * - phone_number (pk)
- * - clerk_user_id
- * - sms_enabled
- * - stopped_at
- *
- * Handles:
- * - STOP / START / HELP compliance
- * - Saves inbound ONLY into coach_conversations
- * - Writes journal_entries ONLY on DONE
- * - Completes day ONLY on DONE
- *
- * SECURITY:
- * - Twilio signature verification enabled when TWILIO_AUTH_TOKEN exists
+ * DONE now returns the coach reply directly as TwiML.
+ * No secondary sendSMS() call.
+ * No duplicate message.
  */
 
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
@@ -64,9 +52,6 @@ function isDoneCommand(text: string) {
   return ["done", "complete", "completed", "finish"].includes(t);
 }
 
-/**
- * Twilio signature verification.
- */
 function verifyTwilioSignature({
   fullUrl,
   params,
@@ -110,13 +95,20 @@ function buildFullUrl(req: Request) {
 }
 
 function twiml(message: string) {
-  return new Response(
-    `<Response><Message>${message}</Message></Response>`,
-    { status: 200, headers: { "Content-Type": "text/xml" } }
-  );
+  return new Response(`<Response><Message>${message}</Message></Response>`, {
+    status: 200,
+    headers: { "Content-Type": "text/xml" },
+  });
 }
 
-async function getLastNonDoneUserMessage({
+function safeDayNumber(value: unknown): number | null {
+  if (typeof value !== "number") return null;
+  if (!Number.isFinite(value)) return null;
+  if (value <= 0) return null;
+  return value;
+}
+
+async function getCurrentDayJournal({
   userId,
   dayNumber,
 }: {
@@ -124,24 +116,14 @@ async function getLastNonDoneUserMessage({
   dayNumber: number;
 }): Promise<string | null> {
   const { data } = await supabaseServer
-    .from("coach_conversations")
+    .from("journal_entries")
     .select("content")
     .eq("clerk_user_id", userId)
     .eq("day_number", dayNumber)
-    .eq("role", "user")
-    .order("created_at", { ascending: false })
-    .limit(15);
+    .maybeSingle();
 
-  const rows = Array.isArray(data) ? data : [];
-
-  for (const row of rows) {
-    const content = normalizeBody(row?.content ?? "");
-    if (!content) continue;
-    if (isDoneCommand(content)) continue;
-    return content;
-  }
-
-  return null;
+  const content = normalizeBody(data?.content ?? "");
+  return content.length ? content : null;
 }
 
 export async function POST(req: Request) {
@@ -174,9 +156,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // --------------------------------------------------
-    // Map phone → identity
-    // --------------------------------------------------
     const { data: identity } = await supabaseServer
       .from("sms_identities")
       .select("phone_number, clerk_user_id, sms_enabled, stopped_at")
@@ -189,9 +168,7 @@ export async function POST(req: Request) {
 
     const userId = identity.clerk_user_id;
 
-    // --------------------------------------------------
     // STOP
-    // --------------------------------------------------
     if (isStopCommand(body)) {
       await supabaseServer
         .from("sms_identities")
@@ -209,18 +186,14 @@ export async function POST(req: Request) {
       return twiml("You have been unsubscribed. Reply START to rejoin.");
     }
 
-    // --------------------------------------------------
     // HELP
-    // --------------------------------------------------
     if (isHelpCommand(body)) {
       return twiml(
-        "Summitt Mindset daily training. Reply DONE to complete. Reply STOP to cancel."
+        "Summitt Mindset daily training. Reply with one sentence. Reply DONE to complete. Reply STOP to cancel."
       );
     }
 
-    // --------------------------------------------------
     // START
-    // --------------------------------------------------
     if (isStartCommand(body)) {
       await supabaseServer
         .from("sms_identities")
@@ -238,76 +211,90 @@ export async function POST(req: Request) {
       return twiml("You’re back in training.");
     }
 
-    // If identity disabled, ignore everything except START
     if (identity.sms_enabled !== true || typeof identity.stopped_at === "string") {
       return NextResponse.json({ ok: true });
     }
 
-    // --------------------------------------------------
-    // Pull metadata
-    // --------------------------------------------------
     const md = await getClerkPublicMetadata(userId);
 
     if (md.smsEnabled !== true) {
       return NextResponse.json({ ok: true });
     }
 
-    const currentDay =
-      typeof md.currentDay === "number" && md.currentDay > 0
-        ? md.currentDay
-        : null;
-
+    const currentDay = safeDayNumber(md.currentDay);
     if (!currentDay) {
       return NextResponse.json({ ok: true });
     }
 
-    // --------------------------------------------------
-    // Always store inbound in thread ONLY
-    // --------------------------------------------------
+    // =========================
+    // DONE (Single Message Mode)
+    // =========================
+    if (isDoneCommand(body)) {
+      const existingJournal = await getCurrentDayJournal({
+        userId,
+        dayNumber: currentDay,
+      });
+
+      if (!existingJournal) {
+        return twiml("Send one honest sentence first. Then text DONE.");
+      }
+
+      const result = await completeDay({
+        userId,
+        source: "sms",
+      });
+
+      if (!result.ok && result.reason === "already_completed_today") {
+        return twiml("Already marked complete for today. See you tomorrow.");
+      }
+
+      if (!result.ok) {
+        return twiml("Something didn’t go through. Try again in a minute.");
+      }
+
+      const coachReply = await generateCoachReply({
+        userId,
+        dayNumber: currentDay,
+        userMessage: existingJournal,
+      });
+
+      await supabaseServer.from("coach_conversations").insert({
+        clerk_user_id: userId,
+        day_number: currentDay,
+        role: "coach",
+        content: coachReply.text,
+        metadata: coachReply.meta,
+      });
+
+      // 🔥 IMPORTANT: Return coach reply directly
+      return twiml(coachReply.text);
+    }
+
+    // Normal reflection
     await supabaseServer.from("coach_conversations").insert({
       clerk_user_id: userId,
       day_number: currentDay,
       role: "user",
       content: body,
-      source: "sms",
+      metadata: {
+        source: "sms",
+      },
     });
-
-    // --------------------------------------------------
-    // If not DONE → just acknowledgment
-    // --------------------------------------------------
-    if (!isDoneCommand(body)) {
-      return twiml(
-        "Got it. When you’re ready, text DONE and I’ll mark today complete."
-      );
-    }
-
-    // --------------------------------------------------
-    // DONE → Create journal entry from last NON-DONE message
-    // --------------------------------------------------
-    const reflection = await getLastNonDoneUserMessage({
-      userId,
-      dayNumber: currentDay,
-    });
-
-    if (!reflection) {
-      return twiml("Send one honest sentence first. Then text DONE.");
-    }
 
     const trainingCampTrack =
       md.trainingCampTrack === "women" ? "women" : "standard";
 
-    const { promptId, actionItem, reflectionPrompt } =
-      await ensureDailyPrompt({
-        userId,
-        dayNumber: currentDay,
-        trainingCampTrack,
-      });
+    const { promptId, actionItem, reflectionPrompt } = await ensureDailyPrompt({
+      userId,
+      dayNumber: currentDay,
+      trainingCampTrack,
+    });
 
     await supabaseServer.from("journal_entries").upsert(
       {
         clerk_user_id: userId,
         day_number: currentDay,
-        content: reflection,
+        content: body,
         prompt_id: promptId,
         action_item: actionItem,
         reflection_prompt: reflectionPrompt,
@@ -316,34 +303,9 @@ export async function POST(req: Request) {
       { onConflict: "clerk_user_id,day_number" }
     );
 
-    const result = await completeDay({
-      userId,
-      source: "sms",
-    });
-
-    if (!result.ok) {
-      return twiml("Something didn’t go through. Try again in a minute.");
-    }
-
-    const coachReplyText = await generateCoachReply({
-      userId,
-      dayNumber: currentDay,
-      userMessage: reflection,
-    });
-
-    await supabaseServer.from("coach_conversations").insert({
-      clerk_user_id: userId,
-      day_number: currentDay,
-      role: "coach",
-      content: coachReplyText,
-      source: "sms",
-    });
-
-    if (isTwilioReady()) {
-      await sendSMS({ to: from, body: coachReplyText });
-    }
-
-    return twiml("Day complete. Proud of you. See you tomorrow.");
+    return twiml(
+      "Got it. When you’re ready, text DONE and I’ll mark today complete."
+    );
   } catch (err) {
     console.error("[TWILIO INBOUND ERROR]", err);
     return NextResponse.json({ ok: false }, { status: 500 });

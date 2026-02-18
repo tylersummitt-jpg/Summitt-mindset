@@ -7,6 +7,7 @@ import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { compressReflectionToMemoryAtom } from "@/lib/memory/compress-reflection";
 import { extractWeeklyPatternsFromMemoryAtoms } from "@/lib/memory/pattern-extractor";
+import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 /**
  * ======================================================
@@ -37,6 +38,33 @@ export type CompleteDayResult =
   | { ok: true; completedDay: number; nextDay: number }
   | { ok: false; reason: string };
 
+const MILESTONES = [7, 14, 30, 50, 100, 180, 365];
+
+function milestoneMessage(days: number): string {
+  if (days === 7)
+    return `7 days.\n\nYou're building consistency.\n\nKeep going.`;
+
+  if (days === 14)
+    return `14 days.\n\nMomentum is forming.\n\nStay steady.`;
+
+  if (days === 30)
+    return `30 days.\n\nThis is no longer a streak.\nIt's who you're becoming.`;
+
+  if (days === 50)
+    return `50 days.\n\nQuiet discipline compounds.\n\nKeep showing up.`;
+
+  if (days === 100)
+    return `100 days.\n\nMost people quit.\n\nYou didn't.`;
+
+  if (days === 180)
+    return `180 days.\n\nThis is identity now.\n\nKeep leading yourself.`;
+
+  if (days === 365)
+    return `365 days.\n\nA full year.\n\nYou built something real.`;
+
+  return "";
+}
+
 function normalizeText(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
 }
@@ -53,7 +81,10 @@ function safeString(raw: unknown): string | null {
 
 function stripTimeWords(text: string): string {
   return (text || "")
-    .replace(/\b(today|yesterday|tomorrow|this week|last week|this month|last month)\b/gi, "")
+    .replace(
+      /\b(today|yesterday|tomorrow|this week|last week|this month|last month)\b/gi,
+      ""
+    )
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -132,7 +163,9 @@ async function tryInsertCompletionLock({
   source: CompleteDaySource;
   dayNumber: number;
   timezone: string;
-}): Promise<{ ok: true } | { ok: false; reason: "already_completed_today" | "lock_failed" }> {
+}): Promise<
+  { ok: true } | { ok: false; reason: "already_completed_today" | "lock_failed" }
+> {
   const { error } = await supabaseServer.from("daily_completion_events").insert({
     clerk_user_id: userId,
     day_key: dayKey,
@@ -374,6 +407,44 @@ export async function completeDay({
       metadata.trainingCampStartedAt ??
       (earnedTrainingCampStart ? now.toISOString() : null),
   });
+
+  // --------------------------------------------------
+  // 🏆 MILESTONE SMS (RETENTION MODE)
+  // --------------------------------------------------
+
+  const newTotal = totalDaysCompleted + 1;
+
+  if (MILESTONES.includes(newTotal) && metadata.smsEnabled === true) {
+    const message = milestoneMessage(newTotal);
+
+    const { data: identity } = await supabaseServer
+      .from("sms_identities")
+      .select("phone_number")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+
+    if (identity?.phone_number && isTwilioReady()) {
+      try {
+        const sms = await sendSMS({
+          to: identity.phone_number,
+          body: message,
+        });
+
+        await supabaseServer.from("sms_send_events").insert({
+          clerk_user_id: userId,
+          day_key: todayKey,
+          message_sid: sms.sid,
+          status: sms.status,
+          metadata: {
+            milestone: true,
+            milestone_day: newTotal,
+          },
+        });
+      } catch (err) {
+        console.error("MILESTONE SMS ERROR:", err);
+      }
+    }
+  }
 
   return {
     ok: true,
