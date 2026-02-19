@@ -103,6 +103,9 @@ export default function SmsClient({
     router.push("/onboarding/complete");
   }
 
+  const legalLinkClass =
+    "text-blue-600 underline underline-offset-4 hover:text-blue-700";
+
   return (
     <div className="space-y-8">
       <div className="border rounded-xl bg-white shadow-sm p-6 space-y-4">
@@ -195,15 +198,15 @@ export default function SmsClient({
                 may apply. Reply <strong>STOP</strong> to opt out at any time.
                 Reply <strong>HELP</strong> for help. Consent is not a condition
                 of purchase.{" "}
-                <a href="/privacy" className="underline underline-offset-4">
+                <a href="/privacy" className={legalLinkClass}>
                   Privacy Policy
                 </a>{" "}
                 •{" "}
-                <a href="/terms" className="underline underline-offset-4">
+                <a href="/terms" className={legalLinkClass}>
                   Terms
                 </a>{" "}
                 •{" "}
-                <a href="/sms" className="underline underline-offset-4">
+                <a href="/sms" className={legalLinkClass}>
                   SMS Disclosure
                 </a>
                 .
