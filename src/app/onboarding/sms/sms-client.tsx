@@ -104,7 +104,7 @@ export default function SmsClient({
   }
 
   const legalLinkClass =
-    "text-blue-600 underline underline-offset-4 hover:text-blue-700";
+    "text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all";
 
   return (
     <div className="space-y-8">
@@ -197,19 +197,38 @@ export default function SmsClient({
                 <strong>Message frequency varies.</strong> Msg &amp; data rates
                 may apply. Reply <strong>STOP</strong> to opt out at any time.
                 Reply <strong>HELP</strong> for help. Consent is not a condition
-                of purchase.{" "}
-                <a href="/privacy" className={legalLinkClass}>
-                  Privacy Policy
-                </a>{" "}
-                •{" "}
-                <a href="/terms" className={legalLinkClass}>
-                  Terms
-                </a>{" "}
-                •{" "}
-                <a href="/sms" className={legalLinkClass}>
-                  SMS Disclosure
-                </a>
-                .
+                of purchase.
+                <br />
+                <span className="text-xs text-gray-600">
+                  Privacy:{" "}
+                  <a
+                    href="https://www.summittmindset.com/privacy"
+                    className={legalLinkClass}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    https://www.summittmindset.com/privacy
+                  </a>{" "}
+                  • Terms:{" "}
+                  <a
+                    href="https://www.summittmindset.com/terms"
+                    className={legalLinkClass}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    https://www.summittmindset.com/terms
+                  </a>{" "}
+                  • SMS:{" "}
+                  <a
+                    href="https://www.summittmindset.com/sms"
+                    className={legalLinkClass}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    https://www.summittmindset.com/sms
+                  </a>
+                  .
+                </span>
               </span>
             </label>
 
