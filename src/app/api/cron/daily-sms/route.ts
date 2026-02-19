@@ -40,6 +40,18 @@ function diffInDays(a: string, b: string) {
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * ======================================================
+ * TWILIO APPROVAL SIGNAL
+ * ======================================================
+ * Outbound messages should identify sender + STOP/HELP.
+ * This footer is short and safe to include in every message.
+ */
+function withComplianceFooter(body: string) {
+  const footer = "\n\n— Summitt Mindset\nReply STOP to opt out. Reply HELP for help.";
+  return `${body}${footer}`;
+}
+
 export async function GET(req: Request) {
   const secret = req.headers.get("x-cron-secret");
 
@@ -111,8 +123,7 @@ export async function GET(req: Request) {
 
       const lastDayKey = lastCompletion?.day_key ?? null;
 
-      const missedDays =
-        lastDayKey ? diffInDays(todayKey, lastDayKey) : 0;
+      const missedDays = lastDayKey ? diffInDays(todayKey, lastDayKey) : 0;
 
       // --------------------------------------------------
       // RE-ENTRY MODE (2+ days missed)
@@ -160,6 +171,9 @@ export async function GET(req: Request) {
           `Reply with one honest sentence.\n` +
           `When you're ready, text DONE.`;
       }
+
+      // ✅ Always append compliance footer
+      smsBody = withComplianceFooter(smsBody);
 
       if (!isTwilioReady()) {
         await supabaseServer.from("sms_send_events").insert({

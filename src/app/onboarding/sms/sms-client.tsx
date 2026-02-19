@@ -108,11 +108,18 @@ export default function SmsClient({
       <div className="border rounded-xl bg-white shadow-sm p-6 space-y-4">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="font-semibold text-gray-900">
-              Daily Training Text
-            </p>
+            <p className="font-semibold text-gray-900">Daily Training Text</p>
             <p className="text-sm text-gray-600">
               One message per day with your practice and a calm Coach Pat nudge.
+            </p>
+
+            {/* ======================================================
+               TWILIO SIGNAL: Consent is NOT required to purchase
+               ====================================================== */}
+            <p className="mt-2 text-xs text-gray-500">
+              SMS is optional and not a condition of purchase.
+              <br />
+              You can continue without SMS by switching SMS to Off.
             </p>
           </div>
 
@@ -127,9 +134,7 @@ export default function SmsClient({
             }}
             className={[
               "px-4 py-2 rounded-md text-sm font-semibold transition",
-              smsEnabled
-                ? "bg-black text-white"
-                : "bg-gray-200 text-gray-800",
+              smsEnabled ? "bg-black text-white" : "bg-gray-200 text-gray-800",
             ].join(" ")}
           >
             {smsEnabled ? "On" : "Off"}
@@ -171,6 +176,10 @@ export default function SmsClient({
               )}
             </div>
 
+            {/* ======================================================
+               TWILIO-COMPLIANT CONSENT
+               Must be directly next to phone field
+               ====================================================== */}
             <label className="flex items-start gap-3 text-sm text-gray-800">
               <input
                 type="checkbox"
@@ -179,10 +188,33 @@ export default function SmsClient({
                 className="mt-1"
               />
               <span>
-                I agree to receive 1 training text per day from Summitt Mindset.
-                Msg & data rates may apply. Reply STOP to cancel.
+                By checking this box, I agree to receive recurring membership SMS
+                messages from <strong>Summitt Mindset, LLC</strong> related to my
+                training (daily practice reminders and coaching prompts).{" "}
+                <strong>Message frequency varies.</strong> Msg &amp; data rates
+                may apply. Reply <strong>STOP</strong> to opt out at any time.
+                Reply <strong>HELP</strong> for help. Consent is not a condition
+                of purchase.{" "}
+                <a href="/privacy" className="underline underline-offset-4">
+                  Privacy Policy
+                </a>{" "}
+                •{" "}
+                <a href="/terms" className="underline underline-offset-4">
+                  Terms
+                </a>{" "}
+                •{" "}
+                <a href="/sms" className="underline underline-offset-4">
+                  SMS Disclosure
+                </a>
+                .
               </span>
             </label>
+
+            <p className="text-xs text-gray-500">
+              Summitt Mindset does not send marketing or promotional SMS
+              messages and does not share mobile opt-in data with third parties
+              for marketing purposes.
+            </p>
           </div>
         )}
       </div>

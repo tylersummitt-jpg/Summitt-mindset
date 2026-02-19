@@ -3,6 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { supabaseServer } from "@/lib/supabase-server";
+import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 type SmsTimePreference = "morning" | "afternoon" | "evening";
 
@@ -48,16 +49,16 @@ export async function POST(req: Request) {
     const smsEnabled = body?.smsEnabled === true;
 
     const allowed: SmsTimePreference[] = ["morning", "afternoon", "evening"];
-    const smsTimePreference: SmsTimePreference =
-      allowed.includes(body?.smsTimePreference)
-        ? body.smsTimePreference
-        : "morning";
+    const smsTimePreference: SmsTimePreference = allowed.includes(
+      body?.smsTimePreference
+    )
+      ? body.smsTimePreference
+      : "morning";
 
     if (smsEnabled && body?.smsDisclosureAccepted !== true) {
-      return new Response(
-        JSON.stringify({ error: "Consent required." }),
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: "Consent required." }), {
+        status: 400,
+      });
     }
 
     let normalizedPhone: string | null = null;
@@ -66,10 +67,9 @@ export async function POST(req: Request) {
       normalizedPhone = normalizeToE164(body?.phoneNumber || "");
 
       if (!normalizedPhone) {
-        return new Response(
-          JSON.stringify({ error: "Invalid phone number." }),
-          { status: 400 }
-        );
+        return new Response(JSON.stringify({ error: "Invalid phone number." }), {
+          status: 400,
+        });
       }
 
       // Prevent one phone being attached to two users
@@ -90,7 +90,6 @@ export async function POST(req: Request) {
     // ---------------------------------------
     // Update Clerk metadata (source of truth)
     // ---------------------------------------
-
     await updateClerkPublicMetadata(userId, {
       smsEnabled,
       smsTimePreference,
@@ -102,7 +101,6 @@ export async function POST(req: Request) {
     // ---------------------------------------
     // Sync Supabase sms_identities
     // ---------------------------------------
-
     if (smsEnabled && normalizedPhone) {
       await supabaseServer.from("sms_identities").upsert({
         phone_number: normalizedPhone,
@@ -119,6 +117,23 @@ export async function POST(req: Request) {
           sms_enabled: false,
         })
         .eq("phone_number", normalizedPhone);
+    }
+
+    // ---------------------------------------
+    // OPTIONAL (RECOMMENDED): Confirmation SMS
+    // ---------------------------------------
+    if (smsEnabled && normalizedPhone && isTwilioReady()) {
+      // NOTE TO FUTURE ME (ChatGPT):
+      // This message is a big Twilio compliance win: brand + STOP/HELP.
+      const confirm =
+        "Summitt Mindset: You’re subscribed to daily training texts (membership coaching + practice reminders). Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
+
+      try {
+        await sendSMS({ to: normalizedPhone, body: confirm });
+      } catch (e) {
+        // We do NOT fail onboarding if confirmation send fails.
+        console.error("Onboarding confirmation SMS failed:", e);
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
