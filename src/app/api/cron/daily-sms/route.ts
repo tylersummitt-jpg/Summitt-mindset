@@ -13,8 +13,26 @@ export const dynamic = "force-dynamic";
 const CRON_SECRET = process.env.CRON_SECRET;
 const SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
-function isWithinFixed8amWindow(local: Date) {
-  return local.getHours() === 8;
+/**
+ * Since we're on Hobby (once/day cron),
+ * we run at 13:00 UTC and align US timezones like:
+ * 8 ET / 7 CT / 6 MT / 5 PT
+ */
+function getTargetHourForTimezone(timezone: string): number {
+  if (!timezone) return 8;
+
+  if (timezone.includes("New_York")) return 8;       // Eastern
+  if (timezone.includes("Chicago")) return 7;        // Central
+  if (timezone.includes("Denver")) return 6;         // Mountain
+  if (timezone.includes("Los_Angeles")) return 5;    // Pacific
+
+  // Fallback → treat unknown as Eastern
+  return 8;
+}
+
+function isWithinTargetWindow(local: Date, timezone: string) {
+  const targetHour = getTargetHourForTimezone(timezone);
+  return local.getHours() === targetHour;
 }
 
 function withComplianceFooter(body: string) {
@@ -32,7 +50,7 @@ function getReentryLine(level: string): string | null {
 }
 
 export async function GET(req: Request) {
-  // ✅ OFFICIAL VERCEL CRON AUTH PATTERN
+  // ✅ Vercel Cron auth
   const authHeader = req.headers.get("authorization");
   if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ ok: false }, { status: 401 });
@@ -65,11 +83,13 @@ export async function GET(req: Request) {
 
       const timezone = resolveUserTimezone(md.timezone);
       const now = new Date();
+
       const localNow = new Date(
         now.toLocaleString("en-US", { timeZone: timezone })
       );
 
-      if (!isWithinFixed8amWindow(localNow)) continue;
+      // ✅ Hobby-compatible target hour logic
+      if (!isWithinTargetWindow(localNow, timezone)) continue;
 
       const todayKey = getDateKeyInTimezone(now, timezone);
 
@@ -87,6 +107,7 @@ export async function GET(req: Request) {
         continue;
       }
 
+      // Skip if already completed today
       const { data: completed } = await supabaseServer
         .from("daily_completion_events")
         .select("id")
@@ -100,6 +121,7 @@ export async function GET(req: Request) {
           .update({ status: "skipped_already_completed" })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
+
         continue;
       }
 
@@ -143,9 +165,12 @@ export async function GET(req: Request) {
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
           .from("sms_send_events")
-          .update({ status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio" })
+          .update({
+            status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
+          })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
+
         continue;
       }
 
