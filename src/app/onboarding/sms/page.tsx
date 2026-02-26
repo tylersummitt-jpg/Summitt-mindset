@@ -8,6 +8,10 @@ import SmsClient from "./sms-client";
  * ======================================================
  * SMS Consent Step (Twilio-facing Compliance Screen)
  * ======================================================
+ *
+ * CANONICAL RULE:
+ * - No SMS schedule selection.
+ * - SMS always sends at 8:00 AM local time.
  */
 
 export const dynamic = "force-dynamic";
@@ -32,22 +36,21 @@ export default async function SmsPage(): Promise<ReactElement> {
     redirect("/onboarding/training-focus");
   }
 
-  const onboardingTimeOfDay =
-    typeof md?.onboardingPracticeTimeOfDay === "string"
-      ? md.onboardingPracticeTimeOfDay
-      : null;
-
   return (
     <div>
-      <OnboardingProgress currentStep={6} />
+      <OnboardingProgress currentStep={4} />
 
-      <h1 className="text-3xl font-bold mb-4">Daily SMS is part of training.</h1>
+      <h1 className="text-3xl font-bold mb-4">
+        Daily SMS is part of training.
+      </h1>
 
       <p className="text-gray-600 mb-10">
         Most members use text as their primary way to stay consistent.
+        <br />
+        <strong>Texts arrive at 8:00 AM in your local time zone.</strong>
       </p>
 
-      <SmsClient defaultTimeOfDay={onboardingTimeOfDay} />
+      <SmsClient />
     </div>
   );
 }

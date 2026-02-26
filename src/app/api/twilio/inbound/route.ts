@@ -5,24 +5,20 @@ import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
-import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
 import { completeDay } from "@/lib/complete-day";
 import { generateCoachReply } from "@/lib/coach-reply-generator";
+import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
+import { trainingCampPromptId } from "@/lib/prompt-ids";
+import { inSeasonPromptId } from "@/lib/in-season-selector";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * ======================================================
- * TWILIO INBOUND WEBHOOK (CANONICAL - SINGLE MESSAGE MODE)
- * ======================================================
- *
- * DONE now returns the coach reply directly as TwiML.
- * No secondary sendSMS() call.
- * No duplicate message.
- */
-
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+
+/* -------------------------------------------------- */
+/* Utilities */
+/* -------------------------------------------------- */
 
 function normalizePhone(phone: string) {
   return (phone || "").trim().replace(/[^\d+]/g, "");
@@ -76,10 +72,7 @@ function verifyTwilioSignature({
     .digest("base64");
 
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(expected),
-      Buffer.from(signature)
-    );
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
   } catch {
     return false;
   }
@@ -122,9 +115,20 @@ async function getCurrentDayJournal({
     .eq("day_number", dayNumber)
     .maybeSingle();
 
-  const content = normalizeBody(data?.content ?? "");
+  const content = normalizeBody((data as any)?.content ?? "");
   return content.length ? content : null;
 }
+
+function appendReflection(existing: string | null, incoming: string): string {
+  const a = normalizeBody(existing || "");
+  const b = normalizeBody(incoming || "");
+  const combined = normalizeBody([a, b].filter(Boolean).join(" "));
+  return combined.slice(0, 1200);
+}
+
+/* -------------------------------------------------- */
+/* Main */
+/* -------------------------------------------------- */
 
 export async function POST(req: Request) {
   try {
@@ -168,7 +172,8 @@ export async function POST(req: Request) {
 
     const userId = identity.clerk_user_id;
 
-    // STOP
+    /* STOP / HELP / START flows unchanged */
+
     if (isStopCommand(body)) {
       await supabaseServer
         .from("sms_identities")
@@ -186,14 +191,12 @@ export async function POST(req: Request) {
       return twiml("You have been unsubscribed. Reply START to rejoin.");
     }
 
-    // HELP
     if (isHelpCommand(body)) {
       return twiml(
         "Summitt Mindset daily training. Reply with one sentence. Reply DONE to complete. Reply STOP to cancel."
       );
     }
 
-    // START
     if (isStartCommand(body)) {
       await supabaseServer
         .from("sms_identities")
@@ -216,7 +219,6 @@ export async function POST(req: Request) {
     }
 
     const md = await getClerkPublicMetadata(userId);
-
     if (md.smsEnabled !== true) {
       return NextResponse.json({ ok: true });
     }
@@ -226,9 +228,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // =========================
-    // DONE (Single Message Mode)
-    // =========================
+    /* DONE flow remains unchanged */
+
     if (isDoneCommand(body)) {
       const existingJournal = await getCurrentDayJournal({
         userId,
@@ -266,38 +267,49 @@ export async function POST(req: Request) {
         metadata: coachReply.meta,
       });
 
-      // 🔥 IMPORTANT: Return coach reply directly
       return twiml(coachReply.text);
     }
 
-    // Normal reflection
+    /* NORMAL REFLECTION MESSAGE */
+
     await supabaseServer.from("coach_conversations").insert({
       clerk_user_id: userId,
       day_number: currentDay,
       role: "user",
       content: body,
-      metadata: {
-        source: "sms",
-      },
+      metadata: { source: "sms" },
     });
 
-    const trainingCampTrack =
-      md.trainingCampTrack === "women" ? "women" : "standard";
-
-    const { promptId, actionItem, reflectionPrompt } = await ensureDailyPrompt({
+    const version = await getOrCreateDailyPracticeVersion({
       userId,
       dayNumber: currentDay,
-      trainingCampTrack,
     });
+
+    const promptId =
+      currentDay <= 30
+        ? trainingCampPromptId(currentDay)
+        : inSeasonPromptId(currentDay);
+
+    const { data: existingRow } = await supabaseServer
+      .from("journal_entries")
+      .select("content")
+      .eq("clerk_user_id", userId)
+      .eq("day_number", currentDay)
+      .maybeSingle();
+
+    const nextContent = appendReflection(
+      normalizeBody((existingRow as any)?.content ?? ""),
+      body
+    );
 
     await supabaseServer.from("journal_entries").upsert(
       {
         clerk_user_id: userId,
         day_number: currentDay,
-        content: body,
+        content: nextContent,
         prompt_id: promptId,
-        action_item: actionItem,
-        reflection_prompt: reflectionPrompt,
+        action_item: version.actionItem,
+        reflection_prompt: version.reflectionPrompt,
         source: "sms",
       },
       { onConflict: "clerk_user_id,day_number" }

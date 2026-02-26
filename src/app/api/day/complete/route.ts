@@ -8,25 +8,10 @@ import { getClerkPublicMetadata } from "@/lib/clerk-rest";
  * POST /api/day/complete (CANONICAL)
  * ======================================================
  *
- * IMPORTANT DOMAIN CONTRACT
- * ------------------------------------------------------
- * Domain failures are returned via:
- *   { ok: false, reason: string }
+ * Domain failures → HTTP 200
+ * Server crashes → HTTP 500
  *
- * This route MUST ALWAYS return HTTP 200 for
- * expected domain outcomes.
- *
- * HTTP status codes are reserved ONLY for:
- * - 500 → unexpected server crashes
- *
- * Transport must never hide domain intent.
- *
- * NEW CANONICAL RULE:
- * ------------------------------------------------------
- * Client must only complete the CURRENT day.
- * If client sends a day that does not match metadata.currentDay,
- * we return a domain error:
- *   { ok:false, reason:"day_mismatch" }
+ * Client may only complete CURRENT day.
  */
 
 export async function POST(req: Request) {
@@ -52,12 +37,6 @@ export async function POST(req: Request) {
 
     const pageDay = body?.day;
 
-    const videoIdShown =
-      typeof body?.videoIdShown === "string" &&
-      body.videoIdShown.trim().length > 0
-        ? body.videoIdShown.trim()
-        : null;
-
     if (typeof pageDay !== "number" || !Number.isFinite(pageDay)) {
       return NextResponse.json(
         { ok: false, reason: "invalid_day" },
@@ -66,18 +45,14 @@ export async function POST(req: Request) {
     }
 
     // ======================================================
-    // ✅ CANONICAL DAY MATCH GUARD
+    // CANONICAL DAY MATCH GUARD
     // ======================================================
-    // We only allow completing the current day.
-    // This prevents completing the wrong day due to:
-    // - multiple tabs
-    // - stale page
-    // - manual URL navigation
-    // - race conditions
     const md = await getClerkPublicMetadata(userId);
 
     const currentDay =
-      typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : null;
+      typeof md.currentDay === "number" && md.currentDay > 0
+        ? md.currentDay
+        : null;
 
     if (!currentDay) {
       return NextResponse.json(
@@ -104,13 +79,10 @@ export async function POST(req: Request) {
     const result = await completeDay({
       userId,
       source: "app",
-      videoIdShown,
     });
 
-    // Always return canonical result (success OR failure)
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
-    // True server failure only
     console.error("[DAY COMPLETE] SERVER ERROR:", err);
 
     return NextResponse.json(

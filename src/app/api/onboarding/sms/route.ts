@@ -5,31 +5,30 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { supabaseServer } from "@/lib/supabase-server";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
-type SmsTimePreference = "morning" | "afternoon" | "evening";
+/**
+ * ======================================================
+ * POST /api/onboarding/sms (CANONICAL)
+ * ======================================================
+ *
+ * CHANGE (Feb 2026):
+ * - smsTimePreference is no longer user-selectable.
+ * - We hard-lock to "morning" (8:00 AM local time).
+ *
+ * NOTE TO SELF (ChatGPT):
+ * Even if client sends smsTimePreference, ignore it.
+ */
 
 /**
- * Normalize to E.164
- * US-focused for now.
+ * Normalize to E.164 (US-focused for now).
  */
 function normalizeToE164(input: string): string | null {
   if (!input) return null;
 
   const digits = input.replace(/\D/g, "");
 
-  // 10-digit US
-  if (digits.length === 10) {
-    return `+1${digits}`;
-  }
-
-  // 11-digit starting with 1
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return `+${digits}`;
-  }
-
-  // Already includes +
-  if (input.startsWith("+") && digits.length >= 11) {
-    return `+${digits}`;
-  }
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (input.startsWith("+") && digits.length >= 11) return `+${digits}`;
 
   return null;
 }
@@ -45,15 +44,10 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-
     const smsEnabled = body?.smsEnabled === true;
 
-    const allowed: SmsTimePreference[] = ["morning", "afternoon", "evening"];
-    const smsTimePreference: SmsTimePreference = allowed.includes(
-      body?.smsTimePreference
-    )
-      ? body.smsTimePreference
-      : "morning";
+    // ✅ HARD LOCK: Morning only (8AM local)
+    const smsTimePreference = "morning" as const;
 
     if (smsEnabled && body?.smsDisclosureAccepted !== true) {
       return new Response(JSON.stringify({ error: "Consent required." }), {
@@ -92,7 +86,7 @@ export async function POST(req: Request) {
     // ---------------------------------------
     await updateClerkPublicMetadata(userId, {
       smsEnabled,
-      smsTimePreference,
+      smsTimePreference, // always "morning"
       phoneNumber: normalizedPhone,
       smsDisclosureAccepted: smsEnabled ? true : false,
       smsStopHelpDisclosureShownAt: new Date().toISOString(),
@@ -113,9 +107,7 @@ export async function POST(req: Request) {
     if (!smsEnabled && normalizedPhone) {
       await supabaseServer
         .from("sms_identities")
-        .update({
-          sms_enabled: false,
-        })
+        .update({ sms_enabled: false })
         .eq("phone_number", normalizedPhone);
     }
 
@@ -123,15 +115,13 @@ export async function POST(req: Request) {
     // OPTIONAL (RECOMMENDED): Confirmation SMS
     // ---------------------------------------
     if (smsEnabled && normalizedPhone && isTwilioReady()) {
-      // NOTE TO FUTURE ME (ChatGPT):
-      // This message is a big Twilio compliance win: brand + STOP/HELP.
       const confirm =
-        "Summitt Mindset: You’re subscribed to daily training texts (membership coaching + practice reminders). Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
+        "Summitt Mindset: You’re subscribed to daily training texts (membership coaching + practice reminders). Texts arrive at 8:00 AM local time. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
 
       try {
         await sendSMS({ to: normalizedPhone, body: confirm });
       } catch (e) {
-        // We do NOT fail onboarding if confirmation send fails.
+        // Do NOT fail onboarding if confirmation send fails.
         console.error("Onboarding confirmation SMS failed:", e);
       }
     }

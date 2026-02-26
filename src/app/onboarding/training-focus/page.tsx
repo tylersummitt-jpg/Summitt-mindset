@@ -16,16 +16,26 @@ export default async function TrainingFocusPage(): Promise<ReactElement> {
     redirect("/post-sign-in");
   }
 
-  const hasMissPlan =
-    typeof md?.onboardingMissPlan === "string" && md.onboardingMissPlan.length > 0;
+  /**
+   * ======================================================
+   * NEW FLOW GUARD
+   * ======================================================
+   * We removed:
+   * - schedule
+   * - miss-plan
+   *
+   * So the only prereq is: onboardingOutcome
+   */
+  const hasOutcome =
+    typeof md?.onboardingOutcome === "string" && md.onboardingOutcome.length > 0;
 
-  if (!hasMissPlan) {
-    redirect("/onboarding/miss-plan");
+  if (!hasOutcome) {
+    redirect("/onboarding/outcome");
   }
 
   return (
     <div>
-      <OnboardingProgress currentStep={5} />
+      <OnboardingProgress currentStep={3} />
 
       <h1 className="text-3xl font-bold mb-3">
         Coach Pat will train these into you.

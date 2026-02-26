@@ -1,15 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type SmsTimePreference = "morning" | "afternoon" | "evening";
-
-function normalizeTimeOfDayToSmsPref(raw: string | null): SmsTimePreference {
-  if (raw === "morning") return "morning";
-  if (raw === "midday") return "afternoon";
-  return "evening";
-}
+/**
+ * ======================================================
+ * SMS Client (CANONICAL)
+ * ======================================================
+ *
+ * CHANGE (Feb 2026):
+ * - Removed time-of-day selection entirely.
+ * - SMS always sends at 8:00 AM local time.
+ *
+ * NOTE TO SELF (ChatGPT):
+ * This keeps onboarding calm and removes "miss-plan" complexity.
+ */
 
 function normalizeToE164(input: string): string | null {
   const digits = input.replace(/\D/g, "");
@@ -21,21 +26,10 @@ function normalizeToE164(input: string): string | null {
   return null;
 }
 
-export default function SmsClient({
-  defaultTimeOfDay,
-}: {
-  defaultTimeOfDay: string | null;
-}) {
+export default function SmsClient() {
   const router = useRouter();
 
-  const defaultPref = useMemo<SmsTimePreference>(() => {
-    return normalizeTimeOfDayToSmsPref(defaultTimeOfDay);
-  }, [defaultTimeOfDay]);
-
   const [smsEnabled, setSmsEnabled] = useState(true);
-  const [smsTimePreference, setSmsTimePreference] =
-    useState<SmsTimePreference>(defaultPref);
-
   const [phoneInput, setPhoneInput] = useState("");
   const [consentChecked, setConsentChecked] = useState(false);
 
@@ -67,9 +61,12 @@ export default function SmsClient({
           credentials: "include",
           body: JSON.stringify({
             smsEnabled: true,
-            smsTimePreference,
             phoneNumber: normalized,
             smsDisclosureAccepted: true,
+
+            // NOTE TO SELF:
+            // We intentionally do NOT send any time preference.
+            // Server will hard-lock smsTimePreference to "morning".
           }),
         });
 
@@ -116,13 +113,10 @@ export default function SmsClient({
               One message per day with your practice and a calm Coach Pat nudge.
             </p>
 
-            {/* ======================================================
-               TWILIO SIGNAL: Consent is NOT required to purchase
-               ====================================================== */}
             <p className="mt-2 text-xs text-gray-500">
-              SMS is optional and not a condition of purchase.
+              Texts arrive at <strong>8:00 AM</strong> in your local time zone.
               <br />
-              You can continue without SMS by switching SMS to Off.
+              SMS is optional and not a condition of purchase.
             </p>
           </div>
 
@@ -159,30 +153,6 @@ export default function SmsClient({
               />
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-3">
-              {(["morning", "afternoon", "evening"] as SmsTimePreference[]).map(
-                (opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setSmsTimePreference(opt)}
-                    className={[
-                      "border rounded-lg p-3 text-sm font-semibold",
-                      smsTimePreference === opt
-                        ? "border-black"
-                        : "border-gray-200",
-                    ].join(" ")}
-                  >
-                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                  </button>
-                )
-              )}
-            </div>
-
-            {/* ======================================================
-               TWILIO-COMPLIANT CONSENT
-               Must be directly next to phone field
-               ====================================================== */}
             <label className="flex items-start gap-3 text-sm text-gray-800">
               <input
                 type="checkbox"

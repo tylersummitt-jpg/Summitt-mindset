@@ -1,61 +1,40 @@
-// src/app/api/cron/daily-sms/route.ts
-
 import { NextResponse } from "next/server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getOrCreateDailyCoachPatNote } from "@/lib/get-or-create-daily-coach-pat-note";
-import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
+import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import { getUserStalenessLevel } from "@/lib/get-user-staleness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET;
+const SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
-function normalizeText(input: string) {
-  return (input || "").trim().replace(/\s+/g, " ");
+function isWithinFixed8amWindow(local: Date) {
+  return local.getHours() === 8;
 }
 
-function isWithinSendWindow(local: Date, preference?: string) {
-  const hour = local.getHours();
-
-  if (!preference || preference === "morning") return hour === 8;
-  if (preference === "afternoon") return hour === 12;
-  if (preference === "evening") return hour === 18;
-
-  return hour === 8;
-}
-
-function dayKeyToDate(key: string): Date {
-  // key format: YYYY-MM-DD
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
-}
-
-function diffInDays(a: string, b: string) {
-  const d1 = dayKeyToDate(a);
-  const d2 = dayKeyToDate(b);
-  const ms = d1.getTime() - d2.getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
-}
-
-/**
- * ======================================================
- * TWILIO APPROVAL SIGNAL
- * ======================================================
- * Outbound messages should identify sender + STOP/HELP.
- * This footer is short and safe to include in every message.
- */
 function withComplianceFooter(body: string) {
-  const footer = "\n\n— Summitt Mindset\nReply STOP to opt out. Reply HELP for help.";
-  return `${body}${footer}`;
+  return (
+    body +
+    "\n\n— Summitt Mindset\nReply STOP to opt out. Reply HELP for help."
+  );
+}
+
+function getReentryLine(level: string): string | null {
+  if (level === "short_idle") return "Just picking back up. That’s enough.";
+  if (level === "medium_idle") return "No need to restart. Just continue.";
+  if (level === "long_idle") return "You’re not behind. Let’s take this small.";
+  return null;
 }
 
 export async function GET(req: Request) {
-  const secret = req.headers.get("x-cron-secret");
-
-  if (!CRON_SECRET || secret !== CRON_SECRET) {
+  // ✅ OFFICIAL VERCEL CRON AUTH PATTERN
+  const authHeader = req.headers.get("authorization");
+  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -90,119 +69,106 @@ export async function GET(req: Request) {
         now.toLocaleString("en-US", { timeZone: timezone })
       );
 
-      if (!isWithinSendWindow(localNow, md.smsTimePreference)) continue;
+      if (!isWithinFixed8amWindow(localNow)) continue;
 
-      const todayKey = getDateKeyInTimezone(localNow, timezone);
+      const todayKey = getDateKeyInTimezone(now, timezone);
 
-      const { data: existing } = await supabaseServer
+      // ✅ Reservation insert (prevents duplicate sends)
+      const { error: reservationError } = await supabaseServer
         .from("sms_send_events")
+        .insert({
+          clerk_user_id: user.id,
+          day_key: todayKey,
+          status: "reserved",
+        });
+
+      if (reservationError) {
+        // Likely duplicate
+        continue;
+      }
+
+      const { data: completed } = await supabaseServer
+        .from("daily_completion_events")
         .select("id")
         .eq("clerk_user_id", user.id)
         .eq("day_key", todayKey)
         .limit(1);
 
-      if (existing && existing.length > 0) continue;
+      if (completed && completed.length > 0) {
+        await supabaseServer
+          .from("sms_send_events")
+          .update({ status: "skipped_already_completed" })
+          .eq("clerk_user_id", user.id)
+          .eq("day_key", todayKey);
+        continue;
+      }
 
       const dayNumber =
         typeof md.currentDay === "number" && md.currentDay > 0
           ? md.currentDay
           : 1;
 
-      // --------------------------------------------------
-      // Check last completion
-      // --------------------------------------------------
-      const { data: lastCompletion } = await supabaseServer
-        .from("daily_completion_events")
-        .select("day_key")
-        .eq("clerk_user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { level } = getUserStalenessLevel({
+        timezoneFromMetadata: md.timezone,
+        lastCompletedAt: md.lastCompletedAt,
+      });
 
-      let smsBody: string;
+      const version = await getOrCreateDailyPracticeVersion({
+        userId: user.id,
+        dayNumber,
+      });
 
-      const lastDayKey = lastCompletion?.day_key ?? null;
+      const note = await getOrCreateDailyCoachPatNote({
+        userId: user.id,
+        dayNumber,
+      });
 
-      const missedDays = lastDayKey ? diffInDays(todayKey, lastDayKey) : 0;
+      const reentryLine = getReentryLine(level);
 
-      // --------------------------------------------------
-      // RE-ENTRY MODE (2+ days missed)
-      // --------------------------------------------------
-      if (lastDayKey && missedDays >= 2) {
-        smsBody =
-          `Glad you're here.\n\n` +
-          `No catching up.\n` +
-          `No guilt.\n\n` +
-          `Today is enough.\n\n` +
-          `Reply with one honest sentence.\n` +
-          `When you're ready, text DONE.`;
-      } else {
-        // --------------------------------------------------
-        // NORMAL MODE
-        // --------------------------------------------------
-        const trainingCampTrack =
-          md.trainingCampTrack === "women" ? "women" : "standard";
+      let smsBody = "";
 
-        const primaryGoal =
-          typeof md.summittGoal === "string"
-            ? normalizeText(md.summittGoal)
-            : undefined;
+      if (reentryLine) smsBody += `${reentryLine}\n\n`;
 
-        const ensured = await ensureDailyPrompt({
-          userId: user.id,
-          dayNumber,
-          trainingCampTrack,
-          primaryGoal,
-        });
+      smsBody +=
+        `${note.noteText}\n\n` +
+        `Today’s Practice\n\n` +
+        `${version.actionItem}\n\n` +
+        `Reflection\n\n` +
+        `${version.reflectionPrompt}\n\n` +
+        `Reply with one honest sentence.\n` +
+        `When you're ready, text DONE.`;
 
-        const note = await getOrCreateDailyCoachPatNote({
-          userId: user.id,
-          dayNumber,
-        });
-
-        const actionItem = normalizeText(ensured.actionItem);
-        const coachNote = normalizeText(note.noteText);
-
-        smsBody =
-          `Good morning.\n` +
-          `Day ${dayNumber}.\n\n` +
-          `Today’s practice:\n${actionItem}\n\n` +
-          `Coach Pat:\n${coachNote}\n\n` +
-          `Reply with one honest sentence.\n` +
-          `When you're ready, text DONE.`;
-      }
-
-      // ✅ Always append compliance footer
       smsBody = withComplianceFooter(smsBody);
 
-      if (!isTwilioReady()) {
-        await supabaseServer.from("sms_send_events").insert({
-          clerk_user_id: user.id,
-          day_key: todayKey,
-          status: "skipped_missing_twilio",
-          metadata: { canonical: true, intended_body: smsBody },
-        });
-
+      if (!isTwilioReady() || SMS_DRY_RUN) {
+        await supabaseServer
+          .from("sms_send_events")
+          .update({ status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio" })
+          .eq("clerk_user_id", user.id)
+          .eq("day_key", todayKey);
         continue;
       }
 
       try {
         const message = await sendSMS({ to: phone, body: smsBody });
 
-        await supabaseServer.from("sms_send_events").insert({
-          clerk_user_id: user.id,
-          day_key: todayKey,
-          message_sid: message.sid,
-          status: message.status,
-          metadata: { canonical: true },
-        });
+        await supabaseServer
+          .from("sms_send_events")
+          .update({
+            message_sid: message.sid,
+            status: message.status,
+          })
+          .eq("clerk_user_id", user.id)
+          .eq("day_key", todayKey);
       } catch (err) {
-        await supabaseServer.from("sms_send_events").insert({
-          clerk_user_id: user.id,
-          day_key: todayKey,
-          status: "send_failed",
-          metadata: { error: String(err) },
-        });
+        await supabaseServer
+          .from("sms_send_events")
+          .update({
+            status: "send_failed",
+            metadata: { error: String(err) },
+          })
+          .eq("clerk_user_id", user.id)
+          .eq("day_key", todayKey);
       }
     }
 

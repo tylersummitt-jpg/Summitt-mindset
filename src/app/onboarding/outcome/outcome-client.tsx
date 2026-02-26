@@ -59,20 +59,15 @@ export default function OutcomeClient({
        * ======================================================
        * IMPORTANT
        * ======================================================
+       * Keep navigation immediate (Safari safety).
        *
-       * DO NOT use setTimeout + router.push in onboarding.
-       * Safari + Next.js can drop the navigation silently.
-       *
-       * Instead:
-       * - set celebrating
-       * - push immediately
-       *
-       * The next page will render right away.
+       * NEW FLOW:
+       * Outcome -> Training Focus
+       * (Schedule + Miss Plan removed)
        */
       setCelebrating(true);
 
-      // ✅ Navigate immediately (canonical)
-      router.push("/onboarding/schedule");
+      router.push("/onboarding/training-focus");
       router.refresh();
     } catch {
       setError("Something went wrong.");

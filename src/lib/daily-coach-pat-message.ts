@@ -2,7 +2,7 @@
 
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { generateDailyCoachPatMessage } from "@/lib/daily-coach-pat-engine";
+import { getOrCreateDailyCoachPatNote } from "@/lib/get-or-create-daily-coach-pat-note";
 
 export type DailyCoachPatMessageResult =
   | { send: true; text: string; dayNumber: number }
@@ -20,15 +20,10 @@ export type DailyCoachPatMessageResult =
  * Daily Coach Pat SMS Generator (CANONICAL)
  * ======================================================
  *
- * Determines:
- * - whether an SMS should be sent today
- * - what day the user is on
- * - returns the SAME cached coach note used in-app
+ * This now calls getOrCreateDailyCoachPatNote directly.
+ * There is NO secondary engine.
  *
- * It does NOT:
- * - send SMS
- * - write journal entries
- * - complete days
+ * App + SMS + Cron all use the same canonical pathway.
  */
 export async function getDailyCoachPatMessageForSMS(
   userId: string
@@ -70,20 +65,25 @@ export async function getDailyCoachPatMessageForSMS(
   }
 
   // ----------------------------
-  // CANONICAL NOTE (CACHED ENGINE)
+  // CANONICAL NOTE
   // ----------------------------
-  const result = await generateDailyCoachPatMessage({
-    userId,
-    dayNumber: currentDay,
-  });
+  try {
+    const result = await getOrCreateDailyCoachPatNote({
+      userId,
+      dayNumber: currentDay,
+    });
 
-  if (!result.ok || !result.note) {
+    if (!result?.noteText) {
+      return { send: false, reason: "not_ready" };
+    }
+
+    return {
+      send: true,
+      text: result.noteText,
+      dayNumber: result.dayNumber,
+    };
+  } catch (err) {
+    console.error("[DailyCoachPatMessage] error:", err);
     return { send: false, reason: "not_ready" };
   }
-
-  return {
-    send: true,
-    text: result.note,
-    dayNumber: result.dayNumber,
-  };
 }

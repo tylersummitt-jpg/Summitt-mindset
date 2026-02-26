@@ -3,7 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 
 import DayClient from "./day-client";
 import { resolveDailyPracticeForUser } from "@/lib/resolve-daily-practice";
-import { generateDailyCoachPatMessage } from "@/lib/daily-coach-pat-engine";
+import { getOrCreateDailyCoachPatNote } from "@/lib/get-or-create-daily-coach-pat-note";
 
 type PageProps = {
   params: Promise<{ day: string }>;
@@ -18,20 +18,16 @@ function safeDayNumber(raw: unknown): number | null {
 
 /**
  * ======================================================
- * Day Page (SERVER-RENDERED COACH NOTE)
+ * Day Page (CANONICAL COACH NOTE)
  * ======================================================
  *
- * Responsibilities:
- * - Validate day param
- * - Resolve canonical practice
- * - Generate Coach Pat note (server-side, once)
- * - Pass everything into DayClient
+ * CRITICAL RULE:
+ * - App and SMS must use the exact same note generator.
+ * - No alternate pathways.
+ * - No client fetching.
+ * - No regeneration on refresh.
  *
- * Coach note rules:
- * - Only generate for current day
- * - Past days never regenerate notes
- * - No client fetch
- * - No loading state
+ * Only getOrCreateDailyCoachPatNote is allowed.
  */
 
 export default async function DayPage({ params }: PageProps) {
@@ -68,20 +64,22 @@ export default async function DayPage({ params }: PageProps) {
   }
 
   // --------------------------------------------------
-  // Generate Coach Pat note (CURRENT DAY ONLY)
+  // Canonical Coach Pat Note
   // --------------------------------------------------
   let coachNote = "";
 
   if (requestedDay === currentDay) {
-    const coachResult = await generateDailyCoachPatMessage({
-      userId,
-      dayNumber: requestedDay,
-    });
+    try {
+      const result = await getOrCreateDailyCoachPatNote({
+        userId,
+        dayNumber: requestedDay,
+      });
 
-    if (coachResult.ok) {
-      coachNote = coachResult.note;
-    } else {
-      // Calm fallback — never break the page
+      coachNote = result.noteText;
+    } catch (err) {
+      console.error("Coach note error:", err);
+
+      // Calm fallback — page must never break
       coachNote =
         "Keep it simple today. Show up. Hold the standard in small moments.";
     }

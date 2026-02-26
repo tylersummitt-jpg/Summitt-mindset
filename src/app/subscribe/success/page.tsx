@@ -6,35 +6,14 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 
-function isSubscribedFromMetadata(md: Record<string, any>) {
-  const subscribedRaw = md?.summittSubscribed;
-  const plan = md?.summittPlan;
-
-  return (
-    subscribedRaw === true ||
-    subscribedRaw === "true" ||
-    plan === "monthly" ||
-    plan === "annual"
-  );
-}
-
 function SubscribeSuccessInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded, isSignedIn, user } = useUser();
 
-  const [seconds, setSeconds] = useState(2);
   const [error, setError] = useState<string | null>(null);
 
   const sessionId = searchParams.get("session_id");
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSeconds((s) => (s <= 1 ? 1 : s - 1));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     async function run() {
@@ -45,31 +24,27 @@ function SubscribeSuccessInner() {
 
       if (!isLoaded || !isSignedIn || !user) return;
 
-      if (!sessionId) {
-        console.warn("Missing session_id on subscribe success page");
-      }
-
       try {
-        await new Promise((r) => setTimeout(r, 1500));
-        await user.reload();
-
-        let md = (user.publicMetadata || {}) as Record<string, any>;
-        let isSubscribed = isSubscribedFromMetadata(md);
-
-        if (!isSubscribed) {
-          await new Promise((r) => setTimeout(r, 2500));
-          await user.reload();
-
-          md = (user.publicMetadata || {}) as Record<string, any>;
-          isSubscribed = isSubscribedFromMetadata(md);
-
-          if (!isSubscribed) {
-            router.push("/subscribe?canceled=0");
-            return;
-          }
+        if (!sessionId) {
+          throw new Error("Missing session_id");
         }
 
-        // Canonical redirect truth
+        // 🔥 Call synchronous confirm endpoint
+        const res = await fetch("/api/stripe/confirm-checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text);
+        }
+
+        // Reload Clerk user so metadata is fresh
+        await user.reload();
+
+        // Deterministic redirect
         router.push("/post-sign-in");
       } catch (err: any) {
         console.error("Subscribe success flow error:", err);
@@ -93,8 +68,9 @@ function SubscribeSuccessInner() {
       <main className="flex min-h-screen items-center justify-center px-6">
         <div className="max-w-lg w-full text-center space-y-4">
           <h1 className="text-2xl font-semibold">Almost there</h1>
+
           <p className="text-gray-600 text-sm">
-            Something went wrong finalizing your membership.
+            We couldn't automatically confirm your membership.
           </p>
 
           <p className="text-red-600 text-sm">{error}</p>
@@ -116,10 +92,8 @@ function SubscribeSuccessInner() {
         <h1 className="text-3xl font-semibold">You’re in.</h1>
 
         <p className="text-gray-600">
-          Finalizing your membership and preparing today.
+          Finalizing your membership…
         </p>
-
-        <p className="text-sm text-gray-500">Taking you in… ({seconds})</p>
       </div>
     </main>
   );

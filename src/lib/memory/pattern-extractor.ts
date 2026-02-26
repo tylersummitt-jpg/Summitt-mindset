@@ -2,19 +2,15 @@
 
 /**
  * ======================================================
- * Pattern Extraction (DETERMINISTIC)
+ * Weekly Pattern Extraction (RETENTION v3 + KEYS)
  * ======================================================
  *
- * Input: safe memory atoms (already compressed)
- * Output: 1–2 coachable "pattern handles"
- *
- * Rules:
- * - never therapeutic
- * - never diagnostic
- * - never moralizing
- * - short, usable by Coach Pat naturally
- *
- * This is a stepping stone toward a real pattern_insights table.
+ * Output:
+ * {
+ *   identity: string
+ *   encouragement: string
+ *   patterns: { key: string; text: string }[]
+ * }
  */
 
 function normalizeText(input: string): string {
@@ -38,50 +34,74 @@ function bucketFor(atom: string): Bucket[] {
   if (!t) return ["general"];
 
   const buckets: Bucket[] = [];
-
   const add = (b: Bucket) => {
     if (!buckets.includes(b)) buckets.push(b);
   };
 
-  if (t.includes("focus practice") || t.includes("protecting your focus")) add("focus");
-  if (t.includes("discipline practice") || t.includes("holding the standard")) add("discipline");
+  if (t.includes("focus")) add("focus");
+  if (t.includes("discipline")) add("discipline");
   if (t.includes("avoidance")) add("avoidance");
-  if (t.includes("pressure") || t.includes("overwhelm")) add("pressure");
-  if (t.includes("energy being a factor")) add("energy");
-  if (t.includes("family being a real anchor")) add("family");
-  if (t.includes("leadership practice") || t.includes("leading in real moments")) add("leadership");
-  if (t.includes("confidence practice") || t.includes("confidence growing")) add("confidence");
-  if (t.includes("steadiness practice") || t.includes("held steady")) add("steadiness");
+  if (t.includes("pressure")) add("pressure");
+  if (t.includes("energy")) add("energy");
+  if (t.includes("family")) add("family");
+  if (t.includes("leadership")) add("leadership");
+  if (t.includes("confidence")) add("confidence");
+  if (t.includes("steadiness")) add("steadiness");
 
   return buckets.length ? buckets : ["general"];
 }
 
-function renderPattern(bucket: Bucket): string | null {
+function identityLine(bucket: Bucket): string {
   switch (bucket) {
     case "discipline":
-      return "You build momentum when you keep a small, consistent standard.";
+      return "You are becoming more disciplined.";
     case "focus":
-      return "Your best days come when you protect your attention and keep it simple.";
+      return "You are protecting your attention better.";
     case "avoidance":
-      return "When avoidance shows up, honesty is your first win — then action gets easier.";
+      return "You are getting more honest when avoidance shows up.";
     case "pressure":
-      return "Under pressure, you do better when you shrink the task and steady yourself.";
+      return "You are steadier under pressure.";
     case "energy":
-      return "Energy swings are real — you’re learning to show up anyway, without drama.";
+      return "You are learning to show up even when energy dips.";
     case "family":
-      return "Family is an anchor for you — it can motivate and also add weight.";
+      return "You are balancing responsibility more clearly.";
     case "leadership":
-      return "Leadership shows up in small moments — you’re learning to raise your standard there.";
+      return "You are raising your standard in small moments.";
     case "confidence":
-      return "Confidence grows when you follow through on small promises.";
+      return "You are building confidence through follow-through.";
     case "steadiness":
-      return "Steadiness is becoming your edge — simple actions, repeated, without noise.";
+      return "You are becoming steadier in how you operate.";
     default:
-      return null;
+      return "You are showing up consistently.";
   }
 }
 
-export function extractWeeklyPatternsFromMemoryAtoms(atoms: string[]): string[] {
+function bulletLine(bucket: Bucket): string {
+  switch (bucket) {
+    case "discipline":
+      return "You follow through when you shrink the task.";
+    case "focus":
+      return "Your best days happen when you remove noise.";
+    case "avoidance":
+      return "Action gets easier once you start.";
+    case "pressure":
+      return "Small steps calm big pressure.";
+    case "energy":
+      return "Showing up matters more than feeling ready.";
+    case "family":
+      return "Responsibility can fuel you or weigh on you.";
+    case "leadership":
+      return "Standards show up in small decisions.";
+    case "confidence":
+      return "Small wins build belief.";
+    case "steadiness":
+      return "Simple actions repeated become your edge.";
+    default:
+      return "Consistency compounds.";
+  }
+}
+
+export function extractWeeklyPatternsFromMemoryAtoms(atoms: string[]) {
   const scores = new Map<Bucket, number>();
 
   for (const atom of atoms) {
@@ -90,19 +110,25 @@ export function extractWeeklyPatternsFromMemoryAtoms(atoms: string[]): string[] 
     }
   }
 
-  // Sort by frequency
   const ranked = [...scores.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([bucket]) => bucket)
     .filter((b) => b !== "general");
 
-  const out: string[] = [];
-  for (const b of ranked) {
-    const p = renderPattern(b);
-    if (!p) continue;
-    out.push(p);
-    if (out.length >= 2) break;
-  }
+  const top = ranked.slice(0, 2);
 
-  return out;
+  const identity = identityLine(top[0] ?? "general");
+
+  const patterns = top.map((b) => ({
+    key: b,
+    text: bulletLine(b),
+  }));
+
+  const encouragement = "Keep going. Stay steady.";
+
+  return {
+    identity,
+    encouragement,
+    patterns,
+  };
 }

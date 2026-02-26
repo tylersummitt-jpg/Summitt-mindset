@@ -4,14 +4,10 @@ import { selectInSeasonActionForDay, inSeasonPromptId } from "@/lib/in-season-se
 import { generateInSeasonReflectionPrompt } from "@/lib/in-season-reflection-generator";
 import { trainingCampPromptId } from "@/lib/prompt-ids";
 
-function normalizeText(input: string): string {
-  return (input || "").trim().replace(/\s+/g, " ");
+function cleanText(input: string): string {
+  return (input || "").trim();
 }
 
-/**
- * Ensures daily_prompts has the canonical prompt for the given day.
- * App + SMS share this.
- */
 export async function ensureDailyPrompt({
   userId,
   dayNumber,
@@ -23,17 +19,14 @@ export async function ensureDailyPrompt({
   trainingCampTrack: "standard" | "women";
   primaryGoal?: string;
 }) {
-  // --------------------------------------------------
-  // TRAINING CAMP (1–30)
-  // --------------------------------------------------
   if (dayNumber <= 30) {
     const practice = await resolveTrainingCampDay({
       dayNumber,
       trainingCampTrack,
     });
 
-    const actionItem = normalizeText(practice.action_item);
-    const reflectionPrompt = normalizeText(practice.reflection_prompt);
+    const actionItem = cleanText(practice.action_item);
+    const reflectionPrompt = cleanText(practice.reflection_prompt);
 
     const promptId = trainingCampPromptId(dayNumber);
 
@@ -55,10 +48,6 @@ export async function ensureDailyPrompt({
     return { promptId, actionItem, reflectionPrompt };
   }
 
-  // --------------------------------------------------
-  // IN-SEASON (31+)
-  // --------------------------------------------------
-  // If it already exists, use it (immutability).
   const existing = await supabaseServer
     .from("daily_prompts")
     .select("action_item, reflection_prompt, source")
@@ -69,8 +58,8 @@ export async function ensureDailyPrompt({
   if (existing.data?.action_item && existing.data?.reflection_prompt) {
     return {
       promptId: inSeasonPromptId(dayNumber),
-      actionItem: normalizeText(existing.data.action_item),
-      reflectionPrompt: normalizeText(existing.data.reflection_prompt),
+      actionItem: cleanText(existing.data.action_item),
+      reflectionPrompt: cleanText(existing.data.reflection_prompt),
     };
   }
 
@@ -91,8 +80,8 @@ export async function ensureDailyPrompt({
       {
         clerk_user_id: userId,
         day_number: dayNumber,
-        action_item: normalizeText(action.text),
-        reflection_prompt: normalizeText(reflectionPrompt),
+        action_item: cleanText(action.text),
+        reflection_prompt: cleanText(reflectionPrompt),
         source: "generated",
       },
       { onConflict: "clerk_user_id,day_number" }
@@ -102,7 +91,7 @@ export async function ensureDailyPrompt({
 
   return {
     promptId,
-    actionItem: normalizeText(action.text),
-    reflectionPrompt: normalizeText(reflectionPrompt),
+    actionItem: cleanText(action.text),
+    reflectionPrompt: cleanText(reflectionPrompt),
   };
 }

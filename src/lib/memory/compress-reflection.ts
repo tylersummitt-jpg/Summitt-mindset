@@ -2,7 +2,7 @@
 
 /**
  * ======================================================
- * Safe Reflection Compression (DETERMINISTIC)
+ * Safe Reflection Compression (RETENTION v3 — ONE SENTENCE)
  * ======================================================
  *
  * Converts raw journal text into a coach-safe memory atom.
@@ -13,14 +13,16 @@
  * - NEVER mention journaling / entries / writing
  * - NEVER include dates/times ("today", "yesterday", etc.)
  * - Must remain time-agnostic
+ * - MUST BE ONE SENTENCE ONLY
  *
  * Output is designed to be fed into:
  * - daily_summaries
  * - weekly_summaries
+ * - pattern extraction
  * - CoachPatContext grounding
  *
- * This is NOT "summary of what they wrote".
- * It's a safe, coachable "signal snapshot".
+ * This is NOT a diary recap.
+ * This is a safe signal snapshot.
  */
 
 function normalizeText(input: string): string {
@@ -99,8 +101,7 @@ function practiceLabel(category: PracticeCategory): string {
 }
 
 /**
- * We extract *signals*, not sentences.
- * This must never output raw user wording.
+ * Extract signals — not phrasing.
  */
 function extractSignals(raw: string): {
   themes: string[];
@@ -110,12 +111,10 @@ function extractSignals(raw: string): {
   if (!t) return { themes: [], tone: "steady" };
 
   const themes: string[] = [];
-
   const add = (s: string) => {
     if (!themes.includes(s)) themes.push(s);
   };
 
-  // broad, coach-safe themes
   if (t.includes("overthink") || t.includes("spiral") || t.includes("stuck"))
     add("getting stuck in your head");
   if (t.includes("tired") || t.includes("exhaust") || t.includes("burnout"))
@@ -143,7 +142,6 @@ function extractSignals(raw: string): {
   if (t.includes("proud") || t.includes("win") || t.includes("progress"))
     add("progress being earned through follow-through");
 
-  // tone heuristic
   const strained =
     t.includes("can't") ||
     t.includes("cannot") ||
@@ -179,25 +177,27 @@ function buildCoachSafeAtom({
 }): string {
   const category = categorizePractice(actionItem);
   const label = practiceLabel(category);
-
   const { themes, tone } = extractSignals(journalContent);
 
-  // Build 2 short sentences. No "today". No quotes. No journaling talk.
-  const themeLine =
-    themes.length === 0
-      ? "Noticed what matters and stayed honest."
-      : themes.length === 1
-        ? `Noticed ${themes[0]}.`
-        : `Noticed ${themes[0]} and ${themes[1]}.`;
+  let signalPart = label;
 
-  const secondLine =
-    tone === "strained"
-      ? "Kept it simple and stayed with the next right step."
-      : tone === "encouraged"
-        ? "Built momentum by following through on a small standard."
-        : "Held steady and stayed intentional.";
+  if (themes.length === 1) {
+    signalPart += ` with ${themes[0]}`;
+  }
 
-  return `${label}. ${themeLine} ${secondLine}`;
+  if (themes.length === 2) {
+    signalPart += ` with ${themes[0]} and ${themes[1]}`;
+  }
+
+  if (tone === "strained") {
+    signalPart += ", staying steady under pressure";
+  }
+
+  if (tone === "encouraged") {
+    signalPart += ", building momentum through follow-through";
+  }
+
+  return `${signalPart}.`;
 }
 
 export function compressReflectionToMemoryAtom({
@@ -211,7 +211,6 @@ export function compressReflectionToMemoryAtom({
 }): string {
   const atom = buildCoachSafeAtom({ actionItem, journalContent });
 
-  // extra hard guard: never allow quotes or journaling words
   const sanitized = atom
     .replace(/["']/g, "")
     .replace(/\b(journal|journaling|entry|wrote|writing)\b/gi, "")

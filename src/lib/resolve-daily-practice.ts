@@ -1,21 +1,17 @@
-import {
-  resolveTrainingCampDay,
-  type TrainingCampTrack,
-  type TrainingCampPractice,
-} from "@/lib/training-camp-resolver";
+// src/lib/resolve-daily-practice.ts
 
-import { ensureDailyPrompt } from "@/lib/ensure-daily-prompt";
+import { type TrainingCampTrack } from "@/lib/training-camp-resolver";
 import { inSeasonPromptId } from "@/lib/in-season-selector";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { trainingCampPromptId } from "@/lib/prompt-ids";
+import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 
 export type DailyPhase = "Training Camp" | "In-Season";
 
 export type DailyPracticeResolved = {
   userId: string;
-
-  currentDay: number; // the day we are rendering
+  currentDay: number;
   phase: DailyPhase;
 
   promptId: string;
@@ -45,11 +41,7 @@ async function loadDailyPromptFromDB({
 }: {
   userId: string;
   dayNumber: number;
-}): Promise<{
-  actionItem: string;
-  reflectionPrompt: string;
-  source?: string | null;
-} | null> {
+}) {
   const { data, error } = await supabaseServer
     .from("daily_prompts")
     .select("action_item, reflection_prompt, source")
@@ -77,14 +69,10 @@ async function loadDailyPromptFromDB({
  * resolveDailyPracticeForUser (CANONICAL)
  * ======================================================
  *
- * Supports:
- * - Today (requestedDay omitted)
- * - Past days (requestedDay < metadata.currentDay)
- *
  * Non-negotiables:
  * - Never regenerate content for a past day
  * - Past day must load from daily_prompts
- * - Today can resolve from training camp resolver or ensureDailyPrompt
+ * - Today rotates daily if user is stuck (daily_prompt_versions)
  */
 export async function resolveDailyPracticeForUser(
   userId: string,
@@ -110,7 +98,7 @@ export async function resolveDailyPracticeForUser(
     throw new Error("ResolveDailyPractice: invalid requestedDay.");
   }
 
-  // 🔒 Safety: do not allow rendering ahead of metadata.currentDay
+  // 🔒 Never allow rendering ahead of currentDay
   if (dayToRender > metadataCurrentDay) {
     throw new Error(
       `ResolveDailyPractice: requestedDay ${dayToRender} is ahead of currentDay ${metadataCurrentDay}.`
@@ -154,59 +142,27 @@ export async function resolveDailyPracticeForUser(
   }
 
   // ======================================================
-  // TODAY MODE (Canonical)
+  // TODAY MODE (Rotating Version)
   // ======================================================
 
-  // ----------------------------
-  // TRAINING CAMP (Days 1–30)
-  // ----------------------------
-  if (phase === "Training Camp") {
-    const practice: TrainingCampPractice = await resolveTrainingCampDay({
-      dayNumber: dayToRender,
-      trainingCampTrack,
-    });
-
-    const actionItem = normalizeText(practice.action_item);
-    const reflectionPrompt = normalizeText(practice.reflection_prompt);
-
-    if (!actionItem || !reflectionPrompt) {
-      throw new Error(
-        `ResolveDailyPractice: Training Camp day ${dayToRender} missing content.`
-      );
-    }
-
-    return {
-      userId,
-      currentDay: dayToRender,
-      phase,
-      promptId: trainingCampPromptId(dayToRender),
-      actionItem,
-      reflectionPrompt,
-      video: practice.video,
-      trainingCampTrack,
-    };
-  }
-
-  // ----------------------------
-  // IN-SEASON (Day 31+)
-  // ----------------------------
-  const primaryGoal =
-    typeof metadata.summittGoal === "string" ? metadata.summittGoal : undefined;
-
-  const ensured = await ensureDailyPrompt({
+  const version = await getOrCreateDailyPracticeVersion({
     userId,
     dayNumber: dayToRender,
-    trainingCampTrack,
-    primaryGoal,
   });
+
+  const promptId =
+    phase === "Training Camp"
+      ? trainingCampPromptId(dayToRender)
+      : inSeasonPromptId(dayToRender);
 
   return {
     userId,
     currentDay: dayToRender,
     phase,
-    promptId: inSeasonPromptId(dayToRender),
-    actionItem: normalizeText(ensured.actionItem),
-    reflectionPrompt: normalizeText(ensured.reflectionPrompt),
+    promptId,
+    actionItem: normalizeText(version.actionItem),
+    reflectionPrompt: normalizeText(version.reflectionPrompt),
+    video: version.video,
     trainingCampTrack,
   };
 }

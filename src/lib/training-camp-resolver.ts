@@ -4,7 +4,6 @@ export type TrainingCampTrack = "standard" | "women";
 
 export type TrainingCampPractice = {
   title: string;
-  description?: string;
   action_item: string;
   reflection_prompt: string;
   video?: {
@@ -15,21 +14,9 @@ export type TrainingCampPractice = {
 };
 
 function trackVariants(track: TrainingCampTrack) {
-  // Support current DB casing safely
   return track === "women" ? ["women", "Women"] : ["standard", "Standard"];
 }
 
-/**
- * Deterministic Training Camp Resolver (Days 1–30)
- *
- * Resolution order:
- * 1) Track-specific video
- * 2) Shared video (track IS NULL)
- * 3) Non-video day (track IS NULL)
- *
- * NO authored fallbacks.
- * If content is missing, this FAILS LOUDLY.
- */
 export async function resolveTrainingCampDay({
   dayNumber,
   trainingCampTrack,
@@ -39,24 +26,18 @@ export async function resolveTrainingCampDay({
 }): Promise<TrainingCampPractice> {
   const variants = trackVariants(trainingCampTrack);
 
-  // ----------------------------
-  // 1) TRACK-SPECIFIC VIDEO
-  // ----------------------------
-  const trackVideoQuery = await supabaseServer
+  // 1️⃣ Track-specific video
+  const trackVideo = await supabaseServer
     .from("film_videos")
     .select("id, vimeo_video_id, title, action_item, reflection_prompt")
     .eq("training_camp_day", dayNumber)
     .in("training_camp_track", variants)
     .maybeSingle();
 
-  if (trackVideoQuery.error) {
-    throw new Error(
-      `TrainingCampResolver error (track video) day ${dayNumber}: ${trackVideoQuery.error.message}`
-    );
-  }
+  if (trackVideo.error) throw trackVideo.error;
 
-  if (trackVideoQuery.data) {
-    const v = trackVideoQuery.data;
+  if (trackVideo.data) {
+    const v = trackVideo.data;
     return {
       title: "Daily Practice",
       action_item: v.action_item,
@@ -69,24 +50,18 @@ export async function resolveTrainingCampDay({
     };
   }
 
-  // ----------------------------
-  // 2) SHARED VIDEO (track IS NULL)
-  // ----------------------------
-  const sharedVideoQuery = await supabaseServer
+  // 2️⃣ Shared video
+  const sharedVideo = await supabaseServer
     .from("film_videos")
     .select("id, vimeo_video_id, title, action_item, reflection_prompt")
     .eq("training_camp_day", dayNumber)
     .is("training_camp_track", null)
     .maybeSingle();
 
-  if (sharedVideoQuery.error) {
-    throw new Error(
-      `TrainingCampResolver error (shared video) day ${dayNumber}: ${sharedVideoQuery.error.message}`
-    );
-  }
+  if (sharedVideo.error) throw sharedVideo.error;
 
-  if (sharedVideoQuery.data) {
-    const v = sharedVideoQuery.data;
+  if (sharedVideo.data) {
+    const v = sharedVideo.data;
     return {
       title: "Daily Practice",
       action_item: v.action_item,
@@ -99,34 +74,43 @@ export async function resolveTrainingCampDay({
     };
   }
 
-  // ----------------------------
-  // 3) NON-VIDEO DAY (track IS NULL)
-  // ----------------------------
-  const nonVideoQuery = await supabaseServer
+  // 3️⃣ Track-specific non-video
+  const trackNonVideo = await supabaseServer
+    .from("training_camp_non_video_days")
+    .select("action_item, reflection_prompt")
+    .eq("training_camp_day", dayNumber)
+    .in("training_camp_track", variants)
+    .maybeSingle();
+
+  if (trackNonVideo.error) throw trackNonVideo.error;
+
+  if (trackNonVideo.data) {
+    return {
+      title: "Daily Practice",
+      action_item: trackNonVideo.data.action_item,
+      reflection_prompt: trackNonVideo.data.reflection_prompt,
+    };
+  }
+
+  // 4️⃣ Shared non-video
+  const sharedNonVideo = await supabaseServer
     .from("training_camp_non_video_days")
     .select("action_item, reflection_prompt")
     .eq("training_camp_day", dayNumber)
     .is("training_camp_track", null)
     .maybeSingle();
 
-  if (nonVideoQuery.error) {
-    throw new Error(
-      `TrainingCampResolver error (non-video day) day ${dayNumber}: ${nonVideoQuery.error.message}`
-    );
-  }
+  if (sharedNonVideo.error) throw sharedNonVideo.error;
 
-  if (nonVideoQuery.data) {
+  if (sharedNonVideo.data) {
     return {
       title: "Daily Practice",
-      action_item: nonVideoQuery.data.action_item,
-      reflection_prompt: nonVideoQuery.data.reflection_prompt,
+      action_item: sharedNonVideo.data.action_item,
+      reflection_prompt: sharedNonVideo.data.reflection_prompt,
     };
   }
 
-  // ----------------------------
-  // ❌ NOTHING FOUND — HARD FAIL
-  // ----------------------------
   throw new Error(
-    `TrainingCampResolver: No content found for day ${dayNumber}. Check Supabase data integrity.`
+    `TrainingCampResolver: No content found for day ${dayNumber}.`
   );
 }

@@ -6,7 +6,6 @@
  * This file is the single source of truth for:
  * - Arena options
  * - Outcome options (by arena)
- * - Miss plan options
  * - Training themes
  *
  * IMPORTANT:
@@ -18,6 +17,11 @@
  * So we provide:
  * - isArena() type guard
  * - getOutcomesForArena() helper
+ *
+ * CHANGE (Feb 2026):
+ * - Removed Miss Plan options entirely.
+ * - Removed Schedule selection from onboarding.
+ * - SMS send time is fixed: 8:00 AM local time.
  */
 
 export const ARENAS = [
@@ -91,12 +95,6 @@ export const OUTCOMES_BY_ARENA: Record<Arena, string[]> = {
 export function getOutcomesForArena(arena: Arena): string[] {
   return OUTCOMES_BY_ARENA[arena] || [];
 }
-
-export const MISS_PLAN_OPTIONS = [
-  "If I miss in the morning, I’ll do it at lunch.",
-  "If I miss midday, I’ll do it before bed.",
-  "If I miss today, I’ll do tomorrow’s practice tomorrow — no catching up.",
-] as const;
 
 export const TRAINING_THEMES = [
   { slug: "discipline", label: "Discipline & Standards" },

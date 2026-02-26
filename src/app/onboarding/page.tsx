@@ -43,11 +43,13 @@ export default async function OnboardingPage(): Promise<ReactElement> {
   }
 
   return (
-    <div className="text-center space-y-10">
-      <header className="space-y-4">
-        <h1 className="text-4xl font-bold">You’re in the right place.</h1>
+    <div className="text-center space-y-12">
+      <header className="space-y-5">
+        <h1 className="text-3xl sm:text-4xl font-bold">
+          You’re in the right place.
+        </h1>
 
-        <p className="text-lg text-gray-600 leading-relaxed">
+        <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-xl mx-auto">
           Summitt Mindset is a calm daily system for people who want to climb
           toward something meaningful.
         </p>
@@ -57,7 +59,7 @@ export default async function OnboardingPage(): Promise<ReactElement> {
         </p>
       </header>
 
-      <section className="border rounded-xl bg-white shadow-sm p-6 text-left space-y-4">
+      <section className="border rounded-xl bg-white shadow-sm p-6 sm:p-8 text-left space-y-4">
         <p className="font-semibold text-gray-900">Here’s how it works:</p>
 
         <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
@@ -68,14 +70,46 @@ export default async function OnboardingPage(): Promise<ReactElement> {
         </ul>
       </section>
 
-      <Link
-        href="/onboarding/goal"
-        className="inline-block bg-black text-white px-8 py-4 rounded-md font-semibold text-lg hover:bg-gray-900"
-      >
-        Start Your Training Camp →
-      </Link>
+      {/* ORANGE BRAND BUTTON — BOX STYLE */}
+      <div className="flex justify-center">
+        <Link
+          href="/onboarding/goal"
+          className="
+            block
+            w-full
+            sm:w-auto
+            sm:min-w-[320px]
+            text-center
+            whitespace-nowrap
+            px-10
+            py-4
+            rounded-xl
+            font-semibold
+            text-base
+            sm:text-lg
+            leading-tight
+            tracking-wide
+            shadow-md
+            transition
+            duration-200
+            focus:outline-none
+            focus:ring-4
+            hover:opacity-95
+            active:opacity-90
+          "
+          style={{
+            backgroundColor: "var(--brand)",
+            color: "#ffffff",
+            boxShadow: "0 10px 30px rgba(249,115,22,0.22)",
+          }}
+        >
+          → Start Your Training Camp →
+        </Link>
+      </div>
 
-      <p className="text-xs text-gray-500">This takes less than 3 minutes.</p>
+      <p className="text-xs text-gray-500">
+        This takes less than 3 minutes.
+      </p>
     </div>
   );
 }

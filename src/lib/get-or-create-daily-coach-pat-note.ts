@@ -3,75 +3,62 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { generateCoachPatNote } from "@/lib/coach-pat-generator";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
-
-type Params = {
-  userId: string;
-  dayNumber: number;
-};
 
 function normalizeText(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
 }
 
-/**
- * ======================================================
- * Daily Coach Pat Note Store (CANONICAL)
- * ======================================================
- *
- * Goal:
- * - App + SMS MUST get the exact same note for the same day.
- * - A refresh must never regenerate a new note.
- *
- * Key:
- * - day_key is computed in the USER'S timezone (not UTC).
- */
 export async function getOrCreateDailyCoachPatNote({
   userId,
   dayNumber,
-}: Params): Promise<{ noteText: string; dayKey: string; dayNumber: number }> {
-  // --------------------------------------------------
-  // 1) Determine user's local day_key
-  // --------------------------------------------------
+}: {
+  userId: string;
+  dayNumber: number;
+}) {
   const md = await getClerkPublicMetadata(userId);
   const timezone = resolveUserTimezone(md?.timezone);
 
   const now = new Date();
   const dayKey = getDateKeyInTimezone(now, timezone);
 
-  // --------------------------------------------------
-  // 2) Check if note already exists for this day_key
-  // --------------------------------------------------
-  const { data: existing } = await supabaseServer
+  const { data: existing, error: existingError } = await supabaseServer
     .from("coach_pat_daily_notes")
-    .select("note_text, day_number")
+    .select("*")
     .eq("clerk_user_id", userId)
     .eq("day_key", dayKey)
     .maybeSingle();
+
+  if (existingError) {
+    throw new Error(
+      `CoachPatDailyNote: failed to load existing note: ${existingError.message}`
+    );
+  }
 
   if (existing?.note_text) {
     return {
       noteText: normalizeText(existing.note_text),
       dayKey,
-      dayNumber:
-        typeof existing.day_number === "number" ? existing.day_number : dayNumber,
+      dayNumber: existing.day_number,
     };
   }
 
-  // --------------------------------------------------
-  // 3) Generate new note
-  // --------------------------------------------------
-  const note = await generateCoachPatNote({
+  // Use TODAY's rotating practice version as the input signal for the coach note.
+  // This keeps Coach Pat aligned with what the user actually sees today.
+  const version = await getOrCreateDailyPracticeVersion({
     userId,
     dayNumber,
-    actionItem: "", // generator resolves internally
   });
 
-  const safeNote = normalizeText(note);
+  const generated = await generateCoachPatNote({
+    userId,
+    dayNumber,
+    actionItem: version.actionItem,
+  });
 
-  // --------------------------------------------------
-  // 4) Persist (idempotent)
-  // --------------------------------------------------
+  const safeNote = normalizeText(generated.text);
+
   const { error: insertError } = await supabaseServer
     .from("coach_pat_daily_notes")
     .insert({
@@ -79,31 +66,42 @@ export async function getOrCreateDailyCoachPatNote({
       day_number: dayNumber,
       day_key: dayKey,
       note_text: safeNote,
-      model: "gpt-4.1-mini",
+      staleness_mode: generated.stalenessMode,
+      simplicity_passed: generated.simplicityPassed,
+      generation_attempts: generated.attempts,
+      model: generated.model,
     });
 
-  // If insert failed (race, constraint), fetch again and return canonical
+  // If a race occurs (two requests in the same moment), unique constraint may fire.
+  // In that case, just load and return the existing one.
   if (insertError) {
-    const { data: afterInsert } = await supabaseServer
-      .from("coach_pat_daily_notes")
-      .select("note_text, day_number")
-      .eq("clerk_user_id", userId)
-      .eq("day_key", dayKey)
-      .maybeSingle();
+    const code = (insertError as any)?.code;
+    if (code === "23505") {
+      const { data: raced, error: racedError } = await supabaseServer
+        .from("coach_pat_daily_notes")
+        .select("*")
+        .eq("clerk_user_id", userId)
+        .eq("day_key", dayKey)
+        .maybeSingle();
 
-    if (afterInsert?.note_text) {
-      return {
-        noteText: normalizeText(afterInsert.note_text),
-        dayKey,
-        dayNumber:
-          typeof afterInsert.day_number === "number"
-            ? afterInsert.day_number
-            : dayNumber,
-      };
+      if (racedError) {
+        throw new Error(
+          `CoachPatDailyNote: failed to load raced note: ${racedError.message}`
+        );
+      }
+
+      if (raced?.note_text) {
+        return {
+          noteText: normalizeText(raced.note_text),
+          dayKey,
+          dayNumber: raced.day_number,
+        };
+      }
     }
 
-    // Fallback: return generated note anyway
-    console.error("COACH PAT NOTE INSERT ERROR:", insertError);
+    throw new Error(
+      `CoachPatDailyNote: failed to insert note: ${insertError.message}`
+    );
   }
 
   return { noteText: safeNote, dayKey, dayNumber };
