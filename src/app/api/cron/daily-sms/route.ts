@@ -210,8 +210,7 @@ export async function GET(req: Request) {
         `${version.actionItem}\n\n` +
         `Reflection\n\n` +
         `${version.reflectionPrompt}\n\n` +
-        `Reply with one honest sentence.\n` +
-        `When you're ready, text DONE.`;
+        `Reply with one honest sentence to complete today.`;
 
       smsBody = withComplianceFooter(smsBody);
 
