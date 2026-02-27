@@ -5,19 +5,23 @@ import { NextResponse } from "next/server";
 
 /**
  * ======================================================
- * Clerk Middleware — Twilio Safe Public Routes
+ * Clerk Middleware — Public Routes (CANONICAL)
  * ======================================================
  *
- * Public:
- * - Marketing pages
- * - Policies
- * - Subscribe
- * - Twilio verification
+ * Public (no Clerk session required):
+ * - Marketing pages + policies
  * - Auth pages
- * - Webhooks
+ * - Webhooks (Stripe, etc.)
+ * - Twilio (verification + incoming webhooks)
+ * - Cron jobs (Vercel cron -> our server auth, not Clerk)
+ *
+ * NOTE:
+ * Cron + Twilio must be public because they are server-to-server calls.
+ * We secure them inside the route with secrets/signatures.
  */
 
 const isPublicRoute = createRouteMatcher([
+  // Marketing / policies
   "/",
   "/privacy",
   "/terms",
@@ -32,6 +36,12 @@ const isPublicRoute = createRouteMatcher([
   // Webhooks must be public
   "/api/webhooks(.*)",
   "/api/stripe/webhook(.*)",
+
+  // ✅ Cron routes must be public (secured by CRON_SECRET inside handler)
+  "/api/cron(.*)",
+
+  // ✅ Twilio routes must be public (secured by Twilio signature inside handler)
+  "/api/twilio(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

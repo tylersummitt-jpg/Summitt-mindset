@@ -1,3 +1,5 @@
+// src/app/api/cron/daily-sms/route.ts
+
 import { NextResponse } from "next/server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -15,14 +17,31 @@ const SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
 /**
  * ======================================================
- * CRON AUTH (Pro-safe, secure)
+ * CRON AUTH (CANONICAL)
  * ======================================================
+ *
+ * We DO NOT use Authorization: Bearer because Clerk middleware
+ * may attempt to parse it as a Clerk JWT.
+ *
+ * Use:
+ *   x-cron-secret: <CRON_SECRET>
+ *
+ * Back-compat (temporary):
+ *   ?secret=<CRON_SECRET>
  */
-function validateCronSecret(req: Request) {
+function validateCron(req: Request): boolean {
   if (!CRON_SECRET) return false;
+
+  // ✅ Preferred: header auth
+  const header = req.headers.get("x-cron-secret");
+  if (header && header === CRON_SECRET) return true;
+
+  // ✅ Temporary back-compat: query param
   const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  return secret === CRON_SECRET;
+  const qp = url.searchParams.get("secret");
+  if (qp && qp === CRON_SECRET) return true;
+
+  return false;
 }
 
 /**
@@ -30,12 +49,12 @@ function validateCronSecret(req: Request) {
  * Rolling 8AM Local Send Logic
  * ======================================================
  *
- * Cron runs every 5 minutes.
+ * Cron runs frequently (e.g., every 5 minutes).
  * We send if:
  *   local hour === 8
  *   local minute < 5
  *
- * Unique index ensures idempotency.
+ * Unique index on (clerk_user_id, day_key) ensures idempotency.
  */
 function shouldSendNow(local: Date) {
   return local.getHours() === 8 && local.getMinutes() < 5;
@@ -55,24 +74,44 @@ function getReentryLine(level: string): string | null {
   return null;
 }
 
+/**
+ * ======================================================
+ * GET /api/cron/daily-sms
+ * ======================================================
+ *
+ * Note:
+ * Vercel Cron can hit GET endpoints easily.
+ * We keep GET.
+ */
 export async function GET(req: Request) {
-  if (!validateCronSecret(req)) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+  if (!validateCron(req)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   const pageLimit = 200;
   let offset = 0;
+
+  let scanned = 0;
+  let reserved = 0;
+  let sent = 0;
+  let dryRun = 0;
+  let skipped = 0;
+  let failed = 0;
 
   while (true) {
     const users = await listClerkUsers({ limit: pageLimit, offset });
     if (!users || users.length === 0) break;
 
     for (const user of users) {
+      scanned += 1;
+
       const md = user.public_metadata || {};
 
+      // Subscription + SMS master switches
       if (md.summittSubscribed !== true) continue;
       if (md.smsEnabled !== true) continue;
 
+      // Identity check (server-side source of truth for STOP/START)
       const { data: identity } = await supabaseServer
         .from("sms_identities")
         .select("phone_number, sms_enabled, stopped_at")
@@ -86,14 +125,20 @@ export async function GET(req: Request) {
       const timezone = resolveUserTimezone(md.timezone);
       const now = new Date();
 
+      // Local time
       const localNow = new Date(
         now.toLocaleString("en-US", { timeZone: timezone })
       );
 
+      // Only fire inside the local 8:00–8:04 window
       if (!shouldSendNow(localNow)) continue;
 
+      // Day key is computed with the same timezone utility
       const todayKey = getDateKeyInTimezone(now, timezone);
 
+      // ------------------------------------------
+      // 1) Reserve idempotently (unique index)
+      // ------------------------------------------
       const { error: reservationError } = await supabaseServer
         .from("sms_send_events")
         .insert({
@@ -102,8 +147,17 @@ export async function GET(req: Request) {
           status: "reserved",
         });
 
-      if (reservationError) continue;
+      // If unique violation, we've already attempted today. Skip.
+      if (reservationError) {
+        skipped += 1;
+        continue;
+      }
 
+      reserved += 1;
+
+      // ------------------------------------------
+      // 2) If already completed today, skip
+      // ------------------------------------------
       const { data: completed } = await supabaseServer
         .from("daily_completion_events")
         .select("id")
@@ -118,17 +172,20 @@ export async function GET(req: Request) {
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
 
+        skipped += 1;
         continue;
       }
 
+      // ------------------------------------------
+      // 3) Build content
+      // ------------------------------------------
       const dayNumber =
-        typeof md.currentDay === "number" && md.currentDay > 0
-          ? md.currentDay
-          : 1;
+        typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
 
       const { level } = getUserStalenessLevel({
         timezoneFromMetadata: md.timezone,
         lastCompletedAt: md.lastCompletedAt,
+        now,
       });
 
       const version = await getOrCreateDailyPracticeVersion({
@@ -158,18 +215,33 @@ export async function GET(req: Request) {
 
       smsBody = withComplianceFooter(smsBody);
 
+      // ------------------------------------------
+      // 4) Dry run / env not ready
+      // ------------------------------------------
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
           .from("sms_send_events")
           .update({
             status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
+            metadata: {
+              timezone,
+              localNow: localNow.toISOString(),
+              dryRun: SMS_DRY_RUN,
+              twilioReady: isTwilioReady(),
+            },
           })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
 
+        if (SMS_DRY_RUN) dryRun += 1;
+        else skipped += 1;
+
         continue;
       }
 
+      // ------------------------------------------
+      // 5) Send
+      // ------------------------------------------
       try {
         const message = await sendSMS({
           to: identity.phone_number,
@@ -184,6 +256,8 @@ export async function GET(req: Request) {
           })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
+
+        sent += 1;
       } catch (err) {
         await supabaseServer
           .from("sms_send_events")
@@ -193,6 +267,8 @@ export async function GET(req: Request) {
           })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
+
+        failed += 1;
       }
     }
 
@@ -200,5 +276,13 @@ export async function GET(req: Request) {
     if (users.length < pageLimit) break;
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    scanned,
+    reserved,
+    sent,
+    dryRun,
+    skipped,
+    failed,
+  });
 }
