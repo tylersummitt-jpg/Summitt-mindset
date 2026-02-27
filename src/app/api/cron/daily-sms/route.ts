@@ -1,5 +1,3 @@
-// src/app/api/cron/daily-sms/route.ts
-
 import { NextResponse } from "next/server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -13,33 +11,33 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
+const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
 /**
  * ======================================================
- * CRON AUTH (CANONICAL)
+ * CRON AUTH (secure + Vercel-cron compatible)
  * ======================================================
  *
- * We DO NOT use Authorization: Bearer because Clerk middleware
- * may attempt to parse it as a Clerk JWT.
- *
- * Use:
- *   x-cron-secret: <CRON_SECRET>
- *
- * Back-compat (temporary):
- *   ?secret=<CRON_SECRET>
+ * - Vercel cron requests include: x-vercel-cron: 1
+ * - Manual testing can use:
+ *    - Header: x-cron-secret: <CRON_SECRET>
+ *    - OR query: ?secret=<CRON_SECRET>
  */
-function validateCron(req: Request): boolean {
+function validateCronSecret(req: Request) {
+  // Allow real Vercel cron jobs
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+  if (isVercelCron) return true;
+
   if (!CRON_SECRET) return false;
 
-  // ✅ Preferred: header auth
+  // Manual header option
   const header = req.headers.get("x-cron-secret");
   if (header && header === CRON_SECRET) return true;
 
-  // ✅ Temporary back-compat: query param
+  // Manual query option
   const url = new URL(req.url);
-  const qp = url.searchParams.get("secret");
-  if (qp && qp === CRON_SECRET) return true;
+  const secret = url.searchParams.get("secret");
+  if (secret && secret === CRON_SECRET) return true;
 
   return false;
 }
@@ -49,12 +47,10 @@ function validateCron(req: Request): boolean {
  * Rolling 8AM Local Send Logic
  * ======================================================
  *
- * Cron runs frequently (e.g., every 5 minutes).
+ * Cron should run every 5 minutes.
  * We send if:
  *   local hour === 8
  *   local minute < 5
- *
- * Unique index on (clerk_user_id, day_key) ensures idempotency.
  */
 function shouldSendNow(local: Date) {
   return local.getHours() === 8 && local.getMinutes() < 5;
@@ -74,71 +70,83 @@ function getReentryLine(level: string): string | null {
   return null;
 }
 
-/**
- * ======================================================
- * GET /api/cron/daily-sms
- * ======================================================
- *
- * Note:
- * Vercel Cron can hit GET endpoints easily.
- * We keep GET.
- */
 export async function GET(req: Request) {
-  if (!validateCron(req)) {
+  if (!validateCronSecret(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+
+  const url = new URL(req.url);
+  const force = url.searchParams.get("force") === "1";
+  const dryRunOverride = url.searchParams.get("dryRun") === "1";
+  const SMS_DRY_RUN = ENV_SMS_DRY_RUN || dryRunOverride;
 
   const pageLimit = 200;
   let offset = 0;
 
-  let scanned = 0;
-  let reserved = 0;
-  let sent = 0;
-  let dryRun = 0;
-  let skipped = 0;
-  let failed = 0;
+  const stats = {
+    ok: true,
+    scanned: 0,
+    eligible: 0,
+    reserved: 0,
+    sent: 0,
+    dryRun: 0,
+    skippedNotTime: 0,
+    skippedMissingIdentity: 0,
+    skippedOptedOut: 0,
+    skippedAlreadyCompleted: 0,
+    skippedMissingTwilio: 0,
+    failed: 0,
+  };
 
   while (true) {
     const users = await listClerkUsers({ limit: pageLimit, offset });
     if (!users || users.length === 0) break;
 
     for (const user of users) {
-      scanned += 1;
+      stats.scanned += 1;
 
       const md = user.public_metadata || {};
 
-      // Subscription + SMS master switches
       if (md.summittSubscribed !== true) continue;
       if (md.smsEnabled !== true) continue;
 
-      // Identity check (server-side source of truth for STOP/START)
+      // Must have an enabled sms_identity (STOP-safe)
       const { data: identity } = await supabaseServer
         .from("sms_identities")
         .select("phone_number, sms_enabled, stopped_at")
         .eq("clerk_user_id", user.id)
         .maybeSingle();
 
-      if (!identity?.phone_number) continue;
-      if (identity.sms_enabled !== true) continue;
-      if (typeof identity.stopped_at === "string") continue;
+      if (!identity?.phone_number) {
+        stats.skippedMissingIdentity += 1;
+        continue;
+      }
+      if (identity.sms_enabled !== true) {
+        stats.skippedOptedOut += 1;
+        continue;
+      }
+      if (typeof identity.stopped_at === "string") {
+        stats.skippedOptedOut += 1;
+        continue;
+      }
 
       const timezone = resolveUserTimezone(md.timezone);
       const now = new Date();
 
-      // Local time
       const localNow = new Date(
         now.toLocaleString("en-US", { timeZone: timezone })
       );
 
-      // Only fire inside the local 8:00–8:04 window
-      if (!shouldSendNow(localNow)) continue;
+      if (!force && !shouldSendNow(localNow)) {
+        stats.skippedNotTime += 1;
+        continue;
+      }
 
-      // Day key is computed with the same timezone utility
+      stats.eligible += 1;
+
       const todayKey = getDateKeyInTimezone(now, timezone);
 
-      // ------------------------------------------
-      // 1) Reserve idempotently (unique index)
-      // ------------------------------------------
+      // Reserve (idempotent via unique index on (clerk_user_id, day_key))
       const { error: reservationError } = await supabaseServer
         .from("sms_send_events")
         .insert({
@@ -147,17 +155,14 @@ export async function GET(req: Request) {
           status: "reserved",
         });
 
-      // If unique violation, we've already attempted today. Skip.
       if (reservationError) {
-        skipped += 1;
+        // Most common is unique violation -> already reserved earlier
         continue;
       }
 
-      reserved += 1;
+      stats.reserved += 1;
 
-      // ------------------------------------------
-      // 2) If already completed today, skip
-      // ------------------------------------------
+      // If already completed today, mark skip
       const { data: completed } = await supabaseServer
         .from("daily_completion_events")
         .select("id")
@@ -172,20 +177,16 @@ export async function GET(req: Request) {
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
 
-        skipped += 1;
+        stats.skippedAlreadyCompleted += 1;
         continue;
       }
 
-      // ------------------------------------------
-      // 3) Build content
-      // ------------------------------------------
       const dayNumber =
         typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
 
       const { level } = getUserStalenessLevel({
         timezoneFromMetadata: md.timezone,
         lastCompletedAt: md.lastCompletedAt,
-        now,
       });
 
       const version = await getOrCreateDailyPracticeVersion({
@@ -201,7 +202,6 @@ export async function GET(req: Request) {
       const reentryLine = getReentryLine(level);
 
       let smsBody = "";
-
       if (reentryLine) smsBody += `${reentryLine}\n\n`;
 
       smsBody +=
@@ -215,33 +215,22 @@ export async function GET(req: Request) {
 
       smsBody = withComplianceFooter(smsBody);
 
-      // ------------------------------------------
-      // 4) Dry run / env not ready
-      // ------------------------------------------
+      // Dry run / missing Twilio
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
           .from("sms_send_events")
           .update({
             status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
-            metadata: {
-              timezone,
-              localNow: localNow.toISOString(),
-              dryRun: SMS_DRY_RUN,
-              twilioReady: isTwilioReady(),
-            },
           })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
 
-        if (SMS_DRY_RUN) dryRun += 1;
-        else skipped += 1;
+        if (SMS_DRY_RUN) stats.dryRun += 1;
+        else stats.skippedMissingTwilio += 1;
 
         continue;
       }
 
-      // ------------------------------------------
-      // 5) Send
-      // ------------------------------------------
       try {
         const message = await sendSMS({
           to: identity.phone_number,
@@ -257,7 +246,7 @@ export async function GET(req: Request) {
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
 
-        sent += 1;
+        stats.sent += 1;
       } catch (err) {
         await supabaseServer
           .from("sms_send_events")
@@ -268,7 +257,7 @@ export async function GET(req: Request) {
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
 
-        failed += 1;
+        stats.failed += 1;
       }
     }
 
@@ -276,13 +265,5 @@ export async function GET(req: Request) {
     if (users.length < pageLimit) break;
   }
 
-  return NextResponse.json({
-    ok: true,
-    scanned,
-    reserved,
-    sent,
-    dryRun,
-    skipped,
-    failed,
-  });
+  return NextResponse.json(stats);
 }
