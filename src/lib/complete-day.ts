@@ -136,172 +136,230 @@ export async function completeDay({
   userId: string;
   source: CompleteDaySource;
 }): Promise<CompleteDayResult> {
-  const metadata = await getClerkPublicMetadata(userId);
+  try {
+    const metadata = await getClerkPublicMetadata(userId);
 
-  const currentDay =
-    typeof metadata.currentDay === "number" && metadata.currentDay > 0
-      ? metadata.currentDay
-      : null;
+    const currentDay =
+      typeof metadata.currentDay === "number" && metadata.currentDay > 0
+        ? metadata.currentDay
+        : null;
 
-  if (!currentDay) return { ok: false, reason: "no_current_day" };
+    if (!currentDay) return { ok: false, reason: "no_current_day" };
 
-  const totalDaysCompleted = numberOrZero(metadata.totalDaysCompleted);
-  const daysInRow = numberOrZero(metadata.daysInRow);
+    const totalDaysCompleted = numberOrZero(metadata.totalDaysCompleted);
+    const daysInRow = numberOrZero(metadata.daysInRow);
 
-  const timezone = resolveUserTimezone(metadata.timezone);
-  const now = new Date();
-  const todayKey = getDateKeyInTimezone(now, timezone);
+    const timezone = resolveUserTimezone(metadata.timezone);
+    const now = new Date();
+    const todayKey = getDateKeyInTimezone(now, timezone);
 
-  const lock = await tryInsertCompletionLock({
-    userId,
-    dayKey: todayKey,
-    source,
-    dayNumber: currentDay,
-    timezone,
-  });
+    const lock = await tryInsertCompletionLock({
+      userId,
+      dayKey: todayKey,
+      source,
+      dayNumber: currentDay,
+      timezone,
+    });
 
-  if (!lock.ok) return { ok: false, reason: lock.reason };
+    if (!lock.ok) return { ok: false, reason: lock.reason };
 
-  // 🔥 Load TODAY’S rotating version
-  const version = await getOrCreateDailyPracticeVersion({
-    userId,
-    dayNumber: currentDay,
-  });
+    const version = await getOrCreateDailyPracticeVersion({
+      userId,
+      dayNumber: currentDay,
+    });
 
-  const { data: journalRow, error: journalError } = await supabaseServer
-    .from("journal_entries")
-    .select("content")
-    .eq("clerk_user_id", userId)
-    .eq("day_number", currentDay)
-    .maybeSingle();
+    /* --------------------------------------------------
+       JOURNAL LOOKUP (with retry to avoid SMS race)
+    -------------------------------------------------- */
 
-  if (journalError) return { ok: false, reason: "journal_lookup_failed" };
-
-  const rawJournal = normalizeText(journalRow?.content ?? "");
-  if (!rawJournal) return { ok: false, reason: "journal_required" };
-
-  const memoryAtom = compressReflectionToMemoryAtom({
-    actionItem: version.actionItem,
-    journalContent: rawJournal,
-    maxChars: 300,
-  });
-
-  if (!memoryAtom) return { ok: false, reason: "memory_build_failed" };
-
-  // 🔒 Freeze rotating version into immutable archive
-  // (This MUST succeed for "past day immutability" to hold.)
-  const { error: archiveError } = await supabaseServer.from("daily_prompts").upsert(
-    {
-      clerk_user_id: userId,
-      day_number: currentDay,
-      action_item: version.actionItem,
-      reflection_prompt: version.reflectionPrompt,
-      source: version.source,
-    },
-    { onConflict: "clerk_user_id,day_number" }
-  );
-
-  if (archiveError) {
-    console.error("DAILY PROMPT ARCHIVE UPSERT ERROR:", archiveError);
-    return { ok: false, reason: "daily_prompt_archive_failed" };
-  }
-
-  const { error: dailySummaryError } = await supabaseServer
-    .from("daily_summaries")
-    .upsert(
-      {
-        clerk_user_id: userId,
-        day_number: currentDay,
-        daily_summaries: memoryAtom,
-      },
-      { onConflict: "clerk_user_id,day_number" }
-    );
-
-  if (dailySummaryError) {
-    console.error("DAILY SUMMARY UPSERT ERROR:", dailySummaryError);
-    return { ok: false, reason: "daily_summary_upsert_failed" };
-  }
-
-  // Weekly logic UNCHANGED
-  if (currentDay % 7 === 0) {
-    const weekEnd = currentDay;
-    const weekStart = currentDay - 6;
-
-    const { data: summaries, error: weeklyLoadError } = await supabaseServer
-      .from("daily_summaries")
-      .select("daily_summaries")
+    const { data: journalRow, error: journalError } = await supabaseServer
+      .from("journal_entries")
+      .select("content")
       .eq("clerk_user_id", userId)
-      .gte("day_number", weekStart)
-      .lte("day_number", weekEnd)
-      .order("day_number");
+      .eq("day_number", currentDay)
+      .maybeSingle();
 
-    if (weeklyLoadError) {
-      console.error("WEEKLY SUMMARY LOAD ERROR:", weeklyLoadError);
-      return { ok: false, reason: "weekly_summary_load_failed" };
+    if (journalError) {
+      console.error("JOURNAL LOOKUP ERROR:", journalError);
+      return { ok: false, reason: "journal_lookup_failed" };
     }
 
-    const atoms =
-      summaries
-        ?.map((s: any) => normalizeText(s?.daily_summaries ?? ""))
-        .filter(Boolean) ?? [];
+    let rawJournal = normalizeText(journalRow?.content ?? "");
 
-    if (atoms.length) {
-      const weekly = extractWeeklyPatternsFromMemoryAtoms(atoms);
+    // Retry once if empty (handles SMS write/read race condition)
+    if (!rawJournal) {
+      const { data: retryRow } = await supabaseServer
+        .from("journal_entries")
+        .select("content")
+        .eq("clerk_user_id", userId)
+        .eq("day_number", currentDay)
+        .maybeSingle();
 
-      await updatePatternInsights({
-        userId,
-        weekNumber: weekStart,
-        weeklyPatterns: weekly.patterns,
-      });
+      rawJournal = normalizeText(retryRow?.content ?? "");
+    }
 
-      await updateRecentSummary({ userId });
+    if (!rawJournal) {
+      console.warn("Journal still empty after retry.");
+      return { ok: false, reason: "journal_required" };
+    }
 
-      const formatted =
-        `${weekly.identity}\n` +
-        weekly.patterns.map((p) => `• ${p.text}`).join("\n") +
-        `\n${weekly.encouragement}`;
+    /* --------------------------------------------------
+       MEMORY BUILD
+    -------------------------------------------------- */
 
-      const { error: weeklyUpsertError } = await supabaseServer
-        .from("weekly_summaries")
-        .upsert(
-          {
-            clerk_user_id: userId,
-            week_start_day: weekStart,
-            week_end_day: weekEnd,
-            weekly_summary: formatted,
-          },
-          { onConflict: "clerk_user_id,week_start_day" }
-        );
+    const memoryAtom = compressReflectionToMemoryAtom({
+      actionItem: version.actionItem,
+      journalContent: rawJournal,
+      maxChars: 300,
+    });
 
-      if (weeklyUpsertError) {
-        console.error("WEEKLY SUMMARY UPSERT ERROR:", weeklyUpsertError);
-        return { ok: false, reason: "weekly_summary_upsert_failed" };
+    if (!memoryAtom) {
+      console.error("Memory atom build failed.");
+      return { ok: false, reason: "memory_build_failed" };
+    }
+
+    /* --------------------------------------------------
+       ARCHIVE DAILY PROMPT
+    -------------------------------------------------- */
+
+    const { error: archiveError } = await supabaseServer
+      .from("daily_prompts")
+      .upsert(
+        {
+          clerk_user_id: userId,
+          day_number: currentDay,
+          action_item: version.actionItem,
+          reflection_prompt: version.reflectionPrompt,
+          source: version.source,
+        },
+        { onConflict: "clerk_user_id,day_number" }
+      );
+
+    if (archiveError) {
+      console.error("DAILY PROMPT ARCHIVE ERROR:", archiveError);
+      return { ok: false, reason: "daily_prompt_archive_failed" };
+    }
+
+    /* --------------------------------------------------
+       DAILY SUMMARY UPSERT
+    -------------------------------------------------- */
+
+    const { error: dailySummaryError } = await supabaseServer
+      .from("daily_summaries")
+      .upsert(
+        {
+          clerk_user_id: userId,
+          day_number: currentDay,
+          daily_summaries: memoryAtom,
+        },
+        { onConflict: "clerk_user_id,day_number" }
+      );
+
+    if (dailySummaryError) {
+      console.error("DAILY SUMMARY UPSERT ERROR:", dailySummaryError);
+      return { ok: false, reason: "daily_summary_upsert_failed" };
+    }
+
+    /* --------------------------------------------------
+       WEEKLY LOGIC
+    -------------------------------------------------- */
+
+    if (currentDay % 7 === 0) {
+      const weekEnd = currentDay;
+      const weekStart = currentDay - 6;
+
+      const { data: summaries, error: weeklyLoadError } =
+        await supabaseServer
+          .from("daily_summaries")
+          .select("daily_summaries")
+          .eq("clerk_user_id", userId)
+          .gte("day_number", weekStart)
+          .lte("day_number", weekEnd)
+          .order("day_number");
+
+      if (weeklyLoadError) {
+        console.error("WEEKLY SUMMARY LOAD ERROR:", weeklyLoadError);
+        return { ok: false, reason: "weekly_summary_load_failed" };
+      }
+
+      const atoms =
+        summaries
+          ?.map((s: any) => normalizeText(s?.daily_summaries ?? ""))
+          .filter(Boolean) ?? [];
+
+      if (atoms.length) {
+        const weekly = extractWeeklyPatternsFromMemoryAtoms(atoms);
+
+        await updatePatternInsights({
+          userId,
+          weekNumber: weekStart,
+          weeklyPatterns: weekly.patterns,
+        });
+
+        await updateRecentSummary({ userId });
+
+        const formatted =
+          `${weekly.identity}\n` +
+          weekly.patterns.map((p) => `• ${p.text}`).join("\n") +
+          `\n${weekly.encouragement}`;
+
+        const { error: weeklyUpsertError } = await supabaseServer
+          .from("weekly_summaries")
+          .upsert(
+            {
+              clerk_user_id: userId,
+              week_start_day: weekStart,
+              week_end_day: weekEnd,
+              weekly_summary: formatted,
+            },
+            { onConflict: "clerk_user_id,week_start_day" }
+          );
+
+        if (weeklyUpsertError) {
+          console.error("WEEKLY SUMMARY UPSERT ERROR:", weeklyUpsertError);
+          return { ok: false, reason: "weekly_summary_upsert_failed" };
+        }
       }
     }
-  }
 
-  const newTotalDaysCompleted = totalDaysCompleted + 1;
+    /* --------------------------------------------------
+       CLERK METADATA UPDATE (non-fatal)
+    -------------------------------------------------- */
 
-  await updateClerkPublicMetadata(userId, {
-    currentDay: currentDay + 1,
-    totalDaysCompleted: newTotalDaysCompleted,
-    daysInRow: daysInRow + 1,
-    lastCompletedAt: now.toISOString(),
-  });
+    const newTotalDaysCompleted = totalDaysCompleted + 1;
 
-  try {
-    await awardAchievementsIfEligible({
-      userId,
-      totalDaysCompleted: newTotalDaysCompleted,
-    });
+    try {
+      await updateClerkPublicMetadata(userId, {
+        currentDay: currentDay + 1,
+        totalDaysCompleted: newTotalDaysCompleted,
+        daysInRow: daysInRow + 1,
+        lastCompletedAt: now.toISOString(),
+      });
+    } catch (err) {
+      console.error("CLERK METADATA UPDATE FAILED:", err);
+      // Do NOT fail completion if Clerk update fails.
+    }
+
+    /* --------------------------------------------------
+       ACHIEVEMENTS (never fatal)
+    -------------------------------------------------- */
+
+    try {
+      await awardAchievementsIfEligible({
+        userId,
+        totalDaysCompleted: newTotalDaysCompleted,
+      });
+    } catch (err) {
+      console.error("[Achievement award error]", err);
+    }
+
+    return {
+      ok: true,
+      completedDay: currentDay,
+      nextDay: currentDay + 1,
+    };
   } catch (err) {
-    console.error("[Achievement award error]", err);
-    // Never fail completion because achievements failed.
+    console.error("COMPLETE DAY FATAL ERROR:", err);
+    return { ok: false, reason: "unexpected_error" };
   }
-
-  return {
-    ok: true,
-    completedDay: currentDay,
-    nextDay: currentDay + 1,
-  };
 }
