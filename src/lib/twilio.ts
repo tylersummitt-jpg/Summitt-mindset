@@ -4,12 +4,19 @@ import Twilio from "twilio";
 
 /**
  * ======================================================
- * Twilio Send Helper (CANONICAL)
+ * Twilio Send Helper (CANONICAL - MESSAGING SERVICE)
  * ======================================================
  *
- * - Centralized send
- * - Validates env
- * - Safe for cron + API usage
+ * IMPORTANT ARCHITECTURE NOTES:
+ *
+ * - We ALWAYS prefer Messaging Service (A2P compliant).
+ * - We only fallback to TWILIO_PHONE_NUMBER if absolutely necessary.
+ * - This is safe for cron + API usage.
+ * - Designed for scaling to 2,000+ members.
+ *
+ * FUTURE SELF:
+ * Do NOT remove Messaging Service usage.
+ * Carrier compliance depends on it.
  */
 
 function getTwilioClient() {
@@ -23,21 +30,49 @@ function getTwilioClient() {
   return Twilio(accountSid, authToken);
 }
 
-function getFromNumber() {
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!from) throw new Error("Missing TWILIO_PHONE_NUMBER");
-  return from;
+function getMessagingServiceSid() {
+  return process.env.TWILIO_MESSAGING_SERVICE_SID || null;
 }
 
-export async function sendSMS({ to, body }: { to: string; body: string }) {
-  const client = getTwilioClient();
-  const from = getFromNumber();
+function getFallbackFromNumber() {
+  return process.env.TWILIO_PHONE_NUMBER || null;
+}
 
-  const message = await client.messages.create({
-    from,
-    to,
-    body,
-  });
+export async function sendSMS({
+  to,
+  body,
+}: {
+  to: string;
+  body: string;
+}) {
+  const client = getTwilioClient();
+
+  const messagingServiceSid = getMessagingServiceSid();
+  const fallbackFrom = getFallbackFromNumber();
+
+  if (!messagingServiceSid && !fallbackFrom) {
+    throw new Error(
+      "Missing TWILIO_MESSAGING_SERVICE_SID and TWILIO_PHONE_NUMBER"
+    );
+  }
+
+  /**
+   * Primary: Messaging Service (A2P compliant)
+   * Fallback: direct from number (only if absolutely needed)
+   */
+  const message = await client.messages.create(
+    messagingServiceSid
+      ? {
+          messagingServiceSid,
+          to,
+          body,
+        }
+      : {
+          from: fallbackFrom!,
+          to,
+          body,
+        }
+  );
 
   return message;
 }
@@ -46,6 +81,9 @@ export function isTwilioReady() {
   return Boolean(
     process.env.TWILIO_ACCOUNT_SID &&
       process.env.TWILIO_AUTH_TOKEN &&
-      process.env.TWILIO_PHONE_NUMBER
+      (
+        process.env.TWILIO_MESSAGING_SERVICE_SID ||
+        process.env.TWILIO_PHONE_NUMBER
+      )
   );
 }

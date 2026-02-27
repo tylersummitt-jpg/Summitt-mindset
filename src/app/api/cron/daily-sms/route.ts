@@ -14,25 +14,31 @@ const CRON_SECRET = process.env.CRON_SECRET;
 const SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
 /**
- * Since we're on Hobby (once/day cron),
- * we run at 13:00 UTC and align US timezones like:
- * 8 ET / 7 CT / 6 MT / 5 PT
+ * ======================================================
+ * CRON AUTH (Pro-safe, secure)
+ * ======================================================
  */
-function getTargetHourForTimezone(timezone: string): number {
-  if (!timezone) return 8;
-
-  if (timezone.includes("New_York")) return 8;       // Eastern
-  if (timezone.includes("Chicago")) return 7;        // Central
-  if (timezone.includes("Denver")) return 6;         // Mountain
-  if (timezone.includes("Los_Angeles")) return 5;    // Pacific
-
-  // Fallback → treat unknown as Eastern
-  return 8;
+function validateCronSecret(req: Request) {
+  if (!CRON_SECRET) return false;
+  const url = new URL(req.url);
+  const secret = url.searchParams.get("secret");
+  return secret === CRON_SECRET;
 }
 
-function isWithinTargetWindow(local: Date, timezone: string) {
-  const targetHour = getTargetHourForTimezone(timezone);
-  return local.getHours() === targetHour;
+/**
+ * ======================================================
+ * Rolling 8AM Local Send Logic
+ * ======================================================
+ *
+ * Cron runs every 5 minutes.
+ * We send if:
+ *   local hour === 8
+ *   local minute < 5
+ *
+ * Unique index ensures idempotency.
+ */
+function shouldSendNow(local: Date) {
+  return local.getHours() === 8 && local.getMinutes() < 5;
 }
 
 function withComplianceFooter(body: string) {
@@ -50,9 +56,7 @@ function getReentryLine(level: string): string | null {
 }
 
 export async function GET(req: Request) {
-  // ✅ Vercel Cron auth
-  const authHeader = req.headers.get("authorization");
-  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (!validateCronSecret(req)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -79,8 +83,6 @@ export async function GET(req: Request) {
       if (identity.sms_enabled !== true) continue;
       if (typeof identity.stopped_at === "string") continue;
 
-      const phone = identity.phone_number;
-
       const timezone = resolveUserTimezone(md.timezone);
       const now = new Date();
 
@@ -88,12 +90,10 @@ export async function GET(req: Request) {
         now.toLocaleString("en-US", { timeZone: timezone })
       );
 
-      // ✅ Hobby-compatible target hour logic
-      if (!isWithinTargetWindow(localNow, timezone)) continue;
+      if (!shouldSendNow(localNow)) continue;
 
       const todayKey = getDateKeyInTimezone(now, timezone);
 
-      // ✅ Reservation insert (prevents duplicate sends)
       const { error: reservationError } = await supabaseServer
         .from("sms_send_events")
         .insert({
@@ -102,12 +102,8 @@ export async function GET(req: Request) {
           status: "reserved",
         });
 
-      if (reservationError) {
-        // Likely duplicate
-        continue;
-      }
+      if (reservationError) continue;
 
-      // Skip if already completed today
       const { data: completed } = await supabaseServer
         .from("daily_completion_events")
         .select("id")
@@ -175,7 +171,10 @@ export async function GET(req: Request) {
       }
 
       try {
-        const message = await sendSMS({ to: phone, body: smsBody });
+        const message = await sendSMS({
+          to: identity.phone_number,
+          body: smsBody,
+        });
 
         await supabaseServer
           .from("sms_send_events")
