@@ -6,22 +6,6 @@ import { auth } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { generateCoachReply } from "@/lib/coach-reply-generator";
 
-/**
- * ======================================================
- * POST /api/coach-reply
- * ======================================================
- *
- * Body:
- *   { day: number, message: string }
- *
- * Saves:
- *   - user message → coach_conversations
- *   - coach reply  → coach_conversations
- *
- * Returns:
- *   { ok: true, thread: Message[] }
- */
-
 export const runtime = "nodejs";
 
 const MAX_COACH_REPLIES_PER_DAY = 20;
@@ -41,9 +25,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // ======================================================
-    // ✅ Rate Limit (CANONICAL COST GUARD)
-    // ======================================================
+    // ================================
+    // Rate Limit
+    // ================================
     const dayKey = todayKeyUTC();
 
     const { data: usageRows, error: usageErr } = await supabaseServer
@@ -54,8 +38,6 @@ export async function POST(req: Request) {
 
     if (usageErr) {
       console.error("Coach reply usage lookup failed:", usageErr.message);
-
-      // Fail closed (protect costs)
       return NextResponse.json(
         {
           ok: false,
@@ -82,31 +64,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Record usage immediately
-    const { error: insertUsageErr } = await supabaseServer
-      .from("coach_reply_usage")
-      .insert({
-        clerk_user_id: userId,
-        day_key: dayKey,
-      });
+    await supabaseServer.from("coach_reply_usage").insert({
+      clerk_user_id: userId,
+      day_key: dayKey,
+    });
 
-    if (insertUsageErr) {
-      console.error("Coach reply usage insert failed:", insertUsageErr.message);
-
-      return NextResponse.json(
-        {
-          ok: false,
-          reason: "usage_insert_failed",
-          error:
-            "Coach Pat is temporarily unavailable. Please try again later.",
-        },
-        { status: 200 }
-      );
-    }
-
-    // ======================================================
-    // Body parse
-    // ======================================================
+    // ================================
+    // Body
+    // ================================
     const body = await req.json();
 
     const day = Number(body?.day);
@@ -120,72 +85,45 @@ export async function POST(req: Request) {
       );
     }
 
-    // --------------------------------------------------
-    // 1. Save USER message
-    // --------------------------------------------------
-    const { error: insertUserErr } = await supabaseServer
-      .from("coach_conversations")
-      .insert({
-        clerk_user_id: userId,
-        day_number: day,
-        role: "user",
-        content: message,
-      });
+    // ================================
+    // Save USER message
+    // ================================
+    await supabaseServer.from("coach_conversations").insert({
+      clerk_user_id: userId,
+      day_number: day,
+      role: "user",
+      content: message,
+    });
 
-    if (insertUserErr) {
-      console.error("Coach conversation user insert failed:", insertUserErr);
-      return NextResponse.json(
-        { ok: false, reason: "thread_insert_failed" },
-        { status: 200 }
-      );
-    }
-
-    // --------------------------------------------------
-    // 2. Generate Coach Reply (≤4 sentences HARD)
-    // --------------------------------------------------
+    // ================================
+    // Generate Coach Reply
+    // ================================
     const coachReply = await generateCoachReply({
       userId,
       dayNumber: day,
       userMessage: message,
     });
 
-    // --------------------------------------------------
-    // 3. Save COACH reply
-    // --------------------------------------------------
-    const { error: insertCoachErr } = await supabaseServer
-      .from("coach_conversations")
-      .insert({
-        clerk_user_id: userId,
-        day_number: day,
-        role: "coach",
-        content: coachReply,
-      });
+    // ================================
+    // Save COACH reply (FIXED)
+    // ================================
+    await supabaseServer.from("coach_conversations").insert({
+      clerk_user_id: userId,
+      day_number: day,
+      role: "coach",
+      content: coachReply.text,        // ✅ store ONLY text
+      metadata: coachReply.meta,       // ✅ store meta separately
+    });
 
-    if (insertCoachErr) {
-      console.error("Coach conversation coach insert failed:", insertCoachErr);
-      return NextResponse.json(
-        { ok: false, reason: "thread_insert_failed" },
-        { status: 200 }
-      );
-    }
-
-    // --------------------------------------------------
-    // 4. Return Full Thread
-    // --------------------------------------------------
-    const { data: thread, error: threadErr } = await supabaseServer
+    // ================================
+    // Return Full Thread
+    // ================================
+    const { data: thread } = await supabaseServer
       .from("coach_conversations")
       .select("id, role, content, created_at")
       .eq("clerk_user_id", userId)
       .eq("day_number", day)
       .order("created_at", { ascending: true });
-
-    if (threadErr) {
-      console.error("Coach conversation thread load failed:", threadErr);
-      return NextResponse.json(
-        { ok: false, reason: "thread_load_failed" },
-        { status: 200 }
-      );
-    }
 
     return NextResponse.json(
       { ok: true, thread: thread ?? [] },
