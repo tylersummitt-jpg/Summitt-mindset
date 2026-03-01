@@ -1,5 +1,3 @@
-// src/app/api/twilio/inbound/route.ts
-
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -8,6 +6,7 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { completeDay } from "@/lib/complete-day";
 import { generateCoachReply } from "@/lib/coach-reply-generator";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
+import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,7 +106,6 @@ export async function POST(req: Request) {
 
     if (!fullUrl) return NextResponse.json({ ok: false }, { status: 400 });
 
-    // If TWILIO_AUTH_TOKEN is set, enforce signature validation
     if (TWILIO_AUTH_TOKEN) {
       const ok = verifyTwilioSignature({ fullUrl, params, signature });
       if (!ok) return NextResponse.json({ ok: false }, { status: 403 });
@@ -125,15 +123,15 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (!identity?.clerk_user_id) {
-      // Unknown number -> ignore quietly
       return NextResponse.json({ ok: true });
     }
 
     const userId = identity.clerk_user_id;
 
-    // --------------------------------------------------
-    // STOP / HELP / START flows
-    // --------------------------------------------------
+    /* --------------------------------------------------
+       STOP / HELP / START
+    -------------------------------------------------- */
+
     if (isStopCommand(body)) {
       await supabaseServer
         .from("sms_identities")
@@ -174,7 +172,6 @@ export async function POST(req: Request) {
       return twiml("You’re back in training.");
     }
 
-    // Hard stop if identity says opted out
     if (identity.sms_enabled !== true || typeof identity.stopped_at === "string") {
       return NextResponse.json({ ok: true });
     }
@@ -185,22 +182,48 @@ export async function POST(req: Request) {
     const currentDay = safeDayNumber(md.currentDay);
     if (!currentDay) return NextResponse.json({ ok: true });
 
-    // --------------------------------------------------
-    // Write SMS response -> journal_entries (CANONICAL STORAGE)
-    // IMPORTANT: do NOT write invalid prompt_id values
-    // --------------------------------------------------
-    const version = await getOrCreateDailyPracticeVersion({
-      userId,
-      dayNumber: currentDay,
+    /* --------------------------------------------------
+       CHECK IF ALREADY COMPLETED TODAY
+    -------------------------------------------------- */
+
+    const timezone = resolveUserTimezone(md.timezone);
+    const todayKey = getDateKeyInTimezone(new Date(), timezone);
+
+    const { data: existingCompletion } = await supabaseServer
+      .from("daily_completion_events")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .eq("day_key", todayKey)
+      .maybeSingle();
+
+    const alreadyCompleted = !!existingCompletion;
+
+    /* --------------------------------------------------
+       ALWAYS SAVE USER MESSAGE TO COACH THREAD
+    -------------------------------------------------- */
+
+    await supabaseServer.from("coach_conversations").insert({
+      clerk_user_id: userId,
+      day_number: currentDay,
+      role: "user",
+      content: body,
     });
 
-    const { error: journalUpsertErr } = await supabaseServer
-      .from("journal_entries")
-      .upsert(
+    /* --------------------------------------------------
+       IF NOT COMPLETED → WRITE JOURNAL + COMPLETE DAY
+    -------------------------------------------------- */
+
+    if (!alreadyCompleted) {
+      const version = await getOrCreateDailyPracticeVersion({
+        userId,
+        dayNumber: currentDay,
+      });
+
+      await supabaseServer.from("journal_entries").upsert(
         {
           clerk_user_id: userId,
           day_number: currentDay,
-          content: body, // replace (single SMS sentence)
+          content: body,
           action_item: version.actionItem,
           reflection_prompt: version.reflectionPrompt,
           source: "sms",
@@ -208,34 +231,25 @@ export async function POST(req: Request) {
         { onConflict: "clerk_user_id,day_number" }
       );
 
-    if (journalUpsertErr) {
-      console.error("[TWILIO INBOUND] journal upsert failed:", journalUpsertErr);
-      return twiml("Something didn’t go through. Try again in a minute.");
+      await completeDay({ userId, source: "sms" });
     }
 
-    // --------------------------------------------------
-    // Complete Day (canonical)
-    // --------------------------------------------------
-    const result = await completeDay({ userId, source: "sms" });
+    /* --------------------------------------------------
+       GENERATE COACH REPLY (ALWAYS)
+    -------------------------------------------------- */
 
-    if (!result.ok) {
-      console.error("[TWILIO INBOUND] completeDay failed:", result.reason);
-
-      if (result.reason === "already_completed_today") {
-        return twiml("Got it. You’re already complete for today. See you tomorrow.");
-      }
-
-      // Most common will be journal_required or lock_failed
-      return twiml("Something didn’t go through. Try again in a minute.");
-    }
-
-    // --------------------------------------------------
-    // Coach reply (single response)
-    // --------------------------------------------------
     const coachReply = await generateCoachReply({
       userId,
       dayNumber: currentDay,
       userMessage: body,
+    });
+
+    await supabaseServer.from("coach_conversations").insert({
+      clerk_user_id: userId,
+      day_number: currentDay,
+      role: "coach",
+      content: coachReply.text,
+      metadata: coachReply.meta,
     });
 
     return twiml(coachReply.text);
