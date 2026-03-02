@@ -186,7 +186,6 @@ export async function completeDay({
 
     let rawJournal = normalizeText(journalRow?.content ?? "");
 
-    // Retry once if empty (handles SMS write/read race condition)
     if (!rawJournal) {
       const { data: retryRow } = await supabaseServer
         .from("journal_entries")
@@ -334,10 +333,13 @@ export async function completeDay({
         totalDaysCompleted: newTotalDaysCompleted,
         daysInRow: daysInRow + 1,
         lastCompletedAt: now.toISOString(),
+
+        // 🔥 ACTIVE COACH THREAD LOCK
+        activeCoachDay: currentDay,
+        activeCoachDayKey: todayKey,
       });
     } catch (err) {
       console.error("CLERK METADATA UPDATE FAILED:", err);
-      // Do NOT fail completion if Clerk update fails.
     }
 
     /* --------------------------------------------------

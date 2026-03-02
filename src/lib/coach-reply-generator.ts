@@ -67,14 +67,18 @@ function splitIntoSentences(text: string): string[] {
 
 /**
  * Coach Reply should feel like a quick sideline note, not a speech.
- * Keep to 3 sentences max (tighter than Coach Pat daily note).
+ * Keep to 4 sentences max.
+ *
+ * NOTE TO FUTURE ME:
+ * This aligns with the "Perfect 4-Sentence Structure" retention stack:
+ * 1) reflect (specific), 2) identity, 3) progress framing, 4) calm forward pull.
  */
-function enforceMaxThreeSentences(text: string): string {
+function enforceMaxFourSentences(text: string): string {
   const sentences = splitIntoSentences(text);
   if (sentences.length === 0) {
-    return "Good. Stay steady. Show up again tomorrow.";
+    return "Good. That’s steadiness. Keep that standard. We’ll build again tomorrow.";
   }
-  return sentences.slice(0, 3).join(" ");
+  return sentences.slice(0, 4).join(" ");
 }
 
 /**
@@ -208,15 +212,20 @@ function finalizeOutput(text: string): string {
   // Remove stray quotes if any remain
   t = t.replace(/["']/g, "");
 
+  // No exclamation marks (tone requirement)
+  t = t.replace(/!/g, ".");
+
   return normalizeText(t);
 }
 
 function fallbackReply(dayNumber: number): string {
-  if (dayNumber <= 7)
-    return "Good. Keep it simple today. Do the next right thing.";
-  if (dayNumber <= 30)
-    return "Good work. Stay disciplined. Show up again tomorrow.";
-  return "Good. Protect your focus. Keep showing up.";
+  if (dayNumber <= 7) {
+    return "Good. That’s you choosing steadiness. Small wins stack into character. We’ll build again tomorrow.";
+  }
+  if (dayNumber <= 30) {
+    return "Good. That’s disciplined training. You’re building consistency without noise. Keep that standard tomorrow.";
+  }
+  return "Good. That’s veteran steadiness. You’re operating from standards, not mood. Stay with it tomorrow.";
 }
 
 export async function generateCoachReply({
@@ -235,29 +244,34 @@ export async function generateCoachReply({
 
   const MODEL = "gpt-4.1-mini";
   const TEMPERATURE = 0.35;
-  const MAX_TOKENS = 120;
+  const MAX_TOKENS = 170; // slightly higher to reliably fit 4 short sentences
 
   const systemPrompt = `
 You are Coach Pat Summitt.
 
-Voice: calm, direct, grounded. No pep talk. No therapy.
+Voice: calm, direct, grounded. No pep talk. No therapy. Never impressed, never disappointed.
 
 HARD RULES (non-negotiable):
 - 1 paragraph only
-- 3 sentences MAX
-- Do NOT quote the user (no quotation marks, no paraphrase)
-- Do NOT restate their sentence
+- 4 sentences MAX
+- No emojis
+- No exclamation marks
+- No bullet points
+- Do NOT quote the user (no quotation marks)
+- Do NOT restate their sentence or paraphrase it back
 - Do NOT use "you said / you mentioned / it sounds like / I hear you"
 - Do NOT reference journaling, reflections, entries, summaries, memory, or past days
 - No guilt language
 - No hype language
-- No emojis
-- No bullet points
+- Avoid parental praise like "I'm proud of you"
 
-OUTPUT INTENT:
-- Respond to the SIGNAL, not the sentence.
-- Give ONE coaching point + ONE next step.
-- Keep it tight. End clean.
+OUTPUT STRUCTURE (4 sentences, in this exact order):
+1) Reflect something SPECIFIC about the signal/theme they shared (no quoting).
+2) Identity reinforcement tied to their goal (who they are becoming).
+3) Progress framing (make their change visible; subtle, real).
+4) Calm forward orientation (invite continuation, no pressure, no streak talk).
+
+Keep it short. Calm. Certain. End clean.
 `.trim();
 
   const userPrompt = `
@@ -267,7 +281,7 @@ Day: ${dayNumber}
 User message (DO NOT QUOTE OR REPEAT THIS):
 ${safeUserMessage}
 
-Now write the coach reply.
+Write the coach reply using the required 4-sentence structure.
 `.trim();
 
   const completion = await openai.chat.completions.create({
@@ -285,8 +299,7 @@ Now write the coach reply.
 
   const fallback = fallbackReply(dayNumber);
 
-  let raw =
-    completion.choices[0]?.message?.content?.trim() || fallback;
+  let raw = completion.choices[0]?.message?.content?.trim() || fallback;
 
   const fallbackUsed = raw === fallback;
 
@@ -307,13 +320,13 @@ Now write the coach reply.
   const echoResult = stripUserEcho(raw, safeUserMessage);
   raw = echoResult.text;
 
-  raw = enforceMaxThreeSentences(raw);
+  raw = enforceMaxFourSentences(raw);
   raw = finalizeOutput(raw);
 
   const afterSanitize = normalizeText(raw);
 
   // Safety fallback
-  if (!raw || raw.length < 18) {
+  if (!raw || raw.length < 30) {
     raw = fallback;
   }
 

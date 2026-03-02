@@ -9,6 +9,13 @@ export const dynamic = "force-dynamic";
 
 const MAX_ASK_PAT_PER_DAY = 10;
 
+/**
+ * NOTE TO SELF (ChatGPT):
+ * Ask Pat questions must NOT be stored in journal_entries.
+ * journal_entries has UNIQUE (clerk_user_id, day_number) and is reserved for Daily OS journaling.
+ * Ask Pat is unlimited per day/lifetime, so it writes to ask_pat_questions instead.
+ */
+
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -18,7 +25,7 @@ function getOpenAIClient() {
 }
 
 function todayKeyUTC() {
-  // YYYY-MM-DD in UTC
+  // YYYY-MM-DD in UTC (canonical for usage + question storage)
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -107,23 +114,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3️⃣ SAVE QUESTION TO MEMORY (raw memory)
-    await supabaseServer.from("journal_entries").insert({
-      clerk_user_id: userId,
-      day_number: 0,
-      content: trimmedQuestion,
-    });
+    // 3️⃣ SAVE QUESTION TO MEMORY (raw memory) — but in the correct table
+    // NOTE TO SELF:
+    // - We store Ask Pat questions separately so we can later mine themes/patterns
+    // - This does NOT affect current grounding (grounding uses daily/weekly summaries)
+    const { error: askPatSaveErr } = await supabaseServer
+      .from("ask_pat_questions")
+      .insert({
+        clerk_user_id: userId,
+        day_key: dayKey,
+        question: trimmedQuestion,
+      });
+
+    if (askPatSaveErr) {
+      // We DO NOT fail the whole request if storage fails.
+      // Ask Pat should still answer, even if we couldn't store the question.
+      console.error("Ask Pat question save failed:", askPatSaveErr.message);
+    }
 
     // 4️⃣ Load recent MEMORY (compressed + safe)
     const memoryLines: string[] = [];
 
     // Last 7 daily summaries
-    const { data: dailySummaries } = await supabaseServer
+    const { data: dailySummaries, error: dailyErr } = await supabaseServer
       .from("daily_summaries")
       .select("daily_summaries, day_number")
       .eq("clerk_user_id", userId)
       .order("day_number", { ascending: false })
       .limit(7);
+
+    if (dailyErr) {
+      console.error("Ask Pat daily_summaries lookup failed:", dailyErr.message);
+    }
 
     if (dailySummaries && dailySummaries.length > 0) {
       memoryLines.push("RECENT DAILY PRACTICE:");
@@ -133,13 +155,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Most recent weekly summary (if exists)
-    const { data: weeklySummary } = await supabaseServer
+    const { data: weeklySummary, error: weeklyErr } = await supabaseServer
       .from("weekly_summaries")
       .select("weekly_summary")
       .eq("clerk_user_id", userId)
       .order("week_end_day", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (weeklyErr) {
+      console.error("Ask Pat weekly_summaries lookup failed:", weeklyErr.message);
+    }
 
     if (weeklySummary?.weekly_summary) {
       memoryLines.push("");

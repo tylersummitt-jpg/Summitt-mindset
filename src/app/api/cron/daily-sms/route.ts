@@ -15,26 +15,18 @@ const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
 /**
  * ======================================================
- * CRON AUTH (secure + Vercel-cron compatible)
+ * CRON AUTH
  * ======================================================
- *
- * - Vercel cron requests include: x-vercel-cron: 1
- * - Manual testing can use:
- *    - Header: x-cron-secret: <CRON_SECRET>
- *    - OR query: ?secret=<CRON_SECRET>
  */
 function validateCronSecret(req: Request) {
-  // Allow real Vercel cron jobs
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
   if (isVercelCron) return true;
 
   if (!CRON_SECRET) return false;
 
-  // Manual header option
   const header = req.headers.get("x-cron-secret");
   if (header && header === CRON_SECRET) return true;
 
-  // Manual query option
   const url = new URL(req.url);
   const secret = url.searchParams.get("secret");
   if (secret && secret === CRON_SECRET) return true;
@@ -46,11 +38,6 @@ function validateCronSecret(req: Request) {
  * ======================================================
  * Rolling 8AM Local Send Logic
  * ======================================================
- *
- * Cron should run every 5 minutes.
- * We send if:
- *   local hour === 8
- *   local minute < 5
  */
 function shouldSendNow(local: Date) {
   return local.getHours() === 8 && local.getMinutes() < 5;
@@ -68,6 +55,46 @@ function getReentryLine(level: string): string | null {
   if (level === "medium_idle") return "No need to restart. Just continue.";
   if (level === "long_idle") return "You’re not behind. Let’s take this small.";
   return null;
+}
+
+/**
+ * ======================================================
+ * HEADER + CTA ROTATION (DETERMINISTIC)
+ * ======================================================
+ *
+ * IMPORTANT:
+ * - We use dayNumber % length for rotation.
+ * - This guarantees stable output (no randomness).
+ * - Cron retries will not change message content.
+ */
+
+function getTrainingCampHeader(dayNumber: number): string | null {
+  if (dayNumber >= 1 && dayNumber <= 30) {
+    return `TRAINING CAMP - DAY ${dayNumber}`;
+  }
+  return null;
+}
+
+function getCoachHeader(dayNumber: number): string {
+  const options = [
+    "DAILY NOTE FROM COACH PAT",
+    "COACH PAT",
+    "A NOTE FROM COACH PAT",
+  ];
+
+  return options[dayNumber % options.length];
+}
+
+function getCompletionCTA(dayNumber: number): string {
+  const options = [
+    `Reply with at least one honest sentence to complete today.`,
+    `When you're ready, reply to complete Day ${dayNumber}.`,
+    `Reply with one sentence to complete today’s training.`,
+    `Reply when you’re ready — that completes Day ${dayNumber}.`,
+    `Send one honest sentence and you’re done for today.`,
+  ];
+
+  return options[dayNumber % options.length];
 }
 
 export async function GET(req: Request) {
@@ -110,7 +137,6 @@ export async function GET(req: Request) {
       if (md.summittSubscribed !== true) continue;
       if (md.smsEnabled !== true) continue;
 
-      // Must have an enabled sms_identity (STOP-safe)
       const { data: identity } = await supabaseServer
         .from("sms_identities")
         .select("phone_number, sms_enabled, stopped_at")
@@ -146,7 +172,6 @@ export async function GET(req: Request) {
 
       const todayKey = getDateKeyInTimezone(now, timezone);
 
-      // Reserve (idempotent via unique index on (clerk_user_id, day_key))
       const { error: reservationError } = await supabaseServer
         .from("sms_send_events")
         .insert({
@@ -155,14 +180,10 @@ export async function GET(req: Request) {
           status: "reserved",
         });
 
-      if (reservationError) {
-        // Most common is unique violation -> already reserved earlier
-        continue;
-      }
+      if (reservationError) continue;
 
       stats.reserved += 1;
 
-      // If already completed today, mark skip
       const { data: completed } = await supabaseServer
         .from("daily_completion_events")
         .select("id")
@@ -182,7 +203,9 @@ export async function GET(req: Request) {
       }
 
       const dayNumber =
-        typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
+        typeof md.currentDay === "number" && md.currentDay > 0
+          ? md.currentDay
+          : 1;
 
       const { level } = getUserStalenessLevel({
         timezoneFromMetadata: md.timezone,
@@ -201,20 +224,36 @@ export async function GET(req: Request) {
 
       const reentryLine = getReentryLine(level);
 
+      /**
+       * ======================================================
+       * SMS BODY CONSTRUCTION
+       * ======================================================
+       */
       let smsBody = "";
-      if (reentryLine) smsBody += `${reentryLine}\n\n`;
+
+      const trainingHeader = getTrainingCampHeader(dayNumber);
+      if (trainingHeader) {
+        smsBody += `${trainingHeader}\n\n`;
+      }
+
+      if (reentryLine) {
+        smsBody += `${reentryLine}\n\n`;
+      }
+
+      const coachHeader = getCoachHeader(dayNumber);
+      const completionCTA = getCompletionCTA(dayNumber);
 
       smsBody +=
+        `${coachHeader}\n\n` +
         `${note.noteText}\n\n` +
-        `Today’s Practice\n\n` +
+        `TODAY'S PRACTICE\n\n` +
         `${version.actionItem}\n\n` +
-        `Reflection\n\n` +
+        `TODAY'S REFLECTION\n\n` +
         `${version.reflectionPrompt}\n\n` +
-        `Reply with one honest sentence to complete today.`;
+        `${completionCTA}`;
 
       smsBody = withComplianceFooter(smsBody);
 
-      // Dry run / missing Twilio
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
           .from("sms_send_events")

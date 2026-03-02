@@ -1,21 +1,23 @@
+// src/app/api/twilio/inbound/route.ts
+
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { completeDay } from "@/lib/complete-day";
-import { generateCoachReply } from "@/lib/coach-reply-generator";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
+import { coachEngine } from "@/lib/coach-engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 
-/* -------------------------------------------------- */
-/* Utilities */
-/* -------------------------------------------------- */
+/* =====================================================
+   Utilities
+===================================================== */
 
 function normalizePhone(phone: string) {
   return (phone || "").trim().replace(/[^\d+]/g, "");
@@ -93,9 +95,9 @@ function safeDayNumber(value: unknown): number | null {
   return Math.floor(value);
 }
 
-/* -------------------------------------------------- */
-/* Main */
-/* -------------------------------------------------- */
+/* =====================================================
+   Main
+===================================================== */
 
 export async function POST(req: Request) {
   try {
@@ -111,10 +113,17 @@ export async function POST(req: Request) {
       if (!ok) return NextResponse.json({ ok: false }, { status: 403 });
     }
 
+    const messageSid = params.get("MessageSid");
     const from = normalizePhone(params.get("From") || "");
     const body = normalizeBody(params.get("Body") || "");
 
-    if (!from || !body) return NextResponse.json({ ok: true });
+    if (!messageSid || !from || !body) {
+      return NextResponse.json({ ok: true });
+    }
+
+    /* =====================================================
+       IDENTITY LOOKUP
+    ===================================================== */
 
     const { data: identity } = await supabaseServer
       .from("sms_identities")
@@ -128,9 +137,35 @@ export async function POST(req: Request) {
 
     const userId = identity.clerk_user_id;
 
-    /* --------------------------------------------------
+    /* =====================================================
+       🔒 MESSAGE SID IDEMPOTENCY LOCK
+    ===================================================== */
+
+    const { error: sidInsertError } = await supabaseServer
+      .from("sms_inbound_messages")
+      .insert({
+        message_sid: messageSid,
+        clerk_user_id: userId,
+        phone_number: from,
+        raw_body: body,
+      });
+
+    if (sidInsertError) {
+      const code = (sidInsertError as any)?.code;
+
+      // 23505 = unique violation
+      if (code === "23505") {
+        // Twilio retry — return success immediately
+        return NextResponse.json({ ok: true });
+      }
+
+      console.error("SID LOCK INSERT ERROR:", sidInsertError);
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+
+    /* =====================================================
        STOP / HELP / START
-    -------------------------------------------------- */
+    ===================================================== */
 
     if (isStopCommand(body)) {
       await supabaseServer
@@ -150,8 +185,9 @@ export async function POST(req: Request) {
     }
 
     if (isHelpCommand(body)) {
+      // NOTE TO SELF (ChatGPT): Keep this language in sync with the daily SMS footer CTA.
       return twiml(
-        "Summitt Mindset daily training. Reply with one honest sentence to complete today. Reply STOP to opt out."
+        "Summitt Mindset daily training. Reply with at least one honest sentence to complete today. Reply STOP to opt out."
       );
     }
 
@@ -182,9 +218,9 @@ export async function POST(req: Request) {
     const currentDay = safeDayNumber(md.currentDay);
     if (!currentDay) return NextResponse.json({ ok: true });
 
-    /* --------------------------------------------------
-       CHECK IF ALREADY COMPLETED TODAY
-    -------------------------------------------------- */
+    /* =====================================================
+       COMPLETION CHECK
+    ===================================================== */
 
     const timezone = resolveUserTimezone(md.timezone);
     const todayKey = getDateKeyInTimezone(new Date(), timezone);
@@ -198,31 +234,52 @@ export async function POST(req: Request) {
 
     const alreadyCompleted = !!existingCompletion;
 
-    /* --------------------------------------------------
-       ALWAYS SAVE USER MESSAGE TO COACH THREAD
-    -------------------------------------------------- */
+    /* =====================================================
+       ACTIVE COACH DAY RESOLUTION
+       - If activeCoachDayKey matches todayKey → use activeCoachDay
+       - If stale → clear it and fall back to currentDay
+    ===================================================== */
 
-    await supabaseServer.from("coach_conversations").insert({
-      clerk_user_id: userId,
-      day_number: currentDay,
-      role: "user",
-      content: body,
-    });
+    let dayForThread = currentDay;
 
-    /* --------------------------------------------------
-       IF NOT COMPLETED → WRITE JOURNAL + COMPLETE DAY
-    -------------------------------------------------- */
+    if (
+      typeof md.activeCoachDay === "number" &&
+      Number.isFinite(md.activeCoachDay) &&
+      md.activeCoachDay > 0 &&
+      typeof md.activeCoachDayKey === "string" &&
+      md.activeCoachDayKey.length > 0
+    ) {
+      if (md.activeCoachDayKey === todayKey) {
+        dayForThread = Math.floor(md.activeCoachDay);
+      } else {
+        // Midnight passed — clear stale lock
+        try {
+          await updateClerkPublicMetadata(userId, {
+            activeCoachDay: null,
+            activeCoachDayKey: null,
+          });
+        } catch (err) {
+          // Non-fatal; we can still proceed with currentDay
+          console.error("ACTIVE COACH DAY CLEAR FAILED:", err);
+        }
+      }
+    }
+
+    /* =====================================================
+       COMPLETE DAY IF NEEDED
+       (kept here, not part of coach-engine in Phase 4)
+    ===================================================== */
 
     if (!alreadyCompleted) {
       const version = await getOrCreateDailyPracticeVersion({
         userId,
-        dayNumber: currentDay,
+        dayNumber: dayForThread,
       });
 
       await supabaseServer.from("journal_entries").upsert(
         {
           clerk_user_id: userId,
-          day_number: currentDay,
+          day_number: dayForThread,
           content: body,
           action_item: version.actionItem,
           reflection_prompt: version.reflectionPrompt,
@@ -234,25 +291,29 @@ export async function POST(req: Request) {
       await completeDay({ userId, source: "sms" });
     }
 
-    /* --------------------------------------------------
-       GENERATE COACH REPLY (ALWAYS)
-    -------------------------------------------------- */
+    /* =====================================================
+       CANONICAL COACH PIPELINE (NEW)
+       - Rate limit
+       - Save user message
+       - Generate coach reply
+       - Save coach reply
+       - Return thread
+    ===================================================== */
 
-    const coachReply = await generateCoachReply({
+    const coachResult = await coachEngine({
       userId,
-      dayNumber: currentDay,
+      dayNumber: dayForThread,
       userMessage: body,
+      source: "sms",
     });
 
-    await supabaseServer.from("coach_conversations").insert({
-      clerk_user_id: userId,
-      day_number: currentDay,
-      role: "coach",
-      content: coachReply.text,
-      metadata: coachReply.meta,
-    });
+    // Twilio requires a message. If engine fails, return a calm fallback.
+    if (!coachResult.ok) {
+      const fallback = "Good. Stay steady. We’ll keep building.";
+      return twiml(fallback);
+    }
 
-    return twiml(coachReply.text);
+    return twiml(coachResult.coachText);
   } catch (err) {
     console.error("[TWILIO INBOUND ERROR]", err);
     return NextResponse.json({ ok: false }, { status: 500 });
