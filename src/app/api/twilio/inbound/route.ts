@@ -96,6 +96,26 @@ function safeDayNumber(value: unknown): number | null {
 }
 
 /* =====================================================
+   COMPLETION CONFIRMATION + SIGNATURE (DETERMINISTIC)
+===================================================== */
+
+function getCompletionConfirmation(dayNumber: number): string {
+  const options = [
+    `Day ${dayNumber} is complete.`,
+    `You completed Day ${dayNumber}.`,
+    `That locks in Day ${dayNumber}.`,
+    `Day ${dayNumber} — done.`,
+    `You’re building something real. Day ${dayNumber} complete.`,
+  ];
+  return options[dayNumber % options.length];
+}
+
+function getSignature(dayNumber: number): string {
+  const options = ["— Coach", "— Coach Pat", "— Your Coach"];
+  return options[dayNumber % options.length];
+}
+
+/* =====================================================
    Main
 ===================================================== */
 
@@ -121,10 +141,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    /* =====================================================
-       IDENTITY LOOKUP
-    ===================================================== */
-
     const { data: identity } = await supabaseServer
       .from("sms_identities")
       .select("phone_number, clerk_user_id, sms_enabled, stopped_at")
@@ -137,10 +153,6 @@ export async function POST(req: Request) {
 
     const userId = identity.clerk_user_id;
 
-    /* =====================================================
-       🔒 MESSAGE SID IDEMPOTENCY LOCK
-    ===================================================== */
-
     const { error: sidInsertError } = await supabaseServer
       .from("sms_inbound_messages")
       .insert({
@@ -152,20 +164,11 @@ export async function POST(req: Request) {
 
     if (sidInsertError) {
       const code = (sidInsertError as any)?.code;
-
-      // 23505 = unique violation
       if (code === "23505") {
-        // Twilio retry — return success immediately
         return NextResponse.json({ ok: true });
       }
-
-      console.error("SID LOCK INSERT ERROR:", sidInsertError);
       return NextResponse.json({ ok: false }, { status: 500 });
     }
-
-    /* =====================================================
-       STOP / HELP / START
-    ===================================================== */
 
     if (isStopCommand(body)) {
       await supabaseServer
@@ -185,7 +188,6 @@ export async function POST(req: Request) {
     }
 
     if (isHelpCommand(body)) {
-      // NOTE TO SELF (ChatGPT): Keep this language in sync with the daily SMS footer CTA.
       return twiml(
         "Summitt Mindset daily training. Reply with at least one honest sentence to complete today. Reply STOP to opt out."
       );
@@ -218,10 +220,6 @@ export async function POST(req: Request) {
     const currentDay = safeDayNumber(md.currentDay);
     if (!currentDay) return NextResponse.json({ ok: true });
 
-    /* =====================================================
-       COMPLETION CHECK
-    ===================================================== */
-
     const timezone = resolveUserTimezone(md.timezone);
     const todayKey = getDateKeyInTimezone(new Date(), timezone);
 
@@ -234,12 +232,6 @@ export async function POST(req: Request) {
 
     const alreadyCompleted = !!existingCompletion;
 
-    /* =====================================================
-       ACTIVE COACH DAY RESOLUTION
-       - If activeCoachDayKey matches todayKey → use activeCoachDay
-       - If stale → clear it and fall back to currentDay
-    ===================================================== */
-
     let dayForThread = currentDay;
 
     if (
@@ -247,28 +239,12 @@ export async function POST(req: Request) {
       Number.isFinite(md.activeCoachDay) &&
       md.activeCoachDay > 0 &&
       typeof md.activeCoachDayKey === "string" &&
-      md.activeCoachDayKey.length > 0
+      md.activeCoachDayKey === todayKey
     ) {
-      if (md.activeCoachDayKey === todayKey) {
-        dayForThread = Math.floor(md.activeCoachDay);
-      } else {
-        // Midnight passed — clear stale lock
-        try {
-          await updateClerkPublicMetadata(userId, {
-            activeCoachDay: null,
-            activeCoachDayKey: null,
-          });
-        } catch (err) {
-          // Non-fatal; we can still proceed with currentDay
-          console.error("ACTIVE COACH DAY CLEAR FAILED:", err);
-        }
-      }
+      dayForThread = Math.floor(md.activeCoachDay);
     }
 
-    /* =====================================================
-       COMPLETE DAY IF NEEDED
-       (kept here, not part of coach-engine in Phase 4)
-    ===================================================== */
+    let didCompleteToday = false;
 
     if (!alreadyCompleted) {
       const version = await getOrCreateDailyPracticeVersion({
@@ -288,17 +264,15 @@ export async function POST(req: Request) {
         { onConflict: "clerk_user_id,day_number" }
       );
 
-      await completeDay({ userId, source: "sms" });
-    }
+      const completionResult = await completeDay({
+        userId,
+        source: "sms",
+      });
 
-    /* =====================================================
-       CANONICAL COACH PIPELINE (NEW)
-       - Rate limit
-       - Save user message
-       - Generate coach reply
-       - Save coach reply
-       - Return thread
-    ===================================================== */
+      if (completionResult.ok) {
+        didCompleteToday = true;
+      }
+    }
 
     const coachResult = await coachEngine({
       userId,
@@ -307,10 +281,20 @@ export async function POST(req: Request) {
       source: "sms",
     });
 
-    // Twilio requires a message. If engine fails, return a calm fallback.
     if (!coachResult.ok) {
-      const fallback = "Good. Stay steady. We’ll keep building.";
-      return twiml(fallback);
+      return twiml("Good. Stay steady. We’ll keep building.");
+    }
+
+    if (didCompleteToday) {
+      const confirmation = getCompletionConfirmation(dayForThread);
+      const signature = getSignature(dayForThread);
+
+      const wrapped =
+        `${confirmation}\n\n` +
+        `${coachResult.coachText}\n\n` +
+        `${signature}`;
+
+      return twiml(wrapped);
     }
 
     return twiml(coachResult.coachText);

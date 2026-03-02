@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/daily-sms",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/weekly-sms",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

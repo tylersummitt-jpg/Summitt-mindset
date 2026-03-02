@@ -10,12 +10,22 @@ import { sendSMS, isTwilioReady } from "@/lib/twilio";
  * POST /api/onboarding/sms (CANONICAL)
  * ======================================================
  *
- * CHANGE (Feb 2026):
- * - smsTimePreference is no longer user-selectable.
- * - We hard-lock to "morning" (8:00 AM local time).
+ * PURPOSE:
+ * - Capture SMS consent
+ * - Normalize + store phone
+ * - Sync sms_identities (Supabase)
+ * - Send ONE onboarding confirmation text (compliance required)
  *
- * NOTE TO SELF (ChatGPT):
- * Even if client sends smsTimePreference, ignore it.
+ * NON-NEGOTIABLES:
+ * - smsTimePreference is hard-locked to "morning"
+ * - Confirmation SMS must include STOP + HELP language
+ * - Never fail onboarding if SMS send fails
+ *
+ * TONE STRATEGY (March 2026):
+ * - Legal compliance retained
+ * - Identity-based momentum added ("You're in. Coach Pat...")
+ * - Avoid guaranteed outcome claims
+ * - Avoid hype language that could trigger A2P filtering
  */
 
 /**
@@ -112,16 +122,26 @@ export async function POST(req: Request) {
     }
 
     // ---------------------------------------
-    // OPTIONAL (RECOMMENDED): Confirmation SMS
+    // Confirmation SMS (Identity + Compliance)
     // ---------------------------------------
     if (smsEnabled && normalizedPhone && isTwilioReady()) {
+      /**
+       * IMPORTANT:
+       * - Must include STOP + HELP language
+       * - Must include frequency disclosure
+       * - Use "around 8:00 AM" for safety buffer (Twilio delays, cron drift, etc.)
+       * - Avoid promising outcomes or guarantees
+       */
+
       const confirm =
-        "Summitt Mindset: You’re subscribed to daily training texts (membership coaching + practice reminders). Texts arrive at 8:00 AM local time. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
+        "Summitt Mindset: You’re in. Coach Pat Summitt is now your daily life coach.\n\n" +
+        "Expect a short note and one focused practice every morning around 8:00 AM local time. Show up consistently — and watch what changes.\n\n" +
+        "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
 
       try {
         await sendSMS({ to: normalizedPhone, body: confirm });
       } catch (e) {
-        // Do NOT fail onboarding if confirmation send fails.
+        // Never block onboarding if Twilio fails.
         console.error("Onboarding confirmation SMS failed:", e);
       }
     }

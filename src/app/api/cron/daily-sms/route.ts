@@ -17,11 +17,25 @@ const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
  * ======================================================
  * CRON AUTH
  * ======================================================
+ *
+ * IMPORTANT:
+ * - Your Vercel cron invocations are currently returning 401.
+ * - This is almost certainly because the x-vercel-cron header value is not exactly "1".
+ * - We accept any truthy value ("1", "true", "True", etc.) to be robust.
  */
 function validateCronSecret(req: Request) {
-  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+  // 1) Vercel Cron header (preferred)
+  const vercelCronHeader = req.headers.get("x-vercel-cron");
+  const isVercelCron =
+    vercelCronHeader === "1" ||
+    vercelCronHeader === "true" ||
+    vercelCronHeader === "True" ||
+    vercelCronHeader === "yes" ||
+    vercelCronHeader === "on";
+
   if (isVercelCron) return true;
 
+  // 2) Manual secret (header or query param)
   if (!CRON_SECRET) return false;
 
   const header = req.headers.get("x-cron-secret");
@@ -36,18 +50,23 @@ function validateCronSecret(req: Request) {
 
 /**
  * ======================================================
- * Rolling 8AM Local Send Logic
+ * "NEVER MISS" SEND WINDOW
  * ======================================================
+ *
+ * Goal:
+ * - Each user receives at most ONE SMS per local day.
+ * - We do NOT care if it's 8:00 vs 8:15. We just want it to happen.
+ *
+ * Implementation:
+ * - If user is eligible AND it's after MORNING_START_HOUR local time,
+ *   we will attempt to send if there's no sms_send_events record yet for todayKey.
+ *
+ * You can adjust this hour safely later.
  */
-function shouldSendNow(local: Date) {
-  return local.getHours() === 8 && local.getMinutes() < 5;
-}
+const MORNING_START_HOUR = 6; // 6:00 AM local time
 
-function withComplianceFooter(body: string) {
-  return (
-    body +
-    "\n\n— Summitt Mindset\nReply STOP to opt out. Reply HELP for help."
-  );
+function shouldSendTodayNow(local: Date) {
+  return local.getHours() >= MORNING_START_HOUR;
 }
 
 function getReentryLine(level: string): string | null {
@@ -61,13 +80,7 @@ function getReentryLine(level: string): string | null {
  * ======================================================
  * HEADER + CTA ROTATION (DETERMINISTIC)
  * ======================================================
- *
- * IMPORTANT:
- * - We use dayNumber % length for rotation.
- * - This guarantees stable output (no randomness).
- * - Cron retries will not change message content.
  */
-
 function getTrainingCampHeader(dayNumber: number): string | null {
   if (dayNumber >= 1 && dayNumber <= 30) {
     return `TRAINING CAMP - DAY ${dayNumber}`;
@@ -76,12 +89,7 @@ function getTrainingCampHeader(dayNumber: number): string | null {
 }
 
 function getCoachHeader(dayNumber: number): string {
-  const options = [
-    "DAILY NOTE FROM COACH PAT",
-    "COACH PAT",
-    "A NOTE FROM COACH PAT",
-  ];
-
+  const options = ["DAILY NOTE FROM COACH PAT", "COACH PAT", "A NOTE FROM COACH PAT"];
   return options[dayNumber % options.length];
 }
 
@@ -93,8 +101,45 @@ function getCompletionCTA(dayNumber: number): string {
     `Reply when you’re ready — that completes Day ${dayNumber}.`,
     `Send one honest sentence and you’re done for today.`,
   ];
-
   return options[dayNumber % options.length];
+}
+
+/**
+ * ======================================================
+ * Helper: try to reserve today's send slot
+ * ======================================================
+ *
+ * We rely on your unique index: (clerk_user_id, day_key)
+ * - If insert succeeds: this run owns the send attempt.
+ * - If insert fails due to unique violation: SMS already reserved/sent today, skip safely.
+ */
+async function reserveTodaySendOrSkip({
+  userId,
+  todayKey,
+}: {
+  userId: string;
+  todayKey: string;
+}): Promise<{ reserved: boolean; reason?: string }> {
+  const { error } = await supabaseServer.from("sms_send_events").insert({
+    clerk_user_id: userId,
+    day_key: todayKey,
+    status: "reserved",
+    metadata: { note: "reserved_by_cron" },
+  });
+
+  if (!error) return { reserved: true };
+
+  // Postgres unique violation is usually 23505; Supabase error "code" often contains it.
+  // If we can't detect it perfectly, we still treat any insert error as "not reserved"
+  // to avoid double-sending. This favors safety over aggressive retries.
+  const code = (error as any)?.code;
+  const message = (error as any)?.message || String(error);
+
+  if (code === "23505" || message.toLowerCase().includes("duplicate")) {
+    return { reserved: false, reason: "already_reserved_or_sent_today" };
+  }
+
+  return { reserved: false, reason: "reservation_insert_failed" };
 }
 
 export async function GET(req: Request) {
@@ -115,6 +160,7 @@ export async function GET(req: Request) {
     scanned: 0,
     eligible: 0,
     reserved: 0,
+    alreadyReservedOrSentToday: 0,
     sent: 0,
     dryRun: 0,
     skippedNotTime: 0,
@@ -123,6 +169,7 @@ export async function GET(req: Request) {
     skippedAlreadyCompleted: 0,
     skippedMissingTwilio: 0,
     failed: 0,
+    reservationErrors: 0,
   };
 
   while (true) {
@@ -137,6 +184,7 @@ export async function GET(req: Request) {
       if (md.summittSubscribed !== true) continue;
       if (md.smsEnabled !== true) continue;
 
+      // Identity record (canonical opt-out)
       const { data: identity } = await supabaseServer
         .from("sms_identities")
         .select("phone_number, sms_enabled, stopped_at")
@@ -159,31 +207,41 @@ export async function GET(req: Request) {
       const timezone = resolveUserTimezone(md.timezone);
       const now = new Date();
 
-      const localNow = new Date(
-        now.toLocaleString("en-US", { timeZone: timezone })
-      );
+      // localNow = "now" interpreted in that user's timezone
+      const localNow = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
 
-      if (!force && !shouldSendNow(localNow)) {
+      // Key used for dedupe
+      const todayKey = getDateKeyInTimezone(now, timezone);
+
+      // If not forced, only start trying after MORNING_START_HOUR local time.
+      // This ensures "never miss": once the user is in the day window, they'll be picked up
+      // by the next cron tick.
+      if (!force && !shouldSendTodayNow(localNow)) {
         stats.skippedNotTime += 1;
         continue;
       }
 
       stats.eligible += 1;
 
-      const todayKey = getDateKeyInTimezone(now, timezone);
+      // Reserve (dedupe gate)
+      const reservation = await reserveTodaySendOrSkip({
+        userId: user.id,
+        todayKey,
+      });
 
-      const { error: reservationError } = await supabaseServer
-        .from("sms_send_events")
-        .insert({
-          clerk_user_id: user.id,
-          day_key: todayKey,
-          status: "reserved",
-        });
-
-      if (reservationError) continue;
+      if (!reservation.reserved) {
+        if (reservation.reason === "already_reserved_or_sent_today") {
+          stats.alreadyReservedOrSentToday += 1;
+        } else {
+          stats.reservationErrors += 1;
+        }
+        continue;
+      }
 
       stats.reserved += 1;
 
+      // If user already completed today, we skip sending the daily SMS.
+      // (This matches your current behavior and avoids unnecessary pings.)
       const { data: completed } = await supabaseServer
         .from("daily_completion_events")
         .select("id")
@@ -194,7 +252,10 @@ export async function GET(req: Request) {
       if (completed && completed.length > 0) {
         await supabaseServer
           .from("sms_send_events")
-          .update({ status: "skipped_already_completed" })
+          .update({
+            status: "skipped_already_completed",
+            metadata: { note: "user_completed_today" },
+          })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
 
@@ -203,9 +264,7 @@ export async function GET(req: Request) {
       }
 
       const dayNumber =
-        typeof md.currentDay === "number" && md.currentDay > 0
-          ? md.currentDay
-          : 1;
+        typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
 
       const { level } = getUserStalenessLevel({
         timezoneFromMetadata: md.timezone,
@@ -224,21 +283,11 @@ export async function GET(req: Request) {
 
       const reentryLine = getReentryLine(level);
 
-      /**
-       * ======================================================
-       * SMS BODY CONSTRUCTION
-       * ======================================================
-       */
       let smsBody = "";
 
       const trainingHeader = getTrainingCampHeader(dayNumber);
-      if (trainingHeader) {
-        smsBody += `${trainingHeader}\n\n`;
-      }
-
-      if (reentryLine) {
-        smsBody += `${reentryLine}\n\n`;
-      }
+      if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
+      if (reentryLine) smsBody += `${reentryLine}\n\n`;
 
       const coachHeader = getCoachHeader(dayNumber);
       const completionCTA = getCompletionCTA(dayNumber);
@@ -252,13 +301,17 @@ export async function GET(req: Request) {
         `${version.reflectionPrompt}\n\n` +
         `${completionCTA}`;
 
-      smsBody = withComplianceFooter(smsBody);
-
+      // Twilio readiness + dry run
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
           .from("sms_send_events")
           .update({
             status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
+            metadata: {
+              note: SMS_DRY_RUN ? "dry_run_enabled" : "twilio_not_ready",
+              timezone,
+              local_time: localNow.toISOString(),
+            },
           })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
@@ -280,6 +333,11 @@ export async function GET(req: Request) {
           .update({
             message_sid: message.sid,
             status: message.status,
+            metadata: {
+              note: "sent_to_twilio",
+              timezone,
+              local_time: localNow.toISOString(),
+            },
           })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
@@ -290,7 +348,11 @@ export async function GET(req: Request) {
           .from("sms_send_events")
           .update({
             status: "send_failed",
-            metadata: { error: String(err) },
+            metadata: {
+              error: String(err),
+              timezone,
+              local_time: localNow.toISOString(),
+            },
           })
           .eq("clerk_user_id", user.id)
           .eq("day_key", todayKey);
