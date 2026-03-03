@@ -1,11 +1,11 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily-sms",
+      "path": "/api/cron/daily-sms?secret=cron_8f3c9a1e5d2b7a6f0c4e9d8a7b6e5f1c",
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/weekly-sms",
+      "path": "/api/cron/weekly-sms?secret=cron_8f3c9a1e5d2b7a6f0c4e9d8a7b6e5f1c",
       "schedule": "*/5 * * * *"
     }
   ]
