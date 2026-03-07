@@ -58,7 +58,7 @@ async function tryInsertCompletionLock({
 }
 
 /* ======================================================
-   Pattern + Identity Functions (UNCHANGED)
+   Pattern + Identity Functions
 ====================================================== */
 
 async function updatePatternInsights({
@@ -101,6 +101,10 @@ async function updatePatternInsights({
   }
 }
 
+/**
+ * Improved phrasing for recent summary
+ * Uses top patterns but converts them into natural coaching language.
+ */
 async function updateRecentSummary({ userId }: { userId: string }) {
   const { data: patterns } = await supabaseServer
     .from("pattern_insights")
@@ -113,10 +117,49 @@ async function updateRecentSummary({ userId }: { userId: string }) {
 
   const keys = patterns.map((p) => p.pattern_key);
 
+  function phrase(key: string): string {
+    switch (key) {
+      case "follow-through":
+        return "finishing what matters";
+      case "focus":
+        return "protecting your attention";
+      case "discipline":
+        return "holding your standard";
+      case "calm under pressure":
+        return "staying steady under pressure";
+      case "communication":
+        return "speaking clearly";
+      case "clarity":
+        return "getting clear on priorities";
+      case "leadership":
+        return "leading yourself better";
+      case "confidence":
+        return "building confidence through action";
+      case "courage":
+        return "moving toward hard things";
+      case "respect":
+        return "raising your standard with people";
+      case "gratitude":
+        return "keeping perspective";
+      case "trust":
+        return "being dependable";
+      case "health":
+        return "taking care of your energy";
+      case "family":
+        return "showing up for family";
+      case "energy":
+        return "showing up even when energy dips";
+      case "avoidance":
+        return "moving past hesitation";
+      default:
+        return key;
+    }
+  }
+
   const summary =
     keys.length === 1
-      ? `Growing in ${keys[0]}.`
-      : `Growing in ${keys[0]} and ${keys[1]}.`;
+      ? `You are getting stronger at ${phrase(keys[0])}.`
+      : `You are getting stronger at ${phrase(keys[0])} and ${phrase(keys[1])}.`;
 
   await supabaseServer.from("recent_summary").upsert({
     clerk_user_id: userId,
@@ -322,7 +365,7 @@ export async function completeDay({
     }
 
     /* --------------------------------------------------
-       CLERK METADATA UPDATE (non-fatal)
+       CLERK METADATA UPDATE
     -------------------------------------------------- */
 
     const newTotalDaysCompleted = totalDaysCompleted + 1;
@@ -334,7 +377,6 @@ export async function completeDay({
         daysInRow: daysInRow + 1,
         lastCompletedAt: now.toISOString(),
 
-        // 🔥 ACTIVE COACH THREAD LOCK
         activeCoachDay: currentDay,
         activeCoachDayKey: todayKey,
       });
@@ -343,7 +385,7 @@ export async function completeDay({
     }
 
     /* --------------------------------------------------
-       ACHIEVEMENTS (never fatal)
+       ACHIEVEMENTS
     -------------------------------------------------- */
 
     try {

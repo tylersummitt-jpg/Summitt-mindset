@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { getTopRelevantChunks } from "@/lib/ask-pat/chunks";
 import { supabaseServer } from "@/lib/supabase-server";
 import { auth } from "@clerk/nextjs/server";
+import { buildProfileContext } from "@/lib/profile-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,22 +26,38 @@ function getOpenAIClient() {
 }
 
 function todayKeyUTC() {
-  // YYYY-MM-DD in UTC (canonical for usage + question storage)
   return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeText(input: string): string {
+  return (input || "").trim().replace(/\s+/g, " ");
+}
+
+function buildProfileBlock(profile: {
+  identity?: string;
+  relationships?: string;
+  work?: string;
+  health?: string;
+  pressure?: string;
+}): string {
+  const lines: string[] = [];
+
+  if (profile.identity) lines.push(`IDENTITY: ${profile.identity}`);
+  if (profile.relationships) lines.push(`RELATIONSHIPS: ${profile.relationships}`);
+  if (profile.work) lines.push(`WORK: ${profile.work}`);
+  if (profile.health) lines.push(`HEALTH: ${profile.health}`);
+  if (profile.pressure) lines.push(`PRESSURE: ${profile.pressure}`);
+
+  return lines.length ? lines.join("\n") : "PROFILE: none";
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // 1️⃣ Auth — identify the athlete
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ======================================================
-    // ✅ Anti-Spam Guard (CANONICAL)
-    // ======================================================
-    // Limit: 10 requests per user per UTC day
     const dayKey = todayKeyUTC();
 
     const { data: usageRows, error: usageErr } = await supabaseServer
@@ -52,7 +69,6 @@ export async function POST(req: NextRequest) {
     if (usageErr) {
       console.error("Ask Pat usage lookup failed:", usageErr.message);
 
-      // If we can't check usage, fail CLOSED (protect costs)
       return NextResponse.json(
         {
           error: "Ask Pat is temporarily unavailable. Please try again later.",
@@ -76,7 +92,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Record usage immediately (so retries still count)
     const { error: insertUsageErr } = await supabaseServer
       .from("ask_pat_usage")
       .insert({
@@ -87,7 +102,6 @@ export async function POST(req: NextRequest) {
     if (insertUsageErr) {
       console.error("Ask Pat usage insert failed:", insertUsageErr.message);
 
-      // Fail closed
       return NextResponse.json(
         {
           error: "Ask Pat is temporarily unavailable. Please try again later.",
@@ -97,7 +111,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2️⃣ Parse question
     const { question } = await req.json();
     if (!question || typeof question !== "string") {
       return NextResponse.json(
@@ -106,7 +119,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const trimmedQuestion = question.trim();
+    const trimmedQuestion = normalizeText(question);
     if (!trimmedQuestion) {
       return NextResponse.json(
         { error: "Question is required." },
@@ -114,10 +127,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3️⃣ SAVE QUESTION TO MEMORY (raw memory) — but in the correct table
-    // NOTE TO SELF:
-    // - We store Ask Pat questions separately so we can later mine themes/patterns
-    // - This does NOT affect current grounding (grounding uses daily/weekly summaries)
     const { error: askPatSaveErr } = await supabaseServer
       .from("ask_pat_questions")
       .insert({
@@ -127,15 +136,13 @@ export async function POST(req: NextRequest) {
       });
 
     if (askPatSaveErr) {
-      // We DO NOT fail the whole request if storage fails.
-      // Ask Pat should still answer, even if we couldn't store the question.
       console.error("Ask Pat question save failed:", askPatSaveErr.message);
     }
 
-    // 4️⃣ Load recent MEMORY (compressed + safe)
+    const profile = await buildProfileContext(userId);
+
     const memoryLines: string[] = [];
 
-    // Last 7 daily summaries
     const { data: dailySummaries, error: dailyErr } = await supabaseServer
       .from("daily_summaries")
       .select("daily_summaries, day_number")
@@ -154,7 +161,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Most recent weekly summary (if exists)
     const { data: weeklySummary, error: weeklyErr } = await supabaseServer
       .from("weekly_summaries")
       .select("weekly_summary")
@@ -178,10 +184,8 @@ export async function POST(req: NextRequest) {
         ? memoryLines.join("\n")
         : "No recent practice reflections available.";
 
-    // ✅ OpenAI client created ONLY at request time
     const openai = getOpenAIClient();
 
-    // 5️⃣ Embed the question
     const embed = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: trimmedQuestion,
@@ -190,7 +194,6 @@ export async function POST(req: NextRequest) {
     const queryEmbedding = embed.data[0]?.embedding;
     if (!queryEmbedding) throw new Error("Embedding failed.");
 
-    // 6️⃣ Retrieve Pat’s book context
     const topChunks = getTopRelevantChunks(queryEmbedding, 6);
 
     const bookContext =
@@ -203,11 +206,15 @@ export async function POST(req: NextRequest) {
             .join("\n\n")
         : "No relevant excerpts were found.";
 
-    // 7️⃣ Memory-aware Pat Summitt system prompt
     const systemPrompt = `
 You are **Pat Summitt**, legendary head coach of the University of Tennessee Lady Volunteers.
 
 You are coaching THIS PERSON — not a generic leader.
+
+====================
+PERSONAL CONTEXT
+${buildProfileBlock(profile)}
+====================
 
 ====================
 ATHLETE CONTEXT (REAL PRACTICE & REFLECTION)
@@ -215,14 +222,17 @@ ${athleteContext}
 ====================
 
 COACHING INSTRUCTIONS
-- Reference patterns you see in their practice when relevant
-- Be honest, firm, and specific
-- Do not summarize their reflections — COACH them
+- Use the personal context when it truly helps, but do not lean on too many personal details at once.
+- Reference patterns you see in their practice when relevant.
+- Be honest, firm, and specific.
+- Do not summarize their reflections — coach them.
+- Never mention how you know anything about them.
+- Do not say "you said" or "you wrote."
 
 STYLE RULES
-- Teach through real stories from your career
-- No corporate language
-- No fluff
+- Teach through real stories from your career.
+- No corporate language.
+- No fluff.
 
 ANSWER STRUCTURE
 1. Open with a story
@@ -234,7 +244,6 @@ SOURCE MATERIAL (FROM YOUR BOOKS)
 ${bookContext}
 `.trim();
 
-    // 8️⃣ Ask Pat
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [

@@ -2,6 +2,9 @@
 
 import OpenAI from "openai";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { buildProfileContext } from "@/lib/profile-context";
+import { buildCoachPatContext } from "@/lib/coach-pat-context";
+import { supabaseServer } from "@/lib/supabase-server";
 
 type Params = {
   userId: string;
@@ -46,56 +49,31 @@ function splitIntoSentences(text: string): string[] {
     .filter(Boolean);
 }
 
-/**
- * We do this because your SMS client sometimes drops apostrophes:
- * You're -> Youre
- * That is not acceptable, so we force full words.
- */
 function expandContractions(text: string): string {
-  // NOTE: We run this BEFORE stripping apostrophes.
   return (text || "")
     .replace(/\byou['’]re\b/gi, "you are")
     .replace(/\bthey['’]re\b/gi, "they are")
     .replace(/\bwe['’]re\b/gi, "we are")
     .replace(/\bi['’]m\b/gi, "I am")
-    .replace(/\bdo['’]t\b/gi, "do not") // safety (rare OCR-like)
-    .replace(/\bdon['’]t\b/gi, "do not")
     .replace(/\bcan['’]t\b/gi, "cannot")
     .replace(/\bwon['’]t\b/gi, "will not")
     .replace(/\bit['’]s\b/gi, "it is")
-    .replace(/\bthat['’]s\b/gi, "that is")
-    .replace(/\bthere['’]s\b/gi, "there is")
-    .replace(/\blet['’]s\b/gi, "let us")
-    .replace(/\bI['’]ve\b/g, "I have")
-    .replace(/\bI['’]ll\b/g, "I will")
-    .replace(/\bwe['’]ll\b/gi, "we will")
-    .replace(/\byou['’]ll\b/gi, "you will")
-    .replace(/\bthey['’]ll\b/gi, "they will")
-    .replace(/\bwe['’]d\b/gi, "we would")
-    .replace(/\byou['’]d\b/gi, "you would")
-    .replace(/\bthey['’]d\b/gi, "they would");
+    .replace(/\bthat['’]s\b/gi, "that is");
 }
 
 function removeApostrophes(text: string): string {
   return (text || "").replace(/['’]/g, "");
 }
 
-/**
- * Remove phrases that expose the "mechanism" of memory.
- * We still WANT the coach to use memory, but NEVER say how it knows.
- */
 function stripMemoryMetaLanguage(text: string): string {
   let t = text || "";
 
-  // NOTE: We are intentionally conservative here.
-  // We do not want to over-strip and break meaning.
   const patterns: RegExp[] = [
     /\b(as you said|as you wrote|you said|you wrote|you mentioned)\b/gi,
     /\b(earlier|previously|yesterday|last week|last month)\b/gi,
-    /\b(from your journal|in your journal|your journal|journaling|journal)\b/gi,
-    /\b(from your reflection|in your reflection|reflection)\b/gi,
-    /\b(from your summary|in your summary|summary|summaries)\b/gi,
-    /\b(I remember|I recall|from my memory|memory)\b/gi,
+    /\b(from your journal|journal|journaling)\b/gi,
+    /\b(reflection|summary|summaries)\b/gi,
+    /\b(I remember|I recall|memory)\b/gi,
   ];
 
   for (const re of patterns) {
@@ -105,54 +83,30 @@ function stripMemoryMetaLanguage(text: string): string {
   return normalizeText(t);
 }
 
-/**
- * Remove emojis (some providers/clients render them inconsistently).
- */
 function stripEmojis(text: string): string {
   return (text || "").replace(/\p{Emoji}/gu, "");
 }
 
-/**
- * Final cleanup:
- * - 1 paragraph
- * - no "!"
- * - normalize whitespace
- */
 function finalizeOutput(text: string): string {
   let t = text || "";
 
-  // collapse lines
   t = t.replace(/\n+/g, " ");
-  t = t.replace(/!/g, "."); // no exclamation marks
+  t = t.replace(/!/g, ".");
   t = stripEmojis(t);
 
-  // clean spacing around punctuation
   t = t.replace(/\s+([,.!?])/g, "$1");
   t = t.replace(/([,.!?]){2,}/g, "$1");
 
   return normalizeText(t);
 }
 
-/**
- * Hard cap AFTER generation:
- * - Up to 5 sentences
- * - Max total words (keeps it from becoming a speech)
- * - Max words per sentence (keeps reading level down)
- *
- * We do not pre-structure the reply. We trim it after.
- */
 function enforceHardCaps(text: string): string {
   const MAX_SENTENCES = 5;
-  const MAX_TOTAL_WORDS = 75; // simple, but not tiny
+  const MAX_TOTAL_WORDS = 75;
   const MAX_WORDS_PER_SENTENCE = 18;
 
   const sentences = splitIntoSentences(text);
 
-  if (sentences.length === 0) {
-    return "";
-  }
-
-  // 1) cap sentences
   const cappedSentences = sentences.slice(0, MAX_SENTENCES).map((s) => {
     const words = s.split(" ").filter(Boolean);
     if (words.length > MAX_WORDS_PER_SENTENCE) {
@@ -163,7 +117,6 @@ function enforceHardCaps(text: string): string {
 
   let result = cappedSentences.join(" ");
 
-  // 2) cap total words
   const allWords = result.split(" ").filter(Boolean);
   if (allWords.length > MAX_TOTAL_WORDS) {
     result = allWords.slice(0, MAX_TOTAL_WORDS).join(" ");
@@ -172,8 +125,70 @@ function enforceHardCaps(text: string): string {
   return normalizeText(result);
 }
 
+function firstSentence(text: string): string | null {
+  const sentences = splitIntoSentences(text);
+  if (sentences.length === 0) return null;
+  return normalizeText(sentences[0]);
+}
+
+function buildProfileBlock(profile: {
+  identity?: string;
+  relationships?: string;
+  work?: string;
+  health?: string;
+  pressure?: string;
+}): string {
+  const lines: string[] = [];
+
+  if (profile.identity) lines.push(`IDENTITY: ${profile.identity}`);
+  if (profile.relationships) lines.push(`RELATIONSHIPS: ${profile.relationships}`);
+  if (profile.work) lines.push(`WORK: ${profile.work}`);
+  if (profile.health) lines.push(`HEALTH: ${profile.health}`);
+  if (profile.pressure) lines.push(`PRESSURE: ${profile.pressure}`);
+
+  return lines.length ? lines.join("\n") : "PROFILE: none";
+}
+
 /* ======================================================
-   Fallbacks
+   Conversation Context
+====================================================== */
+
+async function loadRecentConversation(userId: string, dayNumber: number) {
+  const { data } = await supabaseServer
+    .from("coach_conversations")
+    .select("role, content")
+    .eq("clerk_user_id", userId)
+    .eq("day_number", dayNumber)
+    .order("created_at", { ascending: true })
+    .limit(6);
+
+  if (!data || data.length === 0) {
+    return {
+      conversation: "none",
+      lastCoachInsight: "none",
+    };
+  }
+
+  const conversation = data
+    .slice(-6)
+    .map((m) => `${m.role.toUpperCase()}: ${normalizeText(m.content)}`)
+    .join("\n");
+
+  const lastCoachMessage = [...data]
+    .reverse()
+    .find((m) => normalizeText(m.role).toLowerCase() === "coach");
+
+  const lastCoachInsight =
+    firstSentence(normalizeText(lastCoachMessage?.content ?? "")) || "none";
+
+  return {
+    conversation,
+    lastCoachInsight,
+  };
+}
+
+/* ======================================================
+   Fallback
 ====================================================== */
 
 function fallbackReply(dayNumber: number): string {
@@ -187,7 +202,7 @@ function fallbackReply(dayNumber: number): string {
 }
 
 /* ======================================================
-   Generator (Coach Reply v3)
+   Generator
 ====================================================== */
 
 export async function generateCoachReply({
@@ -198,16 +213,33 @@ export async function generateCoachReply({
   const openai = getOpenAIClient();
 
   const md = await getClerkPublicMetadata(userId);
+  const profile = await buildProfileContext(userId);
 
-  // Primary goal is safe to use (identity anchor).
+  const coachContext = await buildCoachPatContext({
+    userId,
+    dayNumber,
+    actionItem: "",
+  });
+
+  const { conversation, lastCoachInsight } = await loadRecentConversation(
+    userId,
+    dayNumber
+  );
+
+  const practiceSummary = coachContext?.today_practice?.practice_summary || "none";
+
+  const primaryPattern =
+    Array.isArray(coachContext?.patterns) && coachContext.patterns.length
+      ? coachContext.patterns[0]
+      : "none";
+
+  const recentSummary = coachContext?.recent_summary?.summary_text || "none";
+
   const primaryGoal =
     typeof md?.summittGoal === "string" && md.summittGoal.trim().length > 0
       ? normalizeText(md.summittGoal)
       : "your goal";
 
-  // OPTIONAL PERSONALIZATION (SAFE, NO META-LANGUAGE)
-  // We pass these as "facts" the coach can naturally use.
-  // If they are missing, they simply will not be used.
   const trainingFocus =
     Array.isArray((md as any)?.trainingThemes) && (md as any).trainingThemes.length
       ? (md as any).trainingThemes
@@ -216,78 +248,75 @@ export async function generateCoachReply({
           .slice(0, 5)
       : [];
 
-  const userTimezone =
-    typeof (md as any)?.timezone === "string" ? (md as any).timezone : null;
-
   const cleanUserMessage = normalizeText(userMessage);
 
-  // Keep model choices simple and stable.
   const MODEL = "gpt-4.1-mini";
-  const TEMPERATURE = 0.55; // more adaptive than before (less scripted)
-  const MAX_TOKENS = 220; // we cap after; tokens allow intelligence
+  const TEMPERATURE = 0.5;
+  const MAX_TOKENS = 220;
 
-  /**
-   * SYSTEM PROMPT:
-   * - Minimal guardrails
-   * - No forced structure
-   * - Use memory naturally but never mention the mechanism
-   * - Simple language
-   */
   const systemPrompt = `
 You are Coach Pat Summitt.
 
 Voice:
-- Calm
-- Direct
-- Certain
-- Simple words (about 4th grade level)
-- Not a therapist
-- Not a motivational speaker
+Calm. Direct. Simple language. Short sentences.
 
-Hard rules:
-- 1 paragraph
+Rules:
+- One paragraph
 - Up to 5 sentences
-- Short sentences
 - No emojis
 - No exclamation marks
-- No quotes
-- No contractions (use full words like "you are", "do not")
-- Do not repeat the user back to them
-- You may use the personal facts provided to you, but never say how you know them.
-- Never mention journaling, entries, summaries, memory, or past days.
-
-Behavior:
-- Match the depth and tone of the user.
-- If the user asks for advice, give one clear principle and one clear action.
-- If the user is short, be short.
-- If the user is deep, be steady and specific.
+- No contractions
+- Never explain how you know something
+- Never mention journals, summaries, or past entries
+- Use at most ONE personal detail
+- Use at most ONE pattern
+- Use LAST_COACH_INSIGHT only to avoid repeating yourself
+- Do not quote LAST_COACH_INSIGHT back word-for-word
+- If the user is circling the same issue, move the coaching forward one step
 `.trim();
 
-  /**
-   * USER PROMPT:
-   * - Give the model usable facts
-   * - No "memory" framing
-   * - The model can naturally weave them in if it helps retention
-   */
   const userPrompt = `
-Goal: ${primaryGoal}
-Day: ${dayNumber}
-Timezone: ${userTimezone || "unknown"}
-Training focus: ${trainingFocus.length ? trainingFocus.join(", ") : "none provided"}
+GOAL: ${primaryGoal}
+DAY: ${dayNumber}
+TRAINING FOCUS: ${trainingFocus.length ? trainingFocus.join(", ") : "none"}
 
-User message:
+TODAY PRACTICE:
+${practiceSummary}
+
+PATTERN:
+${primaryPattern}
+
+RECENT SUMMARY:
+${recentSummary}
+
+LAST COACH INSIGHT:
+${lastCoachInsight}
+
+RECENT CONVERSATION:
+${conversation}
+
+${buildProfileBlock(profile)}
+
+USER MESSAGE:
 ${cleanUserMessage}
 
 Write the coach reply.
+
+Guidelines:
+- Match the depth of the user.
+- If they ask for help, give one principle and one action.
+- If they are short, be short.
+- If they are reflective, respond calmly.
+- The practice may influence today's standard.
+- The pattern may shape the coaching insight.
+- LAST COACH INSIGHT is for continuity, not repetition.
+- Push the conversation one step forward when appropriate.
 `.trim();
 
   const completion = await openai.chat.completions.create({
     model: MODEL,
     temperature: TEMPERATURE,
     max_tokens: MAX_TOKENS,
-    top_p: 1,
-    frequency_penalty: 0.15,
-    presence_penalty: 0,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -299,25 +328,12 @@ Write the coach reply.
   let raw = completion.choices[0]?.message?.content?.trim() || fallback;
   const fallbackUsed = !completion.choices[0]?.message?.content;
 
-  // =========================
-  // HARDENING PIPELINE (LIGHT)
-  // =========================
-  // 1) Expand contractions first (handles both ' and ’)
   raw = expandContractions(raw);
-
-  // 2) Remove apostrophes (SMS safety)
   raw = removeApostrophes(raw);
-
-  // 3) Remove memory meta-language (do not reveal mechanism)
   raw = stripMemoryMetaLanguage(raw);
-
-  // 4) Final cleanup
   raw = finalizeOutput(raw);
-
-  // 5) Hard caps AFTER the model thinks
   raw = enforceHardCaps(raw);
 
-  // Safety fallback
   if (!raw || raw.length < 10) {
     raw = fallback;
   }

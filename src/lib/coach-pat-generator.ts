@@ -19,6 +19,52 @@ function normalizeText(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
 }
 
+function pickPrimaryPattern(patterns: string[]): string | null {
+  if (!Array.isArray(patterns) || patterns.length === 0) return null;
+  const first = normalizeText(patterns[0] || "");
+  return first || null;
+}
+
+function buildProfileBlock(profile: {
+  available: boolean;
+  identity?: string;
+  relationships?: string;
+  work?: string;
+  health?: string;
+  pressure?: string;
+}): string {
+  if (!profile.available) {
+    return "PROFILE: none";
+  }
+
+  const lines: string[] = [];
+
+  if (profile.identity) lines.push(`IDENTITY: ${profile.identity}`);
+  if (profile.relationships) lines.push(`RELATIONSHIPS: ${profile.relationships}`);
+  if (profile.work) lines.push(`WORK: ${profile.work}`);
+  if (profile.health) lines.push(`HEALTH: ${profile.health}`);
+  if (profile.pressure) lines.push(`PRESSURE: ${profile.pressure}`);
+
+  if (lines.length === 0) {
+    return "PROFILE: none";
+  }
+
+  return lines.join("\n");
+}
+
+function buildRecencyHint(staleness: "fresh" | "normal" | "reentry"): string {
+  switch (staleness) {
+    case "fresh":
+      return "RECENCY_HINT: This person is in active rhythm. Continuity can be lightly felt.";
+    case "normal":
+      return "RECENCY_HINT: This person still has continuity. Keep the note grounded and steady.";
+    case "reentry":
+      return "RECENCY_HINT: Keep it welcoming, simple, and present-focused. Do not imply a lapse or recap.";
+    default:
+      return "RECENCY_HINT: Stay simple and present.";
+  }
+}
+
 export type GenerateCoachPatNoteResult = {
   text: string;
   stalenessMode: "fresh" | "normal" | "reentry";
@@ -36,7 +82,6 @@ export async function generateCoachPatNote({
   dayNumber: number;
   actionItem: string;
 }): Promise<GenerateCoachPatNoteResult> {
-
   const openai = getOpenAIClient();
 
   const context = await buildCoachPatContext({
@@ -45,17 +90,27 @@ export async function generateCoachPatNote({
     actionItem,
   });
 
+  const primaryPattern =
+    context.today_context.staleness_mode === "reentry"
+      ? null
+      : pickPrimaryPattern(context.patterns);
+
   const brief = `
 DAY: ${context.today_context.day_number}
 PHASE: ${context.today_context.phase}
 STALENESS: ${context.today_context.staleness_mode}
+${buildRecencyHint(context.today_context.staleness_mode)}
 PRACTICE: ${context.today_practice.practice_summary}
-PATTERNS: ${context.patterns.join(" | ") || "none"}
+PATTERN: ${primaryPattern || "none"}
 RECENT: ${context.recent_summary.summary_text || "none"}
+
+${buildProfileBlock(context.profile_context)}
 `;
 
   const fallback =
-    "Keep it simple today. Stay steady. Do the next right thing. That is enough.";
+    context.today_context.staleness_mode === "reentry"
+      ? "Start simple. Stay steady. Let today be clean and manageable. Do the next right thing."
+      : "Keep it simple today. Stay steady. Do the next right thing. That is enough.";
 
   let attempts = 0;
 
@@ -78,18 +133,27 @@ RECENT: ${context.recent_summary.summary_text || "none"}
 ${brief}
 
 Write today's note.
-Exactly 4 sentences.
-One paragraph.
-One directive sentence.
-Short sentences.
-No metaphors.
+
+Rules for this note:
+- Exactly 4 sentences.
+- One paragraph.
+- One directive sentence.
+- Short sentences.
+- No metaphors.
+- Use at most ONE pattern.
+- Use at most ONE personal detail from PROFILE.
+- Never say how you know the personal detail.
+- Do not quote PROFILE language back word-for-word.
+- If PROFILE is not useful, ignore it.
+- PATTERN should shape the note quietly, not dominate it.
+- PRACTICE should shape the standard for today.
+- RECENT may influence tone, but do not summarize it back.
 `,
         },
       ],
     });
 
-    let raw =
-      completion.choices[0]?.message?.content?.trim() || fallback;
+    let raw = completion.choices[0]?.message?.content?.trim() || fallback;
 
     raw = normalizeText(raw);
 
