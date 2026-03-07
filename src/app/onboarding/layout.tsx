@@ -8,19 +8,17 @@ import { redirect } from "next/navigation";
  * ======================================================
  *
  * Product rule:
- * Subscribe FIRST → then complete onboarding.
+ * Subscribe FIRST → then onboarding.
  *
  * This layout gates ALL onboarding routes:
  * - /onboarding
- * - /onboarding/goal
- * - /onboarding/outcome
- * - /onboarding/training-focus
+ * - /onboarding/identity
+ * - /onboarding/relationships
+ * - /onboarding/work
+ * - /onboarding/health
+ * - /onboarding/pressure
  * - /onboarding/sms
  * - /onboarding/complete
- *
- * Removed:
- * - /onboarding/schedule
- * - /onboarding/miss-plan
  */
 
 export const dynamic = "force-dynamic";
@@ -64,9 +62,9 @@ export default async function OnboardingLayout({
           <p className="text-xs uppercase tracking-wide text-gray-500">
             Training Camp Setup
           </p>
-          <h1 className="text-2xl font-bold">Your climb starts here.</h1>
+          <h1 className="text-2xl font-bold">Let’s get to know your life.</h1>
           <p className="text-gray-600 text-sm">
-            Just a few calm steps to personalize your daily practice.
+            A few calm questions so Coach Pat can coach you like she knows you.
           </p>
         </header>
 

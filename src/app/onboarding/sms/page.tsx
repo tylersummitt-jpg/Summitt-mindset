@@ -3,6 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OnboardingProgress from "@/components/onboarding-progress";
 import SmsClient from "./sms-client";
+import { supabaseServer } from "@/lib/supabase-server";
 
 /**
  * ======================================================
@@ -29,16 +30,20 @@ export default async function SmsPage(): Promise<ReactElement> {
     redirect("/post-sign-in");
   }
 
-  const hasTrainingThemes =
-    Array.isArray(md?.trainingThemes) && md.trainingThemes.length > 0;
+  // Soft guard: if profile intake hasn't started, send them back to start.
+  const { data: profile } = await supabaseServer
+    .from("user_profiles")
+    .select("clerk_user_id")
+    .eq("clerk_user_id", user.id)
+    .maybeSingle();
 
-  if (!hasTrainingThemes) {
-    redirect("/onboarding/training-focus");
+  if (!profile?.clerk_user_id) {
+    redirect("/onboarding/identity");
   }
 
   return (
     <div>
-      <OnboardingProgress currentStep={4} />
+      <OnboardingProgress currentStep={6} />
 
       <h1 className="text-3xl font-bold mb-4">
         Daily SMS is part of training.

@@ -50,12 +50,13 @@ export default async function OnboardingPage(): Promise<ReactElement> {
         </h1>
 
         <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-xl mx-auto">
-          Summitt Mindset is a calm daily system for people who want to climb
-          toward something meaningful.
+          Summitt Mindset is a calm daily system built around one thing:{" "}
+          <strong>Coach Pat guiding you one day at a time.</strong>
         </p>
 
         <p className="text-gray-600">
-          No overwhelm. No pressure. Just one step today.
+          We’ll ask a few questions first so Coach Pat can coach you like she
+          actually knows you.
         </p>
       </header>
 
@@ -66,14 +67,14 @@ export default async function OnboardingPage(): Promise<ReactElement> {
           <li>One daily practice (3–7 minutes).</li>
           <li>One honest reflection.</li>
           <li>Coach Pat guides you quietly.</li>
-          <li>Momentum builds naturally.</li>
+          <li>No catching up. No guilt. Just today.</li>
         </ul>
       </section>
 
       {/* ORANGE BRAND BUTTON — BOX STYLE */}
       <div className="flex justify-center">
         <Link
-          href="/onboarding/goal"
+          href="/onboarding/identity"
           className="
             block
             w-full
@@ -103,12 +104,12 @@ export default async function OnboardingPage(): Promise<ReactElement> {
             boxShadow: "0 10px 30px rgba(249,115,22,0.22)",
           }}
         >
-          → Start Your Training Camp →
+          → Start Setup →
         </Link>
       </div>
 
       <p className="text-xs text-gray-500">
-        This takes less than 3 minutes.
+        Short answers are perfect. This takes 2–3 minutes.
       </p>
     </div>
   );

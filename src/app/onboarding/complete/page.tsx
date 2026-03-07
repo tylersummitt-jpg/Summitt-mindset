@@ -2,8 +2,10 @@ import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
+import OnboardingProgress from "@/components/onboarding-progress";
 import CompleteOnboardingButton from "@/components/CompleteOnboardingButton";
 import { resolveTrainingCampDay } from "@/lib/training-camp-resolver";
+import { supabaseServer } from "@/lib/supabase-server";
 
 /**
  * ======================================================
@@ -33,18 +35,21 @@ export default async function CompletePage(): Promise<ReactElement> {
     redirect("/post-sign-in");
   }
 
-  // We require onboardingOutcome to exist by now.
-  const arena =
-    typeof md?.onboardingArena === "string" ? md.onboardingArena : null;
+  // Soft guard: if profile intake hasn't started, send them back to start.
+  const { data: profile } = await supabaseServer
+    .from("user_profiles")
+    .select(
+      "life_desires, ninety_day_vision, people_summary, responsibility, pressure_summary"
+    )
+    .eq("clerk_user_id", user.id)
+    .maybeSingle();
 
-  const outcome =
-    typeof md?.onboardingOutcome === "string" ? md.onboardingOutcome : null;
-
-  if (!arena || !outcome) {
-    redirect("/onboarding");
+  if (!profile) {
+    redirect("/onboarding/identity");
   }
 
-  const trainingCampTrack = md?.trainingCampTrack === "women" ? "women" : "standard";
+  const trainingCampTrack =
+    md?.trainingCampTrack === "women" ? "women" : "standard";
 
   // Preview Day 1 practice WITHOUT needing metadata.currentDay
   let practice: { actionItem: string; reflectionPrompt: string } | null = null;
@@ -66,6 +71,8 @@ export default async function CompletePage(): Promise<ReactElement> {
 
   return (
     <div className="space-y-10 text-center">
+      <OnboardingProgress currentStep={7} />
+
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-wide text-gray-500">
           Training Camp Ready
@@ -74,17 +81,38 @@ export default async function CompletePage(): Promise<ReactElement> {
         <h1 className="text-4xl font-bold">Your climb begins today.</h1>
 
         <p className="text-gray-600 text-lg leading-relaxed">
-          You chose where Coach Pat will focus first:
-          <br />
-          <span className="font-semibold text-gray-900">{arena}</span>
-        </p>
-
-        <p className="text-gray-600 text-lg leading-relaxed">
-          And what “stronger” looks like in 30 days:
-          <br />
-          <span className="font-semibold text-gray-900">{outcome}</span>
+          One day at a time. One standard at a time.
         </p>
       </header>
+
+      {/* Optional: a tiny “what you shared” recap for emotional payoff */}
+      <section className="border rounded-xl bg-gray-50 p-6 text-left space-y-4">
+        <p className="font-semibold text-gray-900">What Coach Pat now knows:</p>
+
+        <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
+          {profile.life_desires ? (
+            <li>
+              <strong>What you want:</strong> {profile.life_desires}
+            </li>
+          ) : null}
+
+          {profile.people_summary ? (
+            <li>
+              <strong>Who you show up for:</strong> {profile.people_summary}
+            </li>
+          ) : null}
+
+          {profile.responsibility ? (
+            <li>
+              <strong>What you’re carrying:</strong> {profile.responsibility}
+            </li>
+          ) : null}
+        </ul>
+
+        <p className="text-xs text-gray-500 italic">
+          Short answers are enough. Coach Pat will coach the real you.
+        </p>
+      </section>
 
       {practice && (
         <section className="border rounded-xl bg-white shadow-sm p-6 text-left space-y-6">
@@ -114,19 +142,6 @@ export default async function CompletePage(): Promise<ReactElement> {
         </section>
       )}
 
-      <section className="border rounded-xl bg-gray-50 p-6 text-left space-y-3">
-        <p className="font-semibold text-gray-900">
-          Here’s how Summitt Mindset works:
-        </p>
-
-        <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
-          <li>One daily practice (3–7 minutes).</li>
-          <li>One honest reflection.</li>
-          <li>No catching up. No backlog. Just today.</li>
-          <li>Momentum compounds quietly.</li>
-        </ul>
-      </section>
-
       <section className="border rounded-xl bg-white shadow-sm p-6 text-left space-y-4">
         <p className="font-semibold text-gray-900">Before you start:</p>
         <p className="text-sm text-gray-600">
@@ -136,7 +151,9 @@ export default async function CompletePage(): Promise<ReactElement> {
         <CompleteOnboardingButton />
       </section>
 
-      <p className="text-xs text-gray-500">Coach Pat will guide you one day at a time.</p>
+      <p className="text-xs text-gray-500">
+        Coach Pat will guide you one day at a time.
+      </p>
     </div>
   );
 }
