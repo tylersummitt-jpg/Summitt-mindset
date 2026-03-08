@@ -95,12 +95,15 @@ export async function generateCoachPatNote({
       ? null
       : pickPrimaryPattern(context.patterns);
 
+  const practiceAction = context.today_practice.practice_action_signal || context.today_practice.practice_summary;
+
   const brief = `
 DAY: ${context.today_context.day_number}
 PHASE: ${context.today_context.phase}
 STALENESS: ${context.today_context.staleness_mode}
 ${buildRecencyHint(context.today_context.staleness_mode)}
-PRACTICE: ${context.today_practice.practice_summary}
+PRACTICE_TYPE: ${context.today_practice.practice_summary}
+PRACTICE_ACTION: ${practiceAction}
 PATTERN: ${primaryPattern || "none"}
 RECENT: ${context.recent_summary.summary_text || "none"}
 
@@ -135,9 +138,8 @@ ${brief}
 Write today's note.
 
 Rules for this note:
-- Exactly 4 sentences.
-- One paragraph.
-- One directive sentence.
+- 3 to 5 sentences, one paragraph.
+- At least one directive sentence (clear, winnable standard).
 - Short sentences.
 - No metaphors.
 - Use at most ONE pattern.
@@ -158,6 +160,15 @@ Rules for this note:
     raw = normalizeText(raw);
 
     const result = enforceSimplicity(raw);
+
+    if (!result.valid) {
+      const sentenceCount = raw.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean).length;
+      console.warn("[CoachPatNote] simplicity failed", {
+        attempt,
+        reason: result.reason,
+        sentenceCount,
+      });
+    }
 
     if (result.valid) {
       return {

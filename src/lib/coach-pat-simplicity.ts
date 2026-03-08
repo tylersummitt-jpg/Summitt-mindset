@@ -63,8 +63,8 @@ export function enforceSimplicity(raw: string): {
   const cleaned = normalizeText(raw);
   const sentences = splitIntoSentences(cleaned);
 
-  if (sentences.length !== 4) {
-    return { valid: false, cleaned, reason: "not_four_sentences" };
+  if (sentences.length < 3 || sentences.length > 5) {
+    return { valid: false, cleaned, reason: "sentence_count" };
   }
 
   if (containsBannedWords(cleaned)) {
@@ -77,8 +77,8 @@ export function enforceSimplicity(raw: string): {
 
   const directives = countBehavioralDirectives(sentences);
 
-  if (directives !== 1) {
-    return { valid: false, cleaned, reason: "invalid_directive_count" };
+  if (directives < 1) {
+    return { valid: false, cleaned, reason: "no_directive" };
   }
 
   return { valid: true, cleaned };

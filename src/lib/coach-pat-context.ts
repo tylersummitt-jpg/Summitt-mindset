@@ -3,7 +3,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import {
-  buildProfileContext,
+  buildProfileContextForCoachNote,
   type ProfileContext,
 } from "@/lib/profile-context";
 
@@ -23,6 +23,7 @@ export type CoachPatContext = {
   };
   today_practice: {
     practice_summary: string;
+    practice_action_signal: string;
   };
   profile_context: {
     available: boolean;
@@ -252,7 +253,7 @@ export async function buildCoachPatContext({
   const patterns =
     staleness_mode === "reentry" ? [] : await getTopPatterns(userId);
 
-  const profile = await buildProfileContext(userId);
+  const profile = await buildProfileContextForCoachNote(userId);
 
   return {
     patterns,
@@ -268,6 +269,7 @@ export async function buildCoachPatContext({
     },
     today_practice: {
       practice_summary: summarizePractice(actionItem),
+      practice_action_signal: getPrimaryActionSignal(actionItem),
     },
     profile_context: {
       available: hasAnyProfileContext(profile),

@@ -218,3 +218,78 @@ export async function buildProfileContext(
 
   return context;
 }
+
+/**
+ * Coach-native profile for Daily Coach Pat note only.
+ * Concise facts a coach can use naturally. No "They say..." narration.
+ * Other systems (Coach Reply, Ask Pat) keep using buildProfileContext.
+ */
+export async function buildProfileContextForCoachNote(
+  clerkUserId: string
+): Promise<ProfileContext> {
+  const { data, error } = await supabaseServer
+    .from("user_profiles")
+    .select("*")
+    .eq("clerk_user_id", clerkUserId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return {};
+  }
+
+  const lifeDesires = clean(data.life_desires);
+  const ninetyDayVision = clean(data.ninety_day_vision);
+  const supportArea = clean(data.support_area);
+
+  const peopleSummary = clean(data.people_summary);
+  const relationshipStatus = clean(data.relationship_status);
+  const partnerName = clean(data.partner_name);
+  const childrenSummary = clean(data.children_summary);
+
+  const responsibility = clean(data.responsibility);
+  const financialGoals = clean(data.financial_goals);
+  const workChallenge = clean(data.work_challenge);
+
+  const physicalState = clean(data.physical_state);
+  const healthGoal = clean(data.health_goal);
+  const energyObstacles = clean(data.energy_obstacles);
+
+  const pressureSummary = clean(data.pressure_summary);
+  const proudOf = clean(data.proud_of);
+  const bestSelfTrigger = clean(data.best_self_trigger);
+
+  const context: ProfileContext = {};
+
+  const identityParts: string[] = [];
+  if (lifeDesires) identityParts.push(`Wants: ${lifeDesires}.`);
+  if (ninetyDayVision) identityParts.push(`90-day vision: ${ninetyDayVision}.`);
+  if (supportArea) identityParts.push(`Support area: ${supportArea}.`);
+  if (identityParts.length > 0) context.identity = identityParts.join(" ");
+
+  const relationshipParts: string[] = [];
+  if (peopleSummary) relationshipParts.push(`Shows up for: ${peopleSummary}.`);
+  if (relationshipStatus) relationshipParts.push(`Relationship: ${relationshipStatus}.`);
+  if (partnerName) relationshipParts.push(`Partner: ${partnerName}.`);
+  if (childrenSummary) relationshipParts.push(`Children: ${childrenSummary}.`);
+  if (relationshipParts.length > 0) context.relationships = relationshipParts.join(" ");
+
+  const workParts: string[] = [];
+  if (responsibility) workParts.push(`Carrying: ${responsibility}.`);
+  if (financialGoals) workParts.push(`Financial focus: ${financialGoals}.`);
+  if (workChallenge) workParts.push(`Hardest at work: ${workChallenge}.`);
+  if (workParts.length > 0) context.work = workParts.join(" ");
+
+  const healthParts: string[] = [];
+  if (physicalState) healthParts.push(`Physical: ${physicalState}.`);
+  if (healthGoal) healthParts.push(`Health goal: ${healthGoal}.`);
+  if (energyObstacles) healthParts.push(`Energy obstacles: ${energyObstacles}.`);
+  if (healthParts.length > 0) context.health = healthParts.join(" ");
+
+  const pressureParts: string[] = [];
+  if (pressureSummary) pressureParts.push(`Pressure: ${pressureSummary}.`);
+  if (proudOf) pressureParts.push(`Proud of: ${proudOf}.`);
+  if (bestSelfTrigger) pressureParts.push(`Best self when: ${bestSelfTrigger}.`);
+  if (pressureParts.length > 0) context.pressure = pressureParts.join(" ");
+
+  return context;
+}

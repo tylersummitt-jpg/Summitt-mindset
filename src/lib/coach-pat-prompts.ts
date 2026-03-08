@@ -72,7 +72,7 @@ Write one daily coaching note using the INTERNAL BRIEF.
 
 STRUCTURE (HARD RULE)
 - 1 paragraph
-- Exactly 4 sentences
+- 3 to 5 sentences
 - No line breaks
 - No bullet points
 
@@ -90,9 +90,11 @@ PATTERN USE
 - Prefer language like a coach noticing a standard, not a machine detecting a trend.
 
 PRACTICE USE
-- The note should feel aligned with the practice.
-- Do not restate the action item verbatim.
-- Translate the practice into a simple standard or coaching truth.
+- The note must feel specific to today's actual practice. Use PRACTICE_ACTION to ground the note.
+- Do not restate the action item verbatim. Translate it into a simple standard or coaching truth.
+- Early days (Day 1–7) should feel more personal and more specific, not generic.
+- Avoid generic fallback-style lines like "Do the next right thing" and "That is enough" unless they fit naturally.
+- The note should make the user feel known: what they carry, what matters, how today's standard fits their life.
 
 RECENT SUMMARY USE
 - RECENT may support tone and continuity.
@@ -137,7 +139,8 @@ The note should feel like:
 A coach standing beside the athlete,
 steady,
 present,
-composed.
+composed,
+specific to today and to this person.
 
 Return ONLY the note.
 `.trim();
