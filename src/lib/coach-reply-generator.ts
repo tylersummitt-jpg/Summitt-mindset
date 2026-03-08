@@ -235,19 +235,6 @@ export async function generateCoachReply({
 
   const recentSummary = coachContext?.recent_summary?.summary_text || "none";
 
-  const primaryGoal =
-    typeof md?.summittGoal === "string" && md.summittGoal.trim().length > 0
-      ? normalizeText(md.summittGoal)
-      : "your goal";
-
-  const trainingFocus =
-    Array.isArray((md as any)?.trainingThemes) && (md as any).trainingThemes.length
-      ? (md as any).trainingThemes
-          .map((t: any) => (typeof t === "string" ? normalizeText(t) : ""))
-          .filter(Boolean)
-          .slice(0, 5)
-      : [];
-
   const cleanUserMessage = normalizeText(userMessage);
 
   const MODEL = "gpt-4.1-mini";
@@ -276,9 +263,8 @@ Rules:
 `.trim();
 
   const userPrompt = `
-GOAL: ${primaryGoal}
+GOAL: today's practice
 DAY: ${dayNumber}
-TRAINING FOCUS: ${trainingFocus.length ? trainingFocus.join(", ") : "none"}
 
 TODAY PRACTICE:
 ${practiceSummary}

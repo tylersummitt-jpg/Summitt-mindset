@@ -214,7 +214,7 @@ export default function SmsClient() {
       <div className="flex justify-between items-center">
         <button
           type="button"
-          onClick={() => router.push("/onboarding/training-focus")}
+          onClick={() => router.push("/onboarding/pressure")}
           className="text-sm underline text-gray-500"
         >
           ← Back

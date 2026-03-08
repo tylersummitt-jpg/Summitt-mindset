@@ -164,8 +164,6 @@ export async function getOrCreateDailyPracticeVersion({
       userId,
       dayNumber,
       actionText: action.text,
-      primaryGoal:
-        typeof md?.summittGoal === "string" ? md.summittGoal : undefined,
     } as any);
 
     actionItem = normalize(action.text);

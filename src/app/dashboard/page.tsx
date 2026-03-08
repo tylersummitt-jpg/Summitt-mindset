@@ -12,7 +12,7 @@ type PathDay = {
   description: string;
 };
 
-function generate30DayPath(goal: string): PathDay[] {
+function generate30DayPath(): PathDay[] {
   const base = [
     "Set your intention",
     "Build awareness",
@@ -28,7 +28,7 @@ function generate30DayPath(goal: string): PathDay[] {
     return {
       day,
       title: `Day ${day}: ${theme}`,
-      description: `A focused action designed to improve your ${goal}.`,
+      description: "A focused action for today's practice.",
     };
   });
 }
@@ -53,9 +53,6 @@ export default async function DashboardPage() {
   const metadata = user.publicMetadata as any;
 
   const onboardingCompleted = metadata?.onboardingCompleted === true;
-
-  const goal =
-    typeof metadata?.summittGoal === "string" ? metadata.summittGoal : null;
 
   const currentDay =
     typeof metadata?.currentDay === "number" ? metadata.currentDay : 1;
@@ -116,11 +113,7 @@ export default async function DashboardPage() {
       );
     }
 
-    if (!goal) {
-      redirect("/onboarding/goal");
-    }
-
-    const path = generate30DayPath(goal);
+    const path = generate30DayPath();
 
     // 🔑 Fetch most recent weekly Coach Pat note (single paragraph only)
     const { data: latestWeekly } = await supabaseServer
