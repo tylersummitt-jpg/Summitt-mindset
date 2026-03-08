@@ -15,10 +15,26 @@ import {
   getUserStalenessLevel,
   type StalenessLevel,
 } from "@/lib/get-user-staleness";
+
 import {
   getTrainingCampToneLine,
   getTrainingCampReflectionAddOn,
 } from "@/lib/training-camp-tone";
+
+/**
+ * INTERNAL NOTE TO FUTURE CHATGPT
+ *
+ * This file must remain **idempotent** and **race-safe**.
+ *
+ * Rule:
+ * Only ONE row may exist per (clerk_user_id, day_key).
+ *
+ * We use:
+ *   upsert({ ... }, { onConflict: "clerk_user_id,day_key" })
+ *
+ * Never return maybeSingle() because duplicates can crash the system.
+ * Always fetch with .limit(1).
+ */
 
 function normalize(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
@@ -31,7 +47,6 @@ export type DailyPracticeVersion = {
   reflectionPrompt: string;
   source: string;
 
-  // Optional (Training Camp video)
   video?: {
     id: string;
     vimeo_id?: string | null;
@@ -39,20 +54,6 @@ export type DailyPracticeVersion = {
   };
 };
 
-/**
- * ======================================================
- * getOrCreateDailyPracticeVersion (CANONICAL for TODAY)
- * ======================================================
- *
- * Rule:
- * - One "practice version" per user per local day_key
- * - Rotates daily if user is stuck on the same day_number
- * - Stored in daily_prompt_versions
- *
- * Important:
- * - Past days never use this.
- * - Completion will later freeze today's chosen version into daily_prompts.
- */
 export async function getOrCreateDailyPracticeVersion({
   userId,
   dayNumber,
@@ -60,10 +61,6 @@ export async function getOrCreateDailyPracticeVersion({
 }: {
   userId: string;
   dayNumber: number;
-  /**
-   * Optional override (future-proof): callers may compute staleness once and pass it in.
-   * If omitted, we compute staleness from Clerk metadata (lastCompletedAt + timezone).
-   */
   stalenessLevel?: StalenessLevel;
 }): Promise<DailyPracticeVersion> {
   const md = await getClerkPublicMetadata(userId);
@@ -83,33 +80,39 @@ export async function getOrCreateDailyPracticeVersion({
       now,
     }).level;
 
-  // Helper: Training Camp video is deterministic by day + track, and NOT stored in versions table.
   async function resolveTrainingCampVideoForDay(): Promise<
     TrainingCampPractice["video"] | undefined
   > {
     if (dayNumber > 30) return undefined;
+
     const practice = await resolveTrainingCampDay({
       dayNumber,
       trainingCampTrack,
     });
+
     return practice.video;
   }
 
-  // ---------------------------------------
-  // 1) Return existing version for today_key
-  // ---------------------------------------
-  const { data: existing, error: existingError } = await supabaseServer
+  /**
+   * --------------------------------------------------
+   * 1️⃣ Check existing version for this day
+   * --------------------------------------------------
+   */
+
+  const { data: existingRows, error: existingError } = await supabaseServer
     .from("daily_prompt_versions")
     .select("day_key, day_number, action_item, reflection_prompt, source")
     .eq("clerk_user_id", userId)
     .eq("day_key", dayKey)
-    .maybeSingle();
+    .limit(1);
 
   if (existingError) {
     throw new Error(
       `DailyPracticeVersion: failed to load existing version: ${existingError.message}`
     );
   }
+
+  const existing = existingRows?.[0];
 
   if (existing?.action_item && existing?.reflection_prompt) {
     const video = await resolveTrainingCampVideoForDay();
@@ -125,9 +128,11 @@ export async function getOrCreateDailyPracticeVersion({
     };
   }
 
-  // ---------------------------------------
-  // 2) Generate NEW rotating version
-  // ---------------------------------------
+  /**
+   * --------------------------------------------------
+   * 2️⃣ Generate NEW rotating version
+   * --------------------------------------------------
+   */
 
   let actionItem = "";
   let reflectionPrompt = "";
@@ -135,14 +140,11 @@ export async function getOrCreateDailyPracticeVersion({
   let video: TrainingCampPractice["video"] | undefined = undefined;
 
   if (dayNumber <= 30) {
-    // Training Camp — rotate daily via day_key record.
-    // Base practice remains deterministic from DB.
     const practice = await resolveTrainingCampDay({
       dayNumber,
       trainingCampTrack,
     });
 
-    // Maintain current behavior for fresh users to avoid unintended baseline shifts.
     const toneLine =
       getTrainingCampToneLine({ stalenessLevel: computedStaleness, dayNumber }) ??
       "Fresh angle today: do it smaller, but do it clean.";
@@ -152,22 +154,18 @@ export async function getOrCreateDailyPracticeVersion({
       "What is one small way you can approach this differently today?";
 
     actionItem = normalize(`${practice.action_item}\n\n${toneLine}`);
-
     reflectionPrompt = normalize(`${practice.reflection_prompt}\n\n${reflectionAddOn}`);
-
     source = "training_camp";
     video = practice.video;
   } else {
-    // In-Season — rotate reflection daily via new day_key record.
     const action = selectInSeasonActionForDay(userId, dayNumber);
 
     const generatedReflection = await generateInSeasonReflectionPrompt({
       userId,
       dayNumber,
       actionText: action.text,
-      primaryGoal: typeof md?.summittGoal === "string" ? md.summittGoal : undefined,
-      // NOTE: we will wire this staleness into the generator in a later step safely.
-      // stalenessLevel: computedStaleness,
+      primaryGoal:
+        typeof md?.summittGoal === "string" ? md.summittGoal : undefined,
     } as any);
 
     actionItem = normalize(action.text);
@@ -181,65 +179,43 @@ export async function getOrCreateDailyPracticeVersion({
     );
   }
 
-  // ---------------------------------------
-  // 3) Store version (one per day_key)
-  // ---------------------------------------
-  const { error: insertError } = await supabaseServer
+  /**
+   * --------------------------------------------------
+   * 3️⃣ UPSERT version (race-safe)
+   * --------------------------------------------------
+   */
+
+  const { data: savedRows, error: upsertError } = await supabaseServer
     .from("daily_prompt_versions")
-    .insert({
-      clerk_user_id: userId,
-      day_number: dayNumber,
-      day_key: dayKey,
-      action_item: actionItem,
-      reflection_prompt: reflectionPrompt,
-      source,
-    });
+    .upsert(
+      {
+        clerk_user_id: userId,
+        day_number: dayNumber,
+        day_key: dayKey,
+        action_item: actionItem,
+        reflection_prompt: reflectionPrompt,
+        source,
+      },
+      { onConflict: "clerk_user_id,day_key" }
+    )
+    .select()
+    .limit(1);
 
-  // If a race occurs (two requests same moment), unique constraint may fire.
-  // In that case, just load and return the existing one.
-  if (insertError) {
-    const code = (insertError as any)?.code;
-    if (code === "23505") {
-      const { data: raced, error: racedError } = await supabaseServer
-        .from("daily_prompt_versions")
-        .select("day_key, day_number, action_item, reflection_prompt, source")
-        .eq("clerk_user_id", userId)
-        .eq("day_key", dayKey)
-        .maybeSingle();
-
-      if (racedError) {
-        throw new Error(
-          `DailyPracticeVersion: race reload failed: ${racedError.message}`
-        );
-      }
-
-      if (raced?.action_item && raced?.reflection_prompt) {
-        // Video is deterministic; resolve it again to be safe.
-        const racedVideo = await resolveTrainingCampVideoForDay();
-
-        return {
-          dayKey: raced.day_key ?? dayKey,
-          dayNumber:
-            typeof raced.day_number === "number" ? raced.day_number : dayNumber,
-          actionItem: normalize(raced.action_item),
-          reflectionPrompt: normalize(raced.reflection_prompt),
-          source: raced.source || "unknown",
-          video: racedVideo ?? video,
-        };
-      }
-    }
-
+  if (upsertError) {
     throw new Error(
-      `DailyPracticeVersion: failed to insert version: ${(insertError as any)?.message ?? String(insertError)}`
+      `DailyPracticeVersion: failed to upsert version: ${upsertError.message}`
     );
   }
 
+  const saved = savedRows?.[0];
+
   return {
-    dayKey,
-    dayNumber,
-    actionItem,
-    reflectionPrompt,
-    source,
+    dayKey: saved?.day_key ?? dayKey,
+    dayNumber:
+      typeof saved?.day_number === "number" ? saved.day_number : dayNumber,
+    actionItem: normalize(saved?.action_item ?? actionItem),
+    reflectionPrompt: normalize(saved?.reflection_prompt ?? reflectionPrompt),
+    source: saved?.source ?? source,
     video,
   };
 }
