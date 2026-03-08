@@ -23,27 +23,6 @@ export async function getOrCreateDailyCoachPatNote({
   const now = new Date();
   const dayKey = getDateKeyInTimezone(now, timezone);
 
-  const { data: existing, error: existingError } = await supabaseServer
-    .from("coach_pat_daily_notes")
-    .select("*")
-    .eq("clerk_user_id", userId)
-    .eq("day_key", dayKey)
-    .maybeSingle();
-
-  if (existingError) {
-    throw new Error(
-      `CoachPatDailyNote: failed to load existing note: ${existingError.message}`
-    );
-  }
-
-  if (existing?.note_text) {
-    return {
-      noteText: normalizeText(existing.note_text),
-      dayKey,
-      dayNumber: existing.day_number,
-    };
-  }
-
   // Use TODAY's rotating practice version as the input signal for the coach note.
   // This keeps Coach Pat aligned with what the user actually sees today.
   const version = await getOrCreateDailyPracticeVersion({
@@ -90,13 +69,14 @@ export async function getOrCreateDailyCoachPatNote({
         );
       }
 
-      if (raced?.note_text) {
-        return {
-          noteText: normalizeText(raced.note_text),
-          dayKey,
-          dayNumber: raced.day_number,
-        };
-      }
+      // Always return a valid note: use existing row or calm fallback if data missing.
+      return {
+        noteText: raced?.note_text
+          ? normalizeText(raced.note_text)
+          : "Keep it simple today. Show up. Hold the standard in small moments.",
+        dayKey,
+        dayNumber: raced?.day_number ?? dayNumber,
+      };
     }
 
     throw new Error(
