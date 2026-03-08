@@ -181,6 +181,13 @@ Rules for this note:
     }
   }
 
+  console.warn("[CoachPatNote] fallback returned", {
+    attemptCount: 3,
+    dayNumber,
+    phase: context.today_context.phase,
+    stalenessMode: context.today_context.staleness_mode,
+  });
+
   return {
     text: fallback,
     stalenessMode: context.today_context.staleness_mode,

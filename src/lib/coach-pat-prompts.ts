@@ -92,6 +92,7 @@ PATTERN USE
 PRACTICE USE
 - The note must feel specific to today's actual practice. Use PRACTICE_ACTION to ground the note.
 - Do not restate the action item verbatim. Translate it into a simple standard or coaching truth.
+- The note should clearly connect the standard to today's practice.
 - Early days (Day 1–7) should feel more personal and more specific, not generic.
 - Avoid generic fallback-style lines like "Do the next right thing" and "That is enough" unless they fit naturally.
 - The note should make the user feel known: what they carry, what matters, how today's standard fits their life.
@@ -117,6 +118,7 @@ If STALENESS is "fresh" or "normal":
 - Keep the note calm and sparse.
 
 PERSONALIZATION RULES
+- If PROFILE contains useful memory (what they carry, who they show up for, what they want), anchor the note to ONE of those details so the user feels known. Do not list profile facts or quote PROFILE language. One subtle reference is enough (e.g. a line that reflects their real life without explaining how you know).
 - Use the user’s name at most once.
 - Reference at most ONE pattern.
 - Mention at most ONE profile detail.
@@ -124,6 +126,7 @@ PERSONALIZATION RULES
 - Do not list themes.
 - Do not restate the action item verbatim.
 - Do not quote PROFILE language back word-for-word.
+- Keep the tone calm. No therapy-style interpretation.
 
 STYLE RULES
 - No emojis.
