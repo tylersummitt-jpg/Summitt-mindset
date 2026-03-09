@@ -7,7 +7,6 @@ import {
   COACH_PAT_DEVELOPER_PROMPT,
   COACH_PAT_GENERATION_CONFIG,
 } from "@/lib/coach-pat-prompts";
-import { enforceSimplicity } from "@/lib/coach-pat-simplicity";
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -115,24 +114,19 @@ ${buildProfileBlock(context.profile_context)}
       ? "Start simple. Stay steady. Let today be clean and manageable. Do the next right thing."
       : "Keep it simple today. Stay steady. Do the next right thing. That is enough.";
 
-  let attempts = 0;
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    attempts = attempt;
-
-    const completion = await openai.chat.completions.create({
-      model: COACH_PAT_GENERATION_CONFIG.model,
-      temperature: COACH_PAT_GENERATION_CONFIG.temperature,
-      max_tokens: COACH_PAT_GENERATION_CONFIG.max_tokens,
-      top_p: COACH_PAT_GENERATION_CONFIG.top_p,
-      frequency_penalty: COACH_PAT_GENERATION_CONFIG.frequency_penalty,
-      presence_penalty: COACH_PAT_GENERATION_CONFIG.presence_penalty,
-      messages: [
-        { role: "system", content: COACH_PAT_SYSTEM_PROMPT },
-        { role: "developer", content: COACH_PAT_DEVELOPER_PROMPT },
-        {
-          role: "user",
-          content: `
+  const completion = await openai.chat.completions.create({
+    model: COACH_PAT_GENERATION_CONFIG.model,
+    temperature: COACH_PAT_GENERATION_CONFIG.temperature,
+    max_tokens: COACH_PAT_GENERATION_CONFIG.max_tokens,
+    top_p: COACH_PAT_GENERATION_CONFIG.top_p,
+    frequency_penalty: COACH_PAT_GENERATION_CONFIG.frequency_penalty,
+    presence_penalty: COACH_PAT_GENERATION_CONFIG.presence_penalty,
+    messages: [
+      { role: "system", content: COACH_PAT_SYSTEM_PROMPT },
+      { role: "developer", content: COACH_PAT_DEVELOPER_PROMPT },
+      {
+        role: "user",
+        content: `
 ${brief}
 
 Write today's note.
@@ -151,38 +145,24 @@ Rules for this note:
 - PRACTICE should shape the standard for today.
 - RECENT may influence tone, but do not summarize it back.
 `,
-        },
-      ],
-    });
+      },
+    ],
+  });
 
-    let raw = completion.choices[0]?.message?.content?.trim() || fallback;
+  const raw = completion.choices[0]?.message?.content?.trim();
+  const text = raw ? normalizeText(raw) : "";
 
-    raw = normalizeText(raw);
-
-    const result = enforceSimplicity(raw);
-
-    if (!result.valid) {
-      const sentenceCount = raw.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean).length;
-      console.warn("[CoachPatNote] simplicity failed", {
-        attempt,
-        reason: result.reason,
-        sentenceCount,
-      });
-    }
-
-    if (result.valid) {
-      return {
-        text: result.cleaned,
-        stalenessMode: context.today_context.staleness_mode,
-        simplicityPassed: true,
-        attempts,
-        model: COACH_PAT_GENERATION_CONFIG.model,
-      };
-    }
+  if (text) {
+    return {
+      text,
+      stalenessMode: context.today_context.staleness_mode,
+      simplicityPassed: true,
+      attempts: 1,
+      model: COACH_PAT_GENERATION_CONFIG.model,
+    };
   }
 
   console.warn("[CoachPatNote] fallback returned", {
-    attemptCount: 3,
     dayNumber,
     phase: context.today_context.phase,
     stalenessMode: context.today_context.staleness_mode,
@@ -192,7 +172,7 @@ Rules for this note:
     text: fallback,
     stalenessMode: context.today_context.staleness_mode,
     simplicityPassed: false,
-    attempts,
+    attempts: 1,
     model: COACH_PAT_GENERATION_CONFIG.model,
   };
 }
