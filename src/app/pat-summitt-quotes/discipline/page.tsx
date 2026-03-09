@@ -15,7 +15,7 @@ export default async function PatSummittDisciplineQuotesPage() {
     .eq("active", true)
     .eq("topic", "discipline")
     .order("created_at", { ascending: true })
-    .limit(12);
+    .limit(40);
 
   const quotes = quotesData ?? [];
 

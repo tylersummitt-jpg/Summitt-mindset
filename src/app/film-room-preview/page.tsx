@@ -1,17 +1,32 @@
 import Link from "next/link";
+import { supabaseServer } from "@/lib/supabase-server";
 
-const SPEAKERS = [
-  { name: "Peyton Manning", descriptor: "NFL Hall of Fame Quarterback" },
-  { name: "Robin Roberts", descriptor: "Good Morning America Anchor" },
-  { name: "Phillip Fulmer", descriptor: "National Championship Football Coach" },
-  { name: "Morgan Vance", descriptor: "Leadership Strategist" },
-  { name: "Pat Summitt", descriptor: "Coach of the Century" },
-  { name: "Leadership Panel", descriptor: "Lessons on team culture" },
-];
+type FilmVideoPreview = {
+  id: string;
+  title: string;
+  speaker: string | null;
+  thumbnail_url: string | null;
+  program: string | null;
+  is_featured: boolean;
+};
 
-export default function FilmRoomPreviewPage() {
+export default async function FilmRoomPreviewPage() {
   const cardBase =
     "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm";
+
+  const [{ count: videoCount }, { data: videos }] = await Promise.all([
+    supabaseServer
+      .from("film_videos")
+      .select("*", { count: "exact", head: true }),
+    supabaseServer
+      .from("film_videos")
+      .select("id, title, speaker, thumbnail_url, program, is_featured")
+      .order("is_featured", { ascending: false })
+      .limit(12),
+  ]);
+
+  const totalVideos = videoCount ?? 0;
+  const videoList: FilmVideoPreview[] = (videos ?? []) as FilmVideoPreview[];
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
@@ -49,35 +64,94 @@ export default function FilmRoomPreviewPage() {
       </section>
 
       {/* --------------------------------------------------
-          SPEAKER GRID
+          FILM ROOM LIBRARY (scale / social proof)
+          -------------------------------------------------- */}
+      <section className="max-w-6xl mx-auto px-4 py-12">
+        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-2">
+          Film Room Library
+        </h2>
+        <p className="text-lg text-[var(--muted)] text-center mb-6">
+          {totalVideos > 0 ? `${totalVideos}+ Leadership Videos` : "Leadership Videos"}
+        </p>
+        <p className="text-sm text-[var(--muted)] text-center">
+          Featuring insights from:
+        </p>
+        <p className="text-[var(--text)] text-center mt-1">
+          Pat Summitt · Peyton Manning · Robin Roberts · Phillip Fulmer · Morgan Vance · and more.
+        </p>
+      </section>
+
+      {/* --------------------------------------------------
+          VIDEO PREVIEW GRID (locked — links to /subscribe)
           -------------------------------------------------- */}
       <section className="max-w-6xl mx-auto px-4 py-16">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-12">
-          Featured Speakers
+          Featured in the Film Room
         </h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {SPEAKERS.map((speaker) => (
-            <div
-              key={speaker.name}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm"
-            >
-              <div className="bg-[var(--ink)] aspect-video flex items-center justify-center p-4">
-                <p className="text-[var(--text)] font-semibold text-center text-sm sm:text-base">
-                  {speaker.name}
-                </p>
-              </div>
-              <div className="p-4">
-                <p className="font-bold text-[var(--text)]">{speaker.name}</p>
-                <p className="text-sm text-[var(--muted)] mt-1">
-                  {speaker.descriptor}
-                </p>
-                <p className="text-xs text-[var(--muted)] mt-4">
-                  Available inside membership
-                </p>
-              </div>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {videoList.length === 0 ? (
+            <p className="text-[var(--muted)] text-center col-span-full py-8">
+              Film Room content is available to members.
+            </p>
+          ) : (
+            videoList.map((video) => (
+              <Link
+                key={video.id}
+                href="/subscribe"
+                className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm block"
+              >
+                <div className="relative aspect-video bg-[var(--ink)]">
+                  {video.thumbnail_url ? (
+                    <img
+                      src={video.thumbnail_url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                      <span className="text-[var(--muted)] text-sm">Video</span>
+                    </div>
+                  )}
+                  <div
+                    className="absolute inset-0 flex items-center justify-center bg-black/60"
+                    aria-hidden
+                  >
+                    <span className="text-white font-semibold text-sm sm:text-base">
+                      🔒 Members Only
+                    </span>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <p className="font-bold text-[var(--text)] group-hover:text-[var(--brand)] transition-colors line-clamp-2">
+                    {video.title}
+                  </p>
+                  {video.speaker && (
+                    <p className="text-sm text-[var(--muted)] mt-1">
+                      {video.speaker}
+                    </p>
+                  )}
+                </div>
+              </Link>
+            ))
+          )}
         </div>
+      </section>
+
+      {/* --------------------------------------------------
+          INSIDE THE FILM ROOM (conversion)
+          -------------------------------------------------- */}
+      <section className="max-w-6xl mx-auto px-4 py-12">
+        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-6">
+          Inside the Film Room
+        </h2>
+        <p className="text-[var(--muted)] text-center mb-6">
+          Members unlock:
+        </p>
+        <ul className="max-w-xl mx-auto space-y-2 text-[var(--text)] text-center list-none">
+          <li>• 140+ leadership film sessions</li>
+          <li>• Lessons from elite leaders and championship coaches</li>
+          <li>• Real-world leadership principles you can apply immediately</li>
+        </ul>
       </section>
 
       {/* --------------------------------------------------

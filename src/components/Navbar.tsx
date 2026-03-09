@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
 
 /**
  * ======================================================
@@ -12,11 +13,20 @@ import { useUser } from "@clerk/nextjs";
  * - Logged OUT: marketing nav (preview pages, About, Start Free Trial, Sign In)
  * - Logged IN: app nav (Dashboard, Ask Pat, Film Room, Account, Subscribe if needed)
  * - Twilio: public users never see gated app links
+ * - Responsive: horizontal nav on md+, hamburger + vertical menu below md
  */
+
+const linkBase =
+  "px-2 py-1 rounded transition-colors text-sm ";
+const linkActive =
+  "font-semibold text-[var(--text)] border-b-2 border-[var(--brand)]";
+const linkInactive =
+  "text-[var(--muted)] hover:text-[var(--text)]";
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, isLoaded, isSignedIn } = useUser();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const subscribedRaw = user?.publicMetadata?.summittSubscribed;
   const plan = user?.publicMetadata?.summittPlan as string | undefined;
@@ -26,6 +36,16 @@ export function Navbar() {
     subscribedRaw === "true" ||
     plan === "monthly" ||
     plan === "annual";
+
+  // Close mobile menu when resizing to desktop
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const handler = () => {
+      if (mq.matches) setIsMenuOpen(false);
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   // --------------------------------------------------
   // PUBLIC NAV (logged out) — mirrors product structure
@@ -55,38 +75,92 @@ export function Navbar() {
 
   const navLinks = isSignedIn ? appLinks : publicLinks;
 
+  const linkClass = (href: string) => {
+    const isActive =
+      href === "/" ? pathname === "/" : pathname.startsWith(href);
+    return linkBase + (isActive ? linkActive : linkInactive);
+  };
+
   return (
-    <header className="border-b border-[var(--border)] bg-[var(--surface)]">
+    <>
+      {/* Mobile: click-outside backdrop (only when menu open) */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 z-10 md:hidden"
+          aria-hidden
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+
+      <header
+        className={
+          "border-b border-[var(--border)] bg-[var(--surface)]" +
+          (isMenuOpen ? " relative z-20" : "")
+        }
+      >
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="font-semibold text-lg tracking-tight">
           <span className="text-[var(--text)]">Summitt</span>{" "}
           <span className="text-[var(--brand)]">Mindset</span>
         </Link>
 
-        <nav className="flex gap-4 text-sm">
-          {navLinks.map((link) => {
-            const isActive =
-              link.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(link.href);
+        {/* Desktop: horizontal nav (md and up) */}
+        <nav
+          className="hidden md:flex gap-4 text-sm"
+          aria-label="Main navigation"
+        >
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={linkClass(link.href)}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
 
-            return (
+        {/* Mobile: hamburger (below md) */}
+        <button
+          type="button"
+          className="md:hidden p-2 -mr-2 text-[var(--text)] hover:text-[var(--brand)] rounded transition-colors"
+          aria-label="Toggle menu"
+          aria-expanded={isMenuOpen}
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+        >
+          {isMenuOpen ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Mobile: vertical menu (below md, when open) */}
+      {isMenuOpen && (
+        <div className="md:hidden border-t border-[var(--border)] bg-[var(--surface)]">
+          <nav
+            className="max-w-6xl mx-auto px-4 py-2 flex flex-col max-h-[70vh] overflow-y-auto"
+            aria-label="Main navigation"
+          >
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={
-                  "px-2 py-1 rounded transition-colors " +
-                  (isActive
-                    ? "font-semibold text-[var(--text)] border-b-2 border-[var(--brand)]"
-                    : "text-[var(--muted)] hover:text-[var(--text)]")
-                }
+                className={linkClass(link.href) + " py-3 px-2 block"}
+                onClick={() => setIsMenuOpen(false)}
               >
                 {link.label}
               </Link>
-            );
-          })}
-        </nav>
-      </div>
+            ))}
+          </nav>
+        </div>
+      )}
     </header>
+    </>
   );
 }

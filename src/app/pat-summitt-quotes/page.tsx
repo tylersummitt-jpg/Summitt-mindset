@@ -97,6 +97,33 @@ export default async function PatSummittQuotesPage() {
       </section>
 
       {/* --------------------------------------------------
+          POPULAR PAT SUMMITT QUOTE COLLECTIONS
+          -------------------------------------------------- */}
+      <section className="max-w-4xl mx-auto px-4 py-12">
+        <h2 className="text-xl font-bold text-[var(--text)] mb-6">
+          Popular Pat Summitt Quote Collections
+        </h2>
+        <div className="space-y-4">
+          <Link
+            href="/pat-summitt-best-quotes"
+            className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 hover:bg-[var(--surface)]"
+          >
+            <h3 className="font-semibold text-[var(--text)]">
+              50 Best Pat Summitt Quotes
+            </h3>
+          </Link>
+          <Link
+            href="/pat-summitt-leadership-quotes"
+            className="block rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 hover:bg-[var(--surface)]"
+          >
+            <h3 className="font-semibold text-[var(--text)]">
+              Pat Summitt Leadership Quotes
+            </h3>
+          </Link>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------
           QUOTE GRID
           -------------------------------------------------- */}
       <section className="max-w-4xl mx-auto px-4 py-16">

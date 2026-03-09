@@ -15,7 +15,7 @@ export default async function PatSummittAccountabilityQuotesPage() {
     .eq("active", true)
     .eq("topic", "accountability")
     .order("created_at", { ascending: true })
-    .limit(12);
+    .limit(40);
 
   const quotes = quotesData ?? [];
 

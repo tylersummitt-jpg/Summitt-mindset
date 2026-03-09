@@ -39,6 +39,13 @@ const isPublicRoute = createRouteMatcher([
   "/pat-summitt-discipline",
   "/pat-summitt-accountability",
   "/pat-summitt-team-culture",
+  "/pat-summitt-best-quotes",
+  "/pat-summitt-documentary",
+  "/pat-summitt-discipline-quotes",
+  "/pat-summitt-accountability-quotes",
+  "/pat-summitt-teamwork-quotes",
+  "/pat-summitt-leadership-quotes",
+  "/pat-summitt-leadership-challenge",
 
   // Clerk auth pages should always be public
   "/sign-in(.*)",
@@ -47,6 +54,9 @@ const isPublicRoute = createRouteMatcher([
   // Webhooks must be public
   "/api/webhooks(.*)",
   "/api/stripe/webhook(.*)",
+
+  // Challenge signup (anonymous email capture)
+  "/api/challenge/signup",
 
   // ✅ Cron routes must be public (secured by CRON_SECRET inside handler)
   "/api/cron(.*)",

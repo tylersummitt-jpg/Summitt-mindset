@@ -54,7 +54,7 @@ export default async function PatSummittQuotePage({ params }: PageProps) {
 
   const { data: quote } = await supabaseServer
     .from("pat_quotes")
-    .select("id, quote_text, slug")
+    .select("id, quote_text, slug, topic, quote_insight")
     .eq("slug", slug)
     .eq("active", true)
     .single();
@@ -67,7 +67,8 @@ export default async function PatSummittQuotePage({ params }: PageProps) {
     .from("pat_quotes")
     .select("quote_text, slug")
     .eq("active", true)
-    .neq("slug", slug)
+    .eq("topic", quote.topic)
+    .neq("slug", quote.slug)
     .limit(4);
 
   const structuredData = {
@@ -114,6 +115,17 @@ export default async function PatSummittQuotePage({ params }: PageProps) {
           </Link>
         </p>
       </section>
+
+      {quote.quote_insight && (
+        <section className="max-w-2xl mx-auto px-4 py-8 text-left space-y-3">
+          <h2 className="text-lg font-semibold text-[var(--text)]">
+            Leadership Insight
+          </h2>
+          <p className="text-[var(--text)] leading-relaxed">
+            {quote.quote_insight}
+          </p>
+        </section>
+      )}
 
       <section className="mt-8 max-w-2xl mx-auto text-left space-y-3">
         <h2 className="text-lg font-semibold">

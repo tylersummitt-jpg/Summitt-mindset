@@ -17,6 +17,8 @@ export default async function sitemap() {
     "/pat-summitt-quotes/accountability",
     "/pat-summitt-quotes/team",
     "/pat-summitt-quotes/standards",
+    "/pat-summitt-best-quotes",
+    "/pat-summitt-leadership-quotes",
     "/pat-summitt-leadership-principles",
     "/pat-summitt-discipline",
     "/pat-summitt-leadership",
