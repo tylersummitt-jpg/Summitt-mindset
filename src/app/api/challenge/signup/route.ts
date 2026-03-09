@@ -45,6 +45,10 @@ export async function POST(request: Request) {
 
   try {
     await sendChallengeEmail(email, 1);
+    await supabaseServer
+      .from("challenge_participants")
+      .update({ challenge_day: 2 })
+      .eq("email", email);
   } catch (err) {
     console.error("Challenge email failed:", err);
   }
