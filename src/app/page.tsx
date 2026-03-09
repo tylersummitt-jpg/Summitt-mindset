@@ -39,11 +39,23 @@ export default async function HomePage() {
 
   const showSubscribe = !!user && isSubscribed !== true;
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/quote-of-the-day`,
-    { cache: "no-store" }
-  );
-  const data = await res.json();
+  let data: { quote?: string; url?: string } = {};
+
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+    if (baseUrl) {
+      const res = await fetch(`${baseUrl}/api/quote-of-the-day`, {
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        data = (await res.json()) as { quote?: string; url?: string };
+      }
+    }
+  } catch {
+    data = {};
+  }
 
   return (
     <main>
@@ -51,12 +63,13 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-24 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-5">
-              Get Pat Summitt’s coaching — every day.
+              Pat Summitt is your personal leadership coach — every day.
             </h1>
 
             <p className="text-lg text-[var(--muted)] mb-8 leading-relaxed">
-              A 7-minute daily practice and reflection system for personal
-              growth, inspired by the Coach of the Century.
+              A simple daily leadership practice inspired by the Coach of the
+              Century. Reflect for a few minutes each day and watch the
+              results in your life.
             </p>
 
             {user && (
@@ -140,8 +153,16 @@ export default async function HomePage() {
               >
                 Start 7-Day Free Trial
               </Link>
-
+              <Link
+                href="/pat-summitt-leadership-challenge"
+                className="px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--brand-soft)] text-center"
+              >
+                Start the Free 7-Day Leadership Challenge
+              </Link>
             </div>
+            <p className="text-sm text-[var(--muted)] mt-3">
+              Available in the app or by daily text message.
+            </p>
           </div>
 
           <div className="relative w-full h-[420px] rounded-2xl overflow-hidden">
@@ -178,6 +199,105 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      <section className="bg-white border-t">
+        <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
+          <h2 className="text-3xl font-bold">
+            Don&apos;t let inspiration stop at the documentary.
+          </h2>
+          <p className="text-lg text-gray-700">
+            Millions of people are rediscovering Pat Summitt through
+            documentaries and stories about her life. But inspiration fades
+            unless it becomes a habit.
+          </p>
+          <p className="text-lg text-gray-700">
+            Summitt Mindset turns Pat Summitt&apos;s leadership principles
+            into a simple daily practice — one reflection, one journal entry,
+            one step forward.
+          </p>
+        </div>
+      </section>
+
+      <section className="bg-gray-50 border-t">
+        <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
+          <h2 className="text-3xl font-bold">
+            Start with the Free 7-Day Pat Summitt Leadership Challenge
+          </h2>
+
+          <p className="text-lg text-gray-700">
+            Before joining Summitt Mindset, start with a simple 7-day
+            leadership challenge inspired by Pat&apos;s principles.
+          </p>
+
+          <div className="text-left max-w-md mx-auto space-y-2 text-gray-700">
+            <p>• One leadership lesson</p>
+            <p>• One reflection prompt</p>
+            <p>• One practical action</p>
+          </div>
+
+          <div>
+            <Link
+              href="/pat-summitt-leadership-challenge"
+              className="inline-block bg-[var(--ink)] text-white px-6 py-3 rounded-lg font-medium hover:opacity-90"
+            >
+              Start the Free Challenge
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white border-t">
+        <div className="max-w-5xl mx-auto px-4 py-20 text-center space-y-8">
+
+          <h2 className="text-3xl font-bold">
+            Pat Summitt&apos;s Leadership Principles
+          </h2>
+
+          <p className="text-lg text-gray-700 max-w-3xl mx-auto">
+            Pat Summitt didn&apos;t just build winning teams. She built
+            leaders. Her principles of discipline, accountability,
+            consistency, and team-first leadership continue to shape how
+            people lead today.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-6 mt-8">
+
+            <Link
+              href="/pat-summitt-discipline"
+              className="block border rounded-lg p-6 hover:shadow-md transition"
+            >
+              <h3 className="font-semibold text-lg mb-2">Discipline</h3>
+              <p className="text-gray-600 text-sm">
+                Pat believed discipline creates freedom and long-term
+                success.
+              </p>
+            </Link>
+
+            <Link
+              href="/pat-summitt-accountability"
+              className="block border rounded-lg p-6 hover:shadow-md transition"
+            >
+              <h3 className="font-semibold text-lg mb-2">Accountability</h3>
+              <p className="text-gray-600 text-sm">
+                Leaders hold themselves and others to high standards.
+              </p>
+            </Link>
+
+            <Link
+              href="/pat-summitt-team-culture"
+              className="block border rounded-lg p-6 hover:shadow-md transition"
+            >
+              <h3 className="font-semibold text-lg mb-2">Team Culture</h3>
+              <p className="text-gray-600 text-sm">
+                Great teams are built on trust, standards, and shared
+                purpose.
+              </p>
+            </Link>
+
+          </div>
+
+        </div>
+      </section>
 
       {/* --------------------------------------------------
           How Summitt Mindset Works

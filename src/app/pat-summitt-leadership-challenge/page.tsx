@@ -27,7 +27,10 @@ export default function PatSummittLeadershipChallengePage() {
       {/* --------------------------------------------------
           HERO
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
+      <section
+        id="challenge-signup"
+        className="max-w-3xl mx-auto px-4 py-20 text-center"
+      >
         <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
           7-Day Pat Summitt Leadership Challenge
         </h1>
@@ -128,7 +131,7 @@ export default function PatSummittLeadershipChallengePage() {
           inspiration into daily action.
         </p>
         <Link
-          href="#"
+          href="#challenge-signup"
           className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
         >
           Start the Free Challenge

@@ -115,6 +115,18 @@ export default async function PatSummittQuotePage({ params }: PageProps) {
         </p>
       </section>
 
+      <section className="mt-8 max-w-2xl mx-auto text-left space-y-3">
+        <h2 className="text-lg font-semibold">
+          Leadership Lesson
+        </h2>
+
+        <p className="text-gray-700 leading-relaxed">
+          Pat Summitt believed leadership begins with personal accountability and daily discipline.
+          This quote reflects her philosophy that success is built through consistent effort,
+          clear standards, and the courage to lead by example.
+        </p>
+      </section>
+
       <section className="max-w-2xl mx-auto px-4 py-8">
         <QuoteShareCard quote={quote.quote_text} slug={quote.slug} />
       </section>

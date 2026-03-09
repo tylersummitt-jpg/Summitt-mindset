@@ -13,6 +13,7 @@ export default async function PatSummittTeamCultureQuotesPage() {
     .from("pat_quotes")
     .select("id, quote_text, slug")
     .eq("active", true)
+    .eq("topic", "team")
     .order("created_at", { ascending: true })
     .limit(12);
 

@@ -1,6 +1,24 @@
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 
+export const metadata = {
+  title: "Pat Summitt Quotes on Leadership, Discipline, and Winning",
+  description:
+    "Explore the best Pat Summitt quotes on leadership, discipline, accountability, and team culture — with lessons you can apply every day.",
+  openGraph: {
+    title: "Pat Summitt Quotes on Leadership, Discipline, and Winning",
+    description:
+      "Explore the best Pat Summitt quotes on leadership, discipline, accountability, and team culture — with lessons you can apply every day.",
+    type: "article",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pat Summitt Quotes on Leadership, Discipline, and Winning",
+    description:
+      "Explore the best Pat Summitt quotes on leadership, discipline, accountability, and team culture.",
+  },
+};
+
 export default async function PatSummittQuotesPage() {
   const { data: quotesData } = await supabaseServer
     .from("pat_quotes")

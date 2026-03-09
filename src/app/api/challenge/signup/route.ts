@@ -31,6 +31,12 @@ export async function POST(request: Request) {
     });
 
   if (error) {
+    const isDuplicateEmail =
+      error.code === "23505" ||
+      (error.message?.toLowerCase().includes("unique") ?? false);
+    if (isDuplicateEmail) {
+      return NextResponse.json({ success: true });
+    }
     return NextResponse.json(
       { error: "Failed to save signup" },
       { status: 500 }
