@@ -6,13 +6,12 @@ import { useUser } from "@clerk/nextjs";
 
 /**
  * ======================================================
- * Navbar — Twilio-Compliant Public + App Split
+ * Navbar — Public Marketing + App Navigation
  * ======================================================
  *
- * IMPORTANT:
- * - Logged OUT users should NEVER see gated app links
- * - Twilio reviewers must never hit login walls from navbar
- * - Public pages only when not signed in
+ * - Logged OUT: marketing nav (preview pages, About, Start Free Trial, Sign In)
+ * - Logged IN: app nav (Dashboard, Ask Pat, Film Room, Account, Subscribe if needed)
+ * - Twilio: public users never see gated app links
  */
 
 export function Navbar() {
@@ -29,14 +28,16 @@ export function Navbar() {
     plan === "annual";
 
   // --------------------------------------------------
-  // PUBLIC NAV (logged out)
+  // PUBLIC NAV (logged out) — mirrors product structure
   // --------------------------------------------------
   const publicLinks = [
     { href: "/", label: "Home" },
-    { href: "/subscribe", label: "Subscribe" },
-    { href: "/sms", label: "SMS" },
-    { href: "/privacy", label: "Privacy" },
-    { href: "/terms", label: "Terms" },
+    { href: "/daily-practice", label: "Daily Practice" },
+    { href: "/ask-pat-preview", label: "Ask Pat" },
+    { href: "/film-room-preview", label: "Film Room" },
+    { href: "/pat-summitt-leadership", label: "Pat Summitt" },
+    { href: "/about", label: "About" },
+    { href: "/subscribe", label: "Start Free Trial" },
     { href: "/sign-in", label: "Sign In" },
   ];
 

@@ -28,6 +28,17 @@ const isPublicRoute = createRouteMatcher([
   "/sms",
   "/twilio",
   "/subscribe(.*)",
+  "/daily-practice",
+  "/ask-pat-preview",
+  "/film-room-preview",
+  "/about",
+  "/pat-summitt-quotes",
+  "/pat-summitt-quotes/(.*)",
+  "/pat-summitt-leadership",
+  "/pat-summitt-leadership-principles",
+  "/pat-summitt-discipline",
+  "/pat-summitt-accountability",
+  "/pat-summitt-team-culture",
 
   // Clerk auth pages should always be public
   "/sign-in(.*)",

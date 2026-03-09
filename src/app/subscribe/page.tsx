@@ -79,34 +79,111 @@ function SubscribePageInner() {
   // PUBLIC PAGE RENDER (always visible)
   // --------------------------------------------------
   return (
-    <main className="min-h-screen bg-[var(--bg)] flex items-center justify-center px-4 py-20">
-      <div className="max-w-xl w-full">
-        {/* ======================================================
-            Header
-           ====================================================== */}
-        <div className="text-center mb-10">
-          <p className="text-xs uppercase tracking-widest text-[var(--muted)] mb-3">
-            Founding Member Launch
-          </p>
+    <main className="min-h-screen bg-[var(--bg)]">
+      {/* --------------------------------------------------
+          Section 1 — Hero
+          -------------------------------------------------- */}
+      <section className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
+          Start Your Daily Practice
+        </h1>
+        <p className="text-lg text-[var(--muted)] mb-4">
+          Summitt Mindset helps you apply Coach Pat’s leadership standards one
+          day at a time.
+        </p>
+        <p className="text-[var(--text)]">
+          One short daily practice. One honest reflection. Real consistency over
+          time.
+        </p>
+      </section>
 
-          <h1 className="text-3xl md:text-4xl font-semibold mb-3">
-            Start your daily practice.
-          </h1>
-
-          <p className="text-[var(--muted)] text-lg">
-            Summitt Mindset is a paid membership offering a short daily
-            practice (3–7 minutes), journaling, and optional SMS coaching
-            inspired by Coach Pat Summitt.
-          </p>
-
-          <p className="text-[var(--muted)] text-lg mt-4">
-            7-day free trial. <strong>You won’t be charged today.</strong>
-          </p>
+      {/* --------------------------------------------------
+          Section 2 — What You Get
+          -------------------------------------------------- */}
+      <section className="max-w-6xl mx-auto px-4 py-16">
+        <h2 className="text-2xl font-bold text-[var(--text)] text-center mb-12">
+          Your Membership Includes
+        </h2>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Daily Practice
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
+              A short leadership practice each day with a reflection prompt.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Ask Pat
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
+              Ask leadership questions and receive guidance inspired by Pat
+              Summitt’s philosophy.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Film Room
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
+              Watch leadership lessons from respected voices in sports, media,
+              and business.
+            </p>
+          </div>
         </div>
+      </section>
 
-        {/* ======================================================
-            Pricing Cards
-           ====================================================== */}
+      {/* --------------------------------------------------
+          Section 3 — How It Fits Your Life
+          -------------------------------------------------- */}
+      <section className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h2 className="text-2xl font-bold text-[var(--text)] mb-6">
+          Built for real life.
+        </h2>
+        <p className="text-[var(--text)] leading-relaxed">
+          Most daily practices take just a few minutes.
+        </p>
+        <p className="text-[var(--text)] leading-relaxed mt-4">
+          Some members use the app. Others receive their daily practice by text
+          message.
+        </p>
+        <p className="text-[var(--text)] leading-relaxed mt-4">
+          The goal is simple: show up every day.
+        </p>
+      </section>
+
+      {/* --------------------------------------------------
+          Section 4 — Pricing (existing)
+          -------------------------------------------------- */}
+      <section className="flex items-center justify-center px-4 py-20">
+        <div className="max-w-xl w-full">
+          {/* ======================================================
+              Header
+             ====================================================== */}
+          <div className="text-center mb-10">
+            <p className="text-xs uppercase tracking-widest text-[var(--muted)] mb-3">
+              Founding Member Launch
+            </p>
+
+            <h1 className="text-3xl md:text-4xl font-semibold mb-3">
+              Start your daily practice.
+            </h1>
+
+            <p className="text-[var(--muted)] text-lg">
+              Summitt Mindset is a paid membership offering a short daily
+              practice (3–7 minutes), journaling, and optional SMS coaching
+              inspired by Coach Pat Summitt.
+            </p>
+
+            <p className="text-[var(--muted)] text-lg mt-4">
+              7-day free trial. <strong>You won’t be charged today.</strong>
+            </p>
+          </div>
+
+          {/* ======================================================
+              Pricing Cards
+             ====================================================== */}
         <div className="grid gap-4 md:grid-cols-2 mb-6">
           {/* Monthly */}
           <button
@@ -178,7 +255,8 @@ function SubscribePageInner() {
             <span className="ml-2">— Pat Summitt</span>
           </p>
         </div>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }

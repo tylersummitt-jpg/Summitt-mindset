@@ -39,6 +39,12 @@ export default async function HomePage() {
 
   const showSubscribe = !!user && isSubscribed !== true;
 
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SITE_URL}/api/quote-of-the-day`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+
   return (
     <main>
       <section className="bg-[var(--ink)]">
@@ -147,6 +153,93 @@ export default async function HomePage() {
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover grayscale"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------
+          Quote of the Day
+          -------------------------------------------------- */}
+      {data?.quote && data?.url && (
+        <section className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <h2 className="text-2xl font-bold text-[var(--text)] mb-6">
+            Pat Summitt Quote of the Day
+          </h2>
+          <blockquote className="text-xl leading-relaxed border-l-4 border-[var(--brand)] pl-6 py-4 text-[var(--text)] text-left">
+            {data.quote}
+          </blockquote>
+          <div className="text-left mt-4">
+            <Link
+              href={data.url}
+              className="text-sm font-semibold text-[var(--brand)] hover:underline"
+            >
+              Read more
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* --------------------------------------------------
+          How Summitt Mindset Works
+          -------------------------------------------------- */}
+      <section className="max-w-6xl mx-auto px-4 py-20">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
+            How Summitt Mindset Works
+          </h2>
+          <p className="text-[var(--muted)] leading-relaxed">
+            Three simple tools help you build discipline, leadership, and
+            consistency one day at a time.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Daily Practice
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed mb-4">
+              Start with a short note inspired by Coach Pat. You get one simple
+              action and a reflection prompt for the day.
+            </p>
+            <Link
+              href="/daily-practice"
+              className="text-sm font-semibold text-[var(--brand)] hover:underline"
+            >
+              Explore Daily Practice →
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Ask Pat
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed mb-4">
+              Ask leadership questions and receive guidance inspired by Pat
+              Summitt’s philosophy and standards.
+            </p>
+            <Link
+              href="/ask-pat-preview"
+              className="text-sm font-semibold text-[var(--brand)] hover:underline"
+            >
+              See Ask Pat →
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Film Room
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed mb-4">
+              Watch leadership lessons from respected voices in sports, media,
+              and business.
+            </p>
+            <Link
+              href="/film-room-preview"
+              className="text-sm font-semibold text-[var(--brand)] hover:underline"
+            >
+              Explore Film Room →
+            </Link>
           </div>
         </div>
       </section>
