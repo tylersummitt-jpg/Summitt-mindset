@@ -2,11 +2,12 @@ import Link from "next/link";
 import { challengeLessons } from "@/lib/challenge-lessons";
 
 type PageProps = {
-  params: { day: string };
+  params: Promise<{ day: string }>;
 };
 
-export default function ChallengeDayPage({ params }: PageProps) {
-  const dayNumber = Number(params.day);
+export default async function ChallengeDayPage({ params }: PageProps) {
+  const { day } = await params;
+  const dayNumber = Number(day);
 
   if (!Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 7) {
     return (
