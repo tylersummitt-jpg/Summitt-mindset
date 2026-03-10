@@ -135,7 +135,7 @@ export default async function HomePage() {
 
                 <Link
                   href="/sign-in"
-                  className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
+                  className="text-[var(--brand)] font-semibold hover:underline"
                 >
                   Sign In →
                 </Link>
@@ -146,22 +146,23 @@ export default async function HomePage() {
                 Public CTA Section
                ====================================================== */}
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/subscribe"
-                className="px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--brand-soft)] text-center"
-              >
-                Start 7-Day Free Trial
-              </Link>
+            <Link
+              href="/subscribe"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
+            >
+              Start 7-Day Free Trial
+            </Link>
+            <p className="text-sm text-[var(--muted)] mt-2">
+              7-day free trial • Cancel anytime • Available in the app or by daily text message.
+            </p>
+            <p className="text-sm text-[var(--muted)] mt-4">
+              Not ready yet?{" "}
               <Link
                 href="/pat-summitt-leadership-challenge"
-                className="px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--brand-soft)] text-center"
+                className="text-[var(--brand)] font-semibold hover:underline"
               >
-                Start the Free 7-Day Leadership Challenge
+                Try the free 7-Day Leadership Challenge
               </Link>
-            </div>
-            <p className="text-sm text-[var(--muted)] mt-3">
-              Available in the app or by daily text message.
             </p>
           </div>
 
@@ -221,28 +222,33 @@ export default async function HomePage() {
       <section className="bg-gray-50 border-t">
         <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
           <h2 className="text-3xl font-bold">
-            Start with the Free 7-Day Pat Summitt Leadership Challenge
+            Not ready to subscribe yet? Try the free 7-day leadership challenge.
           </h2>
 
           <p className="text-lg text-gray-700">
-            Before joining Summitt Mindset, start with a simple 7-day
-            leadership challenge inspired by Pat&apos;s principles.
+            One leadership lesson, one reflection prompt, and one practical
+            action each day—inspired by Pat&apos;s principles.
           </p>
 
-          <div className="text-left max-w-md mx-auto space-y-2 text-gray-700">
-            <p>• One leadership lesson</p>
-            <p>• One reflection prompt</p>
-            <p>• One practical action</p>
-          </div>
+          <p className="text-sm text-gray-600">
+            Most people start with the{" "}
+            <Link
+              href="/subscribe"
+              className="text-[var(--brand)] font-semibold hover:underline"
+            >
+              7-day free trial
+            </Link>
+            .
+          </p>
 
-          <div>
+          <p>
             <Link
               href="/pat-summitt-leadership-challenge"
-              className="inline-block bg-[var(--ink)] text-white px-6 py-3 rounded-lg font-medium hover:opacity-90"
+              className="text-[var(--brand)] font-semibold hover:underline"
             >
-              Start the Free Challenge
+              Try the free 7-Day Leadership Challenge
             </Link>
-          </div>
+          </p>
         </div>
       </section>
 

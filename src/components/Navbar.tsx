@@ -52,11 +52,10 @@ export function Navbar() {
   // --------------------------------------------------
   const publicLinks = [
     { href: "/", label: "Home" },
+    { href: "/about", label: "About" },
     { href: "/daily-practice", label: "Daily Practice" },
     { href: "/ask-pat-preview", label: "Ask Pat" },
     { href: "/film-room-preview", label: "Film Room" },
-    { href: "/pat-summitt-leadership", label: "Pat Summitt" },
-    { href: "/about", label: "About" },
     { href: "/subscribe", label: "Start Free Trial" },
     { href: "/sign-in", label: "Sign In" },
   ];
