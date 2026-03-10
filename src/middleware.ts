@@ -46,6 +46,7 @@ const isPublicRoute = createRouteMatcher([
   "/pat-summitt-teamwork-quotes",
   "/pat-summitt-leadership-quotes",
   "/pat-summitt-leadership-challenge",
+  "/challenge(.*)",
 
   // Clerk auth pages should always be public
   "/sign-in(.*)",
