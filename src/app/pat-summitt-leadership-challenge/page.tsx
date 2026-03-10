@@ -61,15 +61,6 @@ export default function PatSummittLeadershipChallengePage() {
             Start the Free Challenge
           </button>
         </form>
-        <p className="text-sm text-[var(--muted)] mt-3">
-          Prefer text messages instead?{" "}
-          <Link
-            href="/subscribe"
-            className="text-[var(--brand)] font-semibold hover:underline"
-          >
-            Join via SMS →
-          </Link>
-        </p>
         {success && (
           <p className="text-green-600 mt-4">
             You&apos;re in! Check your email for Day 1 of the challenge.

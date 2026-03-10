@@ -2,83 +2,175 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pat Summitt Documentary: Where to Watch the Story of a Legendary Coach",
+  title:
+    "Pat Summitt Documentary Guide: ESPN Films, Pat XO, Cinderella Season, and New 2026 Releases",
   description:
-    "Looking for the Pat Summitt documentary? Learn about the films and ESPN coverage of the legendary Tennessee coach and the leadership lessons that continue to inspire millions.",
+    "A complete guide to Pat Summitt documentaries including ESPN films like Pat XO, The Cinderella Season, and the new 2026 Pat Summitt documentaries produced with Omaha Productions, Trilogy Productions, Rock’n Robin Productions, and Tribeca Productions.",
 };
 
 export default function PatSummittDocumentaryPage() {
   return (
     <main className="min-h-screen bg-[var(--bg)]">
       {/* --------------------------------------------------
-          HERO
+          SECTION 1 — OVERVIEW
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-20">
         <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
-          Pat Summitt Documentary: The Story of a Legendary Coach
+          Pat Summitt Documentary Guide: Films, ESPN Documentaries, and the 2026 Releases
         </h1>
         <div className="space-y-4 text-[var(--text)] leading-relaxed">
           <p>
             Pat Summitt was the longtime head coach of the University of
-            Tennessee Lady Vols basketball team and one of the most successful
-            and respected coaches in the history of sports. She built a
-            program defined by discipline, accountability, and an unwavering
-            standard of excellence—and her story has been told in documentaries
-            and films that continue to reach new audiences.
+            Tennessee Lady Vols and one of the most successful coaches in the
+            history of sports. She won at the highest level while demanding
+            discipline, accountability, and high standards from herself and
+            everyone around her.
           </p>
           <p>
-            Her career at Tennessee made her one of the most respected figures
-            in sports history. She won 1,098 games, eight national
-            championships, and shaped generations of players and coaches. The
-            documentaries about her life and leadership capture not only the
-            wins but the philosophy behind them—why her approach to building
-            teams and developing people still matters today.
+            Because of that impact, many people search for Pat Summitt
+            documentaries and films—whether they remember watching her teams in
+            real time, discovered her story through ESPN, or simply want to
+            study how she led. Several films have explored her life, her
+            leadership style, and the program she built at Tennessee.
           </p>
           <p>
-            Documentaries about Pat Summitt are powerful because they show how
-            one leader’s standards, consistency, and care for her players
-            created a lasting legacy. They remind us that great leadership is
-            built day by day and that the lessons from her career apply far
-            beyond basketball.
-          </p>
-          <p>
-            Many people search for the Pat Summitt documentary today—including
-            those who look for &quot;Pat Summit documentary,&quot; a common
-            misspelling of her last name—because her story and her words
-            continue to inspire anyone who wants to lead with purpose and
-            integrity.
+            This page is a simple guide to the best-known Pat Summitt
+            documentaries and films, including new releases, ESPN projects like
+            <em> Pat XO</em>, and stories about the seasons that defined her
+            career.
           </p>
         </div>
       </section>
 
       {/* --------------------------------------------------
-          WHERE TO WATCH
+          SECTION 2 — NEW PAT SUMMITT FILMS (MARCH 2026)
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-12">
         <h2 className="text-xl font-bold text-[var(--text)] mb-6">
-          Where to Watch the Pat Summitt Documentary
+          New Pat Summitt Films (March 2026)
         </h2>
         <div className="space-y-4 text-[var(--text)] leading-relaxed">
           <p>
-            Viewers often search for the Pat Summitt ESPN documentary, the Pat
-            Summitt 30 for 30, the Pat Summitt Hulu documentary, or simply
-            &quot;Pat Summitt film.&quot; Coverage of her career has appeared
-            through ESPN storytelling and sports documentaries that explore
-            her life, her leadership, and the impact she had on the game and
-            on the people around her.
+            In March 2026, two new projects about Pat Summitt are being
+            released—each offering a different way to understand her impact on
+            women&apos;s basketball and leadership.
           </p>
           <p>
-            The best way to find current viewing options is to check major
-            sports and documentary platforms, as availability can change over
-            time. Her story has been featured in multiple films and specials
-            that highlight her dominance at Tennessee and the principles that
-            made her a legendary coach.
+            The first project is a special event honoring Pat Summitt produced
+            by Peyton Manning’s Omaha Productions. This event celebrates her
+            legacy and influence on women’s basketball, the Tennessee program,
+            and leadership more broadly. It will air periodically on ESPN and
+            is designed to introduce her story to a new generation of fans and
+            leaders.
+          </p>
+          <p>
+            The second project is a major documentary produced by Trilogy
+            Productions in collaboration with Rock’n Robin Productions and
+            Tribeca Productions. Rock’n Robin Productions is led by Robin
+            Roberts, the longtime{" "}
+            <span className="italic">Good Morning America</span> anchor and a
+            close friend of Pat Summitt. This feature documentary explores her
+            career, leadership philosophy, and lasting impact on sports and
+            leadership.
+          </p>
+          <p>
+            The Trilogy/ Rock’n Robin/ Tribeca film will be distributed through
+            ESPN and Hulu, making it widely accessible to viewers who want a
+            deeper, long-form look at how Pat Summitt coached, led, and lived
+            her values.
           </p>
         </div>
       </section>
 
       {/* --------------------------------------------------
-          WHY PAT SUMMITT'S STORY MATTERS
+          SECTION 3 — PAT XO (ESPN NINE FOR IX)
+          -------------------------------------------------- */}
+      <section className="max-w-3xl mx-auto px-4 py-12">
+        <h2 className="text-xl font-bold text-[var(--text)] mb-6">
+          Pat XO (ESPN Nine for IX)
+        </h2>
+        <div className="space-y-4 text-[var(--text)] leading-relaxed">
+          <p>
+            <em>Pat XO</em> was produced as part of ESPN’s{" "}
+            <a
+              href="https://www.espn.com/espnw/title-nine-for-ix/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold underline"
+            >
+              Nine for IX documentary series
+            </a>{" "}
+            honoring the 40th anniversary of Title IX. The series highlights
+            women’s stories in sports; Pat Summitt&apos;s film is one of its
+            signature entries.
+          </p>
+          <p>
+            The documentary focuses on Pat Summitt’s leadership, the way she
+            built the Tennessee Lady Vols, and the relationships she formed
+            with her players and staff. It blends archival footage, interviews,
+            and storytelling from those who knew her best.
+          </p>
+          <p>
+            Rather than only revisiting championships, <em>Pat XO</em> spends
+            time on how she held people accountable, how she communicated, and
+            how she believed in her players even when she was demanding more
+            from them. For many viewers, it is the definitive starting point
+            for understanding who she was beyond the box scores.
+          </p>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------
+          SECTION 4 — THE CINDERELLA SEASON (ESPN)
+          -------------------------------------------------- */}
+      <section className="max-w-3xl mx-auto px-4 py-12">
+        <h2 className="text-xl font-bold text-[var(--text)] mb-6">
+          The Cinderella Season (ESPN)
+        </h2>
+        <div className="space-y-4 text-[var(--text)] leading-relaxed">
+          <p>
+            <em>The Cinderella Season</em> tells the story of one of the most
+            unusual championship runs in college basketball history. The
+            Tennessee Lady Volunteers lost ten games during the season—a number
+            that would normally keep a team out of the title conversation.
+          </p>
+          <p>
+            Under Pat Summitt’s leadership, that team still found a way to win
+            the national championship. The documentary highlights how she kept
+            standards high even when the record was uneven, how she challenged
+            her players, and how the culture she built allowed the program to
+            stay together through a difficult year.
+          </p>
+          <p>
+            More than a recap of a single season,{" "}
+            <em>The Cinderella Season</em> shows what resilience, accountability,
+            and a shared identity look like inside a championship program. It is
+            a useful film for anyone who wants to understand how great teams
+            respond when things are not going according to plan.
+          </p>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------
+          WHERE TO WATCH PAT SUMMITT DOCUMENTARIES
+          -------------------------------------------------- */}
+      <section className="max-w-3xl mx-auto px-4 py-12">
+        <h2 className="text-xl font-bold text-[var(--text)] mb-6">
+          Where to Watch Pat Summitt Documentaries
+        </h2>
+        <p className="text-[var(--text)] leading-relaxed">
+          Pat Summitt documentaries and films are typically available through
+          ESPN programming, ESPN+, Hulu, and other sports documentary platforms
+          depending on the project and current licensing. Because new films and
+          broadcasts are released over time, availability can change. ESPN
+          features many of the projects connected to her career, including
+          special events and documentaries highlighting the Tennessee Lady
+          Volunteers and the broader growth of women&apos;s basketball.
+        </p>
+      </section>
+
+      {/* --------------------------------------------------
+          SECTION 5 — WHY PAT SUMMITT'S STORY MATTERS
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-12">
         <h2 className="text-xl font-bold text-[var(--text)] mb-6">
@@ -86,39 +178,49 @@ export default function PatSummittDocumentaryPage() {
         </h2>
         <div className="space-y-4 text-[var(--text)] leading-relaxed">
           <p>
-            Pat Summitt finished her career with 1,098 wins—more than any other
-            Division I basketball coach, male or female, at the time of her
-            retirement. That number reflects decades of consistency, but the
-            real story is how she built one of the most respected programs in
-            sports.
+            Pat Summitt finished her career with{" "}
+            <strong>1,098 career wins</strong>—more than any other Division I
+            basketball coach, male or female, at the time of her retirement.
+            That total reflects decades of consistency, but the real story is
+            how she built Tennessee into a national powerhouse.
           </p>
           <p>
-            Her dominance of Tennessee women&apos;s basketball was built on
-            discipline, accountability, and a culture where players were
-            expected to show up prepared and hold each other to high standards.
-            She didn&apos;t just win games; she built leaders.
+            She turned the Tennessee Lady Vols into one of the most respected
+            programs in sports: eight national championships, countless Final
+            Fours, and a standard of preparation that influenced the entire
+            women&apos;s game. Her teams were known for their defense,
+            toughness, and willingness to play anyone, anywhere.
           </p>
           <p>
-            Her influence extended to generations of players and coaches who
-            carried her philosophy into their own careers. That legacy is why
-            documentaries and films about Pat Summitt continue to resonate—and
-            why her story still matters to anyone who wants to lead with
-            purpose.
+            Her influence extended far beyond the sideline. Generations of
+            players and assistant coaches carried her ideas into their own
+            programs, businesses, and families. Many of today’s leaders in
+            women’s basketball trace their approach directly back to Pat
+            Summitt.
+          </p>
+          <p>
+            At the center of it all was a leadership style built on{" "}
+            <strong>discipline, accountability, and standards</strong>. She
+            demanded that people show up prepared, tell the truth, accept
+            responsibility, and compete with intensity every day. The
+            documentaries and films about her life matter because they keep
+            those ideas in front of new generations who may never have seen her
+            coach in person.
           </p>
         </div>
       </section>
 
       {/* --------------------------------------------------
-          LEADERSHIP LESSONS
+          SECTION 6 — LEADERSHIP LESSONS
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-12">
         <h2 className="text-xl font-bold text-[var(--text)] mb-6">
           Leadership Lessons from Pat Summitt
         </h2>
         <p className="text-[var(--text)] leading-relaxed mb-6">
-          Pat Summitt&apos;s approach was built on a few core principles that
-          defined her program and her legacy. These ideas continue to guide
-          leaders in sports, business, and life.
+          If you want to go deeper than the films, these pages break down the
+          core pillars of Pat Summitt&apos;s leadership—what she expected from
+          herself and from the people she led.
         </p>
         <ul className="space-y-3 text-[var(--text)] leading-relaxed list-disc pl-6">
           <li>
@@ -151,28 +253,7 @@ export default function PatSummittDocumentaryPage() {
       </section>
 
       {/* --------------------------------------------------
-          FAMOUS PAT SUMMITT QUOTES
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-12">
-        <h2 className="text-xl font-bold text-[var(--text)] mb-6">
-          Famous Pat Summitt Quotes
-        </h2>
-        <p className="text-[var(--text)] leading-relaxed mb-6">
-          Pat Summitt was known for clear, direct words that reflected her
-          leadership philosophy. Her quotes on discipline, accountability, and
-          winning continue to inspire coaches, executives, and anyone who wants
-          to lead with intention.
-        </p>
-        <Link
-          href="/pat-summitt-best-quotes"
-          className="inline-block text-[var(--brand)] font-semibold hover:underline"
-        >
-          Read 50 of the Best Pat Summitt Quotes →
-        </Link>
-      </section>
-
-      {/* --------------------------------------------------
-          CTA
+          SECTION 7 — CTA (UNCHANGED)
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-12 text-center">
         <h2 className="text-xl font-bold text-[var(--text)] mb-4">
@@ -185,12 +266,54 @@ export default function PatSummittDocumentaryPage() {
           defined her career.
         </p>
         <Link
-          href="/pat-summitt-leadership-challenge"
+          href="/subscribe"
           className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
         >
-          Start the Free Challenge
+          Start Your 7-Day Free Trial
         </Link>
+        <p className="text-sm text-[var(--muted)] mt-2">
+          7-Day Free Trial • Cancel Anytime
+        </p>
+        <p className="text-sm text-[var(--muted)] mt-4">
+          Not ready yet?{" "}
+          <Link
+            href="/pat-summitt-leadership-challenge"
+            className="text-[var(--brand)] font-semibold hover:underline"
+          >
+            Try the free 7-Day Leadership Challenge.
+          </Link>
+        </p>
       </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline:
+              "Pat Summitt Documentary Guide: Films, ESPN Documentaries, and the 2026 Releases",
+            description:
+              "A complete guide to Pat Summitt documentaries including Pat XO, The Cinderella Season, and the new 2026 Pat Summitt documentaries produced with Omaha Productions, Trilogy Productions, Rock’n Robin Productions, and Tribeca Productions.",
+            author: {
+              "@type": "Organization",
+              name: "Summitt Mindset",
+            },
+            publisher: {
+              "@type": "Organization",
+              name: "Summitt Mindset",
+            },
+            mainEntityOfPage:
+              "https://summittmindset.com/pat-summitt-documentary",
+            about: [
+              "Pat Summitt documentary",
+              "Pat XO documentary",
+              "Cinderella Season documentary",
+              "Pat Summitt ESPN film",
+              "Pat Summitt Hulu documentary",
+            ],
+          }),
+        }}
+      />
     </main>
   );
 }
