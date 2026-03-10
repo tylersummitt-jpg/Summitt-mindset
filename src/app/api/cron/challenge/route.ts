@@ -2,6 +2,24 @@ import { NextResponse } from "next/server";
 import { sendChallengeEmail } from "@/lib/send-challenge-email";
 import { supabaseServer } from "@/lib/supabase-server";
 
+function getNext8AMEastern() {
+  const now = new Date();
+  const est = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" })
+  );
+
+  const next = new Date(est);
+  next.setHours(8, 0, 0, 0);
+
+  if (est >= next) {
+    next.setDate(next.getDate() + 1);
+  }
+
+  return new Date(
+    next.toLocaleString("en-US", { timeZone: "UTC" })
+  ).toISOString();
+}
+
 async function handleCron(request: Request) {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get("secret");
@@ -9,12 +27,15 @@ async function handleCron(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const now = new Date().toISOString();
+
   const { data: participants } = await supabaseServer
     .from("challenge_participants")
     .select("*")
     .eq("completed", false)
     .gte("challenge_day", 2)
-    .lte("challenge_day", 7);
+    .lte("challenge_day", 7)
+    .lte("next_send_at", now);
 
   const list = participants ?? [];
   let processed = 0;
@@ -33,6 +54,7 @@ async function handleCron(request: Request) {
       .update({
         challenge_day: nextDay,
         completed: nextDay > 7,
+        next_send_at: getNext8AMEastern(),
       })
       .eq("id", participant.id);
 
