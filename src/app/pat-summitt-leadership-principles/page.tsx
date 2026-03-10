@@ -138,26 +138,6 @@ export default function PatSummittLeadershipPrinciplesPage() {
       </section>
 
       {/* --------------------------------------------------
-          7-DAY LEADERSHIP CHALLENGE CTA
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-xl font-bold text-[var(--text)] mb-4">
-          Start the 7-Day Pat Summitt Leadership Challenge
-        </h2>
-        <p className="text-[var(--muted)] mb-6 leading-relaxed">
-          If Pat Summitt&apos;s leadership principles resonate with you, this
-          free 7-day challenge helps turn those ideas into a simple daily
-          habit.
-        </p>
-        <Link
-          href="/pat-summitt-leadership-challenge"
-          className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
-        >
-          Start the Free Challenge
-        </Link>
-      </section>
-
-      {/* --------------------------------------------------
           CTA
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-20 text-center">
@@ -168,8 +148,20 @@ export default function PatSummittLeadershipPrinciplesPage() {
           href="/subscribe"
           className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
         >
-          Start 7-Day Free Trial →
+          Start Your 7-Day Free Trial
         </Link>
+        <p className="text-sm text-[var(--muted)] mt-2">
+          7-Day Free Trial • Cancel Anytime
+        </p>
+        <p className="text-sm text-[var(--muted)] mt-4">
+          Not ready yet?{" "}
+          <Link
+            href="/pat-summitt-leadership-challenge"
+            className="text-[var(--brand)] font-semibold hover:underline"
+          >
+            Try the free 7-Day Leadership Challenge.
+          </Link>
+        </p>
       </section>
     </main>
   );

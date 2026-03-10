@@ -79,7 +79,7 @@ export default async function PatSummittStandardsQuotesPage() {
       </section>
 
       {/* --------------------------------------------------
-          7-DAY LEADERSHIP CHALLENGE CTA
+          CTA
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-12 text-center">
         <h2 className="text-xl font-bold text-[var(--text)] mb-4">
@@ -89,12 +89,31 @@ export default async function PatSummittStandardsQuotesPage() {
           If Pat Summitt&apos;s leadership inspires you, this free 7-day
           challenge helps turn that inspiration into a simple daily practice.
         </p>
+        <p className="text-[var(--text)] leading-relaxed mt-4">
+          Reading a great Pat Summitt quote is a spark; turning it into a habit is what changes how you lead. Summitt Mindset helps you take one small action and one honest reflection each day so her standards actually show up in your life.
+        </p>
+
+        <p className="text-[var(--text)] leading-relaxed mt-2">
+          Each daily practice is short, calm, and repeatable—built so real people with real responsibilities can keep showing up, one day at a time.
+        </p>
         <Link
-          href="/pat-summitt-leadership-challenge"
+          href="/subscribe"
           className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
         >
-          Start the Free Challenge
+          Start Your 7-Day Free Trial
         </Link>
+        <p className="text-sm text-[var(--muted)] mt-2">
+          7-Day Free Trial • Cancel Anytime
+        </p>
+        <p className="text-sm text-[var(--muted)] mt-4">
+          Not ready yet?{" "}
+          <Link
+            href="/pat-summitt-leadership-challenge"
+            className="text-[var(--brand)] font-semibold hover:underline"
+          >
+            Try the free 7-Day Leadership Challenge.
+          </Link>
+        </p>
       </section>
     </main>
   );

@@ -136,6 +136,13 @@ export default async function PatSummittBestQuotesPage() {
           Turn these quotes into a daily practice. Our free 7-day challenge
           helps you apply Pat Summitt&apos;s principles one day at a time.
         </p>
+        <p className="text-[var(--text)] leading-relaxed mt-4">
+          Reading a great Pat Summitt quote is a spark; turning it into a habit is what changes how you lead. Summitt Mindset helps you take one small action and one honest reflection each day so her standards actually show up in your life.
+        </p>
+
+        <p className="text-[var(--text)] leading-relaxed mt-2">
+          Each daily practice is short, calm, and repeatable—built so real people with real responsibilities can keep showing up, one day at a time.
+        </p>
         <Link
           href="/subscribe"
           className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
