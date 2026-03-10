@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { sendChallengeEmail } from "@/lib/send-challenge-email";
 import { supabaseServer } from "@/lib/supabase-server";
 
-export async function POST(request: Request) {
+async function handleCron(request: Request) {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get("secret");
   if (secret !== "cron_8f3c9a1e5d2b7a6f0c4e9d8a7b6e5f1c") {
@@ -40,4 +40,12 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ success: true, processed });
+}
+
+export async function GET(request: Request) {
+  return handleCron(request);
+}
+
+export async function POST(request: Request) {
+  return handleCron(request);
 }
