@@ -1,3 +1,12 @@
+import { notFound } from "next/navigation";
+
+export default function FilmRoomPage() {
+  notFound();
+}
+
+/*
+PREVIOUS IMPLEMENTATION BELOW (TEMPORARILY DISABLED)
+
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
@@ -18,7 +27,7 @@ type Video = {
 const PROGRAM_ORDER = [
   "Definite Dozen",
   "Power of Team - Leader Version",
-  "Women’s Leadership",
+  "Women's Leadership",
   "Power of Team - Team Version",
 ];
 
@@ -198,3 +207,4 @@ export default async function FilmRoomPage() {
     </main>
   );
 }
+*/

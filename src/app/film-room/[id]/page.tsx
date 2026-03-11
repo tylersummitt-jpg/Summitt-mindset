@@ -1,3 +1,12 @@
+import { notFound } from "next/navigation";
+
+export default function FilmRoomVideoPage() {
+  notFound();
+}
+
+/*
+PREVIOUS IMPLEMENTATION BELOW (TEMPORARILY DISABLED)
+
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
@@ -53,3 +62,4 @@ export default async function FilmRoomVideoPage({
     </main>
   );
 }
+*/
