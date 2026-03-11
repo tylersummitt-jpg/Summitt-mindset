@@ -61,7 +61,7 @@ export default function TwilioCompliancePage() {
         <div className="text-sm leading-6">
           <div className="font-semibold">Contact information</div>
           <div>Summitt Mindset, LLC</div>
-          <div>1394 E Choctaw Drive, London, OH 43140</div>
+          <div>1978 Oak Grove Road<br />Dandridge, Tennessee 37725</div>
 
           <div>
             Phone:{" "}
