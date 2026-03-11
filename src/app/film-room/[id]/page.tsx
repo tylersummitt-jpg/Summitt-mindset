@@ -8,6 +8,8 @@ export default async function FilmRoomVideoPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  notFound();
+
   const user = await currentUser();
   if (!user) redirect("/sign-in");
 

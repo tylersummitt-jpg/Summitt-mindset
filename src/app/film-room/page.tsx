@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -23,6 +23,8 @@ const PROGRAM_ORDER = [
 ];
 
 export default async function FilmRoomPage() {
+  notFound();
+
   // ✅ SERVER-SIDE MEMBERSHIP CHECK
   const user = await currentUser();
   if (!user) redirect("/sign-in");
