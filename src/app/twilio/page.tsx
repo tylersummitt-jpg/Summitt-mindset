@@ -64,13 +64,6 @@ export default function TwilioCompliancePage() {
           <div>1978 Oak Grove Road<br />Dandridge, Tennessee 37725</div>
 
           <div>
-            Phone:{" "}
-            <a className="underline" href="tel:+18652429243">
-              +1 865-242-9243
-            </a>
-          </div>
-
-          <div>
             Email:{" "}
             <a className="underline" href="mailto:support@summittmindset.com">
               support@summittmindset.com

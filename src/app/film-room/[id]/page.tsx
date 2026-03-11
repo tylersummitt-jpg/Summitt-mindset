@@ -11,7 +11,10 @@ export default async function FilmRoomVideoPage({
   notFound();
 
   const user = await currentUser();
-  if (!user) redirect("/sign-in");
+  if (!user) {
+    redirect("/sign-in");
+    return;
+  }
 
   const subscribed = user.publicMetadata?.summittSubscribed === true;
   if (!subscribed) redirect("/subscribe");
