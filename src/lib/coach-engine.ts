@@ -1,6 +1,7 @@
 // src/lib/coach-engine.ts
 
 import { supabaseServer } from "@/lib/supabase-server";
+import { resolveDailyPracticeForUser } from "@/lib/resolve-daily-practice";
 import { generateCoachReply } from "@/lib/coach-reply-generator";
 
 type CoachEngineSource = "app" | "sms";
@@ -184,10 +185,22 @@ export async function coachEngine(
   // ================================
   // 3) Generate coach reply
   // ================================
+  // Fetch today's practice action item
+  let actionItem = "";
+
+  try {
+    const practice = await resolveDailyPracticeForUser(userId, dayNumber);
+    actionItem = practice?.actionItem ?? "";
+  } catch (err) {
+    console.error("Coach reply: could not resolve action item:", err);
+  }
+
   const coachReply = await generateCoachReply({
     userId,
     dayNumber,
     userMessage,
+    actionItem,
+    source,
   });
 
   // ================================

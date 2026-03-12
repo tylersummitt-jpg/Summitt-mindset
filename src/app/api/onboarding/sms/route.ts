@@ -3,7 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { supabaseServer } from "@/lib/supabase-server";
-import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
 
 /**
  * ======================================================
@@ -139,7 +139,7 @@ export async function POST(req: Request) {
         "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
 
       try {
-        await sendSMS({ to: normalizedPhone, body: confirm });
+        await sendSMSChunked({ to: normalizedPhone, body: confirm });
       } catch (e) {
         // Never block onboarding if Twilio fails.
         console.error("Onboarding confirmation SMS failed:", e);

@@ -62,12 +62,32 @@ export default function AskPatPreviewPage() {
         </p>
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--brand-soft)] p-6 shadow-sm">
           <p className="text-[var(--text)] whitespace-pre-line leading-relaxed">
-            Motivation will come and go. Discipline is what carries you.
+            Let me tell you about a time back in my playing days when motivation
+            was nowhere to be found. I was nursing a knee injury, sidelined with a
+            twelve-inch scar and told by the top coaches that I didn't have a
+            chance to make the Olympic team.
             {"\n\n"}
-            Start smaller than you think you should. Finish one thing today that
-            you said you would do. Do it clean. Do it without excuses.
+            It would have been easy to give up — to say, "I'm tired, I'm hurt,
+            I'm done."
             {"\n\n"}
-            Standards are built in moments like that.
+            But I didn't.
+            {"\n\n"}
+            Instead, I spent hours in the gym, gave up red meat, worked out six
+            hours a day, and played through the pain.
+            {"\n\n"}
+            Motivation? It came and went.
+            {"\n"}
+            Discipline? That's what got me through.
+            {"\n\n"}
+            Start smaller than you think you should.
+            {"\n"}
+            Finish one thing today that you said you would do.
+            {"\n\n"}
+            Do it clean.
+            {"\n"}
+            Do it without excuses.
+            {"\n\n"}
+            That's how standards are built.
           </p>
         </div>
       </section>

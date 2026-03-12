@@ -4,7 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getOrCreateDailyCoachPatNote } from "@/lib/get-or-create-daily-coach-pat-note";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
-import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
 import { getUserStalenessLevel } from "@/lib/get-user-staleness";
 
 export const runtime = "nodejs";
@@ -323,7 +323,7 @@ export async function GET(req: Request) {
       }
 
       try {
-        const message = await sendSMS({
+        const result = await sendSMSChunked({
           to: identity.phone_number,
           body: smsBody,
         });
@@ -331,12 +331,14 @@ export async function GET(req: Request) {
         await supabaseServer
           .from("sms_send_events")
           .update({
-            message_sid: message.sid,
-            status: message.status,
+            message_sid: result.firstSid,
+            status: result.firstStatus,
             metadata: {
               note: "sent_to_twilio",
               timezone,
               local_time: localNow.toISOString(),
+              chunkCount: result.chunkCount,
+              chunkLengths: result.chunkLengths,
             },
           })
           .eq("clerk_user_id", user.id)

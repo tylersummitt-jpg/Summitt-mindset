@@ -133,7 +133,7 @@ export default function AskPatClient({ isSubscribed }: Props) {
             className="w-full rounded-lg border border-[var(--border)] bg-white px-4 py-3 text-base min-h-[160px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder='Example: "How do I lead when I feel inconsistent?"'
+            placeholder={"Example: \"How do I stay disciplined when I don't feel motivated?\""}
             disabled={isLoading}
           />
 

@@ -9,6 +9,7 @@ import { completeDay } from "@/lib/complete-day";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { coachEngine } from "@/lib/coach-engine";
+import { splitIntoChunks, buildTwimlResponse } from "@/lib/twilio";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,7 +83,9 @@ function buildFullUrl(req: Request) {
 }
 
 function twiml(message: string) {
-  return new Response(`<Response><Message>${message}</Message></Response>`, {
+  const chunks = splitIntoChunks(message);
+  const xml = buildTwimlResponse(chunks);
+  return new Response(xml, {
     status: 200,
     headers: { "Content-Type": "text/xml" },
   });

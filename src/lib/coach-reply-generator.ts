@@ -1,6 +1,7 @@
 // src/lib/coach-reply-generator.ts
 
 import OpenAI from "openai";
+import { getTopRelevantChunks } from "@/lib/ask-pat/chunks";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { buildProfileContext } from "@/lib/profile-context";
 import { buildCoachPatContext } from "@/lib/coach-pat-context";
@@ -10,6 +11,8 @@ type Params = {
   userId: string;
   dayNumber: number;
   userMessage: string;
+  actionItem?: string;
+  source?: "app" | "sms";
 };
 
 export type CoachReplyMeta = {
@@ -100,10 +103,11 @@ function finalizeOutput(text: string): string {
   return normalizeText(t);
 }
 
-function enforceHardCaps(text: string): string {
-  const MAX_SENTENCES = 5;
-  const MAX_TOTAL_WORDS = 75;
-  const MAX_WORDS_PER_SENTENCE = 18;
+function enforceHardCaps(text: string, source: "app" | "sms" = "app"): string {
+  const isSms = source === "sms";
+  const MAX_SENTENCES = isSms ? 3 : 5;
+  const MAX_TOTAL_WORDS = isSms ? 45 : 75;
+  const MAX_WORDS_PER_SENTENCE = isSms ? 15 : 18;
 
   const sentences = splitIntoSentences(text);
 
@@ -123,6 +127,19 @@ function enforceHardCaps(text: string): string {
   }
 
   return normalizeText(result);
+}
+
+/** Hard character cap for SMS. Trim at sentence boundary if over. */
+function enforceSmsCharCap(text: string, maxChars: number): string {
+  if (!text || text.length <= maxChars) return text;
+  const sentences = splitIntoSentences(text);
+  let acc = "";
+  for (const s of sentences) {
+    const next = acc ? `${acc} ${s}` : s;
+    if (next.length > maxChars) break;
+    acc = next;
+  }
+  return acc ? normalizeText(acc) : sentences[0] ? normalizeText(sentences[0]) : text.slice(0, maxChars);
 }
 
 function firstSentence(text: string): string | null {
@@ -187,6 +204,67 @@ async function loadRecentConversation(userId: string, dayNumber: number) {
   };
 }
 
+async function loadMemorySummaries(userId: string) {
+  let dailySummariesBlock = "none";
+  let weeklySummaryBlock = "none";
+
+  try {
+    const { data: dailySummaries, error: dailyErr } = await supabaseServer
+      .from("daily_summaries")
+      .select("daily_summaries, day_number")
+      .eq("clerk_user_id", userId)
+      .order("day_number", { ascending: false })
+      .limit(3);
+
+    if (dailyErr) {
+      console.error("Coach reply daily_summaries failed:", dailyErr.message);
+    } else if (dailySummaries && dailySummaries.length > 0) {
+      const lines = [...dailySummaries]
+        .reverse()
+        .map((row) => `Day ${row.day_number}: ${row.daily_summaries}`)
+        .filter(Boolean);
+
+      if (lines.length > 0) {
+        dailySummariesBlock = lines.join("\n");
+      }
+    }
+
+    const { data: weeklySummary, error: weeklyErr } = await supabaseServer
+      .from("weekly_summaries")
+      .select("weekly_summary")
+      .eq("clerk_user_id", userId)
+      .order("week_end_day", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (weeklyErr) {
+      console.error("Coach reply weekly_summaries failed:", weeklyErr.message);
+    } else if (weeklySummary?.weekly_summary) {
+      weeklySummaryBlock = normalizeText(weeklySummary.weekly_summary);
+    }
+  } catch (err) {
+    console.error("Coach reply memory summaries failed:", err);
+  }
+
+  return { dailySummariesBlock, weeklySummaryBlock };
+}
+
+async function loadTodayJournalEntry(userId: string, dayNumber: number) {
+  try {
+    const { data } = await supabaseServer
+      .from("journal_entries")
+      .select("content")
+      .eq("clerk_user_id", userId)
+      .eq("day_number", dayNumber)
+      .maybeSingle();
+
+    return normalizeText(data?.content ?? "") || "none";
+  } catch (err) {
+    console.error("Coach reply journal load failed:", err);
+    return "none";
+  }
+}
+
 /* ======================================================
    Fallback
 ====================================================== */
@@ -205,10 +283,14 @@ function fallbackReply(dayNumber: number): string {
    Generator
 ====================================================== */
 
+const SMS_HARD_CHAR_CAP = 280;
+
 export async function generateCoachReply({
   userId,
   dayNumber,
   userMessage,
+  actionItem,
+  source = "app",
 }: Params): Promise<CoachReplyResult> {
   const openai = getOpenAIClient();
 
@@ -218,13 +300,18 @@ export async function generateCoachReply({
   const coachContext = await buildCoachPatContext({
     userId,
     dayNumber,
-    actionItem: "",
+    actionItem: actionItem ?? "",
   });
 
   const { conversation, lastCoachInsight } = await loadRecentConversation(
     userId,
     dayNumber
   );
+
+  const { dailySummariesBlock, weeklySummaryBlock } =
+    await loadMemorySummaries(userId);
+
+  const todayJournal = await loadTodayJournalEntry(userId, dayNumber);
 
   const practiceSummary = coachContext?.today_practice?.practice_summary || "none";
 
@@ -237,9 +324,31 @@ export async function generateCoachReply({
 
   const cleanUserMessage = normalizeText(userMessage);
 
+  // Retrieve a relevant Pat story using embeddings
+  let storyContext = "none";
+
+  try {
+    const embed = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: cleanUserMessage,
+    });
+
+    const queryEmbedding = embed.data?.[0]?.embedding;
+
+    if (queryEmbedding) {
+      const chunks = getTopRelevantChunks(queryEmbedding, 1);
+      if (chunks.length > 0) {
+        storyContext = chunks[0].text;
+      }
+    }
+  } catch (err) {
+    console.error("Coach story retrieval failed:", err);
+  }
+
   const MODEL = "gpt-4.1-mini";
   const TEMPERATURE = 0.5;
-  const MAX_TOKENS = 220;
+  const isSms = source === "sms";
+  const MAX_TOKENS = isSms ? 120 : 220;
 
   const systemPrompt = `
 You are Coach Pat Summitt.
@@ -249,7 +358,7 @@ Calm. Direct. Simple language. Short sentences.
 
 Rules:
 - One paragraph
-- Up to 5 sentences
+- Up to ${isSms ? "3" : "5"} sentences
 - No emojis
 - No exclamation marks
 - No contractions
@@ -257,6 +366,7 @@ Rules:
 - Never mention journals, summaries, or past entries
 - Use at most ONE personal detail
 - Use at most ONE pattern
+- When helpful, reference patterns from the athlete's recent practice history.
 - Use LAST_COACH_INSIGHT only to avoid repeating yourself
 - Do not quote LAST_COACH_INSIGHT back word-for-word
 - If the user is circling the same issue, move the coaching forward one step
@@ -269,6 +379,15 @@ DAY: ${dayNumber}
 TODAY PRACTICE:
 ${practiceSummary}
 
+TODAY'S JOURNAL REFLECTION:
+${todayJournal}
+
+RECENT DAILY PRACTICE:
+${dailySummariesBlock}
+
+WEEKLY REFLECTION:
+${weeklySummaryBlock}
+
 PATTERN:
 ${primaryPattern}
 
@@ -280,6 +399,9 @@ ${lastCoachInsight}
 
 RECENT CONVERSATION:
 ${conversation}
+
+RELEVANT STORY FROM PAT'S CAREER:
+${storyContext}
 
 ${buildProfileBlock(profile)}
 
@@ -318,7 +440,8 @@ Guidelines:
   raw = removeApostrophes(raw);
   raw = stripMemoryMetaLanguage(raw);
   raw = finalizeOutput(raw);
-  raw = enforceHardCaps(raw);
+  raw = enforceHardCaps(raw, source);
+  if (source === "sms") raw = enforceSmsCharCap(raw, SMS_HARD_CHAR_CAP);
 
   if (!raw || raw.length < 10) {
     raw = fallback;
