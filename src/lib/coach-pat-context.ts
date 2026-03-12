@@ -33,6 +33,10 @@ export type CoachPatContext = {
     health?: string;
     pressure?: string;
   };
+  yesterday_summary?: {
+    available: boolean;
+    text?: string;
+  };
 };
 
 /* -------------------------------------------------- */
@@ -183,6 +187,19 @@ async function getRecentSummary(userId: string): Promise<string | null> {
   return text || null;
 }
 
+async function getYesterdaySummary(userId: string): Promise<string | null> {
+  const { data } = await supabaseServer
+    .from("daily_summaries")
+    .select("summary_text")
+    .eq("clerk_user_id", userId)
+    .order("day_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const text = normalizeText((data as any)?.summary_text ?? "");
+  return text || null;
+}
+
 async function getTopPatterns(userId: string): Promise<string[]> {
   const { data } = await supabaseServer
     .from("pattern_insights")
@@ -255,6 +272,8 @@ export async function buildCoachPatContext({
 
   const profile = await buildProfileContextForCoachNote(userId);
 
+  const yesterdaySummary = await getYesterdaySummary(userId);
+
   return {
     patterns,
     recent_summary: {
@@ -278,6 +297,10 @@ export async function buildCoachPatContext({
       work: profile.work,
       health: profile.health,
       pressure: profile.pressure,
+    },
+    yesterday_summary: {
+      available: Boolean(yesterdaySummary),
+      text: yesterdaySummary || undefined,
     },
   };
 }

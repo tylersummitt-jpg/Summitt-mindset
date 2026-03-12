@@ -105,6 +105,7 @@ PRACTICE_TYPE: ${context.today_practice.practice_summary}
 PRACTICE_ACTION: ${practiceAction}
 PATTERN: ${primaryPattern || "none"}
 RECENT: ${context.recent_summary.summary_text || "none"}
+YESTERDAY: ${context.yesterday_summary?.text || "none"}
 
 ${buildProfileBlock(context.profile_context)}
 `;

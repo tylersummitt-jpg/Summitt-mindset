@@ -204,7 +204,14 @@ export default async function HomePage() {
       <section className="bg-white border-t">
         <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
           <h2 className="text-3xl font-bold">
-            Don&apos;t let inspiration stop at the documentary.
+            Don&apos;t let inspiration stop at the{" "}
+            <Link
+              href="/pat-summitt-documentary"
+              className="text-[var(--brand)] font-semibold hover:underline"
+            >
+              documentary
+            </Link>
+            .
           </h2>
           <p className="text-lg text-gray-700">
             Millions of people are rediscovering Pat Summitt through

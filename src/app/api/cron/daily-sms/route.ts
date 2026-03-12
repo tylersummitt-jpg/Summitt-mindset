@@ -281,25 +281,21 @@ export async function GET(req: Request) {
         dayNumber,
       });
 
-      const reentryLine = getReentryLine(level);
+      const completionCTA = getCompletionCTA(dayNumber);
+      const trainingHeader = getTrainingCampHeader(dayNumber);
+      const firstName = (user as any).firstName?.trim() || "there";
 
       let smsBody = "";
 
-      const trainingHeader = getTrainingCampHeader(dayNumber);
+      smsBody += `Good morning ${firstName}.\n\n`;
+      smsBody += `${note.noteText}\n\n`;
+      smsBody += `* Coach Pat\n\n`;
       if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
-      if (reentryLine) smsBody += `${reentryLine}\n\n`;
-
-      const coachHeader = getCoachHeader(dayNumber);
-      const completionCTA = getCompletionCTA(dayNumber);
-
-      smsBody +=
-        `${coachHeader}\n\n` +
-        `${note.noteText}\n\n` +
-        `TODAY'S PRACTICE\n\n` +
-        `${version.actionItem}\n\n` +
-        `TODAY'S REFLECTION\n\n` +
-        `${version.reflectionPrompt}\n\n` +
-        `${completionCTA}`;
+      smsBody += `TODAY'S PRACTICE\n\n`;
+      smsBody += `${version.actionItem}\n\n`;
+      smsBody += `TODAY'S REFLECTION\n\n`;
+      smsBody += `${version.reflectionPrompt}\n\n`;
+      smsBody += completionCTA;
 
       // Twilio readiness + dry run
       if (!isTwilioReady() || SMS_DRY_RUN) {

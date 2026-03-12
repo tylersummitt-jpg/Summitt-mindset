@@ -6,6 +6,24 @@ export const metadata: Metadata = {
     "Pat Summitt Documentary Guide: ESPN Films, Pat XO, Cinderella Season, and New 2026 Releases",
   description:
     "A complete guide to Pat Summitt documentaries including ESPN films like Pat XO, The Cinderella Season, and the new 2026 Pat Summitt documentaries produced with Omaha Productions, Trilogy Productions, Rock’n Robin Productions, and Tribeca Productions.",
+  alternates: {
+    canonical: "https://summittmindset.com/pat-summitt-documentary",
+  },
+  openGraph: {
+    title:
+      "Pat Summitt Documentary Guide: ESPN Films, Pat XO, Cinderella Season, and New 2026 Releases",
+    description:
+      "A complete guide to Pat Summitt documentaries including ESPN films like Pat XO, The Cinderella Season, and the new 2026 Pat Summitt documentaries produced with Omaha Productions, Trilogy Productions, Rock'n Robin Productions, and Tribeca Productions.",
+    url: "https://summittmindset.com/pat-summitt-documentary",
+    type: "article",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title:
+      "Pat Summitt Documentary Guide: ESPN Films, Pat XO, Cinderella Season, and New 2026 Releases",
+    description:
+      "A complete guide to Pat Summitt documentaries including ESPN films like Pat XO, The Cinderella Season, and the new 2026 Pat Summitt documentaries.",
+  },
 };
 
 export default function PatSummittDocumentaryPage() {
@@ -37,7 +55,9 @@ export default function PatSummittDocumentaryPage() {
             This page is a simple guide to the best-known Pat Summitt
             documentaries and films, including new releases, ESPN projects like
             <em> Pat XO</em>, and stories about the seasons that defined her
-            career.
+            career. Whether you spell it Pat Summitt or Pat Summit, this guide
+            covers the documentaries and films about her life on ESPN, Hulu, and
+            beyond.
           </p>
         </div>
       </section>
@@ -249,6 +269,49 @@ export default function PatSummittDocumentaryPage() {
           </li>
           <li>High standards</li>
           <li>Competitive excellence</li>
+        </ul>
+      </section>
+
+      {/* --------------------------------------------------
+          RELATED PAT SUMMITT DOCUMENTARIES
+          -------------------------------------------------- */}
+      <section className="max-w-3xl mx-auto px-4 py-12">
+        <h2 className="text-xl font-bold text-[var(--text)] mb-6">
+          Related Pat Summitt Documentaries
+        </h2>
+        <ul className="space-y-3 text-[var(--text)] leading-relaxed list-disc pl-6">
+          <li>
+            <Link
+              href="/pat-xo-documentary"
+              className="text-[var(--brand)] font-semibold hover:underline"
+            >
+              Pat XO Documentary
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/the-cinderella-season-documentary"
+              className="text-[var(--brand)] font-semibold hover:underline"
+            >
+              The Cinderella Season Documentary
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/pat-summitt-espn-documentary"
+              className="text-[var(--brand)] font-semibold hover:underline"
+            >
+              ESPN Pat Summitt Films
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/pat-summitt-hulu-documentary"
+              className="text-[var(--brand)] font-semibold hover:underline"
+            >
+              Pat Summitt Hulu Documentary
+            </Link>
+          </li>
         </ul>
       </section>
 

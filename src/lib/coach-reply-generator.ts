@@ -86,6 +86,20 @@ function stripMemoryMetaLanguage(text: string): string {
   return normalizeText(t);
 }
 
+function stripThirdPersonPatReferences(text: string): string {
+  let t = text || "";
+  const patterns: RegExp[] = [
+    /\bPat used to say\b/gi,
+    /\bPat believed\b/gi,
+    /\bPat would say\b/gi,
+    /\bCoach Pat\b/gi,
+  ];
+  for (const re of patterns) {
+    t = t.replace(re, "");
+  }
+  return normalizeText(t);
+}
+
 function stripEmojis(text: string): string {
   return (text || "").replace(/\p{Emoji}/gu, "");
 }
@@ -106,7 +120,7 @@ function finalizeOutput(text: string): string {
 function enforceHardCaps(text: string, source: "app" | "sms" = "app"): string {
   const isSms = source === "sms";
   const MAX_SENTENCES = isSms ? 3 : 5;
-  const MAX_TOTAL_WORDS = isSms ? 45 : 75;
+  const MAX_TOTAL_WORDS = isSms ? 50 : 75;
   const MAX_WORDS_PER_SENTENCE = isSms ? 15 : 18;
 
   const sentences = splitIntoSentences(text);
@@ -129,7 +143,7 @@ function enforceHardCaps(text: string, source: "app" | "sms" = "app"): string {
   return normalizeText(result);
 }
 
-/** Hard character cap for SMS. Trim at sentence boundary if over. */
+/** Hard character cap for SMS. Trim at sentence or word boundary. Never hard-slice. */
 function enforceSmsCharCap(text: string, maxChars: number): string {
   if (!text || text.length <= maxChars) return text;
   const sentences = splitIntoSentences(text);
@@ -139,7 +153,21 @@ function enforceSmsCharCap(text: string, maxChars: number): string {
     if (next.length > maxChars) break;
     acc = next;
   }
-  return acc ? normalizeText(acc) : sentences[0] ? normalizeText(sentences[0]) : text.slice(0, maxChars);
+  if (acc) return normalizeText(acc);
+  if (sentences[0] && sentences[0].length <= maxChars) {
+    return normalizeText(sentences[0]);
+  }
+  if (sentences[0]) {
+    const words = sentences[0].split(" ").filter(Boolean);
+    let built = "";
+    for (const w of words) {
+      const next = built ? `${built} ${w}` : w;
+      if (next.length > maxChars) break;
+      built = next;
+    }
+    return built ? normalizeText(built) : normalizeText(words[0] || "");
+  }
+  return normalizeText(text);
 }
 
 function firstSentence(text: string): string | null {
@@ -348,7 +376,7 @@ export async function generateCoachReply({
   const MODEL = "gpt-4.1-mini";
   const TEMPERATURE = 0.5;
   const isSms = source === "sms";
-  const MAX_TOKENS = isSms ? 120 : 220;
+  const MAX_TOKENS = isSms ? 180 : 220;
 
   const systemPrompt = `
 You are Coach Pat Summitt.
@@ -358,7 +386,7 @@ Calm. Direct. Simple language. Short sentences.
 
 Rules:
 - One paragraph
-- Up to ${isSms ? "3" : "5"} sentences
+- Up to 5 sentences
 - No emojis
 - No exclamation marks
 - No contractions
@@ -370,6 +398,10 @@ Rules:
 - Use LAST_COACH_INSIGHT only to avoid repeating yourself
 - Do not quote LAST_COACH_INSIGHT back word-for-word
 - If the user is circling the same issue, move the coaching forward one step
+- Speak directly as Pat in first person.
+- Use "I" or "my" when referencing your experience.
+- Never refer to Pat in third person.
+- Do not say phrases like "Pat used to say", "Pat believed", "Pat would say", or "Coach Pat".
 `.trim();
 
   const userPrompt = `
@@ -400,7 +432,7 @@ ${lastCoachInsight}
 RECENT CONVERSATION:
 ${conversation}
 
-RELEVANT STORY FROM PAT'S CAREER:
+RELEVANT STORY FROM YOUR CAREER:
 ${storyContext}
 
 ${buildProfileBlock(profile)}
@@ -439,6 +471,7 @@ Guidelines:
   raw = expandContractions(raw);
   raw = removeApostrophes(raw);
   raw = stripMemoryMetaLanguage(raw);
+  raw = stripThirdPersonPatReferences(raw);
   raw = finalizeOutput(raw);
   raw = enforceHardCaps(raw, source);
   if (source === "sms") raw = enforceSmsCharCap(raw, SMS_HARD_CHAR_CAP);
