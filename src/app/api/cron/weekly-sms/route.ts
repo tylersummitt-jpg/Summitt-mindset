@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone } from "@/lib/timezone";
-import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
+import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -178,7 +178,7 @@ export async function GET(req: Request) {
       }
 
       try {
-        const result = await sendSMSChunked({
+        const message = await sendSMS({
           to: identity.phone_number,
           body: smsBody,
         });
@@ -186,9 +186,8 @@ export async function GET(req: Request) {
         await supabaseServer
           .from("sms_weekly_send_events")
           .update({
-            message_sid: result.firstSid,
-            status: result.firstStatus,
-            metadata: { chunkCount: result.chunkCount, chunkLengths: result.chunkLengths },
+            message_sid: message.sid,
+            status: message.status,
           })
           .eq("clerk_user_id", user.id)
           .eq("week_key", weekKey);

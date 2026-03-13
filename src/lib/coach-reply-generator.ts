@@ -118,29 +118,11 @@ function finalizeOutput(text: string): string {
 }
 
 function enforceHardCaps(text: string, source: "app" | "sms" = "app"): string {
-  const isSms = source === "sms";
-  const MAX_SENTENCES = isSms ? 3 : 5;
-  const MAX_TOTAL_WORDS = isSms ? 50 : 75;
-  const MAX_WORDS_PER_SENTENCE = isSms ? 15 : 18;
+  const MAX_SENTENCES = 5;
 
   const sentences = splitIntoSentences(text);
-
-  const cappedSentences = sentences.slice(0, MAX_SENTENCES).map((s) => {
-    const words = s.split(" ").filter(Boolean);
-    if (words.length > MAX_WORDS_PER_SENTENCE) {
-      return words.slice(0, MAX_WORDS_PER_SENTENCE).join(" ");
-    }
-    return s;
-  });
-
-  let result = cappedSentences.join(" ");
-
-  const allWords = result.split(" ").filter(Boolean);
-  if (allWords.length > MAX_TOTAL_WORDS) {
-    result = allWords.slice(0, MAX_TOTAL_WORDS).join(" ");
-  }
-
-  return normalizeText(result);
+  const cappedSentences = sentences.slice(0, MAX_SENTENCES);
+  return normalizeText(cappedSentences.join(" "));
 }
 
 /** Hard character cap for SMS. Trim at sentence or word boundary. Never hard-slice. */
