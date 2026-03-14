@@ -51,6 +51,7 @@ const isPublicRoute = createRouteMatcher([
   "/pat-summitt-leadership-quotes",
   "/pat-summitt-leadership-challenge",
   "/challenge(.*)",
+  "/pulse",
 
   // Clerk auth pages should always be public
   "/sign-in(.*)",
@@ -62,6 +63,9 @@ const isPublicRoute = createRouteMatcher([
 
   // Challenge signup (anonymous email capture)
   "/api/challenge/signup",
+
+  // Pulse flow (SMS users open /pulse?t=... and POST to pulse-reply without session)
+  "/api/sms/pulse-reply",
 
   // ✅ Cron routes must be public (secured by CRON_SECRET inside handler)
   "/api/cron(.*)",

@@ -29,8 +29,8 @@ function buildPulseLink(clerk_user_id: string, day_number: number) {
 
   const token = createPulseToken({ clerk_user_id, day_number, ttlDays: 14 });
 
-  // ✅ IMPORTANT: route is /sms/pulse (not /pulse)
-  return `${APP_BASE_URL.replace(/\/$/, "")}/sms/pulse?t=${encodeURIComponent(
+  // ✅ IMPORTANT: route is /pulse (SMS users open this link without a session)
+  return `${APP_BASE_URL.replace(/\/$/, "")}/pulse?t=${encodeURIComponent(
     token
   )}`;
 }

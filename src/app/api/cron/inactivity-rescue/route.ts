@@ -82,6 +82,9 @@ export async function GET(req: Request) {
         // Only consider active subscribers (best-effort)
         if (md.summittSubscribed !== true) continue;
 
+        // SMS must be enabled (same as daily-sms)
+        if (md.smsEnabled !== true) continue;
+
         // Need lastCompletedAt to evaluate inactivity
         if (typeof md.lastCompletedAt !== "string") continue;
 
@@ -101,6 +104,17 @@ export async function GET(req: Request) {
           .limit(1);
 
         if (alreadySent && alreadySent.length > 0) continue;
+
+        // Identity record (canonical opt-out) — same pattern as daily-sms
+        const { data: identity } = await supabaseServer
+          .from("sms_identities")
+          .select("phone_number, sms_enabled, stopped_at")
+          .eq("clerk_user_id", clerk_user_id)
+          .maybeSingle();
+
+        if (!identity?.phone_number) continue;
+        if (identity.sms_enabled !== true) continue;
+        if (typeof identity.stopped_at === "string") continue;
 
         const link = buildRescueLink(clerk_user_id);
 
@@ -136,7 +150,7 @@ export async function GET(req: Request) {
           `Quick check-in — want a smaller version tomorrow?\n\n` +
           `Tap here: ${link}`;
 
-        await sendSms("TODO_PHONE", body);
+        await sendSms(identity.phone_number, body);
 
         await supabaseServer.from("feedback_events").insert({
           clerk_user_id,
