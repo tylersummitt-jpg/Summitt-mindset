@@ -1,24 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendChallengeEmail } from "@/lib/send-challenge-email";
 import { supabaseServer } from "@/lib/supabase-server";
-
-function getNext8AMEastern() {
-  const now = new Date();
-  const est = new Date(
-    now.toLocaleString("en-US", { timeZone: "America/New_York" })
-  );
-
-  const next = new Date(est);
-  next.setHours(8, 0, 0, 0);
-
-  if (est >= next) {
-    next.setDate(next.getDate() + 1);
-  }
-
-  return new Date(
-    next.toLocaleString("en-US", { timeZone: "UTC" })
-  ).toISOString();
-}
+import { getNext8AMEastern } from "@/lib/timezone";
 
 export async function POST(request: Request) {
   let body: { email?: string };

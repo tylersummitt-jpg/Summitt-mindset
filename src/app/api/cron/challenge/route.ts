@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendChallengeEmail } from "@/lib/send-challenge-email";
 import { supabaseServer } from "@/lib/supabase-server";
+import { getNext8AMEastern } from "@/lib/timezone";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -25,24 +26,6 @@ function validateCronSecret(req: Request) {
   if (secret && secret === CRON_SECRET) return true;
 
   return false;
-}
-
-function getNext8AMEastern() {
-  const now = new Date();
-  const est = new Date(
-    now.toLocaleString("en-US", { timeZone: "America/New_York" })
-  );
-
-  const next = new Date(est);
-  next.setHours(8, 0, 0, 0);
-
-  if (est >= next) {
-    next.setDate(next.getDate() + 1);
-  }
-
-  return new Date(
-    next.toLocaleString("en-US", { timeZone: "UTC" })
-  ).toISOString();
 }
 
 async function handleCron(request: Request) {
@@ -72,16 +55,21 @@ async function handleCron(request: Request) {
     }
 
     const nextDay = participant.challenge_day + 1;
-    await supabaseServer
+    const { data: updated } = await supabaseServer
       .from("challenge_participants")
       .update({
         challenge_day: nextDay,
         completed: nextDay > 7,
         next_send_at: getNext8AMEastern(),
+        last_sent_at: new Date().toISOString(),
       })
-      .eq("id", participant.id);
+      .eq("id", participant.id)
+      .eq("challenge_day", participant.challenge_day)
+      .select("id");
 
-    processed++;
+    if (updated && updated.length > 0) {
+      processed++;
+    }
   }
 
   return NextResponse.json({ success: true, processed });
