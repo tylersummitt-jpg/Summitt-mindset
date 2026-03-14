@@ -1,12 +1,3 @@
-import { notFound } from "next/navigation";
-
-export default function FilmRoomPreviewPage() {
-  notFound();
-}
-
-/*
-PREVIOUS IMPLEMENTATION BELOW (TEMPORARILY DISABLED)
-
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -41,7 +32,7 @@ export default async function FilmRoomPreviewPage() {
     <main className="min-h-screen bg-[var(--bg)]">
       {/* --------------------------------------------------
           HERO
-          -------------------------------------------------- *\/}
+          -------------------------------------------------- */}
       <section className="bg-[var(--ink)]">
         <div className="max-w-2xl mx-auto px-4 py-16 sm:py-24 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-[var(--text)] mb-5">
@@ -74,7 +65,7 @@ export default async function FilmRoomPreviewPage() {
 
       {/* --------------------------------------------------
           FILM ROOM LIBRARY (scale / social proof)
-          -------------------------------------------------- *\/}
+          -------------------------------------------------- */}
       <section className="max-w-6xl mx-auto px-4 py-12">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-2">
           Film Room Library
@@ -92,7 +83,7 @@ export default async function FilmRoomPreviewPage() {
 
       {/* --------------------------------------------------
           VIDEO PREVIEW GRID (locked — links to /subscribe)
-          -------------------------------------------------- *\/}
+          -------------------------------------------------- */}
       <section className="max-w-6xl mx-auto px-4 py-16">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-12">
           Featured in the Film Room
@@ -148,7 +139,7 @@ export default async function FilmRoomPreviewPage() {
 
       {/* --------------------------------------------------
           INSIDE THE FILM ROOM (conversion)
-          -------------------------------------------------- *\/}
+          -------------------------------------------------- */}
       <section className="max-w-6xl mx-auto px-4 py-12">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-6">
           Inside the Film Room
@@ -165,7 +156,7 @@ export default async function FilmRoomPreviewPage() {
 
       {/* --------------------------------------------------
           HOW FILM ROOM WORKS
-          -------------------------------------------------- *\/}
+          -------------------------------------------------- */}
       <section className="bg-[var(--ink)] py-16">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-12">
@@ -205,7 +196,7 @@ export default async function FilmRoomPreviewPage() {
 
       {/* --------------------------------------------------
           FINAL CTA
-          -------------------------------------------------- *\/}
+          -------------------------------------------------- */}
       <section className="max-w-2xl mx-auto px-4 py-20 text-center">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
           Great leadership leaves clues.
@@ -223,4 +214,3 @@ export default async function FilmRoomPreviewPage() {
     </main>
   );
 }
-*/
