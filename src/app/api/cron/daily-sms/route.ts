@@ -288,8 +288,8 @@ export async function GET(req: Request) {
       let smsBody = "";
 
       smsBody += `Good morning ${firstName}.\n\n`;
-      smsBody += `${note.noteText}\n\n`;
-      smsBody += `* Coach Pat\n\n`;
+      smsBody += `${note.noteText}\n`;
+      smsBody += `- Coach Pat\n\n`;
       if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
       smsBody += `TODAY'S PRACTICE\n\n`;
       smsBody += `${version.actionItem}\n\n`;
@@ -329,6 +329,7 @@ export async function GET(req: Request) {
           .update({
             message_sid: message.sid,
             status: message.status,
+            sms_body: smsBody,
             metadata: {
               note: "sent_to_twilio",
               timezone,

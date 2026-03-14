@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 
 export const runtime = "nodejs"; // IMPORTANT: ensures server runtime
 
@@ -33,6 +34,16 @@ async function fetchThumbnail(vimeoId: string): Promise<string | null> {
 }
 
 export async function POST() {
+  try {
+    await requireTylerAdmin();
+  } catch (err: any) {
+    const status = err?.status ?? 401;
+    return NextResponse.json(
+      { error: status === 401 ? "Unauthorized" : "Forbidden" },
+      { status }
+    );
+  }
+
   if (!VIMEO_TOKEN) {
     return NextResponse.json(
       { error: "Missing VIMEO_ACCESS_TOKEN" },

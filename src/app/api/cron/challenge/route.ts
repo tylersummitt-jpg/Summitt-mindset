@@ -2,6 +2,31 @@ import { NextResponse } from "next/server";
 import { sendChallengeEmail } from "@/lib/send-challenge-email";
 import { supabaseServer } from "@/lib/supabase-server";
 
+const CRON_SECRET = process.env.CRON_SECRET;
+
+function validateCronSecret(req: Request) {
+  const vercelCronHeader = req.headers.get("x-vercel-cron");
+  const isVercelCron =
+    vercelCronHeader === "1" ||
+    vercelCronHeader === "true" ||
+    vercelCronHeader === "True" ||
+    vercelCronHeader === "yes" ||
+    vercelCronHeader === "on";
+
+  if (isVercelCron) return true;
+
+  if (!CRON_SECRET) return false;
+
+  const header = req.headers.get("x-cron-secret");
+  if (header && header === CRON_SECRET) return true;
+
+  const url = new URL(req.url);
+  const secret = url.searchParams.get("secret");
+  if (secret && secret === CRON_SECRET) return true;
+
+  return false;
+}
+
 function getNext8AMEastern() {
   const now = new Date();
   const est = new Date(
@@ -21,9 +46,7 @@ function getNext8AMEastern() {
 }
 
 async function handleCron(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const secret = searchParams.get("secret");
-  if (secret !== "cron_8f3c9a1e5d2b7a6f0c4e9d8a7b6e5f1c") {
+  if (!validateCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
