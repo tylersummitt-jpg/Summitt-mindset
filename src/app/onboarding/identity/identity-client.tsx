@@ -11,6 +11,7 @@ function normalizeText(input: string): string {
 export default function IdentityClient(): ReactElement {
   const router = useRouter();
 
+  const [preferredName, setPreferredName] = useState("");
   const [lifeDesires, setLifeDesires] = useState("");
   const [ninetyDayVision, setNinetyDayVision] = useState("");
   const [supportArea, setSupportArea] = useState("");
@@ -22,6 +23,7 @@ export default function IdentityClient(): ReactElement {
     setError(null);
 
     const payload = {
+      preferred_name: normalizeText(preferredName) || null,
       life_desires: normalizeText(lifeDesires),
       ninety_day_vision: normalizeText(ninetyDayVision),
       support_area: normalizeText(supportArea),
@@ -61,6 +63,21 @@ export default function IdentityClient(): ReactElement {
   return (
     <div className="space-y-8">
       <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-semibold text-gray-900 mb-2">
+            What do you prefer to be called?{" "}
+            <span className="font-normal text-gray-500">(optional)</span>
+          </label>
+
+          <input
+            type="text"
+            value={preferredName}
+            onChange={(e) => setPreferredName(e.target.value)}
+            className="w-full border rounded-lg p-4 text-sm text-gray-900"
+            placeholder="First name or nickname"
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">
             What do you want out of life right now?

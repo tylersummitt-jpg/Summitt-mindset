@@ -14,8 +14,6 @@ import { redirect } from "next/navigation";
  * - /onboarding
  * - /onboarding/identity
  * - /onboarding/relationships
- * - /onboarding/work
- * - /onboarding/health
  * - /onboarding/pressure
  * - /onboarding/sms
  * - /onboarding/complete

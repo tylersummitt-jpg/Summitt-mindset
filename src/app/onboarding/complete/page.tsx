@@ -71,7 +71,7 @@ export default async function CompletePage(): Promise<ReactElement> {
 
   return (
     <div className="space-y-10 text-center">
-      <OnboardingProgress currentStep={7} />
+      <OnboardingProgress currentStep={5} />
 
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-wide text-gray-500">

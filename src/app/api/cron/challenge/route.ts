@@ -5,7 +5,12 @@ import { getNext8AMEastern } from "@/lib/timezone";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
+/**
+ * Vercel sends CRON_SECRET as Authorization: Bearer <CRON_SECRET> when the env var is set.
+ * We also accept x-vercel-cron, x-cron-secret, and ?secret= for compatibility and safe testing.
+ */
 function validateCronSecret(req: Request) {
+  // 1) Vercel cron header (truthy values; no CRON_SECRET required)
   const vercelCronHeader = req.headers.get("x-vercel-cron");
   const isVercelCron =
     vercelCronHeader === "1" ||
@@ -16,6 +21,11 @@ function validateCronSecret(req: Request) {
 
   if (isVercelCron) return true;
 
+  // 2) Authorization: Bearer <CRON_SECRET> (Vercel's documented method)
+  const authHeader = req.headers.get("authorization");
+  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) return true;
+
+  // 3) Manual secret (header or query param) for compatibility and safe testing
   if (!CRON_SECRET) return false;
 
   const header = req.headers.get("x-cron-secret");

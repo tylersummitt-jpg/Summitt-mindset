@@ -26,10 +26,19 @@ function normalizeToE164(input: string): string | null {
   return null;
 }
 
+const SMS_TIME_OPTIONS = [
+  { value: "early_morning", label: "Early Morning (6–8am)" },
+  { value: "morning", label: "Morning (8–10am)" },
+  { value: "midday", label: "Late morning (10–12)" },
+] as const;
+
 export default function SmsClient() {
   const router = useRouter();
 
   const [smsEnabled, setSmsEnabled] = useState(true);
+  const [smsTimePreference, setSmsTimePreference] = useState<
+    "early_morning" | "morning" | "midday"
+  >("morning");
   const [phoneInput, setPhoneInput] = useState("");
   const [consentChecked, setConsentChecked] = useState(false);
 
@@ -63,10 +72,7 @@ export default function SmsClient() {
             smsEnabled: true,
             phoneNumber: normalized,
             smsDisclosureAccepted: true,
-
-            // NOTE TO SELF:
-            // We intentionally do NOT send any time preference.
-            // Server will hard-lock smsTimePreference to "morning".
+            smsTimePreference,
           }),
         });
 
@@ -94,6 +100,7 @@ export default function SmsClient() {
       credentials: "include",
       body: JSON.stringify({
         smsEnabled: false,
+        smsTimePreference: smsTimePreference,
       }),
     });
 
@@ -140,6 +147,30 @@ export default function SmsClient() {
 
         {smsEnabled && (
           <div className="space-y-4 pt-4 border-t">
+            <div>
+              <label className="text-sm font-medium text-gray-900 block mb-2">
+                When would you like to receive your daily practice text?
+              </label>
+              <div className="space-y-2">
+                {SMS_TIME_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-3 text-sm text-gray-800 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="smsTimePreference"
+                      value={opt.value}
+                      checked={smsTimePreference === opt.value}
+                      onChange={() => setSmsTimePreference(opt.value)}
+                      className="border-gray-300"
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium text-gray-900">
                 Mobile Number

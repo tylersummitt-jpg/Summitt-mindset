@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const {
+      preferred_name,
       life_desires,
       ninety_day_vision,
       support_area
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
       .upsert(
         {
           clerk_user_id: userId,
+          preferred_name: preferred_name || null,
           life_desires,
           ninety_day_vision,
           support_area

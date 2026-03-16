@@ -91,7 +91,7 @@ export default function PressureClient(): ReactElement {
 
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">
-            What brings the best version of you out?
+            When does the best version of you show up?
           </label>
 
           <textarea
@@ -113,7 +113,7 @@ export default function PressureClient(): ReactElement {
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => router.push("/onboarding/health")}
+          onClick={() => router.push("/onboarding/relationships")}
           className="text-sm underline text-gray-500"
         >
           ← Back

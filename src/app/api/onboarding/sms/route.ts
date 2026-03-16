@@ -17,7 +17,7 @@ import { sendSMS, isTwilioReady } from "@/lib/twilio";
  * - Send ONE onboarding confirmation text (compliance required)
  *
  * NON-NEGOTIABLES:
- * - smsTimePreference is hard-locked to "morning"
+ * - smsTimePreference: early_morning | morning | midday (default: morning)
  * - Confirmation SMS must include STOP + HELP language
  * - Never fail onboarding if SMS send fails
  *
@@ -56,8 +56,13 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const smsEnabled = body?.smsEnabled === true;
 
-    // ✅ HARD LOCK: Morning only (8AM local)
-    const smsTimePreference = "morning" as const;
+    // Validate smsTimePreference; default to "morning"
+    const validTimePreferences = ["early_morning", "morning", "midday"] as const;
+    const rawSmsTimePreference = body?.smsTimePreference;
+    const smsTimePreference =
+      validTimePreferences.includes(rawSmsTimePreference)
+        ? rawSmsTimePreference
+        : "morning";
 
     if (smsEnabled && body?.smsDisclosureAccepted !== true) {
       return new Response(JSON.stringify({ error: "Consent required." }), {
@@ -96,7 +101,7 @@ export async function POST(req: Request) {
     // ---------------------------------------
     await updateClerkPublicMetadata(userId, {
       smsEnabled,
-      smsTimePreference, // always "morning"
+      smsTimePreference,
       phoneNumber: normalizedPhone,
       smsDisclosureAccepted: smsEnabled ? true : false,
       smsStopHelpDisclosureShownAt: new Date().toISOString(),

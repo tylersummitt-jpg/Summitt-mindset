@@ -43,7 +43,7 @@ export default async function SmsPage(): Promise<ReactElement> {
 
   return (
     <div>
-      <OnboardingProgress currentStep={6} />
+      <OnboardingProgress currentStep={4} />
 
       <h1 className="text-3xl font-bold mb-4">
         Daily SMS is part of training.

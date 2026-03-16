@@ -52,7 +52,7 @@ export default function RelationshipsClient(): ReactElement {
         return;
       }
 
-      router.push("/onboarding/work");
+      router.push("/onboarding/pressure");
       router.refresh();
     } catch {
       setError("Something went wrong.");

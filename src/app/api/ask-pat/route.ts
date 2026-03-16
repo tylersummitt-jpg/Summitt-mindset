@@ -4,6 +4,7 @@ import { getTopRelevantChunks } from "@/lib/ask-pat/chunks";
 import { supabaseServer } from "@/lib/supabase-server";
 import { auth } from "@clerk/nextjs/server";
 import { buildProfileContext } from "@/lib/profile-context";
+import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -253,9 +254,14 @@ ${bookContext}
       temperature: 0.6,
     });
 
-    const answer =
+    let answer =
       completion.choices[0]?.message?.content ??
       "I don't have an answer right now.";
+
+    const displayName = await getDisplayNameForUser(userId);
+    if (displayName) {
+      answer = `${displayName}, ${answer}`;
+    }
 
     return NextResponse.json({ answer, ok: true });
   } catch (err) {

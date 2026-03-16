@@ -146,6 +146,7 @@ composed,
 specific to today and to this person.
 
 Return ONLY the note.
+Do not sign the note. Do not add your name, "Coach Pat", "Pat", or any signature at the end.
 `.trim();
 
 /* ======================================================

@@ -18,13 +18,11 @@ const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
  * CRON AUTH
  * ======================================================
  *
- * IMPORTANT:
- * - Your Vercel cron invocations are currently returning 401.
- * - This is almost certainly because the x-vercel-cron header value is not exactly "1".
- * - We accept any truthy value ("1", "true", "True", etc.) to be robust.
+ * Vercel sends CRON_SECRET as Authorization: Bearer <CRON_SECRET> when the env var is set.
+ * We also accept x-vercel-cron, x-cron-secret, and ?secret= for compatibility and safe testing.
  */
 function validateCronSecret(req: Request) {
-  // 1) Vercel Cron header (preferred)
+  // 1) Vercel cron header (truthy values; no CRON_SECRET required)
   const vercelCronHeader = req.headers.get("x-vercel-cron");
   const isVercelCron =
     vercelCronHeader === "1" ||
@@ -35,7 +33,11 @@ function validateCronSecret(req: Request) {
 
   if (isVercelCron) return true;
 
-  // 2) Manual secret (header or query param)
+  // 2) Authorization: Bearer <CRON_SECRET> (Vercel's documented method)
+  const authHeader = req.headers.get("authorization");
+  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) return true;
+
+  // 3) Manual secret (header or query param) for compatibility and safe testing
   if (!CRON_SECRET) return false;
 
   const header = req.headers.get("x-cron-secret");
@@ -50,23 +52,22 @@ function validateCronSecret(req: Request) {
 
 /**
  * ======================================================
- * "NEVER MISS" SEND WINDOW
+ * PREFERENCE-BASED SEND WINDOW
  * ======================================================
  *
  * Goal:
  * - Each user receives at most ONE SMS per local day.
- * - We do NOT care if it's 8:00 vs 8:15. We just want it to happen.
- *
- * Implementation:
- * - If user is eligible AND it's after MORNING_START_HOUR local time,
- *   we will attempt to send if there's no sms_send_events record yet for todayKey.
- *
- * You can adjust this hour safely later.
+ * - Send time is based on smsTimePreference (early_morning=6, morning=8, midday=10).
+ * - 5-minute window prevents duplicate sends if cron runs multiple times.
  */
-const MORNING_START_HOUR = 6; // 6:00 AM local time
+const SEND_HOUR_BY_PREFERENCE = {
+  early_morning: 6,
+  morning: 8,
+  midday: 10,
+} as const;
 
-function shouldSendTodayNow(local: Date) {
-  return local.getHours() >= MORNING_START_HOUR;
+function isInSendWindow(local: Date, sendHour: number): boolean {
+  return local.getHours() === sendHour && local.getMinutes() < 5;
 }
 
 function getReentryLine(level: string): string | null {
@@ -213,10 +214,11 @@ export async function GET(req: Request) {
       // Key used for dedupe
       const todayKey = getDateKeyInTimezone(now, timezone);
 
-      // If not forced, only start trying after MORNING_START_HOUR local time.
-      // This ensures "never miss": once the user is in the day window, they'll be picked up
-      // by the next cron tick.
-      if (!force && !shouldSendTodayNow(localNow)) {
+      const pref = md.smsTimePreference ?? "morning";
+      const sendHour =
+        SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 8;
+
+      if (!force && !isInSendWindow(localNow, sendHour)) {
         stats.skippedNotTime += 1;
         continue;
       }
@@ -283,11 +285,9 @@ export async function GET(req: Request) {
 
       const completionCTA = getCompletionCTA(dayNumber);
       const trainingHeader = getTrainingCampHeader(dayNumber);
-      const firstName = (user as any).firstName?.trim() || "there";
 
       let smsBody = "";
 
-      smsBody += `Good morning ${firstName}.\n\n`;
       smsBody += `${note.noteText}\n`;
       smsBody += `- Coach Pat\n\n`;
       if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
