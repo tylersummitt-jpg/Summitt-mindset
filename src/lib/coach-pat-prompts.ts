@@ -119,7 +119,7 @@ If STALENESS is "fresh" or "normal":
 
 PERSONALIZATION RULES
 - If PROFILE contains useful memory (what they carry, who they show up for, what they want), anchor the note to ONE of those details so the user feels known. Do not list profile facts or quote PROFILE language. One subtle reference is enough (e.g. a line that reflects their real life without explaining how you know).
-- Use the user’s name at most once.
+- Do not rely on the user's name. Focus on natural, direct coaching.
 - Reference at most ONE pattern.
 - Mention at most ONE profile detail.
 - Do not stack identity traits.

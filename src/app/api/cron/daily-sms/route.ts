@@ -163,6 +163,7 @@ export async function GET(req: Request) {
     reserved: 0,
     alreadyReservedOrSentToday: 0,
     sent: 0,
+    retried: 0,
     dryRun: 0,
     skippedNotTime: 0,
     skippedMissingIdentity: 0,
@@ -218,14 +219,135 @@ export async function GET(req: Request) {
       const sendHour =
         SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 8;
 
-      if (!force && !isInSendWindow(localNow, sendHour)) {
+      // STEP 1: Read existing event before reserve (and before window check)
+      const { data: existingEvent } = await supabaseServer
+        .from("sms_send_events")
+        .select("id, status, metadata")
+        .eq("clerk_user_id", user.id)
+        .eq("day_key", todayKey)
+        .maybeSingle();
+
+      // Retries bypass send window; first-time sends require it
+      const meta = existingEvent?.metadata as Record<string, unknown> | undefined;
+      const retryCountFromMeta =
+        typeof meta?.retry_count === "number" ? meta.retry_count : 0;
+      const isRetryPending =
+        existingEvent?.status === "send_failed" && retryCountFromMeta < 3;
+
+      if (!existingEvent && !force && !isInSendWindow(localNow, sendHour)) {
         stats.skippedNotTime += 1;
         continue;
       }
 
       stats.eligible += 1;
 
-      // Reserve (dedupe gate)
+      // STEP 2 & 3: Handle existing row or proceed to reserve
+      if (existingEvent) {
+        // CASE A: send_failed with retries left
+        if (existingEvent.status === "send_failed") {
+          const existingMeta = (existingEvent.metadata || {}) as Record<string, unknown>;
+          const retryCount = typeof existingMeta.retry_count === "number" ? existingMeta.retry_count : 0;
+
+          if (retryCount < 3) {
+            // Check completion (user may have completed since failure)
+            const { data: completed } = await supabaseServer
+              .from("daily_completion_events")
+              .select("id")
+              .eq("clerk_user_id", user.id)
+              .eq("day_key", todayKey)
+              .limit(1);
+
+            if (completed && completed.length > 0) {
+              await supabaseServer
+                .from("sms_send_events")
+                .update({
+                  status: "skipped_already_completed",
+                  metadata: { ...existingMeta, note: "user_completed_today" },
+                })
+                .eq("clerk_user_id", user.id)
+                .eq("day_key", todayKey);
+              stats.skippedAlreadyCompleted += 1;
+              continue;
+            }
+
+            const dayNumber =
+              typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
+            const version = await getOrCreateDailyPracticeVersion({
+              userId: user.id,
+              dayNumber,
+            });
+            const note = await getOrCreateDailyCoachPatNote({
+              userId: user.id,
+              dayNumber,
+            });
+            const completionCTA = getCompletionCTA(dayNumber);
+            const trainingHeader = getTrainingCampHeader(dayNumber);
+            let smsBody = "";
+            smsBody += `${note.noteText}\n`;
+            smsBody += `- Coach Pat\n\n`;
+            if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
+            smsBody += `TODAY'S PRACTICE\n\n`;
+            smsBody += `${version.actionItem}\n\n`;
+            smsBody += `TODAY'S REFLECTION\n\n`;
+            smsBody += `${version.reflectionPrompt}\n\n`;
+            smsBody += completionCTA;
+
+            if (!isTwilioReady() || SMS_DRY_RUN) {
+              stats.alreadyReservedOrSentToday += 1;
+              continue;
+            }
+
+            try {
+              const message = await sendSMS({
+                to: identity.phone_number,
+                body: smsBody,
+              });
+              await supabaseServer
+                .from("sms_send_events")
+                .update({
+                  message_sid: message.sid,
+                  status: message.status,
+                  sms_body: smsBody,
+                  metadata: {
+                    ...existingMeta,
+                    retry_count: retryCount + 1,
+                    note: "retry_success",
+                    timezone,
+                    local_time: localNow.toISOString(),
+                  },
+                })
+                .eq("clerk_user_id", user.id)
+                .eq("day_key", todayKey);
+              stats.sent += 1;
+              stats.retried += 1;
+            } catch (err) {
+              const newRetryCount = retryCount + 1;
+              await supabaseServer
+                .from("sms_send_events")
+                .update({
+                  status: "send_failed",
+                  metadata: {
+                    ...existingMeta,
+                    retry_count: newRetryCount,
+                    error: String(err),
+                    note: "retry_failed",
+                    timezone,
+                    local_time: localNow.toISOString(),
+                  },
+                })
+                .eq("clerk_user_id", user.id)
+                .eq("day_key", todayKey);
+              stats.failed += 1;
+            }
+            continue;
+          }
+        }
+        // CASE B: any other status - skip
+        stats.alreadyReservedOrSentToday += 1;
+        continue;
+      }
+
+      // STEP 3: Only reserve if no row exists
       const reservation = await reserveTodaySendOrSkip({
         userId: user.id,
         todayKey,
@@ -347,6 +469,7 @@ export async function GET(req: Request) {
             status: "send_failed",
             metadata: {
               error: String(err),
+              retry_count: 0,
               timezone,
               local_time: localNow.toISOString(),
             },
@@ -360,6 +483,28 @@ export async function GET(req: Request) {
 
     offset += users.length;
     if (users.length < pageLimit) break;
+  }
+
+  // Persist daily summary for observability (do not block cron success)
+  const dayKey = getDateKeyInTimezone(new Date(), "UTC");
+  try {
+    await supabaseServer.from("sms_daily_stats").upsert(
+      {
+        day_key: dayKey,
+        total_users: stats.scanned,
+        eligible: stats.eligible,
+        sent: stats.sent,
+        failed: stats.failed,
+        retried: stats.retried,
+        skipped_not_time: stats.skippedNotTime,
+        skipped_missing_identity: stats.skippedMissingIdentity,
+        skipped_already_completed: stats.skippedAlreadyCompleted,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "day_key" }
+    );
+  } catch (err) {
+    console.error("[daily-sms] sms_daily_stats upsert failed:", err);
   }
 
   return NextResponse.json(stats);

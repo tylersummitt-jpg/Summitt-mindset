@@ -7,6 +7,7 @@ import { buildProfileContext } from "@/lib/profile-context";
 import { buildCoachPatContext } from "@/lib/coach-pat-context";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
+import { finalizeWithName } from "@/lib/format-with-name";
 
 type Params = {
   userId: string;
@@ -464,9 +465,7 @@ Guidelines:
   }
 
   const displayName = await getDisplayNameForUser(userId);
-  if (displayName) {
-    raw = `${displayName}, ${raw}`;
-  }
+  raw = finalizeWithName(raw, displayName ?? undefined);
 
   return {
     text: raw,

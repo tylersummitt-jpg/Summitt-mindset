@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { auth } from "@clerk/nextjs/server";
 import { buildProfileContext } from "@/lib/profile-context";
 import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
+import { finalizeWithName } from "@/lib/format-with-name";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -259,9 +260,7 @@ ${bookContext}
       "I don't have an answer right now.";
 
     const displayName = await getDisplayNameForUser(userId);
-    if (displayName) {
-      answer = `${displayName}, ${answer}`;
-    }
+    answer = finalizeWithName(answer, displayName ?? undefined);
 
     return NextResponse.json({ answer, ok: true });
   } catch (err) {

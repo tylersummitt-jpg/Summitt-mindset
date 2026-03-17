@@ -8,6 +8,7 @@ import {
   COACH_PAT_GENERATION_CONFIG,
 } from "@/lib/coach-pat-prompts";
 import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
+import { finalizeWithName } from "@/lib/format-with-name";
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -62,38 +63,6 @@ function buildRecencyHint(staleness: "fresh" | "normal" | "reentry"): string {
       return "RECENCY_HINT: Keep it welcoming, simple, and present-focused. Do not imply a lapse or recap.";
     default:
       return "RECENCY_HINT: Stay simple and present.";
-  }
-}
-
-/**
- * Deterministic greeting variation based on day number.
- * Style 0: "{name},\n\n{note}"
- * Style 1: "{note}, {name}."
- * Style 2: "{name}, remember this:\n\n{note}"
- * Style 3: "{note}" (no name)
- */
-function applyGreetingStyle(
-  note: string,
-  displayName: string,
-  dayNumber: number
-): string {
-  const styleIndex = dayNumber % 4;
-
-  switch (styleIndex) {
-    case 0:
-      return `${displayName},\n\n${note}`;
-    case 1: {
-      const trimmed = note.trimEnd();
-      const withoutTrailingPeriod = trimmed.endsWith(".")
-        ? trimmed.slice(0, -1)
-        : trimmed;
-      return `${withoutTrailingPeriod}, ${displayName}.`;
-    }
-    case 2:
-      return `${displayName}, remember this:\n\n${note}`;
-    case 3:
-    default:
-      return note;
   }
 }
 
@@ -188,9 +157,7 @@ Rules for this note:
 
   if (text) {
     const displayName = await getDisplayNameForUser(userId);
-    if (displayName) {
-      text = applyGreetingStyle(text, displayName, dayNumber);
-    }
+    text = finalizeWithName(text, displayName ?? undefined);
     return {
       text,
       stalenessMode: context.today_context.staleness_mode,
@@ -208,9 +175,7 @@ Rules for this note:
 
   let fallbackText = fallback;
   const displayName = await getDisplayNameForUser(userId);
-  if (displayName) {
-    fallbackText = applyGreetingStyle(fallbackText, displayName, dayNumber);
-  }
+  fallbackText = finalizeWithName(fallbackText, displayName ?? undefined);
 
   return {
     text: fallbackText,

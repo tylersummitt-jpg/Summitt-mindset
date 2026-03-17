@@ -29,7 +29,7 @@ function normalizeToE164(input: string): string | null {
 const SMS_TIME_OPTIONS = [
   { value: "early_morning", label: "Early Morning (6–8am)" },
   { value: "morning", label: "Morning (8–10am)" },
-  { value: "midday", label: "Late morning (10–12)" },
+  { value: "midday", label: "Late Morning (10–12pm)" },
 ] as const;
 
 export default function SmsClient() {

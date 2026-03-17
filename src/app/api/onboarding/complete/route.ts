@@ -35,8 +35,17 @@ function safeSmsEnabled(raw: unknown): boolean | null {
   return null;
 }
 
-function safeSmsTimePreference(raw: unknown): "morning" | "afternoon" | "evening" | null {
-  if (raw === "morning" || raw === "afternoon" || raw === "evening") return raw;
+function safeSmsTimePreference(
+  raw: unknown
+): "early_morning" | "morning" | "midday" | "afternoon" | "evening" | null {
+  if (
+    raw === "early_morning" ||
+    raw === "morning" ||
+    raw === "midday" ||
+    raw === "afternoon" || // legacy
+    raw === "evening" // legacy
+  )
+    return raw;
   return null;
 }
 
@@ -63,8 +72,15 @@ export async function POST(req: Request) {
     const existingCurrentDay = safeDayNumber(existing?.currentDay);
 
     // Preserve any prior SMS choices (set during /onboarding/sms)
-    const existingSmsEnabled = safeSmsEnabled(existing?.smsEnabled);
     const existingSmsTimePreference = safeSmsTimePreference(existing?.smsTimePreference);
+
+    // Only set smsEnabled: true if user completed SMS step (phone + consent).
+    // Prevents fake SMS-enabled users who skipped /onboarding/sms.
+    const hasValidSmsConsent =
+      existing?.smsEnabled === true &&
+      typeof existing?.phoneNumber === "string" &&
+      existing.phoneNumber.trim().length > 0 &&
+      existing?.smsDisclosureAccepted === true;
 
     // ======================================================
     // ✅ Onboarding completion = habit begins
@@ -78,11 +94,11 @@ export async function POST(req: Request) {
       // timezone: always store sanitized/valid
       timezone,
 
+      smsEnabled: hasValidSmsConsent,
+
       /**
-       * SMS defaults:
-       * - Only apply if missing, never overwrite a prior explicit choice.
+       * SMS time preference: only apply default if missing.
        */
-      ...(existingSmsEnabled === null ? { smsEnabled: true } : {}),
       ...(existingSmsTimePreference === null ? { smsTimePreference: "morning" } : {}),
     });
 
