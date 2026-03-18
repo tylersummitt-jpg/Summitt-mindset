@@ -120,7 +120,7 @@ function SubscribePageInner() {
       {/* --------------------------------------------------
           Section 2 — What You Get
           -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 py-16">
+      <section className="max-w-6xl mx-auto px-4 pt-6 pb-16">
         <h2 className="text-2xl font-bold text-[var(--text)] text-center mb-12">
           Your Membership Includes
         </h2>
