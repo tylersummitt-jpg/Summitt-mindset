@@ -38,8 +38,8 @@ export const PAGE_IMAGES: Record<string, PageImageEntry> = {
     alt: "Coach Pat Summitt",
   },
   "/subscribe": {
-    src: "/brand/subscribe-celebration.jpg",
-    alt: "Coach Pat Summitt celebrating with confetti",
+    src: "/brand/pat-bench.jpeg",
+    alt: "Coach Pat Summitt on the bench",
   },
 };
 
