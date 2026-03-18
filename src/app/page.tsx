@@ -173,7 +173,7 @@ export default async function HomePage() {
               fill
               priority
               sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover grayscale"
+              className="object-cover"
             />
           </div>
         </div>

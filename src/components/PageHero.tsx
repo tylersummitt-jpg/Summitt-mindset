@@ -52,7 +52,7 @@ export function PageHero({
             fill
             priority
             sizes="(max-width: 768px) 100vw, 50vw"
-            className={`object-cover ${imagePosition ?? "object-center"} ${grayscale === false ? "" : "grayscale"}`}
+            className={`object-cover ${imagePosition ?? "object-center"} ${grayscale === true ? "grayscale" : ""}`}
           />
         </div>
       </div>
