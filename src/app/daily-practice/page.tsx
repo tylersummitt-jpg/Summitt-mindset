@@ -16,6 +16,7 @@ export default function DailyPracticeMarketingPage() {
         subtitle="A simple daily leadership practice inspired by the Coach of the Century. Reflect for a few minutes each day and watch the results in your life."
         imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
         imageAlt={image?.alt ?? "Coach Pat Summitt"}
+        imagePosition="object-[center_25%]"
       >
         <div className="flex flex-col sm:flex-row gap-3">
           <Link

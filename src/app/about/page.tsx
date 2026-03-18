@@ -12,6 +12,7 @@ export default function AboutPage() {
         subtitle="Inspired by the leadership standards of Coach Pat Summitt. Pat Summitt was known for discipline, accountability, and the belief that small daily habits shape who you become."
         imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
         imageAlt={image?.alt ?? "Coach Pat Summitt"}
+        imagePosition="object-[center_20%]"
       />
 
       {/* --------------------------------------------------

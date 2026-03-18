@@ -7,6 +7,7 @@ type PageHeroProps = {
   imageAlt: string;
   eyebrow?: string;
   grayscale?: boolean;
+  imagePosition?: string;
   children?: React.ReactNode;
 };
 
@@ -21,6 +22,7 @@ export function PageHero({
   imageAlt,
   eyebrow,
   grayscale,
+  imagePosition,
   children,
 }: PageHeroProps) {
   return (
@@ -50,7 +52,7 @@ export function PageHero({
             fill
             priority
             sizes="(max-width: 768px) 100vw, 50vw"
-            className={`object-cover ${grayscale === false ? "" : "grayscale"}`}
+            className={`object-cover ${imagePosition ?? "object-center"} ${grayscale === false ? "" : "grayscale"}`}
           />
         </div>
       </div>

@@ -14,6 +14,7 @@ export default function AskPatPreviewPage() {
         subtitle="Get leadership guidance inspired by Coach Pat Summitt's standards, discipline, and mindset. Ask about leadership, consistency, discipline, or a real situation you're facing."
         imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
         imageAlt={image?.alt ?? "Coach Pat Summitt"}
+        imagePosition="object-[center_20%]"
       >
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
