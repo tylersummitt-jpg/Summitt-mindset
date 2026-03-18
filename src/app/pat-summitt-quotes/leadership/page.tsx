@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 import { supabaseServer } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
@@ -18,23 +20,20 @@ export default async function PatSummittLeadershipQuotesPage() {
     .limit(40);
 
   const quotes = quotesData ?? [];
+  const image =
+    getPageImage("/pat-summitt-quotes") ?? {
+      src: "/brand/pat-hero.jpeg",
+      alt: "Coach Pat Summitt",
+    };
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
-          Pat Summitt Leadership Quotes
-        </h1>
-        <p className="text-[var(--text)] leading-relaxed">
-          Pat Summitt was one of the most respected leaders in sports history.
-          Her quotes on leadership reflect her philosophy of discipline,
-          accountability, and high standards. These words continue to inspire
-          coaches, executives, and teams today.
-        </p>
-      </section>
+      <PageHero
+        title="Leadership"
+        subtitle="Pat Summitt quotes on leadership"
+        imageSrc={image.src}
+        imageAlt={image.alt}
+      />
 
       {/* --------------------------------------------------
           QUOTE LIST

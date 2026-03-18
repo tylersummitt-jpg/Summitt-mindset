@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 import { supabaseServer } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
@@ -18,23 +20,20 @@ export default async function PatSummittAccountabilityQuotesPage() {
     .limit(40);
 
   const quotes = quotesData ?? [];
+  const image =
+    getPageImage("/pat-summitt-quotes") ?? {
+      src: "/brand/pat-hero.jpeg",
+      alt: "Coach Pat Summitt",
+    };
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
-          Pat Summitt Accountability Quotes
-        </h1>
-        <p className="text-[var(--text)] leading-relaxed">
-          Accountability was one of the core values that defined Pat
-          Summitt&apos;s leadership. Her teams were known for holding
-          themselves and each other to high standards. These quotes reflect how
-          accountability built trust and results.
-        </p>
-      </section>
+      <PageHero
+        title="Accountability"
+        subtitle="Pat Summitt quotes on accountability"
+        imageSrc={image.src}
+        imageAlt={image.alt}
+      />
 
       {/* --------------------------------------------------
           QUOTE LIST

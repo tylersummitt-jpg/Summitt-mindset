@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 
 export default function PatSummittLeadershipChallengePage() {
   const [email, setEmail] = useState("");
   const [success, setSuccess] = useState(false);
+  const image = getPageImage("/pat-summitt-leadership-challenge");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -24,27 +27,16 @@ export default function PatSummittLeadershipChallengePage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section
-        id="challenge-signup"
-        className="max-w-3xl mx-auto px-4 py-20 text-center"
+      <PageHero
+        title="7-Day Pat Summitt Leadership Challenge"
+        subtitle="Turn Pat Summitt's leadership principles into a simple daily habit. For 7 days, you'll receive one short leadership lesson inspired by Pat Summitt, one reflection prompt, and one simple action to practice that day."
+        imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
+        imageAlt={image?.alt ?? "Coach Pat Summitt"}
       >
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
-          7-Day Pat Summitt Leadership Challenge
-        </h1>
-        <p className="text-xl text-[var(--muted)] mb-6">
-          Turn Pat Summitt’s leadership principles into a simple daily habit.
-        </p>
-        <p className="text-[var(--text)] leading-relaxed mb-8 max-w-2xl mx-auto">
-          For 7 days, you’ll receive one short leadership lesson inspired by Pat
-          Summitt, one reflection prompt, and one simple action to practice
-          that day.
-        </p>
         <form
+          id="challenge-signup"
           onSubmit={handleSubmit}
-          className="flex flex-col sm:flex-row gap-3 justify-center mt-6"
+          className="flex flex-col sm:flex-row gap-3 mt-6"
         >
           <input
             type="email"
@@ -66,7 +58,7 @@ export default function PatSummittLeadershipChallengePage() {
             You&apos;re in! Check your email for Day 1 of the challenge.
           </p>
         )}
-        <div className="mt-8 text-center">
+        <div className="mt-8">
           <p className="text-[var(--muted)] mb-2">
             Already ready to go deeper?
           </p>
@@ -77,7 +69,7 @@ export default function PatSummittLeadershipChallengePage() {
             Start the full Summitt Mindset program →
           </Link>
         </div>
-      </section>
+      </PageHero>
 
       {/* --------------------------------------------------
           HOW IT WORKS

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 
 type FilmVideoPreview = {
   id: string;
@@ -27,41 +29,31 @@ export default async function FilmRoomPreviewPage() {
 
   const totalVideos = videoCount ?? 0;
   const videoList: FilmVideoPreview[] = (videos ?? []) as FilmVideoPreview[];
+  const image = getPageImage("/film-room-preview");
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="bg-[var(--ink)]">
-        <div className="max-w-2xl mx-auto px-4 py-16 sm:py-24 text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-[var(--text)] mb-5">
-            Film Room
-          </h1>
-          <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed max-w-xl mx-auto">
-            Learn leadership principles from some of the most respected voices
-            in sports, media, and business.
-          </p>
-          <p className="text-sm text-[var(--muted)] mb-10 max-w-lg mx-auto">
-            Film study inside Summitt Mindset is optional. But many members find
-            it powerful.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/subscribe"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
-            >
-              Start 7-Day Free Trial
-            </Link>
-            <Link
-              href="/daily-practice"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--ink)]"
-            >
-              See Daily Practice
-            </Link>
-          </div>
+      <PageHero
+        title="Film Room"
+        subtitle="Learn leadership principles from some of the most respected voices in sports, media, and business. Film study inside Summitt Mindset is optional. But many members find it powerful."
+        imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
+        imageAlt={image?.alt ?? "Coach Pat Summitt"}
+      >
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href="/subscribe"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
+          >
+            Start 7-Day Free Trial
+          </Link>
+          <Link
+            href="/daily-practice"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--ink)]"
+          >
+            See Daily Practice
+          </Link>
         </div>
-      </section>
+      </PageHero>
 
       {/* --------------------------------------------------
           FILM ROOM LIBRARY (scale / social proof)

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PageHero } from "@/components/PageHero";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { QuoteShareCard } from "@/components/QuoteShareCard";
+import { getPageImage } from "@/data/page-images";
 import { supabaseServer } from "@/lib/supabase-server";
 
 type PageProps = {
@@ -81,6 +83,16 @@ export default async function PatSummittQuotePage({ params }: PageProps) {
     },
   };
 
+  const image =
+    getPageImage("/pat-summitt-quotes") ?? {
+      src: "/brand/pat-hero.jpeg",
+      alt: "Coach Pat Summitt",
+    };
+  const heroTitle =
+    quote.quote_text.length > 80
+      ? quote.quote_text.slice(0, 80) + "…"
+      : quote.quote_text;
+
   return (
     <main className="min-h-screen bg-[var(--bg)]">
       <script
@@ -89,14 +101,12 @@ export default async function PatSummittQuotePage({ params }: PageProps) {
           __html: JSON.stringify(structuredData),
         }}
       />
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)]">
-          Pat Summitt Quote
-        </h1>
-      </section>
+      <PageHero
+        title={heroTitle}
+        subtitle="Leadership wisdom from Coach Pat Summitt"
+        imageSrc={image.src}
+        imageAlt={image.alt}
+      />
 
       {/* --------------------------------------------------
           QUOTE

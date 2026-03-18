@@ -2,7 +2,9 @@
 
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
+import { getPageImage } from "@/data/page-images";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -78,15 +80,22 @@ function SubscribePageInner() {
   // --------------------------------------------------
   // PUBLIC PAGE RENDER (always visible)
   // --------------------------------------------------
+  const image =
+    getPageImage("/subscribe") ?? {
+      src: "/brand/subscribe-celebration.jpg",
+      alt: "Coach Pat Summitt celebrating with confetti",
+    };
+
   return (
     <main className="min-h-screen bg-[var(--bg)]">
       {/* --------------------------------------------------
           Section 1 — Hero
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
-          Start Your Daily Practice
-        </h1>
+      <section className="max-w-6xl mx-auto px-4 py-16 grid gap-10 md:grid-cols-2 items-center">
+        <div className="text-center md:text-left">
+          <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
+            Start Your Daily Practice
+          </h1>
         <p className="text-lg text-[var(--muted)] mb-4">
           Summitt Mindset helps you apply Coach Pat’s leadership standards one
           day at a time.
@@ -95,6 +104,17 @@ function SubscribePageInner() {
           One short daily practice. One honest reflection. Real consistency over
           time.
         </p>
+        </div>
+        <div className="relative w-full h-[300px] rounded-2xl overflow-hidden">
+          <Image
+            src={image.src}
+            alt={image.alt}
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover grayscale"
+          />
+        </div>
       </section>
 
       {/* --------------------------------------------------

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 import { supabaseServer } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
@@ -18,23 +20,20 @@ export default async function PatSummittStandardsQuotesPage() {
     .limit(40);
 
   const quotes = quotesData ?? [];
+  const image =
+    getPageImage("/pat-summitt-quotes") ?? {
+      src: "/brand/pat-hero.jpeg",
+      alt: "Coach Pat Summitt",
+    };
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
-          Pat Summitt Quotes About Standards
-        </h1>
-        <p className="text-[var(--text)] leading-relaxed">
-          Pat Summitt believed that standards define leadership. The standards
-          leaders set shape the culture and results of their teams. These
-          quotes reflect how high standards were at the center of her
-          leadership philosophy.
-        </p>
-      </section>
+      <PageHero
+        title="Standards"
+        subtitle="Pat Summitt quotes on standards"
+        imageSrc={image.src}
+        imageAlt={image.alt}
+      />
 
       {/* --------------------------------------------------
           QUOTE LIST

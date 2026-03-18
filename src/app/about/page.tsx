@@ -1,23 +1,18 @@
 import Link from "next/link";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 
 export default function AboutPage() {
+  const image = getPageImage("/about");
+
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
-          About Summitt Mindset
-        </h1>
-        <p className="text-lg text-[var(--muted)] mb-6">
-          Inspired by the leadership standards of Coach Pat Summitt.
-        </p>
-        <p className="text-[var(--text)] leading-relaxed max-w-xl mx-auto">
-          Pat Summitt was known for discipline, accountability, and the belief
-          that small daily habits shape who you become.
-        </p>
-      </section>
+      <PageHero
+        title="About Summitt Mindset"
+        subtitle="Inspired by the leadership standards of Coach Pat Summitt. Pat Summitt was known for discipline, accountability, and the belief that small daily habits shape who you become."
+        imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
+        imageAlt={image?.alt ?? "Coach Pat Summitt"}
+      />
 
       {/* --------------------------------------------------
           WHO PAT SUMMITT WAS

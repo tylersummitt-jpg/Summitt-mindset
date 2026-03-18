@@ -1,43 +1,35 @@
 import Link from "next/link";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 
 export default function AskPatPreviewPage() {
   const cardBase =
     "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm";
+  const image = getPageImage("/ask-pat-preview");
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="bg-[var(--ink)]">
-        <div className="max-w-2xl mx-auto px-4 py-16 sm:py-24 text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-[var(--text)] mb-5">
-            Ask Pat.
-          </h1>
-          <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed max-w-xl mx-auto">
-            Get leadership guidance inspired by Coach Pat Summitt’s standards,
-            discipline, and mindset.
-          </p>
-          <p className="text-sm text-[var(--muted)] mb-10 max-w-lg mx-auto">
-            Ask about leadership, consistency, discipline, or a real situation
-            you’re facing.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/subscribe"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
-            >
-              Start 7-Day Free Trial
-            </Link>
-            <Link
-              href="/daily-practice"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--ink)]"
-            >
-              See Daily Practice
-            </Link>
-          </div>
+      <PageHero
+        title="Ask Pat."
+        subtitle="Get leadership guidance inspired by Coach Pat Summitt's standards, discipline, and mindset. Ask about leadership, consistency, discipline, or a real situation you're facing."
+        imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
+        imageAlt={image?.alt ?? "Coach Pat Summitt"}
+      >
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href="/subscribe"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
+          >
+            Start 7-Day Free Trial
+          </Link>
+          <Link
+            href="/daily-practice"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--ink)]"
+          >
+            See Daily Practice
+          </Link>
         </div>
-      </section>
+      </PageHero>
 
       {/* --------------------------------------------------
           EXAMPLE QUESTION

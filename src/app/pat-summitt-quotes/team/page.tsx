@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PageHero } from "@/components/PageHero";
+import { getPageImage } from "@/data/page-images";
 import { supabaseServer } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
@@ -18,23 +20,20 @@ export default async function PatSummittTeamCultureQuotesPage() {
     .limit(40);
 
   const quotes = quotesData ?? [];
+  const image =
+    getPageImage("/pat-summitt-quotes") ?? {
+      src: "/brand/pat-hero.jpeg",
+      alt: "Coach Pat Summitt",
+    };
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          HERO
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
-          Pat Summitt Team Culture Quotes
-        </h1>
-        <p className="text-[var(--text)] leading-relaxed">
-          One of the most important parts of Pat Summitt&apos;s leadership was
-          the culture she built within her teams. Her players understood that
-          success came from commitment, accountability, and shared standards.
-          These quotes reflect how culture shaped her legacy.
-        </p>
-      </section>
+      <PageHero
+        title="Team Culture"
+        subtitle="Pat Summitt quotes on team culture"
+        imageSrc={image.src}
+        imageAlt={image.alt}
+      />
 
       {/* --------------------------------------------------
           QUOTE LIST
