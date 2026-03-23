@@ -48,6 +48,13 @@ export default function AboutPage() {
           Why Summitt Mindset Exists
         </h2>
         <div className="space-y-4 text-[var(--text)] leading-relaxed">
+          <p>Built from the real words of Pat Summitt.</p>
+          <p>
+            We studied her interviews, speeches, and teachings to shape every part of this experience.
+          </p>
+          <p>
+            Grounded in how she coached, led, and challenged people to grow.
+          </p>
           <p>
             Many people admire Coach Pat Summitt’s leadership. But admiration
             alone does not change how we live.

@@ -2,7 +2,9 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
+import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 /**
@@ -125,6 +127,12 @@ export async function POST(req: Request) {
         .update({ sms_enabled: false })
         .eq("phone_number", normalizedPhone);
     }
+    if (!smsEnabled && !normalizedPhone) {
+      await supabaseServer
+        .from("sms_identities")
+        .update({ sms_enabled: false })
+        .eq("clerk_user_id", userId);
+    }
 
     // ---------------------------------------
     // Confirmation SMS (Identity + Compliance)
@@ -150,6 +158,31 @@ export async function POST(req: Request) {
         console.error("Onboarding confirmation SMS failed:", e);
       }
     }
+
+    let phoneForSync = normalizedPhone;
+    if (!smsEnabled && !normalizedPhone) {
+      const existing = await getClerkPublicMetadata(userId);
+      let existingPhone = existing?.phoneNumber ?? null;
+      if (!existingPhone) {
+        const { data: identity } = await supabaseServer
+          .from("sms_identities")
+          .select("phone_number")
+          .eq("clerk_user_id", userId)
+          .maybeSingle();
+        existingPhone = identity?.phone_number ?? null;
+      }
+      phoneForSync = existingPhone;
+    }
+
+    await syncSmsAudience({
+      userId: userId,
+      phoneNumber: phoneForSync,
+      smsEnabled: smsEnabled,
+      stoppedAt: null,
+      timezone: null,
+      smsTimePreference: smsTimePreference,
+      summittSubscribed: null
+    });
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {

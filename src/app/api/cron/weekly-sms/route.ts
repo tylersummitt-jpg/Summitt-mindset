@@ -14,39 +14,14 @@ const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
 /**
  * ======================================================
- * CRON AUTH (Same pattern as daily)
+ * CRON AUTH
  * ======================================================
- *
- * Vercel sends CRON_SECRET as Authorization: Bearer <CRON_SECRET> when the env var is set.
- * We also accept x-vercel-cron, x-cron-secret, and ?secret= for compatibility and safe testing.
+ * Only allow requests with valid CRON_SECRET via x-cron-secret header.
  */
-function validateCronSecret(req: Request) {
-  // 1) Vercel cron header (truthy values; no CRON_SECRET required)
-  const vercelCronHeader = req.headers.get("x-vercel-cron");
-  const isVercelCron =
-    vercelCronHeader === "1" ||
-    vercelCronHeader === "true" ||
-    vercelCronHeader === "True" ||
-    vercelCronHeader === "yes" ||
-    vercelCronHeader === "on";
-
-  if (isVercelCron) return true;
-
-  // 2) Authorization: Bearer <CRON_SECRET> (Vercel's documented method)
-  const authHeader = req.headers.get("authorization");
-  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) return true;
-
-  // 3) Manual secret (header or query param) for compatibility and safe testing
+function validateCronSecret(req: Request): boolean {
   if (!CRON_SECRET) return false;
-
   const header = req.headers.get("x-cron-secret");
-  if (header && header === CRON_SECRET) return true;
-
-  const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  if (secret && secret === CRON_SECRET) return true;
-
-  return false;
+  return header === CRON_SECRET;
 }
 
 /**

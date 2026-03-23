@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 
@@ -100,6 +101,16 @@ export async function POST(req: Request) {
        * SMS time preference: only apply default if missing.
        */
       ...(existingSmsTimePreference === null ? { smsTimePreference: "morning" } : {}),
+    });
+
+    await syncSmsAudience({
+      userId: userId,
+      phoneNumber: existing?.phoneNumber ?? null,
+      smsEnabled: hasValidSmsConsent,
+      stoppedAt: null,
+      timezone: timezone,
+      smsTimePreference: existingSmsTimePreference ?? "morning",
+      summittSubscribed: null
     });
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });

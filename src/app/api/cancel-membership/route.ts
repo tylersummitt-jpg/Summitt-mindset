@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { syncSmsAudience } from "@/lib/sms-audience-sync";
 
 export const runtime = "nodejs";
 
@@ -69,6 +70,16 @@ export async function POST(req: Request) {
   await updateClerkPublicMetadata(userId, {
     summittSubscribed: false,
     summittPlan: null,
+  });
+
+  await syncSmsAudience({
+    userId,
+    phoneNumber: metadata?.phoneNumber ?? null,
+    smsEnabled: metadata?.smsEnabled ?? null,
+    stoppedAt: null,
+    timezone: metadata?.timezone ?? null,
+    smsTimePreference: metadata?.smsTimePreference ?? null,
+    summittSubscribed: false,
   });
 
   return NextResponse.json({ ok: true });

@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase-server";
+import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { completeDay } from "@/lib/complete-day";
@@ -131,10 +132,12 @@ export async function POST(req: Request) {
 
     if (!fullUrl) return NextResponse.json({ ok: false }, { status: 400 });
 
-    if (TWILIO_AUTH_TOKEN) {
-      const ok = verifyTwilioSignature({ fullUrl, params, signature });
-      if (!ok) return NextResponse.json({ ok: false }, { status: 403 });
+    if (!TWILIO_AUTH_TOKEN) {
+      return NextResponse.json({ ok: false }, { status: 500 });
     }
+
+    const ok = verifyTwilioSignature({ fullUrl, params, signature });
+    if (!ok) return NextResponse.json({ ok: false }, { status: 403 });
 
     const messageSid = params.get("MessageSid");
     const from = normalizePhone(params.get("From") || "");
@@ -187,6 +190,16 @@ export async function POST(req: Request) {
         smsStoppedAt: new Date().toISOString(),
       });
 
+      await syncSmsAudience({
+        userId: userId,
+        phoneNumber: from,
+        smsEnabled: false,
+        stoppedAt: new Date().toISOString(),
+        timezone: null,
+        smsTimePreference: null,
+        summittSubscribed: null
+      });
+
       return twiml("You have been unsubscribed. Reply START to rejoin.");
     }
 
@@ -208,6 +221,16 @@ export async function POST(req: Request) {
       await updateClerkPublicMetadata(userId, {
         smsEnabled: true,
         smsRestartedAt: new Date().toISOString(),
+      });
+
+      await syncSmsAudience({
+        userId: userId,
+        phoneNumber: from,
+        smsEnabled: true,
+        stoppedAt: null,
+        timezone: null,
+        smsTimePreference: null,
+        summittSubscribed: null
       });
 
       return twiml("You’re back in training.");

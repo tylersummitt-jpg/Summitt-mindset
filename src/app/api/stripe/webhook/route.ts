@@ -2,7 +2,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { syncSmsAudience } from "@/lib/sms-audience-sync";
 
 export const runtime = "nodejs";
 
@@ -211,6 +213,17 @@ export async function POST(req: NextRequest) {
         stripeSubscriptionId: subscriptionId,
       });
 
+      const existing = await getClerkPublicMetadata(userId);
+      await syncSmsAudience({
+        userId: userId,
+        phoneNumber: existing?.phoneNumber ?? null,
+        smsEnabled: existing?.smsEnabled ?? null,
+        stoppedAt: null,
+        timezone: existing?.timezone ?? null,
+        smsTimePreference: existing?.smsTimePreference ?? null,
+        summittSubscribed: isActiveStatus(subscription.status),
+      });
+
       console.log("✅ checkout.session.completed → metadata updated", userId);
     }
 
@@ -238,6 +251,17 @@ export async function POST(req: NextRequest) {
         stripeSubscriptionId: subscription.id,
       });
 
+      const existing = await getClerkPublicMetadata(userId);
+      await syncSmsAudience({
+        userId: userId,
+        phoneNumber: existing?.phoneNumber ?? null,
+        smsEnabled: existing?.smsEnabled ?? null,
+        stoppedAt: null,
+        timezone: existing?.timezone ?? null,
+        smsTimePreference: existing?.smsTimePreference ?? null,
+        summittSubscribed: isActiveStatus(subscription.status),
+      });
+
       console.log("✅ customer.subscription.updated → metadata updated", userId);
     }
 
@@ -260,6 +284,17 @@ export async function POST(req: NextRequest) {
         summittPlan: null,
         stripeSubscriptionId: subscription.id,
       });
+
+      const existing = await getClerkPublicMetadata(userId);
+      await syncSmsAudience({
+        userId: userId,
+        phoneNumber: existing?.phoneNumber ?? null,
+        smsEnabled: existing?.smsEnabled ?? null,
+        stoppedAt: null,
+        timezone: existing?.timezone ?? null,
+        smsTimePreference: existing?.smsTimePreference ?? null,
+        summittSubscribed: false,
+      });
     }
 
     // ======================================================
@@ -279,6 +314,17 @@ export async function POST(req: NextRequest) {
       await updateClerkPublicMetadata(userId, {
         summittSubscribed: false,
       });
+
+      const existing = await getClerkPublicMetadata(userId);
+      await syncSmsAudience({
+        userId: userId,
+        phoneNumber: existing?.phoneNumber ?? null,
+        smsEnabled: existing?.smsEnabled ?? null,
+        stoppedAt: null,
+        timezone: existing?.timezone ?? null,
+        smsTimePreference: existing?.smsTimePreference ?? null,
+        summittSubscribed: false,
+      });
     }
 
     // ======================================================
@@ -296,6 +342,17 @@ export async function POST(req: NextRequest) {
       console.log("✅ Payment restored → unlocking access", userId);
 
       await updateClerkPublicMetadata(userId, {
+        summittSubscribed: true,
+      });
+
+      const existing = await getClerkPublicMetadata(userId);
+      await syncSmsAudience({
+        userId: userId,
+        phoneNumber: existing?.phoneNumber ?? null,
+        smsEnabled: existing?.smsEnabled ?? null,
+        stoppedAt: null,
+        timezone: existing?.timezone ?? null,
+        smsTimePreference: existing?.smsTimePreference ?? null,
         summittSubscribed: true,
       });
     }

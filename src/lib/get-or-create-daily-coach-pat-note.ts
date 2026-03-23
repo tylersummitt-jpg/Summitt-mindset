@@ -18,6 +18,10 @@ export async function getOrCreateDailyCoachPatNote({
   dayNumber: number;
 }) {
   const md = await getClerkPublicMetadata(userId);
+  const totalDaysCompleted = md?.totalDaysCompleted ?? 0;
+  const daysInRow = md?.daysInRow ?? 0;
+  const currentDay = md?.currentDay ?? dayNumber;
+
   const timezone = resolveUserTimezone(md?.timezone);
 
   const now = new Date();
@@ -34,6 +38,9 @@ export async function getOrCreateDailyCoachPatNote({
     userId,
     dayNumber,
     actionItem: version.actionItem,
+    totalDaysCompleted,
+    daysInRow,
+    currentDay,
   });
 
   const safeNote = normalizeText(generated.text);

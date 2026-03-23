@@ -8,6 +8,7 @@ import { compressReflectionToMemoryAtom } from "@/lib/memory/compress-reflection
 import { extractWeeklyPatternsFromMemoryAtoms } from "@/lib/memory/pattern-extractor";
 import { awardAchievementsIfEligible } from "@/lib/achievements/award";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
+import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 export type CompleteDaySource = "app" | "sms";
 
@@ -382,6 +383,7 @@ export async function completeDay({
       });
     } catch (err) {
       console.error("CLERK METADATA UPDATE FAILED:", err);
+      return { ok: false, reason: "clerk_metadata_update_failed" };
     }
 
     /* --------------------------------------------------
@@ -395,6 +397,36 @@ export async function completeDay({
       });
     } catch (err) {
       console.error("[Achievement award error]", err);
+    }
+
+    // Momentum SMS (Day 3 / Day 7)
+    try {
+      if (newTotalDaysCompleted === 3 || newTotalDaysCompleted === 7) {
+        const { data: identity } = await supabaseServer
+          .from("sms_identities")
+          .select("phone_number, sms_enabled, stopped_at")
+          .eq("clerk_user_id", userId)
+          .maybeSingle();
+
+        if (
+          identity?.phone_number &&
+          identity.sms_enabled === true &&
+          !identity.stopped_at &&
+          isTwilioReady()
+        ) {
+          const message =
+            newTotalDaysCompleted === 3
+              ? "You're building something real now."
+              : "This is who you are becoming.";
+
+          await sendSMS({
+            to: identity.phone_number,
+            body: message,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[momentum-sms] failed:", userId, err);
     }
 
     return {

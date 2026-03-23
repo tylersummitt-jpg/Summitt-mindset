@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listClerkUsers } from "@/lib/clerk-rest";
+import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getOrCreateDailyCoachPatNote } from "@/lib/get-or-create-daily-coach-pat-note";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
@@ -17,37 +17,12 @@ const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
  * ======================================================
  * CRON AUTH
  * ======================================================
- *
- * Vercel sends CRON_SECRET as Authorization: Bearer <CRON_SECRET> when the env var is set.
- * We also accept x-vercel-cron, x-cron-secret, and ?secret= for compatibility and safe testing.
+ * Only allow requests with valid CRON_SECRET via x-cron-secret header.
  */
-function validateCronSecret(req: Request) {
-  // 1) Vercel cron header (truthy values; no CRON_SECRET required)
-  const vercelCronHeader = req.headers.get("x-vercel-cron");
-  const isVercelCron =
-    vercelCronHeader === "1" ||
-    vercelCronHeader === "true" ||
-    vercelCronHeader === "True" ||
-    vercelCronHeader === "yes" ||
-    vercelCronHeader === "on";
-
-  if (isVercelCron) return true;
-
-  // 2) Authorization: Bearer <CRON_SECRET> (Vercel's documented method)
-  const authHeader = req.headers.get("authorization");
-  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) return true;
-
-  // 3) Manual secret (header or query param) for compatibility and safe testing
+function validateCronSecret(req: Request): boolean {
   if (!CRON_SECRET) return false;
-
   const header = req.headers.get("x-cron-secret");
-  if (header && header === CRON_SECRET) return true;
-
-  const url = new URL(req.url);
-  const secret = url.searchParams.get("secret");
-  if (secret && secret === CRON_SECRET) return true;
-
-  return false;
+  return header === CRON_SECRET;
 }
 
 /**
@@ -153,9 +128,6 @@ export async function GET(req: Request) {
   const dryRunOverride = url.searchParams.get("dryRun") === "1";
   const SMS_DRY_RUN = ENV_SMS_DRY_RUN || dryRunOverride;
 
-  const pageLimit = 200;
-  let offset = 0;
-
   const stats = {
     ok: true,
     scanned: 0,
@@ -174,39 +146,28 @@ export async function GET(req: Request) {
     reservationErrors: 0,
   };
 
-  while (true) {
-    const users = await listClerkUsers({ limit: pageLimit, offset });
-    if (!users || users.length === 0) break;
+  const { data: audienceUsers } = await supabaseServer
+    .from("sms_audience")
+    .select("clerk_user_id, phone_number, sms_enabled, stopped_at, timezone, sms_time_preference, summitt_subscribed")
+    .eq("summitt_subscribed", true)
+    .eq("sms_enabled", true);
 
-    for (const user of users) {
+  if (!audienceUsers || audienceUsers.length === 0) {
+    return NextResponse.json(stats);
+  }
+
+  for (const audienceUser of audienceUsers) {
       stats.scanned += 1;
 
+      const user = await getClerkUser(audienceUser.clerk_user_id);
       const md = user.public_metadata || {};
 
-      if (md.summittSubscribed !== true) continue;
-      if (md.smsEnabled !== true) continue;
-
-      // Identity record (canonical opt-out)
-      const { data: identity } = await supabaseServer
-        .from("sms_identities")
-        .select("phone_number, sms_enabled, stopped_at")
-        .eq("clerk_user_id", user.id)
-        .maybeSingle();
-
-      if (!identity?.phone_number) {
-        stats.skippedMissingIdentity += 1;
-        continue;
-      }
-      if (identity.sms_enabled !== true) {
-        stats.skippedOptedOut += 1;
-        continue;
-      }
-      if (typeof identity.stopped_at === "string") {
+      if (typeof audienceUser.stopped_at === "string") {
         stats.skippedOptedOut += 1;
         continue;
       }
 
-      const timezone = resolveUserTimezone(md.timezone);
+      const timezone = resolveUserTimezone(audienceUser.timezone);
       const now = new Date();
 
       // localNow = "now" interpreted in that user's timezone
@@ -215,7 +176,7 @@ export async function GET(req: Request) {
       // Key used for dedupe
       const todayKey = getDateKeyInTimezone(now, timezone);
 
-      const pref = md.smsTimePreference ?? "morning";
+      const pref = audienceUser.sms_time_preference ?? "morning";
       const sendHour =
         SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 8;
 
@@ -223,7 +184,7 @@ export async function GET(req: Request) {
       const { data: existingEvent } = await supabaseServer
         .from("sms_send_events")
         .select("id, status, metadata")
-        .eq("clerk_user_id", user.id)
+        .eq("clerk_user_id", audienceUser.clerk_user_id)
         .eq("day_key", todayKey)
         .maybeSingle();
 
@@ -253,7 +214,7 @@ export async function GET(req: Request) {
             const { data: completed } = await supabaseServer
               .from("daily_completion_events")
               .select("id")
-              .eq("clerk_user_id", user.id)
+              .eq("clerk_user_id", audienceUser.clerk_user_id)
               .eq("day_key", todayKey)
               .limit(1);
 
@@ -264,7 +225,7 @@ export async function GET(req: Request) {
                   status: "skipped_already_completed",
                   metadata: { ...existingMeta, note: "user_completed_today" },
                 })
-                .eq("clerk_user_id", user.id)
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
                 .eq("day_key", todayKey);
               stats.skippedAlreadyCompleted += 1;
               continue;
@@ -273,16 +234,24 @@ export async function GET(req: Request) {
             const dayNumber =
               typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
             const version = await getOrCreateDailyPracticeVersion({
-              userId: user.id,
+              userId: audienceUser.clerk_user_id,
               dayNumber,
             });
             const note = await getOrCreateDailyCoachPatNote({
-              userId: user.id,
+              userId: audienceUser.clerk_user_id,
               dayNumber,
             });
             const completionCTA = getCompletionCTA(dayNumber);
             const trainingHeader = getTrainingCampHeader(dayNumber);
             let smsBody = "";
+            const { level } = getUserStalenessLevel({
+              timezoneFromMetadata: md.timezone,
+              lastCompletedAt: md.lastCompletedAt,
+            });
+            const reentryLine = getReentryLine(level);
+            if (reentryLine) {
+              smsBody += `${reentryLine}\n\n`;
+            }
             smsBody += `${note.noteText}\n`;
             smsBody += `- Coach Pat\n\n`;
             if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
@@ -299,7 +268,7 @@ export async function GET(req: Request) {
 
             try {
               const message = await sendSMS({
-                to: identity.phone_number,
+                to: audienceUser.phone_number,
                 body: smsBody,
               });
               await supabaseServer
@@ -316,7 +285,7 @@ export async function GET(req: Request) {
                     local_time: localNow.toISOString(),
                   },
                 })
-                .eq("clerk_user_id", user.id)
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
                 .eq("day_key", todayKey);
               stats.sent += 1;
               stats.retried += 1;
@@ -335,7 +304,7 @@ export async function GET(req: Request) {
                     local_time: localNow.toISOString(),
                   },
                 })
-                .eq("clerk_user_id", user.id)
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
                 .eq("day_key", todayKey);
               stats.failed += 1;
             }
@@ -349,7 +318,7 @@ export async function GET(req: Request) {
 
       // STEP 3: Only reserve if no row exists
       const reservation = await reserveTodaySendOrSkip({
-        userId: user.id,
+        userId: audienceUser.clerk_user_id,
         todayKey,
       });
 
@@ -369,7 +338,7 @@ export async function GET(req: Request) {
       const { data: completed } = await supabaseServer
         .from("daily_completion_events")
         .select("id")
-        .eq("clerk_user_id", user.id)
+        .eq("clerk_user_id", audienceUser.clerk_user_id)
         .eq("day_key", todayKey)
         .limit(1);
 
@@ -380,7 +349,7 @@ export async function GET(req: Request) {
             status: "skipped_already_completed",
             metadata: { note: "user_completed_today" },
           })
-          .eq("clerk_user_id", user.id)
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
 
         stats.skippedAlreadyCompleted += 1;
@@ -396,12 +365,12 @@ export async function GET(req: Request) {
       });
 
       const version = await getOrCreateDailyPracticeVersion({
-        userId: user.id,
+        userId: audienceUser.clerk_user_id,
         dayNumber,
       });
 
       const note = await getOrCreateDailyCoachPatNote({
-        userId: user.id,
+        userId: audienceUser.clerk_user_id,
         dayNumber,
       });
 
@@ -409,6 +378,10 @@ export async function GET(req: Request) {
       const trainingHeader = getTrainingCampHeader(dayNumber);
 
       let smsBody = "";
+      const reentryLine = getReentryLine(level);
+      if (reentryLine) {
+        smsBody += `${reentryLine}\n\n`;
+      }
 
       smsBody += `${note.noteText}\n`;
       smsBody += `- Coach Pat\n\n`;
@@ -431,7 +404,7 @@ export async function GET(req: Request) {
               local_time: localNow.toISOString(),
             },
           })
-          .eq("clerk_user_id", user.id)
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
 
         if (SMS_DRY_RUN) stats.dryRun += 1;
@@ -442,7 +415,7 @@ export async function GET(req: Request) {
 
       try {
         const message = await sendSMS({
-          to: identity.phone_number,
+          to: audienceUser.phone_number,
           body: smsBody,
         });
 
@@ -458,7 +431,7 @@ export async function GET(req: Request) {
               local_time: localNow.toISOString(),
             },
           })
-          .eq("clerk_user_id", user.id)
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
 
         stats.sent += 1;
@@ -474,16 +447,12 @@ export async function GET(req: Request) {
               local_time: localNow.toISOString(),
             },
           })
-          .eq("clerk_user_id", user.id)
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
 
         stats.failed += 1;
       }
     }
-
-    offset += users.length;
-    if (users.length < pageLimit) break;
-  }
 
   // Persist daily summary for observability (do not block cron success)
   const dayKey = getDateKeyInTimezone(new Date(), "UTC");

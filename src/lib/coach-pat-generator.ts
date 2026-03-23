@@ -78,10 +78,16 @@ export async function generateCoachPatNote({
   userId,
   dayNumber,
   actionItem,
+  totalDaysCompleted,
+  daysInRow,
+  currentDay,
 }: {
   userId: string;
   dayNumber: number;
   actionItem: string;
+  totalDaysCompleted?: number;
+  daysInRow?: number;
+  currentDay?: number;
 }): Promise<GenerateCoachPatNoteResult> {
   const openai = getOpenAIClient();
 
@@ -99,6 +105,11 @@ export async function generateCoachPatNote({
   const practiceAction = context.today_practice.practice_action_signal || context.today_practice.practice_summary;
 
   const brief = `
+PROGRESSION:
+- Total Days Completed: ${totalDaysCompleted ?? 0}
+- Current Day: ${currentDay ?? dayNumber}
+- Days In Row: ${daysInRow ?? 0}
+
 DAY: ${context.today_context.day_number}
 PHASE: ${context.today_context.phase}
 STALENESS: ${context.today_context.staleness_mode}

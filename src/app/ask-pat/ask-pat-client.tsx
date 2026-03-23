@@ -124,6 +124,9 @@ export default function AskPatClient({ isSubscribed }: Props) {
           Ask about leadership, consistency, discipline, or any situation you’re
           facing. This is your direct line into Coach Pat’s mindset.
         </p>
+        <p className="text-base text-[var(--muted)] max-w-2xl">
+          Built from the real words of Pat Summitt—her interviews, speeches, and teachings shape every response.
+        </p>
       </header>
 
       {/* Ask Box */}

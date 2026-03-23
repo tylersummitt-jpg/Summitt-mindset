@@ -307,6 +307,10 @@ export async function generateCoachReply({
   const openai = getOpenAIClient();
 
   const md = await getClerkPublicMetadata(userId);
+  const totalDaysCompleted = md?.totalDaysCompleted ?? 0;
+  const daysInRow = md?.daysInRow ?? 0;
+  const currentDay = md?.currentDay ?? dayNumber;
+
   const profile = await buildProfileContext(userId);
 
   const coachContext = await buildCoachPatContext({
@@ -386,9 +390,16 @@ Rules:
 - Use "I" or "my" when referencing your experience.
 - Never refer to Pat in third person.
 - Do not say phrases like "Pat used to say", "Pat believed", "Pat would say", or "Coach Pat".
+- If the user has built consistency (multiple days or streak), you may acknowledge it briefly in a calm, grounded way. Never over-celebrate. Keep it subtle and matter-of-fact.
+- Do not mention progression every time. Only reference it when it genuinely strengthens the coaching moment.
 `.trim();
 
   const userPrompt = `
+PROGRESSION:
+- Total Days Completed: ${totalDaysCompleted}
+- Current Day: ${currentDay}
+- Days In Row: ${daysInRow}
+
 GOAL: today's practice
 DAY: ${dayNumber}
 
