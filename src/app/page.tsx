@@ -72,28 +72,6 @@ export default async function HomePage() {
               results in your life.
             </p>
 
-            <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed">
-              Built from the real words of Pat Summitt.
-            </p>
-            <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed">
-              We studied her interviews, speeches, and teachings to shape every part of this experience.
-            </p>
-            <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed">
-              Grounded in how she coached, led, and challenged people to grow.
-            </p>
-            <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed">
-              Each day, you receive a simple text from Coach Pat with one short practice and one honest reflection.
-            </p>
-            <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed">
-              You respond. You build consistency. You move forward.
-            </p>
-            <p className="text-lg text-[var(--muted)] mb-4 leading-relaxed">
-              You can also ask Coach Pat questions anytime and access the Film Room as you go.
-            </p>
-            <p className="text-lg text-[var(--muted)] mb-8 leading-relaxed">
-              A short daily practice that helps you think better, act better, and stay consistent.
-            </p>
-
             {user && (
               <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm mb-6 space-y-4">
                 <p className="text-sm font-semibold">
@@ -239,6 +217,27 @@ export default async function HomePage() {
             Millions of people are rediscovering Pat Summitt through
             documentaries and stories about her life. But inspiration fades
             unless it becomes a habit.
+          </p>
+          <p className="text-lg text-gray-700">
+            Built from the real words of Pat Summitt.
+          </p>
+          <p className="text-lg text-gray-700">
+            We studied her interviews, speeches, and teachings to shape every part of this experience.
+          </p>
+          <p className="text-lg text-gray-700">
+            Grounded in how she coached, led, and challenged people to grow.
+          </p>
+          <p className="text-lg text-gray-700">
+            Each day, you receive a simple text from Coach Pat with one short practice and one honest reflection.
+          </p>
+          <p className="text-lg text-gray-700">
+            You respond. You build consistency. You move forward.
+          </p>
+          <p className="text-lg text-gray-700">
+            You can also ask Coach Pat questions anytime and access the Film Room as you go.
+          </p>
+          <p className="text-lg text-gray-700">
+            A short daily practice that helps you think better, act better, and stay consistent.
           </p>
           <p className="text-lg text-gray-700">
             Summitt Mindset turns Pat Summitt&apos;s leadership principles
