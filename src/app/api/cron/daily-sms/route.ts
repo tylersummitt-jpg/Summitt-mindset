@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -17,12 +18,42 @@ const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
  * ======================================================
  * CRON AUTH
  * ======================================================
- * Only allow requests with valid CRON_SECRET via x-cron-secret header.
+ * Valid CRON_SECRET required. Accept either:
+ * - x-cron-secret: <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET> (Vercel scheduled crons)
  */
+function timingSafeEqualUtf8(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a, "utf8");
+    const bufB = Buffer.from(b, "utf8");
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 function validateCronSecret(req: Request): boolean {
   if (!CRON_SECRET) return false;
-  const header = req.headers.get("x-cron-secret");
-  return header === CRON_SECRET;
+
+  const xCron = req.headers.get("x-cron-secret");
+  if (xCron && timingSafeEqualUtf8(xCron, CRON_SECRET)) return true;
+
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) {
+    const token = auth.slice(7).trim();
+    if (token && timingSafeEqualUtf8(token, CRON_SECRET)) return true;
+  }
+
+  return false;
+}
+
+function logDailySmsCronAuthFailure(req: Request) {
+  console.error("[daily-sms] cron auth failed", {
+    cronSecretConfigured: Boolean(CRON_SECRET),
+    hasXCronSecretHeader: Boolean(req.headers.get("x-cron-secret")),
+    hasAuthorizationHeader: Boolean(req.headers.get("authorization")),
+  });
 }
 
 /**
@@ -33,7 +64,7 @@ function validateCronSecret(req: Request): boolean {
  * Goal:
  * - Each user receives at most ONE SMS per local day.
  * - Send time is based on smsTimePreference (early_morning=6, morning=8, midday=10).
- * - 5-minute window prevents duplicate sends if cron runs multiple times.
+ * - 10-minute window at the start of the hour aligns with 5-minute cron + jitter.
  */
 const SEND_HOUR_BY_PREFERENCE = {
   early_morning: 6,
@@ -42,7 +73,7 @@ const SEND_HOUR_BY_PREFERENCE = {
 } as const;
 
 function isInSendWindow(local: Date, sendHour: number): boolean {
-  return local.getHours() === sendHour && local.getMinutes() < 5;
+  return local.getHours() === sendHour && local.getMinutes() < 10;
 }
 
 function getReentryLine(level: string): string | null {
@@ -120,6 +151,7 @@ async function reserveTodaySendOrSkip({
 
 export async function GET(req: Request) {
   if (!validateCronSecret(req)) {
+    logDailySmsCronAuthFailure(req);
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
@@ -144,6 +176,8 @@ export async function GET(req: Request) {
     skippedMissingTwilio: 0,
     failed: 0,
     reservationErrors: 0,
+    userLoopErrors: 0,
+    recoveredReserved: 0,
   };
 
   const { data: audienceUsers } = await supabaseServer
@@ -159,6 +193,8 @@ export async function GET(req: Request) {
   for (const audienceUser of audienceUsers) {
       stats.scanned += 1;
 
+      let stage = "getClerkUser";
+      try {
       const user = await getClerkUser(audienceUser.clerk_user_id);
       const md = user.public_metadata || {};
 
@@ -181,12 +217,15 @@ export async function GET(req: Request) {
         SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 8;
 
       // STEP 1: Read existing event before reserve (and before window check)
-      const { data: existingEvent } = await supabaseServer
+      stage = "query_send_events";
+      const { data: existingRow } = await supabaseServer
         .from("sms_send_events")
-        .select("id, status, metadata")
+        .select("id, status, metadata, message_sid")
         .eq("clerk_user_id", audienceUser.clerk_user_id)
         .eq("day_key", todayKey)
         .maybeSingle();
+
+      let existingEvent = existingRow;
 
       // Retries bypass send window; first-time sends require it
       const meta = existingEvent?.metadata as Record<string, unknown> | undefined;
@@ -204,6 +243,48 @@ export async function GET(req: Request) {
 
       // STEP 2 & 3: Handle existing row or proceed to reserve
       if (existingEvent) {
+        const messageSidRaw = existingEvent.message_sid;
+        const hasMessageSid =
+          typeof messageSidRaw === "string" && messageSidRaw.trim().length > 0;
+
+        // Unsent stuck "reserved" (insert succeeded, send/update never completed)
+        if (existingEvent.status === "reserved" && !hasMessageSid) {
+          const priorStatus = existingEvent.status;
+          const reservedMeta = (existingEvent.metadata || {}) as Record<
+            string,
+            unknown
+          >;
+          const recoveredMeta = {
+            ...reservedMeta,
+            retry_count: 0,
+            note: "recovered_stuck_reserved",
+            recovered_at: new Date().toISOString(),
+          };
+
+          console.log("[daily-sms] recovered stuck reserved row", {
+            clerk_user_id: audienceUser.clerk_user_id,
+            priorStatus,
+            messageSidPresent: hasMessageSid,
+          });
+
+          stats.recoveredReserved += 1;
+
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "send_failed",
+              metadata: recoveredMeta,
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+
+          existingEvent = {
+            ...existingEvent,
+            status: "send_failed",
+            metadata: recoveredMeta,
+          };
+        }
+
         // CASE A: send_failed with retries left
         if (existingEvent.status === "send_failed") {
           const existingMeta = (existingEvent.metadata || {}) as Record<string, unknown>;
@@ -233,6 +314,7 @@ export async function GET(req: Request) {
 
             const dayNumber =
               typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
+            stage = "build_content";
             const version = await getOrCreateDailyPracticeVersion({
               userId: audienceUser.clerk_user_id,
               dayNumber,
@@ -261,6 +343,7 @@ export async function GET(req: Request) {
             smsBody += `${version.reflectionPrompt}\n\n`;
             smsBody += completionCTA;
 
+            stage = "twilio_send_or_skip";
             if (!isTwilioReady() || SMS_DRY_RUN) {
               stats.alreadyReservedOrSentToday += 1;
               continue;
@@ -317,6 +400,7 @@ export async function GET(req: Request) {
       }
 
       // STEP 3: Only reserve if no row exists
+      stage = "reserve";
       const reservation = await reserveTodaySendOrSkip({
         userId: audienceUser.clerk_user_id,
         todayKey,
@@ -364,6 +448,7 @@ export async function GET(req: Request) {
         lastCompletedAt: md.lastCompletedAt,
       });
 
+      stage = "build_content";
       const version = await getOrCreateDailyPracticeVersion({
         userId: audienceUser.clerk_user_id,
         dayNumber,
@@ -393,6 +478,7 @@ export async function GET(req: Request) {
       smsBody += completionCTA;
 
       // Twilio readiness + dry run
+      stage = "twilio_send_or_skip";
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
           .from("sms_send_events")
@@ -452,7 +538,18 @@ export async function GET(req: Request) {
 
         stats.failed += 1;
       }
-    }
+      } catch (userErr: unknown) {
+        const message =
+          userErr instanceof Error ? userErr.message : String(userErr);
+        console.error("[daily-sms] user processing error", {
+          clerk_user_id: audienceUser.clerk_user_id,
+          stage,
+          message,
+        });
+        stats.userLoopErrors += 1;
+        continue;
+      }
+  }
 
   // Persist daily summary for observability (do not block cron success)
   const dayKey = getDateKeyInTimezone(new Date(), "UTC");
@@ -475,6 +572,21 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error("[daily-sms] sms_daily_stats upsert failed:", err);
   }
+
+  console.log("[daily-sms] run summary", {
+    scanned: stats.scanned,
+    eligible: stats.eligible,
+    reserved: stats.reserved,
+    sent: stats.sent,
+    skippedAlreadyCompleted: stats.skippedAlreadyCompleted,
+    skippedOutOfWindow: stats.skippedNotTime,
+    skippedAlreadySent: stats.alreadyReservedOrSentToday,
+    skippedOptedOut: stats.skippedOptedOut,
+    failed: stats.failed,
+    reservationErrors: stats.reservationErrors,
+    userLoopErrors: stats.userLoopErrors,
+    recoveredReserved: stats.recoveredReserved,
+  });
 
   return NextResponse.json(stats);
 }
