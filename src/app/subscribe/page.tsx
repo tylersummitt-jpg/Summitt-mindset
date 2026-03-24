@@ -89,143 +89,132 @@ function SubscribePageInner() {
   return (
     <main className="min-h-screen bg-[var(--bg)]">
       {/* --------------------------------------------------
-          Section 1 — Hero
+          Hero + pricing (single column mobile: text → pricing → image;
+          md+: text | pricing+image)
           -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 py-16 grid gap-10 md:grid-cols-2 items-center">
-        <div className="text-center md:text-left">
-          <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
-            Start Your Daily Practice
-          </h1>
-        <p className="text-lg text-[var(--muted)] mb-4">
-          Summitt Mindset helps you apply Coach Pat’s leadership standards one
-          day at a time.
-        </p>
-        <p className="text-[var(--text)]">
-          One short daily practice. One honest reflection. Real consistency over
-          time.
-        </p>
-        </div>
-        <div className="relative w-full h-[300px] rounded-2xl overflow-hidden">
-          <Image
-            src={image.src}
-            alt={image.alt}
-            fill
-            priority
-            sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover object-top"
-          />
-        </div>
-      </section>
-
-      {/* --------------------------------------------------
-          Section 4 — Pricing (existing)
-          -------------------------------------------------- */}
-      <section className="flex items-center justify-center px-4 py-20">
-        <div className="max-w-xl w-full">
-          {/* ======================================================
-              Header
-             ====================================================== */}
-          <div className="text-center mb-10">
-            <p className="text-xs uppercase tracking-widest text-[var(--muted)] mb-3">
-              Founding Member Launch
-            </p>
-
-            <h1 className="text-3xl md:text-4xl font-semibold mb-3">
-              Start your daily practice.
+      <section className="max-w-6xl mx-auto px-4 py-10 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 md:items-start">
+          <div className="order-1 text-center md:text-left min-w-0">
+            <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
+              Start Your Daily Practice
             </h1>
-
-            <p className="text-[var(--muted)] text-lg">
-              Summitt Mindset is a paid membership offering a short daily
-              practice (3–7 minutes), journaling, and optional SMS coaching
-              inspired by Coach Pat Summitt.
+            <p className="text-lg text-[var(--muted)] mb-4">
+              Summitt Mindset helps you apply Coach Pat’s leadership standards one
+              day at a time.
             </p>
-
-            <p className="text-[var(--muted)] text-lg mt-4">
-              7-day free trial. <strong>You won’t be charged today.</strong>
+            <p className="text-[var(--text)]">
+              One short daily practice. One honest reflection. Real consistency over
+              time.
             </p>
           </div>
 
-          {/* ======================================================
-              Pricing Cards
-             ====================================================== */}
-        <div className="grid gap-4 md:grid-cols-2 mb-6">
-          {/* Monthly */}
-          <button
-            onClick={() => handleCheckout("monthly")}
-            disabled={!!loadingPlan}
-            className="relative border-2 border-[var(--brand)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition"
-          >
-            <p className="text-sm font-semibold mb-1">
-              Founding Member Monthly
-            </p>
+          <div className="order-2 flex flex-col gap-6 w-full min-w-0">
+            <div className="w-full max-w-xl mx-auto md:max-w-none md:mx-0">
+              <div className="text-center md:text-left mb-6 md:mb-8">
+                <p className="text-xs uppercase tracking-widest text-[var(--muted)] mb-3">
+                  Founding Member Launch
+                </p>
 
-            <p className="text-2xl font-bold mb-2">$19.99</p>
+                <h1 className="text-3xl md:text-4xl font-semibold mb-3">
+                  Start your daily practice.
+                </h1>
 
-            <p className="text-sm text-[var(--muted)]">
-              Lowest price locked in.
-            </p>
+                <p className="text-[var(--muted)] text-lg">
+                  Summitt Mindset is a paid membership offering a short daily
+                  practice (3–7 minutes), journaling, and optional SMS coaching
+                  inspired by Coach Pat Summitt.
+                </p>
 
-            {loadingPlan === "monthly" && (
-              <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
-                Redirecting…
-              </p>
-            )}
-          </button>
+                <p className="text-[var(--muted)] text-lg mt-4">
+                  7-day free trial. <strong>You won’t be charged today.</strong>
+                </p>
+              </div>
 
-          {/* Annual */}
-          <button
-            onClick={() => handleCheckout("annual")}
-            disabled={!!loadingPlan}
-            className="relative border border-[var(--border)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition"
-          >
-            <p className="text-sm font-semibold mb-1">
-              Founding Member Annual
-            </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 w-full">
+                <button
+                  onClick={() => handleCheckout("monthly")}
+                  disabled={!!loadingPlan}
+                  className="relative w-full border-2 border-[var(--brand)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition"
+                >
+                  <p className="text-sm font-semibold mb-1">
+                    Founding Member Monthly
+                  </p>
 
-            <p className="text-2xl font-bold mb-2">$120</p>
+                  <p className="text-2xl font-bold mb-2">$19.99</p>
 
-            <p className="text-sm text-[var(--muted)]">
-              Save 50% vs. monthly.
-            </p>
+                  <p className="text-sm text-[var(--muted)]">
+                    Lowest price locked in.
+                  </p>
 
-            {loadingPlan === "annual" && (
-              <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
-                Redirecting…
-              </p>
-            )}
-          </button>
-        </div>
+                  {loadingPlan === "monthly" && (
+                    <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
+                      Redirecting…
+                    </p>
+                  )}
+                </button>
 
-        {/* ======================================================
-            Status / Errors
-           ====================================================== */}
-        {canceled && (
-          <p className="text-sm text-red-600 text-center mb-4">
-            Looks like you canceled checkout — no worries.
-          </p>
-        )}
+                <button
+                  onClick={() => handleCheckout("annual")}
+                  disabled={!!loadingPlan}
+                  className="relative w-full border border-[var(--border)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition"
+                >
+                  <p className="text-sm font-semibold mb-1">
+                    Founding Member Annual
+                  </p>
 
-        {error && (
-          <p className="text-sm text-red-600 text-center mb-4">{error}</p>
-        )}
+                  <p className="text-2xl font-bold mb-2">$120</p>
 
-        {/* ======================================================
-            Trust + Reassurance
-           ====================================================== */}
-        <div className="text-center text-sm text-[var(--muted)] space-y-2">
-          <p>Cancel anytime. Secure checkout via Stripe.</p>
-          <p>
-            “Successful people are simply those with successful habits.”
-            <span className="ml-2">— Pat Summitt</span>
-          </p>
-        </div>
+                  <p className="text-sm text-[var(--muted)]">
+                    Save 50% vs. monthly.
+                  </p>
+
+                  {loadingPlan === "annual" && (
+                    <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
+                      Redirecting…
+                    </p>
+                  )}
+                </button>
+              </div>
+
+              {canceled && (
+                <p className="text-sm text-red-600 text-center md:text-left mb-4">
+                  Looks like you canceled checkout — no worries.
+                </p>
+              )}
+
+              {error && (
+                <p className="text-sm text-red-600 text-center md:text-left mb-4 break-words">
+                  {error}
+                </p>
+              )}
+
+              <div className="text-center md:text-left text-sm text-[var(--muted)] space-y-2">
+                <p>Cancel anytime. Secure checkout via Stripe.</p>
+                <p>
+                  “Successful people are simply those with successful habits.”
+                  <span className="ml-2">— Pat Summitt</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="relative w-full h-[220px] sm:h-[260px] md:h-[280px] rounded-2xl overflow-hidden shrink-0">
+              <Image
+                src={image.src}
+                alt={image.alt}
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover object-top"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
       {/* --------------------------------------------------
           Section 2 — What You Get
           -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 pt-6 pb-16">
+      <section className="max-w-6xl mx-auto px-4 pt-2 md:pt-6 pb-16">
         <h2 className="text-2xl font-bold text-[var(--text)] text-center mb-12">
           Your Membership Includes
         </h2>
