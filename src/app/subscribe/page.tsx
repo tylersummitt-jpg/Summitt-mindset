@@ -88,17 +88,14 @@ function SubscribePageInner() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          Hero + pricing (single column mobile: text → pricing → image;
-          md+: text | pricing+image)
-          -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 py-10 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 md:items-start">
+      {/* Mobile: hero → trial + cards → trust → image. Desktop: hero | same stack. */}
+      <section className="max-w-6xl mx-auto px-4 py-6 md:py-14">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 md:items-start">
           <div className="order-1 text-center md:text-left min-w-0">
-            <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-4">
+            <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-3 md:mb-4">
               Start Your Daily Practice
             </h1>
-            <p className="text-lg text-[var(--muted)] mb-4">
+            <p className="text-lg text-[var(--muted)] mb-3">
               Summitt Mindset helps you apply Coach Pat’s leadership standards one
               day at a time.
             </p>
@@ -108,29 +105,13 @@ function SubscribePageInner() {
             </p>
           </div>
 
-          <div className="order-2 flex flex-col gap-6 w-full min-w-0">
+          <div className="order-2 flex flex-col gap-4 md:gap-5 w-full min-w-0">
             <div className="w-full max-w-xl mx-auto md:max-w-none md:mx-0">
-              <div className="text-center md:text-left mb-6 md:mb-8">
-                <p className="text-xs uppercase tracking-widest text-[var(--muted)] mb-3">
-                  Founding Member Launch
-                </p>
+              <p className="text-sm text-[var(--muted)] text-center md:text-left mb-3">
+                7-day free trial. You won’t be charged today.
+              </p>
 
-                <h1 className="text-3xl md:text-4xl font-semibold mb-3">
-                  Start your daily practice.
-                </h1>
-
-                <p className="text-[var(--muted)] text-lg">
-                  Summitt Mindset is a paid membership offering a short daily
-                  practice (3–7 minutes), journaling, and optional SMS coaching
-                  inspired by Coach Pat Summitt.
-                </p>
-
-                <p className="text-[var(--muted)] text-lg mt-4">
-                  7-day free trial. <strong>You won’t be charged today.</strong>
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full">
                 <button
                   onClick={() => handleCheckout("monthly")}
                   disabled={!!loadingPlan}
@@ -177,27 +158,27 @@ function SubscribePageInner() {
               </div>
 
               {canceled && (
-                <p className="text-sm text-red-600 text-center md:text-left mb-4">
+                <p className="text-sm text-red-600 text-center md:text-left mt-3">
                   Looks like you canceled checkout — no worries.
                 </p>
               )}
 
               {error && (
-                <p className="text-sm text-red-600 text-center md:text-left mb-4 break-words">
+                <p className="text-sm text-red-600 text-center md:text-left mt-3 break-words">
                   {error}
                 </p>
               )}
-
-              <div className="text-center md:text-left text-sm text-[var(--muted)] space-y-2">
-                <p>Cancel anytime. Secure checkout via Stripe.</p>
-                <p>
-                  “Successful people are simply those with successful habits.”
-                  <span className="ml-2">— Pat Summitt</span>
-                </p>
-              </div>
             </div>
 
-            <div className="relative w-full h-[220px] sm:h-[260px] md:h-[280px] rounded-2xl overflow-hidden shrink-0">
+            <div className="text-center md:text-left text-sm text-[var(--muted)] space-y-2 w-full max-w-xl mx-auto md:max-w-none md:mx-0">
+              <p>Cancel anytime. Secure checkout via Stripe.</p>
+              <p>
+                “Successful people are simply those with successful habits.”
+                <span className="ml-2">— Pat Summitt</span>
+              </p>
+            </div>
+
+            <div className="relative w-full h-[200px] sm:h-[240px] md:h-[260px] rounded-2xl overflow-hidden shrink-0">
               <Image
                 src={image.src}
                 alt={image.alt}
