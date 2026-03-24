@@ -90,8 +90,8 @@ function SubscribePageInner() {
     <main className="min-h-screen bg-[var(--bg)]">
       {/* Mobile: hero → trial + cards → trust → image. Desktop: hero | same stack. */}
       <section className="max-w-6xl mx-auto px-4 py-6 md:py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 md:items-center">
-          <div className="order-1 text-center md:text-left min-w-0 max-w-md mx-auto md:mx-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 md:items-start">
+          <div className="order-1 text-center md:text-left min-w-0 max-w-md mx-auto md:mx-0 md:pt-6">
             <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-3 md:mb-4">
               Start Your Daily Practice
             </h1>
@@ -105,8 +105,8 @@ function SubscribePageInner() {
             </p>
           </div>
 
-          <div className="order-2 flex flex-col gap-4 md:gap-4 w-full min-w-0">
-            <div className="w-full max-w-xl mx-auto md:max-w-none md:mx-0">
+          <div className="order-2 flex flex-col gap-4 md:gap-3 w-full min-w-0">
+            <div className="w-full max-w-lg mx-auto md:mx-0">
               <p className="text-sm text-[var(--muted)] text-center md:text-left mb-3">
                 7-day free trial. You won’t be charged today.
               </p>
@@ -178,7 +178,7 @@ function SubscribePageInner() {
               </p>
             </div>
 
-            <div className="relative w-full h-[180px] sm:h-[220px] md:h-[220px] rounded-2xl overflow-hidden shrink-0">
+            <div className="relative w-full h-[180px] sm:h-[200px] md:h-[200px] rounded-2xl overflow-hidden shrink-0">
               <Image
                 src={image.src}
                 alt={image.alt}
