@@ -118,62 +118,6 @@ function SubscribePageInner() {
       </section>
 
       {/* --------------------------------------------------
-          Section 2 — What You Get
-          -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 pt-6 pb-16">
-        <h2 className="text-2xl font-bold text-[var(--text)] text-center mb-12">
-          Your Membership Includes
-        </h2>
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Daily Practice
-            </h3>
-            <p className="text-sm text-[var(--muted)] leading-relaxed">
-              A short leadership practice each day with a reflection prompt.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Ask Pat
-            </h3>
-            <p className="text-sm text-[var(--muted)] leading-relaxed">
-              Ask leadership questions and receive guidance inspired by Pat
-              Summitt’s philosophy.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Film Room
-            </h3>
-            <p className="text-sm text-[var(--muted)] leading-relaxed">
-              Watch leadership lessons from respected voices in sports, media,
-              and business.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* --------------------------------------------------
-          Section 3 — How It Fits Your Life
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-[var(--text)] mb-6">
-          Built for real life.
-        </h2>
-        <p className="text-[var(--text)] leading-relaxed">
-          Most daily practices take just a few minutes.
-        </p>
-        <p className="text-[var(--text)] leading-relaxed mt-4">
-          Some members use the app. Others receive their daily practice by text
-          message.
-        </p>
-        <p className="text-[var(--text)] leading-relaxed mt-4">
-          The goal is simple: show up every day.
-        </p>
-      </section>
-
-      {/* --------------------------------------------------
           Section 4 — Pricing (existing)
           -------------------------------------------------- */}
       <section className="flex items-center justify-center px-4 py-20">
@@ -276,6 +220,62 @@ function SubscribePageInner() {
           </p>
         </div>
         </div>
+      </section>
+
+      {/* --------------------------------------------------
+          Section 2 — What You Get
+          -------------------------------------------------- */}
+      <section className="max-w-6xl mx-auto px-4 pt-6 pb-16">
+        <h2 className="text-2xl font-bold text-[var(--text)] text-center mb-12">
+          Your Membership Includes
+        </h2>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Daily Practice
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
+              A short leadership practice each day with a reflection prompt.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Ask Pat
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
+              Ask leadership questions and receive guidance inspired by Pat
+              Summitt’s philosophy.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+              Film Room
+            </h3>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
+              Watch leadership lessons from respected voices in sports, media,
+              and business.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------
+          Section 3 — How It Fits Your Life
+          -------------------------------------------------- */}
+      <section className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h2 className="text-2xl font-bold text-[var(--text)] mb-6">
+          Built for real life.
+        </h2>
+        <p className="text-[var(--text)] leading-relaxed">
+          Most daily practices take just a few minutes.
+        </p>
+        <p className="text-[var(--text)] leading-relaxed mt-4">
+          Some members use the app. Others receive their daily practice by text
+          message.
+        </p>
+        <p className="text-[var(--text)] leading-relaxed mt-4">
+          The goal is simple: show up every day.
+        </p>
       </section>
     </main>
   );
