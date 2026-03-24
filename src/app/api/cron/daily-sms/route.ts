@@ -349,29 +349,12 @@ export async function GET(req: Request) {
               continue;
             }
 
+            let retryMessage;
             try {
-              const message = await sendSMS({
+              retryMessage = await sendSMS({
                 to: audienceUser.phone_number,
                 body: smsBody,
               });
-              await supabaseServer
-                .from("sms_send_events")
-                .update({
-                  message_sid: message.sid,
-                  status: message.status,
-                  sms_body: smsBody,
-                  metadata: {
-                    ...existingMeta,
-                    retry_count: retryCount + 1,
-                    note: "retry_success",
-                    timezone,
-                    local_time: localNow.toISOString(),
-                  },
-                })
-                .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey);
-              stats.sent += 1;
-              stats.retried += 1;
             } catch (err) {
               const newRetryCount = retryCount + 1;
               await supabaseServer
@@ -390,7 +373,55 @@ export async function GET(req: Request) {
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
                 .eq("day_key", todayKey);
               stats.failed += 1;
+              continue;
             }
+
+            const retrySuccessPayload = {
+              message_sid: retryMessage.sid,
+              status: retryMessage.status,
+              sms_body: smsBody,
+              metadata: {
+                ...existingMeta,
+                retry_count: retryCount + 1,
+                note: "retry_success",
+                timezone,
+                local_time: localNow.toISOString(),
+              },
+            };
+            const { error: retryUpdErr } = await supabaseServer
+              .from("sms_send_events")
+              .update(retrySuccessPayload)
+              .eq("clerk_user_id", audienceUser.clerk_user_id)
+              .eq("day_key", todayKey);
+            if (retryUpdErr) {
+              console.error(
+                "[daily-sms] sms_send_events update failed after Twilio success (retry path)",
+                {
+                  clerk_user_id: audienceUser.clerk_user_id,
+                  todayKey,
+                  message_sid: retryMessage.sid,
+                  error: retryUpdErr,
+                }
+              );
+              const { error: retryUpdErr2 } = await supabaseServer
+                .from("sms_send_events")
+                .update(retrySuccessPayload)
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
+                .eq("day_key", todayKey);
+              if (retryUpdErr2) {
+                console.error(
+                  "[daily-sms] sms_send_events second update failed after Twilio success (retry path)",
+                  {
+                    clerk_user_id: audienceUser.clerk_user_id,
+                    todayKey,
+                    message_sid: retryMessage.sid,
+                    error: retryUpdErr2,
+                  }
+                );
+              }
+            }
+            stats.sent += 1;
+            stats.retried += 1;
             continue;
           }
         }
@@ -499,28 +530,12 @@ export async function GET(req: Request) {
         continue;
       }
 
+      let mainMessage;
       try {
-        const message = await sendSMS({
+        mainMessage = await sendSMS({
           to: audienceUser.phone_number,
           body: smsBody,
         });
-
-        await supabaseServer
-          .from("sms_send_events")
-          .update({
-            message_sid: message.sid,
-            status: message.status,
-            sms_body: smsBody,
-            metadata: {
-              note: "sent_to_twilio",
-              timezone,
-              local_time: localNow.toISOString(),
-            },
-          })
-          .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
-
-        stats.sent += 1;
       } catch (err) {
         await supabaseServer
           .from("sms_send_events")
@@ -537,6 +552,52 @@ export async function GET(req: Request) {
           .eq("day_key", todayKey);
 
         stats.failed += 1;
+      }
+
+      if (mainMessage) {
+        const mainSuccessPayload = {
+          message_sid: mainMessage.sid,
+          status: mainMessage.status,
+          sms_body: smsBody,
+          metadata: {
+            note: "sent_to_twilio",
+            timezone,
+            local_time: localNow.toISOString(),
+          },
+        };
+        const { error: mainUpdErr } = await supabaseServer
+          .from("sms_send_events")
+          .update(mainSuccessPayload)
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
+          .eq("day_key", todayKey);
+        if (mainUpdErr) {
+          console.error(
+            "[daily-sms] sms_send_events update failed after Twilio success (main path)",
+            {
+              clerk_user_id: audienceUser.clerk_user_id,
+              todayKey,
+              message_sid: mainMessage.sid,
+              error: mainUpdErr,
+            }
+          );
+          const { error: mainUpdErr2 } = await supabaseServer
+            .from("sms_send_events")
+            .update(mainSuccessPayload)
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          if (mainUpdErr2) {
+            console.error(
+              "[daily-sms] sms_send_events second update failed after Twilio success (main path)",
+              {
+                clerk_user_id: audienceUser.clerk_user_id,
+                todayKey,
+                message_sid: mainMessage.sid,
+                error: mainUpdErr2,
+              }
+            );
+          }
+        }
+        stats.sent += 1;
       }
       } catch (userErr: unknown) {
         const message =

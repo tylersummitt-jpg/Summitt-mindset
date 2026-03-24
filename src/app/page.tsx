@@ -62,11 +62,11 @@ export default async function HomePage() {
       <section className="bg-[var(--ink)]">
         <div className="max-w-6xl mx-auto px-4 py-24 grid md:grid-cols-2 gap-12 items-center">
           <div>
-            <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-5">
+            <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-3">
               Pat Summitt is your personal leadership coach — every day.
             </h1>
 
-            <p className="text-lg text-[var(--muted)] mb-8 leading-relaxed">
+            <p className="text-lg text-[var(--muted)] mb-5 leading-relaxed">
               A simple daily leadership practice inspired by the Coach of the
               Century. Reflect for a few minutes each day and watch the
               results in your life.
@@ -125,8 +125,30 @@ export default async function HomePage() {
               </div>
             )}
 
+            {/* ======================================================
+                Public CTA Section
+               ====================================================== */}
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              <Link
+                href="/subscribe"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
+              >
+                Start 7-Day Free Trial
+              </Link>
+              <Link
+                href="/subscribe"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold border border-[var(--brand)] text-[var(--brand)] bg-transparent hover:bg-[var(--surface)] w-full sm:w-auto"
+              >
+                Get Today&apos;s Practice by Text
+              </Link>
+            </div>
+            <p className="text-sm text-[var(--muted)] mt-2">
+              7-day free trial • Cancel anytime • Available in the app or by daily text message.
+            </p>
+
             {!user && (
-              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm mb-6">
+              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm mt-4">
                 <p className="text-sm font-semibold mb-1">Already a member?</p>
 
                 <p className="text-sm text-[var(--muted)] mb-5">
@@ -142,19 +164,6 @@ export default async function HomePage() {
               </div>
             )}
 
-            {/* ======================================================
-                Public CTA Section
-               ====================================================== */}
-
-            <Link
-              href="/subscribe"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
-            >
-              Start 7-Day Free Trial
-            </Link>
-            <p className="text-sm text-[var(--muted)] mt-2">
-              7-day free trial • Cancel anytime • Available in the app or by daily text message.
-            </p>
             <p className="text-sm text-[var(--muted)] mt-4">
               Not ready yet?{" "}
               <Link

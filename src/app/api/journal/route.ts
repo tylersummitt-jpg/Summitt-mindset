@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 
 /**
@@ -110,6 +111,19 @@ export async function POST(req: Request) {
     if (typeof day !== "number" || typeof content !== "string") {
       return NextResponse.json(
         { ok: false, reason: "invalid_journal_payload" },
+        { status: 200 }
+      );
+    }
+
+    const md = await getClerkPublicMetadata(userId);
+    const currentDay =
+      typeof md?.currentDay === "number" && md.currentDay > 0
+        ? Math.floor(md.currentDay)
+        : null;
+
+    if (currentDay === null || day !== currentDay) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_day" },
         { status: 200 }
       );
     }
