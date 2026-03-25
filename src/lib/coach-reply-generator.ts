@@ -8,6 +8,14 @@ import { buildCoachPatContext } from "@/lib/coach-pat-context";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
 import { finalizeWithName } from "@/lib/format-with-name";
+import {
+  assertTextSafeForBrand,
+  COACH_REPLY_BLOCKED_FALLBACK,
+  COACH_REPLY_OUTPUT_FALLBACK,
+  lexicalSafetyPass,
+  PAT_BRAND_SAFETY_RULES,
+  sanitizeModelOutput,
+} from "@/lib/ai-safety";
 
 type Params = {
   userId: string;
@@ -306,6 +314,11 @@ export async function generateCoachReply({
 }: Params): Promise<CoachReplyResult> {
   const openai = getOpenAIClient();
 
+  const MODEL = "gpt-4.1-mini";
+  const TEMPERATURE = 0.5;
+  const isSms = source === "sms";
+  const MAX_TOKENS = isSms ? 180 : 220;
+
   const md = await getClerkPublicMetadata(userId);
   const totalDaysCompleted = md?.totalDaysCompleted ?? 0;
   const daysInRow = md?.daysInRow ?? 0;
@@ -340,6 +353,43 @@ export async function generateCoachReply({
 
   const cleanUserMessage = normalizeText(userMessage);
 
+  const combinedUserFacingInput = [
+    cleanUserMessage,
+    todayJournal !== "none" ? todayJournal : "",
+  ]
+    .filter((s) => s.length > 0)
+    .join("\n\n");
+
+  const inputSafe = await assertTextSafeForBrand(
+    openai,
+    combinedUserFacingInput.length > 0 ? combinedUserFacingInput : cleanUserMessage
+  );
+
+  if (!inputSafe.ok) {
+    let text = COACH_REPLY_BLOCKED_FALLBACK;
+    text = expandContractions(text);
+    text = removeApostrophes(text);
+    text = stripMemoryMetaLanguage(text);
+    text = stripThirdPersonPatReferences(text);
+    text = finalizeOutput(text);
+    text = enforceHardCaps(text, source);
+    if (source === "sms") text = enforceSmsCharCap(text, SMS_HARD_CHAR_CAP);
+    const displayName = await getDisplayNameForUser(userId);
+    text = finalizeWithName(text, displayName ?? undefined);
+    if (!lexicalSafetyPass(text)) {
+      text = COACH_REPLY_BLOCKED_FALLBACK;
+    }
+    return {
+      text,
+      meta: {
+        model: MODEL,
+        temperature: TEMPERATURE,
+        max_tokens: MAX_TOKENS,
+        fallbackUsed: true,
+      },
+    };
+  }
+
   // Retrieve a relevant Pat story using embeddings
   let storyContext = "none";
 
@@ -360,11 +410,6 @@ export async function generateCoachReply({
   } catch (err) {
     console.error("Coach story retrieval failed:", err);
   }
-
-  const MODEL = "gpt-4.1-mini";
-  const TEMPERATURE = 0.5;
-  const isSms = source === "sms";
-  const MAX_TOKENS = isSms ? 180 : 220;
 
   const systemPrompt = `
 You are Coach Pat Summitt.
@@ -392,6 +437,8 @@ Rules:
 - Do not say phrases like "Pat used to say", "Pat believed", "Pat would say", or "Coach Pat".
 - If the user has built consistency (multiple days or streak), you may acknowledge it briefly in a calm, grounded way. Never over-celebrate. Keep it subtle and matter-of-fact.
 - Do not mention progression every time. Only reference it when it genuinely strengthens the coaching moment.
+
+${PAT_BRAND_SAFETY_RULES}
 `.trim();
 
   const userPrompt = `
@@ -463,6 +510,8 @@ Guidelines:
   let raw = completion.choices[0]?.message?.content?.trim() || fallback;
   const fallbackUsed = !completion.choices[0]?.message?.content;
 
+  raw = await sanitizeModelOutput(openai, raw, COACH_REPLY_OUTPUT_FALLBACK);
+
   raw = expandContractions(raw);
   raw = removeApostrophes(raw);
   raw = stripMemoryMetaLanguage(raw);
@@ -477,6 +526,10 @@ Guidelines:
 
   const displayName = await getDisplayNameForUser(userId);
   raw = finalizeWithName(raw, displayName ?? undefined);
+
+  if (!lexicalSafetyPass(raw)) {
+    raw = COACH_REPLY_OUTPUT_FALLBACK;
+  }
 
   return {
     text: raw,

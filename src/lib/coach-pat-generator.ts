@@ -9,6 +9,13 @@ import {
 } from "@/lib/coach-pat-prompts";
 import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
 import { finalizeWithName } from "@/lib/format-with-name";
+import {
+  assertTextSafeForBrand,
+  getCoachPatDailySafeFallback,
+  lexicalSafetyPass,
+  PAT_BRAND_SAFETY_RULES,
+  sanitizeModelOutput,
+} from "@/lib/ai-safety";
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -123,10 +130,25 @@ YESTERDAY: ${context.yesterday_summary?.text || "none"}
 ${buildProfileBlock(context.profile_context)}
 `;
 
-  const fallback =
-    context.today_context.staleness_mode === "reentry"
-      ? "Start simple. Stay steady. Let today be clean and manageable. Do the next right thing."
-      : "Keep it simple today. Stay steady. Do the next right thing. That is enough.";
+  const stalenessMode = context.today_context.staleness_mode;
+  const safeFallback = getCoachPatDailySafeFallback(stalenessMode);
+
+  const briefSafe = await assertTextSafeForBrand(openai, brief);
+  if (!briefSafe.ok) {
+    let text = safeFallback;
+    const displayName = await getDisplayNameForUser(userId);
+    text = finalizeWithName(text, displayName ?? undefined);
+    if (!lexicalSafetyPass(text)) {
+      text = safeFallback;
+    }
+    return {
+      text,
+      stalenessMode,
+      simplicityPassed: false,
+      attempts: 1,
+      model: COACH_PAT_GENERATION_CONFIG.model,
+    };
+  }
 
   const completion = await openai.chat.completions.create({
     model: COACH_PAT_GENERATION_CONFIG.model,
@@ -136,7 +158,10 @@ ${buildProfileBlock(context.profile_context)}
     frequency_penalty: COACH_PAT_GENERATION_CONFIG.frequency_penalty,
     presence_penalty: COACH_PAT_GENERATION_CONFIG.presence_penalty,
     messages: [
-      { role: "system", content: COACH_PAT_SYSTEM_PROMPT },
+      {
+        role: "system",
+        content: `${COACH_PAT_SYSTEM_PROMPT}\n\n${PAT_BRAND_SAFETY_RULES}`,
+      },
       { role: "developer", content: COACH_PAT_DEVELOPER_PROMPT },
       {
         role: "user",
@@ -167,11 +192,15 @@ Rules for this note:
   let text = raw ? normalizeText(raw) : "";
 
   if (text) {
+    text = await sanitizeModelOutput(openai, text, safeFallback);
     const displayName = await getDisplayNameForUser(userId);
     text = finalizeWithName(text, displayName ?? undefined);
+    if (!lexicalSafetyPass(text)) {
+      text = safeFallback;
+    }
     return {
       text,
-      stalenessMode: context.today_context.staleness_mode,
+      stalenessMode,
       simplicityPassed: true,
       attempts: 1,
       model: COACH_PAT_GENERATION_CONFIG.model,
@@ -181,16 +210,19 @@ Rules for this note:
   console.warn("[CoachPatNote] fallback returned", {
     dayNumber,
     phase: context.today_context.phase,
-    stalenessMode: context.today_context.staleness_mode,
+    stalenessMode,
   });
 
-  let fallbackText = fallback;
+  let fallbackText = safeFallback;
   const displayName = await getDisplayNameForUser(userId);
   fallbackText = finalizeWithName(fallbackText, displayName ?? undefined);
+  if (!lexicalSafetyPass(fallbackText)) {
+    fallbackText = safeFallback;
+  }
 
   return {
     text: fallbackText,
-    stalenessMode: context.today_context.staleness_mode,
+    stalenessMode,
     simplicityPassed: false,
     attempts: 1,
     model: COACH_PAT_GENERATION_CONFIG.model,

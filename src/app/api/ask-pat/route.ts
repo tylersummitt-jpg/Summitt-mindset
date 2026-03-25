@@ -6,6 +6,14 @@ import { auth } from "@clerk/nextjs/server";
 import { buildProfileContext } from "@/lib/profile-context";
 import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
 import { finalizeWithName } from "@/lib/format-with-name";
+import {
+  assertTextSafeForBrand,
+  ASK_PAT_INPUT_BLOCKED_FALLBACK,
+  ASK_PAT_OUTPUT_FALLBACK,
+  lexicalSafetyPass,
+  PAT_BRAND_SAFETY_RULES,
+  sanitizeModelOutput,
+} from "@/lib/ai-safety";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +68,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await req.json().catch(() => ({}));
+    const question = body?.question;
+
+    if (!question || typeof question !== "string") {
+      return NextResponse.json(
+        { error: "Question is required." },
+        { status: 400 }
+      );
+    }
+
+    const trimmedQuestion = normalizeText(question);
+    if (!trimmedQuestion) {
+      return NextResponse.json(
+        { error: "Question is required." },
+        { status: 400 }
+      );
+    }
+
+    const openai = getOpenAIClient();
+
+    const inputSafe = await assertTextSafeForBrand(openai, trimmedQuestion);
+    if (!inputSafe.ok) {
+      return NextResponse.json({
+        answer: ASK_PAT_INPUT_BLOCKED_FALLBACK,
+        ok: true,
+      });
+    }
+
     const dayKey = todayKeyUTC();
 
     const { data: usageRows, error: usageErr } = await supabaseServer
@@ -110,22 +146,6 @@ export async function POST(req: NextRequest) {
           reason: "usage_insert_failed",
         },
         { status: 200 }
-      );
-    }
-
-    const { question } = await req.json();
-    if (!question || typeof question !== "string") {
-      return NextResponse.json(
-        { error: "Question is required." },
-        { status: 400 }
-      );
-    }
-
-    const trimmedQuestion = normalizeText(question);
-    if (!trimmedQuestion) {
-      return NextResponse.json(
-        { error: "Question is required." },
-        { status: 400 }
       );
     }
 
@@ -186,8 +206,6 @@ export async function POST(req: NextRequest) {
         ? memoryLines.join("\n")
         : "No recent practice reflections available.";
 
-    const openai = getOpenAIClient();
-
     const embed = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: trimmedQuestion,
@@ -244,6 +262,8 @@ ANSWER STRUCTURE
 
 SOURCE MATERIAL (FROM YOUR BOOKS)
 ${bookContext}
+
+${PAT_BRAND_SAFETY_RULES}
 `.trim();
 
     const completion = await openai.chat.completions.create({
@@ -259,8 +279,14 @@ ${bookContext}
       completion.choices[0]?.message?.content ??
       "I don't have an answer right now.";
 
+    answer = await sanitizeModelOutput(openai, answer, ASK_PAT_OUTPUT_FALLBACK);
+
     const displayName = await getDisplayNameForUser(userId);
     answer = finalizeWithName(answer, displayName ?? undefined);
+
+    if (!lexicalSafetyPass(answer)) {
+      answer = ASK_PAT_OUTPUT_FALLBACK;
+    }
 
     return NextResponse.json({ answer, ok: true });
   } catch (err) {
