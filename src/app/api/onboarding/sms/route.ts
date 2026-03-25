@@ -148,7 +148,7 @@ export async function POST(req: Request) {
 
       const confirm =
         "Summitt Mindset: You’re in. Coach Pat Summitt is now your daily life coach.\n\n" +
-        "Expect a short note and one focused practice every morning around 8:00 AM local time. Show up consistently — and watch what changes.\n\n" +
+        "Expect a short note and one focused practice each day. Show up consistently — and watch what changes.\n\n" +
         "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
 
       try {
