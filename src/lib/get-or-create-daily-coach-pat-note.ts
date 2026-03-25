@@ -34,14 +34,25 @@ export async function getOrCreateDailyCoachPatNote({
     dayNumber,
   });
 
-  const generated = await generateCoachPatNote({
-    userId,
-    dayNumber,
-    actionItem: version.actionItem,
-    totalDaysCompleted,
-    daysInRow,
-    currentDay,
-  });
+  let generated: Awaited<ReturnType<typeof generateCoachPatNote>>;
+  try {
+    generated = await generateCoachPatNote({
+      userId,
+      dayNumber,
+      actionItem: version.actionItem,
+      totalDaysCompleted,
+      daysInRow,
+      currentDay,
+    });
+  } catch {
+    generated = {
+      text: "Keep it simple today. Show up. Hold the standard in small moments.",
+      stalenessMode: "normal",
+      simplicityPassed: false,
+      attempts: 0,
+      model: "fallback",
+    };
+  }
 
   const safeNote = normalizeText(generated.text);
 

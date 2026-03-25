@@ -1,4 +1,5 @@
 import { supabaseServer } from "./supabase-server";
+import { getClerkPublicMetadata } from "./clerk-rest";
 
 type SyncParams = {
   userId: string;
@@ -9,6 +10,29 @@ type SyncParams = {
   smsTimePreference?: string | null;
   summittSubscribed?: boolean | null;
 };
+
+function isTruthySubscribed(raw: unknown): boolean {
+  return raw === true || raw === "true";
+}
+
+async function resolveSummittSubscribedFlag(
+  userId: string,
+  summittSubscribed: boolean | null | undefined
+): Promise<boolean> {
+  if (summittSubscribed === true || summittSubscribed === false) {
+    return summittSubscribed;
+  }
+  try {
+    const md = await getClerkPublicMetadata(userId);
+    return isTruthySubscribed(md?.summittSubscribed);
+  } catch (e) {
+    console.error(
+      "[syncSmsAudience] could not read Clerk for summittSubscribed",
+      e
+    );
+    return false;
+  }
+}
 
 export async function syncSmsAudience(params: SyncParams): Promise<void> {
   const {
@@ -21,21 +45,43 @@ export async function syncSmsAudience(params: SyncParams): Promise<void> {
     summittSubscribed,
   } = params;
 
-  // 🚨 CRITICAL: cannot insert without phone_number
+  const resolvedSubscribed = await resolveSummittSubscribedFlag(
+    userId,
+    summittSubscribed
+  );
+
   if (!phoneNumber) {
+    const updatePayload: Record<string, unknown> = {
+      summitt_subscribed: resolvedSubscribed,
+    };
+    if (smsEnabled != null) updatePayload.sms_enabled = smsEnabled;
+    if (stoppedAt != null) updatePayload.stopped_at = stoppedAt;
+    if (timezone != null) updatePayload.timezone = timezone;
+    if (smsTimePreference != null)
+      updatePayload.sms_time_preference = smsTimePreference;
+
+    const { error } = await supabaseServer
+      .from("sms_audience")
+      .update(updatePayload)
+      .eq("clerk_user_id", userId);
+
+    if (error) {
+      console.error("[syncSmsAudience]", error);
+    }
     return;
   }
 
   const payload: Record<string, unknown> = {
     clerk_user_id: userId,
     phone_number: phoneNumber,
+    summitt_subscribed: resolvedSubscribed,
   };
 
   if (smsEnabled != null) payload.sms_enabled = smsEnabled;
   if (stoppedAt != null) payload.stopped_at = stoppedAt;
   if (timezone != null) payload.timezone = timezone;
-  if (smsTimePreference != null) payload.sms_time_preference = smsTimePreference;
-  if (summittSubscribed != null) payload.summitt_subscribed = summittSubscribed;
+  if (smsTimePreference != null)
+    payload.sms_time_preference = smsTimePreference;
 
   const { error } = await supabaseServer
     .from("sms_audience")

@@ -45,6 +45,26 @@ function validateCronSecret(req: Request): boolean {
     if (token && timingSafeEqualUtf8(token, CRON_SECRET)) return true;
   }
 
+  const hasXCronHeader = req.headers.get("x-cron-secret") != null;
+  const hasAuthorizationHeader = req.headers.get("authorization") != null;
+
+  if (!hasXCronHeader && !hasAuthorizationHeader) {
+    if (req.method === "GET") {
+      try {
+        const url = new URL(req.url);
+        if (url.pathname.startsWith("/api/cron/")) {
+          const qSecret = url.searchParams.get("cron_secret");
+          if (qSecret && timingSafeEqualUtf8(qSecret, CRON_SECRET)) {
+            console.log("[daily-sms] allowed via query cron_secret fallback");
+            return true;
+          }
+        }
+      } catch {
+        // ignore invalid URL
+      }
+    }
+  }
+
   return false;
 }
 
@@ -64,7 +84,9 @@ function logDailySmsCronAuthFailure(req: Request) {
  * Goal:
  * - Each user receives at most ONE SMS per local day.
  * - Send time is based on smsTimePreference (early_morning=6, morning=8, midday=10).
- * - 10-minute window at the start of the hour aligns with 5-minute cron + jitter.
+ * - Users are eligible for the entire preferred local hour (not only the first minutes).
+ * - Cron runs every 5 minutes and may attempt multiple times within that hour; reservation
+ *   (unique clerk_user_id + day_key) ensures only one SMS is sent.
  */
 const SEND_HOUR_BY_PREFERENCE = {
   early_morning: 6,
@@ -73,7 +95,7 @@ const SEND_HOUR_BY_PREFERENCE = {
 } as const;
 
 function isInSendWindow(local: Date, sendHour: number): boolean {
-  return local.getHours() === sendHour && local.getMinutes() < 10;
+  return local.getHours() === sendHour;
 }
 
 function getReentryLine(level: string): string | null {
@@ -203,7 +225,7 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const timezone = resolveUserTimezone(audienceUser.timezone);
+      const timezone = resolveUserTimezone(md.timezone ?? audienceUser.timezone);
       const now = new Date();
 
       // localNow = "now" interpreted in that user's timezone
