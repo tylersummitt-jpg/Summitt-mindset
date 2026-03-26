@@ -2,11 +2,9 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getOrCreateDailyCoachPatNote } from "@/lib/get-or-create-daily-coach-pat-note";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
-import { getUserStalenessLevel } from "@/lib/get-user-staleness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -341,29 +339,8 @@ export async function GET(req: Request) {
               userId: audienceUser.clerk_user_id,
               dayNumber,
             });
-            const note = await getOrCreateDailyCoachPatNote({
-              userId: audienceUser.clerk_user_id,
-              dayNumber,
-            });
-            const completionCTA = getCompletionCTA(dayNumber);
-            const trainingHeader = getTrainingCampHeader(dayNumber);
-            let smsBody = "";
-            const { level } = getUserStalenessLevel({
-              timezoneFromMetadata: md.timezone,
-              lastCompletedAt: md.lastCompletedAt,
-            });
-            const reentryLine = getReentryLine(level);
-            if (reentryLine) {
-              smsBody += `${reentryLine}\n\n`;
-            }
-            smsBody += `${note.noteText}\n`;
-            smsBody += `- Coach Pat\n\n`;
-            if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
-            smsBody += `TODAY'S PRACTICE\n\n`;
-            smsBody += `${version.actionItem}\n\n`;
-            smsBody += `TODAY'S REFLECTION\n\n`;
-            smsBody += `${version.reflectionPrompt}\n\n`;
-            smsBody += completionCTA;
+            const smsReflection = version.reflectionPrompt.split("?")[0] + "?";
+            const smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
 
             stage = "twilio_send_or_skip";
             if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -496,39 +473,14 @@ export async function GET(req: Request) {
       const dayNumber =
         typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
 
-      const { level } = getUserStalenessLevel({
-        timezoneFromMetadata: md.timezone,
-        lastCompletedAt: md.lastCompletedAt,
-      });
-
       stage = "build_content";
       const version = await getOrCreateDailyPracticeVersion({
         userId: audienceUser.clerk_user_id,
         dayNumber,
       });
 
-      const note = await getOrCreateDailyCoachPatNote({
-        userId: audienceUser.clerk_user_id,
-        dayNumber,
-      });
-
-      const completionCTA = getCompletionCTA(dayNumber);
-      const trainingHeader = getTrainingCampHeader(dayNumber);
-
-      let smsBody = "";
-      const reentryLine = getReentryLine(level);
-      if (reentryLine) {
-        smsBody += `${reentryLine}\n\n`;
-      }
-
-      smsBody += `${note.noteText}\n`;
-      smsBody += `- Coach Pat\n\n`;
-      if (trainingHeader) smsBody += `${trainingHeader}\n\n`;
-      smsBody += `TODAY'S PRACTICE\n\n`;
-      smsBody += `${version.actionItem}\n\n`;
-      smsBody += `TODAY'S REFLECTION\n\n`;
-      smsBody += `${version.reflectionPrompt}\n\n`;
-      smsBody += completionCTA;
+      const smsReflection = version.reflectionPrompt.split("?")[0] + "?";
+      const smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
 
       // Twilio readiness + dry run
       stage = "twilio_send_or_skip";
