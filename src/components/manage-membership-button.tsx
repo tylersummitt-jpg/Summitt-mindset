@@ -16,7 +16,7 @@ export default function ManageMembershipButton() {
         onClick={handleCancelFlow}
         className="rounded-md border px-5 py-2 text-sm font-semibold hover:bg-black hover:text-white transition"
       >
-        Manage Membership
+        Manage or Cancel Membership
       </button>
 
       <p className="text-xs text-gray-500 text-center max-w-sm">
