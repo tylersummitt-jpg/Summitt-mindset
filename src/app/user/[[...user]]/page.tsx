@@ -7,6 +7,7 @@ import {
   RedirectToSignIn,
   useUser,
 } from "@clerk/nextjs";
+import Link from "next/link";
 
 import ManageMembershipButton from "@/components/manage-membership-button";
 
@@ -214,6 +215,22 @@ export default function UserProfilePage() {
                 Support@SummittMindset.com
               </a>
             </p>
+
+            <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-4 text-sm text-center space-y-3">
+              <p className="font-semibold text-gray-900">
+                Keep Your Coaching Accurate
+              </p>
+              <p className="text-gray-600">
+                If anything in your life has changed, update it here so your
+                coaching stays relevant.
+              </p>
+              <Link
+                href="/life-context"
+                className="inline-block rounded-md border px-5 py-2 text-sm font-semibold hover:bg-black hover:text-white transition"
+              >
+                Update Life Context
+              </Link>
+            </div>
           </section>
         </main>
       </SignedIn>

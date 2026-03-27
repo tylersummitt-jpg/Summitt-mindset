@@ -171,6 +171,7 @@ ${brief}
 Write today's note.
 
 Rules for this note:
+- User profile information may be outdated. If the user has said something more recent that conflicts with their profile, prioritize the user's recent statements over the profile.
 - 3 to 5 sentences, one paragraph.
 - At least one directive sentence (clear, winnable standard).
 - Short sentences.
