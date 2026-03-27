@@ -18,12 +18,6 @@ export default function ManageMembershipButton() {
       >
         Manage or Cancel Membership
       </button>
-
-      <p className="text-xs text-gray-500 text-center max-w-sm">
-        Summitt Mindset doesn’t do silent churn.
-        <br />
-        Cancellation always includes a calm exit reflection.
-      </p>
     </div>
   );
 }

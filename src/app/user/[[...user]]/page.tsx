@@ -50,7 +50,7 @@ function MembershipStatusCard() {
   }
 
   return (
-    <div className="w-full max-w-sm mx-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
+    <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
       <div className="flex justify-between gap-4 py-1">
         <span className="text-gray-600">Status</span>
         <span className="font-medium text-gray-900">{status}</span>
@@ -101,7 +101,7 @@ function TextMessagesCard() {
   }
 
   return (
-    <div className="w-full max-w-sm mx-auto space-y-2">
+    <div className="w-full max-w-md sm:max-w-lg mx-auto space-y-2">
       <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
         <div className="flex justify-between gap-4 py-1">
           <span className="text-gray-600">Status</span>
@@ -160,7 +160,7 @@ function YourProgressCard() {
   }
 
   return (
-    <div className="w-full max-w-sm mx-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
+    <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
       <div className="flex justify-between gap-4 py-1">
         <span className="text-gray-600">Current Day</span>
         <span className="font-medium text-gray-900">{currentDayDisplay}</span>
@@ -188,13 +188,18 @@ export default function UserProfilePage() {
     <>
       <SignedIn>
         <main className="min-h-screen flex flex-col items-center justify-center gap-10 px-6 py-16">
-          {/* ✅ Membership Management */}
-          <section className="text-center space-y-3">
+          <div className="text-center space-y-3">
             <h1 className="text-2xl font-semibold">Account</h1>
             <p className="text-sm text-gray-600">
               Manage your membership, billing, and profile settings.
             </p>
+          </div>
 
+          <div className="w-full max-w-4xl">
+            <UserProfile />
+          </div>
+
+          <section className="text-center space-y-3 w-full">
             <MembershipStatusCard />
 
             <TextMessagesCard />
@@ -203,15 +208,13 @@ export default function UserProfilePage() {
 
             <ManageMembershipButton />
 
-            <p className="mt-4 text-xs text-gray-500 text-center max-w-sm mx-auto">
-              We&apos;re here if you need anything — Support@SummittMindset.com
+            <p className="mt-4 text-sm text-gray-600 text-center max-w-md sm:max-w-lg mx-auto">
+              Need help? Email us anytime —{" "}
+              <a href="mailto:Support@SummittMindset.com">
+                Support@SummittMindset.com
+              </a>
             </p>
           </section>
-
-          {/* ✅ Clerk Profile */}
-          <div className="w-full max-w-4xl">
-            <UserProfile />
-          </div>
         </main>
       </SignedIn>
 
