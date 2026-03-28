@@ -17,6 +17,92 @@ import {
   sanitizeModelOutput,
 } from "@/lib/ai-safety";
 
+function getSmsSelectionContext(message: string): string | null {
+  const entries: Record<string, { selection: string; question: string }> = {
+    // Day 1 (and Days 5–7 MCQ)
+    "I need focus today": {
+      selection: "Focus",
+      question: "What do you need most today?",
+    },
+    "I need energy today": {
+      selection: "Energy",
+      question: "What do you need most today?",
+    },
+    "I need confidence today": {
+      selection: "Confidence",
+      question: "What do you need most today?",
+    },
+    "I need clarity today": {
+      selection: "Clarity",
+      question: "What do you need most today?",
+    },
+
+    // Day 2
+    "I will rest today": {
+      selection: "Rest",
+      question: "How will you take care of yourself today?",
+    },
+    "I will move my body today": {
+      selection: "Move your body",
+      question: "How will you take care of yourself today?",
+    },
+    "I will fuel my body today": {
+      selection: "Fuel your body",
+      question: "How will you take care of yourself today?",
+    },
+    "I will clear my mind today": {
+      selection: "Clear your mind",
+      question: "How will you take care of yourself today?",
+    },
+
+    // Day 3
+    "I will finish something I've been putting off today": {
+      selection: "Finish something you've been putting off",
+      question: "What kind of win will you get?",
+    },
+    "I will knock out a quick task today": {
+      selection: "Knock out a quick task",
+      question: "What kind of win will you get?",
+    },
+    "I will make progress on something important today": {
+      selection: "Make progress on something important",
+      question: "What kind of win will you get?",
+    },
+    "I will do something that makes me feel better today": {
+      selection: "Do something that makes you feel better",
+      question: "What kind of win will you get?",
+    },
+
+    // Day 4
+    "I will stay focused on what matters today": {
+      selection: "Stay focused on what matters",
+      question: "How will you show up today?",
+    },
+    "I will keep my energy steady today": {
+      selection: "Keep your energy steady",
+      question: "How will you show up today?",
+    },
+    "I will follow through no matter what today": {
+      selection: "Follow through no matter what",
+      question: "How will you show up today?",
+    },
+    "I will stay positive and composed today": {
+      selection: "Stay positive and composed",
+      question: "How will you show up today?",
+    },
+  };
+
+  const entry = entries[message.trim()];
+  if (!entry) return null;
+
+  return `USER SELECTION:
+${entry.selection}
+
+QUESTION:
+${entry.question}
+`;
+}
+
 type Params = {
   userId: string;
   dayNumber: number;
@@ -442,6 +528,8 @@ Rules:
 ${PAT_BRAND_SAFETY_RULES}
 `.trim();
 
+  const selectionContext = getSmsSelectionContext(cleanUserMessage);
+
   const userPrompt = `
 PROGRESSION:
 - Total Days Completed: ${totalDaysCompleted}
@@ -480,6 +568,7 @@ ${storyContext}
 
 ${buildProfileBlock(profile)}
 
+${selectionContext ? selectionContext : ""}
 USER MESSAGE:
 ${cleanUserMessage}
 

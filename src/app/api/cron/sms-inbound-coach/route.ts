@@ -8,6 +8,62 @@ import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { coachEngine } from "@/lib/coach-engine";
 import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
 
+function translateSmsReply(raw: string, dayNumber: number): string {
+  if (!raw) return raw;
+
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return raw;
+
+  const match = trimmed.match(/^(a|b|c|d)([^a-z]|$)/);
+  if (!match) return raw;
+
+  const letter = match[1];
+
+  // Day-specific mappings (Days 2–4 first; Days 1 + 5–7 share the "need most" map)
+  if (dayNumber === 2) {
+    const map: Record<string, string> = {
+      a: "I will rest today",
+      b: "I will move my body today",
+      c: "I will fuel my body today",
+      d: "I will clear my mind today",
+    };
+    return map[letter] || raw;
+  }
+
+  if (dayNumber === 3) {
+    const map: Record<string, string> = {
+      a: "I will finish something I've been putting off today",
+      b: "I will knock out a quick task today",
+      c: "I will make progress on something important today",
+      d: "I will do something that makes me feel better today",
+    };
+    return map[letter] || raw;
+  }
+
+  if (dayNumber === 4) {
+    const map: Record<string, string> = {
+      a: "I will stay focused on what matters today",
+      b: "I will keep my energy steady today",
+      c: "I will follow through no matter what today",
+      d: "I will stay positive and composed today",
+    };
+    return map[letter] || raw;
+  }
+
+  if (dayNumber <= 7) {
+    const map: Record<string, string> = {
+      a: "I need focus today",
+      b: "I need energy today",
+      c: "I need confidence today",
+      d: "I need clarity today",
+    };
+    return map[letter] || raw;
+  }
+
+  // fallback for other days
+  return raw;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -348,6 +404,8 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     dayForThread = Math.floor(md.activeCoachDay);
   }
 
+  const processedMessage = translateSmsReply(job.raw_body, dayForThread);
+
   let didCompleteToday = false;
 
   if (!alreadyCompleted) {
@@ -361,7 +419,7 @@ async function processJob(claimedJob: JobRow): Promise<void> {
       {
         clerk_user_id: userId,
         day_number: dayForThread,
-        content: job.raw_body,
+        content: processedMessage,
         action_item: version.actionItem,
         reflection_prompt: version.reflectionPrompt,
         source: "sms",
@@ -414,7 +472,7 @@ async function processJob(claimedJob: JobRow): Promise<void> {
         const coachResult = await coachEngine({
           userId,
           dayNumber: dayForThread,
-          userMessage: job.raw_body,
+          userMessage: processedMessage,
           source: "sms",
         });
 

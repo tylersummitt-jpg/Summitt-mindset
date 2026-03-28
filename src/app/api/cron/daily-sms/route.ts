@@ -340,7 +340,69 @@ export async function GET(req: Request) {
               dayNumber,
             });
             const smsReflection = version.reflectionPrompt.split("?")[0] + "?";
-            const smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
+
+            let smsBody: string;
+
+            if (dayNumber === 1) {
+              smsBody = `Good morning.
+
+What do you need most today?
+
+A) Focus
+B) Energy
+C) Confidence
+D) Clarity
+
+Reply with A, B, C, or D.`;
+            } else if (dayNumber === 2) {
+              smsBody = `Good morning.
+
+How will you take care of yourself today?
+
+A) Rest
+B) Move your body
+C) Fuel your body
+D) Clear your mind
+
+Reply with A, B, C, or D.`;
+            } else if (dayNumber === 3) {
+              smsBody = `Good morning.
+
+Let's get a win early today.
+
+What kind of win will you get?
+
+A) Finish something you've been putting off
+B) Knock out a quick task
+C) Make progress on something important
+D) Do something that makes you feel better
+
+Reply with A, B, C, or D.`;
+            } else if (dayNumber === 4) {
+              smsBody = `Good morning.
+
+How will you show up today?
+
+A) Stay focused on what matters
+B) Keep your energy steady
+C) Follow through no matter what
+D) Stay positive and composed
+
+Reply with A, B, C, or D.`;
+            } else if (dayNumber <= 7) {
+              smsBody = `Good morning.
+
+What do you need most today?
+
+A) Focus
+B) Energy
+C) Confidence
+D) Clarity
+
+Reply with A, B, C, or D.`;
+            } else {
+              smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
+            }
 
             stage = "twilio_send_or_skip";
             if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -480,7 +542,69 @@ export async function GET(req: Request) {
       });
 
       const smsReflection = version.reflectionPrompt.split("?")[0] + "?";
-      const smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
+
+      let smsBody: string;
+
+      if (dayNumber === 1) {
+        smsBody = `Good morning.
+
+What do you need most today?
+
+A) Focus
+B) Energy
+C) Confidence
+D) Clarity
+
+Reply with A, B, C, or D.`;
+      } else if (dayNumber === 2) {
+        smsBody = `Good morning.
+
+How will you take care of yourself today?
+
+A) Rest
+B) Move your body
+C) Fuel your body
+D) Clear your mind
+
+Reply with A, B, C, or D.`;
+      } else if (dayNumber === 3) {
+        smsBody = `Good morning.
+
+Let's get a win early today.
+
+What kind of win will you get?
+
+A) Finish something you've been putting off
+B) Knock out a quick task
+C) Make progress on something important
+D) Do something that makes you feel better
+
+Reply with A, B, C, or D.`;
+      } else if (dayNumber === 4) {
+        smsBody = `Good morning.
+
+How will you show up today?
+
+A) Stay focused on what matters
+B) Keep your energy steady
+C) Follow through no matter what
+D) Stay positive and composed
+
+Reply with A, B, C, or D.`;
+      } else if (dayNumber <= 7) {
+        smsBody = `Good morning.
+
+What do you need most today?
+
+A) Focus
+B) Energy
+C) Confidence
+D) Clarity
+
+Reply with A, B, C, or D.`;
+      } else {
+        smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
+      }
 
       // Twilio readiness + dry run
       stage = "twilio_send_or_skip";
