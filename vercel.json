@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/challenge",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/sms-inbound-coach",
+      "schedule": "* * * * *"
     }
   ]
 }

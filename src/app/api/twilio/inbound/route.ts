@@ -6,16 +6,16 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
-import { completeDay } from "@/lib/complete-day";
-import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
-import { coachEngine } from "@/lib/coach-engine";
 import { splitIntoChunks, buildTwimlResponse } from "@/lib/twilio";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+
+const FAST_ACK =
+  "Got it. Coach Pat is with you and will text back soon.";
 
 /* =====================================================
    Utilities
@@ -92,6 +92,10 @@ function twiml(message: string) {
   });
 }
 
+function fastAckTwiml() {
+  return twiml(FAST_ACK);
+}
+
 function safeDayNumber(value: unknown): number | null {
   if (typeof value !== "number") return null;
   if (!Number.isFinite(value)) return null;
@@ -99,24 +103,114 @@ function safeDayNumber(value: unknown): number | null {
   return Math.floor(value);
 }
 
-/* =====================================================
-   COMPLETION CONFIRMATION + SIGNATURE (DETERMINISTIC)
-===================================================== */
+/**
+ * Coach-path durability: after sms_inbound_messages is stored, a job row MUST exist
+ * before we return 200 TwiML. Inserts with retry + explicit SELECT verify; throws if
+ * still missing so Twilio can retry the webhook.
+ */
+async function ensureCoachJobPresent(args: {
+  messageSid: string;
+  clerkUserId: string;
+  fromPhone: string;
+  rawBody: string;
+}): Promise<void> {
+  const row = {
+    message_sid: args.messageSid,
+    clerk_user_id: args.clerkUserId,
+    from_phone: args.fromPhone,
+    raw_body: args.rawBody,
+  };
 
-function getCompletionConfirmation(dayNumber: number): string {
-  const options = [
-    `Day ${dayNumber} is complete.`,
-    `You completed Day ${dayNumber}.`,
-    `That locks in Day ${dayNumber}.`,
-    `Day ${dayNumber} — done.`,
-    `You’re building something real. Day ${dayNumber} complete.`,
-  ];
-  return options[dayNumber % options.length];
+  const jobRowExists = async (): Promise<boolean> => {
+    const { data } = await supabaseServer
+      .from("sms_inbound_coach_jobs")
+      .select("message_sid")
+      .eq("message_sid", args.messageSid)
+      .maybeSingle();
+    return Boolean(data?.message_sid);
+  };
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { error } = await supabaseServer.from("sms_inbound_coach_jobs").insert(row);
+    if (!error) break;
+    const code = (error as { code?: string })?.code;
+    if (code === "23505") break;
+    if (attempt === 1) throw error;
+  }
+
+  if (await jobRowExists()) return;
+
+  {
+    const { error } = await supabaseServer.from("sms_inbound_coach_jobs").insert(row);
+    if (error) {
+      const code = (error as { code?: string })?.code;
+      if (code !== "23505") throw error;
+    }
+  }
+
+  if (await jobRowExists()) return;
+
+  {
+    const { error } = await supabaseServer.from("sms_inbound_coach_jobs").insert(row);
+    if (error) {
+      const code = (error as { code?: string })?.code;
+      if (code !== "23505") throw error;
+    }
+  }
+
+  if (!(await jobRowExists())) {
+    throw new Error("sms_inbound_coach_jobs_missing_after_enqueue_and_verify");
+  }
 }
 
-function getSignature(dayNumber: number): string {
-  const options = ["— Coach", "— Coach Pat", "— Your Coach"];
-  return options[dayNumber % options.length];
+async function runStopFlow(userId: string, from: string) {
+  await supabaseServer
+    .from("sms_identities")
+    .update({
+      sms_enabled: false,
+      stopped_at: new Date().toISOString(),
+    })
+    .eq("phone_number", from);
+
+  await updateClerkPublicMetadata(userId, {
+    smsEnabled: false,
+    smsStoppedAt: new Date().toISOString(),
+  });
+
+  await syncSmsAudience({
+    userId: userId,
+    phoneNumber: from,
+    smsEnabled: false,
+    stoppedAt: new Date().toISOString(),
+    timezone: null,
+    smsTimePreference: null,
+    summittSubscribed: null,
+  });
+}
+
+async function runStartFlow(userId: string, from: string) {
+  await supabaseServer
+    .from("sms_identities")
+    .update({
+      sms_enabled: true,
+      stopped_at: null,
+    })
+    .eq("phone_number", from);
+
+  await updateClerkPublicMetadata(userId, {
+    smsEnabled: true,
+    smsRestartedAt: new Date().toISOString(),
+  });
+
+  await syncSmsAudience({
+    userId: userId,
+    phoneNumber: from,
+    smsEnabled: true,
+    stoppedAt: null,
+    timezone: null,
+    smsTimePreference: null,
+    summittSubscribed: null,
+  });
 }
 
 /* =====================================================
@@ -169,37 +263,47 @@ export async function POST(req: Request) {
       });
 
     if (sidInsertError) {
-      const code = (sidInsertError as any)?.code;
+      const code = (sidInsertError as { code?: string })?.code;
       if (code === "23505") {
-        return NextResponse.json({ ok: true });
+        if (isStopCommand(body)) {
+          await runStopFlow(userId, from);
+          return twiml("You have been unsubscribed. Reply START to rejoin.");
+        }
+
+        if (isHelpCommand(body)) {
+          return twiml(
+            "Summitt Mindset daily training. Reply with at least one honest sentence to complete today. Reply STOP to opt out."
+          );
+        }
+
+        if (isStartCommand(body)) {
+          await runStartFlow(userId, from);
+          return twiml("You’re back in training.");
+        }
+
+        if (identity.sms_enabled !== true || typeof identity.stopped_at === "string") {
+          return NextResponse.json({ ok: true });
+        }
+
+        const dupMd = await getClerkPublicMetadata(userId);
+        if (dupMd.smsEnabled !== true) return NextResponse.json({ ok: true });
+
+        const dupCurrentDay = safeDayNumber(dupMd.currentDay);
+        if (!dupCurrentDay) return NextResponse.json({ ok: true });
+
+        await ensureCoachJobPresent({
+          messageSid,
+          clerkUserId: userId,
+          fromPhone: from,
+          rawBody: body,
+        });
+        return fastAckTwiml();
       }
       return NextResponse.json({ ok: false }, { status: 500 });
     }
 
     if (isStopCommand(body)) {
-      await supabaseServer
-        .from("sms_identities")
-        .update({
-          sms_enabled: false,
-          stopped_at: new Date().toISOString(),
-        })
-        .eq("phone_number", from);
-
-      await updateClerkPublicMetadata(userId, {
-        smsEnabled: false,
-        smsStoppedAt: new Date().toISOString(),
-      });
-
-      await syncSmsAudience({
-        userId: userId,
-        phoneNumber: from,
-        smsEnabled: false,
-        stoppedAt: new Date().toISOString(),
-        timezone: null,
-        smsTimePreference: null,
-        summittSubscribed: null
-      });
-
+      await runStopFlow(userId, from);
       return twiml("You have been unsubscribed. Reply START to rejoin.");
     }
 
@@ -210,29 +314,7 @@ export async function POST(req: Request) {
     }
 
     if (isStartCommand(body)) {
-      await supabaseServer
-        .from("sms_identities")
-        .update({
-          sms_enabled: true,
-          stopped_at: null,
-        })
-        .eq("phone_number", from);
-
-      await updateClerkPublicMetadata(userId, {
-        smsEnabled: true,
-        smsRestartedAt: new Date().toISOString(),
-      });
-
-      await syncSmsAudience({
-        userId: userId,
-        phoneNumber: from,
-        smsEnabled: true,
-        stoppedAt: null,
-        timezone: null,
-        smsTimePreference: null,
-        summittSubscribed: null
-      });
-
+      await runStartFlow(userId, from);
       return twiml("You’re back in training.");
     }
 
@@ -246,84 +328,14 @@ export async function POST(req: Request) {
     const currentDay = safeDayNumber(md.currentDay);
     if (!currentDay) return NextResponse.json({ ok: true });
 
-    const timezone = resolveUserTimezone(md.timezone);
-    const todayKey = getDateKeyInTimezone(new Date(), timezone);
-
-    const { data: existingCompletion } = await supabaseServer
-      .from("daily_completion_events")
-      .select("id")
-      .eq("clerk_user_id", userId)
-      .eq("day_key", todayKey)
-      .maybeSingle();
-
-    const alreadyCompleted = !!existingCompletion;
-
-    let dayForThread = currentDay;
-
-    if (
-      typeof md.activeCoachDay === "number" &&
-      Number.isFinite(md.activeCoachDay) &&
-      md.activeCoachDay > 0 &&
-      typeof md.activeCoachDayKey === "string" &&
-      md.activeCoachDayKey === todayKey
-    ) {
-      dayForThread = Math.floor(md.activeCoachDay);
-    }
-
-    let didCompleteToday = false;
-
-    if (!alreadyCompleted) {
-      const version = await getOrCreateDailyPracticeVersion({
-        userId,
-        dayNumber: dayForThread,
-      });
-
-      await supabaseServer.from("journal_entries").upsert(
-        {
-          clerk_user_id: userId,
-          day_number: dayForThread,
-          content: body,
-          action_item: version.actionItem,
-          reflection_prompt: version.reflectionPrompt,
-          source: "sms",
-        },
-        { onConflict: "clerk_user_id,day_number" }
-      );
-
-      const completionResult = await completeDay({
-        userId,
-        source: "sms",
-      });
-
-      if (completionResult.ok) {
-        didCompleteToday = true;
-      }
-    }
-
-    const coachResult = await coachEngine({
-      userId,
-      dayNumber: dayForThread,
-      userMessage: body,
-      source: "sms",
+    await ensureCoachJobPresent({
+      messageSid,
+      clerkUserId: userId,
+      fromPhone: from,
+      rawBody: body,
     });
 
-    if (!coachResult.ok) {
-      return twiml("Good. Stay steady. We’ll keep building.");
-    }
-
-    if (didCompleteToday) {
-      const confirmation = getCompletionConfirmation(dayForThread);
-      const signature = getSignature(dayForThread);
-
-      const wrapped =
-        `${confirmation}\n\n` +
-        `${coachResult.coachText}\n\n` +
-        `${signature}`;
-
-      return twiml(wrapped);
-    }
-
-    return twiml(coachResult.coachText);
+    return fastAckTwiml();
   } catch (err) {
     console.error("[TWILIO INBOUND ERROR]", err);
     return NextResponse.json({ ok: false }, { status: 500 });
