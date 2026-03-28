@@ -14,9 +14,6 @@ export const dynamic = "force-dynamic";
 
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 
-const FAST_ACK =
-  "Got it. Coach Pat is with you and will text back soon.";
-
 /* =====================================================
    Utilities
 ===================================================== */
@@ -93,7 +90,11 @@ function twiml(message: string) {
 }
 
 function fastAckTwiml() {
-  return twiml(FAST_ACK);
+  const xml = buildTwimlResponse([]);
+  return new Response(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml" },
+  });
 }
 
 function safeDayNumber(value: unknown): number | null {
