@@ -9,8 +9,14 @@ import {
 
 export type StalenessMode = "fresh" | "normal" | "reentry";
 
+/** Top pattern rows for coaching; prefer pattern_text in prompts when present. */
+export type CoachPatPatternInsight = {
+  pattern_key: string;
+  pattern_text?: string | null;
+};
+
 export type CoachPatContext = {
-  patterns: string[];
+  patterns: CoachPatPatternInsight[];
   recent_summary: {
     available: boolean;
     summary_text?: string;
@@ -190,20 +196,22 @@ async function getRecentSummary(userId: string): Promise<string | null> {
 async function getYesterdaySummary(userId: string): Promise<string | null> {
   const { data } = await supabaseServer
     .from("daily_summaries")
-    .select("summary_text")
+    .select("daily_summaries")
     .eq("clerk_user_id", userId)
     .order("day_number", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const text = normalizeText((data as any)?.summary_text ?? "");
+  const text = normalizeText((data as any)?.daily_summaries ?? "");
   return text || null;
 }
 
-async function getTopPatterns(userId: string): Promise<string[]> {
+async function getTopPatterns(
+  userId: string
+): Promise<CoachPatPatternInsight[]> {
   const { data } = await supabaseServer
     .from("pattern_insights")
-    .select("pattern_key")
+    .select("pattern_key, pattern_text")
     .eq("clerk_user_id", userId)
     .order("confidence", { ascending: false })
     .limit(2);
@@ -211,8 +219,16 @@ async function getTopPatterns(userId: string): Promise<string[]> {
   if (!data) return [];
 
   return data
-    .map((p: any) => normalizeText(p?.pattern_key ?? ""))
-    .filter(Boolean);
+    .map((p: any) => {
+      const pattern_key = normalizeText(p?.pattern_key ?? "");
+      const rawText = p?.pattern_text;
+      const pattern_text =
+        rawText != null && String(rawText).trim().length > 0
+          ? normalizeText(String(rawText))
+          : null;
+      return { pattern_key, pattern_text };
+    })
+    .filter((row) => row.pattern_key);
 }
 
 /* -------------------------------------------------- */

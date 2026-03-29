@@ -19,7 +19,7 @@ function translateSmsReply(raw: string, dayNumber: number): string {
 
   const letter = match[1];
 
-  // Day-specific mappings (Days 2–4 first; Days 1 + 5–7 share the "need most" map)
+  // Day-specific mappings (Days 2–7 first; Day 1 uses the "need most" map via <= 7)
   if (dayNumber === 2) {
     const map: Record<string, string> = {
       a: "I will rest today",
@@ -46,6 +46,36 @@ function translateSmsReply(raw: string, dayNumber: number): string {
       b: "I will keep my energy steady today",
       c: "I will follow through no matter what today",
       d: "I will stay positive and composed today",
+    };
+    return map[letter] || raw;
+  }
+
+  if (dayNumber === 5) {
+    const map: Record<string, string> = {
+      a: "I will reset and start again today",
+      b: "I will do one small thing today",
+      c: "I will slow down and regroup today",
+      d: "I will keep going no matter what today",
+    };
+    return map[letter] || raw;
+  }
+
+  if (dayNumber === 6) {
+    const map: Record<string, string> = {
+      a: "I will show up focused today",
+      b: "I will show up steady today",
+      c: "I will show up disciplined today",
+      d: "I will show up positive today",
+    };
+    return map[letter] || raw;
+  }
+
+  if (dayNumber === 7) {
+    const map: Record<string, string> = {
+      a: "I am starting to build something",
+      b: "I am showing up more consistently",
+      c: "I am learning how to adjust",
+      d: "I am not there yet, but I am trying",
     };
     return map[letter] || raw;
   }

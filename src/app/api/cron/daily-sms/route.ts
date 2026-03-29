@@ -169,6 +169,48 @@ async function reserveTodaySendOrSkip({
   return { reserved: false, reason: "reservation_insert_failed" };
 }
 
+/** Previous calendar day for the same local `todayKey` (YYYY-MM-DD). */
+function addCalendarDaysToDateKey(dateKey: string, deltaDays: number): string {
+  const [yStr, mStr, dStr] = dateKey.split("-");
+  const y = Number(yStr);
+  const m = Number(mStr);
+  const d = Number(dStr);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCDate(base.getUTCDate() + deltaDays);
+  const yy = base.getUTCFullYear();
+  const mm = String(base.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(base.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+/**
+ * Same program day across calendar days: we sent SMS yesterday, user did not complete yesterday
+ * (proxy for currentDay not advancing).
+ */
+async function getIsRepeatDay(clerkUserId: string, todayKey: string): Promise<boolean> {
+  const yesterdayKey = addCalendarDaysToDateKey(todayKey, -1);
+  const [{ data: yesterdaySend }, { data: completedYesterday }] = await Promise.all([
+    supabaseServer
+      .from("sms_send_events")
+      .select("message_sid")
+      .eq("clerk_user_id", clerkUserId)
+      .eq("day_key", yesterdayKey)
+      .maybeSingle(),
+    supabaseServer
+      .from("daily_completion_events")
+      .select("id")
+      .eq("clerk_user_id", clerkUserId)
+      .eq("day_key", yesterdayKey)
+      .limit(1),
+  ]);
+
+  const sid = yesterdaySend?.message_sid;
+  const yesterdayHadSms = typeof sid === "string" && sid.trim().length > 0;
+  if (!yesterdayHadSms) return false;
+  if (completedYesterday && completedYesterday.length > 0) return false;
+  return true;
+}
+
 export async function GET(req: Request) {
   if (!validateCronSecret(req)) {
     logDailySmsCronAuthFailure(req);
@@ -334,6 +376,7 @@ export async function GET(req: Request) {
 
             const dayNumber =
               typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
+            const isRepeatDay = await getIsRepeatDay(audienceUser.clerk_user_id, todayKey);
             stage = "build_content";
             const version = await getOrCreateDailyPracticeVersion({
               userId: audienceUser.clerk_user_id,
@@ -344,9 +387,12 @@ export async function GET(req: Request) {
             let smsBody: string;
 
             if (dayNumber === 1) {
-              smsBody = `Good morning.
+              const head = isRepeatDay
+                ? "A, B, C, or D today?"
+                : `Good morning.
 
-What do you need most today?
+What do you need most today?`;
+              smsBody = `${head}
 
 A) Focus
 B) Energy
@@ -355,9 +401,12 @@ D) Clarity
 
 Reply with A, B, C, or D.`;
             } else if (dayNumber === 2) {
-              smsBody = `Good morning.
+              const head = isRepeatDay
+                ? "Quick check — A, B, C, or D?"
+                : `Good morning.
 
-How will you take care of yourself today?
+How will you take care of yourself today?`;
+              smsBody = `${head}
 
 A) Rest
 B) Move your body
@@ -366,11 +415,14 @@ D) Clear your mind
 
 Reply with A, B, C, or D.`;
             } else if (dayNumber === 3) {
-              smsBody = `Good morning.
+              const head = isRepeatDay
+                ? "Pick your win: A, B, C, or D"
+                : `Good morning.
 
 Let's get a win early today.
 
-What kind of win will you get?
+What kind of win will you get?`;
+              smsBody = `${head}
 
 A) Finish something you've been putting off
 B) Knock out a quick task
@@ -379,9 +431,12 @@ D) Do something that makes you feel better
 
 Reply with A, B, C, or D.`;
             } else if (dayNumber === 4) {
-              smsBody = `Good morning.
+              const head = isRepeatDay
+                ? "How will you show up? A–D"
+                : `Good morning.
 
-How will you show up today?
+How will you show up today?`;
+              smsBody = `${head}
 
 A) Stay focused on what matters
 B) Keep your energy steady
@@ -389,10 +444,55 @@ C) Follow through no matter what
 D) Stay positive and composed
 
 Reply with A, B, C, or D.`;
-            } else if (dayNumber <= 7) {
-              smsBody = `Good morning.
+            } else if (dayNumber === 5) {
+              const head = isRepeatDay
+                ? "If it gets off track — A, B, C, or D"
+                : `Good morning.
 
-What do you need most today?
+If today gets off track, how will you respond?`;
+              smsBody = `${head}
+
+A) Reset and start again
+B) Do one small thing
+C) Slow down and regroup
+D) Keep going no matter what
+
+Reply with A, B, C, or D.`;
+            } else if (dayNumber === 6) {
+              const head = isRepeatDay
+                ? "How do you want to show up? A–D"
+                : `Good morning.
+
+How do you want to show up today?`;
+              smsBody = `${head}
+
+A) Focused
+B) Steady
+C) Disciplined
+D) Positive
+
+Reply with A, B, C, or D.`;
+            } else if (dayNumber === 7) {
+              const head = isRepeatDay
+                ? "Which one feels true? A–D"
+                : `Good morning.
+
+Which one feels most true right now?`;
+              smsBody = `${head}
+
+A) I'm starting to build something
+B) I'm showing up more consistently
+C) I'm learning how to adjust
+D) I'm not there yet, but I'm trying
+
+Reply with A, B, C, or D.`;
+            } else if (dayNumber <= 7) {
+              const head = isRepeatDay
+                ? "A, B, C, or D today?"
+                : `Good morning.
+
+What do you need most today?`;
+              smsBody = `${head}
 
 A) Focus
 B) Energy
@@ -535,6 +635,8 @@ Reply with A, B, C, or D.`;
       const dayNumber =
         typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
 
+      const isRepeatDay = await getIsRepeatDay(audienceUser.clerk_user_id, todayKey);
+
       stage = "build_content";
       const version = await getOrCreateDailyPracticeVersion({
         userId: audienceUser.clerk_user_id,
@@ -546,9 +648,12 @@ Reply with A, B, C, or D.`;
       let smsBody: string;
 
       if (dayNumber === 1) {
-        smsBody = `Good morning.
+        const head = isRepeatDay
+          ? "A, B, C, or D today?"
+          : `Good morning.
 
-What do you need most today?
+What do you need most today?`;
+        smsBody = `${head}
 
 A) Focus
 B) Energy
@@ -557,9 +662,12 @@ D) Clarity
 
 Reply with A, B, C, or D.`;
       } else if (dayNumber === 2) {
-        smsBody = `Good morning.
+        const head = isRepeatDay
+          ? "Quick check — A, B, C, or D?"
+          : `Good morning.
 
-How will you take care of yourself today?
+How will you take care of yourself today?`;
+        smsBody = `${head}
 
 A) Rest
 B) Move your body
@@ -568,11 +676,14 @@ D) Clear your mind
 
 Reply with A, B, C, or D.`;
       } else if (dayNumber === 3) {
-        smsBody = `Good morning.
+        const head = isRepeatDay
+          ? "Pick your win: A, B, C, or D"
+          : `Good morning.
 
 Let's get a win early today.
 
-What kind of win will you get?
+What kind of win will you get?`;
+        smsBody = `${head}
 
 A) Finish something you've been putting off
 B) Knock out a quick task
@@ -581,9 +692,12 @@ D) Do something that makes you feel better
 
 Reply with A, B, C, or D.`;
       } else if (dayNumber === 4) {
-        smsBody = `Good morning.
+        const head = isRepeatDay
+          ? "How will you show up? A–D"
+          : `Good morning.
 
-How will you show up today?
+How will you show up today?`;
+        smsBody = `${head}
 
 A) Stay focused on what matters
 B) Keep your energy steady
@@ -591,10 +705,55 @@ C) Follow through no matter what
 D) Stay positive and composed
 
 Reply with A, B, C, or D.`;
-      } else if (dayNumber <= 7) {
-        smsBody = `Good morning.
+      } else if (dayNumber === 5) {
+        const head = isRepeatDay
+          ? "If it gets off track — A, B, C, or D"
+          : `Good morning.
 
-What do you need most today?
+If today gets off track, how will you respond?`;
+        smsBody = `${head}
+
+A) Reset and start again
+B) Do one small thing
+C) Slow down and regroup
+D) Keep going no matter what
+
+Reply with A, B, C, or D.`;
+      } else if (dayNumber === 6) {
+        const head = isRepeatDay
+          ? "How do you want to show up? A–D"
+          : `Good morning.
+
+How do you want to show up today?`;
+        smsBody = `${head}
+
+A) Focused
+B) Steady
+C) Disciplined
+D) Positive
+
+Reply with A, B, C, or D.`;
+      } else if (dayNumber === 7) {
+        const head = isRepeatDay
+          ? "Which one feels true? A–D"
+          : `Good morning.
+
+Which one feels most true right now?`;
+        smsBody = `${head}
+
+A) I'm starting to build something
+B) I'm showing up more consistently
+C) I'm learning how to adjust
+D) I'm not there yet, but I'm trying
+
+Reply with A, B, C, or D.`;
+      } else if (dayNumber <= 7) {
+        const head = isRepeatDay
+          ? "A, B, C, or D today?"
+          : `Good morning.
+
+What do you need most today?`;
+        smsBody = `${head}
 
 A) Focus
 B) Energy

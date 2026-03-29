@@ -1,7 +1,10 @@
 // src/lib/coach-pat-generator.ts
 
 import OpenAI from "openai";
-import { buildCoachPatContext } from "@/lib/coach-pat-context";
+import {
+  buildCoachPatContext,
+  type CoachPatPatternInsight,
+} from "@/lib/coach-pat-context";
 import {
   COACH_PAT_SYSTEM_PROMPT,
   COACH_PAT_DEVELOPER_PROMPT,
@@ -27,10 +30,15 @@ function normalizeText(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
 }
 
-function pickPrimaryPattern(patterns: string[]): string | null {
+function pickPrimaryPattern(
+  patterns: CoachPatPatternInsight[]
+): string | null {
   if (!Array.isArray(patterns) || patterns.length === 0) return null;
-  const first = normalizeText(patterns[0] || "");
-  return first || null;
+  const first = patterns[0];
+  const text = normalizeText(first?.pattern_text ?? "");
+  if (text) return text;
+  const key = normalizeText(first?.pattern_key ?? "");
+  return key || null;
 }
 
 function buildProfileBlock(profile: {

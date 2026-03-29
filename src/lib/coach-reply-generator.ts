@@ -4,7 +4,10 @@ import OpenAI from "openai";
 import { getTopRelevantChunks } from "@/lib/ask-pat/chunks";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { buildProfileContext } from "@/lib/profile-context";
-import { buildCoachPatContext } from "@/lib/coach-pat-context";
+import {
+  buildCoachPatContext,
+  type CoachPatPatternInsight,
+} from "@/lib/coach-pat-context";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDisplayNameForUser } from "@/lib/resolve-preferred-name";
 import { finalizeWithName } from "@/lib/format-with-name";
@@ -19,7 +22,7 @@ import {
 
 function getSmsSelectionContext(message: string): string | null {
   const entries: Record<string, { selection: string; question: string }> = {
-    // Day 1 (and Days 5–7 MCQ)
+    // Day 1 (A–D maps via translateSmsReply dayNumber <= 7 after Days 2–7)
     "I need focus today": {
       selection: "Focus",
       question: "What do you need most today?",
@@ -89,6 +92,60 @@ function getSmsSelectionContext(message: string): string | null {
     "I will stay positive and composed today": {
       selection: "Stay positive and composed",
       question: "How will you show up today?",
+    },
+
+    // Day 5
+    "I will reset and start again today": {
+      selection: "Reset and start again",
+      question: "If today gets off track, how will you respond?",
+    },
+    "I will do one small thing today": {
+      selection: "Do one small thing",
+      question: "If today gets off track, how will you respond?",
+    },
+    "I will slow down and regroup today": {
+      selection: "Slow down and regroup",
+      question: "If today gets off track, how will you respond?",
+    },
+    "I will keep going no matter what today": {
+      selection: "Keep going no matter what",
+      question: "If today gets off track, how will you respond?",
+    },
+
+    // Day 6
+    "I will show up focused today": {
+      selection: "Focused",
+      question: "How do you want to show up today?",
+    },
+    "I will show up steady today": {
+      selection: "Steady",
+      question: "How do you want to show up today?",
+    },
+    "I will show up disciplined today": {
+      selection: "Disciplined",
+      question: "How do you want to show up today?",
+    },
+    "I will show up positive today": {
+      selection: "Positive",
+      question: "How do you want to show up today?",
+    },
+
+    // Day 7
+    "I am starting to build something": {
+      selection: "Starting to build something",
+      question: "Which one feels most true right now?",
+    },
+    "I am showing up more consistently": {
+      selection: "Showing up more consistently",
+      question: "Which one feels most true right now?",
+    },
+    "I am learning how to adjust": {
+      selection: "Learning how to adjust",
+      question: "Which one feels most true right now?",
+    },
+    "I am not there yet, but I am trying": {
+      selection: "Not there yet, but trying",
+      question: "Which one feels most true right now?",
     },
   };
 
@@ -168,7 +225,7 @@ function stripMemoryMetaLanguage(text: string): string {
   let t = text || "";
 
   const patterns: RegExp[] = [
-    /\b(as you said|as you wrote|you said|you wrote|you mentioned)\b/gi,
+    // Allow natural acknowledgment; do not strip "you said" / "you wrote" / "you mentioned".
     /\b(earlier|previously|yesterday|last week|last month)\b/gi,
     /\b(from your journal|journal|journaling)\b/gi,
     /\b(reflection|summary|summaries)\b/gi,
@@ -213,11 +270,35 @@ function finalizeOutput(text: string): string {
   return normalizeText(t);
 }
 
-function enforceHardCaps(text: string, source: "app" | "sms" = "app"): string {
-  const MAX_SENTENCES = 5;
+const SHORT_ACK_PHRASES = new Set([
+  "ok",
+  "okay",
+  "got it",
+  "cool",
+  "thanks",
+  "thank you",
+  "will do",
+  "sounds good",
+]);
+
+/** Very short acknowledgments: conversational reply, not full coaching arc. */
+function isShortCoachReplyMessage(clean: string): boolean {
+  const t = normalizeText(clean);
+  if (!t) return false;
+  if (t.length < 25) return true;
+  const core = t.replace(/[.!?…]+$/gu, "").trim().toLowerCase();
+  return SHORT_ACK_PHRASES.has(core);
+}
+
+function enforceHardCaps(
+  text: string,
+  source: "app" | "sms" = "app",
+  maxSentences: number = 5
+): string {
+  const cap = Math.max(1, Math.min(maxSentences, 5));
 
   const sentences = splitIntoSentences(text);
-  const cappedSentences = sentences.slice(0, MAX_SENTENCES);
+  const cappedSentences = sentences.slice(0, cap);
   return normalizeText(cappedSentences.join(" "));
 }
 
@@ -430,14 +511,29 @@ export async function generateCoachReply({
 
   const practiceSummary = coachContext?.today_practice?.practice_summary || "none";
 
-  const primaryPattern =
-    Array.isArray(coachContext?.patterns) && coachContext.patterns.length
-      ? coachContext.patterns[0]
-      : "none";
+  const practiceActionSignal =
+    coachContext?.today_practice?.practice_action_signal?.trim() || "none";
+
+  function primaryPatternForPrompt(
+    patterns: CoachPatPatternInsight[] | undefined
+  ): string {
+    if (!patterns?.length) return "none";
+    const first = patterns[0];
+    const text = normalizeText(first?.pattern_text ?? "");
+    if (text) return text;
+    const key = normalizeText(first?.pattern_key ?? "");
+    return key || "none";
+  }
+
+  const primaryPattern = primaryPatternForPrompt(coachContext?.patterns);
+
+  const yesterdayContext =
+    coachContext?.yesterday_summary?.text?.trim() || "none";
 
   const recentSummary = coachContext?.recent_summary?.summary_text || "none";
 
   const cleanUserMessage = normalizeText(userMessage);
+  const isShortResponse = isShortCoachReplyMessage(cleanUserMessage);
 
   const combinedUserFacingInput = [
     cleanUserMessage,
@@ -458,7 +554,11 @@ export async function generateCoachReply({
     text = stripMemoryMetaLanguage(text);
     text = stripThirdPersonPatReferences(text);
     text = finalizeOutput(text);
-    text = enforceHardCaps(text, source);
+    text = enforceHardCaps(
+      text,
+      source,
+      isShortResponse ? 2 : 5
+    );
     if (source === "sms") text = enforceSmsCharCap(text, SMS_HARD_CHAR_CAP);
     const displayName = await getDisplayNameForUser(userId);
     text = finalizeWithName(text, displayName ?? undefined);
@@ -505,15 +605,22 @@ Calm. Direct. Simple language. Short sentences.
 
 Rules:
 - User profile information may be outdated. If the user has said something more recent that conflicts with their profile, prioritize the user's recent statements over the profile.
+- Use the most relevant part of the user's identity when it strengthens the coaching moment.
 - One paragraph
 - Up to 5 sentences
 - No emojis
 - No exclamation marks
 - No contractions
 - Never explain how you know something
-- Never mention journals, summaries, or past entries
-- Use at most ONE personal detail
-- Use at most ONE pattern
+- You can still speak directly to what they are experiencing. Do not reference the source of your knowledge.
+- Do not mention journals, summaries, or past entries explicitly. However, you SHOULD acknowledge the user's current experience in natural language by referencing what they are going through in your own words.
+- Start your response by acknowledging the user's current situation in a specific and human way, based on their message.
+- Use the most relevant identity detail when it strengthens the coaching moment. Avoid listing multiple unrelated details.
+- When referencing patterns or behavior, prefer identity-based language. Instead of describing what the user did, reflect who they are becoming. Examples (keep natural, not repetitive):
+  - "You're the kind of person who follows through"
+  - "This is what consistency looks like for you"
+  - "You're building the habit of showing up even when it's hard"
+- When using patterns, translate them into natural identity language instead of repeating labels.
 - When helpful, reference patterns from the athlete's recent practice history.
 - Use LAST_COACH_INSIGHT only to avoid repeating yourself
 - Do not quote LAST_COACH_INSIGHT back word-for-word
@@ -524,6 +631,32 @@ Rules:
 - Do not say phrases like "Pat used to say", "Pat believed", "Pat would say", or "Coach Pat".
 - If the user has built consistency (multiple days or streak), you may acknowledge it briefly in a calm, grounded way. Never over-celebrate. Keep it subtle and matter-of-fact.
 - Do not mention progression every time. Only reference it when it genuinely strengthens the coaching moment.
+- Avoid specific time references like "yesterday", "last week", or exact time-based phrases. Instead, use general language like "recently", "the last time you showed up", or "you've been showing a pattern of".
+- Include a brief moment of coaching authority. This can be: a short principle you have learned, or a very brief reference to your experience. Keep it to one sentence. Do not tell long stories.
+- Prioritize encouragement over correction. Reinforce what the user is doing well before guiding what to do next.
+- When appropriate, reinforce that the user's effort is working. Use subtle, grounded language such as:
+  - "This is starting to become natural for you"
+  - "You are settling into this"
+  - "This is how change happens"
+  - "You are building something that lasts"
+  Avoid exaggeration or hype.
+- Connect progress to identity when possible. Show that who they are becoming is leading to real change.
+- Your response should feel:
+  - mostly understanding and encouragement
+  - lightly directional
+  - grounded in calm authority
+- Do not overwhelm the user with instruction.
+- Structure your response like this (keep it flexible, not robotic):
+  1. Acknowledge their current experience
+  2. Reinforce who they are or how they are showing up
+  3. Include one sentence of coaching authority
+  4. Offer one simple direction or encouragement
+- If SHORT_RESPONSE_MODE is true:
+  - respond in 1–2 sentences only
+  - keep it simple, warm, and human
+  - do NOT follow the full coaching structure
+  - do NOT add coaching authority unless it fits naturally
+  - this should feel like a quick, natural response
 
 ${PAT_BRAND_SAFETY_RULES}
 `.trim();
@@ -531,6 +664,9 @@ ${PAT_BRAND_SAFETY_RULES}
   const selectionContext = getSmsSelectionContext(cleanUserMessage);
 
   const userPrompt = `
+SHORT_RESPONSE_MODE:
+${isShortResponse ? "true" : "false"}
+
 PROGRESSION:
 - Total Days Completed: ${totalDaysCompleted}
 - Current Day: ${currentDay}
@@ -541,6 +677,12 @@ DAY: ${dayNumber}
 
 TODAY PRACTICE:
 ${practiceSummary}
+
+PRACTICE ACTION:
+${practiceActionSignal}
+
+RECENTLY:
+${yesterdayContext}
 
 TODAY'S JOURNAL REFLECTION:
 ${todayJournal}
@@ -607,7 +749,7 @@ Guidelines:
   raw = stripMemoryMetaLanguage(raw);
   raw = stripThirdPersonPatReferences(raw);
   raw = finalizeOutput(raw);
-  raw = enforceHardCaps(raw, source);
+  raw = enforceHardCaps(raw, source, isShortResponse ? 2 : 5);
   if (source === "sms") raw = enforceSmsCharCap(raw, SMS_HARD_CHAR_CAP);
 
   if (!raw || raw.length < 10) {
