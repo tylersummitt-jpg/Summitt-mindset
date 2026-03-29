@@ -171,9 +171,12 @@ export async function GET(req: Request) {
         "You showed up this week. That matters.";
 
       const smsBody =
-        `WEEKLY REFLECTION\n\n` +
+        `I’ve been thinking about your week.\n\n` +
         `${summaryText}\n\n` +
-        `Keep building. Reply anytime to keep training.\n\n` +
+        `You showed up. That matters more than you think.\n` +
+        `This is how momentum is built — one day at a time.\n\n` +
+        `Keep going. I’m with you.\n\n` +
+        `Reply anytime.\n\n` +
         `Reply STOP to opt out. Reply HELP for help.`;
 
       if (!isTwilioReady() || SMS_DRY_RUN) {
