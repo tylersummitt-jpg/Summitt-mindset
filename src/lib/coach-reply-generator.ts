@@ -285,9 +285,14 @@ const SHORT_ACK_PHRASES = new Set([
 function isShortCoachReplyMessage(clean: string): boolean {
   const t = normalizeText(clean);
   if (!t) return false;
-  if (t.length < 25) return true;
+
   const core = t.replace(/[.!?…]+$/gu, "").trim().toLowerCase();
-  return SHORT_ACK_PHRASES.has(core);
+  if (SHORT_ACK_PHRASES.has(core)) return true;
+
+  const words = core.split(/\s+/).filter(Boolean);
+  if (words.length === 1 && SHORT_ACK_PHRASES.has(words[0])) return true;
+
+  return false;
 }
 
 function enforceHardCaps(
@@ -452,6 +457,43 @@ async function loadTodayJournalEntry(userId: string, dayNumber: number) {
   }
 }
 
+const RECENT_RAW_JOURNAL_ENTRY_MAX_CHARS = 400;
+
+async function loadRecentRawJournalEntries(userId: string, dayNumber: number) {
+  try {
+    const { data, error } = await supabaseServer
+      .from("journal_entries")
+      .select("day_number, content")
+      .eq("clerk_user_id", userId)
+      .lt("day_number", dayNumber)
+      .order("day_number", { ascending: false })
+      .limit(2);
+
+    if (error) {
+      console.error("Coach reply recent journals load failed:", error.message);
+      return "none";
+    }
+
+    if (!data || data.length === 0) return "none";
+
+    const lines: string[] = [];
+    for (const row of data) {
+      const normalized = normalizeText(row.content ?? "");
+      if (!normalized) continue;
+      const truncated =
+        normalized.length > RECENT_RAW_JOURNAL_ENTRY_MAX_CHARS
+          ? normalized.slice(0, RECENT_RAW_JOURNAL_ENTRY_MAX_CHARS)
+          : normalized;
+      lines.push(`Day ${row.day_number}: ${truncated}`);
+    }
+
+    return lines.length > 0 ? lines.join("\n") : "none";
+  } catch (err) {
+    console.error("Coach reply recent journals load failed:", err);
+    return "none";
+  }
+}
+
 /* ======================================================
    Fallback
 ====================================================== */
@@ -509,6 +551,8 @@ export async function generateCoachReply({
 
   const todayJournal = await loadTodayJournalEntry(userId, dayNumber);
 
+  const recentRawJournals = await loadRecentRawJournalEntries(userId, dayNumber);
+
   const practiceSummary = coachContext?.today_practice?.practice_summary || "none";
 
   const practiceActionSignal =
@@ -550,7 +594,7 @@ export async function generateCoachReply({
   if (!inputSafe.ok) {
     let text = COACH_REPLY_BLOCKED_FALLBACK;
     text = expandContractions(text);
-    text = removeApostrophes(text);
+    // text = removeApostrophes(text);
     text = stripMemoryMetaLanguage(text);
     text = stripThirdPersonPatReferences(text);
     text = finalizeOutput(text);
@@ -687,6 +731,9 @@ ${yesterdayContext}
 TODAY'S JOURNAL REFLECTION:
 ${todayJournal}
 
+RECENT RAW JOURNAL ENTRIES (LAST 1–2 DAYS):
+${recentRawJournals}
+
 RECENT DAILY PRACTICE:
 ${dailySummariesBlock}
 
@@ -745,7 +792,7 @@ Guidelines:
   raw = await sanitizeModelOutput(openai, raw, COACH_REPLY_OUTPUT_FALLBACK);
 
   raw = expandContractions(raw);
-  raw = removeApostrophes(raw);
+  // raw = removeApostrophes(raw);
   raw = stripMemoryMetaLanguage(raw);
   raw = stripThirdPersonPatReferences(raw);
   raw = finalizeOutput(raw);
