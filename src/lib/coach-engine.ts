@@ -2,7 +2,10 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveDailyPracticeForUser } from "@/lib/resolve-daily-practice";
-import { generateCoachReply } from "@/lib/coach-reply-generator";
+import {
+  generateCoachReply,
+  type SmsCoachDeliveryContext,
+} from "@/lib/coach-reply-generator";
 
 type CoachEngineSource = "app" | "sms";
 
@@ -11,6 +14,15 @@ type CoachEngineParams = {
   dayNumber: number;
   userMessage: string;
   source: CoachEngineSource;
+
+  /** When set (SMS inbound), adds today's delivery question + reply interpretation to the coach prompt. */
+  smsDeliveryContext?: SmsCoachDeliveryContext;
+
+  /** Optional: sms_last_outbound_context.message_kind (question | quote affects SMS CONTEXT). */
+  coachSmsMessageKind?: string;
+
+  /** Optional: sms_last_outbound_context.time_of_day (morning | evening). */
+  coachSmsTimeOfDay?: string;
 
   /**
    * If provided, we will use this exact UTC day key for rate limiting.
@@ -201,6 +213,9 @@ export async function coachEngine(
     userMessage,
     actionItem,
     source,
+    smsDeliveryContext: params.smsDeliveryContext,
+    coachSmsMessageKind: params.coachSmsMessageKind,
+    coachSmsTimeOfDay: params.coachSmsTimeOfDay,
   });
 
   // ================================

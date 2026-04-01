@@ -8,12 +8,8 @@ import { useRouter } from "next/navigation";
  * SMS Client (CANONICAL)
  * ======================================================
  *
- * CHANGE (Feb 2026):
- * - Removed time-of-day selection entirely.
- * - SMS always sends at 8:00 AM local time.
- *
- * NOTE TO SELF (ChatGPT):
- * This keeps onboarding calm and removes "miss-plan" complexity.
+ * Time preference: morning (7:00 AM) or evening (7:00 PM) local — send window
+ * is enforced by daily-sms cron (separate from onboarding UI).
  */
 
 function normalizeToE164(input: string): string | null {
@@ -27,9 +23,8 @@ function normalizeToE164(input: string): string | null {
 }
 
 const SMS_TIME_OPTIONS = [
-  { value: "early_morning", label: "Early Morning (6–8am)" },
-  { value: "morning", label: "Morning (8–10am)" },
-  { value: "midday", label: "Late Morning (10–12pm)" },
+  { value: "morning", label: "Morning (7:00 AM)" },
+  { value: "evening", label: "Evening (7:00 PM)" },
 ] as const;
 
 export default function SmsClient() {
@@ -37,8 +32,8 @@ export default function SmsClient() {
 
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [smsTimePreference, setSmsTimePreference] = useState<
-    "early_morning" | "morning" | "midday"
-  >("morning");
+    "morning" | "evening"
+  >("evening");
   const [phoneInput, setPhoneInput] = useState("");
   const [consentChecked, setConsentChecked] = useState(false);
 
@@ -121,7 +116,8 @@ export default function SmsClient() {
             </p>
 
             <p className="mt-2 text-xs text-gray-500">
-              Texts arrive at <strong>8:00 AM</strong> in your local time zone.
+              Choose <strong>7:00 AM</strong> or <strong>7:00 PM</strong> in your
+              local time zone (when your daily practice text is sent).
               <br />
               SMS is optional and not a condition of purchase.
             </p>

@@ -5,6 +5,7 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
+import { loadOrCreateSmsDeliveryState } from "@/lib/sms-daily-delivery-body";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 /**
@@ -19,7 +20,7 @@ import { sendSMS, isTwilioReady } from "@/lib/twilio";
  * - Send ONE onboarding confirmation text (compliance required)
  *
  * NON-NEGOTIABLES:
- * - smsTimePreference: early_morning | morning | midday (default: morning)
+ * - smsTimePreference: early_morning | morning | midday | evening (default: morning)
  * - Confirmation SMS must include STOP + HELP language
  * - Never fail onboarding if SMS send fails
  *
@@ -59,7 +60,12 @@ export async function POST(req: Request) {
     const smsEnabled = body?.smsEnabled === true;
 
     // Validate smsTimePreference; default to "morning"
-    const validTimePreferences = ["early_morning", "morning", "midday"] as const;
+    const validTimePreferences = [
+      "early_morning",
+      "morning",
+      "midday",
+      "evening",
+    ] as const;
     const rawSmsTimePreference = body?.smsTimePreference;
     const smsTimePreference =
       validTimePreferences.includes(rawSmsTimePreference)
@@ -119,6 +125,18 @@ export async function POST(req: Request) {
         sms_enabled: true,
         stopped_at: null,
       });
+
+      try {
+        const stateRes = await loadOrCreateSmsDeliveryState(userId);
+        if (stateRes.error) {
+          console.error("[onboarding/sms] sms_delivery_state init failed", {
+            userId,
+            error: stateRes.error,
+          });
+        }
+      } catch (e) {
+        console.error("[onboarding/sms] sms_delivery_state init threw", userId, e);
+      }
     }
 
     if (!smsEnabled && normalizedPhone) {
@@ -152,7 +170,18 @@ export async function POST(req: Request) {
         "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
 
       try {
-        await sendSMS({ to: normalizedPhone, body: confirm });
+        await sendSMS({
+          to: normalizedPhone,
+          body: confirm,
+          lastOutbound: {
+            clerkUserId: userId,
+            messageKind: "transactional",
+            timeOfDay:
+              smsTimePreference === "midday" || smsTimePreference === "evening"
+                ? "evening"
+                : "morning",
+          },
+        });
       } catch (e) {
         // Never block onboarding if Twilio fails.
         console.error("Onboarding confirmation SMS failed:", e);

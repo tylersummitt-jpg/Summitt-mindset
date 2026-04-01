@@ -160,12 +160,57 @@ ${entry.question}
 `;
 }
 
+export type SmsCoachDeliveryContext = {
+  question_text: string;
+  question_type: string;
+  choices: { A: string; B: string; C: string; D: string };
+  normalized_reply: string;
+  raw_reply: string;
+  interpreted_meaning: string | null;
+};
+
+function buildSmsDeliveryPromptBlock(ctx: SmsCoachDeliveryContext): string {
+  const choiceLines = ["A", "B", "C", "D"]
+    .map((k) => {
+      const v = ctx.choices[k as keyof SmsCoachDeliveryContext["choices"]]?.trim() ?? "";
+      return v ? `${k}: ${v}` : null;
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  return `
+SMS DELIVERY (today's question they answered):
+QUESTION TEXT:
+${ctx.question_text}
+
+QUESTION TYPE:
+${ctx.question_type}
+
+CHOICES:
+${choiceLines || "(none listed)"}
+
+RAW REPLY:
+${ctx.raw_reply}
+
+NORMALIZED REPLY:
+${ctx.normalized_reply}
+
+INTERPRETED MEANING (MCQ selection text if applicable):
+${ctx.interpreted_meaning ?? "n/a"}
+`.trim();
+}
+
 type Params = {
   userId: string;
   dayNumber: number;
   userMessage: string;
   actionItem?: string;
   source?: "app" | "sms";
+  smsDeliveryContext?: SmsCoachDeliveryContext;
+  /** From sms_last_outbound_context.message_kind; only question | quote affect SMS CONTEXT. */
+  coachSmsMessageKind?: string;
+  /** From sms_last_outbound_context.time_of_day: morning | evening. */
+  coachSmsTimeOfDay?: string;
 };
 
 export type CoachReplyMeta = {
@@ -520,6 +565,9 @@ export async function generateCoachReply({
   userMessage,
   actionItem,
   source = "app",
+  smsDeliveryContext,
+  coachSmsMessageKind,
+  coachSmsTimeOfDay,
 }: Params): Promise<CoachReplyResult> {
   const openai = getOpenAIClient();
 
@@ -695,23 +743,60 @@ Rules:
   2. Reinforce who they are or how they are showing up
   3. Include one sentence of coaching authority
   4. Offer one simple direction or encouragement
+- When the user responds:
+  - Subtly acknowledge that they showed up or engaged.
+  - This should feel natural, not repetitive.
+  - Do NOT always use the same phrase.
+  - Avoid over-praising or sounding generic.
+  - Keep it short and human.
+  - Do NOT rely on a fixed stock line. Vary phrasing naturally.
 - If SHORT_RESPONSE_MODE is true:
   - respond in 1–2 sentences only
   - keep it simple, warm, and human
   - do NOT follow the full coaching structure
   - do NOT add coaching authority unless it fits naturally
   - this should feel like a quick, natural response
+- SMS shaping (apply only when the matching line appears in the SMS CONTEXT section of the user prompt):
+- If MESSAGE_TYPE is "question":
+  - After acknowledging the user's response, briefly reference what they actually said or chose.
+  - Then, where appropriate, connect their response to identity (who they are becoming, how they show up, or what this says about them).
+  - This should feel natural, not forced.
+  - Do NOT always use the same phrasing.
+  - Keep it short and grounded (1–2 sentences max for this part).
+  - Do NOT force identity language every time; skip it when it would sound tacked on.
+  - Do NOT sound motivational or overhyped. Keep tone calm, grounded, and coach-like.
+- If MESSAGE_TYPE is "quote":
+  - Do NOT treat the reply as an answer to a question.
+  - Reflect on what the user shared.
+  - Acknowledge emotional or personal meaning.
+  - Avoid evaluative language like "good answer".
+- If TIME_OF_DAY is "morning":
+  - Use a slightly more forward-looking tone.
+- If TIME_OF_DAY is "evening":
+  - Use a slightly more reflective tone.
 
 ${PAT_BRAND_SAFETY_RULES}
 `.trim();
 
   const selectionContext = getSmsSelectionContext(cleanUserMessage);
 
+  const smsContextLines: string[] = [];
+  if (coachSmsMessageKind === "question" || coachSmsMessageKind === "quote") {
+    smsContextLines.push(`MESSAGE_TYPE: ${coachSmsMessageKind}`);
+  }
+  if (coachSmsTimeOfDay === "morning" || coachSmsTimeOfDay === "evening") {
+    smsContextLines.push(`TIME_OF_DAY: ${coachSmsTimeOfDay}`);
+  }
+  const smsContextUserSection =
+    smsContextLines.length > 0
+      ? `SMS CONTEXT:\n\n${smsContextLines.join("\n")}\n\n`
+      : "";
+
   const userPrompt = `
 SHORT_RESPONSE_MODE:
 ${isShortResponse ? "true" : "false"}
 
-PROGRESSION:
+${smsContextUserSection}PROGRESSION:
 - Total Days Completed: ${totalDaysCompleted}
 - Current Day: ${currentDay}
 - Days In Row: ${daysInRow}
@@ -757,7 +842,7 @@ ${storyContext}
 
 ${buildProfileBlock(profile)}
 
-${selectionContext ? selectionContext : ""}
+${smsDeliveryContext ? `${buildSmsDeliveryPromptBlock(smsDeliveryContext)}\n\n` : ""}${selectionContext ? selectionContext : ""}
 USER MESSAGE:
 ${cleanUserMessage}
 

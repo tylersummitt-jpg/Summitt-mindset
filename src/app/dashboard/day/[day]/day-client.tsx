@@ -215,9 +215,7 @@ export default function DayClient({
           ✅ Daily Practice
          ====================================================== */}
       <section className={cardBase}>
-        <p className="text-sm font-semibold mb-3">
-          {isPastDay ? "Practice" : "Today’s Practice"}
-        </p>
+        <p className="text-sm font-semibold mb-3">Today’s Practice</p>
         <p className="whitespace-pre-line leading-relaxed">{actionItem}</p>
       </section>
 
@@ -243,7 +241,7 @@ export default function DayClient({
 
         {completed && (
           <p className="text-xs text-[var(--muted)]">
-            This day is complete and read-only.
+            This practice is complete and read-only.
           </p>
         )}
       </section>
@@ -265,7 +263,7 @@ export default function DayClient({
 
       {completed && (
         <div className="text-center text-sm text-[var(--muted)]">
-          ✓ This day is complete.
+          ✓ This practice is complete.
         </div>
       )}
 

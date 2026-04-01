@@ -13,7 +13,8 @@ import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 
 export async function updateClerkPublicMetadata(
   userId: string,
-  newFields: Record<string, any>
+  newFields: Record<string, any>,
+  removeKeys?: string[]
 ) {
   if (!process.env.CLERK_SECRET_KEY) {
     throw new Error("Missing CLERK_SECRET_KEY");
@@ -27,6 +28,11 @@ export async function updateClerkPublicMetadata(
     ...existing,
     ...newFields,
   };
+  if (removeKeys?.length) {
+    for (const key of removeKeys) {
+      delete merged[key];
+    }
+  }
 
   // 3) Patch back to Clerk
   const patchRes = await fetch(`https://api.clerk.com/v1/users/${userId}`, {

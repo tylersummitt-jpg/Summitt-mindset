@@ -53,7 +53,7 @@ export async function GET(req: Request) {
 
   const { data: audienceUsers } = await supabaseServer
     .from("sms_audience")
-    .select("clerk_user_id, phone_number, timezone, sms_time_preference")
+    .select("clerk_user_id, phone_number, timezone")
     .eq("summitt_subscribed", true)
     .eq("sms_enabled", true);
 
@@ -132,6 +132,10 @@ export async function GET(req: Request) {
       await sendSMS({
         to: audienceUser.phone_number,
         body: getFollowupMessage(level),
+        lastOutbound: {
+          clerkUserId: audienceUser.clerk_user_id,
+          messageKind: "nudge",
+        },
       });
 
       if (existingEvent) {

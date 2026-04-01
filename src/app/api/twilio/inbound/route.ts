@@ -1,6 +1,6 @@
 // src/app/api/twilio/inbound/route.ts
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
@@ -94,6 +94,66 @@ function fastAckTwiml() {
   return new Response(xml, {
     status: 200,
     headers: { "Content-Type": "text/xml" },
+  });
+}
+
+/**
+ * Same host Twilio POSTed to (prod/staging). Fallbacks for odd server contexts.
+ */
+function originForInternalCronKick(req: Request): string | null {
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  const host = req.headers.get("host");
+  if (host) return `${proto}://${host}`;
+
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) {
+    const bare = vercel.replace(/^https?:\/\//, "");
+    return `https://${bare}`;
+  }
+
+  const app = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (app) return app.replace(/\/$/, "");
+
+  return null;
+}
+
+/** Non-blocking: runs after the TwiML response via Next `after` (cron remains fallback). */
+function scheduleSmsInboundCoachWorkerKick(req: Request): void {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.warn(
+      "[twilio/inbound] sms-inbound-coach worker kick skipped: CRON_SECRET unset"
+    );
+    return;
+  }
+
+  const origin = originForInternalCronKick(req);
+  if (!origin) {
+    console.warn(
+      "[twilio/inbound] sms-inbound-coach worker kick skipped: origin unresolved"
+    );
+    return;
+  }
+
+  const url = `${origin}/api/cron/sms-inbound-coach`;
+  console.log("[twilio/inbound] scheduling sms-inbound-coach worker kick");
+
+  after(() => {
+    void fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${secret}` },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          console.error(
+            "[twilio/inbound] sms-inbound-coach worker kick failed",
+            res.status
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("[twilio/inbound] sms-inbound-coach worker kick error", err);
+      });
   });
 }
 
@@ -298,6 +358,7 @@ export async function POST(req: Request) {
           fromPhone: from,
           rawBody: body,
         });
+        scheduleSmsInboundCoachWorkerKick(req);
         return fastAckTwiml();
       }
       return NextResponse.json({ ok: false }, { status: 500 });
@@ -336,6 +397,7 @@ export async function POST(req: Request) {
       rawBody: body,
     });
 
+    scheduleSmsInboundCoachWorkerKick(req);
     return fastAckTwiml();
   } catch (err) {
     console.error("[TWILIO INBOUND ERROR]", err);

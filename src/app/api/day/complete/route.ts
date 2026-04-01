@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { completeDay } from "@/lib/complete-day";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { reconcileSmsDeliveryStateAfterCompletion } from "@/lib/sms-delivery-on-complete";
 
 /**
  * ======================================================
@@ -80,6 +81,25 @@ export async function POST(req: Request) {
       userId,
       source: "app",
     });
+
+    if (result.ok) {
+      try {
+        const reconcileResult =
+          await reconcileSmsDeliveryStateAfterCompletion(userId);
+        if (!reconcileResult.ok) {
+          console.error(
+            "[day/complete] sms_delivery_state reconcile failed after completeDay",
+            { userId, error: reconcileResult.error }
+          );
+        }
+      } catch (reconcileErr) {
+        console.error(
+          "[day/complete] sms_delivery_state reconcile threw",
+          userId,
+          reconcileErr
+        );
+      }
+    }
 
     return NextResponse.json(result, { status: 200 });
   } catch (err) {

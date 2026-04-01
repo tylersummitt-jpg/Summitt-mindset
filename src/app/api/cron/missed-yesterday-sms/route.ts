@@ -129,6 +129,10 @@ export async function GET(req: Request) {
       await sendSMS({
         to: audienceUser.phone_number,
         body: MESSAGE,
+        lastOutbound: {
+          clerkUserId: audienceUser.clerk_user_id,
+          messageKind: "nudge",
+        },
       });
 
       if (existingEvent) {

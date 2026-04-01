@@ -6,6 +6,13 @@ import { completeDay } from "@/lib/complete-day";
 import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { coachEngine } from "@/lib/coach-engine";
+import type { SmsCoachDeliveryContext } from "@/lib/coach-reply-generator";
+import { normalizeSmsReply } from "@/lib/normalize-sms-reply";
+import {
+  smsTimePreferenceFromClerkMetadata,
+  useEveningPromptForPreference,
+} from "@/lib/sms-daily-delivery-body";
+import { reconcileSmsDeliveryStateAfterCompletion } from "@/lib/sms-delivery-on-complete";
 import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
 
 function translateSmsReply(raw: string, dayNumber: number): string {
@@ -165,13 +172,16 @@ function safeDayNumber(value: unknown): number | null {
   return Math.floor(value);
 }
 
+/** Matches completeDay journal normalization so verification aligns with completion gate. */
+function normalizeJournalTextForCompletion(input: string): string {
+  return (input || "").trim().replace(/\s+/g, " ");
+}
+
 function getCompletionConfirmation(dayNumber: number): string {
   const options = [
-    `Day ${dayNumber} is complete.`,
-    `You completed Day ${dayNumber}.`,
-    `That locks in Day ${dayNumber}.`,
-    `Day ${dayNumber} — done.`,
-    `You’re building something real. Day ${dayNumber} complete.`,
+    "You showed up today.",
+    "That matters.",
+    "Strong finish today.",
   ];
   return options[dayNumber % options.length];
 }
@@ -413,6 +423,40 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   const timezone = resolveUserTimezone(md.timezone);
   const todayKey = getDateKeyInTimezone(new Date(), timezone);
 
+  const { data: smsDeliveryState } = await supabaseServer
+    .from("sms_delivery_state")
+    .select(
+      "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket"
+    )
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+
+  const { data: lastOutboundContext, error: lastOutboundError } =
+    await supabaseServer
+      .from("sms_last_outbound_context")
+      .select("*")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+
+  if (lastOutboundError) {
+    console.error(
+      "[sms-inbound-coach] sms_last_outbound_context read failed",
+      {
+        clerk_user_id: userId,
+        error: lastOutboundError.message,
+      }
+    );
+  }
+
+  const interpretMode =
+    lastOutboundContext?.message_kind === "question"
+      ? "question"
+      : lastOutboundContext?.message_kind
+        ? "non_question"
+        : smsDeliveryState?.current_content_type === "respond"
+          ? "question"
+          : "non_question";
+
   const { data: existingCompletion } = await supabaseServer
     .from("daily_completion_events")
     .select("id")
@@ -434,7 +478,136 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     dayForThread = Math.floor(md.activeCoachDay);
   }
 
-  const processedMessage = translateSmsReply(job.raw_body, dayForThread);
+  /** Trim + single-space collapse; does not extract MCQ letters (for short_text / open_text). */
+  const textNormalized = (job.raw_body || "").trim().replace(/\s+/g, " ");
+  const normalizedForMcq = normalizeSmsReply(job.raw_body);
+
+  let interpreted_meaning_for_journal: string | null = null;
+  let smsDeliveryContext: SmsCoachDeliveryContext | undefined;
+
+  let qRow: {
+    prompt_morning: string;
+    prompt_evening: string;
+    response_type: string;
+    option_a: string | null;
+    option_b: string | null;
+    option_c: string | null;
+    option_d: string | null;
+  } | null = null;
+
+  if (interpretMode === "question") {
+    const questionPosition =
+      lastOutboundContext?.question_position ??
+      smsDeliveryState?.question_position;
+    const { data } = await supabaseServer
+      .from("respond_day_questions")
+      .select(
+        "position, prompt_morning, prompt_evening, response_type, option_a, option_b, option_c, option_d"
+      )
+      .eq("position", questionPosition)
+      .eq("active", true)
+      .maybeSingle();
+    qRow = data ?? null;
+  }
+
+  const isRespondMcq =
+    interpretMode === "question" && qRow?.response_type === "multiple_choice";
+
+  const normUpper = normalizedForMcq.trim().toUpperCase();
+  const looksLikeMcqLetterOnly =
+    normUpper.length === 1 && /^[A-D]$/.test(normUpper);
+  /** Letter A–D counts as MCQ only when the active question is multiple_choice. */
+  const isMcqLetter = isRespondMcq && looksLikeMcqLetterOnly;
+
+  if (interpretMode === "question" && qRow) {
+    let evening: boolean;
+    if (lastOutboundContext?.time_of_day === "evening") {
+      evening = true;
+    } else if (lastOutboundContext?.time_of_day === "morning") {
+      evening = false;
+    } else {
+      const pref = smsTimePreferenceFromClerkMetadata(md as Record<string, unknown>);
+      evening = useEveningPromptForPreference(pref);
+    }
+    let questionText = (
+      evening ? qRow.prompt_evening : qRow.prompt_morning
+    ).trim();
+    if (
+      lastOutboundContext?.message_kind === "question" &&
+      typeof lastOutboundContext.full_body === "string" &&
+      lastOutboundContext.full_body.trim().length > 0
+    ) {
+      questionText = lastOutboundContext.full_body.trim();
+    }
+    const choices: SmsCoachDeliveryContext["choices"] = {
+      A: (qRow.option_a ?? "").trim(),
+      B: (qRow.option_b ?? "").trim(),
+      C: (qRow.option_c ?? "").trim(),
+      D: (qRow.option_d ?? "").trim(),
+    };
+
+    let interpreted_meaning: string | null = null;
+    if (isRespondMcq) {
+      if (normUpper === "A" && choices.A) interpreted_meaning = choices.A;
+      else if (normUpper === "B" && choices.B) interpreted_meaning = choices.B;
+      else if (normUpper === "C" && choices.C) interpreted_meaning = choices.C;
+      else if (normUpper === "D" && choices.D) interpreted_meaning = choices.D;
+    }
+
+    if (isRespondMcq && interpreted_meaning === null) {
+      const hay = textNormalized.toLowerCase();
+      if (hay.length > 0) {
+        const ordered: readonly (keyof typeof choices)[] = ["A", "B", "C", "D"];
+        for (const key of ordered) {
+          const opt = choices[key];
+          if (!opt) continue;
+          if (hay === opt.toLowerCase()) {
+            interpreted_meaning = opt;
+            break;
+          }
+        }
+        if (interpreted_meaning === null) {
+          for (const key of ordered) {
+            const opt = choices[key];
+            if (!opt) continue;
+            const needle = opt.toLowerCase();
+            if (needle.length > 0 && hay.includes(needle)) {
+              interpreted_meaning = opt;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    interpreted_meaning_for_journal = interpreted_meaning;
+
+    smsDeliveryContext = {
+      question_text: questionText,
+      question_type: String(qRow.response_type ?? "multiple_choice"),
+      choices,
+      normalized_reply: isRespondMcq ? normalizedForMcq.trim() : textNormalized,
+      raw_reply: (job.raw_body || "").trim(),
+      interpreted_meaning,
+    };
+  }
+
+  let processedMessage: string;
+  if (isMcqLetter) {
+    processedMessage =
+      interpreted_meaning_for_journal ?? normUpper;
+  } else if (looksLikeMcqLetterOnly && interpretMode !== "question") {
+    /* Non-respond days: lone A–D stays literal (matches prior MCQ-letter branch). */
+    processedMessage = normUpper;
+  } else if (
+    interpretMode === "question" &&
+    qRow &&
+    qRow.response_type !== "multiple_choice"
+  ) {
+    processedMessage = textNormalized;
+  } else {
+    processedMessage = translateSmsReply(normalizedForMcq, dayForThread);
+  }
 
   let didCompleteToday = false;
 
@@ -445,17 +618,47 @@ async function processJob(claimedJob: JobRow): Promise<void> {
       dayNumber: dayForThread,
     });
 
-    await supabaseServer.from("journal_entries").upsert(
-      {
-        clerk_user_id: userId,
-        day_number: dayForThread,
-        content: processedMessage,
-        action_item: version.actionItem,
-        reflection_prompt: version.reflectionPrompt,
-        source: "sms",
-      },
-      { onConflict: "clerk_user_id,day_number" }
+    const { error: journalUpsertError } = await supabaseServer
+      .from("journal_entries")
+      .upsert(
+        {
+          clerk_user_id: userId,
+          day_number: dayForThread,
+          content: processedMessage,
+          action_item: version.actionItem,
+          reflection_prompt: version.reflectionPrompt,
+          source: "sms",
+          time_of_day: lastOutboundContext?.time_of_day ?? null,
+        },
+        { onConflict: "clerk_user_id,day_number" }
+      );
+
+    if (journalUpsertError) {
+      throw new Error(
+        `journal_upsert_failed: ${journalUpsertError.message || String(journalUpsertError)}`
+      );
+    }
+
+    const { data: journalVerifyRow, error: journalVerifyError } =
+      await supabaseServer
+        .from("journal_entries")
+        .select("content")
+        .eq("clerk_user_id", userId)
+        .eq("day_number", dayForThread)
+        .maybeSingle();
+
+    if (journalVerifyError) {
+      throw new Error(
+        `journal_verify_read_failed: ${journalVerifyError.message || String(journalVerifyError)}`
+      );
+    }
+
+    const verifiedJournal = normalizeJournalTextForCompletion(
+      journalVerifyRow?.content ?? ""
     );
+    if (!verifiedJournal) {
+      throw new Error("journal_verify_empty_after_upsert");
+    }
 
     const completionResult = await completeDay({
       userId,
@@ -464,6 +667,19 @@ async function processJob(claimedJob: JobRow): Promise<void> {
 
     if (completionResult.ok) {
       didCompleteToday = true;
+
+      const reconcileResult =
+        await reconcileSmsDeliveryStateAfterCompletion(userId);
+      if (!reconcileResult.ok) {
+        console.error(
+          "[sms-inbound-coach] sms_delivery_state reconcile failed after completeDay",
+          {
+            message_sid: job.message_sid,
+            clerk_user_id: userId,
+            error: reconcileResult.error,
+          }
+        );
+      }
     }
     console.log("[sms-inbound-coach] completion done", job.message_sid, {
       ok: completionResult.ok,
@@ -504,6 +720,9 @@ async function processJob(claimedJob: JobRow): Promise<void> {
           dayNumber: dayForThread,
           userMessage: processedMessage,
           source: "sms",
+          smsDeliveryContext,
+          coachSmsMessageKind: lastOutboundContext?.message_kind,
+          coachSmsTimeOfDay: lastOutboundContext?.time_of_day ?? undefined,
         });
 
         if (coachResult.ok) {
@@ -624,6 +843,10 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   const sendResult = await sendSMSChunked({
     to: job.from_phone,
     body: replyBody,
+    lastOutbound: {
+      clerkUserId: userId,
+      messageKind: "coach",
+    },
   });
 
   const sid =

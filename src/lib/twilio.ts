@@ -1,6 +1,7 @@
 // src/lib/twilio.ts
 
 import Twilio from "twilio";
+import { supabaseServer } from "@/lib/supabase-server";
 
 /**
  * ======================================================
@@ -116,12 +117,102 @@ function getFallbackFromNumber() {
   return process.env.TWILIO_PHONE_NUMBER || null;
 }
 
+export type LastOutboundSmsMeta = {
+  clerkUserId: string;
+  messageKind?:
+    | "question"
+    | "quote"
+    | "coach"
+    | "nudge"
+    | "weekly"
+    | "transactional";
+  timeOfDay?: "morning" | "evening" | null;
+  /** Full logical message when `body` is a single chunk of a longer send. */
+  fullBodyForContext?: string;
+  questionPosition?: number | null;
+  deliverySnapshot?: Record<string, unknown> | null;
+  chunkIndex?: number;
+  chunkTotal?: number;
+};
+
+function inferLastOutboundMessageKind(
+  body: string
+): NonNullable<LastOutboundSmsMeta["messageKind"]> {
+  const b = (body || "").trim();
+  if (!b) return "transactional";
+  if (/reply\s+with/i.test(b) && /[a-d]/i.test(b)) return "question";
+  if (
+    /^[A-D]\)\s/m.test(b) ||
+    /\n[A-D]\)\s/.test(b)
+  ) {
+    return "question";
+  }
+  if (b.includes("\n\n") && !/reply\s+with/i.test(b) && b.length < 1200) {
+    return "quote";
+  }
+  return "transactional";
+}
+
+async function tryUpsertLastOutboundAfterSend(args: {
+  clerkUserId: string;
+  fullBody: string;
+  twilioMessageSid: string;
+  messageKind: NonNullable<LastOutboundSmsMeta["messageKind"]>;
+  timeOfDay?: "morning" | "evening" | null;
+  questionPosition?: number | null;
+  deliverySnapshot?: Record<string, unknown> | null;
+}): Promise<void> {
+  try {
+    if (args.messageKind === "coach") {
+      const { data: existing } = await supabaseServer
+        .from("sms_last_outbound_context")
+        .select("message_kind")
+        .eq("clerk_user_id", args.clerkUserId)
+        .maybeSingle();
+
+      if (existing?.message_kind === "question") {
+        return;
+      }
+    }
+
+    const { error } = await supabaseServer
+      .from("sms_last_outbound_context")
+      .upsert(
+        {
+          clerk_user_id: args.clerkUserId,
+          sent_at: new Date().toISOString(),
+          message_kind: args.messageKind,
+          full_body: args.fullBody,
+          question_position: args.questionPosition ?? null,
+          time_of_day: args.timeOfDay ?? null,
+          twilio_message_sid: args.twilioMessageSid,
+          delivery_snapshot: args.deliverySnapshot ?? null,
+        },
+        { onConflict: "clerk_user_id" }
+      );
+
+    if (error) {
+      console.error("[twilio] sms_last_outbound_context upsert failed", {
+        clerk_user_id: args.clerkUserId,
+        error: error.message,
+      });
+    }
+  } catch (e) {
+    console.error("[twilio] sms_last_outbound_context upsert threw", {
+      clerk_user_id: args.clerkUserId,
+      e,
+    });
+  }
+}
+
 export async function sendSMS({
   to,
   body,
+  lastOutbound,
 }: {
   to: string;
   body: string;
+  lastOutbound?: LastOutboundSmsMeta;
 }) {
   const client = getTwilioClient();
 
@@ -140,6 +231,25 @@ export async function sendSMS({
       : { from: fallbackFrom!, to, body }
   );
 
+  if (lastOutbound?.clerkUserId && message.sid) {
+    const chunkTotal = lastOutbound.chunkTotal ?? 1;
+    const chunkIndex = lastOutbound.chunkIndex ?? 0;
+    if (chunkTotal <= 1 || chunkIndex === chunkTotal - 1) {
+      const fullBody = lastOutbound.fullBodyForContext ?? body;
+      const resolvedKind =
+        lastOutbound.messageKind ?? inferLastOutboundMessageKind(fullBody);
+      void tryUpsertLastOutboundAfterSend({
+        clerkUserId: lastOutbound.clerkUserId,
+        fullBody,
+        twilioMessageSid: message.sid,
+        messageKind: resolvedKind,
+        timeOfDay: lastOutbound.timeOfDay,
+        questionPosition: lastOutbound.questionPosition,
+        deliverySnapshot: lastOutbound.deliverySnapshot,
+      });
+    }
+  }
+
   return message;
 }
 
@@ -150,17 +260,31 @@ export async function sendSMS({
 export async function sendSMSChunked({
   to,
   body,
+  lastOutbound,
 }: {
   to: string;
   body: string;
+  lastOutbound?: Omit<LastOutboundSmsMeta, "chunkIndex" | "chunkTotal">;
 }): Promise<SendSMSChunkedResult> {
   const chunks = splitIntoChunks(body);
   const chunkLengths = chunks.map((c) => c.length);
   const messageSids: string[] = [];
   let firstStatus = "unknown";
 
-  for (const chunk of chunks) {
-    const msg = await sendSMS({ to, body: chunk });
+  for (let i = 0; i < chunks.length; i++) {
+    const msg = await sendSMS({
+      to,
+      body: chunks[i],
+      lastOutbound:
+        lastOutbound && chunks.length > 0
+          ? {
+              ...lastOutbound,
+              fullBodyForContext: lastOutbound.fullBodyForContext ?? body,
+              chunkIndex: i,
+              chunkTotal: chunks.length,
+            }
+          : undefined,
+    });
     messageSids.push(msg.sid);
     if (messageSids.length === 1) firstStatus = msg.status ?? "unknown";
   }

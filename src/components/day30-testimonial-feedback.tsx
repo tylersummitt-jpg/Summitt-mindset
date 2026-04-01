@@ -82,7 +82,7 @@ export default function Day30TestimonialFeedback({
       {step === "ask" && (
         <>
           <p className="font-semibold text-gray-900">
-            Day 30 is earned.
+            You’ve earned this milestone.
           </p>
 
           <p className="text-sm text-gray-600">

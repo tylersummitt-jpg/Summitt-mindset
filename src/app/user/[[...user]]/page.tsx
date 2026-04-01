@@ -73,10 +73,12 @@ function formatSmsPhoneDisplay(phoneRaw: unknown): string | null {
 }
 
 function smsTimePreferenceLabel(pref: unknown): string {
-  if (pref === "early_morning") return "Early Morning";
-  if (pref === "midday") return "Midday";
-  if (pref === "morning") return "Morning";
-  return "Morning";
+  if (pref === "morning") return "Morning (7:00 AM)";
+  if (pref === "evening") return "Evening (7:00 PM)";
+  if (pref === "early_morning") return "Morning";
+  if (pref === "midday") return "Evening";
+  if (pref === "afternoon") return "Afternoon";
+  return "Morning (7:00 AM)";
 }
 
 function TextMessagesCard() {

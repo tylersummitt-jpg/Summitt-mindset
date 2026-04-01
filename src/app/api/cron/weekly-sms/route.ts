@@ -198,6 +198,10 @@ export async function GET(req: Request) {
         const message = await sendSMS({
           to: identity.phone_number,
           body: smsBody,
+          lastOutbound: {
+            clerkUserId: user.id,
+            messageKind: "weekly",
+          },
         });
 
         await supabaseServer

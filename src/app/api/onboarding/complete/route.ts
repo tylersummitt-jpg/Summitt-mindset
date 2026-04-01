@@ -38,13 +38,19 @@ function safeSmsEnabled(raw: unknown): boolean | null {
 
 function safeSmsTimePreference(
   raw: unknown
-): "early_morning" | "morning" | "midday" | "afternoon" | "evening" | null {
+):
+  | "early_morning"
+  | "morning"
+  | "midday"
+  | "evening"
+  | "afternoon"
+  | null {
   if (
     raw === "early_morning" ||
     raw === "morning" ||
     raw === "midday" ||
-    raw === "afternoon" || // legacy
-    raw === "evening" // legacy
+    raw === "evening" ||
+    raw === "afternoon" // legacy
   )
     return raw;
   return null;
@@ -86,22 +92,26 @@ export async function POST(req: Request) {
     // ======================================================
     // ✅ Onboarding completion = habit begins
     // ======================================================
-    await updateClerkPublicMetadata(userId, {
-      onboardingCompleted: true,
+    await updateClerkPublicMetadata(
+      userId,
+      {
+        onboardingCompleted: true,
 
-      // progression: server decides
-      currentDay: existingCurrentDay ?? 1,
+        // progression: server decides (Layer A structural truth; SMS sequencing is sms_delivery_state only)
+        currentDay: existingCurrentDay ?? 1,
 
-      // timezone: always store sanitized/valid
-      timezone,
+        // timezone: always store sanitized/valid
+        timezone,
 
-      smsEnabled: hasValidSmsConsent,
+        smsEnabled: hasValidSmsConsent,
 
-      /**
-       * SMS time preference: only apply default if missing.
-       */
-      ...(existingSmsTimePreference === null ? { smsTimePreference: "morning" } : {}),
-    });
+        /**
+         * SMS time preference: only apply default if missing.
+         */
+        ...(existingSmsTimePreference === null ? { smsTimePreference: "morning" } : {}),
+      },
+      ["deliveryDay", "deliveryDayLastCronKey"]
+    );
 
     await syncSmsAudience({
       userId: userId,

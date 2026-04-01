@@ -1,8 +1,19 @@
+/**
+ * Daily SMS cron: Layer B only. Sequencing lives in Supabase `sms_delivery_state`
+ * (not Clerk `deliveryDay`). Layer A / progression stays in Clerk (`currentDay`, etc.).
+ */
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getClerkUser } from "@/lib/clerk-rest";
+import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
+import {
+  applySmsDeliveryStateAfterSuccessfulSend,
+  buildSmsBodyFromDeliveryState,
+  loadOrCreateSmsDeliveryState,
+  smsTimePreferenceFromClerkMetadata,
+  type SmsDeliveryStateRow,
+} from "@/lib/sms-daily-delivery-body";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
@@ -11,6 +22,130 @@ export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
+
+/**
+ * Mirrors flexSlotModality in sms-daily-delivery-body (keep aligned with buildSmsBodyFromDeliveryState).
+ */
+function flexSlotModalityForOutboundContext(
+  flexCadenceIndex: number
+): "respond" | "non_response" {
+  const slot = ((flexCadenceIndex % 7) + 7) % 7;
+  if (slot === 2 || slot === 5) return "respond";
+  return "non_response";
+}
+
+/**
+ * Same effectiveContentType rules as buildSmsBodyFromDeliveryState.
+ */
+function effectiveContentTypeFromSnapshot(
+  state: SmsDeliveryStateRow
+): "respond" | "non_response" {
+  const isFlex = state.sms_bucket === "flex";
+  return isFlex
+    ? flexSlotModalityForOutboundContext(state.flex_cadence_index)
+    : state.current_content_type === "non_response"
+      ? "respond"
+      : state.current_content_type === "respond" &&
+          state.question_attempt_count >= 3
+        ? "non_response"
+        : "respond";
+}
+
+function timeOfDayForOutboundContext(md: Record<string, unknown>): "morning" | "evening" {
+  const pref = smsTimePreferenceFromClerkMetadata(md).toLowerCase().trim();
+  if (pref === "midday" || pref === "evening") return "evening";
+  return "morning";
+}
+
+async function upsertLastOutboundContextAfterDailySend(args: {
+  clerkUserId: string;
+  md: Record<string, unknown>;
+  deliveryStateSnapshot: SmsDeliveryStateRow;
+  smsBody: string;
+  twilioMessageSid: string;
+}): Promise<void> {
+  try {
+    const effective = effectiveContentTypeFromSnapshot(args.deliveryStateSnapshot);
+    const messageKind = effective === "respond" ? "question" : "quote";
+
+    const { error } = await supabaseServer.from("sms_last_outbound_context").upsert(
+      {
+        clerk_user_id: args.clerkUserId,
+        sent_at: new Date().toISOString(),
+        message_kind: messageKind,
+        full_body: args.smsBody,
+        question_position:
+          effective === "respond" ? args.deliveryStateSnapshot.question_position : null,
+        time_of_day: timeOfDayForOutboundContext(args.md),
+        twilio_message_sid: args.twilioMessageSid,
+        delivery_snapshot: {
+          clerk_user_id: args.deliveryStateSnapshot.clerk_user_id,
+          question_position: args.deliveryStateSnapshot.question_position,
+          quote_position: args.deliveryStateSnapshot.quote_position,
+          current_content_type: args.deliveryStateSnapshot.current_content_type,
+          question_attempt_count: args.deliveryStateSnapshot.question_attempt_count,
+          daily_nonresponse_cycle_count:
+            args.deliveryStateSnapshot.daily_nonresponse_cycle_count,
+          sms_bucket: args.deliveryStateSnapshot.sms_bucket,
+          flex_cadence_index: args.deliveryStateSnapshot.flex_cadence_index,
+        },
+      },
+      { onConflict: "clerk_user_id" }
+    );
+
+    if (error) {
+      console.error("[daily-sms] sms_last_outbound_context upsert failed", {
+        clerk_user_id: args.clerkUserId,
+        error: error.message,
+      });
+    }
+  } catch (e) {
+    console.error("[daily-sms] sms_last_outbound_context upsert threw", {
+      clerk_user_id: args.clerkUserId,
+      e,
+    });
+  }
+}
+
+async function buildSmsWithDeliveryEngine(
+  clerkUserId: string,
+  md: Record<string, unknown>
+): Promise<
+  | { ok: true; smsBody: string; deliveryStateSnapshot: SmsDeliveryStateRow }
+  | { ok: false; error: string }
+> {
+  const pref = smsTimePreferenceFromClerkMetadata(md);
+
+  const rawCurrentDay = md.currentDay;
+  const currentDay =
+    typeof rawCurrentDay === "number" &&
+    Number.isFinite(rawCurrentDay) &&
+    rawCurrentDay > 0
+      ? Math.floor(rawCurrentDay)
+      : null;
+
+  const stateRes = await loadOrCreateSmsDeliveryState(clerkUserId);
+  if (stateRes.error || !stateRes.data) {
+    return { ok: false, error: stateRes.error ?? "sms_delivery_state missing" };
+  }
+
+  const built = await buildSmsBodyFromDeliveryState({
+    clerkUserId,
+    state: stateRes.data,
+    smsTimePreference: pref,
+    currentDay,
+  });
+
+  if (!built.ok) {
+    return { ok: false, error: built.error };
+  }
+
+  return {
+    ok: true,
+    smsBody: built.smsBody,
+    deliveryStateSnapshot: stateRes.data,
+  };
+}
 
 /**
  * ======================================================
@@ -81,54 +216,20 @@ function logDailySmsCronAuthFailure(req: Request) {
  *
  * Goal:
  * - Each user receives at most ONE SMS per local day.
- * - Send time is based on smsTimePreference (early_morning=6, morning=8, midday=10).
+ * - Send time is based on Clerk public_metadata.smsTimePreference (early_morning/morning=7 local, midday/evening=19 local).
  * - Users are eligible for the entire preferred local hour (not only the first minutes).
  * - Cron runs every 5 minutes and may attempt multiple times within that hour; reservation
  *   (unique clerk_user_id + day_key) ensures only one SMS is sent.
  */
 const SEND_HOUR_BY_PREFERENCE = {
-  early_morning: 6,
-  morning: 8,
-  midday: 10,
+  early_morning: 7,
+  morning: 7,
+  midday: 19,
+  evening: 19,
 } as const;
 
 function isInSendWindow(local: Date, sendHour: number): boolean {
   return local.getHours() === sendHour;
-}
-
-function getReentryLine(level: string): string | null {
-  if (level === "short_idle") return "Just picking back up. That’s enough.";
-  if (level === "medium_idle") return "No need to restart. Just continue.";
-  if (level === "long_idle") return "You’re not behind. Let’s take this small.";
-  return null;
-}
-
-/**
- * ======================================================
- * HEADER + CTA ROTATION (DETERMINISTIC)
- * ======================================================
- */
-function getTrainingCampHeader(dayNumber: number): string | null {
-  if (dayNumber >= 1 && dayNumber <= 30) {
-    return `TRAINING CAMP - DAY ${dayNumber}`;
-  }
-  return null;
-}
-
-function getCoachHeader(dayNumber: number): string {
-  const options = ["DAILY NOTE FROM COACH PAT", "COACH PAT", "A NOTE FROM COACH PAT"];
-  return options[dayNumber % options.length];
-}
-
-function getCompletionCTA(dayNumber: number): string {
-  const options = [
-    `Reply with at least one honest sentence to complete today.`,
-    `When you're ready, reply to complete Day ${dayNumber}.`,
-    `Reply with one sentence to complete today’s training.`,
-    `Reply when you’re ready — that completes Day ${dayNumber}.`,
-    `Send one honest sentence and you’re done for today.`,
-  ];
-  return options[dayNumber % options.length];
 }
 
 /**
@@ -169,46 +270,82 @@ async function reserveTodaySendOrSkip({
   return { reserved: false, reason: "reservation_insert_failed" };
 }
 
-/** Previous calendar day for the same local `todayKey` (YYYY-MM-DD). */
-function addCalendarDaysToDateKey(dateKey: string, deltaDays: number): string {
-  const [yStr, mStr, dStr] = dateKey.split("-");
-  const y = Number(yStr);
-  const m = Number(mStr);
-  const d = Number(dStr);
-  const base = new Date(Date.UTC(y, m - 1, d));
-  base.setUTCDate(base.getUTCDate() + deltaDays);
-  const yy = base.getUTCFullYear();
-  const mm = String(base.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(base.getUTCDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
+type SmsAudienceCronRow = {
+  clerk_user_id: string;
+  phone_number: string;
+  sms_enabled: boolean;
+  stopped_at: string | null;
+  timezone: string | null;
+  summitt_subscribed: boolean;
+};
 
 /**
- * Same program day across calendar days: we sent SMS yesterday, user did not complete yesterday
- * (proxy for currentDay not advancing).
+ * Users who should get daily SMS can be missing from sms_audience if prior sync used
+ * update-only or failed. Merge in Clerk-eligible rows from sms_identities and upsert via syncSmsAudience.
  */
-async function getIsRepeatDay(clerkUserId: string, todayKey: string): Promise<boolean> {
-  const yesterdayKey = addCalendarDaysToDateKey(todayKey, -1);
-  const [{ data: yesterdaySend }, { data: completedYesterday }] = await Promise.all([
-    supabaseServer
-      .from("sms_send_events")
-      .select("message_sid")
-      .eq("clerk_user_id", clerkUserId)
-      .eq("day_key", yesterdayKey)
-      .maybeSingle(),
-    supabaseServer
-      .from("daily_completion_events")
-      .select("id")
-      .eq("clerk_user_id", clerkUserId)
-      .eq("day_key", yesterdayKey)
-      .limit(1),
-  ]);
+async function mergeEligibleAudienceFromIdentities(
+  baseRows: SmsAudienceCronRow[]
+): Promise<{ rows: SmsAudienceCronRow[]; mergedCount: number }> {
+  const seen = new Set(baseRows.map((r) => r.clerk_user_id));
+  const result = [...baseRows];
+  let mergedCount = 0;
 
-  const sid = yesterdaySend?.message_sid;
-  const yesterdayHadSms = typeof sid === "string" && sid.trim().length > 0;
-  if (!yesterdayHadSms) return false;
-  if (completedYesterday && completedYesterday.length > 0) return false;
-  return true;
+  const { data: identities, error: idErr } = await supabaseServer
+    .from("sms_identities")
+    .select("clerk_user_id, phone_number")
+    .eq("sms_enabled", true)
+    .is("stopped_at", null);
+
+  if (idErr) {
+    console.error(
+      "[daily-sms] sms_identities list for audience self-heal failed:",
+      idErr
+    );
+    return { rows: result, mergedCount: 0 };
+  }
+
+  for (const row of identities ?? []) {
+    const uid = row.clerk_user_id;
+    const phone = row.phone_number;
+    if (!uid || typeof phone !== "string" || !phone.trim()) continue;
+    if (seen.has(uid)) continue;
+
+    let user;
+    try {
+      user = await getClerkUser(uid);
+    } catch (e) {
+      console.error("[daily-sms] audience self-heal getClerkUser failed", uid, e);
+      continue;
+    }
+
+    const md = user.public_metadata || {};
+    if (md.summittSubscribed !== true) continue;
+    if (md.smsEnabled !== true) continue;
+
+    await syncSmsAudience({
+      userId: uid,
+      phoneNumber: phone.trim(),
+      smsEnabled: true,
+      stoppedAt: null,
+      timezone: typeof md.timezone === "string" ? md.timezone : null,
+      smsTimePreference:
+        typeof md.smsTimePreference === "string" ? md.smsTimePreference : null,
+      summittSubscribed: true,
+    });
+
+    mergedCount += 1;
+    seen.add(uid);
+    result.push({
+      clerk_user_id: uid,
+      phone_number: phone.trim(),
+      sms_enabled: true,
+      stopped_at: null,
+      timezone: typeof md.timezone === "string" ? md.timezone : null,
+      summitt_subscribed: true,
+    });
+  }
+
+  return { rows: result, mergedCount };
 }
 
 export async function GET(req: Request) {
@@ -240,16 +377,28 @@ export async function GET(req: Request) {
     reservationErrors: 0,
     userLoopErrors: 0,
     recoveredReserved: 0,
+    audienceSelfHealMerged: 0,
   };
 
-  const { data: audienceUsers } = await supabaseServer
+  const { data: audienceQueryRows } = await supabaseServer
     .from("sms_audience")
-    .select("clerk_user_id, phone_number, sms_enabled, stopped_at, timezone, sms_time_preference, summitt_subscribed")
+    .select("clerk_user_id, phone_number, sms_enabled, stopped_at, timezone, summitt_subscribed")
     .eq("summitt_subscribed", true)
     .eq("sms_enabled", true);
 
-  if (!audienceUsers || audienceUsers.length === 0) {
-    return NextResponse.json(stats);
+  let audienceUsers = (audienceQueryRows ?? []) as SmsAudienceCronRow[];
+
+  if (audienceUsers.length === 0) {
+    const healedEmpty = await mergeEligibleAudienceFromIdentities([]);
+    audienceUsers = healedEmpty.rows;
+    stats.audienceSelfHealMerged = healedEmpty.mergedCount;
+    if (audienceUsers.length === 0) {
+      return NextResponse.json(stats);
+    }
+  } else {
+    const healed = await mergeEligibleAudienceFromIdentities(audienceUsers);
+    audienceUsers = healed.rows;
+    stats.audienceSelfHealMerged = healed.mergedCount;
   }
 
   for (const audienceUser of audienceUsers) {
@@ -274,9 +423,17 @@ export async function GET(req: Request) {
       // Key used for dedupe
       const todayKey = getDateKeyInTimezone(now, timezone);
 
-      const pref = audienceUser.sms_time_preference ?? "morning";
+      const rawCurrentDayLoop = md.currentDay;
+      const currentDayForDeliveryState =
+        typeof rawCurrentDayLoop === "number" &&
+        Number.isFinite(rawCurrentDayLoop) &&
+        rawCurrentDayLoop > 0
+          ? Math.floor(rawCurrentDayLoop)
+          : null;
+
+      const pref = smsTimePreferenceFromClerkMetadata(md as Record<string, unknown>);
       const sendHour =
-        SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 8;
+        SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 7;
 
       // STEP 1: Read existing event before reserve (and before window check)
       stage = "query_send_events";
@@ -374,135 +531,34 @@ export async function GET(req: Request) {
               continue;
             }
 
-            const dayNumber =
-              typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
-            const isRepeatDay = await getIsRepeatDay(audienceUser.clerk_user_id, todayKey);
             stage = "build_content";
-            const version = await getOrCreateDailyPracticeVersion({
-              userId: audienceUser.clerk_user_id,
-              dayNumber,
-            });
-            const smsReflection = version.reflectionPrompt.split("?")[0] + "?";
-
             let smsBody: string;
+            let deliveryStateSnapshot: SmsDeliveryStateRow | null = null;
 
-            if (dayNumber === 1) {
-              const head = isRepeatDay
-                ? "A, B, C, or D today?"
-                : `Good morning.
-
-What do you need most today?`;
-              smsBody = `${head}
-
-A) Focus
-B) Energy
-C) Confidence
-D) Clarity
-
-Reply with A, B, C, or D.`;
-            } else if (dayNumber === 2) {
-              const head = isRepeatDay
-                ? "Quick check — A, B, C, or D?"
-                : `Good morning.
-
-How will you take care of yourself today?`;
-              smsBody = `${head}
-
-A) Rest
-B) Move your body
-C) Fuel your body
-D) Clear your mind
-
-Reply with A, B, C, or D.`;
-            } else if (dayNumber === 3) {
-              const head = isRepeatDay
-                ? "Pick your win: A, B, C, or D"
-                : `Good morning.
-
-Let's get a win early today.
-
-What kind of win will you get?`;
-              smsBody = `${head}
-
-A) Finish something you've been putting off
-B) Knock out a quick task
-C) Make progress on something important
-D) Do something that makes you feel better
-
-Reply with A, B, C, or D.`;
-            } else if (dayNumber === 4) {
-              const head = isRepeatDay
-                ? "How will you show up? A–D"
-                : `Good morning.
-
-How will you show up today?`;
-              smsBody = `${head}
-
-A) Stay focused on what matters
-B) Keep your energy steady
-C) Follow through no matter what
-D) Stay positive and composed
-
-Reply with A, B, C, or D.`;
-            } else if (dayNumber === 5) {
-              const head = isRepeatDay
-                ? "If it gets off track — A, B, C, or D"
-                : `Good morning.
-
-If today gets off track, how will you respond?`;
-              smsBody = `${head}
-
-A) Reset and start again
-B) Do one small thing
-C) Slow down and regroup
-D) Keep going no matter what
-
-Reply with A, B, C, or D.`;
-            } else if (dayNumber === 6) {
-              const head = isRepeatDay
-                ? "How do you want to show up? A–D"
-                : `Good morning.
-
-How do you want to show up today?`;
-              smsBody = `${head}
-
-A) Focused
-B) Steady
-C) Disciplined
-D) Positive
-
-Reply with A, B, C, or D.`;
-            } else if (dayNumber === 7) {
-              const head = isRepeatDay
-                ? "Which one feels true? A–D"
-                : `Good morning.
-
-Which one feels most true right now?`;
-              smsBody = `${head}
-
-A) I'm starting to build something
-B) I'm showing up more consistently
-C) I'm learning how to adjust
-D) I'm not there yet, but I'm trying
-
-Reply with A, B, C, or D.`;
-            } else if (dayNumber <= 7) {
-              const head = isRepeatDay
-                ? "A, B, C, or D today?"
-                : `Good morning.
-
-What do you need most today?`;
-              smsBody = `${head}
-
-A) Focus
-B) Energy
-C) Confidence
-D) Clarity
-
-Reply with A, B, C, or D.`;
-            } else {
-              smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
+            const built = await buildSmsWithDeliveryEngine(
+              audienceUser.clerk_user_id,
+              md as Record<string, unknown>
+            );
+            if (!built.ok) {
+              await supabaseServer
+                .from("sms_send_events")
+                .update({
+                  status: "send_failed",
+                  metadata: {
+                    ...existingMeta,
+                    note: "new_delivery_body_failed",
+                    error: built.error,
+                    timezone,
+                    local_time: localNow.toISOString(),
+                  },
+                })
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
+                .eq("day_key", todayKey);
+              stats.failed += 1;
+              continue;
             }
+            smsBody = built.smsBody;
+            deliveryStateSnapshot = built.deliveryStateSnapshot;
 
             stage = "twilio_send_or_skip";
             if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -512,9 +568,24 @@ Reply with A, B, C, or D.`;
 
             let retryMessage;
             try {
+              const effectiveForSend = effectiveContentTypeFromSnapshot(
+                deliveryStateSnapshot
+              );
               retryMessage = await sendSMS({
                 to: audienceUser.phone_number,
                 body: smsBody,
+                lastOutbound: {
+                  clerkUserId: audienceUser.clerk_user_id,
+                  messageKind:
+                    effectiveForSend === "respond" ? "question" : "quote",
+                  timeOfDay: timeOfDayForOutboundContext(
+                    md as Record<string, unknown>
+                  ),
+                  questionPosition:
+                    effectiveForSend === "respond"
+                      ? deliveryStateSnapshot.question_position
+                      : null,
+                },
               });
             } catch (err) {
               const newRetryCount = retryCount + 1;
@@ -583,6 +654,25 @@ Reply with A, B, C, or D.`;
             }
             stats.sent += 1;
             stats.retried += 1;
+            if (deliveryStateSnapshot) {
+              await upsertLastOutboundContextAfterDailySend({
+                clerkUserId: audienceUser.clerk_user_id,
+                md: md as Record<string, unknown>,
+                deliveryStateSnapshot,
+                smsBody,
+                twilioMessageSid: retryMessage.sid,
+              });
+              const applied = await applySmsDeliveryStateAfterSuccessfulSend(
+                deliveryStateSnapshot,
+                { currentDay: currentDayForDeliveryState }
+              );
+              if (!applied.ok) {
+                console.error("[daily-sms] delivery_state update failed after retry send", {
+                  clerk_user_id: audienceUser.clerk_user_id,
+                  error: applied.error,
+                });
+              }
+            }
             continue;
           }
         }
@@ -632,138 +722,33 @@ Reply with A, B, C, or D.`;
         continue;
       }
 
-      const dayNumber =
-        typeof md.currentDay === "number" && md.currentDay > 0 ? md.currentDay : 1;
-
-      const isRepeatDay = await getIsRepeatDay(audienceUser.clerk_user_id, todayKey);
-
       stage = "build_content";
-      const version = await getOrCreateDailyPracticeVersion({
-        userId: audienceUser.clerk_user_id,
-        dayNumber,
-      });
-
-      const smsReflection = version.reflectionPrompt.split("?")[0] + "?";
-
       let smsBody: string;
+      let deliveryStateSnapshotMain: SmsDeliveryStateRow | null = null;
 
-      if (dayNumber === 1) {
-        const head = isRepeatDay
-          ? "A, B, C, or D today?"
-          : `Good morning.
-
-What do you need most today?`;
-        smsBody = `${head}
-
-A) Focus
-B) Energy
-C) Confidence
-D) Clarity
-
-Reply with A, B, C, or D.`;
-      } else if (dayNumber === 2) {
-        const head = isRepeatDay
-          ? "Quick check — A, B, C, or D?"
-          : `Good morning.
-
-How will you take care of yourself today?`;
-        smsBody = `${head}
-
-A) Rest
-B) Move your body
-C) Fuel your body
-D) Clear your mind
-
-Reply with A, B, C, or D.`;
-      } else if (dayNumber === 3) {
-        const head = isRepeatDay
-          ? "Pick your win: A, B, C, or D"
-          : `Good morning.
-
-Let's get a win early today.
-
-What kind of win will you get?`;
-        smsBody = `${head}
-
-A) Finish something you've been putting off
-B) Knock out a quick task
-C) Make progress on something important
-D) Do something that makes you feel better
-
-Reply with A, B, C, or D.`;
-      } else if (dayNumber === 4) {
-        const head = isRepeatDay
-          ? "How will you show up? A–D"
-          : `Good morning.
-
-How will you show up today?`;
-        smsBody = `${head}
-
-A) Stay focused on what matters
-B) Keep your energy steady
-C) Follow through no matter what
-D) Stay positive and composed
-
-Reply with A, B, C, or D.`;
-      } else if (dayNumber === 5) {
-        const head = isRepeatDay
-          ? "If it gets off track — A, B, C, or D"
-          : `Good morning.
-
-If today gets off track, how will you respond?`;
-        smsBody = `${head}
-
-A) Reset and start again
-B) Do one small thing
-C) Slow down and regroup
-D) Keep going no matter what
-
-Reply with A, B, C, or D.`;
-      } else if (dayNumber === 6) {
-        const head = isRepeatDay
-          ? "How do you want to show up? A–D"
-          : `Good morning.
-
-How do you want to show up today?`;
-        smsBody = `${head}
-
-A) Focused
-B) Steady
-C) Disciplined
-D) Positive
-
-Reply with A, B, C, or D.`;
-      } else if (dayNumber === 7) {
-        const head = isRepeatDay
-          ? "Which one feels true? A–D"
-          : `Good morning.
-
-Which one feels most true right now?`;
-        smsBody = `${head}
-
-A) I'm starting to build something
-B) I'm showing up more consistently
-C) I'm learning how to adjust
-D) I'm not there yet, but I'm trying
-
-Reply with A, B, C, or D.`;
-      } else if (dayNumber <= 7) {
-        const head = isRepeatDay
-          ? "A, B, C, or D today?"
-          : `Good morning.
-
-What do you need most today?`;
-        smsBody = `${head}
-
-A) Focus
-B) Energy
-C) Confidence
-D) Clarity
-
-Reply with A, B, C, or D.`;
-      } else {
-        smsBody = `${version.actionItem}\n\n${smsReflection}\n\nText me 1 thing to win Day ${dayNumber}.`;
+      const builtMain = await buildSmsWithDeliveryEngine(
+        audienceUser.clerk_user_id,
+        md as Record<string, unknown>
+      );
+      if (!builtMain.ok) {
+        await supabaseServer
+          .from("sms_send_events")
+          .update({
+            status: "send_failed",
+            metadata: {
+              note: "new_delivery_body_failed",
+              error: builtMain.error,
+              timezone,
+              local_time: localNow.toISOString(),
+            },
+          })
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
+          .eq("day_key", todayKey);
+        stats.failed += 1;
+        continue;
       }
+      smsBody = builtMain.smsBody;
+      deliveryStateSnapshotMain = builtMain.deliveryStateSnapshot;
 
       // Twilio readiness + dry run
       stage = "twilio_send_or_skip";
@@ -789,9 +774,28 @@ Reply with A, B, C, or D.`;
 
       let mainMessage;
       try {
+        const effectiveForSendMain =
+          deliveryStateSnapshotMain != null
+            ? effectiveContentTypeFromSnapshot(deliveryStateSnapshotMain)
+            : "respond";
         mainMessage = await sendSMS({
           to: audienceUser.phone_number,
           body: smsBody,
+          lastOutbound:
+            deliveryStateSnapshotMain != null
+              ? {
+                  clerkUserId: audienceUser.clerk_user_id,
+                  messageKind:
+                    effectiveForSendMain === "respond" ? "question" : "quote",
+                  timeOfDay: timeOfDayForOutboundContext(
+                    md as Record<string, unknown>
+                  ),
+                  questionPosition:
+                    effectiveForSendMain === "respond"
+                      ? deliveryStateSnapshotMain.question_position
+                      : null,
+                }
+              : undefined,
         });
       } catch (err) {
         await supabaseServer
@@ -855,6 +859,25 @@ Reply with A, B, C, or D.`;
           }
         }
         stats.sent += 1;
+        if (deliveryStateSnapshotMain) {
+          await upsertLastOutboundContextAfterDailySend({
+            clerkUserId: audienceUser.clerk_user_id,
+            md: md as Record<string, unknown>,
+            deliveryStateSnapshot: deliveryStateSnapshotMain,
+            smsBody,
+            twilioMessageSid: mainMessage.sid,
+          });
+          const applied = await applySmsDeliveryStateAfterSuccessfulSend(
+            deliveryStateSnapshotMain,
+            { currentDay: currentDayForDeliveryState }
+          );
+          if (!applied.ok) {
+            console.error("[daily-sms] delivery_state update failed after main send", {
+              clerk_user_id: audienceUser.clerk_user_id,
+              error: applied.error,
+            });
+          }
+        }
       }
       } catch (userErr: unknown) {
         const message =
@@ -893,6 +916,7 @@ Reply with A, B, C, or D.`;
 
   console.log("[daily-sms] run summary", {
     scanned: stats.scanned,
+    audienceSelfHealMerged: stats.audienceSelfHealMerged,
     eligible: stats.eligible,
     reserved: stats.reserved,
     sent: stats.sent,

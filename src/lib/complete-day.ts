@@ -58,6 +58,29 @@ async function tryInsertCompletionLock({
   return { ok: false, reason: "lock_failed" };
 }
 
+/** Best-effort: remove completion row if we failed after taking the lock but before Clerk advanced. */
+async function tryReleaseCompletionLock({
+  userId,
+  dayKey,
+}: {
+  userId: string;
+  dayKey: string;
+}): Promise<void> {
+  const { error } = await supabaseServer
+    .from("daily_completion_events")
+    .delete()
+    .eq("clerk_user_id", userId)
+    .eq("day_key", dayKey);
+
+  if (error) {
+    console.error("COMPLETION LOCK ROLLBACK FAILED:", {
+      userId,
+      dayKey,
+      error,
+    });
+  }
+}
+
 /* ======================================================
    Pattern + Identity Functions
 ====================================================== */
@@ -180,6 +203,9 @@ export async function completeDay({
   userId: string;
   source: CompleteDaySource;
 }): Promise<CompleteDayResult> {
+  let lockAcquiredForThisAttempt = false;
+  let todayKeyForRollback = "";
+
   try {
     const metadata = await getClerkPublicMetadata(userId);
 
@@ -196,16 +222,7 @@ export async function completeDay({
     const timezone = resolveUserTimezone(metadata.timezone);
     const now = new Date();
     const todayKey = getDateKeyInTimezone(now, timezone);
-
-    const lock = await tryInsertCompletionLock({
-      userId,
-      dayKey: todayKey,
-      source,
-      dayNumber: currentDay,
-      timezone,
-    });
-
-    if (!lock.ok) return { ok: false, reason: lock.reason };
+    todayKeyForRollback = todayKey;
 
     const version = await getOrCreateDailyPracticeVersion({
       userId,
@@ -261,6 +278,18 @@ export async function completeDay({
       return { ok: false, reason: "memory_build_failed" };
     }
 
+    const lock = await tryInsertCompletionLock({
+      userId,
+      dayKey: todayKey,
+      source,
+      dayNumber: currentDay,
+      timezone,
+    });
+
+    if (!lock.ok) return { ok: false, reason: lock.reason };
+
+    lockAcquiredForThisAttempt = true;
+
     /* --------------------------------------------------
        ARCHIVE DAILY PROMPT
     -------------------------------------------------- */
@@ -280,6 +309,8 @@ export async function completeDay({
 
     if (archiveError) {
       console.error("DAILY PROMPT ARCHIVE ERROR:", archiveError);
+      await tryReleaseCompletionLock({ userId, dayKey: todayKey });
+      lockAcquiredForThisAttempt = false;
       return { ok: false, reason: "daily_prompt_archive_failed" };
     }
 
@@ -300,6 +331,8 @@ export async function completeDay({
 
     if (dailySummaryError) {
       console.error("DAILY SUMMARY UPSERT ERROR:", dailySummaryError);
+      await tryReleaseCompletionLock({ userId, dayKey: todayKey });
+      lockAcquiredForThisAttempt = false;
       return { ok: false, reason: "daily_summary_upsert_failed" };
     }
 
@@ -322,6 +355,8 @@ export async function completeDay({
 
       if (weeklyLoadError) {
         console.error("WEEKLY SUMMARY LOAD ERROR:", weeklyLoadError);
+        await tryReleaseCompletionLock({ userId, dayKey: todayKey });
+        lockAcquiredForThisAttempt = false;
         return { ok: false, reason: "weekly_summary_load_failed" };
       }
 
@@ -360,6 +395,8 @@ export async function completeDay({
 
         if (weeklyUpsertError) {
           console.error("WEEKLY SUMMARY UPSERT ERROR:", weeklyUpsertError);
+          await tryReleaseCompletionLock({ userId, dayKey: todayKey });
+          lockAcquiredForThisAttempt = false;
           return { ok: false, reason: "weekly_summary_upsert_failed" };
         }
       }
@@ -383,6 +420,8 @@ export async function completeDay({
       });
     } catch (err) {
       console.error("CLERK METADATA UPDATE FAILED:", err);
+      await tryReleaseCompletionLock({ userId, dayKey: todayKey });
+      lockAcquiredForThisAttempt = false;
       return { ok: false, reason: "clerk_metadata_update_failed" };
     }
 
@@ -422,6 +461,10 @@ export async function completeDay({
           await sendSMS({
             to: identity.phone_number,
             body: message,
+            lastOutbound: {
+              clerkUserId: userId,
+              messageKind: "nudge",
+            },
           });
         }
       }
@@ -436,6 +479,12 @@ export async function completeDay({
     };
   } catch (err) {
     console.error("COMPLETE DAY FATAL ERROR:", err);
+    if (lockAcquiredForThisAttempt && todayKeyForRollback) {
+      await tryReleaseCompletionLock({
+        userId,
+        dayKey: todayKeyForRollback,
+      });
+    }
     return { ok: false, reason: "unexpected_error" };
   }
 }

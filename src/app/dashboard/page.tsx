@@ -27,7 +27,7 @@ function generate30DayPath(): PathDay[] {
 
     return {
       day,
-      title: `Day ${day}: ${theme}`,
+      title: theme,
       description: "A focused action for today's practice.",
     };
   });
@@ -126,9 +126,7 @@ export default async function DashboardPage() {
 
     return (
       <main className="max-w-4xl mx-auto py-10 px-6">
-        <h1 className="text-3xl font-bold mb-2">
-          Training Camp — Day {maxAccessibleDay}
-        </h1>
+        <h1 className="text-3xl font-bold mb-2">Training Camp</h1>
 
         <p className="text-gray-600 mb-8">
           Show up. Practice with intention. Reflect honestly.

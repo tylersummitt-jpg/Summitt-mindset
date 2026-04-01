@@ -34,6 +34,32 @@ async function resolveSummittSubscribedFlag(
   }
 }
 
+/** E.164 or null; prefers explicit param, then sms_identities. */
+async function resolveAudiencePhoneNumber(
+  userId: string,
+  explicit: string | null | undefined
+): Promise<string | null> {
+  const trimmed =
+    typeof explicit === "string" && explicit.trim().length > 0
+      ? explicit.trim()
+      : null;
+  if (trimmed) return trimmed;
+
+  const { data, error } = await supabaseServer
+    .from("sms_identities")
+    .select("phone_number")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[syncSmsAudience] phone lookup failed", userId, error);
+    return null;
+  }
+
+  const p = data?.phone_number;
+  return typeof p === "string" && p.trim().length > 0 ? p.trim() : null;
+}
+
 export async function syncSmsAudience(params: SyncParams): Promise<void> {
   const {
     userId,
@@ -50,7 +76,9 @@ export async function syncSmsAudience(params: SyncParams): Promise<void> {
     summittSubscribed
   );
 
-  if (!phoneNumber) {
+  const resolvedPhone = await resolveAudiencePhoneNumber(userId, phoneNumber);
+
+  if (!resolvedPhone) {
     const updatePayload: Record<string, unknown> = {
       summitt_subscribed: resolvedSubscribed,
     };
@@ -73,7 +101,7 @@ export async function syncSmsAudience(params: SyncParams): Promise<void> {
 
   const payload: Record<string, unknown> = {
     clerk_user_id: userId,
-    phone_number: phoneNumber,
+    phone_number: resolvedPhone,
     summitt_subscribed: resolvedSubscribed,
   };
 
