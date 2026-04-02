@@ -23,6 +23,9 @@ export const dynamic = "force-dynamic";
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
+/** TEMPORARY: bypass local send-hour window for testing. Set false and redeploy after test. */
+const FORCE_SEND_ALL = true;
+
 /**
  * Mirrors flexSlotModality in sms-daily-delivery-body (keep aligned with buildSmsBodyFromDeliveryState).
  */
@@ -453,7 +456,12 @@ export async function GET(req: Request) {
       const isRetryPending =
         existingEvent?.status === "send_failed" && retryCountFromMeta < 3;
 
-      if (!existingEvent && !force && !isInSendWindow(localNow, sendHour)) {
+      if (
+        !existingEvent &&
+        !force &&
+        !FORCE_SEND_ALL &&
+        !isInSendWindow(localNow, sendHour)
+      ) {
         stats.skippedNotTime += 1;
         continue;
       }
@@ -571,6 +579,14 @@ export async function GET(req: Request) {
               const effectiveForSend = effectiveContentTypeFromSnapshot(
                 deliveryStateSnapshot
               );
+              if (FORCE_SEND_ALL) {
+                console.log("FORCE SEND SMS", {
+                  userId: audienceUser.clerk_user_id,
+                  phone: audienceUser.phone_number,
+                  timezone,
+                  smsTimePreference: pref,
+                });
+              }
               retryMessage = await sendSMS({
                 to: audienceUser.phone_number,
                 body: smsBody,
@@ -778,6 +794,14 @@ export async function GET(req: Request) {
           deliveryStateSnapshotMain != null
             ? effectiveContentTypeFromSnapshot(deliveryStateSnapshotMain)
             : "respond";
+        if (FORCE_SEND_ALL) {
+          console.log("FORCE SEND SMS", {
+            userId: audienceUser.clerk_user_id,
+            phone: audienceUser.phone_number,
+            timezone,
+            smsTimePreference: pref,
+          });
+        }
         mainMessage = await sendSMS({
           to: audienceUser.phone_number,
           body: smsBody,

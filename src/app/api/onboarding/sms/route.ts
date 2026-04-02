@@ -115,6 +115,18 @@ export async function POST(req: Request) {
       smsStopHelpDisclosureShownAt: new Date().toISOString(),
     });
 
+    try {
+      const stateRes = await loadOrCreateSmsDeliveryState(userId);
+      if (stateRes.error) {
+        console.error("[onboarding/sms] sms_delivery_state init failed", {
+          userId,
+          error: stateRes.error,
+        });
+      }
+    } catch (e) {
+      console.error("[onboarding/sms] sms_delivery_state init threw", userId, e);
+    }
+
     // ---------------------------------------
     // Sync Supabase sms_identities
     // ---------------------------------------
@@ -125,18 +137,6 @@ export async function POST(req: Request) {
         sms_enabled: true,
         stopped_at: null,
       });
-
-      try {
-        const stateRes = await loadOrCreateSmsDeliveryState(userId);
-        if (stateRes.error) {
-          console.error("[onboarding/sms] sms_delivery_state init failed", {
-            userId,
-            error: stateRes.error,
-          });
-        }
-      } catch (e) {
-        console.error("[onboarding/sms] sms_delivery_state init threw", userId, e);
-      }
     }
 
     if (!smsEnabled && normalizedPhone) {
