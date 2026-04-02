@@ -350,21 +350,6 @@ async function mergeEligibleAudienceFromIdentities(
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const providedSecret = url.searchParams.get("secret");
-
-  console.log("CRON DEBUG AUTH", {
-    rawUrl: req.url,
-    extractedSecret: providedSecret,
-    expectedSecret: process.env.CRON_SECRET,
-    extractedLength: providedSecret?.length,
-    expectedLength: process.env.CRON_SECRET?.length,
-    extractedCharCodes: providedSecret
-      ? [...providedSecret].map((c) => c.charCodeAt(0))
-      : undefined,
-    expectedCharCodes: process.env.CRON_SECRET
-      ? [...process.env.CRON_SECRET].map((c) => c.charCodeAt(0))
-      : undefined,
-  });
 
   if (!validateCronSecret(req)) {
     logDailySmsCronAuthFailure(req);
