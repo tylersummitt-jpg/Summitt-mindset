@@ -11,7 +11,6 @@ CREATE TABLE respond_day_questions (
   option_a TEXT NULL,
   option_b TEXT NULL,
   option_c TEXT NULL,
-  option_d TEXT NULL,
   active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -57,8 +56,7 @@ INSERT INTO respond_day_questions (
   retry_intro_2,
   option_a,
   option_b,
-  option_c,
-  option_d
+  option_c
 ) VALUES (
   1,
   'Good morning. What do you want to strengthen today?',
@@ -68,6 +66,5 @@ INSERT INTO respond_day_questions (
   'Quick check —',
   'Focus',
   'Discipline',
-  'Confidence',
-  'Clarity'
+  'Confidence'
 ) ON CONFLICT (position) DO NOTHING;

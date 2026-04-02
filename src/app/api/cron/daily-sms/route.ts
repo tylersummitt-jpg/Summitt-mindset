@@ -14,6 +14,10 @@ import {
   smsTimePreferenceFromClerkMetadata,
   type SmsDeliveryStateRow,
 } from "@/lib/sms-daily-delivery-body";
+import {
+  buildOnboardingSms,
+  ensureSmsRowAndGetOnboardingStep,
+} from "@/lib/sms-onboarding-sequence";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
@@ -101,6 +105,56 @@ async function upsertLastOutboundContextAfterDailySend(args: {
     }
   } catch (e) {
     console.error("[daily-sms] sms_last_outbound_context upsert threw", {
+      clerk_user_id: args.clerkUserId,
+      e,
+    });
+  }
+}
+
+/** Onboarding-only outbound context (correct message_kind; Layer B snapshot unchanged). */
+async function upsertOnboardingOutboundContext(args: {
+  clerkUserId: string;
+  md: Record<string, unknown>;
+  deliveryStateSnapshot: SmsDeliveryStateRow;
+  smsBody: string;
+  twilioMessageSid: string;
+  messageKind: "question" | "quote";
+  questionPosition: number | null;
+}): Promise<void> {
+  try {
+    const { error } = await supabaseServer.from("sms_last_outbound_context").upsert(
+      {
+        clerk_user_id: args.clerkUserId,
+        sent_at: new Date().toISOString(),
+        message_kind: args.messageKind,
+        full_body: args.smsBody,
+        question_position: args.questionPosition,
+        time_of_day: timeOfDayForOutboundContext(args.md),
+        twilio_message_sid: args.twilioMessageSid,
+        delivery_snapshot: {
+          clerk_user_id: args.deliveryStateSnapshot.clerk_user_id,
+          question_position: args.deliveryStateSnapshot.question_position,
+          quote_position: args.deliveryStateSnapshot.quote_position,
+          current_content_type: args.deliveryStateSnapshot.current_content_type,
+          question_attempt_count: args.deliveryStateSnapshot.question_attempt_count,
+          daily_nonresponse_cycle_count:
+            args.deliveryStateSnapshot.daily_nonresponse_cycle_count,
+          sms_bucket: args.deliveryStateSnapshot.sms_bucket,
+          flex_cadence_index: args.deliveryStateSnapshot.flex_cadence_index,
+          is_onboarding: true,
+        },
+      },
+      { onConflict: "clerk_user_id" }
+    );
+
+    if (error) {
+      console.error("[daily-sms] onboarding sms_last_outbound_context upsert failed", {
+        clerk_user_id: args.clerkUserId,
+        error: error.message,
+      });
+    }
+  } catch (e) {
+    console.error("[daily-sms] onboarding sms_last_outbound_context upsert threw", {
       clerk_user_id: args.clerkUserId,
       e,
     });
@@ -532,6 +586,128 @@ export async function GET(req: Request) {
               continue;
             }
 
+            const onboardingEnsureRetry =
+              await ensureSmsRowAndGetOnboardingStep(
+                audienceUser.clerk_user_id
+              );
+            if (
+              onboardingEnsureRetry.ok &&
+              onboardingEnsureRetry.step < 6 &&
+              onboardingEnsureRetry.snapshot
+            ) {
+              const onboardingStepRetry = onboardingEnsureRetry.step;
+              const onboardingSnapRetry = onboardingEnsureRetry.snapshot;
+              const onboardingResult = await buildOnboardingSms({
+                step: onboardingStepRetry,
+                userId: audienceUser.clerk_user_id,
+                timezone,
+                profile: undefined,
+              });
+              if (onboardingResult.ok) {
+                const smsBodyOnb = onboardingResult.smsBody;
+                stage = "twilio_send_or_skip";
+                if (!isTwilioReady() || SMS_DRY_RUN) {
+                  stats.alreadyReservedOrSentToday += 1;
+                  continue;
+                }
+                const isQuoteStepOnb =
+                  onboardingStepRetry === 1 || onboardingStepRetry === 5;
+                let retryMessageOnb;
+                try {
+                  retryMessageOnb = await sendSMS({
+                    to: audienceUser.phone_number,
+                    body: smsBodyOnb,
+                    lastOutbound: {
+                      clerkUserId: audienceUser.clerk_user_id,
+                      messageKind: isQuoteStepOnb ? "quote" : "question",
+                      timeOfDay: timeOfDayForOutboundContext(
+                        md as Record<string, unknown>
+                      ),
+                      questionPosition: isQuoteStepOnb ? null : 1,
+                    },
+                  });
+                } catch (err) {
+                  const newRetryCount = retryCount + 1;
+                  await supabaseServer
+                    .from("sms_send_events")
+                    .update({
+                      status: "send_failed",
+                      metadata: {
+                        ...existingMeta,
+                        retry_count: newRetryCount,
+                        error: String(err),
+                        note: "onboarding_retry_failed",
+                        timezone,
+                        local_time: localNow.toISOString(),
+                      },
+                    })
+                    .eq("clerk_user_id", audienceUser.clerk_user_id)
+                    .eq("day_key", todayKey);
+                  stats.failed += 1;
+                  continue;
+                }
+
+                const retrySuccessPayloadOnb = {
+                  message_sid: retryMessageOnb.sid,
+                  status: retryMessageOnb.status,
+                  sms_body: smsBodyOnb,
+                  metadata: {
+                    ...existingMeta,
+                    retry_count: retryCount + 1,
+                    note: "retry_success_onboarding",
+                    timezone,
+                    local_time: localNow.toISOString(),
+                  },
+                };
+                const { error: retryUpdErrOnb } = await supabaseServer
+                  .from("sms_send_events")
+                  .update(retrySuccessPayloadOnb)
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                if (retryUpdErrOnb) {
+                  console.error(
+                    "[daily-sms] sms_send_events update failed after Twilio success (retry onboarding)",
+                    {
+                      clerk_user_id: audienceUser.clerk_user_id,
+                      todayKey,
+                      message_sid: retryMessageOnb.sid,
+                      error: retryUpdErrOnb,
+                    }
+                  );
+                  await supabaseServer
+                    .from("sms_send_events")
+                    .update(retrySuccessPayloadOnb)
+                    .eq("clerk_user_id", audienceUser.clerk_user_id)
+                    .eq("day_key", todayKey);
+                }
+                stats.sent += 1;
+                stats.retried += 1;
+                await upsertOnboardingOutboundContext({
+                  clerkUserId: audienceUser.clerk_user_id,
+                  md: md as Record<string, unknown>,
+                  deliveryStateSnapshot: onboardingSnapRetry,
+                  smsBody: smsBodyOnb,
+                  twilioMessageSid: retryMessageOnb.sid,
+                  messageKind: isQuoteStepOnb ? "quote" : "question",
+                  questionPosition: isQuoteStepOnb ? null : 1,
+                });
+                const { error: stepUpdErr } = await supabaseServer
+                  .from("sms_delivery_state")
+                  .update({ onboarding_step: onboardingStepRetry + 1 })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id);
+                if (stepUpdErr) {
+                  console.error(
+                    "[daily-sms] onboarding_step update failed after retry onboarding send",
+                    {
+                      clerk_user_id: audienceUser.clerk_user_id,
+                      error: stepUpdErr.message,
+                    }
+                  );
+                }
+                continue;
+              }
+            }
+
             stage = "build_content";
             let smsBody: string;
             let deliveryStateSnapshot: SmsDeliveryStateRow | null = null;
@@ -721,6 +897,139 @@ export async function GET(req: Request) {
 
         stats.skippedAlreadyCompleted += 1;
         continue;
+      }
+
+      const onboardingEnsureMain = await ensureSmsRowAndGetOnboardingStep(
+        audienceUser.clerk_user_id
+      );
+      if (
+        onboardingEnsureMain.ok &&
+        onboardingEnsureMain.step < 6 &&
+        onboardingEnsureMain.snapshot
+      ) {
+        const onboardingStepMain = onboardingEnsureMain.step;
+        const onboardingSnapMain = onboardingEnsureMain.snapshot;
+        const onboardingResultMain = await buildOnboardingSms({
+          step: onboardingStepMain,
+          userId: audienceUser.clerk_user_id,
+          timezone,
+          profile: undefined,
+        });
+        if (onboardingResultMain.ok) {
+          const smsBodyOnbMain = onboardingResultMain.smsBody;
+          stage = "twilio_send_or_skip";
+          if (!isTwilioReady() || SMS_DRY_RUN) {
+            await supabaseServer
+              .from("sms_send_events")
+              .update({
+                status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
+                metadata: {
+                  note: SMS_DRY_RUN ? "dry_run_enabled" : "twilio_not_ready",
+                  timezone,
+                  local_time: localNow.toISOString(),
+                },
+              })
+              .eq("clerk_user_id", audienceUser.clerk_user_id)
+              .eq("day_key", todayKey);
+
+            if (SMS_DRY_RUN) stats.dryRun += 1;
+            else stats.skippedMissingTwilio += 1;
+
+            continue;
+          }
+
+          const isQuoteStepOnbMain =
+            onboardingStepMain === 1 || onboardingStepMain === 5;
+          let mainMessageOnb;
+          try {
+            mainMessageOnb = await sendSMS({
+              to: audienceUser.phone_number,
+              body: smsBodyOnbMain,
+              lastOutbound: {
+                clerkUserId: audienceUser.clerk_user_id,
+                messageKind: isQuoteStepOnbMain ? "quote" : "question",
+                timeOfDay: timeOfDayForOutboundContext(
+                  md as Record<string, unknown>
+                ),
+                questionPosition: isQuoteStepOnbMain ? null : 1,
+              },
+            });
+          } catch (err) {
+            await supabaseServer
+              .from("sms_send_events")
+              .update({
+                status: "send_failed",
+                metadata: {
+                  error: String(err),
+                  retry_count: 0,
+                  timezone,
+                  local_time: localNow.toISOString(),
+                  note: "onboarding_send_failed",
+                },
+              })
+              .eq("clerk_user_id", audienceUser.clerk_user_id)
+              .eq("day_key", todayKey);
+
+            stats.failed += 1;
+            continue;
+          }
+
+          const mainSuccessPayloadOnb = {
+            message_sid: mainMessageOnb.sid,
+            status: mainMessageOnb.status,
+            sms_body: smsBodyOnbMain,
+            metadata: {
+              note: "sent_to_twilio_onboarding",
+              timezone,
+              local_time: localNow.toISOString(),
+            },
+          };
+          const { error: mainUpdErrOnb } = await supabaseServer
+            .from("sms_send_events")
+            .update(mainSuccessPayloadOnb)
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          if (mainUpdErrOnb) {
+            console.error(
+              "[daily-sms] sms_send_events update failed after Twilio success (main onboarding)",
+              {
+                clerk_user_id: audienceUser.clerk_user_id,
+                todayKey,
+                message_sid: mainMessageOnb.sid,
+                error: mainUpdErrOnb,
+              }
+            );
+            await supabaseServer
+              .from("sms_send_events")
+              .update(mainSuccessPayloadOnb)
+              .eq("clerk_user_id", audienceUser.clerk_user_id)
+              .eq("day_key", todayKey);
+          }
+          stats.sent += 1;
+          await upsertOnboardingOutboundContext({
+            clerkUserId: audienceUser.clerk_user_id,
+            md: md as Record<string, unknown>,
+            deliveryStateSnapshot: onboardingSnapMain,
+            smsBody: smsBodyOnbMain,
+            twilioMessageSid: mainMessageOnb.sid,
+            messageKind: isQuoteStepOnbMain ? "quote" : "question",
+            questionPosition: isQuoteStepOnbMain ? null : 1,
+          });
+          const { error: stepUpdErrMain } = await supabaseServer
+            .from("sms_delivery_state")
+            .update({ onboarding_step: onboardingStepMain + 1 })
+            .eq("clerk_user_id", audienceUser.clerk_user_id);
+          if (stepUpdErrMain) {
+            console.error(
+              "[daily-sms] onboarding_step update failed after main onboarding send",
+              {
+                clerk_user_id: audienceUser.clerk_user_id,
+                error: stepUpdErrMain.message,
+              }
+            );
+          }
+          continue;
+        }
       }
 
       stage = "build_content";

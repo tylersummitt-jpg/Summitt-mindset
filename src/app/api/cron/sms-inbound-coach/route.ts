@@ -196,6 +196,43 @@ function computeNextRetryIso(attempt: number): string {
   return new Date(Date.now() + sec * 1000).toISOString();
 }
 
+function isStrongMCQReply(
+  textNormalized: string,
+  qRow: {
+    option_a: string | null;
+    option_b: string | null;
+    option_c: string | null;
+  } | null
+): boolean {
+  if (!qRow) return false;
+
+  const text = textNormalized.toLowerCase();
+
+  const letterMatch =
+    text === "a" ||
+    text === "b" ||
+    text === "c" ||
+    text === "a!" ||
+    text === "b!" ||
+    text === "c!" ||
+    /^[abc]\s/.test(text);
+
+  const MIN_LENGTH = 3;
+
+  const options = [qRow.option_a, qRow.option_b, qRow.option_c]
+    .filter(Boolean)
+    .map((o) => String(o).toLowerCase());
+
+  const optionMatch = options.some((opt) => {
+    if (!opt) return false;
+    if (text.length < MIN_LENGTH) return false;
+
+    return text.includes(opt) || opt.includes(text);
+  });
+
+  return letterMatch || optionMatch;
+}
+
 type JobRow = {
   message_sid: string;
   clerk_user_id: string;
@@ -426,17 +463,19 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   const { data: smsDeliveryState } = await supabaseServer
     .from("sms_delivery_state")
     .select(
-      "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket"
+      "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket, onboarding_step"
     )
     .eq("clerk_user_id", userId)
     .maybeSingle();
 
-  const { data: lastOutboundContext, error: lastOutboundError } =
+  const { data: lastOutboundFetched, error: lastOutboundError } =
     await supabaseServer
       .from("sms_last_outbound_context")
       .select("*")
       .eq("clerk_user_id", userId)
       .maybeSingle();
+
+  let lastOutboundContext = lastOutboundFetched ?? null;
 
   if (lastOutboundError) {
     console.error(
@@ -448,14 +487,20 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     );
   }
 
-  const interpretMode =
-    lastOutboundContext?.message_kind === "question"
-      ? "question"
-      : lastOutboundContext?.message_kind
-        ? "non_question"
-        : smsDeliveryState?.current_content_type === "respond"
-          ? "question"
-          : "non_question";
+  const isOnboardingActive =
+    typeof smsDeliveryState?.onboarding_step === "number" &&
+    smsDeliveryState.onboarding_step < 6;
+
+  const deliverySnap = lastOutboundContext?.delivery_snapshot;
+  const isValidOnboardingContext =
+    deliverySnap !== null &&
+    typeof deliverySnap === "object" &&
+    !Array.isArray(deliverySnap) &&
+    (deliverySnap as Record<string, unknown>).is_onboarding === true;
+
+  if (isOnboardingActive && !isValidOnboardingContext) {
+    lastOutboundContext = null;
+  }
 
   const { data: existingCompletion } = await supabaseServer
     .from("daily_completion_events")
@@ -478,6 +523,39 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     dayForThread = Math.floor(md.activeCoachDay);
   }
 
+  const RECENT_COACH_WINDOW_MINUTES = 60;
+
+  const { data: lastCoachRow } = await supabaseServer
+    .from("coach_conversations")
+    .select("created_at")
+    .eq("clerk_user_id", userId)
+    .eq("day_number", dayForThread)
+    .eq("role", "coach")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const lastCoachAt =
+    lastCoachRow?.created_at != null
+      ? String(lastCoachRow.created_at)
+      : null;
+
+  let recentCoachInteraction = false;
+  if (lastCoachAt) {
+    const lastMs = new Date(lastCoachAt).getTime();
+    if (Number.isFinite(lastMs)) {
+      const ageMs = Date.now() - lastMs;
+      recentCoachInteraction =
+        ageMs >= 0 && ageMs <= RECENT_COACH_WINDOW_MINUTES * 60_000;
+    }
+  }
+
+  console.log({
+    event: "sms_inbound_recent_coach_check",
+    recentCoachInteraction,
+    lastCoachAt,
+  });
+
   /** Trim + single-space collapse; does not extract MCQ letters (for short_text / open_text). */
   const textNormalized = (job.raw_body || "").trim().replace(/\s+/g, " ");
   const normalizedForMcq = normalizeSmsReply(job.raw_body);
@@ -492,23 +570,57 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     option_a: string | null;
     option_b: string | null;
     option_c: string | null;
-    option_d: string | null;
   } | null = null;
 
-  if (interpretMode === "question") {
+  if (!alreadyCompleted) {
     const questionPosition =
       lastOutboundContext?.question_position ??
       smsDeliveryState?.question_position;
-    const { data } = await supabaseServer
-      .from("respond_day_questions")
-      .select(
-        "position, prompt_morning, prompt_evening, response_type, option_a, option_b, option_c, option_d"
-      )
-      .eq("position", questionPosition)
-      .eq("active", true)
-      .maybeSingle();
-    qRow = data ?? null;
+    if (typeof questionPosition === "number" && Number.isFinite(questionPosition)) {
+      const { data } = await supabaseServer
+        .from("respond_day_questions")
+        .select(
+          "position, prompt_morning, prompt_evening, response_type, option_a, option_b, option_c"
+        )
+        .eq("position", questionPosition)
+        .eq("active", true)
+        .maybeSingle();
+      qRow = data ?? null;
+    }
   }
+
+  let interpretMode: "question" | "non_question" = "non_question";
+
+  if (alreadyCompleted) {
+    interpretMode = "non_question";
+  } else if (lastOutboundContext?.message_kind === "quote") {
+    interpretMode = "non_question";
+  } else if (
+    smsDeliveryState?.current_content_type === "respond" &&
+    isStrongMCQReply(textNormalized, qRow)
+  ) {
+    interpretMode = "question";
+  } else if (recentCoachInteraction) {
+    interpretMode = "non_question";
+  } else {
+    interpretMode =
+      lastOutboundContext?.message_kind === "question"
+        ? "question"
+        : lastOutboundContext?.message_kind
+          ? "non_question"
+          : smsDeliveryState?.current_content_type === "respond"
+            ? "question"
+            : "non_question";
+  }
+
+  console.log({
+    event: "sms_inbound_routing_decision",
+    interpretMode,
+    alreadyCompleted,
+    recentCoachInteraction,
+    lastMessageKind: lastOutboundContext?.message_kind,
+    currentContentType: smsDeliveryState?.current_content_type,
+  });
 
   const isRespondMcq =
     interpretMode === "question" && qRow?.response_type === "multiple_choice";
@@ -543,7 +655,6 @@ async function processJob(claimedJob: JobRow): Promise<void> {
       A: (qRow.option_a ?? "").trim(),
       B: (qRow.option_b ?? "").trim(),
       C: (qRow.option_c ?? "").trim(),
-      D: (qRow.option_d ?? "").trim(),
     };
 
     let interpreted_meaning: string | null = null;
@@ -551,13 +662,12 @@ async function processJob(claimedJob: JobRow): Promise<void> {
       if (normUpper === "A" && choices.A) interpreted_meaning = choices.A;
       else if (normUpper === "B" && choices.B) interpreted_meaning = choices.B;
       else if (normUpper === "C" && choices.C) interpreted_meaning = choices.C;
-      else if (normUpper === "D" && choices.D) interpreted_meaning = choices.D;
     }
 
     if (isRespondMcq && interpreted_meaning === null) {
       const hay = textNormalized.toLowerCase();
       if (hay.length > 0) {
-        const ordered: readonly (keyof typeof choices)[] = ["A", "B", "C", "D"];
+        const ordered: readonly (keyof typeof choices)[] = ["A", "B", "C"];
         for (const key of ordered) {
           const opt = choices[key];
           if (!opt) continue;
@@ -715,13 +825,18 @@ async function processJob(claimedJob: JobRow): Promise<void> {
       let coachText = COACH_SMS_FALLBACK;
 
       try {
+        let coachMessageKind = lastOutboundContext?.message_kind;
+        if (interpretMode === "question") {
+          coachMessageKind = "question";
+        }
+
         const coachResult = await coachEngine({
           userId,
           dayNumber: dayForThread,
           userMessage: processedMessage,
           source: "sms",
           smsDeliveryContext,
-          coachSmsMessageKind: lastOutboundContext?.message_kind,
+          coachSmsMessageKind: coachMessageKind,
           coachSmsTimeOfDay: lastOutboundContext?.time_of_day ?? undefined,
         });
 

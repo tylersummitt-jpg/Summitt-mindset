@@ -163,14 +163,14 @@ ${entry.question}
 export type SmsCoachDeliveryContext = {
   question_text: string;
   question_type: string;
-  choices: { A: string; B: string; C: string; D: string };
+  choices: { A: string; B: string; C: string };
   normalized_reply: string;
   raw_reply: string;
   interpreted_meaning: string | null;
 };
 
 function buildSmsDeliveryPromptBlock(ctx: SmsCoachDeliveryContext): string {
-  const choiceLines = ["A", "B", "C", "D"]
+  const choiceLines = ["A", "B", "C"]
     .map((k) => {
       const v = ctx.choices[k as keyof SmsCoachDeliveryContext["choices"]]?.trim() ?? "";
       return v ? `${k}: ${v}` : null;

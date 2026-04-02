@@ -9,10 +9,17 @@ import type { StalenessLevel } from "@/lib/get-user-staleness";
 export function getTrainingCampToneLine({
   stalenessLevel,
   dayNumber,
+  isNeverStartedUser,
 }: {
   stalenessLevel: StalenessLevel;
   dayNumber: number;
+  isNeverStartedUser: boolean;
 }): string | null {
+  if (isNeverStartedUser) return null;
+
+  // Never apply staleness tone on Day 1
+  if (dayNumber === 1) return null;
+
   // Keep "fresh" exactly as current behavior (so we don't change baseline tone).
   if (stalenessLevel === "fresh") return null;
 
@@ -35,9 +42,13 @@ export function getTrainingCampToneLine({
 
 export function getTrainingCampReflectionAddOn({
   stalenessLevel,
+  isNeverStartedUser,
 }: {
   stalenessLevel: StalenessLevel;
+  isNeverStartedUser: boolean;
 }): string | null {
+  if (isNeverStartedUser) return null;
+
   // Preserve current add-on for fresh so behavior remains consistent for active users.
   if (stalenessLevel === "fresh") {
     return "What is one small way you can approach this differently today?";

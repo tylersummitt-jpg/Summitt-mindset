@@ -20,6 +20,7 @@ import {
   getTrainingCampToneLine,
   getTrainingCampReflectionAddOn,
 } from "@/lib/training-camp-tone";
+import { isNeverStarted } from "@/lib/user-never-started";
 
 /**
  * INTERNAL NOTE TO FUTURE CHATGPT
@@ -71,6 +72,11 @@ export async function getOrCreateDailyPracticeVersion({
 
   const trainingCampTrack: TrainingCampTrack =
     md?.trainingCampTrack === "women" ? "women" : "standard";
+
+  const neverStarted = isNeverStarted({
+    totalDaysCompleted: md?.totalDaysCompleted,
+    lastCompletedAt: md?.lastCompletedAt,
+  });
 
   const computedStaleness =
     stalenessLevel ??
@@ -146,12 +152,17 @@ export async function getOrCreateDailyPracticeVersion({
     });
 
     const toneLine =
-      getTrainingCampToneLine({ stalenessLevel: computedStaleness, dayNumber }) ??
-      "Fresh angle today: do it smaller, but do it clean.";
+      getTrainingCampToneLine({
+        stalenessLevel: computedStaleness,
+        dayNumber,
+        isNeverStartedUser: neverStarted,
+      }) ?? "Fresh angle today: do it smaller, but do it clean.";
 
     const reflectionAddOn =
-      getTrainingCampReflectionAddOn({ stalenessLevel: computedStaleness }) ??
-      "What is one small way you can approach this differently today?";
+      getTrainingCampReflectionAddOn({
+        stalenessLevel: computedStaleness,
+        isNeverStartedUser: neverStarted,
+      }) ?? "What is one small way you can approach this differently today?";
 
     actionItem = normalize(`${practice.action_item}\n\n${toneLine}`);
     reflectionPrompt = normalize(`${practice.reflection_prompt}\n\n${reflectionAddOn}`);

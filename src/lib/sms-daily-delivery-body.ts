@@ -84,7 +84,6 @@ type RespondDayQuestionRow = {
   option_a: string | null;
   option_b: string | null;
   option_c: string | null;
-  option_d: string | null;
 };
 
 /**
@@ -471,16 +470,17 @@ export function buildRespondSmsBody(args: {
   }
 
   if (args.question.response_type === "multiple_choice") {
-    const lines = [
-      "",
-      `A) ${(args.question.option_a || "").trim()}`,
-      `B) ${(args.question.option_b || "").trim()}`,
-      `C) ${(args.question.option_c || "").trim()}`,
-      `D) ${(args.question.option_d || "").trim()}`,
-      "",
-      "Reply with A, B, C, or D.",
+    const optionRows = [
+      { label: "A" as const, value: (args.question.option_a || "").trim() },
+      { label: "B" as const, value: (args.question.option_b || "").trim() },
+      { label: "C" as const, value: (args.question.option_c || "").trim() },
     ];
-    base = `${base}\n${lines.join("\n")}`;
+    const rendered = optionRows
+      .filter((o) => o.value.length > 0)
+      .map((o) => `${o.label}) ${o.value}`);
+    if (rendered.length > 0) {
+      base = `${base}\n\n${rendered.join("\n")}`;
+    }
   }
 
   return base.trim();
@@ -539,7 +539,7 @@ export async function buildSmsBodyFromDeliveryState(args: {
     const { data: q, error } = await supabaseServer
       .from("respond_day_questions")
       .select(
-        "position, prompt_morning, prompt_evening, response_type, retry_intro_1, retry_intro_2, option_a, option_b, option_c, option_d"
+        "position, prompt_morning, prompt_evening, response_type, retry_intro_1, retry_intro_2, option_a, option_b, option_c"
       )
       .eq("position", args.state.question_position)
       .eq("active", true)
