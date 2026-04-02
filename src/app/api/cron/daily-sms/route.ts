@@ -23,9 +23,6 @@ export const dynamic = "force-dynamic";
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
-/** TEMPORARY: bypass local send-hour window for testing. Set false and redeploy after test. */
-const FORCE_SEND_ALL = true;
-
 /**
  * Mirrors flexSlotModality in sms-daily-delivery-body (keep aligned with buildSmsBodyFromDeliveryState).
  */
@@ -352,12 +349,28 @@ async function mergeEligibleAudienceFromIdentities(
 }
 
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const providedSecret = url.searchParams.get("secret");
+
+  console.log("CRON DEBUG AUTH", {
+    rawUrl: req.url,
+    extractedSecret: providedSecret,
+    expectedSecret: process.env.CRON_SECRET,
+    extractedLength: providedSecret?.length,
+    expectedLength: process.env.CRON_SECRET?.length,
+    extractedCharCodes: providedSecret
+      ? [...providedSecret].map((c) => c.charCodeAt(0))
+      : undefined,
+    expectedCharCodes: process.env.CRON_SECRET
+      ? [...process.env.CRON_SECRET].map((c) => c.charCodeAt(0))
+      : undefined,
+  });
+
   if (!validateCronSecret(req)) {
     logDailySmsCronAuthFailure(req);
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const url = new URL(req.url);
   const force = url.searchParams.get("force") === "1";
   const dryRunOverride = url.searchParams.get("dryRun") === "1";
   const SMS_DRY_RUN = ENV_SMS_DRY_RUN || dryRunOverride;
@@ -456,12 +469,7 @@ export async function GET(req: Request) {
       const isRetryPending =
         existingEvent?.status === "send_failed" && retryCountFromMeta < 3;
 
-      if (
-        !existingEvent &&
-        !force &&
-        !FORCE_SEND_ALL &&
-        !isInSendWindow(localNow, sendHour)
-      ) {
+      if (!existingEvent && !force && !isInSendWindow(localNow, sendHour)) {
         stats.skippedNotTime += 1;
         continue;
       }
@@ -579,14 +587,6 @@ export async function GET(req: Request) {
               const effectiveForSend = effectiveContentTypeFromSnapshot(
                 deliveryStateSnapshot
               );
-              if (FORCE_SEND_ALL) {
-                console.log("FORCE SEND SMS", {
-                  userId: audienceUser.clerk_user_id,
-                  phone: audienceUser.phone_number,
-                  timezone,
-                  smsTimePreference: pref,
-                });
-              }
               retryMessage = await sendSMS({
                 to: audienceUser.phone_number,
                 body: smsBody,
@@ -794,14 +794,6 @@ export async function GET(req: Request) {
           deliveryStateSnapshotMain != null
             ? effectiveContentTypeFromSnapshot(deliveryStateSnapshotMain)
             : "respond";
-        if (FORCE_SEND_ALL) {
-          console.log("FORCE SEND SMS", {
-            userId: audienceUser.clerk_user_id,
-            phone: audienceUser.phone_number,
-            timezone,
-            smsTimePreference: pref,
-          });
-        }
         mainMessage = await sendSMS({
           to: audienceUser.phone_number,
           body: smsBody,
