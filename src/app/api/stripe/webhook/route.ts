@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
+import { supabaseServer } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 
@@ -162,6 +163,18 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("❌ Invalid webhook signature:", err.message);
     return new NextResponse("Invalid signature", { status: 400 });
+  }
+
+  const { error: insertError } = await supabaseServer
+    .from("stripe_webhook_events")
+    .insert({ event_id: event.id });
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      return NextResponse.json({ received: true });
+    }
+    console.error("stripe_webhook_events insert error:", insertError);
+    return new NextResponse("Webhook error", { status: 500 });
   }
 
   try {
@@ -359,6 +372,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (err) {
+    await supabaseServer
+      .from("stripe_webhook_events")
+      .delete()
+      .eq("event_id", event.id);
     console.error("🔥 Webhook processing error:", err);
     return new NextResponse("Webhook error", { status: 500 });
   }
