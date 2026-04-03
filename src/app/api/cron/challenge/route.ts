@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { sendChallengeEmail } from "@/lib/send-challenge-email";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -6,12 +7,34 @@ import { getNext8AMEastern } from "@/lib/timezone";
 const CRON_SECRET = process.env.CRON_SECRET;
 
 /**
- * Only allow requests with valid CRON_SECRET via x-cron-secret header.
+ * Valid CRON_SECRET required. Accept either:
+ * - x-cron-secret: <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET> (Vercel scheduled crons)
  */
+function timingSafeEqualUtf8(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a, "utf8");
+    const bufB = Buffer.from(b, "utf8");
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
 function validateCronSecret(req: Request): boolean {
   if (!CRON_SECRET) return false;
-  const header = req.headers.get("x-cron-secret");
-  return header === CRON_SECRET;
+
+  const xCron = req.headers.get("x-cron-secret");
+  if (xCron && timingSafeEqualUtf8(xCron, CRON_SECRET)) return true;
+
+  const auth = req.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) {
+    const token = auth.slice(7).trim();
+    if (token && timingSafeEqualUtf8(token, CRON_SECRET)) return true;
+  }
+
+  return false;
 }
 
 async function handleCron(request: Request) {
