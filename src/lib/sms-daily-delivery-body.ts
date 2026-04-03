@@ -35,6 +35,10 @@ function normalizeDeliveryStateRow(row: Record<string, unknown>): SmsDeliverySta
       ? Math.max(0, Math.floor(fi)) % 7
       : 0;
 
+  const d2 = row.day2_special_sent_at;
+  const day2SpecialSentAt =
+    typeof d2 === "string" && d2.trim().length > 0 ? d2.trim() : null;
+
   return {
     clerk_user_id: String(row.clerk_user_id ?? ""),
     question_position:
@@ -52,6 +56,7 @@ function normalizeDeliveryStateRow(row: Record<string, unknown>): SmsDeliverySta
     daily_nonresponse_cycle_count: cycle,
     sms_bucket: bucket,
     flex_cadence_index: flexCadenceIndex,
+    day2_special_sent_at: day2SpecialSentAt,
   };
 }
 
@@ -72,6 +77,8 @@ export type SmsDeliveryStateRow = {
   sms_bucket: "daily" | "flex";
   /** Flex: rolling slot 0–6 (pattern). Daily: unused / keep 0. */
   flex_cadence_index: number;
+  /** Set after the one-time program Day 2 freeform SMS is successfully sent. */
+  day2_special_sent_at: string | null;
 };
 
 type RespondDayQuestionRow = {
@@ -234,7 +241,7 @@ function flexSlotModality(flexCadenceIndex: number): "respond" | "non_response" 
 }
 
 const SMS_DELIVERY_STATE_SELECT =
-  "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket, flex_cadence_index";
+  "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket, flex_cadence_index, day2_special_sent_at";
 
 function buildSanityPatch(row: Record<string, unknown>): Record<string, unknown> | null {
   const patch: Record<string, unknown> = {};
@@ -443,7 +450,7 @@ export function buildRespondSmsBody(args: {
   adaptiveQuestionFrame?: string;
   /** When set for attempt 1 or 2, prepended instead of retry_intro_1 / retry_intro_2. */
   adaptiveRetryIntro?: string;
-  /** When set, replaces the DB morning/evening prompt line (e.g. SMS Day 2 AI question); MCQ options unchanged. */
+  /** When set, replaces the DB morning/evening prompt line. */
   customMainPrompt?: string | null;
 }): string {
   const evening = useEveningPromptForPreference(args.smsTimePreference);
@@ -512,13 +519,44 @@ function formatQuoteForSms(quoteText: string): string {
   return `${openSmart}${s}${closeSmart}`;
 }
 
+/** Non-MCQ fallback when OpenAI returns nothing for the one-time Day 2 special. */
+export function buildDay2SpecialFallbackBody(firstName: string): string {
+  const n = (firstName || "").trim();
+  const hasName = n.length > 0 && n.toLowerCase() !== "there";
+  if (hasName) {
+    return `${n}, what is one way you want to show up stronger today — mentally, physically, or in how you lead?`;
+  }
+  return "What is one way you want to show up stronger today — mentally, physically, or in how you lead?";
+}
+
 export async function buildSmsBodyFromDeliveryState(args: {
   clerkUserId: string;
   state: SmsDeliveryStateRow;
   smsTimePreference: string | null | undefined;
-  /** Clerk program day when known (daily SMS cron). When 2, may replace the main question via OpenAI; MCQ still from DB. */
+  /** Clerk program day when known (daily SMS cron). When 2 and `day2_special_sent_at` is null, a one-time freeform Day 2 special runs first. */
   currentDay?: number | null;
-}): Promise<{ ok: true; smsBody: string } | { ok: false; error: string }> {
+}): Promise<
+  | { ok: true; smsBody: string; day2SpecialUsed: boolean }
+  | { ok: false; error: string }
+> {
+  if (args.currentDay === 2 && !args.state.day2_special_sent_at) {
+    const evening = useEveningPromptForPreference(args.smsTimePreference);
+    const [displayName, profile] = await Promise.all([
+      getDisplayNameForUser(args.clerkUserId),
+      buildProfileContext(args.clerkUserId),
+    ]);
+    const firstName = (displayName && displayName.trim()) || "there";
+    let body = (await generateSmsDay2RespondQuestion({
+      firstName,
+      profile,
+      eveningPrompt: evening,
+    })).trim();
+    if (!body) {
+      body = buildDay2SpecialFallbackBody(firstName);
+    }
+    return { ok: true, smsBody: body, day2SpecialUsed: true };
+  }
+
   const isFlex = args.state.sms_bucket === "flex";
   /**
    * What to generate next: flex follows slot cadence only. Daily uses DB fields where
@@ -557,24 +595,6 @@ export async function buildSmsBodyFromDeliveryState(args: {
 
     const attemptForIntros = isFlex ? 0 : args.state.question_attempt_count;
 
-    let customMainPrompt: string | undefined;
-    if (args.currentDay === 2) {
-      const evening = useEveningPromptForPreference(args.smsTimePreference);
-      const [displayName, profile] = await Promise.all([
-        getDisplayNameForUser(args.clerkUserId),
-        buildProfileContext(args.clerkUserId),
-      ]);
-      const firstName = (displayName && displayName.trim()) || "there";
-      const day2Question = await generateSmsDay2RespondQuestion({
-        firstName,
-        profile,
-        eveningPrompt: evening,
-      });
-      if (day2Question) {
-        customMainPrompt = day2Question;
-      }
-    }
-
     let adaptiveRetryIntro: string | undefined;
     let adaptiveQuestionFrame: string | undefined;
 
@@ -611,10 +631,9 @@ export async function buildSmsBodyFromDeliveryState(args: {
       questionAttemptCountBeforeSend: attemptForIntros,
       adaptiveQuestionFrame,
       adaptiveRetryIntro,
-      customMainPrompt,
     });
 
-    return { ok: true, smsBody };
+    return { ok: true, smsBody, day2SpecialUsed: false };
   }
 
   const { data: quotes, error: qErr } = await supabaseServer
@@ -658,7 +677,7 @@ export async function buildSmsBodyFromDeliveryState(args: {
     ? `${formattedQuoteText}\n\n${personalized.trim()}`
     : formattedQuoteText;
 
-  return { ok: true, smsBody };
+  return { ok: true, smsBody, day2SpecialUsed: false };
 }
 
 /**
@@ -669,7 +688,7 @@ export async function buildSmsBodyFromDeliveryState(args: {
  */
 export async function applySmsDeliveryStateAfterSuccessfulSend(
   sentSnapshot: SmsDeliveryStateRow,
-  context?: { currentDay?: number | null }
+  context?: { day2SpecialSent?: boolean }
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: freshRow, error: freshErr } = await supabaseServer
     .from("sms_delivery_state")
@@ -696,6 +715,67 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
   }
 
   const userId = sentSnapshot.clerk_user_id;
+
+  if (context?.day2SpecialSent) {
+    if (base.day2_special_sent_at) {
+      return { ok: true };
+    }
+    const nowIso = new Date().toISOString();
+    if (sentSnapshot.sms_bucket === "flex") {
+      const slot =
+        ((sentSnapshot.flex_cadence_index % 7) + 7) % 7;
+      const wasRespond = slot === 2 || slot === 5;
+      const sentContentType: "respond" | "non_response" = wasRespond
+        ? "respond"
+        : "non_response";
+      const nextCadence =
+        ((sentSnapshot.flex_cadence_index + 1) % 7 + 7) % 7;
+
+      const payload: {
+        flex_cadence_index: number;
+        current_content_type: "respond" | "non_response";
+        question_position?: number;
+        quote_position?: number;
+        question_attempt_count?: number;
+        day2_special_sent_at: string;
+      } = {
+        flex_cadence_index: nextCadence,
+        current_content_type: sentContentType,
+        day2_special_sent_at: nowIso,
+      };
+
+      if (wasRespond) {
+        payload.question_position = base.question_position + 1;
+        payload.question_attempt_count = 0;
+      } else {
+        payload.quote_position = base.quote_position + 1;
+      }
+
+      const { error } = await supabaseServer
+        .from("sms_delivery_state")
+        .update(payload)
+        .eq("clerk_user_id", userId);
+
+      if (error) {
+        return { ok: false, error: error.message };
+      }
+      return { ok: true };
+    }
+
+    const { error } = await supabaseServer
+      .from("sms_delivery_state")
+      .update({
+        day2_special_sent_at: nowIso,
+        question_attempt_count: 3,
+        current_content_type: "respond",
+      })
+      .eq("clerk_user_id", userId);
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }
 
   if (sentSnapshot.sms_bucket === "flex") {
     const slot =
@@ -737,10 +817,7 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
   }
 
   if (sentSnapshot.current_content_type === "respond") {
-    let nextAttempts =
-      context?.currentDay === 2
-        ? 3
-        : base.question_attempt_count + 1;
+    let nextAttempts = base.question_attempt_count + 1;
     let nextQuestionPos = base.question_position;
 
     const bucket = base.sms_bucket ?? "daily";

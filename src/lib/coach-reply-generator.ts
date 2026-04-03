@@ -211,6 +211,8 @@ type Params = {
   coachSmsMessageKind?: string;
   /** From sms_last_outbound_context.time_of_day: morning | evening. */
   coachSmsTimeOfDay?: string;
+  /** When true, omit getSmsSelectionContext (Day 2 freeform inbound). */
+  skipSmsSelectionContext?: boolean;
 };
 
 export type CoachReplyMeta = {
@@ -568,6 +570,7 @@ export async function generateCoachReply({
   smsDeliveryContext,
   coachSmsMessageKind,
   coachSmsTimeOfDay,
+  skipSmsSelectionContext = false,
 }: Params): Promise<CoachReplyResult> {
   const openai = getOpenAIClient();
 
@@ -778,7 +781,9 @@ Rules:
 ${PAT_BRAND_SAFETY_RULES}
 `.trim();
 
-  const selectionContext = getSmsSelectionContext(cleanUserMessage);
+  const selectionContext = skipSmsSelectionContext
+    ? ""
+    : getSmsSelectionContext(cleanUserMessage);
 
   const smsContextLines: string[] = [];
   if (coachSmsMessageKind === "question" || coachSmsMessageKind === "quote") {

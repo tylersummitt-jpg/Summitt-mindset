@@ -177,6 +177,17 @@ function normalizeJournalTextForCompletion(input: string): string {
   return (input || "").trim().replace(/\s+/g, " ");
 }
 
+function deliverySnapshotIsDay2Freeform(snapshot: unknown): boolean {
+  if (
+    snapshot == null ||
+    typeof snapshot !== "object" ||
+    Array.isArray(snapshot)
+  ) {
+    return false;
+  }
+  return (snapshot as Record<string, unknown>).is_day2_freeform === true;
+}
+
 function getCompletionConfirmation(dayNumber: number): string {
   const options = [
     "You showed up today.",
@@ -463,7 +474,7 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   const { data: smsDeliveryState } = await supabaseServer
     .from("sms_delivery_state")
     .select(
-      "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket, onboarding_step"
+      "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket"
     )
     .eq("clerk_user_id", userId)
     .maybeSingle();
@@ -487,20 +498,9 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     );
   }
 
-  const isOnboardingActive =
-    typeof smsDeliveryState?.onboarding_step === "number" &&
-    smsDeliveryState.onboarding_step < 6;
-
-  const deliverySnap = lastOutboundContext?.delivery_snapshot;
-  const isValidOnboardingContext =
-    deliverySnap !== null &&
-    typeof deliverySnap === "object" &&
-    !Array.isArray(deliverySnap) &&
-    (deliverySnap as Record<string, unknown>).is_onboarding === true;
-
-  if (isOnboardingActive && !isValidOnboardingContext) {
-    lastOutboundContext = null;
-  }
+  const isDay2Freeform = deliverySnapshotIsDay2Freeform(
+    lastOutboundContext?.delivery_snapshot
+  );
 
   const { data: existingCompletion } = await supabaseServer
     .from("daily_completion_events")
@@ -595,6 +595,8 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     interpretMode = "non_question";
   } else if (lastOutboundContext?.message_kind === "quote") {
     interpretMode = "non_question";
+  } else if (isDay2Freeform) {
+    interpretMode = "question";
   } else if (
     smsDeliveryState?.current_content_type === "respond" &&
     isStrongMCQReply(textNormalized, qRow)
@@ -623,7 +625,9 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   });
 
   const isRespondMcq =
-    interpretMode === "question" && qRow?.response_type === "multiple_choice";
+    !isDay2Freeform &&
+    interpretMode === "question" &&
+    qRow?.response_type === "multiple_choice";
 
   const normUpper = normalizedForMcq.trim().toUpperCase();
   const looksLikeMcqLetterOnly =
@@ -631,7 +635,22 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   /** Letter A–D counts as MCQ only when the active question is multiple_choice. */
   const isMcqLetter = isRespondMcq && looksLikeMcqLetterOnly;
 
-  if (interpretMode === "question" && qRow) {
+  if (isDay2Freeform && interpretMode === "question") {
+    const fb =
+      typeof lastOutboundContext?.full_body === "string"
+        ? lastOutboundContext.full_body.trim()
+        : "";
+    if (fb) {
+      smsDeliveryContext = {
+        question_text: fb,
+        question_type: "open_text",
+        choices: { A: "", B: "", C: "" },
+        normalized_reply: textNormalized,
+        raw_reply: (job.raw_body || "").trim(),
+        interpreted_meaning: null,
+      };
+    }
+  } else if (interpretMode === "question" && qRow) {
     let evening: boolean;
     if (lastOutboundContext?.time_of_day === "evening") {
       evening = true;
@@ -703,7 +722,9 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   }
 
   let processedMessage: string;
-  if (isMcqLetter) {
+  if (isDay2Freeform) {
+    processedMessage = textNormalized;
+  } else if (isMcqLetter) {
     processedMessage =
       interpreted_meaning_for_journal ?? normUpper;
   } else if (looksLikeMcqLetterOnly && interpretMode !== "question") {
@@ -838,6 +859,7 @@ async function processJob(claimedJob: JobRow): Promise<void> {
           smsDeliveryContext,
           coachSmsMessageKind: coachMessageKind,
           coachSmsTimeOfDay: lastOutboundContext?.time_of_day ?? undefined,
+          skipSmsSelectionContext: isDay2Freeform,
         });
 
         if (coachResult.ok) {

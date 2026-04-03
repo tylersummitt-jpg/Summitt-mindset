@@ -249,8 +249,9 @@ const DAY2_QUESTION_SYSTEM =
   "You write one striking coaching question for SMS Day 2. Output only the question text. No labels, no preamble. You MUST open with the user's first name in a natural, human way (for example: \"Tyler, what would it look like today if...\"). Name first, then a comma or brief pause, then the question — not robotic. If FIRST_NAME is clearly a placeholder like \"there\", open with direct second-person \"you\" instead and still keep it personal.";
 
 /**
- * Personalized respond prompt for program Day 2 SMS (MCQ options still come from respond_day_questions).
- * Returns empty string if OpenAI is unavailable or the model returns nothing (caller falls back to DB prompts).
+ * Personalized freeform question for the one-time program Day 2 SMS special (main engine only).
+ * Caller builds plain text only (no MCQ). Returns empty string if OpenAI is unavailable or the model
+ * returns nothing — caller must use a non-MCQ fallback string.
  */
 export async function generateSmsDay2RespondQuestion(args: {
   firstName: string;

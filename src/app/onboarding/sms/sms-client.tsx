@@ -8,8 +8,8 @@ import { useRouter } from "next/navigation";
  * SMS Client (CANONICAL)
  * ======================================================
  *
- * Time preference: morning (7:00 AM) or evening (7:00 PM) local — send window
- * is enforced by daily-sms cron (separate from onboarding UI).
+ * Time preference: morning (7:00 AM) or evening (7:00 PM) local — daily-sms cron
+ * enforces the send window. Retention content uses the main `sms_delivery_state` engine.
  */
 
 function normalizeToE164(input: string): string | null {

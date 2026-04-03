@@ -133,6 +133,8 @@ export type LastOutboundSmsMeta = {
   deliverySnapshot?: Record<string, unknown> | null;
   chunkIndex?: number;
   chunkTotal?: number;
+  /** When true, sendSMS does not upsert sms_last_outbound_context (e.g. daily-sms cron writes it). */
+  skipLastOutboundContextUpsert?: boolean;
 };
 
 function inferLastOutboundMessageKind(
@@ -231,7 +233,11 @@ export async function sendSMS({
       : { from: fallbackFrom!, to, body }
   );
 
-  if (lastOutbound?.clerkUserId && message.sid) {
+  if (
+    lastOutbound?.clerkUserId &&
+    message.sid &&
+    lastOutbound.skipLastOutboundContextUpsert !== true
+  ) {
     const chunkTotal = lastOutbound.chunkTotal ?? 1;
     const chunkIndex = lastOutbound.chunkIndex ?? 0;
     if (chunkTotal <= 1 || chunkIndex === chunkTotal - 1) {

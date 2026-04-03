@@ -24,6 +24,9 @@ type CoachEngineParams = {
   /** Optional: sms_last_outbound_context.time_of_day (morning | evening). */
   coachSmsTimeOfDay?: string;
 
+  /** When true, skip getSmsSelectionContext (e.g. Day 2 freeform SMS reply). */
+  skipSmsSelectionContext?: boolean;
+
   /**
    * If provided, we will use this exact UTC day key for rate limiting.
    * If omitted, we compute from now().
@@ -216,6 +219,7 @@ export async function coachEngine(
     smsDeliveryContext: params.smsDeliveryContext,
     coachSmsMessageKind: params.coachSmsMessageKind,
     coachSmsTimeOfDay: params.coachSmsTimeOfDay,
+    skipSmsSelectionContext: params.skipSmsSelectionContext,
   });
 
   // ================================
