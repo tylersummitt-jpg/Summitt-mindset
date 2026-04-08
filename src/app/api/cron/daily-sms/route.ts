@@ -65,12 +65,28 @@ async function upsertLastOutboundContextAfterDailySend(args: {
   twilioMessageSid: string;
   /** One-time Day 2 freeform outbound (not MCQ); treat as question for coach context. */
   day2FreeformSpecial?: boolean;
+  sentPatQuoteId?: string;
+  sentRespondQuestionId?: string;
 }): Promise<void> {
   try {
     const effective = args.day2FreeformSpecial
       ? "respond"
       : effectiveContentTypeFromSnapshot(args.deliveryStateSnapshot);
     const messageKind = effective === "respond" ? "question" : "quote";
+    const sentPatQuoteIdTrimmed =
+      typeof args.sentPatQuoteId === "string"
+        ? args.sentPatQuoteId.trim()
+        : "";
+    const includeSentPatQuoteId =
+      messageKind === "quote" && sentPatQuoteIdTrimmed.length > 0;
+    const sentRespondQuestionIdTrimmed =
+      typeof args.sentRespondQuestionId === "string"
+        ? args.sentRespondQuestionId.trim()
+        : "";
+    const includeSentRespondQuestionId =
+      messageKind === "question" &&
+      !args.day2FreeformSpecial &&
+      sentRespondQuestionIdTrimmed.length > 0;
 
     const { error } = await supabaseServer.from("sms_last_outbound_context").upsert(
       {
@@ -93,6 +109,12 @@ async function upsertLastOutboundContextAfterDailySend(args: {
           sms_bucket: args.deliveryStateSnapshot.sms_bucket,
           flex_cadence_index: args.deliveryStateSnapshot.flex_cadence_index,
           ...(args.day2FreeformSpecial ? { is_day2_freeform: true } : {}),
+          ...(includeSentPatQuoteId
+            ? { sent_pat_quote_id: sentPatQuoteIdTrimmed }
+            : {}),
+          ...(includeSentRespondQuestionId
+            ? { sent_respond_question_id: sentRespondQuestionIdTrimmed }
+            : {}),
         },
       },
       { onConflict: "clerk_user_id" }
@@ -121,6 +143,8 @@ async function buildSmsWithDeliveryEngine(
       smsBody: string;
       deliveryStateSnapshot: SmsDeliveryStateRow;
       day2SpecialUsed: boolean;
+      sentPatQuoteId?: string;
+      sentRespondQuestionId?: string;
     }
   | { ok: false; error: string }
 > {
@@ -155,6 +179,8 @@ async function buildSmsWithDeliveryEngine(
     smsBody: built.smsBody,
     deliveryStateSnapshot: stateRes.data,
     day2SpecialUsed: built.day2SpecialUsed,
+    sentPatQuoteId: built.sentPatQuoteId,
+    sentRespondQuestionId: built.sentRespondQuestionId,
   };
 }
 
@@ -674,6 +700,8 @@ export async function GET(req: Request) {
                   smsBody,
                   twilioMessageSid: retryMessage.sid,
                   day2FreeformSpecial: day2SpecialUsedRetry,
+                  sentPatQuoteId: built.sentPatQuoteId,
+                  sentRespondQuestionId: built.sentRespondQuestionId,
                 });
                 const applied = await applySmsDeliveryStateAfterSuccessfulSend(
                   deliveryStateSnapshot,
@@ -901,6 +929,8 @@ export async function GET(req: Request) {
               smsBody,
               twilioMessageSid: mainMessage.sid,
               day2FreeformSpecial: day2SpecialUsedMain,
+              sentPatQuoteId: builtMain.sentPatQuoteId,
+              sentRespondQuestionId: builtMain.sentRespondQuestionId,
             });
             const applied = await applySmsDeliveryStateAfterSuccessfulSend(
               deliveryStateSnapshotMain,

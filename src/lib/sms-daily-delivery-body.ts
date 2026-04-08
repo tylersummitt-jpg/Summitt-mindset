@@ -4,9 +4,6 @@
  * Clerk `deliveryDay` is not read or written by this module or the daily SMS cron.
  */
 import { supabaseServer } from "@/lib/supabase-server";
-import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { reconcileSmsDeliveryStateAfterCompletion } from "@/lib/sms-delivery-on-complete";
-import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { buildProfileContext } from "@/lib/profile-context";
 import {
   compactProfileForPrompt,
@@ -82,6 +79,7 @@ export type SmsDeliveryStateRow = {
 };
 
 type RespondDayQuestionRow = {
+  id: number;
   position: number;
   prompt_morning: string;
   prompt_evening: string;
@@ -266,16 +264,6 @@ function buildSanityPatch(row: Record<string, unknown>): Record<string, unknown>
   return patch;
 }
 
-/**
- * After completeDay + reconcile, Layer B should match this (per reconcileSmsDeliveryStateAfterCompletion).
- */
-function smsDeliveryStateOutOfSyncAfterCompletionToday(row: SmsDeliveryStateRow): boolean {
-  if (row.current_content_type === "respond") {
-    return row.question_attempt_count !== 3 || row.daily_nonresponse_cycle_count !== 0;
-  }
-  return row.question_attempt_count !== 0 || row.daily_nonresponse_cycle_count !== 0;
-}
-
 async function selfHealDeliveryStateAfterLoad(
   clerkUserId: string,
   rowRecord: Record<string, unknown>
@@ -312,66 +300,7 @@ async function selfHealDeliveryStateAfterLoad(
     }
   }
 
-  let normalized = normalizeDeliveryStateRow(record);
-
-  try {
-    const md = await getClerkPublicMetadata(clerkUserId);
-    const todayKey = getDateKeyInTimezone(
-      new Date(),
-      resolveUserTimezone(md.timezone)
-    );
-
-    const { data: completionRow, error: compErr } = await supabaseServer
-      .from("daily_completion_events")
-      .select("id")
-      .eq("clerk_user_id", clerkUserId)
-      .eq("day_key", todayKey)
-      .maybeSingle();
-
-    if (compErr) {
-      console.error("[sms_delivery_state] self-heal completion lookup failed", {
-        clerkUserId,
-        error: compErr.message,
-      });
-      return normalized;
-    }
-
-    const completedToday = Boolean(completionRow);
-
-    if (
-      completedToday &&
-      smsDeliveryStateOutOfSyncAfterCompletionToday(normalized)
-    ) {
-      const rec = await reconcileSmsDeliveryStateAfterCompletion(clerkUserId);
-      if (!rec.ok) {
-        console.error("[sms_delivery_state] self-heal reconcile failed", {
-          clerkUserId,
-          error: rec.error,
-        });
-      } else {
-        const { data: after, error: afterErr } = await supabaseServer
-          .from("sms_delivery_state")
-          .select(SMS_DELIVERY_STATE_SELECT)
-          .eq("clerk_user_id", clerkUserId)
-          .maybeSingle();
-
-        if (afterErr) {
-          console.error("[sms_delivery_state] self-heal refresh after reconcile failed", {
-            clerkUserId,
-            error: afterErr.message,
-          });
-        } else if (after) {
-          normalized = normalizeDeliveryStateRow(after as Record<string, unknown>);
-        }
-      }
-    }
-  } catch (e) {
-    console.error(
-      "[sms_delivery_state] self-heal skipped (Clerk or unexpected error)",
-      clerkUserId,
-      e
-    );
-  }
+  const normalized = normalizeDeliveryStateRow(record);
 
   return normalized;
 }
@@ -536,7 +465,13 @@ export async function buildSmsBodyFromDeliveryState(args: {
   /** Clerk program day when known (daily SMS cron). When 2 and `day2_special_sent_at` is null, a one-time freeform Day 2 special runs first. */
   currentDay?: number | null;
 }): Promise<
-  | { ok: true; smsBody: string; day2SpecialUsed: boolean }
+  | {
+      ok: true;
+      smsBody: string;
+      day2SpecialUsed: boolean;
+      sentPatQuoteId?: string;
+      sentRespondQuestionId?: string;
+    }
   | { ok: false; error: string }
 > {
   if (args.currentDay === 2 && !args.state.day2_special_sent_at) {
@@ -574,24 +509,62 @@ export async function buildSmsBodyFromDeliveryState(args: {
         : "respond";
 
   if (effectiveContentType === "respond") {
-    const { data: q, error } = await supabaseServer
+    const { data: rows, error } = await supabaseServer
       .from("respond_day_questions")
       .select(
-        "position, prompt_morning, prompt_evening, response_type, retry_intro_1, retry_intro_2, option_a, option_b, option_c"
+        "id, position, prompt_morning, prompt_evening, response_type, retry_intro_1, retry_intro_2, option_a, option_b, option_c"
       )
       .eq("position", args.state.question_position)
       .eq("active", true)
-      .maybeSingle();
+      .order("id", { ascending: true });
 
     if (error) {
       return { ok: false, error: `respond_day_questions: ${error.message}` };
     }
-    if (!q) {
+    const questions = rows ?? [];
+    if (questions.length === 0) {
       return {
         ok: false,
         error: `no active respond_day_questions for position ${args.state.question_position}`,
       };
     }
+
+    let idx = 0;
+
+    if (isFlex) {
+      const { data: lastOutbound } = await supabaseServer
+        .from("sms_last_outbound_context")
+        .select("message_kind, delivery_snapshot")
+        .eq("clerk_user_id", args.clerkUserId)
+        .maybeSingle();
+
+      let lastSentQuestionId: string | null = null;
+      if (lastOutbound?.message_kind === "question") {
+        const snap = lastOutbound.delivery_snapshot;
+        if (snap && typeof snap === "object" && snap !== null) {
+          const raw = (snap as Record<string, unknown>).sent_respond_question_id;
+          if (typeof raw === "string" && raw.trim().length > 0) {
+            lastSentQuestionId = raw.trim();
+          }
+        }
+      }
+
+      if (lastSentQuestionId !== null) {
+        const currentId = String(questions[idx].id);
+        if (currentId === lastSentQuestionId) {
+          if (questions.length === 1) {
+            return {
+              ok: false,
+              error:
+                "respond_day_questions: cannot avoid consecutive duplicate Flex question with only one active question at this position",
+            };
+          }
+          idx = (idx + 1) % questions.length;
+        }
+      }
+    }
+
+    const q = questions[idx];
 
     const attemptForIntros = isFlex ? 0 : args.state.question_attempt_count;
 
@@ -633,7 +606,9 @@ export async function buildSmsBodyFromDeliveryState(args: {
       adaptiveRetryIntro,
     });
 
-    return { ok: true, smsBody, day2SpecialUsed: false };
+    const sentRespondQuestionId = String(q.id);
+
+    return { ok: true, smsBody, day2SpecialUsed: false, sentRespondQuestionId };
   }
 
   const { data: quotes, error: qErr } = await supabaseServer
@@ -649,9 +624,42 @@ export async function buildSmsBodyFromDeliveryState(args: {
     return { ok: false, error: "no active pat_quotes" };
   }
 
-  const idx =
+  let idx =
     ((args.state.quote_position % quotes.length) + quotes.length) % quotes.length;
+
+  const { data: lastOutbound } = await supabaseServer
+    .from("sms_last_outbound_context")
+    .select("message_kind, delivery_snapshot")
+    .eq("clerk_user_id", args.clerkUserId)
+    .maybeSingle();
+
+  let lastSentPatQuoteId: string | null = null;
+  if (lastOutbound?.message_kind === "quote") {
+    const snap = lastOutbound.delivery_snapshot;
+    if (snap && typeof snap === "object" && snap !== null) {
+      const raw = (snap as Record<string, unknown>).sent_pat_quote_id;
+      if (typeof raw === "string" && raw.trim().length > 0) {
+        lastSentPatQuoteId = raw.trim();
+      }
+    }
+  }
+
+  if (lastSentPatQuoteId !== null) {
+    const currentId = String(quotes[idx].id);
+    if (currentId === lastSentPatQuoteId) {
+      if (quotes.length === 1) {
+        return {
+          ok: false,
+          error:
+            "pat_quotes: cannot avoid consecutive duplicate Pat quote with only one active quote",
+        };
+      }
+      idx = (idx + 1) % quotes.length;
+    }
+  }
+
   const quote = quotes[idx];
+  const sentPatQuoteId = String(quote.id);
   const quoteText = (quote.quote_text || "").trim();
   if (!quoteText) {
     return { ok: false, error: "empty pat_quotes.quote_text" };
@@ -677,13 +685,13 @@ export async function buildSmsBodyFromDeliveryState(args: {
     ? `${formattedQuoteText}\n\n${personalized.trim()}`
     : formattedQuoteText;
 
-  return { ok: true, smsBody, day2SpecialUsed: false };
+  return { ok: true, smsBody, day2SpecialUsed: false, sentPatQuoteId };
 }
 
 /**
  * After a successful Twilio send: advance delivery state per product rules.
  * Re-reads the DB row first so mutations use current positions/attempts even if
- * reconcile/self-heal changed the row after the outbound body was built. Branch
+ * load-time self-heal changed the row after the outbound body was built. Branch
  * choice and flex slot follow `sentSnapshot` (the state used when generating the send).
  */
 export async function applySmsDeliveryStateAfterSuccessfulSend(
@@ -816,13 +824,46 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
     return { ok: true };
   }
 
+  const wasActuallyQuote =
+    sentSnapshot.sms_bucket !== "flex" &&
+    sentSnapshot.current_content_type === "respond" &&
+    sentSnapshot.question_attempt_count >= 3;
+
+  if (wasActuallyQuote) {
+    const payload: {
+      quote_position: number;
+      question_position: number;
+      current_content_type: "respond";
+      question_attempt_count: number;
+      sms_bucket?: "daily" | "flex";
+    } = {
+      quote_position: base.quote_position + 1,
+      question_position: base.question_position + 1,
+      current_content_type: "respond",
+      question_attempt_count: 0,
+    };
+
+    if (base.quote_position === 1) {
+      payload.sms_bucket = "flex";
+    }
+
+    const { error } = await supabaseServer
+      .from("sms_delivery_state")
+      .update(payload)
+      .eq("clerk_user_id", userId);
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }
+
   if (sentSnapshot.current_content_type === "respond") {
     let nextAttempts = base.question_attempt_count + 1;
     let nextQuestionPos = base.question_position;
 
     const bucket = base.sms_bucket ?? "daily";
     let nextCycleCount = base.daily_nonresponse_cycle_count ?? 0;
-    let nextBucket: "daily" | "flex" = bucket;
 
     let exhaustedTripleRespond = false;
     if (nextAttempts >= 3) {
@@ -830,9 +871,6 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
       nextAttempts = 3;
       if (bucket === "daily") {
         nextCycleCount = nextCycleCount + 1;
-        if (nextCycleCount >= 2) {
-          nextBucket = "flex";
-        }
       }
     }
 
@@ -843,7 +881,6 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
       current_content_type: "respond" | "non_response";
       question_position: number;
       daily_nonresponse_cycle_count?: number;
-      sms_bucket?: "daily" | "flex";
     } = {
       question_attempt_count: nextAttempts,
       current_content_type: sentContentType,
@@ -852,7 +889,6 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
 
     if (exhaustedTripleRespond) {
       payload.daily_nonresponse_cycle_count = nextCycleCount;
-      payload.sms_bucket = nextBucket;
     }
 
     const { error } = await supabaseServer

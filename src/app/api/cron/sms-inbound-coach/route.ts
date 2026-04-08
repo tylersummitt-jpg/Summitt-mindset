@@ -13,6 +13,7 @@ import {
   useEveningPromptForPreference,
 } from "@/lib/sms-daily-delivery-body";
 import { reconcileSmsDeliveryStateAfterCompletion } from "@/lib/sms-delivery-on-complete";
+import { advanceSmsDeliveryStateOnInboundReply } from "@/lib/sms-inbound-delivery-advance";
 import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
 
 function translateSmsReply(raw: string, dayNumber: number): string {
@@ -789,6 +790,18 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     );
     if (!verifiedJournal) {
       throw new Error("journal_verify_empty_after_upsert");
+    }
+
+    const advanceResult = await advanceSmsDeliveryStateOnInboundReply(userId);
+    if (!advanceResult.ok) {
+      console.error(
+        "[sms-inbound-coach] advanceSmsDeliveryStateOnInboundReply failed",
+        {
+          message_sid: job.message_sid,
+          clerk_user_id: userId,
+          error: advanceResult.error,
+        }
+      );
     }
 
     const completionResult = await completeDay({
