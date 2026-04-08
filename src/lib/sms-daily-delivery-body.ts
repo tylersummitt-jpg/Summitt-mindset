@@ -729,7 +729,7 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
       return { ok: true };
     }
     const nowIso = new Date().toISOString();
-    if (sentSnapshot.sms_bucket === "flex") {
+    if ((sentSnapshot.sms_bucket as "daily" | "flex") === "flex") {
       const slot =
         ((sentSnapshot.flex_cadence_index % 7) + 7) % 7;
       const wasRespond = slot === 2 || slot === 5;
@@ -785,7 +785,7 @@ export async function applySmsDeliveryStateAfterSuccessfulSend(
     return { ok: true };
   }
 
-  if (sentSnapshot.sms_bucket === "flex") {
+  if ((sentSnapshot.sms_bucket as "daily" | "flex") === "flex") {
     const slot =
       ((sentSnapshot.flex_cadence_index % 7) + 7) % 7;
     const wasRespond = slot === 2 || slot === 5;
