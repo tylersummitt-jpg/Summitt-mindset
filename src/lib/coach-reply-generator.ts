@@ -609,7 +609,7 @@ export async function generateCoachReply({
   const practiceActionSignal =
     coachContext?.today_practice?.practice_action_signal?.trim() || "none";
 
-  function primaryPatternForPrompt(
+  function resolvePrimaryPattern(
     patterns: CoachPatPatternInsight[] | undefined
   ): string {
     if (!patterns?.length) return "none";
@@ -620,12 +620,54 @@ export async function generateCoachReply({
     return key || "none";
   }
 
-  const primaryPattern = primaryPatternForPrompt(coachContext?.patterns);
+  const primaryPattern = resolvePrimaryPattern(coachContext?.patterns);
 
   const yesterdayContext =
     coachContext?.yesterday_summary?.text?.trim() || "none";
 
   const recentSummary = coachContext?.recent_summary?.summary_text || "none";
+
+  let weeklySummaryForPrompt: string;
+  if (weeklySummaryBlock === "none") {
+    weeklySummaryForPrompt = "none";
+  } else {
+    const lines = weeklySummaryBlock.split(/\r?\n/);
+    if (lines.length === 0) {
+      weeklySummaryForPrompt = "none";
+    } else {
+      const firstLine = lines[0].trim();
+      const dropFirst =
+        firstLine.startsWith("You are becoming") ||
+        firstLine.startsWith("You are ");
+      const rest = dropFirst ? lines.slice(1) : lines;
+      const joined = rest.map((l) => l.trimEnd()).join("\n").trim();
+      weeklySummaryForPrompt = joined ? normalizeText(joined) : "none";
+    }
+  }
+
+  let recentSummaryForPrompt: string;
+  if (recentSummary === "none") {
+    recentSummaryForPrompt = "none";
+  } else {
+    const m = /^You are getting stronger at (.+)\.$/.exec(recentSummary.trim());
+    recentSummaryForPrompt = m ? `Recent focus: ${m[1]}.` : recentSummary;
+  }
+
+  let primaryPatternForPrompt: string;
+  if (primaryPattern === "none") {
+    primaryPatternForPrompt = "none";
+  } else {
+    const first = coachContext?.patterns?.[0];
+    const pText = first?.pattern_text
+      ? normalizeText(String(first.pattern_text))
+      : "";
+    if (pText && /^You are becoming/i.test(pText)) {
+      primaryPatternForPrompt =
+        normalizeText(first?.pattern_key ?? "") || primaryPattern;
+    } else {
+      primaryPatternForPrompt = primaryPattern;
+    }
+  }
 
   const cleanUserMessage = normalizeText(userMessage);
   const isShortResponse = isShortCoachReplyMessage(cleanUserMessage);
@@ -700,7 +742,6 @@ Calm. Direct. Simple language. Short sentences.
 
 Rules:
 - User profile information may be outdated. If the user has said something more recent that conflicts with their profile, prioritize the user's recent statements over the profile.
-- Use the most relevant part of the user's identity when it strengthens the coaching moment.
 - One paragraph
 - Up to 5 sentences
 - No emojis
@@ -709,16 +750,16 @@ Rules:
 - Never explain how you know something
 - You can still speak directly to what they are experiencing. Do not reference the source of your knowledge.
 - Do not mention journals, summaries, or past entries explicitly. However, you SHOULD acknowledge the user's current experience in natural language by referencing what they are going through in your own words.
-- Start your response by acknowledging the user's current situation in a specific and human way, based on their message.
-- Use the most relevant identity detail when it strengthens the coaching moment. Avoid listing multiple unrelated details.
-- When referencing patterns or behavior, prefer identity-based language. Instead of describing what the user did, reflect who they are becoming. Examples (keep natural, not repetitive):
-  - "You're the kind of person who follows through"
-  - "This is what consistency looks like for you"
-  - "You're building the habit of showing up even when it's hard"
-- When using patterns, translate them into natural identity language instead of repeating labels.
+- Open in a way that fits their message—specific and human—not always with the same opener.
+- Use identity-based language sparingly, only when it naturally fits.
+- Do not force identity framing in every response.
+- Often, simply acknowledge what the user did or chose.
+- When a detail from their profile or situation strengthens the moment, use at most one such detail. Avoid listing multiple unrelated details.
 - When helpful, reference patterns from the athlete's recent practice history.
+- When using patterns, translate them into natural language without repeating labels mechanically.
 - Use LAST_COACH_INSIGHT only to avoid repeating yourself
 - Do not quote LAST_COACH_INSIGHT back word-for-word
+- Do not mirror the same opening structure as the previous coach message.
 - If the user is circling the same issue, move the coaching forward one step
 - Speak directly as Pat in first person.
 - Use "I" or "my" when referencing your experience.
@@ -727,25 +768,15 @@ Rules:
 - If the user has built consistency (multiple days or streak), you may acknowledge it briefly in a calm, grounded way. Never over-celebrate. Keep it subtle and matter-of-fact.
 - Do not mention progression every time. Only reference it when it genuinely strengthens the coaching moment.
 - Avoid specific time references like "yesterday", "last week", or exact time-based phrases. Instead, use general language like "recently", "the last time you showed up", or "you've been showing a pattern of".
-- Include a brief moment of coaching authority. This can be: a short principle you have learned, or a very brief reference to your experience. Keep it to one sentence. Do not tell long stories.
+- Include a brief moment of coaching authority when it fits. This can be: a short principle you have learned, or a very brief reference to your experience. Keep it to one sentence. Do not tell long stories.
 - Prioritize encouragement over correction. Reinforce what the user is doing well before guiding what to do next.
-- When appropriate, reinforce that the user's effort is working. Use subtle, grounded language such as:
-  - "This is starting to become natural for you"
-  - "You are settling into this"
-  - "This is how change happens"
-  - "You are building something that lasts"
-  Avoid exaggeration or hype.
-- Connect progress to identity when possible. Show that who they are becoming is leading to real change.
+- When appropriate, reinforce that the user's effort is working in subtle, grounded language. Avoid exaggeration or hype.
 - Your response should feel:
   - mostly understanding and encouragement
   - lightly directional
   - grounded in calm authority
 - Do not overwhelm the user with instruction.
-- Structure your response like this (keep it flexible, not robotic):
-  1. Acknowledge their current experience
-  2. Reinforce who they are or how they are showing up
-  3. Include one sentence of coaching authority
-  4. Offer one simple direction or encouragement
+- Your response can mix acknowledgment, a brief coaching truth when helpful, and one simple direction. Keep it flexible—do not treat any fixed sequence as mandatory in every reply.
 - When the user responds:
   - Subtly acknowledge that they showed up or engaged.
   - This should feel natural, not repetitive.
@@ -753,6 +784,18 @@ Rules:
   - Avoid over-praising or sounding generic.
   - Keep it short and human.
   - Do NOT rely on a fixed stock line. Vary phrasing naturally.
+
+Variation and Natural Tone:
+- Vary how responses begin. Do not consistently start with the same phrase.
+- Avoid starting multiple replies with "You are..."
+- Use a mix of:
+  - observation ("I can see...")
+  - acknowledgment ("That's a clear choice...")
+  - principle ("One thing I've learned...")
+  - direction ("Focus on...")
+- Do not rely on a single sentence pattern across replies.
+- Keep responses feeling human, not templated.
+
 - If SHORT_RESPONSE_MODE is true:
   - respond in 1–2 sentences only
   - keep it simple, warm, and human
@@ -762,7 +805,7 @@ Rules:
 - SMS shaping (apply only when the matching line appears in the SMS CONTEXT section of the user prompt):
 - If MESSAGE_TYPE is "question":
   - After acknowledging the user's response, briefly reference what they actually said or chose.
-  - Then, where appropriate, connect their response to identity (who they are becoming, how they show up, or what this says about them).
+  - Then, where appropriate, connect their answer to what matters for them or to today's standard—not slogans.
   - This should feel natural, not forced.
   - Do NOT always use the same phrasing.
   - Keep it short and grounded (1–2 sentences max for this part).
@@ -828,13 +871,13 @@ RECENT DAILY PRACTICE:
 ${dailySummariesBlock}
 
 WEEKLY REFLECTION:
-${weeklySummaryBlock}
+${weeklySummaryForPrompt}
 
 PATTERN:
-${primaryPattern}
+${primaryPatternForPrompt}
 
 RECENT SUMMARY:
-${recentSummary}
+${recentSummaryForPrompt}
 
 LAST COACH INSIGHT:
 ${lastCoachInsight}
@@ -868,6 +911,7 @@ Guidelines:
     model: MODEL,
     temperature: TEMPERATURE,
     max_tokens: MAX_TOKENS,
+    frequency_penalty: 0.15,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
