@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone } from "@/lib/timezone";
+import { generateWeeklySmsReflection } from "@/lib/weekly-sms-reflection-shadow";
+import { getWeekKey } from "@/lib/weekly-sms-week-key";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 export const runtime = "nodejs";
@@ -49,28 +51,15 @@ function validateCronSecret(req: Request): boolean {
 
 /**
  * ======================================================
- * Sunday 5PM Local Logic
+ * Sunday 12PM (noon) Local Logic
  * ======================================================
  */
 function shouldSendNow(local: Date) {
   return (
     local.getDay() === 0 && // Sunday
-    local.getHours() === 17 &&
-    local.getMinutes() < 5
+    local.getHours() === 12 &&
+    local.getMinutes() < 15
   );
-}
-
-/**
- * Deterministic week key (YYYY-WW)
- */
-function getWeekKey(local: Date) {
-  const year = local.getFullYear();
-  const firstJan = new Date(year, 0, 1);
-  const pastDays = Math.floor(
-    (local.getTime() - firstJan.getTime()) / 86400000
-  );
-  const weekNumber = Math.ceil((pastDays + firstJan.getDay() + 1) / 7);
-  return `${year}-W${weekNumber}`;
 }
 
 export async function GET(req: Request) {
@@ -137,6 +126,15 @@ export async function GET(req: Request) {
       if (!force && !shouldSendNow(localNow)) {
         stats.skippedNotTime++;
         continue;
+      }
+
+      try {
+        await generateWeeklySmsReflection(user.id, timezone, localNow);
+      } catch (e) {
+        console.error("[weekly-sms-shadow] failed", {
+          userId: user.id,
+          error: String(e),
+        });
       }
 
       stats.eligible++;
