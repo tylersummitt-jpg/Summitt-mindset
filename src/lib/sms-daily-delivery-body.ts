@@ -612,7 +612,7 @@ export async function buildSmsBodyFromDeliveryState(args: {
   }
 
   const { data: quotes, error: qErr } = await supabaseServer
-    .from("pat_quotes")
+    .from("pat_quotes_sms")
     .select("id, quote_text")
     .eq("active", true)
     .order("position", { ascending: true });
