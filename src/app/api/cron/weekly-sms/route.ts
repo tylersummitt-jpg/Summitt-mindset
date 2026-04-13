@@ -15,6 +15,16 @@ export const dynamic = "force-dynamic";
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
+const PAT_PAUSE_INTROS = [
+  "Time for a Pat Pause.",
+  "Let’s take a Pat Pause.",
+  "It’s your weekly Pat Pause.",
+  "Time for our Sunday Pat Pause.",
+] as const;
+
+const WEEKLY_SMS_COMPLIANCE_FOOTER =
+  "Reply STOP to opt out. Reply HELP for help.";
+
 /**
  * ======================================================
  * CRON AUTH
@@ -141,6 +151,22 @@ export async function GET(req: Request) {
 
       const weekKey = getWeekKey(localNow);
 
+      const { data: reflectionRow } = await supabaseServer
+        .from("weekly_sms_reflections")
+        .select("sms_body, status")
+        .eq("clerk_user_id", user.id)
+        .eq("week_key", weekKey)
+        .maybeSingle();
+
+      const reflectionSmsBodyTrimmed =
+        typeof reflectionRow?.sms_body === "string"
+          ? reflectionRow.sms_body.trim()
+          : "";
+      const validSmsBody =
+        reflectionRow != null &&
+        reflectionSmsBodyTrimmed.length > 50 &&
+        reflectionRow.status !== "generation_failed";
+
       const { error: reservationError } = await supabaseServer
         .from("sms_weekly_send_events")
         .insert({
@@ -175,7 +201,26 @@ export async function GET(req: Request) {
         `This is how momentum is built — one day at a time.\n\n` +
         `Keep going. I’m with you.\n\n` +
         `Reply anytime.\n\n` +
-        `Reply STOP to opt out. Reply HELP for help.`;
+        `${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
+
+      const outgoingBody = validSmsBody
+        ? reflectionSmsBodyTrimmed
+        : smsBody;
+
+      const intro =
+        PAT_PAUSE_INTROS[
+          Math.floor(Math.random() * PAT_PAUSE_INTROS.length)
+        ];
+
+      let bodyForWrap = outgoingBody.trim();
+      if (bodyForWrap.endsWith(WEEKLY_SMS_COMPLIANCE_FOOTER)) {
+        bodyForWrap = bodyForWrap
+          .slice(0, -WEEKLY_SMS_COMPLIANCE_FOOTER.length)
+          .replace(/\s+$/, "");
+      }
+
+      const finalBody =
+        `${intro}\n\n${bodyForWrap}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
 
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
@@ -195,7 +240,7 @@ export async function GET(req: Request) {
       try {
         const message = await sendSMS({
           to: identity.phone_number,
-          body: smsBody,
+          body: finalBody,
           lastOutbound: {
             clerkUserId: user.id,
             messageKind: "weekly",

@@ -154,6 +154,7 @@ export async function generateWeeklySmsReflection(
           clerk_user_id: clerkUserId,
           week_key: weekKey,
           week_start_date: weekStartKey,
+          timezone: tz,
           memory_bucket: memoryBucket,
           sms_body: smsBody,
           inputs_summary: inputsSummary,
