@@ -8,13 +8,11 @@ import { redirect } from "next/navigation";
  *
  * This is the single redirect truth after login.
  *
- * Rules:
- * - If onboarding not complete -> /onboarding
- * - If not subscribed -> /subscribe
- * - If subscribed -> /dashboard/day/[currentDay]
- *
- * Also:
- * - If currentDay missing, default to 1
+ * Order:
+ * 1. Coach setup (if applicable: subscribed + coach acquisition + address not collected)
+ * 2. Onboarding
+ * 3. Subscribe (if needed)
+ * 4. Dashboard (day/[currentDay]; currentDay defaults to 1 if missing)
  */
 
 function safeDayNumber(raw: unknown): number {
@@ -44,6 +42,14 @@ export default async function PostSignInPage() {
   }
 
   const md = (user.publicMetadata || {}) as Record<string, any>;
+
+  if (
+    isSubscribedFromMetadata(md) &&
+    md.acquisitionSource === "coach" &&
+    md.coachAddressCollected !== true
+  ) {
+    redirect("/coach/setup");
+  }
 
   const onboardingCompleted = md?.onboardingCompleted === true;
   if (!onboardingCompleted) {

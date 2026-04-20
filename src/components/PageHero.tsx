@@ -22,7 +22,7 @@ export function PageHero({
   imageAlt,
   eyebrow,
   grayscale,
-  imagePosition,
+  imagePosition: _imagePosition,
   children,
 }: PageHeroProps) {
   return (
@@ -45,15 +45,17 @@ export function PageHero({
           {children}
         </div>
 
-        <div className="relative w-full h-[420px] rounded-2xl overflow-hidden">
-          <Image
-            src={imageSrc}
-            alt={imageAlt}
-            fill
-            priority
-            sizes="(max-width: 768px) 100vw, 50vw"
-            className={`object-cover ${imagePosition ?? "object-center"} ${grayscale === true ? "grayscale" : ""}`}
-          />
+        <div className="w-full flex items-center justify-center">
+          <div className="w-full flex justify-center">
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              width={800}
+              height={600}
+              priority
+              className={`object-contain max-h-[500px] w-auto h-auto max-w-full ${grayscale === true ? "grayscale" : ""}`}
+            />
+          </div>
         </div>
       </div>
     </section>

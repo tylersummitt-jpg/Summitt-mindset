@@ -41,6 +41,10 @@ export const PAGE_IMAGES: Record<string, PageImageEntry> = {
     src: "/brand/pat-bench.jpeg",
     alt: "Coach Pat Summitt on the bench",
   },
+  "/coach-leadership-kit": {
+    src: "/brand/pat-hero.jpeg",
+    alt: "Coach Pat Summitt leadership",
+  },
 };
 
 export function getPageImage(pathname: string): PageImageEntry | null {

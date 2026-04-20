@@ -25,6 +25,9 @@ function SubscribePageInner() {
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const srcParam = searchParams.get("src");
+  const isCoachSrc = srcParam === "coach";
+  const subscribeReturnPath = isCoachSrc ? "/subscribe?src=coach" : "/subscribe";
 
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +53,9 @@ function SubscribePageInner() {
 
       // If not signed in → send to login first
       if (!isSignedIn) {
-        router.push("/sign-in?redirect_url=/subscribe");
+        router.push(
+          `/sign-in?redirect_url=${encodeURIComponent(subscribeReturnPath)}`
+        );
         return;
       }
 
@@ -58,7 +63,9 @@ function SubscribePageInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify(
+          isCoachSrc ? { plan, src: "coach" as const } : { plan }
+        ),
       });
 
       if (!res.ok) {

@@ -175,14 +175,14 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="relative w-full h-[420px] rounded-2xl overflow-hidden">
+          <div className="relative w-full h-[300px] sm:h-[360px] md:h-[420px] lg:h-[520px] rounded-2xl bg-black/5 flex items-center justify-center">
             <Image
               src="/brand/pat-hero.jpeg"
-              alt="Coach Pat Summitt cutting down the net"
+              alt="Pat Summitt AI coaching experience"
               fill
               priority
               sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover"
+              className="object-contain"
             />
           </div>
         </div>

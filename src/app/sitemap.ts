@@ -9,6 +9,7 @@ export default async function sitemap() {
     "/ask-pat-preview",
     "/about",
     "/subscribe",
+    "/coach-leadership-kit",
     "/pat-summitt-documentary",
     "/pat-xo-documentary",
     "/the-cinderella-season-documentary",

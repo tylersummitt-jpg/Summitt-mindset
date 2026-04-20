@@ -21,6 +21,8 @@ const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 type Plan = "monthly" | "annual";
 
+const ALLOWED_SRC = new Set(["coach"]);
+
 export async function POST(req: Request) {
   try {
     if (!stripe) {
@@ -49,9 +51,25 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const plan = body?.plan as Plan | undefined;
+    const rawSrc = body?.src;
+    const src =
+      typeof rawSrc === "string" && ALLOWED_SRC.has(rawSrc) ? rawSrc : null;
 
     if (plan !== "monthly" && plan !== "annual") {
       return new NextResponse("Missing or invalid plan", { status: 400 });
+    }
+
+    if (src === "coach") {
+      try {
+        await updateClerkPublicMetadata(userId, {
+          acquisitionSource: "coach",
+        });
+      } catch (err) {
+        console.warn(
+          "Unable to set acquisitionSource on checkout session:",
+          err
+        );
+      }
     }
 
     const priceId = plan === "annual" ? annualPriceId : monthlyPriceId;
@@ -97,7 +115,10 @@ export async function POST(req: Request) {
       },
 
       success_url: `${appUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/subscribe?canceled=1`,
+      cancel_url:
+        src === "coach"
+          ? `${appUrl}/subscribe?canceled=1&src=coach`
+          : `${appUrl}/subscribe?canceled=1`,
     });
 
     if (!session.url) {
