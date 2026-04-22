@@ -3,6 +3,15 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
 
+function isSubscribedFromMetadata(md: Record<string, unknown>) {
+  return (
+    md?.summittSubscribed === true ||
+    md?.summittSubscribed === "true" ||
+    md?.summittPlan === "monthly" ||
+    md?.summittPlan === "annual"
+  );
+}
+
 type Video = {
   id: string;
   title: string;
@@ -27,8 +36,10 @@ export default async function FilmRoomPage() {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
 
-  const subscribed = user.publicMetadata?.summittSubscribed === true;
-  if (!subscribed) redirect("/subscribe");
+  const md = (user.publicMetadata || {}) as Record<string, unknown>;
+  if (!isSubscribedFromMetadata(md)) {
+    redirect("/subscribe");
+  }
 
   // ✅ Load videos
   const { data, error } = await supabaseServer

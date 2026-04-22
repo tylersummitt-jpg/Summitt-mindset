@@ -1,7 +1,15 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
+
+function isSubscribedFromMetadata(md: Record<string, unknown>) {
+  return (
+    md?.summittSubscribed === true ||
+    md?.summittSubscribed === "true" ||
+    md?.summittPlan === "monthly" ||
+    md?.summittPlan === "annual"
+  );
+}
 
 export default async function FilmRoomVideoPage({
   params,
@@ -13,8 +21,10 @@ export default async function FilmRoomVideoPage({
     redirect("/sign-in");
   }
 
-  const subscribed = user.publicMetadata?.summittSubscribed === true;
-  if (!subscribed) redirect("/subscribe");
+  const md = (user.publicMetadata || {}) as Record<string, unknown>;
+  if (!isSubscribedFromMetadata(md)) {
+    redirect("/subscribe");
+  }
 
   const { id } = await params;
 
@@ -29,20 +39,17 @@ export default async function FilmRoomVideoPage({
   if (error || !data) notFound();
 
   return (
-    <main className="max-w-4xl mx-auto py-12 px-6">
-      <Link href="/film-room" className="text-sm text-gray-500 underline">
-        ← Back to Film Room
-      </Link>
-
+    <main className="max-w-6xl mx-auto py-12 px-6">
       <h1 className="mt-4 mb-6 text-3xl font-semibold">
         {data.title}
       </h1>
 
       <div className="rounded-xl overflow-hidden border bg-white mb-10">
-        <div style={{ paddingTop: "56.25%", position: "relative" }}>
+        <div className="relative w-full aspect-video">
           <iframe
             src={`https://player.vimeo.com/video/${data.vimeo_video_id}`}
-            style={{ position: "absolute", inset: 0 }}
+            className="absolute inset-0 w-full h-full"
+            allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
           />
         </div>

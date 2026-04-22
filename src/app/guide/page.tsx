@@ -1,0 +1,151 @@
+import Link from "next/link";
+import { supabaseServer } from "@/lib/supabase-server";
+
+type FilmVideo = {
+  id: string;
+  title: string;
+  principle: string;
+  principle_order: number;
+  order_index: number;
+  thumbnail_url: string | null;
+};
+
+type PrincipleGroup = {
+  principle: string;
+  principle_order: number;
+  videos: FilmVideo[];
+};
+
+function VideoCard({ video }: { video: FilmVideo }) {
+  return (
+    <Link
+      href={`/film-room/${video.id}`}
+      className="rounded-xl border bg-white overflow-hidden hover:shadow-md transition block"
+    >
+      {video.thumbnail_url ? (
+        <img
+          src={video.thumbnail_url}
+          alt=""
+          className="aspect-video w-full object-cover"
+        />
+      ) : null}
+      <div className="p-5">
+        <h4 className="font-semibold mb-1">{video.title}</h4>
+        <div className="mt-4 text-sm font-semibold">Watch →</div>
+      </div>
+    </Link>
+  );
+}
+
+export default async function GuidePage() {
+  const { data, error } = await supabaseServer
+    .from("film_videos")
+    .select(
+      "id, title, principle, principle_order, order_index, thumbnail_url"
+    )
+    .eq("program", "Definite Dozen")
+    .eq("video_type", "core")
+    .order("principle_order", { ascending: true })
+    .order("order_index", { ascending: true });
+
+  if (error) {
+    return (
+      <main className="max-w-6xl mx-auto py-12 px-6">
+        <h1 className="text-3xl font-semibold">
+          Pat Summitt Definite Dozen Coach&apos;s Guide
+        </h1>
+        <p className="text-red-500 mt-4">Could not load guide content.</p>
+      </main>
+    );
+  }
+
+  const rows = (data ?? []) as FilmVideo[];
+  const moduleVideos = rows.filter((v) => v.order_index === 4);
+
+  if (moduleVideos.length === 0) {
+    return (
+      <main className="max-w-6xl mx-auto py-12 px-6">
+        <h1 className="text-3xl font-semibold">
+          Pat Summitt Definite Dozen Coach&apos;s Guide
+        </h1>
+        <p className="mt-4 text-gray-600">No guide content available.</p>
+      </main>
+    );
+  }
+
+  const map = new Map<
+    string,
+    { principle_order: number; videos: FilmVideo[] }
+  >();
+
+  for (const v of moduleVideos) {
+    const key = v.principle;
+    const existing = map.get(key);
+    if (existing) {
+      existing.videos.push(v);
+      existing.principle_order = Math.min(
+        existing.principle_order,
+        v.principle_order
+      );
+    } else {
+      map.set(key, { principle_order: v.principle_order, videos: [v] });
+    }
+  }
+
+  const groups: PrincipleGroup[] = Array.from(map.entries())
+    .map(([principle, { principle_order, videos }]) => ({
+      principle,
+      principle_order,
+      videos: [...videos].sort((a, b) => {
+        if (a.principle_order !== b.principle_order) {
+          return a.principle_order - b.principle_order;
+        }
+        return a.order_index - b.order_index;
+      }),
+    }))
+    .sort((a, b) => a.principle_order - b.principle_order);
+
+  return (
+    <main className="max-w-6xl mx-auto py-12 px-6">
+      <header className="mb-12">
+        <h1 className="text-3xl font-semibold">
+          Pat Summitt Definite Dozen Coach&apos;s Guide
+        </h1>
+        <p className="mt-4 text-sm text-gray-600 max-w-2xl">
+          Coaches — quick note:
+          <br /><br />
+          Based on your feedback, we&apos;ve simplified this experience. Each
+          principle now includes just one &ldquo;View From The Summitt&rdquo;
+          video.
+          <br /><br />
+          If your printed coach&apos;s guide references two videos for each
+          Definite Dozen principle, you can ignore that—nothing is missing. This
+          change keeps things focused, saves time, and creates more space for
+          great team discussion.
+          <br /><br />
+          If you&apos;d like additional videos, you can always explore the Film
+          Room.
+        </p>
+      </header>
+
+      <div className="space-y-16">
+        {groups.map((g) => (
+          <section key={g.principle}>
+            <h2 className="text-2xl font-semibold mb-8">{g.principle}</h2>
+
+            <div className="mb-10">
+              <h3 className="text-lg font-medium mb-4">
+                View From The Summitt Module Video
+              </h3>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {g.videos.map((v) => (
+                  <VideoCard key={v.id} video={v} />
+                ))}
+              </div>
+            </div>
+          </section>
+        ))}
+      </div>
+    </main>
+  );
+}
