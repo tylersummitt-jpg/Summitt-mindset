@@ -110,12 +110,6 @@ export default async function DashboardPage() {
     <main className="mx-auto max-w-2xl px-6 py-10">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Dashboard</p>
       <h1 className="mt-1 text-2xl font-semibold text-gray-900">Today</h1>
-      <p className="mt-3 text-sm leading-relaxed text-gray-600">
-        Your accountability runs over <strong className="font-medium text-gray-800">SMS</strong>: Coach
-        Pat checks in on your <strong className="font-medium text-gray-800">commitment</strong>. This app
-        is for depth—identity, proof, and finishing anything you started after a check-in—not for chasing
-        the next numbered day.
-      </p>
 
       {metadata?.smsEnabled !== true ? (
         <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-left shadow-sm">
@@ -235,14 +229,6 @@ export default async function DashboardPage() {
           <p className="mt-3 text-sm leading-relaxed text-gray-800">{latestWeekly.weekly_summary}</p>
         </section>
       ) : null}
-
-      <section className="mt-10 border-t border-gray-200 pt-8">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Optional depth</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          Films, prompts, and reflection are secondary to SMS + commitment. The old numbered-day path has
-          been retired from navigation; stay on SMS for accountability and use Victory Room for proof.
-        </p>
-      </section>
 
       <p className="mt-10 text-center text-xs text-gray-400">Signed in as {displayName}.</p>
     </main>
