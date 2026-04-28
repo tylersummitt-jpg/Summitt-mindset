@@ -1,20 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { completeDay } from "@/lib/complete-day";
-import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { reconcileSmsDeliveryStateAfterCompletion } from "@/lib/sms-delivery-on-complete";
 
 /**
- * ======================================================
- * POST /api/day/complete (CANONICAL)
- * ======================================================
+ * POST /api/day/complete — retained URL only (PR7). Day-numbered completion / Clerk progression
+ * is no longer the accountability path; V2 uses SMS + commitment.
  *
  * Domain failures → HTTP 200
- * Server crashes → HTTP 500
- *
- * Client may only complete CURRENT day.
  */
-
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
@@ -26,9 +18,8 @@ export async function POST(req: Request) {
       );
     }
 
-    let body: any;
     try {
-      body = await req.json();
+      await req.json();
     } catch {
       return NextResponse.json(
         { ok: false, reason: "invalid_body" },
@@ -36,75 +27,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const pageDay = body?.day;
-
-    if (typeof pageDay !== "number" || !Number.isFinite(pageDay)) {
-      return NextResponse.json(
-        { ok: false, reason: "invalid_day" },
-        { status: 200 }
-      );
-    }
-
-    // ======================================================
-    // CANONICAL DAY MATCH GUARD
-    // ======================================================
-    const md = await getClerkPublicMetadata(userId);
-
-    const currentDay =
-      typeof md.currentDay === "number" && md.currentDay > 0
-        ? md.currentDay
-        : null;
-
-    if (!currentDay) {
-      return NextResponse.json(
-        { ok: false, reason: "no_current_day" },
-        { status: 200 }
-      );
-    }
-
-    if (pageDay !== currentDay) {
-      return NextResponse.json(
-        {
-          ok: false,
-          reason: "day_mismatch",
-          expectedDay: currentDay,
-          gotDay: pageDay,
-        },
-        { status: 200 }
-      );
-    }
-
-    // ======================================================
-    // CANONICAL COMPLETION
-    // ======================================================
-    const result = await completeDay({
-      userId,
-      source: "app",
-    });
-
-    if (result.ok) {
-      try {
-        const reconcileResult =
-          await reconcileSmsDeliveryStateAfterCompletion(userId);
-        if (!reconcileResult.ok) {
-          console.error(
-            "[day/complete] sms_delivery_state reconcile failed after completeDay",
-            { userId, error: reconcileResult.error }
-          );
-        }
-      } catch (reconcileErr) {
-        console.error(
-          "[day/complete] sms_delivery_state reconcile threw",
-          userId,
-          reconcileErr
-        );
-      }
-    }
-
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: "day_completion_removed",
+        message:
+          "Completing a numbered day here is no longer supported. Accountability is on your commitment over SMS; use the dashboard for practice or depth if you want it.",
+      },
+      { status: 200 }
+    );
   } catch (err) {
-    console.error("[DAY COMPLETE] SERVER ERROR:", err);
-
+    console.error("[day/complete] server error", err);
     return NextResponse.json(
       { ok: false, reason: "server_error" },
       { status: 500 }

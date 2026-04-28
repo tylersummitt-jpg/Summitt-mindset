@@ -56,21 +56,33 @@ export async function POST(req: Request) {
       });
     }
 
+    const publicMd = await getClerkPublicMetadata(userId);
+    if (publicMd?.onboardingCompleted === true) {
+      return new Response(JSON.stringify({ error: "Onboarding already completed." }), {
+        status: 403,
+      });
+    }
+
+    const { data: commitmentGate } = await supabaseServer
+      .from("v2_commitment")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .in("status", ["proposed", "active"])
+      .limit(1)
+      .maybeSingle();
+
+    if (!commitmentGate?.id) {
+      return new Response(
+        JSON.stringify({ error: "Save your commitment before SMS setup." }),
+        { status: 400 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const smsEnabled = body?.smsEnabled === true;
 
-    // Validate smsTimePreference; default to "morning"
-    const validTimePreferences = [
-      "early_morning",
-      "morning",
-      "midday",
-      "evening",
-    ] as const;
-    const rawSmsTimePreference = body?.smsTimePreference;
-    const smsTimePreference =
-      validTimePreferences.includes(rawSmsTimePreference)
-        ? rawSmsTimePreference
-        : "morning";
+    /** Onboarding no longer asks for send time; legacy cron expects a preference bucket. */
+    const smsTimePreference = "morning" as const;
 
     if (smsEnabled && body?.smsDisclosureAccepted !== true) {
       return new Response(JSON.stringify({ error: "Consent required." }), {
@@ -160,13 +172,13 @@ export async function POST(req: Request) {
        * IMPORTANT:
        * - Must include STOP + HELP language
        * - Must include frequency disclosure
-       * - Use "around 8:00 AM" for safety buffer (Twilio delays, cron drift, etc.)
+       * - Align with SMS-first commitment accountability (not progression / “daily practice” core)
        * - Avoid promising outcomes or guarantees
        */
 
       const confirm =
-        "Summitt Mindset: You’re in. Coach Pat Summitt is now your daily life coach.\n\n" +
-        "Expect a short note and one focused practice each day. Show up consistently — and watch what changes.\n\n" +
+        "Summitt Mindset: You’re in. Pat will text you about one commitment you name—reply honestly to those check-ins.\n\n" +
+        "Use the app for depth, identity context, and your Victory Room when you want proof.\n\n" +
         "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
 
       try {
@@ -176,10 +188,7 @@ export async function POST(req: Request) {
           lastOutbound: {
             clerkUserId: userId,
             messageKind: "transactional",
-            timeOfDay:
-              smsTimePreference === "midday" || smsTimePreference === "evening"
-                ? "evening"
-                : "morning",
+            timeOfDay: "morning",
           },
         });
       } catch (e) {

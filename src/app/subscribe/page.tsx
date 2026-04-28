@@ -69,7 +69,16 @@ function SubscribePageInner() {
       });
 
       if (!res.ok) {
-        setError(await res.text());
+        if (res.status === 409) {
+          const body = await res.json().catch(() => ({}));
+          const msg =
+            typeof body?.message === "string"
+              ? body.message
+              : "You already have an active Summitt Mindset membership.";
+          setError(msg);
+        } else {
+          setError(await res.text());
+        }
         setLoadingPlan(null);
         return;
       }
@@ -100,15 +109,13 @@ function SubscribePageInner() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 md:items-start">
           <div className="order-1 text-center md:text-left min-w-0 max-w-md mx-auto md:mx-0 md:pt-6">
             <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-3 md:mb-4">
-              Start Your Daily Practice
+              Start SMS-first accountability
             </h1>
             <p className="text-lg text-[var(--muted)] mb-3">
-              Summitt Mindset helps you apply Coach Pat’s leadership standards one
-              day at a time.
+              Summitt Mindset helps you hold one clear commitment with Pat’s leadership standards—by text first, with depth and proof in the app.
             </p>
             <p className="text-[var(--text)]">
-              One short daily practice. One honest reflection. Real consistency over
-              time.
+              One bar. Honest check-ins. Victory Room for the record you can trust.
             </p>
           </div>
 
@@ -209,10 +216,10 @@ function SubscribePageInner() {
         <div className="grid gap-6 md:grid-cols-3">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Daily Practice
+              Commitment &amp; SMS
             </h3>
             <p className="text-sm text-[var(--muted)] leading-relaxed">
-              A short leadership practice each day with a reflection prompt.
+              Name the behavior you want held to; Pat checks in on that bar over text.
             </p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
@@ -244,14 +251,13 @@ function SubscribePageInner() {
           Built for real life.
         </h2>
         <p className="text-[var(--text)] leading-relaxed">
-          Most daily practices take just a few minutes.
+          Check-ins are short by design—most replies fit in a sentence.
         </p>
         <p className="text-[var(--text)] leading-relaxed mt-4">
-          Some members use the app. Others receive their daily practice by text
-          message.
+          Accountability runs on SMS; the app is for identity, context, Ask Pat, Film Room, and Victory Room.
         </p>
         <p className="text-[var(--text)] leading-relaxed mt-4">
-          The goal is simple: show up every day.
+          The goal is simple: keep a serious promise to yourself.
         </p>
       </section>
     </main>

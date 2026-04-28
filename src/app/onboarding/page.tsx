@@ -32,14 +32,9 @@ export default async function OnboardingPage(): Promise<ReactElement> {
     redirect("/subscribe?from=onboarding");
   }
 
-  // If onboarding already complete → go to today
+  // If onboarding already complete → dashboard (commitment / SMS home)
   if (md?.onboardingCompleted === true) {
-    const currentDay =
-      typeof md?.currentDay === "number" && md.currentDay > 0
-        ? md.currentDay
-        : 1;
-
-    redirect(`/dashboard/day/${currentDay}`);
+    redirect("/dashboard");
   }
 
   return (
@@ -50,28 +45,14 @@ export default async function OnboardingPage(): Promise<ReactElement> {
         </h1>
 
         <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-xl mx-auto">
-          Summitt Mindset is a calm daily system built around one thing:{" "}
-          <strong>Coach Pat guiding you one day at a time.</strong>
+          A few honest answers will help Coach Pat personalize your daily accountability.
         </p>
 
-        <p className="text-gray-600">
-          We’ll ask a few questions first so Coach Pat can coach you like she
-          actually knows you.
+        <p className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-xl mx-auto">
+          You don’t need perfect answers. Short, real ones are enough.
         </p>
       </header>
 
-      <section className="border rounded-xl bg-white shadow-sm p-6 sm:p-8 text-left space-y-4">
-        <p className="font-semibold text-gray-900">Here’s how it works:</p>
-
-        <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
-          <li>One daily practice (3–7 minutes).</li>
-          <li>One honest reflection.</li>
-          <li>Coach Pat guides you quietly.</li>
-          <li>No catching up. No guilt. Just today.</li>
-        </ul>
-      </section>
-
-      {/* ORANGE BRAND BUTTON — BOX STYLE */}
       <div className="flex justify-center">
         <Link
           href="/onboarding/identity"
@@ -104,13 +85,11 @@ export default async function OnboardingPage(): Promise<ReactElement> {
             boxShadow: "0 10px 30px rgba(249,115,22,0.22)",
           }}
         >
-          → Start Setup →
+          Start Setup
         </Link>
       </div>
 
-      <p className="text-xs text-gray-500">
-        Short answers are perfect. This takes 2–3 minutes.
-      </p>
+      <p className="text-xs text-gray-500">Takes about 2–3 minutes.</p>
     </div>
   );
 }

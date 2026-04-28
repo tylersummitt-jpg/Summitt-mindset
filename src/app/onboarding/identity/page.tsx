@@ -26,8 +26,7 @@ export default async function IdentityPage(): Promise<ReactElement> {
       <h1 className="text-3xl font-bold mb-4">Let’s start with what matters most.</h1>
 
       <p className="text-gray-600 mb-10">
-        Short answers are perfect. Coach Pat does not need polished answers.
-        She just needs the truth.
+        Short answers are perfect. Coach Pat will use them to coach you more personally.
       </p>
 
       <IdentityClient />

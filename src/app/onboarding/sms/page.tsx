@@ -41,18 +41,38 @@ export default async function SmsPage(): Promise<ReactElement> {
     redirect("/onboarding/identity");
   }
 
+  const { data: proposedCommitment } = await supabaseServer
+    .from("v2_commitment")
+    .select("id")
+    .eq("clerk_user_id", user.id)
+    .eq("status", "proposed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!proposedCommitment?.id) {
+    const { data: activeCommitment } = await supabaseServer
+      .from("v2_commitment")
+      .select("id")
+      .eq("clerk_user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!activeCommitment?.id) {
+      redirect("/onboarding/commitment");
+    }
+  }
+
   return (
     <div>
-      <OnboardingProgress currentStep={4} />
+      <OnboardingProgress currentStep={3} />
 
       <h1 className="text-3xl font-bold mb-4">
-        Daily SMS is part of training.
+        Set up your accountability texts.
       </h1>
 
-      <p className="text-gray-600 mb-10">
-        Most members use text as their primary way to stay consistent.
-        <br />
-        <strong>Texts arrive at 8:00 AM in your local time zone.</strong>
+      <p className="text-gray-600 mb-8">
+        This is the heart of Summitt Mindset. Coach Pat will use your commitment to check in with you by text.
       </p>
 
       <SmsClient />

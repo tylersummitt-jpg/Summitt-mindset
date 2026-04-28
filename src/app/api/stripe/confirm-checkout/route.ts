@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "@clerk/nextjs/server";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 
 export const runtime = "nodejs";
@@ -103,6 +104,33 @@ export async function POST(req: Request) {
       typeof subscription.customer === "string"
         ? subscription.customer
         : null;
+
+    const existingMd = await getClerkPublicMetadata(userId);
+    const existingSubId =
+      typeof existingMd?.stripeSubscriptionId === "string"
+        ? existingMd.stripeSubscriptionId.trim()
+        : "";
+    const existingSubscribed =
+      existingMd?.summittSubscribed === true || existingMd?.summittSubscribed === "true";
+    const existingPlan = existingMd?.summittPlan;
+    const planMatches = plan === null ? true : existingPlan === plan;
+
+    if (
+      existingSubId === subscription.id &&
+      existingSubscribed === isActive &&
+      planMatches
+    ) {
+      console.log("[stripe/confirm-checkout] idempotent skip; Clerk already matches session", {
+        userId,
+        stripeSubscriptionId: subscription.id,
+      });
+      return NextResponse.json({
+        success: true,
+        plan,
+        isActive,
+        idempotent: true,
+      });
+    }
 
     // 🔥 Immediately patch Clerk metadata
     await updateClerkPublicMetadata(userId, {

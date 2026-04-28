@@ -3,6 +3,7 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { supabaseServer } from "@/lib/supabase-server";
 
 /**
  * ======================================================
@@ -88,6 +89,74 @@ export async function POST(req: Request) {
       typeof existing?.phoneNumber === "string" &&
       existing.phoneNumber.trim().length > 0 &&
       existing?.smsDisclosureAccepted === true;
+
+    if (existing?.onboardingCompleted === true) {
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+
+    // V2: activate proposed commitment BEFORE Clerk completion (avoid onboarded-without-active)
+    const { data: proposed } = await supabaseServer
+      .from("v2_commitment")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .eq("status", "proposed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (proposed?.id) {
+      const nowIso = new Date().toISOString();
+      const { error: actErr } = await supabaseServer
+        .from("v2_commitment")
+        .update({
+          status: "active",
+          started_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", proposed.id)
+        .eq("status", "proposed");
+
+      if (actErr) {
+        console.error("[onboarding/complete] v2_commitment activate failed", actErr);
+        return new Response(JSON.stringify({ error: "Failed to activate commitment" }), {
+          status: 500,
+        });
+      }
+
+      const { error: evErr } = await supabaseServer.from("v2_commitment_event").insert({
+        commitment_id: proposed.id,
+        clerk_user_id: userId,
+        event_type: "activated",
+        source: "onboarding_v2",
+        payload_json: {},
+        idempotency_key: `onboarding_activated:${proposed.id}`,
+      });
+
+      if (evErr) {
+        const code = (evErr as { code?: string }).code;
+        if (code !== "23505") {
+          console.error("[onboarding/complete] v2_commitment_event activated failed", evErr);
+          return new Response(JSON.stringify({ error: "Failed to record activation event" }), {
+            status: 500,
+          });
+        }
+      }
+    } else {
+      const { data: alreadyActive } = await supabaseServer
+        .from("v2_commitment")
+        .select("id")
+        .eq("clerk_user_id", userId)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+
+      if (!alreadyActive?.id) {
+        return new Response(
+          JSON.stringify({ error: "Commitment must be saved before completing onboarding." }),
+          { status: 400 }
+        );
+      }
+    }
 
     // ======================================================
     // ✅ Onboarding completion = habit begins

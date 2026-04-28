@@ -1,6 +1,6 @@
 /**
- * Clerk publicMetadata guardrails for completion state.
- * Does not compute staleness; only detects "no successful completeDay yet."
+ * Clerk publicMetadata guardrails for legacy completion counters (`totalDaysCompleted` / `lastCompletedAt`).
+ * Does not compute staleness.
  */
 
 function numberOrZero(value: unknown): number {

@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { OnboardingShellMain } from "@/components/onboarding-shell-main";
 
 /**
  * ======================================================
@@ -10,13 +11,15 @@ import { redirect } from "next/navigation";
  * Product rule:
  * Subscribe FIRST → then onboarding.
  *
- * This layout gates ALL onboarding routes:
+ * This layout gates ALL onboarding routes. Canonical flow (4 steps):
+ * Identity → Commitment → SMS → Complete
  * - /onboarding
- * - /onboarding/identity
- * - /onboarding/relationships
- * - /onboarding/pressure
+ * - /onboarding/identity (combined identity + relationships intake)
+ * - /onboarding/commitment
  * - /onboarding/sms
  * - /onboarding/complete
+ * Legacy: /onboarding/relationships redirects to /onboarding/identity.
+ * /onboarding/pressure redirects to /onboarding/commitment.
  */
 
 export const dynamic = "force-dynamic";
@@ -54,22 +57,12 @@ export default async function OnboardingLayout({
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-      <div className="w-full max-w-2xl py-16 space-y-10">
-        <header className="text-center space-y-2">
-          <p className="text-xs uppercase tracking-wide text-gray-500">
-            Training Camp Setup
-          </p>
-          <h1 className="text-2xl font-bold">Let’s get to know your life.</h1>
-          <p className="text-gray-600 text-sm">
-            A few calm questions so Coach Pat can coach you like she knows you.
-          </p>
-        </header>
-
+    <OnboardingShellMain>
+      <div className="w-full max-w-2xl py-12">
         <section className="bg-white border rounded-xl shadow-sm p-8">
           {children}
         </section>
       </div>
-    </main>
+    </OnboardingShellMain>
   );
 }

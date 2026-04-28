@@ -4,20 +4,10 @@ import { redirect } from "next/navigation";
 
 import OnboardingProgress from "@/components/onboarding-progress";
 import CompleteOnboardingButton from "@/components/CompleteOnboardingButton";
-import { resolveTrainingCampDay } from "@/lib/training-camp-resolver";
 import { supabaseServer } from "@/lib/supabase-server";
 
 /**
- * ======================================================
- * Onboarding Complete Page (Pledge + Day 1 Preview)
- * ======================================================
- *
- * This is the final commitment moment.
- *
- * Rules:
- * - Preview Day 1 deterministically (Training Camp day 1)
- * - Do NOT require currentDay yet
- * - Do NOT allow completion without pledge
+ * Final onboarding step: readiness + canonical completion POST.
  */
 
 export const dynamic = "force-dynamic";
@@ -29,18 +19,15 @@ export default async function CompletePage(): Promise<ReactElement> {
     redirect("/sign-in");
   }
 
-  const md = (user.publicMetadata || {}) as Record<string, any>;
+  const md = (user.publicMetadata || {}) as Record<string, unknown>;
 
   if (md?.onboardingCompleted === true) {
     redirect("/post-sign-in");
   }
 
-  // Soft guard: if profile intake hasn't started, send them back to start.
   const { data: profile } = await supabaseServer
     .from("user_profiles")
-    .select(
-      "life_desires, ninety_day_vision, people_summary, responsibility, pressure_summary"
-    )
+    .select("preferred_name, people_summary, responsibility")
     .eq("clerk_user_id", user.id)
     .maybeSingle();
 
@@ -48,111 +35,111 @@ export default async function CompletePage(): Promise<ReactElement> {
     redirect("/onboarding/identity");
   }
 
-  const trainingCampTrack =
-    md?.trainingCampTrack === "women" ? "women" : "standard";
+  const { data: proposedCommitment } = await supabaseServer
+    .from("v2_commitment")
+    .select("id, title, behavior_statement")
+    .eq("clerk_user_id", user.id)
+    .eq("status", "proposed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  // Preview Day 1 practice WITHOUT needing metadata.currentDay
-  let practice: { actionItem: string; reflectionPrompt: string } | null = null;
+  let commitmentForSummary = proposedCommitment;
 
-  try {
-    const day1 = await resolveTrainingCampDay({
-      dayNumber: 1,
-      trainingCampTrack,
-    });
+  if (!commitmentForSummary?.id) {
+    const { data: activeCommitment } = await supabaseServer
+      .from("v2_commitment")
+      .select("id, title, behavior_statement")
+      .eq("clerk_user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    practice = {
-      actionItem: day1.action_item,
-      reflectionPrompt: day1.reflection_prompt,
-    };
-  } catch (err) {
-    console.error("Onboarding complete Day 1 preview error:", err);
-    practice = null;
+    commitmentForSummary = activeCommitment ?? null;
   }
+
+  if (!commitmentForSummary?.id) {
+    redirect("/onboarding/commitment");
+  }
+
+  const preferredName =
+    typeof profile.preferred_name === "string" && profile.preferred_name.trim()
+      ? profile.preferred_name.trim()
+      : null;
+  const peopleSummary =
+    typeof profile.people_summary === "string" && profile.people_summary.trim()
+      ? profile.people_summary.trim()
+      : null;
+  const responsibility =
+    typeof profile.responsibility === "string" && profile.responsibility.trim()
+      ? profile.responsibility.trim()
+      : null;
+
+  const commitmentTitle =
+    typeof commitmentForSummary.title === "string" && commitmentForSummary.title.trim()
+      ? commitmentForSummary.title.trim()
+      : null;
+  const commitmentBehavior =
+    typeof commitmentForSummary.behavior_statement === "string" &&
+    commitmentForSummary.behavior_statement.trim()
+      ? commitmentForSummary.behavior_statement.trim()
+      : null;
 
   return (
     <div className="space-y-10 text-center">
-      <OnboardingProgress currentStep={5} />
+      <OnboardingProgress currentStep={4} />
 
       <header className="space-y-3">
-        <p className="text-xs uppercase tracking-wide text-gray-500">
-          Training Camp Ready
-        </p>
+        <h1 className="text-4xl font-bold">Almost there.</h1>
 
-        <h1 className="text-4xl font-bold">Your climb begins today.</h1>
-
-        <p className="text-gray-600 text-lg leading-relaxed">
-          One day at a time. One standard at a time.
+        <p className="text-gray-600 text-lg leading-relaxed max-w-lg mx-auto">
+          Coach Pat will start holding you accountable through your daily texts.
         </p>
       </header>
 
-      {/* Optional: a tiny “what you shared” recap for emotional payoff */}
       <section className="border rounded-xl bg-gray-50 p-6 text-left space-y-4">
-        <p className="font-semibold text-gray-900">What Coach Pat now knows:</p>
+        <p className="font-semibold text-gray-900">Your coaching setup:</p>
 
         <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
-          {profile.life_desires ? (
+          {preferredName ? (
             <li>
-              <strong>What you want:</strong> {profile.life_desires}
+              <strong>What to call you:</strong> {preferredName}
             </li>
           ) : null}
 
-          {profile.people_summary ? (
+          {peopleSummary ? (
             <li>
-              <strong>Who you show up for:</strong> {profile.people_summary}
+              <strong>Who you show up for:</strong> {peopleSummary}
             </li>
           ) : null}
 
-          {profile.responsibility ? (
+          {responsibility ? (
             <li>
-              <strong>What you’re carrying:</strong> {profile.responsibility}
+              <strong>More context:</strong> {responsibility}
+            </li>
+          ) : null}
+
+          {commitmentTitle ? (
+            <li>
+              <strong>Commitment:</strong> {commitmentTitle}
+            </li>
+          ) : null}
+
+          {commitmentBehavior ? (
+            <li>
+              <strong>Daily check-in:</strong> {commitmentBehavior}
             </li>
           ) : null}
         </ul>
-
-        <p className="text-xs text-gray-500 italic">
-          Short answers are enough. Coach Pat will coach the real you.
-        </p>
       </section>
 
-      {practice && (
-        <section className="border rounded-xl bg-white shadow-sm p-6 text-left space-y-6">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
-              Day 1 Practice Preview
-            </p>
-
-            <p className="text-lg font-semibold text-gray-900">Today’s Practice</p>
-
-            <p className="text-gray-700 mt-2 whitespace-pre-line">
-              {practice.actionItem}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-gray-900 mb-1">Reflection</p>
-
-            <p className="text-gray-600 whitespace-pre-line">
-              {practice.reflectionPrompt}
-            </p>
-          </div>
-
-          <p className="text-xs text-gray-500 italic">
-            Just one honest sentence. That’s the whole system.
-          </p>
-        </section>
-      )}
-
       <section className="border rounded-xl bg-white shadow-sm p-6 text-left space-y-4">
-        <p className="font-semibold text-gray-900">Before you start:</p>
-        <p className="text-sm text-gray-600">
-          This isn’t a course. It’s training. Your only job is to show up today.
-        </p>
-
         <CompleteOnboardingButton />
       </section>
 
       <p className="text-xs text-gray-500">
-        Coach Pat will guide you one day at a time.
+        Coach Pat will guide you one step at a time.
       </p>
     </div>
   );

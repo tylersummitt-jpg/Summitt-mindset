@@ -15,13 +15,11 @@ export default function CompleteOnboardingButton() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const [pledgeDaily, setPledgeDaily] = useState(false);
-  const [pledgeNoBacklog, setPledgeNoBacklog] = useState(false);
-
-  const pledgeComplete = pledgeDaily && pledgeNoBacklog;
+  const [ready, setReady] = useState(false);
 
   async function handleComplete() {
-    if (!pledgeComplete) return;
+    if (!ready) return;
+    if (loading) return;
 
     setLoading(true);
 
@@ -50,45 +48,33 @@ export default function CompleteOnboardingButton() {
 
   return (
     <div className="space-y-5">
-      <div className="space-y-3">
-        <label className="flex items-start gap-3 text-sm text-gray-800">
-          <input
-            type="checkbox"
-            checked={pledgeDaily}
-            onChange={(e) => setPledgeDaily(e.target.checked)}
-            className="mt-1"
-          />
-          <span>
-            <strong>One practice per day.</strong>
-          </span>
-        </label>
-
-        <label className="flex items-start gap-3 text-sm text-gray-800">
-          <input
-            type="checkbox"
-            checked={pledgeNoBacklog}
-            onChange={(e) => setPledgeNoBacklog(e.target.checked)}
-            className="mt-1"
-          />
-          <span>
-            <strong>No catching up. No guilt.</strong> Just training.
-          </span>
-        </label>
-      </div>
+      <label className="flex items-start gap-3 text-sm text-gray-800">
+        <input
+          type="checkbox"
+          checked={ready}
+          onChange={(e) => setReady(e.target.checked)}
+          className="mt-1"
+        />
+        <span>
+          I&apos;m ready for Coach Pat to hold me accountable on my commitment.
+        </span>
+      </label>
 
       <button
         onClick={handleComplete}
-        disabled={loading || !pledgeComplete}
+        disabled={loading || !ready}
         className={[
-          "w-full bg-black hover:bg-gray-900 text-white px-6 py-3 rounded-md text-lg font-semibold transition",
-          loading || !pledgeComplete ? "opacity-50 cursor-not-allowed" : "",
+          "w-full px-6 py-3 rounded-md text-lg font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-white",
+          loading || !ready
+            ? "cursor-not-allowed bg-gray-400"
+            : "bg-[var(--brand)] hover:opacity-90",
         ].join(" ")}
       >
-        {loading ? "Starting..." : "Start Day 1 →"}
+        {loading ? "Starting..." : "Start coaching →"}
       </button>
 
-      {!pledgeComplete && (
-        <p className="text-xs text-gray-500">Check both boxes to begin.</p>
+      {!ready && (
+        <p className="text-xs text-gray-500">Check the box above to begin.</p>
       )}
     </div>
   );

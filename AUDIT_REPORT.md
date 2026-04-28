@@ -1,3 +1,8 @@
+> **SUPERSEDED (historical only — April 2026)**  
+> This document describes the **retired progression / “complete the day” / Training Camp** product. The live system is **SMS-first accountability on one commitment**, **V2 event spine**, **Victory Room for proof**, and the app as a **support layer**. Do **not** use this file as current architecture or operator truth; keep it only for archaeology.
+
+---
+
 # Summitt Mindset — State of the Product and Codebase Audit
 
 **Audit Date:** March 2025  

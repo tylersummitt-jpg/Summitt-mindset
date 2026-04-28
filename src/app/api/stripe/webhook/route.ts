@@ -35,8 +35,14 @@ function resolvePlanFromSubscription(
   return "unknown";
 }
 
-function isActiveStatus(status: Stripe.Subscription.Status): boolean {
-  return status === "active" || status === "trialing";
+/**
+ * Summitt access from Stripe subscription: active or trialing, and not billing-paused
+ * (pause_collection is set when e.g. pause-membership uses pause_collection).
+ */
+function isSummittEntitledFromSubscription(sub: Stripe.Subscription): boolean {
+  if (sub.status !== "active" && sub.status !== "trialing") return false;
+  if (sub.pause_collection != null) return false;
+  return true;
 }
 
 /**
@@ -218,9 +224,10 @@ export async function POST(req: NextRequest) {
 
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       const plan = resolvePlanFromSubscription(subscription);
+      const entitled = isSummittEntitledFromSubscription(subscription);
 
       await updateClerkPublicMetadata(userId, {
-        summittSubscribed: isActiveStatus(subscription.status),
+        summittSubscribed: entitled,
         summittPlan: plan,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
@@ -234,7 +241,7 @@ export async function POST(req: NextRequest) {
         stoppedAt: null,
         timezone: existing?.timezone ?? null,
         smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: isActiveStatus(subscription.status),
+        summittSubscribed: entitled,
       });
 
       console.log("✅ checkout.session.completed → metadata updated", userId);
@@ -253,16 +260,21 @@ export async function POST(req: NextRequest) {
       }
 
       const plan = resolvePlanFromSubscription(subscription);
+      const entitled = isSummittEntitledFromSubscription(subscription);
 
-      await updateClerkPublicMetadata(userId, {
-        summittSubscribed: isActiveStatus(subscription.status),
-        summittPlan: plan,
+      const clerkPatch: Record<string, unknown> = {
+        summittSubscribed: entitled,
         stripeCustomerId:
           typeof subscription.customer === "string"
             ? subscription.customer
             : null,
         stripeSubscriptionId: subscription.id,
-      });
+      };
+      if (subscription.pause_collection == null) {
+        clerkPatch.summittPlan = plan;
+      }
+
+      await updateClerkPublicMetadata(userId, clerkPatch as Record<string, any>);
 
       const existing = await getClerkPublicMetadata(userId);
       await syncSmsAudience({
@@ -272,7 +284,7 @@ export async function POST(req: NextRequest) {
         stoppedAt: null,
         timezone: existing?.timezone ?? null,
         smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: isActiveStatus(subscription.status),
+        summittSubscribed: entitled,
       });
 
       console.log("✅ customer.subscription.updated → metadata updated", userId);
@@ -346,16 +358,32 @@ export async function POST(req: NextRequest) {
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
 
-      const userId = await resolveUserIdForInvoice(invoice);
+      const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
+      if (!subscriptionId) {
+        console.warn("invoice.paid missing subscription on invoice");
+        return NextResponse.json({ received: true });
+      }
+
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
         console.warn("invoice.paid missing userId");
         return NextResponse.json({ received: true });
       }
 
-      console.log("✅ Payment restored → unlocking access", userId);
+      const entitled = isSummittEntitledFromSubscription(subscription);
+
+      if (entitled) {
+        console.log("✅ Payment restored → unlocking access", userId);
+      } else {
+        console.log(
+          "✅ invoice.paid → subscription not entitled (e.g. paused); summittSubscribed=false",
+          userId
+        );
+      }
 
       await updateClerkPublicMetadata(userId, {
-        summittSubscribed: true,
+        summittSubscribed: entitled,
       });
 
       const existing = await getClerkPublicMetadata(userId);
@@ -366,17 +394,17 @@ export async function POST(req: NextRequest) {
         stoppedAt: null,
         timezone: existing?.timezone ?? null,
         smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: true,
+        summittSubscribed: entitled,
       });
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    await supabaseServer
-      .from("stripe_webhook_events")
-      .delete()
-      .eq("event_id", event.id);
-    console.error("🔥 Webhook processing error:", err);
+    // Keep stripe_webhook_events row (event_id) so Stripe retries dedupe via 23505 and do not re-run handlers.
+    console.error("🔥 Webhook processing error (dedupe row retained):", {
+      event_id: event.id,
+      err,
+    });
     return new NextResponse("Webhook error", { status: 500 });
   }
 }

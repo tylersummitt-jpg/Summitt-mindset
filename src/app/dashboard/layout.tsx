@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { PendingResolutionBanner } from "@/app/dashboard/pending-resolution-banner";
+import { resolveActionablePendingResolutionKindForDashboard } from "@/lib/v2-dashboard-pending-resolution";
 
 /**
  * ======================================================
@@ -53,5 +55,12 @@ export default async function DashboardLayout({
     redirect("/onboarding");
   }
 
-  return <>{children}</>;
+  const pendingKind = await resolveActionablePendingResolutionKindForDashboard(user.id);
+
+  return (
+    <>
+      {pendingKind ? <PendingResolutionBanner kind={pendingKind} /> : null}
+      {children}
+    </>
+  );
 }

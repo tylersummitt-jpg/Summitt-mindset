@@ -6,11 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:capture-baseline": "bash scripts/capture-baseline-schema.sh",
+    "stripe:audit-duplicate-subs": "node scripts/audit-stripe-duplicate-subscriptions.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.5",
     "@supabase/supabase-js": "^2.89.0",
+    "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "next": "^16.0.5",
     "openai": "^6.9.1",

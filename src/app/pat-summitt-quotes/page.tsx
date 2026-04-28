@@ -184,15 +184,15 @@ export default async function PatSummittQuotesPage() {
           Start the 7-Day Pat Summitt Leadership Challenge
         </h2>
         <p className="text-[var(--muted)] mb-6 leading-relaxed">
-          If Pat Summitt&apos;s leadership inspires you, this free 7-day
-          challenge helps turn that inspiration into a simple daily practice.
+          If Pat Summitt&apos;s leadership inspires you, this free 7-day challenge helps turn that
+          inspiration into steady action—without noise or guilt.
         </p>
         <p className="text-[var(--text)] leading-relaxed mt-4">
-          Reading a great Pat Summitt quote is a spark; turning it into a habit is what changes how you lead. Summitt Mindset helps you take one small action and one honest reflection each day so her standards actually show up in your life.
+          Reading a great Pat Summitt quote is a spark; holding yourself to a clear bar is what changes how you lead. Members use Summitt Mindset for SMS-first accountability on one commitment, with optional depth and proof in the app.
         </p>
 
         <p className="text-[var(--text)] leading-relaxed mt-2">
-          Each daily practice is short, calm, and repeatable—built so real people with real responsibilities can keep showing up, one day at a time.
+          The challenge stays short and serious—built for real people with real responsibilities.
         </p>
         <Link
           href="/subscribe"

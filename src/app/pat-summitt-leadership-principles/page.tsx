@@ -97,7 +97,7 @@ export default function PatSummittLeadershipPrinciplesPage() {
             in daily life.
           </p>
           <p>
-            One short practice. One honest reflection. One day at a time.
+            Serious accountability is not a performance—it is a steady promise, held with honesty.
           </p>
         </div>
       </section>
@@ -142,7 +142,7 @@ export default function PatSummittLeadershipPrinciplesPage() {
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-8">
-          Start Your Daily Practice
+          Start with SMS-first accountability
         </h2>
         <Link
           href="/subscribe"

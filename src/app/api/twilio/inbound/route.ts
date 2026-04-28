@@ -6,7 +6,6 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
-import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { splitIntoChunks, buildTwimlResponse } from "@/lib/twilio";
 
 export const runtime = "nodejs";
@@ -157,17 +156,21 @@ function scheduleSmsInboundCoachWorkerKick(req: Request): void {
   });
 }
 
-function safeDayNumber(value: unknown): number | null {
-  if (typeof value !== "number") return null;
-  if (!Number.isFinite(value)) return null;
-  if (value <= 0) return null;
-  return Math.floor(value);
-}
+/** HELP / duplicate-HELP TwiML: SMS-first accountability; not day/progression framing. */
+const HELP_TWIML_BODY =
+  "Summitt Mindset: Pat texts you about your commitment—reply honestly to those check-ins. Reply STOP to opt out.";
+
+/** START TwiML after opt-in is restored. */
+const START_TWIML_BODY =
+  "Welcome back. SMS check-ins are on; Pat will text you about your commitment. Reply STOP to opt out anytime.";
 
 /**
  * Coach-path durability: after sms_inbound_messages is stored, a job row MUST exist
  * before we return 200 TwiML. Inserts with retry + explicit SELECT verify; throws if
  * still missing so Twilio can retry the webhook.
+ *
+ * Eligibility is enforced by callers: resolved `sms_identities` row with SMS active (not
+ * stopped) and Clerk `smsEnabled === true`. V2 accountability does not use `currentDay`.
  */
 async function ensureCoachJobPresent(args: {
   messageSid: string;
@@ -239,7 +242,7 @@ async function runStopFlow(userId: string, from: string) {
   });
 
   await syncSmsAudience({
-    userId: userId,
+    userId,
     phoneNumber: from,
     smsEnabled: false,
     stoppedAt: new Date().toISOString(),
@@ -264,7 +267,7 @@ async function runStartFlow(userId: string, from: string) {
   });
 
   await syncSmsAudience({
-    userId: userId,
+    userId,
     phoneNumber: from,
     smsEnabled: true,
     stoppedAt: null,
@@ -332,25 +335,30 @@ export async function POST(req: Request) {
         }
 
         if (isHelpCommand(body)) {
-          return twiml(
-            "Summitt Mindset daily training. Reply with at least one honest sentence to complete today. Reply STOP to opt out."
-          );
+          return twiml(HELP_TWIML_BODY);
         }
 
         if (isStartCommand(body)) {
           await runStartFlow(userId, from);
-          return twiml("You’re back in training.");
+          return twiml(START_TWIML_BODY);
         }
 
         if (identity.sms_enabled !== true || typeof identity.stopped_at === "string") {
+          console.warn("[twilio/inbound] coach job skipped (duplicate webhook): identity opted out", {
+            clerk_user_id: userId,
+            message_sid: messageSid,
+          });
           return NextResponse.json({ ok: true });
         }
 
         const dupMd = await getClerkPublicMetadata(userId);
-        if (dupMd.smsEnabled !== true) return NextResponse.json({ ok: true });
-
-        const dupCurrentDay = safeDayNumber(dupMd.currentDay);
-        if (!dupCurrentDay) return NextResponse.json({ ok: true });
+        if (dupMd.smsEnabled !== true) {
+          console.warn("[twilio/inbound] coach job skipped (duplicate webhook): Clerk smsEnabled not true", {
+            clerk_user_id: userId,
+            message_sid: messageSid,
+          });
+          return NextResponse.json({ ok: true });
+        }
 
         await ensureCoachJobPresent({
           messageSid,
@@ -370,25 +378,30 @@ export async function POST(req: Request) {
     }
 
     if (isHelpCommand(body)) {
-      return twiml(
-        "Summitt Mindset daily training. Reply with at least one honest sentence to complete today. Reply STOP to opt out."
-      );
+      return twiml(HELP_TWIML_BODY);
     }
 
     if (isStartCommand(body)) {
       await runStartFlow(userId, from);
-      return twiml("You’re back in training.");
+      return twiml(START_TWIML_BODY);
     }
 
     if (identity.sms_enabled !== true || typeof identity.stopped_at === "string") {
+      console.warn("[twilio/inbound] coach job skipped: identity opted out or stopped", {
+        clerk_user_id: userId,
+        message_sid: messageSid,
+      });
       return NextResponse.json({ ok: true });
     }
 
     const md = await getClerkPublicMetadata(userId);
-    if (md.smsEnabled !== true) return NextResponse.json({ ok: true });
-
-    const currentDay = safeDayNumber(md.currentDay);
-    if (!currentDay) return NextResponse.json({ ok: true });
+    if (md.smsEnabled !== true) {
+      console.warn("[twilio/inbound] coach job skipped: Clerk smsEnabled not true", {
+        clerk_user_id: userId,
+        message_sid: messageSid,
+      });
+      return NextResponse.json({ ok: true });
+    }
 
     await ensureCoachJobPresent({
       messageSid,

@@ -2,105 +2,80 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { completeDay } from "@/lib/complete-day";
-import { getOrCreateDailyPracticeVersion } from "@/lib/get-or-create-daily-practice-version";
-import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
-import { coachEngine } from "@/lib/coach-engine";
-import type { SmsCoachDeliveryContext } from "@/lib/coach-reply-generator";
-import { normalizeSmsReply } from "@/lib/normalize-sms-reply";
-import {
-  smsTimePreferenceFromClerkMetadata,
-  useEveningPromptForPreference,
-} from "@/lib/sms-daily-delivery-body";
-import { reconcileSmsDeliveryStateAfterCompletion } from "@/lib/sms-delivery-on-complete";
-import { advanceSmsDeliveryStateOnInboundReply } from "@/lib/sms-inbound-delivery-advance";
+import { resolveUserTimezone } from "@/lib/timezone";
 import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
-
-function translateSmsReply(raw: string, dayNumber: number): string {
-  if (!raw) return raw;
-
-  const trimmed = raw.trim().toLowerCase();
-  if (!trimmed) return raw;
-
-  const match = trimmed.match(/^(a|b|c|d)([^a-z]|$)/);
-  if (!match) return raw;
-
-  const letter = match[1];
-
-  // Day-specific mappings (Days 2–7 first; Day 1 uses the "need most" map via <= 7)
-  if (dayNumber === 2) {
-    const map: Record<string, string> = {
-      a: "I will rest today",
-      b: "I will move my body today",
-      c: "I will fuel my body today",
-      d: "I will clear my mind today",
-    };
-    return map[letter] || raw;
-  }
-
-  if (dayNumber === 3) {
-    const map: Record<string, string> = {
-      a: "I will finish something I've been putting off today",
-      b: "I will knock out a quick task today",
-      c: "I will make progress on something important today",
-      d: "I will do something that makes me feel better today",
-    };
-    return map[letter] || raw;
-  }
-
-  if (dayNumber === 4) {
-    const map: Record<string, string> = {
-      a: "I will stay focused on what matters today",
-      b: "I will keep my energy steady today",
-      c: "I will follow through no matter what today",
-      d: "I will stay positive and composed today",
-    };
-    return map[letter] || raw;
-  }
-
-  if (dayNumber === 5) {
-    const map: Record<string, string> = {
-      a: "I will reset and start again today",
-      b: "I will do one small thing today",
-      c: "I will slow down and regroup today",
-      d: "I will keep going no matter what today",
-    };
-    return map[letter] || raw;
-  }
-
-  if (dayNumber === 6) {
-    const map: Record<string, string> = {
-      a: "I will show up focused today",
-      b: "I will show up steady today",
-      c: "I will show up disciplined today",
-      d: "I will show up positive today",
-    };
-    return map[letter] || raw;
-  }
-
-  if (dayNumber === 7) {
-    const map: Record<string, string> = {
-      a: "I am starting to build something",
-      b: "I am showing up more consistently",
-      c: "I am learning how to adjust",
-      d: "I am not there yet, but I am trying",
-    };
-    return map[letter] || raw;
-  }
-
-  if (dayNumber <= 7) {
-    const map: Record<string, string> = {
-      a: "I need focus today",
-      b: "I need energy today",
-      c: "I need confidence today",
-      d: "I need clarity today",
-    };
-    return map[letter] || raw;
-  }
-
-  // fallback for other days
-  return raw;
-}
+import {
+  activateAdaptiveOverlayFromProposal,
+  clearStaleAdaptiveContractColumns,
+  declineAdaptiveProposal,
+  getEffectiveCoachingAsk,
+  isV2PendingProposalValid,
+  resolvePendingProposalContractKind,
+} from "@/lib/v2-adaptive-contract";
+import { loadV2CoachingMemoryForPrompt, recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
+import { recordV2SendTimeProfileInboundEngagement } from "@/lib/v2-send-time-profile";
+import {
+  buildBlockerAckSms,
+  buildV2ContractOverlayNoAckSms,
+  buildV2ContractOverlayYesAckSms,
+  buildV2InboundReplySms,
+  classifyV2InboundReply,
+  isStrongV2YesNoOutcome,
+  v2UserReplyIdempotencyKey,
+} from "@/lib/v2-sms-accountability";
+import {
+  buildBlockerAckAiPayload,
+  tryGenerateV2BlockerAckMessage,
+  V2_BLOCKER_ACK_AI_MODEL,
+  V2_BLOCKER_ACK_PROMPT_VERSION,
+} from "@/lib/v2-ai-blocker-ack";
+import {
+  buildUserReplyAiPayload,
+  strategyForInboundEventType,
+  tryGenerateV2ContractConsentAckMessage,
+  tryGenerateV2InboundMessage,
+  V2_INBOUND_AI_MODEL,
+  V2_INBOUND_AI_PROMPT_VERSION,
+} from "@/lib/v2-ai-inbound";
+import { deriveV2SilenceContext, parseLatestCheckSentNextMoveType } from "@/lib/v2-ai-outbound";
+import {
+  bumpIdentityRefreshCycleAfterRefreshStillReply,
+  computeIdentityReferenceAllowedInbound,
+  isIdentityRefreshDue,
+} from "@/lib/v2-identity-anchor";
+import {
+  buildGuidedResolutionChangeHandoffSms,
+  buildGuidedResolutionNewHandoffSms,
+  buildGuidedTightenHandoffSms,
+} from "@/lib/v2-guided-resolution";
+import {
+  applyRefreshCommitmentStepResolutionMutation,
+  applyRefreshIdentityStepResolutionMutation,
+  applyRefreshPromptedPostSendBookkeepingMutation,
+  reconcileRefreshPostSendBookkeepingForCommitment,
+  advanceSessionToCommitment,
+  buildRefreshClarifyCommitmentSms,
+  buildRefreshClarifyIdentitySms,
+  buildRefreshKeepAckSms,
+  buildRefreshStepCommitmentSms,
+  isRefreshSessionActive,
+  parseRefreshInboundToken,
+  parseRefreshSession,
+  persistRefreshSession,
+  touchCommitmentRefreshPromptedTimestamp,
+  type V2RefreshSessionState,
+} from "@/lib/v2-refresh-session";
+import {
+  clearBlockerCapturePending,
+  exitLowPressureReactivationOnInbound,
+  getActiveCommitment,
+  getRecentV2EventsForAi,
+  isBlockerCapturePendingActive,
+  isBlockerCapturePendingExpired,
+  setBlockerCapturePending,
+  type ActiveV2CommitmentRow,
+  type V2AccountabilityOutcome,
+} from "@/lib/v2-commitment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,8 +91,6 @@ const CRON_SECRET = process.env.CRON_SECRET;
 const BATCH_SIZE = 5;
 const MAX_ATTEMPTS = 25;
 const STALE_PROCESSING_MINUTES = 15;
-
-const COACH_SMS_FALLBACK = "Good. Stay steady. We’ll keep building.";
 
 const farFutureIso = () =>
   new Date(Date.now() + 86400 * 365 * 10 * 1000).toISOString();
@@ -166,83 +139,9 @@ function validateCronSecret(req: Request): boolean {
   return false;
 }
 
-function safeDayNumber(value: unknown): number | null {
-  if (typeof value !== "number") return null;
-  if (!Number.isFinite(value)) return null;
-  if (value <= 0) return null;
-  return Math.floor(value);
-}
-
-/** Matches completeDay journal normalization so verification aligns with completion gate. */
-function normalizeJournalTextForCompletion(input: string): string {
-  return (input || "").trim().replace(/\s+/g, " ");
-}
-
-function deliverySnapshotIsDay2Freeform(snapshot: unknown): boolean {
-  if (
-    snapshot == null ||
-    typeof snapshot !== "object" ||
-    Array.isArray(snapshot)
-  ) {
-    return false;
-  }
-  return (snapshot as Record<string, unknown>).is_day2_freeform === true;
-}
-
-function getCompletionConfirmation(dayNumber: number): string {
-  const options = [
-    "You showed up today.",
-    "That matters.",
-    "Strong finish today.",
-  ];
-  return options[dayNumber % options.length];
-}
-
-function getSignatureLine(dayNumber: number): string {
-  const options = ["— Coach", "— Coach Pat", "— Your Coach"];
-  return options[dayNumber % options.length];
-}
-
 function computeNextRetryIso(attempt: number): string {
   const sec = Math.min(600, 30 * Math.max(1, attempt));
   return new Date(Date.now() + sec * 1000).toISOString();
-}
-
-function isStrongMCQReply(
-  textNormalized: string,
-  qRow: {
-    option_a: string | null;
-    option_b: string | null;
-    option_c: string | null;
-  } | null
-): boolean {
-  if (!qRow) return false;
-
-  const text = textNormalized.toLowerCase();
-
-  const letterMatch =
-    text === "a" ||
-    text === "b" ||
-    text === "c" ||
-    text === "a!" ||
-    text === "b!" ||
-    text === "c!" ||
-    /^[abc]\s/.test(text);
-
-  const MIN_LENGTH = 3;
-
-  const options = [qRow.option_a, qRow.option_b, qRow.option_c]
-    .filter(Boolean)
-    .map((o) => String(o).toLowerCase());
-
-  const optionMatch = options.some((opt) => {
-    if (!opt) return false;
-    if (text.length < MIN_LENGTH) return false;
-
-    return text.includes(opt) || opt.includes(text);
-  });
-
-  return letterMatch || optionMatch;
 }
 
 type JobRow = {
@@ -382,6 +281,1154 @@ async function loadJob(messageSid: string): Promise<JobRow | null> {
   return data as JobRow | null;
 }
 
+async function processV2NormalInboundOutcome(
+  job: JobRow,
+  userId: string,
+  commitment: ActiveV2CommitmentRow,
+  classification: ReturnType<typeof classifyV2InboundReply>,
+  timezone: string
+): Promise<void> {
+  // 1) Classification is rule-based at call sites; event_type is server-controlled here.
+  const { eventType, normalizedHint } = classification;
+  // 2) Server strategy (AI must echo in JSON; never drives event_type).
+  const serverStrategy = strategyForInboundEventType(eventType);
+  const effectiveBehavior = getEffectiveCoachingAsk(commitment);
+  const userMessage = (job.raw_body || "").trim();
+  const recentEvents = await getRecentV2EventsForAi(commitment.id);
+
+  const brokePause = commitment.accountability_phase === "low_pressure_reactivation";
+  if (brokePause) {
+    await exitLowPressureReactivationOnInbound(commitment.id);
+    await recomputeV2CoachingMemory(commitment.id, {
+      reasonCode: "inbound_exit_reactivation_before_outcome",
+    });
+  }
+
+  const { data: inboundProfileRow } = await supabaseServer
+    .from("user_profiles")
+    .select(
+      "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text, identity_refresh_due_at, identity_last_referenced_at"
+    )
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+
+  const preferredName =
+    typeof inboundProfileRow?.preferred_name === "string"
+      ? inboundProfileRow.preferred_name
+      : null;
+  const lifeDesires =
+    typeof inboundProfileRow?.life_desires === "string" ? inboundProfileRow.life_desires : null;
+  const peopleSummary =
+    typeof inboundProfileRow?.people_summary === "string" && inboundProfileRow.people_summary.trim()
+      ? inboundProfileRow.people_summary.trim()
+      : null;
+  const responsibility =
+    typeof inboundProfileRow?.responsibility === "string" && inboundProfileRow.responsibility.trim()
+      ? inboundProfileRow.responsibility.trim()
+      : null;
+  const identityAnchorText =
+    typeof inboundProfileRow?.identity_anchor_text === "string"
+      ? inboundProfileRow.identity_anchor_text.trim()
+      : null;
+  const identityRefreshDue = isIdentityRefreshDue(
+    typeof inboundProfileRow?.identity_refresh_due_at === "string"
+      ? inboundProfileRow.identity_refresh_due_at
+      : null,
+    Date.now()
+  );
+  const identityReferenceAllowed = computeIdentityReferenceAllowedInbound({
+    nowMs: Date.now(),
+    identityAnchorText: inboundProfileRow?.identity_anchor_text,
+    identityRefreshDueAt:
+      typeof inboundProfileRow?.identity_refresh_due_at === "string"
+        ? inboundProfileRow.identity_refresh_due_at
+        : null,
+    identityLastReferencedAt:
+      typeof inboundProfileRow?.identity_last_referenced_at === "string"
+        ? inboundProfileRow.identity_last_referenced_at
+        : null,
+    accountabilityPhase: commitment.accountability_phase,
+    refreshSessionActive: isRefreshSessionActive(commitment),
+    brokePause,
+  });
+
+  const { body: templateReplyBody, replyTemplateId } = buildV2InboundReplySms({
+    behaviorStatement: effectiveBehavior,
+    messageSid: job.message_sid,
+    eventType,
+    preferredName,
+  });
+
+  const silenceCtx = deriveV2SilenceContext(recentEvents, new Date());
+  const afterSilence = silenceCtx.tier !== "none";
+  const lastOutboundNextMove = parseLatestCheckSentNextMoveType(recentEvents);
+
+  const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(commitment.id);
+
+  // 4) AI reply copy only; any invalid path falls back inside tryGenerate / validate.
+  const aiTry = await tryGenerateV2InboundMessage({
+    commitment,
+    eventType,
+    serverStrategy,
+    userMessage,
+    normalizedHint,
+    eventsNewestFirst: recentEvents,
+    coachingMemory: coachingMemoryRow,
+    preferredName,
+    lifeDesires,
+    peopleSummary,
+    responsibility,
+    identityAnchorText,
+    identityRefreshDue,
+    identityReferenceAllowed,
+    afterSilence,
+    lastOutboundNextMove,
+    ...(brokePause ? { brokePause: true } : {}),
+    ...(afterSilence
+      ? {
+          unansweredChecks: silenceCtx.unanswered_checks,
+          daysIdle: silenceCtx.days_since_last_user_outcome,
+        }
+      : {}),
+  });
+
+  // 5) Final SMS body + persisted ai blob (message = text actually sent).
+  const replyBody = aiTry.ok ? aiTry.message : templateReplyBody;
+  const aiPayload = buildUserReplyAiPayload({
+    model: V2_INBOUND_AI_MODEL,
+    promptVersion: V2_INBOUND_AI_PROMPT_VERSION,
+    serverStrategy,
+    message: replyBody,
+    confidence: aiTry.ok ? aiTry.confidence : null,
+    fallbackUsed: !aiTry.ok,
+    fallbackReason: !aiTry.ok ? aiTry.reason : null,
+  });
+
+  const idempotencyKey = v2UserReplyIdempotencyKey(eventType, job.message_sid);
+
+  // 6) Event spine: same event_type as classification; enrich payload_json only.
+  const { error: evErr } = await supabaseServer.from("v2_commitment_event").insert({
+    commitment_id: commitment.id,
+    clerk_user_id: userId,
+    event_type: eventType,
+    source: "sms_v2_accountability",
+    payload_json: {
+      message: userMessage,
+      ...(normalizedHint != null ? { normalized_hint: normalizedHint } : {}),
+      ...(!aiTry.ok ? { reply_template_id: replyTemplateId } : {}),
+      ...(afterSilence
+        ? {
+            reentry_context: {
+              after_silence: true,
+              unanswered_checks: silenceCtx.unanswered_checks,
+              days_idle: silenceCtx.days_since_last_user_outcome,
+            },
+          }
+        : {}),
+      ai: aiPayload,
+    },
+    idempotency_key: idempotencyKey,
+  });
+
+  if (evErr) {
+    const code = (evErr as { code?: string }).code;
+    if (code !== "23505") {
+      throw new Error(`v2_commitment_event_insert_failed: ${evErr.message}`);
+    }
+  } else {
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+  }
+
+  await recomputeV2CoachingMemory(commitment.id, {
+    reasonCode: "inbound_user_outcome",
+  });
+
+  // 7) Existing product side-effects (unchanged).
+  if (eventType === "user_no" || eventType === "user_partial") {
+    await setBlockerCapturePending(commitment.id, eventType as V2AccountabilityOutcome);
+  }
+
+  // 8) Job reply → shared send pipeline.
+  const now = new Date().toISOString();
+  const { data: persisted } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      reply_body: replyBody,
+      status: "reply_ready",
+      next_retry_at: now,
+      updated_at: now,
+      last_error: null,
+    })
+    .eq("message_sid", job.message_sid)
+    .eq("status", "processing")
+    .select()
+    .maybeSingle();
+
+  if (!persisted) {
+    const j2 = await loadJob(job.message_sid);
+    if (j2?.reply_body?.trim()) {
+      await commitAndSendInboundCoachReply(j2, userId);
+      return;
+    }
+    throw new Error("v2_reply_ready_persist_failed");
+  }
+
+  const fresh = (await loadJob(job.message_sid)) ?? job;
+  await commitAndSendInboundCoachReply(fresh, userId);
+}
+
+async function processV2BlockerCapture(
+  job: JobRow,
+  userId: string,
+  commitment: ActiveV2CommitmentRow,
+  blockerText: string,
+  timezone: string
+): Promise<void> {
+  const following =
+    commitment.blocker_capture_after_event === "user_no" ||
+    commitment.blocker_capture_after_event === "user_partial"
+      ? commitment.blocker_capture_after_event
+      : ("user_partial" as const);
+
+  const { data: blockerProfileRow } = await supabaseServer
+    .from("user_profiles")
+    .select(
+      "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text"
+    )
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+
+  const blockerPreferredName =
+    typeof blockerProfileRow?.preferred_name === "string"
+      ? blockerProfileRow.preferred_name
+      : null;
+  const blockerLifeDesires =
+    typeof blockerProfileRow?.life_desires === "string" ? blockerProfileRow.life_desires : null;
+  const blockerPeopleSummary =
+    typeof blockerProfileRow?.people_summary === "string" &&
+    blockerProfileRow.people_summary.trim()
+      ? blockerProfileRow.people_summary.trim()
+      : null;
+  const blockerResponsibility =
+    typeof blockerProfileRow?.responsibility === "string" &&
+    blockerProfileRow.responsibility.trim()
+      ? blockerProfileRow.responsibility.trim()
+      : null;
+  const blockerIdentityAnchorText =
+    typeof blockerProfileRow?.identity_anchor_text === "string"
+      ? blockerProfileRow.identity_anchor_text.trim()
+      : null;
+
+  const { body: templateAckBody, ackTemplateId } = buildBlockerAckSms(job.message_sid, {
+    preferredName: blockerPreferredName,
+  });
+
+  const brokePause = commitment.accountability_phase === "low_pressure_reactivation";
+  if (brokePause) {
+    await exitLowPressureReactivationOnInbound(commitment.id);
+    await recomputeV2CoachingMemory(commitment.id, {
+      reasonCode: "inbound_exit_reactivation_before_blocker",
+    });
+  }
+
+  const blockerCoachingMemory = await loadV2CoachingMemoryForPrompt(commitment.id);
+
+  const blockerAckTry = await tryGenerateV2BlockerAckMessage({
+    commitment,
+    followingEventType: following,
+    blockerText,
+    preferredName: blockerPreferredName,
+    lifeDesires: blockerLifeDesires,
+    peopleSummary: blockerPeopleSummary,
+    responsibility: blockerResponsibility,
+    identityAnchorText: blockerIdentityAnchorText,
+    coachingMemory: blockerCoachingMemory,
+    ...(brokePause ? { brokePause: true } : {}),
+  });
+
+  const ackBody = blockerAckTry.ok ? blockerAckTry.message : templateAckBody;
+  const blockerAiPayload = buildBlockerAckAiPayload({
+    model: V2_BLOCKER_ACK_AI_MODEL,
+    promptVersion: V2_BLOCKER_ACK_PROMPT_VERSION,
+    message: ackBody,
+    confidence: blockerAckTry.ok ? blockerAckTry.confidence : null,
+    fallbackUsed: !blockerAckTry.ok,
+    fallbackReason: !blockerAckTry.ok ? blockerAckTry.reason : null,
+  });
+
+  const now = new Date().toISOString();
+
+  const { data: persisted } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      reply_body: ackBody,
+      status: "reply_ready",
+      next_retry_at: now,
+      updated_at: now,
+      last_error: null,
+    })
+    .eq("message_sid", job.message_sid)
+    .eq("status", "processing")
+    .select()
+    .maybeSingle();
+
+  if (!persisted) {
+    const j2 = await loadJob(job.message_sid);
+    if (j2?.reply_body?.trim()) {
+      await commitAndSendInboundCoachReply(j2, userId);
+    } else {
+      throw new Error("v2_blocker_ack_reply_ready_persist_failed");
+    }
+  } else {
+    const fresh = (await loadJob(job.message_sid)) ?? job;
+    await commitAndSendInboundCoachReply(fresh, userId);
+  }
+
+  const afterSend = (await loadJob(job.message_sid)) ?? job;
+  const ackSid =
+    typeof afterSend.outbound_message_sid === "string" && afterSend.outbound_message_sid.length > 0
+      ? afterSend.outbound_message_sid
+      : null;
+
+  const { error: evErr } = await supabaseServer.from("v2_commitment_event").insert({
+    commitment_id: commitment.id,
+    clerk_user_id: userId,
+    event_type: "blocker_captured",
+    source: "sms_v2_accountability",
+    payload_json: {
+      message: blockerText,
+      following_event_type: following,
+      captured_at_context: "post_miss_question",
+      ...(!blockerAckTry.ok ? { ack_template_id: ackTemplateId } : {}),
+      ...(ackSid ? { ack_message_sid: ackSid } : {}),
+      ai: blockerAiPayload,
+    },
+    idempotency_key: `v2_blocker_captured:${job.message_sid}`,
+  });
+
+  if (evErr) {
+    const code = (evErr as { code?: string }).code;
+    if (code === "23505") {
+      await clearBlockerCapturePending(commitment.id);
+      return;
+    }
+    console.error("[sms-inbound-coach] blocker_captured insert failed", {
+      message_sid: job.message_sid,
+      message: evErr.message,
+    });
+    return;
+  }
+
+  await clearBlockerCapturePending(commitment.id);
+  await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+  await recomputeV2CoachingMemory(commitment.id, {
+    reasonCode: "inbound_blocker_captured",
+  });
+}
+
+async function processV2ContractProposalConsent(
+  job: JobRow,
+  userId: string,
+  commitment: ActiveV2CommitmentRow,
+  timezone: string
+): Promise<boolean> {
+  let workingCommitment = commitment;
+  if (!isV2PendingProposalValid(workingCommitment)) return false;
+
+  const classification = classifyV2InboundReply((job.raw_body || "").trim());
+  const proposalText = workingCommitment.adaptive_proposal_text?.trim();
+  if (!proposalText) return false;
+
+  if (
+    workingCommitment.accountability_phase === "low_pressure_reactivation" &&
+    (classification.eventType === "user_yes" || classification.eventType === "user_no")
+  ) {
+    await exitLowPressureReactivationOnInbound(workingCommitment.id);
+    await recomputeV2CoachingMemory(workingCommitment.id, {
+      reasonCode: "inbound_exit_reactivation_before_contract_consent",
+    });
+    const refreshed = await getActiveCommitment(userId);
+    if (!refreshed?.id) {
+      throw new Error("contract_consent_commitment_missing_after_reactivation_exit");
+    }
+    workingCommitment = refreshed;
+  }
+
+  const { data: consentProfileRow } = await supabaseServer
+    .from("user_profiles")
+    .select("preferred_name")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+  const consentPreferredName =
+    typeof consentProfileRow?.preferred_name === "string" ? consentProfileRow.preferred_name : null;
+
+  const persistReplyAndSend = async (replyBody: string): Promise<void> => {
+    const now = new Date().toISOString();
+    const { data: persisted } = await supabaseServer
+      .from("sms_inbound_coach_jobs")
+      .update({
+        reply_body: replyBody,
+        status: "reply_ready",
+        next_retry_at: now,
+        updated_at: now,
+        last_error: null,
+      })
+      .eq("message_sid", job.message_sid)
+      .eq("status", "processing")
+      .select()
+      .maybeSingle();
+
+    if (!persisted) {
+      const j2 = await loadJob(job.message_sid);
+      if (j2?.reply_body?.trim()) {
+        await commitAndSendInboundCoachReply(j2, userId);
+        return;
+      }
+      throw new Error("v2_contract_consent_reply_ready_persist_failed");
+    }
+
+    const fresh = (await loadJob(job.message_sid)) ?? job;
+    await commitAndSendInboundCoachReply(fresh, userId);
+  };
+
+  if (classification.eventType === "user_yes") {
+    const contractKind = await resolvePendingProposalContractKind({
+      commitmentId: commitment.id,
+      proposalText,
+    });
+    const act = await activateAdaptiveOverlayFromProposal({
+      commitmentId: workingCommitment.id,
+      clerkUserId: userId,
+      proposalText,
+      inboundMessageSid: job.message_sid,
+      contractKind,
+      expectedProposalExpiresAt: workingCommitment.adaptive_proposal_expires_at,
+      expectedUpdatedAt: workingCommitment.updated_at,
+    });
+    if (act.result === "already_applied") {
+      await persistReplyAndSend(
+        "Already recorded from a prior reply in this thread. Daily checks continue."
+      );
+      return true;
+    }
+    if (act.result === "state_conflict" || act.result === "not_found") {
+      await persistReplyAndSend(
+        "No active pending proposal to update from this reply. Daily checks continue."
+      );
+      return true;
+    }
+    if (!act.ok) {
+      throw new Error(`contract_overlay_activate_failed:${act.error}`);
+    }
+    await recomputeV2CoachingMemory(workingCommitment.id, {
+      reasonCode: "inbound_contract_overlay_accepted",
+    });
+    const tmpl = buildV2ContractOverlayYesAckSms({
+      messageSid: job.message_sid,
+      adoptedAskText: proposalText,
+      contractKind,
+    });
+    const aiTry = await tryGenerateV2ContractConsentAckMessage({
+      kind: "overlay_activated_ack",
+      bindingText: proposalText,
+      overlayContractKind: contractKind,
+      originalBehaviorStatement: workingCommitment.behavior_statement,
+      commitmentTitle: workingCommitment.title,
+      preferredName: consentPreferredName,
+    });
+    const replyBody = aiTry.ok ? aiTry.message : tmpl.body;
+    await persistReplyAndSend(replyBody);
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    return true;
+  }
+
+  if (classification.eventType === "user_no") {
+    const contractKind = await resolvePendingProposalContractKind({
+      commitmentId: commitment.id,
+      proposalText,
+    });
+    const dec = await declineAdaptiveProposal({
+      commitmentId: workingCommitment.id,
+      clerkUserId: userId,
+      proposalText,
+      inboundMessageSid: job.message_sid,
+      contractKind,
+      expectedProposalExpiresAt: workingCommitment.adaptive_proposal_expires_at,
+      expectedUpdatedAt: workingCommitment.updated_at,
+    });
+    if (dec.result === "already_applied") {
+      await persistReplyAndSend(
+        "Already recorded from a prior reply in this thread. Daily checks continue."
+      );
+      return true;
+    }
+    if (dec.result === "state_conflict" || dec.result === "not_found") {
+      await persistReplyAndSend(
+        "No active pending proposal to update from this reply. Daily checks continue."
+      );
+      return true;
+    }
+    if (!dec.ok) {
+      throw new Error(`contract_overlay_decline_failed:${dec.error}`);
+    }
+    await recomputeV2CoachingMemory(workingCommitment.id, {
+      reasonCode: "inbound_contract_overlay_declined",
+    });
+    const tmpl = buildV2ContractOverlayNoAckSms({
+      messageSid: job.message_sid,
+      originalBehaviorStatement: workingCommitment.behavior_statement,
+    });
+    const aiTry = await tryGenerateV2ContractConsentAckMessage({
+      kind: "overlay_declined_ack",
+      bindingText: null,
+      overlayContractKind: contractKind,
+      originalBehaviorStatement: workingCommitment.behavior_statement,
+      commitmentTitle: workingCommitment.title,
+      preferredName: consentPreferredName,
+    });
+    const replyBody = aiTry.ok ? aiTry.message : tmpl.body;
+    await persistReplyAndSend(replyBody);
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    return true;
+  }
+
+  return false;
+}
+
+async function persistV2JobReplyReadyAndSend(
+  job: JobRow,
+  userId: string,
+  replyBody: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { data: persisted } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      reply_body: replyBody,
+      status: "reply_ready",
+      next_retry_at: now,
+      updated_at: now,
+      last_error: null,
+    })
+    .eq("message_sid", job.message_sid)
+    .eq("status", "processing")
+    .select()
+    .maybeSingle();
+
+  if (!persisted) {
+    const j2 = await loadJob(job.message_sid);
+    if (j2?.reply_body?.trim()) {
+      await commitAndSendInboundCoachReply(j2, userId);
+      return;
+    }
+    throw new Error("v2_refresh_reply_ready_persist_failed");
+  }
+
+  const fresh = (await loadJob(job.message_sid)) ?? job;
+  await commitAndSendInboundCoachReply(fresh, userId);
+}
+
+/**
+ * Strict refresh-session SMS flow (no AI interpretation of tokens).
+ * Returns true when this inbound was fully handled as refresh traffic.
+ */
+async function processV2CoachingRefreshInbound(
+  job: JobRow,
+  userId: string,
+  commitment: ActiveV2CommitmentRow,
+  timezone: string
+): Promise<boolean> {
+  const session = parseRefreshSession(commitment.refresh_session);
+  if (!session) return false;
+  let expectedCommitmentUpdatedAt = commitment.updated_at;
+
+  const token = parseRefreshInboundToken((job.raw_body || "").trim());
+
+  if (session.step === "identity") {
+    if (token === "STILL") {
+      await bumpIdentityRefreshCycleAfterRefreshStillReply({ clerkUserId: userId });
+      const still = await applyRefreshIdentityStepResolutionMutation({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        resolution: "still",
+        expectedSessionId: session.session_id,
+        expectedUpdatedAt: commitment.updated_at,
+      });
+      if (!still.ok) {
+        if (still.result === "already_applied") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "Already recorded from a prior reply in this thread. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        if (still.result === "state_conflict" || still.result === "not_found") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "No active identity refresh step to update from this reply. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        throw new Error(`refresh_identity_still_failed:${still.error}`);
+      }
+      const advanced = advanceSessionToCommitment(session, new Date().toISOString());
+      expectedCommitmentUpdatedAt = typeof still.updatedAt === "string" ? still.updatedAt : null;
+      const effectiveAsk = getEffectiveCoachingAsk(commitment, Date.now());
+      const { body: stepB } = buildRefreshStepCommitmentSms({ effectiveAsk });
+      await persistV2JobReplyReadyAndSend(job, userId, stepB);
+      const delivered: V2RefreshSessionState = {
+        ...advanced,
+        commitment_prompt_delivered: true,
+      };
+      const after = (await loadJob(job.message_sid)) ?? job;
+      const outSid =
+        typeof after.outbound_message_sid === "string" && after.outbound_message_sid.length > 0
+          ? after.outbound_message_sid
+          : null;
+      if (outSid) {
+        const booked = await applyRefreshPromptedPostSendBookkeepingMutation({
+          commitmentId: commitment.id,
+          clerkUserId: userId,
+          messageSid: outSid,
+          promptStep: "commitment",
+          promptKind: "commitment_daily",
+          bodyPreview: stepB,
+          nextRefreshSession: delivered,
+          expectedSessionId: delivered.session_id,
+          expectedUpdatedAt: expectedCommitmentUpdatedAt,
+        });
+        if (!booked.ok) {
+          throw new Error(`refresh_still_step_b_bookkeeping_failed:${booked.error}`);
+        }
+      }
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_still",
+      });
+      return true;
+    }
+
+    if (token === "CHANGE") {
+      const change = await applyRefreshIdentityStepResolutionMutation({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        resolution: "change",
+        expectedSessionId: session.session_id,
+        expectedUpdatedAt: commitment.updated_at,
+      });
+      if (!change.ok) {
+        if (change.result === "already_applied") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "Already recorded from a prior reply in this thread. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        if (change.result === "state_conflict" || change.result === "not_found") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "No active identity refresh step to update from this reply. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        throw new Error(`refresh_identity_change_failed:${change.error}`);
+      }
+      const { body } = buildGuidedResolutionChangeHandoffSms();
+      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_change",
+      });
+      return true;
+    }
+
+    if (session.clarifications_remaining > 0) {
+      const clarify = await applyRefreshIdentityStepResolutionMutation({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        resolution: "clarify_identity",
+        expectedSessionId: session.session_id,
+        expectedUpdatedAt: commitment.updated_at,
+      });
+      if (!clarify.ok) {
+        if (clarify.result === "already_applied") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "Already recorded from a prior reply in this thread. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        if (clarify.result === "state_conflict" || clarify.result === "not_found") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "No active identity refresh step to update from this reply. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        throw new Error(`refresh_identity_clarify_failed:${clarify.error}`);
+      }
+      const { body } = buildRefreshClarifyIdentitySms();
+      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_identity_clarify",
+      });
+      return true;
+    }
+
+    const abortIdentity = await applyRefreshIdentityStepResolutionMutation({
+      commitmentId: commitment.id,
+      clerkUserId: userId,
+      inboundMessageSid: job.message_sid,
+      resolution: "aborted_unclear",
+      expectedSessionId: session.session_id,
+      expectedUpdatedAt: commitment.updated_at,
+    });
+    if (!abortIdentity.ok) {
+      if (abortIdentity.result === "already_applied") {
+        await persistV2JobReplyReadyAndSend(
+          job,
+          userId,
+          "Already recorded from a prior reply in this thread. Normal checks continue."
+        );
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        return true;
+      }
+      if (abortIdentity.result === "state_conflict" || abortIdentity.result === "not_found") {
+        await persistV2JobReplyReadyAndSend(
+          job,
+          userId,
+          "No active identity refresh step to update from this reply. Normal checks continue."
+        );
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        return true;
+      }
+      throw new Error(`refresh_identity_aborted_unclear_failed:${abortIdentity.error}`);
+    }
+    await persistV2JobReplyReadyAndSend(
+      job,
+      userId,
+      "Closing that alignment check for now—no changes saved from this thread. Normal checks continue."
+    );
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    await recomputeV2CoachingMemory(commitment.id, {
+      reasonCode: "inbound_refresh_identity_aborted_unclear",
+    });
+    return true;
+  }
+
+  if (session.step === "commitment") {
+    if (token === "KEEP") {
+      const keep = await applyRefreshCommitmentStepResolutionMutation({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        resolution: "keep",
+        expectedSessionId: session.session_id,
+        expectedUpdatedAt: commitment.updated_at,
+      });
+      if (!keep.ok) {
+        if (keep.result === "already_applied") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "Already recorded from a prior reply in this thread. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        if (keep.result === "state_conflict" || keep.result === "not_found") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "No active commitment refresh step to update from this reply. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        throw new Error(`refresh_commitment_keep_failed:${keep.error}`);
+      }
+      await touchCommitmentRefreshPromptedTimestamp(commitment.id);
+      const { body } = buildRefreshKeepAckSms();
+      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_keep",
+      });
+      return true;
+    }
+
+    if (token === "TIGHTEN") {
+      const tighten = await applyRefreshCommitmentStepResolutionMutation({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        resolution: "tighten",
+        expectedSessionId: session.session_id,
+        expectedUpdatedAt: commitment.updated_at,
+      });
+      if (!tighten.ok) {
+        if (tighten.result === "already_applied") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "Already recorded from a prior reply in this thread. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        if (tighten.result === "state_conflict" || tighten.result === "not_found") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "No active commitment refresh step to update from this reply. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        throw new Error(`refresh_commitment_tighten_failed:${tighten.error}`);
+      }
+      const { body } = buildGuidedTightenHandoffSms();
+      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_tighten",
+      });
+      return true;
+    }
+
+    if (token === "NEW") {
+      const replace = await applyRefreshCommitmentStepResolutionMutation({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        resolution: "new",
+        expectedSessionId: session.session_id,
+        expectedUpdatedAt: commitment.updated_at,
+      });
+      if (!replace.ok) {
+        if (replace.result === "already_applied") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "Already recorded from a prior reply in this thread. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        if (replace.result === "state_conflict" || replace.result === "not_found") {
+          await persistV2JobReplyReadyAndSend(
+            job,
+            userId,
+            "No active commitment refresh step to update from this reply. Normal checks continue."
+          );
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return true;
+        }
+        throw new Error(`refresh_commitment_new_failed:${replace.error}`);
+      }
+      const { body } = buildGuidedResolutionNewHandoffSms();
+      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_new",
+      });
+      return true;
+    }
+
+    if (session.clarifications_remaining > 0) {
+      const nextSess = {
+        ...session,
+        clarifications_remaining: session.clarifications_remaining - 1,
+      };
+      expectedCommitmentUpdatedAt = await persistRefreshSession(commitment.id, nextSess, {
+        expectedUpdatedAt: expectedCommitmentUpdatedAt,
+      });
+      const { body } = buildRefreshClarifyCommitmentSms();
+      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_commitment_clarify",
+      });
+      return true;
+    }
+
+    const aborted = await applyRefreshCommitmentStepResolutionMutation({
+      commitmentId: commitment.id,
+      clerkUserId: userId,
+      inboundMessageSid: job.message_sid,
+      resolution: "aborted_unclear",
+      expectedSessionId: session.session_id,
+      expectedUpdatedAt: commitment.updated_at,
+    });
+    if (!aborted.ok) {
+      if (aborted.result === "already_applied") {
+        await persistV2JobReplyReadyAndSend(
+          job,
+          userId,
+          "Already recorded from a prior reply in this thread. Normal checks continue."
+        );
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        return true;
+      }
+      if (aborted.result === "state_conflict" || aborted.result === "not_found") {
+        await persistV2JobReplyReadyAndSend(
+          job,
+          userId,
+          "No active commitment refresh step to update from this reply. Normal checks continue."
+        );
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        return true;
+      }
+      throw new Error(`refresh_commitment_aborted_unclear_failed:${aborted.error}`);
+    }
+    await persistV2JobReplyReadyAndSend(
+      job,
+      userId,
+      "Didn’t catch a valid reply (KEEP / TIGHTEN / NEW). Normal checks continue—update the commitment in the app when you’re ready."
+    );
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    await recomputeV2CoachingMemory(commitment.id, {
+      reasonCode: "inbound_refresh_commitment_aborted_unclear",
+    });
+    return true;
+  }
+
+  return false;
+}
+
+async function handleV2SmsInboundCoachJob(
+  job: JobRow,
+  userId: string,
+  commitment: ActiveV2CommitmentRow,
+  timezone: string
+): Promise<void> {
+  let c = commitment;
+
+  try {
+    const reconcile = await reconcileRefreshPostSendBookkeepingForCommitment({
+      commitmentId: c.id,
+      clerkUserId: userId,
+    });
+    if (reconcile.failures > 0) {
+      console.warn("[sms-inbound-coach] refresh reconcile unresolved", {
+        clerk_user_id: userId,
+        commitment_id: c.id,
+        attempted: reconcile.attempted,
+        recovered: reconcile.recovered,
+        failures: reconcile.failures,
+        state_conflicts: reconcile.stateConflicts,
+        rpc_failures: reconcile.rpcFailures,
+        repeated_likely: reconcile.repeatedLikely,
+        snapshot_candidates_found: reconcile.snapshotCandidatesFound,
+        snapshot_replay_attempted: reconcile.snapshotReplayAttempted,
+        snapshot_replay_applied: reconcile.snapshotReplayApplied,
+        heuristic_fallback_attempted: reconcile.heuristicFallbackAttempted,
+        heuristic_fallback_applied: reconcile.heuristicFallbackApplied,
+        unresolved_after_both: reconcile.unresolvedAfterBoth,
+      });
+    }
+    const refreshedAfterReconcile = await getActiveCommitment(userId);
+    if (refreshedAfterReconcile) {
+      c = refreshedAfterReconcile;
+    }
+  } catch (e) {
+    console.error("[sms-inbound-coach] refresh post-send reconcile failed", {
+      clerk_user_id: userId,
+      commitment_id: c.id,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  if (isBlockerCapturePendingExpired(c)) {
+    await clearBlockerCapturePending(c.id);
+    c = { ...c, blocker_capture_expires_at: null, blocker_capture_after_event: null };
+  }
+
+  if (isBlockerCapturePendingActive(c)) {
+    const original = (job.raw_body || "").trim();
+    if (!original) {
+      await clearBlockerCapturePending(c.id);
+      const cleared: ActiveV2CommitmentRow = {
+        ...c,
+        blocker_capture_expires_at: null,
+        blocker_capture_after_event: null,
+      };
+      await processV2NormalInboundOutcome(job, userId, cleared, classifyV2InboundReply(""), timezone);
+      return;
+    }
+
+    const classification = classifyV2InboundReply(original);
+    if (isStrongV2YesNoOutcome(classification.eventType)) {
+      await clearBlockerCapturePending(c.id);
+      const cleared: ActiveV2CommitmentRow = {
+        ...c,
+        blocker_capture_expires_at: null,
+        blocker_capture_after_event: null,
+      };
+      await processV2NormalInboundOutcome(job, userId, cleared, classification, timezone);
+      return;
+    }
+
+    await processV2BlockerCapture(job, userId, c, original, timezone);
+    return;
+  }
+
+  await clearStaleAdaptiveContractColumns(c.id);
+  const reloadedCommitment = await getActiveCommitment(userId);
+  if (reloadedCommitment) {
+    c = reloadedCommitment;
+  }
+
+  if (await processV2CoachingRefreshInbound(job, userId, c, timezone)) {
+    return;
+  }
+
+  if (await processV2ContractProposalConsent(job, userId, c, timezone)) {
+    return;
+  }
+
+  await processV2NormalInboundOutcome(
+    job,
+    userId,
+    c,
+    classifyV2InboundReply((job.raw_body || "").trim()),
+    timezone
+  );
+}
+
+/** Finalize job: reply_ready → Twilio send → sent (shared by legacy coach path + V2). */
+async function commitAndSendInboundCoachReply(job: JobRow, userId: string): Promise<void> {
+  let replyBody = (job.reply_body || "").trim();
+  if (!replyBody) {
+    throw new Error("missing_reply_body_before_send");
+  }
+
+  if (job.sent_at || job.outbound_message_sid) {
+    if (job.outbound_message_sid && !job.sent_at) {
+      await supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          last_error: null,
+        })
+        .eq("message_sid", job.message_sid);
+    }
+    return;
+  }
+
+  const { data: sendClaim } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      status: "sending",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("message_sid", job.message_sid)
+    .eq("status", "reply_ready")
+    .select()
+    .maybeSingle();
+
+  if (!sendClaim) {
+    let j = (await loadJob(job.message_sid)) ?? job;
+    if (j.status === "sending" && j.outbound_message_sid) {
+      await supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("message_sid", j.message_sid);
+      return;
+    }
+    if (j.sent_at) return;
+    throw new Error("send_claim_lost: could not move reply_ready → sending");
+  }
+
+  if (!isTwilioReady()) {
+    await supabaseServer
+      .from("sms_inbound_coach_jobs")
+      .update({
+        status: "reply_ready",
+        next_retry_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        last_error: "twilio_not_configured_reverted_to_reply_ready",
+      })
+      .eq("message_sid", job.message_sid)
+      .eq("status", "sending");
+    throw new Error("twilio_not_configured");
+  }
+
+  const latestForSend = (await loadJob(job.message_sid)) ?? job;
+  const toPhone = latestForSend.from_phone;
+  const bodyToSend = (latestForSend.reply_body || "").trim() || replyBody;
+
+  console.log("[sms-inbound-coach] sending sms", job.message_sid);
+  const sendResult = await sendSMSChunked({
+    to: toPhone,
+    body: bodyToSend,
+    lastOutbound: {
+      clerkUserId: userId,
+      messageKind: "coach",
+    },
+  });
+
+  const sid =
+    sendResult.firstSid && sendResult.firstSid.length > 0
+      ? sendResult.firstSid
+      : null;
+
+  const { error: sidErr } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      outbound_message_sid: sid,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("message_sid", job.message_sid)
+    .eq("status", "sending");
+
+  if (sidErr) {
+    throw new Error(`outbound_message_sid persist failed: ${sidErr.message}`);
+  }
+
+  const { error: finalErr } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      last_error: null,
+    })
+    .eq("message_sid", job.message_sid)
+    .eq("status", "sending");
+
+  if (finalErr) {
+    throw new Error(`sent_at finalization failed: ${finalErr.message}`);
+  }
+
+  console.log("[sms-inbound-coach] sms sent", job.message_sid, {
+    chunkCount: sendResult.chunkCount,
+    firstSid: sendResult.firstSid,
+  });
+}
+
 async function processJob(claimedJob: JobRow): Promise<void> {
   const fresh = await loadJob(claimedJob.message_sid);
   if (!fresh) {
@@ -457,585 +1504,26 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     return;
   }
 
-  const currentDay = safeDayNumber(md.currentDay);
-  if (!currentDay) {
-    console.log("[sms-inbound-coach] cancelled: no currentDay", job.message_sid);
-    await markJobFinal({
-      messageSid: job.message_sid,
-      status: "cancelled",
-      lastError: "no_current_day",
-      nextRetry: farFutureIso(),
-    });
+  const activeV2Commitment = await getActiveCommitment(userId);
+  if (activeV2Commitment) {
+    const v2Timezone = resolveUserTimezone(md.timezone);
+    await handleV2SmsInboundCoachJob(job, userId, activeV2Commitment, v2Timezone);
     return;
   }
 
-  const timezone = resolveUserTimezone(md.timezone);
-  const todayKey = getDateKeyInTimezone(new Date(), timezone);
-
-  const { data: smsDeliveryState } = await supabaseServer
-    .from("sms_delivery_state")
-    .select(
-      "clerk_user_id, question_position, quote_position, current_content_type, question_attempt_count, daily_nonresponse_cycle_count, sms_bucket"
-    )
-    .eq("clerk_user_id", userId)
-    .maybeSingle();
-
-  const { data: lastOutboundFetched, error: lastOutboundError } =
-    await supabaseServer
-      .from("sms_last_outbound_context")
-      .select("*")
-      .eq("clerk_user_id", userId)
-      .maybeSingle();
-
-  let lastOutboundContext = lastOutboundFetched ?? null;
-
-  if (lastOutboundError) {
-    console.error(
-      "[sms-inbound-coach] sms_last_outbound_context read failed",
-      {
-        clerk_user_id: userId,
-        error: lastOutboundError.message,
-      }
-    );
-  }
-
-  const isDay2Freeform = deliverySnapshotIsDay2Freeform(
-    lastOutboundContext?.delivery_snapshot
-  );
-
-  const { data: existingCompletion } = await supabaseServer
-    .from("daily_completion_events")
-    .select("id")
-    .eq("clerk_user_id", userId)
-    .eq("day_key", todayKey)
-    .maybeSingle();
-
-  const alreadyCompleted = !!existingCompletion;
-
-  let dayForThread = currentDay;
-
-  if (
-    typeof md.activeCoachDay === "number" &&
-    Number.isFinite(md.activeCoachDay) &&
-    md.activeCoachDay > 0 &&
-    typeof md.activeCoachDayKey === "string" &&
-    md.activeCoachDayKey === todayKey
-  ) {
-    dayForThread = Math.floor(md.activeCoachDay);
-  }
-
-  const RECENT_COACH_WINDOW_MINUTES = 60;
-
-  const { data: lastCoachRow } = await supabaseServer
-    .from("coach_conversations")
-    .select("created_at")
-    .eq("clerk_user_id", userId)
-    .eq("day_number", dayForThread)
-    .eq("role", "coach")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const lastCoachAt =
-    lastCoachRow?.created_at != null
-      ? String(lastCoachRow.created_at)
-      : null;
-
-  let recentCoachInteraction = false;
-  if (lastCoachAt) {
-    const lastMs = new Date(lastCoachAt).getTime();
-    if (Number.isFinite(lastMs)) {
-      const ageMs = Date.now() - lastMs;
-      recentCoachInteraction =
-        ageMs >= 0 && ageMs <= RECENT_COACH_WINDOW_MINUTES * 60_000;
-    }
-  }
-
-  console.log({
-    event: "sms_inbound_recent_coach_check",
-    recentCoachInteraction,
-    lastCoachAt,
+  // PR6: Inbound accountability is V2-only (active commitment handled above). No legacy completeDay / coachEngine.
+  console.warn("[sms-inbound-coach][v2-only] inbound_cancelled_no_active_commitment", {
+    clerk_user_id: userId,
+    message_sid: job.message_sid,
+    note: "legacy_inbound_accountability_removed_pr6",
   });
-
-  /** Trim + single-space collapse; does not extract MCQ letters (for short_text / open_text). */
-  const textNormalized = (job.raw_body || "").trim().replace(/\s+/g, " ");
-  const normalizedForMcq = normalizeSmsReply(job.raw_body);
-
-  let interpreted_meaning_for_journal: string | null = null;
-  let smsDeliveryContext: SmsCoachDeliveryContext | undefined;
-
-  let qRow: {
-    prompt_morning: string;
-    prompt_evening: string;
-    response_type: string;
-    option_a: string | null;
-    option_b: string | null;
-    option_c: string | null;
-  } | null = null;
-
-  if (!alreadyCompleted) {
-    const questionPosition =
-      lastOutboundContext?.question_position ??
-      smsDeliveryState?.question_position;
-    if (typeof questionPosition === "number" && Number.isFinite(questionPosition)) {
-      const { data } = await supabaseServer
-        .from("respond_day_questions")
-        .select(
-          "position, prompt_morning, prompt_evening, response_type, option_a, option_b, option_c"
-        )
-        .eq("position", questionPosition)
-        .eq("active", true)
-        .maybeSingle();
-      qRow = data ?? null;
-    }
-  }
-
-  let interpretMode: "question" | "non_question" = "non_question";
-
-  if (alreadyCompleted) {
-    interpretMode = "non_question";
-  } else if (lastOutboundContext?.message_kind === "quote") {
-    interpretMode = "non_question";
-  } else if (isDay2Freeform) {
-    interpretMode = "question";
-  } else if (
-    smsDeliveryState?.current_content_type === "respond" &&
-    isStrongMCQReply(textNormalized, qRow)
-  ) {
-    interpretMode = "question";
-  } else if (recentCoachInteraction) {
-    interpretMode = "non_question";
-  } else {
-    interpretMode =
-      lastOutboundContext?.message_kind === "question"
-        ? "question"
-        : lastOutboundContext?.message_kind
-          ? "non_question"
-          : smsDeliveryState?.current_content_type === "respond"
-            ? "question"
-            : "non_question";
-  }
-
-  console.log({
-    event: "sms_inbound_routing_decision",
-    interpretMode,
-    alreadyCompleted,
-    recentCoachInteraction,
-    lastMessageKind: lastOutboundContext?.message_kind,
-    currentContentType: smsDeliveryState?.current_content_type,
+  await markJobFinal({
+    messageSid: job.message_sid,
+    status: "cancelled",
+    lastError: "v2_only_no_active_commitment",
+    nextRetry: farFutureIso(),
   });
-
-  const isRespondMcq =
-    !isDay2Freeform &&
-    interpretMode === "question" &&
-    qRow?.response_type === "multiple_choice";
-
-  const normUpper = normalizedForMcq.trim().toUpperCase();
-  const looksLikeMcqLetterOnly =
-    normUpper.length === 1 && /^[A-D]$/.test(normUpper);
-  /** Letter A–D counts as MCQ only when the active question is multiple_choice. */
-  const isMcqLetter = isRespondMcq && looksLikeMcqLetterOnly;
-
-  if (isDay2Freeform && interpretMode === "question") {
-    const fb =
-      typeof lastOutboundContext?.full_body === "string"
-        ? lastOutboundContext.full_body.trim()
-        : "";
-    if (fb) {
-      smsDeliveryContext = {
-        question_text: fb,
-        question_type: "open_text",
-        choices: { A: "", B: "", C: "" },
-        normalized_reply: textNormalized,
-        raw_reply: (job.raw_body || "").trim(),
-        interpreted_meaning: null,
-      };
-    }
-  } else if (interpretMode === "question" && qRow) {
-    let evening: boolean;
-    if (lastOutboundContext?.time_of_day === "evening") {
-      evening = true;
-    } else if (lastOutboundContext?.time_of_day === "morning") {
-      evening = false;
-    } else {
-      const pref = smsTimePreferenceFromClerkMetadata(md as Record<string, unknown>);
-      evening = useEveningPromptForPreference(pref);
-    }
-    let questionText = (
-      evening ? qRow.prompt_evening : qRow.prompt_morning
-    ).trim();
-    if (
-      lastOutboundContext?.message_kind === "question" &&
-      typeof lastOutboundContext.full_body === "string" &&
-      lastOutboundContext.full_body.trim().length > 0
-    ) {
-      questionText = lastOutboundContext.full_body.trim();
-    }
-    const choices: SmsCoachDeliveryContext["choices"] = {
-      A: (qRow.option_a ?? "").trim(),
-      B: (qRow.option_b ?? "").trim(),
-      C: (qRow.option_c ?? "").trim(),
-    };
-
-    let interpreted_meaning: string | null = null;
-    if (isRespondMcq) {
-      if (normUpper === "A" && choices.A) interpreted_meaning = choices.A;
-      else if (normUpper === "B" && choices.B) interpreted_meaning = choices.B;
-      else if (normUpper === "C" && choices.C) interpreted_meaning = choices.C;
-    }
-
-    if (isRespondMcq && interpreted_meaning === null) {
-      const hay = textNormalized.toLowerCase();
-      if (hay.length > 0) {
-        const ordered: readonly (keyof typeof choices)[] = ["A", "B", "C"];
-        for (const key of ordered) {
-          const opt = choices[key];
-          if (!opt) continue;
-          if (hay === opt.toLowerCase()) {
-            interpreted_meaning = opt;
-            break;
-          }
-        }
-        if (interpreted_meaning === null) {
-          for (const key of ordered) {
-            const opt = choices[key];
-            if (!opt) continue;
-            const needle = opt.toLowerCase();
-            if (needle.length > 0 && hay.includes(needle)) {
-              interpreted_meaning = opt;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    interpreted_meaning_for_journal = interpreted_meaning;
-
-    smsDeliveryContext = {
-      question_text: questionText,
-      question_type: String(qRow.response_type ?? "multiple_choice"),
-      choices,
-      normalized_reply: isRespondMcq ? normalizedForMcq.trim() : textNormalized,
-      raw_reply: (job.raw_body || "").trim(),
-      interpreted_meaning,
-    };
-  }
-
-  let processedMessage: string;
-  if (isDay2Freeform) {
-    processedMessage = textNormalized;
-  } else if (isMcqLetter) {
-    processedMessage =
-      interpreted_meaning_for_journal ?? normUpper;
-  } else if (looksLikeMcqLetterOnly && interpretMode !== "question") {
-    /* Non-respond days: lone A–D stays literal (matches prior MCQ-letter branch). */
-    processedMessage = normUpper;
-  } else if (
-    interpretMode === "question" &&
-    qRow &&
-    qRow.response_type !== "multiple_choice"
-  ) {
-    processedMessage = textNormalized;
-  } else {
-    processedMessage = translateSmsReply(normalizedForMcq, dayForThread);
-  }
-
-  let didCompleteToday = false;
-
-  if (!alreadyCompleted) {
-    console.log("[sms-inbound-coach] completion start", job.message_sid);
-    const version = await getOrCreateDailyPracticeVersion({
-      userId,
-      dayNumber: dayForThread,
-    });
-
-    const { error: journalUpsertError } = await supabaseServer
-      .from("journal_entries")
-      .upsert(
-        {
-          clerk_user_id: userId,
-          day_number: dayForThread,
-          content: processedMessage,
-          action_item: version.actionItem,
-          reflection_prompt: version.reflectionPrompt,
-          source: "sms",
-          time_of_day: lastOutboundContext?.time_of_day ?? null,
-        },
-        { onConflict: "clerk_user_id,day_number" }
-      );
-
-    if (journalUpsertError) {
-      throw new Error(
-        `journal_upsert_failed: ${journalUpsertError.message || String(journalUpsertError)}`
-      );
-    }
-
-    const { data: journalVerifyRow, error: journalVerifyError } =
-      await supabaseServer
-        .from("journal_entries")
-        .select("content")
-        .eq("clerk_user_id", userId)
-        .eq("day_number", dayForThread)
-        .maybeSingle();
-
-    if (journalVerifyError) {
-      throw new Error(
-        `journal_verify_read_failed: ${journalVerifyError.message || String(journalVerifyError)}`
-      );
-    }
-
-    const verifiedJournal = normalizeJournalTextForCompletion(
-      journalVerifyRow?.content ?? ""
-    );
-    if (!verifiedJournal) {
-      throw new Error("journal_verify_empty_after_upsert");
-    }
-
-    const advanceResult = await advanceSmsDeliveryStateOnInboundReply(userId);
-    if (!advanceResult.ok) {
-      console.error(
-        "[sms-inbound-coach] advanceSmsDeliveryStateOnInboundReply failed",
-        {
-          message_sid: job.message_sid,
-          clerk_user_id: userId,
-          error: advanceResult.error,
-        }
-      );
-    }
-
-    const completionResult = await completeDay({
-      userId,
-      source: "sms",
-    });
-
-    if (completionResult.ok) {
-      didCompleteToday = true;
-
-      const reconcileResult =
-        await reconcileSmsDeliveryStateAfterCompletion(userId);
-      if (!reconcileResult.ok) {
-        console.error(
-          "[sms-inbound-coach] sms_delivery_state reconcile failed after completeDay",
-          {
-            message_sid: job.message_sid,
-            clerk_user_id: userId,
-            error: reconcileResult.error,
-          }
-        );
-      }
-    }
-    console.log("[sms-inbound-coach] completion done", job.message_sid, {
-      ok: completionResult.ok,
-    });
-  }
-
-  job = (await loadJob(job.message_sid)) ?? job;
-  let replyBody = (job.reply_body || "").trim();
-
-  if (!replyBody) {
-    if (job.status === "processing") {
-      await supabaseServer
-        .from("sms_inbound_coach_jobs")
-        .update({
-          status: "generating_reply",
-          updated_at: new Date().toISOString(),
-          last_error: null,
-        })
-        .eq("message_sid", job.message_sid)
-        .eq("status", "processing")
-        .is("reply_body", null);
-    }
-
-    job = (await loadJob(job.message_sid)) ?? job;
-    replyBody = (job.reply_body || "").trim();
-
-    if (!replyBody && job.status !== "generating_reply") {
-      throw new Error(`unexpected_state_before_coach: ${job.status}`);
-    }
-
-    if (!replyBody) {
-      let coachOk = false;
-      let coachText = COACH_SMS_FALLBACK;
-
-      try {
-        let coachMessageKind = lastOutboundContext?.message_kind;
-        if (interpretMode === "question") {
-          coachMessageKind = "question";
-        }
-
-        const coachResult = await coachEngine({
-          userId,
-          dayNumber: dayForThread,
-          userMessage: processedMessage,
-          source: "sms",
-          smsDeliveryContext,
-          coachSmsMessageKind: coachMessageKind,
-          coachSmsTimeOfDay: lastOutboundContext?.time_of_day ?? undefined,
-          skipSmsSelectionContext: isDay2Freeform,
-        });
-
-        if (coachResult.ok) {
-          coachOk = true;
-          coachText = coachResult.coachText;
-        } else {
-          coachText = COACH_SMS_FALLBACK;
-        }
-      } catch (err) {
-        console.error("[sms-inbound-coach] coachEngine threw", job.message_sid, err);
-        coachText = COACH_SMS_FALLBACK;
-        coachOk = false;
-      }
-
-      if (coachOk && didCompleteToday) {
-        replyBody =
-          `${getCompletionConfirmation(dayForThread)}\n\n` +
-          `${coachText}\n\n` +
-          `${getSignatureLine(dayForThread)}`;
-      } else {
-        replyBody = coachText;
-      }
-
-      const now = new Date().toISOString();
-      const { data: persisted, error: persistErr } = await supabaseServer
-        .from("sms_inbound_coach_jobs")
-        .update({
-          reply_body: replyBody,
-          status: "reply_ready",
-          next_retry_at: now,
-          updated_at: now,
-          last_error: null,
-        })
-        .eq("message_sid", job.message_sid)
-        .eq("status", "generating_reply")
-        .select()
-        .maybeSingle();
-
-      if (persistErr) {
-        throw new Error(`reply_ready persist failed: ${persistErr.message}`);
-      }
-      if (!persisted) {
-        job = (await loadJob(job.message_sid)) ?? job;
-        replyBody = (job.reply_body || "").trim();
-        if (!replyBody) {
-          throw new Error("reply_ready persist race lost and reply_body still empty");
-        }
-      }
-
-      console.log("[sms-inbound-coach] coach reply stored, reply_ready", job.message_sid);
-    }
-  }
-
-  job = (await loadJob(job.message_sid)) ?? job;
-  replyBody = (job.reply_body || "").trim();
-  if (!replyBody) {
-    throw new Error("missing_reply_body_before_send");
-  }
-
-  if (job.sent_at || job.outbound_message_sid) {
-    if (job.outbound_message_sid && !job.sent_at) {
-      await supabaseServer
-        .from("sms_inbound_coach_jobs")
-        .update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          last_error: null,
-        })
-        .eq("message_sid", job.message_sid);
-    }
-    return;
-  }
-
-  const { data: sendClaim } = await supabaseServer
-    .from("sms_inbound_coach_jobs")
-    .update({
-      status: "sending",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("message_sid", job.message_sid)
-    .eq("status", "reply_ready")
-    .select()
-    .maybeSingle();
-
-  if (!sendClaim) {
-    job = (await loadJob(job.message_sid)) ?? job;
-    if (job.status === "sending" && job.outbound_message_sid) {
-      await supabaseServer
-        .from("sms_inbound_coach_jobs")
-        .update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("message_sid", job.message_sid);
-      return;
-    }
-    if (job.sent_at) return;
-    throw new Error("send_claim_lost: could not move reply_ready → sending");
-  }
-
-  if (!isTwilioReady()) {
-    await supabaseServer
-      .from("sms_inbound_coach_jobs")
-      .update({
-        status: "reply_ready",
-        next_retry_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        last_error: "twilio_not_configured_reverted_to_reply_ready",
-      })
-      .eq("message_sid", job.message_sid)
-      .eq("status", "sending");
-    throw new Error("twilio_not_configured");
-  }
-
-  console.log("[sms-inbound-coach] sending sms", job.message_sid);
-  const sendResult = await sendSMSChunked({
-    to: job.from_phone,
-    body: replyBody,
-    lastOutbound: {
-      clerkUserId: userId,
-      messageKind: "coach",
-    },
-  });
-
-  const sid =
-    sendResult.firstSid && sendResult.firstSid.length > 0
-      ? sendResult.firstSid
-      : null;
-
-  const { error: sidErr } = await supabaseServer
-    .from("sms_inbound_coach_jobs")
-    .update({
-      outbound_message_sid: sid,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("message_sid", job.message_sid)
-    .eq("status", "sending");
-
-  if (sidErr) {
-    throw new Error(`outbound_message_sid persist failed: ${sidErr.message}`);
-  }
-
-  const { error: finalErr } = await supabaseServer
-    .from("sms_inbound_coach_jobs")
-    .update({
-      status: "sent",
-      sent_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      last_error: null,
-    })
-    .eq("message_sid", job.message_sid)
-    .eq("status", "sending");
-
-  if (finalErr) {
-    throw new Error(`sent_at finalization failed: ${finalErr.message}`);
-  }
-
-  console.log("[sms-inbound-coach] sms sent", job.message_sid, {
-    chunkCount: sendResult.chunkCount,
-    firstSid: sendResult.firstSid,
-  });
+  return;
 }
 
 export async function GET(req: Request) {

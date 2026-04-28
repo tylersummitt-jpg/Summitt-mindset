@@ -1,3 +1,8 @@
+> **SUPERSEDED (historical only — April 2026)**  
+> This audit reflects **March 2025** readiness assumptions (progression-heavy SMS, `completeDay`, etc.). The shipped system has since moved to **V2 commitment + spine**, **SMS-first accountability**, and **Victory Room**. Treat everything below as **historical context**, not launch criteria for the current product.
+
+---
+
 # Production Readiness Audit — Summitt Mindset
 ## Retention / SMS / Progression-Awareness Changes
 

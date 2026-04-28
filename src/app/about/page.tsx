@@ -9,7 +9,7 @@ export default function AboutPage() {
     <main className="min-h-screen bg-[var(--bg)]">
       <PageHero
         title="About Summitt Mindset"
-        subtitle="Inspired by the leadership standards of Coach Pat Summitt. Pat Summitt was known for discipline, accountability, and the belief that small daily habits shape who you become."
+        subtitle="Inspired by the leadership standards of Coach Pat Summitt—discipline, accountability, and the belief that what you hold yourself to, consistently, shapes who you become."
         imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
         imageAlt={image?.alt ?? "Coach Pat Summitt"}
         imagePosition="object-[center_20%]"
@@ -60,11 +60,11 @@ export default function AboutPage() {
             alone does not change how we live.
           </p>
           <p>
-            Summitt Mindset was created to turn those leadership principles into
-            a daily practice.
+            Summitt Mindset turns those principles into something you can keep: one clear commitment,
+            honest accountability over SMS, and a calm app layer for depth and proof.
           </p>
           <p>
-            One short practice. One honest reflection. One day at a time.
+            The center is not a day score—it is the promise you make to yourself, held with steadiness.
           </p>
         </div>
       </section>
@@ -90,11 +90,10 @@ export default function AboutPage() {
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-4">
-          Start your daily practice.
+          Start with SMS-first accountability.
         </h2>
         <p className="text-[var(--muted)] mb-8 leading-relaxed">
-          Summitt Mindset helps you apply Coach Pat’s leadership standards one
-          day at a time.
+          One commitment, Pat by text, Victory Room for proof—optional depth in the app when you want it.
         </p>
         <Link
           href="/subscribe"

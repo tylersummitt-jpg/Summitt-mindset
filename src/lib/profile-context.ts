@@ -51,6 +51,8 @@ export async function buildProfileContext(
     return {};
   }
 
+  const identityAnchor =
+    typeof data.identity_anchor_text === "string" ? clean(data.identity_anchor_text) : null;
   const lifeDesires = clean(data.life_desires);
   const ninetyDayVision = clean(data.ninety_day_vision);
   const supportArea = clean(data.support_area);
@@ -81,6 +83,10 @@ export async function buildProfileContext(
    */
 
   const identityParts: string[] = [];
+
+  if (identityAnchor) {
+    identityParts.push(`Their stated identity anchor (user-authored): ${identityAnchor}.`);
+  }
 
   if (lifeDesires) {
     identityParts.push(`Right now they say they want: ${lifeDesires}.`);
@@ -128,23 +134,23 @@ export async function buildProfileContext(
     relationshipParts.push(`They described their children like this: ${childrenSummary}.`);
   }
 
+  if (responsibility) {
+    relationshipParts.push(
+      `Additional context about family, team, or responsibilities: ${responsibility}.`
+    );
+  }
+
   if (relationshipParts.length > 0) {
     context.relationships = relationshipParts.join(" ");
   }
 
   /**
    * ============================
-   * Work & Responsibility
+   * Work (financial + work challenge only; responsibility lives under Relationships)
    * ============================
    */
 
   const workParts: string[] = [];
-
-  if (responsibility) {
-    workParts.push(
-      `They say this responsibility is currently on their shoulders: ${responsibility}.`
-    );
-  }
 
   if (financialGoals) {
     workParts.push(`Their financial goals right now include: ${financialGoals}.`);
@@ -237,6 +243,8 @@ export async function buildProfileContextForCoachNote(
     return {};
   }
 
+  const identityAnchor =
+    typeof data.identity_anchor_text === "string" ? clean(data.identity_anchor_text) : null;
   const lifeDesires = clean(data.life_desires);
   const ninetyDayVision = clean(data.ninety_day_vision);
   const supportArea = clean(data.support_area);
@@ -261,6 +269,7 @@ export async function buildProfileContextForCoachNote(
   const context: ProfileContext = {};
 
   const identityParts: string[] = [];
+  if (identityAnchor) identityParts.push(`Identity anchor: ${identityAnchor}.`);
   if (lifeDesires) identityParts.push(`Wants: ${lifeDesires}.`);
   if (ninetyDayVision) identityParts.push(`90-day vision: ${ninetyDayVision}.`);
   if (supportArea) identityParts.push(`Support area: ${supportArea}.`);
@@ -271,10 +280,14 @@ export async function buildProfileContextForCoachNote(
   if (relationshipStatus) relationshipParts.push(`Relationship: ${relationshipStatus}.`);
   if (partnerName) relationshipParts.push(`Partner: ${partnerName}.`);
   if (childrenSummary) relationshipParts.push(`Children: ${childrenSummary}.`);
+  if (responsibility) {
+    relationshipParts.push(
+      `Additional context about family, team, or responsibilities: ${responsibility}.`
+    );
+  }
   if (relationshipParts.length > 0) context.relationships = relationshipParts.join(" ");
 
   const workParts: string[] = [];
-  if (responsibility) workParts.push(`Carrying: ${responsibility}.`);
   if (financialGoals) workParts.push(`Financial focus: ${financialGoals}.`);
   if (workChallenge) workParts.push(`Hardest at work: ${workChallenge}.`);
   if (workParts.length > 0) context.work = workParts.join(" ");

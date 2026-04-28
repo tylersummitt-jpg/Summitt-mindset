@@ -1,47 +1,36 @@
 import { currentUser, auth } from "@clerk/nextjs/server";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
-import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
+import EvolutionRecommendationCard from "@/components/EvolutionRecommendationCard";
+import { EVOLUTION_V1_SURFACED_ACTIONS } from "@/lib/v2-commitment-evolution-engine-v1";
+import type { EvolutionV1RecommendedAction } from "@/lib/v2-commitment-evolution-engine-v1";
+import {
+  syncEvolutionRecommendationForCommitment,
+  type EvolutionRecommendationRow,
+} from "@/lib/v2-commitment-evolution-recommendation";
+import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
+import { getPendingResolutionOrNull } from "@/lib/v2-guided-resolution";
+import { getActiveCommitment } from "@/lib/v2-commitment";
+import { isUserFullyOnV2AccountabilityPath } from "@/lib/v2-cutover-gates";
 
-const MILESTONES = [35, 40, 50, 75, 100, 150, 200];
-
-type PathDay = {
-  day: number;
-  title: string;
-  description: string;
-};
-
-function generate30DayPath(): PathDay[] {
-  const base = [
-    "Set your intention",
-    "Build awareness",
-    "Practice consistency",
-    "Strengthen discipline",
-    "Reflect and adjust",
-  ];
-
-  return Array.from({ length: 30 }).map((_, i) => {
-    const day = i + 1;
-    const theme = base[i % base.length];
-
-    return {
-      day,
-      title: theme,
-      description: "A focused action for today's practice.",
-    };
-  });
-}
-
-function milestoneLabel(n: number) {
-  if (n === 35) return "You’re building real momentum.";
-  if (n === 40) return "You’re doing uncommon work.";
-  if (n === 50) return "This is a standard now.";
-  if (n === 75) return "Most people don’t reach this.";
-  if (n === 100) return "That’s identity-level consistency.";
-  if (n === 150) return "You’ve changed how you live.";
-  if (n === 200) return "This is who you are now.";
-  return "That kind of consistency compounds.";
+function evolutionV1SurfaceCopy(action: EvolutionV1RecommendedAction): {
+  headline: string;
+  body: string;
+} {
+  switch (action) {
+    case "reframe_commitment":
+      return {
+        headline: "Coach read: the bar may feel heavy",
+        body: "A recent reply looked like the commitment is weighing on you. You do not need to change anything here in the app—this is guidance only. Use your SMS thread with Pat for the next check-in, or finish any guided follow-up if you already opened one.",
+      };
+    case "refresh_commitment_only":
+      return {
+        headline: "Coach read: refresh in progress",
+        body: "You have an active coaching refresh in progress. Continue in your SMS thread with Pat (YES / SAME / CHANGE / STILL and the follow-up prompts there). This dashboard does not replace that flow.",
+      };
+    default:
+      return { headline: "", body: "" };
+  }
 }
 
 export default async function DashboardPage() {
@@ -50,209 +39,198 @@ export default async function DashboardPage() {
 
   if (!user || !userId) return null;
 
-  const metadata = user.publicMetadata as any;
+  const metadata = user.publicMetadata as Record<string, unknown>;
 
-  const onboardingCompleted = metadata?.onboardingCompleted === true;
-
-  const currentDay =
-    typeof metadata?.currentDay === "number" ? metadata.currentDay : 1;
-
-  const totalDaysCompleted =
-    typeof metadata?.totalDaysCompleted === "number"
-      ? metadata.totalDaysCompleted
-      : 0;
-
-  const inTrainingCamp = currentDay <= 30;
-
-  // ======================================================
-  // TIMEZONE-AWARE "COMPLETED TODAY" LOCK
-  // ======================================================
-  const timezone = resolveUserTimezone(metadata?.timezone);
-  const now = new Date();
-  const todayKey = getDateKeyInTimezone(now, timezone);
-
-  let completedToday = false;
-
-  if (typeof metadata?.lastCompletedAt === "string") {
-    const last = new Date(metadata.lastCompletedAt);
-    const lastKey = getDateKeyInTimezone(last, timezone);
-
-    completedToday = lastKey === todayKey;
-  }
-
-  /**
-   * If completed today:
-   * - currentDay already advanced
-   * - lock tomorrow until after midnight
-   */
-  const maxAccessibleDay = completedToday
-    ? Math.max(currentDay - 1, 1)
-    : currentDay;
-
-  // ===========================
-  // TRAINING CAMP (Days 1–30)
-  // ===========================
-  if (inTrainingCamp) {
-    if (!onboardingCompleted) {
-      return (
-        <main className="max-w-xl mx-auto py-16 px-6 text-center">
-          <h1 className="text-3xl font-semibold mb-3">
-            Finish Training Camp Setup
-          </h1>
-          <p className="text-gray-600 mb-8">
-            Quick setup to personalize your 30-day path.
-          </p>
-
-          <Link
-            href="/onboarding"
-            className="inline-block bg-black text-white rounded-md px-6 py-3 font-semibold hover:bg-gray-900"
-          >
-            Continue Onboarding →
-          </Link>
-        </main>
-      );
-    }
-
-    const path = generate30DayPath();
-
-    // 🔑 Fetch most recent weekly Coach Pat note (single paragraph only)
-    const { data: latestWeekly } = await supabaseServer
-      .from("weekly_summaries")
-      .select("weekly_summary")
-      .eq("clerk_user_id", userId) // ✅ CANONICAL
-      .order("week_end_day", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
+  const fullyOnV2 = await isUserFullyOnV2AccountabilityPath(userId);
+  if (!fullyOnV2) {
     return (
-      <main className="max-w-4xl mx-auto py-10 px-6">
-        <h1 className="text-3xl font-bold mb-2">Training Camp</h1>
-
-        <p className="text-gray-600 mb-8">
-          Show up. Practice with intention. Reflect honestly.
+      <main className="mx-auto max-w-lg px-6 py-16 text-center sm:py-24">
+        <h1 className="text-2xl font-semibold text-gray-900">Set your commitment</h1>
+        <p className="mt-4 text-sm leading-relaxed text-gray-600">
+          To start your updated accountability system, Pat needs one clear commitment to coach you around.
         </p>
-
-        {latestWeekly?.weekly_summary && (
-          <section className="border rounded-lg p-6 mb-8 bg-white shadow-sm">
-            <p className="text-sm font-semibold text-gray-700 mb-3">
-              A Note from Coach Pat
-            </p>
-            <p className="text-gray-900 leading-relaxed">
-              {latestWeekly.weekly_summary}
-            </p>
-          </section>
-        )}
-
-        <section className="border rounded-lg p-6 mb-8 bg-white shadow-sm text-center">
-          <p className="text-3xl font-bold">{totalDaysCompleted}</p>
-          <p className="text-gray-600 text-sm">Total Days Practiced</p>
-        </section>
-
-        <section className="border rounded-lg p-5 mb-8 bg-white shadow-sm">
-          <h2 className="text-2xl font-semibold mb-4">Your 30-Day Path</h2>
-
-          <div className="space-y-3">
-            {path.map((d) => {
-              const isPast = d.day < maxAccessibleDay;
-              const isCurrent = d.day === maxAccessibleDay;
-
-              // Tomorrow is special: show "Tomorrow"
-              const isTomorrow = d.day === maxAccessibleDay + 1;
-
-              if (isPast) {
-                return (
-                  <div
-                    key={d.day}
-                    className="border rounded-md p-4 bg-gray-100 text-gray-500"
-                  >
-                    {d.title} ✓
-                  </div>
-                );
-              }
-
-              if (isCurrent) {
-                return (
-                  <Link
-                    key={d.day}
-                    href={`/dashboard/day/${d.day}`}
-                    className="block border rounded-md p-4 bg-blue-50 hover:bg-blue-100"
-                  >
-                    {d.title}
-                  </Link>
-                );
-              }
-
-              if (isTomorrow) {
-                return (
-                  <div
-                    key={d.day}
-                    className="border rounded-md p-4 bg-gray-50 text-gray-500"
-                  >
-                    {d.title}{" "}
-                    <span className="ml-2 text-xs uppercase tracking-wide text-gray-400">
-                      Tomorrow
-                    </span>
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={d.day}
-                  className="border rounded-md p-4 bg-gray-50 text-gray-400"
-                >
-                  {d.title} 🔒
-                </div>
-              );
-            })}
-          </div>
-
-          <Link
-            href={`/dashboard/day/${maxAccessibleDay}`}
-            className="inline-block mt-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold"
-          >
-            Continue Today’s Practice →
-          </Link>
-        </section>
+        <Link
+          href="/dashboard/commitment-setup"
+          className="mt-8 inline-flex rounded-md bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
+        >
+          Set my commitment
+        </Link>
       </main>
     );
   }
 
-  // ===========================
-  // IN-SEASON PRACTICE (Day 31+)
-  // ===========================
-  const lastMilestone = MILESTONES.filter((m) => m <= totalDaysCompleted).at(-1);
-  const justHitMilestone =
-    lastMilestone !== undefined && lastMilestone === totalDaysCompleted;
+  const commitment = await getActiveCommitment(userId);
+  const nowMs = Date.now();
+  const effectiveAsk = commitment ? getEffectiveCoachingAsk(commitment, nowMs) : null;
+  const pending = commitment ? getPendingResolutionOrNull(commitment) : null;
+
+  let evolutionRec: EvolutionRecommendationRow | null = null;
+  if (commitment) {
+    try {
+      evolutionRec = await syncEvolutionRecommendationForCommitment({
+        clerkUserId: userId,
+        commitment,
+      });
+    } catch (e) {
+      console.error("[dashboard] evolution sync failed", e);
+    }
+  }
+
+  const showEvolutionCard =
+    Boolean(commitment) &&
+    !pending &&
+    evolutionRec &&
+    evolutionRec.status === "pending" &&
+    EVOLUTION_V1_SURFACED_ACTIONS.has(evolutionRec.recommended_action);
+
+  const evolutionCopy =
+    showEvolutionCard && evolutionRec
+      ? evolutionV1SurfaceCopy(evolutionRec.recommended_action)
+      : null;
+
+  const smsEnabled = metadata?.smsEnabled === true;
+
+  const { data: latestWeekly } = await supabaseServer
+    .from("weekly_summaries")
+    .select("weekly_summary")
+    .eq("clerk_user_id", userId)
+    .order("week_end_day", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const displayName =
+    user.firstName?.trim() || user.username?.trim() || "there";
 
   return (
-    <main className="max-w-xl mx-auto py-16 px-6 text-center">
-      <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
-        In-Season Practice
+    <main className="mx-auto max-w-2xl px-6 py-10">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Dashboard</p>
+      <h1 className="mt-1 text-2xl font-semibold text-gray-900">Today</h1>
+      <p className="mt-3 text-sm leading-relaxed text-gray-600">
+        Your accountability runs over <strong className="font-medium text-gray-800">SMS</strong>: Coach
+        Pat checks in on your <strong className="font-medium text-gray-800">commitment</strong>. This app
+        is for depth—identity, proof, and finishing anything you started after a check-in—not for chasing
+        the next numbered day.
       </p>
 
-      <h1 className="text-3xl font-semibold mb-3">Today’s Practice</h1>
+      {metadata?.smsEnabled !== true ? (
+        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-left shadow-sm">
+          <h2 className="text-sm font-semibold text-amber-950">Turn on accountability texts</h2>
+          <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+            Pat&apos;s daily check-ins run over SMS. You can use the app without texts, but you&apos;ll miss
+            the core accountability loop.
+          </p>
+          <Link
+            href="/user"
+            className="mt-3 inline-flex text-sm font-medium text-amber-950 underline underline-offset-2 hover:text-amber-900"
+          >
+            Open Account
+          </Link>
+        </section>
+      ) : null}
 
-      <p className="text-gray-600 mb-8">
-        No catching up. No backlog. Just today.
-      </p>
-
-      <Link
-        href={`/dashboard/day/${maxAccessibleDay}`}
-        className="block bg-black text-white rounded-md py-4 font-semibold mb-10 hover:bg-gray-900"
-      >
-        Continue Today’s Practice
-      </Link>
-
-      {justHitMilestone && lastMilestone !== undefined && (
-        <section className="border-l-4 border-green-600 bg-green-50 rounded-lg p-6 mb-8 shadow-sm text-left">
-          <h2 className="text-lg font-semibold mb-2">Milestone Reached</h2>
-          <p className="text-gray-800">
-            You’ve completed <strong>{lastMilestone}</strong> days of practice.{" "}
-            {milestoneLabel(lastMilestone)}
+      {commitment ? (
+        <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Active commitment</h2>
+          <p className="mt-2 text-lg font-semibold text-gray-900">{commitment.title}</p>
+          <p className="mt-3 text-sm leading-relaxed text-gray-700">
+            <span className="font-medium text-gray-800">Long-term bar: </span>
+            {commitment.behavior_statement}
+          </p>
+          {effectiveAsk ? (
+            <p className="mt-4 border-t border-gray-100 pt-4 text-sm leading-relaxed text-gray-800">
+              <span className="font-medium text-gray-900">Current coaching ask: </span>
+              {effectiveAsk}
+            </p>
+          ) : null}
+          {commitment.accountability_phase === "low_pressure_reactivation" ? (
+            <p className="mt-3 text-xs text-gray-600">
+              You&apos;re in a low-pressure reactivation window—SMS stays light until you re-engage.
+            </p>
+          ) : null}
+        </section>
+      ) : (
+        <section className="mt-8 rounded-lg border border-amber-200 bg-amber-50/80 p-5">
+          <h2 className="text-sm font-semibold text-amber-950">No active commitment on file</h2>
+          <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+            Daily accountability SMS needs an active commitment with a clear behavior statement. If you
+            expected checks already, finish saving your commitment in onboarding—or ask for help if you
+            believe this is wrong.
           </p>
         </section>
       )}
+
+      {pending ? (
+        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50/60 p-5">
+          <h2 className="text-sm font-semibold text-amber-950">Finish your guided follow-up</h2>
+          <p className="mt-2 text-sm text-amber-950/90">
+            {pending.kind === "identity_anchor_update"
+              ? "Finish updating your identity line from your recent check-in."
+              : pending.kind === "commitment_replace"
+                ? "Finish updating your accountability focus from your recent check-in."
+                : "Finish setting a smaller bar you can say yes to from your recent check-in."}
+          </p>
+          <Link
+            href="/dashboard/guided-resolution"
+            className="mt-4 inline-flex rounded-md bg-amber-900 px-4 py-2 text-sm font-medium text-amber-50 hover:bg-amber-950"
+          >
+            Open guided resolution
+          </Link>
+        </section>
+      ) : null}
+
+      {showEvolutionCard && evolutionRec && evolutionCopy?.headline ? (
+        <EvolutionRecommendationCard
+          recommendationId={evolutionRec.id}
+          headline={evolutionCopy.headline}
+          body={evolutionCopy.body}
+        />
+      ) : null}
+
+      <section className="mt-8 rounded-lg border border-gray-200 bg-gray-50/80 p-5">
+        <h2 className="text-sm font-semibold text-gray-900">Victory Room</h2>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+          Proof of how you&apos;ve held the line—cornerstones, prior chapters, and what you can share.
+        </p>
+        <Link
+          href="/dashboard/victory-room"
+          className="mt-4 inline-flex rounded-md bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
+        >
+          Open Victory Room
+        </Link>
+      </section>
+
+      <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900">SMS accountability</h2>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+          Reply honestly when Pat texts—YES, NO, or PARTIAL is enough. You&apos;re not scoring days here;
+          you&apos;re keeping a promise to yourself.
+        </p>
+        {smsEnabled ? (
+          <p className="mt-2 text-xs text-gray-500">SMS check-ins are on for your account.</p>
+        ) : (
+          <p className="mt-2 text-xs text-amber-900/90">
+            SMS check-ins look off in your profile. Turn them on when you&apos;re ready for daily
+            accountability texts.
+          </p>
+        )}
+      </section>
+
+      {latestWeekly?.weekly_summary ? (
+        <section className="mt-8 rounded-lg border border-gray-100 bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">A note from Coach Pat</p>
+          <p className="mt-3 text-sm leading-relaxed text-gray-800">{latestWeekly.weekly_summary}</p>
+        </section>
+      ) : null}
+
+      <section className="mt-10 border-t border-gray-200 pt-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Optional depth</h2>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+          Films, prompts, and reflection are secondary to SMS + commitment. The old numbered-day path has
+          been retired from navigation; stay on SMS for accountability and use Victory Room for proof.
+        </p>
+      </section>
+
+      <p className="mt-10 text-center text-xs text-gray-400">Signed in as {displayName}.</p>
     </main>
   );
 }

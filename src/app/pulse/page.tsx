@@ -1,3 +1,7 @@
+/**
+ * Legacy pulse surface (token link from day 4–5 SMS for non–fully-on-V2 cohorts).
+ * Not the V2 SMS accountability center; keep scope narrow when changing copy or behavior.
+ */
 import PulseClient from "./pulse-client";
 
 export default async function PulsePage({

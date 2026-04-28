@@ -1,21 +1,16 @@
 import { NextResponse } from "next/server";
+import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getUserStalenessLevel } from "@/lib/get-user-staleness";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
-
-function validateCronSecret(req: Request): boolean {
-  if (!CRON_SECRET) return false;
-  const header = req.headers.get("x-cron-secret");
-  return header === CRON_SECRET;
-}
 
 function isInFollowupWindow(local: Date): boolean {
   const hour = local.getHours();
@@ -30,7 +25,7 @@ function getFollowupMessage(level: string): string {
 }
 
 export async function GET(req: Request) {
-  if (!validateCronSecret(req)) {
+  if (!validateCronSecretRequest(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
@@ -46,6 +41,8 @@ export async function GET(req: Request) {
     skippedCompleted: 0,
     skippedNotInWindow: 0,
     skippedAlreadySent: 0,
+    /** V2 cutover PR1: legacy follow-up nudge not sent to V2 accountability users. */
+    skippedFullyOnV2Cutover: 0,
     skippedMissingTwilio: 0,
     dryRun: 0,
     failed: 0,
@@ -65,6 +62,12 @@ export async function GET(req: Request) {
 
   for (const audienceUser of audienceUsers) {
     stats.scanned += 1;
+
+    const v2Cutover = await resolveUserFullyOnV2ForCutoverMessaging(audienceUser.clerk_user_id);
+    if (v2Cutover.fullyOnV2) {
+      stats.skippedFullyOnV2Cutover += 1;
+      continue;
+    }
 
     const user = await getClerkUser(audienceUser.clerk_user_id);
     const md = user.public_metadata || {};

@@ -122,7 +122,7 @@ function SubscriptionGateInner({
               }`;
               router.push(target);
             }}
-            className="rounded-md bg-black text-white px-6 py-3 font-semibold hover:bg-gray-900 transition"
+            className="rounded-md bg-[var(--brand)] px-6 py-3 font-semibold text-white transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
           >
             Start Free Trial →
           </button>

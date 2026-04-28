@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 
 export async function POST(req: Request) {
@@ -7,6 +8,11 @@ export async function POST(req: Request) {
 
     if (!userId) {
       return new Response("Unauthorized", { status: 401 });
+    }
+
+    const existing = await getClerkPublicMetadata(userId);
+    if (existing?.onboardingCompleted === true) {
+      return Response.json({ success: true });
     }
 
     const body = await req.json();

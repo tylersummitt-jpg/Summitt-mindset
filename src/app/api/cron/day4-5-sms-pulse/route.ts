@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { createPulseToken } from "@/lib/pulse-token";
+import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +12,9 @@ export const dynamic = "force-dynamic";
  * ======================================================
  * Day 4–5 SMS Pulse Cron (CANONICAL)
  * ======================================================
+ *
+ * Legacy support corridor: progression-era pulse for subscribers not on the full V2
+ * accountability path. Fully-on-V2 users are skipped upstream.
  *
  * Once total.
  * Trigger: user is on Day 4 or Day 5 (currentDay in Clerk).
@@ -21,7 +26,6 @@ export const dynamic = "force-dynamic";
  * - This enables end-to-end testing now
  */
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const APP_BASE_URL = process.env.APP_BASE_URL;
 
 function buildPulseLink(clerk_user_id: string, day_number: number) {
@@ -36,8 +40,7 @@ function buildPulseLink(clerk_user_id: string, day_number: number) {
 }
 
 export async function GET(req: Request) {
-  const secret = req.headers.get("x-cron-secret");
-  if (!CRON_SECRET || secret !== CRON_SECRET) {
+  if (!validateCronSecretRequest(req)) {
     return NextResponse.json(
       { ok: false, reason: "unauthorized" },
       { status: 401 }
@@ -49,6 +52,8 @@ export async function GET(req: Request) {
 
   let candidates = 0;
   let logged = 0;
+  /** V2 cutover PR1: progression-era pulse not logged for V2 accountability users. */
+  let skippedFullyOnV2Cutover = 0;
   const errors: Array<{ clerk_user_id: string; error: string }> = [];
 
   while (true) {
@@ -65,6 +70,13 @@ export async function GET(req: Request) {
 
         // SMS enabled
         if (md.smsEnabled !== true) continue;
+
+        // V2 cutover PR1: do not run Day 4–5 pulse for users on V2 SMS accountability.
+        const v2Cutover = await resolveUserFullyOnV2ForCutoverMessaging(clerk_user_id);
+        if (v2Cutover.fullyOnV2) {
+          skippedFullyOnV2Cutover += 1;
+          continue;
+        }
 
         // Only Day 4 or Day 5
         const currentDay =
@@ -126,6 +138,7 @@ export async function GET(req: Request) {
     scannedOffset: offset,
     candidates,
     logged,
+    skippedFullyOnV2Cutover,
     note:
       "Twilio not ready: logged day4_5_sms_pulse_skipped once per eligible user with a secure /sms/pulse link in message.",
     errors,

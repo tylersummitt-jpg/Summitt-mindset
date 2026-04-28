@@ -268,26 +268,30 @@ export default function LifeContextPage() {
                 placeholder="Short answers are perfect."
               />
             </div>
-          </section>
-
-          <section className="space-y-6">
-            <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
-              Work
-            </h2>
 
             <div>
               <label htmlFor="responsibility" className={labelClass}>
-                Responsibility on your shoulders
+                Family, team, roles, or other context for Coach Pat
               </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Optional. Not limited to work—include anything that helps coaching stay grounded
+                in your real life.
+              </p>
               <textarea
                 id="responsibility"
                 value={responsibility}
                 onChange={(e) => setResponsibility(e.target.value)}
                 rows={4}
                 className={fieldClass}
-                placeholder="Short answers are perfect."
+                placeholder="e.g. caregiving, leadership load, season of life."
               />
             </div>
+          </section>
+
+          <section className="space-y-6">
+            <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
+              Work
+            </h2>
 
             <div>
               <label htmlFor="work_challenge" className={labelClass}>

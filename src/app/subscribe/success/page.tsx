@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 
@@ -12,6 +12,7 @@ function SubscribeSuccessInner() {
   const { isLoaded, isSignedIn, user } = useUser();
 
   const [error, setError] = useState<string | null>(null);
+  const confirmStartedForSession = useRef<string | null>(null);
 
   const sessionId = searchParams.get("session_id");
 
@@ -28,6 +29,11 @@ function SubscribeSuccessInner() {
         if (!sessionId) {
           throw new Error("Missing session_id");
         }
+
+        if (confirmStartedForSession.current === sessionId) {
+          return;
+        }
+        confirmStartedForSession.current = sessionId;
 
         // 🔥 Call synchronous confirm endpoint
         const res = await fetch("/api/stripe/confirm-checkout", {

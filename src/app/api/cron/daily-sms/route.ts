@@ -1,21 +1,98 @@
 /**
- * Daily SMS cron: Layer B only. Sequencing lives in Supabase `sms_delivery_state`
- * (not Clerk `deliveryDay`). Layer A / progression stays in Clerk (`currentDay`, etc.).
+ * Daily SMS cron: V2 accountability outbound only (PR6). Reservation + `sms_send_events` unchanged.
  */
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
-import {
-  applySmsDeliveryStateAfterSuccessfulSend,
-  buildSmsBodyFromDeliveryState,
-  loadOrCreateSmsDeliveryState,
-  smsTimePreferenceFromClerkMetadata,
-  type SmsDeliveryStateRow,
-} from "@/lib/sms-daily-delivery-body";
+import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import {
+  buildCheckSentAiPayload,
+  deriveV2CoachingState,
+  deriveV2NextMove,
+  deriveV2ReentryContext,
+  deriveV2SilenceContext,
+  pickV2OutboundStrategy,
+  resolveV2OutboundStrategyAfterBase,
+  templateFamilyForStrategy,
+  tryGenerateV2OutboundMessage,
+  V2_OUTBOUND_AI_MODEL,
+  V2_OUTBOUND_AI_PROMPT_VERSION,
+} from "@/lib/v2-ai-outbound";
+import {
+  buildV2OutboundAccountabilitySmsForStrategy,
+  buildV2RecommitProposalOutboundSms,
+  buildV2ShrinkProposalOutboundSms,
+  type V2NextMoveKind,
+} from "@/lib/v2-sms-accountability";
+import {
+  clearStaleAdaptiveContractColumns,
+  computeRecommitBindingText,
+  computeShrinkProposalText,
+  getEffectiveCoachingAsk,
+  isV2AdaptiveOverlayActive,
+  isV2PendingProposalValid,
+  type V2AdaptiveContractKind,
+  V2_ADAPTIVE_PROPOSAL_TTL_MS,
+} from "@/lib/v2-adaptive-contract";
+import {
+  computeIdentityReferenceAllowed,
+  isIdentityRefreshDue,
+  markIdentityAnchorReferencedIfPresentInBody,
+} from "@/lib/v2-identity-anchor";
+import {
+  abandonRefreshSessionTimeout,
+  reconcileRefreshPostSendBookkeepingForCommitment,
+  buildRefreshStepCommitmentSms,
+  buildRefreshStepIdentitySms,
+  computeRefreshEligibility,
+  isRefreshSessionActive,
+  newRefreshSessionIdentityStep,
+  onV2RefreshOutboundSendSuccess,
+  parseRefreshSession,
+  shouldAbandonStaleIdentityStep,
+  type V2RefreshOutboundPlan,
+} from "@/lib/v2-refresh-session";
+import {
+  onV2StandardCheckSentOutboundSendSuccess,
+  reconcileCheckSentPostSendBookkeepingForCommitment,
+  type V2CheckSentExpectedReplySemantics,
+  type V2CheckSentPromptKind,
+} from "@/lib/v2-outbound-check-sent";
+import { loadV2CoachingMemoryForPrompt, recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
+import {
+  isReactivationNudgeDue,
+  parseCadenceLevelFromCheckSentPayload,
+  shouldEnterLowPressureReactivation,
+  V2_REACTIVATION_ENTRY_REASON,
+} from "@/lib/v2-reactivation";
+import {
+  deriveV2CadencePayload,
+  shouldSendV2CadenceToday,
+  type V2CadencePayload,
+} from "@/lib/v2-cadence";
+import {
+  enterLowPressureReactivationMode,
+  getActiveCommitment,
+  getLastNV2CheckSentPayloads,
+  getLastV2CheckSentForCommitment,
+  getLatestBlockerCapturedAfter,
+  getLatestV2AccountabilityOutcome,
+  getRecentV2EventsForAi,
+  updateReactivationLastSentAt,
+} from "@/lib/v2-commitment";
+import { maybeRecordV2WeakNoReplyFromPriorAccountabilityDay } from "@/lib/v2-send-time-weak-no-reply";
+import {
+  fetchV2UserSendTimeProfile,
+  formatReachabilityContextLine,
+  isV2LearnedSendWindowAllowed,
+  localHourToSendWindow,
+  shouldUseLearnedSendTimeGate,
+} from "@/lib/v2-send-time-profile";
+import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,165 +100,812 @@ export const dynamic = "force-dynamic";
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
-/**
- * Mirrors flexSlotModality in sms-daily-delivery-body (keep aligned with buildSmsBodyFromDeliveryState).
- */
-function flexSlotModalityForOutboundContext(
-  flexCadenceIndex: number
-): "respond" | "non_response" {
-  const slot = ((flexCadenceIndex % 7) + 7) % 7;
-  if (slot === 2 || slot === 5) return "respond";
-  return "non_response";
-}
-
-/**
- * Same effectiveContentType rules as buildSmsBodyFromDeliveryState.
- */
-function effectiveContentTypeFromSnapshot(
-  state: SmsDeliveryStateRow
-): "respond" | "non_response" {
-  const isFlex = state.sms_bucket === "flex";
-  return isFlex
-    ? flexSlotModalityForOutboundContext(state.flex_cadence_index)
-    : state.current_content_type === "non_response"
-      ? "respond"
-      : state.current_content_type === "respond" &&
-          state.question_attempt_count >= 3
-        ? "non_response"
-        : "respond";
-}
-
 function timeOfDayForOutboundContext(md: Record<string, unknown>): "morning" | "evening" {
   const pref = smsTimePreferenceFromClerkMetadata(md).toLowerCase().trim();
   if (pref === "midday" || pref === "evening") return "evening";
   return "morning";
 }
 
-async function upsertLastOutboundContextAfterDailySend(args: {
-  clerkUserId: string;
-  md: Record<string, unknown>;
-  deliveryStateSnapshot: SmsDeliveryStateRow;
-  smsBody: string;
-  twilioMessageSid: string;
-  /** One-time Day 2 freeform outbound (not MCQ); treat as question for coach context. */
-  day2FreeformSpecial?: boolean;
-  sentPatQuoteId?: string;
-  sentRespondQuestionId?: string;
-}): Promise<void> {
-  try {
-    const effective = args.day2FreeformSpecial
-      ? "respond"
-      : effectiveContentTypeFromSnapshot(args.deliveryStateSnapshot);
-    const messageKind = effective === "respond" ? "question" : "quote";
-    const sentPatQuoteIdTrimmed =
-      typeof args.sentPatQuoteId === "string"
-        ? args.sentPatQuoteId.trim()
-        : "";
-    const includeSentPatQuoteId =
-      messageKind === "quote" && sentPatQuoteIdTrimmed.length > 0;
-    const sentRespondQuestionIdTrimmed =
-      typeof args.sentRespondQuestionId === "string"
-        ? args.sentRespondQuestionId.trim()
-        : "";
-    const includeSentRespondQuestionId =
-      messageKind === "question" &&
-      !args.day2FreeformSpecial &&
-      sentRespondQuestionIdTrimmed.length > 0;
-
-    const { error } = await supabaseServer.from("sms_last_outbound_context").upsert(
-      {
-        clerk_user_id: args.clerkUserId,
-        sent_at: new Date().toISOString(),
-        message_kind: messageKind,
-        full_body: args.smsBody,
-        question_position:
-          effective === "respond" ? args.deliveryStateSnapshot.question_position : null,
-        time_of_day: timeOfDayForOutboundContext(args.md),
-        twilio_message_sid: args.twilioMessageSid,
-        delivery_snapshot: {
-          clerk_user_id: args.deliveryStateSnapshot.clerk_user_id,
-          question_position: args.deliveryStateSnapshot.question_position,
-          quote_position: args.deliveryStateSnapshot.quote_position,
-          current_content_type: args.deliveryStateSnapshot.current_content_type,
-          question_attempt_count: args.deliveryStateSnapshot.question_attempt_count,
-          daily_nonresponse_cycle_count:
-            args.deliveryStateSnapshot.daily_nonresponse_cycle_count,
-          sms_bucket: args.deliveryStateSnapshot.sms_bucket,
-          flex_cadence_index: args.deliveryStateSnapshot.flex_cadence_index,
-          ...(args.day2FreeformSpecial ? { is_day2_freeform: true } : {}),
-          ...(includeSentPatQuoteId
-            ? { sent_pat_quote_id: sentPatQuoteIdTrimmed }
-            : {}),
-          ...(includeSentRespondQuestionId
-            ? { sent_respond_question_id: sentRespondQuestionIdTrimmed }
-            : {}),
-        },
-      },
-      { onConflict: "clerk_user_id" }
-    );
-
-    if (error) {
-      console.error("[daily-sms] sms_last_outbound_context upsert failed", {
-        clerk_user_id: args.clerkUserId,
-        error: error.message,
-      });
+type DailySmsBuilt =
+  | {
+      ok: true;
+      smsBody: string;
+      deliveryStateSnapshot: null;
+      day2SpecialUsed: boolean;
+      sentPatQuoteId?: string;
+      sentRespondQuestionId?: string;
+      v2Accountability: boolean;
+      v2CommitmentId?: string;
+      v2TemplateId?: number;
+      v2TemplateFamily?: "standard" | "recovery" | "reactivation";
+      v2PriorOutcome?: string | null;
+      v2BlockerPreview?: string | null;
+      v2AiPayload?: Record<string, unknown> | null;
+      v2SilencePayload?: Record<string, unknown> | null;
+      v2ReentryPayload?: Record<string, unknown> | null;
+      v2NextMovePayload?: Record<string, unknown> | null;
+      v2CadencePayload?: V2CadencePayload | null;
+      /** True when sending shrink_ask or recommit_same overlay proposal SMS. */
+      v2ContractProposalMode?: boolean;
+      v2ContractProposalKind?: V2AdaptiveContractKind | null;
+      v2ProposalBindingText?: string | null;
+      v2ContractProposalPayload?: Record<string, unknown> | null;
+      /** Canonical anchor from user_profiles for post-send reference tracking only. */
+      v2IdentityAnchorText?: string | null;
+      /** When set, post-Twilio success runs refresh session + `coaching_refresh_prompted` side effects. */
+      v2RefreshOutboundPlan?: V2RefreshOutboundPlan | null;
+      /** Weekly low-pressure nudge while paused (no check_sent row). */
+      v2ReactivationNudge?: boolean;
+      /** Effective ask context at send time for deterministic post-send snapshot. */
+      v2EffectiveAskText?: string | null;
     }
-  } catch (e) {
-    console.error("[daily-sms] sms_last_outbound_context upsert threw", {
+  | { ok: false; error: string };
+
+async function resolveV2BlockerPreviewForOutbound(args: {
+  commitmentId: string;
+  latestOutcome: Awaited<ReturnType<typeof getLatestV2AccountabilityOutcome>>;
+  recentEvents: import("@/lib/v2-commitment").V2EventRowForAi[];
+}): Promise<string | null> {
+  let blockerPreview: string | null = null;
+  if (
+    args.latestOutcome &&
+    (args.latestOutcome.type === "user_no" || args.latestOutcome.type === "user_partial")
+  ) {
+    const blocker = await getLatestBlockerCapturedAfter(
+      args.commitmentId,
+      args.latestOutcome.occurred_at
+    );
+    if (blocker?.message) {
+      blockerPreview = blocker.message.slice(0, 80);
+    }
+  }
+  if (!blockerPreview) {
+    const blockerEv = args.recentEvents.find((e) => e.event_type === "blocker_captured");
+    const rawMsg = blockerEv?.payload_json?.message;
+    if (typeof rawMsg === "string" && rawMsg.trim()) {
+      blockerPreview = rawMsg.trim().slice(0, 80);
+    }
+  }
+  return blockerPreview && blockerPreview.trim().length > 0 ? blockerPreview : null;
+}
+
+function buildStandardCheckSentPayload(args: {
+  priorOutcome?: string | null;
+  blockerPreview?: string | null;
+  silence?: Record<string, unknown> | null;
+  reentry?: Record<string, unknown> | null;
+  nextMove?: Record<string, unknown> | null;
+  ai?: Record<string, unknown> | null;
+  cadence?: V2CadencePayload | null;
+  contractProposal?: Record<string, unknown> | null;
+}): Record<string, unknown> {
+  return {
+    ...(args.priorOutcome != null ? { prior_outcome: args.priorOutcome } : {}),
+    ...(args.blockerPreview != null && args.blockerPreview.length > 0
+      ? { blocker_preview: args.blockerPreview }
+      : {}),
+    ...(args.silence ? { silence: args.silence } : {}),
+    ...(args.reentry ? { reentry: args.reentry } : {}),
+    ...(args.nextMove ? { next_move: args.nextMove } : {}),
+    ...(args.ai ? { ai: args.ai } : {}),
+    ...(args.cadence ? { cadence: args.cadence } : {}),
+    ...(args.contractProposal ? { contract_proposal: args.contractProposal } : {}),
+  };
+}
+
+async function insertV2CheckSentEventBestEffort(args: {
+  commitmentId: string;
+  clerkUserId: string;
+  dayKey: string;
+  templateId: number;
+  messageSid: string;
+  bodyPreview: string;
+  templateFamily: "standard" | "recovery";
+  priorOutcome?: string | null;
+  blockerPreview?: string | null;
+  silence?: Record<string, unknown> | null;
+  reentry?: Record<string, unknown> | null;
+  nextMove?: Record<string, unknown> | null;
+  ai?: Record<string, unknown> | null;
+  cadence?: V2CadencePayload | null;
+  contractProposal?: Record<string, unknown> | null;
+  coachingRefresh?: Record<string, unknown> | null;
+}): Promise<void> {
+  const { error } = await supabaseServer.from("v2_commitment_event").insert({
+    commitment_id: args.commitmentId,
+    clerk_user_id: args.clerkUserId,
+    event_type: "check_sent",
+    source: "sms_v2_accountability",
+    payload_json: {
+      day_key: args.dayKey,
+      template_id: args.templateId,
+      template_family: args.templateFamily,
+      channel: "sms",
+      message_sid: args.messageSid,
+      body_preview: args.bodyPreview,
+      ...(args.priorOutcome != null ? { prior_outcome: args.priorOutcome } : {}),
+      ...(args.blockerPreview != null && args.blockerPreview.length > 0
+        ? { blocker_preview: args.blockerPreview }
+        : {}),
+      ...(args.silence ? { silence: args.silence } : {}),
+      ...(args.reentry ? { reentry: args.reentry } : {}),
+      ...(args.nextMove ? { next_move: args.nextMove } : {}),
+      ...(args.ai ? { ai: args.ai } : {}),
+      ...(args.cadence ? { cadence: args.cadence } : {}),
+      ...(args.contractProposal ? { contract_proposal: args.contractProposal } : {}),
+      ...(args.coachingRefresh ? { coaching_refresh: args.coachingRefresh } : {}),
+    },
+    idempotency_key: `v2_check_sent:${args.commitmentId}:${args.dayKey}`,
+  });
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "23505") return;
+    console.error("[daily-sms] v2 check_sent insert failed", {
       clerk_user_id: args.clerkUserId,
-      e,
+      message: error.message,
     });
   }
 }
 
-async function buildSmsWithDeliveryEngine(
+/**
+ * V2: active commitment → accountability templates (no legacy delivery-state body).
+ * Legacy: existing delivery engine unchanged.
+ */
+async function buildDailySmsContent(
   clerkUserId: string,
-  md: Record<string, unknown>
-): Promise<
-  | {
-      ok: true;
-      smsBody: string;
-      deliveryStateSnapshot: SmsDeliveryStateRow;
-      day2SpecialUsed: boolean;
-      sentPatQuoteId?: string;
-      sentRespondQuestionId?: string;
+  md: Record<string, unknown>,
+  accountabilityDayKey: string
+): Promise<DailySmsBuilt> {
+  let active = await getActiveCommitment(clerkUserId);
+  if (active?.behavior_statement?.trim()) {
+    await clearStaleAdaptiveContractColumns(active.id);
+    try {
+      const checkSentReconcile = await reconcileCheckSentPostSendBookkeepingForCommitment({
+        commitmentId: active.id,
+        clerkUserId,
+      });
+      if (checkSentReconcile.failures > 0) {
+        console.warn("[daily-sms] check_sent reconcile unresolved", {
+          clerk_user_id: clerkUserId,
+          commitment_id: active.id,
+          attempted: checkSentReconcile.attempted,
+          recovered: checkSentReconcile.recovered,
+          failures: checkSentReconcile.failures,
+          snapshot_candidates_found: checkSentReconcile.snapshotCandidatesFound,
+          snapshot_replay_attempted: checkSentReconcile.snapshotReplayAttempted,
+          snapshot_replay_applied: checkSentReconcile.snapshotReplayApplied,
+          heuristic_fallback_attempted: checkSentReconcile.heuristicFallbackAttempted,
+          heuristic_fallback_applied: checkSentReconcile.heuristicFallbackApplied,
+          unresolved_after_both: checkSentReconcile.unresolvedAfterBoth,
+        });
+      }
+    } catch (e) {
+      console.error("[daily-sms] check_sent post-send reconcile failed", {
+        clerk_user_id: clerkUserId,
+        commitment_id: active.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
     }
-  | { ok: false; error: string }
-> {
-  const pref = smsTimePreferenceFromClerkMetadata(md);
+    try {
+      const reconcile = await reconcileRefreshPostSendBookkeepingForCommitment({
+        commitmentId: active.id,
+        clerkUserId,
+      });
+      if (reconcile.failures > 0) {
+        console.warn("[daily-sms] refresh reconcile unresolved", {
+          clerk_user_id: clerkUserId,
+          commitment_id: active.id,
+          attempted: reconcile.attempted,
+          recovered: reconcile.recovered,
+          failures: reconcile.failures,
+          state_conflicts: reconcile.stateConflicts,
+          rpc_failures: reconcile.rpcFailures,
+          repeated_likely: reconcile.repeatedLikely,
+          snapshot_candidates_found: reconcile.snapshotCandidatesFound,
+          snapshot_replay_attempted: reconcile.snapshotReplayAttempted,
+          snapshot_replay_applied: reconcile.snapshotReplayApplied,
+          heuristic_fallback_attempted: reconcile.heuristicFallbackAttempted,
+          heuristic_fallback_applied: reconcile.heuristicFallbackApplied,
+          unresolved_after_both: reconcile.unresolvedAfterBoth,
+        });
+      }
+    } catch (e) {
+      console.error("[daily-sms] refresh post-send reconcile failed", {
+        clerk_user_id: clerkUserId,
+        commitment_id: active.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+    const refreshed = await getActiveCommitment(clerkUserId);
+    if (refreshed?.behavior_statement?.trim()) {
+      active = refreshed;
+    }
 
-  const rawCurrentDay = md.currentDay;
-  const currentDay =
-    typeof rawCurrentDay === "number" &&
-    Number.isFinite(rawCurrentDay) &&
-    rawCurrentDay > 0
-      ? Math.floor(rawCurrentDay)
-      : null;
+    const sendTimeProfileRow = await fetchV2UserSendTimeProfile(clerkUserId);
+    const reachabilityContextLine = formatReachabilityContextLine(sendTimeProfileRow);
 
-  const stateRes = await loadOrCreateSmsDeliveryState(clerkUserId);
-  if (stateRes.error || !stateRes.data) {
-    return { ok: false, error: stateRes.error ?? "sms_delivery_state missing" };
+    const now = new Date();
+    if (active.accountability_phase === "low_pressure_reactivation") {
+      if (
+        !isReactivationNudgeDue({
+          reactivationEnteredAt: active.reactivation_entered_at,
+          reactivationLastSentAt: active.reactivation_last_sent_at,
+          nowMs: now.getTime(),
+        })
+      ) {
+        return { ok: false, error: "v2_reactivation_not_due" };
+      }
+
+      const recentEvents = await getRecentV2EventsForAi(active.id);
+      const serverState = deriveV2CoachingState(recentEvents);
+      const silenceCtx = deriveV2SilenceContext(recentEvents, now);
+      const reentryCtx = deriveV2ReentryContext(recentEvents, now);
+      const pausedCadence = {
+        level: "every_3_days" as const,
+        reason_code: "paused_low_pressure_reactivation",
+        version: 1 as const,
+      };
+      const holdNextMove = {
+        type: "hold_standard" as const,
+        reason_code: "hold_while_reactivation",
+        version: 1 as const,
+      };
+
+      const { data: profileRowRe } = await supabaseServer
+        .from("user_profiles")
+        .select("preferred_name, life_desires")
+        .eq("clerk_user_id", clerkUserId)
+        .maybeSingle();
+
+      const preferredNameRe =
+        typeof profileRowRe?.preferred_name === "string" ? profileRowRe.preferred_name : null;
+      const lifeDesiresRe =
+        typeof profileRowRe?.life_desires === "string" ? profileRowRe.life_desires : null;
+
+      const coachingMemoryRe = await loadV2CoachingMemoryForPrompt(active.id);
+
+      const aiTryRe = await tryGenerateV2OutboundMessage({
+        commitment: active,
+        eventsNewestFirst: recentEvents,
+        blockerPreview: null,
+        serverState,
+        serverStrategy: "reactivation_nudge",
+        templateFamily: "reactivation",
+        silence: silenceCtx,
+        reentry: reentryCtx,
+        nextMove: holdNextMove,
+        cadence: pausedCadence,
+        effectiveCoachingAsk: active.behavior_statement.trim(),
+        contractProposalMode: false,
+        contractProposalBindingText: null,
+        coachingMemory: coachingMemoryRe,
+        preferredName: preferredNameRe,
+        lifeDesires: lifeDesiresRe,
+        identityAnchorText: null,
+        identityRefreshDue: false,
+        identityReferenceAllowed: false,
+        reachabilityContextLine,
+      });
+
+      const { body: templateBodyRe, templateId: templateIdRe } =
+        buildV2OutboundAccountabilitySmsForStrategy({
+          clerkUserId,
+          dayKey: accountabilityDayKey,
+          behaviorStatement: active.behavior_statement,
+          serverStrategy: "reactivation_nudge",
+          nextMove: "hold_standard",
+        });
+
+      const smsBodyRe = aiTryRe.ok ? aiTryRe.message : templateBodyRe;
+      const aiPayloadRe = buildCheckSentAiPayload({
+        model: V2_OUTBOUND_AI_MODEL,
+        promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
+        serverState,
+        serverStrategy: "reactivation_nudge",
+        message: smsBodyRe,
+        confidence: aiTryRe.ok ? aiTryRe.confidence : null,
+        fallbackUsed: !aiTryRe.ok,
+        ...(!aiTryRe.ok ? { fallbackReason: aiTryRe.reason } : {}),
+      });
+
+      const silencePayloadRe = {
+        tier: silenceCtx.tier,
+        unanswered_checks: silenceCtx.unanswered_checks,
+        days_since_last_user_outcome: silenceCtx.days_since_last_user_outcome,
+      };
+
+      return {
+        ok: true,
+        smsBody: smsBodyRe,
+        deliveryStateSnapshot: null,
+        day2SpecialUsed: false,
+        v2Accountability: true,
+        v2ReactivationNudge: true,
+        v2CommitmentId: active.id,
+        v2TemplateId: templateIdRe,
+        v2TemplateFamily: "reactivation",
+        v2PriorOutcome: null,
+        v2BlockerPreview: null,
+        v2AiPayload: aiPayloadRe,
+        v2SilencePayload: silencePayloadRe,
+        v2ReentryPayload: { active: reentryCtx.active },
+        v2NextMovePayload: {
+          type: holdNextMove.type,
+          reason_code: holdNextMove.reason_code,
+          version: holdNextMove.version,
+        },
+        v2CadencePayload: pausedCadence,
+        v2ContractProposalMode: false,
+        v2ContractProposalKind: null,
+        v2ProposalBindingText: null,
+        v2ContractProposalPayload: null,
+      };
+    }
+
+    const [latestOutcome, recentEvents] = await Promise.all([
+      getLatestV2AccountabilityOutcome(active.id),
+      getRecentV2EventsForAi(active.id),
+    ]);
+
+    const { data: refreshProfileRow } = await supabaseServer
+      .from("user_profiles")
+      .select(
+        "identity_anchor_text, identity_refresh_due_at, identity_refresh_last_prompted_at"
+      )
+      .eq("clerk_user_id", clerkUserId)
+      .maybeSingle();
+
+    let refreshSessionParsed = parseRefreshSession(active.refresh_session);
+    if (
+      refreshSessionParsed &&
+      shouldAbandonStaleIdentityStep(refreshSessionParsed, now.getTime())
+    ) {
+      await abandonRefreshSessionTimeout({
+        commitmentId: active.id,
+        clerkUserId,
+        session: refreshSessionParsed,
+      });
+      const reloadedActive = await getActiveCommitment(clerkUserId);
+      if (reloadedActive?.behavior_statement?.trim()) {
+        active = reloadedActive;
+      }
+      refreshSessionParsed = parseRefreshSession(active.refresh_session);
+    }
+
+    const identityAnchorForRefresh =
+      typeof refreshProfileRow?.identity_anchor_text === "string"
+        ? refreshProfileRow.identity_anchor_text.trim()
+        : "";
+
+    if (active.accountability_phase === "active_accountability") {
+      const identityDueAt =
+        typeof refreshProfileRow?.identity_refresh_due_at === "string"
+          ? refreshProfileRow.identity_refresh_due_at
+          : null;
+      const identityLastPrompted =
+        typeof refreshProfileRow?.identity_refresh_last_prompted_at === "string"
+          ? refreshProfileRow.identity_refresh_last_prompted_at
+          : null;
+
+      const refreshEligible = computeRefreshEligibility({
+        nowMs: now.getTime(),
+        commitment: active,
+        identityAnchorText: identityAnchorForRefresh,
+        identityRefreshDueAt: identityDueAt,
+        identityRefreshLastPromptedAt: identityLastPrompted,
+        commitmentRefreshLastPromptedAt: active.commitment_refresh_last_prompted_at,
+      });
+
+      if (!refreshSessionParsed && refreshEligible && identityAnchorForRefresh) {
+        const newSession = newRefreshSessionIdentityStep(now.toISOString());
+        const { body: refreshIdentityBody, templateId: refreshTid } =
+          buildRefreshStepIdentitySms({ identityAnchorText: identityAnchorForRefresh });
+
+        const serverStateR = deriveV2CoachingState(recentEvents);
+        const silenceCtxR = deriveV2SilenceContext(recentEvents, now);
+        const reentryCtxR = deriveV2ReentryContext(recentEvents, now);
+        const blockerPreviewR = await resolveV2BlockerPreviewForOutbound({
+          commitmentId: active.id,
+          latestOutcome,
+          recentEvents,
+        });
+        const hasBpR = Boolean(blockerPreviewR && blockerPreviewR.trim().length > 0);
+        const nextMoveR = deriveV2NextMove({
+          eventsNewestFirst: recentEvents,
+          now,
+          silence: silenceCtxR,
+          reentry: reentryCtxR,
+          behaviorStatement: active.behavior_statement,
+        });
+        const cadencePayloadR = deriveV2CadencePayload({
+          eventsNewestFirst: recentEvents,
+          now,
+          hasBlockerPreview: hasBpR,
+        });
+        const baseStrR = pickV2OutboundStrategy(serverStateR, hasBpR);
+        const stratR = resolveV2OutboundStrategyAfterBase({
+          baseStrategy: baseStrR,
+          silence: silenceCtxR,
+          reentry: reentryCtxR,
+        });
+
+        return {
+          ok: true,
+          smsBody: refreshIdentityBody,
+          deliveryStateSnapshot: null,
+          day2SpecialUsed: false,
+          v2Accountability: true,
+          v2CommitmentId: active.id,
+          v2TemplateId: refreshTid,
+          v2TemplateFamily: templateFamilyForStrategy(stratR),
+          v2PriorOutcome: latestOutcome?.type ?? null,
+          v2BlockerPreview: blockerPreviewR,
+          v2AiPayload: null,
+          v2SilencePayload: {
+            tier: silenceCtxR.tier,
+            unanswered_checks: silenceCtxR.unanswered_checks,
+            days_since_last_user_outcome: silenceCtxR.days_since_last_user_outcome,
+          },
+          v2ReentryPayload: { active: reentryCtxR.active },
+          v2NextMovePayload: {
+            type: nextMoveR.type,
+            reason_code: nextMoveR.reason_code,
+            version: nextMoveR.version,
+            ...(nextMoveR.type === "shrink_ask" && nextMoveR.shrunk_ask_text
+              ? { shrunk_ask_text: nextMoveR.shrunk_ask_text }
+              : {}),
+          },
+          v2CadencePayload: cadencePayloadR,
+          v2ContractProposalMode: false,
+          v2ContractProposalKind: null,
+          v2ProposalBindingText: null,
+          v2ContractProposalPayload: null,
+          v2IdentityAnchorText: identityAnchorForRefresh,
+          v2RefreshOutboundPlan: { kind: "identity_first", session: newSession },
+        };
+      }
+
+      if (refreshSessionParsed?.step === "identity") {
+        return { ok: false, error: "v2_refresh_identity_await_reply" };
+      }
+
+      if (
+        refreshSessionParsed?.step === "commitment" &&
+        !refreshSessionParsed.commitment_prompt_delivered
+      ) {
+        const effectiveAskR = getEffectiveCoachingAsk(active, now.getTime());
+        const { body: refreshCommitBody, templateId: refreshCommitTid } =
+          buildRefreshStepCommitmentSms({ effectiveAsk: effectiveAskR });
+
+        const serverStateC = deriveV2CoachingState(recentEvents);
+        const silenceCtxC = deriveV2SilenceContext(recentEvents, now);
+        const reentryCtxC = deriveV2ReentryContext(recentEvents, now);
+        const blockerPreviewC = await resolveV2BlockerPreviewForOutbound({
+          commitmentId: active.id,
+          latestOutcome,
+          recentEvents,
+        });
+        const hasBpC = Boolean(blockerPreviewC && blockerPreviewC.trim().length > 0);
+        const nextMoveC = deriveV2NextMove({
+          eventsNewestFirst: recentEvents,
+          now,
+          silence: silenceCtxC,
+          reentry: reentryCtxC,
+          behaviorStatement: active.behavior_statement,
+        });
+        const cadencePayloadC = deriveV2CadencePayload({
+          eventsNewestFirst: recentEvents,
+          now,
+          hasBlockerPreview: hasBpC,
+        });
+        const baseStrC = pickV2OutboundStrategy(serverStateC, hasBpC);
+        const stratC = resolveV2OutboundStrategyAfterBase({
+          baseStrategy: baseStrC,
+          silence: silenceCtxC,
+          reentry: reentryCtxC,
+        });
+
+        const planSession = {
+          ...refreshSessionParsed,
+          commitment_prompt_delivered: true,
+        };
+
+        return {
+          ok: true,
+          smsBody: refreshCommitBody,
+          deliveryStateSnapshot: null,
+          day2SpecialUsed: false,
+          v2Accountability: true,
+          v2CommitmentId: active.id,
+          v2TemplateId: refreshCommitTid,
+          v2TemplateFamily: templateFamilyForStrategy(stratC),
+          v2PriorOutcome: latestOutcome?.type ?? null,
+          v2BlockerPreview: blockerPreviewC,
+          v2AiPayload: null,
+          v2SilencePayload: {
+            tier: silenceCtxC.tier,
+            unanswered_checks: silenceCtxC.unanswered_checks,
+            days_since_last_user_outcome: silenceCtxC.days_since_last_user_outcome,
+          },
+          v2ReentryPayload: { active: reentryCtxC.active },
+          v2NextMovePayload: {
+            type: nextMoveC.type,
+            reason_code: nextMoveC.reason_code,
+            version: nextMoveC.version,
+            ...(nextMoveC.type === "shrink_ask" && nextMoveC.shrunk_ask_text
+              ? { shrunk_ask_text: nextMoveC.shrunk_ask_text }
+              : {}),
+          },
+          v2CadencePayload: cadencePayloadC,
+          v2ContractProposalMode: false,
+          v2ContractProposalKind: null,
+          v2ProposalBindingText: null,
+          v2ContractProposalPayload: null,
+          v2IdentityAnchorText: null,
+          v2RefreshOutboundPlan: { kind: "commitment_daily", session: planSession },
+        };
+      }
+    }
+
+    const serverState = deriveV2CoachingState(recentEvents);
+    const silenceCtx = deriveV2SilenceContext(recentEvents, now);
+    const reentryCtx = deriveV2ReentryContext(recentEvents, now);
+    const nextMove = deriveV2NextMove({
+      eventsNewestFirst: recentEvents,
+      now,
+      silence: silenceCtx,
+      reentry: reentryCtx,
+      behaviorStatement: active.behavior_statement,
+    });
+
+    const blockerPreview = await resolveV2BlockerPreviewForOutbound({
+      commitmentId: active.id,
+      latestOutcome,
+      recentEvents,
+    });
+
+    const hasBlockerPreview = Boolean(blockerPreview && blockerPreview.trim().length > 0);
+    const cadencePayload = deriveV2CadencePayload({
+      eventsNewestFirst: recentEvents,
+      now,
+      hasBlockerPreview,
+    });
+    const baseStrategy = pickV2OutboundStrategy(serverState, hasBlockerPreview);
+    const serverStrategy = resolveV2OutboundStrategyAfterBase({
+      baseStrategy,
+      silence: silenceCtx,
+      reentry: reentryCtx,
+    });
+    const templateFamily = templateFamilyForStrategy(serverStrategy);
+
+    const effectiveAsk = getEffectiveCoachingAsk(active, now.getTime());
+    const refreshSessionActive = isRefreshSessionActive(active);
+    const shrinkProposalMode =
+      nextMove.type === "shrink_ask" &&
+      !isV2AdaptiveOverlayActive(active, now.getTime()) &&
+      !isV2PendingProposalValid(active, now.getTime()) &&
+      !refreshSessionActive;
+
+    const recommitProposalMode =
+      nextMove.type === "recommit_same" &&
+      !isV2AdaptiveOverlayActive(active, now.getTime()) &&
+      !isV2PendingProposalValid(active, now.getTime()) &&
+      !refreshSessionActive;
+
+    const contractProposalMode = shrinkProposalMode || recommitProposalMode;
+    const contractProposalKind: V2AdaptiveContractKind | null = shrinkProposalMode
+      ? "shrink_ask"
+      : recommitProposalMode
+        ? "recommit_same"
+        : null;
+
+    const proposalBindingText =
+      contractProposalMode && contractProposalKind === "shrink_ask"
+        ? computeShrinkProposalText(active.behavior_statement)
+        : contractProposalMode && contractProposalKind === "recommit_same"
+          ? computeRecommitBindingText(active.behavior_statement)
+          : null;
+
+    const outboundNextMove: V2NextMoveKind =
+      (nextMove.type === "shrink_ask" && !shrinkProposalMode) ||
+      (nextMove.type === "recommit_same" && !recommitProposalMode)
+        ? "hold_standard"
+        : nextMove.type;
+
+    const { body: templateBody, templateId } =
+      contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask"
+        ? buildV2ShrinkProposalOutboundSms({
+            clerkUserId,
+            dayKey: accountabilityDayKey,
+            proposalBindingText,
+            originalBehaviorStatement: active.behavior_statement,
+          })
+        : contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same"
+          ? buildV2RecommitProposalOutboundSms({
+              clerkUserId,
+              dayKey: accountabilityDayKey,
+              proposalBindingText,
+              originalBehaviorStatement: active.behavior_statement,
+            })
+          : buildV2OutboundAccountabilitySmsForStrategy({
+              clerkUserId,
+              dayKey: accountabilityDayKey,
+              behaviorStatement: effectiveAsk,
+              serverStrategy,
+              nextMove: outboundNextMove,
+              shrunkAskText:
+                outboundNextMove === "shrink_ask" ? (nextMove.shrunk_ask_text ?? null) : null,
+            });
+
+    const { data: profileRow } = await supabaseServer
+      .from("user_profiles")
+      .select(
+        "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text, identity_refresh_due_at, identity_last_referenced_at"
+      )
+      .eq("clerk_user_id", clerkUserId)
+      .maybeSingle();
+
+    const preferredName =
+      typeof profileRow?.preferred_name === "string" ? profileRow.preferred_name : null;
+    const lifeDesires =
+      typeof profileRow?.life_desires === "string" ? profileRow.life_desires : null;
+    const peopleSummary =
+      typeof profileRow?.people_summary === "string" && profileRow.people_summary.trim()
+        ? profileRow.people_summary.trim()
+        : null;
+    const responsibility =
+      typeof profileRow?.responsibility === "string" && profileRow.responsibility.trim()
+        ? profileRow.responsibility.trim()
+        : null;
+    const identityAnchorText =
+      typeof profileRow?.identity_anchor_text === "string"
+        ? profileRow.identity_anchor_text.trim()
+        : null;
+    const identityRefreshDue = isIdentityRefreshDue(
+      typeof profileRow?.identity_refresh_due_at === "string"
+        ? profileRow.identity_refresh_due_at
+        : null,
+      now.getTime()
+    );
+    const identityReferenceAllowed = computeIdentityReferenceAllowed({
+      nowMs: now.getTime(),
+      identityAnchorText: profileRow?.identity_anchor_text,
+      identityRefreshDueAt:
+        typeof profileRow?.identity_refresh_due_at === "string"
+          ? profileRow.identity_refresh_due_at
+          : null,
+      identityLastReferencedAt:
+        typeof profileRow?.identity_last_referenced_at === "string"
+          ? profileRow.identity_last_referenced_at
+          : null,
+      accountabilityPhase: active.accountability_phase,
+      contractProposalMode,
+      refreshSessionActive,
+      serverStrategy,
+    });
+
+    const aiNextMove =
+      contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask"
+        ? {
+            type: "shrink_ask" as const,
+            reason_code: nextMove.reason_code,
+            version: nextMove.version,
+            shrunk_ask_text: proposalBindingText,
+          }
+        : contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same"
+          ? {
+              type: "recommit_same" as const,
+              reason_code: nextMove.reason_code,
+              version: nextMove.version,
+            }
+          : nextMove;
+
+    const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(active.id);
+
+    const aiTry = await tryGenerateV2OutboundMessage({
+      commitment: active,
+      eventsNewestFirst: recentEvents,
+      blockerPreview: hasBlockerPreview ? blockerPreview : null,
+      serverState,
+      serverStrategy,
+      templateFamily,
+      silence: silenceCtx,
+      reentry: reentryCtx,
+      nextMove: aiNextMove,
+      cadence: cadencePayload,
+      effectiveCoachingAsk: effectiveAsk,
+      contractProposalMode,
+      contractProposalKind,
+      contractProposalBindingText: contractProposalMode ? proposalBindingText : null,
+      coachingMemory: coachingMemoryRow,
+      preferredName,
+      lifeDesires,
+      peopleSummary,
+      responsibility,
+      identityAnchorText,
+      identityRefreshDue,
+      identityReferenceAllowed,
+      reachabilityContextLine,
+    });
+
+    const smsBody = aiTry.ok ? aiTry.message : templateBody;
+    const aiPayload = buildCheckSentAiPayload({
+      model: V2_OUTBOUND_AI_MODEL,
+      promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
+      serverState,
+      serverStrategy,
+      message: smsBody,
+      confidence: aiTry.ok ? aiTry.confidence : null,
+      fallbackUsed: !aiTry.ok,
+      ...(!aiTry.ok ? { fallbackReason: aiTry.reason } : {}),
+    });
+
+    const silencePayload = {
+      tier: silenceCtx.tier,
+      unanswered_checks: silenceCtx.unanswered_checks,
+      days_since_last_user_outcome: silenceCtx.days_since_last_user_outcome,
+    };
+    const reentryPayload = { active: reentryCtx.active };
+
+    const nextMovePayload: Record<string, unknown> = {
+      type: nextMove.type,
+      reason_code: nextMove.reason_code,
+      version: nextMove.version,
+    };
+    if (nextMove.type === "shrink_ask" && nextMove.shrunk_ask_text) {
+      nextMovePayload.shrunk_ask_text = shrinkProposalMode
+        ? proposalBindingText
+        : nextMove.shrunk_ask_text;
+    }
+    if (contractProposalMode && contractProposalKind) {
+      nextMovePayload.contract_proposal_pending = true;
+      nextMovePayload.contract_kind = contractProposalKind;
+    }
+
+    const proposalExpiresAt = new Date(now.getTime() + V2_ADAPTIVE_PROPOSAL_TTL_MS).toISOString();
+    const contractProposalMeta =
+      contractProposalMode && proposalBindingText && contractProposalKind
+        ? {
+            active: true,
+            contract_kind: contractProposalKind,
+            proposal_text: proposalBindingText,
+            proposal_ttl_ms: V2_ADAPTIVE_PROPOSAL_TTL_MS,
+            proposal_expires_at: proposalExpiresAt,
+            overlay_if_yes_days: 7,
+          }
+        : null;
+
+    return {
+      ok: true,
+      smsBody,
+      deliveryStateSnapshot: null,
+      day2SpecialUsed: false,
+      v2Accountability: true,
+      v2CommitmentId: active.id,
+      v2TemplateId: templateId,
+      v2TemplateFamily: templateFamily,
+      v2PriorOutcome: latestOutcome?.type ?? null,
+      v2BlockerPreview: blockerPreview,
+      v2AiPayload: aiPayload,
+      v2SilencePayload: silencePayload,
+      v2ReentryPayload: reentryPayload,
+      v2NextMovePayload: nextMovePayload,
+      v2CadencePayload: cadencePayload,
+      v2ContractProposalMode: contractProposalMode,
+      v2ContractProposalKind: contractProposalKind,
+      v2ProposalBindingText: contractProposalMode ? proposalBindingText : null,
+      v2ContractProposalPayload: contractProposalMeta,
+      v2IdentityAnchorText: identityAnchorText,
+      v2EffectiveAskText: effectiveAsk,
+    };
   }
 
-  const built = await buildSmsBodyFromDeliveryState({
-    clerkUserId,
-    state: stateRes.data,
-    smsTimePreference: pref,
-    currentDay,
+  console.warn("[daily-sms][v2-only] build_daily_sms_not_fully_on_v2", {
+    clerk_user_id: clerkUserId,
+    day_key: accountabilityDayKey,
+    note: "legacy_daily_sms_removed_pr6",
   });
-
-  if (!built.ok) {
-    return { ok: false, error: built.error };
-  }
-
-  return {
-    ok: true,
-    smsBody: built.smsBody,
-    deliveryStateSnapshot: stateRes.data,
-    day2SpecialUsed: built.day2SpecialUsed,
-    sentPatQuoteId: built.sentPatQuoteId,
-    sentRespondQuestionId: built.sentRespondQuestionId,
-  };
+  return { ok: false, error: "not_fully_on_v2_daily_sms" };
 }
 
 /**
@@ -410,6 +1134,10 @@ export async function GET(req: Request) {
     skippedMissingIdentity: 0,
     skippedOptedOut: 0,
     skippedAlreadyCompleted: 0,
+    skippedCadence: 0,
+    skippedReactivationCooldown: 0,
+    skippedRefreshIdentityAwaiting: 0,
+    skippedNotFullyOnV2Daily: 0,
     skippedMissingTwilio: 0,
     failed: 0,
     reservationErrors: 0,
@@ -461,6 +1189,17 @@ export async function GET(req: Request) {
       // Key used for dedupe
       const todayKey = getDateKeyInTimezone(now, timezone);
 
+      await maybeRecordV2WeakNoReplyFromPriorAccountabilityDay({
+        clerkUserId: audienceUser.clerk_user_id,
+        timezone,
+        now,
+      });
+
+      const v2CutoverStatus = await resolveUserFullyOnV2ForCutoverMessaging(
+        audienceUser.clerk_user_id
+      );
+      const skipLegacyDailyCompletionCheck = v2CutoverStatus.fullyOnV2;
+
       const pref = smsTimePreferenceFromClerkMetadata(md as Record<string, unknown>);
       const sendHour =
         SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 7;
@@ -483,7 +1222,18 @@ export async function GET(req: Request) {
       const isRetryPending =
         existingEvent?.status === "send_failed" && retryCountFromMeta < 3;
 
-      if (!existingEvent && !force && !isInSendWindow(localNow, sendHour)) {
+      let sendTimeWindowOk = isInSendWindow(localNow, sendHour);
+      if (!existingEvent && !force) {
+        const activeV2Window = await getActiveCommitment(audienceUser.clerk_user_id);
+        if (activeV2Window?.behavior_statement?.trim()) {
+          const learnedProf = await fetchV2UserSendTimeProfile(audienceUser.clerk_user_id);
+          if (learnedProf && shouldUseLearnedSendTimeGate(learnedProf)) {
+            sendTimeWindowOk = isV2LearnedSendWindowAllowed(localNow, learnedProf.preferred_window);
+          }
+        }
+      }
+
+      if (!existingEvent && !force && !sendTimeWindowOk) {
         stats.skippedNotTime += 1;
         continue;
       }
@@ -540,36 +1290,90 @@ export async function GET(req: Request) {
           const retryCount = typeof existingMeta.retry_count === "number" ? existingMeta.retry_count : 0;
 
           if (retryCount < 3) {
-            // Check completion (user may have completed since failure)
-            const { data: completed } = await supabaseServer
-              .from("daily_completion_events")
-              .select("id")
-              .eq("clerk_user_id", audienceUser.clerk_user_id)
-              .eq("day_key", todayKey)
-              .limit(1);
-
-            if (completed && completed.length > 0) {
-              await supabaseServer
-                .from("sms_send_events")
-                .update({
-                  status: "skipped_already_completed",
-                  metadata: { ...existingMeta, note: "user_completed_today" },
-                })
+            // Legacy app completion only; V2 accountability does not use daily_completion_events.
+            if (!skipLegacyDailyCompletionCheck) {
+              const { data: completed } = await supabaseServer
+                .from("daily_completion_events")
+                .select("id")
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey);
-              stats.skippedAlreadyCompleted += 1;
-              continue;
+                .eq("day_key", todayKey)
+                .limit(1);
+
+              if (completed && completed.length > 0) {
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: "skipped_already_completed",
+                    metadata: { ...existingMeta, note: "user_completed_today" },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                stats.skippedAlreadyCompleted += 1;
+                continue;
+              }
             }
 
             stage = "build_content";
             let smsBody: string;
-            let deliveryStateSnapshot: SmsDeliveryStateRow | null = null;
 
-            const built = await buildSmsWithDeliveryEngine(
+            const built = await buildDailySmsContent(
               audienceUser.clerk_user_id,
-              md as Record<string, unknown>
+              md as Record<string, unknown>,
+              todayKey
             );
             if (!built.ok) {
+              if (built.error === "v2_reactivation_not_due") {
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: "skipped_reactivation_cooldown",
+                    metadata: {
+                      ...existingMeta,
+                      note: "v2_reactivation_not_due",
+                      timezone,
+                      local_time: localNow.toISOString(),
+                    },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                stats.skippedReactivationCooldown += 1;
+                continue;
+              }
+              if (built.error === "v2_refresh_identity_await_reply") {
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: "skipped_v2_refresh_identity_pending",
+                    metadata: {
+                      ...existingMeta,
+                      note: "v2_refresh_identity_await_reply",
+                      timezone,
+                      local_time: localNow.toISOString(),
+                    },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                stats.skippedRefreshIdentityAwaiting += 1;
+                continue;
+              }
+              if (built.error === "not_fully_on_v2_daily_sms") {
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: "skipped_not_fully_on_v2",
+                    metadata: {
+                      ...existingMeta,
+                      note: "v2_only_daily_sms",
+                      cutover_reason: v2CutoverStatus.reason,
+                      timezone,
+                      local_time: localNow.toISOString(),
+                    },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                stats.skippedNotFullyOnV2Daily += 1;
+                continue;
+              }
               await supabaseServer
                 .from("sms_send_events")
                 .update({
@@ -588,8 +1392,7 @@ export async function GET(req: Request) {
               continue;
             }
             smsBody = built.smsBody;
-            deliveryStateSnapshot = built.deliveryStateSnapshot;
-            const day2SpecialUsedRetry = built.day2SpecialUsed;
+            const v2AccountabilityRetry = built.v2Accountability;
 
             stage = "twilio_send_or_skip";
             if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -599,23 +1402,14 @@ export async function GET(req: Request) {
 
             let retryMessage;
             try {
-              const effectiveForSend = day2SpecialUsedRetry
-                ? "respond"
-                : effectiveContentTypeFromSnapshot(deliveryStateSnapshot);
               retryMessage = await sendSMS({
                 to: audienceUser.phone_number,
                 body: smsBody,
                 lastOutbound: {
                   clerkUserId: audienceUser.clerk_user_id,
-                  messageKind:
-                    effectiveForSend === "respond" ? "question" : "quote",
-                  timeOfDay: timeOfDayForOutboundContext(
-                    md as Record<string, unknown>
-                  ),
-                  questionPosition:
-                    effectiveForSend === "respond"
-                      ? deliveryStateSnapshot.question_position
-                      : null,
+                  messageKind: "question",
+                  timeOfDay: timeOfDayForOutboundContext(md as Record<string, unknown>),
+                  questionPosition: null,
                   skipLastOutboundContextUpsert: true,
                 },
               });
@@ -640,6 +1434,7 @@ export async function GET(req: Request) {
               continue;
             }
 
+            const retrySendWindow = localHourToSendWindow(localNow.getHours());
             const retrySuccessPayload = {
               message_sid: retryMessage.sid,
               status: retryMessage.status,
@@ -650,6 +1445,20 @@ export async function GET(req: Request) {
                 note: "retry_success",
                 timezone,
                 local_time: localNow.toISOString(),
+                v2_accountability: v2AccountabilityRetry,
+                ...(built.v2ReactivationNudge ? { v2_reactivation_nudge: true } : {}),
+                ...(v2AccountabilityRetry && !built.v2ReactivationNudge && retrySendWindow
+                  ? { v2_send_window: retrySendWindow }
+                  : {}),
+                ...(typeof built.v2TemplateId === "number"
+                  ? { v2_template_id: built.v2TemplateId }
+                  : {}),
+                ...(typeof built.v2CommitmentId === "string"
+                  ? { v2_commitment_id: built.v2CommitmentId }
+                  : {}),
+                ...(typeof built.v2TemplateFamily === "string"
+                  ? { v2_template_family: built.v2TemplateFamily }
+                  : {}),
               },
             };
             let recordOk = false;
@@ -692,25 +1501,98 @@ export async function GET(req: Request) {
             if (recordOk) {
               stats.sent += 1;
               stats.retried += 1;
-              if (deliveryStateSnapshot) {
-                await upsertLastOutboundContextAfterDailySend({
-                  clerkUserId: audienceUser.clerk_user_id,
-                  md: md as Record<string, unknown>,
-                  deliveryStateSnapshot,
-                  smsBody,
-                  twilioMessageSid: retryMessage.sid,
-                  day2FreeformSpecial: day2SpecialUsedRetry,
-                  sentPatQuoteId: built.sentPatQuoteId,
-                  sentRespondQuestionId: built.sentRespondQuestionId,
+              if (built.v2ReactivationNudge && built.v2CommitmentId) {
+                await updateReactivationLastSentAt(built.v2CommitmentId);
+                await recomputeV2CoachingMemory(built.v2CommitmentId, {
+                  reasonCode: "daily_sms_reactivation_nudge_sent",
                 });
-                const applied = await applySmsDeliveryStateAfterSuccessfulSend(
-                  deliveryStateSnapshot,
-                  { day2SpecialSent: day2SpecialUsedRetry }
-                );
-                if (!applied.ok) {
-                  console.error("[daily-sms] delivery_state update failed after retry send", {
-                    clerk_user_id: audienceUser.clerk_user_id,
-                    error: applied.error,
+          } else if (
+            v2AccountabilityRetry &&
+            !built.v2ReactivationNudge &&
+            built.v2CommitmentId &&
+            typeof built.v2TemplateId === "number"
+          ) {
+                if (built.v2RefreshOutboundPlan && built.v2CommitmentId) {
+                  await insertV2CheckSentEventBestEffort({
+                    commitmentId: built.v2CommitmentId,
+                    clerkUserId: audienceUser.clerk_user_id,
+                    dayKey: todayKey,
+                    templateId: built.v2TemplateId,
+                    messageSid: retryMessage.sid,
+                    bodyPreview: smsBody.slice(0, 160),
+                    templateFamily:
+                      built.v2TemplateFamily === "recovery" ? "recovery" : "standard",
+                    priorOutcome: built.v2PriorOutcome ?? null,
+                    blockerPreview: built.v2BlockerPreview ?? null,
+                    silence: built.v2SilencePayload ?? null,
+                    reentry: built.v2ReentryPayload ?? null,
+                    nextMove: built.v2NextMovePayload ?? null,
+                    ai: built.v2AiPayload ?? null,
+                    cadence: built.v2CadencePayload ?? null,
+                    coachingRefresh: {
+                      session_id: built.v2RefreshOutboundPlan.session.session_id,
+                      step: built.v2RefreshOutboundPlan.session.step,
+                      outbound_kind: built.v2RefreshOutboundPlan.kind,
+                    },
+                  });
+                  await onV2RefreshOutboundSendSuccess({
+                    commitmentId: built.v2CommitmentId,
+                    clerkUserId: audienceUser.clerk_user_id,
+                    messageSid: retryMessage.sid,
+                    smsBody,
+                    plan: built.v2RefreshOutboundPlan,
+                  });
+                } else {
+                  const promptKind: V2CheckSentPromptKind = built.v2ContractProposalMode
+                    ? "contract_overlay_proposal"
+                    : "standard_accountability";
+                  const expectedReplySemantics: V2CheckSentExpectedReplySemantics =
+                    built.v2ContractProposalMode ? "proposal_yes_no" : "yes_no_partial";
+                  await onV2StandardCheckSentOutboundSendSuccess({
+                    commitmentId: built.v2CommitmentId,
+                    clerkUserId: audienceUser.clerk_user_id,
+                    dayKey: todayKey,
+                    templateId: built.v2TemplateId,
+                    templateFamily:
+                      built.v2TemplateFamily === "recovery" ? "recovery" : "standard",
+                    messageSid: retryMessage.sid,
+                    smsBody,
+                    effectiveAskText: built.v2EffectiveAskText ?? smsBody,
+                    promptKind,
+                    expectedReplySemantics,
+                    checkPayloadJson: buildStandardCheckSentPayload({
+                      priorOutcome: built.v2PriorOutcome ?? null,
+                      blockerPreview: built.v2BlockerPreview ?? null,
+                      silence: built.v2SilencePayload ?? null,
+                      reentry: built.v2ReentryPayload ?? null,
+                      nextMove: built.v2NextMovePayload ?? null,
+                      ai: built.v2AiPayload ?? null,
+                      cadence: built.v2CadencePayload ?? null,
+                      contractProposal: built.v2ContractProposalPayload ?? null,
+                    }),
+                    contractOverlayProposal:
+                      built.v2ContractProposalMode &&
+                      built.v2ProposalBindingText &&
+                      built.v2ContractProposalKind
+                        ? {
+                            text: built.v2ProposalBindingText,
+                            contractKind: built.v2ContractProposalKind,
+                          }
+                        : null,
+                  });
+                }
+
+                if (built.v2RefreshOutboundPlan && built.v2ContractProposalMode) {
+                  // no-op guard: refresh and proposal mode should not coincide
+                }
+                await recomputeV2CoachingMemory(built.v2CommitmentId, {
+                  reasonCode: "daily_sms_check_sent",
+                });
+                if (!built.v2RefreshOutboundPlan) {
+                  await markIdentityAnchorReferencedIfPresentInBody({
+                    clerkUserId: audienceUser.clerk_user_id,
+                    sentBody: smsBody,
+                    identityAnchorText: built.v2IdentityAnchorText ?? null,
                   });
                 }
               }
@@ -733,6 +1615,90 @@ export async function GET(req: Request) {
         continue;
       }
 
+      // V2: optional transition into low-pressure reactivation + cadence gate (cadence suspended while paused).
+      stage = "v2_cadence_gate";
+      let activeCadence = await getActiveCommitment(audienceUser.clerk_user_id);
+      if (activeCadence?.behavior_statement?.trim()) {
+        await clearStaleAdaptiveContractColumns(activeCadence.id);
+        const refreshedCadence = await getActiveCommitment(audienceUser.clerk_user_id);
+        if (refreshedCadence?.behavior_statement?.trim()) {
+          activeCadence = refreshedCadence;
+        }
+        const nowCadence = new Date();
+        const nowMsGate = nowCadence.getTime();
+
+        const recentForPhase = await getRecentV2EventsForAi(activeCadence.id);
+        const silenceForPhase = deriveV2SilenceContext(recentForPhase, nowCadence);
+
+        if (activeCadence.accountability_phase === "active_accountability") {
+          const lastTwoRows = await getLastNV2CheckSentPayloads(activeCadence.id, 2);
+          const lastTwoLevels = lastTwoRows.map((r) =>
+            parseCadenceLevelFromCheckSentPayload(r.payload_json)
+          );
+          if (
+            shouldEnterLowPressureReactivation({
+              phase: activeCadence.accountability_phase,
+              commitment: activeCadence,
+              nowMs: nowMsGate,
+              silence: silenceForPhase,
+              lastTwoCheckSentCadenceLevels: lastTwoLevels,
+              recentEventsNewestFirst: recentForPhase,
+            })
+          ) {
+            await enterLowPressureReactivationMode(activeCadence.id, V2_REACTIVATION_ENTRY_REASON);
+            await recomputeV2CoachingMemory(activeCadence.id, {
+              reasonCode: "daily_sms_enter_reactivation",
+            });
+            const reloadedAfterEnter = await getActiveCommitment(audienceUser.clerk_user_id);
+            if (reloadedAfterEnter?.behavior_statement?.trim()) {
+              activeCadence = reloadedAfterEnter;
+            }
+          }
+        }
+
+        if (activeCadence.accountability_phase === "low_pressure_reactivation") {
+          if (
+            !isReactivationNudgeDue({
+              reactivationEnteredAt: activeCadence.reactivation_entered_at,
+              reactivationLastSentAt: activeCadence.reactivation_last_sent_at,
+              nowMs: nowMsGate,
+            })
+          ) {
+            stats.skippedReactivationCooldown += 1;
+            continue;
+          }
+        } else {
+          const [recentCadence, lastCheckCadence, latestOutcomeCadence] = await Promise.all([
+            getRecentV2EventsForAi(activeCadence.id),
+            getLastV2CheckSentForCommitment(activeCadence.id),
+            getLatestV2AccountabilityOutcome(activeCadence.id),
+          ]);
+          const blockerPreviewCadence = await resolveV2BlockerPreviewForOutbound({
+            commitmentId: activeCadence.id,
+            latestOutcome: latestOutcomeCadence,
+            recentEvents: recentCadence,
+          });
+          const hasBlockerPreviewCadence = Boolean(
+            blockerPreviewCadence && blockerPreviewCadence.trim().length > 0
+          );
+          const cadencePayloadGate = deriveV2CadencePayload({
+            eventsNewestFirst: recentCadence,
+            now: nowCadence,
+            hasBlockerPreview: hasBlockerPreviewCadence,
+          });
+          if (
+            !shouldSendV2CadenceToday({
+              lastSuccessfulCheckSentDayKey: lastCheckCadence?.day_key ?? null,
+              todayLocalDayKey: todayKey,
+              cadenceLevel: cadencePayloadGate.level,
+            })
+          ) {
+            stats.skippedCadence += 1;
+            continue;
+          }
+        }
+      }
+
       // STEP 3: Only reserve if no row exists
       stage = "reserve";
       const reservation = await reserveTodaySendOrSkip({
@@ -751,38 +1717,88 @@ export async function GET(req: Request) {
 
       stats.reserved += 1;
 
-      // If user already completed today, we skip sending the daily SMS.
-      // (This matches your current behavior and avoids unnecessary pings.)
-      const { data: completed } = await supabaseServer
-        .from("daily_completion_events")
-        .select("id")
-        .eq("clerk_user_id", audienceUser.clerk_user_id)
-        .eq("day_key", todayKey)
-        .limit(1);
-
-      if (completed && completed.length > 0) {
-        await supabaseServer
-          .from("sms_send_events")
-          .update({
-            status: "skipped_already_completed",
-            metadata: { note: "user_completed_today" },
-          })
+      // Legacy: skip send if old app completion row exists for today. Not used for full V2 path.
+      if (!skipLegacyDailyCompletionCheck) {
+        const { data: completed } = await supabaseServer
+          .from("daily_completion_events")
+          .select("id")
           .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
+          .eq("day_key", todayKey)
+          .limit(1);
 
-        stats.skippedAlreadyCompleted += 1;
-        continue;
+        if (completed && completed.length > 0) {
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "skipped_already_completed",
+              metadata: { note: "user_completed_today" },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+
+          stats.skippedAlreadyCompleted += 1;
+          continue;
+        }
       }
 
       stage = "build_content";
       let smsBody: string;
-      let deliveryStateSnapshotMain: SmsDeliveryStateRow | null = null;
 
-      const builtMain = await buildSmsWithDeliveryEngine(
+      const builtMain = await buildDailySmsContent(
         audienceUser.clerk_user_id,
-        md as Record<string, unknown>
+        md as Record<string, unknown>,
+        todayKey
       );
       if (!builtMain.ok) {
+        if (builtMain.error === "v2_reactivation_not_due") {
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "skipped_reactivation_cooldown",
+              metadata: {
+                note: "v2_reactivation_not_due",
+                timezone,
+                local_time: localNow.toISOString(),
+              },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          stats.skippedReactivationCooldown += 1;
+          continue;
+        }
+        if (builtMain.error === "v2_refresh_identity_await_reply") {
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "skipped_v2_refresh_identity_pending",
+              metadata: {
+                note: "v2_refresh_identity_await_reply",
+                timezone,
+                local_time: localNow.toISOString(),
+              },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          stats.skippedRefreshIdentityAwaiting += 1;
+          continue;
+        }
+        if (builtMain.error === "not_fully_on_v2_daily_sms") {
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "skipped_not_fully_on_v2",
+              metadata: {
+                note: "v2_only_daily_sms",
+                cutover_reason: v2CutoverStatus.reason,
+                timezone,
+                local_time: localNow.toISOString(),
+              },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          stats.skippedNotFullyOnV2Daily += 1;
+          continue;
+        }
         await supabaseServer
           .from("sms_send_events")
           .update({
@@ -800,8 +1816,7 @@ export async function GET(req: Request) {
         continue;
       }
       smsBody = builtMain.smsBody;
-      deliveryStateSnapshotMain = builtMain.deliveryStateSnapshot;
-      const day2SpecialUsedMain = builtMain.day2SpecialUsed;
+      const v2AccountabilityMain = builtMain.v2Accountability;
 
       // Twilio readiness + dry run
       stage = "twilio_send_or_skip";
@@ -827,31 +1842,16 @@ export async function GET(req: Request) {
 
       let mainMessage;
       try {
-        const effectiveForSendMain =
-          day2SpecialUsedMain
-            ? "respond"
-            : deliveryStateSnapshotMain != null
-              ? effectiveContentTypeFromSnapshot(deliveryStateSnapshotMain)
-              : "respond";
         mainMessage = await sendSMS({
           to: audienceUser.phone_number,
           body: smsBody,
-          lastOutbound:
-            deliveryStateSnapshotMain != null
-              ? {
-                  clerkUserId: audienceUser.clerk_user_id,
-                  messageKind:
-                    effectiveForSendMain === "respond" ? "question" : "quote",
-                  timeOfDay: timeOfDayForOutboundContext(
-                    md as Record<string, unknown>
-                  ),
-                  questionPosition:
-                    effectiveForSendMain === "respond"
-                      ? deliveryStateSnapshotMain.question_position
-                      : null,
-                  skipLastOutboundContextUpsert: true,
-                }
-              : undefined,
+          lastOutbound: {
+            clerkUserId: audienceUser.clerk_user_id,
+            messageKind: "question",
+            timeOfDay: timeOfDayForOutboundContext(md as Record<string, unknown>),
+            questionPosition: null,
+            skipLastOutboundContextUpsert: true,
+          },
         });
       } catch (err) {
         await supabaseServer
@@ -872,6 +1872,7 @@ export async function GET(req: Request) {
       }
 
       if (mainMessage) {
+        const mainSendWindow = localHourToSendWindow(localNow.getHours());
         const mainSuccessPayload = {
           message_sid: mainMessage.sid,
           status: mainMessage.status,
@@ -880,6 +1881,20 @@ export async function GET(req: Request) {
             note: "sent_to_twilio",
             timezone,
             local_time: localNow.toISOString(),
+            v2_accountability: v2AccountabilityMain,
+            ...(builtMain.v2ReactivationNudge ? { v2_reactivation_nudge: true } : {}),
+            ...(v2AccountabilityMain && !builtMain.v2ReactivationNudge && mainSendWindow
+              ? { v2_send_window: mainSendWindow }
+              : {}),
+            ...(typeof builtMain.v2TemplateId === "number"
+              ? { v2_template_id: builtMain.v2TemplateId }
+              : {}),
+            ...(typeof builtMain.v2CommitmentId === "string"
+              ? { v2_commitment_id: builtMain.v2CommitmentId }
+              : {}),
+            ...(typeof builtMain.v2TemplateFamily === "string"
+              ? { v2_template_family: builtMain.v2TemplateFamily }
+              : {}),
           },
         };
         let recordOk = false;
@@ -921,25 +1936,98 @@ export async function GET(req: Request) {
         }
         if (recordOk) {
           stats.sent += 1;
-          if (deliveryStateSnapshotMain) {
-            await upsertLastOutboundContextAfterDailySend({
-              clerkUserId: audienceUser.clerk_user_id,
-              md: md as Record<string, unknown>,
-              deliveryStateSnapshot: deliveryStateSnapshotMain,
-              smsBody,
-              twilioMessageSid: mainMessage.sid,
-              day2FreeformSpecial: day2SpecialUsedMain,
-              sentPatQuoteId: builtMain.sentPatQuoteId,
-              sentRespondQuestionId: builtMain.sentRespondQuestionId,
+          if (builtMain.v2ReactivationNudge && builtMain.v2CommitmentId) {
+            await updateReactivationLastSentAt(builtMain.v2CommitmentId);
+            await recomputeV2CoachingMemory(builtMain.v2CommitmentId, {
+              reasonCode: "daily_sms_reactivation_nudge_sent",
             });
-            const applied = await applySmsDeliveryStateAfterSuccessfulSend(
-              deliveryStateSnapshotMain,
-              { day2SpecialSent: day2SpecialUsedMain }
-            );
-            if (!applied.ok) {
-              console.error("[daily-sms] delivery_state update failed after main send", {
-                clerk_user_id: audienceUser.clerk_user_id,
-                error: applied.error,
+          } else if (
+            v2AccountabilityMain &&
+            !builtMain.v2ReactivationNudge &&
+            builtMain.v2CommitmentId &&
+            typeof builtMain.v2TemplateId === "number"
+          ) {
+            if (builtMain.v2RefreshOutboundPlan && builtMain.v2CommitmentId) {
+              await insertV2CheckSentEventBestEffort({
+                commitmentId: builtMain.v2CommitmentId,
+                clerkUserId: audienceUser.clerk_user_id,
+                dayKey: todayKey,
+                templateId: builtMain.v2TemplateId,
+                messageSid: mainMessage.sid,
+                bodyPreview: smsBody.slice(0, 160),
+                templateFamily:
+                  builtMain.v2TemplateFamily === "recovery" ? "recovery" : "standard",
+                priorOutcome: builtMain.v2PriorOutcome ?? null,
+                blockerPreview: builtMain.v2BlockerPreview ?? null,
+                silence: builtMain.v2SilencePayload ?? null,
+                reentry: builtMain.v2ReentryPayload ?? null,
+                nextMove: builtMain.v2NextMovePayload ?? null,
+                ai: builtMain.v2AiPayload ?? null,
+                cadence: builtMain.v2CadencePayload ?? null,
+                coachingRefresh: {
+                  session_id: builtMain.v2RefreshOutboundPlan.session.session_id,
+                  step: builtMain.v2RefreshOutboundPlan.session.step,
+                  outbound_kind: builtMain.v2RefreshOutboundPlan.kind,
+                },
+              });
+              await onV2RefreshOutboundSendSuccess({
+                commitmentId: builtMain.v2CommitmentId,
+                clerkUserId: audienceUser.clerk_user_id,
+                messageSid: mainMessage.sid,
+                smsBody,
+                plan: builtMain.v2RefreshOutboundPlan,
+              });
+            } else {
+              const promptKind: V2CheckSentPromptKind = builtMain.v2ContractProposalMode
+                ? "contract_overlay_proposal"
+                : "standard_accountability";
+              const expectedReplySemantics: V2CheckSentExpectedReplySemantics =
+                builtMain.v2ContractProposalMode ? "proposal_yes_no" : "yes_no_partial";
+              await onV2StandardCheckSentOutboundSendSuccess({
+                commitmentId: builtMain.v2CommitmentId,
+                clerkUserId: audienceUser.clerk_user_id,
+                dayKey: todayKey,
+                templateId: builtMain.v2TemplateId,
+                templateFamily:
+                  builtMain.v2TemplateFamily === "recovery" ? "recovery" : "standard",
+                messageSid: mainMessage.sid,
+                smsBody,
+                effectiveAskText: builtMain.v2EffectiveAskText ?? smsBody,
+                promptKind,
+                expectedReplySemantics,
+                checkPayloadJson: buildStandardCheckSentPayload({
+                  priorOutcome: builtMain.v2PriorOutcome ?? null,
+                  blockerPreview: builtMain.v2BlockerPreview ?? null,
+                  silence: builtMain.v2SilencePayload ?? null,
+                  reentry: builtMain.v2ReentryPayload ?? null,
+                  nextMove: builtMain.v2NextMovePayload ?? null,
+                  ai: builtMain.v2AiPayload ?? null,
+                  cadence: builtMain.v2CadencePayload ?? null,
+                  contractProposal: builtMain.v2ContractProposalPayload ?? null,
+                }),
+                contractOverlayProposal:
+                  builtMain.v2ContractProposalMode &&
+                  builtMain.v2ProposalBindingText &&
+                  builtMain.v2ContractProposalKind
+                    ? {
+                        text: builtMain.v2ProposalBindingText,
+                        contractKind: builtMain.v2ContractProposalKind,
+                      }
+                    : null,
+              });
+            }
+
+            if (builtMain.v2RefreshOutboundPlan && builtMain.v2ContractProposalMode) {
+              // no-op guard: refresh and proposal mode should not coincide
+            }
+            await recomputeV2CoachingMemory(builtMain.v2CommitmentId, {
+              reasonCode: "daily_sms_check_sent",
+            });
+            if (!builtMain.v2RefreshOutboundPlan) {
+              await markIdentityAnchorReferencedIfPresentInBody({
+                clerkUserId: audienceUser.clerk_user_id,
+                sentBody: smsBody,
+                identityAnchorText: builtMain.v2IdentityAnchorText ?? null,
               });
             }
           }
@@ -982,6 +2070,8 @@ export async function GET(req: Request) {
         skipped_not_time: stats.skippedNotTime,
         skipped_missing_identity: stats.skippedMissingIdentity,
         skipped_already_completed: stats.skippedAlreadyCompleted,
+        skipped_not_fully_on_v2: stats.skippedNotFullyOnV2Daily,
+        user_loop_errors: stats.userLoopErrors,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "day_key" }
@@ -1000,11 +2090,23 @@ export async function GET(req: Request) {
     skippedOutOfWindow: stats.skippedNotTime,
     skippedAlreadySent: stats.alreadyReservedOrSentToday,
     skippedOptedOut: stats.skippedOptedOut,
+    skippedCadence: stats.skippedCadence,
+    skippedNotFullyOnV2Daily: stats.skippedNotFullyOnV2Daily,
     failed: stats.failed,
     reservationErrors: stats.reservationErrors,
     userLoopErrors: stats.userLoopErrors,
     recoveredReserved: stats.recoveredReserved,
   });
+  console.log(
+    JSON.stringify({
+      event: "daily_sms_alert_metrics",
+      day_key: dayKey,
+      skipped_not_fully_on_v2: stats.skippedNotFullyOnV2Daily,
+      user_loop_errors: stats.userLoopErrors,
+      sent: stats.sent,
+      failed: stats.failed,
+    })
+  );
 
   return NextResponse.json(stats);
 }

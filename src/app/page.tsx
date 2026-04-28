@@ -16,20 +16,12 @@ function isSubscribedFromMetadata(md: Record<string, any>) {
   );
 }
 
-function safeDayNumber(raw: unknown): number {
-  const n = typeof raw === "number" ? raw : Number(raw);
-  if (!Number.isFinite(n)) return 1;
-  if (n <= 0) return 1;
-  return Math.floor(n);
-}
-
 export default async function HomePage() {
   const user = await currentUser();
   const md = (user?.publicMetadata ?? {}) as Record<string, any>;
 
   const onboardingCompleted = md?.onboardingCompleted === true;
   const isSubscribed = isSubscribedFromMetadata(md);
-  const currentDay = safeDayNumber(md?.currentDay);
 
   const showContinue =
     !!user && onboardingCompleted === true && isSubscribed === true;
@@ -63,13 +55,12 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-24 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-3">
-              Pat Summitt is your personal leadership coach — every day.
+              Pat Summitt is your personal coach - every day.
             </h1>
 
             <p className="text-lg text-[var(--muted)] mb-5 leading-relaxed">
-              A simple daily leadership practice inspired by the Coach of the
-              Century. Reflect for a few minutes each day and watch the
-              results in your life.
+              Get a daily text message that holds you accountable to one clear commitment and become
+              the person you have always wanted to be.
             </p>
 
             {user && (
@@ -81,14 +72,14 @@ export default async function HomePage() {
                 {showContinue && (
                   <>
                     <p className="text-sm text-[var(--muted)]">
-                      Your practice is ready.
+                      Your dashboard is ready—commitment, SMS check-ins, and Victory Room.
                     </p>
 
                     <Link
-                      href={`/dashboard/day/${currentDay}`}
+                      href="/dashboard"
                       className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
                     >
-                      Continue Today’s Practice →
+                      Open dashboard →
                     </Link>
                   </>
                 )}
@@ -96,7 +87,7 @@ export default async function HomePage() {
                 {showResumeOnboarding && (
                   <>
                     <p className="text-sm text-[var(--muted)]">
-                      Finish setup to personalize your training.
+                      Finish setup so Pat can hold you to your commitment on SMS.
                     </p>
 
                     <Link
@@ -111,7 +102,7 @@ export default async function HomePage() {
                 {showSubscribe && (
                   <>
                     <p className="text-sm text-[var(--muted)]">
-                      Start your membership to begin training.
+                      Start your membership to turn on SMS accountability and the full app.
                     </p>
 
                     <Link
@@ -129,22 +120,16 @@ export default async function HomePage() {
                 Public CTA Section
                ====================================================== */}
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="flex flex-col gap-3">
               <Link
                 href="/subscribe"
                 className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
               >
                 Start 7-Day Free Trial
               </Link>
-              <Link
-                href="/subscribe"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold border border-[var(--brand)] text-[var(--brand)] bg-transparent hover:bg-[var(--surface)] w-full sm:w-auto"
-              >
-                Get Today&apos;s Practice by Text
-              </Link>
             </div>
             <p className="text-sm text-[var(--muted)] mt-2">
-              7-day free trial • Cancel anytime • Available in the app or by daily text message.
+              7-day free trial • Cancel anytime
             </p>
 
             {!user && (
@@ -152,7 +137,7 @@ export default async function HomePage() {
                 <p className="text-sm font-semibold mb-1">Already a member?</p>
 
                 <p className="text-sm text-[var(--muted)] mb-5">
-                  Sign in to go straight to today’s practice.
+                  Sign in to open your dashboard, commitment, and Victory Room.
                 </p>
 
                 <Link
@@ -163,26 +148,16 @@ export default async function HomePage() {
                 </Link>
               </div>
             )}
-
-            <p className="text-sm text-[var(--muted)] mt-4">
-              Not ready yet?{" "}
-              <Link
-                href="/pat-summitt-leadership-challenge"
-                className="text-[var(--brand)] font-semibold hover:underline"
-              >
-                Try the free 7-Day Leadership Challenge
-              </Link>
-            </p>
           </div>
 
-          <div className="relative w-full h-[300px] sm:h-[360px] md:h-[420px] lg:h-[520px] rounded-2xl bg-black/5 flex items-center justify-center">
+          <div className="relative w-full max-w-full overflow-hidden rounded-2xl aspect-video shadow-md ring-1 ring-white/10">
             <Image
               src="/brand/pat-hero.jpeg"
               alt="Pat Summitt AI coaching experience"
               fill
               priority
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-contain"
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 672px"
+              className="object-cover object-center"
             />
           </div>
         </div>
@@ -209,52 +184,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      <section className="bg-white border-t">
-        <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
-          <h2 className="text-3xl font-bold">
-            Don&apos;t let inspiration stop at the{" "}
-            <Link
-              href="/pat-summitt-documentary"
-              className="text-[var(--brand)] font-semibold hover:underline"
-            >
-              documentary
-            </Link>
-            .
-          </h2>
-          <p className="text-lg text-gray-700">
-            Millions of people are rediscovering Pat Summitt through
-            documentaries and stories about her life. But inspiration fades
-            unless it becomes a habit.
-          </p>
-          <p className="text-lg text-gray-700">
-            Built from the real words of Pat Summitt.
-          </p>
-          <p className="text-lg text-gray-700">
-            We studied her interviews, speeches, and teachings to shape every part of this experience.
-          </p>
-          <p className="text-lg text-gray-700">
-            Grounded in how she coached, led, and challenged people to grow.
-          </p>
-          <p className="text-lg text-gray-700">
-            Each day, you receive a simple text from Coach Pat with one short practice and one honest reflection.
-          </p>
-          <p className="text-lg text-gray-700">
-            You respond. You build consistency. You move forward.
-          </p>
-          <p className="text-lg text-gray-700">
-            You can also ask Coach Pat questions anytime and access the Film Room as you go.
-          </p>
-          <p className="text-lg text-gray-700">
-            A short daily practice that helps you think better, act better, and stay consistent.
-          </p>
-          <p className="text-lg text-gray-700">
-            Summitt Mindset turns Pat Summitt&apos;s leadership principles
-            into a simple daily practice — one reflection, one journal entry,
-            one step forward.
-          </p>
-        </div>
-      </section>
 
       <section className="bg-gray-50 border-t">
         <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
@@ -351,25 +280,23 @@ export default async function HomePage() {
             How Summitt Mindset Works
           </h2>
           <p className="text-[var(--muted)] leading-relaxed">
-            Three simple tools help you build discipline, leadership, and
-            consistency one day at a time.
+            SMS accountability on your commitment, optional depth in the app, and Victory Room when you want proof.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Daily Practice
+              Optional depth
             </h3>
             <p className="text-sm text-[var(--muted)] leading-relaxed mb-4">
-              Start with a short note inspired by Coach Pat. You get one simple
-              action and a reflection prompt for the day.
+              Films, prompts, and reflection live here when you want more than SMS—secondary to your commitment bar.
             </p>
             <Link
               href="/daily-practice"
               className="text-sm font-semibold text-[var(--brand)] hover:underline"
             >
-              Explore Daily Practice →
+              Explore optional depth →
             </Link>
           </div>
 

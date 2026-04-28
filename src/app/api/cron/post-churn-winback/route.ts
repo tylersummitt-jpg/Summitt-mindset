@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { createWinbackToken } from "@/lib/winback-token";
+import { isTwilioReady, sendSMS } from "@/lib/twilio";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,19 +22,12 @@ export const dynamic = "force-dynamic";
  * - Never send twice (moment="post_churn_winback_sent")
  * - Private only (Stream C)
  *
- * Note: Twilio not required to ship this logic. If Twilio env is missing,
- * we still log "skipped_missing_twilio" for visibility.
+ * Sends via canonical `sendSMS` (Messaging Service or fallback number). If Twilio is not
+ * configured, we log `skipped_missing_twilio` for visibility.
  */
-
-const CRON_SECRET = process.env.CRON_SECRET;
 
 // Public base URL for link generation (required)
 const APP_BASE_URL = process.env.APP_BASE_URL;
-
-// Twilio (optional until live)
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER;
 
 function daysAgoIso(days: number) {
   const d = new Date();
@@ -57,41 +52,8 @@ function buildWinbackLink(clerk_user_id: string) {
   )}`;
 }
 
-async function sendSms(to: string, body: string) {
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
-    throw new Error("Twilio env missing (TWILIO_ACCOUNT_SID/AUTH_TOKEN/FROM)");
-  }
-
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-
-  const form = new URLSearchParams();
-  form.set("From", TWILIO_FROM_NUMBER);
-  form.set("To", to);
-  form.set("Body", body);
-
-  const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString(
-    "base64"
-  );
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: form.toString(),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Twilio send failed: ${text}`);
-  }
-}
-
 export async function GET(req: Request) {
-  // ✅ Protect cron endpoint
-  const secret = req.headers.get("x-cron-secret");
-  if (!CRON_SECRET || secret !== CRON_SECRET) {
+  if (!validateCronSecretRequest(req)) {
     return NextResponse.json({ ok: false, reason: "unauthorized" }, { status: 401 });
   }
 
@@ -149,12 +111,7 @@ export async function GET(req: Request) {
         normalizePhone(md?.smsNumber) ||
         normalizePhone(md?.mobile);
 
-      // If Twilio isn't configured yet, we still log a visible skip
-      const twilioReady = Boolean(
-        TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER
-      );
-
-      if (!twilioReady) {
+      if (!isTwilioReady()) {
         skippedTwilio += 1;
 
         await supabaseServer.from("feedback_events").insert({
@@ -195,8 +152,14 @@ export async function GET(req: Request) {
         `One sentence is enough.\n\n` +
         `${link}`;
 
-      // 5) Send SMS
-      await sendSms(phone, smsBody);
+      await sendSMS({
+        to: phone,
+        body: smsBody,
+        lastOutbound: {
+          clerkUserId: clerk_user_id,
+          messageKind: "transactional",
+        },
+      });
 
       // 6) Log that we sent (Stream C)
       await supabaseServer.from("feedback_events").insert({

@@ -1,11 +1,16 @@
 /**
  * Shadow-mode weekly SMS reflections: generates template copy + metadata for
  * `weekly_sms_reflections` without sending SMS or touching delivery state.
+ *
+ * Uses `daily_completion_events` for “how many completions this week” — legacy truth.
+ * Callers must not invoke this for users on the V2 accountability path; this module
+ * no-ops early when `resolveUserFullyOnV2ForCutoverMessaging` is true.
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { getWeekKey } from "@/lib/weekly-sms-week-key";
+import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export type MemoryBucket = "rich" | "partial" | "sparse" | "profile_only";
 
@@ -77,6 +82,11 @@ export async function generateWeeklySmsReflection(
   localNow?: Date
 ): Promise<void> {
   try {
+    const v2 = await resolveUserFullyOnV2ForCutoverMessaging(clerkUserId);
+    if (v2.fullyOnV2) {
+      return;
+    }
+
     const tz = resolveUserTimezone(timezone);
     const now = new Date();
     const local =

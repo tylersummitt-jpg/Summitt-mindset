@@ -8,6 +8,7 @@ import { resolveUserTimezone } from "@/lib/timezone";
 import { generateWeeklySmsReflection } from "@/lib/weekly-sms-reflection-shadow";
 import { getWeekKey } from "@/lib/weekly-sms-week-key";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,8 @@ export async function GET(req: Request) {
     skippedOptedOut: 0,
     skippedMissingIdentity: 0,
     skippedMissingTwilio: 0,
+    /** Weekly Pat Pause + shadow reflection still use legacy completion signals; skipped for full V2 accountability users until rewritten. */
+    skippedV2WeeklyDeferred: 0,
     failed: 0,
   };
 
@@ -123,6 +126,12 @@ export async function GET(req: Request) {
 
       if (identity.sms_enabled !== true || identity.stopped_at) {
         stats.skippedOptedOut++;
+        continue;
+      }
+
+      const v2Gate = await resolveUserFullyOnV2ForCutoverMessaging(user.id);
+      if (v2Gate.fullyOnV2) {
+        stats.skippedV2WeeklyDeferred += 1;
         continue;
       }
 
@@ -198,7 +207,7 @@ export async function GET(req: Request) {
         `I’ve been thinking about your week.\n\n` +
         `${summaryText}\n\n` +
         `You showed up. That matters more than you think.\n` +
-        `This is how momentum is built — one day at a time.\n\n` +
+        `Steady honesty with yourself is how this kind of change sticks.\n\n` +
         `Keep going. I’m with you.\n\n` +
         `Reply anytime.\n\n` +
         `${WEEKLY_SMS_COMPLIANCE_FOOTER}`;

@@ -6,20 +6,19 @@ type Step = {
 export default function OnboardingProgress({
   currentStep,
 }: {
-  currentStep: 1 | 2 | 3 | 4 | 5;
+  currentStep: 1 | 2 | 3 | 4;
 }) {
   const steps: Step[] = [
     { label: "Identity", done: currentStep > 1 },
-    { label: "Relationships", done: currentStep > 2 },
-    { label: "Pressure", done: currentStep > 3 },
-    { label: "SMS", done: currentStep > 4 },
-    { label: "Complete", done: currentStep > 5 },
+    { label: "Commitment", done: currentStep > 2 },
+    { label: "SMS", done: currentStep > 3 },
+    { label: "Complete", done: currentStep > 4 },
   ];
 
   return (
     <div className="mb-10">
       <p className="text-xs uppercase tracking-wide text-gray-500 mb-3">
-        Step {currentStep} of 5
+        Step {currentStep} of 4
       </p>
 
       <div className="flex items-center justify-between gap-2">

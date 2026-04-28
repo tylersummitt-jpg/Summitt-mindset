@@ -3,6 +3,7 @@
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 function normalizeText(input: string): string {
   return input.trim().replace(/\s+/g, " ");
@@ -12,9 +13,8 @@ export default function IdentityClient(): ReactElement {
   const router = useRouter();
 
   const [preferredName, setPreferredName] = useState("");
-  const [lifeDesires, setLifeDesires] = useState("");
-  const [ninetyDayVision, setNinetyDayVision] = useState("");
-  const [supportArea, setSupportArea] = useState("");
+  const [peopleSummary, setPeopleSummary] = useState("");
+  const [responsibility, setResponsibility] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,17 +22,31 @@ export default function IdentityClient(): ReactElement {
   async function handleContinue() {
     setError(null);
 
-    const payload = {
-      preferred_name: normalizeText(preferredName) || null,
-      life_desires: normalizeText(lifeDesires),
-      ninety_day_vision: normalizeText(ninetyDayVision),
-      support_area: normalizeText(supportArea),
-    };
-
-    if (!payload.life_desires || !payload.ninety_day_vision || !payload.support_area) {
-      setError("Please answer all three questions.");
+    const name = normalizeText(preferredName);
+    if (!name) {
+      setError("Add what Coach Pat should call you.");
       return;
     }
+
+    const people = normalizeText(peopleSummary);
+    if (!people) {
+      setError("Add who you’re trying to show up for right now.");
+      return;
+    }
+
+    const resp = normalizeText(responsibility);
+    if (!resp) {
+      setError(
+        "Add anything else Coach Pat should know about your family, team, or responsibilities."
+      );
+      return;
+    }
+
+    const payload = {
+      preferred_name: name,
+      people_summary: people,
+      responsibility: resp,
+    };
 
     setSaving(true);
 
@@ -47,12 +61,14 @@ export default function IdentityClient(): ReactElement {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data?.error || "Something went wrong.");
+        setError(
+          typeof data?.error === "string" ? data.error : "Something went wrong."
+        );
         setSaving(false);
         return;
       }
 
-      router.push("/onboarding/relationships");
+      router.push("/onboarding/commitment");
       router.refresh();
     } catch {
       setError("Something went wrong.");
@@ -65,8 +81,7 @@ export default function IdentityClient(): ReactElement {
       <div className="space-y-6">
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">
-            What do you prefer to be called?{" "}
-            <span className="font-normal text-gray-500">(optional)</span>
+            What should Coach Pat call you?
           </label>
 
           <input
@@ -80,68 +95,66 @@ export default function IdentityClient(): ReactElement {
 
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">
-            What do you want out of life right now?
+            Who are you trying to show up for right now?
           </label>
 
           <textarea
-            value={lifeDesires}
-            onChange={(e) => setLifeDesires(e.target.value)}
+            value={peopleSummary}
+            onChange={(e) => setPeopleSummary(e.target.value)}
             rows={4}
             className="w-full border rounded-lg p-4 text-sm text-gray-900"
-            placeholder="Short answers are perfect."
+            placeholder="Example: my kids, my spouse, my team, my students, my family, myself."
           />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">
-            If the next 90 days went well, what would have happened?
+            Anything else Coach Pat should know about your family, team, or
+            responsibilities?
           </label>
 
           <textarea
-            value={ninetyDayVision}
-            onChange={(e) => setNinetyDayVision(e.target.value)}
-            rows={4}
+            value={responsibility}
+            onChange={(e) => setResponsibility(e.target.value)}
+            rows={3}
             className="w-full border rounded-lg p-4 text-sm text-gray-900"
-            placeholder="Short answers are perfect."
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-2">
-            Where would you most like guidance or support from Coach Pat right now?
-          </label>
-
-          <textarea
-            value={supportArea}
-            onChange={(e) => setSupportArea(e.target.value)}
-            rows={4}
-            className="w-full border rounded-lg p-4 text-sm text-gray-900"
-            placeholder="Short answers are perfect."
+            placeholder="Names, ages, roles, or anything that would help Coach Pat coach you with context."
           />
         </div>
       </div>
 
-      <div className="border rounded-xl bg-gray-50 p-4">
-        <p className="text-sm text-gray-700">
-          Clarity about what matters most is where leadership begins.
-        </p>
-      </div>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/onboarding"
+          className="text-sm underline text-gray-500"
+        >
+          ← Back
+        </Link>
 
-      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={handleContinue}
           disabled={saving}
           className={[
-            "px-6 py-3 rounded-md text-white font-semibold transition",
-            saving ? "bg-gray-400" : "bg-black hover:bg-gray-900",
+            "px-6 py-3 rounded-md text-white font-semibold transition focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-white",
+            saving
+              ? "cursor-wait bg-gray-400"
+              : "bg-[var(--brand)] hover:opacity-90",
           ].join(" ")}
         >
           {saving ? "Saving…" : "Continue →"}
         </button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      <div className="border-t border-gray-200 pt-8 mt-2">
+        <div className="rounded-xl bg-gray-50 px-4 py-4 text-center">
+          <p className="text-sm text-gray-600 italic">
+            You win in life with people. — Pat Summitt
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

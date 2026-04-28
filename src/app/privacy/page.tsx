@@ -10,8 +10,8 @@ export default function PrivacyPage() {
 
       <section className="space-y-4">
         <p className="text-gray-700">
-          Summitt Mindset exists to help members build daily consistency through
-          reflection, coaching, and habit-based leadership practices.
+          Summitt Mindset helps members hold one serious commitment with SMS accountability, optional
+          in-app depth, and a Victory Room record of real choices.
         </p>
         <p className="text-gray-700">
           We take privacy seriously. This policy explains what we collect, how
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">2. How We Use Information</h2>
         <ul className="list-disc pl-5 text-gray-700 space-y-2">
-          <li>Personalizing your daily practice and coaching</li>
+          <li>Personalizing coaching, commitment context, and optional in-app depth</li>
           <li>Delivering SMS or email reminders (if enabled)</li>
           <li>Improving retention and member outcomes</li>
           <li>Providing support if you request help</li>

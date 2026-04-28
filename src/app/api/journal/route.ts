@@ -10,6 +10,7 @@ import { supabaseServer } from "@/lib/supabase-server";
  *
  * DOMAIN CONTRACT
  * ------------------------------------------------------
+ * - Optional in-app depth; SMS + V2 spine are canonical accountability for members on that path.
  * - Journal reads/writes are NOT progression.
  * - Missing journal rows are expected states.
  * - Domain outcomes return 200 with explicit payloads.

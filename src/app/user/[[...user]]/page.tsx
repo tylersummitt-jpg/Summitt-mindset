@@ -126,61 +126,27 @@ function TextMessagesCard() {
   );
 }
 
-function YourProgressCard() {
-  const { user, isLoaded } = useUser();
-  const md = user?.publicMetadata as Record<string, unknown> | undefined;
-
-  const rawCurrent = md?.currentDay;
-  const rawTotal = md?.totalDaysCompleted;
-  const rawStreak = md?.daysInRow;
-
-  let currentDayDisplay: string;
-  let totalDisplay: string;
-  let phaseDisplay: string;
-  let showStreakRow = false;
-  let streakDisplay: string;
-
-  if (!isLoaded) {
-    currentDayDisplay = "—";
-    totalDisplay = "—";
-    phaseDisplay = "—";
-    streakDisplay = "";
-  } else {
-    const resolvedCurrent =
-      typeof rawCurrent === "number" ? rawCurrent : 1;
-    currentDayDisplay = String(resolvedCurrent);
-    totalDisplay = String(
-      typeof rawTotal === "number" ? rawTotal : 0
-    );
-    phaseDisplay =
-      resolvedCurrent <= 30 ? "Training Camp" : "In Season";
-    if (typeof rawStreak === "number" && rawStreak >= 2) {
-      showStreakRow = true;
-      streakDisplay = String(rawStreak);
-    } else {
-      streakDisplay = "";
-    }
-  }
-
+function AccountabilitySummaryCard() {
   return (
-    <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
-      <div className="flex justify-between gap-4 py-1">
-        <span className="text-gray-600">Current Day</span>
-        <span className="font-medium text-gray-900">{currentDayDisplay}</span>
-      </div>
-      <div className="flex justify-between gap-4 py-1">
-        <span className="text-gray-600">Total Completed</span>
-        <span className="font-medium text-gray-900">{totalDisplay}</span>
-      </div>
-      {showStreakRow ? (
-        <div className="flex justify-between gap-4 py-1">
-          <span className="text-gray-600">Days in a Row</span>
-          <span className="font-medium text-gray-900">{streakDisplay}</span>
-        </div>
-      ) : null}
-      <div className="flex justify-between gap-4 py-1">
-        <span className="text-gray-600">Phase</span>
-        <span className="font-medium text-gray-900">{phaseDisplay}</span>
+    <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-4 text-sm text-left space-y-3">
+      <p className="font-semibold text-gray-900">Accountability</p>
+      <p className="text-gray-600 leading-relaxed">
+        Pat checks in over SMS on one commitment you name—not a numbered-day score. Use the
+        dashboard for your bar; Victory Room for proof.
+      </p>
+      <div className="flex flex-col gap-2 pt-1">
+        <Link
+          href="/dashboard"
+          className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+        >
+          Open dashboard
+        </Link>
+        <Link
+          href="/dashboard/victory-room"
+          className="inline-flex w-full justify-center rounded-md bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
+        >
+          Open Victory Room
+        </Link>
       </div>
     </div>
   );
@@ -207,7 +173,7 @@ export default function UserProfilePage() {
 
             <TextMessagesCard />
 
-            <YourProgressCard />
+            <AccountabilitySummaryCard />
 
             <ManageMembershipButton />
 

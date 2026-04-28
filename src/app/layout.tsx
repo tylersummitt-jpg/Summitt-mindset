@@ -2,8 +2,15 @@
 
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
 /**
  * ======================================================
@@ -29,7 +36,8 @@ export const metadata: Metadata = {
     default: "Summitt Mindset",
     template: "%s | Summitt Mindset",
   },
-  description: "A calm daily practice system inspired by Coach Pat Summitt.",
+  description:
+    "SMS-first accountability on one clear commitment—Coach Pat Summitt’s standards, calm depth in the app, and Victory Room for proof.",
 };
 
 export default function RootLayout({
@@ -39,7 +47,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      <body
+        className={`${inter.className} min-h-screen bg-[var(--bg)] text-[var(--text)]`}
+      >
         <ClerkProvider
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
         >

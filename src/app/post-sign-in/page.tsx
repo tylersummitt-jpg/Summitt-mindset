@@ -12,15 +12,8 @@ import { redirect } from "next/navigation";
  * 1. Coach setup (if applicable: subscribed + coach acquisition + address not collected)
  * 2. Onboarding
  * 3. Subscribe (if needed)
- * 4. Dashboard (day/[currentDay]; currentDay defaults to 1 if missing)
+ * 4. Dashboard (commitment-first home)
  */
-
-function safeDayNumber(raw: unknown): number {
-  const n = typeof raw === "number" ? raw : Number(raw);
-  if (!Number.isFinite(n)) return 1;
-  if (n <= 0) return 1;
-  return Math.floor(n);
-}
 
 function isSubscribedFromMetadata(md: Record<string, any>) {
   const subscribedRaw = md?.summittSubscribed;
@@ -61,7 +54,5 @@ export default async function PostSignInPage() {
     redirect("/subscribe?from=post-sign-in");
   }
 
-  const currentDay = safeDayNumber(md?.currentDay);
-
-  redirect(`/dashboard/day/${currentDay}`);
+  redirect("/dashboard");
 }

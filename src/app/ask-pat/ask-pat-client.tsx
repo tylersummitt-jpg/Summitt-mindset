@@ -50,14 +50,14 @@ export default function AskPatClient({ isSubscribed }: Props) {
 
           <button
             onClick={handleStartTrial}
-            className="inline-flex items-center justify-center rounded-lg bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800"
+            className="inline-flex items-center justify-center rounded-lg bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
           >
             Start 7-day free trial
           </button>
 
           <div className="mt-4 text-sm text-[var(--muted)]">
-            Your trial unlocks full access to Ask Pat, Daily Practice, and the
-            Film Room. Cancel anytime before your trial ends.
+            Your trial unlocks full access to Ask Pat, Film Room, and optional in-app depth—alongside
+            SMS accountability on your commitment. Cancel anytime before your trial ends.
           </div>
         </section>
       </main>
@@ -143,7 +143,7 @@ export default function AskPatClient({ isSubscribed }: Props) {
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-lg bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
+            className="rounded-lg bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-100 disabled:hover:opacity-100"
           >
             {isLoading ? "Asking Pat..." : "Get Pat’s Perspective"}
           </button>
