@@ -79,26 +79,32 @@ export default function CommitmentSetupClient() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-900 mb-2">Commitment title</label>
+        <label className="block text-sm font-medium text-gray-900 mb-2">Name this commitment</label>
+        <p className="text-xs text-gray-500 mb-2">
+          A short name for what you&apos;re working on.
+        </p>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={saving}
           className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-900"
-          placeholder="Short name for your bar"
+          placeholder="Example: Be present after work"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-900 mb-2">Behavior statement</label>
+        <label className="block text-sm font-medium text-gray-900 mb-2">What will you actually do?</label>
+        <p className="text-xs text-gray-500 mb-2">
+          Write it so Coach Pat can ask, &ldquo;Did you do this today?&rdquo;
+        </p>
         <textarea
           value={behaviorStatement}
           onChange={(e) => setBehaviorStatement(e.target.value)}
           disabled={saving}
           rows={5}
           className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-900"
-          placeholder="What you will do — clear enough that Pat can check in on it."
+          placeholder="Example: I will put my phone away for the first 30 minutes after I get home."
         />
       </div>
 
