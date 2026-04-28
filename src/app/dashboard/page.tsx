@@ -202,8 +202,10 @@ export default async function DashboardPage() {
       <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-900">SMS accountability</h2>
         <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          Reply honestly when Pat texts—YES, NO, or PARTIAL is enough. You&apos;re not scoring days here;
-          you&apos;re keeping a promise to yourself.
+          Coach Pat will check in by text about your commitment above. Just reply honestly when she asks.
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+          The more you reply, the better Coach Pat can coach you over time.
         </p>
         {smsEnabled ? (
           <p className="mt-2 text-xs text-gray-500">SMS check-ins are on for your account.</p>
