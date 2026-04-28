@@ -62,6 +62,11 @@ export default async function DashboardPage() {
   const commitment = await getActiveCommitment(userId);
   const nowMs = Date.now();
   const effectiveAsk = commitment ? getEffectiveCoachingAsk(commitment, nowMs) : null;
+  const normalizedBaseAsk = commitment
+    ? commitment.behavior_statement.trim().replace(/\s+/g, " ")
+    : "";
+  const normalizedEffectiveAsk = effectiveAsk ? effectiveAsk.trim().replace(/\s+/g, " ") : "";
+  const showSplitAsk = Boolean(effectiveAsk) && normalizedEffectiveAsk !== normalizedBaseAsk;
   const pending = commitment ? getPendingResolutionOrNull(commitment) : null;
 
   let evolutionRec: EvolutionRecommendationRow | null = null;
@@ -132,16 +137,23 @@ export default async function DashboardPage() {
         <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Active commitment</h2>
           <p className="mt-2 text-lg font-semibold text-gray-900">{commitment.title}</p>
-          <p className="mt-3 text-sm leading-relaxed text-gray-700">
-            <span className="font-medium text-gray-800">Long-term bar: </span>
-            {commitment.behavior_statement}
-          </p>
-          {effectiveAsk ? (
+          {showSplitAsk ? (
+            <>
+              <p className="mt-3 text-sm leading-relaxed text-gray-700">
+                <span className="font-medium text-gray-800">Your commitment: </span>
+                {commitment.behavior_statement}
+              </p>
+              <p className="mt-4 border-t border-gray-100 pt-4 text-sm leading-relaxed text-gray-800">
+                <span className="font-medium text-gray-900">Coach Pat is checking in on today: </span>
+                {effectiveAsk}
+              </p>
+            </>
+          ) : (
             <p className="mt-4 border-t border-gray-100 pt-4 text-sm leading-relaxed text-gray-800">
-              <span className="font-medium text-gray-900">Current coaching ask: </span>
-              {effectiveAsk}
+              <span className="font-medium text-gray-900">Coach Pat is checking in on: </span>
+              {commitment.behavior_statement}
             </p>
-          ) : null}
+          )}
           {commitment.accountability_phase === "low_pressure_reactivation" ? (
             <p className="mt-3 text-xs text-gray-600">
               You&apos;re in a low-pressure reactivation window—SMS stays light until you re-engage.
