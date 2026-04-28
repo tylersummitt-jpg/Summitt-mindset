@@ -140,8 +140,8 @@ async function findBlockingSummittSubscription(args: {
     };
     const r = rank(a.subscription) - rank(b.subscription);
     if (r !== 0) return r;
-    const endA = a.subscription.current_period_end ?? 0;
-    const endB = b.subscription.current_period_end ?? 0;
+    const endA = a.subscription.items.data[0]?.current_period_end ?? 0;
+    const endB = b.subscription.items.data[0]?.current_period_end ?? 0;
     return endB - endA;
   });
 
