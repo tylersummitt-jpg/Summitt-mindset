@@ -59,14 +59,14 @@ export default function RootLayout({
             <main className="flex-1">{children}</main>
 
             <footer className="border-t border-[var(--border)] bg-[var(--surface)]">
-              <div className="max-w-6xl mx-auto px-4 py-6 text-xs text-[var(--muted)] flex flex-col md:flex-row justify-between gap-4">
+              <div className="max-w-6xl mx-auto px-4 py-6 text-sm md:text-xs text-[var(--muted)] flex flex-col md:flex-row justify-between gap-4">
                 <span>© {new Date().getFullYear()} Summitt Mindset</span>
 
-                <div className="flex gap-4 underline flex-wrap">
-                  <a href="/privacy">Privacy Policy</a>
-                  <a href="/terms">Terms</a>
-                  <a href="/sms">SMS Disclosure</a>
-                  <a href="/twilio">SMS Opt-In (Twilio)</a>
+                <div className="flex flex-wrap gap-x-4 gap-y-2 underline">
+                  <a href="/privacy" className="py-0.5">Privacy Policy</a>
+                  <a href="/terms" className="py-0.5">Terms</a>
+                  <a href="/sms" className="py-0.5">SMS Disclosure</a>
+                  <a href="/twilio" className="py-0.5">SMS Opt-In (Twilio)</a>
                 </div>
 
                 <span>Inspired by Coach Pat Summitt.</span>

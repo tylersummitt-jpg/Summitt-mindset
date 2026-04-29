@@ -67,12 +67,12 @@ export default async function FilmRoomPreviewPage() {
                 href="/subscribe"
                 className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm block"
               >
-                <div className="relative aspect-video bg-[var(--ink)]">
+                <div className="relative aspect-[4/3] sm:aspect-video bg-[var(--ink)]">
                   {video.thumbnail_url ? (
                     <img
                       src={video.thumbnail_url}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-top"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center p-4">
@@ -164,7 +164,7 @@ export default async function FilmRoomPreviewPage() {
       {/* --------------------------------------------------
           FINAL CTA
           -------------------------------------------------- */}
-      <section className="max-w-2xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-2xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
           Great leadership leaves clues.
         </h2>

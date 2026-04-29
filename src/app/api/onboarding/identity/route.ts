@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     const { userId } = await auth();
 
     if (!userId) {
-      return new Response("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const existing = await getClerkPublicMetadata(userId);
@@ -88,12 +89,12 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("Identity onboarding error:", error);
-      return new Response("Database error", { status: 500 });
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
 
     return Response.json({ success: true });
   } catch (err) {
     console.error(err);
-    return new Response("Server error", { status: 500 });
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

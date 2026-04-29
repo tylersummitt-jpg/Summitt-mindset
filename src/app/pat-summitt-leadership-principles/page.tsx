@@ -6,7 +6,7 @@ export default function PatSummittLeadershipPrinciplesPage() {
       {/* --------------------------------------------------
           HERO
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20">
+      <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20">
         <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
           Pat Summitt Leadership Principles
         </h1>
@@ -140,7 +140,7 @@ export default function PatSummittLeadershipPrinciplesPage() {
       {/* --------------------------------------------------
           CTA
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-8">
           Start with SMS-first accountability
         </h2>

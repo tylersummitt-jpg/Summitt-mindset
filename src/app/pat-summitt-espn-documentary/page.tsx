@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function PatSummittEspnDocumentaryPage() {
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      <section className="max-w-3xl mx-auto px-4 py-20">
+      <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20">
         <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
           Pat Summitt ESPN Documentary: Films and Where to Watch
         </h1>

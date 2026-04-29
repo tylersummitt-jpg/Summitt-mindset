@@ -1,8 +1,8 @@
 export default function PrivacyPage() {
   return (
-    <main className="max-w-3xl mx-auto py-16 px-6 space-y-10">
+    <main className="max-w-3xl mx-auto py-12 sm:py-16 px-4 sm:px-6 space-y-10">
       <header>
-        <h1 className="text-4xl font-bold mb-3">Privacy Policy</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold mb-3">Privacy Policy</h1>
         <p className="text-gray-600 text-sm">
           Last updated: March 14, 2026
         </p>

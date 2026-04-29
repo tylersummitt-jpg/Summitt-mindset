@@ -48,7 +48,7 @@ export default function PatSummittLeadershipChallengePage() {
           />
           <button
             type="submit"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 whitespace-nowrap"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
           >
             Start the Free Challenge
           </button>
@@ -125,7 +125,7 @@ export default function PatSummittLeadershipChallengePage() {
       {/* --------------------------------------------------
           FINAL CTA
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-4">
           Start the Free Challenge Today
         </h2>

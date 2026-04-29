@@ -71,17 +71,17 @@ export default function TwilioCompliancePage() {
           </div>
         </div>
 
-        <div className="text-sm">
+        <div className="text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-semibold">Policies:</span>{" "}
-          <a className="underline" href="/privacy">
+          <a className="underline py-0.5" href="/privacy">
             Privacy Policy
           </a>{" "}
-          •{" "}
-          <a className="underline" href="/terms">
+          <span aria-hidden>•</span>
+          <a className="underline py-0.5" href="/terms">
             Terms of Service
           </a>{" "}
-          •{" "}
-          <a className="underline" href="/sms">
+          <span aria-hidden>•</span>
+          <a className="underline py-0.5" href="/sms">
             SMS Disclosure
           </a>
         </div>

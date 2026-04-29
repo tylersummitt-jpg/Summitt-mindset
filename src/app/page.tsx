@@ -52,13 +52,13 @@ export default async function HomePage() {
   return (
     <main>
       <section className="bg-[var(--ink)]">
-        <div className="max-w-6xl mx-auto px-4 py-24 grid md:grid-cols-2 gap-12 items-center">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-3">
+        <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 md:py-24 grid md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 items-center">
+          <div className="min-w-0">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight mb-3">
               Pat Summitt is your personal coach - every day.
             </h1>
 
-            <p className="text-lg text-[var(--muted)] mb-5 leading-relaxed">
+            <p className="text-base sm:text-lg text-[var(--muted)] mb-5 leading-relaxed">
               Get a daily text message that holds you accountable to one clear commitment and become
               the person you have always wanted to be.
             </p>
@@ -150,7 +150,7 @@ export default async function HomePage() {
             )}
           </div>
 
-          <div className="relative w-full max-w-full overflow-hidden rounded-2xl aspect-video shadow-md ring-1 ring-white/10">
+          <div className="relative w-full max-w-full h-[220px] sm:h-[260px] md:h-auto md:aspect-video overflow-hidden rounded-2xl shadow-md ring-1 ring-white/10">
             <Image
               src="/brand/pat-hero.jpeg"
               alt="Pat Summitt AI coaching experience"
@@ -167,7 +167,7 @@ export default async function HomePage() {
           Quote of the Day
           -------------------------------------------------- */}
       {data?.quote && data?.url && (
-        <section className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <section className="max-w-3xl mx-auto px-4 py-10 sm:py-14 md:py-16 text-center">
           <h2 className="text-2xl font-bold text-[var(--text)] mb-6">
             Pat Summitt Quote of the Day
           </h2>
@@ -186,12 +186,12 @@ export default async function HomePage() {
       )}
 
       <section className="bg-gray-50 border-t">
-        <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-6">
-          <h2 className="text-3xl font-bold">
+        <div className="max-w-4xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center space-y-6">
+          <h2 className="text-2xl sm:text-3xl font-bold">
             Not ready to subscribe yet? Try the free 7-day leadership challenge.
           </h2>
 
-          <p className="text-lg text-gray-700">
+          <p className="text-base sm:text-lg text-gray-700">
             One leadership lesson, one reflection prompt, and one practical
             action each day—inspired by Pat&apos;s principles.
           </p>
@@ -219,13 +219,13 @@ export default async function HomePage() {
       </section>
 
       <section className="bg-white border-t">
-        <div className="max-w-5xl mx-auto px-4 py-20 text-center space-y-8">
+        <div className="max-w-5xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center space-y-8">
 
-          <h2 className="text-3xl font-bold">
+          <h2 className="text-2xl sm:text-3xl font-bold">
             Pat Summitt&apos;s Leadership Principles
           </h2>
 
-          <p className="text-lg text-gray-700 max-w-3xl mx-auto">
+          <p className="text-base sm:text-lg text-gray-700 max-w-3xl mx-auto">
             Pat Summitt didn&apos;t just build winning teams. She built
             leaders. Her principles of discipline, accountability,
             consistency, and team-first leadership continue to shape how
@@ -274,7 +274,7 @@ export default async function HomePage() {
       {/* --------------------------------------------------
           How Summitt Mindset Works
           -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 py-20">
+      <section className="max-w-6xl mx-auto px-4 py-12 sm:py-16 md:py-20">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
             How Summitt Mindset Works

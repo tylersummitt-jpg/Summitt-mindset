@@ -6,7 +6,7 @@ export default function PatSummittAccountabilityPage() {
       {/* --------------------------------------------------
           HERO
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20">
+      <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20">
         <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
           Pat Summitt on Accountability
         </h1>
@@ -125,7 +125,7 @@ export default function PatSummittAccountabilityPage() {
       {/* --------------------------------------------------
           CTA
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-8">
           Practice Leadership Daily
         </h2>

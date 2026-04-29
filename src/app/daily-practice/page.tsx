@@ -174,7 +174,7 @@ export default function DailyPracticeMarketingPage() {
       {/* --------------------------------------------------
           FINAL CTA
           -------------------------------------------------- */}
-      <section className="max-w-2xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-2xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
           Start small. Stay with it. Watch what changes.
         </h2>

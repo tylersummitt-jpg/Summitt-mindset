@@ -62,14 +62,17 @@ export default function IdentityClient(): ReactElement {
 
       if (!res.ok) {
         setError(
-          typeof data?.error === "string" ? data.error : "Something went wrong."
+          typeof data?.error === "string"
+            ? data.error
+            : res.status === 401
+              ? "Your session expired. Please sign in again."
+              : "Something went wrong."
         );
         setSaving(false);
         return;
       }
 
       router.push("/onboarding/commitment");
-      router.refresh();
     } catch {
       setError("Something went wrong.");
       setSaving(false);

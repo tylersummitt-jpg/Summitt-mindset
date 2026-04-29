@@ -27,25 +27,25 @@ export function PageHero({
 }: PageHeroProps) {
   return (
     <section className="bg-[var(--ink)]">
-      <div className="max-w-6xl mx-auto px-4 py-24 grid md:grid-cols-2 gap-12 items-center">
-        <div>
+      <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 md:py-24 grid md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 items-center">
+        <div className="min-w-0">
           {eyebrow && (
             <p className="text-sm font-semibold text-[var(--muted)] mb-2 uppercase tracking-wide">
               {eyebrow}
             </p>
           )}
-          <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-5 text-[var(--text)]">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight mb-5 text-[var(--text)]">
             {title}
           </h1>
           {subtitle && (
-            <p className="text-lg text-[var(--muted)] mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg text-[var(--muted)] mb-8 leading-relaxed">
               {subtitle}
             </p>
           )}
           {children}
         </div>
 
-        <div className="w-full flex items-center justify-center">
+        <div className="w-full min-w-0 flex items-center justify-center">
           <div className="w-full flex justify-center">
             <Image
               src={imageSrc}
@@ -53,7 +53,7 @@ export function PageHero({
               width={800}
               height={600}
               priority
-              className={`object-contain max-h-[500px] w-auto h-auto max-w-full ${grayscale === true ? "grayscale" : ""}`}
+              className={`object-contain max-h-[280px] sm:max-h-[360px] md:max-h-[500px] w-auto h-auto max-w-full ${grayscale === true ? "grayscale" : ""}`}
             />
           </div>
         </div>

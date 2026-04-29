@@ -128,7 +128,7 @@ export default function AskPatPreviewPage() {
       {/* --------------------------------------------------
           FINAL CTA
           -------------------------------------------------- */}
-      <section className="max-w-2xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-2xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
           Leadership gets clearer when you reflect.
         </h2>

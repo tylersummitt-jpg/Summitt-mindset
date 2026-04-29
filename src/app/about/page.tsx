@@ -88,7 +88,7 @@ export default function AboutPage() {
       {/* --------------------------------------------------
           FINAL CTA
           -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-4">
           Start with SMS-first accountability.
         </h2>

@@ -34,7 +34,7 @@ export default async function PatSummittQuotesPage() {
       {/* --------------------------------------------------
           HERO
           -------------------------------------------------- */}
-      <section className="max-w-4xl mx-auto px-4 py-20">
+      <section className="max-w-4xl mx-auto px-4 py-12 sm:py-16 md:py-20">
         <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-6">
           Pat Summitt Quotes
         </h1>
@@ -179,7 +179,7 @@ export default async function PatSummittQuotesPage() {
       {/* --------------------------------------------------
           CTA
           -------------------------------------------------- */}
-      <section className="max-w-4xl mx-auto px-4 py-20 text-center">
+      <section className="max-w-4xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-xl font-bold text-[var(--text)] mb-4">
           Start the 7-Day Pat Summitt Leadership Challenge
         </h2>
