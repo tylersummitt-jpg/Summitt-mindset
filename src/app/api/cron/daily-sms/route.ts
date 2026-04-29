@@ -989,8 +989,41 @@ const SEND_HOUR_BY_PREFERENCE = {
   evening: 19,
 } as const;
 
+const FIRST_14_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+const CATCHUP_START_HOUR_LOCAL = 19;
+const SAFE_LOCAL_CUTOFF_HOUR = 22;
+
 function isInSendWindow(local: Date, sendHour: number): boolean {
   return local.getHours() === sendHour;
+}
+
+function isWithinFirst14Days(activationAt: string | null, now: Date): boolean {
+  if (!activationAt) return false;
+  const t = new Date(activationAt).getTime();
+  if (!Number.isFinite(t)) return false;
+  return now.getTime() - t < FIRST_14_DAYS_MS;
+}
+
+function isLocalCatchupWindow(local: Date): boolean {
+  const h = local.getHours();
+  return h >= CATCHUP_START_HOUR_LOCAL && h < SAFE_LOCAL_CUTOFF_HOUR;
+}
+
+async function resolveActiveV2CommitmentActivationAt(clerkUserId: string): Promise<string | null> {
+  const { data, error } = await supabaseServer
+    .from("v2_commitment")
+    .select("started_at, created_at")
+    .eq("clerk_user_id", clerkUserId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (error || !data) return null;
+  if (typeof data.started_at === "string" && data.started_at.trim().length > 0) {
+    return data.started_at;
+  }
+  if (typeof data.created_at === "string" && data.created_at.trim().length > 0) {
+    return data.created_at;
+  }
+  return null;
 }
 
 /**
@@ -1021,10 +1054,28 @@ async function reserveTodaySendOrSkip({
   // Postgres unique violation is usually 23505; Supabase error "code" often contains it.
   // If we can't detect it perfectly, we still treat any insert error as "not reserved"
   // to avoid double-sending. This favors safety over aggressive retries.
-  const code = (error as any)?.code;
-  const message = (error as any)?.message || String(error);
+  const errorObj = error as { code?: string; message?: string } | null;
+  const code = errorObj?.code;
+  const message = errorObj?.message || String(error);
 
   if (code === "23505" || message.toLowerCase().includes("duplicate")) {
+    return { reserved: false, reason: "already_reserved_or_sent_today" };
+  }
+
+  // Ambiguous insert failures: read-after-fail to avoid both duplicates and silent misses.
+  const { data: existingAfterFail } = await supabaseServer
+    .from("sms_send_events")
+    .select("id")
+    .eq("clerk_user_id", userId)
+    .eq("day_key", todayKey)
+    .maybeSingle();
+  if (existingAfterFail?.id) {
+    console.warn("[daily-sms] reservation insert failed but row already exists", {
+      clerk_user_id: userId,
+      day_key: todayKey,
+      code,
+      message,
+    });
     return { reserved: false, reason: "already_reserved_or_sent_today" };
   }
 
@@ -1140,10 +1191,21 @@ export async function GET(req: Request) {
     skippedNotFullyOnV2Daily: 0,
     skippedMissingTwilio: 0,
     failed: 0,
+    sendFailed: 0,
     reservationErrors: 0,
     userLoopErrors: 0,
     recoveredReserved: 0,
     audienceSelfHealMerged: 0,
+    expectedDailyAttemptUsers: 0,
+    expectedNewActiveUsers: 0,
+    expectedNormalActiveUsers: 0,
+    skippedIntentional: 0,
+    skippedUnexpected: 0,
+    catchupEligible: 0,
+    catchupAttempted: 0,
+    skippedPreferredWindowWaiting: 0,
+    skippedPastSafeLocalCutoff: 0,
+    twilioAccepted: 0,
   };
 
   const { data: audienceQueryRows } = await supabaseServer
@@ -1199,6 +1261,23 @@ export async function GET(req: Request) {
         audienceUser.clerk_user_id
       );
       const skipLegacyDailyCompletionCheck = v2CutoverStatus.fullyOnV2;
+      const activeForPolicy = v2CutoverStatus.fullyOnV2
+        ? await getActiveCommitment(audienceUser.clerk_user_id)
+        : null;
+      const hasActiveBehavior = Boolean(activeForPolicy?.behavior_statement?.trim());
+      const activationAt =
+        v2CutoverStatus.fullyOnV2 && hasActiveBehavior
+          ? await resolveActiveV2CommitmentActivationAt(audienceUser.clerk_user_id)
+          : null;
+      const isNewActive14Days = Boolean(
+        v2CutoverStatus.fullyOnV2 && hasActiveBehavior && isWithinFirst14Days(activationAt, now)
+      );
+      const isExpectedDailyAttemptUser = Boolean(v2CutoverStatus.fullyOnV2 && hasActiveBehavior);
+      if (isExpectedDailyAttemptUser) {
+        stats.expectedDailyAttemptUsers += 1;
+        if (isNewActive14Days) stats.expectedNewActiveUsers += 1;
+        else stats.expectedNormalActiveUsers += 1;
+      }
 
       const pref = smsTimePreferenceFromClerkMetadata(md as Record<string, unknown>);
       const sendHour =
@@ -1215,21 +1294,34 @@ export async function GET(req: Request) {
 
       let existingEvent = existingRow;
 
-      // Retries bypass send window; first-time sends require it
-      const meta = existingEvent?.metadata as Record<string, unknown> | undefined;
-      const retryCountFromMeta =
-        typeof meta?.retry_count === "number" ? meta.retry_count : 0;
-      const isRetryPending =
-        existingEvent?.status === "send_failed" && retryCountFromMeta < 3;
-
+      // Retries bypass send window; first-time sends require it.
       let sendTimeWindowOk = isInSendWindow(localNow, sendHour);
       if (!existingEvent && !force) {
-        const activeV2Window = await getActiveCommitment(audienceUser.clerk_user_id);
-        if (activeV2Window?.behavior_statement?.trim()) {
+        if (hasActiveBehavior) {
           const learnedProf = await fetchV2UserSendTimeProfile(audienceUser.clerk_user_id);
           if (learnedProf && shouldUseLearnedSendTimeGate(learnedProf)) {
             sendTimeWindowOk = isV2LearnedSendWindowAllowed(localNow, learnedProf.preferred_window);
           }
+        }
+      }
+
+      if (!existingEvent && !force && !sendTimeWindowOk) {
+        const localHour = localNow.getHours();
+        const canCatchupNow =
+          isExpectedDailyAttemptUser && isLocalCatchupWindow(localNow);
+        if (canCatchupNow) {
+          stats.catchupEligible += 1;
+          stats.catchupAttempted += 1;
+          sendTimeWindowOk = true;
+        } else {
+          if (isExpectedDailyAttemptUser && localHour >= SAFE_LOCAL_CUTOFF_HOUR) {
+            stats.skippedPastSafeLocalCutoff += 1;
+          } else {
+            stats.skippedPreferredWindowWaiting += 1;
+          }
+          stats.skippedIntentional += 1;
+          stats.skippedNotTime += 1;
+          continue;
         }
       }
 
@@ -1309,13 +1401,12 @@ export async function GET(req: Request) {
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
                   .eq("day_key", todayKey);
                 stats.skippedAlreadyCompleted += 1;
+                stats.skippedIntentional += 1;
                 continue;
               }
             }
 
             stage = "build_content";
-            let smsBody: string;
-
             const built = await buildDailySmsContent(
               audienceUser.clerk_user_id,
               md as Record<string, unknown>,
@@ -1337,6 +1428,7 @@ export async function GET(req: Request) {
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
                   .eq("day_key", todayKey);
                 stats.skippedReactivationCooldown += 1;
+                stats.skippedIntentional += 1;
                 continue;
               }
               if (built.error === "v2_refresh_identity_await_reply") {
@@ -1354,6 +1446,7 @@ export async function GET(req: Request) {
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
                   .eq("day_key", todayKey);
                 stats.skippedRefreshIdentityAwaiting += 1;
+                stats.skippedIntentional += 1;
                 continue;
               }
               if (built.error === "not_fully_on_v2_daily_sms") {
@@ -1372,6 +1465,7 @@ export async function GET(req: Request) {
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
                   .eq("day_key", todayKey);
                 stats.skippedNotFullyOnV2Daily += 1;
+                stats.skippedIntentional += 1;
                 continue;
               }
               await supabaseServer
@@ -1389,9 +1483,11 @@ export async function GET(req: Request) {
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
                 .eq("day_key", todayKey);
               stats.failed += 1;
+              stats.sendFailed += 1;
+              stats.skippedUnexpected += 1;
               continue;
             }
-            smsBody = built.smsBody;
+            const smsBody = built.smsBody;
             const v2AccountabilityRetry = built.v2Accountability;
 
             stage = "twilio_send_or_skip";
@@ -1413,6 +1509,7 @@ export async function GET(req: Request) {
                   skipLastOutboundContextUpsert: true,
                 },
               });
+              stats.twilioAccepted += 1;
             } catch (err) {
               const newRetryCount = retryCount + 1;
               await supabaseServer
@@ -1431,6 +1528,8 @@ export async function GET(req: Request) {
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
                 .eq("day_key", todayKey);
               stats.failed += 1;
+              stats.sendFailed += 1;
+              stats.skippedUnexpected += 1;
               continue;
             }
 
@@ -1606,12 +1705,15 @@ export async function GET(req: Request) {
                 }
               );
               stats.failed += 1;
+              stats.sendFailed += 1;
+              stats.skippedUnexpected += 1;
             }
             continue;
           }
         }
         // CASE B: any other status - skip
         stats.alreadyReservedOrSentToday += 1;
+        stats.skippedIntentional += 1;
         continue;
       }
 
@@ -1631,27 +1733,29 @@ export async function GET(req: Request) {
         const silenceForPhase = deriveV2SilenceContext(recentForPhase, nowCadence);
 
         if (activeCadence.accountability_phase === "active_accountability") {
-          const lastTwoRows = await getLastNV2CheckSentPayloads(activeCadence.id, 2);
-          const lastTwoLevels = lastTwoRows.map((r) =>
-            parseCadenceLevelFromCheckSentPayload(r.payload_json)
-          );
-          if (
-            shouldEnterLowPressureReactivation({
-              phase: activeCadence.accountability_phase,
-              commitment: activeCadence,
-              nowMs: nowMsGate,
-              silence: silenceForPhase,
-              lastTwoCheckSentCadenceLevels: lastTwoLevels,
-              recentEventsNewestFirst: recentForPhase,
-            })
-          ) {
-            await enterLowPressureReactivationMode(activeCadence.id, V2_REACTIVATION_ENTRY_REASON);
-            await recomputeV2CoachingMemory(activeCadence.id, {
-              reasonCode: "daily_sms_enter_reactivation",
-            });
-            const reloadedAfterEnter = await getActiveCommitment(audienceUser.clerk_user_id);
-            if (reloadedAfterEnter?.behavior_statement?.trim()) {
-              activeCadence = reloadedAfterEnter;
+          if (!isNewActive14Days) {
+            const lastTwoRows = await getLastNV2CheckSentPayloads(activeCadence.id, 2);
+            const lastTwoLevels = lastTwoRows.map((r) =>
+              parseCadenceLevelFromCheckSentPayload(r.payload_json)
+            );
+            if (
+              shouldEnterLowPressureReactivation({
+                phase: activeCadence.accountability_phase,
+                commitment: activeCadence,
+                nowMs: nowMsGate,
+                silence: silenceForPhase,
+                lastTwoCheckSentCadenceLevels: lastTwoLevels,
+                recentEventsNewestFirst: recentForPhase,
+              })
+            ) {
+              await enterLowPressureReactivationMode(activeCadence.id, V2_REACTIVATION_ENTRY_REASON);
+              await recomputeV2CoachingMemory(activeCadence.id, {
+                reasonCode: "daily_sms_enter_reactivation",
+              });
+              const reloadedAfterEnter = await getActiveCommitment(audienceUser.clerk_user_id);
+              if (reloadedAfterEnter?.behavior_statement?.trim()) {
+                activeCadence = reloadedAfterEnter;
+              }
             }
           }
         }
@@ -1665,6 +1769,7 @@ export async function GET(req: Request) {
             })
           ) {
             stats.skippedReactivationCooldown += 1;
+            stats.skippedIntentional += 1;
             continue;
           }
         } else {
@@ -1681,20 +1786,26 @@ export async function GET(req: Request) {
           const hasBlockerPreviewCadence = Boolean(
             blockerPreviewCadence && blockerPreviewCadence.trim().length > 0
           );
-          const cadencePayloadGate = deriveV2CadencePayload({
-            eventsNewestFirst: recentCadence,
-            now: nowCadence,
-            hasBlockerPreview: hasBlockerPreviewCadence,
-          });
-          if (
-            !shouldSendV2CadenceToday({
-              lastSuccessfulCheckSentDayKey: lastCheckCadence?.day_key ?? null,
-              todayLocalDayKey: todayKey,
-              cadenceLevel: cadencePayloadGate.level,
-            })
-          ) {
-            stats.skippedCadence += 1;
-            continue;
+          // Phase 1A product policy:
+          // - expected daily-attempt V2 users (new + normal active) should not be skipped by relax cadence.
+          // - reduced-contact skipping is preserved via low_pressure_reactivation branch above.
+          if (!isExpectedDailyAttemptUser) {
+            const cadencePayloadGate = deriveV2CadencePayload({
+              eventsNewestFirst: recentCadence,
+              now: nowCadence,
+              hasBlockerPreview: hasBlockerPreviewCadence,
+            });
+            if (
+              !shouldSendV2CadenceToday({
+                lastSuccessfulCheckSentDayKey: lastCheckCadence?.day_key ?? null,
+                todayLocalDayKey: todayKey,
+                cadenceLevel: cadencePayloadGate.level,
+              })
+            ) {
+              stats.skippedCadence += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
           }
         }
       }
@@ -1709,8 +1820,10 @@ export async function GET(req: Request) {
       if (!reservation.reserved) {
         if (reservation.reason === "already_reserved_or_sent_today") {
           stats.alreadyReservedOrSentToday += 1;
+          stats.skippedIntentional += 1;
         } else {
           stats.reservationErrors += 1;
+          stats.skippedUnexpected += 1;
         }
         continue;
       }
@@ -1737,13 +1850,12 @@ export async function GET(req: Request) {
             .eq("day_key", todayKey);
 
           stats.skippedAlreadyCompleted += 1;
+          stats.skippedIntentional += 1;
           continue;
         }
       }
 
       stage = "build_content";
-      let smsBody: string;
-
       const builtMain = await buildDailySmsContent(
         audienceUser.clerk_user_id,
         md as Record<string, unknown>,
@@ -1764,6 +1876,7 @@ export async function GET(req: Request) {
             .eq("clerk_user_id", audienceUser.clerk_user_id)
             .eq("day_key", todayKey);
           stats.skippedReactivationCooldown += 1;
+          stats.skippedIntentional += 1;
           continue;
         }
         if (builtMain.error === "v2_refresh_identity_await_reply") {
@@ -1780,6 +1893,7 @@ export async function GET(req: Request) {
             .eq("clerk_user_id", audienceUser.clerk_user_id)
             .eq("day_key", todayKey);
           stats.skippedRefreshIdentityAwaiting += 1;
+          stats.skippedIntentional += 1;
           continue;
         }
         if (builtMain.error === "not_fully_on_v2_daily_sms") {
@@ -1797,6 +1911,7 @@ export async function GET(req: Request) {
             .eq("clerk_user_id", audienceUser.clerk_user_id)
             .eq("day_key", todayKey);
           stats.skippedNotFullyOnV2Daily += 1;
+          stats.skippedIntentional += 1;
           continue;
         }
         await supabaseServer
@@ -1813,9 +1928,11 @@ export async function GET(req: Request) {
           .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
         stats.failed += 1;
+        stats.sendFailed += 1;
+        stats.skippedUnexpected += 1;
         continue;
       }
-      smsBody = builtMain.smsBody;
+      const smsBody = builtMain.smsBody;
       const v2AccountabilityMain = builtMain.v2Accountability;
 
       // Twilio readiness + dry run
@@ -1835,7 +1952,10 @@ export async function GET(req: Request) {
           .eq("day_key", todayKey);
 
         if (SMS_DRY_RUN) stats.dryRun += 1;
-        else stats.skippedMissingTwilio += 1;
+        else {
+          stats.skippedMissingTwilio += 1;
+          stats.skippedUnexpected += 1;
+        }
 
         continue;
       }
@@ -1853,6 +1973,7 @@ export async function GET(req: Request) {
             skipLastOutboundContextUpsert: true,
           },
         });
+        stats.twilioAccepted += 1;
       } catch (err) {
         await supabaseServer
           .from("sms_send_events")
@@ -1869,6 +1990,8 @@ export async function GET(req: Request) {
           .eq("day_key", todayKey);
 
         stats.failed += 1;
+        stats.sendFailed += 1;
+        stats.skippedUnexpected += 1;
       }
 
       if (mainMessage) {
@@ -2041,6 +2164,8 @@ export async function GET(req: Request) {
             }
           );
           stats.failed += 1;
+          stats.sendFailed += 1;
+          stats.skippedUnexpected += 1;
         }
       }
       } catch (userErr: unknown) {
@@ -2052,6 +2177,7 @@ export async function GET(req: Request) {
           message,
         });
         stats.userLoopErrors += 1;
+        stats.skippedUnexpected += 1;
         continue;
       }
   }
@@ -2088,6 +2214,8 @@ export async function GET(req: Request) {
     sent: stats.sent,
     skippedAlreadyCompleted: stats.skippedAlreadyCompleted,
     skippedOutOfWindow: stats.skippedNotTime,
+    skippedPreferredWindowWaiting: stats.skippedPreferredWindowWaiting,
+    skippedPastSafeLocalCutoff: stats.skippedPastSafeLocalCutoff,
     skippedAlreadySent: stats.alreadyReservedOrSentToday,
     skippedOptedOut: stats.skippedOptedOut,
     skippedCadence: stats.skippedCadence,
@@ -2096,6 +2224,15 @@ export async function GET(req: Request) {
     reservationErrors: stats.reservationErrors,
     userLoopErrors: stats.userLoopErrors,
     recoveredReserved: stats.recoveredReserved,
+    expectedDailyAttemptUsers: stats.expectedDailyAttemptUsers,
+    expectedNewActiveUsers: stats.expectedNewActiveUsers,
+    expectedNormalActiveUsers: stats.expectedNormalActiveUsers,
+    skippedIntentional: stats.skippedIntentional,
+    skippedUnexpected: stats.skippedUnexpected,
+    catchupEligible: stats.catchupEligible,
+    catchupAttempted: stats.catchupAttempted,
+    sendFailed: stats.sendFailed,
+    twilioAccepted: stats.twilioAccepted,
   });
   console.log(
     JSON.stringify({
@@ -2105,6 +2242,16 @@ export async function GET(req: Request) {
       user_loop_errors: stats.userLoopErrors,
       sent: stats.sent,
       failed: stats.failed,
+      expected_daily_attempt_users: stats.expectedDailyAttemptUsers,
+      expected_new_active_users: stats.expectedNewActiveUsers,
+      expected_normal_active_users: stats.expectedNormalActiveUsers,
+      catchup_eligible: stats.catchupEligible,
+      catchup_attempted: stats.catchupAttempted,
+      skipped_preferred_window_waiting: stats.skippedPreferredWindowWaiting,
+      skipped_past_safe_local_cutoff: stats.skippedPastSafeLocalCutoff,
+      skipped_intentional: stats.skippedIntentional,
+      skipped_unexpected: stats.skippedUnexpected,
+      twilio_accepted: stats.twilioAccepted,
     })
   );
 

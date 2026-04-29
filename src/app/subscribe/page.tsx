@@ -1,14 +1,8 @@
-"use client";
-
 export const dynamic = "force-dynamic";
 
 import Image from "next/image";
-import { Suspense, useEffect, useState } from "react";
 import { getPageImage } from "@/data/page-images";
-import { useUser } from "@clerk/nextjs";
-import { useRouter, useSearchParams } from "next/navigation";
-
-type Plan = "monthly" | "annual";
+import SubscribeCheckoutPanel from "./subscribe-checkout-panel";
 
 /**
  * ======================================================
@@ -21,81 +15,7 @@ type Plan = "monthly" | "annual";
  * - Stripe session still requires auth
  */
 
-function SubscribePageInner() {
-  const { isLoaded, isSignedIn } = useUser();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const srcParam = searchParams.get("src");
-  const isCoachSrc = srcParam === "coach";
-  const subscribeReturnPath = isCoachSrc ? "/subscribe?src=coach" : "/subscribe";
-
-  const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [canceled, setCanceled] = useState(false);
-
-  // --------------------------------------------------
-  // Handle Stripe cancel return
-  // --------------------------------------------------
-  useEffect(() => {
-    if (searchParams.get("canceled") === "1") {
-      setCanceled(true);
-    }
-  }, [searchParams]);
-
-  // --------------------------------------------------
-  // Checkout handler
-  // --------------------------------------------------
-  async function handleCheckout(plan: Plan) {
-    try {
-      setError(null);
-      setCanceled(false);
-      setLoadingPlan(plan);
-
-      // If not signed in → send to login first
-      if (!isSignedIn) {
-        router.push(
-          `/sign-in?redirect_url=${encodeURIComponent(subscribeReturnPath)}`
-        );
-        return;
-      }
-
-      const res = await fetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(
-          isCoachSrc ? { plan, src: "coach" as const } : { plan }
-        ),
-      });
-
-      if (!res.ok) {
-        if (res.status === 409) {
-          const body = await res.json().catch(() => ({}));
-          const msg =
-            typeof body?.message === "string"
-              ? body.message
-              : "You already have an active Summitt Mindset membership.";
-          setError(msg);
-        } else {
-          setError(await res.text());
-        }
-        setLoadingPlan(null);
-        return;
-      }
-
-      const data = await res.json();
-      if (!data.url) throw new Error("No checkout URL returned");
-
-      window.location.href = data.url;
-    } catch (err: any) {
-      setError(err.message || "Something went wrong.");
-      setLoadingPlan(null);
-    }
-  }
-
-  // --------------------------------------------------
-  // PUBLIC PAGE RENDER (always visible)
-  // --------------------------------------------------
+export default function SubscribePage() {
   const image =
     getPageImage("/subscribe") ?? {
       src: "/brand/subscribe-celebration.jpg",
@@ -120,69 +40,7 @@ function SubscribePageInner() {
           </div>
 
           <div className="order-2 flex flex-col gap-4 md:gap-3 w-full min-w-0">
-            <div className="w-full max-w-lg mx-auto md:mx-0">
-              <p className="text-sm text-[var(--muted)] text-center md:text-left mb-3">
-                7-day free trial. You won’t be charged today.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full">
-                <button
-                  onClick={() => handleCheckout("monthly")}
-                  disabled={!!loadingPlan}
-                  className="relative w-full border-2 border-[var(--brand)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition"
-                >
-                  <p className="text-sm font-semibold mb-1">
-                    Founding Member Monthly
-                  </p>
-
-                  <p className="text-2xl font-bold mb-2">$19.99</p>
-
-                  <p className="text-sm text-[var(--muted)]">
-                    Lowest price locked in.
-                  </p>
-
-                  {loadingPlan === "monthly" && (
-                    <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
-                      Redirecting…
-                    </p>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => handleCheckout("annual")}
-                  disabled={!!loadingPlan}
-                  className="relative w-full border border-[var(--border)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition"
-                >
-                  <p className="text-sm font-semibold mb-1">
-                    Founding Member Annual
-                  </p>
-
-                  <p className="text-2xl font-bold mb-2">$120</p>
-
-                  <p className="text-sm text-[var(--muted)]">
-                    Save 50% vs. monthly.
-                  </p>
-
-                  {loadingPlan === "annual" && (
-                    <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
-                      Redirecting…
-                    </p>
-                  )}
-                </button>
-              </div>
-
-              {canceled && (
-                <p className="text-sm text-red-600 text-center md:text-left mt-3">
-                  Looks like you canceled checkout — no worries.
-                </p>
-              )}
-
-              {error && (
-                <p className="text-sm text-red-600 text-center md:text-left mt-3 break-words">
-                  {error}
-                </p>
-              )}
-            </div>
+            <SubscribeCheckoutPanel />
 
             <div className="text-center md:text-left text-sm text-[var(--muted)] space-y-2 w-full max-w-xl mx-auto md:max-w-none md:mx-0">
               <p>Cancel anytime. Secure checkout via Stripe.</p>
@@ -261,13 +119,5 @@ function SubscribePageInner() {
         </p>
       </section>
     </main>
-  );
-}
-
-export default function SubscribePage() {
-  return (
-    <Suspense fallback={<p className="text-center mt-20">Loading…</p>}>
-      <SubscribePageInner />
-    </Suspense>
   );
 }

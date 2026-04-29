@@ -24,18 +24,21 @@ export type V2OutboundSmsStrategy =
 export type V2NextMoveKind = "hold_standard" | "recommit_same" | "shrink_ask" | "reset_day";
 
 const RECOMMIT_NEXT_TEMPLATES: readonly string[] = [
-  `Same commitment—clean line: "{{B}}". YES / NO / PARTIAL + one honest line?`,
-  `Recommit tight: "{{B}}" is still the bar. Did you hit it today? YES, NO, short note?`,
+  `Same standard, clean line: {{B}} Did it happen today? Tell me straight.`,
+  `Recommit day: {{B}} is still the bar. What’s the honest answer?`,
+  `Keep it tight and honest on today’s commitment: {{B}} Did you follow through?`,
 ];
 
 const RESET_DAY_TEMPLATES: readonly string[] = [
-  `Fresh sheet today on "{{B}}"—no backlog scorekeeping. YES / NO / what's true?`,
-  `Reset: we start clean on "{{B}}" today. YES, NO, or a short line?`,
+  `Clean reset today on {{B}} No backlog lecture. Did it happen?`,
+  `Fresh sheet on today’s commitment: {{B}} Keep it honest and tell me straight.`,
+  `No shame, just today: did {{B}} happen, or did something pull you off it?`,
 ];
 
 const SHRINK_NEXT_TEMPLATES: readonly string[] = [
-  `Smaller bar today: {{S}}. YES / NO / a few honest words?`,
-  `Dialing back volume, not truth: {{S}}. YES / NO / PARTIAL?`,
+  `Smaller bar today: {{S}} Did you protect it?`,
+  `Dialing back volume, not truth: {{S}} What happened today?`,
+  `Today’s tighter ask: {{S}} Tell me the real version tonight.`,
 ];
 
 /** Shrink overlay consent: server binding text {{S}} + current bar {{B}}; not accountability YES/NO. */
@@ -66,43 +69,57 @@ const CONTRACT_OVERLAY_NO_ACK: readonly [string, string] = [
 ];
 
 const SILENCE_NUDGE_TEMPLATES: readonly string[] = [
-  `Quiet stretch on "{{B}}"—no drama, just truth. Reply YES / NO / a short line today?`,
-  `Haven't caught your signal on "{{B}}" lately. Still in? YES, NO, or what's real today?`,
-  `Missed you on "{{B}}". No guilt trip—just the check: YES / NO / a sentence?`,
+  `Quiet stretch on {{B}} No guilt. Did it happen today?`,
+  `Simple doorway back in on {{B}} What’s the honest answer today?`,
+  `No backlog lecture. Just today on {{B}}: did you follow through?`,
+  `Still here with the same bar: {{B}} Give me the real version.`,
+  `Quick reset check on {{B}}: did the work happen, or did something pull you off?`,
 ];
 
 const REENTRY_CHECK_TEMPLATES: readonly string[] = [
-  `Good to see you back. Same bar: "{{B}}" today. YES / NO / partial + one line?`,
-  `You're re-engaged—I'll keep it simple. "{{B}}" today: YES, NO, or a quick note?`,
-  `Welcome back. No backlog lecture—just today: "{{B}}"? YES / NO / short words.`,
+  `Good return. Same bar today: {{B}} Tell me straight—did it happen?`,
+  `You’re back in. Keep today simple on {{B}}: what happened?`,
+  `Welcome back—no drama, same standard: {{B}} Did you follow through today?`,
+  `Clean re-entry check: did {{B}} happen, or did something pull you off?`,
+  `Back to it. Today’s commitment is {{B}} I’m asking it plain: did you do it?`,
 ];
 
 /** Low-pressure optional re-engagement (no YES/NO/PARTIAL accountability framing). */
 const REACTIVATION_NUDGE_TEMPLATES: readonly string[] = [
-  `Still here. If you want to pick "{{B}}" back up when it fits, text me—either way is fine.`,
-  `Quiet check-in: want to reconnect on "{{B}}" when you're ready? A short line is plenty if you feel like it.`,
+  `Still here. If you want to pick {{B}} back up when it fits, text me—either way is fine.`,
+  `Quiet check-in: want to reconnect on {{B}} when you're ready? A short line is plenty if you feel like it.`,
+  `No pressure note: if today is a good day to restart {{B}}, send a short line.`,
+  `Door is open when you’re ready to re-enter {{B}}. One line is enough.`,
+  `Low-pressure check: want to pick {{B}} back up this week?`,
+  `If you want back in on {{B}}, we can start clean from here.`,
 ];
 
 const OUTBOUND_TEMPLATES: readonly string[] = [
-  `Pat's check-in: did you follow through on "{{B}}" today? Reply YES / NO / a few words.`,
-  `Accountability moment: "{{B}}" — did you do it today? YES, NO, or tell me what happened.`,
-  `Quick honest answer: did "{{B}}" happen today? Reply YES, NO, or PARTIAL.`,
-  `End-of-day standard: "{{B}}". Did you hit it today? YES / NO / short note.`,
-  `No judgment—just truth: "{{B}}" today. YES, NO, or a sentence on what got in the way.`,
-  `Did you keep the commitment on "{{B}}" today? Reply YES, NO, or PARTIAL.`,
+  `Simple check: did you follow through on {{B}} today?`,
+  `Today’s check: did {{B}} happen? Tell me straight.`,
+  `Keep it honest and simple on {{B}} today. What’s the real answer?`,
+  `Did you protect today’s commitment: {{B}}?`,
+  `Clear check-in: did you do what you committed to today on {{B}}?`,
+  `No drama, just truth: was {{B}} done today?`,
+  `Quick accountability check: today’s commitment is {{B}} Did it happen?`,
+  `Checking the standard today: {{B}} What happened?`,
+  `Did {{B}} happen before the day got away from you?`,
+  `Tell me straight on {{B}} today.`,
 ];
 
 const RECOVERY_OUTBOUND_TEMPLATES: readonly string[] = [
-  `Back on the hook: "{{B}}". Yesterday didn't land—want a cleaner shot today? Reply YES / NO / PARTIAL.`,
-  `Recommit for today: "{{B}}". If yesterday got messy, this is your reset. Reply YES / NO / a sentence.`,
-  `Pat's standard: "{{B}}" still matters today. Did you follow through? YES / NO / PARTIAL + what shifted.`,
-  `Recovery check: "{{B}}". Yesterday was a miss—send YES if you're on it today, NO if not, or a short note.`,
+  `No shame, don’t waste the miss. Did {{B}} happen today?`,
+  `Clean reset today: {{B}} Tell me straight where it landed.`,
+  `The standard is still there on {{B}}. Did you follow through today?`,
+  `Misses are information. Did you get back to {{B}} today?`,
+  `Back on the line today: {{B}} Give me the real version.`,
+  `Yesterday missed, today still counts. Did {{B}} happen?`,
 ];
 
 const BLOCKER_ACK_TEMPLATES: readonly [string, string, string] = [
-  `Got it. We'll use that tomorrow.`,
-  `That helps. Tomorrow's check will be tighter.`,
-  `Understood. We'll adjust from there.`,
+  `Good honesty. I’m not giving you a guilt speech—I’m giving you the next move. Protect the first block tomorrow.`,
+  `That’s the pattern to catch. Tomorrow, make the first move the commitment before anything else.`,
+  `Useful signal. Use it tomorrow: commitment first, escape hatch second.`,
 ];
 
 function djb2Hash(input: string): number {
@@ -375,18 +392,18 @@ function sidVariantIndex(messageSid: string, eventType: V2InboundEventType): 0 |
 }
 
 const REPLY_YES: readonly [string, string] = [
-  `Good. Same standard tomorrow: "{{B}}".`,
-  `Noted. Lock it in again tomorrow—"{{B}}".`,
+  `Good. Logged as proof.`,
+  `That counts. Quiet follow-through matters. Same standard tomorrow.`,
 ];
 
 const REPLY_NO: readonly [string, string] = [
-  `Okay. What was the main thing that blocked "{{B}}" today?`,
-  `Thanks for the honesty. What got in the way on "{{B}}" today?`,
+  `No shame, let’s not waste the miss. What got in the way today?`,
+  `Thanks for the honesty. What was the main blocker on {{B}} today?`,
 ];
 
 const REPLY_PARTIAL: readonly [string, string] = [
-  `Got it. What part of "{{B}}" did you hit—and what slipped?`,
-  `Understood. Send one sentence: what worked / what didn't on "{{B}}" today?`,
+  `You stayed in it. What kept it from being complete?`,
+  `That’s partial, not failure. What pulled you off finishing {{B}}?`,
 ];
 
 export type V2InboundReplyTemplateId =

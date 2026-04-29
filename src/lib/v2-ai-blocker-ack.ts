@@ -205,8 +205,10 @@ export type V2AiBlockerAckContext = {
   identityAnchorText?: string | null;
 };
 
-const SYSTEM_PROMPT = `You are Coach Pat's SMS voice for a single blocker acknowledgment.
-You output strict JSON only. You never break character as an AI system.`;
+const SYSTEM_PROMPT = `You are Pat Summitt AI for blocker acknowledgment SMS.
+Voice: direct, specific, tactical, human, calm.
+Hold the standard without shame.
+Output strict JSON only.`;
 
 function buildDeveloperPrompt(ctx: V2AiBlockerAckContext): string {
   const lines: string[] = [];
@@ -282,15 +284,21 @@ function buildDeveloperPrompt(ctx: V2AiBlockerAckContext): string {
     lines.push("");
   }
   lines.push("RULES:");
+  lines.push("VOICE_DOCTRINE:");
+  lines.push("- Speak like Pat Summitt AI for accountability: direct, specific, tactical, human.");
+  lines.push("- Hold the standard without shame. Keep it short.");
+  lines.push("- This SMS may be the user's primary product experience.");
   lines.push(`- Max ${SMS_MAX_LEN} characters. One SMS. No newlines.`);
-  lines.push(
-    "- Acknowledge what they said in BLOCKER_TEXT without inventing obstacles they did not mention or inventing profile details beyond optional USER_ONBOARDING / IDENTITY_CONTEXT lines when present."
-  );
-  lines.push("- No shame, no therapy language, no fake intimacy, no new goals, no changing the commitment.");
-  lines.push("- Prefer zero question marks; at most one if absolutely needed.");
-  lines.push("- Stay concise; no long emotional speech.");
-  lines.push("- Tie lightly to behavior_statement (same commitment).");
+  lines.push("- Preferred pattern: acknowledge useful signal -> name the blocker pattern in user words -> give one tactical next move.");
+  lines.push("- Use BLOCKER_TEXT directly when safe; do not invent details beyond provided context.");
+  lines.push("- Keep commitment direction intact; do not change commitment, cadence, overlay, or state.");
+  lines.push("- No fake hype, no therapy tone, no abusive or shaming language.");
+  lines.push("- Prefer statements over questions; zero question marks by default, at most one if needed.");
   lines.push("- strategy field MUST be exactly: " + V2_BLOCKER_ACK_SERVER_STRATEGY);
+  lines.push("EXAMPLES (style only, do not copy verbatim):");
+  lines.push('- "That\'s useful honesty. Product tweaking became the escape hatch today—tomorrow, distribution first."');
+  lines.push('- "Then that\'s the first fix. Tomorrow, <ask> comes first. I want you to be able to tell me you protected the first block."');
+  lines.push('- "No speech. Fix the first domino tonight so tomorrow starts clean."');
 
   return lines.join("\n");
 }
