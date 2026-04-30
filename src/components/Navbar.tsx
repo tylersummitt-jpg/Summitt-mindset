@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
  * Navbar — Public Marketing + App Navigation
  * ======================================================
  *
- * - Logged OUT: marketing nav (preview pages, About, Start Free Trial, Sign In)
+ * - Logged OUT: marketing nav (preview pages, Start Free Trial, Sign In)
  * - Logged IN: app nav (Home, Dashboard, Ask Pat, Film Room, Account, Subscribe if needed)
  * - Twilio: public users never see gated app links
  * - Responsive: horizontal nav on md+, hamburger + vertical menu below md
@@ -52,8 +52,6 @@ export function Navbar() {
   // --------------------------------------------------
   const publicLinks = [
     { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/daily-practice", label: "Optional depth" },
     { href: "/ask-pat-preview", label: "Ask Pat" },
     { href: "/film-room-preview", label: "Film Room" },
     { href: "/subscribe", label: "Start Free Trial" },

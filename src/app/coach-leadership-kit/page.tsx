@@ -54,9 +54,9 @@ export default async function CoachLeadershipKitPage({
                   Become the Coach Your Team Needs—Every Single Day.
                 </h1>
                 <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
-                  Daily personal coaching powered by Pat Summitt AI—so you stay
-                  clear, disciplined, and consistent. Plus a free Leadership Kit
-                  to help you build culture and standards with your team.
+                  Daily personal coaching powered by Pat Summitt AI. Plus a free
+                  Leadership Kit to help you build your team&apos;s culture and
+                  standards.
                 </p>
               </div>
               <div className="w-full max-w-md">
