@@ -4,9 +4,9 @@ import Link from "next/link";
 const ctaPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]";
 
-/** Hero CTA: same as primary but ring offset matches dark hero so focus stays visible */
+/** Hero CTA: ring offset for dark hero; tighter on mobile, full size from md */
 const ctaHeroPrimaryClass =
-  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950";
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
 
 export default async function CoachLeadershipKitPage({
   searchParams,
@@ -47,33 +47,22 @@ export default async function CoachLeadershipKitPage({
             className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-t from-black via-black/75 to-black/35 md:bg-gradient-to-r md:from-black md:from-45% md:via-black/70 md:via-55% md:to-transparent"
             aria-hidden
           />
-          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-14 pb-16 md:py-20 md:pb-24 md:justify-end md:items-start">
-            <div className="flex w-full max-w-2xl flex-col gap-8">
-              <div className="space-y-5">
-                <h1 className="text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-sm sm:text-4xl md:text-5xl lg:text-6xl">
+          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:py-20 md:pb-24 md:justify-end md:items-start">
+            <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8">
+              <div className="space-y-3 md:space-y-5">
+                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
                   Become the Coach Your Team Needs—Every Single Day.
                 </h1>
-                <p className="text-lg leading-relaxed text-white/90 drop-shadow-sm sm:text-xl">
+                <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
                   Daily personal coaching powered by Pat Summitt AI—so you stay
                   clear, disciplined, and consistent. Plus a free Leadership Kit
                   to help you build culture and standards with your team.
                 </p>
               </div>
-              <div className="flex w-full max-w-md flex-col gap-3">
+              <div className="w-full max-w-md">
                 <Link href={subscribeHref} className={ctaHeroPrimaryClass}>
                   Get the Leadership Kit
                 </Link>
-                <p className="text-center text-sm text-white/80 sm:text-left">
-                  Takes less than 2 minutes
-                </p>
-                <p className="pt-1">
-                  <Link
-                    href={`/sign-in?redirect_url=${encodeURIComponent(subscribeHref)}`}
-                    className="text-sm font-semibold text-[var(--brand)] underline decoration-[var(--brand)] underline-offset-4 hover:opacity-90"
-                  >
-                    Already a member? Sign in →
-                  </Link>
-                </p>
               </div>
             </div>
           </div>
