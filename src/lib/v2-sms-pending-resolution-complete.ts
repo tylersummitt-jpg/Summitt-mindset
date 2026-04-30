@@ -26,7 +26,10 @@ import {
   tryExtractV2SmsPendingResolutionCandidateAi,
   V2_SMS_PENDING_CANDIDATE_CONFIDENCE_MIN,
 } from "@/lib/v2-ai-sms-pending-candidate";
-import { extractCandidateBarsFromSms } from "@/lib/v2-sms-commitment-change";
+import {
+  extractCandidateBarsFromSms,
+  extractDurationAnchoredBarPhrase,
+} from "@/lib/v2-sms-commitment-change";
 import { getRecentV2EventsForAi } from "@/lib/v2-commitment";
 import {
   appendSmsParagraphIfUnderCap,
@@ -93,9 +96,24 @@ export function isVagueOrInvalidCandidateBar(text: string): boolean {
 export function extractDeterministicDailyBarCandidate(raw: string): string | null {
   const trimmed = raw.trim().replace(/\s+/g, " ");
   if (!trimmed) return null;
+
+  const durEx = extractDurationAnchoredBarPhrase(trimmed, BEHAVIOR_MAX);
+  if (durEx.mode === "deferred") {
+    console.info("[sms-pending-candidate] deterministic_duration_deferred_ai", {
+      reason: "bare_duration_rich_context",
+      preview: trimmed.slice(0, 120),
+    });
+  }
+  if (durEx.phrase) {
+    if (durEx.mode === "widened") {
+      console.info("[sms-pending-candidate] deterministic_duration_widened", {
+        preview: durEx.phrase.slice(0, 100),
+      });
+    }
+    return durEx.phrase;
+  }
+
   const heur = extractCandidateBarsFromSms(trimmed);
-  const dur = trimmed.match(/\b(\d{1,3})\s*(minutes?|mins?|hours?|hrs?|seconds?|secs?)\b/i);
-  if (dur) return dur[0]!.trim();
   if (heur.candidateNewBar?.trim()) return heur.candidateNewBar.trim();
   if (heur.candidateTightenedBar?.trim()) return heur.candidateTightenedBar.trim();
   if (/\b(one\s+story|one\s+page|a\s+chapter)\b/i.test(trimmed) && trimmed.length <= 200) {

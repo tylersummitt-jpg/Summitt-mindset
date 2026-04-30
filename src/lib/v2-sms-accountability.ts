@@ -43,28 +43,28 @@ const SHRINK_NEXT_TEMPLATES: readonly string[] = [
 
 /** Shrink overlay consent: server binding text {{S}} + current bar {{B}}; not accountability YES/NO. */
 const SHRINK_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Pat: proposing a smaller window for 7 days if you want it—{{S}} If that smaller bar feels honest, say yes. If you'd rather keep today's standard, say no. Current bar for context: "{{B}}"`,
-  `Here's a smaller temporary ask (7 days if you accept): {{S}} Say yes if you want this tighter window, or no to stay on your current bar: "{{B}}"`,
+  `Smaller version for now: {{S}} If that feels honest, say yes. If not, say no and we’ll keep today’s bar: "{{B}}"`,
+  `We can make the bar smaller for a short stretch: {{S}} If that’s the right move, say yes. If not, say no and we’ll keep today’s bar: "{{B}}"`,
 ];
 
-/** Recommit-same overlay consent: explicit same-bar lock {{S}} + anchor {{B}}. */
+/** Recommit-same overlay consent: binding {{S}} + anchor {{B}}; natural yes/no consent. */
 const RECOMMIT_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Pat: proposing an explicit same-bar recommit for 7 days if you want it—{{S}} Say yes to lock that line in for a week, or no to skip—the written commitment stays either way: "{{B}}"`,
-  `Temporary explicit recommit to the SAME bar (7 days if you accept): {{S}} Yes if you want that explicit lock-in, no if you'd rather pass—same commitment on paper: "{{B}}"`,
+  `Same bar for now: {{S}} If you want me to hold that line with you for the next week, say yes. If not, say no and we’ll keep it simple: "{{B}}"`,
+  `If the current bar still feels right, we can hold it steady for the next week: {{S}} Say yes if that helps, or no if you’d rather just keep going without a change: "{{B}}"`,
 ];
 
 const CONTRACT_OVERLAY_YES_ACK: readonly [string, string] = [
-  `Locked in for 7 days: {{S}} Same commitment—smaller window. Daily check-ins work like usual—yes, no, or partial is fine.`,
-  `Got it. For the next 7 days we'll hold you to this smaller bar: {{S}} Answer the daily check honestly like you already do.`,
+  `Got it. I’ll hold this tighter version with you for now: {{S}} Tomorrow’s check-in will match that bar.`,
+  `Got it. For the next week we’ll use this smaller ask in daily checks: {{S}} Answer honestly when I ask—yes, no, or partial still work.`,
 ];
 
 const CONTRACT_OVERLAY_YES_ACK_RECOMMIT: readonly [string, string] = [
-  `Locked in for 7 days: {{S}} Same bar, explicit line. Daily check-ins work like usual—yes, no, or partial is fine.`,
-  `Got it. For the next 7 days we'll hold you to this explicit recommit: {{S}} Same rhythm on daily checks—straight answers, no script.`,
+  `Got it. We’ll keep this steady for now: {{S}} Tomorrow’s check-in will stay on that same line.`,
+  `Got it. Same steady bar for now: {{S}} I’ll pick up with you on the daily check tomorrow.`,
 ];
 
 const CONTRACT_OVERLAY_NO_ACK: readonly [string, string] = [
-  `Keeping your current bar—no problem. Same commitment; we'll stay on: "{{B}}"`,
+  `Got it. No change—we’ll keep the current bar: "{{B}}"`,
   `Understood. Staying on your current standard: "{{B}}"`,
 ];
 
@@ -137,14 +137,22 @@ export function truncateV2BehaviorStatementForSms(behaviorStatement: string): st
   return `${t.slice(0, BEHAVIOR_SNIPPET_MAX - 1)}…`;
 }
 
+/** Display cap for inbound SMS name prefix (must stay aligned with formatInboundFallbackPreferredOpening). */
+export function capPreferredNameForInboundSms(
+  preferredName: string | null | undefined
+): string | null {
+  const raw = typeof preferredName === "string" ? preferredName.trim() : "";
+  if (!raw) return null;
+  const one = raw.replace(/\s+/g, " ");
+  return one.length > 22 ? `${one.slice(0, 21)}…` : one;
+}
+
 /** Optional "Name, " prefix for deterministic inbound fallbacks (keeps total length in check). */
 export function formatInboundFallbackPreferredOpening(
   preferredName: string | null | undefined
 ): string {
-  const raw = typeof preferredName === "string" ? preferredName.trim() : "";
-  if (!raw) return "";
-  const one = raw.replace(/\s+/g, " ");
-  const cap = one.length > 22 ? `${one.slice(0, 21)}…` : one;
+  const cap = capPreferredNameForInboundSms(preferredName);
+  if (!cap) return "";
   return `${cap}, `;
 }
 

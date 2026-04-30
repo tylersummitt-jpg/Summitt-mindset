@@ -11,6 +11,7 @@ import {
 import type { V2NextMoveType } from "@/lib/v2-ai-outbound";
 import type { ProofMomentPromptHint } from "@/lib/v2-proof-moment";
 import {
+  capPreferredNameForInboundSms,
   formatInboundFallbackPreferredOpening,
   getShortCommitmentPhraseForSms,
   messageHasKeywordPartialLanguage,
@@ -393,7 +394,7 @@ function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
   }
   if (ctx.preferredName?.trim()) {
     lines.push(
-      `Preferred name Coach Pat should use: ${truncateOneLine(ctx.preferredName, 40)}`
+      `Preferred name is available for context (${truncateOneLine(ctx.preferredName, 40)}). Do not overuse it. Avoid starting with their name—the server may add a short greeting.`
     );
   }
   if (ctx.lifeDesires?.trim()) {
@@ -729,7 +730,7 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
   }
   if (args.preferredName?.trim()) {
     lines.push(
-      `Preferred name Coach Pat should use: ${truncateOneLine(args.preferredName, 40)}`
+      `Preferred name is available for context (${truncateOneLine(args.preferredName, 40)}). Do not overuse it. Avoid starting with their name—the server may add a short greeting.`
     );
   }
   lines.push("");
@@ -741,7 +742,7 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
   if (args.kind === "overlay_activated_ack") {
     if (args.overlayContractKind === "recommit_same") {
       lines.push(
-        "- Confirm the explicit same-bar recommit overlay is active for 7 days; BINDING_TEXT verbatim in the message. Do not call it a smaller bar."
+        "- Confirm they chose to keep the same bar steady for about a week; include BINDING_TEXT verbatim. Do not call it a smaller bar."
       );
     } else {
       lines.push("- Confirm the smaller bar is active for 7 days; BINDING_TEXT verbatim in the message.");
@@ -749,7 +750,7 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
   } else {
     lines.push("- Confirm you're keeping their current bar; tie to original_behavior_statement.");
     if (args.overlayContractKind === "recommit_same") {
-      lines.push("- They declined the temporary same-bar lock-in—not a shrink.");
+      lines.push("- They declined holding the same bar steady for a week—not a shrink.");
     }
   }
 
@@ -1000,7 +1001,9 @@ function buildShadowInterpretationUserPrompt(args: V2InboundInterpretationShadow
     lines.push("");
   }
   if (args.preferredName?.trim()) {
-    lines.push(`Preferred_name (safe): ${truncateOneLine(args.preferredName, 40)}`);
+    lines.push(
+      `Preferred name is available for context (${truncateOneLine(args.preferredName, 40)}). Do not overuse it. Avoid starting with their name—the server may add a short greeting.`
+    );
   }
   if (args.relationshipContextTruncated?.trim()) {
     lines.push(
@@ -1519,14 +1522,17 @@ export function buildV2GatedSpecialReply(args: {
   messageSid: string;
   aiSuggestedReply: string | null;
 }): string {
-  const prefix = formatInboundFallbackPreferredOpening(args.preferredName);
   const tryAi =
     args.aiSuggestedReply &&
     validateGatedAuxiliarySms(args.aiSuggestedReply) &&
     args.decision.reply_style !== "soft_opt_out";
 
   if (tryAi && args.aiSuggestedReply) {
-    return prefix + args.aiSuggestedReply.trim().replace(/\s+/g, " ").slice(0, SMS_MAX_LEN);
+    const merged = prefixName(
+      args.preferredName,
+      args.aiSuggestedReply.trim().replace(/\s+/g, " ")
+    );
+    return merged.length <= SMS_MAX_LEN ? merged : merged.slice(0, SMS_MAX_LEN - 1) + "…";
   }
 
   const d = args.decision;
@@ -1541,7 +1547,7 @@ export function buildV2GatedSpecialReply(args: {
     body = CLARIFY_HUMAN_LINES[sidPick(args.messageSid, CLARIFY_HUMAN_LINES.length)]!;
   }
 
-  const out = prefix + body;
+  const out = prefixName(args.preferredName, body);
   return out.length <= SMS_MAX_LEN ? out : out.slice(0, SMS_MAX_LEN - 1) + "…";
 }
 
@@ -1761,8 +1767,46 @@ function humanOutcomeFallbackReply(
   return pLines[v]!;
 }
 
+/** Remove a clearly duplicate second use of the preferred name in the first sentence only (conservative). */
+function dedupeSecondPreferredNameInOpeningSentence(text: string, cap: string): string {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  const esc = cap.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const firstBreak = normalized.search(/[.!?](?=\s|$)/);
+  const firstSentence = firstBreak === -1 ? normalized : normalized.slice(0, firstBreak + 1);
+  const rest = firstBreak === -1 ? "" : normalized.slice(firstBreak + 1).replace(/^\s+/, "");
+  const re = new RegExp(`\\b${esc}\\b`, "gi");
+  const matches = [...firstSentence.matchAll(re)];
+  if (matches.length < 2) return normalized;
+  const firstM = matches[0]!;
+  const lastM = matches[matches.length - 1]!;
+  if (lastM.index === undefined || firstM.index === undefined || lastM.index <= firstM.index) {
+    return normalized;
+  }
+  const gap = lastM.index - (firstM.index + firstM[0].length);
+  if (gap < 10) return normalized;
+  const beforeLast = firstSentence.slice(0, lastM.index).replace(/,\s*$/, "").trimEnd();
+  const afterLast = firstSentence.slice(lastM.index + lastM[0].length);
+  const fixedFirst = (beforeLast + afterLast).replace(/\s+/g, " ").trim();
+  if (!fixedFirst || !new RegExp(`^${esc}\\b`, "i").test(fixedFirst)) return normalized;
+  return rest ? `${fixedFirst} ${rest}`.replace(/\s+/g, " ").trim() : fixedFirst;
+}
+
 function prefixName(preferredName: string | null, body: string): string {
-  return formatInboundFallbackPreferredOpening(preferredName) + body;
+  const opening = formatInboundFallbackPreferredOpening(preferredName);
+  const cap = capPreferredNameForInboundSms(preferredName);
+  const normalized = body.trim().replace(/\s+/g, " ");
+  if (!normalized) return opening;
+
+  let combined: string;
+  if (cap) {
+    const esc = cap.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const startsWithName = new RegExp(`^${esc}(,|\\s+|$)`, "i").test(normalized);
+    combined = startsWithName ? normalized : opening + normalized;
+    combined = dedupeSecondPreferredNameInOpeningSentence(combined, cap);
+  } else {
+    combined = opening + normalized;
+  }
+  return combined;
 }
 
 function clip(s: string): string {

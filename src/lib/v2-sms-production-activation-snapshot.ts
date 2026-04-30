@@ -18,6 +18,7 @@ import {
   isV2CentralSmsBrainControlEnabled,
   isV2CentralSmsBrainShadowEnabled,
 } from "@/lib/v2-central-sms-brain";
+import { isV2ActiveReplyContextEnabled } from "@/lib/v2-active-reply-context";
 import {
   parseOperatorConsoleAllowedClerkUserIds,
   parseOperatorConsoleAllowedEmails,
@@ -142,6 +143,12 @@ export function getV2SmsProductionActivationSnapshot(): {
       effective: isV2CentralSmsBrainControlEnabled(),
       note:
         'Unset ⇒ OFF in code. Set "true"/"1" to apply Wave 14.2 guardrails (runs central brain even if shadow is off).',
+    },
+    {
+      key: "V2_ACTIVE_REPLY_CONTEXT_ENABLED",
+      effective: isV2ActiveReplyContextEnabled(),
+      note:
+        'Unset ⇒ OFF. Wave 14.3a: blocks ambiguous bare replies from attaching to accountability without a fresh unanswered check_sent or self-contained answer.',
     },
   ];
 

@@ -9,6 +9,9 @@ import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 /** Time window to complete the in-app handoff (PR1). */
 export const V2_GUIDED_RESOLUTION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** Wave 15.1 — suppress duplicate daily pending reminder after inbound confirmation prompt. */
+export const V2_PENDING_RESOLUTION_CONFIRMATION_REMINDER_SUPPRESS_MS = 24 * 60 * 60 * 1000;
+
 export const V2_PENDING_RESOLUTION_KINDS = [
   "identity_anchor_update",
   "commitment_replace",
@@ -369,6 +372,55 @@ export function buildGuidedTightenHandoffSms(): { body: string } {
   return {
     body: `Noted—let’s set a smaller bar you can honestly say yes to. Finish in the app (~2 min), then you’ll get a short follow-up text here: ${url}`,
   };
+}
+
+/**
+ * When SMS pending-resolution already sent a confirmation question recently, skip the daily
+ * pending-resolution reminder for that window (avoids duplicate “should I make that the bar?” SMS).
+ */
+export function shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation(args: {
+  row: ActiveV2CommitmentRow;
+  nowMs: number;
+}): {
+  skip: boolean;
+  smsState: string | null;
+  candidatePresent: boolean;
+  confirmationPromptAgeMinutes: number | null;
+} {
+  const p = getPendingResolutionOrNull(args.row);
+  const payload = p?.payload;
+  if (!payload || payload.source !== "sms_inbound") {
+    return {
+      skip: false,
+      smsState: null,
+      candidatePresent: false,
+      confirmationPromptAgeMinutes: null,
+    };
+  }
+  const smsState = payload.sms_state ?? "awaiting_candidate";
+  const cand =
+    payload.candidate_behavior_statement?.trim() ||
+    payload.candidate_tightened_bar?.trim() ||
+    payload.candidate_new_bar?.trim() ||
+    "";
+  const candidatePresent = Boolean(cand);
+  const cps = typeof payload.confirmation_prompt_sent_at === "string" ? payload.confirmation_prompt_sent_at.trim() : "";
+  if (smsState !== "awaiting_confirmation" || !candidatePresent || !cps) {
+    return { skip: false, smsState, candidatePresent, confirmationPromptAgeMinutes: null };
+  }
+  const sentMs = Date.parse(cps);
+  if (!Number.isFinite(sentMs)) {
+    return { skip: false, smsState, candidatePresent, confirmationPromptAgeMinutes: null };
+  }
+  const ageMs = args.nowMs - sentMs;
+  if (ageMs < 0) {
+    return { skip: false, smsState, candidatePresent, confirmationPromptAgeMinutes: null };
+  }
+  const confirmationPromptAgeMinutes = Math.round(ageMs / 60000);
+  if (ageMs < V2_PENDING_RESOLUTION_CONFIRMATION_REMINDER_SUPPRESS_MS) {
+    return { skip: true, smsState, candidatePresent, confirmationPromptAgeMinutes };
+  }
+  return { skip: false, smsState, candidatePresent, confirmationPromptAgeMinutes };
 }
 
 /**

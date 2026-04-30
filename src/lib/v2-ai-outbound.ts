@@ -961,7 +961,7 @@ function buildDeveloperPromptReactivation(ctx: V2AiOutboundContext): string {
   }
   if (ctx.preferredName?.trim()) {
     lines.push(
-      `Preferred name Coach Pat should use: ${truncateOneLine(ctx.preferredName, 40)}`
+      `Preferred name is available for context (${truncateOneLine(ctx.preferredName, 40)}). Do not overuse it. Avoid starting with their name—the server may add a short greeting.`
     );
   }
   lines.push("");
@@ -1116,7 +1116,7 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
     );
     if (k === "recommit_same") {
       lines.push(
-        "This SMS proposes an explicit temporary recommit to the SAME bar for 7 days when they accept with yes; saying no skips this lock-in; original_behavior_statement is unchanged."
+        "This SMS asks whether to keep the same bar steady for about a week; yes accepts, no leaves things as they are; original_behavior_statement stays the anchor."
       );
     } else {
       lines.push(
@@ -1131,7 +1131,7 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   lines.push("");
   if (ctx.preferredName?.trim()) {
     lines.push(
-      `Preferred name Coach Pat should use: ${truncateOneLine(ctx.preferredName, 40)}`
+      `Preferred name is available for context (${truncateOneLine(ctx.preferredName, 40)}). Do not overuse it. Avoid starting with their name—the server may add a short greeting.`
     );
   }
   if (ctx.lifeDesires?.trim()) {

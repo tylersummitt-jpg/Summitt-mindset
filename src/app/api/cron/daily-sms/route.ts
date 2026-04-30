@@ -109,6 +109,7 @@ import {
   clearPendingResolutionIfExpired,
   getPendingResolutionOrNull,
   isPendingResolutionExpired,
+  shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation,
 } from "@/lib/v2-guided-resolution";
 
 export const runtime = "nodejs";
@@ -547,6 +548,19 @@ async function buildDailySmsContent(
       getPendingResolutionOrNull(active) &&
       !isPendingResolutionExpired(active, now.getTime())
     ) {
+      const recentConfirm = shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation({
+        row: active,
+        nowMs: now.getTime(),
+      });
+      if (recentConfirm.skip) {
+        console.info("[pending-resolution-reminder] skipped_recent_confirmation_prompt", {
+          commitment_id: active.id,
+          sms_state: recentConfirm.smsState,
+          confirmation_prompt_age_minutes: recentConfirm.confirmationPromptAgeMinutes,
+          candidate_present: recentConfirm.candidatePresent,
+        });
+        return { ok: false, error: "v2_pending_resolution_recent_confirmation_skip" };
+      }
       const rem = buildPendingResolutionDailyReminderSms(active);
       console.info("[daily-sms] pending_resolution_reminder_selected", {
         clerk_user_id: clerkUserId,
@@ -1420,6 +1434,7 @@ export async function GET(req: Request) {
     skippedCadence: 0,
     skippedReactivationCooldown: 0,
     skippedRefreshIdentityAwaiting: 0,
+    skippedPendingResolutionRecentConfirmation: 0,
     skippedNotFullyOnV2Daily: 0,
     skippedMissingTwilio: 0,
     failed: 0,
@@ -1678,6 +1693,24 @@ export async function GET(req: Request) {
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
                   .eq("day_key", todayKey);
                 stats.skippedRefreshIdentityAwaiting += 1;
+                stats.skippedIntentional += 1;
+                continue;
+              }
+              if (built.error === "v2_pending_resolution_recent_confirmation_skip") {
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: "skipped_pending_resolution_recent_confirm",
+                    metadata: {
+                      ...existingMeta,
+                      note: "v2_pending_resolution_recent_confirmation_skip",
+                      timezone,
+                      local_time: localNow.toISOString(),
+                    },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                stats.skippedPendingResolutionRecentConfirmation += 1;
                 stats.skippedIntentional += 1;
                 continue;
               }
@@ -2138,6 +2171,23 @@ export async function GET(req: Request) {
             .eq("clerk_user_id", audienceUser.clerk_user_id)
             .eq("day_key", todayKey);
           stats.skippedRefreshIdentityAwaiting += 1;
+          stats.skippedIntentional += 1;
+          continue;
+        }
+        if (builtMain.error === "v2_pending_resolution_recent_confirmation_skip") {
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "skipped_pending_resolution_recent_confirm",
+              metadata: {
+                note: "v2_pending_resolution_recent_confirmation_skip",
+                timezone,
+                local_time: localNow.toISOString(),
+              },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          stats.skippedPendingResolutionRecentConfirmation += 1;
           stats.skippedIntentional += 1;
           continue;
         }

@@ -131,6 +131,11 @@ import {
   shouldCentralBrainBlockOutcomeScoring,
 } from "@/lib/v2-central-sms-brain";
 import {
+  buildActiveReplyContextClarificationSms,
+  buildV2ActiveReplyContext,
+  isV2ActiveReplyContextEnabled,
+} from "@/lib/v2-active-reply-context";
+import {
   clearBlockerCapturePending,
   exitLowPressureReactivationOnInbound,
   getActiveCommitment,
@@ -715,6 +720,74 @@ async function processV2NormalInboundOutcome(
     const freshPivot = (await loadJob(job.message_sid)) ?? job;
     await commitAndSendInboundCoachReply(freshPivot, userId);
     return;
+  }
+
+  /** Wave 14.3a — ambiguous short inbound cannot attach to accountability without live fresh prompt or self-contained grounding. */
+  const arcWriteOutcomeType = gatedDecision.final_event_type ?? eventType;
+  const arcWouldWriteOutcomeEvent =
+    gatedDecision.should_write_outcome_event &&
+    (arcWriteOutcomeType === "user_yes" ||
+      arcWriteOutcomeType === "user_no" ||
+      arcWriteOutcomeType === "user_partial");
+
+  if (isV2ActiveReplyContextEnabled() && arcWouldWriteOutcomeEvent) {
+    const activeReplyCtx = buildV2ActiveReplyContext({
+      inboundText: userMessage,
+      eventsNewestFirst: recentEvents,
+      commitmentTitle: commitment.title,
+      behaviorStatement: commitment.behavior_statement,
+      effectiveAsk: effectiveBehavior,
+    });
+    if (activeReplyCtx.should_force_clarification_for_ambiguous_short_reply) {
+      const clarificationBody = buildActiveReplyContextClarificationSms({
+        inboundText: userMessage,
+        tentativeOutcomeType: arcWriteOutcomeType,
+      });
+      console.info(
+        "[active-reply-context] clarification",
+        JSON.stringify({
+          wave: "14.3a",
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          ambiguous_short_reply: activeReplyCtx.ambiguous_short_reply,
+          no_event_reason:
+            activeReplyCtx.clarification_reason ?? "ambiguous_short_reply_clarification",
+          accountability_prompt_age_minutes: activeReplyCtx.accountability_prompt_age_minutes,
+          accountability_prompt_sent_at: activeReplyCtx.accountability_prompt_sent_at,
+          latest_outcome_at: activeReplyCtx.latest_outcome_at,
+          tentative_outcome: arcWriteOutcomeType,
+        })
+      );
+
+      const nowArc = new Date().toISOString();
+      const { data: persistedArc } = await supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .update({
+          reply_body: clarificationBody,
+          status: "reply_ready",
+          next_retry_at: nowArc,
+          updated_at: nowArc,
+          last_error: null,
+        })
+        .eq("message_sid", job.message_sid)
+        .eq("status", "processing")
+        .select()
+        .maybeSingle();
+
+      if (!persistedArc) {
+        const j2 = await loadJob(job.message_sid);
+        if (j2?.reply_body?.trim()) {
+          await commitAndSendInboundCoachReply(j2, userId);
+          return;
+        }
+        throw new Error("v2_reply_ready_persist_failed");
+      }
+
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      const freshArc = (await loadJob(job.message_sid)) ?? job;
+      await commitAndSendInboundCoachReply(freshArc, userId);
+      return;
+    }
   }
 
   let commitmentChangeWave4Body: string | null = null;
