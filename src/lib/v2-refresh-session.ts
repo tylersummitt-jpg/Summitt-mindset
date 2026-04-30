@@ -4,9 +4,13 @@ import { supabaseServer } from "@/lib/supabase-server";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { isV2PendingProposalValid } from "@/lib/v2-adaptive-contract";
 import {
-  V2_IDENTITY_REFRESH_INTERVAL_MS,
+  getPendingResolutionOrNull,
+  isPendingResolutionExpired,
+} from "@/lib/v2-guided-resolution";
+import {
   V2_IDENTITY_REFERENCE_COOLDOWN_MS,
   isIdentityRefreshDue,
+  isQuotableIdentitySource,
   parseIsoMs as parseIsoMsFromProfile,
 } from "@/lib/v2-identity-anchor";
 
@@ -15,6 +19,28 @@ export const V2_REFRESH_IDENTITY_ABANDON_DAYS = 7;
 
 /** Throttle starting a new refresh session after last identity prompt. */
 export const V2_REFRESH_SESSION_START_THROTTLE_MS = V2_IDENTITY_REFERENCE_COOLDOWN_MS;
+
+/** Minimum active commitment age (days) before a NEW refresh_session cold start. Override via env. */
+export function getV2RefreshMinCommitmentAgeDays(): number {
+  const raw = process.env.V2_REFRESH_MIN_COMMITMENT_AGE_DAYS?.trim();
+  if (!raw) return 21;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return 21;
+  return n;
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** True when commitment has been active long enough for Wave 1 refresh cold start. */
+export function isActiveCommitmentMatureForRefreshColdStart(
+  startedAtIso: string | null | undefined,
+  nowMs: number
+): boolean {
+  const t = parseIso(typeof startedAtIso === "string" ? startedAtIso : null);
+  if (t == null) return false;
+  const minDays = getV2RefreshMinCommitmentAgeDays();
+  return nowMs - t >= minDays * MS_PER_DAY;
+}
 
 export type V2RefreshSessionStep = "identity" | "commitment";
 
@@ -59,38 +85,57 @@ export function isRefreshSessionActive(row: ActiveV2CommitmentRow): boolean {
   return parseRefreshSession(row.refresh_session) != null;
 }
 
-export type V2RefreshEligibilityInput = {
+export type Wave1ColdStartRefreshInput = {
   nowMs: number;
   commitment: ActiveV2CommitmentRow;
   identityAnchorText: string | null | undefined;
+  identitySource: string | null | undefined;
   identityRefreshDueAt: string | null | undefined;
   identityRefreshLastPromptedAt: string | null | undefined;
   commitmentRefreshLastPromptedAt: string | null | undefined;
 };
 
+export type Wave1ColdStartRefreshResult =
+  | { ok: true }
+  | { ok: false; reason: string };
+
 /**
- * Commitment side of refresh is "due" when never prompted, or 75+ days since last commitment refresh prompt.
- * Identity side is due via existing `identity_refresh_due_at` on user_profiles.
- * Session may start when either is due (OR), plus throttles and safety gates.
+ * Wave 1: start identity_first cold refresh only when identity is due, anchor is quotable,
+ * commitment is mature, and safety gates pass. Commitment-only refresh is deferred.
  */
-export function computeRefreshEligibility(args: V2RefreshEligibilityInput): boolean {
-  const anchor = typeof args.identityAnchorText === "string" ? args.identityAnchorText.trim() : "";
-  if (!anchor) return false;
+export function computeWave1ColdStartRefreshEligible(
+  args: Wave1ColdStartRefreshInput
+): Wave1ColdStartRefreshResult {
+  const anchor =
+    typeof args.identityAnchorText === "string" ? args.identityAnchorText.trim() : "";
+  if (!anchor) return { ok: false, reason: "no_anchor" };
 
-  if (args.commitment.accountability_phase === "low_pressure_reactivation") return false;
-  if (isV2PendingProposalValid(args.commitment, args.nowMs)) return false;
-  if (parseRefreshSession(args.commitment.refresh_session) != null) return false;
+  if (!isQuotableIdentitySource(args.identitySource)) {
+    return { ok: false, reason: "anchor_not_quotable" };
+  }
 
-  const identityDue = isIdentityRefreshDue(args.identityRefreshDueAt, args.nowMs);
-  const lastCommit = parseIso(
-    typeof args.commitmentRefreshLastPromptedAt === "string"
-      ? args.commitmentRefreshLastPromptedAt
-      : null
-  );
-  const commitmentDue =
-    lastCommit == null || args.nowMs - lastCommit >= V2_IDENTITY_REFRESH_INTERVAL_MS;
+  if (args.commitment.accountability_phase === "low_pressure_reactivation") {
+    return { ok: false, reason: "low_pressure_reactivation" };
+  }
+  if (isV2PendingProposalValid(args.commitment, args.nowMs)) {
+    return { ok: false, reason: "pending_adaptive_proposal" };
+  }
+  if (parseRefreshSession(args.commitment.refresh_session) != null) {
+    return { ok: false, reason: "active_refresh_session" };
+  }
 
-  if (!identityDue && !commitmentDue) return false;
+  const pending = getPendingResolutionOrNull(args.commitment);
+  if (pending && !isPendingResolutionExpired(args.commitment, args.nowMs)) {
+    return { ok: false, reason: "pending_resolution" };
+  }
+
+  if (!isActiveCommitmentMatureForRefreshColdStart(args.commitment.started_at, args.nowMs)) {
+    return { ok: false, reason: "below_maturity" };
+  }
+
+  if (!isIdentityRefreshDue(args.identityRefreshDueAt, args.nowMs)) {
+    return { ok: false, reason: "identity_not_due" };
+  }
 
   const lastIdentityPrompt = parseIso(
     typeof args.identityRefreshLastPromptedAt === "string"
@@ -101,10 +146,10 @@ export function computeRefreshEligibility(args: V2RefreshEligibilityInput): bool
     lastIdentityPrompt != null &&
     args.nowMs - lastIdentityPrompt < V2_REFRESH_SESSION_START_THROTTLE_MS
   ) {
-    return false;
+    return { ok: false, reason: "identity_prompt_throttle" };
   }
 
-  return true;
+  return { ok: true };
 }
 
 export function shouldAbandonStaleIdentityStep(
@@ -190,6 +235,66 @@ export function parseRefreshInboundToken(raw: string): V2RefreshInboundToken {
   if (t === "KEEP") return "KEEP";
   if (t === "TIGHTEN") return "TIGHTEN";
   if (t === "NEW") return "NEW";
+  return "UNKNOWN";
+}
+
+/** Hedging / complaint phrases — conservative UNKNOWN (prefer clarify over wrong token). */
+const REFRESH_NATURAL_LANGUAGE_DOUBT_RE =
+  /\b(still not|not sure|same problem|don'?t know|dont know|hard to say|not convinced)\b/i;
+
+/**
+ * Deterministic phrase mapping for refresh inbound only. Exact STILL/CHANGE/KEEP/TIGHTEN/NEW always win first.
+ * Otherwise only high-confidence short phrases match; doubtful wording → UNKNOWN.
+ */
+export function parseRefreshInboundWithNaturalLanguage(
+  raw: string,
+  step: "identity" | "commitment"
+): V2RefreshInboundToken {
+  const exact = parseRefreshInboundToken(raw);
+  if (exact !== "UNKNOWN") return exact;
+
+  const normalized = raw.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!normalized) return "UNKNOWN";
+
+  if (/^(ok|okay|k|ya|yep|maybe|idk|\?)$/.test(normalized)) return "UNKNOWN";
+  if (/^(yes|no)$/.test(normalized)) return "UNKNOWN";
+
+  if (REFRESH_NATURAL_LANGUAGE_DOUBT_RE.test(normalized)) return "UNKNOWN";
+
+  if (step === "identity") {
+    const changeClear =
+      /\b(change it|not true anymore|not right anymore|life shifted|that'?s not right|thats not right)\b/.test(
+        normalized
+      );
+    if (changeClear) return "CHANGE";
+
+    const stillClear =
+      /^same[.!?]?$/.test(normalized) ||
+      /\b(still fits|yes it fits|that still fits|that still fit|that'?s still true|thats still true)\b/.test(
+        normalized
+      ) ||
+      /\b(keep it|keep that|keep the same)\b/.test(normalized);
+    if (stillClear) return "STILL";
+
+    return "UNKNOWN";
+  }
+
+  if (
+    /\b(new goal|different goal|change goal|not this anymore|new commitment)\b/.test(normalized)
+  ) {
+    return "NEW";
+  }
+  if (
+    /\b(make it smaller|make it easier|tighten|simplify|lower the bar|ease up)\b/.test(normalized)
+  ) {
+    return "TIGHTEN";
+  }
+
+  const keepClear =
+    /^same[.!?]?$/.test(normalized) ||
+    /\b(keep it|keep the same|same goal|same focus|still the right focus)\b/.test(normalized);
+  if (keepClear) return "KEEP";
+
   return "UNKNOWN";
 }
 
@@ -515,32 +620,32 @@ export async function insertCoachingRefreshResolved(args: {
   }
 }
 
-/** Step A: identity anchor must appear verbatim in body. */
+/** Step A: trusted identity line appears verbatim in body (caller must ensure quotable source). */
 export function buildRefreshStepIdentitySms(args: {
   identityAnchorText: string;
 }): { body: string; templateId: number } {
   const a = args.identityAnchorText.trim();
-  const body = `Quick alignment (not your daily score): still the same person you want to become? Your line: ${a} Reply STILL or CHANGE.`;
+  const body = `Quick alignment—not your daily score. Does this still fit who you’re becoming? “${a}” Same vibe, or life shifted? Say same or change—either works.`;
   return { body, templateId: 81 };
 }
 
 /** Step B: effective ask snippet must appear verbatim in body. */
 export function buildRefreshStepCommitmentSms(args: { effectiveAsk: string }): { body: string; templateId: number } {
   const ask = args.effectiveAsk.trim();
-  const body = `Still the right focus for accountability? Today’s bar: ${ask} Reply KEEP, TIGHTEN, or NEW.`;
+  const body = `Does this commitment still fit, or does it need to get smaller or change? Today’s bar: ${ask} Tell me keep, smaller, or new goal—in your own words is fine.`;
   return { body, templateId: 82 };
 }
 
 export function buildRefreshClarifyIdentitySms(): { body: string; templateId: number } {
   return {
-    body: "Need a clear reply: text STILL if that identity line still fits, or CHANGE if you want to update it in the app.",
+    body: "I may be reading that wrong. Does that identity line still fit, or do you want to change it in the app?",
     templateId: 83,
   };
 }
 
 export function buildRefreshClarifyCommitmentSms(): { body: string; templateId: number } {
   return {
-    body: "Need a clear reply: KEEP to stay on this focus, TIGHTEN if you want a smaller temporary bar next checks, or NEW to pick a new focus in the app.",
+    body: "Want to be sure—keep this same focus, make the bar smaller for now, or pick a new focus in the app?",
     templateId: 84,
   };
 }
@@ -554,7 +659,7 @@ export function buildRefreshChangeFollowupSms(): { body: string; templateId: num
 
 export function buildRefreshTightenFollowupSms(): { body: string; templateId: number } {
   return {
-    body: "Noted. No change yet—when a smaller window fits, the next daily check may offer the usual YES/NO shrink proposal.",
+    body: "Noted. No change yet—when a smaller window fits, the next daily check may offer a simple yes-or-no on trying a tighter window.",
     templateId: 86,
   };
 }
@@ -831,7 +936,7 @@ export async function reconcileRefreshPostSendBookkeepingForCommitment(args: {
   let stateConflicts = 0;
   let rpcFailures = 0;
   let repeatedLikely = 0;
-  let snapshotCandidatesFound = snapshotByReplayKey.size;
+  const snapshotCandidatesFound = snapshotByReplayKey.size;
   let snapshotReplayAttempted = 0;
   let snapshotReplayApplied = 0;
   let heuristicFallbackAttempted = 0;

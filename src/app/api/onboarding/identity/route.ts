@@ -4,9 +4,22 @@ import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   computeIdentityRefreshDueAtIsoFromNow,
+  isQuotableIdentitySource,
+  isRelationshipDerivedIdentitySource,
   normalizeIdentityAnchorText,
+  ONBOARDING_IDENTITY_ANCHOR_SOURCE,
+  validateOnboardingIdentityAnchorInput,
 } from "@/lib/v2-identity-anchor";
 
+/**
+ * POST /api/onboarding/identity
+ *
+ * Saves relationship context (people_summary, responsibility) separately from identity anchor.
+ * Wave 8: identity_anchor_text from “who are you becoming?”
+ * Wave 8.1: Do not overwrite user_edited / guided_resolution_identity / explicitly_confirmed /
+ * onboarding_identity_anchor_v1 unless the submitted anchor validates and differs (intentional edit).
+ * Relationship-derived sources may be replaced by a valid onboarding anchor.
+ */
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
@@ -22,7 +35,7 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const { preferred_name, people_summary, responsibility } = body;
+    const { preferred_name, people_summary, responsibility, identity_anchor_text } = body;
 
     const preferredName =
       typeof preferred_name === "string" ? preferred_name.trim().replace(/\s+/g, " ") : "";
@@ -60,10 +73,16 @@ export async function POST(req: Request) {
       .eq("clerk_user_id", userId)
       .maybeSingle();
 
-    const preserveUserEditedIdentity =
-      existingProfile?.identity_source === "user_edited" &&
-      typeof existingProfile.identity_anchor_text === "string" &&
-      existingProfile.identity_anchor_text.trim().length > 0;
+    const existingSource =
+      typeof existingProfile?.identity_source === "string" ? existingProfile.identity_source.trim() : null;
+    const existingNormalized = normalizeIdentityAnchorText(existingProfile?.identity_anchor_text);
+
+    const hasTrustedProtectedAnchor =
+      existingNormalized != null &&
+      existingNormalized.length > 0 &&
+      isQuotableIdentitySource(existingSource);
+
+    const relationshipDerived = isRelationshipDerivedIdentitySource(existingSource);
 
     const upsertRow: Record<string, unknown> = {
       clerk_user_id: userId,
@@ -72,14 +91,35 @@ export async function POST(req: Request) {
       responsibility: responsibilityText,
     };
 
-    if (!preserveUserEditedIdentity) {
-      const anchor = normalizeIdentityAnchorText(people);
-      const nowIso = new Date().toISOString();
-      if (anchor) {
-        upsertRow.identity_anchor_text = anchor;
-        upsertRow.identity_source = "onboarding_people_summary_v2";
-        upsertRow.identity_last_confirmed_at = nowIso;
-        upsertRow.identity_refresh_due_at = computeIdentityRefreshDueAtIsoFromNow();
+    const nowIso = new Date().toISOString();
+
+    const rawSubmitted = body.identity_anchor_text;
+    const submittedKeyPresent = Object.prototype.hasOwnProperty.call(body, "identity_anchor_text");
+
+    if (relationshipDerived || !hasTrustedProtectedAnchor) {
+      const anchorValidation = validateOnboardingIdentityAnchorInput(identity_anchor_text);
+      if (!anchorValidation.ok) {
+        return Response.json({ error: anchorValidation.error }, { status: 400 });
+      }
+      upsertRow.identity_anchor_text = anchorValidation.normalized;
+      upsertRow.identity_source = ONBOARDING_IDENTITY_ANCHOR_SOURCE;
+      upsertRow.identity_last_confirmed_at = nowIso;
+      upsertRow.identity_refresh_due_at = computeIdentityRefreshDueAtIsoFromNow();
+    } else {
+      if (!submittedKeyPresent) {
+        /* Legacy / resume client without identity field — do not touch identity columns. */
+      } else {
+        const anchorValidation = validateOnboardingIdentityAnchorInput(rawSubmitted);
+        if (!anchorValidation.ok) {
+          /* Invalid submission: keep existing trusted anchor; still save relationship fields. */
+        } else if (anchorValidation.normalized === existingNormalized) {
+          /* Same normalized text — skip identity writes (preserve source + timestamps). */
+        } else {
+          upsertRow.identity_anchor_text = anchorValidation.normalized;
+          upsertRow.identity_source = existingSource;
+          upsertRow.identity_last_confirmed_at = nowIso;
+          upsertRow.identity_refresh_due_at = computeIdentityRefreshDueAtIsoFromNow();
+        }
       }
     }
 

@@ -43,24 +43,24 @@ const SHRINK_NEXT_TEMPLATES: readonly string[] = [
 
 /** Shrink overlay consent: server binding text {{S}} + current bar {{B}}; not accountability YES/NO. */
 const SHRINK_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Pat: proposing a smaller window for 7 days if you want it—{{S}} Reply YES to adopt this smaller ask, or NO to keep your current bar: "{{B}}"`,
-  `Here's a smaller temporary ask (7 days if you accept): {{S}} Reply YES to use it, or NO to stay on your current bar: "{{B}}"`,
+  `Pat: proposing a smaller window for 7 days if you want it—{{S}} If that smaller bar feels honest, say yes. If you'd rather keep today's standard, say no. Current bar for context: "{{B}}"`,
+  `Here's a smaller temporary ask (7 days if you accept): {{S}} Say yes if you want this tighter window, or no to stay on your current bar: "{{B}}"`,
 ];
 
 /** Recommit-same overlay consent: explicit same-bar lock {{S}} + anchor {{B}}. */
 const RECOMMIT_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Pat: proposing an explicit same-bar recommit for 7 days if you want it—{{S}} Reply YES to lock that in temporarily, or NO to skip (your written commitment stays): "{{B}}"`,
-  `Temporary explicit recommit to the SAME bar (7 days if you accept): {{S}} Reply YES to adopt it, or NO to continue without this lock-in: "{{B}}"`,
+  `Pat: proposing an explicit same-bar recommit for 7 days if you want it—{{S}} Say yes to lock that line in for a week, or no to skip—the written commitment stays either way: "{{B}}"`,
+  `Temporary explicit recommit to the SAME bar (7 days if you accept): {{S}} Yes if you want that explicit lock-in, no if you'd rather pass—same commitment on paper: "{{B}}"`,
 ];
 
 const CONTRACT_OVERLAY_YES_ACK: readonly [string, string] = [
-  `Locked in for 7 days: {{S}} Same commitment—smaller window. Daily checks stay YES/NO/PARTIAL as usual.`,
-  `Got it. For the next 7 days we'll hold you to this smaller bar: {{S}} Text YES/NO/PARTIAL on checks like always.`,
+  `Locked in for 7 days: {{S}} Same commitment—smaller window. Daily check-ins work like usual—yes, no, or partial is fine.`,
+  `Got it. For the next 7 days we'll hold you to this smaller bar: {{S}} Answer the daily check honestly like you already do.`,
 ];
 
 const CONTRACT_OVERLAY_YES_ACK_RECOMMIT: readonly [string, string] = [
-  `Locked in for 7 days: {{S}} Same bar, explicit line. Daily checks stay YES/NO/PARTIAL as usual.`,
-  `Got it. For the next 7 days we'll hold you to this explicit recommit: {{S}} Text YES/NO/PARTIAL on checks like always.`,
+  `Locked in for 7 days: {{S}} Same bar, explicit line. Daily check-ins work like usual—yes, no, or partial is fine.`,
+  `Got it. For the next 7 days we'll hold you to this explicit recommit: {{S}} Same rhythm on daily checks—straight answers, no script.`,
 ];
 
 const CONTRACT_OVERLAY_NO_ACK: readonly [string, string] = [
@@ -444,6 +444,38 @@ export function buildV2InboundReplySms(args: {
 
 const PARTIAL_PHRASE =
   /\b(partial|partially|kinda|kind of|sort of|somewhat|half|mixed|in between)\b/i;
+
+/** True if inbound text matches classifier partial-keyword patterns (for AI-gated partial acceptance). */
+export function messageHasKeywordPartialLanguage(raw: string): boolean {
+  const lower = raw.trim().toLowerCase();
+  return PARTIAL_PHRASE.test(lower);
+}
+
+/** Single-line commitment text for SMS; avoids awkward raw dumps. */
+export function naturalizeCommitmentForSms(raw: string, maxLen = 72): string {
+  let s = (raw || "").trim().replace(/\s+/g, " ");
+  s = s.replace(/\s*&\s*/g, " and ");
+  s = s.replace(/^(i commit to|i will|my commitment is:?)\s+/i, "");
+  s = s.replace(/\buse\s+ai\s+(and\s+)?/gi, "");
+  s = s.replace(/^[,\s]+/, "").trim();
+  s = s.replace(/[.!?]+$/g, "").trim();
+  if (!s) return "the commitment";
+  if (s.length > maxLen) return `${s.slice(0, maxLen - 1).trimEnd()}…`;
+  return s;
+}
+
+/**
+ * Prefer a short concrete phrase; fall back to "the bar" when the ask would be too long for SMS glue.
+ */
+export function getShortCommitmentPhraseForSms(args: {
+  effectiveAsk: string;
+  behaviorStatement: string;
+}): string {
+  const primary = args.effectiveAsk?.trim() || args.behaviorStatement?.trim() || "";
+  const n = naturalizeCommitmentForSms(primary, 48);
+  if (n.length >= 40 || n.endsWith("…")) return "the bar";
+  return n;
+}
 
 /**
  * V2 inbound classifier: strong yes / strong no / partial keywords / blank / ambiguous → partial.

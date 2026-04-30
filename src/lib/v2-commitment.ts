@@ -32,6 +32,8 @@ export type ActiveV2CommitmentRow = {
   pending_resolution_payload: unknown | null;
   /** Row metadata (Supabase `v2_commitment.updated_at`). */
   updated_at: string | null;
+  /** Commitment activation time (used for Wave 1 refresh cold-start maturity gate). */
+  started_at: string | null;
 };
 
 /** Bounded rows for V2 AI + rule engine (newest first). */
@@ -53,7 +55,7 @@ export async function getActiveCommitment(
   const { data, error } = await supabaseServer
     .from("v2_commitment")
     .select(
-      "id, clerk_user_id, status, behavior_statement, title, success_criteria, blocker_capture_expires_at, blocker_capture_after_event, adaptive_ask_text, adaptive_ask_active_from, adaptive_ask_expires_at, adaptive_proposal_text, adaptive_proposal_created_at, adaptive_proposal_expires_at, accountability_phase, reactivation_entered_at, reactivation_last_sent_at, reactivation_entry_reason_code, refresh_session, commitment_refresh_last_prompted_at, pending_resolution_kind, pending_resolution_created_at, pending_resolution_expires_at, pending_resolution_payload, updated_at"
+      "id, clerk_user_id, status, behavior_statement, title, success_criteria, blocker_capture_expires_at, blocker_capture_after_event, adaptive_ask_text, adaptive_ask_active_from, adaptive_ask_expires_at, adaptive_proposal_text, adaptive_proposal_created_at, adaptive_proposal_expires_at, accountability_phase, reactivation_entered_at, reactivation_last_sent_at, reactivation_entry_reason_code, refresh_session, commitment_refresh_last_prompted_at, pending_resolution_kind, pending_resolution_created_at, pending_resolution_expires_at, pending_resolution_payload, updated_at, started_at"
     )
     .eq("clerk_user_id", clerkUserId)
     .eq("status", "active")
@@ -160,6 +162,8 @@ function mapRowToActiveV2Commitment(row: Record<string, unknown>): ActiveV2Commi
     pending_resolution_payload: row.pending_resolution_payload ?? null,
     updated_at:
       row.updated_at != null && typeof row.updated_at === "string" ? row.updated_at : null,
+    started_at:
+      row.started_at != null && typeof row.started_at === "string" ? row.started_at : null,
   };
 }
 
@@ -170,7 +174,7 @@ export async function getV2CommitmentByIdForCoaching(
   const { data, error } = await supabaseServer
     .from("v2_commitment")
     .select(
-      "id, clerk_user_id, status, behavior_statement, title, success_criteria, blocker_capture_expires_at, blocker_capture_after_event, adaptive_ask_text, adaptive_ask_active_from, adaptive_ask_expires_at, adaptive_proposal_text, adaptive_proposal_created_at, adaptive_proposal_expires_at, accountability_phase, reactivation_entered_at, reactivation_last_sent_at, reactivation_entry_reason_code, refresh_session, commitment_refresh_last_prompted_at, pending_resolution_kind, pending_resolution_created_at, pending_resolution_expires_at, pending_resolution_payload, updated_at"
+      "id, clerk_user_id, status, behavior_statement, title, success_criteria, blocker_capture_expires_at, blocker_capture_after_event, adaptive_ask_text, adaptive_ask_active_from, adaptive_ask_expires_at, adaptive_proposal_text, adaptive_proposal_created_at, adaptive_proposal_expires_at, accountability_phase, reactivation_entered_at, reactivation_last_sent_at, reactivation_entry_reason_code, refresh_session, commitment_refresh_last_prompted_at, pending_resolution_kind, pending_resolution_created_at, pending_resolution_expires_at, pending_resolution_payload, updated_at, started_at"
     )
     .eq("id", commitmentId)
     .eq("status", "active")
@@ -307,6 +311,8 @@ const V2_AI_EVENT_TYPES = [
   "user_no",
   "user_partial",
   "blocker_captured",
+  /** Wave 9.1 — bounded living-memory metadata on non-outcome turns (excluded from proof aggregates). */
+  "sms_memory_signal",
   "contract_overlay_proposed",
   "contract_overlay_activated",
   "contract_overlay_declined",

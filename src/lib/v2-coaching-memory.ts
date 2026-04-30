@@ -13,7 +13,7 @@ import {
   getEffectiveCoachingAsk,
   isV2AdaptiveOverlayActive,
 } from "@/lib/v2-adaptive-contract";
-import { isIdentityRefreshDue } from "@/lib/v2-identity-anchor";
+import { isIdentityRefreshDue, isQuotableIdentitySource } from "@/lib/v2-identity-anchor";
 import { mirrorPendingResolutionForPrompt } from "@/lib/v2-guided-resolution";
 import { parseRefreshSession } from "@/lib/v2-refresh-session";
 import { deriveV2CadencePayload, type V2CadenceLevel } from "@/lib/v2-cadence";
@@ -443,10 +443,12 @@ export async function loadV2CoachingMemoryForPrompt(
   if (clerkId) {
     const { data: prof } = await supabaseServer
       .from("user_profiles")
-      .select("identity_anchor_text, identity_refresh_due_at")
+      .select("identity_anchor_text, identity_refresh_due_at, identity_source")
       .eq("clerk_user_id", clerkId)
       .maybeSingle();
-    const ia = typeof prof?.identity_anchor_text === "string" ? prof.identity_anchor_text : null;
+    const src = typeof prof?.identity_source === "string" ? prof.identity_source : null;
+    const iaRaw = typeof prof?.identity_anchor_text === "string" ? prof.identity_anchor_text : null;
+    const ia = isQuotableIdentitySource(src) ? iaRaw : null;
     merged = {
       ...merged,
       identity_anchor_text: ia,
@@ -487,7 +489,7 @@ export async function recomputeV2CoachingMemory(
         countCheckSentEvents(commitmentId),
         supabaseServer
           .from("user_profiles")
-          .select("identity_anchor_text, identity_refresh_due_at")
+          .select("identity_anchor_text, identity_refresh_due_at, identity_source")
           .eq("clerk_user_id", commitment.clerk_user_id)
           .maybeSingle(),
       ]);
@@ -539,11 +541,15 @@ export async function recomputeV2CoachingMemory(
     const profileIdentity = profileIdentityRes.data as {
       identity_anchor_text?: string | null;
       identity_refresh_due_at?: string | null;
+      identity_source?: string | null;
     } | null;
-    const identityAnchorText =
+    const idSrc =
+      typeof profileIdentity?.identity_source === "string" ? profileIdentity.identity_source : null;
+    const identityAnchorTextRaw =
       typeof profileIdentity?.identity_anchor_text === "string"
         ? profileIdentity.identity_anchor_text
         : null;
+    const identityAnchorText = isQuotableIdentitySource(idSrc) ? identityAnchorTextRaw : null;
     const identityRefreshDue = isIdentityRefreshDue(
       typeof profileIdentity?.identity_refresh_due_at === "string"
         ? profileIdentity.identity_refresh_due_at

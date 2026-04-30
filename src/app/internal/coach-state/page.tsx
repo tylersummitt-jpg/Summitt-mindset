@@ -59,9 +59,12 @@ export default async function OperatorCoachStatePage({
           <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">v2_commitment</code>; coaching memory and
           event summaries are projections / history.
         </p>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-gray-500">
           <Link href="/internal/refresh-reconcile" className="underline hover:text-gray-700">
             View refresh reconcile cases
+          </Link>
+          <Link href="/internal/sms-qa" className="underline hover:text-gray-700">
+            SMS transcript QA
           </Link>
         </p>
       </div>

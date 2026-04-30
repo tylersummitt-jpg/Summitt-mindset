@@ -12,13 +12,14 @@ import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import {
   buildCheckSentAiPayload,
   deriveV2CoachingState,
+  deriveV2DailyMessagePurpose,
   deriveV2NextMove,
   deriveV2ReentryContext,
   deriveV2SilenceContext,
   pickV2OutboundStrategy,
+  resolveV2DailyOutboundSmsBody,
   resolveV2OutboundStrategyAfterBase,
   templateFamilyForStrategy,
-  tryGenerateV2OutboundMessage,
   V2_OUTBOUND_AI_MODEL,
   V2_OUTBOUND_AI_PROMPT_VERSION,
 } from "@/lib/v2-ai-outbound";
@@ -41,14 +42,17 @@ import {
 import {
   computeIdentityReferenceAllowed,
   isIdentityRefreshDue,
+  isQuotableIdentitySource,
   markIdentityAnchorReferencedIfPresentInBody,
+  parseIsoMs,
+  V2_IDENTITY_REFRESH_INTERVAL_MS,
 } from "@/lib/v2-identity-anchor";
 import {
   abandonRefreshSessionTimeout,
   reconcileRefreshPostSendBookkeepingForCommitment,
   buildRefreshStepCommitmentSms,
   buildRefreshStepIdentitySms,
-  computeRefreshEligibility,
+  computeWave1ColdStartRefreshEligible,
   isRefreshSessionActive,
   newRefreshSessionIdentityStep,
   onV2RefreshOutboundSendSuccess,
@@ -93,6 +97,19 @@ import {
   shouldUseLearnedSendTimeGate,
 } from "@/lib/v2-send-time-profile";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
+import { fetchPendingEvolutionRecommendation } from "@/lib/v2-commitment-evolution-recommendation";
+import { buildV2SmsConversationContextPack } from "@/lib/v2-sms-conversation-context";
+import {
+  evaluateCommitmentEvolutionForSms,
+  pickWave7DailyEvolutionAction,
+  shouldSurfaceWave7EvolutionDailyPurpose,
+} from "@/lib/v2-sms-evolution-signal";
+import {
+  buildPendingResolutionDailyReminderSms,
+  clearPendingResolutionIfExpired,
+  getPendingResolutionOrNull,
+  isPendingResolutionExpired,
+} from "@/lib/v2-guided-resolution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +151,8 @@ type DailySmsBuilt =
       v2IdentityAnchorText?: string | null;
       /** When set, post-Twilio success runs refresh session + `coaching_refresh_prompted` side effects. */
       v2RefreshOutboundPlan?: V2RefreshOutboundPlan | null;
+      /** Guided-resolution pending nudge — not a normal YES/NO accountability check. */
+      v2PendingResolutionReminder?: boolean;
       /** Weekly low-pressure nudge while paused (no check_sent row). */
       v2ReactivationNudge?: boolean;
       /** Effective ask context at send time for deterministic post-send snapshot. */
@@ -258,6 +277,7 @@ async function buildDailySmsContent(
 ): Promise<DailySmsBuilt> {
   let active = await getActiveCommitment(clerkUserId);
   if (active?.behavior_statement?.trim()) {
+    const timezone = resolveUserTimezone(md.timezone);
     await clearStaleAdaptiveContractColumns(active.id);
     try {
       const checkSentReconcile = await reconcileCheckSentPostSendBookkeepingForCommitment({
@@ -364,27 +384,37 @@ async function buildDailySmsContent(
 
       const coachingMemoryRe = await loadV2CoachingMemoryForPrompt(active.id);
 
-      const aiTryRe = await tryGenerateV2OutboundMessage({
-        commitment: active,
-        eventsNewestFirst: recentEvents,
-        blockerPreview: null,
-        serverState,
-        serverStrategy: "reactivation_nudge",
-        templateFamily: "reactivation",
-        silence: silenceCtx,
-        reentry: reentryCtx,
-        nextMove: holdNextMove,
-        cadence: pausedCadence,
-        effectiveCoachingAsk: active.behavior_statement.trim(),
+      let recentSmsContextBlock: string | null = null;
+      try {
+        const convPack = await buildV2SmsConversationContextPack({
+          clerkUserId,
+          commitmentId: active.id,
+          commitment: active,
+          timezone,
+          preloadedCoachingMemory: coachingMemoryRe,
+          preloadedEventsNewestFirst: recentEvents,
+        });
+        recentSmsContextBlock = convPack.promptBlock;
+      } catch (e) {
+        console.warn("[daily-sms] sms_conversation_context_pack_failed", {
+          commitment_id: active.id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+
+      const dailyPurposeRe = deriveV2DailyMessagePurpose({
         contractProposalMode: false,
-        contractProposalBindingText: null,
+        serverStrategy: "reactivation_nudge",
+        reentry: reentryCtx,
+        silence: silenceCtx,
+        serverState,
+        overlayActive: isV2AdaptiveOverlayActive(active, now.getTime()),
+        hasBlockerPreview: false,
+        eventsNewestFirst: recentEvents,
         coachingMemory: coachingMemoryRe,
-        preferredName: preferredNameRe,
-        lifeDesires: lifeDesiresRe,
-        identityAnchorText: null,
-        identityRefreshDue: false,
-        identityReferenceAllowed: false,
-        reachabilityContextLine,
+        commitmentStartedAt: active.started_at,
+        nowMs: now.getTime(),
+        wave7SurfaceEvolution: false,
       });
 
       const { body: templateBodyRe, templateId: templateIdRe } =
@@ -396,7 +426,42 @@ async function buildDailySmsContent(
           nextMove: "hold_standard",
         });
 
-      const smsBodyRe = aiTryRe.ok ? aiTryRe.message : templateBodyRe;
+      const resolvedRe = await resolveV2DailyOutboundSmsBody({
+        ctx: {
+          commitment: active,
+          eventsNewestFirst: recentEvents,
+          blockerPreview: null,
+          serverState,
+          serverStrategy: "reactivation_nudge",
+          templateFamily: "reactivation",
+          silence: silenceCtx,
+          reentry: reentryCtx,
+          nextMove: holdNextMove,
+          cadence: pausedCadence,
+          effectiveCoachingAsk: active.behavior_statement.trim(),
+          contractProposalMode: false,
+          contractProposalBindingText: null,
+          coachingMemory: coachingMemoryRe,
+          preferredName: preferredNameRe,
+          lifeDesires: lifeDesiresRe,
+          identityAnchorText: null,
+          identityRefreshDue: false,
+          identityReferenceAllowed: false,
+          reachabilityContextLine,
+          dailyMessagePurpose: dailyPurposeRe,
+          recentSmsContextBlock,
+        },
+        contractProposalMode: false,
+        purpose: dailyPurposeRe,
+        templateBody: templateBodyRe,
+        effectiveAsk: active.behavior_statement.trim(),
+        behaviorStatement: active.behavior_statement,
+        nextMoveType: "hold_standard",
+        shrunkAskText: null,
+      });
+
+      const smsBodyRe = resolvedRe.smsBody;
+      const aiTryRe = resolvedRe.aiTry;
       const aiPayloadRe = buildCheckSentAiPayload({
         model: V2_OUTBOUND_AI_MODEL,
         promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
@@ -406,6 +471,7 @@ async function buildDailySmsContent(
         confidence: aiTryRe.ok ? aiTryRe.confidence : null,
         fallbackUsed: !aiTryRe.ok,
         ...(!aiTryRe.ok ? { fallbackReason: aiTryRe.reason } : {}),
+        dailyResolution: resolvedRe.resolution,
       });
 
       const silencePayloadRe = {
@@ -447,14 +513,6 @@ async function buildDailySmsContent(
       getRecentV2EventsForAi(active.id),
     ]);
 
-    const { data: refreshProfileRow } = await supabaseServer
-      .from("user_profiles")
-      .select(
-        "identity_anchor_text, identity_refresh_due_at, identity_refresh_last_prompted_at"
-      )
-      .eq("clerk_user_id", clerkUserId)
-      .maybeSingle();
-
     let refreshSessionParsed = parseRefreshSession(active.refresh_session);
     if (
       refreshSessionParsed &&
@@ -472,10 +530,71 @@ async function buildDailySmsContent(
       refreshSessionParsed = parseRefreshSession(active.refresh_session);
     }
 
+    if (refreshSessionParsed?.step === "identity") {
+      return { ok: false, error: "v2_refresh_identity_await_reply" };
+    }
+
+    const clearedPending = await clearPendingResolutionIfExpired(active.id, active, now.getTime());
+    if (clearedPending) {
+      const reloadedAfterPending = await getActiveCommitment(clerkUserId);
+      if (reloadedAfterPending?.behavior_statement?.trim()) {
+        active = reloadedAfterPending;
+      }
+    }
+
+    if (
+      active.accountability_phase === "active_accountability" &&
+      getPendingResolutionOrNull(active) &&
+      !isPendingResolutionExpired(active, now.getTime())
+    ) {
+      const rem = buildPendingResolutionDailyReminderSms(active);
+      console.info("[daily-sms] pending_resolution_reminder_selected", {
+        clerk_user_id: clerkUserId,
+        commitment_id: active.id,
+      });
+      return {
+        ok: true,
+        smsBody: rem.body,
+        deliveryStateSnapshot: null,
+        day2SpecialUsed: false,
+        v2Accountability: true,
+        v2CommitmentId: active.id,
+        v2TemplateId: rem.templateId,
+        v2TemplateFamily: "standard",
+        v2PriorOutcome: latestOutcome?.type ?? null,
+        v2BlockerPreview: null,
+        v2AiPayload: null,
+        v2SilencePayload: null,
+        v2ReentryPayload: null,
+        v2NextMovePayload: null,
+        v2CadencePayload: null,
+        v2ContractProposalMode: false,
+        v2ContractProposalKind: null,
+        v2ProposalBindingText: null,
+        v2ContractProposalPayload: null,
+        v2IdentityAnchorText: null,
+        v2RefreshOutboundPlan: null,
+        v2PendingResolutionReminder: true,
+        v2EffectiveAskText: null,
+      };
+    }
+
+    const { data: refreshProfileRow } = await supabaseServer
+      .from("user_profiles")
+      .select(
+        "identity_anchor_text, identity_refresh_due_at, identity_refresh_last_prompted_at, identity_source"
+      )
+      .eq("clerk_user_id", clerkUserId)
+      .maybeSingle();
+
     const identityAnchorForRefresh =
       typeof refreshProfileRow?.identity_anchor_text === "string"
         ? refreshProfileRow.identity_anchor_text.trim()
         : "";
+    const identitySourceForRefresh =
+      typeof refreshProfileRow?.identity_source === "string"
+        ? refreshProfileRow.identity_source.trim()
+        : null;
 
     if (active.accountability_phase === "active_accountability") {
       const identityDueAt =
@@ -487,16 +606,53 @@ async function buildDailySmsContent(
           ? refreshProfileRow.identity_refresh_last_prompted_at
           : null;
 
-      const refreshEligible = computeRefreshEligibility({
+      const wave1Cold = computeWave1ColdStartRefreshEligible({
         nowMs: now.getTime(),
         commitment: active,
         identityAnchorText: identityAnchorForRefresh,
+        identitySource: identitySourceForRefresh,
         identityRefreshDueAt: identityDueAt,
         identityRefreshLastPromptedAt: identityLastPrompted,
         commitmentRefreshLastPromptedAt: active.commitment_refresh_last_prompted_at,
       });
 
-      if (!refreshSessionParsed && refreshEligible && identityAnchorForRefresh) {
+      if (!wave1Cold.ok) {
+        const lastCommitMs = parseIsoMs(active.commitment_refresh_last_prompted_at ?? null);
+        const commitmentDue =
+          lastCommitMs != null &&
+          now.getTime() - lastCommitMs >= V2_IDENTITY_REFRESH_INTERVAL_MS;
+        const identityDue = isIdentityRefreshDue(identityDueAt, now.getTime());
+        if (commitmentDue && !identityDue && !refreshSessionParsed) {
+          console.info("[daily-sms] v2_refresh_wave1_suppressed", {
+            reason: "identity_not_due_commitment_only",
+            clerk_user_id: clerkUserId,
+            commitment_id: active.id,
+          });
+        }
+        if (wave1Cold.reason === "below_maturity") {
+          console.info("[daily-sms] v2_refresh_wave1_suppressed", {
+            reason: "below_maturity",
+            clerk_user_id: clerkUserId,
+            commitment_id: active.id,
+          });
+        }
+        if (wave1Cold.reason === "anchor_not_quotable") {
+          console.info("[daily-sms] v2_refresh_wave1_suppressed", {
+            reason: "anchor_not_quotable",
+            clerk_user_id: clerkUserId,
+            commitment_id: active.id,
+          });
+        }
+        if (wave1Cold.reason === "identity_not_due") {
+          console.info("[daily-sms] v2_refresh_wave1_suppressed", {
+            reason: "identity_not_due",
+            clerk_user_id: clerkUserId,
+            commitment_id: active.id,
+          });
+        }
+      }
+
+      if (!refreshSessionParsed && wave1Cold.ok) {
         const newSession = newRefreshSessionIdentityStep(now.toISOString());
         const { body: refreshIdentityBody, templateId: refreshTid } =
           buildRefreshStepIdentitySms({ identityAnchorText: identityAnchorForRefresh });
@@ -563,10 +719,6 @@ async function buildDailySmsContent(
           v2IdentityAnchorText: identityAnchorForRefresh,
           v2RefreshOutboundPlan: { kind: "identity_first", session: newSession },
         };
-      }
-
-      if (refreshSessionParsed?.step === "identity") {
-        return { ok: false, error: "v2_refresh_identity_await_reply" };
       }
 
       if (
@@ -740,7 +892,7 @@ async function buildDailySmsContent(
     const { data: profileRow } = await supabaseServer
       .from("user_profiles")
       .select(
-        "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text, identity_refresh_due_at, identity_last_referenced_at"
+        "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text, identity_source, identity_refresh_due_at, identity_last_referenced_at"
       )
       .eq("clerk_user_id", clerkUserId)
       .maybeSingle();
@@ -767,9 +919,12 @@ async function buildDailySmsContent(
         : null,
       now.getTime()
     );
+    const profileIdentitySource =
+      typeof profileRow?.identity_source === "string" ? profileRow.identity_source : null;
     const identityReferenceAllowed = computeIdentityReferenceAllowed({
       nowMs: now.getTime(),
       identityAnchorText: profileRow?.identity_anchor_text,
+      identitySource: profileIdentitySource,
       identityRefreshDueAt:
         typeof profileRow?.identity_refresh_due_at === "string"
           ? profileRow.identity_refresh_due_at
@@ -802,33 +957,107 @@ async function buildDailySmsContent(
 
     const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(active.id);
 
-    const aiTry = await tryGenerateV2OutboundMessage({
+    let recentSmsContextBlock: string | null = null;
+    try {
+      const convPack = await buildV2SmsConversationContextPack({
+        clerkUserId,
+        commitmentId: active.id,
+        commitment: active,
+        timezone,
+        preloadedCoachingMemory: coachingMemoryRow,
+        preloadedEventsNewestFirst: recentEvents,
+      });
+      recentSmsContextBlock = convPack.promptBlock;
+    } catch (e) {
+      console.warn("[daily-sms] sms_conversation_context_pack_failed", {
+        commitment_id: active.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+
+    const overlayActive = isV2AdaptiveOverlayActive(active, now.getTime());
+
+    const pendingEvolutionRec = await fetchPendingEvolutionRecommendation(active.id);
+    const evolutionEvaluation = evaluateCommitmentEvolutionForSms({
       commitment: active,
       eventsNewestFirst: recentEvents,
-      blockerPreview: hasBlockerPreview ? blockerPreview : null,
-      serverState,
+      nowMs: now.getTime(),
+    });
+    const wave7Pick = pickWave7DailyEvolutionAction({
+      commitment: active,
+      pendingRow: pendingEvolutionRec,
+      evaluation: evolutionEvaluation,
+      nowMs: now.getTime(),
+    });
+    const wave7Surface = shouldSurfaceWave7EvolutionDailyPurpose({
+      pick: wave7Pick,
+      commitment: active,
+      eventsNewestFirst: recentEvents,
+      nowMs: now.getTime(),
+      reentryActive: reentryCtx.active,
+      silenceTier: silenceCtx.tier,
       serverStrategy,
-      templateFamily,
-      silence: silenceCtx,
-      reentry: reentryCtx,
-      nextMove: aiNextMove,
-      cadence: cadencePayload,
-      effectiveCoachingAsk: effectiveAsk,
-      contractProposalMode,
-      contractProposalKind,
-      contractProposalBindingText: contractProposalMode ? proposalBindingText : null,
-      coachingMemory: coachingMemoryRow,
-      preferredName,
-      lifeDesires,
-      peopleSummary,
-      responsibility,
-      identityAnchorText,
-      identityRefreshDue,
-      identityReferenceAllowed,
-      reachabilityContextLine,
+      adaptiveProposalPending: isV2PendingProposalValid(active, now.getTime()),
+      pendingRow: pendingEvolutionRec,
     });
 
-    const smsBody = aiTry.ok ? aiTry.message : templateBody;
+    const dailyPurpose = deriveV2DailyMessagePurpose({
+      contractProposalMode,
+      serverStrategy,
+      reentry: reentryCtx,
+      silence: silenceCtx,
+      serverState,
+      overlayActive,
+      hasBlockerPreview,
+      eventsNewestFirst: recentEvents,
+      coachingMemory: coachingMemoryRow,
+      commitmentStartedAt: active.started_at,
+      nowMs: now.getTime(),
+      wave7SurfaceEvolution: wave7Surface,
+    });
+
+    const resolvedDaily = await resolveV2DailyOutboundSmsBody({
+      ctx: {
+        commitment: active,
+        eventsNewestFirst: recentEvents,
+        blockerPreview: hasBlockerPreview ? blockerPreview : null,
+        serverState,
+        serverStrategy,
+        templateFamily,
+        silence: silenceCtx,
+        reentry: reentryCtx,
+        nextMove: aiNextMove,
+        cadence: cadencePayload,
+        effectiveCoachingAsk: effectiveAsk,
+        contractProposalMode,
+        contractProposalKind,
+        contractProposalBindingText: contractProposalMode ? proposalBindingText : null,
+        coachingMemory: coachingMemoryRow,
+        preferredName,
+        lifeDesires,
+        peopleSummary,
+        responsibility,
+        identityAnchorText,
+        identityRefreshDue,
+        identityReferenceAllowed,
+        reachabilityContextLine,
+        dailyMessagePurpose: dailyPurpose,
+        recentSmsContextBlock,
+        wave7EvolutionPick:
+          dailyPurpose === "evolution_pattern_check" && wave7Pick ? wave7Pick : null,
+      },
+      contractProposalMode,
+      purpose: dailyPurpose,
+      templateBody,
+      effectiveAsk,
+      behaviorStatement: active.behavior_statement,
+      nextMoveType: outboundNextMove,
+      shrunkAskText:
+        outboundNextMove === "shrink_ask" ? (nextMove.shrunk_ask_text ?? null) : null,
+    });
+
+    const smsBody = resolvedDaily.smsBody;
+    const aiTry = resolvedDaily.aiTry;
     const aiPayload = buildCheckSentAiPayload({
       model: V2_OUTBOUND_AI_MODEL,
       promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
@@ -838,6 +1067,7 @@ async function buildDailySmsContent(
       confidence: aiTry.ok ? aiTry.confidence : null,
       fallbackUsed: !aiTry.ok,
       ...(!aiTry.ok ? { fallbackReason: aiTry.reason } : {}),
+      dailyResolution: resolvedDaily.resolution,
     });
 
     const silencePayload = {
@@ -895,7 +1125,9 @@ async function buildDailySmsContent(
       v2ContractProposalKind: contractProposalKind,
       v2ProposalBindingText: contractProposalMode ? proposalBindingText : null,
       v2ContractProposalPayload: contractProposalMeta,
-      v2IdentityAnchorText: identityAnchorText,
+      v2IdentityAnchorText: isQuotableIdentitySource(profileIdentitySource)
+        ? identityAnchorText
+        : null,
       v2EffectiveAskText: effectiveAsk,
     };
   }
@@ -1558,6 +1790,9 @@ export async function GET(req: Request) {
                 ...(typeof built.v2TemplateFamily === "string"
                   ? { v2_template_family: built.v2TemplateFamily }
                   : {}),
+                ...(built.v2PendingResolutionReminder
+                  ? { pending_resolution_reminder: true, non_accountability_outbound: true }
+                  : {}),
               },
             };
             let recordOk = false;
@@ -1605,12 +1840,22 @@ export async function GET(req: Request) {
                 await recomputeV2CoachingMemory(built.v2CommitmentId, {
                   reasonCode: "daily_sms_reactivation_nudge_sent",
                 });
-          } else if (
-            v2AccountabilityRetry &&
-            !built.v2ReactivationNudge &&
-            built.v2CommitmentId &&
-            typeof built.v2TemplateId === "number"
-          ) {
+              } else if (
+                v2AccountabilityRetry &&
+                !built.v2ReactivationNudge &&
+                built.v2CommitmentId &&
+                typeof built.v2TemplateId === "number" &&
+                built.v2PendingResolutionReminder
+              ) {
+                await recomputeV2CoachingMemory(built.v2CommitmentId, {
+                  reasonCode: "daily_sms_pending_resolution_reminder",
+                });
+              } else if (
+                v2AccountabilityRetry &&
+                !built.v2ReactivationNudge &&
+                built.v2CommitmentId &&
+                typeof built.v2TemplateId === "number"
+              ) {
                 if (built.v2RefreshOutboundPlan && built.v2CommitmentId) {
                   await insertV2CheckSentEventBestEffort({
                     commitmentId: built.v2CommitmentId,
@@ -2018,6 +2263,9 @@ export async function GET(req: Request) {
             ...(typeof builtMain.v2TemplateFamily === "string"
               ? { v2_template_family: builtMain.v2TemplateFamily }
               : {}),
+            ...(builtMain.v2PendingResolutionReminder
+              ? { pending_resolution_reminder: true, non_accountability_outbound: true }
+              : {}),
           },
         };
         let recordOk = false;
@@ -2063,6 +2311,16 @@ export async function GET(req: Request) {
             await updateReactivationLastSentAt(builtMain.v2CommitmentId);
             await recomputeV2CoachingMemory(builtMain.v2CommitmentId, {
               reasonCode: "daily_sms_reactivation_nudge_sent",
+            });
+          } else if (
+            v2AccountabilityMain &&
+            !builtMain.v2ReactivationNudge &&
+            builtMain.v2CommitmentId &&
+            typeof builtMain.v2TemplateId === "number" &&
+            builtMain.v2PendingResolutionReminder
+          ) {
+            await recomputeV2CoachingMemory(builtMain.v2CommitmentId, {
+              reasonCode: "daily_sms_pending_resolution_reminder",
             });
           } else if (
             v2AccountabilityMain &&

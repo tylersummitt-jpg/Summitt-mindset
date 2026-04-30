@@ -9,6 +9,14 @@ import { generateWeeklySmsReflection } from "@/lib/weekly-sms-reflection-shadow"
 import { getWeekKey } from "@/lib/weekly-sms-week-key";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
+import { getActiveCommitment } from "@/lib/v2-commitment";
+import { isSmsInboundPendingResolutionActionable } from "@/lib/v2-guided-resolution";
+import {
+  buildV2WeeklyProofPack,
+  generateV2WeeklyProofSmsBody,
+  V2_WEEKLY_PROOF_PROMPT_VERSION,
+} from "@/lib/v2-weekly-proof-sms";
+import { buildV2SmsConversationContextPack } from "@/lib/v2-sms-conversation-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,8 +101,12 @@ export async function GET(req: Request) {
     skippedOptedOut: 0,
     skippedMissingIdentity: 0,
     skippedMissingTwilio: 0,
-    /** Weekly Pat Pause + shadow reflection still use legacy completion signals; skipped for full V2 accountability users until rewritten. */
+    /** Legacy-only counter retained at 0 — V2 weekly proof ships separately below. */
     skippedV2WeeklyDeferred: 0,
+    v2WeeklyEligible: 0,
+    skippedV2WeeklyPendingResolution: 0,
+    skippedV2WeeklyDuplicate: 0,
+    sentV2WeeklyProof: 0,
     failed: 0,
   };
 
@@ -129,12 +141,6 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const v2Gate = await resolveUserFullyOnV2ForCutoverMessaging(user.id);
-      if (v2Gate.fullyOnV2) {
-        stats.skippedV2WeeklyDeferred += 1;
-        continue;
-      }
-
       const timezone = resolveUserTimezone(md.timezone);
       const now = new Date();
 
@@ -144,6 +150,132 @@ export async function GET(req: Request) {
 
       if (!force && !shouldSendNow(localNow)) {
         stats.skippedNotTime++;
+        continue;
+      }
+
+      const v2Gate = await resolveUserFullyOnV2ForCutoverMessaging(user.id);
+      if (v2Gate.fullyOnV2) {
+        stats.v2WeeklyEligible += 1;
+        const weekKeyV2 = getWeekKey(localNow);
+        const commitment = await getActiveCommitment(user.id);
+        if (!commitment?.id) {
+          continue;
+        }
+        if (isSmsInboundPendingResolutionActionable(commitment)) {
+          stats.skippedV2WeeklyPendingResolution += 1;
+          continue;
+        }
+
+        const { error: v2ResErr } = await supabaseServer
+          .from("sms_weekly_send_events")
+          .insert({
+            clerk_user_id: user.id,
+            week_key: weekKeyV2,
+            status: "reserved",
+          });
+
+        if (v2ResErr) {
+          stats.skippedV2WeeklyDuplicate += 1;
+          continue;
+        }
+
+        const pack = await buildV2WeeklyProofPack({
+          clerkUserId: user.id,
+          commitment,
+          localNow,
+          timezone,
+        });
+        let weeklySmsThreadAppend: string | null = null;
+        try {
+          const conv = await buildV2SmsConversationContextPack({
+            clerkUserId: user.id,
+            commitmentId: commitment.id,
+            commitment,
+            timezone,
+          });
+          weeklySmsThreadAppend = conv.recentTranscriptLines.slice(-5).join(" | ").slice(0, 700);
+        } catch (e) {
+          console.warn("[weekly-sms] sms_conversation_context_pack_failed", {
+            commitment_id: commitment.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+        const { body: proofCore, aiUsed } = await generateV2WeeklyProofSmsBody(pack, {
+          recentSmsThreadAppend: weeklySmsThreadAppend,
+        });
+
+        const introV2 =
+          PAT_PAUSE_INTROS[Math.floor(Math.random() * PAT_PAUSE_INTROS.length)];
+        const finalBodyV2 = `${introV2}\n\n${proofCore.trim()}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
+
+        const v2Metadata = {
+          v2_weekly_proof_sms: true,
+          commitment_id: commitment.id,
+          week_start: pack.week_start,
+          week_end: pack.week_end,
+          yes_count: pack.yes_count,
+          no_count: pack.no_count,
+          partial_count: pack.partial_count,
+          blocker_count: pack.blocker_count,
+          check_sent_count: pack.check_sent_count,
+          response_count: pack.response_count,
+          silent_week: pack.silent_week,
+          comeback_after_miss: pack.comeback_after_miss,
+          ai_used: aiUsed,
+          message_purpose: "weekly_proof_reflection",
+          prompt_version: V2_WEEKLY_PROOF_PROMPT_VERSION,
+          sms_context_pack_thread_used: Boolean(weeklySmsThreadAppend?.trim()),
+          weekly_evolution_note_used: Boolean(pack.weekly_evolution_coaching_line?.trim()),
+        } as const;
+
+        if (!isTwilioReady() || SMS_DRY_RUN) {
+          await supabaseServer
+            .from("sms_weekly_send_events")
+            .update({
+              status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
+              metadata: v2Metadata,
+            })
+            .eq("clerk_user_id", user.id)
+            .eq("week_key", weekKeyV2);
+
+          if (SMS_DRY_RUN) stats.dryRun++;
+          else stats.skippedMissingTwilio++;
+          continue;
+        }
+
+        try {
+          const messageV2 = await sendSMS({
+            to: identity.phone_number,
+            body: finalBodyV2,
+            lastOutbound: {
+              clerkUserId: user.id,
+              messageKind: "weekly",
+            },
+          });
+
+          await supabaseServer
+            .from("sms_weekly_send_events")
+            .update({
+              message_sid: messageV2.sid,
+              status: messageV2.status,
+              metadata: v2Metadata,
+            })
+            .eq("clerk_user_id", user.id)
+            .eq("week_key", weekKeyV2);
+
+          stats.sentV2WeeklyProof += 1;
+        } catch (err) {
+          await supabaseServer
+            .from("sms_weekly_send_events")
+            .update({
+              status: "send_failed",
+              metadata: { ...v2Metadata, error: String(err) },
+            })
+            .eq("clerk_user_id", user.id)
+            .eq("week_key", weekKeyV2);
+
+          stats.failed++;
+        }
         continue;
       }
 

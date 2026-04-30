@@ -13,7 +13,7 @@ export default async function IdentityPage(): Promise<ReactElement> {
     redirect("/sign-in");
   }
 
-  const md = (user.publicMetadata || {}) as Record<string, any>;
+  const md = (user.publicMetadata || {}) as Record<string, unknown>;
 
   if (md?.onboardingCompleted === true) {
     redirect("/post-sign-in");
@@ -26,7 +26,8 @@ export default async function IdentityPage(): Promise<ReactElement> {
       <h1 className="text-3xl font-bold mb-4">Let’s start with what matters most.</h1>
 
       <p className="text-gray-600 mb-10">
-        Short answers are perfect. Coach Pat will use them to coach you more personally.
+        Short answers are perfect. Relationship context and who you&apos;re becoming are separate — both help
+        Coach Pat text you like a real coach.
       </p>
 
       <IdentityClient />

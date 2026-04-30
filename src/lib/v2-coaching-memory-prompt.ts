@@ -66,6 +66,9 @@ export function formatCoachingMemoryPromptBlock(m: V2CoachingMemoryForPrompt | n
   if (!m) return "";
   const lines: string[] = [];
   lines.push("COACHING_MEMORY (recomputable projection; if conflict, ignore summary and trust structured lines):");
+  lines.push(
+    "May reflect recent SMS/accountability patterns more than older onboarding profile rows—do not treat onboarding-only hints as dated facts."
+  );
   lines.push(`effective_ask: ${truncateOneLine(m.effective_ask_text, 160)}`);
   lines.push(`coaching_state: ${m.coaching_state}`);
   lines.push(
@@ -109,7 +112,7 @@ export function formatCoachingMemoryPromptBlock(m: V2CoachingMemoryForPrompt | n
   }
   if (m.pending_resolution_kind && m.pending_resolution_expires_at) {
     lines.push(
-      `guided_pending_resolution (NON-AUTHORITATIVE mirror of v2_commitment): kind=${m.pending_resolution_kind}, expires_at=${m.pending_resolution_expires_at} — user may be finishing an app handoff after refresh SMS; not a strategy signal.`
+      `guided_pending_resolution (NON-AUTHORITATIVE mirror of v2_commitment): kind=${m.pending_resolution_kind}, expires_at=${m.pending_resolution_expires_at} — may be app handoff after refresh SMS or SMS-native tighten/replace (Wave 4); not a strategy signal.`
     );
   }
   if (m.sms_relationship_profile) {

@@ -1,17 +1,21 @@
 import OpenAI from "openai";
 
 import type { ActiveV2CommitmentRow, V2EventRowForAi } from "@/lib/v2-commitment";
+import type { V2SmsConversationContextPack } from "@/lib/v2-sms-conversation-context";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
-import {
-  computeIdentityReferenceAllowedInbound,
-  identityAnchorLeakDetected,
-} from "@/lib/v2-identity-anchor";
+import { identityAnchorLeakDetected } from "@/lib/v2-identity-anchor";
 import {
   formatCoachingMemoryPromptBlock,
   type V2CoachingMemoryForPrompt,
 } from "@/lib/v2-coaching-memory-prompt";
-import { parseLatestCheckSentNextMoveType, type V2NextMoveType } from "@/lib/v2-ai-outbound";
-import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
+import type { V2NextMoveType } from "@/lib/v2-ai-outbound";
+import type { ProofMomentPromptHint } from "@/lib/v2-proof-moment";
+import {
+  formatInboundFallbackPreferredOpening,
+  getShortCommitmentPhraseForSms,
+  messageHasKeywordPartialLanguage,
+  type V2InboundEventType,
+} from "@/lib/v2-sms-accountability";
 
 export const V2_INBOUND_AI_PROMPT_VERSION = "v2_inbound_v1";
 
@@ -40,6 +44,38 @@ export function isV2AiInboundEnabled(): boolean {
   return process.env.V2_AI_INBOUND_ENABLED === "true";
 }
 
+/**
+ * Shadow interpretation: logs evidence only — does NOT control `user_*` writes.
+ * Env: explicit `true`/`1` on; explicit `false`/`0` off; unset defaults to NODE_ENV==="development".
+ */
+export function isV2AiInboundInterpretationShadowEnabled(): boolean {
+  const v = process.env.V2_AI_INBOUND_INTERPRETATION_SHADOW_ENABLED?.trim().toLowerCase();
+  if (v === "true" || v === "1") return true;
+  if (v === "false" || v === "0") return false;
+  return process.env.NODE_ENV === "development";
+}
+
+/**
+ * Wave 2.1: AI may adjust normal accountability outcome under server policy.
+ * Env: explicit true/1 on; false/0 off; unset defaults to OFF except NODE_ENV===development.
+ */
+export function isV2AiInboundGatedOutcomesEnabled(): boolean {
+  const v = process.env.V2_AI_INBOUND_GATED_OUTCOMES_ENABLED?.trim().toLowerCase();
+  if (v === "true" || v === "1") return true;
+  if (v === "false" || v === "0") return false;
+  return process.env.NODE_ENV === "development";
+}
+
+/** Run OpenAI interpretation when shadow evidence and/or gated outcomes need it. */
+export function isV2InboundInterpretationRequested(): boolean {
+  return isV2AiInboundInterpretationShadowEnabled() || isV2AiInboundGatedOutcomesEnabled();
+}
+
+export const V2_INBOUND_SHADOW_INTERPRETATION_PROMPT_VERSION = "v2_inbound_shadow_interp_v1";
+
+const REASONING_SHORT_MAX = 280;
+const SUGGESTED_REPLY_STORE_MAX = 280;
+
 /** Server-only mapping: AI must echo this strategy in JSON (validated). */
 export function strategyForInboundEventType(eventType: V2InboundEventType): V2InboundReplyStrategy {
   if (eventType === "user_yes") return "reinforce_yes";
@@ -58,9 +94,11 @@ function summarizeEventForPrompt(e: V2EventRowForAi): string {
   const preview =
     typeof p.message === "string"
       ? truncateOneLine(p.message, 120)
-      : typeof p.body_preview === "string"
-        ? truncateOneLine(p.body_preview, 80)
-        : "";
+      : typeof p.message_preview === "string"
+        ? truncateOneLine(p.message_preview, 100)
+        : typeof p.body_preview === "string"
+          ? truncateOneLine(p.body_preview, 80)
+          : "";
   const tail = preview ? ` text="${preview}"` : "";
   return `${e.occurred_at} ${e.event_type}${tail}`;
 }
@@ -277,6 +315,10 @@ export function validateV2AiInboundMessage(args: {
     return { ok: false, reason: "missing_commitment_grounding" };
   }
 
+  const hygieneEarly = inboundCoachComplianceHygieneFailReason(msg);
+  if (hygieneEarly) return { ok: false, reason: hygieneEarly };
+  if (/\breply\s+(yes|no|partial)\b/i.test(msg)) return { ok: false, reason: "robotic_menu" };
+
   return { ok: true };
 }
 
@@ -308,11 +350,16 @@ export type V2AiInboundContext = {
   identityAnchorText?: string | null;
   identityRefreshDue?: boolean;
   identityReferenceAllowed?: boolean;
+  /** Wave 6: bounded RECENT_SMS_CONTEXT block from `buildV2SmsConversationContextPack`. */
+  recentSmsContextBlock?: string | null;
+  /** Wave 12: optional server-grounded proof moment for natural echo (medium/strong only). */
+  proofMomentForPrompt?: ProofMomentPromptHint | null;
 };
 
 const SYSTEM_PROMPT = `You are Pat Summitt AI for inbound accountability SMS replies.
-Voice: direct, specific, tactical, human, calm.
+Voice: direct, specific, tactical, human, calm — like texting a coach, not a compliance bot.
 Hold the standard without shame.
+Never include STOP/START/HELP opt-out language or all-caps command menus in the SMS body.
 Output strict JSON only.`;
 
 function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
@@ -340,6 +387,10 @@ function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
     lines.push(`success_criteria: ${truncateOneLine(ctx.commitment.success_criteria, 160)}`);
   }
   lines.push("");
+  if (ctx.recentSmsContextBlock?.trim()) {
+    lines.push(ctx.recentSmsContextBlock.trim());
+    lines.push("");
+  }
   if (ctx.preferredName?.trim()) {
     lines.push(
       `Preferred name Coach Pat should use: ${truncateOneLine(ctx.preferredName, 40)}`
@@ -355,7 +406,7 @@ function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
   if (showUpFor || responsibilityText) {
     lines.push("");
     lines.push(
-      "USER_ONBOARDING (answered in app; wording and empathy only—never replaces USER_MESSAGE or COMMITMENT):"
+      "USER_ONBOARDING (answered in app at signup/onboarding; may be months old—wording and empathy only—never replaces USER_MESSAGE or COMMITMENT):"
     );
   }
   if (showUpFor) {
@@ -443,6 +494,16 @@ function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
     );
     lines.push("- Still exactly ONE concise accountability-style reply; do not open a conversation loop.");
   }
+  if (ctx.proofMomentForPrompt) {
+    lines.push("");
+    lines.push("SERVER_PROOF_MOMENT (authoritative; optional—one short clause max if it fits naturally):");
+    lines.push(`- type: ${ctx.proofMomentForPrompt.proof_moment_type}`);
+    lines.push(`- weight: ${ctx.proofMomentForPrompt.proof_weight}`);
+    lines.push(`- line: ${truncateOneLine(ctx.proofMomentForPrompt.user_visible_proof_line, 180)}`);
+    lines.push(
+      "- You may echo this flavor without copying verbatim; skip if the reply would already say the same thing."
+    );
+  }
   lines.push("");
   lines.push("RULES:");
   lines.push("VOICE_DOCTRINE:");
@@ -456,11 +517,24 @@ function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
   if (ctx.coachingMemory) {
     lines.push("- If COACHING_MEMORY conflicts with RECENT_EVENTS tail, trust COACHING_MEMORY structured lines.");
   }
+  lines.push(
+    "- LIVING_PROFILE: USER_ONBOARDING lines may be stale; RECENT_SMS_CONTEXT / RECENT_EVENTS / COACHING_MEMORY can supersede when clearly reflected in the user’s latest messages. Do not quote sensitive onboarding as fact; ask before treating a life change as durable."
+  );
+  lines.push(
+    "- Commitment bar changes are server-routed (SMS tighten/replace flows)—do not claim you rewrote the commitment from this reply."
+  );
+  lines.push("- Identity anchor edits require explicit user confirmation elsewhere—never overwrite from chat alone.");
   lines.push("- Keep commitment scope unchanged; do not add new goals, habits, or alternate commitments.");
   lines.push("- Do not claim unsupported personal or historical memory.");
   lines.push("- Tie the reply to this commitment (title or behavior), including paraphrase that still clearly references the same behavior.");
+  lines.push(
+    "- If RECENT_SMS_CONTEXT includes EVOLUTION_HINT: server advisory only—the commitment was not changed by that hint; never claim it was rewritten; if they want a smaller bar or new goal, stay human and brief (SMS tighten/replace flows handle structured changes)."
+  );
   lines.push("- Use the user's actual wording when it clarifies the blocker or pattern; do not invent interpretation.");
   lines.push("- Do not default to 'what worked / what didn’t' phrasing every time.");
+  lines.push(
+    "- Never include STOP/START/HELP opt-out lines, \"Reply YES/NO\", or refresh-style command menus—normal coaches don't text like that."
+  );
   if (ctx.afterSilence || ctx.brokePause) {
     lines.push("- Avoid: where have you been, why didn't you, about time, you should have.");
   }
@@ -556,8 +630,9 @@ export function buildUserReplyAiPayload(args: {
   confidence: number | null | undefined;
   fallbackUsed: boolean;
   fallbackReason?: string | null;
+  smsContextPackMeta?: V2SmsConversationContextPack["meta"] | null;
 }): Record<string, unknown> {
-  return {
+  const base: Record<string, unknown> = {
     model: args.model,
     prompt_version: args.promptVersion,
     server_strategy: args.serverStrategy,
@@ -566,6 +641,15 @@ export function buildUserReplyAiPayload(args: {
     fallback_used: args.fallbackUsed,
     fallback_reason: args.fallbackUsed ? (args.fallbackReason ?? "unknown") : null,
   };
+  const m = args.smsContextPackMeta;
+  if (m) {
+    base.sms_context_pack_used = true;
+    base.transcript_line_count = m.transcript_line_count;
+    base.recent_event_count = m.recent_event_count;
+    base.proof_highlight_used = m.proof_highlight_used;
+    base.blocker_pattern_used = m.blocker_pattern_used;
+  }
+  return base;
 }
 
 export type V2ContractConsentAckKind = "overlay_activated_ack" | "overlay_declined_ack";
@@ -602,6 +686,9 @@ function validateV2ContractConsentAckMessage(args: {
   if (!passesCommitmentGrounding(ml, args.behaviorStatement, args.commitmentTitle)) {
     return { ok: false, reason: "missing_commitment_grounding" };
   }
+  const ackHygiene = inboundCoachComplianceHygieneFailReason(msg);
+  if (ackHygiene) return { ok: false, reason: ackHygiene };
+  if (/\breply\s+(yes|no|partial)\b/i.test(msg)) return { ok: false, reason: "robotic_menu" };
   return { ok: true };
 }
 
@@ -650,6 +737,7 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
   lines.push(`- Max ${SMS_MAX_LEN} characters. One SMS. No newlines.`);
   lines.push("- Coach Pat: calm, direct. No shame. No therapy language.");
   lines.push("- Do not mention AI. Do not add new goals.");
+  lines.push("- No STOP/START/HELP opt-out wording. Say daily check-ins in plain language—not \"Text YES/NO/PARTIAL\".");
   if (args.kind === "overlay_activated_ack") {
     if (args.overlayContractKind === "recommit_same") {
       lines.push(
@@ -708,4 +796,1230 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
     console.error("[v2-ai-inbound] contract consent ack OpenAI failed", err);
     return { ok: false, fallbackUsed: true, reason: "openai_error" };
   }
+}
+
+// ---- Shadow inbound interpretation (Wave 2.0: evidence only; server classifier remains authoritative) ----
+
+export type V2InboundShadowInterpretationIntent =
+  | "accountability_reply"
+  | "meta_question"
+  | "repair_prior"
+  | "commitment_change_request"
+  | "opt_out_soft"
+  | "small_talk"
+  | "unclear";
+
+export type V2InboundShadowProposedOutcomeKey = "yes" | "no" | "partial";
+
+const SHADOW_INTENTS = new Set<V2InboundShadowInterpretationIntent>([
+  "accountability_reply",
+  "meta_question",
+  "repair_prior",
+  "commitment_change_request",
+  "opt_out_soft",
+  "small_talk",
+  "unclear",
+]);
+
+const SHADOW_SYSTEM_PROMPT = `You are Pat Summitt Mindset's silent INTERPRETER for inbound SMS accountability replies.
+You ONLY output one JSON object matching the schema. No coaching text to the user is sent from this step.
+You must not shame, diagnose, or invent facts. Do not claim to have changed any database or commitment before server confirmation.
+If unsure about yes/no/partial, set proposed_outcome null and needs_clarification true.
+Prefer null proposed_outcome over guessing partial when evidence is weak.
+Life-story updates vs accountability: interpreting today's yes/no/partial does not rewrite stored profile; separate memory signals handle durable facts elsewhere.`;
+
+export type V2InboundInterpretationShadowInput = {
+  commitment: ActiveV2CommitmentRow;
+  userMessage: string;
+  /** Classifier result (authoritative for writes; you may disagree in fields). */
+  deterministicEventType: V2InboundEventType;
+  deterministicNormalizedHint: string | null;
+  effectiveAsk: string;
+  eventsNewestFirst: V2EventRowForAi[];
+  coachingMemory: V2CoachingMemoryForPrompt | null;
+  preferredName: string | null;
+  lastOutboundSmsPreview: string | null;
+  lastOutboundNextMove: V2NextMoveType | null;
+  latestBlockerPreview: string | null;
+  adaptiveProposalPending: boolean;
+  pendingResolutionKind: string | null;
+  pendingResolutionExpiresAt: string | null;
+  /** SMS Wave 4.1 — user may be in tighten/replace flow, not daily accountability. */
+  pendingResolutionSmsState: string | null;
+  pendingResolutionSmsInbound: boolean;
+  refreshSessionActive: boolean;
+  afterSilence: boolean;
+  brokePause?: boolean;
+  /** Truncated onboarding context for tone only; do not treat as quotable identity. */
+  relationshipContextTruncated?: string | null;
+  /** Wave 6: bounded thread memory from `buildV2SmsConversationContextPack`. */
+  recentSmsContextBlock?: string | null;
+};
+
+export type V2InboundShadowInterpretationParsed = {
+  version: 1;
+  intent: V2InboundShadowInterpretationIntent;
+  proposed_outcome: V2InboundShadowProposedOutcomeKey | null;
+  confidence: number;
+  needs_clarification: boolean;
+  clarification_question: string | null;
+  is_repair: boolean;
+  repair_of: "prior_misread" | "prior_event" | "unknown" | null;
+  user_asks_question: boolean;
+  suggests_commitment_change: boolean;
+  blocker_likely: boolean;
+  discouraged_or_frustrated: boolean;
+  substitution_counts: boolean;
+  opt_out_like_but_not_stop: boolean;
+  reasoning_short: string;
+  suggested_reply: string;
+};
+
+export type V2InboundShadowInterpretationResult =
+  | { ok: true; data: V2InboundShadowInterpretationParsed; model: string }
+  | { ok: false; shadow_ai_failed: true; reason: string; model: string | null };
+
+export function deterministicEventTypeToProposedKey(
+  eventType: V2InboundEventType
+): V2InboundShadowProposedOutcomeKey {
+  if (eventType === "user_yes") return "yes";
+  if (eventType === "user_no") return "no";
+  return "partial";
+}
+
+function truncateStore(s: string, max: number): string {
+  const t = s.trim().replace(/\s+/g, " ").replace(/\n+/g, " ");
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+function parseRepairOf(
+  v: unknown
+): "prior_misread" | "prior_event" | "unknown" | null {
+  if (v === "prior_misread" || v === "prior_event" || v === "unknown") return v;
+  return null;
+}
+
+function parseProposedOutcome(v: unknown): V2InboundShadowProposedOutcomeKey | null {
+  if (v === "yes" || v === "no" || v === "partial") return v;
+  if (v == null) return null;
+  return null;
+}
+
+function parseIntent(v: unknown): V2InboundShadowInterpretationIntent | null {
+  if (typeof v !== "string") return null;
+  const x = v.trim() as V2InboundShadowInterpretationIntent;
+  return SHADOW_INTENTS.has(x) ? x : null;
+}
+
+/** Validate model JSON → typed object or null (never throws). */
+export function parseAndValidateShadowInterpretation(
+  raw: Record<string, unknown>
+): V2InboundShadowInterpretationParsed | null {
+  if (raw.version !== 1) return null;
+
+  const intent = parseIntent(raw.intent);
+  if (!intent) return null;
+
+  const proposed_outcome = parseProposedOutcome(raw.proposed_outcome);
+
+  let confidence = 0;
+  if (typeof raw.confidence === "number" && Number.isFinite(raw.confidence)) {
+    confidence = Math.min(1, Math.max(0, raw.confidence));
+  } else {
+    return null;
+  }
+
+  const needs_clarification = raw.needs_clarification === true;
+
+  let clarification_question: string | null = null;
+  if (typeof raw.clarification_question === "string" && raw.clarification_question.trim()) {
+    clarification_question = truncateStore(raw.clarification_question, 200);
+  }
+
+  const reasoning_short =
+    typeof raw.reasoning_short === "string"
+      ? truncateStore(raw.reasoning_short, REASONING_SHORT_MAX)
+      : "";
+
+  let suggested_reply =
+    typeof raw.suggested_reply === "string"
+      ? truncateStore(raw.suggested_reply, SUGGESTED_REPLY_STORE_MAX)
+      : "";
+
+  if (!reasoning_short) return null;
+
+  if (!suggested_reply) suggested_reply = "(empty)";
+
+  return {
+    version: 1,
+    intent,
+    proposed_outcome,
+    confidence,
+    needs_clarification,
+    clarification_question,
+    is_repair: raw.is_repair === true,
+    repair_of: parseRepairOf(raw.repair_of),
+    user_asks_question: raw.user_asks_question === true,
+    suggests_commitment_change: raw.suggests_commitment_change === true,
+    blocker_likely: raw.blocker_likely === true,
+    discouraged_or_frustrated: raw.discouraged_or_frustrated === true,
+    substitution_counts: raw.substitution_counts === true,
+    opt_out_like_but_not_stop: raw.opt_out_like_but_not_stop === true,
+    reasoning_short,
+    suggested_reply,
+  };
+}
+
+function buildShadowInterpretationUserPrompt(args: V2InboundInterpretationShadowInput): string {
+  const lines: string[] = [];
+  lines.push("Interpret the user's latest SMS reply in the accountability check-in thread.");
+  lines.push("");
+  lines.push(
+    "OUTPUT: Return ONLY valid JSON matching this schema (exact keys):"
+  );
+  lines.push(
+    '{"version":1,"intent":"<accountability_reply|meta_question|repair_prior|commitment_change_request|opt_out_soft|small_talk|unclear>","proposed_outcome":"<yes|no|partial|null>","confidence":0-1,"needs_clarification":bool,"clarification_question":string|null,"is_repair":bool,"repair_of":"<prior_misread|prior_event|unknown|null>","user_asks_question":bool,"suggests_commitment_change":bool,"blocker_likely":bool,"discouraged_or_frustrated":bool,"substitution_counts":bool,"opt_out_like_but_not_stop":bool,"reasoning_short":"<max ~2 sentences>","suggested_reply":"<what Pat might text back; never sent automatically from this interpreter>"}'
+  );
+  lines.push("");
+  lines.push("SERVER_CLASSIFIER_HINT (deterministic classifier already ran; authoritative for spine today):");
+  lines.push(`- deterministic_event_type: ${args.deterministicEventType}`);
+  if (args.deterministicNormalizedHint != null) {
+    lines.push(`- deterministic_normalized_hint: ${args.deterministicNormalizedHint}`);
+  }
+  lines.push("");
+  lines.push("COMMITMENT:");
+  lines.push(`- title: ${truncateOneLine(args.commitment.title, 90)}`);
+  lines.push(`- behavior_statement: ${truncateOneLine(args.commitment.behavior_statement, 220)}`);
+  lines.push(`- effective_coaching_ask: ${truncateOneLine(args.effectiveAsk, 220)}`);
+  lines.push("");
+  lines.push(`USER_LATEST_REPLY: ${truncateOneLine(args.userMessage, 400)}`);
+  lines.push("");
+  if (args.recentSmsContextBlock?.trim()) {
+    lines.push(args.recentSmsContextBlock.trim());
+    lines.push("");
+  }
+  if (args.preferredName?.trim()) {
+    lines.push(`Preferred_name (safe): ${truncateOneLine(args.preferredName, 40)}`);
+  }
+  if (args.relationshipContextTruncated?.trim()) {
+    lines.push(
+      `Relationship_context_TRUNCATED_tone_only_do_not_quote: ${truncateOneLine(args.relationshipContextTruncated, 140)}`
+    );
+  }
+  lines.push("");
+  if (args.lastOutboundSmsPreview?.trim()) {
+    lines.push(`LAST_ACCOUNTABILITY_PROMPT_TRUNCATED: ${truncateOneLine(args.lastOutboundSmsPreview, 260)}`);
+  } else {
+    lines.push("LAST_ACCOUNTABILITY_PROMPT_TRUNCATED: (unavailable)");
+  }
+  if (args.lastOutboundNextMove != null) {
+    lines.push(`last_check_next_move_hint: ${args.lastOutboundNextMove}`);
+  }
+  lines.push("");
+  lines.push("STATE_FLAGS (do not mutate; factual):");
+  lines.push(`- adaptive_proposal_pending: ${args.adaptiveProposalPending}`);
+  lines.push(`- refresh_session_active_on_commitment_row: ${args.refreshSessionActive}`);
+  lines.push(
+    `- pending_resolution_kind: ${args.pendingResolutionKind ?? "null"} expires: ${args.pendingResolutionExpiresAt ?? "null"}`
+  );
+  if (args.pendingResolutionSmsInbound) {
+    lines.push(
+      "PENDING_SMS_COMMITMENT_UPDATE: user may be answering tighten/replace via SMS, not today’s accountability check."
+    );
+    lines.push(`- sms_pending_state: ${args.pendingResolutionSmsState ?? "unknown"}`);
+    lines.push(
+      "- Do not treat short replies as yes/no/partial accountability outcomes unless they clearly answer today’s check (unusual while this SMS update is open)."
+    );
+    lines.push("- Ask for one clear daily action when extracting a bar; do not claim any commitment mutation occurred.");
+  }
+  lines.push(`- after_silence_context: ${args.afterSilence}`);
+  if (args.brokePause) lines.push("- user may have broken low_pressure reactivation this turn");
+
+  const mem = formatCoachingMemoryPromptBlock(args.coachingMemory);
+  if (mem) {
+    lines.push("");
+    lines.push(mem);
+  }
+
+  if (args.latestBlockerPreview?.trim()) {
+    lines.push("");
+    lines.push(
+      `recent_blocker_preview_if_any: ${truncateOneLine(args.latestBlockerPreview, 140)}`
+    );
+  }
+
+  lines.push("");
+  lines.push(
+    `RECENT_EVENTS new→old (truncate):`
+  );
+  for (const e of args.eventsNewestFirst.slice(0, 18)) {
+    lines.push(summarizeEventForPrompt(e));
+  }
+  lines.push("");
+  lines.push("RULES:");
+  lines.push("- Your job is interpretation only.");
+  lines.push(
+    "- Onboarding snippets in context may be stale; prioritize USER_LATEST_REPLY + RECENT_EVENTS for what happened today—do not treat profile hints as fresh facts."
+  );
+  lines.push(
+    "- If RECENT_SMS_CONTEXT includes EVOLUTION_HINT: that signal does not change commitments server-side; classify replies normally—commitment_change_request vs accountability_reply still applies when they ask to tighten/replace."
+  );
+  lines.push("- proposed_outcome=yes/no/partial when the reply clearly answers today's bar; otherwise null.");
+  lines.push("- If the user corrects prior coach understanding, indicates substitution (e.g. different tool completed the same intent), asks what you meant, or says they already did it — use repair_prior or meta_question and is_repair as appropriate.");
+  lines.push("- If they want a smaller commitment or different goal → commitment_change_request; do not mutate state.");
+  lines.push("- discouraged_or_frustrated when tone suggests giving up frustration (not STOP). opt_out_like_but_not_stop for soft quit/stop-ish language.");
+  lines.push(
+    "- If they vent about the commitment (quit, done, can't, pointless) but are NOT asking to stop SMS subscription → commitment_change_request (not opt_out_soft). Reserve opt_out_soft for stopping texts."
+  );
+  lines.push("- needs_clarification true when ambiguous; clarification_question optional short.");
+  lines.push(
+    "- suggested_reply: natural Pat tone; bounded length; never include STOP/START/HELP, compliance footers, or all-caps command menus."
+  );
+  lines.push(
+    "- suggested_reply must NOT claim the commitment was rewritten or updated unless server events already did—invite the next honest detail instead."
+  );
+  return lines.join("\n");
+}
+
+/** Non-throwing; safe for cron. Does not mutate. */
+export async function interpretV2InboundAccountabilityReply(
+  args: V2InboundInterpretationShadowInput
+): Promise<V2InboundShadowInterpretationResult> {
+  if (!isV2InboundInterpretationRequested()) {
+    return { ok: false, shadow_ai_failed: true, reason: "interpretation_disabled", model: null };
+  }
+
+  const client = getOpenAIClientOrNull();
+  if (!client) {
+    return { ok: false, shadow_ai_failed: true, reason: "no_openai_key", model: null };
+  }
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: V2_INBOUND_AI_MODEL,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SHADOW_SYSTEM_PROMPT },
+        { role: "user", content: buildShadowInterpretationUserPrompt(args) },
+      ],
+      temperature: 0.35,
+      max_tokens: 450,
+    });
+
+    const rawStr = completion.choices[0]?.message?.content?.trim() ?? "";
+    if (!rawStr) {
+      return { ok: false, shadow_ai_failed: true, reason: "empty_model_output", model: V2_INBOUND_AI_MODEL };
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(rawStr) as Record<string, unknown>;
+    } catch {
+      return { ok: false, shadow_ai_failed: true, reason: "invalid_json", model: V2_INBOUND_AI_MODEL };
+    }
+
+    const data = parseAndValidateShadowInterpretation(parsed);
+    if (!data) {
+      return { ok: false, shadow_ai_failed: true, reason: "validation_failed", model: V2_INBOUND_AI_MODEL };
+    }
+
+    return { ok: true, data, model: V2_INBOUND_AI_MODEL };
+  } catch (err) {
+    console.error("[v2-ai-inbound] shadow interpretation OpenAI failed", err);
+    return { ok: false, shadow_ai_failed: true, reason: "openai_error", model: V2_INBOUND_AI_MODEL };
+  }
+}
+
+/** Compact storable blob for `v2_commitment_event.payload_json.shadow_interpretation` (bounded). */
+export function buildStoredShadowInterpretationPayload(args: {
+  interpretationResult: V2InboundShadowInterpretationResult;
+  deterministicEventType: V2InboundEventType;
+  deterministicNormalizedHint: string | null;
+  smsContextPackMeta?: V2SmsConversationContextPack["meta"] | null;
+}): Record<string, unknown> {
+  const detKey = deterministicEventTypeToProposedKey(args.deterministicEventType);
+  const base: Record<string, unknown> = {
+    prompt_version: V2_INBOUND_SHADOW_INTERPRETATION_PROMPT_VERSION,
+    deterministic_event_type: args.deterministicEventType,
+    deterministic_normalized_hint: args.deterministicNormalizedHint,
+    deterministic_outcome_key: detKey,
+  };
+  const scm = args.smsContextPackMeta;
+  if (scm) {
+    base.sms_context_pack_used = true;
+    base.transcript_line_count = scm.transcript_line_count;
+    base.recent_event_count = scm.recent_event_count;
+    base.proof_highlight_used = scm.proof_highlight_used;
+    base.blocker_pattern_used = scm.blocker_pattern_used;
+  }
+
+  if (!args.interpretationResult.ok) {
+    return {
+      ...base,
+      shadow_ai_failed: true,
+      failure_reason: args.interpretationResult.reason,
+      model: args.interpretationResult.model,
+    };
+  }
+
+  const d = args.interpretationResult.data;
+  const aiAgrees =
+    d.proposed_outcome != null && d.proposed_outcome === detKey;
+  const wouldClarify = d.needs_clarification === true;
+
+  return {
+    ...base,
+    shadow_ai_failed: false,
+    model: args.interpretationResult.model,
+    ai_intent: d.intent,
+    ai_proposed_outcome: d.proposed_outcome,
+    ai_confidence: d.confidence,
+    ai_needs_clarification: d.needs_clarification,
+    ai_is_repair: d.is_repair,
+    ai_repair_of: d.repair_of,
+    ai_user_asks_question: d.user_asks_question,
+    ai_suggests_commitment_change: d.suggests_commitment_change,
+    ai_blocker_likely: d.blocker_likely,
+    ai_discouraged_or_frustrated: d.discouraged_or_frustrated,
+    ai_substitution_counts: d.substitution_counts,
+    ai_opt_out_like_but_not_stop: d.opt_out_like_but_not_stop,
+    ai_reasoning_short: d.reasoning_short,
+    ai_suggested_reply_truncated: d.suggested_reply,
+    ai_clarification_question: d.clarification_question,
+    ai_agrees_with_classifier: aiAgrees,
+    ai_would_have_asked_clarification: wouldClarify,
+  };
+}
+
+// ---- Wave 2.1: server-gated inbound outcomes (normal accountability path only) ----
+
+export const V2_INBOUND_GATED_HIGH_CONFIDENCE = 0.85;
+export const V2_INBOUND_GATED_MID_CONFIDENCE = 0.7;
+export const V2_INBOUND_GATED_PARTIAL_ACCEPT_CONFIDENCE = 0.85;
+export const V2_INBOUND_GATED_EXTREME_OVERRIDE_CONFIDENCE = 0.92;
+
+export type V2InboundGatedMode =
+  | "use_deterministic"
+  | "use_ai_outcome"
+  | "clarify"
+  | "repair_reply_only"
+  | "commitment_change_handoff"
+  | "soft_opt_out_reply";
+
+export type V2InboundGatedReplyStyle =
+  | "normal_outcome"
+  | "clarification"
+  | "repair"
+  | "commitment_change"
+  | "soft_opt_out";
+
+export type V2InboundGatedDecision = {
+  mode: V2InboundGatedMode;
+  final_event_type: V2InboundEventType | null;
+  decision_reason: string;
+  confidence_used: number | null;
+  should_write_outcome_event: boolean;
+  should_open_blocker_capture: boolean;
+  reply_style: V2InboundGatedReplyStyle;
+  clarification_question?: string;
+  repair_note?: string;
+  overrode_deterministic: boolean;
+  supplement_commitment_change_guidance?: boolean;
+};
+
+function proposedKeyToEventType(k: V2InboundShadowProposedOutcomeKey): V2InboundEventType {
+  if (k === "yes") return "user_yes";
+  if (k === "no") return "user_no";
+  return "user_partial";
+}
+
+function hasClearAccountabilityAnswer(
+  det: V2InboundEventType,
+  ai: V2InboundShadowInterpretationParsed
+): boolean {
+  if (det === "user_yes" || det === "user_no") return true;
+  if (
+    (ai.proposed_outcome === "yes" || ai.proposed_outcome === "no") &&
+    ai.confidence >= V2_INBOUND_GATED_HIGH_CONFIDENCE &&
+    !ai.needs_clarification &&
+    (ai.intent === "accountability_reply" || ai.intent === "repair_prior")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function defaultGatedDecision(det: V2InboundEventType, reason: string): V2InboundGatedDecision {
+  return {
+    mode: "use_deterministic",
+    final_event_type: det,
+    decision_reason: reason,
+    confidence_used: null,
+    should_write_outcome_event: true,
+    should_open_blocker_capture: det === "user_no" || det === "user_partial",
+    reply_style: "normal_outcome",
+    overrode_deterministic: false,
+  };
+}
+
+/**
+ * When gated outcomes are off or interpretation failed, returns deterministic spine.
+ * Otherwise applies conservative server policy to AI interpretation.
+ */
+export function resolveV2InboundGatedDecision(args: {
+  gatedEnabled: boolean;
+  interpretation: V2InboundShadowInterpretationResult | null;
+  deterministicEventType: V2InboundEventType;
+  deterministicNormalizedHint: string | null;
+  rawInboundBody: string;
+}): V2InboundGatedDecision {
+  if (!args.gatedEnabled) {
+    return defaultGatedDecision(args.deterministicEventType, "gated_disabled");
+  }
+  if (!args.interpretation) {
+    return defaultGatedDecision(args.deterministicEventType, "no_interpretation_result");
+  }
+  return decideV2InboundOutcomeFromInterpretation({
+    deterministicEventType: args.deterministicEventType,
+    deterministicNormalizedHint: args.deterministicNormalizedHint,
+    rawInboundBody: args.rawInboundBody,
+    interpretation: args.interpretation,
+  });
+}
+
+export function decideV2InboundOutcomeFromInterpretation(args: {
+  deterministicEventType: V2InboundEventType;
+  deterministicNormalizedHint: string | null;
+  rawInboundBody: string;
+  interpretation: V2InboundShadowInterpretationResult;
+}): V2InboundGatedDecision {
+  const det = args.deterministicEventType;
+  if (!args.interpretation.ok) {
+    return defaultGatedDecision(det, "ai_interpretation_failed");
+  }
+  const raw = args.rawInboundBody.trim();
+  const ai = args.interpretation.data;
+  const conf = ai.confidence;
+  const aiKey = ai.proposed_outcome;
+
+  const commitmentSignals =
+    ai.intent === "commitment_change_request" || ai.suggests_commitment_change === true;
+  const clearAnswer = hasClearAccountabilityAnswer(det, ai);
+
+  if (ai.intent === "opt_out_soft" || ai.opt_out_like_but_not_stop === true) {
+    return {
+      mode: "soft_opt_out_reply",
+      final_event_type: null,
+      decision_reason: "soft_opt_out_intent",
+      confidence_used: conf,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "soft_opt_out",
+      overrode_deterministic: false,
+    };
+  }
+
+  if (commitmentSignals && !clearAnswer) {
+    return {
+      mode: "commitment_change_handoff",
+      final_event_type: null,
+      decision_reason: "commitment_change_without_clear_accountability_answer",
+      confidence_used: conf,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "commitment_change",
+      overrode_deterministic: false,
+    };
+  }
+
+  if (ai.intent === "meta_question" || ai.user_asks_question === true) {
+    return {
+      mode: "clarify",
+      final_event_type: null,
+      decision_reason: "meta_question_or_user_asks_question",
+      confidence_used: conf,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "clarification",
+      clarification_question: ai.clarification_question ?? undefined,
+      overrode_deterministic: false,
+    };
+  }
+
+  if (ai.needs_clarification === true) {
+    return {
+      mode: "clarify",
+      final_event_type: null,
+      decision_reason: "ai_needs_clarification",
+      confidence_used: conf,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "clarification",
+      clarification_question: ai.clarification_question ?? undefined,
+      overrode_deterministic: false,
+    };
+  }
+
+  const repairish = ai.intent === "repair_prior" || ai.is_repair === true;
+  if (repairish) {
+    const partialOk =
+      aiKey !== "partial" ||
+      (aiKey === "partial" && messageHasKeywordPartialLanguage(raw));
+    if (aiKey != null && conf >= V2_INBOUND_GATED_HIGH_CONFIDENCE && partialOk) {
+      const finalT = proposedKeyToEventType(aiKey);
+      const overrode = finalT !== det;
+      return {
+        mode: "use_ai_outcome",
+        final_event_type: finalT,
+        decision_reason: "repair_with_high_confidence_outcome",
+        confidence_used: conf,
+        should_write_outcome_event: true,
+        should_open_blocker_capture: finalT === "user_no" || finalT === "user_partial",
+        reply_style: "repair",
+        repair_note: ai.reasoning_short,
+        overrode_deterministic: overrode,
+        supplement_commitment_change_guidance:
+          commitmentSignals && clearAnswer ? true : undefined,
+      };
+    }
+    return {
+      mode: "repair_reply_only",
+      final_event_type: null,
+      decision_reason: "repair_low_confidence_or_no_actionable_outcome",
+      confidence_used: conf,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "repair",
+      repair_note: ai.reasoning_short,
+      overrode_deterministic: false,
+    };
+  }
+
+  if (det === "user_partial") {
+    if (aiKey === "yes" && conf >= V2_INBOUND_GATED_HIGH_CONFIDENCE) {
+      return {
+        mode: "use_ai_outcome",
+        final_event_type: "user_yes",
+        decision_reason: "override_partial_to_yes_high_confidence",
+        confidence_used: conf,
+        should_write_outcome_event: true,
+        should_open_blocker_capture: false,
+        reply_style: "normal_outcome",
+        overrode_deterministic: true,
+        supplement_commitment_change_guidance:
+          commitmentSignals && clearAnswer ? true : undefined,
+      };
+    }
+    if (aiKey === "no" && conf >= V2_INBOUND_GATED_HIGH_CONFIDENCE) {
+      return {
+        mode: "use_ai_outcome",
+        final_event_type: "user_no",
+        decision_reason: "override_partial_to_no_high_confidence",
+        confidence_used: conf,
+        should_write_outcome_event: true,
+        should_open_blocker_capture: true,
+        reply_style: "normal_outcome",
+        overrode_deterministic: true,
+        supplement_commitment_change_guidance:
+          commitmentSignals && clearAnswer ? true : undefined,
+      };
+    }
+    if (
+      aiKey === "partial" &&
+      conf >= V2_INBOUND_GATED_PARTIAL_ACCEPT_CONFIDENCE &&
+      messageHasKeywordPartialLanguage(raw)
+    ) {
+      return {
+        mode: "use_ai_outcome",
+        final_event_type: "user_partial",
+        decision_reason: "ai_partial_explicit_language_high_confidence",
+        confidence_used: conf,
+        should_write_outcome_event: true,
+        should_open_blocker_capture: true,
+        reply_style: "normal_outcome",
+        overrode_deterministic: args.deterministicNormalizedHint !== "keyword_partial",
+        supplement_commitment_change_guidance:
+          commitmentSignals && clearAnswer ? true : undefined,
+      };
+    }
+  }
+
+  if (det === "user_yes" || det === "user_no") {
+    const opposite =
+      (det === "user_yes" && aiKey === "no") || (det === "user_no" && aiKey === "yes");
+    if (
+      opposite &&
+      aiKey != null &&
+      conf >= V2_INBOUND_GATED_EXTREME_OVERRIDE_CONFIDENCE
+    ) {
+      const finalT = proposedKeyToEventType(aiKey);
+      return {
+        mode: "use_ai_outcome",
+        final_event_type: finalT,
+        decision_reason: "extreme_confidence_override_of_deterministic_yes_no",
+        confidence_used: conf,
+        should_write_outcome_event: true,
+        should_open_blocker_capture: finalT === "user_no" || finalT === "user_partial",
+        reply_style: "normal_outcome",
+        overrode_deterministic: true,
+        supplement_commitment_change_guidance:
+          commitmentSignals && clearAnswer ? true : undefined,
+      };
+    }
+    if (opposite && aiKey != null) {
+      return {
+        mode: "clarify",
+        final_event_type: null,
+        decision_reason: "deterministic_vs_ai_disagree_prefer_clarify",
+        confidence_used: conf,
+        should_write_outcome_event: false,
+        should_open_blocker_capture: false,
+        reply_style: "clarification",
+        overrode_deterministic: false,
+      };
+    }
+  }
+
+  const supplement = commitmentSignals && clearAnswer;
+  return {
+    mode: "use_deterministic",
+    final_event_type: det,
+    decision_reason: "default_deterministic_classifier",
+    confidence_used: conf,
+    should_write_outcome_event: true,
+    should_open_blocker_capture: det === "user_no" || det === "user_partial",
+    reply_style: "normal_outcome",
+    overrode_deterministic: false,
+    supplement_commitment_change_guidance: supplement ? true : undefined,
+  };
+}
+
+function validateGatedAuxiliarySms(s: string): boolean {
+  const t = s.trim();
+  if (t.length < 8 || t.length > SMS_MAX_LEN) return false;
+  const lower = t.toLowerCase();
+  if (inboundCoachComplianceHygieneFailReason(t)) return false;
+  if (/\breply\s+(yes|no|partial)\b/i.test(lower)) return false;
+  if (lower.includes("guarantee you will")) return false;
+  if (/\bchatgpt\b/i.test(lower)) return false;
+  return true;
+}
+
+const COMMITMENT_APPEND_FOR_SCORED =
+  "If the bar still needs to move, tell me what would be honest to hold you to.";
+
+/**
+ * Short SMS for non-outcome gated modes (clarify, repair-only, handoff, soft opt-out).
+ * Prefer `resolveV2InboundCoachReplyBody` in the inbound coach worker.
+ */
+export function buildV2GatedSpecialReply(args: {
+  decision: V2InboundGatedDecision;
+  preferredName: string | null;
+  messageSid: string;
+  aiSuggestedReply: string | null;
+}): string {
+  const prefix = formatInboundFallbackPreferredOpening(args.preferredName);
+  const tryAi =
+    args.aiSuggestedReply &&
+    validateGatedAuxiliarySms(args.aiSuggestedReply) &&
+    args.decision.reply_style !== "soft_opt_out";
+
+  if (tryAi && args.aiSuggestedReply) {
+    return prefix + args.aiSuggestedReply.trim().replace(/\s+/g, " ").slice(0, SMS_MAX_LEN);
+  }
+
+  const d = args.decision;
+  let body: string;
+  if (d.mode === "soft_opt_out_reply") {
+    body = humanSoftOptOutReply();
+  } else if (d.mode === "commitment_change_handoff") {
+    body = humanCommitmentChangeHandoffReply();
+  } else if (d.mode === "repair_reply_only") {
+    body = REPAIR_NO_OUTCOME_LINES[sidPick(args.messageSid, REPAIR_NO_OUTCOME_LINES.length)]!;
+  } else {
+    body = CLARIFY_HUMAN_LINES[sidPick(args.messageSid, CLARIFY_HUMAN_LINES.length)]!;
+  }
+
+  const out = prefix + body;
+  return out.length <= SMS_MAX_LEN ? out : out.slice(0, SMS_MAX_LEN - 1) + "…";
+}
+
+export function buildAiGatedDecisionPayload(args: {
+  enabled: boolean;
+  decision: V2InboundGatedDecision;
+  deterministicEventType: V2InboundEventType;
+  deterministicNormalizedHint: string | null;
+  repairContext?: Record<string, unknown> | null;
+}): Record<string, unknown> | undefined {
+  if (!args.enabled) return undefined;
+  const d = args.decision;
+  return {
+    enabled: true,
+    mode: d.mode,
+    final_event_type: d.final_event_type,
+    decision_reason: d.decision_reason,
+    confidence_used: d.confidence_used,
+    overrode_deterministic: d.overrode_deterministic,
+    repair_context: args.repairContext ?? null,
+    clarification_avoided_event: !d.should_write_outcome_event,
+    deterministic_event_type: args.deterministicEventType,
+    deterministic_normalized_hint: args.deterministicNormalizedHint,
+  };
+}
+
+export function appendCommitmentChangeNoteIfNeeded(
+  base: string,
+  decision: V2InboundGatedDecision
+): string {
+  if (!decision.supplement_commitment_change_guidance) return base;
+  const tail = " " + COMMITMENT_APPEND_FOR_SCORED;
+  const merged = base.trimEnd() + tail;
+  return merged.length <= SMS_MAX_LEN ? merged : base;
+}
+
+// ---- Wave 2.2: human inbound coach replies ----
+
+export type V2InboundCoachReplyResolutionMeta = {
+  reply_source: "ai_suggested" | "ai_generated" | "deterministic_human" | "fallback";
+  reply_mode: string;
+  suggested_reply_used: boolean;
+  suggested_reply_rejected_reason: string | null;
+  final_event_type: V2InboundEventType | null;
+  gated_mode: string | null;
+};
+
+const ROBOTIC_YES_NO_PARTIAL =
+  /\breply\s+(yes|no|partial)\b/i;
+const REFRESH_COMMAND_TOKENS =
+  /\b(reply\s+)?(still|change|keep|tighten|new)\b.*\b(check|commitment|refresh)\b/i;
+const MUTATION_CLAIM_RE =
+  /\b(i\s+)?(changed|updated|rewrote|reset)\s+(your|the)\s+commitment\b/i;
+const DONE_CLAIM_RE = /\b(counting (?:that |it )?as done|mark(?:ing)?(?: it)? done|that counts as done)\b/i;
+const MISS_CLAIM_RE =
+  /\b(that'?s (?:a )?miss|marking (?:that |it )?(?:as )?(?:a )?miss|not done|didn'?t happen)\b/i;
+
+function shameLikeSuggested(t: string): boolean {
+  const lower = t.toLowerCase();
+  if (/\byou failed\b/i.test(lower)) return true;
+  if (/\bpathetic\b/i.test(lower)) return true;
+  if (/\bworthless\b/i.test(lower)) return true;
+  return false;
+}
+
+export type V2InboundSuggestedReplyContext = {
+  finalEventType: V2InboundEventType | null;
+  gatedMode: V2InboundGatedMode;
+  replyStyle: V2InboundGatedReplyStyle;
+};
+
+/** Wave 3.1: normal coach SMS must not carry Twilio-style compliance or command menus. */
+function inboundCoachComplianceHygieneFailReason(text: string): string | null {
+  const lower = text.toLowerCase();
+  if (/\breply\s+stop\b/i.test(lower)) return "compliance_stop_copy";
+  if (/\btext\s+stop\b/i.test(lower)) return "compliance_stop_copy";
+  if (/\bstop\s+to\s+opt\b/i.test(lower)) return "compliance_stop_copy";
+  if (/\bstop\s+to\s+cancel\b/i.test(lower)) return "compliance_stop_copy";
+  if (/\breply\s+start\b/i.test(lower)) return "compliance_start_copy";
+  if (/\breply\s+help\b/i.test(lower)) return "compliance_help_copy";
+  if (/\btext\s+help\b/i.test(lower)) return "compliance_help_copy";
+  if (/\bhelp\s+for\s+help\b/i.test(lower)) return "compliance_help_copy";
+  return null;
+}
+
+export function validateAiSuggestedReplyForInbound(
+  text: string,
+  ctx: V2InboundSuggestedReplyContext
+): { ok: true } | { ok: false; reason: string } {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (t.length < 10 || t.length > SMS_MAX_LEN) return { ok: false, reason: "length" };
+  if (/^\s*\{/.test(t) || /"\s*strategy\s*"/i.test(t)) return { ok: false, reason: "json_like" };
+  if (ROBOTIC_YES_NO_PARTIAL.test(t)) return { ok: false, reason: "robotic_menu" };
+  if (REFRESH_COMMAND_TOKENS.test(t)) return { ok: false, reason: "refresh_tokens" };
+  if (MUTATION_CLAIM_RE.test(t)) return { ok: false, reason: "mutation_claim" };
+  if (shameLikeSuggested(t)) return { ok: false, reason: "shame_tone" };
+  const compliance = inboundCoachComplianceHygieneFailReason(t);
+  if (compliance) return { ok: false, reason: compliance };
+  const lower = t.toLowerCase();
+
+  const ft = ctx.finalEventType;
+  if (ft === "user_yes") {
+    if (MISS_CLAIM_RE.test(lower) && !/misunderstood|read that wrong/i.test(lower)) {
+      return { ok: false, reason: "contradicts_yes" };
+    }
+  }
+  if (ft === "user_no") {
+    if (DONE_CLAIM_RE.test(lower)) return { ok: false, reason: "contradicts_no" };
+  }
+  if (ft === "user_partial") {
+    if (/\bonly a full miss\b/i.test(lower) && !/partial|half|partly/i.test(lower)) {
+      return { ok: false, reason: "contradicts_partial" };
+    }
+  }
+
+  return { ok: true };
+}
+
+function sidPick(messageSid: string, modulo: number): number {
+  let h = 0;
+  for (let i = 0; i < messageSid.length; i++) h = (h * 31 + messageSid.charCodeAt(i)) >>> 0;
+  return h % modulo;
+}
+
+const CLARIFY_HUMAN_LINES = [
+  "I don't want to score that wrong — did today count as done, partly done, or not done?",
+  "I may be reading that wrong. Did you finish the commitment today?",
+  "Help me read that right: done, partly done, or not done?",
+];
+
+const REPAIR_NO_OUTCOME_LINES = [
+  "You're right to call that out. I may have read it wrong — did today count as done, partly done, or not done?",
+  "Fair — I may have scored that wrong. Did it count as done, partly done, or not done?",
+];
+
+/** Part C: repair + scored outcome */
+function humanRepairOutcomeReply(finalType: V2InboundEventType, messageSid: string): string {
+  const v = sidPick(messageSid, 3);
+  if (finalType === "user_yes") {
+    const lines = [
+      "You're right — I read that wrong. I'm counting today as done. Same bar tomorrow.",
+      "Got it — I misunderstood. I'm counting that as done today. Same standard tomorrow.",
+      "Fair call. That counts as done for today. I'll hold the same bar tomorrow.",
+    ];
+    return lines[v]!;
+  }
+  if (finalType === "user_no") {
+    const lines = [
+      "You're right — I misunderstood. I'm marking that honestly as a miss, not a failure. What got in the way?",
+      "Got it. That's a miss for today, not an identity label. What blocked you?",
+      "Understood — I'll score that as a miss. What got in the way today?",
+    ];
+    return lines[v]!;
+  }
+  const lines = [
+    "Got it — I read that too flat. I'm counting it as partial because you moved but didn't finish the full bar. What was the gap?",
+    "Fair — I'm scoring that as partial. What kept it from the full bar?",
+    "Thanks for the correction — partial for today. What was missing for the full standard?",
+  ];
+  return lines[v]!;
+}
+
+function humanSoftOptOutReply(): string {
+  return "I hear you. If the commitment is the problem, we can adjust it—tell me what needs to change. I won't force the same bar if it's wrong.";
+}
+
+function humanCommitmentChangeHandoffReply(): string {
+  return "That may need a change. I won't rewrite it without you, but we can tighten it or replace it. Tell me what needs to change.";
+}
+
+/** Part E: nuanced outcome fallbacks when AI/template fail */
+function humanOutcomeFallbackReply(
+  eventType: V2InboundEventType,
+  userMessage: string,
+  _shortPhrase: string,
+  messageSid: string
+): string {
+  const u = userMessage.toLowerCase();
+  const v = sidPick(messageSid, 2);
+  const kids = /kid|children|son|daughter|family|spouse|wife|husband/i.test(userMessage);
+  const time = /time|ran out|busy|hectic|hours/i.test(u);
+  const tool = /grok|chatgpt|tool|app|cursor|ai\b/i.test(userMessage);
+  const confuse = /what do you mean|confus|unclear/i.test(u);
+
+  if (eventType === "user_yes") {
+    if (tool) return "Good — that still counts for how you got it done. I'm marking today as done.";
+    if (kids)
+      return v === 0
+        ? "Good. Family noise happens — I'm counting today as done."
+        : "That counts. I'm marking today done.";
+    if (time) return "That's still a win for today. I'm counting it as done.";
+    if (confuse) return "Good. I'm counting today as done — clear answer.";
+    const yesLines = [
+      "Good. I'm counting that as done. That's proof.",
+      "That counts. You got the bar done today.",
+    ];
+    return yesLines[v]!;
+  }
+  if (eventType === "user_no") {
+    if (kids)
+      return "Got it — honest miss. What got in the way with family/life today?";
+    if (time) return "Got it. What ran out of runway today?";
+    const noLines = [
+      "Got it. That's a miss, not an identity. What got in the way?",
+      "Thank you for being honest. What blocked it today?",
+    ];
+    return noLines[v]!;
+  }
+  if (kids)
+    return "Partial counts as honesty. What kept it from the full bar with everything on your plate?";
+  if (time)
+    return "Partial is honest. What ran short — time, energy, or something else?";
+  const pLines = [
+    "Partial counts as honesty. What kept it from being fully done?",
+    "You moved, but not all the way. What got in the way?",
+  ];
+  return pLines[v]!;
+}
+
+function prefixName(preferredName: string | null, body: string): string {
+  return formatInboundFallbackPreferredOpening(preferredName) + body;
+}
+
+function clip(s: string): string {
+  const t = s.trim().replace(/\s+/g, " ");
+  return t.length <= SMS_MAX_LEN ? t : t.slice(0, SMS_MAX_LEN - 1) + "…";
+}
+
+export type V2ResolveInboundCoachReplyArgs = {
+  gatedEnabled: boolean;
+  gatedDecision: V2InboundGatedDecision;
+  interpretation: V2InboundShadowInterpretationResult | null;
+  deterministicEventType: V2InboundEventType;
+  userMessage: string;
+  preferredName: string | null;
+  messageSid: string;
+  effectiveAsk: string;
+  behaviorStatement: string;
+  /** When true, prefer suggested when it agrees with deterministic (shadow eval). */
+  trySuggestedWhenAgrees: boolean;
+  /** Wave 4: human SMS for commitment_change_handoff (skips generic app handoff line). */
+  commitmentChangeWave4Body?: string | null;
+  buildOutcomeAi: () => Promise<V2AiInboundAttempt>;
+  buildTemplate: (finalType: V2InboundEventType) => { body: string; replyTemplateId: string };
+};
+
+/**
+ * Central server-owned selection of the SMS body: suggested_reply, AI generate, human banks, template.
+ */
+export async function resolveV2InboundCoachReplyBody(
+  args: V2ResolveInboundCoachReplyArgs
+): Promise<{
+  replyBody: string;
+  meta: V2InboundCoachReplyResolutionMeta;
+  aiTry: V2AiInboundAttempt;
+  replyTemplateId: string | undefined;
+}> {
+  const shortPhrase = getShortCommitmentPhraseForSms({
+    effectiveAsk: args.effectiveAsk,
+    behaviorStatement: args.behaviorStatement,
+  });
+
+  const interp = args.interpretation;
+  const suggestedRaw =
+    interp && interp.ok ? interp.data.suggested_reply?.trim() ?? null : null;
+
+  // ---- Non-outcome (clarify, repair-only, handoff, soft opt) ----
+  if (!args.gatedDecision.should_write_outcome_event) {
+    const d = args.gatedDecision;
+    const valCtx: V2InboundSuggestedReplyContext = {
+      finalEventType: null,
+      gatedMode: d.mode,
+      replyStyle: d.reply_style,
+    };
+    let rejected: string | null = null;
+    if (suggestedRaw) {
+      const v = validateAiSuggestedReplyForInbound(suggestedRaw, valCtx);
+      if (v.ok) {
+        return {
+          replyBody: clip(prefixName(args.preferredName, suggestedRaw)),
+          meta: {
+            reply_source: "ai_suggested",
+            reply_mode: d.mode,
+            suggested_reply_used: true,
+            suggested_reply_rejected_reason: null,
+            final_event_type: null,
+            gated_mode: d.mode,
+          },
+          aiTry: { ok: false, fallbackUsed: true, reason: "non_outcome_suggested" },
+          replyTemplateId: undefined,
+        };
+      }
+      rejected = v.reason;
+    }
+
+    let body: string;
+    if (d.mode === "soft_opt_out_reply") {
+      body = humanSoftOptOutReply();
+    } else if (d.mode === "commitment_change_handoff") {
+      body = args.commitmentChangeWave4Body?.trim() || humanCommitmentChangeHandoffReply();
+    } else if (d.mode === "repair_reply_only") {
+      body = REPAIR_NO_OUTCOME_LINES[sidPick(args.messageSid, REPAIR_NO_OUTCOME_LINES.length)]!;
+    } else {
+      body = CLARIFY_HUMAN_LINES[sidPick(args.messageSid, CLARIFY_HUMAN_LINES.length)]!;
+    }
+
+    return {
+      replyBody: clip(prefixName(args.preferredName, body)),
+      meta: {
+        reply_source: "deterministic_human",
+        reply_mode: d.mode,
+        suggested_reply_used: false,
+        suggested_reply_rejected_reason: rejected,
+        final_event_type: null,
+        gated_mode: d.mode,
+      },
+      aiTry: { ok: false, fallbackUsed: true, reason: `non_outcome_human:${d.mode}` },
+      replyTemplateId: undefined,
+    };
+  }
+
+  // ---- Outcome path ----
+  const finalType = args.gatedDecision.final_event_type ?? args.deterministicEventType;
+  const d = args.gatedDecision;
+  const repairOutcome =
+    d.reply_style === "repair" && d.mode === "use_ai_outcome" && d.should_write_outcome_event;
+
+  let suggestedRejected: string | null = null;
+  if (suggestedRaw) {
+    const v = validateAiSuggestedReplyForInbound(suggestedRaw, {
+      finalEventType: finalType,
+      gatedMode: d.mode,
+      replyStyle: d.reply_style,
+    });
+    if (!v.ok) {
+      suggestedRejected = v.reason;
+    } else {
+      const detKey = deterministicEventTypeToProposedKey(args.deterministicEventType);
+      const prop = interp && interp.ok ? interp.data.proposed_outcome : null;
+      const classifierAligned =
+        prop == null || prop === detKey;
+      const useSuggested =
+        args.gatedEnabled ||
+        !args.trySuggestedWhenAgrees ||
+        classifierAligned;
+      if (useSuggested) {
+        return {
+          replyBody: clip(prefixName(args.preferredName, suggestedRaw)),
+          meta: {
+            reply_source: "ai_suggested",
+            reply_mode: d.mode,
+            suggested_reply_used: true,
+            suggested_reply_rejected_reason: null,
+            final_event_type: finalType,
+            gated_mode: d.mode,
+          },
+          aiTry: { ok: false, fallbackUsed: true, reason: "used_suggested_validated" },
+          replyTemplateId: undefined,
+        };
+      }
+      suggestedRejected = "does_not_agree_with_classifier";
+    }
+  }
+
+  const aiTry = await args.buildOutcomeAi();
+  const tmpl = args.buildTemplate(finalType);
+
+  if (aiTry.ok) {
+    const vGen = validateAiSuggestedReplyForInbound(aiTry.message, {
+      finalEventType: finalType,
+      gatedMode: d.mode,
+      replyStyle: d.reply_style,
+    });
+    if (vGen.ok) {
+      if (repairOutcome) {
+        const ack = humanRepairOutcomeReply(finalType, args.messageSid);
+        const combined = clip(`${ack} ${aiTry.message}`);
+        if (combined.length <= SMS_MAX_LEN && validateAiSuggestedReplyForInbound(combined, {
+          finalEventType: finalType,
+          gatedMode: d.mode,
+          replyStyle: "repair",
+        }).ok) {
+          return {
+            replyBody: clip(prefixName(args.preferredName, combined)),
+            meta: {
+              reply_source: "ai_generated",
+              reply_mode: "repair_then_coach",
+              suggested_reply_used: false,
+              suggested_reply_rejected_reason: suggestedRejected,
+              final_event_type: finalType,
+              gated_mode: d.mode,
+            },
+            aiTry,
+            replyTemplateId: tmpl.replyTemplateId,
+          };
+        }
+        return {
+          replyBody: clip(prefixName(args.preferredName, ack)),
+          meta: {
+            reply_source: "deterministic_human",
+            reply_mode: "repair_ack_only",
+            suggested_reply_used: false,
+            suggested_reply_rejected_reason: suggestedRejected,
+            final_event_type: finalType,
+            gated_mode: d.mode,
+          },
+          aiTry,
+          replyTemplateId: tmpl.replyTemplateId,
+        };
+      }
+      return {
+        replyBody: clip(prefixName(args.preferredName, aiTry.message)),
+        meta: {
+          reply_source: "ai_generated",
+          reply_mode: d.mode,
+          suggested_reply_used: false,
+          suggested_reply_rejected_reason: suggestedRejected,
+          final_event_type: finalType,
+          gated_mode: d.mode,
+        },
+        aiTry,
+        replyTemplateId: tmpl.replyTemplateId,
+      };
+    }
+  }
+
+  if (repairOutcome) {
+    const ackOnly = humanRepairOutcomeReply(finalType, args.messageSid);
+    return {
+      replyBody: clip(prefixName(args.preferredName, ackOnly)),
+      meta: {
+        reply_source: "deterministic_human",
+        reply_mode: "repair_fallback",
+        suggested_reply_used: false,
+        suggested_reply_rejected_reason:
+          suggestedRejected ?? (aiTry.ok ? "generated_failed_validation" : null),
+        final_event_type: finalType,
+        gated_mode: d.mode,
+      },
+      aiTry,
+      replyTemplateId: tmpl.replyTemplateId,
+    };
+  }
+
+  const humanFb = humanOutcomeFallbackReply(finalType, args.userMessage, shortPhrase, args.messageSid);
+  const humanVal = validateAiSuggestedReplyForInbound(humanFb, {
+    finalEventType: finalType,
+    gatedMode: d.mode,
+    replyStyle: d.reply_style,
+  });
+  if (humanVal.ok) {
+    return {
+      replyBody: clip(prefixName(args.preferredName, humanFb)),
+      meta: {
+        reply_source: "deterministic_human",
+        reply_mode: "nuance_fallback",
+        suggested_reply_used: false,
+        suggested_reply_rejected_reason:
+          suggestedRejected ?? (aiTry.ok ? "generated_failed_validation" : null),
+        final_event_type: finalType,
+        gated_mode: d.mode,
+      },
+      aiTry,
+      replyTemplateId: tmpl.replyTemplateId,
+    };
+  }
+
+  return {
+    replyBody: clip(prefixName(args.preferredName, tmpl.body)),
+    meta: {
+      reply_source: "fallback",
+      reply_mode: d.mode,
+      suggested_reply_used: false,
+      suggested_reply_rejected_reason: suggestedRejected,
+      final_event_type: finalType,
+      gated_mode: d.mode,
+    },
+    aiTry,
+    replyTemplateId: tmpl.replyTemplateId,
+  };
 }

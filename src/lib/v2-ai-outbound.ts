@@ -6,10 +6,16 @@ import {
   formatCoachingMemoryPromptBlock,
   type V2CoachingMemoryForPrompt,
 } from "@/lib/v2-coaching-memory-prompt";
-import type { V2OutboundTemplateFamily } from "@/lib/v2-sms-accountability";
+import { parseIsoMs } from "@/lib/v2-identity-anchor";
+import {
+  getShortCommitmentPhraseForSms,
+  naturalizeCommitmentForSms,
+  type V2OutboundTemplateFamily,
+} from "@/lib/v2-sms-accountability";
 import { formatRelationshipFitOutboundHints } from "@/lib/v2-sms-relationship-profile";
+import type { Wave7DailyEvolutionPick } from "@/lib/v2-sms-evolution-signal";
 
-export const V2_OUTBOUND_AI_PROMPT_VERSION = "v2_outbound_v1";
+export const V2_OUTBOUND_AI_PROMPT_VERSION = "v2_outbound_wave3";
 
 /** House style: small fast model for bounded SMS copy. */
 export const V2_OUTBOUND_AI_MODEL = "gpt-4o-mini";
@@ -450,6 +456,214 @@ export function resolveV2OutboundStrategyAfterBase(args: {
   return args.baseStrategy;
 }
 
+/** Wave 3: human-facing daily accountability purpose (copy tone only; server strategy stays authoritative). */
+export type V2DailyMessagePurpose =
+  | "standard_accountability_check"
+  | "comeback_after_silence"
+  | "after_yes_streak"
+  | "after_no_or_partial"
+  | "repeated_blocker_pattern"
+  | "low_pressure_reactivation"
+  | "adaptive_overlay_active"
+  | "first_week_simple_check"
+  | "proof_milestone_light"
+  | "contract_overlay_proposal"
+  | "fallback_standard"
+  /** Wave 7: commitment may need clarity / adjustment — advisory only; server does not mutate here. */
+  | "evolution_pattern_check";
+
+function newestOutcomeOnly(eventsNewestFirst: V2EventRowForAi[]): string | null {
+  const e = eventsNewestFirst.find((x) => USER_OUTCOMES.has(x.event_type));
+  return e ? e.event_type : null;
+}
+
+function consecutiveYesStreakFromNewest(eventsNewestFirst: V2EventRowForAi[]): number {
+  let n = 0;
+  for (const e of eventsNewestFirst) {
+    if (e.event_type === "user_yes") n += 1;
+    else if (USER_OUTCOMES.has(e.event_type)) break;
+  }
+  return n;
+}
+
+function blockerCaptureCount14d(eventsNewestFirst: V2EventRowForAi[], nowMs: number): number {
+  const cutoff = nowMs - 14 * MS_DAY;
+  let n = 0;
+  for (const e of eventsNewestFirst) {
+    if (e.event_type !== "blocker_captured") continue;
+    const t = eventTimeMs(e.occurred_at);
+    if (t >= cutoff && t <= nowMs) n += 1;
+  }
+  return n;
+}
+
+/**
+ * Rule-derived daily copy purpose for Wave 3 prompts + deterministic fallback (bounded; does not replace strategy).
+ */
+export function deriveV2DailyMessagePurpose(args: {
+  contractProposalMode: boolean;
+  serverStrategy: V2OutboundStrategy;
+  reentry: V2ReentryContext;
+  silence: V2SilenceContext;
+  serverState: V2CoachingState;
+  overlayActive: boolean;
+  hasBlockerPreview: boolean;
+  eventsNewestFirst: V2EventRowForAi[];
+  coachingMemory: V2CoachingMemoryForPrompt | null;
+  commitmentStartedAt: string | null;
+  nowMs: number;
+  /** When true, Wave 7 evolution signal applies (caller computed gates). */
+  wave7SurfaceEvolution?: boolean;
+}): V2DailyMessagePurpose {
+  if (args.contractProposalMode) return "contract_overlay_proposal";
+  if (args.serverStrategy === "reactivation_nudge") return "low_pressure_reactivation";
+  if (args.overlayActive) return "adaptive_overlay_active";
+  if (args.wave7SurfaceEvolution) return "evolution_pattern_check";
+  if (args.reentry.active || args.serverStrategy === "reentry_check") return "comeback_after_silence";
+  if (args.serverStrategy === "silence_nudge") return "comeback_after_silence";
+
+  const latest = newestOutcomeOnly(args.eventsNewestFirst);
+  if (latest === "user_no" || latest === "user_partial") return "after_no_or_partial";
+
+  const startedMs = parseIsoMs(args.commitmentStartedAt);
+  if (startedMs != null && args.nowMs - startedMs <= SEVEN_D_MS) {
+    return "first_week_simple_check";
+  }
+
+  const yesStreak = consecutiveYesStreakFromNewest(args.eventsNewestFirst);
+  if (yesStreak >= 2) return "after_yes_streak";
+
+  const blockers14 = blockerCaptureCount14d(args.eventsNewestFirst, args.nowMs);
+  if (
+    args.serverState === "blocked" &&
+    args.hasBlockerPreview &&
+    (args.serverStrategy === "blocker_followup" || blockers14 >= 2)
+  ) {
+    return "repeated_blocker_pattern";
+  }
+
+  const ys = args.coachingMemory?.yes_streak_14d ?? 0;
+  if (ys >= 5) return "proof_milestone_light";
+
+  return "standard_accountability_check";
+}
+
+export type V2DailyOutboundResolution = {
+  daily_reply_source: "ai_generated" | "deterministic_human" | "fallback";
+  daily_message_purpose: V2DailyMessagePurpose;
+  ai_rejected_reason: string | null;
+  short_commitment_phrase_used: boolean;
+  identity_reference_used: boolean;
+  proof_reference_used: boolean;
+  evolution_recommendation_used?: boolean;
+  evolution_recommended_action?: string | null;
+  blocker_pattern_coaching_used?: boolean;
+};
+
+export function buildV2HumanDailyFallbackSms(args: {
+  purpose: V2DailyMessagePurpose;
+  effectiveAsk: string;
+  behaviorStatement: string;
+  nextMoveType: V2NextMoveType;
+  shrunkAskText?: string | null;
+  wave7EvolutionPick?: Wave7DailyEvolutionPick | null;
+}): string {
+  const eff = args.effectiveAsk?.trim() || args.behaviorStatement?.trim() || "";
+  const short = getShortCommitmentPhraseForSms({
+    effectiveAsk: args.effectiveAsk,
+    behaviorStatement: args.behaviorStatement,
+  });
+  const usePhrase = short !== "the bar" && short.length < 36;
+
+  if (
+    args.nextMoveType === "shrink_ask" &&
+    args.shrunkAskText?.trim() &&
+    args.purpose !== "contract_overlay_proposal"
+  ) {
+    const s = naturalizeCommitmentForSms(args.shrunkAskText, 72);
+    return `Smaller bar today: ${s}. Did it happen?`;
+  }
+
+  switch (args.purpose) {
+    case "comeback_after_silence":
+      return "Good to check in again. Did you do the commitment today?";
+    case "after_no_or_partial":
+      return "Back to the bar today. Did you get it done?";
+    case "repeated_blocker_pattern": {
+      const flip =
+        (args.effectiveAsk?.length ?? 0) + (args.behaviorStatement?.length ?? 0) > 0
+          ? (args.behaviorStatement?.length ?? 0) % 2 === 0
+          : true;
+      return flip
+        ? "Time keeps showing up as the blocker. Today's win is starting before the day gets away. Did it happen?"
+        : "You've named the same obstacle more than once. That usually means the bar needs to get clearer. Did today's bar happen?";
+    }
+    case "adaptive_overlay_active": {
+      const bar = naturalizeCommitmentForSms(eff, 72);
+      return `Smaller bar today: ${bar}. Did it happen?`;
+    }
+    case "low_pressure_reactivation":
+      return "No speech—just one honest check-in: did you do it today?";
+    case "first_week_simple_check":
+      return usePhrase ? `Quick check: did you get ${short} done today?` : "Did you do the commitment today?";
+    case "after_yes_streak":
+      return usePhrase
+        ? `You're building proof on this. Did you get ${short} done again today?`
+        : "You're building proof on this. Did you follow through again today?";
+    case "proof_milestone_light":
+      return "That's real consistency. Did you follow through again today?";
+    case "evolution_pattern_check": {
+      const a = args.wave7EvolutionPick?.action ?? "tighten_commitment";
+      if (a === "tighten_commitment") {
+        return "I'm seeing the same fight repeat. This may need a clearer, smaller bar—not more guilt. Did today's current bar happen, or should we tighten it?";
+      }
+      if (a === "refresh_commitment_only") {
+        return "This may be a good moment to reset the bar. Did today's commitment still fit, or does it need adjusting?";
+      }
+      if (a === "reframe_commitment") {
+        return "I'm not sure the current bar is aimed at the real fight anymore. Did it still fit today?";
+      }
+      if (a === "replace_commitment") {
+        return "This may be pointing to a new commitment. I won't change it without you. Does the current one still fit?";
+      }
+      if (a === "adapt_commitment_temporary") {
+        return "The temporary bar may need a clearer edge. Did today's commitment still work, or does it need tweaking?";
+      }
+      return "Something may need to shift—not guilt, clarity. Did today's bar happen as written?";
+    }
+    case "fallback_standard":
+    case "standard_accountability_check":
+    default:
+      return usePhrase ? `Did you get ${short} done today?` : "Did you do the commitment today?";
+  }
+}
+
+/** Wave 3 outbound copy safety for daily accountability (not contract proposals). */
+export function validateV2DailyOutboundHumanSafety(
+  message: string,
+  opts: { contractProposalMode: boolean; serverStrategy: V2OutboundStrategy }
+): { ok: true } | { ok: false; reason: string } {
+  if (opts.contractProposalMode) return { ok: true };
+  const msg = (message || "").trim();
+  if (!msg) return { ok: false, reason: "empty_message" };
+  if (msg.length > SMS_MAX_LEN) return { ok: false, reason: "too_long" };
+  const lower = msg.toLowerCase();
+  if (/\breply\s+stop\b/i.test(lower)) return { ok: false, reason: "wave3_stop_footer" };
+  if (/\breply\s+start\b/i.test(lower)) return { ok: false, reason: "wave3_start_footer" };
+  if (/\breply\s+help\b/i.test(lower)) return { ok: false, reason: "wave3_help_footer" };
+  if (/\btext\s+stop\b/i.test(lower)) return { ok: false, reason: "wave3_text_stop" };
+  if (/\b(stop|unsubscribe)\s+to\s+/i.test(lower)) return { ok: false, reason: "wave3_compliance_footer" };
+  if (/\breply\s+(yes|no|partial)\b/i.test(lower)) return { ok: false, reason: "wave3_reply_yes_no_partial_menu" };
+  if (/\breply\s+(still|change|keep|tighten|new)\b/i.test(lower)) {
+    return { ok: false, reason: "wave3_refresh_command_menu" };
+  }
+  if (/\{[\s\S]*"[\s\S]*\}/.test(msg)) return { ok: false, reason: "wave3_json_like" };
+  if (/\b(commitment|bar|standard)\s+(is\s+now|has\s+been\s+updated|changed permanently|was\s+updated)\b/i.test(msg)) {
+    return { ok: false, reason: "wave3_commitment_mutation_claim" };
+  }
+  return { ok: true };
+}
+
 /** Template family for deterministic fallback SMS / AI hint. */
 export function templateFamilyForStrategy(strategy: V2OutboundStrategy): V2OutboundTemplateFamily {
   if (strategy === "reactivation_nudge") return "reactivation";
@@ -467,9 +681,11 @@ function summarizeEventForPrompt(e: V2EventRowForAi): string {
   const preview =
     typeof p.message === "string"
       ? truncateOneLine(p.message, 120)
-      : typeof p.body_preview === "string"
-        ? truncateOneLine(p.body_preview, 80)
-        : "";
+      : typeof p.message_preview === "string"
+        ? truncateOneLine(p.message_preview, 100)
+        : typeof p.body_preview === "string"
+          ? truncateOneLine(p.body_preview, 80)
+          : "";
   const tail = preview ? ` text="${preview}"` : "";
   return `${e.occurred_at} ${e.event_type}${tail}`;
 }
@@ -501,15 +717,28 @@ function passesLexicalGuards(message: string): boolean {
   return true;
 }
 
-function passesAccountabilityShape(message: string): boolean {
+/** Accountability SMS must invite an honest reply — natural coaching questions count without YES/NO menus. */
+function passesAccountabilityShape(message: string, contractProposalMode: boolean): boolean {
+  if (contractProposalMode) {
+    const lower = message.toLowerCase();
+    return Boolean(lower.includes("yes") && lower.includes("no"));
+  }
   if (!message.includes("?")) return false;
   const lower = message.toLowerCase();
-  const asksReply =
-    lower.includes("yes") ||
-    lower.includes("no") ||
-    lower.includes("partial") ||
-    lower.includes("reply");
-  return asksReply;
+  const asksLexicalReplyMenu =
+    /\breply\s+(yes|no|partial)\b/i.test(lower) ||
+    /\breply\s+(still|change|keep|tighten|new)\b/i.test(lower);
+  if (asksLexicalReplyMenu) return false;
+  const asksReplyKeyword =
+    /(^|[^a-z])yes([^a-z]|$)/i.test(lower) ||
+    /(^|[^a-z])no([^a-z]|$)/i.test(lower) ||
+    /\bpartial\b/.test(lower) ||
+    /\breply\b/.test(lower);
+  const naturalAccountabilityAsk =
+    /\b(did you|did it|did that|what happened|how did|where did|happen today|happen,|follow through|get it done|get that done|get it|make the|honest|straight|protect|landed|real version|real answer|pull you off|bar today|check-in|check in|still on|what landed)\b/i.test(
+      message
+    );
+  return Boolean(asksReplyKeyword || naturalAccountabilityAsk);
 }
 
 function passesReactivationNudgeShape(message: string): boolean {
@@ -546,6 +775,12 @@ function validateV2AiReactivationNudgeMessage(args: {
       return { ok: false, reason: "identity_anchor_partial_in_reactivation" };
     }
   }
+
+  const wave3Re = validateV2DailyOutboundHumanSafety(msg, {
+    contractProposalMode: false,
+    serverStrategy: "reactivation_nudge",
+  });
+  if (!wave3Re.ok) return wave3Re;
 
   const ml = msg.toLowerCase();
   const words = args.behaviorStatement
@@ -587,7 +822,9 @@ export function validateV2AiOutboundMessage(args: {
     return { ok: false, reason: "strategy_mismatch" };
   }
   if (!passesLexicalGuards(msg)) return { ok: false, reason: "lexical_guard" };
-  if (!passesAccountabilityShape(msg)) return { ok: false, reason: "missing_accountability_ask" };
+  if (!passesAccountabilityShape(msg, Boolean(args.contractProposalMode))) {
+    return { ok: false, reason: "missing_accountability_ask" };
+  }
 
   const binding =
     args.contractProposalMode && args.contractProposalBindingText?.trim()
@@ -639,6 +876,14 @@ export function validateV2AiOutboundMessage(args: {
     return { ok: false, reason: "missing_behavior_anchor" };
   }
 
+  if (!args.contractProposalMode) {
+    const wave3 = validateV2DailyOutboundHumanSafety(msg, {
+      contractProposalMode: false,
+      serverStrategy: args.serverStrategy,
+    });
+    if (!wave3.ok) return wave3;
+  }
+
   return { ok: true };
 }
 
@@ -684,6 +929,12 @@ export type V2AiOutboundContext = {
   identityReferenceAllowed?: boolean;
   /** Optional one-line reachability (rule-derived); never changes send gating here. */
   reachabilityContextLine?: string | null;
+  /** Server-derived daily copy purpose (Wave 3 tone hint; not exposed to the user). */
+  dailyMessagePurpose?: V2DailyMessagePurpose;
+  /** Wave 6: bounded RECENT_SMS_CONTEXT from `buildV2SmsConversationContextPack`. */
+  recentSmsContextBlock?: string | null;
+  /** Wave 7: populated when daily purpose is evolution_pattern_check. */
+  wave7EvolutionPick?: Wave7DailyEvolutionPick | null;
 };
 
 function buildDeveloperPromptReactivation(ctx: V2AiOutboundContext): string {
@@ -704,6 +955,10 @@ function buildDeveloperPromptReactivation(ctx: V2AiOutboundContext): string {
     lines.push(`success_criteria: ${truncateOneLine(ctx.commitment.success_criteria, 160)}`);
   }
   lines.push("");
+  if (ctx.recentSmsContextBlock?.trim()) {
+    lines.push(ctx.recentSmsContextBlock.trim());
+    lines.push("");
+  }
   if (ctx.preferredName?.trim()) {
     lines.push(
       `Preferred name Coach Pat should use: ${truncateOneLine(ctx.preferredName, 40)}`
@@ -753,6 +1008,7 @@ function buildDeveloperPromptReactivation(ctx: V2AiOutboundContext): string {
   lines.push("- Keep commitment scope unchanged; do not add new goals.");
   lines.push("- Do not claim unsupported personal or historical memory.");
   lines.push("- strategy field MUST be exactly: reactivation_nudge");
+  lines.push("- No STOP/START/HELP compliance footer; no \"Reply YES/NO/PARTIAL\" menus.");
   lines.push("EXAMPLES (style only, do not copy verbatim):");
   lines.push('- "No pressure note: if today is a good day to restart <ask>, send a short line."');
   lines.push('- "Door is open when you are ready to re-enter <ask>. One line is enough."');
@@ -772,6 +1028,21 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   lines.push("strategy in your JSON MUST exactly equal server_strategy.");
   lines.push(`state in your JSON should echo server_state: ${ctx.serverState}`);
   lines.push(`template_family hint: ${ctx.templateFamily}`);
+  if (ctx.dailyMessagePurpose) {
+    lines.push(
+      `DAILY_MESSAGE_PURPOSE (tone hint only; never echo this label in the SMS; strategy + next_move stay authoritative): ${ctx.dailyMessagePurpose}`
+    );
+  }
+  lines.push("");
+  lines.push("PRODUCT:");
+  lines.push("- Summitt Mindset is SMS-first and retention-first; this text may be their main touch with the product.");
+  lines.push("- Aim for a human accountability relationship, not a workflow bot or checklist.");
+  lines.push(
+    "- Long-horizon relationship: onboarding profile fields may be older; RECENT_SMS_CONTEXT / COACHING_MEMORY / RECENT_EVENTS can be more current—do not treat USER_ONBOARDING as permanent truth or quote sensitive lines verbatim."
+  );
+  lines.push(
+    "- If context conflicts, prefer recent confirmed SMS patterns over stale onboarding; ask briefly rather than assume."
+  );
   lines.push("");
   lines.push("SILENCE_CONTEXT (rule-derived, authoritative numbers):");
   lines.push(
@@ -781,6 +1052,26 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   lines.push("REENTRY_CONTEXT (rule-derived):");
   lines.push(`reentry_active=${ctx.reentry.active}`);
   lines.push("");
+  if (ctx.recentSmsContextBlock?.trim()) {
+    lines.push(ctx.recentSmsContextBlock.trim());
+    lines.push("");
+  }
+  if (ctx.dailyMessagePurpose === "evolution_pattern_check" && ctx.wave7EvolutionPick) {
+    lines.push("EVOLUTION_SIGNAL (advisory only — commitment row is unchanged; you do not apply mutations):");
+    lines.push(
+      `recommended_direction=${ctx.wave7EvolutionPick.action} (source=${ctx.wave7EvolutionPick.source})`
+    );
+    if (ctx.wave7EvolutionPick.evidenceSummary?.trim()) {
+      lines.push(`evidence_hint: ${truncateOneLine(ctx.wave7EvolutionPick.evidenceSummary, 200)}`);
+    }
+    lines.push(
+      "- Write one short human SMS: invite an honest answer about whether today's bar still fits or needs clarity—no menus, no claim that the commitment was already changed."
+    );
+    lines.push(
+      "- If they want a smaller bar, new goal, or replace: keep it natural; the product routes SMS tighten/replace when they say so—do not output command keywords like STILL/CHANGE/NEW."
+    );
+    lines.push("");
+  }
   lines.push("NEXT_MOVE (server-derived, authoritative):");
   lines.push(`type=${ctx.nextMove.type}, reason_code=${ctx.nextMove.reason_code}, version=${ctx.nextMove.version}`);
   if (ctx.nextMove.type === "shrink_ask" && ctx.nextMove.shrunk_ask_text?.trim()) {
@@ -825,11 +1116,11 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
     );
     if (k === "recommit_same") {
       lines.push(
-        "This SMS proposes an explicit temporary recommit to the SAME bar for 7 days if the user replies YES. Reply NO skips this lock-in; original_behavior_statement is unchanged."
+        "This SMS proposes an explicit temporary recommit to the SAME bar for 7 days when they accept with yes; saying no skips this lock-in; original_behavior_statement is unchanged."
       );
     } else {
       lines.push(
-        "This SMS proposes a smaller temporary ask for 7 days if the user replies YES. Reply NO keeps the current bar (original_behavior_statement)."
+        "This SMS proposes a smaller temporary ask for 7 days when they accept with yes; saying no keeps the current bar (original_behavior_statement)."
       );
     }
     lines.push(
@@ -853,7 +1144,7 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   if (showUpFor || responsibilityText) {
     lines.push("");
     lines.push(
-      "USER_ONBOARDING (answered in app; wording and empathy only—never changes cadence, strategy, or commitment rules):"
+      "USER_ONBOARDING (answered in app at signup/onboarding; may be older—wording and empathy only—never changes cadence, strategy, or commitment rules):"
     );
   }
   if (showUpFor) {
@@ -925,9 +1216,19 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   lines.push("RULES:");
   lines.push("VOICE_DOCTRINE:");
   lines.push("- Speak like Pat Summitt AI for daily accountability: direct, specific, tactical, human.");
-  lines.push("- Clear beats clever. Serious beats hype. Proof beats praise.");
+  lines.push("- Clear beats clever. Serious beats hype. Proof beats praise — lightly, when it helps.");
   lines.push("- Hold the standard without shame. Keep it short.");
   lines.push("- This SMS may be the user's primary product experience.");
+  lines.push("- Brief, direct, human: no fake hype, no therapy-speak, no robotic command menus.");
+  lines.push("- Never instruct with all-caps command tokens (no STILL/CHANGE/KEEP/TIGHTEN/NEW menus).");
+  lines.push("- Do not paste raw database phrasing or the full formal behavior_statement when a short natural ask is clearer.");
+  lines.push("- Do not include STOP/START/HELP or unsubscribe footer language (consent lives elsewhere).");
+  lines.push("- Do not say \"Reply YES\", \"Reply NO\", \"Reply PARTIAL\", or \"Reply STILL/CHANGE\" — invite a natural answer.");
+  lines.push("- Sensitive onboarding lines (people_summary, responsibility, family pressure): never quote verbatim; tone only.");
+  lines.push(
+    "- USER_ONBOARDING may be stale months later—prefer RECENT_EVENTS / COACHING_MEMORY when they clearly contradict onboarding hints."
+  );
+  lines.push("- Identity anchor: quote verbatim only when identity_reference_allowed_this_send is yes; otherwise do not quote or closely paraphrase.");
   lines.push(`- Max ${SMS_MAX_LEN} characters. One SMS. No newlines.`);
   lines.push("- Keep server strategy exactly. Do not change cadence, commitment, or state.");
   lines.push("- No fake hype, no therapy tone, no abusive or shaming language.");
@@ -955,19 +1256,110 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   }
   lines.push("- strategy field MUST be exactly: " + ctx.serverStrategy);
   lines.push("EXAMPLES (style only, do not copy verbatim):");
-  lines.push('- standard_check: "I’m asking it plain: did <ask> happen today?"');
-  lines.push('- recovery_check: "No shame, don\'t waste the miss. Did <ask> happen today?"');
-  lines.push('- silence_nudge: "No backlog lecture. Just today on <ask>: what happened?"');
-  lines.push('- reentry_check: "Good return. Same bar today: <ask>. Tell me straight."');
+  lines.push('- standard_check: "Did you get one focused session in today?"');
+  lines.push('- recovery_check: "Back to the bar today—did it happen?"');
+  lines.push('- silence_nudge: "Good to see you in the thread. Did you protect today\'s commitment?"');
+  lines.push('- reentry_check: "You came back yesterday. Same bar today—did it happen?"');
+  lines.push('- blocker_followup: "Time keeps showing up as the fight—did you start before it got away?"');
   lines.push('- reactivation_nudge: "No pressure note: if today is a good day to restart <ask>, send a short line."');
+  lines.push(
+    '- evolution_pattern_check: "Same fight keeps showing up—did today\'s bar happen, or does it need to get clearer?"'
+  );
 
   return lines.join("\n");
 }
 
-const SYSTEM_PROMPT = `You are Pat Summitt AI for daily accountability SMS.
-Voice: direct, specific, tactical, human, calm.
-Hold the standard without shame.
-Output strict JSON only.`;
+const SYSTEM_PROMPT = `You are Pat Summitt AI for Summitt Mindset SMS accountability.
+Summitt Mindset is SMS-first: this message may be the user's core product experience.
+Voice: brief, direct, human, calm — like a sharp coach, not a workflow bot.
+No therapy-speak, no shame, no fake hype, no compliance footers, no all-caps reply menus.
+Hold the standard without inventing facts. Output strict JSON only.`;
+
+export async function resolveV2DailyOutboundSmsBody(args: {
+  ctx: V2AiOutboundContext;
+  contractProposalMode: boolean;
+  purpose: V2DailyMessagePurpose;
+  templateBody: string;
+  effectiveAsk: string;
+  behaviorStatement: string;
+  nextMoveType: V2NextMoveType;
+  shrunkAskText?: string | null;
+}): Promise<{
+  smsBody: string;
+  aiTry: V2AiOutboundAttempt;
+  resolution: V2DailyOutboundResolution;
+}> {
+  const aiTry = await tryGenerateV2OutboundMessage(args.ctx);
+
+  let smsBody: string;
+  let source: V2DailyOutboundResolution["daily_reply_source"];
+  let aiRejectedReason: string | null = null;
+
+  if (args.contractProposalMode) {
+    smsBody = aiTry.ok ? aiTry.message : args.templateBody;
+    source = aiTry.ok ? "ai_generated" : "deterministic_human";
+    if (!aiTry.ok) aiRejectedReason = aiTry.reason;
+  } else if (aiTry.ok) {
+    smsBody = aiTry.message;
+    source = "ai_generated";
+  } else {
+    aiRejectedReason = aiTry.reason;
+    let human = buildV2HumanDailyFallbackSms({
+      purpose: args.purpose,
+      effectiveAsk: args.effectiveAsk,
+      behaviorStatement: args.behaviorStatement,
+      nextMoveType: args.nextMoveType,
+      shrunkAskText: args.shrunkAskText ?? null,
+      wave7EvolutionPick: args.ctx.wave7EvolutionPick ?? null,
+    });
+    const safety = validateV2DailyOutboundHumanSafety(human, {
+      contractProposalMode: false,
+      serverStrategy: args.ctx.serverStrategy,
+    });
+    if (!safety.ok) {
+      human = "Did you do the commitment today?";
+      source = "fallback";
+    } else {
+      source = "deterministic_human";
+    }
+    smsBody = human;
+  }
+
+  const shortPhrase = getShortCommitmentPhraseForSms({
+    effectiveAsk: args.effectiveAsk,
+    behaviorStatement: args.behaviorStatement,
+  });
+  const short_commitment_phrase_used =
+    shortPhrase !== "the bar" &&
+    smsBody.toLowerCase().includes(shortPhrase.toLowerCase());
+
+  const anchor = args.ctx.identityAnchorText?.trim() ?? "";
+  const identity_reference_used = Boolean(
+    anchor && args.ctx.identityReferenceAllowed && smsBody.includes(anchor)
+  );
+
+  const proof_reference_used =
+    args.purpose === "proof_milestone_light" || args.purpose === "after_yes_streak";
+
+  return {
+    smsBody,
+    aiTry,
+    resolution: {
+      daily_reply_source: source,
+      daily_message_purpose: args.purpose,
+      ai_rejected_reason: source === "ai_generated" ? null : aiRejectedReason,
+      short_commitment_phrase_used,
+      identity_reference_used,
+      proof_reference_used,
+      evolution_recommendation_used: args.purpose === "evolution_pattern_check",
+      evolution_recommended_action:
+        args.purpose === "evolution_pattern_check"
+          ? args.ctx.wave7EvolutionPick?.action ?? null
+          : null,
+      blocker_pattern_coaching_used: args.purpose === "repeated_blocker_pattern",
+    },
+  };
+}
 
 export async function tryGenerateV2OutboundMessage(
   ctx: V2AiOutboundContext
@@ -1044,8 +1436,9 @@ export function buildCheckSentAiPayload(args: {
   confidence: number | null;
   fallbackUsed: boolean;
   fallbackReason?: string;
+  dailyResolution?: V2DailyOutboundResolution;
 }): Record<string, unknown> {
-  return {
+  const base: Record<string, unknown> = {
     model: args.model,
     prompt_version: args.promptVersion,
     server_state: args.serverState,
@@ -1055,4 +1448,24 @@ export function buildCheckSentAiPayload(args: {
     fallback_used: args.fallbackUsed,
     ...(args.fallbackReason && args.fallbackUsed ? { fallback_reason: args.fallbackReason } : {}),
   };
+  if (args.dailyResolution) {
+    base.daily_reply_source = args.dailyResolution.daily_reply_source;
+    base.daily_message_purpose = args.dailyResolution.daily_message_purpose;
+    if (args.dailyResolution.ai_rejected_reason) {
+      base.ai_rejected_reason = args.dailyResolution.ai_rejected_reason;
+    }
+    base.short_commitment_phrase_used = args.dailyResolution.short_commitment_phrase_used;
+    base.identity_reference_used = args.dailyResolution.identity_reference_used;
+    base.proof_reference_used = args.dailyResolution.proof_reference_used;
+    if (args.dailyResolution.evolution_recommendation_used != null) {
+      base.evolution_recommendation_used = args.dailyResolution.evolution_recommendation_used;
+    }
+    if (args.dailyResolution.evolution_recommended_action != null) {
+      base.evolution_recommended_action = args.dailyResolution.evolution_recommended_action;
+    }
+    if (args.dailyResolution.blocker_pattern_coaching_used != null) {
+      base.blocker_pattern_coaching_used = args.dailyResolution.blocker_pattern_coaching_used;
+    }
+  }
+  return base;
 }

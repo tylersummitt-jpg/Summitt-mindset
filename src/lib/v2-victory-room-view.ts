@@ -21,6 +21,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { getActiveCommitment } from "@/lib/v2-commitment";
+import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor";
 import { loadV2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory";
 
 const RECENT_EVENT_LIMIT = 120;
@@ -139,18 +140,79 @@ function overlayActivatedCopy(contractKind: unknown): { headline: string; body: 
   };
 }
 
+function proofBackedBody(payload: Record<string, unknown>, fallback: string): string {
+  if (
+    payload.proof_moment === true &&
+    typeof payload.user_visible_proof_line === "string" &&
+    payload.user_visible_proof_line.trim()
+  ) {
+    return truncateOneLine(String(payload.user_visible_proof_line), 220);
+  }
+  return fallback;
+}
+
 function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
   const out: VictoryMoment[] = [];
   for (const row of rows) {
     const payload = parsePayload(row);
     if (row.event_type === "user_yes") {
+      const body = proofBackedBody(payload, "You kept your word here.");
       out.push({
         id: row.id,
         occurredAt: row.occurred_at,
-        headline: "Kept your word",
-        body: "You kept your word here.",
+        headline: payload.proof_moment === true ? "Proof in the thread" : "Kept your word",
+        body,
         groundedInEventTypes: ["user_yes"],
       });
+      continue;
+    }
+    if (row.event_type === "user_no" || row.event_type === "user_partial") {
+      if (payload.proof_moment === true && typeof payload.user_visible_proof_line === "string") {
+        const body = truncateOneLine(String(payload.user_visible_proof_line), 220);
+        out.push({
+          id: row.id,
+          occurredAt: row.occurred_at,
+          headline: row.event_type === "user_no" ? "Honest miss" : "Stayed engaged",
+          body,
+          groundedInEventTypes: [row.event_type],
+        });
+      }
+      continue;
+    }
+    if (row.event_type === "sms_memory_signal") {
+      const ms = payload.memory_signal;
+      const msObj =
+        ms && typeof ms === "object" && !Array.isArray(ms) ? (ms as Record<string, unknown>) : null;
+      const wave12CommitProof = msObj?.wave12_commitment_change_proof === true;
+      const proofTy = typeof payload.proof_moment_type === "string" ? payload.proof_moment_type : "";
+
+      if (
+        payload.wave11_memory_resolution === true &&
+        payload.proof_moment === true &&
+        typeof payload.user_visible_proof_line === "string" &&
+        payload.user_visible_proof_line.trim()
+      ) {
+        out.push({
+          id: row.id,
+          occurredAt: row.occurred_at,
+          headline: "Coaching context updated",
+          body: truncateOneLine(String(payload.user_visible_proof_line), 220),
+          groundedInEventTypes: ["sms_memory_signal"],
+        });
+      } else if (
+        wave12CommitProof &&
+        payload.proof_moment === true &&
+        typeof payload.user_visible_proof_line === "string" &&
+        payload.user_visible_proof_line.trim()
+      ) {
+        out.push({
+          id: row.id,
+          occurredAt: row.occurred_at,
+          headline: proofTy === "commitment_replaced" ? "New chapter" : "Bar adjusted",
+          body: proofBackedBody(payload, "You adjusted the bar with honesty."),
+          groundedInEventTypes: ["sms_memory_signal"],
+        });
+      }
       continue;
     }
     if (row.event_type === "contract_overlay_activated") {
@@ -733,7 +795,7 @@ export async function loadVictoryRoomView(
 ): Promise<VictoryRoomViewData> {
   const { data: prof, error: profErr } = await supabaseServer
     .from("user_profiles")
-    .select("preferred_name, identity_anchor_text")
+    .select("preferred_name, identity_anchor_text, identity_source")
     .eq("clerk_user_id", clerkUserId)
     .maybeSingle();
 
@@ -741,10 +803,13 @@ export async function loadVictoryRoomView(
     console.error("[v2-victory-room] profile load failed", { clerk_user_id: clerkUserId, message: profErr.message });
   }
 
+  const anchorRaw =
+    typeof prof?.identity_anchor_text === "string" ? prof.identity_anchor_text.trim() : null;
+  const idSrc = typeof prof?.identity_source === "string" ? prof.identity_source.trim() : null;
   const profile: VictoryRoomProfileIdentity = {
     preferred_name: typeof prof?.preferred_name === "string" ? prof.preferred_name : null,
     identity_anchor_text:
-      typeof prof?.identity_anchor_text === "string" ? prof.identity_anchor_text : null,
+      anchorRaw && anchorRaw.length > 0 && isQuotableIdentitySource(idSrc) ? anchorRaw : null,
   };
 
   const commitment = await getActiveCommitment(clerkUserId);
