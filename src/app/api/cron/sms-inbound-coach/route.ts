@@ -123,6 +123,14 @@ import {
   type V2RefreshSessionState,
 } from "@/lib/v2-refresh-session";
 import {
+  buildCentralBrainHumanTetherReply,
+  interpretV2CentralSmsTurn,
+  isV2CentralSmsBrainControlEnabled,
+  maybeLogCentralBrainDisagreement,
+  shouldCentralBrainBlockBlockerCapture,
+  shouldCentralBrainBlockOutcomeScoring,
+} from "@/lib/v2-central-sms-brain";
+import {
   clearBlockerCapturePending,
   exitLowPressureReactivationOnInbound,
   getActiveCommitment,
@@ -416,6 +424,7 @@ async function processV2NormalInboundOutcome(
   const lastOutboundNextMove = parseLatestCheckSentNextMoveType(recentEvents);
 
   const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(commitment.id);
+  const pendingAwaitingMemoryConfirmation = await fetchLatestAwaitingMemoryConfirmation(commitment.id);
 
   let smsConvPackBlock: string | null = null;
   let smsConvPackMeta: V2SmsConversationContextPack["meta"] | null = null;
@@ -617,6 +626,97 @@ async function processV2NormalInboundOutcome(
     });
   }
 
+  const centralSmsTurnShadowStored = await interpretV2CentralSmsTurn({
+    clerkUserId: userId,
+    commitmentId: commitment.id,
+    commitment,
+    effectiveAsk: effectiveBehavior,
+    inboundText: userMessage,
+    lastOutboundPromptPreview: lastOutboundSmsPreview,
+    recentSmsContextBlock: smsConvPackBlock,
+    blockerCapturePending: isBlockerCapturePendingActive(commitment),
+    refreshSessionActive: isRefreshSessionActive(commitment),
+    smsPendingResolutionActive: isSmsInboundPendingResolutionActionable(commitment),
+    contractOverlayProposalActive: isV2PendingProposalValid(commitment),
+    memoryConfirmationPending: pendingAwaitingMemoryConfirmation != null,
+    activeCommitmentPresent: true,
+    deterministicClassifierEventType: eventType,
+    deterministicNormalizedHint: normalizedHint ?? null,
+    gatedSummary: {
+      mode: gatedDecision.mode,
+      final_event_type: gatedDecision.final_event_type,
+      should_write_outcome_event: gatedDecision.should_write_outcome_event,
+      reply_style: gatedDecision.reply_style,
+    },
+    shadowInterpretationRaw,
+    routeContext: "normal_accountability",
+  });
+
+  const smsBrainControlEnabled = isV2CentralSmsBrainControlEnabled();
+  if (
+    smsBrainControlEnabled &&
+    gatedDecision.should_write_outcome_event &&
+    centralSmsTurnShadowStored != null &&
+    shouldCentralBrainBlockOutcomeScoring({
+      stored: centralSmsTurnShadowStored,
+      controlEnabled: smsBrainControlEnabled,
+    })
+  ) {
+    const pivotBody = buildCentralBrainHumanTetherReply({
+      turnPurpose: centralSmsTurnShadowStored.central_turn_purpose,
+      inboundText: userMessage,
+      effectiveAskSnippet: effectiveBehavior,
+      lastOutboundPromptPreview: lastOutboundSmsPreview,
+      route: "normal_accountability",
+    });
+    const wouldHave =
+      gatedDecision.final_event_type != null
+        ? `outcome:${gatedDecision.final_event_type}`
+        : `mode:${gatedDecision.mode}`;
+    console.log(
+      "[central-sms-brain/control]",
+      JSON.stringify({
+        wave: "14.2",
+        commitment_id: commitment.id,
+        control_action: "blocked_outcome_scoring",
+        no_event_reason: "central_brain_human_or_meta",
+        reply_source: "central_brain_deterministic_v14_2",
+        central_purpose: centralSmsTurnShadowStored.central_turn_purpose,
+        central_confidence: centralSmsTurnShadowStored.confidence,
+        old_path_that_would_have_run: wouldHave,
+      })
+    );
+
+    const nowPivot = new Date().toISOString();
+    const { data: persistedPivot } = await supabaseServer
+      .from("sms_inbound_coach_jobs")
+      .update({
+        reply_body: pivotBody,
+        status: "reply_ready",
+        next_retry_at: nowPivot,
+        updated_at: nowPivot,
+        last_error: null,
+      })
+      .eq("message_sid", job.message_sid)
+      .eq("status", "processing")
+      .select()
+      .maybeSingle();
+
+    if (!persistedPivot) {
+      const j2 = await loadJob(job.message_sid);
+      if (j2?.reply_body?.trim()) {
+        await commitAndSendInboundCoachReply(j2, userId);
+        return;
+      }
+      throw new Error("v2_reply_ready_persist_failed");
+    }
+
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    const freshPivot = (await loadJob(job.message_sid)) ?? job;
+    await commitAndSendInboundCoachReply(freshPivot, userId);
+    return;
+  }
+
   let commitmentChangeWave4Body: string | null = null;
   let wave4PendingResult: Awaited<ReturnType<typeof applyWave4SmsCommitmentPendingResolution>> | null =
     null;
@@ -788,7 +888,6 @@ async function processV2NormalInboundOutcome(
     | undefined;
 
   const parsedMem = memorySignalResult?.ok === true ? memorySignalResult.data : null;
-  const pendingExistingForOffer = await fetchLatestAwaitingMemoryConfirmation(commitment.id);
 
   if (shouldPersistNonOutcomeMemoryEvent && parsedMem != null && memorySignalStored != null) {
     const identityCand = parsedMem.candidate_profile_updates.identity_anchor_text;
@@ -837,7 +936,7 @@ async function processV2NormalInboundOutcome(
         gatedMode: gatedDecision.mode,
         identityCandidateOk: pendingKind === "identity_anchor_update" ? identityOk : false,
         relationshipCandidateOk: pendingKind === "relationship_context_update" ? relationshipOk : false,
-        hasAwaitingPending: pendingExistingForOffer != null,
+        hasAwaitingPending: pendingAwaitingMemoryConfirmation != null,
       });
 
     if (offer) {
@@ -994,6 +1093,7 @@ async function processV2NormalInboundOutcome(
         ...(memorySignalStored != null ? { memory_signal: memorySignalStored } : {}),
         ...proofMomentPayloadFields(accountabilityProofMoment),
         ...(gatedDecision.should_write_outcome_event ? victoryExtrasForSpine : {}),
+        ...(centralSmsTurnShadowStored != null ? { central_sms_turn_shadow: centralSmsTurnShadowStored } : {}),
         ai: aiPayload,
       },
       idempotency_key: idempotencyKey,
@@ -1006,6 +1106,12 @@ async function processV2NormalInboundOutcome(
       }
     } else {
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      maybeLogCentralBrainDisagreement({
+        commitmentId: commitment.id,
+        stored: centralSmsTurnShadowStored ?? undefined,
+        spineEventType: finalEventType,
+        shouldWriteOutcome: gatedDecision.should_write_outcome_event,
+      });
     }
 
     await recomputeV2CoachingMemory(commitment.id, {
@@ -1121,7 +1227,8 @@ async function processV2BlockerCapture(
     });
 
   const effectiveBlockerAsk = getEffectiveCoachingAsk(commitment);
-  const [convPackBlocker, blockerAckTry] = await Promise.all([
+  const blockerClassification = classifyV2InboundReply(blockerText.trim());
+  const [convPackBlocker, recentEventsForCentral, pendingMemCentral] = await Promise.all([
     blockerMemoryTry
       ? buildV2SmsConversationContextPack({
           clerkUserId: userId,
@@ -1132,19 +1239,16 @@ async function processV2BlockerCapture(
           preloadedCoachingMemory: blockerCoachingMemory,
         })
       : Promise.resolve(null as V2SmsConversationContextPack | null),
-    tryGenerateV2BlockerAckMessage({
-      commitment,
-      followingEventType: following,
-      blockerText,
-      preferredName: blockerPreferredName,
-      lifeDesires: blockerLifeDesires,
-      peopleSummary: blockerPeopleSummary,
-      responsibility: blockerResponsibility,
-      identityAnchorText: blockerIdentityForPrompt,
-      coachingMemory: blockerCoachingMemory,
-      ...(brokePause ? { brokePause: true } : {}),
-    }),
+    getRecentV2EventsForAi(commitment.id),
+    fetchLatestAwaitingMemoryConfirmation(commitment.id),
   ]);
+
+  const latestCheckEvBlock = recentEventsForCentral.find((e) => e.event_type === "check_sent");
+  const checkPayloadBlock = latestCheckEvBlock?.payload_json ?? {};
+  const lastOutboundBlockPreview =
+    typeof checkPayloadBlock.body_preview === "string" && checkPayloadBlock.body_preview.trim().length > 0
+      ? checkPayloadBlock.body_preview.trim().slice(0, 260)
+      : null;
 
   let blockerMemoryStored: Record<string, unknown> | null = null;
   if (blockerMemoryTry && convPackBlocker) {
@@ -1170,6 +1274,98 @@ async function processV2BlockerCapture(
       });
     }
   }
+
+  const centralBlockerShadowStored = await interpretV2CentralSmsTurn({
+    clerkUserId: userId,
+    commitmentId: commitment.id,
+    commitment,
+    effectiveAsk: effectiveBlockerAsk,
+    inboundText: blockerText,
+    lastOutboundPromptPreview: lastOutboundBlockPreview,
+    recentSmsContextBlock: convPackBlocker?.promptBlock ?? null,
+    blockerCapturePending: true,
+    refreshSessionActive: isRefreshSessionActive(commitment),
+    smsPendingResolutionActive: isSmsInboundPendingResolutionActionable(commitment),
+    contractOverlayProposalActive: isV2PendingProposalValid(commitment),
+    memoryConfirmationPending: pendingMemCentral != null,
+    activeCommitmentPresent: true,
+    deterministicClassifierEventType: blockerClassification.eventType,
+    deterministicNormalizedHint: blockerClassification.normalizedHint ?? null,
+    gatedSummary: null,
+    shadowInterpretationRaw: null,
+    routeContext: "blocker_capture",
+  });
+
+  const blockerBrainControlEnabled = isV2CentralSmsBrainControlEnabled();
+  if (
+    blockerBrainControlEnabled &&
+    shouldCentralBrainBlockBlockerCapture({
+      stored: centralBlockerShadowStored,
+      controlEnabled: blockerBrainControlEnabled,
+    }) &&
+    centralBlockerShadowStored != null
+  ) {
+    await clearBlockerCapturePending(commitment.id);
+    const pivotBody = buildCentralBrainHumanTetherReply({
+      turnPurpose: centralBlockerShadowStored.central_turn_purpose,
+      inboundText: blockerText,
+      effectiveAskSnippet: effectiveBlockerAsk,
+      lastOutboundPromptPreview: lastOutboundBlockPreview,
+      route: "blocker_capture",
+    });
+    console.log(
+      "[central-sms-brain/control]",
+      JSON.stringify({
+        wave: "14.2",
+        commitment_id: commitment.id,
+        control_action: "blocked_blocker_capture",
+        no_event_reason: "central_brain_human_or_meta",
+        reply_source: "central_brain_deterministic_v14_2",
+        central_purpose: centralBlockerShadowStored.central_turn_purpose,
+        central_confidence: centralBlockerShadowStored.confidence,
+        old_path_that_would_have_run: "blocker_captured",
+      })
+    );
+    const pivotNow = new Date().toISOString();
+    const { data: persistedPivot } = await supabaseServer
+      .from("sms_inbound_coach_jobs")
+      .update({
+        reply_body: pivotBody,
+        status: "reply_ready",
+        next_retry_at: pivotNow,
+        updated_at: pivotNow,
+        last_error: null,
+      })
+      .eq("message_sid", job.message_sid)
+      .eq("status", "processing")
+      .select()
+      .maybeSingle();
+    if (!persistedPivot) {
+      const j2 = await loadJob(job.message_sid);
+      if (j2?.reply_body?.trim()) {
+        await commitAndSendInboundCoachReply(j2, userId);
+        return;
+      }
+      throw new Error("v2_blocker_human_pivot_reply_ready_failed");
+    }
+    const freshPv = (await loadJob(job.message_sid)) ?? job;
+    await commitAndSendInboundCoachReply(freshPv, userId);
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    return;
+  }
+
+  const blockerAckTry = await tryGenerateV2BlockerAckMessage({
+    commitment,
+    followingEventType: following,
+    blockerText,
+    preferredName: blockerPreferredName,
+    lifeDesires: blockerLifeDesires,
+    peopleSummary: blockerPeopleSummary,
+    responsibility: blockerResponsibility,
+    identityAnchorText: blockerIdentityForPrompt,
+    coachingMemory: blockerCoachingMemory,
+    ...(brokePause ? { brokePause: true } : {}),
+  });
 
   const ackBody = blockerAckTry.ok ? blockerAckTry.message : templateAckBody;
   const blockerAiPayload = buildBlockerAckAiPayload({
@@ -1232,6 +1428,7 @@ async function processV2BlockerCapture(
       ...(ackSid ? { ack_message_sid: ackSid } : {}),
       ...(blockerMemoryStored != null ? { memory_signal: blockerMemoryStored } : {}),
       ...proofMomentPayloadFields(blockerProofMoment),
+      ...(centralBlockerShadowStored != null ? { central_sms_turn_shadow: centralBlockerShadowStored } : {}),
       ai: blockerAiPayload,
     },
     idempotency_key: `v2_blocker_captured:${job.message_sid}`,
@@ -1249,6 +1446,13 @@ async function processV2BlockerCapture(
     });
     return;
   }
+
+  maybeLogCentralBrainDisagreement({
+    commitmentId: commitment.id,
+    stored: centralBlockerShadowStored ?? undefined,
+    spineEventType: "blocker_captured",
+    shouldWriteOutcome: true,
+  });
 
   await clearBlockerCapturePending(commitment.id);
   await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());

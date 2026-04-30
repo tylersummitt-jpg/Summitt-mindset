@@ -4,6 +4,7 @@ import {
   loadOperatorSmsQaRecentUsers,
   type OperatorSmsQaLoaded,
 } from "@/lib/operator-sms-qa-view";
+import { getV2SmsProductionActivationSnapshot } from "@/lib/v2-sms-production-activation-snapshot";
 
 async function resolveSearchParams(
   searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>
@@ -72,9 +73,44 @@ export default async function OperatorSmsQaPage({
   });
 
   const detail = userId ? await loadOperatorSmsQaDetail(userId) : null;
+  const activation = getV2SmsProductionActivationSnapshot();
 
   return (
     <main className="space-y-6">
+      <Card title="SMS / AI activation (this deploy)" subtitle="Effective flags from runtime helpers — compares to env on Vercel">
+        <p className="text-xs text-gray-500">{activation.nodeEnv ? `NODE_ENV=${activation.nodeEnv}` : "NODE_ENV unset"}</p>
+        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Infrastructure</p>
+        <ul className="mt-1 space-y-1 text-sm">
+          {activation.infra.map((r) => (
+            <li key={r.key} className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:gap-2">
+              <span className="shrink-0 font-mono text-xs text-gray-600">{r.effective ? "ON " : "OFF"}</span>
+              <span>
+                <span className="text-gray-900">{r.key}</span>
+                {r.note ? <span className="mt-0.5 block text-xs text-gray-500">{r.note}</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">Inbound / outbound / auxiliary AI</p>
+        <ul className="mt-1 space-y-1 text-sm">
+          {activation.aiAndSms.map((r) => (
+            <li key={r.key} className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:gap-2">
+              <span className="shrink-0 font-mono text-xs text-gray-600">{r.effective ? "ON " : "OFF"}</span>
+              <span>
+                <span className="text-gray-900">{r.key}</span>
+                {r.note ? <span className="mt-0.5 block text-xs text-gray-500">{r.note}</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">Release checklist hints</p>
+        <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-gray-600">
+          {activation.reminders.map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ul>
+      </Card>
+
       <div>
         <h1 className="text-2xl font-bold text-gray-900">SMS transcript QA</h1>
         <p className="mt-1 text-sm text-gray-600">

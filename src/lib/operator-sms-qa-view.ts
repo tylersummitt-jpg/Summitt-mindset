@@ -180,6 +180,52 @@ function extractSpineFlags(eventType: string, p: Record<string, unknown>): strin
   if (typeof p.victory_room_callout_reason === "string" && p.victory_room_callout_reason.trim()) {
     flags.push(`victory_callout_reason=${p.victory_room_callout_reason}`);
   }
+  const cen = p.central_sms_turn_shadow as Record<string, unknown> | undefined;
+  if (cen && typeof cen === "object") {
+    if (cen.central_sms_brain_failed === true) flags.push("central_failed");
+    if (typeof cen.central_turn_purpose === "string" && cen.central_turn_purpose.trim()) {
+      flags.push(`central_purpose=${cen.central_turn_purpose}`);
+    }
+    if (typeof cen.confidence === "number" && Number.isFinite(cen.confidence)) {
+      flags.push(`central_confidence=${cen.confidence.toFixed(2)}`);
+    }
+    if (cen.should_use_existing_branch != null && String(cen.should_use_existing_branch).trim()) {
+      flags.push(`central_branch=${String(cen.should_use_existing_branch)}`);
+    }
+    const sf = cen.safety_flags;
+    if (Array.isArray(sf) && sf.length > 0) {
+      flags.push(`central_safety=${sf.slice(0, 4).map(String).join(",")}`);
+    }
+    const riskyCentral =
+      typeof cen.central_turn_purpose === "string" &&
+      (cen.central_turn_purpose === "meta_question_or_confusion" ||
+        cen.central_turn_purpose === "human_conversation" ||
+        cen.central_turn_purpose === "advice_or_coaching_request");
+    if (riskyCentral && eventType === "blocker_captured") {
+      flags.push("CENTRAL_MISMATCH_META_vs_blocker_event");
+    }
+    if (riskyCentral && eventType === "user_partial") {
+      flags.push("CENTRAL_REVIEW_humanish_turn_vs_partial_event");
+    }
+    if (
+      riskyCentral &&
+      (eventType === "user_partial" || eventType === "user_no") &&
+      cen.should_answer_without_scoring === true
+    ) {
+      flags.push("CENTRAL_MISMATCH_meta_vs_negative_outcome");
+    }
+  }
+  const cenCtrl = p.central_sms_turn_control as Record<string, unknown> | undefined;
+  if (cenCtrl && typeof cenCtrl === "object") {
+    if (cenCtrl.control_action === "blocked_blocker_capture") flags.push("CENTRAL_CONTROL_BLOCKED_BLOCKER");
+    if (cenCtrl.control_action === "blocked_outcome_scoring") flags.push("CENTRAL_CONTROL_BLOCKED_OUTCOME");
+    if (typeof cenCtrl.no_event_reason === "string" && cenCtrl.no_event_reason.trim()) {
+      flags.push(`no_event_reason=${String(cenCtrl.no_event_reason).slice(0, 80)}`);
+    }
+    if (cenCtrl.reply_source === "central_brain_deterministic_v14_2") {
+      flags.push("reply_source=central_brain_deterministic_v14_2");
+    }
+  }
   if (eventType === "blocker_captured" && mem?.memory_signal_detected === true) {
     flags.push("Blocker + memory signal");
   }

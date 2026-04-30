@@ -151,6 +151,102 @@ function proofBackedBody(payload: Record<string, unknown>, fallback: string): st
   return fallback;
 }
 
+/** Wave 12.2 — display-only: pair shrink_ask overlay + supplemental tighten proof within this window. */
+const TIGHTEN_OVERLAY_SMS_DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+const MERGED_TIGHTEN_DISPLAY_ID_PREFIX = "merged:w12_2_tighten_display:";
+
+function isShrinkAskOverlayRow(row: EventRow): boolean {
+  if (row.event_type !== "contract_overlay_activated") return false;
+  return parsePayload(row).contract_kind === "shrink_ask";
+}
+
+function isWave12CommitmentTightenProofRow(row: EventRow): boolean {
+  if (row.event_type !== "sms_memory_signal") return false;
+  const payload = parsePayload(row);
+  const ms = payload.memory_signal;
+  const msObj =
+    ms && typeof ms === "object" && !Array.isArray(ms) ? (ms as Record<string, unknown>) : null;
+  if (msObj?.wave12_commitment_change_proof !== true) return false;
+  return payload.proof_moment_type === "commitment_tightened";
+}
+
+function overlayIdFromMergedW122TightenDisplayId(momentId: string): string | null {
+  if (!momentId.startsWith(MERGED_TIGHTEN_DISPLAY_ID_PREFIX)) return null;
+  const rest = momentId.slice(MERGED_TIGHTEN_DISPLAY_ID_PREFIX.length);
+  const i = rest.indexOf(":");
+  if (i <= 0) return null;
+  return rest.slice(0, i);
+}
+
+/**
+ * Victory Room display only: one card for shrink_ask overlay + Wave 12.1 tighten proof when paired in time.
+ * Keeps both spine rows; prefers proof-backed body from the sms row; headline "Honest adjustment".
+ */
+function dedupeTightenOverlayDisplayMoments(eventRows: EventRow[], moments: VictoryMoment[]): VictoryMoment[] {
+  const overlays = eventRows.filter(isShrinkAskOverlayRow);
+  const tightenSms = eventRows.filter(isWave12CommitmentTightenProofRow);
+  if (overlays.length === 0 || tightenSms.length === 0) return moments;
+
+  const pairedOverlay = new Set<string>();
+  const pairedSms = new Set<string>();
+  const merged: VictoryMoment[] = [];
+
+  const byTime = (a: EventRow, b: EventRow) =>
+    new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime();
+  const sortedOverlays = [...overlays].sort(byTime);
+  const sortedSms = [...tightenSms].sort(byTime);
+
+  for (const o of sortedOverlays) {
+    if (pairedOverlay.has(o.id)) continue;
+    const t0 = new Date(o.occurred_at).getTime();
+    if (!Number.isFinite(t0)) continue;
+    let best: EventRow | null = null;
+    let bestDt = TIGHTEN_OVERLAY_SMS_DEDUPE_WINDOW_MS + 1;
+    for (const s of sortedSms) {
+      if (pairedSms.has(s.id)) continue;
+      const t1 = new Date(s.occurred_at).getTime();
+      if (!Number.isFinite(t1)) continue;
+      const dt = Math.abs(t1 - t0);
+      if (dt <= TIGHTEN_OVERLAY_SMS_DEDUPE_WINDOW_MS && dt < bestDt) {
+        best = s;
+        bestDt = dt;
+      }
+    }
+    if (!best) continue;
+    pairedOverlay.add(o.id);
+    pairedSms.add(best.id);
+    const smsPayload = parsePayload(best);
+    const body = proofBackedBody(
+      smsPayload,
+      overlayActivatedCopy("shrink_ask").body
+    );
+    const tOverlay = new Date(o.occurred_at).getTime();
+    const tSms = new Date(best.occurred_at).getTime();
+    const occurredAt =
+      Number.isFinite(tOverlay) && Number.isFinite(tSms)
+        ? new Date(Math.max(tOverlay, tSms)).toISOString()
+        : o.occurred_at;
+    merged.push({
+      id: `${MERGED_TIGHTEN_DISPLAY_ID_PREFIX}${o.id}:${best.id}`,
+      occurredAt,
+      headline: "Honest adjustment",
+      body,
+      groundedInEventTypes: ["contract_overlay_activated", "sms_memory_signal"],
+    });
+  }
+
+  if (merged.length === 0) return moments;
+  const suppress = new Set<string>();
+  for (const o of overlays) {
+    if (pairedOverlay.has(o.id)) suppress.add(o.id);
+  }
+  for (const s of tightenSms) {
+    if (pairedSms.has(s.id)) suppress.add(s.id);
+  }
+  const kept = moments.filter((m) => !suppress.has(m.id));
+  return dedupeMomentsById([...kept, ...merged]);
+}
+
 function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
   const out: VictoryMoment[] = [];
   for (const row of rows) {
@@ -463,12 +559,16 @@ function buildArchiveMomentsFromEvents(
     }
   }
 
-  const overlayRefresh = buildSingleEventMoments(rowsDesc).filter((m) => {
-    const t0 = m.groundedInEventTypes[0];
-    if (t0 === "user_yes") return false;
-    if (t0 === "contract_overlay_activated" && declineActivatedIds.has(m.id)) return false;
-    return true;
-  });
+  const overlayRefresh = dedupeTightenOverlayDisplayMoments(eventRowsFull, buildSingleEventMoments(rowsDesc)).filter(
+    (m) => {
+      const t0 = m.groundedInEventTypes[0];
+      if (t0 === "user_yes") return false;
+      if (t0 === "contract_overlay_activated" && declineActivatedIds.has(m.id)) return false;
+      const emb = overlayIdFromMergedW122TightenDisplayId(m.id);
+      if (emb && declineActivatedIds.has(emb)) return false;
+      return true;
+    }
+  );
 
   const yesCandidates = rowsAsc.filter((r) => r.event_type === "user_yes" && !excludeYesIds.has(r.id));
   const yesSampled = sampleEventRowsEvenly(yesCandidates, maxStandaloneYes);
@@ -854,6 +954,7 @@ export async function loadVictoryRoomView(
   const reactivationYesMoment = findReactivationYesMoment(rowsAsc, commitment.reactivation_entered_at);
 
   const singlesRaw = buildSingleEventMoments(rowsDesc);
+  const singlesDeduped = dedupeTightenOverlayDisplayMoments(eventRowsRecent, singlesRaw);
   const excludeEventIds = new Set<string>();
   if (honestyMoment?.id.startsWith("composite:honesty:")) {
     excludeEventIds.add(honestyMoment.id.slice("composite:honesty:".length));
@@ -864,7 +965,12 @@ export async function loadVictoryRoomView(
   if (declineActivateMoment?.id.startsWith("composite:decline_activate:")) {
     excludeEventIds.add(declineActivateMoment.id.slice("composite:decline_activate:".length));
   }
-  const singles = singlesRaw.filter((m) => !excludeEventIds.has(m.id));
+  const singles = singlesDeduped.filter((m) => {
+    if (excludeEventIds.has(m.id)) return false;
+    const emb = overlayIdFromMergedW122TightenDisplayId(m.id);
+    if (emb && excludeEventIds.has(emb)) return false;
+    return true;
+  });
 
   const merged = dedupeMomentsById([
     ...singles,
