@@ -2,7 +2,7 @@
 
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { getMetaPixelId, trackPageView } from "@/lib/meta-pixel";
 
 /**
@@ -14,22 +14,19 @@ function buildRouteKey(pathname: string, search: string): string {
   return search ? `${pathname}?${search}` : pathname;
 }
 
-export function MetaPixelRoot() {
-  const pixelId = getMetaPixelId();
+function MetaPixelInner({ pixelId }: { pixelId: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? "";
 
   useEffect(() => {
-    if (!pixelId) return;
-
     const routeKey = buildRouteKey(pathname, search);
     if (lastMetaPageViewRouteKey === routeKey) return;
 
     let cancelled = false;
     let attempts = 0;
     const maxAttempts = 80;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let timeoutId: number | null = null;
 
     const tick = () => {
       if (cancelled) return;
@@ -45,7 +42,7 @@ export function MetaPixelRoot() {
 
       attempts += 1;
       if (attempts < maxAttempts) {
-        if (timeoutId) window.clearTimeout(timeoutId);
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
         timeoutId = window.setTimeout(tick, 40);
       }
     };
@@ -53,13 +50,9 @@ export function MetaPixelRoot() {
     tick();
     return () => {
       cancelled = true;
-      if (timeoutId) window.clearTimeout(timeoutId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
   }, [pixelId, pathname, search]);
-
-  if (!pixelId) {
-    return null;
-  }
 
   const inlineSnippet = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');`;
 
@@ -69,5 +62,19 @@ export function MetaPixelRoot() {
       strategy="afterInteractive"
       dangerouslySetInnerHTML={{ __html: inlineSnippet }}
     />
+  );
+}
+
+export function MetaPixelRoot() {
+  const pixelId = getMetaPixelId();
+
+  if (!pixelId) {
+    return null;
+  }
+
+  return (
+    <Suspense fallback={null}>
+      <MetaPixelInner pixelId={pixelId} />
+    </Suspense>
   );
 }
