@@ -3,6 +3,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { MetaPixelRoot } from "@/components/MetaPixelRoot";
 import { Navbar } from "@/components/Navbar";
 import "./globals.css";
 
@@ -53,6 +54,7 @@ export default function RootLayout({
         <ClerkProvider
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
         >
+          <MetaPixelRoot />
           <div className="flex flex-col min-h-screen">
             <Navbar />
 

@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment variables
+
+- **`NEXT_PUBLIC_META_PIXEL_ID`** — optional. When set (numeric Meta Pixel ID only), the [Meta Pixel](https://developers.facebook.com/docs/meta-pixel) loads for **PageView** analytics. If unset, the app skips pixel code entirely.
+
 ## Getting Started
 
 First, run the development server:
