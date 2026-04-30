@@ -4,6 +4,10 @@ import Link from "next/link";
 const ctaPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]";
 
+/** Hero CTA: same as primary but ring offset matches dark hero so focus stays visible */
+const ctaHeroPrimaryClass =
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950";
+
 export default async function CoachLeadershipKitPage({
   searchParams,
 }: {
@@ -16,50 +20,60 @@ export default async function CoachLeadershipKitPage({
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* 1. Hero */}
-      <section className="border-b border-[var(--border)] bg-[var(--ink)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 md:py-16 lg:py-20">
-          <div className="flex flex-col gap-12 lg:grid lg:grid-cols-2 lg:gap-14 lg:items-center">
-            <div className="flex flex-col gap-8 min-w-0 order-1">
+      {/* 1. Hero — image-led, live HTML overlay */}
+      <section className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950">
+        <div className="relative isolate min-h-[72vh] md:min-h-[80vh] w-full min-w-0">
+          <div className="absolute inset-0 md:hidden" aria-hidden>
+            <Image
+              src="/brand/coach-leadership-kit-hero-mobile.png"
+              alt=""
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover object-center"
+            />
+          </div>
+          <div className="absolute inset-0 hidden md:block" aria-hidden>
+            <Image
+              src="/brand/coach-leadership-kit-hero-desktop.png"
+              alt=""
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover object-[center_30%] lg:object-center"
+            />
+          </div>
+          <div
+            className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-t from-black via-black/75 to-black/35 md:bg-gradient-to-r md:from-black md:from-45% md:via-black/70 md:via-55% md:to-transparent"
+            aria-hidden
+          />
+          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-14 pb-16 md:py-20 md:pb-24 md:justify-end md:items-start">
+            <div className="flex w-full max-w-2xl flex-col gap-8">
               <div className="space-y-5">
-                <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-bold leading-tight text-[var(--text)] tracking-tight">
+                <h1 className="text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-sm sm:text-4xl md:text-5xl lg:text-6xl">
                   Become the Coach Your Team Needs—Every Single Day.
                 </h1>
-                <p className="text-lg text-[var(--muted)] leading-relaxed max-w-xl">
+                <p className="text-lg leading-relaxed text-white/90 drop-shadow-sm sm:text-xl">
                   Daily personal coaching powered by Pat Summitt AI—so you stay
                   clear, disciplined, and consistent. Plus a free Leadership Kit
                   to help you build culture and standards with your team.
                 </p>
               </div>
-
-              <div className="flex flex-col gap-3 w-full max-w-md">
-                <Link href={subscribeHref} className={ctaPrimaryClass}>
+              <div className="flex w-full max-w-md flex-col gap-3">
+                <Link href={subscribeHref} className={ctaHeroPrimaryClass}>
                   Get the Leadership Kit
                 </Link>
-                <p className="text-sm text-[var(--muted)] text-center sm:text-left">
+                <p className="text-center text-sm text-white/80 sm:text-left">
                   Takes less than 2 minutes
                 </p>
                 <p className="pt-1">
                   <Link
                     href={`/sign-in?redirect_url=${encodeURIComponent(subscribeHref)}`}
-                    className="text-[var(--brand)] font-semibold hover:underline text-sm"
+                    className="text-sm font-semibold text-[var(--brand)] underline decoration-[var(--brand)] underline-offset-4 hover:opacity-90"
                   >
                     Already a member? Sign in →
                   </Link>
                 </p>
-              </div>
-            </div>
-
-            <div className="relative w-full flex justify-center lg:justify-end order-2 min-w-0">
-              <div className="relative w-full max-w-md lg:max-w-none aspect-square max-h-[min(72vw,420px)] sm:max-h-[480px] lg:max-h-[520px] lg:w-full">
-                <Image
-                  src="/brand/coach-kit-box.png"
-                  alt="Summitt Mindset Leadership Kit box"
-                  fill
-                  sizes="(max-width: 1023px) 90vw, 45vw"
-                  priority
-                  className="object-contain object-center"
-                />
               </div>
             </div>
           </div>
