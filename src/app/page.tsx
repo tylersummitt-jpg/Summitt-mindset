@@ -81,10 +81,10 @@ export default async function HomePage() {
             />
           </div>
           <div
-            className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-t from-black via-black/75 to-black/35 md:bg-gradient-to-r md:from-black md:from-45% md:via-black/70 md:via-55% md:to-transparent"
+            className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_top,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.38)_42%,rgba(0,0,0,0.12)_58%,transparent_78%)] md:bg-[linear-gradient(90deg,rgba(0,0,0,0.94)_0%,rgba(0,0,0,0.52)_14%,rgba(0,0,0,0.2)_26%,rgba(0,0,0,0.06)_36%,transparent_46%)]"
             aria-hidden
           />
-          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:py-20 md:pb-24 md:justify-end md:items-start">
+          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:mx-0 md:ml-6 lg:ml-10 xl:ml-12 md:mr-auto md:py-20 md:pb-24 md:justify-end md:items-start">
             <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
               <div className="space-y-3 md:space-y-5">
                 <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
@@ -150,21 +150,6 @@ export default async function HomePage() {
                   <p className="text-sm text-white/80 drop-shadow-sm">
                     7-day free trial • Cancel anytime
                   </p>
-
-                  <div className="rounded-2xl border border-white/15 bg-white/95 p-6 shadow-lg backdrop-blur-sm mt-1">
-                    <p className="text-sm font-semibold text-[var(--text)] mb-1">Already a member?</p>
-
-                    <p className="text-sm text-[var(--muted)] mb-5">
-                      Sign in to open your dashboard, commitment, and Victory Room.
-                    </p>
-
-                    <Link
-                      href="/sign-in"
-                      className="text-[var(--brand)] font-semibold hover:underline"
-                    >
-                      Sign In →
-                    </Link>
-                  </div>
                 </>
               )}
             </div>
