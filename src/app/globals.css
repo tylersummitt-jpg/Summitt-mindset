@@ -6,9 +6,8 @@
  * ======================================================
  *
  * DESIGN INTENT:
- * - Feel like a premium coaching workbook, not a web app
- * - Warm, calm, trustworthy
- * - No visual noise
+ * - Clean white canvas, calm typography
+ * - Trustworthy, minimal chrome
  * - Retention-first (easy on the eyes, zero fatigue)
  */
 
@@ -17,21 +16,17 @@
      Core surfaces
      -------------------------------------------------- */
 
-  /* Warm paper background */
-  --bg: #f8f5f1;
+  /* Page canvas */
+  --bg: #ffffff;
 
-  /* True white cards */
+  /* Cards / elevated surfaces */
   --surface: #ffffff;
 
-  /* Warm neutral band (FIX)
-     - Adds depth without introducing a "blue"
-     - Reads like a soft paper layer
-     - Safe for dark text
-  */
-  --ink: #f2efea;
+  /* Legacy alias: same as page canvas (no warm band) */
+  --ink: #ffffff;
 
-  /* Softer, warmer border */
-  --border: #e6e2dd;
+  /* Neutral border (light gray) */
+  --border: #e5e7eb;
 
   /* --------------------------------------------------
      Text
@@ -45,7 +40,7 @@
      -------------------------------------------------- */
 
   --brand: #f97316;
-  --brand-soft: #fff4e6;
+  --brand-soft: #f9fafb;
 
   /* --------------------------------------------------
      Focus
@@ -71,5 +66,6 @@ button {
 }
 
 ::selection {
-  background: var(--brand-soft);
+  background: rgba(249, 115, 22, 0.16);
+  color: var(--text);
 }

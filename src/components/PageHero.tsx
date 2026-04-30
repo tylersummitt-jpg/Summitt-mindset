@@ -13,7 +13,7 @@ type PageHeroProps = {
 
 /**
  * Reusable hero section modeled after home page.
- * Matches: bg-[var(--ink)], grid, rounded image, next/image.
+ * White canvas, grid, image, next/image.
  */
 export function PageHero({
   title,
@@ -26,7 +26,7 @@ export function PageHero({
   children,
 }: PageHeroProps) {
   return (
-    <section className="bg-[var(--ink)]">
+    <section className="bg-white">
       <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 md:py-24 grid md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 items-center">
         <div className="min-w-0">
           {eyebrow && (
