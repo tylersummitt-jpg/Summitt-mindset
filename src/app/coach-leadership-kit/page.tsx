@@ -222,52 +222,7 @@ export default async function CoachLeadershipKitPage({
         </div>
       </section>
 
-      {/* 5. What You Get */}
-      <section className="py-14 md:py-16 lg:py-20">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-10 md:mb-12">
-            What You Get
-          </h2>
-          <ul className="text-left space-y-5 text-[var(--text)]">
-            <li className="flex gap-3 items-start">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span className="leading-relaxed">
-                Daily coaching from Pat Summitt AI
-              </span>
-            </li>
-            <li className="flex gap-3 items-start">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span className="leading-relaxed">
-                Accountability for you as a coach—and in your personal life
-              </span>
-            </li>
-            <li className="flex gap-3 items-start">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span className="leading-relaxed">
-                FREE Leadership Kit to build a winning culture for your team
-              </span>
-            </li>
-            <li className="flex gap-3 items-start">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span className="leading-relaxed">Cancel anytime</span>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      {/* 6. Final CTA */}
+      {/* 5. Final CTA */}
       <section className="py-14 md:py-16 lg:py-20 pb-24 border-t border-[var(--border)] bg-[var(--surface)]">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center space-y-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] leading-tight">
