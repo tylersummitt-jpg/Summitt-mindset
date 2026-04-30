@@ -49,6 +49,8 @@ export default async function HomePage() {
     data = {};
   }
 
+  const signInSubscribeHref = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+
   return (
     <main>
       <section className="bg-[var(--ink)]">
@@ -122,7 +124,7 @@ export default async function HomePage() {
 
             <div className="flex flex-col gap-3">
               <Link
-                href="/subscribe"
+                href={user ? "/subscribe" : signInSubscribeHref}
                 className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
               >
                 Start 7-Day Free Trial
@@ -199,7 +201,7 @@ export default async function HomePage() {
           <p className="text-sm text-gray-600">
             Most people start with the{" "}
             <Link
-              href="/subscribe"
+              href={user ? "/subscribe" : signInSubscribeHref}
               className="text-[var(--brand)] font-semibold hover:underline"
             >
               7-day free trial

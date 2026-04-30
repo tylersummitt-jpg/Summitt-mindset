@@ -1,8 +1,14 @@
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
 import { PageHero } from "@/components/PageHero";
 import { getPageImage } from "@/data/page-images";
 
-export default function AskPatPreviewPage() {
+const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+
+export default async function AskPatPreviewPage() {
+  const user = await currentUser();
+  const trialHref = user ? "/subscribe" : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
+
   const cardBase =
     "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm";
   const image = getPageImage("/ask-pat-preview");
@@ -18,7 +24,7 @@ export default function AskPatPreviewPage() {
       >
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
-            href="/subscribe"
+            href={trialHref}
             className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
           >
             Start 7-Day Free Trial
@@ -137,7 +143,7 @@ export default function AskPatPreviewPage() {
           practice.
         </p>
         <Link
-          href="/subscribe"
+          href={trialHref}
           className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
         >
           Start 7-Day Free Trial

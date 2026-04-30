@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
+
+const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
 
 type FilmVideoPreview = {
   id: string;
@@ -11,6 +14,9 @@ type FilmVideoPreview = {
 };
 
 export default async function FilmRoomPreviewPage() {
+  const user = await currentUser();
+  const trialHref = user ? "/subscribe" : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
+
   const cardBase =
     "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm";
 
@@ -64,7 +70,7 @@ export default async function FilmRoomPreviewPage() {
             videoList.map((video) => (
               <Link
                 key={video.id}
-                href="/subscribe"
+                href={trialHref}
                 className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm block"
               >
                 <div className="relative aspect-[4/3] sm:aspect-video bg-[var(--ink)]">
@@ -172,7 +178,7 @@ export default async function FilmRoomPreviewPage() {
           Explore the Film Room inside Summitt Mindset.
         </p>
         <Link
-          href="/subscribe"
+          href={trialHref}
           className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
         >
           Start 7-Day Free Trial

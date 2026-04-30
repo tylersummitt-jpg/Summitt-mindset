@@ -23,6 +23,8 @@ const linkActive =
 const linkInactive =
   "text-[var(--muted)] hover:text-[var(--text)]";
 
+const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+
 export function Navbar() {
   const pathname = usePathname();
   const { user, isLoaded, isSignedIn } = useUser();
@@ -51,23 +53,29 @@ export function Navbar() {
   // PUBLIC NAV (logged out) — mirrors product structure
   // --------------------------------------------------
   const publicLinks = [
-    { href: "/", label: "Home" },
-    { href: "/ask-pat-preview", label: "Ask Pat" },
-    { href: "/film-room-preview", label: "Film Room" },
-    { href: "/subscribe", label: "Start Free Trial" },
-    { href: "/sign-in", label: "Sign In" },
+    { href: "/", label: "Home", key: "home" },
+    { href: "/ask-pat-preview", label: "Ask Pat", key: "ask-pat-preview" },
+    { href: "/film-room-preview", label: "Film Room", key: "film-room-preview" },
+    {
+      href: SIGN_IN_WITH_SUBSCRIBE_REDIRECT,
+      label: "Start Free Trial",
+      key: "start-trial",
+    },
+    { href: "/sign-in", label: "Sign In", key: "sign-in" },
   ];
 
   // --------------------------------------------------
   // APP NAV (logged in)
   // --------------------------------------------------
   const appLinks = [
-    { href: "/", label: "Home" },
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/ask-pat", label: "Ask Pat" },
-    { href: "/film-room", label: "Film Room" },
-    { href: "/user", label: "Account" },
-    ...(!isSubscribed ? [{ href: "/subscribe", label: "Subscribe" }] : []),
+    { href: "/", label: "Home", key: "home" },
+    { href: "/dashboard", label: "Dashboard", key: "dashboard" },
+    { href: "/ask-pat", label: "Ask Pat", key: "ask-pat" },
+    { href: "/film-room", label: "Film Room", key: "film-room" },
+    { href: "/user", label: "Account", key: "user" },
+    ...(!isSubscribed
+      ? [{ href: "/subscribe", label: "Subscribe", key: "subscribe" }]
+      : []),
   ];
 
   const navLinks = isSignedIn ? appLinks : publicLinks;
@@ -108,7 +116,7 @@ export function Navbar() {
         >
           {navLinks.map((link) => (
             <Link
-              key={link.href}
+              key={link.key}
               href={link.href}
               className={linkClass(link.href)}
             >
@@ -146,7 +154,7 @@ export function Navbar() {
           >
             {navLinks.map((link) => (
               <Link
-                key={link.href}
+                key={link.key}
                 href={link.href}
                 className={linkClass(link.href) + " py-3 px-2 block"}
                 onClick={() => setIsMenuOpen(false)}

@@ -2,6 +2,10 @@
 
 import { SignIn } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import {
+  sanitizeInternalRedirectUrl,
+  sanitizeSubscribeRedirectUrl,
+} from "@/lib/safe-redirect";
 
 /**
  * ======================================================
@@ -22,11 +26,16 @@ export default function SignInPage() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams?.get("redirect_url");
 
+  const safeAfterSignInUrl =
+    sanitizeInternalRedirectUrl(redirectUrl) ?? "/post-sign-in";
+  const safeAfterSignUpUrl =
+    sanitizeSubscribeRedirectUrl(redirectUrl) ?? "/onboarding";
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <SignIn
-        afterSignInUrl={redirectUrl || "/post-sign-in"}
-        afterSignUpUrl="/onboarding"
+        afterSignInUrl={safeAfterSignInUrl}
+        afterSignUpUrl={safeAfterSignUpUrl}
       />
     </div>
   );

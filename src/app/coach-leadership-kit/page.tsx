@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
 
 const ctaPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]";
@@ -8,15 +9,12 @@ const ctaPrimaryClass =
 const ctaHeroPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
 
-export default async function CoachLeadershipKitPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ src?: string }> | { src?: string };
-}) {
-  const params =
-    searchParams instanceof Promise ? await searchParams : searchParams;
-  const src = typeof params?.src === "string" ? params.src : undefined;
-  const subscribeHref = src === "coach" ? "/subscribe?src=coach" : "/subscribe";
+const COACH_SUBSCRIBE_PATH = "/subscribe?src=coach";
+const COACH_SIGN_IN_HREF = `/sign-in?redirect_url=${encodeURIComponent(COACH_SUBSCRIBE_PATH)}`;
+
+export default async function CoachLeadershipKitPage() {
+  const user = await currentUser();
+  const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_IN_HREF;
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
@@ -60,7 +58,7 @@ export default async function CoachLeadershipKitPage({
                 </p>
               </div>
               <div className="w-full max-w-md">
-                <Link href={subscribeHref} className={ctaHeroPrimaryClass}>
+                <Link href={leadershipKitHref} className={ctaHeroPrimaryClass}>
                   Get the Leadership Kit
                 </Link>
               </div>
@@ -157,7 +155,7 @@ export default async function CoachLeadershipKitPage({
                   <span>Built for middle &amp; high school teams</span>
                 </li>
               </ul>
-              <Link href={subscribeHref} className={ctaPrimaryClass}>
+              <Link href={leadershipKitHref} className={ctaPrimaryClass}>
                 Get the Leadership Kit
               </Link>
             </div>
@@ -228,7 +226,7 @@ export default async function CoachLeadershipKitPage({
           <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] leading-tight">
             Start Building Your Team&apos;s Culture Today
           </h2>
-          <Link href={subscribeHref} className={ctaPrimaryClass}>
+          <Link href={leadershipKitHref} className={ctaPrimaryClass}>
             Get the Leadership Kit
           </Link>
         </div>
