@@ -16,6 +16,10 @@ function isSubscribedFromMetadata(md: Record<string, any>) {
   );
 }
 
+/** Hero primary CTA — matches coach kit ring offset on dark hero */
+const ctaHeroPrimaryClass =
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
+
 export default async function HomePage() {
   const user = await currentUser();
   const md = (user?.publicMetadata ?? {}) as Record<string, any>;
@@ -52,115 +56,118 @@ export default async function HomePage() {
   const signInSubscribeHref = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
 
   return (
-    <main>
-      <section className="bg-[var(--ink)]">
-        <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 md:py-24 grid md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 items-center">
-          <div className="min-w-0">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight mb-3">
-              Pat Summitt is your personal coach - every day.
-            </h1>
-
-            <p className="text-base sm:text-lg text-[var(--muted)] mb-5 leading-relaxed">
-              Get a daily text message that holds you accountable to one clear commitment and become
-              the person you have always wanted to be.
-            </p>
-
-            {user && (
-              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm mb-6 space-y-4">
-                <p className="text-sm font-semibold">
-                  Welcome back{user.firstName ? `, ${user.firstName}` : ""}.
-                </p>
-
-                {showContinue && (
-                  <>
-                    <p className="text-sm text-[var(--muted)]">
-                      Your dashboard is ready—commitment, SMS check-ins, and Victory Room.
-                    </p>
-
-                    <Link
-                      href="/dashboard"
-                      className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
-                    >
-                      Open dashboard →
-                    </Link>
-                  </>
-                )}
-
-                {showResumeOnboarding && (
-                  <>
-                    <p className="text-sm text-[var(--muted)]">
-                      Finish setup so Pat can hold you to your commitment on SMS.
-                    </p>
-
-                    <Link
-                      href="/onboarding"
-                      className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
-                    >
-                      Resume Onboarding →
-                    </Link>
-                  </>
-                )}
-
-                {showSubscribe && (
-                  <>
-                    <p className="text-sm text-[var(--muted)]">
-                      Start your membership to turn on SMS accountability and the full app.
-                    </p>
-
-                    <Link
-                      href="/subscribe"
-                      className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
-                    >
-                      Start Membership →
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* ======================================================
-                Public CTA Section
-               ====================================================== */}
-
-            <div className="flex flex-col gap-3">
-              <Link
-                href={user ? "/subscribe" : signInSubscribeHref}
-                className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 w-full sm:w-auto"
-              >
-                Start 7-Day Free Trial
-              </Link>
-            </div>
-            <p className="text-sm text-[var(--muted)] mt-2">
-              7-day free trial • Cancel anytime
-            </p>
-
-            {!user && (
-              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm mt-4">
-                <p className="text-sm font-semibold mb-1">Already a member?</p>
-
-                <p className="text-sm text-[var(--muted)] mb-5">
-                  Sign in to open your dashboard, commitment, and Victory Room.
-                </p>
-
-                <Link
-                  href="/sign-in"
-                  className="text-[var(--brand)] font-semibold hover:underline"
-                >
-                  Sign In →
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <div className="relative w-full max-w-full h-[220px] sm:h-[260px] md:h-auto md:aspect-video overflow-hidden rounded-2xl shadow-md ring-1 ring-white/10">
+    <div>
+      {/* Homepage hero — image-led, live HTML overlay */}
+      <section className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950">
+        <div className="relative isolate min-h-[72vh] md:min-h-[80vh] w-full min-w-0">
+          <div className="absolute inset-0 md:hidden" aria-hidden>
             <Image
-              src="/brand/pat-hero.jpeg"
-              alt="Pat Summitt AI coaching experience"
+              src="/brand/home-hero-mobile.png"
+              alt=""
               fill
+              sizes="100vw"
               priority
-              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 672px"
               className="object-cover object-center"
             />
+          </div>
+          <div className="absolute inset-0 hidden md:block" aria-hidden>
+            <Image
+              src="/brand/home-hero-desktop.png"
+              alt=""
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover object-[center_30%] lg:object-center"
+            />
+          </div>
+          <div
+            className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-t from-black via-black/75 to-black/35 md:bg-gradient-to-r md:from-black md:from-45% md:via-black/70 md:via-55% md:to-transparent"
+            aria-hidden
+          />
+          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:py-20 md:pb-24 md:justify-end md:items-start">
+            <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
+              <div className="space-y-3 md:space-y-5">
+                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
+                  Pat Summitt is your personal coach - every day.
+                </h1>
+                <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
+                  Get a daily text message that holds you accountable to one clear commitment and become
+                  the person you have always wanted to be.
+                </p>
+              </div>
+
+              {user && (
+                <div className="rounded-2xl border border-white/15 bg-white/95 p-6 shadow-lg backdrop-blur-sm space-y-4">
+                  <p className="text-sm font-semibold text-[var(--text)]">
+                    Welcome back{user.firstName ? `, ${user.firstName}` : ""}.
+                  </p>
+
+                  {showContinue && (
+                    <>
+                      <p className="text-sm text-[var(--muted)]">
+                        Your dashboard is ready—commitment, SMS check-ins, and Victory Room.
+                      </p>
+
+                      <Link href="/dashboard" className={ctaHeroPrimaryClass}>
+                        Open dashboard →
+                      </Link>
+                    </>
+                  )}
+
+                  {showResumeOnboarding && (
+                    <>
+                      <p className="text-sm text-[var(--muted)]">
+                        Finish setup so Pat can hold you to your commitment on SMS.
+                      </p>
+
+                      <Link href="/onboarding" className={ctaHeroPrimaryClass}>
+                        Resume Onboarding →
+                      </Link>
+                    </>
+                  )}
+
+                  {showSubscribe && (
+                    <>
+                      <p className="text-sm text-[var(--muted)]">
+                        Start your membership to turn on SMS accountability and the full app.
+                      </p>
+
+                      <Link href="/subscribe" className={ctaHeroPrimaryClass}>
+                        Start Membership →
+                      </Link>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!user && (
+                <>
+                  <div className="w-full max-w-md">
+                    <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
+                      Start 7-Day Free Trial
+                    </Link>
+                  </div>
+                  <p className="text-sm text-white/80 drop-shadow-sm">
+                    7-day free trial • Cancel anytime
+                  </p>
+
+                  <div className="rounded-2xl border border-white/15 bg-white/95 p-6 shadow-lg backdrop-blur-sm mt-1">
+                    <p className="text-sm font-semibold text-[var(--text)] mb-1">Already a member?</p>
+
+                    <p className="text-sm text-[var(--muted)] mb-5">
+                      Sign in to open your dashboard, commitment, and Victory Room.
+                    </p>
+
+                    <Link
+                      href="/sign-in"
+                      className="text-[var(--brand)] font-semibold hover:underline"
+                    >
+                      Sign In →
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -335,6 +342,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
