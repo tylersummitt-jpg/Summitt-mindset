@@ -50,14 +50,28 @@ export default function SubscribePage() {
               fill
               sizes="100vw"
               priority
-              className="object-cover object-left lg:object-[center_22%]"
+              className="object-cover object-[18%_center] lg:object-[20%_center]"
             />
           </div>
 
+          {/* Mobile overlay — unchanged */}
           <div
-            className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black via-black/75 to-black/35 md:bg-gradient-to-r md:from-black md:from-45% md:via-black/70 md:via-55% md:to-transparent"
+            className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black via-black/75 to-black/35 md:hidden"
             aria-hidden
           />
+
+          {/* Desktop overlays — lighter over Pat (left); darker toward panel (right); layered */}
+          <div
+            className="pointer-events-none absolute inset-0 z-[1] hidden md:block"
+            aria-hidden
+          >
+            {/* Base L→R: keep subject side bright, ramp dark for pricing column */}
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.06)_0%,rgba(0,0,0,0.03)_18%,rgba(0,0,0,0.18)_40%,rgba(0,0,0,0.52)_58%,rgba(0,0,0,0.72)_76%,rgba(0,0,0,0.86)_100%)]" />
+            {/* Subtle bottom weight (Home/Coach-adjacent) without crushing the left subject */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.32)_0%,rgba(0,0,0,0.08)_32%,transparent_55%)]" />
+            {/* Localized deepen behind right column + trust lines */}
+            <div className="absolute inset-y-0 right-0 w-[min(62%,42rem)] bg-[linear-gradient(270deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.22)_42%,transparent_100%)]" />
+          </div>
 
           {/* Foreground — story left / checkout right on lg+ */}
           <div className="relative z-10 mx-auto grid min-h-[72vh] w-full max-w-6xl min-w-0 grid-cols-1 gap-10 px-4 py-10 sm:px-6 sm:py-12 md:min-h-[80vh] md:gap-12 md:py-16 lg:grid-cols-2 lg:items-center lg:gap-14 xl:gap-16">
