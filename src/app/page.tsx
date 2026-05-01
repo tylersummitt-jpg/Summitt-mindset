@@ -212,59 +212,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white border-t">
-        <div className="max-w-5xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center space-y-8">
-
-          <h2 className="text-2xl sm:text-3xl font-bold">
-            Pat Summitt&apos;s Leadership Principles
-          </h2>
-
-          <p className="text-base sm:text-lg text-gray-700 max-w-3xl mx-auto">
-            Pat Summitt didn&apos;t just build winning teams. She built
-            leaders. Her principles of discipline, accountability,
-            consistency, and team-first leadership continue to shape how
-            people lead today.
-          </p>
-
-          <div className="grid md:grid-cols-3 gap-6 mt-8">
-
-            <Link
-              href="/pat-summitt-discipline"
-              className="block border rounded-lg p-6 hover:shadow-md transition"
-            >
-              <h3 className="font-semibold text-lg mb-2">Discipline</h3>
-              <p className="text-gray-600 text-sm">
-                Pat believed discipline creates freedom and long-term
-                success.
-              </p>
-            </Link>
-
-            <Link
-              href="/pat-summitt-accountability"
-              className="block border rounded-lg p-6 hover:shadow-md transition"
-            >
-              <h3 className="font-semibold text-lg mb-2">Accountability</h3>
-              <p className="text-gray-600 text-sm">
-                Leaders hold themselves and others to high standards.
-              </p>
-            </Link>
-
-            <Link
-              href="/pat-summitt-team-culture"
-              className="block border rounded-lg p-6 hover:shadow-md transition"
-            >
-              <h3 className="font-semibold text-lg mb-2">Team Culture</h3>
-              <p className="text-gray-600 text-sm">
-                Great teams are built on trust, standards, and shared
-                purpose.
-              </p>
-            </Link>
-
-          </div>
-
-        </div>
-      </section>
-
       {/* --------------------------------------------------
           How Summitt Mindset Works
           -------------------------------------------------- */}
