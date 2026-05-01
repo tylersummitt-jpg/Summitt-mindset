@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 
 export default function SubscribePage() {
   return (
-    <main className="min-h-screen bg-[var(--bg)]">
+    <main className="bg-[var(--bg)]">
       <section className="relative w-full border-b border-[var(--border)] bg-neutral-950">
         <div className="relative isolate min-h-[72vh] w-full min-w-0 md:min-h-[80vh]">
           {/* Background — mobile / desktop swap (Coach LP pattern) */}
@@ -54,9 +54,9 @@ export default function SubscribePage() {
             />
           </div>
 
-          {/* Mobile overlay — unchanged */}
+          {/* Mobile overlay — lighter at top (esp. top-right) so the photo reads; dark toward bottom for cards */}
           <div
-            className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black via-black/75 to-black/35 md:hidden"
+            className="pointer-events-none absolute inset-0 z-[1] md:hidden bg-[linear-gradient(to_top,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.46)_34%,rgba(0,0,0,0.16)_58%,rgba(0,0,0,0.04)_100%)]"
             aria-hidden
           />
 
