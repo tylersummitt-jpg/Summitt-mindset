@@ -116,10 +116,6 @@ export default function SubscribeCheckoutPanel() {
 
   return (
     <div className="w-full max-w-lg mx-auto md:mx-0">
-      <p className="text-sm text-[var(--muted)] text-center md:text-left mb-3">
-        7-day free trial. You won’t be charged today.
-      </p>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full">
         <button
           onClick={() => handleCheckout("monthly")}

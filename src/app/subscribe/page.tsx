@@ -79,10 +79,6 @@ export default function SubscribePage() {
               <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-4xl md:leading-tight lg:text-[2.5rem] lg:leading-tight">
                 Start your 7-day free trial.
               </h1>
-              <p className="max-w-xl text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
-                Daily accountability by text. One commitment. Honest check-ins.
-                Proof you can see.
-              </p>
             </div>
 
             <div className="flex min-w-0 w-full flex-col gap-4 lg:items-end">
@@ -91,14 +87,10 @@ export default function SubscribePage() {
                 <SubscribeCheckoutPanel />
               </div>
 
-              <div className="w-full max-w-lg space-y-2 text-sm leading-relaxed text-white/85 lg:ml-auto">
+              <div className="w-full max-w-lg text-sm leading-relaxed text-white/85 lg:ml-auto">
                 <p>
                   You won&apos;t be charged today. Cancel anytime. Secure checkout
                   via Stripe.
-                </p>
-                <p className="text-white/80">
-                  Includes daily SMS accountability, Ask Pat, Film Room, and Victory
-                  Room.
                 </p>
               </div>
             </div>
