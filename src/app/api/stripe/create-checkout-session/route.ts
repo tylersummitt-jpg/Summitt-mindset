@@ -345,6 +345,19 @@ export async function POST(req: Request) {
     const utcHourBucket = `${utc.getUTCFullYear()}-${String(utc.getUTCMonth() + 1).padStart(2, "0")}-${String(utc.getUTCDate()).padStart(2, "0")}-${String(utc.getUTCHours()).padStart(2, "0")}`;
     const checkoutIdempotencyKey = `checkout-subscription-v1:${userId}:${plan}:${utcHourBucket}`;
 
+    const sessionMetadata: Stripe.MetadataParam = {
+      userId,
+      plan,
+    };
+    const subscriptionMetadata: Stripe.MetadataParam = {
+      userId,
+      plan,
+    };
+    if (src === "coach") {
+      sessionMetadata.summittAcquisition = "coach";
+      subscriptionMetadata.summittAcquisition = "coach";
+    }
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -359,17 +372,11 @@ export async function POST(req: Request) {
         customer: existingCustomerId || undefined,
         customer_email: existingCustomerId ? undefined : userEmail,
 
-        metadata: {
-          userId,
-          plan,
-        },
+        metadata: sessionMetadata,
 
         subscription_data: {
           trial_period_days: 7,
-          metadata: {
-            userId,
-            plan,
-          },
+          metadata: subscriptionMetadata,
         },
 
         success_url: `${appUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,

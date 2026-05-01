@@ -1,122 +1,95 @@
 export const dynamic = "force-dynamic";
 
 import Image from "next/image";
-import { getPageImage } from "@/data/page-images";
+import type { Metadata } from "next";
 import SubscribeCheckoutPanel from "./subscribe-checkout-panel";
 
 /**
- * ======================================================
- * Subscribe Page — Twilio-Compliant Public Version
- * ======================================================
- *
- * IMPORTANT:
- * - Page must render publicly (no forced login)
- * - Login only required at checkout
- * - Stripe session still requires auth
+ * Subscribe hero assets — add net-cutting images to public/brand:
+ * - subscribe-hero-mobile.jpeg
+ * - subscribe-hero-desktop.jpeg
  */
 
-export default function SubscribePage() {
-  const image =
-    getPageImage("/subscribe") ?? {
-      src: "/brand/subscribe-celebration.jpg",
-      alt: "Coach Pat Summitt celebrating with confetti",
-    };
+const SUBSCRIBE_HERO_MOBILE = "/brand/subscribe-hero-mobile.jpeg";
+const SUBSCRIBE_HERO_DESKTOP = "/brand/subscribe-hero-desktop.jpeg";
 
+/**
+ * ======================================================
+ * Subscribe Page — Full-bleed hero (Home / Coach LP pattern)
+ * ======================================================
+ *
+ * Visual only. Checkout behavior lives in SubscribeCheckoutPanel + API routes.
+ */
+
+export const metadata: Metadata = {
+  title: { absolute: "Subscribe | Summitt Mindset" },
+  description:
+    "Start your 7-day free trial of Summitt Mindset SMS-first accountability.",
+};
+
+export default function SubscribePage() {
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* Mobile: hero → trial + cards → trust → image. Desktop: hero | same stack. */}
-      <section className="max-w-6xl mx-auto px-4 py-6 md:py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 md:items-start">
-          <div className="order-1 text-center md:text-left min-w-0 max-w-md mx-auto md:mx-0 md:pt-6">
-            <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] mb-3 md:mb-4">
-              Start SMS-first accountability
-            </h1>
-            <p className="text-lg text-[var(--muted)] mb-3">
-              Summitt Mindset helps you hold one clear commitment with Pat’s leadership standards—by text first, with depth and proof in the app.
-            </p>
-            <p className="text-[var(--text)]">
-              One bar. Honest check-ins. Victory Room for the record you can trust.
-            </p>
+      <section className="relative w-full border-b border-[var(--border)] bg-neutral-950">
+        <div className="relative isolate min-h-[72vh] w-full min-w-0 md:min-h-[80vh]">
+          {/* Background — mobile / desktop swap (Coach LP pattern) */}
+          <div className="absolute inset-0 md:hidden" aria-hidden>
+            <Image
+              src={SUBSCRIBE_HERO_MOBILE}
+              alt=""
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover object-[center_40%]"
+            />
+          </div>
+          <div className="absolute inset-0 hidden md:block" aria-hidden>
+            <Image
+              src={SUBSCRIBE_HERO_DESKTOP}
+              alt=""
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover object-left lg:object-[center_22%]"
+            />
           </div>
 
-          <div className="order-2 flex flex-col gap-4 md:gap-3 w-full min-w-0">
-            <SubscribeCheckoutPanel />
+          <div
+            className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black via-black/75 to-black/35 md:bg-gradient-to-r md:from-black md:from-45% md:via-black/70 md:via-55% md:to-transparent"
+            aria-hidden
+          />
 
-            <div className="text-center md:text-left text-sm text-[var(--muted)] space-y-2 w-full max-w-xl mx-auto md:max-w-none md:mx-0">
-              <p>Cancel anytime. Secure checkout via Stripe.</p>
-              <p>
-                “Successful people are simply those with successful habits.”
-                <span className="ml-2">— Pat Summitt</span>
+          {/* Foreground — story left / checkout right on lg+ */}
+          <div className="relative z-10 mx-auto grid min-h-[72vh] w-full max-w-6xl min-w-0 grid-cols-1 gap-10 px-4 py-10 sm:px-6 sm:py-12 md:min-h-[80vh] md:gap-12 md:py-16 lg:grid-cols-2 lg:items-center lg:gap-14 xl:gap-16">
+            <div className="flex min-w-0 flex-col justify-center gap-4 pt-2 md:gap-5 lg:pt-0">
+              <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-4xl md:leading-tight lg:text-[2.5rem] lg:leading-tight">
+                Start your 7-day free trial.
+              </h1>
+              <p className="max-w-xl text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
+                Daily accountability by text. One commitment. Honest check-ins.
+                Proof you can see.
               </p>
             </div>
 
-            <div className="relative w-full h-[180px] sm:h-[200px] md:h-[200px] rounded-2xl overflow-hidden shrink-0">
-              <Image
-                src={image.src}
-                alt={image.alt}
-                fill
-                priority
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover object-top"
-              />
+            <div className="flex min-w-0 w-full flex-col gap-4 lg:items-end">
+              {/* Readable surface only — no overflow-hidden; no transform/filter/backdrop */}
+              <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-white/95 p-4 shadow-xl sm:p-6 lg:ml-auto">
+                <SubscribeCheckoutPanel />
+              </div>
+
+              <div className="w-full max-w-lg space-y-2 text-sm leading-relaxed text-white/85 lg:ml-auto">
+                <p>
+                  You won&apos;t be charged today. Cancel anytime. Secure checkout
+                  via Stripe.
+                </p>
+                <p className="text-white/80">
+                  Includes daily SMS accountability, Ask Pat, Film Room, and Victory
+                  Room.
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </section>
-
-      {/* --------------------------------------------------
-          Section 2 — What You Get
-          -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 pt-2 md:pt-6 pb-16">
-        <h2 className="text-2xl font-bold text-[var(--text)] text-center mb-12">
-          Your Membership Includes
-        </h2>
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Commitment &amp; SMS
-            </h3>
-            <p className="text-sm text-[var(--muted)] leading-relaxed">
-              Name the behavior you want held to; Pat checks in on that bar over text.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Ask Pat
-            </h3>
-            <p className="text-sm text-[var(--muted)] leading-relaxed">
-              Ask leadership questions and receive guidance inspired by Pat
-              Summitt’s philosophy.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-              Film Room
-            </h3>
-            <p className="text-sm text-[var(--muted)] leading-relaxed">
-              Watch leadership lessons from respected voices in sports, media,
-              and business.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* --------------------------------------------------
-          Section 3 — How It Fits Your Life
-          -------------------------------------------------- */}
-      <section className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-[var(--text)] mb-6">
-          Built for real life.
-        </h2>
-        <p className="text-[var(--text)] leading-relaxed">
-          Check-ins are short by design—most replies fit in a sentence.
-        </p>
-        <p className="text-[var(--text)] leading-relaxed mt-4">
-          Accountability runs on SMS; the app is for identity, context, Ask Pat, Film Room, and Victory Room.
-        </p>
-        <p className="text-[var(--text)] leading-relaxed mt-4">
-          The goal is simple: keep a serious promise to yourself.
-        </p>
       </section>
     </main>
   );

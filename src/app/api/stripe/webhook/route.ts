@@ -226,11 +226,18 @@ export async function POST(req: NextRequest) {
       const plan = resolvePlanFromSubscription(subscription);
       const entitled = isSummittEntitledFromSubscription(subscription);
 
+      const sessionMd = session.metadata as Record<string, unknown> | null | undefined;
+      const subMd = subscription.metadata as Record<string, unknown> | null | undefined;
+      const isCoachAcquisitionFromStripe =
+        sessionMd?.summittAcquisition === "coach" ||
+        subMd?.summittAcquisition === "coach";
+
       await updateClerkPublicMetadata(userId, {
         summittSubscribed: entitled,
         summittPlan: plan,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
+        ...(isCoachAcquisitionFromStripe ? { acquisitionSource: "coach" } : {}),
       });
 
       const existing = await getClerkPublicMetadata(userId);
@@ -272,6 +279,11 @@ export async function POST(req: NextRequest) {
       };
       if (subscription.pause_collection == null) {
         clerkPatch.summittPlan = plan;
+      }
+
+      const subMeta = subscription.metadata as Record<string, unknown> | null | undefined;
+      if (subMeta?.summittAcquisition === "coach") {
+        clerkPatch.acquisitionSource = "coach";
       }
 
       await updateClerkPublicMetadata(userId, clerkPatch as Record<string, any>);

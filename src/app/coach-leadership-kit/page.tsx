@@ -1,6 +1,40 @@
 import Image from "next/image";
-import Link from "next/link";
+import type { Metadata } from "next";
 import { currentUser } from "@clerk/nextjs/server";
+import { CoachLeadershipKitTrackedLink } from "@/app/coach-leadership-kit/coach-leadership-kit-tracked-link";
+
+const COACH_LANDING_PATH = "/coach-leadership-kit";
+const COACH_OG_IMAGE_URL =
+  "https://summittmindset.com/brand/coach-leadership-kit-hero-desktop.png";
+
+export const metadata: Metadata = {
+  title: "Pat Summitt Leadership Kit for Coaches",
+  description:
+    "A coach-focused Summitt Mindset membership offer with daily SMS accountability and a complimentary Pat Summitt Leadership Kit—we cover shipping. Summitt Mindset is for anyone seeking serious accountability; this offer is tailored for sports coaches.",
+  alternates: {
+    canonical: `https://summittmindset.com${COACH_LANDING_PATH}`,
+  },
+  openGraph: {
+    title: "Pat Summitt Leadership Kit for Coaches | Summitt Mindset",
+    description:
+      "Coach-focused membership: daily accountability with a complimentary Pat Summitt Leadership Kit (shipping included). The full Summitt Mindset experience is broader—this page highlights an offer for coaches.",
+    url: `https://summittmindset.com${COACH_LANDING_PATH}`,
+    type: "website",
+    images: [
+      {
+        url: COACH_OG_IMAGE_URL,
+        alt: "Coach Pat Summitt Leadership Kit offer",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pat Summitt Leadership Kit for Coaches | Summitt Mindset",
+    description:
+      "Coach-focused Summitt Mindset membership with daily accountability and a complimentary Leadership Kit—we cover shipping.",
+    images: [COACH_OG_IMAGE_URL],
+  },
+};
 
 const ctaPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]";
@@ -17,7 +51,7 @@ export default async function CoachLeadershipKitPage() {
   const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_IN_HREF;
 
   return (
-    <main className="min-h-screen bg-[var(--bg)]">
+    <div className="min-h-screen bg-[var(--bg)]">
       {/* 1. Hero — image-led, live HTML overlay */}
       <section className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950">
         <div className="relative isolate min-h-[72vh] md:min-h-[80vh] w-full min-w-0">
@@ -58,9 +92,13 @@ export default async function CoachLeadershipKitPage() {
                 </p>
               </div>
               <div className="w-full max-w-md">
-                <Link href={leadershipKitHref} className={ctaHeroPrimaryClass}>
+                <CoachLeadershipKitTrackedLink
+                  href={leadershipKitHref}
+                  className={ctaHeroPrimaryClass}
+                  cta="hero"
+                >
                   Get the Leadership Kit
-                </Link>
+                </CoachLeadershipKitTrackedLink>
               </div>
             </div>
           </div>
@@ -155,9 +193,13 @@ export default async function CoachLeadershipKitPage() {
                   <span>Built for middle &amp; high school teams</span>
                 </li>
               </ul>
-              <Link href={leadershipKitHref} className={ctaPrimaryClass}>
+              <CoachLeadershipKitTrackedLink
+                href={leadershipKitHref}
+                className={ctaPrimaryClass}
+                cta="kit_section"
+              >
                 Get the Leadership Kit
-              </Link>
+              </CoachLeadershipKitTrackedLink>
             </div>
 
             <div className="relative w-full flex justify-center lg:justify-end order-2">
@@ -226,11 +268,15 @@ export default async function CoachLeadershipKitPage() {
           <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] leading-tight">
             Start Building Your Team&apos;s Culture Today
           </h2>
-          <Link href={leadershipKitHref} className={ctaPrimaryClass}>
+          <CoachLeadershipKitTrackedLink
+            href={leadershipKitHref}
+            className={ctaPrimaryClass}
+            cta="footer"
+          >
             Get the Leadership Kit
-          </Link>
+          </CoachLeadershipKitTrackedLink>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

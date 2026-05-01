@@ -4,6 +4,14 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 - **`NEXT_PUBLIC_META_PIXEL_ID`** — optional. When set (numeric Meta Pixel ID only), the [Meta Pixel](https://developers.facebook.com/docs/meta-pixel) loads for **PageView** analytics. If unset, the app skips pixel code entirely.
 
+### Coach Leadership Kit notifications (shipping)
+
+Uses [Resend](https://resend.com) when configured. **`notifyCoachKitSubmitted`** runs after a coach saves their kit address (`/api/coach/shipping`). If env is missing, the save still succeeds; email is skipped with a warning in logs.
+
+- **`RESEND_API_KEY`** — required to send notifications.
+- **`COACH_KIT_NOTIFY_EMAIL`** — recipient for internal alerts (recommended: **`tyler@summittmindset.com`**).
+- **`COACH_KIT_NOTIFY_FROM`** — optional sender; defaults to **`challenge@summittmindset.com`**.
+
 ## Getting Started
 
 First, run the development server:

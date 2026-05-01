@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { trackCoachShippingSubmitted } from "@/lib/meta-pixel";
 
 const inputClass =
   "w-full px-4 py-3 rounded-md border border-[var(--border)] bg-white text-[var(--text)]";
 
 export default function CoachSetupPage() {
   const router = useRouter();
+  const coachShippingSubmittedTrackedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -57,6 +59,10 @@ export default function CoachSetupPage() {
         return;
       }
 
+      if (!coachShippingSubmittedTrackedRef.current) {
+        coachShippingSubmittedTrackedRef.current = true;
+        trackCoachShippingSubmitted();
+      }
       router.replace("/onboarding");
     } catch {
       setError("Network error. Please try again.");
@@ -73,6 +79,19 @@ export default function CoachSetupPage() {
         <p className="text-sm text-[var(--muted)] mb-8">
           Where should we send your Leadership Kit?
         </p>
+
+        <section
+          className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-sm text-[var(--text)] leading-relaxed"
+          aria-label="Coach Leadership Kit offer"
+        >
+          <p>
+            This is a coach-only offer. Start your Summitt Mindset membership
+            and receive the Pat Summitt Leadership Kit at no additional cost.
+            The kit was originally sold for $400, and we&apos;ll cover shipping.
+            After you join and complete setup, our team will follow up to
+            confirm your shipping details and customize your Leadership Kit.
+          </p>
+        </section>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

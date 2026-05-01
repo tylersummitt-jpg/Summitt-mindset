@@ -25,6 +25,16 @@ const linkInactive =
 
 const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
 
+/** Meta ad landing: preserve coach funnel when using shell “Start Free Trial”. */
+const SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`;
+
+function isCoachLeadershipLandingPath(pathname: string | null): boolean {
+  return (
+    pathname === "/coach-leadership-kit" ||
+    pathname === "/coach-leadership-kit/"
+  );
+}
+
 export function Navbar() {
   const pathname = usePathname();
   const { user, isLoaded, isSignedIn } = useUser();
@@ -49,6 +59,10 @@ export function Navbar() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  const startFreeTrialHref = isCoachLeadershipLandingPath(pathname)
+    ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
+    : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
+
   // --------------------------------------------------
   // PUBLIC NAV (logged out) — mirrors product structure
   // --------------------------------------------------
@@ -57,7 +71,7 @@ export function Navbar() {
     { href: "/ask-pat-preview", label: "Ask Pat", key: "ask-pat-preview" },
     { href: "/film-room-preview", label: "Film Room", key: "film-room-preview" },
     {
-      href: SIGN_IN_WITH_SUBSCRIBE_REDIRECT,
+      href: startFreeTrialHref,
       label: "Start Free Trial",
       key: "start-trial",
     },

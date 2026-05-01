@@ -2,6 +2,7 @@
 
 import { SignIn } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import { AuthMarketingShell } from "@/components/auth-marketing-shell";
 import {
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
@@ -32,11 +33,11 @@ export default function SignInPage() {
     sanitizeSubscribeRedirectUrl(redirectUrl) ?? "/onboarding";
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
+    <AuthMarketingShell authPage="sign-in">
       <SignIn
         afterSignInUrl={safeAfterSignInUrl}
         afterSignUpUrl={safeAfterSignUpUrl}
       />
-    </div>
+    </AuthMarketingShell>
   );
 }

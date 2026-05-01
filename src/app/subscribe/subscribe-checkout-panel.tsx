@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
+import { trackCoachInitiateCheckout } from "@/lib/meta-pixel";
 
 type Plan = "monthly" | "annual";
 
@@ -20,12 +21,14 @@ export default function SubscribeCheckoutPanel() {
 
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const initiateCheckoutFiredForAttemptRef = useRef(false);
 
   const disabled = useMemo(() => loadingPlan !== null, [loadingPlan]);
 
   async function handleCheckout(plan: Plan) {
     console.info("[subscribe] plan clicked", { plan });
     setError(null);
+    initiateCheckoutFiredForAttemptRef.current = false;
     setLoadingPlan(plan);
 
     if (!isSignedIn) {
@@ -87,6 +90,13 @@ export default function SubscribeCheckoutPanel() {
       console.info("[subscribe] checkout fetch succeeded; redirecting to Stripe", {
         plan,
       });
+      if (
+        isCoachSrc &&
+        !initiateCheckoutFiredForAttemptRef.current
+      ) {
+        initiateCheckoutFiredForAttemptRef.current = true;
+        trackCoachInitiateCheckout(plan);
+      }
       window.location.href = data.url;
     } catch (err) {
       clearTimeout(timeoutId);
