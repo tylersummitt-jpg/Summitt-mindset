@@ -90,7 +90,7 @@ export default async function DashboardPage() {
       : null;
 
   return (
-    <main className="mx-auto max-w-2xl bg-white px-6 py-10 pb-16">
+    <main className="mx-auto max-w-2xl px-6 py-10 pb-16">
       <div className="space-y-8">
         {metadata?.smsEnabled !== true ? (
           <section className="rounded-2xl border border-[var(--border)] border-l-4 border-l-[var(--brand)] bg-white p-5 shadow-sm ring-1 ring-black/[0.03]">
