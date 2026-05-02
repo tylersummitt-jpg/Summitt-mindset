@@ -1,9 +1,23 @@
 import Link from "next/link";
+import Image from "next/image";
 import { currentUser } from "@clerk/nextjs/server";
-import { PageHero } from "@/components/PageHero";
-import { getPageImage } from "@/data/page-images";
 
 const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+
+/** Primary CTA — homepage-style dark hero (ring offset for dark background). */
+const ctaHeroPrimaryClass =
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
+
+/** Secondary CTA — readable on dark hero. */
+const ctaHeroSecondaryClass =
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white border border-white/25 bg-white/10 backdrop-blur-sm hover:bg-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
+
+/** Primary CTA on light sections below the fold. */
+const ctaLightPrimaryClass =
+  "inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] md:px-8 md:py-4 md:text-base";
+
+const HERO_IMAGE_ALT =
+  "Coach Pat Summitt coaching with focus and intensity on the court";
 
 export default async function AskPatPreviewPage() {
   const user = await currentUser();
@@ -11,144 +25,165 @@ export default async function AskPatPreviewPage() {
 
   const cardBase =
     "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm";
-  const image = getPageImage("/ask-pat-preview");
 
   return (
-    <main className="min-h-screen bg-[var(--bg)]">
-      <PageHero
-        title="Ask Pat."
-        subtitle="Get leadership guidance inspired by Coach Pat Summitt's standards, discipline, and mindset. Ask about leadership, consistency, discipline, or a real situation you're facing."
-        imageSrc={image?.src ?? "/brand/pat-hero.jpeg"}
-        imageAlt={image?.alt ?? "Coach Pat Summitt"}
-        imagePosition="object-[center_20%]"
-      >
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Link
-            href={trialHref}
-            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
-          >
-            Start 7-Day Free Trial
-          </Link>
-          <Link
-            href="/daily-practice"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--ink)]"
-          >
-            See Daily Practice
-          </Link>
-        </div>
-      </PageHero>
+    <div className="min-h-screen bg-[var(--bg)] overflow-x-hidden">
+      {/* Hero — homepage-style full-bleed */}
+      <section className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950">
+        <div className="relative isolate min-h-[72vh] md:min-h-[80vh] w-full min-w-0">
+          <div className="absolute inset-0 md:hidden">
+            <Image
+              src="/brand/ask-pat-preview-mobile.jpeg"
+              alt={HERO_IMAGE_ALT}
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover object-center"
+            />
+          </div>
+          <div className="absolute inset-0 hidden md:block">
+            <Image
+              src="/brand/ask-pat-preview-desktop.jpeg"
+              alt={HERO_IMAGE_ALT}
+              fill
+              sizes="100vw"
+              priority
+              className="object-cover object-center md:object-[40%_center] lg:object-center"
+            />
+          </div>
+          <div
+            className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_top,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.38)_42%,rgba(0,0,0,0.12)_58%,transparent_78%)] md:bg-[linear-gradient(90deg,rgba(0,0,0,0.94)_0%,rgba(0,0,0,0.52)_14%,rgba(0,0,0,0.2)_26%,rgba(0,0,0,0.06)_36%,transparent_46%)]"
+            aria-hidden
+          />
+          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:mx-0 md:ml-6 lg:ml-10 xl:ml-12 md:mr-auto md:py-20 md:pb-24 md:justify-end md:items-start">
+            <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
+              <div className="space-y-3 md:space-y-5">
+                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
+                  Ask Pat when you need the truth.
+                </h1>
+                <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
+                  Leadership guidance shaped by Coach Summitt&apos;s standards —
+                  for discipline, pressure, consistency, and the situations that
+                  actually show up in your life.
+                </p>
+              </div>
 
-      {/* --------------------------------------------------
-          EXAMPLE QUESTION
-          -------------------------------------------------- */}
-      <section className="max-w-2xl mx-auto px-4 py-16">
-        <p className="text-sm font-semibold text-[var(--muted)] mb-3">
-          Example Question
-        </p>
-        <div className={cardBase}>
-          <p className="text-[var(--text)] leading-relaxed italic">
-            “How do I stay disciplined when I don’t feel motivated?”
-          </p>
-        </div>
-      </section>
+              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md sm:max-w-none">
+                <Link href={trialHref} className={ctaHeroPrimaryClass}>
+                  Start 7-Day Free Trial
+                </Link>
+                <Link href="/daily-practice" className={ctaHeroSecondaryClass}>
+                  See Daily Practice
+                </Link>
+              </div>
 
-      {/* --------------------------------------------------
-          PAT'S ANSWER
-          -------------------------------------------------- */}
-      <section className="max-w-2xl mx-auto px-4 pb-16">
-        <p className="text-sm font-semibold text-[var(--text)] mb-3">
-          Pat’s Perspective
-        </p>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--brand-soft)] p-6 shadow-sm">
-          <p className="text-[var(--text)] whitespace-pre-line leading-relaxed">
-            Let me tell you about a time back in my playing days when motivation
-            was nowhere to be found. I was nursing a knee injury, sidelined with a
-            twelve-inch scar and told by the top coaches that I didn't have a
-            chance to make the Olympic team.
-            {"\n\n"}
-            It would have been easy to give up — to say, "I'm tired, I'm hurt,
-            I'm done."
-            {"\n\n"}
-            But I didn't.
-            {"\n\n"}
-            Instead, I spent hours in the gym, gave up red meat, worked out six
-            hours a day, and played through the pain.
-            {"\n\n"}
-            Motivation? It came and went.
-            {"\n"}
-            Discipline? That's what got me through.
-            {"\n\n"}
-            Start smaller than you think you should.
-            {"\n"}
-            Finish one thing today that you said you would do.
-            {"\n\n"}
-            Do it clean.
-            {"\n"}
-            Do it without excuses.
-            {"\n\n"}
-            That's how standards are built.
-          </p>
-        </div>
-      </section>
-
-      {/* --------------------------------------------------
-          HOW ASK PAT WORKS
-          -------------------------------------------------- */}
-      <section className="bg-[var(--ink)] py-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-12">
-            How Ask Pat Works
-          </h2>
-          <div className="grid sm:grid-cols-3 gap-6">
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Ask a Real Question
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Bring a leadership challenge, a discipline problem, or something
-                you are working through.
-              </p>
-            </div>
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Get Pat’s Perspective
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Responses are inspired by Pat Summitt’s leadership philosophy and
-                grounded in your journey.
-              </p>
-            </div>
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Apply It Today
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                The goal is not just advice. It is helping you take the next
-                right step.
+              <p className="text-sm text-white/80 drop-shadow-sm">
+                7-day free trial • Cancel anytime
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* --------------------------------------------------
-          FINAL CTA
-          -------------------------------------------------- */}
+      {/* Membership / SMS bridge */}
+      <section className="border-b border-[var(--border)] bg-gray-50">
+        <div className="max-w-3xl mx-auto px-4 py-10 sm:py-12 text-center">
+          <p className="text-base sm:text-lg text-[var(--text)] leading-relaxed font-medium">
+            Included with the same membership as your daily SMS accountability —
+            optional depth when you need to think deeper.
+          </p>
+        </div>
+      </section>
+
+      {/* Example question */}
+      <section className="max-w-2xl mx-auto px-4 py-12 sm:py-14">
+        <h2 className="text-xl sm:text-2xl font-bold text-[var(--text)] mb-4">
+          Example question
+        </h2>
+        <div className={cardBase}>
+          <p className="text-[var(--text)] leading-relaxed italic text-lg">
+            &ldquo;How do I stay disciplined when I don&apos;t feel
+            motivated?&rdquo;
+          </p>
+        </div>
+      </section>
+
+      {/* Pat&apos;s Perspective — shortened sample */}
+      <section className="max-w-2xl mx-auto px-4 pb-12 sm:pb-16">
+        <h2 className="text-xl sm:text-2xl font-bold text-[var(--text)] mb-6">
+          Pat&apos;s Perspective
+        </h2>
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-sm space-y-4">
+          <blockquote className="border-l-4 border-[var(--brand)] pl-5 text-[var(--text)] leading-relaxed">
+            <p className="mb-4">
+              Back in my playing days, motivation vanished—injury, doubt, and
+              voices saying I wouldn&apos;t make the Olympic team.
+            </p>
+            <p className="mb-4">
+              It would have been easy to quit. I didn&apos;t. Discipline carried
+              me when motivation didn&apos;t—hours in the gym, standards I
+              refused to lower.
+            </p>
+            <p className="font-medium text-[var(--text)]">
+              Start smaller than you think you should. Finish one thing today you
+              said you&apos;d do—clean, no excuses. That&apos;s how standards
+              are built.
+            </p>
+          </blockquote>
+        </div>
+      </section>
+
+      {/* How Ask Pat Works */}
+      <section className="border-t border-[var(--border)] bg-gray-50 py-12 sm:py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-10">
+            How Ask Pat Works
+          </h2>
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className={cardBase}>
+              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+                Bring a real situation
+              </h3>
+              <p className="text-[var(--muted)] text-sm leading-relaxed">
+                Name the pressure, the people, or the pattern—what you&apos;re
+                actually facing.
+              </p>
+            </div>
+            <div className={cardBase}>
+              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+                Get standards-based guidance
+              </h3>
+              <p className="text-[var(--muted)] text-sm leading-relaxed">
+                Responses draw from Pat Summitt&apos;s leadership philosophy—firm,
+                honest, and grounded in the standards she lived.
+              </p>
+            </div>
+            <div className={cardBase}>
+              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
+                Carry it back into your day
+              </h3>
+              <p className="text-[var(--muted)] text-sm leading-relaxed">
+                Turn clarity into one next step—alongside your daily SMS
+                accountability on the commitment that matters most.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
       <section className="max-w-2xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
-          Leadership gets clearer when you reflect.
+          Serious guidance. Same membership.
         </h2>
         <p className="text-[var(--muted)] mb-8 leading-relaxed">
-          Members can ask Pat questions anytime while building their daily
-          practice.
+          Ask Pat when you need direction—your daily SMS cadence stays the spine
+          of your accountability.
         </p>
-        <Link
-          href={trialHref}
-          className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
-        >
+        <Link href={trialHref} className={ctaLightPrimaryClass}>
           Start 7-Day Free Trial
         </Link>
       </section>
-    </main>
+    </div>
   );
 }
