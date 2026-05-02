@@ -111,22 +111,10 @@ export default function CoachSetupPage() {
             </h1>
             <p className="text-sm text-[var(--muted)] mb-8 leading-relaxed">
               You&apos;re in. We&apos;ll ship your Pat Summitt Leadership Kit to
-              this address — so you and your team can start strong.
+              this address — so you and your team can start strong. After you
+              finish this step, our team may reach out to confirm details and
+              personalize your Leadership Kit for your program.
             </p>
-
-            <section
-              className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-sm text-[var(--text)] leading-relaxed"
-              aria-label="Coach Leadership Kit offer"
-            >
-              <p>
-                Coach-only membership offer. Start your Summitt Mindset
-                membership and receive the Pat Summitt Leadership Kit at no
-                additional charge. The kit was originally offered for $400, and
-                we cover standard shipping. After you finish this step, our team
-                may reach out to confirm details and personalize your Leadership
-                Kit for your program.
-              </p>
-            </section>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
