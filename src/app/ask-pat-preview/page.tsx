@@ -8,10 +8,6 @@ const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURICompon
 const ctaHeroPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
 
-/** Secondary CTA — readable on dark hero. */
-const ctaHeroSecondaryClass =
-  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white border border-white/25 bg-white/10 backdrop-blur-sm hover:bg-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
-
 /** Primary CTA on light sections below the fold. */
 const ctaLightPrimaryClass =
   "inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] md:px-8 md:py-4 md:text-base";
@@ -68,12 +64,9 @@ export default async function AskPatPreviewPage() {
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md sm:max-w-none">
+              <div className="w-full max-w-md">
                 <Link href={trialHref} className={ctaHeroPrimaryClass}>
                   Start 7-Day Free Trial
-                </Link>
-                <Link href="/daily-practice" className={ctaHeroSecondaryClass}>
-                  See Daily Practice
                 </Link>
               </div>
 
