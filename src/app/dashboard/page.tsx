@@ -1,6 +1,5 @@
 import { currentUser, auth } from "@clerk/nextjs/server";
 import Link from "next/link";
-import { supabaseServer } from "@/lib/supabase-server";
 import EvolutionRecommendationCard from "@/components/EvolutionRecommendationCard";
 import { EVOLUTION_V1_SURFACED_ACTIONS } from "@/lib/v2-commitment-evolution-engine-v1";
 import type { EvolutionV1RecommendedAction } from "@/lib/v2-commitment-evolution-engine-v1";
@@ -90,29 +89,9 @@ export default async function DashboardPage() {
       ? evolutionV1SurfaceCopy(evolutionRec.recommended_action)
       : null;
 
-  const smsEnabled = metadata?.smsEnabled === true;
-
-  const { data: latestWeekly } = await supabaseServer
-    .from("weekly_summaries")
-    .select("weekly_summary")
-    .eq("clerk_user_id", userId)
-    .order("week_end_day", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const displayName =
-    user.firstName?.trim() || user.username?.trim() || "there";
-
   return (
-    <main className="mx-auto max-w-2xl bg-gradient-to-b from-gray-50/90 via-white to-[var(--bg)] px-6 py-12 pb-16">
-      <header className="border-b border-[var(--border)]/80 pb-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-          Dashboard
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">Today</h1>
-      </header>
-
-      <div className="mt-8 space-y-8">
+    <main className="mx-auto max-w-2xl bg-gradient-to-b from-gray-50/90 via-white to-[var(--bg)] px-6 py-10 pb-16">
+      <div className="space-y-8">
         {metadata?.smsEnabled !== true ? (
           <section className="rounded-2xl border border-amber-200/90 bg-amber-50/95 p-5 shadow-sm ring-1 ring-amber-900/[0.06]">
             <h2 className="text-sm font-semibold text-amber-950">Turn on accountability texts</h2>
@@ -129,7 +108,7 @@ export default async function DashboardPage() {
         {commitment ? (
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-md shadow-gray-900/[0.05] ring-1 ring-black/[0.04]">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              Active commitment
+              Current goal
             </h2>
             <p className="mt-3 text-xl font-semibold tracking-tight text-gray-900">{commitment.title}</p>
             {showSplitAsk ? (
@@ -199,36 +178,7 @@ export default async function DashboardPage() {
             Open Victory Room
           </Link>
         </section>
-
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm ring-1 ring-black/[0.03]">
-          <h2 className="text-base font-semibold text-gray-900">SMS accountability</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-            Coach Pat will check in by text about your commitment above. Just reply honestly when she asks.
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-            The more you reply, the better Coach Pat can coach you over time.
-          </p>
-          {smsEnabled ? (
-            <p className="mt-3 text-xs text-gray-500">SMS check-ins are on for your account.</p>
-          ) : (
-            <p className="mt-3 text-xs font-medium text-amber-900/90">
-              SMS check-ins look off in your profile. Turn them on when you&apos;re ready for daily
-              accountability texts.
-            </p>
-          )}
-        </section>
-
-        {latestWeekly?.weekly_summary ? (
-          <section className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-sm ring-1 ring-stone-900/[0.04] border-l-4 border-l-stone-400">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              A note from Coach Pat
-            </p>
-            <p className="mt-4 text-sm leading-relaxed text-gray-800">{latestWeekly.weekly_summary}</p>
-          </section>
-        ) : null}
       </div>
-
-      <p className="mt-12 text-center text-xs text-[var(--muted)]">Signed in as {displayName}.</p>
     </main>
   );
 }

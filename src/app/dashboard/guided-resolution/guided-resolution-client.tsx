@@ -201,7 +201,7 @@ export default function GuidedResolutionClient(props: {
       <div className="mt-8 flex flex-wrap gap-3">
         <button
           type="button"
-          className="rounded-lg bg-amber-900 px-4 py-2.5 text-sm font-medium text-amber-50 shadow-sm hover:bg-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="member-attention-cta disabled:cursor-not-allowed disabled:opacity-50"
           disabled={busy}
           onClick={
             props.view === "identity"
