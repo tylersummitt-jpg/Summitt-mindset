@@ -76,9 +76,8 @@ export default function CoachSetupPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-neutral-950">
-      <div className="md:grid md:min-h-[80vh] md:grid-cols-2 lg:grid-cols-[1fr_min(28rem,44%)]">
-        {/* Image-led column */}
-        <div className="relative isolate h-[min(42vh,340px)] w-full md:h-auto md:min-h-[80vh]">
+      <section className="relative w-full border-b border-[var(--border)] bg-neutral-950">
+        <div className="relative isolate min-h-[72vh] w-full min-w-0 md:min-h-[80vh]">
           <div className="absolute inset-0 md:hidden">
             <Image
               src="/brand/coach-setup-mobile.png"
@@ -86,7 +85,7 @@ export default function CoachSetupPage() {
               fill
               sizes="100vw"
               priority
-              className="object-cover object-center"
+              className="object-cover object-center grayscale"
             />
           </div>
           <div className="absolute inset-0 hidden md:block">
@@ -96,19 +95,17 @@ export default function CoachSetupPage() {
               fill
               sizes="100vw"
               priority
-              className="object-cover object-[42%_center] lg:object-center"
+              className="object-cover object-[center_28%] grayscale lg:object-[center_30%]"
             />
           </div>
-          {/* Readability: mobile — darker toward bottom; desktop — darker on left so kit stays visible right */}
+
           <div
-            className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(to_top,rgba(0,0,0,0.78)_0%,rgba(0,0,0,0.28)_45%,transparent_72%)] md:bg-[linear-gradient(90deg,rgba(0,0,0,0.82)_0%,rgba(0,0,0,0.35)_38%,rgba(0,0,0,0.1)_62%,transparent_85%)]"
+            className="pointer-events-none absolute inset-0 z-[1] bg-black/50 md:bg-black/45"
             aria-hidden
           />
-        </div>
 
-        {/* Form column */}
-        <div className="relative z-10 bg-[var(--bg)] px-4 py-8 pb-12 md:flex md:min-h-[80vh] md:items-center md:justify-center md:bg-neutral-950 md:px-8 md:py-12 lg:px-10">
-          <div className="mx-auto w-full max-w-xl rounded-2xl border border-[var(--border)] bg-white/95 p-6 shadow-xl sm:p-8">
+          <div className="relative z-10 mx-auto flex w-full min-h-[72vh] flex-col items-center justify-center px-4 py-10 sm:py-12 md:min-h-[80vh] md:py-16">
+            <div className="w-full max-w-xl rounded-2xl border border-[var(--border)] bg-white/95 p-6 shadow-xl sm:p-8">
             <h1 className="text-2xl font-bold text-[var(--text)] sm:text-3xl mb-2">
               Tell us where to send your Leadership Kit.
             </h1>
@@ -234,9 +231,10 @@ export default function CoachSetupPage() {
                 {saving ? "Saving…" : "Save and continue"}
               </button>
             </form>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
