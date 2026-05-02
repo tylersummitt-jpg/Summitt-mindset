@@ -58,7 +58,7 @@ export default function RootLayout({
           <div className="flex flex-col min-h-screen">
             <Navbar />
 
-            <main className="flex-1">{children}</main>
+            <main className="w-full">{children}</main>
 
             <footer className="border-t border-[var(--border)] bg-[var(--surface)]">
               <div className="max-w-6xl mx-auto px-4 py-6 text-sm md:text-xs text-[var(--muted)] flex flex-col md:flex-row justify-between gap-4">

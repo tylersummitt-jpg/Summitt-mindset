@@ -90,12 +90,12 @@ export default async function DashboardPage() {
       : null;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10 pb-16">
+    <main className="mx-auto max-w-2xl px-6 py-8 pb-10 md:py-10 md:pb-10">
       <div className="space-y-8">
         {metadata?.smsEnabled !== true ? (
-          <section className="rounded-2xl border border-[var(--border)] border-l-4 border-l-[var(--brand)] bg-white p-5 shadow-sm ring-1 ring-black/[0.03]">
-            <h2 className="text-sm font-semibold text-gray-900">Turn on accountability texts</h2>
-            <p className="mt-2 text-sm leading-relaxed text-gray-700">
+          <section className="rounded-2xl border border-[var(--border)] border-l-4 border-l-[var(--brand)] bg-white p-6 shadow-sm ring-1 ring-black/[0.03]">
+            <h2 className="text-base font-semibold text-gray-900">Turn on accountability texts</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
               Pat&apos;s daily check-ins run over SMS. You can use the app without texts, but you&apos;ll miss
               the core accountability loop.
             </p>
@@ -110,34 +110,34 @@ export default async function DashboardPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
               Current goal
             </h2>
-            <p className="mt-3 text-xl font-semibold tracking-tight text-gray-900">{commitment.title}</p>
+            <p className="mt-2 text-base font-semibold text-gray-900">{commitment.title}</p>
             {showSplitAsk ? (
               <>
-                <p className="mt-4 text-sm leading-relaxed text-gray-700">
-                  <span className="font-medium text-gray-800">Your commitment: </span>
+                <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
+                  <span className="font-medium text-gray-900">Your commitment: </span>
                   {commitment.behavior_statement}
                 </p>
-                <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-gray-800">
+                <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-[var(--muted)]">
                   <span className="font-medium text-gray-900">Coach Pat is checking in on today: </span>
                   {effectiveAsk}
                 </p>
               </>
             ) : (
-              <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-gray-800">
+              <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-[var(--muted)]">
                 <span className="font-medium text-gray-900">Coach Pat is checking in on: </span>
                 {commitment.behavior_statement}
               </p>
             )}
             {commitment.accountability_phase === "low_pressure_reactivation" ? (
-              <p className="mt-4 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-gray-600">
+              <p className="mt-4 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-[var(--muted)]">
                 You&apos;re in a low-pressure reactivation window—SMS stays light until you re-engage.
               </p>
             ) : null}
           </section>
         ) : (
-          <section className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm ring-1 ring-black/[0.03]">
-            <h2 className="text-sm font-semibold text-gray-900">No active commitment on file</h2>
-            <p className="mt-2 text-sm leading-relaxed text-gray-700">
+          <section className="rounded-2xl border border-[var(--border)] bg-white p-6 shadow-sm ring-1 ring-black/[0.03]">
+            <h2 className="text-base font-semibold text-gray-900">No active commitment on file</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
               Daily accountability SMS needs an active commitment with a clear behavior statement. If you
               expected checks already, finish saving your commitment in onboarding—or ask for help if you
               believe this is wrong.
@@ -146,9 +146,9 @@ export default async function DashboardPage() {
         )}
 
         {pending ? (
-          <section className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm ring-1 ring-black/[0.03]">
-            <h2 className="text-sm font-semibold text-gray-900">Finish your guided follow-up</h2>
-            <p className="mt-2 text-sm leading-relaxed text-gray-700">
+          <section className="rounded-2xl border border-[var(--border)] bg-white p-6 shadow-sm ring-1 ring-black/[0.03]">
+            <h2 className="text-base font-semibold text-gray-900">Finish your guided follow-up</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
               {pending.kind === "identity_anchor_update"
                 ? "Finish updating your identity line from your recent check-in."
                 : pending.kind === "commitment_replace"
