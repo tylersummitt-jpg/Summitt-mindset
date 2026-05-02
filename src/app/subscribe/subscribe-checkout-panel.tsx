@@ -120,7 +120,7 @@ export default function SubscribeCheckoutPanel() {
         <button
           onClick={() => handleCheckout("monthly")}
           disabled={disabled}
-          className="relative w-full border-2 border-[var(--brand)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:opacity-70"
+          className="relative w-full cursor-pointer border-2 border-[var(--brand)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:cursor-wait disabled:opacity-70"
         >
           <p className="text-sm font-semibold mb-1">Founding Member Monthly</p>
           <p className="text-2xl font-bold mb-2">$19.99</p>
@@ -135,7 +135,7 @@ export default function SubscribeCheckoutPanel() {
         <button
           onClick={() => handleCheckout("annual")}
           disabled={disabled}
-          className="relative w-full border border-[var(--border)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:opacity-70"
+          className="relative w-full cursor-pointer border border-[var(--border)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:cursor-wait disabled:opacity-70"
         >
           <p className="text-sm font-semibold mb-1">Founding Member Annual</p>
           <p className="text-2xl font-bold mb-2">$120</p>
