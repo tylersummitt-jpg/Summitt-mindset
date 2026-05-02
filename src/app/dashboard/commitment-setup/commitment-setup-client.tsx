@@ -128,7 +128,7 @@ export default function CommitmentSetupClient() {
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center justify-center rounded-md bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-100"
+          className="member-primary-cta-lg disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-100 disabled:hover:opacity-100"
         >
           {saving ? "Saving…" : "Save commitment"}
         </button>

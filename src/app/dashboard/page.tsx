@@ -49,10 +49,7 @@ export default async function DashboardPage() {
         <p className="mt-4 text-sm leading-relaxed text-gray-600">
           To start your updated accountability system, Pat needs one clear commitment to coach you around.
         </p>
-        <Link
-          href="/dashboard/commitment-setup"
-          className="mt-8 inline-flex rounded-md bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
-        >
+        <Link href="/dashboard/commitment-setup" className="member-primary-cta-lg mt-8">
           Set my commitment
         </Link>
       </main>
@@ -107,130 +104,131 @@ export default async function DashboardPage() {
     user.firstName?.trim() || user.username?.trim() || "there";
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Dashboard</p>
-      <h1 className="mt-1 text-2xl font-semibold text-gray-900">Today</h1>
+    <main className="mx-auto max-w-2xl bg-gradient-to-b from-gray-50/90 via-white to-[var(--bg)] px-6 py-12 pb-16">
+      <header className="border-b border-[var(--border)]/80 pb-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+          Dashboard
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">Today</h1>
+      </header>
 
-      {metadata?.smsEnabled !== true ? (
-        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-left shadow-sm">
-          <h2 className="text-sm font-semibold text-amber-950">Turn on accountability texts</h2>
-          <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
-            Pat&apos;s daily check-ins run over SMS. You can use the app without texts, but you&apos;ll miss
-            the core accountability loop.
-          </p>
-          <Link
-            href="/user"
-            className="mt-3 inline-flex text-sm font-medium text-amber-950 underline underline-offset-2 hover:text-amber-900"
-          >
-            Open Account
-          </Link>
-        </section>
-      ) : null}
+      <div className="mt-8 space-y-8">
+        {metadata?.smsEnabled !== true ? (
+          <section className="rounded-2xl border border-amber-200/90 bg-amber-50/95 p-5 shadow-sm ring-1 ring-amber-900/[0.06]">
+            <h2 className="text-sm font-semibold text-amber-950">Turn on accountability texts</h2>
+            <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+              Pat&apos;s daily check-ins run over SMS. You can use the app without texts, but you&apos;ll miss
+              the core accountability loop.
+            </p>
+            <Link href="/user" className="member-text-link-amber mt-4 inline-flex">
+              Open Account
+            </Link>
+          </section>
+        ) : null}
 
-      {commitment ? (
-        <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Active commitment</h2>
-          <p className="mt-2 text-lg font-semibold text-gray-900">{commitment.title}</p>
-          {showSplitAsk ? (
-            <>
-              <p className="mt-3 text-sm leading-relaxed text-gray-700">
-                <span className="font-medium text-gray-800">Your commitment: </span>
+        {commitment ? (
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-md shadow-gray-900/[0.05] ring-1 ring-black/[0.04]">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+              Active commitment
+            </h2>
+            <p className="mt-3 text-xl font-semibold tracking-tight text-gray-900">{commitment.title}</p>
+            {showSplitAsk ? (
+              <>
+                <p className="mt-4 text-sm leading-relaxed text-gray-700">
+                  <span className="font-medium text-gray-800">Your commitment: </span>
+                  {commitment.behavior_statement}
+                </p>
+                <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-gray-800">
+                  <span className="font-medium text-gray-900">Coach Pat is checking in on today: </span>
+                  {effectiveAsk}
+                </p>
+              </>
+            ) : (
+              <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-gray-800">
+                <span className="font-medium text-gray-900">Coach Pat is checking in on: </span>
                 {commitment.behavior_statement}
               </p>
-              <p className="mt-4 border-t border-gray-100 pt-4 text-sm leading-relaxed text-gray-800">
-                <span className="font-medium text-gray-900">Coach Pat is checking in on today: </span>
-                {effectiveAsk}
+            )}
+            {commitment.accountability_phase === "low_pressure_reactivation" ? (
+              <p className="mt-4 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-gray-600">
+                You&apos;re in a low-pressure reactivation window—SMS stays light until you re-engage.
               </p>
-            </>
-          ) : (
-            <p className="mt-4 border-t border-gray-100 pt-4 text-sm leading-relaxed text-gray-800">
-              <span className="font-medium text-gray-900">Coach Pat is checking in on: </span>
-              {commitment.behavior_statement}
+            ) : null}
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-amber-200/90 bg-amber-50/95 p-5 shadow-sm ring-1 ring-amber-900/[0.06]">
+            <h2 className="text-sm font-semibold text-amber-950">No active commitment on file</h2>
+            <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+              Daily accountability SMS needs an active commitment with a clear behavior statement. If you
+              expected checks already, finish saving your commitment in onboarding—or ask for help if you
+              believe this is wrong.
             </p>
-          )}
-          {commitment.accountability_phase === "low_pressure_reactivation" ? (
-            <p className="mt-3 text-xs text-gray-600">
-              You&apos;re in a low-pressure reactivation window—SMS stays light until you re-engage.
-            </p>
-          ) : null}
-        </section>
-      ) : (
-        <section className="mt-8 rounded-lg border border-amber-200 bg-amber-50/80 p-5">
-          <h2 className="text-sm font-semibold text-amber-950">No active commitment on file</h2>
-          <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
-            Daily accountability SMS needs an active commitment with a clear behavior statement. If you
-            expected checks already, finish saving your commitment in onboarding—or ask for help if you
-            believe this is wrong.
-          </p>
-        </section>
-      )}
+          </section>
+        )}
 
-      {pending ? (
-        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50/60 p-5">
-          <h2 className="text-sm font-semibold text-amber-950">Finish your guided follow-up</h2>
-          <p className="mt-2 text-sm text-amber-950/90">
-            {pending.kind === "identity_anchor_update"
-              ? "Finish updating your identity line from your recent check-in."
-              : pending.kind === "commitment_replace"
-                ? "Finish updating your accountability focus from your recent check-in."
-                : "Finish setting a smaller bar you can say yes to from your recent check-in."}
+        {pending ? (
+          <section className="rounded-2xl border border-amber-200/90 bg-amber-50 p-5 shadow-sm ring-1 ring-amber-900/[0.06]">
+            <h2 className="text-sm font-semibold text-amber-950">Finish your guided follow-up</h2>
+            <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+              {pending.kind === "identity_anchor_update"
+                ? "Finish updating your identity line from your recent check-in."
+                : pending.kind === "commitment_replace"
+                  ? "Finish updating your accountability focus from your recent check-in."
+                  : "Finish setting a smaller bar you can say yes to from your recent check-in."}
+            </p>
+            <Link href="/dashboard/guided-resolution" className="member-attention-cta mt-4">
+              Open guided resolution
+            </Link>
+          </section>
+        ) : null}
+
+        {showEvolutionCard && evolutionRec && evolutionCopy?.headline ? (
+          <EvolutionRecommendationCard
+            recommendationId={evolutionRec.id}
+            headline={evolutionCopy.headline}
+            body={evolutionCopy.body}
+          />
+        ) : null}
+
+        <section className="rounded-2xl border border-[var(--border)] border-l-[var(--brand)] border-l-4 bg-gradient-to-br from-white via-gray-50/50 to-white p-6 shadow-md shadow-gray-900/[0.06] ring-1 ring-black/[0.04]">
+          <h2 className="text-base font-semibold text-gray-900">Victory Room</h2>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+            Proof of how you&apos;ve held the line—cornerstones, prior chapters, and what you can share.
           </p>
-          <Link
-            href="/dashboard/guided-resolution"
-            className="mt-4 inline-flex rounded-md bg-amber-900 px-4 py-2 text-sm font-medium text-amber-50 hover:bg-amber-950"
-          >
-            Open guided resolution
+          <Link href="/dashboard/victory-room" className="member-primary-cta mt-4">
+            Open Victory Room
           </Link>
         </section>
-      ) : null}
 
-      {showEvolutionCard && evolutionRec && evolutionCopy?.headline ? (
-        <EvolutionRecommendationCard
-          recommendationId={evolutionRec.id}
-          headline={evolutionCopy.headline}
-          body={evolutionCopy.body}
-        />
-      ) : null}
-
-      <section className="mt-8 rounded-lg border border-gray-200 bg-gray-50/80 p-5">
-        <h2 className="text-sm font-semibold text-gray-900">Victory Room</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          Proof of how you&apos;ve held the line—cornerstones, prior chapters, and what you can share.
-        </p>
-        <Link
-          href="/dashboard/victory-room"
-          className="mt-4 inline-flex rounded-md bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
-        >
-          Open Victory Room
-        </Link>
-      </section>
-
-      <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-900">SMS accountability</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          Coach Pat will check in by text about your commitment above. Just reply honestly when she asks.
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          The more you reply, the better Coach Pat can coach you over time.
-        </p>
-        {smsEnabled ? (
-          <p className="mt-2 text-xs text-gray-500">SMS check-ins are on for your account.</p>
-        ) : (
-          <p className="mt-2 text-xs text-amber-900/90">
-            SMS check-ins look off in your profile. Turn them on when you&apos;re ready for daily
-            accountability texts.
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm ring-1 ring-black/[0.03]">
+          <h2 className="text-base font-semibold text-gray-900">SMS accountability</h2>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+            Coach Pat will check in by text about your commitment above. Just reply honestly when she asks.
           </p>
-        )}
-      </section>
-
-      {latestWeekly?.weekly_summary ? (
-        <section className="mt-8 rounded-lg border border-gray-100 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">A note from Coach Pat</p>
-          <p className="mt-3 text-sm leading-relaxed text-gray-800">{latestWeekly.weekly_summary}</p>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+            The more you reply, the better Coach Pat can coach you over time.
+          </p>
+          {smsEnabled ? (
+            <p className="mt-3 text-xs text-gray-500">SMS check-ins are on for your account.</p>
+          ) : (
+            <p className="mt-3 text-xs font-medium text-amber-900/90">
+              SMS check-ins look off in your profile. Turn them on when you&apos;re ready for daily
+              accountability texts.
+            </p>
+          )}
         </section>
-      ) : null}
 
-      <p className="mt-10 text-center text-xs text-gray-400">Signed in as {displayName}.</p>
+        {latestWeekly?.weekly_summary ? (
+          <section className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-sm ring-1 ring-stone-900/[0.04] border-l-4 border-l-stone-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+              A note from Coach Pat
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-gray-800">{latestWeekly.weekly_summary}</p>
+          </section>
+        ) : null}
+      </div>
+
+      <p className="mt-12 text-center text-xs text-[var(--muted)]">Signed in as {displayName}.</p>
     </main>
   );
 }
