@@ -14,6 +14,12 @@ import {
 } from "@/lib/v2-sms-accountability";
 import { formatRelationshipFitOutboundHints } from "@/lib/v2-sms-relationship-profile";
 import type { Wave7DailyEvolutionPick } from "@/lib/v2-sms-evolution-signal";
+import {
+  deriveDailyOutboundBrainCase,
+  finalizeDailyOutboundHumanSms,
+} from "@/lib/v2-human-sms-brain/finalize-daily-outbound-human-sms";
+import { shouldApplyPhase4DailyOutboundPolish, shouldApplyPhase5aReactivationOutboundPolish } from "@/lib/v2-human-sms-brain/flags";
+import { finalizePhase5aReactivationOutboundHumanSms } from "@/lib/v2-human-sms-brain/finalize-phase5a-human-sms";
 
 export const V2_OUTBOUND_AI_PROMPT_VERSION = "v2_outbound_wave3";
 
@@ -1323,6 +1329,66 @@ export async function resolveV2DailyOutboundSmsBody(args: {
       source = "deterministic_human";
     }
     smsBody = human;
+  }
+
+  if (shouldApplyPhase4DailyOutboundPolish(args.contractProposalMode, args.ctx.serverStrategy)) {
+    const memBlock = formatCoachingMemoryPromptBlock(args.ctx.coachingMemory);
+    const coachingMemoryPreview =
+      memBlock.trim().length > 0 ? truncateOneLine(memBlock.trim(), 480) : undefined;
+    const recentSmsContextPreview =
+      args.ctx.recentSmsContextBlock?.trim().length
+        ? truncateOneLine(args.ctx.recentSmsContextBlock.trim(), 400)
+        : undefined;
+    const identityAnchorPreview =
+      args.ctx.identityReferenceAllowed && args.ctx.identityAnchorText?.trim()
+        ? truncateOneLine(args.ctx.identityAnchorText.trim(), 120)
+        : undefined;
+
+    const finalized = await finalizeDailyOutboundHumanSms({
+      machineDraft: smsBody,
+      brainCase: deriveDailyOutboundBrainCase(args.ctx.serverStrategy),
+      dailyPurpose: args.purpose,
+      serverStrategy: args.ctx.serverStrategy,
+      effectiveAskPreview: truncateOneLine(args.effectiveAsk, 120),
+      behaviorStatementPreview: truncateOneLine(args.behaviorStatement, 200),
+      dailyReplySourcePre: source,
+      identityAnchorPreview,
+      coachingMemoryPreview,
+      recentSmsContextPreview,
+      effectiveAskForFallback: args.effectiveAsk.trim(),
+      behaviorStatementForFallback: args.behaviorStatement.trim(),
+      maxChars: SMS_MAX_LEN,
+    });
+    smsBody = finalized.message;
+  }
+
+  if (shouldApplyPhase5aReactivationOutboundPolish(args.ctx.serverStrategy)) {
+    const memBlock5 = formatCoachingMemoryPromptBlock(args.ctx.coachingMemory);
+    const coachingMemoryPreview5 =
+      memBlock5.trim().length > 0 ? truncateOneLine(memBlock5.trim(), 480) : undefined;
+    const recentSmsContextPreview5 =
+      args.ctx.recentSmsContextBlock?.trim().length
+        ? truncateOneLine(args.ctx.recentSmsContextBlock.trim(), 400)
+        : undefined;
+    const identityAnchorPreview5 =
+      args.ctx.identityReferenceAllowed && args.ctx.identityAnchorText?.trim()
+        ? truncateOneLine(args.ctx.identityAnchorText.trim(), 120)
+        : undefined;
+
+    const finalized5 = await finalizePhase5aReactivationOutboundHumanSms({
+      machineDraft: smsBody,
+      dailyPurpose: args.purpose,
+      dailyReplySourcePre: source,
+      effectiveAskPreview: truncateOneLine(args.effectiveAsk, 120),
+      behaviorStatementPreview: truncateOneLine(args.behaviorStatement, 200),
+      identityAnchorPreview: identityAnchorPreview5,
+      coachingMemoryPreview: coachingMemoryPreview5,
+      recentSmsContextPreview: recentSmsContextPreview5,
+      effectiveAskForFallback: args.effectiveAsk.trim(),
+      behaviorStatementForFallback: args.behaviorStatement.trim(),
+      maxChars: SMS_MAX_LEN,
+    });
+    smsBody = finalized5.message;
   }
 
   const shortPhrase = getShortCommitmentPhraseForSms({

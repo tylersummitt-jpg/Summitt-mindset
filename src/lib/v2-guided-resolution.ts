@@ -62,6 +62,15 @@ export type V2SmsPendingResolutionPayload = {
   /** Wave 9.1 — bounded snapshot from memory_signal interpreter (JSON-safe subset only). */
   memory_signal_snapshot?: Record<string, unknown> | null;
   last_inbound_memory_signal_at?: string | null;
+
+  /** Phase 1 — Commitment Meaning Interpreter snapshot (optional JSON; no DB migration). */
+  meaning_interpreter_prompt_version?: string | null;
+  meaning_interpreter_interpreted_bar?: string | null;
+  meaning_interpreter_needs_clarification?: boolean | null;
+  meaning_interpreter_clarification_question?: string | null;
+  meaning_interpreter_confidence?: number | null;
+  meaning_interpreter_ok?: boolean | null;
+  meaning_interpreter_error?: string | null;
 };
 
 export type V2PendingResolutionPayload = V2GuidedResolutionPayload | V2SmsPendingResolutionPayload;
@@ -135,6 +144,27 @@ function parsePayload(raw: unknown): V2PendingResolutionPayload | null {
         : {}),
       ...(typeof o.last_inbound_memory_signal_at === "string"
         ? { last_inbound_memory_signal_at: o.last_inbound_memory_signal_at }
+        : {}),
+      ...(typeof o.meaning_interpreter_prompt_version === "string"
+        ? { meaning_interpreter_prompt_version: o.meaning_interpreter_prompt_version }
+        : {}),
+      ...(typeof o.meaning_interpreter_interpreted_bar === "string"
+        ? { meaning_interpreter_interpreted_bar: o.meaning_interpreter_interpreted_bar }
+        : {}),
+      ...(o.meaning_interpreter_needs_clarification === true || o.meaning_interpreter_needs_clarification === false
+        ? { meaning_interpreter_needs_clarification: o.meaning_interpreter_needs_clarification }
+        : {}),
+      ...(typeof o.meaning_interpreter_clarification_question === "string"
+        ? { meaning_interpreter_clarification_question: o.meaning_interpreter_clarification_question }
+        : {}),
+      ...(typeof o.meaning_interpreter_confidence === "number" && Number.isFinite(o.meaning_interpreter_confidence)
+        ? { meaning_interpreter_confidence: o.meaning_interpreter_confidence }
+        : {}),
+      ...(o.meaning_interpreter_ok === true || o.meaning_interpreter_ok === false
+        ? { meaning_interpreter_ok: o.meaning_interpreter_ok }
+        : {}),
+      ...(typeof o.meaning_interpreter_error === "string"
+        ? { meaning_interpreter_error: o.meaning_interpreter_error }
         : {}),
     };
   }

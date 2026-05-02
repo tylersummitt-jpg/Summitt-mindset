@@ -880,14 +880,14 @@ async function buildDailySmsContent(
 
     const { body: templateBody, templateId } =
       contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask"
-        ? buildV2ShrinkProposalOutboundSms({
+        ? await buildV2ShrinkProposalOutboundSms({
             clerkUserId,
             dayKey: accountabilityDayKey,
             proposalBindingText,
             originalBehaviorStatement: active.behavior_statement,
           })
         : contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same"
-          ? buildV2RecommitProposalOutboundSms({
+          ? await buildV2RecommitProposalOutboundSms({
               clerkUserId,
               dayKey: accountabilityDayKey,
               proposalBindingText,

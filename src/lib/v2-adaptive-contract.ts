@@ -375,7 +375,7 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
   const dayKey = getDateKeyInTimezone(new Date(), "UTC");
   const idempotencySuffix = `guided:${crypto.randomUUID()}`;
 
-  const { body: smsBody } = buildV2ShrinkProposalOutboundSms({
+  const { body: smsBody } = await buildV2ShrinkProposalOutboundSms({
     clerkUserId: args.clerkUserId,
     dayKey,
     proposalBindingText: args.proposalBindingText,

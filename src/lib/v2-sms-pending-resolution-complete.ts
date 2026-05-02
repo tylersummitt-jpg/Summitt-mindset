@@ -39,6 +39,16 @@ import {
   insertSmsCommitmentChangeProofEvent,
 } from "@/lib/v2-proof-moment";
 import { getDateKeyInTimezone } from "@/lib/timezone";
+import { interpretCommitmentMeaningFromUserText } from "@/lib/v2-commitment-meaning-interpreter/commitment-meaning-interpreter";
+import { COMMITMENT_MEANING_INTERPRETER_PROMPT_VERSION } from "@/lib/v2-commitment-meaning-interpreter/types";
+import { finalizePhase1HumanSms } from "@/lib/v2-human-sms-brain/finalize-phase1-human-sms";
+import type { HumanSmsBrainCase } from "@/lib/v2-human-sms-brain/types";
+import {
+  isV2PendingResolutionVictoryCalloutAllowed,
+  shouldRunCommitmentInterpreterForPendingResolution,
+  shouldRunHumanSmsPipelineForPendingResolution,
+} from "@/lib/v2-human-sms-brain/flags";
+import { isThinCommitmentBarForVictoryCallout } from "@/lib/v2-human-sms-brain/thin-commitment-bar-for-victory";
 
 const BEHAVIOR_MAX = 2000;
 const RAW_LOG_MAX = 280;
@@ -226,6 +236,41 @@ function logSmsPending(j: Record<string, unknown>) {
   console.info("[sms-pending-resolution]", { wave: "4.1", ...j });
 }
 
+export { isThinCommitmentBarForVictoryCallout } from "@/lib/v2-human-sms-brain/thin-commitment-bar-for-victory";
+
+function preferRichTextOverBareDuration(raw: string, extractedPhrase: string | null): boolean {
+  const r = raw.trim();
+  if (!extractedPhrase || r.length < 36) return false;
+  const ex = extractedPhrase.trim();
+  if (
+    /^(?:\d{1,3}\s*(?:hours?|hrs?|minutes?|mins?))\s*$/i.test(ex) &&
+    /[a-zA-Z]{5,}/.test(r)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+async function phase1PendingReply(args: {
+  machineDraft: string;
+  brainCase: HumanSmsBrainCase;
+  allowVictoryRoomPhrase: boolean;
+  currentBarSummary: string | null;
+  safeFallback: string;
+}): Promise<string> {
+  if (!shouldRunHumanSmsPipelineForPendingResolution()) return args.machineDraft;
+  const r = await finalizePhase1HumanSms({
+    path: "pending_resolution",
+    brainCase: args.brainCase,
+    machineDraft: args.machineDraft,
+    channel: "pending_resolution",
+    allowVictoryRoomPhrase: args.allowVictoryRoomPhrase,
+    brainContext: { currentBarSummary: args.currentBarSummary },
+    safeFallback: args.safeFallback,
+  });
+  return r.message;
+}
+
 export async function tryHandleSmsInboundPendingResolution(args: {
   job: { message_sid: string; raw_body: string | null };
   clerkUserId: string;
@@ -253,6 +298,9 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     return { handled: false };
   }
 
+  const kind = pending.kind;
+  const currentBarSummary = c.behavior_statement?.trim() ?? null;
+
   if (c.accountability_phase === "low_pressure_reactivation") {
     await clearPendingResolution(c.id, { expectedUpdatedAt: c.updated_at });
     await recomputeV2CoachingMemory(c.id, { reasonCode: "sms_pending_cleared_paused" });
@@ -268,14 +316,19 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       raw_text_preview: rawPreview,
       detail: "paused_cleared_pending",
     });
+    const pausedDraft =
+      "I can’t update your commitment while you’re in low-pressure mode. When you’re ready for full accountability again, text me and we’ll set the bar.";
     return {
       handled: true,
-      replyBody:
-        "I can’t update your commitment while you’re in low-pressure mode. When you’re ready for full accountability again, text me and we’ll set the bar.",
+      replyBody: await phase1PendingReply({
+        machineDraft: pausedDraft,
+        brainCase: "pending_resolution_vague_need_detail",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: pausedDraft,
+      }),
     };
   }
-
-  const kind = pending.kind;
 
   if (looksLikeCancellation(rawFull) && smsState === "awaiting_candidate") {
     await clearPendingResolution(c.id, { expectedUpdatedAt: c.updated_at });
@@ -292,9 +345,17 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       message_sid: args.job.message_sid,
       raw_text_preview: rawPreview,
     });
+    const cancelDraft =
+      "Okay—I’ll drop that update for now. Text me anytime you want to adjust the bar.";
     return {
       handled: true,
-      replyBody: "Okay—I’ll drop that update for now. Text me anytime you want to adjust the bar.",
+      replyBody: await phase1PendingReply({
+        machineDraft: cancelDraft,
+        brainCase: "pending_resolution_no_problem_reenter",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: cancelDraft,
+      }),
     };
   }
 
@@ -312,10 +373,17 @@ export async function tryHandleSmsInboundPendingResolution(args: {
           sms_state: "awaiting_candidate",
         }),
       });
+      const lostDraft =
+        "I lost track of the candidate—what exactly should I hold you to tomorrow? One clear action.";
       return {
         handled: true,
-        replyBody:
-          "I lost track of the candidate—what exactly should I hold you to tomorrow? One clear action.",
+        replyBody: await phase1PendingReply({
+          machineDraft: lostDraft,
+          brainCase: "pending_resolution_lost_candidate",
+          allowVictoryRoomPhrase: false,
+          currentBarSummary,
+          safeFallback: lostDraft,
+        }),
       };
     }
 
@@ -333,9 +401,16 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         message_sid: args.job.message_sid,
         raw_text_preview: rawPreview,
       });
+      const ambDraft = `I’m still holding: ${cand}. Reply yes to lock it in, or no if you want to change it.`;
       return {
         handled: true,
-        replyBody: `I’m still holding: ${cand}. Reply yes to lock it in, or no if you want to change it.`,
+        replyBody: await phase1PendingReply({
+          machineDraft: ambDraft,
+          brainCase: "pending_resolution_ambiguous_confirm",
+          allowVictoryRoomPhrase: false,
+          currentBarSummary,
+          safeFallback: ambDraft,
+        }),
       };
     }
 
@@ -352,9 +427,16 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         }),
       });
       if (!merged.ok) {
+        const glitchDraft = "Something glitched—try naming the bar again in one short sentence.";
         return {
           handled: true,
-          replyBody: "Something glitched—try naming the bar again in one short sentence.",
+          replyBody: await phase1PendingReply({
+            machineDraft: glitchDraft,
+            brainCase: "pending_resolution_lost_candidate",
+            allowVictoryRoomPhrase: false,
+            currentBarSummary,
+            safeFallback: glitchDraft,
+          }),
         };
       }
       logSmsPending({
@@ -369,10 +451,17 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         message_sid: args.job.message_sid,
         raw_text_preview: rawPreview,
       });
+      const noProbDraft =
+        "No problem—what would work better? Send one clear daily action you want me to hold you to.";
       return {
         handled: true,
-        replyBody:
-          "No problem—what would work better? Send one clear daily action you want me to hold you to.",
+        replyBody: await phase1PendingReply({
+          machineDraft: noProbDraft,
+          brainCase: "pending_resolution_no_problem_reenter",
+          allowVictoryRoomPhrase: false,
+          currentBarSummary,
+          safeFallback: noProbDraft,
+        }),
       };
     }
 
@@ -410,9 +499,16 @@ export async function tryHandleSmsInboundPendingResolution(args: {
           raw_text_preview: rawPreview,
           error: rep.code,
         });
+        const rpcHoldDraft = `I couldn’t safely update it from here. I still have the candidate: ${cand}. I’ll keep this pending so we don’t lose it.`;
         return {
           handled: true,
-          replyBody: `I couldn’t safely update it from here. I still have the candidate: ${cand}. I’ll keep this pending so we don’t lose it.`,
+          replyBody: await phase1PendingReply({
+            machineDraft: rpcHoldDraft,
+            brainCase: "pending_resolution_rpc_error_hold",
+            allowVictoryRoomPhrase: false,
+            currentBarSummary,
+            safeFallback: rpcHoldDraft,
+          }),
         };
       }
       logSmsPending({
@@ -433,11 +529,18 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         proofMeta: replaceProof,
         eventsNewestFirst: recentReplace,
       });
+      let vrAppend = replaceCallout.appendToReply;
+      const thinReplace =
+        kind === "commitment_replace" &&
+        isThinCommitmentBarForVictoryCallout(cand) &&
+        !isV2PendingResolutionVictoryCalloutAllowed();
+      if (thinReplace) {
+        vrAppend = null;
+      }
       let replaceReply = `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`;
       const beforeReplaceCallout = replaceReply;
-      replaceReply = appendSmsParagraphIfUnderCap(replaceReply, replaceCallout.appendToReply);
-      const replaceCalloutShown =
-        replaceCallout.appendToReply != null && replaceReply !== beforeReplaceCallout;
+      replaceReply = appendSmsParagraphIfUnderCap(replaceReply, vrAppend);
+      const replaceCalloutShown = vrAppend != null && replaceReply !== beforeReplaceCallout;
       await insertSmsCommitmentChangeProofEvent({
         commitmentId: rep.newCommitmentId,
         clerkUserId: args.clerkUserId,
@@ -446,18 +549,33 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         kind: "commitment_replaced",
         victoryCalloutExtras: replaceCalloutShown ? replaceCallout.eventPayloadExtras : undefined,
       });
+      const allowVrReplace = /\bvictory room\b/i.test(replaceReply);
+      const replaceSafeFallback = `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`;
       return {
         handled: true,
-        replyBody: replaceReply,
+        replyBody: await phase1PendingReply({
+          machineDraft: replaceReply,
+          brainCase: "pending_resolution_replace_applied",
+          allowVictoryRoomPhrase: allowVrReplace,
+          currentBarSummary,
+          safeFallback: replaceSafeFallback,
+        }),
       };
     }
 
     const normalized = normalizeShrinkProposalBindingText(cand);
     if (!normalized) {
+      const fmtDraft =
+        "That wording doesn’t fit the safe format from here. What smaller bar should I hold you to—one short sentence?";
       return {
         handled: true,
-        replyBody:
-          "That wording doesn’t fit the safe format from here. What smaller bar should I hold you to—one short sentence?",
+        replyBody: await phase1PendingReply({
+          machineDraft: fmtDraft,
+          brainCase: "pending_resolution_clarify_candidate",
+          allowVictoryRoomPhrase: false,
+          currentBarSummary,
+          safeFallback: fmtDraft,
+        }),
       };
     }
 
@@ -495,9 +613,16 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         raw_text_preview: rawPreview,
         error: tight.code,
       });
+      const rpcHoldTightDraft = `I couldn’t safely update it from here. I still have the candidate: ${cand}. I’ll keep this pending so we don’t lose it.`;
       return {
         handled: true,
-        replyBody: `I couldn’t safely update it from here. I still have the candidate: ${cand}. I’ll keep this pending so we don’t lose it.`,
+        replyBody: await phase1PendingReply({
+          machineDraft: rpcHoldTightDraft,
+          brainCase: "pending_resolution_rpc_error_hold",
+          allowVictoryRoomPhrase: false,
+          currentBarSummary,
+          safeFallback: rpcHoldTightDraft,
+        }),
       };
     }
 
@@ -523,11 +648,16 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       proofMeta: tightenProof,
       eventsNewestFirst: recentTighten,
     });
+    let vrAppendTight = tightenCallout.appendToReply;
+    const thinTighten =
+      isThinCommitmentBarForVictoryCallout(normalized) && !isV2PendingResolutionVictoryCalloutAllowed();
+    if (thinTighten) {
+      vrAppendTight = null;
+    }
     let tightenReply = `Done. New bar: ${normalized}. I’ll hold you to that tomorrow.`;
     const beforeTightenCallout = tightenReply;
-    tightenReply = appendSmsParagraphIfUnderCap(tightenReply, tightenCallout.appendToReply);
-    const tightenCalloutShown =
-      tightenCallout.appendToReply != null && tightenReply !== beforeTightenCallout;
+    tightenReply = appendSmsParagraphIfUnderCap(tightenReply, vrAppendTight);
+    const tightenCalloutShown = vrAppendTight != null && tightenReply !== beforeTightenCallout;
     await insertSmsCommitmentChangeProofEvent({
       commitmentId: reloaded.id,
       clerkUserId: args.clerkUserId,
@@ -536,16 +666,102 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       kind: "commitment_tightened",
       victoryCalloutExtras: tightenCalloutShown ? tightenCallout.eventPayloadExtras : undefined,
     });
+    const allowVrTight = /\bvictory room\b/i.test(tightenReply);
+    const tightenSafeFallback = `Done. New bar: ${normalized}. I’ll hold you to that tomorrow.`;
     return {
       handled: true,
-      replyBody: tightenReply,
+      replyBody: await phase1PendingReply({
+        machineDraft: tightenReply,
+        brainCase: "pending_resolution_tighten_applied",
+        allowVictoryRoomPhrase: allowVrTight,
+        currentBarSummary,
+        safeFallback: tightenSafeFallback,
+      }),
     };
   }
 
-  const extracted = extractDeterministicDailyBarCandidate(rawFull);
-  let candidateRaw = extracted ?? rawFull;
+  let meaningInterpreterAcceptedBar: string | null = null;
+
+  if (shouldRunCommitmentInterpreterForPendingResolution()) {
+    const interp = await interpretCommitmentMeaningFromUserText({
+      rawUserText: rawFull,
+      pendingKind: kind,
+      currentBarSummary,
+      promptVersion: COMMITMENT_MEANING_INTERPRETER_PROMPT_VERSION,
+    });
+
+    await mergeSmsPendingResolutionPayload({
+      commitmentId: c.id,
+      merge: (prev) => ({
+        ...prev,
+        meaning_interpreter_ok: interp.ok,
+        meaning_interpreter_error: interp.ok ? null : interp.reason,
+        ...(interp.ok
+          ? {
+              meaning_interpreter_prompt_version: interp.promptVersion,
+              meaning_interpreter_interpreted_bar: interp.interpreted_daily_bar,
+              meaning_interpreter_needs_clarification: interp.needs_clarification,
+              meaning_interpreter_clarification_question: interp.clarification_question,
+              meaning_interpreter_confidence: interp.confidence,
+            }
+          : {}),
+      }),
+    });
+
+    if (interp.ok && interp.needs_clarification) {
+      const clarDraft =
+        interp.clarification_question?.trim() ||
+        "What exactly should I hold you to tomorrow? One clear action.";
+      logSmsPending({
+        pending_resolution_sms_state: "awaiting_candidate",
+        detected_candidate: null,
+        confirmation: null,
+        mutation_attempted: false,
+        mutation_success: false,
+        rpc: null,
+        old_commitment_id: c.id,
+        new_commitment_id: null,
+        message_sid: args.job.message_sid,
+        raw_text_preview: rawPreview,
+        meaning_interpreter_clarification: true,
+      });
+      return {
+        handled: true,
+        replyBody: await phase1PendingReply({
+          machineDraft: clarDraft,
+          brainCase: "pending_resolution_clarify_candidate",
+          allowVictoryRoomPhrase: false,
+          currentBarSummary,
+          safeFallback: clarDraft,
+        }),
+      };
+    }
+
+    if (
+      interp.ok &&
+      !interp.needs_clarification &&
+      interp.interpreted_daily_bar &&
+      interp.confidence >= 0.5
+    ) {
+      const clampedInterp = clampCandidateForKind(kind, interp.interpreted_daily_bar);
+      if (clampedInterp && !isVagueOrInvalidCandidateBar(clampedInterp)) {
+        meaningInterpreterAcceptedBar = clampedInterp;
+      }
+    }
+  }
+
+  let extracted = extractDeterministicDailyBarCandidate(rawFull);
+  if (!meaningInterpreterAcceptedBar && preferRichTextOverBareDuration(rawFull, extracted)) {
+    extracted = null;
+  }
+
+  let candidateRaw = meaningInterpreterAcceptedBar ?? extracted ?? rawFull;
   let deterministicGood =
     !isVagueOrInvalidCandidateBar(candidateRaw) && clampCandidateForKind(kind, candidateRaw) !== null;
+
+  if (meaningInterpreterAcceptedBar) {
+    deterministicGood = true;
+  }
 
   let aiMeta: {
     used: boolean;
@@ -646,21 +862,35 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       vague: true,
       ai_candidate_extraction: aiMeta,
     });
+    const vagueDraft =
+      "I need the new bar to be one clear action. What exactly should I hold you to tomorrow?";
     return {
       handled: true,
-      replyBody:
-        "I need the new bar to be one clear action. What exactly should I hold you to tomorrow?",
+      replyBody: await phase1PendingReply({
+        machineDraft: vagueDraft,
+        brainCase: "pending_resolution_vague_need_detail",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: vagueDraft,
+      }),
     };
   }
 
   const clamped = clampCandidateForKind(kind, candidateRaw);
   if (!clamped) {
+    const clampDraft =
+      kind === "commitment_tighten"
+        ? "That’s too long or unclear for a tightened bar here—what’s one shorter honest version?"
+        : "That text doesn’t fit as a commitment here—try one clear daily-action sentence.";
     return {
       handled: true,
-      replyBody:
-        kind === "commitment_tighten"
-          ? "That’s too long or unclear for a tightened bar here—what’s one shorter honest version?"
-          : "That text doesn’t fit as a commitment here—try one clear daily-action sentence.",
+      replyBody: await phase1PendingReply({
+        machineDraft: clampDraft,
+        brainCase: "pending_resolution_clarify_candidate",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: clampDraft,
+      }),
     };
   }
 
@@ -691,9 +921,17 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     }),
   });
   if (!mergedOk.ok) {
+    const saveGlitchDraft =
+      "Something glitched saving that—try your candidate again in one short sentence.";
     return {
       handled: true,
-      replyBody: "Something glitched saving that—try your candidate again in one short sentence.",
+      replyBody: await phase1PendingReply({
+        machineDraft: saveGlitchDraft,
+        brainCase: "pending_resolution_lost_candidate",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: saveGlitchDraft,
+      }),
     };
   }
 
@@ -712,13 +950,27 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   });
 
   if (kind === "commitment_tighten") {
+    const tightenPromptDraft = `I can tighten it to: ${clamped}. Should I make that the new daily bar?`;
     return {
       handled: true,
-      replyBody: `I can tighten it to: ${clamped}. Should I make that the new daily bar?`,
+      replyBody: await phase1PendingReply({
+        machineDraft: tightenPromptDraft,
+        brainCase: "pending_resolution_confirmation_prompt",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: tightenPromptDraft,
+      }),
     };
   }
+  const replacePromptDraft = `I can change it to: ${clamped}. Should I make that your new commitment?`;
   return {
     handled: true,
-    replyBody: `I can change it to: ${clamped}. Should I make that your new commitment?`,
+    replyBody: await phase1PendingReply({
+      machineDraft: replacePromptDraft,
+      brainCase: "pending_resolution_confirmation_prompt",
+      allowVictoryRoomPhrase: false,
+      currentBarSummary,
+      safeFallback: replacePromptDraft,
+    }),
   };
 }

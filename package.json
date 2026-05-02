@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint",
     "db:capture-baseline": "bash scripts/capture-baseline-schema.sh",
     "stripe:audit-duplicate-subs": "node scripts/audit-stripe-duplicate-subscriptions.mjs"
@@ -31,6 +33,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

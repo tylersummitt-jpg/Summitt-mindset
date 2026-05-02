@@ -1,5 +1,10 @@
 import crypto from "crypto";
 
+import { finalizeAdaptiveProposalOutboundSms } from "@/lib/v2-human-sms-brain/finalize-adaptive-proposal-outbound-sms";
+import {
+  isV2HumanSmsPhase3AdaptiveProposalEnabled,
+  shouldRunPhase3AdaptiveProposalBrain,
+} from "@/lib/v2-human-sms-brain/flags";
 import type { V2AccountabilityOutcome } from "@/lib/v2-commitment";
 
 /** Max length for `behavior_statement` when embedded in SMS ({{B}}). */
@@ -314,7 +319,7 @@ export function buildV2OutboundAccountabilitySmsForStrategy(args: {
  * Explicit shrink overlay proposal (template ids 61–62).
  * {{S}} = verbatim server-derived proposal text; {{B}} = truncated original bar.
  */
-export function buildV2ShrinkProposalOutboundSms(args: {
+export function legacyBuildV2ShrinkProposalOutboundSms(args: {
   clerkUserId: string;
   dayKey: string;
   proposalBindingText: string;
@@ -331,7 +336,7 @@ export function buildV2ShrinkProposalOutboundSms(args: {
  * Explicit recommit overlay proposal (template ids 63–64).
  * {{S}} = verbatim server-derived binding; {{B}} = truncated original bar.
  */
-export function buildV2RecommitProposalOutboundSms(args: {
+export function legacyBuildV2RecommitProposalOutboundSms(args: {
   clerkUserId: string;
   dayKey: string;
   proposalBindingText: string;
@@ -342,6 +347,47 @@ export function buildV2RecommitProposalOutboundSms(args: {
   const idx = pickRecommitProposalTemplateIndex(args.clerkUserId, args.dayKey);
   const template = RECOMMIT_PROPOSAL_TEMPLATES[idx]!;
   return { body: template.replace(/\{\{S\}\}/g, S).replace(/\{\{B\}\}/g, B), templateId: 63 + idx };
+}
+
+/** Phase 3A optional Human SMS Brain pass on top of legacy proposal SMS (binding unchanged in DB). */
+export async function buildV2ShrinkProposalOutboundSms(args: {
+  clerkUserId: string;
+  dayKey: string;
+  proposalBindingText: string;
+  originalBehaviorStatement: string;
+}): Promise<{ body: string; templateId: number }> {
+  const legacy = legacyBuildV2ShrinkProposalOutboundSms(args);
+  if (!isV2HumanSmsPhase3AdaptiveProposalEnabled() || !shouldRunPhase3AdaptiveProposalBrain()) {
+    return legacy;
+  }
+  const finalized = await finalizeAdaptiveProposalOutboundSms({
+    machineDraft: legacy.body,
+    proposalKind: "shrink",
+    bindingText: args.proposalBindingText,
+    behaviorStatementPreview: truncateV2BehaviorStatementForSms(args.originalBehaviorStatement),
+    templateId: legacy.templateId,
+  });
+  return { body: finalized.message, templateId: legacy.templateId };
+}
+
+export async function buildV2RecommitProposalOutboundSms(args: {
+  clerkUserId: string;
+  dayKey: string;
+  proposalBindingText: string;
+  originalBehaviorStatement: string;
+}): Promise<{ body: string; templateId: number }> {
+  const legacy = legacyBuildV2RecommitProposalOutboundSms(args);
+  if (!isV2HumanSmsPhase3AdaptiveProposalEnabled() || !shouldRunPhase3AdaptiveProposalBrain()) {
+    return legacy;
+  }
+  const finalized = await finalizeAdaptiveProposalOutboundSms({
+    machineDraft: legacy.body,
+    proposalKind: "recommit_same",
+    bindingText: args.proposalBindingText,
+    behaviorStatementPreview: truncateV2BehaviorStatementForSms(args.originalBehaviorStatement),
+    templateId: legacy.templateId,
+  });
+  return { body: finalized.message, templateId: legacy.templateId };
 }
 
 export type V2ContractOverlayKind = "shrink_ask" | "recommit_same";

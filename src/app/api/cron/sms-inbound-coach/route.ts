@@ -12,6 +12,7 @@ import {
   isV2PendingProposalValid,
   resolvePendingProposalContractKind,
 } from "@/lib/v2-adaptive-contract";
+import { formatCoachingMemoryPromptBlock } from "@/lib/v2-coaching-memory-prompt";
 import { loadV2CoachingMemoryForPrompt, recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
 import { recordV2SendTimeProfileInboundEngagement } from "@/lib/v2-send-time-profile";
 import {
@@ -30,7 +31,25 @@ import {
   V2_BLOCKER_ACK_PROMPT_VERSION,
 } from "@/lib/v2-ai-blocker-ack";
 import {
+  deriveNormalInboundBrainCase,
+  finalizeNormalInboundHumanSms,
+  shouldSkipPhase2BrainForUnknownOutcomeEvent,
+} from "@/lib/v2-human-sms-brain/finalize-normal-inbound-human-sms";
+import {
+  isV2HumanSmsPhase2NormalInboundEnabled,
+  shouldRunPhase5aArcClarifyBrain,
+  shouldRunPhase5aCentralTetherBrain,
+  shouldRunPhase5aInboundStitchedFinalBrain,
+  warnIfPhase2BrainWithoutValidatorEnforce,
+} from "@/lib/v2-human-sms-brain/flags";
+import {
+  finalizePhase5aArcClarifyHumanSms,
+  finalizePhase5aCentralTetherHumanSms,
+  finalizePhase5aInboundStitchedFinalHumanSms,
+} from "@/lib/v2-human-sms-brain/finalize-phase5a-human-sms";
+import {
   appendCommitmentChangeNoteIfNeeded,
+  COMMITMENT_APPEND_FOR_SCORED,
   buildAiGatedDecisionPayload,
   buildStoredShadowInterpretationPayload,
   buildUserReplyAiPayload,
@@ -104,6 +123,8 @@ import {
   deriveSmsCommitmentChangeIntent,
 } from "@/lib/v2-sms-commitment-change";
 import { tryHandleSmsInboundPendingResolution } from "@/lib/v2-sms-pending-resolution-complete";
+import { finalizePhase1HumanSms } from "@/lib/v2-human-sms-brain/finalize-phase1-human-sms";
+import { shouldRunHumanSmsPipelineForContractConsent } from "@/lib/v2-human-sms-brain/flags";
 import {
   applyRefreshCommitmentStepResolutionMutation,
   applyRefreshIdentityStepResolutionMutation,
@@ -667,13 +688,22 @@ async function processV2NormalInboundOutcome(
       controlEnabled: smsBrainControlEnabled,
     })
   ) {
-    const pivotBody = buildCentralBrainHumanTetherReply({
+    let pivotBody = buildCentralBrainHumanTetherReply({
       turnPurpose: centralSmsTurnShadowStored.central_turn_purpose,
       inboundText: userMessage,
       effectiveAskSnippet: effectiveBehavior,
       lastOutboundPromptPreview: lastOutboundSmsPreview,
       route: "normal_accountability",
     });
+    if (shouldRunPhase5aCentralTetherBrain()) {
+      pivotBody = (
+        await finalizePhase5aCentralTetherHumanSms({
+          machineDraft: pivotBody,
+          tetherRoute: "normal_accountability",
+          centralTurnPurpose: centralSmsTurnShadowStored.central_turn_purpose,
+        })
+      ).message;
+    }
     const wouldHave =
       gatedDecision.final_event_type != null
         ? `outcome:${gatedDecision.final_event_type}`
@@ -739,10 +769,18 @@ async function processV2NormalInboundOutcome(
       effectiveAsk: effectiveBehavior,
     });
     if (activeReplyCtx.should_force_clarification_for_ambiguous_short_reply) {
-      const clarificationBody = buildActiveReplyContextClarificationSms({
+      let clarificationBody = buildActiveReplyContextClarificationSms({
         inboundText: userMessage,
         tentativeOutcomeType: arcWriteOutcomeType,
       });
+      if (shouldRunPhase5aArcClarifyBrain()) {
+        clarificationBody = (
+          await finalizePhase5aArcClarifyHumanSms({
+            machineDraft: clarificationBody,
+            tentativeOutcomeLabel: arcWriteOutcomeType,
+          })
+        ).message;
+      }
       console.info(
         "[active-reply-context] clarification",
         JSON.stringify({
@@ -908,7 +946,62 @@ async function processV2NormalInboundOutcome(
       }),
   });
 
-  const replyBody = appendCommitmentChangeNoteIfNeeded(resolved.replyBody, gatedDecision);
+  let replyBody = resolved.replyBody;
+  if (isV2HumanSmsPhase2NormalInboundEnabled()) {
+    warnIfPhase2BrainWithoutValidatorEnforce();
+    const unknownOutcome = shouldSkipPhase2BrainForUnknownOutcomeEvent({
+      gatedDecision,
+      deterministicEventType: eventType,
+    });
+    if (unknownOutcome.skip) {
+      console.info("[human_visible_sms_pipeline]", {
+        event: "human_visible_sms_pipeline",
+        path: "normal_inbound",
+        brain_skipped_reason: "unknown_outcome_event_type",
+        outcome_type_key_hash: unknownOutcome.outcomeTypeKeyHash,
+        phase2_flag: true,
+      });
+    } else {
+      const brainCase = deriveNormalInboundBrainCase({
+        gatedDecision,
+        deterministicEventType: eventType,
+        replyMode: resolved.meta.reply_mode,
+      });
+      const outcomeKeyForLog = `${gatedDecision.mode}:${String(resolved.meta.final_event_type ?? "none")}:${resolved.meta.reply_mode}`;
+      const serverStrategyForBrain =
+        resolved.meta.final_event_type != null
+          ? strategyForInboundEventType(resolved.meta.final_event_type)
+          : "non_outcome";
+
+      const finalized = await finalizeNormalInboundHumanSms({
+        machineDraft: resolved.replyBody,
+        brainCase,
+        outcomeKeyForLog,
+        brainContext: {
+          normalInbound: {
+            userReplyPreview: userMessage.slice(0, 280),
+            effectiveAskPreview: effectiveBehavior.slice(0, 200),
+            behaviorStatementPreview: commitment.behavior_statement?.trim().slice(0, 200) ?? null,
+            finalEventType: resolved.meta.final_event_type,
+            serverStrategy: serverStrategyForBrain,
+            gatedMode: gatedDecision.mode,
+            replySource: resolved.meta.reply_source,
+            replyMode: resolved.meta.reply_mode,
+            latestBlockerPreview,
+            recentSmsContextPreview: smsConvPackBlock?.slice(0, 1200) ?? null,
+            coachingMemoryPreview: formatCoachingMemoryPromptBlock(coachingMemoryRow).slice(0, 1200),
+            identityAnchorPreview:
+              identityReferenceAllowed && identityAnchorText
+                ? identityAnchorText.slice(0, 160)
+                : null,
+          },
+        },
+      });
+      replyBody = finalized.message;
+    }
+  }
+
+  replyBody = appendCommitmentChangeNoteIfNeeded(replyBody, gatedDecision);
 
   const memorySignalStored =
     memorySignalsEnabled && memorySignalResult != null
@@ -946,6 +1039,7 @@ async function processV2NormalInboundOutcome(
     !(gatedDecision.mode === "commitment_change_handoff" && wave4PendingResult?.pendingApplied === true);
 
   let finalReplyBody = replyBody;
+  let wave11SnippetForPreserve: string | null = null;
   let wave11ConfirmationPayload:
     | {
         memory_confirmation_pending: true;
@@ -1016,6 +1110,7 @@ async function processV2NormalInboundOutcome(
       const appended = wave11AppendConfirmationIfFits(replyBody, qtext);
       if (appended) {
         finalReplyBody = appended;
+        wave11SnippetForPreserve = qtext;
         wave11ConfirmationPayload = {
           memory_confirmation_pending: true,
           pending_memory_kind: pendingKind,
@@ -1041,6 +1136,31 @@ async function processV2NormalInboundOutcome(
   const victoryCalloutDisplayed =
     victorySmsCallout.appendToReply != null && finalReplyBody !== beforeVictoryLine;
   const victoryExtrasForSpine = victoryCalloutDisplayed ? victorySmsCallout.eventPayloadExtras : {};
+
+  if (shouldRunPhase5aInboundStitchedFinalBrain()) {
+    const preservationSnippets: string[] = [];
+    if (gatedDecision.supplement_commitment_change_guidance) {
+      preservationSnippets.push(COMMITMENT_APPEND_FOR_SCORED);
+    }
+    if (wave11SnippetForPreserve?.trim()) {
+      preservationSnippets.push(wave11SnippetForPreserve.trim());
+    }
+    if (victorySmsCallout.appendToReply?.trim()) {
+      preservationSnippets.push(victorySmsCallout.appendToReply.trim());
+    }
+    const stitchedFin = await finalizePhase5aInboundStitchedFinalHumanSms({
+      machineDraft: finalReplyBody,
+      preservationSnippets,
+      appendSegments: {
+        wave11: wave11SnippetForPreserve != null,
+        victory: victoryCalloutDisplayed,
+        commitment_note: Boolean(gatedDecision.supplement_commitment_change_guidance),
+      },
+      allowVictoryRoomPhrase: victoryCalloutDisplayed,
+      maxChars: 320,
+    });
+    finalReplyBody = stitchedFin.message;
+  }
 
   const aiTry = resolved.aiTry;
   const replyTemplateId = resolved.replyTemplateId;
@@ -1379,13 +1499,22 @@ async function processV2BlockerCapture(
     centralBlockerShadowStored != null
   ) {
     await clearBlockerCapturePending(commitment.id);
-    const pivotBody = buildCentralBrainHumanTetherReply({
+    let pivotBody = buildCentralBrainHumanTetherReply({
       turnPurpose: centralBlockerShadowStored.central_turn_purpose,
       inboundText: blockerText,
       effectiveAskSnippet: effectiveBlockerAsk,
       lastOutboundPromptPreview: lastOutboundBlockPreview,
       route: "blocker_capture",
     });
+    if (shouldRunPhase5aCentralTetherBrain()) {
+      pivotBody = (
+        await finalizePhase5aCentralTetherHumanSms({
+          machineDraft: pivotBody,
+          tetherRoute: "blocker_capture",
+          centralTurnPurpose: centralBlockerShadowStored.central_turn_purpose,
+        })
+      ).message;
+    }
     console.log(
       "[central-sms-brain/control]",
       JSON.stringify({
@@ -1644,7 +1773,24 @@ async function processV2ContractProposalConsent(
       commitmentTitle: workingCommitment.title,
       preferredName: consentPreferredName,
     });
-    const replyBody = aiTry.ok ? aiTry.message : tmpl.body;
+    let replyBody = aiTry.ok ? aiTry.message : tmpl.body;
+    if (shouldRunHumanSmsPipelineForContractConsent()) {
+      replyBody = (
+        await finalizePhase1HumanSms({
+          path: "contract_consent",
+          brainCase: "contract_consent_overlay_yes_ack",
+          machineDraft: replyBody,
+          channel: "contract_consent_ack",
+          allowVictoryRoomPhrase: false,
+          brainContext: {
+            proposalSummary: proposalText,
+            contractKindHint: contractKind,
+            preferredName: consentPreferredName,
+          },
+          safeFallback: tmpl.body,
+        })
+      ).message;
+    }
     await persistReplyAndSend(replyBody);
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     return true;
@@ -1694,7 +1840,24 @@ async function processV2ContractProposalConsent(
       commitmentTitle: workingCommitment.title,
       preferredName: consentPreferredName,
     });
-    const replyBody = aiTry.ok ? aiTry.message : tmpl.body;
+    let replyBody = aiTry.ok ? aiTry.message : tmpl.body;
+    if (shouldRunHumanSmsPipelineForContractConsent()) {
+      replyBody = (
+        await finalizePhase1HumanSms({
+          path: "contract_consent",
+          brainCase: "contract_consent_overlay_no_ack",
+          machineDraft: replyBody,
+          channel: "contract_consent_ack",
+          allowVictoryRoomPhrase: false,
+          brainContext: {
+            proposalSummary: proposalText,
+            contractKindHint: contractKind,
+            preferredName: consentPreferredName,
+          },
+          safeFallback: tmpl.body,
+        })
+      ).message;
+    }
     await persistReplyAndSend(replyBody);
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     return true;

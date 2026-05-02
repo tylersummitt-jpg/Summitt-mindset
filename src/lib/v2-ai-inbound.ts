@@ -17,6 +17,8 @@ import {
   messageHasKeywordPartialLanguage,
   type V2InboundEventType,
 } from "@/lib/v2-sms-accountability";
+import { shouldRunHumanSmsPipelineForContractConsent } from "@/lib/v2-human-sms-brain/flags";
+import { isRoboticAccountabilityMenuLanguage } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 export const V2_INBOUND_AI_PROMPT_VERSION = "v2_inbound_v1";
 
@@ -693,6 +695,26 @@ function validateV2ContractConsentAckMessage(args: {
   return { ok: true };
 }
 
+/** Phase 1 — skips substring/grounding checks so Human SMS Brain + validateHumanVisibleSms can finalize copy. */
+function validateV2ContractConsentAckMessageLite(args: {
+  kind: V2ContractConsentAckKind;
+  message: string;
+  modelStrategy: unknown;
+}): { ok: true } | { ok: false; reason: string } {
+  const msg = (args.message || "").trim().replace(/\s+/g, " ").replace(/\n+/g, " ");
+  if (!msg) return { ok: false, reason: "empty_message" };
+  if (msg.length > SMS_MAX_LEN) return { ok: false, reason: "too_long" };
+  const expected = CONTRACT_ACK_STRATEGY[args.kind];
+  if (typeof args.modelStrategy !== "string" || args.modelStrategy.trim() !== expected) {
+    return { ok: false, reason: "strategy_mismatch" };
+  }
+  if (!passesLexicalGuards(msg)) return { ok: false, reason: "lexical_guard" };
+  const ackHygiene = inboundCoachComplianceHygieneFailReason(msg);
+  if (ackHygiene) return { ok: false, reason: ackHygiene };
+  if (isRoboticAccountabilityMenuLanguage(msg)) return { ok: false, reason: "robotic_menu" };
+  return { ok: true };
+}
+
 /**
  * Optional AI packaging for shrink overlay consent acknowledgments (server already decided outcome).
  */
@@ -713,7 +735,7 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
 
   const serverStrategy = CONTRACT_ACK_STRATEGY[args.kind];
   const lines: string[] = [];
-  lines.push("You write ONE short SMS acknowledging the user's reply to a contract proposal.");
+  lines.push("You write ONE short SMS acknowledging the user's reply to a pending contract-style update.");
   lines.push("Return ONLY valid JSON with keys: strategy, message, confidence (0-1 number or null).");
   lines.push(`server_strategy (authoritative): ${serverStrategy}`);
   lines.push("strategy in your JSON MUST exactly equal server_strategy.");
@@ -776,14 +798,21 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
     }
     const message = typeof parsed.message === "string" ? parsed.message.trim().replace(/\n+/g, " ") : "";
     const modelStrategy = parsed.strategy;
-    const validated = validateV2ContractConsentAckMessage({
-      kind: args.kind,
-      message,
-      modelStrategy,
-      bindingText: args.bindingText,
-      behaviorStatement: args.originalBehaviorStatement,
-      commitmentTitle: args.commitmentTitle,
-    });
+    const useHumanPipelineLite = shouldRunHumanSmsPipelineForContractConsent();
+    const validated = useHumanPipelineLite
+      ? validateV2ContractConsentAckMessageLite({
+          kind: args.kind,
+          message,
+          modelStrategy,
+        })
+      : validateV2ContractConsentAckMessage({
+          kind: args.kind,
+          message,
+          modelStrategy,
+          bindingText: args.bindingText,
+          behaviorStatement: args.originalBehaviorStatement,
+          commitmentTitle: args.commitmentTitle,
+        });
     if (!validated.ok) {
       return { ok: false, fallbackUsed: true, reason: validated.reason };
     }
@@ -1509,7 +1538,8 @@ function validateGatedAuxiliarySms(s: string): boolean {
   return true;
 }
 
-const COMMITMENT_APPEND_FOR_SCORED =
+/** Appended when server supplements commitment-change guidance (Phase 5A may preserve this substring). */
+export const COMMITMENT_APPEND_FOR_SCORED =
   "If the bar still needs to move, tell me what would be honest to hold you to.";
 
 /**
