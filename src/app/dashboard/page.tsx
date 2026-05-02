@@ -90,12 +90,12 @@ export default async function DashboardPage() {
       : null;
 
   return (
-    <main className="mx-auto max-w-2xl bg-gradient-to-b from-gray-50/90 via-white to-[var(--bg)] px-6 py-10 pb-16">
+    <main className="mx-auto max-w-2xl bg-white px-6 py-10 pb-16">
       <div className="space-y-8">
         {metadata?.smsEnabled !== true ? (
-          <section className="rounded-2xl border border-amber-200/90 bg-amber-50/95 p-5 shadow-sm ring-1 ring-amber-900/[0.06]">
-            <h2 className="text-sm font-semibold text-amber-950">Turn on accountability texts</h2>
-            <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+          <section className="rounded-2xl border border-[var(--border)] border-l-4 border-l-[var(--brand)] bg-white p-5 shadow-sm ring-1 ring-black/[0.03]">
+            <h2 className="text-sm font-semibold text-gray-900">Turn on accountability texts</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700">
               Pat&apos;s daily check-ins run over SMS. You can use the app without texts, but you&apos;ll miss
               the core accountability loop.
             </p>
@@ -135,9 +135,9 @@ export default async function DashboardPage() {
             ) : null}
           </section>
         ) : (
-          <section className="rounded-2xl border border-amber-200/90 bg-amber-50/95 p-5 shadow-sm ring-1 ring-amber-900/[0.06]">
-            <h2 className="text-sm font-semibold text-amber-950">No active commitment on file</h2>
-            <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+          <section className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm ring-1 ring-black/[0.03]">
+            <h2 className="text-sm font-semibold text-gray-900">No active commitment on file</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700">
               Daily accountability SMS needs an active commitment with a clear behavior statement. If you
               expected checks already, finish saving your commitment in onboarding—or ask for help if you
               believe this is wrong.
@@ -146,9 +146,9 @@ export default async function DashboardPage() {
         )}
 
         {pending ? (
-          <section className="rounded-2xl border border-amber-200/90 bg-amber-50 p-5 shadow-sm ring-1 ring-amber-900/[0.06]">
-            <h2 className="text-sm font-semibold text-amber-950">Finish your guided follow-up</h2>
-            <p className="mt-2 text-sm leading-relaxed text-amber-950/90">
+          <section className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm ring-1 ring-black/[0.03]">
+            <h2 className="text-sm font-semibold text-gray-900">Finish your guided follow-up</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700">
               {pending.kind === "identity_anchor_update"
                 ? "Finish updating your identity line from your recent check-in."
                 : pending.kind === "commitment_replace"
@@ -169,7 +169,7 @@ export default async function DashboardPage() {
           />
         ) : null}
 
-        <section className="rounded-2xl border border-[var(--border)] border-l-[var(--brand)] border-l-4 bg-gradient-to-br from-white via-gray-50/50 to-white p-6 shadow-md shadow-gray-900/[0.06] ring-1 ring-black/[0.04]">
+        <section className="rounded-2xl border border-[var(--border)] border-l-[var(--brand)] border-l-4 bg-white p-6 shadow-md shadow-gray-900/[0.06] ring-1 ring-black/[0.04]">
           <h2 className="text-base font-semibold text-gray-900">Victory Room</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
             Proof of how you&apos;ve held the line—cornerstones, prior chapters, and what you can share.
