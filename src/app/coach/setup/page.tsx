@@ -67,7 +67,15 @@ export default function CoachSetupPage() {
         coachShippingSubmittedTrackedRef.current = true;
         trackCoachShippingSubmitted();
       }
-      router.replace("/onboarding");
+      try {
+        router.replace("/onboarding/identity");
+      } catch {
+        setError(
+          "Your shipping info was saved, but we couldn't continue automatically. Please tap continue again."
+        );
+      } finally {
+        setSaving(false);
+      }
     } catch {
       setError("Network error. Please try again.");
       setSaving(false);

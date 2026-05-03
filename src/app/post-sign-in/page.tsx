@@ -46,6 +46,12 @@ export default async function PostSignInPage() {
 
   const onboardingCompleted = md?.onboardingCompleted === true;
   if (!onboardingCompleted) {
+    if (
+      md.acquisitionSource === "coach" &&
+      md.coachAddressCollected === true
+    ) {
+      redirect("/onboarding/identity");
+    }
     redirect("/onboarding");
   }
 

@@ -40,7 +40,7 @@ export default async function CoachSetupLayout({
   }
 
   if (md.coachAddressCollected === true) {
-    redirect("/onboarding");
+    redirect("/onboarding/identity");
   }
 
   return <>{children}</>;
