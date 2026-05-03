@@ -1635,6 +1635,28 @@ const DONE_CLAIM_RE = /\b(counting (?:that |it )?as done|mark(?:ing)?(?: it)? do
 const MISS_CLAIM_RE =
   /\b(that'?s (?:a )?miss|marking (?:that |it )?(?:as )?(?:a )?miss|not done|didn'?t happen)\b/i;
 
+/**
+ * Scored user_yes — shadow suggested_reply must acknowledge proof/completion (Wave 2.3).
+ * Rejects generic onboarding / momentum / next-step coaching without logged completion tone.
+ */
+const USER_YES_SUGGESTED_PROOF_ACK_RE =
+  /\b(logged|proof|that\s+counts|\bcounts\b|counting|marking\s+today|done\s+for\s+today|saved\s+as\s+proof|same\s+bar\s+tomorrow|same\s+standard\s+tomorrow|mark(?:ing)?\s+(?:it\s+)?(?:as\s+)?done|got\s+the\s+bar\s+done)\b/i;
+
+function userYesSuggestedWeakOnboardingReason(lower: string): string | null {
+  if (/\bon\s+board\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  if (/\bwhat'?s\s+your\s+next\s+step\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  if (/\bwhat'?s\s+next\s+on\s+your\s+agenda\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  if (/\bnext\s+on\s+your\s+agenda\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  if (/\bkeep\s+the\s+momentum\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  if (/\bmomentum\s+going\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  if (/\bawesome,?\s+keep\b/i.test(lower) && /\bmomentum\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  return null;
+}
+
+function userYesSuggestedHasProofAcknowledgment(lower: string): boolean {
+  return USER_YES_SUGGESTED_PROOF_ACK_RE.test(lower);
+}
+
 function shameLikeSuggested(t: string): boolean {
   const lower = t.toLowerCase();
   if (/\byou failed\b/i.test(lower)) return true;
@@ -1682,6 +1704,11 @@ export function validateAiSuggestedReplyForInbound(
   if (ft === "user_yes") {
     if (MISS_CLAIM_RE.test(lower) && !/misunderstood|read that wrong/i.test(lower)) {
       return { ok: false, reason: "contradicts_yes" };
+    }
+    const weakTone = userYesSuggestedWeakOnboardingReason(lower);
+    if (weakTone) return { ok: false, reason: weakTone };
+    if (!userYesSuggestedHasProofAcknowledgment(lower)) {
+      return { ok: false, reason: "user_yes_suggested_missing_proof_ack" };
     }
   }
   if (ft === "user_no") {
