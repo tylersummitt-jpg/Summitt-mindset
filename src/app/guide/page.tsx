@@ -107,25 +107,10 @@ export default async function GuidePage() {
 
   return (
     <main className="max-w-6xl mx-auto py-12 px-6">
-      <header className="mb-12">
+      <header className="mb-8">
         <h1 className="text-3xl font-semibold">
           Pat Summitt Definite Dozen Coach&apos;s Guide
         </h1>
-        <p className="mt-4 text-sm text-gray-600 max-w-2xl">
-          Coaches — quick note:
-          <br /><br />
-          Based on your feedback, we&apos;ve simplified this experience. Each
-          principle now includes just one &ldquo;View From The Summitt&rdquo;
-          video.
-          <br /><br />
-          If your printed coach&apos;s guide references two videos for each
-          Definite Dozen principle, you can ignore that—nothing is missing. This
-          change keeps things focused, saves time, and creates more space for
-          great team discussion.
-          <br /><br />
-          If you&apos;d like additional videos, you can always explore the Film
-          Room.
-        </p>
       </header>
 
       <div className="space-y-16">
