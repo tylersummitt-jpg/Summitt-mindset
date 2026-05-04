@@ -2,20 +2,9 @@ import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 
 export const dynamic = "force-dynamic";
-
-function isSubscribedFromMetadata(md: Record<string, any>) {
-  const subscribedRaw = md?.summittSubscribed;
-  const plan = md?.summittPlan;
-
-  return (
-    subscribedRaw === true ||
-    subscribedRaw === "true" ||
-    plan === "monthly" ||
-    plan === "annual"
-  );
-}
 
 export default async function OnboardingPage(): Promise<ReactElement> {
   const user = await currentUser();
@@ -24,8 +13,8 @@ export default async function OnboardingPage(): Promise<ReactElement> {
     redirect("/sign-in");
   }
 
-  const md = (user.publicMetadata || {}) as Record<string, any>;
-  const isSubscribed = isSubscribedFromMetadata(md);
+  const md = user.publicMetadata as Record<string, unknown> | undefined;
+  const isSubscribed = isSubscribedFromPublicMetadata(md);
 
   // 🚨 HARD GATE: Must subscribe first
   if (!isSubscribed) {
@@ -33,7 +22,7 @@ export default async function OnboardingPage(): Promise<ReactElement> {
   }
 
   // If onboarding already complete → dashboard (commitment / SMS home)
-  if (md?.onboardingCompleted === true) {
+  if (md && typeof md === "object" && md.onboardingCompleted === true) {
     redirect("/dashboard");
   }
 

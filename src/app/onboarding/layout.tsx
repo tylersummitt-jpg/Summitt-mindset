@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { OnboardingShellMain } from "@/components/onboarding-shell-main";
+import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 
 /**
  * ======================================================
@@ -20,19 +21,27 @@ import { OnboardingShellMain } from "@/components/onboarding-shell-main";
  * - /onboarding/complete
  * Legacy: /onboarding/relationships redirects to /onboarding/identity.
  * /onboarding/pressure redirects to /onboarding/commitment.
+ *
+ * NOTE: Uncaught errors in this layout are NOT handled by onboarding/error.tsx
+ * (Next.js error boundaries cover segment children, not the layout component).
+ * We log and rethrow around currentUser(); redirect() must never be caught (it throws NEXT_REDIRECT).
  */
 
 export const dynamic = "force-dynamic";
 
-function isSubscribedFromMetadata(md: Record<string, any>) {
-  const subscribedRaw = md?.summittSubscribed;
-  const plan = md?.summittPlan;
-
-  return (
-    subscribedRaw === true ||
-    subscribedRaw === "true" ||
-    plan === "monthly" ||
-    plan === "annual"
+function logOnboardingLayoutEvent(payload: {
+  stage: string;
+  outcome: string;
+  userId?: string | null;
+  redirect?: string;
+  errorPhase?: string;
+  errorName?: string;
+}) {
+  console.error(
+    JSON.stringify({
+      routeGroup: "onboarding",
+      ...payload,
+    })
   );
 }
 
@@ -41,20 +50,59 @@ export default async function OnboardingLayout({
 }: {
   children: ReactNode;
 }): Promise<ReactElement> {
-  const user = await currentUser();
+  let user;
+  try {
+    user = await currentUser();
+  } catch (err: unknown) {
+    const e = err as Error;
+    logOnboardingLayoutEvent({
+      stage: "error",
+      outcome: "failure",
+      errorPhase: "current_user",
+      errorName: e?.name,
+    });
+    throw err;
+  }
 
-  // Must be signed in
+  logOnboardingLayoutEvent({
+    stage: "current_user",
+    outcome: user ? "success" : "no_session",
+    userId: user?.id ?? null,
+  });
+
   if (!user) {
+    logOnboardingLayoutEvent({
+      stage: "redirect_sign_in",
+      outcome: "redirect",
+      userId: null,
+      redirect: "/sign-in?redirect_url=/onboarding",
+    });
     redirect("/sign-in?redirect_url=/onboarding");
   }
 
-  const md = (user.publicMetadata || {}) as Record<string, any>;
-  const isSubscribed = isSubscribedFromMetadata(md);
+  const isSubscribed = isSubscribedFromPublicMetadata(user.publicMetadata);
 
-  // Must be subscribed
+  logOnboardingLayoutEvent({
+    stage: "subscription_check",
+    outcome: isSubscribed ? "subscribed" : "not_subscribed",
+    userId: user.id,
+  });
+
   if (!isSubscribed) {
+    logOnboardingLayoutEvent({
+      stage: "redirect_subscribe",
+      outcome: "redirect",
+      userId: user.id,
+      redirect: "/subscribe?from=onboarding",
+    });
     redirect("/subscribe?from=onboarding");
   }
+
+  logOnboardingLayoutEvent({
+    stage: "render_children",
+    outcome: "success",
+    userId: user.id,
+  });
 
   return (
     <OnboardingShellMain>

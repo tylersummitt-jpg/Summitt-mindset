@@ -2,14 +2,43 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
+import { computeIdentityRefreshDueAtIsoFromNow } from "@/lib/v2-identity-anchor";
 import {
-  computeIdentityRefreshDueAtIsoFromNow,
   isQuotableIdentitySource,
   isRelationshipDerivedIdentitySource,
   normalizeIdentityAnchorText,
   ONBOARDING_IDENTITY_ANCHOR_SOURCE,
   validateOnboardingIdentityAnchorInput,
-} from "@/lib/v2-identity-anchor";
+} from "@/lib/v2-identity-anchor-validation";
+
+const ROUTE = "/api/onboarding/identity";
+
+const UI_SESSION = "Your session expired. Please sign in again.";
+const UI_SAVE_RETRY = "We couldn’t save this step. Please try again in a moment.";
+const UI_SAVE_GENERIC = "We couldn’t save this step. Please try again.";
+
+function logIdentityApi(payload: {
+  stage: string;
+  userId: string | null;
+  outcome: "success" | "failure";
+  durationMs: number;
+  errorCode?: string;
+  supabaseCode?: string;
+  supabaseMessage?: string;
+  supabaseDetails?: string;
+  supabaseHint?: string;
+  clerkMessage?: string;
+  errorName?: string;
+}) {
+  const { userId, ...rest } = payload;
+  console.error(
+    JSON.stringify({
+      route: ROUTE,
+      userId: userId ?? undefined,
+      ...rest,
+    })
+  );
+}
 
 /**
  * POST /api/onboarding/identity
@@ -21,43 +50,108 @@ import {
  * Relationship-derived sources may be replaced by a valid onboarding anchor.
  */
 export async function POST(req: Request) {
+  const started = Date.now();
+  let userId: string | null = null;
+  let stage = "start";
+
   try {
-    const { userId } = await auth();
+    stage = "auth";
+    const authResult = await auth();
+    userId = authResult.userId ?? null;
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      logIdentityApi({
+        stage,
+        userId: null,
+        outcome: "failure",
+        durationMs: Date.now() - started,
+        errorCode: "unauthorized",
+      });
+      return NextResponse.json({ error: UI_SESSION }, { status: 401 });
     }
 
-    const existing = await getClerkPublicMetadata(userId);
+    stage = "clerk_metadata";
+    let existing: Record<string, unknown>;
+    try {
+      existing = await getClerkPublicMetadata(userId);
+    } catch (clerkErr: unknown) {
+      const err = clerkErr as Error & { status?: number };
+      logIdentityApi({
+        stage,
+        userId,
+        outcome: "failure",
+        durationMs: Date.now() - started,
+        errorCode: "clerk_metadata_fetch_failed",
+        clerkMessage: err?.message,
+        errorName: err?.name,
+      });
+      return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 500 });
+    }
+
     if (existing?.onboardingCompleted === true) {
+      logIdentityApi({
+        stage: "success",
+        userId,
+        outcome: "success",
+        durationMs: Date.now() - started,
+      });
       return Response.json({ success: true });
     }
 
-    const body = await req.json();
+    stage = "parse_body";
+    let body: Record<string, unknown>;
+    try {
+      body = (await req.json()) as Record<string, unknown>;
+    } catch {
+      logIdentityApi({
+        stage,
+        userId,
+        outcome: "failure",
+        durationMs: Date.now() - started,
+        errorCode: "invalid_json",
+      });
+      return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 400 });
+    }
 
     const { preferred_name, people_summary, responsibility, identity_anchor_text } = body;
 
+    stage = "validation";
     const preferredName =
       typeof preferred_name === "string" ? preferred_name.trim().replace(/\s+/g, " ") : "";
     if (!preferredName) {
-      return Response.json(
-        { error: "Add what Coach Pat should call you." },
-        { status: 400 }
-      );
+      logIdentityApi({
+        stage,
+        userId,
+        outcome: "failure",
+        durationMs: Date.now() - started,
+        errorCode: "validation_preferred_name",
+      });
+      return Response.json({ error: "Add what Coach Pat should call you." }, { status: 400 });
     }
 
     const people =
       typeof people_summary === "string" ? people_summary.trim().replace(/\s+/g, " ") : "";
     if (!people) {
-      return Response.json(
-        { error: "Add who you’re trying to show up for right now." },
-        { status: 400 }
-      );
+      logIdentityApi({
+        stage,
+        userId,
+        outcome: "failure",
+        durationMs: Date.now() - started,
+        errorCode: "validation_people_summary",
+      });
+      return Response.json({ error: "Add who you’re trying to show up for right now." }, { status: 400 });
     }
 
     const responsibilityText =
       typeof responsibility === "string" ? responsibility.trim().replace(/\s+/g, " ") : "";
     if (!responsibilityText) {
+      logIdentityApi({
+        stage,
+        userId,
+        outcome: "failure",
+        durationMs: Date.now() - started,
+        errorCode: "validation_responsibility",
+      });
       return Response.json(
         {
           error:
@@ -67,6 +161,7 @@ export async function POST(req: Request) {
       );
     }
 
+    stage = "profile_select";
     const { data: existingProfile } = await supabaseServer
       .from("user_profiles")
       .select("identity_source, identity_anchor_text")
@@ -99,6 +194,13 @@ export async function POST(req: Request) {
     if (relationshipDerived || !hasTrustedProtectedAnchor) {
       const anchorValidation = validateOnboardingIdentityAnchorInput(identity_anchor_text);
       if (!anchorValidation.ok) {
+        logIdentityApi({
+          stage,
+          userId,
+          outcome: "failure",
+          durationMs: Date.now() - started,
+          errorCode: "validation_identity_anchor",
+        });
         return Response.json({ error: anchorValidation.error }, { status: 400 });
       }
       upsertRow.identity_anchor_text = anchorValidation.normalized;
@@ -123,18 +225,45 @@ export async function POST(req: Request) {
       }
     }
 
+    stage = "profile_upsert";
     const { error } = await supabaseServer
       .from("user_profiles")
       .upsert(upsertRow, { onConflict: "clerk_user_id" });
 
     if (error) {
-      console.error("Identity onboarding error:", error);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
+      logIdentityApi({
+        stage,
+        userId,
+        outcome: "failure",
+        durationMs: Date.now() - started,
+        errorCode: "supabase_upsert",
+        supabaseCode: error.code,
+        supabaseMessage: error.message,
+        supabaseDetails: error.details as string | undefined,
+        supabaseHint: error.hint as string | undefined,
+      });
+      return NextResponse.json({ error: UI_SAVE_RETRY }, { status: 500 });
     }
 
+    logIdentityApi({
+      stage: "success",
+      userId,
+      outcome: "success",
+      durationMs: Date.now() - started,
+    });
+
     return Response.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (err: unknown) {
+    const e = err as Error;
+    logIdentityApi({
+      stage: "unhandled_exception",
+      userId,
+      outcome: "failure",
+      durationMs: Date.now() - started,
+      errorCode: "unhandled",
+      clerkMessage: e?.message,
+      errorName: e?.name,
+    });
+    return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 500 });
   }
 }

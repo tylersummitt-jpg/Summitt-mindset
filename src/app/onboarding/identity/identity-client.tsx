@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { validateOnboardingIdentityAnchorInput } from "@/lib/v2-identity-anchor";
+import { validateOnboardingIdentityAnchorInput } from "@/lib/v2-identity-anchor-validation";
 
 function normalizeText(input: string): string {
   return input.trim().replace(/\s+/g, " ");
@@ -71,20 +71,20 @@ export default function IdentityClient(): ReactElement {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(
-          typeof data?.error === "string"
-            ? data.error
-            : res.status === 401
-              ? "Your session expired. Please sign in again."
-              : "Something went wrong."
-        );
+        if (res.status === 401) {
+          setError("Your session expired. Please sign in again.");
+        } else if (typeof data?.error === "string" && data.error.length > 0) {
+          setError(data.error);
+        } else {
+          setError("We couldn’t save this step. Please try again in a moment.");
+        }
         setSaving(false);
         return;
       }
 
       router.push("/onboarding/commitment");
     } catch {
-      setError("Something went wrong.");
+      setError("We couldn’t save this step. Please check your connection and try again.");
       setSaving(false);
     }
   }
