@@ -38,15 +38,34 @@ function VideoCard({ video }: { video: FilmVideo }) {
 }
 
 export default async function GuidePage() {
-  const { data, error } = await supabaseServer
-    .from("film_videos")
-    .select(
-      "id, title, principle, principle_order, order_index, thumbnail_url"
-    )
-    .eq("program", "Definite Dozen")
-    .eq("video_type", "core")
-    .order("principle_order", { ascending: true })
-    .order("order_index", { ascending: true });
+  const [{ data, error }, topVideosResult] = await Promise.all([
+    supabaseServer
+      .from("film_videos")
+      .select(
+        "id, title, principle, principle_order, order_index, thumbnail_url"
+      )
+      .eq("program", "Definite Dozen")
+      .eq("video_type", "core")
+      .order("principle_order", { ascending: true })
+      .order("order_index", { ascending: true }),
+    supabaseServer
+      .from("film_videos")
+      .select(
+        "id, title, principle, principle_order, order_index, thumbnail_url"
+      )
+      .eq("program", "Coach Guide")
+      .eq("theme_slug", "guide-top-videos")
+      .eq("video_type", "intro")
+      .order("order_index", { ascending: true })
+      .limit(2),
+  ]);
+
+  let topGuideVideos: FilmVideo[] = [];
+  if (topVideosResult.error) {
+    console.error("[guide] top videos query failed:", topVideosResult.error);
+  } else {
+    topGuideVideos = (topVideosResult.data ?? []) as FilmVideo[];
+  }
 
   if (error) {
     return (
@@ -112,6 +131,20 @@ export default async function GuidePage() {
           Pat Summitt Definite Dozen Coach&apos;s Guide
         </h1>
       </header>
+
+      {topGuideVideos.length > 0 ? (
+        <section className="mb-16">
+          <h2 className="text-2xl font-semibold mb-2">Watch These First</h2>
+          <p className="text-gray-600 mb-6 max-w-2xl">
+            Start here before moving through the Coach&apos;s Guide.
+          </p>
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+            {topGuideVideos.map((v) => (
+              <VideoCard key={v.id} video={v} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="space-y-16">
         {groups.map((g) => (
