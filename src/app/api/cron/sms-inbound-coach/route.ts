@@ -2,6 +2,25 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import {
+  isLikelyCommitmentChangeIntentTurn,
+  isLikelySmsComplianceOrOptOutTurn,
+  shouldUseSmsConversationBrainControl,
+  countRecentClarifyStyleHeuristic,
+} from "@/lib/v2-sms-conversation-brain-eligibility";
+import {
+  applySmsConversationBrainGuardrails,
+  type GuardrailResult,
+} from "@/lib/v2-sms-turn-guardrails";
+import type { SmsConversationBrainProposalV1 } from "@/lib/v2-sms-turn-contract";
+import {
+  isV2SmsConversationBrainAllowedForUser,
+  isV2SmsConversationBrainControlEnabled,
+  isV2SmsConversationBrainLegacyFallbackEnabled,
+  proposeNormalAccountabilityTurnControl,
+  getConversationBrainConfidenceFloor,
+  V2_SMS_CONVERSATION_BRAIN_PROMPT_VERSION,
+} from "@/lib/v2-sms-conversation-brain";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
 import {
@@ -54,12 +73,14 @@ import {
   buildStoredShadowInterpretationPayload,
   buildUserReplyAiPayload,
   type V2InboundGatedMode,
+  defaultGatedDecision,
   deterministicEventTypeToProposedKey,
   interpretV2InboundAccountabilityReply,
   isV2AiInboundGatedOutcomesEnabled,
   isV2InboundInterpretationRequested,
   resolveV2InboundCoachReplyBody,
   resolveV2InboundGatedDecision,
+  type V2InboundGatedDecision,
   strategyForInboundEventType,
   tryGenerateV2ContractConsentAckMessage,
   tryGenerateV2InboundMessage,
@@ -454,6 +475,7 @@ async function processV2NormalInboundOutcome(
 
   let smsConvPackBlock: string | null = null;
   let smsConvPackMeta: V2SmsConversationContextPack["meta"] | null = null;
+  let convPackFull: V2SmsConversationContextPack | null = null;
   try {
     const convPack = await buildV2SmsConversationContextPack({
       clerkUserId: userId,
@@ -464,6 +486,7 @@ async function processV2NormalInboundOutcome(
       preloadedCoachingMemory: coachingMemoryRow,
       preloadedEventsNewestFirst: recentEvents,
     });
+    convPackFull = convPack;
     smsConvPackBlock = convPack.promptBlock;
     smsConvPackMeta = convPack.meta;
   } catch (e) {
@@ -501,7 +524,216 @@ async function processV2NormalInboundOutcome(
           .slice(0, 200)
       : null;
 
-  const needInterpretation = isV2InboundInterpretationRequested();
+  let conversationBrainControlTurn: {
+    proposal: SmsConversationBrainProposalV1;
+    guard: GuardrailResult;
+    model: string;
+  } | null = null;
+
+  const interpretationRequested = isV2InboundInterpretationRequested();
+  const commitmentChangeIntentLikely = isLikelyCommitmentChangeIntentTurn(userMessage);
+  const brainGateComplianceOrOptOut = isLikelySmsComplianceOrOptOutTurn(userMessage);
+  const brainControlGate = shouldUseSmsConversationBrainControl({
+    controlEnabled: isV2SmsConversationBrainControlEnabled(),
+    allowlisted: isV2SmsConversationBrainAllowedForUser(userId),
+    pendingResolutionActive: isSmsInboundPendingResolutionActionable(commitment),
+    contractOverlayActive: adaptiveProposalPending,
+    optOutOrComplianceTurn: brainGateComplianceOrOptOut,
+    commitmentChangeIntentLikely,
+  });
+
+  if (
+    isV2SmsConversationBrainControlEnabled() &&
+    isV2SmsConversationBrainAllowedForUser(userId)
+  ) {
+    if (commitmentChangeIntentLikely) {
+      console.info("[v2-sms-conversation-brain]", {
+        reason_code: "brain_gate_skipped_commitment_change_intent",
+        commitment_id: commitment.id,
+        message_sid: job.message_sid,
+      });
+    } else if (brainGateComplianceOrOptOut) {
+      console.info("[v2-sms-conversation-brain]", {
+        reason_code: "brain_gate_skipped_compliance_or_opt_out",
+        commitment_id: commitment.id,
+        message_sid: job.message_sid,
+      });
+    }
+  }
+
+  if (brainControlGate) {
+    let subscriptionOk = true;
+    let smsEligible = true;
+    try {
+      const md = await getClerkPublicMetadata(userId);
+      subscriptionOk = md.summittSubscribed === true;
+      smsEligible = md.smsEnabled === true;
+    } catch {
+      subscriptionOk = false;
+      smsEligible = false;
+    }
+
+    const brainTry = await proposeNormalAccountabilityTurnControl({
+      commitmentTitle: commitment.title,
+      behaviorStatement: commitment.behavior_statement,
+      effectiveCoachingAsk: effectiveBehavior,
+      latestUserSms: userMessage,
+      lastCoachSmsExact: convPackFull?.lastOutboundPreview ?? lastOutboundSmsPreview,
+      recentSmsTranscriptBlock: smsConvPackBlock,
+      eventsNewestFirst: recentEvents,
+      coachingMemory: coachingMemoryRow,
+      identityAnchorPreview: identityAnchorText,
+      liveAccountabilityPromptStatus: lastOutboundSmsPreview
+        ? "last_outbound_check_preview_available"
+        : null,
+      blockerPendingSummary: isBlockerCapturePendingActive(commitment)
+        ? `blocker_capture_active:after=${String(commitment.blocker_capture_after_event ?? "unknown")}`
+        : null,
+      deterministicClassifierEventType: eventType,
+      deterministicClassifierNormalizedHint: normalizedHint ?? null,
+    });
+
+    if (brainTry.ok) {
+      const gr = applySmsConversationBrainGuardrails(brainTry.proposal, {
+        clerk_user_id: userId,
+        commitment_id: commitment.id,
+        message_sid: job.message_sid,
+        subscription_ok: subscriptionOk,
+        sms_eligible: smsEligible,
+        has_active_commitment: true,
+        pending_resolution_active: isSmsInboundPendingResolutionActionable(commitment),
+        contract_overlay_active: adaptiveProposalPending,
+        branch_owner: "normal_accountability",
+        recent_clarification_count_heuristic: countRecentClarifyStyleHeuristic(recentEvents),
+        opt_out_or_compliance_turn: brainGateComplianceOrOptOut,
+        allowed_event_types: ["user_yes", "user_no", "user_partial"],
+        confidence_floor: getConversationBrainConfidenceFloor(),
+        max_clarify_per_window: 2,
+      });
+
+      const approvedOutcome =
+        gr.status === "approved" &&
+        gr.should_write_event &&
+        gr.final_event_type != null &&
+        typeof gr.final_sms_draft === "string" &&
+        gr.final_sms_draft.trim().length > 0;
+
+      if (approvedOutcome) {
+        conversationBrainControlTurn = {
+          proposal: brainTry.proposal,
+          guard: gr,
+          model: brainTry.model,
+        };
+        if (process.env.NODE_ENV === "production") {
+          console.log("[v2-sms-conversation-brain] control_turn", {
+            commitment_id: commitment.id,
+            message_sid: job.message_sid,
+            model: brainTry.model,
+            guardrail_status: gr.status,
+            guardrail_reason: gr.guardrail_reason,
+            turn_kind: brainTry.proposal.turn_kind,
+            short_log: brainTry.proposal.short_reason_for_logs,
+          });
+        } else {
+          console.log("[v2-sms-conversation-brain] control_turn", {
+            commitment_id: commitment.id,
+            message_sid: job.message_sid,
+            model: brainTry.model,
+            guardrail_status: gr.status,
+            reply_strategy: brainTry.proposal.reply_strategy,
+          });
+        }
+      }
+    }
+
+    if (conversationBrainControlTurn == null && !isV2SmsConversationBrainLegacyFallbackEnabled()) {
+      const gdFallback = defaultGatedDecision(eventType, "conversation_brain_legacy_fallback_disabled");
+      const tmpl = buildV2InboundReplySms({
+        behaviorStatement: effectiveBehavior,
+        messageSid: job.message_sid,
+        eventType: gdFallback.final_event_type ?? eventType,
+        preferredName,
+      });
+      const idempotencyKey = v2UserReplyIdempotencyKey(
+        gdFallback.final_event_type ?? eventType,
+        job.message_sid
+      );
+      const { error: evInsErr } = await supabaseServer.from("v2_commitment_event").insert({
+        commitment_id: commitment.id,
+        clerk_user_id: userId,
+        event_type: gdFallback.final_event_type ?? eventType,
+        source: "sms_v2_accountability",
+        payload_json: {
+          message: userMessage,
+          ...(normalizedHint != null ? { normalized_hint: normalizedHint } : {}),
+          ai: {
+            model: V2_INBOUND_AI_MODEL,
+            prompt_version: V2_INBOUND_AI_PROMPT_VERSION,
+            server_strategy: strategyForInboundEventType(gdFallback.final_event_type ?? eventType),
+            message: tmpl.body,
+            confidence: null,
+            fallback_used: true,
+            fallback_reason: "conversation_brain_legacy_fallback_disabled",
+          },
+          conversation_brain_v1: {
+            enabled: false,
+            legacy_fallback_disabled_deterministic: true,
+          },
+        },
+        idempotency_key: idempotencyKey,
+      });
+
+      if (evInsErr) {
+        const code = (evInsErr as { code?: string }).code;
+        if (code !== "23505") {
+          throw new Error(`v2_commitment_event_insert_failed: ${evInsErr.message}`);
+        }
+      } else {
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      }
+
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_user_outcome",
+      });
+
+      if (gdFallback.should_open_blocker_capture) {
+        await setBlockerCapturePending(
+          commitment.id,
+          gdFallback.final_event_type as V2AccountabilityOutcome
+        );
+      }
+
+      const nowFb = new Date().toISOString();
+      const { data: persistedFb } = await supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .update({
+          reply_body: tmpl.body,
+          status: "reply_ready",
+          next_retry_at: nowFb,
+          updated_at: nowFb,
+          last_error: null,
+        })
+        .eq("message_sid", job.message_sid)
+        .eq("status", "processing")
+        .select()
+        .maybeSingle();
+
+      if (!persistedFb) {
+        const jfb = await loadJob(job.message_sid);
+        if (jfb?.reply_body?.trim()) {
+          await commitAndSendInboundCoachReply(jfb, userId);
+          return;
+        }
+        throw new Error("v2_reply_ready_persist_failed");
+      }
+
+      const freshFb = (await loadJob(job.message_sid)) ?? job;
+      await commitAndSendInboundCoachReply(freshFb, userId);
+      return;
+    }
+  }
+
+  const needInterpretation = interpretationRequested && conversationBrainControlTurn == null;
   const prForShadow = getPendingResolutionOrNull(commitment);
   const smsPayloadForShadow =
     prForShadow?.payload?.source === "sms_inbound" ? prForShadow.payload : null;
@@ -554,7 +786,7 @@ async function processV2NormalInboundOutcome(
   const memoryInterpretAttempt =
     memorySignalsEnabled &&
     shouldAttemptInboundMemorySignalInterpretation(userMessage, {
-      forceBecauseInterpretation: needInterpretation,
+      forceBecauseInterpretation: interpretationRequested,
     });
 
   // 4) Shadow / gated interpretation + Wave 9 memory signals (parallel when both on).
@@ -576,13 +808,29 @@ async function processV2NormalInboundOutcome(
   }
 
   const gatedEnabled = isV2AiInboundGatedOutcomesEnabled();
-  const gatedDecision = resolveV2InboundGatedDecision({
-    gatedEnabled,
-    interpretation: shadowInterpretationRaw,
-    deterministicEventType: eventType,
-    deterministicNormalizedHint: normalizedHint ?? null,
-    rawInboundBody: userMessage,
-  });
+  let gatedDecision: V2InboundGatedDecision;
+  if (conversationBrainControlTurn != null) {
+    const ft = conversationBrainControlTurn.guard.final_event_type!;
+    const prop = conversationBrainControlTurn.proposal;
+    gatedDecision = {
+      mode: "use_ai_outcome",
+      final_event_type: ft,
+      decision_reason: "conversation_brain_v1",
+      confidence_used: prop.outcome_confidence,
+      should_write_outcome_event: true,
+      should_open_blocker_capture: ft === "user_no" || ft === "user_partial",
+      reply_style: "normal_outcome",
+      overrode_deterministic: ft !== eventType,
+    };
+  } else {
+    gatedDecision = resolveV2InboundGatedDecision({
+      gatedEnabled,
+      interpretation: shadowInterpretationRaw,
+      deterministicEventType: eventType,
+      deterministicNormalizedHint: normalizedHint ?? null,
+      rawInboundBody: userMessage,
+    });
+  }
 
   let shadowInterpretationStored: Record<string, unknown> | undefined;
   if (needInterpretation && shadowInterpretationRaw != null) {
@@ -652,31 +900,34 @@ async function processV2NormalInboundOutcome(
     });
   }
 
-  const centralSmsTurnShadowStored = await interpretV2CentralSmsTurn({
-    clerkUserId: userId,
-    commitmentId: commitment.id,
-    commitment,
-    effectiveAsk: effectiveBehavior,
-    inboundText: userMessage,
-    lastOutboundPromptPreview: lastOutboundSmsPreview,
-    recentSmsContextBlock: smsConvPackBlock,
-    blockerCapturePending: isBlockerCapturePendingActive(commitment),
-    refreshSessionActive: isRefreshSessionActive(commitment),
-    smsPendingResolutionActive: isSmsInboundPendingResolutionActionable(commitment),
-    contractOverlayProposalActive: isV2PendingProposalValid(commitment),
-    memoryConfirmationPending: pendingAwaitingMemoryConfirmation != null,
-    activeCommitmentPresent: true,
-    deterministicClassifierEventType: eventType,
-    deterministicNormalizedHint: normalizedHint ?? null,
-    gatedSummary: {
-      mode: gatedDecision.mode,
-      final_event_type: gatedDecision.final_event_type,
-      should_write_outcome_event: gatedDecision.should_write_outcome_event,
-      reply_style: gatedDecision.reply_style,
-    },
-    shadowInterpretationRaw,
-    routeContext: "normal_accountability",
-  });
+  const centralSmsTurnShadowStored =
+    conversationBrainControlTurn != null
+      ? null
+      : await interpretV2CentralSmsTurn({
+          clerkUserId: userId,
+          commitmentId: commitment.id,
+          commitment,
+          effectiveAsk: effectiveBehavior,
+          inboundText: userMessage,
+          lastOutboundPromptPreview: lastOutboundSmsPreview,
+          recentSmsContextBlock: smsConvPackBlock,
+          blockerCapturePending: isBlockerCapturePendingActive(commitment),
+          refreshSessionActive: isRefreshSessionActive(commitment),
+          smsPendingResolutionActive: isSmsInboundPendingResolutionActionable(commitment),
+          contractOverlayProposalActive: isV2PendingProposalValid(commitment),
+          memoryConfirmationPending: pendingAwaitingMemoryConfirmation != null,
+          activeCommitmentPresent: true,
+          deterministicClassifierEventType: eventType,
+          deterministicNormalizedHint: normalizedHint ?? null,
+          gatedSummary: {
+            mode: gatedDecision.mode,
+            final_event_type: gatedDecision.final_event_type,
+            should_write_outcome_event: gatedDecision.should_write_outcome_event,
+            reply_style: gatedDecision.reply_style,
+          },
+          shadowInterpretationRaw,
+          routeContext: "normal_accountability",
+        });
 
   const smsBrainControlEnabled = isV2CentralSmsBrainControlEnabled();
   if (
@@ -760,7 +1011,11 @@ async function processV2NormalInboundOutcome(
       arcWriteOutcomeType === "user_no" ||
       arcWriteOutcomeType === "user_partial");
 
-  if (isV2ActiveReplyContextEnabled() && arcWouldWriteOutcomeEvent) {
+  if (
+    isV2ActiveReplyContextEnabled() &&
+    arcWouldWriteOutcomeEvent &&
+    conversationBrainControlTurn == null
+  ) {
     const activeReplyCtx = buildV2ActiveReplyContext({
       inboundText: userMessage,
       eventsNewestFirst: recentEvents,
@@ -894,60 +1149,80 @@ async function processV2NormalInboundOutcome(
 
   // 5) Final SMS body — Wave 2.2 human reply resolution (suggested → AI → human banks → template).
   const trySuggestedWhenAgrees = needInterpretation && !gatedEnabled;
-  const resolved = await resolveV2InboundCoachReplyBody({
-    gatedEnabled,
-    gatedDecision,
-    interpretation: shadowInterpretationRaw,
-    deterministicEventType: eventType,
-    userMessage,
-    preferredName,
-    messageSid: job.message_sid,
-    effectiveAsk: effectiveBehavior,
-    behaviorStatement: commitment.behavior_statement,
-    trySuggestedWhenAgrees,
-    commitmentChangeWave4Body,
-    buildOutcomeAi: async () => {
-      const finalEventType = gatedDecision.final_event_type ?? eventType;
-      const serverStrategy = strategyForInboundEventType(finalEventType);
-      return tryGenerateV2InboundMessage({
-        commitment,
-        eventType: finalEventType,
-        serverStrategy,
-        userMessage,
-        normalizedHint,
-        eventsNewestFirst: recentEvents,
-        coachingMemory: coachingMemoryRow,
-        preferredName,
-        lifeDesires,
-        peopleSummary,
-        responsibility,
-        identityAnchorText,
-        identityRefreshDue,
-        identityReferenceAllowed,
-        afterSilence,
-        lastOutboundNextMove,
-        ...(brokePause ? { brokePause: true } : {}),
-        ...(afterSilence
-          ? {
-              unansweredChecks: silenceCtx.unanswered_checks,
-              daysIdle: silenceCtx.days_since_last_user_outcome,
-            }
-          : {}),
-        recentSmsContextBlock: smsConvPackBlock,
-        proofMomentForPrompt: proofPromptHint,
-      });
-    },
-    buildTemplate: (finalType) =>
-      buildV2InboundReplySms({
-        behaviorStatement: effectiveBehavior,
-        messageSid: job.message_sid,
-        eventType: finalType,
-        preferredName,
-      }),
-  });
+  const resolved =
+    conversationBrainControlTurn != null
+      ? {
+          replyBody: conversationBrainControlTurn.guard.final_sms_draft!,
+          meta: {
+            reply_source: "ai_generated",
+            reply_mode: "conversation_brain_v1",
+            suggested_reply_used: false,
+            suggested_reply_rejected_reason: null,
+            final_event_type: conversationBrainControlTurn.guard.final_event_type,
+            gated_mode: gatedDecision.mode,
+          },
+          aiTry: {
+            ok: true as const,
+            message: conversationBrainControlTurn.guard.final_sms_draft!,
+            confidence: conversationBrainControlTurn.proposal.outcome_confidence,
+            fallbackUsed: false as const,
+          },
+          replyTemplateId: undefined,
+        }
+      : await resolveV2InboundCoachReplyBody({
+          gatedEnabled,
+          gatedDecision,
+          interpretation: shadowInterpretationRaw,
+          deterministicEventType: eventType,
+          userMessage,
+          preferredName,
+          messageSid: job.message_sid,
+          effectiveAsk: effectiveBehavior,
+          behaviorStatement: commitment.behavior_statement,
+          trySuggestedWhenAgrees,
+          commitmentChangeWave4Body,
+          buildOutcomeAi: async () => {
+            const finalEventType = gatedDecision.final_event_type ?? eventType;
+            const serverStrategy = strategyForInboundEventType(finalEventType);
+            return tryGenerateV2InboundMessage({
+              commitment,
+              eventType: finalEventType,
+              serverStrategy,
+              userMessage,
+              normalizedHint,
+              eventsNewestFirst: recentEvents,
+              coachingMemory: coachingMemoryRow,
+              preferredName,
+              lifeDesires,
+              peopleSummary,
+              responsibility,
+              identityAnchorText,
+              identityRefreshDue,
+              identityReferenceAllowed,
+              afterSilence,
+              lastOutboundNextMove,
+              ...(brokePause ? { brokePause: true } : {}),
+              ...(afterSilence
+                ? {
+                    unansweredChecks: silenceCtx.unanswered_checks,
+                    daysIdle: silenceCtx.days_since_last_user_outcome,
+                  }
+                : {}),
+              recentSmsContextBlock: smsConvPackBlock,
+              proofMomentForPrompt: proofPromptHint,
+            });
+          },
+          buildTemplate: (finalType) =>
+            buildV2InboundReplySms({
+              behaviorStatement: effectiveBehavior,
+              messageSid: job.message_sid,
+              eventType: finalType,
+              preferredName,
+            }),
+        });
 
   let replyBody = resolved.replyBody;
-  if (isV2HumanSmsPhase2NormalInboundEnabled()) {
+  if (isV2HumanSmsPhase2NormalInboundEnabled() && conversationBrainControlTurn == null) {
     warnIfPhase2BrainWithoutValidatorEnforce();
     const unknownOutcome = shouldSkipPhase2BrainForUnknownOutcomeEvent({
       gatedDecision,
@@ -1137,7 +1412,7 @@ async function processV2NormalInboundOutcome(
     victorySmsCallout.appendToReply != null && finalReplyBody !== beforeVictoryLine;
   const victoryExtrasForSpine = victoryCalloutDisplayed ? victorySmsCallout.eventPayloadExtras : {};
 
-  if (shouldRunPhase5aInboundStitchedFinalBrain()) {
+  if (shouldRunPhase5aInboundStitchedFinalBrain() && conversationBrainControlTurn == null) {
     const preservationSnippets: string[] = [];
     if (gatedDecision.supplement_commitment_change_guidance) {
       preservationSnippets.push(COMMITMENT_APPEND_FOR_SCORED);
@@ -1165,6 +1440,29 @@ async function processV2NormalInboundOutcome(
   const aiTry = resolved.aiTry;
   const replyTemplateId = resolved.replyTemplateId;
   const replyResolutionMeta = resolved.meta;
+
+  const inboundAiModelUsed =
+    conversationBrainControlTurn != null ? conversationBrainControlTurn.model : V2_INBOUND_AI_MODEL;
+  const inboundAiPromptVersionUsed =
+    conversationBrainControlTurn != null
+      ? V2_SMS_CONVERSATION_BRAIN_PROMPT_VERSION
+      : V2_INBOUND_AI_PROMPT_VERSION;
+
+  const conversationBrainSpineMeta =
+    conversationBrainControlTurn != null
+      ? {
+          enabled: true as const,
+          model: conversationBrainControlTurn.model,
+          guardrail_status: conversationBrainControlTurn.guard.status,
+          guardrail_reason: conversationBrainControlTurn.guard.guardrail_reason,
+          turn_kind: conversationBrainControlTurn.proposal.turn_kind,
+          outcome_confidence: conversationBrainControlTurn.proposal.outcome_confidence,
+          reply_strategy: conversationBrainControlTurn.proposal.reply_strategy,
+          needs_clarification: conversationBrainControlTurn.proposal.needs_clarification,
+          repeated_clarification_risk: conversationBrainControlTurn.proposal.repeated_clarification_risk,
+          short_reason_for_logs: conversationBrainControlTurn.proposal.short_reason_for_logs,
+        }
+      : null;
 
   const repairPayload =
     gatedDecision.should_write_outcome_event &&
@@ -1199,8 +1497,8 @@ async function processV2NormalInboundOutcome(
     gatedDecision.should_write_outcome_event && gatedDecision.final_event_type
       ? {
           ...buildUserReplyAiPayload({
-            model: V2_INBOUND_AI_MODEL,
-            promptVersion: V2_INBOUND_AI_PROMPT_VERSION,
+            model: inboundAiModelUsed,
+            promptVersion: inboundAiPromptVersionUsed,
             serverStrategy: strategyForInboundEventType(gatedDecision.final_event_type),
             message: finalReplyBody,
             confidence: aiTry.ok ? aiTry.confidence : null,
@@ -1211,8 +1509,8 @@ async function processV2NormalInboundOutcome(
           reply_resolution: replyResolutionPayload,
         }
       : {
-          model: V2_INBOUND_AI_MODEL,
-          prompt_version: V2_INBOUND_AI_PROMPT_VERSION,
+          model: inboundAiModelUsed,
+          prompt_version: inboundAiPromptVersionUsed,
           server_strategy: "gated_non_outcome",
           message: finalReplyBody,
           confidence: null,
@@ -1288,6 +1586,7 @@ async function processV2NormalInboundOutcome(
         ...(gatedDecision.should_write_outcome_event ? victoryExtrasForSpine : {}),
         ...(centralSmsTurnShadowStored != null ? { central_sms_turn_shadow: centralSmsTurnShadowStored } : {}),
         ai: aiPayload,
+        ...(conversationBrainSpineMeta != null ? { conversation_brain_v1: conversationBrainSpineMeta } : {}),
       },
       idempotency_key: idempotencyKey,
     });
