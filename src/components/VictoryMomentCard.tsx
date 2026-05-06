@@ -1,4 +1,5 @@
 type VictoryMomentCardProps = {
+  categoryLabel?: string;
   headline: string;
   body: string;
   dateLabel: string;
@@ -8,6 +9,7 @@ type VictoryMomentCardProps = {
 };
 
 export function VictoryMomentCard({
+  categoryLabel,
   headline,
   body,
   dateLabel,
@@ -16,21 +18,21 @@ export function VictoryMomentCard({
   onShareProof,
 }: VictoryMomentCardProps) {
   return (
-    <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{headline}</p>
-      <p className="mt-2 text-gray-900 leading-relaxed">{body}</p>
-      {dateLabel ? <p className="mt-3 text-xs text-gray-500">{dateLabel}</p> : null}
-      {groundedInEventTypes.length > 0 ? (
-        <p className="mt-2 text-[11px] text-gray-400">
-          Grounded in spine: {groundedInEventTypes.join(", ")}
+    <article className="rounded-xl border border-stone-200 border-l-4 border-l-stone-500 bg-stone-50/80 p-4 shadow-sm md:bg-white/90">
+      {categoryLabel?.trim() ? (
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-600">
+          {categoryLabel.trim()}
         </p>
       ) : null}
+      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500">{headline}</p>
+      <p className="mt-2 text-[15px] leading-relaxed text-gray-900">{body}</p>
+      {dateLabel ? <p className="mt-3 text-[11px] leading-snug text-gray-500">{dateLabel}</p> : null}
       {momentId && onShareProof ? (
         <p className="mt-3">
           <button
             type="button"
             onClick={() => onShareProof(momentId)}
-            className="text-sm font-medium text-gray-800 underline underline-offset-2 hover:text-gray-600"
+            className="text-xs font-medium text-gray-600 underline underline-offset-2 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-stone-50 md:focus:ring-offset-white"
           >
             Share this proof
           </button>

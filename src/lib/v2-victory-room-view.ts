@@ -66,11 +66,39 @@ export type VictoryMoment = {
   groundedInEventTypes: string[];
 };
 
+export type VictoryChapterRecord = {
+  /**
+   * Commitment activation time if available (`v2_commitment.started_at`), otherwise earliest spine event date.
+   * Null when both are missing or invalid.
+   */
+  openedAt: string | null;
+  /** Earliest proof moment date across the derived proof pools (recent/archive/cornerstone). */
+  firstProofAt: string | null;
+  /** Latest proof moment date across the derived proof pools (recent/archive/cornerstone). */
+  latestProofAt: string | null;
+  /**
+   * Presence-only, human-facing proof forms (no counts; no internal enums).
+   * Max 5 labels.
+   */
+  proofCategoryLabels: string[];
+  /** Soft signal only; derived from priorChapters.length. */
+  earlierSeasonCount: number;
+};
+
+type RecentProofCategory =
+  | "came_back"
+  | "told_the_truth"
+  | "adjusted_wisely"
+  | "finished_a_chapter"
+  | "showed_up"
+  | "kept_the_thread_alive";
+
 export type VictoryRoomViewData = {
   hasActiveV2Commitment: boolean;
   profile: VictoryRoomProfileIdentity;
   commitment: { id: string; title: string } | null;
   effectiveCoachingAsk: string | null;
+  chapterRecord: VictoryChapterRecord;
   moments: VictoryMoment[];
   comebackLines: string[];
   /**
@@ -114,6 +142,233 @@ function truncateOneLine(s: string, max: number): string {
   const x = s.trim().replace(/\s+/g, " ");
   if (x.length <= max) return x;
   return `${x.slice(0, max - 1)}…`;
+}
+
+function earliestIsoFromEventRows(eventRowsFull: EventRow[]): string | null {
+  let bestMs = Number.POSITIVE_INFINITY;
+  let bestIso: string | null = null;
+  for (const r of eventRowsFull) {
+    const t = new Date(r.occurred_at).getTime();
+    if (!Number.isFinite(t)) continue;
+    if (t < bestMs) {
+      bestMs = t;
+      bestIso = r.occurred_at;
+    }
+  }
+  return bestIso;
+}
+
+function dedupeMomentsById(moments: VictoryMoment[]): VictoryMoment[] {
+  const seen = new Set<string>();
+  const out: VictoryMoment[] = [];
+  for (const m of moments) {
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    out.push(m);
+  }
+  return out;
+}
+
+function minMaxProofIso(moments: VictoryMoment[]): { firstProofAt: string | null; latestProofAt: string | null } {
+  let minMs = Number.POSITIVE_INFINITY;
+  let maxMs = 0;
+  let minIso: string | null = null;
+  let maxIso: string | null = null;
+  for (const m of moments) {
+    const t = new Date(m.occurredAt).getTime();
+    if (!Number.isFinite(t)) continue;
+    if (t < minMs) {
+      minMs = t;
+      minIso = m.occurredAt;
+    }
+    if (t > maxMs) {
+      maxMs = t;
+      maxIso = m.occurredAt;
+    }
+  }
+  return { firstProofAt: minIso, latestProofAt: maxIso };
+}
+
+export function buildChapterRecord(args: {
+  commitmentStartedAt: string | null;
+  eventRowsFull: EventRow[];
+  moments: VictoryMoment[];
+  archiveMoments: VictoryMoment[];
+  cornerstoneMoments: VictoryMoment[];
+  earlierSeasonCount: number;
+}): VictoryChapterRecord {
+  const openedAt =
+    args.commitmentStartedAt?.trim() ||
+    earliestIsoFromEventRows(args.eventRowsFull) ||
+    null;
+
+  const allProofMoments = dedupeMomentsById([
+    ...args.moments,
+    ...args.archiveMoments,
+    ...args.cornerstoneMoments,
+  ]);
+
+  const { firstProofAt, latestProofAt } = minMaxProofIso(allProofMoments);
+
+  // Presence-only: pick up to 5 distinct proof forms, highest-meaning first.
+  const winnerByCategory = new Map<RecentProofCategory, VictoryMoment>();
+  for (const m of allProofMoments) {
+    const cat = inferRecentProofCategory(m);
+    const prev = winnerByCategory.get(cat);
+    if (!prev || occurredMs(m) > occurredMs(prev)) {
+      winnerByCategory.set(cat, m);
+    }
+  }
+  const labels = [...winnerByCategory.entries()]
+    .map(([cat, moment]) => ({
+      cat,
+      label: getRecentProofCategoryLabel(moment),
+      priority: getRecentProofCategoryPriority(cat),
+      t: occurredMs(moment),
+    }))
+    .sort((a, b) => {
+      const dp = b.priority - a.priority;
+      if (dp !== 0) return dp;
+      return b.t - a.t;
+    })
+    .map((x) => x.label)
+    .filter((x, i, arr) => arr.indexOf(x) === i)
+    .slice(0, 5);
+
+  return {
+    openedAt: openedAt && Number.isFinite(new Date(openedAt).getTime()) ? openedAt : null,
+    firstProofAt,
+    latestProofAt,
+    proofCategoryLabels: labels,
+    earlierSeasonCount: Math.max(0, args.earlierSeasonCount || 0),
+  };
+}
+
+export function normalizeMomentText(input: string): string {
+  return input.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function getRecentProofDedupeKey(moment: VictoryMoment): string {
+  return `${normalizeMomentText(moment.headline)}||${normalizeMomentText(moment.body)}`;
+}
+
+export function inferRecentProofCategory(moment: VictoryMoment): RecentProofCategory {
+  const id = moment.id;
+  if (id.startsWith("composite:reactivation_yes:")) return "came_back";
+  if (id.startsWith("composite:honesty:")) return "told_the_truth";
+  if (id.startsWith("composite:decline_activate:")) return "adjusted_wisely";
+  if (id.startsWith("merged:w12_2_tighten_display:")) return "adjusted_wisely";
+
+  const h = moment.headline.trim();
+  if (h === "Comeback") return "came_back";
+  if (h === "Honesty") return "told_the_truth";
+  if (h === "Honest miss") return "told_the_truth";
+  if (
+    h === "Honest adjustment" ||
+    h === "Clean recommitment" ||
+    h === "Bar adjusted" ||
+    h === "Alignment" ||
+    h === "Coaching context updated"
+  ) {
+    return "adjusted_wisely";
+  }
+  if (h === "New chapter") return "finished_a_chapter";
+  if (h === "Kept your word" || h === "Proof in the thread") return "showed_up";
+  if (h === "Stayed engaged") return "kept_the_thread_alive";
+  return "showed_up";
+}
+
+export function getRecentProofCategoryPriority(category: RecentProofCategory): number {
+  switch (category) {
+    case "came_back":
+      return 600;
+    case "told_the_truth":
+      return 500;
+    case "adjusted_wisely":
+      return 400;
+    case "finished_a_chapter":
+      return 300;
+    case "showed_up":
+      return 200;
+    case "kept_the_thread_alive":
+      return 100;
+  }
+}
+
+export function getRecentProofCategoryLabel(moment: VictoryMoment): string {
+  const cat = inferRecentProofCategory(moment);
+  switch (cat) {
+    case "came_back":
+      return "Came Back";
+    case "told_the_truth":
+      return "Told the Truth";
+    case "adjusted_wisely":
+      return "Adjusted Wisely";
+    case "finished_a_chapter":
+      return "Finished a Chapter";
+    case "showed_up":
+      return "Showed Up";
+    case "kept_the_thread_alive":
+      return "Kept the Thread Alive";
+    default:
+      return "Proof";
+  }
+}
+
+function occurredMs(m: VictoryMoment): number {
+  const t = new Date(m.occurredAt).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+export function curateRecentProofMoments(moments: VictoryMoment[], max: number = 4): VictoryMoment[] {
+  const input = [...moments]; // do not mutate caller array
+  if (input.length === 0 || max <= 0) return [];
+
+  // 1) Exact dedupe by (normalized headline + body); keep the most recent duplicate.
+  const byKey = new Map<string, VictoryMoment>();
+  for (const m of input) {
+    const key = getRecentProofDedupeKey(m);
+    const prev = byKey.get(key);
+    if (!prev || occurredMs(m) > occurredMs(prev)) {
+      byKey.set(key, m);
+    }
+  }
+  const deduped = [...byKey.values()];
+  if (deduped.length === 0) return [];
+
+  // 2) Newest winner per category.
+  const winnerByCategory = new Map<RecentProofCategory, VictoryMoment>();
+  for (const m of deduped) {
+    const cat = inferRecentProofCategory(m);
+    const prev = winnerByCategory.get(cat);
+    if (!prev || occurredMs(m) > occurredMs(prev)) {
+      winnerByCategory.set(cat, m);
+    }
+  }
+
+  // 3) Order by meaning priority, then recency, take up to max.
+  const winners = [...winnerByCategory.entries()].map(([category, moment]) => ({
+    category,
+    moment,
+    priority: getRecentProofCategoryPriority(category),
+    t: occurredMs(moment),
+  }));
+
+  winners.sort((a, b) => {
+    const dp = b.priority - a.priority;
+    if (dp !== 0) return dp;
+    return b.t - a.t;
+  });
+
+  const selected = winners.map((w) => w.moment).slice(0, max);
+
+  // 4) Safety: never return empty if there were candidates.
+  if (selected.length === 0) {
+    const newest = [...deduped].sort((a, b) => occurredMs(b) - occurredMs(a))[0];
+    return newest ? [newest] : [];
+  }
+
+  return selected;
 }
 
 function parsePayload(row: EventRow): Record<string, unknown> {
@@ -721,17 +976,6 @@ async function loadPriorChaptersView(
   return chapters;
 }
 
-function dedupeMomentsById(moments: VictoryMoment[]): VictoryMoment[] {
-  const seen = new Set<string>();
-  const out: VictoryMoment[] = [];
-  for (const m of moments) {
-    if (seen.has(m.id)) continue;
-    seen.add(m.id);
-    out.push(m);
-  }
-  return out;
-}
-
 /**
  * Prefer variety: cap standalone `user_yes` spine rows (not composites) at 2 (most recent).
  * Overall cap 5 moments.
@@ -815,10 +1059,7 @@ function isHonestyCornerstone(m: VictoryMoment): boolean {
   return m.headline === "Honesty" || m.id.startsWith("composite:honesty:");
 }
 
-function occurredMs(m: VictoryMoment): number {
-  const t = new Date(m.occurredAt).getTime();
-  return Number.isFinite(t) ? t : 0;
-}
+// occurredMs is defined above (used for recent curation + cornerstone selection).
 
 /**
  * Union of recent, archive, and prior-chapter moments; deduped; max 3 picks; rule-ranked; time-spread when possible.
@@ -919,6 +1160,13 @@ export async function loadVictoryRoomView(
       profile,
       commitment: null,
       effectiveCoachingAsk: null,
+      chapterRecord: {
+        openedAt: null,
+        firstProofAt: null,
+        latestProofAt: null,
+        proofCategoryLabels: [],
+        earlierSeasonCount: 0,
+      },
       moments: [],
       comebackLines: [],
       optionalMemoryProjectionLine: null,
@@ -979,7 +1227,7 @@ export async function loadVictoryRoomView(
     ...(reactivationYesMoment ? [reactivationYesMoment] : []),
   ]);
 
-  const moments = capMoments(merged);
+  const moments = curateRecentProofMoments(merged, 4);
 
   const comebackLines = buildComebackLines({
     rowsAsc,
@@ -994,9 +1242,10 @@ export async function loadVictoryRoomView(
     memory?.latest_blocker_preview && memory.latest_blocker_preview.trim()
       ? truncateOneLine(memory.latest_blocker_preview, 160)
       : null;
-  const optionalMemoryProjectionLine = blockerPreview
-    ? `Latest blocker you named (coach memory projection, not primary proof): ${blockerPreview}`
-    : null;
+  // Phase 1 (Victory Room): do not surface coaching-memory projection framing to users.
+  // We keep the underlying `latest_blocker_preview` available for future curated use,
+  // but avoid exposing internal/projection language in the UI.
+  const optionalMemoryProjectionLine = null;
 
   const recentMomentIds = new Set(moments.map((m) => m.id));
   const archiveMoments = buildArchiveMomentsFromEvents(
@@ -1013,11 +1262,21 @@ export async function loadVictoryRoomView(
     priorChapters,
   });
 
+  const chapterRecord = buildChapterRecord({
+    commitmentStartedAt: commitment.started_at,
+    eventRowsFull,
+    moments,
+    archiveMoments,
+    cornerstoneMoments,
+    earlierSeasonCount: priorChapters.length,
+  });
+
   return {
     hasActiveV2Commitment: true,
     profile,
     commitment: { id: commitment.id, title: commitment.title },
     effectiveCoachingAsk: getEffectiveCoachingAsk(commitment, Date.now()),
+    chapterRecord,
     moments,
     comebackLines,
     optionalMemoryProjectionLine,

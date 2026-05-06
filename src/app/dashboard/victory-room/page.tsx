@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { VictoryArchiveSection } from "@/components/VictoryArchiveSection";
+import { VictoryChapterRecordSection } from "@/components/VictoryChapterRecordSection";
 import { VictoryCornerstoneSection } from "@/components/VictoryCornerstoneSection";
 import { VictoryPriorChaptersSection } from "@/components/VictoryPriorChaptersSection";
 import { VictoryRoomProofShareSection } from "@/components/VictoryRoomProofShareSection";
@@ -10,6 +11,7 @@ import {
   formatVictoryRoomDate,
   loadVictoryRoomView,
 } from "@/lib/v2-victory-room-view";
+import { getRecentProofCategoryLabel } from "@/lib/v2-victory-room-view";
 import { resolveVictoryRoomSummaryParagraph } from "@/lib/v2-victory-room-summary";
 import type { VictoryRoomViewForShare } from "@/lib/v2-victory-share-snippet";
 
@@ -43,14 +45,6 @@ export default async function VictoryRoomPage() {
         </Link>
       </p>
 
-      {/* A. Hero */}
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Victory Room</h1>
-        <p className="mt-3 text-gray-600 leading-relaxed">
-          A quiet record of real choices — so the coaching you cannot see becomes proof you can feel.
-        </p>
-      </header>
-
       {!view.hasActiveV2Commitment ? (
         <section className="rounded-xl border border-amber-100 bg-amber-50/60 p-6 text-gray-800">
           <h2 className="text-lg font-medium text-gray-900">Not quite ready</h2>
@@ -67,36 +61,44 @@ export default async function VictoryRoomPage() {
         </section>
       ) : (
         <>
-          {victorySummary?.paragraph ? (
-            <section
-              className="mb-10 rounded-lg border border-gray-200 border-l-4 border-l-stone-500 bg-stone-50/90 px-5 py-4 shadow-sm"
-              aria-label="Victory summary"
-            >
-              <p className="text-base leading-relaxed text-gray-900">{victorySummary.paragraph}</p>
-              <p className="mt-3 text-[11px] leading-snug text-gray-500">
-                {victorySummary.provenance === "early_chapter"
-                  ? "Grounded in your active commitment — proof builds as you keep showing up."
-                  : "Built from your recent accountability moments."}
+          {/* A. Current chapter module (localized panel) */}
+          <section className="mb-10 rounded-2xl border border-stone-200 bg-white/85 p-6 shadow-sm backdrop-blur-sm">
+            <header>
+              <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Victory Room</h1>
+              <p className="mt-3 text-gray-700 leading-relaxed">
+                A quiet record of real choices — so the coaching you cannot see becomes proof you can feel.
               </p>
-            </section>
-          ) : null}
+            </header>
+
+            {victorySummary?.paragraph ? (
+              <div className="mt-6 rounded-lg border border-stone-200 border-l-4 border-l-stone-500 bg-stone-50/80 px-5 py-4">
+                <p className="text-base leading-relaxed text-gray-900">{victorySummary.paragraph}</p>
+                <p className="mt-3 text-[11px] leading-snug text-gray-500">
+                  {victorySummary.provenance === "early_chapter"
+                    ? "Grounded in your active commitment — proof builds as you keep showing up."
+                    : "Built from your real check-ins."}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-6 border-t border-stone-200/70 pt-6">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Your bar</h2>
+              <p className="mt-3 text-gray-900 leading-relaxed">
+                {view.effectiveCoachingAsk?.trim() || "Your commitment is active; the precise ask will appear here."}
+              </p>
+              <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+                This is what your coach is holding you to right now — drawn from your current commitment, not a
+                scoreboard.
+              </p>
+              {view.commitment?.title ? (
+                <p className="mt-4 text-xs text-gray-500">Commitment: {view.commitment.title}</p>
+              ) : null}
+            </div>
+          </section>
+
+          <VictoryChapterRecordSection chapterRecord={view.chapterRecord} timeZone={timeZone} />
 
           <VictoryCornerstoneSection moments={view.cornerstoneMoments} timeZone={timeZone} />
-
-          {/* B. Your bar — commitment row + getEffectiveCoachingAsk (canonical) */}
-          <section className="mb-10 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Your bar</h2>
-            <p className="mt-3 text-gray-900 leading-relaxed">
-              {view.effectiveCoachingAsk?.trim() || "Your commitment is active; the precise ask will appear here."}
-            </p>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-              This is what your coach is holding you to right now — drawn from your current commitment, not a
-              scoreboard.
-            </p>
-            {view.commitment?.title ? (
-              <p className="mt-4 text-xs text-gray-400">Commitment: {view.commitment.title}</p>
-            ) : null}
-          </section>
 
           {view.optionalMemoryProjectionLine ? (
             <p className="mb-10 text-xs leading-relaxed text-gray-500">{view.optionalMemoryProjectionLine}</p>
@@ -118,6 +120,7 @@ export default async function VictoryRoomPage() {
                 viewForShare={viewForShare}
                 moments={view.moments.map((m) => ({
                   id: m.id,
+                  categoryLabel: getRecentProofCategoryLabel(m),
                   headline: m.headline,
                   body: m.body,
                   dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),

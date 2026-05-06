@@ -7,6 +7,7 @@ import { buildShareSnippetFromMoment, type VictoryRoomViewForShare } from "@/lib
 
 type MomentRow = {
   id: string;
+  categoryLabel?: string;
   headline: string;
   body: string;
   dateLabel: string;
@@ -38,16 +39,17 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
 
   return (
     <>
-      <ul className="mt-6 space-y-4">
-        {moments.map((m) => (
+      <ul className="mt-5 space-y-3">
+        {moments.map((m, idx) => (
           <li key={m.id}>
             <VictoryMomentCard
+              categoryLabel={m.categoryLabel}
               headline={m.headline}
               body={m.body}
               dateLabel={m.dateLabel}
               groundedInEventTypes={m.groundedInEventTypes}
-              momentId={m.id}
-              onShareProof={handleShareClick}
+              momentId={idx === 0 ? m.id : undefined}
+              onShareProof={idx === 0 ? handleShareClick : undefined}
             />
           </li>
         ))}
