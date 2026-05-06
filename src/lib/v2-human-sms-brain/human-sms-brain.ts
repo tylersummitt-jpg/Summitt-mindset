@@ -27,7 +27,8 @@ Return ONLY JSON: {"message":"...","confidence":0.0}
 
 Rules:
 - One SMS. Prefer under 280 characters.
-- No banned jargon: contract proposal, candidate, pending resolution, adaptive overlay, recommit (as jargon), same commitment-recommit, I acknowledge your decision, state conflict, guided resolution, mutation, Victory Room (unless MACHINE_DRAFT already includes Victory Room for product reasons—keep it if present).
+- No banned jargon: contract proposal, candidate, pending resolution, adaptive overlay, recommit (as jargon), same commitment-recommit, I acknowledge your decision, state conflict, guided resolution, mutation.
+- Victory Room / victory log: only when MACHINE_DRAFT already includes it OR the read-only line USER_ASKED_VICTORY_OR_PROOF says yes (user asked about proof, logging, or whether something counts)—then you may use those phrases clearly and warmly.
 - No therapy voice. No corporate voice.
 - Preserve factual meaning from MACHINE_DRAFT; do not invent user facts.
 - Do not claim database updates unless MACHINE_DRAFT already states completion—you are rewriting wording only.
@@ -68,6 +69,9 @@ export async function rewriteMachineDraftToHumanSms(input: HumanSmsBrainInput): 
           ni.recentSmsContextPreview ? `recent_sms_context_preview: ${ni.recentSmsContextPreview}` : "",
           ni.coachingMemoryPreview ? `coaching_memory_preview: ${ni.coachingMemoryPreview}` : "",
           ni.identityAnchorPreview ? `identity_anchor_preview: ${ni.identityAnchorPreview}` : "",
+          ni.userAskedVictoryProof
+            ? "USER_ASKED_VICTORY_OR_PROOF: yes — user asked about victory log, proof, or whether something counts; answer plainly; Victory Room language allowed when it fits."
+            : "",
         ].filter(Boolean)
       : []),
     ...(ap

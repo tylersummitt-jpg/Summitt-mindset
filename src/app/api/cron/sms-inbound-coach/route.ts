@@ -1252,6 +1252,7 @@ async function processV2NormalInboundOutcome(
         machineDraft: resolved.replyBody,
         brainCase,
         outcomeKeyForLog,
+        userInboundRaw: userMessage,
         brainContext: {
           normalInbound: {
             userReplyPreview: userMessage.slice(0, 280),

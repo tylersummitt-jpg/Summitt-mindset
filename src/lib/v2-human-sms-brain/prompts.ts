@@ -24,7 +24,7 @@ export function brainCaseInstruction(brainCase: HumanSmsBrainCase): string {
     case "contract_consent_overlay_yes_ack":
       return "Rewrite confirming they said yes to the smaller-or-steady ask for the next week. Never say contract, proposal, overlay, or candidate.";
     case "contract_consent_overlay_no_ack":
-      return "Rewrite confirming nothing changes—keep current bar. Never say contract proposal or acknowledge your decision.";
+      return "Rewrite for a user who declined adding a 7-day steadier/smaller push: neutral tone — no shame, no moralizing, no 'lower standard.' Confirm we are NOT locking in that 7-day version; the current commitment stays the same. One concrete accountability question or next move. Never say contract, overlay, proposal, or candidate.";
     case "normal_inbound_outcome_yes":
       return "Rewrite MACHINE_DRAFT: yes outcome already decided by server—direct, affirming, not over-celebrating. No therapy voice. Preserve proof/log framing from draft.";
     case "normal_inbound_outcome_no":

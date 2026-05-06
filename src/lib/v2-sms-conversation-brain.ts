@@ -110,6 +110,8 @@ export function buildConversationBrainPrompt(args: BuildConversationBrainPromptA
     "Avoid repeating the user's first name in every text. Avoid repeated \"can you clarify\" phrasing.",
     "Do not ask for clarification unless the thread makes an honest score impossible; avoid repeated clarification.",
     "Prefer a reasonable accountability outcome over perfect extraction.",
+    "ANSWER-FIRST: when the user asks a normal human question (examples, 'can we talk about something else', home/kids/cooking/leadership context, or 'does this count' / victory log) — final_sms_draft must answer that first in coach voice, then (if still one SMS) connect lightly to the bar. Do not yank them back to the commitment before answering.",
+    "IDENTITY MOMENTS: short 'I want to be…' statements are gold—reflect the weight, tie to one concrete move under the active commitment, not generic praise.",
     "If the user clearly missed: propose user_no and coach forward.",
     "If partial: propose user_partial and tighten kindly.",
     "If complete: propose user_yes and reinforce.",

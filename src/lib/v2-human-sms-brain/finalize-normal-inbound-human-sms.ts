@@ -19,6 +19,7 @@ import {
 import type { HumanSmsBrainCase } from "@/lib/v2-human-sms-brain/types";
 import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
 import type { V2InboundGatedDecision } from "@/lib/v2-ai-inbound";
+import { userInboundAsksVictoryRoomProofLog } from "@/lib/v2-sms-quality-copy";
 import { hashSmsSnippet, validateHumanVisibleSms } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { HUMAN_VISIBLE_SMS_VALIDATOR_VERSION } from "@/lib/v2-human-visible-sms/types";
 
@@ -186,6 +187,8 @@ export async function finalizeNormalInboundHumanSms(args: {
   brainContext?: HumanSmsBrainInput["context"];
   maxChars?: number;
   outcomeKeyForLog?: string | null;
+  /** Raw user SMS —used only to allow Victory Room/proof wording when they asked about logging/proof. */
+  userInboundRaw?: string | null;
 }): Promise<FinalizeNormalInboundHumanSmsResult> {
   const maxChars = args.maxChars ?? DEFAULT_MAX;
   let text = args.machineDraft.trim();
@@ -205,11 +208,23 @@ export async function finalizeNormalInboundHumanSms(args: {
   let brainRewriteMs: number | null = null;
   let brainFixMs: number | null = null;
 
+  const allowVictoryRoomPhrase =
+    args.userInboundRaw != null && userInboundAsksVictoryRoomProofLog(args.userInboundRaw);
+
+  const mergeVictoryFlagInContext = (): void => {
+    if (!args.brainContext?.normalInbound || !allowVictoryRoomPhrase) return;
+    args.brainContext.normalInbound = {
+      ...args.brainContext.normalInbound,
+      userAskedVictoryProof: true,
+    };
+  };
+  mergeVictoryFlagInContext();
+
   const runValidate = (s: string) =>
     validateHumanVisibleSms(s, {
       channel: "normal_inbound",
       maxChars,
-      allowVictoryRoomPhrase: false,
+      allowVictoryRoomPhrase,
     });
 
   if (brainAllowed) {

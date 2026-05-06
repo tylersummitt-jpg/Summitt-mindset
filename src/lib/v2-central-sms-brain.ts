@@ -259,6 +259,12 @@ function buildCentralBrainUserPrompt(args: InterpretCentralSmsBrainArgs): string
   lines.push("");
   lines.push("RULES:");
   lines.push("- Do not score plain human/meta questions as accountability_answer.");
+  lines.push(
+    '- Normal questions that are not today’s yes/no/partial on the bar (e.g. "did you like to cook", "can you give examples", "are you able to talk about other things", victory log / proof / "does this count") → human_conversation, meta_question_or_confusion, or advice_or_coaching_request; set should_answer_without_scoring true when they need an answer before scoring.'
+  );
+  lines.push(
+    "- User identity lines (e.g. leadership, motherhood) without a clear today outcome → often human_conversation or advice_or_coaching_request; still avoid inventing scored outcomes."
+  );
   lines.push('- "How are you?", small talk → human_conversation.');
   lines.push(
     '- "Not sure what to say", "what do you mean", "confusing", "don\'t understand" → meta_question_or_confusion (not blocker_or_obstacle).'

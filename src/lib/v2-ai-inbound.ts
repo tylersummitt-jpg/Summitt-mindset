@@ -18,6 +18,11 @@ import {
   type V2InboundEventType,
 } from "@/lib/v2-sms-accountability";
 import { shouldRunHumanSmsPipelineForContractConsent } from "@/lib/v2-human-sms-brain/flags";
+import {
+  internalCoachJargonFailReason,
+  overlayDeclinedAckFailsQualityScan,
+  weakGenericMotivationalPhraseFailReason,
+} from "@/lib/v2-sms-quality-copy";
 import { isRoboticAccountabilityMenuLanguage } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 export const V2_INBOUND_AI_PROMPT_VERSION = "v2_inbound_v1";
@@ -320,6 +325,10 @@ export function validateV2AiInboundMessage(args: {
 
   const hygieneEarly = inboundCoachComplianceHygieneFailReason(msg);
   if (hygieneEarly) return { ok: false, reason: hygieneEarly };
+  const jargonInbound = internalCoachJargonFailReason(msg);
+  if (jargonInbound) return { ok: false, reason: jargonInbound };
+  const weakMotivation = weakGenericMotivationalPhraseFailReason(msg);
+  if (weakMotivation) return { ok: false, reason: weakMotivation };
   if (/\breply\s+(yes|no|partial)\b/i.test(msg)) return { ok: false, reason: "robotic_menu" };
 
   return { ok: true };
@@ -360,14 +369,15 @@ export type V2AiInboundContext = {
 };
 
 const SYSTEM_PROMPT = `You are Pat Summitt AI for inbound accountability SMS replies.
-Voice: direct, specific, tactical, human, calm — like texting a coach, not a compliance bot.
-Hold the standard without shame.
+Voice: direct, warm-but-firm, emotionally intelligent, specific — like texting a coach who remembers the thread, not a compliance bot.
+Hold the standard without shame. Ban weak cheerlead filler ("great job", "you've got this", "keep pushing", "let's aim for", "that's progress") unless paired with a specific earned observation (prefer concrete coaching lines instead).
+Never sound system-y: no internal product words (overlay, contract proposal, V2, event spine, commitment event, accountability system).
 Never include STOP/START/HELP opt-out language or all-caps command menus in the SMS body.
 Output strict JSON only.`;
 
 function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
   const lines: string[] = [];
-  lines.push("You write ONE inbound SMS reply to the user's latest check-in response.");
+  lines.push("You write ONE inbound SMS reply to the user's latest message.");
   lines.push("Return ONLY valid JSON with keys: strategy, message, confidence (0-1 number or null).");
   lines.push(`server_event_type (authoritative, for tone only): ${ctx.eventType}`);
   lines.push(`server_strategy (authoritative): ${ctx.serverStrategy}`);
@@ -449,6 +459,22 @@ function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
       "- If yes: you MAY include at most one short grounding clause with the stored identity anchor verbatim as a substring; still tie to effective_coaching_ask; no guilt, no vague inspiration."
     );
   }
+  lines.push("");
+  lines.push("ANSWER-FIRST / HUMAN QUESTIONS:");
+  lines.push(
+    "- If USER_MESSAGE is a normal human question (examples, small talk, 'can we talk about something else', cooking/kids/home logistics, confusion about how this works): answer it directly first in one tight SMS — then, only if it still fits, tie lightly to the commitment bar."
+  );
+  lines.push(
+    "- Do not mechanically pull every turn back to 'how much will you do today' when they have not reported today's outcome yet."
+  );
+  lines.push(
+    "- Victory log / proof / 'does this count': answer clearly — proof means real behavioral evidence; Victory Room language is OK when they asked about logging or whether something counts (stay honest — do not invent DB writes the server did not perform)."
+  );
+  lines.push(
+    "- Identity-heavy lines ('I want to be the leader they deserve', motherhood meaning): treat as weighty — reflect it briefly, connect to ONE concrete move tied to effective_coaching_ask; never flatten into generic praise."
+  );
+  lines.push("");
+  lines.push("COACHING_MOVE (when not blocked above): prefer Acknowledge reality → Interpret what it means → One useful question OR one clear action.");
   lines.push("");
   lines.push(`USER_MESSAGE: ${truncateOneLine(ctx.userMessage, 320)}`);
   if (ctx.normalizedHint != null) {
@@ -691,6 +717,10 @@ function validateV2ContractConsentAckMessage(args: {
   }
   const ackHygiene = inboundCoachComplianceHygieneFailReason(msg);
   if (ackHygiene) return { ok: false, reason: ackHygiene };
+  if (args.kind === "overlay_declined_ack") {
+    const od = overlayDeclinedAckFailsQualityScan(msg);
+    if (od) return { ok: false, reason: od };
+  }
   if (/\breply\s+(yes|no|partial)\b/i.test(msg)) return { ok: false, reason: "robotic_menu" };
   return { ok: true };
 }
@@ -711,6 +741,10 @@ function validateV2ContractConsentAckMessageLite(args: {
   if (!passesLexicalGuards(msg)) return { ok: false, reason: "lexical_guard" };
   const ackHygiene = inboundCoachComplianceHygieneFailReason(msg);
   if (ackHygiene) return { ok: false, reason: ackHygiene };
+  if (args.kind === "overlay_declined_ack") {
+    const od = overlayDeclinedAckFailsQualityScan(msg);
+    if (od) return { ok: false, reason: od };
+  }
   if (isRoboticAccountabilityMenuLanguage(msg)) return { ok: false, reason: "robotic_menu" };
   return { ok: true };
 }
@@ -770,9 +804,20 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
       lines.push("- Confirm the smaller bar is active for 7 days; BINDING_TEXT verbatim in the message.");
     }
   } else {
-    lines.push("- Confirm you're keeping their current bar; tie to original_behavior_statement.");
+    lines.push(
+      "- KIND IS DECLINE: They chose not to add the optional 7-day steadier/smaller push. That is neutral — not failure, not a lower standard, not less commitment."
+    );
+    lines.push(
+      "- Acknowledge plainly: we will NOT lock in that 7-day version; their existing commitment stays exactly as it was."
+    );
+    lines.push("- Tie to original_behavior_statement or commitment_title with grounded language.");
+    lines.push("- End with ONE concrete accountability question or next move for today.");
+    lines.push("- Forbidden tone: shame, moralizing, implying they 'chose a lower bar', 'declined the standard', or personal failure.");
+    lines.push("- Forbidden words/phrases: overlay, contract, proposal, pending resolution, V2, commitment event, accountability system.");
     if (args.overlayContractKind === "recommit_same") {
-      lines.push("- They declined holding the same bar steady for a week—not a shrink.");
+      lines.push(
+        "- If overlay_contract_kind is recommit_same: they said no to holding the same bar extra-steady for a week — still not a judgment; current bar unchanged."
+      );
     }
   }
 
@@ -1698,6 +1743,10 @@ export function validateAiSuggestedReplyForInbound(
   if (shameLikeSuggested(t)) return { ok: false, reason: "shame_tone" };
   const compliance = inboundCoachComplianceHygieneFailReason(t);
   if (compliance) return { ok: false, reason: compliance };
+  const jargon = internalCoachJargonFailReason(t);
+  if (jargon) return { ok: false, reason: jargon };
+  const weakGen = weakGenericMotivationalPhraseFailReason(t);
+  if (weakGen) return { ok: false, reason: weakGen };
   const lower = t.toLowerCase();
 
   const ft = ctx.finalEventType;

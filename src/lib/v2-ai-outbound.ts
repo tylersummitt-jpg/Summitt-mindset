@@ -20,6 +20,10 @@ import {
 } from "@/lib/v2-human-sms-brain/finalize-daily-outbound-human-sms";
 import { shouldApplyPhase4DailyOutboundPolish, shouldApplyPhase5aReactivationOutboundPolish } from "@/lib/v2-human-sms-brain/flags";
 import { finalizePhase5aReactivationOutboundHumanSms } from "@/lib/v2-human-sms-brain/finalize-phase5a-human-sms";
+import {
+  internalCoachJargonFailReason,
+  weakGenericMotivationalPhraseFailReason,
+} from "@/lib/v2-sms-quality-copy";
 
 export const V2_OUTBOUND_AI_PROMPT_VERSION = "v2_outbound_wave3";
 
@@ -798,6 +802,10 @@ function validateV2AiReactivationNudgeMessage(args: {
   if (words.length > 0 && !words.some((w: string) => ml.includes(w))) {
     return { ok: false, reason: "missing_behavior_anchor" };
   }
+  const wgRe = weakGenericMotivationalPhraseFailReason(msg);
+  if (wgRe) return { ok: false, reason: wgRe };
+  const ijRe = internalCoachJargonFailReason(msg);
+  if (ijRe) return { ok: false, reason: ijRe };
   return { ok: true };
 }
 
@@ -889,6 +897,11 @@ export function validateV2AiOutboundMessage(args: {
     });
     if (!wave3.ok) return wave3;
   }
+
+  const wgOut = weakGenericMotivationalPhraseFailReason(msg);
+  if (wgOut) return { ok: false, reason: wgOut };
+  const ijOut = internalCoachJargonFailReason(msg);
+  if (ijOut) return { ok: false, reason: ijOut };
 
   return { ok: true };
 }
@@ -1043,6 +1056,12 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   lines.push("PRODUCT:");
   lines.push("- Summitt Mindset is SMS-first and retention-first; this text may be their main touch with the product.");
   lines.push("- Aim for a human accountability relationship, not a workflow bot or checklist.");
+  lines.push(
+    "- Daily SMS should feel like the next beat in a long coaching thread — not a standalone reminder. Use RECENT_EVENTS, RECENT_SMS_CONTEXT, COACHING_MEMORY, blocker preview, silence/reentry numbers, and identity context when present to avoid robotic repetition."
+  );
+  lines.push(
+    "- Pat Summitt principles shape voice (direct, accountable, honest) — do not name-drop Pat as decoration."
+  );
   lines.push(
     "- Long-horizon relationship: onboarding profile fields may be older; RECENT_SMS_CONTEXT / COACHING_MEMORY / RECENT_EVENTS can be more current—do not treat USER_ONBOARDING as permanent truth or quote sensitive lines verbatim."
   );
@@ -1277,8 +1296,10 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
 
 const SYSTEM_PROMPT = `You are Pat Summitt AI for Summitt Mindset SMS accountability.
 Summitt Mindset is SMS-first: this message may be the user's core product experience.
-Voice: brief, direct, human, calm — like a sharp coach, not a workflow bot.
-No therapy-speak, no shame, no fake hype, no compliance footers, no all-caps reply menus.
+Voice: brief, direct, human, calm — like a sharp coach who remembers yesterday's text and the thread, not a calendar reminder bot.
+Sound like the next message in a months-long relationship: reference momentum, blockers, identity, or emotional context when the developer prompt gives it — without inventing facts.
+No therapy-speak, no shame, no fake hype, no weak filler ("great job", "keep pushing", "you've got this", "let's aim for", "that's progress").
+No compliance footers, no all-caps reply menus, no internal jargon (V2, overlay, event spine, commitment event).
 Hold the standard without inventing facts. Output strict JSON only.`;
 
 export async function resolveV2DailyOutboundSmsBody(args: {

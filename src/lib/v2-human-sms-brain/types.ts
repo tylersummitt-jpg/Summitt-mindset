@@ -65,6 +65,8 @@ export type Phase5aBrainContext = {
 
 /** Bounded read-only context for Phase 2 normal inbound (server owns outcome). */
 export type NormalInboundBrainContext = {
+  /** User asked about victory log / proof / whether something counts — allows Victory Room phrasing in polish. */
+  userAskedVictoryProof?: boolean;
   userReplyPreview?: string | null;
   effectiveAskPreview?: string | null;
   behaviorStatementPreview?: string | null;
