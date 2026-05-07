@@ -18,7 +18,7 @@ export function VictoryMomentCard({
   onShareProof,
 }: VictoryMomentCardProps) {
   return (
-    <article className="rounded-xl border border-stone-200 border-l-4 border-l-stone-500 bg-stone-50/80 p-4 shadow-sm md:bg-white/90">
+    <article className="rounded-xl border border-stone-200 border-l-4 border-l-stone-500 bg-white p-4 shadow-sm">
       {categoryLabel?.trim() ? (
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-600">
           {categoryLabel.trim()}
@@ -32,7 +32,7 @@ export function VictoryMomentCard({
           <button
             type="button"
             onClick={() => onShareProof(momentId)}
-            className="text-xs font-medium text-gray-600 underline underline-offset-2 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-stone-50 md:focus:ring-offset-white"
+            className="text-xs font-medium text-gray-600 underline underline-offset-2 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-white"
           >
             Share this proof
           </button>

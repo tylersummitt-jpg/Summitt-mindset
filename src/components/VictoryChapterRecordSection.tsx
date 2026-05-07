@@ -31,7 +31,7 @@ export function VictoryChapterRecordSection({ chapterRecord, timeZone }: Victory
   const showLatest = Boolean(latestLabel && (!firstLabel || latestLabel !== firstLabel));
 
   return (
-    <section className="mb-10 rounded-xl border border-stone-200 bg-white/90 p-6 shadow-sm" aria-label="Chapter record">
+    <section className="mb-10 rounded-xl border border-stone-200 bg-white p-6 shadow-sm" aria-label="Chapter record">
       <h2 className="text-lg font-semibold tracking-tight text-gray-900">Chapter record</h2>
       <p className="mt-2 text-sm leading-relaxed text-gray-700">
         This is a real chapter — proof starts gathering as you keep answering real check-ins.

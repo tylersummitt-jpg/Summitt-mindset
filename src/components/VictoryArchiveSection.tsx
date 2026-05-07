@@ -11,13 +11,13 @@ type VictoryArchiveSectionProps = {
  */
 export function VictoryArchiveSection({ moments, timeZone }: VictoryArchiveSectionProps) {
   return (
-    <section className="mb-10">
+    <section className="mb-10 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
       <h2 className="text-xl font-semibold text-gray-900">Lifetime proof</h2>
       <p className="mt-2 text-sm text-gray-600 leading-relaxed">
         Curated moments from your whole time in this commitment — not every check, only what held.
       </p>
       {moments.length === 0 ? (
-        <p className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-5 text-sm text-gray-700 leading-relaxed">
+        <p className="mt-6 rounded-lg border border-stone-200 px-5 py-4 text-sm text-gray-700 leading-relaxed">
           When you&apos;ve been in this commitment longer, more proof will gather here. The thread remembers
           honest answers.
         </p>
@@ -25,7 +25,7 @@ export function VictoryArchiveSection({ moments, timeZone }: VictoryArchiveSecti
         <ul className="mt-6 space-y-4">
           {moments.map((m) => (
             <li key={m.id}>
-              <article className="rounded-lg border border-gray-100 bg-white/90 p-4 shadow-sm">
+              <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{m.headline}</p>
                 <p className="mt-2 text-gray-900 leading-relaxed">{m.body}</p>
                 <p className="mt-3 text-xs text-gray-500">{formatVictoryRoomDate(m.occurredAt, timeZone)}</p>
