@@ -33,7 +33,12 @@ export function trackPageView(): void {
   callFbq("track", "PageView");
 }
 
-export type CoachCtaPlacement = "hero" | "kit_section" | "footer";
+export type CoachCtaPlacement =
+  | "hero"
+  | "kit_section"
+  | "footer"
+  | "video_page_top"
+  | "video_page_bottom";
 
 /**
  * Custom: coach landing CTA clicks. No PII.
@@ -43,6 +48,16 @@ export function trackCoachCtaClicked(cta: CoachCtaPlacement): void {
     source: "coach",
     funnel: "coach_leadership_kit",
     cta,
+  });
+}
+
+/**
+ * Custom: user opened coach “How It Works” explainer from the landing hero. No PII.
+ */
+export function trackCoachHowItWorksNav(): void {
+  callFbq("trackCustom", "coach_how_it_works_nav", {
+    source: "coach",
+    funnel: "coach_leadership_kit",
   });
 }
 

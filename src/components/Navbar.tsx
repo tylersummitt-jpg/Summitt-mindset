@@ -28,16 +28,17 @@ const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURICompon
 /** Meta ad landing: preserve coach funnel when using shell “Start Free Trial”. */
 const SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`;
 
-function isCoachLeadershipLandingPath(pathname: string | null): boolean {
+function isCoachLeadershipKitPath(pathname: string | null): boolean {
+  if (!pathname) return false;
   return (
     pathname === "/coach-leadership-kit" ||
-    pathname === "/coach-leadership-kit/"
+    pathname.startsWith("/coach-leadership-kit/")
   );
 }
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, isLoaded, isSignedIn } = useUser();
+  const { user, isSignedIn } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const subscribedRaw = user?.publicMetadata?.summittSubscribed;
@@ -59,9 +60,13 @@ export function Navbar() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const startFreeTrialHref = isCoachLeadershipLandingPath(pathname)
+  const startFreeTrialHref = isCoachLeadershipKitPath(pathname)
     ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
     : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
+
+  const signInHref = isCoachLeadershipKitPath(pathname)
+    ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
+    : "/sign-in";
 
   // --------------------------------------------------
   // PUBLIC NAV (logged out) — mirrors product structure
@@ -75,7 +80,7 @@ export function Navbar() {
       label: "Start Free Trial",
       key: "start-trial",
     },
-    { href: "/sign-in", label: "Sign In", key: "sign-in" },
+    { href: signInHref, label: "Sign In", key: "sign-in" },
   ];
 
   // --------------------------------------------------

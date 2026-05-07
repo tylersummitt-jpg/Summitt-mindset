@@ -11,12 +11,16 @@ type Props = {
   children: React.ReactNode;
 };
 
-function isCoachLandingPath(pathname: string | null): boolean {
-  return pathname === "/coach-leadership-kit" || pathname === "/coach-leadership-kit/";
+function isCoachLeadershipKitFunnelPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return (
+    pathname === "/coach-leadership-kit" ||
+    pathname.startsWith("/coach-leadership-kit/")
+  );
 }
 
 /**
- * Same as next/link; fires coach_cta_clicked on click only on the coach landing pathname.
+ * Same as next/link; fires coach_cta_clicked on click only on coach LP / nested coach paths.
  */
 export function CoachLeadershipKitTrackedLink({
   href,
@@ -31,7 +35,7 @@ export function CoachLeadershipKitTrackedLink({
       href={href}
       className={className}
       onClick={() => {
-        if (!isCoachLandingPath(pathname)) return;
+        if (!isCoachLeadershipKitFunnelPath(pathname)) return;
         trackCoachCtaClicked(cta);
       }}
     >

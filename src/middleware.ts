@@ -51,7 +51,7 @@ const isPublicRoute = createRouteMatcher([
   "/pat-summitt-teamwork-quotes",
   "/pat-summitt-leadership-quotes",
   "/pat-summitt-leadership-challenge",
-  "/coach-leadership-kit",
+  "/coach-leadership-kit(.*)",
   "/challenge(.*)",
   "/pulse",
 

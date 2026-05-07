@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { currentUser } from "@clerk/nextjs/server";
+import { CoachHowItWorksHeroLink } from "@/app/coach-leadership-kit/coach-how-it-works-hero-link";
 import { CoachLeadershipKitTrackedLink } from "@/app/coach-leadership-kit/coach-leadership-kit-tracked-link";
 
 const COACH_LANDING_PATH = "/coach-leadership-kit";
@@ -91,7 +92,7 @@ export default async function CoachLeadershipKitPage() {
                   standards.
                 </p>
               </div>
-              <div className="w-full max-w-md">
+              <div className="flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
                 <CoachLeadershipKitTrackedLink
                   href={leadershipKitHref}
                   className={ctaHeroPrimaryClass}
@@ -99,6 +100,9 @@ export default async function CoachLeadershipKitPage() {
                 >
                   Get the Leadership Kit
                 </CoachLeadershipKitTrackedLink>
+                <CoachHowItWorksHeroLink
+                  className={ctaHeroPrimaryClass}
+                />
               </div>
             </div>
           </div>
