@@ -508,6 +508,9 @@ export function messageHasKeywordPartialLanguage(raw: string): boolean {
 /** Single-line commitment text for SMS; avoids awkward raw dumps. */
 export function naturalizeCommitmentForSms(raw: string, maxLen = 72): string {
   let s = (raw || "").trim().replace(/\s+/g, " ");
+  // Fix glued punctuation like "today-1 hour" → "today — 1 hour" for daily outbound glue.
+  s = s.replace(/\b(today|tonight)(—|-|–)\s*(?=\d)/gi, "$1 — ");
+  s = s.replace(/\b(today|tonight)\s*-\s*(?=\d)/gi, "$1 — ");
   s = s.replace(/\s*&\s*/g, " and ");
   s = s.replace(/^(i commit to|i will|my commitment is:?)\s+/i, "");
   s = s.replace(/\buse\s+ai\s+(and\s+)?/gi, "");

@@ -40,14 +40,28 @@ const OVERLAY_DECLINE_INTERNAL_SUBSTRINGS: readonly string[] = [
 /** Weak motivational filler — discouraged for Pat-style coach SMS. */
 const WEAK_GENERIC_PHRASES: readonly RegExp[] = [
   /\bgreat job\b/i,
+  /\bgreat work\b/i,
   /\bkeep pushing forward\b/i,
   /\bkeep building momentum\b/i,
+  /\bkeep\s+(the\s+)?momentum\b/i,
+  /\bkeep\s+this\s+momentum\b/i,
+  /\bmomentum\s+going\b/i,
   /\byou'?ve got this\b/i,
   /\bkeep it up\b/i,
   /\blet'?s aim for\b/i,
   /\bthat'?s progress\b/i,
   /\bnice work\b/i,
   /\bawesome job\b/i,
+];
+
+/** Accountability machinery / hedge phrases — reject for AI suggested replies (any path). */
+const ACCOUNTABILITY_MACHINERY_PHRASES: readonly RegExp[] = [
+  /\bthat'?s\s+an\s+ambitious\s+goal\b/i,
+  /\bfocus\s+on\s+the\s+commitment\s+first\b/i,
+  /\bwhat'?s\s+your\s+plan\s+for\s+today\b/i,
+  /\bfor\s+today,?\s+aim\s+for\b/i,
+  /\bthen\s+we\s+can\s+build\s+from\s+there\b/i,
+  /\blet'?s\s+focus\s+on\s+today\b/i,
 ];
 
 /**
@@ -76,6 +90,16 @@ export function weakGenericMotivationalPhraseFailReason(message: string): string
   if (!t) return null;
   for (const re of WEAK_GENERIC_PHRASES) {
     if (re.test(t)) return "weak_generic_motivation";
+  }
+  return null;
+}
+
+/** Generic accountability-hedge lines that fight continuity coaching (future plans, stretch targets). */
+export function accountabilityMachineryToneFailReason(message: string): string | null {
+  const t = (message || "").trim();
+  if (!t) return null;
+  for (const re of ACCOUNTABILITY_MACHINERY_PHRASES) {
+    if (re.test(t)) return "accountability_machinery_tone";
   }
   return null;
 }

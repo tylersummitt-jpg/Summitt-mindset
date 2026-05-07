@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildConversationBrainPrompt } from "@/lib/v2-sms-conversation-brain";
 
 import {
+  accountabilityMachineryToneFailReason,
   internalCoachJargonFailReason,
   overlayDeclinedAckFailsQualityScan,
   userInboundAsksVictoryRoomProofLog,
@@ -43,6 +44,22 @@ describe("weakGenericMotivationalPhraseFailReason", () => {
       "weak_generic_motivation"
     );
     expect(weakGenericMotivationalPhraseFailReason("You've got this.")).toBe("weak_generic_motivation");
+    expect(weakGenericMotivationalPhraseFailReason("Let's keep this momentum going.")).toBe(
+      "weak_generic_motivation"
+    );
+  });
+});
+
+describe("accountabilityMachineryToneFailReason", () => {
+  it("flags focus-on-today machinery hedges", () => {
+    expect(
+      accountabilityMachineryToneFailReason(
+        "That's an ambitious goal! Let's focus on the commitment first."
+      )
+    ).toBe("accountability_machinery_tone");
+    expect(
+      accountabilityMachineryToneFailReason("What's your plan for today?")
+    ).toBe("accountability_machinery_tone");
   });
 });
 
@@ -71,5 +88,6 @@ describe("conversation brain prompt — answer-first guidance", () => {
       deterministicClassifierNormalizedHint: null,
     });
     expect(p).toContain("ANSWER-FIRST");
+    expect(p).toContain("TOMORROW / FUTURE PLANS");
   });
 });

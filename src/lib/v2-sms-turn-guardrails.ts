@@ -4,6 +4,7 @@
  */
 
 import type { SmsConversationBrainProposalV1 } from "@/lib/v2-sms-turn-contract";
+import { weakGenericMotivationalPhraseFailReason } from "@/lib/v2-sms-quality-copy";
 
 export type SmsTurnServerContext = {
   clerk_user_id: string;
@@ -168,6 +169,17 @@ export function applySmsConversationBrainGuardrails(
       should_write_event: false,
       final_sms_draft: null,
       guardrail_reason: `draft_language:${lang.reason}`,
+    };
+  }
+
+  const weakMotivation = weakGenericMotivationalPhraseFailReason(proposal.final_sms_draft);
+  if (weakMotivation && proposal.should_write_outcome_event) {
+    return {
+      status: "blocked",
+      final_event_type: null,
+      should_write_event: false,
+      final_sms_draft: null,
+      guardrail_reason: `weak_generic_motivation:${weakMotivation}`,
     };
   }
 

@@ -8,6 +8,7 @@ import {
   shouldUseSmsConversationBrainControl,
   countRecentClarifyStyleHeuristic,
 } from "@/lib/v2-sms-conversation-brain-eligibility";
+import { tryBuildForcedInboundCoachSms } from "@/lib/v2-sms-future-stretch-intent";
 import {
   applySmsConversationBrainGuardrails,
   type GuardrailResult,
@@ -1222,7 +1223,27 @@ async function processV2NormalInboundOutcome(
             }),
         });
 
-  let replyBody = resolved.replyBody;
+  const forcedCoachSms =
+    conversationBrainControlTurn == null
+      ? tryBuildForcedInboundCoachSms({
+          userMessage,
+          gatedDecision,
+          lastOutboundSmsPreview,
+          eventsNewestFirst: recentEvents,
+          effectiveAskFloor: effectiveBehavior,
+          messageSid: job.message_sid,
+        })
+      : null;
+
+  if (forcedCoachSms) {
+    console.info("[v2-inbound-coach] forced_future_stretch_coach_sms", {
+      commitment_id: commitment.id,
+      message_sid: job.message_sid,
+      decision_reason: gatedDecision.decision_reason,
+    });
+  }
+
+  let replyBody = forcedCoachSms ?? resolved.replyBody;
   if (isV2HumanSmsPhase2NormalInboundEnabled() && conversationBrainControlTurn == null) {
     warnIfPhase2BrainWithoutValidatorEnforce();
     const unknownOutcome = shouldSkipPhase2BrainForUnknownOutcomeEvent({
@@ -1250,10 +1271,11 @@ async function processV2NormalInboundOutcome(
           : "non_outcome";
 
       const finalized = await finalizeNormalInboundHumanSms({
-        machineDraft: resolved.replyBody,
+        machineDraft: replyBody,
         brainCase,
         outcomeKeyForLog,
         userInboundRaw: userMessage,
+        skipBrainRewrite: forcedCoachSms != null,
         brainContext: {
           normalInbound: {
             userReplyPreview: userMessage.slice(0, 280),

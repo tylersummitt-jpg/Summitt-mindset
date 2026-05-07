@@ -189,6 +189,8 @@ export async function finalizeNormalInboundHumanSms(args: {
   outcomeKeyForLog?: string | null;
   /** Raw user SMS —used only to allow Victory Room/proof wording when they asked about logging/proof. */
   userInboundRaw?: string | null;
+  /** Server-owned coaching line — skip OpenAI rewrite so wording stays deterministic. */
+  skipBrainRewrite?: boolean;
 }): Promise<FinalizeNormalInboundHumanSmsResult> {
   const maxChars = args.maxChars ?? DEFAULT_MAX;
   let text = args.machineDraft.trim();
@@ -199,7 +201,8 @@ export async function finalizeNormalInboundHumanSms(args: {
 
   const enforce = isV2HumanVisibleSmsValidatorEnforce();
   const validatorMode: "enforce" | "shadow_only" = enforce ? "enforce" : "shadow_only";
-  const brainAllowed = shouldRunPhase2NormalInboundBrain();
+  const brainAllowed =
+    args.skipBrainRewrite !== true && shouldRunPhase2NormalInboundBrain();
   const brainMasterOn = isV2HumanSmsBrainEnabled();
   const phase2SliceOn = isV2HumanSmsPhase2NormalInboundEnabled();
   const brainSkippedReason: "brain_disabled" | null =

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyV2InboundReply, buildV2ContractOverlayYesAckSms } from "@/lib/v2-sms-accountability";
+import { classifyV2InboundReply, buildV2ContractOverlayYesAckSms, naturalizeCommitmentForSms } from "@/lib/v2-sms-accountability";
 
 describe("v2-sms-accountability", () => {
   it('classifies "already got it done" as user_yes (proof, not partial)', () => {
@@ -68,6 +68,15 @@ describe("v2-sms-accountability", () => {
     expect(ack).not.toContain("overlay");
     expect(ack).not.toContain("pending resolution");
     expect(ack).not.toContain("v2");
+  });
+
+  it("naturalizes glued today-hour punctuation for outbound glue", () => {
+    expect(naturalizeCommitmentForSms("Just for today-1 hour of distribution", 120)).toContain(
+      "today — 1"
+    );
+    expect(naturalizeCommitmentForSms("Just for today—2 hours of deep work", 120)).toContain(
+      "today — 2"
+    );
   });
 });
 

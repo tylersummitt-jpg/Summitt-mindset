@@ -137,6 +137,20 @@ describe("applySmsConversationBrainGuardrails", () => {
     expect(r.final_sms_draft).toBeNull();
   });
 
+  it("blocks weak cheerlead drafts on scored outcome writes", () => {
+    const r = applySmsConversationBrainGuardrails(
+      proposal({
+        accountability_outcome_candidate: "user_yes",
+        proposed_event_type: "user_yes",
+        outcome_confidence: 0.95,
+        final_sms_draft: "Great job! Keep the momentum going—you nailed today.",
+      }),
+      ctx()
+    );
+    expect(r.status).toBe("blocked");
+    expect(r.guardrail_reason).toContain("weak_generic_motivation");
+  });
+
   it("allows firm but clean accountability language", () => {
     const draft =
       "That takes honesty. Tomorrow, protect the first step before anything else pulls you off course.";

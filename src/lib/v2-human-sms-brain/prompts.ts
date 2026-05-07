@@ -26,7 +26,7 @@ export function brainCaseInstruction(brainCase: HumanSmsBrainCase): string {
     case "contract_consent_overlay_no_ack":
       return "Rewrite for a user who declined adding a 7-day steadier/smaller push: neutral tone — no shame, no moralizing, no 'lower standard.' Confirm we are NOT locking in that 7-day version; the current commitment stays the same. One concrete accountability question or next move. Never say contract, overlay, proposal, or candidate.";
     case "normal_inbound_outcome_yes":
-      return "Rewrite MACHINE_DRAFT: yes outcome already decided by server—direct, affirming, not over-celebrating. No therapy voice. Preserve proof/log framing from draft.";
+      return "Rewrite MACHINE_DRAFT: yes outcome already decided by server—direct, affirming, quiet proof tone (logged / counts / holds). Forbidden filler: great job, nice work, momentum, keep it up, you've got this. Prefer one forward accountability question about tomorrow or the next rep when draft invites it; never generic cheerleading.";
     case "normal_inbound_outcome_no":
       return "Rewrite MACHINE_DRAFT: miss/no outcome server-decided—honest, no shame, still accountable. One clear question if draft asks what blocked.";
     case "normal_inbound_outcome_partial":

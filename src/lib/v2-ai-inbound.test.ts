@@ -15,6 +15,7 @@ vi.mock("@/lib/supabase-server", () => ({
 import {
   defaultGatedDecision,
   resolveV2InboundCoachReplyBody,
+  resolveV2InboundGatedDecision,
   validateAiSuggestedReplyForInbound,
   type V2InboundShadowInterpretationResult,
 } from "@/lib/v2-ai-inbound";
@@ -175,6 +176,47 @@ describe("resolveV2InboundCoachReplyBody — user_yes should not prefer weak ai_
   });
 });
 
+describe("resolveV2InboundGatedDecision — future forward planning", () => {
+  it("TEST 1 routing: tomorrow stretch does not stay on today's scoring spine", () => {
+    const inbound =
+      "I'm going for 3 hours of distribution tomorrow. Let's increase the goal.";
+    const d = resolveV2InboundGatedDecision({
+      gatedEnabled: true,
+      interpretation: null,
+      deterministicEventType: "user_partial",
+      deterministicNormalizedHint: "unclear",
+      rawInboundBody: inbound,
+    });
+    expect(d.decision_reason).toBe("future_forward_plan_no_today_score");
+    expect(d.should_write_outcome_event).toBe(false);
+    expect(d.mode).toBe("clarify");
+  });
+
+  it("TEST 2: pure tomorrow plan clarifies without scoring", () => {
+    const d = resolveV2InboundGatedDecision({
+      gatedEnabled: false,
+      interpretation: null,
+      deterministicEventType: "user_partial",
+      deterministicNormalizedHint: "unclear",
+      rawInboundBody: "Tomorrow I'm doing 3 hours.",
+    });
+    expect(d.decision_reason).toBe("future_forward_plan_no_today_score");
+    expect(d.should_write_outcome_event).toBe(false);
+  });
+
+  it("TEST 3: goal increase without tomorrow asks stretch vs durable", () => {
+    const d = resolveV2InboundGatedDecision({
+      gatedEnabled: true,
+      interpretation: null,
+      deterministicEventType: "user_partial",
+      deterministicNormalizedHint: "unclear",
+      rawInboundBody: "Let's increase the goal.",
+    });
+    expect(d.decision_reason).toBe("goal_increase_intent_clarify_stretch_vs_durable");
+    expect(d.should_write_outcome_event).toBe(false);
+  });
+});
+
 describe("validateAiSuggestedReplyForInbound — ban weak user_yes suggested copy", () => {
   const ctx = {
     finalEventType: "user_yes" as const,
@@ -182,16 +224,32 @@ describe("validateAiSuggestedReplyForInbound — ban weak user_yes suggested cop
     replyStyle: "normal_outcome" as const,
   };
 
-  it("TEST 3: rejects onboarding/momentum/next-step suggested replies for user_yes", () => {
+  it("rejects onboarding/momentum/next-step suggested replies for user_yes", () => {
     const weakLines = [
       "Great to hear you're on board! What's your next step?",
       "Great to hear! What's next on your agenda?",
       "Awesome, keep the momentum going!",
+      "Great job! You crushed it — keep this momentum going!",
     ];
 
     for (const line of weakLines) {
       const v = validateAiSuggestedReplyForInbound(line, ctx);
       expect(v.ok, `expected rejection for: ${line.slice(0, 40)}…`).toBe(false);
     }
+  });
+});
+
+describe("validateAiSuggestedReplyForInbound — accountability machinery tone (any path)", () => {
+  const clarifyCtx = {
+    finalEventType: null,
+    gatedMode: "clarify" as const,
+    replyStyle: "clarification" as const,
+  };
+
+  it("TEST live regression: rejects ambitious-goal / focus-on-today machinery copy", () => {
+    const bad =
+      "That's an ambitious goal! Let's focus on the commitment first. For today, aim for at least 1 hour of distribution, then we can build from there. What's your plan for today?";
+    const v = validateAiSuggestedReplyForInbound(bad, clarifyCtx);
+    expect(v.ok).toBe(false);
   });
 });

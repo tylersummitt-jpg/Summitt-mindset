@@ -19,10 +19,15 @@ import {
 } from "@/lib/v2-sms-accountability";
 import { shouldRunHumanSmsPipelineForContractConsent } from "@/lib/v2-human-sms-brain/flags";
 import {
+  accountabilityMachineryToneFailReason,
   internalCoachJargonFailReason,
   overlayDeclinedAckFailsQualityScan,
   weakGenericMotivationalPhraseFailReason,
 } from "@/lib/v2-sms-quality-copy";
+import {
+  isFutureForwardPlanInbound,
+  isGoalIncreaseIntentClarifyInbound,
+} from "@/lib/v2-sms-future-stretch-intent";
 import { isRoboticAccountabilityMenuLanguage } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 export const V2_INBOUND_AI_PROMPT_VERSION = "v2_inbound_v1";
@@ -1143,6 +1148,12 @@ function buildShadowInterpretationUserPrompt(args: V2InboundInterpretationShadow
     "- If RECENT_SMS_CONTEXT includes EVOLUTION_HINT: that signal does not change commitments server-side; classify replies normally—commitment_change_request vs accountability_reply still applies when they ask to tighten/replace."
   );
   lines.push("- proposed_outcome=yes/no/partial when the reply clearly answers today's bar; otherwise null.");
+  lines.push(
+    "- TEMPORAL DISAMBIGUATION: If USER_LATEST_REPLY names tomorrow / next week / a future stretch target (more hours, harder push, increase goal for tomorrow), it is NOT answering whether today's bar happened unless they also clearly score today. suggested_reply must coach the future plan (timing, protected block, first step). Never redirect to 'focus on today's commitment first', never ask 'what's your plan for today', never hedge with 'ambitious goal' lectures."
+  );
+  lines.push(
+    "- STRETCH VS OFFICIAL CHANGE: Users may propose a bigger tomorrow target without rewriting the stored daily commitment—support the stretch with planning language; only treat as durable commitment_change_request when they ask to permanently raise/replace the daily bar."
+  );
   lines.push("- If the user corrects prior coach understanding, indicates substitution (e.g. different tool completed the same intent), asks what you meant, or says they already did it — use repair_prior or meta_question and is_repair as appropriate.");
   lines.push("- If they want a smaller commitment or different goal → commitment_change_request; do not mutate state.");
   lines.push("- discouraged_or_frustrated when tone suggests giving up frustration (not STOP). opt_out_like_but_not_stop for soft quit/stop-ish language.");
@@ -1351,6 +1362,38 @@ export function resolveV2InboundGatedDecision(args: {
   deterministicNormalizedHint: string | null;
   rawInboundBody: string;
 }): V2InboundGatedDecision {
+  const raw = args.rawInboundBody.trim();
+
+  if (isFutureForwardPlanInbound(raw)) {
+    const conf =
+      args.interpretation && args.interpretation.ok ? args.interpretation.data.confidence : null;
+    return {
+      mode: "clarify",
+      final_event_type: null,
+      decision_reason: "future_forward_plan_no_today_score",
+      confidence_used: conf,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "clarification",
+      overrode_deterministic: true,
+    };
+  }
+
+  if (isGoalIncreaseIntentClarifyInbound(raw)) {
+    const conf =
+      args.interpretation && args.interpretation.ok ? args.interpretation.data.confidence : null;
+    return {
+      mode: "clarify",
+      final_event_type: null,
+      decision_reason: "goal_increase_intent_clarify_stretch_vs_durable",
+      confidence_used: conf,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "clarification",
+      overrode_deterministic: true,
+    };
+  }
+
   if (!args.gatedEnabled) {
     return defaultGatedDecision(args.deterministicEventType, "gated_disabled");
   }
@@ -1693,6 +1736,7 @@ function userYesSuggestedWeakOnboardingReason(lower: string): string | null {
   if (/\bwhat'?s\s+next\s+on\s+your\s+agenda\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
   if (/\bnext\s+on\s+your\s+agenda\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
   if (/\bkeep\s+the\s+momentum\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
+  if (/\bkeep\s+this\s+momentum\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
   if (/\bmomentum\s+going\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
   if (/\bawesome,?\s+keep\b/i.test(lower) && /\bmomentum\b/i.test(lower)) return "user_yes_weak_onboarding_tone";
   return null;
@@ -1747,6 +1791,8 @@ export function validateAiSuggestedReplyForInbound(
   if (jargon) return { ok: false, reason: jargon };
   const weakGen = weakGenericMotivationalPhraseFailReason(t);
   if (weakGen) return { ok: false, reason: weakGen };
+  const machineryTone = accountabilityMachineryToneFailReason(t);
+  if (machineryTone) return { ok: false, reason: machineryTone };
   const lower = t.toLowerCase();
 
   const ft = ctx.finalEventType;
