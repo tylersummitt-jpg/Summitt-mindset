@@ -20,6 +20,9 @@ export const dynamic = "force-dynamic";
 
 const MAX_ASK_PAT_PER_DAY = 10;
 
+/** Chat completion model — logged to ask_pat_questions.model; must match `chat.completions.create` below. */
+const ASK_PAT_CHAT_MODEL = "gpt-4.1-mini";
+
 /**
  * NOTE TO SELF (ChatGPT):
  * Ask Pat questions must NOT be stored in journal_entries.
@@ -61,7 +64,37 @@ function buildProfileBlock(profile: {
   return lines.length ? lines.join("\n") : "PROFILE: none";
 }
 
+async function logAskPatAnswerToSupabase(args: {
+  questionRowId: string | null;
+  answerText: string;
+  safetyStatus: string;
+  answerMetadata: Record<string, unknown>;
+}): Promise<void> {
+  if (!args.questionRowId) return;
+
+  try {
+    const { error } = await supabaseServer
+      .from("ask_pat_questions")
+      .update({
+        answer_text: args.answerText,
+        answered_at: new Date().toISOString(),
+        model: ASK_PAT_CHAT_MODEL,
+        safety_status: args.safetyStatus,
+        answer_metadata: args.answerMetadata,
+      })
+      .eq("id", args.questionRowId);
+
+    if (error) {
+      console.error("Ask Pat answer log failed:", error.message);
+    }
+  } catch (err) {
+    console.error("Ask Pat answer log threw:", err);
+  }
+}
+
 export async function POST(req: NextRequest) {
+  let questionRowId: string | null = null;
+
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -149,16 +182,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { error: askPatSaveErr } = await supabaseServer
+    const { data: insertedQuestion, error: askPatSaveErr } = await supabaseServer
       .from("ask_pat_questions")
       .insert({
         clerk_user_id: userId,
         day_key: dayKey,
         question: trimmedQuestion,
-      });
+      })
+      .select("id")
+      .single();
 
     if (askPatSaveErr) {
       console.error("Ask Pat question save failed:", askPatSaveErr.message);
+    }
+
+    if (insertedQuestion?.id != null) {
+      questionRowId = String(insertedQuestion.id);
     }
 
     const profile = await buildProfileContext(userId);
@@ -268,7 +307,7 @@ ${PAT_BRAND_SAFETY_RULES}
 `.trim();
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: ASK_PAT_CHAT_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: trimmedQuestion },
@@ -280,18 +319,50 @@ ${PAT_BRAND_SAFETY_RULES}
       completion.choices[0]?.message?.content ??
       "I don't have an answer right now.";
 
+    const preSanitizeAnswer = answer;
+
     answer = await sanitizeModelOutput(openai, answer, ASK_PAT_OUTPUT_FALLBACK);
+
+    const replacedBySanitize =
+      answer === ASK_PAT_OUTPUT_FALLBACK &&
+      preSanitizeAnswer.trim().length > 0 &&
+      preSanitizeAnswer !== ASK_PAT_OUTPUT_FALLBACK;
 
     const displayName = await getDisplayNameForUser(userId);
     answer = finalizeWithName(answer, displayName ?? undefined);
 
+    let safetyStatus: "ok" | "output_safety_fallback" = "ok";
+
     if (!lexicalSafetyPass(answer)) {
       answer = ASK_PAT_OUTPUT_FALLBACK;
+      safetyStatus = "output_safety_fallback";
+    } else if (replacedBySanitize) {
+      safetyStatus = "output_safety_fallback";
     }
+
+    const chunkIds = topChunks.map((c) => c.id);
+
+    await logAskPatAnswerToSupabase({
+      questionRowId,
+      answerText: answer,
+      safetyStatus,
+      answerMetadata: {
+        chunk_ids: chunkIds,
+        chunk_count: chunkIds.length,
+      },
+    });
 
     return NextResponse.json({ answer, ok: true });
   } catch (err) {
     console.error("Ask Pat error:", err);
+
+    await logAskPatAnswerToSupabase({
+      questionRowId,
+      answerText: "",
+      safetyStatus: "generation_error",
+      answerMetadata: { generation_error: true },
+    });
+
     return NextResponse.json(
       { error: "Something went wrong processing your question." },
       { status: 500 }
