@@ -29,9 +29,9 @@ export type V2OutboundSmsStrategy =
 export type V2NextMoveKind = "hold_standard" | "recommit_same" | "shrink_ask" | "reset_day";
 
 const RECOMMIT_NEXT_TEMPLATES: readonly string[] = [
-  `Same standard, clean line: {{B}} Did it happen today? Tell me straight.`,
-  `Recommit day: {{B}} is still the bar. What’s the honest answer?`,
-  `Keep it tight and honest on today’s commitment: {{B}} Did you follow through?`,
+  `No hiding today: {{B}} Did it happen?`,
+  `Same line today: {{B}} What’s the honest answer?`,
+  `Keep it clean: {{B}} Did you follow through?`,
 ];
 
 const RESET_DAY_TEMPLATES: readonly string[] = [
@@ -41,36 +41,36 @@ const RESET_DAY_TEMPLATES: readonly string[] = [
 ];
 
 const SHRINK_NEXT_TEMPLATES: readonly string[] = [
-  `Smaller bar today: {{S}} Did you protect it?`,
-  `Dialing back volume, not truth: {{S}} What happened today?`,
-  `Today’s tighter ask: {{S}} Tell me the real version tonight.`,
+  `Let’s simplify today: {{S}} Did it happen?`,
+  `Keep it simple today: {{S}} What happened?`,
+  `Today is just this: {{S}} Tell me the truth tonight.`,
 ];
 
 /** Shrink overlay consent: server binding text {{S}} + current bar {{B}}; not accountability YES/NO. */
 const SHRINK_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Smaller version for now: {{S}} If that feels honest, say yes. If not, say no and we’ll keep today’s bar: "{{B}}"`,
-  `We can make the bar smaller for a short stretch: {{S}} If that’s the right move, say yes. If not, say no and we’ll keep today’s bar: "{{B}}"`,
+  `Let’s simplify for a bit: {{S}} Want me to hold you to that? Yes or no.`,
+  `Keep it clean for a bit: {{S}} Do you want me holding you to that? Yes or no.`,
 ];
 
 /** Recommit-same overlay consent: binding {{S}} + anchor {{B}}; natural yes/no consent. */
 const RECOMMIT_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Same bar for now: {{S}} If you want me to hold that line with you for the next week, say yes. If not, say no and we’ll keep it simple: "{{B}}"`,
-  `If the current bar still feels right, we can hold it steady for the next week: {{S}} Say yes if that helps, or no if you’d rather just keep going without a change: "{{B}}"`,
+  `Want me to hold you to the same line for a week? {{S}} Yes or no.`,
+  `Keep the same line steady for a week? {{S}} Yes or no.`,
 ];
 
 const CONTRACT_OVERLAY_YES_ACK: readonly [string, string] = [
-  `Got it. I’ll hold this tighter version with you for now: {{S}} Tomorrow’s check-in will match that bar.`,
-  `Got it. For the next week we’ll use this smaller ask in daily checks: {{S}} Answer honestly when I ask—yes, no, or partial still work.`,
+  `Good. For the next week, keep it this simple: {{S}} That’s the rep.`,
+  `Locked in. Keep it simple for the next week: {{S}} No drama—just the rep.`,
 ];
 
 const CONTRACT_OVERLAY_YES_ACK_RECOMMIT: readonly [string, string] = [
-  `Got it. We’ll keep this steady for now: {{S}} Tomorrow’s check-in will stay on that same line.`,
-  `Got it. Same steady bar for now: {{S}} I’ll pick up with you on the daily check tomorrow.`,
+  `Good. Same line for the next week: {{S}} Show me the rep.`,
+  `Alright. Same line for the next week: {{S}} Keep it honest.`,
 ];
 
 const CONTRACT_OVERLAY_NO_ACK: readonly [string, string] = [
-  `Got it. No change—we’ll keep the current bar: "{{B}}"`,
-  `Understood. Staying on your current standard: "{{B}}"`,
+  `No problem. We’ll keep it simple today: "{{B}}" What’s the honest answer?`,
+  `All good. Keep it clean today: "{{B}}" Did it happen?`,
 ];
 
 const SILENCE_NUDGE_TEMPLATES: readonly string[] = [
@@ -106,7 +106,7 @@ const OUTBOUND_TEMPLATES: readonly string[] = [
   `Did you protect today’s commitment: {{B}}?`,
   `Clear check-in: did you do what you committed to today on {{B}}?`,
   `No drama, just truth: was {{B}} done today?`,
-  `Quick accountability check: today’s commitment is {{B}} Did it happen?`,
+  `Today is simple: {{B}} Did it happen?`,
   `Checking the standard today: {{B}} What happened?`,
   `Did {{B}} happen before the day got away from you?`,
   `Tell me straight on {{B}} today.`,
@@ -284,7 +284,7 @@ export function buildV2OutboundAccountabilitySmsForStrategy(args: {
     return { body: template.replace(/\{\{B\}\}/g, B), templateId: 51 + idx };
   }
   if (nextMove === "shrink_ask") {
-    const S = (args.shrunkAskText || "").trim() || `Just for today—smaller window: ${B}`;
+    const S = (args.shrunkAskText || "").trim() || `Today only: ${B}`;
     const idx = pickShrinkNextTemplateIndex(clerkUserId, dayKey);
     const template = SHRINK_NEXT_TEMPLATES[idx]!;
     return { body: template.replace(/\{\{S\}\}/g, S).replace(/\{\{B\}\}/g, B), templateId: 41 + idx };
@@ -545,6 +545,66 @@ export function classifyV2InboundReply(raw: string): {
 
   const lower = original.toLowerCase();
   const collapsed = lower.replace(/\s+/g, " ");
+
+  /**
+   * Proof-detail / success-reflection signals (YES-equivalent).
+   * We treat these as user_yes so the system doesn't re-ask "did you do it?" after the user is
+   * clearly describing how the completed work went.
+   *
+   * Guardrails: do NOT classify generic emotions ("I feel tired", "I'm proud of myself") as yes
+   * unless tied to focus/follow-through/progress/completion language.
+   */
+  const saysMiss =
+    /\b(not\s+done|missed|wasn'?t able|couldn'?t)\b/i.test(original) ||
+    /\b(didn'?t|did not)\s+(do|finish|complete|get\s+it\s+done|get\s+that\s+done)\b/i.test(original);
+  if (!saysMiss) {
+    const completionTokens =
+      /\b(already\s+)?(got\s+it\s+done|got\s+that\s+done|got\s+it\s+done|did\s+it|did\s+that|finished|finished\s+it|completed|followed\s+through|follow\s+through|done)\b/i.test(
+        original
+      );
+    const focusTokens =
+      /\b(focused|super\s+focused|so\s+focused|locked\s+in|stayed\s+focused|protected\s+my\s+focus|protect(?:ed)?\s+focus|didn'?t\s+get\s+distracted|did\s+not\s+get\s+distracted|didn'?t\s+get\s+sidetracked|did\s+not\s+get\s+sidetracked)\b/i.test(
+        original
+      );
+    const progressTokens =
+      /\b(made\s+progress|finished\s+strong|felt\s+good|went\s+great|it\s+went\s+great)\b/i.test(original);
+
+    const pride =
+      /\b(proud\s+of\s+myself)\b/i.test(original) || /\bi'?m\s+proud\b/i.test(original);
+
+    const tiedToWork =
+      completionTokens ||
+      focusTokens ||
+      progressTokens ||
+      (pride && (completionTokens || focusTokens || lower.includes("for being focused")));
+
+    if (tiedToWork) {
+      return {
+        eventType: "user_yes",
+        normalizedHint: completionTokens
+          ? "completion_detail"
+          : focusTokens
+            ? "success_reflection_focus"
+            : progressTokens
+              ? "success_reflection"
+              : "success_reflection_pride",
+      };
+    }
+  }
+
+  // Completion / proof language (treat as YES even without a literal "yes").
+  // Examples: "already got it done", "done", "finished it", "2 stories today"
+  const completion =
+    /\b(already\s+)?(got\s+it\s+done|got\s+that\s+done|did\s+it|finished|completed|knocked\s+it\s+out|done)\b/i.test(
+      original
+    ) ||
+    /^\s*\d+\s+\w+(\s+\w+)?\s*(today)?\s*$/i.test(original);
+  if (completion) {
+    // Avoid misclassifying explicit "not done" as yes.
+    if (!/\b(not\s+done|didn'?t|did not|didnt|missed)\b/i.test(original)) {
+      return { eventType: "user_yes", normalizedHint: "completion_phrase" };
+    }
+  }
 
   if (PARTIAL_PHRASE.test(lower)) {
     return { eventType: "user_partial", normalizedHint: "keyword_partial" };

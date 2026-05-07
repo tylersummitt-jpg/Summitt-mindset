@@ -13,6 +13,7 @@ import {
   type GuardrailResult,
 } from "@/lib/v2-sms-turn-guardrails";
 import type { SmsConversationBrainProposalV1 } from "@/lib/v2-sms-turn-contract";
+import { shouldConsumeInboundAsContractProposalConsent } from "@/lib/v2-contract-consent-routing";
 import {
   isV2SmsConversationBrainAllowedForUser,
   isV2SmsConversationBrainControlEnabled,
@@ -1972,9 +1973,28 @@ async function processV2ContractProposalConsent(
   let workingCommitment = commitment;
   if (!isV2PendingProposalValid(workingCommitment)) return false;
 
-  const classification = classifyV2InboundReply((job.raw_body || "").trim());
   const proposalText = workingCommitment.adaptive_proposal_text?.trim();
   if (!proposalText) return false;
+
+  // Critical: only consume a bare YES/NO as proposal consent if the latest outbound SMS
+  // was actually the proposal prompt (prevents stale proposals hijacking later turns).
+  const { data: lastCtx } = await supabaseServer
+    .from("sms_last_outbound_context")
+    .select("full_body, sent_at")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+  const lastBody = typeof lastCtx?.full_body === "string" ? lastCtx.full_body : "";
+  if (
+    !shouldConsumeInboundAsContractProposalConsent({
+      inboundBody: (job.raw_body || "").trim(),
+      proposalText,
+      latestOutboundBody: lastBody,
+    })
+  ) {
+    return false;
+  }
+
+  const classification = classifyV2InboundReply((job.raw_body || "").trim());
 
   if (
     workingCommitment.accountability_phase === "low_pressure_reactivation" &&

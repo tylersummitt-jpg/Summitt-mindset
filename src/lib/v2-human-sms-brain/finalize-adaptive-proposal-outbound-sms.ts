@@ -32,9 +32,9 @@ export function brainCaseForAdaptiveProposalKind(kind: AdaptiveProposalKind): Hu
 export function adaptiveProposalCuratedFallbackForKind(kind: AdaptiveProposalKind): string {
   switch (kind) {
     case "shrink":
-      return "If a smaller step fits, say yes. If not, say no—your current bar stays.";
+      return "If a simpler step fits, say yes. If not, say no—your original ask stays.";
     case "recommit_same":
-      return "If you want this same standard held steady for the week, say yes. If not, say no.";
+      return "If you want me holding the same line steady for the week, say yes. If not, say no.";
     default:
       return "Say yes or no.";
   }

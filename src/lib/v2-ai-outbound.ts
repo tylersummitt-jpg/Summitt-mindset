@@ -202,10 +202,42 @@ const SHRINK_BLOCKER_KEYWORDS = [
 /** Deterministic smaller ask tied to the same commitment (no DB mutation). */
 export function computeShrunkAskText(behaviorStatement: string): string {
   const t = behaviorStatement.trim().replace(/\s+/g, " ");
-  if (!t) return "Just for today—one honest step on the same commitment.";
-  const cap = 72;
-  const slice = t.length <= cap ? t : `${t.slice(0, cap - 1)}…`;
-  return `Just for today—smaller window: ${slice}`;
+  if (!t) return "Today only: one honest step on the commitment.";
+
+  // Only shrink when we can confidently shrink time-based asks.
+  // Otherwise we keep the caller from proposing a fake "smaller" version.
+  const mh = t.match(/\b(\d+)\s*(hour|hours)\b/i);
+  if (mh) {
+    const n = Number(mh[1]);
+    if (Number.isFinite(n) && n >= 1) {
+      const replacement =
+        n === 1 ? "30 minutes" : `${Math.max(1, Math.floor(n / 2))} hour${Math.max(1, Math.floor(n / 2)) === 1 ? "" : "s"}`;
+      const replaced = t.replace(mh[0], replacement);
+      return `Today only: ${replaced}`;
+    }
+  }
+  const mm = t.match(/\b(\d+)\s*(minute|minutes)\b/i);
+  if (mm) {
+    const n = Number(mm[1]);
+    if (Number.isFinite(n) && n >= 15) {
+      const replacement = `${Math.max(10, Math.floor(n / 2))} minutes`;
+      const replaced = t.replace(mm[0], replacement);
+      return `Today only: ${replaced}`;
+    }
+  }
+
+  return "";
+}
+
+function computeMeaningfulShrunkAskText(behaviorStatement: string): string | null {
+  const s = computeShrunkAskText(behaviorStatement).trim();
+  if (!s) return null;
+  const base = behaviorStatement.trim().replace(/\s+/g, " ");
+  if (!base) return null;
+  // If our "shrink" is basically just re-stating the same ask, don't use it.
+  const strip = (x: string) => x.toLowerCase().replace(/today only:\s*/i, "").replace(/\s+/g, " ").trim();
+  if (strip(s) === strip(base)) return null;
+  return s;
 }
 
 function countUserOutcomesSince(
@@ -329,27 +361,39 @@ export function deriveV2NextMove(args: {
   const shrunkBase = args.behaviorStatement.trim();
 
   if (no7 >= 2) {
+    const shrunk = computeMeaningfulShrunkAskText(shrunkBase);
+    if (!shrunk) {
+      return { type: "hold_standard", reason_code: "shrink_rejected_not_smaller", version: NEXT_MOVE_VERSION };
+    }
     return {
       type: "shrink_ask",
       reason_code: "shrink_two_no_7d",
       version: NEXT_MOVE_VERSION,
-      shrunk_ask_text: computeShrunkAskText(shrunkBase),
+      shrunk_ask_text: shrunk,
     };
   }
   if (partial7 >= 2) {
+    const shrunk = computeMeaningfulShrunkAskText(shrunkBase);
+    if (!shrunk) {
+      return { type: "hold_standard", reason_code: "shrink_rejected_not_smaller", version: NEXT_MOVE_VERSION };
+    }
     return {
       type: "shrink_ask",
       reason_code: "shrink_partials_7d",
       version: NEXT_MOVE_VERSION,
-      shrunk_ask_text: computeShrunkAskText(shrunkBase),
+      shrunk_ask_text: shrunk,
     };
   }
   if (latestBlockerHasShrinkKeyword(eventsNewestFirst)) {
+    const shrunk = computeMeaningfulShrunkAskText(shrunkBase);
+    if (!shrunk) {
+      return { type: "hold_standard", reason_code: "shrink_rejected_not_smaller", version: NEXT_MOVE_VERSION };
+    }
     return {
       type: "shrink_ask",
       reason_code: "shrink_blocker_keywords",
       version: NEXT_MOVE_VERSION,
-      shrunk_ask_text: computeShrunkAskText(shrunkBase),
+      shrunk_ask_text: shrunk,
     };
   }
 
@@ -591,7 +635,7 @@ export function buildV2HumanDailyFallbackSms(args: {
     args.purpose !== "contract_overlay_proposal"
   ) {
     const s = naturalizeCommitmentForSms(args.shrunkAskText, 72);
-    return `Smaller bar today: ${s}. Did it happen?`;
+    return `Today is simple: ${s}. Did it happen?`;
   }
 
   switch (args.purpose) {
@@ -610,7 +654,7 @@ export function buildV2HumanDailyFallbackSms(args: {
     }
     case "adaptive_overlay_active": {
       const bar = naturalizeCommitmentForSms(eff, 72);
-      return `Smaller bar today: ${bar}. Did it happen?`;
+      return `Today is simple: ${bar}. Did it happen?`;
     }
     case "low_pressure_reactivation":
       return "No speech—just one honest check-in: did you do it today?";
@@ -625,13 +669,13 @@ export function buildV2HumanDailyFallbackSms(args: {
     case "evolution_pattern_check": {
       const a = args.wave7EvolutionPick?.action ?? "tighten_commitment";
       if (a === "tighten_commitment") {
-        return "I'm seeing the same fight repeat. This may need a clearer, smaller bar—not more guilt. Did today's current bar happen, or should we tighten it?";
+        return "I'm seeing the same fight repeat. This may need a clearer bar—not more guilt. Did today happen, or should we tighten it?";
       }
       if (a === "refresh_commitment_only") {
         return "This may be a good moment to reset the bar. Did today's commitment still fit, or does it need adjusting?";
       }
       if (a === "reframe_commitment") {
-        return "I'm not sure the current bar is aimed at the real fight anymore. Did it still fit today?";
+        return "I'm not sure the bar is aimed at the real fight anymore. Did it still fit today?";
       }
       if (a === "replace_commitment") {
         return "This may be pointing to a new commitment. I won't change it without you. Does the current one still fit?";
@@ -733,12 +777,16 @@ function passesAccountabilityShape(message: string, contractProposalMode: boolea
     const lower = message.toLowerCase();
     return Boolean(lower.includes("yes") && lower.includes("no"));
   }
-  if (!message.includes("?")) return false;
   const lower = message.toLowerCase();
   const asksLexicalReplyMenu =
     /\breply\s+(yes|no|partial)\b/i.test(lower) ||
     /\breply\s+(still|change|keep|tighten|new)\b/i.test(lower);
   if (asksLexicalReplyMenu) return false;
+  const invitesAnyReply =
+    message.includes("?") ||
+    /\b(tell me|text me|send me|drop me|give me)\b/i.test(message) ||
+    /\bwhat'?s the honest answer\b/i.test(message);
+  if (!invitesAnyReply) return false;
   const asksReplyKeyword =
     /(^|[^a-z])yes([^a-z]|$)/i.test(lower) ||
     /(^|[^a-z])no([^a-z]|$)/i.test(lower) ||
@@ -748,7 +796,9 @@ function passesAccountabilityShape(message: string, contractProposalMode: boolea
     /\b(did you|did it|did that|what happened|how did|where did|happen today|happen,|follow through|get it done|get that done|get it|make the|honest|straight|protect|landed|real version|real answer|pull you off|bar today|check-in|check in|still on|what landed)\b/i.test(
       message
     );
-  return Boolean(asksReplyKeyword || naturalAccountabilityAsk);
+  const strongNonQuestionPrompts =
+    /\b(tell me straight|tell me the truth|give me the real version)\b/i.test(message);
+  return Boolean(asksReplyKeyword || naturalAccountabilityAsk || strongNonQuestionPrompts);
 }
 
 function passesReactivationNudgeShape(message: string): boolean {

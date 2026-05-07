@@ -659,7 +659,7 @@ export function buildRefreshChangeFollowupSms(): { body: string; templateId: num
 
 export function buildRefreshTightenFollowupSms(): { body: string; templateId: number } {
   return {
-    body: "Noted. No change yet—when a smaller window fits, the next daily check may offer a simple yes-or-no on trying a tighter window.",
+    body: "Noted. No change yet—when it makes sense to simplify, the next check may offer a clean yes-or-no on trying a tighter version.",
     templateId: 86,
   };
 }

@@ -25,7 +25,7 @@ vi.mock("@/lib/v2-human-sms-brain/human-sms-brain", async (importOriginal) => {
 const baseArgs = {
   clerkUserId: "user_1",
   dayKey: "2026-05-01",
-  proposalBindingText: "Just for today—smaller window: one hour of deep work",
+  proposalBindingText: "Today only: 30 minutes of deep work",
   originalBehaviorStatement: "Two hours of deep work every morning",
 } as const;
 
@@ -49,11 +49,11 @@ describe("Phase 3A — legacy vs async builders (flags off = byte-identical to l
     delete process.env.V2_HUMAN_SMS_PHASE3_ADAPTIVE_PROPOSAL;
     const leg = legacyBuildV2RecommitProposalOutboundSms({
       ...baseArgs,
-      proposalBindingText: "Same commitment—recommit to this bar for 7 days: my bar",
+      proposalBindingText: "Keep the same line steady for a week: my bar",
     });
     const got = await buildV2RecommitProposalOutboundSms({
       ...baseArgs,
-      proposalBindingText: "Same commitment—recommit to this bar for 7 days: my bar",
+      proposalBindingText: "Keep the same line steady for a week: my bar",
     });
     expect(got).toEqual(leg);
   });
@@ -71,7 +71,7 @@ describe("Phase 3A — Brain invoked when both flags on", () => {
     rewriteMock.mockResolvedValue({
       ok: true,
       message:
-        "Quick check: want a smaller step for today? Say yes or no. Your current bar is still here if you say no.",
+        "Quick check: want to keep it simpler for a bit? Yes or no.",
       confidence: 0.9,
     });
   });
@@ -172,7 +172,7 @@ describe("Binding / state invariants (no storage path in this module)", () => {
     process.env = { ...env };
     delete process.env.V2_HUMAN_SMS_PHASE3_ADAPTIVE_PROPOSAL;
 
-    const binding = "  Just for today—smaller window: x  ";
+    const binding = "  Today only: 30 minutes of x  ";
     const copy = binding;
     await buildV2ShrinkProposalOutboundSms({
       ...baseArgs,
@@ -186,9 +186,30 @@ describe("Binding / state invariants (no storage path in this module)", () => {
 describe("adaptive_proposal_outbound validator channel", () => {
   it("allows natural yes/no consent phrasing (not triad menu)", () => {
     const s =
-      "Want a smaller step? Say yes or no. If you say no, we keep your current bar as written.";
+      "Want a simpler step for a bit? Yes or no. If no, we keep your original ask as written.";
     expect(validateHumanVisibleSms(s, { channel: "adaptive_proposal_outbound", maxChars: 360 }).ok).toBe(
       true
     );
+  });
+
+  it("legacy proposal templates never leak banned system phrases", () => {
+    const shrink = legacyBuildV2ShrinkProposalOutboundSms({
+      ...baseArgs,
+      proposalBindingText: "Today only: 30 minutes of deep work",
+    }).body.toLowerCase();
+    const recommit = legacyBuildV2RecommitProposalOutboundSms({
+      ...baseArgs,
+      proposalBindingText: "Keep the same line steady for a week: deep work",
+    }).body.toLowerCase();
+    for (const body of [shrink, recommit]) {
+      expect(body).not.toContain("smaller window");
+      expect(body).not.toContain("active for 7 days");
+      expect(body).not.toContain("daily check-ins");
+      expect(body).not.toContain("stay on track");
+      expect(body).not.toContain("contract");
+      expect(body).not.toContain("overlay");
+      expect(body).not.toContain("pending resolution");
+      expect(body).not.toContain("v2");
+    }
   });
 });

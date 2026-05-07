@@ -794,21 +794,21 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
   lines.push(`- Max ${SMS_MAX_LEN} characters. One SMS. No newlines.`);
   lines.push("- Coach Pat: calm, direct. No shame. No therapy language.");
   lines.push("- Do not mention AI. Do not add new goals.");
-  lines.push("- No STOP/START/HELP opt-out wording. Say daily check-ins in plain language—not \"Text YES/NO/PARTIAL\".");
+  lines.push("- No STOP/START/HELP opt-out wording. No robotic menus.");
   if (args.kind === "overlay_activated_ack") {
     if (args.overlayContractKind === "recommit_same") {
       lines.push(
-        "- Confirm they chose to keep the same bar steady for about a week; include BINDING_TEXT verbatim. Do not call it a smaller bar."
+        "- Confirm they chose to keep the same line steady for about a week; include BINDING_TEXT verbatim. Do not call it a smaller bar."
       );
     } else {
-      lines.push("- Confirm the smaller bar is active for 7 days; BINDING_TEXT verbatim in the message.");
+      lines.push("- Confirm we're keeping it simpler for about a week; include BINDING_TEXT verbatim.");
     }
   } else {
     lines.push(
-      "- KIND IS DECLINE: They chose not to add the optional 7-day steadier/smaller push. That is neutral — not failure, not a lower standard, not less commitment."
+      "- KIND IS DECLINE: They chose not to do the optional 'keep it extra-simple for a week' move. That is neutral — not failure, not a lower standard, not less commitment."
     );
     lines.push(
-      "- Acknowledge plainly: we will NOT lock in that 7-day version; their existing commitment stays exactly as it was."
+      "- Acknowledge plainly: we will not lock in the extra-simple week; their commitment stays exactly as it was."
     );
     lines.push("- Tie to original_behavior_statement or commitment_title with grounded language.");
     lines.push("- End with ONE concrete accountability question or next move for today.");
@@ -816,7 +816,7 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
     lines.push("- Forbidden words/phrases: overlay, contract, proposal, pending resolution, V2, commitment event, accountability system.");
     if (args.overlayContractKind === "recommit_same") {
       lines.push(
-        "- If overlay_contract_kind is recommit_same: they said no to holding the same bar extra-steady for a week — still not a judgment; current bar unchanged."
+        "- If overlay_contract_kind is recommit_same: they said no to holding the same bar extra-steady for a week — still not a judgment; bar unchanged."
       );
     }
   }
