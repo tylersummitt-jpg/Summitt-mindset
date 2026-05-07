@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { CoachLeadershipKitTrackedLink } from "@/app/coach-leadership-kit/coach-leadership-kit-tracked-link";
@@ -7,7 +8,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 const COACH_HOW_PATH = "/coach-leadership-kit/how-it-works";
 
 export const metadata: Metadata = {
-  title: "How It Works — Coach Leadership Kit",
+  title: "How It Works",
   description:
     "A short walkthrough for coaches: Summitt Mindset membership, daily accountability, and the Pat Summitt Leadership Kit.",
   alternates: {
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
 };
 
 const ctaPrimaryClass =
-  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]";
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white";
+
+const ctaSecondaryClass =
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold border-2 border-[var(--border)] text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--brand-soft)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white";
 
 const COACH_SUBSCRIBE_PATH = "/subscribe?src=coach";
 const COACH_SIGN_IN_HREF = `/sign-in?redirect_url=${encodeURIComponent(COACH_SUBSCRIBE_PATH)}`;
@@ -57,123 +61,82 @@ export default async function CoachHowItWorksPage() {
       : "How It Works — Summitt Mindset coach walkthrough";
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 md:py-16 space-y-10">
-        <header className="space-y-4">
-          <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] tracking-tight leading-tight">
-            See how Summitt Mindset fits a coach&apos;s day.
-          </h1>
-          <p className="text-lg text-[var(--muted)] leading-relaxed">
-            A clear walkthrough of the membership—daily accountability,
-            Summitt Mindset coaching, and the complimentary Pat Summitt
-            Leadership Kit.
-          </p>
-          <CoachLeadershipKitTrackedLink
-            href={leadershipKitHref}
-            className={ctaPrimaryClass}
-            cta="video_page_top"
-          >
-            Get the Leadership Kit
-          </CoachLeadershipKitTrackedLink>
-        </header>
+    <div className="relative isolate min-h-screen overflow-x-hidden bg-neutral-950">
+      <div className="absolute inset-0 md:hidden" aria-hidden>
+        <Image
+          src="/brand/coach-setup-mobile.png"
+          alt=""
+          fill
+          sizes="100vw"
+          priority
+          className="object-cover object-center grayscale"
+        />
+      </div>
+      <div className="absolute inset-0 hidden md:block" aria-hidden>
+        <Image
+          src="/brand/coach-setup-desktop.jpeg"
+          alt=""
+          fill
+          sizes="100vw"
+          priority
+          className="object-cover object-[center_28%] grayscale lg:object-[center_30%]"
+        />
+      </div>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-[var(--text)]">
-            Watch the quick walkthrough
-          </h2>
-          {video && vimeoId ? (
-            <div className="rounded-xl overflow-hidden border border-[var(--border)] bg-white shadow-sm">
-              <div className="relative w-full aspect-video">
-                <iframe
-                  title={iframeTitle}
-                  src={`https://player.vimeo.com/video/${vimeoId}`}
-                  className="absolute inset-0 w-full h-full"
-                  allow="fullscreen; picture-in-picture"
-                  allowFullScreen
-                />
+      <div
+        className="pointer-events-none absolute inset-0 z-[1] bg-black/50 md:bg-black/45"
+        aria-hidden
+      />
+
+      <div className="relative z-10 mx-auto flex w-full flex-col items-center justify-center px-4 py-10 sm:py-12 md:min-h-[80vh] md:py-16">
+        <div className="flex w-full max-w-3xl flex-col items-center gap-10 rounded-2xl border border-[var(--border)] bg-white/95 px-4 py-8 text-center shadow-xl sm:px-6 sm:py-10">
+          <header>
+            <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] tracking-tight">
+              How It Works
+            </h1>
+          </header>
+
+          <div className="w-full space-y-6">
+            {video && vimeoId ? (
+              <div className="w-full overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm">
+                <div className="relative w-full aspect-video">
+                  <iframe
+                    title={iframeTitle}
+                    src={`https://player.vimeo.com/video/${vimeoId}`}
+                    className="absolute inset-0 w-full h-full"
+                    allow="fullscreen; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
               </div>
-              {video.speaker ? (
-                <p className="text-sm text-[var(--muted)] px-4 py-3 border-t border-[var(--border)]">
-                  {video.speaker}
+            ) : (
+              <div
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-6 py-10"
+                role="status"
+              >
+                <p className="text-[var(--muted)] leading-relaxed text-center">
+                  The walkthrough video will be available here shortly. You can
+                  still start below—the offer and checkout are unchanged.
                 </p>
-              ) : null}
+              </div>
+            )}
+
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
+              <CoachLeadershipKitTrackedLink
+                href={leadershipKitHref}
+                className={ctaPrimaryClass}
+                cta="video_page_bottom"
+              >
+                Get the Leadership Kit
+              </CoachLeadershipKitTrackedLink>
+              <Link
+                href="/coach-leadership-kit"
+                className={ctaSecondaryClass}
+              >
+                Back to Coach Leadership Kit overview
+              </Link>
             </div>
-          ) : (
-            <div
-              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-6 py-10 text-center"
-              role="status"
-            >
-              <p className="text-[var(--muted)] leading-relaxed">
-                The walkthrough video will be available here shortly. You can
-                still start below—the offer and checkout are unchanged.
-              </p>
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-6">
-          <h2 className="text-xl font-semibold text-[var(--text)]">
-            What happens after you join
-          </h2>
-          <ul className="space-y-4 text-[var(--text)] leading-relaxed">
-            <li className="flex gap-3">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span>Start with a 7-day trial.</span>
-            </li>
-            <li className="flex gap-3">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span>
-                Get short daily SMS coaching built around accountability,
-                standards, and follow-through.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span>
-                Use the Leadership Kit as a tangible tool for team culture and
-                expectations.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span
-                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                aria-hidden
-              />
-              <span>
-                Cancel anytime through secure Stripe checkout.
-              </span>
-            </li>
-          </ul>
-        </section>
-
-        <p className="text-sm text-[var(--muted)] leading-relaxed border-l-2 border-[var(--brand)] pl-4">
-          Built for coaches who want steadier leadership, clearer standards, and
-          daily accountability.
-        </p>
-
-        <div className="flex flex-col sm:flex-row sm:items-center gap-6 pt-2">
-          <CoachLeadershipKitTrackedLink
-            href={leadershipKitHref}
-            className={ctaPrimaryClass}
-            cta="video_page_bottom"
-          >
-            Get the Leadership Kit
-          </CoachLeadershipKitTrackedLink>
-          <Link
-            href="/coach-leadership-kit"
-            className="text-sm font-medium text-[var(--muted)] hover:text-[var(--text)] underline underline-offset-2"
-          >
-            Back to Coach Leadership Kit overview
-          </Link>
+          </div>
         </div>
       </div>
     </div>
