@@ -2,6 +2,12 @@
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import {
+  COACH_ATTRIBUTION_COOKIE_NAME,
+  COACH_ATTRIBUTION_COOKIE_VALUE_COACH,
+  isCoachAttributionEnabled,
+  isCoachAttributionPath,
+} from "@/lib/coach-attribution";
 
 /**
  * ======================================================
@@ -77,18 +83,51 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  const shouldSetCoachAttributionCookie =
+    isCoachAttributionEnabled() && isCoachAttributionPath(req.nextUrl.pathname);
+
   if (isPublicRoute(req)) {
-    return NextResponse.next();
+    const res = NextResponse.next();
+    if (shouldSetCoachAttributionCookie) {
+      res.cookies.set(COACH_ATTRIBUTION_COOKIE_NAME, COACH_ATTRIBUTION_COOKIE_VALUE_COACH, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: false,
+      });
+    }
+    return res;
   }
 
   const { userId } = await auth();
 
   if (!userId) {
     const signInUrl = new URL("/sign-in", req.url);
-    return NextResponse.redirect(signInUrl);
+    const res = NextResponse.redirect(signInUrl);
+    if (shouldSetCoachAttributionCookie) {
+      res.cookies.set(COACH_ATTRIBUTION_COOKIE_NAME, COACH_ATTRIBUTION_COOKIE_VALUE_COACH, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: false,
+      });
+    }
+    return res;
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  if (shouldSetCoachAttributionCookie) {
+    res.cookies.set(COACH_ATTRIBUTION_COOKIE_NAME, COACH_ATTRIBUTION_COOKIE_VALUE_COACH, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: false,
+    });
+  }
+  return res;
 });
 
 export const config = {
