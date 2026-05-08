@@ -10,6 +10,7 @@ export function isCoachAttributionEnabled(): boolean {
 export function isCoachAttributionPath(pathname: string): boolean {
   return (
     pathname === "/coach-leadership-kit" ||
+    pathname === "/coach-leadership-kit/" ||
     pathname.startsWith("/coach-leadership-kit/")
   );
 }

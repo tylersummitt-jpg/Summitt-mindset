@@ -18,9 +18,15 @@ describe("coach attribution", () => {
     expect(isCoachAttributionPath("/coach-leadership-kit/how-it-works")).toBe(true);
   });
 
+  it("matches nested coach leadership kit routes with trailing slash", () => {
+    expect(isCoachAttributionPath("/coach-leadership-kit/how-it-works/")).toBe(true);
+  });
+
   it("does not match non-coach routes", () => {
     expect(isCoachAttributionPath("/")).toBe(false);
     expect(isCoachAttributionPath("/guide")).toBe(false);
+    expect(isCoachAttributionPath("/coach")).toBe(false);
+    expect(isCoachAttributionPath("/coach-leadership-kitXYZ")).toBe(false);
   });
 
   it("syncs when acquisitionSource missing and cookie is coach", () => {
