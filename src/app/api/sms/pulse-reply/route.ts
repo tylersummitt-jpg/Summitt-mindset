@@ -8,6 +8,8 @@ export const runtime = "nodejs";
  * ======================================================
  * Day 4–5 SMS Pulse Reply Intake (CANONICAL)
  * ======================================================
+ *
+ * Inbound HTTP only — does not send SMS. North Star gate applies only to outbound coaching copy.
  */
 
 function normalizeText(input: unknown): string | null {

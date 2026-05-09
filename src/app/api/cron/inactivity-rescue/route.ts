@@ -4,6 +4,10 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { createRescueToken } from "@/lib/rescue-token";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
+import {
+  finalizeNorthStarCoachSms,
+  NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
+} from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -122,12 +126,18 @@ export async function GET(req: Request) {
           continue;
         }
 
-        const body =
+        const rawBody =
           `Quick check-in — want a smaller version tomorrow?\n\n` + `Tap here: ${link}`;
+        const gatedRescue = finalizeNorthStarCoachSms({
+          proposedBody: rawBody,
+          channel: "inactivity_rescue",
+          preserveNewlines: true,
+          maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
+        });
 
         await sendSMS({
           to: identity.phone_number,
-          body,
+          body: gatedRescue.visibleBody,
           lastOutbound: {
             clerkUserId: clerk_user_id,
             messageKind: "nudge",
@@ -147,6 +157,12 @@ export async function GET(req: Request) {
           metadata: {
             canonical: true,
             inactive_days: inactiveDays,
+            north_star_gate: {
+              original_body: gatedRescue.meta.originalBody,
+              final_body: gatedRescue.visibleBody,
+              north_star_gate_source: gatedRescue.meta.source,
+              north_star_gate_reasons: gatedRescue.meta.blockedReasons,
+            },
           },
         });
 

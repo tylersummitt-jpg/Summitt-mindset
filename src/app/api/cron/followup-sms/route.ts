@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getUserStalenessLevel } from "@/lib/get-user-staleness";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import { finalizeNorthStarCoachSms } from "@/lib/north-star-coach-sms";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
@@ -132,9 +133,14 @@ export async function GET(req: Request) {
     }
 
     try {
+      const rawFollowup = getFollowupMessage(level);
+      const gatedFollowup = finalizeNorthStarCoachSms({
+        proposedBody: rawFollowup,
+        channel: "followup_sms",
+      });
       await sendSMS({
         to: audienceUser.phone_number,
-        body: getFollowupMessage(level),
+        body: gatedFollowup.visibleBody,
         lastOutbound: {
           clerkUserId: audienceUser.clerk_user_id,
           messageKind: "nudge",
@@ -145,7 +151,16 @@ export async function GET(req: Request) {
         await supabaseServer
           .from("sms_send_events")
           .update({
-            metadata: { ...meta, followup_sent: true },
+            metadata: {
+              ...meta,
+              followup_sent: true,
+              north_star_gate: {
+                original_body: gatedFollowup.meta.originalBody,
+                final_body: gatedFollowup.visibleBody,
+                north_star_gate_source: gatedFollowup.meta.source,
+                north_star_gate_reasons: gatedFollowup.meta.blockedReasons,
+              },
+            },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
@@ -154,7 +169,16 @@ export async function GET(req: Request) {
           clerk_user_id: audienceUser.clerk_user_id,
           day_key: todayKey,
           status: "followup_sent",
-          metadata: { followup_sent: true, note: "followup_cron" },
+          metadata: {
+            followup_sent: true,
+            note: "followup_cron",
+            north_star_gate: {
+              original_body: gatedFollowup.meta.originalBody,
+              final_body: gatedFollowup.visibleBody,
+              north_star_gate_source: gatedFollowup.meta.source,
+              north_star_gate_reasons: gatedFollowup.meta.blockedReasons,
+            },
+          },
         });
       }
 

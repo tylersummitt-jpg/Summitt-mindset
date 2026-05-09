@@ -20,6 +20,10 @@ export const dynamic = "force-dynamic";
  * Trigger: user is on Day 4 or Day 5 (currentDay in Clerk).
  * Message: “Reply with ONE word for how this is fitting into your day.”
  *
+ * North Star: there is no live outbound SMS from this cron today — only `feedback_events`
+ * logging (Twilio-not-ready path). When/if SMS is enabled here, run bodies through
+ * finalizeNorthStarCoachSms (channel `day4_5_sms_pulse`) before send.
+ *
  * Twilio not ready:
  * - We do NOT send
  * - We log a single "skipped_twilio_not_ready" row with the link

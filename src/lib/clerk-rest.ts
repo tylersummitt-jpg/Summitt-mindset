@@ -12,6 +12,12 @@
 
 export type ClerkUserResponse = {
   id: string;
+  /** Unix ms — present on list/get user from Clerk REST. */
+  created_at?: number;
+  first_name?: string | null;
+  last_name?: string | null;
+  email_addresses?: Array<{ id: string; email_address: string }>;
+  primary_email_address_id?: string | null;
   public_metadata?: Record<string, any>;
   private_metadata?: Record<string, any>;
   unsafe_metadata?: Record<string, any>;
@@ -33,6 +39,26 @@ export async function getClerkUser(userId: string): Promise<ClerkUserResponse> {
     cache: "no-store",
   });
 
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to fetch Clerk user: ${text}`);
+  }
+
+  return (await res.json()) as ClerkUserResponse;
+}
+
+/** Same as getClerkUser but returns null when the user does not exist (404). */
+export async function getClerkUserOrNull(
+  userId: string
+): Promise<ClerkUserResponse | null> {
+  const key = getClerkSecretKey();
+
+  const res = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+    headers: { Authorization: `Bearer ${key}` },
+    cache: "no-store",
+  });
+
+  if (res.status === 404) return null;
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Failed to fetch Clerk user: ${text}`);

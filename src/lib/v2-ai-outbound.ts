@@ -1352,6 +1352,7 @@ No therapy-speak, no shame, no fake hype, no weak filler ("great job", "keep pus
 No compliance footers, no all-caps reply menus, no internal jargon (V2, overlay, event spine, commitment event).
 Hold the standard without inventing facts. Output strict JSON only.`;
 
+/** User-visible SMS copy is finalized in `daily-sms/route.ts` via `withNorthStarDailyGate` → `finalizeNorthStarCoachSms`. */
 export async function resolveV2DailyOutboundSmsBody(args: {
   ctx: V2AiOutboundContext;
   contractProposalMode: boolean;

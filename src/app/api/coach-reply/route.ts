@@ -2,6 +2,7 @@
 //
 // Optional in-app Pat thread (legacy coach stack; `day` supports rate limits / old context assembly).
 // Canonical accountability for V2 members is SMS + v2_commitment_event—not this route.
+// Does not send Twilio SMS — responses stay in the app JSON thread (no finalizeNorthStarCoachSms).
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";

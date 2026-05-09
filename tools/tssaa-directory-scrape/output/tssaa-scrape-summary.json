@@ -1,0 +1,11 @@
+{
+  "run_started_at": "2026-05-08T16:55:37.474Z",
+  "run_finished_at": "2026-05-08T17:21:56.720Z",
+  "total_schools_found": 983,
+  "total_schools_scraped": 983,
+  "total_rows_with_emails": 31399,
+  "total_unique_emails": 21464,
+  "failures": [],
+  "high_school_count": 455,
+  "middle_school_count": 528
+}

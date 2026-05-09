@@ -4,6 +4,10 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { createWinbackToken } from "@/lib/winback-token";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
+import {
+  finalizeNorthStarCoachSms,
+  NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
+} from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -147,14 +151,20 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const smsBody =
+      const smsBodyPreGate =
         `One last question — if we rebuilt ONE thing so you’d come back, what would it be?\n` +
         `One sentence is enough.\n\n` +
         `${link}`;
+      const gatedWinback = finalizeNorthStarCoachSms({
+        proposedBody: smsBodyPreGate,
+        channel: "post_churn_winback",
+        preserveNewlines: true,
+        maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
+      });
 
       await sendSMS({
         to: phone,
-        body: smsBody,
+        body: gatedWinback.visibleBody,
         lastOutbound: {
           clerkUserId: clerk_user_id,
           messageKind: "transactional",
@@ -177,6 +187,12 @@ export async function GET(req: Request) {
           window: "7-10_days_post_cancel",
           channel: "sms",
           link_included: true,
+          north_star_gate: {
+            original_body: gatedWinback.meta.originalBody,
+            final_body: gatedWinback.visibleBody,
+            north_star_gate_source: gatedWinback.meta.source,
+            north_star_gate_reasons: gatedWinback.meta.blockedReasons,
+          },
         },
       });
 

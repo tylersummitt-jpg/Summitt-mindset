@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { sendChallengeEmail } from "@/lib/send-challenge-email";
+
+/** Email-only challenge cadence — no SMS in this cron. */
 import { supabaseServer } from "@/lib/supabase-server";
 import { getNext8AMEastern } from "@/lib/timezone";
 

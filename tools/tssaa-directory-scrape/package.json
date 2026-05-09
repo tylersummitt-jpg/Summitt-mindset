@@ -1,0 +1,9 @@
+{
+  "name": "tssaa-directory-scrape",
+  "private": true,
+  "type": "module",
+  "description": "Standalone local utility — not part of summitt-app",
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
+}

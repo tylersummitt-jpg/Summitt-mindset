@@ -3,6 +3,7 @@ import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
+import { finalizeNorthStarCoachSms } from "@/lib/north-star-coach-sms";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
@@ -129,9 +130,13 @@ export async function GET(req: Request) {
     }
 
     try {
+      const gatedMissed = finalizeNorthStarCoachSms({
+        proposedBody: MESSAGE,
+        channel: "missed_yesterday_sms",
+      });
       await sendSMS({
         to: audienceUser.phone_number,
-        body: MESSAGE,
+        body: gatedMissed.visibleBody,
         lastOutbound: {
           clerkUserId: audienceUser.clerk_user_id,
           messageKind: "nudge",
@@ -142,7 +147,16 @@ export async function GET(req: Request) {
         await supabaseServer
           .from("sms_send_events")
           .update({
-            metadata: { ...meta, missed_yesterday_sent: true },
+            metadata: {
+              ...meta,
+              missed_yesterday_sent: true,
+              north_star_gate: {
+                original_body: gatedMissed.meta.originalBody,
+                final_body: gatedMissed.visibleBody,
+                north_star_gate_source: gatedMissed.meta.source,
+                north_star_gate_reasons: gatedMissed.meta.blockedReasons,
+              },
+            },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
@@ -151,7 +165,16 @@ export async function GET(req: Request) {
           clerk_user_id: audienceUser.clerk_user_id,
           day_key: todayKey,
           status: "missed_yesterday_sent",
-          metadata: { missed_yesterday_sent: true, note: "missed_yesterday_cron" },
+          metadata: {
+            missed_yesterday_sent: true,
+            note: "missed_yesterday_cron",
+            north_star_gate: {
+              original_body: gatedMissed.meta.originalBody,
+              final_body: gatedMissed.visibleBody,
+              north_star_gate_source: gatedMissed.meta.source,
+              north_star_gate_reasons: gatedMissed.meta.blockedReasons,
+            },
+          },
         });
       }
 

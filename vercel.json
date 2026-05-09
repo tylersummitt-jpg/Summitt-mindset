@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/sms-inbound-coach",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/quotes-book-fulfillment",
+      "schedule": "0 15 * * *"
     }
   ]
 }

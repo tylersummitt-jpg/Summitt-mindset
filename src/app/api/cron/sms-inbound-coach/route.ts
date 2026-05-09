@@ -190,6 +190,12 @@ import {
   type ActiveV2CommitmentRow,
   type V2AccountabilityOutcome,
 } from "@/lib/v2-commitment";
+import {
+  finalizeNorthStarCoachSms,
+  finalizeNorthStarInboundCoachReply,
+  inboundSignalsCompletion,
+  type NorthStarCoachChannel,
+} from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -271,6 +277,32 @@ type JobRow = {
   last_error: string | null;
   outbound_message_sid: string | null;
 };
+
+function northStarGatePersistBody(
+  replyBody: string,
+  args: {
+    job: JobRow;
+    channel: NorthStarCoachChannel;
+    lastOutboundBody?: string | null;
+    effectiveAsk?: string | null;
+    behaviorStatement?: string | null;
+    finalEventType?: string | null;
+    replySource?: string | null;
+  }
+): string {
+  return finalizeNorthStarCoachSms({
+    proposedBody: replyBody,
+    channel: args.channel,
+    latestInboundRaw: args.job.raw_body ?? "",
+    latestOutboundBody: args.lastOutboundBody ?? null,
+    effectiveAskText: args.effectiveAsk ?? undefined,
+    behaviorStatement: args.behaviorStatement ?? undefined,
+    finalEventType: args.finalEventType ?? undefined,
+    replySource: args.replySource ?? undefined,
+    alreadyCompletedToday:
+      args.finalEventType === "user_yes" || inboundSignalsCompletion(args.job.raw_body),
+  }).visibleBody;
+}
 
 async function markJobFinal(args: {
   messageSid: string;
@@ -656,6 +688,15 @@ async function processV2NormalInboundOutcome(
         eventType: gdFallback.final_event_type ?? eventType,
         preferredName,
       });
+      const gatedLegacy = northStarGatePersistBody(tmpl.body, {
+        job,
+        channel: "inbound_coach_reply",
+        lastOutboundBody: lastOutboundSmsPreview,
+        effectiveAsk: effectiveBehavior,
+        behaviorStatement: commitment.behavior_statement,
+        finalEventType: gdFallback.final_event_type ?? eventType,
+        replySource: "deterministic_template_fallback",
+      });
       const idempotencyKey = v2UserReplyIdempotencyKey(
         gdFallback.final_event_type ?? eventType,
         job.message_sid
@@ -672,7 +713,7 @@ async function processV2NormalInboundOutcome(
             model: V2_INBOUND_AI_MODEL,
             prompt_version: V2_INBOUND_AI_PROMPT_VERSION,
             server_strategy: strategyForInboundEventType(gdFallback.final_event_type ?? eventType),
-            message: tmpl.body,
+            message: gatedLegacy,
             confidence: null,
             fallback_used: true,
             fallback_reason: "conversation_brain_legacy_fallback_disabled",
@@ -709,7 +750,7 @@ async function processV2NormalInboundOutcome(
       const { data: persistedFb } = await supabaseServer
         .from("sms_inbound_coach_jobs")
         .update({
-          reply_body: tmpl.body,
+          reply_body: gatedLegacy,
           status: "reply_ready",
           next_retry_at: nowFb,
           updated_at: nowFb,
@@ -975,11 +1016,19 @@ async function processV2NormalInboundOutcome(
       })
     );
 
+    const gatedPivot = northStarGatePersistBody(pivotBody, {
+      job,
+      channel: "central_brain_pivot",
+      lastOutboundBody: lastOutboundSmsPreview,
+      effectiveAsk: effectiveBehavior,
+      behaviorStatement: commitment.behavior_statement,
+      finalEventType: gatedDecision.final_event_type ?? eventType,
+    });
     const nowPivot = new Date().toISOString();
     const { data: persistedPivot } = await supabaseServer
       .from("sms_inbound_coach_jobs")
       .update({
-        reply_body: pivotBody,
+        reply_body: gatedPivot,
         status: "reply_ready",
         next_retry_at: nowPivot,
         updated_at: nowPivot,
@@ -1054,11 +1103,19 @@ async function processV2NormalInboundOutcome(
         })
       );
 
+      const gatedClarify = northStarGatePersistBody(clarificationBody, {
+        job,
+        channel: "clarification",
+        lastOutboundBody: lastOutboundSmsPreview,
+        effectiveAsk: effectiveBehavior,
+        behaviorStatement: commitment.behavior_statement,
+        finalEventType: arcWriteOutcomeType,
+      });
       const nowArc = new Date().toISOString();
       const { data: persistedArc } = await supabaseServer
         .from("sms_inbound_coach_jobs")
         .update({
-          reply_body: clarificationBody,
+          reply_body: gatedClarify,
           status: "reply_ready",
           next_retry_at: nowArc,
           updated_at: nowArc,
@@ -1461,6 +1518,19 @@ async function processV2NormalInboundOutcome(
     finalReplyBody = stitchedFin.message;
   }
 
+  const northStarInboundPack = finalizeNorthStarInboundCoachReply({
+    proposedBody: finalReplyBody,
+    ctx: {
+      userMessage,
+      lastOutboundSmsPreview,
+      effectiveBehavior,
+      behaviorStatement: commitment.behavior_statement,
+      finalEventType: resolved.meta.final_event_type ?? null,
+      replySource: resolved.meta.reply_source,
+    },
+  });
+  finalReplyBody = northStarInboundPack.visibleBody;
+
   const aiTry = resolved.aiTry;
   const replyTemplateId = resolved.replyTemplateId;
   const replyResolutionMeta = resolved.meta;
@@ -1531,6 +1601,12 @@ async function processV2NormalInboundOutcome(
             smsContextPackMeta: smsConvPackMeta ?? undefined,
           }),
           reply_resolution: replyResolutionPayload,
+          north_star_gate: {
+            original_body: northStarInboundPack.meta.originalBody,
+            final_body: northStarInboundPack.visibleBody,
+            north_star_gate_source: northStarInboundPack.meta.source,
+            north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
+          },
         }
       : {
           model: inboundAiModelUsed,
@@ -1541,6 +1617,12 @@ async function processV2NormalInboundOutcome(
           fallback_used: true,
           fallback_reason: gatedDecision.mode,
           reply_resolution: replyResolutionPayload,
+          north_star_gate: {
+            original_body: northStarInboundPack.meta.originalBody,
+            final_body: northStarInboundPack.visibleBody,
+            north_star_gate_source: northStarInboundPack.meta.source,
+            north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
+          },
         };
 
   if (
@@ -1851,11 +1933,19 @@ async function processV2BlockerCapture(
         old_path_that_would_have_run: "blocker_captured",
       })
     );
+    const gatedBlockerPivot = northStarGatePersistBody(pivotBody, {
+      job,
+      channel: "central_brain_pivot",
+      lastOutboundBody: lastOutboundBlockPreview,
+      effectiveAsk: effectiveBlockerAsk,
+      behaviorStatement: commitment.behavior_statement,
+      finalEventType: blockerClassification.eventType,
+    });
     const pivotNow = new Date().toISOString();
     const { data: persistedPivot } = await supabaseServer
       .from("sms_inbound_coach_jobs")
       .update({
-        reply_body: pivotBody,
+        reply_body: gatedBlockerPivot,
         status: "reply_ready",
         next_retry_at: pivotNow,
         updated_at: pivotNow,
@@ -1893,10 +1983,19 @@ async function processV2BlockerCapture(
   });
 
   const ackBody = blockerAckTry.ok ? blockerAckTry.message : templateAckBody;
+  const gatedAckBody = northStarGatePersistBody(ackBody, {
+    job,
+    channel: "blocker_followup",
+    lastOutboundBody: lastOutboundBlockPreview,
+    effectiveAsk: effectiveBlockerAsk,
+    behaviorStatement: commitment.behavior_statement,
+    finalEventType: blockerClassification.eventType,
+  });
+
   const blockerAiPayload = buildBlockerAckAiPayload({
     model: V2_BLOCKER_ACK_AI_MODEL,
     promptVersion: V2_BLOCKER_ACK_PROMPT_VERSION,
-    message: ackBody,
+    message: gatedAckBody,
     confidence: blockerAckTry.ok ? blockerAckTry.confidence : null,
     fallbackUsed: !blockerAckTry.ok,
     fallbackReason: !blockerAckTry.ok ? blockerAckTry.reason : null,
@@ -1907,7 +2006,7 @@ async function processV2BlockerCapture(
   const { data: persisted } = await supabaseServer
     .from("sms_inbound_coach_jobs")
     .update({
-      reply_body: ackBody,
+      reply_body: gatedAckBody,
       status: "reply_ready",
       next_retry_at: now,
       updated_at: now,
@@ -2042,11 +2141,18 @@ async function processV2ContractProposalConsent(
     typeof consentProfileRow?.preferred_name === "string" ? consentProfileRow.preferred_name : null;
 
   const persistReplyAndSend = async (replyBody: string): Promise<void> => {
+    const gated = northStarGatePersistBody(replyBody, {
+      job,
+      channel: "contract_ack",
+      lastOutboundBody: lastBody,
+      behaviorStatement: workingCommitment.behavior_statement,
+      effectiveAsk: getEffectiveCoachingAsk(workingCommitment, Date.now()),
+    });
     const now = new Date().toISOString();
     const { data: persisted } = await supabaseServer
       .from("sms_inbound_coach_jobs")
       .update({
-        reply_body: replyBody,
+        reply_body: gated,
         status: "reply_ready",
         next_retry_at: now,
         updated_at: now,
@@ -2211,13 +2317,31 @@ async function processV2ContractProposalConsent(
 async function persistV2JobReplyReadyAndSend(
   job: JobRow,
   userId: string,
-  replyBody: string
+  replyBody: string,
+  northStar?: {
+    channel?: NorthStarCoachChannel;
+    lastOutboundBody?: string | null;
+    effectiveAsk?: string | null;
+    behaviorStatement?: string | null;
+    finalEventType?: string | null;
+  }
 ): Promise<void> {
+  const gated = finalizeNorthStarCoachSms({
+    proposedBody: replyBody,
+    channel: northStar?.channel ?? "other_coaching",
+    latestInboundRaw: job.raw_body ?? "",
+    latestOutboundBody: northStar?.lastOutboundBody ?? null,
+    effectiveAskText: northStar?.effectiveAsk ?? undefined,
+    behaviorStatement: northStar?.behaviorStatement ?? undefined,
+    finalEventType: northStar?.finalEventType ?? undefined,
+    alreadyCompletedToday:
+      northStar?.finalEventType === "user_yes" || inboundSignalsCompletion(job.raw_body),
+  }).visibleBody;
   const now = new Date().toISOString();
   const { data: persisted } = await supabaseServer
     .from("sms_inbound_coach_jobs")
     .update({
-      reply_body: replyBody,
+      reply_body: gated,
       status: "reply_ready",
       next_retry_at: now,
       updated_at: now,

@@ -174,6 +174,9 @@ export async function POST(req: Request) {
        * - Must include frequency disclosure
        * - Align with SMS-first commitment accountability (not progression / “daily practice” core)
        * - Avoid promising outcomes or guarantees
+       *
+       * Intentionally bypasses finalizeNorthStarCoachSms: this is mandatory consent / frequency /
+       * STOP / HELP transactional onboarding copy, not discretionary coaching SMS.
        */
 
       const confirm =

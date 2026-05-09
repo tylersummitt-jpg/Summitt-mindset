@@ -20,6 +20,7 @@ import {
 } from "@/lib/v2-human-sms-brain/flags";
 import { hashSmsSnippet, validateHumanVisibleSms } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { HUMAN_VISIBLE_SMS_VALIDATOR_VERSION } from "@/lib/v2-human-visible-sms/types";
+import { finalizeNorthStarCoachSms } from "@/lib/north-star-coach-sms";
 
 const DEFAULT_MAX = 320;
 
@@ -174,6 +175,12 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     }
 
     if (!enforce) {
+      const gatedEarly = finalizeNorthStarCoachSms({
+        proposedBody: text,
+        channel: "contract_prompt",
+        behaviorStatement: args.behaviorStatementPreview,
+        effectiveAskText: args.bindingText,
+      }).visibleBody.slice(0, maxChars);
       logPipeline({
         brainCase,
         proposalKind: args.proposalKind,
@@ -189,10 +196,10 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
         repairOpenAiAttempted: false,
         brainRewriteMs,
         brainFixMs,
-        finalText: text,
+        finalText: gatedEarly,
       });
       return {
-        message: text,
+        message: gatedEarly,
         brainUsed,
         brainFailureReason,
         fallbackUsed: null,
@@ -233,6 +240,13 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
       }
     }
   }
+
+  text = finalizeNorthStarCoachSms({
+    proposedBody: text,
+    channel: "contract_prompt",
+    behaviorStatement: args.behaviorStatementPreview,
+    effectiveAskText: args.bindingText,
+  }).visibleBody.slice(0, maxChars);
 
   const finalCheck = runValidate(text);
   logPipeline({
