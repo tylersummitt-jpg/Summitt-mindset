@@ -468,6 +468,8 @@ export async function recomputeV2CoachingMemory(
     reasonCode?: string | null;
     runId?: string | null;
     promptVersion?: string | null;
+    /** Bounded fragment merged into `coaching_summary` (no migration) for V3 coach notebook retention. */
+    v3LearningNotebookAppend?: string | null;
   }
 ): Promise<void> {
   try {
@@ -602,6 +604,20 @@ export async function recomputeV2CoachingMemory(
         coachingSummary = generated;
         summaryUpdatedAt = now.toISOString();
         summaryVersion = V2_COACHING_MEMORY_SUMMARY_VERSION;
+      }
+    }
+
+    const v3Nb = typeof context?.v3LearningNotebookAppend === "string" ? context.v3LearningNotebookAppend.trim() : "";
+    if (v3Nb.length > 0) {
+      const frag = v3Nb.slice(0, 280);
+      const tag = frag.slice(0, 48);
+      const existing = (coachingSummary ?? "").trim();
+      if (!existing.includes(tag)) {
+        coachingSummary = existing
+          ? `${existing}\n[v3_notebook] ${frag}`.slice(0, 520)
+          : `[v3_notebook] ${frag}`.slice(0, 520);
+        summaryUpdatedAt = now.toISOString();
+        summaryVersion = summaryVersion ?? V2_COACHING_MEMORY_SUMMARY_VERSION;
       }
     }
 

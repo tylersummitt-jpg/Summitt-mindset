@@ -96,6 +96,19 @@ export function formatCoachingMemoryPromptBlock(m: V2CoachingMemoryForPrompt | n
   }
   if (m.coaching_summary?.trim()) {
     lines.push(`coaching_summary (NON-AUTHORITATIVE prose): ${truncateOneLine(m.coaching_summary, SUMMARY_MAX_CHARS)}`);
+    if (m.coaching_summary.includes("[v3_notebook]")) {
+      const joined = m.coaching_summary
+        .split("\n")
+        .filter((l) => l.includes("[v3_notebook]"))
+        .map((l) => l.replace(/^\s*\[v3_notebook\]\s*/i, "").trim())
+        .filter(Boolean)
+        .join(" · ");
+      if (joined) {
+        lines.push(
+          `v3_notebook (retention; use to avoid repeating the same angle): ${truncateOneLine(joined, 360)}`
+        );
+      }
+    }
   }
   if (m.identity_anchor_text?.trim()) {
     lines.push(

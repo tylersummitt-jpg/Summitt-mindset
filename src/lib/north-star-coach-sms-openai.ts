@@ -168,10 +168,39 @@ function clipCombinedForSuffix(combined: string, max: number): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
+/** Visible copy already finalized upstream (central brain / Phase 5a / deterministic templates). Not V3 — keep deterministic North Star only (no duplicate OpenAI finalizer). Telemetry must not imply V3 refined these bodies. */
+const UPSTREAM_HUMANIZED_NON_V3_REPLY_SOURCES = new Set([
+  "central_brain_pivot_visible",
+  "arc_clarify_ambiguous_short_visible",
+  "central_brain_blocker_pivot_visible",
+  "blocker_ack_visible_non_v3",
+]);
+
 function shouldAttemptOpenAi(args: NorthStarCoachSmsArgs): boolean {
   if (!getOpenAIClientOrNull()) return false;
   if (!args.proposedBody?.trim()) return false;
   if (args.contextPacket == null) return false;
+  /** V3 SMS Brain already ran OpenAI; apply deterministic North Star guards only. */
+  const v3OwnedSources = new Set([
+    "v3_sms_brain",
+    "v3_deterministic_fallback",
+    "v3_daily_check_in",
+    "v3_daily_deterministic_fallback",
+    "v3_answer_to_open_question",
+    "v3_refined_prior_draft",
+    "v3_refresh_refined",
+    "v3_memory_confirmation_refined",
+    "v3_contract_consent_refined",
+    "v3_adaptive_proposal_refined",
+    "v3_weekly_proof_refined",
+    "v3_followup_sms_refined",
+    "v3_missed_yesterday_sms_refined",
+    "v3_winback_refined",
+    "v3_inactivity_rescue_refined",
+    "v3_machine_deterministic_fallback",
+  ]);
+  if (args.replySource && v3OwnedSources.has(args.replySource)) return false;
+  if (args.replySource && UPSTREAM_HUMANIZED_NON_V3_REPLY_SOURCES.has(args.replySource)) return false;
   return true;
 }
 

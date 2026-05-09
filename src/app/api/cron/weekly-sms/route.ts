@@ -23,6 +23,7 @@ import {
 import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN } from "@/lib/north-star-coach-sms";
 import { buildWeeklySmsNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsPreservingSuffixAsync } from "@/lib/north-star-coach-sms-openai";
+import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -212,9 +213,31 @@ export async function GET(req: Request) {
           recentSmsThreadAppend: weeklySmsThreadAppend,
         });
 
+        let proofStyled = proofCore.trim();
+        let weeklyV3ReplySource: string | undefined;
+        try {
+          const pr = await refineMachineSmsBodyWithV3RefineLane({
+            clerkUserId: user.id,
+            messageSid: `weekly_proof:${user.id}:${weekKeyV2}`,
+            commitment,
+            timezone,
+            inboundRaw: "[weekly_pat_pause]",
+            machineBody: proofStyled,
+            hintSource: "weekly_proof_core",
+            ownedReplySource: "v3_weekly_proof_refined",
+          });
+          proofStyled = pr.body.trim();
+          weeklyV3ReplySource = pr.replySource;
+        } catch (e) {
+          console.warn("[weekly-sms] v3_weekly_proof_refine_failed", {
+            clerk_user_id: user.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+
         const introV2 =
           PAT_PAUSE_INTROS[Math.floor(Math.random() * PAT_PAUSE_INTROS.length)];
-        const preGateWeeklyV2 = `${introV2}\n\n${proofCore.trim()}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
+        const preGateWeeklyV2 = `${introV2}\n\n${proofStyled}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
         const weeklyNorthStarCtx = buildWeeklySmsNorthStarContextPacket({
           commitmentId: commitment.id,
           behaviorStatement: commitment.behavior_statement,
@@ -230,6 +253,7 @@ export async function GET(req: Request) {
           behaviorStatement: commitment.behavior_statement,
           effectiveAskText: commitment.behavior_statement?.trim() ?? undefined,
           contextPacket: weeklyNorthStarCtx,
+          replySource: weeklyV3ReplySource,
         });
         const finalBodyV2 = gatedWeeklyV2.visibleBody;
 
@@ -375,20 +399,42 @@ export async function GET(req: Request) {
         `${summaryText}\n\n` +
         `You showed up. That matters more than you think.\n` +
         `Steady honesty with yourself is how this kind of change sticks.\n\n` +
-        `Keep going. I’m with you.\n\n` +
+        `I'm with you between check-ins.\n\n` +
         `Reply anytime.\n\n` +
         `${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
 
-      const outgoingBody = validSmsBody
-        ? reflectionSmsBodyTrimmed
-        : smsBody;
+      const legacyCommitment = await getActiveCommitment(user.id);
+
+      let outgoingBase = validSmsBody ? reflectionSmsBodyTrimmed : smsBody;
+      let legacyWeeklyV3Rs: string | undefined;
+      if (legacyCommitment?.id) {
+        try {
+          const lr = await refineMachineSmsBodyWithV3RefineLane({
+            clerkUserId: user.id,
+            messageSid: `weekly_legacy:${user.id}:${weekKey}`,
+            commitment: legacyCommitment,
+            timezone,
+            inboundRaw: "[weekly_legacy_pat_pause]",
+            machineBody: outgoingBase.trim(),
+            hintSource: "weekly_legacy_body",
+            ownedReplySource: "v3_weekly_proof_refined",
+          });
+          outgoingBase = lr.body;
+          legacyWeeklyV3Rs = lr.replySource;
+        } catch (e) {
+          console.warn("[weekly-sms] v3_legacy_weekly_refine_failed", {
+            clerk_user_id: user.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
 
       const intro =
         PAT_PAUSE_INTROS[
           Math.floor(Math.random() * PAT_PAUSE_INTROS.length)
         ];
 
-      let bodyForWrap = outgoingBody.trim();
+      let bodyForWrap = outgoingBase.trim();
       if (bodyForWrap.endsWith(WEEKLY_SMS_COMPLIANCE_FOOTER)) {
         bodyForWrap = bodyForWrap
           .slice(0, -WEEKLY_SMS_COMPLIANCE_FOOTER.length)
@@ -396,7 +442,6 @@ export async function GET(req: Request) {
       }
 
       const preGateLegacy = `${intro}\n\n${bodyForWrap}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
-      const legacyCommitment = await getActiveCommitment(user.id);
       const legacyWeeklyCtx =
         legacyCommitment?.id != null
           ? buildWeeklySmsNorthStarContextPacket({
@@ -412,6 +457,7 @@ export async function GET(req: Request) {
         preserveNewlines: true,
         maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
         contextPacket: legacyWeeklyCtx,
+        replySource: legacyWeeklyV3Rs,
       });
       const finalBody = gatedLegacyWeekly.visibleBody;
 

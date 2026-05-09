@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
-import { listClerkUsers } from "@/lib/clerk-rest";
+import { getClerkPublicMetadata, listClerkUsers } from "@/lib/clerk-rest";
 import { createRescueToken } from "@/lib/rescue-token";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import {
   NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
 } from "@/lib/north-star-coach-sms";
+import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
+import { getActiveCommitment } from "@/lib/v2-commitment";
+import { resolveUserTimezone } from "@/lib/timezone";
+import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -128,12 +132,41 @@ export async function GET(req: Request) {
 
         const rawBody =
           `Quick check-in — want a smaller version tomorrow?\n\n` + `Tap here: ${link}`;
+        let rescueProposed = rawBody;
+        let rescueV3Rs: string | undefined;
+        let rescueV3Pkt: NorthStarSmsContextPacket | undefined;
+        const commitmentR = await getActiveCommitment(clerk_user_id);
+        if (commitmentR?.id) {
+          try {
+            const mdR = await getClerkPublicMetadata(clerk_user_id);
+            const tzR = resolveUserTimezone(mdR?.timezone);
+            const rr = await refineMachineSmsBodyWithV3RefineLane({
+              clerkUserId: clerk_user_id,
+              messageSid: `inactivity_rescue:${clerk_user_id}`,
+              commitment: commitmentR,
+              timezone: tzR,
+              inboundRaw: "[inactivity_rescue]",
+              machineBody: rawBody,
+              hintSource: "inactivity_rescue",
+              ownedReplySource: "v3_inactivity_rescue_refined",
+            });
+            rescueProposed = rr.body;
+            rescueV3Rs = rr.replySource;
+            rescueV3Pkt = rr.contextPacket;
+          } catch (e) {
+            console.warn("[inactivity-rescue] v3_refine_failed", {
+              clerk_user_id: clerk_user_id,
+              message: e instanceof Error ? e.message : String(e),
+            });
+          }
+        }
         const gatedRescue = await finalizeNorthStarCoachSmsAsync({
-          proposedBody: rawBody,
+          proposedBody: rescueProposed,
           channel: "inactivity_rescue",
           preserveNewlines: true,
           maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-          contextPacket: { source: "inactivity_rescue" },
+          replySource: rescueV3Rs,
+          contextPacket: rescueV3Pkt ?? { source: "inactivity_rescue" },
         });
 
         await sendSMS({

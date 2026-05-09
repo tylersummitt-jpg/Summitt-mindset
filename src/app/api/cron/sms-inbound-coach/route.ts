@@ -23,7 +23,7 @@ import {
   getConversationBrainConfidenceFloor,
   V2_SMS_CONVERSATION_BRAIN_PROMPT_VERSION,
 } from "@/lib/v2-sms-conversation-brain";
-import { resolveUserTimezone } from "@/lib/timezone";
+import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { sendSMSChunked, isTwilioReady } from "@/lib/twilio";
 import {
   activateAdaptiveOverlayFromProposal,
@@ -191,6 +191,7 @@ import {
   type V2AccountabilityOutcome,
 } from "@/lib/v2-commitment";
 import {
+  finalizeNorthStarInboundCoachReply,
   inboundSignalsCompletion,
   type NorthStarCoachChannel,
   type NorthStarSmsContextPacket,
@@ -199,7 +200,35 @@ import {
   finalizeNorthStarCoachSmsAsync,
   finalizeNorthStarInboundCoachReplyAsync,
 } from "@/lib/north-star-coach-sms-openai";
-import { buildInboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
+import {
+  buildInboundNorthStarContextPacket,
+  recentEventsIncludeUserYesOnLocalDay,
+  type ExpectedReplySemanticsV3,
+} from "@/lib/north-star-sms-context-packet";
+import {
+  generateV3OpenQuestionAnswerReply,
+  tryResolveAnswerToOpenQuestionTurn,
+} from "@/lib/v3-sms-turn";
+import {
+  buildAnswerToOpenQuestionV3BrainPackage,
+  buildMinimalInboundTranscriptLines,
+  buildV3BrainMetadata,
+  guaranteeV3InboundCoachDraft,
+  inferV3InboundReplySource,
+  isV3OwnedInboundReplySource,
+  produceV3InboundCoachDraft,
+  recoverV3InboundCoachDraftFromArgs,
+  type V3SmsBrainResult,
+} from "@/lib/v3-sms-brain";
+import {
+  buildV1ExtraNotebookAppend,
+  buildV3LearningNotebookLine,
+  deriveV3LearningSignalsFromContext,
+} from "@/lib/v3-sms-learning";
+import {
+  refineMachineSmsBodyWithV3RefineLane,
+  V3_REFINE_ONLY_GATED,
+} from "@/lib/v3-sms-machine-refine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -281,6 +310,29 @@ type JobRow = {
   last_error: string | null;
   outbound_message_sid: string | null;
 };
+
+/** V3 refine-only lane for transactional / guided SMS machine bodies (refresh, memory confirm, contract consent). */
+async function refineInboundSmsMachineDraft(args: {
+  job: JobRow;
+  userId: string;
+  commitment: ActiveV2CommitmentRow;
+  timezone: string;
+  inboundRaw: string;
+  machineBody: string;
+  hintSource: string;
+  ownedReplySource: string;
+}): Promise<{ body: string; replySource?: string; contextPacket?: NorthStarSmsContextPacket }> {
+  return refineMachineSmsBodyWithV3RefineLane({
+    clerkUserId: args.userId,
+    messageSid: args.job.message_sid,
+    commitment: args.commitment,
+    timezone: args.timezone,
+    inboundRaw: args.inboundRaw,
+    machineBody: args.machineBody,
+    hintSource: args.hintSource,
+    ownedReplySource: args.ownedReplySource,
+  });
+}
 
 async function northStarGatePersistBodyAsync(
   replyBody: string,
@@ -553,6 +605,148 @@ async function processV2NormalInboundOutcome(
     blockerPayload.message.trim().length > 0
       ? blockerPayload.message.trim().slice(0, 140)
       : null;
+
+  if (
+    !isLikelySmsComplianceOrOptOutTurn(userMessage) &&
+    !isLikelyCommitmentChangeIntentTurn(userMessage)
+  ) {
+    const priorYesToday = recentEventsIncludeUserYesOnLocalDay(
+      recentEvents,
+      timezone,
+      getDateKeyInTimezone(new Date(), timezone)
+    );
+
+    const minimalLinesEarly = buildMinimalInboundTranscriptLines(
+      convPackFull,
+      userMessage,
+      lastOutboundSmsPreview
+    );
+
+    const northStarPktEarly = buildInboundNorthStarContextPacket({
+      commitmentId: commitment.id,
+      behaviorStatement: commitment.behavior_statement ?? "",
+      effectiveAskText: effectiveBehavior,
+      timezone,
+      userMessage,
+      lastOutboundSmsPreview,
+      checkPayload: (checkPayload ?? {}) as Record<string, unknown>,
+      recentEvents,
+      convPack: convPackFull,
+      coachingMemory: coachingMemoryRow,
+      finalEventType: null,
+      lifeDesires,
+      peopleSummary,
+      identityAnchorText,
+      latestBlockerPreview,
+    });
+
+    const v3Resolution = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: userMessage,
+      latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+      expectedReplySemantics: northStarPktEarly.expectedReplySemantics as ExpectedReplySemanticsV3,
+      recentTranscriptLines: minimalLinesEarly,
+      todayCompleted: priorYesToday,
+      effectiveAsk: effectiveBehavior,
+      behaviorStatement: commitment.behavior_statement ?? "",
+    });
+
+    if (v3Resolution) {
+      const learningOpen = deriveV3LearningSignalsFromContext({
+        recentEventsNewestFirst: recentEvents,
+        coachingMemory: coachingMemoryRow,
+        latestInbound: userMessage,
+      });
+      const openBrain = buildAnswerToOpenQuestionV3BrainPackage({
+        resolution: v3Resolution,
+        learning: learningOpen,
+        latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+        expectedSemantics:
+          typeof northStarPktEarly.expectedReplySemantics === "string"
+            ? northStarPktEarly.expectedReplySemantics
+            : String(northStarPktEarly.expectedReplySemantics ?? ""),
+      });
+
+      const draft = generateV3OpenQuestionAnswerReply({
+        v3: v3Resolution,
+        messageSid: job.message_sid,
+        todayCompleted: priorYesToday,
+        effectiveAsk: effectiveBehavior,
+      });
+
+      const contextPacketV3: NorthStarSmsContextPacket = {
+        ...northStarPktEarly,
+        v3AnswerToOpenQuestion: true,
+        v3TurnSubkind: v3Resolution.subkind,
+        debug: {
+          ...(northStarPktEarly.debug ?? {}),
+          v3_turn_purpose: "answer_to_open_question",
+          v3_turn_subkind: v3Resolution.subkind,
+          answered_open_question: true,
+          extracted_open_question_answer: v3Resolution.extractedAnswer,
+          v3_brain: buildV3BrainMetadata({
+            brain: openBrain,
+            latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+            expectedSemantics:
+              typeof northStarPktEarly.expectedReplySemantics === "string"
+                ? northStarPktEarly.expectedReplySemantics
+                : null,
+            coachReplySource: "v3_answer_to_open_question",
+          }),
+        },
+      };
+
+      const gated = finalizeNorthStarInboundCoachReply({
+        proposedBody: draft,
+        ctx: {
+          userMessage,
+          lastOutboundSmsPreview: contextPacketV3.latestOutboundBody ?? lastOutboundSmsPreview,
+          effectiveBehavior,
+          behaviorStatement: commitment.behavior_statement ?? "",
+          finalEventType: null,
+          replySource: "v3_answer_to_open_question",
+          alreadyCompletedToday: priorYesToday,
+          contextPacket: contextPacketV3,
+        },
+      });
+
+      const nowV3 = new Date().toISOString();
+      const { data: persistedV3 } = await supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .update({
+          reply_body: gated.visibleBody,
+          status: "reply_ready",
+          next_retry_at: nowV3,
+          updated_at: nowV3,
+          last_error: null,
+        })
+        .eq("message_sid", job.message_sid)
+        .eq("status", "processing")
+        .select()
+        .maybeSingle();
+
+      if (!persistedV3) {
+        const j3 = await loadJob(job.message_sid);
+        if (j3?.reply_body?.trim()) {
+          await commitAndSendInboundCoachReply(j3, userId);
+          return;
+        }
+        throw new Error("v3_open_question_reply_ready_persist_failed");
+      }
+
+      const freshV3 = (await loadJob(job.message_sid)) ?? job;
+      await commitAndSendInboundCoachReply(freshV3, userId);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      const nbLine =
+        learningOpen.confidence != null && learningOpen.confidence >= 0.4
+          ? buildV3LearningNotebookLine(learningOpen, userMessage)
+          : null;
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "v3_answer_to_open_question",
+        ...(nbLine ? { v3LearningNotebookAppend: nbLine } : {}),
+      });
+      return;
+    }
+  }
 
   const shadowRelParts = [lifeDesires, peopleSummary, responsibility].filter(
     (x): x is string => typeof x === "string" && Boolean(x.trim())
@@ -950,6 +1144,63 @@ async function processV2NormalInboundOutcome(
     });
   }
 
+  const finalOutcomeType = gatedDecision.final_event_type ?? eventType;
+  const isRepairProof =
+    gatedDecision.should_write_outcome_event &&
+    gatedDecision.reply_style === "repair" &&
+    gatedDecision.mode === "use_ai_outcome";
+
+  const accountabilityProofMoment =
+    gatedDecision.should_write_outcome_event &&
+    (finalOutcomeType === "user_yes" ||
+      finalOutcomeType === "user_no" ||
+      finalOutcomeType === "user_partial")
+      ? buildProofMomentForAccountabilityOutcome({
+          finalEventType: finalOutcomeType,
+          eventsNewestFirst: recentEvents,
+          isRepairOutcome: isRepairProof,
+          userMessageCharCount: userMessage.length,
+        })
+      : null;
+
+  const proofPromptHint = proofMomentToPromptHint(accountabilityProofMoment);
+
+  let v3BrainPayload: V3SmsBrainResult | null = null;
+  let v3DraftAttempt: Awaited<ReturnType<typeof produceV3InboundCoachDraft>> | null = null;
+
+  const northStarPktForV3 = buildInboundNorthStarContextPacket({
+    commitmentId: commitment.id,
+    behaviorStatement: commitment.behavior_statement ?? "",
+    effectiveAskText: effectiveBehavior,
+    timezone,
+    userMessage,
+    lastOutboundSmsPreview,
+    checkPayload: (checkPayload ?? {}) as Record<string, unknown>,
+    recentEvents,
+    convPack: convPackFull,
+    coachingMemory: coachingMemoryRow,
+    finalEventType: gatedDecision.final_event_type ?? eventType,
+    lifeDesires,
+    peopleSummary,
+    identityAnchorText,
+    latestBlockerPreview,
+    proofDisplayedOrMoment: Boolean(accountabilityProofMoment),
+  });
+
+  const priorYesForV3 = recentEventsIncludeUserYesOnLocalDay(
+    recentEvents,
+    timezone,
+    getDateKeyInTimezone(new Date(), timezone)
+  );
+
+  const normalCoachingV3Eligible =
+    !isLikelySmsComplianceOrOptOutTurn(userMessage) &&
+    !isLikelyCommitmentChangeIntentTurn(userMessage);
+
+  /** Wave-4 handoff copy is refined in its own block; main lane skips duplicate produce. */
+  const normalInboundV3OwnershipEligible =
+    normalCoachingV3Eligible && gatedDecision.mode !== "commitment_change_handoff";
+
   const centralSmsTurnShadowStored =
     conversationBrainControlTurn != null
       ? null
@@ -1023,13 +1274,71 @@ async function processV2NormalInboundOutcome(
       })
     );
 
-    const gatedPivot = await northStarGatePersistBodyAsync(pivotBody, {
+    let pivotVisible = pivotBody;
+    /** Truthful when V3 refine block skipped (central brain + optional Phase 5a only). */
+    let pivotReplySource = "central_brain_pivot_visible";
+    if (normalCoachingV3Eligible) {
+      const linesPivot = buildMinimalInboundTranscriptLines(
+        convPackFull,
+        userMessage,
+        lastOutboundSmsPreview
+      );
+      try {
+        const v3Pivot = await produceV3InboundCoachDraft({
+          userMessage,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBehavior,
+          timezone,
+          northStarPacket: northStarPktForV3,
+          convPackRecentLines: linesPivot,
+          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          todayCompleted: priorYesForV3,
+          coachingMemory: coachingMemoryRow,
+          recentEvents,
+          gatedDecision,
+          deterministicEventType: eventType,
+          priorDraftHint: { source: "central_brain_pivot", text: pivotBody },
+        });
+        pivotVisible = v3Pivot.draft;
+        pivotReplySource = inferV3InboundReplySource(v3Pivot.brain, v3Pivot.openAiOk, true);
+      } catch (e) {
+        console.warn("[v3-sms-brain] pivot_refine_failed", {
+          commitment_id: commitment.id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+        const rec = await recoverV3InboundCoachDraftFromArgs({
+          userMessage,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBehavior,
+          timezone,
+          northStarPacket: northStarPktForV3,
+          convPackRecentLines: linesPivot,
+          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          todayCompleted: priorYesForV3,
+          coachingMemory: coachingMemoryRow,
+          recentEvents,
+          gatedDecision,
+          deterministicEventType: eventType,
+          priorDraftHint: { source: "central_brain_pivot", text: pivotBody },
+        });
+        pivotVisible = rec.draft;
+        pivotReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
+      }
+    }
+
+    const gatedPivot = await northStarGatePersistBodyAsync(pivotVisible, {
       job,
       channel: "central_brain_pivot",
       lastOutboundBody: lastOutboundSmsPreview,
       effectiveAsk: effectiveBehavior,
       behaviorStatement: commitment.behavior_statement,
       finalEventType: gatedDecision.final_event_type ?? eventType,
+      replySource: pivotReplySource,
+      contextPacket: northStarPktForV3,
     });
     const nowPivot = new Date().toISOString();
     const { data: persistedPivot } = await supabaseServer
@@ -1110,13 +1419,71 @@ async function processV2NormalInboundOutcome(
         })
       );
 
-      const gatedClarify = await northStarGatePersistBodyAsync(clarificationBody, {
+      let clarifyVisible = clarificationBody;
+      /** Truthful when V3 refine block skipped (ARC clarify + optional Phase 5a only). */
+      let clarifyReplySource = "arc_clarify_ambiguous_short_visible";
+      if (normalCoachingV3Eligible) {
+        const linesArc = buildMinimalInboundTranscriptLines(
+          convPackFull,
+          userMessage,
+          lastOutboundSmsPreview
+        );
+        try {
+          const v3Arc = await produceV3InboundCoachDraft({
+            userMessage,
+            messageSid: job.message_sid,
+            commitment,
+            effectiveAsk: effectiveBehavior,
+            timezone,
+            northStarPacket: northStarPktForV3,
+            convPackRecentLines: linesArc,
+            expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+            latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+            todayCompleted: priorYesForV3,
+            coachingMemory: coachingMemoryRow,
+            recentEvents,
+            gatedDecision,
+            deterministicEventType: eventType,
+            priorDraftHint: { source: "arc_clarify_ambiguous_short", text: clarificationBody },
+          });
+          clarifyVisible = v3Arc.draft;
+          clarifyReplySource = inferV3InboundReplySource(v3Arc.brain, v3Arc.openAiOk, true);
+        } catch (e) {
+          console.warn("[v3-sms-brain] arc_clarify_refine_failed", {
+            commitment_id: commitment.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+          const rec = await recoverV3InboundCoachDraftFromArgs({
+            userMessage,
+            messageSid: job.message_sid,
+            commitment,
+            effectiveAsk: effectiveBehavior,
+            timezone,
+            northStarPacket: northStarPktForV3,
+            convPackRecentLines: linesArc,
+            expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+            latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+            todayCompleted: priorYesForV3,
+            coachingMemory: coachingMemoryRow,
+            recentEvents,
+            gatedDecision,
+            deterministicEventType: eventType,
+            priorDraftHint: { source: "arc_clarify_ambiguous_short", text: clarificationBody },
+          });
+          clarifyVisible = rec.draft;
+          clarifyReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
+        }
+      }
+
+      const gatedClarify = await northStarGatePersistBodyAsync(clarifyVisible, {
         job,
         channel: "clarification",
         lastOutboundBody: lastOutboundSmsPreview,
         effectiveAsk: effectiveBehavior,
         behaviorStatement: commitment.behavior_statement,
         finalEventType: arcWriteOutcomeType,
+        replySource: clarifyReplySource,
+        contextPacket: northStarPktForV3,
       });
       const nowArc = new Date().toISOString();
       const { data: persistedArc } = await supabaseServer
@@ -1192,47 +1559,369 @@ async function processV2NormalInboundOutcome(
     commitmentChangeWave4Body = wave4Reply;
   }
 
-  const finalOutcomeType = gatedDecision.final_event_type ?? eventType;
-  const isRepairProof =
-    gatedDecision.should_write_outcome_event &&
-    gatedDecision.reply_style === "repair" &&
-    gatedDecision.mode === "use_ai_outcome";
+  if (
+    gatedDecision.mode === "commitment_change_handoff" &&
+    commitmentChangeWave4Body?.trim() &&
+    normalCoachingV3Eligible
+  ) {
+    const linesHandoff = buildMinimalInboundTranscriptLines(
+      convPackFull,
+      userMessage,
+      lastOutboundSmsPreview
+    );
+    try {
+      const wh = await produceV3InboundCoachDraft({
+        userMessage,
+        messageSid: job.message_sid,
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        timezone,
+        northStarPacket: northStarPktForV3,
+        convPackRecentLines: linesHandoff,
+        expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+        todayCompleted: priorYesForV3,
+        coachingMemory: coachingMemoryRow,
+        recentEvents,
+        gatedDecision,
+        deterministicEventType: eventType,
+        priorDraftHint: { source: "wave4_commitment_handoff", text: commitmentChangeWave4Body.trim() },
+      });
+      v3DraftAttempt = wh;
+      v3BrainPayload = wh.brain;
+    } catch (e) {
+      console.warn("[v3-sms-brain] wave4_handoff_refine_failed", {
+        commitment_id: commitment.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      try {
+        const rec = await recoverV3InboundCoachDraftFromArgs({
+          userMessage,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBehavior,
+          timezone,
+          northStarPacket: northStarPktForV3,
+          convPackRecentLines: linesHandoff,
+          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          todayCompleted: priorYesForV3,
+          coachingMemory: coachingMemoryRow,
+          recentEvents,
+          gatedDecision,
+          deterministicEventType: eventType,
+          priorDraftHint: { source: "wave4_commitment_handoff", text: commitmentChangeWave4Body.trim() },
+        });
+        v3DraftAttempt = rec;
+        v3BrainPayload = rec.brain;
+      } catch (e2) {
+        console.warn("[v3-sms-brain] wave4_handoff_recover_failed", {
+          commitment_id: commitment.id,
+          message: e2 instanceof Error ? e2.message : String(e2),
+        });
+      }
+    }
+  }
 
-  const accountabilityProofMoment =
-    gatedDecision.should_write_outcome_event &&
-    (finalOutcomeType === "user_yes" ||
-      finalOutcomeType === "user_no" ||
-      finalOutcomeType === "user_partial")
-      ? buildProofMomentForAccountabilityOutcome({
-          finalEventType: finalOutcomeType,
-          eventsNewestFirst: recentEvents,
-          isRepairOutcome: isRepairProof,
-          userMessageCharCount: userMessage.length,
-        })
+  const priorDraftFromConversationBrain =
+    conversationBrainControlTurn != null &&
+    typeof conversationBrainControlTurn.guard.final_sms_draft === "string" &&
+    conversationBrainControlTurn.guard.final_sms_draft.trim().length > 0
+      ? {
+          source: "conversation_brain_v1",
+          text: conversationBrainControlTurn.guard.final_sms_draft.trim(),
+        }
       : null;
 
-  const proofPromptHint = proofMomentToPromptHint(accountabilityProofMoment);
+  if (normalInboundV3OwnershipEligible) {
+    const linesMain = buildMinimalInboundTranscriptLines(
+      convPackFull,
+      userMessage,
+      lastOutboundSmsPreview
+    );
+    try {
+      const produced = await produceV3InboundCoachDraft({
+        userMessage,
+        messageSid: job.message_sid,
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        timezone,
+        northStarPacket: northStarPktForV3,
+        convPackRecentLines: linesMain,
+        expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+        todayCompleted: priorYesForV3,
+        coachingMemory: coachingMemoryRow,
+        recentEvents,
+        gatedDecision,
+        deterministicEventType: eventType,
+        priorDraftHint: priorDraftFromConversationBrain,
+      });
+      v3DraftAttempt = produced;
+      v3BrainPayload = produced.brain;
+    } catch (e) {
+      console.warn("[v3-sms-brain] produce_failed", {
+        commitment_id: commitment.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      try {
+        const recovered = await recoverV3InboundCoachDraftFromArgs({
+          userMessage,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBehavior,
+          timezone,
+          northStarPacket: northStarPktForV3,
+          convPackRecentLines: linesMain,
+          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          todayCompleted: priorYesForV3,
+          coachingMemory: coachingMemoryRow,
+          recentEvents,
+          gatedDecision,
+          deterministicEventType: eventType,
+          priorDraftHint: priorDraftFromConversationBrain,
+        });
+        v3DraftAttempt = recovered;
+        v3BrainPayload = recovered.brain;
+      } catch (e2) {
+        console.warn("[v3-sms-brain] recover_after_produce_failed", {
+          commitment_id: commitment.id,
+          message: e2 instanceof Error ? e2.message : String(e2),
+        });
+      }
+    }
+    if (v3DraftAttempt == null) {
+      try {
+        const recovered = await recoverV3InboundCoachDraftFromArgs({
+          userMessage,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBehavior,
+          timezone,
+          northStarPacket: northStarPktForV3,
+          convPackRecentLines: linesMain,
+          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          todayCompleted: priorYesForV3,
+          coachingMemory: coachingMemoryRow,
+          recentEvents,
+          gatedDecision,
+          deterministicEventType: eventType,
+          priorDraftHint: priorDraftFromConversationBrain,
+        });
+        v3DraftAttempt = recovered;
+        v3BrainPayload = recovered.brain;
+      } catch (e3) {
+        console.error("[v3-sms-brain] inbound_v3_ownership_unrecoverable", {
+          commitment_id: commitment.id,
+          message: e3 instanceof Error ? e3.message : String(e3),
+        });
+      }
+    }
+  }
 
-  // 5) Final SMS body — Wave 2.2 human reply resolution (suggested → AI → human banks → template).
+  let usedLegacyResolveHint = false;
+  if (v3DraftAttempt == null && normalCoachingV3Eligible) {
+    const legacyResolved = await resolveV2InboundCoachReplyBody({
+      gatedEnabled,
+      gatedDecision,
+      interpretation: shadowInterpretationRaw,
+      deterministicEventType: eventType,
+      userMessage,
+      preferredName,
+      messageSid: job.message_sid,
+      effectiveAsk: effectiveBehavior,
+      behaviorStatement: commitment.behavior_statement,
+      trySuggestedWhenAgrees: needInterpretation && !gatedEnabled,
+      commitmentChangeWave4Body,
+      buildOutcomeAi: async () => {
+        const finalEventType = gatedDecision.final_event_type ?? eventType;
+        const serverStrategy = strategyForInboundEventType(finalEventType);
+        return tryGenerateV2InboundMessage({
+          commitment,
+          eventType: finalEventType,
+          serverStrategy,
+          userMessage,
+          normalizedHint,
+          eventsNewestFirst: recentEvents,
+          coachingMemory: coachingMemoryRow,
+          preferredName,
+          lifeDesires,
+          peopleSummary,
+          responsibility,
+          identityAnchorText,
+          identityRefreshDue,
+          identityReferenceAllowed,
+          afterSilence,
+          lastOutboundNextMove,
+          ...(brokePause ? { brokePause: true } : {}),
+          ...(afterSilence
+            ? {
+                unansweredChecks: silenceCtx.unanswered_checks,
+                daysIdle: silenceCtx.days_since_last_user_outcome,
+              }
+            : {}),
+          recentSmsContextBlock: smsConvPackBlock,
+          proofMomentForPrompt: proofPromptHint,
+        });
+      },
+      buildTemplate: (finalType) =>
+        buildV2InboundReplySms({
+          behaviorStatement: effectiveBehavior,
+          messageSid: job.message_sid,
+          eventType: finalType,
+          preferredName,
+        }),
+    });
+    try {
+      const linesLegacy = buildMinimalInboundTranscriptLines(
+        convPackFull,
+        userMessage,
+        lastOutboundSmsPreview
+      );
+      const rec = await recoverV3InboundCoachDraftFromArgs({
+        userMessage,
+        messageSid: job.message_sid,
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        timezone,
+        northStarPacket: northStarPktForV3,
+        convPackRecentLines: linesLegacy,
+        expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+        todayCompleted: priorYesForV3,
+        coachingMemory: coachingMemoryRow,
+        recentEvents,
+        gatedDecision,
+        deterministicEventType: eventType,
+        priorDraftHint: { source: "legacy_resolve_hint", text: legacyResolved.replyBody },
+      });
+      v3DraftAttempt = rec;
+      v3BrainPayload = rec.brain;
+      usedLegacyResolveHint = true;
+    } catch (eL) {
+      console.error("[v3-sms-brain] legacy_hint_recovery_failed", {
+        commitment_id: commitment.id,
+        message: eL instanceof Error ? eL.message : String(eL),
+      });
+    }
+  }
+
+  if (v3DraftAttempt == null && normalCoachingV3Eligible) {
+    try {
+      const linesBare = buildMinimalInboundTranscriptLines(
+        convPackFull,
+        userMessage,
+        lastOutboundSmsPreview
+      );
+      const bare = await recoverV3InboundCoachDraftFromArgs({
+        userMessage,
+        messageSid: job.message_sid,
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        timezone,
+        northStarPacket: northStarPktForV3,
+        convPackRecentLines: linesBare,
+        expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+        todayCompleted: priorYesForV3,
+        coachingMemory: coachingMemoryRow,
+        recentEvents,
+        gatedDecision,
+        deterministicEventType: eventType,
+        priorDraftHint: undefined,
+      });
+      v3DraftAttempt = bare;
+      v3BrainPayload = bare.brain;
+    } catch (eBare) {
+      console.error("[v3-sms-brain] bare_deterministic_recovery_failed", {
+        commitment_id: commitment.id,
+        message: eBare instanceof Error ? eBare.message : String(eBare),
+      });
+    }
+  }
+
+  if (v3DraftAttempt == null && normalCoachingV3Eligible) {
+    const linesGuaranteed = buildMinimalInboundTranscriptLines(
+      convPackFull,
+      userMessage,
+      lastOutboundSmsPreview
+    );
+    const syn = guaranteeV3InboundCoachDraft({
+      userMessage,
+      messageSid: job.message_sid,
+      commitment,
+      effectiveAsk: effectiveBehavior,
+      timezone,
+      northStarPacket: northStarPktForV3,
+      convPackRecentLines: linesGuaranteed,
+      expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+      latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+      todayCompleted: priorYesForV3,
+      coachingMemory: coachingMemoryRow,
+      recentEvents,
+      gatedDecision,
+      deterministicEventType: eventType,
+      priorDraftHint: undefined,
+    });
+    v3DraftAttempt = syn;
+    v3BrainPayload = syn.brain;
+  }
+
+  if (v3BrainPayload?.learningSignal && normalCoachingV3Eligible) {
+    const nbExtra = buildV1ExtraNotebookAppend({
+      learning: v3BrainPayload.learningSignal,
+      outcomeHint:
+        gatedDecision.final_event_type === "user_yes"
+          ? "user_yes"
+          : gatedDecision.final_event_type === "user_no"
+            ? "user_no"
+            : gatedDecision.final_event_type === "user_partial"
+              ? "user_partial"
+              : null,
+      inboundRaw: userMessage,
+    });
+    if (nbExtra?.trim()) {
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "v3_v1_learning_signals",
+        v3LearningNotebookAppend: nbExtra,
+      });
+    }
+  }
+
+  const hadPriorHintForSource = Boolean(priorDraftFromConversationBrain || usedLegacyResolveHint);
+
+  // 5) Final SMS body — legacy banks only when not normal coaching (compliance / pure transactional slices).
   const trySuggestedWhenAgrees = needInterpretation && !gatedEnabled;
   const resolved =
-    conversationBrainControlTurn != null
+    v3DraftAttempt != null
       ? {
-          replyBody: conversationBrainControlTurn.guard.final_sms_draft!,
+          replyBody: v3DraftAttempt.draft,
           meta: {
-            reply_source: "ai_generated",
-            reply_mode: "conversation_brain_v1",
+            reply_source: inferV3InboundReplySource(
+              v3DraftAttempt.brain,
+              v3DraftAttempt.openAiOk,
+              hadPriorHintForSource
+            ),
+            reply_mode: gatedDecision.mode,
             suggested_reply_used: false,
             suggested_reply_rejected_reason: null,
-            final_event_type: conversationBrainControlTurn.guard.final_event_type,
+            final_event_type: gatedDecision.final_event_type ?? eventType,
             gated_mode: gatedDecision.mode,
           },
-          aiTry: {
-            ok: true as const,
-            message: conversationBrainControlTurn.guard.final_sms_draft!,
-            confidence: conversationBrainControlTurn.proposal.outcome_confidence,
-            fallbackUsed: false as const,
-          },
+          aiTry: v3DraftAttempt.openAiOk
+            ? {
+                ok: true as const,
+                message: v3DraftAttempt.draft,
+                confidence: null,
+                fallbackUsed: false as const,
+              }
+            : {
+                ok: false as const,
+                fallbackUsed: true as const,
+                reason: "v3_brain_fallback",
+              },
           replyTemplateId: undefined,
         }
       : await resolveV2InboundCoachReplyBody({
@@ -1308,7 +1997,75 @@ async function processV2NormalInboundOutcome(
   }
 
   let replyBody = forcedCoachSms ?? resolved.replyBody;
-  if (isV2HumanSmsPhase2NormalInboundEnabled() && conversationBrainControlTurn == null) {
+  let effectiveInboundReplySource = resolved.meta.reply_source;
+
+  if (forcedCoachSms && normalCoachingV3Eligible) {
+    const linesForcedStretch = buildMinimalInboundTranscriptLines(
+      convPackFull,
+      userMessage,
+      lastOutboundSmsPreview
+    );
+    try {
+      const fr = await produceV3InboundCoachDraft({
+        userMessage,
+        messageSid: job.message_sid,
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        timezone,
+        northStarPacket: northStarPktForV3,
+        convPackRecentLines: linesForcedStretch,
+        expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+        todayCompleted: priorYesForV3,
+        coachingMemory: coachingMemoryRow,
+        recentEvents,
+        gatedDecision,
+        deterministicEventType: eventType,
+        priorDraftHint: { source: "forced_future_stretch_intent", text: forcedCoachSms },
+      });
+      replyBody = fr.draft;
+      effectiveInboundReplySource = inferV3InboundReplySource(fr.brain, fr.openAiOk, true);
+    } catch (e) {
+      console.warn("[v3-sms-brain] forced_stretch_refine_failed", {
+        commitment_id: commitment.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      try {
+        const fr = await recoverV3InboundCoachDraftFromArgs({
+          userMessage,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBehavior,
+          timezone,
+          northStarPacket: northStarPktForV3,
+          convPackRecentLines: linesForcedStretch,
+          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          todayCompleted: priorYesForV3,
+          coachingMemory: coachingMemoryRow,
+          recentEvents,
+          gatedDecision,
+          deterministicEventType: eventType,
+          priorDraftHint: { source: "forced_future_stretch_intent", text: forcedCoachSms },
+        });
+        replyBody = fr.draft;
+        effectiveInboundReplySource = inferV3InboundReplySource(fr.brain, fr.openAiOk, true);
+      } catch (e2) {
+        console.warn("[v3-sms-brain] forced_stretch_recover_failed", {
+          commitment_id: commitment.id,
+          message: e2 instanceof Error ? e2.message : String(e2),
+        });
+      }
+    }
+  }
+
+  if (
+    isV2HumanSmsPhase2NormalInboundEnabled() &&
+    !normalCoachingV3Eligible &&
+    !isV3OwnedInboundReplySource(effectiveInboundReplySource) &&
+    conversationBrainControlTurn == null &&
+    v3DraftAttempt == null
+  ) {
     warnIfPhase2BrainWithoutValidatorEnforce();
     const unknownOutcome = shouldSkipPhase2BrainForUnknownOutcomeEvent({
       gatedDecision,
@@ -1500,7 +2257,13 @@ async function processV2NormalInboundOutcome(
     victorySmsCallout.appendToReply != null && finalReplyBody !== beforeVictoryLine;
   const victoryExtrasForSpine = victoryCalloutDisplayed ? victorySmsCallout.eventPayloadExtras : {};
 
-  if (shouldRunPhase5aInboundStitchedFinalBrain() && conversationBrainControlTurn == null) {
+  if (
+    shouldRunPhase5aInboundStitchedFinalBrain() &&
+    !normalCoachingV3Eligible &&
+    !isV3OwnedInboundReplySource(effectiveInboundReplySource) &&
+    conversationBrainControlTurn == null &&
+    v3DraftAttempt == null
+  ) {
     const preservationSnippets: string[] = [];
     if (gatedDecision.supplement_commitment_change_guidance) {
       preservationSnippets.push(COMMITMENT_APPEND_FOR_SCORED);
@@ -1552,7 +2315,7 @@ async function processV2NormalInboundOutcome(
       effectiveBehavior,
       behaviorStatement: commitment.behavior_statement,
       finalEventType: resolved.meta.final_event_type ?? null,
-      replySource: resolved.meta.reply_source,
+      replySource: effectiveInboundReplySource,
       contextPacket: northStarInboundContextPacket,
     },
   });
@@ -1563,9 +2326,11 @@ async function processV2NormalInboundOutcome(
   const replyResolutionMeta = resolved.meta;
 
   const inboundAiModelUsed =
-    conversationBrainControlTurn != null ? conversationBrainControlTurn.model : V2_INBOUND_AI_MODEL;
+    conversationBrainControlTurn != null && v3DraftAttempt == null
+      ? conversationBrainControlTurn.model
+      : V2_INBOUND_AI_MODEL;
   const inboundAiPromptVersionUsed =
-    conversationBrainControlTurn != null
+    conversationBrainControlTurn != null && v3DraftAttempt == null
       ? V2_SMS_CONVERSATION_BRAIN_PROMPT_VERSION
       : V2_INBOUND_AI_PROMPT_VERSION;
 
@@ -1613,6 +2378,26 @@ async function processV2NormalInboundOutcome(
     final_event_type: replyResolutionMeta.final_event_type,
     gated_mode: replyResolutionMeta.gated_mode,
   };
+
+  const v3BrainEventMeta =
+    v3BrainPayload != null
+      ? buildV3BrainMetadata({
+          brain: v3BrainPayload,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          expectedSemantics:
+            typeof northStarPktForV3.expectedReplySemantics === "string"
+              ? northStarPktForV3.expectedReplySemantics
+              : null,
+          coachReplySource: effectiveInboundReplySource ?? replyResolutionMeta.reply_source ?? "v3_sms_brain",
+          northStarGate: {
+            original_body: northStarInboundPack.meta.originalBody,
+            final_body: northStarInboundPack.visibleBody,
+            north_star_gate_source: northStarInboundPack.meta.source,
+            north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
+          },
+          priorDraftSource: priorDraftFromConversationBrain?.source ?? null,
+        })
+      : null;
 
   const aiPayload =
     gatedDecision.should_write_outcome_event && gatedDecision.final_event_type
@@ -1718,6 +2503,7 @@ async function processV2NormalInboundOutcome(
         ...proofMomentPayloadFields(accountabilityProofMoment),
         ...(gatedDecision.should_write_outcome_event ? victoryExtrasForSpine : {}),
         ...(centralSmsTurnShadowStored != null ? { central_sms_turn_shadow: centralSmsTurnShadowStored } : {}),
+        ...(v3BrainEventMeta != null ? { v3_brain: v3BrainEventMeta } : {}),
         ai: aiPayload,
         ...(conversationBrainSpineMeta != null ? { conversation_brain_v1: conversationBrainSpineMeta } : {}),
       },
@@ -1739,8 +2525,18 @@ async function processV2NormalInboundOutcome(
       });
     }
 
+    const outcomeNotebook =
+      v3BrainPayload?.learningSignal?.confidence != null &&
+      v3BrainPayload.learningSignal.confidence >= 0.48 &&
+      (v3BrainPayload.learningSignal.blockerPattern ||
+        v3BrainPayload.learningSignal.workingCondition ||
+        v3BrainPayload.learningSignal.currentExperiment)
+        ? buildV3LearningNotebookLine(v3BrainPayload.learningSignal!, userMessage)
+        : null;
+
     await recomputeV2CoachingMemory(commitment.id, {
       reasonCode: "inbound_user_outcome",
+      ...(outcomeNotebook ? { v3LearningNotebookAppend: outcomeNotebook } : {}),
     });
 
     if (gatedDecision.should_open_blocker_capture) {
@@ -1751,6 +2547,21 @@ async function processV2NormalInboundOutcome(
     }
   } else {
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    const nonOutcomeNotebook =
+      !gatedDecision.should_write_outcome_event &&
+      v3BrainPayload?.learningSignal?.confidence != null &&
+      v3BrainPayload.learningSignal.confidence >= 0.48 &&
+      (v3BrainPayload.learningSignal.blockerPattern ||
+        v3BrainPayload.learningSignal.workingCondition ||
+        v3BrainPayload.learningSignal.currentExperiment)
+        ? buildV3LearningNotebookLine(v3BrainPayload.learningSignal!, userMessage)
+        : null;
+    if (nonOutcomeNotebook) {
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "v3_non_outcome_learning_notebook",
+        v3LearningNotebookAppend: nonOutcomeNotebook,
+      });
+    }
   }
 
   // 7) Job reply → shared send pipeline.
@@ -1900,6 +2711,29 @@ async function processV2BlockerCapture(
     }
   }
 
+  const northStarBlockerPkt = buildInboundNorthStarContextPacket({
+    commitmentId: commitment.id,
+    behaviorStatement: commitment.behavior_statement ?? "",
+    effectiveAskText: effectiveBlockerAsk,
+    timezone,
+    userMessage: blockerText,
+    lastOutboundSmsPreview: lastOutboundBlockPreview,
+    checkPayload: checkPayloadBlock as Record<string, unknown>,
+    recentEvents: recentEventsForCentral,
+    convPack: convPackBlocker,
+    coachingMemory: blockerCoachingMemory,
+    finalEventType: blockerClassification.eventType,
+    lifeDesires: blockerLifeDesires,
+    peopleSummary: blockerPeopleSummary,
+    identityAnchorText: blockerIdentityForPrompt,
+    latestBlockerPreview: null,
+  });
+  const blockerPriorYes = recentEventsIncludeUserYesOnLocalDay(
+    recentEventsForCentral,
+    timezone,
+    getDateKeyInTimezone(new Date(), timezone)
+  );
+
   const centralBlockerShadowStored = await interpretV2CentralSmsTurn({
     clerkUserId: userId,
     commitmentId: commitment.id,
@@ -1960,13 +2794,70 @@ async function processV2BlockerCapture(
         old_path_that_would_have_run: "blocker_captured",
       })
     );
-    const gatedBlockerPivot = await northStarGatePersistBodyAsync(pivotBody, {
+    let blockerPivotVisible = pivotBody;
+    /** Truthful when V3 blocker pivot refine block skipped. */
+    let blockerPivotReplySource = "central_brain_blocker_pivot_visible";
+    if (
+      convPackBlocker &&
+      !isLikelySmsComplianceOrOptOutTurn(blockerText) &&
+      !isLikelyCommitmentChangeIntentTurn(blockerText) &&
+      !isV2PendingProposalValid(commitment)
+    ) {
+      try {
+        const v3BlkPv = await produceV3InboundCoachDraft({
+          userMessage: blockerText,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBlockerAsk,
+          timezone,
+          northStarPacket: northStarBlockerPkt,
+          convPackRecentLines: convPackBlocker.recentTranscriptLines ?? [],
+          expectedReplySemantics: northStarBlockerPkt.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarBlockerPkt.latestOpenQuestion ?? null,
+          todayCompleted: blockerPriorYes,
+          coachingMemory: blockerCoachingMemory,
+          recentEvents: recentEventsForCentral,
+          gatedDecision: V3_REFINE_ONLY_GATED,
+          deterministicEventType: blockerClassification.eventType,
+          priorDraftHint: { source: "central_brain_pivot_blocker", text: pivotBody },
+        });
+        blockerPivotVisible = v3BlkPv.draft;
+        blockerPivotReplySource = inferV3InboundReplySource(v3BlkPv.brain, v3BlkPv.openAiOk, true);
+      } catch (e) {
+        console.warn("[v3-sms-brain] blocker_pivot_refine_failed", {
+          commitment_id: commitment.id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+        const rec = await recoverV3InboundCoachDraftFromArgs({
+          userMessage: blockerText,
+          messageSid: job.message_sid,
+          commitment,
+          effectiveAsk: effectiveBlockerAsk,
+          timezone,
+          northStarPacket: northStarBlockerPkt,
+          convPackRecentLines: convPackBlocker.recentTranscriptLines ?? [],
+          expectedReplySemantics: northStarBlockerPkt.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarBlockerPkt.latestOpenQuestion ?? null,
+          todayCompleted: blockerPriorYes,
+          coachingMemory: blockerCoachingMemory,
+          recentEvents: recentEventsForCentral,
+          gatedDecision: V3_REFINE_ONLY_GATED,
+          deterministicEventType: blockerClassification.eventType,
+          priorDraftHint: { source: "central_brain_pivot_blocker", text: pivotBody },
+        });
+        blockerPivotVisible = rec.draft;
+        blockerPivotReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
+      }
+    }
+    const gatedBlockerPivot = await northStarGatePersistBodyAsync(blockerPivotVisible, {
       job,
       channel: "central_brain_pivot",
       lastOutboundBody: lastOutboundBlockPreview,
       effectiveAsk: effectiveBlockerAsk,
       behaviorStatement: commitment.behavior_statement,
       finalEventType: blockerClassification.eventType,
+      replySource: blockerPivotReplySource,
+      contextPacket: northStarBlockerPkt,
     });
     const pivotNow = new Date().toISOString();
     const { data: persistedPivot } = await supabaseServer
@@ -2010,13 +2901,70 @@ async function processV2BlockerCapture(
   });
 
   const ackBody = blockerAckTry.ok ? blockerAckTry.message : templateAckBody;
-  const gatedAckBody = await northStarGatePersistBodyAsync(ackBody, {
+  let ackVisible = ackBody;
+  /** Truthful when V3 blocker-ack refine block skipped (AI/template ack only). */
+  let ackReplySource = "blocker_ack_visible_non_v3";
+  if (
+    convPackBlocker &&
+    !isLikelySmsComplianceOrOptOutTurn(blockerText) &&
+    !isLikelyCommitmentChangeIntentTurn(blockerText) &&
+    !isV2PendingProposalValid(commitment)
+  ) {
+    try {
+      const v3Ack = await produceV3InboundCoachDraft({
+        userMessage: blockerText,
+        messageSid: job.message_sid,
+        commitment,
+        effectiveAsk: effectiveBlockerAsk,
+        timezone,
+        northStarPacket: northStarBlockerPkt,
+        convPackRecentLines: convPackBlocker.recentTranscriptLines ?? [],
+        expectedReplySemantics: northStarBlockerPkt.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarBlockerPkt.latestOpenQuestion ?? null,
+        todayCompleted: blockerPriorYes,
+        coachingMemory: blockerCoachingMemory,
+        recentEvents: recentEventsForCentral,
+        gatedDecision: V3_REFINE_ONLY_GATED,
+        deterministicEventType: blockerClassification.eventType,
+        priorDraftHint: { source: "blocker_ack", text: ackBody },
+      });
+      ackVisible = v3Ack.draft;
+      ackReplySource = inferV3InboundReplySource(v3Ack.brain, v3Ack.openAiOk, true);
+    } catch (e) {
+      console.warn("[v3-sms-brain] blocker_ack_refine_failed", {
+        commitment_id: commitment.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      const rec = await recoverV3InboundCoachDraftFromArgs({
+        userMessage: blockerText,
+        messageSid: job.message_sid,
+        commitment,
+        effectiveAsk: effectiveBlockerAsk,
+        timezone,
+        northStarPacket: northStarBlockerPkt,
+        convPackRecentLines: convPackBlocker.recentTranscriptLines ?? [],
+        expectedReplySemantics: northStarBlockerPkt.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarBlockerPkt.latestOpenQuestion ?? null,
+        todayCompleted: blockerPriorYes,
+        coachingMemory: blockerCoachingMemory,
+        recentEvents: recentEventsForCentral,
+        gatedDecision: V3_REFINE_ONLY_GATED,
+        deterministicEventType: blockerClassification.eventType,
+        priorDraftHint: { source: "blocker_ack", text: ackBody },
+      });
+      ackVisible = rec.draft;
+      ackReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
+    }
+  }
+  const gatedAckBody = await northStarGatePersistBodyAsync(ackVisible, {
     job,
     channel: "blocker_followup",
     lastOutboundBody: lastOutboundBlockPreview,
     effectiveAsk: effectiveBlockerAsk,
     behaviorStatement: commitment.behavior_statement,
     finalEventType: blockerClassification.eventType,
+    replySource: ackReplySource,
+    contextPacket: northStarBlockerPkt,
   });
 
   const blockerAiPayload = buildBlockerAckAiPayload({
@@ -2168,12 +3116,24 @@ async function processV2ContractProposalConsent(
     typeof consentProfileRow?.preferred_name === "string" ? consentProfileRow.preferred_name : null;
 
   const persistReplyAndSend = async (replyBody: string): Promise<void> => {
-    const gated = await northStarGatePersistBodyAsync(replyBody, {
+    const r = await refineInboundSmsMachineDraft({
+      job,
+      userId,
+      commitment: workingCommitment,
+      timezone,
+      inboundRaw: (job.raw_body || "").trim(),
+      machineBody: replyBody,
+      hintSource: "contract_consent_ack",
+      ownedReplySource: "v3_contract_consent_refined",
+    });
+    const gated = await northStarGatePersistBodyAsync(r.body, {
       job,
       channel: "contract_ack",
       lastOutboundBody: lastBody,
       behaviorStatement: workingCommitment.behavior_statement,
       effectiveAsk: getEffectiveCoachingAsk(workingCommitment, Date.now()),
+      replySource: r.replySource ?? undefined,
+      contextPacket: r.contextPacket,
     });
     const now = new Date().toISOString();
     const { data: persisted } = await supabaseServer
@@ -2352,6 +3312,8 @@ async function persistV2JobReplyReadyAndSend(
     behaviorStatement?: string | null;
     finalEventType?: string | null;
     contextPacket?: NorthStarSmsContextPacket;
+    /** When set, North Star OpenAI finalizer is skipped (deterministic guard still runs). */
+    replySource?: string | null;
   }
 ): Promise<void> {
   const gated = (
@@ -2363,6 +3325,7 @@ async function persistV2JobReplyReadyAndSend(
       effectiveAskText: northStar?.effectiveAsk ?? undefined,
       behaviorStatement: northStar?.behaviorStatement ?? undefined,
       finalEventType: northStar?.finalEventType ?? undefined,
+      replySource: northStar?.replySource ?? undefined,
       alreadyCompletedToday:
         northStar?.finalEventType === "user_yes" || inboundSignalsCompletion(job.raw_body),
       contextPacket: northStar?.contextPacket,
@@ -2394,6 +3357,35 @@ async function persistV2JobReplyReadyAndSend(
 
   const fresh = (await loadJob(job.message_sid)) ?? job;
   await commitAndSendInboundCoachReply(fresh, userId);
+}
+
+async function persistRefreshSmsRefinedAndSend(args: {
+  job: JobRow;
+  userId: string;
+  commitment: ActiveV2CommitmentRow;
+  timezone: string;
+  machineBody: string;
+  inboundRaw: string;
+}): Promise<void> {
+  const r = await refineInboundSmsMachineDraft({
+    job: args.job,
+    userId: args.userId,
+    commitment: args.commitment,
+    timezone: args.timezone,
+    inboundRaw: args.inboundRaw,
+    machineBody: args.machineBody,
+    hintSource: "refresh_session_step",
+    ownedReplySource: "v3_refresh_refined",
+  });
+  const classification = classifyV2InboundReply(args.inboundRaw.trim());
+  await persistV2JobReplyReadyAndSend(args.job, args.userId, r.body, {
+    channel: "other_coaching",
+    effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
+    behaviorStatement: args.commitment.behavior_statement ?? null,
+    finalEventType: classification.eventType,
+    contextPacket: r.contextPacket,
+    replySource: r.replySource,
+  });
 }
 
 /**
@@ -2513,11 +3505,21 @@ async function processV2MemoryConfirmationInbound(
   const replyKind = parseMemoryConfirmationReply(raw);
 
   if (replyKind === "ambiguous") {
-    await persistV2JobReplyReadyAndSend(
+    const amb = await refineInboundSmsMachineDraft({
       job,
       userId,
-      "Should I remember that going forward, or leave the current profile as-is?"
-    );
+      commitment,
+      timezone,
+      inboundRaw: raw,
+      machineBody:
+        "Should I remember that going forward, or leave the current profile as-is?",
+      hintSource: "memory_confirmation",
+      ownedReplySource: "v3_memory_confirmation_refined",
+    });
+    await persistV2JobReplyReadyAndSend(job, userId, amb.body, {
+      replySource: amb.replySource,
+      contextPacket: amb.contextPacket,
+    });
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     await insertWave11MemoryResolutionEvent({
       commitmentId: commitment.id,
@@ -2534,11 +3536,20 @@ async function processV2MemoryConfirmationInbound(
   }
 
   if (replyKind === "no") {
-    await persistV2JobReplyReadyAndSend(
+    const decline = await refineInboundSmsMachineDraft({
       job,
       userId,
-      "Got it — I won’t save that. We’ll keep the current context."
-    );
+      commitment,
+      timezone,
+      inboundRaw: raw,
+      machineBody: "Got it — I won’t save that. We’ll keep the current context.",
+      hintSource: "memory_confirmation",
+      ownedReplySource: "v3_memory_confirmation_refined",
+    });
+    await persistV2JobReplyReadyAndSend(job, userId, decline.body, {
+      replySource: decline.replySource,
+      contextPacket: decline.contextPacket,
+    });
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     await insertWave11MemoryResolutionEvent({
       commitmentId: commitment.id,
@@ -2577,7 +3588,20 @@ async function processV2MemoryConfirmationInbound(
   replyText = appendSmsParagraphIfUnderCap(replyText, memVictory.appendToReply);
   const memVictoryShown = memVictory.appendToReply != null && replyText !== beforeMemVictory;
 
-  await persistV2JobReplyReadyAndSend(job, userId, replyText);
+  const memRefined = await refineInboundSmsMachineDraft({
+    job,
+    userId,
+    commitment,
+    timezone,
+    inboundRaw: raw,
+    machineBody: replyText,
+    hintSource: "memory_confirmation",
+    ownedReplySource: "v3_memory_confirmation_refined",
+  });
+  await persistV2JobReplyReadyAndSend(job, userId, memRefined.body, {
+    replySource: memRefined.replySource,
+    contextPacket: memRefined.contextPacket,
+  });
   await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
   if (anyApplied) {
     await recomputeV2CoachingMemory(commitment.id, {
@@ -2626,7 +3650,109 @@ async function processV2SmsInboundPendingResolution(
     return false;
   }
 
-  await persistV2JobReplyReadyAndSend(job, userId, result.replyBody);
+  let pendingVisible = result.replyBody;
+  let pendingReplySource: string | undefined;
+  try {
+    const rawPr = (job.raw_body || "").trim();
+    if (
+      rawPr &&
+      !isLikelySmsComplianceOrOptOutTurn(rawPr) &&
+      !isLikelyCommitmentChangeIntentTurn(rawPr) &&
+      !isV2PendingProposalValid(c)
+    ) {
+      const coachingMemoryPr = await loadV2CoachingMemoryForPrompt(c.id);
+      const recentEventsPr = await getRecentV2EventsForAi(c.id);
+      const convPackPr = await buildV2SmsConversationContextPack({
+        clerkUserId: userId,
+        commitmentId: c.id,
+        commitment: c,
+        timezone,
+        currentInboundText: rawPr,
+        preloadedCoachingMemory: coachingMemoryPr,
+        preloadedEventsNewestFirst: recentEventsPr,
+      });
+      const effectiveAskPr = getEffectiveCoachingAsk(c);
+      const classificationPr = classifyV2InboundReply(rawPr);
+      const latestCheckPr = recentEventsPr.find((e) => e.event_type === "check_sent");
+      const checkPayloadPr = (latestCheckPr?.payload_json ?? {}) as Record<string, unknown>;
+      const lastOutPr =
+        typeof checkPayloadPr.body_preview === "string" && checkPayloadPr.body_preview.trim()
+          ? checkPayloadPr.body_preview.trim().slice(0, 260)
+          : null;
+      const northStarPktPr = buildInboundNorthStarContextPacket({
+        commitmentId: c.id,
+        behaviorStatement: c.behavior_statement ?? "",
+        effectiveAskText: effectiveAskPr,
+        timezone,
+        userMessage: rawPr,
+        lastOutboundSmsPreview: lastOutPr,
+        checkPayload: checkPayloadPr,
+        recentEvents: recentEventsPr,
+        convPack: convPackPr,
+        coachingMemory: coachingMemoryPr,
+        finalEventType: classificationPr.eventType,
+        lifeDesires: null,
+        peopleSummary: null,
+        identityAnchorText: null,
+        latestBlockerPreview: null,
+      });
+      const priorYesPr = recentEventsIncludeUserYesOnLocalDay(
+        recentEventsPr,
+        timezone,
+        getDateKeyInTimezone(new Date(), timezone)
+      );
+      try {
+        const refinedPr = await produceV3InboundCoachDraft({
+          userMessage: rawPr,
+          messageSid: job.message_sid,
+          commitment: c,
+          effectiveAsk: effectiveAskPr,
+          timezone,
+          northStarPacket: northStarPktPr,
+          convPackRecentLines: convPackPr.recentTranscriptLines ?? [],
+          expectedReplySemantics: northStarPktPr.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktPr.latestOpenQuestion ?? null,
+          todayCompleted: priorYesPr,
+          coachingMemory: coachingMemoryPr,
+          recentEvents: recentEventsPr,
+          gatedDecision: V3_REFINE_ONLY_GATED,
+          deterministicEventType: classificationPr.eventType,
+          priorDraftHint: { source: "sms_pending_resolution", text: pendingVisible },
+        });
+        pendingVisible = refinedPr.draft;
+        pendingReplySource = inferV3InboundReplySource(refinedPr.brain, refinedPr.openAiOk, true);
+      } catch (e0) {
+        const rec = await recoverV3InboundCoachDraftFromArgs({
+          userMessage: rawPr,
+          messageSid: job.message_sid,
+          commitment: c,
+          effectiveAsk: effectiveAskPr,
+          timezone,
+          northStarPacket: northStarPktPr,
+          convPackRecentLines: convPackPr.recentTranscriptLines ?? [],
+          expectedReplySemantics: northStarPktPr.expectedReplySemantics as ExpectedReplySemanticsV3,
+          latestOpenQuestion: northStarPktPr.latestOpenQuestion ?? null,
+          todayCompleted: priorYesPr,
+          coachingMemory: coachingMemoryPr,
+          recentEvents: recentEventsPr,
+          gatedDecision: V3_REFINE_ONLY_GATED,
+          deterministicEventType: classificationPr.eventType,
+          priorDraftHint: { source: "sms_pending_resolution", text: pendingVisible },
+        });
+        pendingVisible = rec.draft;
+        pendingReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
+      }
+    }
+  } catch (e) {
+    console.warn("[v3-sms-brain] pending_resolution_refine_failed", {
+      commitment_id: c.id,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  await persistV2JobReplyReadyAndSend(job, userId, pendingVisible, {
+    replySource: pendingReplySource,
+  });
   await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
   await mergeInboundMemoryIntoSmsPendingResolution({
     job,
@@ -2677,20 +3803,28 @@ async function processV2CoachingRefreshInbound(
       });
       if (!still.ok) {
         if (still.result === "already_applied") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "Already recorded from a prior reply in this thread. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "Already recorded from a prior reply in this thread. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         if (still.result === "state_conflict" || still.result === "not_found") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "No active identity refresh step to update from this reply. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "No active identity refresh step to update from this reply. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
@@ -2700,7 +3834,14 @@ async function processV2CoachingRefreshInbound(
       expectedCommitmentUpdatedAt = typeof still.updatedAt === "string" ? still.updatedAt : null;
       const effectiveAsk = getEffectiveCoachingAsk(commitment, Date.now());
       const { body: stepB } = buildRefreshStepCommitmentSms({ effectiveAsk });
-      await persistV2JobReplyReadyAndSend(job, userId, stepB);
+      await persistRefreshSmsRefinedAndSend({
+        job,
+        userId,
+        commitment,
+        timezone,
+        inboundRaw: rawTrimmed,
+        machineBody: stepB,
+      });
       const delivered: V2RefreshSessionState = {
         ...advanced,
         commitment_prompt_delivered: true,
@@ -2744,27 +3885,42 @@ async function processV2CoachingRefreshInbound(
       });
       if (!change.ok) {
         if (change.result === "already_applied") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "Already recorded from a prior reply in this thread. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "Already recorded from a prior reply in this thread. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         if (change.result === "state_conflict" || change.result === "not_found") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "No active identity refresh step to update from this reply. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "No active identity refresh step to update from this reply. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         throw new Error(`refresh_identity_change_failed:${change.error}`);
       }
       const { body } = buildGuidedResolutionChangeHandoffSms();
-      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await persistRefreshSmsRefinedAndSend({
+        job,
+        userId,
+        commitment,
+        timezone,
+        inboundRaw: rawTrimmed,
+        machineBody: body,
+      });
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       await recomputeV2CoachingMemory(commitment.id, {
         reasonCode: "inbound_refresh_change",
@@ -2783,27 +3939,42 @@ async function processV2CoachingRefreshInbound(
       });
       if (!clarify.ok) {
         if (clarify.result === "already_applied") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "Already recorded from a prior reply in this thread. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "Already recorded from a prior reply in this thread. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         if (clarify.result === "state_conflict" || clarify.result === "not_found") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "No active identity refresh step to update from this reply. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "No active identity refresh step to update from this reply. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         throw new Error(`refresh_identity_clarify_failed:${clarify.error}`);
       }
       const { body } = buildRefreshClarifyIdentitySms();
-      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await persistRefreshSmsRefinedAndSend({
+        job,
+        userId,
+        commitment,
+        timezone,
+        inboundRaw: rawTrimmed,
+        machineBody: body,
+      });
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       await recomputeV2CoachingMemory(commitment.id, {
         reasonCode: "inbound_refresh_identity_clarify",
@@ -2821,30 +3992,42 @@ async function processV2CoachingRefreshInbound(
     });
     if (!abortIdentity.ok) {
       if (abortIdentity.result === "already_applied") {
-        await persistV2JobReplyReadyAndSend(
+        await persistRefreshSmsRefinedAndSend({
           job,
           userId,
-          "Already recorded from a prior reply in this thread. Normal checks continue."
-        );
+          commitment,
+          timezone,
+          inboundRaw: rawTrimmed,
+          machineBody:
+            "Already recorded from a prior reply in this thread. Normal checks continue.",
+        });
         await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return true;
       }
       if (abortIdentity.result === "state_conflict" || abortIdentity.result === "not_found") {
-        await persistV2JobReplyReadyAndSend(
+        await persistRefreshSmsRefinedAndSend({
           job,
           userId,
-          "No active identity refresh step to update from this reply. Normal checks continue."
-        );
+          commitment,
+          timezone,
+          inboundRaw: rawTrimmed,
+          machineBody:
+            "No active identity refresh step to update from this reply. Normal checks continue.",
+        });
         await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return true;
       }
       throw new Error(`refresh_identity_aborted_unclear_failed:${abortIdentity.error}`);
     }
-    await persistV2JobReplyReadyAndSend(
+    await persistRefreshSmsRefinedAndSend({
       job,
       userId,
-      "Closing that alignment check for now—no changes saved from this thread. Normal checks continue."
-    );
+      commitment,
+      timezone,
+      inboundRaw: rawTrimmed,
+      machineBody:
+        "Closing that alignment check for now—no changes saved from this thread. Normal checks continue.",
+    });
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     await recomputeV2CoachingMemory(commitment.id, {
       reasonCode: "inbound_refresh_identity_aborted_unclear",
@@ -2864,20 +4047,28 @@ async function processV2CoachingRefreshInbound(
       });
       if (!keep.ok) {
         if (keep.result === "already_applied") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "Already recorded from a prior reply in this thread. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "Already recorded from a prior reply in this thread. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         if (keep.result === "state_conflict" || keep.result === "not_found") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "No active commitment refresh step to update from this reply. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "No active commitment refresh step to update from this reply. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
@@ -2885,7 +4076,14 @@ async function processV2CoachingRefreshInbound(
       }
       await touchCommitmentRefreshPromptedTimestamp(commitment.id);
       const { body } = buildRefreshKeepAckSms();
-      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await persistRefreshSmsRefinedAndSend({
+        job,
+        userId,
+        commitment,
+        timezone,
+        inboundRaw: rawTrimmed,
+        machineBody: body,
+      });
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       await recomputeV2CoachingMemory(commitment.id, {
         reasonCode: "inbound_refresh_keep",
@@ -2904,27 +4102,42 @@ async function processV2CoachingRefreshInbound(
       });
       if (!tighten.ok) {
         if (tighten.result === "already_applied") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "Already recorded from a prior reply in this thread. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "Already recorded from a prior reply in this thread. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         if (tighten.result === "state_conflict" || tighten.result === "not_found") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "No active commitment refresh step to update from this reply. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "No active commitment refresh step to update from this reply. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         throw new Error(`refresh_commitment_tighten_failed:${tighten.error}`);
       }
       const { body } = buildGuidedTightenHandoffSms();
-      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await persistRefreshSmsRefinedAndSend({
+        job,
+        userId,
+        commitment,
+        timezone,
+        inboundRaw: rawTrimmed,
+        machineBody: body,
+      });
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       await recomputeV2CoachingMemory(commitment.id, {
         reasonCode: "inbound_refresh_tighten",
@@ -2943,27 +4156,42 @@ async function processV2CoachingRefreshInbound(
       });
       if (!replace.ok) {
         if (replace.result === "already_applied") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "Already recorded from a prior reply in this thread. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "Already recorded from a prior reply in this thread. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         if (replace.result === "state_conflict" || replace.result === "not_found") {
-          await persistV2JobReplyReadyAndSend(
+          await persistRefreshSmsRefinedAndSend({
             job,
             userId,
-            "No active commitment refresh step to update from this reply. Normal checks continue."
-          );
+            commitment,
+            timezone,
+            inboundRaw: rawTrimmed,
+            machineBody:
+              "No active commitment refresh step to update from this reply. Normal checks continue.",
+          });
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return true;
         }
         throw new Error(`refresh_commitment_new_failed:${replace.error}`);
       }
       const { body } = buildGuidedResolutionNewHandoffSms();
-      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await persistRefreshSmsRefinedAndSend({
+        job,
+        userId,
+        commitment,
+        timezone,
+        inboundRaw: rawTrimmed,
+        machineBody: body,
+      });
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       await recomputeV2CoachingMemory(commitment.id, {
         reasonCode: "inbound_refresh_new",
@@ -2980,7 +4208,14 @@ async function processV2CoachingRefreshInbound(
         expectedUpdatedAt: expectedCommitmentUpdatedAt,
       });
       const { body } = buildRefreshClarifyCommitmentSms();
-      await persistV2JobReplyReadyAndSend(job, userId, body);
+      await persistRefreshSmsRefinedAndSend({
+        job,
+        userId,
+        commitment,
+        timezone,
+        inboundRaw: rawTrimmed,
+        machineBody: body,
+      });
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       await recomputeV2CoachingMemory(commitment.id, {
         reasonCode: "inbound_refresh_commitment_clarify",
@@ -2998,30 +4233,42 @@ async function processV2CoachingRefreshInbound(
     });
     if (!aborted.ok) {
       if (aborted.result === "already_applied") {
-        await persistV2JobReplyReadyAndSend(
+        await persistRefreshSmsRefinedAndSend({
           job,
           userId,
-          "Already recorded from a prior reply in this thread. Normal checks continue."
-        );
+          commitment,
+          timezone,
+          inboundRaw: rawTrimmed,
+          machineBody:
+            "Already recorded from a prior reply in this thread. Normal checks continue.",
+        });
         await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return true;
       }
       if (aborted.result === "state_conflict" || aborted.result === "not_found") {
-        await persistV2JobReplyReadyAndSend(
+        await persistRefreshSmsRefinedAndSend({
           job,
           userId,
-          "No active commitment refresh step to update from this reply. Normal checks continue."
-        );
+          commitment,
+          timezone,
+          inboundRaw: rawTrimmed,
+          machineBody:
+            "No active commitment refresh step to update from this reply. Normal checks continue.",
+        });
         await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return true;
       }
       throw new Error(`refresh_commitment_aborted_unclear_failed:${aborted.error}`);
     }
-    await persistV2JobReplyReadyAndSend(
+    await persistRefreshSmsRefinedAndSend({
       job,
       userId,
-      "Didn’t catch a clear answer on that. Normal checks continue—update the commitment in the app when you’re ready."
-    );
+      commitment,
+      timezone,
+      inboundRaw: rawTrimmed,
+      machineBody:
+        "Didn’t catch a clear answer on that. Normal checks continue—update the commitment in the app when you’re ready.",
+    });
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     await recomputeV2CoachingMemory(commitment.id, {
       reasonCode: "inbound_refresh_commitment_aborted_unclear",

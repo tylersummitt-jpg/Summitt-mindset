@@ -23,7 +23,7 @@ import {
   pickWave7DailyEvolutionAction,
 } from "@/lib/v2-sms-evolution-signal";
 
-const DEFAULT_MAX_TRANSCRIPT = 10;
+const DEFAULT_MAX_TRANSCRIPT = 12;
 const DEFAULT_LINE_CHARS = 118;
 const PROMPT_BLOCK_MAX = 3200;
 const SEVEN_D_MS = 7 * 24 * 60 * 60 * 1000;
@@ -71,10 +71,55 @@ export type V2SmsConversationContextPack = {
     blocker_pattern_used: boolean;
     evolution_recommendation_used?: boolean;
     evolution_recommended_action?: string | null;
+    /** V3 — which DB sources contributed to RECENT_THREAD (deduped). */
+    transcript_sources_used?: string[];
   };
 };
 
 type TimelineEntry = { t: number; role: "Coach" | "User"; text: string };
+
+type TimelineSource =
+  | "sms_last_outbound_context"
+  | "sms_inbound_messages"
+  | "sms_send_events"
+  | "sms_inbound_coach_jobs"
+  | "v2_commitment_event_check_sent";
+
+type RichTimelineEntry = {
+  t: number;
+  role: "Coach" | "User";
+  text: string;
+  source: TimelineSource;
+  /** Higher wins on duplicate body within dedupe window. */
+  priority: number;
+};
+
+const DEDUPE_WINDOW_MS = 2500;
+
+function normalizeTimelineDedupeKey(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function dedupeRichTimeline(entries: RichTimelineEntry[]): RichTimelineEntry[] {
+  const sorted = [...entries].sort((a, b) => a.t - b.t || b.priority - a.priority);
+  const out: RichTimelineEntry[] = [];
+  for (const e of sorted) {
+    let replaced = false;
+    for (let i = out.length - 1; i >= 0 && i >= out.length - 5; i--) {
+      const prev = out[i]!;
+      if (prev.role !== e.role) continue;
+      if (Math.abs(e.t - prev.t) > DEDUPE_WINDOW_MS) break;
+      if (normalizeTimelineDedupeKey(prev.text) !== normalizeTimelineDedupeKey(e.text)) continue;
+      if (e.priority >= prev.priority) {
+        out[i] = e;
+      }
+      replaced = true;
+      break;
+    }
+    if (!replaced) out.push(e);
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
 
 function repairSignalFromEvents(eventsNewestFirst: V2EventRowForAi[]): string | null {
   for (const e of eventsNewestFirst.slice(0, 20)) {
@@ -433,33 +478,41 @@ export async function buildV2SmsConversationContextPack(
     pendingStateSummary = `${pendingStateSummary ?? ""} User may be finishing SMS tighten/replace — prioritize that thread over inventing new asks.`.trim();
   }
 
-  const [{ data: profile }, lastCtx, inboundRows, sendRows, pendingEvo] = await Promise.all([
-    supabaseServer
-      .from("user_profiles")
-      .select(
-        "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text, identity_source"
-      )
-      .eq("clerk_user_id", args.clerkUserId)
-      .maybeSingle(),
-    supabaseServer
-      .from("sms_last_outbound_context")
-      .select("sent_at, full_body")
-      .eq("clerk_user_id", args.clerkUserId)
-      .maybeSingle(),
-    supabaseServer
-      .from("sms_inbound_messages")
-      .select("raw_body, created_at")
-      .eq("clerk_user_id", args.clerkUserId)
-      .order("created_at", { ascending: false })
-      .limit(8),
-    supabaseServer
-      .from("sms_send_events")
-      .select("sms_body, created_at, metadata")
-      .eq("clerk_user_id", args.clerkUserId)
-      .order("created_at", { ascending: false })
-      .limit(8),
-    fetchPendingEvolutionRecommendation(args.commitmentId),
-  ]);
+  const [{ data: profile }, lastCtx, inboundRows, sendRows, coachJobRows, pendingEvo] =
+    await Promise.all([
+      supabaseServer
+        .from("user_profiles")
+        .select(
+          "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text, identity_source"
+        )
+        .eq("clerk_user_id", args.clerkUserId)
+        .maybeSingle(),
+      supabaseServer
+        .from("sms_last_outbound_context")
+        .select("sent_at, full_body")
+        .eq("clerk_user_id", args.clerkUserId)
+        .maybeSingle(),
+      supabaseServer
+        .from("sms_inbound_messages")
+        .select("raw_body, created_at")
+        .eq("clerk_user_id", args.clerkUserId)
+        .order("created_at", { ascending: false })
+        .limit(8),
+      supabaseServer
+        .from("sms_send_events")
+        .select("sms_body, created_at, metadata")
+        .eq("clerk_user_id", args.clerkUserId)
+        .order("created_at", { ascending: false })
+        .limit(8),
+      supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .select("reply_body, sent_at, updated_at, created_at, message_sid, status, outbound_message_sid")
+        .eq("clerk_user_id", args.clerkUserId)
+        .not("reply_body", "is", null)
+        .order("updated_at", { ascending: false })
+        .limit(20),
+      fetchPendingEvolutionRecommendation(args.commitmentId),
+    ]);
 
   const nowMs = Date.now();
   const evolutionEvaluation = evaluateCommitmentEvolutionV1({
@@ -489,17 +542,70 @@ export async function buildV2SmsConversationContextPack(
   const evolutionCompactLine = evolutionFmt.summaryLine;
   const evolutionMetaUsed = Boolean(evolutionPick);
 
-  const timeline: TimelineEntry[] = [];
+  const rich: RichTimelineEntry[] = [];
+
+  for (const e of eventsAsc) {
+    if (e.event_type !== "check_sent") continue;
+    const raw = e.payload_json as Record<string, unknown> | undefined;
+    if (!raw) continue;
+    const preview = typeof raw.body_preview === "string" ? raw.body_preview.trim() : "";
+    if (!preview) continue;
+    const ts = new Date(e.occurred_at).getTime();
+    if (!Number.isFinite(ts) || ts < nowMs - SEVEN_D_MS) continue;
+    const cleaned = truncate(stripSmsComplianceFooter(preview), DEFAULT_LINE_CHARS);
+    if (cleaned) {
+      rich.push({
+        t: ts,
+        role: "Coach",
+        text: cleaned,
+        source: "v2_commitment_event_check_sent",
+        priority: 75,
+      });
+    }
+  }
 
   if (lastCtx?.data && typeof (lastCtx.data as { sent_at?: string }).sent_at === "string") {
     const row = lastCtx.data as { sent_at: string; full_body?: string };
     const raw = typeof row.full_body === "string" ? row.full_body : "";
     const cleaned = truncate(stripSmsComplianceFooter(raw), DEFAULT_LINE_CHARS);
     if (cleaned) {
-      timeline.push({
+      rich.push({
         t: new Date(row.sent_at).getTime(),
         role: "Coach",
         text: cleaned,
+        source: "sms_last_outbound_context",
+        priority: 40,
+      });
+    }
+  }
+
+  for (const r of coachJobRows.data ?? []) {
+    const row = r as {
+      reply_body?: string | null;
+      sent_at?: string | null;
+      updated_at?: string | null;
+      created_at?: string | null;
+      status?: string | null;
+      outbound_message_sid?: string | null;
+    };
+    const body = typeof row.reply_body === "string" ? row.reply_body.trim() : "";
+    if (!body) continue;
+    const sentLike =
+      Boolean(row.sent_at?.trim()) ||
+      row.status === "sent" ||
+      Boolean(row.outbound_message_sid?.trim());
+    if (!sentLike) continue;
+    const tsRaw = row.sent_at ?? row.updated_at ?? row.created_at;
+    const ts = typeof tsRaw === "string" ? new Date(tsRaw).getTime() : 0;
+    if (!Number.isFinite(ts) || ts < nowMs - SEVEN_D_MS) continue;
+    const cleaned = truncate(stripSmsComplianceFooter(body), DEFAULT_LINE_CHARS);
+    if (cleaned) {
+      rich.push({
+        t: ts,
+        role: "Coach",
+        text: cleaned,
+        source: "sms_inbound_coach_jobs",
+        priority: 100,
       });
     }
   }
@@ -511,7 +617,9 @@ export async function buildV2SmsConversationContextPack(
     const low = raw.trim().toLowerCase();
     if (/^(stop|start|help|unstop|cancel)$/i.test(low) && raw.trim().length <= 12) continue;
     const cleaned = truncate(raw, DEFAULT_LINE_CHARS);
-    if (cleaned) timeline.push({ t: ts, role: "User", text: cleaned });
+    if (cleaned) {
+      rich.push({ t: ts, role: "User", text: cleaned, source: "sms_inbound_messages", priority: 50 });
+    }
   }
 
   for (const r of sendRows.data ?? []) {
@@ -527,17 +635,26 @@ export async function buildV2SmsConversationContextPack(
       if (typeof mb === "string") body = mb;
     }
     const cleaned = truncate(stripSmsComplianceFooter(body), DEFAULT_LINE_CHARS);
-    if (cleaned) timeline.push({ t: ts, role: "Coach", text: cleaned });
+    if (cleaned) {
+      rich.push({
+        t: ts,
+        role: "Coach",
+        text: cleaned,
+        source: "sms_send_events",
+        priority: 80,
+      });
+    }
   }
 
-  timeline.sort((a, b) => a.t - b.t);
-  const sliced = timeline.slice(-maxLines);
-  const recentTranscriptLines = sliced.map((e) => `${e.role}: ${e.text}`);
+  const mergedRich = dedupeRichTimeline(rich);
+  const slicedRich = mergedRich.slice(-maxLines);
+  const recentTranscriptLines = slicedRich.map((e) => `${e.role}: ${e.text}`);
+  const transcriptSourcesUsed = [...new Set(slicedRich.map((e) => e.source))];
 
   const lastOutboundPreview =
-    [...timeline].reverse().find((x) => x.role === "Coach")?.text ?? null;
+    [...mergedRich].reverse().find((x) => x.role === "Coach")?.text ?? null;
   let lastInboundPreview =
-    [...timeline].reverse().find((x) => x.role === "User")?.text ?? null;
+    [...mergedRich].reverse().find((x) => x.role === "User")?.text ?? null;
   const inboundTrim = args.currentInboundText?.trim();
   if (inboundTrim && lastInboundPreview && inboundTrim === lastInboundPreview) {
     /* duplicate of latest stored inbound — keep single truth */
@@ -621,6 +738,7 @@ export async function buildV2SmsConversationContextPack(
             evolution_recommended_action: evolutionPick?.action ?? null,
           }
         : {}),
+      transcript_sources_used: transcriptSourcesUsed,
     },
   };
 }

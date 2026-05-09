@@ -83,7 +83,7 @@ describe("Phase 3A — Brain invoked when both flags on", () => {
   it("shrink: calls rewrite", async () => {
     const r = await buildV2ShrinkProposalOutboundSms({ ...baseArgs });
     expect(rewriteMock).toHaveBeenCalled();
-    expect(r.body).toContain("Quick check");
+    expect(r.body).toMatch(/want to keep it simpler|simpler/i);
   });
 
   it("recommit: calls rewrite", async () => {
@@ -92,7 +92,7 @@ describe("Phase 3A — Brain invoked when both flags on", () => {
       proposalBindingText: "Steady hold text",
     });
     expect(rewriteMock).toHaveBeenCalled();
-    expect(r.body).toContain("Quick check");
+    expect(r.body).toMatch(/want to keep it simpler|simpler/i);
   });
 });
 

@@ -175,8 +175,8 @@ export async function POST(req: Request) {
        * - Align with SMS-first commitment accountability (not progression / “daily practice” core)
        * - Avoid promising outcomes or guarantees
        *
-       * Intentionally bypasses finalizeNorthStarCoachSms: this is mandatory consent / frequency /
-       * STOP / HELP transactional onboarding copy, not discretionary coaching SMS.
+       * Intentionally bypasses V3 SMS Brain and finalizeNorthStarCoachSms: mandatory consent,
+       * frequency, STOP / HELP transactional onboarding copy — not discretionary coaching SMS.
        */
 
       const confirm =

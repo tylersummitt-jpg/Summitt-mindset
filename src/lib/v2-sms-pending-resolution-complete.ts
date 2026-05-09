@@ -401,7 +401,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         message_sid: args.job.message_sid,
         raw_text_preview: rawPreview,
       });
-      const ambDraft = `I’m still holding: ${cand}. Reply yes to lock it in, or no if you want to change it.`;
+      const ambDraft = `I’m still holding: ${cand}. Tell me if that’s the lock—or what you want instead.`;
       return {
         handled: true,
         replyBody: await phase1PendingReply({

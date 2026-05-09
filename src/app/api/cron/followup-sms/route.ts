@@ -7,6 +7,9 @@ import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
+import { getActiveCommitment } from "@/lib/v2-commitment";
+import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
+import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,11 +136,38 @@ export async function GET(req: Request) {
     }
 
     try {
-      const rawFollowup = getFollowupMessage(level);
+      let rawFollowup = getFollowupMessage(level);
+      let followupV3Rs: string | undefined;
+      let followupV3Pkt: NorthStarSmsContextPacket | undefined;
+      const tzFu = resolveUserTimezone(md.timezone ?? audienceUser.timezone);
+      const commitmentFu = await getActiveCommitment(audienceUser.clerk_user_id);
+      if (commitmentFu?.id) {
+        try {
+          const rf = await refineMachineSmsBodyWithV3RefineLane({
+            clerkUserId: audienceUser.clerk_user_id,
+            messageSid: `followup:${audienceUser.clerk_user_id}:${todayKey}`,
+            commitment: commitmentFu,
+            timezone: tzFu,
+            inboundRaw: "[followup_sms]",
+            machineBody: rawFollowup,
+            hintSource: "legacy_followup_nudge",
+            ownedReplySource: "v3_followup_sms_refined",
+          });
+          rawFollowup = rf.body;
+          followupV3Rs = rf.replySource;
+          followupV3Pkt = rf.contextPacket;
+        } catch (e) {
+          console.warn("[followup-sms] v3_followup_refine_failed", {
+            clerk_user_id: audienceUser.clerk_user_id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
       const gatedFollowup = await finalizeNorthStarCoachSmsAsync({
         proposedBody: rawFollowup,
         channel: "followup_sms",
-        contextPacket: { source: "followup_sms" },
+        replySource: followupV3Rs,
+        contextPacket: followupV3Pkt ?? { source: "followup_sms" },
       });
       await sendSMS({
         to: audienceUser.phone_number,

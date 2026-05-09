@@ -114,6 +114,11 @@ import {
 import type { NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
+import {
+  generateV3DailyCheckIn,
+  generateV3DailyDeterministicFallback,
+  V3_BRAIN_VERSION,
+} from "@/lib/v3-sms-brain";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -161,6 +166,10 @@ type DailySmsBuilt =
       v2ReactivationNudge?: boolean;
       /** Effective ask context at send time for deterministic post-send snapshot. */
       v2EffectiveAskText?: string | null;
+      /** Daily body drafted by V3 SMS Brain (North Star deterministic guard still applies). */
+      v3DailySms?: boolean;
+      /** True when visible line came from deterministic V3 fallback (no successful OpenAI daily draft). */
+      v3DailyDeterministicFallback?: boolean;
     }
   | { ok: false; error: string };
 
@@ -180,6 +189,12 @@ async function withNorthStarDailyGate(built: DailySmsBuilt): Promise<DailySmsBui
     channel,
     behaviorStatement: built.v2EffectiveAskText ?? undefined,
     effectiveAskText: built.v2EffectiveAskText ?? undefined,
+    replySource:
+      built.v3DailySms === true
+        ? built.v3DailyDeterministicFallback === true
+          ? "v3_daily_deterministic_fallback"
+          : "v3_daily_check_in"
+        : undefined,
     metadata: {
       v2TemplateFamily: built.v2TemplateFamily,
       v2CommitmentId: built.v2CommitmentId,
@@ -940,6 +955,7 @@ async function buildDailySmsContent(
             dayKey: accountabilityDayKey,
             proposalBindingText,
             originalBehaviorStatement: active.behavior_statement,
+            v3Refine: { commitment: active, timezone },
           })
         : contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same"
           ? await buildV2RecommitProposalOutboundSms({
@@ -947,6 +963,7 @@ async function buildDailySmsContent(
               dayKey: accountabilityDayKey,
               proposalBindingText,
               originalBehaviorStatement: active.behavior_statement,
+              v3Refine: { commitment: active, timezone },
             })
           : buildV2OutboundAccountabilitySmsForStrategy({
               clerkUserId,
@@ -1125,19 +1142,75 @@ async function buildDailySmsContent(
         outboundNextMove === "shrink_ask" ? (nextMove.shrunk_ask_text ?? null) : null,
     });
 
-    const smsBody = resolvedDaily.smsBody;
-    const aiTry = resolvedDaily.aiTry;
-    const aiPayload = buildCheckSentAiPayload({
-      model: V2_OUTBOUND_AI_MODEL,
-      promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
-      serverState,
+    let smsBody = resolvedDaily.smsBody;
+    let v3DailySms = false;
+    let v3DailyDeterministicFallback = false;
+    const evolutionHint =
+      dailyPurpose === "evolution_pattern_check" && wave7Pick
+        ? `${wave7Pick.action}:${wave7Pick.evidenceSummary ?? ""}`.slice(0, 280)
+        : null;
+    const dailyCheckArgs = {
+      commitmentId: active.id,
+      effectiveAsk,
+      behaviorStatement: active.behavior_statement ?? "",
+      priorOutcome: latestOutcome?.type ?? null,
+      coachingMemory: coachingMemoryRow,
       serverStrategy,
-      message: smsBody,
-      confidence: aiTry.ok ? aiTry.confidence : null,
-      fallbackUsed: !aiTry.ok,
-      ...(!aiTry.ok ? { fallbackReason: aiTry.reason } : {}),
-      dailyResolution: resolvedDaily.resolution,
-    });
+      silenceTier: silenceCtx.tier,
+      blockerPreview: hasBlockerPreview ? blockerPreview : null,
+      recentSmsContextBlock,
+      preferredName,
+      identityAnchor: identityAnchorText,
+      recentEventsNewestFirst: recentEvents,
+      dailyPurpose,
+      contractProposalKind: contractProposalKind ?? undefined,
+      contractBindingText: contractProposalMode ? proposalBindingText ?? undefined : undefined,
+      evolutionPatternHint: evolutionHint ?? undefined,
+      resolvedTemplateFallback: resolvedDaily.smsBody,
+    };
+    try {
+      const v3d = await generateV3DailyCheckIn(dailyCheckArgs);
+      smsBody = v3d.text;
+      v3DailySms = true;
+      v3DailyDeterministicFallback = !v3d.openAiOk;
+    } catch (e) {
+      console.warn("[v3-sms-brain] daily_check_failed", {
+        commitment_id: active.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      smsBody = generateV3DailyDeterministicFallback(dailyCheckArgs);
+      v3DailySms = true;
+      v3DailyDeterministicFallback = true;
+    }
+
+    const aiTry = resolvedDaily.aiTry;
+    const aiPayload = {
+      ...buildCheckSentAiPayload({
+        model: V2_OUTBOUND_AI_MODEL,
+        promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
+        serverState,
+        serverStrategy,
+        message: smsBody,
+        confidence: aiTry.ok ? aiTry.confidence : null,
+        fallbackUsed: !aiTry.ok,
+        ...(!aiTry.ok ? { fallbackReason: aiTry.reason } : {}),
+        dailyResolution: resolvedDaily.resolution,
+      }),
+      ...(v3DailySms
+        ? {
+            v3_brain: {
+              v3_brain_version: V3_BRAIN_VERSION,
+              v3_coach_reply_source: v3DailyDeterministicFallback
+                ? "v3_daily_deterministic_fallback"
+                : "v3_daily_check_in",
+              v3_memory_used: true,
+              v3_daily_purpose: dailyPurpose,
+              v3_contract_proposal_mode: contractProposalMode,
+              v3_evolution_pattern_day: dailyPurpose === "evolution_pattern_check",
+            },
+          }
+        : {}),
+    };
 
     const silencePayload = {
       tier: silenceCtx.tier,
@@ -1198,6 +1271,8 @@ async function buildDailySmsContent(
         ? identityAnchorText
         : null,
       v2EffectiveAskText: effectiveAsk,
+      v3DailySms,
+      v3DailyDeterministicFallback,
     };
   }
 

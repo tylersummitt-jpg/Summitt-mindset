@@ -83,6 +83,9 @@ export type NorthStarSmsContextPacket = {
 
   source?: string | null;
   debug?: Record<string, unknown>;
+  /** V3 SMS Brain — inbound routed as answer to latest open coach question. */
+  v3AnswerToOpenQuestion?: boolean;
+  v3TurnSubkind?: string | null;
 };
 
 export type NorthStarCoachSmsArgs = {
@@ -238,6 +241,7 @@ export function asksTodayCompletionQuestion(body: string): boolean {
   if (/did you complete.{0,80}(today|hour)/i.test(body)) return true;
   if (/did you get that done/i.test(t)) return true;
   if (/did you get a chance/i.test(t)) return true;
+  if (/did you manage/i.test(t) && /\btoday\b/.test(t)) return true;
   if (/did it happen\?/i.test(t) && /\btoday\b/.test(t)) return true;
   if (/did you do.{0,40}today/i.test(t)) return true;
   return false;
@@ -274,6 +278,9 @@ function scrubRobotMotivation(s: string, preserveNl: boolean): { text: string; h
   const hits: string[] = [];
   let t = s;
   const pairs: Array<[RegExp, string]> = [
+    [/yes\s*,\s*no\s*,\s*or\s*partial[^.!?]*[.!?]?/gi, ""],
+    [/reply\s+yes\s*,\s*no[^.!?]*[.!?]?/gi, ""],
+    [/say\s+yes\s+or\s+no[^.!?]*[.!?]?/gi, ""],
     [/great\s+job[!.,]?/gi, "Good"],
     [/great\s+work[!.,]?/gi, "Good"],
     [/great\s+to\s+hear[^.!?]*[.!?]/gi, ""],
@@ -385,11 +392,32 @@ function softenHeavyContractJargon(s: string, preserveNl: boolean): string {
   let t = s;
   t = t.replace(
     /\bcan we keep the same line steady for a week\??\s*recommit to this for 7 days[^.!?]*[.!?]?/gi,
-    "Want to keep this plain for the next week — one honest rep a day? Reply YES or NO."
+    "Want to keep this plain for the next week — one honest rep a day? Tell me yes if that's the lock."
   );
   t = t.replace(/\brecommit to this for 7 days\b/gi, "keep this steady for the next week");
   t = t.replace(/\brecommit to this bar for 7 days\b/gi, "hold this line for the next week");
   return finalizeTextShape(t, preserveNl);
+}
+
+function scrubV3AnswerToOpenQuestionCopy(s: string, preserveNl: boolean): { text: string; hits: string[] } {
+  const hits: string[] = [];
+  let t = s;
+  const pairs: Array<[RegExp, string]> = [
+    [/did\s+you\s+manage\s+to\s+dictate[^.!?]*\??/gi, ""],
+    [/dictate\s+a\s+story\s+today[^.!?]*\??/gi, ""],
+    [/check\s+the\s+app[^.!?]*[.!?]?/gi, ""],
+    [/let\s+me\s+know\s+how\s+it\s+went[^.!?]*[.!?]?/gi, ""],
+    [/staying\s+consistent[^.!?]*[.!?]?/gi, ""],
+    [/it'?s\s+important\s+to[^.!?]*[.!?]?/gi, ""],
+    [/yes,\s*no,\s*or\s+partial[^.!?]*[.!?]?/gi, ""],
+    [/reply\s+yes\s+or\s+no[^.!?]*[.!?]?/gi, ""],
+    [/what\s+story\s+are\s+you\s+excited\s+to\s+dictate[^.!?]*\??/gi, ""],
+  ];
+  for (const [re, rep] of pairs) {
+    if (re.test(t)) hits.push(re.source.slice(0, 36));
+    t = t.replace(re, rep);
+  }
+  return { text: finalizeTextShape(t, preserveNl), hits };
 }
 
 function applyStructuralGuards(
@@ -401,6 +429,15 @@ function applyStructuralGuards(
   const outbound = outboundForGuards(merged);
   const proposedNorm = norm(proposed);
   const pkt = args.contextPacket;
+
+  if (
+    pkt?.v3AnswerToOpenQuestion &&
+    pkt.todayCompleted &&
+    asksTodayCompletionQuestion(proposedNorm) &&
+    !inboundExplicitlyAboutToday(inbound)
+  ) {
+    return `Good — locked for tomorrow. Keep the first rep ugly and fast.`;
+  }
 
   const completionCtx =
     args.alreadyCompletedToday === true ||
@@ -442,9 +479,9 @@ function dailyOutboundFlavor(body: string, channel: NorthStarCoachChannel, merge
   if ((channel === "daily_outbound" || channel === "reactivation") && (/^\s*$/i.test(t) || t.length < 12)) {
     if (ask.length >= 8 && ask.length <= 100) {
       const one = ask.slice(0, 72).replace(/\s+/g, " ").trim();
-      return `Tell the truth first — ${one}. Did you protect the rep today? Yes, no, or partial.`;
+      return `Tell the truth first — ${one}. What actually happened with the rep today?`;
     }
-    return "Tell the truth first: did you protect the rep today? Yes, no, or partial.";
+    return "Tell the truth first: what happened with the rep today?";
   }
   if (weeklyLike && (/^\s*$/i.test(t) || t.length < 12)) {
     if (ask.length >= 8 && ask.length <= 120) {
@@ -458,7 +495,7 @@ function dailyOutboundFlavor(body: string, channel: NorthStarCoachChannel, merge
     if (!t) {
       return weeklyLike
         ? "What's true about this week — wins and misses?"
-        : "Today is simple — did you do the rep? Yes, no, or partial.";
+        : "Today is simple — did you do the rep? Tell me straight.";
     }
   }
   return t;
@@ -537,6 +574,15 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = "deterministic_minimal";
   }
 
+  if (args.contextPacket?.v3AnswerToOpenQuestion) {
+    const v3scrub = scrubV3AnswerToOpenQuestionCopy(working, preserveNl);
+    working = v3scrub.text;
+    if (v3scrub.hits.length) {
+      blockedReasons.push("v3_open_answer_scrub", ...v3scrub.hits.slice(0, 4));
+      source = "rewritten";
+    }
+  }
+
   const robo = scrubRobotMotivation(working, preserveNl);
   working = robo.text;
   if (robo.hits.length) {
@@ -611,8 +657,8 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     if (args.channel === "daily_outbound" || args.channel === "reactivation") {
       working =
         mergedAsk.length >= 8 && mergedAsk.length <= 100
-          ? `Tell the truth first — ${mergedAsk.slice(0, 72).replace(/\s+/g, " ").trim()}. Did you protect today's rep? Yes, no, or partial.`
-          : "Did you protect today's rep? Yes, no, or partial.";
+          ? `Tell the truth first — ${mergedAsk.slice(0, 72).replace(/\s+/g, " ").trim()}. What happened with today's rep?`
+          : "What happened with today's rep — honestly?";
     } else if (args.channel === "weekly_sms" || args.channel === "lifecycle_sms") {
       working =
         mergedAsk.length >= 8 && mergedAsk.length <= 120

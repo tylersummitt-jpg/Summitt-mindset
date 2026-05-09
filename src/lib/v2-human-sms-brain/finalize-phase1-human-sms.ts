@@ -49,7 +49,7 @@ export function phase1CuratedFallbackForCase(brainCase: HumanSmsBrainCase): stri
     case "contract_consent_overlay_no_ack":
       return "Okay—no change. We keep the same ask tomorrow.";
     case "pending_resolution_confirmation_prompt":
-      return "Say yes if that’s the bar you want, or no if you want something different.";
+      return "Does that bar feel right? Tell me straight what you want held.";
     case "pending_resolution_replace_applied":
       return "Got it. I’ll hold you to that starting tomorrow.";
     case "pending_resolution_tighten_applied":
@@ -57,7 +57,7 @@ export function phase1CuratedFallbackForCase(brainCase: HumanSmsBrainCase): stri
     case "pending_resolution_clarify_candidate":
       return "What exactly should I hold you to tomorrow? One clear daily action.";
     case "pending_resolution_ambiguous_confirm":
-      return "I want to hold this cleanly—say yes to confirm or no to change it.";
+      return "Does that lock it for you—or tell me what you want instead.";
     case "pending_resolution_no_problem_reenter":
       return "What would work better? Send one clear daily action.";
     case "pending_resolution_lost_candidate":

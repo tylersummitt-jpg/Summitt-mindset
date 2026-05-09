@@ -1,11 +1,12 @@
 import crypto from "crypto";
 
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { computeShrunkAskText } from "@/lib/v2-ai-outbound";
 import { buildV2ShrinkProposalOutboundSms } from "@/lib/v2-sms-accountability";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
-import { getDateKeyInTimezone } from "@/lib/timezone";
+import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { getV2CommitmentByIdForCoaching, type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 
 export type V2AdaptiveContractKind = "shrink_ask" | "recommit_same";
@@ -80,11 +81,11 @@ export function normalizeShrinkProposalBindingText(raw: string): string | null {
 export function computeRecommitBindingText(behaviorStatement: string): string {
   const t = behaviorStatement.trim().replace(/\s+/g, " ");
   if (!t) {
-    return "Same commitment—recommit to your current bar for the next 7 days.";
+    return "Same commitment—keep this line steady for the next 7 days.";
   }
   const cap = 88;
   const slice = t.length <= cap ? t : `${t.slice(0, cap - 1)}…`;
-  return `Same commitment—recommit to this bar for 7 days: ${slice}`;
+  return `Same commitment—keep this line for 7 days: ${slice}`;
 }
 
 /** Match pending column text to the newest proposed spine row that carries `contract_kind`. */
@@ -376,11 +377,15 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
   const dayKey = getDateKeyInTimezone(new Date(), "UTC");
   const idempotencySuffix = `guided:${crypto.randomUUID()}`;
 
-  const { body: smsBody } = await buildV2ShrinkProposalOutboundSms({
+  const mdGuided = await getClerkPublicMetadata(args.clerkUserId);
+  const timezoneGuided = resolveUserTimezone(mdGuided?.timezone);
+
+  const { body: smsBody, northStarReplySource } = await buildV2ShrinkProposalOutboundSms({
     clerkUserId: args.clerkUserId,
     dayKey,
     proposalBindingText: args.proposalBindingText,
     originalBehaviorStatement: args.originalBehaviorStatement,
+    v3Refine: { commitment: c, timezone: timezoneGuided },
   });
 
   // Reserve canonical proposal state before sending, so guided path never emits YES/NO
@@ -411,6 +416,7 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
         channel: "guided_contract_proposal",
         behaviorStatement: args.originalBehaviorStatement,
         effectiveAskText: args.proposalBindingText,
+        replySource: northStarReplySource ?? undefined,
         contextPacket: {
           activeCommitmentId: args.commitmentId,
           behaviorStatement: args.originalBehaviorStatement,

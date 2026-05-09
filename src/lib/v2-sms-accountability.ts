@@ -5,7 +5,7 @@ import {
   isV2HumanSmsPhase3AdaptiveProposalEnabled,
   shouldRunPhase3AdaptiveProposalBrain,
 } from "@/lib/v2-human-sms-brain/flags";
-import type { V2AccountabilityOutcome } from "@/lib/v2-commitment";
+import type { ActiveV2CommitmentRow, V2AccountabilityOutcome } from "@/lib/v2-commitment";
 
 /** Max length for `behavior_statement` when embedded in SMS ({{B}}). */
 const BEHAVIOR_SNIPPET_MAX = 100;
@@ -48,14 +48,14 @@ const SHRINK_NEXT_TEMPLATES: readonly string[] = [
 
 /** Shrink overlay consent: server binding text {{S}} + current bar {{B}}; not accountability YES/NO. */
 const SHRINK_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Let’s simplify for a bit: {{S}} Want me to hold you to that? Yes or no.`,
-  `Keep it clean for a bit: {{S}} Do you want me holding you to that? Yes or no.`,
+  `Let’s simplify for a bit: {{S}} Want me to hold you to that? A clear yes or no is enough.`,
+  `Keep it clean for a bit: {{S}} Do you want me holding you to that? A clear yes or no is enough.`,
 ];
 
 /** Recommit-same overlay consent: binding {{S}} + anchor {{B}}; natural yes/no consent. */
 const RECOMMIT_PROPOSAL_TEMPLATES: readonly string[] = [
-  `Want me to hold you to the same line for a week? {{S}} Yes or no.`,
-  `Keep the same line steady for a week? {{S}} Yes or no.`,
+  `Want me to hold you to the same line for a week? {{S}} A clear yes or no is enough.`,
+  `Keep the same line steady for a week? {{S}} A clear yes or no is enough.`,
 ];
 
 const CONTRACT_OVERLAY_YES_ACK: readonly [string, string] = [
@@ -77,12 +77,12 @@ const SILENCE_NUDGE_TEMPLATES: readonly string[] = [
   `Quiet stretch on {{B}} No guilt. Did it happen today?`,
   `Simple doorway back in on {{B}} What’s the honest answer today?`,
   `No backlog lecture. Just today on {{B}}: did you follow through?`,
-  `Still here with the same bar: {{B}} Give me the real version.`,
+  `Still here with the same line: {{B}} Give me the real version.`,
   `Quick reset check on {{B}}: did the work happen, or did something pull you off?`,
 ];
 
 const REENTRY_CHECK_TEMPLATES: readonly string[] = [
-  `Good return. Same bar today: {{B}} Tell me straight—did it happen?`,
+  `Good return. Same line today: {{B}} Tell me straight—did it happen?`,
   `You’re back in. Keep today simple on {{B}}: what happened?`,
   `Welcome back—no drama, same standard: {{B}} Did you follow through today?`,
   `Clean re-entry check: did {{B}} happen, or did something pull you off?`,
@@ -355,8 +355,47 @@ export async function buildV2ShrinkProposalOutboundSms(args: {
   dayKey: string;
   proposalBindingText: string;
   originalBehaviorStatement: string;
-}): Promise<{ body: string; templateId: number }> {
+  /** Preferred: V3 refine + North Star owns consent/proposal voice (Phase 3A skipped when V3 applies). */
+  v3Refine?: { commitment: ActiveV2CommitmentRow; timezone: string };
+  /**
+   * When set without explicit `v3Refine`, auto-enables the same V3 refine path (defensive for callers
+   * that load commitment but omit the wrapper object).
+   */
+  commitmentForV3Refine?: ActiveV2CommitmentRow | null;
+  timezoneForV3Refine?: string | null;
+}): Promise<{ body: string; templateId: number; northStarReplySource?: string | null }> {
   const legacy = legacyBuildV2ShrinkProposalOutboundSms(args);
+
+  const effectiveV3Refine =
+    args.v3Refine ??
+    (args.commitmentForV3Refine?.id && args.timezoneForV3Refine?.trim()
+      ? {
+          commitment: args.commitmentForV3Refine,
+          timezone: args.timezoneForV3Refine.trim(),
+        }
+      : undefined);
+
+  if (effectiveV3Refine) {
+    const finalized = await finalizeAdaptiveProposalOutboundSms({
+      machineDraft: legacy.body,
+      proposalKind: "shrink",
+      bindingText: args.proposalBindingText,
+      behaviorStatementPreview: truncateV2BehaviorStatementForSms(args.originalBehaviorStatement),
+      templateId: legacy.templateId,
+      v3Refine: {
+        clerkUserId: args.clerkUserId,
+        messageSid: `adaptive_proposal:${args.clerkUserId}:${args.dayKey}:shrink`,
+        commitment: effectiveV3Refine.commitment,
+        timezone: effectiveV3Refine.timezone,
+      },
+    });
+    return {
+      body: finalized.message,
+      templateId: legacy.templateId,
+      northStarReplySource: finalized.northStarReplySource,
+    };
+  }
+
   if (!isV2HumanSmsPhase3AdaptiveProposalEnabled() || !shouldRunPhase3AdaptiveProposalBrain()) {
     return legacy;
   }
@@ -367,7 +406,11 @@ export async function buildV2ShrinkProposalOutboundSms(args: {
     behaviorStatementPreview: truncateV2BehaviorStatementForSms(args.originalBehaviorStatement),
     templateId: legacy.templateId,
   });
-  return { body: finalized.message, templateId: legacy.templateId };
+  return {
+    body: finalized.message,
+    templateId: legacy.templateId,
+    northStarReplySource: finalized.northStarReplySource,
+  };
 }
 
 export async function buildV2RecommitProposalOutboundSms(args: {
@@ -375,8 +418,42 @@ export async function buildV2RecommitProposalOutboundSms(args: {
   dayKey: string;
   proposalBindingText: string;
   originalBehaviorStatement: string;
-}): Promise<{ body: string; templateId: number }> {
+  v3Refine?: { commitment: ActiveV2CommitmentRow; timezone: string };
+  commitmentForV3Refine?: ActiveV2CommitmentRow | null;
+  timezoneForV3Refine?: string | null;
+}): Promise<{ body: string; templateId: number; northStarReplySource?: string | null }> {
   const legacy = legacyBuildV2RecommitProposalOutboundSms(args);
+
+  const effectiveV3RefineRecommit =
+    args.v3Refine ??
+    (args.commitmentForV3Refine?.id && args.timezoneForV3Refine?.trim()
+      ? {
+          commitment: args.commitmentForV3Refine,
+          timezone: args.timezoneForV3Refine.trim(),
+        }
+      : undefined);
+
+  if (effectiveV3RefineRecommit) {
+    const finalized = await finalizeAdaptiveProposalOutboundSms({
+      machineDraft: legacy.body,
+      proposalKind: "recommit_same",
+      bindingText: args.proposalBindingText,
+      behaviorStatementPreview: truncateV2BehaviorStatementForSms(args.originalBehaviorStatement),
+      templateId: legacy.templateId,
+      v3Refine: {
+        clerkUserId: args.clerkUserId,
+        messageSid: `adaptive_proposal:${args.clerkUserId}:${args.dayKey}:recommit`,
+        commitment: effectiveV3RefineRecommit.commitment,
+        timezone: effectiveV3RefineRecommit.timezone,
+      },
+    });
+    return {
+      body: finalized.message,
+      templateId: legacy.templateId,
+      northStarReplySource: finalized.northStarReplySource,
+    };
+  }
+
   if (!isV2HumanSmsPhase3AdaptiveProposalEnabled() || !shouldRunPhase3AdaptiveProposalBrain()) {
     return legacy;
   }
@@ -387,7 +464,11 @@ export async function buildV2RecommitProposalOutboundSms(args: {
     behaviorStatementPreview: truncateV2BehaviorStatementForSms(args.originalBehaviorStatement),
     templateId: legacy.templateId,
   });
-  return { body: finalized.message, templateId: legacy.templateId };
+  return {
+    body: finalized.message,
+    templateId: legacy.templateId,
+    northStarReplySource: finalized.northStarReplySource,
+  };
 }
 
 export type V2ContractOverlayKind = "shrink_ask" | "recommit_same";
@@ -451,7 +532,7 @@ const REPLY_YES: readonly [string, string] = [
 ];
 
 const REPLY_NO: readonly [string, string] = [
-  `No shame, let’s not waste the miss. What got in the way today?`,
+  `No shame, let’s not waste the miss. What was the real block today?`,
   `Thanks for the honesty. What was the main blocker on {{B}} today?`,
 ];
 

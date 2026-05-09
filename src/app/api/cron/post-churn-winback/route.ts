@@ -6,6 +6,10 @@ import { createWinbackToken } from "@/lib/winback-token";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
 import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN } from "@/lib/north-star-coach-sms";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
+import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
+import { getActiveCommitment } from "@/lib/v2-commitment";
+import { resolveUserTimezone } from "@/lib/timezone";
+import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -153,12 +157,41 @@ export async function GET(req: Request) {
         `One last question — if we rebuilt ONE thing so you’d come back, what would it be?\n` +
         `One sentence is enough.\n\n` +
         `${link}`;
+      let winbackProposed = smsBodyPreGate;
+      let winbackV3Rs: string | undefined;
+      let winbackV3Pkt: NorthStarSmsContextPacket | undefined;
+      const commitmentWb = await getActiveCommitment(clerk_user_id);
+      if (commitmentWb?.id) {
+        try {
+          const mdWb = await getClerkPublicMetadata(clerk_user_id);
+          const tzWb = resolveUserTimezone(mdWb?.timezone);
+          const rw = await refineMachineSmsBodyWithV3RefineLane({
+            clerkUserId: clerk_user_id,
+            messageSid: `post_churn_winback:${clerk_user_id}`,
+            commitment: commitmentWb,
+            timezone: tzWb,
+            inboundRaw: "[post_churn_winback]",
+            machineBody: smsBodyPreGate,
+            hintSource: "post_churn_winback",
+            ownedReplySource: "v3_winback_refined",
+          });
+          winbackProposed = rw.body;
+          winbackV3Rs = rw.replySource;
+          winbackV3Pkt = rw.contextPacket;
+        } catch (e) {
+          console.warn("[post-churn-winback] v3_refine_failed", {
+            clerk_user_id: clerk_user_id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
       const gatedWinback = await finalizeNorthStarCoachSmsAsync({
-        proposedBody: smsBodyPreGate,
+        proposedBody: winbackProposed,
         channel: "post_churn_winback",
         preserveNewlines: true,
         maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-        contextPacket: { source: "post_churn_winback" },
+        replySource: winbackV3Rs,
+        contextPacket: winbackV3Pkt ?? { source: "post_churn_winback" },
       });
 
       await sendSMS({

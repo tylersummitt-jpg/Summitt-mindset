@@ -21,6 +21,8 @@ import {
 import { hashSmsSnippet, validateHumanVisibleSms } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { HUMAN_VISIBLE_SMS_VALIDATOR_VERSION } from "@/lib/v2-human-visible-sms/types";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
+import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 const DEFAULT_MAX = 320;
 
@@ -33,11 +35,11 @@ export function brainCaseForAdaptiveProposalKind(kind: AdaptiveProposalKind): Hu
 export function adaptiveProposalCuratedFallbackForKind(kind: AdaptiveProposalKind): string {
   switch (kind) {
     case "shrink":
-      return "If a simpler step fits, say yes. If not, say no—your original ask stays.";
+      return "Want to keep the next week simpler—one honest rep a day? A clear yes or no is enough.";
     case "recommit_same":
-      return "If you want me holding the same line steady for the week, say yes. If not, say no.";
+      return "Want me holding the same line steady for the week? A clear yes or no is enough.";
     default:
-      return "Say yes or no.";
+      return "Are you in for that? A clear yes or no is enough.";
   }
 }
 
@@ -50,6 +52,8 @@ export type FinalizeAdaptiveProposalOutboundSmsResult = {
   validatorMode: "enforce" | "shadow_only";
   brainRewriteMs: number | null;
   brainFixMs: number | null;
+  /** When V3 refine lane applied; pass to a second North Star pass to skip duplicate OpenAI finalizer. */
+  northStarReplySource?: string | null;
 };
 
 function logPipeline(args: {
@@ -100,6 +104,13 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
   behaviorStatementPreview: string;
   templateId?: number | null;
   maxChars?: number;
+  /** When set, V3 refine lane owns visible voice (Phase 3A rewrite skipped when refine applies). */
+  v3Refine?: {
+    clerkUserId: string;
+    messageSid: string;
+    commitment: ActiveV2CommitmentRow;
+    timezone: string;
+  };
 }): Promise<FinalizeAdaptiveProposalOutboundSmsResult> {
   const maxChars = args.maxChars ?? DEFAULT_MAX;
   const bindingHash = args.bindingText.trim() ? hashSmsSnippet(args.bindingText.trim()) : null;
@@ -110,7 +121,35 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
   }
 
   let text = args.machineDraft.trim();
-  let brainUsed = false;
+  let v3ReplySource: string | undefined;
+  let v3ContextPacket: NorthStarSmsContextPacket | undefined;
+  let v3LaneApplied = false;
+
+  if (args.v3Refine) {
+    try {
+      const { refineMachineSmsBodyWithV3RefineLane } = await import("@/lib/v3-sms-machine-refine");
+      const r = await refineMachineSmsBodyWithV3RefineLane({
+        clerkUserId: args.v3Refine.clerkUserId,
+        messageSid: args.v3Refine.messageSid,
+        commitment: args.v3Refine.commitment,
+        timezone: args.v3Refine.timezone,
+        inboundRaw: "[adaptive_proposal_outbound]",
+        machineBody: args.machineDraft.trim(),
+        hintSource: "adaptive_proposal_outbound",
+        ownedReplySource: "v3_adaptive_proposal_refined",
+      });
+      text = r.body;
+      v3ReplySource = r.replySource;
+      v3ContextPacket = r.contextPacket;
+      v3LaneApplied = Boolean(r.replySource);
+    } catch (e) {
+      console.warn("[v3-sms-brain] adaptive_proposal_v3_refine_failed", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  let brainUsed = v3LaneApplied;
   let brainFailureReason: string | null = null;
   let fallbackUsed: string | null = null;
   let repairOpenAiAttempted = false;
@@ -120,7 +159,9 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
   const enforce = isV2HumanVisibleSmsValidatorEnforce();
   const validatorMode: "enforce" | "shadow_only" = enforce ? "enforce" : "shadow_only";
   const brainMasterOn = isV2HumanSmsBrainEnabled();
-  const brainAllowed = shouldRunPhase3AdaptiveProposalBrain();
+  /** Daily adaptive proposals pass v3Refine — Phase 3A must not own visible voice (V3 refine + NS only). */
+  const brainAllowed =
+    shouldRunPhase3AdaptiveProposalBrain() && !v3LaneApplied && args.v3Refine == null;
 
   const brainContext: HumanSmsBrainInput["context"] = {
     adaptiveProposal: {
@@ -137,6 +178,13 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
       maxChars,
       allowVictoryRoomPhrase: false,
     });
+
+  const northStarContextBase = (): NorthStarSmsContextPacket =>
+    v3ContextPacket ?? {
+      behaviorStatement: args.behaviorStatementPreview,
+      effectiveAskText: args.bindingText,
+      source: "adaptive_proposal_outbound",
+    };
 
   if (brainAllowed) {
     const t0 = performance.now();
@@ -181,11 +229,8 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
           channel: "contract_prompt",
           behaviorStatement: args.behaviorStatementPreview,
           effectiveAskText: args.bindingText,
-          contextPacket: {
-            behaviorStatement: args.behaviorStatementPreview,
-            effectiveAskText: args.bindingText,
-            source: "adaptive_proposal_outbound",
-          },
+          replySource: v3ReplySource,
+          contextPacket: northStarContextBase(),
         })
       ).visibleBody.slice(0, maxChars);
       logPipeline({
@@ -214,6 +259,7 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
         validatorMode,
         brainRewriteMs,
         brainFixMs,
+        northStarReplySource: v3ReplySource ?? null,
       };
     }
 
@@ -241,9 +287,9 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
         text = fb;
         fallbackUsed = "curated_fallback_for_kind";
       } else {
-        const minimal = "Say yes or no.";
-        text = runValidate(minimal).ok ? minimal : args.machineDraft.trim().slice(0, maxChars);
-        fallbackUsed = "minimal_or_machine_draft";
+        const minimal = "Are you in? A clear yes or no is enough.";
+        text = runValidate(minimal).ok ? minimal : fb.slice(0, maxChars);
+        fallbackUsed = "minimal_or_curated_slice";
       }
     }
   }
@@ -254,11 +300,8 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
       channel: "contract_prompt",
       behaviorStatement: args.behaviorStatementPreview,
       effectiveAskText: args.bindingText,
-      contextPacket: {
-        behaviorStatement: args.behaviorStatementPreview,
-        effectiveAskText: args.bindingText,
-        source: "adaptive_proposal_outbound",
-      },
+      replySource: v3ReplySource,
+      contextPacket: northStarContextBase(),
     })
   ).visibleBody.slice(0, maxChars);
 
@@ -290,5 +333,6 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     validatorMode,
     brainRewriteMs,
     brainFixMs,
+    northStarReplySource: v3ReplySource ?? null,
   };
 }

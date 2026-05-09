@@ -5,6 +5,9 @@ import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
+import { getActiveCommitment } from "@/lib/v2-commitment";
+import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
+import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,10 +133,38 @@ export async function GET(req: Request) {
     }
 
     try {
+      let missedBody = MESSAGE;
+      let missedV3Rs: string | undefined;
+      let missedV3Pkt: NorthStarSmsContextPacket | undefined;
+      const tzM = resolveUserTimezone(audienceUser.timezone);
+      const commitmentM = await getActiveCommitment(audienceUser.clerk_user_id);
+      if (commitmentM?.id) {
+        try {
+          const rm = await refineMachineSmsBodyWithV3RefineLane({
+            clerkUserId: audienceUser.clerk_user_id,
+            messageSid: `missed_yesterday:${audienceUser.clerk_user_id}:${todayKey}`,
+            commitment: commitmentM,
+            timezone: tzM,
+            inboundRaw: "[missed_yesterday_sms]",
+            machineBody: MESSAGE,
+            hintSource: "missed_yesterday_nudge",
+            ownedReplySource: "v3_missed_yesterday_sms_refined",
+          });
+          missedBody = rm.body;
+          missedV3Rs = rm.replySource;
+          missedV3Pkt = rm.contextPacket;
+        } catch (e) {
+          console.warn("[missed-yesterday-sms] v3_refine_failed", {
+            clerk_user_id: audienceUser.clerk_user_id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
       const gatedMissed = await finalizeNorthStarCoachSmsAsync({
-        proposedBody: MESSAGE,
+        proposedBody: missedBody,
         channel: "missed_yesterday_sms",
-        contextPacket: { source: "missed_yesterday_sms" },
+        replySource: missedV3Rs,
+        contextPacket: missedV3Pkt ?? { source: "missed_yesterday_sms" },
       });
       await sendSMS({
         to: audienceUser.phone_number,
