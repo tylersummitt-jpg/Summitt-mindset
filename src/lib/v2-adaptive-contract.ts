@@ -4,7 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { computeShrunkAskText } from "@/lib/v2-ai-outbound";
 import { buildV2ShrinkProposalOutboundSms } from "@/lib/v2-sms-accountability";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
-import { finalizeNorthStarCoachSms } from "@/lib/north-star-coach-sms";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 import { getV2CommitmentByIdForCoaching, type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 
@@ -406,11 +406,17 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
     messageSid = `dry_run_guided_shrink:${idempotencySuffix}`;
   } else {
     try {
-      const gatedGuided = finalizeNorthStarCoachSms({
+      const gatedGuided = await finalizeNorthStarCoachSmsAsync({
         proposedBody: smsBody,
         channel: "guided_contract_proposal",
         behaviorStatement: args.originalBehaviorStatement,
         effectiveAskText: args.proposalBindingText,
+        contextPacket: {
+          activeCommitmentId: args.commitmentId,
+          behaviorStatement: args.originalBehaviorStatement,
+          effectiveAskText: args.proposalBindingText,
+          source: "guided_contract_proposal",
+        },
       });
       const msg = await sendSMS({
         to: phone,

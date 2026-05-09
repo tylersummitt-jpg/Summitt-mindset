@@ -30,9 +30,59 @@ export type NorthStarCoachChannel =
   | "other_coaching";
 
 export type NorthStarCoachSmsMeta = {
-  source: "approved" | "rewritten" | "deterministic_minimal";
+  source:
+    | "approved"
+    | "rewritten"
+    | "deterministic_minimal"
+    | "openai_finalized"
+    | "openai_failed_deterministic_fallback";
   blockedReasons: string[];
   originalBody?: string;
+  /** Phase 3 — set when async finalizer runs (success or fallback). */
+  openaiAttempted?: boolean;
+  openaiFailedReason?: string | null;
+  contextPacketUsed?: boolean;
+  finalizerVersion?: string;
+  north_star_openai_model?: string | null;
+};
+
+/**
+ * Conversation-aware inputs for Phase 2 North Star (deterministic merge + guards).
+ * Populated from the SMS conversation context pack and spine-adjacent rows at send time.
+ */
+export type NorthStarSmsContextPacket = {
+  activeCommitmentId?: string | null;
+  behaviorStatement?: string | null;
+  effectiveAskText?: string | null;
+
+  latestInboundRaw?: string | null;
+  latestOutboundBody?: string | null;
+  latestOpenQuestion?: string | null;
+  expectedReplySemantics?: string | null;
+
+  recentTranscriptLines?: string[];
+  recentTranscriptSnippet?: string | null;
+
+  todayCompleted?: boolean;
+  latestOutcomeType?: string | null;
+  finalEventType?: string | null;
+
+  futureIntentHint?: "today" | "tomorrow" | "future" | "stretch" | "durable_change" | "unknown" | null;
+  proofSignal?: boolean;
+  missSignal?: boolean;
+  blockerSignal?: boolean;
+
+  latestBlockerPreview?: string | null;
+  coachingSummary?: string | null;
+  relationshipProfileSummary?: string | null;
+
+  identityAnchorText?: string | null;
+  peopleSummary?: string | null;
+  lifeDesires?: string | null;
+  pressureSummary?: string | null;
+
+  source?: string | null;
+  debug?: Record<string, unknown>;
 };
 
 export type NorthStarCoachSmsArgs = {
@@ -49,6 +99,8 @@ export type NorthStarCoachSmsArgs = {
   promptKind?: string | null;
   alreadyCompletedToday?: boolean;
   recentTranscriptSnippet?: string | null;
+  /** Phase 2 — merged with scalar args (explicit args win on duplicates). */
+  contextPacket?: NorthStarSmsContextPacket;
   metadata?: Record<string, unknown>;
   /** When true, allow app navigation lines (subscription/settings). */
   userAskedAboutAppNavigation?: boolean;
@@ -128,6 +180,52 @@ function outboundAsksTomorrowPlan(out: string | null | undefined): boolean {
 function inboundExplicitlyAboutToday(raw: string | null | undefined): boolean {
   const t = (raw ?? "").toLowerCase();
   return /\b(today|this morning|tonight|just now|earlier today)\b/.test(t) && !signalsTomorrowPlanning(raw);
+}
+
+export type NorthStarFutureIntentHint =
+  | "today"
+  | "tomorrow"
+  | "future"
+  | "stretch"
+  | "durable_change"
+  | "unknown";
+
+/**
+ * Cheap intent bucket for structural guards (deterministic; no LLM).
+ */
+export function deriveFutureIntentHint(raw: string | null | undefined): NorthStarFutureIntentHint | null {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  if (inboundExplicitlyAboutToday(raw)) return "today";
+  if (/\b(next week|next month|later this week)\b/i.test(t)) return "future";
+  if (/\b(forever|from now on|new normal|baseline)\b/i.test(t)) return "durable_change";
+  if (/\b(increase|raise|lower|change)\s+(the\s+)?(goal|bar|commitment|hours|line)\b/i.test(t)) return "stretch";
+  if (signalsTomorrowPlanning(raw)) return "tomorrow";
+  return "unknown";
+}
+
+type MergedNorthStarFields = {
+  inbound: string;
+  outbound: string;
+  openQuestion: string;
+  effectiveAsk: string;
+  behavior: string;
+};
+
+function mergeNorthStarFields(args: NorthStarCoachSmsArgs): MergedNorthStarFields {
+  const pkt = args.contextPacket;
+  return {
+    inbound: (args.latestInboundRaw ?? pkt?.latestInboundRaw ?? "").trim(),
+    outbound: (args.latestOutboundBody ?? pkt?.latestOutboundBody ?? "").trim(),
+    openQuestion: (pkt?.latestOpenQuestion ?? "").trim(),
+    effectiveAsk: (args.effectiveAskText ?? pkt?.effectiveAskText ?? "").trim(),
+    behavior: (args.behaviorStatement ?? pkt?.behaviorStatement ?? "").trim(),
+  };
+}
+
+function outboundForGuards(m: MergedNorthStarFields): string {
+  const primary = m.outbound || m.openQuestion;
+  return primary.trim();
 }
 
 export function asksTodayCompletionQuestion(body: string): boolean {
@@ -294,46 +392,65 @@ function softenHeavyContractJargon(s: string, preserveNl: boolean): string {
   return finalizeTextShape(t, preserveNl);
 }
 
-function applyStructuralGuards(args: NorthStarCoachSmsArgs, proposed: string): string | null {
-  const inbound = (args.latestInboundRaw ?? "").trim();
-  const outbound = (args.latestOutboundBody ?? "").trim();
+function applyStructuralGuards(
+  args: NorthStarCoachSmsArgs,
+  proposed: string,
+  merged: MergedNorthStarFields
+): string | null {
+  const inbound = merged.inbound;
+  const outbound = outboundForGuards(merged);
   const proposedNorm = norm(proposed);
+  const pkt = args.contextPacket;
 
   const completionCtx =
     args.alreadyCompletedToday === true ||
+    pkt?.todayCompleted === true ||
     args.finalEventType === "user_yes" ||
     args.eventType === "user_yes" ||
     inboundSignalsCompletion(inbound) ||
     outboundSignalsProofAck(outbound) ||
     outboundSignalsProofAck(proposedNorm);
 
-  const tomorrowInbound = signalsTomorrowPlanning(inbound);
-  const tomorrowOutboundQ = outboundAsksTomorrowPlan(outbound);
+  const hint = pkt?.futureIntentHint ?? deriveFutureIntentHint(inbound);
+  const futureInbound =
+    signalsTomorrowPlanning(inbound) ||
+    hint === "tomorrow" ||
+    hint === "stretch" ||
+    hint === "future" ||
+    hint === "durable_change";
+
+  const tomorrowOutboundQ =
+    outboundAsksTomorrowPlan(outbound) || outboundAsksTomorrowPlan(pkt?.latestOpenQuestion ?? "");
   const asksToday = asksTodayCompletionQuestion(proposedNorm);
 
-  if (
-    asksToday &&
-    (tomorrowInbound || tomorrowOutboundQ) &&
-    !inboundExplicitlyAboutToday(inbound)
-  ) {
+  if (asksToday && (futureInbound || tomorrowOutboundQ) && !inboundExplicitlyAboutToday(inbound)) {
     return pickTomorrowContinuation(inbound);
   }
 
   if (asksToday && completionCtx && !inboundExplicitlyAboutToday(inbound)) {
-    if (tomorrowInbound) return pickTomorrowContinuation(inbound);
+    if (futureInbound) return pickTomorrowContinuation(inbound);
     return pickCompletionContinuation(proposedNorm + inbound);
   }
 
   return null;
 }
 
-function dailyOutboundFlavor(body: string, channel: NorthStarCoachChannel): string {
+function dailyOutboundFlavor(body: string, channel: NorthStarCoachChannel, mergedAsk: string): string {
   let t = body;
   const weeklyLike = channel === "weekly_sms" || channel === "lifecycle_sms";
+  const ask = mergedAsk.trim();
   if ((channel === "daily_outbound" || channel === "reactivation") && (/^\s*$/i.test(t) || t.length < 12)) {
+    if (ask.length >= 8 && ask.length <= 100) {
+      const one = ask.slice(0, 72).replace(/\s+/g, " ").trim();
+      return `Tell the truth first — ${one}. Did you protect the rep today? Yes, no, or partial.`;
+    }
     return "Tell the truth first: did you protect the rep today? Yes, no, or partial.";
   }
   if (weeklyLike && (/^\s*$/i.test(t) || t.length < 12)) {
+    if (ask.length >= 8 && ask.length <= 120) {
+      const one = ask.slice(0, 90).replace(/\s+/g, " ").trim();
+      return `Pat Pause — ${one}. What's true about your week in one honest line?`;
+    }
     return "Pat Pause: what's true about your week — one honest line?";
   }
   if (/quick check|today'?s check/i.test(t)) {
@@ -357,6 +474,8 @@ export type NorthStarInboundCoachCtx = {
   replySource?: string | null;
   /** When known from spine/metadata (explicit proof ack for today). */
   alreadyCompletedToday?: boolean;
+  /** Built from conversation pack + spine rows — Phase 2 continuity. */
+  contextPacket?: NorthStarSmsContextPacket;
 };
 
 export function finalizeNorthStarInboundCoachReply(args: {
@@ -365,10 +484,12 @@ export function finalizeNorthStarInboundCoachReply(args: {
   channel?: NorthStarCoachChannel;
 }): NorthStarCoachSmsResult {
   const { ctx } = args;
+  const pkt = ctx.contextPacket;
   const inferredDone =
     ctx.alreadyCompletedToday === true ||
     ctx.finalEventType === "user_yes" ||
-    inboundSignalsCompletion(ctx.userMessage);
+    inboundSignalsCompletion(ctx.userMessage) ||
+    pkt?.todayCompleted === true;
 
   return finalizeNorthStarCoachSms({
     proposedBody: args.proposedBody,
@@ -380,14 +501,18 @@ export function finalizeNorthStarInboundCoachReply(args: {
     finalEventType: ctx.finalEventType ?? undefined,
     replySource: ctx.replySource ?? undefined,
     alreadyCompletedToday: inferredDone,
+    contextPacket: ctx.contextPacket,
   });
 }
 
 /**
  * Final visible SMS for coaching/accountability turns.
- * Deterministic / rule-based Phase 1 — no extra OpenAI calls.
+ * Deterministic Phase 2 — conversation-aware merge + phrase hygiene; no extra OpenAI calls.
  */
 export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthStarCoachSmsResult {
+  const mergedFields = mergeNorthStarFields(args);
+  const mergedAsk = mergedFields.effectiveAsk || mergedFields.behavior;
+
   const preserveNl = args.preserveNewlines === true;
   const originalBody = preserveNl ? args.proposedBody.trim() : norm(args.proposedBody);
   const blockedReasons: string[] = [];
@@ -405,7 +530,7 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     };
   }
 
-  const structural = applyStructuralGuards(args, working);
+  const structural = applyStructuralGuards(args, working, mergedFields);
   if (structural != null && structural !== working) {
     blockedReasons.push("structural_guard_rewrite");
     working = structural;
@@ -468,7 +593,7 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     args.channel === "lifecycle_sms"
   ) {
     const before = working;
-    working = dailyOutboundFlavor(working, args.channel);
+    working = dailyOutboundFlavor(working, args.channel, mergedAsk);
     if (working !== before) blockedReasons.push("daily_outbound_flavor");
     source = working !== before ? "rewritten" : source;
   }
@@ -483,10 +608,21 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   }
 
   if (working.trim().length < 10) {
-    if (args.channel === "daily_outbound") {
-      working = "Did you protect today's rep? Yes, no, or partial.";
+    if (args.channel === "daily_outbound" || args.channel === "reactivation") {
+      working =
+        mergedAsk.length >= 8 && mergedAsk.length <= 100
+          ? `Tell the truth first — ${mergedAsk.slice(0, 72).replace(/\s+/g, " ").trim()}. Did you protect today's rep? Yes, no, or partial.`
+          : "Did you protect today's rep? Yes, no, or partial.";
     } else if (args.channel === "weekly_sms" || args.channel === "lifecycle_sms") {
-      working = "Pat Pause: one honest line about your week?";
+      working =
+        mergedAsk.length >= 8 && mergedAsk.length <= 120
+          ? `Pat Pause — ${mergedAsk.slice(0, 72).replace(/\s+/g, " ").trim()}. One honest line about your week?`
+          : "Pat Pause: one honest line about your week?";
+    } else if (
+      (args.channel === "inbound_coach_reply" || args.channel === "blocker_followup") &&
+      args.contextPacket?.blockerSignal
+    ) {
+      working = "What's the real obstacle—in one honest line?";
     } else {
       working = "What's true — did you get the bar done today?";
     }

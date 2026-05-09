@@ -191,11 +191,15 @@ import {
   type V2AccountabilityOutcome,
 } from "@/lib/v2-commitment";
 import {
-  finalizeNorthStarCoachSms,
-  finalizeNorthStarInboundCoachReply,
   inboundSignalsCompletion,
   type NorthStarCoachChannel,
+  type NorthStarSmsContextPacket,
 } from "@/lib/north-star-coach-sms";
+import {
+  finalizeNorthStarCoachSmsAsync,
+  finalizeNorthStarInboundCoachReplyAsync,
+} from "@/lib/north-star-coach-sms-openai";
+import { buildInboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -278,7 +282,7 @@ type JobRow = {
   outbound_message_sid: string | null;
 };
 
-function northStarGatePersistBody(
+async function northStarGatePersistBodyAsync(
   replyBody: string,
   args: {
     job: JobRow;
@@ -288,9 +292,10 @@ function northStarGatePersistBody(
     behaviorStatement?: string | null;
     finalEventType?: string | null;
     replySource?: string | null;
+    contextPacket?: NorthStarSmsContextPacket;
   }
-): string {
-  return finalizeNorthStarCoachSms({
+): Promise<string> {
+  const r = await finalizeNorthStarCoachSmsAsync({
     proposedBody: replyBody,
     channel: args.channel,
     latestInboundRaw: args.job.raw_body ?? "",
@@ -301,7 +306,9 @@ function northStarGatePersistBody(
     replySource: args.replySource ?? undefined,
     alreadyCompletedToday:
       args.finalEventType === "user_yes" || inboundSignalsCompletion(args.job.raw_body),
-  }).visibleBody;
+    contextPacket: args.contextPacket,
+  });
+  return r.visibleBody;
 }
 
 async function markJobFinal(args: {
@@ -688,7 +695,7 @@ async function processV2NormalInboundOutcome(
         eventType: gdFallback.final_event_type ?? eventType,
         preferredName,
       });
-      const gatedLegacy = northStarGatePersistBody(tmpl.body, {
+      const gatedLegacy = await northStarGatePersistBodyAsync(tmpl.body, {
         job,
         channel: "inbound_coach_reply",
         lastOutboundBody: lastOutboundSmsPreview,
@@ -1016,7 +1023,7 @@ async function processV2NormalInboundOutcome(
       })
     );
 
-    const gatedPivot = northStarGatePersistBody(pivotBody, {
+    const gatedPivot = await northStarGatePersistBodyAsync(pivotBody, {
       job,
       channel: "central_brain_pivot",
       lastOutboundBody: lastOutboundSmsPreview,
@@ -1103,7 +1110,7 @@ async function processV2NormalInboundOutcome(
         })
       );
 
-      const gatedClarify = northStarGatePersistBody(clarificationBody, {
+      const gatedClarify = await northStarGatePersistBodyAsync(clarificationBody, {
         job,
         channel: "clarification",
         lastOutboundBody: lastOutboundSmsPreview,
@@ -1518,7 +1525,26 @@ async function processV2NormalInboundOutcome(
     finalReplyBody = stitchedFin.message;
   }
 
-  const northStarInboundPack = finalizeNorthStarInboundCoachReply({
+  const northStarInboundContextPacket = buildInboundNorthStarContextPacket({
+    commitmentId: commitment.id,
+    behaviorStatement: commitment.behavior_statement ?? "",
+    effectiveAskText: effectiveBehavior,
+    timezone,
+    userMessage,
+    lastOutboundSmsPreview,
+    checkPayload: (checkPayload ?? {}) as Record<string, unknown>,
+    recentEvents,
+    convPack: convPackFull,
+    coachingMemory: coachingMemoryRow,
+    finalEventType: resolved.meta.final_event_type ?? null,
+    lifeDesires,
+    peopleSummary,
+    identityAnchorText,
+    latestBlockerPreview,
+    proofDisplayedOrMoment: victoryCalloutDisplayed,
+  });
+
+  const northStarInboundPack = await finalizeNorthStarInboundCoachReplyAsync({
     proposedBody: finalReplyBody,
     ctx: {
       userMessage,
@@ -1527,6 +1553,7 @@ async function processV2NormalInboundOutcome(
       behaviorStatement: commitment.behavior_statement,
       finalEventType: resolved.meta.final_event_type ?? null,
       replySource: resolved.meta.reply_source,
+      contextPacket: northStarInboundContextPacket,
     },
   });
   finalReplyBody = northStarInboundPack.visibleBody;
@@ -1933,7 +1960,7 @@ async function processV2BlockerCapture(
         old_path_that_would_have_run: "blocker_captured",
       })
     );
-    const gatedBlockerPivot = northStarGatePersistBody(pivotBody, {
+    const gatedBlockerPivot = await northStarGatePersistBodyAsync(pivotBody, {
       job,
       channel: "central_brain_pivot",
       lastOutboundBody: lastOutboundBlockPreview,
@@ -1983,7 +2010,7 @@ async function processV2BlockerCapture(
   });
 
   const ackBody = blockerAckTry.ok ? blockerAckTry.message : templateAckBody;
-  const gatedAckBody = northStarGatePersistBody(ackBody, {
+  const gatedAckBody = await northStarGatePersistBodyAsync(ackBody, {
     job,
     channel: "blocker_followup",
     lastOutboundBody: lastOutboundBlockPreview,
@@ -2141,7 +2168,7 @@ async function processV2ContractProposalConsent(
     typeof consentProfileRow?.preferred_name === "string" ? consentProfileRow.preferred_name : null;
 
   const persistReplyAndSend = async (replyBody: string): Promise<void> => {
-    const gated = northStarGatePersistBody(replyBody, {
+    const gated = await northStarGatePersistBodyAsync(replyBody, {
       job,
       channel: "contract_ack",
       lastOutboundBody: lastBody,
@@ -2324,19 +2351,23 @@ async function persistV2JobReplyReadyAndSend(
     effectiveAsk?: string | null;
     behaviorStatement?: string | null;
     finalEventType?: string | null;
+    contextPacket?: NorthStarSmsContextPacket;
   }
 ): Promise<void> {
-  const gated = finalizeNorthStarCoachSms({
-    proposedBody: replyBody,
-    channel: northStar?.channel ?? "other_coaching",
-    latestInboundRaw: job.raw_body ?? "",
-    latestOutboundBody: northStar?.lastOutboundBody ?? null,
-    effectiveAskText: northStar?.effectiveAsk ?? undefined,
-    behaviorStatement: northStar?.behaviorStatement ?? undefined,
-    finalEventType: northStar?.finalEventType ?? undefined,
-    alreadyCompletedToday:
-      northStar?.finalEventType === "user_yes" || inboundSignalsCompletion(job.raw_body),
-  }).visibleBody;
+  const gated = (
+    await finalizeNorthStarCoachSmsAsync({
+      proposedBody: replyBody,
+      channel: northStar?.channel ?? "other_coaching",
+      latestInboundRaw: job.raw_body ?? "",
+      latestOutboundBody: northStar?.lastOutboundBody ?? null,
+      effectiveAskText: northStar?.effectiveAsk ?? undefined,
+      behaviorStatement: northStar?.behaviorStatement ?? undefined,
+      finalEventType: northStar?.finalEventType ?? undefined,
+      alreadyCompletedToday:
+        northStar?.finalEventType === "user_yes" || inboundSignalsCompletion(job.raw_body),
+      contextPacket: northStar?.contextPacket,
+    })
+  ).visibleBody;
   const now = new Date().toISOString();
   const { data: persisted } = await supabaseServer
     .from("sms_inbound_coach_jobs")

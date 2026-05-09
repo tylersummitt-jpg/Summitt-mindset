@@ -3,7 +3,7 @@ import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
-import { finalizeNorthStarCoachSms } from "@/lib/north-star-coach-sms";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
@@ -130,9 +130,10 @@ export async function GET(req: Request) {
     }
 
     try {
-      const gatedMissed = finalizeNorthStarCoachSms({
+      const gatedMissed = await finalizeNorthStarCoachSmsAsync({
         proposedBody: MESSAGE,
         channel: "missed_yesterday_sms",
+        contextPacket: { source: "missed_yesterday_sms" },
       });
       await sendSMS({
         to: audienceUser.phone_number,

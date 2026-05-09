@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  deriveFutureIntentHint,
   finalizeNorthStarCoachSms,
   finalizeNorthStarCoachSmsPreservingSuffix,
 } from "./north-star-coach-sms";
@@ -83,5 +84,32 @@ describe("finalizeNorthStarCoachSms", () => {
       channel: "followup_sms",
     });
     expect(r.visibleBody.toLowerCase()).not.toContain("quick check");
+  });
+
+  it("contextPacket todayCompleted avoids duplicate today ask without explicit finalEventType", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Did you get that done today?",
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "thinking about tomorrow",
+      contextPacket: { todayCompleted: true, source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("did you get that done");
+  });
+
+  it("daily outbound flavor threads commitment ask from contextPacket when proposed is thin", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "short",
+      channel: "daily_outbound",
+      contextPacket: { effectiveAskText: "30 minutes of focused reps", source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).toContain("30 minutes");
+    expect(r.visibleBody.toLowerCase()).toContain("tell the truth first");
+  });
+});
+
+describe("deriveFutureIntentHint", () => {
+  it("buckets tomorrow vs durable change", () => {
+    expect(deriveFutureIntentHint("I'll go two hours tomorrow")).toBe("tomorrow");
+    expect(deriveFutureIntentHint("New baseline from now on")).toBe("durable_change");
   });
 });

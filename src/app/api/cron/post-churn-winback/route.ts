@@ -4,10 +4,8 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { createWinbackToken } from "@/lib/winback-token";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
-import {
-  finalizeNorthStarCoachSms,
-  NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-} from "@/lib/north-star-coach-sms";
+import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN } from "@/lib/north-star-coach-sms";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -155,11 +153,12 @@ export async function GET(req: Request) {
         `One last question — if we rebuilt ONE thing so you’d come back, what would it be?\n` +
         `One sentence is enough.\n\n` +
         `${link}`;
-      const gatedWinback = finalizeNorthStarCoachSms({
+      const gatedWinback = await finalizeNorthStarCoachSmsAsync({
         proposedBody: smsBodyPreGate,
         channel: "post_churn_winback",
         preserveNewlines: true,
         maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
+        contextPacket: { source: "post_churn_winback" },
       });
 
       await sendSMS({

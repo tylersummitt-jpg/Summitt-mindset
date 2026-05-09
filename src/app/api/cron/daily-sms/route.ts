@@ -111,7 +111,9 @@ import {
   isPendingResolutionExpired,
   shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation,
 } from "@/lib/v2-guided-resolution";
-import { finalizeNorthStarCoachSms, type NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
+import type { NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
+import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,7 +164,7 @@ type DailySmsBuilt =
     }
   | { ok: false; error: string };
 
-function withNorthStarDailyGate(built: DailySmsBuilt): DailySmsBuilt {
+async function withNorthStarDailyGate(built: DailySmsBuilt): Promise<DailySmsBuilt> {
   if (!built.ok) return built;
   const channel: NorthStarCoachChannel = built.v2PendingResolutionReminder
     ? "pending_resolution"
@@ -173,7 +175,7 @@ function withNorthStarDailyGate(built: DailySmsBuilt): DailySmsBuilt {
         : built.v2ContractProposalMode
           ? "contract_prompt"
           : "daily_outbound";
-  const ns = finalizeNorthStarCoachSms({
+  const ns = await finalizeNorthStarCoachSmsAsync({
     proposedBody: built.smsBody,
     channel,
     behaviorStatement: built.v2EffectiveAskText ?? undefined,
@@ -182,6 +184,15 @@ function withNorthStarDailyGate(built: DailySmsBuilt): DailySmsBuilt {
       v2TemplateFamily: built.v2TemplateFamily,
       v2CommitmentId: built.v2CommitmentId,
     },
+    contextPacket:
+      built.v2Accountability && (built.v2CommitmentId || built.v2PriorOutcome != null || built.v2BlockerPreview)
+        ? buildDailyOutboundNorthStarContextPacket({
+            commitmentId: built.v2CommitmentId ?? null,
+            effectiveAskText: built.v2EffectiveAskText ?? null,
+            priorOutcome: built.v2PriorOutcome ?? null,
+            blockerPreview: built.v2BlockerPreview ?? null,
+          })
+        : undefined,
   });
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,
@@ -195,6 +206,10 @@ function withNorthStarDailyGate(built: DailySmsBuilt): DailySmsBuilt {
         final_body: ns.visibleBody,
         north_star_gate_source: ns.meta.source,
         north_star_gate_reasons: ns.meta.blockedReasons,
+        openai_attempted: ns.meta.openaiAttempted,
+        openai_failed_reason: ns.meta.openaiFailedReason ?? null,
+        context_packet_used: ns.meta.contextPacketUsed,
+        finalizer_version: ns.meta.finalizerVersion,
       },
     };
   }
@@ -1699,7 +1714,7 @@ export async function GET(req: Request) {
               md as Record<string, unknown>,
               todayKey
             );
-            const built = builtRaw.ok ? withNorthStarDailyGate(builtRaw) : builtRaw;
+            const built = builtRaw.ok ? await withNorthStarDailyGate(builtRaw) : builtRaw;
             if (!built.ok) {
               if (built.error === "v2_reactivation_not_due") {
                 await supabaseServer
@@ -2180,7 +2195,7 @@ export async function GET(req: Request) {
         md as Record<string, unknown>,
         todayKey
       );
-      const builtMain = builtMainRaw.ok ? withNorthStarDailyGate(builtMainRaw) : builtMainRaw;
+      const builtMain = builtMainRaw.ok ? await withNorthStarDailyGate(builtMainRaw) : builtMainRaw;
       if (!builtMain.ok) {
         if (builtMain.error === "v2_reactivation_not_due") {
           await supabaseServer

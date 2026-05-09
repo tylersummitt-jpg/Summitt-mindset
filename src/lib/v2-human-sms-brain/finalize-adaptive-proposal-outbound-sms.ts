@@ -20,7 +20,7 @@ import {
 } from "@/lib/v2-human-sms-brain/flags";
 import { hashSmsSnippet, validateHumanVisibleSms } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { HUMAN_VISIBLE_SMS_VALIDATOR_VERSION } from "@/lib/v2-human-visible-sms/types";
-import { finalizeNorthStarCoachSms } from "@/lib/north-star-coach-sms";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 
 const DEFAULT_MAX = 320;
 
@@ -175,12 +175,19 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     }
 
     if (!enforce) {
-      const gatedEarly = finalizeNorthStarCoachSms({
-        proposedBody: text,
-        channel: "contract_prompt",
-        behaviorStatement: args.behaviorStatementPreview,
-        effectiveAskText: args.bindingText,
-      }).visibleBody.slice(0, maxChars);
+      const gatedEarly = (
+        await finalizeNorthStarCoachSmsAsync({
+          proposedBody: text,
+          channel: "contract_prompt",
+          behaviorStatement: args.behaviorStatementPreview,
+          effectiveAskText: args.bindingText,
+          contextPacket: {
+            behaviorStatement: args.behaviorStatementPreview,
+            effectiveAskText: args.bindingText,
+            source: "adaptive_proposal_outbound",
+          },
+        })
+      ).visibleBody.slice(0, maxChars);
       logPipeline({
         brainCase,
         proposalKind: args.proposalKind,
@@ -241,12 +248,19 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     }
   }
 
-  text = finalizeNorthStarCoachSms({
-    proposedBody: text,
-    channel: "contract_prompt",
-    behaviorStatement: args.behaviorStatementPreview,
-    effectiveAskText: args.bindingText,
-  }).visibleBody.slice(0, maxChars);
+  text = (
+    await finalizeNorthStarCoachSmsAsync({
+      proposedBody: text,
+      channel: "contract_prompt",
+      behaviorStatement: args.behaviorStatementPreview,
+      effectiveAskText: args.bindingText,
+      contextPacket: {
+        behaviorStatement: args.behaviorStatementPreview,
+        effectiveAskText: args.bindingText,
+        source: "adaptive_proposal_outbound",
+      },
+    })
+  ).visibleBody.slice(0, maxChars);
 
   const finalCheck = runValidate(text);
   logPipeline({

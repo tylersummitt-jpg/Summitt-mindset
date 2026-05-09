@@ -16,11 +16,13 @@ import {
   generateV2WeeklyProofSmsBody,
   V2_WEEKLY_PROOF_PROMPT_VERSION,
 } from "@/lib/v2-weekly-proof-sms";
-import { buildV2SmsConversationContextPack } from "@/lib/v2-sms-conversation-context";
 import {
-  finalizeNorthStarCoachSmsPreservingSuffix,
-  NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-} from "@/lib/north-star-coach-sms";
+  buildV2SmsConversationContextPack,
+  type V2SmsConversationContextPack,
+} from "@/lib/v2-sms-conversation-context";
+import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN } from "@/lib/north-star-coach-sms";
+import { buildWeeklySmsNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
+import { finalizeNorthStarCoachSmsPreservingSuffixAsync } from "@/lib/north-star-coach-sms-openai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -190,6 +192,7 @@ export async function GET(req: Request) {
           timezone,
         });
         let weeklySmsThreadAppend: string | null = null;
+        let convForNorthStar: V2SmsConversationContextPack | null = null;
         try {
           const conv = await buildV2SmsConversationContextPack({
             clerkUserId: user.id,
@@ -197,6 +200,7 @@ export async function GET(req: Request) {
             commitment,
             timezone,
           });
+          convForNorthStar = conv;
           weeklySmsThreadAppend = conv.recentTranscriptLines.slice(-5).join(" | ").slice(0, 700);
         } catch (e) {
           console.warn("[weekly-sms] sms_conversation_context_pack_failed", {
@@ -211,7 +215,13 @@ export async function GET(req: Request) {
         const introV2 =
           PAT_PAUSE_INTROS[Math.floor(Math.random() * PAT_PAUSE_INTROS.length)];
         const preGateWeeklyV2 = `${introV2}\n\n${proofCore.trim()}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
-        const gatedWeeklyV2 = finalizeNorthStarCoachSmsPreservingSuffix({
+        const weeklyNorthStarCtx = buildWeeklySmsNorthStarContextPacket({
+          commitmentId: commitment.id,
+          behaviorStatement: commitment.behavior_statement,
+          transcriptSnippet: weeklySmsThreadAppend,
+          transcriptLines: convForNorthStar?.recentTranscriptLines.slice(-8),
+        });
+        const gatedWeeklyV2 = await finalizeNorthStarCoachSmsPreservingSuffixAsync({
           proposedFullBody: preGateWeeklyV2,
           suffixToPreserve: WEEKLY_SMS_COMPLIANCE_FOOTER,
           channel: "weekly_sms",
@@ -219,6 +229,7 @@ export async function GET(req: Request) {
           maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
           behaviorStatement: commitment.behavior_statement,
           effectiveAskText: commitment.behavior_statement?.trim() ?? undefined,
+          contextPacket: weeklyNorthStarCtx,
         });
         const finalBodyV2 = gatedWeeklyV2.visibleBody;
 
@@ -245,6 +256,10 @@ export async function GET(req: Request) {
             final_body: gatedWeeklyV2.visibleBody,
             north_star_gate_source: gatedWeeklyV2.meta.source,
             north_star_gate_reasons: gatedWeeklyV2.meta.blockedReasons,
+            openai_attempted: gatedWeeklyV2.meta.openaiAttempted,
+            openai_failed_reason: gatedWeeklyV2.meta.openaiFailedReason ?? null,
+            context_packet_used: gatedWeeklyV2.meta.contextPacketUsed,
+            finalizer_version: gatedWeeklyV2.meta.finalizerVersion,
           },
         } as const;
 
@@ -381,12 +396,22 @@ export async function GET(req: Request) {
       }
 
       const preGateLegacy = `${intro}\n\n${bodyForWrap}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
-      const gatedLegacyWeekly = finalizeNorthStarCoachSmsPreservingSuffix({
+      const legacyCommitment = await getActiveCommitment(user.id);
+      const legacyWeeklyCtx =
+        legacyCommitment?.id != null
+          ? buildWeeklySmsNorthStarContextPacket({
+              commitmentId: legacyCommitment.id,
+              behaviorStatement: legacyCommitment.behavior_statement,
+              transcriptSnippet: null,
+            })
+          : { source: "weekly_sms" };
+      const gatedLegacyWeekly = await finalizeNorthStarCoachSmsPreservingSuffixAsync({
         proposedFullBody: preGateLegacy,
         suffixToPreserve: WEEKLY_SMS_COMPLIANCE_FOOTER,
         channel: "weekly_sms",
         preserveNewlines: true,
         maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
+        contextPacket: legacyWeeklyCtx,
       });
       const finalBody = gatedLegacyWeekly.visibleBody;
 

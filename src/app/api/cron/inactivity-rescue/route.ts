@@ -4,8 +4,8 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { createRescueToken } from "@/lib/rescue-token";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import {
-  finalizeNorthStarCoachSms,
   NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
 } from "@/lib/north-star-coach-sms";
 
@@ -128,11 +128,12 @@ export async function GET(req: Request) {
 
         const rawBody =
           `Quick check-in — want a smaller version tomorrow?\n\n` + `Tap here: ${link}`;
-        const gatedRescue = finalizeNorthStarCoachSms({
+        const gatedRescue = await finalizeNorthStarCoachSmsAsync({
           proposedBody: rawBody,
           channel: "inactivity_rescue",
           preserveNewlines: true,
           maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
+          contextPacket: { source: "inactivity_rescue" },
         });
 
         await sendSMS({

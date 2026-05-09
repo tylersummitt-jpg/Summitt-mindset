@@ -5,7 +5,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getUserStalenessLevel } from "@/lib/get-user-staleness";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
-import { finalizeNorthStarCoachSms } from "@/lib/north-star-coach-sms";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
@@ -134,9 +134,10 @@ export async function GET(req: Request) {
 
     try {
       const rawFollowup = getFollowupMessage(level);
-      const gatedFollowup = finalizeNorthStarCoachSms({
+      const gatedFollowup = await finalizeNorthStarCoachSmsAsync({
         proposedBody: rawFollowup,
         channel: "followup_sms",
+        contextPacket: { source: "followup_sms" },
       });
       await sendSMS({
         to: audienceUser.phone_number,
@@ -159,6 +160,10 @@ export async function GET(req: Request) {
                 final_body: gatedFollowup.visibleBody,
                 north_star_gate_source: gatedFollowup.meta.source,
                 north_star_gate_reasons: gatedFollowup.meta.blockedReasons,
+                openai_attempted: gatedFollowup.meta.openaiAttempted,
+                openai_failed_reason: gatedFollowup.meta.openaiFailedReason ?? null,
+                context_packet_used: gatedFollowup.meta.contextPacketUsed,
+                finalizer_version: gatedFollowup.meta.finalizerVersion,
               },
             },
           })
@@ -177,6 +182,10 @@ export async function GET(req: Request) {
               final_body: gatedFollowup.visibleBody,
               north_star_gate_source: gatedFollowup.meta.source,
               north_star_gate_reasons: gatedFollowup.meta.blockedReasons,
+              openai_attempted: gatedFollowup.meta.openaiAttempted,
+              openai_failed_reason: gatedFollowup.meta.openaiFailedReason ?? null,
+              context_packet_used: gatedFollowup.meta.contextPacketUsed,
+              finalizer_version: gatedFollowup.meta.finalizerVersion,
             },
           },
         });
