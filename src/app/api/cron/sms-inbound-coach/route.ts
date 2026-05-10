@@ -191,7 +191,6 @@ import {
   type V2AccountabilityOutcome,
 } from "@/lib/v2-commitment";
 import {
-  finalizeNorthStarInboundCoachReply,
   inboundSignalsCompletion,
   type NorthStarCoachChannel,
   type NorthStarSmsContextPacket,
@@ -205,10 +204,7 @@ import {
   recentEventsIncludeUserYesOnLocalDay,
   type ExpectedReplySemanticsV3,
 } from "@/lib/north-star-sms-context-packet";
-import {
-  generateV3OpenQuestionAnswerReply,
-  tryResolveAnswerToOpenQuestionTurn,
-} from "@/lib/v3-sms-turn";
+import { tryResolveAnswerToOpenQuestionTurn } from "@/lib/v3-sms-turn";
 import {
   buildAnswerToOpenQuestionV3BrainPackage,
   buildMinimalInboundTranscriptLines,
@@ -218,6 +214,7 @@ import {
   isV3OwnedInboundReplySource,
   produceV3InboundCoachDraft,
   recoverV3InboundCoachDraftFromArgs,
+  tryGenerateV3OpenQuestionCoachReply,
   type V3SmsBrainResult,
 } from "@/lib/v3-sms-brain";
 import {
@@ -666,12 +663,29 @@ async function processV2NormalInboundOutcome(
             : String(northStarPktEarly.expectedReplySemantics ?? ""),
       });
 
-      const draft = generateV3OpenQuestionAnswerReply({
-        v3: v3Resolution,
+      const openDraft = await tryGenerateV3OpenQuestionCoachReply({
+        resolution: v3Resolution,
+        inboundRaw: userMessage,
         messageSid: job.message_sid,
         todayCompleted: priorYesToday,
         effectiveAsk: effectiveBehavior,
+        behaviorStatement: commitment.behavior_statement ?? "",
+        northStarPacket: northStarPktEarly,
+        coachingMemory: coachingMemoryRow,
+        latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+        expectedReplySemantics: northStarPktEarly.expectedReplySemantics as ExpectedReplySemanticsV3,
+        learningSignal: learningOpen,
       });
+
+      const openBrainWithSource: V3SmsBrainResult = {
+        ...openBrain,
+        metadata: {
+          ...openBrain.metadata,
+          open_question_reply_source: openDraft.openQuestionReplySource,
+          deterministic_fallback_reason: openDraft.deterministicFallbackReason ?? null,
+          deterministic_fallback_used: openDraft.openQuestionReplySource === "deterministic_fallback",
+        },
+      };
 
       const contextPacketV3: NorthStarSmsContextPacket = {
         ...northStarPktEarly,
@@ -684,7 +698,7 @@ async function processV2NormalInboundOutcome(
           answered_open_question: true,
           extracted_open_question_answer: v3Resolution.extractedAnswer,
           v3_brain: buildV3BrainMetadata({
-            brain: openBrain,
+            brain: openBrainWithSource,
             latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
             expectedSemantics:
               typeof northStarPktEarly.expectedReplySemantics === "string"
@@ -695,8 +709,8 @@ async function processV2NormalInboundOutcome(
         },
       };
 
-      const gated = finalizeNorthStarInboundCoachReply({
-        proposedBody: draft,
+      const gated = await finalizeNorthStarInboundCoachReplyAsync({
+        proposedBody: openDraft.text,
         ctx: {
           userMessage,
           lastOutboundSmsPreview: contextPacketV3.latestOutboundBody ?? lastOutboundSmsPreview,
@@ -2379,6 +2393,23 @@ async function processV2NormalInboundOutcome(
     gated_mode: replyResolutionMeta.gated_mode,
   };
 
+  const northStarGateTelemetry: Record<string, unknown> = {
+    original_body: northStarInboundPack.meta.originalBody,
+    final_body: northStarInboundPack.visibleBody,
+    north_star_gate_source: northStarInboundPack.meta.source,
+    north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
+    ...(northStarInboundPack.meta.north_star_structural_replacement
+      ? { north_star_structural_replacement: true }
+      : {}),
+    ...(northStarInboundPack.meta.repeated_question_guard_fired
+      ? {
+          repeated_question_guard_fired: northStarInboundPack.meta.repeated_question_guard_fired,
+          repeated_question_original: northStarInboundPack.meta.repeated_question_original,
+          repeated_question_replacement: northStarInboundPack.meta.repeated_question_replacement,
+        }
+      : {}),
+  };
+
   const v3BrainEventMeta =
     v3BrainPayload != null
       ? buildV3BrainMetadata({
@@ -2389,12 +2420,7 @@ async function processV2NormalInboundOutcome(
               ? northStarPktForV3.expectedReplySemantics
               : null,
           coachReplySource: effectiveInboundReplySource ?? replyResolutionMeta.reply_source ?? "v3_sms_brain",
-          northStarGate: {
-            original_body: northStarInboundPack.meta.originalBody,
-            final_body: northStarInboundPack.visibleBody,
-            north_star_gate_source: northStarInboundPack.meta.source,
-            north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
-          },
+          northStarGate: northStarGateTelemetry,
           priorDraftSource: priorDraftFromConversationBrain?.source ?? null,
         })
       : null;
@@ -2413,12 +2439,7 @@ async function processV2NormalInboundOutcome(
             smsContextPackMeta: smsConvPackMeta ?? undefined,
           }),
           reply_resolution: replyResolutionPayload,
-          north_star_gate: {
-            original_body: northStarInboundPack.meta.originalBody,
-            final_body: northStarInboundPack.visibleBody,
-            north_star_gate_source: northStarInboundPack.meta.source,
-            north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
-          },
+          north_star_gate: northStarGateTelemetry,
         }
       : {
           model: inboundAiModelUsed,
@@ -2429,12 +2450,7 @@ async function processV2NormalInboundOutcome(
           fallback_used: true,
           fallback_reason: gatedDecision.mode,
           reply_resolution: replyResolutionPayload,
-          north_star_gate: {
-            original_body: northStarInboundPack.meta.originalBody,
-            final_body: northStarInboundPack.visibleBody,
-            north_star_gate_source: northStarInboundPack.meta.source,
-            north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
-          },
+          north_star_gate: northStarGateTelemetry,
         };
 
   if (

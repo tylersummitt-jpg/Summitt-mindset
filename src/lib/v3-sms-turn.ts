@@ -12,7 +12,9 @@ export type V3AnswerToOpenQuestionSubkind =
   | "blocker_detail"
   | "goal_change_clarification"
   | "open_reflection"
-  | "unknown_open_answer";
+  | "unknown_open_answer"
+  /** User defers smallest-step-today to tomorrow / late — must not repeat the same today question. */
+  | "defer_today_micro_step_to_tomorrow";
 
 export type V3AnswerToOpenQuestionResult = {
   turnPurpose: "answer_to_open_question";
@@ -90,6 +92,29 @@ function looksLikeBlockerPhrase(raw: string): boolean {
   return true;
 }
 
+/** Coach asked for a tiny/today micro-commit (matches smallest-step deterministic reply). */
+export function coachAskedSmallestStepToday(latestQuestion: string): boolean {
+  const q = latestQuestion.toLowerCase();
+  return (
+    /\bsmallest\s+honest\s+next\s+step\b/i.test(q) ||
+    /\b10\s*minutes\s+or\s+less\b/i.test(q) ||
+    /\bstill\s+do\s+today\b/i.test(q) ||
+    (/\btoday\b/i.test(q) && /\b10\b.*\bminute/i.test(q))
+  );
+}
+
+/** User closes today and points to tomorrow / late — answers the micro-step question without taking more today. */
+export function inboundDefersTodayForTomorrow(raw: string): boolean {
+  const t = raw.trim().toLowerCase();
+  return (
+    /\b(tomorrow|tmrw)\b/.test(t) ||
+    /\b(it'?s\s+late|too\s+late|kind\s+of\s+late)\b/.test(t) ||
+    /\b(can'?t\s+tonight|not\s+tonight|no\s+time\s+tonight)\b/.test(t) ||
+    /\b(not\s+today|won'?t\s+happen\s+today)\b/.test(t) ||
+    /\b(get\s+it\s+done\s+tomorrow|done\s+tomorrow|do\s+it\s+tomorrow|have\s+to\s+[^.!?]*tomorrow)\b/i.test(t)
+  );
+}
+
 /**
  * If the latest coach message asked an open question and inbound plausibly answers it,
  * route here instead of legacy user_partial / accountability templates.
@@ -113,6 +138,18 @@ export function tryResolveAnswerToOpenQuestionTurn(
   }
 
   const lo = args.latestOpenQuestion.trim();
+
+  if (coachAskedSmallestStepToday(lo) && inboundDefersTodayForTomorrow(inbound)) {
+    return {
+      turnPurpose: "answer_to_open_question",
+      subkind: "defer_today_micro_step_to_tomorrow",
+      answeredOpenQuestion: true,
+      extractedAnswer: inbound,
+      shouldWriteOutcomeEvent: false,
+      shouldAskTodayCompletionAgain: false,
+      replyStrategy: "tomorrow_concrete_time_after_micro_step_declined",
+    };
+  }
 
   switch (qSem) {
     case "future_plan_story_title": {
@@ -224,6 +261,14 @@ export function generateV3OpenQuestionAnswerReply(args: {
   const ans = titleCasePreserve(v3.extractedAnswer ?? "");
 
   switch (v3.subkind) {
+    case "defer_today_micro_step_to_tomorrow": {
+      const lines = [
+        `Fair — tonight is closed. Tomorrow starts with the first 10 minutes before anything else. What time are you protecting?`,
+        `Got it — no more negotiating tonight. Tomorrow: first 10 minutes before the product pulls you in. What time does it start?`,
+        `Then today is done. Tomorrow gets concrete — what time are you protecting for the first 10 minutes?`,
+      ];
+      return lines[sidPick(messageSid, lines.length)]!;
+    }
     case "future_plan_story_title": {
       const lines = [
         `Good. ${ans} is tomorrow's story. Get the first rough version down — messy is fine.`,
@@ -244,7 +289,8 @@ export function generateV3OpenQuestionAnswerReply(args: {
     }
     case "blocker_detail":
     case "open_reflection": {
-      return `Got it. What's the smallest honest next step you can still do today — 10 minutes or less?`;
+      /** Emergency-only — primary path is OpenAI (`tryGenerateV3OpenQuestionCoachReply` in v3-sms-brain). */
+      return `Noted. What's the tightest constraint — time, energy, or avoidance?`;
     }
     case "goal_change_clarification": {
       return `Noted. Say this plainly: do you want a one-day experiment, or are you asking to change the daily standard?`;

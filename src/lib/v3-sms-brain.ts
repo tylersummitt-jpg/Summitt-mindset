@@ -19,6 +19,7 @@ import {
 } from "@/lib/north-star-coach-sms";
 import {
   generateV3OpenQuestionAnswerReply,
+  inboundDefersTodayForTomorrow,
   tryResolveAnswerToOpenQuestionTurn,
   type V3AnswerToOpenQuestionResult,
 } from "@/lib/v3-sms-turn";
@@ -107,7 +108,7 @@ export type V3SmsTurnPurpose =
 export type V3SmsBrainResult = {
   turnPurpose: V3SmsTurnPurpose;
   confidence: "high" | "medium" | "low";
-  /** When set, {@link generateV3CoachReply} uses deterministic open-question replies. */
+  /** When set, {@link generateV3CoachReply} routes through {@link tryGenerateV3OpenQuestionCoachReply} (OpenAI + deterministic fallback). */
   openQuestionResolution?: import("@/lib/v3-sms-turn").V3AnswerToOpenQuestionResult | null;
   answeredOpenQuestion?: boolean;
   accountabilityEventCandidate?: "user_yes" | "user_no" | "user_partial" | null;
@@ -332,35 +333,168 @@ export type GenerateV3CoachReplyArgs = {
   priorDraftHint?: { source: string; text: string } | null;
 };
 
+export type OpenQuestionReplyGenerationMeta = {
+  openQuestionReplySource: "openai" | "deterministic_fallback";
+  deterministicFallbackReason?: string | null;
+};
+
 const BANNED_LINE =
   "Never say: yes/no/partial menu, reply yes or no, great job, keep momentum, let me know how it went, staying consistent is key, it's important to, check the app, contract, overlay, pending resolution, V2, Pat Summitt's name more than once.";
 
 /**
- * Produces visible SMS body; open-question path uses deterministic generator (no extra OpenAI).
+ * Open-question replies prefer OpenAI with full thread context; deterministic templates are emergency-only
+ * (plus vetted safe paths like explicit defer-to-tomorrow routing).
  */
-export async function generateV3CoachReply(args: GenerateV3CoachReplyArgs): Promise<{
-  text: string;
-  openAiOk: boolean;
-  confidence: number | null;
-}> {
-  const openRes = args.understanding.openQuestionResolution;
-  if (openRes) {
+export async function tryGenerateV3OpenQuestionCoachReply(args: {
+  resolution: V3AnswerToOpenQuestionResult;
+  inboundRaw: string;
+  messageSid: string;
+  todayCompleted: boolean;
+  effectiveAsk: string;
+  behaviorStatement: string;
+  northStarPacket: NorthStarSmsContextPacket;
+  coachingMemory: V2CoachingMemoryForPrompt | null;
+  latestOpenQuestion: string | null;
+  expectedReplySemantics: ExpectedReplySemanticsV3;
+  learningSignal?: V3LearningSignals | null;
+}): Promise<{ text: string; openAiOk: boolean } & OpenQuestionReplyGenerationMeta> {
+  const sub = args.resolution.subkind;
+  /** Audited safe deterministic — avoids repeating the micro-step-today question; no extra LLM spend. */
+  if (sub === "defer_today_micro_step_to_tomorrow") {
     return {
       text: generateV3OpenQuestionAnswerReply({
-        v3: openRes,
+        v3: args.resolution,
         messageSid: args.messageSid,
-        todayCompleted: args.northStarPacket.todayCompleted === true,
+        todayCompleted: args.todayCompleted,
         effectiveAsk: args.effectiveAsk,
       }),
       openAiOk: true,
-      confidence: 1,
+      openQuestionReplySource: "deterministic_fallback",
+      deterministicFallbackReason: "defer_today_micro_step_safe_template",
     };
   }
 
   const client = getOpenAI();
   if (!client) {
     return {
-      text: fallbackInboundReply(args.understanding, args.effectiveAsk),
+      text: generateV3OpenQuestionAnswerReply({
+        v3: args.resolution,
+        messageSid: args.messageSid,
+        todayCompleted: args.todayCompleted,
+        effectiveAsk: args.effectiveAsk,
+      }),
+      openAiOk: false,
+      openQuestionReplySource: "deterministic_fallback",
+      deterministicFallbackReason: "no_openai_key",
+    };
+  }
+
+  const transcript =
+    args.northStarPacket.recentTranscriptLines?.slice(-12).join("\n") ??
+    args.northStarPacket.recentTranscriptSnippet ??
+    "";
+  const memoryBlock = formatCoachingMemoryPromptBlock(args.coachingMemory);
+  const dnr = args.learningSignal?.doNotRepeat?.trim() ?? null;
+
+  const system = `You write ONE outbound SMS as an accountability coach (Pat Summitt principles: direct, warm-not-soft, human).
+The user ALREADY answered the coach's latest question. Your reply must respond to their answer — never repeat or re-ask that same question.
+Never output menus (yes/no/partial), "did you manage," "let me know how it went," hollow motivation, or "check the app."
+If they defer today to tomorrow / it's late: close today and make tomorrow concrete (time or first protected block).
+If they gave a time, confirm it in plain language. If they gave a story title or concrete detail, acknowledge it briefly then one forward move.
+Max ~300 characters. Single SMS. No bullet lists.`;
+
+  const user = `Routing subkind: ${sub}
+Extracted answer (may be partial): ${args.resolution.extractedAnswer ?? "(none)"}
+Latest coach question (do NOT repeat this): ${args.latestOpenQuestion ?? "(unknown)"}
+Expected reply semantics: ${args.expectedReplySemantics}
+Today already completed (server): ${String(args.todayCompleted)}
+Effective ask: ${args.effectiveAsk}
+Behavior: ${args.behaviorStatement}
+User's latest inbound: ${args.inboundRaw.trim()}
+Do-not-repeat coaching hint: ${dnr || "(none)"}
+Memory snapshot:
+${memoryBlock.slice(0, 1200)}
+Recent transcript:
+${transcript.slice(0, 1400)}
+Write the SMS body only.`;
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.35,
+      max_tokens: 220,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    });
+    const text = completion.choices[0]?.message?.content?.trim() ?? "";
+    if (!text) throw new Error("empty");
+    const cleaned = text.replace(/^["']|["']$/g, "").trim();
+    return {
+      text: cleaned,
+      openAiOk: true,
+      openQuestionReplySource: "openai",
+      deterministicFallbackReason: null,
+    };
+  } catch {
+    return {
+      text: generateV3OpenQuestionAnswerReply({
+        v3: args.resolution,
+        messageSid: args.messageSid,
+        todayCompleted: args.todayCompleted,
+        effectiveAsk: args.effectiveAsk,
+      }),
+      openAiOk: false,
+      openQuestionReplySource: "deterministic_fallback",
+      deterministicFallbackReason: "openai_failed_or_empty",
+    };
+  }
+}
+
+/**
+ * Produces visible SMS body; open-question path prefers OpenAI with deterministic emergency fallback.
+ */
+export async function generateV3CoachReply(args: GenerateV3CoachReplyArgs): Promise<{
+  text: string;
+  openAiOk: boolean;
+  confidence: number | null;
+  openQuestionReplyMeta?: OpenQuestionReplyGenerationMeta | null;
+}> {
+  const openRes = args.understanding.openQuestionResolution;
+  if (openRes) {
+    const oq = await tryGenerateV3OpenQuestionCoachReply({
+      resolution: openRes,
+      inboundRaw: args.inboundRaw,
+      messageSid: args.messageSid,
+      todayCompleted: args.northStarPacket.todayCompleted === true,
+      effectiveAsk: args.effectiveAsk,
+      behaviorStatement: args.behaviorStatement,
+      northStarPacket: args.northStarPacket,
+      coachingMemory: args.coachingMemory,
+      latestOpenQuestion: args.northStarPacket.latestOpenQuestion ?? null,
+      expectedReplySemantics:
+        (args.northStarPacket.expectedReplySemantics as ExpectedReplySemanticsV3) ?? "unknown",
+      learningSignal: args.understanding.learningSignal ?? null,
+    });
+    return {
+      text: oq.text,
+      openAiOk: oq.openAiOk,
+      confidence: oq.openQuestionReplySource === "openai" ? 0.9 : 0.5,
+      openQuestionReplyMeta: {
+        openQuestionReplySource: oq.openQuestionReplySource,
+        deterministicFallbackReason: oq.deterministicFallbackReason ?? null,
+      },
+    };
+  }
+
+  const client = getOpenAI();
+  if (!client) {
+    return {
+      text: fallbackInboundReply(args.understanding, args.effectiveAsk, {
+        inboundRaw: args.inboundRaw,
+        northStarPacket: args.northStarPacket,
+      }),
       openAiOk: false,
       confidence: null,
     };
@@ -410,16 +544,50 @@ Draft the reply SMS only.`;
     return { text: text.replace(/^["']|["']$/g, "").trim(), openAiOk: true, confidence: 0.85 };
   } catch {
     return {
-      text: fallbackInboundReply(args.understanding, args.effectiveAsk),
+      text: fallbackInboundReply(args.understanding, args.effectiveAsk, {
+        inboundRaw: args.inboundRaw,
+        northStarPacket: args.northStarPacket,
+      }),
       openAiOk: false,
       confidence: null,
     };
   }
 }
 
-function fallbackInboundReply(u: V3SmsBrainResult, effectiveAsk: string): string {
+function inboundLooksAnsweredOpenQuestion(inbound: string, latestQ: string): boolean {
+  if (!latestQ || inbound.length < 8) return false;
+  if (/^(yes|no|yep|nope|ok|k)\b/i.test(inbound) && inbound.length < 16) return false;
+  return true;
+}
+
+function fallbackInboundReply(
+  u: V3SmsBrainResult,
+  effectiveAsk: string,
+  ctx?: Pick<GenerateV3CoachReplyArgs, "inboundRaw" | "northStarPacket">
+): string {
   const ask = effectiveAsk.trim().slice(0, 80) || "the rep";
   const learn = u.learningSignal;
+  const inbound = ctx?.inboundRaw?.trim() ?? "";
+  const pkt = ctx?.northStarPacket;
+  const latestQ = pkt?.latestOpenQuestion?.trim() ?? "";
+  const todayDone = pkt?.todayCompleted === true;
+
+  if (inbound && inboundDefersTodayForTomorrow(inbound)) {
+    return `Fair — I'm closing today. What time tomorrow protects your first real move on ${ask}?`;
+  }
+
+  if (
+    latestQ &&
+    inboundLooksAnsweredOpenQuestion(inbound, latestQ) &&
+    !/^(yes|no|yep|nope)\s*$/i.test(inbound.trim())
+  ) {
+    return `Got it. I'm not circling the same ask — what's the next concrete move on ${ask}?`;
+  }
+
+  if (todayDone && inbound.length > 8 && !/\b(miss|didn'?t|failed|nope)\b/i.test(inbound.toLowerCase())) {
+    return `That tracks — what's tomorrow's first protected block?`;
+  }
+
   const missDetail =
     learn?.blockerPattern === "late_bedtime_upstream"
       ? "sleep timing"
@@ -570,7 +738,7 @@ function fallbackDailyBody(
   const core = args.effectiveAsk.trim().slice(0, 72) || "your commitment";
 
   if (styleHint === "silence_recovery") {
-    return `Still in this with you. One honest rep on ${core} — did it happen today?`;
+    return `Still here with you. ${core} — tell me straight where you landed today.`;
   }
 
   if (learning.workingCondition === "phone_blocked_or_protected" || learning.workingCondition === "early_start") {
@@ -603,7 +771,7 @@ function fallbackDailyBody(
     return `Morning starts tonight. What time is lights out before ${core}?`;
   }
 
-  return `One real rep today. Did ${core} happen?`;
+  return `One honest rep on ${core} — what happened today?`;
 }
 
 /** Deterministic V3 daily line when OpenAI fails or throws — never raw template resolution. */
@@ -669,6 +837,25 @@ export type ProduceV3InboundCoachDraftArgs = {
   priorDraftHint?: { source: string; text: string } | null;
 };
 
+function mergeBrainWithCoachGenerateMeta(
+  understanding: V3SmsBrainResult,
+  gen: Awaited<ReturnType<typeof generateV3CoachReply>>
+): V3SmsBrainResult {
+  const metaExtra: Record<string, unknown> = {};
+  if (gen.openQuestionReplyMeta) {
+    metaExtra.open_question_reply_source = gen.openQuestionReplyMeta.openQuestionReplySource;
+    metaExtra.deterministic_fallback_reason = gen.openQuestionReplyMeta.deterministicFallbackReason ?? null;
+    metaExtra.deterministic_fallback_used =
+      gen.openQuestionReplyMeta.openQuestionReplySource === "deterministic_fallback";
+  } else if (!gen.openAiOk) {
+    metaExtra.deterministic_fallback_used = true;
+    metaExtra.deterministic_fallback_reason = "v3_inbound_openai_unavailable_or_failed";
+  }
+  return Object.keys(metaExtra).length > 0
+    ? { ...understanding, metadata: { ...understanding.metadata, ...metaExtra } }
+    : understanding;
+}
+
 /** Raw SMS draft for inbound (North Star applied once downstream). Always returns a draft for accountable routing. */
 export async function produceV3InboundCoachDraft(
   args: ProduceV3InboundCoachDraftArgs
@@ -700,12 +887,20 @@ export async function produceV3InboundCoachDraft(
     priorDraftHint: args.priorDraftHint ?? null,
   });
 
-  return { draft: gen.text, brain: understanding, openAiOk: gen.openAiOk };
+  return { draft: gen.text, brain: mergeBrainWithCoachGenerateMeta(understanding, gen), openAiOk: gen.openAiOk };
 }
 
 /** Deterministic V3-shaped fallback when OpenAI is unavailable or throws (still North Star guarded downstream). */
-export function v3DeterministicInboundFallbackBody(u: V3SmsBrainResult, effectiveAsk: string): string {
-  return fallbackInboundReply(u, effectiveAsk);
+export function v3DeterministicInboundFallbackBody(
+  u: V3SmsBrainResult,
+  effectiveAsk: string,
+  ctx?: Pick<ProduceV3InboundCoachDraftArgs, "userMessage" | "northStarPacket">
+): string {
+  if (!ctx) return fallbackInboundReply(u, effectiveAsk);
+  return fallbackInboundReply(u, effectiveAsk, {
+    inboundRaw: ctx.userMessage,
+    northStarPacket: ctx.northStarPacket,
+  });
 }
 
 function buildSyntheticEmergencyV3Brain(args: ProduceV3InboundCoachDraftArgs): V3SmsBrainResult {
@@ -752,7 +947,7 @@ export function guaranteeV3InboundCoachDraft(args: ProduceV3InboundCoachDraftArg
 } {
   const brain = buildSyntheticEmergencyV3Brain(args);
   return {
-    draft: v3DeterministicInboundFallbackBody(brain, args.effectiveAsk),
+    draft: v3DeterministicInboundFallbackBody(brain, args.effectiveAsk, args),
     brain,
     openAiOk: false,
   };
@@ -794,14 +989,18 @@ export async function recoverV3InboundCoachDraftFromArgs(
       coachingMemory: args.coachingMemory,
       priorDraftHint: args.priorDraftHint ?? null,
     });
-    return { draft: gen.text, brain: understanding, openAiOk: gen.openAiOk };
+    return {
+      draft: gen.text,
+      brain: mergeBrainWithCoachGenerateMeta(understanding, gen),
+      openAiOk: gen.openAiOk,
+    };
   } catch (e2) {
     console.warn("[v3-sms-brain] recover_understand_generate_failed", {
       message: e2 instanceof Error ? e2.message : String(e2),
     });
     const brain = buildSyntheticEmergencyV3Brain(args);
     return {
-      draft: v3DeterministicInboundFallbackBody(brain, args.effectiveAsk),
+      draft: v3DeterministicInboundFallbackBody(brain, args.effectiveAsk, args),
       brain,
       openAiOk: false,
     };
@@ -853,12 +1052,8 @@ export function buildV3BrainMetadata(args: {
   latestOpenQuestion: string | null;
   expectedSemantics: string | null;
   coachReplySource: string;
-  northStarGate?: {
-    original_body?: string | null;
-    final_body?: string | null;
-    north_star_gate_source?: string | null;
-    north_star_gate_reasons?: unknown;
-  } | null;
+  /** Merged North Star gate + telemetry (structural / repeat-kill). */
+  northStarGate?: Record<string, unknown> | null;
   priorDraftSource?: string | null;
 }): Record<string, unknown> {
   const extracted =
@@ -896,5 +1091,10 @@ export function buildV3BrainMetadata(args: {
     wise_adjustment_candidate: Boolean(args.brain.metadata?.wise_adjustment),
     victory_candidate: args.brain.proofSignal === true,
     north_star_gate: args.northStarGate ?? null,
+    open_question_reply_source:
+      (args.brain.metadata?.open_question_reply_source as string | undefined) ?? null,
+    deterministic_fallback_used: args.brain.metadata?.deterministic_fallback_used ?? null,
+    deterministic_fallback_reason:
+      (args.brain.metadata?.deterministic_fallback_reason as string | undefined) ?? null,
   };
 }

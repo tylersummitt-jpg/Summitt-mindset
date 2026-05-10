@@ -3,6 +3,8 @@
  * Accountability spine decides events; this layer only shapes wording (no OpenAI by default).
  */
 
+import { inboundDefersTodayForTomorrow } from "@/lib/v3-sms-turn";
+
 export const NORTH_STAR_SMS_MAX_LEN = 300;
 /** Weekly Pat Pause + proof packs can exceed one GSM segment; carriers concatenate segments. */
 export const NORTH_STAR_SMS_LONG_FORM_MAX_LEN = 2000;
@@ -44,6 +46,12 @@ export type NorthStarCoachSmsMeta = {
   contextPacketUsed?: boolean;
   finalizerVersion?: string;
   north_star_openai_model?: string | null;
+  /** Full-body structural guard replaced proposed coaching (temporal / completion mismatch). */
+  north_star_structural_replacement?: boolean;
+  /** Proposed reply substantially repeated the latest coach question after the user answered. */
+  repeated_question_guard_fired?: boolean;
+  repeated_question_original?: string;
+  repeated_question_replacement?: string;
 };
 
 /**
@@ -244,6 +252,9 @@ export function asksTodayCompletionQuestion(body: string): boolean {
   if (/did you manage/i.test(t) && /\btoday\b/.test(t)) return true;
   if (/did it happen\?/i.test(t) && /\btoday\b/.test(t)) return true;
   if (/did you do.{0,40}today/i.test(t)) return true;
+  if (/smallest\s+honest\s+next\s+step/i.test(t) && /\btoday\b/i.test(t)) return true;
+  if (/10\s*minutes\s+or\s+less/i.test(t)) return true;
+  if (/\bstill\s+do\s+today\b/i.test(t)) return true;
   return false;
 }
 
@@ -272,6 +283,98 @@ function pickCompletionContinuation(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h + seed.charCodeAt(i)) % 997;
   return lines[h % lines.length]!;
+}
+
+function normalizeForQuestionOverlap(s: string): string {
+  return norm(s)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function substantiallySameCoachQuestion(proposedBody: string, coachLine: string): boolean {
+  const p = normalizeForQuestionOverlap(proposedBody);
+  const c = normalizeForQuestionOverlap(coachLine);
+  if (c.length < 22 || p.length < 14) return false;
+  const cWords = c.split(" ").filter((w) => w.length > 3);
+  const pWords = new Set(p.split(" ").filter((w) => w.length > 3));
+  let overlap = 0;
+  for (const w of cWords) if (pWords.has(w)) overlap++;
+  const ratio = cWords.length ? overlap / cWords.length : 0;
+  if (ratio >= 0.48 && /\?/.test(coachLine) && /\?/.test(proposedBody)) return true;
+  if (p.includes(c.slice(0, Math.min(72, c.length)))) return true;
+  return false;
+}
+
+function proposedRepeatsLatestCoachAsk(
+  proposed: string,
+  merged: MergedNorthStarFields,
+  pkt: NorthStarSmsContextPacket | undefined
+): boolean {
+  const inbound = merged.inbound.trim();
+  if (inbound.length < 2) return false;
+  const targets: string[] = [];
+  const outbound = outboundForGuards(merged);
+  if (outbound.length > 18) targets.push(outbound);
+  const lo = pkt?.latestOpenQuestion?.trim();
+  if (lo && lo.length > 12 && norm(lo) !== norm(outbound)) targets.push(lo);
+
+  for (const t of targets) {
+    if (substantiallySameCoachQuestion(proposed, t)) return true;
+  }
+  return false;
+}
+
+function pickSafeNonRepeatReplacement(merged: MergedNorthStarFields): string {
+  const inbound = merged.inbound;
+  if (inboundDefersTodayForTomorrow(inbound)) {
+    return pickTomorrowContinuation(inbound);
+  }
+  const hm = extractHourMention(inbound);
+  if (hm && /\b(am|pm|morning|evening|:)\b/i.test(inbound)) {
+    return `Locked — ${hm} it is. Nothing fancy — just execute.`;
+  }
+  if (
+    inbound.trim().length > 14 &&
+    !/^(yes|no|yep|nope)\b/i.test(inbound.trim()) &&
+    inbound.split(/\s+/).filter(Boolean).length >= 2 &&
+    !/\?/.test(inbound)
+  ) {
+    const snippet = inbound.trim().slice(0, 52);
+    return `Got it — "${snippet}${inbound.trim().length > 52 ? "…" : ""}" — what's the next concrete move?`;
+  }
+  const lines = [
+    "Got it. I'm not going to ask the same thing again. What should I hold you to next?",
+    "Fair. Then tomorrow needs to be concrete. What time are you protecting?",
+    "That answers it. What's the next concrete move?",
+  ];
+  let h = 0;
+  for (let i = 0; i < inbound.length; i++) h = (h * 31 + inbound.charCodeAt(i)) >>> 0;
+  return lines[h % lines.length]!;
+}
+
+function applyRepeatedQuestionKillSwitch(
+  args: NorthStarCoachSmsArgs,
+  proposed: string,
+  merged: MergedNorthStarFields
+): { replacement: string | null; original?: string } {
+  const ch = args.channel;
+  if (
+    ch !== "inbound_coach_reply" &&
+    ch !== "blocker_followup" &&
+    ch !== "central_brain_pivot" &&
+    ch !== "clarification"
+  ) {
+    return { replacement: null };
+  }
+  const pkt = args.contextPacket;
+  if (!merged.inbound.trim()) return { replacement: null };
+  if (!proposedRepeatsLatestCoachAsk(proposed, merged, pkt)) return { replacement: null };
+  return {
+    replacement: pickSafeNonRepeatReplacement(merged),
+    original: proposed,
+  };
 }
 
 function scrubRobotMotivation(s: string, preserveNl: boolean): { text: string; hits: string[] } {
@@ -320,6 +423,40 @@ function scrubCheckInWorkflow(
     if (re.test(t)) hits.push(re.source.slice(0, 35));
     t = t.replace(re, rep);
   }
+  return { text: finalizeTextShape(t, preserveNl), hits };
+}
+
+/** Collapse generic “how did your X go / did you manage to carve…” daily essay into one direct ask. */
+function scrubDailyOutboundEssayAndManage(
+  s: string,
+  channel: NorthStarCoachChannel,
+  mergedAsk: string,
+  preserveNl: boolean
+): { text: string; hits: string[] } {
+  if (channel !== "daily_outbound" && channel !== "reactivation") {
+    return { text: s, hits: [] };
+  }
+  const hits: string[] = [];
+  let t = s.trim();
+  const core = mergedAsk.trim().slice(0, 72).replace(/\s+/g, " ").trim() || "the rep";
+
+  if (/\bhow did your\b/i.test(t) && /\bdid you manage\b/i.test(t)) {
+    hits.push("daily_double_question_essay_scrub");
+    t = `Did you protect ${core} today?`;
+  } else if (/\bhow did your\s+[^.!?]{6,100}\s+go\s+today\b/i.test(t)) {
+    hits.push("daily_how_did_focus_go_scrub");
+    t = t.replace(/\b[^.!?]{0,120}?how did your\s+[^.!?]{6,100}\s+go\s+today\?\s*/i, "").trim();
+    if (!/\?/.test(t)) {
+      t = `${t.length ? `${t} ` : ""}Did you protect ${core} today?`.trim();
+    }
+  } else if (/\bdid you manage to\s+carve\s+out\b/i.test(t)) {
+    hits.push("did_you_manage_carve_scrub");
+    t = t.replace(/\bdid you manage to\s+carve\s+out[^.!?]*\?/gi, `Did it happen today?`);
+  } else if (/\bdid you manage to\b/i.test(t)) {
+    hits.push("did_you_manage_scrub");
+    t = t.replace(/\bdid you manage to[^.!?]+\?/gi, `Did it happen with ${core}?`);
+  }
+
   return { text: finalizeTextShape(t, preserveNl), hits };
 }
 
@@ -420,6 +557,17 @@ function scrubV3AnswerToOpenQuestionCopy(s: string, preserveNl: boolean): { text
   return { text: finalizeTextShape(t, preserveNl), hits };
 }
 
+/**
+ * Full-body replacements — narrow temporal/accountability coherence only (deterministic).
+ *
+ * Triggers (returns replacement string | null):
+ * 1) Open-question + todayCompleted + proposed asks today completion without user speaking “today” → short tomorrow-forward line.
+ * 2) Completion/miss/proof context + user/plan points future/tomorrow + proposed re-asks “today” → tomorrow continuation or completion continuation.
+ * 3) Proposed asks micro-step-today + user defers to tomorrow → {@link pickTomorrowContinuation}.
+ * 4) Duplicate-normalized proposed vs outbound micro-step + deferring inbound → tomorrow continuation.
+ *
+ * Preserves user meaning where possible; overrides shallow OpenAI failures when state semantics contradict “today” asks.
+ */
 function applyStructuralGuards(
   args: NorthStarCoachSmsArgs,
   proposed: string,
@@ -454,11 +602,36 @@ function applyStructuralGuards(
     hint === "tomorrow" ||
     hint === "stretch" ||
     hint === "future" ||
-    hint === "durable_change";
+    hint === "durable_change" ||
+    inboundDefersTodayForTomorrow(inbound);
 
   const tomorrowOutboundQ =
     outboundAsksTomorrowPlan(outbound) || outboundAsksTomorrowPlan(pkt?.latestOpenQuestion ?? "");
   const asksToday = asksTodayCompletionQuestion(proposedNorm);
+
+  const asksMicroStepTodayInProposal =
+    /\bsmallest\s+honest\s+next\s+step\b/i.test(proposedNorm) ||
+    /\b10\s*minutes\s+or\s+less\b/i.test(proposedNorm);
+  if (
+    asksMicroStepTodayInProposal &&
+    inboundDefersTodayForTomorrow(inbound) &&
+    !inboundExplicitlyAboutToday(inbound)
+  ) {
+    return pickTomorrowContinuation(inbound);
+  }
+
+  const normalized = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 160);
+  const outCore = normalized(outboundForGuards(merged));
+  const propCore = normalized(proposedNorm);
+  if (
+    outCore.length > 35 &&
+    propCore.length > 35 &&
+    outCore === propCore &&
+    asksMicroStepTodayInProposal &&
+    inboundDefersTodayForTomorrow(inbound)
+  ) {
+    return pickTomorrowContinuation(inbound);
+  }
 
   if (asksToday && (futureInbound || tomorrowOutboundQ) && !inboundExplicitlyAboutToday(inbound)) {
     return pickTomorrowContinuation(inbound);
@@ -567,10 +740,30 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     };
   }
 
+  let northStarStructuralReplacement = false;
   const structural = applyStructuralGuards(args, working, mergedFields);
   if (structural != null && structural !== working) {
+    northStarStructuralReplacement = true;
     blockedReasons.push("structural_guard_rewrite");
     working = structural;
+    source = "deterministic_minimal";
+  }
+
+  let repeatedQuestionMeta: Partial<
+    Pick<
+      NorthStarCoachSmsMeta,
+      "repeated_question_guard_fired" | "repeated_question_original" | "repeated_question_replacement"
+    >
+  > = {};
+  const repeatKill = applyRepeatedQuestionKillSwitch(args, working, mergedFields);
+  if (repeatKill.replacement != null && repeatKill.replacement !== working) {
+    blockedReasons.push("repeated_question_kill_switch");
+    repeatedQuestionMeta = {
+      repeated_question_guard_fired: true,
+      repeated_question_original: repeatKill.original,
+      repeated_question_replacement: repeatKill.replacement,
+    };
+    working = repeatKill.replacement;
     source = "deterministic_minimal";
   }
 
@@ -594,6 +787,13 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   working = chk.text;
   if (chk.hits.length) {
     blockedReasons.push("check_in_workflow_scrub");
+    source = "rewritten";
+  }
+
+  const dailyEssay = scrubDailyOutboundEssayAndManage(working, args.channel, mergedAsk, preserveNl);
+  working = dailyEssay.text;
+  if (dailyEssay.hits.length) {
+    blockedReasons.push("daily_outbound_essay_scrub", ...dailyEssay.hits.slice(0, 4));
     source = "rewritten";
   }
 
@@ -689,6 +889,8 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
       source,
       blockedReasons,
       originalBody,
+      ...(northStarStructuralReplacement ? { north_star_structural_replacement: true } : {}),
+      ...(Object.keys(repeatedQuestionMeta).length ? repeatedQuestionMeta : {}),
     },
   };
 }

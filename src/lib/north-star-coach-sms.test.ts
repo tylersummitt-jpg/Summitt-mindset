@@ -105,6 +105,44 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(r.visibleBody.toLowerCase()).toContain("30 minutes");
     expect(r.visibleBody.toLowerCase()).toContain("tell the truth first");
   });
+
+  it("repeat-kill / structural: proposed coach reply must not echo the same question after the user answered", () => {
+    const q = "What's the smallest honest next step you can still do today - 10 minutes or less?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: `Got it. ${q}`,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "It's late so I'll have to get it done tomorrow",
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("smallest honest");
+    expect(
+      r.meta.blockedReasons.includes("structural_guard_rewrite") ||
+        r.meta.repeated_question_guard_fired === true
+    ).toBe(true);
+  });
+
+  it("repeat-kill fires when structural guards do not apply", () => {
+    const q = "What's the real blocker — time, energy, or avoidance?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: q,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Mostly energy.",
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toBe(q.toLowerCase());
+    expect(r.meta.repeated_question_guard_fired).toBe(true);
+  });
+
+  it("daily outbound scrubs did you manage essay phrasing", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "How did your focus go today and did you manage to finish the block?",
+      channel: "daily_outbound",
+      contextPacket: { effectiveAskText: "30 min focus", behaviorStatement: "Focus", source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("did you manage");
+  });
 });
 
 describe("deriveFutureIntentHint", () => {
