@@ -501,3 +501,36 @@ export async function updateReactivationLastSentAt(commitmentId: string): Promis
     });
   }
 }
+
+/** Recent user accountability turns — omit check_sent so coach-only sends do not suppress by themselves. */
+const RECENT_INBOUND_ACCOUNTABILITY_MS = 3 * 60 * 60 * 1000;
+
+const INBOUND_ACCOUNTABILITY_EVENT_TYPES = [
+  "user_yes",
+  "user_no",
+  "user_partial",
+  "blocker_captured",
+] as const;
+
+export async function hasRecentInboundAccountabilityExchange(
+  commitmentId: string,
+  windowMs: number = RECENT_INBOUND_ACCOUNTABILITY_MS
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - windowMs).toISOString();
+  const { data, error } = await supabaseServer
+    .from("v2_commitment_event")
+    .select("id")
+    .eq("commitment_id", commitmentId)
+    .in("event_type", [...INBOUND_ACCOUNTABILITY_EVENT_TYPES])
+    .gte("occurred_at", cutoff)
+    .limit(1);
+
+  if (error) {
+    console.warn("[v2-commitment] hasRecentInboundAccountabilityExchange failed", {
+      commitment_id: commitmentId,
+      message: error.message,
+    });
+    return false;
+  }
+  return Boolean(data && data.length > 0);
+}

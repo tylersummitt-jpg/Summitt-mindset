@@ -3,9 +3,16 @@ import {
   deriveFutureIntentHint,
   finalizeNorthStarCoachSms,
   finalizeNorthStarCoachSmsPreservingSuffix,
+  inboundSignalsCompletion,
 } from "./north-star-coach-sms";
 
 const SAMPLE_COMPLIANCE_FOOTER = "Reply STOP to opt out. Reply HELP for help.";
+
+describe("inboundSignalsCompletion", () => {
+  it("treats sure did as completion", () => {
+    expect(inboundSignalsCompletion("Sure did!")).toBe(true);
+  });
+});
 
 describe("finalizeNorthStarCoachSms", () => {
   it("tomorrow plan answer must not re-ask today completion", () => {
@@ -54,6 +61,18 @@ describe("finalizeNorthStarCoachSms", () => {
     });
     expect(r.visibleBody.toLowerCase()).not.toContain("quick check");
     expect(r.visibleBody.toLowerCase()).not.toContain("did you get a chance");
+  });
+
+  it("rewrites did it happen with daily opener even without a question mark", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody:
+        "Did it happen with I want to keep a clear and accurate big picture mindset",
+      channel: "daily_outbound",
+      effectiveAskText: "big picture mindset",
+      behaviorStatement: "I want to keep a clear and accurate big picture mindset",
+    });
+    expect(r.visibleBody.toLowerCase()).toContain("did you protect");
+    expect(r.visibleBody.toLowerCase()).not.toContain("did it happen with");
   });
 
   it("softens heavy recommit jargon", () => {
@@ -142,6 +161,46 @@ describe("finalizeNorthStarCoachSms", () => {
       contextPacket: { effectiveAskText: "30 min focus", behaviorStatement: "Focus", source: "test" },
     });
     expect(r.visibleBody.toLowerCase()).not.toContain("did you manage");
+  });
+
+  it("rewrites malformed Did it happen with + behavior_statement stitching", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Did it happen with I want to keep a clear mindset today?",
+      channel: "daily_outbound",
+      effectiveAskText: "protect 30 min workout",
+      behaviorStatement: "I want to keep a clear mindset",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("did it happen with");
+    expect(r.visibleBody.toLowerCase()).toMatch(/did you protect/);
+  });
+
+  it("fixes Let's Did contraction", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Hey Nate! Let's Did you protect 30 min daily workout today?",
+      channel: "daily_outbound",
+      effectiveAskText: "30 min daily workout",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("let's did");
+  });
+
+  it("scrubs broken It's Acknowledging lead-in", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "It's Acknowledging your needs is essential today.",
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "I'm wiped.",
+    });
+    expect(r.visibleBody.startsWith("It's Acknowledging")).toBe(false);
+    expect(r.visibleBody.toLowerCase()).toContain("acknowledging");
+  });
+
+  it("replaces Good morning when local hour is evening", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Good morning, Diane! Quick check — did you protect the rep?",
+      channel: "daily_outbound",
+      effectiveAskText: "the rep",
+      localHour: 19,
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("good morning");
   });
 });
 

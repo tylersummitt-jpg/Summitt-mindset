@@ -53,7 +53,7 @@ function inboundLooksLikeStrongAccountabilityOnly(raw: string): boolean {
   const t = raw.trim();
   if (t.length <= 24) {
     if (/^(yes|y|yeah|yep|yup|no|n|nope|nah)\b/i.test(t)) return true;
-    if (/^(done|got it|finished)\b/i.test(t)) return true;
+    if (/^(done|got it|finished|sure\s+did)\b/i.test(t)) return true;
   }
   return false;
 }
@@ -65,6 +65,26 @@ function extractTimeAnswer(raw: string): string | null {
     t.match(/\b(\d{1,2}\s*(?:am|pm))\b/i) ||
     t.match(/\b(noon|midnight)\b/i);
   return m?.[1] ? m[1].trim() : null;
+}
+
+/** Prefer time windows (9-11am) over collapsing to the last instant in the range. */
+export function extractTimeOrRangeAnswer(raw: string): string | null {
+  const t = raw.trim();
+  const rangeCompact = t.match(
+    /\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*[-–—]\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i
+  );
+  if (rangeCompact?.[1]) return rangeCompact[1].replace(/\s+/g, " ").trim();
+  const between = t.match(
+    /\b(between\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s+and\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i
+  );
+  if (between?.[1]) return between[1].replace(/\s+/g, " ").trim();
+  const spaced = t.match(
+    /\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+to\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i
+  );
+  if (spaced?.[1]) return spaced[1].replace(/\s+/g, " ").trim();
+  const bareWordTo = t.match(/\b(\d{1,2}(?::\d{2})?\s+to\s+\d{1,2}(?::\d{2})?)\b/i);
+  if (bareWordTo?.[1]) return bareWordTo[1].replace(/\s+/g, " ").trim();
+  return extractTimeAnswer(raw);
 }
 
 function matchesDiscreteChoice(raw: string, question: string): boolean {
@@ -166,7 +186,7 @@ export function tryResolveAnswerToOpenQuestionTurn(
       };
     }
     case "time_or_schedule": {
-      const timeAns = extractTimeAnswer(inbound);
+      const timeAns = extractTimeOrRangeAnswer(inbound);
       if (!timeAns && inbound.length > 36) return null;
       if (!timeAns && !/\b(tomorrow|am|pm|morning|evening|night)\b/i.test(inbound)) return null;
       return {
@@ -277,6 +297,14 @@ export function generateV3OpenQuestionAnswerReply(args: {
       return lines[sidPick(messageSid, lines.length)]!;
     }
     case "time_or_schedule": {
+      const rawAns = (v3.extractedAnswer ?? "").trim();
+      const looksLikeWindow =
+        /\d\s*[-–—]\s*\d/i.test(rawAns) ||
+        /\bbetween\s+\d/i.test(rawAns) ||
+        /\b\d{1,2}(?::\d{2})?\s+to\s+\d{1,2}(?::\d{2})?\b/i.test(rawAns);
+      if (looksLikeWindow) {
+        return `Good. ${rawAns} is the window. Start at the first time you named.`;
+      }
       return `Good — ${ans} is on the calendar. Treat it like a hard start, not a suggestion.`;
     }
     case "discrete_choice": {

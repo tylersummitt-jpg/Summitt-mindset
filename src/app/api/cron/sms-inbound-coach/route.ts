@@ -226,6 +226,7 @@ import {
   refineMachineSmsBodyWithV3RefineLane,
   V3_REFINE_ONLY_GATED,
 } from "@/lib/v3-sms-machine-refine";
+import { isAppleMessengerTapbackLine } from "@/lib/sms-imessage-reaction";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -4341,6 +4342,18 @@ async function handleV2SmsInboundCoachJob(
   if (isBlockerCapturePendingExpired(c)) {
     await clearBlockerCapturePending(c.id);
     c = { ...c, blocker_capture_expires_at: null, blocker_capture_after_event: null };
+  }
+
+  const rawInboundEarly = (job.raw_body || "").trim();
+  if (isAppleMessengerTapbackLine(rawInboundEarly)) {
+    await markJobFinal({
+      messageSid: job.message_sid,
+      status: "cancelled",
+      lastError: "imessage_tapback_suppressed",
+      nextRetry: farFutureIso(),
+    });
+    console.log("[sms-inbound-coach] suppressed_apple_tapback_inbound", job.message_sid);
+    return;
   }
 
   if (isBlockerCapturePendingActive(c)) {

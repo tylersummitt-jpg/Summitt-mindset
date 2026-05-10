@@ -81,6 +81,7 @@ import {
 import {
   enterLowPressureReactivationMode,
   getActiveCommitment,
+  hasRecentInboundAccountabilityExchange,
   getLastNV2CheckSentPayloads,
   getLastV2CheckSentForCommitment,
   getLatestBlockerCapturedAfter,
@@ -125,6 +126,12 @@ export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
+
+async function shouldSkipDailyForActiveInboundThread(clerkUserId: string): Promise<boolean> {
+  const ac = await getActiveCommitment(clerkUserId);
+  if (!ac?.id) return false;
+  return hasRecentInboundAccountabilityExchange(ac.id);
+}
 
 function timeOfDayForOutboundContext(md: Record<string, unknown>): "morning" | "evening" {
   const pref = smsTimePreferenceFromClerkMetadata(md).toLowerCase().trim();
@@ -173,7 +180,10 @@ type DailySmsBuilt =
     }
   | { ok: false; error: string };
 
-async function withNorthStarDailyGate(built: DailySmsBuilt): Promise<DailySmsBuilt> {
+async function withNorthStarDailyGate(
+  built: DailySmsBuilt,
+  opts?: { localHour?: number }
+): Promise<DailySmsBuilt> {
   if (!built.ok) return built;
   const channel: NorthStarCoachChannel = built.v2PendingResolutionReminder
     ? "pending_resolution"
@@ -189,6 +199,7 @@ async function withNorthStarDailyGate(built: DailySmsBuilt): Promise<DailySmsBui
     channel,
     behaviorStatement: built.v2EffectiveAskText ?? undefined,
     effectiveAskText: built.v2EffectiveAskText ?? undefined,
+    localHour: opts?.localHour,
     replySource:
       built.v3DailySms === true
         ? built.v3DailyDeterministicFallback === true
@@ -1562,6 +1573,7 @@ export async function GET(req: Request) {
     skippedOptedOut: 0,
     skippedAlreadyCompleted: 0,
     skippedCadence: 0,
+    skippedActiveInboundThread: 0,
     skippedReactivationCooldown: 0,
     skippedRefreshIdentityAwaiting: 0,
     skippedPendingResolutionRecentConfirmation: 0,
@@ -1783,13 +1795,36 @@ export async function GET(req: Request) {
               }
             }
 
+            stage = "active_inbound_thread_gate";
+            if (await shouldSkipDailyForActiveInboundThread(audienceUser.clerk_user_id)) {
+              await supabaseServer
+                .from("sms_send_events")
+                .update({
+                  status: "skipped_active_inbound_thread",
+                  metadata: {
+                    note: "recent_inbound_accountability_exchange",
+                    window_ms: 3 * 60 * 60 * 1000,
+                    timezone,
+                    local_time: localNow.toISOString(),
+                  },
+                })
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
+                .eq("day_key", todayKey);
+
+              stats.skippedActiveInboundThread += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+
             stage = "build_content";
             const builtRaw = await buildDailySmsContent(
               audienceUser.clerk_user_id,
               md as Record<string, unknown>,
               todayKey
             );
-            const built = builtRaw.ok ? await withNorthStarDailyGate(builtRaw) : builtRaw;
+            const built = builtRaw.ok
+              ? await withNorthStarDailyGate(builtRaw, { localHour: localNow.getHours() })
+              : builtRaw;
             if (!built.ok) {
               if (built.error === "v2_reactivation_not_due") {
                 await supabaseServer
@@ -2264,13 +2299,36 @@ export async function GET(req: Request) {
         }
       }
 
+      stage = "active_inbound_thread_gate";
+      if (await shouldSkipDailyForActiveInboundThread(audienceUser.clerk_user_id)) {
+        await supabaseServer
+          .from("sms_send_events")
+          .update({
+            status: "skipped_active_inbound_thread",
+            metadata: {
+              note: "recent_inbound_accountability_exchange",
+              window_ms: 3 * 60 * 60 * 1000,
+              timezone,
+              local_time: localNow.toISOString(),
+            },
+          })
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
+          .eq("day_key", todayKey);
+
+        stats.skippedActiveInboundThread += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+
       stage = "build_content";
       const builtMainRaw = await buildDailySmsContent(
         audienceUser.clerk_user_id,
         md as Record<string, unknown>,
         todayKey
       );
-      const builtMain = builtMainRaw.ok ? await withNorthStarDailyGate(builtMainRaw) : builtMainRaw;
+      const builtMain = builtMainRaw.ok
+        ? await withNorthStarDailyGate(builtMainRaw, { localHour: localNow.getHours() })
+        : builtMainRaw;
       if (!builtMain.ok) {
         if (builtMain.error === "v2_reactivation_not_due") {
           await supabaseServer
@@ -2659,6 +2717,7 @@ export async function GET(req: Request) {
     skippedAlreadySent: stats.alreadyReservedOrSentToday,
     skippedOptedOut: stats.skippedOptedOut,
     skippedCadence: stats.skippedCadence,
+    skippedActiveInboundThread: stats.skippedActiveInboundThread,
     skippedNotFullyOnV2Daily: stats.skippedNotFullyOnV2Daily,
     failed: stats.failed,
     reservationErrors: stats.reservationErrors,

@@ -506,6 +506,7 @@ export async function generateV3CoachReply(args: GenerateV3CoachReplyArgs): Prom
 
   const system = `You are the SMS voice of an accountability coach inspired by Pat Summitt's principles: direct, warm-not-soft, emotionally intelligent, short, specific, never robotic.
 ${BANNED_LINE}
+Stay anchored to the ONE active commitment (effective ask) and the latest turn in the transcript. Do not jump to unrelated topics from long-term memory (gratitude prompts, other habits, side goals) unless the user explicitly raised them this message.
 Formula: acknowledge reality → interpret what it means → one useful question OR one clear next action.
 Max ~320 characters. Single SMS. No bullet lists.`;
 
@@ -683,6 +684,7 @@ export async function generateV3DailyCheckIn(args: GenerateV3DailyCheckInArgs): 
 
   const system = `You write ONE short daily accountability SMS for someone keeping a commitment.
 ${BANNED_LINE}
+Stay anchored to the ONE effective ask below; memory/thread hints are texture only — do not pivot to unrelated topics (gratitude exercises, other habits) unless that pivot is already explicit in server binding/daily purpose.
 Ask if they did the rep today in fresh words — not a reminder app. No yes/no/partial menu.
 Style: ${styleHint}. Strategy context: ${args.serverStrategy}.
 Max ~280 characters.`;
