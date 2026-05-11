@@ -3,22 +3,12 @@
 import { SignUp } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { AuthMarketingShell } from "@/components/auth-marketing-shell";
+import { CoachAttributionSync } from "@/components/coach-attribution-sync";
 import {
+  isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
 } from "@/lib/safe-redirect";
-
-function isCoachSubscribeSanitizedUrl(safeSubscribeUrl: string | null): boolean {
-  if (!safeSubscribeUrl || !safeSubscribeUrl.startsWith("/subscribe")) {
-    return false;
-  }
-  try {
-    const u = new URL(safeSubscribeUrl, "http://local.invalid");
-    return u.searchParams.get("src") === "coach";
-  } catch {
-    return false;
-  }
-}
 
 /**
  * ======================================================
@@ -41,7 +31,7 @@ export default function SignUpPage() {
   const redirectUrl = searchParams?.get("redirect_url");
 
   const safeSubscribeDestination = sanitizeSubscribeRedirectUrl(redirectUrl);
-  const isCoachSignUp = isCoachSubscribeSanitizedUrl(safeSubscribeDestination);
+  const isCoachSignUp = isCoachSubscribeRedirectUrl(redirectUrl);
 
   const safeAfterSignInUrl =
     sanitizeInternalRedirectUrl(redirectUrl) ?? "/post-sign-in";
@@ -57,6 +47,7 @@ export default function SignUpPage() {
 
   return (
     <AuthMarketingShell authPage="sign-up">
+      {isCoachSignUp ? <CoachAttributionSync enabled /> : null}
       {isCoachSignUp ? (
         <div className="mx-auto w-full max-w-[min(100%,24rem)] sm:max-w-[25rem]">
           <div className="mb-6 w-full rounded-xl border border-white/[0.08] bg-black/75 px-3.5 py-3.5 text-white sm:px-4 sm:py-4">

@@ -3,7 +3,9 @@
 import { SignIn } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { AuthMarketingShell } from "@/components/auth-marketing-shell";
+import { CoachAttributionSync } from "@/components/coach-attribution-sync";
 import {
+  isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
 } from "@/lib/safe-redirect";
@@ -32,8 +34,11 @@ export default function SignInPage() {
   const safeAfterSignUpUrl =
     sanitizeSubscribeRedirectUrl(redirectUrl) ?? "/onboarding";
 
+  const isCoachSignIn = isCoachSubscribeRedirectUrl(redirectUrl);
+
   return (
     <AuthMarketingShell authPage="sign-in">
+      {isCoachSignIn ? <CoachAttributionSync enabled /> : null}
       <SignIn
         afterSignInUrl={safeAfterSignInUrl}
         afterSignUpUrl={safeAfterSignUpUrl}

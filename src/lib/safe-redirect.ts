@@ -90,6 +90,19 @@ export function sanitizeSubscribeRedirectUrl(
 }
 
 /**
+ * True when redirect_url sanitizes to /subscribe with src=coach (coach funnel sign-up/sign-in).
+ */
+export function isCoachSubscribeRedirectUrl(raw: string | null | undefined): boolean {
+  const safe = sanitizeSubscribeRedirectUrl(raw);
+  if (!safe || !safe.startsWith("/subscribe")) return false;
+  try {
+    return new URL(safe, "http://local.invalid").searchParams.get("src") === "coach";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Subscribe-safe URLs plus a tight allowlist of other internal paths (no query).
  */
 export function sanitizeInternalRedirectUrl(
