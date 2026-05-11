@@ -13,11 +13,25 @@ function normalizeToE164(input: string): string | null {
   return null;
 }
 
-export default function SmsClient() {
+function strFromSaved(v: string | null | undefined): string {
+  return typeof v === "string" ? v : "";
+}
+
+export type SmsClientInitial = {
+  initialPhone?: string | null;
+  initialConsentAccepted?: boolean | null;
+};
+
+export default function SmsClient({
+  initialPhone,
+  initialConsentAccepted,
+}: SmsClientInitial = {}) {
   const router = useRouter();
 
-  const [phoneInput, setPhoneInput] = useState("");
-  const [consentChecked, setConsentChecked] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(() => strFromSaved(initialPhone));
+  const [consentChecked, setConsentChecked] = useState(
+    () => initialConsentAccepted === true
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,16 +86,10 @@ export default function SmsClient() {
 
   return (
     <div className="space-y-8">
-      <div className="border rounded-xl bg-white shadow-sm p-6 space-y-4">
-        <div className="space-y-1.5">
-          <p className="font-semibold text-gray-900">Daily accountability texts</p>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            Coach Pat will text you about the commitment you just chose.
-          </p>
-          <p className="text-xs text-gray-500">
-            Send time is set automatically for your time zone.
-          </p>
-        </div>
+      <div className="border rounded-xl bg-white shadow-sm p-6 space-y-5">
+        <p className="text-sm font-semibold text-gray-900 leading-snug">
+          Daily accountability texts about the commitment you just chose.
+        </p>
 
         <div className="space-y-3">
           <div>
@@ -95,60 +103,55 @@ export default function SmsClient() {
             />
           </div>
 
-          <label className="flex items-start gap-3 text-sm text-gray-700 leading-relaxed">
+          <div className="flex items-start gap-3">
             <input
+              id="onboarding-sms-consent"
               type="checkbox"
               checked={consentChecked}
               onChange={(e) => setConsentChecked(e.target.checked)}
               className="mt-1 shrink-0"
             />
-            <span>
+            <label
+              htmlFor="onboarding-sms-consent"
+              className="min-w-0 flex-1 cursor-pointer text-[13px] leading-relaxed text-gray-600 sm:text-sm"
+            >
               By checking this box, I agree to receive recurring membership SMS
-              messages from <strong>Summitt Mindset, LLC</strong> related to my
-              training (daily practice reminders and coaching prompts).{" "}
-              <strong>Message frequency varies.</strong>{" "}Msg &amp; data rates
-              may apply. Reply <strong>STOP</strong> to opt out at any time.
-              Reply <strong>HELP</strong> for help. Consent is not a condition
-              of purchase.
-              <br />
-              <span className="text-xs text-gray-600 leading-relaxed">
-                Privacy:{" "}
-                <a
-                  href="https://www.summittmindset.com/privacy"
-                  className={legalLinkClass}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  https://www.summittmindset.com/privacy
-                </a>{" "}
-                • Terms:{" "}
-                <a
-                  href="https://www.summittmindset.com/terms"
-                  className={legalLinkClass}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  https://www.summittmindset.com/terms
-                </a>{" "}
-                • SMS:{" "}
-                <a
-                  href="https://www.summittmindset.com/sms"
-                  className={legalLinkClass}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  https://www.summittmindset.com/sms
-                </a>
-                .
-              </span>
-            </span>
-          </label>
-
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Summitt Mindset does not send marketing or promotional SMS
-            messages and does not share mobile opt-in data with third parties
-            for marketing purposes.
-          </p>
+              messages from Summitt Mindset, LLC related to my training, including
+              daily practice reminders and coaching prompts. Message frequency
+              varies. Msg &amp; data rates may apply. Reply STOP to opt out at any
+              time. Reply HELP for help. Consent is not a condition of purchase.
+              Summitt Mindset does not send marketing or promotional SMS messages
+              and does not share mobile opt-in data with third parties for
+              marketing purposes. Privacy:{" "}
+              <a
+                href="https://www.summittmindset.com/privacy"
+                className={legalLinkClass}
+                target="_blank"
+                rel="noreferrer"
+              >
+                https://www.summittmindset.com/privacy
+              </a>{" "}
+              • Terms:{" "}
+              <a
+                href="https://www.summittmindset.com/terms"
+                className={legalLinkClass}
+                target="_blank"
+                rel="noreferrer"
+              >
+                https://www.summittmindset.com/terms
+              </a>{" "}
+              • SMS:{" "}
+              <a
+                href="https://www.summittmindset.com/sms"
+                className={legalLinkClass}
+                target="_blank"
+                rel="noreferrer"
+              >
+                https://www.summittmindset.com/sms
+              </a>
+              .
+            </label>
+          </div>
         </div>
       </div>
 
@@ -175,6 +178,18 @@ export default function SmsClient() {
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="border-t border-gray-200 pt-8 mt-2">
+        <div className="rounded-xl bg-gray-50 px-4 py-4 text-center">
+          <p className="text-sm text-gray-600 italic">
+            &ldquo;The absolute heart of loyalty is to value those people who tell you
+            the truth, not just those people who tell you what you want to
+            hear.&rdquo;
+            <br />
+            <span className="not-italic">— Pat Summitt</span>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export function CoachHowItWorksHeroLink({
         trackCoachHowItWorksNav();
       }}
     >
-      How It Works
+      See How It Works
     </Link>
   );
 }

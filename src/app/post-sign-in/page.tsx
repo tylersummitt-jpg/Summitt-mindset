@@ -18,10 +18,11 @@ import {
  * This is the single redirect truth after login.
  *
  * Order:
- * 1. Coach setup (if applicable: subscribed + coach acquisition + address not collected)
- * 2. Onboarding
- * 3. Subscribe (if needed)
- * 4. Dashboard (commitment-first home)
+ * 1. Subscribe (if not subscribed)
+ * 2. Onboarding (if incomplete)
+ * 3. Dashboard (commitment-first home)
+ *
+ * Coach funnel no longer routes to /coach/setup (legacy shipping step retired from active flow).
  */
 
 function isSubscribedFromMetadata(md: Record<string, any>) {
@@ -81,28 +82,21 @@ export default async function PostSignInPage() {
     }
   }
 
-  if (
-    isSubscribedFromMetadata(effectiveMd) &&
-    effectiveMd.acquisitionSource === "coach" &&
-    effectiveMd.coachAddressCollected !== true
-  ) {
-    redirect("/coach/setup");
+  const isSubscribed = isSubscribedFromMetadata(effectiveMd);
+  if (!isSubscribed) {
+    redirect(
+      effectiveMd.acquisitionSource === "coach"
+        ? "/subscribe?from=post-sign-in&src=coach"
+        : "/subscribe?from=post-sign-in"
+    );
   }
 
   const onboardingCompleted = effectiveMd?.onboardingCompleted === true;
   if (!onboardingCompleted) {
-    if (
-      effectiveMd.acquisitionSource === "coach" &&
-      effectiveMd.coachAddressCollected === true
-    ) {
+    if (effectiveMd.acquisitionSource === "coach") {
       redirect("/onboarding/identity");
     }
     redirect("/onboarding");
-  }
-
-  const isSubscribed = isSubscribedFromMetadata(effectiveMd);
-  if (!isSubscribed) {
-    redirect("/subscribe?from=post-sign-in");
   }
 
   redirect("/dashboard");

@@ -15,21 +15,32 @@ export function isCoachAttributionPath(pathname: string): boolean {
   );
 }
 
+/**
+ * Whether it is safe to set acquisitionSource to "coach" without overwriting
+ * an existing non-coach value.
+ */
+export function maySetCoachAcquisitionSource(existing: unknown): boolean {
+  if (existing === null || existing === undefined) return true;
+
+  if (typeof existing === "string") {
+    const trimmed = existing.trim();
+    if (trimmed === "") return true;
+    if (trimmed === COACH_ATTRIBUTION_COOKIE_VALUE_COACH) return false;
+    return false;
+  }
+
+  return false;
+}
+
 export function shouldSyncCoachAttribution(args: {
   acquisitionSource: unknown;
   attributionCookieValue: string | null | undefined;
 }): boolean {
   const { acquisitionSource, attributionCookieValue } = args;
 
-  if (attributionCookieValue !== COACH_ATTRIBUTION_COOKIE_VALUE_COACH) return false;
-
-  if (typeof acquisitionSource === "string") {
-    const trimmed = acquisitionSource.trim();
-    if (trimmed === "") return true;
-    if (trimmed === COACH_ATTRIBUTION_COOKIE_VALUE_COACH) return false;
+  if (attributionCookieValue !== COACH_ATTRIBUTION_COOKIE_VALUE_COACH)
     return false;
-  }
 
-  return acquisitionSource == null;
+  return maySetCoachAcquisitionSource(acquisitionSource);
 }
 

@@ -177,10 +177,8 @@ function SubscribeSuccessInner() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="max-w-lg w-full text-center space-y-4">
-        <h1 className="text-3xl font-semibold">You’re in.</h1>
-
-        <p className="text-gray-600">
+      <div className="max-w-lg w-full text-center">
+        <p className="text-base text-gray-600">
           Finalizing your membership…
         </p>
       </div>

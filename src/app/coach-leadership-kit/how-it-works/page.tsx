@@ -4,6 +4,10 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { CoachLeadershipKitTrackedLink } from "@/app/coach-leadership-kit/coach-leadership-kit-tracked-link";
 import { supabaseServer } from "@/lib/supabase-server";
+import {
+  COACH_SIGN_UP_HREF,
+  COACH_SUBSCRIBE_PATH,
+} from "@/lib/coach-funnel-links";
 
 const COACH_HOW_PATH = "/coach-leadership-kit/how-it-works";
 
@@ -22,9 +26,6 @@ const ctaPrimaryClass =
 const ctaSecondaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-8 py-4 text-base font-semibold border-2 border-[var(--border)] text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--brand-soft)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white";
 
-const COACH_SUBSCRIBE_PATH = "/subscribe?src=coach";
-const COACH_SIGN_IN_HREF = `/sign-in?redirect_url=${encodeURIComponent(COACH_SUBSCRIBE_PATH)}`;
-
 type CoachExplainerRow = {
   id: string;
   title: string;
@@ -34,7 +35,7 @@ type CoachExplainerRow = {
 
 export default async function CoachHowItWorksPage() {
   const user = await currentUser();
-  const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_IN_HREF;
+  const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_UP_HREF;
 
   const { data, error } = await supabaseServer
     .from("film_videos")
@@ -90,10 +91,16 @@ export default async function CoachHowItWorksPage() {
 
       <div className="relative z-10 mx-auto flex w-full flex-col items-center justify-center px-4 py-10 sm:py-12 md:min-h-[80vh] md:py-16">
         <div className="flex w-full max-w-3xl flex-col items-center gap-10 rounded-2xl border border-[var(--border)] bg-white/95 px-4 py-8 text-center shadow-xl sm:px-6 sm:py-10">
-          <header>
+          <header className="space-y-4">
             <h1 className="text-3xl sm:text-4xl font-bold text-[var(--text)] tracking-tight">
               How It Works
             </h1>
+            <p className="text-sm text-[var(--muted)] leading-relaxed max-w-xl mx-auto">
+              You&apos;re joining Summitt Mindset for daily accountability texts,
+              Ask Pat, and Film Room. The Leadership Kit is a coach bonus after
+              membership + onboarding. Shipping is covered, and a member of our
+              team will reach out after you complete the required steps.
+            </p>
           </header>
 
           <div className="w-full space-y-6">
@@ -127,7 +134,7 @@ export default async function CoachHowItWorksPage() {
                 className={ctaPrimaryClass}
                 cta="video_page_bottom"
               >
-                Get the Leadership Kit
+                Start Membership + Unlock Kit
               </CoachLeadershipKitTrackedLink>
               <Link
                 href="/coach-leadership-kit"

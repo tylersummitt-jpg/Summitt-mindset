@@ -15,6 +15,7 @@ export default async function CommitmentPage(): Promise<ReactElement> {
   }
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
+  const isCoach = md.acquisitionSource === "coach";
 
   if (md?.onboardingCompleted === true) {
     redirect("/post-sign-in");
@@ -48,20 +49,47 @@ export default async function CommitmentPage(): Promise<ReactElement> {
     redirect("/onboarding/complete");
   }
 
+  const { data: proposedCommitment } = await supabaseServer
+    .from("v2_commitment")
+    .select("title, behavior_statement")
+    .eq("clerk_user_id", user.id)
+    .eq("status", "proposed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div>
       <OnboardingProgress currentStep={2} />
 
-      <h1 className="text-3xl font-bold mb-4">
-        Choose the one thing Coach Pat will text you about.
-      </h1>
+      {isCoach ? (
+        <>
+          <h1 className="text-3xl font-bold mb-4">
+            Choose the commitment you want accountability around.
+          </h1>
 
-      <p className="text-gray-600 mb-10">
-        Start small. Pick one behavior Coach Pat can help you stay consistent with, one
-        day at a time.
-      </p>
+          <p className="text-gray-600 mb-10">
+            Pick the behavior that would make the biggest difference in how you lead,
+            prepare, or follow through.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 className="text-3xl font-bold mb-4">
+            Choose the one thing Coach Pat will text you about.
+          </h1>
 
-      <CommitmentClient />
+          <p className="text-gray-600 mb-10">
+            Start small. Pick one behavior Coach Pat can help you stay consistent with,
+            one day at a time.
+          </p>
+        </>
+      )}
+
+      <CommitmentClient
+        initialTitle={proposedCommitment?.title ?? null}
+        initialBehaviorStatement={proposedCommitment?.behavior_statement ?? null}
+      />
     </div>
   );
 }

@@ -1,8 +1,12 @@
 import Image from "next/image";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
-import { CoachHowItWorksHeroLink } from "@/app/coach-leadership-kit/coach-how-it-works-hero-link";
 import { CoachLeadershipKitTrackedLink } from "@/app/coach-leadership-kit/coach-leadership-kit-tracked-link";
+import {
+  COACH_SIGN_UP_HREF,
+  COACH_SUBSCRIBE_PATH,
+} from "@/lib/coach-funnel-links";
 
 const COACH_LANDING_PATH = "/coach-leadership-kit";
 const COACH_OG_IMAGE_URL =
@@ -44,12 +48,13 @@ const ctaPrimaryClass =
 const ctaHeroPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
 
-const COACH_SUBSCRIBE_PATH = "/subscribe?src=coach";
-const COACH_SIGN_IN_HREF = `/sign-in?redirect_url=${encodeURIComponent(COACH_SUBSCRIBE_PATH)}`;
+/** Secondary on light background: stronger affordance, no orange */
+const howItWorksPromoButtonClass =
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl border-2 border-neutral-800/90 bg-neutral-50 px-6 py-3 text-sm font-semibold text-neutral-900 shadow-sm transition-all hover:border-neutral-950 hover:bg-neutral-100 hover:shadow-md active:bg-neutral-100/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white md:px-8 md:py-3.5 md:text-base";
 
 export default async function CoachLeadershipKitPage() {
   const user = await currentUser();
-  const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_IN_HREF;
+  const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_UP_HREF;
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -82,202 +87,194 @@ export default async function CoachLeadershipKitPage() {
           />
           <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:py-20 md:pb-24 md:justify-end md:items-start">
             <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8">
-              <div className="space-y-3 md:space-y-5">
+              <div className="space-y-4 md:space-y-5">
                 <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
-                  Become the Coach Your Team Needs—Every Single Day.
+                  You&apos;re in the right place, Coach.
                 </h1>
                 <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
-                  Daily personal coaching powered by Pat Summitt AI. Plus a free
-                  Leadership Kit to help you build your team&apos;s culture and
-                  standards.
+                  Join Summitt Mindset, complete onboarding, and we&apos;ll reach
+                  out to customize and ship your Pat Summitt Leadership Kit.
+                  Shipping is covered.
                 </p>
+                <ol className="grid list-none gap-3 pt-1 sm:gap-3.5">
+                  <li className="flex gap-3 text-left">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold tabular-nums text-white"
+                      aria-hidden
+                    >
+                      1
+                    </span>
+                    <span className="min-w-0 pt-0.5 text-sm font-medium leading-snug text-white/95 sm:text-base">
+                      Create your account
+                    </span>
+                  </li>
+                  <li className="flex gap-3 text-left">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold tabular-nums text-white"
+                      aria-hidden
+                    >
+                      2
+                    </span>
+                    <span className="min-w-0 pt-0.5 text-sm font-medium leading-snug text-white/95 sm:text-base">
+                      Start your membership
+                    </span>
+                  </li>
+                  <li className="flex gap-3 text-left">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold tabular-nums text-white"
+                      aria-hidden
+                    >
+                      3
+                    </span>
+                    <span className="min-w-0 pt-0.5 text-sm font-medium leading-snug text-white/95 sm:text-base">
+                      Complete onboarding
+                    </span>
+                  </li>
+                  <li className="flex gap-3 text-left">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold tabular-nums text-white"
+                      aria-hidden
+                    >
+                      4
+                    </span>
+                    <span className="min-w-0 pt-0.5 text-sm font-medium leading-snug text-white/95 sm:text-base">
+                      We reach out to ship your Leadership Kit
+                    </span>
+                  </li>
+                </ol>
               </div>
-              <div className="flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+              <div className="flex w-full max-w-md">
                 <CoachLeadershipKitTrackedLink
                   href={leadershipKitHref}
                   className={ctaHeroPrimaryClass}
                   cta="hero"
                 >
-                  Get the Leadership Kit
+                  Start Membership + Unlock Kit
                 </CoachLeadershipKitTrackedLink>
-                <CoachHowItWorksHeroLink
-                  className={ctaHeroPrimaryClass}
-                />
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. What is Summitt Mindset? */}
-      <section className="py-14 md:py-16 lg:py-20 border-b border-[var(--border)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col gap-12 lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
-            <div className="space-y-6 min-w-0">
-              <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] tracking-tight">
-                What is Summitt Mindset?
+      {/* 2. How It Works walkthrough — simple two-column: copy + Ask Pat image */}
+      <section
+        className="border-b border-[var(--border)] bg-white"
+        aria-label="Watch How It Works walkthrough"
+      >
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 md:py-14 lg:py-16">
+          <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-center lg:gap-x-10 lg:gap-y-0">
+            <div className="flex min-w-0 flex-col items-center gap-3 text-center md:gap-4 lg:items-start lg:text-left">
+              <h2 className="text-2xl font-bold leading-tight tracking-tight text-[var(--text)] sm:text-3xl">
+                Watch How It Works
               </h2>
-              <p className="text-[var(--muted)] leading-relaxed text-lg max-w-xl">
-                It&apos;s built to help{" "}
-                <span className="text-[var(--text)] font-medium">you</span>{" "}
-                build discipline, clarity, and leadership—so you show up better
-                for your team every single day.
+              <p className="mx-auto max-w-xl text-base leading-relaxed text-[var(--muted)] md:text-lg lg:mx-0">
+                See what your Summitt Mindset membership includes and what&apos;s
+                inside the Leadership Kit.
               </p>
-              <ul className="space-y-4 text-[var(--text)]">
-                <li className="flex gap-3">
-                  <span
-                    className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                    aria-hidden
-                  />
-                  <span>Daily 3–5 minute coaching texts</span>
-                </li>
-                <li className="flex gap-3">
-                  <span
-                    className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                    aria-hidden
-                  />
-                  <span>Built on Pat Summitt principles</span>
-                </li>
-                <li className="flex gap-3">
-                  <span
-                    className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]"
-                    aria-hidden
-                  />
-                  <span>Accountability for YOU as a coach</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="relative w-full flex justify-center lg:justify-end">
-              <div className="relative w-full max-w-sm aspect-[9/16] max-h-[min(85vh,560px)]">
-                <Image
-                  src="/brand/summitt-mindset-phone.png"
-                  alt="Summitt Mindset app on a phone"
-                  fill
-                  sizes="(max-width: 1023px) 80vw, 360px"
-                  className="object-contain object-center drop-shadow-sm"
-                />
+              <div className="flex w-full justify-center pt-1 lg:justify-start">
+                <Link
+                  href="/coach-leadership-kit/how-it-works"
+                  className={howItWorksPromoButtonClass}
+                >
+                  Watch the Video
+                </Link>
               </div>
+            </div>
+            <div className="mx-auto w-full max-w-xl lg:mx-0 lg:max-w-none">
+              <Image
+                src="/brand/ask-pat-coaching.jpg"
+                alt=""
+                width={1600}
+                height={1067}
+                sizes="(max-width: 1023px) 100vw, 50vw"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm"
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3. What’s Inside the Leadership Kit */}
-      <section className="py-14 md:py-16 lg:py-20 bg-[var(--ink)] border-b border-[var(--border)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col gap-12 lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
-            <div className="space-y-8 min-w-0 order-1">
-              <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] tracking-tight">
-                What&apos;s Inside the Leadership Kit
-              </h2>
-              <ul className="space-y-4 text-[var(--text)] leading-relaxed">
-                <li className="flex gap-3">
-                  <span className="text-[var(--brand)] font-semibold shrink-0">
-                    ·
-                  </span>
-                  <span>14-week leadership program</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-[var(--brand)] font-semibold shrink-0">
-                    ·
-                  </span>
-                  <span>Step-by-step coaching structure</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-[var(--brand)] font-semibold shrink-0">
-                    ·
-                  </span>
-                  <span>Team discussion guides</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-[var(--brand)] font-semibold shrink-0">
-                    ·
-                  </span>
-                  <span>Built for middle &amp; high school teams</span>
-                </li>
-              </ul>
-              <CoachLeadershipKitTrackedLink
-                href={leadershipKitHref}
-                className={ctaPrimaryClass}
-                cta="kit_section"
-              >
-                Get the Leadership Kit
-              </CoachLeadershipKitTrackedLink>
-            </div>
-
-            <div className="relative w-full flex justify-center lg:justify-end order-2">
-              <div className="relative w-full max-w-lg aspect-[4/3] max-h-[min(70vh,440px)] lg:max-h-[480px]">
-                <Image
-                  src="/brand/coach-kit-contents.png"
-                  alt="Contents of the Leadership Kit"
-                  fill
-                  sizes="(max-width: 1023px) 100vw, 50vw"
-                  className="object-contain object-center"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. How It Works */}
+      {/* 3. How coaches get the Kit */}
       <section className="py-14 md:py-16 lg:py-20 border-b border-[var(--border)]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-12 md:mb-14">
-            How It Works
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-10 md:mb-12">
+            How coaches get the Kit
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8 text-center md:text-left">
-            <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+            <div className="space-y-2 text-center lg:text-left">
               <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
                 Step 1
               </p>
               <h3 className="text-lg font-semibold text-[var(--text)]">
-                Join Summitt Mindset
+                Create your account
               </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Start your membership and unlock the full experience.
+              <p className="text-sm text-[var(--muted)] leading-snug">
+                Start with a quick Summitt Mindset account.
               </p>
             </div>
-            <div className="space-y-3 md:border-x md:border-[var(--border)] md:px-6">
+            <div className="space-y-2 text-center lg:text-left">
               <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
                 Step 2
               </p>
               <h3 className="text-lg font-semibold text-[var(--text)]">
-                Use it daily—personally
+                Start your membership
               </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Short daily coaching that keeps you grounded and accountable.
+              <p className="text-sm text-[var(--muted)] leading-snug">
+                Choose your monthly or annual membership to unlock the full
+                experience.
               </p>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 text-center lg:text-left">
               <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
                 Step 3
               </p>
               <h3 className="text-lg font-semibold text-[var(--text)]">
-                Bonus: we send you the Leadership Kit
+                Complete onboarding
               </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Tangible tools to reinforce standards with your team—we cover
-                shipping.
+              <p className="text-sm text-[var(--muted)] leading-snug">
+                Set up your daily accountability texts, commitment, and
+                personalization.
+              </p>
+            </div>
+            <div className="space-y-2 text-center lg:text-left">
+              <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
+                Step 4
+              </p>
+              <h3 className="text-lg font-semibold text-[var(--text)]">
+                We follow up about your Kit
+              </h3>
+              <p className="text-sm text-[var(--muted)] leading-snug">
+                After onboarding, our team will reach out to customize and ship
+                your Pat Summitt Leadership Kit. Shipping is covered.
               </p>
             </div>
           </div>
+          <p className="mt-10 max-w-2xl mx-auto text-center text-sm text-[var(--muted)] leading-snug">
+            Membership comes first—the Kit is a coach bonus after you finish
+            onboarding. Shipping is covered.
+          </p>
         </div>
       </section>
 
-      {/* 5. Final CTA */}
+      {/* 4. Final CTA */}
       <section className="py-14 md:py-16 lg:py-20 pb-24 border-t border-[var(--border)] bg-[var(--surface)]">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center space-y-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] leading-tight">
-            Start Building Your Team&apos;s Culture Today
-          </h2>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] leading-tight">
+              Ready to start your membership?
+            </h2>
+            <p className="text-base leading-relaxed text-[var(--muted)]">
+              Complete setup, activate daily accountability, and we&apos;ll follow
+              up about your Leadership Kit.
+            </p>
+          </div>
           <CoachLeadershipKitTrackedLink
             href={leadershipKitHref}
             className={ctaPrimaryClass}
             cta="footer"
           >
-            Get the Leadership Kit
+            Start Membership + Unlock Kit
           </CoachLeadershipKitTrackedLink>
         </div>
       </section>

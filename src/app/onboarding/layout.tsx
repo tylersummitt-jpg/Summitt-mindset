@@ -37,12 +37,19 @@ function logOnboardingLayoutEvent(payload: {
   errorPhase?: string;
   errorName?: string;
 }) {
-  console.error(
-    JSON.stringify({
-      routeGroup: "onboarding",
-      ...payload,
-    })
-  );
+  const line = JSON.stringify({
+    routeGroup: "onboarding",
+    ...payload,
+  });
+  const isFailure =
+    payload.stage === "error" || payload.outcome === "failure";
+  if (isFailure) {
+    console.error(line);
+    return;
+  }
+  if (process.env.NODE_ENV === "development") {
+    console.log(line);
+  }
 }
 
 export default async function OnboardingLayout({
@@ -89,13 +96,18 @@ export default async function OnboardingLayout({
   });
 
   if (!isSubscribed) {
+    const mdSub = user.publicMetadata as Record<string, unknown> | undefined;
+    const subscribePath =
+      mdSub?.acquisitionSource === "coach"
+        ? "/subscribe?from=onboarding&src=coach"
+        : "/subscribe?from=onboarding";
     logOnboardingLayoutEvent({
       stage: "redirect_subscribe",
       outcome: "redirect",
       userId: user.id,
-      redirect: "/subscribe?from=onboarding",
+      redirect: subscribePath,
     });
-    redirect("/subscribe?from=onboarding");
+    redirect(subscribePath);
   }
 
   logOnboardingLayoutEvent({
@@ -104,12 +116,84 @@ export default async function OnboardingLayout({
     userId: user.id,
   });
 
+  const mdOnboarding = user.publicMetadata as Record<string, unknown> | undefined;
+  const showCoachOnboardingBanner =
+    mdOnboarding?.acquisitionSource === "coach" &&
+    mdOnboarding?.onboardingCompleted !== true;
+
+  const coachCompleteHero =
+    mdOnboarding?.acquisitionSource === "coach" &&
+    mdOnboarding?.onboardingCompleted === true;
+
   return (
     <OnboardingShellMain>
-      <div className="w-full max-w-2xl py-12">
-        <section className="bg-white border rounded-xl shadow-sm p-8">
-          {children}
-        </section>
+      <div
+        className={
+          coachCompleteHero ? "w-full max-w-none py-0" : "w-full max-w-2xl py-12"
+        }
+      >
+        {showCoachOnboardingBanner ? (
+          <div className="mb-5 px-1">
+            <ol
+              className="mx-auto grid max-w-sm list-none gap-2.5 pt-0.5 text-left sm:max-w-md sm:gap-3"
+              aria-label="Coach onboarding steps"
+            >
+              <li className="flex gap-3 text-left">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-sm font-semibold tabular-nums text-gray-600"
+                  aria-hidden
+                >
+                  1
+                </span>
+                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-gray-900 sm:text-[15px]">
+                  Create your account
+                </span>
+              </li>
+              <li className="flex gap-3 text-left">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-sm font-semibold tabular-nums text-gray-600"
+                  aria-hidden
+                >
+                  2
+                </span>
+                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-gray-900 sm:text-[15px]">
+                  Start your membership
+                </span>
+              </li>
+              <li className="flex gap-3 text-left" aria-current="step">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-semibold tabular-nums text-white shadow-sm shadow-orange-500/20"
+                  aria-hidden
+                >
+                  3
+                </span>
+                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-gray-900 sm:text-[15px]">
+                  Complete onboarding
+                </span>
+              </li>
+              <li className="flex gap-3 text-left">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-sm font-semibold tabular-nums text-gray-600"
+                  aria-hidden
+                >
+                  4
+                </span>
+                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-gray-900 sm:text-[15px]">
+                  We reach out to ship your Leadership Kit
+                </span>
+              </li>
+            </ol>
+          </div>
+        ) : null}
+        {coachCompleteHero ? (
+          <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen max-w-[100vw] overflow-x-hidden">
+            {children}
+          </div>
+        ) : (
+          <section className="bg-white border rounded-xl shadow-sm p-8">
+            {children}
+          </section>
+        )}
       </div>
     </OnboardingShellMain>
   );

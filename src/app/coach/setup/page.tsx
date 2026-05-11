@@ -115,13 +115,12 @@ export default function CoachSetupPage() {
           <div className="relative z-10 mx-auto flex w-full min-h-[72vh] flex-col items-center justify-center px-4 py-10 sm:py-12 md:min-h-[80vh] md:py-16">
             <div className="w-full max-w-xl rounded-2xl border border-[var(--border)] bg-white/95 p-6 shadow-xl sm:p-8">
             <h1 className="text-2xl font-bold text-[var(--text)] sm:text-3xl mb-2">
-              Tell us where to send your Leadership Kit.
+              Coach bonus: where should we ship your Leadership Kit?
             </h1>
             <p className="text-sm text-[var(--muted)] mb-8 leading-relaxed">
-              You&apos;re in. We&apos;ll ship your Pat Summitt Leadership Kit to
-              this address — so you and your team can start strong. After you
-              finish this step, our team may reach out to confirm details and
-              personalize your Leadership Kit for your program.
+              You&apos;re setting up your Summitt Mindset membership. This address
+              helps us prepare your coach bonus. After this, you&apos;ll finish
+              onboarding so daily accountability can start.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">

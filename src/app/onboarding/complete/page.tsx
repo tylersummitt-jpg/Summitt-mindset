@@ -2,6 +2,8 @@ import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
+import { AuthMarketingShell } from "@/components/auth-marketing-shell";
+import { CoachCompletionPanel } from "@/components/coach-completion-panel";
 import OnboardingProgress from "@/components/onboarding-progress";
 import CompleteOnboardingButton from "@/components/CompleteOnboardingButton";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -20,6 +22,15 @@ export default async function CompletePage(): Promise<ReactElement> {
   }
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
+  const isCoach = md.acquisitionSource === "coach";
+
+  if (md?.onboardingCompleted === true && isCoach) {
+    return (
+      <AuthMarketingShell authPage="coach-complete" contentClassName="w-full max-w-lg">
+        <CoachCompletionPanel />
+      </AuthMarketingShell>
+    );
+  }
 
   if (md?.onboardingCompleted === true) {
     redirect("/post-sign-in");
@@ -91,11 +102,26 @@ export default async function CompletePage(): Promise<ReactElement> {
       <OnboardingProgress currentStep={4} />
 
       <header className="space-y-3">
-        <h1 className="text-4xl font-bold">Almost there.</h1>
+        {isCoach ? (
+          <>
+            <h1 className="text-4xl font-bold">
+              Activate your daily accountability.
+            </h1>
 
-        <p className="text-gray-600 text-lg leading-relaxed max-w-lg mx-auto">
-          Coach Pat will start holding you accountable through your daily texts.
-        </p>
+            <p className="text-gray-600 text-lg leading-relaxed max-w-lg mx-auto">
+              Finish onboarding to start your texts and begin Leadership Kit
+              follow-up.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-4xl font-bold">Almost there.</h1>
+
+            <p className="text-gray-600 text-lg leading-relaxed max-w-lg mx-auto">
+              Coach Pat will start holding you accountable through your daily texts.
+            </p>
+          </>
+        )}
       </header>
 
       <section className="border rounded-xl bg-gray-50 p-6 text-left space-y-4">
@@ -139,7 +165,9 @@ export default async function CompletePage(): Promise<ReactElement> {
       </section>
 
       <p className="text-xs text-gray-500">
-        Coach Pat will guide you one step at a time.
+        {isCoach
+          ? "After you finish, your daily texts begin and Kit follow-up can start."
+          : "Coach Pat will guide you one step at a time."}
       </p>
     </div>
   );

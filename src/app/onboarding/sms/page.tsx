@@ -67,15 +67,21 @@ export default async function SmsPage(): Promise<ReactElement> {
     <div>
       <OnboardingProgress currentStep={3} />
 
-      <h1 className="text-3xl font-bold mb-4">
-        Set up your accountability texts.
-      </h1>
+      <h1 className="text-3xl font-bold mb-4">Daily Accountability Texts</h1>
 
       <p className="text-gray-600 mb-8">
-        This is the heart of Summitt Mindset. Coach Pat will use your commitment to check in with you by text.
+        This is where Summitt Mindset does its best work — short, direct
+        accountability over text.
       </p>
 
-      <SmsClient />
+      <SmsClient
+        initialPhone={
+          typeof md?.phoneNumber === "string" ? md.phoneNumber : null
+        }
+        initialConsentAccepted={
+          md?.smsDisclosureAccepted === true ? true : null
+        }
+      />
     </div>
   );
 }

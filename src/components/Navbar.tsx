@@ -25,7 +25,9 @@ const linkInactive =
 
 const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
 
-/** Meta ad landing: preserve coach funnel when using shell “Start Free Trial”. */
+/** Meta ad landing: coach funnel — primary acquisition uses sign-up. */
+const SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`;
+
 const SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`;
 
 function isCoachLeadershipKitPath(pathname: string | null): boolean {
@@ -61,7 +63,7 @@ export function Navbar() {
   }, []);
 
   const startFreeTrialHref = isCoachLeadershipKitPath(pathname)
-    ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
+    ? SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT
     : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
 
   const signInHref = isCoachLeadershipKitPath(pathname)

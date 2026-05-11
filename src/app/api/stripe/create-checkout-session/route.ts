@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { maySetCoachAcquisitionSource } from "@/lib/coach-attribution";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 
@@ -184,16 +185,24 @@ export async function POST(req: Request) {
       return new NextResponse("Missing or invalid plan", { status: 400 });
     }
 
+    let publicMetadata = await getClerkPublicMetadata(userId);
+
     if (src === "coach") {
-      try {
-        await updateClerkPublicMetadata(userId, {
-          acquisitionSource: "coach",
-        });
-      } catch (err) {
-        console.warn(
-          "Unable to set acquisitionSource on checkout session:",
-          err
-        );
+      if (maySetCoachAcquisitionSource(publicMetadata?.acquisitionSource)) {
+        try {
+          await updateClerkPublicMetadata(userId, {
+            acquisitionSource: "coach",
+          });
+          publicMetadata = {
+            ...publicMetadata,
+            acquisitionSource: "coach",
+          };
+        } catch (err) {
+          console.warn(
+            "Unable to set acquisitionSource on checkout session:",
+            err
+          );
+        }
       }
     }
 
@@ -207,7 +216,6 @@ export async function POST(req: Request) {
     }
 
     // 🔎 Check if we already have a Stripe customer ID saved
-    const publicMetadata = await getClerkPublicMetadata(userId);
     const existingCustomerId =
       typeof publicMetadata?.stripeCustomerId === "string"
         ? publicMetadata.stripeCustomerId

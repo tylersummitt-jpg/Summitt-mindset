@@ -15,6 +15,7 @@ const INTERNAL_PATH_ALLOWLIST = new Set([
   "/film-room",
   "/dashboard",
   "/coach/setup",
+  "/coach/complete",
 ]);
 
 function trimAndRejectSchemes(raw: string): string | null {

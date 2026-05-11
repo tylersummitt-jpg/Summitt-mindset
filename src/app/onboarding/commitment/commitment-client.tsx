@@ -9,11 +9,25 @@ import {
   validateCommitmentTitleIntake,
 } from "@/lib/v2-commitment-intake-validation";
 
-export default function CommitmentClient(): ReactElement {
+function strFromSaved(v: string | null | undefined): string {
+  return typeof v === "string" ? v : "";
+}
+
+export type CommitmentClientInitial = {
+  initialTitle?: string | null;
+  initialBehaviorStatement?: string | null;
+};
+
+export default function CommitmentClient({
+  initialTitle,
+  initialBehaviorStatement,
+}: CommitmentClientInitial = {}): ReactElement {
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
-  const [behaviorStatement, setBehaviorStatement] = useState("");
+  const [title, setTitle] = useState(() => strFromSaved(initialTitle));
+  const [behaviorStatement, setBehaviorStatement] = useState(() =>
+    strFromSaved(initialBehaviorStatement)
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +143,17 @@ export default function CommitmentClient(): ReactElement {
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      <div className="border-t border-gray-200 pt-8 mt-2">
+        <div className="rounded-xl bg-gray-50 px-4 py-4 text-center">
+          <p className="text-sm text-gray-600 italic">
+            &ldquo;The most difficult part of self discipline is convincing yourself
+            that it&rsquo;s in your own best interest.&rdquo;
+            <br />
+            <span className="not-italic">— Pat Summitt</span>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,8 +2,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import {
+  getClerkPublicMetadata,
+  getClerkUser,
+} from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { notifyCoachSubscribedInternal } from "@/lib/notify-coach-subscribed";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -250,6 +254,53 @@ export async function POST(req: NextRequest) {
         smsTimePreference: existing?.smsTimePreference ?? null,
         summittSubscribed: entitled,
       });
+
+      if (
+        isCoachAcquisitionFromStripe &&
+        entitled &&
+        subscriptionId &&
+        customerId
+      ) {
+        try {
+          let coachName = "not provided";
+          let coachEmail = "not found";
+          try {
+            const clerkUser = await getClerkUser(userId);
+            const primaryId = clerkUser.primary_email_address_id;
+            const emails = clerkUser.email_addresses ?? [];
+            const primary = emails.find((e) => e.id === primaryId);
+            coachEmail =
+              primary?.email_address ??
+              emails[0]?.email_address ??
+              "not found";
+            const fn = clerkUser.first_name?.trim() ?? "";
+            const ln = clerkUser.last_name?.trim() ?? "";
+            coachName =
+              [fn, ln].filter(Boolean).join(" ") || "not provided";
+          } catch (clerkErr) {
+            console.warn(
+              "[webhook] coach subscription notify: could not load Clerk user",
+              clerkErr
+            );
+          }
+
+          await notifyCoachSubscribedInternal({
+            coachName,
+            coachEmail,
+            clerkUserId: userId,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+            plan,
+            source: "coach",
+            timestamp: new Date().toISOString(),
+          });
+        } catch (notifyErr) {
+          console.warn(
+            "[webhook] coach subscription notify unexpected:",
+            notifyErr
+          );
+        }
+      }
 
       console.log("✅ checkout.session.completed → metadata updated", userId);
     }

@@ -10,14 +10,22 @@ type Plan = "monthly" | "annual";
 const CHECKOUT_TIMEOUT_MS = 15000;
 
 export default function SubscribeCheckoutPanel() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const srcParam = searchParams.get("src");
   const canceled = searchParams.get("canceled") === "1";
-  const isCoachSrc = srcParam === "coach";
-  const subscribeReturnPath = isCoachSrc ? "/subscribe?src=coach" : "/subscribe";
+  const coachFromMeta =
+    user?.publicMetadata &&
+    typeof user.publicMetadata === "object" &&
+    (user.publicMetadata as Record<string, unknown>).acquisitionSource ===
+      "coach";
+  const isCoachExperience =
+    srcParam === "coach" || coachFromMeta === true;
+  const subscribeReturnPath = isCoachExperience
+    ? "/subscribe?src=coach"
+    : "/subscribe";
 
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +40,14 @@ export default function SubscribeCheckoutPanel() {
     setLoadingPlan(plan);
 
     if (!isSignedIn) {
-      console.info("[subscribe] user not signed in; redirecting to sign-in");
-      setLoadingPlan(null);
-      router.push(
-        `/sign-in?redirect_url=${encodeURIComponent(subscribeReturnPath)}`
+      console.info(
+        "[subscribe] user not signed in; redirecting to auth with return path"
       );
+      setLoadingPlan(null);
+      const authHref = isCoachExperience
+        ? `/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`
+        : `/sign-in?redirect_url=${encodeURIComponent(subscribeReturnPath)}`;
+      router.push(authHref);
       return;
     }
 
@@ -50,7 +61,9 @@ export default function SubscribeCheckoutPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(isCoachSrc ? { plan, src: "coach" as const } : { plan }),
+        body: JSON.stringify(
+          isCoachExperience ? { plan, src: "coach" as const } : { plan }
+        ),
         signal: controller.signal,
       });
 
@@ -91,7 +104,7 @@ export default function SubscribeCheckoutPanel() {
         plan,
       });
       if (
-        isCoachSrc &&
+        isCoachExperience &&
         !initiateCheckoutFiredForAttemptRef.current
       ) {
         initiateCheckoutFiredForAttemptRef.current = true;
@@ -116,6 +129,60 @@ export default function SubscribeCheckoutPanel() {
 
   return (
     <div className="w-full max-w-lg mx-auto md:mx-0">
+      {isCoachExperience ? (
+        <div className="mb-5 text-left">
+          <ol
+            className="grid list-none gap-2.5 pt-0.5 sm:gap-3"
+            aria-label="Coach subscribe steps"
+          >
+            <li className="flex gap-3 text-left">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-neutral-100 text-sm font-semibold tabular-nums text-neutral-600"
+                aria-hidden
+              >
+                1
+              </span>
+              <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-[var(--text)] sm:text-[15px]">
+                Create your account
+              </span>
+            </li>
+            <li className="flex gap-3 text-left" aria-current="step">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-semibold tabular-nums text-white shadow-sm shadow-orange-500/20"
+                aria-hidden
+              >
+                2
+              </span>
+              <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-[var(--text)] sm:text-[15px]">
+                Start your membership
+              </span>
+            </li>
+            <li className="flex gap-3 text-left">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-neutral-100 text-sm font-semibold tabular-nums text-neutral-600"
+                aria-hidden
+              >
+                3
+              </span>
+              <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-[var(--text)] sm:text-[15px]">
+                Complete onboarding
+              </span>
+            </li>
+            <li className="flex gap-3 text-left">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-neutral-100 text-sm font-semibold tabular-nums text-neutral-600"
+                aria-hidden
+              >
+                4
+              </span>
+              <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-[var(--text)] sm:text-[15px]">
+                We reach out to ship your Leadership Kit
+              </span>
+            </li>
+          </ol>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full">
         <button
           onClick={() => handleCheckout("monthly")}

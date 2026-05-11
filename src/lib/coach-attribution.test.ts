@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   COACH_ATTRIBUTION_COOKIE_VALUE_COACH,
   isCoachAttributionPath,
+  maySetCoachAcquisitionSource,
   shouldSyncCoachAttribution,
 } from "@/lib/coach-attribution";
 
@@ -63,6 +64,42 @@ describe("coach attribution", () => {
         attributionCookieValue: null,
       })
     ).toBe(false);
+  });
+
+  describe("maySetCoachAcquisitionSource", () => {
+    it("allows undefined", () => {
+      expect(maySetCoachAcquisitionSource(undefined)).toBe(true);
+    });
+
+    it("allows null", () => {
+      expect(maySetCoachAcquisitionSource(null)).toBe(true);
+    });
+
+    it("allows empty string", () => {
+      expect(maySetCoachAcquisitionSource("")).toBe(true);
+    });
+
+    it("allows whitespace-only string", () => {
+      expect(maySetCoachAcquisitionSource("   ")).toBe(true);
+    });
+
+    it("disallows coach", () => {
+      expect(maySetCoachAcquisitionSource("coach")).toBe(false);
+    });
+
+    it("disallows partner", () => {
+      expect(maySetCoachAcquisitionSource("partner")).toBe(false);
+    });
+
+    it("disallows facebook", () => {
+      expect(maySetCoachAcquisitionSource("facebook")).toBe(false);
+    });
+
+    it("disallows non-string types", () => {
+      expect(maySetCoachAcquisitionSource({})).toBe(false);
+      expect(maySetCoachAcquisitionSource([])).toBe(false);
+      expect(maySetCoachAcquisitionSource(0)).toBe(false);
+    });
   });
 });
 

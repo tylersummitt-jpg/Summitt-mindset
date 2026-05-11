@@ -10,13 +10,37 @@ function normalizeText(input: string): string {
   return input.trim().replace(/\s+/g, " ");
 }
 
-export default function IdentityClient(): ReactElement {
+function strFromSaved(v: string | null | undefined): string {
+  return typeof v === "string" ? v : "";
+}
+
+export type IdentityClientInitial = {
+  initialPreferredName?: string | null;
+  initialPeopleSummary?: string | null;
+  initialIdentityAnchor?: string | null;
+  initialResponsibility?: string | null;
+};
+
+export default function IdentityClient({
+  initialPreferredName,
+  initialPeopleSummary,
+  initialIdentityAnchor,
+  initialResponsibility,
+}: IdentityClientInitial = {}): ReactElement {
   const router = useRouter();
 
-  const [preferredName, setPreferredName] = useState("");
-  const [peopleSummary, setPeopleSummary] = useState("");
-  const [identityAnchor, setIdentityAnchor] = useState("");
-  const [responsibility, setResponsibility] = useState("");
+  const [preferredName, setPreferredName] = useState(() =>
+    strFromSaved(initialPreferredName)
+  );
+  const [peopleSummary, setPeopleSummary] = useState(() =>
+    strFromSaved(initialPeopleSummary)
+  );
+  const [identityAnchor, setIdentityAnchor] = useState(() =>
+    strFromSaved(initialIdentityAnchor)
+  );
+  const [responsibility, setResponsibility] = useState(() =>
+    strFromSaved(initialResponsibility)
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

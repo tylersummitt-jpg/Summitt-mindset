@@ -16,10 +16,12 @@ function isSubscribedFromMetadata(md: Record<string, unknown>): boolean {
 }
 
 /**
- * Coach kit shipping — gated: signed in, subscribed, coach funnel, address not yet collected.
+ * Legacy coach kit shipping route — no longer part of the active coach funnel.
+ * Subscribed coaches are sent to onboarding or dashboard.
+ * Page + API retained for admin/legacy use.
  */
 export default async function CoachSetupLayout({
-  children,
+  children: _children,
 }: {
   children: ReactNode;
 }): Promise<ReactElement> {
@@ -32,16 +34,17 @@ export default async function CoachSetupLayout({
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
 
   if (!isSubscribedFromMetadata(md)) {
-    redirect("/subscribe");
+    redirect(md.acquisitionSource === "coach" ? "/subscribe?src=coach" : "/subscribe");
   }
 
   if (md.acquisitionSource !== "coach") {
     redirect("/onboarding");
   }
 
-  if (md.coachAddressCollected === true) {
-    redirect("/onboarding/identity");
+  /** Active funnel no longer collects shipping here — send coaches forward. */
+  if (md.onboardingCompleted === true) {
+    redirect("/dashboard");
   }
 
-  return <>{children}</>;
+  redirect("/onboarding");
 }

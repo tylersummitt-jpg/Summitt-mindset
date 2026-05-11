@@ -15,15 +15,24 @@ export default async function OnboardingPage(): Promise<ReactElement> {
 
   const md = user.publicMetadata as Record<string, unknown> | undefined;
   const isSubscribed = isSubscribedFromPublicMetadata(md);
+  const isCoach = md?.acquisitionSource === "coach"; // subscribed incomplete coaches redirect before render
 
-  // 🚨 HARD GATE: Must subscribe first
+  // 🚨 HARD GATE: Must subscribe first (match onboarding layout coach subscribe URL)
   if (!isSubscribed) {
-    redirect("/subscribe?from=onboarding");
+    redirect(
+      isCoach
+        ? "/subscribe?from=onboarding&src=coach"
+        : "/subscribe?from=onboarding"
+    );
   }
 
   // If onboarding already complete → dashboard (commitment / SMS home)
   if (md && typeof md === "object" && md.onboardingCompleted === true) {
     redirect("/dashboard");
+  }
+
+  if (isCoach) {
+    redirect("/onboarding/identity");
   }
 
   return (
