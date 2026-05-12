@@ -22,8 +22,14 @@ export type SmsVoiceOwner =
   | "no_active_commitment"
   | "unknown";
 
+/** Fail-closed daily coaching: no Twilio send when V3 repair cannot produce safe copy. */
+export type FinalVoiceSkipReason = "no_safe_v3_voice" | "v3_repair_failed" | "final_voice_blocked";
+
 export type VoiceOwnershipResult = {
   body: string;
+  /** When false, callers must not send `body` as user-visible coaching (daily fail-closed uses empty `body`). */
+  shouldSend: boolean;
+  skipReason?: FinalVoiceSkipReason;
   voiceOwner: SmsVoiceOwner;
   source: string;
   v3Owned: boolean;
@@ -125,6 +131,7 @@ function isNormalCoaching(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
     "inactivity_rescue",
     "post_churn_winback",
     "blocker_followup",
+    "pending_resolution",
     "refresh",
     "contract_prompt",
     "contract_ack",
@@ -162,6 +169,21 @@ function voiceOwnerIsV3(owner: SmsVoiceOwner): boolean {
     owner === "v3_machine_refine" ||
     owner === "v3_daily" ||
     owner === "v3_open_question"
+  );
+}
+
+/** Daily cron voice paths: fail-closed (no deterministic emergency coaching) when repair cannot fix unsafe text. */
+export function isDailyFailClosedActiveCommitmentVoice(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
+  if (args.bypassKind) return false;
+  if (args.normalCoaching === false) return false;
+  if (!args.activeCommitmentId?.trim()) return false;
+  const ch = args.channel;
+  return (
+    ch === "daily_outbound" ||
+    ch === "reactivation" ||
+    ch === "pending_resolution" ||
+    ch === "refresh" ||
+    ch === "contract_prompt"
   );
 }
 
@@ -294,9 +316,15 @@ function result(args: {
   repairAttempted: boolean;
   repairSucceeded: boolean;
   deterministicBlocked: boolean;
+  shouldSend?: boolean;
+  skipReason?: FinalVoiceSkipReason;
 }): VoiceOwnershipResult {
+  const shouldSend = args.shouldSend ?? true;
+  const outBody = shouldSend ? args.body : "";
   return {
-    body: args.body,
+    body: outBody,
+    shouldSend,
+    ...(args.skipReason && !shouldSend ? { skipReason: args.skipReason } : {}),
     voiceOwner: args.voiceOwner,
     source: args.source,
     v3Owned: args.v3Owned,
@@ -304,6 +332,9 @@ function result(args: {
     emergencyFallbackUsed: args.emergencyFallbackUsed,
     blockedReasons: args.blockedReasons,
     metadata: {
+      should_send: shouldSend,
+      ...(args.skipReason && !shouldSend ? { skip_reason: args.skipReason } : {}),
+      ...(shouldSend ? {} : { twilio_send_attempted: false }),
       voice_owner: args.voiceOwner,
       final_voice_source: args.source,
       v3_finalized: args.v3Owned,
@@ -312,7 +343,7 @@ function result(args: {
       v3_emergency_fallback_used: args.emergencyFallbackUsed,
       final_voice_blocked_reasons: args.blockedReasons,
       original_pre_voice_gate_body: args.originalBody,
-      final_voice_gate_body: args.body,
+      final_voice_gate_body: outBody,
       deterministic_code_blocked: args.deterministicBlocked,
     },
   };
@@ -328,6 +359,7 @@ export async function applyFinalVoiceOwnershipGate(
     const owner = bypass ? ownerFromBypass(bypass) : "no_active_commitment";
     return result({
       body: originalBody,
+      shouldSend: true,
       voiceOwner: owner,
       source: bypass ?? "not_normal_coaching",
       v3Owned: false,
@@ -355,6 +387,7 @@ export async function applyFinalVoiceOwnershipGate(
   if (initialV3Owned && blocked.length === 0) {
     return result({
       body: originalBody,
+      shouldSend: true,
       voiceOwner: initialOwner,
       source: args.replySource ?? args.northStarMeta?.source ?? "v3_owned",
       v3Owned: true,
@@ -368,6 +401,7 @@ export async function applyFinalVoiceOwnershipGate(
     });
   }
 
+  const dailyFailClosed = isDailyFailClosedActiveCommitmentVoice(args);
   const repaired = await repairWithOpenAI(args, blocked.length ? blocked : ["non_v3_voice_owner"]);
   if (repaired) {
     const cleaned = finalizeNorthStarCoachSms({
@@ -385,6 +419,7 @@ export async function applyFinalVoiceOwnershipGate(
     if (repairBlocked.length === 0) {
       return result({
         body: cleaned,
+        shouldSend: true,
         voiceOwner: "v3_repair",
         source: "v3_voice_repair",
         v3Owned: true,
@@ -398,6 +433,25 @@ export async function applyFinalVoiceOwnershipGate(
       });
     }
     blocked.push(...repairBlocked.map((r) => `repair_${r}`));
+  }
+
+  if (dailyFailClosed) {
+    const skipReason: FinalVoiceSkipReason = openaiRepairEligible ? "v3_repair_failed" : "no_safe_v3_voice";
+    return result({
+      body: "",
+      shouldSend: false,
+      skipReason,
+      voiceOwner: initialOwner,
+      source: "skipped_no_safe_v3_voice",
+      v3Owned: initialV3Owned,
+      repaired: false,
+      emergencyFallbackUsed: false,
+      blockedReasons: blocked.length ? blocked : ["non_v3_voice_owner"],
+      originalBody,
+      repairAttempted: openaiRepairEligible,
+      repairSucceeded: false,
+      deterministicBlocked,
+    });
   }
 
   const fallbackRaw = emergencyFallback(args);
@@ -415,6 +469,7 @@ export async function applyFinalVoiceOwnershipGate(
 
   return result({
     body: fallback,
+    shouldSend: true,
     voiceOwner: "v3_deterministic_fallback",
     source: "v3_emergency_fallback",
     v3Owned: true,

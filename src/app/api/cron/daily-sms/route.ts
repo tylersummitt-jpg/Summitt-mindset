@@ -113,6 +113,7 @@ import {
   shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation,
 } from "@/lib/v2-guided-resolution";
 import type { NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
+import { dailySmsVoiceSkipEventPatch, isDailySmsWithheldByFinalVoiceGate } from "@/lib/daily-sms-voice-skip";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import {
@@ -249,13 +250,14 @@ async function withNorthStarDailyGate(
   });
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,
-    smsBody: voiceGate.body,
+    smsBody: voiceGate.shouldSend ? voiceGate.body : "",
   };
   out.v2AiPayload = {
     ...(built.v2AiPayload && typeof built.v2AiPayload === "object" ? built.v2AiPayload : {}),
     north_star_gate: {
       original_body: ns.meta.originalBody,
-      final_body: voiceGate.body,
+      body_after_north_star: ns.visibleBody,
+      final_body: voiceGate.shouldSend ? voiceGate.body : ns.visibleBody,
       north_star_gate_source: ns.meta.source,
       north_star_gate_reasons: ns.meta.blockedReasons,
       openai_attempted: ns.meta.openaiAttempted,
@@ -264,6 +266,14 @@ async function withNorthStarDailyGate(
       finalizer_version: ns.meta.finalizerVersion,
     },
     final_voice_gate: voiceGate.metadata,
+    voice_send_decision: {
+      should_send: voiceGate.shouldSend,
+      skip_reason: voiceGate.skipReason ?? null,
+      voice_channel: channel,
+      north_star_visible_body: ns.visibleBody,
+      blocked_reasons: voiceGate.blockedReasons,
+      ...(voiceGate.shouldSend ? {} : { twilio_send_attempted: false }),
+    },
   };
   return out;
 }
@@ -1677,6 +1687,7 @@ export async function GET(req: Request) {
     skippedPreferredWindowWaiting: 0,
     skippedPastSafeLocalCutoff: 0,
     twilioAccepted: 0,
+    skippedNoSafeV3Voice: 0,
   };
 
   const { data: audienceQueryRows } = await supabaseServer
@@ -2002,6 +2013,37 @@ export async function GET(req: Request) {
             }
             const smsBody = built.smsBody;
             const v2AccountabilityRetry = built.v2Accountability;
+
+            if (isDailySmsWithheldByFinalVoiceGate(built)) {
+              const voiceSendDecisionRetry = built.v2AiPayload?.voice_send_decision as
+                | {
+                    should_send?: boolean;
+                    voice_channel?: NorthStarCoachChannel;
+                    blocked_reasons?: string[];
+                    north_star_visible_body?: string;
+                  }
+                | undefined;
+              const northStarGateR = (built.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
+              const finalVoiceGateR = (built.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
+              const patchR = dailySmsVoiceSkipEventPatch({
+                existingMeta: existingMeta,
+                northStarGate: northStarGateR,
+                finalVoiceGate: finalVoiceGateR,
+                channel: voiceSendDecisionRetry?.voice_channel ?? "daily_outbound",
+                timezone,
+                localTimeIso: localNow.toISOString(),
+                blockedReasons: voiceSendDecisionRetry?.blocked_reasons ?? [],
+                northStarVisibleBody: voiceSendDecisionRetry?.north_star_visible_body,
+              });
+              await supabaseServer
+                .from("sms_send_events")
+                .update(patchR)
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
+                .eq("day_key", todayKey);
+              stats.skippedNoSafeV3Voice += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
 
             stage = "twilio_send_or_skip";
             if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -2501,6 +2543,37 @@ export async function GET(req: Request) {
       }
       const smsBody = builtMain.smsBody;
       const v2AccountabilityMain = builtMain.v2Accountability;
+
+      if (isDailySmsWithheldByFinalVoiceGate(builtMain)) {
+        const voiceSendDecision = builtMain.v2AiPayload?.voice_send_decision as
+          | {
+              should_send?: boolean;
+              voice_channel?: NorthStarCoachChannel;
+              blocked_reasons?: string[];
+              north_star_visible_body?: string;
+            }
+          | undefined;
+        const northStarGate = (builtMain.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
+        const finalVoiceGate = (builtMain.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
+        const patch = dailySmsVoiceSkipEventPatch({
+          existingMeta: { note: "reserved_by_cron" },
+          northStarGate,
+          finalVoiceGate,
+          channel: voiceSendDecision?.voice_channel ?? "daily_outbound",
+          timezone,
+          localTimeIso: localNow.toISOString(),
+          blockedReasons: voiceSendDecision?.blocked_reasons ?? [],
+          northStarVisibleBody: voiceSendDecision?.north_star_visible_body,
+        });
+        await supabaseServer
+          .from("sms_send_events")
+          .update(patch)
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
+          .eq("day_key", todayKey);
+        stats.skippedNoSafeV3Voice += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
 
       // Twilio readiness + dry run
       stage = "twilio_send_or_skip";

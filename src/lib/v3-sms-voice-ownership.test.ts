@@ -55,6 +55,7 @@ describe("applyFinalVoiceOwnershipGate", () => {
     });
 
     expect(r.body).toBe("That counts. What made it work?");
+    expect(r.shouldSend).toBe(true);
     expect(r.voiceOwner).toBe("v3_openai");
     expect(r.v3Owned).toBe(true);
     expect(r.emergencyFallbackUsed).toBe(false);
@@ -72,13 +73,14 @@ describe("applyFinalVoiceOwnershipGate", () => {
       normalCoaching: true,
     });
 
+    expect(r.shouldSend).toBe(true);
     expect(r.body).toBe("That counts. What made it work?");
     expect(r.voiceOwner).toBe("v3_deterministic_fallback");
     expect(r.emergencyFallbackUsed).toBe(true);
     expect(r.body.toLowerCase()).not.toContain("say it straight");
   });
 
-  it("blocks malformed daily fallback into a clean ask", async () => {
+  it("fail-closed daily: does not use deterministic emergency fallback when repair unavailable", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await applyFinalVoiceOwnershipGate({
       proposedBody: "Did you protect Use AI & dictate at least one story today?",
@@ -89,12 +91,19 @@ describe("applyFinalVoiceOwnershipGate", () => {
       normalCoaching: true,
     });
 
-    expect(r.body).toBe("Did you dictate one story today?");
-    expect(r.metadata.voice_owner).toBe("v3_deterministic_fallback");
+    expect(r.shouldSend).toBe(false);
+    expect(r.skipReason).toBe("no_safe_v3_voice");
+    expect(r.body).toBe("");
+    expect(r.emergencyFallbackUsed).toBe(false);
+    expect(r.metadata.v3_emergency_fallback_used).toBe(false);
+    expect(r.metadata.should_send).toBe(false);
+    expect(r.metadata.skip_reason).toBe("no_safe_v3_voice");
+    expect(r.metadata.twilio_send_attempted).toBe(false);
+    expect(r.metadata.voice_owner).toBe("v3_daily");
     expect(r.metadata.deterministic_code_blocked).toBe(true);
   });
 
-  it("blocks malformed Did <raw> happen today for v3_daily and uses focus emergency fallback", async () => {
+  it("fail-closed daily malformed Did <raw> happen today: no send when repair unavailable", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await applyFinalVoiceOwnershipGate({
       proposedBody:
@@ -106,13 +115,17 @@ describe("applyFinalVoiceOwnershipGate", () => {
       normalCoaching: true,
     });
 
+    expect(r.shouldSend).toBe(false);
+    expect(r.skipReason).toBe("no_safe_v3_voice");
+    expect(r.body).toBe("");
     expect(r.metadata.final_voice_blocked_reasons).toEqual(
       expect.arrayContaining(["malformed_did_raw_phrase_happen_today"])
     );
     expect(r.metadata.deterministic_code_blocked).toBe(true);
-    expect(r.body).toBe("Did you protect the focused work block today?");
-    expect(r.metadata.v3_emergency_fallback_used).toBe(true);
+    expect(r.metadata.v3_emergency_fallback_used).toBe(false);
     expect(r.metadata.v3_repair_attempted).toBe(false);
+    expect(r.metadata.v3_repair_succeeded).toBe(false);
+    expect(r.body).not.toContain("Did you protect the focused work block");
   });
 
   it("allows clean v3-owned daily_outbound copy to pass without repair", async () => {
@@ -135,13 +148,14 @@ describe("applyFinalVoiceOwnershipGate", () => {
       normalCoaching: true,
     });
 
+    expect(r.shouldSend).toBe(true);
     expect(r.voiceOwner).toBe("v3_daily");
     expect(r.blockedReasons).toHaveLength(0);
     expect(r.metadata.deterministic_code_blocked).toBe(false);
     expect(r.body).toContain("Did you get in that focused work session");
   });
 
-  it("does not fast-path v3_daily when North Star sets requires_v3_repair", async () => {
+  it("fail-closed daily: requires_v3_repair with no OpenAI yields no send, not emergency fallback", async () => {
     delete process.env.OPENAI_API_KEY;
     const ns = finalizeNorthStarCoachSms({
       proposedBody: "How did your focus go today and did you manage to finish the block?",
@@ -159,12 +173,15 @@ describe("applyFinalVoiceOwnershipGate", () => {
       northStarMeta: ns.meta,
       normalCoaching: true,
     });
+    expect(r.shouldSend).toBe(false);
+    expect(r.skipReason).toBe("no_safe_v3_voice");
+    expect(r.body).toBe("");
     expect(r.blockedReasons).toEqual(expect.arrayContaining(["north_star_requires_v3_repair"]));
-    expect(r.emergencyFallbackUsed).toBe(true);
-    expect(r.voiceOwner).toBe("v3_deterministic_fallback");
+    expect(r.emergencyFallbackUsed).toBe(false);
+    expect(r.metadata.v3_emergency_fallback_used).toBe(false);
   });
 
-  it("treats explicit requires_v3_repair meta as blocked for otherwise clean v3_daily body", async () => {
+  it("fail-closed daily: explicit requires_v3_repair meta yields no send when repair unavailable", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await applyFinalVoiceOwnershipGate({
       proposedBody: "Did you get in that focused work session today without distractions?",
@@ -179,8 +196,39 @@ describe("applyFinalVoiceOwnershipGate", () => {
         requires_v3_repair: true,
       },
     });
+    expect(r.shouldSend).toBe(false);
+    expect(r.skipReason).toBe("no_safe_v3_voice");
+    expect(r.body).toBe("");
     expect(r.blockedReasons).toEqual(expect.arrayContaining(["north_star_requires_v3_repair"]));
-    expect(r.emergencyFallbackUsed).toBe(true);
+    expect(r.emergencyFallbackUsed).toBe(false);
+  });
+
+  it("fail-closed applies to reactivation daily channel with active commitment", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "You made a comeback yesterday! Did Focused on work without distractions happen today?",
+      replySource: "v3_daily_check_in",
+      channel: "reactivation",
+      activeCommitmentId: "c1",
+      effectiveAsk: "Focused on work without distractions",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+    expect(r.emergencyFallbackUsed).toBe(false);
+  });
+
+  it("no active commitment path still sends deterministic body unchanged", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Reminder: your subscription renews soon.",
+      replySource: "deterministic_human",
+      channel: "daily_outbound",
+      normalCoaching: false,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toContain("subscription renews");
+    expect(r.voiceOwner).toBe("no_active_commitment");
   });
 
   it("adds voice owner metadata", async () => {
@@ -215,6 +263,8 @@ describe("applyFinalVoiceOwnershipGate", () => {
       bypassKind: "onboarding_consent",
     });
 
+    expect(compliance.shouldSend).toBe(true);
+    expect(consent.shouldSend).toBe(true);
     expect(compliance.voiceOwner).toBe("compliance");
     expect(consent.voiceOwner).toBe("onboarding_consent");
   });
