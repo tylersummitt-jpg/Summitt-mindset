@@ -178,6 +178,16 @@ function heuristicPurposeFromInbound(raw: string): V3SmsTurnPurpose | null {
   const t = raw.trim();
   if (/can\s+i\s+change\s+(the\s+)?(goal|commitment|standard)/i.test(t)) return "goal_change_request";
   if (/\b(i\s+don'?t\s+care|nothing\s+matters|what'?s\s+the\s+point)\b/i.test(t)) return "emotional_context";
+  if (
+    /\b(anxious|anxiety|panic|overwhelmed|rough morning|hard morning|wiped|exhausted|struggling)\b/i.test(
+      t.toLowerCase()
+    ) || /\bhaving an anxious\b/i.test(t)
+  ) {
+    return "emotional_context";
+  }
+  if (/\blet me think|need to think|thinking about it|give me time\b/i.test(t.toLowerCase())) {
+    return "casual_context";
+  }
   if (/\?\s*$/.test(t) && t.length > 12 && !/^(yes|no|yep|nope)\b/i.test(t)) return "user_question";
   if (/\b(two\s+hours|stretch|tomorrow\s+i\b).*\b(hour|block)/i.test(t)) return "future_plan";
   return null;
@@ -195,7 +205,9 @@ function pickNextMove(p: V3SmsTurnPurpose, learning: V3LearningSignals | null): 
   if (p === "answer_to_open_question") return "confirm_future_plan";
   if (p === "goal_change_request") return "clarify_goal_change";
   if (p === "emotional_context") return "direct_challenge";
+  if (p === "proof_detail") return "capture_proof";
   if (p === "user_question") return "answer_human_question";
+  if (p === "casual_context") return "answer_human_question";
   return "ask_accountability";
 }
 
@@ -244,7 +256,10 @@ export async function understandV3SmsTurn(args: UnderstandV3SmsTurnArgs): Promis
   if (
     hint &&
     (purpose === "unclear_but_contextual" ||
-      (hint === "emotional_context" && finalFt === "user_partial"))
+      (hint === "emotional_context" &&
+        (finalFt === "user_partial" ||
+          finalFt === "user_yes" ||
+          purpose === "daily_check_response_completion")))
   ) {
     purpose = hint;
     confidence = "medium";
@@ -399,6 +414,7 @@ export async function tryGenerateV3OpenQuestionCoachReply(args: {
   const system = `You write ONE outbound SMS as an accountability coach (Pat Summitt principles: direct, warm-not-soft, human).
 The user ALREADY answered the coach's latest question. Your reply must respond to their answer — never repeat or re-ask that same question.
 Never output menus (yes/no/partial), "did you manage," "let me know how it went," hollow motivation, or "check the app."
+Stay on the SAME topic as the latest coach question (e.g. gratitude / thank-you / daily check). Memory is background only — do not pivot to unrelated habits or goals from memory (vaping, diet, unrelated commitments) unless the user's latest inbound explicitly names them.
 If they defer today to tomorrow / it's late: close today and make tomorrow concrete (time or first protected block).
 If they gave a time, confirm it in plain language. If they gave a story title or concrete detail, acknowledge it briefly then one forward move.
 Max ~300 characters. Single SMS. No bullet lists.`;
@@ -412,8 +428,8 @@ Effective ask: ${args.effectiveAsk}
 Behavior: ${args.behaviorStatement}
 User's latest inbound: ${args.inboundRaw.trim()}
 Do-not-repeat coaching hint: ${dnr || "(none)"}
-Memory snapshot:
-${memoryBlock.slice(0, 1200)}
+Memory snapshot (background texture only — do not pivot the reply to a topic that appears only here):
+${memoryBlock.slice(0, 700)}
 Recent transcript:
 ${transcript.slice(0, 1400)}
 Write the SMS body only.`;
@@ -506,7 +522,7 @@ export async function generateV3CoachReply(args: GenerateV3CoachReplyArgs): Prom
 
   const system = `You are the SMS voice of an accountability coach inspired by Pat Summitt's principles: direct, warm-not-soft, emotionally intelligent, short, specific, never robotic.
 ${BANNED_LINE}
-Stay anchored to the ONE active commitment (effective ask) and the latest turn in the transcript. Do not jump to unrelated topics from long-term memory (gratitude prompts, other habits, side goals) unless the user explicitly raised them this message.
+Stay anchored to the ONE active commitment (effective ask) and the latest turn in the transcript. Do not jump to unrelated topics from long-term memory (gratitude prompts, other habits, side goals) unless the user explicitly raised them this message. Never echo long verbatim quotes of the user's text back with quotation marks or ellipses.
 Formula: acknowledge reality → interpret what it means → one useful question OR one clear next action.
 Max ~320 characters. Single SMS. No bullet lists.`;
 
@@ -582,7 +598,7 @@ function fallbackInboundReply(
     inboundLooksAnsweredOpenQuestion(inbound, latestQ) &&
     !/^(yes|no|yep|nope)\s*$/i.test(inbound.trim())
   ) {
-    return `Got it. I'm not circling the same ask — what's the next concrete move on ${ask}?`;
+    return `Good — you answered it. What's the one honest follow-through you want locked for tomorrow?`;
   }
 
   if (todayDone && inbound.length > 8 && !/\b(miss|didn'?t|failed|nope)\b/i.test(inbound.toLowerCase())) {
@@ -614,9 +630,11 @@ function fallbackInboundReply(
     case "future_plan":
       return `Good. Make tomorrow concrete. What time does it start?`;
     case "proof_detail":
-      return `Noted. What’s the one detail that made it real today?`;
+      return `That counts. I'm saving that as proof.`;
+    case "casual_context":
+      return `Good. Think on it, but don't leave it vague. Before tonight, choose one specific action for tomorrow.`;
     case "emotional_context":
-      return `That's different. Are you done with the goal, or tired of failing at the current version?`;
+      return `That's real. What is the smallest version you can still respect today?`;
     case "goal_change_request":
       return `Yes. Is this a one-day adjustment, or a new daily standard you want me to hold you to?`;
     case "user_question":
@@ -1049,6 +1067,14 @@ export function buildAnswerToOpenQuestionV3BrainPackage(args: {
   };
 }
 
+/**
+ * Telemetry for `v2_commitment_event.payload_json` on inbound outcomes (no schema change).
+ * Supabase paths (coach reply metadata, not `sms_inbound_coach_jobs` — that table has no JSON metadata):
+ * - `payload_json->'v3_brain'->>'v3_turn_purpose'`
+ * - `payload_json->'v3_brain'->>'v3_coach_reply_source'`
+ * - `payload_json->'v3_brain'->'north_star_gate'->>'repeated_question_guard_fired'`
+ * - `payload_json->'ai'->'reply_resolution'->>'reply_source'`
+ */
 export function buildV3BrainMetadata(args: {
   brain: V3SmsBrainResult;
   latestOpenQuestion: string | null;

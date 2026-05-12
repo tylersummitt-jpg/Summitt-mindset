@@ -133,16 +133,37 @@ function norm(s: string): string {
 }
 
 function clip(s: string, max = NORTH_STAR_SMS_MAX_LEN): string {
+  return smartClipSms(s, max);
+}
+
+/** Prefer ending at a full sentence; avoid blind mid-sentence chop + ellipsis. */
+function smartClipSms(s: string, max: number): string {
   const t = norm(s);
   if (t.length <= max) return t;
-  return t.slice(0, max - 1) + "…";
+  const slice = t.slice(0, max - 1);
+  for (let i = slice.length - 1; i >= Math.max(24, Math.floor(max * 0.38)); i--) {
+    const ch = slice[i];
+    if (ch === "?" || ch === "!" || ch === ".") return slice.slice(0, i + 1).trim();
+  }
+  const sp = slice.lastIndexOf(" ");
+  if (sp >= 28) return `${slice.slice(0, sp).trim()}.`;
+  return `${slice.trim()}.`;
 }
 
 /** Single-line / standard SMS clip uses collapsed whitespace. */
 function clipPreserveParagraphs(s: string, max: number): string {
   const t = s.trim();
   if (t.length <= max) return t;
-  return t.slice(0, max - 1) + "…";
+  const slice = t.slice(0, max - 1);
+  for (let i = slice.length - 1; i >= Math.max(40, Math.floor(max * 0.35)); i--) {
+    const ch = slice[i];
+    if (ch === "?" || ch === "!" || ch === ".") return slice.slice(0, i + 1).trim();
+  }
+  const sp = slice.lastIndexOf("\n");
+  if (sp >= 32) return slice.slice(0, sp).trim();
+  const sp2 = slice.lastIndexOf(" ");
+  if (sp2 >= 28) return `${slice.slice(0, sp2).trim()}.`;
+  return `${slice.trim()}.`;
 }
 
 /** After scrub steps: collapse whitespace, optionally keep newlines between paragraphs. */
@@ -158,12 +179,20 @@ function finalizeTextShape(s: string, preserveNewlines: boolean): string {
 }
 
 export function inboundSignalsCompletion(raw: string | null | undefined): boolean {
-  const t = (raw ?? "").toLowerCase();
+  const t = (raw ?? "").toLowerCase().trim();
+  if (!t) return false;
+  const rt = (raw ?? "").trim();
+  if (/^(yes|yep|yeah|yup)\s*!*$/i.test(rt)) return true;
+  if (/^i\s*have\s*!+$/i.test(t)) return true;
+  if (/^have\s*!+$/i.test(t)) return true;
+  if (/\byes\s+already\b/.test(t)) return true;
+  if (/\balready\s+(did|done|handled)\b/.test(t)) return true;
   return (
     /\b(done|got it done|got it|completed|finished|yes|proof|nailed it|crushed it|protected|focused)\b/.test(
       t
     ) ||
-    /\b(sure\s+did|took\s+care\s+of|i\s+got\s+it\s+done)\b/.test(t)
+    /\b(sure\s+did|took\s+care\s+of|i\s+got\s+it\s+done)\b/.test(t) ||
+    /\b(i\s+)?have\b/.test(t) && /!{2,}/.test(t) && t.length < 32
   );
 }
 
@@ -260,6 +289,11 @@ export function asksTodayCompletionQuestion(body: string): boolean {
   if (/smallest\s+honest\s+next\s+step/i.test(t) && /\btoday\b/i.test(t)) return true;
   if (/10\s*minutes\s+or\s+less/i.test(t)) return true;
   if (/\bstill\s+do\s+today\b/i.test(t)) return true;
+  if (/\bdid you (protect|dictate|pause|put)\b/i.test(t) && /\btoday\b/.test(t)) return true;
+  if (/\bdid you take a moment\b/i.test(t) && /\btoday\b/.test(t)) return true;
+  if (/\bdid you stay true to yourself\b/i.test(t)) return true;
+  if (/\bdid you take a deep breath\b/i.test(t)) return true;
+  if (/\bthank someone\b/i.test(t) && /\btoday\b/.test(t)) return true;
   return false;
 }
 
@@ -331,32 +365,8 @@ function proposedRepeatsLatestCoachAsk(
   return false;
 }
 
-function pickSafeNonRepeatReplacement(merged: MergedNorthStarFields): string {
-  const inbound = merged.inbound;
-  if (inboundDefersTodayForTomorrow(inbound)) {
-    return pickTomorrowContinuation(inbound);
-  }
-  const hm = extractHourMention(inbound);
-  if (hm && /\b(am|pm|morning|evening|:)\b/i.test(inbound)) {
-    return `Locked — ${hm} it is. Nothing fancy — just execute.`;
-  }
-  if (
-    inbound.trim().length > 14 &&
-    !/^(yes|no|yep|nope)\b/i.test(inbound.trim()) &&
-    inbound.split(/\s+/).filter(Boolean).length >= 2 &&
-    !/\?/.test(inbound)
-  ) {
-    const snippet = inbound.trim().slice(0, 52);
-    return `Got it — "${snippet}${inbound.trim().length > 52 ? "…" : ""}" — what's the next concrete move?`;
-  }
-  const lines = [
-    "That counts. What made it work today?",
-    "Good. What helped you follow through?",
-    "Fair — what's the next concrete move on this?",
-  ];
-  let h = 0;
-  for (let i = 0; i < inbound.length; i++) h = (h * 31 + inbound.charCodeAt(i)) >>> 0;
-  return lines[h % lines.length]!;
+function pickSafeNonRepeatReplacement(merged: MergedNorthStarFields, pkt?: NorthStarSmsContextPacket): string {
+  return intentRecoveryReply(merged, pkt);
 }
 
 function applyRepeatedQuestionKillSwitch(
@@ -377,7 +387,7 @@ function applyRepeatedQuestionKillSwitch(
   if (!merged.inbound.trim()) return { replacement: null };
   if (!proposedRepeatsLatestCoachAsk(proposed, merged, pkt)) return { replacement: null };
   return {
-    replacement: pickSafeNonRepeatReplacement(merged),
+    replacement: pickSafeNonRepeatReplacement(merged, pkt),
     original: proposed,
   };
 }
@@ -404,6 +414,9 @@ function scrubRobotMotivation(s: string, preserveNl: boolean): { text: string; h
     [/let'?s\s+keep\s+moving\s+forward[^.!?]*[.!?]?/gi, ""],
     [/staying\s+focused\s+is\s+crucial\s+for\s+your\s+progress[^.!?]*[.!?]?/gi, ""],
     [/good\s+to\s+see\s+you\s+(here|back)[^.!?]*[.!?]?/gi, ""],
+    [/your\s+commitment\s+matters[^.!?]*[.!?]?/gi, ""],
+    [/powerful\s+practice[^.!?]*[.!?]?/gi, ""],
+    [/keep\s+that\s+connection\s+alive[^.!?]*[.!?]?/gi, ""],
   ];
   for (const [re, rep] of pairs) {
     if (re.test(t)) hits.push(re.source.slice(0, 40));
@@ -440,13 +453,160 @@ function scrubCheckInWorkflow(
 export function shortDailyAskFragment(mergedAsk: string): string {
   let s = mergedAsk.trim().replace(/\s+/g, " ");
   s = s
+    .replace(/^use\s+ai\s*[&+]?\s*/i, "")
     .replace(/^(i want to|i will|i'?m going to|my commitment is|to)\s+/i, "")
     .replace(/^i\s+/i, "")
     .trim();
   const words = s.split(/\s+/).filter(Boolean).slice(0, 8);
   let out = words.join(" ");
-  if (out.length > 52) out = `${out.slice(0, 49).trim()}…`;
+  if (out.length > 52) out = out.slice(0, 52).trim();
   return out || "the rep";
+}
+
+/**
+ * One clean daily accountability question (deterministic). Prefer this over
+ * pasting raw behavior_statement after "Did you protect".
+ */
+export function buildDailyCommitmentAsk(mergedAsk: string): string {
+  const raw = mergedAsk.trim().replace(/\s+/g, " ");
+  const low = raw.toLowerCase();
+  if (!raw) return "Did you protect the rep today?";
+  if (/dictate.*story|use\s+ai.*dictat|at least one story/.test(low)) {
+    return "Did you dictate one story today?";
+  }
+  if (/big\s*-?\s*picture.*mindset|clear.*accurate.*(big\s*)?picture|accurate\s+big\s+picture/.test(low)) {
+    return "Did you protect the big-picture mindset today?";
+  }
+  if (/phone.*computer|computer.*phone/.test(low) && /practice|after|soon|away/.test(low)) {
+    return "Did you put the phone and computer away after practice today?";
+  }
+  if (/anxious|deep breath|worth being anxious|letting go of what you can'?t control/.test(low)) {
+    return "Did you pause and name what you can control today?";
+  }
+  if (/stay\s+true\s+to\s+yourself/.test(low)) {
+    return "Did you stay true to yourself today?";
+  }
+  if (/\bthank\b.*\b(present|someone|people)\b/.test(low) && /\btoday\b/.test(low)) {
+    return "Did you take a moment to thank someone for being present today?";
+  }
+  const frag = shortDailyAskFragment(raw);
+  const fragTrim = frag.trim();
+  if (/^(use|keep|put my)\b/i.test(fragTrim)) {
+    return "Did you protect the rep today?";
+  }
+  if (/^dictat/i.test(fragTrim)) {
+    return "Did you dictate one story today?";
+  }
+  return `Did you protect ${fragTrim} today?`;
+}
+
+/** Coach outbound that expects a same-day completion / proof reply (daily check, gratitude ask, etc.). */
+export function outboundLooksLikeDailyOrCheckinAsk(text: string | null | undefined): boolean {
+  const b = (text ?? "").trim();
+  if (!b) return false;
+  return (
+    asksTodayCompletionQuestion(b) ||
+    /\bdid you (protect|dictate|put|stay|pause)\b/i.test(b) ||
+    /\bdid you take a moment\b/i.test(b) ||
+    /\bdid you take a deep breath\b/i.test(b) ||
+    /\bthank someone\b/i.test(b)
+  );
+}
+
+function stripIncompleteTrailingSms(s: string): string {
+  let t = norm(s);
+  const dangling = /\b(part of the|building on your|letting go of what you can|of what you can|lets keep building on your|keep building on your|and so|because|with|to|of)$/i;
+  if (!dangling.test(t) && !/\b(and|or|but|for|if|when)\s*$/i.test(t)) return t;
+  const punct = Math.max(t.lastIndexOf("?"), t.lastIndexOf("!"), t.lastIndexOf("."));
+  if (punct >= 28) return t.slice(0, punct + 1).trim();
+  const sp = t.lastIndexOf(" ");
+  if (sp >= 36) return t.slice(0, sp).trim();
+  return t;
+}
+
+function signalsEmotionalInbound(raw: string): boolean {
+  const t = raw.toLowerCase();
+  return (
+    /\b(anxious|anxiety|panic|scared|overwhelmed|grief|depressed|rough morning|hard morning|wiped|exhausted|struggling emotionally)\b/.test(
+      t
+    ) || /\bhaving an anxious\b/.test(t)
+  );
+}
+
+function signalsProofOrProcessDetail(raw: string): boolean {
+  const t = raw.trim();
+  if (t.length < 40) return false;
+  return /\b(i tried|i talked|i thanked|we did|i made|i reached|teams today|each member|positive tone|all the teams|walked through|dictated|finished)\b/i.test(
+    t
+  );
+}
+
+function signalsThinkingDeferral(raw: string): boolean {
+  return /\blet me think|need to think|give me time|i'?ll think|thinking about it\b/i.test(raw.toLowerCase());
+}
+
+function intentRecoveryReply(merged: MergedNorthStarFields, pkt?: NorthStarSmsContextPacket): string {
+  const inbound = merged.inbound;
+  const out = outboundForGuards(merged);
+  if (inboundDefersTodayForTomorrow(inbound)) return pickTomorrowContinuation(inbound);
+  if (inboundSignalsCompletion(inbound) && outboundLooksLikeDailyOrCheckinAsk(out)) {
+    return pickCompletionContinuation(inbound + out);
+  }
+  if (signalsThinkingDeferral(inbound)) {
+    return "Good. Think on it, but don't leave it vague. Before tonight, choose one specific action for tomorrow.";
+  }
+  if (signalsEmotionalInbound(inbound)) {
+    return "That's real. Don't try to solve the whole day right now — one breath, then the smallest version you can still respect.";
+  }
+  if (signalsProofOrProcessDetail(inbound) || (inbound.length >= 28 && /\b(thanked|appreciate|teams|dictated|finished)\b/i.test(inbound))) {
+    return "That counts. I'm saving that as proof.";
+  }
+  const hm = extractHourMention(inbound);
+  if (hm && /\b(am|pm|morning|evening|:)\b/i.test(inbound)) {
+    return `Locked — ${hm} it is. Nothing fancy — just execute.`;
+  }
+  if (/^(yes|yep|yeah|sure|sure did|i did|nope|no)\b/i.test(inbound.trim()) && inbound.trim().length < 40) {
+    return pickCompletionContinuation(inbound + (pkt?.latestOpenQuestion ?? ""));
+  }
+  const lines = [
+    "I'm not going to guess. What actually happened with the commitment?",
+    "Say it straight — what moved with today's line, and what didn't?",
+    "That counts if you say it does. What do you want held tomorrow?",
+  ];
+  let h = 0;
+  for (let i = 0; i < inbound.length; i++) h = (h * 31 + inbound.charCodeAt(i)) >>> 0;
+  return lines[h % lines.length]!;
+}
+
+function matchesBrokenTranscriptEcho(body: string): boolean {
+  const b = body.trim();
+  const low = b.toLowerCase();
+  if (/^got it\s+[—-]\s*["']/.test(low)) return true;
+  if (/got it\s+[—-]\s*["'][^"']{10,}/i.test(b)) return true;
+  if (/["'][^"']*…[^"']*["']/.test(b)) return true;
+  if (/"[^"]{45,}"/.test(b)) return true;
+  if (/\bwhat'?s the next concrete move\??\s*$/i.test(low)) return true;
+  if (/\bwhat'?s the next concrete move on this\??\s*$/i.test(low)) return true;
+  if (/got it\.?\s+i'?m not circling[^.!?]*what'?s the next concrete move/i.test(low)) return true;
+  return false;
+}
+
+function applyBrokenTranscriptEchoGuard(
+  args: NorthStarCoachSmsArgs,
+  proposed: string,
+  merged: MergedNorthStarFields
+): string | null {
+  const ch = args.channel;
+  if (
+    ch !== "inbound_coach_reply" &&
+    ch !== "blocker_followup" &&
+    ch !== "central_brain_pivot" &&
+    ch !== "clarification"
+  ) {
+    return null;
+  }
+  if (!matchesBrokenTranscriptEcho(proposed)) return null;
+  return intentRecoveryReply(merged, args.contextPacket);
 }
 
 /** Collapse generic “how did your X go / did you manage to carve…” daily essay into one direct ask. */
@@ -461,7 +621,7 @@ function scrubDailyOutboundEssayAndManage(
   }
   const hits: string[] = [];
   let t = s.trim();
-  const frag = shortDailyAskFragment(mergedAsk);
+  const oneAsk = buildDailyCommitmentAsk(mergedAsk);
 
   if (/\blet's\s+did\b/i.test(t)) {
     hits.push("lets_did_scrub");
@@ -472,30 +632,90 @@ function scrubDailyOutboundEssayAndManage(
   if (/\bdid\s+it\s+happen\s+with\b/i.test(t)) {
     hits.push("did_it_happen_with_scrub");
     // With or without ?/. — paste full behavior_statement into this opener otherwise leaks through.
-    t = t.replace(
-      /\bdid\s+it\s+happen\s+with\b(?:[^.!?]*[.!?]|[^.!?]+)/gi,
-      `Did you protect ${frag} today?`
-    );
+    t = t.replace(/\bdid\s+it\s+happen\s+with\b(?:[^.!?]*[.!?]|[^.!?]+)/gi, oneAsk);
   }
 
   if (/\bhow did your\b/i.test(t) && /\bdid you manage\b/i.test(t)) {
     hits.push("daily_double_question_essay_scrub");
-    t = `Did you protect ${frag} today?`;
+    t = oneAsk;
   } else if (/\bhow did your\s+[^.!?]{6,100}\s+go\s+today\b/i.test(t)) {
     hits.push("daily_how_did_focus_go_scrub");
     t = t.replace(/\b[^.!?]{0,120}?how did your\s+[^.!?]{6,100}\s+go\s+today\?\s*/i, "").trim();
     if (!/\?/.test(t)) {
-      t = `${t.length ? `${t} ` : ""}Did you protect ${frag} today?`.trim();
+      t = `${t.length ? `${t} ` : ""}${oneAsk}`.trim();
     }
   } else if (/\bdid you manage to\s+carve\s+out\b/i.test(t)) {
     hits.push("did_you_manage_carve_scrub");
-    t = t.replace(/\bdid you manage to\s+carve\s+out[^.!?]*\?/gi, `Did you protect ${frag} today?`);
+    t = t.replace(/\bdid you manage to\s+carve\s+out[^.!?]*\?/gi, oneAsk);
   } else if (/\bdid you manage to\b/i.test(t)) {
     hits.push("did_you_manage_scrub");
-    t = t.replace(/\bdid you manage to[^.!?]+\?/gi, `Did you protect ${frag} today?`);
+    t = t.replace(/\bdid you manage to[^.!?]+\?/gi, oneAsk);
   }
 
   return { text: finalizeTextShape(t, preserveNl), hits };
+}
+
+function scrubDailyOutboundFinalQuality(
+  s: string,
+  channel: NorthStarCoachChannel,
+  mergedAsk: string,
+  preserveNl: boolean
+): { text: string; hits: string[] } {
+  if (channel !== "daily_outbound" && channel !== "reactivation") {
+    return { text: s, hits: [] };
+  }
+  const hits: string[] = [];
+  let t = finalizeTextShape(s, preserveNl);
+  const qCount = (t.match(/\?/g) || []).length;
+  if (qCount >= 2) {
+    hits.push("daily_multi_question");
+    t = buildDailyCommitmentAsk(mergedAsk);
+  } else if (/\bdid you protect\s+(use|keep|put my)\b/i.test(t)) {
+    hits.push("daily_malformed_protect_prefix");
+    t = buildDailyCommitmentAsk(mergedAsk);
+  } else if (/\byou'?re making strides\b/i.test(t.toLowerCase())) {
+    hits.push("daily_strides_cliche");
+    t = buildDailyCommitmentAsk(mergedAsk);
+  } else if (
+    /\b(journey|powerful practice|your commitment matters|keep that connection alive)\b/i.test(
+      t.toLowerCase()
+    )
+  ) {
+    hits.push("daily_fluff_phrase");
+    t = buildDailyCommitmentAsk(mergedAsk);
+  } else if (!/[.!?]\s*$/i.test(t.trim()) && t.length > 52) {
+    hits.push("daily_missing_terminal_punct");
+    t = buildDailyCommitmentAsk(mergedAsk);
+  } else {
+    const before = norm(t);
+    const stripped = stripIncompleteTrailingSms(t);
+    if (stripped !== before) {
+      hits.push("daily_incomplete_tail");
+      t = stripped.length >= 28 && /[.!?]\s*$/.test(stripped) ? stripped : buildDailyCommitmentAsk(mergedAsk);
+    }
+  }
+  return { text: finalizeTextShape(t, preserveNl), hits };
+}
+
+function coachOutboundWasGratitudeAsk(text: string): boolean {
+  return /\bthank\b|\bgratitude\b|thank someone|thanked/i.test(text);
+}
+
+function scrubMemoryTopicDriftFromGratitude(
+  proposed: string,
+  merged: MergedNorthStarFields,
+  pkt: NorthStarSmsContextPacket | undefined
+): { text: string | null } {
+  const coachLine = outboundForGuards(merged);
+  if (!coachOutboundWasGratitudeAsk(coachLine) && !coachOutboundWasGratitudeAsk(pkt?.latestOpenQuestion ?? "")) {
+    return { text: null };
+  }
+  const u = merged.inbound.toLowerCase();
+  if (/\b(vap|smok|nicotine|smoke|cig)\b/i.test(u)) return { text: null };
+  if (!/\b(vap|smok|nicotine|cutting back|vaping|cigarette)\b/i.test(proposed.toLowerCase())) return { text: null };
+  return {
+    text: "That counts. Stay on gratitude — what one person did you mean it for when you said it?",
+  };
 }
 
 function scrubBrokenItsGerundLeadIn(s: string, preserveNl: boolean): { text: string; hits: string[] } {
@@ -725,11 +945,10 @@ function dailyOutboundFlavor(body: string, channel: NorthStarCoachChannel, merge
   const weeklyLike = channel === "weekly_sms" || channel === "lifecycle_sms";
   const ask = mergedAsk.trim();
   if ((channel === "daily_outbound" || channel === "reactivation") && (/^\s*$/i.test(t) || t.length < 12)) {
-    if (ask.length >= 8 && ask.length <= 100) {
-      const one = ask.slice(0, 72).replace(/\s+/g, " ").trim();
-      return `Tell the truth first — ${one}. What actually happened with the rep today?`;
+    if (ask.length >= 8) {
+      return buildDailyCommitmentAsk(ask);
     }
-    return "Tell the truth first: what happened with the rep today?";
+    return "Did you protect the rep today?";
   }
   if (weeklyLike && (/^\s*$/i.test(t) || t.length < 12)) {
     if (ask.length >= 8 && ask.length <= 120) {
@@ -851,6 +1070,15 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     }
   }
 
+  if (args.channel === "inbound_coach_reply" || args.channel === "blocker_followup") {
+    const drift = scrubMemoryTopicDriftFromGratitude(working, mergedFields, args.contextPacket);
+    if (drift.text != null && drift.text !== working) {
+      working = drift.text;
+      blockedReasons.push("memory_topic_drift_scrub");
+      source = "rewritten";
+    }
+  }
+
   const robo = scrubRobotMotivation(working, preserveNl);
   working = robo.text;
   if (robo.hits.length) {
@@ -938,6 +1166,13 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = working !== before ? "rewritten" : source;
   }
 
+  const dailyFinal = scrubDailyOutboundFinalQuality(working, args.channel, mergedAsk, preserveNl);
+  working = dailyFinal.text;
+  if (dailyFinal.hits.length) {
+    blockedReasons.push("daily_outbound_final_quality", ...dailyFinal.hits.slice(0, 4));
+    source = "rewritten";
+  }
+
   if (preserveNl) {
     working = working
       .split("\n")
@@ -950,9 +1185,7 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   if (working.trim().length < 10) {
     if (args.channel === "daily_outbound" || args.channel === "reactivation") {
       working =
-        mergedAsk.length >= 8 && mergedAsk.length <= 100
-          ? `Tell the truth first — ${mergedAsk.slice(0, 72).replace(/\s+/g, " ").trim()}. What happened with today's rep?`
-          : "What happened with today's rep — honestly?";
+        mergedAsk.length >= 8 ? buildDailyCommitmentAsk(mergedAsk) : "Did you protect the rep today?";
     } else if (args.channel === "weekly_sms" || args.channel === "lifecycle_sms") {
       working =
         mergedAsk.length >= 8 && mergedAsk.length <= 120
@@ -968,6 +1201,17 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     }
     source = "deterministic_minimal";
     blockedReasons.push("collapsed_after_scrub_recovery");
+  }
+
+  if (!preserveNl) {
+    working = stripIncompleteTrailingSms(working);
+  }
+
+  const echoGuard = applyBrokenTranscriptEchoGuard(args, working, mergedFields);
+  if (echoGuard != null && echoGuard !== working) {
+    blockedReasons.push("broken_transcript_echo_guard");
+    working = echoGuard;
+    source = "rewritten";
   }
 
   const maxLen = args.maxLen ?? NORTH_STAR_SMS_MAX_LEN;

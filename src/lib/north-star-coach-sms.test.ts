@@ -12,6 +12,12 @@ describe("inboundSignalsCompletion", () => {
   it("treats sure did as completion", () => {
     expect(inboundSignalsCompletion("Sure did!")).toBe(true);
   });
+  it("treats I have!! as completion", () => {
+    expect(inboundSignalsCompletion("I have!!")).toBe(true);
+  });
+  it("treats yes already as completion", () => {
+    expect(inboundSignalsCompletion("Yes already")).toBe(true);
+  });
 });
 
 describe("finalizeNorthStarCoachSms", () => {
@@ -115,14 +121,15 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(r.visibleBody.toLowerCase()).not.toContain("did you get that done");
   });
 
-  it("daily outbound flavor threads commitment ask from contextPacket when proposed is thin", () => {
+  it("daily outbound flavor uses one clean ask when proposed is thin", () => {
     const r = finalizeNorthStarCoachSms({
       proposedBody: "short",
       channel: "daily_outbound",
       contextPacket: { effectiveAskText: "30 minutes of focused reps", source: "test" },
     });
     expect(r.visibleBody.toLowerCase()).toContain("30 minutes");
-    expect(r.visibleBody.toLowerCase()).toContain("tell the truth first");
+    expect(r.visibleBody.toLowerCase()).toMatch(/did you (protect|dictate)/);
+    expect(r.visibleBody).toMatch(/\?$/);
   });
 
   it("repeat-kill / structural: proposed coach reply must not echo the same question after the user answered", () => {
@@ -201,6 +208,114 @@ describe("finalizeNorthStarCoachSms", () => {
       localHour: 19,
     });
     expect(r.visibleBody.toLowerCase()).not.toContain("good morning");
+  });
+  it("Hoover-like gratitude completion: strips vaping drift from bad draft", () => {
+    const q = "Did you take a moment to thank someone for being present today?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody:
+        "I see you've taken the time to acknowledge those around you. As you focus on cutting back on vaping, that awareness counts.",
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "I have!!",
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("vap");
+  });
+
+  it("repeat kill after daily gratitude + I have!! does not emit Got it or next concrete move", () => {
+    const q = "Did you take a moment to thank someone for being present today?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: q,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "I have!!",
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("got it");
+    expect(r.visibleBody.toLowerCase()).not.toContain("next concrete move");
+  });
+
+  it("emotional inbound repeat-kill avoids quote echo", () => {
+    const q = "Did you protect the rep today?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: q,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Having an anxious morning",
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain('got it — "');
+    expect(r.visibleBody.toLowerCase()).not.toContain("…");
+  });
+
+  it("long proof inbound repeat-kill does not quote user text", () => {
+    const q = "Did you thank your teams today?";
+    const longProof =
+      "I tried talking with all the teams today in a positive tone and thanked each member for all they do for our patients";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: q,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: longProof,
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.visibleBody).not.toContain("I tried talking");
+    expect(r.visibleBody.toLowerCase()).toContain("proof");
+  });
+
+  it("let me think repeat-kill avoids quote echo", () => {
+    const q = "Want to lock tomorrow's block?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: q,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Let me think about it",
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain('got it');
+    expect(r.visibleBody.toLowerCase()).not.toContain("next concrete move");
+    expect(r.visibleBody.toLowerCase()).toContain("think");
+  });
+
+  it("broken transcript echo guard rewrites Got it quote draft", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: `Got it — "Let me think about it" — what's the next concrete move?`,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Let me think about it",
+      latestOutboundBody: "What time works tomorrow?",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain('got it — "');
+    expect(r.visibleBody.toLowerCase()).not.toContain("next concrete move");
+  });
+
+  it("daily rewrites Did you protect keep a clear… malformed opener", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Did you protect keep a clear and accurate big picture mindset. today?",
+      channel: "daily_outbound",
+      effectiveAskText: "Keep a clear and accurate big picture mindset",
+    });
+    expect(r.visibleBody.toLowerCase()).toContain("big-picture mindset");
+  });
+
+  it("daily rewrites Did you protect Use AI malformed opener", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "You're making strides! Did you protect Use AI & dictate at least one story today?",
+      channel: "daily_outbound",
+      effectiveAskText: "Use AI & dictate at least one story",
+    });
+    expect(r.visibleBody.toLowerCase()).toContain("dictate one story");
+  });
+
+  it("daily rewrites chopped part of the ending", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody:
+        "Did you take a deep breath today and ask yourself if the situation is worth being anxious about? Remember, letting go of what you can't control is part of the",
+      channel: "daily_outbound",
+      effectiveAskText: "pause when anxious",
+      behaviorStatement: "Take a breath when anxious",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("part of the");
+    expect(r.visibleBody).toMatch(/\?$/);
   });
 });
 
