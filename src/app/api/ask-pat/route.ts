@@ -14,6 +14,7 @@ import {
   PAT_BRAND_SAFETY_RULES,
   sanitizeModelOutput,
 } from "@/lib/ai-safety";
+import { persistAskPatAnswerWithRetries } from "@/lib/ask-pat/persist-ask-pat-answer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,33 +65,8 @@ function buildProfileBlock(profile: {
   return lines.length ? lines.join("\n") : "PROFILE: none";
 }
 
-async function logAskPatAnswerToSupabase(args: {
-  questionRowId: string | null;
-  answerText: string;
-  safetyStatus: string;
-  answerMetadata: Record<string, unknown>;
-}): Promise<void> {
-  if (!args.questionRowId) return;
-
-  try {
-    const { error } = await supabaseServer
-      .from("ask_pat_questions")
-      .update({
-        answer_text: args.answerText,
-        answered_at: new Date().toISOString(),
-        model: ASK_PAT_CHAT_MODEL,
-        safety_status: args.safetyStatus,
-        answer_metadata: args.answerMetadata,
-      })
-      .eq("id", args.questionRowId);
-
-    if (error) {
-      console.error("Ask Pat answer log failed:", error.message);
-    }
-  } catch (err) {
-    console.error("Ask Pat answer log threw:", err);
-  }
-}
+const ASK_PAT_GENERATION_ERROR_STUB =
+  "Coach Pat couldn't finish this answer. Please try again.";
 
 export async function POST(req: NextRequest) {
   let questionRowId: string | null = null;
@@ -342,9 +318,10 @@ ${PAT_BRAND_SAFETY_RULES}
 
     const chunkIds = topChunks.map((c) => c.id);
 
-    await logAskPatAnswerToSupabase({
+    const persistOk = await persistAskPatAnswerWithRetries({
       questionRowId,
       answerText: answer,
+      model: ASK_PAT_CHAT_MODEL,
       safetyStatus,
       answerMetadata: {
         chunk_ids: chunkIds,
@@ -352,15 +329,31 @@ ${PAT_BRAND_SAFETY_RULES}
       },
     });
 
+    if (!persistOk.ok) {
+      return NextResponse.json({
+        ok: true,
+        answer,
+        persisted: false,
+      });
+    }
+
     return NextResponse.json({ answer, ok: true });
   } catch (err) {
     console.error("Ask Pat error:", err);
 
-    await logAskPatAnswerToSupabase({
+    const safeMessage =
+      err instanceof Error ? err.message.slice(0, 240) : "unknown_error";
+
+    await persistAskPatAnswerWithRetries({
       questionRowId,
-      answerText: "",
+      answerText: ASK_PAT_GENERATION_ERROR_STUB,
+      model: ASK_PAT_CHAT_MODEL,
       safetyStatus: "generation_error",
-      answerMetadata: { generation_error: true },
+      answerMetadata: {
+        generation_error: true,
+        stage: "openai_pipeline",
+        safe_message: safeMessage,
+      },
     });
 
     return NextResponse.json(
