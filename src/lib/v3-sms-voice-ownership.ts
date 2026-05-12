@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import {
   buildDailyCommitmentAsk,
   finalizeNorthStarCoachSms,
+  matchesMalformedDidRawPhraseHappenToday,
   type NorthStarCoachChannel,
   type NorthStarCoachSmsMeta,
   type NorthStarSmsContextPacket,
@@ -203,13 +204,27 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
   for (const [name, re] of checks) {
     if (re.test(t)) hits.push(name);
   }
+  if (matchesMalformedDidRawPhraseHappenToday(t)) hits.push("malformed_did_raw_phrase_happen_today");
   if ((t.match(/[.!?](?:\s|$)/g) ?? []).length > 2) hits.push("too_many_sentences");
   if (t.length > 320) hits.push("too_long");
   return hits;
 }
 
+function effectiveAskSuggestsFocusDistractionAsk(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
+  const merged = `${args.effectiveAsk ?? ""} ${args.behaviorStatement ?? ""} ${args.contextPacket?.effectiveAskText ?? ""}`.toLowerCase();
+  if (/\bfocus(ed|\s+on)?\b.*\bwork\b|\bwork\b.*\bwithout\b.*\bdistraction|\bfocused\s+work\b|\bdistractions?\b/.test(merged)) {
+    return true;
+  }
+  const body = normalize(args.proposedBody).toLowerCase();
+  return /\bfocused work session\b|\bwork session today without distractions\b|\bwithout distractions\b/i.test(body);
+}
+
 function emergencyFallback(args: ApplyFinalVoiceOwnershipGateArgs): string {
   if (args.channel === "daily_outbound" || args.channel === "reactivation") {
+    const focusAsk = "Did you protect the focused work block today?";
+    if (effectiveAskSuggestsFocusDistractionAsk(args) && detectFinalVoiceBlockedReasons(focusAsk).length === 0) {
+      return focusAsk;
+    }
     const ask = buildDailyCommitmentAsk(args.effectiveAsk || args.behaviorStatement || "");
     return detectFinalVoiceBlockedReasons(ask).length ? "Did the rep happen today?" : ask;
   }
@@ -307,6 +322,7 @@ export async function applyFinalVoiceOwnershipGate(
   args: ApplyFinalVoiceOwnershipGateArgs
 ): Promise<VoiceOwnershipResult> {
   const originalBody = normalize(args.proposedBody);
+  const openaiRepairEligible = Boolean(getOpenAIClientOrNull());
   const bypass = args.bypassKind;
   if (bypass || !isNormalCoaching(args)) {
     const owner = bypass ? ownerFromBypass(bypass) : "no_active_commitment";
@@ -374,7 +390,7 @@ export async function applyFinalVoiceOwnershipGate(
         emergencyFallbackUsed: false,
         blockedReasons: blocked,
         originalBody,
-        repairAttempted: true,
+        repairAttempted: openaiRepairEligible,
         repairSucceeded: true,
         deterministicBlocked,
       });
@@ -404,7 +420,7 @@ export async function applyFinalVoiceOwnershipGate(
     emergencyFallbackUsed: true,
     blockedReasons: blocked.length ? blocked : ["non_v3_voice_owner"],
     originalBody,
-    repairAttempted: Boolean(getOpenAIClientOrNull()),
+    repairAttempted: openaiRepairEligible,
     repairSucceeded: false,
     deterministicBlocked,
   });

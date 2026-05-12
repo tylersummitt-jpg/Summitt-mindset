@@ -133,6 +133,16 @@ function norm(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
+/**
+ * Detects pasted effective-ask / title-case fragments in "Did … happen today?" (e.g.
+ * "Did Focused on work without distractions happen today?") — not normal "Did you …?" asks.
+ */
+export function matchesMalformedDidRawPhraseHappenToday(text: string): boolean {
+  const t = norm(text);
+  // Legitimate: "Did you …", "Did the rep …", "Did it …", "Did 30 minutes …". Bad: title-case / raw fragment + "happen today?".
+  return /\bDid\s+(?!\d)(?!you\b)(?!the\s+rep\b)(?!it\b)(?!your\b)[^\?]{2,}\bhappen\s+today\?/i.test(t);
+}
+
 function clip(s: string, max = NORTH_STAR_SMS_MAX_LEN): string {
   return smartClipSms(s, max);
 }
@@ -473,6 +483,13 @@ export function buildDailyCommitmentAsk(mergedAsk: string): string {
   const raw = mergedAsk.trim().replace(/\s+/g, " ");
   const low = raw.toLowerCase();
   if (!raw) return "Did the rep happen today?";
+  if (
+    /\bfocus(ed|\s+on)?\b.*\bwork\b|\bwork\b.*\bwithout\b.*\bdistraction|\bfocused\s+work\b|\bfocused work session\b|\bget in that focused/i.test(
+      low
+    )
+  ) {
+    return "Did you get in that focused work session today without distractions?";
+  }
   if (/\bsay\b.*\baffirmation\b|\baffirmation\b/.test(low)) {
     return "Did you say the affirmation today?";
   }
@@ -512,7 +529,11 @@ export function buildDailyCommitmentAsk(mergedAsk: string): string {
     return "Did you dictate one story today?";
   }
   if (fragTrim.split(/\s+/).length <= 5 && !/[.!?]/.test(fragTrim)) {
-    return `Did ${fragTrim} happen today?`;
+    const assembled = `Did ${fragTrim} happen today?`;
+    if (matchesMalformedDidRawPhraseHappenToday(assembled)) {
+      return "Did the rep happen today?";
+    }
+    return assembled;
   }
   return "Did the rep happen today?";
 }
@@ -686,7 +707,18 @@ function scrubDailyOutboundEssayAndManage(
     t = t.replace(/\bdid you manage to\s+carve\s+out[^.!?]*\?/gi, oneAsk);
   } else if (/\bdid you manage to\b/i.test(t)) {
     hits.push("did_you_manage_scrub");
-    t = t.replace(/\bdid you manage to[^.!?]+\?/gi, oneAsk);
+    t = t.replace(/\bdid you manage to[^.!?]+\?/gi, (fullMatch) => {
+      const minimal = fullMatch.replace(/\bdid you manage to\s+/i, "Did you ");
+      if (
+        minimal !== fullMatch &&
+        minimal.length >= 12 &&
+        /\?\s*$/.test(minimal) &&
+        !matchesMalformedDidRawPhraseHappenToday(minimal)
+      ) {
+        return minimal;
+      }
+      return oneAsk;
+    });
   }
 
   return { text: finalizeTextShape(t, preserveNl), hits };

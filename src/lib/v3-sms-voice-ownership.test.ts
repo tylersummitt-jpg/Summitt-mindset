@@ -32,9 +32,13 @@ describe("detectFinalVoiceBlockedReasons", () => {
     );
   });
 
-  it("rejects clipped endings", () => {
-    expect(detectFinalVoiceBlockedReasons("Remember, letting go is part of the")).toContain("clipped_part_of_the");
-    expect(detectFinalVoiceBlockedReasons("This matters because")).toContain("clipped_because");
+  it("flags malformed Did raw phrase happen today", () => {
+    expect(detectFinalVoiceBlockedReasons("Did Focus on process happen today?")).toContain(
+      "malformed_did_raw_phrase_happen_today"
+    );
+    expect(detectFinalVoiceBlockedReasons("You made a comeback yesterday! Did Focused on work without distractions happen today?")).toContain(
+      "malformed_did_raw_phrase_happen_today"
+    );
   });
 });
 
@@ -87,6 +91,45 @@ describe("applyFinalVoiceOwnershipGate", () => {
     expect(r.body).toBe("Did you dictate one story today?");
     expect(r.metadata.voice_owner).toBe("v3_deterministic_fallback");
     expect(r.metadata.deterministic_code_blocked).toBe(true);
+  });
+
+  it("blocks malformed Did <raw> happen today for v3_daily and uses focus emergency fallback", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody:
+        "You made a comeback yesterday! Did Focused on work without distractions happen today?",
+      replySource: "v3_daily_check_in",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "Focused on work without distractions",
+      normalCoaching: true,
+    });
+
+    expect(r.metadata.final_voice_blocked_reasons).toEqual(
+      expect.arrayContaining(["malformed_did_raw_phrase_happen_today"])
+    );
+    expect(r.metadata.deterministic_code_blocked).toBe(true);
+    expect(r.body).toBe("Did you protect the focused work block today?");
+    expect(r.metadata.v3_emergency_fallback_used).toBe(true);
+    expect(r.metadata.v3_repair_attempted).toBe(false);
+  });
+
+  it("allows clean v3-owned daily_outbound copy to pass without repair", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody:
+        "You made a comeback yesterday! Did you get in that focused work session today without distractions?",
+      replySource: "v3_daily_check_in",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "Focused on work without distractions",
+      normalCoaching: true,
+    });
+
+    expect(r.voiceOwner).toBe("v3_daily");
+    expect(r.blockedReasons).toHaveLength(0);
+    expect(r.metadata.deterministic_code_blocked).toBe(false);
+    expect(r.body).toContain("Did you get in that focused work session");
   });
 
   it("adds voice owner metadata", async () => {

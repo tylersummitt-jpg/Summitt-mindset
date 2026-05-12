@@ -5,6 +5,7 @@ import {
   finalizeNorthStarCoachSms,
   finalizeNorthStarCoachSmsPreservingSuffix,
   inboundSignalsCompletion,
+  matchesMalformedDidRawPhraseHappenToday,
 } from "./north-star-coach-sms";
 
 const SAMPLE_COMPLIANCE_FOOTER = "Reply STOP to opt out. Reply HELP for help.";
@@ -160,6 +161,21 @@ describe("finalizeNorthStarCoachSms", () => {
     });
     expect(r.visibleBody.toLowerCase()).not.toBe(q.toLowerCase());
     expect(r.meta.repeated_question_guard_fired).toBe(true);
+  });
+
+  it("does not rewrite readable did-you-manage focused work copy into Did <fragment> happen today", () => {
+    const proposedBody =
+      "You made a comeback yesterday! Did you manage to get in that focused work session today without distractions?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody,
+      channel: "daily_outbound",
+      effectiveAskText: "Focused on work without distractions",
+      behaviorStatement: "I will stay focused on work without distractions",
+      contextPacket: { source: "test" },
+    });
+    expect(r.visibleBody).toContain("Did you get in that focused work session today without distractions");
+    expect(r.visibleBody.toLowerCase()).not.toContain("did focused on work without distractions happen");
+    expect(matchesMalformedDidRawPhraseHappenToday(r.visibleBody)).toBe(false);
   });
 
   it("daily outbound scrubs did you manage essay phrasing", () => {
@@ -325,6 +341,12 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(buildDailyCommitmentAsk("declutter a little at a time")).toBe("Did you declutter one small area today?");
     expect(buildDailyCommitmentAsk("Focus on process")).toBe("Did you focus on the process today?");
     expect(buildDailyCommitmentAsk("reach out to your daughter")).toBe("Did you reach out to your daughter today?");
+  });
+
+  it("maps focused work without distractions to a readable daily ask, not Did <title> happen today", () => {
+    expect(buildDailyCommitmentAsk("Focused on work without distractions")).toBe(
+      "Did you get in that focused work session today without distractions?"
+    );
   });
 
   it("hard-blocks malformed daily protect phrases", () => {
