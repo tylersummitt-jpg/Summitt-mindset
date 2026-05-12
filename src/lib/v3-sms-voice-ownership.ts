@@ -347,6 +347,8 @@ export async function applyFinalVoiceOwnershipGate(
     ...detectFinalVoiceBlockedReasons(originalBody),
     ...(args.northStarMeta?.source === "deterministic_minimal" ? ["north_star_deterministic_replacement"] : []),
     ...(args.northStarMeta?.north_star_structural_replacement ? ["north_star_structural_replacement"] : []),
+    ...(args.northStarMeta?.requires_v3_repair === true ? ["north_star_requires_v3_repair"] : []),
+    ...(args.northStarMeta?.north_star_blocked_reasons?.map((r) => `north_star:${r}`) ?? []),
   ];
   const deterministicBlocked = !initialV3Owned || blocked.length > 0;
 

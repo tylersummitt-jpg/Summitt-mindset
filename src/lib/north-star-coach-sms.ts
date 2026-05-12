@@ -40,6 +40,12 @@ export type NorthStarCoachSmsMeta = {
     | "openai_failed_deterministic_fallback";
   blockedReasons: string[];
   originalBody?: string;
+  /** North Star refused a full deterministic rewrite so Final Voice Gate / V3 repair can own relationship copy. */
+  requires_v3_repair?: boolean;
+  /** True when a rewrite was skipped or narrowed because V3 already produced relationship voice. */
+  unsafe_rewrite_prevented?: boolean;
+  /** Subset of reasons when repair routing is used (mirrors key entries in blockedReasons). */
+  north_star_blocked_reasons?: string[];
   /** Phase 3 — set when async finalizer runs (success or fallback). */
   openaiAttempted?: boolean;
   openaiFailedReason?: string | null;
@@ -141,6 +147,16 @@ export function matchesMalformedDidRawPhraseHappenToday(text: string): boolean {
   const t = norm(text);
   // Legitimate: "Did you …", "Did the rep …", "Did it …", "Did 30 minutes …". Bad: title-case / raw fragment + "happen today?".
   return /\bDid\s+(?!\d)(?!you\b)(?!the\s+rep\b)(?!it\b)(?!your\b)[^\?]{2,}\bhappen\s+today\?/i.test(t);
+}
+
+/** V3-authored drafts North Star must not replace with assembled DB-field prose. */
+export function isV3RelationshipVoiceReplySource(replySource: string | null | undefined): boolean {
+  const s = replySource?.trim() ?? "";
+  if (!s) return false;
+  if (s === "v3_daily_check_in" || s === "v3_daily_deterministic_fallback") return true;
+  if (s === "v3_sms_brain" || s === "v3_answer_to_open_question") return true;
+  if (/^v3_.*_refined$/.test(s)) return true;
+  return false;
 }
 
 function clip(s: string, max = NORTH_STAR_SMS_MAX_LEN): string {
@@ -439,25 +455,45 @@ function scrubRobotMotivation(s: string, preserveNl: boolean): { text: string; h
 function scrubCheckInWorkflow(
   s: string,
   channel: NorthStarCoachChannel,
-  preserveNl: boolean
-): { text: string; hits: string[] } {
+  preserveNl: boolean,
+  protectV3RelationshipVoice: boolean
+): { text: string; hits: string[]; requiresV3Repair: boolean; unsafeRewritePrevented: boolean } {
   const hits: string[] = [];
+  let requiresV3Repair = false;
+  let unsafeRewritePrevented = false;
   let t = s;
   const dailyish =
     channel === "daily_outbound" || channel === "reactivation" || channel === "weekly_sms";
 
-  const replacements: Array<[RegExp, string]> = [
+  const simple: Array<[RegExp, string]> = [
     [/today'?s\s+check-?\s*in:?\s*/gi, ""],
     [/quick\s+check:?\s*/gi, ""],
-    [/did\s+you\s+get\s+a\s+chance[^.!?]*\?/gi, dailyish ? "Did the rep happen today?" : "Did you do it?"],
     [/first\s+week\s+of\s+your\s+commitment[^.!?]*[.!?]?/gi, ""],
     [/daily\s+check-?\s*ins?[^.!?]*[.!?]?/gi, ""],
   ];
-  for (const [re, rep] of replacements) {
+  for (const [re, rep] of simple) {
     if (re.test(t)) hits.push(re.source.slice(0, 35));
     t = t.replace(re, rep);
   }
-  return { text: finalizeTextShape(t, preserveNl), hits };
+
+  const chanceRe = /did\s+you\s+get\s+a\s+chance[^.!?]*\?/gi;
+  if (chanceRe.test(t)) {
+    hits.push("did_you_get_a_chance_scrub");
+    if (dailyish && protectV3RelationshipVoice) {
+      const stripped = t.replace(chanceRe, "").trim();
+      if (norm(stripped).length >= 8) {
+        t = stripped;
+      } else {
+        requiresV3Repair = true;
+        unsafeRewritePrevented = true;
+        hits.push("did_you_get_a_chance_requires_v3_repair");
+      }
+    } else {
+      t = t.replace(chanceRe, dailyish ? "Did the rep happen today?" : "Did you do it?");
+    }
+  }
+
+  return { text: finalizeTextShape(t, preserveNl), hits, requiresV3Repair, unsafeRewritePrevented };
 }
 
 /** Short phrase from effective ask — never paste full behavior_statement sentences into daily SMS. */
@@ -672,12 +708,15 @@ function scrubDailyOutboundEssayAndManage(
   s: string,
   channel: NorthStarCoachChannel,
   mergedAsk: string,
-  preserveNl: boolean
-): { text: string; hits: string[] } {
+  preserveNl: boolean,
+  protectV3RelationshipVoice: boolean
+): { text: string; hits: string[]; requiresV3Repair: boolean; unsafeRewritePrevented: boolean } {
   if (channel !== "daily_outbound" && channel !== "reactivation") {
-    return { text: s, hits: [] };
+    return { text: s, hits: [], requiresV3Repair: false, unsafeRewritePrevented: false };
   }
   const hits: string[] = [];
+  let requiresV3Repair = false;
+  let unsafeRewritePrevented = false;
   let t = s.trim();
   const oneAsk = buildDailyCommitmentAsk(mergedAsk);
 
@@ -689,22 +728,45 @@ function scrubDailyOutboundEssayAndManage(
 
   if (/\bdid\s+it\s+happen\s+with\b/i.test(t)) {
     hits.push("did_it_happen_with_scrub");
-    // With or without ?/. — paste full behavior_statement into this opener otherwise leaks through.
-    t = t.replace(/\bdid\s+it\s+happen\s+with\b(?:[^.!?]*[.!?]|[^.!?]+)/gi, oneAsk);
+    if (protectV3RelationshipVoice) {
+      hits.push("did_it_happen_with_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = t.replace(/\bdid\s+it\s+happen\s+with\b(?:[^.!?]*[.!?]|[^.!?]+)/gi, oneAsk);
+    }
   }
 
   if (/\bhow did your\b/i.test(t) && /\bdid you manage\b/i.test(t)) {
     hits.push("daily_double_question_essay_scrub");
-    t = oneAsk;
+    if (protectV3RelationshipVoice) {
+      hits.push("daily_double_question_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = oneAsk;
+    }
   } else if (/\bhow did your\s+[^.!?]{6,100}\s+go\s+today\b/i.test(t)) {
     hits.push("daily_how_did_focus_go_scrub");
-    t = t.replace(/\b[^.!?]{0,120}?how did your\s+[^.!?]{6,100}\s+go\s+today\?\s*/i, "").trim();
-    if (!/\?/.test(t)) {
-      t = `${t.length ? `${t} ` : ""}${oneAsk}`.trim();
+    if (protectV3RelationshipVoice) {
+      hits.push("daily_how_did_focus_go_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = t.replace(/\b[^.!?]{0,120}?how did your\s+[^.!?]{6,100}\s+go\s+today\?\s*/i, "").trim();
+      if (!/\?/.test(t)) {
+        t = `${t.length ? `${t} ` : ""}${oneAsk}`.trim();
+      }
     }
   } else if (/\bdid you manage to\s+carve\s+out\b/i.test(t)) {
     hits.push("did_you_manage_carve_scrub");
-    t = t.replace(/\bdid you manage to\s+carve\s+out[^.!?]*\?/gi, oneAsk);
+    if (protectV3RelationshipVoice) {
+      hits.push("did_you_manage_carve_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = t.replace(/\bdid you manage to\s+carve\s+out[^.!?]*\?/gi, oneAsk);
+    }
   } else if (/\bdid you manage to\b/i.test(t)) {
     hits.push("did_you_manage_scrub");
     t = t.replace(/\bdid you manage to[^.!?]+\?/gi, (fullMatch) => {
@@ -717,53 +779,111 @@ function scrubDailyOutboundEssayAndManage(
       ) {
         return minimal;
       }
+      if (protectV3RelationshipVoice) {
+        hits.push("did_you_manage_scrub_fallback_requires_v3_repair");
+        requiresV3Repair = true;
+        unsafeRewritePrevented = true;
+        return fullMatch;
+      }
       return oneAsk;
     });
   }
 
-  return { text: finalizeTextShape(t, preserveNl), hits };
+  return { text: finalizeTextShape(t, preserveNl), hits, requiresV3Repair, unsafeRewritePrevented };
 }
 
 function scrubDailyOutboundFinalQuality(
   s: string,
   channel: NorthStarCoachChannel,
   mergedAsk: string,
-  preserveNl: boolean
-): { text: string; hits: string[] } {
+  preserveNl: boolean,
+  protectV3RelationshipVoice: boolean
+): { text: string; hits: string[]; requiresV3Repair: boolean; unsafeRewritePrevented: boolean } {
   if (channel !== "daily_outbound" && channel !== "reactivation") {
-    return { text: s, hits: [] };
+    return { text: s, hits: [], requiresV3Repair: false, unsafeRewritePrevented: false };
   }
   const hits: string[] = [];
+  let requiresV3Repair = false;
+  let unsafeRewritePrevented = false;
   let t = finalizeTextShape(s, preserveNl);
   const qCount = (t.match(/\?/g) || []).length;
   if (qCount >= 2) {
     hits.push("daily_multi_question");
-    t = buildDailyCommitmentAsk(mergedAsk);
+    if (protectV3RelationshipVoice) {
+      const firstQ = t.indexOf("?");
+      if (firstQ > 0) {
+        t = t.slice(0, firstQ + 1).trim();
+        hits.push("daily_multi_question_micro_kept_first");
+      } else {
+        hits.push("daily_multi_question_requires_v3_repair");
+        requiresV3Repair = true;
+        unsafeRewritePrevented = true;
+      }
+    } else {
+      t = buildDailyCommitmentAsk(mergedAsk);
+    }
   } else if (/\bdid you protect\s+(use|keep|put my)\b/i.test(t)) {
     hits.push("daily_malformed_protect_prefix");
-    t = buildDailyCommitmentAsk(mergedAsk);
+    if (protectV3RelationshipVoice) {
+      hits.push("daily_malformed_protect_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = buildDailyCommitmentAsk(mergedAsk);
+    }
   } else if (/\byou'?re making strides\b/i.test(t.toLowerCase())) {
     hits.push("daily_strides_cliche");
-    t = buildDailyCommitmentAsk(mergedAsk);
+    t = t.replace(/\byou'?re making strides[!.,]?\s*/gi, "").trim();
+    if (!protectV3RelationshipVoice && !t) {
+      t = buildDailyCommitmentAsk(mergedAsk);
+    }
   } else if (
     /\b(journey|powerful practice|your commitment matters|keep that connection alive)\b/i.test(
       t.toLowerCase()
     )
   ) {
     hits.push("daily_fluff_phrase");
-    t = buildDailyCommitmentAsk(mergedAsk);
+    if (protectV3RelationshipVoice) {
+      let t2 = t;
+      t2 = t2.replace(/\bjourney\b[^.!?]*[.!?]?/gi, "").trim();
+      t2 = t2.replace(/\bpowerful practice\b[^.!?]*[.!?]?/gi, "").trim();
+      t2 = t2.replace(/\byour commitment matters\b[^.!?]*[.!?]?/gi, "").trim();
+      t2 = t2.replace(/\bkeep that connection alive\b[^.!?]*[.!?]?/gi, "").trim();
+      t2 = finalizeTextShape(t2, preserveNl);
+      if (t2.length >= 12) {
+        t = t2;
+        hits.push("daily_fluff_micro_strip");
+      } else {
+        hits.push("daily_fluff_requires_v3_repair");
+        requiresV3Repair = true;
+        unsafeRewritePrevented = true;
+      }
+    } else {
+      t = buildDailyCommitmentAsk(mergedAsk);
+    }
   } else if (!/[.!?]\s*$/i.test(t.trim()) && t.length > 52) {
     hits.push("daily_missing_terminal_punct");
-    t = buildDailyCommitmentAsk(mergedAsk);
+    t = finalizeTextShape(stripIncompleteTrailingSms(t), preserveNl);
+    if (!/[.!?]\s*$/i.test(t.trim())) {
+      t = `${t.trim()}.`;
+    }
   } else {
     const before = norm(t);
     const stripped = stripIncompleteTrailingSms(t);
     if (stripped !== before) {
       hits.push("daily_incomplete_tail");
-      t = stripped.length >= 28 && /[.!?]\s*$/.test(stripped) ? stripped : buildDailyCommitmentAsk(mergedAsk);
+      if (stripped.length >= 28 && /[.!?]\s*$/.test(stripped)) {
+        t = stripped;
+      } else if (protectV3RelationshipVoice) {
+        hits.push("daily_incomplete_tail_requires_v3_repair");
+        requiresV3Repair = true;
+        unsafeRewritePrevented = true;
+      } else {
+        t = buildDailyCommitmentAsk(mergedAsk);
+      }
     }
   }
-  return { text: finalizeTextShape(t, preserveNl), hits };
+  return { text: finalizeTextShape(t, preserveNl), hits, requiresV3Repair, unsafeRewritePrevented };
 }
 
 function coachOutboundWasGratitudeAsk(text: string): boolean {
@@ -857,17 +977,30 @@ function applyFinalSmsQualityGuard(
   args: NorthStarCoachSmsArgs,
   working: string,
   merged: MergedNorthStarFields,
-  preserveNl: boolean
-): { text: string; hit: string | null } {
+  preserveNl: boolean,
+  protectV3RelationshipVoice: boolean
+): { text: string; hit: string | null; requiresV3Repair: boolean } {
   const channel = args.channel;
   const t = finalizeTextShape(working, preserveNl);
   if (channel === "daily_outbound" || channel === "reactivation") {
     const banned = dailyFinalBannedHit(t);
-    if (banned) return { text: finalDailyFallback(merged.effectiveAsk || merged.behavior), hit: banned };
-    if (sentenceCount(t) > 2 || t.length > 180) {
-      return { text: finalDailyFallback(merged.effectiveAsk || merged.behavior), hit: "daily_too_long" };
+    if (banned) {
+      if (protectV3RelationshipVoice) {
+        return { text: t, hit: banned, requiresV3Repair: true };
+      }
+      return { text: finalDailyFallback(merged.effectiveAsk || merged.behavior), hit: banned, requiresV3Repair: false };
     }
-    return { text: t, hit: null };
+    if (sentenceCount(t) > 2 || t.length > 180) {
+      if (protectV3RelationshipVoice) {
+        return { text: t, hit: "daily_too_long", requiresV3Repair: true };
+      }
+      return {
+        text: finalDailyFallback(merged.effectiveAsk || merged.behavior),
+        hit: "daily_too_long",
+        requiresV3Repair: false,
+      };
+    }
+    return { text: t, hit: null, requiresV3Repair: false };
   }
 
   if (
@@ -877,12 +1010,24 @@ function applyFinalSmsQualityGuard(
     channel === "clarification"
   ) {
     const banned = finalInboundBannedHit(t);
-    if (banned) return { text: intentRecoveryReply(merged, args.contextPacket), hit: banned };
+    if (banned) {
+      if (protectV3RelationshipVoice) {
+        return { text: t, hit: banned, requiresV3Repair: true };
+      }
+      return { text: intentRecoveryReply(merged, args.contextPacket), hit: banned, requiresV3Repair: false };
+    }
     if (sentenceCount(t) > 2 || t.length > 260) {
-      return { text: intentRecoveryReply(merged, args.contextPacket), hit: "inbound_too_long" };
+      if (protectV3RelationshipVoice) {
+        return { text: t, hit: "inbound_too_long", requiresV3Repair: true };
+      }
+      return {
+        text: intentRecoveryReply(merged, args.contextPacket),
+        hit: "inbound_too_long",
+        requiresV3Repair: false,
+      };
     }
   }
-  return { text: t, hit: null };
+  return { text: t, hit: null, requiresV3Repair: false };
 }
 
 function scrubDailyOutboundGreetingHour(
@@ -1093,32 +1238,62 @@ function applyStructuralGuards(
   return null;
 }
 
-function dailyOutboundFlavor(body: string, channel: NorthStarCoachChannel, mergedAsk: string): string {
+function dailyOutboundFlavor(
+  body: string,
+  channel: NorthStarCoachChannel,
+  mergedAsk: string,
+  protectV3RelationshipVoice: boolean
+): { text: string; requiresV3Repair: boolean; unsafeRewritePrevented: boolean } {
+  let requiresV3Repair = false;
+  let unsafeRewritePrevented = false;
   let t = body;
   const weeklyLike = channel === "weekly_sms" || channel === "lifecycle_sms";
   const ask = mergedAsk.trim();
   if ((channel === "daily_outbound" || channel === "reactivation") && (/^\s*$/i.test(t) || t.length < 12)) {
-    if (ask.length >= 8) {
-      return buildDailyCommitmentAsk(ask);
+    if (protectV3RelationshipVoice) {
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+      return { text: t.trim() || body.trim(), requiresV3Repair, unsafeRewritePrevented };
     }
-    return "Did the rep happen today?";
+    if (ask.length >= 8) {
+      return { text: buildDailyCommitmentAsk(ask), requiresV3Repair: false, unsafeRewritePrevented: false };
+    }
+    return { text: "Did the rep happen today?", requiresV3Repair: false, unsafeRewritePrevented: false };
   }
   if (weeklyLike && (/^\s*$/i.test(t) || t.length < 12)) {
     if (ask.length >= 8 && ask.length <= 120) {
       const one = ask.slice(0, 90).replace(/\s+/g, " ").trim();
-      return `Pat Pause — ${one}. What's true about your week in one honest line?`;
+      return {
+        text: `Pat Pause — ${one}. What's true about your week in one honest line?`,
+        requiresV3Repair: false,
+        unsafeRewritePrevented: false,
+      };
     }
-    return "Pat Pause: what's true about your week — one honest line?";
+    return {
+      text: "Pat Pause: what's true about your week — one honest line?",
+      requiresV3Repair: false,
+      unsafeRewritePrevented: false,
+    };
   }
   if (/quick check|today'?s check/i.test(t)) {
+    const beforeQuickStrip = t;
     t = t.replace(/quick check|today'?s check-?in/gi, "").trim();
     if (!t) {
-      return weeklyLike
-        ? "What's true about this week — wins and misses?"
-        : "Today is simple — did you do the rep? Tell me straight.";
+      if (protectV3RelationshipVoice && !weeklyLike) {
+        requiresV3Repair = true;
+        unsafeRewritePrevented = true;
+        return { text: beforeQuickStrip.trim(), requiresV3Repair, unsafeRewritePrevented };
+      }
+      return {
+        text: weeklyLike
+          ? "What's true about this week — wins and misses?"
+          : "Today is simple — did you do the rep? Tell me straight.",
+        requiresV3Repair: false,
+        unsafeRewritePrevented: false,
+      };
     }
   }
-  return t;
+  return { text: t, requiresV3Repair: false, unsafeRewritePrevented: false };
 }
 
 /** Compact context for inbound coach routes (cron). */
@@ -1169,10 +1344,20 @@ export function finalizeNorthStarInboundCoachReply(args: {
 export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthStarCoachSmsResult {
   const mergedFields = mergeNorthStarFields(args);
   const mergedAsk = mergedFields.effectiveAsk || mergedFields.behavior;
+  const protectV3 = isV3RelationshipVoiceReplySource(args.replySource);
 
   const preserveNl = args.preserveNewlines === true;
   const originalBody = preserveNl ? args.proposedBody.trim() : norm(args.proposedBody);
   const blockedReasons: string[] = [];
+  let requiresV3RepairAcc = false;
+  let unsafeRewritePreventedAcc = false;
+  const northStarRepairReasons: string[] = [];
+
+  const bumpRepair = (...reasons: string[]) => {
+    requiresV3RepairAcc = true;
+    northStarRepairReasons.push(...reasons);
+  };
+
   let working = preserveNl ? finalizeTextShape(args.proposedBody, true) : norm(args.proposedBody);
   let source: NorthStarCoachSmsMeta["source"] = "approved";
 
@@ -1183,6 +1368,7 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
         source: "deterministic_minimal",
         blockedReasons: ["empty_proposed_body"],
         originalBody,
+        requires_v3_repair: false,
       },
     };
   }
@@ -1190,10 +1376,16 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   let northStarStructuralReplacement = false;
   const structural = applyStructuralGuards(args, working, mergedFields);
   if (structural != null && structural !== working) {
-    northStarStructuralReplacement = true;
-    blockedReasons.push("structural_guard_rewrite");
-    working = structural;
-    source = "deterministic_minimal";
+    if (protectV3) {
+      bumpRepair("structural_guard_skipped_v3_voice");
+      unsafeRewritePreventedAcc = true;
+      blockedReasons.push("structural_guard_requires_v3_repair");
+    } else {
+      northStarStructuralReplacement = true;
+      blockedReasons.push("structural_guard_rewrite");
+      working = structural;
+      source = "deterministic_minimal";
+    }
   }
 
   let repeatedQuestionMeta: Partial<
@@ -1204,14 +1396,25 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   > = {};
   const repeatKill = applyRepeatedQuestionKillSwitch(args, working, mergedFields);
   if (repeatKill.replacement != null && repeatKill.replacement !== working) {
-    blockedReasons.push("repeated_question_kill_switch");
-    repeatedQuestionMeta = {
-      repeated_question_guard_fired: true,
-      repeated_question_original: repeatKill.original,
-      repeated_question_replacement: repeatKill.replacement,
-    };
-    working = repeatKill.replacement;
-    source = "deterministic_minimal";
+    if (protectV3) {
+      bumpRepair("repeated_question_kill_switch_skipped_v3_voice");
+      unsafeRewritePreventedAcc = true;
+      blockedReasons.push("repeated_question_requires_v3_repair");
+      repeatedQuestionMeta = {
+        repeated_question_guard_fired: true,
+        repeated_question_original: repeatKill.original,
+        repeated_question_replacement: repeatKill.replacement,
+      };
+    } else {
+      blockedReasons.push("repeated_question_kill_switch");
+      repeatedQuestionMeta = {
+        repeated_question_guard_fired: true,
+        repeated_question_original: repeatKill.original,
+        repeated_question_replacement: repeatKill.replacement,
+      };
+      working = repeatKill.replacement;
+      source = "deterministic_minimal";
+    }
   }
 
   if (args.contextPacket?.v3AnswerToOpenQuestion) {
@@ -1226,9 +1429,15 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   if (args.channel === "inbound_coach_reply" || args.channel === "blocker_followup") {
     const drift = scrubMemoryTopicDriftFromGratitude(working, mergedFields, args.contextPacket);
     if (drift.text != null && drift.text !== working) {
-      working = drift.text;
-      blockedReasons.push("memory_topic_drift_scrub");
-      source = "rewritten";
+      if (protectV3) {
+        bumpRepair("memory_topic_drift_skipped_v3_voice");
+        unsafeRewritePreventedAcc = true;
+        blockedReasons.push("memory_topic_drift_requires_v3_repair");
+      } else {
+        working = drift.text;
+        blockedReasons.push("memory_topic_drift_scrub");
+        source = "rewritten";
+      }
     }
   }
 
@@ -1239,15 +1448,19 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = "rewritten";
   }
 
-  const chk = scrubCheckInWorkflow(working, args.channel, preserveNl);
+  const chk = scrubCheckInWorkflow(working, args.channel, preserveNl, protectV3);
   working = chk.text;
+  if (chk.requiresV3Repair) bumpRepair("check_in_workflow_requires_v3_repair");
+  if (chk.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
   if (chk.hits.length) {
-    blockedReasons.push("check_in_workflow_scrub");
+    blockedReasons.push("check_in_workflow_scrub", ...chk.hits.slice(0, 4));
     source = "rewritten";
   }
 
-  const dailyEssay = scrubDailyOutboundEssayAndManage(working, args.channel, mergedAsk, preserveNl);
+  const dailyEssay = scrubDailyOutboundEssayAndManage(working, args.channel, mergedAsk, preserveNl, protectV3);
   working = dailyEssay.text;
+  if (dailyEssay.requiresV3Repair) bumpRepair("daily_outbound_essay_requires_v3_repair");
+  if (dailyEssay.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
   if (dailyEssay.hits.length) {
     blockedReasons.push("daily_outbound_essay_scrub", ...dailyEssay.hits.slice(0, 4));
     source = "rewritten";
@@ -1314,13 +1527,18 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     args.channel === "lifecycle_sms"
   ) {
     const before = working;
-    working = dailyOutboundFlavor(working, args.channel, mergedAsk);
+    const flav = dailyOutboundFlavor(working, args.channel, mergedAsk, protectV3);
+    working = flav.text;
+    if (flav.requiresV3Repair) bumpRepair("daily_outbound_flavor_requires_v3_repair");
+    if (flav.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
     if (working !== before) blockedReasons.push("daily_outbound_flavor");
     source = working !== before ? "rewritten" : source;
   }
 
-  const dailyFinal = scrubDailyOutboundFinalQuality(working, args.channel, mergedAsk, preserveNl);
+  const dailyFinal = scrubDailyOutboundFinalQuality(working, args.channel, mergedAsk, preserveNl, protectV3);
   working = dailyFinal.text;
+  if (dailyFinal.requiresV3Repair) bumpRepair("daily_outbound_final_quality_requires_v3_repair");
+  if (dailyFinal.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
   if (dailyFinal.hits.length) {
     blockedReasons.push("daily_outbound_final_quality", ...dailyFinal.hits.slice(0, 4));
     source = "rewritten";
@@ -1337,8 +1555,14 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
 
   if (working.trim().length < 10) {
     if (args.channel === "daily_outbound" || args.channel === "reactivation") {
-      working =
-        mergedAsk.length >= 8 ? buildDailyCommitmentAsk(mergedAsk) : "Did the rep happen today?";
+      if (protectV3) {
+        working = "Did the rep happen today?";
+        bumpRepair("collapsed_after_scrub_v3_emergency_daily");
+        unsafeRewritePreventedAcc = true;
+      } else {
+        working =
+          mergedAsk.length >= 8 ? buildDailyCommitmentAsk(mergedAsk) : "Did the rep happen today?";
+      }
     } else if (args.channel === "weekly_sms" || args.channel === "lifecycle_sms") {
       working =
         mergedAsk.length >= 8 && mergedAsk.length <= 120
@@ -1349,8 +1573,12 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
       args.contextPacket?.blockerSignal
     ) {
       working = "What's the real obstacle—in one honest line?";
+      if (protectV3) bumpRepair("collapsed_after_scrub_inbound_blocker");
     } else {
-      working = "What's true — did you get the bar done today?";
+      working = protectV3
+        ? "I'm not going to guess. What happened with the commitment?"
+        : "What's true — did you get the bar done today?";
+      if (protectV3) bumpRepair("collapsed_after_scrub_inbound_generic_emergency");
     }
     source = "deterministic_minimal";
     blockedReasons.push("collapsed_after_scrub_recovery");
@@ -1362,16 +1590,27 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
 
   const echoGuard = applyBrokenTranscriptEchoGuard(args, working, mergedFields);
   if (echoGuard != null && echoGuard !== working) {
-    blockedReasons.push("broken_transcript_echo_guard");
-    working = echoGuard;
-    source = "rewritten";
+    if (protectV3) {
+      bumpRepair("broken_transcript_echo_requires_v3_repair");
+      unsafeRewritePreventedAcc = true;
+      blockedReasons.push("broken_transcript_echo_guard_skipped_v3_voice");
+    } else {
+      blockedReasons.push("broken_transcript_echo_guard");
+      working = echoGuard;
+      source = "rewritten";
+    }
   }
 
-  const finalQuality = applyFinalSmsQualityGuard(args, working, mergedFields, preserveNl);
+  const finalQuality = applyFinalSmsQualityGuard(args, working, mergedFields, preserveNl, protectV3);
   working = finalQuality.text;
+  if (finalQuality.requiresV3Repair) bumpRepair("final_quality_guard_requires_v3_repair");
   if (finalQuality.hit != null) {
     blockedReasons.push("final_quality_guard", finalQuality.hit);
-    source = "deterministic_minimal";
+    if (!protectV3 || !finalQuality.requiresV3Repair) {
+      source = "deterministic_minimal";
+    } else {
+      source = "rewritten";
+    }
   }
 
   const maxLen = args.maxLen ?? NORTH_STAR_SMS_MAX_LEN;
@@ -1381,12 +1620,17 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = "rewritten";
   }
 
+  const requiresV3Repair = requiresV3RepairAcc;
+
   return {
     visibleBody,
     meta: {
       source,
       blockedReasons,
       originalBody,
+      requires_v3_repair: requiresV3Repair,
+      unsafe_rewrite_prevented: unsafeRewritePreventedAcc || undefined,
+      north_star_blocked_reasons: northStarRepairReasons.length ? northStarRepairReasons : undefined,
       ...(northStarStructuralReplacement ? { north_star_structural_replacement: true } : {}),
       ...(Object.keys(repeatedQuestionMeta).length ? repeatedQuestionMeta : {}),
       ...(finalQuality.hit != null ? { final_quality_replacement: true } : {}),

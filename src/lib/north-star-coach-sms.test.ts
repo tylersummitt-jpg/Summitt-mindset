@@ -178,6 +178,54 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(matchesMalformedDidRawPhraseHappenToday(r.visibleBody)).toBe(false);
   });
 
+  it("v3 daily: did_you_manage_scrub is safe micro-edit only (not assembled Did raw happen today)", () => {
+    const proposedBody =
+      "You made a comeback yesterday! Did you manage to get in that focused work session today without distractions?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody,
+      channel: "daily_outbound",
+      replySource: "v3_daily_check_in",
+      effectiveAskText: "Focused on work without distractions",
+      behaviorStatement: "I will stay focused on work without distractions",
+      contextPacket: { source: "test" },
+    });
+    expect(r.visibleBody).toContain("Did you get in that focused work session today without distractions");
+    expect(r.visibleBody.toLowerCase()).not.toContain("did focused on work without distractions happen");
+    expect(r.meta.requires_v3_repair).not.toBe(true);
+    expect(matchesMalformedDidRawPhraseHappenToday(r.visibleBody)).toBe(false);
+  });
+
+  it("v3 daily: how-did-your + did-you-manage essay does not become buildDailyCommitmentAsk; flags requires_v3_repair", () => {
+    const proposedBody = "How did your focus go today and did you manage to finish the block?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody,
+      channel: "daily_outbound",
+      replySource: "v3_daily_check_in",
+      effectiveAskText: "30 min focus",
+      behaviorStatement: "Focus",
+      contextPacket: { source: "test" },
+    });
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.visibleBody.toLowerCase()).toContain("how did your focus");
+    expect(r.visibleBody.toLowerCase()).not.toBe("did you dictate one story today?");
+  });
+
+  it("v3 inbound: repeat-kill does not inject intentRecovery paragraph; flags requires_v3_repair", () => {
+    const q = "Did you take a moment to thank someone for being present today?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: q,
+      channel: "inbound_coach_reply",
+      replySource: "v3_sms_brain",
+      latestInboundRaw: "I have!!",
+      latestOutboundBody: q,
+      contextPacket: { latestOpenQuestion: q, source: "test" },
+    });
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.repeated_question_guard_fired).toBe(true);
+    expect(r.visibleBody.toLowerCase()).toContain("thank someone");
+    expect(r.visibleBody.toLowerCase()).not.toContain("that counts if you say it does");
+  });
+
   it("daily outbound scrubs did you manage essay phrasing", () => {
     const r = finalizeNorthStarCoachSms({
       proposedBody: "How did your focus go today and did you manage to finish the block?",

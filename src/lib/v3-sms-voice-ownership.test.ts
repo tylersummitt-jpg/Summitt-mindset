@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { finalizeNorthStarCoachSms } from "./north-star-coach-sms";
 import {
   appendPreservedSignedLink,
   appendPreservedSmsSuffix,
@@ -116,13 +117,21 @@ describe("applyFinalVoiceOwnershipGate", () => {
 
   it("allows clean v3-owned daily_outbound copy to pass without repair", async () => {
     delete process.env.OPENAI_API_KEY;
+    const proposed =
+      "You made a comeback yesterday! Did you get in that focused work session today without distractions?";
+    const ns = finalizeNorthStarCoachSms({
+      proposedBody: proposed,
+      channel: "daily_outbound",
+      replySource: "v3_daily_check_in",
+      effectiveAskText: "Focused on work without distractions",
+    });
     const r = await applyFinalVoiceOwnershipGate({
-      proposedBody:
-        "You made a comeback yesterday! Did you get in that focused work session today without distractions?",
+      proposedBody: ns.visibleBody,
       replySource: "v3_daily_check_in",
       channel: "daily_outbound",
       activeCommitmentId: "c1",
       effectiveAsk: "Focused on work without distractions",
+      northStarMeta: ns.meta,
       normalCoaching: true,
     });
 
@@ -130,6 +139,48 @@ describe("applyFinalVoiceOwnershipGate", () => {
     expect(r.blockedReasons).toHaveLength(0);
     expect(r.metadata.deterministic_code_blocked).toBe(false);
     expect(r.body).toContain("Did you get in that focused work session");
+  });
+
+  it("does not fast-path v3_daily when North Star sets requires_v3_repair", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const ns = finalizeNorthStarCoachSms({
+      proposedBody: "How did your focus go today and did you manage to finish the block?",
+      channel: "daily_outbound",
+      replySource: "v3_daily_check_in",
+      effectiveAskText: "30 min focus",
+    });
+    expect(ns.meta.requires_v3_repair).toBe(true);
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: ns.visibleBody,
+      replySource: "v3_daily_check_in",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "30 min focus",
+      northStarMeta: ns.meta,
+      normalCoaching: true,
+    });
+    expect(r.blockedReasons).toEqual(expect.arrayContaining(["north_star_requires_v3_repair"]));
+    expect(r.emergencyFallbackUsed).toBe(true);
+    expect(r.voiceOwner).toBe("v3_deterministic_fallback");
+  });
+
+  it("treats explicit requires_v3_repair meta as blocked for otherwise clean v3_daily body", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Did you get in that focused work session today without distractions?",
+      replySource: "v3_daily_check_in",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "Focused on work without distractions",
+      normalCoaching: true,
+      northStarMeta: {
+        source: "rewritten",
+        blockedReasons: ["daily_outbound_final_quality"],
+        requires_v3_repair: true,
+      },
+    });
+    expect(r.blockedReasons).toEqual(expect.arrayContaining(["north_star_requires_v3_repair"]));
+    expect(r.emergencyFallbackUsed).toBe(true);
   });
 
   it("adds voice owner metadata", async () => {
