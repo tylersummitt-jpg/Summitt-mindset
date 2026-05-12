@@ -10,6 +10,7 @@ import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
+import { appendPreservedSignedLink, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -155,8 +156,7 @@ export async function GET(req: Request) {
 
       const smsBodyPreGate =
         `One last question — if we rebuilt ONE thing so you’d come back, what would it be?\n` +
-        `One sentence is enough.\n\n` +
-        `${link}`;
+        `One sentence is enough.`;
       let winbackProposed = smsBodyPreGate;
       let winbackV3Rs: string | undefined;
       let winbackV3Pkt: NorthStarSmsContextPacket | undefined;
@@ -193,10 +193,22 @@ export async function GET(req: Request) {
         replySource: winbackV3Rs,
         contextPacket: winbackV3Pkt ?? { source: "post_churn_winback" },
       });
+      const voiceWinback = await applyFinalVoiceOwnershipGate({
+        proposedBody: gatedWinback.visibleBody,
+        replySource: winbackV3Rs,
+        channel: "post_churn_winback",
+        activeCommitmentId: commitmentWb?.id ?? null,
+        effectiveAsk: winbackV3Pkt?.effectiveAskText ?? commitmentWb?.behavior_statement ?? null,
+        behaviorStatement: commitmentWb?.behavior_statement ?? null,
+        contextPacket: winbackV3Pkt,
+        northStarMeta: gatedWinback.meta,
+        normalCoaching: Boolean(commitmentWb?.id),
+      });
+      const finalWinbackBody = appendPreservedSignedLink(voiceWinback.body, link);
 
       await sendSMS({
         to: phone,
-        body: gatedWinback.visibleBody,
+        body: finalWinbackBody,
         lastOutbound: {
           clerkUserId: clerk_user_id,
           messageKind: "transactional",
@@ -221,9 +233,14 @@ export async function GET(req: Request) {
           link_included: true,
           north_star_gate: {
             original_body: gatedWinback.meta.originalBody,
-            final_body: gatedWinback.visibleBody,
+            final_body: finalWinbackBody,
             north_star_gate_source: gatedWinback.meta.source,
             north_star_gate_reasons: gatedWinback.meta.blockedReasons,
+          },
+          final_voice_gate: {
+            ...voiceWinback.metadata,
+            signed_link_preserved: true,
+            link_kind: "winback",
           },
         },
       });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDailyCommitmentAsk,
   deriveFutureIntentHint,
   finalizeNorthStarCoachSms,
   finalizeNorthStarCoachSmsPreservingSuffix,
@@ -77,7 +78,7 @@ describe("finalizeNorthStarCoachSms", () => {
       effectiveAskText: "big picture mindset",
       behaviorStatement: "I want to keep a clear and accurate big picture mindset",
     });
-    expect(r.visibleBody.toLowerCase()).toContain("did you protect");
+    expect(r.visibleBody.toLowerCase()).toContain("big-picture mindset");
     expect(r.visibleBody.toLowerCase()).not.toContain("did it happen with");
   });
 
@@ -128,7 +129,7 @@ describe("finalizeNorthStarCoachSms", () => {
       contextPacket: { effectiveAskText: "30 minutes of focused reps", source: "test" },
     });
     expect(r.visibleBody.toLowerCase()).toContain("30 minutes");
-    expect(r.visibleBody.toLowerCase()).toMatch(/did you (protect|dictate)/);
+    expect(r.visibleBody.toLowerCase()).toMatch(/did .*happen|did you dictate/);
     expect(r.visibleBody).toMatch(/\?$/);
   });
 
@@ -178,7 +179,8 @@ describe("finalizeNorthStarCoachSms", () => {
       behaviorStatement: "I want to keep a clear mindset",
     });
     expect(r.visibleBody.toLowerCase()).not.toContain("did it happen with");
-    expect(r.visibleBody.toLowerCase()).toMatch(/did you protect/);
+    expect(r.visibleBody.toLowerCase()).toContain("30 min workout");
+    expect(r.visibleBody.toLowerCase()).not.toContain("did protect");
   });
 
   it("fixes Let's Did contraction", () => {
@@ -316,6 +318,73 @@ describe("finalizeNorthStarCoachSms", () => {
     });
     expect(r.visibleBody.toLowerCase()).not.toContain("part of the");
     expect(r.visibleBody).toMatch(/\?$/);
+  });
+
+  it("maps common raw behavior statements to clean daily asks", () => {
+    expect(buildDailyCommitmentAsk("say affirmation every day")).toBe("Did you say the affirmation today?");
+    expect(buildDailyCommitmentAsk("declutter a little at a time")).toBe("Did you declutter one small area today?");
+    expect(buildDailyCommitmentAsk("Focus on process")).toBe("Did you focus on the process today?");
+    expect(buildDailyCommitmentAsk("reach out to your daughter")).toBe("Did you reach out to your daughter today?");
+  });
+
+  it("hard-blocks malformed daily protect phrases", () => {
+    const cases = [
+      "Did you protect say affirmation every day today?",
+      "Did you protect declutter a little at a time today?",
+      "It's been a quiet stretch. Did you protect Focus on process today?",
+      "Hey Diane, just checking in. Did you reach out to your daughter today? Keeping those connections alive is a great step forward.",
+    ];
+
+    for (const proposedBody of cases) {
+      const r = finalizeNorthStarCoachSms({
+        proposedBody,
+        channel: "daily_outbound",
+        effectiveAskText: "say affirmation every day",
+      });
+      expect(r.visibleBody).toBe("Did you say the affirmation today?");
+      expect(r.visibleBody.toLowerCase()).not.toContain("did you protect say");
+      expect(r.visibleBody.toLowerCase()).not.toContain("just checking in");
+      expect(r.visibleBody.toLowerCase()).not.toContain("great step forward");
+    }
+  });
+
+  it("removes Say it straight fallback from final inbound replies", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Say it straight — what moved with today's line, and what didn't?",
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Have early meetings so will do later",
+      latestOutboundBody: "Did you protect the rep today?",
+      effectiveAskText: "story dictation",
+    });
+
+    expect(r.visibleBody.toLowerCase()).not.toContain("say it straight");
+    expect(r.visibleBody.toLowerCase()).not.toContain("what moved with today's line");
+    expect(r.visibleBody.toLowerCase()).toContain("later");
+  });
+
+  it("scrubs broken It's That's grammar", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "It's That's a valuable skill.",
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Good learned to listen",
+    });
+
+    expect(r.visibleBody).toBe("That's a valuable skill.");
+  });
+
+  it("shortens long generic coaching paragraphs", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody:
+        "Reflecting on that can help reinforce your commitment. As you move forward, consider how you can refine that process because it can really make a difference!",
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Yes, on her way to school. She's a teacher.",
+      latestOutboundBody: "Did you reach out to your daughter today?",
+      effectiveAskText: "reach out to daughter",
+    });
+
+    expect(r.visibleBody.length).toBeLessThan(120);
+    expect(r.visibleBody.toLowerCase()).not.toContain("as you move forward");
+    expect(r.visibleBody.toLowerCase()).not.toContain("really make a difference");
   });
 });
 

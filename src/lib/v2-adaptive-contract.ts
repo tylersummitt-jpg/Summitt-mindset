@@ -6,6 +6,7 @@ import { computeShrunkAskText } from "@/lib/v2-ai-outbound";
 import { buildV2ShrinkProposalOutboundSms } from "@/lib/v2-sms-accountability";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
+import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { getV2CommitmentByIdForCoaching, type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 
@@ -197,6 +198,7 @@ export async function persistContractOverlayProposed(args: {
   expectedUpdatedAt?: string | null;
   requireFreshProposalSlot?: boolean;
   skipEventWrite?: boolean;
+  eventPayloadExtras?: Record<string, unknown>;
 }): Promise<{ ok: true; updatedAt: string | null } | { ok: false; error: string }> {
   const now = new Date();
   const proposalExpires = new Date(now.getTime() + V2_ADAPTIVE_PROPOSAL_TTL_MS).toISOString();
@@ -219,6 +221,7 @@ export async function persistContractOverlayProposed(args: {
         message_sid: args.messageSid,
         proposal_ttl_hours: 48,
         ...(args.idempotencySuffix ? { origin: "guided_resolution" } : {}),
+        ...(args.eventPayloadExtras ?? {}),
       },
       idempotency_key: idempotencyKey,
     });
@@ -407,6 +410,7 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
   }
 
   let messageSid: string;
+  let guidedFinalVoiceGate: Record<string, unknown> | null = null;
   if (dryRun) {
     messageSid = `dry_run_guided_shrink:${idempotencySuffix}`;
   } else {
@@ -424,9 +428,26 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
           source: "guided_contract_proposal",
         },
       });
+      const voiceGuided = await applyFinalVoiceOwnershipGate({
+        proposedBody: gatedGuided.visibleBody,
+        replySource: northStarReplySource ?? undefined,
+        channel: "guided_contract_proposal",
+        activeCommitmentId: args.commitmentId,
+        effectiveAsk: args.proposalBindingText,
+        behaviorStatement: args.originalBehaviorStatement,
+        contextPacket: {
+          activeCommitmentId: args.commitmentId,
+          behaviorStatement: args.originalBehaviorStatement,
+          effectiveAskText: args.proposalBindingText,
+          source: "guided_contract_proposal",
+        },
+        northStarMeta: gatedGuided.meta,
+        normalCoaching: true,
+      });
+      guidedFinalVoiceGate = voiceGuided.metadata;
       const msg = await sendSMS({
         to: phone,
-        body: gatedGuided.visibleBody,
+        body: voiceGuided.body,
         lastOutbound: {
           clerkUserId: args.clerkUserId,
           messageKind: "question",
@@ -459,6 +480,7 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
     contractKind: "shrink_ask",
     idempotencySuffix,
     requireFreshProposalSlot: false,
+    eventPayloadExtras: guidedFinalVoiceGate ? { final_voice_gate: guidedFinalVoiceGate } : undefined,
   });
   if (!finalized.ok) {
     return { ok: false, error: finalized.error };

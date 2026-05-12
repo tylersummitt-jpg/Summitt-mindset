@@ -120,6 +120,7 @@ import {
   generateV3DailyDeterministicFallback,
   V3_BRAIN_VERSION,
 } from "@/lib/v3-sms-brain";
+import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -220,25 +221,50 @@ async function withNorthStarDailyGate(
           })
         : undefined,
   });
+  const voiceGate = await applyFinalVoiceOwnershipGate({
+    proposedBody: ns.visibleBody,
+    replySource:
+      built.v3DailySms === true
+        ? built.v3DailyDeterministicFallback === true
+          ? "v3_daily_deterministic_fallback"
+          : "v3_daily_check_in"
+        : undefined,
+    channel,
+    activeCommitmentId: built.v2CommitmentId ?? null,
+    effectiveAsk: built.v2EffectiveAskText ?? null,
+    behaviorStatement: built.v2EffectiveAskText ?? null,
+    contextPacket:
+      built.v2Accountability && (built.v2CommitmentId || built.v2PriorOutcome != null || built.v2BlockerPreview)
+        ? buildDailyOutboundNorthStarContextPacket({
+            commitmentId: built.v2CommitmentId ?? null,
+            effectiveAskText: built.v2EffectiveAskText ?? null,
+            priorOutcome: built.v2PriorOutcome ?? null,
+            blockerPreview: built.v2BlockerPreview ?? null,
+          })
+        : undefined,
+    northStarMeta: ns.meta,
+    normalCoaching:
+      built.v2Accountability === true &&
+      Boolean(built.v2CommitmentId),
+  });
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,
-    smsBody: ns.visibleBody,
+    smsBody: voiceGate.body,
   };
-  if (built.v2AiPayload && typeof built.v2AiPayload === "object") {
-    out.v2AiPayload = {
-      ...built.v2AiPayload,
-      north_star_gate: {
-        original_body: ns.meta.originalBody,
-        final_body: ns.visibleBody,
-        north_star_gate_source: ns.meta.source,
-        north_star_gate_reasons: ns.meta.blockedReasons,
-        openai_attempted: ns.meta.openaiAttempted,
-        openai_failed_reason: ns.meta.openaiFailedReason ?? null,
-        context_packet_used: ns.meta.contextPacketUsed,
-        finalizer_version: ns.meta.finalizerVersion,
-      },
-    };
-  }
+  out.v2AiPayload = {
+    ...(built.v2AiPayload && typeof built.v2AiPayload === "object" ? built.v2AiPayload : {}),
+    north_star_gate: {
+      original_body: ns.meta.originalBody,
+      final_body: voiceGate.body,
+      north_star_gate_source: ns.meta.source,
+      north_star_gate_reasons: ns.meta.blockedReasons,
+      openai_attempted: ns.meta.openaiAttempted,
+      openai_failed_reason: ns.meta.openaiFailedReason ?? null,
+      context_packet_used: ns.meta.contextPacketUsed,
+      finalizer_version: ns.meta.finalizerVersion,
+    },
+    final_voice_gate: voiceGate.metadata,
+  };
   return out;
 }
 
@@ -542,19 +568,68 @@ async function buildDailySmsContent(
         shrunkAskText: null,
       });
 
-      const smsBodyRe = resolvedRe.smsBody;
-      const aiTryRe = resolvedRe.aiTry;
-      const aiPayloadRe = buildCheckSentAiPayload({
-        model: V2_OUTBOUND_AI_MODEL,
-        promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
-        serverState,
+      let smsBodyRe = resolvedRe.smsBody;
+      let v3DailySmsRe = false;
+      let v3DailyDeterministicFallbackRe = false;
+      const dailyCheckArgsRe = {
+        commitmentId: active.id,
+        effectiveAsk: active.behavior_statement.trim(),
+        behaviorStatement: active.behavior_statement ?? "",
+        priorOutcome: null,
+        coachingMemory: coachingMemoryRe,
         serverStrategy: "reactivation_nudge",
-        message: smsBodyRe,
-        confidence: aiTryRe.ok ? aiTryRe.confidence : null,
-        fallbackUsed: !aiTryRe.ok,
-        ...(!aiTryRe.ok ? { fallbackReason: aiTryRe.reason } : {}),
-        dailyResolution: resolvedRe.resolution,
-      });
+        silenceTier: silenceCtx.tier,
+        blockerPreview: null,
+        recentSmsContextBlock,
+        preferredName: preferredNameRe,
+        identityAnchor: null,
+        recentEventsNewestFirst: recentEvents,
+        dailyPurpose: dailyPurposeRe,
+        contractProposalKind: undefined,
+        contractBindingText: undefined,
+        evolutionPatternHint: undefined,
+        resolvedTemplateFallback: resolvedRe.smsBody,
+      };
+      try {
+        const v3dRe = await generateV3DailyCheckIn(dailyCheckArgsRe);
+        smsBodyRe = v3dRe.text;
+        v3DailySmsRe = true;
+        v3DailyDeterministicFallbackRe = !v3dRe.openAiOk;
+      } catch (e) {
+        console.warn("[v3-sms-brain] reactivation_daily_check_failed", {
+          commitment_id: active.id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+        smsBodyRe = generateV3DailyDeterministicFallback(dailyCheckArgsRe);
+        v3DailySmsRe = true;
+        v3DailyDeterministicFallbackRe = true;
+      }
+      const aiTryRe = resolvedRe.aiTry;
+      const aiPayloadRe = {
+        ...buildCheckSentAiPayload({
+          model: V2_OUTBOUND_AI_MODEL,
+          promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
+          serverState,
+          serverStrategy: "reactivation_nudge",
+          message: smsBodyRe,
+          confidence: aiTryRe.ok ? aiTryRe.confidence : null,
+          fallbackUsed: !aiTryRe.ok,
+          ...(!aiTryRe.ok ? { fallbackReason: aiTryRe.reason } : {}),
+          dailyResolution: resolvedRe.resolution,
+        }),
+        reply_source: v3DailyDeterministicFallbackRe
+          ? "v3_daily_deterministic_fallback"
+          : "v3_daily_check_in",
+        v3_brain: {
+          v3_brain_version: V3_BRAIN_VERSION,
+          v3_coach_reply_source: v3DailyDeterministicFallbackRe
+            ? "v3_daily_deterministic_fallback"
+            : "v3_daily_check_in",
+          v3_memory_used: true,
+          v3_daily_purpose: dailyPurposeRe,
+          v3_deterministic_fallback_used: v3DailyDeterministicFallbackRe,
+        },
+      };
 
       const silencePayloadRe = {
         tier: silenceCtx.tier,
@@ -587,6 +662,9 @@ async function buildDailySmsContent(
         v2ContractProposalKind: null,
         v2ProposalBindingText: null,
         v2ContractProposalPayload: null,
+        v2EffectiveAskText: active.behavior_statement.trim(),
+        v3DailySms: v3DailySmsRe,
+        v3DailyDeterministicFallback: v3DailyDeterministicFallbackRe,
       };
     }
 
@@ -1209,6 +1287,9 @@ async function buildDailySmsContent(
       }),
       ...(v3DailySms
         ? {
+            reply_source: v3DailyDeterministicFallback
+              ? "v3_daily_deterministic_fallback"
+              : "v3_daily_check_in",
             v3_brain: {
               v3_brain_version: V3_BRAIN_VERSION,
               v3_coach_reply_source: v3DailyDeterministicFallback
@@ -1218,6 +1299,7 @@ async function buildDailySmsContent(
               v3_daily_purpose: dailyPurpose,
               v3_contract_proposal_mode: contractProposalMode,
               v3_evolution_pattern_day: dailyPurpose === "evolution_pattern_check",
+              v3_deterministic_fallback_used: v3DailyDeterministicFallback,
             },
           }
         : {}),

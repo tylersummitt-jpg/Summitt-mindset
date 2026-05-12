@@ -22,8 +22,9 @@ import {
 } from "@/lib/v2-sms-conversation-context";
 import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN } from "@/lib/north-star-coach-sms";
 import { buildWeeklySmsNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
-import { finalizeNorthStarCoachSmsPreservingSuffixAsync } from "@/lib/north-star-coach-sms-openai";
+import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
+import { appendPreservedSmsSuffix, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -237,16 +238,15 @@ export async function GET(req: Request) {
 
         const introV2 =
           PAT_PAUSE_INTROS[Math.floor(Math.random() * PAT_PAUSE_INTROS.length)];
-        const preGateWeeklyV2 = `${introV2}\n\n${proofStyled}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
+        const preGateWeeklyV2 = `${introV2}\n\n${proofStyled}`;
         const weeklyNorthStarCtx = buildWeeklySmsNorthStarContextPacket({
           commitmentId: commitment.id,
           behaviorStatement: commitment.behavior_statement,
           transcriptSnippet: weeklySmsThreadAppend,
           transcriptLines: convForNorthStar?.recentTranscriptLines.slice(-8),
         });
-        const gatedWeeklyV2 = await finalizeNorthStarCoachSmsPreservingSuffixAsync({
-          proposedFullBody: preGateWeeklyV2,
-          suffixToPreserve: WEEKLY_SMS_COMPLIANCE_FOOTER,
+        const gatedWeeklyV2 = await finalizeNorthStarCoachSmsAsync({
+          proposedBody: preGateWeeklyV2,
           channel: "weekly_sms",
           preserveNewlines: true,
           maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
@@ -255,7 +255,18 @@ export async function GET(req: Request) {
           contextPacket: weeklyNorthStarCtx,
           replySource: weeklyV3ReplySource,
         });
-        const finalBodyV2 = gatedWeeklyV2.visibleBody;
+        const voiceWeeklyV2 = await applyFinalVoiceOwnershipGate({
+          proposedBody: gatedWeeklyV2.visibleBody,
+          replySource: weeklyV3ReplySource,
+          channel: "weekly_sms",
+          activeCommitmentId: commitment.id,
+          effectiveAsk: commitment.behavior_statement,
+          behaviorStatement: commitment.behavior_statement,
+          contextPacket: weeklyNorthStarCtx,
+          northStarMeta: gatedWeeklyV2.meta,
+          normalCoaching: true,
+        });
+        const finalBodyV2 = appendPreservedSmsSuffix(voiceWeeklyV2.body, WEEKLY_SMS_COMPLIANCE_FOOTER);
 
         const v2Metadata = {
           v2_weekly_proof_sms: true,
@@ -277,7 +288,7 @@ export async function GET(req: Request) {
           weekly_evolution_note_used: Boolean(pack.weekly_evolution_coaching_line?.trim()),
           north_star_gate: {
             original_body: gatedWeeklyV2.meta.originalBody,
-            final_body: gatedWeeklyV2.visibleBody,
+            final_body: finalBodyV2,
             north_star_gate_source: gatedWeeklyV2.meta.source,
             north_star_gate_reasons: gatedWeeklyV2.meta.blockedReasons,
             openai_attempted: gatedWeeklyV2.meta.openaiAttempted,
@@ -285,6 +296,8 @@ export async function GET(req: Request) {
             context_packet_used: gatedWeeklyV2.meta.contextPacketUsed,
             finalizer_version: gatedWeeklyV2.meta.finalizerVersion,
           },
+          final_voice_gate: voiceWeeklyV2.metadata,
+          compliance_suffix_preserved: true,
         } as const;
 
         if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -441,7 +454,7 @@ export async function GET(req: Request) {
           .replace(/\s+$/, "");
       }
 
-      const preGateLegacy = `${intro}\n\n${bodyForWrap}\n\n${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
+      const preGateLegacy = `${intro}\n\n${bodyForWrap}`;
       const legacyWeeklyCtx =
         legacyCommitment?.id != null
           ? buildWeeklySmsNorthStarContextPacket({
@@ -450,16 +463,26 @@ export async function GET(req: Request) {
               transcriptSnippet: null,
             })
           : { source: "weekly_sms" };
-      const gatedLegacyWeekly = await finalizeNorthStarCoachSmsPreservingSuffixAsync({
-        proposedFullBody: preGateLegacy,
-        suffixToPreserve: WEEKLY_SMS_COMPLIANCE_FOOTER,
+      const gatedLegacyWeekly = await finalizeNorthStarCoachSmsAsync({
+        proposedBody: preGateLegacy,
         channel: "weekly_sms",
         preserveNewlines: true,
         maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
         contextPacket: legacyWeeklyCtx,
         replySource: legacyWeeklyV3Rs,
       });
-      const finalBody = gatedLegacyWeekly.visibleBody;
+      const voiceLegacyWeekly = await applyFinalVoiceOwnershipGate({
+        proposedBody: gatedLegacyWeekly.visibleBody,
+        replySource: legacyWeeklyV3Rs,
+        channel: "weekly_sms",
+        activeCommitmentId: legacyCommitment?.id ?? null,
+        effectiveAsk: legacyCommitment?.behavior_statement ?? null,
+        behaviorStatement: legacyCommitment?.behavior_statement ?? null,
+        contextPacket: legacyCommitment?.id ? legacyWeeklyCtx : undefined,
+        northStarMeta: gatedLegacyWeekly.meta,
+        normalCoaching: Boolean(legacyCommitment?.id),
+      });
+      const finalBody = appendPreservedSmsSuffix(voiceLegacyWeekly.body, WEEKLY_SMS_COMPLIANCE_FOOTER);
 
       if (!isTwilioReady() || SMS_DRY_RUN) {
         await supabaseServer
@@ -494,10 +517,12 @@ export async function GET(req: Request) {
             metadata: {
               north_star_gate: {
                 original_body: gatedLegacyWeekly.meta.originalBody,
-                final_body: gatedLegacyWeekly.visibleBody,
+                final_body: finalBody,
                 north_star_gate_source: gatedLegacyWeekly.meta.source,
                 north_star_gate_reasons: gatedLegacyWeekly.meta.blockedReasons,
               },
+              final_voice_gate: voiceLegacyWeekly.metadata,
+              compliance_suffix_preserved: true,
             },
           })
           .eq("clerk_user_id", user.id)

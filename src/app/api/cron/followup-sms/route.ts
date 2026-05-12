@@ -9,6 +9,7 @@ import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-opena
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
+import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
@@ -169,9 +170,20 @@ export async function GET(req: Request) {
         replySource: followupV3Rs,
         contextPacket: followupV3Pkt ?? { source: "followup_sms" },
       });
+      const voiceFollowup = await applyFinalVoiceOwnershipGate({
+        proposedBody: gatedFollowup.visibleBody,
+        replySource: followupV3Rs,
+        channel: "followup_sms",
+        activeCommitmentId: commitmentFu?.id ?? null,
+        effectiveAsk: followupV3Pkt?.effectiveAskText ?? commitmentFu?.behavior_statement ?? null,
+        behaviorStatement: commitmentFu?.behavior_statement ?? null,
+        contextPacket: followupV3Pkt,
+        northStarMeta: gatedFollowup.meta,
+        normalCoaching: Boolean(commitmentFu?.id),
+      });
       await sendSMS({
         to: audienceUser.phone_number,
-        body: gatedFollowup.visibleBody,
+        body: voiceFollowup.body,
         lastOutbound: {
           clerkUserId: audienceUser.clerk_user_id,
           messageKind: "nudge",
@@ -187,7 +199,7 @@ export async function GET(req: Request) {
               followup_sent: true,
               north_star_gate: {
                 original_body: gatedFollowup.meta.originalBody,
-                final_body: gatedFollowup.visibleBody,
+                final_body: voiceFollowup.body,
                 north_star_gate_source: gatedFollowup.meta.source,
                 north_star_gate_reasons: gatedFollowup.meta.blockedReasons,
                 openai_attempted: gatedFollowup.meta.openaiAttempted,
@@ -195,6 +207,7 @@ export async function GET(req: Request) {
                 context_packet_used: gatedFollowup.meta.contextPacketUsed,
                 finalizer_version: gatedFollowup.meta.finalizerVersion,
               },
+              final_voice_gate: voiceFollowup.metadata,
             },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
@@ -209,7 +222,7 @@ export async function GET(req: Request) {
             note: "followup_cron",
             north_star_gate: {
               original_body: gatedFollowup.meta.originalBody,
-              final_body: gatedFollowup.visibleBody,
+              final_body: voiceFollowup.body,
               north_star_gate_source: gatedFollowup.meta.source,
               north_star_gate_reasons: gatedFollowup.meta.blockedReasons,
               openai_attempted: gatedFollowup.meta.openaiAttempted,
@@ -217,6 +230,7 @@ export async function GET(req: Request) {
               context_packet_used: gatedFollowup.meta.contextPacketUsed,
               finalizer_version: gatedFollowup.meta.finalizerVersion,
             },
+            final_voice_gate: voiceFollowup.metadata,
           },
         });
       }

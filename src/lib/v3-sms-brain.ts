@@ -12,6 +12,7 @@ import type { V2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory-prompt"
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import type { ExpectedReplySemanticsV3 } from "@/lib/north-star-sms-context-packet";
 import {
+  buildDailyCommitmentAsk,
   finalizeNorthStarCoachSms,
   finalizeNorthStarInboundCoachReply,
   type NorthStarInboundCoachCtx,
@@ -96,6 +97,10 @@ export type V3SmsTurnPurpose =
   | "daily_check_response_partial"
   | "answer_to_open_question"
   | "future_plan"
+  | "schedule_constraint"
+  | "deferral"
+  | "thinking_deferral"
+  | "life_context"
   | "blocker_detail"
   | "proof_detail"
   | "emotional_context"
@@ -176,20 +181,30 @@ export function mapOutcomeToPurpose(
 
 function heuristicPurposeFromInbound(raw: string): V3SmsTurnPurpose | null {
   const t = raw.trim();
+  const low = t.toLowerCase();
   if (/can\s+i\s+change\s+(the\s+)?(goal|commitment|standard)/i.test(t)) return "goal_change_request";
+  if (/^i\s+don'?t\s+know\b/i.test(low)) return "thinking_deferral";
+  if (/\blet me think|need to think|thinking about it|give me time\b/i.test(low)) {
+    return "thinking_deferral";
+  }
+  if (/\b(i'?ll|i will|will)\s+do\s+it\s+(later|tomorrow)\b|\bdo\s+it\s+(later|tomorrow)\b|\bwill\s+do\s+later\b/i.test(low)) {
+    return /\btomorrow\b/i.test(low) ? "future_plan" : "deferral";
+  }
+  if (/\b(early\s+)?meetings?\b/i.test(low)) return "schedule_constraint";
+  if (/\b(job interview|interview tomorrow|go to job interview)\b/i.test(low)) return "life_context";
+  if (/^(go to|going to|i'?m going to|i am going to)\b/i.test(t) && /\b(interview|meeting|appointment|school|work|class)\b/i.test(t)) {
+    return "life_context";
+  }
   if (/\b(i\s+don'?t\s+care|nothing\s+matters|what'?s\s+the\s+point)\b/i.test(t)) return "emotional_context";
   if (
     /\b(anxious|anxiety|panic|overwhelmed|rough morning|hard morning|wiped|exhausted|struggling)\b/i.test(
-      t.toLowerCase()
+      low
     ) || /\bhaving an anxious\b/i.test(t)
   ) {
     return "emotional_context";
   }
-  if (/\blet me think|need to think|thinking about it|give me time\b/i.test(t.toLowerCase())) {
-    return "casual_context";
-  }
   if (/\?\s*$/.test(t) && t.length > 12 && !/^(yes|no|yep|nope)\b/i.test(t)) return "user_question";
-  if (/\b(two\s+hours|stretch|tomorrow\s+i\b).*\b(hour|block)/i.test(t)) return "future_plan";
+  if (/\b(tomorrow|two\s+hours|stretch|tomorrow\s+i\b).*\b(hour|block|commitment|rep|interview)?/i.test(t)) return "future_plan";
   return null;
 }
 
@@ -203,6 +218,9 @@ function pickNextMove(p: V3SmsTurnPurpose, learning: V3LearningSignals | null): 
     return "name_blocker";
   }
   if (p === "answer_to_open_question") return "confirm_future_plan";
+  if (p === "future_plan" || p === "schedule_constraint" || p === "deferral" || p === "thinking_deferral" || p === "life_context") {
+    return "confirm_future_plan";
+  }
   if (p === "goal_change_request") return "clarify_goal_change";
   if (p === "emotional_context") return "direct_challenge";
   if (p === "proof_detail") return "capture_proof";
@@ -253,9 +271,18 @@ export async function understandV3SmsTurn(args: UnderstandV3SmsTurnArgs): Promis
   let confidence: "high" | "medium" | "low" = "high";
 
   const hint = heuristicPurposeFromInbound(inbound);
+  const nonOutcomeHint =
+    hint === "future_plan" ||
+    hint === "schedule_constraint" ||
+    hint === "deferral" ||
+    hint === "thinking_deferral" ||
+    hint === "life_context" ||
+    hint === "user_question" ||
+    hint === "goal_change_request";
   if (
     hint &&
-    (purpose === "unclear_but_contextual" ||
+    (nonOutcomeHint ||
+      purpose === "unclear_but_contextual" ||
       (hint === "emotional_context" &&
         (finalFt === "user_partial" ||
           finalFt === "user_yes" ||
@@ -278,7 +305,7 @@ export async function understandV3SmsTurn(args: UnderstandV3SmsTurnArgs): Promis
             {
               role: "system",
               content:
-                'Classify SMS reply. Respond JSON: {"turnPurpose":"<enum>","confidence":"high"|"medium"|"low"}. Enum: daily_check_response_completion, daily_check_response_miss, daily_check_response_partial, proof_detail, future_plan, blocker_detail, emotional_context, user_question, goal_change_request, casual_context, unclear_but_contextual.',
+                'Classify SMS reply. Respond JSON: {"turnPurpose":"<enum>","confidence":"high"|"medium"|"low"}. Enum: daily_check_response_completion, daily_check_response_miss, daily_check_response_partial, proof_detail, future_plan, schedule_constraint, deferral, thinking_deferral, life_context, blocker_detail, emotional_context, user_question, goal_change_request, casual_context, unclear_but_contextual. Future plans, meetings, interviews, later/tomorrow, and "let me think" are not completions.',
             },
             {
               role: "user",
@@ -309,12 +336,16 @@ export async function understandV3SmsTurn(args: UnderstandV3SmsTurnArgs): Promis
     Boolean(learning?.currentExperiment || learning?.failedStrategy);
   const comebackCand =
     purpose === "daily_check_response_miss" && /\b(back|again|retry|restart|starting)\b/i.test(inbound);
+  const outcomePurpose =
+    purpose === "daily_check_response_completion" ||
+    purpose === "daily_check_response_miss" ||
+    purpose === "daily_check_response_partial";
 
   return {
     turnPurpose: purpose,
     confidence,
-    accountabilityEventCandidate: args.gatedDecision.should_write_outcome_event ? finalFt : null,
-    shouldWriteOutcomeEvent: args.gatedDecision.should_write_outcome_event,
+    accountabilityEventCandidate: outcomePurpose && args.gatedDecision.should_write_outcome_event ? finalFt : null,
+    shouldWriteOutcomeEvent: outcomePurpose && args.gatedDecision.should_write_outcome_event,
     proofSignal,
     proofSummary: proofSignal ? inbound.slice(0, 120) : null,
     learningSignal: learning,
@@ -354,7 +385,7 @@ export type OpenQuestionReplyGenerationMeta = {
 };
 
 const BANNED_LINE =
-  "Never say: yes/no/partial menu, reply yes or no, great job, keep momentum, let me know how it went, staying consistent is key, it's important to, check the app, contract, overlay, pending resolution, V2, Pat Summitt's name more than once.";
+  "Never say: yes/no/partial menu, reply yes or no, great job, keep momentum, as you move forward, reflect on that, it can really make a difference, great step forward, journey, powerful, let me know how it went, staying consistent is key, it's important to, check the app, contract, overlay, pending resolution, V2, Pat Summitt's name more than once.";
 
 /**
  * Open-question replies prefer OpenAI with full thread context; deterministic templates are emergency-only
@@ -625,14 +656,22 @@ function fallbackInboundReply(
         : `That's honest. What broke — time, size, or environment?`;
     case "daily_check_response_partial":
       return `Partial still tells us something. What got done, and what broke?`;
+    case "deferral":
+      return `Fair. Later needs a time. When are you protecting it?`;
+    case "schedule_constraint":
+      return `Got it. What time are you protecting the commitment around that?`;
     case "blocker_detail":
       return `That's the real obstacle. What part needs to change tomorrow?`;
     case "future_plan":
-      return `Good. Make tomorrow concrete. What time does it start?`;
+      return `Good. Make it concrete. What time are you protecting the commitment?`;
+    case "life_context":
+      return `Got it. What time are you protecting the commitment around that?`;
     case "proof_detail":
       return `That counts. I'm saving that as proof.`;
+    case "thinking_deferral":
+      return `Think on it, but don't leave it vague. What's the plan before tonight?`;
     case "casual_context":
-      return `Good. Think on it, but don't leave it vague. Before tonight, choose one specific action for tomorrow.`;
+      return `Got it. Bring it back to the commitment — what happened today?`;
     case "emotional_context":
       return `That's real. What is the smallest version you can still respect today?`;
     case "goal_change_request":
@@ -755,43 +794,43 @@ function fallbackDailyBody(
   learning: V3LearningSignals,
   styleHint: string
 ): string {
-  const core = args.effectiveAsk.trim().slice(0, 72) || "your commitment";
+  const cleanAsk = buildDailyCommitmentAsk(args.effectiveAsk || args.behaviorStatement);
 
   if (styleHint === "silence_recovery") {
-    return `Still here with you. ${core} — tell me straight where you landed today.`;
+    return cleanAsk;
   }
 
   if (learning.workingCondition === "phone_blocked_or_protected" || learning.workingCondition === "early_start") {
-    return `That setup worked last time. Did you protect it again for ${core}?`;
+    return cleanAsk;
   }
   if (learning.workingCondition === "before_nap_window") {
-    return `Last time the blocker was getting started before nap. What's the first version you'll protect today?`;
+    return "Did the rep happen today?";
   }
 
   if (styleHint === "after_a_win") {
-    return `You got it yesterday. Did you back it up today?`;
+    return cleanAsk;
   }
   if (styleHint === "after_a_miss") {
     if (learning.blockerPattern === "late_bedtime_upstream") {
-      return `Morning starts tonight. What time is lights out before tomorrow's ${core}?`;
+      return "Did the rep happen today?";
     }
-    return `Today is the response. Did you show back up on ${core}?`;
+    return cleanAsk;
   }
 
   if (learning.blockerPattern === "travel_disruption") {
-    return `We need the travel version. What's the smallest honest rep on ${core}?`;
+    return "Did the travel version happen today?";
   }
   if (learning.blockerPattern === "avoidance_getting_started") {
-    return `First 10 minutes only — what version will you start on ${core}?`;
+    return "Did the first 10 minutes happen today?";
   }
   if (learning.blockerPattern === "snooze_alarm") {
-    return `Phone across the room tonight. Are you willing to do it before tomorrow's ${core}?`;
+    return cleanAsk;
   }
   if (learning.blockerPattern === "late_bedtime_upstream") {
-    return `Morning starts tonight. What time is lights out before ${core}?`;
+    return cleanAsk;
   }
 
-  return `One honest rep on ${core} — what happened today?`;
+  return cleanAsk;
 }
 
 /** Deterministic V3 daily line when OpenAI fails or throws — never raw template resolution. */
@@ -933,14 +972,26 @@ function buildSyntheticEmergencyV3Brain(args: ProduceV3InboundCoachDraftArgs): V
   const finalFt = args.gatedDecision.final_event_type ?? args.deterministicEventType;
   let purpose = mapOutcomeToPurpose(finalFt);
   const hint = heuristicPurposeFromInbound(inbound);
-  if (hint && purpose === "unclear_but_contextual") {
+  if (
+    hint &&
+    (purpose === "unclear_but_contextual" ||
+      hint === "future_plan" ||
+      hint === "schedule_constraint" ||
+      hint === "deferral" ||
+      hint === "thinking_deferral" ||
+      hint === "life_context")
+  ) {
     purpose = hint;
   }
+  const outcomePurpose =
+    purpose === "daily_check_response_completion" ||
+    purpose === "daily_check_response_miss" ||
+    purpose === "daily_check_response_partial";
   return {
     turnPurpose: purpose,
     confidence: "low",
-    accountabilityEventCandidate: args.gatedDecision.should_write_outcome_event ? finalFt : null,
-    shouldWriteOutcomeEvent: args.gatedDecision.should_write_outcome_event,
+    accountabilityEventCandidate: outcomePurpose && args.gatedDecision.should_write_outcome_event ? finalFt : null,
+    shouldWriteOutcomeEvent: outcomePurpose && args.gatedDecision.should_write_outcome_event,
     learningSignal: learning,
     commitmentChangeIntent: "none",
     nextCoachingMove: pickNextMove(purpose, learning),

@@ -7,6 +7,7 @@ import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-opena
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
+import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
@@ -166,9 +167,20 @@ export async function GET(req: Request) {
         replySource: missedV3Rs,
         contextPacket: missedV3Pkt ?? { source: "missed_yesterday_sms" },
       });
+      const voiceMissed = await applyFinalVoiceOwnershipGate({
+        proposedBody: gatedMissed.visibleBody,
+        replySource: missedV3Rs,
+        channel: "missed_yesterday_sms",
+        activeCommitmentId: commitmentM?.id ?? null,
+        effectiveAsk: missedV3Pkt?.effectiveAskText ?? commitmentM?.behavior_statement ?? null,
+        behaviorStatement: commitmentM?.behavior_statement ?? null,
+        contextPacket: missedV3Pkt,
+        northStarMeta: gatedMissed.meta,
+        normalCoaching: Boolean(commitmentM?.id),
+      });
       await sendSMS({
         to: audienceUser.phone_number,
-        body: gatedMissed.visibleBody,
+        body: voiceMissed.body,
         lastOutbound: {
           clerkUserId: audienceUser.clerk_user_id,
           messageKind: "nudge",
@@ -184,10 +196,11 @@ export async function GET(req: Request) {
               missed_yesterday_sent: true,
               north_star_gate: {
                 original_body: gatedMissed.meta.originalBody,
-                final_body: gatedMissed.visibleBody,
+                final_body: voiceMissed.body,
                 north_star_gate_source: gatedMissed.meta.source,
                 north_star_gate_reasons: gatedMissed.meta.blockedReasons,
               },
+              final_voice_gate: voiceMissed.metadata,
             },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
@@ -202,10 +215,11 @@ export async function GET(req: Request) {
             note: "missed_yesterday_cron",
             north_star_gate: {
               original_body: gatedMissed.meta.originalBody,
-              final_body: gatedMissed.visibleBody,
+              final_body: voiceMissed.body,
               north_star_gate_source: gatedMissed.meta.source,
               north_star_gate_reasons: gatedMissed.meta.blockedReasons,
             },
+            final_voice_gate: voiceMissed.metadata,
           },
         });
       }

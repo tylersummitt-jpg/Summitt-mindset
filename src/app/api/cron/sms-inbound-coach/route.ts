@@ -226,6 +226,7 @@ import {
   refineMachineSmsBodyWithV3RefineLane,
   V3_REFINE_ONLY_GATED,
 } from "@/lib/v3-sms-machine-refine";
+import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { isAppleMessengerTapbackLine } from "@/lib/sms-imessage-reaction";
 
 export const runtime = "nodejs";
@@ -343,6 +344,8 @@ async function northStarGatePersistBodyAsync(
     finalEventType?: string | null;
     replySource?: string | null;
     contextPacket?: NorthStarSmsContextPacket;
+    activeCommitmentId?: string | null;
+    normalCoaching?: boolean;
   }
 ): Promise<string> {
   const r = await finalizeNorthStarCoachSmsAsync({
@@ -358,7 +361,24 @@ async function northStarGatePersistBodyAsync(
       args.finalEventType === "user_yes" || inboundSignalsCompletion(args.job.raw_body),
     contextPacket: args.contextPacket,
   });
-  return r.visibleBody;
+  const voice = await applyFinalVoiceOwnershipGate({
+    proposedBody: r.visibleBody,
+    replySource: args.replySource ?? undefined,
+    channel: args.channel,
+    activeCommitmentId: args.activeCommitmentId ?? args.contextPacket?.activeCommitmentId ?? null,
+    effectiveAsk: args.effectiveAsk ?? args.contextPacket?.effectiveAskText ?? null,
+    behaviorStatement: args.behaviorStatement ?? args.contextPacket?.behaviorStatement ?? null,
+    latestInboundRaw: args.job.raw_body ?? "",
+    latestOutboundBody: args.lastOutboundBody ?? args.contextPacket?.latestOutboundBody ?? null,
+    latestOpenQuestion: args.contextPacket?.latestOpenQuestion ?? null,
+    contextPacket: args.contextPacket,
+    todayCompleted: args.contextPacket?.todayCompleted ?? null,
+    finalEventType: args.finalEventType ?? args.contextPacket?.finalEventType ?? null,
+    northStarMeta: r.meta,
+    normalCoaching:
+      args.normalCoaching ?? Boolean(args.activeCommitmentId ?? args.contextPacket?.activeCommitmentId),
+  });
+  return voice.body;
 }
 
 async function markJobFinal(args: {
@@ -723,12 +743,29 @@ async function processV2NormalInboundOutcome(
           contextPacket: contextPacketV3,
         },
       });
+      const openVoice = await applyFinalVoiceOwnershipGate({
+        proposedBody: gated.visibleBody,
+        replySource: "v3_answer_to_open_question",
+        channel: "inbound_coach_reply",
+        activeCommitmentId: commitment.id,
+        effectiveAsk: effectiveBehavior,
+        behaviorStatement: commitment.behavior_statement ?? "",
+        latestInboundRaw: userMessage,
+        latestOutboundBody: contextPacketV3.latestOutboundBody ?? lastOutboundSmsPreview,
+        latestOpenQuestion: contextPacketV3.latestOpenQuestion ?? null,
+        contextPacket: contextPacketV3,
+        todayCompleted: priorYesToday,
+        finalEventType: null,
+        v3BrainMetadata: openBrainWithSource.metadata ?? null,
+        northStarMeta: gated.meta,
+        normalCoaching: true,
+      });
 
       const nowV3 = new Date().toISOString();
       const { data: persistedV3 } = await supabaseServer
         .from("sms_inbound_coach_jobs")
         .update({
-          reply_body: gated.visibleBody,
+          reply_body: openVoice.body,
           status: "reply_ready",
           next_retry_at: nowV3,
           updated_at: nowV3,
@@ -912,6 +949,8 @@ async function processV2NormalInboundOutcome(
         behaviorStatement: commitment.behavior_statement,
         finalEventType: gdFallback.final_event_type ?? eventType,
         replySource: "deterministic_template_fallback",
+        activeCommitmentId: commitment.id,
+        normalCoaching: true,
       });
       const idempotencyKey = v2UserReplyIdempotencyKey(
         gdFallback.final_event_type ?? eventType,
@@ -2336,6 +2375,25 @@ async function processV2NormalInboundOutcome(
   });
   finalReplyBody = northStarInboundPack.visibleBody;
 
+  const finalVoiceGate = await applyFinalVoiceOwnershipGate({
+    proposedBody: finalReplyBody,
+    replySource: effectiveInboundReplySource ?? resolved.meta.reply_source,
+    channel: "inbound_coach_reply",
+    activeCommitmentId: commitment.id,
+    effectiveAsk: effectiveBehavior,
+    behaviorStatement: commitment.behavior_statement,
+    latestInboundRaw: userMessage,
+    latestOutboundBody: lastOutboundSmsPreview,
+    latestOpenQuestion: northStarInboundContextPacket.latestOpenQuestion ?? null,
+    contextPacket: northStarInboundContextPacket,
+    todayCompleted: northStarInboundContextPacket.todayCompleted ?? null,
+    finalEventType: resolved.meta.final_event_type ?? null,
+    v3BrainMetadata: v3BrainPayload?.metadata ?? null,
+    northStarMeta: northStarInboundPack.meta,
+    normalCoaching: true,
+  });
+  finalReplyBody = finalVoiceGate.body;
+
   const aiTry = resolved.aiTry;
   const replyTemplateId = resolved.replyTemplateId;
   const replyResolutionMeta = resolved.meta;
@@ -2409,6 +2467,7 @@ async function processV2NormalInboundOutcome(
           repeated_question_replacement: northStarInboundPack.meta.repeated_question_replacement,
         }
       : {}),
+    final_voice_gate: finalVoiceGate.metadata,
   };
 
   const v3BrainEventMeta =
@@ -2441,6 +2500,7 @@ async function processV2NormalInboundOutcome(
           }),
           reply_resolution: replyResolutionPayload,
           north_star_gate: northStarGateTelemetry,
+          final_voice_gate: finalVoiceGate.metadata,
         }
       : {
           model: inboundAiModelUsed,
@@ -2452,6 +2512,7 @@ async function processV2NormalInboundOutcome(
           fallback_reason: gatedDecision.mode,
           reply_resolution: replyResolutionPayload,
           north_star_gate: northStarGateTelemetry,
+          final_voice_gate: finalVoiceGate.metadata,
         };
 
   if (
@@ -3329,30 +3390,51 @@ async function persistV2JobReplyReadyAndSend(
     behaviorStatement?: string | null;
     finalEventType?: string | null;
     contextPacket?: NorthStarSmsContextPacket;
+    activeCommitmentId?: string | null;
     /** When set, North Star OpenAI finalizer is skipped (deterministic guard still runs). */
     replySource?: string | null;
   }
 ): Promise<void> {
-  const gated = (
-    await finalizeNorthStarCoachSmsAsync({
-      proposedBody: replyBody,
-      channel: northStar?.channel ?? "other_coaching",
-      latestInboundRaw: job.raw_body ?? "",
-      latestOutboundBody: northStar?.lastOutboundBody ?? null,
-      effectiveAskText: northStar?.effectiveAsk ?? undefined,
-      behaviorStatement: northStar?.behaviorStatement ?? undefined,
-      finalEventType: northStar?.finalEventType ?? undefined,
-      replySource: northStar?.replySource ?? undefined,
-      alreadyCompletedToday:
-        northStar?.finalEventType === "user_yes" || inboundSignalsCompletion(job.raw_body),
-      contextPacket: northStar?.contextPacket,
-    })
-  ).visibleBody;
+  const northStarPack = await finalizeNorthStarCoachSmsAsync({
+    proposedBody: replyBody,
+    channel: northStar?.channel ?? "other_coaching",
+    latestInboundRaw: job.raw_body ?? "",
+    latestOutboundBody: northStar?.lastOutboundBody ?? null,
+    effectiveAskText: northStar?.effectiveAsk ?? undefined,
+    behaviorStatement: northStar?.behaviorStatement ?? undefined,
+    finalEventType: northStar?.finalEventType ?? undefined,
+    replySource: northStar?.replySource ?? undefined,
+    alreadyCompletedToday:
+      northStar?.finalEventType === "user_yes" || inboundSignalsCompletion(job.raw_body),
+    contextPacket: northStar?.contextPacket,
+  });
+  const voiceGate = await applyFinalVoiceOwnershipGate({
+    proposedBody: northStarPack.visibleBody,
+    replySource: northStar?.replySource ?? undefined,
+    channel: northStar?.channel ?? "other_coaching",
+    activeCommitmentId: northStar?.activeCommitmentId ?? northStar?.contextPacket?.activeCommitmentId ?? null,
+    effectiveAsk: northStar?.effectiveAsk ?? northStar?.contextPacket?.effectiveAskText ?? null,
+    behaviorStatement: northStar?.behaviorStatement ?? northStar?.contextPacket?.behaviorStatement ?? null,
+    latestInboundRaw: job.raw_body ?? "",
+    latestOutboundBody: northStar?.lastOutboundBody ?? northStar?.contextPacket?.latestOutboundBody ?? null,
+    latestOpenQuestion: northStar?.contextPacket?.latestOpenQuestion ?? null,
+    contextPacket: northStar?.contextPacket,
+    finalEventType: northStar?.finalEventType ?? northStar?.contextPacket?.finalEventType ?? null,
+    northStarMeta: northStarPack.meta,
+    normalCoaching: Boolean(northStar?.activeCommitmentId ?? northStar?.contextPacket?.activeCommitmentId),
+  });
+  console.info("[final-voice-gate] inbound_job_reply_ready", {
+    message_sid: job.message_sid,
+    voice_owner: voiceGate.voiceOwner,
+    source: voiceGate.source,
+    blocked_reasons: voiceGate.blockedReasons,
+    emergency_fallback_used: voiceGate.emergencyFallbackUsed,
+  });
   const now = new Date().toISOString();
   const { data: persisted } = await supabaseServer
     .from("sms_inbound_coach_jobs")
     .update({
-      reply_body: gated,
+      reply_body: voiceGate.body,
       status: "reply_ready",
       next_retry_at: now,
       updated_at: now,
@@ -3402,6 +3484,7 @@ async function persistRefreshSmsRefinedAndSend(args: {
     finalEventType: classification.eventType,
     contextPacket: r.contextPacket,
     replySource: r.replySource,
+    activeCommitmentId: args.commitment.id,
   });
 }
 
@@ -3536,6 +3619,7 @@ async function processV2MemoryConfirmationInbound(
     await persistV2JobReplyReadyAndSend(job, userId, amb.body, {
       replySource: amb.replySource,
       contextPacket: amb.contextPacket,
+      activeCommitmentId: commitment.id,
     });
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     await insertWave11MemoryResolutionEvent({
@@ -3566,6 +3650,7 @@ async function processV2MemoryConfirmationInbound(
     await persistV2JobReplyReadyAndSend(job, userId, decline.body, {
       replySource: decline.replySource,
       contextPacket: decline.contextPacket,
+      activeCommitmentId: commitment.id,
     });
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     await insertWave11MemoryResolutionEvent({
@@ -3618,6 +3703,7 @@ async function processV2MemoryConfirmationInbound(
   await persistV2JobReplyReadyAndSend(job, userId, memRefined.body, {
     replySource: memRefined.replySource,
     contextPacket: memRefined.contextPacket,
+    activeCommitmentId: commitment.id,
   });
   await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
   if (anyApplied) {
@@ -3769,6 +3855,9 @@ async function processV2SmsInboundPendingResolution(
 
   await persistV2JobReplyReadyAndSend(job, userId, pendingVisible, {
     replySource: pendingReplySource,
+    activeCommitmentId: c.id,
+    effectiveAsk: getEffectiveCoachingAsk(c, Date.now()),
+    behaviorStatement: c.behavior_statement ?? null,
   });
   await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
   await mergeInboundMemoryIntoSmsPendingResolution({

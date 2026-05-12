@@ -12,6 +12,7 @@ import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
+import { appendPreservedSignedLink, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,8 +131,7 @@ export async function GET(req: Request) {
           continue;
         }
 
-        const rawBody =
-          `Quick check-in — want a smaller version tomorrow?\n\n` + `Tap here: ${link}`;
+        const rawBody = "Quick check-in — want a smaller version tomorrow?";
         let rescueProposed = rawBody;
         let rescueV3Rs: string | undefined;
         let rescueV3Pkt: NorthStarSmsContextPacket | undefined;
@@ -168,10 +168,22 @@ export async function GET(req: Request) {
           replySource: rescueV3Rs,
           contextPacket: rescueV3Pkt ?? { source: "inactivity_rescue" },
         });
+        const voiceRescue = await applyFinalVoiceOwnershipGate({
+          proposedBody: gatedRescue.visibleBody,
+          replySource: rescueV3Rs,
+          channel: "inactivity_rescue",
+          activeCommitmentId: commitmentR?.id ?? null,
+          effectiveAsk: rescueV3Pkt?.effectiveAskText ?? commitmentR?.behavior_statement ?? null,
+          behaviorStatement: commitmentR?.behavior_statement ?? null,
+          contextPacket: rescueV3Pkt,
+          northStarMeta: gatedRescue.meta,
+          normalCoaching: Boolean(commitmentR?.id),
+        });
+        const finalRescueBody = appendPreservedSignedLink(voiceRescue.body, link);
 
         await sendSMS({
           to: identity.phone_number,
-          body: gatedRescue.visibleBody,
+          body: finalRescueBody,
           lastOutbound: {
             clerkUserId: clerk_user_id,
             messageKind: "nudge",
@@ -193,9 +205,14 @@ export async function GET(req: Request) {
             inactive_days: inactiveDays,
             north_star_gate: {
               original_body: gatedRescue.meta.originalBody,
-              final_body: gatedRescue.visibleBody,
+              final_body: finalRescueBody,
               north_star_gate_source: gatedRescue.meta.source,
               north_star_gate_reasons: gatedRescue.meta.blockedReasons,
+            },
+            final_voice_gate: {
+              ...voiceRescue.metadata,
+              signed_link_preserved: true,
+              link_kind: "rescue",
             },
           },
         });
