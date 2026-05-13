@@ -29,7 +29,9 @@ export type NorthStarCoachChannel =
   | "guided_contract_proposal"
   /** Reserved for future Day 4–5 pulse outbound if enabled (currently log-only cron). */
   | "day4_5_sms_pulse"
-  | "other_coaching";
+  | "other_coaching"
+  /** Wave 11 memory confirmation replies (inbound); fail-closed with other relationship coaching. */
+  | "memory_confirmation";
 
 export type NorthStarCoachSmsMeta = {
   source:

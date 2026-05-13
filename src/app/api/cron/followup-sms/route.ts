@@ -10,7 +10,7 @@ import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates"
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
-import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
+import { pickNorthStarWriterAttributionFields, type NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +51,7 @@ export async function GET(req: Request) {
     skippedMissingTwilio: 0,
     dryRun: 0,
     failed: 0,
+    skippedNoSafeV3Voice: 0,
   };
 
   const { data: audienceUsers } = await supabaseServer
@@ -181,6 +182,38 @@ export async function GET(req: Request) {
         northStarMeta: gatedFollowup.meta,
         normalCoaching: Boolean(commitmentFu?.id),
       });
+
+      if (!voiceFollowup.shouldSend) {
+        await supabaseServer
+          .from("sms_send_events")
+          .update({
+            status: "skipped_no_safe_v3_voice",
+            metadata: {
+              ...meta,
+              followup_sent: true,
+              followup_withheld_unsafe_voice: true,
+              voice_decision: "skipped_no_safe_v3_voice",
+              twilio_send_attempted: false,
+              north_star_gate: {
+                original_body: gatedFollowup.meta.originalBody,
+                final_body: "",
+                north_star_gate_source: gatedFollowup.meta.source,
+                north_star_gate_reasons: gatedFollowup.meta.blockedReasons,
+                openai_attempted: gatedFollowup.meta.openaiAttempted,
+                openai_failed_reason: gatedFollowup.meta.openaiFailedReason ?? null,
+                context_packet_used: gatedFollowup.meta.contextPacketUsed,
+                finalizer_version: gatedFollowup.meta.finalizerVersion,
+                ...pickNorthStarWriterAttributionFields(gatedFollowup.meta),
+              },
+              final_voice_gate: voiceFollowup.metadata,
+            },
+          })
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
+          .eq("day_key", todayKey);
+        stats.skippedNoSafeV3Voice += 1;
+        continue;
+      }
+
       await sendSMS({
         to: audienceUser.phone_number,
         body: voiceFollowup.body,
@@ -206,6 +239,7 @@ export async function GET(req: Request) {
                 openai_failed_reason: gatedFollowup.meta.openaiFailedReason ?? null,
                 context_packet_used: gatedFollowup.meta.contextPacketUsed,
                 finalizer_version: gatedFollowup.meta.finalizerVersion,
+                ...pickNorthStarWriterAttributionFields(gatedFollowup.meta),
               },
               final_voice_gate: voiceFollowup.metadata,
             },
@@ -229,6 +263,7 @@ export async function GET(req: Request) {
               openai_failed_reason: gatedFollowup.meta.openaiFailedReason ?? null,
               context_packet_used: gatedFollowup.meta.contextPacketUsed,
               finalizer_version: gatedFollowup.meta.finalizerVersion,
+              ...pickNorthStarWriterAttributionFields(gatedFollowup.meta),
             },
             final_voice_gate: voiceFollowup.metadata,
           },

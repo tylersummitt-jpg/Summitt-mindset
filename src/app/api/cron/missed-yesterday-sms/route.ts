@@ -8,7 +8,7 @@ import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates"
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
-import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
+import { pickNorthStarWriterAttributionFields, type NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +45,7 @@ export async function GET(req: Request) {
     skippedMissingTwilio: 0,
     dryRun: 0,
     failed: 0,
+    skippedNoSafeV3Voice: 0,
   };
 
   const { data: audienceUsers } = await supabaseServer
@@ -178,6 +179,34 @@ export async function GET(req: Request) {
         northStarMeta: gatedMissed.meta,
         normalCoaching: Boolean(commitmentM?.id),
       });
+
+      if (!voiceMissed.shouldSend) {
+        await supabaseServer
+          .from("sms_send_events")
+          .update({
+            status: "skipped_no_safe_v3_voice",
+            metadata: {
+              ...meta,
+              missed_yesterday_sent: true,
+              missed_yesterday_withheld_unsafe_voice: true,
+              voice_decision: "skipped_no_safe_v3_voice",
+              twilio_send_attempted: false,
+              north_star_gate: {
+                original_body: gatedMissed.meta.originalBody,
+                final_body: "",
+                north_star_gate_source: gatedMissed.meta.source,
+                north_star_gate_reasons: gatedMissed.meta.blockedReasons,
+                ...pickNorthStarWriterAttributionFields(gatedMissed.meta),
+              },
+              final_voice_gate: voiceMissed.metadata,
+            },
+          })
+          .eq("clerk_user_id", audienceUser.clerk_user_id)
+          .eq("day_key", todayKey);
+        stats.skippedNoSafeV3Voice += 1;
+        continue;
+      }
+
       await sendSMS({
         to: audienceUser.phone_number,
         body: voiceMissed.body,
@@ -199,6 +228,7 @@ export async function GET(req: Request) {
                 final_body: voiceMissed.body,
                 north_star_gate_source: gatedMissed.meta.source,
                 north_star_gate_reasons: gatedMissed.meta.blockedReasons,
+                ...pickNorthStarWriterAttributionFields(gatedMissed.meta),
               },
               final_voice_gate: voiceMissed.metadata,
             },
@@ -218,6 +248,7 @@ export async function GET(req: Request) {
               final_body: voiceMissed.body,
               north_star_gate_source: gatedMissed.meta.source,
               north_star_gate_reasons: gatedMissed.meta.blockedReasons,
+              ...pickNorthStarWriterAttributionFields(gatedMissed.meta),
             },
             final_voice_gate: voiceMissed.metadata,
           },

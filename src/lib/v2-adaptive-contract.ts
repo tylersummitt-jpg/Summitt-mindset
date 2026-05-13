@@ -383,13 +383,18 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
   const mdGuided = await getClerkPublicMetadata(args.clerkUserId);
   const timezoneGuided = resolveUserTimezone(mdGuided?.timezone);
 
-  const { body: smsBody, northStarReplySource } = await buildV2ShrinkProposalOutboundSms({
-    clerkUserId: args.clerkUserId,
-    dayKey,
-    proposalBindingText: args.proposalBindingText,
-    originalBehaviorStatement: args.originalBehaviorStatement,
-    v3Refine: { commitment: c, timezone: timezoneGuided },
-  });
+  const { body: smsBody, northStarReplySource, adaptiveProposalVoiceWithheld } =
+    await buildV2ShrinkProposalOutboundSms({
+      clerkUserId: args.clerkUserId,
+      dayKey,
+      proposalBindingText: args.proposalBindingText,
+      originalBehaviorStatement: args.originalBehaviorStatement,
+      v3Refine: { commitment: c, timezone: timezoneGuided },
+    });
+
+  if (adaptiveProposalVoiceWithheld) {
+    return { ok: false, error: "adaptive_proposal_finalizer_no_safe_voice" };
+  }
 
   // Reserve canonical proposal state before sending, so guided path never emits YES/NO
   // copy when a valid pending proposal state could not be persisted.
@@ -445,6 +450,24 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
         normalCoaching: true,
       });
       guidedFinalVoiceGate = voiceGuided.metadata;
+      if (!voiceGuided.shouldSend) {
+        await supabaseServer
+          .from("v2_commitment")
+          .update({
+            adaptive_proposal_text: null,
+            adaptive_proposal_created_at: null,
+            adaptive_proposal_expires_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", args.commitmentId)
+          .eq("adaptive_proposal_text", args.proposalBindingText.trim());
+        console.warn("[v2-adaptive-contract] guided_shrink_withheld_final_voice_gate", {
+          commitment_id: args.commitmentId,
+          clerk_user_id: args.clerkUserId,
+          final_voice_gate: voiceGuided.metadata,
+        });
+        return { ok: false, error: "final_voice_gate_no_send" };
+      }
       const msg = await sendSMS({
         to: phone,
         body: voiceGuided.body,

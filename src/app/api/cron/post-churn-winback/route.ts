@@ -4,9 +4,8 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { createWinbackToken } from "@/lib/winback-token";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
-import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN } from "@/lib/north-star-coach-sms";
+import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN, pickNorthStarWriterAttributionFields, type NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
-import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
@@ -90,6 +89,7 @@ export async function GET(req: Request) {
 
   let sentCount = 0;
   let skippedTwilio = 0;
+  let skippedNoSafeV3Voice = 0;
   const errors: Array<{ clerk_user_id: string; error: string }> = [];
 
   for (const row of cancels) {
@@ -204,6 +204,40 @@ export async function GET(req: Request) {
         northStarMeta: gatedWinback.meta,
         normalCoaching: Boolean(commitmentWb?.id),
       });
+
+      if (!voiceWinback.shouldSend && commitmentWb?.id) {
+        await supabaseServer.from("feedback_events").insert({
+          clerk_user_id,
+          source: "sms",
+          moment: "post_churn_winback_withheld",
+          type: "churn",
+          rating: null,
+          sentiment: null,
+          reason_code: "final_voice_gate_no_send",
+          message: link,
+          share_permission: false,
+          metadata: {
+            canonical: true,
+            window: "7-10_days_post_cancel",
+            channel: "sms",
+            link_included: false,
+            signed_link_preserved: false,
+            twilio_send_attempted: false,
+            voice_decision: "skipped_no_safe_v3_voice",
+            north_star_gate: {
+              original_body: gatedWinback.meta.originalBody,
+              final_body: "",
+              north_star_gate_source: gatedWinback.meta.source,
+              north_star_gate_reasons: gatedWinback.meta.blockedReasons,
+              ...pickNorthStarWriterAttributionFields(gatedWinback.meta),
+            },
+            final_voice_gate: voiceWinback.metadata,
+          },
+        });
+        skippedNoSafeV3Voice += 1;
+        continue;
+      }
+
       const finalWinbackBody = appendPreservedSignedLink(voiceWinback.body, link);
 
       await sendSMS({
@@ -236,6 +270,7 @@ export async function GET(req: Request) {
             final_body: finalWinbackBody,
             north_star_gate_source: gatedWinback.meta.source,
             north_star_gate_reasons: gatedWinback.meta.blockedReasons,
+            ...pickNorthStarWriterAttributionFields(gatedWinback.meta),
           },
           final_voice_gate: {
             ...voiceWinback.metadata,
@@ -259,6 +294,7 @@ export async function GET(req: Request) {
     sent: sentCount,
     candidates: cancels.length,
     skippedTwilio,
+    skippedNoSafeV3Voice,
     errors,
   });
 }

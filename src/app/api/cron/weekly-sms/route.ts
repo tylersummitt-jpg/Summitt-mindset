@@ -20,7 +20,7 @@ import {
   buildV2SmsConversationContextPack,
   type V2SmsConversationContextPack,
 } from "@/lib/v2-sms-conversation-context";
-import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN } from "@/lib/north-star-coach-sms";
+import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN, pickNorthStarWriterAttributionFields } from "@/lib/north-star-coach-sms";
 import { buildWeeklySmsNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
@@ -115,6 +115,7 @@ export async function GET(req: Request) {
     skippedV2WeeklyPendingResolution: 0,
     skippedV2WeeklyDuplicate: 0,
     sentV2WeeklyProof: 0,
+    skippedNoSafeV3Voice: 0,
     failed: 0,
   };
 
@@ -266,6 +267,59 @@ export async function GET(req: Request) {
           northStarMeta: gatedWeeklyV2.meta,
           normalCoaching: true,
         });
+
+        if (!voiceWeeklyV2.shouldSend) {
+          await supabaseServer
+            .from("sms_weekly_send_events")
+            .update({
+              status: "skipped_no_safe_v3_voice",
+              metadata: {
+                v2_weekly_proof_sms: true,
+                commitment_id: commitment.id,
+                week_start: pack.week_start,
+                week_end: pack.week_end,
+                yes_count: pack.yes_count,
+                no_count: pack.no_count,
+                partial_count: pack.partial_count,
+                blocker_count: pack.blocker_count,
+                check_sent_count: pack.check_sent_count,
+                response_count: pack.response_count,
+                silent_week: pack.silent_week,
+                comeback_after_miss: pack.comeback_after_miss,
+                ai_used: aiUsed,
+                message_purpose: "weekly_proof_reflection",
+                prompt_version: V2_WEEKLY_PROOF_PROMPT_VERSION,
+                sms_context_pack_thread_used: Boolean(weeklySmsThreadAppend?.trim()),
+                weekly_evolution_note_used: Boolean(pack.weekly_evolution_coaching_line?.trim()),
+                voice_decision: "skipped_no_safe_v3_voice",
+                twilio_send_attempted: false,
+                compliance_suffix_preserved: false,
+                north_star_gate: {
+                  original_body: gatedWeeklyV2.meta.originalBody,
+                  final_body: "",
+                  north_star_gate_source: gatedWeeklyV2.meta.source,
+                  north_star_gate_reasons: gatedWeeklyV2.meta.blockedReasons,
+                  openai_attempted: gatedWeeklyV2.meta.openaiAttempted,
+                  openai_failed_reason: gatedWeeklyV2.meta.openaiFailedReason ?? null,
+                  context_packet_used: gatedWeeklyV2.meta.contextPacketUsed,
+                  finalizer_version: gatedWeeklyV2.meta.finalizerVersion,
+                  ...pickNorthStarWriterAttributionFields(gatedWeeklyV2.meta),
+                },
+                final_voice_gate: voiceWeeklyV2.metadata,
+                voice_send_decision: {
+                  should_send: false,
+                  skip_reason: voiceWeeklyV2.skipReason ?? null,
+                  blocked_reasons: voiceWeeklyV2.blockedReasons,
+                  twilio_send_attempted: false,
+                },
+              },
+            })
+            .eq("clerk_user_id", user.id)
+            .eq("week_key", weekKeyV2);
+          stats.skippedNoSafeV3Voice += 1;
+          continue;
+        }
+
         const finalBodyV2 = appendPreservedSmsSuffix(voiceWeeklyV2.body, WEEKLY_SMS_COMPLIANCE_FOOTER);
 
         const v2Metadata = {
@@ -295,8 +349,14 @@ export async function GET(req: Request) {
             openai_failed_reason: gatedWeeklyV2.meta.openaiFailedReason ?? null,
             context_packet_used: gatedWeeklyV2.meta.contextPacketUsed,
             finalizer_version: gatedWeeklyV2.meta.finalizerVersion,
+            ...pickNorthStarWriterAttributionFields(gatedWeeklyV2.meta),
           },
           final_voice_gate: voiceWeeklyV2.metadata,
+          voice_send_decision: {
+            should_send: true,
+            skip_reason: null,
+            blocked_reasons: voiceWeeklyV2.blockedReasons,
+          },
           compliance_suffix_preserved: true,
         } as const;
 
@@ -482,6 +542,42 @@ export async function GET(req: Request) {
         northStarMeta: gatedLegacyWeekly.meta,
         normalCoaching: Boolean(legacyCommitment?.id),
       });
+
+      if (!voiceLegacyWeekly.shouldSend && legacyCommitment?.id) {
+        await supabaseServer
+          .from("sms_weekly_send_events")
+          .update({
+            status: "skipped_no_safe_v3_voice",
+            metadata: {
+              voice_decision: "skipped_no_safe_v3_voice",
+              twilio_send_attempted: false,
+              compliance_suffix_preserved: false,
+              north_star_gate: {
+                original_body: gatedLegacyWeekly.meta.originalBody,
+                final_body: "",
+                north_star_gate_source: gatedLegacyWeekly.meta.source,
+                north_star_gate_reasons: gatedLegacyWeekly.meta.blockedReasons,
+                openai_attempted: gatedLegacyWeekly.meta.openaiAttempted,
+                openai_failed_reason: gatedLegacyWeekly.meta.openaiFailedReason ?? null,
+                context_packet_used: gatedLegacyWeekly.meta.contextPacketUsed,
+                finalizer_version: gatedLegacyWeekly.meta.finalizerVersion,
+                ...pickNorthStarWriterAttributionFields(gatedLegacyWeekly.meta),
+              },
+              final_voice_gate: voiceLegacyWeekly.metadata,
+              voice_send_decision: {
+                should_send: false,
+                skip_reason: voiceLegacyWeekly.skipReason ?? null,
+                blocked_reasons: voiceLegacyWeekly.blockedReasons,
+                twilio_send_attempted: false,
+              },
+            },
+          })
+          .eq("clerk_user_id", user.id)
+          .eq("week_key", weekKey);
+        stats.skippedNoSafeV3Voice += 1;
+        continue;
+      }
+
       const finalBody = appendPreservedSmsSuffix(voiceLegacyWeekly.body, WEEKLY_SMS_COMPLIANCE_FOOTER);
 
       if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -520,6 +616,7 @@ export async function GET(req: Request) {
                 final_body: finalBody,
                 north_star_gate_source: gatedLegacyWeekly.meta.source,
                 north_star_gate_reasons: gatedLegacyWeekly.meta.blockedReasons,
+                ...pickNorthStarWriterAttributionFields(gatedLegacyWeekly.meta),
               },
               final_voice_gate: voiceLegacyWeekly.metadata,
               compliance_suffix_preserved: true,

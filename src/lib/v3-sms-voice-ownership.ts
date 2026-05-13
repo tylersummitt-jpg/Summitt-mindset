@@ -1,7 +1,6 @@
 import OpenAI from "openai";
 
 import {
-  buildDailyCommitmentAsk,
   finalizeNorthStarCoachSms,
   matchesMalformedDidRawPhraseHappenToday,
   pickNorthStarWriterAttributionFields,
@@ -23,7 +22,7 @@ export type SmsVoiceOwner =
   | "no_active_commitment"
   | "unknown";
 
-/** Fail-closed daily coaching: no Twilio send when V3 repair cannot produce safe copy. */
+/** Fail-closed relationship coaching: no Twilio send when V3 repair cannot produce safe copy. */
 export type FinalVoiceSkipReason = "no_safe_v3_voice" | "v3_repair_failed" | "final_voice_blocked";
 
 export type VoiceOwnershipResult = {
@@ -35,6 +34,7 @@ export type VoiceOwnershipResult = {
   source: string;
   v3Owned: boolean;
   repaired: boolean;
+  /** Always false for normal coaching paths — deterministic emergency fallback SMS is removed. */
   emergencyFallbackUsed: boolean;
   blockedReasons: string[];
   metadata: Record<string, unknown>;
@@ -104,6 +104,44 @@ const V3_FALLBACK_SOURCES = new Set([
   "v3_machine_deterministic_fallback",
 ]);
 
+/**
+ * Every `NorthStarCoachChannel` used with `applyFinalVoiceOwnershipGate` for normal active-commitment
+ * coaching/relationship SMS in this repo. Fail-closed + no deterministic emergency fallback applies here.
+ *
+ * Not included: `lifecycle_sms`, `day4_5_sms_pulse` — no FVG call sites today; add when wired.
+ *
+ * `open_question_answer` uses `inbound_coach_reply` at the gate. Adaptive overlay outbound from the daily
+ * cron is gated as `contract_prompt`; guided shrink consent SMS uses `guided_contract_proposal`.
+ */
+export const ACTIVE_COMMITMENT_RELATIONSHIP_VOICE_CHANNELS: ReadonlyArray<NorthStarCoachChannel> = [
+  "daily_outbound",
+  "reactivation",
+  "pending_resolution",
+  "refresh",
+  "contract_prompt",
+  "contract_ack",
+  "guided_contract_proposal",
+  "inbound_coach_reply",
+  "other_coaching",
+  "memory_confirmation",
+  "blocker_followup",
+  "central_brain_pivot",
+  "clarification",
+  "weekly_sms",
+  "followup_sms",
+  "missed_yesterday_sms",
+  "inactivity_rescue",
+  "post_churn_winback",
+];
+
+const ACTIVE_COMMITMENT_RELATIONSHIP_VOICE_CHANNEL_SET = new Set<NorthStarCoachChannel>(
+  ACTIVE_COMMITMENT_RELATIONSHIP_VOICE_CHANNELS
+);
+
+function isActiveCommitmentRelationshipVoiceChannel(ch: NorthStarCoachChannel): boolean {
+  return ACTIVE_COMMITMENT_RELATIONSHIP_VOICE_CHANNEL_SET.has(ch);
+}
+
 function getOpenAIClientOrNull(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey?.trim()) return null;
@@ -121,28 +159,25 @@ function normalize(s: string): string {
 function isNormalCoaching(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
   if (args.bypassKind) return false;
   if (args.normalCoaching === false) return false;
-  if (args.normalCoaching === true) return true;
+  if (args.normalCoaching === true) {
+    return isActiveCommitmentRelationshipVoiceChannel(args.channel);
+  }
   if (!args.activeCommitmentId?.trim()) return false;
-  return [
-    "daily_outbound",
-    "inbound_coach_reply",
-    "weekly_sms",
-    "followup_sms",
-    "missed_yesterday_sms",
-    "inactivity_rescue",
-    "post_churn_winback",
-    "blocker_followup",
-    "pending_resolution",
-    "refresh",
-    "contract_prompt",
-    "contract_ack",
-    "guided_contract_proposal",
-    "central_brain_pivot",
-    "clarification",
-    "reactivation",
-    "other_coaching",
-  ].includes(args.channel);
+  return isActiveCommitmentRelationshipVoiceChannel(args.channel);
 }
+
+/**
+ * Normal active-commitment coaching/relationship SMS: never ship deterministic emergency fallback;
+ * if repair cannot fix unsafe copy, withhold send.
+ *
+ * Equivalent to the coaching branch of `isNormalCoaching` (post-bypass, non-false normalCoaching).
+ */
+export function isFailClosedActiveCommitmentRelationshipVoice(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
+  return isNormalCoaching(args);
+}
+
+/** @deprecated Use {@link isFailClosedActiveCommitmentRelationshipVoice}. */
+export const isDailyFailClosedActiveCommitmentVoice = isFailClosedActiveCommitmentRelationshipVoice;
 
 function ownerFromBypass(kind: FinalVoiceBypassKind): SmsVoiceOwner {
   if (kind === "compliance") return "compliance";
@@ -171,29 +206,6 @@ function voiceOwnerIsV3(owner: SmsVoiceOwner): boolean {
     owner === "v3_machine_refine" ||
     owner === "v3_daily" ||
     owner === "v3_open_question"
-  );
-}
-
-/**
- * Active-commitment coaching paths: fail-closed (no deterministic emergency fallback SMS)
- * when V3/repair cannot produce safe text — includes inbound as well as daily cron channels.
- */
-export function isDailyFailClosedActiveCommitmentVoice(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
-  if (args.bypassKind) return false;
-  if (args.normalCoaching === false) return false;
-  if (!args.activeCommitmentId?.trim()) return false;
-  const ch = args.channel;
-  return (
-    ch === "daily_outbound" ||
-    ch === "reactivation" ||
-    ch === "pending_resolution" ||
-    ch === "refresh" ||
-    ch === "contract_prompt" ||
-    ch === "inbound_coach_reply" ||
-    ch === "other_coaching" ||
-    ch === "blocker_followup" ||
-    ch === "central_brain_pivot" ||
-    ch === "clarification"
   );
 }
 
@@ -249,36 +261,6 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
   if ((t.match(/[.!?](?:\s|$)/g) ?? []).length > 2) hits.push("too_many_sentences");
   if (t.length > 320) hits.push("too_long");
   return hits;
-}
-
-function effectiveAskSuggestsFocusDistractionAsk(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
-  const merged = `${args.effectiveAsk ?? ""} ${args.behaviorStatement ?? ""} ${args.contextPacket?.effectiveAskText ?? ""}`.toLowerCase();
-  if (/\bfocus(ed|\s+on)?\b.*\bwork\b|\bwork\b.*\bwithout\b.*\bdistraction|\bfocused\s+work\b|\bdistractions?\b/.test(merged)) {
-    return true;
-  }
-  const body = normalize(args.proposedBody).toLowerCase();
-  return /\bfocused work session\b|\bwork session today without distractions\b|\bwithout distractions\b/i.test(body);
-}
-
-function emergencyFallback(args: ApplyFinalVoiceOwnershipGateArgs): string {
-  if (args.channel === "daily_outbound" || args.channel === "reactivation") {
-    const focusAsk = "Did you protect the focused work block today?";
-    if (effectiveAskSuggestsFocusDistractionAsk(args) && detectFinalVoiceBlockedReasons(focusAsk).length === 0) {
-      return focusAsk;
-    }
-    const ask = buildDailyCommitmentAsk(args.effectiveAsk || args.behaviorStatement || "");
-    return detectFinalVoiceBlockedReasons(ask).length ? "Did the rep happen today?" : ask;
-  }
-  if (args.contextPacket?.v3AnswerToOpenQuestion || args.latestOpenQuestion?.trim()) {
-    if (/\b(tomorrow|later)\b/i.test(args.latestInboundRaw ?? "")) return "Fair. What time tomorrow?";
-    return "Got it. I'll use that. What's the next concrete time?";
-  }
-  const ft = args.finalEventType ?? args.contextPacket?.finalEventType;
-  if (ft === "user_yes") return "That counts. What made it work?";
-  if (ft === "user_no") return "That's honest. What broke — time, size, or environment?";
-  if (ft === "user_partial") return "That's useful. What got done, and what broke?";
-  if (/\b(tomorrow|later|meeting|interview)\b/i.test(args.latestInboundRaw ?? "")) return "Fair. What time tomorrow?";
-  return "I'm not going to guess. What happened with the commitment?";
 }
 
 async function repairWithOpenAI(
@@ -352,6 +334,25 @@ function result(args: {
 }): VoiceOwnershipResult {
   const shouldSend = args.shouldSend ?? true;
   const outBody = shouldSend ? args.body : "";
+  const voiceDecision = shouldSend ? "accepted_post_final_voice_gate" : "skipped_no_safe_v3_voice";
+  const finalVoiceGate: Record<string, unknown> = {
+    should_send: shouldSend,
+    skip_reason: args.skipReason ?? null,
+    voice_decision: voiceDecision,
+    voice_owner: args.voiceOwner,
+    final_voice_owner: args.voiceOwner,
+    final_voice_source: args.source,
+    final_voice_blocked_reasons: args.blockedReasons,
+    v3_repair_attempted: args.repairAttempted,
+    v3_repair_succeeded: args.repairSucceeded,
+    v3_emergency_fallback_used: args.emergencyFallbackUsed,
+    twilio_send_attempted: shouldSend,
+    original_pre_voice_gate_body: args.originalBody,
+    final_voice_gate_body: outBody,
+    deterministic_code_blocked: args.deterministicBlocked,
+    v3_finalized: args.v3Owned,
+    ...(args.northStarMeta ? pickNorthStarWriterAttributionFields(args.northStarMeta) : {}),
+  };
   return {
     body: outBody,
     shouldSend,
@@ -364,7 +365,9 @@ function result(args: {
     blockedReasons: args.blockedReasons,
     metadata: {
       should_send: shouldSend,
-      ...(args.skipReason && !shouldSend ? { skip_reason: args.skipReason } : {}),
+      skip_reason: args.skipReason ?? null,
+      voice_decision: voiceDecision,
+      final_voice_gate: finalVoiceGate,
       ...(shouldSend ? {} : { twilio_send_attempted: false }),
       voice_owner: args.voiceOwner,
       final_voice_owner: args.voiceOwner,
@@ -426,7 +429,7 @@ export async function applyFinalVoiceOwnershipGate(
       source: args.replySource ?? args.northStarMeta?.source ?? "v3_owned",
       v3Owned: true,
       repaired: false,
-      emergencyFallbackUsed: initialOwner === "v3_deterministic_fallback",
+      emergencyFallbackUsed: false,
       blockedReasons: [],
       originalBody,
       repairAttempted: false,
@@ -436,7 +439,6 @@ export async function applyFinalVoiceOwnershipGate(
     });
   }
 
-  const dailyFailClosed = isDailyFailClosedActiveCommitmentVoice(args);
   const repaired = await repairWithOpenAI(args, blocked.length ? blocked : ["non_v3_voice_owner"]);
   if (repaired) {
     const nsRepair = finalizeNorthStarCoachSms({
@@ -472,52 +474,21 @@ export async function applyFinalVoiceOwnershipGate(
     blocked.push(...repairBlocked.map((r) => `repair_${r}`));
   }
 
-  if (dailyFailClosed) {
-    const skipReason: FinalVoiceSkipReason = openaiRepairEligible ? "v3_repair_failed" : "no_safe_v3_voice";
-    return result({
-      body: "",
-      shouldSend: false,
-      skipReason,
-      voiceOwner: initialOwner,
-      source: "skipped_no_safe_v3_voice",
-      v3Owned: initialV3Owned,
-      repaired: false,
-      emergencyFallbackUsed: false,
-      blockedReasons: blocked.length ? blocked : ["non_v3_voice_owner"],
-      originalBody,
-      repairAttempted: openaiRepairEligible,
-      repairSucceeded: false,
-      deterministicBlocked,
-      northStarMeta: args.northStarMeta,
-    });
-  }
-
-  const fallbackRaw = emergencyFallback(args);
-  const fallbackPack = finalizeNorthStarCoachSms({
-    proposedBody: fallbackRaw,
-    channel: args.channel,
-    latestInboundRaw: args.latestInboundRaw ?? args.contextPacket?.latestInboundRaw ?? undefined,
-    latestOutboundBody: args.latestOutboundBody ?? args.contextPacket?.latestOutboundBody ?? undefined,
-    effectiveAskText: args.effectiveAsk ?? args.contextPacket?.effectiveAskText ?? undefined,
-    behaviorStatement: args.behaviorStatement ?? args.contextPacket?.behaviorStatement ?? undefined,
-    finalEventType: args.finalEventType ?? args.contextPacket?.finalEventType ?? undefined,
-    replySource: "v3_deterministic_fallback",
-    contextPacket: args.contextPacket ?? undefined,
-  });
-
+  const skipReason: FinalVoiceSkipReason = openaiRepairEligible ? "v3_repair_failed" : "no_safe_v3_voice";
   return result({
-    body: fallbackPack.visibleBody,
-    shouldSend: true,
-    voiceOwner: "v3_deterministic_fallback",
-    source: "v3_emergency_fallback",
-    v3Owned: true,
+    body: "",
+    shouldSend: false,
+    skipReason,
+    voiceOwner: initialOwner,
+    source: "skipped_no_safe_v3_voice",
+    v3Owned: initialV3Owned,
     repaired: false,
-    emergencyFallbackUsed: true,
+    emergencyFallbackUsed: false,
     blockedReasons: blocked.length ? blocked : ["non_v3_voice_owner"],
     originalBody,
     repairAttempted: openaiRepairEligible,
     repairSucceeded: false,
     deterministicBlocked,
-    northStarMeta: fallbackPack.meta,
+    northStarMeta: args.northStarMeta,
   });
 }

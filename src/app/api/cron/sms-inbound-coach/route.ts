@@ -3637,7 +3637,7 @@ async function persistRefreshSmsRefinedAndSend(args: {
   });
   const classification = classifyV2InboundReply(args.inboundRaw.trim());
   await persistV2JobReplyReadyAndSend(args.job, args.userId, r.body, {
-    channel: "other_coaching",
+    channel: "refresh",
     effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
     behaviorStatement: args.commitment.behavior_statement ?? null,
     finalEventType: classification.eventType,
@@ -3776,6 +3776,7 @@ async function processV2MemoryConfirmationInbound(
       ownedReplySource: "v3_memory_confirmation_refined",
     });
     await persistV2JobReplyReadyAndSend(job, userId, amb.body, {
+      channel: "memory_confirmation",
       replySource: amb.replySource,
       contextPacket: amb.contextPacket,
       activeCommitmentId: commitment.id,
@@ -3807,6 +3808,7 @@ async function processV2MemoryConfirmationInbound(
       ownedReplySource: "v3_memory_confirmation_refined",
     });
     await persistV2JobReplyReadyAndSend(job, userId, decline.body, {
+      channel: "memory_confirmation",
       replySource: decline.replySource,
       contextPacket: decline.contextPacket,
       activeCommitmentId: commitment.id,
@@ -3860,6 +3862,7 @@ async function processV2MemoryConfirmationInbound(
     ownedReplySource: "v3_memory_confirmation_refined",
   });
   await persistV2JobReplyReadyAndSend(job, userId, memRefined.body, {
+    channel: "memory_confirmation",
     replySource: memRefined.replySource,
     contextPacket: memRefined.contextPacket,
     activeCommitmentId: commitment.id,
@@ -4013,6 +4016,7 @@ async function processV2SmsInboundPendingResolution(
   }
 
   await persistV2JobReplyReadyAndSend(job, userId, pendingVisible, {
+    channel: "pending_resolution",
     replySource: pendingReplySource,
     activeCommitmentId: c.id,
     effectiveAsk: getEffectiveCoachingAsk(c, Date.now()),

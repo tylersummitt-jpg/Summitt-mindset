@@ -1,6 +1,9 @@
 /**
  * Phase 3A — Humanize adaptive contract proposal SMS bodies (shrink / recommit) only.
  * No Supabase. Does not change adaptive_proposal_text or event proposal_text.
+ *
+ * When `v3Refine` is set (normal active-commitment adaptive proposal), Phase 3A curated/minimal
+ * deterministic fallbacks must not become final visible copy — withhold and clear provenance instead.
  */
 
 import {
@@ -54,6 +57,19 @@ export type FinalizeAdaptiveProposalOutboundSmsResult = {
   brainFixMs: number | null;
   /** When V3 refine lane applied; pass to a second North Star pass to skip duplicate OpenAI finalizer. */
   northStarReplySource?: string | null;
+  /** False only when `v3Refine` was set and visible copy was withheld (no deterministic Phase 3A bank). */
+  relationshipVoiceReady?: boolean;
+  /** Mirrors relationshipVoiceReady for callers that speak in send terms. */
+  shouldSend?: boolean;
+  adaptiveProposalFallbackPrevented?: boolean;
+  deterministicReplacementPrevented?: boolean;
+  requiresV3Repair?: boolean;
+  adaptiveProposalValidatorFailed?: boolean;
+  adaptiveProposalFinalizerSource?: string | null;
+  /** Last unsafe visible candidate before withhold (trimmed), for logs/metadata only. */
+  originalUnsafeBody?: string | null;
+  /** Human-visible validator reason when withhold is due to validator. */
+  adaptiveProposalValidatorFailureReason?: string | null;
 };
 
 function logPipeline(args: {
@@ -97,6 +113,62 @@ function logPipeline(args: {
   });
 }
 
+function withheldRelationshipResult(args: {
+  brainCase: HumanSmsBrainCase;
+  proposalKind: AdaptiveProposalKind;
+  bindingHash: string | null;
+  brainMasterOn: boolean;
+  validatorMode: "enforce" | "shadow_only";
+  validationFailureReason: string | null;
+  bannedHit: string | null;
+  brainUsed: boolean;
+  brainFailureReason: string | null;
+  fallbackUsed: string | null;
+  repairOpenAiAttempted: boolean;
+  brainRewriteMs: number | null;
+  brainFixMs: number | null;
+  originalUnsafeBody: string;
+  validationFailed: boolean;
+}): FinalizeAdaptiveProposalOutboundSmsResult {
+  logPipeline({
+    brainCase: args.brainCase,
+    proposalKind: args.proposalKind,
+    bindingHash: args.bindingHash,
+    brainMasterOn: args.brainMasterOn,
+    validatorMode: args.validatorMode,
+    validationOk: false,
+    validationFailureReason: args.validationFailureReason,
+    bannedHit: args.bannedHit,
+    brainUsed: args.brainUsed,
+    brainFailureReason: args.brainFailureReason,
+    fallbackUsed: args.fallbackUsed,
+    repairOpenAiAttempted: args.repairOpenAiAttempted,
+    brainRewriteMs: args.brainRewriteMs,
+    brainFixMs: args.brainFixMs,
+    finalText: "",
+  });
+  return {
+    message: "",
+    brainUsed: args.brainUsed,
+    brainFailureReason: args.brainFailureReason,
+    fallbackUsed: args.fallbackUsed,
+    validationFailed: args.validationFailed,
+    validatorMode: args.validatorMode,
+    brainRewriteMs: args.brainRewriteMs,
+    brainFixMs: args.brainFixMs,
+    northStarReplySource: null,
+    relationshipVoiceReady: false,
+    shouldSend: false,
+    adaptiveProposalFallbackPrevented: true,
+    deterministicReplacementPrevented: true,
+    requiresV3Repair: true,
+    adaptiveProposalValidatorFailed: true,
+    adaptiveProposalFinalizerSource: "withheld_validator_fail_closed",
+    originalUnsafeBody: args.originalUnsafeBody.trim().slice(0, 360),
+    adaptiveProposalValidatorFailureReason: args.validationFailureReason,
+  };
+}
+
 export async function finalizeAdaptiveProposalOutboundSms(args: {
   machineDraft: string;
   proposalKind: AdaptiveProposalKind;
@@ -115,6 +187,7 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
   const maxChars = args.maxChars ?? DEFAULT_MAX;
   const bindingHash = args.bindingText.trim() ? hashSmsSnippet(args.bindingText.trim()) : null;
   const brainCase = brainCaseForAdaptiveProposalKind(args.proposalKind);
+  const relationshipFailClosed = Boolean(args.v3Refine);
 
   if (isV2HumanSmsPhase3AdaptiveProposalEnabled() && isV2HumanSmsBrainEnabled()) {
     warnIfPhase3BrainWithoutValidatorEnforce();
@@ -222,7 +295,7 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
       });
     }
 
-    if (!enforce) {
+    if (!enforce && !relationshipFailClosed) {
       const gatedEarly = (
         await finalizeNorthStarCoachSmsAsync({
           proposedBody: text,
@@ -263,7 +336,7 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
       };
     }
 
-    if (brainMasterOn && enforce) {
+    if (enforce && brainMasterOn) {
       repairOpenAiAttempted = true;
       const tFix = performance.now();
       const retry = await rewriteMachineDraftToHumanSms({
@@ -280,7 +353,7 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
       }
     }
 
-    if (!v.ok) {
+    if (!v.ok && !relationshipFailClosed) {
       const fb = adaptiveProposalCuratedFallbackForKind(args.proposalKind);
       const v2 = runValidate(fb);
       if (v2.ok) {
@@ -294,18 +367,38 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     }
   }
 
-  text = (
-    await finalizeNorthStarCoachSmsAsync({
-      proposedBody: text,
-      channel: "contract_prompt",
-      behaviorStatement: args.behaviorStatementPreview,
-      effectiveAskText: args.bindingText,
-      replySource: v3ReplySource,
-      contextPacket: northStarContextBase(),
-    })
-  ).visibleBody.slice(0, maxChars);
+  const nsPack = await finalizeNorthStarCoachSmsAsync({
+    proposedBody: text,
+    channel: "contract_prompt",
+    behaviorStatement: args.behaviorStatementPreview,
+    effectiveAskText: args.bindingText,
+    replySource: relationshipFailClosed ? (v3LaneApplied ? v3ReplySource : undefined) : v3ReplySource,
+    contextPacket: northStarContextBase(),
+  });
+  text = nsPack.visibleBody.slice(0, maxChars);
 
   const finalCheck = runValidate(text);
+
+  if (relationshipFailClosed && !finalCheck.ok) {
+    return withheldRelationshipResult({
+      brainCase,
+      proposalKind: args.proposalKind,
+      bindingHash,
+      brainMasterOn,
+      validatorMode,
+      validationFailureReason: finalCheck.reason,
+      bannedHit: "bannedTerm" in finalCheck ? finalCheck.bannedTerm ?? null : null,
+      brainUsed,
+      brainFailureReason,
+      fallbackUsed,
+      repairOpenAiAttempted,
+      brainRewriteMs,
+      brainFixMs,
+      originalUnsafeBody: text,
+      validationFailed,
+    });
+  }
+
   logPipeline({
     brainCase,
     proposalKind: args.proposalKind,
@@ -324,6 +417,9 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     finalText: text,
   });
 
+  const northOut: string | null | undefined =
+    relationshipFailClosed && v3LaneApplied ? v3ReplySource ?? null : relationshipFailClosed ? null : v3ReplySource ?? null;
+
   return {
     message: text,
     brainUsed,
@@ -333,6 +429,15 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     validatorMode,
     brainRewriteMs,
     brainFixMs,
-    northStarReplySource: v3ReplySource ?? null,
+    northStarReplySource: northOut,
+    ...(relationshipFailClosed
+      ? {
+          relationshipVoiceReady: true,
+          shouldSend: true,
+          adaptiveProposalFinalizerSource: v3LaneApplied
+            ? "v3_refine_then_north_star"
+            : "north_star_contract_prompt_only",
+        }
+      : {}),
   };
 }

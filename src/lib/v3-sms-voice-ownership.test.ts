@@ -303,9 +303,25 @@ describe("applyFinalVoiceOwnershipGate", () => {
     expect(consent.voiceOwner).toBe("onboarding_consent");
   });
 
-  it("preserves compliance suffix after a blocked weekly fallback body", async () => {
+  it("preserves compliance suffix when weekly body is accepted after the gate", async () => {
     delete process.env.OPENAI_API_KEY;
     const suffix = "Reply STOP to opt out. Reply HELP for help.";
+    const gated = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Pat Pause — one honest line: what felt most true about your week?",
+      replySource: "v3_weekly_proof_refined",
+      channel: "weekly_sms",
+      activeCommitmentId: "c1",
+      effectiveAsk: "30 min focus",
+      normalCoaching: true,
+    });
+    expect(gated.shouldSend).toBe(true);
+    const finalBody = appendPreservedSmsSuffix(gated.body, suffix);
+    expect(finalBody).toContain("Pat Pause");
+    expect(finalBody.endsWith(suffix)).toBe(true);
+  });
+
+  it("weekly_sms unsafe non-V3 copy: shouldSend false (routes must not append footer or send)", async () => {
+    delete process.env.OPENAI_API_KEY;
     const gated = await applyFinalVoiceOwnershipGate({
       proposedBody: "Say it straight — what moved with today's line, and what didn't?",
       replySource: "deterministic_human",
@@ -314,16 +330,44 @@ describe("applyFinalVoiceOwnershipGate", () => {
       effectiveAsk: "dictate one story",
       normalCoaching: true,
     });
-    const finalBody = appendPreservedSmsSuffix(gated.body, suffix);
-
-    expect(finalBody.endsWith(suffix)).toBe(true);
-    expect(finalBody.toLowerCase()).not.toContain("say it straight");
+    expect(gated.shouldSend).toBe(false);
+    expect(gated.body).toBe("");
+    expect(gated.skipReason).toBe("no_safe_v3_voice");
+    expect(gated.metadata.should_send).toBe(false);
+    expect(gated.metadata.skip_reason).toBe("no_safe_v3_voice");
   });
 
-  it("preserves signed links after rescue/winback fallback body", async () => {
+  it("followup_sms unsafe non-V3 copy: shouldSend false", async () => {
     delete process.env.OPENAI_API_KEY;
-    const link = "https://example.com/rescue?t=signed-token";
-    const gated = await applyFinalVoiceOwnershipGate({
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Say it straight — what moved with today's line, and what didn't?",
+      replySource: "deterministic_human",
+      channel: "followup_sms",
+      activeCommitmentId: "c1",
+      effectiveAsk: "dictate one story",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+  });
+
+  it("missed_yesterday_sms unsafe non-V3 copy: shouldSend false", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Say it straight — what moved with today's line, and what didn't?",
+      replySource: "deterministic_human",
+      channel: "missed_yesterday_sms",
+      activeCommitmentId: "c1",
+      effectiveAsk: "dictate one story",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+  });
+
+  it("inactivity_rescue unsafe non-V3 copy: shouldSend false", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
       proposedBody: "Great job on your journey. Keep momentum because",
       replySource: "deterministic_human",
       channel: "inactivity_rescue",
@@ -331,10 +375,83 @@ describe("applyFinalVoiceOwnershipGate", () => {
       effectiveAsk: "dictate one story",
       normalCoaching: true,
     });
-    const finalBody = appendPreservedSignedLink(gated.body, link);
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+  });
 
+  it("post_churn_winback unsafe non-V3 copy: shouldSend false", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Great job on your journey. Keep momentum because",
+      replySource: "deterministic_human",
+      channel: "post_churn_winback",
+      activeCommitmentId: "c1",
+      effectiveAsk: "dictate one story",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+  });
+
+  it("guided_contract_proposal unsafe non-V3 copy: shouldSend false", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Say it straight — what moved with today's line, and what didn't?",
+      replySource: "deterministic_human",
+      channel: "guided_contract_proposal",
+      activeCommitmentId: "c1",
+      effectiveAsk: "dictate one story",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+  });
+
+  it("memory_confirmation channel is fail-closed for unsafe non-V3 copy", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Say it straight — what moved with today's line, and what didn't?",
+      replySource: "deterministic_human",
+      channel: "memory_confirmation",
+      activeCommitmentId: "c1",
+      effectiveAsk: "dictate one story",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+  });
+
+  it("appends signed rescue link only when gate accepts body", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const link = "https://example.com/rescue?t=signed-token";
+    const gated = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Quick check-in — want a smaller version tomorrow?",
+      replySource: "v3_inactivity_rescue_refined",
+      channel: "inactivity_rescue",
+      activeCommitmentId: "c1",
+      effectiveAsk: "focus block",
+      normalCoaching: true,
+    });
+    expect(gated.shouldSend).toBe(true);
+    const finalBody = appendPreservedSignedLink(gated.body, link);
     expect(finalBody.endsWith(link)).toBe(true);
-    expect(finalBody.toLowerCase()).not.toContain("journey");
-    expect(finalBody.toLowerCase()).not.toContain("momentum");
+  });
+
+  it("north_star deterministic_minimal meta blocks even clean V3-looking body until repair (no send without repair)", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "That counts. What made it work?",
+      replySource: "v3_sms_brain",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      effectiveAsk: "dictate one story",
+      normalCoaching: true,
+      northStarMeta: {
+        source: "deterministic_minimal",
+        blockedReasons: [],
+      },
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.blockedReasons).toEqual(expect.arrayContaining(["north_star_deterministic_replacement"]));
   });
 });

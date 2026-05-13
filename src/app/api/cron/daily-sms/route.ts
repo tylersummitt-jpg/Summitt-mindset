@@ -180,7 +180,7 @@ type DailySmsBuilt =
       /** True when visible line came from deterministic V3 fallback (no successful OpenAI daily draft). */
       v3DailyDeterministicFallback?: boolean;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; adaptiveProposalWithheldMeta?: Record<string, unknown> };
 
 async function withNorthStarDailyGate(
   built: DailySmsBuilt,
@@ -1070,32 +1070,55 @@ async function buildDailySmsContent(
         ? "hold_standard"
         : nextMove.type;
 
-    const { body: templateBody, templateId } =
-      contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask"
-        ? await buildV2ShrinkProposalOutboundSms({
-            clerkUserId,
-            dayKey: accountabilityDayKey,
-            proposalBindingText,
-            originalBehaviorStatement: active.behavior_statement,
-            v3Refine: { commitment: active, timezone },
-          })
-        : contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same"
-          ? await buildV2RecommitProposalOutboundSms({
-              clerkUserId,
-              dayKey: accountabilityDayKey,
-              proposalBindingText,
-              originalBehaviorStatement: active.behavior_statement,
-              v3Refine: { commitment: active, timezone },
-            })
-          : buildV2OutboundAccountabilitySmsForStrategy({
-              clerkUserId,
-              dayKey: accountabilityDayKey,
-              behaviorStatement: effectiveAsk,
-              serverStrategy,
-              nextMove: outboundNextMove,
-              shrunkAskText:
-                outboundNextMove === "shrink_ask" ? (nextMove.shrunk_ask_text ?? null) : null,
-            });
+    let templateBody: string;
+    let templateId: number;
+    if (contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask") {
+      const pack = await buildV2ShrinkProposalOutboundSms({
+        clerkUserId,
+        dayKey: accountabilityDayKey,
+        proposalBindingText,
+        originalBehaviorStatement: active.behavior_statement,
+        v3Refine: { commitment: active, timezone },
+      });
+      if (pack.adaptiveProposalVoiceWithheld) {
+        return {
+          ok: false,
+          error: "adaptive_proposal_finalizer_no_safe_voice",
+          adaptiveProposalWithheldMeta: pack.adaptiveProposalOutboundMeta,
+        };
+      }
+      templateBody = pack.body;
+      templateId = pack.templateId;
+    } else if (contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same") {
+      const pack = await buildV2RecommitProposalOutboundSms({
+        clerkUserId,
+        dayKey: accountabilityDayKey,
+        proposalBindingText,
+        originalBehaviorStatement: active.behavior_statement,
+        v3Refine: { commitment: active, timezone },
+      });
+      if (pack.adaptiveProposalVoiceWithheld) {
+        return {
+          ok: false,
+          error: "adaptive_proposal_finalizer_no_safe_voice",
+          adaptiveProposalWithheldMeta: pack.adaptiveProposalOutboundMeta,
+        };
+      }
+      templateBody = pack.body;
+      templateId = pack.templateId;
+    } else {
+      const strat = buildV2OutboundAccountabilitySmsForStrategy({
+        clerkUserId,
+        dayKey: accountabilityDayKey,
+        behaviorStatement: effectiveAsk,
+        serverStrategy,
+        nextMove: outboundNextMove,
+        shrunkAskText:
+          outboundNextMove === "shrink_ask" ? (nextMove.shrunk_ask_text ?? null) : null,
+      });
+      templateBody = strat.body;
+      templateId = strat.templateId;
+    }
 
     const { data: profileRow } = await supabaseServer
       .from("user_profiles")
@@ -2015,6 +2038,29 @@ export async function GET(req: Request) {
                 stats.skippedIntentional += 1;
                 continue;
               }
+              if (built.error === "adaptive_proposal_finalizer_no_safe_voice") {
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: "skipped_no_safe_v3_voice",
+                    metadata: {
+                      ...existingMeta,
+                      note: "adaptive_proposal_finalizer_no_safe_voice",
+                      voice_decision: "skipped_adaptive_proposal_validator_fail_closed",
+                      twilio_send_attempted: false,
+                      timezone,
+                      local_time: localNow.toISOString(),
+                      ...(built.adaptiveProposalWithheldMeta
+                        ? { adaptive_proposal_outbound: built.adaptiveProposalWithheldMeta }
+                        : {}),
+                    },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                stats.skippedNoSafeV3Voice += 1;
+                stats.skippedIntentional += 1;
+                continue;
+              }
               await supabaseServer
                 .from("sms_send_events")
                 .update({
@@ -2544,6 +2590,28 @@ export async function GET(req: Request) {
             .eq("clerk_user_id", audienceUser.clerk_user_id)
             .eq("day_key", todayKey);
           stats.skippedNotFullyOnV2Daily += 1;
+          stats.skippedIntentional += 1;
+          continue;
+        }
+        if (builtMain.error === "adaptive_proposal_finalizer_no_safe_voice") {
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "skipped_no_safe_v3_voice",
+              metadata: {
+                note: "adaptive_proposal_finalizer_no_safe_voice",
+                voice_decision: "skipped_adaptive_proposal_validator_fail_closed",
+                twilio_send_attempted: false,
+                timezone,
+                local_time: localNow.toISOString(),
+                ...(builtMain.adaptiveProposalWithheldMeta
+                  ? { adaptive_proposal_outbound: builtMain.adaptiveProposalWithheldMeta }
+                  : {}),
+              },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          stats.skippedNoSafeV3Voice += 1;
           stats.skippedIntentional += 1;
           continue;
         }

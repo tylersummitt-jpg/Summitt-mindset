@@ -1,6 +1,9 @@
 import crypto from "crypto";
 
-import { finalizeAdaptiveProposalOutboundSms } from "@/lib/v2-human-sms-brain/finalize-adaptive-proposal-outbound-sms";
+import {
+  finalizeAdaptiveProposalOutboundSms,
+  type FinalizeAdaptiveProposalOutboundSmsResult,
+} from "@/lib/v2-human-sms-brain/finalize-adaptive-proposal-outbound-sms";
 import {
   isV2HumanSmsPhase3AdaptiveProposalEnabled,
   shouldRunPhase3AdaptiveProposalBrain,
@@ -9,6 +12,35 @@ import type { ActiveV2CommitmentRow, V2AccountabilityOutcome } from "@/lib/v2-co
 
 /** Max length for `behavior_statement` when embedded in SMS ({{B}}). */
 const BEHAVIOR_SNIPPET_MAX = 100;
+
+export type V2AdaptiveProposalOutboundBuild = {
+  body: string;
+  templateId: number;
+  northStarReplySource?: string | null;
+  adaptiveProposalVoiceWithheld?: boolean;
+  adaptiveProposalOutboundMeta?: Record<string, unknown>;
+};
+
+function packAdaptiveProposalWithheldExtras(
+  finalized: FinalizeAdaptiveProposalOutboundSmsResult
+): Pick<V2AdaptiveProposalOutboundBuild, "adaptiveProposalVoiceWithheld" | "adaptiveProposalOutboundMeta"> {
+  if (finalized.relationshipVoiceReady !== false) return {};
+  return {
+    adaptiveProposalVoiceWithheld: true,
+    adaptiveProposalOutboundMeta: {
+      adaptive_proposal_fallback_prevented: true,
+      deterministic_replacement_prevented: true,
+      adaptive_proposal_finalizer_source: finalized.adaptiveProposalFinalizerSource ?? null,
+      adaptive_proposal_validator_failed: finalized.adaptiveProposalValidatorFailed ?? null,
+      requires_v3_repair: finalized.requiresV3Repair ?? null,
+      adaptive_proposal_validator_failure_reason: finalized.adaptiveProposalValidatorFailureReason ?? null,
+      original_unsafe_body_preview: finalized.originalUnsafeBody ?? null,
+      voice_decision: "skipped_adaptive_proposal_validator_fail_closed",
+      should_send: false,
+      twilio_send_attempted: false,
+    },
+  };
+}
 
 export type V2InboundEventType = "user_yes" | "user_no" | "user_partial";
 
@@ -363,7 +395,7 @@ export async function buildV2ShrinkProposalOutboundSms(args: {
    */
   commitmentForV3Refine?: ActiveV2CommitmentRow | null;
   timezoneForV3Refine?: string | null;
-}): Promise<{ body: string; templateId: number; northStarReplySource?: string | null }> {
+}): Promise<V2AdaptiveProposalOutboundBuild> {
   const legacy = legacyBuildV2ShrinkProposalOutboundSms(args);
 
   const effectiveV3Refine =
@@ -392,7 +424,8 @@ export async function buildV2ShrinkProposalOutboundSms(args: {
     return {
       body: finalized.message,
       templateId: legacy.templateId,
-      northStarReplySource: finalized.northStarReplySource,
+      northStarReplySource: finalized.northStarReplySource ?? null,
+      ...packAdaptiveProposalWithheldExtras(finalized),
     };
   }
 
@@ -421,7 +454,7 @@ export async function buildV2RecommitProposalOutboundSms(args: {
   v3Refine?: { commitment: ActiveV2CommitmentRow; timezone: string };
   commitmentForV3Refine?: ActiveV2CommitmentRow | null;
   timezoneForV3Refine?: string | null;
-}): Promise<{ body: string; templateId: number; northStarReplySource?: string | null }> {
+}): Promise<V2AdaptiveProposalOutboundBuild> {
   const legacy = legacyBuildV2RecommitProposalOutboundSms(args);
 
   const effectiveV3RefineRecommit =
@@ -450,7 +483,8 @@ export async function buildV2RecommitProposalOutboundSms(args: {
     return {
       body: finalized.message,
       templateId: legacy.templateId,
-      northStarReplySource: finalized.northStarReplySource,
+      northStarReplySource: finalized.northStarReplySource ?? null,
+      ...packAdaptiveProposalWithheldExtras(finalized),
     };
   }
 
