@@ -52,7 +52,8 @@ export function isV3OwnedInboundReplySource(source: string | null | undefined): 
     source === "v3_missed_yesterday_sms_refined" ||
     source === "v3_winback_refined" ||
     source === "v3_inactivity_rescue_refined" ||
-    source === "v3_machine_deterministic_fallback"
+    source === "v3_machine_deterministic_fallback" ||
+    source === "v3_inbound_relationship_lane"
   );
 }
 

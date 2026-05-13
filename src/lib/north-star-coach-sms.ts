@@ -192,6 +192,7 @@ const V3_RELATIONSHIP_VOICE_EXACT_SOURCES = new Set([
   "v3_missed_yesterday_sms_refined",
   "v3_winback_refined",
   "v3_inactivity_rescue_refined",
+  "v3_inbound_relationship_lane",
 ]);
 
 /** V3-authored drafts North Star must not replace with assembled DB-field prose or second-author OpenAI. */

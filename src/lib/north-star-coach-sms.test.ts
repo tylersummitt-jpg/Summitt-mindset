@@ -16,6 +16,7 @@ describe("isV3RelationshipVoiceReplySource", () => {
   it("treats v3_voice_repair and refined sources as protected V3 relationship voice", () => {
     expect(isV3RelationshipVoiceReplySource("v3_voice_repair")).toBe(true);
     expect(isV3RelationshipVoiceReplySource("v3_daily_relationship_lane")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_inbound_relationship_lane")).toBe(true);
     expect(isV3RelationshipVoiceReplySource("v3_sms_brain")).toBe(true);
     expect(isV3RelationshipVoiceReplySource("v3_daily_check_in")).toBe(true);
     expect(isV3RelationshipVoiceReplySource("v3_answer_to_open_question")).toBe(true);

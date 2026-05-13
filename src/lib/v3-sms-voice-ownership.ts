@@ -192,6 +192,7 @@ function classifyVoiceOwner(replySource: string | null | undefined, _northStarMe
   const src = replySource?.trim() ?? "";
   if (src === "v3_voice_repair") return "v3_repair";
   if (src === "v3_daily_relationship_lane") return "v3_daily";
+  if (src === "v3_inbound_relationship_lane") return "v3_daily";
   if (src === "v3_daily_check_in") return "v3_daily";
   if (src === "v3_answer_to_open_question") return "v3_open_question";
   if (V3_OPENAI_SOURCES.has(src)) return "v3_openai";
