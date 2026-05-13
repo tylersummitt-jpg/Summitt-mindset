@@ -9,6 +9,9 @@ const PERSIST_ATTEMPTS = 3;
 /**
  * Writes Ask Pat answer fields to ask_pat_questions with short retries.
  * Does not throw — callers decide UX when ok is false.
+ *
+ * `requestId` (Phase 0 observability): correlates persistence logs with `/api/ask-pat` request logs.
+ * Later phases: timeout / cancellation; behavior unchanged here.
  */
 export async function persistAskPatAnswerWithRetries(args: {
   questionRowId: string | null;
@@ -16,6 +19,7 @@ export async function persistAskPatAnswerWithRetries(args: {
   model: string;
   safetyStatus: string;
   answerMetadata: Record<string, unknown>;
+  requestId?: string;
 }): Promise<{ ok: true } | { ok: false; lastMessage: string; lastCode?: string }> {
   if (!args.questionRowId) {
     return { ok: true };
@@ -59,7 +63,9 @@ export async function persistAskPatAnswerWithRetries(args: {
   console.error(
     JSON.stringify({
       event: "ask_pat_answer_persistence_failed",
-      stage: "answer_persistence_failed",
+      phase: "observability_v0",
+      stage: "persist_answer",
+      request_id: args.requestId ?? null,
       question_row_id: args.questionRowId,
       supabase_error_message: lastMessage,
       supabase_error_code: lastCode ?? null,

@@ -79,7 +79,7 @@ describe("persistAskPatAnswerWithRetries", () => {
     expect(consoleSpy).toHaveBeenCalled();
     const payload = consoleSpy.mock.calls[0]?.[0] as string;
     expect(payload).toContain("ask_pat_answer_persistence_failed");
-    expect(payload).toContain("answer_persistence_failed");
+    expect(payload).toContain('"stage":"persist_answer"');
     expect(payload).toContain('"question_row_id":"row-uuid"');
     expect(payload).toContain('"answer_length":420');
     expect(payload).not.toContain(body);
