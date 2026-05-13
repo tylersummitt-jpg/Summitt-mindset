@@ -1,5 +1,6 @@
 /**
- * Inbound Central V3 Relationship Lane — Phase 3A/3B (normal active-commitment inbound only).
+ * Inbound Central V3 Relationship Lane — Phase 3A/3B (normal active-commitment inbound) + 3D-a
+ * (central_brain_pivot, arc_clarify_ambiguous_short).
  * OpenAI authors the visible inbound reply; V2 / brain / templates are facts only (no seed prose).
  */
 
@@ -13,7 +14,36 @@ import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 
 const INBOUND_LANE_MAX_CHARS = 320;
 
-export type InboundV3RoutePurpose = "normal_inbound_reply";
+export type InboundV3RoutePurpose =
+  | "normal_inbound_reply"
+  | "central_brain_pivot"
+  | "arc_clarify_ambiguous_short";
+
+/** Facts-only payload when central brain blocks outcome scoring (pivot path). */
+export type InboundV3CentralBrainPivotFacts = {
+  blocked_outcome_scoring: boolean;
+  central_turn_purpose: string | null;
+  confidence: number | null;
+  reason: string;
+  suggested_move: string;
+  /** Non-speakable legacy tether preview (metadata only). */
+  legacy_tether_text_preview: string;
+};
+
+/** Facts-only payload when ARC forces ambiguous-short clarification. */
+export type InboundV3ArcClarificationFacts = {
+  ambiguous_short_reply: boolean;
+  tentative_outcome: "user_yes" | "user_no" | "user_partial";
+  clarification_reason: string | null;
+  context_age: {
+    accountability_prompt_age_minutes: number | null;
+    accountability_prompt_sent_at: string | null;
+    latest_outcome_at: string | null;
+  };
+  latest_question: string | null;
+  /** Non-speakable legacy clarification template preview (metadata only). */
+  legacy_clarification_text_preview: string;
+};
 
 export type InboundV3ConversationBrainFacts = {
   enabled: boolean;
@@ -44,6 +74,10 @@ export type InboundV3ArcFacts = {
 
 export type InboundV3RelationshipFacts = {
   route_purpose: InboundV3RoutePurpose;
+  branch_name?: string | null;
+  branch_migrated_to_lane?: boolean;
+  central_brain_pivot_facts?: InboundV3CentralBrainPivotFacts | null;
+  arc_clarification_facts?: InboundV3ArcClarificationFacts | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -165,6 +199,10 @@ function safeJsonParse(raw: string): LaneModelJson | null {
 function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
   const slim = {
     route_purpose: f.route_purpose,
+    branch_migrated: f.branch_migrated_to_lane === true,
+    branch_name: f.branch_migrated_to_lane === true ? f.branch_name ?? null : null,
+    pivot_facts: f.central_brain_pivot_facts != null,
+    arc_clarify_facts: f.arc_clarification_facts != null,
     gated_mode: f.v2_accountability.gated_mode,
     final_event_type: f.v2_accountability.final_event_type,
     classifier: f.v2_accountability.deterministic_classifier_event,
@@ -179,7 +217,42 @@ function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
   return s.length > 1200 ? `${s.slice(0, 1199)}…` : s;
 }
 
+export function slimCentralBrainPivotFactsForTelemetry(
+  f: InboundV3CentralBrainPivotFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    blocked_outcome_scoring: f.blocked_outcome_scoring,
+    central_turn_purpose: f.central_turn_purpose,
+    confidence: f.confidence,
+    reason: f.reason,
+    suggested_move: f.suggested_move,
+    legacy_tether_text_preview_len: f.legacy_tether_text_preview.length,
+  };
+}
+
+export function slimArcClarificationFactsForTelemetry(
+  f: InboundV3ArcClarificationFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    ambiguous_short_reply: f.ambiguous_short_reply,
+    tentative_outcome: f.tentative_outcome,
+    clarification_reason: f.clarification_reason,
+    context_age: f.context_age,
+    latest_question_len: f.latest_question != null ? f.latest_question.length : 0,
+    legacy_clarification_text_preview_len: f.legacy_clarification_text_preview.length,
+  };
+}
+
 export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3RelationshipFacts): string {
+  if (f.central_brain_pivot_facts) {
+    const m = f.central_brain_pivot_facts.suggested_move?.trim();
+    return m && m.length > 0 ? m : "pivot_respond_humanely";
+  }
+  if (f.arc_clarification_facts) {
+    return "clarify_ambiguous_short_natural_sms";
+  }
   const ft = f.v2_accountability.final_event_type;
   if (ft === "user_yes") return "acknowledge_completion";
   if (ft === "user_no") return "name_blocker";
@@ -225,6 +298,26 @@ export async function produceInboundV3RelationshipSms(
     inbound_facts_summary: summarizeInboundFacts(args.facts),
     suggested_coaching_move: args.facts.suggested_coaching_move,
     route_purpose: args.facts.route_purpose,
+    ...(args.facts.branch_migrated_to_lane === true
+      ? {
+          branch_migrated_to_lane: true as const,
+          branch_name: args.facts.branch_name ?? null,
+        }
+      : {}),
+    ...(args.facts.central_brain_pivot_facts != null
+      ? {
+          central_brain_pivot_facts_summary: slimCentralBrainPivotFactsForTelemetry(
+            args.facts.central_brain_pivot_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.arc_clarification_facts != null
+      ? {
+          arc_clarification_facts_summary: slimArcClarificationFactsForTelemetry(
+            args.facts.arc_clarification_facts
+          ),
+        }
+      : {}),
     coalesced_inbound_body: args.facts.thread.coalesced_inbound_text,
     suppressed_message_sids: args.facts.thread.suppressed_message_sids,
     rejected_time_candidates: args.facts.thread.rejected_time_candidates,
@@ -251,6 +344,15 @@ export async function produceInboundV3RelationshipSms(
   }
 
   const factsJson = JSON.stringify(args.facts);
+  const routePurposeAux =
+    args.facts.route_purpose === "central_brain_pivot"
+      ? `
+ROUTE (central_brain_pivot): Outcome scoring was blocked by central brain for this turn. Use central_brain_pivot_facts for central_turn_purpose, confidence, reason, and suggested_move. The field legacy_tether_text_preview is NON-SPEAKABLE legacy machine/coached copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one fresh humane SMS as the coach for this pivot.`
+      : args.facts.route_purpose === "arc_clarify_ambiguous_short"
+        ? `
+ROUTE (arc_clarify_ambiguous_short): The user's latest reply is ambiguous relative to accountability context. Use arc_clarification_facts (tentative_outcome, clarification_reason, context_age, latest_question). The field legacy_clarification_text_preview is NON-SPEAKABLE legacy template copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one natural clarifying SMS as the coach.`
+        : "";
+
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
 
 RULES:
@@ -263,7 +365,7 @@ RULES:
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
-- If unsafe, uncertain, or facts conflict badly, return should_send false.
+- If unsafe, uncertain, or facts conflict badly, return should_send false.${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -422,9 +524,28 @@ Write JSON only.`;
       lane_stage: "ok",
       v3_candidate_body: body,
       v3_lane_turn_purpose: turnPurpose,
+      should_send: true,
     },
     openAiOk: true,
   };
+}
+
+/** Structured last_error JSON when the inbound V3 relationship lane returns no-send. */
+export function formatInboundV3LaneNoSendLastError(
+  lane: InboundV3RelationshipLaneResult,
+  extras?: Record<string, unknown> | null
+): string {
+  try {
+    return JSON.stringify({
+      tag: "inbound_v3_lane_no_send",
+      no_send_reason: lane.noSendReason,
+      lane_metadata: lane.metadata,
+      open_ai_ok: lane.openAiOk,
+      ...(extras ?? {}),
+    }).slice(0, 1900);
+  } catch {
+    return "inbound_v3_lane_no_send";
+  }
 }
 
 export type BuildInboundV3RelationshipFactsArgs = {
@@ -452,12 +573,21 @@ export type BuildInboundV3RelationshipFactsArgs = {
   accountabilityProofHint: string | null;
   rejectedTimeCandidates: string[];
   unavailableWindows: string[];
+  routePurpose?: InboundV3RoutePurpose;
+  branchName?: string | null;
+  branchMigratedToLane?: boolean;
+  centralBrainPivotFacts?: InboundV3CentralBrainPivotFacts | null;
+  arcClarificationFacts?: InboundV3ArcClarificationFacts | null;
 };
 
 /** Assembles JSON-safe facts for {@link produceInboundV3RelationshipSms} (no upstream prose). */
 export function buildInboundV3RelationshipFacts(args: BuildInboundV3RelationshipFactsArgs): InboundV3RelationshipFacts {
   const facts: InboundV3RelationshipFacts = {
-    route_purpose: "normal_inbound_reply",
+    route_purpose: args.routePurpose ?? "normal_inbound_reply",
+    branch_name: args.branchName ?? null,
+    branch_migrated_to_lane: args.branchMigratedToLane === true,
+    ...(args.centralBrainPivotFacts != null ? { central_brain_pivot_facts: args.centralBrainPivotFacts } : {}),
+    ...(args.arcClarificationFacts != null ? { arc_clarification_facts: args.arcClarificationFacts } : {}),
     user: {
       clerk_user_id: args.clerkUserId,
       preferred_name: args.preferredName,

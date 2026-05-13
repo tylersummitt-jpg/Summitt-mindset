@@ -194,6 +194,7 @@ import {
   inboundSignalsCompletion,
   pickNorthStarWriterAttributionFields,
   type NorthStarCoachChannel,
+  type NorthStarCoachSmsMeta,
   type NorthStarSmsContextPacket,
 } from "@/lib/north-star-coach-sms";
 import {
@@ -221,7 +222,10 @@ import {
 } from "@/lib/v3-sms-brain";
 import {
   buildInboundV3RelationshipFacts,
+  formatInboundV3LaneNoSendLastError,
   produceInboundV3RelationshipSms,
+  slimArcClarificationFactsForTelemetry,
+  slimCentralBrainPivotFactsForTelemetry,
   type InboundV3ArcFacts,
   type InboundV3CentralBrainFacts,
   type InboundV3ConversationBrainFacts,
@@ -359,8 +363,9 @@ async function northStarGatePersistBodyAsync(
     contextPacket?: NorthStarSmsContextPacket;
     activeCommitmentId?: string | null;
     normalCoaching?: boolean;
+    v3BrainMetadata?: Record<string, unknown> | null;
   }
-): Promise<{ northStarVisibleBody: string; voice: VoiceOwnershipResult }> {
+): Promise<{ northStarVisibleBody: string; northStarMeta: NorthStarCoachSmsMeta; voice: VoiceOwnershipResult }> {
   const r = await finalizeNorthStarCoachSmsAsync({
     proposedBody: replyBody,
     channel: args.channel,
@@ -387,11 +392,12 @@ async function northStarGatePersistBodyAsync(
     contextPacket: args.contextPacket,
     todayCompleted: args.contextPacket?.todayCompleted ?? null,
     finalEventType: args.finalEventType ?? args.contextPacket?.finalEventType ?? null,
+    v3BrainMetadata: args.v3BrainMetadata ?? null,
     northStarMeta: r.meta,
     normalCoaching:
       args.normalCoaching ?? Boolean(args.activeCommitmentId ?? args.contextPacket?.activeCommitmentId),
   });
-  return { northStarVisibleBody: r.visibleBody, voice };
+  return { northStarVisibleBody: r.visibleBody, northStarMeta: r.meta, voice };
 }
 
 async function markJobFinal(args: {
@@ -435,19 +441,6 @@ function finalVoiceSkipLastError(
     }).slice(0, 1900);
   } catch {
     return "final_voice_gate_no_send";
-  }
-}
-
-function inboundLaneNoSendLastError(lane: InboundV3RelationshipLaneResult): string {
-  try {
-    return JSON.stringify({
-      tag: "inbound_v3_lane_no_send",
-      no_send_reason: lane.noSendReason,
-      lane_metadata: lane.metadata,
-      open_ai_ok: lane.openAiOk,
-    }).slice(0, 1900);
-  } catch {
-    return "inbound_v3_lane_no_send";
   }
 }
 
@@ -1360,6 +1353,13 @@ async function processV2NormalInboundOutcome(
           routeContext: "normal_accountability",
         });
 
+  const arcWriteOutcomeType = gatedDecision.final_event_type ?? eventType;
+  const arcWouldWriteOutcomeEvent =
+    gatedDecision.should_write_outcome_event &&
+    (arcWriteOutcomeType === "user_yes" ||
+      arcWriteOutcomeType === "user_no" ||
+      arcWriteOutcomeType === "user_partial");
+
   const smsBrainControlEnabled = isV2CentralSmsBrainControlEnabled();
   if (
     smsBrainControlEnabled &&
@@ -1370,17 +1370,18 @@ async function processV2NormalInboundOutcome(
       controlEnabled: smsBrainControlEnabled,
     })
   ) {
-    let pivotBody = buildCentralBrainHumanTetherReply({
+    const pivotTetherMachine = buildCentralBrainHumanTetherReply({
       turnPurpose: centralSmsTurnShadowStored.central_turn_purpose,
       inboundText: userMessage,
       effectiveAskSnippet: effectiveBehavior,
       lastOutboundPromptPreview: lastOutboundSmsPreview,
       route: "normal_accountability",
     });
+    let pivotLegacyPreview = pivotTetherMachine;
     if (shouldRunPhase5aCentralTetherBrain()) {
-      pivotBody = (
+      pivotLegacyPreview = (
         await finalizePhase5aCentralTetherHumanSms({
-          machineDraft: pivotBody,
+          machineDraft: pivotTetherMachine,
           tetherRoute: "normal_accountability",
           centralTurnPurpose: centralSmsTurnShadowStored.central_turn_purpose,
         })
@@ -1404,79 +1405,192 @@ async function processV2NormalInboundOutcome(
       })
     );
 
-    let pivotVisible = pivotBody;
-    /** Truthful when V3 refine block skipped (central brain + optional Phase 5a only). */
-    let pivotReplySource = "central_brain_pivot_visible";
-    if (normalCoachingV3Eligible) {
-      const linesPivot = buildMinimalInboundTranscriptLines(
-        convPackFull,
-        userMessage,
-        lastOutboundSmsPreview
-      );
-      try {
-        const v3Pivot = await produceV3InboundCoachDraft({
-          userMessage,
-          messageSid: job.message_sid,
-          commitment,
-          effectiveAsk: effectiveBehavior,
-          timezone,
-          northStarPacket: northStarPktForV3,
-          convPackRecentLines: linesPivot,
-          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
-          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-          todayCompleted: priorYesForV3,
-          coachingMemory: coachingMemoryRow,
-          recentEvents,
-          gatedDecision,
-          deterministicEventType: eventType,
-          priorDraftHint: { source: "central_brain_pivot", text: pivotBody },
-        });
-        pivotVisible = v3Pivot.draft;
-        pivotReplySource = inferV3InboundReplySource(v3Pivot.brain, v3Pivot.openAiOk, true);
-      } catch (e) {
-        console.warn("[v3-sms-brain] pivot_refine_failed", {
-          commitment_id: commitment.id,
-          message: e instanceof Error ? e.message : String(e),
-        });
-        const rec = await recoverV3InboundCoachDraftFromArgs({
-          userMessage,
-          messageSid: job.message_sid,
-          commitment,
-          effectiveAsk: effectiveBehavior,
-          timezone,
-          northStarPacket: northStarPktForV3,
-          convPackRecentLines: linesPivot,
-          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
-          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-          todayCompleted: priorYesForV3,
-          coachingMemory: coachingMemoryRow,
-          recentEvents,
-          gatedDecision,
-          deterministicEventType: eventType,
-          priorDraftHint: { source: "central_brain_pivot", text: pivotBody },
-        });
-        pivotVisible = rec.draft;
-        pivotReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
-      }
+    const pivotLines = buildMinimalInboundTranscriptLines(
+      convPackFull,
+      userMessage,
+      lastOutboundSmsPreview
+    );
+    const forcedCoachSmsPivot =
+      conversationBrainControlTurn == null
+        ? tryBuildForcedInboundCoachSms({
+            userMessage,
+            gatedDecision,
+            lastOutboundSmsPreview,
+            eventsNewestFirst: recentEvents,
+            effectiveAskFloor: effectiveBehavior,
+            messageSid: job.message_sid,
+          })
+        : null;
+    const relationshipTonePivot =
+      coachingMemoryRow?.sms_relationship_profile != null
+        ? JSON.stringify(coachingMemoryRow.sms_relationship_profile).slice(0, 240)
+        : null;
+
+    const conversationBrainFactsPivot: InboundV3ConversationBrainFacts =
+      conversationBrainControlTurn != null
+        ? {
+            enabled: true,
+            model: conversationBrainControlTurn.model,
+            guardrail_status: conversationBrainControlTurn.guard.status,
+            turn_kind: conversationBrainControlTurn.proposal.turn_kind,
+            outcome_confidence: conversationBrainControlTurn.proposal.outcome_confidence,
+            reply_strategy: conversationBrainControlTurn.proposal.reply_strategy,
+            needs_clarification: conversationBrainControlTurn.proposal.needs_clarification,
+            repeated_clarification_risk: conversationBrainControlTurn.proposal.repeated_clarification_risk,
+            final_event_type: conversationBrainControlTurn.guard.final_event_type ?? null,
+          }
+        : { enabled: false };
+
+    const centralBrainFactsPivot: InboundV3CentralBrainFacts = {
+      shadow_stored: true,
+      central_turn_purpose: centralSmsTurnShadowStored.central_turn_purpose ?? null,
+      confidence: centralSmsTurnShadowStored.confidence ?? null,
+      blocked_outcome_scoring: true,
+    };
+
+    let arcFactsPivot: InboundV3ArcFacts = {
+      ambiguous_short_reply: false,
+      clarification_required: false,
+    };
+    if (isV2ActiveReplyContextEnabled() && arcWouldWriteOutcomeEvent && conversationBrainControlTurn == null) {
+      const activeReplyCtxPivot = buildV2ActiveReplyContext({
+        inboundText: userMessage,
+        eventsNewestFirst: recentEvents,
+        commitmentTitle: commitment.title,
+        behaviorStatement: commitment.behavior_statement,
+        effectiveAsk: effectiveBehavior,
+      });
+      arcFactsPivot = {
+        ambiguous_short_reply: Boolean(activeReplyCtxPivot.ambiguous_short_reply),
+        clarification_required: Boolean(activeReplyCtxPivot.should_force_clarification_for_ambiguous_short_reply),
+      };
     }
 
-    const pivotVoicePack = await northStarGatePersistBodyAsync(pivotVisible, {
+    const pivotFacts = buildInboundV3RelationshipFacts({
+      clerkUserId: userId,
+      preferredName,
+      timezone,
+      localTimeIso: new Date(new Date().toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+      commitment,
+      effectiveAsk: effectiveBehavior,
+      userMessageRaw: userMessage,
+      coalescedInboundText: userMessage,
+      suppressedMessageSids: splitSuppressedMessageSids,
+      transcriptLines: pivotLines,
+      northStarPacket: northStarPktForV3,
+      gatedDecision,
+      deterministicEventType: eventType,
+      doNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
+      relationshipProfileSummary: relationshipTonePivot,
+      conversationBrain: conversationBrainFactsPivot,
+      centralBrain: centralBrainFactsPivot,
+      arc: arcFactsPivot,
+      phase5a: {
+        central_tether_brain_enabled: shouldRunPhase5aCentralTetherBrain(),
+        arc_clarify_brain_enabled: shouldRunPhase5aArcClarifyBrain(),
+        inbound_stitched_final_enabled: shouldRunPhase5aInboundStitchedFinalBrain(),
+      },
+      forcedFutureStretchIntentActive: Boolean(forcedCoachSmsPivot),
+      wave11MemoryConfirmationPending: pendingAwaitingMemoryConfirmation != null,
+      accountabilityProofHint: proofPromptHint != null ? JSON.stringify(proofPromptHint) : null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "central_brain_pivot",
+      branchName: "central_brain_outcome_blocking_pivot",
+      branchMigratedToLane: true,
+      centralBrainPivotFacts: {
+        blocked_outcome_scoring: true,
+        central_turn_purpose: centralSmsTurnShadowStored.central_turn_purpose ?? null,
+        confidence:
+          typeof centralSmsTurnShadowStored.confidence === "number" &&
+          Number.isFinite(centralSmsTurnShadowStored.confidence)
+            ? centralSmsTurnShadowStored.confidence
+            : null,
+        reason: "central_brain_human_or_meta",
+        suggested_move: String(centralSmsTurnShadowStored.central_turn_purpose ?? "respond_to_thread").slice(0, 120),
+        legacy_tether_text_preview: pivotLegacyPreview.slice(0, 500),
+      },
+    });
+
+    const pivotLaneRes = await produceInboundV3RelationshipSms({
+      facts: pivotFacts,
+      telemetry_fact_sources: [
+        "classifyV2InboundReply",
+        "resolveV2InboundGatedDecision",
+        "buildInboundNorthStarContextPacket",
+        "buildMinimalInboundTranscriptLines",
+        "interpretV2CentralSmsTurn",
+        "buildV2ActiveReplyContext",
+        "deriveDoNotRepeatHintsFromCoachingMemory",
+        "buildCentralBrainHumanTetherReply_legacy_preview_only",
+        "finalizePhase5aCentralTetherHumanSms_legacy_preview_only",
+      ],
+    });
+
+    if (!pivotLaneRes.shouldSend || !pivotLaneRes.body.trim()) {
+      await markJobFinal({
+        messageSid: job.message_sid,
+        status: "cancelled",
+        lastError: formatInboundV3LaneNoSendLastError(pivotLaneRes, {
+          route_purpose: "central_brain_pivot",
+          branch_name: "central_brain_outcome_blocking_pivot",
+          branch_migrated_to_lane: true,
+        }),
+        nextRetry: farFutureIso(),
+      });
+      console.warn("[sms-inbound-coach] pivot_inbound_relationship_lane_no_send", {
+        message_sid: job.message_sid,
+        commitment_id: commitment.id,
+        reason: pivotLaneRes.noSendReason,
+      });
+      return;
+    }
+
+    const pivotV3BrainMetadata: Record<string, unknown> = {
+      ...pivotLaneRes.metadata,
+      inbound_v3_relationship_lane: true,
+      v3_lane_turn_purpose: pivotLaneRes.turnPurpose,
+      route_purpose: "central_brain_pivot",
+      branch_migrated_to_lane: true,
+      branch_name: "central_brain_outcome_blocking_pivot",
+      central_brain_pivot_facts_summary: slimCentralBrainPivotFactsForTelemetry(pivotFacts.central_brain_pivot_facts),
+      v3_candidate_body: pivotLaneRes.body,
+    };
+
+    const pivotVoicePack = await northStarGatePersistBodyAsync(pivotLaneRes.body, {
       job,
       channel: "central_brain_pivot",
       lastOutboundBody: lastOutboundSmsPreview,
       effectiveAsk: effectiveBehavior,
       behaviorStatement: commitment.behavior_statement,
       finalEventType: gatedDecision.final_event_type ?? eventType,
-      replySource: pivotReplySource,
+      replySource: "v3_inbound_relationship_lane",
       contextPacket: northStarPktForV3,
       activeCommitmentId: commitment.id,
       normalCoaching: true,
+      v3BrainMetadata: pivotV3BrainMetadata,
     });
     if (!pivotVoicePack.voice.shouldSend) {
       await markJobFinal({
         messageSid: job.message_sid,
         status: "cancelled",
-        lastError: finalVoiceSkipLastError(pivotVoicePack.voice),
+        lastError: finalVoiceSkipLastError(pivotVoicePack.voice, {
+          route_purpose: "central_brain_pivot",
+          branch_name: "central_brain_outcome_blocking_pivot",
+          branch_migrated_to_lane: true,
+          v3_lane_reply_source: "v3_inbound_relationship_lane",
+          v3_candidate_body: pivotLaneRes.body.slice(0, 500),
+          lane_metadata: pivotLaneRes.metadata,
+          north_star_gate: {
+            original_body: pivotVoicePack.northStarMeta.originalBody,
+            final_body: pivotVoicePack.northStarVisibleBody,
+            north_star_gate_source: pivotVoicePack.northStarMeta.source,
+            north_star_gate_reasons: pivotVoicePack.northStarMeta.blockedReasons,
+            ...pickNorthStarWriterAttributionFields(pivotVoicePack.northStarMeta),
+          },
+          final_voice_gate: pivotVoicePack.voice.metadata,
+          should_send: false,
+        }),
         nextRetry: farFutureIso(),
       });
       console.warn("[sms-inbound-coach] pivot_final_voice_suppressed", {
@@ -1515,14 +1629,6 @@ async function processV2NormalInboundOutcome(
     return;
   }
 
-  /** Wave 14.3a — ambiguous short inbound cannot attach to accountability without live fresh prompt or self-contained grounding. */
-  const arcWriteOutcomeType = gatedDecision.final_event_type ?? eventType;
-  const arcWouldWriteOutcomeEvent =
-    gatedDecision.should_write_outcome_event &&
-    (arcWriteOutcomeType === "user_yes" ||
-      arcWriteOutcomeType === "user_no" ||
-      arcWriteOutcomeType === "user_partial");
-
   if (
     isV2ActiveReplyContextEnabled() &&
     arcWouldWriteOutcomeEvent &&
@@ -1536,14 +1642,15 @@ async function processV2NormalInboundOutcome(
       effectiveAsk: effectiveBehavior,
     });
     if (activeReplyCtx.should_force_clarification_for_ambiguous_short_reply) {
-      let clarificationBody = buildActiveReplyContextClarificationSms({
+      const clarificationMachine = buildActiveReplyContextClarificationSms({
         inboundText: userMessage,
         tentativeOutcomeType: arcWriteOutcomeType,
       });
+      let arcLegacyPreview = clarificationMachine;
       if (shouldRunPhase5aArcClarifyBrain()) {
-        clarificationBody = (
+        arcLegacyPreview = (
           await finalizePhase5aArcClarifyHumanSms({
-            machineDraft: clarificationBody,
+            machineDraft: clarificationMachine,
             tentativeOutcomeLabel: arcWriteOutcomeType,
           })
         ).message;
@@ -1564,79 +1671,174 @@ async function processV2NormalInboundOutcome(
         })
       );
 
-      let clarifyVisible = clarificationBody;
-      /** Truthful when V3 refine block skipped (ARC clarify + optional Phase 5a only). */
-      let clarifyReplySource = "arc_clarify_ambiguous_short_visible";
-      if (normalCoachingV3Eligible) {
-        const linesArc = buildMinimalInboundTranscriptLines(
-          convPackFull,
-          userMessage,
-          lastOutboundSmsPreview
-        );
-        try {
-          const v3Arc = await produceV3InboundCoachDraft({
-            userMessage,
-            messageSid: job.message_sid,
-            commitment,
-            effectiveAsk: effectiveBehavior,
-            timezone,
-            northStarPacket: northStarPktForV3,
-            convPackRecentLines: linesArc,
-            expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
-            latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-            todayCompleted: priorYesForV3,
-            coachingMemory: coachingMemoryRow,
-            recentEvents,
-            gatedDecision,
-            deterministicEventType: eventType,
-            priorDraftHint: { source: "arc_clarify_ambiguous_short", text: clarificationBody },
-          });
-          clarifyVisible = v3Arc.draft;
-          clarifyReplySource = inferV3InboundReplySource(v3Arc.brain, v3Arc.openAiOk, true);
-        } catch (e) {
-          console.warn("[v3-sms-brain] arc_clarify_refine_failed", {
-            commitment_id: commitment.id,
-            message: e instanceof Error ? e.message : String(e),
-          });
-          const rec = await recoverV3InboundCoachDraftFromArgs({
-            userMessage,
-            messageSid: job.message_sid,
-            commitment,
-            effectiveAsk: effectiveBehavior,
-            timezone,
-            northStarPacket: northStarPktForV3,
-            convPackRecentLines: linesArc,
-            expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
-            latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-            todayCompleted: priorYesForV3,
-            coachingMemory: coachingMemoryRow,
-            recentEvents,
-            gatedDecision,
-            deterministicEventType: eventType,
-            priorDraftHint: { source: "arc_clarify_ambiguous_short", text: clarificationBody },
-          });
-          clarifyVisible = rec.draft;
-          clarifyReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
-        }
+      const arcLines = buildMinimalInboundTranscriptLines(
+        convPackFull,
+        userMessage,
+        lastOutboundSmsPreview
+      );
+      const forcedCoachSmsArc = tryBuildForcedInboundCoachSms({
+        userMessage,
+        gatedDecision,
+        lastOutboundSmsPreview,
+        eventsNewestFirst: recentEvents,
+        effectiveAskFloor: effectiveBehavior,
+        messageSid: job.message_sid,
+      });
+      const relationshipToneArc =
+        coachingMemoryRow?.sms_relationship_profile != null
+          ? JSON.stringify(coachingMemoryRow.sms_relationship_profile).slice(0, 240)
+          : null;
+
+      const conversationBrainFactsArc: InboundV3ConversationBrainFacts = { enabled: false };
+
+      const centralBrainFactsArc: InboundV3CentralBrainFacts =
+        centralSmsTurnShadowStored != null
+          ? {
+              shadow_stored: true,
+              central_turn_purpose: centralSmsTurnShadowStored.central_turn_purpose ?? null,
+              confidence: centralSmsTurnShadowStored.confidence ?? null,
+              blocked_outcome_scoring: false,
+            }
+          : { shadow_stored: false };
+
+      const arcFactsArc: InboundV3ArcFacts = {
+        ambiguous_short_reply: true,
+        clarification_required: true,
+      };
+
+      const latestCheckQuestion =
+        (lastOutboundSmsPreview != null && lastOutboundSmsPreview.trim().length > 0
+          ? lastOutboundSmsPreview.trim()
+          : null) ??
+        (northStarPktForV3.latestOpenQuestion != null && northStarPktForV3.latestOpenQuestion.trim().length > 0
+          ? northStarPktForV3.latestOpenQuestion.trim()
+          : null);
+
+      const arcInboundFacts = buildInboundV3RelationshipFacts({
+        clerkUserId: userId,
+        preferredName,
+        timezone,
+        localTimeIso: new Date(new Date().toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        userMessageRaw: userMessage,
+        coalescedInboundText: userMessage,
+        suppressedMessageSids: splitSuppressedMessageSids,
+        transcriptLines: arcLines,
+        northStarPacket: northStarPktForV3,
+        gatedDecision,
+        deterministicEventType: eventType,
+        doNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
+        relationshipProfileSummary: relationshipToneArc,
+        conversationBrain: conversationBrainFactsArc,
+        centralBrain: centralBrainFactsArc,
+        arc: arcFactsArc,
+        phase5a: {
+          central_tether_brain_enabled: shouldRunPhase5aCentralTetherBrain(),
+          arc_clarify_brain_enabled: shouldRunPhase5aArcClarifyBrain(),
+          inbound_stitched_final_enabled: shouldRunPhase5aInboundStitchedFinalBrain(),
+        },
+        forcedFutureStretchIntentActive: Boolean(forcedCoachSmsArc),
+        wave11MemoryConfirmationPending: pendingAwaitingMemoryConfirmation != null,
+        accountabilityProofHint: proofPromptHint != null ? JSON.stringify(proofPromptHint) : null,
+        rejectedTimeCandidates: [],
+        unavailableWindows: [],
+        routePurpose: "arc_clarify_ambiguous_short",
+        branchName: "arc_ambiguous_short_clarify",
+        branchMigratedToLane: true,
+        arcClarificationFacts: {
+          ambiguous_short_reply: true,
+          tentative_outcome: arcWriteOutcomeType,
+          clarification_reason: activeReplyCtx.clarification_reason,
+          context_age: {
+            accountability_prompt_age_minutes: activeReplyCtx.accountability_prompt_age_minutes,
+            accountability_prompt_sent_at: activeReplyCtx.accountability_prompt_sent_at,
+            latest_outcome_at: activeReplyCtx.latest_outcome_at,
+          },
+          latest_question: latestCheckQuestion,
+          legacy_clarification_text_preview: arcLegacyPreview.slice(0, 500),
+        },
+      });
+
+      const arcLaneRes = await produceInboundV3RelationshipSms({
+        facts: arcInboundFacts,
+        telemetry_fact_sources: [
+          "classifyV2InboundReply",
+          "resolveV2InboundGatedDecision",
+          "buildInboundNorthStarContextPacket",
+          "buildMinimalInboundTranscriptLines",
+          "interpretV2CentralSmsTurn",
+          "buildV2ActiveReplyContext",
+          "deriveDoNotRepeatHintsFromCoachingMemory",
+          "buildActiveReplyContextClarificationSms_legacy_preview_only",
+          "finalizePhase5aArcClarifyHumanSms_legacy_preview_only",
+        ],
+      });
+
+      if (!arcLaneRes.shouldSend || !arcLaneRes.body.trim()) {
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: formatInboundV3LaneNoSendLastError(arcLaneRes, {
+            route_purpose: "arc_clarify_ambiguous_short",
+            branch_name: "arc_ambiguous_short_clarify",
+            branch_migrated_to_lane: true,
+          }),
+          nextRetry: farFutureIso(),
+        });
+        console.warn("[sms-inbound-coach] arc_inbound_relationship_lane_no_send", {
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          reason: arcLaneRes.noSendReason,
+        });
+        return;
       }
 
-      const clarifyVoicePack = await northStarGatePersistBodyAsync(clarifyVisible, {
+      const arcV3BrainMetadata: Record<string, unknown> = {
+        ...arcLaneRes.metadata,
+        inbound_v3_relationship_lane: true,
+        v3_lane_turn_purpose: arcLaneRes.turnPurpose,
+        route_purpose: "arc_clarify_ambiguous_short",
+        branch_migrated_to_lane: true,
+        branch_name: "arc_ambiguous_short_clarify",
+        arc_clarification_facts_summary: slimArcClarificationFactsForTelemetry(arcInboundFacts.arc_clarification_facts),
+        v3_candidate_body: arcLaneRes.body,
+      };
+
+      const clarifyVoicePack = await northStarGatePersistBodyAsync(arcLaneRes.body, {
         job,
         channel: "clarification",
         lastOutboundBody: lastOutboundSmsPreview,
         effectiveAsk: effectiveBehavior,
         behaviorStatement: commitment.behavior_statement,
         finalEventType: arcWriteOutcomeType,
-        replySource: clarifyReplySource,
+        replySource: "v3_inbound_relationship_lane",
         contextPacket: northStarPktForV3,
         activeCommitmentId: commitment.id,
         normalCoaching: true,
+        v3BrainMetadata: arcV3BrainMetadata,
       });
       if (!clarifyVoicePack.voice.shouldSend) {
         await markJobFinal({
           messageSid: job.message_sid,
           status: "cancelled",
-          lastError: finalVoiceSkipLastError(clarifyVoicePack.voice),
+          lastError: finalVoiceSkipLastError(clarifyVoicePack.voice, {
+            route_purpose: "arc_clarify_ambiguous_short",
+            branch_name: "arc_ambiguous_short_clarify",
+            branch_migrated_to_lane: true,
+            v3_lane_reply_source: "v3_inbound_relationship_lane",
+            v3_candidate_body: arcLaneRes.body.slice(0, 500),
+            lane_metadata: arcLaneRes.metadata,
+            north_star_gate: {
+              original_body: clarifyVoicePack.northStarMeta.originalBody,
+              final_body: clarifyVoicePack.northStarVisibleBody,
+              north_star_gate_source: clarifyVoicePack.northStarMeta.source,
+              north_star_gate_reasons: clarifyVoicePack.northStarMeta.blockedReasons,
+              ...pickNorthStarWriterAttributionFields(clarifyVoicePack.northStarMeta),
+            },
+            final_voice_gate: clarifyVoicePack.voice.metadata,
+            should_send: false,
+          }),
           nextRetry: farFutureIso(),
         });
         console.warn("[sms-inbound-coach] arc_clarify_final_voice_suppressed", {
@@ -1899,7 +2101,7 @@ async function processV2NormalInboundOutcome(
       await markJobFinal({
         messageSid: job.message_sid,
         status: "cancelled",
-        lastError: inboundLaneNoSendLastError(laneRes),
+        lastError: formatInboundV3LaneNoSendLastError(laneRes),
         nextRetry: farFutureIso(),
       });
       console.warn("[sms-inbound-coach] inbound_relationship_lane_no_send", {
