@@ -48,9 +48,9 @@ const ctaPrimaryClass =
 const ctaHeroPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
 
-/** Secondary on light background: stronger affordance, no orange */
-const howItWorksPromoButtonClass =
-  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl border-2 border-neutral-800/90 bg-neutral-50 px-6 py-3 text-sm font-semibold text-neutral-900 shadow-sm transition-all hover:border-neutral-950 hover:bg-neutral-100 hover:shadow-md active:bg-neutral-100/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white md:px-8 md:py-3.5 md:text-base";
+/** “Watch the Video” on dark mini-hero — readable + tap target */
+const howItWorksVideoButtonClass =
+  "inline-flex w-full min-w-0 items-center justify-center rounded-xl bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-neutral-950 shadow-md shadow-orange-500/20 transition hover:-translate-y-0.5 hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 sm:w-auto";
 
 export default async function CoachLeadershipKitPage() {
   const user = await currentUser();
@@ -66,7 +66,7 @@ export default async function CoachLeadershipKitPage() {
               src="/brand/coach-leadership-kit-hero-mobile.png"
               alt=""
               fill
-              sizes="100vw"
+              sizes="(max-width: 767px) 100vw, 0px"
               priority
               className="object-cover object-center"
             />
@@ -76,7 +76,7 @@ export default async function CoachLeadershipKitPage() {
               src="/brand/coach-leadership-kit-hero-desktop.png"
               alt=""
               fill
-              sizes="100vw"
+              sizes="(min-width: 768px) 100vw, 0px"
               priority
               className="object-cover object-[center_30%] lg:object-center"
             />
@@ -157,39 +157,52 @@ export default async function CoachLeadershipKitPage() {
         </div>
       </section>
 
-      {/* 2. How It Works walkthrough — simple two-column: copy + Ask Pat image */}
+      {/* 2. How It Works walkthrough — image-led mini hero */}
       <section
-        className="border-b border-[var(--border)] bg-white"
+        className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950"
         aria-label="Watch How It Works walkthrough"
       >
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 md:py-14 lg:py-16">
-          <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-center lg:gap-x-10 lg:gap-y-0">
-            <div className="flex min-w-0 flex-col items-center gap-3 text-center md:gap-4 lg:items-start lg:text-left">
-              <h2 className="text-2xl font-bold leading-tight tracking-tight text-[var(--text)] sm:text-3xl">
+        <div className="relative isolate min-h-[420px] min-w-0 sm:min-h-[460px] md:min-h-[500px] lg:min-h-[540px] w-full">
+          <div className="absolute inset-0 md:hidden" aria-hidden>
+            <Image
+              src="/brand/candace_pat_game_mobile.PNG"
+              alt=""
+              fill
+              sizes="(max-width: 767px) 100vw, 0px"
+              className="object-cover object-center"
+            />
+          </div>
+          <div className="absolute inset-0 hidden md:block" aria-hidden>
+            <Image
+              src="/brand/candace_pat_game_desktop.PNG"
+              alt=""
+              fill
+              sizes="(min-width: 768px) 100vw, 0px"
+              className="object-cover object-center"
+            />
+          </div>
+          <div
+            className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-t from-black via-black/85 to-black/25 md:bg-gradient-to-r md:from-black md:from-40% md:via-black/75 md:via-58% md:to-transparent"
+            aria-hidden
+          />
+          <div className="relative z-10 flex min-h-[420px] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end items-start px-4 py-10 sm:min-h-[460px] sm:px-6 sm:py-12 md:min-h-[500px] md:py-14 lg:min-h-[540px] lg:py-16">
+            <div className="flex w-full min-w-0 max-w-2xl flex-col gap-4 text-left sm:gap-5">
+              <h2 className="text-2xl font-bold leading-tight tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-4xl">
                 Watch How It Works
               </h2>
-              <p className="mx-auto max-w-xl text-base leading-relaxed text-[var(--muted)] md:text-lg lg:mx-0">
-                See what your Summitt Mindset membership includes and what&apos;s
-                inside the Leadership Kit.
+              <p className="text-base leading-relaxed text-white/90 drop-shadow-sm sm:text-lg">
+                See exactly what your membership unlocks: the accountability
+                system, the Leadership Kit, and how we help you coach with Pat
+                Summitt&apos;s principles.
               </p>
-              <div className="flex w-full justify-center pt-1 lg:justify-start">
+              <div className="flex w-full min-w-0 max-w-md pt-1">
                 <Link
                   href="/coach-leadership-kit/how-it-works"
-                  className={howItWorksPromoButtonClass}
+                  className={howItWorksVideoButtonClass}
                 >
                   Watch the Video
                 </Link>
               </div>
-            </div>
-            <div className="mx-auto w-full max-w-xl lg:mx-0 lg:max-w-none">
-              <Image
-                src="/brand/ask-pat-coaching.jpg"
-                alt=""
-                width={1600}
-                height={1067}
-                sizes="(max-width: 1023px) 100vw, 50vw"
-                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm"
-              />
             </div>
           </div>
         </div>
