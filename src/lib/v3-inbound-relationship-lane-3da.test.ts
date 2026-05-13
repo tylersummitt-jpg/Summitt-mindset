@@ -22,8 +22,20 @@ import {
   deriveSuggestedCoachingMoveForInboundFacts,
   formatInboundV3LaneNoSendLastError,
   produceInboundV3RelationshipSms,
+  slimOpenQuestionFactsForTelemetry,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
+
+const REFINE_ONLY_GATED: V2InboundGatedDecision = {
+  mode: "clarify",
+  final_event_type: null,
+  decision_reason: "v3_refine_visible_only",
+  confidence_used: null,
+  should_write_outcome_event: false,
+  should_open_blocker_capture: false,
+  reply_style: "normal_outcome",
+  overrode_deterministic: false,
+};
 
 function baseCommitment(): ActiveV2CommitmentRow {
   return {
@@ -367,5 +379,291 @@ describe("Phase 3D-a inbound lane (central pivot + ARC clarify)", () => {
     });
     expect(f.v2_accountability.should_write_outcome_event).toBe(true);
     expect(f.central_brain_pivot_facts?.blocked_outcome_scoring).toBe(true);
+  });
+});
+
+describe("Phase 3D-b inbound lane (blocker pivot + blocker ack)", () => {
+  const env = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...env };
+    vi.clearAllMocks();
+  });
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  it("deriveSuggested uses central brain blocker pivot facts", () => {
+    const f = buildInboundV3RelationshipFacts({
+      ...baseFactsArgs(),
+      gatedDecision: REFINE_ONLY_GATED,
+      routePurpose: "central_brain_blocker_pivot",
+      branchMigratedToLane: true,
+      branchName: "central_brain_blocker_capture_pivot",
+      centralBrainBlockerPivotFacts: {
+        blocked_blocker_capture: true,
+        central_turn_purpose: "human_tether",
+        confidence: 0.9,
+        reason: "central_brain_human_or_meta",
+        suggested_move: "custom_blocker_pivot",
+        blocker_text: "too many meetings",
+        legacy_tether_text_preview: "OLD",
+      },
+    });
+    expect(deriveSuggestedCoachingMoveForInboundFacts(f)).toBe("custom_blocker_pivot");
+  });
+
+  it("deriveSuggested uses blocker_capture_ack facts", () => {
+    const f = buildInboundV3RelationshipFacts({
+      ...baseFactsArgs(),
+      gatedDecision: REFINE_ONLY_GATED,
+      routePurpose: "blocker_capture_ack",
+      branchMigratedToLane: true,
+      branchName: "blocker_capture_ack",
+      blockerFacts: {
+        blocker_text: "meetings",
+        blocker_category: "user_partial:blank",
+        repeated_blocker_signal: false,
+        following_event_type: "user_no",
+        blocker_pending_age_minutes_remaining: 30,
+        suggested_next_move: "Protect two hours",
+        legacy_blocker_ack_preview: "LEGACY_ACK",
+      },
+    });
+    expect(deriveSuggestedCoachingMoveForInboundFacts(f)).toBe("acknowledge_blocker_capture");
+  });
+
+  it("central_brain_blocker_pivot lane metadata when clean", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Understood on meetings as the drag. One move tomorrow: block the first hour before inbox.",
+              no_send_reason: null,
+              turn_purpose: "blocker_pivot",
+              voice_confidence: 0.72,
+              used_facts: ["central_brain_blocker_pivot_facts"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const legacyTether = "LEGACY_BLOCKER_TETHER_PREVIEW_SHOULD_NOT_EQUAL_LANE";
+    const facts = buildInboundV3RelationshipFacts({
+      ...baseFactsArgs(),
+      gatedDecision: REFINE_ONLY_GATED,
+      routePurpose: "central_brain_blocker_pivot",
+      branchMigratedToLane: true,
+      branchName: "central_brain_blocker_capture_pivot",
+      centralBrainBlockerPivotFacts: {
+        blocked_blocker_capture: true,
+        central_turn_purpose: "human_tether",
+        confidence: 0.8,
+        reason: "central_brain_human_or_meta",
+        suggested_move: "human_tether",
+        blocker_text: "meetings stacked",
+        legacy_tether_text_preview: legacyTether,
+      },
+    });
+    const r = await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: ["test_blocker_pivot"] });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.trim()).not.toBe(legacyTether.trim());
+    expect(r.metadata.route_purpose).toBe("central_brain_blocker_pivot");
+    expect(r.metadata.branch_migrated_to_lane).toBe(true);
+  });
+
+  it("blocker_capture_ack lane body differs from legacy ack preview", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Thanks for naming it — we will work that edge without letting the bar slide.",
+              no_send_reason: null,
+              turn_purpose: "blocker_ack",
+              voice_confidence: 0.7,
+              used_facts: ["blocker_facts"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const legacyAck = "LEGACY_BLOCKER_ACK_AI_OR_TEMPLATE_SHOULD_NOT_EQUAL_LANE";
+    const facts = buildInboundV3RelationshipFacts({
+      ...baseFactsArgs(),
+      gatedDecision: REFINE_ONLY_GATED,
+      routePurpose: "blocker_capture_ack",
+      branchMigratedToLane: true,
+      branchName: "blocker_capture_ack",
+      blockerFacts: {
+        blocker_text: "distraction",
+        blocker_category: "user_partial",
+        repeated_blocker_signal: true,
+        following_event_type: "user_no",
+        blocker_pending_age_minutes_remaining: 10,
+        suggested_next_move: "Two hours deep work",
+        legacy_blocker_ack_preview: legacyAck,
+      },
+    });
+    const r = await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: ["test_blocker_ack"] });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.trim()).not.toBe(legacyAck.trim());
+    expect(r.metadata.route_purpose).toBe("blocker_capture_ack");
+  });
+});
+
+describe("Phase 3C inbound lane (open_question_answer)", () => {
+  const env = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...env };
+    vi.clearAllMocks();
+  });
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  it("deriveSuggested uses open_question_facts", () => {
+    const f = buildInboundV3RelationshipFacts({
+      ...baseFactsArgs(),
+      gatedDecision: REFINE_ONLY_GATED,
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      routePurpose: "open_question_answer",
+      branchMigratedToLane: true,
+      branchName: "open_question_answer",
+      openQuestionFacts: {
+        latest_open_question: "What time works?",
+        expected_reply_semantics: "time_or_schedule",
+        resolution_subkind: "time_or_schedule",
+        extracted_answer: "9am",
+        answer_kind: "time_or_schedule",
+        old_open_question_reply_preview: "LEGACY_TRY_GENERATE_PREVIEW",
+        deterministic_fallback_used: true,
+        deterministic_fallback_reason: "openai_failed_or_empty",
+        legacy_open_question_reply_source: "deterministic_fallback",
+        latest_outbound_preview: "Did you protect focus?",
+      },
+    });
+    expect(deriveSuggestedCoachingMoveForInboundFacts(f)).toBe("respond_to_open_question_answer_natural");
+  });
+
+  it("open_question_answer lane: clean body is not the legacy tryGenerate preview", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Nine works — lock it on the calendar and text me when the first block starts.",
+              no_send_reason: null,
+              turn_purpose: "answer_open_question",
+              voice_confidence: 0.75,
+              used_facts: ["open_question_facts", "thread"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const legacyPreview = "DETERMINISTIC_OR_OPENAI_LEGACY_TRY_GENERATE_BODY";
+    const oqFacts = {
+      latest_open_question: "What time works tomorrow?",
+      expected_reply_semantics: "time_or_schedule",
+      resolution_subkind: "time_or_schedule",
+      extracted_answer: "9am",
+      answer_kind: "time_or_schedule",
+      old_open_question_reply_preview: legacyPreview,
+      deterministic_fallback_used: true,
+      deterministic_fallback_reason: "openai_failed_or_empty",
+      legacy_open_question_reply_source: "deterministic_fallback" as const,
+      latest_outbound_preview: "Did you hit two hours?",
+    };
+    const facts = buildInboundV3RelationshipFacts({
+      ...baseFactsArgs(),
+      gatedDecision: REFINE_ONLY_GATED,
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      routePurpose: "open_question_answer",
+      branchMigratedToLane: true,
+      branchName: "open_question_answer",
+      openQuestionFacts: oqFacts,
+    });
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["tryResolveAnswerToOpenQuestionTurn", "tryGenerateV3OpenQuestionCoachReply_legacy_preview_only"],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.trim()).not.toBe(legacyPreview.trim());
+    expect(r.metadata.route_purpose).toBe("open_question_answer");
+    expect(r.metadata.open_question_facts_summary).toEqual(slimOpenQuestionFactsForTelemetry(oqFacts));
+    const messages = createMock.mock.calls[0]?.[0]?.messages as { content?: string }[] | undefined;
+    const userContent = messages?.[1]?.content ?? "";
+    expect(userContent).toContain('"open_question_facts"');
+    expect(userContent).toContain('"resolution_subkind":"time_or_schedule"');
+  });
+
+  it("open_question_answer lane no-send is tagged for operator last_error", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: false,
+              body: "",
+              no_send_reason: "unsafe_facts",
+              turn_purpose: "no_send",
+              voice_confidence: null,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: false,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      ...baseFactsArgs(),
+      gatedDecision: REFINE_ONLY_GATED,
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      routePurpose: "open_question_answer",
+      branchMigratedToLane: true,
+      branchName: "open_question_answer",
+      openQuestionFacts: {
+        latest_open_question: "Story title?",
+        expected_reply_semantics: "open_reflection",
+        resolution_subkind: "open_reflection",
+        extracted_answer: "The long hallway",
+        answer_kind: "open_reflection",
+        old_open_question_reply_preview: "LEGACY",
+        deterministic_fallback_used: false,
+        deterministic_fallback_reason: null,
+        legacy_open_question_reply_source: "openai",
+        latest_outbound_preview: null,
+      },
+    });
+    const r = await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: ["test_oq_lane"] });
+    expect(r.shouldSend).toBe(false);
+    const err = formatInboundV3LaneNoSendLastError(r, {
+      route_purpose: "open_question_answer",
+      branch_name: "open_question_answer",
+      branch_migrated_to_lane: true,
+    });
+    const parsed = JSON.parse(err) as { tag?: string; route_purpose?: string; branch_name?: string };
+    expect(parsed.tag).toBe("inbound_v3_lane_no_send");
+    expect(parsed.route_purpose).toBe("open_question_answer");
+    expect(parsed.branch_name).toBe("open_question_answer");
   });
 });

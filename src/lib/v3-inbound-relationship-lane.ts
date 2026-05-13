@@ -1,6 +1,7 @@
 /**
- * Inbound Central V3 Relationship Lane — Phase 3A/3B (normal active-commitment inbound) + 3D-a
- * (central_brain_pivot, arc_clarify_ambiguous_short).
+ * Inbound Central V3 Relationship Lane — Phase 3A/3B (normal active-commitment inbound) + 3D-a/3D-b
+ * (central_brain_pivot, arc_clarify_ambiguous_short, central_brain_blocker_pivot, blocker_capture_ack)
+ * + 3C (open_question_answer) + 3E (refresh, pending_resolution, memory confirmation).
  * OpenAI authors the visible inbound reply; V2 / brain / templates are facts only (no seed prose).
  */
 
@@ -17,7 +18,101 @@ const INBOUND_LANE_MAX_CHARS = 320;
 export type InboundV3RoutePurpose =
   | "normal_inbound_reply"
   | "central_brain_pivot"
-  | "arc_clarify_ambiguous_short";
+  | "arc_clarify_ambiguous_short"
+  | "central_brain_blocker_pivot"
+  | "blocker_capture_ack"
+  | "open_question_answer"
+  | "refresh"
+  | "refresh_identity"
+  | "refresh_commitment"
+  | "refresh_confirmation"
+  | "refresh_clarification"
+  | "pending_resolution"
+  | "memory_confirmation"
+  | "memory_decline"
+  | "memory_clarification"
+  | "adaptive_proposal_consent_accept"
+  | "adaptive_proposal_consent_decline"
+  | "adaptive_proposal_consent_noop_ack";
+
+/** Adaptive overlay proposal consent — server already applied/declined; legacy ACK is preview only. */
+export type InboundV3ContractConsentFacts = {
+  consent_parse: "user_yes" | "user_no";
+  latest_outbound_was_proposal: boolean;
+  proposal_kind: string;
+  /** Short digest for facts JSON (not full binding when long). */
+  proposal_text_digest: string;
+  overlay_action:
+    | "activated"
+    | "declined"
+    | "noop_already_applied"
+    | "noop_not_found"
+    | "noop_state_conflict";
+  rpc_result: string;
+  server_state_transition_summary: string;
+  required_verbatim_substrings?: string[];
+  required_meaning_summary?: string | null;
+  /** Non-speakable legacy template / prior-writer preview — metadata only. */
+  legacy_contract_ack_preview: string;
+  inbound_message_sid: string;
+  proposal_expires_at: string | null;
+};
+
+/** Refresh session — machine/template preview is metadata only. */
+export type InboundV3RefreshFacts = {
+  refresh_step: string;
+  expected_answer: string;
+  user_answer_type: string;
+  state_transition_summary: string;
+  updated_identity_anchor?: string | null;
+  updated_commitment_bar?: string | null;
+  /** Non-speakable legacy refresh machine/template copy. */
+  legacy_refresh_reply_preview: string;
+  required_verbatim_substrings?: string[];
+  required_meaning_summary?: string | null;
+};
+
+export type InboundV3PendingResolutionFacts = {
+  resolution_type: string;
+  pending_action: string;
+  user_answer_type: string;
+  state_transition_summary: string;
+  updated_commitment_snapshot: string;
+  /** Non-speakable legacy pending-resolution reply body. */
+  legacy_pending_reply_preview: string;
+  required_verbatim_substrings?: string[];
+  required_meaning_summary?: string | null;
+};
+
+export type InboundV3MemoryConfirmationFacts = {
+  pending_memory_kind: string;
+  candidate_memory_fields: string;
+  user_confirmation_parse: string;
+  memory_applied: boolean;
+  memory_declined: boolean;
+  ambiguous: boolean;
+  /** Non-speakable legacy fixed/refined reply preview. */
+  legacy_memory_reply_preview: string;
+  required_verbatim_substrings?: string[];
+  required_meaning_summary?: string | null;
+  /** Structured proof hint for telemetry — not copyable SMS append. */
+  memory_proof_structured_hint?: string | null;
+};
+
+/** Semantic resolution + legacy writer preview only (not speakable coach voice). */
+export type InboundV3OpenQuestionFacts = {
+  latest_open_question: string | null;
+  expected_reply_semantics: string;
+  resolution_subkind: string;
+  extracted_answer: string | null;
+  answer_kind: string | null;
+  /** Non-speakable legacy OpenAI/deterministic writer preview — metadata only. */
+  old_open_question_reply_preview: string;
+  deterministic_fallback_used: boolean;
+  deterministic_fallback_reason: string | null;
+  legacy_open_question_reply_source: "openai" | "deterministic_fallback";
+  latest_outbound_preview: string | null;
+};
 
 /** Facts-only payload when central brain blocks outcome scoring (pivot path). */
 export type InboundV3CentralBrainPivotFacts = {
@@ -43,6 +138,31 @@ export type InboundV3ArcClarificationFacts = {
   latest_question: string | null;
   /** Non-speakable legacy clarification template preview (metadata only). */
   legacy_clarification_text_preview: string;
+};
+
+/** Central brain blocked blocker capture — tether preview is facts only. */
+export type InboundV3CentralBrainBlockerPivotFacts = {
+  blocked_blocker_capture: boolean;
+  central_turn_purpose: string | null;
+  confidence: number | null;
+  reason: string;
+  suggested_move: string;
+  blocker_text: string;
+  /** Non-speakable legacy tether preview (metadata only). */
+  legacy_tether_text_preview: string;
+};
+
+/** Blocker capture ACK — legacy AI/template ack is facts only. */
+export type InboundV3BlockerFacts = {
+  blocker_text: string;
+  blocker_category: string | null;
+  repeated_blocker_signal: boolean;
+  following_event_type: string;
+  /** Minutes until blocker capture window expires, if known. */
+  blocker_pending_age_minutes_remaining: number | null;
+  suggested_next_move: string | null;
+  /** Non-speakable legacy ack (AI or template) preview (metadata only). */
+  legacy_blocker_ack_preview: string;
 };
 
 export type InboundV3ConversationBrainFacts = {
@@ -78,6 +198,13 @@ export type InboundV3RelationshipFacts = {
   branch_migrated_to_lane?: boolean;
   central_brain_pivot_facts?: InboundV3CentralBrainPivotFacts | null;
   arc_clarification_facts?: InboundV3ArcClarificationFacts | null;
+  central_brain_blocker_pivot_facts?: InboundV3CentralBrainBlockerPivotFacts | null;
+  blocker_facts?: InboundV3BlockerFacts | null;
+  open_question_facts?: InboundV3OpenQuestionFacts | null;
+  refresh_facts?: InboundV3RefreshFacts | null;
+  pending_resolution_facts?: InboundV3PendingResolutionFacts | null;
+  memory_confirmation_facts?: InboundV3MemoryConfirmationFacts | null;
+  contract_consent_facts?: InboundV3ContractConsentFacts | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -142,6 +269,10 @@ export type InboundV3RelationshipFacts = {
     if_unsafe_return_no_send: true;
     /** Substrings that must NOT appear in body (e.g. rejected times). */
     forbidden_substrings?: string[];
+    /** Each substring MUST appear verbatim in body when non-empty (transactional accuracy). */
+    required_verbatim_substrings?: string[];
+    /** Coach must satisfy this meaning without contradicting server-owned state. */
+    required_meaning_summary?: string | null;
   };
 };
 
@@ -202,7 +333,14 @@ function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
     branch_migrated: f.branch_migrated_to_lane === true,
     branch_name: f.branch_migrated_to_lane === true ? f.branch_name ?? null : null,
     pivot_facts: f.central_brain_pivot_facts != null,
+    blocker_pivot_facts: f.central_brain_blocker_pivot_facts != null,
+    blocker_ack_facts: f.blocker_facts != null,
     arc_clarify_facts: f.arc_clarification_facts != null,
+    open_question_facts: f.open_question_facts != null,
+    refresh_facts: f.refresh_facts != null,
+    pending_resolution_facts: f.pending_resolution_facts != null,
+    memory_confirmation_facts: f.memory_confirmation_facts != null,
+    contract_consent_facts: f.contract_consent_facts != null,
     gated_mode: f.v2_accountability.gated_mode,
     final_event_type: f.v2_accountability.final_event_type,
     classifier: f.v2_accountability.deterministic_classifier_event,
@@ -245,13 +383,147 @@ export function slimArcClarificationFactsForTelemetry(
   };
 }
 
+export function slimCentralBrainBlockerPivotFactsForTelemetry(
+  f: InboundV3CentralBrainBlockerPivotFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    blocked_blocker_capture: f.blocked_blocker_capture,
+    central_turn_purpose: f.central_turn_purpose,
+    confidence: f.confidence,
+    reason: f.reason,
+    suggested_move: f.suggested_move,
+    blocker_text_len: f.blocker_text.length,
+    legacy_tether_text_preview_len: f.legacy_tether_text_preview.length,
+  };
+}
+
+export function slimBlockerFactsForTelemetry(f: InboundV3BlockerFacts | null | undefined): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    following_event_type: f.following_event_type,
+    blocker_category: f.blocker_category,
+    repeated_blocker_signal: f.repeated_blocker_signal,
+    blocker_pending_age_minutes_remaining: f.blocker_pending_age_minutes_remaining,
+    blocker_text_len: f.blocker_text.length,
+    legacy_blocker_ack_preview_len: f.legacy_blocker_ack_preview.length,
+    has_suggested_next_move: f.suggested_next_move != null && f.suggested_next_move.trim().length > 0,
+  };
+}
+
+export function slimOpenQuestionFactsForTelemetry(
+  f: InboundV3OpenQuestionFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    resolution_subkind: f.resolution_subkind,
+    answer_kind: f.answer_kind,
+    extracted_answer_len: f.extracted_answer?.trim().length ?? 0,
+    old_open_question_reply_preview_len: f.old_open_question_reply_preview.length,
+    deterministic_fallback_used: f.deterministic_fallback_used,
+    legacy_open_question_reply_source: f.legacy_open_question_reply_source,
+    latest_outbound_preview_len: f.latest_outbound_preview?.trim().length ?? 0,
+  };
+}
+
+export function slimRefreshFactsForTelemetry(f: InboundV3RefreshFacts | null | undefined): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    refresh_step: f.refresh_step,
+    user_answer_type: f.user_answer_type,
+    expected_answer_len: f.expected_answer?.length ?? 0,
+    legacy_refresh_reply_preview_len: f.legacy_refresh_reply_preview.length,
+    required_verbatim_count: f.required_verbatim_substrings?.length ?? 0,
+    has_required_meaning: Boolean(f.required_meaning_summary?.trim()),
+  };
+}
+
+export function slimPendingResolutionFactsForTelemetry(
+  f: InboundV3PendingResolutionFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    resolution_type: f.resolution_type,
+    pending_action: f.pending_action,
+    user_answer_type: f.user_answer_type,
+    legacy_pending_reply_preview_len: f.legacy_pending_reply_preview.length,
+    updated_commitment_snapshot_len: f.updated_commitment_snapshot.length,
+    required_verbatim_count: f.required_verbatim_substrings?.length ?? 0,
+    has_required_meaning: Boolean(f.required_meaning_summary?.trim()),
+  };
+}
+
+export function slimMemoryConfirmationFactsForTelemetry(
+  f: InboundV3MemoryConfirmationFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    pending_memory_kind: f.pending_memory_kind,
+    user_confirmation_parse: f.user_confirmation_parse,
+    memory_applied: f.memory_applied,
+    memory_declined: f.memory_declined,
+    ambiguous: f.ambiguous,
+    legacy_memory_reply_preview_len: f.legacy_memory_reply_preview.length,
+    required_verbatim_count: f.required_verbatim_substrings?.length ?? 0,
+    has_required_meaning: Boolean(f.required_meaning_summary?.trim()),
+    has_proof_hint: Boolean(f.memory_proof_structured_hint?.trim()),
+  };
+}
+
+export function slimContractConsentFactsForTelemetry(
+  f: InboundV3ContractConsentFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    consent_parse: f.consent_parse,
+    proposal_kind: f.proposal_kind,
+    overlay_action: f.overlay_action,
+    rpc_result: f.rpc_result,
+    proposal_text_digest_len: f.proposal_text_digest.length,
+    legacy_contract_ack_preview_len: f.legacy_contract_ack_preview.length,
+    required_verbatim_count: f.required_verbatim_substrings?.length ?? 0,
+    has_required_meaning: Boolean(f.required_meaning_summary?.trim()),
+    latest_outbound_was_proposal: f.latest_outbound_was_proposal,
+  };
+}
+
 export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3RelationshipFacts): string {
   if (f.central_brain_pivot_facts) {
     const m = f.central_brain_pivot_facts.suggested_move?.trim();
     return m && m.length > 0 ? m : "pivot_respond_humanely";
   }
+  if (f.central_brain_blocker_pivot_facts) {
+    const m = f.central_brain_blocker_pivot_facts.suggested_move?.trim();
+    return m && m.length > 0 ? m : "blocker_pivot_respond_humanely";
+  }
   if (f.arc_clarification_facts) {
     return "clarify_ambiguous_short_natural_sms";
+  }
+  if (f.blocker_facts) {
+    return "acknowledge_blocker_capture";
+  }
+  if (f.contract_consent_facts) {
+    if (f.route_purpose === "adaptive_proposal_consent_decline") {
+      return "acknowledge_adaptive_overlay_declined";
+    }
+    if (f.route_purpose === "adaptive_proposal_consent_noop_ack") {
+      return "acknowledge_adaptive_proposal_noop";
+    }
+    return "acknowledge_adaptive_overlay_accepted";
+  }
+  if (f.refresh_facts) {
+    return "continue_refresh_coach_sms";
+  }
+  if (f.pending_resolution_facts) {
+    return "continue_pending_resolution_coach_sms";
+  }
+  if (f.memory_confirmation_facts) {
+    if (f.route_purpose === "memory_decline") return "acknowledge_memory_declined";
+    if (f.route_purpose === "memory_clarification") return "clarify_memory_confirmation_reply";
+    return "acknowledge_memory_update_outcome";
+  }
+  if (f.open_question_facts) {
+    return "respond_to_open_question_answer_natural";
   }
   const ft = f.v2_accountability.final_event_type;
   if (ft === "user_yes") return "acknowledge_completion";
@@ -272,6 +544,47 @@ function validateForbiddenSubstrings(body: string, forbidden: string[] | undefin
   return null;
 }
 
+/** Returns first required substring missing from body, or null if all present. */
+function validateRequiredVerbatimSubstrings(body: string, required: string[] | undefined): string | null {
+  if (!required?.length) return null;
+  for (const sub of required) {
+    const t = sub.trim();
+    if (!t) continue;
+    if (!body.includes(t)) return t;
+  }
+  return null;
+}
+
+export type RequiredVerbatimAssertionStage = "lane" | "post_north_star" | "post_final_voice_gate";
+
+/**
+ * Multi-stage binding survival check for contract consent (and similar).
+ * Empty required list → ok.
+ */
+export function assertRequiredVerbatimSubstringsPresent(
+  stage: RequiredVerbatimAssertionStage,
+  body: string,
+  requiredSubstrings: string[] | undefined | null
+): { ok: boolean; missing: string[]; stage: RequiredVerbatimAssertionStage } {
+  const missing: string[] = [];
+  if (requiredSubstrings?.length) {
+    for (const sub of requiredSubstrings) {
+      const t = sub.trim();
+      if (!t) continue;
+      if (!body.includes(t)) missing.push(t);
+    }
+  }
+  return { ok: missing.length === 0, missing, stage };
+}
+
+/** YES-path binding substring — exact characters from proposal head (≤28) for lane verbatim match. */
+export function contractConsentYesBindingVerbatimSubstring(proposalText: string): string | null {
+  const t = proposalText.trim();
+  if (!t) return null;
+  if (t.length > 28) return t.slice(0, 28);
+  return t;
+}
+
 function validateNoRejectedTimeRepeat(body: string, rejected: string[]): string | null {
   const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
   const b = norm(body);
@@ -281,6 +594,51 @@ function validateNoRejectedTimeRepeat(body: string, rejected: string[]): string 
     if (b.includes(norm(t))) return t;
   }
   return null;
+}
+
+function buildRoutePurposeAux(f: InboundV3RelationshipFacts): string {
+  const rp = f.route_purpose;
+  if (rp === "central_brain_pivot") {
+    return `
+ROUTE (central_brain_pivot): Outcome scoring was blocked by central brain for this turn. Use central_brain_pivot_facts for central_turn_purpose, confidence, reason, and suggested_move. The field legacy_tether_text_preview is NON-SPEAKABLE legacy machine/coached copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one fresh humane SMS as the coach for this pivot.`;
+  }
+  if (rp === "central_brain_blocker_pivot") {
+    return `
+ROUTE (central_brain_blocker_pivot): Blocker capture was blocked by central brain for this turn. Use central_brain_blocker_pivot_facts (central_turn_purpose, confidence, reason, suggested_move, blocker_text). The field legacy_tether_text_preview is NON-SPEAKABLE legacy machine/coached copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one fresh humane SMS as the coach for this pivot.`;
+  }
+  if (rp === "blocker_capture_ack") {
+    return `
+ROUTE (blocker_capture_ack): The user submitted blocker text after a miss; server already owns state. Use blocker_facts (blocker_text, following_event_type, repeated_blocker_signal, blocker_pending_age_minutes_remaining, suggested_next_move). The field legacy_blocker_ack_preview is NON-SPEAKABLE legacy AI/template copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one short SMS acknowledging the blocker and holding the standard, as the coach.`;
+  }
+  if (rp === "arc_clarify_ambiguous_short") {
+    return `
+ROUTE (arc_clarify_ambiguous_short): The user's latest reply is ambiguous relative to accountability context. Use arc_clarification_facts (tentative_outcome, clarification_reason, context_age, latest_question). The field legacy_clarification_text_preview is NON-SPEAKABLE legacy template copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one natural clarifying SMS as the coach.`;
+  }
+  if (rp === "open_question_answer") {
+    return `
+ROUTE (open_question_answer): The user is answering the coach's latest question in-thread. Use open_question_facts (latest_open_question, expected_reply_semantics, resolution_subkind, extracted_answer, answer_kind) plus thread and commitment facts. The field old_open_question_reply_preview is NON-SPEAKABLE legacy machine copy from an old writer path — do not quote it, imitate it, paste it, or treat it as your voice. Write the NEXT SMS as the coach responding naturally to the user's answer.`;
+  }
+  if (rp === "refresh" || rp.startsWith("refresh_")) {
+    return `
+ROUTE (${rp}): Guided refresh-session SMS. Server already applied refresh_state / transitions in facts — do NOT invent, undo, or alter commitments or identity from prose. Use refresh_facts (refresh_step, user_answer_type, expected_answer, state_transition_summary, updated_identity_anchor, updated_commitment_bar). legacy_refresh_reply_preview is NON-SPEAKABLE machine/template copy — do not quote, imitate, or paste it. If constraints.required_verbatim_substrings is non-empty, include EVERY listed substring exactly in body. If constraints.required_meaning_summary is set, satisfy it accurately. Write ONE SMS as the coach continuing the thread.`;
+  }
+  if (rp === "pending_resolution") {
+    return `
+ROUTE (pending_resolution): SMS pending guided-resolution completion. Server already applied the pending action — do NOT invent a different commitment state. Use pending_resolution_facts (resolution_type, pending_action, user_answer_type, state_transition_summary, updated_commitment_snapshot). legacy_pending_reply_preview is NON-SPEAKABLE machine copy — do not quote, imitate, or paste it. Honor required_verbatim_substrings / required_meaning_summary in constraints when present. Write ONE SMS as the coach acknowledging the outcome and next thread move.`;
+  }
+  if (rp === "memory_confirmation" || rp === "memory_decline" || rp === "memory_clarification") {
+    return `
+ROUTE (${rp}): Wave 11 memory confirmation / decline / ambiguity. Server already decided memory_applied / memory_declined / ambiguous flags — do NOT contradict them or claim updates that did not occur. Use memory_confirmation_facts (pending_memory_kind, candidate_memory_fields, user_confirmation_parse, flags). legacy_memory_reply_preview is NON-SPEAKABLE fixed/refined copy — do not quote, imitate, or paste it. memory_proof_structured_hint is structured telemetry only — do not paste it verbatim. Honor required_verbatim_substrings / required_meaning_summary when present. Write ONE SMS as the coach.`;
+  }
+  if (
+    rp === "adaptive_proposal_consent_accept" ||
+    rp === "adaptive_proposal_consent_decline" ||
+    rp === "adaptive_proposal_consent_noop_ack"
+  ) {
+    return `
+ROUTE (${rp}): Adaptive overlay proposal consent. Server already decided overlay_action / rpc_result — do NOT invent YES/NO, do NOT activate/decline overlays from prose, do NOT invent contract terms. Use contract_consent_facts (consent_parse, overlay_action, proposal_kind, proposal_text_digest, server_state_transition_summary, inbound_message_sid). legacy_contract_ack_preview is NON-SPEAKABLE legacy template preview — do not quote, imitate, or paste it. If constraints.required_verbatim_substrings is non-empty, include EVERY substring exactly. If constraints.required_meaning_summary is set, satisfy it without contradicting server flags. One short SMS.`;
+  }
+  return "";
 }
 
 /**
@@ -318,6 +676,51 @@ export async function produceInboundV3RelationshipSms(
           ),
         }
       : {}),
+    ...(args.facts.central_brain_blocker_pivot_facts != null
+      ? {
+          central_brain_blocker_pivot_facts_summary: slimCentralBrainBlockerPivotFactsForTelemetry(
+            args.facts.central_brain_blocker_pivot_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.blocker_facts != null
+      ? { blocker_facts_summary: slimBlockerFactsForTelemetry(args.facts.blocker_facts) }
+      : {}),
+    ...(args.facts.open_question_facts != null
+      ? {
+          open_question_facts_summary: slimOpenQuestionFactsForTelemetry(args.facts.open_question_facts),
+        }
+      : {}),
+    ...(args.facts.refresh_facts != null
+      ? { refresh_facts_summary: slimRefreshFactsForTelemetry(args.facts.refresh_facts) }
+      : {}),
+    ...(args.facts.pending_resolution_facts != null
+      ? {
+          pending_resolution_facts_summary: slimPendingResolutionFactsForTelemetry(
+            args.facts.pending_resolution_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.memory_confirmation_facts != null
+      ? {
+          memory_confirmation_facts_summary: slimMemoryConfirmationFactsForTelemetry(
+            args.facts.memory_confirmation_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.contract_consent_facts != null
+      ? {
+          contract_consent_facts_summary: slimContractConsentFactsForTelemetry(
+            args.facts.contract_consent_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.constraints.required_verbatim_substrings?.length
+      ? { required_verbatim_substrings: args.facts.constraints.required_verbatim_substrings }
+      : {}),
+    ...(args.facts.constraints.required_meaning_summary?.trim()
+      ? { required_meaning_summary: args.facts.constraints.required_meaning_summary }
+      : {}),
     coalesced_inbound_body: args.facts.thread.coalesced_inbound_text,
     suppressed_message_sids: args.facts.thread.suppressed_message_sids,
     rejected_time_candidates: args.facts.thread.rejected_time_candidates,
@@ -344,14 +747,7 @@ export async function produceInboundV3RelationshipSms(
   }
 
   const factsJson = JSON.stringify(args.facts);
-  const routePurposeAux =
-    args.facts.route_purpose === "central_brain_pivot"
-      ? `
-ROUTE (central_brain_pivot): Outcome scoring was blocked by central brain for this turn. Use central_brain_pivot_facts for central_turn_purpose, confidence, reason, and suggested_move. The field legacy_tether_text_preview is NON-SPEAKABLE legacy machine/coached copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one fresh humane SMS as the coach for this pivot.`
-      : args.facts.route_purpose === "arc_clarify_ambiguous_short"
-        ? `
-ROUTE (arc_clarify_ambiguous_short): The user's latest reply is ambiguous relative to accountability context. Use arc_clarification_facts (tentative_outcome, clarification_reason, context_age, latest_question). The field legacy_clarification_text_preview is NON-SPEAKABLE legacy template copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one natural clarifying SMS as the coach.`
-        : "";
+  const routePurposeAux = buildRoutePurposeAux(args.facts);
 
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
 
@@ -360,6 +756,8 @@ RULES:
 - Read the thread: latest inbound, latest outbound coach SMS, transcript lines, and open-question semantics.
 - Anchor to the active commitment (effective ask + state). Do not paste raw title or behavior_statement as a quoted check.
 - If the user corrected or rejected something in facts, do not repeat it. If rejected_time_candidates or forbidden_substrings list times or phrases, do not include them in your body.
+- If constraints.required_verbatim_substrings is non-empty, the body MUST contain every listed substring exactly (verbatim substring match).
+- If constraints.required_meaning_summary is set, the body MUST satisfy that meaning without contradicting server-owned flags in facts.
 - If multiple recent lines reflect one combined intent, answer the combined meaning (facts may set split_messages_handled).
 - One short SMS, max ${INBOUND_LANE_MAX_CHARS} characters, no newlines, one clear coach move.
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
@@ -510,6 +908,27 @@ Write JSON only.`;
     };
   }
 
+  const missReq = validateRequiredVerbatimSubstrings(body, args.facts.constraints.required_verbatim_substrings);
+  if (missReq != null) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: "required_verbatim_missing",
+      replySource: "v3_inbound_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes: [...safetyNotes, `required_verbatim_missing:${missReq.slice(0, 80)}`],
+      metadata: {
+        ...baseMeta,
+        lane_stage: "required_verbatim_failed",
+        v3_candidate_body: body,
+        missing_required_substring: missReq.slice(0, 120),
+      },
+      openAiOk: true,
+    };
+  }
+
   return {
     body,
     shouldSend: true,
@@ -578,16 +997,45 @@ export type BuildInboundV3RelationshipFactsArgs = {
   branchMigratedToLane?: boolean;
   centralBrainPivotFacts?: InboundV3CentralBrainPivotFacts | null;
   arcClarificationFacts?: InboundV3ArcClarificationFacts | null;
+  centralBrainBlockerPivotFacts?: InboundV3CentralBrainBlockerPivotFacts | null;
+  blockerFacts?: InboundV3BlockerFacts | null;
+  openQuestionFacts?: InboundV3OpenQuestionFacts | null;
+  refreshFacts?: InboundV3RefreshFacts | null;
+  pendingResolutionFacts?: InboundV3PendingResolutionFacts | null;
+  memoryConfirmationFacts?: InboundV3MemoryConfirmationFacts | null;
+  contractConsentFacts?: InboundV3ContractConsentFacts | null;
 };
 
 /** Assembles JSON-safe facts for {@link produceInboundV3RelationshipSms} (no upstream prose). */
 export function buildInboundV3RelationshipFacts(args: BuildInboundV3RelationshipFactsArgs): InboundV3RelationshipFacts {
+  const reqVerb: string[] = [
+    ...(args.refreshFacts?.required_verbatim_substrings ?? []),
+    ...(args.pendingResolutionFacts?.required_verbatim_substrings ?? []),
+    ...(args.memoryConfirmationFacts?.required_verbatim_substrings ?? []),
+    ...(args.contractConsentFacts?.required_verbatim_substrings ?? []),
+  ].filter((s) => typeof s === "string" && s.trim().length > 0);
+  const reqMeanRaw =
+    args.refreshFacts?.required_meaning_summary?.trim() ||
+    args.pendingResolutionFacts?.required_meaning_summary?.trim() ||
+    args.memoryConfirmationFacts?.required_meaning_summary?.trim() ||
+    args.contractConsentFacts?.required_meaning_summary?.trim() ||
+    null;
+
   const facts: InboundV3RelationshipFacts = {
     route_purpose: args.routePurpose ?? "normal_inbound_reply",
     branch_name: args.branchName ?? null,
     branch_migrated_to_lane: args.branchMigratedToLane === true,
     ...(args.centralBrainPivotFacts != null ? { central_brain_pivot_facts: args.centralBrainPivotFacts } : {}),
     ...(args.arcClarificationFacts != null ? { arc_clarification_facts: args.arcClarificationFacts } : {}),
+    ...(args.centralBrainBlockerPivotFacts != null
+      ? { central_brain_blocker_pivot_facts: args.centralBrainBlockerPivotFacts }
+      : {}),
+    ...(args.blockerFacts != null ? { blocker_facts: args.blockerFacts } : {}),
+    ...(args.openQuestionFacts != null ? { open_question_facts: args.openQuestionFacts } : {}),
+    ...(args.refreshFacts != null ? { refresh_facts: args.refreshFacts } : {}),
+    ...(args.pendingResolutionFacts != null ? { pending_resolution_facts: args.pendingResolutionFacts } : {}),
+    ...(args.memoryConfirmationFacts != null ? { memory_confirmation_facts: args.memoryConfirmationFacts } : {}),
+    ...(args.contractConsentFacts != null ? { contract_consent_facts: args.contractConsentFacts } : {}),
     user: {
       clerk_user_id: args.clerkUserId,
       preferred_name: args.preferredName,
@@ -651,6 +1099,12 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       ],
     },
   };
+  if (reqVerb.length > 0) {
+    facts.constraints.required_verbatim_substrings = reqVerb;
+  }
+  if (reqMeanRaw) {
+    facts.constraints.required_meaning_summary = reqMeanRaw;
+  }
   facts.suggested_coaching_move = deriveSuggestedCoachingMoveForInboundFacts(facts);
   return facts;
 }
