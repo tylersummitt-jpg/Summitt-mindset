@@ -5,10 +5,24 @@ import {
   finalizeNorthStarCoachSms,
   finalizeNorthStarCoachSmsPreservingSuffix,
   inboundSignalsCompletion,
+  isV3RelationshipVoiceReplySource,
   matchesMalformedDidRawPhraseHappenToday,
+  pickNorthStarWriterAttributionFields,
 } from "./north-star-coach-sms";
 
 const SAMPLE_COMPLIANCE_FOOTER = "Reply STOP to opt out. Reply HELP for help.";
+
+describe("isV3RelationshipVoiceReplySource", () => {
+  it("treats v3_voice_repair and refined sources as protected V3 relationship voice", () => {
+    expect(isV3RelationshipVoiceReplySource("v3_voice_repair")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_daily_check_in")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_sms_brain")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_answer_to_open_question")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_daily_deterministic_fallback")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_some_topic_refined")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("deterministic_human")).toBe(false);
+  });
+});
 
 describe("inboundSignalsCompletion", () => {
   it("treats sure did as completion", () => {
@@ -224,6 +238,45 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(r.meta.repeated_question_guard_fired).toBe(true);
     expect(r.visibleBody.toLowerCase()).toContain("thank someone");
     expect(r.visibleBody.toLowerCase()).not.toContain("that counts if you say it does");
+  });
+
+  it("v3_voice_repair: scrub collapse does not inject Did the rep happen today bank", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "@@@",
+      channel: "daily_outbound",
+      replySource: "v3_voice_repair",
+      effectiveAskText: "30 min focus",
+      behaviorStatement: "Focus",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("did the rep happen today");
+    expect(r.meta.requires_v3_repair).toBe(true);
+  });
+
+  it("v3 daily: scrub collapse does not use buildDailyCommitmentAsk as final bank", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "@@@",
+      channel: "daily_outbound",
+      replySource: "v3_daily_check_in",
+      effectiveAskText: "30 min focus block",
+      behaviorStatement: "Focus",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("did you protect");
+    expect(r.visibleBody.toLowerCase()).not.toContain("did the rep happen today");
+    expect(r.meta.requires_v3_repair).toBe(true);
+  });
+
+  it("exposes writer attribution fields for telemetry merge", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Great job on your journey today!",
+      channel: "daily_outbound",
+      contextPacket: { source: "test", effectiveAskText: "reps" },
+    });
+    expect(Array.isArray(r.meta.voice_writer_chain)).toBe(true);
+    expect(r.meta.voice_writer_chain).toContain("final_voice_gate");
+    expect(r.meta.north_star_rewrite_type).toBeDefined();
+    const picked = pickNorthStarWriterAttributionFields(r.meta);
+    expect(picked.voice_writer_chain).toEqual(r.meta.voice_writer_chain);
+    expect(picked.north_star_rewrite_type).toBe(r.meta.north_star_rewrite_type);
   });
 
   it("daily outbound scrubs did you manage essay phrasing", () => {

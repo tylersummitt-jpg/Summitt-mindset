@@ -39,6 +39,73 @@ describe("finalizeNorthStarCoachSmsAsync", () => {
     expect(r.meta.openaiAttempted).toBe(false);
     expect(r.visibleBody.toLowerCase()).not.toContain("great job");
   });
+
+  it("does not run OpenAI as normal finalizer for v3_daily_check_in (telemetry)", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await finalizeNorthStarCoachSmsAsync({
+      proposedBody: "Quick check — still on track?",
+      channel: "daily_outbound",
+      replySource: "v3_daily_check_in",
+      contextPacket: { source: "daily", effectiveAskText: "30 min focus" },
+    });
+    expect(r.meta.openaiAttempted).toBe(false);
+    expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  });
+
+  it("does not run OpenAI as normal finalizer for v3_sms_brain", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await finalizeNorthStarCoachSmsAsync({
+      proposedBody: "Great job today!",
+      channel: "inbound_coach_reply",
+      replySource: "v3_sms_brain",
+      latestInboundRaw: "ok",
+      contextPacket: { source: "test", latestInboundRaw: "ok" },
+    });
+    expect(r.meta.openaiAttempted).toBe(false);
+    expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  });
+
+  it("does not run OpenAI as normal finalizer for v3_answer_to_open_question", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await finalizeNorthStarCoachSmsAsync({
+      proposedBody: "Sounds good.",
+      channel: "inbound_coach_reply",
+      replySource: "v3_answer_to_open_question",
+      latestInboundRaw: "yes",
+      contextPacket: { source: "test", latestInboundRaw: "yes" },
+    });
+    expect(r.meta.openaiAttempted).toBe(false);
+    expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  });
+
+  it("does not run OpenAI as normal finalizer for v3_voice_repair", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await finalizeNorthStarCoachSmsAsync({
+      proposedBody: "Repaired line here.",
+      channel: "inbound_coach_reply",
+      replySource: "v3_voice_repair",
+      latestInboundRaw: "ok",
+      contextPacket: { source: "test", latestInboundRaw: "ok" },
+    });
+    expect(r.meta.openaiAttempted).toBe(false);
+    expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  });
+
+  it("marks repair_only mode when northStarOpenAiRepairOnly is set (explicit repair posture) without key", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await finalizeNorthStarCoachSmsAsync({
+      proposedBody: "Say it straight — what moved?",
+      channel: "inbound_coach_reply",
+      replySource: "v3_sms_brain",
+      contextPacket: { source: "test", latestInboundRaw: "x" },
+      northStarOpenAiRepairOnly: {
+        blockedReasons: ["say_it_straight"],
+        originalBodyForRepair: "Say it straight — what moved?",
+      },
+    });
+    expect(r.meta.north_star_openai_mode).toBe("repair_only");
+    expect(r.meta.openaiAttempted).toBe(false);
+  });
 });
 
 describe("finalizeNorthStarCoachSmsPreservingSuffixAsync", () => {

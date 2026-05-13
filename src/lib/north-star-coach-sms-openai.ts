@@ -14,6 +14,7 @@ import type {
 import {
   finalizeNorthStarCoachSms,
   inboundSignalsCompletion,
+  isV3RelationshipVoiceReplySource,
   NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
 } from "@/lib/north-star-coach-sms";
 
@@ -120,6 +121,21 @@ RULES:
 
 OUTPUT: Return only the SMS text. Nothing else.`;
 
+const NORTH_STAR_OPENAI_REPAIR_SYSTEM = `You are a narrow SMS repair model for Summitt Mindset. You are NOT a second coach and NOT rewriting the relationship thread.
+
+TASK: Fix ONLY the issues implied by BLOCKED REASONS while preserving the original meaning and stance.
+
+CONTRACT:
+- Preserve the meaning; fix only the blocked issues.
+- One short SMS; no markdown, bullets, labels, or "Coach:" prefix.
+- Do not quote the user or paste raw database / field fragments (no title-case blobs, no behavior_statement pasted as prose).
+- Do not add generic motivation, hollow cheer, or clichés.
+- Do not repeat rejected-time lines or re-ask the same blocked question pattern.
+- Do not introduce a new coaching agenda or pivot the thread.
+- If unsafe or uncertain, reply with exactly: UNSAFE
+
+OUTPUT: Return only the repaired SMS text, or UNSAFE.`;
+
 const STYLE_EXAMPLES = `Style examples (paraphrase freely; do not copy verbatim):
 - Today done + tomorrow plan ("two hours tomorrow"): Good. Today is handled. Tomorrow is the target: two protected hours. What time does the first block start?
 - User: "I got it done!": That counts. You did the rep. What made it possible today?
@@ -155,6 +171,26 @@ function buildUserPrompt(args: NorthStarCoachSmsArgs): string {
   ].join("\n");
 }
 
+function buildRepairUserPrompt(args: NorthStarCoachSmsArgs): string {
+  const rc = args.northStarOpenAiRepairOnly;
+  if (!rc) return "";
+  return [
+    "## Original SMS (preserve meaning)",
+    rc.originalBodyForRepair.trim() || "(empty)",
+    "",
+    "## Blocked reasons (fix these only)",
+    rc.blockedReasons.length ? rc.blockedReasons.join(", ") : "(none supplied)",
+    "",
+    "## Route",
+    `channel=${args.channel}`,
+    `reply_source=${args.replySource ?? "(none)"}`,
+    "",
+    factPackFromArgs(args),
+    "",
+    "Return only the repaired SMS text, or UNSAFE.",
+  ].join("\n");
+}
+
 function enrichMeta(
   base: NorthStarCoachSmsMeta,
   extras: Partial<NorthStarCoachSmsMeta>
@@ -176,32 +212,39 @@ const UPSTREAM_HUMANIZED_NON_V3_REPLY_SOURCES = new Set([
   "blocker_ack_visible_non_v3",
 ]);
 
+function spliceOpenAiIntoVoiceChain(
+  meta: NorthStarCoachSmsMeta,
+  step: "north_star_openai_repair_only" | "north_star_openai_full_finalizer"
+): NorthStarCoachSmsMeta {
+  const base = meta.voice_writer_chain ? [...meta.voice_writer_chain] : [];
+  const fv = base.lastIndexOf("final_voice_gate");
+  if (fv >= 0) base.splice(fv, 0, step);
+  else base.push(step, "final_voice_gate");
+  return { ...meta, voice_writer_chain: base };
+}
+
+function northStarOpenAiModeForSkippedAsync(
+  args: NorthStarCoachSmsArgs
+): NorthStarCoachSmsMeta["north_star_openai_mode"] {
+  if (args.northStarOpenAiRepairOnly) return "repair_only";
+  if (isV3RelationshipVoiceReplySource(args.replySource)) return "disabled_for_v3_voice";
+  return "not_applicable";
+}
+
 function shouldAttemptOpenAi(args: NorthStarCoachSmsArgs): boolean {
   if (!getOpenAIClientOrNull()) return false;
   if (!args.proposedBody?.trim()) return false;
   if (args.contextPacket == null) return false;
-  /** V3 SMS Brain already ran OpenAI; apply deterministic North Star guards only. */
-  const v3OwnedSources = new Set([
-    "v3_sms_brain",
-    "v3_deterministic_fallback",
-    "v3_daily_check_in",
-    "v3_daily_deterministic_fallback",
-    "v3_answer_to_open_question",
-    "v3_refined_prior_draft",
-    "v3_refresh_refined",
-    "v3_memory_confirmation_refined",
-    "v3_contract_consent_refined",
-    "v3_adaptive_proposal_refined",
-    "v3_weekly_proof_refined",
-    "v3_followup_sms_refined",
-    "v3_missed_yesterday_sms_refined",
-    "v3_winback_refined",
-    "v3_inactivity_rescue_refined",
-    "v3_machine_deterministic_fallback",
-  ]);
-  if (args.replySource && v3OwnedSources.has(args.replySource)) return false;
+  if (args.northStarOpenAiRepairOnly) return true;
+  if (args.replySource && isV3RelationshipVoiceReplySource(args.replySource)) return false;
   if (args.replySource && UPSTREAM_HUMANIZED_NON_V3_REPLY_SOURCES.has(args.replySource)) return false;
   return true;
+}
+
+function argsForDeterministicAfterOpenAi(args: NorthStarCoachSmsArgs): NorthStarCoachSmsArgs {
+  const { northStarOpenAiRepairOnly: _r, ...rest } = args;
+  void _r;
+  return rest;
 }
 
 export async function finalizeNorthStarCoachSmsAsync(
@@ -220,12 +263,14 @@ export async function finalizeNorthStarCoachSmsAsync(
         ...baseExtras,
         openaiAttempted: false,
         openaiFailedReason: null,
+        north_star_openai_mode: northStarOpenAiModeForSkippedAsync(args),
       }),
     };
   }
 
   const model = northStarOpenAiModel();
   const client = getOpenAIClientOrNull()!;
+  const repairOnly = Boolean(args.northStarOpenAiRepairOnly);
   let raw = "";
   let failReason: string | null = null;
 
@@ -235,11 +280,17 @@ export async function finalizeNorthStarCoachSmsAsync(
     const completion = await client.chat.completions.create(
       {
         model,
-        temperature: 0.35,
-        max_tokens: 450,
+        temperature: repairOnly ? 0.2 : 0.35,
+        max_tokens: repairOnly ? 200 : 450,
         messages: [
-          { role: "system", content: NORTH_STAR_SYSTEM_PROMPT },
-          { role: "user", content: buildUserPrompt(args) },
+          {
+            role: "system",
+            content: repairOnly ? NORTH_STAR_OPENAI_REPAIR_SYSTEM : NORTH_STAR_SYSTEM_PROMPT,
+          },
+          {
+            role: "user",
+            content: repairOnly ? buildRepairUserPrompt(args) : buildUserPrompt(args),
+          },
         ],
       },
       { signal: controller.signal }
@@ -261,6 +312,7 @@ export async function finalizeNorthStarCoachSmsAsync(
         openaiAttempted: true,
         openaiFailedReason: failReason ?? "empty_model_output",
         north_star_openai_model: model,
+        north_star_openai_mode: repairOnly ? "repair_only" : "not_applicable",
         source: "openai_failed_deterministic_fallback",
       }),
     };
@@ -276,23 +328,40 @@ export async function finalizeNorthStarCoachSmsAsync(
         openaiAttempted: true,
         openaiFailedReason: "empty_after_strip",
         north_star_openai_model: model,
+        north_star_openai_mode: repairOnly ? "repair_only" : "not_applicable",
         source: "openai_failed_deterministic_fallback",
       }),
     };
   }
 
-  const gated = finalizeNorthStarCoachSms({
-    ...args,
-    proposedBody: draft,
-  });
+  if (repairOnly && /^UNSAFE$/i.test(draft)) {
+    const r = finalizeNorthStarCoachSms(args);
+    return {
+      visibleBody: r.visibleBody,
+      meta: enrichMeta(r.meta, {
+        ...baseExtras,
+        openaiAttempted: true,
+        openaiFailedReason: "repair_model_unsafe",
+        north_star_openai_model: model,
+        north_star_openai_mode: "repair_only",
+        source: "openai_failed_deterministic_fallback",
+      }),
+    };
+  }
+
+  const gateArgs = { ...argsForDeterministicAfterOpenAi(args), proposedBody: draft };
+  const gated = finalizeNorthStarCoachSms(gateArgs);
+  const chainStep = repairOnly ? "north_star_openai_repair_only" : "north_star_openai_full_finalizer";
+  const metaWithChain = spliceOpenAiIntoVoiceChain(gated.meta, chainStep);
 
   return {
     visibleBody: gated.visibleBody,
-    meta: enrichMeta(gated.meta, {
+    meta: enrichMeta(metaWithChain, {
       ...baseExtras,
       openaiAttempted: true,
       openaiFailedReason: null,
       north_star_openai_model: model,
+      north_star_openai_mode: repairOnly ? "repair_only" : "not_applicable",
       source: "openai_finalized",
     }),
   };

@@ -112,7 +112,7 @@ import {
   isPendingResolutionExpired,
   shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation,
 } from "@/lib/v2-guided-resolution";
-import type { NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
+import { pickNorthStarWriterAttributionFields, type NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
 import { dailySmsVoiceSkipEventPatch, isDailySmsWithheldByFinalVoiceGate } from "@/lib/daily-sms-voice-skip";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
@@ -264,6 +264,7 @@ async function withNorthStarDailyGate(
       openai_failed_reason: ns.meta.openaiFailedReason ?? null,
       context_packet_used: ns.meta.contextPacketUsed,
       finalizer_version: ns.meta.finalizerVersion,
+      ...pickNorthStarWriterAttributionFields(ns.meta),
     },
     final_voice_gate: voiceGate.metadata,
     voice_send_decision: {

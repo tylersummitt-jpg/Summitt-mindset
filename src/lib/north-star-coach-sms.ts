@@ -52,6 +52,19 @@ export type NorthStarCoachSmsMeta = {
   contextPacketUsed?: boolean;
   finalizerVersion?: string;
   north_star_openai_model?: string | null;
+  /** Telemetry: how North Star OpenAI related to this turn (sync path leaves undefined unless set by caller). */
+  north_star_openai_mode?: "disabled_for_v3_voice" | "repair_only" | "not_applicable";
+  /** Ordered stages that touched copy before Final Voice Gate (deterministic + optional OpenAI enricher). */
+  voice_writer_chain?: string[];
+  /** True when visible body differs from the original proposed body after deterministic gate. */
+  north_star_rewrote_body?: boolean;
+  north_star_rewrite_type?: "micro_edit" | "repair_required" | "blocked" | "none";
+  /** True when a deterministic bank rewrite was refused so V3 / FVG can own relationship copy. */
+  deterministic_replacement_prevented?: boolean;
+  /** Populated after Final Voice Gate in route handlers; optional here for merged payloads. */
+  final_voice_owner?: string;
+  should_send?: boolean;
+  skip_reason?: string;
   /** Full-body structural guard replaced proposed coaching (temporal / completion mismatch). */
   north_star_structural_replacement?: boolean;
   /** Proposed reply substantially repeated the latest coach question after the user answered. */
@@ -128,6 +141,14 @@ export type NorthStarCoachSmsArgs = {
   preserveNewlines?: boolean;
   /** Local wall-clock hour (0–23) for greeting hygiene on scheduled outbound (daily cron). */
   localHour?: number;
+  /**
+   * When set, async North Star OpenAI may run in repair-only posture (narrow fix), not as a full coach finalizer.
+   * Normal V3 relationship sources still skip the full OpenAI finalizer when this is unset.
+   */
+  northStarOpenAiRepairOnly?: {
+    blockedReasons: string[];
+    originalBodyForRepair: string;
+  } | null;
 };
 
 export type NorthStarCoachSmsResult = {
@@ -149,14 +170,87 @@ export function matchesMalformedDidRawPhraseHappenToday(text: string): boolean {
   return /\bDid\s+(?!\d)(?!you\b)(?!the\s+rep\b)(?!it\b)(?!your\b)[^\?]{2,}\bhappen\s+today\?/i.test(t);
 }
 
-/** V3-authored drafts North Star must not replace with assembled DB-field prose. */
+/** Exact replySource values whose relationship copy must not be replaced by deterministic banks or NS OpenAI full finalizer. */
+const V3_RELATIONSHIP_VOICE_EXACT_SOURCES = new Set([
+  "v3_sms_brain",
+  "v3_daily_check_in",
+  "v3_answer_to_open_question",
+  "v3_voice_repair",
+  "v3_daily_deterministic_fallback",
+  "v3_deterministic_fallback",
+  "v3_machine_deterministic_fallback",
+  "v3_refined_prior_draft",
+  "v3_refresh_refined",
+  "v3_memory_confirmation_refined",
+  "v3_contract_consent_refined",
+  "v3_adaptive_proposal_refined",
+  "v3_weekly_proof_refined",
+  "v3_followup_sms_refined",
+  "v3_missed_yesterday_sms_refined",
+  "v3_winback_refined",
+  "v3_inactivity_rescue_refined",
+]);
+
+/** V3-authored drafts North Star must not replace with assembled DB-field prose or second-author OpenAI. */
 export function isV3RelationshipVoiceReplySource(replySource: string | null | undefined): boolean {
   const s = replySource?.trim() ?? "";
   if (!s) return false;
-  if (s === "v3_daily_check_in" || s === "v3_daily_deterministic_fallback") return true;
-  if (s === "v3_sms_brain" || s === "v3_answer_to_open_question") return true;
+  if (V3_RELATIONSHIP_VOICE_EXACT_SOURCES.has(s)) return true;
   if (/^v3_.*_refined$/.test(s)) return true;
   return false;
+}
+
+/** Subset of {@link NorthStarCoachSmsMeta} merged into `north_star_gate` telemetry on daily/inbound sends. */
+export function pickNorthStarWriterAttributionFields(meta: NorthStarCoachSmsMeta): Record<string, unknown> {
+  const o: Record<string, unknown> = {};
+  if (meta.voice_writer_chain?.length) o.voice_writer_chain = meta.voice_writer_chain;
+  if (meta.openaiAttempted !== undefined) o.north_star_openai_attempted = meta.openaiAttempted;
+  if (meta.north_star_openai_mode != null) o.north_star_openai_mode = meta.north_star_openai_mode;
+  if (meta.north_star_rewrote_body !== undefined) o.north_star_rewrote_body = meta.north_star_rewrote_body;
+  if (meta.north_star_rewrite_type != null) o.north_star_rewrite_type = meta.north_star_rewrite_type;
+  if (meta.deterministic_replacement_prevented !== undefined) {
+    o.deterministic_replacement_prevented = meta.deterministic_replacement_prevented;
+  }
+  if (meta.final_voice_owner != null) o.final_voice_owner = meta.final_voice_owner;
+  if (meta.should_send !== undefined) o.should_send = meta.should_send;
+  if (meta.skip_reason != null) o.skip_reason = meta.skip_reason;
+  return o;
+}
+
+function buildNorthStarDeterministicVoiceWriterChain(args: {
+  protectV3: boolean;
+  deterministicReplacementPrevented: boolean;
+  requiresV3Repair: boolean;
+  northStarMicroEdit: boolean;
+}): string[] {
+  const chain: string[] = [];
+  chain.push(args.protectV3 ? "v3_candidate" : "upstream_candidate");
+  chain.push("north_star_validator");
+  if (args.deterministicReplacementPrevented) {
+    chain.push("deterministic_replacement_prevented");
+  }
+  if (args.requiresV3Repair) {
+    chain.push("north_star_repair_required");
+  } else if (args.northStarMicroEdit) {
+    chain.push("north_star_micro_edit");
+  }
+  chain.push("final_voice_gate");
+  return chain;
+}
+
+function deriveNorthStarRewriteType(args: {
+  requiresV3Repair: boolean;
+  deterministicReplacementPrevented: boolean;
+  northStarRewroteBody: boolean;
+  source: NorthStarCoachSmsMeta["source"];
+}): NonNullable<NorthStarCoachSmsMeta["north_star_rewrite_type"]> {
+  if (args.requiresV3Repair) return "repair_required";
+  if (args.deterministicReplacementPrevented) return "blocked";
+  if (!args.northStarRewroteBody && args.source === "approved") return "none";
+  if (args.northStarRewroteBody || args.source === "rewritten" || args.source === "deterministic_minimal") {
+    return "micro_edit";
+  }
+  return "none";
 }
 
 function clip(s: string, max = NORTH_STAR_SMS_MAX_LEN): string {
@@ -1362,6 +1456,31 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   let source: NorthStarCoachSmsMeta["source"] = "approved";
 
   if (!working.trim()) {
+    if (protectV3) {
+      bumpRepair("empty_proposed_body_v3_voice");
+      const requiresV3Repair = requiresV3RepairAcc;
+      const chain = buildNorthStarDeterministicVoiceWriterChain({
+        protectV3: true,
+        deterministicReplacementPrevented: unsafeRewritePreventedAcc,
+        requiresV3Repair,
+        northStarMicroEdit: false,
+      });
+      return {
+        visibleBody: "",
+        meta: {
+          source: "deterministic_minimal",
+          blockedReasons: ["empty_proposed_body"],
+          originalBody,
+          requires_v3_repair: true,
+          unsafe_rewrite_prevented: true,
+          north_star_blocked_reasons: northStarRepairReasons.length ? northStarRepairReasons : undefined,
+          voice_writer_chain: chain,
+          north_star_rewrote_body: false,
+          north_star_rewrite_type: "repair_required",
+          deterministic_replacement_prevented: true,
+        },
+      };
+    }
     return {
       visibleBody: clip("Say it plain — what happened with the commitment today?"),
       meta: {
@@ -1554,31 +1673,62 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   }
 
   if (working.trim().length < 10) {
+    const origTrim = preserveNl ? originalBody.trim() : norm(originalBody);
     if (args.channel === "daily_outbound" || args.channel === "reactivation") {
       if (protectV3) {
-        working = "Did the rep happen today?";
-        bumpRepair("collapsed_after_scrub_v3_emergency_daily");
+        if (origTrim.length >= 10) {
+          working = preserveNl ? finalizeTextShape(origTrim, true) : norm(origTrim);
+        } else {
+          working = "";
+        }
+        bumpRepair("collapsed_after_scrub_v3_voice_restore_or_empty");
         unsafeRewritePreventedAcc = true;
       } else {
         working =
           mergedAsk.length >= 8 ? buildDailyCommitmentAsk(mergedAsk) : "Did the rep happen today?";
       }
     } else if (args.channel === "weekly_sms" || args.channel === "lifecycle_sms") {
-      working =
-        mergedAsk.length >= 8 && mergedAsk.length <= 120
-          ? `Pat Pause — ${mergedAsk.slice(0, 72).replace(/\s+/g, " ").trim()}. One honest line about your week?`
-          : "Pat Pause: one honest line about your week?";
+      if (protectV3) {
+        if (origTrim.length >= 10) {
+          working = preserveNl ? finalizeTextShape(origTrim, true) : norm(origTrim);
+        } else {
+          working = "";
+        }
+        bumpRepair("collapsed_after_scrub_v3_weekly_restore_or_empty");
+        unsafeRewritePreventedAcc = true;
+      } else {
+        working =
+          mergedAsk.length >= 8 && mergedAsk.length <= 120
+            ? `Pat Pause — ${mergedAsk.slice(0, 72).replace(/\s+/g, " ").trim()}. One honest line about your week?`
+            : "Pat Pause: one honest line about your week?";
+      }
     } else if (
       (args.channel === "inbound_coach_reply" || args.channel === "blocker_followup") &&
       args.contextPacket?.blockerSignal
     ) {
-      working = "What's the real obstacle—in one honest line?";
-      if (protectV3) bumpRepair("collapsed_after_scrub_inbound_blocker");
+      if (protectV3) {
+        if (origTrim.length >= 10) {
+          working = preserveNl ? finalizeTextShape(origTrim, true) : norm(origTrim);
+        } else {
+          working = "";
+        }
+        bumpRepair("collapsed_after_scrub_inbound_blocker_v3_restore_or_empty");
+        unsafeRewritePreventedAcc = true;
+      } else {
+        working = "What's the real obstacle—in one honest line?";
+      }
     } else {
-      working = protectV3
-        ? "I'm not going to guess. What happened with the commitment?"
-        : "What's true — did you get the bar done today?";
-      if (protectV3) bumpRepair("collapsed_after_scrub_inbound_generic_emergency");
+      if (protectV3) {
+        if (origTrim.length >= 10) {
+          working = preserveNl ? finalizeTextShape(origTrim, true) : norm(origTrim);
+        } else {
+          working = "";
+        }
+        bumpRepair("collapsed_after_scrub_inbound_generic_v3_restore_or_empty");
+        unsafeRewritePreventedAcc = true;
+      } else {
+        working = "What's true — did you get the bar done today?";
+      }
     }
     source = "deterministic_minimal";
     blockedReasons.push("collapsed_after_scrub_recovery");
@@ -1621,6 +1771,23 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   }
 
   const requiresV3Repair = requiresV3RepairAcc;
+  const northStarRewroteBody = preserveNl
+    ? visibleBody.trim() !== originalBody.trim()
+    : norm(visibleBody) !== norm(originalBody);
+  const northStarMicroEdit =
+    northStarRewroteBody && (source === "rewritten" || source === "deterministic_minimal") && !requiresV3Repair;
+  const voice_writer_chain = buildNorthStarDeterministicVoiceWriterChain({
+    protectV3,
+    deterministicReplacementPrevented: unsafeRewritePreventedAcc,
+    requiresV3Repair,
+    northStarMicroEdit,
+  });
+  const north_star_rewrite_type = deriveNorthStarRewriteType({
+    requiresV3Repair,
+    deterministicReplacementPrevented: unsafeRewritePreventedAcc,
+    northStarRewroteBody,
+    source,
+  });
 
   return {
     visibleBody,
@@ -1631,6 +1798,10 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
       requires_v3_repair: requiresV3Repair,
       unsafe_rewrite_prevented: unsafeRewritePreventedAcc || undefined,
       north_star_blocked_reasons: northStarRepairReasons.length ? northStarRepairReasons : undefined,
+      voice_writer_chain,
+      north_star_rewrote_body: northStarRewroteBody,
+      north_star_rewrite_type,
+      deterministic_replacement_prevented: unsafeRewritePreventedAcc || undefined,
       ...(northStarStructuralReplacement ? { north_star_structural_replacement: true } : {}),
       ...(Object.keys(repeatedQuestionMeta).length ? repeatedQuestionMeta : {}),
       ...(finalQuality.hit != null ? { final_quality_replacement: true } : {}),

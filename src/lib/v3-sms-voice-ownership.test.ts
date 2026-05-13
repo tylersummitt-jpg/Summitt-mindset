@@ -33,6 +33,11 @@ describe("detectFinalVoiceBlockedReasons", () => {
     );
   });
 
+  it("flags empty or trivial bodies for fail-closed routing", () => {
+    expect(detectFinalVoiceBlockedReasons("")).toContain("empty_or_trivial_body");
+    expect(detectFinalVoiceBlockedReasons(" ")).toContain("empty_or_trivial_body");
+  });
+
   it("rejects structural -in: leak and generic rep-happen fallback", () => {
     expect(detectFinalVoiceBlockedReasons("Hey Brooke, -in: Did you organize that drawer today?")).toContain(
       "structural_role_leak"
@@ -74,6 +79,20 @@ describe("applyFinalVoiceOwnershipGate", () => {
     expect(r.voiceOwner).toBe("v3_openai");
     expect(r.v3Owned).toBe(true);
     expect(r.emergencyFallbackUsed).toBe(false);
+  });
+
+  it("v3_voice_repair replySource maps to v3_repair voice owner when clean", async () => {
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: "Locked in for tomorrow morning.",
+      replySource: "v3_voice_repair",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      effectiveAsk: "dictate one story",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.voiceOwner).toBe("v3_repair");
+    expect(r.metadata.final_voice_owner).toBe("v3_repair");
   });
 
   it("fail-closed inbound: does not use deterministic emergency fallback when repair unavailable", async () => {

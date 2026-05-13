@@ -192,6 +192,7 @@ import {
 } from "@/lib/v2-commitment";
 import {
   inboundSignalsCompletion,
+  pickNorthStarWriterAttributionFields,
   type NorthStarCoachChannel,
   type NorthStarSmsContextPacket,
 } from "@/lib/north-star-coach-sms";
@@ -2534,6 +2535,7 @@ async function processV2NormalInboundOutcome(
     final_body: northStarInboundPack.visibleBody,
     north_star_gate_source: northStarInboundPack.meta.source,
     north_star_gate_reasons: northStarInboundPack.meta.blockedReasons,
+    ...pickNorthStarWriterAttributionFields(northStarInboundPack.meta),
     ...(northStarInboundPack.meta.north_star_structural_replacement
       ? { north_star_structural_replacement: true }
       : {}),

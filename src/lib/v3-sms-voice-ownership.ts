@@ -4,6 +4,7 @@ import {
   buildDailyCommitmentAsk,
   finalizeNorthStarCoachSms,
   matchesMalformedDidRawPhraseHappenToday,
+  pickNorthStarWriterAttributionFields,
   type NorthStarCoachChannel,
   type NorthStarCoachSmsMeta,
   type NorthStarSmsContextPacket,
@@ -150,14 +151,15 @@ function ownerFromBypass(kind: FinalVoiceBypassKind): SmsVoiceOwner {
   return "no_active_commitment";
 }
 
-function classifyVoiceOwner(replySource: string | null | undefined, northStarMeta?: NorthStarCoachSmsMeta | null): SmsVoiceOwner {
+function classifyVoiceOwner(replySource: string | null | undefined, _northStarMeta?: NorthStarCoachSmsMeta | null): SmsVoiceOwner {
+  void _northStarMeta;
   const src = replySource?.trim() ?? "";
+  if (src === "v3_voice_repair") return "v3_repair";
   if (src === "v3_daily_check_in") return "v3_daily";
   if (src === "v3_answer_to_open_question") return "v3_open_question";
   if (V3_OPENAI_SOURCES.has(src)) return "v3_openai";
   if (V3_MACHINE_REFINED_SOURCES.has(src)) return "v3_machine_refine";
   if (V3_FALLBACK_SOURCES.has(src)) return "v3_deterministic_fallback";
-  if (northStarMeta?.source === "openai_finalized") return "v3_repair";
   return "unknown";
 }
 
@@ -198,6 +200,9 @@ export function isDailyFailClosedActiveCommitmentVoice(args: ApplyFinalVoiceOwne
 export function detectFinalVoiceBlockedReasons(body: string): string[] {
   const t = normalize(body);
   const hits: string[] = [];
+  if (!t || t.length < 2) {
+    hits.push("empty_or_trivial_body");
+  }
   const checks: Array<[string, RegExp]> = [
     ["long_user_quote", /["'][^"']{45,}["']/],
     ["quote_with_ellipsis", /["'][^"']*…[^"']*["']/],
@@ -285,20 +290,29 @@ async function repairWithOpenAI(
   try {
     const completion = await client.chat.completions.create({
       model: modelName(),
-      temperature: 0.25,
+      temperature: 0.2,
       max_tokens: 180,
       messages: [
         {
           role: "system",
-          content:
-            "Rewrite this SMS to fix the blocked reasons. Preserve the turn meaning. Do not repeat the prior question. Do not quote the user. One short SMS. No labels, no bullets.",
+          content: `You repair SMS coaching copy for Summitt Mindset. You are NOT a second coach brain.
+
+CONTRACT:
+- Preserve the meaning of the original SMS; fix ONLY the blocked issues.
+- One short SMS. No markdown, bullets, or labels.
+- Do not quote the user. Do not paste raw database fields, titles, or behavior_statement as prose.
+- Do not add generic motivation or a new coaching agenda.
+- Do not repeat rejected times or re-ask the same blocked pattern.
+- If unsafe or uncertain, reply with exactly: UNSAFE`,
         },
         {
           role: "user",
           content: [
             `Blocked reasons: ${blockedReasons.join(", ")}`,
             `Channel: ${args.channel}`,
+            `Reply source: ${args.replySource ?? "(none)"}`,
             `Effective ask: ${args.effectiveAsk ?? args.contextPacket?.effectiveAskText ?? "(none)"}`,
+            `Behavior statement (facts only; do not paste as prose): ${args.behaviorStatement ?? args.contextPacket?.behaviorStatement ?? "(none)"}`,
             `Latest inbound: ${args.latestInboundRaw ?? args.contextPacket?.latestInboundRaw ?? "(none)"}`,
             `Latest outbound: ${args.latestOutboundBody ?? args.contextPacket?.latestOutboundBody ?? "(none)"}`,
             `Latest open question: ${args.latestOpenQuestion ?? args.contextPacket?.latestOpenQuestion ?? "(none)"}`,
@@ -308,7 +322,9 @@ async function repairWithOpenAI(
       ],
     });
     const text = completion.choices[0]?.message?.content?.trim() ?? "";
-    return text.replace(/^["'`]+|["'`]+$/g, "").replace(/^coach:\s*/i, "").trim() || null;
+    const cleaned = text.replace(/^["'`]+|["'`]+$/g, "").replace(/^coach:\s*/i, "").trim();
+    if (/^UNSAFE$/i.test(cleaned)) return null;
+    return cleaned || null;
   } catch (e) {
     console.warn("[v3-sms-voice-ownership] repair_failed", {
       channel: args.channel,
@@ -332,6 +348,7 @@ function result(args: {
   deterministicBlocked: boolean;
   shouldSend?: boolean;
   skipReason?: FinalVoiceSkipReason;
+  northStarMeta?: NorthStarCoachSmsMeta | null;
 }): VoiceOwnershipResult {
   const shouldSend = args.shouldSend ?? true;
   const outBody = shouldSend ? args.body : "";
@@ -350,6 +367,7 @@ function result(args: {
       ...(args.skipReason && !shouldSend ? { skip_reason: args.skipReason } : {}),
       ...(shouldSend ? {} : { twilio_send_attempted: false }),
       voice_owner: args.voiceOwner,
+      final_voice_owner: args.voiceOwner,
       final_voice_source: args.source,
       v3_finalized: args.v3Owned,
       v3_repair_attempted: args.repairAttempted,
@@ -359,6 +377,7 @@ function result(args: {
       original_pre_voice_gate_body: args.originalBody,
       final_voice_gate_body: outBody,
       deterministic_code_blocked: args.deterministicBlocked,
+      ...(args.northStarMeta ? pickNorthStarWriterAttributionFields(args.northStarMeta) : {}),
     },
   };
 }
@@ -384,6 +403,7 @@ export async function applyFinalVoiceOwnershipGate(
       repairAttempted: false,
       repairSucceeded: false,
       deterministicBlocked: false,
+      northStarMeta: args.northStarMeta,
     });
   }
 
@@ -412,13 +432,14 @@ export async function applyFinalVoiceOwnershipGate(
       repairAttempted: false,
       repairSucceeded: false,
       deterministicBlocked: false,
+      northStarMeta: args.northStarMeta,
     });
   }
 
   const dailyFailClosed = isDailyFailClosedActiveCommitmentVoice(args);
   const repaired = await repairWithOpenAI(args, blocked.length ? blocked : ["non_v3_voice_owner"]);
   if (repaired) {
-    const cleaned = finalizeNorthStarCoachSms({
+    const nsRepair = finalizeNorthStarCoachSms({
       proposedBody: repaired,
       channel: args.channel,
       latestInboundRaw: args.latestInboundRaw ?? args.contextPacket?.latestInboundRaw ?? undefined,
@@ -428,7 +449,8 @@ export async function applyFinalVoiceOwnershipGate(
       finalEventType: args.finalEventType ?? args.contextPacket?.finalEventType ?? undefined,
       replySource: "v3_voice_repair",
       contextPacket: args.contextPacket ?? undefined,
-    }).visibleBody;
+    });
+    const cleaned = nsRepair.visibleBody;
     const repairBlocked = detectFinalVoiceBlockedReasons(cleaned);
     if (repairBlocked.length === 0) {
       return result({
@@ -444,6 +466,7 @@ export async function applyFinalVoiceOwnershipGate(
         repairAttempted: openaiRepairEligible,
         repairSucceeded: true,
         deterministicBlocked,
+        northStarMeta: nsRepair.meta,
       });
     }
     blocked.push(...repairBlocked.map((r) => `repair_${r}`));
@@ -465,11 +488,12 @@ export async function applyFinalVoiceOwnershipGate(
       repairAttempted: openaiRepairEligible,
       repairSucceeded: false,
       deterministicBlocked,
+      northStarMeta: args.northStarMeta,
     });
   }
 
   const fallbackRaw = emergencyFallback(args);
-  const fallback = finalizeNorthStarCoachSms({
+  const fallbackPack = finalizeNorthStarCoachSms({
     proposedBody: fallbackRaw,
     channel: args.channel,
     latestInboundRaw: args.latestInboundRaw ?? args.contextPacket?.latestInboundRaw ?? undefined,
@@ -479,10 +503,10 @@ export async function applyFinalVoiceOwnershipGate(
     finalEventType: args.finalEventType ?? args.contextPacket?.finalEventType ?? undefined,
     replySource: "v3_deterministic_fallback",
     contextPacket: args.contextPacket ?? undefined,
-  }).visibleBody;
+  });
 
   return result({
-    body: fallback,
+    body: fallbackPack.visibleBody,
     shouldSend: true,
     voiceOwner: "v3_deterministic_fallback",
     source: "v3_emergency_fallback",
@@ -494,5 +518,6 @@ export async function applyFinalVoiceOwnershipGate(
     repairAttempted: openaiRepairEligible,
     repairSucceeded: false,
     deterministicBlocked,
+    northStarMeta: fallbackPack.meta,
   });
 }
