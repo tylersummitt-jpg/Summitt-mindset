@@ -33,6 +33,21 @@ describe("detectFinalVoiceBlockedReasons", () => {
     );
   });
 
+  it("rejects structural -in: leak and generic rep-happen fallback", () => {
+    expect(detectFinalVoiceBlockedReasons("Hey Brooke, -in: Did you organize that drawer today?")).toContain(
+      "structural_role_leak"
+    );
+    expect(detectFinalVoiceBlockedReasons("Did the rep happen today?")).toContain("generic_rep_happen_ask");
+  });
+
+  it("rejects generic day-reminder reset copy", () => {
+    expect(
+      detectFinalVoiceBlockedReasons(
+        "Hope you're having a great day! Just wanted to remind you to take a moment to appreciate someone who's been there for you."
+      )
+    ).toContain("generic_day_reminder_reset");
+  });
+
   it("flags malformed Did raw phrase happen today", () => {
     expect(detectFinalVoiceBlockedReasons("Did Focus on process happen today?")).toContain(
       "malformed_did_raw_phrase_happen_today"
@@ -61,7 +76,7 @@ describe("applyFinalVoiceOwnershipGate", () => {
     expect(r.emergencyFallbackUsed).toBe(false);
   });
 
-  it("uses safe emergency fallback when OpenAI repair is unavailable", async () => {
+  it("fail-closed inbound: does not use deterministic emergency fallback when repair unavailable", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await applyFinalVoiceOwnershipGate({
       proposedBody: "Say it straight — what moved with today's line, and what didn't?",
@@ -73,11 +88,11 @@ describe("applyFinalVoiceOwnershipGate", () => {
       normalCoaching: true,
     });
 
-    expect(r.shouldSend).toBe(true);
-    expect(r.body).toBe("That counts. What made it work?");
-    expect(r.voiceOwner).toBe("v3_deterministic_fallback");
-    expect(r.emergencyFallbackUsed).toBe(true);
-    expect(r.body.toLowerCase()).not.toContain("say it straight");
+    expect(r.shouldSend).toBe(false);
+    expect(r.skipReason).toBe("no_safe_v3_voice");
+    expect(r.body).toBe("");
+    expect(r.emergencyFallbackUsed).toBe(false);
+    expect(r.metadata.twilio_send_attempted).toBe(false);
   });
 
   it("fail-closed daily: does not use deterministic emergency fallback when repair unavailable", async () => {

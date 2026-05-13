@@ -93,6 +93,42 @@ function extractJsonObject(raw: string): unknown | null {
   }
 }
 
+function buildSmsSchedulingConstraintBlock(args: {
+  latestUserSms: string;
+  lastCoachSmsExact: string | null;
+}): string | null {
+  const latest = (args.latestUserSms || "").trim();
+  if (!latest) return null;
+  const coach = (args.lastCoachSmsExact || "").trim();
+  if (!coach) return null;
+  const lower = latest.toLowerCase();
+  const rejection =
+    /\b(can'?t|cannot|can not|nope|no\s+i|won'?t work|not possible|impossible|without\s+(a\s+)?phone|have to be at work|at work|i'?ll be at work|i will be at work)\b/i.test(
+      lower
+    ) || /^no\b/i.test(lower);
+  if (!rejection) return null;
+
+  const times = new Set<string>();
+  for (const m of coach.matchAll(/\b\d{1,2}:\d{2}\s*(?:am|pm)\b/gi)) {
+    times.add(m[0].replace(/\s+/g, " "));
+  }
+  for (const m of coach.matchAll(/\b\d{1,2}\s*(?:am|pm)\b/gi)) {
+    times.add(m[0].replace(/\s+/g, " "));
+  }
+  for (const w of ["noon", "midnight"] as const) {
+    if (new RegExp(`\\b${w}\\b`, "i").test(coach)) times.add(w);
+  }
+  if (times.size === 0) return null;
+
+  const list = [...times].join(", ");
+  return (
+    "## Server scheduling constraint (AUTHORITATIVE)\n" +
+    "The latest inbound reads like a feasibility pushback relative to the coach's last SMS.\n" +
+    `Clock times the coach recently named in-thread: ${list}.\n` +
+    "Rules for final_sms_draft: do not propose those same clock times again unless the user explicitly accepts one. Offer a different realistic window or ask one clarifying constraint.\n"
+  );
+}
+
 export function buildConversationBrainPrompt(args: BuildConversationBrainPromptArgs): string {
   const recentEventsLines = args.eventsNewestFirst.slice(0, 18).map(compactEventLine);
   const memBlock = formatCoachingMemoryPromptBlock(args.coachingMemory);
@@ -160,6 +196,13 @@ export function buildConversationBrainPrompt(args: BuildConversationBrainPromptA
       ? args.lastCoachSmsExact.trim()
       : "(not available — rely on transcript / events)",
     "",
+    ...(() => {
+      const b = buildSmsSchedulingConstraintBlock({
+        latestUserSms: args.latestUserSms,
+        lastCoachSmsExact: args.lastCoachSmsExact,
+      });
+      return b ? [b, ""] : [];
+    })(),
     "## Recent SMS transcript (bounded)",
     args.recentSmsTranscriptBlock && args.recentSmsTranscriptBlock.trim()
       ? args.recentSmsTranscriptBlock.trim()

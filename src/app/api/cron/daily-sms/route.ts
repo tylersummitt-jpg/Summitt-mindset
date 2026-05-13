@@ -278,6 +278,28 @@ async function withNorthStarDailyGate(
   return out;
 }
 
+function dailySmsSentEventVoiceMetadata(
+  built: Extract<DailySmsBuilt, { ok: true }>
+): Record<string, unknown> {
+  const p = built.v2AiPayload;
+  if (!p || typeof p !== "object" || !p.final_voice_gate || typeof p.final_voice_gate !== "object") {
+    return {};
+  }
+  const fvg = p.final_voice_gate as Record<string, unknown>;
+  const vsd = p.voice_send_decision as { should_send?: boolean } | undefined;
+  return {
+    final_voice_gate: fvg,
+    north_star_gate: p.north_star_gate,
+    voice_send_decision: vsd,
+    voice_owner: fvg.voice_owner,
+    should_send: fvg.should_send,
+    skip_reason: fvg.skip_reason ?? null,
+    voice_decision: vsd?.should_send === false ? "skipped_no_safe_v3_voice" : "accepted_post_final_voice_gate",
+    final_voice_source: fvg.final_voice_source,
+    final_voice_blocked_reasons: fvg.final_voice_blocked_reasons,
+  };
+}
+
 async function resolveV2BlockerPreviewForOutbound(args: {
   commitmentId: string;
   latestOutcome: Awaited<ReturnType<typeof getLatestV2AccountabilityOutcome>>;
@@ -2116,6 +2138,7 @@ export async function GET(req: Request) {
                 ...(built.v2PendingResolutionReminder
                   ? { pending_resolution_reminder: true, non_accountability_outbound: true }
                   : {}),
+                ...dailySmsSentEventVoiceMetadata(built),
               },
             };
             let recordOk = false;
@@ -2661,6 +2684,7 @@ export async function GET(req: Request) {
             ...(builtMain.v2PendingResolutionReminder
               ? { pending_resolution_reminder: true, non_accountability_outbound: true }
               : {}),
+            ...dailySmsSentEventVoiceMetadata(builtMain),
           },
         };
         let recordOk = false;

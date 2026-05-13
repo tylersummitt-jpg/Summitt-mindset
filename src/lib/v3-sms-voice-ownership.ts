@@ -172,7 +172,10 @@ function voiceOwnerIsV3(owner: SmsVoiceOwner): boolean {
   );
 }
 
-/** Daily cron voice paths: fail-closed (no deterministic emergency coaching) when repair cannot fix unsafe text. */
+/**
+ * Active-commitment coaching paths: fail-closed (no deterministic emergency fallback SMS)
+ * when V3/repair cannot produce safe text — includes inbound as well as daily cron channels.
+ */
 export function isDailyFailClosedActiveCommitmentVoice(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
   if (args.bypassKind) return false;
   if (args.normalCoaching === false) return false;
@@ -183,7 +186,12 @@ export function isDailyFailClosedActiveCommitmentVoice(args: ApplyFinalVoiceOwne
     ch === "reactivation" ||
     ch === "pending_resolution" ||
     ch === "refresh" ||
-    ch === "contract_prompt"
+    ch === "contract_prompt" ||
+    ch === "inbound_coach_reply" ||
+    ch === "other_coaching" ||
+    ch === "blocker_followup" ||
+    ch === "central_brain_pivot" ||
+    ch === "clarification"
   );
 }
 
@@ -222,6 +230,12 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
     ["clipped_with", /\bwith$/i],
     ["clipped_to", /\bto$/i],
     ["clipped_of", /\bof$/i],
+    /** Structural leak from upstream role/label tokens into user-visible SMS. */
+    ["structural_role_leak", /-in:\s*/i],
+    /** Daily template fallback that reads like a broken check-in, not a real ask. */
+    ["generic_rep_happen_ask", /\bDid the rep happen today\?\s*$/i],
+    /** Generic “reset” copy that abandons thread continuity after an active reply. */
+    ["generic_day_reminder_reset", /\bHope you(?:'re| are) having a great day\b.*\bremind you\b/is],
   ];
   for (const [name, re] of checks) {
     if (re.test(t)) hits.push(name);

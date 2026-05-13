@@ -69,6 +69,17 @@ describe("buildConversationBrainPrompt", () => {
     expect(p).toContain("Deterministic classifier");
     expect(p).toContain("user_partial");
   });
+
+  it("adds authoritative scheduling constraint when user rejects a proposed time", () => {
+    const p = buildConversationBrainPrompt({
+      ...baseArgs,
+      latestUserSms: "Can't I'll be at work tomorrow at 6pm",
+      lastCoachSmsExact: "Let's plan for 6 PM tomorrow to make those calls after work.",
+    });
+    expect(p).toContain("Server scheduling constraint");
+    expect(p).toContain("6 PM");
+    expect(p).toMatch(/do not propose those same clock times again/i);
+  });
 });
 
 describe("getConversationBrainConfidenceFloor", () => {

@@ -226,7 +226,8 @@ import {
   refineMachineSmsBodyWithV3RefineLane,
   V3_REFINE_ONLY_GATED,
 } from "@/lib/v3-sms-machine-refine";
-import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
+import { coalesceOlderPendingSplitJobsForClaimedJob } from "@/lib/sms-inbound-split-coalesce";
+import { applyFinalVoiceOwnershipGate, type VoiceOwnershipResult } from "@/lib/v3-sms-voice-ownership";
 import { isAppleMessengerTapbackLine } from "@/lib/sms-imessage-reaction";
 
 export const runtime = "nodejs";
@@ -308,6 +309,7 @@ type JobRow = {
   sent_at: string | null;
   last_error: string | null;
   outbound_message_sid: string | null;
+  created_at?: string;
 };
 
 /** V3 refine-only lane for transactional / guided SMS machine bodies (refresh, memory confirm, contract consent). */
@@ -347,7 +349,7 @@ async function northStarGatePersistBodyAsync(
     activeCommitmentId?: string | null;
     normalCoaching?: boolean;
   }
-): Promise<string> {
+): Promise<{ northStarVisibleBody: string; voice: VoiceOwnershipResult }> {
   const r = await finalizeNorthStarCoachSmsAsync({
     proposedBody: replyBody,
     channel: args.channel,
@@ -378,7 +380,7 @@ async function northStarGatePersistBodyAsync(
     normalCoaching:
       args.normalCoaching ?? Boolean(args.activeCommitmentId ?? args.contextPacket?.activeCommitmentId),
   });
-  return voice.body;
+  return { northStarVisibleBody: r.visibleBody, voice };
 }
 
 async function markJobFinal(args: {
@@ -406,6 +408,19 @@ async function markJobFinal(args: {
     .from("sms_inbound_coach_jobs")
     .update(patch)
     .eq("message_sid", args.messageSid);
+}
+
+function finalVoiceSkipLastError(voice: VoiceOwnershipResult): string {
+  try {
+    return JSON.stringify({
+      tag: "final_voice_gate_no_send",
+      final_voice_gate: voice.metadata,
+      skip_reason: voice.skipReason ?? null,
+      blocked_reasons: voice.blockedReasons,
+    }).slice(0, 1900);
+  } catch {
+    return "final_voice_gate_no_send";
+  }
 }
 
 async function repairOutboundSidWithoutSentAt(): Promise<number> {
@@ -761,6 +776,19 @@ async function processV2NormalInboundOutcome(
         normalCoaching: true,
       });
 
+      if (!openVoice.shouldSend) {
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: finalVoiceSkipLastError(openVoice),
+          nextRetry: farFutureIso(),
+        });
+        console.warn("[sms-inbound-coach] v3_open_question_final_voice_suppressed", {
+          message_sid: job.message_sid,
+        });
+        return;
+      }
+
       const nowV3 = new Date().toISOString();
       const { data: persistedV3 } = await supabaseServer
         .from("sms_inbound_coach_jobs")
@@ -941,7 +969,7 @@ async function processV2NormalInboundOutcome(
         eventType: gdFallback.final_event_type ?? eventType,
         preferredName,
       });
-      const gatedLegacy = await northStarGatePersistBodyAsync(tmpl.body, {
+      const legacyVoicePack = await northStarGatePersistBodyAsync(tmpl.body, {
         job,
         channel: "inbound_coach_reply",
         lastOutboundBody: lastOutboundSmsPreview,
@@ -968,10 +996,15 @@ async function processV2NormalInboundOutcome(
             model: V2_INBOUND_AI_MODEL,
             prompt_version: V2_INBOUND_AI_PROMPT_VERSION,
             server_strategy: strategyForInboundEventType(gdFallback.final_event_type ?? eventType),
-            message: gatedLegacy,
+            message: legacyVoicePack.voice.shouldSend ? legacyVoicePack.voice.body : "",
             confidence: null,
             fallback_used: true,
-            fallback_reason: "conversation_brain_legacy_fallback_disabled",
+            fallback_reason: !legacyVoicePack.voice.shouldSend
+              ? "conversation_brain_legacy_fallback_disabled_final_voice_no_send"
+              : "conversation_brain_legacy_fallback_disabled",
+            ...(!legacyVoicePack.voice.shouldSend
+              ? { final_voice_gate: legacyVoicePack.voice.metadata }
+              : {}),
           },
           conversation_brain_v1: {
             enabled: false,
@@ -1001,11 +1034,25 @@ async function processV2NormalInboundOutcome(
         );
       }
 
+      if (!legacyVoicePack.voice.shouldSend) {
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: finalVoiceSkipLastError(legacyVoicePack.voice),
+          nextRetry: farFutureIso(),
+        });
+        console.warn("[sms-inbound-coach] legacy_fallback_final_voice_suppressed", {
+          message_sid: job.message_sid,
+          skip_reason: legacyVoicePack.voice.skipReason ?? null,
+        });
+        return;
+      }
+
       const nowFb = new Date().toISOString();
       const { data: persistedFb } = await supabaseServer
         .from("sms_inbound_coach_jobs")
         .update({
-          reply_body: gatedLegacy,
+          reply_body: legacyVoicePack.voice.body,
           status: "reply_ready",
           next_retry_at: nowFb,
           updated_at: nowFb,
@@ -1384,7 +1431,7 @@ async function processV2NormalInboundOutcome(
       }
     }
 
-    const gatedPivot = await northStarGatePersistBodyAsync(pivotVisible, {
+    const pivotVoicePack = await northStarGatePersistBodyAsync(pivotVisible, {
       job,
       channel: "central_brain_pivot",
       lastOutboundBody: lastOutboundSmsPreview,
@@ -1393,7 +1440,22 @@ async function processV2NormalInboundOutcome(
       finalEventType: gatedDecision.final_event_type ?? eventType,
       replySource: pivotReplySource,
       contextPacket: northStarPktForV3,
+      activeCommitmentId: commitment.id,
+      normalCoaching: true,
     });
+    if (!pivotVoicePack.voice.shouldSend) {
+      await markJobFinal({
+        messageSid: job.message_sid,
+        status: "cancelled",
+        lastError: finalVoiceSkipLastError(pivotVoicePack.voice),
+        nextRetry: farFutureIso(),
+      });
+      console.warn("[sms-inbound-coach] pivot_final_voice_suppressed", {
+        message_sid: job.message_sid,
+      });
+      return;
+    }
+    const gatedPivot = pivotVoicePack.voice.body;
     const nowPivot = new Date().toISOString();
     const { data: persistedPivot } = await supabaseServer
       .from("sms_inbound_coach_jobs")
@@ -1529,7 +1591,7 @@ async function processV2NormalInboundOutcome(
         }
       }
 
-      const gatedClarify = await northStarGatePersistBodyAsync(clarifyVisible, {
+      const clarifyVoicePack = await northStarGatePersistBodyAsync(clarifyVisible, {
         job,
         channel: "clarification",
         lastOutboundBody: lastOutboundSmsPreview,
@@ -1538,7 +1600,22 @@ async function processV2NormalInboundOutcome(
         finalEventType: arcWriteOutcomeType,
         replySource: clarifyReplySource,
         contextPacket: northStarPktForV3,
+        activeCommitmentId: commitment.id,
+        normalCoaching: true,
       });
+      if (!clarifyVoicePack.voice.shouldSend) {
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: finalVoiceSkipLastError(clarifyVoicePack.voice),
+          nextRetry: farFutureIso(),
+        });
+        console.warn("[sms-inbound-coach] arc_clarify_final_voice_suppressed", {
+          message_sid: job.message_sid,
+        });
+        return;
+      }
+      const gatedClarify = clarifyVoicePack.voice.body;
       const nowArc = new Date().toISOString();
       const { data: persistedArc } = await supabaseServer
         .from("sms_inbound_coach_jobs")
@@ -2643,6 +2720,21 @@ async function processV2NormalInboundOutcome(
   }
 
   // 7) Job reply → shared send pipeline.
+  if (!finalVoiceGate.shouldSend) {
+    await markJobFinal({
+      messageSid: job.message_sid,
+      status: "cancelled",
+      lastError: finalVoiceSkipLastError(finalVoiceGate),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] normal_inbound_final_voice_suppressed", {
+      message_sid: job.message_sid,
+      commitment_id: commitment.id,
+      skip_reason: finalVoiceGate.skipReason ?? null,
+    });
+    return;
+  }
+
   const now = new Date().toISOString();
   const { data: persisted } = await supabaseServer
     .from("sms_inbound_coach_jobs")
@@ -2927,7 +3019,7 @@ async function processV2BlockerCapture(
         blockerPivotReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
       }
     }
-    const gatedBlockerPivot = await northStarGatePersistBodyAsync(blockerPivotVisible, {
+    const blockerPivotVoicePack = await northStarGatePersistBodyAsync(blockerPivotVisible, {
       job,
       channel: "central_brain_pivot",
       lastOutboundBody: lastOutboundBlockPreview,
@@ -2936,7 +3028,22 @@ async function processV2BlockerCapture(
       finalEventType: blockerClassification.eventType,
       replySource: blockerPivotReplySource,
       contextPacket: northStarBlockerPkt,
+      activeCommitmentId: commitment.id,
+      normalCoaching: true,
     });
+    if (!blockerPivotVoicePack.voice.shouldSend) {
+      await markJobFinal({
+        messageSid: job.message_sid,
+        status: "cancelled",
+        lastError: finalVoiceSkipLastError(blockerPivotVoicePack.voice),
+        nextRetry: farFutureIso(),
+      });
+      console.warn("[sms-inbound-coach] blocker_pivot_final_voice_suppressed", {
+        message_sid: job.message_sid,
+      });
+      return;
+    }
+    const gatedBlockerPivot = blockerPivotVoicePack.voice.body;
     const pivotNow = new Date().toISOString();
     const { data: persistedPivot } = await supabaseServer
       .from("sms_inbound_coach_jobs")
@@ -3034,7 +3141,7 @@ async function processV2BlockerCapture(
       ackReplySource = inferV3InboundReplySource(rec.brain, rec.openAiOk, true);
     }
   }
-  const gatedAckBody = await northStarGatePersistBodyAsync(ackVisible, {
+  const ackVoicePack = await northStarGatePersistBodyAsync(ackVisible, {
     job,
     channel: "blocker_followup",
     lastOutboundBody: lastOutboundBlockPreview,
@@ -3043,50 +3150,72 @@ async function processV2BlockerCapture(
     finalEventType: blockerClassification.eventType,
     replySource: ackReplySource,
     contextPacket: northStarBlockerPkt,
+    activeCommitmentId: commitment.id,
+    normalCoaching: true,
   });
+  const gatedAckBody = ackVoicePack.voice.body;
+  const blockerAiPayload = {
+    ...buildBlockerAckAiPayload({
+      model: V2_BLOCKER_ACK_AI_MODEL,
+      promptVersion: V2_BLOCKER_ACK_PROMPT_VERSION,
+      message: ackVoicePack.voice.shouldSend ? ackVoicePack.voice.body : "",
+      confidence: blockerAckTry.ok ? blockerAckTry.confidence : null,
+      fallbackUsed: !blockerAckTry.ok || !ackVoicePack.voice.shouldSend,
+      fallbackReason: !ackVoicePack.voice.shouldSend
+        ? "final_voice_gate_no_send"
+        : !blockerAckTry.ok
+          ? blockerAckTry.reason
+          : null,
+    }),
+    ...(!ackVoicePack.voice.shouldSend ? { final_voice_gate: ackVoicePack.voice.metadata } : {}),
+  };
 
-  const blockerAiPayload = buildBlockerAckAiPayload({
-    model: V2_BLOCKER_ACK_AI_MODEL,
-    promptVersion: V2_BLOCKER_ACK_PROMPT_VERSION,
-    message: gatedAckBody,
-    confidence: blockerAckTry.ok ? blockerAckTry.confidence : null,
-    fallbackUsed: !blockerAckTry.ok,
-    fallbackReason: !blockerAckTry.ok ? blockerAckTry.reason : null,
-  });
-
-  const now = new Date().toISOString();
-
-  const { data: persisted } = await supabaseServer
-    .from("sms_inbound_coach_jobs")
-    .update({
-      reply_body: gatedAckBody,
-      status: "reply_ready",
-      next_retry_at: now,
-      updated_at: now,
-      last_error: null,
-    })
-    .eq("message_sid", job.message_sid)
-    .eq("status", "processing")
-    .select()
-    .maybeSingle();
-
-  if (!persisted) {
-    const j2 = await loadJob(job.message_sid);
-    if (j2?.reply_body?.trim()) {
-      await commitAndSendInboundCoachReply(j2, userId);
-    } else {
-      throw new Error("v2_blocker_ack_reply_ready_persist_failed");
-    }
+  let ackSid: string | null = null;
+  if (!ackVoicePack.voice.shouldSend) {
+    await markJobFinal({
+      messageSid: job.message_sid,
+      status: "cancelled",
+      lastError: finalVoiceSkipLastError(ackVoicePack.voice),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] blocker_ack_final_voice_suppressed", {
+      message_sid: job.message_sid,
+    });
   } else {
-    const fresh = (await loadJob(job.message_sid)) ?? job;
-    await commitAndSendInboundCoachReply(fresh, userId);
-  }
+    const now = new Date().toISOString();
 
-  const afterSend = (await loadJob(job.message_sid)) ?? job;
-  const ackSid =
-    typeof afterSend.outbound_message_sid === "string" && afterSend.outbound_message_sid.length > 0
-      ? afterSend.outbound_message_sid
-      : null;
+    const { data: persisted } = await supabaseServer
+      .from("sms_inbound_coach_jobs")
+      .update({
+        reply_body: gatedAckBody,
+        status: "reply_ready",
+        next_retry_at: now,
+        updated_at: now,
+        last_error: null,
+      })
+      .eq("message_sid", job.message_sid)
+      .eq("status", "processing")
+      .select()
+      .maybeSingle();
+
+    if (!persisted) {
+      const j2 = await loadJob(job.message_sid);
+      if (j2?.reply_body?.trim()) {
+        await commitAndSendInboundCoachReply(j2, userId);
+      } else {
+        throw new Error("v2_blocker_ack_reply_ready_persist_failed");
+      }
+    } else {
+      const fresh = (await loadJob(job.message_sid)) ?? job;
+      await commitAndSendInboundCoachReply(fresh, userId);
+    }
+
+    const afterSend = (await loadJob(job.message_sid)) ?? job;
+    ackSid =
+      typeof afterSend.outbound_message_sid === "string" && afterSend.outbound_message_sid.length > 0
+        ? afterSend.outbound_message_sid
+        : null;
+  }
 
   const blockerProofMoment = buildProofMomentForBlockerCaptured({
     blockerMessageCharCount: blockerText.trim().length,
@@ -3204,7 +3333,7 @@ async function processV2ContractProposalConsent(
       hintSource: "contract_consent_ack",
       ownedReplySource: "v3_contract_consent_refined",
     });
-    const gated = await northStarGatePersistBodyAsync(r.body, {
+    const contractVoicePack = await northStarGatePersistBodyAsync(r.body, {
       job,
       channel: "contract_ack",
       lastOutboundBody: lastBody,
@@ -3212,7 +3341,22 @@ async function processV2ContractProposalConsent(
       effectiveAsk: getEffectiveCoachingAsk(workingCommitment, Date.now()),
       replySource: r.replySource ?? undefined,
       contextPacket: r.contextPacket,
+      activeCommitmentId: workingCommitment.id,
+      normalCoaching: true,
     });
+    if (!contractVoicePack.voice.shouldSend) {
+      await markJobFinal({
+        messageSid: job.message_sid,
+        status: "cancelled",
+        lastError: finalVoiceSkipLastError(contractVoicePack.voice),
+        nextRetry: farFutureIso(),
+      });
+      console.warn("[sms-inbound-coach] contract_consent_ack_final_voice_suppressed", {
+        message_sid: job.message_sid,
+      });
+      return;
+    }
+    const gated = contractVoicePack.voice.body;
     const now = new Date().toISOString();
     const { data: persisted } = await supabaseServer
       .from("sms_inbound_coach_jobs")
@@ -3430,6 +3574,19 @@ async function persistV2JobReplyReadyAndSend(
     blocked_reasons: voiceGate.blockedReasons,
     emergency_fallback_used: voiceGate.emergencyFallbackUsed,
   });
+  if (!voiceGate.shouldSend) {
+    await markJobFinal({
+      messageSid: job.message_sid,
+      status: "cancelled",
+      lastError: finalVoiceSkipLastError(voiceGate),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[final-voice-gate] inbound_refresh_suppressed", {
+      message_sid: job.message_sid,
+      skip_reason: voiceGate.skipReason ?? null,
+    });
+    return;
+  }
   const now = new Date().toISOString();
   const { data: persisted } = await supabaseServer
     .from("sms_inbound_coach_jobs")
@@ -4623,7 +4780,23 @@ async function processJob(claimedJob: JobRow): Promise<void> {
     throw new Error("job_missing");
   }
 
-  const job = fresh;
+  let job = fresh;
+
+  if (job.status === "processing" && typeof job.created_at === "string" && job.created_at.trim()) {
+    const { mergedRawBody, cancelledMessageSids } = await coalesceOlderPendingSplitJobsForClaimedJob({
+      message_sid: job.message_sid,
+      clerk_user_id: job.clerk_user_id,
+      created_at: job.created_at,
+      raw_body: job.raw_body || "",
+    });
+    if (cancelledMessageSids.length > 0) {
+      console.info("[sms-inbound-coach] split_inbound_coalesced", {
+        kept_message_sid: job.message_sid,
+        cancelled_message_sids: cancelledMessageSids,
+      });
+      job = { ...job, raw_body: mergedRawBody };
+    }
+  }
 
   if (job.outbound_message_sid && !job.sent_at) {
     console.log("[sms-inbound-coach] repair sent_at from outbound sid", job.message_sid);
@@ -4741,6 +4914,7 @@ export async function GET(req: Request) {
     .lte("next_retry_at", nowIso)
     .lt("attempt_count", MAX_ATTEMPTS)
     .order("next_retry_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(BATCH_SIZE);
 
   if (listErr) {
