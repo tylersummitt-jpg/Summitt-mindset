@@ -176,6 +176,7 @@ export function matchesMalformedDidRawPhraseHappenToday(text: string): boolean {
 const V3_RELATIONSHIP_VOICE_EXACT_SOURCES = new Set([
   "v3_sms_brain",
   "v3_daily_check_in",
+  "v3_daily_relationship_lane",
   "v3_answer_to_open_question",
   "v3_voice_repair",
   "v3_daily_deterministic_fallback",

@@ -17,7 +17,6 @@ import {
   deriveV2ReentryContext,
   deriveV2SilenceContext,
   pickV2OutboundStrategy,
-  resolveV2DailyOutboundSmsBody,
   resolveV2OutboundStrategyAfterBase,
   templateFamilyForStrategy,
   V2_OUTBOUND_AI_MODEL,
@@ -99,7 +98,19 @@ import {
 } from "@/lib/v2-send-time-profile";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 import { fetchPendingEvolutionRecommendation } from "@/lib/v2-commitment-evolution-recommendation";
-import { buildV2SmsConversationContextPack } from "@/lib/v2-sms-conversation-context";
+import {
+  buildV2SmsConversationContextPack,
+  type V2SmsConversationContextPack,
+} from "@/lib/v2-sms-conversation-context";
+import {
+  buildCoachingMemorySnippetForDailyLane,
+  deriveDoNotRepeatHintsFromCoachingMemory,
+  deriveSuggestedCoachingMoveForDailyFacts,
+  produceDailyV3RelationshipSms,
+  type DailyV3RelationshipFacts,
+  type DailyV3RelationshipFactsForMove,
+  type DailyV3RouteKind,
+} from "@/lib/v3-daily-relationship-lane";
 import {
   evaluateCommitmentEvolutionForSms,
   pickWave7DailyEvolutionAction,
@@ -111,16 +122,13 @@ import {
   getPendingResolutionOrNull,
   isPendingResolutionExpired,
   shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation,
+  type V2SmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
 import { pickNorthStarWriterAttributionFields, type NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
 import { dailySmsVoiceSkipEventPatch, isDailySmsWithheldByFinalVoiceGate } from "@/lib/daily-sms-voice-skip";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
-import {
-  generateV3DailyCheckIn,
-  generateV3DailyDeterministicFallback,
-  V3_BRAIN_VERSION,
-} from "@/lib/v3-sms-brain";
+import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 
 export const runtime = "nodejs";
@@ -179,8 +187,15 @@ type DailySmsBuilt =
       v3DailySms?: boolean;
       /** True when visible line came from deterministic V3 fallback (no successful OpenAI daily draft). */
       v3DailyDeterministicFallback?: boolean;
+      /** Central V3 daily relationship lane (Phase 2 — all daily branches). */
+      v3DailyRelationshipLane?: boolean;
     }
-  | { ok: false; error: string; adaptiveProposalWithheldMeta?: Record<string, unknown> };
+  | {
+      ok: false;
+      error: string;
+      adaptiveProposalWithheldMeta?: Record<string, unknown>;
+      dailyLaneMeta?: Record<string, unknown>;
+    };
 
 async function withNorthStarDailyGate(
   built: DailySmsBuilt,
@@ -203,11 +218,13 @@ async function withNorthStarDailyGate(
     effectiveAskText: built.v2EffectiveAskText ?? undefined,
     localHour: opts?.localHour,
     replySource:
-      built.v3DailySms === true
-        ? built.v3DailyDeterministicFallback === true
-          ? "v3_daily_deterministic_fallback"
-          : "v3_daily_check_in"
-        : undefined,
+      built.v3DailyRelationshipLane === true
+        ? "v3_daily_relationship_lane"
+        : built.v3DailySms === true
+          ? built.v3DailyDeterministicFallback === true
+            ? "v3_daily_deterministic_fallback"
+            : "v3_daily_check_in"
+          : undefined,
     metadata: {
       v2TemplateFamily: built.v2TemplateFamily,
       v2CommitmentId: built.v2CommitmentId,
@@ -225,11 +242,13 @@ async function withNorthStarDailyGate(
   const voiceGate = await applyFinalVoiceOwnershipGate({
     proposedBody: ns.visibleBody,
     replySource:
-      built.v3DailySms === true
-        ? built.v3DailyDeterministicFallback === true
-          ? "v3_daily_deterministic_fallback"
-          : "v3_daily_check_in"
-        : undefined,
+      built.v3DailyRelationshipLane === true
+        ? "v3_daily_relationship_lane"
+        : built.v3DailySms === true
+          ? built.v3DailyDeterministicFallback === true
+            ? "v3_daily_deterministic_fallback"
+            : "v3_daily_check_in"
+          : undefined,
     channel,
     activeCommitmentId: built.v2CommitmentId ?? null,
     effectiveAsk: built.v2EffectiveAskText ?? null,
@@ -514,20 +533,21 @@ async function buildDailySmsContent(
 
       const { data: profileRowRe } = await supabaseServer
         .from("user_profiles")
-        .select("preferred_name, life_desires")
+        .select("preferred_name")
         .eq("clerk_user_id", clerkUserId)
         .maybeSingle();
 
       const preferredNameRe =
         typeof profileRowRe?.preferred_name === "string" ? profileRowRe.preferred_name : null;
-      const lifeDesiresRe =
-        typeof profileRowRe?.life_desires === "string" ? profileRowRe.life_desires : null;
 
       const coachingMemoryRe = await loadV2CoachingMemoryForPrompt(active.id);
 
+      const overlayActiveRe = isV2AdaptiveOverlayActive(active, now.getTime());
+
       let recentSmsContextBlock: string | null = null;
+      let reactConvPack: V2SmsConversationContextPack | null = null;
       try {
-        const convPack = await buildV2SmsConversationContextPack({
+        reactConvPack = await buildV2SmsConversationContextPack({
           clerkUserId,
           commitmentId: active.id,
           commitment: active,
@@ -535,7 +555,7 @@ async function buildDailySmsContent(
           preloadedCoachingMemory: coachingMemoryRe,
           preloadedEventsNewestFirst: recentEvents,
         });
-        recentSmsContextBlock = convPack.promptBlock;
+        recentSmsContextBlock = reactConvPack.promptBlock;
       } catch (e) {
         console.warn("[daily-sms] sms_conversation_context_pack_failed", {
           commitment_id: active.id,
@@ -549,7 +569,7 @@ async function buildDailySmsContent(
         reentry: reentryCtx,
         silence: silenceCtx,
         serverState,
-        overlayActive: isV2AdaptiveOverlayActive(active, now.getTime()),
+        overlayActive: overlayActiveRe,
         hasBlockerPreview: false,
         eventsNewestFirst: recentEvents,
         coachingMemory: coachingMemoryRe,
@@ -558,86 +578,107 @@ async function buildDailySmsContent(
         wave7SurfaceEvolution: false,
       });
 
-      const { body: templateBodyRe, templateId: templateIdRe } =
-        buildV2OutboundAccountabilitySmsForStrategy({
-          clerkUserId,
-          dayKey: accountabilityDayKey,
-          behaviorStatement: active.behavior_statement,
-          serverStrategy: "reactivation_nudge",
-          nextMove: "hold_standard",
-        });
-
-      const resolvedRe = await resolveV2DailyOutboundSmsBody({
-        ctx: {
-          commitment: active,
-          eventsNewestFirst: recentEvents,
-          blockerPreview: null,
-          serverState,
-          serverStrategy: "reactivation_nudge",
-          templateFamily: "reactivation",
-          silence: silenceCtx,
-          reentry: reentryCtx,
-          nextMove: holdNextMove,
-          cadence: pausedCadence,
-          effectiveCoachingAsk: active.behavior_statement.trim(),
-          contractProposalMode: false,
-          contractProposalBindingText: null,
-          coachingMemory: coachingMemoryRe,
-          preferredName: preferredNameRe,
-          lifeDesires: lifeDesiresRe,
-          identityAnchorText: null,
-          identityRefreshDue: false,
-          identityReferenceAllowed: false,
-          reachabilityContextLine,
-          dailyMessagePurpose: dailyPurposeRe,
-          recentSmsContextBlock,
-        },
-        contractProposalMode: false,
-        purpose: dailyPurposeRe,
-        templateBody: templateBodyRe,
-        effectiveAsk: active.behavior_statement.trim(),
+      const stratRe = buildV2OutboundAccountabilitySmsForStrategy({
+        clerkUserId,
+        dayKey: accountabilityDayKey,
         behaviorStatement: active.behavior_statement,
-        nextMoveType: "hold_standard",
-        shrunkAskText: null,
-      });
-
-      let smsBodyRe = resolvedRe.smsBody;
-      let v3DailySmsRe = false;
-      let v3DailyDeterministicFallbackRe = false;
-      const dailyCheckArgsRe = {
-        commitmentId: active.id,
-        effectiveAsk: active.behavior_statement.trim(),
-        behaviorStatement: active.behavior_statement ?? "",
-        priorOutcome: null,
-        coachingMemory: coachingMemoryRe,
         serverStrategy: "reactivation_nudge",
-        silenceTier: silenceCtx.tier,
-        blockerPreview: null,
-        recentSmsContextBlock,
-        preferredName: preferredNameRe,
-        identityAnchor: null,
-        recentEventsNewestFirst: recentEvents,
-        dailyPurpose: dailyPurposeRe,
-        contractProposalKind: undefined,
-        contractBindingText: undefined,
-        evolutionPatternHint: undefined,
-        resolvedTemplateFallback: resolvedRe.smsBody,
+        nextMove: "hold_standard",
+      });
+      const templateIdRe = stratRe.templateId;
+
+      const patternHintsRe = [
+        reactConvPack?.proofHighlight,
+        reactConvPack?.comebackSignal,
+        reactConvPack?.recentBlockerPattern,
+      ]
+        .filter((x): x is string => Boolean(x && typeof x === "string"))
+        .join(" | ");
+      const relationshipToneSummaryRe =
+        coachingMemoryRe?.sms_relationship_profile != null
+          ? JSON.stringify(coachingMemoryRe.sms_relationship_profile).slice(0, 240)
+          : null;
+
+      const factsCoreRe: DailyV3RelationshipFactsForMove = {
+        route_kind: "low_pressure_reactivation",
+        accountability_day_key: accountabilityDayKey,
+        user: {
+          clerk_user_id: clerkUserId,
+          preferred_name: preferredNameRe,
+          timezone,
+          local_time_iso: new Date(now.toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+          relationship_profile_summary: relationshipToneSummaryRe,
+        },
+        commitment: {
+          id: active.id,
+          title: active.title,
+          behavior_statement: active.behavior_statement,
+          effective_ask: active.behavior_statement.trim(),
+          accountability_phase: active.accountability_phase,
+          identity_anchor_allowed: false,
+          identity_anchor_short: null,
+        },
+        thread_memory: {
+          latest_outbound_sms: reactConvPack?.lastOutboundPreview ?? null,
+          latest_inbound_sms: reactConvPack?.lastInboundPreview ?? null,
+          recent_transcript_or_context_block: recentSmsContextBlock,
+          latest_open_question: null,
+          do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRe),
+          coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRe),
+          recent_pattern_hints: patternHintsRe.length > 0 ? patternHintsRe.slice(0, 480) : null,
+        },
+        accountability: {
+          daily_purpose: dailyPurposeRe,
+          server_strategy: "reactivation_nudge",
+          next_move_type: "hold_standard",
+          prior_outcome: null,
+          yes_streak_14d: coachingMemoryRe?.yes_streak_14d ?? null,
+          no_count_14d: coachingMemoryRe?.no_count_14d ?? null,
+          partial_count_14d: coachingMemoryRe?.partial_count_14d ?? null,
+          blocker_preview: null,
+          proof_or_milestone_signal: null,
+          silence_tier: silenceCtx.tier,
+          unanswered_checks: silenceCtx.unanswered_checks,
+          days_since_last_user_outcome: silenceCtx.days_since_last_user_outcome,
+          reentry_active: reentryCtx.active,
+          overlay_active: overlayActiveRe,
+          evolution_pattern_hint: null,
+          contract_proposal_mode: false,
+        },
       };
-      try {
-        const v3dRe = await generateV3DailyCheckIn(dailyCheckArgsRe);
-        smsBodyRe = v3dRe.text;
-        v3DailySmsRe = true;
-        v3DailyDeterministicFallbackRe = !v3dRe.openAiOk;
-      } catch (e) {
-        console.warn("[v3-sms-brain] reactivation_daily_check_failed", {
-          commitment_id: active.id,
-          message: e instanceof Error ? e.message : String(e),
-        });
-        smsBodyRe = generateV3DailyDeterministicFallback(dailyCheckArgsRe);
-        v3DailySmsRe = true;
-        v3DailyDeterministicFallbackRe = true;
+      const suggestedMoveRe = deriveSuggestedCoachingMoveForDailyFacts(factsCoreRe);
+      const factsRe: DailyV3RelationshipFacts = {
+        ...factsCoreRe,
+        suggested_coaching_move: suggestedMoveRe,
+        constraints: {
+          max_chars: 300,
+          one_sms: true,
+          no_raw_title_or_behavior_paste: true,
+          no_generic_motivation: true,
+          if_unsafe_return_no_send: true,
+        },
+      };
+      const laneRe = await produceDailyV3RelationshipSms({
+        facts: factsRe,
+        telemetry_fact_sources: [
+          "deriveV2CoachingState",
+          "deriveV2SilenceContext",
+          "deriveV2ReentryContext",
+          "deriveV2DailyMessagePurpose",
+          "getRecentV2EventsForAi",
+          "loadV2CoachingMemoryForPrompt",
+          "buildV2SmsConversationContextPack",
+          "buildV2OutboundAccountabilitySmsForStrategy",
+        ],
+      });
+      if (!laneRe.shouldSend || !laneRe.body.trim()) {
+        return {
+          ok: false,
+          error: "daily_v3_lane_no_send",
+          dailyLaneMeta: { ...laneRe.metadata, no_send_reason: laneRe.noSendReason },
+        };
       }
-      const aiTryRe = resolvedRe.aiTry;
+      const smsBodyRe = laneRe.body;
       const aiPayloadRe = {
         ...buildCheckSentAiPayload({
           model: V2_OUTBOUND_AI_MODEL,
@@ -645,22 +686,26 @@ async function buildDailySmsContent(
           serverState,
           serverStrategy: "reactivation_nudge",
           message: smsBodyRe,
-          confidence: aiTryRe.ok ? aiTryRe.confidence : null,
-          fallbackUsed: !aiTryRe.ok,
-          ...(!aiTryRe.ok ? { fallbackReason: aiTryRe.reason } : {}),
-          dailyResolution: resolvedRe.resolution,
+          confidence: laneRe.voiceConfidence,
+          fallbackUsed: false,
         }),
-        reply_source: v3DailyDeterministicFallbackRe
-          ? "v3_daily_deterministic_fallback"
-          : "v3_daily_check_in",
+        reply_source: "v3_daily_relationship_lane",
         v3_brain: {
           v3_brain_version: V3_BRAIN_VERSION,
-          v3_coach_reply_source: v3DailyDeterministicFallbackRe
-            ? "v3_daily_deterministic_fallback"
-            : "v3_daily_check_in",
+          v3_coach_reply_source: "v3_daily_relationship_lane",
           v3_memory_used: true,
           v3_daily_purpose: dailyPurposeRe,
-          v3_deterministic_fallback_used: v3DailyDeterministicFallbackRe,
+          v3_deterministic_fallback_used: false,
+          daily_v3_lane_used: true,
+          v3_lane_reply_source: "v3_daily_relationship_lane",
+          v3_lane_turn_purpose: laneRe.turnPurpose,
+          v3_candidate_body: (laneRe.metadata.v3_candidate_body as string | undefined) ?? laneRe.body,
+          old_daily_writer_used_as_voice: false,
+          old_daily_writer_fact_sources: laneRe.metadata.old_daily_writer_fact_sources,
+          daily_facts_summary: laneRe.metadata.daily_facts_summary,
+          suggested_coaching_move: laneRe.metadata.suggested_coaching_move,
+          route_purpose: "low_pressure_reactivation",
+          voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
         },
       };
 
@@ -696,8 +741,9 @@ async function buildDailySmsContent(
         v2ProposalBindingText: null,
         v2ContractProposalPayload: null,
         v2EffectiveAskText: active.behavior_statement.trim(),
-        v3DailySms: v3DailySmsRe,
-        v3DailyDeterministicFallback: v3DailyDeterministicFallbackRe,
+        v3DailySms: true,
+        v3DailyDeterministicFallback: false,
+        v3DailyRelationshipLane: true,
       };
     }
 
@@ -753,23 +799,209 @@ async function buildDailySmsContent(
         });
         return { ok: false, error: "v2_pending_resolution_recent_confirmation_skip" };
       }
-      const rem = buildPendingResolutionDailyReminderSms(active);
+      const serverStatePr = deriveV2CoachingState(recentEvents);
+      const pr = getPendingResolutionOrNull(active);
+      const effectiveAskPr = getEffectiveCoachingAsk(active, now.getTime());
+      const { data: prProf } = await supabaseServer
+        .from("user_profiles")
+        .select("preferred_name")
+        .eq("clerk_user_id", clerkUserId)
+        .maybeSingle();
+      const preferredNamePr =
+        typeof prProf?.preferred_name === "string" ? prProf.preferred_name : null;
+      const coachingMemoryPr = await loadV2CoachingMemoryForPrompt(active.id);
+      let prConvPack: V2SmsConversationContextPack | null = null;
+      let prCtxBlock: string | null = null;
+      try {
+        prConvPack = await buildV2SmsConversationContextPack({
+          clerkUserId,
+          commitmentId: active.id,
+          commitment: active,
+          timezone,
+          preloadedCoachingMemory: coachingMemoryPr,
+          preloadedEventsNewestFirst: recentEvents,
+        });
+        prCtxBlock = prConvPack.promptBlock;
+      } catch (e) {
+        console.warn("[daily-sms] pending_resolution_context_pack_failed", {
+          commitment_id: active.id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+
+      let smsStatePr: string | null = null;
+      let detectedIntentPr: string | null = null;
+      let candidateSnippetPr: string | null = null;
+      if (
+        pr?.payload &&
+        typeof pr.payload === "object" &&
+        "source" in pr.payload &&
+        pr.payload.source === "sms_inbound"
+      ) {
+        const smsPl = pr.payload as V2SmsPendingResolutionPayload;
+        smsStatePr = smsPl.sms_state ?? null;
+        detectedIntentPr = smsPl.detected_intent;
+        const candRaw = (
+          smsPl.candidate_behavior_statement?.trim() ||
+          smsPl.candidate_tightened_bar?.trim() ||
+          smsPl.candidate_new_bar?.trim() ||
+          ""
+        ).slice(0, 160);
+        candidateSnippetPr = candRaw.length > 0 ? candRaw : null;
+      }
+      const payloadSourcePr =
+        pr?.payload && typeof pr.payload === "object" && "source" in pr.payload
+          ? String((pr.payload as { source?: string }).source ?? "").trim() || null
+          : null;
+      const awaitingConfirmationPr =
+        smsStatePr === "awaiting_confirmation" && Boolean(candidateSnippetPr);
+      const verbatimPr: string[] = [];
+      if (awaitingConfirmationPr && candidateSnippetPr) verbatimPr.push(candidateSnippetPr);
+
+      const patternHintsPr = [
+        prConvPack?.proofHighlight,
+        prConvPack?.comebackSignal,
+        prConvPack?.recentBlockerPattern,
+      ]
+        .filter((x): x is string => Boolean(x && typeof x === "string"))
+        .join(" | ");
+
+      const factsCorePr: DailyV3RelationshipFactsForMove = {
+        route_kind: "pending_resolution",
+        accountability_day_key: accountabilityDayKey,
+        user: {
+          clerk_user_id: clerkUserId,
+          preferred_name: preferredNamePr,
+          timezone,
+          local_time_iso: new Date(now.toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+          relationship_profile_summary:
+            coachingMemoryPr?.sms_relationship_profile != null
+              ? JSON.stringify(coachingMemoryPr.sms_relationship_profile).slice(0, 240)
+              : null,
+        },
+        commitment: {
+          id: active.id,
+          title: active.title,
+          behavior_statement: active.behavior_statement,
+          effective_ask: effectiveAskPr,
+          accountability_phase: active.accountability_phase,
+          identity_anchor_allowed: false,
+          identity_anchor_short: null,
+        },
+        thread_memory: {
+          latest_outbound_sms: prConvPack?.lastOutboundPreview ?? null,
+          latest_inbound_sms: prConvPack?.lastInboundPreview ?? null,
+          recent_transcript_or_context_block: prCtxBlock,
+          latest_open_question: null,
+          do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryPr),
+          coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryPr),
+          recent_pattern_hints: patternHintsPr.length > 0 ? patternHintsPr.slice(0, 480) : null,
+        },
+        accountability: {
+          daily_purpose: "fallback_standard",
+          server_strategy: "standard_check",
+          next_move_type: "hold_standard",
+          prior_outcome: latestOutcome?.type ?? null,
+          yes_streak_14d: coachingMemoryPr?.yes_streak_14d ?? null,
+          no_count_14d: coachingMemoryPr?.no_count_14d ?? null,
+          partial_count_14d: coachingMemoryPr?.partial_count_14d ?? null,
+          blocker_preview: null,
+          proof_or_milestone_signal: null,
+          silence_tier: "none",
+          unanswered_checks: 0,
+          days_since_last_user_outcome: 0,
+          reentry_active: false,
+          overlay_active: isV2AdaptiveOverlayActive(active, now.getTime()),
+          evolution_pattern_hint: null,
+          contract_proposal_mode: false,
+        },
+        pending_resolution: {
+          resolution_kind: pr?.kind ?? null,
+          expires_at: pr?.expiresAt ?? null,
+          payload_source: payloadSourcePr,
+          sms_state: smsStatePr,
+          detected_intent: detectedIntentPr,
+          candidate_behavior_snippet: candidateSnippetPr,
+          awaiting_user_confirmation: awaitingConfirmationPr,
+        },
+      };
+      const suggestedPr = deriveSuggestedCoachingMoveForDailyFacts(factsCorePr);
+      const factsPr: DailyV3RelationshipFacts = {
+        ...factsCorePr,
+        suggested_coaching_move: suggestedPr,
+        constraints: {
+          max_chars: 300,
+          one_sms: true,
+          no_raw_title_or_behavior_paste: true,
+          no_generic_motivation: true,
+          if_unsafe_return_no_send: true,
+          ...(verbatimPr.length ? { required_verbatim_substrings: verbatimPr } : {}),
+        },
+      };
+      const remTemplate = buildPendingResolutionDailyReminderSms(active);
+      const lanePr = await produceDailyV3RelationshipSms({
+        facts: factsPr,
+        telemetry_fact_sources: [
+          "getPendingResolutionOrNull",
+          "getEffectiveCoachingAsk",
+          "loadV2CoachingMemoryForPrompt",
+          "buildV2SmsConversationContextPack",
+          "buildPendingResolutionDailyReminderSms",
+        ],
+      });
+      if (!lanePr.shouldSend || !lanePr.body.trim()) {
+        return {
+          ok: false,
+          error: "daily_v3_lane_no_send",
+          dailyLaneMeta: { ...lanePr.metadata, no_send_reason: lanePr.noSendReason },
+        };
+      }
       console.info("[daily-sms] pending_resolution_reminder_selected", {
         clerk_user_id: clerkUserId,
         commitment_id: active.id,
       });
       return {
         ok: true,
-        smsBody: rem.body,
+        smsBody: lanePr.body,
         deliveryStateSnapshot: null,
         day2SpecialUsed: false,
         v2Accountability: true,
         v2CommitmentId: active.id,
-        v2TemplateId: rem.templateId,
+        v2TemplateId: remTemplate.templateId,
         v2TemplateFamily: "standard",
         v2PriorOutcome: latestOutcome?.type ?? null,
         v2BlockerPreview: null,
-        v2AiPayload: null,
+        v2AiPayload: {
+          ...buildCheckSentAiPayload({
+            model: V2_OUTBOUND_AI_MODEL,
+            promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
+            serverState: serverStatePr,
+            serverStrategy: "standard_check",
+            message: lanePr.body,
+            confidence: lanePr.voiceConfidence,
+            fallbackUsed: false,
+          }),
+          reply_source: "v3_daily_relationship_lane",
+          v3_brain: {
+            v3_brain_version: V3_BRAIN_VERSION,
+            v3_coach_reply_source: "v3_daily_relationship_lane",
+            v3_memory_used: true,
+            v3_daily_purpose: "fallback_standard",
+            v3_contract_proposal_mode: false,
+            v3_evolution_pattern_day: false,
+            v3_deterministic_fallback_used: false,
+            daily_v3_lane_used: true,
+            v3_lane_reply_source: "v3_daily_relationship_lane",
+            v3_lane_turn_purpose: lanePr.turnPurpose,
+            v3_candidate_body: (lanePr.metadata.v3_candidate_body as string | undefined) ?? lanePr.body,
+            old_daily_writer_used_as_voice: false,
+            old_daily_writer_fact_sources: lanePr.metadata.old_daily_writer_fact_sources,
+            daily_facts_summary: lanePr.metadata.daily_facts_summary,
+            suggested_coaching_move: lanePr.metadata.suggested_coaching_move,
+            route_purpose: "pending_resolution",
+            voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+          },
+        },
         v2SilencePayload: null,
         v2ReentryPayload: null,
         v2NextMovePayload: null,
@@ -781,7 +1013,10 @@ async function buildDailySmsContent(
         v2IdentityAnchorText: null,
         v2RefreshOutboundPlan: null,
         v2PendingResolutionReminder: true,
-        v2EffectiveAskText: null,
+        v2EffectiveAskText: effectiveAskPr,
+        v3DailySms: true,
+        v3DailyDeterministicFallback: false,
+        v3DailyRelationshipLane: true,
       };
     }
 
@@ -860,8 +1095,9 @@ async function buildDailySmsContent(
 
       if (!refreshSessionParsed && wave1Cold.ok) {
         const newSession = newRefreshSessionIdentityStep(now.toISOString());
-        const { body: refreshIdentityBody, templateId: refreshTid } =
-          buildRefreshStepIdentitySms({ identityAnchorText: identityAnchorForRefresh });
+        const refreshTid = buildRefreshStepIdentitySms({
+          identityAnchorText: identityAnchorForRefresh,
+        }).templateId;
 
         const serverStateR = deriveV2CoachingState(recentEvents);
         const silenceCtxR = deriveV2SilenceContext(recentEvents, now);
@@ -891,9 +1127,133 @@ async function buildDailySmsContent(
           reentry: reentryCtxR,
         });
 
+        const effectiveAskRf = getEffectiveCoachingAsk(active, now.getTime());
+        const { data: idProf } = await supabaseServer
+          .from("user_profiles")
+          .select("preferred_name")
+          .eq("clerk_user_id", clerkUserId)
+          .maybeSingle();
+        const preferredNameRf =
+          typeof idProf?.preferred_name === "string" ? idProf.preferred_name : null;
+        const coachingMemoryRf = await loadV2CoachingMemoryForPrompt(active.id);
+        let idConv: V2SmsConversationContextPack | null = null;
+        let idCtx: string | null = null;
+        try {
+          idConv = await buildV2SmsConversationContextPack({
+            clerkUserId,
+            commitmentId: active.id,
+            commitment: active,
+            timezone,
+            preloadedCoachingMemory: coachingMemoryRf,
+            preloadedEventsNewestFirst: recentEvents,
+          });
+          idCtx = idConv.promptBlock;
+        } catch (e) {
+          console.warn("[daily-sms] refresh_identity_context_pack_failed", {
+            commitment_id: active.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+        const anchorTrim = identityAnchorForRefresh.trim();
+        const verbatimRf = anchorTrim.length > 0 ? [anchorTrim] : [];
+        const patternHintsRf = [
+          idConv?.proofHighlight,
+          idConv?.comebackSignal,
+          idConv?.recentBlockerPattern,
+        ]
+          .filter((x): x is string => Boolean(x && typeof x === "string"))
+          .join(" | ");
+
+        const factsCoreRf: DailyV3RelationshipFactsForMove = {
+          route_kind: "refresh_identity",
+          accountability_day_key: accountabilityDayKey,
+          user: {
+            clerk_user_id: clerkUserId,
+            preferred_name: preferredNameRf,
+            timezone,
+            local_time_iso: new Date(now.toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+            relationship_profile_summary:
+              coachingMemoryRf?.sms_relationship_profile != null
+                ? JSON.stringify(coachingMemoryRf.sms_relationship_profile).slice(0, 240)
+                : null,
+          },
+          commitment: {
+            id: active.id,
+            title: active.title,
+            behavior_statement: active.behavior_statement,
+            effective_ask: effectiveAskRf,
+            accountability_phase: active.accountability_phase,
+            identity_anchor_allowed: isQuotableIdentitySource(identitySourceForRefresh),
+            identity_anchor_short: anchorTrim ? anchorTrim.slice(0, 100) : null,
+          },
+          thread_memory: {
+            latest_outbound_sms: idConv?.lastOutboundPreview ?? null,
+            latest_inbound_sms: idConv?.lastInboundPreview ?? null,
+            recent_transcript_or_context_block: idCtx,
+            latest_open_question: null,
+            do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRf),
+            coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRf),
+            recent_pattern_hints: patternHintsRf.length > 0 ? patternHintsRf.slice(0, 480) : null,
+          },
+          accountability: {
+            daily_purpose: "fallback_standard",
+            server_strategy: stratR,
+            next_move_type: nextMoveR.type,
+            prior_outcome: latestOutcome?.type ?? null,
+            yes_streak_14d: coachingMemoryRf?.yes_streak_14d ?? null,
+            no_count_14d: coachingMemoryRf?.no_count_14d ?? null,
+            partial_count_14d: coachingMemoryRf?.partial_count_14d ?? null,
+            blocker_preview: blockerPreviewR,
+            proof_or_milestone_signal: null,
+            silence_tier: silenceCtxR.tier,
+            unanswered_checks: silenceCtxR.unanswered_checks,
+            days_since_last_user_outcome: silenceCtxR.days_since_last_user_outcome,
+            reentry_active: reentryCtxR.active,
+            overlay_active: isV2AdaptiveOverlayActive(active, now.getTime()),
+            evolution_pattern_hint: null,
+            contract_proposal_mode: false,
+          },
+          refresh: {
+            refresh_step: "identity_first",
+            identity_anchor_text: anchorTrim || null,
+          },
+        };
+        const suggestedRf = deriveSuggestedCoachingMoveForDailyFacts(factsCoreRf);
+        const factsRf: DailyV3RelationshipFacts = {
+          ...factsCoreRf,
+          suggested_coaching_move: suggestedRf,
+          constraints: {
+            max_chars: 300,
+            one_sms: true,
+            no_raw_title_or_behavior_paste: true,
+            no_generic_motivation: true,
+            if_unsafe_return_no_send: true,
+            ...(verbatimRf.length ? { required_verbatim_substrings: verbatimRf } : {}),
+          },
+        };
+        const laneRf = await produceDailyV3RelationshipSms({
+          facts: factsRf,
+          telemetry_fact_sources: [
+            "computeWave1ColdStartRefreshEligible",
+            "buildRefreshStepIdentitySms",
+            "loadV2CoachingMemoryForPrompt",
+            "buildV2SmsConversationContextPack",
+            "deriveV2CoachingState",
+            "deriveV2SilenceContext",
+            "deriveV2ReentryContext",
+          ],
+        });
+        if (!laneRf.shouldSend || !laneRf.body.trim()) {
+          return {
+            ok: false,
+            error: "daily_v3_lane_no_send",
+            dailyLaneMeta: { ...laneRf.metadata, no_send_reason: laneRf.noSendReason },
+          };
+        }
+
         return {
           ok: true,
-          smsBody: refreshIdentityBody,
+          smsBody: laneRf.body,
           deliveryStateSnapshot: null,
           day2SpecialUsed: false,
           v2Accountability: true,
@@ -902,7 +1262,37 @@ async function buildDailySmsContent(
           v2TemplateFamily: templateFamilyForStrategy(stratR),
           v2PriorOutcome: latestOutcome?.type ?? null,
           v2BlockerPreview: blockerPreviewR,
-          v2AiPayload: null,
+          v2AiPayload: {
+            ...buildCheckSentAiPayload({
+              model: V2_OUTBOUND_AI_MODEL,
+              promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
+              serverState: serverStateR,
+              serverStrategy: stratR,
+              message: laneRf.body,
+              confidence: laneRf.voiceConfidence,
+              fallbackUsed: false,
+            }),
+            reply_source: "v3_daily_relationship_lane",
+            v3_brain: {
+              v3_brain_version: V3_BRAIN_VERSION,
+              v3_coach_reply_source: "v3_daily_relationship_lane",
+              v3_memory_used: true,
+              v3_daily_purpose: "fallback_standard",
+              v3_contract_proposal_mode: false,
+              v3_evolution_pattern_day: false,
+              v3_deterministic_fallback_used: false,
+              daily_v3_lane_used: true,
+              v3_lane_reply_source: "v3_daily_relationship_lane",
+              v3_lane_turn_purpose: laneRf.turnPurpose,
+              v3_candidate_body: (laneRf.metadata.v3_candidate_body as string | undefined) ?? laneRf.body,
+              old_daily_writer_used_as_voice: false,
+              old_daily_writer_fact_sources: laneRf.metadata.old_daily_writer_fact_sources,
+              daily_facts_summary: laneRf.metadata.daily_facts_summary,
+              suggested_coaching_move: laneRf.metadata.suggested_coaching_move,
+              route_purpose: "refresh_identity",
+              voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+            },
+          },
           v2SilencePayload: {
             tier: silenceCtxR.tier,
             unanswered_checks: silenceCtxR.unanswered_checks,
@@ -924,6 +1314,10 @@ async function buildDailySmsContent(
           v2ContractProposalPayload: null,
           v2IdentityAnchorText: identityAnchorForRefresh,
           v2RefreshOutboundPlan: { kind: "identity_first", session: newSession },
+          v2EffectiveAskText: effectiveAskRf,
+          v3DailySms: true,
+          v3DailyDeterministicFallback: false,
+          v3DailyRelationshipLane: true,
         };
       }
 
@@ -932,8 +1326,7 @@ async function buildDailySmsContent(
         !refreshSessionParsed.commitment_prompt_delivered
       ) {
         const effectiveAskR = getEffectiveCoachingAsk(active, now.getTime());
-        const { body: refreshCommitBody, templateId: refreshCommitTid } =
-          buildRefreshStepCommitmentSms({ effectiveAsk: effectiveAskR });
+        const refreshCommitTid = buildRefreshStepCommitmentSms({ effectiveAsk: effectiveAskR }).templateId;
 
         const serverStateC = deriveV2CoachingState(recentEvents);
         const silenceCtxC = deriveV2SilenceContext(recentEvents, now);
@@ -968,9 +1361,132 @@ async function buildDailySmsContent(
           commitment_prompt_delivered: true,
         };
 
+        const askTrim = effectiveAskR.trim();
+        const verbatimC = askTrim.length > 0 ? [askTrim] : [];
+        const { data: cmtProf } = await supabaseServer
+          .from("user_profiles")
+          .select("preferred_name")
+          .eq("clerk_user_id", clerkUserId)
+          .maybeSingle();
+        const preferredNameC =
+          typeof cmtProf?.preferred_name === "string" ? cmtProf.preferred_name : null;
+        const coachingMemoryC = await loadV2CoachingMemoryForPrompt(active.id);
+        let cConv: V2SmsConversationContextPack | null = null;
+        let cCtx: string | null = null;
+        try {
+          cConv = await buildV2SmsConversationContextPack({
+            clerkUserId,
+            commitmentId: active.id,
+            commitment: active,
+            timezone,
+            preloadedCoachingMemory: coachingMemoryC,
+            preloadedEventsNewestFirst: recentEvents,
+          });
+          cCtx = cConv.promptBlock;
+        } catch (e) {
+          console.warn("[daily-sms] refresh_commitment_context_pack_failed", {
+            commitment_id: active.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+        const patternHintsC = [
+          cConv?.proofHighlight,
+          cConv?.comebackSignal,
+          cConv?.recentBlockerPattern,
+        ]
+          .filter((x): x is string => Boolean(x && typeof x === "string"))
+          .join(" | ");
+
+        const factsCoreC: DailyV3RelationshipFactsForMove = {
+          route_kind: "refresh_commitment",
+          accountability_day_key: accountabilityDayKey,
+          user: {
+            clerk_user_id: clerkUserId,
+            preferred_name: preferredNameC,
+            timezone,
+            local_time_iso: new Date(now.toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+            relationship_profile_summary:
+              coachingMemoryC?.sms_relationship_profile != null
+                ? JSON.stringify(coachingMemoryC.sms_relationship_profile).slice(0, 240)
+                : null,
+          },
+          commitment: {
+            id: active.id,
+            title: active.title,
+            behavior_statement: active.behavior_statement,
+            effective_ask: askTrim,
+            accountability_phase: active.accountability_phase,
+            identity_anchor_allowed: false,
+            identity_anchor_short: null,
+          },
+          thread_memory: {
+            latest_outbound_sms: cConv?.lastOutboundPreview ?? null,
+            latest_inbound_sms: cConv?.lastInboundPreview ?? null,
+            recent_transcript_or_context_block: cCtx,
+            latest_open_question: null,
+            do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryC),
+            coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryC),
+            recent_pattern_hints: patternHintsC.length > 0 ? patternHintsC.slice(0, 480) : null,
+          },
+          accountability: {
+            daily_purpose: "fallback_standard",
+            server_strategy: stratC,
+            next_move_type: nextMoveC.type,
+            prior_outcome: latestOutcome?.type ?? null,
+            yes_streak_14d: coachingMemoryC?.yes_streak_14d ?? null,
+            no_count_14d: coachingMemoryC?.no_count_14d ?? null,
+            partial_count_14d: coachingMemoryC?.partial_count_14d ?? null,
+            blocker_preview: blockerPreviewC,
+            proof_or_milestone_signal: null,
+            silence_tier: silenceCtxC.tier,
+            unanswered_checks: silenceCtxC.unanswered_checks,
+            days_since_last_user_outcome: silenceCtxC.days_since_last_user_outcome,
+            reentry_active: reentryCtxC.active,
+            overlay_active: isV2AdaptiveOverlayActive(active, now.getTime()),
+            evolution_pattern_hint: null,
+            contract_proposal_mode: false,
+          },
+          refresh: {
+            refresh_step: "commitment_daily",
+            effective_ask_for_bar: askTrim || null,
+          },
+        };
+        const suggestedC = deriveSuggestedCoachingMoveForDailyFacts(factsCoreC);
+        const factsC: DailyV3RelationshipFacts = {
+          ...factsCoreC,
+          suggested_coaching_move: suggestedC,
+          constraints: {
+            max_chars: 300,
+            one_sms: true,
+            no_raw_title_or_behavior_paste: true,
+            no_generic_motivation: true,
+            if_unsafe_return_no_send: true,
+            ...(verbatimC.length ? { required_verbatim_substrings: verbatimC } : {}),
+          },
+        };
+        const laneC = await produceDailyV3RelationshipSms({
+          facts: factsC,
+          telemetry_fact_sources: [
+            "buildRefreshStepCommitmentSms",
+            "getEffectiveCoachingAsk",
+            "loadV2CoachingMemoryForPrompt",
+            "buildV2SmsConversationContextPack",
+            "deriveV2CoachingState",
+            "deriveV2SilenceContext",
+            "deriveV2ReentryContext",
+          ],
+        });
+        if (!laneC.shouldSend || !laneC.body.trim()) {
+          return {
+            ok: false,
+            error: "daily_v3_lane_no_send",
+            dailyLaneMeta: { ...laneC.metadata, no_send_reason: laneC.noSendReason },
+          };
+        }
+
         return {
           ok: true,
-          smsBody: refreshCommitBody,
+          smsBody: laneC.body,
           deliveryStateSnapshot: null,
           day2SpecialUsed: false,
           v2Accountability: true,
@@ -979,7 +1495,37 @@ async function buildDailySmsContent(
           v2TemplateFamily: templateFamilyForStrategy(stratC),
           v2PriorOutcome: latestOutcome?.type ?? null,
           v2BlockerPreview: blockerPreviewC,
-          v2AiPayload: null,
+          v2AiPayload: {
+            ...buildCheckSentAiPayload({
+              model: V2_OUTBOUND_AI_MODEL,
+              promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
+              serverState: serverStateC,
+              serverStrategy: stratC,
+              message: laneC.body,
+              confidence: laneC.voiceConfidence,
+              fallbackUsed: false,
+            }),
+            reply_source: "v3_daily_relationship_lane",
+            v3_brain: {
+              v3_brain_version: V3_BRAIN_VERSION,
+              v3_coach_reply_source: "v3_daily_relationship_lane",
+              v3_memory_used: true,
+              v3_daily_purpose: "fallback_standard",
+              v3_contract_proposal_mode: false,
+              v3_evolution_pattern_day: false,
+              v3_deterministic_fallback_used: false,
+              daily_v3_lane_used: true,
+              v3_lane_reply_source: "v3_daily_relationship_lane",
+              v3_lane_turn_purpose: laneC.turnPurpose,
+              v3_candidate_body: (laneC.metadata.v3_candidate_body as string | undefined) ?? laneC.body,
+              old_daily_writer_used_as_voice: false,
+              old_daily_writer_fact_sources: laneC.metadata.old_daily_writer_fact_sources,
+              daily_facts_summary: laneC.metadata.daily_facts_summary,
+              suggested_coaching_move: laneC.metadata.suggested_coaching_move,
+              route_purpose: "refresh_commitment",
+              voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+            },
+          },
           v2SilencePayload: {
             tier: silenceCtxC.tier,
             unanswered_checks: silenceCtxC.unanswered_checks,
@@ -1001,6 +1547,10 @@ async function buildDailySmsContent(
           v2ContractProposalPayload: null,
           v2IdentityAnchorText: null,
           v2RefreshOutboundPlan: { kind: "commitment_daily", session: planSession },
+          v2EffectiveAskText: effectiveAskR,
+          v3DailySms: true,
+          v3DailyDeterministicFallback: false,
+          v3DailyRelationshipLane: true,
         };
       }
     }
@@ -1070,7 +1620,6 @@ async function buildDailySmsContent(
         ? "hold_standard"
         : nextMove.type;
 
-    let templateBody: string;
     let templateId: number;
     if (contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask") {
       const pack = await buildV2ShrinkProposalOutboundSms({
@@ -1087,7 +1636,6 @@ async function buildDailySmsContent(
           adaptiveProposalWithheldMeta: pack.adaptiveProposalOutboundMeta,
         };
       }
-      templateBody = pack.body;
       templateId = pack.templateId;
     } else if (contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same") {
       const pack = await buildV2RecommitProposalOutboundSms({
@@ -1104,7 +1652,6 @@ async function buildDailySmsContent(
           adaptiveProposalWithheldMeta: pack.adaptiveProposalOutboundMeta,
         };
       }
-      templateBody = pack.body;
       templateId = pack.templateId;
     } else {
       const strat = buildV2OutboundAccountabilitySmsForStrategy({
@@ -1116,7 +1663,6 @@ async function buildDailySmsContent(
         shrunkAskText:
           outboundNextMove === "shrink_ask" ? (nextMove.shrunk_ask_text ?? null) : null,
       });
-      templateBody = strat.body;
       templateId = strat.templateId;
     }
 
@@ -1170,27 +1716,12 @@ async function buildDailySmsContent(
       serverStrategy,
     });
 
-    const aiNextMove =
-      contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask"
-        ? {
-            type: "shrink_ask" as const,
-            reason_code: nextMove.reason_code,
-            version: nextMove.version,
-            shrunk_ask_text: proposalBindingText,
-          }
-        : contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same"
-          ? {
-              type: "recommit_same" as const,
-              reason_code: nextMove.reason_code,
-              version: nextMove.version,
-            }
-          : nextMove;
-
     const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(active.id);
 
     let recentSmsContextBlock: string | null = null;
+    let mainConvPack: V2SmsConversationContextPack | null = null;
     try {
-      const convPack = await buildV2SmsConversationContextPack({
+      mainConvPack = await buildV2SmsConversationContextPack({
         clerkUserId,
         commitmentId: active.id,
         commitment: active,
@@ -1198,7 +1729,7 @@ async function buildDailySmsContent(
         preloadedCoachingMemory: coachingMemoryRow,
         preloadedEventsNewestFirst: recentEvents,
       });
-      recentSmsContextBlock = convPack.promptBlock;
+      recentSmsContextBlock = mainConvPack.promptBlock;
     } catch (e) {
       console.warn("[daily-sms] sms_conversation_context_pack_failed", {
         commitment_id: active.id,
@@ -1247,118 +1778,181 @@ async function buildDailySmsContent(
       wave7SurfaceEvolution: wave7Surface,
     });
 
-    const resolvedDaily = await resolveV2DailyOutboundSmsBody({
-      ctx: {
-        commitment: active,
-        eventsNewestFirst: recentEvents,
-        blockerPreview: hasBlockerPreview ? blockerPreview : null,
-        serverState,
-        serverStrategy,
-        templateFamily,
-        silence: silenceCtx,
-        reentry: reentryCtx,
-        nextMove: aiNextMove,
-        cadence: cadencePayload,
-        effectiveCoachingAsk: effectiveAsk,
-        contractProposalMode,
-        contractProposalKind,
-        contractProposalBindingText: contractProposalMode ? proposalBindingText : null,
-        coachingMemory: coachingMemoryRow,
-        preferredName,
-        lifeDesires,
-        peopleSummary,
-        responsibility,
-        identityAnchorText,
-        identityRefreshDue,
-        identityReferenceAllowed,
-        reachabilityContextLine,
-        dailyMessagePurpose: dailyPurpose,
-        recentSmsContextBlock,
-        wave7EvolutionPick:
-          dailyPurpose === "evolution_pattern_check" && wave7Pick ? wave7Pick : null,
-      },
-      contractProposalMode,
-      purpose: dailyPurpose,
-      templateBody,
-      effectiveAsk,
-      behaviorStatement: active.behavior_statement,
-      nextMoveType: outboundNextMove,
-      shrunkAskText:
-        outboundNextMove === "shrink_ask" ? (nextMove.shrunk_ask_text ?? null) : null,
-    });
-
-    let smsBody = resolvedDaily.smsBody;
-    let v3DailySms = false;
-    let v3DailyDeterministicFallback = false;
     const evolutionHint =
       dailyPurpose === "evolution_pattern_check" && wave7Pick
         ? `${wave7Pick.action}:${wave7Pick.evidenceSummary ?? ""}`.slice(0, 280)
         : null;
-    const dailyCheckArgs = {
-      commitmentId: active.id,
-      effectiveAsk,
-      behaviorStatement: active.behavior_statement ?? "",
-      priorOutcome: latestOutcome?.type ?? null,
-      coachingMemory: coachingMemoryRow,
-      serverStrategy,
-      silenceTier: silenceCtx.tier,
-      blockerPreview: hasBlockerPreview ? blockerPreview : null,
-      recentSmsContextBlock,
-      preferredName,
-      identityAnchor: identityAnchorText,
-      recentEventsNewestFirst: recentEvents,
-      dailyPurpose,
-      contractProposalKind: contractProposalKind ?? undefined,
-      contractBindingText: contractProposalMode ? proposalBindingText ?? undefined : undefined,
-      evolutionPatternHint: evolutionHint ?? undefined,
-      resolvedTemplateFallback: resolvedDaily.smsBody,
+
+    const routeKind: DailyV3RouteKind = contractProposalMode ? "contract_prompt" : "main_active_accountability";
+    const bindingTrim =
+      typeof proposalBindingText === "string" && proposalBindingText.trim()
+        ? proposalBindingText.trim()
+        : "";
+    const requiredVerbatimMain =
+      contractProposalMode && bindingTrim.length > 0 ? [bindingTrim] : [];
+
+    let smsBody: string;
+    let v3DailySms: boolean;
+    let v3DailyDeterministicFallback: boolean;
+    let v3DailyRelationshipLane: boolean;
+    let aiPayload: Record<string, unknown>;
+
+    const patternHints = [
+      mainConvPack?.proofHighlight,
+      mainConvPack?.comebackSignal,
+      mainConvPack?.recentBlockerPattern,
+    ]
+      .filter((x): x is string => Boolean(x && typeof x === "string"))
+      .join(" | ");
+    const relationshipToneSummary =
+      coachingMemoryRow?.sms_relationship_profile != null
+        ? JSON.stringify(coachingMemoryRow.sms_relationship_profile).slice(0, 240)
+        : null;
+
+    const factsCoreUnified: DailyV3RelationshipFactsForMove = {
+      route_kind: routeKind,
+      accountability_day_key: accountabilityDayKey,
+      user: {
+        clerk_user_id: clerkUserId,
+        preferred_name: preferredName,
+        timezone,
+        local_time_iso: new Date(now.toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+        relationship_profile_summary: relationshipToneSummary,
+      },
+      commitment: {
+        id: active.id,
+        title: active.title,
+        behavior_statement: active.behavior_statement,
+        effective_ask: effectiveAsk,
+        accountability_phase: active.accountability_phase,
+        identity_anchor_allowed: identityReferenceAllowed,
+        identity_anchor_short: identityAnchorText ? identityAnchorText.slice(0, 100) : null,
+      },
+      thread_memory: {
+        latest_outbound_sms: mainConvPack?.lastOutboundPreview ?? null,
+        latest_inbound_sms: mainConvPack?.lastInboundPreview ?? null,
+        recent_transcript_or_context_block: recentSmsContextBlock,
+        latest_open_question: null,
+        do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
+        coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRow),
+        recent_pattern_hints: patternHints.length > 0 ? patternHints.slice(0, 480) : null,
+      },
+      accountability: {
+        daily_purpose: dailyPurpose,
+        server_strategy: serverStrategy,
+        next_move_type: outboundNextMove,
+        prior_outcome: latestOutcome?.type ?? null,
+        yes_streak_14d: coachingMemoryRow?.yes_streak_14d ?? null,
+        no_count_14d: coachingMemoryRow?.no_count_14d ?? null,
+        partial_count_14d: coachingMemoryRow?.partial_count_14d ?? null,
+        blocker_preview: hasBlockerPreview ? blockerPreview : null,
+        proof_or_milestone_signal:
+          dailyPurpose === "proof_milestone_light"
+            ? `yes_streak_14d=${coachingMemoryRow?.yes_streak_14d ?? 0}`
+            : null,
+        silence_tier: silenceCtx.tier,
+        unanswered_checks: silenceCtx.unanswered_checks,
+        days_since_last_user_outcome: silenceCtx.days_since_last_user_outcome,
+        reentry_active: reentryCtx.active,
+        overlay_active: overlayActive,
+        evolution_pattern_hint: evolutionHint,
+        contract_proposal_mode: contractProposalMode,
+      },
+      ...(contractProposalMode && proposalBindingText && contractProposalKind
+        ? {
+            contract_proposal: {
+              binding_text_verbatim: bindingTrim,
+              contract_kind: contractProposalKind,
+              required_reply_semantics: "yes_no_binding_only" as const,
+            },
+          }
+        : {}),
     };
-    try {
-      const v3d = await generateV3DailyCheckIn(dailyCheckArgs);
-      smsBody = v3d.text;
-      v3DailySms = true;
-      v3DailyDeterministicFallback = !v3d.openAiOk;
-    } catch (e) {
-      console.warn("[v3-sms-brain] daily_check_failed", {
-        commitment_id: active.id,
-        message: e instanceof Error ? e.message : String(e),
-      });
-      smsBody = generateV3DailyDeterministicFallback(dailyCheckArgs);
-      v3DailySms = true;
-      v3DailyDeterministicFallback = true;
+    const suggestedUnified = deriveSuggestedCoachingMoveForDailyFacts(factsCoreUnified);
+    const factsUnified: DailyV3RelationshipFacts = {
+      ...factsCoreUnified,
+      suggested_coaching_move: suggestedUnified,
+      constraints: {
+        max_chars: 300,
+        one_sms: true,
+        no_raw_title_or_behavior_paste: true,
+        no_generic_motivation: true,
+        if_unsafe_return_no_send: true,
+        ...(requiredVerbatimMain.length ? { required_verbatim_substrings: requiredVerbatimMain } : {}),
+      },
+    };
+    const telemetryUnified: string[] = [
+      "deriveV2CoachingState",
+      "deriveV2SilenceContext",
+      "deriveV2ReentryContext",
+      "deriveV2NextMove",
+      "deriveV2CadencePayload",
+      "pickV2OutboundStrategy",
+      "resolveV2OutboundStrategyAfterBase",
+      "getEffectiveCoachingAsk",
+      "deriveV2DailyMessagePurpose",
+      "getLatestV2AccountabilityOutcome",
+      "getRecentV2EventsForAi",
+      "loadV2CoachingMemoryForPrompt",
+      "buildV2SmsConversationContextPack",
+      "computeIdentityReferenceAllowed",
+      "evaluateCommitmentEvolutionForSms",
+      "pickWave7DailyEvolutionAction",
+      "shouldSurfaceWave7EvolutionDailyPurpose",
+    ];
+    if (contractProposalMode && contractProposalKind === "shrink_ask") {
+      telemetryUnified.push("buildV2ShrinkProposalOutboundSms");
+    } else if (contractProposalMode && contractProposalKind === "recommit_same") {
+      telemetryUnified.push("buildV2RecommitProposalOutboundSms");
+    } else {
+      telemetryUnified.push("buildV2OutboundAccountabilitySmsForStrategy");
     }
 
-    const aiTry = resolvedDaily.aiTry;
-    const aiPayload = {
+    const laneUnified = await produceDailyV3RelationshipSms({
+      facts: factsUnified,
+      telemetry_fact_sources: telemetryUnified,
+    });
+    if (!laneUnified.shouldSend || !laneUnified.body.trim()) {
+      return {
+        ok: false,
+        error: "daily_v3_lane_no_send",
+        dailyLaneMeta: { ...laneUnified.metadata, no_send_reason: laneUnified.noSendReason },
+      };
+    }
+    smsBody = laneUnified.body;
+    v3DailySms = true;
+    v3DailyDeterministicFallback = false;
+    v3DailyRelationshipLane = true;
+    aiPayload = {
       ...buildCheckSentAiPayload({
         model: V2_OUTBOUND_AI_MODEL,
         promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
         serverState,
         serverStrategy,
         message: smsBody,
-        confidence: aiTry.ok ? aiTry.confidence : null,
-        fallbackUsed: !aiTry.ok,
-        ...(!aiTry.ok ? { fallbackReason: aiTry.reason } : {}),
-        dailyResolution: resolvedDaily.resolution,
+        confidence: laneUnified.voiceConfidence,
+        fallbackUsed: false,
       }),
-      ...(v3DailySms
-        ? {
-            reply_source: v3DailyDeterministicFallback
-              ? "v3_daily_deterministic_fallback"
-              : "v3_daily_check_in",
-            v3_brain: {
-              v3_brain_version: V3_BRAIN_VERSION,
-              v3_coach_reply_source: v3DailyDeterministicFallback
-                ? "v3_daily_deterministic_fallback"
-                : "v3_daily_check_in",
-              v3_memory_used: true,
-              v3_daily_purpose: dailyPurpose,
-              v3_contract_proposal_mode: contractProposalMode,
-              v3_evolution_pattern_day: dailyPurpose === "evolution_pattern_check",
-              v3_deterministic_fallback_used: v3DailyDeterministicFallback,
-            },
-          }
-        : {}),
+      reply_source: "v3_daily_relationship_lane",
+      v3_brain: {
+        v3_brain_version: V3_BRAIN_VERSION,
+        v3_coach_reply_source: "v3_daily_relationship_lane",
+        v3_memory_used: true,
+        v3_daily_purpose: dailyPurpose,
+        v3_contract_proposal_mode: contractProposalMode,
+        v3_evolution_pattern_day: dailyPurpose === "evolution_pattern_check",
+        v3_deterministic_fallback_used: false,
+        daily_v3_lane_used: true,
+        v3_lane_reply_source: "v3_daily_relationship_lane",
+        v3_lane_turn_purpose: laneUnified.turnPurpose,
+        v3_candidate_body: (laneUnified.metadata.v3_candidate_body as string | undefined) ?? laneUnified.body,
+        old_daily_writer_used_as_voice: false,
+        old_daily_writer_fact_sources: laneUnified.metadata.old_daily_writer_fact_sources,
+        daily_facts_summary: laneUnified.metadata.daily_facts_summary,
+        suggested_coaching_move: laneUnified.metadata.suggested_coaching_move,
+        route_purpose: routeKind,
+        voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+      },
     };
 
     const silencePayload = {
@@ -1422,6 +2016,7 @@ async function buildDailySmsContent(
       v2EffectiveAskText: effectiveAsk,
       v3DailySms,
       v3DailyDeterministicFallback,
+      v3DailyRelationshipLane,
     };
   }
 
@@ -2061,6 +2656,27 @@ export async function GET(req: Request) {
                 stats.skippedIntentional += 1;
                 continue;
               }
+              if (built.error === "daily_v3_lane_no_send") {
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: "skipped_no_safe_v3_voice",
+                    metadata: {
+                      ...existingMeta,
+                      note: "daily_v3_lane_no_send",
+                      voice_decision: "skipped_no_safe_v3_voice",
+                      twilio_send_attempted: false,
+                      timezone,
+                      local_time: localNow.toISOString(),
+                      ...(built.dailyLaneMeta ? { daily_v3_lane: built.dailyLaneMeta } : {}),
+                    },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey);
+                stats.skippedNoSafeV3Voice += 1;
+                stats.skippedIntentional += 1;
+                continue;
+              }
               await supabaseServer
                 .from("sms_send_events")
                 .update({
@@ -2607,6 +3223,26 @@ export async function GET(req: Request) {
                 ...(builtMain.adaptiveProposalWithheldMeta
                   ? { adaptive_proposal_outbound: builtMain.adaptiveProposalWithheldMeta }
                   : {}),
+              },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey);
+          stats.skippedNoSafeV3Voice += 1;
+          stats.skippedIntentional += 1;
+          continue;
+        }
+        if (builtMain.error === "daily_v3_lane_no_send") {
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: "skipped_no_safe_v3_voice",
+              metadata: {
+                note: "daily_v3_lane_no_send",
+                voice_decision: "skipped_no_safe_v3_voice",
+                twilio_send_attempted: false,
+                timezone,
+                local_time: localNow.toISOString(),
+                ...(builtMain.dailyLaneMeta ? { daily_v3_lane: builtMain.dailyLaneMeta } : {}),
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)

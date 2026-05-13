@@ -39,6 +39,7 @@ export function isV3OwnedInboundReplySource(source: string | null | undefined): 
     source === "v3_sms_brain" ||
     source === "v3_deterministic_fallback" ||
     source === "v3_daily_check_in" ||
+    source === "v3_daily_relationship_lane" ||
     source === "v3_daily_deterministic_fallback" ||
     source === "v3_answer_to_open_question" ||
     source === "v3_refined_prior_draft" ||

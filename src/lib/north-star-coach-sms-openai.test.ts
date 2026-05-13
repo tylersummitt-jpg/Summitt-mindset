@@ -40,6 +40,18 @@ describe("finalizeNorthStarCoachSmsAsync", () => {
     expect(r.visibleBody.toLowerCase()).not.toContain("great job");
   });
 
+  it("does not run OpenAI as normal finalizer for v3_daily_relationship_lane", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await finalizeNorthStarCoachSmsAsync({
+      proposedBody: "Still here with you — one clean rep today?",
+      channel: "daily_outbound",
+      replySource: "v3_daily_relationship_lane",
+      contextPacket: { source: "daily", effectiveAskText: "30 min focus" },
+    });
+    expect(r.meta.openaiAttempted).toBe(false);
+    expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  });
+
   it("does not run OpenAI as normal finalizer for v3_daily_check_in (telemetry)", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await finalizeNorthStarCoachSmsAsync({
