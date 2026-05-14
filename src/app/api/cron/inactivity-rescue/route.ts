@@ -1,48 +1,28 @@
 import { NextResponse } from "next/server";
 import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getClerkPublicMetadata, listClerkUsers } from "@/lib/clerk-rest";
-import { createRescueToken } from "@/lib/rescue-token";
-import { isTwilioReady, sendSMS } from "@/lib/twilio";
-import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
-import {
-  NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-  pickNorthStarWriterAttributionFields,
-  type NorthStarSmsContextPacket,
-} from "@/lib/north-star-coach-sms";
-import { getActiveCommitment } from "@/lib/v2-commitment";
-import { resolveUserTimezone } from "@/lib/timezone";
-import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
-import { appendPreservedSignedLink, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
+import { listClerkUsers } from "@/lib/clerk-rest";
+import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * ======================================================
- * Inactivity Rescue Cron
+ * Inactivity Rescue Cron — Phase 4.4 deprecated / no-send
  * ======================================================
  *
- * Trigger (when enabled): 3+ days since Clerk `lastCompletedAt` — legacy completion signal;
- * not yet aligned with V2 spine. **Cron is off by default** so we never record "sent" without
- * a real Twilio delivery or silently no-op.
+ * Default: `INACTIVITY_RESCUE_SMS_ENABLED` is not "true" → early return (no Clerk scan, no DB, no sends).
  *
- * Enable only after V2-safe inactivity signals + copy review:
- *   INACTIVITY_RESCUE_SMS_ENABLED=true
+ * When enabled: identifies legacy candidates (3+ days since Clerk `lastCompletedAt`) but does **not**
+ * send SMS, refine, North Star, FVG, or signed rescue links. Records a single `feedback_events` row per user
+ * (`moment: inactivity_rescue_deprecated`). Canonical reactivation is daily SMS V3.
  *
- * Guardrails when live:
- * - never send twice (moment="inactivity_rescue_sent")
+ * Legacy guard: `moment: inactivity_rescue_sent` still suppresses processing for users who received the
+ * pre–4.4 SMS path.
  */
 
-const APP_BASE_URL = process.env.APP_BASE_URL;
-
-function buildRescueLink(clerk_user_id: string) {
-  if (!APP_BASE_URL) {
-    throw new Error("Missing APP_BASE_URL (used to build rescue links)");
-  }
-  const token = createRescueToken({ clerk_user_id, ttlDays: 14 });
-  return `${APP_BASE_URL.replace(/\/$/, "")}/rescue?t=${encodeURIComponent(token)}`;
-}
+const DEPRECATED_FEEDBACK_MESSAGE = "inactivity rescue deprecated; no SMS sent";
 
 function daysSince(iso: string): number {
   const then = new Date(iso).getTime();
@@ -61,7 +41,7 @@ export async function GET(req: Request) {
       ok: true,
       disabled: true,
       reason:
-        "inactivity_rescue_cron_disabled_default: legacy trigger uses lastCompletedAt (not V2 spine). Set INACTIVITY_RESCUE_SMS_ENABLED=true only after V2-aligned signals and copy are implemented. Sends use canonical sendSMS when enabled.",
+        "inactivity_rescue_cron_disabled_default: legacy trigger uses lastCompletedAt (not V2 spine). When INACTIVITY_RESCUE_SMS_ENABLED=true, the route only records deprecation in feedback_events — no SMS (Phase 4.4). Canonical reactivation is daily SMS V3.",
     });
   }
 
@@ -69,9 +49,9 @@ export async function GET(req: Request) {
   let offset = 0;
 
   let candidates = 0;
-  let queued = 0;
-  let skippedTwilio = 0;
-  let skippedNoSafeV3Voice = 0;
+  let deprecatedInactivityRescue = 0;
+  let skippedAlreadyDeprecated = 0;
+  let skippedFullyOnV2DailyReactivation = 0;
   const errors: Array<{ clerk_user_id: string; error: string }> = [];
 
   while (true) {
@@ -101,6 +81,18 @@ export async function GET(req: Request) {
 
         if (alreadySent && alreadySent.length > 0) continue;
 
+        const { data: alreadyDeprecated } = await supabaseServer
+          .from("feedback_events")
+          .select("id")
+          .eq("clerk_user_id", clerk_user_id)
+          .eq("moment", "inactivity_rescue_deprecated")
+          .limit(1);
+
+        if (alreadyDeprecated && alreadyDeprecated.length > 0) {
+          skippedAlreadyDeprecated += 1;
+          continue;
+        }
+
         const { data: identity } = await supabaseServer
           .from("sms_identities")
           .select("phone_number, sms_enabled, stopped_at")
@@ -111,153 +103,62 @@ export async function GET(req: Request) {
         if (identity.sms_enabled !== true) continue;
         if (typeof identity.stopped_at === "string") continue;
 
-        const link = buildRescueLink(clerk_user_id);
+        const v2Gate = await resolveUserFullyOnV2ForCutoverMessaging(clerk_user_id);
+        const fullyOnV2 = v2Gate.fullyOnV2;
 
-        if (!isTwilioReady()) {
-          skippedTwilio += 1;
-          await supabaseServer.from("feedback_events").insert({
-            clerk_user_id,
-            source: "sms",
-            moment: "inactivity_rescue_skipped",
-            type: "friction",
-            rating: null,
-            sentiment: null,
-            reason_code: "skipped_missing_twilio",
-            message: link,
-            share_permission: false,
-            metadata: {
-              canonical: true,
-              inactive_days: inactiveDays,
-            },
-          });
-          continue;
-        }
+        const baseMeta = {
+          route_deprecated: true,
+          legacy_route: true,
+          old_outbound_writer_used_as_voice: false,
+          twilio_send_attempted: false,
+          secondary_v3_lane_used: false,
+          relationship_lane_policy: "inactivity_rescue_sms_disabled_until_v3_redesign",
+          inactivity_rescue_enabled_flag: true,
+          canonical_reactivation_surface: "daily_sms_v3_reactivation",
+          signed_link_generated: false,
+          inactive_days: inactiveDays,
+        } as const;
 
-        const rawBody = "Quick check-in — want a smaller version tomorrow?";
-        let rescueProposed = rawBody;
-        let rescueV3Rs: string | undefined;
-        let rescueV3Pkt: NorthStarSmsContextPacket | undefined;
-        const commitmentR = await getActiveCommitment(clerk_user_id);
-        if (commitmentR?.id) {
-          try {
-            const mdR = await getClerkPublicMetadata(clerk_user_id);
-            const tzR = resolveUserTimezone(mdR?.timezone);
-            const rr = await refineMachineSmsBodyWithV3RefineLane({
-              clerkUserId: clerk_user_id,
-              messageSid: `inactivity_rescue:${clerk_user_id}`,
-              commitment: commitmentR,
-              timezone: tzR,
-              inboundRaw: "[inactivity_rescue]",
-              machineBody: rawBody,
-              hintSource: "inactivity_rescue",
-              ownedReplySource: "v3_inactivity_rescue_refined",
-            });
-            rescueProposed = rr.body;
-            rescueV3Rs = rr.replySource;
-            rescueV3Pkt = rr.contextPacket;
-          } catch (e) {
-            console.warn("[inactivity-rescue] v3_refine_failed", {
-              clerk_user_id: clerk_user_id,
-              message: e instanceof Error ? e.message : String(e),
-            });
-          }
-        }
-        const gatedRescue = await finalizeNorthStarCoachSmsAsync({
-          proposedBody: rescueProposed,
-          channel: "inactivity_rescue",
-          preserveNewlines: true,
-          maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-          replySource: rescueV3Rs,
-          contextPacket: rescueV3Pkt ?? { source: "inactivity_rescue" },
-        });
-        const voiceRescue = await applyFinalVoiceOwnershipGate({
-          proposedBody: gatedRescue.visibleBody,
-          replySource: rescueV3Rs,
-          channel: "inactivity_rescue",
-          activeCommitmentId: commitmentR?.id ?? null,
-          effectiveAsk: rescueV3Pkt?.effectiveAskText ?? commitmentR?.behavior_statement ?? null,
-          behaviorStatement: commitmentR?.behavior_statement ?? null,
-          contextPacket: rescueV3Pkt,
-          northStarMeta: gatedRescue.meta,
-          /** Phase 4.1: rescue copy is relationship/coaching when sent — fail-closed FVG even without commitment row. */
-          normalCoaching: true,
-        });
+        const metadata = fullyOnV2
+          ? {
+              ...baseMeta,
+              no_send_tag: "inactivity_rescue_skipped_fully_on_v2_daily_reactivation_canonical",
+              skip_reason: "fully_on_v2_users_use_daily_reactivation",
+              fully_on_v2: true,
+            }
+          : {
+              ...baseMeta,
+              no_send_tag: "inactivity_rescue_deprecated_use_daily_reactivation",
+              skip_reason: "daily_v3_reactivation_is_canonical",
+              fully_on_v2: false,
+            };
 
-        if (!voiceRescue.shouldSend) {
-          await supabaseServer.from("feedback_events").insert({
-            clerk_user_id,
-            source: "sms",
-            moment: "inactivity_rescue_withheld",
-            type: "friction",
-            rating: null,
-            sentiment: null,
-            reason_code: "final_voice_gate_no_send",
-            message: link,
-            share_permission: false,
-            metadata: {
-              canonical: true,
-              inactive_days: inactiveDays,
-              voice_decision: "skipped_no_safe_v3_voice",
-              twilio_send_attempted: false,
-              signed_link_preserved: false,
-              fvg_policy_classification: "relationship_rescue",
-              normal_coaching_policy_source: "phase4_1_inactivity_rescue_fail_closed",
-              north_star_gate: {
-                original_body: gatedRescue.meta.originalBody,
-                final_body: "",
-                north_star_gate_source: gatedRescue.meta.source,
-                north_star_gate_reasons: gatedRescue.meta.blockedReasons,
-                ...pickNorthStarWriterAttributionFields(gatedRescue.meta),
-              },
-              final_voice_gate: voiceRescue.metadata,
-            },
-          });
-          skippedNoSafeV3Voice += 1;
-          continue;
-        }
+        const reason_code = fullyOnV2
+          ? "inactivity_rescue_skipped_fully_on_v2_daily_reactivation"
+          : "inactivity_rescue_deprecated_use_daily_reactivation";
 
-        const finalRescueBody = appendPreservedSignedLink(voiceRescue.body, link);
-
-        await sendSMS({
-          to: identity.phone_number,
-          body: finalRescueBody,
-          lastOutbound: {
-            clerkUserId: clerk_user_id,
-            messageKind: "nudge",
-          },
-        });
-
-        await supabaseServer.from("feedback_events").insert({
+        const { error: insErr } = await supabaseServer.from("feedback_events").insert({
           clerk_user_id,
           source: "sms",
-          moment: "inactivity_rescue_sent",
+          moment: "inactivity_rescue_deprecated",
           type: "friction",
           rating: null,
           sentiment: null,
-          reason_code: "rescue_prompt_sent",
-          message: link,
+          reason_code,
+          message: DEPRECATED_FEEDBACK_MESSAGE,
           share_permission: false,
           metadata: {
-            canonical: true,
-            inactive_days: inactiveDays,
-            fvg_policy_classification: "relationship_rescue",
-            normal_coaching_policy_source: "phase4_1_inactivity_rescue_fail_closed",
-            north_star_gate: {
-              original_body: gatedRescue.meta.originalBody,
-              final_body: finalRescueBody,
-              north_star_gate_source: gatedRescue.meta.source,
-              north_star_gate_reasons: gatedRescue.meta.blockedReasons,
-              ...pickNorthStarWriterAttributionFields(gatedRescue.meta),
-            },
-            final_voice_gate: {
-              ...voiceRescue.metadata,
-              signed_link_preserved: true,
-              link_kind: "rescue",
-            },
+            ...metadata,
           },
         });
 
-        queued += 1;
+        if (insErr) {
+          errors.push({ clerk_user_id, error: insErr.message });
+          continue;
+        }
+
+        deprecatedInactivityRescue += 1;
+        if (fullyOnV2) skippedFullyOnV2DailyReactivation += 1;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "unknown_error";
         errors.push({ clerk_user_id, error: msg });
@@ -273,9 +174,12 @@ export async function GET(req: Request) {
     disabled: false,
     scannedOffset: offset,
     candidates,
-    queued,
-    skippedTwilio,
-    skippedNoSafeV3Voice,
+    deprecatedInactivityRescue,
+    skippedAlreadyDeprecated,
+    skippedFullyOnV2DailyReactivation,
+    queued: 0,
+    skippedTwilio: 0,
+    skippedNoSafeV3Voice: 0,
     errors,
   });
 }

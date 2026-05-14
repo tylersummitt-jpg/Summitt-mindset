@@ -5,6 +5,16 @@ function norm(s: string): string {
 }
 
 /**
+ * Normalized first-32-char binding needle used by inbound contract consent routing and guided outbound checks.
+ * Must stay aligned with {@link latestOutboundBodyContainsAdaptiveProposalBindingNeedle}.
+ */
+export function adaptiveProposalBindingNeedlePrefix(proposalText: string | null | undefined): string {
+  const proposal = typeof proposalText === "string" ? proposalText.trim() : "";
+  if (!proposal) return "";
+  return norm(proposal).slice(0, 32);
+}
+
+/**
  * Same normalized first-32-char binding needle as {@link shouldConsumeInboundAsContractProposalConsent}.
  * Used for Phase 3F-3 ambiguous consent clarification so proposal-truth matches contract consent routing.
  */
@@ -12,11 +22,9 @@ export function latestOutboundBodyContainsAdaptiveProposalBindingNeedle(
   latestOutboundBody: string | null | undefined,
   proposalText: string | null | undefined
 ): boolean {
-  const proposal = typeof proposalText === "string" ? proposalText.trim() : "";
-  if (!proposal) return false;
-  const latest = typeof latestOutboundBody === "string" ? latestOutboundBody : "";
-  const needle = norm(proposal).slice(0, 32);
+  const needle = adaptiveProposalBindingNeedlePrefix(proposalText);
   if (!needle) return false;
+  const latest = typeof latestOutboundBody === "string" ? latestOutboundBody : "";
   return norm(latest).includes(needle);
 }
 

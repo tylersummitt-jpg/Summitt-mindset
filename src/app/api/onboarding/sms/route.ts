@@ -8,6 +8,24 @@ import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { loadOrCreateSmsDeliveryState } from "@/lib/sms-daily-delivery-body";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
+/** Phase 4.7 — persisted on `sms_last_outbound_context.delivery_snapshot` for hammer/audit (transactional exception; not relationship voice). */
+function buildOnboardingTransactionalSmsDeliverySnapshot(): Record<string, unknown> {
+  return {
+    relationship_lane_bypass_kind: "onboarding_consent_transactional",
+    relationship_lane_policy: "transactional_onboarding_consent_sms_bypasses_v3_relationship_voice",
+    transactional_sms: true,
+    message_kind: "transactional",
+    old_outbound_writer_used_as_voice: false,
+    v3_relationship_voice_used: false,
+    north_star_used: false,
+    final_voice_gate_used: false,
+    consent_disclosure_accepted: true,
+    stop_help_language_included: true,
+    frequency_language_included: true,
+    twilio_send_attempted: true,
+  };
+}
+
 /**
  * ======================================================
  * POST /api/onboarding/sms (CANONICAL)
@@ -23,6 +41,9 @@ import { sendSMS, isTwilioReady } from "@/lib/twilio";
  * - smsTimePreference: early_morning | morning | midday | evening (default: morning)
  * - Confirmation SMS must include STOP + HELP language
  * - Never fail onboarding if SMS send fails
+ *
+ * DUPLICATE-SEND RISK (documented, Phase 4.7): repeated POST before onboardingCompleted can send
+ * multiple identical confirmation SMS; no sent-once latch by design in this route.
  *
  * TONE STRATEGY (March 2026):
  * - Legal compliance retained
@@ -175,7 +196,7 @@ export async function POST(req: Request) {
        * - Align with SMS-first commitment accountability (not progression / “daily practice” core)
        * - Avoid promising outcomes or guarantees
        *
-       * Intentionally bypasses V3 SMS Brain and finalizeNorthStarCoachSms: mandatory consent,
+       * Intentionally bypasses V3 SMS Brain and the North Star SMS finalizer: mandatory consent,
        * frequency, STOP / HELP transactional onboarding copy — not discretionary coaching SMS.
        */
 
@@ -192,12 +213,25 @@ export async function POST(req: Request) {
             clerkUserId: userId,
             messageKind: "transactional",
             timeOfDay: "morning",
+            deliverySnapshot: buildOnboardingTransactionalSmsDeliverySnapshot(),
           },
         });
       } catch (e) {
         // Never block onboarding if Twilio fails.
+        console.warn("[onboarding/sms] transactional_confirmation_send_failed", {
+          transactional_sms: true,
+          twilio_send_attempted: true,
+          relationship_lane_bypass_kind: "onboarding_consent_transactional",
+          error: e instanceof Error ? e.message : String(e),
+        });
         console.error("Onboarding confirmation SMS failed:", e);
       }
+    } else if (smsEnabled && normalizedPhone && !isTwilioReady()) {
+      console.info("[onboarding/sms] transactional_confirmation_skipped_twilio_not_ready", {
+        transactional_sms: true,
+        twilio_send_attempted: false,
+        relationship_lane_bypass_kind: "onboarding_consent_transactional",
+      });
     }
 
     let phoneForSync = normalizedPhone;

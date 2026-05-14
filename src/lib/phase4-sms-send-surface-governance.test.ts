@@ -18,8 +18,6 @@ export const PRODUCTION_SMS_SEND_CALLER_ALLOWLIST = new Set<string>([
   "src/app/api/cron/daily-sms/route.ts",
   "src/app/api/cron/sms-inbound-coach/route.ts",
   "src/app/api/cron/weekly-sms/route.ts",
-  "src/app/api/cron/inactivity-rescue/route.ts",
-  "src/app/api/cron/post-churn-winback/route.ts",
   "src/app/api/onboarding/sms/route.ts",
   "src/lib/v2-adaptive-contract.ts",
 ]);
@@ -131,30 +129,30 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
   {
     route: "inactivity_rescue",
     file: "src/app/api/cron/inactivity-rescue/route.ts",
-    classification: "relationship_coaching" as const,
+    classification: "deprecated_legacy" as const,
     canBypassRelationshipLane: false,
-    requiresFvg: true,
-    requiresFailClosedWhenCoaching: true,
-    usesNorthStar: true,
-    usesFvg: true,
-    normalCoachingPattern: "Phase 4.1: normalCoaching: true.",
-    notNormalCoachingBypassRisk: "Resolved in Phase 4.1 — previously Boolean(commitmentR?.id).",
-    phase4Action: "redesign_signals_and_migrate_before_broad_enable",
+    requiresFvg: false,
+    requiresFailClosedWhenCoaching: false,
+    usesNorthStar: false,
+    usesFvg: false,
+    normalCoachingPattern:
+      "Phase 4.4: inactivity-rescue is deprecated no-send when enabled; feedback_events only; canonical reactivation is daily SMS V3.",
+    notNormalCoachingBypassRisk: "N/A — route no longer sends coaching SMS.",
+    phase4Action: "delete_or_deprecate_for_v2_cohort_or_migrate_if_stragglers_remain",
   },
   {
     route: "post_churn_winback",
     file: "src/app/api/cron/post-churn-winback/route.ts",
-    classification: "product_research" as const,
-    canBypassRelationshipLane: true,
-    requiresFvg: true,
-    requiresFailClosedWhenCoaching: true,
-    usesNorthStar: true,
-    usesFvg: true,
+    classification: "deprecated_legacy" as const,
+    canBypassRelationshipLane: false,
+    requiresFvg: false,
+    requiresFailClosedWhenCoaching: false,
+    usesNorthStar: false,
+    usesFvg: false,
     normalCoachingPattern:
-      "Phase 4.1: normalCoaching: true for fail-closed FVG; product_research classification is explicit in metadata (not implicit missing-commitment bypass).",
-    notNormalCoachingBypassRisk:
-      "Resolved in Phase 4.1 — explicit fvg_policy_classification + normal_coaching_policy_source; no Boolean(commitmentWb?.id) gate.",
-    phase4Action: "document_exception_or_explicit_bypassKind_in_future_implementation",
+      "Phase 4.5: post-churn winback deprecated no-send; feedback_events only; no SMS / NS / FVG / signed links.",
+    notNormalCoachingBypassRisk: "N/A — route no longer sends SMS.",
+    phase4Action: "delete_or_deprecate_for_v2_cohort_or_migrate_if_stragglers_remain",
   },
   {
     route: "onboarding_sms",
@@ -165,9 +163,10 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
     requiresFailClosedWhenCoaching: false,
     usesNorthStar: false,
     usesFvg: false,
-    normalCoachingPattern: "N/A (intentional hard-coded consent copy)",
+    normalCoachingPattern:
+      "Phase 4.7: deterministic transactional copy; sendSMS lastOutbound.delivery_snapshot tags onboarding_consent_transactional; no V3/NS/FVG.",
     notNormalCoachingBypassRisk: "None — relationship lane intentionally not used (file comment).",
-    phase4Action: "keep_transactional_explicitly_tagged",
+    phase4Action: "accepted_transactional_exception_with_metadata",
   },
   {
     route: "guided_contract_shrink_ask",
@@ -326,24 +325,43 @@ describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relatio
     expect(missed).not.toContain("refineMachineSmsBodyWithV3RefineLane");
   });
 
-  it("inactivity-rescue uses normalCoaching: true (not Boolean(commitment?.id))", () => {
+  it("inactivity-rescue is Phase 4.4 deprecated (no send / NS / FVG)", () => {
     const rescue = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/inactivity-rescue/route.ts"), "utf8");
-    expect(rescue).not.toMatch(/normalCoaching:\s*Boolean\(commitmentR\?\.id\)/);
-    expect(rescue).toMatch(/normalCoaching:\s*true/);
-    expect(rescue).toContain('fvg_policy_classification: "relationship_rescue"');
+    expect(rescue).toContain("inactivity_rescue_deprecated");
+    expect(rescue).not.toMatch(/\bsendSMS\s*\(/);
+    expect(rescue).not.toContain("finalizeNorthStarCoachSmsAsync");
+    expect(rescue).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(rescue).not.toContain("refineMachineSmsBodyWithV3RefineLane");
   });
 
-  it("post-churn winback uses fail-closed normalCoaching: true with explicit product_research metadata", () => {
-    const winback = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/post-churn-winback/route.ts"), "utf8");
-    expect(winback).not.toMatch(/normalCoaching:\s*Boolean\(commitmentWb\?\.id\)/);
-    expect(winback).toMatch(/normalCoaching:\s*true/);
-    expect(winback).toContain('fvg_policy_classification: "product_research"');
-    expect(winback).toContain("explicit_product_research_fail_closed_phase4_1");
-    expect(winback).not.toMatch(/if\s*\(\s*!voiceWinback\.shouldSend\s*&&\s*commitmentWb\?\.id\s*\)/);
+  it("inactivity-rescue uses resolveUserFullyOnV2ForCutoverMessaging (Phase 4.4 observability)", () => {
+    const rescue = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/inactivity-rescue/route.ts"), "utf8");
+    expect(rescue).toContain("resolveUserFullyOnV2ForCutoverMessaging");
   });
 
-  it("onboarding SMS remains transactional consent (no FVG)", () => {
-    const onboarding = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/onboarding/sms/route.ts"), "utf8");
+  it("onboarding_sms is Phase 4.7 transactional exception (policy matrix + route static)", () => {
+    const row = SECONDARY_SMS_ROUTE_POLICY.find((r) => r.route === "onboarding_sms");
+    expect(row?.phase4Action).toBe("accepted_transactional_exception_with_metadata");
+    expect(row?.classification).toBe("transactional_compliance");
+    expect(row?.usesNorthStar).toBe(false);
+    expect(row?.usesFvg).toBe(false);
+    const onboarding = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/onboarding/sms/route.ts"),
+      "utf8"
+    );
     expect(onboarding).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(onboarding).toContain("buildOnboardingTransactionalSmsDeliverySnapshot");
+  });
+
+  it("post-churn-winback is Phase 4.5 deprecated (no send / NS / FVG / signed link)", () => {
+    const winback = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/post-churn-winback/route.ts"), "utf8");
+    expect(winback).toContain("post_churn_winback_deprecated");
+    expect(winback).not.toMatch(/\bsendSMS\s*\(/);
+    expect(winback).not.toContain("finalizeNorthStarCoachSmsAsync");
+    expect(winback).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(winback).not.toContain("refineMachineSmsBodyWithV3RefineLane");
+    expect(winback).not.toContain("appendPreservedSignedLink");
+    expect(winback).not.toContain("createWinbackToken");
+    expect(winback).not.toContain("/winback?t=");
   });
 });

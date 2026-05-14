@@ -1,39 +1,22 @@
 import { NextResponse } from "next/server";
 import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { createWinbackToken } from "@/lib/winback-token";
-import { isTwilioReady, sendSMS } from "@/lib/twilio";
-import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN, pickNorthStarWriterAttributionFields, type NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
-import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
-import { getActiveCommitment } from "@/lib/v2-commitment";
-import { resolveUserTimezone } from "@/lib/timezone";
-import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
-import { appendPreservedSignedLink, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * ======================================================
- * Post-Churn Winback Intel Cron (CANONICAL)
+ * Post-Churn Winback Cron — Phase 4.5 deprecated / no-send
  * ======================================================
  *
- * Runs daily.
- * Finds cancel_attempt events 7–10 days ago.
- * Sends 1 message with a signed link:
- * “If we rebuilt one thing so you’d come back, what would it be?”
- *
- * Guardrails:
- * - Never send twice (moment="post_churn_winback_sent")
- * - Private only (Stream C)
- *
- * Sends via canonical `sendSMS` (Messaging Service or fallback number). If Twilio is not
- * configured, we log `skipped_missing_twilio` for visibility.
+ * Auth + cancel_attempt scan (7–10 day window) unchanged.
+ * Does not send SMS, refine, North Star, FVG, or signed winback links.
+ * Records one `post_churn_winback_deprecated` feedback row per user (deduped).
+ * Legacy `post_churn_winback_sent` rows still suppress processing.
  */
 
-// Public base URL for link generation (required)
-const APP_BASE_URL = process.env.APP_BASE_URL;
+const DEPRECATED_MESSAGE = "post-churn winback deprecated; no SMS sent";
 
 function daysAgoIso(days: number) {
   const d = new Date();
@@ -41,36 +24,17 @@ function daysAgoIso(days: number) {
   return d.toISOString();
 }
 
-function normalizePhone(input: unknown): string | null {
-  if (typeof input !== "string") return null;
-  const t = input.trim();
-  return t.length ? t : null;
-}
-
-function buildWinbackLink(clerk_user_id: string) {
-  if (!APP_BASE_URL) {
-    throw new Error("Missing APP_BASE_URL (used to build winback links)");
-  }
-
-  const token = createWinbackToken({ clerk_user_id, ttlDays: 21 });
-  return `${APP_BASE_URL.replace(/\/$/, "")}/winback?t=${encodeURIComponent(
-    token
-  )}`;
-}
-
 export async function GET(req: Request) {
   if (!validateCronSecretRequest(req)) {
     return NextResponse.json({ ok: false, reason: "unauthorized" }, { status: 401 });
   }
 
-  // Window: 7–10 days after cancel
   const startIso = daysAgoIso(10);
   const endIso = daysAgoIso(7);
 
-  // 1) Find cancel attempts in the window
   const { data: cancels, error: cancelErr } = await supabaseServer
     .from("feedback_events")
-    .select("clerk_user_id, created_at")
+    .select("id, clerk_user_id, created_at")
     .eq("moment", "cancel_attempt")
     .eq("type", "churn")
     .gte("created_at", startIso)
@@ -84,19 +48,29 @@ export async function GET(req: Request) {
   }
 
   if (!cancels || cancels.length === 0) {
-    return NextResponse.json({ ok: true, sent: 0, reason: "none_in_window" });
+    return NextResponse.json({
+      ok: true,
+      sent: 0,
+      reason: "none_in_window",
+      candidates: 0,
+      deprecatedPostChurnWinback: 0,
+      skippedAlreadyDeprecated: 0,
+      skippedAlreadySent: 0,
+      skippedTwilio: 0,
+      skippedNoSafeV3Voice: 0,
+      errors: [],
+    });
   }
 
-  let sentCount = 0;
-  let skippedTwilio = 0;
-  let skippedNoSafeV3Voice = 0;
+  let deprecatedPostChurnWinback = 0;
+  let skippedAlreadyDeprecated = 0;
+  let skippedAlreadySent = 0;
   const errors: Array<{ clerk_user_id: string; error: string }> = [];
 
   for (const row of cancels) {
     const clerk_user_id = row.clerk_user_id;
 
     try {
-      // 2) Never send twice
       const { data: alreadySent } = await supabaseServer
         .from("feedback_events")
         .select("id")
@@ -104,215 +78,71 @@ export async function GET(req: Request) {
         .eq("moment", "post_churn_winback_sent")
         .limit(1);
 
-      if (alreadySent && alreadySent.length > 0) continue;
-
-      // 3) Build signed link (works even without Twilio)
-      const link = buildWinbackLink(clerk_user_id);
-
-      // 4) Pull phone from Clerk metadata (best-effort)
-      const md = await getClerkPublicMetadata(clerk_user_id);
-
-      const phone =
-        normalizePhone(md?.phoneNumber) ||
-        normalizePhone(md?.phone) ||
-        normalizePhone(md?.smsNumber) ||
-        normalizePhone(md?.mobile);
-
-      if (!isTwilioReady()) {
-        skippedTwilio += 1;
-
-        await supabaseServer.from("feedback_events").insert({
-          clerk_user_id,
-          source: "sms",
-          moment: "post_churn_winback_skipped",
-          type: "churn",
-          rating: null,
-          sentiment: null,
-          reason_code: "skipped_missing_twilio",
-          message: link, // store link so you can email manually
-          share_permission: false,
-          metadata: { canonical: true, channel: "sms", link_included: true },
-        });
-
+      if (alreadySent && alreadySent.length > 0) {
+        skippedAlreadySent += 1;
         continue;
       }
 
-      if (!phone) {
-        await supabaseServer.from("feedback_events").insert({
-          clerk_user_id,
-          source: "sms",
-          moment: "post_churn_winback_skipped",
-          type: "churn",
-          rating: null,
-          sentiment: null,
-          reason_code: "missing_phone",
-          message: link, // still useful
-          share_permission: false,
-          metadata: { canonical: true, channel: "sms", link_included: true },
-        });
+      const { data: alreadyDeprecated } = await supabaseServer
+        .from("feedback_events")
+        .select("id")
+        .eq("clerk_user_id", clerk_user_id)
+        .eq("moment", "post_churn_winback_deprecated")
+        .limit(1);
 
+      if (alreadyDeprecated && alreadyDeprecated.length > 0) {
+        skippedAlreadyDeprecated += 1;
         continue;
       }
 
-      const smsBodyPreGate =
-        `One last question — if we rebuilt ONE thing so you’d come back, what would it be?\n` +
-        `One sentence is enough.`;
-      let winbackProposed = smsBodyPreGate;
-      let winbackV3Rs: string | undefined;
-      let winbackV3Pkt: NorthStarSmsContextPacket | undefined;
-      const commitmentWb = await getActiveCommitment(clerk_user_id);
-      if (commitmentWb?.id) {
-        try {
-          const mdWb = await getClerkPublicMetadata(clerk_user_id);
-          const tzWb = resolveUserTimezone(mdWb?.timezone);
-          const rw = await refineMachineSmsBodyWithV3RefineLane({
-            clerkUserId: clerk_user_id,
-            messageSid: `post_churn_winback:${clerk_user_id}`,
-            commitment: commitmentWb,
-            timezone: tzWb,
-            inboundRaw: "[post_churn_winback]",
-            machineBody: smsBodyPreGate,
-            hintSource: "post_churn_winback",
-            ownedReplySource: "v3_winback_refined",
-          });
-          winbackProposed = rw.body;
-          winbackV3Rs = rw.replySource;
-          winbackV3Pkt = rw.contextPacket;
-        } catch (e) {
-          console.warn("[post-churn-winback] v3_refine_failed", {
-            clerk_user_id: clerk_user_id,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        }
-      }
-      const gatedWinback = await finalizeNorthStarCoachSmsAsync({
-        proposedBody: winbackProposed,
-        channel: "post_churn_winback",
-        preserveNewlines: true,
-        maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-        replySource: winbackV3Rs,
-        contextPacket: winbackV3Pkt ?? { source: "post_churn_winback" },
-      });
-      const voiceWinback = await applyFinalVoiceOwnershipGate({
-        proposedBody: gatedWinback.visibleBody,
-        replySource: winbackV3Rs,
-        channel: "post_churn_winback",
-        activeCommitmentId: commitmentWb?.id ?? null,
-        effectiveAsk: winbackV3Pkt?.effectiveAskText ?? commitmentWb?.behavior_statement ?? null,
-        behaviorStatement: commitmentWb?.behavior_statement ?? null,
-        contextPacket: winbackV3Pkt,
-        northStarMeta: gatedWinback.meta,
-        /**
-         * Phase 4.1: post-churn SMS is product-research / churn intel, not active-accountability coaching,
-         * but visible copy still runs through fail-closed FVG (never implicit `Boolean(commitment?.id)` gating).
-         */
-        normalCoaching: true,
-      });
-
-      if (!voiceWinback.shouldSend) {
-        await supabaseServer.from("feedback_events").insert({
-          clerk_user_id,
-          source: "sms",
-          moment: "post_churn_winback_withheld",
-          type: "churn",
-          rating: null,
-          sentiment: null,
-          reason_code: "final_voice_gate_no_send",
-          message: link,
-          share_permission: false,
-          metadata: {
-            canonical: true,
-            window: "7-10_days_post_cancel",
-            channel: "sms",
-            relationship_lane_bypass_kind: "post_churn_product_research",
-            relationship_lane_policy: "explicit_transactional_classification_phase4",
-            fvg_policy_classification: "product_research",
-            normal_coaching_policy_source: "explicit_product_research_fail_closed_phase4_1",
-            link_included: false,
-            signed_link_preserved: false,
-            twilio_send_attempted: false,
-            voice_decision: "skipped_no_safe_v3_voice",
-            north_star_gate: {
-              original_body: gatedWinback.meta.originalBody,
-              final_body: "",
-              north_star_gate_source: gatedWinback.meta.source,
-              north_star_gate_reasons: gatedWinback.meta.blockedReasons,
-              ...pickNorthStarWriterAttributionFields(gatedWinback.meta),
-            },
-            final_voice_gate: voiceWinback.metadata,
-          },
-        });
-        skippedNoSafeV3Voice += 1;
-        continue;
-      }
-
-      const finalWinbackBody = appendPreservedSignedLink(voiceWinback.body, link);
-
-      await sendSMS({
-        to: phone,
-        body: finalWinbackBody,
-        lastOutbound: {
-          clerkUserId: clerk_user_id,
-          messageKind: "transactional",
-          deliverySnapshot: {
-            relationship_lane_bypass_kind: "post_churn_product_research",
-            relationship_lane_policy: "explicit_transactional_classification_phase4",
-            fvg_policy_classification: "product_research",
-            normal_coaching_policy_source: "explicit_product_research_fail_closed_phase4_1",
-          },
-        },
-      });
-
-      // 6) Log that we sent (Stream C)
-      await supabaseServer.from("feedback_events").insert({
+      const { error: insErr } = await supabaseServer.from("feedback_events").insert({
         clerk_user_id,
         source: "sms",
-        moment: "post_churn_winback_sent",
+        moment: "post_churn_winback_deprecated",
         type: "churn",
         rating: null,
         sentiment: null,
-        reason_code: "winback_prompt_sent",
-        message: link,
+        reason_code: "post_churn_winback_deprecated_no_sms",
+        message: DEPRECATED_MESSAGE,
         share_permission: false,
         metadata: {
-          canonical: true,
-          window: "7-10_days_post_cancel",
-          channel: "sms",
-          relationship_lane_bypass_kind: "post_churn_product_research",
-          relationship_lane_policy: "explicit_transactional_classification_phase4",
-          fvg_policy_classification: "product_research",
-          normal_coaching_policy_source: "explicit_product_research_fail_closed_phase4_1",
-          link_included: true,
-          north_star_gate: {
-            original_body: gatedWinback.meta.originalBody,
-            final_body: finalWinbackBody,
-            north_star_gate_source: gatedWinback.meta.source,
-            north_star_gate_reasons: gatedWinback.meta.blockedReasons,
-            ...pickNorthStarWriterAttributionFields(gatedWinback.meta),
-          },
-          final_voice_gate: {
-            ...voiceWinback.metadata,
-            signed_link_preserved: true,
-            link_kind: "winback",
-          },
+          route_deprecated: true,
+          legacy_route: true,
+          no_send_tag: "post_churn_winback_deprecated_no_sms",
+          skip_reason: "post_churn_sms_disabled_until_safe_research_spec",
+          old_outbound_writer_used_as_voice: false,
+          twilio_send_attempted: false,
+          secondary_v3_lane_used: false,
+          relationship_lane_policy: "post_churn_winback_sms_disabled_until_safe_research_spec",
+          product_research_sms_disabled: true,
+          signed_link_generated: false,
+          signed_url_stored: false,
+          source_cancel_event_id: row.id,
+          cancel_event_created_at: row.created_at,
         },
       });
 
-      sentCount += 1;
-    } catch (e: any) {
-      errors.push({
-        clerk_user_id,
-        error: e?.message || "unknown_error",
-      });
+      if (insErr) {
+        errors.push({ clerk_user_id, error: insErr.message });
+        continue;
+      }
+
+      deprecatedPostChurnWinback += 1;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "unknown_error";
+      errors.push({ clerk_user_id, error: msg });
     }
   }
 
   return NextResponse.json({
     ok: true,
-    sent: sentCount,
+    sent: 0,
     candidates: cancels.length,
-    skippedTwilio,
-    skippedNoSafeV3Voice,
+    deprecatedPostChurnWinback,
+    skippedAlreadyDeprecated,
+    skippedAlreadySent,
+    skippedTwilio: 0,
+    skippedNoSafeV3Voice: 0,
     errors,
   });
 }

@@ -3,6 +3,11 @@ import crypto from "crypto";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { computeShrunkAskText } from "@/lib/v2-ai-outbound";
+import {
+  adaptiveProposalBindingNeedlePrefix,
+  latestOutboundBodyContainsAdaptiveProposalBindingNeedle,
+} from "@/lib/v2-contract-consent-routing";
+import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { buildV2ShrinkProposalOutboundSms } from "@/lib/v2-sms-accountability";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
@@ -336,6 +341,48 @@ export async function declineAdaptiveProposal(args: {
   return { ok: false, error: `contract_overlay_decline_${result}`, result };
 }
 
+async function rollbackGuidedContractProposalReservation(args: {
+  commitmentId: string;
+  proposalBindingText: string;
+}): Promise<void> {
+  await supabaseServer
+    .from("v2_commitment")
+    .update({
+      adaptive_proposal_text: null,
+      adaptive_proposal_created_at: null,
+      adaptive_proposal_expires_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", args.commitmentId)
+    .eq("adaptive_proposal_text", args.proposalBindingText.trim());
+}
+
+function buildGuidedContractProposalEventExtras(args: {
+  dryRun: boolean;
+  northStarReplySource: string | null | undefined;
+  guidedFinalVoiceGate: Record<string, unknown> | null;
+  finalBodyForPreview: string;
+  twilioSendAttempted: boolean;
+  bindingNeedleVerified: boolean;
+}): Record<string, unknown> {
+  const smsContextUpdated = !args.dryRun && args.twilioSendAttempted;
+  const smsLastOutboundContextUpdateMethod = args.dryRun ? "dry_run_skipped" : "sendSMS";
+  return {
+    guided_contract_sms_policy: "option_a_v3_refine_fvg_fail_closed",
+    binding_text_server_owned: true,
+    binding_needle_verified: args.bindingNeedleVerified,
+    sms_last_outbound_context_updated: smsContextUpdated,
+    sms_last_outbound_context_update_method: smsLastOutboundContextUpdateMethod,
+    v3_refine_reply_source: args.northStarReplySource ?? null,
+    north_star_channels: ["contract_prompt", "guided_contract_proposal"],
+    twilio_send_attempted: args.twilioSendAttempted,
+    final_sms_body_preview: args.finalBodyForPreview.trim().slice(0, 360),
+    old_outbound_writer_used_as_voice: false,
+    contract_binding_source: "proposal_binding_text",
+    ...(args.guidedFinalVoiceGate ? { final_voice_gate: args.guidedFinalVoiceGate } : {}),
+  };
+}
+
 /**
  * Guided refresh TIGHTEN: create shrink_ask proposal state + send YES/NO consent SMS.
  * Does not activate overlay, does not mutate base `behavior_statement`, does not write `check_sent`.
@@ -416,7 +463,30 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
 
   let messageSid: string;
   let guidedFinalVoiceGate: Record<string, unknown> | null = null;
+  let twilioSendAttempted = false;
+  let bindingNeedleVerified = false;
+  let finalBodyForPreview = smsBody.trim();
+
   if (dryRun) {
+    if (!latestOutboundBodyContainsAdaptiveProposalBindingNeedle(finalBodyForPreview, args.proposalBindingText)) {
+      await rollbackGuidedContractProposalReservation({
+        commitmentId: args.commitmentId,
+        proposalBindingText: args.proposalBindingText,
+      });
+      const needle = adaptiveProposalBindingNeedlePrefix(args.proposalBindingText);
+      console.warn("[v2-adaptive-contract] guided_contract_binding_needle_missing", {
+        commitment_id: args.commitmentId,
+        clerk_user_id: args.clerkUserId,
+        required_binding_needle_missing: true,
+        dry_run: true,
+        proposal_needle_prefix_len: needle.length,
+        proposal_needle_prefix_hash: needle ? hashSmsSnippet(needle) : null,
+        final_body_preview: finalBodyForPreview.slice(0, 360),
+        twilio_send_attempted: false,
+      });
+      return { ok: false, error: "guided_contract_binding_needle_missing" };
+    }
+    bindingNeedleVerified = true;
     messageSid = `dry_run_guided_shrink:${idempotencySuffix}`;
   } else {
     try {
@@ -451,16 +521,10 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
       });
       guidedFinalVoiceGate = voiceGuided.metadata;
       if (!voiceGuided.shouldSend) {
-        await supabaseServer
-          .from("v2_commitment")
-          .update({
-            adaptive_proposal_text: null,
-            adaptive_proposal_created_at: null,
-            adaptive_proposal_expires_at: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", args.commitmentId)
-          .eq("adaptive_proposal_text", args.proposalBindingText.trim());
+        await rollbackGuidedContractProposalReservation({
+          commitmentId: args.commitmentId,
+          proposalBindingText: args.proposalBindingText,
+        });
         console.warn("[v2-adaptive-contract] guided_shrink_withheld_final_voice_gate", {
           commitment_id: args.commitmentId,
           clerk_user_id: args.clerkUserId,
@@ -468,31 +532,56 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
         });
         return { ok: false, error: "final_voice_gate_no_send" };
       }
+      const finalGuidedBody = voiceGuided.body.trim();
+      finalBodyForPreview = finalGuidedBody;
+      if (!latestOutboundBodyContainsAdaptiveProposalBindingNeedle(finalGuidedBody, args.proposalBindingText)) {
+        await rollbackGuidedContractProposalReservation({
+          commitmentId: args.commitmentId,
+          proposalBindingText: args.proposalBindingText,
+        });
+        const needle = adaptiveProposalBindingNeedlePrefix(args.proposalBindingText);
+        console.warn("[v2-adaptive-contract] guided_contract_binding_needle_missing", {
+          commitment_id: args.commitmentId,
+          clerk_user_id: args.clerkUserId,
+          required_binding_needle_missing: true,
+          proposal_needle_prefix_len: needle.length,
+          proposal_needle_prefix_hash: needle ? hashSmsSnippet(needle) : null,
+          final_body_preview: finalGuidedBody.slice(0, 360),
+          twilio_send_attempted: false,
+          final_voice_gate: guidedFinalVoiceGate,
+        });
+        return { ok: false, error: "guided_contract_binding_needle_missing" };
+      }
+      bindingNeedleVerified = true;
       const msg = await sendSMS({
         to: phone,
-        body: voiceGuided.body,
+        body: finalGuidedBody,
         lastOutbound: {
           clerkUserId: args.clerkUserId,
           messageKind: "question",
-          skipLastOutboundContextUpsert: true,
+          fullBodyForContext: finalGuidedBody,
         },
       });
       messageSid = msg.sid;
+      twilioSendAttempted = true;
     } catch (e) {
-      await supabaseServer
-        .from("v2_commitment")
-        .update({
-          adaptive_proposal_text: null,
-          adaptive_proposal_created_at: null,
-          adaptive_proposal_expires_at: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", args.commitmentId)
-        .eq("adaptive_proposal_text", args.proposalBindingText.trim());
+      await rollbackGuidedContractProposalReservation({
+        commitmentId: args.commitmentId,
+        proposalBindingText: args.proposalBindingText,
+      });
       console.error("[v2-adaptive-contract] proposeShrinkAskFromGuidedResolution send failed", e);
       return { ok: false, error: "sms_send_failed" };
     }
   }
+
+  const guidedContractEventExtras = buildGuidedContractProposalEventExtras({
+    dryRun,
+    northStarReplySource,
+    guidedFinalVoiceGate,
+    finalBodyForPreview,
+    twilioSendAttempted,
+    bindingNeedleVerified,
+  });
 
   const finalized = await persistContractOverlayProposed({
     commitmentId: args.commitmentId,
@@ -503,7 +592,7 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
     contractKind: "shrink_ask",
     idempotencySuffix,
     requireFreshProposalSlot: false,
-    eventPayloadExtras: guidedFinalVoiceGate ? { final_voice_gate: guidedFinalVoiceGate } : undefined,
+    eventPayloadExtras: guidedContractEventExtras,
   });
   if (!finalized.ok) {
     return { ok: false, error: finalized.error };
