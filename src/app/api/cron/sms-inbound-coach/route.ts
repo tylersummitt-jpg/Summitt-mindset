@@ -51,6 +51,7 @@ import {
 } from "@/lib/v2-sms-accountability";
 import {
   buildBlockerAckAiPayload,
+  buildBlockerCapturedAckObservability,
   tryGenerateV2BlockerAckMessage,
   V2_BLOCKER_ACK_AI_MODEL,
   V2_BLOCKER_ACK_PROMPT_VERSION,
@@ -223,7 +224,9 @@ import {
 } from "@/lib/v3-sms-brain";
 import {
   assertRequiredVerbatimSubstringsPresent,
+  buildCommitmentChangeContextFactsForHeuristicInbound,
   buildCommitmentChangeInboundFactsFromWave4,
+  buildConversationBrainFallbackFacts,
   buildInboundV3RelationshipFacts,
   contractConsentYesBindingVerbatimSubstring,
   formatInboundV3LaneNoSendLastError,
@@ -235,6 +238,7 @@ import {
   slimCentralBrainPivotFactsForTelemetry,
   slimCommitmentChangeFactsForTelemetry,
   slimContractConsentFactsForTelemetry,
+  slimConversationBrainFallbackFactsForTelemetry,
   slimMemoryConfirmationFactsForTelemetry,
   slimOpenQuestionFactsForTelemetry,
   slimPendingResolutionFactsForTelemetry,
@@ -1876,90 +1880,287 @@ async function processV2NormalInboundOutcome(
         eventType: gdFallback.final_event_type ?? eventType,
         preferredName,
       });
-      const legacyVoicePack = await northStarGatePersistBodyAsync(tmpl.body, {
+
+      const finalFb = gdFallback.final_event_type ?? eventType;
+      const accountabilityProofMomentFb =
+        gdFallback.should_write_outcome_event &&
+        (finalFb === "user_yes" || finalFb === "user_no" || finalFb === "user_partial")
+          ? buildProofMomentForAccountabilityOutcome({
+              finalEventType: finalFb,
+              eventsNewestFirst: recentEvents,
+              isRepairOutcome: false,
+              userMessageCharCount: userMessage.length,
+            })
+          : null;
+
+      const northStarPktCb = buildInboundNorthStarContextPacket({
+        commitmentId: commitment.id,
+        behaviorStatement: commitment.behavior_statement ?? "",
+        effectiveAskText: effectiveBehavior,
+        timezone,
+        userMessage,
+        lastOutboundSmsPreview,
+        checkPayload: (checkPayload ?? {}) as Record<string, unknown>,
+        recentEvents,
+        convPack: convPackFull,
+        coachingMemory: coachingMemoryRow,
+        finalEventType: gdFallback.final_event_type ?? eventType,
+        lifeDesires,
+        peopleSummary,
+        identityAnchorText,
+        latestBlockerPreview,
+        proofDisplayedOrMoment: Boolean(accountabilityProofMomentFb),
+      });
+
+      const minimalLinesCb = buildMinimalInboundTranscriptLines(
+        convPackFull,
+        userMessage,
+        lastOutboundSmsPreview
+      );
+
+      const forcedCoachSmsCb =
+        convPackFull &&
+        !isLikelySmsComplianceOrOptOutTurn(userMessage) &&
+        !isLikelyCommitmentChangeIntentTurn(userMessage) &&
+        !adaptiveProposalPending
+          ? tryBuildForcedInboundCoachSms({
+              userMessage,
+              gatedDecision: gdFallback,
+              lastOutboundSmsPreview,
+              eventsNewestFirst: recentEvents,
+              effectiveAskFloor: effectiveBehavior,
+              messageSid: job.message_sid,
+            })
+          : null;
+
+      const relationshipToneCb =
+        coachingMemoryRow?.sms_relationship_profile != null
+          ? JSON.stringify(coachingMemoryRow.sms_relationship_profile).slice(0, 240)
+          : null;
+
+      const proofPromptHintFb = proofMomentToPromptHint(accountabilityProofMomentFb);
+
+      const cbFallbackFacts = buildConversationBrainFallbackFacts({
+        legacyFallbackReason: gdFallback.decision_reason,
+        deterministicTemplateBody: tmpl.body,
+        classifierResult: eventType,
+        gatedEventType: gdFallback.final_event_type,
+        shouldWriteOutcomeEvent: gdFallback.should_write_outcome_event,
+        gatedMode: gdFallback.mode,
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        inboundMessageSid: job.message_sid,
+      });
+
+      const cbInboundFacts = buildInboundV3RelationshipFacts({
+        clerkUserId: userId,
+        preferredName,
+        timezone,
+        localTimeIso: new Date(new Date().toLocaleString("en-US", { timeZone: timezone })).toISOString(),
+        commitment,
+        effectiveAsk: effectiveBehavior,
+        userMessageRaw: userMessage,
+        coalescedInboundText: userMessage,
+        suppressedMessageSids: splitSuppressedMessageSids,
+        transcriptLines: minimalLinesCb,
+        northStarPacket: northStarPktCb,
+        gatedDecision: gdFallback,
+        deterministicEventType: eventType,
+        doNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
+        relationshipProfileSummary: relationshipToneCb,
+        conversationBrain: { enabled: false },
+        centralBrain: { shadow_stored: false },
+        arc: { ambiguous_short_reply: false, clarification_required: false },
+        phase5a: {
+          central_tether_brain_enabled: shouldRunPhase5aCentralTetherBrain(),
+          arc_clarify_brain_enabled: shouldRunPhase5aArcClarifyBrain(),
+          inbound_stitched_final_enabled: shouldRunPhase5aInboundStitchedFinalBrain(),
+        },
+        forcedFutureStretchIntentActive: Boolean(forcedCoachSmsCb),
+        wave11MemoryConfirmationPending: pendingAwaitingMemoryConfirmation != null,
+        accountabilityProofHint: proofPromptHintFb != null ? JSON.stringify(proofPromptHintFb) : null,
+        rejectedTimeCandidates: [],
+        unavailableWindows: [],
+        routePurpose: "conversation_brain_unavailable",
+        branchName: "conversation_brain_legacy_disabled_lane",
+        branchMigratedToLane: true,
+        conversationBrainFallbackFacts: cbFallbackFacts,
+      });
+
+      const cbLaneRes = await produceInboundV3RelationshipSms({
+        facts: cbInboundFacts,
+        telemetry_fact_sources: [
+          "classifyV2InboundReply",
+          "defaultGatedDecision_conversation_brain_legacy_fallback_disabled",
+          "buildV2InboundReplySms_deterministic_template_preview_only",
+          "buildInboundNorthStarContextPacket",
+          "buildMinimalInboundTranscriptLines",
+          "buildConversationBrainFallbackFacts",
+          "buildInboundV3RelationshipFacts",
+        ],
+      });
+
+      const cbSlimFactsSummary = slimConversationBrainFallbackFactsForTelemetry(cbFallbackFacts);
+
+      const persistConversationBrainLegacyDisabledServerOutcome = async (
+        aiMessage: string,
+        fallbackReason: string,
+        laneNoSendExtras?: Record<string, unknown> | null
+      ) => {
+        const idempotencyKey = v2UserReplyIdempotencyKey(
+          gdFallback.final_event_type ?? eventType,
+          job.message_sid
+        );
+        const { error: evInsErr } = await supabaseServer.from("v2_commitment_event").insert({
+          commitment_id: commitment.id,
+          clerk_user_id: userId,
+          event_type: gdFallback.final_event_type ?? eventType,
+          source: "sms_v2_accountability",
+          payload_json: {
+            message: userMessage,
+            ...(normalizedHint != null ? { normalized_hint: normalizedHint } : {}),
+            ai: {
+              model: V2_INBOUND_AI_MODEL,
+              prompt_version: V2_INBOUND_AI_PROMPT_VERSION,
+              server_strategy: strategyForInboundEventType(gdFallback.final_event_type ?? eventType),
+              message: aiMessage,
+              confidence: null,
+              fallback_used: true,
+              fallback_reason: fallbackReason,
+              ...(laneNoSendExtras ?? {}),
+            },
+            conversation_brain_v1: {
+              enabled: false,
+              legacy_fallback_disabled_deterministic: true,
+            },
+          },
+          idempotency_key: idempotencyKey,
+        });
+
+        if (evInsErr) {
+          const code = (evInsErr as { code?: string }).code;
+          if (code !== "23505") {
+            throw new Error(`v2_commitment_event_insert_failed: ${evInsErr.message}`);
+          }
+        } else {
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        }
+
+        await recomputeV2CoachingMemory(commitment.id, {
+          reasonCode: "inbound_user_outcome",
+        });
+
+        if (gdFallback.should_open_blocker_capture) {
+          await setBlockerCapturePending(
+            commitment.id,
+            gdFallback.final_event_type as V2AccountabilityOutcome
+          );
+        }
+      };
+
+      if (!cbLaneRes.shouldSend || !cbLaneRes.body.trim()) {
+        await persistConversationBrainLegacyDisabledServerOutcome(
+          "",
+          "conversation_brain_legacy_fallback_disabled_inbound_v3_lane_no_send",
+          {
+            inbound_v3_relationship_lane_no_send: {
+              no_send_reason: cbLaneRes.noSendReason,
+              lane_metadata_preview: JSON.stringify(cbLaneRes.metadata).slice(0, 900),
+            },
+          }
+        );
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: formatInboundV3LaneNoSendLastError(cbLaneRes, {
+            route_purpose: "conversation_brain_unavailable",
+            branch_name: "conversation_brain_legacy_disabled_lane",
+            branch_migrated_to_lane: true,
+            conversation_brain_fallback_facts_summary: cbSlimFactsSummary,
+          }),
+          nextRetry: farFutureIso(),
+        });
+        console.warn("[sms-inbound-coach] conversation_brain_legacy_disabled_lane_no_send", {
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          reason: cbLaneRes.noSendReason,
+        });
+        return;
+      }
+
+      const cbV3BrainMetadata: Record<string, unknown> = {
+        ...cbLaneRes.metadata,
+        inbound_v3_relationship_lane: true,
+        v3_lane_turn_purpose: cbLaneRes.turnPurpose,
+        route_purpose: "conversation_brain_unavailable",
+        branch_migrated_to_lane: true,
+        branch_name: "conversation_brain_legacy_disabled_lane",
+        conversation_brain_fallback_facts_summary: cbSlimFactsSummary,
+        v3_candidate_body: cbLaneRes.body,
+      };
+
+      const cbVoicePack = await northStarGatePersistBodyAsync(cbLaneRes.body, {
         job,
         channel: "inbound_coach_reply",
         lastOutboundBody: lastOutboundSmsPreview,
         effectiveAsk: effectiveBehavior,
         behaviorStatement: commitment.behavior_statement,
         finalEventType: gdFallback.final_event_type ?? eventType,
-        replySource: "deterministic_template_fallback",
+        replySource: "v3_inbound_relationship_lane",
+        contextPacket: northStarPktCb,
         activeCommitmentId: commitment.id,
         normalCoaching: true,
-      });
-      const idempotencyKey = v2UserReplyIdempotencyKey(
-        gdFallback.final_event_type ?? eventType,
-        job.message_sid
-      );
-      const { error: evInsErr } = await supabaseServer.from("v2_commitment_event").insert({
-        commitment_id: commitment.id,
-        clerk_user_id: userId,
-        event_type: gdFallback.final_event_type ?? eventType,
-        source: "sms_v2_accountability",
-        payload_json: {
-          message: userMessage,
-          ...(normalizedHint != null ? { normalized_hint: normalizedHint } : {}),
-          ai: {
-            model: V2_INBOUND_AI_MODEL,
-            prompt_version: V2_INBOUND_AI_PROMPT_VERSION,
-            server_strategy: strategyForInboundEventType(gdFallback.final_event_type ?? eventType),
-            message: legacyVoicePack.voice.shouldSend ? legacyVoicePack.voice.body : "",
-            confidence: null,
-            fallback_used: true,
-            fallback_reason: !legacyVoicePack.voice.shouldSend
-              ? "conversation_brain_legacy_fallback_disabled_final_voice_no_send"
-              : "conversation_brain_legacy_fallback_disabled",
-            ...(!legacyVoicePack.voice.shouldSend
-              ? { final_voice_gate: legacyVoicePack.voice.metadata }
-              : {}),
-          },
-          conversation_brain_v1: {
-            enabled: false,
-            legacy_fallback_disabled_deterministic: true,
-          },
-        },
-        idempotency_key: idempotencyKey,
+        v3BrainMetadata: cbV3BrainMetadata,
       });
 
-      if (evInsErr) {
-        const code = (evInsErr as { code?: string }).code;
-        if (code !== "23505") {
-          throw new Error(`v2_commitment_event_insert_failed: ${evInsErr.message}`);
-        }
-      } else {
-        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      }
-
-      await recomputeV2CoachingMemory(commitment.id, {
-        reasonCode: "inbound_user_outcome",
-      });
-
-      if (gdFallback.should_open_blocker_capture) {
-        await setBlockerCapturePending(
-          commitment.id,
-          gdFallback.final_event_type as V2AccountabilityOutcome
+      if (!cbVoicePack.voice.shouldSend) {
+        await persistConversationBrainLegacyDisabledServerOutcome(
+          "",
+          "conversation_brain_legacy_fallback_disabled_final_voice_no_send",
+          {
+            final_voice_gate: cbVoicePack.voice.metadata,
+          }
         );
-      }
-
-      if (!legacyVoicePack.voice.shouldSend) {
         await markJobFinal({
           messageSid: job.message_sid,
           status: "cancelled",
-          lastError: finalVoiceSkipLastError(legacyVoicePack.voice),
+          lastError: finalVoiceSkipLastError(cbVoicePack.voice, {
+            route_purpose: "conversation_brain_unavailable",
+            branch_name: "conversation_brain_legacy_disabled_lane",
+            branch_migrated_to_lane: true,
+            v3_lane_reply_source: "v3_inbound_relationship_lane",
+            v3_candidate_body: cbLaneRes.body.slice(0, 500),
+            lane_metadata: cbLaneRes.metadata,
+            north_star_gate: {
+              original_body: cbVoicePack.northStarMeta.originalBody,
+              final_body: cbVoicePack.northStarVisibleBody,
+              north_star_gate_source: cbVoicePack.northStarMeta.source,
+              north_star_gate_reasons: cbVoicePack.northStarMeta.blockedReasons,
+              ...pickNorthStarWriterAttributionFields(cbVoicePack.northStarMeta),
+            },
+            final_voice_gate: cbVoicePack.voice.metadata,
+            should_send: false,
+            conversation_brain_fallback_facts_summary: cbSlimFactsSummary,
+          }),
           nextRetry: farFutureIso(),
         });
         console.warn("[sms-inbound-coach] legacy_fallback_final_voice_suppressed", {
           message_sid: job.message_sid,
-          skip_reason: legacyVoicePack.voice.skipReason ?? null,
+          skip_reason: cbVoicePack.voice.skipReason ?? null,
         });
         return;
       }
+
+      await persistConversationBrainLegacyDisabledServerOutcome(
+        cbVoicePack.voice.body,
+        "conversation_brain_legacy_fallback_disabled"
+      );
 
       const nowFb = new Date().toISOString();
       const { data: persistedFb } = await supabaseServer
         .from("sms_inbound_coach_jobs")
         .update({
-          reply_body: legacyVoicePack.voice.body,
+          reply_body: cbVoicePack.voice.body,
           status: "reply_ready",
           next_retry_at: nowFb,
           updated_at: nowFb,
@@ -2205,9 +2406,12 @@ async function processV2NormalInboundOutcome(
     !isLikelySmsComplianceOrOptOutTurn(userMessage) &&
     !isLikelyCommitmentChangeIntentTurn(userMessage);
 
-  /** Wave-4 handoff copy is refined in its own block; main lane skips duplicate produce. */
+  /** Phase 3G-1: heuristic commitment-change must not bypass the inbound V3 relationship lane. */
+  const isInboundTransactionalException = isLikelySmsComplianceOrOptOutTurn(userMessage);
+
+  /** Wave-4 handoff uses its own lane entrypoint; main lane skips duplicate produce. */
   const normalInboundV3OwnershipEligible =
-    normalCoachingV3Eligible && gatedDecision.mode !== "commitment_change_handoff";
+    !isInboundTransactionalException && gatedDecision.mode !== "commitment_change_handoff";
 
   const centralSmsTurnShadowStored =
     conversationBrainControlTurn != null
@@ -2875,6 +3079,22 @@ async function processV2NormalInboundOutcome(
       lastOutboundSmsPreview
     );
 
+    const commitmentChangeHeuristicContext =
+      isLikelyCommitmentChangeIntentTurn(userMessage) &&
+      gatedDecision.mode !== "commitment_change_handoff";
+    const commitmentChangeContextFactsForLane = commitmentChangeHeuristicContext
+      ? buildCommitmentChangeContextFactsForHeuristicInbound({
+          commitment,
+          userMessage,
+          messageSid: job.message_sid,
+          gatedMode: gatedDecision.mode,
+          shadowInterpretation: shadowInterpretationRaw,
+        })
+      : undefined;
+    const mainInboundLaneRoutePurpose: InboundV3RoutePurpose | undefined = commitmentChangeHeuristicContext
+      ? "commitment_change_context"
+      : undefined;
+
     const inboundFacts = buildInboundV3RelationshipFacts({
       clerkUserId: userId,
       preferredName,
@@ -2904,19 +3124,29 @@ async function processV2NormalInboundOutcome(
       accountabilityProofHint: proofPromptHint != null ? JSON.stringify(proofPromptHint) : null,
       rejectedTimeCandidates: [],
       unavailableWindows: [],
+      ...(mainInboundLaneRoutePurpose != null ? { routePurpose: mainInboundLaneRoutePurpose } : {}),
+      ...(commitmentChangeHeuristicContext
+        ? { branchName: "commitment_change_context_heuristic", branchMigratedToLane: true as const }
+        : {}),
+      ...(commitmentChangeContextFactsForLane != null
+        ? { commitmentChangeContextFacts: commitmentChangeContextFactsForLane }
+        : {}),
     });
+
+    const laneTelemetryFactSources = [
+      "classifyV2InboundReply",
+      "resolveV2InboundGatedDecision",
+      "buildInboundNorthStarContextPacket",
+      "buildMinimalInboundTranscriptLines",
+      "interpretV2CentralSmsTurn",
+      "buildV2ActiveReplyContext",
+      "deriveDoNotRepeatHintsFromCoachingMemory",
+      ...(commitmentChangeHeuristicContext ? (["buildCommitmentChangeContextFactsForHeuristicInbound"] as const) : []),
+    ];
 
     const laneRes = await produceInboundV3RelationshipSms({
       facts: inboundFacts,
-      telemetry_fact_sources: [
-        "classifyV2InboundReply",
-        "resolveV2InboundGatedDecision",
-        "buildInboundNorthStarContextPacket",
-        "buildMinimalInboundTranscriptLines",
-        "interpretV2CentralSmsTurn",
-        "buildV2ActiveReplyContext",
-        "deriveDoNotRepeatHintsFromCoachingMemory",
-      ],
+      telemetry_fact_sources: laneTelemetryFactSources,
     });
 
     if (!laneRes.shouldSend || !laneRes.body.trim()) {
@@ -3093,6 +3323,33 @@ async function processV2NormalInboundOutcome(
     effectiveInboundReplySource = "v3_inbound_relationship_lane";
     finalReplyBody = replyBody;
   } else {
+    /**
+     * DOCUMENTED EXCEPTION — Phase 3G-1: legacy inbound composer is allowed only for
+     * `isInboundTransactionalException` (compliance / STOP / HELP style turns).
+     * Active-commitment coaching must use `produceInboundV3RelationshipSms` above.
+     */
+    if (!isInboundTransactionalException) {
+      await markJobFinal({
+        messageSid: job.message_sid,
+        status: "cancelled",
+        lastError: JSON.stringify({
+          tag: "inbound_active_coaching_legacy_else_invariant",
+          detail:
+            "non_transactional_inbound_reached_legacy_else_without_inboundRelationshipLane; expected main inbound V3 relationship lane",
+          commitment_id: commitment.id,
+          gated_mode: gatedDecision.mode,
+          heuristic_commitment_change_intent: isLikelyCommitmentChangeIntentTurn(userMessage),
+        }).slice(0, 1900),
+        nextRetry: farFutureIso(),
+      });
+      console.error("[sms-inbound-coach] inbound_active_coaching_legacy_else_invariant", {
+        message_sid: job.message_sid,
+        commitment_id: commitment.id,
+        gated_mode: gatedDecision.mode,
+      });
+      return;
+    }
+
   if (v3DraftAttempt == null && normalCoachingV3Eligible) {
     const legacyResolved = await resolveV2InboundCoachReplyBody({
       gatedEnabled,
@@ -4595,6 +4852,7 @@ async function processV2BlockerCapture(
       fallbackUsed: blockerAckFallbackReason != null,
       fallbackReason: blockerAckFallbackReason,
     }),
+    old_inbound_writer_used_as_voice: false,
     ...(ackVoicePackForPayload != null ? { final_voice_gate: ackVoicePackForPayload.voice.metadata } : {}),
     ...(visibleSent && ackVoicePackForPayload != null
       ? {
@@ -4613,6 +4871,14 @@ async function processV2BlockerCapture(
     blockerMessageCharCount: blockerText.trim().length,
   });
 
+  const blockerAckObservability = buildBlockerCapturedAckObservability({
+    jobMessageSid: job.message_sid,
+    ackLaneRes: ackLaneRes,
+    visibleSent,
+    ackVoicePackForPayload,
+    gatedAckBody,
+  });
+
   const { error: evErr } = await supabaseServer.from("v2_commitment_event").insert({
     commitment_id: commitment.id,
     clerk_user_id: userId,
@@ -4622,6 +4888,7 @@ async function processV2BlockerCapture(
       message: blockerText,
       following_event_type: following,
       captured_at_context: "post_miss_question",
+      ...blockerAckObservability,
       ...(!blockerAckTry.ok ? { ack_template_id: ackTemplateId } : {}),
       ...(ackSid ? { ack_message_sid: ackSid } : {}),
       ...(blockerMemoryStored != null ? { memory_signal: blockerMemoryStored } : {}),

@@ -8,7 +8,8 @@
 import OpenAI from "openai";
 
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
-import type { V2InboundGatedDecision } from "@/lib/v2-ai-inbound";
+import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
+import type { V2InboundGatedDecision, V2InboundShadowInterpretationResult } from "@/lib/v2-ai-inbound";
 import type { V2SmsCommitmentIntentPack } from "@/lib/v2-sms-commitment-change";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import { detectFinalVoiceBlockedReasons } from "@/lib/v3-sms-voice-ownership";
@@ -36,7 +37,11 @@ export type InboundV3RoutePurpose =
   | "adaptive_proposal_consent_decline"
   | "adaptive_proposal_consent_noop_ack"
   | "adaptive_proposal_consent_clarification"
-  | "commitment_change_handoff";
+  | "commitment_change_handoff"
+  /** Heuristic commitment-change phrasing without Wave4 handoff — no pending resolution on this branch. */
+  | "commitment_change_context"
+  /** Conversation brain control unavailable / legacy deterministic SMS disabled — template is facts-only. */
+  | "conversation_brain_unavailable";
 
 /** Pending adaptive proposal — user has not given clear YES/NO; server has taken no consent action. */
 export type InboundV3AdaptiveConsentClarificationFacts = {
@@ -170,6 +175,66 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     required_meaning_summary: reqLines.join(" "),
     legacy_commitment_change_reply_preview: legacyPreview,
     append_note_preview: appendPreview,
+    inbound_message_sid: args.messageSid,
+  };
+}
+
+/**
+ * Heuristic commitment-change wording while server `gated_mode` is not `commitment_change_handoff`.
+ * No Wave4 pending resolution on this branch — facts-only for the lane.
+ */
+export type InboundV3CommitmentChangeContextFacts = {
+  heuristic_commitment_change_intent: true;
+  gated_mode: string;
+  /** This branch is not the Wave4 handoff lane; no pending resolution was started here. */
+  server_decision: "not_handoff";
+  current_commitment_snapshot: string;
+  user_message_preview: string;
+  requested_change_summary: string | null;
+  no_state_change_taken: true;
+  required_meaning_summary: string;
+  inbound_message_sid: string;
+};
+
+export function buildCommitmentChangeContextFactsForHeuristicInbound(args: {
+  commitment: ActiveV2CommitmentRow;
+  userMessage: string;
+  messageSid: string;
+  gatedMode: string;
+  shadowInterpretation: V2InboundShadowInterpretationResult | null;
+}): InboundV3CommitmentChangeContextFacts {
+  const snapParts = [
+    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
+    `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
+  ];
+  const currentCommitmentSnapshot = snapParts.join(" | ");
+  const preview = args.userMessage.trim().replace(/\s+/g, " ").slice(0, 320);
+
+  let requestedSummary: string | null = null;
+  const sh = args.shadowInterpretation;
+  if (sh?.ok === true) {
+    const bits: string[] = [];
+    if (sh.data.suggests_commitment_change) bits.push("shadow:suggests_commitment_change");
+    const rs = sh.data.reasoning_short?.trim();
+    if (rs) bits.push(`reasoning_short:${rs.slice(0, 160)}`);
+    if (bits.length > 0) requestedSummary = bits.join(" | ").slice(0, 280);
+  }
+
+  const req =
+    "Heuristic commitment-change phrasing was detected but server gated_mode is not commitment_change_handoff — no Wave4 pending-resolution was created on this inbound branch and no_state_change_taken is true. " +
+    "Do NOT claim the written commitment row changed, do NOT claim a pending SMS update flow was started, and do NOT invent new commitment terms or binding bars. " +
+    "Continue the coaching relationship anchored to v2_accountability facts (classifier outcome, effective ask, gated mode). " +
+    "Offer one honest next coaching move or one clear clarifying question; one short SMS. If unsafe or uncertain, return should_send false.";
+
+  return {
+    heuristic_commitment_change_intent: true,
+    gated_mode: args.gatedMode,
+    server_decision: "not_handoff",
+    current_commitment_snapshot: currentCommitmentSnapshot,
+    user_message_preview: preview,
+    requested_change_summary: requestedSummary,
+    no_state_change_taken: true,
+    required_meaning_summary: req,
     inbound_message_sid: args.messageSid,
   };
 }
@@ -331,6 +396,94 @@ export type InboundV3ArcFacts = {
   clarification_required?: boolean | null;
 } | null;
 
+/** Conversation brain off + legacy deterministic SMS disabled — deterministic template is preview/metadata only. */
+export type InboundV3ConversationBrainFallbackFacts = {
+  conversation_brain_control_available: false;
+  legacy_fallback_reason: string;
+  /** Non-speakable deterministic template body — metadata only; do not quote or imitate. */
+  deterministic_template_preview: string;
+  classifier_result: V2InboundEventType;
+  gated_event_type: string | null;
+  should_write_outcome_event: boolean;
+  suggested_coaching_move: string;
+  current_commitment_snapshot: string;
+  server_state_summary: string;
+  inbound_message_sid: string;
+  /** Merged into lane constraints.required_meaning_summary. */
+  coaching_route_meaning_summary: string;
+};
+
+const CONVERSATION_BRAIN_UNAVAILABLE_ROUTE_MEANING =
+  "Conversation brain was unavailable or disabled. Use the server facts and recent thread to write the next coaching SMS. " +
+  "Do not quote or imitate the deterministic_template_preview in conversation_brain_fallback_facts. If unsure, no_send.";
+
+export function buildConversationBrainFallbackFacts(args: {
+  legacyFallbackReason: string;
+  deterministicTemplateBody: string;
+  classifierResult: V2InboundEventType;
+  gatedEventType: string | null;
+  shouldWriteOutcomeEvent: boolean;
+  gatedMode: string;
+  commitment: ActiveV2CommitmentRow;
+  effectiveAsk: string;
+  inboundMessageSid: string;
+}): InboundV3ConversationBrainFallbackFacts {
+  const raw = args.deterministicTemplateBody.trim();
+  const deterministic_template_preview = raw.length > 500 ? `${raw.slice(0, 497)}...` : raw;
+
+  const ft = args.gatedEventType;
+  let suggested_coaching_move = "ask_accountability";
+  if (ft === "user_yes") suggested_coaching_move = "acknowledge_completion";
+  else if (ft === "user_no") suggested_coaching_move = "name_blocker";
+  else if (ft === "user_partial") suggested_coaching_move = "narrow_blocker";
+  else if (args.gatedMode === "clarify") suggested_coaching_move = "clarify_intent";
+
+  const snapParts = [
+    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
+    `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
+    `effective_ask:${args.effectiveAsk.trim().replace(/\s+/g, " ").slice(0, 200)}`,
+  ];
+  const current_commitment_snapshot = snapParts.join(" | ");
+
+  const server_state_summary = [
+    `gated_mode:${args.gatedMode}`,
+    `writes_outcome:${args.shouldWriteOutcomeEvent}`,
+    `legacy_fallback_disabled:true`,
+  ].join("|");
+
+  return {
+    conversation_brain_control_available: false,
+    legacy_fallback_reason: args.legacyFallbackReason.trim().slice(0, 200),
+    deterministic_template_preview,
+    classifier_result: args.classifierResult,
+    gated_event_type: args.gatedEventType,
+    should_write_outcome_event: args.shouldWriteOutcomeEvent,
+    suggested_coaching_move,
+    current_commitment_snapshot,
+    server_state_summary,
+    inbound_message_sid: args.inboundMessageSid,
+    coaching_route_meaning_summary: CONVERSATION_BRAIN_UNAVAILABLE_ROUTE_MEANING,
+  };
+}
+
+export function slimConversationBrainFallbackFactsForTelemetry(
+  f: InboundV3ConversationBrainFallbackFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    conversation_brain_control_available: f.conversation_brain_control_available,
+    legacy_fallback_reason: f.legacy_fallback_reason,
+    classifier_result: f.classifier_result,
+    gated_event_type: f.gated_event_type,
+    should_write_outcome_event: f.should_write_outcome_event,
+    suggested_coaching_move: f.suggested_coaching_move,
+    deterministic_template_preview_len: f.deterministic_template_preview.length,
+    current_commitment_snapshot_len: f.current_commitment_snapshot.length,
+    server_state_summary: f.server_state_summary,
+    inbound_message_sid: f.inbound_message_sid,
+  };
+}
+
 export type InboundV3RelationshipFacts = {
   route_purpose: InboundV3RoutePurpose;
   branch_name?: string | null;
@@ -346,6 +499,8 @@ export type InboundV3RelationshipFacts = {
   contract_consent_facts?: InboundV3ContractConsentFacts | null;
   adaptive_consent_clarification_facts?: InboundV3AdaptiveConsentClarificationFacts | null;
   commitment_change_facts?: InboundV3CommitmentChangeFacts | null;
+  commitment_change_context_facts?: InboundV3CommitmentChangeContextFacts | null;
+  conversation_brain_fallback_facts?: InboundV3ConversationBrainFallbackFacts | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -484,6 +639,8 @@ function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
     contract_consent_facts: f.contract_consent_facts != null,
     adaptive_consent_clarification_facts: f.adaptive_consent_clarification_facts != null,
     commitment_change_facts: f.commitment_change_facts != null,
+    commitment_change_context_facts: f.commitment_change_context_facts != null,
+    conversation_brain_fallback_facts: f.conversation_brain_fallback_facts != null,
     gated_mode: f.v2_accountability.gated_mode,
     final_event_type: f.v2_accountability.final_event_type,
     classifier: f.v2_accountability.deterministic_classifier_event,
@@ -667,7 +824,26 @@ export function slimCommitmentChangeFactsForTelemetry(
   };
 }
 
+export function slimCommitmentChangeContextFactsForTelemetry(
+  f: InboundV3CommitmentChangeContextFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    heuristic_commitment_change_intent: f.heuristic_commitment_change_intent,
+    gated_mode: f.gated_mode,
+    server_decision: f.server_decision,
+    no_state_change_taken: f.no_state_change_taken,
+    user_message_preview_len: f.user_message_preview.length,
+    requested_change_summary_len: f.requested_change_summary?.length ?? 0,
+    has_required_meaning: Boolean(f.required_meaning_summary?.trim()),
+    inbound_message_sid: f.inbound_message_sid,
+  };
+}
+
 export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3RelationshipFacts): string {
+  if (f.conversation_brain_fallback_facts) {
+    return f.conversation_brain_fallback_facts.suggested_coaching_move;
+  }
   if (f.central_brain_pivot_facts) {
     const m = f.central_brain_pivot_facts.suggested_move?.trim();
     return m && m.length > 0 ? m : "pivot_respond_humanely";
@@ -684,6 +860,9 @@ export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3Relations
   }
   if (f.adaptive_consent_clarification_facts) {
     return "ask_clear_yes_or_no_for_pending_adaptive_proposal";
+  }
+  if (f.commitment_change_context_facts) {
+    return "respond_commitment_change_context_without_pending_resolution";
   }
   if (f.commitment_change_facts) {
     return "commitment_change_handoff_respond_with_server_owned_next_steps";
@@ -824,6 +1003,14 @@ ROUTE (adaptive_proposal_consent_clarification): A pending adaptive overlay prop
     return `
 ROUTE (commitment_change_handoff): User signaled a commitment change without a clear accountability score for today. Server already ran pending-resolution logic — use commitment_change_facts only (pending_resolution_created, pending_resolution_skip_reason, existing_pending_resolution, server_state_transition_summary, candidate previews). Do NOT claim the written commitment row already changed unless facts explicitly say so (they do not here). pending_resolution_created true means an SMS update flow was started, not that the commitment is finalized. legacy_commitment_change_reply_preview and append_note_preview are NON-SPEAKABLE metadata — do not quote, imitate, or paste them. Honor constraints.required_verbatim_substrings and constraints.required_meaning_summary when present. One short SMS; if unsafe or uncertain, return should_send false.`;
   }
+  if (rp === "commitment_change_context") {
+    return `
+ROUTE (commitment_change_context): Inbound matched heuristic commitment-change phrasing but gated_mode is NOT commitment_change_handoff — no Wave4 pending-resolution was started on this branch (no_state_change_taken true). Use commitment_change_context_facts only. Do NOT claim the commitment row changed, do NOT claim a pending SMS update was created, do NOT invent new commitment terms. Anchor to v2_accountability (today's classifier path, effective ask). One short coaching SMS or no_send.`;
+  }
+  if (rp === "conversation_brain_unavailable") {
+    return `
+ROUTE (conversation_brain_unavailable): Conversation brain was unavailable or disabled on this inbound. Server owns accountability state in v2_accountability and thread facts. Use conversation_brain_fallback_facts for legacy context only: deterministic_template_preview is NON-SPEAKABLE metadata — do not quote, imitate, paste, or treat it as your voice. Honor constraints.required_meaning_summary. Write the NEXT coaching SMS from facts and thread; if unsafe or uncertain, return should_send false.`;
+  }
   if (
     rp === "adaptive_proposal_consent_accept" ||
     rp === "adaptive_proposal_consent_decline" ||
@@ -920,6 +1107,20 @@ export async function produceInboundV3RelationshipSms(
       ? {
           commitment_change_facts_summary: slimCommitmentChangeFactsForTelemetry(
             args.facts.commitment_change_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.commitment_change_context_facts != null
+      ? {
+          commitment_change_context_facts_summary: slimCommitmentChangeContextFactsForTelemetry(
+            args.facts.commitment_change_context_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.conversation_brain_fallback_facts != null
+      ? {
+          conversation_brain_fallback_facts_summary: slimConversationBrainFallbackFactsForTelemetry(
+            args.facts.conversation_brain_fallback_facts
           ),
         }
       : {}),
@@ -1169,7 +1370,7 @@ export function formatInboundV3LaneNoSendLastError(
       lane_metadata: lane.metadata,
       open_ai_ok: lane.openAiOk,
       ...(extras ?? {}),
-    }).slice(0, 1900);
+    }).slice(0, 8000);
   } catch {
     return "inbound_v3_lane_no_send";
   }
@@ -1214,6 +1415,8 @@ export type BuildInboundV3RelationshipFactsArgs = {
   contractConsentFacts?: InboundV3ContractConsentFacts | null;
   adaptiveConsentClarificationFacts?: InboundV3AdaptiveConsentClarificationFacts | null;
   commitmentChangeFacts?: InboundV3CommitmentChangeFacts | null;
+  commitmentChangeContextFacts?: InboundV3CommitmentChangeContextFacts | null;
+  conversationBrainFallbackFacts?: InboundV3ConversationBrainFallbackFacts | null;
 };
 
 /** Assembles JSON-safe facts for {@link produceInboundV3RelationshipSms} (no upstream prose). */
@@ -1232,6 +1435,8 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     args.contractConsentFacts?.required_meaning_summary?.trim() ||
     args.adaptiveConsentClarificationFacts?.required_meaning_summary?.trim() ||
     args.commitmentChangeFacts?.required_meaning_summary?.trim() ||
+    args.commitmentChangeContextFacts?.required_meaning_summary?.trim() ||
+    args.conversationBrainFallbackFacts?.coaching_route_meaning_summary?.trim() ||
     null;
 
   const facts: InboundV3RelationshipFacts = {
@@ -1253,6 +1458,12 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       ? { adaptive_consent_clarification_facts: args.adaptiveConsentClarificationFacts }
       : {}),
     ...(args.commitmentChangeFacts != null ? { commitment_change_facts: args.commitmentChangeFacts } : {}),
+    ...(args.commitmentChangeContextFacts != null
+      ? { commitment_change_context_facts: args.commitmentChangeContextFacts }
+      : {}),
+    ...(args.conversationBrainFallbackFacts != null
+      ? { conversation_brain_fallback_facts: args.conversationBrainFallbackFacts }
+      : {}),
     user: {
       clerk_user_id: args.clerkUserId,
       preferred_name: args.preferredName,
