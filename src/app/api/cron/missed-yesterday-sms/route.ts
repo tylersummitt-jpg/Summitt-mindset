@@ -177,7 +177,8 @@ export async function GET(req: Request) {
         behaviorStatement: commitmentM?.behavior_statement ?? null,
         contextPacket: missedV3Pkt,
         northStarMeta: gatedMissed.meta,
-        normalCoaching: Boolean(commitmentM?.id),
+        /** Phase 4.1: missed-yesterday nudge is relationship/coaching-ish — fail-closed FVG even without commitment row. */
+        normalCoaching: true,
       });
 
       if (!voiceMissed.shouldSend) {
@@ -191,6 +192,8 @@ export async function GET(req: Request) {
               missed_yesterday_withheld_unsafe_voice: true,
               voice_decision: "skipped_no_safe_v3_voice",
               twilio_send_attempted: false,
+              fvg_policy_classification: "relationship_coaching",
+              normal_coaching_policy_source: "phase4_1_missed_yesterday_fail_closed",
               north_star_gate: {
                 original_body: gatedMissed.meta.originalBody,
                 final_body: "",
@@ -223,6 +226,8 @@ export async function GET(req: Request) {
             metadata: {
               ...meta,
               missed_yesterday_sent: true,
+              fvg_policy_classification: "relationship_coaching",
+              normal_coaching_policy_source: "phase4_1_missed_yesterday_fail_closed",
               north_star_gate: {
                 original_body: gatedMissed.meta.originalBody,
                 final_body: voiceMissed.body,
@@ -243,6 +248,8 @@ export async function GET(req: Request) {
           metadata: {
             missed_yesterday_sent: true,
             note: "missed_yesterday_cron",
+            fvg_policy_classification: "relationship_coaching",
+            normal_coaching_policy_source: "phase4_1_missed_yesterday_fail_closed",
             north_star_gate: {
               original_body: gatedMissed.meta.originalBody,
               final_body: voiceMissed.body,

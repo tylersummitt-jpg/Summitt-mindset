@@ -179,10 +179,11 @@ export async function GET(req: Request) {
           behaviorStatement: commitmentR?.behavior_statement ?? null,
           contextPacket: rescueV3Pkt,
           northStarMeta: gatedRescue.meta,
-          normalCoaching: Boolean(commitmentR?.id),
+          /** Phase 4.1: rescue copy is relationship/coaching when sent — fail-closed FVG even without commitment row. */
+          normalCoaching: true,
         });
 
-        if (!voiceRescue.shouldSend && commitmentR?.id) {
+        if (!voiceRescue.shouldSend) {
           await supabaseServer.from("feedback_events").insert({
             clerk_user_id,
             source: "sms",
@@ -199,6 +200,8 @@ export async function GET(req: Request) {
               voice_decision: "skipped_no_safe_v3_voice",
               twilio_send_attempted: false,
               signed_link_preserved: false,
+              fvg_policy_classification: "relationship_rescue",
+              normal_coaching_policy_source: "phase4_1_inactivity_rescue_fail_closed",
               north_star_gate: {
                 original_body: gatedRescue.meta.originalBody,
                 final_body: "",
@@ -237,6 +240,8 @@ export async function GET(req: Request) {
           metadata: {
             canonical: true,
             inactive_days: inactiveDays,
+            fvg_policy_classification: "relationship_rescue",
+            normal_coaching_policy_source: "phase4_1_inactivity_rescue_fail_closed",
             north_star_gate: {
               original_body: gatedRescue.meta.originalBody,
               final_body: finalRescueBody,

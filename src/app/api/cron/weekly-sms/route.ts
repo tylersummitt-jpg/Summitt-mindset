@@ -265,6 +265,7 @@ export async function GET(req: Request) {
           behaviorStatement: commitment.behavior_statement,
           contextPacket: weeklyNorthStarCtx,
           northStarMeta: gatedWeeklyV2.meta,
+          /** Phase 4.1: weekly proof is relationship/coaching — always fail-closed FVG (never implicit missing-commitment bypass). */
           normalCoaching: true,
         });
 
@@ -294,6 +295,8 @@ export async function GET(req: Request) {
                 voice_decision: "skipped_no_safe_v3_voice",
                 twilio_send_attempted: false,
                 compliance_suffix_preserved: false,
+                fvg_policy_classification: "relationship_coaching",
+                normal_coaching_policy_source: "phase4_1_weekly_proof_v2_always_fail_closed",
                 north_star_gate: {
                   original_body: gatedWeeklyV2.meta.originalBody,
                   final_body: "",
@@ -358,6 +361,8 @@ export async function GET(req: Request) {
             blocked_reasons: voiceWeeklyV2.blockedReasons,
           },
           compliance_suffix_preserved: true,
+          fvg_policy_classification: "relationship_coaching",
+          normal_coaching_policy_source: "phase4_1_weekly_proof_v2_always_fail_closed",
         } as const;
 
         if (!isTwilioReady() || SMS_DRY_RUN) {
@@ -540,10 +545,11 @@ export async function GET(req: Request) {
         behaviorStatement: legacyCommitment?.behavior_statement ?? null,
         contextPacket: legacyCommitment?.id ? legacyWeeklyCtx : undefined,
         northStarMeta: gatedLegacyWeekly.meta,
-        normalCoaching: Boolean(legacyCommitment?.id),
+        /** Phase 4.1: Pat Pause / legacy reflection copy is relationship/coaching — FVG fail-closed even without commitment row. */
+        normalCoaching: true,
       });
 
-      if (!voiceLegacyWeekly.shouldSend && legacyCommitment?.id) {
+      if (!voiceLegacyWeekly.shouldSend) {
         await supabaseServer
           .from("sms_weekly_send_events")
           .update({
@@ -552,6 +558,8 @@ export async function GET(req: Request) {
               voice_decision: "skipped_no_safe_v3_voice",
               twilio_send_attempted: false,
               compliance_suffix_preserved: false,
+              fvg_policy_classification: "relationship_coaching",
+              normal_coaching_policy_source: "phase4_1_weekly_legacy_always_fail_closed",
               north_star_gate: {
                 original_body: gatedLegacyWeekly.meta.originalBody,
                 final_body: "",
@@ -620,6 +628,8 @@ export async function GET(req: Request) {
               },
               final_voice_gate: voiceLegacyWeekly.metadata,
               compliance_suffix_preserved: true,
+              fvg_policy_classification: "relationship_coaching",
+              normal_coaching_policy_source: "phase4_1_weekly_legacy_always_fail_closed",
             },
           })
           .eq("clerk_user_id", user.id)

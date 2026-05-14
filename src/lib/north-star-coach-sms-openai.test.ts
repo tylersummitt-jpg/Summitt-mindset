@@ -65,6 +65,18 @@ describe("finalizeNorthStarCoachSmsAsync", () => {
     expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
   });
 
+  it("does not run OpenAI as normal finalizer for v3_weekly_relationship_lane", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await finalizeNorthStarCoachSmsAsync({
+      proposedBody: "Weekly thread — one honest line about how the bar felt this week?",
+      channel: "weekly_sms",
+      replySource: "v3_weekly_relationship_lane",
+      contextPacket: { source: "weekly_sms", effectiveAskText: "Morning hour" },
+    });
+    expect(r.meta.openaiAttempted).toBe(false);
+    expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  });
+
   it("does not run OpenAI as normal finalizer for v3_daily_check_in (telemetry)", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await finalizeNorthStarCoachSmsAsync({

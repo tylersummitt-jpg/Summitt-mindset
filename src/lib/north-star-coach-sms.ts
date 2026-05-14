@@ -188,6 +188,7 @@ const V3_RELATIONSHIP_VOICE_EXACT_SOURCES = new Set([
   "v3_contract_consent_refined",
   "v3_adaptive_proposal_refined",
   "v3_weekly_proof_refined",
+  "v3_weekly_relationship_lane",
   "v3_followup_sms_refined",
   "v3_missed_yesterday_sms_refined",
   "v3_winback_refined",

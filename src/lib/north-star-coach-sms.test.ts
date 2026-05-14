@@ -22,6 +22,8 @@ describe("isV3RelationshipVoiceReplySource", () => {
     expect(isV3RelationshipVoiceReplySource("v3_answer_to_open_question")).toBe(true);
     expect(isV3RelationshipVoiceReplySource("v3_daily_deterministic_fallback")).toBe(true);
     expect(isV3RelationshipVoiceReplySource("v3_some_topic_refined")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_weekly_relationship_lane")).toBe(true);
+    expect(isV3RelationshipVoiceReplySource("v3_weekly_proof_refined")).toBe(true);
     expect(isV3RelationshipVoiceReplySource("deterministic_human")).toBe(false);
   });
 });

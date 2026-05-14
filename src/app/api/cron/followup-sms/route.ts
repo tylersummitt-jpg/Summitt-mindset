@@ -180,7 +180,8 @@ export async function GET(req: Request) {
         behaviorStatement: commitmentFu?.behavior_statement ?? null,
         contextPacket: followupV3Pkt,
         northStarMeta: gatedFollowup.meta,
-        normalCoaching: Boolean(commitmentFu?.id),
+        /** Phase 4.1: legacy follow-up nudge is relationship/coaching-ish — fail-closed FVG even without commitment row. */
+        normalCoaching: true,
       });
 
       if (!voiceFollowup.shouldSend) {
@@ -194,6 +195,8 @@ export async function GET(req: Request) {
               followup_withheld_unsafe_voice: true,
               voice_decision: "skipped_no_safe_v3_voice",
               twilio_send_attempted: false,
+              fvg_policy_classification: "relationship_coaching",
+              normal_coaching_policy_source: "phase4_1_followup_legacy_fail_closed",
               north_star_gate: {
                 original_body: gatedFollowup.meta.originalBody,
                 final_body: "",
@@ -230,6 +233,8 @@ export async function GET(req: Request) {
             metadata: {
               ...meta,
               followup_sent: true,
+              fvg_policy_classification: "relationship_coaching",
+              normal_coaching_policy_source: "phase4_1_followup_legacy_fail_closed",
               north_star_gate: {
                 original_body: gatedFollowup.meta.originalBody,
                 final_body: voiceFollowup.body,
@@ -254,6 +259,8 @@ export async function GET(req: Request) {
           metadata: {
             followup_sent: true,
             note: "followup_cron",
+            fvg_policy_classification: "relationship_coaching",
+            normal_coaching_policy_source: "phase4_1_followup_legacy_fail_closed",
             north_star_gate: {
               original_body: gatedFollowup.meta.originalBody,
               final_body: voiceFollowup.body,

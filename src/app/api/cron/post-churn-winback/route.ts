@@ -202,10 +202,14 @@ export async function GET(req: Request) {
         behaviorStatement: commitmentWb?.behavior_statement ?? null,
         contextPacket: winbackV3Pkt,
         northStarMeta: gatedWinback.meta,
-        normalCoaching: Boolean(commitmentWb?.id),
+        /**
+         * Phase 4.1: post-churn SMS is product-research / churn intel, not active-accountability coaching,
+         * but visible copy still runs through fail-closed FVG (never implicit `Boolean(commitment?.id)` gating).
+         */
+        normalCoaching: true,
       });
 
-      if (!voiceWinback.shouldSend && commitmentWb?.id) {
+      if (!voiceWinback.shouldSend) {
         await supabaseServer.from("feedback_events").insert({
           clerk_user_id,
           source: "sms",
@@ -220,6 +224,10 @@ export async function GET(req: Request) {
             canonical: true,
             window: "7-10_days_post_cancel",
             channel: "sms",
+            relationship_lane_bypass_kind: "post_churn_product_research",
+            relationship_lane_policy: "explicit_transactional_classification_phase4",
+            fvg_policy_classification: "product_research",
+            normal_coaching_policy_source: "explicit_product_research_fail_closed_phase4_1",
             link_included: false,
             signed_link_preserved: false,
             twilio_send_attempted: false,
@@ -246,6 +254,12 @@ export async function GET(req: Request) {
         lastOutbound: {
           clerkUserId: clerk_user_id,
           messageKind: "transactional",
+          deliverySnapshot: {
+            relationship_lane_bypass_kind: "post_churn_product_research",
+            relationship_lane_policy: "explicit_transactional_classification_phase4",
+            fvg_policy_classification: "product_research",
+            normal_coaching_policy_source: "explicit_product_research_fail_closed_phase4_1",
+          },
         },
       });
 
@@ -264,6 +278,10 @@ export async function GET(req: Request) {
           canonical: true,
           window: "7-10_days_post_cancel",
           channel: "sms",
+          relationship_lane_bypass_kind: "post_churn_product_research",
+          relationship_lane_policy: "explicit_transactional_classification_phase4",
+          fvg_policy_classification: "product_research",
+          normal_coaching_policy_source: "explicit_product_research_fail_closed_phase4_1",
           link_included: true,
           north_star_gate: {
             original_body: gatedWinback.meta.originalBody,

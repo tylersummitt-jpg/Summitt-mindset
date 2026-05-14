@@ -84,6 +84,7 @@ const V3_OPENAI_SOURCES = new Set([
   "v3_answer_to_open_question",
   "v3_daily_check_in",
   "v3_daily_relationship_lane",
+  "v3_weekly_relationship_lane",
 ]);
 
 const V3_MACHINE_REFINED_SOURCES = new Set([
