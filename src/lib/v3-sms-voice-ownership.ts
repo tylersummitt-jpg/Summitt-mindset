@@ -158,6 +158,16 @@ function normalize(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
+/** Sentence-ending punctuation followed by whitespace or end of string (one unit ≈ one closed sentence). */
+function countSentenceEndings(text: string): number {
+  return (text.match(/[.!?](?:\s|$)/g) ?? []).length;
+}
+
+/** Stuttered / rambly repetition (not a second author — tight SMS seatbelt). */
+function hasRamblyAdjacentWordRepeat(text: string): boolean {
+  return /\b(\w{3,})\s+\1\b/i.test(text);
+}
+
 function isNormalCoaching(args: ApplyFinalVoiceOwnershipGateArgs): boolean {
   if (args.bypassKind) return false;
   if (args.normalCoaching === false) return false;
@@ -262,9 +272,172 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
     if (re.test(t)) hits.push(name);
   }
   if (matchesMalformedDidRawPhraseHappenToday(t)) hits.push("malformed_did_raw_phrase_happen_today");
-  if ((t.match(/[.!?](?:\s|$)/g) ?? []).length > 2) hits.push("too_many_sentences");
+
+  /**
+   * `too_many_sentences` = density / ramble / SMS-unfriendly length — not “3 clauses = bad”.
+   * - Under 480 chars: only when 5+ sentence endings, or obvious adjacent word stutter.
+   * - 480–600 chars: compress/repair band (length budget).
+   * - Over 600 chars: repair required (length).
+   * 3–4 short sentences under 480 pass on count alone.
+   */
+  const n = t.length;
+  const ends = countSentenceEndings(t);
+  const tooManyFromStructure =
+    (n < 480 && (ends >= 5 || hasRamblyAdjacentWordRepeat(t))) ||
+    (n >= 480 && n <= 600) ||
+    n > 600;
+  if (tooManyFromStructure) hits.push("too_many_sentences");
+
   if (t.length > 320) hits.push("too_long");
   return hits;
+}
+
+/** Style / length / mild cliché hits from {@link detectFinalVoiceBlockedReasons} — lane may attempt OpenAI repair. */
+const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
+  "too_many_sentences",
+  "too_long",
+  "let_me_know_how_it_went",
+  "staying_consistent_key",
+  "great_job",
+  "keep_momentum",
+  "journey",
+  "powerful",
+  "great_step_forward",
+  "generic_day_reminder_reset",
+]);
+
+export function isRepairableFinalVoiceBlockedReason(reason: string): boolean {
+  return REPAIRABLE_FINAL_VOICE_BLOCK_REASONS.has(reason);
+}
+
+export function partitionFinalVoiceBlockedReasons(reasons: string[]): {
+  repairable: string[];
+  hard: string[];
+} {
+  const repairable: string[] = [];
+  const hard: string[] = [];
+  for (const r of reasons) {
+    if (isRepairableFinalVoiceBlockedReason(r)) repairable.push(r);
+    else hard.push(r);
+  }
+  return { repairable, hard };
+}
+
+export type RepairV3RelationshipLaneBodyArgs = {
+  routeKind: "daily" | "inbound";
+  routePurpose: string;
+  originalBody: string;
+  blockedReasons: string[];
+  factsJson: unknown;
+  systemInstruction?: string;
+};
+
+type LaneRepairModelJson = {
+  body?: unknown;
+  used_strategy?: unknown;
+  safety_notes?: unknown;
+};
+
+function safeParseLaneRepairJson(raw: string): LaneRepairModelJson | null {
+  try {
+    return JSON.parse(raw) as LaneRepairModelJson;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * OpenAI-only compression pass for relationship lanes (not deterministic fallback).
+ * Returns `null` when no client, request failure, invalid JSON, or empty body.
+ */
+export async function repairV3RelationshipLaneBodyWithOpenAI(
+  args: RepairV3RelationshipLaneBodyArgs
+): Promise<{
+  body: string;
+  openAiOk: boolean;
+  repairError?: string | null;
+  metadata: Record<string, unknown>;
+} | null> {
+  const client = getOpenAIClientOrNull();
+  if (!client) return null;
+
+  let factsSnippet: string;
+  try {
+    const raw = JSON.stringify(args.factsJson ?? null);
+    factsSnippet = raw.length > 9000 ? `${raw.slice(0, 8999)}…` : raw;
+  } catch {
+    factsSnippet = "(facts_json_unserializable)";
+  }
+
+  const baseSystem = `You compress and repair SMS coaching copy for Summitt Mindset. You are NOT inventing a new coaching plan.
+
+OUTPUT: strict JSON only with keys:
+body (string, one SMS),
+used_strategy (string, short),
+safety_notes (string array, may be empty)
+
+RULES FOR body:
+- Exactly 1–2 sentences maximum.
+- Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.
+- Remove or rewrite away the issues implied by blocked_reasons (e.g. shorten if too_many_sentences or too_long; remove banned phrasing).
+- No markdown, bullets, or role labels.
+- Do not quote the user. Do not paste raw database fields or internal system names.
+- Do not add generic motivation filler.
+- Never use the phrase "let me know how it went" or close variants.
+- One short SMS suitable for Twilio; no newlines in body.`;
+
+  const system = args.systemInstruction?.trim()
+    ? `${baseSystem}\n\nADDITIONAL_INSTRUCTIONS:\n${args.systemInstruction.trim()}`
+    : baseSystem;
+
+  const userContent = [
+    `route_kind: ${args.routeKind}`,
+    `route_purpose: ${args.routePurpose}`,
+    `blocked_reasons: ${args.blockedReasons.join(", ")}`,
+    `original_candidate_sms: ${args.originalBody}`,
+    `ACCOUNTABILITY_FACTS_JSON (facts only; do not paste as user-visible labels):`,
+    factsSnippet,
+  ].join("\n");
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: modelName(),
+      temperature: 0.2,
+      max_tokens: 220,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    const parsed = safeParseLaneRepairJson(raw);
+    const bodyRaw = typeof parsed?.body === "string" ? parsed.body.replace(/\r?\n/g, " ").trim() : "";
+    const body = bodyRaw.replace(/^["']|["']$/g, "").trim();
+    if (!body) return null;
+
+    const used_strategy = typeof parsed?.used_strategy === "string" ? parsed.used_strategy.trim() : "lane_compress";
+    const sn = Array.isArray(parsed?.safety_notes)
+      ? parsed!.safety_notes!.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean)
+      : [];
+
+    return {
+      body,
+      openAiOk: true,
+      repairError: null,
+      metadata: {
+        lane_repair_used_strategy: used_strategy,
+        lane_repair_safety_notes: sn,
+      },
+    };
+  } catch (e) {
+    console.warn("[v3-sms-voice-ownership] lane_repair_failed", {
+      routeKind: args.routeKind,
+      routePurpose: args.routePurpose,
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return null;
+  }
 }
 
 async function repairWithOpenAI(

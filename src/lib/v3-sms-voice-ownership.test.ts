@@ -6,6 +6,8 @@ import {
   appendPreservedSmsSuffix,
   applyFinalVoiceOwnershipGate,
   detectFinalVoiceBlockedReasons,
+  isRepairableFinalVoiceBlockedReason,
+  partitionFinalVoiceBlockedReasons,
 } from "./v3-sms-voice-ownership";
 
 const prevOpenAi = process.env.OPENAI_API_KEY;
@@ -60,6 +62,61 @@ describe("detectFinalVoiceBlockedReasons", () => {
     expect(detectFinalVoiceBlockedReasons("You made a comeback yesterday! Did Focused on work without distractions happen today?")).toContain(
       "malformed_did_raw_phrase_happen_today"
     );
+  });
+
+  it("does not add too_many_sentences for 3–4 short sentences under 480 chars", () => {
+    const three =
+      "Hi Alex. Great work today. What is one small win you want to lock before noon?";
+    const four =
+      "Hi Alex. Great work today. I heard you on the calls. What is one small win you want to lock before noon?";
+    expect(detectFinalVoiceBlockedReasons(three)).not.toContain("too_many_sentences");
+    expect(detectFinalVoiceBlockedReasons(four)).not.toContain("too_many_sentences");
+  });
+
+  it("adds too_many_sentences for 5+ sentence endings under 480 chars", () => {
+    const five = "A. B. C. D. E.";
+    expect(detectFinalVoiceBlockedReasons(five)).toContain("too_many_sentences");
+  });
+
+  it("adds too_many_sentences in 480–600 char band and over 600 chars", () => {
+    const band = "x".repeat(500);
+    expect(detectFinalVoiceBlockedReasons(band)).toContain("too_many_sentences");
+    expect(detectFinalVoiceBlockedReasons(band)).toContain("too_long");
+    const long = "y".repeat(620);
+    expect(detectFinalVoiceBlockedReasons(long)).toContain("too_many_sentences");
+    expect(detectFinalVoiceBlockedReasons(long)).toContain("too_long");
+  });
+
+  it("adds too_many_sentences for obvious adjacent word stutter under 480 chars", () => {
+    expect(detectFinalVoiceBlockedReasons("That sounds really really hard.")).toContain("too_many_sentences");
+  });
+
+  it("May 14-style gratitude SMS still hits repairable phrase gate without too_many from sentence count alone", () => {
+    const may14 =
+      "As you reflect on your day, who did you thank for being present? Sharing that gratitude can really strengthen your connections. Let me know how it went!";
+    const reasons = detectFinalVoiceBlockedReasons(may14);
+    expect(reasons).toContain("let_me_know_how_it_went");
+    expect(reasons).not.toContain("too_many_sentences");
+  });
+});
+
+describe("partitionFinalVoiceBlockedReasons", () => {
+  it("splits allowlisted repairable reasons from hard reasons", () => {
+    const p = partitionFinalVoiceBlockedReasons(["too_many_sentences", "generic_rep_happen_ask", "let_me_know_how_it_went"]);
+    expect(p.repairable).toEqual(["too_many_sentences", "let_me_know_how_it_went"]);
+    expect(p.hard).toEqual(["generic_rep_happen_ask"]);
+  });
+
+  it("treats unknown detector tokens as hard", () => {
+    const p = partitionFinalVoiceBlockedReasons(["say_it_straight", "great_job"]);
+    expect(p.repairable).toEqual(["great_job"]);
+    expect(p.hard).toEqual(["say_it_straight"]);
+  });
+
+  it("isRepairableFinalVoiceBlockedReason matches partition allowlist", () => {
+    expect(isRepairableFinalVoiceBlockedReason("too_long")).toBe(true);
+    expect(isRepairableFinalVoiceBlockedReason("journey")).toBe(true);
+    expect(isRepairableFinalVoiceBlockedReason("structural_role_leak")).toBe(false);
   });
 });
 

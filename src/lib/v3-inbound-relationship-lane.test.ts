@@ -225,6 +225,125 @@ describe("produceInboundV3RelationshipSms", () => {
     });
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("rejected_time_repeated");
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("repairable phrase triggers lane repair then sends", async () => {
+    const wordy =
+      "Great to hear you made those calls, Angel! How did you feel about the conversations? Reflecting on them can help us prepare for tomorrow's 2 PM commitment. Let me know how it went!";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: wordy,
+                no_send_reason: null,
+                turn_purpose: "inbound",
+                voice_confidence: 0.75,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Love that you made the calls — what felt strongest in those conversations?",
+                used_strategy: "compress",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_stage).toBe("post_validate_repaired");
+    expect(r.metadata.lane_repair_succeeded).toBe(true);
+  });
+
+  it("inbound lane repair failure keeps no-send metadata", async () => {
+    const wordy =
+      "Great to hear you made those calls, Angel! How did you feel about the conversations? Reflecting on them can help us prepare for tomorrow's 2 PM commitment. Let me know how it went!";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: wordy,
+                no_send_reason: null,
+                turn_purpose: "inbound",
+                voice_confidence: 0.75,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: "not-json" } }],
+      });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(false);
+    expect(r.metadata.lane_stage).toBe("post_validate_repair_failed");
+  });
+
+  it("required_verbatim_substrings present: skips lane repair for repairable-only blocks", async () => {
+    const wordy =
+      "Great to hear you made those calls, Angel! How did you feel about the conversations? Reflecting on them can help us prepare for tomorrow's 2 PM commitment. Let me know how it went!";
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: wordy,
+              no_send_reason: null,
+              turn_purpose: "inbound",
+              voice_confidence: 0.75,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const f = baseFacts();
+    const r = await produceInboundV3RelationshipSms({
+      facts: {
+        ...f,
+        constraints: { ...f.constraints, required_verbatim_substrings: ["NEEDLE_VERBATIM"] },
+      },
+      telemetry_fact_sources: [],
+    });
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.lane_stage).toBe("post_validate_blocked");
+    expect(r.metadata.lane_repair_attempted).toBeUndefined();
   });
 });
 

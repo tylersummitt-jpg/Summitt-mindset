@@ -166,6 +166,148 @@ describe("produceDailyV3RelationshipSms", () => {
     });
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("lane_post_validate_blocked");
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("May 14-style repairable copy triggers lane repair then sends", async () => {
+    const may14 =
+      "As you reflect on your day, who did you thank for being present? Sharing that gratitude can really strengthen your connections. Let me know how it went!";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: may14,
+                no_send_reason: null,
+                turn_purpose: "daily",
+                voice_confidence: 0.72,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Who did you thank today for showing up for you?",
+                used_strategy: "compress_remove_cliche",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toContain("thank");
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(true);
+    expect(r.metadata.lane_stage).toBe("post_validate_repaired");
+    expect(r.metadata.repaired_blocked_reasons).toEqual([]);
+    expect(Array.isArray(r.metadata.original_blocked_reasons)).toBe(true);
+  });
+
+  it("lane repair output is revalidated; still-failing repair no-sends", async () => {
+    const wordy =
+      "Great to hear you made those calls, Angel! How did you feel about the conversations? Reflecting on them can help us prepare for tomorrow's 2 PM commitment. Let me know how it went!";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: wordy,
+                no_send_reason: null,
+                turn_purpose: "x",
+                voice_confidence: 0.7,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Still really really weak as a coach line here.",
+                used_strategy: "still_rambly_after_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(false);
+    expect(r.metadata.lane_stage).toBe("post_validate_repair_failed");
+  });
+
+  it("contract_prompt skips lane repair even when blocks are repairable-only", async () => {
+    const binding = "Today only: 30 minutes deep work. Reply YES or NO.";
+    const wordy =
+      "As you reflect on your day, who did you thank? Sharing gratitude strengthens bonds. Let me know how it went!";
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: wordy,
+              no_send_reason: null,
+              turn_purpose: "contract_overlay",
+              voice_confidence: 0.7,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "shrink_ask",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+        },
+      },
+      telemetry_fact_sources: ["v2_contract_binding_facts"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.lane_stage).toBe("post_validate_blocked");
+    expect(r.metadata.lane_repair_attempted).toBeUndefined();
   });
 
   it("contract_prompt: no_send when body omits required binding verbatim (consent safety)", async () => {

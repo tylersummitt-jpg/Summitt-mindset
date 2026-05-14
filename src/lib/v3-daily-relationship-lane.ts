@@ -10,7 +10,11 @@ import type { V2OutboundStrategy } from "@/lib/v2-ai-outbound";
 import type { V2NextMoveKind } from "@/lib/v2-sms-accountability";
 import { formatCoachingMemoryPromptBlock } from "@/lib/v2-coaching-memory-prompt";
 import type { V2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory-prompt";
-import { detectFinalVoiceBlockedReasons } from "@/lib/v3-sms-voice-ownership";
+import {
+  detectFinalVoiceBlockedReasons,
+  partitionFinalVoiceBlockedReasons,
+  repairV3RelationshipLaneBodyWithOpenAI,
+} from "@/lib/v3-sms-voice-ownership";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 
 const DAILY_LANE_MAX_CHARS = 300;
@@ -237,6 +241,14 @@ function validateRequiredVerbatims(body: string, required: string[] | undefined)
   return null;
 }
 
+/** Contract / binding routes: lane repair must not rewrite required verbatim substrings. */
+function dailyLanePostValidateRepairExcluded(facts: DailyV3RelationshipFacts): boolean {
+  return (
+    facts.route_kind === "contract_prompt" ||
+    Boolean(facts.constraints.required_verbatim_substrings?.length)
+  );
+}
+
 /**
  * Produces the next relationship SMS for any daily cron branch.
  * Fail-closed: no deterministic coaching fallback; OpenAI/parse/validation failures → shouldSend false.
@@ -330,6 +342,9 @@ Write JSON only.`;
       : null;
   const usedFacts = asStringArray(parsed.used_facts);
   const safetyNotes = asStringArray(parsed.safety_notes);
+  const bodyPreview = (s: string) => (s.length > 220 ? `${s.slice(0, 219)}…` : s);
+  let successLaneStage: "ok" | "post_validate_repaired" = "ok";
+  let successRepairExtra: Record<string, unknown> = {};
 
   if (!shouldSend) {
     return {
@@ -360,22 +375,119 @@ Write JSON only.`;
 
   const blocked = detectFinalVoiceBlockedReasons(body);
   if (blocked.length > 0) {
-    return {
-      body: "",
-      shouldSend: false,
-      noSendReason: "lane_post_validate_blocked",
-      replySource: "v3_daily_relationship_lane",
-      turnPurpose: turnPurpose || "no_send",
-      voiceConfidence,
-      usedFacts,
-      safetyNotes: [...safetyNotes, ...blocked.map((b) => `blocked:${b}`)],
-      metadata: {
-        ...baseMeta,
-        lane_stage: "post_validate_blocked",
-        v3_candidate_body: body,
-        blocked_reasons: blocked,
-      },
-      openAiOk: true,
+    const { repairable, hard } = partitionFinalVoiceBlockedReasons(blocked);
+
+    if (
+      hard.length > 0 ||
+      repairable.length === 0 ||
+      dailyLanePostValidateRepairExcluded(args.facts)
+    ) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "lane_post_validate_blocked",
+        replySource: "v3_daily_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, ...blocked.map((b) => `blocked:${b}`)],
+        metadata: {
+          ...baseMeta,
+          lane_stage: "post_validate_blocked",
+          v3_candidate_body: body,
+          blocked_reasons: blocked,
+        },
+        openAiOk: true,
+      };
+    }
+
+    const originalCandidateSnapshot = body;
+
+    const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "daily",
+      routePurpose: args.facts.route_kind,
+      originalBody: body,
+      blockedReasons: repairable,
+      factsJson: args.facts,
+    });
+
+    if (!repairOut) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "lane_post_validate_blocked",
+        replySource: "v3_daily_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, ...blocked.map((b) => `blocked:${b}`)],
+        metadata: {
+          ...baseMeta,
+          lane_stage: "post_validate_repair_failed",
+          v3_candidate_body: body,
+          blocked_reasons: blocked,
+          lane_repair_attempted: true,
+          lane_repair_succeeded: false,
+          original_blocked_reasons: repairable,
+          original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+          repaired_candidate_body: null,
+          repaired_blocked_reasons: null,
+        },
+        openAiOk: true,
+      };
+    }
+
+    let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
+    const blockedAfter = detectFinalVoiceBlockedReasons(repaired);
+    const missingAfterRepair = validateRequiredVerbatims(
+      repaired,
+      args.facts.constraints.required_verbatim_substrings
+    );
+
+    if (blockedAfter.length > 0 || missingAfterRepair != null) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "lane_post_validate_blocked",
+        replySource: "v3_daily_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [
+          ...safetyNotes,
+          ...blocked.map((b) => `blocked:${b}`),
+          ...blockedAfter.map((b) => `repaired_blocked:${b}`),
+        ],
+        metadata: {
+          ...baseMeta,
+          lane_stage: "post_validate_repair_failed",
+          v3_candidate_body: originalCandidateSnapshot,
+          blocked_reasons: blocked,
+          lane_repair_attempted: true,
+          lane_repair_succeeded: false,
+          original_blocked_reasons: repairable,
+          original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+          repaired_candidate_body: repaired,
+          repaired_blocked_reasons: [
+            ...blockedAfter,
+            ...(missingAfterRepair != null ? ["missing_required_verbatim_after_repair"] : []),
+          ],
+          ...repairOut.metadata,
+        },
+        openAiOk: true,
+      };
+    }
+
+    body = repaired;
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = {
+      lane_repair_attempted: true,
+      lane_repair_succeeded: true,
+      original_blocked_reasons: repairable,
+      original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+      repaired_candidate_body: repaired,
+      repaired_blocked_reasons: [],
+      ...repairOut.metadata,
     };
   }
 
@@ -411,8 +523,9 @@ Write JSON only.`;
     safetyNotes,
     metadata: {
       ...baseMeta,
-      lane_stage: "ok",
+      lane_stage: successLaneStage,
       v3_candidate_body: body,
+      ...successRepairExtra,
     },
     openAiOk: true,
   };
