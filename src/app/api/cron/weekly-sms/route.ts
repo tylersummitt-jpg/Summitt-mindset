@@ -9,9 +9,11 @@ import { generateWeeklySmsReflection } from "@/lib/weekly-sms-reflection-shadow"
 import { getWeekKey } from "@/lib/weekly-sms-week-key";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
+import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { isSmsInboundPendingResolutionActionable } from "@/lib/v2-guided-resolution";
 import {
+  buildDeterministicWeeklyProofBody,
   buildV2WeeklyProofPack,
   generateV2WeeklyProofSmsBody,
   V2_WEEKLY_PROOF_PROMPT_VERSION,
@@ -23,21 +25,15 @@ import {
 import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN, pickNorthStarWriterAttributionFields } from "@/lib/north-star-coach-sms";
 import { buildWeeklySmsNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
-import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
 import { appendPreservedSmsSuffix, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
+import { produceWeeklyV3RelationshipSms } from "@/lib/v3-weekly-outbound-relationship-lane";
+import { buildWeeklyV3OutboundFactsForV2WeeklyProof } from "@/lib/weekly-sms-v2-weekly-lane-facts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
-
-const PAT_PAUSE_INTROS = [
-  "Time for a Pat Pause.",
-  "Let’s take a Pat Pause.",
-  "It’s your weekly Pat Pause.",
-  "Time for our Sunday Pat Pause.",
-] as const;
 
 const WEEKLY_SMS_COMPLIANCE_FOOTER =
   "Reply STOP to opt out. Reply HELP for help.";
@@ -116,6 +112,7 @@ export async function GET(req: Request) {
     skippedV2WeeklyDuplicate: 0,
     sentV2WeeklyProof: 0,
     skippedNoSafeV3Voice: 0,
+    skippedLegacyWeeklyDeprecated: 0,
     failed: 0,
   };
 
@@ -211,54 +208,113 @@ export async function GET(req: Request) {
             message: e instanceof Error ? e.message : String(e),
           });
         }
-        const { body: proofCore, aiUsed } = await generateV2WeeklyProofSmsBody(pack, {
+        const { body: oldProofPreviewBody, aiUsed } = await generateV2WeeklyProofSmsBody(pack, {
           recentSmsThreadAppend: weeklySmsThreadAppend,
         });
+        const deterministicPreviewBody = buildDeterministicWeeklyProofBody(pack);
+        const weeklyV3TelemetryFactSources = [
+          "v2_weekly_proof_pack",
+          aiUsed ? "v2_weekly_proof_openai_preview" : "v2_weekly_proof_preview_no_openai",
+          "v2_weekly_proof_deterministic_preview",
+          ...(convForNorthStar ? (["v2_sms_conversation_context_pack"] as const) : []),
+        ];
+        const weeklyFacts = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+          clerkUserId: user.id,
+          commitment,
+          effectiveAsk: getEffectiveCoachingAsk(commitment, Date.now()),
+          pack,
+          timezone,
+          localNow,
+          conv: convForNorthStar,
+          weeklySmsThreadAppend,
+          oldWeeklyProofBodyPreview: oldProofPreviewBody,
+          deterministicWeeklyBodyPreview: deterministicPreviewBody,
+        });
+        const weeklyLane = await produceWeeklyV3RelationshipSms({
+          facts: weeklyFacts,
+          telemetry_fact_sources: weeklyV3TelemetryFactSources,
+        });
 
-        let proofStyled = proofCore.trim();
-        let weeklyV3ReplySource: string | undefined;
-        try {
-          const pr = await refineMachineSmsBodyWithV3RefineLane({
-            clerkUserId: user.id,
-            messageSid: `weekly_proof:${user.id}:${weekKeyV2}`,
-            commitment,
-            timezone,
-            inboundRaw: "[weekly_pat_pause]",
-            machineBody: proofStyled,
-            hintSource: "weekly_proof_core",
-            ownedReplySource: "v3_weekly_proof_refined",
-          });
-          proofStyled = pr.body.trim();
-          weeklyV3ReplySource = pr.replySource;
-        } catch (e) {
-          console.warn("[weekly-sms] v3_weekly_proof_refine_failed", {
-            clerk_user_id: user.id,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        }
-
-        const introV2 =
-          PAT_PAUSE_INTROS[Math.floor(Math.random() * PAT_PAUSE_INTROS.length)];
-        const preGateWeeklyV2 = `${introV2}\n\n${proofStyled}`;
         const weeklyNorthStarCtx = buildWeeklySmsNorthStarContextPacket({
           commitmentId: commitment.id,
           behaviorStatement: commitment.behavior_statement,
           transcriptSnippet: weeklySmsThreadAppend,
           transcriptLines: convForNorthStar?.recentTranscriptLines.slice(-8),
         });
+
+        const packTelemetryBase = {
+          v2_weekly_proof_sms: true,
+          commitment_id: commitment.id,
+          week_start: pack.week_start,
+          week_end: pack.week_end,
+          yes_count: pack.yes_count,
+          no_count: pack.no_count,
+          partial_count: pack.partial_count,
+          blocker_count: pack.blocker_count,
+          check_sent_count: pack.check_sent_count,
+          response_count: pack.response_count,
+          silent_week: pack.silent_week,
+          comeback_after_miss: pack.comeback_after_miss,
+          ai_used: aiUsed,
+          message_purpose: "weekly_proof_reflection",
+          prompt_version: V2_WEEKLY_PROOF_PROMPT_VERSION,
+          sms_context_pack_thread_used: Boolean(weeklySmsThreadAppend?.trim()),
+          weekly_evolution_note_used: Boolean(pack.weekly_evolution_coaching_line?.trim()),
+        };
+
+        const weeklyV3MetaBase = {
+          weekly_v3_lane_used: true,
+          secondary_v3_lane_used: true,
+          route_purpose: "weekly_proof_v2" as const,
+          v3_lane_reply_source: "v3_weekly_relationship_lane",
+          v3_candidate_body: weeklyLane.metadata.v3_candidate_body ?? "",
+          old_weekly_writer_used_as_voice: false,
+          old_weekly_writer_fact_sources: weeklyV3TelemetryFactSources,
+          weekly_facts_summary: weeklyLane.metadata.weekly_facts_summary,
+          fully_on_v2: true,
+          legacy_weekly_branch: false,
+          weekly_lane_no_send_reason: weeklyLane.noSendReason,
+          weekly_lane_openai_ok: weeklyLane.openAiOk,
+          weekly_lane_metadata: weeklyLane.metadata,
+        };
+
+        if (!weeklyLane.shouldSend) {
+          await supabaseServer
+            .from("sms_weekly_send_events")
+            .update({
+              status: "skipped_no_safe_v3_voice",
+              metadata: {
+                ...packTelemetryBase,
+                ...weeklyV3MetaBase,
+                no_send_tag: "weekly_v3_lane_no_send",
+                no_send_reason: weeklyLane.noSendReason,
+                voice_decision: "skipped_no_safe_v3_voice",
+                twilio_send_attempted: false,
+                compliance_suffix_preserved: false,
+                compliance_footer_appended_after_fvg: false,
+                fvg_policy_classification: "relationship_coaching",
+                normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
+              },
+            })
+            .eq("clerk_user_id", user.id)
+            .eq("week_key", weekKeyV2);
+          stats.skippedNoSafeV3Voice += 1;
+          continue;
+        }
+
         const gatedWeeklyV2 = await finalizeNorthStarCoachSmsAsync({
-          proposedBody: preGateWeeklyV2,
+          proposedBody: weeklyLane.body.trim(),
           channel: "weekly_sms",
           preserveNewlines: true,
           maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
           behaviorStatement: commitment.behavior_statement,
           effectiveAskText: commitment.behavior_statement?.trim() ?? undefined,
           contextPacket: weeklyNorthStarCtx,
-          replySource: weeklyV3ReplySource,
+          replySource: "v3_weekly_relationship_lane",
         });
         const voiceWeeklyV2 = await applyFinalVoiceOwnershipGate({
           proposedBody: gatedWeeklyV2.visibleBody,
-          replySource: weeklyV3ReplySource,
+          replySource: "v3_weekly_relationship_lane",
           channel: "weekly_sms",
           activeCommitmentId: commitment.id,
           effectiveAsk: commitment.behavior_statement,
@@ -275,28 +331,16 @@ export async function GET(req: Request) {
             .update({
               status: "skipped_no_safe_v3_voice",
               metadata: {
-                v2_weekly_proof_sms: true,
-                commitment_id: commitment.id,
-                week_start: pack.week_start,
-                week_end: pack.week_end,
-                yes_count: pack.yes_count,
-                no_count: pack.no_count,
-                partial_count: pack.partial_count,
-                blocker_count: pack.blocker_count,
-                check_sent_count: pack.check_sent_count,
-                response_count: pack.response_count,
-                silent_week: pack.silent_week,
-                comeback_after_miss: pack.comeback_after_miss,
-                ai_used: aiUsed,
-                message_purpose: "weekly_proof_reflection",
-                prompt_version: V2_WEEKLY_PROOF_PROMPT_VERSION,
-                sms_context_pack_thread_used: Boolean(weeklySmsThreadAppend?.trim()),
-                weekly_evolution_note_used: Boolean(pack.weekly_evolution_coaching_line?.trim()),
+                ...packTelemetryBase,
+                ...weeklyV3MetaBase,
+                no_send_tag: "final_voice_gate_no_send",
+                no_send_reason: voiceWeeklyV2.skipReason ?? null,
                 voice_decision: "skipped_no_safe_v3_voice",
                 twilio_send_attempted: false,
                 compliance_suffix_preserved: false,
+                compliance_footer_appended_after_fvg: false,
                 fvg_policy_classification: "relationship_coaching",
-                normal_coaching_policy_source: "phase4_1_weekly_proof_v2_always_fail_closed",
+                normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
                 north_star_gate: {
                   original_body: gatedWeeklyV2.meta.originalBody,
                   final_body: "",
@@ -326,23 +370,10 @@ export async function GET(req: Request) {
         const finalBodyV2 = appendPreservedSmsSuffix(voiceWeeklyV2.body, WEEKLY_SMS_COMPLIANCE_FOOTER);
 
         const v2Metadata = {
-          v2_weekly_proof_sms: true,
-          commitment_id: commitment.id,
-          week_start: pack.week_start,
-          week_end: pack.week_end,
-          yes_count: pack.yes_count,
-          no_count: pack.no_count,
-          partial_count: pack.partial_count,
-          blocker_count: pack.blocker_count,
-          check_sent_count: pack.check_sent_count,
-          response_count: pack.response_count,
-          silent_week: pack.silent_week,
-          comeback_after_miss: pack.comeback_after_miss,
-          ai_used: aiUsed,
-          message_purpose: "weekly_proof_reflection",
-          prompt_version: V2_WEEKLY_PROOF_PROMPT_VERSION,
-          sms_context_pack_thread_used: Boolean(weeklySmsThreadAppend?.trim()),
-          weekly_evolution_note_used: Boolean(pack.weekly_evolution_coaching_line?.trim()),
+          ...packTelemetryBase,
+          ...weeklyV3MetaBase,
+          no_send_tag: null,
+          no_send_reason: null,
           north_star_gate: {
             original_body: gatedWeeklyV2.meta.originalBody,
             final_body: finalBodyV2,
@@ -359,11 +390,13 @@ export async function GET(req: Request) {
             should_send: true,
             skip_reason: null,
             blocked_reasons: voiceWeeklyV2.blockedReasons,
+            twilio_send_attempted: false,
           },
           compliance_suffix_preserved: true,
+          compliance_footer_appended_after_fvg: true,
           fvg_policy_classification: "relationship_coaching",
-          normal_coaching_policy_source: "phase4_1_weekly_proof_v2_always_fail_closed",
-        } as const;
+          normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
+        };
 
         if (!isTwilioReady() || SMS_DRY_RUN) {
           await supabaseServer
@@ -395,7 +428,13 @@ export async function GET(req: Request) {
             .update({
               message_sid: messageV2.sid,
               status: messageV2.status,
-              metadata: v2Metadata,
+              metadata: {
+                ...v2Metadata,
+                voice_send_decision: {
+                  ...v2Metadata.voice_send_decision,
+                  twilio_send_attempted: true,
+                },
+              },
             })
             .eq("clerk_user_id", user.id)
             .eq("week_key", weekKeyV2);
@@ -425,25 +464,7 @@ export async function GET(req: Request) {
         });
       }
 
-      stats.eligible++;
-
       const weekKey = getWeekKey(localNow);
-
-      const { data: reflectionRow } = await supabaseServer
-        .from("weekly_sms_reflections")
-        .select("sms_body, status")
-        .eq("clerk_user_id", user.id)
-        .eq("week_key", weekKey)
-        .maybeSingle();
-
-      const reflectionSmsBodyTrimmed =
-        typeof reflectionRow?.sms_body === "string"
-          ? reflectionRow.sms_body.trim()
-          : "";
-      const validSmsBody =
-        reflectionRow != null &&
-        reflectionSmsBodyTrimmed.length > 50 &&
-        reflectionRow.status !== "generation_failed";
 
       const { error: reservationError } = await supabaseServer
         .from("sms_weekly_send_events")
@@ -457,197 +478,33 @@ export async function GET(req: Request) {
 
       stats.reserved++;
 
-      /**
-       * Pull latest weekly summary
-       */
-      const { data: summary } = await supabaseServer
-        .from("weekly_summaries")
-        .select("weekly_summary")
+      const legacyDeprecatedMetadata: Record<string, unknown> = {
+        legacy_weekly_branch: true,
+        fully_on_v2: false,
+        weekly_v3_lane_used: false,
+        secondary_v3_lane_used: false,
+        old_weekly_writer_used_as_voice: false,
+        twilio_send_attempted: false,
+        no_send_tag: "legacy_weekly_deprecated_until_v2",
+        skip_reason: "user_not_fully_on_v2",
+        relationship_lane_policy: "weekly_sms_requires_v2_commitment_and_v3_weekly_lane",
+        deprecated_legacy_weekly_sms: true,
+        legacy_weekly_sms_visible_body_generated: false,
+        ...(SMS_DRY_RUN ? { sms_dry_run: true } : {}),
+      };
+
+      await supabaseServer
+        .from("sms_weekly_send_events")
+        .update({
+          status: "skipped_legacy_weekly_deprecated",
+          metadata: legacyDeprecatedMetadata,
+        })
         .eq("clerk_user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq("week_key", weekKey);
 
-      const summaryText =
-        summary?.weekly_summary ||
-        "You showed up this week. That matters.";
-
-      const smsBody =
-        `I’ve been thinking about your week.\n\n` +
-        `${summaryText}\n\n` +
-        `You showed up. That matters more than you think.\n` +
-        `Steady honesty with yourself is how this kind of change sticks.\n\n` +
-        `I'm with you between check-ins.\n\n` +
-        `Reply anytime.\n\n` +
-        `${WEEKLY_SMS_COMPLIANCE_FOOTER}`;
-
-      const legacyCommitment = await getActiveCommitment(user.id);
-
-      let outgoingBase = validSmsBody ? reflectionSmsBodyTrimmed : smsBody;
-      let legacyWeeklyV3Rs: string | undefined;
-      if (legacyCommitment?.id) {
-        try {
-          const lr = await refineMachineSmsBodyWithV3RefineLane({
-            clerkUserId: user.id,
-            messageSid: `weekly_legacy:${user.id}:${weekKey}`,
-            commitment: legacyCommitment,
-            timezone,
-            inboundRaw: "[weekly_legacy_pat_pause]",
-            machineBody: outgoingBase.trim(),
-            hintSource: "weekly_legacy_body",
-            ownedReplySource: "v3_weekly_proof_refined",
-          });
-          outgoingBase = lr.body;
-          legacyWeeklyV3Rs = lr.replySource;
-        } catch (e) {
-          console.warn("[weekly-sms] v3_legacy_weekly_refine_failed", {
-            clerk_user_id: user.id,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        }
-      }
-
-      const intro =
-        PAT_PAUSE_INTROS[
-          Math.floor(Math.random() * PAT_PAUSE_INTROS.length)
-        ];
-
-      let bodyForWrap = outgoingBase.trim();
-      if (bodyForWrap.endsWith(WEEKLY_SMS_COMPLIANCE_FOOTER)) {
-        bodyForWrap = bodyForWrap
-          .slice(0, -WEEKLY_SMS_COMPLIANCE_FOOTER.length)
-          .replace(/\s+$/, "");
-      }
-
-      const preGateLegacy = `${intro}\n\n${bodyForWrap}`;
-      const legacyWeeklyCtx =
-        legacyCommitment?.id != null
-          ? buildWeeklySmsNorthStarContextPacket({
-              commitmentId: legacyCommitment.id,
-              behaviorStatement: legacyCommitment.behavior_statement,
-              transcriptSnippet: null,
-            })
-          : { source: "weekly_sms" };
-      const gatedLegacyWeekly = await finalizeNorthStarCoachSmsAsync({
-        proposedBody: preGateLegacy,
-        channel: "weekly_sms",
-        preserveNewlines: true,
-        maxLen: NORTH_STAR_SMS_LONG_FORM_MAX_LEN,
-        contextPacket: legacyWeeklyCtx,
-        replySource: legacyWeeklyV3Rs,
-      });
-      const voiceLegacyWeekly = await applyFinalVoiceOwnershipGate({
-        proposedBody: gatedLegacyWeekly.visibleBody,
-        replySource: legacyWeeklyV3Rs,
-        channel: "weekly_sms",
-        activeCommitmentId: legacyCommitment?.id ?? null,
-        effectiveAsk: legacyCommitment?.behavior_statement ?? null,
-        behaviorStatement: legacyCommitment?.behavior_statement ?? null,
-        contextPacket: legacyCommitment?.id ? legacyWeeklyCtx : undefined,
-        northStarMeta: gatedLegacyWeekly.meta,
-        /** Phase 4.1: Pat Pause / legacy reflection copy is relationship/coaching — FVG fail-closed even without commitment row. */
-        normalCoaching: true,
-      });
-
-      if (!voiceLegacyWeekly.shouldSend) {
-        await supabaseServer
-          .from("sms_weekly_send_events")
-          .update({
-            status: "skipped_no_safe_v3_voice",
-            metadata: {
-              voice_decision: "skipped_no_safe_v3_voice",
-              twilio_send_attempted: false,
-              compliance_suffix_preserved: false,
-              fvg_policy_classification: "relationship_coaching",
-              normal_coaching_policy_source: "phase4_1_weekly_legacy_always_fail_closed",
-              north_star_gate: {
-                original_body: gatedLegacyWeekly.meta.originalBody,
-                final_body: "",
-                north_star_gate_source: gatedLegacyWeekly.meta.source,
-                north_star_gate_reasons: gatedLegacyWeekly.meta.blockedReasons,
-                openai_attempted: gatedLegacyWeekly.meta.openaiAttempted,
-                openai_failed_reason: gatedLegacyWeekly.meta.openaiFailedReason ?? null,
-                context_packet_used: gatedLegacyWeekly.meta.contextPacketUsed,
-                finalizer_version: gatedLegacyWeekly.meta.finalizerVersion,
-                ...pickNorthStarWriterAttributionFields(gatedLegacyWeekly.meta),
-              },
-              final_voice_gate: voiceLegacyWeekly.metadata,
-              voice_send_decision: {
-                should_send: false,
-                skip_reason: voiceLegacyWeekly.skipReason ?? null,
-                blocked_reasons: voiceLegacyWeekly.blockedReasons,
-                twilio_send_attempted: false,
-              },
-            },
-          })
-          .eq("clerk_user_id", user.id)
-          .eq("week_key", weekKey);
-        stats.skippedNoSafeV3Voice += 1;
-        continue;
-      }
-
-      const finalBody = appendPreservedSmsSuffix(voiceLegacyWeekly.body, WEEKLY_SMS_COMPLIANCE_FOOTER);
-
-      if (!isTwilioReady() || SMS_DRY_RUN) {
-        await supabaseServer
-          .from("sms_weekly_send_events")
-          .update({
-            status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
-          })
-          .eq("clerk_user_id", user.id)
-          .eq("week_key", weekKey);
-
-        if (SMS_DRY_RUN) stats.dryRun++;
-        else stats.skippedMissingTwilio++;
-
-        continue;
-      }
-
-      try {
-        const message = await sendSMS({
-          to: identity.phone_number,
-          body: finalBody,
-          lastOutbound: {
-            clerkUserId: user.id,
-            messageKind: "weekly",
-          },
-        });
-
-        await supabaseServer
-          .from("sms_weekly_send_events")
-          .update({
-            message_sid: message.sid,
-            status: message.status,
-            metadata: {
-              north_star_gate: {
-                original_body: gatedLegacyWeekly.meta.originalBody,
-                final_body: finalBody,
-                north_star_gate_source: gatedLegacyWeekly.meta.source,
-                north_star_gate_reasons: gatedLegacyWeekly.meta.blockedReasons,
-                ...pickNorthStarWriterAttributionFields(gatedLegacyWeekly.meta),
-              },
-              final_voice_gate: voiceLegacyWeekly.metadata,
-              compliance_suffix_preserved: true,
-              fvg_policy_classification: "relationship_coaching",
-              normal_coaching_policy_source: "phase4_1_weekly_legacy_always_fail_closed",
-            },
-          })
-          .eq("clerk_user_id", user.id)
-          .eq("week_key", weekKey);
-
-        stats.sent++;
-      } catch (err) {
-        await supabaseServer
-          .from("sms_weekly_send_events")
-          .update({
-            status: "send_failed",
-            metadata: { error: String(err) },
-          })
-          .eq("clerk_user_id", user.id)
-          .eq("week_key", weekKey);
-
-        stats.failed++;
-      }
+      stats.skippedLegacyWeeklyDeprecated += 1;
+      if (SMS_DRY_RUN) stats.dryRun++;
+      continue;
     }
 
     offset += users.length;

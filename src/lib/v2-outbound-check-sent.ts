@@ -1,4 +1,10 @@
 import { supabaseServer } from "@/lib/supabase-server";
+import {
+  parseContractOverlayProposalFromCheckPayload,
+  type V2ContractOverlayProposalKind,
+} from "./v2-check-payload-contract-parse";
+
+export { parseContractOverlayProposalFromCheckPayload, type V2ContractOverlayProposalKind };
 
 export type V2CheckSentPromptKind = "standard_accountability" | "contract_overlay_proposal";
 export type V2CheckSentExpectedReplySemantics = "yes_no_partial" | "proposal_yes_no";
@@ -8,8 +14,6 @@ export type V2CheckSentPostSendMutationResult =
   | "state_conflict"
   | "not_found"
   | "error";
-
-export type V2ContractOverlayProposalKind = "shrink_ask" | "recommit_same";
 
 type V2CheckSentSnapshotRow = {
   idempotency_key: string;
@@ -54,22 +58,6 @@ function checkSentIdempotencyKey(commitmentId: string, dayKey: string): string {
 
 function contractOverlayProposedIdempotencyKey(commitmentId: string, dayKey: string): string {
   return `v2_contract_overlay_proposed:${commitmentId}:${dayKey}`;
-}
-
-/** Parses `contract_proposal` from check_sent snapshot payload (cron + replay). */
-export function parseContractOverlayProposalFromCheckPayload(
-  checkPayloadJson: Record<string, unknown>
-): { proposalText: string; contractKind: V2ContractOverlayProposalKind } | null {
-  const cp = checkPayloadJson.contract_proposal;
-  if (cp == null || typeof cp !== "object" || Array.isArray(cp)) return null;
-  const rec = cp as Record<string, unknown>;
-  const proposalText = typeof rec.proposal_text === "string" ? rec.proposal_text.trim() : "";
-  const contractKind =
-    rec.contract_kind === "shrink_ask" || rec.contract_kind === "recommit_same"
-      ? rec.contract_kind
-      : null;
-  if (!proposalText || !contractKind) return null;
-  return { proposalText, contractKind };
 }
 
 async function hasProposalOutboundBundleComplete(args: {

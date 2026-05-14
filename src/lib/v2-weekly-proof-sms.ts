@@ -269,7 +269,7 @@ export async function buildV2WeeklyProofPack(args: {
   };
 }
 
-function buildDeterministicWeeklyProofBody(pack: V2WeeklyProofPack): string {
+export function buildDeterministicWeeklyProofBody(pack: V2WeeklyProofPack): string {
   const { yes_count: y, no_count: n, partial_count: p, response_count: r, silent_week: silent } = pack;
 
   if (silent || r === 0) {

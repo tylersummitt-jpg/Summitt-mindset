@@ -18,8 +18,6 @@ export const PRODUCTION_SMS_SEND_CALLER_ALLOWLIST = new Set<string>([
   "src/app/api/cron/daily-sms/route.ts",
   "src/app/api/cron/sms-inbound-coach/route.ts",
   "src/app/api/cron/weekly-sms/route.ts",
-  "src/app/api/cron/followup-sms/route.ts",
-  "src/app/api/cron/missed-yesterday-sms/route.ts",
   "src/app/api/cron/inactivity-rescue/route.ts",
   "src/app/api/cron/post-churn-winback/route.ts",
   "src/app/api/onboarding/sms/route.ts",
@@ -97,7 +95,7 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
     usesNorthStar: true,
     usesFvg: true,
     normalCoachingPattern:
-      "Phase 4.1: V2 weekly proof and legacy Pat Pause branches both use normalCoaching: true (fail-closed FVG).",
+      "Phase 4.2B+: V2 weekly proof uses v3_weekly_relationship_lane + NS + FVG (normalCoaching: true). Phase 4.2C: legacy weekly is deprecated no-send until fullyOnV2.",
     notNormalCoachingBypassRisk:
       "Resolved in Phase 4.1 — no longer gates FVG on Boolean(legacyCommitment?.id); metadata records fvg_policy_classification.",
     phase4Action: "migrate_visible_body_to_outbound_v3_relationship_lane",
@@ -107,13 +105,13 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
     file: "src/app/api/cron/followup-sms/route.ts",
     classification: "deprecated_legacy" as const,
     canBypassRelationshipLane: false,
-    requiresFvg: true,
-    requiresFailClosedWhenCoaching: true,
-    usesNorthStar: true,
-    usesFvg: true,
-    normalCoachingPattern: "Phase 4.1: normalCoaching: true (fail-closed regardless of commitment row).",
-    notNormalCoachingBypassRisk:
-      "Resolved in Phase 4.1 — previously Boolean(commitmentFu?.id) could open not_normal_coaching bypass.",
+    requiresFvg: false,
+    requiresFailClosedWhenCoaching: false,
+    usesNorthStar: false,
+    usesFvg: false,
+    normalCoachingPattern:
+      "Phase 4.3: legacy followup deprecated — metadata-only update on sms_send_events; no sendSMS / NS / FVG.",
+    notNormalCoachingBypassRisk: "N/A — route no longer sends coaching SMS.",
     phase4Action: "delete_or_deprecate_for_v2_cohort_or_migrate_if_stragglers_remain",
   },
   {
@@ -121,12 +119,13 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
     file: "src/app/api/cron/missed-yesterday-sms/route.ts",
     classification: "deprecated_legacy" as const,
     canBypassRelationshipLane: false,
-    requiresFvg: true,
-    requiresFailClosedWhenCoaching: true,
-    usesNorthStar: true,
-    usesFvg: true,
-    normalCoachingPattern: "Phase 4.1: normalCoaching: true.",
-    notNormalCoachingBypassRisk: "Resolved in Phase 4.1 — same as followup_sms.",
+    requiresFvg: false,
+    requiresFailClosedWhenCoaching: false,
+    usesNorthStar: false,
+    usesFvg: false,
+    normalCoachingPattern:
+      "Phase 4.3: legacy missed-yesterday deprecated — metadata-only update on sms_send_events; no sendSMS / NS / FVG.",
+    notNormalCoachingBypassRisk: "N/A — route no longer sends coaching SMS.",
     phase4Action: "delete_or_deprecate_for_v2_cohort_or_migrate_if_stragglers_remain",
   },
   {
@@ -303,25 +302,31 @@ describe("Phase 4.0 — secondary outbound FVG policy matrix (static)", () => {
 });
 
 describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relationship sends)", () => {
-  it("weekly-sms V2 proof and legacy branches use normalCoaching: true (no Boolean(legacyCommitment?.id) FVG gate)", () => {
+  it("weekly-sms V2 proof branch uses normalCoaching: true (legacy weekly deprecated — no legacy FVG path)", () => {
     const weekly = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
     expect(weekly).not.toMatch(/normalCoaching:\s*Boolean\(legacyCommitment\?\.id\)/);
     const trueMatches = weekly.match(/normalCoaching:\s*true/g);
-    expect(trueMatches?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(trueMatches?.length ?? 0).toBeGreaterThanOrEqual(1);
     expect(weekly).toContain('fvg_policy_classification: "relationship_coaching"');
   });
 
-  it("followup, missed-yesterday, and inactivity-rescue use normalCoaching: true (not Boolean(commitment?.id))", () => {
+  it("followup-sms and missed-yesterday-sms are Phase 4.3 deprecated (no send / NS / FVG)", () => {
     const followup = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/followup-sms/route.ts"), "utf8");
-    expect(followup).not.toMatch(/normalCoaching:\s*Boolean\(commitmentFu\?\.id\)/);
-    expect(followup).toMatch(/normalCoaching:\s*true/);
-    expect(followup).toContain('fvg_policy_classification: "relationship_coaching"');
+    expect(followup).toContain("skipped_legacy_followup_deprecated");
+    expect(followup).not.toMatch(/\bsendSMS\s*\(/);
+    expect(followup).not.toContain("finalizeNorthStarCoachSmsAsync");
+    expect(followup).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(followup).not.toContain("refineMachineSmsBodyWithV3RefineLane");
 
     const missed = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/missed-yesterday-sms/route.ts"), "utf8");
-    expect(missed).not.toMatch(/normalCoaching:\s*Boolean\(commitmentM\?\.id\)/);
-    expect(missed).toMatch(/normalCoaching:\s*true/);
-    expect(missed).toContain('fvg_policy_classification: "relationship_coaching"');
+    expect(missed).toContain("skipped_legacy_missed_yesterday_deprecated");
+    expect(missed).not.toMatch(/\bsendSMS\s*\(/);
+    expect(missed).not.toContain("finalizeNorthStarCoachSmsAsync");
+    expect(missed).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(missed).not.toContain("refineMachineSmsBodyWithV3RefineLane");
+  });
 
+  it("inactivity-rescue uses normalCoaching: true (not Boolean(commitment?.id))", () => {
     const rescue = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/inactivity-rescue/route.ts"), "utf8");
     expect(rescue).not.toMatch(/normalCoaching:\s*Boolean\(commitmentR\?\.id\)/);
     expect(rescue).toMatch(/normalCoaching:\s*true/);

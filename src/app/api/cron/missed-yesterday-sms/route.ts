@@ -2,20 +2,14 @@ import { NextResponse } from "next/server";
 import { validateCronSecretRequest } from "@/lib/cron-auth";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
-import { sendSMS, isTwilioReady } from "@/lib/twilio";
-import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
-import { getActiveCommitment } from "@/lib/v2-commitment";
-import { refineMachineSmsBodyWithV3RefineLane } from "@/lib/v3-sms-machine-refine";
-import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
-import { pickNorthStarWriterAttributionFields, type NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
-const MESSAGE = "Yesterday doesn't matter. Let's take today.";
+const oneDayMs = 86_400_000;
 
 function isMorningWindow(local: Date): boolean {
   const hour = local.getHours();
@@ -45,7 +39,7 @@ export async function GET(req: Request) {
     skippedMissingTwilio: 0,
     dryRun: 0,
     failed: 0,
-    skippedNoSafeV3Voice: 0,
+    skippedLegacyMissedYesterdayDeprecated: 0,
   };
 
   const { data: audienceUsers } = await supabaseServer
@@ -59,7 +53,6 @@ export async function GET(req: Request) {
   }
 
   const now = new Date();
-  const oneDayMs = 86_400_000;
 
   for (const audienceUser of audienceUsers) {
     stats.scanned += 1;
@@ -128,149 +121,41 @@ export async function GET(req: Request) {
 
     stats.eligible += 1;
 
-    if (!isTwilioReady() || SMS_DRY_RUN) {
-      if (SMS_DRY_RUN) stats.dryRun += 1;
-      else stats.skippedMissingTwilio += 1;
+    const { error: depErr } = await supabaseServer
+      .from("sms_send_events")
+      .update({
+        status: "skipped_legacy_missed_yesterday_deprecated",
+        metadata: {
+          ...meta,
+          missed_yesterday_sent: true,
+          missed_yesterday_deprecated: true,
+          missed_yesterday_withheld_legacy_deprecated: true,
+          twilio_send_attempted: false,
+          no_send_tag: "legacy_missed_yesterday_deprecated_until_v2",
+          skip_reason: "user_not_fully_on_v2_legacy_missed_yesterday_deprecated",
+          legacy_route: true,
+          route_deprecated: true,
+          old_outbound_writer_used_as_voice: false,
+          relationship_lane_policy: "legacy_missed_yesterday_sms_deprecated_until_v2_cutover",
+          secondary_v3_lane_used: false,
+          ...(SMS_DRY_RUN ? { sms_dry_run: true } : {}),
+        },
+      })
+      .eq("clerk_user_id", audienceUser.clerk_user_id)
+      .eq("day_key", todayKey);
+
+    if (depErr) {
+      console.error("[missed-yesterday-sms] deprecated_metadata_update_failed", {
+        clerk_user_id: audienceUser.clerk_user_id,
+        day_key: todayKey,
+        message: depErr.message,
+      });
+      stats.failed += 1;
       continue;
     }
 
-    try {
-      let missedBody = MESSAGE;
-      let missedV3Rs: string | undefined;
-      let missedV3Pkt: NorthStarSmsContextPacket | undefined;
-      const tzM = resolveUserTimezone(audienceUser.timezone);
-      const commitmentM = await getActiveCommitment(audienceUser.clerk_user_id);
-      if (commitmentM?.id) {
-        try {
-          const rm = await refineMachineSmsBodyWithV3RefineLane({
-            clerkUserId: audienceUser.clerk_user_id,
-            messageSid: `missed_yesterday:${audienceUser.clerk_user_id}:${todayKey}`,
-            commitment: commitmentM,
-            timezone: tzM,
-            inboundRaw: "[missed_yesterday_sms]",
-            machineBody: MESSAGE,
-            hintSource: "missed_yesterday_nudge",
-            ownedReplySource: "v3_missed_yesterday_sms_refined",
-          });
-          missedBody = rm.body;
-          missedV3Rs = rm.replySource;
-          missedV3Pkt = rm.contextPacket;
-        } catch (e) {
-          console.warn("[missed-yesterday-sms] v3_refine_failed", {
-            clerk_user_id: audienceUser.clerk_user_id,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        }
-      }
-      const gatedMissed = await finalizeNorthStarCoachSmsAsync({
-        proposedBody: missedBody,
-        channel: "missed_yesterday_sms",
-        replySource: missedV3Rs,
-        contextPacket: missedV3Pkt ?? { source: "missed_yesterday_sms" },
-      });
-      const voiceMissed = await applyFinalVoiceOwnershipGate({
-        proposedBody: gatedMissed.visibleBody,
-        replySource: missedV3Rs,
-        channel: "missed_yesterday_sms",
-        activeCommitmentId: commitmentM?.id ?? null,
-        effectiveAsk: missedV3Pkt?.effectiveAskText ?? commitmentM?.behavior_statement ?? null,
-        behaviorStatement: commitmentM?.behavior_statement ?? null,
-        contextPacket: missedV3Pkt,
-        northStarMeta: gatedMissed.meta,
-        /** Phase 4.1: missed-yesterday nudge is relationship/coaching-ish — fail-closed FVG even without commitment row. */
-        normalCoaching: true,
-      });
-
-      if (!voiceMissed.shouldSend) {
-        await supabaseServer
-          .from("sms_send_events")
-          .update({
-            status: "skipped_no_safe_v3_voice",
-            metadata: {
-              ...meta,
-              missed_yesterday_sent: true,
-              missed_yesterday_withheld_unsafe_voice: true,
-              voice_decision: "skipped_no_safe_v3_voice",
-              twilio_send_attempted: false,
-              fvg_policy_classification: "relationship_coaching",
-              normal_coaching_policy_source: "phase4_1_missed_yesterday_fail_closed",
-              north_star_gate: {
-                original_body: gatedMissed.meta.originalBody,
-                final_body: "",
-                north_star_gate_source: gatedMissed.meta.source,
-                north_star_gate_reasons: gatedMissed.meta.blockedReasons,
-                ...pickNorthStarWriterAttributionFields(gatedMissed.meta),
-              },
-              final_voice_gate: voiceMissed.metadata,
-            },
-          })
-          .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
-        stats.skippedNoSafeV3Voice += 1;
-        continue;
-      }
-
-      await sendSMS({
-        to: audienceUser.phone_number,
-        body: voiceMissed.body,
-        lastOutbound: {
-          clerkUserId: audienceUser.clerk_user_id,
-          messageKind: "nudge",
-        },
-      });
-
-      if (existingEvent) {
-        await supabaseServer
-          .from("sms_send_events")
-          .update({
-            metadata: {
-              ...meta,
-              missed_yesterday_sent: true,
-              fvg_policy_classification: "relationship_coaching",
-              normal_coaching_policy_source: "phase4_1_missed_yesterday_fail_closed",
-              north_star_gate: {
-                original_body: gatedMissed.meta.originalBody,
-                final_body: voiceMissed.body,
-                north_star_gate_source: gatedMissed.meta.source,
-                north_star_gate_reasons: gatedMissed.meta.blockedReasons,
-                ...pickNorthStarWriterAttributionFields(gatedMissed.meta),
-              },
-              final_voice_gate: voiceMissed.metadata,
-            },
-          })
-          .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
-      } else {
-        await supabaseServer.from("sms_send_events").insert({
-          clerk_user_id: audienceUser.clerk_user_id,
-          day_key: todayKey,
-          status: "missed_yesterday_sent",
-          metadata: {
-            missed_yesterday_sent: true,
-            note: "missed_yesterday_cron",
-            fvg_policy_classification: "relationship_coaching",
-            normal_coaching_policy_source: "phase4_1_missed_yesterday_fail_closed",
-            north_star_gate: {
-              original_body: gatedMissed.meta.originalBody,
-              final_body: voiceMissed.body,
-              north_star_gate_source: gatedMissed.meta.source,
-              north_star_gate_reasons: gatedMissed.meta.blockedReasons,
-              ...pickNorthStarWriterAttributionFields(gatedMissed.meta),
-            },
-            final_voice_gate: voiceMissed.metadata,
-          },
-        });
-      }
-
-      stats.sent += 1;
-    } catch (err) {
-      console.error(
-        "[missed-yesterday-sms] send failed:",
-        audienceUser.clerk_user_id,
-        err
-      );
-      stats.failed += 1;
-    }
+    stats.skippedLegacyMissedYesterdayDeprecated += 1;
+    if (SMS_DRY_RUN) stats.dryRun += 1;
   }
 
   return NextResponse.json(stats);

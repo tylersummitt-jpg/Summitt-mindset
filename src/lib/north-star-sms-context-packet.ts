@@ -6,7 +6,7 @@ import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import type { V2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory";
 import type { V2SmsConversationContextPack } from "@/lib/v2-sms-conversation-context";
-import { parseContractOverlayProposalFromCheckPayload } from "@/lib/v2-outbound-check-sent";
+import { parseContractOverlayProposalFromCheckPayload } from "@/lib/v2-check-payload-contract-parse";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 import { deriveFutureIntentHint } from "@/lib/north-star-coach-sms";
 
