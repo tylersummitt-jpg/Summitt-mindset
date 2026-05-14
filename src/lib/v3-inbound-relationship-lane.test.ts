@@ -228,6 +228,84 @@ describe("produceInboundV3RelationshipSms", () => {
   });
 });
 
+describe("Phase 3F-3 adaptive_proposal_consent_clarification facts", () => {
+  const refineOnlyGated: V2InboundGatedDecision = {
+    mode: "clarify",
+    final_event_type: null,
+    decision_reason: "v3_refine_visible_only",
+    confidence_used: null,
+    should_write_outcome_event: false,
+    should_open_blocker_capture: false,
+    reply_style: "normal_outcome",
+    overrode_deterministic: false,
+  };
+
+  it("merges adaptive_consent_clarification_facts and required_meaning_summary into constraints", () => {
+    const commitment = baseCommitment();
+    commitment.adaptive_proposal_text = "Walk 20 min";
+
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: null,
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T12:00:00.000Z",
+      commitment,
+      effectiveAsk: "Walk daily",
+      userMessageRaw: "maybe",
+      coalescedInboundText: "maybe",
+      suppressedMessageSids: [],
+      transcriptLines: [],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "proposal?",
+        latestOpenQuestion: null,
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: refineOnlyGated,
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "adaptive_proposal_consent_clarification",
+      branchName: "adaptive_proposal_consent_clarification",
+      branchMigratedToLane: true,
+      adaptiveConsentClarificationFacts: {
+        latest_outbound_was_proposal: true,
+        pending_proposal_valid: true,
+        proposal_kind: "shrink",
+        proposal_text_digest: "Walk 20 min",
+        inbound_parse: "ambiguous",
+        server_action_taken: "none",
+        state_remains_pending: true,
+        required_meaning_summary: "Ask for YES or NO on the proposal.",
+        legacy_clarification_preview: "stub",
+        inbound_message_sid: "SMxxx",
+      },
+    });
+
+    expect(facts.route_purpose).toBe("adaptive_proposal_consent_clarification");
+    expect(facts.adaptive_consent_clarification_facts?.server_action_taken).toBe("none");
+    expect(facts.constraints.required_meaning_summary).toContain("YES or NO");
+    expect(facts.suggested_coaching_move).toBe("ask_clear_yes_or_no_for_pending_adaptive_proposal");
+  });
+});
+
 describe("v3_inbound_relationship_lane reply source classification", () => {
   it("is a V3 relationship voice source (North Star OpenAI full finalizer off)", () => {
     expect(isV3RelationshipVoiceReplySource("v3_inbound_relationship_lane")).toBe(true);

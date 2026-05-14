@@ -9,6 +9,7 @@ import OpenAI from "openai";
 
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { V2InboundGatedDecision } from "@/lib/v2-ai-inbound";
+import type { V2SmsCommitmentIntentPack } from "@/lib/v2-sms-commitment-change";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import { detectFinalVoiceBlockedReasons } from "@/lib/v3-sms-voice-ownership";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
@@ -33,7 +34,145 @@ export type InboundV3RoutePurpose =
   | "memory_clarification"
   | "adaptive_proposal_consent_accept"
   | "adaptive_proposal_consent_decline"
-  | "adaptive_proposal_consent_noop_ack";
+  | "adaptive_proposal_consent_noop_ack"
+  | "adaptive_proposal_consent_clarification"
+  | "commitment_change_handoff";
+
+/** Pending adaptive proposal — user has not given clear YES/NO; server has taken no consent action. */
+export type InboundV3AdaptiveConsentClarificationFacts = {
+  latest_outbound_was_proposal: boolean;
+  pending_proposal_valid: boolean;
+  proposal_kind: string;
+  proposal_text_digest: string;
+  inbound_parse: "ambiguous" | "question" | "explanation_request" | "consent_adjacent";
+  server_action_taken: "none";
+  state_remains_pending: true;
+  required_meaning_summary: string;
+  /** Non-speakable deterministic stub — metadata only. */
+  legacy_clarification_preview: string;
+  inbound_message_sid: string;
+};
+
+export type InboundV3CommitmentChangeFacts = {
+  detected_intent_type: V2SmsCommitmentIntentPack["intent"];
+  current_commitment_snapshot: string;
+  requested_change_summary: string;
+  pending_resolution_created: boolean;
+  pending_resolution_type: "commitment_tighten" | "commitment_replace" | null;
+  pending_resolution_skip_reason: string | null;
+  /** Populated when `applyWave4SmsCommitmentPendingResolution` threw before returning a result. */
+  pending_resolution_apply_exception: string | null;
+  existing_pending_resolution: boolean;
+  candidate_tightened_bar_preview: string | null;
+  candidate_new_bar_preview: string | null;
+  server_state_transition_summary: string;
+  required_verbatim_substrings?: string[];
+  required_meaning_summary: string;
+  /** Non-speakable legacy Wave4 coach string — metadata only. */
+  legacy_commitment_change_reply_preview: string;
+  /** Non-speakable note that would have been merged in the old path — metadata only. */
+  append_note_preview: string | null;
+  inbound_message_sid: string;
+};
+
+export type Wave4SmsPendingApplyResult = {
+  pendingApplied: boolean;
+  pendingKind: import("@/lib/v2-guided-resolution").V2PendingResolutionKind | null;
+  skipReason: import("@/lib/v2-sms-commitment-change").Wave4PendingSkipReason | null;
+};
+
+const INBOUND_COMMITMENT_CHANGE_EXISTING_PENDING_NOTE =
+  "You already have a commitment update in progress—reply here to finish it before starting another.";
+
+/**
+ * Server-only facts for commitment_change_handoff inbound lane (no user-visible prose authority).
+ */
+export function buildCommitmentChangeInboundFactsFromWave4(args: {
+  intentPack: V2SmsCommitmentIntentPack;
+  commitment: ActiveV2CommitmentRow;
+  effectiveAsk: string;
+  userMessage: string;
+  messageSid: string;
+  wave4: Wave4SmsPendingApplyResult;
+  pendingResolutionApplyException: string | null;
+  /** Non-speakable legacy Wave4 coach string — pass from `buildSmsCommitmentChangeCoachReply` at the route layer. */
+  legacyCommitmentChangeReplyPreview: string;
+}): InboundV3CommitmentChangeFacts {
+  const legacy = args.legacyCommitmentChangeReplyPreview.trim();
+  const legacyPreview = legacy.length > 500 ? `${legacy.slice(0, 497)}...` : legacy;
+  const existingPending = args.wave4.skipReason === "existing_pending";
+  const appendPreview = existingPending ? INBOUND_COMMITMENT_CHANGE_EXISTING_PENDING_NOTE : null;
+
+  const pendingCreated = args.wave4.pendingApplied === true;
+  const pk = args.wave4.pendingKind;
+  const pendingType: "commitment_tighten" | "commitment_replace" | null =
+    pendingCreated && (pk === "commitment_tighten" || pk === "commitment_replace") ? pk : null;
+
+  let serverSummary: string;
+  if (args.pendingResolutionApplyException?.trim()) {
+    serverSummary = `pending_resolution_apply_failed:${args.pendingResolutionApplyException.trim().slice(0, 160)}`;
+  } else if (pendingCreated && pendingType === "commitment_tighten") {
+    serverSummary = "pending_resolution_upserted:commitment_tighten";
+  } else if (pendingCreated && pendingType === "commitment_replace") {
+    serverSummary = "pending_resolution_upserted:commitment_replace";
+  } else if (args.wave4.skipReason === "soft_quit") {
+    serverSummary = "pending_resolution_skipped:soft_quit";
+  } else if (args.wave4.skipReason === "paused_reactivation") {
+    serverSummary = "pending_resolution_skipped:paused_reactivation";
+  } else if (args.wave4.skipReason === "refresh_session_active") {
+    serverSummary = "pending_resolution_skipped:refresh_session_active";
+  } else if (args.wave4.skipReason === "existing_pending") {
+    serverSummary = "pending_resolution_skipped:existing_pending";
+  } else {
+    serverSummary = "pending_resolution_unchanged";
+  }
+
+  const snapParts = [
+    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
+    `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
+    `effective_ask:${args.effectiveAsk.trim().replace(/\s+/g, " ").slice(0, 200)}`,
+  ];
+  const currentCommitmentSnapshot = snapParts.join(" | ");
+
+  const reqLines: string[] = [
+    "Server state is already decided from facts — do not invent commitment terms or claim the written commitment row already changed.",
+    "If pending_resolution_created is true: an SMS update flow was started — explain the honest next step without claiming the commitment is permanently rewritten or locked in.",
+    "If pending_resolution_created is false: do not imply a new pending SMS update was created; do not promise a DB commitment mutation occurred.",
+    "If existing_pending_resolution is true: communicate that the user should finish the current in-flight commitment update before starting another (meaning may paraphrase; do not quote legacy preview).",
+    "legacy_commitment_change_reply_preview and append_note_preview are NON-SPEAKABLE metadata — do not quote, imitate, paste, or treat them as your voice.",
+  ];
+  if (appendPreview) {
+    reqLines.push(
+      `Honor the meaning of the in-flight update constraint (same intent as append_note_preview) without pasting that text verbatim unless it appears in constraints.required_verbatim_substrings.`
+    );
+  }
+
+  const requiredVerbatim =
+    appendPreview && appendPreview.length > 0 ? [appendPreview] : undefined;
+
+  return {
+    detected_intent_type: args.intentPack.intent,
+    current_commitment_snapshot: currentCommitmentSnapshot,
+    requested_change_summary: args.userMessage.trim().replace(/\s+/g, " ").slice(0, 320),
+    pending_resolution_created: pendingCreated,
+    pending_resolution_type: pendingType,
+    pending_resolution_skip_reason: args.wave4.skipReason,
+    pending_resolution_apply_exception: args.pendingResolutionApplyException?.trim() || null,
+    existing_pending_resolution: Boolean(existingPending),
+    candidate_tightened_bar_preview: args.intentPack.candidateTightenedBar?.trim()
+      ? args.intentPack.candidateTightenedBar.trim().replace(/\s+/g, " ").slice(0, 200)
+      : null,
+    candidate_new_bar_preview: args.intentPack.candidateNewBar?.trim()
+      ? args.intentPack.candidateNewBar.trim().replace(/\s+/g, " ").slice(0, 200)
+      : null,
+    server_state_transition_summary: serverSummary,
+    ...(requiredVerbatim ? { required_verbatim_substrings: requiredVerbatim } : {}),
+    required_meaning_summary: reqLines.join(" "),
+    legacy_commitment_change_reply_preview: legacyPreview,
+    append_note_preview: appendPreview,
+    inbound_message_sid: args.messageSid,
+  };
+}
 
 /** Adaptive overlay proposal consent — server already applied/declined; legacy ACK is preview only. */
 export type InboundV3ContractConsentFacts = {
@@ -205,6 +344,8 @@ export type InboundV3RelationshipFacts = {
   pending_resolution_facts?: InboundV3PendingResolutionFacts | null;
   memory_confirmation_facts?: InboundV3MemoryConfirmationFacts | null;
   contract_consent_facts?: InboundV3ContractConsentFacts | null;
+  adaptive_consent_clarification_facts?: InboundV3AdaptiveConsentClarificationFacts | null;
+  commitment_change_facts?: InboundV3CommitmentChangeFacts | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -341,6 +482,8 @@ function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
     pending_resolution_facts: f.pending_resolution_facts != null,
     memory_confirmation_facts: f.memory_confirmation_facts != null,
     contract_consent_facts: f.contract_consent_facts != null,
+    adaptive_consent_clarification_facts: f.adaptive_consent_clarification_facts != null,
+    commitment_change_facts: f.commitment_change_facts != null,
     gated_mode: f.v2_accountability.gated_mode,
     final_event_type: f.v2_accountability.final_event_type,
     classifier: f.v2_accountability.deterministic_classifier_event,
@@ -487,6 +630,43 @@ export function slimContractConsentFactsForTelemetry(
   };
 }
 
+export function slimAdaptiveConsentClarificationFactsForTelemetry(
+  f: InboundV3AdaptiveConsentClarificationFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    pending_proposal_valid: f.pending_proposal_valid,
+    latest_outbound_was_proposal: f.latest_outbound_was_proposal,
+    proposal_kind: f.proposal_kind,
+    inbound_parse: f.inbound_parse,
+    server_action_taken: f.server_action_taken,
+    state_remains_pending: f.state_remains_pending,
+    proposal_text_digest_len: f.proposal_text_digest.length,
+    legacy_clarification_preview_len: f.legacy_clarification_preview.length,
+    has_required_meaning: Boolean(f.required_meaning_summary?.trim()),
+  };
+}
+
+export function slimCommitmentChangeFactsForTelemetry(
+  f: InboundV3CommitmentChangeFacts | null | undefined
+): Record<string, unknown> | null {
+  if (!f) return null;
+  return {
+    detected_intent_type: f.detected_intent_type,
+    pending_resolution_created: f.pending_resolution_created,
+    pending_resolution_type: f.pending_resolution_type,
+    pending_resolution_skip_reason: f.pending_resolution_skip_reason,
+    pending_resolution_apply_exception: f.pending_resolution_apply_exception,
+    existing_pending_resolution: f.existing_pending_resolution,
+    server_state_transition_summary: f.server_state_transition_summary,
+    legacy_preview_len: f.legacy_commitment_change_reply_preview.length,
+    append_note_preview_len: f.append_note_preview?.length ?? 0,
+    required_verbatim_count: f.required_verbatim_substrings?.length ?? 0,
+    has_required_meaning: Boolean(f.required_meaning_summary?.trim()),
+    inbound_message_sid: f.inbound_message_sid,
+  };
+}
+
 export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3RelationshipFacts): string {
   if (f.central_brain_pivot_facts) {
     const m = f.central_brain_pivot_facts.suggested_move?.trim();
@@ -501,6 +681,12 @@ export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3Relations
   }
   if (f.blocker_facts) {
     return "acknowledge_blocker_capture";
+  }
+  if (f.adaptive_consent_clarification_facts) {
+    return "ask_clear_yes_or_no_for_pending_adaptive_proposal";
+  }
+  if (f.commitment_change_facts) {
+    return "commitment_change_handoff_respond_with_server_owned_next_steps";
   }
   if (f.contract_consent_facts) {
     if (f.route_purpose === "adaptive_proposal_consent_decline") {
@@ -630,6 +816,14 @@ ROUTE (pending_resolution): SMS pending guided-resolution completion. Server alr
     return `
 ROUTE (${rp}): Wave 11 memory confirmation / decline / ambiguity. Server already decided memory_applied / memory_declined / ambiguous flags — do NOT contradict them or claim updates that did not occur. Use memory_confirmation_facts (pending_memory_kind, candidate_memory_fields, user_confirmation_parse, flags). legacy_memory_reply_preview is NON-SPEAKABLE fixed/refined copy — do not quote, imitate, or paste it. memory_proof_structured_hint is structured telemetry only — do not paste it verbatim. Honor required_verbatim_substrings / required_meaning_summary when present. Write ONE SMS as the coach.`;
   }
+  if (rp === "adaptive_proposal_consent_clarification") {
+    return `
+ROUTE (adaptive_proposal_consent_clarification): A pending adaptive overlay proposal is on the table; the user has NOT clearly accepted or declined (server_action_taken none; state_remains_pending true). Use adaptive_consent_clarification_facts (inbound_parse, proposal_kind, proposal_text_digest, latest_outbound_was_proposal). legacy_clarification_preview is NON-SPEAKABLE stub copy — do not quote, imitate, or paste it. Do NOT treat this as today's accountability check outcome. Do NOT imply the overlay was accepted or declined. Ask for an explicit YES or NO about the proposal only. Honor constraints.required_meaning_summary. One short SMS; if unsafe or uncertain, return should_send false.`;
+  }
+  if (rp === "commitment_change_handoff") {
+    return `
+ROUTE (commitment_change_handoff): User signaled a commitment change without a clear accountability score for today. Server already ran pending-resolution logic — use commitment_change_facts only (pending_resolution_created, pending_resolution_skip_reason, existing_pending_resolution, server_state_transition_summary, candidate previews). Do NOT claim the written commitment row already changed unless facts explicitly say so (they do not here). pending_resolution_created true means an SMS update flow was started, not that the commitment is finalized. legacy_commitment_change_reply_preview and append_note_preview are NON-SPEAKABLE metadata — do not quote, imitate, or paste them. Honor constraints.required_verbatim_substrings and constraints.required_meaning_summary when present. One short SMS; if unsafe or uncertain, return should_send false.`;
+  }
   if (
     rp === "adaptive_proposal_consent_accept" ||
     rp === "adaptive_proposal_consent_decline" ||
@@ -712,6 +906,20 @@ export async function produceInboundV3RelationshipSms(
       ? {
           contract_consent_facts_summary: slimContractConsentFactsForTelemetry(
             args.facts.contract_consent_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.adaptive_consent_clarification_facts != null
+      ? {
+          adaptive_consent_clarification_facts_summary: slimAdaptiveConsentClarificationFactsForTelemetry(
+            args.facts.adaptive_consent_clarification_facts
+          ),
+        }
+      : {}),
+    ...(args.facts.commitment_change_facts != null
+      ? {
+          commitment_change_facts_summary: slimCommitmentChangeFactsForTelemetry(
+            args.facts.commitment_change_facts
           ),
         }
       : {}),
@@ -1004,6 +1212,8 @@ export type BuildInboundV3RelationshipFactsArgs = {
   pendingResolutionFacts?: InboundV3PendingResolutionFacts | null;
   memoryConfirmationFacts?: InboundV3MemoryConfirmationFacts | null;
   contractConsentFacts?: InboundV3ContractConsentFacts | null;
+  adaptiveConsentClarificationFacts?: InboundV3AdaptiveConsentClarificationFacts | null;
+  commitmentChangeFacts?: InboundV3CommitmentChangeFacts | null;
 };
 
 /** Assembles JSON-safe facts for {@link produceInboundV3RelationshipSms} (no upstream prose). */
@@ -1013,12 +1223,15 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     ...(args.pendingResolutionFacts?.required_verbatim_substrings ?? []),
     ...(args.memoryConfirmationFacts?.required_verbatim_substrings ?? []),
     ...(args.contractConsentFacts?.required_verbatim_substrings ?? []),
+    ...(args.commitmentChangeFacts?.required_verbatim_substrings ?? []),
   ].filter((s) => typeof s === "string" && s.trim().length > 0);
   const reqMeanRaw =
     args.refreshFacts?.required_meaning_summary?.trim() ||
     args.pendingResolutionFacts?.required_meaning_summary?.trim() ||
     args.memoryConfirmationFacts?.required_meaning_summary?.trim() ||
     args.contractConsentFacts?.required_meaning_summary?.trim() ||
+    args.adaptiveConsentClarificationFacts?.required_meaning_summary?.trim() ||
+    args.commitmentChangeFacts?.required_meaning_summary?.trim() ||
     null;
 
   const facts: InboundV3RelationshipFacts = {
@@ -1036,6 +1249,10 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     ...(args.pendingResolutionFacts != null ? { pending_resolution_facts: args.pendingResolutionFacts } : {}),
     ...(args.memoryConfirmationFacts != null ? { memory_confirmation_facts: args.memoryConfirmationFacts } : {}),
     ...(args.contractConsentFacts != null ? { contract_consent_facts: args.contractConsentFacts } : {}),
+    ...(args.adaptiveConsentClarificationFacts != null
+      ? { adaptive_consent_clarification_facts: args.adaptiveConsentClarificationFacts }
+      : {}),
+    ...(args.commitmentChangeFacts != null ? { commitment_change_facts: args.commitmentChangeFacts } : {}),
     user: {
       clerk_user_id: args.clerkUserId,
       preferred_name: args.preferredName,

@@ -14,7 +14,11 @@ import {
   type GuardrailResult,
 } from "@/lib/v2-sms-turn-guardrails";
 import type { SmsConversationBrainProposalV1 } from "@/lib/v2-sms-turn-contract";
-import { shouldConsumeInboundAsContractProposalConsent } from "@/lib/v2-contract-consent-routing";
+import {
+  latestOutboundBodyContainsAdaptiveProposalBindingNeedle,
+  shouldConsumeInboundAsContractProposalConsent,
+} from "@/lib/v2-contract-consent-routing";
+import { evaluateAdaptiveProposalAmbiguousConsentGate } from "@/lib/v2-adaptive-proposal-ambiguous-consent-gate";
 import {
   isV2SmsConversationBrainAllowedForUser,
   isV2SmsConversationBrainControlEnabled,
@@ -139,10 +143,10 @@ import {
   mergeSmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
 import {
-  appendWhenExistingPendingResolution,
   applyWave4SmsCommitmentPendingResolution,
   buildSmsCommitmentChangeCoachReply,
   deriveSmsCommitmentChangeIntent,
+  type V2SmsCommitmentIntentPack,
 } from "@/lib/v2-sms-commitment-change";
 import { tryHandleSmsInboundPendingResolution } from "@/lib/v2-sms-pending-resolution-complete";
 import {
@@ -219,21 +223,26 @@ import {
 } from "@/lib/v3-sms-brain";
 import {
   assertRequiredVerbatimSubstringsPresent,
+  buildCommitmentChangeInboundFactsFromWave4,
   buildInboundV3RelationshipFacts,
   contractConsentYesBindingVerbatimSubstring,
   formatInboundV3LaneNoSendLastError,
   produceInboundV3RelationshipSms,
+  slimAdaptiveConsentClarificationFactsForTelemetry,
   slimArcClarificationFactsForTelemetry,
   slimBlockerFactsForTelemetry,
   slimCentralBrainBlockerPivotFactsForTelemetry,
   slimCentralBrainPivotFactsForTelemetry,
+  slimCommitmentChangeFactsForTelemetry,
   slimContractConsentFactsForTelemetry,
   slimMemoryConfirmationFactsForTelemetry,
   slimOpenQuestionFactsForTelemetry,
   slimPendingResolutionFactsForTelemetry,
   slimRefreshFactsForTelemetry,
+  type InboundV3AdaptiveConsentClarificationFacts,
   type InboundV3ArcFacts,
   type InboundV3CentralBrainFacts,
+  type InboundV3CommitmentChangeFacts,
   type InboundV3ContractConsentFacts,
   type InboundV3ConversationBrainFacts,
   type InboundV3MemoryConfirmationFacts,
@@ -663,6 +672,464 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
     state_mutation_completed_before_sms: args.stateMutationCompletedBeforeSms,
   });
   return { ok: true, sentBody: gatedBody };
+}
+
+/**
+ * Phase 3F-3 — pending adaptive proposal + consent-adjacent ambiguous inbound: V3 clarification only.
+ * No overlay RPC, no accountability outcome event, no blocker capture pending.
+ */
+async function persistAdaptiveProposalConsentClarificationAndSend(args: {
+  job: JobRow;
+  userId: string;
+  commitment: ActiveV2CommitmentRow;
+  timezone: string;
+  inboundRaw: string;
+  adaptiveConsentClarificationFacts: InboundV3AdaptiveConsentClarificationFacts;
+}): Promise<{ ok: true; sentBody: string } | { ok: false }> {
+  const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
+  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+    job: args.job,
+    userId: args.userId,
+    commitment: args.commitment,
+    timezone: args.timezone,
+    inboundRaw: args.inboundRaw,
+    splitSuppressedMessageSids: [],
+    routePurpose: "adaptive_proposal_consent_clarification",
+    branchName: "adaptive_proposal_consent_clarification",
+    wave11MemoryConfirmationPending: wave11MemoryPending,
+    adaptiveConsentClarificationFacts: args.adaptiveConsentClarificationFacts,
+  });
+
+  const telemetry_fact_sources = [
+    "latestOutboundBodyContainsAdaptiveProposalBindingNeedle",
+    "evaluateAdaptiveProposalAmbiguousConsentGate",
+    "buildTransactionalInboundLaneFactsPackage",
+  ];
+
+  const lane = await produceInboundV3RelationshipSms({
+    facts,
+    telemetry_fact_sources,
+  });
+
+  const baseTelemetry = () => ({
+    route_purpose: "adaptive_proposal_consent_clarification" as const,
+    branch_name: "adaptive_proposal_consent_clarification",
+    branch_migrated_to_lane: true,
+    adaptive_consent_clarification_facts_summary: slimAdaptiveConsentClarificationFactsForTelemetry(
+      args.adaptiveConsentClarificationFacts
+    ),
+    server_action_taken: "none" as const,
+    state_remains_pending: true as const,
+  });
+
+  if (!lane.shouldSend || !lane.body.trim()) {
+    await markJobFinal({
+      messageSid: args.job.message_sid,
+      status: "cancelled",
+      lastError: formatInboundV3LaneNoSendLastError(lane, baseTelemetry()),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_lane_no_send", {
+      message_sid: args.job.message_sid,
+      commitment_id: args.commitment.id,
+      reason: lane.noSendReason,
+    });
+    return { ok: false };
+  }
+
+  const v3BrainMetadata: Record<string, unknown> = {
+    ...lane.metadata,
+    inbound_v3_relationship_lane: true,
+    inbound_v3_lane_used: true,
+    v3_lane_turn_purpose: lane.turnPurpose,
+    route_purpose: facts.route_purpose,
+    branch_migrated_to_lane: true,
+    branch_name: "adaptive_proposal_consent_clarification",
+    v3_lane_reply_source: "v3_inbound_relationship_lane",
+    v3_candidate_body: lane.body,
+    old_inbound_writer_used_as_voice: false,
+    old_inbound_writer_fact_sources: telemetry_fact_sources,
+    required_meaning_summary: args.adaptiveConsentClarificationFacts.required_meaning_summary,
+    server_action_taken: "none",
+    state_remains_pending: true,
+    adaptive_consent_clarification_facts_summary: slimAdaptiveConsentClarificationFactsForTelemetry(
+      args.adaptiveConsentClarificationFacts
+    ),
+  };
+
+  const voicePack = await northStarGatePersistBodyAsync(lane.body, {
+    job: args.job,
+    channel: "clarification",
+    lastOutboundBody: contextPacket.latestOutboundBody ?? null,
+    effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
+    behaviorStatement: args.commitment.behavior_statement,
+    finalEventType: contextPacket.finalEventType ?? null,
+    replySource: "v3_inbound_relationship_lane",
+    contextPacket,
+    activeCommitmentId: args.commitment.id,
+    normalCoaching: true,
+    v3BrainMetadata,
+  });
+
+  if (!voicePack.voice.shouldSend) {
+    await markJobFinal({
+      messageSid: args.job.message_sid,
+      status: "cancelled",
+      lastError: finalVoiceSkipLastError(voicePack.voice, {
+        ...baseTelemetry(),
+        v3_lane_reply_source: "v3_inbound_relationship_lane",
+        v3_candidate_body: lane.body.slice(0, 500),
+        lane_metadata: lane.metadata,
+        north_star_gate: {
+          original_body: voicePack.northStarMeta.originalBody,
+          final_body: voicePack.northStarVisibleBody,
+          north_star_gate_source: voicePack.northStarMeta.source,
+          north_star_gate_reasons: voicePack.northStarMeta.blockedReasons,
+          ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
+        },
+        final_voice_gate: voicePack.voice.metadata,
+        should_send: false,
+      }),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_final_voice_suppressed", {
+      message_sid: args.job.message_sid,
+    });
+    return { ok: false };
+  }
+
+  const gatedBody = voicePack.voice.body;
+  const now = new Date().toISOString();
+  const { data: persistedLane } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      reply_body: gatedBody,
+      status: "reply_ready",
+      next_retry_at: now,
+      updated_at: now,
+      last_error: null,
+    })
+    .eq("message_sid", args.job.message_sid)
+    .eq("status", "processing")
+    .select()
+    .maybeSingle();
+
+  if (!persistedLane) {
+    const j2 = await loadJob(args.job.message_sid);
+    if (j2?.reply_body?.trim()) {
+      await commitAndSendInboundCoachReply(j2, args.userId);
+      return { ok: true, sentBody: j2.reply_body.trim() };
+    }
+    throw new Error("adaptive_proposal_consent_clarification_reply_ready_persist_failed");
+  }
+
+  const fresh = (await loadJob(args.job.message_sid)) ?? args.job;
+  await commitAndSendInboundCoachReply(fresh, args.userId);
+  console.info("[sms-inbound-coach] adaptive_proposal_consent_clarification_lane_sent", {
+    message_sid: args.job.message_sid,
+    commitment_id: args.commitment.id,
+    inbound_v3_lane_used: true,
+    route_purpose: facts.route_purpose,
+    branch_migrated_to_lane: true,
+    branch_name: "adaptive_proposal_consent_clarification",
+    v3_lane_reply_source: "v3_inbound_relationship_lane",
+    v3_candidate_body: gatedBody.slice(0, 500),
+    should_send: true,
+    server_action_taken: "none",
+    state_remains_pending: true,
+    adaptive_consent_clarification_facts_summary: slimAdaptiveConsentClarificationFactsForTelemetry(
+      args.adaptiveConsentClarificationFacts
+    ),
+    north_star_gate: {
+      original_body: voicePack.northStarMeta.originalBody,
+      final_body: voicePack.northStarVisibleBody,
+      north_star_gate_source: voicePack.northStarMeta.source,
+      north_star_gate_reasons: voicePack.northStarMeta.blockedReasons,
+      ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
+    },
+    final_voice_gate: voicePack.voice.metadata,
+  });
+  return { ok: true, sentBody: gatedBody };
+}
+
+/**
+ * Phase 3F-4 Slice 1 — commitment_change_handoff: visible SMS from inbound V3 relationship lane only.
+ * Server-owned Wave4 pending resolution runs upstream; no deterministic/V3-refine fallback as final body.
+ */
+async function persistCommitmentChangeHandoffLaneAndSend(args: {
+  job: JobRow;
+  userId: string;
+  commitment: ActiveV2CommitmentRow;
+  timezone: string;
+  inboundRaw: string;
+  splitSuppressedMessageSids: string[];
+  gatedDecision: V2InboundGatedDecision;
+  deterministicEventType: "user_yes" | "user_no" | "user_partial";
+  commitmentChangeFacts: InboundV3CommitmentChangeFacts;
+  wave4PendingResult: Awaited<ReturnType<typeof applyWave4SmsCommitmentPendingResolution>>;
+  shouldPersistNonOutcomeMemoryEvent: boolean;
+  memorySignalStored: ReturnType<typeof buildStoredMemorySignalPayload> | null;
+}): Promise<{ ok: true; sentBody: string } | { ok: false }> {
+  const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
+  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+    job: args.job,
+    userId: args.userId,
+    commitment: args.commitment,
+    timezone: args.timezone,
+    inboundRaw: args.inboundRaw,
+    splitSuppressedMessageSids: args.splitSuppressedMessageSids,
+    routePurpose: "commitment_change_handoff",
+    branchName: "commitment_change_handoff",
+    wave11MemoryConfirmationPending: wave11MemoryPending,
+    commitmentChangeFacts: args.commitmentChangeFacts,
+    gatedDecisionOverride: args.gatedDecision,
+    deterministicClassifierOverride: args.deterministicEventType,
+  });
+
+  const telemetry_fact_sources = [
+    "deriveSmsCommitmentChangeIntent",
+    "applyWave4SmsCommitmentPendingResolution",
+    "buildCommitmentChangeInboundFactsFromWave4",
+    "buildTransactionalInboundLaneFactsPackage",
+  ];
+
+  const lane = await produceInboundV3RelationshipSms({
+    facts,
+    telemetry_fact_sources,
+  });
+
+  const baseTelemetry = () => ({
+    route_purpose: "commitment_change_handoff" as const,
+    branch_name: "commitment_change_handoff",
+    branch_migrated_to_lane: true,
+    commitment_change_facts_summary: slimCommitmentChangeFactsForTelemetry(args.commitmentChangeFacts),
+    pending_resolution_created: args.commitmentChangeFacts.pending_resolution_created,
+    pending_resolution_type: args.commitmentChangeFacts.pending_resolution_type,
+    pending_resolution_skip_reason: args.commitmentChangeFacts.pending_resolution_skip_reason,
+    existing_pending_resolution: args.commitmentChangeFacts.existing_pending_resolution,
+    server_state_transition_summary: args.commitmentChangeFacts.server_state_transition_summary,
+    required_meaning_summary: args.commitmentChangeFacts.required_meaning_summary,
+    required_verbatim_substrings: args.commitmentChangeFacts.required_verbatim_substrings ?? null,
+  });
+
+  if (!lane.shouldSend || !lane.body.trim()) {
+    await markJobFinal({
+      messageSid: args.job.message_sid,
+      status: "cancelled",
+      lastError: formatInboundV3LaneNoSendLastError(lane, {
+        ...baseTelemetry(),
+      }),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] commitment_change_handoff_lane_no_send", {
+      message_sid: args.job.message_sid,
+      commitment_id: args.commitment.id,
+      reason: lane.noSendReason,
+    });
+    return { ok: false };
+  }
+
+  const v3BrainMetadata: Record<string, unknown> = {
+    ...lane.metadata,
+    inbound_v3_relationship_lane: true,
+    inbound_v3_lane_used: true,
+    v3_lane_turn_purpose: lane.turnPurpose,
+    v3_lane_reply_source: "v3_inbound_relationship_lane",
+    v3_candidate_body: lane.body,
+    old_inbound_writer_used_as_voice: false,
+    old_inbound_writer_fact_sources: telemetry_fact_sources,
+    ...baseTelemetry(),
+  };
+
+  const voicePack = await northStarGatePersistBodyAsync(lane.body, {
+    job: args.job,
+    channel: "inbound_coach_reply",
+    lastOutboundBody: contextPacket.latestOutboundBody ?? null,
+    effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
+    behaviorStatement: args.commitment.behavior_statement,
+    finalEventType: contextPacket.finalEventType ?? null,
+    replySource: "v3_inbound_relationship_lane",
+    contextPacket,
+    activeCommitmentId: args.commitment.id,
+    normalCoaching: true,
+    v3BrainMetadata,
+  });
+
+  const runRecordedSideEffects = async () => {
+    if (
+      args.wave4PendingResult.pendingApplied &&
+      args.memorySignalStored != null &&
+      args.memorySignalStored.memory_signal_detected === true &&
+      args.gatedDecision.mode === "commitment_change_handoff"
+    ) {
+      const mergedPr = await mergeSmsPendingResolutionPayload({
+        commitmentId: args.commitment.id,
+        merge: (prev) => ({
+          ...prev,
+          memory_signal_snapshot: pickBoundedMemorySnapshotForPending(args.memorySignalStored!),
+          last_inbound_memory_signal_at: new Date().toISOString(),
+        }),
+      });
+      if (!mergedPr.ok) {
+        console.warn("[v9.1-memory-signals] pending_payload_merge_failed", {
+          commitment_id: args.commitment.id,
+          error: mergedPr.error,
+        });
+      }
+    }
+    if (args.shouldPersistNonOutcomeMemoryEvent && args.memorySignalStored != null) {
+      await insertV2SmsMemorySignalEvent({
+        commitmentId: args.commitment.id,
+        clerkUserId: args.userId,
+        messageSid: args.job.message_sid,
+        messagePreview: args.inboundRaw,
+        gatedMode: args.gatedDecision.mode,
+        memorySignal: args.memorySignalStored,
+      });
+    }
+    await recordV2SendTimeProfileInboundEngagement(args.userId, args.timezone, new Date());
+  };
+
+  await runRecordedSideEffects();
+
+  if (!voicePack.voice.shouldSend) {
+    await markJobFinal({
+      messageSid: args.job.message_sid,
+      status: "cancelled",
+      lastError: finalVoiceSkipLastError(voicePack.voice, {
+        ...baseTelemetry(),
+        v3_lane_reply_source: "v3_inbound_relationship_lane",
+        v3_candidate_body: lane.body.slice(0, 500),
+        lane_metadata: lane.metadata,
+        north_star_gate: {
+          original_body: voicePack.northStarMeta.originalBody,
+          final_body: voicePack.northStarVisibleBody,
+          north_star_gate_source: voicePack.northStarMeta.source,
+          north_star_gate_reasons: voicePack.northStarMeta.blockedReasons,
+          ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
+        },
+        final_voice_gate: voicePack.voice.metadata,
+        should_send: false,
+      }),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] commitment_change_handoff_final_voice_suppressed", {
+      message_sid: args.job.message_sid,
+    });
+    return { ok: false };
+  }
+
+  const gatedBody = voicePack.voice.body;
+  const now = new Date().toISOString();
+  const { data: persistedLane } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      reply_body: gatedBody,
+      status: "reply_ready",
+      next_retry_at: now,
+      updated_at: now,
+      last_error: null,
+    })
+    .eq("message_sid", args.job.message_sid)
+    .eq("status", "processing")
+    .select()
+    .maybeSingle();
+
+  if (!persistedLane) {
+    const j2 = await loadJob(args.job.message_sid);
+    if (j2?.reply_body?.trim()) {
+      await commitAndSendInboundCoachReply(j2, args.userId);
+      return { ok: true, sentBody: j2.reply_body.trim() };
+    }
+    throw new Error("commitment_change_handoff_reply_ready_persist_failed");
+  }
+
+  const fresh = (await loadJob(args.job.message_sid)) ?? args.job;
+  await commitAndSendInboundCoachReply(fresh, args.userId);
+  console.info("[sms-inbound-coach] commitment_change_handoff_lane_sent", {
+    message_sid: args.job.message_sid,
+    commitment_id: args.commitment.id,
+    inbound_v3_lane_used: true,
+    v3_lane_reply_source: "v3_inbound_relationship_lane",
+    v3_candidate_body: gatedBody.slice(0, 500),
+    should_send: true,
+    twilio_send_attempted: true,
+    ...baseTelemetry(),
+    north_star_gate: {
+      original_body: voicePack.northStarMeta.originalBody,
+      final_body: voicePack.northStarVisibleBody,
+      north_star_gate_source: voicePack.northStarMeta.source,
+      north_star_gate_reasons: voicePack.northStarMeta.blockedReasons,
+      ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
+    },
+    final_voice_gate: voicePack.voice.metadata,
+  });
+  return { ok: true, sentBody: gatedBody };
+}
+
+async function handleAdaptiveProposalConsentAmbiguousInbound(
+  job: JobRow,
+  userId: string,
+  commitment: ActiveV2CommitmentRow,
+  timezone: string
+): Promise<boolean> {
+  if (!isV2PendingProposalValid(commitment)) return false;
+  const proposalText = commitment.adaptive_proposal_text?.trim();
+  if (!proposalText) return false;
+
+  const { data: lastCtx } = await supabaseServer
+    .from("sms_last_outbound_context")
+    .select("full_body")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+  const lastBody = typeof lastCtx?.full_body === "string" ? lastCtx.full_body : "";
+  if (!latestOutboundBodyContainsAdaptiveProposalBindingNeedle(lastBody, proposalText)) return false;
+
+  const raw = (job.raw_body || "").trim();
+  const classification = classifyV2InboundReply(raw);
+  if (classification.eventType === "user_yes" || classification.eventType === "user_no") return false;
+
+  if (isLikelySmsComplianceOrOptOutTurn(raw)) return false;
+  if (isLikelyCommitmentChangeIntentTurn(raw)) return false;
+
+  const gate = evaluateAdaptiveProposalAmbiguousConsentGate({ inboundBody: raw, classification });
+  if (!gate.shouldRoute) return false;
+
+  const contractKind = await resolvePendingProposalContractKind({
+    commitmentId: commitment.id,
+    proposalText,
+  });
+  const digest = proposalText.length > 180 ? `${proposalText.slice(0, 177)}...` : proposalText;
+  const legacyPreview =
+    "Reply YES or NO if you want this adjusted ask, or NO to keep your current bar.".slice(0, 500);
+  const requiredMeaning =
+    "Ask the user to reply with a clear YES or NO about the pending adaptive proposal only before any change. Do not imply they already accepted or declined. Do not treat this as answering today's accountability check.";
+
+  const adaptiveConsentClarificationFacts: InboundV3AdaptiveConsentClarificationFacts = {
+    latest_outbound_was_proposal: true,
+    pending_proposal_valid: true,
+    proposal_kind: String(contractKind),
+    proposal_text_digest: digest,
+    inbound_parse: gate.inboundParse,
+    server_action_taken: "none",
+    state_remains_pending: true,
+    required_meaning_summary: requiredMeaning,
+    legacy_clarification_preview: legacyPreview,
+    inbound_message_sid: job.message_sid,
+  };
+
+  const r = await persistAdaptiveProposalConsentClarificationAndSend({
+    job,
+    userId,
+    commitment,
+    timezone,
+    inboundRaw: raw,
+    adaptiveConsentClarificationFacts,
+  });
+  if (r.ok) {
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+  }
+  return true;
 }
 
 async function markJobFinal(args: {
@@ -2296,15 +2763,14 @@ async function processV2NormalInboundOutcome(
     }
   }
 
-  let commitmentChangeWave4Body: string | null = null;
-  let wave4PendingResult: Awaited<ReturnType<typeof applyWave4SmsCommitmentPendingResolution>> | null =
-    null;
+  let wave4PendingResult: Awaited<ReturnType<typeof applyWave4SmsCommitmentPendingResolution>> | null = null;
+  let handoffCommitmentIntentPack: V2SmsCommitmentIntentPack | null = null;
+  let wave4PendingResolutionApplyException: string | null = null;
   if (gatedDecision.mode === "commitment_change_handoff") {
-    const intentPack = deriveSmsCommitmentChangeIntent({
+    handoffCommitmentIntentPack = deriveSmsCommitmentChangeIntent({
       rawBody: userMessage,
       interpretation: shadowInterpretationRaw,
     });
-    let wave4Reply = buildSmsCommitmentChangeCoachReply(intentPack);
     try {
       const prWave = await applyWave4SmsCommitmentPendingResolution({
         commitmentId: commitment.id,
@@ -2312,12 +2778,9 @@ async function processV2NormalInboundOutcome(
         commitment,
         messageSid: job.message_sid,
         rawBody: userMessage,
-        intentPack,
+        intentPack: handoffCommitmentIntentPack,
       });
       wave4PendingResult = prWave;
-      if (prWave.skipReason === "existing_pending") {
-        wave4Reply = appendWhenExistingPendingResolution(wave4Reply);
-      }
       if (prWave.pendingApplied) {
         await recomputeV2CoachingMemory(commitment.id, {
           reasonCode: "wave4_sms_pending_resolution",
@@ -2325,81 +2788,22 @@ async function processV2NormalInboundOutcome(
       }
       console.info("[wave4-sms-commitment] pending_resolution", {
         commitment_id: commitment.id,
-        intent: intentPack.intent,
+        intent: handoffCommitmentIntentPack.intent,
         pending_applied: prWave.pendingApplied,
         pending_kind: prWave.pendingKind,
         skip: prWave.skipReason,
       });
     } catch (e) {
+      wave4PendingResolutionApplyException = e instanceof Error ? e.message : String(e);
       console.error("[wave4-sms-commitment] pending_resolution_failed", {
         commitment_id: commitment.id,
-        message: e instanceof Error ? e.message : String(e),
+        message: wave4PendingResolutionApplyException,
       });
-    }
-    commitmentChangeWave4Body = wave4Reply;
-  }
-
-  if (
-    gatedDecision.mode === "commitment_change_handoff" &&
-    commitmentChangeWave4Body?.trim() &&
-    normalCoachingV3Eligible
-  ) {
-    const linesHandoff = buildMinimalInboundTranscriptLines(
-      convPackFull,
-      userMessage,
-      lastOutboundSmsPreview
-    );
-    try {
-      const wh = await produceV3InboundCoachDraft({
-        userMessage,
-        messageSid: job.message_sid,
-        commitment,
-        effectiveAsk: effectiveBehavior,
-        timezone,
-        northStarPacket: northStarPktForV3,
-        convPackRecentLines: linesHandoff,
-        expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
-        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-        todayCompleted: priorYesForV3,
-        coachingMemory: coachingMemoryRow,
-        recentEvents,
-        gatedDecision,
-        deterministicEventType: eventType,
-        priorDraftHint: { source: "wave4_commitment_handoff", text: commitmentChangeWave4Body.trim() },
-      });
-      v3DraftAttempt = wh;
-      v3BrainPayload = wh.brain;
-    } catch (e) {
-      console.warn("[v3-sms-brain] wave4_handoff_refine_failed", {
-        commitment_id: commitment.id,
-        message: e instanceof Error ? e.message : String(e),
-      });
-      try {
-        const rec = await recoverV3InboundCoachDraftFromArgs({
-          userMessage,
-          messageSid: job.message_sid,
-          commitment,
-          effectiveAsk: effectiveBehavior,
-          timezone,
-          northStarPacket: northStarPktForV3,
-          convPackRecentLines: linesHandoff,
-          expectedReplySemantics: northStarPktForV3.expectedReplySemantics as ExpectedReplySemanticsV3,
-          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-          todayCompleted: priorYesForV3,
-          coachingMemory: coachingMemoryRow,
-          recentEvents,
-          gatedDecision,
-          deterministicEventType: eventType,
-          priorDraftHint: { source: "wave4_commitment_handoff", text: commitmentChangeWave4Body.trim() },
-        });
-        v3DraftAttempt = rec;
-        v3BrainPayload = rec.brain;
-      } catch (e2) {
-        console.warn("[v3-sms-brain] wave4_handoff_recover_failed", {
-          commitment_id: commitment.id,
-          message: e2 instanceof Error ? e2.message : String(e2),
-        });
-      }
+      wave4PendingResult = {
+        pendingApplied: false,
+        pendingKind: null,
+        skipReason: null,
+      };
     }
   }
 
@@ -2599,6 +3003,41 @@ async function processV2NormalInboundOutcome(
     nonOutcomeMemoryModes.includes(gatedDecision.mode) &&
     !(gatedDecision.mode === "commitment_change_handoff" && wave4PendingResult?.pendingApplied === true);
 
+  if (gatedDecision.mode === "commitment_change_handoff" && handoffCommitmentIntentPack != null) {
+    const w4 =
+      wave4PendingResult ??
+      ({
+        pendingApplied: false,
+        pendingKind: null,
+        skipReason: null,
+      } as Awaited<ReturnType<typeof applyWave4SmsCommitmentPendingResolution>>);
+    const commitmentChangeFacts = buildCommitmentChangeInboundFactsFromWave4({
+      intentPack: handoffCommitmentIntentPack,
+      commitment,
+      effectiveAsk: effectiveBehavior,
+      userMessage,
+      messageSid: job.message_sid,
+      wave4: w4,
+      pendingResolutionApplyException: wave4PendingResolutionApplyException,
+      legacyCommitmentChangeReplyPreview: buildSmsCommitmentChangeCoachReply(handoffCommitmentIntentPack),
+    });
+    await persistCommitmentChangeHandoffLaneAndSend({
+      job,
+      userId,
+      commitment,
+      timezone,
+      inboundRaw: userMessage,
+      splitSuppressedMessageSids,
+      gatedDecision,
+      deterministicEventType: eventType,
+      commitmentChangeFacts,
+      wave4PendingResult: w4,
+      shouldPersistNonOutcomeMemoryEvent,
+      memorySignalStored,
+    });
+    return;
+  }
+
   let usedLegacyResolveHint = false;
 
   let resolved;
@@ -2666,7 +3105,7 @@ async function processV2NormalInboundOutcome(
       effectiveAsk: effectiveBehavior,
       behaviorStatement: commitment.behavior_statement,
       trySuggestedWhenAgrees: needInterpretation && !gatedEnabled,
-      commitmentChangeWave4Body,
+      commitmentChangeWave4Body: undefined,
       buildOutcomeAi: async () => {
         const finalEventType = gatedDecision.final_event_type ?? eventType;
         const serverStrategy = strategyForInboundEventType(finalEventType);
@@ -2846,7 +3285,7 @@ async function processV2NormalInboundOutcome(
           effectiveAsk: effectiveBehavior,
           behaviorStatement: commitment.behavior_statement,
           trySuggestedWhenAgrees,
-          commitmentChangeWave4Body,
+          commitmentChangeWave4Body: undefined,
           buildOutcomeAi: async () => {
             const finalEventType = gatedDecision.final_event_type ?? eventType;
             const serverStrategy = strategyForInboundEventType(finalEventType);
@@ -4528,6 +4967,10 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
   pendingResolutionFacts?: InboundV3PendingResolutionFacts | null;
   memoryConfirmationFacts?: InboundV3MemoryConfirmationFacts | null;
   contractConsentFacts?: InboundV3ContractConsentFacts | null;
+  adaptiveConsentClarificationFacts?: InboundV3AdaptiveConsentClarificationFacts | null;
+  commitmentChangeFacts?: InboundV3CommitmentChangeFacts | null;
+  gatedDecisionOverride?: V2InboundGatedDecision | null;
+  deterministicClassifierOverride?: "user_yes" | "user_no" | "user_partial" | null;
 }): Promise<{ facts: InboundV3RelationshipFacts; contextPacket: NorthStarSmsContextPacket }> {
   const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(args.commitment.id);
   const recentEvents = await getRecentV2EventsForAi(args.commitment.id);
@@ -4548,6 +4991,10 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
       ? checkPayload.body_preview.trim().slice(0, 260)
       : null;
   const preferredName = await fetchPreferredNameForInboundLane(args.userId);
+  const northStarFinalEventType =
+    args.gatedDecisionOverride != null
+      ? args.gatedDecisionOverride.final_event_type ?? null
+      : classification.eventType;
   const northStarPkt = buildInboundNorthStarContextPacket({
     commitmentId: args.commitment.id,
     behaviorStatement: args.commitment.behavior_statement ?? "",
@@ -4559,7 +5006,7 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     recentEvents,
     convPack,
     coachingMemory: coachingMemoryRow,
-    finalEventType: classification.eventType,
+    finalEventType: northStarFinalEventType,
     lifeDesires: null,
     peopleSummary: null,
     identityAnchorText: null,
@@ -4597,8 +5044,8 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     suppressedMessageSids: args.splitSuppressedMessageSids,
     transcriptLines: minimalLines,
     northStarPacket: northStarPkt,
-    gatedDecision: V3_REFINE_ONLY_GATED,
-    deterministicEventType: classification.eventType,
+    gatedDecision: args.gatedDecisionOverride ?? V3_REFINE_ONLY_GATED,
+    deterministicEventType: args.deterministicClassifierOverride ?? classification.eventType,
     doNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
     relationshipProfileSummary: relationshipTone,
     conversationBrain: { enabled: false },
@@ -4621,6 +5068,8 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     pendingResolutionFacts: args.pendingResolutionFacts ?? undefined,
     memoryConfirmationFacts: args.memoryConfirmationFacts ?? undefined,
     contractConsentFacts: args.contractConsentFacts ?? undefined,
+    adaptiveConsentClarificationFacts: args.adaptiveConsentClarificationFacts ?? undefined,
+    commitmentChangeFacts: args.commitmentChangeFacts ?? undefined,
   });
   return { facts, contextPacket: northStarPkt };
 }
@@ -6003,6 +6452,10 @@ async function handleV2SmsInboundCoachJob(
   }
 
   if (await processV2ContractProposalConsent(job, userId, c, timezone)) {
+    return;
+  }
+
+  if (await handleAdaptiveProposalConsentAmbiguousInbound(job, userId, c, timezone)) {
     return;
   }
 

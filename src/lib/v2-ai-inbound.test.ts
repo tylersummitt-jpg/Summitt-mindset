@@ -14,6 +14,7 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   defaultGatedDecision,
+  decideV2InboundOutcomeFromInterpretation,
   resolveV2InboundCoachReplyBody,
   resolveV2InboundGatedDecision,
   validateAiSuggestedReplyForInbound,
@@ -213,6 +214,41 @@ describe("resolveV2InboundGatedDecision — future forward planning", () => {
       rawInboundBody: "Let's increase the goal.",
     });
     expect(d.decision_reason).toBe("goal_increase_intent_clarify_stretch_vs_durable");
+    expect(d.should_write_outcome_event).toBe(false);
+  });
+});
+
+describe("decideV2InboundOutcomeFromInterpretation — commitment_change_handoff (3F-4)", () => {
+  it("routes to commitment_change_handoff when AI signals commitment change without clear accountability answer", () => {
+    const interpretation: V2InboundShadowInterpretationResult = {
+      ok: true,
+      model: "gpt-4o-mini",
+      data: {
+        version: 1,
+        intent: "commitment_change_request",
+        proposed_outcome: "partial",
+        confidence: 0.88,
+        needs_clarification: true,
+        clarification_question: null,
+        is_repair: false,
+        repair_of: null,
+        user_asks_question: false,
+        suggests_commitment_change: false,
+        blocker_likely: false,
+        discouraged_or_frustrated: false,
+        substitution_counts: false,
+        opt_out_like_but_not_stop: false,
+        reasoning_short: "User wants a different bar",
+        suggested_reply: null,
+      },
+    };
+    const d = decideV2InboundOutcomeFromInterpretation({
+      deterministicEventType: "user_partial",
+      deterministicNormalizedHint: "unclear",
+      rawInboundBody: "I need to change my goal — this bar is not right",
+      interpretation,
+    });
+    expect(d.mode).toBe("commitment_change_handoff");
     expect(d.should_write_outcome_event).toBe(false);
   });
 });

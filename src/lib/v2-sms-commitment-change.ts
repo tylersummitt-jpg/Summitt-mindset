@@ -246,9 +246,12 @@ export function buildSmsCommitmentChangeCoachReply(pack: V2SmsCommitmentIntentPa
 
 const SMS_MAX_WAVE4 = 300;
 
+/** Shown when an SMS commitment update is already in flight (Wave4 / lane facts only). */
+export const COMMITMENT_CHANGE_EXISTING_PENDING_FOLLOWUP_NOTE =
+  "You already have a commitment update in progress—reply here to finish it before starting another.";
+
 export function appendWhenExistingPendingResolution(base: string): string {
-  const tail =
-    " You already have a commitment update in progress—reply here to finish it before starting another.";
+  const tail = " " + COMMITMENT_CHANGE_EXISTING_PENDING_FOLLOWUP_NOTE;
   const merged = base.trimEnd() + tail;
   return merged.length <= SMS_MAX_WAVE4 ? merged : base;
 }

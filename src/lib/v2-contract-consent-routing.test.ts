@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldConsumeInboundAsContractProposalConsent } from "@/lib/v2-contract-consent-routing";
+import {
+  latestOutboundBodyContainsAdaptiveProposalBindingNeedle,
+  shouldConsumeInboundAsContractProposalConsent,
+} from "@/lib/v2-contract-consent-routing";
 
 describe("shouldConsumeInboundAsContractProposalConsent", () => {
   const proposal = "Today only: 30 minutes of deep work";
@@ -61,6 +64,16 @@ describe("shouldConsumeInboundAsContractProposalConsent", () => {
         latestOutboundBody: "How did the hour go?",
       })
     ).toBe(false);
+  });
+
+  it("latestOutboundBodyContainsAdaptiveProposalBindingNeedle mirrors consent needle rule", () => {
+    expect(
+      latestOutboundBodyContainsAdaptiveProposalBindingNeedle(
+        `Let’s simplify for a bit: ${proposal} Want me to hold you to that? Yes or no.`,
+        proposal
+      )
+    ).toBe(true);
+    expect(latestOutboundBodyContainsAdaptiveProposalBindingNeedle("How did the hour go?", proposal)).toBe(false);
   });
 });
 
