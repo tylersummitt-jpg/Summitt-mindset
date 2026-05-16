@@ -166,6 +166,82 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.body).toBe("");
   });
 
+  it("returns invalid_json after one strict JSON retry when both completions are non-parseable", async () => {
+    createMock
+      .mockResolvedValueOnce({ choices: [{ message: { content: "not-json" } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: "{bad" } }] });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("invalid_json");
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.metadata.lane_json_retry_attempted).toBe(true);
+    expect(r.metadata.lane_json_retry_succeeded).toBe(false);
+  });
+
+  it("invalid JSON on first completion succeeds after one strict JSON retry", async () => {
+    createMock
+      .mockResolvedValueOnce({ choices: [{ message: { content: "not-json" } }] })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: "It sounds like you're feeling really overwhelmed right now, Angel. What is one tiny next step?",
+                no_send_reason: null,
+                turn_purpose: "inbound_ack",
+                voice_confidence: 0.82,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).toContain("overwhelmed");
+    expect(r.metadata.lane_json_retry_attempted).toBe(true);
+    expect(r.metadata.lane_json_retry_succeeded).toBe(true);
+  });
+
+  it("empathetic inbound body does not hit long_user_quote false positive", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "I see you're facing challenges during other exercises — what would help you stay with it for five minutes?",
+              no_send_reason: null,
+              turn_purpose: "inbound_ack",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks forbidden coaching clichés from model output", async () => {
     createMock.mockResolvedValue({
       choices: [

@@ -230,7 +230,8 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
     hits.push("empty_or_trivial_body");
   }
   const checks: Array<[string, RegExp]> = [
-    ["long_user_quote", /["'][^"']{45,}["']/],
+    /** Verbatim echo of a long user span in double quotes (SMS rarely uses `"`; avoids apostrophe-in-contraction false positives). */
+    ["long_user_quote", /"[^"]{45,}"/],
     ["quote_with_ellipsis", /["'][^"']*…[^"']*["']/],
     ["got_it_quote_lead", /\bGot it\s+[—-]/i],
     ["next_concrete_move", /\bwhat'?s the next concrete move\b/i],
@@ -304,6 +305,7 @@ const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
   "powerful",
   "great_step_forward",
   "generic_day_reminder_reset",
+  "did_you_manage",
 ]);
 
 export function isRepairableFinalVoiceBlockedReason(reason: string): boolean {
@@ -380,6 +382,7 @@ RULES FOR body:
 - Exactly 1–2 sentences maximum.
 - Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.
 - Remove or rewrite away the issues implied by blocked_reasons (e.g. shorten if too_many_sentences or too_long; remove banned phrasing).
+- If blocked_reasons includes did_you_manage: keep the same accountability meaning but do NOT use the exact phrase "Did you manage" — use natural alternatives (e.g. whether you completed the step, how the planned block went, if the calls landed).
 - No markdown, bullets, or role labels.
 - Do not quote the user. Do not paste raw database fields or internal system names.
 - Do not add generic motivation filler.

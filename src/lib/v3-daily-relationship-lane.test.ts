@@ -130,16 +130,163 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(false);
   });
 
-  it("returns shouldSend=false on invalid JSON", async () => {
-    createMock.mockResolvedValue({
-      choices: [{ message: { content: "not-json" } }],
-    });
+  it("returns shouldSend=false on invalid JSON when strict retry also fails", async () => {
+    createMock
+      .mockResolvedValueOnce({ choices: [{ message: { content: "not-json" } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: "{broken" } }] });
     const r = await produceDailyV3RelationshipSms({
       facts: baseFacts(),
       telemetry_fact_sources: [],
     });
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("invalid_json");
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.metadata.lane_json_retry_attempted).toBe(true);
+    expect(r.metadata.lane_json_retry_succeeded).toBe(false);
+  });
+
+  it("invalid JSON on first completion succeeds after one strict JSON retry", async () => {
+    createMock
+      .mockResolvedValueOnce({ choices: [{ message: { content: "not-json" } }] })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: "What is the smallest win you can lock before noon?",
+                no_send_reason: null,
+                turn_purpose: "daily_accountability",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_json_retry_attempted).toBe(true);
+    expect(r.metadata.lane_json_retry_succeeded).toBe(true);
+  });
+
+  it("did_you_manage triggers lane repair then sends when repair removes the phrase", async () => {
+    const bad = "Welcome back, Angel! Did you manage to make the calls as planned at 2 PM?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: bad,
+                no_send_reason: null,
+                turn_purpose: "daily",
+                voice_confidence: 0.7,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Welcome back, Angel — did the 2 PM calls land the way you planned?",
+                used_strategy: "rewrite_accountability_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toContain("did you manage");
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(true);
+  });
+
+  it("did_you_manage lane repair that still outputs Did you manage no-sends", async () => {
+    const bad = "Welcome back! Did you manage to make the calls?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: bad,
+                no_send_reason: null,
+                turn_purpose: "daily",
+                voice_confidence: 0.7,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Did you manage to finish those anyway?",
+                used_strategy: "bad",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(false);
+  });
+
+  it("malformed Did raw phrase happen today stays hard no-send without lane repair", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "You made a comeback yesterday! Did Focused on work without distractions happen today?",
+              no_send_reason: null,
+              turn_purpose: "daily",
+              voice_confidence: 0.7,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(r.metadata.blocked_reasons).toContain("malformed_did_raw_phrase_happen_today");
+    expect(r.metadata.lane_repair_attempted).toBeUndefined();
   });
 
   it("does not use deterministic daily fallback — blocked copy yields no_send from post-validate", async () => {

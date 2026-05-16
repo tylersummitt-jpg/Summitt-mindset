@@ -98,6 +98,31 @@ describe("detectFinalVoiceBlockedReasons", () => {
     expect(reasons).toContain("let_me_know_how_it_went");
     expect(reasons).not.toContain("too_many_sentences");
   });
+
+  it("does not treat contractions or empathetic paraphrase as long_user_quote (double-quote span only)", () => {
+    expect(
+      detectFinalVoiceBlockedReasons(
+        "It sounds like you're feeling really overwhelmed right now, Angel. What is one tiny next step?"
+      )
+    ).not.toContain("long_user_quote");
+    expect(
+      detectFinalVoiceBlockedReasons(
+        "I see you're facing challenges during other exercises and that can throw the rhythm. What feels most doable next?"
+      )
+    ).not.toContain("long_user_quote");
+  });
+
+  it("long_user_quote fires on a long span inside ASCII double quotes (verbatim user echo)", () => {
+    const longEcho =
+      'Thanks for sharing. When you said "I need to step back from everything for a while and reset my priorities completely" I heard you. What is one boundary you want tonight?';
+    expect(detectFinalVoiceBlockedReasons(longEcho)).toContain("long_user_quote");
+  });
+
+  it("did_you_manage is a detector hit for normal accountability wording", () => {
+    expect(
+      detectFinalVoiceBlockedReasons("Welcome back, Angel! Did you manage to make the calls as planned at 2 PM?")
+    ).toContain("did_you_manage");
+  });
 });
 
 describe("partitionFinalVoiceBlockedReasons", () => {
@@ -116,7 +141,14 @@ describe("partitionFinalVoiceBlockedReasons", () => {
   it("isRepairableFinalVoiceBlockedReason matches partition allowlist", () => {
     expect(isRepairableFinalVoiceBlockedReason("too_long")).toBe(true);
     expect(isRepairableFinalVoiceBlockedReason("journey")).toBe(true);
+    expect(isRepairableFinalVoiceBlockedReason("did_you_manage")).toBe(true);
     expect(isRepairableFinalVoiceBlockedReason("structural_role_leak")).toBe(false);
+  });
+
+  it("partitions did_you_manage as repairable while malformed raw Did… happen stays hard", () => {
+    const p = partitionFinalVoiceBlockedReasons(["did_you_manage", "malformed_did_raw_phrase_happen_today"]);
+    expect(p.repairable).toEqual(["did_you_manage"]);
+    expect(p.hard).toEqual(["malformed_did_raw_phrase_happen_today"]);
   });
 });
 

@@ -15,6 +15,7 @@ import {
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
+import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 
 const DAILY_LANE_MAX_CHARS = 300;
@@ -307,19 +308,24 @@ ${factsJson.slice(0, 12000)}
 
 Write JSON only.`;
 
-  let raw = "";
+  let laneOpenAiJsonMeta: Record<string, unknown> = {};
+  let parsed: LaneModelJson | null = null;
   try {
-    const completion = await client.chat.completions.create({
+    const jsonOut = await runLaneOpenAiJsonWithOneRetry<LaneModelJson>({
+      client,
       model: "gpt-4o-mini",
       temperature: 0.35,
-      max_tokens: 220,
-      response_format: { type: "json_object" },
-      messages: [
+      maxTokens: 220,
+      primaryMessages: [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
+      jsonSchemaReminder:
+        "Keys: should_send (boolean), body (string), no_send_reason (string|null), turn_purpose (string), voice_confidence (number 0-1 or null), used_facts (string[]), safety_notes (string[]).",
+      parse: safeJsonParse,
     });
-    raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    parsed = jsonOut.value;
+    laneOpenAiJsonMeta = jsonOut.retryMeta as unknown as Record<string, unknown>;
   } catch (e) {
     return empty("openai_request_failed", true, {
       lane_stage: "openai_error",
@@ -327,9 +333,11 @@ Write JSON only.`;
     });
   }
 
-  const parsed = safeJsonParse(raw);
   if (!parsed) {
-    return empty("invalid_json", true, { lane_stage: "parse", raw_preview: raw.slice(0, 200) });
+    return empty("invalid_json", true, {
+      lane_stage: "parse",
+      ...laneOpenAiJsonMeta,
+    });
   }
 
   const shouldSend = parsed.should_send === true;
@@ -358,6 +366,7 @@ Write JSON only.`;
       safetyNotes,
       metadata: {
         ...baseMeta,
+        ...laneOpenAiJsonMeta,
         lane_stage: "model_no_send",
         v3_candidate_body: "",
       },
@@ -366,11 +375,11 @@ Write JSON only.`;
   }
 
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body" });
+    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body", ...laneOpenAiJsonMeta });
   }
   body = body.replace(/^["']|["']$/g, "").trim();
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty" });
+    return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta });
   }
 
   const blocked = detectFinalVoiceBlockedReasons(body);
@@ -393,6 +402,7 @@ Write JSON only.`;
         safetyNotes: [...safetyNotes, ...blocked.map((b) => `blocked:${b}`)],
         metadata: {
           ...baseMeta,
+          ...laneOpenAiJsonMeta,
           lane_stage: "post_validate_blocked",
           v3_candidate_body: body,
           blocked_reasons: blocked,
@@ -423,6 +433,7 @@ Write JSON only.`;
         safetyNotes: [...safetyNotes, ...blocked.map((b) => `blocked:${b}`)],
         metadata: {
           ...baseMeta,
+          ...laneOpenAiJsonMeta,
           lane_stage: "post_validate_repair_failed",
           v3_candidate_body: body,
           blocked_reasons: blocked,
@@ -460,6 +471,7 @@ Write JSON only.`;
         ],
         metadata: {
           ...baseMeta,
+          ...laneOpenAiJsonMeta,
           lane_stage: "post_validate_repair_failed",
           v3_candidate_body: originalCandidateSnapshot,
           blocked_reasons: blocked,
@@ -504,6 +516,7 @@ Write JSON only.`;
       safetyNotes: [...safetyNotes, `missing_verbatim:${missingVerb.slice(0, 80)}`],
       metadata: {
         ...baseMeta,
+        ...laneOpenAiJsonMeta,
         lane_stage: "verbatim_validation_failed",
         v3_candidate_body: body,
         first_missing_verbatim_preview: missingVerb.slice(0, 120),
@@ -523,6 +536,7 @@ Write JSON only.`;
     safetyNotes,
     metadata: {
       ...baseMeta,
+      ...laneOpenAiJsonMeta,
       lane_stage: successLaneStage,
       v3_candidate_body: body,
       ...successRepairExtra,
