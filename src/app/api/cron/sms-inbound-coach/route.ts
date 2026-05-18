@@ -259,6 +259,14 @@ import {
 } from "@/lib/v3-inbound-relationship-lane";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import {
+  buildSmsRelationshipMemoryPacket,
+  slimMemoryPacketForFacts,
+} from "@/lib/sms-relationship-memory-packet";
+import {
+  upsertCommitmentSmsThreadMemoryFromInbound,
+  upsertCommitmentSmsThreadMemoryFromOutbound,
+} from "@/lib/v2-commitment-sms-thread-memory";
+import {
   buildV1ExtraNotebookAppend,
   buildV3LearningNotebookLine,
   deriveV3LearningSignalsFromContext,
@@ -1276,6 +1284,39 @@ async function loadJob(messageSid: string): Promise<JobRow | null> {
   return data as JobRow | null;
 }
 
+/** M2B-3: durable inbound projection — best-effort; never fails the coach reply path. */
+async function persistInboundSmsThreadMemoryProjectionBestEffort(args: {
+  commitmentId: string;
+  clerkUserId: string;
+  inboundBody: string;
+  messageSid: string;
+  classification?: string | null;
+  routePurpose?: string | null;
+}): Promise<void> {
+  const body = args.inboundBody.trim();
+  if (!body || isLikelySmsComplianceOrOptOutTurn(body)) return;
+
+  const result = await upsertCommitmentSmsThreadMemoryFromInbound({
+    commitmentId: args.commitmentId,
+    clerkUserId: args.clerkUserId,
+    inboundBody: body,
+    inboundAt: new Date(),
+    messageSid: args.messageSid,
+    classification: args.classification ?? null,
+    routePurpose: args.routePurpose ?? null,
+  });
+
+  if (!result.ok) {
+    console.warn("[sms-inbound-coach] v2_sms_thread_memory_inbound_upsert_failed", {
+      commitment_id: args.commitmentId,
+      message_sid: args.messageSid,
+      route_purpose: args.routePurpose ?? null,
+      classification: args.classification ?? null,
+      error: result.error,
+    });
+  }
+}
+
 async function processV2NormalInboundOutcome(
   job: JobRow,
   userId: string,
@@ -1288,7 +1329,23 @@ async function processV2NormalInboundOutcome(
   const { eventType, normalizedHint } = classification;
   const effectiveBehavior = getEffectiveCoachingAsk(commitment);
   const userMessage = (job.raw_body || "").trim();
+
+  await persistInboundSmsThreadMemoryProjectionBestEffort({
+    commitmentId: commitment.id,
+    clerkUserId: userId,
+    inboundBody: userMessage,
+    messageSid: job.message_sid,
+    classification: eventType,
+    routePurpose: "normal_inbound_reply",
+  });
+
   const recentEvents = await getRecentV2EventsForAi(commitment.id);
+  const inboundRelationshipMemoryPacket = slimMemoryPacketForFacts(
+    await buildSmsRelationshipMemoryPacket({
+      clerkUserId: userId,
+      commitmentId: commitment.id,
+    })
+  );
 
   const brokePause = commitment.accountability_phase === "low_pressure_reactivation";
   if (brokePause) {
@@ -1442,6 +1499,15 @@ async function processV2NormalInboundOutcome(
     });
 
     if (v3Resolution) {
+      await persistInboundSmsThreadMemoryProjectionBestEffort({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundBody: userMessage,
+        messageSid: job.message_sid,
+        classification: eventType,
+        routePurpose: "open_question_answer",
+      });
+
       const learningOpen = deriveV3LearningSignalsFromContext({
         recentEventsNewestFirst: recentEvents,
         coachingMemory: coachingMemoryRow,
@@ -1527,6 +1593,13 @@ async function processV2NormalInboundOutcome(
         clarification_required: false,
       };
 
+      const openQuestionMemoryPacket = slimMemoryPacketForFacts(
+        await buildSmsRelationshipMemoryPacket({
+          clerkUserId: userId,
+          commitmentId: commitment.id,
+        })
+      );
+
       const oqInboundFacts = buildInboundV3RelationshipFacts({
         clerkUserId: userId,
         preferredName,
@@ -1560,6 +1633,7 @@ async function processV2NormalInboundOutcome(
         branchName: "open_question_answer",
         branchMigratedToLane: true,
         openQuestionFacts: openQuestionFactsPayload,
+        relationshipMemoryPacket: openQuestionMemoryPacket,
       });
 
       const openLaneRes = await produceInboundV3RelationshipSms({
@@ -1985,6 +2059,7 @@ async function processV2NormalInboundOutcome(
         branchName: "conversation_brain_legacy_disabled_lane",
         branchMigratedToLane: true,
         conversationBrainFallbackFacts: cbFallbackFacts,
+        relationshipMemoryPacket: inboundRelationshipMemoryPacket,
       });
 
       const cbLaneRes = await produceInboundV3RelationshipSms({
@@ -2599,6 +2674,7 @@ async function processV2NormalInboundOutcome(
         suggested_move: String(centralSmsTurnShadowStored.central_turn_purpose ?? "respond_to_thread").slice(0, 120),
         legacy_tether_text_preview: pivotLegacyPreview.slice(0, 500),
       },
+      relationshipMemoryPacket: inboundRelationshipMemoryPacket,
     });
 
     const pivotLaneRes = await produceInboundV3RelationshipSms({
@@ -2847,6 +2923,7 @@ async function processV2NormalInboundOutcome(
           latest_question: latestCheckQuestion,
           legacy_clarification_text_preview: arcLegacyPreview.slice(0, 500),
         },
+        relationshipMemoryPacket: inboundRelationshipMemoryPacket,
       });
 
       const arcLaneRes = await produceInboundV3RelationshipSms({
@@ -3131,6 +3208,7 @@ async function processV2NormalInboundOutcome(
       ...(commitmentChangeContextFactsForLane != null
         ? { commitmentChangeContextFacts: commitmentChangeContextFactsForLane }
         : {}),
+      relationshipMemoryPacket: inboundRelationshipMemoryPacket,
     });
 
     const laneTelemetryFactSources = [
@@ -4206,17 +4284,25 @@ async function processV2NormalInboundOutcome(
     .select()
     .maybeSingle();
 
+  const inboundV3ThreadMemory: InboundCoachReplyThreadMemoryContext | undefined =
+    inboundRelationshipLane != null
+      ? {
+          commitmentId: commitment.id,
+          expectedAnswerType: northStarPktForV3.expectedReplySemantics ?? null,
+        }
+      : undefined;
+
   if (!persisted) {
     const j2 = await loadJob(job.message_sid);
     if (j2?.reply_body?.trim()) {
-      await commitAndSendInboundCoachReply(j2, userId);
+      await commitAndSendInboundCoachReply(j2, userId, inboundV3ThreadMemory);
       return;
     }
     throw new Error("v2_reply_ready_persist_failed");
   }
 
   const fresh = (await loadJob(job.message_sid)) ?? job;
-  await commitAndSendInboundCoachReply(fresh, userId);
+  await commitAndSendInboundCoachReply(fresh, userId, inboundV3ThreadMemory);
 }
 
 async function processV2BlockerCapture(
@@ -4281,6 +4367,12 @@ async function processV2BlockerCapture(
   }
 
   const blockerCoachingMemory = await loadV2CoachingMemoryForPrompt(commitment.id);
+  const blockerRelationshipMemoryPacket = slimMemoryPacketForFacts(
+    await buildSmsRelationshipMemoryPacket({
+      clerkUserId: userId,
+      commitmentId: commitment.id,
+    })
+  );
 
   const blockerMemoryTry =
     isV2InboundMemorySignalsEnabled() &&
@@ -4500,6 +4592,7 @@ async function processV2BlockerCapture(
         blocker_text: blockerText.trim().slice(0, 2000),
         legacy_tether_text_preview: pivotLegacyPreview.slice(0, 500),
       },
+      relationshipMemoryPacket: blockerRelationshipMemoryPacket,
     });
 
     const blkPivotLaneRes = await produceInboundV3RelationshipSms({
@@ -4710,6 +4803,7 @@ async function processV2BlockerCapture(
       suggested_next_move: suggestedNextMove,
       legacy_blocker_ack_preview: ackMachineBody.slice(0, 500),
     },
+    relationshipMemoryPacket: blockerRelationshipMemoryPacket,
   });
 
   const ackLaneRes = await produceInboundV3RelationshipSms({
@@ -5241,6 +5335,24 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
 }): Promise<{ facts: InboundV3RelationshipFacts; contextPacket: NorthStarSmsContextPacket }> {
   const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(args.commitment.id);
   const recentEvents = await getRecentV2EventsForAi(args.commitment.id);
+
+  await persistInboundSmsThreadMemoryProjectionBestEffort({
+    commitmentId: args.commitment.id,
+    clerkUserId: args.userId,
+    inboundBody: args.inboundRaw,
+    messageSid: args.job.message_sid,
+    classification:
+      args.deterministicClassifierOverride ??
+      classifyV2InboundReply(args.inboundRaw.trim()).eventType,
+    routePurpose: args.routePurpose,
+  });
+
+  const relationshipMemoryPacket = slimMemoryPacketForFacts(
+    await buildSmsRelationshipMemoryPacket({
+      clerkUserId: args.userId,
+      commitmentId: args.commitment.id,
+    })
+  );
   const convPack = await buildV2SmsConversationContextPack({
     clerkUserId: args.userId,
     commitmentId: args.commitment.id,
@@ -5337,6 +5449,7 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     contractConsentFacts: args.contractConsentFacts ?? undefined,
     adaptiveConsentClarificationFacts: args.adaptiveConsentClarificationFacts ?? undefined,
     commitmentChangeFacts: args.commitmentChangeFacts ?? undefined,
+    relationshipMemoryPacket,
   });
   return { facts, contextPacket: northStarPkt };
 }
@@ -5446,13 +5559,19 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
   if (!persistedLane) {
     const j2 = await loadJob(args.job.message_sid);
     if (j2?.reply_body?.trim()) {
-      await commitAndSendInboundCoachReply(j2, args.userId);
+      await commitAndSendInboundCoachReply(j2, args.userId, {
+        commitmentId: args.commitment.id,
+        expectedAnswerType: args.relationshipFacts.thread.expected_reply_semantics,
+      });
       return { ok: true, sentBody: j2.reply_body.trim() };
     }
     throw new Error(`${args.logTag}_reply_ready_persist_failed`);
   }
   const fresh = (await loadJob(args.job.message_sid)) ?? args.job;
-  await commitAndSendInboundCoachReply(fresh, args.userId);
+  await commitAndSendInboundCoachReply(fresh, args.userId, {
+    commitmentId: args.commitment.id,
+    expectedAnswerType: args.relationshipFacts.thread.expected_reply_semantics,
+  });
   console.info(`[sms-inbound-coach] ${args.logTag}_lane_sent`, {
     message_sid: args.job.message_sid,
     commitment_id: args.commitment.id,
@@ -6741,8 +6860,17 @@ async function handleV2SmsInboundCoachJob(
   );
 }
 
+type InboundCoachReplyThreadMemoryContext = {
+  commitmentId: string;
+  expectedAnswerType?: string | null;
+};
+
 /** Finalize job: reply_ready → Twilio send → sent (shared by legacy coach path + V2). */
-async function commitAndSendInboundCoachReply(job: JobRow, userId: string): Promise<void> {
+async function commitAndSendInboundCoachReply(
+  job: JobRow,
+  userId: string,
+  threadMemory?: InboundCoachReplyThreadMemoryContext | null
+): Promise<void> {
   const replyBody = (job.reply_body || "").trim();
   if (!replyBody) {
     throw new Error("missing_reply_body_before_send");
@@ -6856,6 +6984,25 @@ async function commitAndSendInboundCoachReply(job: JobRow, userId: string): Prom
     chunkCount: sendResult.chunkCount,
     firstSid: sendResult.firstSid,
   });
+
+  if (threadMemory?.commitmentId && sid && bodyToSend) {
+    const mem = await upsertCommitmentSmsThreadMemoryFromOutbound({
+      commitmentId: threadMemory.commitmentId,
+      clerkUserId: userId,
+      sentBody: bodyToSend,
+      sentAt: new Date(),
+      messageSid: sid,
+      source: "inbound_coach_reply",
+      expectedAnswerType: threadMemory.expectedAnswerType ?? null,
+    });
+    if (!mem.ok) {
+      console.warn("[sms-inbound-coach] v2_sms_thread_memory_outbound_upsert_failed", {
+        message_sid: job.message_sid,
+        commitment_id: threadMemory.commitmentId,
+        error: mem.error,
+      });
+    }
+  }
 }
 
 async function processJob(claimedJob: JobRow): Promise<void> {

@@ -11,6 +11,11 @@ import type { V2NextMoveKind } from "@/lib/v2-sms-accountability";
 import { formatCoachingMemoryPromptBlock } from "@/lib/v2-coaching-memory-prompt";
 import type { V2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory-prompt";
 import {
+  applySmsMemoryAntiRepeatGuard,
+  buildAntiRepeatDetectArgsFromDailyFacts,
+  shouldRunDailyMemoryRepeatGuard,
+} from "@/lib/sms-memory-anti-repeat";
+import {
   detectFinalVoiceBlockedReasons,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
@@ -19,6 +24,16 @@ import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 
 const DAILY_LANE_MAX_CHARS = 300;
+
+/** Wrapper must not restate server-owned binding instructional phrases (contract_prompt only). */
+export const DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT = [
+  "keep this line",
+  "7 days",
+  "same focus",
+  "same commitment",
+  "hold you to",
+  "recommit",
+] as const;
 
 export type DailyV3RouteKind =
   | "main_active_accountability"
@@ -76,6 +91,17 @@ export type DailyV3RelationshipFacts = {
     latest_inbound_sms: string | null;
     recent_transcript_or_context_block: string | null;
     latest_open_question: string | null;
+    latest_answer_after_open_question?: string | null;
+    open_question_pending?: boolean;
+    projection_used?: boolean;
+    open_question_source?: "projection" | "runtime_guess" | "none";
+    answer_source?: "projection" | "runtime_guess" | "none";
+    recent_exact_thread_text?: string | null;
+    last_outbound_full_body?: string | null;
+    last_inbound_full_body?: string | null;
+    last_5_coach_questions?: string[];
+    last_5_user_answers?: string[];
+    memory_priority_rules?: string[];
     do_not_repeat_hints: string[];
     coaching_memory_snippet: string;
     recent_pattern_hints: string | null;
@@ -113,6 +139,8 @@ export type DailyV3RelationshipFacts = {
     if_unsafe_return_no_send: true;
     /** Each non-empty string MUST appear verbatim in `body` when should_send is true. */
     required_verbatim_substrings?: string[];
+    /** Contract wrapper only: phrases that must not appear outside binding_text_verbatim. */
+    wrapper_must_not_repeat_substrings?: string[];
   };
 };
 
@@ -180,8 +208,16 @@ function routeSpecificSystemAddendum(f: DailyV3RelationshipFacts): string {
     );
   }
   if (f.route_kind === "contract_prompt" && f.contract_proposal) {
+    const wrapperForbidden =
+      f.constraints.wrapper_must_not_repeat_substrings?.length
+        ? f.constraints.wrapper_must_not_repeat_substrings
+        : [...DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT];
     lines.push(
-      `CONTRACT_PROMPT_ROUTE: You MUST include this binding text EXACTLY once, verbatim (character-for-character), in the SMS body: ${JSON.stringify(f.contract_proposal.binding_text_verbatim)}. Write a short human relationship wrapper around it; user must be able to reply YES or NO to the binding offer. Do not change binding meaning or add new legal obligations.`
+      `CONTRACT_PROMPT_ROUTE: Paste contract_proposal.binding_text_verbatim EXACTLY once in the SMS body — character-for-character, unchanged. Do not paraphrase or restate the binding instruction.`,
+      `The human wrapper is short context only (e.g. "Let's make this simple." / "Here's the line." / "If this is right, confirm it.").`,
+      `Do NOT use these phrases anywhere in the wrapper (they already belong inside the binding): ${wrapperForbidden.map((p) => JSON.stringify(p)).join(", ")}.`,
+      `One YES/NO consent ask total — not two questions. Do not change binding meaning or add new legal obligations.`,
+      `Binding for verbatim inclusion: ${JSON.stringify(f.contract_proposal.binding_text_verbatim)}`
     );
   }
   if (f.constraints.required_verbatim_substrings?.length) {
@@ -242,6 +278,157 @@ function validateRequiredVerbatims(body: string, required: string[] | undefined)
   return null;
 }
 
+function countSubstringOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  let count = 0;
+  let from = 0;
+  while (true) {
+    const idx = haystack.indexOf(needle, from);
+    if (idx < 0) break;
+    count += 1;
+    from = idx + needle.length;
+  }
+  return count;
+}
+
+/** Detect wrapper restating binding instructional language outside the required verbatim binding. */
+export function detectContractWrapperDuplicates(
+  body: string,
+  bindingVerbatim: string,
+  wrapperForbidden: readonly string[]
+): string[] {
+  const hits: string[] = [];
+  const binding = bindingVerbatim.trim();
+  if (!binding) return hits;
+
+  const occurrences = countSubstringOccurrences(body, binding);
+  if (occurrences === 0) return hits;
+  if (occurrences > 1) hits.push("contract_binding_repeated");
+
+  const firstIdx = body.indexOf(binding);
+  const wrapperOnly = `${body.slice(0, firstIdx)}${body.slice(firstIdx + binding.length)}`.toLowerCase();
+
+  for (const phrase of wrapperForbidden) {
+    const p = phrase.trim().toLowerCase();
+    if (!p) continue;
+    if (wrapperOnly.includes(p)) {
+      hits.push(`contract_wrapper_duplicate:${phrase}`);
+    }
+  }
+
+  const duplicatePatterns: Array<[RegExp, string]> = [
+    [/keep this line/gi, "keep this line"],
+    [/same focus/gi, "same focus"],
+    [/same commitment/gi, "same commitment"],
+  ];
+  for (const [re, label] of duplicatePatterns) {
+    const matches = body.match(re);
+    if (matches && matches.length > 1 && !hits.some((h) => h.includes(label))) {
+      hits.push(`contract_wrapper_duplicate:${label}`);
+    }
+  }
+
+  return hits;
+}
+
+type ContractWrapperRepairJson = {
+  body?: unknown;
+  used_strategy?: unknown;
+  safety_notes?: unknown;
+};
+
+function safeParseContractWrapperRepairJson(raw: string): ContractWrapperRepairJson | null {
+  try {
+    return JSON.parse(raw) as ContractWrapperRepairJson;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * OpenAI repair for contract wrapper duplication only. Preserves binding_text_verbatim exactly.
+ */
+async function repairDailyContractWrapperDuplicate(args: {
+  originalBody: string;
+  bindingVerbatim: string;
+  blockedReasons: string[];
+  factsJson: unknown;
+}): Promise<{ body: string; metadata: Record<string, unknown> } | null> {
+  const client = getOpenAIClient();
+  if (!client) return null;
+
+  const binding = args.bindingVerbatim.trim();
+  if (!binding) return null;
+
+  let factsSnippet: string;
+  try {
+    const raw = JSON.stringify(args.factsJson ?? null);
+    factsSnippet = raw.length > 6000 ? `${raw.slice(0, 5999)}…` : raw;
+  } catch {
+    factsSnippet = "(facts_json_unserializable)";
+  }
+
+  const system = `You repair contract proposal SMS copy for Summitt Mindset.
+
+OUTPUT: strict JSON only with keys:
+body (string, one SMS),
+used_strategy (string, short),
+safety_notes (string array, may be empty)
+
+RULES:
+- BINDING_VERBATIM must appear in body exactly once, character-for-character unchanged: ${JSON.stringify(binding)}
+- Remove duplicate wrapper language that restates the binding (keep this line, 7 days, same focus, same commitment, hold you to, recommit) OUTSIDE the binding.
+- Short human wrapper only before and/or after the binding — do not paraphrase the binding instruction.
+- One YES or NO consent invitation total — not two questions.
+- No markdown, bullets, or role labels. One short SMS; no newlines in body.`;
+
+  const userContent = [
+    `blocked_reasons: ${args.blockedReasons.join(", ")}`,
+    `original_candidate_sms: ${args.originalBody}`,
+    `ACCOUNTABILITY_FACTS_JSON (facts only):`,
+    factsSnippet,
+  ].join("\n");
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      max_tokens: 280,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    const parsed = safeParseContractWrapperRepairJson(raw);
+    const bodyRaw = typeof parsed?.body === "string" ? parsed.body.replace(/\r?\n/g, " ").trim() : "";
+    const repaired = bodyRaw.replace(/^["']|["']$/g, "").trim();
+    if (!repaired) return null;
+
+    if (countSubstringOccurrences(repaired, binding) !== 1) return null;
+
+    const used_strategy =
+      typeof parsed?.used_strategy === "string" ? parsed.used_strategy.trim() : "contract_wrapper_dedup";
+    const sn = Array.isArray(parsed?.safety_notes)
+      ? parsed.safety_notes.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean)
+      : [];
+
+    return {
+      body: repaired,
+      metadata: {
+        contract_wrapper_repair_used_strategy: used_strategy,
+        contract_wrapper_repair_safety_notes: sn,
+      },
+    };
+  } catch (e) {
+    console.warn("[v3-daily-relationship-lane] contract_wrapper_repair_failed", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return null;
+  }
+}
+
 /** Contract / binding routes: lane repair must not rewrite required verbatim substrings. */
 function dailyLanePostValidateRepairExcluded(facts: DailyV3RelationshipFacts): boolean {
   return (
@@ -291,6 +478,13 @@ export async function produceDailyV3RelationshipSms(
 
 RULES:
 - Use ACCOUNTABILITY_FACTS_JSON only as facts — never copy old template wording or paraphrase labeled machine drafts.
+- When thread_memory.projection_used is true, latest_open_question and latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and previews.
+- thread_memory.recent_exact_thread_text (when present) is the highest-priority transcript — it outranks coaching_memory_snippet, body_preview, and older transcript blocks when they conflict.
+- Do NOT ask the same question as any entry in thread_memory.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
+- If thread_memory.open_question_pending is false and latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
+- If thread_memory.latest_open_question is already answered in recent exact thread, advance from the answer.
+- Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
+- Avoid repeating yesterday's opener or the same coach question from recent exact thread.
 - Anchor to the user's real commitment (effective ask + state), without pasting raw title or behavior_statement as a quoted phrase or "Did [raw] happen today?" / "Did you protect [raw]?" style checks.
 - One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, one clear question or one concrete action.
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
@@ -503,6 +697,109 @@ Write JSON only.`;
     };
   }
 
+  if (args.facts.route_kind === "contract_prompt" && args.facts.contract_proposal) {
+    const bindingVerbatim = args.facts.contract_proposal.binding_text_verbatim.trim();
+    const wrapperForbidden =
+      args.facts.constraints.wrapper_must_not_repeat_substrings?.length
+        ? args.facts.constraints.wrapper_must_not_repeat_substrings
+        : [...DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT];
+
+    let contractDup = detectContractWrapperDuplicates(body, bindingVerbatim, wrapperForbidden);
+    if (contractDup.length > 0) {
+      const originalContractSnapshot = body;
+      const originalContractDup = contractDup;
+      const contractRepair = await repairDailyContractWrapperDuplicate({
+        originalBody: body,
+        bindingVerbatim,
+        blockedReasons: contractDup,
+        factsJson: args.facts,
+      });
+
+      if (!contractRepair) {
+        return {
+          body: "",
+          shouldSend: false,
+          noSendReason: "contract_wrapper_duplicate",
+          replySource: "v3_daily_relationship_lane",
+          turnPurpose: turnPurpose || "no_send",
+          voiceConfidence,
+          usedFacts,
+          safetyNotes: [...safetyNotes, ...contractDup.map((c) => `blocked:${c}`)],
+          metadata: {
+            ...baseMeta,
+            ...laneOpenAiJsonMeta,
+            lane_stage: "contract_wrapper_repair_failed",
+            v3_candidate_body: originalContractSnapshot,
+            contract_wrapper_blocked_reasons: contractDup,
+            contract_wrapper_repair_attempted: true,
+            contract_wrapper_repair_succeeded: false,
+          },
+          openAiOk: true,
+        };
+      }
+
+      body = contractRepair.body.replace(/^["']|["']$/g, "").trim();
+      contractDup = detectContractWrapperDuplicates(body, bindingVerbatim, wrapperForbidden);
+      const missingBindingAfterContractRepair = validateRequiredVerbatims(
+        body,
+        args.facts.constraints.required_verbatim_substrings
+      );
+      const fvgAfterContractRepair = detectFinalVoiceBlockedReasons(body);
+
+      if (
+        contractDup.length > 0 ||
+        missingBindingAfterContractRepair != null ||
+        fvgAfterContractRepair.length > 0
+      ) {
+        return {
+          body: "",
+          shouldSend: false,
+          noSendReason:
+            missingBindingAfterContractRepair != null
+              ? "missing_required_verbatim"
+              : "contract_wrapper_duplicate",
+          replySource: "v3_daily_relationship_lane",
+          turnPurpose: turnPurpose || "no_send",
+          voiceConfidence,
+          usedFacts,
+          safetyNotes: [
+            ...safetyNotes,
+            ...contractDup.map((c) => `blocked:${c}`),
+            ...fvgAfterContractRepair.map((b) => `repaired_blocked:${b}`),
+          ],
+          metadata: {
+            ...baseMeta,
+            ...laneOpenAiJsonMeta,
+            lane_stage: "contract_wrapper_repair_failed",
+            v3_candidate_body: originalContractSnapshot,
+            contract_wrapper_blocked_reasons: contractDup,
+            contract_wrapper_repair_attempted: true,
+            contract_wrapper_repair_succeeded: false,
+            repaired_candidate_body: body,
+            repaired_contract_wrapper_blocked_reasons: contractDup,
+            repaired_fvg_blocked_reasons: fvgAfterContractRepair,
+            ...(missingBindingAfterContractRepair != null
+              ? { first_missing_verbatim_preview: missingBindingAfterContractRepair.slice(0, 120) }
+              : {}),
+            ...contractRepair.metadata,
+          },
+          openAiOk: true,
+        };
+      }
+
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = {
+        ...successRepairExtra,
+        contract_wrapper_repair_attempted: true,
+        contract_wrapper_repair_succeeded: true,
+        original_contract_wrapper_blocked_reasons: originalContractDup,
+        original_candidate_body_preview: bodyPreview(originalContractSnapshot),
+        repaired_candidate_body: body,
+        ...contractRepair.metadata,
+      };
+    }
+  }
+
   const missingVerb = validateRequiredVerbatims(body, args.facts.constraints.required_verbatim_substrings);
   if (missingVerb != null) {
     return {
@@ -523,6 +820,66 @@ Write JSON only.`;
       },
       openAiOk: true,
     };
+  }
+
+  const memoryRepeatGuard = await applySmsMemoryAntiRepeatGuard({
+    routeKind: "daily",
+    routePurpose: args.facts.route_kind,
+    body,
+    factsJson: args.facts,
+    detectInput: buildAntiRepeatDetectArgsFromDailyFacts(args.facts, body),
+    enabled: shouldRunDailyMemoryRepeatGuard(args.facts),
+    validateAfterRepair: async (candidate) => {
+      const blockedAfter = detectFinalVoiceBlockedReasons(candidate);
+      if (blockedAfter.length > 0) {
+        return {
+          ok: false,
+          noSendReason: "lane_post_validate_blocked",
+          extraMeta: { repaired_blocked_reasons: blockedAfter },
+        };
+      }
+      const missingAfter = validateRequiredVerbatims(
+        candidate,
+        args.facts.constraints.required_verbatim_substrings
+      );
+      if (missingAfter != null) {
+        return {
+          ok: false,
+          noSendReason: "missing_required_verbatim",
+          extraMeta: { first_missing_verbatim_preview: missingAfter.slice(0, 120) },
+        };
+      }
+      return { ok: true };
+    },
+  });
+
+  if (memoryRepeatGuard.outcome === "no_send") {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: memoryRepeatGuard.noSendReason,
+      replySource: "v3_daily_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes,
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: "daily_thread_memory_repeat_guard_failed",
+        v3_candidate_body: body,
+        ...memoryRepeatGuard.metadata,
+      },
+      openAiOk: true,
+    };
+  }
+
+  body = memoryRepeatGuard.body;
+  if (memoryRepeatGuard.metadata.memory_repeat_guard_succeeded === true) {
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
+  } else if (Object.keys(memoryRepeatGuard.metadata).length > 0) {
+    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
   }
 
   return {

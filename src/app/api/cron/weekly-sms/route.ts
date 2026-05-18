@@ -26,6 +26,10 @@ import { NORTH_STAR_SMS_LONG_FORM_MAX_LEN, pickNorthStarWriterAttributionFields 
 import { buildWeeklySmsNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { appendPreservedSmsSuffix, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
+import {
+  buildSmsRelationshipMemoryPacket,
+  slimMemoryPacketForFacts,
+} from "@/lib/sms-relationship-memory-packet";
 import { produceWeeklyV3RelationshipSms } from "@/lib/v3-weekly-outbound-relationship-lane";
 import { buildWeeklyV3OutboundFactsForV2WeeklyProof } from "@/lib/weekly-sms-v2-weekly-lane-facts";
 
@@ -212,11 +216,27 @@ export async function GET(req: Request) {
           recentSmsThreadAppend: weeklySmsThreadAppend,
         });
         const deterministicPreviewBody = buildDeterministicWeeklyProofBody(pack);
+        let relationshipMemoryPacket = null;
+        try {
+          const memoryPacket = await buildSmsRelationshipMemoryPacket({
+            clerkUserId: user.id,
+            commitmentId: commitment.id,
+            now: localNow,
+          });
+          relationshipMemoryPacket = slimMemoryPacketForFacts(memoryPacket);
+        } catch (e) {
+          console.warn("[weekly-sms] relationship_memory_packet_failed", {
+            commitment_id: commitment.id,
+            clerk_user_id: user.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
         const weeklyV3TelemetryFactSources = [
           "v2_weekly_proof_pack",
           aiUsed ? "v2_weekly_proof_openai_preview" : "v2_weekly_proof_preview_no_openai",
           "v2_weekly_proof_deterministic_preview",
           ...(convForNorthStar ? (["v2_sms_conversation_context_pack"] as const) : []),
+          ...(relationshipMemoryPacket ? (["sms_relationship_memory_packet"] as const) : []),
         ];
         const weeklyFacts = buildWeeklyV3OutboundFactsForV2WeeklyProof({
           clerkUserId: user.id,
@@ -229,6 +249,7 @@ export async function GET(req: Request) {
           weeklySmsThreadAppend,
           oldWeeklyProofBodyPreview: oldProofPreviewBody,
           deterministicWeeklyBodyPreview: deterministicPreviewBody,
+          relationshipMemoryPacket,
         });
         const weeklyLane = await produceWeeklyV3RelationshipSms({
           facts: weeklyFacts,

@@ -16,7 +16,10 @@ vi.mock("openai", () => ({
 import { isV3RelationshipVoiceReplySource } from "@/lib/north-star-coach-sms";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
-import { produceWeeklyV3RelationshipSms } from "@/lib/v3-weekly-outbound-relationship-lane";
+import {
+  produceWeeklyV3RelationshipSms,
+  weeklyLaneLocalValidation,
+} from "@/lib/v3-weekly-outbound-relationship-lane";
 
 function baseFacts(overrides?: Partial<WeeklyV3OutboundFacts>): WeeklyV3OutboundFacts {
   const core: WeeklyV3OutboundFacts = {
@@ -39,9 +42,22 @@ function baseFacts(overrides?: Partial<WeeklyV3OutboundFacts>): WeeklyV3Outbound
       latest_outbound_preview: "Where did the hour land yesterday?",
       latest_inbound_preview: "Slid to afternoon",
       recent_transcript_lines: ["Coach: Where did the hour land?", "User: Slid to afternoon"],
+      recent_exact_thread_text: null,
+      last_outbound_full_body: null,
+      last_inbound_full_body: null,
+      last_5_coach_questions: [],
+      last_5_user_answers: [],
       latest_open_question: "What time is the real first block tomorrow?",
+      latest_answer_after_open_question: null,
+      open_question_pending: true,
+      open_question_source: null,
+      answer_source: null,
+      projection_used: false,
+      memory_packet_used: false,
+      recent_exact_message_count: null,
       do_not_repeat_hints: ["Do not re-ask yesterday's exact time"],
       coaching_memory_snippet: "User prefers morning blocks.",
+      memory_priority_rules: [],
     },
     weekly_proof: {
       week_start: "2026-05-04",
@@ -82,6 +98,18 @@ function baseFacts(overrides?: Partial<WeeklyV3OutboundFacts>): WeeklyV3Outbound
   };
 }
 
+function validWeeklyJson(body: string) {
+  return JSON.stringify({
+    should_send: true,
+    body,
+    no_send_reason: null,
+    route_purpose: "weekly_proof_v2",
+    voice_confidence: 0.78,
+    used_facts: ["rough_week"],
+    safety_notes: [],
+  });
+}
+
 describe("produceWeeklyV3RelationshipSms", () => {
   const env = { ...process.env };
 
@@ -99,15 +127,9 @@ describe("produceWeeklyV3RelationshipSms", () => {
       choices: [
         {
           message: {
-            content: JSON.stringify({
-              should_send: true,
-              body: "Rough week, but you still fought for mornings. What is the smallest guardrail before noon tomorrow?",
-              no_send_reason: null,
-              route_purpose: "weekly_proof_v2",
-              voice_confidence: 0.78,
-              used_facts: ["rough_week", "completed_count"],
-              safety_notes: [],
-            }),
+            content: validWeeklyJson(
+              "Rough week, but you still fought for mornings. What is the smallest guardrail before noon tomorrow?"
+            ),
           },
         },
       ],
@@ -140,10 +162,34 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(false);
   });
 
-  it("invalid JSON → shouldSend false, no fallback body", async () => {
-    createMock.mockResolvedValue({
-      choices: [{ message: { content: "not-json" } }],
+  it("invalid JSON on first completion succeeds after one strict JSON retry", async () => {
+    createMock
+      .mockResolvedValueOnce({ choices: [{ message: { content: "not-json" } }] })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: validWeeklyJson(
+                "You kept showing up despite friction. What is one anchor for next week?"
+              ),
+            },
+          },
+        ],
+      });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
     });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_json_retry_attempted).toBe(true);
+    expect(r.metadata.lane_json_retry_succeeded).toBe(true);
+  });
+
+  it("returns shouldSend=false on invalid JSON when strict retry also fails", async () => {
+    createMock
+      .mockResolvedValueOnce({ choices: [{ message: { content: "not-json" } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: "{broken" } }] });
     const r = await produceWeeklyV3RelationshipSms({
       facts: baseFacts(),
       telemetry_fact_sources: [],
@@ -152,6 +198,12 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.body).toBe("");
     expect(r.noSendReason).toBe("invalid_json");
     expect(r.openAiOk).toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.metadata.lane_json_retry_attempted).toBe(true);
+    expect(r.metadata.lane_json_retry_succeeded).toBe(false);
+    expect(r.metadata.lane_stage).toBe("parse");
+    expect(r.metadata.original_raw_preview).toBeDefined();
+    expect(r.metadata.retry_raw_preview).toBeDefined();
   });
 
   it("model should_send false → shouldSend false, no fallback body", async () => {
@@ -208,21 +260,166 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.noSendReason).toBe("empty_body_after_should_send");
   });
 
+  it("repairable let_me_know_how_it_went triggers lane repair then sends", async () => {
+    const cliche =
+      "Rough week, but you still logged wins. Who showed up for you this week? Let me know how it went.";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: validWeeklyJson(cliche) } }],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Rough week, but you still logged wins. Who showed up for you this week?",
+                used_strategy: "compress_remove_cliche",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toContain("let me know how it went");
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(true);
+    expect(r.metadata.lane_stage).toBe("post_validate_repaired");
+    expect(r.metadata.repaired_blocked_reasons).toEqual([]);
+    expect(r.metadata.original_blocked_reasons).toContain("let_me_know_how_it_went");
+    expect(r.metadata.repaired_candidate_body).toBeTruthy();
+  });
+
+  it("lane repair output is revalidated; still-failing repair no-sends", async () => {
+    const wordy =
+      "Great job on the week! You kept momentum and this journey felt powerful. Let me know how it went!";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: validWeeklyJson(wordy) } }],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Still great job on the week — keep the momentum going on this journey!",
+                used_strategy: "still_cliche",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("lane_post_validate_blocked");
+    expect(r.metadata.lane_stage).toBe("post_validate_repair_failed");
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(false);
+    expect(Array.isArray(r.metadata.repaired_blocked_reasons)).toBe(true);
+    expect((r.metadata.repaired_blocked_reasons as string[]).length).toBeGreaterThan(0);
+  });
+
+  it("hard local preview echo does not attempt lane repair", async () => {
+    const facts = baseFacts();
+    const echo = facts.weekly_proof.old_weekly_proof_body_preview!.slice(0, 48);
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson(`${echo} — so that is the line.`),
+          },
+        },
+      ],
+    });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("lane_post_validate_blocked");
+    expect(r.body).toBe("");
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(r.metadata.lane_repair_attempted).toBeFalsy();
+    expect(r.metadata.lane_stage).toBe("post_validate_blocked");
+    expect(r.metadata.hard_blocked_reasons).toEqual(
+      expect.arrayContaining(["echoes_old_proof_preview"])
+    );
+  });
+
+  it("hard FVG say_it_straight does not attempt lane repair", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("Say it straight — what is the one move for next week?"),
+          },
+        },
+      ],
+    });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("lane_post_validate_blocked");
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(r.metadata.lane_repair_attempted).toBeFalsy();
+    expect(r.metadata.hard_blocked_reasons).toContain("say_it_straight");
+  });
+
+  it("repaired body is revalidated against weekly local validation (preview echo still blocked)", async () => {
+    const facts = baseFacts();
+    const echo = facts.weekly_proof.old_weekly_proof_body_preview!.slice(0, 48);
+    const softOnly = "You had a wobbly week. Let me know how it went?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: validWeeklyJson(softOnly) } }],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: `${echo} — repaired but still echoes preview.`,
+                used_strategy: "bad_echo",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.lane_stage).toBe("post_validate_repair_failed");
+    expect(r.metadata.repaired_blocked_reasons).toEqual(
+      expect.arrayContaining(["echoes_old_proof_preview"])
+    );
+    expect(weeklyLaneLocalValidation(r.metadata.repaired_candidate_body as string, facts)).toContain(
+      "echoes_old_proof_preview"
+    );
+  });
+
   it("does not ship old weekly proof preview text as final body (mocked safe body)", async () => {
     const facts = baseFacts();
     createMock.mockResolvedValue({
       choices: [
         {
           message: {
-            content: JSON.stringify({
-              should_send: true,
-              body: "Week had friction; one clean hour still showed up. What is the first block tomorrow?",
-              no_send_reason: null,
-              route_purpose: "weekly_proof_v2",
-              voice_confidence: 0.7,
-              used_facts: ["rough_week"],
-              safety_notes: [],
-            }),
+            content: validWeeklyJson(
+              "Week had friction; one clean hour still showed up. What is the first block tomorrow?"
+            ),
           },
         },
       ],
@@ -241,15 +438,9 @@ describe("produceWeeklyV3RelationshipSms", () => {
       choices: [
         {
           message: {
-            content: JSON.stringify({
-              should_send: true,
-              body: "You kept answering even when the week wobbled. What is one non-negotiable anchor for next week?",
-              no_send_reason: null,
-              route_purpose: "weekly_proof_v2",
-              voice_confidence: 0.66,
-              used_facts: ["weekly_proof"],
-              safety_notes: [],
-            }),
+            content: validWeeklyJson(
+              "You kept answering even when the week wobbled. What is one non-negotiable anchor for next week?"
+            ),
           },
         },
       ],
@@ -262,37 +453,153 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.body).not.toContain("UNIQUE_LEGACY_TEMPLATE_SNIPPET");
   });
 
-  it("blocks echo of long preview substring (fail-closed)", async () => {
-    const facts = baseFacts();
-    const echo = facts.weekly_proof.old_weekly_proof_body_preview!.slice(0, 48);
+  it("isV3RelationshipVoiceReplySource recognizes v3_weekly_relationship_lane", () => {
+    expect(isV3RelationshipVoiceReplySource("v3_weekly_relationship_lane")).toBe(true);
+  });
+
+  it("system prompt includes recent exact thread and projection priority (M2B-6)", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
           message: {
-            content: JSON.stringify({
-              should_send: true,
-              body: `${echo} — so that is the line.`,
-              no_send_reason: null,
-              route_purpose: "weekly_proof_v2",
-              voice_confidence: 0.5,
-              used_facts: [],
-              safety_notes: [],
-            }),
+            content: validWeeklyJson("Solid week — one thread to carry into next week."),
+          },
+        },
+      ],
+    });
+    await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        thread: {
+          ...baseFacts().thread,
+          memory_packet_used: true,
+          projection_used: true,
+          recent_exact_thread_text: "Coach: What story will you dictate today?\nUser: Sunday School",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("recent_exact_thread_text");
+    expect(systemMsg).toContain("projection_used");
+    expect(systemMsg).toContain("last_5_coach_questions");
+  });
+
+  it("repairs repeated prior answered question on weekly (M2B-6)", async () => {
+    const rbQ = "What story will you dictate today?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: validWeeklyJson(rbQ),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Sunday School, the farm, and your mother's songs are a rich thread this week — which one feels alive to start?",
+                used_strategy: "memory_repeat_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        thread: {
+          ...baseFacts().thread,
+          memory_packet_used: true,
+          projection_used: true,
+          last_5_coach_questions: [rbQ],
+          latest_open_question: rbQ,
+          latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+          open_question_pending: false,
+          do_not_repeat_hints: [rbQ],
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).not.toBe(rbQ);
+    expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+  });
+
+  it("no-sends when weekly memory repeat repair still repeats (M2B-6)", async () => {
+    const rbQ = "What story will you dictate today?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: validWeeklyJson(rbQ),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: rbQ,
+                used_strategy: "memory_repeat_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        thread: {
+          ...baseFacts().thread,
+          memory_packet_used: true,
+          last_5_coach_questions: [rbQ],
+          latest_open_question: rbQ,
+          latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+          open_question_pending: false,
+          do_not_repeat_hints: [rbQ],
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("weekly_thread_memory_repeat_blocked");
+    expect(r.metadata.memory_repeat_no_send_reason).toBe("still_repeated_after_repair");
+  });
+
+  it("allows weekly memory callback without re-asking (M2B-6)", async () => {
+    const rbQ = "What story will you dictate today?";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("Use Sunday School or the farm this week."),
           },
         },
       ],
     });
     const r = await produceWeeklyV3RelationshipSms({
-      facts,
+      facts: baseFacts({
+        thread: {
+          ...baseFacts().thread,
+          memory_packet_used: true,
+          last_5_coach_questions: [rbQ],
+          latest_open_question: rbQ,
+          latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+          open_question_pending: false,
+          do_not_repeat_hints: [rbQ],
+        },
+      }),
       telemetry_fact_sources: [],
     });
-    expect(r.shouldSend).toBe(false);
-    expect(r.noSendReason).toBe("lane_post_validate_blocked");
-    expect(r.body).toBe("");
-  });
-
-  it("isV3RelationshipVoiceReplySource recognizes v3_weekly_relationship_lane", () => {
-    expect(isV3RelationshipVoiceReplySource("v3_weekly_relationship_lane")).toBe(true);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.memory_repeat_guard_attempted).toBeFalsy();
   });
 
   it("applyFinalVoiceOwnershipGate accepts safe weekly body with v3_weekly_relationship_lane", async () => {

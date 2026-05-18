@@ -112,6 +112,12 @@ import {
   type DailyV3RouteKind,
 } from "@/lib/v3-daily-relationship-lane";
 import {
+  buildDailyThreadMemoryFromPacket,
+  buildSmsRelationshipMemoryPacket,
+  type SmsRelationshipMemoryPacket,
+} from "@/lib/sms-relationship-memory-packet";
+import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
+import {
   evaluateCommitmentEvolutionForSms,
   pickWave7DailyEvolutionAction,
   shouldSurfaceWave7EvolutionDailyPurpose,
@@ -136,6 +142,30 @@ export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
+
+function assembleDailyThreadMemoryFromRelationshipPacket(
+  packet: SmsRelationshipMemoryPacket,
+  args: {
+    convLatestOutbound?: string | null;
+    convLatestInbound?: string | null;
+    recentTranscriptOrContextBlock?: string | null;
+    coachingMemorySnippet?: string;
+    extraDoNotRepeatHints?: string[];
+    recentPatternHints?: string | null;
+  }
+): DailyV3RelationshipFacts["thread_memory"] {
+  return {
+    ...buildDailyThreadMemoryFromPacket({
+      packet,
+      convLatestOutbound: args.convLatestOutbound,
+      convLatestInbound: args.convLatestInbound,
+      recentTranscriptOrContextBlock: args.recentTranscriptOrContextBlock,
+      coachingMemorySnippet: args.coachingMemorySnippet,
+      extraDoNotRepeatHints: args.extraDoNotRepeatHints,
+    }),
+    recent_pattern_hints: args.recentPatternHints ?? null,
+  };
+}
 
 async function shouldSkipDailyForActiveInboundThread(clerkUserId: string): Promise<boolean> {
   const ac = await getActiveCommitment(clerkUserId);
@@ -372,6 +402,46 @@ function buildStandardCheckSentPayload(args: {
   };
 }
 
+/** M2B-2: persist durable thread memory after Twilio accepted a V3 daily relationship lane SMS. */
+async function writeV2SmsThreadMemoryAfterDailyV3Outbound(args: {
+  built: Extract<DailySmsBuilt, { ok: true }>;
+  clerkUserId: string;
+  sentBody: string;
+  messageSid: string | null;
+  sentAt?: Date;
+}): Promise<void> {
+  if (!args.built.v3DailyRelationshipLane || !args.built.v2CommitmentId) return;
+
+  let expectedAnswerType: string | null = null;
+  if (args.built.v2ContractProposalMode) {
+    expectedAnswerType = "proposal_yes_no";
+  } else if (
+    !args.built.v2ReactivationNudge &&
+    !args.built.v2PendingResolutionReminder &&
+    args.built.v2Accountability
+  ) {
+    expectedAnswerType = "yes_no_partial";
+  }
+
+  const result = await upsertCommitmentSmsThreadMemoryFromOutbound({
+    commitmentId: args.built.v2CommitmentId,
+    clerkUserId: args.clerkUserId,
+    sentBody: args.sentBody,
+    sentAt: args.sentAt ?? new Date(),
+    messageSid: args.messageSid,
+    source: "daily_sms",
+    expectedAnswerType,
+  });
+
+  if (!result.ok) {
+    console.warn("[daily-sms] v2_sms_thread_memory_outbound_upsert_failed", {
+      commitment_id: args.built.v2CommitmentId,
+      clerk_user_id: args.clerkUserId,
+      error: result.error,
+    });
+  }
+}
+
 async function insertV2CheckSentEventBestEffort(args: {
   commitmentId: string;
   clerkUserId: string;
@@ -599,6 +669,11 @@ async function buildDailySmsContent(
           ? JSON.stringify(coachingMemoryRe.sms_relationship_profile).slice(0, 240)
           : null;
 
+      const relationshipMemoryPacketRe = await buildSmsRelationshipMemoryPacket({
+        clerkUserId,
+        commitmentId: active.id,
+      });
+
       const factsCoreRe: DailyV3RelationshipFactsForMove = {
         route_kind: "low_pressure_reactivation",
         accountability_day_key: accountabilityDayKey,
@@ -618,15 +693,14 @@ async function buildDailySmsContent(
           identity_anchor_allowed: false,
           identity_anchor_short: null,
         },
-        thread_memory: {
-          latest_outbound_sms: reactConvPack?.lastOutboundPreview ?? null,
-          latest_inbound_sms: reactConvPack?.lastInboundPreview ?? null,
-          recent_transcript_or_context_block: recentSmsContextBlock,
-          latest_open_question: null,
-          do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRe),
-          coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRe),
-          recent_pattern_hints: patternHintsRe.length > 0 ? patternHintsRe.slice(0, 480) : null,
-        },
+        thread_memory: assembleDailyThreadMemoryFromRelationshipPacket(relationshipMemoryPacketRe, {
+          convLatestOutbound: reactConvPack?.lastOutboundPreview ?? null,
+          convLatestInbound: reactConvPack?.lastInboundPreview ?? null,
+          recentTranscriptOrContextBlock: recentSmsContextBlock,
+          coachingMemorySnippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRe),
+          extraDoNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRe),
+          recentPatternHints: patternHintsRe.length > 0 ? patternHintsRe.slice(0, 480) : null,
+        }),
         accountability: {
           daily_purpose: dailyPurposeRe,
           server_strategy: "reactivation_nudge",
@@ -866,6 +940,11 @@ async function buildDailySmsContent(
         .filter((x): x is string => Boolean(x && typeof x === "string"))
         .join(" | ");
 
+      const relationshipMemoryPacketPr = await buildSmsRelationshipMemoryPacket({
+        clerkUserId,
+        commitmentId: active.id,
+      });
+
       const factsCorePr: DailyV3RelationshipFactsForMove = {
         route_kind: "pending_resolution",
         accountability_day_key: accountabilityDayKey,
@@ -888,15 +967,14 @@ async function buildDailySmsContent(
           identity_anchor_allowed: false,
           identity_anchor_short: null,
         },
-        thread_memory: {
-          latest_outbound_sms: prConvPack?.lastOutboundPreview ?? null,
-          latest_inbound_sms: prConvPack?.lastInboundPreview ?? null,
-          recent_transcript_or_context_block: prCtxBlock,
-          latest_open_question: null,
-          do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryPr),
-          coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryPr),
-          recent_pattern_hints: patternHintsPr.length > 0 ? patternHintsPr.slice(0, 480) : null,
-        },
+        thread_memory: assembleDailyThreadMemoryFromRelationshipPacket(relationshipMemoryPacketPr, {
+          convLatestOutbound: prConvPack?.lastOutboundPreview ?? null,
+          convLatestInbound: prConvPack?.lastInboundPreview ?? null,
+          recentTranscriptOrContextBlock: prCtxBlock,
+          coachingMemorySnippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryPr),
+          extraDoNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryPr),
+          recentPatternHints: patternHintsPr.length > 0 ? patternHintsPr.slice(0, 480) : null,
+        }),
         accountability: {
           daily_purpose: "fallback_standard",
           server_strategy: "standard_check",
@@ -1164,6 +1242,11 @@ async function buildDailySmsContent(
           .filter((x): x is string => Boolean(x && typeof x === "string"))
           .join(" | ");
 
+        const relationshipMemoryPacketRf = await buildSmsRelationshipMemoryPacket({
+          clerkUserId,
+          commitmentId: active.id,
+        });
+
         const factsCoreRf: DailyV3RelationshipFactsForMove = {
           route_kind: "refresh_identity",
           accountability_day_key: accountabilityDayKey,
@@ -1186,15 +1269,14 @@ async function buildDailySmsContent(
             identity_anchor_allowed: isQuotableIdentitySource(identitySourceForRefresh),
             identity_anchor_short: anchorTrim ? anchorTrim.slice(0, 100) : null,
           },
-          thread_memory: {
-            latest_outbound_sms: idConv?.lastOutboundPreview ?? null,
-            latest_inbound_sms: idConv?.lastInboundPreview ?? null,
-            recent_transcript_or_context_block: idCtx,
-            latest_open_question: null,
-            do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRf),
-            coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRf),
-            recent_pattern_hints: patternHintsRf.length > 0 ? patternHintsRf.slice(0, 480) : null,
-          },
+          thread_memory: assembleDailyThreadMemoryFromRelationshipPacket(relationshipMemoryPacketRf, {
+            convLatestOutbound: idConv?.lastOutboundPreview ?? null,
+            convLatestInbound: idConv?.lastInboundPreview ?? null,
+            recentTranscriptOrContextBlock: idCtx,
+            coachingMemorySnippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRf),
+            extraDoNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRf),
+            recentPatternHints: patternHintsRf.length > 0 ? patternHintsRf.slice(0, 480) : null,
+          }),
           accountability: {
             daily_purpose: "fallback_standard",
             server_strategy: stratR,
@@ -1397,6 +1479,11 @@ async function buildDailySmsContent(
           .filter((x): x is string => Boolean(x && typeof x === "string"))
           .join(" | ");
 
+        const relationshipMemoryPacketC = await buildSmsRelationshipMemoryPacket({
+          clerkUserId,
+          commitmentId: active.id,
+        });
+
         const factsCoreC: DailyV3RelationshipFactsForMove = {
           route_kind: "refresh_commitment",
           accountability_day_key: accountabilityDayKey,
@@ -1419,15 +1506,14 @@ async function buildDailySmsContent(
             identity_anchor_allowed: false,
             identity_anchor_short: null,
           },
-          thread_memory: {
-            latest_outbound_sms: cConv?.lastOutboundPreview ?? null,
-            latest_inbound_sms: cConv?.lastInboundPreview ?? null,
-            recent_transcript_or_context_block: cCtx,
-            latest_open_question: null,
-            do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryC),
-            coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryC),
-            recent_pattern_hints: patternHintsC.length > 0 ? patternHintsC.slice(0, 480) : null,
-          },
+          thread_memory: assembleDailyThreadMemoryFromRelationshipPacket(relationshipMemoryPacketC, {
+            convLatestOutbound: cConv?.lastOutboundPreview ?? null,
+            convLatestInbound: cConv?.lastInboundPreview ?? null,
+            recentTranscriptOrContextBlock: cCtx,
+            coachingMemorySnippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryC),
+            extraDoNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryC),
+            recentPatternHints: patternHintsC.length > 0 ? patternHintsC.slice(0, 480) : null,
+          }),
           accountability: {
             daily_purpose: "fallback_standard",
             server_strategy: stratC,
@@ -1809,6 +1895,11 @@ async function buildDailySmsContent(
         ? JSON.stringify(coachingMemoryRow.sms_relationship_profile).slice(0, 240)
         : null;
 
+    const relationshipMemoryPacketMain = await buildSmsRelationshipMemoryPacket({
+      clerkUserId,
+      commitmentId: active.id,
+    });
+
     const factsCoreUnified: DailyV3RelationshipFactsForMove = {
       route_kind: routeKind,
       accountability_day_key: accountabilityDayKey,
@@ -1828,15 +1919,14 @@ async function buildDailySmsContent(
         identity_anchor_allowed: identityReferenceAllowed,
         identity_anchor_short: identityAnchorText ? identityAnchorText.slice(0, 100) : null,
       },
-      thread_memory: {
-        latest_outbound_sms: mainConvPack?.lastOutboundPreview ?? null,
-        latest_inbound_sms: mainConvPack?.lastInboundPreview ?? null,
-        recent_transcript_or_context_block: recentSmsContextBlock,
-        latest_open_question: null,
-        do_not_repeat_hints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
-        coaching_memory_snippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRow),
-        recent_pattern_hints: patternHints.length > 0 ? patternHints.slice(0, 480) : null,
-      },
+      thread_memory: assembleDailyThreadMemoryFromRelationshipPacket(relationshipMemoryPacketMain, {
+        convLatestOutbound: mainConvPack?.lastOutboundPreview ?? null,
+        convLatestInbound: mainConvPack?.lastInboundPreview ?? null,
+        recentTranscriptOrContextBlock: recentSmsContextBlock,
+        coachingMemorySnippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRow),
+        extraDoNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
+        recentPatternHints: patternHints.length > 0 ? patternHints.slice(0, 480) : null,
+      }),
       accountability: {
         daily_purpose: dailyPurpose,
         server_strategy: serverStrategy,
@@ -2842,6 +2932,13 @@ export async function GET(req: Request) {
               }
             }
             if (recordOk) {
+              await writeV2SmsThreadMemoryAfterDailyV3Outbound({
+                built,
+                clerkUserId: audienceUser.clerk_user_id,
+                sentBody: smsBody,
+                messageSid: retryMessage.sid,
+                sentAt: new Date(),
+              });
               stats.sent += 1;
               stats.retried += 1;
               if (built.v2ReactivationNudge && built.v2CommitmentId) {
@@ -3430,6 +3527,13 @@ export async function GET(req: Request) {
           }
         }
         if (recordOk) {
+          await writeV2SmsThreadMemoryAfterDailyV3Outbound({
+            built: builtMain,
+            clerkUserId: audienceUser.clerk_user_id,
+            sentBody: smsBody,
+            messageSid: mainMessage.sid,
+            sentAt: new Date(),
+          });
           stats.sent += 1;
           if (builtMain.v2ReactivationNudge && builtMain.v2CommitmentId) {
             await updateReactivationLastSentAt(builtMain.v2CommitmentId);

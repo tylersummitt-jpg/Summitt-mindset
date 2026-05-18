@@ -326,7 +326,7 @@ export function partitionFinalVoiceBlockedReasons(reasons: string[]): {
 }
 
 export type RepairV3RelationshipLaneBodyArgs = {
-  routeKind: "daily" | "inbound";
+  routeKind: "daily" | "inbound" | "weekly";
   routePurpose: string;
   originalBody: string;
   blockedReasons: string[];

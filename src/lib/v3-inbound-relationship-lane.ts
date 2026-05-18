@@ -13,12 +13,19 @@ import type { V2InboundGatedDecision, V2InboundShadowInterpretationResult } from
 import type { V2SmsCommitmentIntentPack } from "@/lib/v2-sms-commitment-change";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import {
+  applySmsMemoryAntiRepeatGuard,
+  buildAntiRepeatDetectArgsFromInboundFacts,
+  detectSmsMemoryRepeatViolation,
+  shouldRunInboundMemoryRepeatGuard,
+} from "@/lib/sms-memory-anti-repeat";
+import {
   detectFinalVoiceBlockedReasons,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
+import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 
 const INBOUND_LANE_MAX_CHARS = 320;
 
@@ -47,6 +54,328 @@ export type InboundV3RoutePurpose =
   | "commitment_change_context"
   /** Conversation brain control unavailable / legacy deterministic SMS disabled — template is facts-only. */
   | "conversation_brain_unavailable";
+
+/** Routes where short-ack / already-told-you thread correction must not override consent or transactional flows. */
+const THREAD_MEMORY_CORRECTION_ROUTE_PURPOSES = new Set<InboundV3RoutePurpose>(["normal_inbound_reply"]);
+
+function normThreadText(s: string): string {
+  return s.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function parseTranscriptRoleLine(line: string): { role: "Coach" | "User" | null; text: string } {
+  const mCoach = /^\s*Coach:\s*(.+)$/i.exec(line);
+  if (mCoach?.[1]) return { role: "Coach", text: mCoach[1].trim() };
+  const mUser = /^\s*User:\s*(.+)$/i.exec(line);
+  if (mUser?.[1]) return { role: "User", text: mUser[1].trim() };
+  return { role: null, text: line.trim() };
+}
+
+/** User is correcting the coach for forgetting a recent answer. */
+export function isAlreadyToldYouCorrection(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\bi\s+already\s+told\s+you\b/i.test(t)) return true;
+  if (/\balready\s+told\s+you\b/i.test(t)) return true;
+  if (/\bi\s+told\s+you\s+already\b/i.test(t)) return true;
+  if (/\btold\s+you\s+already\b/i.test(t)) return true;
+  if (/\bi\s+already\s+answered\b/i.test(t)) return true;
+  if (/\balready\s+answered\b/i.test(t)) return true;
+  if (/\bi\s+said\s+that\b/i.test(t)) return true;
+  if (/\bi\s+just\s+told\s+you\b/i.test(t)) return true;
+  return false;
+}
+
+const SHORT_ACK_CORE = new Set([
+  "ok",
+  "okay",
+  "k",
+  "got it",
+  "gotit",
+  "sounds good",
+  "sounds good!",
+  "👍",
+  "thumbs up",
+]);
+
+function isEmojiOnlyInbound(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/^👍[\u{FE0F}\u{1F3FB}-\u{1F3FF}]*$/u.test(t)) return true;
+  if (/^[\p{Extended_Pictographic}\s]+$/u.test(t) && t.length <= 8) return true;
+  return false;
+}
+
+function isShortAckPhraseCore(text: string): boolean {
+  const core = normThreadText(text).replace(/[.!?…]+$/g, "");
+  if (!core) return false;
+  if (SHORT_ACK_CORE.has(core)) return true;
+  if (core === "thumbs up" || core === "thumbs-up") return true;
+  return false;
+}
+
+/** Conservative short receipt — not YES/NO consent or substantive answers. */
+export function isShortAcknowledgement(text: string, routePurpose: InboundV3RoutePurpose): boolean {
+  if (!THREAD_MEMORY_CORRECTION_ROUTE_PURPOSES.has(routePurpose)) return false;
+  const t = text.trim();
+  if (!t) return false;
+  if (isAlreadyToldYouCorrection(t)) return false;
+  if (isEmojiOnlyInbound(t)) return true;
+  if (isShortAckPhraseCore(t)) return true;
+  return false;
+}
+
+function isNonSubstantiveUserLine(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  if (isAlreadyToldYouCorrection(t)) return true;
+  if (isEmojiOnlyInbound(t)) return true;
+  if (isShortAckPhraseCore(t)) return true;
+  return false;
+}
+
+function isSubstantiveUserMessage(text: string): boolean {
+  const t = text.trim();
+  if (!t || isNonSubstantiveUserLine(t)) return false;
+  if (t.length >= 12) return true;
+  if (/,/.test(t) && t.length >= 5) return true;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length >= 3) return true;
+  return false;
+}
+
+/** Latest prior User line that is substantive (not current inbound, not ack/correction). */
+export function extractMostRecentSubstantivePriorUserMessage(
+  recentTranscriptLines: string[],
+  currentInbound: string
+): string | null {
+  const currentNorm = normThreadText(currentInbound);
+  for (let i = recentTranscriptLines.length - 1; i >= 0; i--) {
+    const parsed = parseTranscriptRoleLine(recentTranscriptLines[i] ?? "");
+    if (parsed.role !== "User") continue;
+    if (normThreadText(parsed.text) === currentNorm) continue;
+    if (!isSubstantiveUserMessage(parsed.text)) continue;
+    return parsed.text;
+  }
+  return null;
+}
+
+function coachLineLooksLikeQuestion(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\?/.test(t)) return true;
+  if (/\b(what|when|which|who|how|tell me|give me|pick|choose)\b/i.test(t)) return true;
+  return false;
+}
+
+/** Latest Coach line that looks like a question/ask. */
+export function extractMostRecentCoachQuestion(recentTranscriptLines: string[]): string | null {
+  for (let i = recentTranscriptLines.length - 1; i >= 0; i--) {
+    const parsed = parseTranscriptRoleLine(recentTranscriptLines[i] ?? "");
+    if (parsed.role !== "Coach") continue;
+    if (!coachLineLooksLikeQuestion(parsed.text)) continue;
+    return parsed.text;
+  }
+  return null;
+}
+
+export type InboundThreadMemoryCorrectionFields = {
+  current_inbound_is_already_told_you_correction: boolean;
+  current_inbound_is_short_acknowledgement: boolean;
+  most_recent_substantive_prior_user_message: string | null;
+  most_recent_coach_question: string | null;
+  memory_correction_should_use_prior_user_answer: boolean;
+  short_ack_should_not_reask_question: boolean;
+};
+
+export function deriveInboundThreadMemoryCorrectionFields(args: {
+  recentTranscriptLines: string[];
+  currentInbound: string;
+  routePurpose: InboundV3RoutePurpose;
+}): InboundThreadMemoryCorrectionFields {
+  const inbound = args.currentInbound.trim();
+  const routeOk = THREAD_MEMORY_CORRECTION_ROUTE_PURPOSES.has(args.routePurpose);
+  const alreadyTold = routeOk && isAlreadyToldYouCorrection(inbound);
+  const shortAck = routeOk && isShortAcknowledgement(inbound, args.routePurpose);
+  const priorUser = routeOk
+    ? extractMostRecentSubstantivePriorUserMessage(args.recentTranscriptLines, inbound)
+    : null;
+  const coachQ = routeOk ? extractMostRecentCoachQuestion(args.recentTranscriptLines) : null;
+
+  return {
+    current_inbound_is_already_told_you_correction: alreadyTold,
+    current_inbound_is_short_acknowledgement: shortAck,
+    most_recent_substantive_prior_user_message: priorUser,
+    most_recent_coach_question: coachQ,
+    memory_correction_should_use_prior_user_answer: alreadyTold && Boolean(priorUser?.trim()),
+    short_ack_should_not_reask_question: shortAck && Boolean(priorUser?.trim()),
+  };
+}
+
+function normalizeForQuestionOverlap(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^\w\s?]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function substantiallyRepeatsCoachQuestion(proposedBody: string, coachLine: string): boolean {
+  const p = normalizeForQuestionOverlap(proposedBody);
+  const c = normalizeForQuestionOverlap(coachLine);
+  if (c.length < 18 || p.length < 12) return false;
+  const cWords = c.split(" ").filter((w) => w.length > 3);
+  const pWords = new Set(p.split(" ").filter((w) => w.length > 3));
+  let overlap = 0;
+  for (const w of cWords) if (pWords.has(w)) overlap++;
+  const ratio = cWords.length ? overlap / cWords.length : 0;
+  if (ratio >= 0.45 && /\?/.test(proposedBody)) return true;
+  if (p.includes(c.slice(0, Math.min(72, c.length)))) return true;
+  return false;
+}
+
+function inboundBodyReasksThreadQuestion(body: string, facts: InboundV3RelationshipFacts): boolean {
+  if (
+    !facts.thread.memory_correction_should_use_prior_user_answer &&
+    !facts.thread.short_ack_should_not_reask_question &&
+    !facts.thread.latest_answer_after_open_question?.trim() &&
+    !facts.thread.memory_packet?.latest_answer_after_open_question?.trim() &&
+    !facts.thread.memory_packet?.latest_answer_after_open_question_guess
+  ) {
+    return false;
+  }
+  const targets = [
+    facts.thread.most_recent_coach_question,
+    facts.thread.latest_open_question,
+    facts.thread.memory_packet?.latest_open_question,
+    facts.thread.memory_packet?.latest_open_question_guess,
+    ...(facts.thread.memory_packet?.last_5_coach_questions ?? []),
+  ].filter((t): t is string => Boolean(t?.trim()));
+  for (const t of targets) {
+    if (substantiallyRepeatsCoachQuestion(body, t)) return true;
+  }
+  if (/\bwhat\s+story\s+will\s+you\s+dictate\b/i.test(body)) return true;
+  return false;
+}
+
+function buildThreadMemoryCorrectionRouteAux(f: InboundV3RelationshipFacts): string {
+  const lines: string[] = [];
+  const prior = f.thread.most_recent_substantive_prior_user_message?.trim();
+  const coachQ = f.thread.most_recent_coach_question?.trim();
+
+  if (f.thread.current_inbound_is_already_told_you_correction) {
+    lines.push(
+      "ALREADY_TOLD_YOU_CORRECTION: The user is saying you forgot their recent answer. Start with a brief ownership line (e.g. \"You're right — you did.\" or \"You're right, I missed that.\").",
+      prior
+        ? `Use this as their answer (do NOT substitute older memory): "${prior}".`
+        : "Use the most recent substantive User line in recent_transcript_lines — not older coaching memory.",
+      coachQ
+        ? `Do NOT ask again: "${coachQ.slice(0, 200)}".`
+        : "Do NOT repeat the latest coach question from the thread.",
+      "One short SMS. Move forward from their answer. No new accountability question."
+    );
+  }
+
+  if (f.thread.short_ack_should_not_reask_question) {
+    lines.push(
+      "SHORT_ACK_RECEIPT: The user's latest message is only a brief acknowledgment (e.g. thumbs up / ok / got it) after they already gave a substantive answer.",
+      prior
+        ? `Their substantive answer to honor: "${prior}".`
+        : "Find the latest substantive User line in recent_transcript_lines.",
+      "Send a brief forward-moving acknowledgment with NO question mark and NO new ask (do not ask what story / what time / did you again).",
+      coachQ
+        ? `Especially do NOT repeat: "${coachQ.slice(0, 200)}".`
+        : "Do not restart the same coach question loop."
+    );
+  }
+
+  if (!lines.length) return "";
+  return `
+
+THREAD_MEMORY_CORRECTION (server-owned; overrides generic accountability re-asks):
+${lines.map((l) => `- ${l}`).join("\n")}`;
+}
+
+function buildMemoryPacketRouteAux(f: InboundV3RelationshipFacts): string {
+  const mp = f.thread.memory_packet;
+  if (!mp?.recent_exact_thread_text?.trim()) return "";
+  const lines: string[] = [
+    "RECENT_EXACT_THREAD is highest-priority memory — it outranks coaching summaries and older transcript lines when they conflict.",
+    "Do NOT ask any question in memory_packet.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.",
+  ];
+  if (mp.projection_used && mp.open_question_pending === false && mp.latest_answer_after_open_question?.trim()) {
+    lines.push(
+      `Server-owned answer (projection) — do NOT ask again: "${mp.latest_answer_after_open_question.trim().slice(0, 220)}".`
+    );
+  } else if (mp.latest_answer_after_open_question?.trim()) {
+    lines.push(
+      `User already answered the open question — use this answer and do NOT ask again: "${mp.latest_answer_after_open_question.trim().slice(0, 220)}".`
+    );
+  } else if (mp.latest_answer_after_open_question_guess?.trim()) {
+    lines.push(
+      `User likely answered (runtime guess) — use: "${mp.latest_answer_after_open_question_guess.trim().slice(0, 220)}".`
+    );
+  } else if (mp.latest_open_question?.trim()) {
+    const src = mp.open_question_source === "projection" ? "projection" : "thread";
+    lines.push(
+      `Latest open coach question (${src}): "${mp.latest_open_question.trim().slice(0, 200)}" — only re-ask if user has not substantively answered since.`
+    );
+  } else if (mp.latest_open_question_guess?.trim()) {
+    lines.push(
+      `Latest open coach question (runtime guess): "${mp.latest_open_question_guess.trim().slice(0, 200)}" — only re-ask if user has not substantively answered since.`
+    );
+  }
+  if (mp.do_not_repeat_phrases.length) {
+    lines.push(
+      `Do not repeat these coach phrases/questions: ${mp.do_not_repeat_phrases
+        .slice(0, 6)
+        .map((p) => `"${p.slice(0, 100)}"`)
+        .join("; ")}.`
+    );
+  }
+  if (f.thread.current_inbound_is_already_told_you_correction && mp.last_substantive_user_message?.trim()) {
+    lines.push(
+      `ALREADY_TOLD_YOU: honor memory_packet.last_substantive_user_message: "${mp.last_substantive_user_message.trim().slice(0, 220)}". Apologize briefly; do not substitute older memory.`
+    );
+  }
+  return `
+
+MEMORY_PACKET (server-owned; RECENT_EXACT_THREAD wins over COACHING_SUMMARY):
+${lines.map((l) => `- ${l}`).join("\n")}
+Recent exact thread (bounded):
+${mp.recent_exact_thread_text.trim().slice(0, 2800)}`;
+}
+
+function enhanceThreadCorrectionFromMemoryPacket(
+  base: InboundThreadMemoryCorrectionFields,
+  packet: SlimSmsRelationshipMemoryPacketForFacts | undefined,
+  routePurpose: InboundV3RoutePurpose
+): InboundThreadMemoryCorrectionFields {
+  if (!packet || !THREAD_MEMORY_CORRECTION_ROUTE_PURPOSES.has(routePurpose)) return base;
+  const priorPacket = packet.last_substantive_user_message?.trim() || null;
+  const coachPacket =
+    packet.last_5_coach_questions.at(-1)?.trim() ||
+    packet.latest_open_question?.trim() ||
+    packet.latest_open_question_guess?.trim() ||
+    null;
+  const prior =
+    base.most_recent_substantive_prior_user_message?.trim() ||
+    priorPacket ||
+    packet.latest_answer_after_open_question?.trim() ||
+    packet.latest_answer_after_open_question_guess?.trim() ||
+    null;
+  const coachQ = base.most_recent_coach_question?.trim() || coachPacket || null;
+  return {
+    ...base,
+    most_recent_substantive_prior_user_message: prior,
+    most_recent_coach_question: coachQ,
+    memory_correction_should_use_prior_user_answer:
+      base.memory_correction_should_use_prior_user_answer ||
+      (base.current_inbound_is_already_told_you_correction && Boolean(prior)),
+    short_ack_should_not_reask_question:
+      base.short_ack_should_not_reask_question ||
+      (base.current_inbound_is_short_acknowledgement && Boolean(prior)),
+  };
+}
 
 /** Pending adaptive proposal — user has not given clear YES/NO; server has taken no consent action. */
 export type InboundV3AdaptiveConsentClarificationFacts = {
@@ -528,10 +857,42 @@ export type InboundV3RelationshipFacts = {
     recent_transcript_lines: string[];
     latest_outbound_coach_sms: string | null;
     latest_open_question: string | null;
+    latest_answer_after_open_question: string | null;
     expected_reply_semantics: string | null;
+    memory_authority: {
+      open_question_source: "projection" | "runtime_guess" | "north_star" | "none";
+      answer_source: "projection" | "runtime_guess" | "none";
+      projection_used: boolean;
+    };
     do_not_repeat_hints: string[];
     rejected_time_candidates: string[];
     unavailable_windows: string[];
+    current_inbound_is_already_told_you_correction: boolean;
+    current_inbound_is_short_acknowledgement: boolean;
+    most_recent_substantive_prior_user_message: string | null;
+    most_recent_coach_question: string | null;
+    memory_correction_should_use_prior_user_answer: boolean;
+    short_ack_should_not_reask_question: boolean;
+    memory_packet?: {
+      recent_exact_thread_text: string;
+      recent_exact_message_count: number;
+      last_outbound_full_body: string | null;
+      last_inbound_full_body: string | null;
+      last_substantive_user_message: string | null;
+      last_substantive_coach_message: string | null;
+      last_5_coach_questions: string[];
+      last_5_user_answers: string[];
+      latest_open_question: string | null;
+      latest_answer_after_open_question: string | null;
+      open_question_pending: boolean;
+      open_question_source: "projection" | "runtime_guess" | "none";
+      answer_source: "projection" | "runtime_guess" | "none";
+      projection_used: boolean;
+      latest_open_question_guess: string | null;
+      latest_answer_after_open_question_guess: string | null;
+      do_not_repeat_phrases: string[];
+      memory_priority_rules: string[];
+    };
   };
   v2_accountability: {
     deterministic_classifier_event: "user_yes" | "user_no" | "user_partial";
@@ -655,6 +1016,9 @@ function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
     wave11_pending: f.legacy_suggestions.wave11_memory_confirmation_pending,
     conversation_brain_on: f.legacy_suggestions.conversation_brain?.enabled ?? false,
     central_shadow: f.legacy_suggestions.central_brain?.shadow_stored ?? false,
+    already_told_you: f.thread.current_inbound_is_already_told_you_correction,
+    short_ack: f.thread.current_inbound_is_short_acknowledgement,
+    prior_user_answer_len: f.thread.most_recent_substantive_prior_user_message?.length ?? 0,
   };
   const s = JSON.stringify(slim);
   return s.length > 1200 ? `${s.slice(0, 1199)}…` : s;
@@ -895,6 +1259,12 @@ export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3Relations
   if (f.open_question_facts) {
     return "respond_to_open_question_answer_natural";
   }
+  if (f.thread.current_inbound_is_already_told_you_correction) {
+    return "use_recent_answer_after_correction";
+  }
+  if (f.thread.short_ack_should_not_reask_question) {
+    return "acknowledge_prior_answer_without_reasking";
+  }
   const ft = f.v2_accountability.final_event_type;
   if (ft === "user_yes") return "acknowledge_completion";
   if (ft === "user_no") return "name_blocker";
@@ -1024,7 +1394,7 @@ ROUTE (conversation_brain_unavailable): Conversation brain was unavailable or di
     return `
 ROUTE (${rp}): Adaptive overlay proposal consent. Server already decided overlay_action / rpc_result — do NOT invent YES/NO, do NOT activate/decline overlays from prose, do NOT invent contract terms. Use contract_consent_facts (consent_parse, overlay_action, proposal_kind, proposal_text_digest, server_state_transition_summary, inbound_message_sid). legacy_contract_ack_preview is NON-SPEAKABLE legacy template preview — do not quote, imitate, or paste it. If constraints.required_verbatim_substrings is non-empty, include EVERY substring exactly. If constraints.required_meaning_summary is set, satisfy it without contradicting server flags. One short SMS.`;
   }
-  return "";
+  return buildThreadMemoryCorrectionRouteAux(f);
 }
 
 const INBOUND_LANE_REPAIR_EXCLUDED_ROUTE_PURPOSES = new Set<InboundV3RoutePurpose>([
@@ -1112,6 +1482,30 @@ function validateInboundLaneCandidateBody(
       laneStage: "required_verbatim_failed_after_repair",
       safetySuffix: `required_verbatim_missing:${missReq.slice(0, 80)}`,
       extraMeta: { v3_candidate_body: body, missing_required_substring: missReq.slice(0, 120) },
+    };
+  }
+  if (shouldRunInboundMemoryRepeatGuard(args.facts)) {
+    const repeat = detectSmsMemoryRepeatViolation(buildAntiRepeatDetectArgsFromInboundFacts(args.facts, body));
+    if (repeat.hasViolation) {
+      return {
+        ok: false,
+        noSendReason: "thread_memory_repeat_blocked",
+        laneStage: "thread_memory_repeat_validation_failed",
+        safetySuffix: "reasked_prior_coach_question",
+        extraMeta: {
+          v3_candidate_body: body,
+          memory_repeat_guard_reason: repeat.reason,
+          repeated_question: repeat.repeatedQuestion,
+        },
+      };
+    }
+  } else if (inboundBodyReasksThreadQuestion(body, args.facts)) {
+    return {
+      ok: false,
+      noSendReason: "thread_memory_reask_blocked",
+      laneStage: "thread_memory_reask_validation_failed",
+      safetySuffix: "reasked_prior_coach_question",
+      extraMeta: { v3_candidate_body: body },
     };
   }
   return { ok: true };
@@ -1251,13 +1645,19 @@ export async function produceInboundV3RelationshipSms(
   }
 
   const factsJson = JSON.stringify(args.facts);
-  const routePurposeAux = buildRoutePurposeAux(args.facts);
+  const routePurposeAux = buildRoutePurposeAux(args.facts) + buildMemoryPacketRouteAux(args.facts);
 
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
 
 RULES:
 - Use INBOUND_ACCOUNTABILITY_FACTS_JSON only as facts — never copy labeled machine drafts, template banks, or "prior hint" wording as your voice.
+- thread.memory_authority.projection_used: when true, thread.latest_open_question and thread.latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and north_star fallbacks.
+- thread.memory_packet.recent_exact_thread_text is the highest-priority transcript when present — it outranks recent_transcript_lines, body_preview, and coaching summaries.
+- If projection says open_question_pending is false and an answer exists, move forward from that answer — do not re-ask.
+- Do not re-ask questions in thread.memory_packet.last_5_coach_questions unless the user has not answered and you briefly acknowledge that.
+- If thread.memory_packet.latest_answer_after_open_question_guess is set, use it — do not ask that question again.
 - Read the thread: latest inbound, latest outbound coach SMS, transcript lines, and open-question semantics.
+- Honor thread.* memory-correction flags (already_told_you / short_ack / most_recent_substantive_prior_user_message) over older memory when present.
 - Anchor to the active commitment (effective ask + state). Do not paste raw title or behavior_statement as a quoted check.
 - If the user corrected or rejected something in facts, do not repeat it. If rejected_time_candidates or forbidden_substrings list times or phrases, do not include them in your body.
 - If constraints.required_verbatim_substrings is non-empty, the body MUST contain every listed substring exactly (verbatim substring match).
@@ -1493,6 +1893,39 @@ Write JSON only.`;
     };
   }
 
+  const memoryRepeatGuard = await applySmsMemoryAntiRepeatGuard({
+    routeKind: "inbound",
+    routePurpose: args.facts.route_purpose,
+    body,
+    factsJson: args.facts,
+    detectInput: buildAntiRepeatDetectArgsFromInboundFacts(args.facts, body),
+    enabled: shouldRunInboundMemoryRepeatGuard(args.facts),
+    validateAfterRepair: async (candidate) => {
+      const post = validateInboundLaneCandidateBody(candidate, args);
+      if (!post.ok) {
+        return { ok: false, noSendReason: post.noSendReason, extraMeta: post.extraMeta };
+      }
+      return { ok: true };
+    },
+  });
+
+  if (memoryRepeatGuard.outcome === "no_send") {
+    return empty(memoryRepeatGuard.noSendReason, true, {
+      lane_stage: "thread_memory_repeat_guard_failed",
+      v3_candidate_body: body,
+      ...laneOpenAiJsonMeta,
+      ...memoryRepeatGuard.metadata,
+    });
+  }
+
+  body = memoryRepeatGuard.body;
+  if (memoryRepeatGuard.metadata.memory_repeat_guard_succeeded === true) {
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
+  } else if (Object.keys(memoryRepeatGuard.metadata).length > 0) {
+    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
+  }
+
   const badSub = validateForbiddenSubstrings(body, args.facts.constraints.forbidden_substrings);
   if (badSub != null) {
     return {
@@ -1618,6 +2051,7 @@ export type BuildInboundV3RelationshipFactsArgs = {
   commitmentChangeFacts?: InboundV3CommitmentChangeFacts | null;
   commitmentChangeContextFacts?: InboundV3CommitmentChangeContextFacts | null;
   conversationBrainFallbackFacts?: InboundV3ConversationBrainFallbackFacts | null;
+  relationshipMemoryPacket?: SlimSmsRelationshipMemoryPacketForFacts | null;
 };
 
 /** Assembles JSON-safe facts for {@link produceInboundV3RelationshipSms} (no upstream prose). */
@@ -1640,8 +2074,32 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     args.conversationBrainFallbackFacts?.coaching_route_meaning_summary?.trim() ||
     null;
 
+  const routePurpose = args.routePurpose ?? "normal_inbound_reply";
+  const threadMemoryBase = deriveInboundThreadMemoryCorrectionFields({
+    recentTranscriptLines: args.transcriptLines,
+    currentInbound: args.coalescedInboundText,
+    routePurpose,
+  });
+  const threadMemory = enhanceThreadCorrectionFromMemoryPacket(
+    threadMemoryBase,
+    args.relationshipMemoryPacket ?? undefined,
+    routePurpose
+  );
+  const mp = args.relationshipMemoryPacket;
+  const mergedDoNotRepeat = [...args.doNotRepeatHints, ...(mp?.do_not_repeat_phrases ?? [])];
+  if (threadMemory.most_recent_coach_question?.trim()) {
+    mergedDoNotRepeat.push(
+      `do_not_reask_coach_question:${threadMemory.most_recent_coach_question.trim().slice(0, 140)}`
+    );
+  }
+  if (threadMemory.most_recent_substantive_prior_user_message?.trim()) {
+    mergedDoNotRepeat.push(
+      `prior_user_answer:${threadMemory.most_recent_substantive_prior_user_message.trim().slice(0, 140)}`
+    );
+  }
+
   const facts: InboundV3RelationshipFacts = {
-    route_purpose: args.routePurpose ?? "normal_inbound_reply",
+    route_purpose: routePurpose,
     branch_name: args.branchName ?? null,
     branch_migrated_to_lane: args.branchMigratedToLane === true,
     ...(args.centralBrainPivotFacts != null ? { central_brain_pivot_facts: args.centralBrainPivotFacts } : {}),
@@ -1684,12 +2142,65 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       coalesced_inbound_text: args.coalescedInboundText,
       suppressed_message_sids: args.suppressedMessageSids,
       recent_transcript_lines: args.transcriptLines,
-      latest_outbound_coach_sms: args.northStarPacket.latestOutboundBody ?? null,
-      latest_open_question: args.northStarPacket.latestOpenQuestion ?? null,
+      latest_outbound_coach_sms:
+        mp?.last_outbound_full_body ??
+        args.northStarPacket.latestOutboundBody ??
+        null,
+      latest_open_question:
+        mp?.latest_open_question ??
+        mp?.latest_open_question_guess ??
+        args.northStarPacket.latestOpenQuestion ??
+        null,
+      latest_answer_after_open_question:
+        mp?.latest_answer_after_open_question ?? mp?.latest_answer_after_open_question_guess ?? null,
+      memory_authority: {
+        open_question_source: mp?.latest_open_question
+          ? mp.open_question_source === "projection"
+            ? "projection"
+            : "runtime_guess"
+          : mp?.latest_open_question_guess
+            ? "runtime_guess"
+            : args.northStarPacket.latestOpenQuestion
+              ? "north_star"
+              : "none",
+        answer_source: mp?.latest_answer_after_open_question
+          ? mp.answer_source === "projection"
+            ? "projection"
+            : "runtime_guess"
+          : mp?.latest_answer_after_open_question_guess
+            ? "runtime_guess"
+            : "none",
+        projection_used: mp?.projection_used === true,
+      },
       expected_reply_semantics: args.northStarPacket.expectedReplySemantics ?? null,
-      do_not_repeat_hints: args.doNotRepeatHints,
+      do_not_repeat_hints: mergedDoNotRepeat.slice(0, 14),
       rejected_time_candidates: args.rejectedTimeCandidates,
       unavailable_windows: args.unavailableWindows,
+      ...threadMemory,
+      ...(mp
+        ? {
+            memory_packet: {
+              recent_exact_thread_text: mp.recent_exact_thread_text,
+              recent_exact_message_count: mp.recent_exact_message_count,
+              last_outbound_full_body: mp.last_outbound_full_body,
+              last_inbound_full_body: mp.last_inbound_full_body,
+              last_substantive_user_message: mp.last_substantive_user_message,
+              last_substantive_coach_message: mp.last_substantive_coach_message,
+              last_5_coach_questions: mp.last_5_coach_questions,
+              last_5_user_answers: mp.last_5_user_answers,
+              latest_open_question: mp.latest_open_question,
+              latest_answer_after_open_question: mp.latest_answer_after_open_question,
+              open_question_pending: mp.open_question_pending,
+              open_question_source: mp.open_question_source,
+              answer_source: mp.answer_source,
+              projection_used: mp.projection_used,
+              latest_open_question_guess: mp.latest_open_question_guess,
+              latest_answer_after_open_question_guess: mp.latest_answer_after_open_question_guess,
+              do_not_repeat_phrases: mp.do_not_repeat_phrases,
+              memory_priority_rules: mp.memory_priority_rules,
+            },
+          }
+        : {}),
     },
     v2_accountability: {
       deterministic_classifier_event: args.deterministicEventType,
@@ -1733,6 +2244,32 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
   }
   if (reqMeanRaw) {
     facts.constraints.required_meaning_summary = reqMeanRaw;
+  }
+  if (threadMemory.memory_correction_should_use_prior_user_answer) {
+    const cq = threadMemory.most_recent_coach_question?.trim();
+    if (cq && cq.length >= 12) {
+      facts.constraints.forbidden_substrings = [
+        ...(facts.constraints.forbidden_substrings ?? []),
+        cq.slice(0, Math.min(80, cq.length)),
+      ];
+    }
+    facts.constraints.forbidden_substrings = [
+      ...(facts.constraints.forbidden_substrings ?? []),
+      "what story will you dictate",
+    ];
+  }
+  if (threadMemory.short_ack_should_not_reask_question) {
+    facts.constraints.forbidden_substrings = [
+      ...(facts.constraints.forbidden_substrings ?? []),
+      "what story will you dictate",
+    ];
+    const cq = threadMemory.most_recent_coach_question?.trim();
+    if (cq && cq.length >= 12) {
+      facts.constraints.forbidden_substrings = [
+        ...(facts.constraints.forbidden_substrings ?? []),
+        cq.slice(0, Math.min(80, cq.length)),
+      ];
+    }
   }
   facts.suggested_coaching_move = deriveSuggestedCoachingMoveForInboundFacts(facts);
   return facts;

@@ -421,6 +421,181 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.metadata.lane_stage).toBe("post_validate_blocked");
     expect(r.metadata.lane_repair_attempted).toBeUndefined();
   });
+
+  it("repairs or blocks when model re-asks after already-told-you correction (M2B-5)", async () => {
+    const rbTranscript = [
+      "Coach: What specific stories are you considering?",
+      "User: Sunday School, farm, songs Mother sang",
+      "Coach: Let's aim to dictate that story tomorrow.",
+      "User: I already told you",
+    ];
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: "What story will you dictate today?",
+                no_send_reason: null,
+                turn_purpose: "inbound_turn",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "You're right — Sunday School, the farm, and your mother's songs. Let's pick one thread to dictate today.",
+                used_strategy: "memory_repeat_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "R.B.",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Dictate stories daily",
+      userMessageRaw: "I already told you",
+      coalescedInboundText: "I already told you",
+      suppressedMessageSids: [],
+      transcriptLines: rbTranscript,
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOpenQuestion: "What specific stories are you considering?",
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: {
+        recent_exact_thread_text: rbTranscript.join("\n"),
+        recent_exact_message_count: 4,
+        last_outbound_full_body: "What specific stories are you considering?",
+        last_inbound_full_body: "I already told you",
+        last_substantive_user_message: "Sunday School, farm, songs Mother sang",
+        last_substantive_coach_message: "What specific stories are you considering?",
+        last_5_coach_questions: [
+          "What story will you dictate today?",
+          "What specific stories are you considering?",
+        ],
+        do_not_repeat_phrases: [
+          "What story will you dictate today?",
+          "What specific stories are you considering?",
+        ],
+        last_5_user_answers: ["Sunday School, farm, songs Mother sang"],
+        latest_open_question_guess: "What specific stories are you considering?",
+        latest_answer_after_open_question_guess: "Sunday School, farm, songs Mother sang",
+        latest_open_question: "What specific stories are you considering?",
+        latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+        open_question_pending: false,
+        open_question_source: "projection",
+        answer_source: "projection",
+        projection_used: true,
+        memory_priority_rules: [],
+        coaching_memory_summary: null,
+        coaching_memory_is_background_only: true,
+      },
+    });
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toContain("what story will you dictate today");
+    expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+  });
+
+  it("includes THREAD_MEMORY_CORRECTION in system prompt for already-told-you", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "You're right — you did: Sunday School, the farm, and your mother's songs. Let's keep that thread moving today.",
+              no_send_reason: null,
+              turn_purpose: "use_recent_answer",
+              voice_confidence: 0.85,
+              used_facts: ["thread"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "R.B.",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Dictate stories daily",
+      userMessageRaw: "I already told you",
+      coalescedInboundText: "I already told you",
+      suppressedMessageSids: [],
+      transcriptLines: [
+        "Coach: What specific stories are you considering?",
+        "User: Sunday School, farm, songs Mother sang",
+        "User: I already told you",
+      ],
+      northStarPacket: { source: "sms_inbound_coach" },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+    });
+    await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("THREAD_MEMORY_CORRECTION");
+    expect(systemMsg).toContain("ALREADY_TOLD_YOU_CORRECTION");
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("Sunday School, farm, songs Mother sang");
+  });
 });
 
 describe("Phase 3F-3 adaptive_proposal_consent_clarification facts", () => {

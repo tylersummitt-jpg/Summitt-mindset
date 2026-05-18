@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
 const createMock = vi.hoisted(() => vi.fn());
 
 vi.mock("openai", () => ({
@@ -14,8 +18,26 @@ vi.mock("openai", () => ({
 }));
 
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
+import { computeRecommitBindingText } from "@/lib/v2-adaptive-contract";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
-import { produceDailyV3RelationshipSms } from "@/lib/v3-daily-relationship-lane";
+import {
+  DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT,
+  detectContractWrapperDuplicates,
+  produceDailyV3RelationshipSms,
+} from "@/lib/v3-daily-relationship-lane";
+
+function countSubstringOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  let count = 0;
+  let from = 0;
+  while (true) {
+    const idx = haystack.indexOf(needle, from);
+    if (idx < 0) break;
+    count += 1;
+    from = idx + needle.length;
+  }
+  return count;
+}
 
 function baseFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
   const core: DailyV3RelationshipFacts = {
@@ -117,6 +139,48 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.daily_v3_lane_used).toBe(true);
     expect(r.metadata.old_daily_writer_used_as_voice).toBe(false);
+  });
+
+  it("includes recent exact thread priority in system prompt when thread_memory has packet fields", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Let's build on Sunday School and the farm stories today.",
+              no_send_reason: null,
+              turn_purpose: "daily_accountability",
+              voice_confidence: 0.8,
+              used_facts: ["thread_memory"],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          recent_exact_thread_text:
+            "Coach: What story will you dictate today?\nUser: Sunday School, farm, songs Mother sang",
+          latest_open_question: "What story will you dictate today?",
+          latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+          last_5_coach_questions: ["What story will you dictate today?"],
+          do_not_repeat_hints: ["What story will you dictate today?"],
+          memory_priority_rules: ["RECENT_EXACT_THREAD overrides COACHING_SUMMARY when they conflict."],
+        },
+      }),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("recent_exact_thread_text");
+    expect(systemMsg).toContain("last_5_coach_questions");
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("Sunday School, farm, songs Mother sang");
   });
 
   it("returns shouldSend=false when OpenAI is unavailable", async () => {
@@ -505,6 +569,153 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.route_purpose).toBe("contract_prompt");
   });
 
+  it("computeRecommitBindingText returns server-owned 7-day binding prefix unchanged", () => {
+    expect(computeRecommitBindingText("I will text or call each day")).toBe(
+      "Same commitment—keep this line for 7 days: I will text or call each day"
+    );
+    expect(computeRecommitBindingText("   ")).toBe(
+      "Same commitment—keep this line steady for the next 7 days."
+    );
+  });
+
+  it("detectContractWrapperDuplicates flags wrapper restating binding phrases", () => {
+    const binding = computeRecommitBindingText("Call one person each day");
+    const bad = `Let's keep this line for 7 days: ${binding} Reply YES or NO?`;
+    const hits = detectContractWrapperDuplicates(
+      bad,
+      binding,
+      DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT
+    );
+    expect(hits.some((h) => h.startsWith("contract_wrapper_duplicate:"))).toBe(true);
+  });
+
+  it("contract_prompt: duplicate wrapper triggers binding-preserving repair then sends", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const duplicated = `Welcome back, Diane! To maintain your commitment, let's keep this line for 7 days: ${binding} Do you agree? Reply YES or NO.`;
+    const cleaned = `Diane — here's the line. ${binding} Reply YES or NO if that works.`;
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: duplicated,
+                no_send_reason: null,
+                turn_purpose: "contract_overlay",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: cleaned,
+                used_strategy: "strip_duplicate_wrapper",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+          wrapper_must_not_repeat_substrings: [...DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT],
+        },
+      },
+      telemetry_fact_sources: ["v2_contract_binding_facts"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toContain(binding);
+    expect(countSubstringOccurrences(r.body, binding)).toBe(1);
+    expect(r.body.toLowerCase()).not.toMatch(/let's keep this line for 7 days/);
+    expect(r.metadata.contract_wrapper_repair_succeeded).toBe(true);
+  });
+
+  it("contract_prompt: duplicate wrapper repair that drops binding verbatim no-sends", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const duplicated = `Let's keep this line for 7 days: ${binding}`;
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: duplicated,
+                no_send_reason: null,
+                turn_purpose: "contract_overlay",
+                voice_confidence: 0.7,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Quick check — reply YES or NO if you want the smaller bar.",
+                used_strategy: "bad_drop_binding",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+        },
+      },
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("contract_wrapper_duplicate");
+    expect(r.metadata.contract_wrapper_repair_succeeded).toBe(false);
+  });
+
   it("contract_prompt: sends when binding verbatim is embedded in relationship wrapper", async () => {
     const base = baseFacts();
     const binding = "Today only: 30 minutes deep work. Reply YES or NO.";
@@ -671,6 +882,165 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.daily_v3_lane_used).toBe(true);
     expect(r.metadata.old_daily_writer_used_as_voice).toBe(false);
     expect(r.metadata.v3_lane_reply_source).toBe("v3_daily_relationship_lane");
+  });
+
+  it("repairs repeated prior coach question on main accountability (M2B-5)", async () => {
+    const priorQ = "What story will you dictate today?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: priorQ,
+                no_send_reason: null,
+                turn_purpose: "daily_accountability",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Sunday School, the farm, and your mother's songs are a rich thread — which one feels alive to dictate today?",
+                used_strategy: "memory_repeat_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          latest_open_question: priorQ,
+          latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+          last_5_coach_questions: [priorQ],
+          do_not_repeat_hints: [priorQ],
+          projection_used: true,
+        },
+      }),
+      telemetry_fact_sources: ["test_memory_repeat"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).not.toBe(priorQ);
+    expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+  });
+
+  it("no-sends when memory repeat repair still repeats answered open question", async () => {
+    const priorQ = "What story will you dictate today?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: priorQ,
+                no_send_reason: null,
+                turn_purpose: "daily_accountability",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: priorQ,
+                used_strategy: "memory_repeat_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          latest_open_question: priorQ,
+          latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+          last_5_coach_questions: [priorQ],
+          do_not_repeat_hints: [priorQ],
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("thread_memory_repeat_blocked");
+    expect(r.metadata.memory_repeat_no_send_reason).toBe("still_repeated_after_repair");
+  });
+
+  it("does not block contract_prompt required binding with anti-repeat guard", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: `Diane — here's the line. ${binding} Reply YES or NO if that works.`,
+              no_send_reason: null,
+              turn_purpose: "contract_overlay",
+              voice_confidence: 0.9,
+              used_facts: ["contract"],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+        },
+        thread_memory: {
+          ...base.thread_memory,
+          latest_open_question: binding,
+          last_5_coach_questions: [binding],
+          do_not_repeat_hints: [binding],
+        },
+      },
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toContain(binding);
+    expect(r.metadata.memory_repeat_guard_attempted).toBeFalsy();
   });
 });
 

@@ -1,16 +1,31 @@
 /**
- * Phase 4.2A — Weekly outbound V3 relationship lane (module only; not wired to cron).
+ * Phase 4.2A — Weekly outbound V3 relationship lane.
  * OpenAI authors visible weekly SMS from structured facts; fail-closed, no deterministic coaching fallback.
  */
 
 import OpenAI from "openai";
 
 import { matchesMalformedDidRawPhraseHappenToday } from "@/lib/north-star-coach-sms";
-import { detectFinalVoiceBlockedReasons } from "@/lib/v3-sms-voice-ownership";
+import {
+  applySmsMemoryAntiRepeatGuard,
+  buildAntiRepeatDetectArgsFromWeeklyFacts,
+  shouldRunWeeklyMemoryRepeatGuard,
+} from "@/lib/sms-memory-anti-repeat";
+import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
+import {
+  detectFinalVoiceBlockedReasons,
+  partitionFinalVoiceBlockedReasons,
+  repairV3RelationshipLaneBodyWithOpenAI,
+} from "@/lib/v3-sms-voice-ownership";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 
 /** Aligns with {@link detectFinalVoiceBlockedReasons} `too_long` guard for post-FVG compatibility. */
 const WEEKLY_V3_LANE_MAX_CHARS = 320;
+
+const WEEKLY_LANE_REPAIR_SYSTEM_INSTRUCTION = `This is a weekly reflection/proof SMS in an ongoing coaching relationship — NOT a daily check-in.
+- Do not echo or paraphrase old_weekly_proof_body_preview, deterministic_weekly_body_preview, legacy_reflection_preview, or legacy_template_preview.
+- Do not use Pat Pause openers, newsletter/report language, or generic motivation filler.
+- Preserve the useful weekly meaning from the original candidate; compress style issues only.`;
 
 export type WeeklyV3RoutePurpose =
   | "weekly_proof_v2"
@@ -28,12 +43,26 @@ export type WeeklyV3CommitmentFacts = {
 };
 
 export type WeeklyV3ThreadFacts = {
+  /** Legacy conv previews — fallback only when exact thread missing. */
   latest_outbound_preview: string | null;
   latest_inbound_preview: string | null;
   recent_transcript_lines: string[];
+  recent_exact_thread_text: string | null;
+  last_outbound_full_body: string | null;
+  last_inbound_full_body: string | null;
+  last_5_coach_questions: string[];
+  last_5_user_answers: string[];
   latest_open_question: string | null;
+  latest_answer_after_open_question: string | null;
+  open_question_pending: boolean;
+  open_question_source: string | null;
+  answer_source: string | null;
+  projection_used: boolean;
+  memory_packet_used: boolean;
+  recent_exact_message_count: number | null;
   do_not_repeat_hints: string[];
   coaching_memory_snippet: string | null;
+  memory_priority_rules: string[];
 };
 
 export type WeeklyV3ProofFacts = {
@@ -75,6 +104,9 @@ export type WeeklyV3OutboundFacts = {
     fully_on_v2: boolean;
     reason_for_send: "sunday_weekly_touchpoint";
     legacy_weekly_branch: boolean;
+  };
+  constraints?: {
+    required_verbatim_substrings?: string[];
   };
 };
 
@@ -141,6 +173,10 @@ function safeJsonParse(raw: string): LaneModelJson | null {
   }
 }
 
+function bodyPreview(s: string): string {
+  return s.length > 220 ? `${s.slice(0, 219)}…` : s;
+}
+
 function summarizeWeeklyFacts(f: WeeklyV3OutboundFacts): string {
   const slim = {
     route_purpose: f.route.route_purpose,
@@ -159,6 +195,8 @@ function summarizeWeeklyFacts(f: WeeklyV3OutboundFacts): string {
       strong_week: f.weekly_proof.strong_week,
     },
     has_commitment: Boolean(f.commitment.active_commitment_id),
+    memory_packet_used: f.thread.memory_packet_used,
+    projection_used: f.thread.projection_used,
     preview_lengths: {
       old_proof: f.weekly_proof.old_weekly_proof_body_preview?.length ?? 0,
       deterministic: f.weekly_proof.deterministic_weekly_body_preview?.length ?? 0,
@@ -170,7 +208,7 @@ function summarizeWeeklyFacts(f: WeeklyV3OutboundFacts): string {
   return s.length > 1200 ? `${s.slice(0, 1199)}…` : s;
 }
 
-function weeklyLaneLocalValidation(body: string, facts: WeeklyV3OutboundFacts): string[] {
+export function weeklyLaneLocalValidation(body: string, facts: WeeklyV3OutboundFacts): string[] {
   const hits: string[] = [];
   const t = body.trim();
   const lower = t.toLowerCase();
@@ -207,6 +245,21 @@ function weeklyLaneLocalValidation(body: string, facts: WeeklyV3OutboundFacts): 
   return hits;
 }
 
+function weeklyPostValidateHits(body: string, facts: WeeklyV3OutboundFacts): {
+  localHits: string[];
+  fvgHits: string[];
+  blockedReasons: string[];
+  repairable: string[];
+  hard: string[];
+} {
+  const localHits = weeklyLaneLocalValidation(body, facts);
+  const fvgHits = detectFinalVoiceBlockedReasons(body);
+  const { repairable, hard: hardFvg } = partitionFinalVoiceBlockedReasons(fvgHits);
+  const hard = [...localHits, ...hardFvg];
+  const blockedReasons = [...new Set([...localHits, ...fvgHits])];
+  return { localHits, fvgHits, blockedReasons, repairable, hard };
+}
+
 /**
  * Produces weekly relationship SMS from structured facts only.
  * Fail-closed: no OpenAI / parse / validation success → shouldSend false, empty body.
@@ -228,6 +281,11 @@ export async function produceWeeklyV3RelationshipSms(
     weekly_facts_summary: summarizeWeeklyFacts(f),
     fully_on_v2: f.route.fully_on_v2,
     legacy_weekly_branch: f.route.legacy_weekly_branch,
+    weekly_memory_packet_used: f.thread.memory_packet_used,
+    weekly_projection_used: f.thread.projection_used,
+    weekly_memory_open_question_source: f.thread.open_question_source,
+    weekly_memory_answer_source: f.thread.answer_source,
+    weekly_memory_recent_thread_count: f.thread.recent_exact_message_count,
   };
 
   const empty = (
@@ -266,13 +324,21 @@ export async function produceWeeklyV3RelationshipSms(
 
 RULES:
 - Use WEEKLY_FACTS_JSON only as facts. Never invent wins, proof moments, or numbers not implied there.
+- thread.recent_exact_thread_text is the highest-priority relationship context when present — it outranks previews, weekly_proof hints, and coaching_memory_snippet.
+- When thread.projection_used is true, thread.latest_open_question and thread.latest_answer_after_open_question are server-owned durable projection — they beat transcript guesses and previews.
+- weekly_proof facts matter for the week, but do not override exact recent SMS thread or projection open Q/A.
+- thread.coaching_memory_snippet is background only — never quote it as if the user just said it.
+- Do not repeat questions in thread.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
+- If thread.open_question_pending is false and thread.latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
+- Bring back meaningful user language from the thread naturally when useful; do not re-ask for information they already gave.
+- Do not use "Welcome back" unless reentry/silence context in facts truly supports it.
 - If the week was rough (rough_week) or quiet (silent_week / thin facts), be honest and useful without shaming. If there is not enough context for a genuinely useful weekly coaching text, return should_send false.
 - If there is proof (proof_moment_hints, win_hints, comeback_hints), make acknowledgment specific and earned — not generic hype.
 - At most one useful question in the body, or none if a question would feel forced.
 - One short SMS, max ${WEEKLY_V3_LANE_MAX_CHARS} characters, single line or very short paragraphs; no markdown, bullets, or "Coach:" prefix.
 - Do not use generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope you're having").
-- Do not quote, imitate, or paste text from old_weekly_proof_body_preview, deterministic_weekly_body_preview, legacy_reflection_preview, legacy_template_preview, or Pat Pause-style openers — those are telemetry-only.
-- Never mention internal systems, schema, or "V2".
+- Do not quote, imitate, or paste text from old_weekly_proof_body_preview, deterministic_weekly_body_preview, legacy_reflection_preview, legacy_template_preview, thread.latest_outbound_preview, thread.latest_inbound_preview, or Pat Pause-style openers — those are telemetry-only / non-speakable.
+- Never mention internal systems, schema, memory, projection, or "V2".
 - Never emit raw machine tokens like event_type, blocker_captured, user_partial.
 - Avoid daily-check phrasing like "Did [raw behavior text] happen today?" — this is weekly, not today's rep check.
 
@@ -290,19 +356,23 @@ ${factsJson.slice(0, 14000)}
 
 Write JSON only.`;
 
-  let raw = "";
+  let laneOpenAiJsonMeta: Record<string, unknown> = {};
+  let parsed: LaneModelJson | null = null;
   try {
-    const completion = await client.chat.completions.create({
+    const jsonOut = await runLaneOpenAiJsonWithOneRetry<LaneModelJson>({
+      client,
       model: "gpt-4o-mini",
       temperature: 0.35,
-      max_tokens: 420,
-      response_format: { type: "json_object" },
-      messages: [
+      maxTokens: 420,
+      primaryMessages: [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
+      jsonSchemaReminder: `Keys: should_send (boolean), body (string), no_send_reason (string|null), route_purpose (string, must equal "${routePurpose}"), voice_confidence (number 0-1 or null), used_facts (string[]), safety_notes (string[]).`,
+      parse: safeJsonParse,
     });
-    raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    parsed = jsonOut.value;
+    laneOpenAiJsonMeta = jsonOut.retryMeta as unknown as Record<string, unknown>;
   } catch (e) {
     return empty("openai_request_failed", true, {
       lane_stage: "openai_error",
@@ -310,9 +380,11 @@ Write JSON only.`;
     });
   }
 
-  const parsed = safeJsonParse(raw);
   if (!parsed) {
-    return empty("invalid_json", true, { lane_stage: "parse", raw_preview: raw.slice(0, 200) });
+    return empty("invalid_json", true, {
+      lane_stage: "parse",
+      ...laneOpenAiJsonMeta,
+    });
   }
 
   const modelRoute = typeof parsed.route_purpose === "string" ? parsed.route_purpose.trim() : "";
@@ -320,6 +392,7 @@ Write JSON only.`;
     return empty("route_purpose_mismatch", true, {
       lane_stage: "route_purpose",
       model_route_purpose: modelRoute || null,
+      ...laneOpenAiJsonMeta,
     });
   }
 
@@ -332,6 +405,8 @@ Write JSON only.`;
       : null;
   const usedFacts = asStringArray(parsed.used_facts);
   const safetyNotes = asStringArray(parsed.safety_notes);
+  let successLaneStage: "ok" | "post_validate_repaired" = "ok";
+  let successRepairExtra: Record<string, unknown> = {};
 
   if (!shouldSendModel) {
     return {
@@ -345,6 +420,7 @@ Write JSON only.`;
       safetyNotes,
       metadata: {
         ...baseMeta,
+        ...laneOpenAiJsonMeta,
         lane_stage: "model_no_send",
         v3_candidate_body: "",
         should_send: false,
@@ -359,44 +435,185 @@ Write JSON only.`;
 
   body = body.replace(/^["']|["']$/g, "").trim();
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body" });
+    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body", ...laneOpenAiJsonMeta });
   }
 
-  if (body.length > WEEKLY_V3_LANE_MAX_CHARS) {
-    return empty("weekly_lane_too_long", true, {
-      lane_stage: "length",
-      v3_candidate_body: body,
-      body_len: body.length,
+  const initialValidate = weeklyPostValidateHits(body, f);
+  if (initialValidate.blockedReasons.length > 0) {
+    const { localHits, repairable, hard, blockedReasons } = initialValidate;
+
+    if (localHits.length > 0 || hard.length > 0) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "lane_post_validate_blocked",
+        replySource: "v3_weekly_relationship_lane",
+        routePurpose,
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, ...blockedReasons.map((b) => `blocked:${b}`)],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "post_validate_blocked",
+          v3_candidate_body: body,
+          blocked_reasons: blockedReasons,
+          repairable_blocked_reasons: repairable,
+          hard_blocked_reasons: hard,
+          should_send: false,
+          no_send_reason: "lane_post_validate_blocked",
+          openai_ok: true,
+          used_facts: usedFacts,
+          safety_notes: [...safetyNotes, ...blockedReasons],
+        },
+        openAiOk: true,
+      };
+    }
+
+    const originalCandidateSnapshot = body;
+
+    const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "weekly",
+      routePurpose,
+      originalBody: body,
+      blockedReasons: repairable,
+      factsJson: f,
+      systemInstruction: WEEKLY_LANE_REPAIR_SYSTEM_INSTRUCTION,
     });
+
+    if (!repairOut) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "lane_post_validate_blocked",
+        replySource: "v3_weekly_relationship_lane",
+        routePurpose,
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, ...blockedReasons.map((b) => `blocked:${b}`)],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "post_validate_repair_failed",
+          v3_candidate_body: originalCandidateSnapshot,
+          blocked_reasons: blockedReasons,
+          repairable_blocked_reasons: repairable,
+          hard_blocked_reasons: [],
+          lane_repair_attempted: true,
+          lane_repair_succeeded: false,
+          original_blocked_reasons: repairable,
+          original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+          repaired_candidate_body: null,
+          repaired_blocked_reasons: null,
+        },
+        openAiOk: true,
+      };
+    }
+
+    let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
+    const afterRepair = weeklyPostValidateHits(repaired, f);
+
+    if (afterRepair.blockedReasons.length > 0) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "lane_post_validate_blocked",
+        replySource: "v3_weekly_relationship_lane",
+        routePurpose,
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [
+          ...safetyNotes,
+          ...blockedReasons.map((b) => `blocked:${b}`),
+          ...afterRepair.blockedReasons.map((b) => `repaired_blocked:${b}`),
+        ],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "post_validate_repair_failed",
+          v3_candidate_body: originalCandidateSnapshot,
+          blocked_reasons: blockedReasons,
+          repairable_blocked_reasons: repairable,
+          hard_blocked_reasons: [],
+          lane_repair_attempted: true,
+          lane_repair_succeeded: false,
+          original_blocked_reasons: repairable,
+          original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+          repaired_candidate_body: repaired,
+          repaired_blocked_reasons: afterRepair.blockedReasons,
+          lane_repair_used_strategy: repairOut.metadata.lane_repair_used_strategy,
+          lane_repair_safety_notes: repairOut.metadata.lane_repair_safety_notes,
+        },
+        openAiOk: true,
+      };
+    }
+
+    body = repaired;
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = {
+      lane_repair_attempted: true,
+      lane_repair_succeeded: true,
+      original_blocked_reasons: repairable,
+      repairable_blocked_reasons: repairable,
+      hard_blocked_reasons: [],
+      original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+      repaired_candidate_body: repaired,
+      repaired_blocked_reasons: [],
+      lane_repair_used_strategy: repairOut.metadata.lane_repair_used_strategy,
+      lane_repair_safety_notes: repairOut.metadata.lane_repair_safety_notes,
+    };
   }
 
-  const localHits = weeklyLaneLocalValidation(body, f);
-  const fvgHits = detectFinalVoiceBlockedReasons(body);
-  const blocked = [...new Set([...localHits, ...fvgHits.map((b) => `fvg:${b}`)])];
+  const memoryRepeatGuard = await applySmsMemoryAntiRepeatGuard({
+    routeKind: "weekly",
+    routePurpose,
+    body,
+    factsJson: f,
+    detectInput: buildAntiRepeatDetectArgsFromWeeklyFacts(f, body),
+    enabled: shouldRunWeeklyMemoryRepeatGuard(f),
+    validateAfterRepair: async (candidate) => {
+      const afterRepair = weeklyPostValidateHits(candidate, f);
+      if (afterRepair.blockedReasons.length > 0) {
+        return {
+          ok: false,
+          noSendReason: "lane_post_validate_blocked",
+          extraMeta: { repaired_blocked_reasons: afterRepair.blockedReasons },
+        };
+      }
+      return { ok: true };
+    },
+    additionalRepairInstruction:
+      "Keep weekly framing for the week. Move the relationship forward in one natural SMS. Do not mention internal memory or projection.",
+    noSendReason: "weekly_thread_memory_repeat_blocked",
+  });
 
-  if (blocked.length > 0) {
+  if (memoryRepeatGuard.outcome === "no_send") {
     return {
       body: "",
       shouldSend: false,
-      noSendReason: "lane_post_validate_blocked",
+      noSendReason: memoryRepeatGuard.noSendReason,
       replySource: "v3_weekly_relationship_lane",
       routePurpose,
       voiceConfidence,
       usedFacts,
-      safetyNotes: [...safetyNotes, ...blocked],
+      safetyNotes,
       metadata: {
         ...baseMeta,
-        lane_stage: "post_validate_blocked",
+        ...laneOpenAiJsonMeta,
+        lane_stage: "weekly_thread_memory_repeat_guard_failed",
         v3_candidate_body: body,
-        blocked_reasons: blocked,
-        should_send: false,
-        no_send_reason: "lane_post_validate_blocked",
-        openai_ok: true,
-        used_facts: usedFacts,
-        safety_notes: [...safetyNotes, ...blocked],
+        ...memoryRepeatGuard.metadata,
       },
       openAiOk: true,
     };
+  }
+
+  body = memoryRepeatGuard.body;
+  if (memoryRepeatGuard.metadata.memory_repeat_guard_succeeded === true) {
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
+  } else if (Object.keys(memoryRepeatGuard.metadata).length > 0) {
+    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
   }
 
   return {
@@ -410,13 +627,15 @@ Write JSON only.`;
     safetyNotes,
     metadata: {
       ...baseMeta,
-      lane_stage: "ok",
+      ...laneOpenAiJsonMeta,
+      lane_stage: successLaneStage,
       v3_candidate_body: body,
       should_send: true,
       no_send_reason: null,
       openai_ok: true,
       used_facts: usedFacts,
       safety_notes: safetyNotes,
+      ...successRepairExtra,
     },
     openAiOk: true,
   };

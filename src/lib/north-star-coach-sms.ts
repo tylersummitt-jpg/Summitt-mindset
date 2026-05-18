@@ -1168,9 +1168,15 @@ function scrubWrongTemporal(s: string, preserveNl: boolean): { text: string; hit
   return { text: finalizeTextShape(t, preserveNl), hits };
 }
 
-function scrubProductJargon(s: string, preserveNl: boolean): { text: string; hits: string[] } {
+function scrubProductJargon(
+  s: string,
+  preserveNl: boolean,
+  channel?: NorthStarCoachChannel
+): { text: string; hits: string[] } {
   const hits: string[] = [];
   let t = s;
+  const preserveServerBindingPhrasing =
+    channel === "contract_prompt" || channel === "guided_contract_proposal";
   const pairs: Array<[RegExp, string]> = [
     [/\brecommit\s+to\s+this\s+bar\b/gi, "stay in on this line"],
     [/\brecommit\s+to\s+this\b/gi, "stay in on this"],
@@ -1192,7 +1198,14 @@ function scrubProductJargon(s: string, preserveNl: boolean): { text: string; hit
     [/coach\s+pat\s+is\s+currently[^.!?]*[.!?]?/gi, ""],
     [/stay\s+on\s+track[^.!?]*[.!?]?/gi, ""],
   ];
+  const bindingSafeSkip = new Set([
+    String.raw`\bsame\s+commitment\b`,
+    String.raw`\brecommit\s+to\s+this\s+for\s+7\s+days\b`,
+    String.raw`\brecommit\s+to\s+this\s+bar\b`,
+    String.raw`\brecommit\s+to\s+this\b`,
+  ]);
   for (const [re, rep] of pairs) {
+    if (preserveServerBindingPhrasing && bindingSafeSkip.has(re.source)) continue;
     if (re.test(t)) hits.push(re.source.slice(0, 30));
     t = t.replace(re, rep);
   }
@@ -1616,7 +1629,7 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = "rewritten";
   }
 
-  const jargon = scrubProductJargon(working, preserveNl);
+  const jargon = scrubProductJargon(working, preserveNl, args.channel);
   working = jargon.text;
   if (jargon.hits.length) {
     blockedReasons.push("product_jargon_scrub");
