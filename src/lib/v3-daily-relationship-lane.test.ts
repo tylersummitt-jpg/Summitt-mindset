@@ -592,7 +592,7 @@ describe("produceDailyV3RelationshipSms", () => {
   it("contract_prompt: duplicate wrapper triggers binding-preserving repair then sends", async () => {
     const binding = computeRecommitBindingText("I will text or call each day");
     const duplicated = `Welcome back, Diane! To maintain your commitment, let's keep this line for 7 days: ${binding} Do you agree? Reply YES or NO.`;
-    const cleaned = `Diane — here's the line. ${binding} Reply YES or NO if that works.`;
+    const cleaned = `Diane — here's the line. ${binding} Want me to keep the bar right here for the week?`;
     createMock
       .mockResolvedValueOnce({
         choices: [
@@ -647,12 +647,77 @@ describe("produceDailyV3RelationshipSms", () => {
       },
       telemetry_fact_sources: ["v2_contract_binding_facts"],
     });
-    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(createMock.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(r.shouldSend).toBe(true);
     expect(r.body).toContain(binding);
     expect(countSubstringOccurrences(r.body, binding)).toBe(1);
     expect(r.body.toLowerCase()).not.toMatch(/let's keep this line for 7 days/);
-    expect(r.metadata.contract_wrapper_repair_succeeded).toBe(true);
+    expect(r.body.toLowerCase()).not.toMatch(/\breply\s+yes\b/);
+    expect(r.body.toLowerCase()).not.toMatch(/\breply\s+no\b/);
+    expect(r.metadata.robot_consent_menu_repair_succeeded).toBe(true);
+  });
+
+  it("contract_prompt: robotic Reply YES/NO no-sends when repair cannot naturalize", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const robotic = `Let's make this simple. ${binding} Reply YES to confirm or NO to discard.`;
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: robotic,
+                no_send_reason: null,
+                turn_purpose: "contract_overlay",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: `Still robotic. ${binding} Reply YES or NO.`,
+                used_strategy: "failed_naturalize",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+        },
+      },
+      telemetry_fact_sources: ["v2_contract_binding_facts"],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("robotic_contract_menu_language");
+    expect(r.metadata.lane_stage).toBe("robot_consent_menu_blocked");
+    expect(r.metadata.robot_consent_menu_repair_attempted).toBe(true);
+    expect(r.metadata.robot_consent_menu_repair_succeeded).toBe(false);
   });
 
   it("contract_prompt: duplicate wrapper repair that drops binding verbatim no-sends", async () => {
@@ -712,8 +777,8 @@ describe("produceDailyV3RelationshipSms", () => {
       telemetry_fact_sources: [],
     });
     expect(r.shouldSend).toBe(false);
-    expect(r.noSendReason).toBe("contract_wrapper_duplicate");
-    expect(r.metadata.contract_wrapper_repair_succeeded).toBe(false);
+    expect(r.noSendReason).toBe("robotic_contract_menu_language");
+    expect(r.metadata.robot_consent_menu_repair_succeeded).toBe(false);
   });
 
   it("contract_prompt: sends when binding verbatim is embedded in relationship wrapper", async () => {
@@ -997,7 +1062,7 @@ describe("produceDailyV3RelationshipSms", () => {
           message: {
             content: JSON.stringify({
               should_send: true,
-              body: `Diane — here's the line. ${binding} Reply YES or NO if that works.`,
+              body: `Diane — here's the line. ${binding} Want me to keep the bar right here for the week?`,
               no_send_reason: null,
               turn_purpose: "contract_overlay",
               voice_confidence: 0.9,

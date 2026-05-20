@@ -16,10 +16,14 @@ import {
   shouldRunDailyMemoryRepeatGuard,
 } from "@/lib/sms-memory-anti-repeat";
 import {
-  detectFinalVoiceBlockedReasons,
+  detectRelationshipCoachingVoiceBlockedReasons,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
+import {
+  detectRelationshipRobotConsentMenuReasons,
+  relationshipRobotConsentMenuNoSendReason,
+} from "@/lib/relationship-robot-consent-menu";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 
@@ -216,7 +220,7 @@ function routeSpecificSystemAddendum(f: DailyV3RelationshipFacts): string {
       `CONTRACT_PROMPT_ROUTE: Paste contract_proposal.binding_text_verbatim EXACTLY once in the SMS body — character-for-character, unchanged. Do not paraphrase or restate the binding instruction.`,
       `The human wrapper is short context only (e.g. "Let's make this simple." / "Here's the line." / "If this is right, confirm it.").`,
       `Do NOT use these phrases anywhere in the wrapper (they already belong inside the binding): ${wrapperForbidden.map((p) => JSON.stringify(p)).join(", ")}.`,
-      `One YES/NO consent ask total — not two questions. Do not change binding meaning or add new legal obligations.`,
+      `One natural confirmation ask total (e.g. whether to keep the same bar for the week) — not two questions. Never use visible menu-bot phrasing like "Reply YES", "Reply NO", "YES to confirm", or "NO to discard". Do not change binding meaning or add new legal obligations.`,
       `Binding for verbatim inclusion: ${JSON.stringify(f.contract_proposal.binding_text_verbatim)}`
     );
   }
@@ -379,7 +383,7 @@ RULES:
 - BINDING_VERBATIM must appear in body exactly once, character-for-character unchanged: ${JSON.stringify(binding)}
 - Remove duplicate wrapper language that restates the binding (keep this line, 7 days, same focus, same commitment, hold you to, recommit) OUTSIDE the binding.
 - Short human wrapper only before and/or after the binding — do not paraphrase the binding instruction.
-- One YES or NO consent invitation total — not two questions.
+- One natural confirmation invitation total — not two questions. Never use "Reply YES", "Reply NO", "YES to confirm", or "NO to discard".
 - No markdown, bullets, or role labels. One short SMS; no newlines in body.`;
 
   const userContent = [
@@ -427,6 +431,113 @@ RULES:
     });
     return null;
   }
+}
+
+type RobotConsentMenuRepairJson = {
+  body?: unknown;
+  used_strategy?: unknown;
+  safety_notes?: unknown;
+};
+
+function safeParseRobotConsentMenuRepairJson(raw: string): RobotConsentMenuRepairJson | null {
+  try {
+    return JSON.parse(raw) as RobotConsentMenuRepairJson;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * OpenAI repair for robotic YES/NO menu consent copy. Preserves binding_text_verbatim when present.
+ */
+async function repairDailyRelationshipRobotConsentMenu(args: {
+  originalBody: string;
+  bindingVerbatim: string | null;
+  blockedReasons: string[];
+  factsJson: unknown;
+}): Promise<{ body: string; metadata: Record<string, unknown> } | null> {
+  const client = getOpenAIClient();
+  if (!client) return null;
+
+  const binding = args.bindingVerbatim?.trim() ?? "";
+  let factsSnippet: string;
+  try {
+    const raw = JSON.stringify(args.factsJson ?? null);
+    factsSnippet = raw.length > 6000 ? `${raw.slice(0, 5999)}…` : raw;
+  } catch {
+    factsSnippet = "(facts_json_unserializable)";
+  }
+
+  const bindingRule = binding
+    ? `- BINDING_VERBATIM must appear in body exactly once, character-for-character unchanged: ${JSON.stringify(binding)}`
+    : `- Do not add server binding instructional phrases (keep this line for 7 days, same commitment—keep this line, same focus—keep this line).`;
+
+  const system = `You repair relationship coaching SMS copy for Summitt Mindset.
+
+OUTPUT: strict JSON only with keys:
+body (string, one SMS),
+used_strategy (string, short),
+safety_notes (string array, may be empty)
+
+RULES:
+${bindingRule}
+- Remove robotic menu-bot consent phrasing: "Reply YES", "Reply NO", "YES to confirm", "NO to discard", "Reply YES to commit/recommit", etc.
+- Replace with one short natural confirmation ask (e.g. whether to keep the same bar for the week) — wording may vary; do not sound like a phone tree.
+- One confirmation invitation total — not two questions.
+- No markdown, bullets, or role labels. One short SMS; no newlines in body.`;
+
+  const userContent = [
+    `blocked_reasons: ${args.blockedReasons.join(", ")}`,
+    `original_candidate_sms: ${args.originalBody}`,
+    `ACCOUNTABILITY_FACTS_JSON (facts only):`,
+    factsSnippet,
+  ].join("\n");
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      max_tokens: 280,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    const parsed = safeParseRobotConsentMenuRepairJson(raw);
+    const bodyRaw = typeof parsed?.body === "string" ? parsed.body.replace(/\r?\n/g, " ").trim() : "";
+    const repaired = bodyRaw.replace(/^["']|["']$/g, "").trim();
+    if (!repaired) return null;
+    if (binding && countSubstringOccurrences(repaired, binding) !== 1) return null;
+
+    const used_strategy =
+      typeof parsed?.used_strategy === "string" ? parsed.used_strategy.trim() : "robot_consent_menu_naturalize";
+    const sn = Array.isArray(parsed?.safety_notes)
+      ? parsed.safety_notes.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean)
+      : [];
+
+    return {
+      body: repaired,
+      metadata: {
+        robot_consent_menu_repair_used_strategy: used_strategy,
+        robot_consent_menu_repair_safety_notes: sn,
+      },
+    };
+  } catch (e) {
+    console.warn("[v3-daily-relationship-lane] robot_consent_menu_repair_failed", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return null;
+  }
+}
+
+function dailyBindingVerbatimForRobotGuard(facts: DailyV3RelationshipFacts): string | null {
+  if (facts.route_kind === "contract_prompt" && facts.contract_proposal) {
+    const b = facts.contract_proposal.binding_text_verbatim.trim();
+    return b || null;
+  }
+  return null;
 }
 
 /** Contract / binding routes: lane repair must not rewrite required verbatim substrings. */
@@ -576,7 +687,65 @@ Write JSON only.`;
     return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta });
   }
 
-  const blocked = detectFinalVoiceBlockedReasons(body);
+  const bindingVerbatim = dailyBindingVerbatimForRobotGuard(args.facts);
+  const robotMenuReasons = detectRelationshipRobotConsentMenuReasons(body, { bindingVerbatim });
+  let robotConsentMenuExtra: Record<string, unknown> = {};
+  if (robotMenuReasons.length > 0) {
+    const originalRobotSnapshot = body;
+    const robotRepair = await repairDailyRelationshipRobotConsentMenu({
+      originalBody: body,
+      bindingVerbatim,
+      blockedReasons: robotMenuReasons,
+      factsJson: args.facts,
+    });
+    robotConsentMenuExtra = {
+      robot_consent_menu_blocked_reasons: robotMenuReasons,
+      robot_consent_menu_repair_attempted: true,
+      robot_consent_menu_repair_succeeded: false,
+      v3_candidate_body: originalRobotSnapshot,
+    };
+    if (robotRepair) {
+      body = robotRepair.body.replace(/^["']|["']$/g, "").trim();
+      robotConsentMenuExtra = {
+        ...robotConsentMenuExtra,
+        ...robotRepair.metadata,
+        repaired_candidate_body: body,
+      };
+    }
+    const robotAfter = detectRelationshipRobotConsentMenuReasons(body, { bindingVerbatim });
+    if (robotRepair && robotAfter.length === 0) {
+      robotConsentMenuExtra = {
+        ...robotConsentMenuExtra,
+        robot_consent_menu_repair_succeeded: true,
+      };
+    }
+    if (robotAfter.length > 0) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: relationshipRobotConsentMenuNoSendReason(robotAfter),
+        replySource: "v3_daily_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, ...robotAfter.map((r) => `blocked:${r}`)],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "robot_consent_menu_blocked",
+          robot_consent_menu_blocked_reasons: robotAfter,
+          ...robotConsentMenuExtra,
+        },
+        openAiOk: true,
+      };
+    }
+    if (robotRepair) {
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = { ...successRepairExtra, ...robotConsentMenuExtra };
+    }
+  }
+
+  const blocked = detectRelationshipCoachingVoiceBlockedReasons(body, { bindingVerbatim });
   if (blocked.length > 0) {
     const { repairable, hard } = partitionFinalVoiceBlockedReasons(blocked);
 
@@ -643,7 +812,7 @@ Write JSON only.`;
     }
 
     let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
-    const blockedAfter = detectFinalVoiceBlockedReasons(repaired);
+    const blockedAfter = detectRelationshipCoachingVoiceBlockedReasons(repaired, { bindingVerbatim });
     const missingAfterRepair = validateRequiredVerbatims(
       repaired,
       args.facts.constraints.required_verbatim_substrings
@@ -744,12 +913,18 @@ Write JSON only.`;
         body,
         args.facts.constraints.required_verbatim_substrings
       );
-      const fvgAfterContractRepair = detectFinalVoiceBlockedReasons(body);
+      const fvgAfterContractRepair = detectRelationshipCoachingVoiceBlockedReasons(body, {
+        bindingVerbatim,
+      });
+      const robotAfterContractRepair = detectRelationshipRobotConsentMenuReasons(body, {
+        bindingVerbatim,
+      });
 
       if (
         contractDup.length > 0 ||
         missingBindingAfterContractRepair != null ||
-        fvgAfterContractRepair.length > 0
+        fvgAfterContractRepair.length > 0 ||
+        robotAfterContractRepair.length > 0
       ) {
         return {
           body: "",
@@ -778,6 +953,7 @@ Write JSON only.`;
             repaired_candidate_body: body,
             repaired_contract_wrapper_blocked_reasons: contractDup,
             repaired_fvg_blocked_reasons: fvgAfterContractRepair,
+            robot_consent_menu_blocked_reasons: robotAfterContractRepair,
             ...(missingBindingAfterContractRepair != null
               ? { first_missing_verbatim_preview: missingBindingAfterContractRepair.slice(0, 120) }
               : {}),
@@ -830,7 +1006,9 @@ Write JSON only.`;
     detectInput: buildAntiRepeatDetectArgsFromDailyFacts(args.facts, body),
     enabled: shouldRunDailyMemoryRepeatGuard(args.facts),
     validateAfterRepair: async (candidate) => {
-      const blockedAfter = detectFinalVoiceBlockedReasons(candidate);
+      const blockedAfter = detectRelationshipCoachingVoiceBlockedReasons(candidate, {
+        bindingVerbatim: dailyBindingVerbatimForRobotGuard(args.facts),
+      });
       if (blockedAfter.length > 0) {
         return {
           ok: false,

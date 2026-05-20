@@ -6,6 +6,7 @@ import {
   appendPreservedSmsSuffix,
   applyFinalVoiceOwnershipGate,
   detectFinalVoiceBlockedReasons,
+  detectRelationshipCoachingVoiceBlockedReasons,
   isRepairableFinalVoiceBlockedReason,
   partitionFinalVoiceBlockedReasons,
 } from "./v3-sms-voice-ownership";
@@ -123,6 +124,31 @@ describe("detectFinalVoiceBlockedReasons", () => {
       detectFinalVoiceBlockedReasons("Welcome back, Angel! Did you manage to make the calls as planned at 2 PM?")
     ).toContain("did_you_manage");
   });
+
+  it("flags robotic Reply YES/NO contract menu language", () => {
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons("Reply YES to confirm or NO to discard.")
+    ).toContain("reply_yes_no_menu_language");
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons("Reply YES to commit or NO to pause.")
+    ).toContain("reply_yes_no_menu_language");
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons("Reply YES or NO if that works.")
+    ).toContain("reply_yes_no_menu_language");
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons(
+        "Same commitment—keep this line for 7 days: Focused on work without distractions."
+      )
+    ).toContain("same_commitment_keep_this_line_robot_copy");
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons(
+        "Same focus—keep this line for 7 days: Focused on work without distractions."
+      )
+    ).toContain("same_commitment_keep_this_line_robot_copy");
+    expect(detectRelationshipCoachingVoiceBlockedReasons("Keep this line for 7 days.")).toContain(
+      "same_commitment_keep_this_line_robot_copy"
+    );
+  });
 });
 
 describe("partitionFinalVoiceBlockedReasons", () => {
@@ -136,6 +162,16 @@ describe("partitionFinalVoiceBlockedReasons", () => {
     const p = partitionFinalVoiceBlockedReasons(["say_it_straight", "great_job"]);
     expect(p.repairable).toEqual(["great_job"]);
     expect(p.hard).toEqual(["say_it_straight"]);
+  });
+
+  it("treats robotic consent menu reasons as repairable", () => {
+    const p = partitionFinalVoiceBlockedReasons([
+      "reply_yes_no_menu_language",
+      "generic_rep_happen_ask",
+    ]);
+    expect(p.repairable).toEqual(["reply_yes_no_menu_language"]);
+    expect(p.hard).toEqual(["generic_rep_happen_ask"]);
+    expect(isRepairableFinalVoiceBlockedReason("reply_yes_no_menu_language")).toBe(true);
   });
 
   it("isRepairableFinalVoiceBlockedReason matches partition allowlist", () => {

@@ -8,6 +8,11 @@ import {
   type NorthStarCoachSmsMeta,
   type NorthStarSmsContextPacket,
 } from "@/lib/north-star-coach-sms";
+import {
+  type DetectRelationshipRobotConsentMenuOptions,
+  detectRelationshipRobotConsentMenuReasons,
+  isRelationshipRobotConsentMenuRepairableReason,
+} from "@/lib/relationship-robot-consent-menu";
 
 export type SmsVoiceOwner =
   | "v3_openai"
@@ -293,6 +298,20 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
   return hits;
 }
 
+/** Final voice + relationship robotic consent/menu guards (daily/inbound/weekly coaching). */
+export function detectRelationshipCoachingVoiceBlockedReasons(
+  body: string,
+  options?: DetectRelationshipRobotConsentMenuOptions
+): string[] {
+  const fvg = detectFinalVoiceBlockedReasons(body);
+  const robot = detectRelationshipRobotConsentMenuReasons(body, options);
+  const merged = [...fvg];
+  for (const r of robot) {
+    if (!merged.includes(r)) merged.push(r);
+  }
+  return merged;
+}
+
 /** Style / length / mild cliché hits from {@link detectFinalVoiceBlockedReasons} — lane may attempt OpenAI repair. */
 const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
   "too_many_sentences",
@@ -309,7 +328,10 @@ const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
 ]);
 
 export function isRepairableFinalVoiceBlockedReason(reason: string): boolean {
-  return REPAIRABLE_FINAL_VOICE_BLOCK_REASONS.has(reason);
+  return (
+    REPAIRABLE_FINAL_VOICE_BLOCK_REASONS.has(reason) ||
+    isRelationshipRobotConsentMenuRepairableReason(reason)
+  );
 }
 
 export function partitionFinalVoiceBlockedReasons(reasons: string[]): {
@@ -593,7 +615,7 @@ export async function applyFinalVoiceOwnershipGate(
   const initialOwner = classifyVoiceOwner(args.replySource, args.northStarMeta);
   const initialV3Owned = voiceOwnerIsV3(initialOwner);
   const blocked = [
-    ...detectFinalVoiceBlockedReasons(originalBody),
+    ...detectRelationshipCoachingVoiceBlockedReasons(originalBody),
     ...(args.northStarMeta?.source === "deterministic_minimal" ? ["north_star_deterministic_replacement"] : []),
     ...(args.northStarMeta?.north_star_structural_replacement ? ["north_star_structural_replacement"] : []),
     ...(args.northStarMeta?.requires_v3_repair === true ? ["north_star_requires_v3_repair"] : []),
@@ -633,7 +655,7 @@ export async function applyFinalVoiceOwnershipGate(
       contextPacket: args.contextPacket ?? undefined,
     });
     const cleaned = nsRepair.visibleBody;
-    const repairBlocked = detectFinalVoiceBlockedReasons(cleaned);
+    const repairBlocked = detectRelationshipCoachingVoiceBlockedReasons(cleaned);
     if (repairBlocked.length === 0) {
       return result({
         body: cleaned,

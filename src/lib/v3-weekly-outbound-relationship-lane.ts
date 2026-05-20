@@ -13,7 +13,7 @@ import {
 } from "@/lib/sms-memory-anti-repeat";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import {
-  detectFinalVoiceBlockedReasons,
+  detectRelationshipCoachingVoiceBlockedReasons,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
@@ -253,7 +253,7 @@ function weeklyPostValidateHits(body: string, facts: WeeklyV3OutboundFacts): {
   hard: string[];
 } {
   const localHits = weeklyLaneLocalValidation(body, facts);
-  const fvgHits = detectFinalVoiceBlockedReasons(body);
+  const fvgHits = detectRelationshipCoachingVoiceBlockedReasons(body);
   const { repairable, hard: hardFvg } = partitionFinalVoiceBlockedReasons(fvgHits);
   const hard = [...localHits, ...hardFvg];
   const blockedReasons = [...new Set([...localHits, ...fvgHits])];

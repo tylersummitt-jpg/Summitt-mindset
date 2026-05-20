@@ -257,6 +257,7 @@ import {
   type InboundV3RelationshipLaneResult,
   type InboundV3RoutePurpose,
 } from "@/lib/v3-inbound-relationship-lane";
+import { computePendingCommitmentReplaceApplied } from "@/lib/v3-inbound-pending-replacement-truth";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import {
   buildSmsRelationshipMemoryPacket,
@@ -5330,6 +5331,7 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
   contractConsentFacts?: InboundV3ContractConsentFacts | null;
   adaptiveConsentClarificationFacts?: InboundV3AdaptiveConsentClarificationFacts | null;
   commitmentChangeFacts?: InboundV3CommitmentChangeFacts | null;
+  pendingResolutionAppliedOverride?: boolean;
   gatedDecisionOverride?: V2InboundGatedDecision | null;
   deterministicClassifierOverride?: "user_yes" | "user_no" | "user_partial" | null;
 }): Promise<{ facts: InboundV3RelationshipFacts; contextPacket: NorthStarSmsContextPacket }> {
@@ -5449,6 +5451,9 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     contractConsentFacts: args.contractConsentFacts ?? undefined,
     adaptiveConsentClarificationFacts: args.adaptiveConsentClarificationFacts ?? undefined,
     commitmentChangeFacts: args.commitmentChangeFacts ?? undefined,
+    ...(args.pendingResolutionAppliedOverride !== undefined
+      ? { pendingResolutionAppliedOverride: args.pendingResolutionAppliedOverride }
+      : {}),
     relationshipMemoryPacket,
   });
   return { facts, contextPacket: northStarPkt };
@@ -6114,11 +6119,22 @@ async function processV2SmsInboundPendingResolution(
     pending_kind_after: getPendingResolutionOrNull(cAfter)?.kind ?? null,
   }).slice(0, 900);
 
+  const pendingCleared = !isSmsInboundPendingResolutionActionable(cAfter);
+  const pendingReplaceApplied =
+    pendBefore != null &&
+    pendBefore.kind === "commitment_replace" &&
+    computePendingCommitmentReplaceApplied({
+      commitmentBefore: c,
+      commitmentAfter: cAfter,
+    });
+
   const pendingFacts: InboundV3PendingResolutionFacts = {
     resolution_type: pendBefore?.kind ?? "unknown",
     pending_action: pendBefore?.kind ?? "unknown",
     user_answer_type: classificationPr.eventType,
-    state_transition_summary: `SMS pending-resolution handler finished for ${pendBefore?.kind ?? "unknown"}; commitment row reflects server outcome (pending_cleared=${!isSmsInboundPendingResolutionActionable(cAfter)}).`,
+    state_transition_summary: pendingReplaceApplied
+      ? `SMS pending-resolution replace applied; canonical commitment updated (pending_cleared=${pendingCleared}).`
+      : `SMS pending-resolution handler finished for ${pendBefore?.kind ?? "unknown"}; pending still active or unchanged (pending_cleared=${pendingCleared}).`,
     updated_commitment_snapshot: snapshot,
     legacy_pending_reply_preview: pendingVisible.slice(0, 500),
   };
@@ -6137,6 +6153,7 @@ async function processV2SmsInboundPendingResolution(
     branchName: "sms_pending_resolution_complete",
     wave11MemoryConfirmationPending: wave11MemoryPending,
     pendingResolutionFacts: pendingFacts,
+    pendingResolutionAppliedOverride: pendingReplaceApplied,
   });
 
   const sendStill = await persistInboundV3RelationshipLaneReplyReadyAndSend({
