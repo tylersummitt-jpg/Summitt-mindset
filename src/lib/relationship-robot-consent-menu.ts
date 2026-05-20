@@ -7,25 +7,34 @@ function normalizeForMatch(body: string): string {
   return body.replace(/\s+/g, " ").trim();
 }
 
+/** Case-insensitive ASCII verb; YES/NO tail stays case-sensitive (no `/i` on whole pattern). */
+function caseInsensitiveVerbPattern(verb: string, tail: string): RegExp {
+  const verbRe = verb
+    .split("")
+    .map((ch) => `[${ch.toLowerCase()}${ch.toUpperCase()}]`)
+    .join("");
+  return new RegExp(`\\b${verbRe}${tail}`);
+}
+
 /**
  * Instruction-style all-caps YES/NO (robot menu). Lowercase yes/no in natural coaching is allowed.
  * Patterns are case-sensitive on YES/NO tokens; verb prefixes remain case-insensitive.
  */
 const REPLY_YES_NO_MENU_CHECKS: Array<[string, RegExp]> = [
-  ["reply_yes_no_menu_language", /(?i:\breply)\s+YES\b/],
-  ["reply_yes_no_menu_language", /(?i:\breply)\s+NO\b/],
-  ["reply_yes_no_menu_language", /(?i:\btext)\s+YES\b/],
-  ["reply_yes_no_menu_language", /(?i:\btext)\s+NO\b/],
-  ["reply_yes_no_menu_language", /(?i:\bsay)\s+YES\b/],
-  ["reply_yes_no_menu_language", /(?i:\bsay)\s+NO\b/],
-  ["reply_yes_no_menu_language", /(?i:\brespond)\s+YES\b/],
-  ["reply_yes_no_menu_language", /(?i:\brespond)\s+NO\b/],
-  ["reply_yes_no_menu_language", /(?i:\bsend)\s+YES\b/],
-  ["reply_yes_no_menu_language", /(?i:\bsend)\s+NO\b/],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("reply", "\\s+YES\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("reply", "\\s+NO\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("text", "\\s+YES\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("text", "\\s+NO\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("say", "\\s+YES\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("say", "\\s+NO\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("respond", "\\s+YES\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("respond", "\\s+NO\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("send", "\\s+YES\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("send", "\\s+NO\\b")],
   ["reply_yes_no_menu_language", /\bYES\s+to\s+confirm\b/],
   ["reply_yes_no_menu_language", /\bNO\s+to\s+discard\b/],
-  ["reply_yes_no_menu_language", /(?i:\breply)\s+YES\s+to\b/],
-  ["reply_yes_no_menu_language", /(?i:\breply)\s+NO\s+to\b/],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("reply", "\\s+YES\\s+to\\b")],
+  ["reply_yes_no_menu_language", caseInsensitiveVerbPattern("reply", "\\s+NO\\s+to\\b")],
   /** Naked all-caps menu options (not natural lowercase "yes or no"). */
   ["reply_yes_no_menu_language", /\bYES\s+or\s+NO\b/],
   ["reply_yes_no_menu_language", /\bNO\s+or\s+YES\b/],
