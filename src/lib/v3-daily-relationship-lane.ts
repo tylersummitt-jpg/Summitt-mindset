@@ -26,6 +26,20 @@ import {
 } from "@/lib/relationship-robot-consent-menu";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
+import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
+import {
+  buildPlannedInterruptionLaneGuardrails,
+} from "@/lib/sms-planned-interruption";
+import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
+import type {
+  SmsGoalAdjustmentCompatibleFlow,
+  SmsGoalAdjustmentConfidence,
+  SmsGoalAdjustmentMove,
+} from "@/lib/sms-goal-adjustment-signal";
+import {
+  buildVictoryBackgroundLaneGuardrails,
+  type V3VictoryBackgroundFacts,
+} from "@/lib/sms-victory-background-context";
 
 const DAILY_LANE_MAX_CHARS = 300;
 
@@ -127,6 +141,15 @@ export type DailyV3RelationshipFacts = {
     overlay_active: boolean;
     evolution_pattern_hint: string | null;
     contract_proposal_mode: boolean;
+    goal_adjustment_move?: SmsGoalAdjustmentMove | null;
+    goal_adjustment_confidence?: SmsGoalAdjustmentConfidence | null;
+    goal_adjustment_mention_allowed?: boolean;
+    goal_adjustment_internal_hint?: string | null;
+    goal_adjustment_requires_confirmation?: boolean;
+    goal_adjustment_compatible_flow?: SmsGoalAdjustmentCompatibleFlow | null;
+    planned_interruption_active?: boolean;
+    planned_interruption_reason_category?: string | null;
+    planned_interruption_resume_hint?: string | null;
   };
   /** When route is pending-resolution daily reminder. */
   pending_resolution?: DailyV3PendingResolutionFacts | null;
@@ -134,6 +157,8 @@ export type DailyV3RelationshipFacts = {
   refresh?: DailyV3RefreshFacts | null;
   /** When route is contract / adaptive overlay proposal daily. */
   contract_proposal?: DailyV3ContractProposalFacts | null;
+  /** Read-only Victory Room background (season label + Pat Read); non-speakable unless naturally relevant. */
+  victory_background?: V3VictoryBackgroundFacts | null;
   suggested_coaching_move: string;
   constraints: {
     max_chars: number;
@@ -601,6 +626,10 @@ RULES:
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
 - If facts say reentry/comeback after silence, acknowledge return briefly before the ask.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
+${buildVictoryBackgroundLaneGuardrails()}
+${buildSmsPatternSignalLaneGuardrails()}
+${buildSmsGoalAdjustmentLaneGuardrails()}
+${buildPlannedInterruptionLaneGuardrails()}
 ${routeSpecificSystemAddendum(args.facts)}
 
 OUTPUT: strict JSON only with keys:

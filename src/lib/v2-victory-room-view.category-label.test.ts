@@ -26,7 +26,7 @@ describe("getRecentProofCategoryLabel (Phase 3)", () => {
       headline: "Honesty",
       body: "You got honest and stayed in it.",
     });
-    expect(getRecentProofCategoryLabel(m)).toBe("Told the Truth");
+    expect(getRecentProofCategoryLabel(m)).toBe("Told the truth");
   });
 
   it("maps Stayed engaged to Kept the Thread Alive", () => {
@@ -35,7 +35,7 @@ describe("getRecentProofCategoryLabel (Phase 3)", () => {
       headline: "Stayed engaged",
       body: "You stayed engaged instead of disappearing.",
     });
-    expect(getRecentProofCategoryLabel(m)).toBe("Kept the Thread Alive");
+    expect(getRecentProofCategoryLabel(m)).toBe("Kept the goal");
   });
 
   it("maps reactivation comeback to Came Back", () => {
@@ -44,7 +44,7 @@ describe("getRecentProofCategoryLabel (Phase 3)", () => {
       headline: "Comeback",
       body: "You came back here.",
     });
-    expect(getRecentProofCategoryLabel(m)).toBe("Came Back");
+    expect(getRecentProofCategoryLabel(m)).toBe("Got back on track");
   });
 
   it("maps Honest adjustment to Adjusted Wisely", () => {
@@ -53,7 +53,7 @@ describe("getRecentProofCategoryLabel (Phase 3)", () => {
       headline: "Honest adjustment",
       body: "You tightened the bar instead of quitting.",
     });
-    expect(getRecentProofCategoryLabel(m)).toBe("Adjusted Wisely");
+    expect(getRecentProofCategoryLabel(m)).toBe("Adjusted wisely");
   });
 
   it("maps New chapter to Finished a Chapter", () => {
@@ -62,16 +62,25 @@ describe("getRecentProofCategoryLabel (Phase 3)", () => {
       headline: "New chapter",
       body: "You named the next honest commitment instead of drifting.",
     });
-    expect(getRecentProofCategoryLabel(m)).toBe("Finished a Chapter");
+    expect(getRecentProofCategoryLabel(m)).toBe("Named the next goal");
   });
 
-  it("maps Kept your word to Showed Up", () => {
+  it("maps Bar adjusted to Raised the bar", () => {
+    const m = moment({
+      id: "m1",
+      headline: "Bar adjusted",
+      body: "You adjusted the bar with honesty.",
+    });
+    expect(getRecentProofCategoryLabel(m)).toBe("Raised the bar");
+  });
+
+  it("maps Kept your word to Kept the goal", () => {
     const m = moment({
       id: "m1",
       headline: "Kept your word",
       body: "You kept your word here.",
     });
-    expect(getRecentProofCategoryLabel(m)).toBe("Showed Up");
+    expect(getRecentProofCategoryLabel(m)).toBe("Kept the goal");
   });
 
   it("never returns internal enum strings", () => {

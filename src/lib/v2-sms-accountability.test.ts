@@ -80,3 +80,52 @@ describe("v2-sms-accountability", () => {
   });
 });
 
+describe("classifyV2InboundReply — done abandonment vs completion (P1)", () => {
+  const expectNotCompletionYes = (body: string) => {
+    const r = classifyV2InboundReply(body);
+    expect(r.eventType).not.toBe("user_yes");
+    expect(r.normalizedHint).not.toBe("completion_phrase");
+    expect(r.normalizedHint).not.toBe("completion_detail");
+  };
+
+  it("does not treat I'm done with you as user_yes completion", () => {
+    const r = classifyV2InboundReply("I'm done with you");
+    expect(r.eventType).not.toBe("user_yes");
+    expect(r.normalizedHint).toBe("relationship_exit_context");
+  });
+
+  it.each([
+    "I'm done with this app",
+    "I'm done with the app",
+    "I'm done with this goal",
+    "I'm done with this commitment",
+    "I'm done with texting",
+    "I'm done with texts",
+    "I'm done with SMS",
+    "I'm done here",
+    "Done with this subscription",
+    "I'm done with this program",
+    "I'm done with Summitt Mindset",
+  ])("does not treat %j as user_yes completion", (body) => {
+    expectNotCompletionYes(body);
+    const r = classifyV2InboundReply(body);
+    expect(r.normalizedHint).toBe("done_abandonment_context");
+  });
+
+  it.each([
+    "done",
+    "already got it done",
+    "I did it",
+    "finished it",
+    "Done today",
+    "Got the walk done",
+    "done with my workout",
+    "I'm done",
+    "I'm done for today",
+  ])('still treats "%s" as user_yes completion', (body) => {
+    const r = classifyV2InboundReply(body);
+    expect(r.eventType).toBe("user_yes");
+    expect(r.normalizedHint).toMatch(/completion_/);
+  });
+});
+

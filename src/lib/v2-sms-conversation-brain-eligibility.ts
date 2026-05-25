@@ -58,6 +58,14 @@ export function isLikelyCommitmentChangeIntentTurn(raw: string): boolean {
   const t = raw.trim();
   if (!t) return false;
 
+  if (/^(yes|no|yep|yeah|yup|nope|nah|done|help|start|stop)$/i.test(t)) return false;
+  if (/^(walking|avoidance|late\s+night)$/i.test(t)) return false;
+  if (/^not\s+today\.?$/i.test(t)) return false;
+  if (/^(i\s+)?(did\s+it|missed\s+it|missed\s+today)\.?$/i.test(t)) return false;
+  if (/\bthis\s+week\s+is\s+impossible\b/i.test(t)) return false;
+  if (/\bpause\s+me\s+until\b/i.test(t)) return false;
+  if (/\bi'?m\s+traveling\s+this\s+week\b/i.test(t)) return false;
+
   if (
     /\b(i\s+)?(want|need)\s+to\s+change\s+(my\s+)?(the\s+)?(commitment|goal)\b/i.test(t) ||
     /\bchange\s+(my\s+)?(the\s+)?(commitment|goal)\b/i.test(t)
@@ -74,6 +82,14 @@ export function isLikelyCommitmentChangeIntentTurn(raw: string): boolean {
   if (/\b(commitment|goal)\s+isn'?t\s+(right|working)\s*(anymore)?\b/i.test(t)) return true;
   if (/\bthis\s+commitment\s+isn'?t\s+right\b/i.test(t)) return true;
 
+  if (/\bnew\s+(?:goal|commitment)\s*:/i.test(t)) return true;
+  if (/\b(?:my\s+)?goal\s+should\s+be\b/i.test(t)) return true;
+  if (/\b(?:let'?s|let\s+us)\s+(?:do|make\s+it)\b/i.test(t) && /\binstead\b/i.test(t)) return true;
+  if (/\b(want|need)\s+a\s+different\s+(goal|commitment)\b/i.test(t)) return true;
+  if (/\b(?:this|the)\s+goal\s+is\s+wrong\b/i.test(t)) return true;
+  if (/\b(?:this|the)\s+commitment\s+is\s+wrong\b/i.test(t)) return true;
+  if (/\b(want|need)\s+to\s+switch\s+goals?\b/i.test(t)) return true;
+
   if (/\b(i\s+)?(want|need|get)\s+a\s+new\s+(goal|commitment)\b/i.test(t)) return true;
 
   if (/\b(i\s+)?m\s+done\s+with\s+(this\s+)?(goal|commitment)\b/i.test(t)) return true;
@@ -83,6 +99,11 @@ export function isLikelyCommitmentChangeIntentTurn(raw: string): boolean {
 
   if (/\b(i\s+)?need\s+to\s+make\s+(this\s+)?(easier|smaller)\b/i.test(t)) return true;
   if (/\bmake\s+(this\s+)?(easier|smaller)\b/i.test(t)) return true;
+  if (/\bmake\s+it\s+smaller\s+permanently\b/i.test(t)) return true;
+
+  if (/\b(this\s+)?goal\s+is\s+too\s+easy\b/i.test(t)) return true;
+  if (/\braise\s+the\s+bar\b/i.test(t)) return true;
+  if (/\bmake\s+it\s+harder\b/i.test(t)) return true;
 
   if (/\b(this\s+)?bar\s+is\s+too\s+much\b/i.test(t)) return true;
   if (/\badjust\s+(the\s+)?bar\b/i.test(t)) return true;

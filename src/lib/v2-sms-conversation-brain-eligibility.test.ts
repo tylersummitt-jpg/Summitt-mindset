@@ -123,6 +123,18 @@ describe("isLikelyCommitmentChangeIntentTurn", () => {
     "This bar is too much",
     "Rethink my commitment",
     "I picked the wrong commitment",
+    "this goal is wrong",
+    "the goal is wrong",
+    "wrong goal",
+    "I want a different goal",
+    "new goal: walk after dinner",
+    "my goal should be walking after dinner",
+    "let's do walking after dinner instead",
+    "I want to switch goals",
+    "make it smaller permanently",
+    "this goal is too easy",
+    "raise the bar",
+    "make it harder",
   ];
 
   it.each(yes)("matches commitment-change phrasing: %s", (s) => {
@@ -139,6 +151,18 @@ describe("isLikelyCommitmentChangeIntentTurn", () => {
     "This was hard today",
     "I failed today",
     "I need help tomorrow",
+    "walking",
+    "avoidance",
+    "late night",
+    "done",
+    "yes",
+    "no",
+    "not today",
+    "I did it",
+    "missed it",
+    "this week is impossible",
+    "pause me until Monday",
+    "I'm traveling this week",
   ];
 
   it.each(no)("does not match normal accountability / venting: %s", (s) => {

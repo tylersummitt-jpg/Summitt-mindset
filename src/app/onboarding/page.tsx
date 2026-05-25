@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { requireOnboardingSobPath } from "@/lib/onboarding-sob-page-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,27 +13,9 @@ export default async function OnboardingPage(): Promise<ReactElement> {
     redirect("/sign-in");
   }
 
-  const md = user.publicMetadata as Record<string, unknown> | undefined;
-  const isSubscribed = isSubscribedFromPublicMetadata(md);
-  const isCoach = md?.acquisitionSource === "coach"; // subscribed incomplete coaches redirect before render
+  const md = (user.publicMetadata || {}) as Record<string, unknown>;
 
-  // 🚨 HARD GATE: Must subscribe first (match onboarding layout coach subscribe URL)
-  if (!isSubscribed) {
-    redirect(
-      isCoach
-        ? "/subscribe?from=onboarding&src=coach"
-        : "/subscribe?from=onboarding"
-    );
-  }
-
-  // If onboarding already complete → dashboard (commitment / SMS home)
-  if (md && typeof md === "object" && md.onboardingCompleted === true) {
-    redirect("/dashboard");
-  }
-
-  if (isCoach) {
-    redirect("/onboarding/identity");
-  }
+  await requireOnboardingSobPath(user.id, md, "/onboarding");
 
   return (
     <div className="text-center space-y-12">

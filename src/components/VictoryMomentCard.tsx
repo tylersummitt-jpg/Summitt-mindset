@@ -20,11 +20,10 @@ export function VictoryMomentCard({
   return (
     <article className="rounded-xl border border-stone-200 border-l-4 border-l-stone-500 bg-white p-4 shadow-sm">
       {categoryLabel?.trim() ? (
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-600">
-          {categoryLabel.trim()}
-        </p>
+        <p className="text-sm font-semibold text-gray-900">{categoryLabel.trim()}</p>
+      ) : headline.trim() ? (
+        <p className="text-sm font-semibold text-gray-900">{headline.trim()}</p>
       ) : null}
-      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500">{headline}</p>
       <p className="mt-2 text-[15px] leading-relaxed text-gray-900">{body}</p>
       {dateLabel ? <p className="mt-3 text-[11px] leading-snug text-gray-500">{dateLabel}</p> : null}
       {momentId && onShareProof ? (

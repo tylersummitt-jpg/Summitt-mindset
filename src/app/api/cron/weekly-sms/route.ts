@@ -30,8 +30,18 @@ import {
   buildSmsRelationshipMemoryPacket,
   slimMemoryPacketForFacts,
 } from "@/lib/sms-relationship-memory-packet";
+import {
+  loadSmsVictoryBackgroundContext,
+  mapSmsVictoryBackgroundToFacts,
+} from "@/lib/sms-victory-background-context";
+import { loadRecentPlannedInterruptionSignalForCommitment } from "@/lib/sms-planned-interruption";
+import {
+  fetchV2UserSmsCommsPreferences,
+  shouldSkipWeeklyForCommsPrefs,
+} from "@/lib/v2-sms-comms-preferences";
 import { produceWeeklyV3RelationshipSms } from "@/lib/v3-weekly-outbound-relationship-lane";
 import { buildWeeklyV3OutboundFactsForV2WeeklyProof } from "@/lib/weekly-sms-v2-weekly-lane-facts";
+import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +99,48 @@ function shouldSendNow(local: Date) {
   );
 }
 
+/** M2B-2: persist durable thread memory after Twilio accepted a V3 weekly relationship lane SMS. */
+async function writeV2SmsThreadMemoryAfterWeeklyV3Outbound(args: {
+  commitmentId: string;
+  clerkUserId: string;
+  coachBodyForMemory: string;
+  messageSid: string | null;
+  sentAt?: Date;
+}): Promise<{ ok: true; error: null } | { ok: false; error: string }> {
+  const coachBodyForMemory = args.coachBodyForMemory.trim();
+  if (!coachBodyForMemory) {
+    console.warn("[weekly-sms] v2_sms_thread_memory_outbound_upsert_failed", {
+      clerk_user_id: args.clerkUserId,
+      commitment_id: args.commitmentId,
+      message_sid: args.messageSid,
+      error: "empty_weekly_body",
+    });
+    return { ok: false, error: "empty_weekly_body" };
+  }
+
+  const result = await upsertCommitmentSmsThreadMemoryFromOutbound({
+    commitmentId: args.commitmentId,
+    clerkUserId: args.clerkUserId,
+    sentBody: coachBodyForMemory,
+    sentAt: args.sentAt ?? new Date(),
+    messageSid: args.messageSid,
+    source: "weekly_sms",
+    expectedAnswerType: null,
+  });
+
+  if (!result.ok) {
+    console.warn("[weekly-sms] v2_sms_thread_memory_outbound_upsert_failed", {
+      clerk_user_id: args.clerkUserId,
+      commitment_id: args.commitmentId,
+      message_sid: args.messageSid,
+      error: result.error,
+    });
+    return { ok: false, error: result.error };
+  }
+
+  return { ok: true, error: null };
+}
+
 export async function GET(req: Request) {
   if (!validateCronSecret(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -114,6 +166,7 @@ export async function GET(req: Request) {
     v2WeeklyEligible: 0,
     skippedV2WeeklyPendingResolution: 0,
     skippedV2WeeklyDuplicate: 0,
+    skippedV2WeeklyUserPause: 0,
     sentV2WeeklyProof: 0,
     skippedNoSafeV3Voice: 0,
     skippedLegacyWeeklyDeprecated: 0,
@@ -176,6 +229,12 @@ export async function GET(req: Request) {
           continue;
         }
 
+        const weeklyCommsPrefs = await fetchV2UserSmsCommsPreferences(user.id);
+        if (shouldSkipWeeklyForCommsPrefs(weeklyCommsPrefs, now)) {
+          stats.skippedV2WeeklyUserPause += 1;
+          continue;
+        }
+
         const { error: v2ResErr } = await supabaseServer
           .from("sms_weekly_send_events")
           .insert({
@@ -231,12 +290,49 @@ export async function GET(req: Request) {
             message: e instanceof Error ? e.message : String(e),
           });
         }
+        let victoryBackgroundFacts = null;
+        try {
+          victoryBackgroundFacts = mapSmsVictoryBackgroundToFacts(
+            await loadSmsVictoryBackgroundContext({
+              clerkUserId: user.id,
+              commitmentId: commitment.id,
+              timezone,
+            })
+          );
+        } catch (e) {
+          console.warn("[weekly-sms] victory_background_load_failed", {
+            clerk_user_id: user.id,
+            commitment_id: commitment.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+
+        let plannedInterruptionRow = null;
+        try {
+          plannedInterruptionRow = await loadRecentPlannedInterruptionSignalForCommitment({
+            commitmentId: commitment.id,
+            clerkUserId: user.id,
+            now: localNow,
+          });
+        } catch (e) {
+          console.warn("[weekly-sms] planned_interruption_load_failed", {
+            clerk_user_id: user.id,
+            commitment_id: commitment.id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+
         const weeklyV3TelemetryFactSources = [
           "v2_weekly_proof_pack",
           aiUsed ? "v2_weekly_proof_openai_preview" : "v2_weekly_proof_preview_no_openai",
           "v2_weekly_proof_deterministic_preview",
           ...(convForNorthStar ? (["v2_sms_conversation_context_pack"] as const) : []),
           ...(relationshipMemoryPacket ? (["sms_relationship_memory_packet"] as const) : []),
+          ...(victoryBackgroundFacts ? (["loadSmsVictoryBackgroundContext"] as const) : []),
+          ...(plannedInterruptionRow
+            ? (["loadRecentPlannedInterruptionSignalForCommitment"] as const)
+            : []),
+          "deriveSmsGoalAdjustmentSignal",
         ];
         const weeklyFacts = buildWeeklyV3OutboundFactsForV2WeeklyProof({
           clerkUserId: user.id,
@@ -250,6 +346,8 @@ export async function GET(req: Request) {
           oldWeeklyProofBodyPreview: oldProofPreviewBody,
           deterministicWeeklyBodyPreview: deterministicPreviewBody,
           relationshipMemoryPacket,
+          victoryBackground: victoryBackgroundFacts,
+          plannedInterruption: plannedInterruptionRow,
         });
         const weeklyLane = await produceWeeklyV3RelationshipSms({
           facts: weeklyFacts,
@@ -444,6 +542,14 @@ export async function GET(req: Request) {
             },
           });
 
+          const mem = await writeV2SmsThreadMemoryAfterWeeklyV3Outbound({
+            commitmentId: commitment.id,
+            clerkUserId: user.id,
+            coachBodyForMemory: voiceWeeklyV2.body,
+            messageSid: messageV2.sid,
+            sentAt: new Date(),
+          });
+
           await supabaseServer
             .from("sms_weekly_send_events")
             .update({
@@ -455,6 +561,10 @@ export async function GET(req: Request) {
                   ...v2Metadata.voice_send_decision,
                   twilio_send_attempted: true,
                 },
+                thread_memory_projection_written: mem.ok,
+                thread_memory_projection_error: mem.ok ? null : mem.error,
+                thread_memory_projection_source: "weekly_sms",
+                stripped_compliance_footer: true,
               },
             })
             .eq("clerk_user_id", user.id)

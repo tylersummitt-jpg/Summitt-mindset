@@ -16,20 +16,14 @@ export default function CompleteOnboardingButton() {
   const router = useRouter();
   const { user } = useUser();
   const [loading, setLoading] = useState(false);
-
   const [ready, setReady] = useState(false);
-
-  const md = user?.publicMetadata;
-  const isCoach =
-    md &&
-    typeof md === "object" &&
-    (md as Record<string, unknown>).acquisitionSource === "coach";
+  const [error, setError] = useState<string | null>(null);
 
   async function handleComplete() {
-    if (!ready) return;
-    if (loading) return;
+    if (!ready || loading) return;
 
     setLoading(true);
+    setError(null);
 
     try {
       const timezone = getBrowserTimezone();
@@ -41,24 +35,24 @@ export default function CompleteOnboardingButton() {
         body: JSON.stringify({ timezone }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        throw new Error("Failed to complete onboarding");
+        setError(
+          typeof data?.error === "string"
+            ? data.error
+            : "Something went wrong. Please try again."
+        );
+        setLoading(false);
+        return;
       }
 
-      const reloaded = await user?.reload();
-      const mdAfter = reloaded?.publicMetadata ?? user?.publicMetadata;
-      const routeCoach =
-        mdAfter &&
-        typeof mdAfter === "object" &&
-        (mdAfter as Record<string, unknown>).acquisitionSource === "coach";
-
+      await user?.reload();
       router.refresh();
-      if (!routeCoach) {
-        router.push("/post-sign-in");
-      }
+      router.push("/dashboard/victory-room");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong. Please try again.");
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }
@@ -72,18 +66,7 @@ export default function CompleteOnboardingButton() {
           onChange={(e) => setReady(e.target.checked)}
           className="mt-1"
         />
-        <span>
-          {isCoach ? (
-            <>
-              I&apos;m ready to finish setup and activate my daily accountability.
-              Leadership Kit follow-up begins after onboarding.
-            </>
-          ) : (
-            <>
-              I&apos;m ready for Coach Pat to hold me accountable on my commitment.
-            </>
-          )}
-        </span>
+        <span>I&apos;m ready to finish setup and enter my Victory Room.</span>
       </label>
 
       <button
@@ -96,22 +79,14 @@ export default function CompleteOnboardingButton() {
             : "bg-[var(--brand)] hover:opacity-90",
         ].join(" ")}
       >
-        {loading
-          ? isCoach
-            ? "Finishing…"
-            : "Starting..."
-          : isCoach
-            ? "Finish Setup"
-            : "Start coaching →"}
+        {loading ? "Finishing…" : "Finish Setup →"}
       </button>
 
       {!ready && (
-        <p className="text-xs text-gray-500">
-          {isCoach
-            ? "Check the box above to finish setup."
-            : "Check the box above to begin."}
-        </p>
+        <p className="text-xs text-gray-500">Check the box above to finish setup.</p>
       )}
+
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }

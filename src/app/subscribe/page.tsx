@@ -36,7 +36,7 @@ const SUBSCRIBE_HERO_DESKTOP = "/brand/subscribe-hero-desktop.jpeg";
 export const metadata: Metadata = {
   title: { absolute: "Subscribe | Summitt Mindset" },
   description:
-    "Start your 7-day free trial of Summitt Mindset SMS-first accountability.",
+    "Start your 7-day free trial of Summitt Mindset text-first accountability.",
 };
 
 export default async function SubscribePage({

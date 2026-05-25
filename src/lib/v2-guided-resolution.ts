@@ -4,7 +4,8 @@
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
-import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import { getActiveCommitment, type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import type { SmsSeasonMode } from "@/lib/v2-sms-season-mode";
 
 /** Time window to complete the in-app handoff (PR1). */
 export const V2_GUIDED_RESOLUTION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,7 +45,8 @@ export type V2SmsPendingResolutionPayload = {
     | "sms_tighten_request"
     | "sms_replace_request"
     | "sms_change_unspecified"
-    | "sms_soft_quit_or_frustration";
+    | "sms_soft_quit_or_frustration"
+    | "sms_raise_bar_request";
   raw_user_text: string;
   inbound_message_sid: string;
   ai_confidence: number | null;
@@ -71,9 +73,39 @@ export type V2SmsPendingResolutionPayload = {
   meaning_interpreter_confidence?: number | null;
   meaning_interpreter_ok?: boolean | null;
   meaning_interpreter_error?: string | null;
+
+  /** Pre-push season lifecycle — bundled goal-change alignment (Wave season slice). */
+  season_mode?: "same_season_sync" | "new_chapter";
+  season_mode_reason?: string | null;
+  season_mode_set_at?: string | null;
 };
 
-export type V2PendingResolutionPayload = V2GuidedResolutionPayload | V2SmsPendingResolutionPayload;
+/** In-app proactive goal change (sets commitment_replace pending before canonical RPC). */
+export type V2AppGoalChangePendingPayload = {
+  source: "app_goal_change";
+  raw_user_text: string;
+  candidate_behavior_statement: string;
+  season_mode?: SmsSeasonMode;
+  season_mode_reason?: string | null;
+  client_request_id: string;
+  confirmed_at: string;
+};
+
+export type V2PendingResolutionPayload =
+  | V2GuidedResolutionPayload
+  | V2SmsPendingResolutionPayload
+  | V2AppGoalChangePendingPayload;
+
+export type EnsureCommitmentReplacePendingResult =
+  | { ok: true; commitment: ActiveV2CommitmentRow }
+  | { ok: false; code: string; message: string };
+
+/** Proactive app goal-change: block overwriting refresh/SMS pending handoffs. */
+export const V2_APP_GOAL_CHANGE_PENDING_BLOCK_MESSAGE =
+  "You already have an accountability update waiting. Finish that first, then you can update your goal.";
+
+export const V2_COMPETING_APP_GOAL_CHANGE_MESSAGE =
+  "Another goal update is already in progress. Refresh and try again.";
 
 export function isValidPendingResolutionKind(v: unknown): v is V2PendingResolutionKind {
   return (
@@ -92,7 +124,8 @@ function parsePayload(raw: unknown): V2PendingResolutionPayload | null {
       detected !== "sms_tighten_request" &&
       detected !== "sms_replace_request" &&
       detected !== "sms_change_unspecified" &&
-      detected !== "sms_soft_quit_or_frustration"
+      detected !== "sms_soft_quit_or_frustration" &&
+      detected !== "sms_raise_bar_request"
     ) {
       return null;
     }
@@ -166,6 +199,41 @@ function parsePayload(raw: unknown): V2PendingResolutionPayload | null {
       ...(typeof o.meaning_interpreter_error === "string"
         ? { meaning_interpreter_error: o.meaning_interpreter_error }
         : {}),
+      ...(o.season_mode === "same_season_sync" || o.season_mode === "new_chapter"
+        ? { season_mode: o.season_mode }
+        : {}),
+      ...(typeof o.season_mode_reason === "string"
+        ? { season_mode_reason: o.season_mode_reason }
+        : {}),
+      ...(typeof o.season_mode_set_at === "string"
+        ? { season_mode_set_at: o.season_mode_set_at }
+        : {}),
+    };
+  }
+  if (o.source === "app_goal_change") {
+    const raw_user_text = typeof o.raw_user_text === "string" ? o.raw_user_text.trim() : "";
+    const candidate_behavior_statement =
+      typeof o.candidate_behavior_statement === "string"
+        ? o.candidate_behavior_statement.trim()
+        : "";
+    const client_request_id =
+      typeof o.client_request_id === "string" ? o.client_request_id.trim() : "";
+    const confirmed_at = typeof o.confirmed_at === "string" ? o.confirmed_at.trim() : "";
+    if (!raw_user_text || !candidate_behavior_statement || !client_request_id || !confirmed_at) {
+      return null;
+    }
+    return {
+      source: "app_goal_change",
+      raw_user_text,
+      candidate_behavior_statement,
+      ...(o.season_mode === "same_season_sync" || o.season_mode === "new_chapter"
+        ? { season_mode: o.season_mode }
+        : {}),
+      ...(typeof o.season_mode_reason === "string"
+        ? { season_mode_reason: o.season_mode_reason }
+        : {}),
+      client_request_id,
+      confirmed_at,
     };
   }
   if (o.source !== "coaching_refresh_resolved") return null;
@@ -307,6 +375,224 @@ export async function mergeSmsPendingResolutionPayload(args: {
   if (!up?.updated_at) {
     return { ok: false, error: "cas_mismatch" };
   }
+  return { ok: true, updatedAt: up.updated_at };
+}
+
+/**
+ * Ensures `pending_resolution_kind = commitment_replace` before canonical season RPC.
+ * Does not fake sms_inbound source.
+ */
+export async function ensureCommitmentReplacePendingForCanonicalGoalChange(args: {
+  clerkUserId: string;
+  commitment: ActiveV2CommitmentRow;
+  behaviorStatement: string;
+  seasonMode: SmsSeasonMode;
+  seasonModeReason?: string;
+  clientRequestId: string;
+  nowMs?: number;
+  /** When true, only merge an existing app_goal_change pending with the same client_request_id. */
+  allowExistingAppGoalChangeOnly?: boolean;
+}): Promise<EnsureCommitmentReplacePendingResult> {
+  const nowMs = args.nowMs ?? Date.now();
+  let commitment = args.commitment;
+
+  if (commitment.accountability_phase === "low_pressure_reactivation") {
+    return {
+      ok: false,
+      code: "low_pressure_reactivation",
+      message: "Goal changes are not available during low-pressure reactivation.",
+    };
+  }
+
+  await clearPendingResolutionIfExpired(commitment.id, commitment, nowMs);
+  const reloaded = await getActiveCommitment(args.clerkUserId);
+  if (!reloaded?.id) {
+    return { ok: false, code: "no_active_commitment", message: "No active commitment." };
+  }
+  commitment = reloaded;
+
+  const pending = getPendingResolutionOrNull(commitment);
+  if (pending && isPendingResolutionExpired(commitment, nowMs)) {
+    await clearPendingResolution(commitment.id, { expectedUpdatedAt: commitment.updated_at });
+    const afterClear = await getActiveCommitment(args.clerkUserId);
+    if (!afterClear?.id) {
+      return { ok: false, code: "no_active_commitment", message: "No active commitment." };
+    }
+    commitment = afterClear;
+  }
+
+  const pendingNow = getPendingResolutionOrNull(commitment);
+  if (pendingNow && isSmsInboundPendingResolutionActionable(commitment, nowMs)) {
+    return {
+      ok: false,
+      code: "sms_pending_in_flight",
+      message: "Finish or cancel your text thread update before changing your goal in the app.",
+    };
+  }
+
+  if (pendingNow?.kind === "commitment_tighten") {
+    return {
+      ok: false,
+      code: "pending_tighten",
+      message: "Finish your smaller-bar follow-up in guided resolution first.",
+    };
+  }
+  if (pendingNow?.kind === "identity_anchor_update") {
+    return {
+      ok: false,
+      code: "pending_identity",
+      message: "Finish your identity update in guided resolution first.",
+    };
+  }
+
+  if (args.allowExistingAppGoalChangeOnly && pendingNow) {
+    if (pendingNow.kind !== "commitment_replace") {
+      return {
+        ok: false,
+        code: "pending_other_update",
+        message: V2_APP_GOAL_CHANGE_PENDING_BLOCK_MESSAGE,
+      };
+    }
+
+    const source = pendingNow.payload?.source ?? null;
+    if (source !== "app_goal_change") {
+      return {
+        ok: false,
+        code: "pending_other_update",
+        message: V2_APP_GOAL_CHANGE_PENDING_BLOCK_MESSAGE,
+      };
+    }
+
+    const appPending = pendingNow.payload;
+    if (!appPending || appPending.source !== "app_goal_change") {
+      return {
+        ok: false,
+        code: "pending_other_update",
+        message: V2_APP_GOAL_CHANGE_PENDING_BLOCK_MESSAGE,
+      };
+    }
+
+    const existingClientId =
+      typeof appPending.client_request_id === "string"
+        ? appPending.client_request_id.trim()
+        : "";
+    const requestedClientId = args.clientRequestId.trim();
+    if (!existingClientId || existingClientId !== requestedClientId) {
+      return {
+        ok: false,
+        code: "competing_app_goal_change",
+        message: V2_COMPETING_APP_GOAL_CHANGE_MESSAGE,
+      };
+    }
+  }
+
+  const appPayload: V2AppGoalChangePendingPayload = {
+    source: "app_goal_change",
+    raw_user_text: args.behaviorStatement,
+    candidate_behavior_statement: args.behaviorStatement,
+    season_mode: args.seasonMode,
+    season_mode_reason: args.seasonModeReason ?? null,
+    client_request_id: args.clientRequestId,
+    confirmed_at: new Date(nowMs).toISOString(),
+  };
+
+  if (
+    pendingNow?.kind === "commitment_replace" &&
+    (!args.allowExistingAppGoalChangeOnly ||
+      pendingNow.payload?.source === "app_goal_change")
+  ) {
+    const merged = await mergeCommitmentReplacePendingPayload({
+      commitmentId: commitment.id,
+      payload: appPayload,
+      expectedUpdatedAt: commitment.updated_at,
+    });
+    if (!merged.ok) {
+      return {
+        ok: false,
+        code: "pending_merge_failed",
+        message: "Could not prepare goal change. Refresh and try again.",
+      };
+    }
+    const afterMerge = await getActiveCommitment(args.clerkUserId);
+    if (!afterMerge?.id) {
+      return { ok: false, code: "no_active_commitment", message: "No active commitment." };
+    }
+    return { ok: true, commitment: afterMerge };
+  }
+
+  try {
+    await setPendingResolution({
+      commitmentId: commitment.id,
+      kind: "commitment_replace",
+      payload: appPayload,
+      nowMs,
+      expectedUpdatedAt: commitment.updated_at,
+    });
+  } catch {
+    return {
+      ok: false,
+      code: "pending_set_failed",
+      message: "Could not prepare goal change. Refresh and try again.",
+    };
+  }
+
+  const afterSet = await getActiveCommitment(args.clerkUserId);
+  if (!afterSet?.id) {
+    return { ok: false, code: "no_active_commitment", message: "No active commitment." };
+  }
+  return { ok: true, commitment: afterSet };
+}
+
+async function mergeCommitmentReplacePendingPayload(args: {
+  commitmentId: string;
+  payload: V2AppGoalChangePendingPayload;
+  expectedUpdatedAt: string | null;
+}): Promise<{ ok: true; updatedAt: string } | { ok: false; error: string }> {
+  const { data: row, error: fetchErr } = await supabaseServer
+    .from("v2_commitment")
+    .select("updated_at, pending_resolution_kind, pending_resolution_payload")
+    .eq("id", args.commitmentId)
+    .maybeSingle();
+
+  if (fetchErr) return { ok: false, error: fetchErr.message };
+  if (!row?.updated_at) return { ok: false, error: "not_found" };
+  if (row.pending_resolution_kind !== "commitment_replace") {
+    return { ok: false, error: "not_commitment_replace" };
+  }
+
+  const prevPayload = parsePayload(row.pending_resolution_payload);
+  if (!prevPayload || prevPayload.source !== "app_goal_change") {
+    return { ok: false, error: "not_app_goal_change" };
+  }
+
+  const prev =
+    row.pending_resolution_payload != null &&
+    typeof row.pending_resolution_payload === "object" &&
+    !Array.isArray(row.pending_resolution_payload)
+      ? (row.pending_resolution_payload as Record<string, unknown>)
+      : {};
+
+  const next: Record<string, unknown> = {
+    ...prev,
+    ...args.payload,
+  };
+
+  const nowIso = new Date().toISOString();
+  let q = supabaseServer
+    .from("v2_commitment")
+    .update({
+      pending_resolution_payload: next,
+      updated_at: nowIso,
+    })
+    .eq("id", args.commitmentId);
+
+  if (typeof args.expectedUpdatedAt === "string" && args.expectedUpdatedAt.trim()) {
+    q = q.eq("updated_at", args.expectedUpdatedAt.trim());
+  }
+
+  const { data: up, error: upErr } = await q.select("updated_at").maybeSingle();
+  if (upErr) return { ok: false, error: upErr.message };
+  if (!up?.updated_at) return { ok: false, error: "cas_mismatch" };
   return { ok: true, updatedAt: up.updated_at };
 }
 

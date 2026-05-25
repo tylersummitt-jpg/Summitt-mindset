@@ -274,47 +274,49 @@ export function findLastVictoryRoomCalloutSentAtMs(
 }
 
 export type VictorySmsCalloutDecision = {
+  /** @deprecated Slice 2+ — deterministic append removed; use inbound V3 proof_callout_hint. */
   appendToReply: string | null;
   eventPayloadExtras: Record<string, unknown>;
 };
 
-function pickVictoryCalloutLine(t: ProofMomentType): string | null {
-  switch (t) {
-    case "comeback_after_miss":
-      return "That comeback is going in your proof.";
-    case "repair_trust":
-      return "That adjustment matters — I’m saving it as proof.";
-    case "memory_updated":
-    case "commitment_tightened":
-    case "commitment_replaced":
-      return "That belongs in your Victory Room.";
-    case "first_completion":
-    case "meaningful_streak":
-    case "streak_continued":
-    case "followed_through":
-    case "partial_but_stayed_engaged":
-      return "I’m saving that as proof.";
-    default:
-      return null;
-  }
-}
+export type VictoryRoomSmsCalloutEligibility = {
+  eligible: boolean;
+  proof_moment_type: ProofMomentType | null;
+  reason: string | null;
+};
+
+/** Facts-only hint for inbound V3 lane (no canned user-visible sentence). */
+export type InboundV3ProofCalloutHint = {
+  eligible: boolean;
+  surface: "victory_room" | null;
+  reason: string | null;
+  instruction: string | null;
+  proof_insert_will_attempt: boolean;
+  proof_callout_claim_saved_allowed: boolean;
+};
+
+export const INBOUND_PROOF_CALLOUT_LANE_INSTRUCTION =
+  "If natural, briefly acknowledge this moment as proof and that it may belong in Victory Room (one short clause in the same SMS, not a second paragraph). Do not force it. Do not claim proof was already saved or logged unless proof_callout_claim_saved_allowed is true.";
 
 /**
- * Server-only: whether to append a short Victory / proof line to the outbound SMS and tag the spine row.
+ * Server-only: whether a Victory / proof mention is appropriate (no deterministic SMS line).
  */
-export function decideVictoryRoomSmsCallout(args: {
+export function decideVictoryRoomSmsCalloutEligibility(args: {
   proofMeta: ProofMomentMeta | null;
-  eventsNewestFirst: { event_type: string; occurred_at: string; payload_json: Record<string, unknown> }[];
+  eventsNewestFirst: { event_type: string; occurred_at: string; payload_json?: Record<string, unknown> }[];
   nowMs?: number;
-}): VictorySmsCalloutDecision {
-  const empty: VictorySmsCalloutDecision = { appendToReply: null, eventPayloadExtras: {} };
+}): VictoryRoomSmsCalloutEligibility {
   const proof = args.proofMeta;
-  if (!proof || proof.proof_weight === "light") return empty;
+  if (!proof || proof.proof_weight === "light") {
+    return { eligible: false, proof_moment_type: null, reason: null };
+  }
 
   const now = args.nowMs ?? Date.now();
   const t = proof.proof_moment_type;
 
-  if (t === "honest_miss" || t === "blocker_named") return empty;
+  if (t === "honest_miss" || t === "blocker_named") {
+    return { eligible: false, proof_moment_type: t, reason: "proof_type_excluded" };
+  }
 
   const always =
     t === "comeback_after_miss" ||
@@ -328,18 +330,95 @@ export function decideVictoryRoomSmsCallout(args: {
   const last = findLastVictoryRoomCalloutSentAtMs(args.eventsNewestFirst);
   const cooldownOk = last == null || now - last >= VICTORY_CALLOUT_COOLDOWN_MS;
 
-  if (!always && !cooldownOk) return empty;
+  if (!always && !cooldownOk) {
+    return { eligible: false, proof_moment_type: t, reason: "cooldown" };
+  }
 
-  const line = pickVictoryCalloutLine(t);
-  if (!line) return empty;
+  if (
+    t === "streak_continued" ||
+    t === "followed_through" ||
+    t === "partial_but_stayed_engaged" ||
+    t === "comeback_after_miss" ||
+    t === "repair_trust" ||
+    t === "memory_updated" ||
+    t === "commitment_tightened" ||
+    t === "commitment_replaced" ||
+    t === "first_completion" ||
+    t === "meaningful_streak"
+  ) {
+    return { eligible: true, proof_moment_type: t, reason: t };
+  }
 
+  return { eligible: false, proof_moment_type: t, reason: null };
+}
+
+/**
+ * Legacy wrapper — deterministic appendToReply is always null (Voice Ownership Slice 2).
+ */
+export function decideVictoryRoomSmsCallout(args: {
+  proofMeta: ProofMomentMeta | null;
+  eventsNewestFirst: { event_type: string; occurred_at: string; payload_json?: Record<string, unknown> }[];
+  nowMs?: number;
+}): VictorySmsCalloutDecision {
+  return { appendToReply: null, eventPayloadExtras: {} };
+}
+
+/** Build inbound V3 proof_callout_hint before lane (insert runs after V3 — claim_saved stays false). */
+export function buildInboundProofCalloutHint(args: {
+  proofMeta: ProofMomentMeta | null;
+  eventsNewestFirst: { event_type: string; occurred_at: string; payload_json?: Record<string, unknown> }[];
+  shouldWriteOutcomeEvent: boolean;
+  nowMs?: number;
+}): InboundV3ProofCalloutHint | null {
+  const eligibility = decideVictoryRoomSmsCalloutEligibility({
+    proofMeta: args.proofMeta,
+    eventsNewestFirst: args.eventsNewestFirst,
+    nowMs: args.nowMs,
+  });
+  if (!eligibility.eligible && !args.shouldWriteOutcomeEvent) return null;
   return {
-    appendToReply: line,
-    eventPayloadExtras: {
-      victory_room_callout_sent: true,
-      victory_room_callout_reason: t,
-    },
+    eligible: eligibility.eligible,
+    surface: eligibility.eligible ? "victory_room" : null,
+    reason: eligibility.reason,
+    instruction: eligibility.eligible ? INBOUND_PROOF_CALLOUT_LANE_INSTRUCTION : null,
+    proof_insert_will_attempt: args.shouldWriteOutcomeEvent,
+    proof_callout_claim_saved_allowed: false,
   };
+}
+
+/** Best-effort: tag spine row after callout was appended to outbound SMS. */
+export async function patchVictoryCalloutOnSpineEventBestEffort(args: {
+  idempotencyKey: string;
+  spineExtras: Record<string, unknown>;
+}): Promise<void> {
+  if (!args.idempotencyKey.trim() || Object.keys(args.spineExtras).length === 0) return;
+  try {
+    const { data: row, error: selErr } = await supabaseServer
+      .from("v2_commitment_event")
+      .select("id, payload_json")
+      .eq("idempotency_key", args.idempotencyKey)
+      .maybeSingle();
+    if (selErr || !row?.id) return;
+    const prev =
+      row.payload_json && typeof row.payload_json === "object" && !Array.isArray(row.payload_json)
+        ? (row.payload_json as Record<string, unknown>)
+        : {};
+    const { error: updErr } = await supabaseServer
+      .from("v2_commitment_event")
+      .update({ payload_json: { ...prev, ...args.spineExtras } })
+      .eq("id", row.id);
+    if (updErr) {
+      console.warn("[wave12.1] victory_callout_payload_patch_skipped", {
+        idempotency_key: args.idempotencyKey,
+        message: updErr.message,
+      });
+    }
+  } catch (e) {
+    console.warn("[wave12.1] victory_callout_payload_patch_failed", {
+      idempotency_key: args.idempotencyKey,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 /**
@@ -352,7 +431,7 @@ export async function insertSmsCommitmentChangeProofEvent(args: {
   messagePreview: string;
   kind: "commitment_tightened" | "commitment_replaced";
   victoryCalloutExtras?: Record<string, unknown>;
-}): Promise<void> {
+}): Promise<boolean> {
   const preview = args.messagePreview.trim().replace(/\s+/g, " ").slice(0, 220);
   const proof =
     args.kind === "commitment_tightened" ? buildProofMomentCommitmentTightened() : buildProofMomentCommitmentReplaced();
@@ -383,16 +462,19 @@ export async function insertSmsCommitmentChangeProofEvent(args: {
     });
     if (error) {
       const code = (error as { code?: string }).code;
-      if (code === "23505") return;
+      if (code === "23505") return false;
       console.warn("[wave12.1] commitment_change_proof insert skipped", {
         commitment_id: args.commitmentId,
         message: error.message,
         code,
       });
+      return false;
     }
+    return true;
   } catch (e) {
     console.warn("[wave12.1] commitment_change_proof insert failed", {
       message: e instanceof Error ? e.message : String(e),
     });
+    return false;
   }
 }

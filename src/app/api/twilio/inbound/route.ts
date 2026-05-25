@@ -7,6 +7,11 @@ import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { splitIntoChunks, buildTwimlResponse } from "@/lib/twilio";
+import {
+  buildInboundSmsSafetyReplyBody,
+  classifyInboundSmsSafetyTier,
+} from "@/lib/sms-inbound-safety";
+import { clearCommsPreferencesOnSmsResume } from "@/lib/v2-sms-comms-preferences";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,7 +167,7 @@ const HELP_TWIML_BODY =
 
 /** START TwiML after opt-in is restored. */
 const START_TWIML_BODY =
-  "Welcome back. SMS check-ins are on; Pat will text you about your commitment. Reply STOP to opt out anytime.";
+  "Welcome back. Text check-ins are on; Pat will text you about your commitment. Reply STOP to opt out anytime.";
 
 /**
  * Coach-path durability: after sms_inbound_messages is stored, a job row MUST exist
@@ -252,6 +257,16 @@ async function runStopFlow(userId: string, from: string) {
   });
 }
 
+function inboundSafetyTwimlResponse(body: string, fromPhone: string, messageSid: string) {
+  const safety = classifyInboundSmsSafetyTier(body, { fromPhone, messageSid });
+  if (safety.tier === "safe") return null;
+
+  const reply = buildInboundSmsSafetyReplyBody(safety);
+  if (!reply) return null;
+
+  return twiml(reply);
+}
+
 async function runStartFlow(userId: string, from: string) {
   await supabaseServer
     .from("sms_identities")
@@ -265,6 +280,8 @@ async function runStartFlow(userId: string, from: string) {
     smsEnabled: true,
     smsRestartedAt: new Date().toISOString(),
   });
+
+  await clearCommsPreferencesOnSmsResume(userId);
 
   await syncSmsAudience({
     userId,
@@ -343,6 +360,11 @@ export async function POST(req: Request) {
           return twiml(START_TWIML_BODY);
         }
 
+        const dupSafety = inboundSafetyTwimlResponse(body, from, messageSid);
+        if (dupSafety) {
+          return fastAckTwiml();
+        }
+
         if (identity.sms_enabled !== true || typeof identity.stopped_at === "string") {
           console.warn("[twilio/inbound] coach job skipped (duplicate webhook): identity opted out", {
             clerk_user_id: userId,
@@ -384,6 +406,16 @@ export async function POST(req: Request) {
     if (isStartCommand(body)) {
       await runStartFlow(userId, from);
       return twiml(START_TWIML_BODY);
+    }
+
+    const safetyTwiml = inboundSafetyTwimlResponse(body, from, messageSid);
+    if (safetyTwiml) {
+      const safetyMeta = classifyInboundSmsSafetyTier(body, { fromPhone: from, messageSid });
+      console.info("[twilio/inbound] inbound_safety_short_circuit", {
+        clerk_user_id: userId,
+        ...safetyMeta.logSafe,
+      });
+      return safetyTwiml;
     }
 
     if (identity.sms_enabled !== true || typeof identity.stopped_at === "string") {

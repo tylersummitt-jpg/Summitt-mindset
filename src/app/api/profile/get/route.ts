@@ -4,6 +4,10 @@ import { supabaseServer } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
+/** Life Context fields only — must stay aligned with src/app/life-context/page.tsx. */
+const PROFILE_GET_SELECT =
+  "relationship_status, partner_name, children_summary, people_summary, responsibility, work_challenge, physical_state, health_goal, energy_obstacles, pressure_summary, proud_of, best_self_trigger, preferred_name";
+
 /**
  * GET /api/profile/get
  * Returns user_profiles row for the signed-in user, or { profile: {} } if none.
@@ -21,7 +25,7 @@ export async function GET() {
 
     const { data, error } = await supabaseServer
       .from("user_profiles")
-      .select("*")
+      .select(PROFILE_GET_SELECT)
       .eq("clerk_user_id", userId)
       .maybeSingle();
 

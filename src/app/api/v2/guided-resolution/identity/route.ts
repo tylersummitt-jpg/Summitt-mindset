@@ -1,10 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase-server";
-import {
-  computeIdentityRefreshDueAtIsoFromNow,
-  normalizeIdentityAnchorText,
-} from "@/lib/v2-identity-anchor";
+import { validateIdentityAnchorTiered } from "@/lib/onboarding-intake-validation";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
 import {
@@ -12,12 +8,14 @@ import {
   clearPendingResolutionIfExpired,
   getPendingResolutionOrNull,
 } from "@/lib/v2-guided-resolution";
+import { normalizeIdentityAnchorText } from "@/lib/v2-identity-anchor-validation";
+import { persistGuidedIdentityAnchorEdit } from "@/lib/v2-persist-identity-edit";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/v2/guided-resolution/identity
- * Same identity semantics as /api/profile/update for `identity_anchor_text`, then clears pending.
+ * Versioned identity anchor update for pending guided resolution, then clears pending.
  */
 export async function POST(req: Request) {
   try {
@@ -71,36 +69,34 @@ export async function POST(req: Request) {
       );
     }
 
-    const normalized = normalizeIdentityAnchorText(raw);
-    const nowIso = new Date().toISOString();
-    const row: Record<string, unknown> = { clerk_user_id: userId };
-    if (!normalized) {
-      row.identity_anchor_text = null;
-      row.identity_source = null;
-      row.identity_last_confirmed_at = null;
-      row.identity_refresh_due_at = null;
-      row.identity_last_referenced_at = null;
-    } else {
-      row.identity_anchor_text = normalized;
-      row.identity_source = "user_edited";
-      row.identity_last_confirmed_at = nowIso;
-      row.identity_refresh_due_at = computeIdentityRefreshDueAtIsoFromNow();
+    const anchorTier = validateIdentityAnchorTiered(raw);
+    if (anchorTier.tier === "block") {
+      return NextResponse.json({ ok: false, error: anchorTier.error }, { status: 400 });
     }
 
-    const { error } = await supabaseServer.from("user_profiles").upsert(row, {
-      onConflict: "clerk_user_id",
+    const normalized = normalizeIdentityAnchorText(raw);
+    if (!normalized) {
+      return NextResponse.json({ ok: false, error: "Add who you are becoming." }, { status: 400 });
+    }
+
+    const result = await persistGuidedIdentityAnchorEdit({
+      clerkUserId: userId,
+      identityAnchorText: normalized,
     });
 
-    if (error) {
-      console.error("[guided-resolution/identity] upsert failed", error.message);
-      return NextResponse.json({ ok: false, error: "Database error" }, { status: 500 });
+    if (!result.ok) {
+      const status =
+        result.code === "identity_setup_incomplete" || result.code === "version_conflict"
+          ? 409
+          : 500;
+      return NextResponse.json(
+        { ok: false, error: result.error, code: result.code },
+        { status }
+      );
     }
 
     await clearPendingResolution(commitment.id);
-    await recomputeV2CoachingMemory(commitment.id, {
-      reasonCode: "guided_resolution_identity",
-    });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, versionId: result.versionId });
   } catch (e) {
     console.error("[guided-resolution/identity]", e);
     return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });

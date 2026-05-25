@@ -142,7 +142,7 @@ export default function PatSummittLeadershipPrinciplesPage() {
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-8">
-          Start with SMS-first accountability
+          Start with text-first accountability
         </h2>
         <Link
           href="/subscribe"

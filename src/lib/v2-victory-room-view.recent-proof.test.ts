@@ -6,6 +6,7 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   curateRecentProofMoments,
+  deriveMergedProofMomentsFromEventWindow,
   getRecentProofDedupeKey,
   inferRecentProofCategory,
   type VictoryMoment,
@@ -26,6 +27,105 @@ function m(args: {
     groundedInEventTypes: args.groundedInEventTypes ?? [],
   };
 }
+
+describe("blocker_captured proof derivation", () => {
+  const proofLine = "You named the obstacle instead of disappearing.";
+
+  it("derives Recent Proof from blocker_captured when proof_moment and user_visible_proof_line are set", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "bc-1",
+          event_type: "blocker_captured",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            user_visible_proof_line: proofLine,
+            message: "raw inbound should not appear in card",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.headline).toBe("Honesty");
+    expect(merged[0]!.body).toBe(proofLine);
+    expect(merged[0]!.body).not.toContain("raw inbound");
+    expect(inferRecentProofCategory(merged[0]!)).toBe("told_the_truth");
+  });
+
+  it("does not derive a card without proof_moment", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "bc-2",
+          event_type: "blocker_captured",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: { message: "work was crazy" },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(0);
+  });
+
+  it("does not derive a card when user_visible_proof_line is empty", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "bc-3",
+          event_type: "blocker_captured",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: { proof_moment: true, user_visible_proof_line: "   " },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(0);
+  });
+});
+
+describe("season_lifecycle proof exclusion", () => {
+  it("excludes season_lifecycle sms_memory_signal from proof moments", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "sl-1",
+          event_type: "sms_memory_signal",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            season_lifecycle: true,
+            exclude_from_proof_curation: true,
+            season_transition_action: "same_season_goal_sync",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(0);
+  });
+
+  it("still derives commitment_replaced proof from wave12 sms_memory_signal", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "pr-1",
+          event_type: "sms_memory_signal",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            proof_moment_type: "commitment_replaced",
+            user_visible_proof_line: "You locked in a new chapter honestly.",
+            memory_signal: { wave12_commitment_change_proof: true },
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.headline).toBe("New chapter");
+  });
+});
 
 describe("curateRecentProofMoments (Phase 2)", () => {
   it("Test 1 — identical partials collapse (keeps most recent duplicate)", () => {

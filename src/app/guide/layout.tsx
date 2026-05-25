@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { redirectIfOnboardingIncomplete } from "@/lib/onboarding-incomplete-redirect";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
   const subscribedRaw = md?.summittSubscribed;
@@ -31,9 +32,7 @@ export default async function GuideLayout({
     redirect("/subscribe");
   }
 
-  if (md.onboardingCompleted !== true) {
-    redirect("/onboarding");
-  }
+  await redirectIfOnboardingIncomplete(user.id, md);
 
   return <>{children}</>;
 }

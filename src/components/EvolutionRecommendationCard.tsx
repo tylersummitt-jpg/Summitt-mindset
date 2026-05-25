@@ -45,7 +45,7 @@ export default function EvolutionRecommendationCard(props: Props) {
       <h2 className="text-base font-semibold text-gray-900">{props.headline}</h2>
       <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{props.body}</p>
       <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
-        This note does not change your commitment by itself. Use SMS with Pat for check-ins and any
+        This note does not change your commitment by itself. Text Pat for check-ins and any
         refresh prompts you already have in flight.
       </p>
       {error ? (

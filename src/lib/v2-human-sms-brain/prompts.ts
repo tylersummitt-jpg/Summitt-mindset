@@ -21,6 +21,8 @@ export function brainCaseInstruction(brainCase: HumanSmsBrainCase): string {
       return "Rewrite that we could not save from here but still have their wording—reassuring, short.";
     case "pending_resolution_vague_need_detail":
       return "Rewrite asking for one measurable daily action.";
+    case "pending_resolution_unsafe_candidate":
+      return "Rewrite MACHINE_DRAFT: unsafe commitment candidate blocked by server—short safety redirect only. Do not adopt or soften the unsafe bar. Invite a safe daily commitment. No internal jargon.";
     case "contract_consent_overlay_yes_ack":
       return "Rewrite confirming they said yes to the smaller-or-steady ask for the next week. Never say contract, proposal, overlay, or candidate.";
     case "contract_consent_overlay_no_ack":

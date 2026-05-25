@@ -1293,14 +1293,18 @@ export type V2InboundGatedMode =
   | "clarify"
   | "repair_reply_only"
   | "commitment_change_handoff"
-  | "soft_opt_out_reply";
+  | "soft_opt_out_reply"
+  | "relationship_exit_integrity"
+  | "identity_edit_integrity";
 
 export type V2InboundGatedReplyStyle =
   | "normal_outcome"
   | "clarification"
   | "repair"
   | "commitment_change"
-  | "soft_opt_out";
+  | "soft_opt_out"
+  | "relationship_exit"
+  | "identity_edit";
 
 export type V2InboundGatedDecision = {
   mode: V2InboundGatedMode;

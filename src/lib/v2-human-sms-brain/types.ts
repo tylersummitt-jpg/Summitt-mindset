@@ -19,6 +19,7 @@ export type HumanSmsBrainCase =
   | "pending_resolution_lost_candidate"
   | "pending_resolution_rpc_error_hold"
   | "pending_resolution_vague_need_detail"
+  | "pending_resolution_unsafe_candidate"
   | "contract_consent_overlay_yes_ack"
   | "contract_consent_overlay_no_ack"
   | "normal_inbound_outcome_yes"

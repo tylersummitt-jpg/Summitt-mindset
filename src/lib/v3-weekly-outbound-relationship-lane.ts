@@ -18,6 +18,12 @@ import {
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
+import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
+import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
+import {
+  buildVictoryBackgroundLaneGuardrails,
+  type V3VictoryBackgroundFacts,
+} from "@/lib/sms-victory-background-context";
 
 /** Aligns with {@link detectFinalVoiceBlockedReasons} `too_long` guard for post-FVG compatibility. */
 const WEEKLY_V3_LANE_MAX_CHARS = 320;
@@ -40,6 +46,15 @@ export type WeeklyV3CommitmentFacts = {
   effective_ask: string | null;
   commitment_state: string | null;
   identity_anchor?: string | null;
+  planned_interruption_active?: boolean;
+  planned_interruption_reason_category?: string | null;
+  planned_interruption_resume_hint?: string | null;
+  goal_adjustment_move?: string | null;
+  goal_adjustment_confidence?: string | null;
+  goal_adjustment_mention_allowed?: boolean;
+  goal_adjustment_internal_hint?: string | null;
+  goal_adjustment_requires_confirmation?: boolean;
+  goal_adjustment_compatible_flow?: string | null;
 };
 
 export type WeeklyV3ThreadFacts = {
@@ -80,6 +95,8 @@ export type WeeklyV3ProofFacts = {
   silent_week: boolean;
   rough_week: boolean;
   strong_week: boolean;
+  /** True when an active planned interruption overlaps this week — not failure framing. */
+  planned_pause_week?: boolean;
   /** Metadata-only previews; must not appear verbatim in final body. */
   old_weekly_proof_body_preview: string | null;
   deterministic_weekly_body_preview: string | null;
@@ -105,6 +122,8 @@ export type WeeklyV3OutboundFacts = {
     reason_for_send: "sunday_weekly_touchpoint";
     legacy_weekly_branch: boolean;
   };
+  /** Read-only Victory Room background (season label + Pat Read); non-speakable unless naturally relevant. */
+  victory_background?: V3VictoryBackgroundFacts | null;
   constraints?: {
     required_verbatim_substrings?: string[];
   };
@@ -175,6 +194,34 @@ function safeJsonParse(raw: string): LaneModelJson | null {
 
 function bodyPreview(s: string): string {
   return s.length > 220 ? `${s.slice(0, 219)}…` : s;
+}
+
+/** Weekly Pat Pause goal-adjustment guardrails (background only; no mutation). */
+export function buildWeeklyGoalAdjustmentLaneGuardrails(): string {
+  return `${buildSmsGoalAdjustmentLaneGuardrails()}
+WEEKLY GOAL_ADJUSTMENT (Pat Pause):
+- goal_adjustment_* is background guidance for next-week framing only — not permission to mutate.
+- Weekly SMS must not say the goal changed unless server state already shows it changed.
+- Do not create a YES/NO menu or binding overlay proposal in weekly SMS.
+- If shrink_temporary, upstream, tighten_durable, or replace: gentle next-week consideration only — not action already taken.
+- If raise_bar: invitation to discuss raising the bar — not a command to change the goal.
+- If pause_cadence or planned_interruption_active: honor pause first; avoid failure framing for silence or misses.
+- Mention goal adjustment only when goal_adjustment_mention_allowed is true; never quote goal_adjustment_internal_hint verbatim.
+- If weekly_proof.proof_moment_hints are present, prioritize earned proof over goal-adjustment coaching.
+- Current Goal / effective ask stays primary; do not mention goal adjustment every week.`;
+}
+
+/** Weekly Pat Pause guardrails when planned interruption is active in facts. */
+export function buildWeeklyPlannedInterruptionLaneGuardrails(): string {
+  return `${buildPlannedInterruptionLaneGuardrails()}
+WEEKLY PAT PAUSE (when commitment.planned_interruption_active or weekly_proof.planned_pause_week):
+- This is the Sunday weekly reflection rhythm — honor the pause as honest context, not failure or avoidance.
+- Do not shame silence, missed days, or sparse replies during the interruption window.
+- Do not use blocker-capture style language for the pause week.
+- Prefer calm resume framing, one next-week standard, or a smaller version when helpful (use planned_interruption_resume_hint when present).
+- No YES/NO / PARTIAL menus. Current Goal / effective ask remains primary.
+- Do not claim cadence or commitment already changed unless facts show it.
+- Keep the relationship alive without a performance-report tone.`;
 }
 
 function summarizeWeeklyFacts(f: WeeklyV3OutboundFacts): string {
@@ -332,6 +379,7 @@ RULES:
 - If thread.open_question_pending is false and thread.latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
 - Bring back meaningful user language from the thread naturally when useful; do not re-ask for information they already gave.
 - Do not use "Welcome back" unless reentry/silence context in facts truly supports it.
+- If weekly_proof.planned_pause_week is true, sparse or silent replies are planned context — not failure; do not shame missed days or quiet weeks.
 - If the week was rough (rough_week) or quiet (silent_week / thin facts), be honest and useful without shaming. If there is not enough context for a genuinely useful weekly coaching text, return should_send false.
 - If there is proof (proof_moment_hints, win_hints, comeback_hints), make acknowledgment specific and earned — not generic hype.
 - At most one useful question in the body, or none if a question would feel forced.
@@ -341,6 +389,9 @@ RULES:
 - Never mention internal systems, schema, memory, projection, or "V2".
 - Never emit raw machine tokens like event_type, blocker_captured, user_partial.
 - Avoid daily-check phrasing like "Did [raw behavior text] happen today?" — this is weekly, not today's rep check.
+${buildVictoryBackgroundLaneGuardrails()}
+${buildWeeklyGoalAdjustmentLaneGuardrails()}
+${f.commitment.planned_interruption_active || f.weekly_proof.planned_pause_week ? buildWeeklyPlannedInterruptionLaneGuardrails() : ""}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean),

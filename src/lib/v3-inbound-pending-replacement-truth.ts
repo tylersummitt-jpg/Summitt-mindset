@@ -1,4 +1,7 @@
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import type { InboundV3SeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
+
+export type { InboundV3SeasonTransitionFacts };
 
 export type V2SmsPendingWireState =
   | "awaiting_candidate"
@@ -84,6 +87,16 @@ const FALSE_APPLIED_UPDATE_PATTERNS: RegExp[] = [
   /\bcommitment\s+is\s+updated\b/i,
 ];
 
+const FALSE_SEASON_TRANSITION_PATTERNS: RegExp[] = [
+  /\bchapter (?:is )?(?:closed|over|done|ended)\b/i,
+  /\bseason (?:is )?(?:closed|started|over|ended|complete)\b/i,
+  /\bnew season\b/i,
+  /\bnew chapter\b/i,
+  /\bstarted a (?:new )?season\b/i,
+  /\bclosed (?:this|your|the) season\b/i,
+  /\bclosed (?:this|your|the) chapter\b/i,
+];
+
 function normalizeText(s: string): string {
   return s.trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -154,6 +167,38 @@ export function detectPendingReplacementStateTruthViolations(
   }
 
   return hits;
+}
+
+export function seasonChapterChanged(
+  facts: InboundV3SeasonTransitionFacts | null | undefined
+): boolean {
+  if (!facts) return false;
+  if (facts.chapter_changed === true) return true;
+  return facts.user_facing_transition === "new_chapter";
+}
+
+export function detectSeasonTransitionTruthViolations(
+  body: string,
+  facts: InboundV3SeasonTransitionFacts | null | undefined
+): string[] {
+  const hits: string[] = [];
+  const norm = body.trim();
+  if (!norm || seasonChapterChanged(facts)) return hits;
+
+  for (const re of FALSE_SEASON_TRANSITION_PATTERNS) {
+    if (re.test(norm)) {
+      hits.push("season_transition_false_chapter_language");
+      break;
+    }
+  }
+  return hits;
+}
+
+export function seasonTransitionTruthNoSendReason(violations: string[]): string {
+  if (violations.includes("season_transition_false_chapter_language")) {
+    return "season_transition_false_chapter_language";
+  }
+  return "season_transition_truth_blocked";
 }
 
 export function pendingReplacementStateTruthNoSendReason(violations: string[]): string {

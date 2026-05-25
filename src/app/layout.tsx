@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     template: "%s | Summitt Mindset",
   },
   description:
-    "SMS-first accountability on one clear commitment—Coach Pat Summitt’s standards, calm depth in the app, and Victory Room for proof.",
+    "Text-first accountability on one clear commitment—Coach Pat Summitt’s standards, calm depth in the app, and Victory Room for proof.",
 };
 
 export default function RootLayout({

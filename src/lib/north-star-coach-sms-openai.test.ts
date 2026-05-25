@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { describe, expect, it, afterEach } from "vitest";
 import {
   finalizeNorthStarCoachSmsAsync,
@@ -63,6 +65,14 @@ describe("finalizeNorthStarCoachSmsAsync", () => {
     });
     expect(r.meta.openaiAttempted).toBe(false);
     expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  });
+
+  it("fact pack source omits life_desires line (No-Why SMS cleanup)", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "north-star-coach-sms-openai.ts"),
+      "utf8"
+    );
+    expect(src).not.toMatch(/life_desires=/);
   });
 
   it("does not run OpenAI as normal finalizer for v3_weekly_relationship_lane", async () => {

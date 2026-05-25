@@ -569,7 +569,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
   ] = await Promise.all([
     supabaseServer
       .from("user_profiles")
-      .select("preferred_name, life_desires, people_summary, identity_anchor_text, identity_source")
+      .select("preferred_name, people_summary, identity_anchor_text, identity_source")
       .eq("clerk_user_id", args.clerkUserId)
       .maybeSingle(),
     supabaseServer

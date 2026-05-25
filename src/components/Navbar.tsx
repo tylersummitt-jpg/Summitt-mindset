@@ -90,7 +90,7 @@ export function Navbar() {
   // --------------------------------------------------
   const appLinks = [
     { href: "/", label: "Home", key: "home" },
-    { href: "/dashboard", label: "Dashboard", key: "dashboard" },
+    { href: "/dashboard/victory-room", label: "Victory Room", key: "victory-room" },
     { href: "/ask-pat", label: "Ask Pat", key: "ask-pat" },
     { href: "/film-room", label: "Film Room", key: "film-room" },
     { href: "/user", label: "Account", key: "user" },
@@ -101,10 +101,14 @@ export function Navbar() {
 
   const navLinks = isSignedIn ? appLinks : publicLinks;
 
+  const isNavLinkActive = (href: string) => {
+    if (!pathname) return false;
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   const linkClass = (href: string) => {
-    const isActive =
-      href === "/" ? pathname === "/" : pathname.startsWith(href);
-    return linkBase + (isActive ? linkActive : linkInactive);
+    return linkBase + (isNavLinkActive(href) ? linkActive : linkInactive);
   };
 
   return (

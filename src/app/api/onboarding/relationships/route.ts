@@ -1,51 +1,15 @@
-import { auth } from "@clerk/nextjs/server";
-import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { supabaseServer } from "@/lib/supabase-server";
-
-export async function POST(req: Request) {
-  try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const existing = await getClerkPublicMetadata(userId);
-    if (existing?.onboardingCompleted === true) {
-      return Response.json({ success: true });
-    }
-
-    const body = await req.json();
-
-    const {
-      people_summary,
-      relationship_status,
-      partner_name,
-      children_summary
-    } = body;
-
-    const { error } = await supabaseServer
-      .from("user_profiles")
-      .upsert(
-        {
-          clerk_user_id: userId,
-          people_summary,
-          relationship_status,
-          partner_name,
-          children_summary
-        },
-        { onConflict: "clerk_user_id" }
-      );
-
-    if (error) {
-      console.error("Relationships onboarding error:", error);
-      return new Response("Database error", { status: 500 });
-    }
-
-    return Response.json({ success: true });
-
-  } catch (err) {
-    console.error(err);
-    return new Response("Server error", { status: 500 });
-  }
+/**
+ * POST /api/onboarding/relationships (RETIRED)
+ *
+ * Legacy relationships intake was merged into POST /api/onboarding/identity.
+ * Writable access is disabled so legacy profile people fields cannot bypass the SoB identity path.
+ */
+export async function POST() {
+  return Response.json(
+    {
+      error:
+        "Relationships onboarding is retired. Use POST /api/onboarding/identity for identity and optional important people.",
+    },
+    { status: 410 }
+  );
 }

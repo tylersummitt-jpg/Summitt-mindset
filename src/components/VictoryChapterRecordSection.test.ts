@@ -31,7 +31,7 @@ describe("VictoryChapterRecordSection (Phase 6 Chapter Record)", () => {
           openedAt: "2026-05-01T00:00:00Z",
           firstProofAt: "2026-05-02T10:00:00Z",
           latestProofAt: "2026-05-03T10:00:00Z",
-          proofCategoryLabels: ["Told the Truth", "Adjusted Wisely", "Kept the Thread Alive"],
+          proofCategoryLabels: ["Told the truth", "Adjusted wisely", "Kept the goal"],
           earlierSeasonCount: 1,
         },
         timeZone: "UTC",
@@ -41,9 +41,9 @@ describe("VictoryChapterRecordSection (Phase 6 Chapter Record)", () => {
     expect(html).toContain("Opened");
     expect(html).toContain("First proof captured");
     expect(html).toContain("Latest proof captured");
-    expect(html).toContain("Told the Truth");
-    expect(html).toContain("Adjusted Wisely");
-    expect(html).toContain("Kept the Thread Alive");
+    expect(html).toContain("Told the truth");
+    expect(html).toContain("Adjusted wisely");
+    expect(html).toContain("Kept the goal");
     expect(html).toContain("Earlier seasons are saved below.");
 
     const lower = html.toLowerCase();

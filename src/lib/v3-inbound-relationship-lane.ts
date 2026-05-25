@@ -26,11 +26,36 @@ import {
 import {
   buildInboundPendingReplacementFactsFromCommitment,
   detectPendingReplacementStateTruthViolations,
+  detectSeasonTransitionTruthViolations,
   pendingReplacementStateTruthNoSendReason,
+  seasonTransitionTruthNoSendReason,
   type InboundV3PendingReplacementFacts,
+  type InboundV3SeasonTransitionFacts,
 } from "@/lib/v3-inbound-pending-replacement-truth";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
+import {
+  buildSmsGoalAdjustmentLaneGuardrails,
+  type SmsGoalAdjustmentSignalResult,
+} from "@/lib/sms-goal-adjustment-signal";
+import {
+  buildSmsPatternSignalLaneGuardrails,
+  type SmsPatternSignalResult,
+} from "@/lib/sms-pattern-signal";
+import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
+import {
+  buildRelationshipExitLaneGuardrails,
+  type InboundV3RelationshipExitFacts,
+} from "@/lib/sms-relationship-exit-intent";
+import {
+  buildIdentityEditLaneGuardrails,
+  type InboundV3IdentityEditFacts,
+} from "@/lib/sms-identity-edit-intent";
+import type { InboundV3ProofCalloutHint } from "@/lib/v2-proof-moment";
+import {
+  buildVictoryBackgroundLaneGuardrails,
+  type V3VictoryBackgroundFacts,
+} from "@/lib/sms-victory-background-context";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 
 const INBOUND_LANE_MAX_CHARS = 320;
@@ -58,6 +83,10 @@ export type InboundV3RoutePurpose =
   | "commitment_change_handoff"
   /** Heuristic commitment-change phrasing without Wave4 handoff — no pending resolution on this branch. */
   | "commitment_change_context"
+  /** Slice D-lite — exit / subscription integrity; no accountability outcome event. */
+  | "relationship_exit_integrity"
+  /** Slice B Phase 1 — identity clarification; no identity or goal mutation. */
+  | "identity_edit_integrity"
   /** Conversation brain control unavailable / legacy deterministic SMS disabled — template is facts-only. */
   | "conversation_brain_unavailable";
 
@@ -398,6 +427,20 @@ export type InboundV3AdaptiveConsentClarificationFacts = {
   inbound_message_sid: string;
 };
 
+export type InboundV3CommsPreferencesFacts = {
+  comms_preference_action: string;
+  preference_write_ok: boolean;
+  pause_active: boolean;
+  pause_until_iso: string | null;
+  pause_reason_category: string | null;
+  cadence_override: string | null;
+  weekend_send_policy: string | null;
+  preferred_send_window: string | null;
+  preferred_local_hour: number | null;
+  needs_cadence_clarification: boolean;
+  required_meaning_summary: string;
+};
+
 export type InboundV3CommitmentChangeFacts = {
   detected_intent_type: V2SmsCommitmentIntentPack["intent"];
   current_commitment_snapshot: string;
@@ -432,6 +475,11 @@ const INBOUND_COMMITMENT_CHANGE_EXISTING_PENDING_NOTE =
 /**
  * Server-only facts for commitment_change_handoff inbound lane (no user-visible prose authority).
  */
+export type CommitmentChangeBootstrapFacts = {
+  promoted: boolean;
+  candidatePreview: string | null;
+};
+
 export function buildCommitmentChangeInboundFactsFromWave4(args: {
   intentPack: V2SmsCommitmentIntentPack;
   commitment: ActiveV2CommitmentRow;
@@ -442,6 +490,7 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
   pendingResolutionApplyException: string | null;
   /** Non-speakable legacy Wave4 coach string — pass from `buildSmsCommitmentChangeCoachReply` at the route layer. */
   legacyCommitmentChangeReplyPreview: string;
+  bootstrapResult?: CommitmentChangeBootstrapFacts | null;
 }): InboundV3CommitmentChangeFacts {
   const legacy = args.legacyCommitmentChangeReplyPreview.trim();
   const legacyPreview = legacy.length > 500 ? `${legacy.slice(0, 497)}...` : legacy;
@@ -458,8 +507,14 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     serverSummary = `pending_resolution_apply_failed:${args.pendingResolutionApplyException.trim().slice(0, 160)}`;
   } else if (pendingCreated && pendingType === "commitment_tighten") {
     serverSummary = "pending_resolution_upserted:commitment_tighten";
+    if (args.bootstrapResult?.promoted === true) {
+      serverSummary += ";bootstrap:awaiting_confirmation";
+    }
   } else if (pendingCreated && pendingType === "commitment_replace") {
     serverSummary = "pending_resolution_upserted:commitment_replace";
+    if (args.bootstrapResult?.promoted === true) {
+      serverSummary += ";bootstrap:awaiting_confirmation";
+    }
   } else if (args.wave4.skipReason === "soft_quit") {
     serverSummary = "pending_resolution_skipped:soft_quit";
   } else if (args.wave4.skipReason === "paused_reactivation") {
@@ -479,6 +534,10 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
   ];
   const currentCommitmentSnapshot = snapParts.join(" | ");
 
+  const bootPreview = args.bootstrapResult?.promoted
+    ? args.bootstrapResult.candidatePreview?.trim().replace(/\s+/g, " ").slice(0, 200) ?? null
+    : null;
+
   const reqLines: string[] = [
     "Server state is already decided from facts — do not invent commitment terms or claim the written commitment row already changed.",
     "If pending_resolution_created is true: an SMS update flow was started — explain the honest next step without claiming the commitment is permanently rewritten or locked in.",
@@ -486,6 +545,16 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     "If existing_pending_resolution is true: communicate that the user should finish the current in-flight commitment update before starting another (meaning may paraphrase; do not quote legacy preview).",
     "legacy_commitment_change_reply_preview and append_note_preview are NON-SPEAKABLE metadata — do not quote, imitate, paste, or treat them as your voice.",
   ];
+  if (args.intentPack.intent === "sms_raise_bar_request") {
+    reqLines.push(
+      "detected_intent_type is sms_raise_bar_request: invite the user to name a harder daily bar and confirm — do not claim the goal was raised or changed before server confirmation."
+    );
+  }
+  if (bootPreview) {
+    reqLines.push(
+      `Bootstrap awaiting_confirmation holds candidate preview only — user must confirm before any mutation (preview: ${bootPreview}).`
+    );
+  }
   if (appendPreview) {
     reqLines.push(
       `Honor the meaning of the in-flight update constraint (same intent as append_note_preview) without pasting that text verbatim unless it appears in constraints.required_verbatim_substrings.`
@@ -507,9 +576,11 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     candidate_tightened_bar_preview: args.intentPack.candidateTightenedBar?.trim()
       ? args.intentPack.candidateTightenedBar.trim().replace(/\s+/g, " ").slice(0, 200)
       : null,
-    candidate_new_bar_preview: args.intentPack.candidateNewBar?.trim()
-      ? args.intentPack.candidateNewBar.trim().replace(/\s+/g, " ").slice(0, 200)
-      : null,
+    candidate_new_bar_preview:
+      bootPreview ??
+      (args.intentPack.candidateNewBar?.trim()
+        ? args.intentPack.candidateNewBar.trim().replace(/\s+/g, " ").slice(0, 200)
+        : null),
     server_state_transition_summary: serverSummary,
     ...(requiredVerbatim ? { required_verbatim_substrings: requiredVerbatim } : {}),
     required_meaning_summary: reqLines.join(" "),
@@ -838,12 +909,16 @@ export type InboundV3RelationshipFacts = {
   refresh_facts?: InboundV3RefreshFacts | null;
   pending_resolution_facts?: InboundV3PendingResolutionFacts | null;
   pending_replacement_facts?: InboundV3PendingReplacementFacts | null;
+  season_transition_facts?: InboundV3SeasonTransitionFacts | null;
   memory_confirmation_facts?: InboundV3MemoryConfirmationFacts | null;
   contract_consent_facts?: InboundV3ContractConsentFacts | null;
   adaptive_consent_clarification_facts?: InboundV3AdaptiveConsentClarificationFacts | null;
   commitment_change_facts?: InboundV3CommitmentChangeFacts | null;
   commitment_change_context_facts?: InboundV3CommitmentChangeContextFacts | null;
+  comms_preferences_facts?: InboundV3CommsPreferencesFacts | null;
   conversation_brain_fallback_facts?: InboundV3ConversationBrainFallbackFacts | null;
+  /** Read-only Victory Room background (season label + Pat Read); non-speakable unless naturally relevant. */
+  victory_background?: V3VictoryBackgroundFacts | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -857,6 +932,9 @@ export type InboundV3RelationshipFacts = {
     behavior_statement: string;
     effective_ask: string;
     accountability_phase: string;
+    planned_interruption_active?: boolean;
+    planned_interruption_reason_category?: string | null;
+    planned_interruption_resume_hint?: string | null;
   };
   thread: {
     latest_inbound_raw: string;
@@ -916,6 +994,17 @@ export type InboundV3RelationshipFacts = {
     today_completed: boolean;
     future_intent_hint: string | null;
     supplement_commitment_change_guidance: boolean;
+    pattern_signal_confidence?: string | null;
+    pattern_canonical?: string | null;
+    pattern_mention_allowed?: boolean;
+    pattern_internal_hint?: string | null;
+    goal_adjustment_move?: string | null;
+    goal_adjustment_confidence?: string | null;
+    goal_adjustment_mention_allowed?: boolean;
+    goal_adjustment_internal_hint?: string | null;
+    goal_adjustment_requires_confirmation?: boolean;
+    goal_adjustment_compatible_flow?: string | null;
+    proof_callout_hint?: InboundV3ProofCalloutHint | null;
   };
   legacy_suggestions: {
     conversation_brain: InboundV3ConversationBrainFacts;
@@ -931,6 +1020,8 @@ export type InboundV3RelationshipFacts = {
     /** Proof / victory structured hints — not appended marketing copy. */
     accountability_proof_hint: string | null;
   };
+  relationship_exit?: InboundV3RelationshipExitFacts | null;
+  identity_edit?: InboundV3IdentityEditFacts | null;
   suggested_coaching_move: string;
   constraints: {
     max_chars: number;
@@ -1249,6 +1340,14 @@ export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3Relations
   if (f.commitment_change_context_facts) {
     return "respond_commitment_change_context_without_pending_resolution";
   }
+  if (f.identity_edit) {
+    if (f.identity_edit.goal_confusion_risk) return "separate_identity_from_goal_clarify";
+    if (f.identity_edit.discouragement_risk) return "protect_identity_after_bad_day";
+    if (f.identity_edit.should_invite_victory_room_review) {
+      return "clarify_identity_optional_victory_room_review";
+    }
+    return "clarify_identity_integrity";
+  }
   if (f.commitment_change_facts) {
     return "commitment_change_handoff_respond_with_server_owned_next_steps";
   }
@@ -1379,8 +1478,11 @@ ROUTE (open_question_answer): The user is answering the coach's latest question 
 ROUTE (${rp}): Guided refresh-session SMS. Server already applied refresh_state / transitions in facts — do NOT invent, undo, or alter commitments or identity from prose. Use refresh_facts (refresh_step, user_answer_type, expected_answer, state_transition_summary, updated_identity_anchor, updated_commitment_bar). legacy_refresh_reply_preview is NON-SPEAKABLE machine/template copy — do not quote, imitate, or paste it. If constraints.required_verbatim_substrings is non-empty, include EVERY listed substring exactly in body. If constraints.required_meaning_summary is set, satisfy it accurately. Write ONE SMS as the coach continuing the thread.`;
   }
   if (rp === "pending_resolution") {
-    return `
-ROUTE (pending_resolution): SMS pending guided-resolution turn. Use pending_resolution_facts (resolution_type, pending_action, user_answer_type, state_transition_summary, updated_commitment_snapshot) and pending_replacement_facts when present. legacy_pending_reply_preview is NON-SPEAKABLE machine copy — do not quote, imitate, or paste it. If pending_replacement_facts.pending_resolution_applied is false: the pending candidate bar is user-facing truth — do NOT coach canonical_behavior_statement as current; do NOT say goal/commitment updated/changed/locked in. If pending_resolution_applied is true: canonical commitment was updated — you may acknowledge honestly. Honor required_verbatim_substrings / required_meaning_summary. One SMS.`;
+    return (
+      `
+ROUTE (pending_resolution): SMS pending guided-resolution turn. Use pending_resolution_facts (resolution_type, pending_action, user_answer_type, state_transition_summary, updated_commitment_snapshot), pending_replacement_facts, and season_transition_facts when present. legacy_pending_reply_preview is NON-SPEAKABLE machine copy — do not quote, imitate, or paste it. If pending_replacement_facts.pending_resolution_applied is false: the pending candidate bar is user-facing truth — do NOT coach canonical_behavior_statement as current; do NOT say goal/commitment updated/changed/locked in. If pending_resolution_applied is true: canonical commitment was updated — you may acknowledge honestly. Honor required_verbatim_substrings / required_meaning_summary. One SMS.` +
+      buildSeasonTransitionRouteAux(f)
+    );
   }
   if (rp === "memory_confirmation" || rp === "memory_decline" || rp === "memory_clarification") {
     return `
@@ -1393,6 +1495,14 @@ ROUTE (adaptive_proposal_consent_clarification): A pending adaptive overlay prop
   if (rp === "commitment_change_handoff") {
     return `
 ROUTE (commitment_change_handoff): User signaled a commitment change without a clear accountability score for today. Server already ran pending-resolution logic — use commitment_change_facts only (pending_resolution_created, pending_resolution_skip_reason, existing_pending_resolution, server_state_transition_summary, candidate previews). Do NOT claim the written commitment row already changed unless facts explicitly say so (they do not here). pending_resolution_created true means an SMS update flow was started, not that the commitment is finalized. legacy_commitment_change_reply_preview and append_note_preview are NON-SPEAKABLE metadata — do not quote, imitate, or paste them. Honor constraints.required_verbatim_substrings and constraints.required_meaning_summary when present. One short SMS; if unsafe or uncertain, return should_send false.`;
+  }
+  if (rp === "relationship_exit_integrity") {
+    return `
+ROUTE (relationship_exit_integrity): User signaled exit, frustration, billing concern, or soft opt-out of texts — NOT today's accountability completion. Use relationship_exit facts (category, suggested_next_moves, flags). v2_accountability.should_write_outcome_event is false — do NOT score or congratulate. Write ONE humane SMS as the coach.`;
+  }
+  if (rp === "identity_edit_integrity") {
+    return `
+ROUTE (identity_edit_integrity): User raised identity-level language — NOT today's accountability completion. Use identity_edit facts only (category, flags, suggested_next_moves, current_identity_snapshot). Server did NOT update identity or goal (no_identity_mutation true; should_not_claim_identity_updated true; should_not_change_goal true). Do NOT claim identity or goal was updated. Do NOT use Reply YES to confirm. Victory Room review is optional only when should_invite_victory_room_review is true — never a mandatory redirect. One short humane SMS.`;
   }
   if (rp === "commitment_change_context") {
     return `
@@ -1410,8 +1520,54 @@ ROUTE (conversation_brain_unavailable): Conversation brain was unavailable or di
     return `
 ROUTE (${rp}): Adaptive overlay proposal consent. Server already decided overlay_action / rpc_result — do NOT invent YES/NO, do NOT activate/decline overlays from prose, do NOT invent contract terms. Use contract_consent_facts (consent_parse, overlay_action, proposal_kind, proposal_text_digest, server_state_transition_summary, inbound_message_sid). legacy_contract_ack_preview is NON-SPEAKABLE legacy template preview — do not quote, imitate, or paste it. If constraints.required_verbatim_substrings is non-empty, include EVERY substring exactly. If constraints.required_meaning_summary is set, satisfy it without contradicting server flags. One short SMS.`;
   }
+  const commsAux = buildCommsPreferencesRouteAux(f);
   const pendingAux = buildPendingReplacementRouteAux(f);
-  return pendingAux + buildThreadMemoryCorrectionRouteAux(f);
+  return commsAux + pendingAux + buildSeasonTransitionRouteAux(f) + buildThreadMemoryCorrectionRouteAux(f);
+}
+
+/** Human-language coaching guidance for season_transition_facts (V3-owned final wording). */
+export function buildSeasonTransitionRouteAux(f: InboundV3RelationshipFacts): string {
+  const st = f.season_transition_facts;
+  if (!st) return "";
+
+  const chapterChanged = st.chapter_changed === true || st.user_facing_transition === "new_chapter";
+  const sameChapterBarRaised =
+    !chapterChanged &&
+    (st.user_facing_transition === "same_chapter" || st.bar_raised_in_same_chapter === true);
+
+  let transitionGuidance = "";
+  if (chapterChanged) {
+    transitionGuidance = `
+- chapter_changed is true / user_facing_transition is new_chapter: you MAY use simple human language like "new chapter" or "new season" when it fits naturally.
+- You may reference old_season_name or new_season_name when helpful — never IDs or database terms.
+- Do not overexplain season mechanics.`;
+  } else if (sameChapterBarRaised) {
+    transitionGuidance = `
+- user_facing_transition is same_chapter / bar_raised_in_same_chapter is true: frame as same season, same chapter, or stronger standard — NOT a new chapter or new season.
+- Good examples (guidance only — vary naturally): "Same chapter, stronger standard." / "We kept the focus and raised the bar." / "I'll hold you to the sharper version."
+- Do NOT say "new chapter," "new season," "season closed," or "chapter closed."`;
+  } else {
+    transitionGuidance = `
+- season_transition_facts present but no chapter change and no same-chapter bar raise signaled: do not claim any season or chapter change. Keep the reply simple and human.`;
+  }
+
+  return `
+SEASON_TRANSITION (season_transition_facts — coaching context only):
+Use season_transition_facts for honest coaching tone. Do NOT expose internal labels, JSON field names, enums, UUIDs, or engineering terms.
+Never say: same_season_sync, season_transition_applied, same_season_goal_snapshot_synced, snapshot, sync, pending, candidate, RPC, mutation, database, route, payload, classifier, mode, commitment_id, or any UUID.
+${transitionGuidance}`;
+}
+
+function buildCommsPreferencesRouteAux(f: InboundV3RelationshipFacts): string {
+  const cp = f.comms_preferences_facts;
+  if (!cp) return "";
+  return `
+COMMS_PREFERENCES (Slice C — server-owned proactive SMS timing/cadence/pause):
+Use comms_preferences_facts. ${cp.required_meaning_summary}
+Do not claim texts are paused unless preference_write_ok is true AND pause_active is true.
+Do not claim cadence or send timing changed unless preference_write_ok is true and the user asked for that change on this turn.
+If needs_cadence_clarification is true, ask one natural clarifying question (fewer texts vs pause until a date) — no menu, no "Reply YES to confirm."
+STOP/HELP/START remain Twilio compliance outside this lane.`;
 }
 
 function buildPendingReplacementRouteAux(f: InboundV3RelationshipFacts): string {
@@ -1427,6 +1583,7 @@ const INBOUND_LANE_REPAIR_EXCLUDED_ROUTE_PURPOSES = new Set<InboundV3RoutePurpos
   "adaptive_proposal_consent_noop_ack",
   "adaptive_proposal_consent_clarification",
   "commitment_change_handoff",
+  "identity_edit_integrity",
   "pending_resolution",
   "memory_confirmation",
   "memory_decline",
@@ -1701,7 +1858,8 @@ RULES:
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
-- If unsafe, uncertain, or facts conflict badly, return should_send false.${routePurposeAux}
+- If unsafe, uncertain, or facts conflict badly, return should_send false.
+${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -2029,6 +2187,31 @@ Write JSON only.`;
     }
   }
 
+  const seasonViolations = detectSeasonTransitionTruthViolations(
+    body,
+    args.facts.season_transition_facts
+  );
+  if (seasonViolations.length > 0) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: seasonTransitionTruthNoSendReason(seasonViolations),
+      replySource: "v3_inbound_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes: [...safetyNotes, ...seasonViolations.map((v) => `blocked:${v}`)],
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: "season_transition_truth_blocked",
+        v3_candidate_body: body,
+        season_transition_truth_blocked_reasons: seasonViolations,
+      },
+      openAiOk: true,
+    };
+  }
+
   return {
     body,
     shouldSend: true,
@@ -2104,6 +2287,7 @@ export type BuildInboundV3RelationshipFactsArgs = {
   openQuestionFacts?: InboundV3OpenQuestionFacts | null;
   refreshFacts?: InboundV3RefreshFacts | null;
   pendingResolutionFacts?: InboundV3PendingResolutionFacts | null;
+  seasonTransitionFacts?: InboundV3SeasonTransitionFacts | null;
   /** When known (e.g. post pending-resolution handler), overrides applied detection on commitment row. */
   pendingResolutionAppliedOverride?: boolean;
   memoryConfirmationFacts?: InboundV3MemoryConfirmationFacts | null;
@@ -2111,9 +2295,34 @@ export type BuildInboundV3RelationshipFactsArgs = {
   adaptiveConsentClarificationFacts?: InboundV3AdaptiveConsentClarificationFacts | null;
   commitmentChangeFacts?: InboundV3CommitmentChangeFacts | null;
   commitmentChangeContextFacts?: InboundV3CommitmentChangeContextFacts | null;
+  commsPreferencesFacts?: InboundV3CommsPreferencesFacts | null;
   conversationBrainFallbackFacts?: InboundV3ConversationBrainFallbackFacts | null;
   relationshipMemoryPacket?: SlimSmsRelationshipMemoryPacketForFacts | null;
+  victoryBackground?: V3VictoryBackgroundFacts | null;
+  patternSignal?: SmsPatternSignalResult | null;
+  goalAdjustmentSignal?: SmsGoalAdjustmentSignalResult | null;
+  plannedInterruption?: {
+    active: boolean;
+    reasonCategory: string | null;
+    resumeHint: string | null;
+  } | null;
+  proofCalloutHint?: InboundV3ProofCalloutHint | null;
+  relationshipExitFacts?: InboundV3RelationshipExitFacts | null;
+  identityEditFacts?: InboundV3IdentityEditFacts | null;
 };
+
+/** Optional Victory / proof mention — V3-owned; no deterministic post-FVG append. */
+export function buildInboundProofCalloutLaneGuardrails(): string {
+  return `
+PROOF_CALLOUT (v2_accountability.proof_callout_hint when present):
+- Optional background only — not required copy.
+- If proof_callout_hint.eligible is true, you MAY briefly mention Victory Room or proof naturally in the same SMS (one short clause).
+- Do not force a mention; omit if the reply is already complete.
+- Do not use a second paragraph solely for a system callout.
+- Do not claim proof was saved, logged, or stored unless proof_callout_claim_saved_allowed is true (inbound lane: false before server insert).
+- Never paste proof_callout_hint.instruction verbatim; paraphrase naturally.
+`;
+}
 
 /** Assembles JSON-safe facts for {@link produceInboundV3RelationshipSms} (no upstream prose). */
 export function buildInboundV3RelationshipFacts(args: BuildInboundV3RelationshipFactsArgs): InboundV3RelationshipFacts {
@@ -2145,6 +2354,7 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     args.adaptiveConsentClarificationFacts?.required_meaning_summary?.trim() ||
     args.commitmentChangeFacts?.required_meaning_summary?.trim() ||
     args.commitmentChangeContextFacts?.required_meaning_summary?.trim() ||
+    args.commsPreferencesFacts?.required_meaning_summary?.trim() ||
     args.conversationBrainFallbackFacts?.coaching_route_meaning_summary?.trim() ||
     null;
 
@@ -2188,6 +2398,9 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     ...(pendingReplacementFromCommitment != null
       ? { pending_replacement_facts: pendingReplacementFromCommitment }
       : {}),
+    ...(args.seasonTransitionFacts != null
+      ? { season_transition_facts: args.seasonTransitionFacts }
+      : {}),
     ...(args.memoryConfirmationFacts != null ? { memory_confirmation_facts: args.memoryConfirmationFacts } : {}),
     ...(args.contractConsentFacts != null ? { contract_consent_facts: args.contractConsentFacts } : {}),
     ...(args.adaptiveConsentClarificationFacts != null
@@ -2197,9 +2410,13 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     ...(args.commitmentChangeContextFacts != null
       ? { commitment_change_context_facts: args.commitmentChangeContextFacts }
       : {}),
+    ...(args.commsPreferencesFacts != null
+      ? { comms_preferences_facts: args.commsPreferencesFacts }
+      : {}),
     ...(args.conversationBrainFallbackFacts != null
       ? { conversation_brain_fallback_facts: args.conversationBrainFallbackFacts }
       : {}),
+    ...(args.victoryBackground != null ? { victory_background: args.victoryBackground } : {}),
     user: {
       clerk_user_id: args.clerkUserId,
       preferred_name: args.preferredName,
@@ -2213,6 +2430,13 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       behavior_statement: args.commitment.behavior_statement ?? "",
       effective_ask: args.effectiveAsk,
       accountability_phase: args.commitment.accountability_phase,
+      ...(args.plannedInterruption?.active
+        ? {
+            planned_interruption_active: true,
+            planned_interruption_reason_category: args.plannedInterruption.reasonCategory,
+            planned_interruption_resume_hint: args.plannedInterruption.resumeHint,
+          }
+        : {}),
     },
     thread: {
       latest_inbound_raw: args.userMessageRaw,
@@ -2291,7 +2515,35 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       today_completed: args.northStarPacket.todayCompleted === true,
       future_intent_hint: args.northStarPacket.futureIntentHint ?? null,
       supplement_commitment_change_guidance: args.gatedDecision.supplement_commitment_change_guidance === true,
+      ...(args.patternSignal
+        ? {
+            pattern_signal_confidence: args.patternSignal.confidence,
+            pattern_canonical: args.patternSignal.canonical,
+            pattern_mention_allowed: args.patternSignal.mentionAllowed,
+            pattern_internal_hint: args.patternSignal.internalHint,
+          }
+        : {}),
+      ...(args.goalAdjustmentSignal
+        ? {
+            goal_adjustment_move: args.goalAdjustmentSignal.move,
+            goal_adjustment_confidence: args.goalAdjustmentSignal.confidence,
+            goal_adjustment_mention_allowed: args.goalAdjustmentSignal.mentionAllowed,
+            goal_adjustment_internal_hint: args.goalAdjustmentSignal.internalHint,
+            goal_adjustment_requires_confirmation: args.goalAdjustmentSignal.requiresUserConfirmation,
+            goal_adjustment_compatible_flow: args.goalAdjustmentSignal.compatibleFlow,
+          }
+        : {}),
+      ...(args.proofCalloutHint ? { proof_callout_hint: args.proofCalloutHint } : {}),
+      ...((args.relationshipExitFacts || args.identityEditFacts)
+        ? {
+            proof_signal: false,
+            today_completed: false,
+            miss_signal: false,
+          }
+        : {}),
     },
+    ...(args.relationshipExitFacts ? { relationship_exit: args.relationshipExitFacts } : {}),
+    ...(args.identityEditFacts ? { identity_edit: args.identityEditFacts } : {}),
     legacy_suggestions: {
       conversation_brain: args.conversationBrain,
       central_brain: args.centralBrain,

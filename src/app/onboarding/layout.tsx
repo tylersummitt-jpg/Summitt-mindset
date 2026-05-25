@@ -12,15 +12,16 @@ import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-me
  * Product rule:
  * Subscribe FIRST → then onboarding.
  *
- * This layout gates ALL onboarding routes. Canonical flow (4 steps):
- * Identity → Commitment → SMS → Complete
- * - /onboarding
- * - /onboarding/identity (combined identity + relationships intake)
- * - /onboarding/commitment
+ * This layout gates ALL onboarding routes. Canonical no-Why flow:
+ * Welcome → Identity → Current Goal → Review → SMS → Complete → Victory Room
+ * - /onboarding (Welcome)
+ * - /onboarding/identity (My Identity; optional important people)
+ * - /onboarding/commitment (My Current Goal)
+ * - /onboarding/review
  * - /onboarding/sms
  * - /onboarding/complete
- * Legacy: /onboarding/relationships redirects to /onboarding/identity.
- * /onboarding/pressure redirects to /onboarding/commitment.
+ * Legacy redirects only (no data collection):
+ * /onboarding/relationships → identity; /onboarding/pressure → commitment; /onboarding/why → identity.
  *
  * NOTE: Uncaught errors in this layout are NOT handled by onboarding/error.tsx
  * (Next.js error boundaries cover segment children, not the layout component).

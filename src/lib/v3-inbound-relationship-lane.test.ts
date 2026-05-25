@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const createMock = vi.hoisted(() => vi.fn());
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
 vi.mock("openai", () => ({
   __esModule: true,
   default: class MockOpenAI {
@@ -17,11 +21,22 @@ import type { V2InboundGatedDecision } from "@/lib/v2-ai-inbound";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { isV3OwnedInboundReplySource } from "@/lib/v3-sms-brain";
 import { isV3RelationshipVoiceReplySource } from "@/lib/north-star-coach-sms";
+import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
+import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
+import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
+import { buildVictoryBackgroundLaneGuardrails } from "@/lib/sms-victory-background-context";
 import {
+  INBOUND_PROOF_CALLOUT_LANE_INSTRUCTION,
+  type InboundV3ProofCalloutHint,
+} from "@/lib/v2-proof-moment";
+import {
+  buildInboundProofCalloutLaneGuardrails,
   buildInboundV3RelationshipFacts,
+  buildSeasonTransitionRouteAux,
   produceInboundV3RelationshipSms,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
+import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 
 function baseCommitment(): ActiveV2CommitmentRow {
   return {
@@ -683,5 +698,556 @@ describe("v3_inbound_relationship_lane reply source classification", () => {
 
   it("is a V3-owned inbound reply source", () => {
     expect(isV3OwnedInboundReplySource("v3_inbound_relationship_lane")).toBe(true);
+  });
+});
+
+describe("inbound V3 victory_background", () => {
+  it("buildInboundV3RelationshipFacts includes victory_background when passed", () => {
+    const facts = baseFacts({
+      victory_background: {
+        active_season_label: "Chapter 1",
+        active_season_started_at: null,
+        pat_read_strength: null,
+        pat_read_pattern: "Evening drift",
+        pat_read_next_move: null,
+      },
+    });
+    expect(facts.victory_background?.active_season_label).toBe("Chapter 1");
+    expect(facts.victory_background?.pat_read_pattern).toBe("Evening drift");
+  });
+
+  it("buildInboundV3RelationshipFacts includes goal_adjustment fields when goalAdjustmentSignal passed", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: "I'm on vacation",
+      coalescedInboundText: "I'm on vacation",
+      suppressedMessageSids: [],
+      transcriptLines: [],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: null,
+        latestOpenQuestion: null,
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      goalAdjustmentSignal: {
+        move: "pause_cadence",
+        confidence: "high",
+        mentionAllowed: true,
+        internalHint: "planned_interruption",
+        requiresUserConfirmation: true,
+        compatibleFlow: "none",
+        doNotRepeatKey: "goal_adjustment_pause_cadence_prompt",
+      },
+    });
+    expect(facts.v2_accountability.goal_adjustment_move).toBe("pause_cadence");
+    expect(facts.v2_accountability.goal_adjustment_requires_confirmation).toBe(true);
+  });
+
+  it("buildInboundV3RelationshipFacts includes pattern_signal fields when patternSignal passed", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: "done",
+      coalescedInboundText: "done",
+      suppressedMessageSids: [],
+      transcriptLines: [],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: null,
+        latestOpenQuestion: null,
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      patternSignal: {
+        canonical: "phone_pull",
+        count14d: 2,
+        count21d: 2,
+        confidence: "medium",
+        mentionAllowed: true,
+        internalHint: "medium pattern signal: phone_pull appeared 2 times in 14d",
+        gentleUserLine: "The phone has pulled you off track more than once.",
+        doNotRepeatKey: "repeated_phone_pull_prompt",
+        source: "events",
+      },
+    });
+    expect(facts.v2_accountability.pattern_signal_confidence).toBe("medium");
+    expect(facts.v2_accountability.pattern_canonical).toBe("phone_pull");
+    expect(facts.v2_accountability.pattern_mention_allowed).toBe(true);
+    expect(facts.v2_accountability.pattern_internal_hint).toContain("phone_pull");
+  });
+
+  it("buildInboundV3RelationshipFacts includes planned interruption on commitment when passed", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: "I'm on vacation",
+      coalescedInboundText: "I'm on vacation",
+      suppressedMessageSids: [],
+      transcriptLines: [],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: null,
+        latestOpenQuestion: null,
+        expectedReplySemantics: null,
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+        futureIntentHint: null,
+      },
+      gatedDecision: {
+        ...baseGatedDecision(),
+        should_write_outcome_event: false,
+        final_event_type: null,
+      },
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      plannedInterruption: {
+        active: true,
+        reasonCategory: "vacation",
+        resumeHint: "next week",
+      },
+    });
+    expect(facts.commitment.planned_interruption_active).toBe(true);
+    expect(facts.commitment.planned_interruption_reason_category).toBe("vacation");
+    expect(facts.commitment.planned_interruption_resume_hint).toBe("next week");
+  });
+
+  it("buildInboundV3RelationshipFacts includes pat_principles when passed", () => {
+    const facts = baseFacts({
+      victory_background: {
+        active_season_label: null,
+        active_season_started_at: null,
+        pat_read_strength: null,
+        pat_read_pattern: null,
+        pat_read_next_move: null,
+        pat_principles: {
+          focus_next_title: "Take Full Responsibility",
+          focus_next_text: "Tell the truth about the miss.",
+          living_well_title: "Be a Competitor",
+          living_well_text: "Your proof shows you compete with the standard.",
+        },
+      },
+    });
+    expect(facts.victory_background?.pat_principles?.focus_next_title).toBe(
+      "Take Full Responsibility"
+    );
+    expect(facts.victory_background?.pat_principles?.living_well_title).toBe("Be a Competitor");
+  });
+
+  it("produceInboundV3RelationshipSms system prompt includes victory guardrails", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it — what tripped the morning block?",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts({
+        victory_background: {
+          active_season_label: null,
+          active_season_started_at: null,
+          pat_read_strength: "Steady",
+          pat_read_pattern: null,
+          pat_read_next_move: null,
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    const systemMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toContain("VICTORY_BACKGROUND");
+    expect(systemMsg).toMatch(/Pat Principles/i);
+    expect(systemMsg).toMatch(/do not invent principle/i);
+    expect(systemMsg).toMatch(/primary anchor/i);
+    expect(systemMsg).not.toMatch(/Pat Summitt.*quote/i);
+    expect(systemMsg).toContain(buildVictoryBackgroundLaneGuardrails().trim().slice(0, 30));
+    expect(systemMsg).toContain(buildSmsPatternSignalLaneGuardrails().trim().slice(0, 20));
+    expect(systemMsg).toContain(buildSmsGoalAdjustmentLaneGuardrails().trim().slice(0, 20));
+    expect(systemMsg).toContain(buildPlannedInterruptionLaneGuardrails().trim().slice(0, 24));
+    expect(systemMsg).toMatch(/not a diagnosis/i);
+    expect(systemMsg).toMatch(/pattern_mention_allowed/i);
+    expect(systemMsg).toMatch(/not permission to mutate/i);
+    expect(systemMsg).toMatch(/pause_cadence/i);
+    expect(systemMsg).toMatch(/raise_bar/i);
+    expect(systemMsg).toMatch(/invitation/i);
+  });
+
+  it("produceInboundV3RelationshipSms includes pat_principles in facts when passed", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it — what tripped the morning block?",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts({
+        victory_background: {
+          active_season_label: null,
+          active_season_started_at: null,
+          pat_read_strength: null,
+          pat_read_pattern: null,
+          pat_read_next_move: null,
+          pat_principles: {
+            focus_next_title: "Work Smart",
+            focus_next_text: "Adjust the plan once, then execute.",
+            living_well_title: null,
+            living_well_text: null,
+          },
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toContain("pat_principles");
+    expect(userMsg).toContain("Work Smart");
+  });
+});
+
+describe("inbound V3 proof_callout_hint (Slice 2)", () => {
+  const proofHint: InboundV3ProofCalloutHint = {
+    eligible: true,
+    surface: "victory_room",
+    reason: "first_completion",
+    instruction: INBOUND_PROOF_CALLOUT_LANE_INSTRUCTION,
+    proof_insert_will_attempt: true,
+    proof_callout_claim_saved_allowed: false,
+  };
+
+  it("buildInboundProofCalloutLaneGuardrails requires optional natural mention", () => {
+    const g = buildInboundProofCalloutLaneGuardrails();
+    expect(g).toMatch(/optional/i);
+    expect(g).toMatch(/Do not force/i);
+    expect(g).toMatch(/proof_callout_claim_saved_allowed/i);
+    expect(g).toMatch(/second paragraph/i);
+  });
+
+  it("buildInboundV3RelationshipFacts attaches proof_callout_hint on v2_accountability", () => {
+    const built = buildInboundV3RelationshipFacts({
+      ...({
+        clerkUserId: "user_lane",
+        preferredName: "Alex",
+        timezone: "America/Chicago",
+        localTimeIso: "2026-05-12T09:00:00.000Z",
+        commitment: baseCommitment(),
+        effectiveAsk: "Two hours deep work",
+        userMessageRaw: "yes",
+        coalescedInboundText: "yes",
+        suppressedMessageSids: [],
+        transcriptLines: [],
+        northStarPacket: {
+          source: "sms_inbound_coach",
+          proofSignal: true,
+          missSignal: false,
+          blockerSignal: false,
+          todayCompleted: false,
+        },
+        gatedDecision: baseGatedDecision(),
+        deterministicEventType: "user_yes",
+        doNotRepeatHints: [],
+        relationshipProfileSummary: null,
+        conversationBrain: { enabled: false },
+        centralBrain: { shadow_stored: false },
+        arc: { ambiguous_short_reply: false, clarification_required: false },
+        phase5a: {
+          central_tether_brain_enabled: false,
+          arc_clarify_brain_enabled: false,
+          inbound_stitched_final_enabled: false,
+        },
+        forcedFutureStretchIntentActive: false,
+        wave11MemoryConfirmationPending: false,
+        accountabilityProofHint: null,
+        rejectedTimeCandidates: [],
+        unavailableWindows: [],
+        proofCalloutHint: proofHint,
+      } as Parameters<typeof buildInboundV3RelationshipFacts>[0]),
+    });
+    expect(built.v2_accountability.proof_callout_hint?.eligible).toBe(true);
+    expect(built.v2_accountability.proof_callout_hint?.proof_callout_claim_saved_allowed).toBe(false);
+  });
+
+  it("produceInboundV3RelationshipSms includes proof_callout_hint in facts JSON when present", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Good — that counts.",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts({
+        v2_accountability: {
+          ...baseFacts().v2_accountability,
+          proof_callout_hint: proofHint,
+        },
+      }),
+      telemetry_fact_sources: ["buildInboundProofCalloutHint"],
+    });
+
+    const systemMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toContain("PROOF_CALLOUT");
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toContain("proof_callout_hint");
+    expect(userMsg).toContain("proof_callout_claim_saved_allowed");
+  });
+
+  it("builds when proof_callout_hint is absent", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it.",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(true);
+  });
+});
+
+describe("buildSeasonTransitionRouteAux", () => {
+  it("includes do-not-expose-internal-labels guidance when season facts are present", () => {
+    const aux = buildSeasonTransitionRouteAux({
+      ...baseFacts(),
+      season_transition_facts: {
+        chapter_changed: false,
+        user_facing_transition: "same_chapter",
+        bar_raised_in_same_chapter: true,
+        old_season_name: "Morning Focus",
+        new_season_name: "Morning Focus",
+      },
+    });
+    expect(aux).toContain("SEASON_TRANSITION");
+    expect(aux).toContain("Do NOT expose internal labels");
+    expect(aux).toMatch(/Never say:.*same_season_sync/);
+    expect(aux).toMatch(/Never say:.*snapshot/);
+    expect(aux).toContain("same chapter");
+  });
+
+  it("guides new_chapter language without IDs when chapter changed", () => {
+    const aux = buildSeasonTransitionRouteAux({
+      ...baseFacts(),
+      season_transition_facts: {
+        chapter_changed: true,
+        user_facing_transition: "new_chapter",
+        bar_raised_in_same_chapter: false,
+        old_season_name: "Phone Discipline",
+        new_season_name: "Walking",
+      },
+    });
+    expect(aux).toContain("new chapter");
+    expect(aux).toContain("never IDs");
+  });
+
+  it("returns empty string when season facts are absent", () => {
+    expect(buildSeasonTransitionRouteAux(baseFacts())).toBe("");
+  });
+});
+
+describe("season_transition_facts in V3 facts JSON", () => {
+  it("sanitized season facts omit internal labels from model-facing JSON", () => {
+    const mutationFacts = buildInboundSeasonTransitionFacts({
+      ok: true,
+      rpcResult: "applied",
+      seasonMode: "same_season_sync",
+      commitmentReplaceApplied: false,
+      oldCommitmentId: "cmt-uuid",
+      newCommitmentId: "cmt-uuid",
+      seasonTransitionApplied: true,
+      seasonTransitionAction: "same_season_sync",
+      oldSeasonId: "season-uuid",
+      newSeasonId: "season-uuid",
+      oldSeasonName: "Focus",
+      newSeasonName: "Focus",
+      sameSeasonGoalSnapshotSynced: true,
+      idempotentReplay: false,
+      warningCode: null,
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Tyler",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: "yes",
+      coalescedInboundText: "yes",
+      suppressedMessageSids: [],
+      transcriptLines: [],
+      northStarPacket: {
+        latestInboundRaw: "yes",
+        latestOutboundBody: null,
+        latestOpenQuestion: null,
+        behaviorStatement: "Two hours deep work before noon",
+        effectiveAskText: "Two hours deep work before noon",
+        expectedReplySemantics: null,
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+        futureIntentHint: null,
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "pending_resolution",
+      branchName: "sms_pending_resolution_complete",
+      branchMigratedToLane: true,
+      seasonTransitionFacts: mutationFacts,
+    });
+    const json = JSON.stringify(facts);
+    expect(json).toContain("user_facing_transition");
+    expect(json).not.toMatch(/same_season_sync|same_season_goal_snapshot|season_transition_applied|season_mode/);
+    expect(json).not.toMatch(/season-uuid|cmt-uuid/);
   });
 });

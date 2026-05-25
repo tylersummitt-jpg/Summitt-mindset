@@ -61,7 +61,7 @@ export default function AboutPage() {
           </p>
           <p>
             Summitt Mindset turns those principles into something you can keep: one clear commitment,
-            honest accountability over SMS, and a calm app layer for depth and proof.
+            honest accountability by text, and a calm app layer for depth and proof.
           </p>
           <p>
             The center is not a day score—it is the promise you make to yourself, held with steadiness.
@@ -90,7 +90,7 @@ export default function AboutPage() {
           -------------------------------------------------- */}
       <section className="max-w-3xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
         <h2 className="text-2xl font-bold text-[var(--text)] mb-4">
-          Start with SMS-first accountability.
+          Start with text-first accountability.
         </h2>
         <p className="text-[var(--muted)] mb-8 leading-relaxed">
           One commitment, Pat by text, Victory Room for proof—optional depth in the app when you want it.

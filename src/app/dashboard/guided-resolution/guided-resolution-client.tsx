@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 type View = "identity" | "commitment" | "tighten" | "none" | "expired";
 
@@ -37,7 +38,7 @@ export default function GuidedResolutionClient(props: {
       await postJson("/api/v2/guided-resolution/identity", {
         identity_anchor_text: identityText,
       });
-      router.push("/dashboard");
+      router.push(MEMBER_APP_HOME_PATH);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -53,7 +54,7 @@ export default function GuidedResolutionClient(props: {
       await postJson("/api/v2/guided-resolution/commitment", {
         behavior_statement: commitmentText,
       });
-      router.push("/dashboard");
+      router.push(MEMBER_APP_HOME_PATH);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -69,7 +70,7 @@ export default function GuidedResolutionClient(props: {
       await postJson("/api/v2/guided-resolution/tighten", {
         proposal_binding_text: tightenText,
       });
-      router.push("/dashboard");
+      router.push(MEMBER_APP_HOME_PATH);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -83,7 +84,7 @@ export default function GuidedResolutionClient(props: {
     setError(null);
     try {
       await postJson("/api/v2/guided-resolution/abandon", {});
-      router.push("/dashboard");
+      router.push(MEMBER_APP_HOME_PATH);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not cancel");
@@ -103,15 +104,15 @@ export default function GuidedResolutionClient(props: {
         <div className={cardClass}>
           <h1 className="text-xl font-semibold text-gray-900">Link expired</h1>
           <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            This guided update window closed. You can change your identity or commitment anytime from
-            your usual settings when you are ready.
+            This guided update window closed. You can update your goal from Victory Room, or text Pat when
+            you are ready.
           </p>
           <button
             type="button"
             className="mt-6 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push(MEMBER_APP_HOME_PATH)}
           >
-            Back to dashboard
+            Back to Victory Room
           </button>
         </div>
       </div>
@@ -124,15 +125,15 @@ export default function GuidedResolutionClient(props: {
         <div className={cardClass}>
           <h1 className="text-xl font-semibold text-gray-900">Nothing to finish</h1>
           <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            There is no guided update waiting. If you still want to make a change, use your profile or
-            accountability settings from the dashboard.
+            There is no guided update waiting. To change your goal, open Victory Room and choose Update my
+            goal, or text Pat to start a refresh.
           </p>
           <button
             type="button"
             className="mt-6 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push(MEMBER_APP_HOME_PATH)}
           >
-            Back to dashboard
+            Back to Victory Room
           </button>
         </div>
       </div>
@@ -151,7 +152,7 @@ export default function GuidedResolutionClient(props: {
       ? "You chose CHANGE on the alignment check. Save when this still feels right."
       : props.view === "commitment"
         ? "You chose NEW on the alignment check. One line is enough—we will hold you to it."
-        : "You chose TIGHTEN. Edit the suggested smaller bar, then save. We will text you YES/NO to lock it in—reply on SMS to confirm.";
+        : "You chose TIGHTEN. Edit the suggested smaller bar, then save. We will text you YES/NO to lock it in—reply by text to confirm.";
 
   const textareaClass =
     "mt-2 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500";

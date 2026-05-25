@@ -1,7 +1,12 @@
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {},
+}));
+
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { buildCommitmentChangeInboundFactsFromWave4 } from "@/lib/v3-inbound-relationship-lane";
 
@@ -147,6 +152,11 @@ describe("sms-inbound-coach route — Phase 3F-4 commitment_change_handoff (stat
     expect(body).toContain("finalVoiceSkipLastError");
     expect(body).not.toContain("wave4_commitment_handoff");
     expect(body).not.toContain("produceV3InboundCoachDraft");
+    expect(body).toContain("buildCommitmentChangeHandoffThreadMemoryContext");
+    expect(body).toContain("commitAndSendInboundRelationshipCoachReply");
+    expect(body).toContain("const gatedBody = voicePack.voice.body");
+    expect(body).not.toContain("legacy_commitment_change_reply_preview");
+    expect(body).not.toContain('expectedAnswerType: "proposal_yes_no"');
   });
 
   it("early-returns from processV2NormalInboundOutcome after persistCommitmentChangeHandoffLaneAndSend for handoff", () => {
@@ -157,5 +167,42 @@ describe("sms-inbound-coach route — Phase 3F-4 commitment_change_handoff (stat
 
   it("does not use appendWhenExistingPendingResolution in the Wave4 block", () => {
     expect(route).not.toContain("appendWhenExistingPendingResolution");
+  });
+
+  it("uses openCommitmentChangeHandoff and skips Wave4 when planned interruption is actionable", () => {
+    expect(route).toContain("shouldOpenCommitmentChangeHandoff");
+    expect(route).toContain("openCommitmentChangeHandoff");
+    expect(route).toMatch(/openCommitmentChangeHandoff && !plannedInterruptionActionable/);
+    expect(route).toContain("bootstrapSmsPendingConfirmationFromInbound");
+    expect(route).not.toContain("V2_SMS_COMMITMENT_HANDOFF_HEURISTIC_ENABLED");
+    expect(route).not.toContain("isV2SmsCommitmentHandoffHeuristicEnabled");
+  });
+
+  it("Slice A3 — Wave4 → bootstrap → facts → handoff send order; pending handler not on handoff turn", () => {
+    const sliceStart = route.indexOf("if (openCommitmentChangeHandoff && !plannedInterruptionActionable)");
+    expect(sliceStart).toBeGreaterThan(-1);
+
+    const persistIdx = route.indexOf("await persistCommitmentChangeHandoffLaneAndSend", sliceStart);
+    const sliceEnd = route.indexOf("return;", persistIdx);
+    const a3Slice = route.slice(sliceStart, sliceEnd + "return;".length);
+
+    const wave4Idx = a3Slice.indexOf("await applyWave4SmsCommitmentPendingResolution");
+    const bootstrapIdx = a3Slice.indexOf("await bootstrapSmsPendingConfirmationFromInbound");
+    const factsIdx = a3Slice.indexOf("buildCommitmentChangeInboundFactsFromWave4");
+    const persistInSliceIdx = a3Slice.indexOf("await persistCommitmentChangeHandoffLaneAndSend");
+
+    expect(wave4Idx).toBeGreaterThan(-1);
+    expect(bootstrapIdx).toBeGreaterThan(-1);
+    expect(factsIdx).toBeGreaterThan(-1);
+    expect(persistInSliceIdx).toBeGreaterThan(-1);
+
+    expect(wave4Idx).toBeLessThan(bootstrapIdx);
+    expect(bootstrapIdx).toBeLessThan(factsIdx);
+    expect(factsIdx).toBeLessThan(persistInSliceIdx);
+
+    expect(a3Slice).not.toContain("tryHandleSmsInboundPendingResolution");
+    expect(a3Slice).toMatch(
+      /if\s*\(\s*prWave\.pendingApplied\s*\)[\s\S]*await bootstrapSmsPendingConfirmationFromInbound/
+    );
   });
 });

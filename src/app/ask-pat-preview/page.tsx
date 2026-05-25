@@ -82,7 +82,7 @@ export default async function AskPatPreviewPage() {
       <section className="border-b border-[var(--border)] bg-gray-50">
         <div className="max-w-3xl mx-auto px-4 py-10 sm:py-12 text-center">
           <p className="text-base sm:text-lg text-[var(--text)] leading-relaxed font-medium">
-            Included with the same membership as your daily SMS accountability —
+            Included with the same membership as your daily text accountability —
             optional depth when you need to think deeper.
           </p>
         </div>
@@ -156,7 +156,7 @@ export default async function AskPatPreviewPage() {
                 Carry it back into your day
               </h3>
               <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Turn clarity into one next step—alongside your daily SMS
+                Turn clarity into one next step—alongside your daily texts
                 accountability on the commitment that matters most.
               </p>
             </div>
@@ -170,7 +170,7 @@ export default async function AskPatPreviewPage() {
           Serious guidance. Same membership.
         </h2>
         <p className="text-[var(--muted)] mb-8 leading-relaxed">
-          Ask Pat when you need direction—your daily SMS cadence stays the spine
+          Ask Pat when you need direction—your daily text cadence stays the spine
           of your accountability.
         </p>
         <Link href={trialHref} className={ctaLightPrimaryClass}>

@@ -1,15 +1,22 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { supabaseServer } from "@/lib/supabase-server";
-import { computeIdentityRefreshDueAtIsoFromNow } from "@/lib/v2-identity-anchor";
 import {
-  isQuotableIdentitySource,
-  isRelationshipDerivedIdentitySource,
-  normalizeIdentityAnchorText,
-  ONBOARDING_IDENTITY_ANCHOR_SOURCE,
-  validateOnboardingIdentityAnchorInput,
-} from "@/lib/v2-identity-anchor-validation";
+  requireWeakAcceptForWarn,
+  validateIdentityAnchorTiered,
+  validateOtherTextTiered,
+  validatePreferredNameTiered,
+} from "@/lib/onboarding-intake-validation";
+import {
+  parseImportantPeopleFromBody,
+  persistOnboardingIdentity,
+} from "@/lib/onboarding-persist-identity";
+import { clearProposedCommitmentReviewAcknowledgment } from "@/lib/onboarding-reset-review-ack";
+import { normalizeIdentityAnchorText } from "@/lib/v2-identity-anchor-validation";
+import {
+  IDENTITY_INGREDIENT_OTHER_ID,
+  normalizeIngredientIds,
+} from "@/lib/onboarding-identity-templates";
 
 const ROUTE = "/api/onboarding/identity";
 
@@ -17,253 +24,108 @@ const UI_SESSION = "Your session expired. Please sign in again.";
 const UI_SAVE_RETRY = "We couldn’t save this step. Please try again in a moment.";
 const UI_SAVE_GENERIC = "We couldn’t save this step. Please try again.";
 
-function logIdentityApi(payload: {
-  stage: string;
-  userId: string | null;
-  outcome: "success" | "failure";
-  durationMs: number;
-  errorCode?: string;
-  supabaseCode?: string;
-  supabaseMessage?: string;
-  supabaseDetails?: string;
-  supabaseHint?: string;
-  clerkMessage?: string;
-  errorName?: string;
-}) {
-  const { userId, ...rest } = payload;
-  console.error(
-    JSON.stringify({
-      route: ROUTE,
-      userId: userId ?? undefined,
-      ...rest,
-    })
-  );
+function parseIntakeOrigin(raw: unknown): "user_written" | "generated" | "template" {
+  if (raw === "generated" || raw === "template") return raw;
+  return "user_written";
 }
 
-/**
- * POST /api/onboarding/identity
- *
- * Saves relationship context (people_summary, responsibility) separately from identity anchor.
- * Wave 8: identity_anchor_text from “who are you becoming?”
- * Wave 8.1: Do not overwrite user_edited / guided_resolution_identity / explicitly_confirmed /
- * onboarding_identity_anchor_v1 unless the submitted anchor validates and differs (intentional edit).
- * Relationship-derived sources may be replaced by a valid onboarding anchor.
- */
 export async function POST(req: Request) {
-  const started = Date.now();
-  let userId: string | null = null;
-  let stage = "start";
-
   try {
-    stage = "auth";
-    const authResult = await auth();
-    userId = authResult.userId ?? null;
-
+    const { userId } = await auth();
     if (!userId) {
-      logIdentityApi({
-        stage,
-        userId: null,
-        outcome: "failure",
-        durationMs: Date.now() - started,
-        errorCode: "unauthorized",
-      });
       return NextResponse.json({ error: UI_SESSION }, { status: 401 });
     }
 
-    stage = "clerk_metadata";
-    let existing: Record<string, unknown>;
-    try {
-      existing = await getClerkPublicMetadata(userId);
-    } catch (clerkErr: unknown) {
-      const err = clerkErr as Error & { status?: number };
-      logIdentityApi({
-        stage,
-        userId,
-        outcome: "failure",
-        durationMs: Date.now() - started,
-        errorCode: "clerk_metadata_fetch_failed",
-        clerkMessage: err?.message,
-        errorName: err?.name,
-      });
-      return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 500 });
-    }
-
+    const existing = await getClerkPublicMetadata(userId);
     if (existing?.onboardingCompleted === true) {
-      logIdentityApi({
-        stage: "success",
-        userId,
-        outcome: "success",
-        durationMs: Date.now() - started,
-      });
-      return Response.json({ success: true });
+      return NextResponse.json(
+        { error: "Use Edit identity in Victory Room to update your identity." },
+        { status: 403 }
+      );
     }
 
-    stage = "parse_body";
-    let body: Record<string, unknown>;
-    try {
-      body = (await req.json()) as Record<string, unknown>;
-    } catch {
-      logIdentityApi({
-        stage,
-        userId,
-        outcome: "failure",
-        durationMs: Date.now() - started,
-        errorCode: "invalid_json",
-      });
-      return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 400 });
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const intakeWeakAccept = body.intake_weak_accept === true;
+
+    const preferredTier = validatePreferredNameTiered(body.preferred_name);
+    if (preferredTier.tier === "block") {
+      return Response.json({ error: preferredTier.error }, { status: 400 });
     }
 
-    const { preferred_name, people_summary, responsibility, identity_anchor_text } = body;
-
-    stage = "validation";
-    const preferredName =
-      typeof preferred_name === "string" ? preferred_name.trim().replace(/\s+/g, " ") : "";
-    if (!preferredName) {
-      logIdentityApi({
-        stage,
-        userId,
-        outcome: "failure",
-        durationMs: Date.now() - started,
-        errorCode: "validation_preferred_name",
-      });
-      return Response.json({ error: "Add what Coach Pat should call you." }, { status: 400 });
+    const ingredientIds = normalizeIngredientIds(body.ingredient_ids);
+    const otherTextRaw =
+      typeof body.other_text === "string" ? body.other_text.trim() : "";
+    if (ingredientIds.includes(IDENTITY_INGREDIENT_OTHER_ID) && otherTextRaw) {
+      const otherTier = validateOtherTextTiered(otherTextRaw);
+      if (otherTier.tier === "block") {
+        return Response.json({ error: otherTier.error }, { status: 400 });
+      }
     }
 
-    const people =
-      typeof people_summary === "string" ? people_summary.trim().replace(/\s+/g, " ") : "";
-    if (!people) {
-      logIdentityApi({
-        stage,
-        userId,
-        outcome: "failure",
-        durationMs: Date.now() - started,
-        errorCode: "validation_people_summary",
-      });
-      return Response.json({ error: "Add who you’re trying to show up for right now." }, { status: 400 });
+    const anchorTier = requireWeakAcceptForWarn(
+      validateIdentityAnchorTiered(body.identity_anchor_text, { intakeWeakAccept }),
+      intakeWeakAccept
+    );
+    if (anchorTier.tier === "block") {
+      return Response.json({ error: anchorTier.error }, { status: 400 });
     }
-
-    const responsibilityText =
-      typeof responsibility === "string" ? responsibility.trim().replace(/\s+/g, " ") : "";
-    if (!responsibilityText) {
-      logIdentityApi({
-        stage,
-        userId,
-        outcome: "failure",
-        durationMs: Date.now() - started,
-        errorCode: "validation_responsibility",
-      });
+    if (anchorTier.tier === "warn") {
       return Response.json(
-        {
-          error:
-            "Add anything else Coach Pat should know about your family, team, or responsibilities.",
-        },
+        { error: anchorTier.error ?? "Use mine anyway to continue with this identity line." },
         { status: 400 }
       );
     }
 
-    stage = "profile_select";
-    const { data: existingProfile } = await supabaseServer
-      .from("user_profiles")
-      .select("identity_source, identity_anchor_text")
-      .eq("clerk_user_id", userId)
-      .maybeSingle();
-
-    const existingSource =
-      typeof existingProfile?.identity_source === "string" ? existingProfile.identity_source.trim() : null;
-    const existingNormalized = normalizeIdentityAnchorText(existingProfile?.identity_anchor_text);
-
-    const hasTrustedProtectedAnchor =
-      existingNormalized != null &&
-      existingNormalized.length > 0 &&
-      isQuotableIdentitySource(existingSource);
-
-    const relationshipDerived = isRelationshipDerivedIdentitySource(existingSource);
-
-    const upsertRow: Record<string, unknown> = {
-      clerk_user_id: userId,
-      preferred_name: preferredName,
-      people_summary: people,
-      responsibility: responsibilityText,
-    };
-
-    const nowIso = new Date().toISOString();
-
-    const rawSubmitted = body.identity_anchor_text;
-    const submittedKeyPresent = Object.prototype.hasOwnProperty.call(body, "identity_anchor_text");
-
-    if (relationshipDerived || !hasTrustedProtectedAnchor) {
-      const anchorValidation = validateOnboardingIdentityAnchorInput(identity_anchor_text);
-      if (!anchorValidation.ok) {
-        logIdentityApi({
-          stage,
-          userId,
-          outcome: "failure",
-          durationMs: Date.now() - started,
-          errorCode: "validation_identity_anchor",
-        });
-        return Response.json({ error: anchorValidation.error }, { status: 400 });
-      }
-      upsertRow.identity_anchor_text = anchorValidation.normalized;
-      upsertRow.identity_source = ONBOARDING_IDENTITY_ANCHOR_SOURCE;
-      upsertRow.identity_last_confirmed_at = nowIso;
-      upsertRow.identity_refresh_due_at = computeIdentityRefreshDueAtIsoFromNow();
-    } else {
-      if (!submittedKeyPresent) {
-        /* Legacy / resume client without identity field — do not touch identity columns. */
-      } else {
-        const anchorValidation = validateOnboardingIdentityAnchorInput(rawSubmitted);
-        if (!anchorValidation.ok) {
-          /* Invalid submission: keep existing trusted anchor; still save relationship fields. */
-        } else if (anchorValidation.normalized === existingNormalized) {
-          /* Same normalized text — skip identity writes (preserve source + timestamps). */
-        } else {
-          upsertRow.identity_anchor_text = anchorValidation.normalized;
-          upsertRow.identity_source = existingSource;
-          upsertRow.identity_last_confirmed_at = nowIso;
-          upsertRow.identity_refresh_due_at = computeIdentityRefreshDueAtIsoFromNow();
-        }
-      }
+    const normalizedAnchor = normalizeIdentityAnchorText(body.identity_anchor_text);
+    if (!normalizedAnchor) {
+      return Response.json({ error: "Add who you are becoming." }, { status: 400 });
     }
 
-    stage = "profile_upsert";
-    const { error } = await supabaseServer
-      .from("user_profiles")
-      .upsert(upsertRow, { onConflict: "clerk_user_id" });
+    const preferredName =
+      typeof body.preferred_name === "string"
+        ? body.preferred_name.trim().replace(/\s+/g, " ")
+        : "";
 
-    if (error) {
-      logIdentityApi({
-        stage,
-        userId,
-        outcome: "failure",
-        durationMs: Date.now() - started,
-        errorCode: "supabase_upsert",
-        supabaseCode: error.code,
-        supabaseMessage: error.message,
-        supabaseDetails: error.details as string | undefined,
-        supabaseHint: error.hint as string | undefined,
-      });
-      return NextResponse.json({ error: UI_SAVE_RETRY }, { status: 500 });
+    const responsibilityRaw =
+      typeof body.responsibility === "string" ? body.responsibility.trim() : "";
+    const responsibility =
+      responsibilityRaw.length > 0
+        ? responsibilityRaw.slice(0, 500).replace(/\s+/g, " ")
+        : null;
+
+    const importantPeople = parseImportantPeopleFromBody(body.important_people);
+    const replaceImportantPeople = body.replace_important_people !== false;
+
+    const clarityScore =
+      typeof body.clarity_score === "number" && Number.isFinite(body.clarity_score)
+        ? Math.min(100, Math.max(0, Math.round(body.clarity_score)))
+        : anchorTier.warnReason
+          ? 55
+          : 80;
+
+    const result = await persistOnboardingIdentity({
+      clerkUserId: userId,
+      preferredName,
+      identityAnchorText: normalizedAnchor,
+      ingredientIds,
+      otherText: otherTextRaw ? otherTextRaw.slice(0, 400) : null,
+      intakeOrigin: parseIntakeOrigin(body.intake_origin),
+      useMineAnyway: intakeWeakAccept || body.use_mine_anyway === true,
+      clarityScore,
+      importantPeople,
+      responsibility,
+      replaceImportantPeople,
+    });
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
-    logIdentityApi({
-      stage: "success",
-      userId,
-      outcome: "success",
-      durationMs: Date.now() - started,
-    });
+    await clearProposedCommitmentReviewAcknowledgment(userId);
 
-    return Response.json({ success: true });
-  } catch (err: unknown) {
-    const e = err as Error;
-    logIdentityApi({
-      stage: "unhandled_exception",
-      userId,
-      outcome: "failure",
-      durationMs: Date.now() - started,
-      errorCode: "unhandled",
-      clerkMessage: e?.message,
-      errorName: e?.name,
-    });
+    return Response.json({ success: true, versionId: result.versionId });
+  } catch (err) {
+    console.error(ROUTE, err);
     return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 500 });
   }
 }

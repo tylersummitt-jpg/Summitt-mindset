@@ -1,27 +1,18 @@
 import type { ReactElement, ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { redirectIfOnboardingIncomplete } from "@/lib/onboarding-incomplete-redirect";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
+import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 
 export const dynamic = "force-dynamic";
 
-function isSubscribedFromMetadata(md: Record<string, unknown>): boolean {
-  const subscribedRaw = md?.summittSubscribed;
-  const plan = md?.summittPlan;
-  return (
-    subscribedRaw === true ||
-    subscribedRaw === "true" ||
-    plan === "monthly" ||
-    plan === "annual"
-  );
-}
-
 /**
- * Legacy coach kit shipping route — no longer part of the active coach funnel.
- * Subscribed coaches are sent to onboarding or dashboard.
- * Page + API retained for admin/legacy use.
+ * Post-onboarding Leadership Kit shipping for coach-attributed members.
+ * Not part of the SoB onboarding spine — onboarding must be complete first.
  */
 export default async function CoachSetupLayout({
-  children: _children,
+  children,
 }: {
   children: ReactNode;
 }): Promise<ReactElement> {
@@ -33,18 +24,22 @@ export default async function CoachSetupLayout({
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
 
-  if (!isSubscribedFromMetadata(md)) {
+  if (!isSubscribedFromPublicMetadata(md)) {
     redirect(md.acquisitionSource === "coach" ? "/subscribe?src=coach" : "/subscribe");
   }
 
   if (md.acquisitionSource !== "coach") {
-    redirect("/onboarding");
+    redirect("/post-sign-in");
   }
 
-  /** Active funnel no longer collects shipping here — send coaches forward. */
-  if (md.onboardingCompleted === true) {
-    redirect("/dashboard");
+  if (md.onboardingCompleted !== true) {
+    await redirectIfOnboardingIncomplete(user.id, md);
+    redirect("/onboarding/identity");
   }
 
-  redirect("/onboarding");
+  if (md.coachAddressCollected === true) {
+    redirect(MEMBER_APP_HOME_PATH);
+  }
+
+  return <>{children}</>;
 }

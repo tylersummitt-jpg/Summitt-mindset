@@ -188,7 +188,7 @@ export default async function PatSummittQuotesPage() {
           inspiration into steady action—without noise or guilt.
         </p>
         <p className="text-[var(--text)] leading-relaxed mt-4">
-          Reading a great Pat Summitt quote is a spark; holding yourself to a clear bar is what changes how you lead. Members use Summitt Mindset for SMS-first accountability on one commitment, with optional depth and proof in the app.
+          Reading a great Pat Summitt quote is a spark; holding yourself to a clear bar is what changes how you lead. Members use Summitt Mindset for text-first accountability on one commitment, with optional depth and proof in the app.
         </p>
 
         <p className="text-[var(--text)] leading-relaxed mt-2">

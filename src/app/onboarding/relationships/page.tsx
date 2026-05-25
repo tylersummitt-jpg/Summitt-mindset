@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 /**
- * Legacy route: identity + relationships are combined at /onboarding/identity.
+ * Legacy redirect only — no data collection. SoB identity lives at /onboarding/identity.
  */
 export default async function RelationshipsPage() {
   const user = await currentUser();

@@ -62,6 +62,7 @@ function packBase(overrides?: Partial<V2WeeklyProofPack>): V2WeeklyProofPack {
     identity_anchor_short: null,
     weekly_evolution_coaching_line: null,
     proof_moment_hints: ["Logged early Tuesday"],
+    pattern_events_newest_first: [],
   };
   return { ...p, ...overrides };
 }
@@ -115,6 +116,105 @@ describe("buildWeeklyV3OutboundFactsForV2WeeklyProof", () => {
     expect(f.weekly_proof.completed_count).toBe(4);
     expect(f.weekly_proof.old_weekly_proof_body_preview).toContain("OLD PROOF");
     expect(f.thread.recent_transcript_lines.length).toBeGreaterThan(0);
+  });
+
+  it("includes victory_background when provided", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase(),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      victoryBackground: {
+        active_season_label: "Spring",
+        active_season_started_at: null,
+        pat_read_strength: "Kept the edge",
+        pat_read_pattern: null,
+        pat_read_next_move: null,
+      },
+    });
+    expect(f.victory_background?.active_season_label).toBe("Spring");
+    expect(f.victory_background?.pat_read_strength).toBe("Kept the edge");
+  });
+
+  it("includes pat_principles in victory_background when provided", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase(),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      victoryBackground: {
+        active_season_label: null,
+        active_season_started_at: null,
+        pat_read_strength: null,
+        pat_read_pattern: null,
+        pat_read_next_move: null,
+        pat_principles: {
+          focus_next_title: "Discipline Yourself",
+          focus_next_text: "One honest morning block.",
+          living_well_title: null,
+          living_well_text: null,
+        },
+      },
+    });
+    expect(f.victory_background?.pat_principles?.focus_next_title).toBe("Discipline Yourself");
+  });
+
+  it("omits victory_background when not provided", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase(),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.victory_background).toBeUndefined();
+  });
+
+  it("does not add season summary fields to weekly facts", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase(),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      victoryBackground: {
+        active_season_label: "Spring",
+        active_season_started_at: null,
+        pat_read_strength: null,
+        pat_read_pattern: null,
+        pat_read_next_move: null,
+        pat_principles: {
+          focus_next_title: "Work Smart",
+          focus_next_text: "Adjust once.",
+          living_well_title: null,
+          living_well_text: null,
+        },
+      },
+    });
+    const json = JSON.stringify(f);
+    expect(json).not.toMatch(/season_summary/i);
   });
 
   it("uses projection-backed open question/answer when memory packet provided (M2B-6)", () => {
@@ -227,5 +327,433 @@ describe("buildWeeklyV3OutboundFactsForV2WeeklyProof", () => {
     expect(f.thread.latest_answer_after_open_question).toBe("Sunday School, farm, songs Mother sang");
     expect(f.thread.recent_exact_thread_text).toContain("Sunday School");
     expect(f.thread.open_question_source).toBe("projection");
+  });
+
+  it("does not set notable_pattern from a single blocker preview", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({ blocker_count: 1, blocker_preview_short: "late night TV" }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.weekly_proof.notable_pattern).toBeNull();
+  });
+
+  it("uses gentle pattern line for notable_pattern when medium+ recurrence", () => {
+    const now = new Date("2026-05-10T17:00:00.000Z").getTime();
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        blocker_count: 2,
+        blocker_preview_short: "late night",
+        pattern_events_newest_first: [
+          {
+            event_type: "blocker_captured",
+            occurred_at: new Date(now - 3 * 86400000).toISOString(),
+            payload_json: { message: "up late again" },
+          },
+          {
+            event_type: "blocker_captured",
+            occurred_at: new Date(now - 8 * 86400000).toISOString(),
+            payload_json: { message: "late night could not sleep" },
+          },
+        ],
+      }),
+      timezone: "UTC",
+      localNow: new Date(now),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.weekly_proof.notable_pattern).toContain("Late nights");
+    expect(f.weekly_proof.notable_pattern).not.toMatch(/TV|sleep/i);
+  });
+
+  it("includes planned interruption fields when loader row passed", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({ silent_week: true, yes_count: 0, response_count: 0 }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      plannedInterruption: {
+        occurredAt: "2026-05-08T12:00:00.000Z",
+        memorySignal: {
+          planned_interruption: true,
+          reason_category: "vacation",
+          resume_hint: "next week",
+          confidence: "high",
+        },
+      },
+    });
+    expect(f.commitment.planned_interruption_active).toBe(true);
+    expect(f.commitment.planned_interruption_reason_category).toBe("vacation");
+    expect(f.commitment.planned_interruption_resume_hint).toBe("next week");
+    expect(f.weekly_proof.planned_pause_week).toBe(true);
+  });
+
+  it("keeps proof counts during planned interruption", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        yes_count: 2,
+        no_count: 1,
+        proof_moment_hints: ["Logged early Tuesday", "Third hint"],
+      }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      plannedInterruption: {
+        occurredAt: "2026-05-08T12:00:00.000Z",
+        memorySignal: {
+          planned_interruption: true,
+          reason_category: "illness",
+          resume_hint: null,
+          confidence: "high",
+        },
+      },
+    });
+    expect(f.weekly_proof.completed_count).toBe(2);
+    expect(f.weekly_proof.missed_count).toBe(1);
+    expect(f.weekly_proof.proof_moment_hints).toHaveLength(2);
+    expect(f.weekly_proof.proof_moment_hints[0]).toBe("Logged early Tuesday");
+  });
+
+  it("caps proof_moment_hints to max 2", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        proof_moment_hints: ["One", "Two", "Three", "Four"],
+      }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.weekly_proof.proof_moment_hints).toEqual(["One", "Two"]);
+  });
+
+  it("does not populate repeated_blocker_hints with raw blocker preview", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        blocker_count: 3,
+        blocker_preview_short: "late night TV binge",
+      }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.weekly_proof.repeated_blocker_hints).toEqual([]);
+    expect(JSON.stringify(f.weekly_proof)).not.toContain("late night TV");
+  });
+
+  it("suppresses rough_week shame framing during planned interruption", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({ silent_week: true, response_count: 0, check_sent_count: 5 }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      plannedInterruption: {
+        occurredAt: "2026-05-08T12:00:00.000Z",
+        memorySignal: {
+          planned_interruption: true,
+          reason_category: "vacation",
+          resume_hint: "Monday",
+          confidence: "high",
+        },
+      },
+    });
+    expect(f.weekly_proof.silent_week).toBe(true);
+    expect(f.weekly_proof.rough_week).toBe(false);
+    expect(f.weekly_proof.planned_pause_week).toBe(true);
+  });
+
+  it("legacy thread facts default open_question_pending false without memory packet", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase(),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.thread.memory_packet_used).toBe(false);
+    expect(f.thread.open_question_pending).toBe(false);
+  });
+
+  it("does not use weekly_evolution_coaching_line as notable_pattern", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        weekly_evolution_coaching_line:
+          "The pattern may be telling us the bar needs to get clearer next week",
+        blocker_count: 1,
+      }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.weekly_proof.notable_pattern).toBeNull();
+    expect(f.weekly_proof.notable_pattern ?? "").not.toContain("clearer next week");
+  });
+
+  it("includes goal_adjustment_* when helper returns a non-keep move", () => {
+    const now = new Date("2026-05-10T17:00:00.000Z").getTime();
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        pattern_events_newest_first: [
+          {
+            event_type: "blocker_captured",
+            occurred_at: new Date(now - 2 * 86400000).toISOString(),
+            payload_json: { message: "couldn't start" },
+          },
+          {
+            event_type: "user_no",
+            occurred_at: new Date(now - 3 * 86400000).toISOString(),
+            payload_json: {},
+          },
+          {
+            event_type: "user_no",
+            occurred_at: new Date(now - 5 * 86400000).toISOString(),
+            payload_json: {},
+          },
+        ],
+      }),
+      timezone: "UTC",
+      localNow: new Date(now),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.commitment.goal_adjustment_move).toBeDefined();
+    expect(f.commitment.goal_adjustment_move).not.toBe("keep");
+    expect(f.commitment.goal_adjustment_confidence).toBeDefined();
+    expect(f.commitment.goal_adjustment_requires_confirmation).toBe(true);
+  });
+
+  it("planned_interruption_active forces pause_cadence over shrink_temporary", () => {
+    const now = new Date("2026-05-10T17:00:00.000Z").getTime();
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        no_count: 4,
+        yes_count: 0,
+        response_count: 4,
+        pattern_events_newest_first: [
+          { event_type: "user_no", occurred_at: new Date(now - 1 * 86400000).toISOString() },
+          { event_type: "user_no", occurred_at: new Date(now - 2 * 86400000).toISOString() },
+        ],
+      }),
+      timezone: "UTC",
+      localNow: new Date(now),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      plannedInterruption: {
+        occurredAt: "2026-05-08T12:00:00.000Z",
+        memorySignal: {
+          planned_interruption: true,
+          reason_category: "vacation",
+          resume_hint: "next week",
+          confidence: "high",
+        },
+      },
+    });
+    expect(f.commitment.goal_adjustment_move).toBe("pause_cadence");
+    expect(f.commitment.planned_interruption_active).toBe(true);
+    expect(f.commitment.goal_adjustment_move).not.toBe("shrink_temporary");
+  });
+
+  it("does not set raise_bar from yes streak alone without helper criteria", () => {
+    const now = new Date("2026-05-10T17:00:00.000Z").getTime();
+    const yesEvents = Array.from({ length: 6 }, (_, i) => ({
+      event_type: "user_yes" as const,
+      occurred_at: new Date(now - (i + 1) * 86400000).toISOString(),
+      payload_json: {},
+    }));
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        yes_count: 6,
+        no_count: 0,
+        response_count: 6,
+        pattern_events_newest_first: yesEvents,
+      }),
+      timezone: "UTC",
+      localNow: new Date(now),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.commitment.goal_adjustment_move).not.toBe("raise_bar");
+  });
+
+  it("shrink_temporary facts do not add overlay or contract proposal fields", () => {
+    const now = new Date("2026-05-10T17:00:00.000Z").getTime();
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        pattern_events_newest_first: [
+          {
+            event_type: "blocker_captured",
+            occurred_at: new Date(now - 2 * 86400000).toISOString(),
+            payload_json: { message: "avoidance" },
+          },
+          { event_type: "user_no", occurred_at: new Date(now - 3 * 86400000).toISOString() },
+          { event_type: "user_no", occurred_at: new Date(now - 5 * 86400000).toISOString() },
+        ],
+      }),
+      timezone: "UTC",
+      localNow: new Date(now),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    const json = JSON.stringify(f);
+    expect(json).not.toMatch(/contract_proposal/i);
+    expect(json).not.toMatch(/binding_text_verbatim/i);
+    expect(json).not.toMatch(/required_reply_semantics/i);
+    if (f.commitment.goal_adjustment_move === "shrink_temporary") {
+      expect(f.commitment.goal_adjustment_compatible_flow).toBe("overlay");
+      expect(f.commitment.goal_adjustment_requires_confirmation).toBe(true);
+    }
+  });
+
+  it("omits goal_adjustment fields when helper returns bare keep", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({ pattern_events_newest_first: [], yes_count: 0, no_count: 0, response_count: 0 }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.commitment.goal_adjustment_move).toBeUndefined();
+    expect(f.commitment.goal_adjustment_mention_allowed).toBeUndefined();
+  });
+
+  it("suppresses goal_adjustment_mention_allowed when proof_moment_hints present", () => {
+    const now = new Date("2026-05-10T17:00:00.000Z").getTime();
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        proof_moment_hints: ["Logged early Tuesday"],
+        pattern_events_newest_first: [
+          {
+            event_type: "blocker_captured",
+            occurred_at: new Date(now - 2 * 86400000).toISOString(),
+            payload_json: { message: "work meetings" },
+          },
+          { event_type: "user_no", occurred_at: new Date(now - 4 * 86400000).toISOString() },
+          { event_type: "user_no", occurred_at: new Date(now - 6 * 86400000).toISOString() },
+        ],
+      }),
+      timezone: "UTC",
+      localNow: new Date(now),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    if (f.commitment.goal_adjustment_move && f.commitment.goal_adjustment_move !== "keep") {
+      expect(f.commitment.goal_adjustment_mention_allowed).toBe(false);
+    }
+    expect(f.weekly_proof.repeated_blocker_hints).toEqual([]);
+  });
+
+  it("notable_pattern still uses pattern helper only with goal adjustment present", () => {
+    const now = new Date("2026-05-10T17:00:00.000Z").getTime();
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        blocker_count: 2,
+        weekly_evolution_coaching_line: "The bar may need to get clearer",
+        pattern_events_newest_first: [
+          {
+            event_type: "blocker_captured",
+            occurred_at: new Date(now - 3 * 86400000).toISOString(),
+            payload_json: { message: "up late again" },
+          },
+          {
+            event_type: "blocker_captured",
+            occurred_at: new Date(now - 8 * 86400000).toISOString(),
+            payload_json: { message: "late night could not sleep" },
+          },
+        ],
+      }),
+      timezone: "UTC",
+      localNow: new Date(now),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.weekly_proof.notable_pattern).toContain("Late nights");
+    expect(f.weekly_proof.notable_pattern).not.toContain("clearer");
   });
 });

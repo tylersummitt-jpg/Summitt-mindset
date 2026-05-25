@@ -649,6 +649,23 @@ export function getShortCommitmentPhraseForSms(args: {
   return n;
 }
 
+/** Quit/abandonment phrasing — not today's accountability completion (no proof path). */
+const DONE_WITH_ABANDON_OBJECT_RE =
+  /\bdone\s+with\s+(?:this\s+|the\s+)?(?:app|apps|program|programs|summitt\s+mindset|subscription|subscriptions|membership|memberships|texts?|texting|sms|commitment|commitments|goal|goals)\b/i;
+
+const DONE_HERE_RE = /\b(?:i'?m|i\s+am)\s+done\s+here\b/i;
+
+/** Coach-directed quit — not accountability completion. */
+const DONE_WITH_YOU_RE = /\b(?:i'?m|i\s+am)\s+done\s+with\s+you\b|\bdone\s+with\s+you\b/i;
+
+export function isDoneAbandonmentContext(text: string): boolean {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (!t) return false;
+  if (DONE_WITH_ABANDON_OBJECT_RE.test(t)) return true;
+  if (DONE_HERE_RE.test(t)) return true;
+  return false;
+}
+
 /**
  * V2 inbound classifier: strong yes / strong no / partial keywords / blank / ambiguous → partial.
  */
@@ -659,6 +676,15 @@ export function classifyV2InboundReply(raw: string): {
   const original = raw.trim();
   if (!original) {
     return { eventType: "user_partial", normalizedHint: "blank" };
+  }
+
+  if (isDoneAbandonmentContext(original) || DONE_WITH_YOU_RE.test(original)) {
+    return {
+      eventType: "user_partial",
+      normalizedHint: DONE_WITH_YOU_RE.test(original)
+        ? "relationship_exit_context"
+        : "done_abandonment_context",
+    };
   }
 
   const lower = original.toLowerCase();

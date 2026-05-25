@@ -6,6 +6,11 @@ import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { loadOrCreateSmsDeliveryState } from "@/lib/sms-daily-delivery-body";
+import {
+  onboardingTransactionalConsentLatchFields,
+  phoneE164Last4,
+  shouldSkipOnboardingTransactionalConsentSms,
+} from "@/lib/onboarding-sms-consent";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 
 /** Phase 4.7 — persisted on `sms_last_outbound_context.delivery_snapshot` for hammer/audit (transactional exception; not relationship voice). */
@@ -42,8 +47,10 @@ function buildOnboardingTransactionalSmsDeliverySnapshot(): Record<string, unkno
  * - Confirmation SMS must include STOP + HELP language
  * - Never fail onboarding if SMS send fails
  *
- * DUPLICATE-SEND RISK (documented, Phase 4.7): repeated POST before onboardingCompleted can send
- * multiple identical confirmation SMS; no sent-once latch by design in this route.
+ * TRANSACTIONAL SMS (Phase 4.7): deterministic consent copy only — intentionally bypasses V3,
+ * North Star, and Final Voice Gate. Same user + same normalized E.164 duplicate sends are
+ * latched in Clerk (`onboardingTransactionalConsentSmsSentAt` / Phone) for 24h after a
+ * successful sendSMS. Different phone and Twilio failure retries are allowed.
  *
  * TONE STRATEGY (March 2026):
  * - Legal compliance retained
@@ -84,19 +91,59 @@ export async function POST(req: Request) {
       });
     }
 
-    const { data: commitmentGate } = await supabaseServer
+    const { data: proposed } = await supabaseServer
       .from("v2_commitment")
       .select("id")
       .eq("clerk_user_id", userId)
-      .in("status", ["proposed", "active"])
+      .eq("status", "proposed")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (!commitmentGate?.id) {
+    const { data: active } = await supabaseServer
+      .from("v2_commitment")
+      .select("id")
+      .eq("clerk_user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!proposed?.id && !active?.id) {
       return new Response(
         JSON.stringify({ error: "Save your commitment before SMS setup." }),
         { status: 400 }
       );
+    }
+
+    if (proposed?.id && !active?.id) {
+      const { data: intake } = await supabaseServer
+        .from("v2_commitment_intake")
+        .select("commitment_id, review_acknowledged_at")
+        .eq("commitment_id", proposed.id)
+        .eq("clerk_user_id", userId)
+        .maybeSingle();
+
+      if (!intake?.commitment_id) {
+        return new Response(
+          JSON.stringify({
+            error: "Goal intake is missing. Please save your current goal again.",
+          }),
+          { status: 400 }
+        );
+      }
+
+      const reviewAcknowledged =
+        intake.review_acknowledged_at != null &&
+        String(intake.review_acknowledged_at).trim().length > 0;
+
+      if (!reviewAcknowledged) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Please review your Identity and Current Goal before connecting SMS.",
+          }),
+          { status: 400 }
+        );
+      }
     }
 
     const body = await req.json().catch(() => ({}));
@@ -188,6 +235,8 @@ export async function POST(req: Request) {
     // ---------------------------------------
     // Confirmation SMS (Identity + Compliance)
     // ---------------------------------------
+    let onboardingConsentSmsDeduped = false;
+
     if (smsEnabled && normalizedPhone && isTwilioReady()) {
       /**
        * IMPORTANT:
@@ -200,31 +249,60 @@ export async function POST(req: Request) {
        * frequency, STOP / HELP transactional onboarding copy — not discretionary coaching SMS.
        */
 
-      const confirm =
-        "Summitt Mindset: You’re in. Pat will text you about one commitment you name—reply honestly to those check-ins.\n\n" +
-        "Use the app for depth, identity context, and your Victory Room when you want proof.\n\n" +
-        "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
+      const dedupe = shouldSkipOnboardingTransactionalConsentSms({
+        clerkMetadata: publicMd,
+        normalizedPhoneE164: normalizedPhone,
+      });
 
-      try {
-        await sendSMS({
-          to: normalizedPhone,
-          body: confirm,
-          lastOutbound: {
-            clerkUserId: userId,
-            messageKind: "transactional",
-            timeOfDay: "morning",
-            deliverySnapshot: buildOnboardingTransactionalSmsDeliverySnapshot(),
-          },
+      if (dedupe.skip) {
+        onboardingConsentSmsDeduped = true;
+        console.info("[onboarding/sms] onboarding_consent_sms_deduped", {
+          clerk_user_id: userId,
+          reason: dedupe.reason ?? "same_phone_within_latch_window",
+          prior_sent_at: dedupe.priorSentAt ?? null,
+          phone_last4: phoneE164Last4(normalizedPhone),
         });
-      } catch (e) {
-        // Never block onboarding if Twilio fails.
-        console.warn("[onboarding/sms] transactional_confirmation_send_failed", {
-          transactional_sms: true,
-          twilio_send_attempted: true,
-          relationship_lane_bypass_kind: "onboarding_consent_transactional",
-          error: e instanceof Error ? e.message : String(e),
-        });
-        console.error("Onboarding confirmation SMS failed:", e);
+      } else {
+        const confirm =
+          "Summitt Mindset: You’re in. Pat will text you about one commitment you name—reply honestly to those check-ins.\n\n" +
+          "Use the app for depth, identity context, and your Victory Room when you want proof.\n\n" +
+          "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
+
+        try {
+          const twilioMessage = await sendSMS({
+            to: normalizedPhone,
+            body: confirm,
+            lastOutbound: {
+              clerkUserId: userId,
+              messageKind: "transactional",
+              timeOfDay: "morning",
+              deliverySnapshot: buildOnboardingTransactionalSmsDeliverySnapshot(),
+            },
+          });
+
+          await updateClerkPublicMetadata(
+            userId,
+            onboardingTransactionalConsentLatchFields(normalizedPhone)
+          );
+
+          console.info("[onboarding/sms] onboarding_consent_sms_sent", {
+            clerk_user_id: userId,
+            phone_last4: phoneE164Last4(normalizedPhone),
+            message_sid:
+              twilioMessage && typeof twilioMessage.sid === "string"
+                ? twilioMessage.sid
+                : null,
+          });
+        } catch (e) {
+          // Never block onboarding if Twilio fails; do not latch so retry can send again.
+          console.warn("[onboarding/sms] transactional_confirmation_send_failed", {
+            transactional_sms: true,
+            twilio_send_attempted: true,
+            relationship_lane_bypass_kind: "onboarding_consent_transactional",
+            error: e instanceof Error ? e.message : String(e),
+          });
+          console.error("Onboarding confirmation SMS failed:", e);
+        }
       }
     } else if (smsEnabled && normalizedPhone && !isTwilioReady()) {
       console.info("[onboarding/sms] transactional_confirmation_skipped_twilio_not_ready", {
@@ -259,7 +337,13 @@ export async function POST(req: Request) {
       summittSubscribed: null
     });
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        ...(onboardingConsentSmsDeduped ? { onboardingConsentSmsDeduped: true } : {}),
+      }),
+      { status: 200 }
+    );
   } catch (err) {
     console.error("ONBOARDING SMS ERROR:", err);
 

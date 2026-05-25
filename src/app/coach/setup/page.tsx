@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { trackCoachShippingSubmitted } from "@/lib/meta-pixel";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 const inputClass =
   "w-full px-4 py-3 rounded-md border border-[var(--border)] bg-white text-[var(--text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2";
@@ -68,7 +69,7 @@ export default function CoachSetupPage() {
         trackCoachShippingSubmitted();
       }
       try {
-        router.replace("/onboarding/identity");
+        router.replace(MEMBER_APP_HOME_PATH);
       } catch {
         setError(
           "Your shipping info was saved, but we couldn't continue automatically. Please tap continue again."
@@ -118,9 +119,8 @@ export default function CoachSetupPage() {
               Coach bonus: where should we ship your Leadership Kit?
             </h1>
             <p className="text-sm text-[var(--muted)] mb-8 leading-relaxed">
-              You&apos;re setting up your Summitt Mindset membership. This address
-              helps us prepare your coach bonus. After this, you&apos;ll finish
-              onboarding so daily accountability can start.
+              Your daily accountability is already active. Share where we should
+              ship your Pat Summitt Leadership Kit bonus — shipping is covered.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">

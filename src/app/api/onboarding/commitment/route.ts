@@ -5,13 +5,25 @@ import {
   normalizeIntakeWhitespace,
   validateBehaviorStatementIntake,
   validateCommitmentTitleIntake,
-  validateSuccessCriteriaIntake,
 } from "@/lib/v2-commitment-intake-validation";
+import {
+  requireWeakAcceptForWarn,
+  validateGoalBehaviorTiered,
+  validateGoalTitleTiered,
+} from "@/lib/onboarding-intake-validation";
+import {
+  buildCoherenceForCommitment,
+  persistCommitmentSidecar,
+} from "@/lib/onboarding-persist-commitment";
+import { getTemplateById, isGoalAreaId } from "@/lib/onboarding-goal-templates";
 
-/**
- * POST /api/onboarding/commitment
- * Creates first V2 commitment as `proposed` + `created` event.
- */
+function parseIntakeOrigin(
+  raw: unknown
+): "user_written" | "generated" | "template" | "recommended" {
+  if (raw === "generated" || raw === "template" || raw === "recommended") return raw;
+  return "user_written";
+}
+
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
@@ -46,10 +58,33 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
+    const intakeWeakAccept = body?.intake_weak_accept === true;
 
     const titleRaw = typeof body?.commitment_title === "string" ? body.commitment_title : "";
     const behaviorRaw =
       typeof body?.behavior_statement === "string" ? body.behavior_statement : "";
+
+    const titleTier = requireWeakAcceptForWarn(
+      validateGoalTitleTiered(titleRaw, { intakeWeakAccept }),
+      intakeWeakAccept
+    );
+    if (titleTier.tier === "block") {
+      return new Response(JSON.stringify({ error: titleTier.error }), { status: 400 });
+    }
+    if (titleTier.tier === "warn") {
+      return new Response(JSON.stringify({ error: titleTier.error }), { status: 400 });
+    }
+
+    const behaviorTier = requireWeakAcceptForWarn(
+      validateGoalBehaviorTiered(behaviorRaw, { intakeWeakAccept }),
+      intakeWeakAccept
+    );
+    if (behaviorTier.tier === "block") {
+      return new Response(JSON.stringify({ error: behaviorTier.error }), { status: 400 });
+    }
+    if (behaviorTier.tier === "warn") {
+      return new Response(JSON.stringify({ error: behaviorTier.error }), { status: 400 });
+    }
 
     const titleErr = validateCommitmentTitleIntake(titleRaw);
     if (titleErr) {
@@ -61,19 +96,39 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: behaviorErr }), { status: 400 });
     }
 
+    const selectedAreaId =
+      typeof body?.selected_area_id === "string" ? body.selected_area_id : "";
+    if (!isGoalAreaId(selectedAreaId)) {
+      return new Response(JSON.stringify({ error: "Choose a focus area for your goal." }), {
+        status: 400,
+      });
+    }
+
+    const selectedTemplateId =
+      typeof body?.selected_template_id === "string" ? body.selected_template_id : null;
+    if (selectedTemplateId && !getTemplateById(selectedTemplateId)) {
+      return new Response(JSON.stringify({ error: "Invalid goal template." }), { status: 400 });
+    }
+
+    const { data: profile } = await supabaseServer
+      .from("user_profiles")
+      .select("identity_anchor_text, active_identity_version_id")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+
+    const identityAnchor =
+      typeof profile?.identity_anchor_text === "string"
+        ? profile.identity_anchor_text.trim()
+        : "";
+    if (!identityAnchor || !profile?.active_identity_version_id) {
+      return new Response(
+        JSON.stringify({ error: "Save your identity before choosing a goal." }),
+        { status: 400 }
+      );
+    }
+
     const title = normalizeIntakeWhitespace(titleRaw);
     const behaviorStatement = normalizeIntakeWhitespace(behaviorRaw);
-
-    let successCriteria: string | null = null;
-    const successRaw = body?.success_criteria;
-    if (typeof successRaw === "string" && successRaw.trim().length > 0) {
-      const s = normalizeIntakeWhitespace(successRaw);
-      const successErr = validateSuccessCriteriaIntake(s);
-      if (successErr) {
-        return new Response(JSON.stringify({ error: successErr }), { status: 400 });
-      }
-      successCriteria = s;
-    }
 
     const { error: delErr } = await supabaseServer
       .from("v2_commitment")
@@ -96,7 +151,7 @@ export async function POST(req: Request) {
         title,
         commitment_type: "accountability",
         behavior_statement: behaviorStatement,
-        success_criteria: successCriteria,
+        success_criteria: null,
         cadence_kind: "daily",
         tone_preference: null,
         reachability_window: {},
@@ -129,6 +184,44 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: "Failed to record commitment event" }), {
         status: 500,
       });
+    }
+
+    const coherence = buildCoherenceForCommitment({
+      selectedAreaId,
+      selectedTemplateId,
+      intakeOrigin: parseIntakeOrigin(body?.intake_origin),
+      useMineAnyway: intakeWeakAccept,
+      identityVersionId: profile.active_identity_version_id as string,
+      identityAnchor,
+      goalTitle: title,
+      goalBehavior: behaviorStatement,
+      bridgeQuestionAsked:
+        typeof body?.bridge_question_asked === "string" ? body.bridge_question_asked : null,
+      userResponse: typeof body?.user_response === "string" ? body.user_response : null,
+    });
+
+    const sidecar = await persistCommitmentSidecar(
+      {
+        clerkUserId: userId,
+        commitmentId,
+        selectedAreaId,
+        selectedTemplateId,
+        intakeOrigin: parseIntakeOrigin(body?.intake_origin),
+        useMineAnyway: intakeWeakAccept,
+        identityVersionId: profile.active_identity_version_id as string,
+        identityAnchor,
+        goalTitle: title,
+        goalBehavior: behaviorStatement,
+        bridgeQuestionAsked:
+          typeof body?.bridge_question_asked === "string" ? body.bridge_question_asked : null,
+        userResponse: typeof body?.user_response === "string" ? body.user_response : null,
+      },
+      coherence
+    );
+
+    if (!sidecar.ok) {
+      await supabaseServer.from("v2_commitment").delete().eq("id", commitmentId);
+      return new Response(JSON.stringify({ error: sidecar.error }), { status: 500 });
     }
 
     return Response.json({ ok: true, commitmentId });

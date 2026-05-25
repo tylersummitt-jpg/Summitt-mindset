@@ -483,7 +483,7 @@ export async function buildV2SmsConversationContextPack(
       supabaseServer
         .from("user_profiles")
         .select(
-          "preferred_name, life_desires, people_summary, responsibility, identity_anchor_text, identity_source"
+          "preferred_name, people_summary, responsibility, identity_anchor_text, identity_source"
         )
         .eq("clerk_user_id", args.clerkUserId)
         .maybeSingle(),

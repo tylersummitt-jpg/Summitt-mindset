@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import {
   normalizeIntakeWhitespace,
   validateBehaviorStatementIntake,
@@ -69,7 +70,7 @@ export default function CommitmentSetupClient() {
       }
 
       router.refresh();
-      router.push("/dashboard");
+      router.push(MEMBER_APP_HOME_PATH);
     } catch {
       setError("Something went wrong. Please try again.");
       setSaving(false);
@@ -133,7 +134,7 @@ export default function CommitmentSetupClient() {
           {saving ? "Saving…" : "Save commitment"}
         </button>
         <Link
-          href="/dashboard"
+          href={MEMBER_APP_HOME_PATH}
           className="text-sm font-medium text-gray-600 hover:text-gray-900 underline underline-offset-2"
         >
           Cancel

@@ -57,7 +57,7 @@ export default function AskPatClient({ isSubscribed }: Props) {
 
           <div className="mt-4 text-sm text-[var(--muted)]">
             Your trial unlocks full access to Ask Pat, Film Room, and optional in-app depth—alongside
-            SMS accountability on your commitment. Cancel anytime before your trial ends.
+            Daily text accountability on your commitment. Cancel anytime before your trial ends.
           </div>
         </section>
       </main>

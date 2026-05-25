@@ -49,7 +49,10 @@ export type V2CommitmentSmsThreadMemory = {
   updated_at: string;
 };
 
-export type V2CommitmentSmsThreadMemoryOutboundSource = "daily_sms" | "inbound_coach_reply";
+export type V2CommitmentSmsThreadMemoryOutboundSource =
+  | "daily_sms"
+  | "inbound_coach_reply"
+  | "weekly_sms";
 
 const MAX_COACH_QUESTIONS = 5;
 const MAX_USER_ANSWERS = 5;
@@ -120,7 +123,8 @@ function extractQuestionClause(coachMessage: string): string | null {
   return null;
 }
 
-function isBindingYesNoQuestion(text: string): boolean {
+/** Exported for deferred inbound projection policy (Slice 2A+2B). */
+export function isBindingYesNoQuestion(text: string): boolean {
   const t = text.trim().toLowerCase();
   if (!/\?/.test(t) && !/\b(yes|no)\b/i.test(t)) return false;
   if (/\b(reply|text)\s+(yes|no)\b/i.test(t)) return true;
@@ -247,6 +251,43 @@ export function isSubstantiveInboundForThreadMemory(text: string): boolean {
   if (/,/.test(t) && t.length >= 5) return true;
   if (t.split(/\s+/).filter(Boolean).length >= 3) return true;
   return false;
+}
+
+const SHORT_CONTEXTUAL_OVERLOADED_REPLIES = new Set([
+  "yes",
+  "no",
+  "maybe",
+  "yep",
+  "nope",
+  "yeah",
+  "nah",
+  "y",
+  "n",
+]);
+
+const SHORT_CONTEXTUAL_EXTRA_ACKS = new Set(["thanks", "thank you", "thx"]);
+
+const MAX_SHORT_CONTEXTUAL_OPEN_ANSWER_CHARS = 30;
+
+/**
+ * Short human SMS replies that can answer a normal (non-binding) coaching open question.
+ * High precision: excludes YES/NO/maybe, acks, compliance, emoji, frustration.
+ */
+export function isShortContextualOpenQuestionAnswer(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > MAX_SHORT_CONTEXTUAL_OPEN_ANSWER_CHARS) return false;
+  if (isSmsComplianceOnlyInbound(t) || isEmojiOnlyInbound(t) || isShortAckPhrase(t)) return false;
+  if (isAlreadyToldYouFrustrationInbound(t)) return false;
+
+  const core = t.toLowerCase().replace(/[.!?…]+$/g, "").trim();
+  if (!core || SHORT_CONTEXTUAL_OVERLOADED_REPLIES.has(core)) return false;
+  if (SHORT_CONTEXTUAL_EXTRA_ACKS.has(core)) return false;
+  if (!/[a-zA-Z0-9]/.test(core)) return false;
+
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length < 1 || words.length > 3) return false;
+
+  return true;
 }
 
 function parseFrustrationCorrections(raw: unknown): V2CommitmentSmsThreadMemoryFrustrationCorrection[] {
@@ -394,6 +435,8 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
   messageSid?: string | null;
   source: V2CommitmentSmsThreadMemoryOutboundSource;
   expectedAnswerType?: string | null;
+  /** Slice 2A — clear stale proposal_yes_no / contract_yes_no open question before applying new extraction. */
+  clearBindingOpenQuestion?: boolean;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const commitmentId = args.commitmentId.trim();
   const clerkUserId = args.clerkUserId.trim();
@@ -428,6 +471,37 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
     newQuestion: extractedQuestion,
   });
 
+  let openQuestionText: string | null = existing?.open_question_text ?? null;
+  let openQuestionAskedAt: string | null = existing?.open_question_asked_at ?? null;
+  let openQuestionExpectedType: string | null = existing?.open_question_expected_answer_type ?? null;
+  let openQuestionSourceSid: string | null = existing?.open_question_source_message_sid ?? null;
+  let openQuestionAnswerText: string | null = existing?.open_question_answer_text ?? null;
+  let openQuestionAnsweredAt: string | null = existing?.open_question_answered_at ?? null;
+  let openQuestionPending = existing?.open_question_pending ?? false;
+
+  if (args.clearBindingOpenQuestion) {
+    const priorExpected = openQuestionExpectedType?.trim().toLowerCase() ?? "";
+    if (BINDING_EXPECTED_ANSWER_TYPES.has(priorExpected) || openQuestionPending) {
+      openQuestionText = null;
+      openQuestionAskedAt = null;
+      openQuestionExpectedType = null;
+      openQuestionSourceSid = null;
+      openQuestionAnswerText = null;
+      openQuestionAnsweredAt = null;
+      openQuestionPending = false;
+    }
+  }
+
+  if (extractedQuestion) {
+    openQuestionText = extractedQuestion;
+    openQuestionAskedAt = sentAtIso;
+    openQuestionExpectedType = args.expectedAnswerType?.trim() || null;
+    openQuestionSourceSid = messageSid;
+    openQuestionPending = true;
+    openQuestionAnswerText = null;
+    openQuestionAnsweredAt = null;
+  }
+
   const row: Record<string, unknown> = {
     commitment_id: commitmentId,
     clerk_user_id: clerkUserId,
@@ -444,29 +518,16 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
     last_inbound_message_sid: existing?.last_inbound_message_sid ?? null,
     last_5_user_answers: existing?.last_5_user_answers ?? [],
     recent_frustration_corrections: existing?.recent_frustration_corrections ?? [],
+    open_question_text: openQuestionText,
+    open_question_asked_at: openQuestionAskedAt,
+    open_question_expected_answer_type: openQuestionExpectedType,
+    open_question_source_message_sid: openQuestionSourceSid,
+    open_question_answer_text: openQuestionAnswerText,
+    open_question_answered_at: openQuestionAnsweredAt,
+    open_question_pending: openQuestionPending,
     current_live_thread_summary: existing?.current_live_thread_summary ?? null,
     last_recomputed_from_spine_at: existing?.last_recomputed_from_spine_at ?? null,
   };
-
-  if (extractedQuestion) {
-    row.open_question_text = extractedQuestion;
-    row.open_question_asked_at = sentAtIso;
-    row.open_question_expected_answer_type = args.expectedAnswerType?.trim() || null;
-    row.open_question_source_message_sid = messageSid;
-    row.open_question_pending = true;
-    row.open_question_answer_text = null;
-    row.open_question_answered_at = null;
-  } else if (existing) {
-    row.open_question_text = existing.open_question_text;
-    row.open_question_asked_at = existing.open_question_asked_at;
-    row.open_question_expected_answer_type = existing.open_question_expected_answer_type;
-    row.open_question_source_message_sid = existing.open_question_source_message_sid;
-    row.open_question_answer_text = existing.open_question_answer_text;
-    row.open_question_answered_at = existing.open_question_answered_at;
-    row.open_question_pending = existing.open_question_pending;
-  } else {
-    row.open_question_pending = false;
-  }
 
   if (existing) {
     const { error } = await supabaseServer
@@ -489,7 +550,7 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
     last_5_user_answers: [],
     do_not_repeat_phrases: dnr,
     recent_frustration_corrections: [],
-    open_question_pending: extractedQuestion ? true : false,
+    open_question_pending: openQuestionPending,
     created_at: sentAtIso,
   };
 
@@ -530,8 +591,9 @@ export async function upsertCommitmentSmsThreadMemoryFromInbound(args: {
   const messageSid = args.messageSid?.trim() || null;
   const substantive = isSubstantiveInboundForThreadMemory(inboundBody);
   const frustration = isAlreadyToldYouFrustrationInbound(inboundBody);
+  const shortContextual = isShortContextualOpenQuestionAnswer(inboundBody);
 
-  if (!substantive && !frustration) {
+  if (!substantive && !frustration && !shortContextual) {
     return { ok: true };
   }
 
@@ -560,15 +622,24 @@ export async function upsertCommitmentSmsThreadMemoryFromInbound(args: {
     openQuestionPending &&
     BINDING_EXPECTED_ANSWER_TYPES.has(openQuestionExpectedType?.trim().toLowerCase() ?? "");
 
-  const mayRecordOpenAnswer =
-    substantive &&
+  const bindingAnswerAllowed = bindingOpenQuestionAnswerAllowed({
+    expectedAnswerType: openQuestionExpectedType,
+    classification: args.classification,
+    routePurpose: args.routePurpose,
+  });
+
+  const shortAnswerClearsOpen =
+    shortContextual &&
     !frustration &&
     openQuestionPending &&
-    bindingOpenQuestionAnswerAllowed({
-      expectedAnswerType: openQuestionExpectedType,
-      classification: args.classification,
-      routePurpose: args.routePurpose,
-    });
+    !bindingPending &&
+    bindingAnswerAllowed;
+
+  const mayRecordOpenAnswer =
+    !frustration &&
+    openQuestionPending &&
+    bindingAnswerAllowed &&
+    (substantive || shortAnswerClearsOpen);
 
   if (mayRecordOpenAnswer) {
     openQuestionAnswerText = inboundBody;

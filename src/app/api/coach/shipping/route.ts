@@ -55,6 +55,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (md?.onboardingCompleted !== true) {
+      return NextResponse.json(
+        { ok: false, error: "Finish onboarding before submitting Kit shipping." },
+        { status: 403 }
+      );
+    }
+
     if (md?.coachAddressCollected === true) {
       return NextResponse.json(
         { ok: false, error: "Address already submitted" },

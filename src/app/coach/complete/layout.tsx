@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { redirectIfOnboardingIncomplete } from "@/lib/onboarding-incomplete-redirect";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +30,7 @@ export default async function CoachCompleteLayout({
     redirect("/subscribe?src=coach");
   }
 
-  if (md?.onboardingCompleted !== true) {
-    redirect("/onboarding");
-  }
+  await redirectIfOnboardingIncomplete(user.id, md);
 
   return <>{children}</>;
 }

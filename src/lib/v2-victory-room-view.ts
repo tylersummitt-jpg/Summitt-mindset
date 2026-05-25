@@ -22,13 +22,24 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor";
-import { loadV2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory";
 
-const RECENT_EVENT_LIMIT = 120;
+/** Default Victory Room page load: newest spine rows for the active commitment. */
+export const ACTIVE_EVENT_FETCH_LIMIT = 400;
 
 /**
- * Max spine rows read for Victory Room (newest first). If a commitment has more history than this,
- * older rows are omitted from both recent and archive derivation in V1.
+ * Max events used for proof-moment + evidence derivation (matches fetch cap).
+ * Display caps (e.g. RECENT_PROOF_DISPLAY_LIMIT) may show fewer cards than derived moments.
+ */
+export const PROOF_DERIVATION_EVENT_LIMIT = ACTIVE_EVENT_FETCH_LIMIT;
+
+/** Max recent proof cards on the Victory Room page. */
+export const RECENT_PROOF_DISPLAY_LIMIT = 5;
+
+/** Max proof cards on a lazy season detail page. */
+export const SEASON_PROOF_DISPLAY_LIMIT = 20;
+
+/**
+ * Legacy archive path cap (prior chapters / full archive). Not used on default page load.
  */
 const ARCHIVE_EVENT_LIMIT = 2500;
 
@@ -89,18 +100,55 @@ type RecentProofCategory =
   | "came_back"
   | "told_the_truth"
   | "adjusted_wisely"
+  | "raised_the_bar"
   | "finished_a_chapter"
   | "showed_up"
   | "kept_the_thread_alive";
 
+export type VictoryRoomActiveSeason = {
+  season_name: string;
+  started_at: string;
+};
+
+export type VictoryPastSeason = {
+  season_name: string;
+  started_at: string;
+  ended_at: string | null;
+  status: string;
+};
+
+export type VictoryEvidenceCounts = {
+  keptTheGoal: number;
+  toldTheTruth: number;
+  gotBackOnTrack: number;
+  adjustedWisely: number;
+  raisedTheBar: number;
+  seasonsCompleted: number;
+};
+
+export const EMPTY_VICTORY_EVIDENCE_COUNTS: VictoryEvidenceCounts = {
+  keptTheGoal: 0,
+  toldTheTruth: 0,
+  gotBackOnTrack: 0,
+  adjustedWisely: 0,
+  raisedTheBar: 0,
+  seasonsCompleted: 0,
+};
+
 export type VictoryRoomViewData = {
   hasActiveV2Commitment: boolean;
   profile: VictoryRoomProfileIdentity;
-  commitment: { id: string; title: string } | null;
+  commitment: { id: string; title: string; behavior_statement: string | null } | null;
+  activeSeason: VictoryRoomActiveSeason | null;
   effectiveCoachingAsk: string | null;
   chapterRecord: VictoryChapterRecord;
   moments: VictoryMoment[];
   comebackLines: string[];
+  /** True when commitment is active but visible proof is still thin (day-zero / early chapter). */
+  isDayZeroUser: boolean;
+  hasSparseProof: boolean;
+  evidenceCounts: VictoryEvidenceCounts;
+  pastSeasons: VictoryPastSeason[];
   /**
    * Optional single line from coaching memory (user-authored blocker preview only).
    * Not primary proof; omitted if unavailable.
@@ -262,11 +310,12 @@ export function inferRecentProofCategory(moment: VictoryMoment): RecentProofCate
   const h = moment.headline.trim();
   if (h === "Comeback") return "came_back";
   if (h === "Honesty") return "told_the_truth";
+  if (h === "Named the blocker") return "told_the_truth";
   if (h === "Honest miss") return "told_the_truth";
+  if (h === "Bar adjusted") return "raised_the_bar";
   if (
     h === "Honest adjustment" ||
     h === "Clean recommitment" ||
-    h === "Bar adjusted" ||
     h === "Alignment" ||
     h === "Coaching context updated"
   ) {
@@ -286,6 +335,8 @@ export function getRecentProofCategoryPriority(category: RecentProofCategory): n
       return 500;
     case "adjusted_wisely":
       return 400;
+    case "raised_the_bar":
+      return 350;
     case "finished_a_chapter":
       return 300;
     case "showed_up":
@@ -299,17 +350,18 @@ export function getRecentProofCategoryLabel(moment: VictoryMoment): string {
   const cat = inferRecentProofCategory(moment);
   switch (cat) {
     case "came_back":
-      return "Came Back";
+      return "Got back on track";
     case "told_the_truth":
-      return "Told the Truth";
+      return "Told the truth";
     case "adjusted_wisely":
-      return "Adjusted Wisely";
+      return "Adjusted wisely";
+    case "raised_the_bar":
+      return "Raised the bar";
     case "finished_a_chapter":
-      return "Finished a Chapter";
+      return "Named the next goal";
     case "showed_up":
-      return "Showed Up";
     case "kept_the_thread_alive":
-      return "Kept the Thread Alive";
+      return "Kept the goal";
     default:
       return "Proof";
   }
@@ -320,7 +372,10 @@ function occurredMs(m: VictoryMoment): number {
   return Number.isFinite(t) ? t : 0;
 }
 
-export function curateRecentProofMoments(moments: VictoryMoment[], max: number = 4): VictoryMoment[] {
+export function curateRecentProofMoments(
+  moments: VictoryMoment[],
+  max: number = RECENT_PROOF_DISPLAY_LIMIT
+): VictoryMoment[] {
   const input = [...moments]; // do not mutate caller array
   if (input.length === 0 || max <= 0) return [];
 
@@ -531,6 +586,12 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
       continue;
     }
     if (row.event_type === "sms_memory_signal") {
+      if (
+        payload.season_lifecycle === true ||
+        payload.exclude_from_proof_curation === true
+      ) {
+        continue;
+      }
       const ms = payload.memory_signal;
       const msObj =
         ms && typeof ms === "object" && !Array.isArray(ms) ? (ms as Record<string, unknown>) : null;
@@ -575,6 +636,22 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
         body,
         groundedInEventTypes: ["contract_overlay_activated"],
       });
+      continue;
+    }
+    if (row.event_type === "blocker_captured") {
+      if (
+        payload.proof_moment === true &&
+        typeof payload.user_visible_proof_line === "string" &&
+        payload.user_visible_proof_line.trim()
+      ) {
+        out.push({
+          id: row.id,
+          occurredAt: row.occurred_at,
+          headline: "Honesty",
+          body: proofBackedBody(payload, "You named what got in the way."),
+          groundedInEventTypes: ["blocker_captured"],
+        });
+      }
       continue;
     }
     if (row.event_type === "coaching_refresh_resolved") {
@@ -850,7 +927,7 @@ function buildArchiveMomentsFromEvents(
   return sorted.slice(0, maxResults);
 }
 
-function mapRowsToEventRows(rows: unknown): EventRow[] {
+export function mapVictoryCommitmentEventRows(rows: unknown): EventRow[] {
   return (rows as Record<string, unknown>[])
     .filter(
       (r) =>
@@ -921,7 +998,7 @@ async function fetchEventRowsForCommitment(commitmentId: string): Promise<EventR
     });
     return [];
   }
-  return mapRowsToEventRows(data ?? []);
+  return mapVictoryCommitmentEventRows(data ?? []);
 }
 
 /**
@@ -1131,75 +1208,20 @@ export function selectCornerstoneMoments(args: {
   });
 }
 
-export async function loadVictoryRoomView(
-  clerkUserId: string
-): Promise<VictoryRoomViewData> {
-  const { data: prof, error: profErr } = await supabaseServer
-    .from("user_profiles")
-    .select("preferred_name, identity_anchor_text, identity_source")
-    .eq("clerk_user_id", clerkUserId)
-    .maybeSingle();
-
-  if (profErr) {
-    console.error("[v2-victory-room] profile load failed", { clerk_user_id: clerkUserId, message: profErr.message });
-  }
-
-  const anchorRaw =
-    typeof prof?.identity_anchor_text === "string" ? prof.identity_anchor_text.trim() : null;
-  const idSrc = typeof prof?.identity_source === "string" ? prof.identity_source.trim() : null;
-  const profile: VictoryRoomProfileIdentity = {
-    preferred_name: typeof prof?.preferred_name === "string" ? prof.preferred_name : null,
-    identity_anchor_text:
-      anchorRaw && anchorRaw.length > 0 && isQuotableIdentitySource(idSrc) ? anchorRaw : null,
-  };
-
-  const commitment = await getActiveCommitment(clerkUserId);
-  if (!commitment) {
-    return {
-      hasActiveV2Commitment: false,
-      profile,
-      commitment: null,
-      effectiveCoachingAsk: null,
-      chapterRecord: {
-        openedAt: null,
-        firstProofAt: null,
-        latestProofAt: null,
-        proofCategoryLabels: [],
-        earlierSeasonCount: 0,
-      },
-      moments: [],
-      comebackLines: [],
-      optionalMemoryProjectionLine: null,
-      archiveMoments: [],
-      priorChapters: [],
-      cornerstoneMoments: [],
-    };
-  }
-
-  const { data: events, error: evErr } = await supabaseServer
-    .from("v2_commitment_event")
-    .select("id, event_type, occurred_at, payload_json")
-    .eq("commitment_id", commitment.id)
-    .order("occurred_at", { ascending: false })
-    .limit(ARCHIVE_EVENT_LIMIT);
-
-  if (evErr) {
-    console.error("[v2-victory-room] events load failed", {
-      commitment_id: commitment.id,
-      message: evErr.message,
-    });
-  }
-
-  const eventRowsFull: EventRow[] = mapRowsToEventRows(events ?? []);
-
-  const eventRowsRecent = eventRowsFull.slice(0, RECENT_EVENT_LIMIT);
-
+/**
+ * Build merged proof moments from the bounded active-commitment event window (up to 400 rows).
+ */
+export function deriveMergedProofMomentsFromEventWindow(args: {
+  eventRowsFull: EventRow[];
+  reactivationEnteredAt: string | null;
+}): { merged: VictoryMoment[]; comebackLines: string[] } {
+  const eventRowsRecent = args.eventRowsFull.slice(0, PROOF_DERIVATION_EVENT_LIMIT);
   const rowsAsc = [...eventRowsRecent].sort(sortAsc);
   const rowsDesc = [...eventRowsRecent].sort(sortDesc);
 
   const honestyMoment = findHonestyComebackMoment(rowsAsc);
   const declineActivateMoment = findDeclineThenActivateMoment(rowsAsc);
-  const reactivationYesMoment = findReactivationYesMoment(rowsAsc, commitment.reactivation_entered_at);
+  const reactivationYesMoment = findReactivationYesMoment(rowsAsc, args.reactivationEnteredAt);
 
   const singlesRaw = buildSingleEventMoments(rowsDesc);
   const singlesDeduped = dedupeTightenOverlayDisplayMoments(eventRowsRecent, singlesRaw);
@@ -1227,62 +1249,244 @@ export async function loadVictoryRoomView(
     ...(reactivationYesMoment ? [reactivationYesMoment] : []),
   ]);
 
-  const moments = curateRecentProofMoments(merged, 4);
-
   const comebackLines = buildComebackLines({
     rowsAsc,
-    reactivationEnteredAt: commitment.reactivation_entered_at,
+    reactivationEnteredAt: args.reactivationEnteredAt,
     honesty: honestyMoment,
     declineActivate: declineActivateMoment,
     reactivationYes: reactivationYesMoment,
   }).filter((line, i, arr) => arr.indexOf(line) === i);
 
-  const memory = await loadV2CoachingMemoryForPrompt(commitment.id);
-  const blockerPreview =
-    memory?.latest_blocker_preview && memory.latest_blocker_preview.trim()
-      ? truncateOneLine(memory.latest_blocker_preview, 160)
-      : null;
-  // Phase 1 (Victory Room): do not surface coaching-memory projection framing to users.
-  // We keep the underlying `latest_blocker_preview` available for future curated use,
-  // but avoid exposing internal/projection language in the UI.
-  const optionalMemoryProjectionLine = null;
+  return { merged, comebackLines };
+}
 
-  const recentMomentIds = new Set(moments.map((m) => m.id));
-  const archiveMoments = buildArchiveMomentsFromEvents(
+/** Count proof forms from derived moments (bounded active-commitment window, up to 400 events). */
+export function buildVictoryEvidenceCounts(
+  mergedMoments: VictoryMoment[],
+  seasonsCompleted: number
+): VictoryEvidenceCounts {
+  const counts: VictoryEvidenceCounts = {
+    ...EMPTY_VICTORY_EVIDENCE_COUNTS,
+    seasonsCompleted: Math.max(0, seasonsCompleted),
+  };
+
+  for (const m of mergedMoments) {
+    const cat = inferRecentProofCategory(m);
+    switch (cat) {
+      case "showed_up":
+      case "kept_the_thread_alive":
+        counts.keptTheGoal += 1;
+        break;
+      case "told_the_truth":
+        counts.toldTheTruth += 1;
+        break;
+      case "came_back":
+        counts.gotBackOnTrack += 1;
+        break;
+      case "adjusted_wisely":
+        counts.adjustedWisely += 1;
+        break;
+      case "raised_the_bar":
+        counts.raisedTheBar += 1;
+        break;
+      case "finished_a_chapter":
+        break;
+      default:
+        break;
+    }
+  }
+
+  return counts;
+}
+
+export function computeHasSparseProof(args: {
+  moments: VictoryMoment[];
+  comebackLines: string[];
+}): boolean {
+  return args.moments.length === 0 && args.comebackLines.length === 0;
+}
+
+async function loadPastAccountabilitySeasons(clerkUserId: string): Promise<{
+  pastSeasons: VictoryPastSeason[];
+  seasonsCompleted: number;
+}> {
+  const { data: pastRows, error: pastErr } = await supabaseServer
+    .from("user_accountability_season")
+    .select("season_name, started_at, ended_at, status")
+    .eq("clerk_user_id", clerkUserId)
+    .in("status", ["completed", "archived"])
+    .order("started_at", { ascending: false })
+    .limit(5);
+
+  if (pastErr) {
+    console.error("[v2-victory-room] past seasons load failed", {
+      clerk_user_id: clerkUserId,
+      message: pastErr.message,
+    });
+    return { pastSeasons: [], seasonsCompleted: 0 };
+  }
+
+  const pastSeasons: VictoryPastSeason[] = (pastRows ?? [])
+    .filter((r) => typeof r.season_name === "string" && r.season_name.trim())
+    .map((r) => ({
+      season_name: String(r.season_name).trim(),
+      started_at: String(r.started_at),
+      ended_at: r.ended_at != null ? String(r.ended_at) : null,
+      status: typeof r.status === "string" ? r.status : "",
+    }));
+
+  const { count, error: countErr } = await supabaseServer
+    .from("user_accountability_season")
+    .select("id", { count: "exact", head: true })
+    .eq("clerk_user_id", clerkUserId)
+    .in("status", ["completed", "archived"]);
+
+  if (countErr) {
+    console.error("[v2-victory-room] seasons completed count failed", {
+      clerk_user_id: clerkUserId,
+      message: countErr.message,
+    });
+  }
+
+  return {
+    pastSeasons,
+    seasonsCompleted: typeof count === "number" ? count : pastSeasons.length,
+  };
+}
+
+export async function loadVictoryRoomView(
+  clerkUserId: string
+): Promise<VictoryRoomViewData> {
+  const { data: prof, error: profErr } = await supabaseServer
+    .from("user_profiles")
+    .select("preferred_name, identity_anchor_text, identity_source")
+    .eq("clerk_user_id", clerkUserId)
+    .maybeSingle();
+
+  if (profErr) {
+    console.error("[v2-victory-room] profile load failed", { clerk_user_id: clerkUserId, message: profErr.message });
+  }
+
+  const anchorRaw =
+    typeof prof?.identity_anchor_text === "string" ? prof.identity_anchor_text.trim() : null;
+  const idSrc = typeof prof?.identity_source === "string" ? prof.identity_source.trim() : null;
+  const profile: VictoryRoomProfileIdentity = {
+    preferred_name: typeof prof?.preferred_name === "string" ? prof.preferred_name : null,
+    identity_anchor_text:
+      anchorRaw && anchorRaw.length > 0 && isQuotableIdentitySource(idSrc) ? anchorRaw : null,
+  };
+
+  const commitment = await getActiveCommitment(clerkUserId);
+
+  let activeSeason: VictoryRoomActiveSeason | null = null;
+  if (commitment?.id) {
+    const { data: seasonRow, error: seasonErr } = await supabaseServer
+      .from("user_accountability_season")
+      .select("season_name, started_at")
+      .eq("clerk_user_id", clerkUserId)
+      .eq("status", "active")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (seasonErr) {
+      console.error("[v2-victory-room] active season load failed", {
+        clerk_user_id: clerkUserId,
+        message: seasonErr.message,
+      });
+    } else if (seasonRow?.season_name) {
+      activeSeason = {
+        season_name: seasonRow.season_name,
+        started_at: seasonRow.started_at,
+      };
+    }
+  }
+
+  if (!commitment) {
+    return {
+      hasActiveV2Commitment: false,
+      profile,
+      commitment: null,
+      activeSeason: null,
+      effectiveCoachingAsk: null,
+      chapterRecord: {
+        openedAt: null,
+        firstProofAt: null,
+        latestProofAt: null,
+        proofCategoryLabels: [],
+        earlierSeasonCount: 0,
+      },
+      moments: [],
+      comebackLines: [],
+      isDayZeroUser: false,
+      hasSparseProof: false,
+      evidenceCounts: { ...EMPTY_VICTORY_EVIDENCE_COUNTS, seasonsCompleted: 0 },
+      pastSeasons: [],
+      optionalMemoryProjectionLine: null,
+      archiveMoments: [],
+      priorChapters: [],
+      cornerstoneMoments: [],
+    };
+  }
+
+  const { pastSeasons, seasonsCompleted } = await loadPastAccountabilitySeasons(clerkUserId);
+
+  const { data: events, error: evErr } = await supabaseServer
+    .from("v2_commitment_event")
+    .select("id, event_type, occurred_at, payload_json")
+    .eq("commitment_id", commitment.id)
+    .order("occurred_at", { ascending: false })
+    .limit(ACTIVE_EVENT_FETCH_LIMIT);
+
+  if (evErr) {
+    console.error("[v2-victory-room] events load failed", {
+      commitment_id: commitment.id,
+      message: evErr.message,
+    });
+  }
+
+  const eventRowsFull: EventRow[] = mapVictoryCommitmentEventRows(events ?? []);
+
+  const { merged, comebackLines } = deriveMergedProofMomentsFromEventWindow({
     eventRowsFull,
-    commitment.reactivation_entered_at,
-    recentMomentIds
-  );
-
-  const priorChapters = await loadPriorChaptersView(clerkUserId, commitment.id);
-
-  const cornerstoneMoments = selectCornerstoneMoments({
-    moments,
-    archiveMoments,
-    priorChapters,
+    reactivationEnteredAt: commitment.reactivation_entered_at,
   });
+
+  const moments = curateRecentProofMoments(merged, RECENT_PROOF_DISPLAY_LIMIT);
+  const evidenceCounts = buildVictoryEvidenceCounts(merged, seasonsCompleted);
+  const hasSparseProof = computeHasSparseProof({ moments, comebackLines });
+  const isDayZeroUser = hasSparseProof;
 
   const chapterRecord = buildChapterRecord({
     commitmentStartedAt: commitment.started_at,
     eventRowsFull,
     moments,
-    archiveMoments,
-    cornerstoneMoments,
-    earlierSeasonCount: priorChapters.length,
+    archiveMoments: [],
+    cornerstoneMoments: [],
+    earlierSeasonCount: pastSeasons.length,
   });
 
   return {
     hasActiveV2Commitment: true,
     profile,
-    commitment: { id: commitment.id, title: commitment.title },
+    commitment: {
+      id: commitment.id,
+      title: commitment.title,
+      behavior_statement: commitment.behavior_statement,
+    },
+    activeSeason,
     effectiveCoachingAsk: getEffectiveCoachingAsk(commitment, Date.now()),
     chapterRecord,
     moments,
     comebackLines,
-    optionalMemoryProjectionLine,
-    archiveMoments,
-    priorChapters,
-    cornerstoneMoments,
+    isDayZeroUser,
+    hasSparseProof,
+    evidenceCounts,
+    pastSeasons,
+    optionalMemoryProjectionLine: null,
+    archiveMoments: [],
+    priorChapters: [],
+    cornerstoneMoments: [],
   };
 }
 

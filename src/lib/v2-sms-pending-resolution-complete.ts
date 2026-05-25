@@ -15,20 +15,34 @@ import {
 } from "@/lib/v2-adaptive-contract";
 import { getActiveCommitment, type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
+import { applyCanonicalGoalChangeWithSeasonMutation } from "@/lib/v2-apply-canonical-goal-change";
+import type { SmsGoalSeasonMutationResult } from "@/lib/v2-sms-goal-season-mutation";
+import {
+  deriveSeasonModeForSmsGoalChange,
+  resolveSeasonModeForPendingReplace,
+  type SmsSeasonMode,
+} from "@/lib/v2-sms-season-mode";
 import {
   clearPendingResolution,
   clearPendingResolutionIfExpired,
   getPendingResolutionOrNull,
   mergeSmsPendingResolutionPayload,
   type V2PendingResolutionKind,
+  type V2SmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
 import {
   tryExtractV2SmsPendingResolutionCandidateAi,
   V2_SMS_PENDING_CANDIDATE_CONFIDENCE_MIN,
 } from "@/lib/v2-ai-sms-pending-candidate";
 import {
+  buildInboundSmsSafetyReplyBody,
+  classifyInboundSmsSafetyTier,
+  isUnsafeSmsGoalCandidateText,
+} from "@/lib/sms-inbound-safety";
+import {
   extractCandidateBarsFromSms,
   extractDurationAnchoredBarPhrase,
+  isIdentityLikeGoalCandidate,
 } from "@/lib/v2-sms-commitment-change";
 import { getRecentV2EventsForAi } from "@/lib/v2-commitment";
 import {
@@ -37,6 +51,7 @@ import {
   buildProofMomentCommitmentTightened,
   decideVictoryRoomSmsCallout,
   insertSmsCommitmentChangeProofEvent,
+  patchVictoryCalloutOnSpineEventBestEffort,
 } from "@/lib/v2-proof-moment";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 import { interpretCommitmentMeaningFromUserText } from "@/lib/v2-commitment-meaning-interpreter/commitment-meaning-interpreter";
@@ -53,6 +68,11 @@ import { isThinCommitmentBarForVictoryCallout } from "@/lib/v2-human-sms-brain/t
 const BEHAVIOR_MAX = 2000;
 const RAW_LOG_MAX = 280;
 const AI_REASONING_STORE_MAX = 220;
+
+/** Non-speakable legacy preview when bundled RPC fails after YES — V3 owns final wording. */
+function buildSmsPendingRpcHoldPreviewDraft(cand: string): string {
+  return `I couldn't safely update that yet. I still have the bar you asked for: ${cand}. Send YES again, or send the cleaner version you want me to use.`;
+}
 
 export function parseSmsConfirmation(raw: string): "yes" | "no" | "ambiguous" {
   const t = raw.trim();
@@ -90,6 +110,7 @@ const RESERVED_CANDIDATE = /^(yes|no|yep|nope|same|idk|i\s*dk|maybe|ok|okay|nah|
 
 export function isVagueOrInvalidCandidateBar(text: string): boolean {
   const t = text.trim().replace(/\s+/g, " ");
+  if (isIdentityLikeGoalCandidate(t)) return true;
   if (!t || t.length < 3) return true;
   if (t.length > BEHAVIOR_MAX) return true;
   if (RESERVED_CANDIDATE.test(t)) return true;
@@ -141,41 +162,39 @@ function clampCandidateForKind(kind: V2PendingResolutionKind, text: string): str
   return t;
 }
 
-async function applySmsReplaceMutation(args: {
+function seasonModePayloadMerge(
+  prev: V2SmsPendingResolutionPayload,
+  mode: SmsSeasonMode,
+  reason: string
+): Partial<V2SmsPendingResolutionPayload> {
+  if (prev.season_mode === mode) return {};
+  return {
+    season_mode: mode,
+    season_mode_reason: reason,
+    season_mode_set_at: new Date().toISOString(),
+  };
+}
+
+async function applySmsGoalChangeWithSeasonMutation(args: {
   clerkUserId: string;
   commitment: ActiveV2CommitmentRow;
   behaviorStatement: string;
-}): Promise<
-  { ok: true; oldCommitmentId: string; newCommitmentId: string } | { ok: false; code: string }
-> {
-  const { data, error } = await supabaseServer.rpc("v2_apply_guided_commitment_replace_mutation", {
-    p_old_commitment_id: args.commitment.id,
-    p_clerk_user_id: args.clerkUserId,
-    p_new_behavior_statement: args.behaviorStatement,
-    p_expected_old_updated_at: args.commitment.updated_at,
-    p_now: new Date().toISOString(),
+  seasonMode: SmsSeasonMode;
+  messageSid: string;
+}): Promise<SmsGoalSeasonMutationResult | { ok: false; code: string }> {
+  return applyCanonicalGoalChangeWithSeasonMutation({
+    clerkUserId: args.clerkUserId,
+    commitment: args.commitment,
+    behaviorStatement: args.behaviorStatement,
+    seasonMode: args.seasonMode,
+    idempotencyKey: args.messageSid,
+    proofMessageSid: args.messageSid,
+    memoryReasonCode:
+      args.seasonMode === "new_chapter"
+        ? "sms_pending_resolution_replace"
+        : "sms_pending_resolution_same_season_sync",
+    memoryReasonCodeIdempotentReplay: "sms_pending_resolution_replace_raced_winner",
   });
-  if (error) return { ok: false, code: `rpc_error:${error.message}` };
-  const row = Array.isArray(data) ? data[0] : null;
-  const result = typeof row?.result === "string" ? row.result : "error";
-  const oldCommitmentId =
-    typeof row?.old_commitment_id === "string" ? row.old_commitment_id : args.commitment.id;
-  const newCommitmentId =
-    typeof row?.new_commitment_id === "string" && row.new_commitment_id.trim()
-      ? row.new_commitment_id.trim()
-      : "";
-  if (result === "applied" || result === "already_applied") {
-    if (!newCommitmentId) return { ok: false, code: "missing_new_id" };
-    await clearStaleAdaptiveContractColumns(newCommitmentId);
-    await recomputeV2CoachingMemory(newCommitmentId, {
-      reasonCode:
-        result === "already_applied"
-          ? "sms_pending_resolution_replace_raced_winner"
-          : "sms_pending_resolution_replace",
-    });
-    return { ok: true, oldCommitmentId, newCommitmentId };
-  }
-  return { ok: false, code: result };
 }
 
 async function applySmsTightenMutation(args: {
@@ -238,6 +257,119 @@ function logSmsPending(j: Record<string, unknown>) {
 
 export { isThinCommitmentBarForVictoryCallout } from "@/lib/v2-human-sms-brain/thin-commitment-bar-for-victory";
 
+export type SmsPendingBootstrapResult = {
+  promoted: boolean;
+  candidate: string | null;
+  skipReason: string | null;
+};
+
+/** Command-only raise phrases must not become candidate_behavior_statement via full-body fallback. */
+const RAISE_BAR_COMMAND_ONLY_RE =
+  /^(?:this\s+goal\s+is\s+too\s+easy|raise\s+the\s+bar|make\s+it\s+harder|want\s+more|ready\s+for\s+more|increase\s+the\s+bar|harder\s+bar|bigger\s+challenge)\.?$/i;
+
+export function isSmsRaiseBarCommandOnlyText(text: string): boolean {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (!t) return true;
+  return RAISE_BAR_COMMAND_ONLY_RE.test(t);
+}
+
+function extractBootstrapCandidateForPending(
+  raw: string,
+  detectedIntent: string | undefined
+): string | null {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  if (!trimmed) return null;
+
+  if (detectedIntent === "sms_raise_bar_request") {
+    if (isSmsRaiseBarCommandOnlyText(trimmed)) return null;
+
+    const durEx = extractDurationAnchoredBarPhrase(trimmed, BEHAVIOR_MAX);
+    if (durEx.phrase && !isSmsRaiseBarCommandOnlyText(durEx.phrase)) {
+      return durEx.phrase;
+    }
+
+    const heur = extractCandidateBarsFromSms(trimmed);
+    const fromHeur = heur.candidateNewBar?.trim() || heur.candidateTightenedBar?.trim() || null;
+    if (fromHeur && !isSmsRaiseBarCommandOnlyText(fromHeur)) return fromHeur;
+
+    return null;
+  }
+
+  return extractDeterministicDailyBarCandidate(trimmed);
+}
+
+/**
+ * Slice A3 — same-turn promotion after Wave 4 creates awaiting_candidate pending.
+ */
+export async function bootstrapSmsPendingConfirmationFromInbound(args: {
+  commitment: ActiveV2CommitmentRow;
+  rawBody: string;
+}): Promise<SmsPendingBootstrapResult> {
+  const pending = getPendingResolutionOrNull(args.commitment);
+  if (!pending?.payload || pending.payload.source !== "sms_inbound") {
+    return { promoted: false, candidate: null, skipReason: "no_pending" };
+  }
+  if (pending.kind !== "commitment_replace" && pending.kind !== "commitment_tighten") {
+    return { promoted: false, candidate: null, skipReason: "wrong_kind" };
+  }
+  const smsState = pending.payload.sms_state ?? "awaiting_candidate";
+  if (smsState !== "awaiting_candidate") {
+    return { promoted: false, candidate: null, skipReason: "not_awaiting_candidate" };
+  }
+
+  const raw = args.rawBody.trim();
+  if (!raw) {
+    return { promoted: false, candidate: null, skipReason: "empty_body" };
+  }
+
+  const detectedIntent = pending.payload.detected_intent;
+  let extracted = extractBootstrapCandidateForPending(raw, detectedIntent);
+  if (preferRichTextOverBareDuration(raw, extracted)) {
+    extracted = null;
+  }
+  if (
+    detectedIntent === "sms_raise_bar_request" &&
+    (!extracted || isSmsRaiseBarCommandOnlyText(extracted))
+  ) {
+    return { promoted: false, candidate: null, skipReason: "raise_bar_missing_candidate" };
+  }
+  if (!extracted || isVagueOrInvalidCandidateBar(extracted)) {
+    return { promoted: false, candidate: null, skipReason: "vague_or_invalid" };
+  }
+  if (isUnsafeSmsGoalCandidateText(extracted)) {
+    return { promoted: false, candidate: null, skipReason: "unsafe" };
+  }
+  const clamped = clampCandidateForKind(pending.kind, extracted);
+  if (!clamped) {
+    return { promoted: false, candidate: null, skipReason: "clamp_failed" };
+  }
+
+  const merged = await mergeSmsPendingResolutionPayload({
+    commitmentId: args.commitment.id,
+    merge: (prev) => {
+      const season = resolveSeasonModeForPendingReplace({
+        payload: prev,
+        candidateBar: clamped,
+        currentBehaviorStatement: args.commitment.behavior_statement,
+      });
+      return {
+        ...prev,
+        sms_state: "awaiting_confirmation",
+        candidate_behavior_statement: clamped,
+        candidate_tightened_bar: pending.kind === "commitment_tighten" ? clamped : prev.candidate_tightened_bar,
+        candidate_new_bar: pending.kind === "commitment_replace" ? clamped : prev.candidate_new_bar,
+        confirmation_prompt_sent_at: new Date().toISOString(),
+        ...seasonModePayloadMerge(prev, season.mode, season.reason),
+      };
+    },
+  });
+  if (!merged.ok) {
+    return { promoted: false, candidate: null, skipReason: "merge_failed" };
+  }
+
+  return { promoted: true, candidate: clamped, skipReason: null };
+}
+
 function preferRichTextOverBareDuration(raw: string, extractedPhrase: string | null): boolean {
   const r = raw.trim();
   if (!extractedPhrase || r.length < 36) return false;
@@ -271,11 +403,15 @@ async function phase1PendingReply(args: {
   return r.message;
 }
 
+export type SmsPendingResolutionHandleResult =
+  | { handled: false }
+  | { handled: true; replyBody: string; seasonMutation?: SmsGoalSeasonMutationResult };
+
 export async function tryHandleSmsInboundPendingResolution(args: {
   job: { message_sid: string; raw_body: string | null };
   clerkUserId: string;
   commitment: ActiveV2CommitmentRow;
-}): Promise<{ handled: false } | { handled: true; replyBody: string }> {
+}): Promise<SmsPendingResolutionHandleResult> {
   const rawFull = (args.job.raw_body ?? "").trim();
   const rawPreview = rawFull.slice(0, RAW_LOG_MAX);
 
@@ -373,8 +509,11 @@ export async function tryHandleSmsInboundPendingResolution(args: {
           sms_state: "awaiting_candidate",
         }),
       });
-      const lostDraft =
-        "I lost track of the candidate—what exactly should I hold you to tomorrow? One clear action.";
+      const raiseNeedsBar =
+        payload.detected_intent === "sms_raise_bar_request";
+      const lostDraft = raiseNeedsBar
+        ? "What harder daily bar should I hold you to? One clear action—then tell me YES when it's right."
+        : "I lost track of the candidate—what exactly should I hold you to tomorrow? One clear action.";
       return {
         handled: true,
         replyBody: await phase1PendingReply({
@@ -468,22 +607,30 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     c = (await getActiveCommitment(args.clerkUserId)) ?? c;
 
     if (kind === "commitment_replace") {
+      const seasonResolved = resolveSeasonModeForPendingReplace({
+        payload,
+        candidateBar: cand,
+        currentBehaviorStatement: c.behavior_statement,
+      });
       logSmsPending({
         pending_resolution_sms_state: "awaiting_confirmation",
         detected_candidate: cand,
         confirmation: "yes",
         mutation_attempted: true,
         mutation_success: false,
-        rpc: "v2_apply_guided_commitment_replace_mutation",
+        rpc: "v2_apply_sms_goal_change_with_season_mutation",
+        season_mode: seasonResolved.mode,
         old_commitment_id: c.id,
         new_commitment_id: null,
         message_sid: args.job.message_sid,
         raw_text_preview: rawPreview,
       });
-      const rep = await applySmsReplaceMutation({
+      const rep = await applySmsGoalChangeWithSeasonMutation({
         clerkUserId: args.clerkUserId,
         commitment: c,
         behaviorStatement: cand,
+        seasonMode: seasonResolved.mode,
+        messageSid: args.job.message_sid,
       });
       if (!rep.ok) {
         logSmsPending({
@@ -492,14 +639,15 @@ export async function tryHandleSmsInboundPendingResolution(args: {
           confirmation: "yes",
           mutation_attempted: true,
           mutation_success: false,
-          rpc: "v2_apply_guided_commitment_replace_mutation",
+          rpc: "v2_apply_sms_goal_change_with_season_mutation",
+          season_mode: seasonResolved.mode,
           old_commitment_id: c.id,
           new_commitment_id: null,
           message_sid: args.job.message_sid,
           raw_text_preview: rawPreview,
           error: rep.code,
         });
-        const rpcHoldDraft = `I couldn’t safely update it from here. I still have the candidate: ${cand}. I’ll keep this pending so we don’t lose it.`;
+        const rpcHoldDraft = buildSmsPendingRpcHoldPreviewDraft(cand);
         return {
           handled: true,
           replyBody: await phase1PendingReply({
@@ -517,7 +665,9 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         confirmation: "yes",
         mutation_attempted: true,
         mutation_success: true,
-        rpc: "v2_apply_guided_commitment_replace_mutation",
+        rpc: "v2_apply_sms_goal_change_with_season_mutation",
+        season_mode: rep.seasonMode,
+        season_transition_applied: rep.seasonTransitionApplied,
         old_commitment_id: rep.oldCommitmentId,
         new_commitment_id: rep.newCommitmentId,
         message_sid: args.job.message_sid,
@@ -537,29 +687,36 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       if (thinReplace) {
         vrAppend = null;
       }
-      let replaceReply = `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`;
-      const beforeReplaceCallout = replaceReply;
-      replaceReply = appendSmsParagraphIfUnderCap(replaceReply, vrAppend);
-      const replaceCalloutShown = vrAppend != null && replaceReply !== beforeReplaceCallout;
-      await insertSmsCommitmentChangeProofEvent({
-        commitmentId: rep.newCommitmentId,
-        clerkUserId: args.clerkUserId,
-        messageSid: args.job.message_sid,
-        messagePreview: cand,
-        kind: "commitment_replaced",
-        victoryCalloutExtras: replaceCalloutShown ? replaceCallout.eventPayloadExtras : undefined,
-      });
-      const allowVrReplace = /\bvictory room\b/i.test(replaceReply);
-      const replaceSafeFallback = `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`;
+      const replaceReply =
+        rep.seasonMode === "new_chapter"
+          ? `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`
+          : `Done. Updated bar: ${cand}. I’ll hold you to that tomorrow.`;
+      let replaceReplyFinal = replaceReply;
+      if (rep.seasonMode === "new_chapter") {
+        const proofInserted = !rep.idempotentReplay;
+        if (proofInserted && vrAppend) {
+          const beforeReplaceCallout = replaceReplyFinal;
+          replaceReplyFinal = appendSmsParagraphIfUnderCap(replaceReplyFinal, vrAppend);
+          if (replaceReplyFinal !== beforeReplaceCallout) {
+            await patchVictoryCalloutOnSpineEventBestEffort({
+              idempotencyKey: `v2_sms_commitment_change_proof:commitment_replaced:${args.job.message_sid}`,
+              spineExtras: replaceCallout.eventPayloadExtras,
+            });
+          }
+        }
+      }
+      const allowVrReplace = /\bvictory room\b/i.test(replaceReplyFinal);
+      const replaceSafeFallback = replaceReply;
       return {
         handled: true,
         replyBody: await phase1PendingReply({
-          machineDraft: replaceReply,
+          machineDraft: replaceReplyFinal,
           brainCase: "pending_resolution_replace_applied",
           allowVictoryRoomPhrase: allowVrReplace,
           currentBarSummary,
           safeFallback: replaceSafeFallback,
         }),
+        seasonMutation: rep,
       };
     }
 
@@ -613,7 +770,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         raw_text_preview: rawPreview,
         error: tight.code,
       });
-      const rpcHoldTightDraft = `I couldn’t safely update it from here. I still have the candidate: ${cand}. I’ll keep this pending so we don’t lose it.`;
+      const rpcHoldTightDraft = buildSmsPendingRpcHoldPreviewDraft(cand);
       return {
         handled: true,
         replyBody: await phase1PendingReply({
@@ -655,17 +812,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       vrAppendTight = null;
     }
     let tightenReply = `Done. New bar: ${normalized}. I’ll hold you to that tomorrow.`;
-    const beforeTightenCallout = tightenReply;
-    tightenReply = appendSmsParagraphIfUnderCap(tightenReply, vrAppendTight);
-    const tightenCalloutShown = vrAppendTight != null && tightenReply !== beforeTightenCallout;
-    await insertSmsCommitmentChangeProofEvent({
+    const proofTightenInserted = await insertSmsCommitmentChangeProofEvent({
       commitmentId: reloaded.id,
       clerkUserId: args.clerkUserId,
       messageSid: args.job.message_sid,
       messagePreview: normalized,
       kind: "commitment_tightened",
-      victoryCalloutExtras: tightenCalloutShown ? tightenCallout.eventPayloadExtras : undefined,
     });
+    let tightenCalloutShown = false;
+    if (proofTightenInserted && vrAppendTight) {
+      const beforeTightenCallout = tightenReply;
+      tightenReply = appendSmsParagraphIfUnderCap(tightenReply, vrAppendTight);
+      tightenCalloutShown = tightenReply !== beforeTightenCallout;
+      if (tightenCalloutShown) {
+        await patchVictoryCalloutOnSpineEventBestEffort({
+          idempotencyKey: `v2_sms_commitment_change_proof:commitment_tightened:${args.job.message_sid}`,
+          spineExtras: tightenCallout.eventPayloadExtras,
+        });
+      }
+    }
     const allowVrTight = /\bvictory room\b/i.test(tightenReply);
     const tightenSafeFallback = `Done. New bar: ${normalized}. I’ll hold you to that tomorrow.`;
     return {
@@ -894,31 +1059,59 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     };
   }
 
+  if (isUnsafeSmsGoalCandidateText(clamped) || isUnsafeSmsGoalCandidateText(candidateRaw)) {
+    const unsafeSafety = classifyInboundSmsSafetyTier(clamped);
+    const unsafeDraft =
+      buildInboundSmsSafetyReplyBody(unsafeSafety) ??
+      "Summitt Mindset cannot help with that request. Send me a safe daily commitment and we’ll work from there.";
+    return {
+      handled: true,
+      replyBody: await phase1PendingReply({
+        machineDraft: unsafeDraft,
+        brainCase: "pending_resolution_unsafe_candidate",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: unsafeDraft,
+      }),
+    };
+  }
+
   const mergedOk = await mergeSmsPendingResolutionPayload({
     commitmentId: c.id,
-    merge: (prev) => ({
-      ...prev,
-      sms_state: "awaiting_confirmation",
-      candidate_behavior_statement: clamped,
-      candidate_tightened_bar: kind === "commitment_tighten" ? clamped : prev.candidate_tightened_bar,
-      candidate_new_bar: kind === "commitment_replace" ? clamped : prev.candidate_new_bar,
-      confirmation_prompt_sent_at: new Date().toISOString(),
-      ...(aiMeta?.accepted
-        ? {
-            ai_candidate_extraction_used: true,
-            ai_candidate_confidence: aiMeta.confidence,
-            ai_candidate_accepted: true,
-            ai_candidate_rejected_reason: null,
-            ai_reasoning_short: aiMeta.reasoningShort,
-          }
-        : {
-            ai_candidate_extraction_used: false,
-            ai_candidate_confidence: null,
-            ai_candidate_accepted: null,
-            ai_candidate_rejected_reason: null,
-            ai_reasoning_short: null,
-          }),
-    }),
+    merge: (prev) => {
+      const season =
+        kind === "commitment_replace"
+          ? resolveSeasonModeForPendingReplace({
+              payload: prev,
+              candidateBar: clamped,
+              currentBehaviorStatement: c.behavior_statement,
+            })
+          : null;
+      return {
+        ...prev,
+        sms_state: "awaiting_confirmation",
+        candidate_behavior_statement: clamped,
+        candidate_tightened_bar: kind === "commitment_tighten" ? clamped : prev.candidate_tightened_bar,
+        candidate_new_bar: kind === "commitment_replace" ? clamped : prev.candidate_new_bar,
+        confirmation_prompt_sent_at: new Date().toISOString(),
+        ...(season ? seasonModePayloadMerge(prev, season.mode, season.reason) : {}),
+        ...(aiMeta?.accepted
+          ? {
+              ai_candidate_extraction_used: true,
+              ai_candidate_confidence: aiMeta.confidence,
+              ai_candidate_accepted: true,
+              ai_candidate_rejected_reason: null,
+              ai_reasoning_short: aiMeta.reasoningShort,
+            }
+          : {
+              ai_candidate_extraction_used: false,
+              ai_candidate_confidence: null,
+              ai_candidate_accepted: null,
+              ai_candidate_rejected_reason: null,
+              ai_reasoning_short: null,
+            }),
+      };
+    },
   });
   if (!mergedOk.ok) {
     const saveGlitchDraft =
@@ -962,7 +1155,15 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       }),
     };
   }
-  const replacePromptDraft = `I can change it to: ${clamped}. Should I make that your new commitment?`;
+  const replaceSeasonResolved = resolveSeasonModeForPendingReplace({
+    payload,
+    candidateBar: clamped,
+    currentBehaviorStatement: c.behavior_statement,
+  });
+  const replacePromptDraft =
+    replaceSeasonResolved.mode === "new_chapter"
+      ? `I can change the focus to: ${clamped}. Want to lock that in?`
+      : `I can raise the bar to: ${clamped}. Want me to hold you to that?`;
   return {
     handled: true,
     replyBody: await phase1PendingReply({

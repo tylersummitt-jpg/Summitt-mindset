@@ -17,7 +17,7 @@ describe("VictoryMomentCard (Phase 1 trust cleanup)", () => {
     );
 
     expect(html).toContain("Kept the Thread Alive");
-    expect(html).toContain("Stayed engaged");
+    expect(html).not.toContain("Stayed engaged");
     expect(html).toContain("You stayed engaged instead of disappearing.");
     expect(html).toContain("May 1, 2026");
 

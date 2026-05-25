@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { redirectIfOnboardingIncomplete } from "@/lib/onboarding-incomplete-redirect";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
   const subscribedRaw = md?.summittSubscribed;
@@ -16,7 +18,7 @@ function isSubscribedFromMetadata(md: Record<string, unknown>) {
 
 /**
  * PR7: `/dashboard/day/*` is no longer a progression surface; gate auth/subscription then send users
- * to the commitment-first dashboard.
+ * to Victory Room.
  */
 export default async function DayLayout({ children: _children }: { children: ReactNode }) {
   const user = await currentUser();
@@ -31,9 +33,7 @@ export default async function DayLayout({ children: _children }: { children: Rea
     redirect("/subscribe");
   }
 
-  if (md?.onboardingCompleted !== true) {
-    redirect("/onboarding");
-  }
+  await redirectIfOnboardingIncomplete(user.id, md);
 
-  redirect("/dashboard");
+  redirect(MEMBER_APP_HOME_PATH);
 }

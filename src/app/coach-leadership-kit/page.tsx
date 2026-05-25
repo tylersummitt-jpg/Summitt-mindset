@@ -15,7 +15,7 @@ const COACH_OG_IMAGE_URL =
 export const metadata: Metadata = {
   title: "Pat Summitt Leadership Kit for Coaches",
   description:
-    "A coach-focused Summitt Mindset membership offer with daily SMS accountability and a complimentary Pat Summitt Leadership Kit—we cover shipping. Summitt Mindset is for anyone seeking serious accountability; this offer is tailored for sports coaches.",
+    "A coach-focused Summitt Mindset membership offer with daily text accountability and a complimentary Pat Summitt Leadership Kit—we cover shipping. Summitt Mindset is for anyone seeking serious accountability; this offer is tailored for sports coaches.",
   alternates: {
     canonical: `https://summittmindset.com${COACH_LANDING_PATH}`,
   },

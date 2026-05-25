@@ -10,10 +10,16 @@ const ALLOWED_FROM = new Set(["onboarding", "post-sign-in", "ask-pat"]);
 const INTERNAL_PATH_ALLOWLIST = new Set([
   "/post-sign-in",
   "/onboarding",
+  "/onboarding/identity",
+  "/onboarding/commitment",
+  "/onboarding/review",
+  "/onboarding/sms",
+  "/onboarding/complete",
   "/subscribe/success",
   "/ask-pat",
   "/film-room",
   "/dashboard",
+  "/dashboard/victory-room",
   "/coach/setup",
   "/coach/complete",
 ]);

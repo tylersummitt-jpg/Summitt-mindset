@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         ok: false,
         reason: "day_completion_removed",
         message:
-          "Completing a numbered day here is no longer supported. Accountability is on your commitment over SMS; use the dashboard for practice or depth if you want it.",
+          "Completing a numbered day here is no longer supported. Accountability is on your commitment by text; use the dashboard for practice or depth if you want it.",
       },
       { status: 200 }
     );

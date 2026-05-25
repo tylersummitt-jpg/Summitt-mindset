@@ -1,7 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 
+const { setPendingResolution } = vi.hoisted(() => ({
+  setPendingResolution: vi.fn(async () => "2026-05-10T12:00:00.000Z"),
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {},
+}));
+
+vi.mock("@/lib/v2-guided-resolution", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/v2-guided-resolution")>();
+  return {
+    ...actual,
+    setPendingResolution,
+    clearPendingResolutionIfExpired: vi.fn(async () => undefined),
+    getPendingResolutionOrNull: vi.fn(() => null),
+  };
+});
+
+vi.mock("@/lib/v2-commitment", () => ({
+  getActiveCommitment: vi.fn(async () => null),
 }));
 
 import { applyWave4SmsCommitmentPendingResolution } from "@/lib/v2-sms-commitment-change";
@@ -57,6 +75,28 @@ describe("applyWave4SmsCommitmentPendingResolution — Slice 1 parity", () => {
     expect(r.pendingApplied).toBe(false);
     expect(r.skipReason).toBe("soft_quit");
     expect(r.pendingKind).toBeNull();
+  });
+
+  it("maps sms_raise_bar_request to commitment_replace pending", async () => {
+    const r = await applyWave4SmsCommitmentPendingResolution({
+      commitmentId: "cmt_wave4",
+      clerkUserId: "user_wave4",
+      commitment: minimalCommitment(),
+      messageSid: "SMwave4raise",
+      rawBody: "this goal is too easy",
+      intentPack: {
+        intent: "sms_raise_bar_request",
+        candidateTightenedBar: null,
+        candidateNewBar: null,
+        aiConfidence: 0.9,
+      },
+    });
+    expect(r.pendingApplied).toBe(true);
+    expect(r.pendingKind).toBe("commitment_replace");
+    expect(setPendingResolution).toHaveBeenCalled();
+    const payload = (setPendingResolution as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]
+      ?.payload;
+    expect(payload?.detected_intent).toBe("sms_raise_bar_request");
   });
 
   it("skips with paused_reactivation when accountability phase is low_pressure_reactivation", async () => {

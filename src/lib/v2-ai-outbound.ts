@@ -568,6 +568,8 @@ export function deriveV2DailyMessagePurpose(args: {
   nowMs: number;
   /** When true, Wave 7 evolution signal applies (caller computed gates). */
   wave7SurfaceEvolution?: boolean;
+  /** Canonical recurrence from deriveSmsPatternSignal — required for blockers14>=2 repeated_blocker_pattern path. */
+  patternRecurrenceEligible?: boolean;
 }): V2DailyMessagePurpose {
   if (args.contractProposalMode) return "contract_overlay_proposal";
   if (args.serverStrategy === "reactivation_nudge") return "low_pressure_reactivation";
@@ -591,7 +593,8 @@ export function deriveV2DailyMessagePurpose(args: {
   if (
     args.serverState === "blocked" &&
     args.hasBlockerPreview &&
-    (args.serverStrategy === "blocker_followup" || blockers14 >= 2)
+    (args.serverStrategy === "blocker_followup" ||
+      (blockers14 >= 2 && args.patternRecurrenceEligible === true))
   ) {
     return "repeated_blocker_pattern";
   }

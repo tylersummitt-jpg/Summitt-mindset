@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import CancelFlowClient from "./cancel-flow-client";
 
 export default async function CancelPage() {
@@ -13,7 +14,7 @@ export default async function CancelPage() {
 
   // ✅ Only subscribed members can cancel
   if (!metadata?.summittSubscribed) {
-    redirect("/dashboard");
+    redirect(MEMBER_APP_HOME_PATH);
   }
 
   return (

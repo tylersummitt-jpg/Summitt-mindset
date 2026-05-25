@@ -4,6 +4,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { PendingResolutionBanner } from "@/app/dashboard/pending-resolution-banner";
 import { resolveActionablePendingResolutionKindForDashboard } from "@/lib/v2-dashboard-pending-resolution";
+import { getOnboardingSobStatus } from "@/lib/onboarding-sob-gates";
 
 const DASHBOARD_BG_MOBILE = "/brand/dashboard-bg-mobile.png";
 const DASHBOARD_BG_DESKTOP = "/brand/dashboard-bg-desktop.png";
@@ -54,9 +55,13 @@ export default async function DashboardLayout({
 
   const onboardingCompleted = md?.onboardingCompleted === true;
 
-  // 🔒 HARD GATE — onboarding required
+  // 🔒 HARD GATE — onboarding required (earliest missing no-Why step)
   if (!onboardingCompleted) {
-    redirect("/onboarding");
+    const gate = await getOnboardingSobStatus(user.id, md);
+    if (gate.redirectTo) {
+      redirect(gate.redirectTo);
+    }
+    redirect("/onboarding/identity");
   }
 
   const pendingKind = await resolveActionablePendingResolutionKindForDashboard(user.id);

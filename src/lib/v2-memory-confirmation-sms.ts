@@ -4,10 +4,8 @@
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
-import {
-  computeIdentityRefreshDueAtIsoFromNow,
-  validateOnboardingIdentityAnchorInput,
-} from "@/lib/v2-identity-anchor";
+import { validateOnboardingIdentityAnchorInput } from "@/lib/v2-identity-anchor";
+import { persistWave11ConfirmedIdentityAnchorEdit } from "@/lib/v2-persist-identity-edit";
 import { buildProofMomentForMemoryUpdated, proofMomentPayloadFields } from "@/lib/v2-proof-moment";
 import { parseSmsConfirmation } from "@/lib/v2-sms-pending-resolution-complete";
 
@@ -208,6 +206,7 @@ export function wave11ShouldOfferConfirmationOffer(args: {
   if (args.confidence < 0.58) return false;
   if (args.shouldWriteOutcome) return false;
   if (args.gatedMode === "commitment_change_handoff") return false;
+  if (args.gatedMode === "identity_edit_integrity") return false;
   if (args.gatedMode === "clarify" && args.confidence < 0.82) return false;
   if (args.signalType === "identity_shift") return args.identityCandidateOk;
   if (args.signalType === "relationship_context_changed") return args.relationshipCandidateOk;
@@ -268,29 +267,25 @@ export async function applyWave11ConfirmedProfileUpdates(args: {
     appliedResponsibility: false,
   };
 
-  const nowIso = new Date().toISOString();
-
   if (args.pending.pendingKind === "identity_anchor_update") {
     const cand = args.pending.candidateIdentityAnchorText;
     const v = validateOnboardingIdentityAnchorInput(cand);
     if (!v.ok) return out;
 
-    const { error } = await supabaseServer
-      .from("user_profiles")
-      .update({
-        identity_anchor_text: v.normalized,
-        identity_source: "explicitly_confirmed",
-        identity_last_confirmed_at: nowIso,
-        identity_refresh_due_at: computeIdentityRefreshDueAtIsoFromNow(),
-      })
-      .eq("clerk_user_id", args.clerkUserId);
+    const result = await persistWave11ConfirmedIdentityAnchorEdit({
+      clerkUserId: args.clerkUserId,
+      identityAnchorText: v.normalized,
+    });
 
-    if (!error) out.appliedIdentity = true;
-    else
-      console.error("[wave11] identity profile update failed", {
+    if (result.ok) {
+      out.appliedIdentity = true;
+    } else {
+      console.error("[wave11] versioned identity update failed", {
         clerk_user_id: args.clerkUserId,
-        message: error.message,
+        code: result.code,
+        error: result.error,
       });
+    }
     return out;
   }
 

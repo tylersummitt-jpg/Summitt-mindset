@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import Link from "next/link";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 /**
  * Presentational coach funnel completion — display only.
@@ -37,8 +38,8 @@ export function CoachCompletionPanel(): ReactElement {
         <Link href="/ask-pat" className={secondaryCtaClass}>
           Ask Pat
         </Link>
-        <Link href="/dashboard" className={secondaryCtaClass}>
-          Dashboard
+        <Link href={MEMBER_APP_HOME_PATH} className={secondaryCtaClass}>
+          Victory Room
         </Link>
       </div>
     </div>

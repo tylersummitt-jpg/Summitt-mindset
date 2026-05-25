@@ -7,6 +7,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import {
+  FORBIDDEN_INBOUND_DETERMINISTIC_RELATIONSHIP_APPEND,
+  RELATIONSHIP_SMS_ROUTE_FILES,
+} from "./sms-voice-ownership-static-policy";
+
 const REPO_ROOT = process.cwd();
 
 /**
@@ -363,5 +368,26 @@ describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relatio
     expect(winback).not.toContain("appendPreservedSignedLink");
     expect(winback).not.toContain("createWinbackToken");
     expect(winback).not.toContain("/winback?t=");
+  });
+});
+
+describe("Phase 4 — SMS Voice Ownership Slice 1 cross-check", () => {
+  it("relationship coaching send routes are locked by sms-voice-ownership-static.test.ts", () => {
+    const voiceStatic = path.join(REPO_ROOT, "src/lib/sms-voice-ownership-static.test.ts");
+    expect(fs.existsSync(voiceStatic)).toBe(true);
+    for (const f of RELATIONSHIP_SMS_ROUTE_FILES) {
+      expect(PRODUCTION_SMS_SEND_CALLER_ALLOWLIST.has(f)).toBe(true);
+    }
+  });
+
+  it("inbound coach must not use forbidden deterministic Victory append (Slice 2)", () => {
+    const inbound = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/cron/sms-inbound-coach/route.ts"),
+      "utf8"
+    );
+    for (const forbidden of FORBIDDEN_INBOUND_DETERMINISTIC_RELATIONSHIP_APPEND) {
+      expect(inbound).not.toContain(forbidden);
+    }
+    expect(inbound).toContain("buildInboundProofCalloutHint");
   });
 });

@@ -2,35 +2,15 @@ import { currentUser, auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import EvolutionRecommendationCard from "@/components/EvolutionRecommendationCard";
 import { EVOLUTION_V1_SURFACED_ACTIONS } from "@/lib/v2-commitment-evolution-engine-v1";
-import type { EvolutionV1RecommendedAction } from "@/lib/v2-commitment-evolution-engine-v1";
 import {
   syncEvolutionRecommendationForCommitment,
   type EvolutionRecommendationRow,
 } from "@/lib/v2-commitment-evolution-recommendation";
+import { evolutionV1SurfaceCopy } from "@/lib/v2-evolution-surface-copy";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { getPendingResolutionOrNull } from "@/lib/v2-guided-resolution";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { isUserFullyOnV2AccountabilityPath } from "@/lib/v2-cutover-gates";
-
-function evolutionV1SurfaceCopy(action: EvolutionV1RecommendedAction): {
-  headline: string;
-  body: string;
-} {
-  switch (action) {
-    case "reframe_commitment":
-      return {
-        headline: "Coach read: the bar may feel heavy",
-        body: "A recent reply looked like the commitment is weighing on you. You do not need to change anything here in the app—this is guidance only. Use your SMS thread with Pat for the next check-in, or finish any guided follow-up if you already opened one.",
-      };
-    case "refresh_commitment_only":
-      return {
-        headline: "Coach read: refresh in progress",
-        body: "You have an active coaching refresh in progress. Continue in your SMS thread with Pat (YES / SAME / CHANGE / STILL and the follow-up prompts there). This dashboard does not replace that flow.",
-      };
-    default:
-      return { headline: "", body: "" };
-  }
-}
 
 export default async function DashboardPage() {
   const user = await currentUser();
@@ -91,12 +71,19 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8 pb-10 md:py-10 md:pb-10">
+      <header className="mb-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Daily OS</h1>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+          Utilities for text check-ins, your current bar, guided follow-up, and Coach Pat recommendations. Proof
+          and seasons live in Victory Room.
+        </p>
+      </header>
       <div className="space-y-8">
         {metadata?.smsEnabled !== true ? (
           <section className="rounded-2xl border border-[var(--border)] border-l-4 border-l-[var(--brand)] bg-white p-6 shadow-sm ring-1 ring-black/[0.03]">
             <h2 className="text-base font-semibold text-gray-900">Turn on accountability texts</h2>
             <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-              Pat&apos;s daily check-ins run over SMS. You can use the app without texts, but you&apos;ll miss
+              Pat&apos;s daily check-ins happen by text. You can use the app without texts, but you&apos;ll miss
               the core accountability loop.
             </p>
             <Link href="/user" className="member-text-link-amber mt-4 inline-flex">
@@ -130,15 +117,23 @@ export default async function DashboardPage() {
             )}
             {commitment.accountability_phase === "low_pressure_reactivation" ? (
               <p className="mt-4 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-[var(--muted)]">
-                You&apos;re in a low-pressure reactivation window—SMS stays light until you re-engage.
+                You&apos;re in a low-pressure reactivation window—texts stay light until you re-engage.
               </p>
+            ) : null}
+            {!pending && commitment.accountability_phase !== "low_pressure_reactivation" ? (
+              <Link
+                href="/dashboard/update-goal"
+                className="member-text-link-amber mt-5 inline-flex text-sm font-medium"
+              >
+                Update my goal
+              </Link>
             ) : null}
           </section>
         ) : (
           <section className="rounded-2xl border border-[var(--border)] bg-white p-6 shadow-sm ring-1 ring-black/[0.03]">
             <h2 className="text-base font-semibold text-gray-900">No active commitment on file</h2>
             <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-              Daily accountability SMS needs an active commitment with a clear behavior statement. If you
+              Daily text accountability needs an active commitment with a clear behavior statement. If you
               expected checks already, finish saving your commitment in onboarding—or ask for help if you
               believe this is wrong.
             </p>
@@ -169,15 +164,13 @@ export default async function DashboardPage() {
           />
         ) : null}
 
-        <section className="rounded-2xl border border-[var(--border)] border-l-[var(--brand)] border-l-4 bg-white p-6 shadow-md shadow-gray-900/[0.06] ring-1 ring-black/[0.04]">
-          <h2 className="text-base font-semibold text-gray-900">Victory Room</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-            Proof of how you&apos;ve held the line—cornerstones, prior chapters, and what you can share.
-          </p>
-          <Link href="/dashboard/victory-room" className="member-primary-cta mt-4">
-            Open Victory Room
+        <p className="text-sm text-[var(--muted)]">
+          <Link href="/dashboard/victory-room" className="font-medium text-gray-900 underline underline-offset-2">
+            Victory Room
           </Link>
-        </section>
+          {" "}
+          — proof, seasons, and shareable moments.
+        </p>
       </div>
     </main>
   );

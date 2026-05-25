@@ -13,10 +13,16 @@ vi.mock("openai", () => ({
   },
 }));
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
 import { isV3RelationshipVoiceReplySource } from "@/lib/north-star-coach-sms";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
+  buildWeeklyGoalAdjustmentLaneGuardrails,
+  buildWeeklyPlannedInterruptionLaneGuardrails,
   produceWeeklyV3RelationshipSms,
   weeklyLaneLocalValidation,
 } from "@/lib/v3-weekly-outbound-relationship-lane";
@@ -600,6 +606,128 @@ describe("produceWeeklyV3RelationshipSms", () => {
     });
     expect(r.shouldSend).toBe(true);
     expect(r.metadata.memory_repeat_guard_attempted).toBeFalsy();
+  });
+
+  it("system prompt includes weekly planned interruption guardrail when active", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson(
+              "Pause week — when you are back, one honest morning block is enough for next week."
+            ),
+          },
+        },
+      ],
+    });
+    await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        commitment: {
+          ...baseFacts().commitment,
+          planned_interruption_active: true,
+          planned_interruption_reason_category: "vacation",
+          planned_interruption_resume_hint: "next week",
+        },
+        weekly_proof: {
+          ...baseFacts().weekly_proof,
+          planned_pause_week: true,
+          silent_week: true,
+          rough_week: false,
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("planned_pause_week");
+    expect(systemMsg).toContain("WEEKLY PAT PAUSE");
+    expect(systemMsg).toContain("No YES/NO");
+    expect(systemMsg).toContain("not failure");
+  });
+
+  it("builds when planned_interruption fields missing", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("Solid week — one anchor for next week."),
+          },
+        },
+      ],
+    });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(true);
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).not.toContain("WEEKLY PAT PAUSE");
+  });
+
+  it("buildWeeklyPlannedInterruptionLaneGuardrails mentions no shame and no YES/NO menu", () => {
+    const g = buildWeeklyPlannedInterruptionLaneGuardrails();
+    expect(g).toMatch(/not failure|honest context/i);
+    expect(g).toMatch(/Do not shame silence/i);
+    expect(g).toMatch(/No YES\/NO/i);
+  });
+
+  it("system prompt includes weekly goal adjustment no-mutation guardrail", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("Solid week — one honest standard for next week."),
+          },
+        },
+      ],
+    });
+    await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        commitment: {
+          ...baseFacts().commitment,
+          goal_adjustment_move: "shrink_temporary",
+          goal_adjustment_mention_allowed: true,
+          goal_adjustment_requires_confirmation: true,
+          goal_adjustment_compatible_flow: "overlay",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("WEEKLY GOAL_ADJUSTMENT");
+    expect(systemMsg).toMatch(/not permission to mutate/i);
+    expect(systemMsg).toMatch(/Do not create a YES\/NO menu/i);
+  });
+
+  it("buildWeeklyGoalAdjustmentLaneGuardrails says raise_bar is invitation not command", () => {
+    const g = buildWeeklyGoalAdjustmentLaneGuardrails();
+    expect(g).toMatch(/raise_bar.*invitation/i);
+    expect(g).toMatch(/not a command/i);
+  });
+
+  it("buildWeeklyGoalAdjustmentLaneGuardrails says pause_cadence honors pause", () => {
+    const g = buildWeeklyGoalAdjustmentLaneGuardrails();
+    expect(g).toMatch(/pause_cadence|planned_interruption_active/i);
+    expect(g).toMatch(/avoid failure framing/i);
+  });
+
+  it("builds when goal_adjustment fields absent", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("You kept showing up — what is one anchor for next week?"),
+          },
+        },
+      ],
+    });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(true);
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("WEEKLY GOAL_ADJUSTMENT");
+    expect(baseFacts().commitment.goal_adjustment_move).toBeUndefined();
   });
 
   it("applyFinalVoiceOwnershipGate accepts safe weekly body with v3_weekly_relationship_lane", async () => {

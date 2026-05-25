@@ -10,6 +10,7 @@ import {
   bodyRepresentsPendingCandidate,
   buildInboundPendingReplacementFactsFromCommitment,
   detectPendingReplacementStateTruthViolations,
+  detectSeasonTransitionTruthViolations,
 } from "@/lib/v3-inbound-pending-replacement-truth";
 import {
   buildInboundV3RelationshipFacts,
@@ -133,6 +134,58 @@ describe("detectPendingReplacementStateTruthViolations", () => {
       { ...pendingReplacementFacts, pending_resolution_applied: true }
     );
     expect(hits).not.toContain("pending_replace_false_applied_language");
+  });
+});
+
+describe("detectSeasonTransitionTruthViolations", () => {
+  const sameChapterFacts = {
+    chapter_changed: false,
+    user_facing_transition: "same_chapter" as const,
+    bar_raised_in_same_chapter: true,
+    old_season_name: "Season 1",
+    new_season_name: "Season 1",
+  };
+
+  const newChapterFacts = {
+    chapter_changed: true,
+    user_facing_transition: "new_chapter" as const,
+    bar_raised_in_same_chapter: false,
+    old_season_name: "Season 1",
+    new_season_name: "Season 2",
+  };
+
+  it("blocks chapter language when user_facing_transition is none", () => {
+    const hits = detectSeasonTransitionTruthViolations("That chapter is closed — let's walk.", {
+      chapter_changed: false,
+      user_facing_transition: "none",
+      bar_raised_in_same_chapter: false,
+      old_season_name: null,
+      new_season_name: null,
+    });
+    expect(hits).toContain("season_transition_false_chapter_language");
+  });
+
+  it("blocks chapter language when facts are null", () => {
+    const hits = detectSeasonTransitionTruthViolations("New chapter started.", null);
+    expect(hits).toContain("season_transition_false_chapter_language");
+  });
+
+  it("blocks new chapter language for same_chapter bar raise", () => {
+    const hits = detectSeasonTransitionTruthViolations("New chapter started.", sameChapterFacts);
+    expect(hits).toContain("season_transition_false_chapter_language");
+  });
+
+  it("blocks season started language for same_chapter", () => {
+    const hits = detectSeasonTransitionTruthViolations(
+      "Your season started with a sharper bar.",
+      sameChapterFacts
+    );
+    expect(hits).toContain("season_transition_false_chapter_language");
+  });
+
+  it("allows chapter language when chapter_changed is true", () => {
+    const hits = detectSeasonTransitionTruthViolations("New chapter started.", newChapterFacts);
+    expect(hits).toEqual([]);
   });
 });
 

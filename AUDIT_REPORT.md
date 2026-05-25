@@ -1,6 +1,9 @@
 > **SUPERSEDED (historical only — April 2026)**  
 > This document describes the **retired progression / “complete the day” / Training Camp** product. The live system is **SMS-first accountability on one commitment**, **V2 event spine**, **Victory Room for proof**, and the app as a **support layer**. Do **not** use this file as current architecture or operator truth; keep it only for archaeology.
 
+> **CURRENT ONBOARDING (May 2026 — No-Why Star of Bethlehem)**  
+> Member onboarding in production code is **not** the flow in §2 below. Canonical path: **Welcome → My Identity → My Current Goal → Review → SMS → Complete → Victory Room**. Implementation: `src/lib/onboarding-sob-gates.ts`, `src/lib/onboarding-sob-page-guard.ts`, `src/app/onboarding/*`, `src/app/api/onboarding/*`. Legacy `/onboarding/relationships`, `/pressure`, `/why` are redirect-only; `POST /api/onboarding/relationships` and `pressure` return **410**. No My Why, no `needs_why`, no `life_desires` onboarding gates or writes. Migrations: `20260601120000_sob_onboarding_persistence.sql`, `20260602120000_sob_review_acknowledgement.sql`.
+
 ---
 
 # Summitt Mindset — State of the Product and Codebase Audit

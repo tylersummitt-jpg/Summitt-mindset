@@ -14,13 +14,54 @@ import {
   type V2PendingResolutionKind,
   type V2SmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
+import { deriveSeasonModeForSmsGoalChange } from "@/lib/v2-sms-season-mode";
+import {
+  classifyInboundSmsSafetyTier,
+  isUnsafeSmsGoalCandidateText,
+} from "@/lib/sms-inbound-safety";
+import type { SmsGoalAdjustmentMove } from "@/lib/sms-goal-adjustment-signal";
+import { isLikelyCommitmentChangeIntentTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
+import { isStrongV2YesNoOutcome } from "@/lib/v2-sms-accountability";
 
 /** Server-owned SMS commitment-change intent (prompt/logging only; not shown to user). */
 export type V2SmsCommitmentServerIntent =
   | "sms_tighten_request"
   | "sms_replace_request"
   | "sms_change_unspecified"
-  | "sms_soft_quit_or_frustration";
+  | "sms_soft_quit_or_frustration"
+  | "sms_raise_bar_request";
+
+const CANDIDATE_EXTRACT_MAX = 200;
+
+const COMMITMENT_CHANGE_CUE_RE =
+  /\b(change|new|switch|replace|different|goal|commitment|bar|instead)\b/i;
+
+const RAISE_BAR_PHRASE_RE =
+  /\b(too\s+easy|want\s+more|raise\s+the\s+bar|make\s+it\s+harder|ready\s+for\s+more|increase\s+the\s+bar|harder\s+bar|bigger\s+challenge)\b/i;
+
+const THIS_WEEK_IMPOSSIBLE_RE = /\bthis\s+week\s+is\s+impossible\b/i;
+
+export function hasSmsCommitmentChangeExtractionCue(raw: string): boolean {
+  return COMMITMENT_CHANGE_CUE_RE.test(raw.trim());
+}
+
+/** Identity-shaped bars must not silently replace Current Goal via SMS. */
+export function isIdentityLikeGoalCandidate(text: string): boolean {
+  const b = text.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!b) return false;
+  return /\b(be a better|become a better|better person|better version|better provider|better dad|better mom|better father|better mother)\b/.test(
+    b
+  );
+}
+
+export function isVagueOrInvalidSmsGoalCandidate(text: string): boolean {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (isIdentityLikeGoalCandidate(t)) return true;
+  if (!t || t.length < 3) return true;
+  if (/^(be better|do better|try harder|just\s+be|more)$/i.test(t)) return true;
+  if (/^(feel healthier|be happier)$/i.test(t)) return true;
+  return false;
+}
 
 export type V2SmsCommitmentIntentPack = {
   intent: V2SmsCommitmentServerIntent;
@@ -105,36 +146,86 @@ export function extractDurationAnchoredBarPhrase(raw: string, maxLen: number): V
   return { phrase, mode };
 }
 
+function sliceCandidateClause(clause: string): string {
+  return clause.trim().replace(/\s+/g, " ").slice(0, CANDIDATE_EXTRACT_MAX);
+}
+
 /** Pull coarse candidate phrases from natural language (no mutation). */
 export function extractCandidateBarsFromSms(raw: string): {
   candidateTightenedBar: string | null;
   candidateNewBar: string | null;
 } {
-  const t = raw.trim();
-  if (!t) return { candidateTightenedBar: null, candidateNewBar: null };
+  const t = raw.trim().replace(/\s+/g, " ");
+  if (!t || !hasSmsCommitmentChangeExtractionCue(t)) {
+    return { candidateTightenedBar: null, candidateNewBar: null };
+  }
+
+  const changeGoalTo = t.match(
+    /\bchange\s+(?:my\s+|the\s+)?(?:goal|commitment)\s+to\s+(.{3,180}?)(?:[.!?]|$)/i
+  );
+  if (changeGoalTo?.[1]?.trim()) {
+    const bar = sliceCandidateClause(changeGoalTo[1]!);
+    if (!isIdentityLikeGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
+
+  const newGoalColon = t.match(/\bnew\s+(?:goal|commitment)\s*:\s*(.{3,180}?)(?:[.!?]|$)/i);
+  if (newGoalColon?.[1]?.trim()) {
+    const bar = sliceCandidateClause(newGoalColon[1]!);
+    if (!isIdentityLikeGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
+
+  const goalShouldBe = t.match(/\b(?:my\s+)?goal\s+should\s+be\s+(.{3,180}?)(?:[.!?]|$)/i);
+  if (goalShouldBe?.[1]?.trim()) {
+    const bar = sliceCandidateClause(goalShouldBe[1]!);
+    if (!isIdentityLikeGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
+
+  const switchTo = t.match(/\bswitch\s+from\s+.+?\s+to\s+(.{3,180}?)(?:[.!?]|$)/i);
+  if (switchTo?.[1]?.trim()) {
+    const bar = sliceCandidateClause(switchTo[1]!);
+    if (!isIdentityLikeGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
+
+  const insteadBar = t.match(/\b(?:let'?s|let\s+us)\s+(?:do|make\s+it)\s+(.{3,180}?)\s+instead\b/i);
+  if (insteadBar?.[1]?.trim()) {
+    const bar = sliceCandidateClause(insteadBar[1]!);
+    if (!isIdentityLikeGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
 
   const myNew = t.match(
-    /\b(?:my\s+)?new\s+(?:goal|commitment|bar)\s+is\s+(.{3,180}?)(?:\.|$)/i
+    /\b(?:my\s+)?new\s+(?:goal|commitment|bar)\s+is\s+(.{3,180}?)(?:[.!?]|$)/i
   );
   if (myNew?.[1]?.trim()) {
-    return {
-      candidateTightenedBar: null,
-      candidateNewBar: myNew[1]!.trim().replace(/\s+/g, " ").slice(0, 200),
-    };
+    const bar = sliceCandidateClause(myNew[1]!);
+    if (!isIdentityLikeGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
   }
 
-  const goalIs = t.match(/\bgoal\s+is\s+to\s+(.{3,180}?)(?:\.|$)/i);
+  const goalIs = t.match(/\bgoal\s+is\s+to\s+(.{3,180}?)(?:[.!?]|$)/i);
   if (goalIs?.[1]?.trim()) {
-    return {
-      candidateTightenedBar: null,
-      candidateNewBar: goalIs[1]!.trim().replace(/\s+/g, " ").slice(0, 200),
-    };
+    const bar = sliceCandidateClause(goalIs[1]!);
+    if (!isIdentityLikeGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
   }
 
-  const durEx = extractDurationAnchoredBarPhrase(t, 200);
+  const durEx = extractDurationAnchoredBarPhrase(t, CANDIDATE_EXTRACT_MAX);
   if (durEx.phrase) {
     const phrase = durEx.phrase.trim().replace(/\s+/g, " ");
-    return { candidateTightenedBar: phrase, candidateNewBar: phrase };
+    if (!isIdentityLikeGoalCandidate(phrase)) {
+      return { candidateTightenedBar: phrase, candidateNewBar: phrase };
+    }
   }
 
   return { candidateTightenedBar: null, candidateNewBar: null };
@@ -143,9 +234,30 @@ export function extractCandidateBarsFromSms(raw: string): {
 /**
  * Map AI shadow interpretation + heuristics to a server intent for SMS handling.
  */
+export function shouldOpenCommitmentChangeHandoff(args: {
+  gatedMode: string;
+  userMessage: string;
+  plannedInterruptionActionable: boolean;
+  classificationEventType: "user_yes" | "user_no" | "user_partial" | null;
+}): boolean {
+  if (args.plannedInterruptionActionable) return false;
+  if (args.gatedMode === "commitment_change_handoff") return true;
+  const body = args.userMessage.trim();
+  if (!body) return false;
+  const safety = classifyInboundSmsSafetyTier(body, { fromPhone: null, messageSid: null });
+  if (safety.tier !== "safe") return false;
+  if (!isLikelyCommitmentChangeIntentTurn(body)) return false;
+  if (args.classificationEventType && isStrongV2YesNoOutcome(args.classificationEventType)) {
+    return false;
+  }
+  return true;
+}
+
 export function deriveSmsCommitmentChangeIntent(args: {
   rawBody: string;
   interpretation: V2InboundShadowInterpretationResult | null;
+  goalAdjustmentMove?: SmsGoalAdjustmentMove | null;
+  plannedInterruptionActionable?: boolean;
 }): V2SmsCommitmentIntentPack {
   const raw = args.rawBody.trim();
   const lower = raw.toLowerCase();
@@ -153,8 +265,26 @@ export function deriveSmsCommitmentChangeIntent(args: {
   const conf = typeof ai?.confidence === "number" ? ai.confidence : null;
   const candidates = extractCandidateBarsFromSms(raw);
 
+  if (args.plannedInterruptionActionable === true) {
+    return {
+      intent: "sms_change_unspecified",
+      candidateTightenedBar: null,
+      candidateNewBar: null,
+      aiConfidence: conf,
+    };
+  }
+
+  if (THIS_WEEK_IMPOSSIBLE_RE.test(raw)) {
+    return {
+      intent: "sms_change_unspecified",
+      candidateTightenedBar: null,
+      candidateNewBar: null,
+      aiConfidence: conf,
+    };
+  }
+
   const quitLike =
-    /\b(i\s+quit|i\s+can't\s+do\s+this|i\s+cannot\s+do\s+this|i'?m\s+done|im\s+done|this\s+is\s+pointless|i\s+give\s+up)\b/i.test(
+    /\b(i\s+quit|i\s+want\s+to\s+quit|i\s+can't\s+do\s+this|i\s+cannot\s+do\s+this|i'?m\s+done|im\s+done|this\s+is\s+pointless|i\s+give\s+up)\b/i.test(
       raw
     ) ||
     (ai?.discouraged_or_frustrated === true &&
@@ -165,6 +295,20 @@ export function deriveSmsCommitmentChangeIntent(args: {
       intent: "sms_soft_quit_or_frustration",
       candidateTightenedBar: null,
       candidateNewBar: null,
+      aiConfidence: conf,
+    };
+  }
+
+  const raiseFromSignal = args.goalAdjustmentMove === "raise_bar";
+  const explicitRaisePhrase = RAISE_BAR_PHRASE_RE.test(raw);
+  if (
+    explicitRaisePhrase ||
+    (raiseFromSignal && (explicitRaisePhrase || candidates.candidateNewBar))
+  ) {
+    return {
+      intent: "sms_raise_bar_request",
+      candidateTightenedBar: null,
+      candidateNewBar: candidates.candidateNewBar,
       aiConfidence: conf,
     };
   }
@@ -260,7 +404,8 @@ export type Wave4PendingSkipReason =
   | "soft_quit"
   | "paused_reactivation"
   | "refresh_session_active"
-  | "existing_pending";
+  | "existing_pending"
+  | "unsafe_goal_content";
 
 /**
  * Optionally sets pending_resolution_* from SMS (no commitment mutation).
@@ -281,6 +426,21 @@ export async function applyWave4SmsCommitmentPendingResolution(args: {
   const { intentPack } = args;
   if (intentPack.intent === "sms_soft_quit_or_frustration") {
     return { pendingApplied: false, pendingKind: null, skipReason: "soft_quit" };
+  }
+
+  const rawSafety = classifyInboundSmsSafetyTier(args.rawBody, {
+    fromPhone: null,
+    messageSid: args.messageSid,
+  });
+  if (rawSafety.tier !== "safe") {
+    return { pendingApplied: false, pendingKind: null, skipReason: "unsafe_goal_content" };
+  }
+
+  if (
+    isUnsafeSmsGoalCandidateText(intentPack.candidateNewBar ?? "") ||
+    isUnsafeSmsGoalCandidateText(intentPack.candidateTightenedBar ?? "")
+  ) {
+    return { pendingApplied: false, pendingKind: null, skipReason: "unsafe_goal_content" };
   }
 
   if (args.commitment.accountability_phase === "low_pressure_reactivation") {
@@ -309,6 +469,20 @@ export async function applyWave4SmsCommitmentPendingResolution(args: {
     ai_confidence: intentPack.aiConfidence,
     candidate_tightened_bar: intentPack.candidateTightenedBar,
     candidate_new_bar: intentPack.candidateNewBar,
+    ...(kind === "commitment_replace"
+      ? (() => {
+          const season = deriveSeasonModeForSmsGoalChange({
+            rawBody: args.rawBody,
+            candidateBar: intentPack.candidateNewBar ?? intentPack.candidateTightenedBar,
+            currentBehaviorStatement: args.commitment.behavior_statement,
+          });
+          return {
+            season_mode: season.mode,
+            season_mode_reason: season.reason,
+            season_mode_set_at: new Date().toISOString(),
+          };
+        })()
+      : {}),
   };
 
   await setPendingResolution({

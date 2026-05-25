@@ -82,6 +82,13 @@ export type V2WeeklyProofPack = {
   weekly_evolution_coaching_line: string | null;
   /** Wave 12: grounded proof lines from spine metadata this week (deduped). */
   proof_moment_hints: string[];
+  /** Newest-first week events for bounded pattern helper (no extra query). */
+  pattern_events_newest_first: Array<{
+    event_type: string;
+    occurred_at: string;
+    created_at?: string;
+    payload_json?: Record<string, unknown> | null;
+  }>;
 };
 
 export function validateV2WeeklyProofSmsBody(body: string): boolean {
@@ -168,7 +175,11 @@ export async function buildV2WeeklyProofPack(args: {
   let checks = 0;
   let blockers = 0;
   const blockerSnippets: string[] = [];
-  const weekEventsAsc: { event_type: string; occurred_at: string }[] = [];
+  const weekEventsAsc: {
+    event_type: string;
+    occurred_at: string;
+    payload_json?: Record<string, unknown> | null;
+  }[] = [];
   const proofMomentHints: string[] = [];
   const proofLinesSeen = new Set<string>();
 
@@ -177,7 +188,11 @@ export async function buildV2WeeklyProofPack(args: {
     if (dk < weekStart || dk > weekEnd) continue;
 
     const et = String(row.event_type);
-    weekEventsAsc.push({ event_type: et, occurred_at: String(row.occurred_at) });
+    weekEventsAsc.push({
+      event_type: et,
+      occurred_at: String(row.occurred_at),
+      payload_json: (row.payload_json as Record<string, unknown> | null) ?? null,
+    });
 
     const pj = row.payload_json as Record<string, unknown> | null;
     if (
@@ -266,6 +281,7 @@ export async function buildV2WeeklyProofPack(args: {
     identity_anchor_short: identityShort,
     weekly_evolution_coaching_line,
     proof_moment_hints: proofMomentHints,
+    pattern_events_newest_first: [...weekEventsAsc].reverse(),
   };
 }
 

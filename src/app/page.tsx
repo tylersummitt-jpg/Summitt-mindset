@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { currentUser } from "@clerk/nextjs/server";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 function isSubscribedFromMetadata(md: Record<string, any>) {
   const subscribedRaw = md?.summittSubscribed;
@@ -105,11 +106,11 @@ export default async function HomePage() {
                   {showContinue && (
                     <>
                       <p className="text-sm text-[var(--muted)]">
-                        Your dashboard is ready—commitment, SMS check-ins, and Victory Room.
+                        Victory Room is ready—your commitment, daily text check-ins, and proof in one place.
                       </p>
 
-                      <Link href="/dashboard" className={ctaHeroPrimaryClass}>
-                        Open dashboard →
+                      <Link href={MEMBER_APP_HOME_PATH} className={ctaHeroPrimaryClass}>
+                        Open Victory Room →
                       </Link>
                     </>
                   )}
@@ -117,7 +118,7 @@ export default async function HomePage() {
                   {showResumeOnboarding && (
                     <>
                       <p className="text-sm text-[var(--muted)]">
-                        Finish setup so Pat can hold you to your commitment on SMS.
+                        Finish setup so Pat can hold you to your commitment by text.
                       </p>
 
                       <Link href="/onboarding" className={ctaHeroPrimaryClass}>
@@ -129,7 +130,7 @@ export default async function HomePage() {
                   {showSubscribe && (
                     <>
                       <p className="text-sm text-[var(--muted)]">
-                        Start your membership to turn on SMS accountability and the full app.
+                        Start your membership to turn on daily text accountability and the full app.
                       </p>
 
                       <Link href="/subscribe" className={ctaHeroPrimaryClass}>
@@ -221,7 +222,7 @@ export default async function HomePage() {
             How Summitt Mindset Works
           </h2>
           <p className="text-[var(--muted)] leading-relaxed">
-            SMS accountability on your commitment, optional depth in the app, and Victory Room when you want proof.
+            Daily text accountability on your commitment, optional depth in the app, and Victory Room when you want proof.
           </p>
         </div>
 
@@ -231,7 +232,7 @@ export default async function HomePage() {
               Optional depth
             </h3>
             <p className="text-sm text-[var(--muted)] leading-relaxed mb-4">
-              Films, prompts, and reflection live here when you want more than SMS—secondary to your commitment bar.
+              Films, prompts, and reflection live here when you want more than texts—secondary to your commitment bar.
             </p>
             <Link
               href="/daily-practice"

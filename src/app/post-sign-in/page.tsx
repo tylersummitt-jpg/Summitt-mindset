@@ -9,6 +9,7 @@ import {
   isCoachAttributionEnabled,
   shouldSyncCoachAttribution,
 } from "@/lib/coach-attribution";
+import { getOnboardingSobStatus, MEMBER_APP_HOME_PATH } from "@/lib/onboarding-sob-gates";
 
 /**
  * ======================================================
@@ -20,7 +21,7 @@ import {
  * Order:
  * 1. Subscribe (if not subscribed)
  * 2. Onboarding (if incomplete)
- * 3. Dashboard (commitment-first home)
+ * 3. Victory Room (primary member home)
  *
  * Coach funnel no longer routes to /coach/setup (legacy shipping step retired from active flow).
  */
@@ -93,11 +94,12 @@ export default async function PostSignInPage() {
 
   const onboardingCompleted = effectiveMd?.onboardingCompleted === true;
   if (!onboardingCompleted) {
-    if (effectiveMd.acquisitionSource === "coach") {
-      redirect("/onboarding/identity");
+    const gate = await getOnboardingSobStatus(user.id, effectiveMd);
+    if (gate.redirectTo) {
+      redirect(gate.redirectTo);
     }
-    redirect("/onboarding");
+    redirect("/onboarding/identity");
   }
 
-  redirect("/dashboard");
+  redirect(MEMBER_APP_HOME_PATH);
 }

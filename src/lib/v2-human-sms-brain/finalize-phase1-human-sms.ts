@@ -66,6 +66,8 @@ export function phase1CuratedFallbackForCase(brainCase: HumanSmsBrainCase): stri
       return "I couldn’t save that from here—your wording is still noted. Try again or say it shorter.";
     case "pending_resolution_vague_need_detail":
       return "I need one clear daily action. What exactly should I hold you to tomorrow?";
+    case "pending_resolution_unsafe_candidate":
+      return "Summitt Mindset cannot help with that request. Send me a safe daily commitment and we'll work from there.";
     default:
       return "Got it.";
   }

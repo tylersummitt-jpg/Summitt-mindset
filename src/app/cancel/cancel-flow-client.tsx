@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 const REASONS = [
   { code: "too_busy", label: "Life got too busy" },
@@ -38,7 +39,7 @@ export default function CancelFlowClient() {
         throw new Error(data?.error || "Pause failed.");
       }
 
-      router.push("/dashboard?paused=true");
+      router.push(MEMBER_APP_HOME_PATH);
     } catch (err: any) {
       alert(err.message || "Something went wrong.");
     } finally {
@@ -70,7 +71,7 @@ export default function CancelFlowClient() {
         throw new Error(data?.error || "Cancel failed.");
       }
 
-      router.push("/dashboard?canceled=true");
+      router.push(MEMBER_APP_HOME_PATH);
     } catch (err: any) {
       alert(err.message || "Something went wrong.");
     } finally {

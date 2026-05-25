@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, Suspense, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
+import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 type SubscriptionGateProps = {
   children: ReactNode;
@@ -11,7 +12,7 @@ type SubscriptionGateProps = {
 
 function SubscriptionGateInner({
   children,
-  redirectAfterSubscribe = "/dashboard",
+  redirectAfterSubscribe = MEMBER_APP_HOME_PATH,
 }: SubscriptionGateProps) {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();

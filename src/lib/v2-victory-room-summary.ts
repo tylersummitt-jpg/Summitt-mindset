@@ -5,7 +5,18 @@
 
 import OpenAI from "openai";
 
+import {
+  buildVictorySummaryInput,
+  type VictorySummaryInput,
+} from "@/lib/v2-victory-pat-read";
 import type { VictoryRoomViewData } from "@/lib/v2-victory-room-view";
+
+export {
+  buildDeterministicPatRead,
+  buildVictorySummaryInput,
+  type DeterministicPatRead,
+  type VictorySummaryInput,
+} from "@/lib/v2-victory-pat-read";
 
 export const V2_VICTORY_SUMMARY_MODEL = "gpt-4o-mini";
 
@@ -23,21 +34,6 @@ const TRUNC = {
   momentBody: 200,
   comebackLine: 220,
 } as const;
-
-/** Narrow JSON-safe bundle sent to the model (and used for fallback). */
-export type VictorySummaryInput = {
-  address_as: string;
-  preferred_name: string | null;
-  identity_anchor_text: string | null;
-  effective_ask: string;
-  commitment_title: string | null;
-  moments: { headline: string; body: string }[];
-  comeback_lines: string[];
-  /** True when there are no derived moments and no comeback lines — skip AI. */
-  sparse: boolean;
-  /** Any digit present in bundle fields (allows model to echo numbers if ever added). */
-  input_contains_digit: boolean;
-};
 
 const STOPWORDS = new Set([
   "there",
@@ -141,47 +137,6 @@ function bundleHasDigit(input: VictorySummaryInput): boolean {
     comeback_lines: input.comeback_lines,
   });
   return /\d/.test(blob);
-}
-
-/**
- * Build the structured input bundle from the Victory Room view (already trusted).
- */
-export function buildVictorySummaryInput(
-  view: VictoryRoomViewData,
-  addressAs: string
-): VictorySummaryInput | null {
-  if (!view.hasActiveV2Commitment) {
-    return null;
-  }
-
-  const askRaw = view.effectiveCoachingAsk?.trim() || "Your commitment is active.";
-
-  const moments = view.moments.slice(0, 5).map((m) => ({
-    headline: truncateOneLine(m.headline, TRUNC.momentHeadline),
-    body: truncateOneLine(m.body, TRUNC.momentBody),
-  }));
-
-  const comeback_lines = view.comebackLines.slice(0, 3).map((l) => truncateOneLine(l, TRUNC.comebackLine));
-
-  const input: VictorySummaryInput = {
-    address_as: truncateOneLine(addressAs.trim() || "there", TRUNC.name),
-    preferred_name: view.profile.preferred_name?.trim()
-      ? truncateOneLine(view.profile.preferred_name, TRUNC.name)
-      : null,
-    identity_anchor_text: view.profile.identity_anchor_text?.trim()
-      ? truncateOneLine(view.profile.identity_anchor_text, TRUNC.anchor)
-      : null,
-    effective_ask: truncateOneLine(askRaw, TRUNC.ask),
-    commitment_title: view.commitment?.title?.trim()
-      ? truncateOneLine(view.commitment.title, TRUNC.title)
-      : null,
-    moments,
-    comeback_lines,
-    sparse: moments.length === 0 && comeback_lines.length === 0,
-    input_contains_digit: false,
-  };
-  input.input_contains_digit = bundleHasDigit(input);
-  return input;
 }
 
 function countSentences(text: string): number {

@@ -20,6 +20,10 @@ vi.mock("openai", () => ({
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { computeRecommitBindingText } from "@/lib/v2-adaptive-contract";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
+import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
+import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
+import { buildVictoryBackgroundLaneGuardrails } from "@/lib/sms-victory-background-context";
 import {
   DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT,
   detectContractWrapperDuplicates,
@@ -1162,5 +1166,152 @@ describe("applyFinalVoiceOwnershipGate + v3_daily_relationship_lane", () => {
     });
     expect(r.shouldSend).toBe(false);
     expect(r.skipReason).toBe("no_safe_v3_voice");
+  });
+});
+
+describe("daily V3 victory_background", () => {
+  const env = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...env };
+    vi.clearAllMocks();
+  });
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  it("passes victory_background in facts JSON to OpenAI when present", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Quick check on your bar today?",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: ["commitment"],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        victory_background: {
+          active_season_label: "Spring Focus",
+          active_season_started_at: "2026-01-01T00:00:00Z",
+          pat_read_strength: "Showing up steady",
+          pat_read_pattern: null,
+          pat_read_next_move: "Protect morning block",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toContain("victory_background");
+    expect(userMsg).toContain("Spring Focus");
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toContain(buildVictoryBackgroundLaneGuardrails().trim().slice(0, 40));
+    expect(systemMsg).toContain(buildSmsPatternSignalLaneGuardrails().trim().slice(0, 20));
+    expect(systemMsg).toContain(buildSmsGoalAdjustmentLaneGuardrails().trim().slice(0, 20));
+    expect(systemMsg).toContain(buildPlannedInterruptionLaneGuardrails().trim().slice(0, 24));
+    expect(systemMsg).toMatch(/not a diagnosis/i);
+    expect(systemMsg).toMatch(/not permission to mutate/i);
+    expect(systemMsg).toMatch(/pause_cadence/i);
+    expect(systemMsg).toMatch(/raise_bar/i);
+    expect(systemMsg).toMatch(/Dashboard/i);
+    expect(systemMsg).toMatch(/do not invent/i);
+  });
+
+  it("passes victory_background.pat_principles in facts JSON when present", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "One clean rep on the bar today?",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        victory_background: {
+          active_season_label: null,
+          active_season_started_at: null,
+          pat_read_strength: null,
+          pat_read_pattern: null,
+          pat_read_next_move: null,
+          pat_principles: {
+            focus_next_title: "Discipline Yourself",
+            focus_next_text: "Protect the morning block this week.",
+            living_well_title: null,
+            living_well_text: null,
+          },
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toContain("pat_principles");
+    expect(userMsg).toContain("Discipline Yourself");
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toMatch(/do not invent principle/i);
+    expect(systemMsg).toMatch(/primary anchor/i);
+  });
+
+  it("builds without victory_background when omitted", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "How did the bar land today?",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const f = baseFacts();
+    expect(f.victory_background).toBeUndefined();
+
+    await produceDailyV3RelationshipSms({
+      facts: f,
+      telemetry_fact_sources: [],
+    });
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).not.toContain("victory_background");
   });
 });

@@ -96,7 +96,6 @@ function factPackFromArgs(args: NorthStarCoachSmsArgs): string {
   lines.push("## Identity / life (quote carefully; facts may be partial)");
   lines.push(`identity_anchor=${pkt?.identityAnchorText ?? "(none)"}`);
   lines.push(`people_summary=${pkt?.peopleSummary ?? "(none)"}`);
-  lines.push(`life_desires=${pkt?.lifeDesires ?? "(none)"}`);
   lines.push(`pressure_summary=${pkt?.pressureSummary ?? "(none)"}`);
 
   return lines.join("\n");
