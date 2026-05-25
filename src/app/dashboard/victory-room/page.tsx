@@ -1,7 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CoachVictoryHandoffBanner } from "@/components/CoachVictoryHandoffBanner";
 import { VictoryEvidenceSection } from "@/components/VictoryEvidenceSection";
 import { VictoryPatPrinciplesSection } from "@/components/VictoryPatPrinciplesSection";
 import { VictoryPatReadSection } from "@/components/VictoryPatReadSection";
@@ -31,7 +30,6 @@ export default async function VictoryRoomPage() {
   if (!user?.id) redirect("/sign-in");
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
-  const isCoach = md.acquisitionSource === "coach";
   const timeZone = resolveUserTimezone(md?.timezone);
 
   const view = await loadVictoryRoomView(user.id);
@@ -119,8 +117,6 @@ export default async function VictoryRoomPage() {
         </section>
       ) : (
         <>
-          {isCoach ? <CoachVictoryHandoffBanner /> : null}
-
           <header className="mb-8">
             <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Victory Room</h1>
             <p className="mt-3 text-gray-700 leading-relaxed">

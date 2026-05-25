@@ -179,6 +179,15 @@ describe("member app home routing (Package 5)", () => {
     expect(topCard).toContain("My Current Goal");
   });
 
+  it("Victory Room does not surface Coach Leadership Kit shipping card", () => {
+    const page = readSrc("src/app/dashboard/victory-room/page.tsx");
+    expect(page).not.toContain("CoachVictoryHandoffBanner");
+    expect(page).not.toContain("Coach Leadership Kit");
+    expect(page).not.toContain("Add Kit shipping address");
+    expect(page).not.toContain('href="/coach/setup"');
+    expect(page).not.toContain("acquisitionSource");
+  });
+
   it("Victory Room does not surface day-zero notice card and uses shortened subtitle", () => {
     const page = readSrc("src/app/dashboard/victory-room/page.tsx");
     const topCard = readSrc("src/components/VictoryRoomTopCard.tsx");
