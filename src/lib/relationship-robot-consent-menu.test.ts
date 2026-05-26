@@ -65,12 +65,13 @@ describe("detectRelationshipRobotConsentMenuReasons", () => {
     );
   });
 
-  it("allows binding robot phrase once inside required verbatim binding", () => {
+  it("allows binding once inside required verbatim binding", () => {
     const binding = computeRecommitBindingText("Focused on work without distractions");
-    const body = `Let's make this simple. ${binding} Want me to keep holding you to this same focus for the week?`;
+    const body = `Let's make this simple. ${binding} Want me to keep holding you to this bar for the week?`;
     const reasons = detectRelationshipRobotConsentMenuReasons(body, { bindingVerbatim: binding });
     expect(reasons).not.toContain("same_commitment_keep_this_line_robot_copy");
     expect(reasons).not.toContain("reply_yes_no_menu_language");
+    expect(binding).not.toMatch(/same commitment[—-]keep this line/i);
   });
 
   it("flags duplicate binding robot copy outside the verbatim binding", () => {

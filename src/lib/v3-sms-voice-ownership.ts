@@ -68,6 +68,11 @@ export type ApplyFinalVoiceOwnershipGateArgs = {
   northStarMeta?: NorthStarCoachSmsMeta | null;
   bypassKind?: FinalVoiceBypassKind | null;
   normalCoaching?: boolean;
+  /**
+   * When set (contract/recommit daily), robot binding phrases may appear exactly once inside
+   * this substring; duplicate binding or phrases outside the binding window still block.
+   */
+  bindingVerbatim?: string | null;
 };
 
 export function appendPreservedSmsSuffix(body: string, suffix: string): string {
@@ -465,6 +470,36 @@ RULES FOR body:
   }
 }
 
+function finalVoiceRobotDetectOptions(
+  args: Pick<ApplyFinalVoiceOwnershipGateArgs, "bindingVerbatim">
+): DetectRelationshipRobotConsentMenuOptions | undefined {
+  const binding = args.bindingVerbatim?.trim();
+  if (!binding) return undefined;
+  return { bindingVerbatim: binding };
+}
+
+function buildFinalVoiceRepairSystemPrompt(bindingVerbatim: string | null | undefined): string {
+  const binding = bindingVerbatim?.trim() ?? "";
+  const bindingRules = binding
+    ? [
+        `- BINDING_VERBATIM must appear in the repaired SMS exactly once, character-for-character unchanged: ${JSON.stringify(binding)}`,
+        "- Do not duplicate the binding substring.",
+        '- Do not add robotic contract/menu phrasing ("Reply YES", "Reply NO", "YES to confirm", "keep this line for 7 days", "same commitment—keep this line") outside the binding.',
+      ].join("\n")
+    : '- Do not add robotic contract/menu phrasing ("Reply YES", "Reply NO", "keep this line for 7 days", "same commitment—keep this line").';
+
+  return `You repair SMS coaching copy for Summitt Mindset. You are NOT a second coach brain.
+
+CONTRACT:
+- Preserve the meaning of the original SMS; fix ONLY the blocked issues.
+- One short SMS. No markdown, bullets, or labels.
+- Do not quote the user. Do not paste raw database fields, titles, or behavior_statement as prose.
+- Do not add generic motivation or a new coaching agenda.
+- Do not repeat rejected times or re-ask the same blocked pattern.
+${bindingRules}
+- If unsafe or uncertain, reply with exactly: UNSAFE`;
+}
+
 async function repairWithOpenAI(
   args: ApplyFinalVoiceOwnershipGateArgs,
   blockedReasons: string[]
@@ -479,15 +514,7 @@ async function repairWithOpenAI(
       messages: [
         {
           role: "system",
-          content: `You repair SMS coaching copy for Summitt Mindset. You are NOT a second coach brain.
-
-CONTRACT:
-- Preserve the meaning of the original SMS; fix ONLY the blocked issues.
-- One short SMS. No markdown, bullets, or labels.
-- Do not quote the user. Do not paste raw database fields, titles, or behavior_statement as prose.
-- Do not add generic motivation or a new coaching agenda.
-- Do not repeat rejected times or re-ask the same blocked pattern.
-- If unsafe or uncertain, reply with exactly: UNSAFE`,
+          content: buildFinalVoiceRepairSystemPrompt(args.bindingVerbatim),
         },
         {
           role: "user",
@@ -495,6 +522,9 @@ CONTRACT:
             `Blocked reasons: ${blockedReasons.join(", ")}`,
             `Channel: ${args.channel}`,
             `Reply source: ${args.replySource ?? "(none)"}`,
+            ...(args.bindingVerbatim?.trim()
+              ? [`Binding verbatim (include exactly once): ${args.bindingVerbatim.trim()}`]
+              : []),
             `Effective ask: ${args.effectiveAsk ?? args.contextPacket?.effectiveAskText ?? "(none)"}`,
             `Behavior statement (facts only; do not paste as prose): ${args.behaviorStatement ?? args.contextPacket?.behaviorStatement ?? "(none)"}`,
             `Latest inbound: ${args.latestInboundRaw ?? args.contextPacket?.latestInboundRaw ?? "(none)"}`,
@@ -614,8 +644,9 @@ export async function applyFinalVoiceOwnershipGate(
 
   const initialOwner = classifyVoiceOwner(args.replySource, args.northStarMeta);
   const initialV3Owned = voiceOwnerIsV3(initialOwner);
+  const robotDetectOptions = finalVoiceRobotDetectOptions(args);
   const blocked = [
-    ...detectRelationshipCoachingVoiceBlockedReasons(originalBody),
+    ...detectRelationshipCoachingVoiceBlockedReasons(originalBody, robotDetectOptions),
     ...(args.northStarMeta?.source === "deterministic_minimal" ? ["north_star_deterministic_replacement"] : []),
     ...(args.northStarMeta?.north_star_structural_replacement ? ["north_star_structural_replacement"] : []),
     ...(args.northStarMeta?.requires_v3_repair === true ? ["north_star_requires_v3_repair"] : []),
@@ -655,7 +686,7 @@ export async function applyFinalVoiceOwnershipGate(
       contextPacket: args.contextPacket ?? undefined,
     });
     const cleaned = nsRepair.visibleBody;
-    const repairBlocked = detectRelationshipCoachingVoiceBlockedReasons(cleaned);
+    const repairBlocked = detectRelationshipCoachingVoiceBlockedReasons(cleaned, robotDetectOptions);
     if (repairBlocked.length === 0) {
       return result({
         body: cleaned,

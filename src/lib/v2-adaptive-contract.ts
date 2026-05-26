@@ -87,11 +87,11 @@ export function normalizeShrinkProposalBindingText(raw: string): string | null {
 export function computeRecommitBindingText(behaviorStatement: string): string {
   const t = behaviorStatement.trim().replace(/\s+/g, " ");
   if (!t) {
-    return "Same commitment—keep this line steady for the next 7 days.";
+    return "This is the standard for the next 7 days.";
   }
   const cap = 88;
   const slice = t.length <= cap ? t : `${t.slice(0, cap - 1)}…`;
-  return `Same commitment—keep this line for 7 days: ${slice}`;
+  return `This is the standard for the next 7 days: ${slice}`;
 }
 
 /** Match pending column text to the newest proposed spine row that carries `contract_kind`. */

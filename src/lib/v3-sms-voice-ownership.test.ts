@@ -1,5 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
+import { computeRecommitBindingText } from "./v2-adaptive-contract";
 import { finalizeNorthStarCoachSms } from "./north-star-coach-sms";
 import {
   appendPreservedSignedLink,
@@ -149,6 +154,32 @@ describe("detectFinalVoiceBlockedReasons", () => {
       "same_commitment_keep_this_line_robot_copy"
     );
   });
+
+  it("allows exact binding once when bindingVerbatim is provided", () => {
+    const binding = computeRecommitBindingText("Focused on work without distractions");
+    const body = `Let's make this simple. ${binding} Want to keep this bar for the week?`;
+    const reasons = detectRelationshipCoachingVoiceBlockedReasons(body, { bindingVerbatim: binding });
+    expect(reasons).not.toContain("same_commitment_keep_this_line_robot_copy");
+    expect(reasons).not.toContain("robotic_contract_menu_language");
+  });
+
+  it("still blocks duplicate binding or robot phrases outside the binding window", () => {
+    const binding = computeRecommitBindingText("Call one person each day");
+    const duplicateBinding = `${binding} ${binding}`;
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons(duplicateBinding, { bindingVerbatim: binding })
+    ).toContain("same_commitment_keep_this_line_robot_copy");
+
+    const outsideRobot = `Keep this line for 7 days. ${binding}`;
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons(outsideRobot, { bindingVerbatim: binding })
+    ).toContain("same_commitment_keep_this_line_robot_copy");
+
+    const menuOutside = `${binding} Reply YES to confirm or NO to discard.`;
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons(menuOutside, { bindingVerbatim: binding })
+    ).toContain("reply_yes_no_menu_language");
+  });
 });
 
 describe("partitionFinalVoiceBlockedReasons", () => {
@@ -204,6 +235,41 @@ describe("applyFinalVoiceOwnershipGate", () => {
     expect(r.voiceOwner).toBe("v3_openai");
     expect(r.v3Owned).toBe(true);
     expect(r.emergencyFallbackUsed).toBe(false);
+  });
+
+  it("allows contract SMS with binding once when bindingVerbatim is provided", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const body = `Here's the line. ${binding} Want to keep this bar for the week?`;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: body,
+      replySource: "v3_daily_relationship_lane",
+      channel: "contract_prompt",
+      activeCommitmentId: "c1",
+      effectiveAsk: "I will text or call each day",
+      normalCoaching: true,
+      bindingVerbatim: binding,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe(body);
+    expect(r.blockedReasons).not.toContain("same_commitment_keep_this_line_robot_copy");
+  });
+
+  it("blocks legacy robot binding phrase without bindingVerbatim", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const legacy =
+      "Same commitment—keep this line for 7 days: Focused on work without distractions.";
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: legacy,
+      replySource: "v3_daily_relationship_lane",
+      channel: "contract_prompt",
+      activeCommitmentId: "c1",
+      effectiveAsk: "Focused on work without distractions",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.blockedReasons.some((b) => b.includes("same_commitment_keep_this_line_robot_copy"))).toBe(
+      true
+    );
   });
 
   it("v3_voice_repair replySource maps to v3_repair voice owner when clean", async () => {

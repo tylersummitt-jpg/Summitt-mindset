@@ -573,12 +573,13 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.route_purpose).toBe("contract_prompt");
   });
 
-  it("computeRecommitBindingText returns server-owned 7-day binding prefix unchanged", () => {
+  it("computeRecommitBindingText returns server-owned 7-day standard binding unchanged", () => {
     expect(computeRecommitBindingText("I will text or call each day")).toBe(
-      "Same commitment—keep this line for 7 days: I will text or call each day"
+      "This is the standard for the next 7 days: I will text or call each day"
     );
-    expect(computeRecommitBindingText("   ")).toBe(
-      "Same commitment—keep this line steady for the next 7 days."
+    expect(computeRecommitBindingText("   ")).toBe("This is the standard for the next 7 days.");
+    expect(computeRecommitBindingText("I will text or call each day")).not.toMatch(
+      /same commitment[—-]keep this line/i
     );
   });
 

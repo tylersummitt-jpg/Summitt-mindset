@@ -111,15 +111,15 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(r.visibleBody.toLowerCase()).not.toContain("recommit to this for 7 days");
   });
 
-  it("contract_prompt preserves Same commitment inside server binding (no same-focus rewrite)", () => {
-    const binding = "Same commitment—keep this line for 7 days: I will text or call each day.";
+  it("contract_prompt preserves server standard binding inside verbatim line (no same-focus rewrite)", () => {
+    const binding = "This is the standard for the next 7 days: I will text or call each day.";
     const r = finalizeNorthStarCoachSms({
       proposedBody: `Here's the line. ${binding} Reply YES or NO?`,
       channel: "contract_prompt",
       behaviorStatement: "I will text or call each day",
       effectiveAskText: binding,
     });
-    expect(r.visibleBody).toContain("Same commitment—keep this line for 7 days");
+    expect(r.visibleBody).toContain("This is the standard for the next 7 days");
     expect(r.visibleBody).not.toMatch(/same focus—keep this line for 7 days:\s*same focus/i);
   });
 

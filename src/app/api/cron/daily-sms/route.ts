@@ -321,6 +321,12 @@ async function withNorthStarDailyGate(
     normalCoaching:
       built.v2Accountability === true &&
       Boolean(built.v2CommitmentId),
+    bindingVerbatim:
+      built.v2ContractProposalMode === true &&
+      typeof built.v2ProposalBindingText === "string" &&
+      built.v2ProposalBindingText.trim().length > 0
+        ? built.v2ProposalBindingText.trim()
+        : null,
   });
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,

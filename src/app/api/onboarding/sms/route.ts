@@ -264,9 +264,10 @@ export async function POST(req: Request) {
         });
       } else {
         const confirm =
-          "Summitt Mindset: You’re in. Pat will text you about one commitment you name—reply honestly to those check-ins.\n\n" +
-          "Use the app for depth, identity context, and your Victory Room when you want proof.\n\n" +
-          "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.";
+          "So awesome to meet you!\n\n" +
+          "I will text you about your current goal — all you have to do is reply honestly to the check-ins.\n\n" +
+          "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.\n\n" +
+          "Summitt Mindset";
 
         try {
           const twilioMessage = await sendSMS({
