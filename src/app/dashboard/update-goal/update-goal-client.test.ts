@@ -45,6 +45,8 @@ describe("UpdateGoalClient", () => {
     expect(pageSrc).not.toContain("v2_commitment_intake");
     expect(pageSrc).toContain("loadIdentityEditDraft");
     expect(pageSrc).toContain("behavior_statement");
+    expect(pageSrc).toContain("hasActiveAccountabilitySeasonForCommitment");
+    expect(pageSrc).toContain("requiresNewChapter");
   });
 
   it("saves through goal-change API with season_mode and client_request_id", () => {
@@ -85,5 +87,18 @@ describe("UpdateGoalClient", () => {
     expect(clientSrc).toContain("appEditDraft={builderDraft}");
     expect(clientSrc).toContain("onAppEditDraftChange={handleBuilderDraftChange}");
     expect(clientSrc).not.toContain("v2_commitment_intake");
+  });
+
+  it("legacy requiresNewChapter: skips chapter radios, confirms with new_chapter payload", () => {
+    const clientSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/dashboard/update-goal/update-goal-client.tsx"),
+      "utf8"
+    );
+    expect(clientSrc).toContain("requiresNewChapter");
+    expect(clientSrc).toContain('setStep("confirm")');
+    expect(clientSrc).toContain('season_mode: requiresNewChapter ? "new_chapter" : seasonMode');
+    expect(clientSrc).toContain('step === "chapter" && !requiresNewChapter');
+    expect(clientSrc).toContain("UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE");
+    expect(clientSrc).toContain('requiresNewChapter ? "builder" : "chapter"');
   });
 });

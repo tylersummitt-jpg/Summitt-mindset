@@ -6,6 +6,8 @@ import {
   ensureCommitmentReplacePendingForCanonicalGoalChange,
 } from "@/lib/v2-guided-resolution";
 import { isUnsafeSmsGoalCandidateText } from "@/lib/sms-inbound-safety";
+import { UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE } from "@/lib/update-goal-season-copy";
+import { hasActiveAccountabilitySeasonForCommitment } from "@/lib/v2-accountability-season-alignment";
 import { isSmsSeasonMode } from "@/lib/v2-sms-season-mode";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +82,20 @@ export async function POST(req: Request) {
         { ok: false, error: "New goal matches your current bar." },
         { status: 400 }
       );
+    }
+
+    if (seasonModeRaw === "same_season_sync") {
+      const aligned = await hasActiveAccountabilitySeasonForCommitment(userId, commitment.id);
+      if (!aligned) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "requires_new_chapter_no_active_season",
+            error: UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const pendingResult = await ensureCommitmentReplacePendingForCanonicalGoalChange({

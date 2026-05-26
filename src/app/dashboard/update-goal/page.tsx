@@ -9,6 +9,7 @@ import {
   isSmsInboundPendingResolutionActionable,
 } from "@/lib/v2-guided-resolution";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
+import { hasActiveAccountabilitySeasonForCommitment } from "@/lib/v2-accountability-season-alignment";
 import { deriveSeasonModeForSmsGoalChange } from "@/lib/v2-sms-season-mode";
 import UpdateGoalClient from "./update-goal-client";
 
@@ -63,6 +64,12 @@ export default async function UpdateGoalPage() {
     currentBehaviorStatement: commitment.behavior_statement,
   });
 
+  const hasMatchingActiveSeason = await hasActiveAccountabilitySeasonForCommitment(
+    userId,
+    commitment.id
+  );
+  const requiresNewChapter = !hasMatchingActiveSeason;
+
   return (
     <UpdateGoalClient
       identityAnchor={identityAnchor}
@@ -76,6 +83,7 @@ export default async function UpdateGoalPage() {
       currentBehaviorStatement={commitment.behavior_statement}
       effectiveCoachingAsk={showSplitAsk ? effectiveAsk : null}
       defaultRecommendedSeasonMode={defaultRecommendation.mode}
+      requiresNewChapter={requiresNewChapter}
     />
   );
 }

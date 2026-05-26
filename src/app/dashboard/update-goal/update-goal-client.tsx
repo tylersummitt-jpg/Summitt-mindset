@@ -13,6 +13,7 @@ import {
   deriveSeasonModeForSmsGoalChange,
   type SmsSeasonMode,
 } from "@/lib/v2-sms-season-mode";
+import { UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE } from "@/lib/update-goal-season-copy";
 
 type Step = "builder" | "chapter" | "confirm" | "success";
 
@@ -22,6 +23,8 @@ type Props = {
   currentBehaviorStatement: string;
   effectiveCoachingAsk: string | null;
   defaultRecommendedSeasonMode: SmsSeasonMode;
+  /** When true: skip Same chapter, force new_chapter, explain pre-season / drift cohort. */
+  requiresNewChapter?: boolean;
 };
 
 function newClientRequestId(): string {
@@ -32,11 +35,14 @@ function newClientRequestId(): string {
 }
 
 export default function UpdateGoalClient(props: Props) {
+  const requiresNewChapter = props.requiresNewChapter === true;
   const router = useRouter();
   const [step, setStep] = useState<Step>("builder");
   const [newBar, setNewBar] = useState("");
   const [builderDraft, setBuilderDraft] = useState<GoalBuilderAppEditDraft | null>(null);
-  const [seasonMode, setSeasonMode] = useState<SmsSeasonMode>(props.defaultRecommendedSeasonMode);
+  const [seasonMode, setSeasonMode] = useState<SmsSeasonMode>(() =>
+    requiresNewChapter ? "new_chapter" : props.defaultRecommendedSeasonMode
+  );
   const [clientRequestId] = useState(() => newClientRequestId());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +70,11 @@ export default function UpdateGoalClient(props: Props) {
   function onGoalReady(payload: { title: string; behaviorStatement: string }) {
     setError(null);
     setNewBar(payload.behaviorStatement);
+    if (requiresNewChapter) {
+      setSeasonMode("new_chapter");
+      setStep("confirm");
+      return;
+    }
     setSeasonMode(
       deriveSeasonModeForSmsGoalChange({
         rawBody: payload.behaviorStatement,
@@ -84,7 +95,7 @@ export default function UpdateGoalClient(props: Props) {
         credentials: "include",
         body: JSON.stringify({
           behavior_statement: normalizeIntakeWhitespace(newBar),
-          season_mode: seasonMode,
+          season_mode: requiresNewChapter ? "new_chapter" : seasonMode,
           client_request_id: clientRequestId,
         }),
       });
@@ -156,7 +167,7 @@ export default function UpdateGoalClient(props: Props) {
           </>
         ) : null}
 
-        {step === "chapter" ? (
+        {step === "chapter" && !requiresNewChapter ? (
           <>
             <p className="mt-4 text-sm leading-relaxed text-gray-600">
               Is this the same chapter with a sharper drill, or a new chapter in your story?
@@ -221,6 +232,14 @@ export default function UpdateGoalClient(props: Props) {
 
         {step === "confirm" ? (
           <>
+            {requiresNewChapter ? (
+              <p
+                className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                role="status"
+              >
+                {UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE}
+              </p>
+            ) : null}
             <div className="mt-6 space-y-4 rounded-lg border border-gray-100 bg-gray-50/80 p-4 text-sm">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
@@ -259,7 +278,7 @@ export default function UpdateGoalClient(props: Props) {
                 type="button"
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-50"
                 disabled={busy}
-                onClick={() => setStep("chapter")}
+                onClick={() => setStep(requiresNewChapter ? "builder" : "chapter")}
               >
                 Back
               </button>
