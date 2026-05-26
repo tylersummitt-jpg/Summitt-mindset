@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE } from "@/lib/update-goal-season-copy";
 import { applyCanonicalGoalChangeWithSeasonMutation } from "@/lib/v2-apply-canonical-goal-change";
+import { hasActiveAccountabilitySeasonForCommitment } from "@/lib/v2-accountability-season-alignment";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import {
   clearPendingResolution,
@@ -131,12 +133,20 @@ export async function POST(req: Request) {
       refreshResolution,
     });
 
+    let seasonModeToApply = seasonResolved.mode;
+    if (seasonModeToApply === "same_season_sync") {
+      const aligned = await hasActiveAccountabilitySeasonForCommitment(userId, commitment.id);
+      if (!aligned) {
+        seasonModeToApply = "new_chapter";
+      }
+    }
+
     const idempotencyKey = guidedIdempotencyKey(commitment.id, pending, raw);
     const applied = await applyCanonicalGoalChangeWithSeasonMutation({
       clerkUserId: userId,
       commitment,
       behaviorStatement: raw,
-      seasonMode: seasonResolved.mode,
+      seasonMode: seasonModeToApply,
       idempotencyKey,
       proofMessageSid: idempotencyKey,
       memoryReasonCode: "guided_resolution_replace",
@@ -153,6 +163,16 @@ export async function POST(req: Request) {
       if (applied.code === "invalid_pending_kind") {
         return NextResponse.json(
           { ok: false, error: "No pending commitment update" },
+          { status: 409 }
+        );
+      }
+      if (applied.code === "no_active_season_for_commitment") {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "requires_new_chapter_no_active_season",
+            error: UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE,
+          },
           { status: 409 }
         );
       }
