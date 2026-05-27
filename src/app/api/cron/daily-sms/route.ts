@@ -138,6 +138,10 @@ import {
 import { enrichDailyFactsCoreWithPendingPlanProof } from "@/lib/pending-plan-proof";
 import { buildTimingAnchorBrainMetadata } from "@/lib/timing-anchor-memory";
 import {
+  buildCoachingBriefV1FromDailyFacts,
+  compactCoachingBriefV1ForV3Brain,
+} from "@/lib/coaching-brief-v1";
+import {
   loadSmsVictoryBackgroundContext,
   mapSmsVictoryBackgroundToFacts,
   type V3VictoryBackgroundFacts,
@@ -860,6 +864,9 @@ async function buildDailySmsContent(
             factsRe.accountability.timing_anchor_memory,
             factsRe.accountability.pending_plan_proof
           ),
+          coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
+            buildCoachingBriefV1FromDailyFacts(factsRe)
+          ),
         },
       };
 
@@ -1159,6 +1166,9 @@ async function buildDailySmsContent(
             suggested_coaching_move: lanePr.metadata.suggested_coaching_move,
             route_purpose: "pending_resolution",
             voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+            coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
+              buildCoachingBriefV1FromDailyFacts(factsPr)
+            ),
           },
         },
         v2SilencePayload: null,
@@ -1455,6 +1465,9 @@ async function buildDailySmsContent(
               suggested_coaching_move: laneRf.metadata.suggested_coaching_move,
               route_purpose: "refresh_identity",
               voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+              coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
+                buildCoachingBriefV1FromDailyFacts(factsRf)
+              ),
             },
           },
           v2SilencePayload: {
@@ -1693,6 +1706,9 @@ async function buildDailySmsContent(
               suggested_coaching_move: laneC.metadata.suggested_coaching_move,
               route_purpose: "refresh_commitment",
               voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+              coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
+                buildCoachingBriefV1FromDailyFacts(factsC)
+              ),
             },
           },
           v2SilencePayload: {
@@ -2237,6 +2253,9 @@ async function buildDailySmsContent(
         ...buildTimingAnchorBrainMetadata(
           factsUnified.accountability.timing_anchor_memory,
           factsUnified.accountability.pending_plan_proof
+        ),
+        coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
+          buildCoachingBriefV1FromDailyFacts(factsUnified)
         ),
       },
     };

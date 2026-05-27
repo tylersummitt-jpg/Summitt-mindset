@@ -252,6 +252,10 @@ import {
   type V3SmsBrainResult,
 } from "@/lib/v3-sms-brain";
 import {
+  buildCoachingBriefV1FromInboundFacts,
+  compactCoachingBriefV1ForV3Brain,
+} from "@/lib/coaching-brief-v1";
+import {
   assertRequiredVerbatimSubstringsPresent,
   buildCommitmentChangeContextFactsForHeuristicInbound,
   buildCommitmentChangeInboundFactsFromWave4,
@@ -1918,15 +1922,20 @@ async function processV2NormalInboundOutcome(
           v3_turn_subkind: v3Resolution.subkind,
           answered_open_question: true,
           extracted_open_question_answer: v3Resolution.extractedAnswer,
-          v3_brain: buildV3BrainMetadata({
-            brain: openBrainWithSource,
-            latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
-            expectedSemantics:
-              typeof northStarPktEarly.expectedReplySemantics === "string"
-                ? northStarPktEarly.expectedReplySemantics
-                : null,
-            coachReplySource: "v3_inbound_relationship_lane",
-          }),
+          v3_brain: {
+            ...buildV3BrainMetadata({
+              brain: openBrainWithSource,
+              latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+              expectedSemantics:
+                typeof northStarPktEarly.expectedReplySemantics === "string"
+                  ? northStarPktEarly.expectedReplySemantics
+                  : null,
+              coachReplySource: "v3_inbound_relationship_lane",
+            }),
+            coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
+              buildCoachingBriefV1FromInboundFacts(oqInboundFacts)
+            ),
+          },
         },
       };
 
@@ -2773,6 +2782,8 @@ async function processV2NormalInboundOutcome(
 
   let v3BrainPayload: V3SmsBrainResult | null = null;
   let v3DraftAttempt: Awaited<ReturnType<typeof produceV3InboundCoachDraft>> | null = null;
+  let inboundCoachingBriefV1Log: ReturnType<typeof compactCoachingBriefV1ForV3Brain> | null =
+    null;
 
   const northStarPktForV3 = buildInboundNorthStarContextPacket({
     commitmentId: commitment.id,
@@ -3737,6 +3748,9 @@ async function processV2NormalInboundOutcome(
       ...(relationshipExitFactsForLane != null ? { relationshipExitFacts: relationshipExitFactsForLane } : {}),
       ...(identityEditFactsForLane != null ? { identityEditFacts: identityEditFactsForLane } : {}),
     });
+    inboundCoachingBriefV1Log = compactCoachingBriefV1ForV3Brain(
+      buildCoachingBriefV1FromInboundFacts(inboundFacts)
+    );
 
     const laneTelemetryFactSources = [
       "classifyV2InboundReply",
@@ -4605,17 +4619,23 @@ async function processV2NormalInboundOutcome(
 
   const v3BrainEventMeta =
     v3BrainPayload != null
-      ? buildV3BrainMetadata({
-          brain: v3BrainPayload,
-          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-          expectedSemantics:
-            typeof northStarPktForV3.expectedReplySemantics === "string"
-              ? northStarPktForV3.expectedReplySemantics
-              : null,
-          coachReplySource: effectiveInboundReplySource ?? replyResolutionMeta.reply_source ?? "v3_sms_brain",
-          northStarGate: northStarGateTelemetry,
-          priorDraftSource: priorDraftFromConversationBrain?.source ?? null,
-        })
+      ? {
+          ...buildV3BrainMetadata({
+            brain: v3BrainPayload,
+            latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+            expectedSemantics:
+              typeof northStarPktForV3.expectedReplySemantics === "string"
+                ? northStarPktForV3.expectedReplySemantics
+                : null,
+            coachReplySource:
+              effectiveInboundReplySource ?? replyResolutionMeta.reply_source ?? "v3_sms_brain",
+            northStarGate: northStarGateTelemetry,
+            priorDraftSource: priorDraftFromConversationBrain?.source ?? null,
+          }),
+          ...(inboundCoachingBriefV1Log != null
+            ? { coaching_brief_v1: inboundCoachingBriefV1Log }
+            : {}),
+        }
       : null;
 
   const aiPayload =
@@ -6207,6 +6227,9 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
     branch_migrated_to_lane: true,
     branch_name: args.branchName,
     v3_candidate_body: lane.body,
+    coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
+      buildCoachingBriefV1FromInboundFacts(args.relationshipFacts)
+    ),
   };
   const voicePack = await northStarGatePersistBodyAsync(lane.body, {
     job: args.job,
