@@ -135,6 +135,8 @@ import {
   buildSmsRelationshipMemoryPacket,
   type SmsRelationshipMemoryPacket,
 } from "@/lib/sms-relationship-memory-packet";
+import { enrichDailyFactsCoreWithPendingPlanProof } from "@/lib/pending-plan-proof";
+import { buildTimingAnchorBrainMetadata } from "@/lib/timing-anchor-memory";
 import {
   loadSmsVictoryBackgroundContext,
   mapSmsVictoryBackgroundToFacts,
@@ -739,7 +741,7 @@ async function buildDailySmsContent(
         commitmentId: active.id,
       });
 
-      const factsCoreRe: DailyV3RelationshipFactsForMove = {
+      const factsCoreReBase: DailyV3RelationshipFactsForMove = {
         route_kind: "low_pressure_reactivation",
         accountability_day_key: accountabilityDayKey,
         user: {
@@ -786,6 +788,14 @@ async function buildDailySmsContent(
         },
         ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
       };
+      const factsCoreRe = enrichDailyFactsCoreWithPendingPlanProof(factsCoreReBase, {
+        eventsNewestFirst: recentEvents,
+        openQuestionAnsweredAt: relationshipMemoryPacketRe.open_question_answered_at,
+        userAnswersNewestFirst: relationshipMemoryPacketRe.last_5_user_answers.map((a) => ({
+          text: a.text,
+          answered_at: a.answered_at,
+        })),
+      });
       const suggestedMoveRe = deriveSuggestedCoachingMoveForDailyFacts(factsCoreRe);
       const factsRe: DailyV3RelationshipFacts = {
         ...factsCoreRe,
@@ -846,6 +856,10 @@ async function buildDailySmsContent(
           suggested_coaching_move: laneRe.metadata.suggested_coaching_move,
           route_purpose: "low_pressure_reactivation",
           voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+          ...buildTimingAnchorBrainMetadata(
+            factsRe.accountability.timing_anchor_memory,
+            factsRe.accountability.pending_plan_proof
+          ),
         },
       };
 
@@ -2127,9 +2141,17 @@ async function buildDailySmsContent(
         : {}),
       ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
     };
-    const suggestedUnified = deriveSuggestedCoachingMoveForDailyFacts(factsCoreUnified);
+    const factsCoreWithPlanProof = enrichDailyFactsCoreWithPendingPlanProof(factsCoreUnified, {
+      eventsNewestFirst: recentEvents,
+      openQuestionAnsweredAt: relationshipMemoryPacketMain.open_question_answered_at,
+      userAnswersNewestFirst: relationshipMemoryPacketMain.last_5_user_answers.map((a) => ({
+        text: a.text,
+        answered_at: a.answered_at,
+      })),
+    });
+    const suggestedUnified = deriveSuggestedCoachingMoveForDailyFacts(factsCoreWithPlanProof);
     const factsUnified: DailyV3RelationshipFacts = {
-      ...factsCoreUnified,
+      ...factsCoreWithPlanProof,
       suggested_coaching_move: suggestedUnified,
       constraints: {
         max_chars: 300,
@@ -2212,6 +2234,10 @@ async function buildDailySmsContent(
         suggested_coaching_move: laneUnified.metadata.suggested_coaching_move,
         route_purpose: routeKind,
         voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
+        ...buildTimingAnchorBrainMetadata(
+          factsUnified.accountability.timing_anchor_memory,
+          factsUnified.accountability.pending_plan_proof
+        ),
       },
     };
 

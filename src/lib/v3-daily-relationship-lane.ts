@@ -31,6 +31,20 @@ import {
   buildPlannedInterruptionLaneGuardrails,
 } from "@/lib/sms-planned-interruption";
 import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
+import {
+  buildDailyOpenQuestionAnswerPriorityGuidance,
+  buildPendingPlanProofLaneGuardrails,
+  buildPendingPlanProofVoiceRepairInstruction,
+  detectPendingPlanProofVoiceViolations,
+  type PendingPlanProofFact,
+} from "@/lib/pending-plan-proof";
+import {
+  buildTimingAnchorMemoryLaneGuardrails,
+  buildTimingAnchorVoiceRepairInstruction,
+  detectTimingAnchorVoiceViolations,
+  inferHasProofOrKnownOutcomeForDailyAccountability,
+  type TimingAnchorMemory,
+} from "@/lib/timing-anchor-memory";
 import type {
   SmsGoalAdjustmentCompatibleFlow,
   SmsGoalAdjustmentConfidence,
@@ -123,6 +137,7 @@ export type DailyV3RelationshipFacts = {
     recent_transcript_or_context_block: string | null;
     latest_open_question: string | null;
     latest_answer_after_open_question?: string | null;
+    open_question_answered_at?: string | null;
     open_question_pending?: boolean;
     projection_used?: boolean;
     open_question_source?: "projection" | "runtime_guess" | "none";
@@ -163,6 +178,10 @@ export type DailyV3RelationshipFacts = {
     planned_interruption_active?: boolean;
     planned_interruption_reason_category?: string | null;
     planned_interruption_resume_hint?: string | null;
+    /** Derived: dated plan stated; outcome not yet proven (close loop first). */
+    pending_plan_proof?: PendingPlanProofFact | null;
+    /** Derived: timing anchor confidence (recurrence / confirmation / prior success). */
+    timing_anchor_memory?: TimingAnchorMemory | null;
   };
   /** When route is pending-resolution daily reminder. */
   pending_resolution?: DailyV3PendingResolutionFacts | null;
@@ -223,6 +242,7 @@ export function deriveSuggestedCoachingMoveForDailyFacts(f: DailyV3RelationshipF
   if (f.route_kind === "refresh_commitment") return "refresh_commitment_fit_check";
   if (f.route_kind === "contract_prompt") return "propose_contract";
   if (f.route_kind === "low_pressure_reactivation") return "low_pressure_reactivation";
+  if (f.accountability.pending_plan_proof?.active === true) return "close_prior_plan_loop";
   if (f.accountability.daily_purpose === "comeback_after_silence") return "acknowledge_comeback";
   if (f.accountability.next_move_type === "shrink_ask") return "invite_smaller_rep";
   if (f.accountability.next_move_type === "hold_standard") return "hold_standard";
@@ -314,6 +334,25 @@ function safeJsonParse(raw: string): LaneModelJson | null {
   } catch {
     return null;
   }
+}
+
+function collectDailyPostValidateVoiceViolations(
+  body: string,
+  facts: DailyV3RelationshipFacts,
+  bindingVerbatim?: string | null
+): string[] {
+  const hasProof = inferHasProofOrKnownOutcomeForDailyAccountability(facts.accountability);
+  const hits = [
+    ...detectRelationshipCoachingVoiceBlockedReasons(body, { bindingVerbatim: bindingVerbatim ?? undefined }),
+    ...detectPendingPlanProofVoiceViolations(body, facts.accountability.pending_plan_proof),
+    ...detectTimingAnchorVoiceViolations({
+      body,
+      timingAnchorMemory: facts.accountability.timing_anchor_memory,
+      pendingPlanProof: facts.accountability.pending_plan_proof,
+      hasProofOrKnownOutcome: hasProof,
+    }),
+  ];
+  return [...new Set(hits)];
 }
 
 function summarizeFacts(f: DailyV3RelationshipFacts): string {
@@ -681,8 +720,8 @@ RULES:
 - When thread_memory.projection_used is true, latest_open_question and latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and previews.
 - thread_memory.recent_exact_thread_text (when present) is the highest-priority transcript — it outranks coaching_memory_snippet, body_preview, and older transcript blocks when they conflict.
 - Do NOT ask the same question as any entry in thread_memory.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
-- If thread_memory.open_question_pending is false and latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
-- If thread_memory.latest_open_question is already answered in recent exact thread, advance from the answer.
+${buildDailyOpenQuestionAnswerPriorityGuidance()}
+- If thread_memory.latest_open_question is already answered in recent exact thread with proof/outcome (not only a forward plan while pending_plan_proof is active), advance from that answer.
 - Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
 - Avoid repeating yesterday's opener or the same coach question from recent exact thread.
 - Anchor to the user's real commitment (effective ask + state), without pasting raw title or behavior_statement as a quoted phrase or "Did [raw] happen today?" / "Did you protect [raw]?" style checks.
@@ -694,6 +733,8 @@ ${buildVictoryBackgroundLaneGuardrails()}
 ${buildSmsPatternSignalLaneGuardrails()}
 ${buildSmsGoalAdjustmentLaneGuardrails()}
 ${buildPlannedInterruptionLaneGuardrails()}
+${buildPendingPlanProofLaneGuardrails(args.facts.accountability.pending_plan_proof)}
+${buildTimingAnchorMemoryLaneGuardrails(args.facts.accountability.timing_anchor_memory)}
 ${routeSpecificSystemAddendum(args.facts)}
 
 OUTPUT: strict JSON only with keys:
@@ -838,7 +879,9 @@ Write JSON only.`;
     }
   }
 
-  const blocked = detectRelationshipCoachingVoiceBlockedReasons(body, { bindingVerbatim });
+  const pendingPlan = args.facts.accountability.pending_plan_proof;
+  const timingMemory = args.facts.accountability.timing_anchor_memory;
+  const blocked = collectDailyPostValidateVoiceViolations(body, args.facts, bindingVerbatim);
   if (blocked.length > 0) {
     const { repairable, hard } = partitionFinalVoiceBlockedReasons(blocked);
 
@@ -869,12 +912,28 @@ Write JSON only.`;
 
     const originalCandidateSnapshot = body;
 
+    const timingViolations = detectTimingAnchorVoiceViolations({
+      body,
+      timingAnchorMemory: timingMemory,
+      pendingPlanProof: pendingPlan,
+      hasProofOrKnownOutcome: inferHasProofOrKnownOutcomeForDailyAccountability(args.facts.accountability),
+    });
+    const pendingRepairHint =
+      pendingPlan?.active === true &&
+      repairable.some((r) => r.startsWith("unearned_") || r === "presumed_recurring_anchor_schedule")
+        ? buildPendingPlanProofVoiceRepairInstruction(pendingPlan)
+        : null;
+    const timingRepairHint =
+      timingViolations.length > 0
+        ? buildTimingAnchorVoiceRepairInstruction(timingViolations, timingMemory, pendingPlan)
+        : null;
     const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
       routeKind: "daily",
       routePurpose: args.facts.route_kind,
       originalBody: body,
       blockedReasons: repairable,
       factsJson: args.facts,
+      systemInstruction: [pendingRepairHint, timingRepairHint].filter(Boolean).join("\n\n") || null,
     });
 
     if (!repairOut) {
@@ -905,7 +964,7 @@ Write JSON only.`;
     }
 
     let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
-    const blockedAfter = detectRelationshipCoachingVoiceBlockedReasons(repaired, { bindingVerbatim });
+    const blockedAfter = collectDailyPostValidateVoiceViolations(repaired, args.facts, bindingVerbatim);
     const missingAfterRepair = validateRequiredVerbatims(
       repaired,
       args.facts.constraints.required_verbatim_substrings
@@ -1129,9 +1188,11 @@ Write JSON only.`;
     detectInput: buildAntiRepeatDetectArgsFromDailyFacts(args.facts, body),
     enabled: shouldRunDailyMemoryRepeatGuard(args.facts),
     validateAfterRepair: async (candidate) => {
-      const blockedAfter = detectRelationshipCoachingVoiceBlockedReasons(candidate, {
-        bindingVerbatim: dailyBindingVerbatimForRobotGuard(args.facts),
-      });
+      const blockedAfter = collectDailyPostValidateVoiceViolations(
+        candidate,
+        args.facts,
+        dailyBindingVerbatimForRobotGuard(args.facts)
+      );
       if (blockedAfter.length > 0) {
         return {
           ok: false,

@@ -4,7 +4,9 @@ import {
   buildMemoryAntiRepeatRepairInstruction,
   detectSmsMemoryRepeatViolation,
   isMemoryRepeatRepairBlockedReason,
+  isNearExactDuplicateSms,
   normalizeSmsMemoryRepeatText,
+  shouldApplyClosePriorPlanLoopAntiRepeatExemption,
 } from "@/lib/sms-memory-anti-repeat";
 
 describe("detectSmsMemoryRepeatViolation", () => {
@@ -227,5 +229,95 @@ describe("normalizeSmsMemoryRepeatText", () => {
     const n = normalizeSmsMemoryRepeatText("What time? Reply STOP to opt out.");
     expect(n).not.toMatch(/stop/i);
     expect(n).toMatch(/what time/i);
+  });
+});
+
+describe("close_prior_plan_loop anti-repeat exemption", () => {
+  const priorOutbound = "Did you get your two hours done?";
+  const planAnswer = "I'll do it after Brooke gets back from her workout.";
+  const closeLoopInputs = {
+    answeredOpenQuestion: priorOutbound,
+    latestAnswerText: planAnswer,
+    lastCoachQuestions: [priorOutbound],
+    pendingPlanProofActive: true,
+    suggestedCoachingMove: "close_prior_plan_loop",
+    lastOutboundFullBody: priorOutbound,
+  };
+
+  it("Test 1 — allows close-loop despite overlap with prior accountability question", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      ...closeLoopInputs,
+      candidateBody:
+        "Did that Brooke workout window happen — done, partial, or missed?",
+    });
+    expect(v.hasViolation).toBe(false);
+    expect(v.closeLoopExemptionApplied).toBe(true);
+  });
+
+  it("Test 2 — exact duplicate of prior outbound still blocked", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      ...closeLoopInputs,
+      candidateBody: priorOutbound,
+    });
+    expect(v.hasViolation).toBe(true);
+    expect(isNearExactDuplicateSms(priorOutbound, priorOutbound)).toBe(true);
+  });
+
+  it("Test 3 — no exemption without pending_plan_proof / close loop move", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      answeredOpenQuestion: priorOutbound,
+      latestAnswerText: planAnswer,
+      lastCoachQuestions: [priorOutbound],
+      candidateBody: "Did the two hours happen?",
+      pendingPlanProofActive: false,
+      suggestedCoachingMove: "ask_completion",
+    });
+    expect(v.hasViolation).toBe(true);
+    expect(v.reason).toBe("repeated_answered_open_question");
+  });
+
+  it("Test 4 — proof answer does not unlock exemption for re-ask", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      answeredOpenQuestion: priorOutbound,
+      latestAnswerText: "Done.",
+      lastCoachQuestions: [priorOutbound],
+      candidateBody: "Did the two hours happen?",
+      pendingPlanProofActive: false,
+      suggestedCoachingMove: "ask_completion",
+    });
+    expect(v.hasViolation).toBe(true);
+    expect(shouldApplyClosePriorPlanLoopAntiRepeatExemption({
+      candidateBody: "Did the two hours happen?",
+      pendingPlanProofActive: false,
+      suggestedCoachingMove: "ask_completion",
+      latestAnswerText: "Done.",
+    })).toBe(false);
+  });
+
+  it("Test 5 — new plan question is not exempt", () => {
+    expect(
+      shouldApplyClosePriorPlanLoopAntiRepeatExemption({
+        candidateBody: "What's your plan today for the two hours?",
+        pendingPlanProofActive: true,
+        suggestedCoachingMove: "close_prior_plan_loop",
+        latestAnswerText: planAnswer,
+        lastOutboundFullBody: priorOutbound,
+      })
+    ).toBe(false);
+  });
+
+  it("Test 6 — close-loop repair instruction avoids build-on-answer", () => {
+    const instruction = buildMemoryAntiRepeatRepairInstruction({
+      reason: "repeated_answered_open_question",
+      repeatedPhrases: [priorOutbound],
+      repeatedQuestion: priorOutbound,
+      latestAnswerText: planAnswer,
+      pendingPlanProofActive: true,
+      suggestedCoachingMove: "close_prior_plan_loop",
+    });
+    expect(instruction).toMatch(/plan or intention, not proof/i);
+    expect(instruction).toMatch(/done, partial, or missed/i);
+    expect(instruction).not.toMatch(/build on the answer instead of re-asking/i);
+    expect(instruction).toMatch(/Do NOT merely repeat the prior coach question verbatim/i);
   });
 });

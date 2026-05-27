@@ -64,7 +64,7 @@ export const MEMORY_PRIORITY_RULES: readonly string[] = [
   "RECENT_EXACT_THREAD_BEATS_COACHING_SUMMARY when they conflict.",
   "FINAL_SENT_BODY_BEATS_BODY_PREVIEW for what coach last said.",
   "DO_NOT_REPEAT_PROJECTION_QUESTIONS — honor do_not_repeat_phrases and last_5_coach_questions.",
-  "If projection open_question_pending is false and open_question_answer_text exists, move forward from that answer.",
+  "If projection open_question_pending is false and open_question_answer_text exists: move forward from that answer only when it is proof/outcome (done, partial, miss, yes/no) or no pending plan proof is active. A plan-only answer is not proof — if pending plan proof is active, close the prior plan loop first.",
   "LAST_SUBSTANTIVE_USER_MESSAGE overrides older memory summaries.",
   "If uncertain, ask a brief clarifying question — do not repeat the same coach question.",
   "COACHING_MEMORY_IS_BACKGROUND — coaching summary and relationship profile are tone only.",
@@ -111,6 +111,7 @@ export type SmsRelationshipMemoryPacket = {
   /** Authoritative when projection row exists (M2B-4). */
   latest_open_question: string | null;
   latest_answer_after_open_question: string | null;
+  open_question_answered_at: string | null;
   open_question_pending: boolean;
   open_question_source: SmsThreadMemoryProjectionSource;
   answer_source: SmsThreadMemoryProjectionSource;
@@ -383,6 +384,7 @@ export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): S
     last_5_user_answers: packet.last_5_user_answers.map((a) => a.text),
     latest_open_question: packet.latest_open_question,
     latest_answer_after_open_question: packet.latest_answer_after_open_question,
+    open_question_answered_at: packet.open_question_answered_at,
     open_question_pending: packet.open_question_pending,
     open_question_source: packet.open_question_source,
     answer_source: packet.answer_source,
@@ -413,6 +415,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
   recent_transcript_or_context_block: string | null;
   latest_open_question: string | null;
   latest_answer_after_open_question: string | null;
+  open_question_answered_at: string | null;
   open_question_pending: boolean;
   projection_used: boolean;
   open_question_source: SmsThreadMemoryProjectionSource;
@@ -934,9 +937,11 @@ export async function buildSmsRelationshipMemoryPacket(args: {
 
   let latest_answer_after_open_question: string | null = null;
   let answer_source: SmsThreadMemoryProjectionSource = "none";
+  let open_question_answered_at: string | null = null;
   if (projection?.open_question_answer_text?.trim() && projection.open_question_pending === false) {
     latest_answer_after_open_question = projection.open_question_answer_text.trim();
     answer_source = "projection";
+    open_question_answered_at = projection.open_question_answered_at?.trim() ?? null;
   } else if (latest_answer_after_open_question_guess) {
     latest_answer_after_open_question = latest_answer_after_open_question_guess;
     answer_source = "runtime_guess";
@@ -970,6 +975,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     latest_answer_after_open_question_guess,
     latest_open_question,
     latest_answer_after_open_question,
+    open_question_answered_at,
     open_question_pending,
     open_question_source,
     answer_source,

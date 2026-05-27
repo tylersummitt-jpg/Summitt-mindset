@@ -24,9 +24,11 @@ import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-
 import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
 import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
 import { buildVictoryBackgroundLaneGuardrails } from "@/lib/sms-victory-background-context";
+import { deriveTimingAnchorMemory } from "@/lib/timing-anchor-memory";
 import {
   DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT,
   detectContractWrapperDuplicates,
+  deriveSuggestedCoachingMoveForDailyFacts,
   produceDailyV3RelationshipSms,
 } from "@/lib/v3-daily-relationship-lane";
 
@@ -101,6 +103,236 @@ function baseFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3Relati
   };
   return { ...core, ...overrides };
 }
+
+describe("deriveSuggestedCoachingMoveForDailyFacts", () => {
+  it("returns close_prior_plan_loop when pending_plan_proof is active", () => {
+    const f = baseFacts({
+      accountability: {
+        ...baseFacts().accountability,
+        pending_plan_proof: {
+          active: true,
+          plan_summary_hint: "plan after workout",
+          anchor_phrase_hint: "after Brooke's workout",
+          anchor_key: "brooke|workout",
+          plan_for_day_key: "2026-05-11",
+          source_answer_preview: "I will after Brooke",
+          recurrence_confidence: "unknown",
+          outcome_known: false,
+        },
+      },
+    });
+    expect(deriveSuggestedCoachingMoveForDailyFacts(f)).toBe("close_prior_plan_loop");
+  });
+});
+
+describe("produceDailyV3RelationshipSms prompt guidance (plan proof + timing anchor)", () => {
+  const env = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...env };
+    vi.clearAllMocks();
+  });
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Quick check — did yesterday's block happen: done, partial, or missed?",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: ["pending_plan_proof"],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+  });
+
+  it("includes pending plan and timing anchor guidance for Brooke-style facts", async () => {
+    const pending = {
+      active: true as const,
+      plan_summary_hint: "distribution after Brooke workout",
+      anchor_phrase_hint: "after Brooke's workout",
+      anchor_key: "brooke|workout",
+      plan_for_day_key: "2026-05-11",
+      source_answer_preview: "I'll do it after Brooke gets back from her workout.",
+      recurrence_confidence: "unknown" as const,
+      outcome_known: false as const,
+    };
+    const timing = deriveTimingAnchorMemory({
+      latestAnswerAfterOpenQuestion: pending.source_answer_preview,
+      pendingPlanProof: pending,
+    });
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        suggested_coaching_move: "close_prior_plan_loop",
+        accountability: {
+          ...baseFacts().accountability,
+          pending_plan_proof: pending,
+          timing_anchor_memory: timing,
+        },
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          latest_answer_after_open_question: pending.source_answer_preview,
+          open_question_pending: false,
+        },
+      }),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toContain("OPEN QUESTION / LATEST ANSWER PRIORITY");
+    expect(systemMsg).toContain("PENDING PLAN PROOF");
+    expect(systemMsg).toContain("TIMING ANCHOR CONFIDENCE");
+    expect(systemMsg).toMatch(/plan\/intention, not proof/i);
+    expect(systemMsg).toMatch(/mentioned_once/i);
+    expect(systemMsg).not.toMatch(
+      /If thread_memory\.open_question_pending is false and latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again/
+    );
+  });
+
+  it("Test 10 — repairs overconfident anchor wording via post-validate path", async () => {
+    const pending = {
+      active: true as const,
+      plan_summary_hint: "distribution after workout",
+      anchor_phrase_hint: "after Brooke's workout",
+      anchor_key: "brooke|workout",
+      plan_for_day_key: "2026-05-11",
+      source_answer_preview: "I'll do it after Brooke gets back from her workout.",
+      recurrence_confidence: "unknown" as const,
+      outcome_known: false as const,
+    };
+    const timing = deriveTimingAnchorMemory({
+      latestAnswerAfterOpenQuestion: pending.source_answer_preview,
+      pendingPlanProof: pending,
+    });
+    const bad =
+      "After Brooke's workout, dive into those two hours and make the most of that time.";
+    const repaired =
+      "Yesterday you named the Brooke workout window — did the two hours happen: done, partial, or missed?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: bad,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: repaired,
+                used_strategy: "timing_anchor_confidence_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        suggested_coaching_move: "close_prior_plan_loop",
+        accountability: {
+          ...baseFacts().accountability,
+          pending_plan_proof: pending,
+          timing_anchor_memory: timing,
+        },
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          latest_answer_after_open_question: pending.source_answer_preview,
+          open_question_pending: false,
+        },
+      }),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_repair_attempted).toBe(true);
+    expect(r.metadata.lane_repair_succeeded).toBe(true);
+    expect(r.metadata.original_blocked_reasons).toContain("presumed_recurring_anchor_schedule");
+    expect(r.body).toMatch(/did the two hours happen/i);
+  });
+
+  it("Test 7 — close-loop daily SMS passes memory repeat guard with exemption metadata", async () => {
+    const priorOutbound = "Did you get your two hours done?";
+    const planAnswer = "I'll do it after Brooke gets back from her workout.";
+    const pending = {
+      active: true as const,
+      plan_summary_hint: "distribution after workout",
+      anchor_phrase_hint: "after Brooke's workout",
+      anchor_key: "brooke|workout",
+      plan_for_day_key: "2026-05-11",
+      source_answer_preview: planAnswer,
+      recurrence_confidence: "unknown" as const,
+      outcome_known: false as const,
+    };
+    const timing = deriveTimingAnchorMemory({
+      latestAnswerAfterOpenQuestion: planAnswer,
+      pendingPlanProof: pending,
+    });
+    const closeLoop =
+      "Did that Brooke workout window happen — done, partial, or missed?";
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: closeLoop,
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        suggested_coaching_move: "close_prior_plan_loop",
+        accountability: {
+          ...baseFacts().accountability,
+          pending_plan_proof: pending,
+          timing_anchor_memory: timing,
+        },
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          latest_open_question: priorOutbound,
+          latest_answer_after_open_question: planAnswer,
+          open_question_pending: false,
+          last_outbound_full_body: priorOutbound,
+          last_5_coach_questions: [priorOutbound],
+        },
+      }),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe(closeLoop);
+    expect(r.metadata.anti_repeat_close_loop_exemption_applied).toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("produceDailyV3RelationshipSms", () => {
   const env = { ...process.env };

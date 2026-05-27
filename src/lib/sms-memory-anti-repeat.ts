@@ -2,6 +2,11 @@
  * M2B-5 — Deterministic SMS memory anti-repeat detection + OpenAI repair orchestration.
  */
 
+import {
+  hasFuturePlanIntentLanguage,
+  looksLikeReportedCompletion,
+} from "@/lib/pending-plan-proof";
+import { isClosePriorPlanLoopOutcomeQuestion } from "@/lib/timing-anchor-memory";
 import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
@@ -18,6 +23,8 @@ export type SmsMemoryRepeatViolation = {
   repeatedPhrases: string[];
   repeatedQuestion: string | null;
   reason: SmsMemoryRepeatViolationReason;
+  /** Set when a repeat would have fired but close-prior-plan-loop outcome exemption applied. */
+  closeLoopExemptionApplied?: boolean;
 };
 
 const MIN_PHRASE_CHARS = 12;
@@ -114,6 +121,45 @@ function phraseAppearsInCandidate(candidateNorm: string, phrase: string): boolea
   return false;
 }
 
+export function isNearExactDuplicateSms(a: string, b: string): boolean {
+  const an = normalizeSmsMemoryRepeatText(a);
+  const bn = normalizeSmsMemoryRepeatText(b);
+  if (!an || !bn) return false;
+  if (an === bn) return true;
+  if (an.length >= 16 && bn.length >= 16) {
+    const overlap = wordOverlapRatio(an, bn);
+    if (overlap >= 0.92) return true;
+    const shorter = an.length <= bn.length ? an : bn;
+    const longer = an.length > bn.length ? an : bn;
+    if (longer.includes(shorter) && shorter.length / longer.length >= 0.85) return true;
+  }
+  return false;
+}
+
+function latestAnswerIsPlanNotProof(latestAnswer: string | null | undefined): boolean {
+  const t = latestAnswer?.trim() ?? "";
+  if (!t) return false;
+  if (looksLikeReportedCompletion(t)) return false;
+  return hasFuturePlanIntentLanguage(t);
+}
+
+export function shouldApplyClosePriorPlanLoopAntiRepeatExemption(args: {
+  candidateBody: string;
+  pendingPlanProofActive?: boolean;
+  suggestedCoachingMove?: string | null;
+  latestAnswerText?: string | null;
+  lastOutboundFullBody?: string | null;
+}): boolean {
+  const closeLoopContext =
+    args.pendingPlanProofActive === true || args.suggestedCoachingMove === "close_prior_plan_loop";
+  if (!closeLoopContext) return false;
+  if (!latestAnswerIsPlanNotProof(args.latestAnswerText)) return false;
+  if (!isClosePriorPlanLoopOutcomeQuestion(args.candidateBody)) return false;
+  const lastOut = args.lastOutboundFullBody?.trim();
+  if (lastOut && isNearExactDuplicateSms(args.candidateBody, lastOut)) return false;
+  return true;
+}
+
 function isAcknowledgmentWithoutReask(candidate: string, priorQuestion: string): boolean {
   const t = candidate.trim();
   if (/\?/.test(t)) return false;
@@ -134,6 +180,9 @@ export function detectSmsMemoryRepeatViolation(args: {
   latestAnswerText?: string | null;
   requiredVerbatimSubstrings?: string[];
   routePurpose?: string | null;
+  pendingPlanProofActive?: boolean;
+  suggestedCoachingMove?: string | null;
+  lastOutboundFullBody?: string | null;
 }): SmsMemoryRepeatViolation {
   const candidate = args.candidateBody.trim();
   if (!candidate) {
@@ -158,10 +207,19 @@ export function detectSmsMemoryRepeatViolation(args: {
   const repeatedPhrases: string[] = [];
   let repeatedQuestion: string | null = null;
   let reason: SmsMemoryRepeatViolationReason = null;
+  let closeLoopExemptionApplied = false;
 
   const coachQs = coachQuestionTextsFromEntries(args.lastCoachQuestions);
   const answeredQ = args.answeredOpenQuestion?.trim() ?? null;
   const latestAnswer = args.latestAnswerText?.trim() ?? null;
+
+  const closeLoopExemption = shouldApplyClosePriorPlanLoopAntiRepeatExemption({
+    candidateBody: candidate,
+    pendingPlanProofActive: args.pendingPlanProofActive,
+    suggestedCoachingMove: args.suggestedCoachingMove,
+    latestAnswerText: latestAnswer,
+    lastOutboundFullBody: args.lastOutboundFullBody,
+  });
 
   if (answeredQ && latestAnswer) {
     const clauses = extractQuestionClausesFromBody(candidate);
@@ -169,6 +227,10 @@ export function detectSmsMemoryRepeatViolation(args: {
     for (const clause of targets) {
       if (isAcknowledgmentWithoutReask(candidate, answeredQ)) continue;
       if (phraseAppearsInCandidate(normalizeSmsMemoryRepeatText(clause), answeredQ)) {
+        if (closeLoopExemption) {
+          closeLoopExemptionApplied = true;
+          continue;
+        }
         repeatedQuestion = answeredQ;
         reason = "repeated_answered_open_question";
         repeatedPhrases.push(answeredQ.slice(0, 280));
@@ -185,6 +247,10 @@ export function detectSmsMemoryRepeatViolation(args: {
       }
       if (isAcknowledgmentWithoutReask(candidate, q)) continue;
       if (phraseAppearsInCandidate(candidateNorm, q)) {
+        if (closeLoopExemption) {
+          closeLoopExemptionApplied = true;
+          continue;
+        }
         repeatedQuestion = q;
         reason = "repeated_recent_question";
         repeatedPhrases.push(q.slice(0, 280));
@@ -208,11 +274,15 @@ export function detectSmsMemoryRepeatViolation(args: {
     }
   }
 
+  const appliedFlag =
+    closeLoopExemptionApplied || (closeLoopExemption && reason == null);
+
   return {
     hasViolation: reason != null,
     repeatedPhrases: [...new Set(repeatedPhrases)],
     repeatedQuestion,
     reason,
+    ...(appliedFlag ? { closeLoopExemptionApplied: true } : {}),
   };
 }
 
@@ -226,18 +296,33 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
   repeatedPhrases: string[];
   latestAnswerText?: string | null;
   reason: SmsMemoryRepeatViolationReason;
+  pendingPlanProofActive?: boolean;
+  suggestedCoachingMove?: string | null;
 }): string {
-  const parts = [
-    "The user already answered or was already asked this coach question recently.",
-    "Do NOT paraphrase the repeated question. Do NOT ask the same thing in different words.",
-    "Change the coaching move while preserving the same user facts, current goal, and accountability purpose.",
-    "Write one natural, concise SMS that moves the relationship forward.",
-    "Keep natural memory callbacks when they advance the thread (e.g. referencing when something tends to slip, or what they said last time) — but do not re-ask the same question frame.",
-    "Do not mention memory, projection, databases, or internal systems.",
-    "If a prior user answer is available, build on it — do not re-ask for the same information.",
-    "Frame-shift guidance (change the move, not the wording): planning/reflection question → proof or completion check; \"what will you do?\" → honest follow-through such as whether one small thing happened; abstract self-care/reflection → concrete accountability tied to the current goal; answered open question → build on the answer instead of re-asking; repeated open question → shorter honesty check (yes/no/partial) when appropriate; silence/reentry → ask for truth, not another plan.",
-    "Return strict JSON with keys: body, used_strategy, safety_notes.",
-  ];
+  const closeLoopContext =
+    args.pendingPlanProofActive === true || args.suggestedCoachingMove === "close_prior_plan_loop";
+
+  const parts = closeLoopContext
+    ? [
+        "The prior user reply was a plan or intention, not proof of completion.",
+        "Rewrite to close that loop: ask whether the planned block or action happened (done, partial, or missed) in natural language.",
+        "Do NOT merely repeat the prior coach question verbatim or paraphrase it.",
+        "Do NOT tell the model to build on the plan answer as if it were proof.",
+        "Keep one short SMS, human and direct.",
+        "Do not mention memory, projection, databases, or internal systems.",
+        "Return strict JSON with keys: body, used_strategy, safety_notes.",
+      ]
+    : [
+        "The user already answered or was already asked this coach question recently.",
+        "Do NOT paraphrase the repeated question. Do NOT ask the same thing in different words.",
+        "Change the coaching move while preserving the same user facts, current goal, and accountability purpose.",
+        "Write one natural, concise SMS that moves the relationship forward.",
+        "Keep natural memory callbacks when they advance the thread (e.g. referencing when something tends to slip, or what they said last time) — but do not re-ask the same question frame.",
+        "Do not mention memory, projection, databases, or internal systems.",
+        "If a prior user answer is available, build on it — do not re-ask for the same information.",
+        "Frame-shift guidance (change the move, not the wording): planning/reflection question → proof or completion check; \"what will you do?\" → honest follow-through such as whether one small thing happened; abstract self-care/reflection → concrete accountability tied to the current goal; answered open question → build on the answer instead of re-asking; repeated open question → shorter honesty check (yes/no/partial) when appropriate; silence/reentry → ask for truth, not another plan.",
+        "Return strict JSON with keys: body, used_strategy, safety_notes.",
+      ];
   if (args.reason === "repeated_answered_open_question" && args.latestAnswerText?.trim()) {
     parts.push(`Use this prior user answer as ground truth: "${args.latestAnswerText.trim().slice(0, 220)}".`);
   }
@@ -371,6 +456,9 @@ export function buildAntiRepeatDetectArgsFromDailyFacts(
     latestAnswerText: tm.latest_answer_after_open_question ?? null,
     requiredVerbatimSubstrings: facts.constraints.required_verbatim_substrings,
     routePurpose: facts.route_kind,
+    pendingPlanProofActive: facts.accountability.pending_plan_proof?.active === true,
+    suggestedCoachingMove: facts.suggested_coaching_move,
+    lastOutboundFullBody: tm.last_outbound_full_body ?? tm.latest_outbound_sms ?? null,
   };
 }
 
@@ -408,7 +496,19 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
   const firstViolation = detectSmsMemoryRepeatViolation({ ...args.detectInput, candidateBody: original });
 
   if (!firstViolation.hasViolation) {
-    return { outcome: "ok", body: original, metadata: { memory_repeat_guard_attempted: false } };
+    return {
+      outcome: "ok",
+      body: original,
+      metadata: {
+        memory_repeat_guard_attempted: false,
+        ...(firstViolation.closeLoopExemptionApplied
+          ? {
+              anti_repeat_close_loop_exemption_applied: true,
+              anti_repeat_exemption_reason: "close_prior_plan_loop_outcome_question",
+            }
+          : {}),
+      },
+    };
   }
 
   const repairInstruction = buildMemoryAntiRepeatRepairInstruction({
@@ -416,6 +516,8 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     repeatedPhrases: firstViolation.repeatedPhrases,
     latestAnswerText: args.detectInput.latestAnswerText ?? null,
     reason: firstViolation.reason,
+    pendingPlanProofActive: args.detectInput.pendingPlanProofActive,
+    suggestedCoachingMove: args.detectInput.suggestedCoachingMove,
   });
   const extraRepair = args.additionalRepairInstruction?.trim();
   const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({

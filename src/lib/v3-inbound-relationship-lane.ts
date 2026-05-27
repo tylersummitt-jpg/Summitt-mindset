@@ -1844,7 +1844,7 @@ RULES:
 - Use INBOUND_ACCOUNTABILITY_FACTS_JSON only as facts — never copy labeled machine drafts, template banks, or "prior hint" wording as your voice.
 - thread.memory_authority.projection_used: when true, thread.latest_open_question and thread.latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and north_star fallbacks.
 - thread.memory_packet.recent_exact_thread_text is the highest-priority transcript when present — it outranks recent_transcript_lines, body_preview, and coaching summaries.
-- If projection says open_question_pending is false and an answer exists, move forward from that answer — do not re-ask.
+- If projection says open_question_pending is false and an answer exists: move forward from that answer only when it is proof/outcome — not when the answer is only a forward plan or outcome is still unknown (do not treat intention as completion).
 - Do not re-ask questions in thread.memory_packet.last_5_coach_questions unless the user has not answered and you briefly acknowledge that.
 - If thread.memory_packet.latest_answer_after_open_question_guess is set, use it — do not ask that question again.
 - Read the thread: latest inbound, latest outbound coach SMS, transcript lines, and open-question semantics.
