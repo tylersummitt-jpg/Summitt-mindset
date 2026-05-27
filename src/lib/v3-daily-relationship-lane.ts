@@ -933,7 +933,8 @@ Write JSON only.`;
       originalBody: body,
       blockedReasons: repairable,
       factsJson: args.facts,
-      systemInstruction: [pendingRepairHint, timingRepairHint].filter(Boolean).join("\n\n") || null,
+      systemInstruction:
+        [pendingRepairHint, timingRepairHint].filter(Boolean).join("\n\n") || undefined,
     });
 
     if (!repairOut) {

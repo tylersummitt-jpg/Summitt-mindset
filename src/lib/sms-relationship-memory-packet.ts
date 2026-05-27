@@ -360,6 +360,7 @@ export type SlimSmsRelationshipMemoryPacketForFacts = {
   last_5_user_answers: string[];
   latest_open_question: string | null;
   latest_answer_after_open_question: string | null;
+  open_question_answered_at: string | null;
   open_question_pending: boolean;
   open_question_source: SmsThreadMemoryProjectionSource;
   answer_source: SmsThreadMemoryProjectionSource;
@@ -447,6 +448,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
     latest_open_question: packet.latest_open_question ?? packet.latest_open_question_guess,
     latest_answer_after_open_question:
       packet.latest_answer_after_open_question ?? packet.latest_answer_after_open_question_guess,
+    open_question_answered_at: packet.open_question_answered_at,
     open_question_pending: packet.open_question_pending,
     projection_used: packet.meta.projection_used,
     open_question_source: packet.open_question_source,

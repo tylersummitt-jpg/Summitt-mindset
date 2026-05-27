@@ -43,6 +43,7 @@ data/pat/source/source_ingest_report.json
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # clerk (local dev / keyless — never commit; may contain secrets)
 .clerk/

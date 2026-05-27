@@ -157,7 +157,7 @@ function hasLaterUserCompletionAfterPlan(args: {
     const text = row.text?.trim() ?? "";
     if (!text || text.toLowerCase() === planNorm) continue;
     const at = parseIsoMs(row.answered_at ?? null);
-    if (planAnswerAtMs > 0 && at > 0 && at <= planAnswerAtMs) continue;
+    if (args.planAnswerAtMs > 0 && at > 0 && at <= args.planAnswerAtMs) continue;
     if (looksLikeReportedCompletion(text)) return true;
   }
   return false;

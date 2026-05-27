@@ -2,7 +2,22 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Environment variables
 
-- **`NEXT_PUBLIC_META_PIXEL_ID`** — optional. When set (numeric Meta Pixel ID only), the [Meta Pixel](https://developers.facebook.com/docs/meta-pixel) loads for **PageView** analytics. If unset, the app skips pixel code entirely.
+### Meta Pixel (Phase 1 — marketing routes only)
+
+- **`NEXT_PUBLIC_META_PIXEL_ID`** — optional. When set to a **numeric** Meta Pixel ID, the [Meta Pixel](https://developers.facebook.com/docs/meta-pixel) loads via `MetaPixelRoot`. If unset or non-numeric, all Meta tracking is a no-op.
+
+- **`NEXT_PUBLIC_META_PIXEL_ENABLED`** — optional. Set to **`false`** to disable the pixel even when an ID is present (useful for local/preview). Defaults to enabled when a valid ID exists.
+
+**Behavior:**
+
+- **PageView** fires only on public marketing routes (home, subscribe, coach kit, SEO pages, auth pages, policies). Authenticated product surfaces (`/dashboard`, `/onboarding`, Victory Room, Ask Pat, Film Room, etc.) are **blocked**.
+- Sensitive URLs (`/subscribe/success`, `/pulse`, `/winback`, `/internal`, …) and denylisted query keys (`session_id`, `t`, `token`, …) never receive PageView.
+- Custom/coach events use an allowlisted payload only — never identity, goal, journal, SMS, proof, email, phone, tokens, or Stripe/session IDs.
+- **Not included yet:** Purchase, Subscribe, StartTrial, or Conversions API (server-side).
+
+**Local / preview / production:** Prefer leaving `NEXT_PUBLIC_META_PIXEL_ID` unset locally; use a test pixel or `NEXT_PUBLIC_META_PIXEL_ENABLED=false` on preview. Production: set the live pixel ID in Vercel.
+
+**Limitation:** The browser may still attach the full document URL to some Meta events unless `event_source_url` override is honored by `fbevents.js`; sensitive routes are blocked entirely so tokenized query strings are not tracked via PageView.
 
 - **`COACH_ATTRIBUTION_COOKIE_ENABLED`** — set to **`true`** in production so coach landing-page visits can set the attribution cookie before auth (used with `/post-sign-in` sync).
 

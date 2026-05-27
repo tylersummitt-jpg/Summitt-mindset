@@ -3,16 +3,13 @@
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { getMetaPixelId, trackPageView } from "@/lib/meta-pixel";
+import { getMetaPageViewDecision } from "@/lib/meta-pixel-route-policy";
+import { getMetaPixelId, isMetaPixelEnabled, trackSafePageView } from "@/lib/meta-pixel";
 
 /**
- * Survives React Strict Mode remounts so we don't double-count the same route.
+ * Survives React Strict Mode remounts — pathname-only dedupe (no query string).
  */
-let lastMetaPageViewRouteKey: string | null = null;
-
-function buildRouteKey(pathname: string, search: string): string {
-  return search ? `${pathname}?${search}` : pathname;
-}
+let lastMetaPageViewPathname: string | null = null;
 
 function MetaPixelInner({ pixelId }: { pixelId: string }) {
   const pathname = usePathname();
@@ -20,8 +17,13 @@ function MetaPixelInner({ pixelId }: { pixelId: string }) {
   const search = searchParams?.toString() ?? "";
 
   useEffect(() => {
-    const routeKey = buildRouteKey(pathname, search);
-    if (lastMetaPageViewRouteKey === routeKey) return;
+    const decision = getMetaPageViewDecision(pathname, search);
+    if (decision.action === "block") {
+      return;
+    }
+
+    const pagePath = decision.pagePath;
+    if (lastMetaPageViewPathname === pagePath) return;
 
     let cancelled = false;
     let attempts = 0;
@@ -30,13 +32,13 @@ function MetaPixelInner({ pixelId }: { pixelId: string }) {
 
     const tick = () => {
       if (cancelled) return;
-      if (lastMetaPageViewRouteKey === routeKey) return;
+      if (lastMetaPageViewPathname === pagePath) return;
 
       if (typeof window === "undefined") return;
       const fbq = (window as Window & { fbq?: unknown }).fbq;
       if (typeof fbq === "function") {
-        lastMetaPageViewRouteKey = routeKey;
-        trackPageView();
+        lastMetaPageViewPathname = pagePath;
+        trackSafePageView(pathname, search);
         return;
       }
 
@@ -68,7 +70,7 @@ function MetaPixelInner({ pixelId }: { pixelId: string }) {
 export function MetaPixelRoot() {
   const pixelId = getMetaPixelId();
 
-  if (!pixelId) {
+  if (!pixelId || !isMetaPixelEnabled()) {
     return null;
   }
 
