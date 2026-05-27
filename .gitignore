@@ -33,6 +33,14 @@ yarn-error.log*
 # local schema dumps from scripts/capture-baseline-schema.sh (do not commit)
 .tmp/
 
+# Pat Summitt book source files (raw Word docs — do not commit)
+private/pat-books/
+
+# Pat Source Library — generated full-book outputs (regenerate locally; do not commit)
+data/pat/source/*.source_chunks.jsonl
+data/pat/source/books.manifest.json
+data/pat/source/source_ingest_report.json
+
 # env files (can opt-in for committing if needed)
 .env*
 

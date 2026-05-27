@@ -10,7 +10,10 @@
     "test:watch": "vitest",
     "lint": "eslint",
     "db:capture-baseline": "bash scripts/capture-baseline-schema.sh",
-    "stripe:audit-duplicate-subs": "node scripts/audit-stripe-duplicate-subscriptions.mjs"
+    "stripe:audit-duplicate-subs": "node scripts/audit-stripe-duplicate-subscriptions.mjs",
+    "pat:ingest-source": "tsx scripts/pat-source/ingest-pat-books.mts",
+    "pat:validate-candidates": "tsx scripts/pat-candidates/validate-candidates.mts",
+    "pat:search-source": "tsx scripts/pat-candidates/search-source.mts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.5",
@@ -26,6 +29,8 @@
     "twilio": "^5.12.1"
   },
   "devDependencies": {
+    "mammoth": "^1.9.0",
+    "tsx": "^4.19.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^18",

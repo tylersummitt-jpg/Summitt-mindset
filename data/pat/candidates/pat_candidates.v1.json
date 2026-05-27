@@ -1,0 +1,10 @@
+{
+  "schema_version": "pat_candidates_catalog_v1",
+  "catalog_version": 1,
+  "updated_at": "2026-05-27T00:00:00.000Z",
+  "source_library_ref": {
+    "ingestion_version": "pat_source_ingest_v1",
+    "manifest_path": "data/pat/source/books.manifest.json"
+  },
+  "candidates": []
+}
