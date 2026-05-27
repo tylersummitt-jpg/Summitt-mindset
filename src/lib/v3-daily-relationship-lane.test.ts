@@ -573,6 +573,166 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.route_purpose).toBe("contract_prompt");
   });
 
+  it("contract_prompt (semantic daily): sends natural proposal without binding_text_verbatim", async () => {
+    const base = baseFacts();
+    const ask = "30 minutes of deep work";
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: `For the next few days, want to keep ${ask} as your bar — or would you rather dial it back a notch?`,
+              no_send_reason: null,
+              turn_purpose: "contract_overlay",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          contract_kind: "shrink_ask",
+          required_reply_semantics: "yes_no_binding_only",
+          semantic_daily_contract_v1: true,
+          daily_contract_semantic_facts: {
+            proposal_kind: "shrink_ask",
+            duration_days: 7,
+            base_behavior_statement: base.commitment.behavior_statement,
+            proposed_overlay_ask: ask,
+            proposed_behavior_preview: ask,
+            desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+            must_not_claim_goal_updated: true,
+            forbidden_phrases: [],
+          },
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [],
+        },
+      },
+      telemetry_fact_sources: ["v1_semantic_daily"],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).toContain("deep work");
+    expect(r.body.toLowerCase()).not.toMatch(/\breply\s+yes\b/);
+    expect(r.body.toLowerCase()).not.toMatch(/this is the standard/);
+  });
+
+  it("contract_prompt (semantic daily): no_send when body contains forbidden menu language", async () => {
+    const base = baseFacts();
+    const ask = "30 minutes of deep work";
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: `Let’s make it simple: ${ask}. Reply YES to confirm or NO to discard.`,
+              no_send_reason: null,
+              turn_purpose: "contract_overlay",
+              voice_confidence: 0.7,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          contract_kind: "shrink_ask",
+          required_reply_semantics: "yes_no_binding_only",
+          semantic_daily_contract_v1: true,
+          daily_contract_semantic_facts: {
+            proposal_kind: "shrink_ask",
+            duration_days: 7,
+            base_behavior_statement: base.commitment.behavior_statement,
+            proposed_overlay_ask: ask,
+            proposed_behavior_preview: ask,
+            desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+            must_not_claim_goal_updated: true,
+            forbidden_phrases: [],
+          },
+        },
+      },
+      telemetry_fact_sources: ["v1_semantic_daily"],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(String(r.noSendReason)).toMatch(/^semantic_daily_contract_blocked:/);
+    expect(r.metadata.lane_stage).toBe("semantic_daily_contract_validator_failed");
+  });
+
+  it("contract_prompt (semantic daily): no_send when body does not reference proposed bar", async () => {
+    const base = baseFacts();
+    const ask = "30 minutes of deep work";
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: `Want to keep that for the week, or adjust it?`,
+              no_send_reason: null,
+              turn_purpose: "contract_overlay",
+              voice_confidence: 0.7,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          contract_kind: "shrink_ask",
+          required_reply_semantics: "yes_no_binding_only",
+          semantic_daily_contract_v1: true,
+          daily_contract_semantic_facts: {
+            proposal_kind: "shrink_ask",
+            duration_days: 7,
+            base_behavior_statement: base.commitment.behavior_statement,
+            proposed_overlay_ask: ask,
+            proposed_behavior_preview: ask,
+            desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+            must_not_claim_goal_updated: true,
+            forbidden_phrases: [],
+          },
+        },
+      },
+      telemetry_fact_sources: ["v1_semantic_daily"],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(String(r.noSendReason)).toContain("missing_proposed_behavior_signal");
+  });
+
   it("computeRecommitBindingText returns server-owned 7-day standard binding unchanged", () => {
     expect(computeRecommitBindingText("I will text or call each day")).toBe(
       "This is the standard for the next 7 days: I will text or call each day"

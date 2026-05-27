@@ -34,6 +34,7 @@ import {
   templateFamilyForStrategy,
   V2_OUTBOUND_AI_MODEL,
   V2_OUTBOUND_AI_PROMPT_VERSION,
+  computeCanonicalShrinkProposalAskFromBehavior,
 } from "@/lib/v2-ai-outbound";
 import {
   buildV2OutboundAccountabilitySmsForStrategy,
@@ -43,8 +44,6 @@ import {
 } from "@/lib/v2-sms-accountability";
 import {
   clearStaleAdaptiveContractColumns,
-  computeRecommitBindingText,
-  computeShrinkProposalText,
   getEffectiveCoachingAsk,
   isV2AdaptiveOverlayActive,
   isV2PendingProposalValid,
@@ -161,6 +160,12 @@ import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-c
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
+import {
+  DAILY_SEMANTIC_CONTRACT_PROPOSAL_VERSION,
+  DEFAULT_SEMANTIC_DAILY_CONTRACT_FORBIDDEN_PHRASES,
+  type DailySemanticContractProposalFactsPacket,
+} from "@/lib/v3-daily-contract-proposal-semantic";
+import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -321,12 +326,8 @@ async function withNorthStarDailyGate(
     normalCoaching:
       built.v2Accountability === true &&
       Boolean(built.v2CommitmentId),
-    bindingVerbatim:
-      built.v2ContractProposalMode === true &&
-      typeof built.v2ProposalBindingText === "string" &&
-      built.v2ProposalBindingText.trim().length > 0
-        ? built.v2ProposalBindingText.trim()
-        : null,
+    /** Daily adaptive proposals route through semantic relationship wording — no pasted server binding verbatim. */
+    bindingVerbatim: null,
   });
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,
@@ -430,6 +431,22 @@ function buildStandardCheckSentPayload(args: {
     ...(args.ai ? { ai: args.ai } : {}),
     ...(args.cadence ? { cadence: args.cadence } : {}),
     ...(args.contractProposal ? { contract_proposal: args.contractProposal } : {}),
+  };
+}
+
+/** Adds audited visible SMS fingerprint to contract snapshot payload immediately before DB snapshot write. */
+function withPresentedDailyContractProposalAuditFields(
+  contractProposal: Record<string, unknown> | null | undefined,
+  presentedBody: string
+): Record<string, unknown> | null {
+  if (!contractProposal || typeof contractProposal !== "object" || Array.isArray(contractProposal)) {
+    return null;
+  }
+  const trimmed = presentedBody.trim();
+  return {
+    ...contractProposal,
+    proposal_presented_body: trimmed,
+    proposal_presented_body_hash: hashSmsSnippet(trimmed),
   };
 }
 
@@ -1826,11 +1843,12 @@ async function buildDailySmsContent(
         ? "recommit_same"
         : null;
 
-    const proposalBindingText =
+    const canonicalDailyProposalAsk: string | null =
       contractProposalMode && contractProposalKind === "shrink_ask"
-        ? computeShrinkProposalText(active.behavior_statement)
+        ? (computeCanonicalShrinkProposalAskFromBehavior(active.behavior_statement) ??
+            active.behavior_statement.trim()).trim()
         : contractProposalMode && contractProposalKind === "recommit_same"
-          ? computeRecommitBindingText(active.behavior_statement)
+          ? active.behavior_statement.trim()
           : null;
 
     const outboundNextMove: V2NextMoveKind =
@@ -1840,11 +1858,11 @@ async function buildDailySmsContent(
         : nextMove.type;
 
     let templateId: number;
-    if (contractProposalMode && proposalBindingText && contractProposalKind === "shrink_ask") {
+    if (contractProposalMode && canonicalDailyProposalAsk && contractProposalKind === "shrink_ask") {
       const pack = await buildV2ShrinkProposalOutboundSms({
         clerkUserId,
         dayKey: accountabilityDayKey,
-        proposalBindingText,
+        proposalBindingText: canonicalDailyProposalAsk,
         originalBehaviorStatement: active.behavior_statement,
         v3Refine: { commitment: active, timezone },
       });
@@ -1856,11 +1874,11 @@ async function buildDailySmsContent(
         };
       }
       templateId = pack.templateId;
-    } else if (contractProposalMode && proposalBindingText && contractProposalKind === "recommit_same") {
+    } else if (contractProposalMode && canonicalDailyProposalAsk && contractProposalKind === "recommit_same") {
       const pack = await buildV2RecommitProposalOutboundSms({
         clerkUserId,
         dayKey: accountabilityDayKey,
-        proposalBindingText,
+        proposalBindingText: canonicalDailyProposalAsk,
         originalBehaviorStatement: active.behavior_statement,
         v3Refine: { commitment: active, timezone },
       });
@@ -1996,12 +2014,22 @@ async function buildDailySmsContent(
         : null;
 
     const routeKind: DailyV3RouteKind = contractProposalMode ? "contract_prompt" : "main_active_accountability";
-    const bindingTrim =
-      typeof proposalBindingText === "string" && proposalBindingText.trim()
-        ? proposalBindingText.trim()
-        : "";
-    const requiredVerbatimMain =
-      contractProposalMode && bindingTrim.length > 0 ? [bindingTrim] : [];
+    const canonicalProposalAskTrim = typeof canonicalDailyProposalAsk === "string" ? canonicalDailyProposalAsk.trim() : "";
+    const requiredVerbatimMain: string[] = [];
+
+    const contractSemanticFacts: DailySemanticContractProposalFactsPacket | null =
+      contractProposalMode && contractProposalKind && canonicalProposalAskTrim
+        ? {
+            proposal_kind: contractProposalKind,
+            duration_days: 7,
+            base_behavior_statement: active.behavior_statement.trim(),
+            proposed_overlay_ask: contractProposalKind === "shrink_ask" ? canonicalProposalAskTrim : null,
+            proposed_behavior_preview: canonicalProposalAskTrim,
+            desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+            must_not_claim_goal_updated: true,
+            forbidden_phrases: [...DEFAULT_SEMANTIC_DAILY_CONTRACT_FORBIDDEN_PHRASES],
+          }
+        : null;
 
     let smsBody: string;
     let v3DailySms: boolean;
@@ -2087,12 +2115,13 @@ async function buildDailySmsContent(
             }
           : {}),
       },
-      ...(contractProposalMode && proposalBindingText && contractProposalKind
+      ...(contractProposalMode && canonicalProposalAskTrim && contractProposalKind && contractSemanticFacts
         ? {
             contract_proposal: {
-              binding_text_verbatim: bindingTrim,
               contract_kind: contractProposalKind,
               required_reply_semantics: "yes_no_binding_only" as const,
+              semantic_daily_contract_v1: true as const,
+              daily_contract_semantic_facts: contractSemanticFacts,
             },
           }
         : {}),
@@ -2200,7 +2229,7 @@ async function buildDailySmsContent(
     };
     if (nextMove.type === "shrink_ask" && nextMove.shrunk_ask_text) {
       nextMovePayload.shrunk_ask_text = shrinkProposalMode
-        ? proposalBindingText
+        ? canonicalProposalAskTrim
         : nextMove.shrunk_ask_text;
     }
     if (contractProposalMode && contractProposalKind) {
@@ -2210,11 +2239,16 @@ async function buildDailySmsContent(
 
     const proposalExpiresAt = new Date(now.getTime() + V2_ADAPTIVE_PROPOSAL_TTL_MS).toISOString();
     const contractProposalMeta =
-      contractProposalMode && proposalBindingText && contractProposalKind
+      contractProposalMode && canonicalProposalAskTrim && contractProposalKind && contractSemanticFacts
         ? {
             active: true,
             contract_kind: contractProposalKind,
-            proposal_text: proposalBindingText,
+            proposal_text: canonicalProposalAskTrim,
+            proposal_semantic_version: DAILY_SEMANTIC_CONTRACT_PROPOSAL_VERSION,
+            expected_reply_semantics: "proposal_yes_no" as const,
+            duration_days: 7,
+            proposal_overlay_ask: contractSemanticFacts.proposed_overlay_ask,
+            proposed_behavior_preview: contractSemanticFacts.proposed_behavior_preview,
             proposal_ttl_ms: V2_ADAPTIVE_PROPOSAL_TTL_MS,
             proposal_expires_at: proposalExpiresAt,
             overlay_if_yes_days: 7,
@@ -2239,7 +2273,7 @@ async function buildDailySmsContent(
       v2CadencePayload: cadencePayload,
       v2ContractProposalMode: contractProposalMode,
       v2ContractProposalKind: contractProposalKind,
-      v2ProposalBindingText: contractProposalMode ? proposalBindingText : null,
+      v2ProposalBindingText: contractProposalMode ? canonicalProposalAskTrim : null,
       v2ContractProposalPayload: contractProposalMeta,
       v2IdentityAnchorText: isQuotableIdentitySource(profileIdentitySource)
         ? identityAnchorText
@@ -3193,7 +3227,10 @@ export async function GET(req: Request) {
                       nextMove: built.v2NextMovePayload ?? null,
                       ai: built.v2AiPayload ?? null,
                       cadence: built.v2CadencePayload ?? null,
-                      contractProposal: built.v2ContractProposalPayload ?? null,
+                      contractProposal: withPresentedDailyContractProposalAuditFields(
+                        built.v2ContractProposalPayload ?? null,
+                        smsBody
+                      ),
                     }),
                     contractOverlayProposal:
                       built.v2ContractProposalMode &&
@@ -3798,7 +3835,10 @@ export async function GET(req: Request) {
                   nextMove: builtMain.v2NextMovePayload ?? null,
                   ai: builtMain.v2AiPayload ?? null,
                   cadence: builtMain.v2CadencePayload ?? null,
-                  contractProposal: builtMain.v2ContractProposalPayload ?? null,
+                  contractProposal: withPresentedDailyContractProposalAuditFields(
+                    builtMain.v2ContractProposalPayload ?? null,
+                    smsBody
+                  ),
                 }),
                 contractOverlayProposal:
                   builtMain.v2ContractProposalMode &&

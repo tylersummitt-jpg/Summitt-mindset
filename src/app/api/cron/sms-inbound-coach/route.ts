@@ -15,8 +15,8 @@ import {
 } from "@/lib/v2-sms-turn-guardrails";
 import type { SmsConversationBrainProposalV1 } from "@/lib/v2-sms-turn-contract";
 import {
-  latestOutboundBodyContainsAdaptiveProposalBindingNeedle,
-  shouldConsumeInboundAsContractProposalConsent,
+  shouldConsumeInboundAsContractProposalConsentAsync,
+  outboundSupportsPendingAdaptiveProposalContextAsync,
 } from "@/lib/v2-contract-consent-routing";
 import { evaluateAdaptiveProposalAmbiguousConsentGate } from "@/lib/v2-adaptive-proposal-ambiguous-consent-gate";
 import {
@@ -510,7 +510,7 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
   });
 
   const telemetry_fact_sources = [
-    "shouldConsumeInboundAsContractProposalConsent",
+    "shouldConsumeInboundAsContractProposalConsentAsync",
     "classifyV2InboundReply",
     "v2_overlay_consent_rpc",
     "legacy_contract_ack_template_preview_only",
@@ -1256,11 +1256,21 @@ async function handleAdaptiveProposalConsentAmbiguousInbound(
 
   const { data: lastCtx } = await supabaseServer
     .from("sms_last_outbound_context")
-    .select("full_body")
+    .select("full_body,twilio_message_sid")
     .eq("clerk_user_id", userId)
     .maybeSingle();
   const lastBody = typeof lastCtx?.full_body === "string" ? lastCtx.full_body : "";
-  if (!latestOutboundBodyContainsAdaptiveProposalBindingNeedle(lastBody, proposalText)) return false;
+  const lastSid =
+    typeof lastCtx?.twilio_message_sid === "string" ? lastCtx.twilio_message_sid.trim() : null;
+
+  const outboundStillProposalPrompt = await outboundSupportsPendingAdaptiveProposalContextAsync({
+    commitmentId: commitment.id,
+    clerkUserId: userId,
+    canonicalProposalText: proposalText,
+    latestOutboundBody: lastBody,
+    lastTwilioMessageSid: lastSid,
+  });
+  if (!outboundStillProposalPrompt) return false;
 
   const raw = (job.raw_body || "").trim();
   const classification = classifyV2InboundReply(raw);
@@ -5656,25 +5666,18 @@ async function processV2ContractProposalConsent(
   const proposalText = workingCommitment.adaptive_proposal_text?.trim();
   if (!proposalText) return false;
 
-  // Critical: only consume a bare YES/NO as proposal consent if the latest outbound SMS
-  // was actually the proposal prompt (prevents stale proposals hijacking later turns).
-  const { data: lastCtx } = await supabaseServer
-    .from("sms_last_outbound_context")
-    .select("full_body, sent_at")
-    .eq("clerk_user_id", userId)
-    .maybeSingle();
-  const lastBody = typeof lastCtx?.full_body === "string" ? lastCtx.full_body : "";
-  if (
-    !shouldConsumeInboundAsContractProposalConsent({
-      inboundBody: (job.raw_body || "").trim(),
-      proposalText,
-      latestOutboundBody: lastBody,
-    })
-  ) {
-    return false;
-  }
-
   const classification = classifyV2InboundReply((job.raw_body || "").trim());
+  if (classification.eventType !== "user_yes" && classification.eventType !== "user_no") return false;
+
+  // Critical: only consume YES/NO as proposal consent if outbound context still indicates
+  // we are inside the proposal consent prompt (semantic daily snapshot match OR legacy needle).
+  const outboundOk = await shouldConsumeInboundAsContractProposalConsentAsync({
+    commitmentId: workingCommitment.id,
+    clerkUserId: userId,
+    inboundBody: (job.raw_body || "").trim(),
+    proposalText,
+  });
+  if (!outboundOk) return false;
 
   if (
     workingCommitment.accountability_phase === "low_pressure_reactivation" &&

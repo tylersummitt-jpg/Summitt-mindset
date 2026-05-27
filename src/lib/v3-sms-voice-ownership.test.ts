@@ -130,6 +130,28 @@ describe("detectFinalVoiceBlockedReasons", () => {
     ).toContain("did_you_manage");
   });
 
+  it("its_good: allows natural reentry warmth (to see/hear/have you)", () => {
+    expect(
+      detectFinalVoiceBlockedReasons(
+        "It's good to see you back, Anne! To improve your consistency this week, what specific changes will you implement in your workout schedule or daily activities?"
+      )
+    ).not.toContain("its_good");
+    expect(
+      detectFinalVoiceBlockedReasons("It's good to hear from you — what's one win from today?")
+    ).not.toContain("its_good");
+    expect(
+      detectFinalVoiceBlockedReasons("It's good to have you back. Did you get the bar done today?")
+    ).not.toContain("its_good");
+  });
+
+  it("its_good: still blocks canned or broken It's Good opener fragments", () => {
+    expect(detectFinalVoiceBlockedReasons("It's Good. What is one change you'll make this week?")).toContain(
+      "its_good"
+    );
+    expect(detectFinalVoiceBlockedReasons("It's good! That's a solid start.")).toContain("its_good");
+    expect(detectFinalVoiceBlockedReasons("It's Good — what moved with today's line?")).toContain("its_good");
+  });
+
   it("flags robotic Reply YES/NO contract menu language", () => {
     expect(
       detectRelationshipCoachingVoiceBlockedReasons("Reply YES to confirm or NO to discard.")

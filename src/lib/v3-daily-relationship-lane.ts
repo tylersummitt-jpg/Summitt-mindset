@@ -40,6 +40,11 @@ import {
   buildVictoryBackgroundLaneGuardrails,
   type V3VictoryBackgroundFacts,
 } from "@/lib/sms-victory-background-context";
+import type { DailySemanticContractProposalFactsPacket } from "@/lib/v3-daily-contract-proposal-semantic";
+import {
+  DEFAULT_SEMANTIC_DAILY_CONTRACT_FORBIDDEN_PHRASES,
+  validateSemanticDailyContractProposalSms,
+} from "@/lib/v3-daily-contract-proposal-semantic";
 
 const DAILY_LANE_MAX_CHARS = 300;
 
@@ -62,10 +67,18 @@ export type DailyV3RouteKind =
   | "contract_prompt";
 
 export type DailyV3ContractProposalFacts = {
-  binding_text_verbatim: string;
   contract_kind: "shrink_ask" | "recommit_same";
-  /** User must be able to accept or decline the binding terms meaningfully (YES/NO semantics). */
+  /** User must be able to accept or decline the overlay proposal meaningfully (YES/NO classifier). */
   required_reply_semantics: "yes_no_binding_only";
+  /**
+   * Legacy paste-binding path (guided tightening, older daily contracts).
+   * Daily semantic overlay proposals omit this field.
+   */
+  binding_text_verbatim?: string;
+  /** Canonical daily adaptive proposal routing: OpenAI relationship voice only (no pasted server binding line). */
+  semantic_daily_contract_v1?: true;
+  /** Structured semantics for semantic daily adaptive proposals — surfaced verbatim to the model inside ACCOUNTABILITY_FACTS_JSON. */
+  daily_contract_semantic_facts?: DailySemanticContractProposalFactsPacket;
 };
 
 export type DailyV3PendingResolutionFacts = {
@@ -237,17 +250,40 @@ function routeSpecificSystemAddendum(f: DailyV3RelationshipFacts): string {
     );
   }
   if (f.route_kind === "contract_prompt" && f.contract_proposal) {
-    const wrapperForbidden =
-      f.constraints.wrapper_must_not_repeat_substrings?.length
-        ? f.constraints.wrapper_must_not_repeat_substrings
-        : [...DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT];
-    lines.push(
-      `CONTRACT_PROMPT_ROUTE: Paste contract_proposal.binding_text_verbatim EXACTLY once in the SMS body — character-for-character, unchanged. Do not paraphrase or restate the binding instruction.`,
-      `The human wrapper is short context only (e.g. "Let's make this simple." / "Here's the line." / "If this is right, confirm it.").`,
-      `Do NOT use these phrases anywhere in the wrapper (they already belong inside the binding): ${wrapperForbidden.map((p) => JSON.stringify(p)).join(", ")}.`,
-      `One natural confirmation ask total (e.g. whether to keep the same bar for the week) — not two questions. Never use visible menu-bot phrasing like "Reply YES", "Reply NO", "YES to confirm", or "NO to discard". Do not change binding meaning or add new legal obligations.`,
-      `Binding for verbatim inclusion: ${JSON.stringify(f.contract_proposal.binding_text_verbatim)}`
-    );
+    const sem =
+      f.contract_proposal.semantic_daily_contract_v1 === true &&
+      f.contract_proposal.daily_contract_semantic_facts != null;
+
+    if (sem) {
+      const d = f.contract_proposal.daily_contract_semantic_facts!;
+      lines.push(
+        `SEMANTIC_DAILY_CONTRACT_ROUTE: Write one SMS in one long relational coaching arc — concise, humane, unmistakably the same steady coach thread.`,
+        `Ground in thread_memory blocks (recent SMS, transcript, coaching memory hints, anti-repeat cues) plus identity + goal facts — facts are not screenplay dialogue to paste.`,
+        `Naturally reflect the bar/effective commitment described in structured facts.`,
+        `- Ask gently whether staying with this cadence/bar for roughly ${String(d.duration_days)} days fits, they'd rather ease up, or they want an adjustment.`,
+        `- One conversational question/closing cue — not stacked menu interrogation.`,
+        `- Do NOT use menu consent copy or phone-tree confirmations (examples forbidden in facts.forbidden_phrases + ${DEFAULT_SEMANTIC_DAILY_CONTRACT_FORBIDDEN_PHRASES.map((p) => JSON.stringify(p)).join(", ")}).`,
+        `- Never claim server-side goal/overlay/state already mutated (must_not_claim_goal_updated stays true server-side until RPC applies).`,
+        `- Do NOT fabricate an alternate obligation or swap in a invented different goal.`,
+        `- Avoid reading raw behavior text aloud like contractual fine print unless a compact natural mention feels humane.`,
+        `Structured proposal semantics (FACTS_JSON fragment only — not scripted lines): ${JSON.stringify(d)}.`
+      );
+    } else {
+      const wrapperForbidden =
+        f.constraints.wrapper_must_not_repeat_substrings?.length
+          ? f.constraints.wrapper_must_not_repeat_substrings
+          : [...DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT];
+      const bv = typeof f.contract_proposal.binding_text_verbatim === "string"
+        ? f.contract_proposal.binding_text_verbatim
+        : "";
+      lines.push(
+        `CONTRACT_PROMPT_ROUTE (legacy binding verbatim): Paste contract_proposal.binding_text_verbatim EXACTLY once in the SMS body — character-for-character, unchanged. Do not paraphrase or restate that instruction.`,
+        `The human wrapper is short context only (e.g. "Let's make this simple." / "Here's the line." / "If this is right, confirm it.").`,
+        `Do NOT use these phrases anywhere in the wrapper (they already belong inside the binding): ${wrapperForbidden.map((p) => JSON.stringify(p)).join(", ")}.`,
+        `One natural confirmation ask total (e.g. whether to keep the same bar for the week) — not two questions. Never use visible menu-bot phrasing like "Reply YES", "Reply NO", "YES to confirm", or "NO to discard". Do not change binding meaning or add new legal obligations.`,
+        `Binding for verbatim inclusion: ${JSON.stringify(bv)}`
+      );
+    }
   }
   if (f.constraints.required_verbatim_substrings?.length) {
     lines.push(
@@ -305,6 +341,28 @@ function validateRequiredVerbatims(body: string, required: string[] | undefined)
     if (!body.includes(t)) return t;
   }
   return null;
+}
+
+function runSemanticDailyContractValidatorIfApplicable(
+  facts: DailyV3RelationshipFacts,
+  body: string
+): null | { reason_code: string; reason_detail?: string } {
+  if (
+    facts.route_kind !== "contract_prompt" ||
+    facts.contract_proposal?.semantic_daily_contract_v1 !== true ||
+    !facts.contract_proposal.daily_contract_semantic_facts
+  ) {
+    return null;
+  }
+  const d = facts.contract_proposal.daily_contract_semantic_facts;
+  const sem = validateSemanticDailyContractProposalSms({
+    smsBody: body,
+    preview: d.proposed_behavior_preview,
+    canonicalOverlayAsk: d.proposed_overlay_ask,
+    baseBehaviorStatement: d.base_behavior_statement,
+  });
+  if (sem.ok) return null;
+  return { reason_code: sem.reason_code, reason_detail: sem.reason_detail };
 }
 
 function countSubstringOccurrences(haystack: string, needle: string): number {
@@ -559,7 +617,11 @@ ${bindingRule}
 
 function dailyBindingVerbatimForRobotGuard(facts: DailyV3RelationshipFacts): string | null {
   if (facts.route_kind === "contract_prompt" && facts.contract_proposal) {
-    const b = facts.contract_proposal.binding_text_verbatim.trim();
+    if (facts.contract_proposal.semantic_daily_contract_v1 === true) return null;
+    const b =
+      typeof facts.contract_proposal.binding_text_verbatim === "string"
+        ? facts.contract_proposal.binding_text_verbatim.trim()
+        : "";
     return b || null;
   }
   return null;
@@ -567,10 +629,12 @@ function dailyBindingVerbatimForRobotGuard(facts: DailyV3RelationshipFacts): str
 
 /** Contract / binding routes: lane repair must not rewrite required verbatim substrings. */
 function dailyLanePostValidateRepairExcluded(facts: DailyV3RelationshipFacts): boolean {
-  return (
-    facts.route_kind === "contract_prompt" ||
-    Boolean(facts.constraints.required_verbatim_substrings?.length)
-  );
+  if (
+    facts.route_kind === "contract_prompt" &&
+    facts.contract_proposal?.semantic_daily_contract_v1 !== true
+  )
+    return true;
+  return Boolean(facts.constraints.required_verbatim_substrings?.length);
 }
 
 /**
@@ -895,8 +959,12 @@ Write JSON only.`;
     };
   }
 
-  if (args.facts.route_kind === "contract_prompt" && args.facts.contract_proposal) {
-    const bindingVerbatim = args.facts.contract_proposal.binding_text_verbatim.trim();
+  if (
+    args.facts.route_kind === "contract_prompt" &&
+    args.facts.contract_proposal &&
+    args.facts.contract_proposal.semantic_daily_contract_v1 !== true
+  ) {
+    const bindingVerbatim = (args.facts.contract_proposal.binding_text_verbatim ?? "").trim();
     const wrapperForbidden =
       args.facts.constraints.wrapper_must_not_repeat_substrings?.length
         ? args.facts.constraints.wrapper_must_not_repeat_substrings
@@ -1027,6 +1095,32 @@ Write JSON only.`;
     };
   }
 
+  const semanticContractFailEarly = runSemanticDailyContractValidatorIfApplicable(args.facts, body);
+  if (semanticContractFailEarly != null) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: `semantic_daily_contract_blocked:${semanticContractFailEarly.reason_code}`,
+      replySource: "v3_daily_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes: [
+        ...safetyNotes,
+        `blocked:semantic_daily_contract_validator:${semanticContractFailEarly.reason_code}`,
+      ],
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: "semantic_daily_contract_validator_failed",
+        semantic_contract_validator_detail:
+          semanticContractFailEarly.reason_detail ?? semanticContractFailEarly.reason_code,
+        v3_candidate_body: body,
+      },
+      openAiOk: true,
+    };
+  }
+
   const memoryRepeatGuard = await applySmsMemoryAntiRepeatGuard({
     routeKind: "daily",
     routePurpose: args.facts.route_kind,
@@ -1054,6 +1148,17 @@ Write JSON only.`;
           ok: false,
           noSendReason: "missing_required_verbatim",
           extraMeta: { first_missing_verbatim_preview: missingAfter.slice(0, 120) },
+        };
+      }
+
+      const semFail = runSemanticDailyContractValidatorIfApplicable(args.facts, candidate);
+      if (semFail != null) {
+        return {
+          ok: false,
+          noSendReason: `semantic_daily_contract_blocked:${semFail.reason_code}`,
+          extraMeta: {
+            semantic_contract_validator_detail: semFail.reason_detail ?? semFail.reason_code,
+          },
         };
       }
       return { ok: true };

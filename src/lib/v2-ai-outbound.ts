@@ -229,6 +229,17 @@ export function computeShrunkAskText(behaviorStatement: string): string {
   return "";
 }
 
+/**
+ * Canonical smaller ask persisted for adaptive proposals / overlay acceptance (facts only).
+ * Strips editorial "Today only:" prefix when present — visible SMS wrappers are OpenAI-authored separately.
+ */
+export function computeCanonicalShrinkProposalAskFromBehavior(behaviorStatement: string): string | null {
+  const wrapped = computeShrunkAskText(behaviorStatement).trim();
+  if (!wrapped) return null;
+  const stripped = wrapped.replace(/^today only:\s*/i, "").trim();
+  return stripped.length > 0 ? stripped : wrapped;
+}
+
 function computeMeaningfulShrunkAskText(behaviorStatement: string): string | null {
   const s = computeShrunkAskText(behaviorStatement).trim();
   if (!s) return null;

@@ -265,7 +265,8 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
     ["powerful", /\bpowerful\b/i],
     ["great_step_forward", /\bgreat step forward\b/i],
     ["its_thats", /\bIt'?s That'?s\b/i],
-    ["its_good", /\bIt'?s Good\b/i],
+    /** Broken/canned opener fragments — allow natural reentry: "it's good to see/hear/have you …". */
+    ["its_good", /\bIt'?s Good\b(?!\s+to\s+(?:see|hear|have)\b)/i],
     ["clipped_part_of_the", /\bpart of the$/i],
     ["clipped_building_on_your", /\bbuilding on your$/i],
     ["clipped_because", /\bbecause$/i],
