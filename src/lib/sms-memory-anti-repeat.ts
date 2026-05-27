@@ -216,6 +216,11 @@ export function detectSmsMemoryRepeatViolation(args: {
   };
 }
 
+/** True when OpenAI lane repair is for memory anti-repeat (not generic voice compress). */
+export function isMemoryRepeatRepairBlockedReason(blockedReasons: string[]): boolean {
+  return blockedReasons.some((r) => r === "memory_repeat_question" || /\bmemory_repeat\b/i.test(r));
+}
+
 export function buildMemoryAntiRepeatRepairInstruction(args: {
   repeatedQuestion?: string | null;
   repeatedPhrases: string[];
@@ -224,10 +229,13 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
 }): string {
   const parts = [
     "The user already answered or was already asked this coach question recently.",
-    "Do NOT ask that same question again.",
-    "Do not mention memory, projection, databases, or internal systems.",
+    "Do NOT paraphrase the repeated question. Do NOT ask the same thing in different words.",
+    "Change the coaching move while preserving the same user facts, current goal, and accountability purpose.",
     "Write one natural, concise SMS that moves the relationship forward.",
+    "Keep natural memory callbacks when they advance the thread (e.g. referencing when something tends to slip, or what they said last time) — but do not re-ask the same question frame.",
+    "Do not mention memory, projection, databases, or internal systems.",
     "If a prior user answer is available, build on it — do not re-ask for the same information.",
+    "Frame-shift guidance (change the move, not the wording): planning/reflection question → proof or completion check; \"what will you do?\" → honest follow-through such as whether one small thing happened; abstract self-care/reflection → concrete accountability tied to the current goal; answered open question → build on the answer instead of re-asking; repeated open question → shorter honesty check (yes/no/partial) when appropriate; silence/reentry → ask for truth, not another plan.",
     "Return strict JSON with keys: body, used_strategy, safety_notes.",
   ];
   if (args.reason === "repeated_answered_open_question" && args.latestAnswerText?.trim()) {

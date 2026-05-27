@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMemoryAntiRepeatRepairInstruction,
   detectSmsMemoryRepeatViolation,
+  isMemoryRepeatRepairBlockedReason,
   normalizeSmsMemoryRepeatText,
 } from "@/lib/sms-memory-anti-repeat";
 
@@ -147,6 +148,77 @@ describe("buildMemoryAntiRepeatRepairInstruction", () => {
     });
     expect(instruction).toMatch(/do not ask/i);
     expect(instruction).toMatch(/Sunday School lesson/i);
+  });
+
+  it("requires changing the coaching move, not paraphrasing", () => {
+    const instruction = buildMemoryAntiRepeatRepairInstruction({
+      reason: "repeated_recent_question",
+      repeatedPhrases: ["what nurturing action can you take"],
+      repeatedQuestion:
+        "As you think about being kind to yourself today, what nurturing action can you take?",
+      latestAnswerText: null,
+    });
+    expect(instruction).toMatch(/do not paraphrase/i);
+    expect(instruction).toMatch(/change the coaching move/i);
+    expect(instruction).toMatch(/same thing in different words/i);
+    expect(instruction).toMatch(/proof or completion check/i);
+    expect(instruction).toMatch(/memory callbacks/i);
+  });
+});
+
+describe("isMemoryRepeatRepairBlockedReason", () => {
+  it("detects memory_repeat_question blocker", () => {
+    expect(isMemoryRepeatRepairBlockedReason(["memory_repeat_question"])).toBe(true);
+    expect(isMemoryRepeatRepairBlockedReason(["too_long"])).toBe(false);
+  });
+});
+
+describe("nurturing self-kindness memory repeat (M2B-5 frame shift)", () => {
+  const prior =
+    "As you think about being kind to yourself today, what nurturing action can you take? Reflect on something that feels supportive and share your plan!";
+  const paraphraseRepair =
+    "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+  const frameShiftRepair =
+    "Did you take one small supportive step today — yes, partial, or not yet?";
+
+  const inputs = {
+    lastCoachQuestions: [prior],
+    doNotRepeatPhrases: [prior],
+  };
+
+  it("flags paraphrase repair as still repeated", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      ...inputs,
+      candidateBody: paraphraseRepair,
+    });
+    expect(v.hasViolation).toBe(true);
+    expect(v.reason).toMatch(/repeated_/);
+  });
+
+  it("allows frame-shift repair (proof/check-in vs planning question)", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      ...inputs,
+      candidateBody: frameShiftRepair,
+    });
+    expect(v.hasViolation).toBe(false);
+  });
+
+  it("allows natural memory callback without re-asking the same question", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      ...inputs,
+      candidateBody:
+        "Yesterday you said afternoons are where this slips — did anything supportive actually happen today, or not yet?",
+    });
+    expect(v.hasViolation).toBe(false);
+  });
+
+  it("allows last-time partial callback", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      ...inputs,
+      candidateBody:
+        "Last time you said partial — did you get one small supportive thing in after lunch today?",
+    });
+    expect(v.hasViolation).toBe(false);
   });
 });
 

@@ -399,6 +399,13 @@ export async function repairV3RelationshipLaneBodyWithOpenAI(
     factsSnippet = "(facts_json_unserializable)";
   }
 
+  const memoryRepeatRepair = args.blockedReasons.some(
+    (r) => r === "memory_repeat_question" || /\bmemory_repeat\b/i.test(r)
+  );
+  const preserveMeaningRule = memoryRepeatRepair
+    ? "- Preserve the same facts, current goal, and accountability purpose, but change the coaching move so this is not the same question frame; do not paraphrase the blocked question."
+    : "- Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.";
+
   const baseSystem = `You compress and repair SMS coaching copy for Summitt Mindset. You are NOT inventing a new coaching plan.
 
 OUTPUT: strict JSON only with keys:
@@ -408,7 +415,7 @@ safety_notes (string array, may be empty)
 
 RULES FOR body:
 - Exactly 1–2 sentences maximum.
-- Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.
+${preserveMeaningRule}
 - Remove or rewrite away the issues implied by blocked_reasons (e.g. shorten if too_many_sentences or too_long; remove banned phrasing).
 - If blocked_reasons includes did_you_manage: keep the same accountability meaning but do NOT use the exact phrase "Did you manage" — use natural alternatives (e.g. whether you completed the step, how the planned block went, if the calls landed).
 - No markdown, bullets, or role labels.
