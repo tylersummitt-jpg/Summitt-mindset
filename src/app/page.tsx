@@ -525,12 +525,12 @@ export default async function HomePage() {
                 Rooted in her legacy. Built for real life.
               </p>
             </div>
-            <div className="mt-8 flex items-center gap-4">
-              <span className="h-px flex-1 bg-orange-500/40" aria-hidden />
-              <p className="shrink-0 text-center text-[0.65rem] font-bold uppercase tracking-[0.2em] text-slate-800 sm:text-xs sm:tracking-[0.25em]">
+            <div className="mt-8 flex flex-col items-center gap-3 text-center sm:flex-row sm:gap-4">
+              <span className="h-px w-16 bg-orange-500/40 sm:flex-1 sm:w-auto" aria-hidden />
+              <p className="max-w-full break-words text-[0.65rem] font-bold uppercase tracking-[0.18em] text-slate-800 sm:text-xs sm:tracking-[0.25em]">
                 A TRUSTED CONTINUATION OF PAT SUMMITT&apos;S VALUES.
               </p>
-              <span className="h-px flex-1 bg-orange-500/40" aria-hidden />
+              <span className="h-px w-16 bg-orange-500/40 sm:flex-1 sm:w-auto" aria-hidden />
             </div>
           </div>
         </div>
