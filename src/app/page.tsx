@@ -495,10 +495,10 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-7xl min-w-0 grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
           <div className="min-w-0">
             <Image
-              src="/brand/pat_statue_grandkids.jpg"
+              src="/brand/pat_statue_grandkids_candidate_sharp.jpg"
               alt="Pat Summitt statue with her grandkids"
-              width={5712}
-              height={4284}
+              width={2200}
+              height={1650}
               sizes="(max-width: 1024px) 100vw, 50vw"
               unoptimized
               className="h-auto w-full max-w-full rounded-3xl border border-gray-200/80 bg-slate-50 shadow-lg shadow-gray-900/10"
