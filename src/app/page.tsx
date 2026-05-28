@@ -248,8 +248,7 @@ export default async function HomePage() {
                   Pat Summitt is your personal coach - every day.
                 </h1>
                 <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
-                  Get a daily text message that holds you accountable to one clear commitment and become
-                  the person you have always wanted to be.
+                  Choose one clear goal and become the person you have always wanted to be.
                 </p>
               </div>
 
