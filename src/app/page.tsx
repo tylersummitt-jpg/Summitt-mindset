@@ -517,8 +517,8 @@ export default async function HomePage() {
               Created by Pat Summitt&apos;s family.
             </h2>
             <p className="mt-5 text-base leading-relaxed text-slate-700 sm:text-lg sm:leading-relaxed">
-              Summitt Mindset was created by Pat Summitt&apos;s family to carry forward her standard
-              of accountability, discipline, and follow through into everyday life.
+              Summitt Mindset was created by Pat Summitt&apos;s family to bring her standard of
+              accountability, discipline, and daily consistency into everyday life.
             </p>
             <div className="mt-6 flex min-w-0 gap-4 border-l-4 border-[var(--brand)] pl-5">
               <p className="text-lg font-medium italic leading-relaxed text-slate-800 sm:text-xl">
