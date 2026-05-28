@@ -487,6 +487,94 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* --------------------------------------------------
+          Trusted Legacy
+          -------------------------------------------------- */}
+      <section className="border-t border-gray-100 bg-white px-4 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
+        <div className="mx-auto grid max-w-7xl min-w-0 grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
+          <div className="min-w-0">
+            <Image
+              src="/brand/pat_statue_grandkids.jpg"
+              alt="Pat Summitt statue with her grandkids"
+              width={5712}
+              height={4284}
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              unoptimized
+              className="h-auto w-full max-w-full rounded-3xl border border-gray-200/80 bg-slate-50 shadow-lg shadow-gray-900/10"
+            />
+            <p className="mt-3 text-sm font-medium text-slate-800 sm:text-base">
+              Pat Summitt&apos;s grandkids
+            </p>
+          </div>
+
+          <div className="min-w-0 text-left">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)] sm:text-sm">
+              A TRUSTED LEGACY
+            </p>
+            <div className="mt-3 h-1 w-12 rounded-full bg-[var(--brand)]" aria-hidden />
+            <h2 className="mt-5 font-serif text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-[2.5rem] lg:leading-tight">
+              Created by Pat Summitt&apos;s family.
+            </h2>
+            <p className="mt-5 text-base leading-relaxed text-slate-700 sm:text-lg sm:leading-relaxed">
+              Summitt Mindset was created by Pat Summitt&apos;s family to carry forward her standard
+              of accountability, discipline, and follow through into everyday life.
+            </p>
+            <div className="mt-6 flex min-w-0 gap-4 border-l-4 border-[var(--brand)] pl-5">
+              <p className="text-lg font-medium italic leading-relaxed text-slate-800 sm:text-xl">
+                Rooted in her legacy. Built for real life.
+              </p>
+            </div>
+            <div className="mt-8 flex items-center gap-4">
+              <span className="h-px flex-1 bg-orange-500/40" aria-hidden />
+              <p className="shrink-0 text-center text-[0.65rem] font-bold uppercase tracking-[0.2em] text-slate-800 sm:text-xs sm:tracking-[0.25em]">
+                A TRUSTED CONTINUATION OF PAT SUMMITT&apos;S VALUES.
+              </p>
+              <span className="h-px flex-1 bg-orange-500/40" aria-hidden />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------
+          Family Perspective testimonial
+          -------------------------------------------------- */}
+      <section className="border-t border-[var(--border)] bg-neutral-950 px-4 py-10 text-white sm:px-6 sm:py-12 lg:px-8 lg:py-14">
+        <div className="mx-auto max-w-7xl min-w-0">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-lg shadow-black/25 backdrop-blur-sm sm:p-7 lg:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)] sm:text-sm">
+              A FAMILY PERSPECTIVE
+            </p>
+            <div className="mt-6 flex min-w-0 flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-8">
+              <div className="flex min-w-0 flex-1 gap-5 sm:gap-6">
+                <span
+                  className="hidden w-1 shrink-0 self-stretch rounded-full bg-[var(--brand)] sm:block"
+                  aria-hidden
+                />
+                <blockquote className="min-w-0 flex-1">
+                  <p className="text-xl font-semibold leading-relaxed text-white/90 sm:text-2xl sm:leading-relaxed">
+                    &ldquo;Summitt Mindset carries forward the kind of accountability Pat believed
+                    in. It is simple, direct, and built to help people follow through.&rdquo;
+                  </p>
+                </blockquote>
+              </div>
+              <div
+                className="hidden w-px shrink-0 self-stretch bg-white/10 lg:block"
+                aria-hidden
+              />
+              <footer className="min-w-0 shrink-0 lg:max-w-xs lg:self-center">
+                <p className="text-lg font-bold text-white sm:text-xl">R.B. Summitt</p>
+              </footer>
+            </div>
+          </div>
+
+          <div className="mt-8 flex justify-center sm:mt-10">
+            <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
+              Start Your 7-Day Free Trial
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
