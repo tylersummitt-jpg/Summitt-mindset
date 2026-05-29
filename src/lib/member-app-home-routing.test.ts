@@ -66,7 +66,7 @@ describe("member app home routing (Package 5)", () => {
     expect(page).toContain("showEditIdentityLink");
     expect(topCard).toContain('href="/dashboard/update-goal"');
     expect(topCard).toContain("Update goal");
-    expect(topCard).toContain("min-h-11");
+    expect(topCard).toContain("vrFoundationBtn");
     expect(topCard).toContain('href="/dashboard/edit-identity"');
     expect(topCard).toContain("Edit identity");
   });
@@ -174,9 +174,9 @@ describe("member app home routing (Package 5)", () => {
     expect(page).not.toMatch(/Open Account/);
     expect(page).not.toContain("smsEnabled");
     expect(page).toContain("VictoryRoomTopCard");
-    expect(topCard).toContain("Your foundation");
-    expect(topCard).toContain("My Identity");
-    expect(topCard).toContain("My Current Goal");
+    expect(topCard).toContain("Your Foundation");
+    expect(topCard).toContain("My identity");
+    expect(topCard).toContain("My current goal");
   });
 
   it("Victory Room does not surface Coach Leadership Kit shipping card", () => {
@@ -198,9 +198,9 @@ describe("member app home routing (Package 5)", () => {
     expect(page).toContain("saved from your");
     expect(page).toContain("real choices.");
     expect(page).toContain("VictoryRoomTopCard");
-    expect(topCard).toContain("Your foundation");
-    expect(topCard).toContain("My Identity");
-    expect(topCard).toContain("My Current Goal");
+    expect(topCard).toContain("Your Foundation");
+    expect(topCard).toContain("My identity");
+    expect(topCard).toContain("My current goal");
   });
 
   it("Account still surfaces text check-ins settings block", () => {
@@ -266,7 +266,7 @@ describe("member app home routing (Package 5)", () => {
   it("victory-room surfaces evolution nudge without full evolution card", () => {
     const page = readSrc("src/app/dashboard/victory-room/page.tsx");
     expect(page).toContain("loadVictoryEvolutionNudge");
-    expect(page).toContain("VictoryEvolutionNudgeSection");
+    expect(page).toContain("evolutionNudge");
     expect(page).not.toContain("EvolutionRecommendationCard");
   });
 });

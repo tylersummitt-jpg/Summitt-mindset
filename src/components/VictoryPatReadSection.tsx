@@ -1,32 +1,55 @@
+import type { ReactNode } from "react";
+import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
+import { VrIconArrow, VrIconEye, VrIconStar } from "@/components/VictoryRoomIcons";
+import { vrBodyLarge, vrDivider, vrIconCircle, vrLabel } from "@/components/victory-room-visual";
 import type { VictoryPatReadForDisplay } from "@/lib/v2-victory-pat-read-persist";
 
 type VictoryPatReadSectionProps = {
   read: VictoryPatReadForDisplay;
 };
 
+function ReadRow({
+  icon,
+  label,
+  text,
+  accent,
+}: {
+  icon: ReactNode;
+  label: string;
+  text: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`flex gap-4 sm:gap-5 ${accent ? "pt-2" : ""}`}>
+      <div className={vrIconCircle} aria-hidden>
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className={vrLabel}>{label}</h3>
+        <p className={`${vrBodyLarge} mt-3 text-stone-100`}>{text}</p>
+      </div>
+    </div>
+  );
+}
+
 export function VictoryPatReadSection({ read }: VictoryPatReadSectionProps) {
   return (
-    <section className="mb-10 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-gray-900">Coach Pat&apos;s Read</h2>
-      <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-        Grounded in your commitment and real check-ins — not a scoreboard.
-      </p>
-      <div className="mt-5 space-y-4">
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Strength</h3>
-          <p className="mt-2 text-base leading-relaxed text-gray-900">{read.strength}</p>
-        </div>
+    <VictoryRoomSectionShell
+      number={2}
+      title="Coach Pat's Read"
+      subtitle="Grounded in your commitment and real check-ins — not a scoreboard."
+    >
+      <div className="mt-8 space-y-8">
+        <ReadRow icon={<VrIconStar />} label="What I'm proud of" text={read.strength} />
         {read.pattern ? (
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pattern</h3>
-            <p className="mt-2 text-base leading-relaxed text-gray-900">{read.pattern}</p>
-          </div>
+          <>
+            <div className={vrDivider} />
+            <ReadRow icon={<VrIconEye />} label="Pattern I'm noticing" text={read.pattern} />
+          </>
         ) : null}
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Next move</h3>
-          <p className="mt-2 text-base leading-relaxed text-gray-900">{read.nextMove}</p>
-        </div>
+        <div className={vrDivider} />
+        <ReadRow icon={<VrIconArrow />} label="Next move" text={read.nextMove} accent />
       </div>
-    </section>
+    </VictoryRoomSectionShell>
   );
 }

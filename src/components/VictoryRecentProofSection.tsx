@@ -1,4 +1,7 @@
 import { VictoryRoomProofShareSection } from "@/components/VictoryRoomProofShareSection";
+import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
+import { VrIconProof } from "@/components/VictoryRoomIcons";
+import { vrEmptyState, vrIconCircle } from "@/components/victory-room-visual";
 import type { VictoryRoomViewForShare } from "@/lib/v2-victory-share-snippet";
 
 type ProofMomentRow = {
@@ -17,19 +20,24 @@ type VictoryRecentProofSectionProps = {
 
 export function VictoryRecentProofSection({ viewForShare, moments }: VictoryRecentProofSectionProps) {
   return (
-    <section className="mb-10 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-gray-900">Recent Proof</h2>
-      <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-        Real moments from your recent check-ins — nothing invented.
-      </p>
+    <VictoryRoomSectionShell
+      number={3}
+      title="Recent Proof"
+      subtitle="Real moments from your recent check-ins — nothing invented."
+    >
       {moments.length === 0 ? (
-        <p className="mt-6 rounded-lg border border-stone-200 px-5 py-4 text-sm text-gray-700 leading-relaxed">
-          Your proof starts now. As you answer text check-ins honestly, moments that show who you are
-          becoming will appear here.
-        </p>
+        <div className={vrEmptyState}>
+          <div className={`${vrIconCircle} mx-auto mb-4 sm:mx-0`} aria-hidden>
+            <VrIconProof />
+          </div>
+          <p>
+            Your proof starts now. As you answer text check-ins honestly, moments that show who you are
+            becoming will appear here.
+          </p>
+        </div>
       ) : (
         <VictoryRoomProofShareSection viewForShare={viewForShare} moments={moments} />
       )}
-    </section>
+    </VictoryRoomSectionShell>
   );
 }

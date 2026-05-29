@@ -1,4 +1,16 @@
 import Link from "next/link";
+import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
+import { VrIconSeason } from "@/components/VictoryRoomIcons";
+import {
+  vrAccentLink,
+  vrBody,
+  vrBodyLarge,
+  vrBodyMuted,
+  vrIconCircle,
+  vrLabel,
+  vrSeasonActive,
+  vrSeasonPast,
+} from "@/components/victory-room-visual";
 import type { VictorySeasonCardData } from "@/lib/v2-victory-season-list";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
 
@@ -20,32 +32,50 @@ function formatSeasonRange(
   return `Started ${start}`;
 }
 
-function SeasonCard({ card, timeZone }: { card: VictorySeasonCardData; timeZone: string }) {
+function SeasonCard({
+  card,
+  timeZone,
+  active,
+}: {
+  card: VictorySeasonCardData;
+  timeZone: string;
+  active?: boolean;
+}) {
   return (
-    <article className="rounded-lg border border-stone-200 bg-stone-50/60 px-4 py-3">
-      <p className="text-base font-medium text-gray-900">{card.seasonName}</p>
-      <p className="mt-1 text-xs text-gray-500">
-        {formatSeasonRange(card.startedAt, card.endedAt, timeZone)}
-      </p>
-      {card.goalTitle ? (
-        <p className="mt-2 text-xs text-gray-600">
-          <span className="font-medium text-gray-700">Goal: </span>
-          {card.goalTitle}
-        </p>
+    <article className={active ? vrSeasonActive : vrSeasonPast}>
+      {active ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent"
+          aria-hidden
+        />
       ) : null}
-      {card.principleLivedTitle ? (
-        <p className="mt-2 text-xs text-gray-600">
-          <span className="font-medium text-gray-700">Principle lived: </span>
-          {card.principleLivedTitle}
-        </p>
-      ) : null}
-      <p className="mt-3 text-sm leading-relaxed text-gray-700">{card.statusLine}</p>
-      <Link
-        href={card.detailHref}
-        className="mt-3 inline-block text-sm font-medium text-gray-900 underline underline-offset-2"
-      >
-        View season proof
-      </Link>
+      <div className="flex gap-4">
+        <div className={`${vrIconCircle} ${active ? "" : "opacity-60"}`} aria-hidden>
+          <VrIconSeason />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-serif text-xl font-semibold text-stone-50 sm:text-2xl">{card.seasonName}</p>
+          <p className="mt-1.5 text-sm text-stone-500">
+            {formatSeasonRange(card.startedAt, card.endedAt, timeZone)}
+          </p>
+          {card.goalTitle ? (
+            <p className={`${vrBodyMuted} mt-3 text-sm`}>
+              <span className="font-medium text-stone-400">Goal: </span>
+              {card.goalTitle}
+            </p>
+          ) : null}
+          {card.principleLivedTitle ? (
+            <p className={`${vrBodyMuted} mt-2 text-sm`}>
+              <span className="font-medium text-stone-400">Principle lived: </span>
+              {card.principleLivedTitle}
+            </p>
+          ) : null}
+          <p className={`${vrBody} mt-4 text-stone-400`}>{card.statusLine}</p>
+          <Link href={card.detailHref} className={`${vrAccentLink} mt-4 inline-block`}>
+            View season proof
+          </Link>
+        </div>
+      </div>
     </article>
   );
 }
@@ -56,32 +86,30 @@ export function VictorySeasonsSection({
   timeZone,
 }: VictorySeasonsSectionProps) {
   return (
-    <section className="mb-10 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">My Seasons</h2>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">
-        Each season is a chapter of your accountability — proof lives inside the season where it
-        happened.
-      </p>
-
+    <VictoryRoomSectionShell
+      number={6}
+      title="My Seasons"
+      subtitle="Each season is a chapter of your accountability — proof lives inside the season where it happened."
+    >
       {currentSeason ? (
-        <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Current</p>
-          <div className="mt-2">
-            <SeasonCard card={currentSeason} timeZone={timeZone} />
+        <div className="mt-8">
+          <p className={vrLabel}>Current chapter</p>
+          <div className="relative mt-4">
+            <SeasonCard card={currentSeason} timeZone={timeZone} active />
           </div>
         </div>
       ) : (
-        <p className="mt-5 text-sm text-gray-700 leading-relaxed">Your first season is open.</p>
+        <p className={`${vrBodyLarge} mt-8`}>Your first season is open.</p>
       )}
 
       {pastSeasons.length > 0 ? (
-        <div className="mt-6 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Past seasons</p>
+        <div className="mt-8 space-y-4">
+          <p className={vrLabel}>Past chapters</p>
           {pastSeasons.map((card) => (
             <SeasonCard key={card.seasonId} card={card} timeZone={timeZone} />
           ))}
         </div>
       ) : null}
-    </section>
+    </VictoryRoomSectionShell>
   );
 }

@@ -17,7 +17,7 @@ describe("VictoryEarlierHistoryLinkSection", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryEarlierHistoryLinkSection, { hasEarlierHistory: true })
     );
-    expect(html).toContain("Earlier proof history");
+    expect(html).toContain("Earlier Chapters");
     expect(html).toContain("View earlier chapters");
     expect(html).toContain("/dashboard/victory-room/history");
     expect(html).not.toMatch(/proof moments saved/i);

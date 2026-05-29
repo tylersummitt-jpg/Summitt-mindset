@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import { VictoryRoomTopCard } from "@/components/VictoryRoomTopCard";
+import { vrFoundationBtn } from "@/components/victory-room-visual";
 
 const baseProps = {
   profile: { identity_anchor_text: "I keep my word." },
@@ -15,15 +16,14 @@ const baseProps = {
   timeZone: "America/New_York",
 };
 
-const foundationButtonClass =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-stone-300";
+const foundationButtonClass = vrFoundationBtn;
 
 describe("VictoryRoomTopCard", () => {
   it("renders My Identity and My Current Goal", () => {
     const html = renderToStaticMarkup(React.createElement(VictoryRoomTopCard, baseProps));
-    expect(html).toContain("Your foundation");
-    expect(html).toContain("My Identity");
-    expect(html).toContain("My Current Goal");
+    expect(html).toContain("Your Foundation");
+    expect(html).toContain("My identity");
+    expect(html).toContain("My current goal");
     expect(html).toContain("I keep my word.");
     expect(html).toContain("Ten minutes of planning before email.");
     expect(html).not.toContain("Daily OS");

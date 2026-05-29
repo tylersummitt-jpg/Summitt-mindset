@@ -1,4 +1,6 @@
 import { VictoryPrincipleCard } from "@/components/VictoryPrincipleCard";
+import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
+import { vrBody, vrBodyMuted } from "@/components/victory-room-visual";
 import type { VictoryPatPrinciplesForDisplay } from "@/lib/v2-victory-principles-map";
 
 type VictoryPatPrinciplesSectionProps = {
@@ -6,27 +8,36 @@ type VictoryPatPrinciplesSectionProps = {
 };
 
 export function VictoryPatPrinciplesSection({ principles }: VictoryPatPrinciplesSectionProps) {
-  return (
-    <section className="mb-10 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">Pat Principles I&apos;m Living</h2>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">
-        Coach Pat connects your proof to the standards she taught: the Definite Dozen.
-      </p>
+  const onlyFocusNext = !principles.livingWell;
 
+  return (
+    <VictoryRoomSectionShell
+      number={5}
+      title="Pat Principles I'm Living"
+      subtitle="Coach Pat connects your proof to the standards she taught: the Definite Dozen."
+    >
       {principles.starterText ? (
-        <p className="mt-4 text-sm leading-relaxed text-gray-800">{principles.starterText}</p>
+        <p className={`${vrBody} mt-8 text-lg text-stone-200 sm:text-xl`}>{principles.starterText}</p>
       ) : null}
 
-      <div className="mt-5 space-y-4">
+      <div
+        className={`mt-8 grid gap-5 ${onlyFocusNext ? "grid-cols-1" : "sm:grid-cols-2"}`}
+      >
         {principles.livingWell ? (
-          <VictoryPrincipleCard label="Principle you&apos;re living well" card={principles.livingWell} />
+          <VictoryPrincipleCard label="Living well" card={principles.livingWell} variant="highlight" />
         ) : null}
-        <VictoryPrincipleCard label="Principle to focus on next" card={principles.focusNext} />
+        <VictoryPrincipleCard
+          label="Focus next"
+          card={principles.focusNext}
+          fullWidth={onlyFocusNext}
+        />
       </div>
 
       {principles.updatedFromProof ? (
-        <p className="mt-4 text-xs text-gray-500">Updated from your recent proof</p>
+        <p className={`${vrBodyMuted} mt-5 text-sm text-amber-200/70`}>
+          Updated from your recent proof
+        </p>
       ) : null}
-    </section>
+    </VictoryRoomSectionShell>
   );
 }

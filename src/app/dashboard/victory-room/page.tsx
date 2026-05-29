@@ -7,9 +7,22 @@ import { VictoryPatReadSection } from "@/components/VictoryPatReadSection";
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
 import { VictoryEarlierHistoryLinkSection } from "@/components/VictoryEarlierHistoryLinkSection";
 import { VictoryRoomFooterNav } from "@/components/VictoryRoomFooterNav";
-import { VictoryEvolutionNudgeSection } from "@/components/VictoryEvolutionNudgeSection";
 import { VictoryRoomTopCard } from "@/components/VictoryRoomTopCard";
 import { VictorySeasonsSection } from "@/components/VictorySeasonsSection";
+import {
+  vrAccentLink,
+  vrHeroAccentLine,
+  vrHeroArtSlot,
+  vrHeroEyebrow,
+  vrHeroFrame,
+  vrHeroFrameGlow,
+  vrPageGlow,
+  vrPageInner,
+  vrPageOuter,
+  vrSectionCard,
+  vrHeroSubtitle,
+  vrHeroTitle,
+} from "@/components/victory-room-visual";
 import { hasEarlierChapterHistory } from "@/lib/v2-victory-earlier-chapter-index";
 import { loadPatReadForVictoryRoom } from "@/lib/v2-victory-pat-read-persist";
 import { loadPatPrinciplesForVictoryRoom } from "@/lib/v2-victory-principles-persist";
@@ -100,77 +113,94 @@ export default async function VictoryRoomPage() {
     : null;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      {!view.hasActiveV2Commitment ? (
-        <section className="rounded-xl border border-amber-200 bg-white p-6 text-gray-800 shadow-sm">
-          <h2 className="text-lg font-medium text-gray-900">Not quite ready</h2>
-          <p className="mt-2 text-sm leading-relaxed text-gray-700">
-            Victory Room reads your <strong>active commitment</strong> and the honest back-and-forth in your
-            text check-ins. If you do not have an active commitment yet, there is nothing to show — and that is
-            okay.
-          </p>
-          <p className="mt-4 text-sm text-gray-600">
-            <Link href="/dashboard/commitment-setup" className="font-medium text-gray-900 underline underline-offset-2">
-              Set up your commitment
-            </Link>
-          </p>
-        </section>
-      ) : (
-        <>
-          <header className="mb-8">
-            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Victory Room</h1>
-            <p className="mt-3 text-gray-700 leading-relaxed">
-              A living trophy room for character — where proof of who you are becoming is saved from your
-              real choices.
+    <div className={vrPageOuter}>
+      <div className={vrPageGlow} aria-hidden />
+      <main className={vrPageInner}>
+        {!view.hasActiveV2Commitment ? (
+          <section className={`${vrSectionCard} border-amber-500/30`}>
+            <h2 className="font-serif text-xl font-semibold text-stone-50">Not quite ready</h2>
+            <p className="mt-3 text-sm leading-relaxed text-stone-300">
+              Victory Room reads your <strong className="font-semibold text-stone-100">active commitment</strong>{" "}
+              and the honest back-and-forth in your text check-ins. If you do not have an active commitment yet,
+              there is nothing to show — and that is okay.
             </p>
-          </header>
+            <p className="mt-5">
+              <Link href="/dashboard/commitment-setup" className={vrAccentLink}>
+                Set up your commitment
+              </Link>
+            </p>
+          </section>
+        ) : (
+          <>
+            <header className={`${vrHeroFrame} mb-12 sm:mb-14`}>
+              <div className={vrHeroFrameGlow} aria-hidden />
+              <div className={vrHeroArtSlot} aria-hidden />
+              <div className="relative">
+                <p className={vrHeroEyebrow}>Summitt Mindset</p>
+                <h1 className={`${vrHeroTitle} mt-4`}>Victory Room</h1>
+                <p className={vrHeroSubtitle}>
+                  A living trophy room for character — where proof of who you are becoming is saved from your
+                  real choices.
+                </p>
+                <div className={vrHeroAccentLine} aria-hidden />
+              </div>
+            </header>
 
-          <VictoryEvolutionNudgeSection nudge={evolutionNudge} />
+            {evolutionNudge ? (
+              <section className="mb-10 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-[#101622]/95 to-[#0a0e16]/90 p-6 shadow-[0_0_40px_-12px_rgba(251,191,36,0.22)] sm:p-7">
+                <h2 className="text-base font-semibold text-amber-100 sm:text-lg">{evolutionNudge.headline}</h2>
+                <p className="mt-3 text-base leading-relaxed text-stone-400">{evolutionNudge.body}</p>
+                <Link href={evolutionNudge.href} className={`${vrAccentLink} mt-4 inline-block`}>
+                  Review recommendation
+                </Link>
+              </section>
+            ) : null}
 
-          {view.commitment ? (
-            <VictoryRoomTopCard
-              profile={view.profile}
-              commitment={view.commitment}
-              activeSeason={view.activeSeason}
-              timeZone={timeZone}
-              showUpdateGoalLink={showUpdateGoalLink}
-              showEditIdentityLink={showEditIdentityLink}
-            />
-          ) : null}
+            {view.commitment ? (
+              <VictoryRoomTopCard
+                profile={view.profile}
+                commitment={view.commitment}
+                activeSeason={view.activeSeason}
+                timeZone={timeZone}
+                showUpdateGoalLink={showUpdateGoalLink}
+                showEditIdentityLink={showEditIdentityLink}
+              />
+            ) : null}
 
-          {patRead ? <VictoryPatReadSection read={patRead} /> : null}
+            {patRead ? <VictoryPatReadSection read={patRead} /> : null}
 
-          {viewForShare ? (
-            <VictoryRecentProofSection
-              viewForShare={viewForShare}
-              moments={view.moments.map((m) => ({
-                id: m.id,
-                categoryLabel: getRecentProofCategoryLabel(m),
-                headline: m.headline,
-                body: m.body,
-                dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
-                groundedInEventTypes: m.groundedInEventTypes,
-              }))}
-            />
-          ) : null}
+            {viewForShare ? (
+              <VictoryRecentProofSection
+                viewForShare={viewForShare}
+                moments={view.moments.map((m) => ({
+                  id: m.id,
+                  categoryLabel: getRecentProofCategoryLabel(m),
+                  headline: m.headline,
+                  body: m.body,
+                  dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
+                  groundedInEventTypes: m.groundedInEventTypes,
+                }))}
+              />
+            ) : null}
 
-          <VictoryEvidenceSection counts={view.evidenceCounts} />
+            <VictoryEvidenceSection counts={view.evidenceCounts} />
 
-          {patPrinciples ? <VictoryPatPrinciplesSection principles={patPrinciples} /> : null}
+            {patPrinciples ? <VictoryPatPrinciplesSection principles={patPrinciples} /> : null}
 
-          {seasonList ? (
-            <VictorySeasonsSection
-              currentSeason={seasonList.currentSeason}
-              pastSeasons={seasonList.pastSeasons}
-              timeZone={timeZone}
-            />
-          ) : null}
+            {seasonList ? (
+              <VictorySeasonsSection
+                currentSeason={seasonList.currentSeason}
+                pastSeasons={seasonList.pastSeasons}
+                timeZone={timeZone}
+              />
+            ) : null}
 
-          <VictoryEarlierHistoryLinkSection hasEarlierHistory={hasEarlierHistory} />
+            <VictoryEarlierHistoryLinkSection hasEarlierHistory={hasEarlierHistory} />
 
-          <VictoryRoomFooterNav />
-        </>
-      )}
-    </main>
+            <VictoryRoomFooterNav />
+          </>
+        )}
+      </main>
+    </div>
   );
 }

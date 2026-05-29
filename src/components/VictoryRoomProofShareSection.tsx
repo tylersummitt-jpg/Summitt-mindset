@@ -39,7 +39,7 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
 
   return (
     <>
-      <ul className="mt-5 space-y-3">
+      <ul className="mt-8 space-y-4">
         {moments.map((m, idx) => (
           <li key={m.id}>
             <VictoryMomentCard

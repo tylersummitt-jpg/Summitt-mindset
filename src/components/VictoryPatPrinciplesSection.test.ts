@@ -50,8 +50,8 @@ describe("VictoryPatPrinciplesSection", () => {
       },
       updatedFromProof: true,
     });
-    expect(html).toContain("Principle to focus on next");
-    expect(html).not.toContain("living well");
+    expect(html).toContain("Focus next");
+    expect(html).not.toContain("Living well");
   });
 
   it("renders living well with evidence and both cards", () => {
@@ -70,8 +70,8 @@ describe("VictoryPatPrinciplesSection", () => {
       },
       updatedFromProof: true,
     });
-    expect(html).toContain("living well");
-    expect(html).toContain("Principle to focus on next");
+    expect(html).toContain("Living well");
+    expect(html).toContain("Focus next");
     expect(html).toContain("Updated from your recent proof");
   });
 

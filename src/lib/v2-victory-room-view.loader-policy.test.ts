@@ -91,7 +91,8 @@ describe("Victory Room loader policy", () => {
     expect(PAGE_SRC).toContain("VictoryEarlierHistoryLinkSection");
     expect(PAGE_SRC).not.toContain("VictoryRoomSmsNotice");
     expect(PAGE_SRC).toContain("loadVictoryEvolutionNudge");
-    expect(PAGE_SRC).toContain("VictoryEvolutionNudgeSection");
+    expect(PAGE_SRC).toContain("loadVictoryEvolutionNudge");
+    expect(PAGE_SRC).toContain("evolutionNudge");
     expect(PAGE_SRC).not.toContain("EvolutionRecommendationCard");
   });
 

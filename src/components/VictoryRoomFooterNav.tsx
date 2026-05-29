@@ -1,14 +1,17 @@
 import Link from "next/link";
+import { vrAccentLink, vrSectionCard, vrBody } from "@/components/victory-room-visual";
 
 export function VictoryRoomFooterNav() {
   return (
-    <footer className="mt-12 rounded-xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-      <p className="text-sm leading-relaxed text-gray-700">
-        Daily accountability happens by <strong>text</strong> — your check-ins are where the real work
-        shows up. Use the app when you want depth and proof.
+    <footer
+      className={`${vrSectionCard} mt-14 border-white/10 bg-gradient-to-b from-[#0c1018]/90 to-[#080c14]/90`}
+    >
+      <p className={`${vrBody} text-stone-300`}>
+        Daily accountability happens by <strong className="font-semibold text-stone-100">text</strong> — your
+        check-ins are where the real work shows up. Use the app when you want depth and proof.
       </p>
-      <nav className="mt-4 flex flex-wrap gap-4 text-sm font-medium">
-        <Link href="/user" className="text-gray-900 underline underline-offset-2 hover:text-gray-700">
+      <nav className="mt-6 flex flex-wrap gap-5">
+        <Link href="/user" className={vrAccentLink}>
           Account
         </Link>
       </nav>

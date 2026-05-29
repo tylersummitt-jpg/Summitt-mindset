@@ -1,3 +1,10 @@
+import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
+import {
+  vrEmptyState,
+  vrEvidenceCount,
+  vrEvidenceTile,
+  vrLabel,
+} from "@/components/victory-room-visual";
 import type { VictoryEvidenceCounts } from "@/lib/v2-victory-room-view";
 
 type EvidenceTile = {
@@ -36,29 +43,26 @@ export function VictoryEvidenceSection({ counts }: VictoryEvidenceSectionProps) 
   const tiles = buildVisibleTiles(counts);
 
   return (
-    <section className="mb-10 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-gray-900">The Evidence</h2>
-      <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-        Simple counts from your bounded check-in window. This is evidence, not a scoreboard.
-      </p>
+    <VictoryRoomSectionShell
+      number={4}
+      title="The Evidence"
+      subtitle="Simple counts from your bounded check-in window. This is evidence, not a scoreboard."
+    >
       {tiles.length === 0 ? (
-        <p className="mt-6 rounded-lg border border-stone-200 px-5 py-4 text-sm text-gray-700 leading-relaxed">
+        <p className={vrEmptyState}>
           Evidence fills in as you answer real check-ins. There is no scoreboard here — only honest
           proof of who you are becoming.
         </p>
       ) : (
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+        <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-4">
           {tiles.map((t) => (
-            <li
-              key={t.label}
-              className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 shadow-sm"
-            >
-              <p className="text-lg font-semibold tabular-nums text-gray-800">{t.count}</p>
-              <p className="mt-1 text-sm font-medium text-gray-700">{t.label}</p>
+            <li key={t.label} className={vrEvidenceTile}>
+              <p className={vrEvidenceCount}>{t.count}</p>
+              <p className={`${vrLabel} mt-3 normal-case tracking-normal text-stone-300`}>{t.label}</p>
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </VictoryRoomSectionShell>
   );
 }

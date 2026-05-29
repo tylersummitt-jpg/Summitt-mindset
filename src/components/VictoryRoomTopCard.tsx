@@ -1,9 +1,19 @@
 import Link from "next/link";
+import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
+import { VrIconGoal, VrIconIdentity } from "@/components/VictoryRoomIcons";
+import {
+  vrBody,
+  vrBodyLarge,
+  vrBodyMuted,
+  vrDivider,
+  vrFoundationBtn,
+  vrIconCircle,
+  vrInnerPanel,
+  vrLabel,
+  vrSectionCardFoundation,
+} from "@/components/victory-room-visual";
 import type { VictoryRoomActiveSeason, VictoryRoomProfileIdentity } from "@/lib/v2-victory-room-view";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
-
-const foundationActionLinkClass =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition hover:border-stone-400 hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50";
 
 type VictoryRoomTopCardProps = {
   profile: VictoryRoomProfileIdentity;
@@ -26,75 +36,86 @@ export function VictoryRoomTopCard({
     activeSeason?.started_at && formatVictoryRoomDate(activeSeason.started_at, timeZone);
 
   return (
-    <section className="mb-8 rounded-2xl border border-stone-200 bg-stone-50 p-6 shadow-sm">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Your foundation</h2>
-      <dl className="mt-4 space-y-4 text-sm text-gray-800">
-        <div>
-          <dt className="font-medium text-gray-900">My Identity</dt>
-          <dd className="mt-1 leading-relaxed">
-            {profile.identity_anchor_text?.trim() ? (
-              profile.identity_anchor_text
-            ) : (
-              <span className="text-gray-600">Still being shaped — your identity line will show here.</span>
-            )}
-            {showEditIdentityLink ? (
-              <div className="mt-4">
-                <Link href="/dashboard/edit-identity" className={foundationActionLinkClass}>
-                  Edit identity
-                </Link>
-                <p className="mt-2 text-xs leading-relaxed text-gray-600">
-                  Update who you&apos;re becoming — your current goal stays the same unless you choose
-                  to change it.
-                </p>
-              </div>
-            ) : null}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-gray-900">My Current Goal</dt>
-          <dd className="mt-1">
-            {commitment.behavior_statement?.trim() ? (
-              <span className="block font-medium leading-relaxed text-gray-900">
-                {commitment.behavior_statement}
-              </span>
-            ) : (
-              <span className="font-medium text-gray-900">{commitment.title}</span>
-            )}
-            {commitment.title?.trim() &&
-            commitment.behavior_statement?.trim() &&
-            commitment.title.trim().toLowerCase() !==
-              commitment.behavior_statement.trim().toLowerCase() ? (
-              <span className="mt-1 block text-xs text-gray-500">{commitment.title}</span>
-            ) : null}
-            {showUpdateGoalLink ? (
-              <div className="mt-4">
-                <Link href="/dashboard/update-goal" className={foundationActionLinkClass}>
-                  Update goal
-                </Link>
-                <p className="mt-2 text-xs leading-relaxed text-gray-600">
-                  Adjust what Pat holds you to next.
-                </p>
-              </div>
-            ) : null}
-          </dd>
-        </div>
+    <VictoryRoomSectionShell
+      number={1}
+      title="Your Foundation"
+      subtitle="Who you are becoming and what Pat holds you to today."
+      className={vrSectionCardFoundation}
+    >
+      <div className={`${vrInnerPanel} mt-8 border-amber-500/30 bg-gradient-to-r from-amber-500/8 to-transparent`}>
+        <p className={vrLabel}>Current season</p>
         {activeSeason?.season_name ? (
-          <div>
-            <dt className="font-medium text-gray-900">Current Season</dt>
-            <dd className="mt-1">
+          <>
+            <p className="mt-3 font-serif text-2xl font-semibold leading-tight text-stone-50 sm:text-3xl">
               {activeSeason.season_name}
-              {seasonStarted ? (
-                <span className="block text-gray-600 text-xs mt-1">Opened {seasonStarted}</span>
-              ) : null}
-            </dd>
-          </div>
+            </p>
+            {seasonStarted ? (
+              <p className="mt-2 text-sm text-stone-500">Opened {seasonStarted}</p>
+            ) : null}
+          </>
         ) : (
-          <div>
-            <dt className="font-medium text-gray-900">Current Season</dt>
-            <dd className="mt-1 text-gray-600">Your first season is open.</dd>
-          </div>
+          <p className={`${vrBody} mt-3`}>Your first season is open.</p>
         )}
-      </dl>
-    </section>
+      </div>
+
+      <div className={`${vrDivider} my-8`} />
+
+      <div className="flex gap-4 sm:gap-5">
+        <div className={vrIconCircle} aria-hidden>
+          <VrIconIdentity />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={vrLabel}>My identity</p>
+          {profile.identity_anchor_text?.trim() ? (
+            <p className={`${vrBodyLarge} mt-3 font-medium`}>{profile.identity_anchor_text}</p>
+          ) : (
+            <p className={`${vrBodyMuted} mt-3`}>
+              Still being shaped — your identity line will show here.
+            </p>
+          )}
+          {showEditIdentityLink ? (
+            <div className="mt-5">
+              <Link href="/dashboard/edit-identity" className={vrFoundationBtn}>
+                Edit identity
+              </Link>
+              <p className={`${vrBodyMuted} mt-3 text-sm`}>
+                Update who you&apos;re becoming — your current goal stays the same unless you choose
+                to change it.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className={`${vrDivider} my-8`} />
+
+      <div className="flex gap-4 sm:gap-5">
+        <div className={vrIconCircle} aria-hidden>
+          <VrIconGoal />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={vrLabel}>My current goal</p>
+          {commitment.behavior_statement?.trim() ? (
+            <p className={`${vrBodyLarge} mt-3 font-medium`}>{commitment.behavior_statement}</p>
+          ) : (
+            <p className={`${vrBodyLarge} mt-3 font-medium`}>{commitment.title}</p>
+          )}
+          {commitment.title?.trim() &&
+          commitment.behavior_statement?.trim() &&
+          commitment.title.trim().toLowerCase() !==
+            commitment.behavior_statement.trim().toLowerCase() ? (
+            <p className="mt-2 text-sm text-stone-500">{commitment.title}</p>
+          ) : null}
+          {showUpdateGoalLink ? (
+            <div className="mt-5">
+              <Link href="/dashboard/update-goal" className={vrFoundationBtn}>
+                Update goal
+              </Link>
+              <p className={`${vrBodyMuted} mt-3 text-sm`}>Adjust what Pat holds you to next.</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </VictoryRoomSectionShell>
   );
 }
