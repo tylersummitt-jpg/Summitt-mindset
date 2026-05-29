@@ -3,6 +3,7 @@ import {
   extractBareHourTimeAnswer,
   extractTimeOrRangeAnswer,
   generateV3OpenQuestionAnswerReply,
+  looksLikeBlockerPhrase,
   tryResolveAnswerToOpenQuestionTurn,
 } from "./v3-sms-turn";
 import { inferExpectedReplySemanticsFromCoachQuestion } from "@/lib/north-star-sms-context-packet";
@@ -178,5 +179,47 @@ describe("generateV3OpenQuestionAnswerReply — defer subkind", () => {
     expect(text.toLowerCase()).not.toContain("smallest honest next step");
     expect(text.toLowerCase()).not.toContain("10 minutes or less");
     expect(text.toLowerCase()).toMatch(/tomorrow|time|first 10|protecting/i);
+  });
+});
+
+describe("accountability completion must not hijack open-question lane", () => {
+  const reflectionQ =
+    "What's one thing that got in the way today — time, energy, or avoidance?";
+
+  it("tryResolveAnswerToOpenQuestionTurn returns null for I did it!", () => {
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "I did it!",
+      latestOpenQuestion: reflectionQ,
+      expectedReplySemantics: inferExpectedReplySemanticsFromCoachQuestion(reflectionQ),
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Daily habit",
+      behaviorStatement: "Daily habit",
+    });
+    expect(r).toBeNull();
+  });
+
+  it("tryResolveAnswerToOpenQuestionTurn returns null for done and clear no answers", () => {
+    for (const inbound of ["done", "yes", "nope", "not today"]) {
+      const r = tryResolveAnswerToOpenQuestionTurn({
+        inboundRaw: inbound,
+        latestOpenQuestion: reflectionQ,
+        expectedReplySemantics: inferExpectedReplySemanticsFromCoachQuestion(reflectionQ),
+        recentTranscriptLines: [],
+        todayCompleted: false,
+        effectiveAsk: "Daily habit",
+        behaviorStatement: "Daily habit",
+      });
+      expect(r).toBeNull();
+    }
+  });
+
+  it("looksLikeBlockerPhrase is false for I did it!", () => {
+    expect(looksLikeBlockerPhrase("I did it!")).toBe(false);
+    expect(looksLikeBlockerPhrase("done")).toBe(false);
+  });
+
+  it("looksLikeBlockerPhrase stays true for genuine blocker explanations", () => {
+    expect(looksLikeBlockerPhrase("I was blocked because work ran late")).toBe(true);
   });
 });

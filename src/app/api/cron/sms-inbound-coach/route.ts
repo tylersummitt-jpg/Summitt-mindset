@@ -88,6 +88,7 @@ import {
   isStrongV2YesNoOutcome,
   v2UserReplyIdempotencyKey,
   type V2ContractOverlayKind,
+  type V2InboundEventType,
 } from "@/lib/v2-sms-accountability";
 import {
   buildBlockerAckAiPayload,
@@ -225,6 +226,16 @@ import {
   buildV2ActiveReplyContext,
   isV2ActiveReplyContextEnabled,
 } from "@/lib/v2-active-reply-context";
+import {
+  isClearAccountabilityCompletionReply,
+  laneExclusionFromGatedMode,
+  logInboundOutcomePersistAttempt,
+  persistInboundAccountabilityOutcomeEvent,
+  shouldPersistInboundAccountabilityOutcome,
+  type InboundOutcomePersistBranch,
+  type InboundOutcomePersistLaneExclusion,
+  type InboundOutcomePersistResult,
+} from "@/lib/v2-inbound-accountability-outcome-persist";
 import {
   clearBlockerCapturePending,
   exitLowPressureReactivationOnInbound,
@@ -1696,6 +1707,111 @@ async function persistInboundSmsThreadMemoryProjectionBestEffort(args: {
   }
 }
 
+type InboundOutcomePersistOrchestrationArgs = {
+  branch: InboundOutcomePersistBranch;
+  laneExclusion?: InboundOutcomePersistLaneExclusion;
+  job: JobRow;
+  userId: string;
+  commitment: ActiveV2CommitmentRow;
+  userMessage: string;
+  eventType: V2InboundEventType;
+  normalizedHint: string | null;
+  gatedDecision: V2InboundGatedDecision;
+  recentEvents: Awaited<ReturnType<typeof getRecentV2EventsForAi>>;
+  effectiveBehavior: string;
+  proofMeta?: ReturnType<typeof buildProofMomentForAccountabilityOutcome> | null;
+  payloadJson?: Record<string, unknown>;
+  throwOnPersistError?: boolean;
+};
+
+async function tryPersistInboundAccountabilityOutcomeBeforeSend(
+  args: InboundOutcomePersistOrchestrationArgs
+): Promise<InboundOutcomePersistResult> {
+  const laneExclusion =
+    args.laneExclusion ?? laneExclusionFromGatedMode(args.gatedDecision.mode);
+
+  const activeReplyContext = buildV2ActiveReplyContext({
+    inboundText: args.userMessage,
+    eventsNewestFirst: args.recentEvents,
+    commitmentTitle: args.commitment.title,
+    behaviorStatement: args.commitment.behavior_statement,
+    effectiveAsk: args.effectiveBehavior,
+  });
+
+  const should = shouldPersistInboundAccountabilityOutcome({
+    messageSid: args.job.message_sid,
+    commitmentId: args.commitment.id,
+    rawBody: args.userMessage,
+    classifierEventType: args.eventType,
+    gatedDecision: args.gatedDecision,
+    laneExclusion,
+    activeReplyContext,
+  });
+
+  logInboundOutcomePersistAttempt({
+    messageSid: args.job.message_sid,
+    commitmentId: args.commitment.id,
+    branch: args.branch,
+    classifierEventType: args.eventType,
+    classifierNormalizedHint: args.normalizedHint,
+    gatedDecision: args.gatedDecision,
+    liveAccountabilityPromptDetected: activeReplyContext.has_live_accountability_prompt,
+    result: should,
+  });
+
+  if (!should.persist) {
+    return { status: "skipped", skipReason: should.skipReason };
+  }
+
+  const finalOutcomeType = should.resolvedEventType;
+  const proofMeta =
+    args.proofMeta ??
+    buildProofMomentForAccountabilityOutcome({
+      finalEventType: finalOutcomeType,
+      eventsNewestFirst: args.recentEvents,
+      isRepairOutcome: false,
+      userMessageCharCount: args.userMessage.length,
+    });
+
+  const idempotencyKey = v2UserReplyIdempotencyKey(finalOutcomeType, args.job.message_sid);
+
+  const result = await persistInboundAccountabilityOutcomeEvent({
+    commitmentId: args.commitment.id,
+    clerkUserId: args.userId,
+    messageSid: args.job.message_sid,
+    rawBody: args.userMessage,
+    eventType: finalOutcomeType,
+    branch: args.branch,
+    classifierEventType: args.eventType,
+    classifierNormalizedHint: args.normalizedHint,
+    gatedDecision: args.gatedDecision,
+    liveAccountabilityPromptDetected: should.liveAccountabilityPromptDetected,
+    overrideGatedNoWrite: should.overrideGatedNoWrite,
+    proofMeta,
+    payloadJson: args.payloadJson ?? {},
+    idempotencyKey,
+  });
+
+  logInboundOutcomePersistAttempt({
+    messageSid: args.job.message_sid,
+    commitmentId: args.commitment.id,
+    branch: args.branch,
+    classifierEventType: args.eventType,
+    classifierNormalizedHint: args.normalizedHint,
+    gatedDecision: args.gatedDecision,
+    resolvedEventType: finalOutcomeType,
+    liveAccountabilityPromptDetected: should.liveAccountabilityPromptDetected,
+    result,
+    idempotencyKey,
+  });
+
+  if (result.status === "error" && args.throwOnPersistError) {
+    throw new Error(`v2_commitment_event_insert_failed: ${result.message}`);
+  }
+
+  return result;
+}
+
 async function processV2NormalInboundOutcome(
   job: JobRow,
   userId: string,
@@ -2271,12 +2387,36 @@ async function processV2NormalInboundOutcome(
       if (!persistedV3) {
         const j3 = await loadJob(job.message_sid);
         if (j3?.reply_body?.trim()) {
+          await tryPersistInboundAccountabilityOutcomeBeforeSend({
+            branch: "open_question",
+            job,
+            userId,
+            commitment,
+            userMessage,
+            eventType,
+            normalizedHint,
+            gatedDecision: V3_REFINE_ONLY_GATED,
+            recentEvents,
+            effectiveBehavior,
+          });
           await commitAndSendInboundRelationshipCoachReply(j3, userId, openQuestionThreadMemoryCtx);
           return;
         }
         throw new Error("v3_open_question_reply_ready_persist_failed");
       }
 
+      await tryPersistInboundAccountabilityOutcomeBeforeSend({
+        branch: "open_question",
+        job,
+        userId,
+        commitment,
+        userMessage,
+        eventType,
+        normalizedHint,
+        gatedDecision: V3_REFINE_ONLY_GATED,
+        recentEvents,
+        effectiveBehavior,
+      });
       const freshV3 = (await loadJob(job.message_sid)) ?? job;
       await commitAndSendInboundRelationshipCoachReply(freshV3, userId, openQuestionThreadMemoryCtx);
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -2586,20 +2726,18 @@ async function processV2NormalInboundOutcome(
         fallbackReason: string,
         laneNoSendExtras?: Record<string, unknown> | null
       ) => {
-        const idempotencyKey = v2UserReplyIdempotencyKey(
-          gdFallback.final_event_type ?? eventType,
-          job.message_sid
-        );
-        const { error: evInsErr } = await supabaseServer.from("v2_commitment_event").insert({
-          commitment_id: commitment.id,
-          clerk_user_id: userId,
-          event_type: gdFallback.final_event_type ?? eventType,
-          source: "sms_v2_accountability",
-          payload_json: {
-            message_sid: job.message_sid,
-            source_path: "sms_inbound_accountability",
-            message: userMessage,
-            ...(normalizedHint != null ? { normalized_hint: normalizedHint } : {}),
+        const legacyPersistResult = await tryPersistInboundAccountabilityOutcomeBeforeSend({
+          branch: "conversation_brain_legacy_fallback",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision: gdFallback,
+          recentEvents,
+          effectiveBehavior,
+          payloadJson: {
             ai: {
               model: V2_INBOUND_AI_MODEL,
               prompt_version: V2_INBOUND_AI_PROMPT_VERSION,
@@ -2615,15 +2753,10 @@ async function processV2NormalInboundOutcome(
               legacy_fallback_disabled_deterministic: true,
             },
           },
-          idempotency_key: idempotencyKey,
+          throwOnPersistError: gdFallback.should_write_outcome_event,
         });
 
-        if (evInsErr) {
-          const code = (evInsErr as { code?: string }).code;
-          if (code !== "23505") {
-            throw new Error(`v2_commitment_event_insert_failed: ${evInsErr.message}`);
-          }
-        } else {
+        if (legacyPersistResult.status === "inserted") {
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         }
 
@@ -3423,12 +3556,38 @@ async function processV2NormalInboundOutcome(
     if (!persistedPivot) {
       const j2 = await loadJob(job.message_sid);
       if (j2?.reply_body?.trim()) {
+        await tryPersistInboundAccountabilityOutcomeBeforeSend({
+          branch: "central_pivot",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision,
+          recentEvents,
+          effectiveBehavior,
+          proofMeta: accountabilityProofMoment,
+        });
         await commitAndSendInboundRelationshipCoachReply(j2, userId, centralBrainPivotThreadMemoryCtx);
         return;
       }
       throw new Error("v2_reply_ready_persist_failed");
     }
 
+    await tryPersistInboundAccountabilityOutcomeBeforeSend({
+      branch: "central_pivot",
+      job,
+      userId,
+      commitment,
+      userMessage,
+      eventType,
+      normalizedHint,
+      gatedDecision,
+      recentEvents,
+      effectiveBehavior,
+      proofMeta: accountabilityProofMoment,
+    });
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     const freshPivot = (await loadJob(job.message_sid)) ?? job;
     await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx);
@@ -3688,15 +3847,46 @@ async function processV2NormalInboundOutcome(
         }),
       };
 
+      const arcClarifyLaneExclusion: InboundOutcomePersistLaneExclusion =
+        isClearAccountabilityCompletionReply(userMessage) ? "none" : "arc_clarify_only";
+
       if (!persistedArc) {
         const j2 = await loadJob(job.message_sid);
         if (j2?.reply_body?.trim()) {
+          await tryPersistInboundAccountabilityOutcomeBeforeSend({
+            branch: "arc_clarify",
+            laneExclusion: arcClarifyLaneExclusion,
+            job,
+            userId,
+            commitment,
+            userMessage,
+            eventType,
+            normalizedHint,
+            gatedDecision,
+            recentEvents,
+            effectiveBehavior,
+            proofMeta: accountabilityProofMoment,
+          });
           await commitAndSendInboundRelationshipCoachReply(j2, userId, arcClarifyThreadMemoryCtx);
           return;
         }
         throw new Error("v2_reply_ready_persist_failed");
       }
 
+      await tryPersistInboundAccountabilityOutcomeBeforeSend({
+        branch: "arc_clarify",
+        laneExclusion: arcClarifyLaneExclusion,
+        job,
+        userId,
+        commitment,
+        userMessage,
+        eventType,
+        normalizedHint,
+        gatedDecision,
+        recentEvents,
+        effectiveBehavior,
+        proofMeta: accountabilityProofMoment,
+      });
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       const freshArc = (await loadJob(job.message_sid)) ?? job;
       await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx);
@@ -4992,82 +5182,84 @@ async function processV2NormalInboundOutcome(
     });
   }
 
-  // 6) Accountability event spine (only when scoring this turn).
-  if (gatedDecision.should_write_outcome_event) {
-    const finalEventType = gatedDecision.final_event_type ?? eventType;
-    const idempotencyKey = v2UserReplyIdempotencyKey(finalEventType, job.message_sid);
-    let spineInsertSucceeded = false;
-    let spineInsertDuplicate = false;
-    const { error: evErr } = await supabaseServer.from("v2_commitment_event").insert({
-      commitment_id: commitment.id,
-      clerk_user_id: userId,
-      event_type: finalEventType,
-      source: "sms_v2_accountability",
-      payload_json: {
-        message_sid: job.message_sid,
-        source_path: "sms_inbound_accountability",
-        message: userMessage,
-        ...(normalizedHint != null ? { normalized_hint: normalizedHint } : {}),
-        ...(!aiTry.ok && replyTemplateId != null ? { reply_template_id: replyTemplateId } : {}),
-        ...(afterSilence
-          ? {
-              reentry_context: {
-                after_silence: true,
-                unanswered_checks: silenceCtx.unanswered_checks,
-                days_idle: silenceCtx.days_since_last_user_outcome,
-              },
-            }
-          : {}),
-        ...(shadowInterpretationStored != null ? { shadow_interpretation: shadowInterpretationStored } : {}),
-        ...(gatedPayloadRecord != null ? { ai_gated_decision: gatedPayloadRecord } : {}),
-        ...(repairPayload != null ? { repair_context: repairPayload } : {}),
-        ...(memorySignalStored != null ? { memory_signal: memorySignalStored } : {}),
-        ...proofMomentPayloadFields(accountabilityProofMoment),
-        ...(centralSmsTurnShadowStored != null ? { central_sms_turn_shadow: centralSmsTurnShadowStored } : {}),
-        ...(v3BrainEventMeta != null ? { v3_brain: v3BrainEventMeta } : {}),
-        ai: aiPayload,
-        ...(conversationBrainSpineMeta != null ? { conversation_brain_v1: conversationBrainSpineMeta } : {}),
-      },
-      idempotency_key: idempotencyKey,
+  // 6) Accountability event spine — persist before send when appropriate.
+  const spinePayloadExtras: Record<string, unknown> = {
+    ...(!aiTry.ok && replyTemplateId != null ? { reply_template_id: replyTemplateId } : {}),
+    ...(afterSilence
+      ? {
+          reentry_context: {
+            after_silence: true,
+            unanswered_checks: silenceCtx.unanswered_checks,
+            days_idle: silenceCtx.days_since_last_user_outcome,
+          },
+        }
+      : {}),
+    ...(shadowInterpretationStored != null ? { shadow_interpretation: shadowInterpretationStored } : {}),
+    ...(gatedPayloadRecord != null ? { ai_gated_decision: gatedPayloadRecord } : {}),
+    ...(repairPayload != null ? { repair_context: repairPayload } : {}),
+    ...(memorySignalStored != null ? { memory_signal: memorySignalStored } : {}),
+    ...(centralSmsTurnShadowStored != null ? { central_sms_turn_shadow: centralSmsTurnShadowStored } : {}),
+    ...(v3BrainEventMeta != null ? { v3_brain: v3BrainEventMeta } : {}),
+    ai: aiPayload,
+    ...(conversationBrainSpineMeta != null ? { conversation_brain_v1: conversationBrainSpineMeta } : {}),
+  };
+
+  const persistResult = await tryPersistInboundAccountabilityOutcomeBeforeSend({
+    branch: "main",
+    job,
+    userId,
+    commitment,
+    userMessage,
+    eventType,
+    normalizedHint,
+    gatedDecision,
+    recentEvents,
+    effectiveBehavior,
+    proofMeta: accountabilityProofMoment,
+    payloadJson: spinePayloadExtras,
+    throwOnPersistError: gatedDecision.should_write_outcome_event,
+  });
+
+  const spineInsertSucceeded = persistResult.status === "inserted";
+  const resolvedSpineEventType =
+    persistResult.status === "inserted" || persistResult.status === "duplicate"
+      ? persistResult.eventType
+      : (gatedDecision.final_event_type ?? eventType);
+
+  if (spineInsertSucceeded) {
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    maybeLogCentralBrainDisagreement({
+      commitmentId: commitment.id,
+      stored: centralSmsTurnShadowStored ?? undefined,
+      spineEventType: resolvedSpineEventType,
+      shouldWriteOutcome: gatedDecision.should_write_outcome_event,
     });
+  }
 
-    if (evErr) {
-      const code = (evErr as { code?: string }).code;
-      if (code === "23505") {
-        spineInsertDuplicate = true;
-      } else {
-        throw new Error(`v2_commitment_event_insert_failed: ${evErr.message}`);
-      }
-    } else {
-      spineInsertSucceeded = true;
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      maybeLogCentralBrainDisagreement({
-        commitmentId: commitment.id,
-        stored: centralSmsTurnShadowStored ?? undefined,
-        spineEventType: finalEventType,
-        shouldWriteOutcome: gatedDecision.should_write_outcome_event,
-      });
-    }
+  if (spineInsertSucceeded && proofCalloutHint?.eligible) {
+    const idempotencyKey = v2UserReplyIdempotencyKey(
+      resolvedSpineEventType as V2AccountabilityOutcome,
+      job.message_sid
+    );
+    await patchVictoryCalloutOnSpineEventBestEffort({
+      idempotencyKey,
+      spineExtras: {
+        proof_callout_hint_offered_to_model: true,
+        proof_callout_reason: proofCalloutHint.reason,
+      },
+    });
+  }
 
-    if (spineInsertSucceeded && !spineInsertDuplicate && proofCalloutHint?.eligible) {
-      await patchVictoryCalloutOnSpineEventBestEffort({
-        idempotencyKey,
-        spineExtras: {
-          proof_callout_hint_offered_to_model: true,
-          proof_callout_reason: proofCalloutHint.reason,
-        },
-      });
-    }
+  const outcomeNotebook =
+    v3BrainPayload?.learningSignal?.confidence != null &&
+    v3BrainPayload.learningSignal.confidence >= 0.48 &&
+    (v3BrainPayload.learningSignal.blockerPattern ||
+      v3BrainPayload.learningSignal.workingCondition ||
+      v3BrainPayload.learningSignal.currentExperiment)
+      ? buildV3LearningNotebookLine(v3BrainPayload.learningSignal!, userMessage)
+      : null;
 
-    const outcomeNotebook =
-      v3BrainPayload?.learningSignal?.confidence != null &&
-      v3BrainPayload.learningSignal.confidence >= 0.48 &&
-      (v3BrainPayload.learningSignal.blockerPattern ||
-        v3BrainPayload.learningSignal.workingCondition ||
-        v3BrainPayload.learningSignal.currentExperiment)
-        ? buildV3LearningNotebookLine(v3BrainPayload.learningSignal!, userMessage)
-        : null;
-
+  if (gatedDecision.should_write_outcome_event || spineInsertSucceeded) {
     await recomputeV2CoachingMemory(commitment.id, {
       reasonCode: "inbound_user_outcome",
       ...(outcomeNotebook ? { v3LearningNotebookAppend: outcomeNotebook } : {}),

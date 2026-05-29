@@ -25,13 +25,13 @@ describe("sms-inbound-coach — proof callout V3 ownership (Slice 2)", () => {
     expect(src).toContain("proofCalloutHint,");
   });
 
-  it("proof spine insert runs before hint telemetry patch; duplicate skips hint patch", () => {
-    const spineBlock = src.slice(src.indexOf("let spineInsertSucceeded = false"));
-    const insertIdx = spineBlock.indexOf('from("v2_commitment_event").insert');
+  it("proof spine persist runs before hint telemetry patch on main path", () => {
+    const spineBlock = src.slice(src.indexOf("// 6) Accountability event spine"));
+    const persistIdx = spineBlock.indexOf("tryPersistInboundAccountabilityOutcomeBeforeSend");
     const patchIdx = spineBlock.indexOf("proof_callout_hint_offered_to_model");
-    expect(insertIdx).toBeGreaterThan(0);
-    expect(patchIdx).toBeGreaterThan(insertIdx);
-    expect(spineBlock).toContain("spineInsertSucceeded && !spineInsertDuplicate");
+    expect(persistIdx).toBeGreaterThan(0);
+    expect(patchIdx).toBeGreaterThan(persistIdx);
+    expect(spineBlock).toContain("spineInsertSucceeded");
     expect(spineBlock).not.toContain("applyVictoryCalloutAfterSpineInsert");
   });
 

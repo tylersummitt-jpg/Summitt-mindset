@@ -4,6 +4,8 @@
  */
 
 import type { ExpectedReplySemanticsV3 } from "@/lib/north-star-sms-context-packet";
+import { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
+import { classifyV2InboundReply } from "@/lib/v2-sms-accountability";
 
 export type V3AnswerToOpenQuestionSubkind =
   | "future_plan_story_title"
@@ -50,10 +52,12 @@ function parseTranscriptRoleLine(line: string): { role: "Coach" | "User" | null;
 }
 
 function inboundLooksLikeStrongAccountabilityOnly(raw: string): boolean {
+  if (isClearAccountabilityCompletionReply(raw)) return true;
   const t = raw.trim();
   if (t.length <= 24) {
     if (/^(yes|y|yeah|yep|yup|no|n|nope|nah)\b/i.test(t)) return true;
     if (/^(done|got it|finished|sure\s+did)\b/i.test(t)) return true;
+    if (/^(i\s+)?did\s+it\b/i.test(t)) return true;
   }
   return false;
 }
@@ -118,10 +122,25 @@ function looksLikeStoryTitleAnswer(raw: string): boolean {
   return true;
 }
 
-function looksLikeBlockerPhrase(raw: string): boolean {
+export function looksLikeBlockerPhrase(raw: string): boolean {
   const t = raw.trim();
   if (t.length < 2 || t.length > 160) return false;
-  return true;
+  if (isClearAccountabilityCompletionReply(t)) return false;
+
+  const classification = classifyV2InboundReply(t);
+  if (classification.eventType === "user_yes" || classification.eventType === "user_no") {
+    return false;
+  }
+
+  if (
+    /\b(because|blocked|busy|couldn'?t|could not|missed|stuck|overwhelmed|distracted|exhausted|issue|problem|hard|tough)\b/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+
+  return t.length >= 24;
 }
 
 /** Coach asked for a tiny/today micro-commit (matches smallest-step deterministic reply). */
@@ -165,10 +184,6 @@ export function tryResolveAnswerToOpenQuestionTurn(
     return null;
   }
 
-  if (inboundLooksLikeStrongAccountabilityOnly(inbound) && qSem !== "discrete_choice") {
-    return null;
-  }
-
   const lo = args.latestOpenQuestion.trim();
 
   if (coachAskedSmallestStepToday(lo) && inboundDefersTodayForTomorrow(inbound)) {
@@ -181,6 +196,14 @@ export function tryResolveAnswerToOpenQuestionTurn(
       shouldAskTodayCompletionAgain: false,
       replyStrategy: "tomorrow_concrete_time_after_micro_step_declined",
     };
+  }
+
+  if (isClearAccountabilityCompletionReply(inbound)) {
+    return null;
+  }
+
+  if (inboundLooksLikeStrongAccountabilityOnly(inbound) && qSem !== "discrete_choice") {
+    return null;
   }
 
   switch (qSem) {
