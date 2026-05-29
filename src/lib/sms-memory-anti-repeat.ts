@@ -6,11 +6,62 @@ import {
   hasFuturePlanIntentLanguage,
   looksLikeReportedCompletion,
 } from "@/lib/pending-plan-proof";
+import {
+  type MemoryRepeatRepairContext,
+  type SmsMemoryRepeatRepairStrategy,
+  SMS_MEMORY_REPEAT_REPAIR_STRATEGIES,
+} from "@/lib/sms-memory-repeat-repair-types";
 import { isClosePriorPlanLoopOutcomeQuestion } from "@/lib/timing-anchor-memory";
 import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
+
+export {
+  SMS_MEMORY_REPEAT_REPAIR_STRATEGIES,
+  type MemoryRepeatRepairContext,
+  type SmsMemoryRepeatRepairStrategy,
+} from "@/lib/sms-memory-repeat-repair-types";
+
+export const STRATEGY_EXAMPLE_SMS: Record<
+  SmsMemoryRepeatRepairStrategy,
+  readonly [string, string]
+> = {
+  outcome_check: [
+    "What actually happened with the block today?",
+    "Give me the honest status on the distribution block.",
+  ],
+  binary_truth_check: [
+    "Protected, partial, or missed?",
+    "Did you follow through today — yes, partial, or not yet?",
+  ],
+  reset_question: [
+    "Do we need to reset the window?",
+    "Is it time to reset the plan for today?",
+  ],
+  barrier_check: [
+    "What got in the way?",
+    "What pulled you off the block?",
+  ],
+  next_first_step: [
+    "What is the first move when the block starts?",
+    "What's the first thing you do when it's time to follow through?",
+  ],
+  proof_check: [
+    "What evidence do you have that you followed through?",
+    "What actually happened when it was time to execute?",
+  ],
+  identity_tie_back: [
+    "What would the standard require here?",
+    "What does holding the line look like for you today?",
+  ],
+};
+
+const REPAIR_STRATEGY_ALTERNATE_CHAIN: readonly SmsMemoryRepeatRepairStrategy[] =
+  SMS_MEMORY_REPEAT_REPAIR_STRATEGIES;
+
+/** Telemetry: memory repeat repair uses fresh-angle coaching move shift (not legacy paraphrase repair). */
+export const SMS_MEMORY_REPEAT_REPAIR_SYSTEM = "fresh_angle_v1";
 
 export type SmsMemoryRepeatViolationReason =
   | "repeated_recent_question"
@@ -77,7 +128,7 @@ function coachQuestionTextsFromEntries(entries: Array<{ text?: string } | string
   return out;
 }
 
-function extractQuestionClausesFromBody(body: string): string[] {
+export function extractQuestionClausesFromBody(body: string): string[] {
   const stripped = body
     .replace(/\bReply STOP to opt out[\s\S]*$/i, "")
     .replace(/\bReply HELP for help\.?[\s\S]*$/i, "")
@@ -291,6 +342,169 @@ export function isMemoryRepeatRepairBlockedReason(blockedReasons: string[]): boo
   return blockedReasons.some((r) => r === "memory_repeat_question" || /\bmemory_repeat\b/i.test(r));
 }
 
+function extractAccountabilityPurposeFromFactsJson(factsJson: unknown): string | null {
+  if (factsJson == null || typeof factsJson !== "object") return null;
+  const f = factsJson as Record<string, unknown>;
+  const commitment = f.commitment;
+  const accountability = f.accountability;
+  const pick = (obj: unknown, key: string): string | null => {
+    if (obj == null || typeof obj !== "object") return null;
+    const v = (obj as Record<string, unknown>)[key];
+    return typeof v === "string" && v.trim() ? v.trim() : null;
+  };
+  return (
+    pick(commitment, "behavior_statement") ??
+    pick(commitment, "effective_ask") ??
+    pick(accountability, "behavior_statement") ??
+    pick(accountability, "base_behavior_statement") ??
+    null
+  );
+}
+
+function extractPriorOutboundFullBodyFromFactsJson(
+  factsJson: unknown,
+  detectInput: Parameters<typeof detectSmsMemoryRepeatViolation>[0]
+): string | null {
+  const fromDetect = detectInput.lastOutboundFullBody?.trim();
+  if (fromDetect) return fromDetect;
+  if (factsJson == null || typeof factsJson !== "object") return null;
+  const f = factsJson as Record<string, unknown>;
+  const threadMemory = f.thread_memory;
+  if (threadMemory != null && typeof threadMemory === "object") {
+    const tm = threadMemory as Record<string, unknown>;
+    const full = tm.last_outbound_full_body;
+    if (typeof full === "string" && full.trim()) return full.trim();
+    const latest = tm.latest_outbound_sms;
+    if (typeof latest === "string" && latest.trim()) return latest.trim();
+  }
+  const thread = f.thread;
+  if (thread != null && typeof thread === "object") {
+    const t = thread as Record<string, unknown>;
+    const mp = t.memory_packet;
+    if (mp != null && typeof mp === "object") {
+      const packet = mp as Record<string, unknown>;
+      const full = packet.last_outbound_full_body;
+      if (typeof full === "string" && full.trim()) return full.trim();
+    }
+    const latestOutbound = t.latest_outbound_sms;
+    if (typeof latestOutbound === "string" && latestOutbound.trim()) return latestOutbound.trim();
+  }
+  return null;
+}
+
+function buildForbiddenCoachingFrames(args: {
+  repeatedQuestion: string | null;
+  repeatedPhrases: string[];
+  blockedCandidateBody: string;
+}): string[] {
+  const frames = new Set<string>();
+  for (const source of [
+    args.repeatedQuestion,
+    ...args.repeatedPhrases,
+    args.blockedCandidateBody,
+  ]) {
+    const text = source?.trim();
+    if (!text) continue;
+    for (const clause of extractQuestionClausesFromBody(text)) {
+      if (clause.length >= MIN_PHRASE_CHARS) frames.add(clause.slice(0, 200));
+    }
+  }
+  return [...frames].slice(0, 6);
+}
+
+function looksLikePlanningOrReflectionCoachText(text: string): boolean {
+  const t = text.toLowerCase();
+  return (
+    hasFuturePlanIntentLanguage(text) ||
+    /\b(what will you|what would you|consider|reflect|nurturing action|share your plan|what specific)\b/i.test(t)
+  );
+}
+
+export function inferRecommendedRepeatRepairStrategy(args: {
+  blockedCandidateBody: string;
+  violationReason: SmsMemoryRepeatViolationReason;
+  latestAnswerText?: string | null;
+  pendingPlanProofActive?: boolean;
+  suggestedCoachingMove?: string | null;
+  repeatedQuestion?: string | null;
+  repeatedPhrases?: string[];
+}): SmsMemoryRepeatRepairStrategy {
+  const closeLoopContext =
+    args.pendingPlanProofActive === true || args.suggestedCoachingMove === "close_prior_plan_loop";
+  if (closeLoopContext) return "outcome_check";
+
+  if (
+    args.violationReason === "repeated_answered_open_question" &&
+    latestAnswerIsPlanNotProof(args.latestAnswerText)
+  ) {
+    return "outcome_check";
+  }
+
+  if (isClosePriorPlanLoopOutcomeQuestion(args.blockedCandidateBody)) {
+    return "binary_truth_check";
+  }
+
+  const repeatedText = [args.repeatedQuestion, ...(args.repeatedPhrases ?? [])]
+    .filter((s): s is string => Boolean(s?.trim()))
+    .join(" ");
+  if (looksLikePlanningOrReflectionCoachText(repeatedText)) {
+    return "binary_truth_check";
+  }
+
+  if (args.suggestedCoachingMove === "ask_blocker") {
+    return "barrier_check";
+  }
+
+  return "outcome_check";
+}
+
+export function pickAlternateRepeatRepairStrategy(
+  primary: SmsMemoryRepeatRepairStrategy
+): SmsMemoryRepeatRepairStrategy {
+  const idx = REPAIR_STRATEGY_ALTERNATE_CHAIN.indexOf(primary);
+  if (idx >= 0 && idx < REPAIR_STRATEGY_ALTERNATE_CHAIN.length - 1) {
+    return REPAIR_STRATEGY_ALTERNATE_CHAIN[idx + 1]!;
+  }
+  return primary === "binary_truth_check" ? "outcome_check" : "binary_truth_check";
+}
+
+export function buildMemoryRepeatRepairContext(args: {
+  routeKind: "daily" | "inbound" | "weekly";
+  blockedCandidateBody: string;
+  violation: SmsMemoryRepeatViolation;
+  detectInput: Parameters<typeof detectSmsMemoryRepeatViolation>[0];
+  factsJson: unknown;
+}): MemoryRepeatRepairContext {
+  void args.routeKind;
+  const recommended = inferRecommendedRepeatRepairStrategy({
+    blockedCandidateBody: args.blockedCandidateBody,
+    violationReason: args.violation.reason,
+    latestAnswerText: args.detectInput.latestAnswerText,
+    pendingPlanProofActive: args.detectInput.pendingPlanProofActive,
+    suggestedCoachingMove: args.detectInput.suggestedCoachingMove,
+    repeatedQuestion: args.violation.repeatedQuestion,
+    repeatedPhrases: args.violation.repeatedPhrases,
+  });
+  const examples = STRATEGY_EXAMPLE_SMS[recommended];
+  return {
+    prior_outbound_full_body: extractPriorOutboundFullBodyFromFactsJson(args.factsJson, args.detectInput),
+    blocked_candidate_body: args.blockedCandidateBody,
+    repeated_question: args.violation.repeatedQuestion,
+    repeated_phrases: args.violation.repeatedPhrases,
+    latest_user_answer: args.detectInput.latestAnswerText?.trim() ?? null,
+    accountability_purpose: extractAccountabilityPurposeFromFactsJson(args.factsJson),
+    suggested_coaching_move: args.detectInput.suggestedCoachingMove ?? null,
+    repeat_violation_reason: args.violation.reason,
+    recommended_repair_strategy: recommended,
+    forbidden_coaching_frames: buildForbiddenCoachingFrames({
+      repeatedQuestion: args.violation.repeatedQuestion,
+      repeatedPhrases: args.violation.repeatedPhrases,
+      blockedCandidateBody: args.blockedCandidateBody,
+    }),
+    strategy_examples: [examples[0], examples[1]],
+  };
+}
+
 export function buildMemoryAntiRepeatRepairInstruction(args: {
   repeatedQuestion?: string | null;
   repeatedPhrases: string[];
@@ -298,6 +512,8 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
   reason: SmsMemoryRepeatViolationReason;
   pendingPlanProofActive?: boolean;
   suggestedCoachingMove?: string | null;
+  repairContext?: MemoryRepeatRepairContext | null;
+  forcedRepairStrategy?: SmsMemoryRepeatRepairStrategy | null;
 }): string {
   const closeLoopContext =
     args.pendingPlanProofActive === true || args.suggestedCoachingMove === "close_prior_plan_loop";
@@ -337,6 +553,43 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
         .join("; ")}.`
     );
   }
+
+  if (args.repairContext) {
+    const ctx = args.repairContext;
+    const targetStrategy = args.forcedRepairStrategy ?? ctx.recommended_repair_strategy;
+    parts.push(
+      "This draft is too similar to prior coach messages. Rewrite with a FRESH coaching angle — not synonyms.",
+      "Preserve the same accountability purpose; change the coaching move.",
+      "Sound like the next natural SMS in a months-long text relationship.",
+      "Do NOT reuse the forbidden question frames listed below.",
+      `You MUST use coaching move strategy: ${targetStrategy}.`,
+      `used_strategy in JSON MUST be exactly: ${targetStrategy}.`,
+      `Allowed used_strategy values: ${SMS_MEMORY_REPEAT_REPAIR_STRATEGIES.join(", ")}.`,
+      `Accountability purpose to preserve: ${ctx.accountability_purpose?.slice(0, 220) ?? "(same active commitment)"}.`
+    );
+    if (ctx.prior_outbound_full_body?.trim()) {
+      parts.push(
+        `Prior coach outbound (context only — do not paraphrase): "${ctx.prior_outbound_full_body.trim().slice(0, 220)}".`
+      );
+    }
+    if (ctx.forbidden_coaching_frames.length) {
+      parts.push(
+        `Forbidden question frames (do not reuse): ${ctx.forbidden_coaching_frames
+          .slice(0, 4)
+          .map((f) => `"${f.slice(0, 100)}"`)
+          .join("; ")}.`
+      );
+    }
+    if (ctx.strategy_examples.length) {
+      parts.push(`Examples of ${targetStrategy} tone: ${ctx.strategy_examples.map((e) => `"${e}"`).join("; ")}.`);
+    }
+    if (args.forcedRepairStrategy) {
+      parts.push(
+        "Your first rewrite was still too similar. You MUST switch to the forced strategy now — different question frame entirely."
+      );
+    }
+  }
+
   return parts.join(" ");
 }
 
@@ -477,7 +730,13 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
   additionalRepairInstruction?: string | null;
   noSendReason?: string;
 }): Promise<MemoryRepeatGuardResult> {
-  const baseMeta = (original: string, violation: SmsMemoryRepeatViolation): Record<string, unknown> => ({
+  const blockedNoSendReason = args.noSendReason ?? "thread_memory_repeat_blocked";
+
+  const buildRepeatMeta = (
+    original: string,
+    violation: SmsMemoryRepeatViolation,
+    extra: Record<string, unknown> = {}
+  ): Record<string, unknown> => ({
     memory_repeat_guard_attempted: true,
     memory_repeat_guard_succeeded: false,
     memory_repeat_guard_reason: violation.reason,
@@ -486,6 +745,14 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     memory_repeat_original_body_preview: original.length > 220 ? `${original.slice(0, 219)}…` : original,
     memory_repeat_repaired_body_preview: null,
     memory_repeat_no_send_reason: null,
+    repeat_detected: true,
+    repeat_repair_attempted: true,
+    repeat_repair_strategy: null,
+    repeat_repair_succeeded: false,
+    repeat_repair_failed_reason: null,
+    repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
+    forced_second_repair_attempted: false,
+    ...extra,
   });
 
   if (!args.enabled) {
@@ -511,79 +778,134 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     };
   }
 
-  const repairInstruction = buildMemoryAntiRepeatRepairInstruction({
-    repeatedQuestion: firstViolation.repeatedQuestion,
-    repeatedPhrases: firstViolation.repeatedPhrases,
-    latestAnswerText: args.detectInput.latestAnswerText ?? null,
-    reason: firstViolation.reason,
-    pendingPlanProofActive: args.detectInput.pendingPlanProofActive,
-    suggestedCoachingMove: args.detectInput.suggestedCoachingMove,
-  });
-  const extraRepair = args.additionalRepairInstruction?.trim();
-  const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
-    routeKind: args.routeKind === "weekly" ? "weekly" : args.routeKind,
-    routePurpose: args.routePurpose,
-    originalBody: original,
-    blockedReasons: ["memory_repeat_question"],
+  const repairContext = buildMemoryRepeatRepairContext({
+    routeKind: args.routeKind,
+    blockedCandidateBody: original,
+    violation: firstViolation,
+    detectInput: args.detectInput,
     factsJson: args.factsJson,
-    systemInstruction: extraRepair ? `${repairInstruction}\n${extraRepair}` : repairInstruction,
   });
 
-  const blockedNoSendReason = args.noSendReason ?? "thread_memory_repeat_blocked";
+  const extraRepair = args.additionalRepairInstruction?.trim();
+  let forcedSecondRepairAttempted = false;
+  let lastRepairedPreview: string | null = null;
+  let lastRepairMetadata: Record<string, unknown> = {};
+  let lastFailedReason: string = "repair_failed";
+  let lastPostValidateNoSendReason: string | null = null;
+  let lastPostValidateExtraMeta: Record<string, unknown> = {};
+  let winningStrategy: string | null = null;
 
-  if (!repairOut?.body?.trim()) {
-    return {
-      outcome: "no_send",
-      noSendReason: blockedNoSendReason,
-      metadata: {
-        ...baseMeta(original, firstViolation),
-        memory_repeat_no_send_reason: "repair_failed",
-      },
-    };
-  }
+  const strategiesToTry: SmsMemoryRepeatRepairStrategy[] = [
+    repairContext.recommended_repair_strategy,
+    pickAlternateRepeatRepairStrategy(repairContext.recommended_repair_strategy),
+  ];
 
-  let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
-  const afterRepairViolation = detectSmsMemoryRepeatViolation({ ...args.detectInput, candidateBody: repaired });
-  if (afterRepairViolation.hasViolation) {
+  for (let attemptIndex = 0; attemptIndex < 2; attemptIndex++) {
+    if (attemptIndex === 1) {
+      forcedSecondRepairAttempted = true;
+    }
+
+    const forcedStrategy = strategiesToTry[attemptIndex]!;
+
+    const repairInstruction = buildMemoryAntiRepeatRepairInstruction({
+      repeatedQuestion: firstViolation.repeatedQuestion,
+      repeatedPhrases: firstViolation.repeatedPhrases,
+      latestAnswerText: args.detectInput.latestAnswerText ?? null,
+      reason: firstViolation.reason,
+      pendingPlanProofActive: args.detectInput.pendingPlanProofActive,
+      suggestedCoachingMove: args.detectInput.suggestedCoachingMove,
+      repairContext,
+      forcedRepairStrategy: attemptIndex === 1 ? forcedStrategy : null,
+    });
+
+    const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: args.routeKind === "weekly" ? "weekly" : args.routeKind,
+      routePurpose: args.routePurpose,
+      originalBody: original,
+      blockedReasons: ["memory_repeat_question"],
+      factsJson: args.factsJson,
+      systemInstruction: extraRepair ? `${repairInstruction}\n${extraRepair}` : repairInstruction,
+      memoryRepeatRepairContext: repairContext,
+      forcedRepairStrategy: forcedStrategy,
+    });
+
+    if (!repairOut?.body?.trim()) {
+      lastFailedReason = "repair_failed";
+      break;
+    }
+
+    const repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
+    lastRepairedPreview = repaired.length > 220 ? `${repaired.slice(0, 219)}…` : repaired;
+    lastRepairMetadata = repairOut.metadata;
+    winningStrategy =
+      typeof repairOut.metadata.lane_repair_used_strategy === "string"
+        ? repairOut.metadata.lane_repair_used_strategy
+        : typeof repairOut.metadata.repeat_repair_strategy === "string"
+          ? repairOut.metadata.repeat_repair_strategy
+          : forcedStrategy ?? null;
+
+    const afterRepairViolation = detectSmsMemoryRepeatViolation({
+      ...args.detectInput,
+      candidateBody: repaired,
+    });
+
+    if (afterRepairViolation.hasViolation) {
+      lastFailedReason = "still_repeated_after_repair";
+      if (attemptIndex === 0) {
+        continue;
+      }
+      break;
+    }
+
+    const postValidate = await args.validateAfterRepair(repaired);
+    if (!postValidate.ok) {
+      lastFailedReason = "post_repair_validation_failed";
+      lastPostValidateNoSendReason = postValidate.noSendReason;
+      lastPostValidateExtraMeta = postValidate.extraMeta ?? {};
+      break;
+    }
+
     return {
-      outcome: "no_send",
-      noSendReason: blockedNoSendReason,
+      outcome: "ok",
+      body: repaired,
       metadata: {
-        ...baseMeta(original, afterRepairViolation),
+        memory_repeat_guard_attempted: true,
+        memory_repeat_guard_succeeded: true,
         memory_repeat_guard_reason: firstViolation.reason,
-        memory_repeat_no_send_reason: "still_repeated_after_repair",
-        memory_repeat_repaired_body_preview: repaired.length > 220 ? `${repaired.slice(0, 219)}…` : repaired,
-      },
-    };
-  }
-
-  const postValidate = await args.validateAfterRepair(repaired);
-  if (!postValidate.ok) {
-    return {
-      outcome: "no_send",
-      noSendReason: postValidate.noSendReason,
-      metadata: {
-        ...baseMeta(original, firstViolation),
-        memory_repeat_no_send_reason: "post_repair_validation_failed",
-        memory_repeat_repaired_body_preview: repaired.length > 220 ? `${repaired.slice(0, 219)}…` : repaired,
-        ...postValidate.extraMeta,
+        repeated_phrases: [],
+        repeated_question: firstViolation.repeatedQuestion,
+        memory_repeat_original_body_preview: original.length > 220 ? `${original.slice(0, 219)}…` : original,
+        memory_repeat_repaired_body_preview: lastRepairedPreview,
+        memory_repeat_no_send_reason: null,
+        repeat_detected: true,
+        repeat_repair_attempted: true,
+        repeat_repair_strategy: winningStrategy,
+        repeat_repair_succeeded: true,
+        repeat_repair_failed_reason: null,
+        repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
+        forced_second_repair_attempted: forcedSecondRepairAttempted,
+        ...repairOut.metadata,
       },
     };
   }
 
   return {
-    outcome: "ok",
-    body: repaired,
+    outcome: "no_send",
+    noSendReason:
+      lastFailedReason === "post_repair_validation_failed" && lastPostValidateNoSendReason
+        ? lastPostValidateNoSendReason
+        : blockedNoSendReason,
     metadata: {
-      memory_repeat_guard_attempted: true,
-      memory_repeat_guard_succeeded: true,
-      memory_repeat_guard_reason: firstViolation.reason,
-      repeated_phrases: [],
-      repeated_question: null,
-      memory_repeat_original_body_preview: original.length > 220 ? `${original.slice(0, 219)}…` : original,
-      memory_repeat_repaired_body_preview: repaired.length > 220 ? `${repaired.slice(0, 219)}…` : repaired,
-      memory_repeat_no_send_reason: null,
-      ...repairOut.metadata,
+      ...buildRepeatMeta(original, firstViolation, {
+        memory_repeat_no_send_reason: lastFailedReason,
+        repeat_repair_failed_reason: lastFailedReason,
+        repeat_repair_strategy: winningStrategy,
+        memory_repeat_repaired_body_preview: lastRepairedPreview,
+        forced_second_repair_attempted: forcedSecondRepairAttempted,
+        memory_repeat_guard_reason: firstViolation.reason,
+        ...lastPostValidateExtraMeta,
+        ...lastRepairMetadata,
+      }),
     },
   };
 }

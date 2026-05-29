@@ -1372,7 +1372,7 @@ describe("produceDailyV3RelationshipSms", () => {
             message: {
               content: JSON.stringify({
                 body: "Sunday School, the farm, and your mother's songs are a rich thread — which one feels alive to dictate today?",
-                used_strategy: "memory_repeat_repair",
+                used_strategy: "outcome_check",
                 safety_notes: [],
               }),
             },
@@ -1425,7 +1425,20 @@ describe("produceDailyV3RelationshipSms", () => {
             message: {
               content: JSON.stringify({
                 body: priorQ,
-                used_strategy: "memory_repeat_repair",
+                used_strategy: "outcome_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: priorQ,
+                used_strategy: "binary_truth_check",
                 safety_notes: [],
               }),
             },
@@ -1449,6 +1462,209 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("thread_memory_repeat_blocked");
     expect(r.metadata.memory_repeat_no_send_reason).toBe("still_repeated_after_repair");
+    expect(r.metadata.forced_second_repair_attempted).toBe(true);
+  });
+
+  describe("fresh-angle memory repeat repair", () => {
+    it("Kathy hike follow-up repairs into fresh angle and shouldSend true", async () => {
+      const kathyPrior =
+        "That sounds like a fantastic plan, Kathy! Enjoy your hike into the mountains and let your chosen Pat Summitt quote inspire you. Also, consider starting suspension training to build strength and endurance. Looking forward to hearing how it goes!";
+      const kathyCandidate =
+        "How did your hike go, Kathy? Did you find a Pat Summitt quote that inspired you during your time in the mountains?";
+      const kathyRepair =
+        "Give me the honest status on the hike today — protected, partial, or missed?";
+
+      createMock
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  should_send: true,
+                  body: kathyCandidate,
+                  no_send_reason: null,
+                  turn_purpose: "daily_accountability",
+                  voice_confidence: 0.8,
+                  used_facts: [],
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  body: kathyRepair,
+                  used_strategy: "binary_truth_check",
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        });
+
+      const r = await produceDailyV3RelationshipSms({
+        facts: baseFacts({
+          user: { ...baseFacts().user, preferred_name: "Kathy" },
+          commitment: {
+            ...baseFacts().commitment,
+            behavior_statement: "Weekly hike with Pat Summitt quote reflection",
+          },
+          thread_memory: {
+            ...baseFacts().thread_memory,
+            last_outbound_full_body: kathyPrior,
+            latest_outbound_sms: kathyPrior,
+            last_5_coach_questions: [kathyPrior],
+            do_not_repeat_hints: [kathyPrior],
+          },
+        }),
+        telemetry_fact_sources: ["test_kathy_hike_repeat"],
+      });
+
+      expect(r.shouldSend).toBe(true);
+      expect(r.body).toBe(kathyRepair);
+      expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+      expect(r.metadata.repeat_repair_succeeded).toBe(true);
+      expect(r.metadata.repeat_repair_strategy).toBe("binary_truth_check");
+      expect(r.metadata.repeat_detected).toBe(true);
+      expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+    });
+
+    it("Tyler distribution follow-up repairs into fresh angle and shouldSend true", async () => {
+      const tylerPrior =
+        "Tyler, it's great to see you focused on your distribution time today. After Brooke's workout, dive into those two hours and let me know how it goes.";
+      const tylerCandidate =
+        "After Brooke's workout, were you able to spend those two hours on distribution?";
+      const tylerRepair =
+        "Protected, partial, or missed on the distribution block today?";
+
+      createMock
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  should_send: true,
+                  body: tylerCandidate,
+                  no_send_reason: null,
+                  turn_purpose: "daily_accountability",
+                  voice_confidence: 0.8,
+                  used_facts: [],
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  body: tylerRepair,
+                  used_strategy: "binary_truth_check",
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        });
+
+      const r = await produceDailyV3RelationshipSms({
+        facts: baseFacts({
+          user: { ...baseFacts().user, preferred_name: "Tyler" },
+          commitment: {
+            ...baseFacts().commitment,
+            behavior_statement: "Two hours of distribution after Brooke's workout",
+          },
+          thread_memory: {
+            ...baseFacts().thread_memory,
+            last_outbound_full_body: tylerPrior,
+            latest_outbound_sms: tylerPrior,
+            last_5_coach_questions: [tylerPrior],
+            do_not_repeat_hints: [tylerPrior],
+          },
+        }),
+        telemetry_fact_sources: ["test_tyler_distribution_repeat"],
+      });
+
+      expect(r.shouldSend).toBe(true);
+      expect(r.body).toBe(tylerRepair);
+      expect(r.metadata.repeat_repair_succeeded).toBe(true);
+      expect(r.metadata.repeat_repair_strategy).toBe("binary_truth_check");
+      expect(r.metadata.repeat_detected).toBe(true);
+      expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+    });
+
+    it("repetitive self-care paraphrase still no-sends when repair stays repetitive", async () => {
+      const prior =
+        "As you think about being kind to yourself today, what nurturing action can you take? Reflect on something that feels supportive and share your plan!";
+      const paraphrase =
+        "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+
+      createMock
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  should_send: true,
+                  body: paraphrase,
+                  no_send_reason: null,
+                  turn_purpose: "daily_accountability",
+                  voice_confidence: 0.8,
+                  used_facts: [],
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  body: paraphrase,
+                  used_strategy: "binary_truth_check",
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  body: paraphrase,
+                  used_strategy: "outcome_check",
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        });
+
+      const r = await produceDailyV3RelationshipSms({
+        facts: baseFacts({
+          thread_memory: {
+            ...baseFacts().thread_memory,
+            last_5_coach_questions: [prior],
+            do_not_repeat_hints: [prior],
+          },
+        }),
+        telemetry_fact_sources: ["test_self_care_repeat"],
+      });
+
+      expect(r.shouldSend).toBe(false);
+      expect(r.noSendReason).toBe("thread_memory_repeat_blocked");
+      expect(r.metadata.forced_second_repair_attempted).toBe(true);
+    });
   });
 
   it("does not block contract_prompt required binding with anti-repeat guard", async () => {

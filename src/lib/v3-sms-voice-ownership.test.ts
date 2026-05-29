@@ -1,7 +1,20 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: vi.fn() },
+}));
+
+const repairCreateMock = vi.hoisted(() => vi.fn());
+
+vi.mock("openai", () => ({
+  __esModule: true,
+  default: class MockOpenAI {
+    chat = {
+      completions: {
+        create: repairCreateMock,
+      },
+    };
+  },
 }));
 
 import { computeRecommitBindingText } from "./v2-adaptive-contract";
@@ -14,6 +27,7 @@ import {
   detectRelationshipCoachingVoiceBlockedReasons,
   isRepairableFinalVoiceBlockedReason,
   partitionFinalVoiceBlockedReasons,
+  repairV3RelationshipLaneBodyWithOpenAI,
 } from "./v3-sms-voice-ownership";
 
 const prevOpenAi = process.env.OPENAI_API_KEY;
@@ -666,5 +680,117 @@ describe("applyFinalVoiceOwnershipGate", () => {
     });
     expect(r.shouldSend).toBe(false);
     expect(r.blockedReasons).toEqual(expect.arrayContaining(["north_star_deterministic_replacement"]));
+  });
+});
+
+describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    repairCreateMock.mockReset();
+  });
+
+  it("returns null when memory repeat repair used_strategy is missing", async () => {
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [{ message: { content: JSON.stringify({ body: "Protected, partial, or missed?" }) } }],
+    });
+    const r = await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      originalBody: "What nurturing action can you take today?",
+      blockedReasons: ["memory_repeat_question"],
+      factsJson: {},
+      memoryRepeatRepairContext: {
+        prior_outbound_full_body: null,
+        blocked_candidate_body: "What nurturing action can you take today?",
+        repeated_question: "What nurturing action can you take?",
+        repeated_phrases: [],
+        latest_user_answer: null,
+        accountability_purpose: "Self-care",
+        suggested_coaching_move: null,
+        repeat_violation_reason: "repeated_recent_question",
+        recommended_repair_strategy: "binary_truth_check",
+        forbidden_coaching_frames: ["What nurturing action can you take?"],
+        strategy_examples: ["Protected, partial, or missed?"],
+      },
+    });
+    expect(r).toBeNull();
+  });
+
+  it("returns null when forcedRepairStrategy does not match used_strategy", async () => {
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              body: "What got in the way today?",
+              used_strategy: "barrier_check",
+            }),
+          },
+        },
+      ],
+    });
+    const r = await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      originalBody: "What nurturing action can you take today?",
+      blockedReasons: ["memory_repeat_question"],
+      factsJson: {},
+      forcedRepairStrategy: "binary_truth_check",
+      memoryRepeatRepairContext: {
+        prior_outbound_full_body: null,
+        blocked_candidate_body: "What nurturing action can you take today?",
+        repeated_question: "What nurturing action can you take?",
+        repeated_phrases: [],
+        latest_user_answer: null,
+        accountability_purpose: "Self-care",
+        suggested_coaching_move: null,
+        repeat_violation_reason: "repeated_recent_question",
+        recommended_repair_strategy: "binary_truth_check",
+        forbidden_coaching_frames: [],
+        strategy_examples: ["Protected, partial, or missed?"],
+      },
+    });
+    expect(r).toBeNull();
+  });
+
+  it("accepts valid strict enum repair and includes structured context in user payload", async () => {
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              body: "Protected, partial, or missed on the distribution block today?",
+              used_strategy: "binary_truth_check",
+            }),
+          },
+        },
+      ],
+    });
+    const ctx = {
+      prior_outbound_full_body: "Enjoy your hike!",
+      blocked_candidate_body: "How did your hike go?",
+      repeated_question: "Enjoy your hike!",
+      repeated_phrases: ["Enjoy your hike!"],
+      latest_user_answer: null,
+      accountability_purpose: "Hike weekly",
+      suggested_coaching_move: null,
+      repeat_violation_reason: "repeated_recent_question",
+      recommended_repair_strategy: "binary_truth_check" as const,
+      forbidden_coaching_frames: ["How did your hike go?"],
+      strategy_examples: ["Protected, partial, or missed?"],
+    };
+    const r = await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      originalBody: "How did your hike go?",
+      blockedReasons: ["memory_repeat_question"],
+      factsJson: { commitment: { behavior_statement: "Hike weekly" } },
+      memoryRepeatRepairContext: ctx,
+    });
+    expect(r?.body).toMatch(/Protected, partial, or missed/i);
+    expect(r?.metadata.repeat_repair_strategy).toBe("binary_truth_check");
+    const userMessage = repairCreateMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMessage).toMatch(/MEMORY_REPEAT_REPAIR_CONTEXT_JSON/);
+    expect(userMessage).toMatch(/Enjoy your hike/);
   });
 });

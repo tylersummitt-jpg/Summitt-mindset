@@ -9,6 +9,11 @@ import {
   type NorthStarSmsContextPacket,
 } from "@/lib/north-star-coach-sms";
 import {
+  type MemoryRepeatRepairContext,
+  type SmsMemoryRepeatRepairStrategy,
+  isSmsMemoryRepeatRepairStrategy,
+} from "@/lib/sms-memory-repeat-repair-types";
+import {
   type DetectRelationshipRobotConsentMenuOptions,
   detectRelationshipRobotConsentMenuReasons,
   isRelationshipRobotConsentMenuRepairableReason,
@@ -370,6 +375,8 @@ export type RepairV3RelationshipLaneBodyArgs = {
   blockedReasons: string[];
   factsJson: unknown;
   systemInstruction?: string;
+  memoryRepeatRepairContext?: MemoryRepeatRepairContext | null;
+  forcedRepairStrategy?: SmsMemoryRepeatRepairStrategy | null;
 };
 
 type LaneRepairModelJson = {
@@ -404,7 +411,8 @@ export async function repairV3RelationshipLaneBodyWithOpenAI(
   let factsSnippet: string;
   try {
     const raw = JSON.stringify(args.factsJson ?? null);
-    factsSnippet = raw.length > 9000 ? `${raw.slice(0, 8999)}…` : raw;
+    const maxLen = args.memoryRepeatRepairContext ? 2000 : 9000;
+    factsSnippet = raw.length > maxLen ? `${raw.slice(0, maxLen - 1)}…` : raw;
   } catch {
     factsSnippet = "(facts_json_unserializable)";
   }
@@ -412,9 +420,16 @@ export async function repairV3RelationshipLaneBodyWithOpenAI(
   const memoryRepeatRepair = args.blockedReasons.some(
     (r) => r === "memory_repeat_question" || /\bmemory_repeat\b/i.test(r)
   );
+  const strictMemoryRepeatRepair = memoryRepeatRepair && args.memoryRepeatRepairContext != null;
   const preserveMeaningRule = memoryRepeatRepair
     ? "- Preserve the same facts, current goal, and accountability purpose, but change the coaching move so this is not the same question frame; do not paraphrase the blocked question."
     : "- Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.";
+
+  const strictStrategyRule = strictMemoryRepeatRepair
+    ? `- used_strategy MUST be exactly one of: outcome_check, binary_truth_check, reset_question, barrier_check, next_first_step, proof_check, identity_tie_back.${
+        args.forcedRepairStrategy ? ` For this rewrite it MUST be: ${args.forcedRepairStrategy}.` : ""
+      }`
+    : "";
 
   const baseSystem = `You compress and repair SMS coaching copy for Summitt Mindset. You are NOT inventing a new coaching plan.
 
@@ -426,6 +441,7 @@ safety_notes (string array, may be empty)
 RULES FOR body:
 - Exactly 1–2 sentences maximum.
 ${preserveMeaningRule}
+${strictStrategyRule}
 - Remove or rewrite away the issues implied by blocked_reasons (e.g. shorten if too_many_sentences or too_long; remove banned phrasing).
 - If blocked_reasons includes did_you_manage: keep the same accountability meaning but do NOT use the exact phrase "Did you manage" — use natural alternatives (e.g. whether you completed the step, how the planned block went, if the calls landed).
 - No markdown, bullets, or role labels.
@@ -438,19 +454,31 @@ ${preserveMeaningRule}
     ? `${baseSystem}\n\nADDITIONAL_INSTRUCTIONS:\n${args.systemInstruction.trim()}`
     : baseSystem;
 
-  const userContent = [
+  const userContentParts = [
     `route_kind: ${args.routeKind}`,
     `route_purpose: ${args.routePurpose}`,
     `blocked_reasons: ${args.blockedReasons.join(", ")}`,
     `original_candidate_sms: ${args.originalBody}`,
-    `ACCOUNTABILITY_FACTS_JSON (facts only; do not paste as user-visible labels):`,
-    factsSnippet,
-  ].join("\n");
+  ];
+
+  if (args.memoryRepeatRepairContext) {
+    userContentParts.push(
+      "MEMORY_REPEAT_REPAIR_CONTEXT_JSON:",
+      JSON.stringify(args.memoryRepeatRepairContext)
+    );
+  }
+
+  userContentParts.push(
+    "OPTIONAL_ACCOUNTABILITY_FACTS_JSON (secondary context only; do not paste as user-visible labels):",
+    factsSnippet
+  );
+
+  const userContent = userContentParts.join("\n");
 
   try {
     const completion = await client.chat.completions.create({
       model: modelName(),
-      temperature: 0.2,
+      temperature: strictMemoryRepeatRepair ? 0.35 : 0.2,
       max_tokens: 220,
       response_format: { type: "json_object" },
       messages: [
@@ -464,7 +492,21 @@ ${preserveMeaningRule}
     const body = bodyRaw.replace(/^["']|["']$/g, "").trim();
     if (!body) return null;
 
-    const used_strategy = typeof parsed?.used_strategy === "string" ? parsed.used_strategy.trim() : "lane_compress";
+    const used_strategy_raw =
+      typeof parsed?.used_strategy === "string" ? parsed.used_strategy.trim() : "";
+
+    if (strictMemoryRepeatRepair) {
+      if (!isSmsMemoryRepeatRepairStrategy(used_strategy_raw)) {
+        return null;
+      }
+      if (args.forcedRepairStrategy && used_strategy_raw !== args.forcedRepairStrategy) {
+        return null;
+      }
+    }
+
+    const used_strategy = strictMemoryRepeatRepair
+      ? used_strategy_raw
+      : used_strategy_raw || "lane_compress";
     const sn = Array.isArray(parsed?.safety_notes)
       ? parsed!.safety_notes!.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean)
       : [];
@@ -475,6 +517,7 @@ ${preserveMeaningRule}
       repairError: null,
       metadata: {
         lane_repair_used_strategy: used_strategy,
+        repeat_repair_strategy: strictMemoryRepeatRepair ? used_strategy : undefined,
         lane_repair_safety_notes: sn,
       },
     };

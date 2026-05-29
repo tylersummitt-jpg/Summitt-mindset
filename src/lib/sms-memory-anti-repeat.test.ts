@@ -1,14 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/v3-sms-voice-ownership", () => ({
+  repairV3RelationshipLaneBodyWithOpenAI: vi.fn(),
+}));
+
+import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 import {
+  applySmsMemoryAntiRepeatGuard,
   buildMemoryAntiRepeatRepairInstruction,
+  buildMemoryRepeatRepairContext,
   detectSmsMemoryRepeatViolation,
+  inferRecommendedRepeatRepairStrategy,
   isMemoryRepeatRepairBlockedReason,
   isNearExactDuplicateSms,
   normalizeSmsMemoryRepeatText,
+  pickAlternateRepeatRepairStrategy,
   shouldApplyClosePriorPlanLoopAntiRepeatExemption,
+  SMS_MEMORY_REPEAT_REPAIR_STRATEGIES,
 } from "@/lib/sms-memory-anti-repeat";
 
+const repairMock = vi.mocked(repairV3RelationshipLaneBodyWithOpenAI);
+const envSnapshot = { ...process.env };
+
+afterEach(() => {
+  process.env = { ...envSnapshot };
+  repairMock.mockReset();
+});
 describe("detectSmsMemoryRepeatViolation", () => {
   it("flags exact repeated question", () => {
     const q = "What story will you dictate today?";
@@ -319,5 +336,243 @@ describe("close_prior_plan_loop anti-repeat exemption", () => {
     expect(instruction).toMatch(/done, partial, or missed/i);
     expect(instruction).not.toMatch(/build on the answer instead of re-asking/i);
     expect(instruction).toMatch(/Do NOT merely repeat the prior coach question verbatim/i);
+  });
+});
+
+describe("inferRecommendedRepeatRepairStrategy", () => {
+  const kathyPrior =
+    "That sounds like a fantastic plan, Kathy! Enjoy your hike into the mountains and let your chosen Pat Summitt quote inspire you.";
+  const kathyCandidate =
+    "How did your hike go, Kathy? Did you find a Pat Summitt quote that inspired you during your time in the mountains?";
+
+  it("Kathy hike-style recommends outcome_check or binary_truth_check", () => {
+    const strategy = inferRecommendedRepeatRepairStrategy({
+      blockedCandidateBody: kathyCandidate,
+      violationReason: "repeated_recent_question",
+      repeatedQuestion: kathyPrior,
+      repeatedPhrases: [kathyPrior],
+    });
+    expect(["outcome_check", "binary_truth_check"]).toContain(strategy);
+  });
+
+  it("Tyler distribution-style recommends outcome_check or binary_truth_check", () => {
+    const tylerPrior =
+      "Tyler, it's great to see you focused on your distribution time today. After Brooke's workout, dive into those two hours and let me know how it goes.";
+    const tylerCandidate =
+      "After Brooke's workout, were you able to spend those two hours on distribution?";
+    const strategy = inferRecommendedRepeatRepairStrategy({
+      blockedCandidateBody: tylerCandidate,
+      violationReason: "repeated_recent_question",
+      repeatedQuestion: tylerPrior,
+      repeatedPhrases: [tylerPrior],
+      suggestedCoachingMove: "close_prior_plan_loop",
+      pendingPlanProofActive: false,
+    });
+    expect(["outcome_check", "binary_truth_check"]).toContain(strategy);
+  });
+
+  it("pickAlternateRepeatRepairStrategy never returns the same strategy", () => {
+    for (const primary of SMS_MEMORY_REPEAT_REPAIR_STRATEGIES) {
+      const alt = pickAlternateRepeatRepairStrategy(primary);
+      expect(alt).not.toBe(primary);
+    }
+  });
+});
+
+describe("buildMemoryRepeatRepairContext", () => {
+  it("populates required fields from daily-shaped facts", () => {
+    const prior =
+      "Tyler, after Brooke's workout, dive into those two hours on distribution.";
+    const candidate = "After Brooke's workout, were you able to spend those two hours on distribution?";
+    const violation = detectSmsMemoryRepeatViolation({
+      candidateBody: candidate,
+      lastCoachQuestions: [prior],
+      lastOutboundFullBody: prior,
+    });
+    expect(violation.hasViolation).toBe(true);
+
+    const ctx = buildMemoryRepeatRepairContext({
+      routeKind: "daily",
+      blockedCandidateBody: candidate,
+      violation,
+      detectInput: {
+        candidateBody: candidate,
+        lastCoachQuestions: [prior],
+        lastOutboundFullBody: prior,
+      },
+      factsJson: {
+        commitment: { behavior_statement: "Two hours of distribution daily" },
+        thread_memory: { last_outbound_full_body: prior },
+      },
+    });
+
+    expect(ctx.prior_outbound_full_body).toBe(prior);
+    expect(ctx.blocked_candidate_body).toBe(candidate);
+    expect(ctx.repeated_question).toBeTruthy();
+    expect(ctx.accountability_purpose).toMatch(/distribution/i);
+    expect(ctx.recommended_repair_strategy).toBeTruthy();
+    expect(ctx.forbidden_coaching_frames.length).toBeGreaterThan(0);
+    expect(ctx.strategy_examples.length).toBe(2);
+  });
+});
+
+describe("buildMemoryAntiRepeatRepairInstruction fresh-angle", () => {
+  it("includes enum and strategy when repairContext is present", () => {
+    const ctx = buildMemoryRepeatRepairContext({
+      routeKind: "daily",
+      blockedCandidateBody: "How did your hike go?",
+      violation: {
+        hasViolation: true,
+        reason: "repeated_recent_question",
+        repeatedQuestion: "Enjoy your hike!",
+        repeatedPhrases: ["Enjoy your hike!"],
+      },
+      detectInput: { candidateBody: "How did your hike go?" },
+      factsJson: { commitment: { behavior_statement: "Hike weekly" } },
+    });
+    const instruction = buildMemoryAntiRepeatRepairInstruction({
+      reason: "repeated_recent_question",
+      repeatedPhrases: ctx.repeated_phrases,
+      repeatedQuestion: ctx.repeated_question,
+      repairContext: ctx,
+    });
+    expect(instruction).toMatch(/used_strategy/i);
+    expect(instruction).toMatch(/binary_truth_check|outcome_check/);
+    expect(instruction).toMatch(/months-long/i);
+  });
+});
+
+describe("applySmsMemoryAntiRepeatGuard", () => {
+  const priorQ =
+    "As you think about being kind to yourself today, what nurturing action can you take? Reflect on something that feels supportive and share your plan!";
+  const paraphraseRepair =
+    "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+  const frameShiftRepair =
+    "Did you take one small supportive step today — yes, partial, or not yet?";
+
+  const detectInput = {
+    lastCoachQuestions: [priorQ],
+    doNotRepeatPhrases: [priorQ],
+  };
+
+  it("always uses strict fresh-angle repair with enum strategy", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: frameShiftRepair,
+      openAiOk: true,
+      metadata: {
+        lane_repair_used_strategy: "binary_truth_check",
+        repeat_repair_strategy: "binary_truth_check",
+      },
+    });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(repairMock.mock.calls[0]?.[0]?.memoryRepeatRepairContext).toBeTruthy();
+    expect(repairMock.mock.calls[0]?.[0]?.forcedRepairStrategy).toBeTruthy();
+    expect(r.outcome).toBe("ok");
+    expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+  });
+
+  it("rejects invalid used_strategy", async () => {
+    repairMock.mockResolvedValueOnce(null);
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(r.outcome).toBe("no_send");
+    expect(r.metadata.repeat_repair_failed_reason).toBe("repair_failed");
+    expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+  });
+
+  it("succeeds with valid fresh-angle repair", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: frameShiftRepair,
+      openAiOk: true,
+      metadata: {
+        lane_repair_used_strategy: "binary_truth_check",
+        repeat_repair_strategy: "binary_truth_check",
+      },
+    });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(r.outcome).toBe("ok");
+    expect(r.metadata.repeat_repair_succeeded).toBe(true);
+    expect(r.metadata.repeat_repair_strategy).toBe("binary_truth_check");
+    expect(r.metadata.repeat_detected).toBe(true);
+  });
+
+  it("triggers second repair when first still repeats", async () => {
+    repairMock
+      .mockResolvedValueOnce({
+        body: paraphraseRepair,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      })
+      .mockResolvedValueOnce({
+        body: frameShiftRepair,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(2);
+    expect(r.outcome).toBe("ok");
+    expect(r.metadata.forced_second_repair_attempted).toBe(true);
+  });
+
+  it("runs validateAfterRepair after successful repeat repair", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: frameShiftRepair,
+      openAiOk: true,
+      metadata: { lane_repair_used_strategy: "binary_truth_check" },
+    });
+    const validateAfterRepair = vi.fn(async () => ({ ok: true as const }));
+
+    await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: {},
+      detectInput,
+      enabled: true,
+      validateAfterRepair,
+    });
+
+    expect(validateAfterRepair).toHaveBeenCalledTimes(1);
+    expect(validateAfterRepair).toHaveBeenCalledWith(frameShiftRepair);
   });
 });
