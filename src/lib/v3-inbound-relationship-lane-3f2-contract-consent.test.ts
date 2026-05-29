@@ -85,9 +85,34 @@ describe("sms-inbound-coach route — Phase 3F-2 contract consent (static)", () 
     expect(body).not.toContain("v3_contract_consent_refined");
   });
 
+  it("persistContractConsentInboundLaneAckAndSend falls back to human-voice contract ack when V3 path fails", () => {
+    const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
+    const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const body = route.slice(start, end);
+    expect(body).toContain("prepareContractConsentHumanVoiceAckForSend");
+    expect(body).toContain("contract_consent_human_voice_ack_sent");
+    expect(body).toContain("contract_consent_ack_v3_and_human_voice_failed");
+    expect(body).not.toContain("prepareDeterministicContractConsentAckForSend");
+    expect(body).not.toContain("buildDeterministicContractConsentAckBody");
+  });
+
+  it("processV2ContractProposalConsent logs outbound gate miss without mutating state", () => {
+    const start = route.indexOf("async function processV2ContractProposalConsent");
+    const end = route.indexOf("async function fetchPreferredNameForInboundLane");
+    const body = route.slice(start, end);
+    expect(body).toContain("diagnoseContractConsentOutboundGateAsync");
+    expect(body).toContain("contract_consent_outbound_gate_miss");
+    const missIdx = body.indexOf("contract_consent_outbound_gate_miss");
+    const rpcIdx = body.indexOf("await activateAdaptiveOverlayFromProposal");
+    expect(missIdx).toBeGreaterThan(-1);
+    expect(rpcIdx).toBeGreaterThan(missIdx);
+  });
+
   it("persistContractConsentInboundLaneAckAndSend runs post-NS then post-FVG verbatim checks when binding-critical", () => {
     const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
-    const end = route.indexOf("async function markJobFinal");
+    const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = route.slice(start, end);
@@ -103,7 +128,7 @@ describe("sms-inbound-coach route — Phase 3F-2 contract consent (static)", () 
 
   it("structured last_error tags for verbatim loss after NS / FVG", () => {
     const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
-    const end = route.indexOf("async function markJobFinal");
+    const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
     const body = route.slice(start, end);
     expect(body).toContain("contract_required_verbatim_missing_post_north_star");
     expect(body).toContain("contract_required_verbatim_missing_post_final_voice_gate");

@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  diagnoseOutboundSupportsPendingAdaptiveProposalContext,
   latestOutboundBodyContainsAdaptiveProposalBindingNeedle,
   shouldConsumeInboundAsContractProposalConsent,
 } from "@/lib/v2-contract-consent-routing";
+import {
+  DAILY_SEMANTIC_CONTRACT_PROPOSAL_VERSION,
+  type SemanticDailyOutboundSnapshotCandidate,
+} from "@/lib/v3-daily-contract-proposal-semantic";
 
 describe("shouldConsumeInboundAsContractProposalConsent", () => {
   const proposal = "Today only: 30 minutes of deep work";
@@ -74,6 +79,96 @@ describe("shouldConsumeInboundAsContractProposalConsent", () => {
       )
     ).toBe(true);
     expect(latestOutboundBodyContainsAdaptiveProposalBindingNeedle("How did the hour go?", proposal)).toBe(false);
+  });
+});
+
+describe("diagnoseOutboundSupportsPendingAdaptiveProposalContext", () => {
+  const proposal = "Today only: 30 minutes of deep work";
+  const nowMs = Date.parse("2026-05-20T12:00:00.000Z");
+
+  function snapshot(args: Partial<SemanticDailyOutboundSnapshotCandidate>): SemanticDailyOutboundSnapshotCandidate {
+    return {
+      message_sid: "SM_out_001",
+      prompt_kind: "contract_overlay_proposal",
+      expected_reply_semantics: "proposal_yes_no",
+      source_wrapped_at: "2026-05-20T10:00:00.000Z",
+      check_payload_json: {
+        contract_proposal: {
+          proposal_semantic_version: DAILY_SEMANTIC_CONTRACT_PROPOSAL_VERSION,
+          proposal_text: proposal,
+        },
+      },
+      ...args,
+    };
+  }
+
+  it("returns ok when semantic snapshot matches last outbound SID", () => {
+    const d = diagnoseOutboundSupportsPendingAdaptiveProposalContext({
+      snapshots: [snapshot({})],
+      canonicalProposalText: proposal,
+      latestOutboundBody: `Proposal: ${proposal}`,
+      lastTwilioMessageSid: "SM_out_001",
+      nowMs,
+    });
+    expect(d.ok).toBe(true);
+    expect(d.reason).toBe("ok");
+  });
+
+  it("returns sid_mismatch when snapshots exist but SID differs", () => {
+    const d = diagnoseOutboundSupportsPendingAdaptiveProposalContext({
+      snapshots: [snapshot({})],
+      canonicalProposalText: proposal,
+      latestOutboundBody: "How did the hour go?",
+      lastTwilioMessageSid: "SM_follow_up",
+      nowMs,
+    });
+    expect(d.ok).toBe(false);
+    expect(d.reason).toBe("sid_mismatch");
+  });
+
+  it("returns snapshot_missing when no snapshots and legacy needle absent", () => {
+    const d = diagnoseOutboundSupportsPendingAdaptiveProposalContext({
+      snapshots: [],
+      canonicalProposalText: proposal,
+      latestOutboundBody: "How did the hour go?",
+      lastTwilioMessageSid: "SM_out_001",
+      nowMs,
+    });
+    expect(d.ok).toBe(false);
+    expect(d.reason).toBe("snapshot_missing");
+  });
+
+  it("returns ok via legacy needle when outbound contains binding prefix", () => {
+    const d = diagnoseOutboundSupportsPendingAdaptiveProposalContext({
+      snapshots: [],
+      canonicalProposalText: proposal,
+      latestOutboundBody: `Let’s simplify: ${proposal} Yes or no?`,
+      lastTwilioMessageSid: "SM_out_001",
+      nowMs,
+    });
+    expect(d.ok).toBe(true);
+    expect(d.details.legacy_needle_hit).toBe(true);
+  });
+
+  it("returns proposal_text_mismatch when snapshot proposal text differs", () => {
+    const d = diagnoseOutboundSupportsPendingAdaptiveProposalContext({
+      snapshots: [
+        snapshot({
+          check_payload_json: {
+            contract_proposal: {
+              proposal_semantic_version: DAILY_SEMANTIC_CONTRACT_PROPOSAL_VERSION,
+              proposal_text: "Different proposal text entirely",
+            },
+          },
+        }),
+      ],
+      canonicalProposalText: proposal,
+      latestOutboundBody: "Does this plan fit for the next 7 days?",
+      lastTwilioMessageSid: "SM_out_001",
+      nowMs,
+    });
+    expect(d.ok).toBe(false);
+    expect(d.reason).toBe("proposal_text_mismatch");
   });
 });
 

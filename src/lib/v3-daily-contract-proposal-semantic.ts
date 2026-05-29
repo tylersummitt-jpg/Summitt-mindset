@@ -214,3 +214,95 @@ export function matchSemanticDailyContractProposalSnapshots(args: {
     return proposalText === canon;
   });
 }
+
+export type SemanticDailyContractProposalSnapshotFailReason =
+  | "matched"
+  | "sid_missing"
+  | "proposal_text_empty"
+  | "snapshot_missing"
+  | "sid_mismatch"
+  | "prompt_kind_mismatch"
+  | "semantics_mismatch"
+  | "snapshot_expired"
+  | "proposal_version_mismatch"
+  | "proposal_text_mismatch"
+  | "semantic_mismatch";
+
+/** Diagnostic counterpart to {@link matchSemanticDailyContractProposalSnapshots} — no Supabase IO. */
+export function diagnoseSemanticDailyContractProposalSnapshots(args: {
+  snapshots: ReadonlyArray<SemanticDailyOutboundSnapshotCandidate>;
+  lastTwilioMessageSid: string | null | undefined;
+  canonicalProposalText: string;
+  nowMs: number;
+  snapshotTtlMs: number;
+}): { matched: boolean; reason: SemanticDailyContractProposalSnapshotFailReason } {
+  const sid =
+    typeof args.lastTwilioMessageSid === "string" ? args.lastTwilioMessageSid.trim() : "";
+  const canon = args.canonicalProposalText.trim();
+  if (!canon) return { matched: false, reason: "proposal_text_empty" };
+  if (!sid) return { matched: false, reason: "sid_missing" };
+  if (!args.snapshots.length) return { matched: false, reason: "snapshot_missing" };
+
+  const sidRows = args.snapshots.filter(
+    (r) => (typeof r.message_sid === "string" ? r.message_sid.trim() : "") === sid
+  );
+  if (!sidRows.length) return { matched: false, reason: "sid_mismatch" };
+
+  let sawPromptKindMismatch = false;
+  let sawSemanticsMismatch = false;
+  let sawExpired = false;
+  let sawVersionMismatch = false;
+  let sawProposalTextMismatch = false;
+
+  for (const r of sidRows) {
+    const pk = typeof r.prompt_kind === "string" ? r.prompt_kind.trim() : "";
+    if (pk !== "contract_overlay_proposal") {
+      sawPromptKindMismatch = true;
+      continue;
+    }
+    const sem =
+      typeof r.expected_reply_semantics === "string"
+        ? r.expected_reply_semantics.trim().toLowerCase()
+        : "";
+    if (sem !== "proposal_yes_no") {
+      sawSemanticsMismatch = true;
+      continue;
+    }
+
+    const ts = Date.parse(r.source_wrapped_at);
+    if (!Number.isFinite(ts) || args.nowMs - ts > args.snapshotTtlMs) {
+      sawExpired = true;
+      continue;
+    }
+
+    const payload = r.check_payload_json ?? {};
+    const cpRaw = payload.contract_proposal;
+    if (cpRaw == null || typeof cpRaw !== "object" || Array.isArray(cpRaw)) {
+      continue;
+    }
+    const cp = cpRaw as Record<string, unknown>;
+
+    const version =
+      typeof cp.proposal_semantic_version === "string" ? cp.proposal_semantic_version.trim() : "";
+    if (version !== DAILY_SEMANTIC_CONTRACT_PROPOSAL_VERSION) {
+      sawVersionMismatch = true;
+      continue;
+    }
+
+    const proposalText =
+      typeof cp.proposal_text === "string" ? cp.proposal_text.trim() : "";
+    if (proposalText !== canon) {
+      sawProposalTextMismatch = true;
+      continue;
+    }
+
+    return { matched: true, reason: "matched" };
+  }
+
+  if (sawProposalTextMismatch) return { matched: false, reason: "proposal_text_mismatch" };
+  if (sawExpired) return { matched: false, reason: "snapshot_expired" };
+  if (sawVersionMismatch) return { matched: false, reason: "proposal_version_mismatch" };
+  if (sawSemanticsMismatch) return { matched: false, reason: "semantics_mismatch" };
+  if (sawPromptKindMismatch) return { matched: false, reason: "prompt_kind_mismatch" };
+  return { matched: false, reason: "semantic_mismatch" };
+}
