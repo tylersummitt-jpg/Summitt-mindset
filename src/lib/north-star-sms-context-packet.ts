@@ -95,6 +95,21 @@ export function inferExpectedReplySemanticsFromCoachQuestion(coachQuestionOrMess
   return inferExpectedReplySemanticsFromCoachQuestionInner(q);
 }
 
+/** High-precision: coach is asking for a clock time or schedule block (not every mention of "time"). */
+export function coachQuestionExpectsTimeOrScheduleAnswer(q: string): boolean {
+  const text = q.trim();
+  if (!text) return false;
+  return (
+    /\bwhat\s+time\b/i.test(text) ||
+    /\bwhat\s+(?:specific|exact)\s+time\b/i.test(text) ||
+    /\bwhat\s+time\s+will\s+you\b/i.test(text) ||
+    /\bwhat\s+(?:specific|exact)\s+time\s+will\s+you\b/i.test(text) ||
+    /\bwhen\b.*\b(block|start|wake|alarm|begin)\b/i.test(text) ||
+    /\bwhen\s+will\s+you\b/i.test(text) ||
+    /\b(block)\b.*\b(start|tomorrow)\b/i.test(text)
+  );
+}
+
 function inferExpectedReplySemanticsFromCoachQuestionInner(q: string): ExpectedReplySemanticsV3 {
   if (
     /\bwhat\s+story\b/i.test(q) ||
@@ -104,12 +119,7 @@ function inferExpectedReplySemanticsFromCoachQuestionInner(q: string): ExpectedR
   ) {
     return "future_plan_story_title";
   }
-  if (
-    /\bwhat\s+time\b/i.test(q) ||
-    /\bwhen\b.*\b(block|start|wake|alarm|begin)\b/i.test(q) ||
-    /\bwhen\s+will\s+you\b/i.test(q) ||
-    /\b(block)\b.*\b(start|tomorrow)\b/i.test(q)
-  ) {
+  if (coachQuestionExpectsTimeOrScheduleAnswer(q)) {
     return "time_or_schedule";
   }
   if (/time,\s*energy,\s*or\s*avoidance/i.test(q)) return "discrete_choice";

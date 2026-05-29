@@ -87,6 +87,18 @@ export function extractTimeOrRangeAnswer(raw: string): string | null {
   return extractTimeAnswer(raw);
 }
 
+/**
+ * Single-token bare hour (1–12). Only used inside {@link tryResolveAnswerToOpenQuestionTurn}
+ * when expected semantics are already time_or_schedule — not global numeric parsing.
+ */
+export function extractBareHourTimeAnswer(raw: string): string | null {
+  const t = raw.trim();
+  if (!/^\d{1,2}$/.test(t)) return null;
+  const hour = Number.parseInt(t, 10);
+  if (!Number.isFinite(hour) || hour < 1 || hour > 12) return null;
+  return t;
+}
+
 function matchesDiscreteChoice(raw: string, question: string): boolean {
   const q = question.toLowerCase();
   const t = raw.trim().toLowerCase();
@@ -186,7 +198,7 @@ export function tryResolveAnswerToOpenQuestionTurn(
       };
     }
     case "time_or_schedule": {
-      const timeAns = extractTimeOrRangeAnswer(inbound);
+      const timeAns = extractTimeOrRangeAnswer(inbound) ?? extractBareHourTimeAnswer(inbound);
       if (!timeAns && inbound.length > 36) return null;
       if (!timeAns && !/\b(tomorrow|am|pm|morning|evening|night)\b/i.test(inbound)) return null;
       return {

@@ -1,9 +1,87 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractBareHourTimeAnswer,
   extractTimeOrRangeAnswer,
   generateV3OpenQuestionAnswerReply,
   tryResolveAnswerToOpenQuestionTurn,
 } from "./v3-sms-turn";
+import { inferExpectedReplySemanticsFromCoachQuestion } from "@/lib/north-star-sms-context-packet";
+
+const ANGEL_TIME_QUESTION =
+  "What specific time will you set for your calls tomorrow to keep things on track?";
+
+function resolveTimeAnswer(inboundRaw: string, latestOpenQuestion: string = ANGEL_TIME_QUESTION) {
+  const expectedReplySemantics = inferExpectedReplySemanticsFromCoachQuestion(latestOpenQuestion);
+  return tryResolveAnswerToOpenQuestionTurn({
+    inboundRaw,
+    latestOpenQuestion,
+    expectedReplySemantics,
+    recentTranscriptLines: [],
+    todayCompleted: false,
+    effectiveAsk: "Make sales calls daily",
+    behaviorStatement: "Make sales calls daily",
+  });
+}
+
+describe("tryResolveAnswerToOpenQuestionTurn — Angel bare hour after time question", () => {
+  it("routes bare 8 after what specific time question", () => {
+    const r = resolveTimeAnswer("8");
+    expect(r).not.toBeNull();
+    expect(r?.turnPurpose).toBe("answer_to_open_question");
+    expect(r?.subkind).toBe("time_or_schedule");
+    expect(r?.extractedAnswer).toBe("8");
+  });
+
+  it("still routes 8am and 8:00", () => {
+    const rAm = resolveTimeAnswer("8am");
+    expect(rAm?.subkind).toBe("time_or_schedule");
+    expect(rAm?.extractedAnswer).toMatch(/8/i);
+
+    const rColon = resolveTimeAnswer("8:00");
+    expect(rColon?.subkind).toBe("time_or_schedule");
+    expect(rColon?.extractedAnswer).toMatch(/8:00/);
+  });
+
+  it("does not route bare 8 after non-time open question", () => {
+    const storyQ = "What story will you dictate tomorrow?";
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "8",
+      latestOpenQuestion: storyQ,
+      expectedReplySemantics: inferExpectedReplySemanticsFromCoachQuestion(storyQ),
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Write daily",
+      behaviorStatement: "Write daily",
+    });
+    expect(r).toBeNull();
+  });
+
+  it("does not route bare 8 after time, energy, or avoidance question", () => {
+    const blockerQ = "What's the tightest constraint — time, energy, or avoidance?";
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "8",
+      latestOpenQuestion: blockerQ,
+      expectedReplySemantics: inferExpectedReplySemanticsFromCoachQuestion(blockerQ),
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Focus block",
+      behaviorStatement: "Focus block",
+    });
+    expect(r).toBeNull();
+  });
+});
+
+describe("extractBareHourTimeAnswer", () => {
+  it("accepts single-token hours 1–12 only", () => {
+    expect(extractBareHourTimeAnswer("8")).toBe("8");
+    expect(extractBareHourTimeAnswer("12")).toBe("12");
+    expect(extractBareHourTimeAnswer("7")).toBe("7");
+    expect(extractBareHourTimeAnswer("0")).toBeNull();
+    expect(extractBareHourTimeAnswer("13")).toBeNull();
+    expect(extractBareHourTimeAnswer("8am")).toBeNull();
+    expect(extractBareHourTimeAnswer("8 30")).toBeNull();
+  });
+});
 
 describe("tryResolveAnswerToOpenQuestionTurn — micro-step today → tomorrow defer", () => {
   it("routes tomorrow/late answer away from repeating smallest-step today question", () => {
