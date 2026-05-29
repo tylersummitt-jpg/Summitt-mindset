@@ -470,7 +470,7 @@ describe("produceInboundV3RelationshipSms", () => {
             message: {
               content: JSON.stringify({
                 body: "You're right — Sunday School, the farm, and your mother's songs. Let's pick one thread to dictate today.",
-                used_strategy: "memory_repeat_repair",
+                used_strategy: "outcome_check",
                 safety_notes: [],
               }),
             },

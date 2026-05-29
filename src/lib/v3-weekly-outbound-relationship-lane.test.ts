@@ -508,7 +508,7 @@ describe("produceWeeklyV3RelationshipSms", () => {
             message: {
               content: JSON.stringify({
                 body: "Sunday School, the farm, and your mother's songs are a rich thread this week — which one feels alive to start?",
-                used_strategy: "memory_repeat_repair",
+                used_strategy: "outcome_check",
                 safety_notes: [],
               }),
             },
@@ -553,7 +553,20 @@ describe("produceWeeklyV3RelationshipSms", () => {
             message: {
               content: JSON.stringify({
                 body: rbQ,
-                used_strategy: "memory_repeat_repair",
+                used_strategy: "outcome_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: rbQ,
+                used_strategy: "binary_truth_check",
                 safety_notes: [],
               }),
             },
@@ -577,6 +590,7 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("weekly_thread_memory_repeat_blocked");
     expect(r.metadata.memory_repeat_no_send_reason).toBe("still_repeated_after_repair");
+    expect(r.metadata.forced_second_repair_attempted).toBe(true);
   });
 
   it("allows weekly memory callback without re-asking (M2B-6)", async () => {

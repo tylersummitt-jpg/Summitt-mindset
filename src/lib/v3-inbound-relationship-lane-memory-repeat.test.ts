@@ -183,7 +183,7 @@ describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
             message: {
               content: JSON.stringify({
                 body: "You're right — Sunday School, the farm, and your mother's songs. Let's pick one thread to dictate today.",
-                used_strategy: "memory_repeat_repair",
+                used_strategy: "outcome_check",
                 safety_notes: [],
               }),
             },
@@ -265,7 +265,20 @@ describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
             message: {
               content: JSON.stringify({
                 body: "What story will you dictate today?",
-                used_strategy: "memory_repeat_repair",
+                used_strategy: "outcome_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "What story will you dictate today?",
+                used_strategy: "binary_truth_check",
                 safety_notes: [],
               }),
             },
@@ -313,6 +326,7 @@ describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("thread_memory_repeat_blocked");
     expect(r.metadata.memory_repeat_no_send_reason).toBe("still_repeated_after_repair");
+    expect(r.metadata.forced_second_repair_attempted).toBe(true);
   });
 
   it("skips memory repeat guard on contract consent with required verbatim", () => {
