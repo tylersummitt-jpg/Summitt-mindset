@@ -36,6 +36,7 @@ export const MEANING_INTERPRETER_ROUTES = {
   suppressed_no_send: "suppressed_no_send",
   suppressed_empty: "suppressed_empty",
   send_failed: "send_failed",
+  contract_consent_gate_miss: "contract_consent_gate_miss",
 } as const;
 
 export type MeaningInterpreterRoute =
@@ -336,5 +337,54 @@ export function buildSkippedMeaningShadowFacts(args: {
     job_final_status: args.jobFinalStatus ?? null,
     last_error_tag: args.lastErrorTag ?? null,
     safety_tier: args.safetyTier ?? null,
+  };
+}
+
+export function buildEnrichedMeaningShadowFacts(args: {
+  routePurpose?: string | null;
+  branchName?: string | null;
+  openQuestionText?: string | null;
+  expectedReplySemantics?: string | null;
+  openQuestionPending?: boolean;
+  openQuestionRoutingMiss?: boolean;
+  openQuestionAnswerText?: string | null;
+  lastOutboundPreview?: string | null;
+  lastOutboundFullBodyPreview?: string | null;
+  recentTranscriptPreview?: string | null;
+  behaviorStatement?: string | null;
+  effectiveAskPreview?: string | null;
+  adaptiveProposalPending?: boolean;
+  overlayConsentPending?: boolean;
+  pendingResolutionKind?: string | null;
+  gatedOutcome?: string | null;
+  v3NoSendReason?: string | null;
+  v3LaneStage?: string | null;
+  gateReason?: string | null;
+  gateDetails?: Record<string, unknown> | null;
+  contractConsentGateMiss?: boolean;
+}): Partial<MeaningInterpreterDeterministicFacts> {
+  return {
+    route_purpose: args.routePurpose ?? null,
+    branch_name: args.branchName ?? null,
+    latest_coach_question: args.openQuestionText ?? null,
+    open_question_text: args.openQuestionText ?? null,
+    expected_reply_semantics: args.expectedReplySemantics ?? null,
+    open_question_pending: args.openQuestionPending ?? null,
+    open_question_routing_miss: args.openQuestionRoutingMiss ?? null,
+    open_question_answer_text: args.openQuestionAnswerText ?? null,
+    last_outbound_preview: args.lastOutboundPreview ?? null,
+    last_outbound_full_body_preview: args.lastOutboundFullBodyPreview ?? null,
+    recent_transcript_preview: args.recentTranscriptPreview ?? null,
+    behavior_statement: args.behaviorStatement ?? null,
+    effective_ask_preview: args.effectiveAskPreview ?? null,
+    adaptive_proposal_pending: args.adaptiveProposalPending ?? null,
+    overlay_consent_pending: args.overlayConsentPending ?? null,
+    pending_resolution_kind: args.pendingResolutionKind ?? null,
+    gated_outcome: args.gatedOutcome ?? null,
+    v3_no_send_reason: args.v3NoSendReason ?? null,
+    v3_lane_stage: args.v3LaneStage ?? null,
+    gate_reason: args.gateReason ?? null,
+    gate_details: args.gateDetails ?? null,
+    contract_consent_gate_miss: args.contractConsentGateMiss ?? null,
   };
 }

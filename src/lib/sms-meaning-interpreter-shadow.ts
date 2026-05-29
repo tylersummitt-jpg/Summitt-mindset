@@ -7,13 +7,19 @@ import {
   isSmsMeaningInterpreterAmbiguousOnly,
   isSmsMeaningInterpreterShadowEnabled,
   shouldLogMeaningInterpreterBodyPreview,
-  shouldLogMeaningInterpreterSkipped,
   shouldSampleMeaningInterpreter,
 } from "@/lib/sms-meaning-interpreter-flags";
+import {
+  buildMeaningInterpreterShadowFinalizeFromSchedule,
+  mergeMeaningInterpreterDeterministicFacts,
+  parseMeaningInterpreterLastErrorTag,
+  type MeaningInterpreterShadowFinalizeInput,
+} from "@/lib/sms-meaning-interpreter-context";
 import {
   parseAndValidateMeaningInterpreterShadow,
   type MeaningInterpreterShadowParsed,
 } from "@/lib/sms-meaning-interpreter-schema";
+import { listApprovedSmsPatternCorrectionsForShadowPrompt } from "@/lib/sms-pattern-correction";
 import { supabaseServer } from "@/lib/supabase-server";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
@@ -72,6 +78,24 @@ export type MeaningInterpreterDeterministicFacts = {
   last_error_tag?: string | null;
   safety_tier?: string | null;
   job_status?: string | null;
+  route_purpose?: string | null;
+  branch_name?: string | null;
+  outcome_sent?: boolean | null;
+  latest_coach_question?: string | null;
+  open_question_pending?: boolean | null;
+  open_question_answer_text?: string | null;
+  last_outbound_full_body_preview?: string | null;
+  recent_transcript_preview?: string | null;
+  effective_ask_preview?: string | null;
+  adaptive_proposal_pending?: boolean | null;
+  v3_no_send_reason?: string | null;
+  v3_lane_stage?: string | null;
+  gate_reason?: string | null;
+  gate_details?: Record<string, unknown> | null;
+  open_question_routing_miss?: boolean | null;
+  inbound_preview?: string | null;
+  gated_outcome?: string | null;
+  contract_consent_gate_miss?: boolean | null;
 };
 
 export type MeaningInterpreterShadowScheduleArgs = {
@@ -185,12 +209,25 @@ export function computeMeaningInterpreterDisagreement(args: {
   deterministicRoute: string;
   deterministicFacts: MeaningInterpreterDeterministicFacts;
   shadow: MeaningInterpreterShadowParsed;
+  outcomeSent?: boolean;
+  jobStatus?: string | null;
 }): { disagreement: boolean; flags: string[] } {
   const flags: string[] = [];
   const route = args.deterministicRoute;
   const intent = args.shadow.primary_intent;
   const facts = args.deterministicFacts;
   const confidence = args.shadow.confidence;
+  const secondary = new Set(args.shadow.secondary_intents ?? []);
+  const answeredPrior =
+    args.shadow.answered_prior_open_question === "yes" ||
+    secondary.has("answered_prior_open_question") ||
+    secondary.has("time_answer_to_prior_question") ||
+    secondary.has("short_numeric_time_answer") ||
+    secondary.has("direct_answer_to_coach_question");
+  const cancelledOrNoSend =
+    args.outcomeSent === false ||
+    args.jobStatus === "cancelled" ||
+    facts.outcome_sent === false;
 
   if (intent === "commitment_change" && route === "normal_accountability") {
     flags.push("shadow_commitment_change_vs_normal_accountability");
@@ -204,6 +241,39 @@ export function computeMeaningInterpreterDisagreement(args: {
     facts.open_question_text
   ) {
     flags.push("shadow_open_question_answer_vs_route");
+  }
+  if (answeredPrior && cancelledOrNoSend && facts.open_question_text) {
+    flags.push("shadow_answered_prior_question_but_cancelled");
+  }
+  if (
+    (secondary.has("time_answer_to_prior_question") ||
+      secondary.has("short_numeric_time_answer") ||
+      args.shadow.answer_type === "time_or_schedule") &&
+    (facts.open_question_routing_miss === true || route !== "open_question_answer")
+  ) {
+    flags.push("shadow_time_answer_vs_open_question_routing_miss");
+  }
+  if (
+    (secondary.has("contract_yes_answer") || args.shadow.answer_type === "contract_yes_no") &&
+    (facts.contract_consent_gate_miss === true || facts.gate_reason)
+  ) {
+    flags.push("shadow_contract_yes_vs_gate_miss");
+  }
+  if (
+    secondary.has("cancellation_request") &&
+    cancelledOrNoSend &&
+    route !== "soft_opt_out_reply" &&
+    route !== "relationship_exit_integrity"
+  ) {
+    flags.push("shadow_cancel_request_vs_no_support_route");
+  }
+  if (
+    secondary.has("support_request") &&
+    cancelledOrNoSend &&
+    route !== "soft_opt_out_reply" &&
+    route !== "relationship_exit_integrity"
+  ) {
+    flags.push("shadow_support_request_vs_no_support_route");
   }
   if (
     intent === "proof_or_completion" &&
@@ -237,36 +307,65 @@ export function computeMeaningInterpreterDisagreement(args: {
   };
 }
 
-function buildUserPrompt(args: MeaningInterpreterShadowRunArgs): string {
+function buildUserPrompt(args: MeaningInterpreterShadowRunArgs, patternHints?: string[]): string {
   const facts = args.deterministicFacts;
   const lines: string[] = [
     "Interpret the user's inbound SMS meaning for shadow telemetry only.",
     "",
-    "OUTPUT JSON schema keys:",
-    '{"version":1,"primary_intent":"...","secondary_intents":[],"emotional_tone":"...","answered_open_question":"...","open_question_answer_summary":null,"signals":{"goal_change":false,"pause_or_cadence":false,"completion_or_proof":false,"blocker":false,"resistance_or_shame":false,"substitution_counts":false},"safety_hint":"none","confidence":0.0,"disagrees_with_deterministic_route":false,"disagreement_reason":null,"explanation_short":"...","recommended_followup_kind":"none"}',
+    "OUTPUT JSON schema keys (version 2 preferred):",
+    '{"version":2,"primary_intent":"...","secondary_intents":[],"answer_type":null,"answered_prior_open_question":null,"emotional_tone":"...","answered_open_question":"...","open_question_answer_summary":null,"signals":{"goal_change":false,"pause_or_cadence":false,"completion_or_proof":false,"blocker":false,"resistance_or_shame":false,"substitution_counts":false},"safety_hint":"none","confidence":0.0,"disagrees_with_deterministic_route":false,"disagreement_reason":null,"explanation_short":"...","recommended_followup_kind":"none"}',
+    "",
+    "secondary_intents may include shadow-only labels such as: answered_prior_open_question, time_answer_to_prior_question, short_numeric_time_answer, direct_answer_to_coach_question, contract_yes_answer, contract_no_answer, acknowledgement, cancellation_request, support_request, completion, miss, partial, blocker, goal_adjustment_request, unclear.",
     "",
     `deterministic_route: ${args.deterministicRoute}`,
   ];
 
   const factEntries: [string, string | boolean | null | undefined][] = [
+    ["job_status", facts.job_status],
+    ["last_error_tag", facts.last_error_tag],
+    ["outcome_sent", facts.outcome_sent],
+    ["route_purpose", facts.route_purpose],
+    ["branch_name", facts.branch_name],
     ["classifier_event_type", facts.classifier_event_type],
     ["classifier_normalized_hint", facts.classifier_normalized_hint],
     ["gated_mode", facts.gated_mode],
-    ["open_question_text", facts.open_question_text],
+    ["gated_outcome", facts.gated_outcome],
+    ["open_question_text", facts.open_question_text ?? facts.latest_coach_question],
+    ["expected_reply_semantics", facts.expected_reply_semantics],
+    ["open_question_pending", facts.open_question_pending],
+    ["open_question_answer_text", facts.open_question_answer_text],
+    ["open_question_routing_miss", facts.open_question_routing_miss],
     ["pending_resolution_kind", facts.pending_resolution_kind],
     ["pending_applied", facts.pending_applied],
     ["overlay_action", facts.overlay_action],
+    ["overlay_consent_pending", facts.overlay_consent_pending],
+    ["adaptive_proposal_pending", facts.adaptive_proposal_pending],
     ["rpc_result", facts.rpc_result],
     ["refresh_step", facts.refresh_step],
     ["memory_pending_kind", facts.memory_pending_kind],
     ["comms_preference_action", facts.comms_preference_action],
+    ["gate_reason", facts.gate_reason],
+    ["v3_no_send_reason", facts.v3_no_send_reason],
+    ["v3_lane_stage", facts.v3_lane_stage],
+    ["contract_consent_gate_miss", facts.contract_consent_gate_miss],
     ["last_outbound_preview", facts.last_outbound_preview?.slice(0, OUTBOUND_PREVIEW_MAX)],
+    ["last_outbound_full_body_preview", facts.last_outbound_full_body_preview?.slice(0, OUTBOUND_PREVIEW_MAX)],
+    ["recent_transcript_preview", facts.recent_transcript_preview?.slice(0, OUTBOUND_PREVIEW_MAX)],
     ["behavior_statement", facts.behavior_statement?.slice(0, BEHAVIOR_MAX)],
+    ["effective_ask_preview", facts.effective_ask_preview?.slice(0, BEHAVIOR_MAX)],
   ];
 
   for (const [key, value] of factEntries) {
     if (value != null && value !== "") {
       lines.push(`${key}: ${String(value)}`);
+    }
+  }
+
+  if (patternHints && patternHints.length > 0) {
+    lines.push("");
+    lines.push("Approved non-authoritative pattern hints (shadow review only):");
+    for (const hint of patternHints.slice(0, 8)) {
+      lines.push(`- ${hint}`);
     }
   }
 
@@ -299,6 +398,23 @@ export async function callMeaningInterpreterOpenAI(
     return { ok: false, errorCode: "no_openai_key", model: null, latencyMs: Date.now() - started };
   }
 
+  let patternHints: string[] = [];
+  try {
+    const hints = await listApprovedSmsPatternCorrectionsForShadowPrompt({
+      clerk_user_id: args.clerkUserId,
+      commitment_id: args.commitmentId ?? undefined,
+      limit: 8,
+    });
+    if (hints.ok) {
+      patternHints = hints.rows.map(
+        (row) =>
+          `${row.meaning_label}: ${row.correction_summary}`.slice(0, 220)
+      );
+    }
+  } catch {
+    /* shadow-only hints must never block pipeline */
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
 
@@ -309,7 +425,7 @@ export async function callMeaningInterpreterOpenAI(
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: buildUserPrompt(args) },
+          { role: "user", content: buildUserPrompt(args, patternHints) },
         ],
         temperature: 0.25,
         max_tokens: 500,
@@ -363,14 +479,16 @@ async function insertMeaningInterpreterShadowRowInternal(
   const promptVersion = getSmsMeaningInterpreterPromptVersion();
   const normalized = args.run.rawBody.trim();
   const bodyHash = normalized ? hashSmsSnippet(normalized) : null;
-  const bodyPreview =
-    shouldLogMeaningInterpreterBodyPreview() && normalized
-      ? normalized.replace(/\s+/g, " ").slice(0, 120)
-      : null;
+  const bodyPreview = normalized
+    ? (args.run.deterministicFacts.inbound_preview ??
+        normalized.replace(/\s+/g, " ").slice(0, 120))
+    : null;
   const replyBodyPreview =
-    shouldLogMeaningInterpreterBodyPreview() && args.run.replyBody
+    args.run.replyBody?.trim()
       ? truncateReplyPreview(args.run.replyBody)
-      : null;
+      : shouldLogMeaningInterpreterBodyPreview() && args.run.replyBody
+        ? truncateReplyPreview(args.run.replyBody)
+        : null;
 
   let shadowJson: Record<string, unknown> | null = null;
   let primaryIntent: string | null = null;
@@ -398,6 +516,8 @@ async function insertMeaningInterpreterShadowRowInternal(
         deterministicRoute: args.run.deterministicRoute,
         deterministicFacts: args.run.deterministicFacts,
         shadow: args.openAi.parsed,
+        outcomeSent: args.outcomeSent,
+        jobStatus: args.run.deterministicFacts.job_status,
       });
       disagreement = cmp.disagreement;
       disagreementFlags = cmp.flags.length > 0 ? cmp.flags : null;
@@ -470,33 +590,155 @@ export type MeaningInterpreterSkippedShadowArgs = {
 export async function recordMeaningInterpreterSkippedShadow(
   args: MeaningInterpreterSkippedShadowArgs
 ): Promise<void> {
+  await finalizeMeaningInterpreterShadowForInboundJob(
+    buildMeaningInterpreterShadowFinalizeFromSchedule({
+      clerkUserId: args.clerkUserId,
+      inboundMessageSid: args.inboundMessageSid,
+      coachJobMessageSid: args.coachJobMessageSid,
+      commitmentId: args.commitmentId,
+      rawBody: args.rawBody ?? "",
+      outcomeSent: args.outcomeSent,
+      jobStatus: args.deterministicFacts.job_final_status ?? "cancelled",
+      deterministicRoute: args.deterministicRoute,
+      deterministicFacts: mergeMeaningInterpreterDeterministicFacts(args.deterministicFacts, {
+        skip_reason: args.skippedReason,
+      }),
+      skipReason: args.skippedReason as MeaningInterpreterShadowSkipReason | undefined,
+    })
+  );
+}
+
+function resolveMeaningInterpreterShadowSkippedReason(args: {
+  input: MeaningInterpreterShadowFinalizeInput;
+  run: MeaningInterpreterShadowRunArgs;
+}): string {
+  if (
+    !isEligibleForMeaningInterpreterShadow({
+      rawBody: args.run.rawBody,
+      skipReason: args.run.skipReason,
+    })
+  ) {
+    if (args.run.skipReason) return args.run.skipReason;
+    if (!args.run.rawBody.trim()) return "empty_message";
+    if (isComplianceTurn(args.run.rawBody)) return "compliance_turn";
+    return "ineligible";
+  }
+  if (
+    !shouldSampleMeaningInterpreter(
+      args.run.inboundMessageSid,
+      getSmsMeaningInterpreterSampleRate()
+    )
+  ) {
+    return "sampled_out";
+  }
+  if (isSmsMeaningInterpreterAmbiguousOnly()) {
+    return "ambiguous_only_skip";
+  }
+  return args.input.skipReason ?? "openai_not_run";
+}
+
+/**
+ * Terminal inbound observability: always writes deterministic facts when shadow is enabled;
+ * OpenAI runs only when sampled/eligible.
+ */
+export async function finalizeMeaningInterpreterShadowForInboundJob(
+  input: MeaningInterpreterShadowFinalizeInput
+): Promise<void> {
   if (!isSmsMeaningInterpreterShadowEnabled()) return;
-  if (!shouldLogMeaningInterpreterSkipped()) return;
 
   const run: MeaningInterpreterShadowRunArgs = {
-    deterministicRoute: args.deterministicRoute,
-    deterministicFacts: args.deterministicFacts,
-    commitmentId: args.commitmentId ?? null,
-    clerkUserId: args.clerkUserId,
-    inboundMessageSid: args.inboundMessageSid,
-    coachJobMessageSid: args.coachJobMessageSid ?? args.inboundMessageSid,
-    rawBody: args.rawBody ?? "",
+    clerkUserId: input.clerkUserId,
+    inboundMessageSid: input.inboundMessageSid,
+    coachJobMessageSid: input.coachJobMessageSid ?? input.inboundMessageSid,
+    commitmentId: input.commitmentId ?? null,
+    rawBody: input.rawBody,
+    replyBody: input.replyBody ?? null,
+    deterministicRoute: input.deterministicRoute,
+    skipReason: input.skipReason,
+    deterministicFacts: mergeMeaningInterpreterDeterministicFacts(input.deterministicFacts, {
+      job_status: input.jobStatus ?? input.deterministicFacts.job_status ?? null,
+      last_error_tag:
+        input.deterministicFacts.last_error_tag ??
+        parseMeaningInterpreterLastErrorTag(input.lastError),
+      inbound_preview:
+        input.deterministicFacts.inbound_preview ??
+        (input.rawBody.trim() ? input.rawBody.trim().replace(/\s+/g, " ").slice(0, 120) : null),
+      outcome_sent: input.outcomeSent,
+    }),
   };
 
+  const shouldOpenAi = shouldRunMeaningInterpreterShadow({
+    inboundMessageSid: input.inboundMessageSid,
+    rawBody: input.rawBody,
+    skipReason: input.skipReason,
+    deterministicFacts: run.deterministicFacts,
+  });
+
+  if (shouldOpenAi) {
+    const openAi = await callMeaningInterpreterOpenAI(run);
+    const ins = await insertMeaningInterpreterShadowRowInternal({
+      run,
+      openAi,
+      shadowStatus: openAi.ok ? "openai_ok" : "openai_failed",
+      outcomeSent: input.outcomeSent,
+    });
+    if (!ins.ok) {
+      console.warn("[meaning-interpreter-shadow] insert_failed", {
+        message_sid: input.inboundMessageSid,
+        error: ins.error,
+      });
+      return;
+    }
+    if (openAi.ok) {
+      console.log("[meaning-interpreter-shadow] stored", {
+        message_sid: input.inboundMessageSid,
+        route: input.deterministicRoute,
+        primary_intent: openAi.parsed.primary_intent,
+        confidence: openAi.parsed.confidence,
+        outcome_sent: input.outcomeSent,
+      });
+    } else {
+      console.warn("[meaning-interpreter-shadow] openai_failed_stored", {
+        message_sid: input.inboundMessageSid,
+        error_code: openAi.errorCode,
+      });
+    }
+    return;
+  }
+
+  const skippedReason = resolveMeaningInterpreterShadowSkippedReason({ input, run });
   const ins = await insertMeaningInterpreterShadowRowInternal({
     run,
     shadowStatus: "skipped",
-    skippedReason: args.skippedReason,
-    outcomeSent: args.outcomeSent,
+    skippedReason,
+    outcomeSent: input.outcomeSent,
   });
-
   if (!ins.ok) {
     console.warn("[meaning-interpreter-shadow] skipped_insert_failed", {
-      message_sid: args.inboundMessageSid,
+      message_sid: input.inboundMessageSid,
       error: ins.error,
     });
   }
 }
+
+export function scheduleFinalizeMeaningInterpreterShadowForInboundJob(
+  input: MeaningInterpreterShadowFinalizeInput
+): void {
+  void finalizeMeaningInterpreterShadowForInboundJob(input).catch((err) => {
+    console.warn("[meaning-interpreter-shadow] finalize_failed", {
+      message_sid: input.inboundMessageSid,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  });
+}
+
+export type { MeaningInterpreterShadowFinalizeInput } from "@/lib/sms-meaning-interpreter-context";
+export {
+  enrichMeaningInterpreterShadowPending,
+  peekMeaningInterpreterShadowPending,
+  registerMeaningInterpreterShadowPending,
+  takeMeaningInterpreterShadowPending,
+} from "@/lib/sms-meaning-interpreter-context";
 
 /** Fire-and-forget skipped row (no OpenAI). */
 export function scheduleMeaningInterpreterSkippedShadow(
@@ -512,49 +754,39 @@ export function scheduleMeaningInterpreterSkippedShadow(
 
 /** Fire-and-forget entry: safe to call without await from SMS send path. */
 export function scheduleInboundMeaningInterpreterShadow(args: MeaningInterpreterShadowRunArgs): void {
-  void runMeaningInterpreterShadowPipeline(args).catch((err) => {
-    console.warn("[meaning-interpreter-shadow] pipeline_failed", {
-      message_sid: args.inboundMessageSid,
-      message: err instanceof Error ? err.message : String(err),
-    });
-  });
+  scheduleFinalizeMeaningInterpreterShadowForInboundJob(
+    buildMeaningInterpreterShadowFinalizeFromSchedule({
+      clerkUserId: args.clerkUserId,
+      inboundMessageSid: args.inboundMessageSid,
+      coachJobMessageSid: args.coachJobMessageSid,
+      commitmentId: args.commitmentId,
+      rawBody: args.rawBody,
+      replyBody: args.replyBody,
+      outcomeSent: true,
+      jobStatus: "sent",
+      deterministicRoute: args.deterministicRoute,
+      deterministicFacts: args.deterministicFacts,
+      skipReason: args.skipReason,
+    })
+  );
 }
 
 export async function runMeaningInterpreterShadowPipeline(
   args: MeaningInterpreterShadowRunArgs
 ): Promise<void> {
-  if (
-    !shouldRunMeaningInterpreterShadow({
+  await finalizeMeaningInterpreterShadowForInboundJob(
+    buildMeaningInterpreterShadowFinalizeFromSchedule({
+      clerkUserId: args.clerkUserId,
       inboundMessageSid: args.inboundMessageSid,
+      coachJobMessageSid: args.coachJobMessageSid,
+      commitmentId: args.commitmentId,
       rawBody: args.rawBody,
-      skipReason: args.skipReason,
+      replyBody: args.replyBody,
+      outcomeSent: true,
+      jobStatus: "sent",
+      deterministicRoute: args.deterministicRoute,
       deterministicFacts: args.deterministicFacts,
+      skipReason: args.skipReason,
     })
-  ) {
-    return;
-  }
-
-  const openAi = await callMeaningInterpreterOpenAI(args);
-  const ins = await insertMeaningInterpreterShadowRow({ run: args, openAi });
-  if (!ins.ok) {
-    console.warn("[meaning-interpreter-shadow] insert_failed", {
-      message_sid: args.inboundMessageSid,
-      error: ins.error,
-    });
-    return;
-  }
-
-  if (openAi.ok) {
-    console.log("[meaning-interpreter-shadow] stored", {
-      message_sid: args.inboundMessageSid,
-      route: args.deterministicRoute,
-      primary_intent: openAi.parsed.primary_intent,
-      confidence: openAi.parsed.confidence,
-    });
-  } else {
-    console.warn("[meaning-interpreter-shadow] openai_failed_stored", {
-      message_sid: args.inboundMessageSid,
-      error_code: openAi.errorCode,
-    });
-  }
+  );
 }

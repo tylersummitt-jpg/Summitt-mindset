@@ -34,6 +34,10 @@ vi.mock("@/lib/supabase-server", () => ({
   },
 }));
 
+vi.mock("@/lib/sms-pattern-correction", () => ({
+  listApprovedSmsPatternCorrectionsForShadowPrompt: vi.fn(async () => ({ ok: true, rows: [] })),
+}));
+
 import {
   getSmsMeaningInterpreterSampleRate,
   isSmsMeaningInterpreterShadowEnabled,
@@ -45,11 +49,13 @@ import {
   buildMeaningShadowScheduleArgs,
   callMeaningInterpreterOpenAI,
   computeMeaningInterpreterDisagreement,
+  finalizeMeaningInterpreterShadowForInboundJob,
   isEligibleForMeaningInterpreterShadow,
   recordMeaningInterpreterSkippedShadow,
   runMeaningInterpreterShadowPipeline,
   shouldRunMeaningInterpreterShadow,
 } from "@/lib/sms-meaning-interpreter-shadow";
+import { buildMeaningInterpreterShadowFinalizeFromSchedule } from "@/lib/sms-meaning-interpreter-context";
 import { MEANING_INTERPRETER_ROUTES } from "@/lib/sms-meaning-interpreter-routes";
 
 const validShadowJson = {
@@ -204,6 +210,44 @@ describe("disagreement calculation", () => {
     });
     expect(contract.flags).toContain("shadow_meta_confusion_vs_contract_consent");
   });
+
+  it("flags new open-question / contract / support disagreement slices", () => {
+    const timeParsed = parseAndValidateMeaningInterpreterShadow({
+      ...validShadowJson,
+      version: 2,
+      primary_intent: "open_question_answer",
+      secondary_intents: ["short_numeric_time_answer", "time_answer_to_prior_question"],
+      answer_type: "time_or_schedule",
+      answered_prior_open_question: "yes",
+    });
+    expect(timeParsed).not.toBeNull();
+    const timeCmp = computeMeaningInterpreterDisagreement({
+      deterministicRoute: "normal_accountability",
+      deterministicFacts: {
+        open_question_text: "What time will you do it?",
+        open_question_routing_miss: true,
+      },
+      shadow: timeParsed!,
+      outcomeSent: false,
+      jobStatus: "cancelled",
+    });
+    expect(timeCmp.flags).toContain("shadow_answered_prior_question_but_cancelled");
+    expect(timeCmp.flags).toContain("shadow_time_answer_vs_open_question_routing_miss");
+
+    const contractParsed = parseAndValidateMeaningInterpreterShadow({
+      ...validShadowJson,
+      version: 2,
+      secondary_intents: ["contract_yes_answer"],
+      answer_type: "contract_yes_no",
+    });
+    const contractCmp = computeMeaningInterpreterDisagreement({
+      deterministicRoute: "normal_accountability",
+      deterministicFacts: { contract_consent_gate_miss: true, gate_reason: "stale_outbound" },
+      shadow: contractParsed!,
+      outcomeSent: false,
+    });
+    expect(contractCmp.flags).toContain("shadow_contract_yes_vs_gate_miss");
+  });
 });
 
 describe("OpenAI call and insert pipeline", () => {
@@ -244,42 +288,89 @@ describe("OpenAI call and insert pipeline", () => {
     );
   });
 
-  it("stores skipped row without OpenAI when LOG_SKIPPED on", async () => {
-    process.env.SMS_MEANING_INTERPRETER_LOG_SKIPPED = "true";
-    await recordMeaningInterpreterSkippedShadow({
-      clerkUserId: "user_1",
-      inboundMessageSid: "SM_SKIP",
-      deterministicRoute: MEANING_INTERPRETER_ROUTES.suppressed_tapback,
-      deterministicFacts: { skip_reason: "tapback_suppressed" },
-      skippedReason: "tapback_suppressed",
-      outcomeSent: false,
-      rawBody: "Liked “hello”",
-    });
+  it("stores skipped row without OpenAI when sampled out", async () => {
+    process.env.SMS_MEANING_INTERPRETER_SAMPLE_RATE = "0";
+    await finalizeMeaningInterpreterShadowForInboundJob(
+      buildMeaningInterpreterShadowFinalizeFromSchedule({
+        clerkUserId: "user_1",
+        inboundMessageSid: "SM_SKIP",
+        rawBody: "Yes I did it",
+        outcomeSent: false,
+        jobStatus: "cancelled",
+        deterministicRoute: MEANING_INTERPRETER_ROUTES.normal_accountability,
+        deterministicFacts: {},
+      })
+    );
     expect(openAiCreate).not.toHaveBeenCalled();
     expect(insertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         inbound_message_sid: "SM_SKIP",
         shadow_status: "skipped",
-        skipped_reason: "tapback_suppressed",
+        skipped_reason: "sampled_out",
         error_code: "skipped_no_openai",
         outcome_sent: false,
+        body_preview: "Yes I did it",
       })
     );
   });
 
-  it("LOG_SKIPPED off skips insert for skipped rows", async () => {
-    delete process.env.SMS_MEANING_INTERPRETER_LOG_SKIPPED;
-    insertMock.mockClear();
-    await recordMeaningInterpreterSkippedShadow({
-      clerkUserId: "user_1",
-      inboundMessageSid: "SM_SKIP2",
-      deterministicRoute: MEANING_INTERPRETER_ROUTES.suppressed_tapback,
-      deterministicFacts: {},
-      skippedReason: "tapback_suppressed",
-      outcomeSent: false,
-    });
+  it("finalize writes facts for cancelled job when shadow enabled", async () => {
+    process.env.SMS_MEANING_INTERPRETER_SAMPLE_RATE = "0";
+    await finalizeMeaningInterpreterShadowForInboundJob(
+      buildMeaningInterpreterShadowFinalizeFromSchedule({
+        clerkUserId: "user_1",
+        inboundMessageSid: "SM_CANCEL",
+        commitmentId: "commit-1",
+        rawBody: "8",
+        outcomeSent: false,
+        jobStatus: "cancelled",
+        lastError: JSON.stringify({ tag: "inbound_relationship_lane_no_send" }),
+        deterministicRoute: MEANING_INTERPRETER_ROUTES.normal_accountability,
+        deterministicFacts: {
+          open_question_text: "What specific time will you do it?",
+          expected_reply_semantics: "time_or_schedule",
+          open_question_routing_miss: true,
+        },
+      })
+    );
     expect(openAiCreate).not.toHaveBeenCalled();
-    expect(insertMock).not.toHaveBeenCalled();
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inbound_message_sid: "SM_CANCEL",
+        outcome_sent: false,
+        deterministic_facts: expect.objectContaining({
+          open_question_text: "What specific time will you do it?",
+          expected_reply_semantics: "time_or_schedule",
+          open_question_routing_miss: true,
+        }),
+      })
+    );
+  });
+
+  it("successful sent job still records shadow with OpenAI when sampled", async () => {
+    openAiCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify(validShadowJson) } }],
+    });
+    insertMock.mockClear();
+    await runMeaningInterpreterShadowPipeline({
+      ...buildMeaningShadowScheduleArgs({
+        deterministicRoute: "normal_accountability",
+        commitmentId: "commit-1",
+        deterministicFacts: { classifier_event_type: "user_yes" },
+      }),
+      clerkUserId: "user_1",
+      inboundMessageSid: "SM_SENT",
+      rawBody: "Yes done",
+    });
+    expect(openAiCreate).toHaveBeenCalled();
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inbound_message_sid: "SM_SENT",
+        ok: true,
+        shadow_status: "openai_ok",
+        outcome_sent: true,
+      })
+    );
   });
 
   it("stores ok=false on invalid JSON without throwing", async () => {
@@ -320,6 +411,23 @@ describe("OpenAI call and insert pipeline", () => {
       rawBody: "hello",
     });
     expect(openAiCreate).not.toHaveBeenCalled();
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("flag off finalize skips insert for cancelled jobs", async () => {
+    process.env.SMS_MEANING_INTERPRETER_SHADOW_ENABLED = "false";
+    insertMock.mockClear();
+    await finalizeMeaningInterpreterShadowForInboundJob(
+      buildMeaningInterpreterShadowFinalizeFromSchedule({
+        clerkUserId: "user_1",
+        inboundMessageSid: "SM102B",
+        rawBody: "8",
+        outcomeSent: false,
+        jobStatus: "cancelled",
+        deterministicRoute: MEANING_INTERPRETER_ROUTES.normal_accountability,
+        deterministicFacts: {},
+      })
+    );
     expect(insertMock).not.toHaveBeenCalled();
   });
 });
@@ -364,10 +472,20 @@ describe("static safety: shadow module isolation", () => {
     expect(sql.toLowerCase()).not.toContain("to anon");
   });
 
-  it("coach route hook schedules shadow after send, not in V3 facts builder", async () => {
+  it("coach route hook finalizes shadow after send, not in V3 facts builder", async () => {
     const fs = await import("node:fs/promises");
     const route = await fs.readFile("src/app/api/cron/sms-inbound-coach/route.ts", "utf8");
-    expect(route).toContain("scheduleInboundMeaningInterpreterShadow");
+    expect(route).toContain("scheduleFinalizeMeaningInterpreterShadowForInboundJob");
+    expect(route).toContain("finalizeMeaningShadowAfterJobTerminal");
     expect(route).not.toMatch(/buildInboundV3RelationshipFacts\([\s\S]{0,800}meaningShadow/);
+  });
+
+  it("pattern correction loader is shadow-prompt-only", async () => {
+    const fs = await import("node:fs/promises");
+    const shadow = await fs.readFile("src/lib/sms-meaning-interpreter-shadow.ts", "utf8");
+    const pattern = await fs.readFile("src/lib/sms-pattern-correction.ts", "utf8");
+    expect(shadow).toContain("listApprovedSmsPatternCorrectionsForShadowPrompt");
+    expect(pattern).toContain('eq("usage_policy", "prompt_hint_only")');
+    expect(shadow).not.toContain("listApprovedSmsPatternCorrectionsForReview");
   });
 });

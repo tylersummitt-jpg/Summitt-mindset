@@ -49,16 +49,28 @@ import { formatCoachingMemoryPromptBlock } from "@/lib/v2-coaching-memory-prompt
 import { loadV2CoachingMemoryForPrompt, recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
 import { recordV2SendTimeProfileInboundEngagement } from "@/lib/v2-send-time-profile";
 import {
-  scheduleInboundMeaningInterpreterShadow,
-  scheduleMeaningInterpreterSkippedShadow,
+  buildMeaningShadowScheduleArgs,
+  finalizeMeaningInterpreterShadowForInboundJob,
+  registerMeaningInterpreterShadowPending,
+  enrichMeaningInterpreterShadowPending,
+  takeMeaningInterpreterShadowPending,
+  scheduleFinalizeMeaningInterpreterShadowForInboundJob,
+  type MeaningInterpreterDeterministicFacts,
   type MeaningInterpreterShadowScheduleArgs,
 } from "@/lib/sms-meaning-interpreter-shadow";
+import {
+  buildMeaningInterpreterShadowFinalizeFromSchedule,
+  mergeMeaningInterpreterDeterministicFacts,
+  parseMeaningInterpreterLastErrorTag,
+  type MeaningInterpreterShadowFinalizeInput,
+} from "@/lib/sms-meaning-interpreter-context";
 import {
   buildBlockerCaptureMeaningShadow,
   buildCommsPreferenceMeaningShadow,
   buildContractAmbiguousConsentMeaningShadow,
   buildContractConsentMeaningShadow,
   buildCoachingRefreshMeaningShadow,
+  buildEnrichedMeaningShadowFacts,
   buildMemoryConfirmationMeaningShadow,
   buildNormalLaneMeaningShadow,
   buildOpenQuestionMeaningShadow,
@@ -842,6 +854,15 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
     });
   }
 
+  recordInboundMeaningShadowSuppressedNoSend({
+    job: args.job,
+    userId: args.userId,
+    commitmentId: args.commitment.id,
+    skipReason: v3FailureTag ?? "contract_consent_ack_failed",
+    rawBody: args.inboundRaw,
+    lastErrorTag: "contract_consent_ack_v3_and_human_voice_failed",
+    routeOverride: MEANING_INTERPRETER_ROUTES.suppressed_no_send,
+  });
   await markJobFinal({
     messageSid: args.job.message_sid,
     status: "cancelled",
@@ -854,15 +875,6 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
       ...baseTelemetry(),
     }).slice(0, 1900),
     nextRetry: farFutureIso(),
-  });
-  recordInboundMeaningShadowSuppressedNoSend({
-    job: args.job,
-    userId: args.userId,
-    commitmentId: args.commitment.id,
-    skipReason: v3FailureTag ?? "contract_consent_ack_failed",
-    rawBody: args.inboundRaw,
-    lastErrorTag: "contract_consent_ack_v3_and_human_voice_failed",
-    routeOverride: MEANING_INTERPRETER_ROUTES.suppressed_no_send,
   });
   console.warn("[sms-inbound-coach] contract_consent_ack_v3_and_human_voice_failed", {
     message_sid: args.job.message_sid,
@@ -1401,20 +1413,107 @@ function recordInboundMeaningShadowSuppressedNoSend(args: {
   rawBody?: string;
   lastErrorTag?: string | null;
   routeOverride?: string;
+  schedule?: MeaningInterpreterShadowScheduleArgs | null;
+  extraFacts?: Partial<MeaningInterpreterDeterministicFacts>;
 }): void {
-  scheduleMeaningInterpreterSkippedShadow({
-    clerkUserId: args.userId,
-    inboundMessageSid: args.job.message_sid,
-    commitmentId: args.commitmentId,
-    deterministicRoute: args.routeOverride ?? MEANING_INTERPRETER_ROUTES.suppressed_no_send,
-    skippedReason: args.skipReason,
-    outcomeSent: false,
-    rawBody: args.rawBody ?? args.job.raw_body ?? "",
-    deterministicFacts: buildSkippedMeaningShadowFacts({
-      skipReason: args.skipReason,
-      jobFinalStatus: "cancelled",
-      lastErrorTag: args.lastErrorTag ?? null,
-    }),
+  const schedule =
+    args.schedule ??
+    buildMeaningShadowScheduleArgs({
+      deterministicRoute: args.routeOverride ?? MEANING_INTERPRETER_ROUTES.suppressed_no_send,
+      commitmentId: args.commitmentId,
+      deterministicFacts: buildSkippedMeaningShadowFacts({
+        skipReason: args.skipReason,
+        jobFinalStatus: "cancelled",
+        lastErrorTag: args.lastErrorTag ?? null,
+      }),
+    });
+
+  registerMeaningInterpreterShadowPending(
+    buildMeaningInterpreterShadowFinalizeFromSchedule({
+      clerkUserId: args.userId,
+      inboundMessageSid: args.job.message_sid,
+      coachJobMessageSid: args.job.message_sid,
+      commitmentId: args.commitmentId,
+      rawBody: args.rawBody ?? args.job.raw_body ?? "",
+      outcomeSent: false,
+      jobStatus: "cancelled",
+      deterministicRoute: schedule.deterministicRoute,
+      deterministicFacts: mergeMeaningInterpreterDeterministicFacts(
+        schedule.deterministicFacts,
+        mergeMeaningInterpreterDeterministicFacts(
+          buildSkippedMeaningShadowFacts({
+            skipReason: args.skipReason,
+            jobFinalStatus: "cancelled",
+            lastErrorTag: args.lastErrorTag ?? null,
+          }),
+          args.extraFacts ?? {}
+        )
+      ),
+      skipReason: schedule.skipReason,
+    })
+  );
+}
+
+function registerInboundMeaningShadowPending(args: {
+  job: JobRow;
+  userId: string;
+  schedule: MeaningInterpreterShadowScheduleArgs;
+  rawBody?: string;
+  outcomeSent?: boolean;
+  extraFacts?: Partial<MeaningInterpreterDeterministicFacts>;
+}): void {
+  registerMeaningInterpreterShadowPending(
+    buildMeaningInterpreterShadowFinalizeFromSchedule({
+      clerkUserId: args.userId,
+      inboundMessageSid: args.job.message_sid,
+      coachJobMessageSid: args.job.message_sid,
+      commitmentId: args.schedule.commitmentId ?? null,
+      rawBody: args.rawBody ?? args.job.raw_body ?? "",
+      outcomeSent: args.outcomeSent ?? false,
+      deterministicRoute: args.schedule.deterministicRoute,
+      deterministicFacts: mergeMeaningInterpreterDeterministicFacts(
+        args.schedule.deterministicFacts,
+        args.extraFacts ?? {}
+      ),
+      skipReason: args.schedule.skipReason,
+    })
+  );
+}
+
+async function finalizeMeaningShadowAfterJobTerminal(args: {
+  messageSid: string;
+  jobStatus: string;
+  lastError?: string | null;
+}): Promise<void> {
+  const taken = takeMeaningInterpreterShadowPending(args.messageSid);
+  const job = await loadJob(args.messageSid);
+  if (!job?.clerk_user_id) return;
+
+  const lastError = args.lastError ?? job.last_error ?? null;
+  const lastErrorTag = parseMeaningInterpreterLastErrorTag(lastError);
+  const base: MeaningInterpreterShadowFinalizeInput =
+    taken ??
+    buildMeaningInterpreterShadowFinalizeFromSchedule({
+      clerkUserId: job.clerk_user_id,
+      inboundMessageSid: args.messageSid,
+      coachJobMessageSid: args.messageSid,
+      rawBody: job.raw_body ?? "",
+      outcomeSent: args.jobStatus === "sent" && Boolean(job.sent_at ?? job.outbound_message_sid),
+      jobStatus: args.jobStatus,
+      lastError,
+      deterministicRoute: MEANING_INTERPRETER_ROUTES.suppressed_no_send,
+      deterministicFacts: buildSkippedMeaningShadowFacts({
+        skipReason: lastErrorTag ?? "terminal_no_pending",
+        jobFinalStatus: args.jobStatus,
+        lastErrorTag,
+      }),
+    });
+
+  await finalizeMeaningInterpreterShadowForInboundJob({
+    ...base,
+    jobStatus: args.jobStatus,
+    lastError,
+    outcomeSent: args.jobStatus === "sent" && Boolean(job.sent_at ?? job.outbound_message_sid),
   });
 }
 
@@ -1443,6 +1542,12 @@ async function markJobFinal(args: {
     .from("sms_inbound_coach_jobs")
     .update(patch)
     .eq("message_sid", args.messageSid);
+
+  await finalizeMeaningShadowAfterJobTerminal({
+    messageSid: args.messageSid,
+    jobStatus: args.status,
+    lastError: args.lastError ?? null,
+  });
 }
 
 function finalVoiceSkipLastError(
@@ -1811,6 +1916,39 @@ async function processV2NormalInboundOutcome(
       behaviorStatement: commitment.behavior_statement ?? "",
     });
 
+    if (!v3Resolution && northStarPktEarly.latestOpenQuestion?.trim()) {
+      registerInboundMeaningShadowPending({
+        job,
+        userId,
+        rawBody: userMessage,
+        schedule: buildNormalLaneMeaningShadow({
+          commitmentId: commitment.id,
+          route: MEANING_INTERPRETER_ROUTES.normal_accountability,
+          classifierEventType: eventType,
+          classifierNormalizedHint: normalizedHint,
+          openQuestionText: northStarPktEarly.latestOpenQuestion.trim(),
+          pendingResolutionKind: commitment.pending_resolution_kind,
+          lastOutboundPreview: lastOutboundSmsPreview,
+          behaviorStatement: commitment.behavior_statement ?? null,
+        }),
+        extraFacts: buildEnrichedMeaningShadowFacts({
+          openQuestionText: northStarPktEarly.latestOpenQuestion.trim(),
+          expectedReplySemantics:
+            typeof northStarPktEarly.expectedReplySemantics === "string"
+              ? northStarPktEarly.expectedReplySemantics
+              : null,
+          openQuestionPending: true,
+          openQuestionRoutingMiss: true,
+          recentTranscriptPreview: minimalLinesEarly.slice(-4).join(" | ").slice(0, 280),
+          lastOutboundPreview: lastOutboundSmsPreview,
+          lastOutboundFullBodyPreview: northStarPktEarly.latestOutboundBody?.slice(0, 280) ?? null,
+          effectiveAskPreview: effectiveBehavior,
+          behaviorStatement: commitment.behavior_statement ?? null,
+          gatedOutcome: eventType,
+        }),
+      });
+    }
+
     if (v3Resolution) {
       await persistInboundSmsThreadMemoryProjectionBestEffort({
         commitmentId: commitment.id,
@@ -1964,6 +2102,31 @@ async function processV2NormalInboundOutcome(
       });
 
       if (!openLaneRes.shouldSend || !openLaneRes.body.trim()) {
+        registerInboundMeaningShadowPending({
+          job,
+          userId,
+          rawBody: userMessage,
+          schedule: buildOpenQuestionMeaningShadow({
+            commitmentId: commitment.id,
+            classifierEventType: eventType,
+            classifierNormalizedHint: normalizedHint,
+            openQuestionText: northStarPktEarly.latestOpenQuestion?.trim() || null,
+            expectedReplySemantics:
+              typeof northStarPktEarly.expectedReplySemantics === "string"
+                ? northStarPktEarly.expectedReplySemantics
+                : null,
+            pendingResolutionKind: commitment.pending_resolution_kind,
+            lastOutboundPreview: lastOutboundSmsPreview,
+            behaviorStatement: commitment.behavior_statement ?? null,
+          }),
+          extraFacts: buildEnrichedMeaningShadowFacts({
+            openQuestionRoutingMiss: true,
+            v3NoSendReason: openLaneRes.noSendReason ?? null,
+            routePurpose: "open_question_answer",
+            branchName: "open_question_answer",
+            recentTranscriptPreview: minimalLinesEarly.slice(-4).join(" | ").slice(0, 280),
+          }),
+        });
         await markJobFinal({
           messageSid: job.message_sid,
           status: "cancelled",
@@ -3838,12 +4001,66 @@ async function processV2NormalInboundOutcome(
       ...(commitmentChangeHeuristicContext ? (["buildCommitmentChangeContextFactsForHeuristicInbound"] as const) : []),
     ];
 
+    const commsPrefActionLane = commsPrefsTurn?.parse.action ?? "none";
+    const meaningShadowRouteEarly = resolveNormalInboundMeaningShadowRoute({
+      mainInboundLaneRoutePurpose: relationshipExitLaneActive
+        ? "relationship_exit_integrity"
+        : identityEditLaneActive
+          ? "identity_edit_integrity"
+          : undefined,
+      gatedMode: gatedDecision.mode,
+      plannedInterruptionActive: plannedInterruptionActionable,
+      forcedFutureStretchActive: Boolean(forcedCoachSmsForFacts),
+      commsPreferenceAction: commsPrefActionLane,
+    });
+    registerInboundMeaningShadowPending({
+      job,
+      userId,
+      rawBody: userMessage,
+      schedule: buildNormalLaneMeaningShadow({
+        commitmentId: commitment.id,
+        route: meaningShadowRouteEarly,
+        classifierEventType: eventType,
+        classifierNormalizedHint: normalizedHint,
+        gatedMode: gatedDecision.mode,
+        openQuestionText: northStarPktForV3.latestOpenQuestion?.trim() || null,
+        pendingResolutionKind: commitment.pending_resolution_kind,
+        lastOutboundPreview: lastOutboundSmsPreview,
+        behaviorStatement: commitment.behavior_statement ?? null,
+        plannedInterruptionCategory: plannedInterruptionDetection.reasonCategory ?? null,
+      }),
+      extraFacts: buildEnrichedMeaningShadowFacts({
+        routePurpose: mainInboundLaneRoutePurpose ?? null,
+        branchName: commitmentChangeHeuristicContext
+          ? "commitment_change_context_heuristic"
+          : null,
+        openQuestionText: northStarPktForV3.latestOpenQuestion?.trim() || null,
+        expectedReplySemantics:
+          typeof northStarPktForV3.expectedReplySemantics === "string"
+            ? northStarPktForV3.expectedReplySemantics
+            : null,
+        openQuestionPending: Boolean(northStarPktForV3.latestOpenQuestion?.trim()),
+        lastOutboundFullBodyPreview:
+          northStarPktForV3.latestOutboundBody?.slice(0, 280) ?? lastOutboundSmsPreview,
+        recentTranscriptPreview: mainTranscriptLines.slice(-4).join(" | ").slice(0, 280),
+        effectiveAskPreview: effectiveBehavior,
+        adaptiveProposalPending: adaptiveProposalPending,
+        overlayConsentPending: isV2PendingProposalValid(commitment),
+        gatedOutcome: gatedDecision.final_event_type ?? eventType,
+      }),
+    });
+
     const laneRes = await produceInboundV3RelationshipSms({
       facts: inboundFacts,
       telemetry_fact_sources: laneTelemetryFactSources,
     });
 
     if (!laneRes.shouldSend || !laneRes.body.trim()) {
+      enrichMeaningInterpreterShadowPending(job.message_sid, {
+        deterministicFacts: buildEnrichedMeaningShadowFacts({
+          v3NoSendReason: laneRes.noSendReason ?? null,
+        }),
+      });
       await markJobFinal({
         messageSid: job.message_sid,
         status: "cancelled",
@@ -5782,6 +5999,27 @@ async function processV2ContractProposalConsent(
       gate_reason: gateDiagnosis.reason,
       gate_details: gateDiagnosis.details,
     });
+    registerInboundMeaningShadowPending({
+      job,
+      userId,
+      rawBody: (job.raw_body || "").trim(),
+      schedule: buildMeaningShadowScheduleArgs({
+        deterministicRoute: MEANING_INTERPRETER_ROUTES.contract_consent_gate_miss,
+        commitmentId: workingCommitment.id,
+        deterministicFacts: {
+          classifier_event_type: classification.eventType,
+          overlay_consent_pending: true,
+          adaptive_proposal_pending: true,
+        },
+      }),
+      extraFacts: buildEnrichedMeaningShadowFacts({
+        contractConsentGateMiss: true,
+        gateReason: gateDiagnosis.reason,
+        gateDetails: gateDiagnosis.details as Record<string, unknown>,
+        adaptiveProposalPending: true,
+        overlayConsentPending: true,
+      }),
+    });
     return false;
   }
 
@@ -6289,6 +6527,19 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
     telemetry_fact_sources: args.telemetry_fact_sources,
   });
   if (!lane.shouldSend || !lane.body.trim()) {
+    if (args.meaningShadow) {
+      registerInboundMeaningShadowPending({
+        job: args.job,
+        userId: args.userId,
+        rawBody: args.inboundRaw,
+        schedule: args.meaningShadow,
+        extraFacts: buildEnrichedMeaningShadowFacts({
+          routePurpose: args.relationshipFacts.route_purpose ?? null,
+          branchName: args.branchName,
+          v3NoSendReason: lane.noSendReason ?? null,
+        }),
+      });
+    }
     await markJobFinal({
       messageSid: args.job.message_sid,
       status: "cancelled",
@@ -6304,17 +6555,6 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       commitment_id: args.commitment.id,
       reason: lane.noSendReason,
     });
-    if (args.meaningShadow) {
-      recordInboundMeaningShadowSuppressedNoSend({
-        job: args.job,
-        userId: args.userId,
-        commitmentId: args.commitment.id,
-        skipReason: lane.noSendReason ?? "inbound_v3_lane_no_send",
-        rawBody: args.inboundRaw,
-        lastErrorTag: `${args.logTag}_inbound_lane_no_send`,
-        routeOverride: args.meaningShadow.deterministicRoute,
-      });
-    }
     return { ok: false };
   }
   const v3BrainMetadata: Record<string, unknown> = {
@@ -6343,6 +6583,19 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
     v3BrainMetadata,
   });
   if (!voicePack.voice.shouldSend) {
+    if (args.meaningShadow) {
+      registerInboundMeaningShadowPending({
+        job: args.job,
+        userId: args.userId,
+        rawBody: args.inboundRaw,
+        schedule: args.meaningShadow,
+        extraFacts: buildEnrichedMeaningShadowFacts({
+          routePurpose: args.relationshipFacts.route_purpose ?? null,
+          branchName: args.branchName,
+          v3NoSendReason: voicePack.voice.skipReason ?? "final_voice_gate_no_send",
+        }),
+      });
+    }
     await markJobFinal({
       messageSid: args.job.message_sid,
       status: "cancelled",
@@ -6368,17 +6621,6 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
     console.warn(`[sms-inbound-coach] ${args.logTag}_final_voice_suppressed`, {
       message_sid: args.job.message_sid,
     });
-    if (args.meaningShadow) {
-      recordInboundMeaningShadowSuppressedNoSend({
-        job: args.job,
-        userId: args.userId,
-        commitmentId: args.commitment.id,
-        skipReason: voicePack.voice.skipReason ?? "final_voice_gate_no_send",
-        rawBody: args.inboundRaw,
-        lastErrorTag: `${args.logTag}_final_voice_suppressed`,
-        routeOverride: args.meaningShadow.deterministicRoute,
-      });
-    }
     return { ok: false };
   }
   const gatedBody = voicePack.voice.body;
@@ -7665,6 +7907,21 @@ async function processInboundSmsSafetyShortCircuit(
     }
   }
 
+  recordInboundMeaningShadowSuppressedNoSend({
+    job,
+    userId,
+    commitmentId: commitmentId ?? "",
+    skipReason: "safety_turn",
+    rawBody: raw,
+    lastErrorTag: "inbound_safety_cron_short_circuit",
+    routeOverride: MEANING_INTERPRETER_ROUTES.safety_short_circuit_skipped,
+    extraFacts: buildSkippedMeaningShadowFacts({
+      skipReason: "safety_turn",
+      jobFinalStatus: "cancelled",
+      lastErrorTag: "inbound_safety_cron_short_circuit",
+      safetyTier: safety.tier,
+    }),
+  });
   await markJobFinal({
     messageSid: job.message_sid,
     status: "cancelled",
@@ -7679,22 +7936,6 @@ async function processInboundSmsSafetyShortCircuit(
     ...safety.logSafe,
     clerk_user_id: userId,
     safety_reply_sent: Boolean(outboundSid),
-  });
-
-  scheduleMeaningInterpreterSkippedShadow({
-    clerkUserId: userId,
-    inboundMessageSid: job.message_sid,
-    commitmentId: commitmentId ?? null,
-    deterministicRoute: MEANING_INTERPRETER_ROUTES.safety_short_circuit_skipped,
-    skippedReason: "safety_turn",
-    outcomeSent: Boolean(outboundSid),
-    rawBody: raw,
-    deterministicFacts: buildSkippedMeaningShadowFacts({
-      skipReason: "safety_turn",
-      jobFinalStatus: "cancelled",
-      lastErrorTag: "inbound_safety_cron_short_circuit",
-      safetyTier: safety.tier,
-    }),
   });
 
   return true;
@@ -7751,25 +7992,20 @@ async function handleV2SmsInboundCoachJob(
 
   const rawInboundEarly = (job.raw_body || "").trim();
   if (isAppleMessengerTapbackLine(rawInboundEarly)) {
+    recordInboundMeaningShadowSuppressedNoSend({
+      job,
+      userId,
+      commitmentId: c.id,
+      skipReason: "tapback_suppressed",
+      rawBody: rawInboundEarly,
+      lastErrorTag: "imessage_tapback_suppressed",
+      routeOverride: MEANING_INTERPRETER_ROUTES.suppressed_tapback,
+    });
     await markJobFinal({
       messageSid: job.message_sid,
       status: "cancelled",
       lastError: "imessage_tapback_suppressed",
       nextRetry: farFutureIso(),
-    });
-    scheduleMeaningInterpreterSkippedShadow({
-      clerkUserId: userId,
-      inboundMessageSid: job.message_sid,
-      commitmentId: c.id,
-      deterministicRoute: MEANING_INTERPRETER_ROUTES.suppressed_tapback,
-      skippedReason: "tapback_suppressed",
-      outcomeSent: false,
-      rawBody: rawInboundEarly,
-      deterministicFacts: buildSkippedMeaningShadowFacts({
-        skipReason: "tapback_suppressed",
-        jobFinalStatus: "cancelled",
-        lastErrorTag: "imessage_tapback_suppressed",
-      }),
     });
     console.log("[sms-inbound-coach] suppressed_apple_tapback_inbound", job.message_sid);
     return;
@@ -8036,12 +8272,26 @@ async function commitAndSendInboundCoachReply(
   }
 
   if (threadMemory?.meaningShadow) {
-    scheduleInboundMeaningInterpreterShadow({
-      ...threadMemory.meaningShadow,
-      clerkUserId: userId,
-      inboundMessageSid: job.message_sid,
-      coachJobMessageSid: job.message_sid,
-      rawBody: latestForSend.raw_body ?? job.raw_body ?? "",
+    const pending = takeMeaningInterpreterShadowPending(job.message_sid);
+    const finalizeInput =
+      pending ??
+      buildMeaningInterpreterShadowFinalizeFromSchedule({
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        coachJobMessageSid: job.message_sid,
+        commitmentId: threadMemory.meaningShadow.commitmentId ?? threadMemory.commitmentId ?? null,
+        rawBody: latestForSend.raw_body ?? job.raw_body ?? "",
+        replyBody: bodyToSend,
+        outcomeSent: true,
+        jobStatus: "sent",
+        deterministicRoute: threadMemory.meaningShadow.deterministicRoute,
+        deterministicFacts: threadMemory.meaningShadow.deterministicFacts,
+        skipReason: threadMemory.meaningShadow.skipReason,
+      });
+    scheduleFinalizeMeaningInterpreterShadowForInboundJob({
+      ...finalizeInput,
+      outcomeSent: true,
+      jobStatus: "sent",
       replyBody: bodyToSend,
     });
   }

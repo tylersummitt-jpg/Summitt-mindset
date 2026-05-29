@@ -119,12 +119,13 @@ describe("migration schema expectations", () => {
     expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
   });
 
-  it("manual reports include coverage gap query", async () => {
+  it("manual reports include Phase 1 daily audit queries", async () => {
     const fs = await import("node:fs/promises");
     const sql = await fs.readFile("supabase/manual/meaning_interpreter_shadow_reports.sql", "utf8");
-    expect(sql).toContain("Sent coach jobs without shadow row");
-    expect(sql).toContain("sms_inbound_messages");
-    expect(sql).toContain("reply_body");
+    expect(sql).toContain(":day_start");
+    expect(sql).toContain(":day_end");
+    expect(sql).toContain("open_question_routing_miss");
+    expect(sql).toContain("contract_consent_gate_miss");
   });
 });
 
@@ -149,11 +150,12 @@ describe("coach route wiring", () => {
     expect(route).toContain("MEANING_INTERPRETER_ROUTES.conversation_brain_legacy_fallback");
   });
 
-  it("safety and tapback schedule skipped shadow without OpenAI path in send hook", async () => {
+  it("safety and tapback register skipped shadow before markJobFinal", async () => {
     const fs = await import("node:fs/promises");
     const route = await fs.readFile("src/app/api/cron/sms-inbound-coach/route.ts", "utf8");
     expect(route).toContain("MEANING_INTERPRETER_ROUTES.safety_short_circuit_skipped");
     expect(route).toContain("MEANING_INTERPRETER_ROUTES.suppressed_tapback");
-    expect(route).toContain("scheduleMeaningInterpreterSkippedShadow");
+    expect(route).toContain("recordInboundMeaningShadowSuppressedNoSend");
+    expect(route).toContain("finalizeMeaningShadowAfterJobTerminal");
   });
 });

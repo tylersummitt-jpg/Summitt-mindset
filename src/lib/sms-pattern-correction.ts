@@ -146,6 +146,38 @@ export async function listApprovedSmsPatternCorrectionsForReview(
   return { ok: true, rows: (data ?? []) as SmsPatternCorrectionRow[] };
 }
 
+/**
+ * Shadow prompt only — approved prompt_hint_only corrections (non-authoritative).
+ */
+export async function listApprovedSmsPatternCorrectionsForShadowPrompt(
+  filters: ListApprovedSmsPatternCorrectionsFilters = {}
+): Promise<{ ok: true; rows: SmsPatternCorrectionRow[] } | { ok: false; error: string }> {
+  const limit = Math.min(Math.max(filters.limit ?? 8, 1), 20);
+
+  let q = supabaseServer
+    .from("v2_sms_pattern_correction")
+    .select("*")
+    .eq("status", "approved")
+    .eq("usage_policy", "prompt_hint_only")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (filters.clerk_user_id) {
+    q = q.eq("clerk_user_id", filters.clerk_user_id);
+  }
+  if (filters.commitment_id) {
+    q = q.eq("commitment_id", filters.commitment_id);
+  }
+
+  const { data, error } = await q;
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, rows: (data ?? []) as SmsPatternCorrectionRow[] };
+}
+
 export type UpdateSmsPatternCorrectionStatusInput = {
   id: string;
   status: SmsPatternCorrectionStatus;

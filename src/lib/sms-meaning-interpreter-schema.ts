@@ -1,4 +1,40 @@
 export const MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION = 1 as const;
+export const MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION_V2 = 2 as const;
+
+/** Optional shadow-only labels (secondary_intents / answer_type). Not used for live routing. */
+export const MEANING_INTERPRETER_SECONDARY_INTENT_LABELS = [
+  "answered_prior_open_question",
+  "time_answer_to_prior_question",
+  "short_numeric_time_answer",
+  "direct_answer_to_coach_question",
+  "contract_yes_answer",
+  "contract_no_answer",
+  "acknowledgement",
+  "cancellation_request",
+  "support_request",
+  "completion",
+  "miss",
+  "partial",
+  "blocker",
+  "goal_adjustment_request",
+  "unclear",
+] as const;
+
+export type MeaningInterpreterSecondaryIntentLabel =
+  (typeof MEANING_INTERPRETER_SECONDARY_INTENT_LABELS)[number];
+
+export const MEANING_INTERPRETER_ANSWER_TYPES = [
+  "time_or_schedule",
+  "contract_yes_no",
+  "support",
+  "cancellation",
+  "accountability_yes_no_partial",
+  "direct_coach_answer",
+  "acknowledgement",
+  "unclear",
+] as const;
+
+export type MeaningInterpreterAnswerType = (typeof MEANING_INTERPRETER_ANSWER_TYPES)[number];
 
 export const MEANING_INTERPRETER_PRIMARY_INTENTS = [
   "accountability_answer",
@@ -67,11 +103,15 @@ export type MeaningInterpreterSignals = {
 };
 
 export type MeaningInterpreterShadowParsed = {
-  version: typeof MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION;
+  version: typeof MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION | typeof MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION_V2;
   primary_intent: MeaningInterpreterPrimaryIntent;
   secondary_intents: string[];
   emotional_tone: MeaningInterpreterEmotionalTone;
   answered_open_question: MeaningInterpreterAnsweredOpenQuestion;
+  /** v2 optional — did user answer the coach's pending question? */
+  answered_prior_open_question?: "yes" | "no" | "unclear" | null;
+  /** v2 optional — coarse answer shape for SQL audits */
+  answer_type?: MeaningInterpreterAnswerType | null;
   open_question_answer_summary: string | null;
   signals: MeaningInterpreterSignals;
   safety_hint: MeaningInterpreterSafetyHint;
@@ -118,10 +158,29 @@ function parseSignals(raw: unknown): MeaningInterpreterSignals | null {
   };
 }
 
+function parseAnsweredPriorOpenQuestion(
+  raw: unknown
+): "yes" | "no" | "unclear" | null {
+  if (raw === "yes" || raw === "no" || raw === "unclear") return raw;
+  return null;
+}
+
+function parseAnswerType(raw: unknown): MeaningInterpreterAnswerType | null {
+  if (typeof raw !== "string") return null;
+  return (MEANING_INTERPRETER_ANSWER_TYPES as readonly string[]).includes(raw)
+    ? (raw as MeaningInterpreterAnswerType)
+    : null;
+}
+
 export function parseAndValidateMeaningInterpreterShadow(
   raw: Record<string, unknown>
 ): MeaningInterpreterShadowParsed | null {
-  if (raw.version !== MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION) return null;
+  if (
+    raw.version !== MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION &&
+    raw.version !== MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION_V2
+  ) {
+    return null;
+  }
 
   const primary =
     typeof raw.primary_intent === "string" && PRIMARY_SET.has(raw.primary_intent)
@@ -174,11 +233,16 @@ export function parseAndValidateMeaningInterpreterShadow(
   }
 
   return {
-    version: MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION,
+    version:
+      raw.version === MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION_V2
+        ? MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION_V2
+        : MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION,
     primary_intent: primary,
-    secondary_intents: parseStringArray(raw.secondary_intents, 5, 80),
+    secondary_intents: parseStringArray(raw.secondary_intents, 8, 80),
     emotional_tone,
     answered_open_question,
+    answered_prior_open_question: parseAnsweredPriorOpenQuestion(raw.answered_prior_open_question),
+    answer_type: parseAnswerType(raw.answer_type),
     open_question_answer_summary,
     signals,
     safety_hint,
