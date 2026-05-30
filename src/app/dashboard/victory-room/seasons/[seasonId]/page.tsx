@@ -5,6 +5,7 @@ import { VictorySeasonEmptyState } from "@/components/VictorySeasonEmptyState";
 import { VictorySeasonHeader } from "@/components/VictorySeasonHeader";
 import { VictorySeasonProofList } from "@/components/VictorySeasonProofList";
 import { VictorySeasonSummaryBlock } from "@/components/VictorySeasonSummaryBlock";
+import { vrAccentLink, vrPageGlow, vrPageInner, vrPageOuter } from "@/components/victory-room-visual";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { loadVictorySeasonProofView } from "@/lib/v2-victory-season-proof-view";
 
@@ -49,38 +50,38 @@ export default async function VictorySeasonDetailPage({ params }: PageProps) {
     (view.summary.confidence === "medium" || view.summary.confidence === "high");
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <p className="mb-6 text-sm text-gray-500">
-        <Link
-          href="/dashboard/victory-room"
-          className="font-medium text-gray-900 underline underline-offset-2"
-        >
-          ← Victory Room
-        </Link>
-      </p>
+    <div className={`victory-room-route-canvas ${vrPageOuter}`}>
+      <div className={vrPageGlow} aria-hidden />
+      <main className={vrPageInner}>
+        <p className="mb-8">
+          <Link href="/dashboard/victory-room" className={vrAccentLink}>
+            ← Victory Room
+          </Link>
+        </p>
 
-      <VictorySeasonHeader
-        seasonName={view.seasonName}
-        status={view.status}
-        startedAt={view.startedAt}
-        endedAt={view.endedAt}
-        goalSnapshot={view.goalSnapshot}
-        timeZone={timeZone}
-      />
+        <VictorySeasonHeader
+          seasonName={view.seasonName}
+          status={view.status}
+          startedAt={view.startedAt}
+          endedAt={view.endedAt}
+          goalSnapshot={view.goalSnapshot}
+          timeZone={timeZone}
+        />
 
-      {showSummary && view.summary ? <VictorySeasonSummaryBlock summary={view.summary} /> : null}
+        {showSummary && view.summary ? <VictorySeasonSummaryBlock summary={view.summary} /> : null}
 
-      {!view.hasProof ? (
-        <VictorySeasonEmptyState message={emptyMessage(view.status, false)} />
-      ) : (
-        <>
-          {view.proofMoments.length === 0 ? (
-            <VictorySeasonEmptyState message={emptyMessage(view.status, true)} />
-          ) : (
-            <VictorySeasonProofList moments={view.proofMoments} timeZone={timeZone} />
-          )}
-        </>
-      )}
-    </main>
+        {!view.hasProof ? (
+          <VictorySeasonEmptyState message={emptyMessage(view.status, false)} />
+        ) : (
+          <>
+            {view.proofMoments.length === 0 ? (
+              <VictorySeasonEmptyState message={emptyMessage(view.status, true)} />
+            ) : (
+              <VictorySeasonProofList moments={view.proofMoments} timeZone={timeZone} />
+            )}
+          </>
+        )}
+      </main>
+    </div>
   );
 }

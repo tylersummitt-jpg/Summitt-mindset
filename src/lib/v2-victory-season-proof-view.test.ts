@@ -136,4 +136,45 @@ describe("v2-victory-season-proof-view", () => {
     expect(view?.hasProof).toBe(false);
     expect(view?.proofMomentCount).toBe(0);
   });
+
+  it("maps quote, meaning, and groundedInEventTypes from derived proof moments", async () => {
+    mockSeasonMaybeSingle.mockResolvedValue({
+      data: {
+        id: "s1",
+        clerk_user_id: "u1",
+        commitment_id: "c1",
+        season_name: "Season 1",
+        status: "active",
+        started_at: "2026-05-01T00:00:00Z",
+        ended_at: null,
+        goal_snapshot: { title: "Walk" },
+      },
+      error: null,
+    });
+    mockEventsLimit.mockResolvedValue({
+      data: [
+        {
+          id: "e-yes",
+          event_type: "user_yes",
+          occurred_at: "2026-05-02T10:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            proof_quote: "yes I did it",
+            proof_meaning_line: "You followed through when it counted.",
+          },
+        },
+      ],
+      error: null,
+    });
+
+    const view = await loadVictorySeasonProofView({
+      clerkUserId: "u1",
+      seasonId: "s1",
+    });
+
+    expect(view?.proofMoments).toHaveLength(1);
+    expect(view?.proofMoments[0]?.quote).toBe("yes I did it");
+    expect(view?.proofMoments[0]?.meaning).toBe("You followed through when it counted.");
+    expect(view?.proofMoments[0]?.groundedInEventTypes).toEqual(["user_yes"]);
+  });
 });

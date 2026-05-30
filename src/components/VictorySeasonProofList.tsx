@@ -1,3 +1,5 @@
+import { VictoryMomentCard } from "@/components/VictoryMomentCard";
+import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
 import type { SeasonProofMomentDisplay } from "@/lib/v2-victory-season-proof-view";
 
@@ -17,24 +19,22 @@ export function VictorySeasonProofList({
   if (moments.length === 0) return null;
 
   return (
-    <section className="mb-10">
-      <h2 className="text-lg font-semibold text-gray-900">{heading}</h2>
-      <p className="mt-2 text-sm text-gray-600 leading-relaxed">{intro}</p>
-      <ul className="mt-5 space-y-4">
+    <VictoryRoomSectionShell title={heading} subtitle={intro}>
+      <ul className="mt-8 space-y-4">
         {moments.map((m) => (
           <li key={m.id}>
-            <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {m.categoryLabel}
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-gray-900">{m.body}</p>
-              <p className="mt-3 text-xs text-gray-500">
-                {formatVictoryRoomDate(m.occurredAt, timeZone)}
-              </p>
-            </article>
+            <VictoryMomentCard
+              categoryLabel={m.categoryLabel}
+              headline={m.headline}
+              body={m.meaning ?? m.body}
+              quote={m.quote ?? null}
+              meaning={m.meaning ?? m.body}
+              dateLabel={formatVictoryRoomDate(m.occurredAt, timeZone)}
+              groundedInEventTypes={m.groundedInEventTypes ?? []}
+            />
           </li>
         ))}
       </ul>
-    </section>
+    </VictoryRoomSectionShell>
   );
 }

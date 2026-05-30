@@ -22,7 +22,10 @@ export type SeasonProofMomentDisplay = {
   categoryLabel: string;
   headline: string;
   body: string;
+  quote?: string | null;
+  meaning?: string | null;
   occurredAt: string;
+  groundedInEventTypes?: string[];
 };
 
 export type VictorySeasonProofView = {
@@ -62,10 +65,17 @@ function parseGoalSnapshot(raw: unknown): SeasonGoalSnapshot {
   };
 }
 
-function truncateBody(body: string, max = 400): string {
-  const t = body.trim().replace(/\s+/g, " ");
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
+function mapProofMomentForDisplay(m: VictoryMoment): SeasonProofMomentDisplay {
+  return {
+    id: m.id,
+    categoryLabel: getRecentProofCategoryLabel(m),
+    headline: m.headline,
+    body: m.body,
+    quote: m.quote ?? null,
+    meaning: m.meaning ?? m.body,
+    occurredAt: m.occurredAt,
+    groundedInEventTypes: m.groundedInEventTypes,
+  };
 }
 
 export async function loadVictorySeasonProofView(args: {
@@ -160,13 +170,7 @@ export async function loadVictorySeasonProofView(args: {
     startedAt: row.started_at,
     endedAt: row.ended_at,
     goalSnapshot: parseGoalSnapshot(row.goal_snapshot),
-    proofMoments: curated.map((m) => ({
-      id: m.id,
-      categoryLabel: getRecentProofCategoryLabel(m),
-      headline: m.headline,
-      body: truncateBody(m.body),
-      occurredAt: m.occurredAt,
-    })),
+    proofMoments: curated.map(mapProofMomentForDisplay),
     proofMomentCount,
     hasProof,
     summary,
