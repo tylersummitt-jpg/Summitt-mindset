@@ -72,7 +72,12 @@ export type VictoryMoment = {
   id: string;
   occurredAt: string;
   headline: string;
+  /** Legacy display surface — equals meaning when quote/meaning split is present. */
   body: string;
+  /** Verbatim user reply when available (never invented). */
+  quote?: string | null;
+  /** One short meaning line beneath the quote. */
+  meaning?: string | null;
   /** Spine event types this moment is explicitly grounded in. */
   groundedInEventTypes: string[];
 };
@@ -451,6 +456,9 @@ function overlayActivatedCopy(contractKind: unknown): { headline: string; body: 
 }
 
 function proofBackedBody(payload: Record<string, unknown>, fallback: string): string {
+  if (typeof payload.proof_meaning_line === "string" && payload.proof_meaning_line.trim()) {
+    return truncateOneLine(String(payload.proof_meaning_line), 220);
+  }
   if (
     payload.proof_moment === true &&
     typeof payload.user_visible_proof_line === "string" &&
@@ -459,6 +467,39 @@ function proofBackedBody(payload: Record<string, unknown>, fallback: string): st
     return truncateOneLine(String(payload.user_visible_proof_line), 220);
   }
   return fallback;
+}
+
+function extractProofQuoteFromPayload(payload: Record<string, unknown>): string | null {
+  if (typeof payload.proof_quote === "string" && payload.proof_quote.trim()) {
+    return truncateOneLine(String(payload.proof_quote), 220);
+  }
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return truncateOneLine(String(payload.message), 220);
+  }
+  if (typeof payload.message_preview === "string" && payload.message_preview.trim()) {
+    return truncateOneLine(String(payload.message_preview), 220);
+  }
+  return null;
+}
+
+function hasPersistedProofLine(payload: Record<string, unknown>): boolean {
+  if (payload.proof_moment !== true) return false;
+  if (typeof payload.proof_meaning_line === "string" && payload.proof_meaning_line.trim()) return true;
+  if (typeof payload.user_visible_proof_line === "string" && payload.user_visible_proof_line.trim()) return true;
+  return false;
+}
+
+function victoryMomentDisplayFromPayload(
+  payload: Record<string, unknown>,
+  fallbackMeaning: string
+): Pick<VictoryMoment, "quote" | "meaning" | "body"> {
+  const quote = extractProofQuoteFromPayload(payload);
+  const meaning = proofBackedBody(payload, fallbackMeaning);
+  return { quote, meaning, body: meaning };
+}
+
+function withMeaningOnly(body: string): Pick<VictoryMoment, "quote" | "meaning" | "body"> {
+  return { quote: null, meaning: body, body };
 }
 
 /** Wave 12.2 — display-only: pair shrink_ask overlay + supplemental tighten proof within this window. */
@@ -526,10 +567,7 @@ function dedupeTightenOverlayDisplayMoments(eventRows: EventRow[], moments: Vict
     pairedOverlay.add(o.id);
     pairedSms.add(best.id);
     const smsPayload = parsePayload(best);
-    const body = proofBackedBody(
-      smsPayload,
-      overlayActivatedCopy("shrink_ask").body
-    );
+    const display = victoryMomentDisplayFromPayload(smsPayload, overlayActivatedCopy("shrink_ask").body);
     const tOverlay = new Date(o.occurred_at).getTime();
     const tSms = new Date(best.occurred_at).getTime();
     const occurredAt =
@@ -540,7 +578,9 @@ function dedupeTightenOverlayDisplayMoments(eventRows: EventRow[], moments: Vict
       id: `${MERGED_TIGHTEN_DISPLAY_ID_PREFIX}${o.id}:${best.id}`,
       occurredAt,
       headline: "Honest adjustment",
-      body,
+      body: display.body,
+      quote: display.quote,
+      meaning: display.meaning,
       groundedInEventTypes: ["contract_overlay_activated", "sms_memory_signal"],
     });
   }
@@ -562,24 +602,28 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
   for (const row of rows) {
     const payload = parsePayload(row);
     if (row.event_type === "user_yes") {
-      const body = proofBackedBody(payload, "You kept your word here.");
+      const display = victoryMomentDisplayFromPayload(payload, "You followed through when it counted.");
       out.push({
         id: row.id,
         occurredAt: row.occurred_at,
         headline: payload.proof_moment === true ? "Proof in the thread" : "Kept your word",
-        body,
+        ...display,
         groundedInEventTypes: ["user_yes"],
       });
       continue;
     }
     if (row.event_type === "user_no" || row.event_type === "user_partial") {
-      if (payload.proof_moment === true && typeof payload.user_visible_proof_line === "string") {
-        const body = truncateOneLine(String(payload.user_visible_proof_line), 220);
+      if (hasPersistedProofLine(payload)) {
+        const fallback =
+          row.event_type === "user_no"
+            ? "You told the truth about the miss — that matters."
+            : "You stayed in the conversation instead of disappearing.";
+        const display = victoryMomentDisplayFromPayload(payload, fallback);
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
           headline: row.event_type === "user_no" ? "Honest miss" : "Stayed engaged",
-          body,
+          ...display,
           groundedInEventTypes: [row.event_type],
         });
       }
@@ -600,28 +644,30 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
 
       if (
         payload.wave11_memory_resolution === true &&
-        payload.proof_moment === true &&
-        typeof payload.user_visible_proof_line === "string" &&
-        payload.user_visible_proof_line.trim()
+        hasPersistedProofLine(payload)
       ) {
+        const display = victoryMomentDisplayFromPayload(
+          payload,
+          "You gave the check-in something honest to work with."
+        );
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
           headline: "Coaching context updated",
-          body: truncateOneLine(String(payload.user_visible_proof_line), 220),
+          ...display,
           groundedInEventTypes: ["sms_memory_signal"],
         });
-      } else if (
-        wave12CommitProof &&
-        payload.proof_moment === true &&
-        typeof payload.user_visible_proof_line === "string" &&
-        payload.user_visible_proof_line.trim()
-      ) {
+      } else if (wave12CommitProof && hasPersistedProofLine(payload)) {
+        const fallback =
+          proofTy === "commitment_replaced"
+            ? "You named the next honest commitment."
+            : "You adjusted the bar with honesty instead of quitting.";
+        const display = victoryMomentDisplayFromPayload(payload, fallback);
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
           headline: proofTy === "commitment_replaced" ? "New chapter" : "Bar adjusted",
-          body: proofBackedBody(payload, "You adjusted the bar with honesty."),
+          ...display,
           groundedInEventTypes: ["sms_memory_signal"],
         });
       }
@@ -633,22 +679,22 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
         id: row.id,
         occurredAt: row.occurred_at,
         headline,
-        body,
+        ...withMeaningOnly(body),
         groundedInEventTypes: ["contract_overlay_activated"],
       });
       continue;
     }
     if (row.event_type === "blocker_captured") {
-      if (
-        payload.proof_moment === true &&
-        typeof payload.user_visible_proof_line === "string" &&
-        payload.user_visible_proof_line.trim()
-      ) {
+      if (hasPersistedProofLine(payload)) {
+        const display = victoryMomentDisplayFromPayload(
+          payload,
+          "You named what got in the way so we can work it."
+        );
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
           headline: "Honesty",
-          body: proofBackedBody(payload, "You named what got in the way."),
+          ...display,
           groundedInEventTypes: ["blocker_captured"],
         });
       }
@@ -661,7 +707,7 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
           id: row.id,
           occurredAt: row.occurred_at,
           headline: "Alignment",
-          body: "You clarified what still fits.",
+          ...withMeaningOnly("You clarified what still fits."),
           groundedInEventTypes: ["coaching_refresh_resolved"],
         });
       }
@@ -904,13 +950,19 @@ function buildArchiveMomentsFromEvents(
 
   const yesCandidates = rowsAsc.filter((r) => r.event_type === "user_yes" && !excludeYesIds.has(r.id));
   const yesSampled = sampleEventRowsEvenly(yesCandidates, maxStandaloneYes);
-  const yesMoments: VictoryMoment[] = yesSampled.map((row) => ({
-    id: row.id,
-    occurredAt: row.occurred_at,
-    headline: "Kept your word",
-    body: "You kept your word here.",
-    groundedInEventTypes: ["user_yes"],
-  }));
+  const yesMoments: VictoryMoment[] = yesSampled.map((row) => {
+    const display = victoryMomentDisplayFromPayload(
+      parsePayload(row),
+      "You followed through when it counted."
+    );
+    return {
+      id: row.id,
+      occurredAt: row.occurred_at,
+      headline: "Kept your word",
+      ...display,
+      groundedInEventTypes: ["user_yes"],
+    };
+  });
 
   const merged = dedupeMomentsById([
     ...honestyAll,

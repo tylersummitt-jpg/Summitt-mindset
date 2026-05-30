@@ -9,6 +9,8 @@ type ProofMomentRow = {
   categoryLabel: string;
   headline: string;
   body: string;
+  quote?: string | null;
+  meaning?: string | null;
   dateLabel: string;
   groundedInEventTypes: string[];
 };

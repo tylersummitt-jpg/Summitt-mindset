@@ -33,8 +33,9 @@ describe("VictoryEvidenceSection", () => {
     expect(html).toContain("Kept the goal");
     expect(html).toContain("Got back on track");
     expect(html).not.toContain("Told the truth");
-    expect(html).toContain('class="font-serif text-4xl font-semibold tabular-nums leading-none text-amber-50 sm:text-5xl"');
     expect(html).toContain(">3<");
     expect(html).toContain(">1<");
+    expect(html).toContain("text-emerald-50");
+    expect(html).toContain("text-orange-50");
   });
 });

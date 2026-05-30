@@ -6119,7 +6119,7 @@ async function processV2BlockerCapture(
       ...(!blockerAckTry.ok ? { ack_template_id: ackTemplateId } : {}),
       ...(ackSid ? { ack_message_sid: ackSid } : {}),
       ...(blockerMemoryStored != null ? { memory_signal: blockerMemoryStored } : {}),
-      ...proofMomentPayloadFields(blockerProofMoment),
+      ...proofMomentPayloadFields(blockerProofMoment, blockerText),
       ...(centralBlockerShadowStored != null ? { central_sms_turn_shadow: centralBlockerShadowStored } : {}),
       ai: blockerAiPayload,
     },

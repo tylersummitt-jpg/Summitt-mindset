@@ -308,7 +308,7 @@ export async function persistInboundAccountabilityOutcomeEvent(
     ...(args.overrideGatedNoWrite
       ? { outcome_persist_override_gated_no_write: true }
       : {}),
-    ...proofMomentPayloadFields(args.proofMeta),
+    ...proofMomentPayloadFields(args.proofMeta, args.rawBody),
     ...args.payloadJson,
   };
 

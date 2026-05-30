@@ -10,6 +10,8 @@ type MomentRow = {
   categoryLabel?: string;
   headline: string;
   body: string;
+  quote?: string | null;
+  meaning?: string | null;
   dateLabel: string;
   groundedInEventTypes: string[];
 };
@@ -46,6 +48,8 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
               categoryLabel={m.categoryLabel}
               headline={m.headline}
               body={m.body}
+              quote={m.quote}
+              meaning={m.meaning}
               dateLabel={m.dateLabel}
               groundedInEventTypes={m.groundedInEventTypes}
               momentId={idx === 0 ? m.id : undefined}

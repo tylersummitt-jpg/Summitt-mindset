@@ -31,6 +31,49 @@ function m(args: {
 describe("blocker_captured proof derivation", () => {
   const proofLine = "You named the obstacle instead of disappearing.";
 
+  it("derives quote from proof_quote when set", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "bc-q1",
+          event_type: "user_yes",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            proof_quote: "yes I did it",
+            proof_meaning_line: "You followed through when it counted.",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.quote).toBe("yes I did it");
+    expect(merged[0]!.meaning).toBe("You followed through when it counted.");
+    expect(merged[0]!.body).toBe("You followed through when it counted.");
+  });
+
+  it("falls back quote to message when proof_quote is absent", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "bc-q2",
+          event_type: "user_partial",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            message: "kind of",
+            proof_meaning_line: "You stayed in the conversation instead of disappearing.",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.quote).toBe("kind of");
+    expect(merged[0]!.meaning).toBe("You stayed in the conversation instead of disappearing.");
+  });
+
   it("derives Recent Proof from blocker_captured when proof_moment and user_visible_proof_line are set", () => {
     const { merged } = deriveMergedProofMomentsFromEventWindow({
       eventRowsFull: [
@@ -41,7 +84,7 @@ describe("blocker_captured proof derivation", () => {
           payload_json: {
             proof_moment: true,
             user_visible_proof_line: proofLine,
-            message: "raw inbound should not appear in card",
+            message: "work was crazy",
           },
         },
       ],
@@ -49,9 +92,31 @@ describe("blocker_captured proof derivation", () => {
     });
     expect(merged).toHaveLength(1);
     expect(merged[0]!.headline).toBe("Honesty");
+    expect(merged[0]!.meaning).toBe(proofLine);
     expect(merged[0]!.body).toBe(proofLine);
-    expect(merged[0]!.body).not.toContain("raw inbound");
+    expect(merged[0]!.quote).toBe("work was crazy");
     expect(inferRecentProofCategory(merged[0]!)).toBe("told_the_truth");
+  });
+
+  it("legacy meaning-only card works when no quote exists", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "bc-legacy",
+          event_type: "user_no",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            user_visible_proof_line: "Honest no still counts as showing up.",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.quote).toBeNull();
+    expect(merged[0]!.body).toBe("Honest no still counts as showing up.");
+    expect(merged[0]!.meaning).toBe("Honest no still counts as showing up.");
   });
 
   it("does not derive a card without proof_moment", () => {

@@ -59,7 +59,15 @@ export function buildShareSnippetFromMoment(
   const identityLine = view.profile.identity_anchor_text?.trim()
     ? truncateIntentional(view.profile.identity_anchor_text.trim(), MAX_ANCHOR)
     : null;
-  const body = truncateIntentional(moment.body, MAX_BODY);
+  const body = (() => {
+    const meaning = truncateIntentional(moment.meaning ?? moment.body, MAX_BODY);
+    const quote = moment.quote?.trim();
+    if (quote) {
+      const q = truncateIntentional(quote, MAX_BODY);
+      return `"${q}"\n\n${meaning}`;
+    }
+    return meaning;
+  })();
   const askRaw = view.effectiveCoachingAsk?.trim();
   const barLine = askRaw ? truncateIntentional(`Current bar: ${askRaw}`, MAX_BAR_LINE) : null;
   const attribution = "From my Victory Room · Summitt";

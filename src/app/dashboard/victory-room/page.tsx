@@ -154,6 +154,8 @@ export default async function VictoryRoomPage() {
                   categoryLabel: getRecentProofCategoryLabel(m),
                   headline: m.headline,
                   body: m.body,
+                  quote: m.quote,
+                  meaning: m.meaning,
                   dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
                   groundedInEventTypes: m.groundedInEventTypes,
                 }))}

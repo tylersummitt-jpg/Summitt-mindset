@@ -27,17 +27,44 @@ export type ProofMomentMeta = {
   proof_moment_type: ProofMomentType;
   proof_moment_reason: string;
   proof_weight: ProofWeight;
+  /** One-sentence meaning for Victory Room (deterministic). */
+  proof_meaning_line: string;
+  /** Legacy alias — kept in payload for backward-compatible reads. */
   user_visible_proof_line: string;
 };
 
-export function proofMomentPayloadFields(meta: ProofMomentMeta | null): Record<string, unknown> {
-  if (!meta) return {};
+function metaWithMeaning(args: Omit<ProofMomentMeta, "proof_meaning_line" | "user_visible_proof_line"> & { line: string }): ProofMomentMeta {
+  const line = clampLine(args.line, 140);
+  return {
+    proof_moment: args.proof_moment,
+    proof_moment_type: args.proof_moment_type,
+    proof_moment_reason: args.proof_moment_reason,
+    proof_weight: args.proof_weight,
+    proof_meaning_line: line,
+    user_visible_proof_line: line,
+  };
+}
+
+function clampProofQuote(raw: string): string {
+  return clampLine(raw, 220);
+}
+
+export function proofMomentPayloadFields(
+  meta: ProofMomentMeta | null,
+  proofQuote?: string | null
+): Record<string, unknown> {
+  const quote = proofQuote?.trim() ? clampProofQuote(proofQuote) : null;
+  if (!meta) {
+    return quote ? { proof_quote: quote } : {};
+  }
   return {
     proof_moment: meta.proof_moment,
     proof_moment_type: meta.proof_moment_type,
     proof_moment_reason: meta.proof_moment_reason,
     proof_weight: meta.proof_weight,
+    proof_meaning_line: meta.proof_meaning_line,
     user_visible_proof_line: meta.user_visible_proof_line,
+    ...(quote ? { proof_quote: quote } : {}),
   };
 }
 
@@ -89,100 +116,100 @@ export function buildProofMomentForAccountabilityOutcome(args: {
 
   if (args.finalEventType === "user_yes") {
     if (args.isRepairOutcome) {
-      return {
+      return metaWithMeaning({
         proof_moment: true,
         proof_moment_type: "repair_trust",
         proof_moment_reason: "repair_style_outcome_after_misunderstanding",
         proof_weight: "strong",
-        user_visible_proof_line: "You stayed in the conversation and rebuilt clarity—that builds trust.",
-      };
+        line: "You followed through when it counted.",
+      });
     }
     if (prev === "user_no" || prev === "user_partial") {
-      return {
+      return metaWithMeaning({
         proof_moment: true,
         proof_moment_type: "comeback_after_miss",
         proof_moment_reason: "yes_after_recent_negative_outcome",
         proof_weight: "strong",
-        user_visible_proof_line: "You came back after the miss.",
-      };
+        line: "You came back after the miss.",
+      });
     }
     if (leadingYes >= 4) {
-      return {
+      return metaWithMeaning({
         proof_moment: true,
         proof_moment_type: "meaningful_streak",
         proof_moment_reason: "five_plus_consecutive_yes_in_bounded_window",
         proof_weight: "strong",
-        user_visible_proof_line: "You stacked honest yeses—this is real momentum.",
-      };
+        line: "You followed through when it counted.",
+      });
     }
     if (prev === "user_yes") {
-      return {
+      return metaWithMeaning({
         proof_moment: true,
         proof_moment_type: "streak_continued",
         proof_moment_reason: "consecutive_yes_after_prior_yes",
         proof_weight: "medium",
-        user_visible_proof_line: "You stacked another honest yes—momentum matters.",
-      };
+        line: "You followed through when it counted.",
+      });
     }
     if (totalYes === 0) {
-      return {
+      return metaWithMeaning({
         proof_moment: true,
         proof_moment_type: "first_completion",
         proof_moment_reason: "first_logged_yes_in_recent_spine_window",
         proof_weight: "strong",
-        user_visible_proof_line: "You logged your first clear yes on this bar—that’s proof worth keeping.",
-      };
+        line: "You logged your first clear yes on this bar.",
+      });
     }
-    return {
+    return metaWithMeaning({
       proof_moment: true,
       proof_moment_type: "followed_through",
       proof_moment_reason: "clear_yes_on_daily_bar",
       proof_weight: "medium",
-      user_visible_proof_line: "You followed through on the bar today.",
-    };
+      line: "You followed through when it counted.",
+    });
   }
 
   if (args.finalEventType === "user_partial") {
-    return {
+    return metaWithMeaning({
       proof_moment: true,
       proof_moment_type: "partial_but_stayed_engaged",
       proof_moment_reason: "partial_reply_keeps_thread_alive",
       proof_weight: "medium",
-      user_visible_proof_line: "You stayed engaged instead of disappearing.",
-    };
+      line: "You stayed in the conversation instead of disappearing.",
+    });
   }
 
   const substantive = args.userMessageCharCount >= 36;
-  return {
+  return metaWithMeaning({
     proof_moment: true,
     proof_moment_type: "honest_miss",
     proof_moment_reason: substantive ? "honest_no_with_substance" : "honest_no_on_daily_check",
     proof_weight: substantive ? "medium" : "light",
-    user_visible_proof_line: substantive
-      ? "That honesty matters—now we can work the real blocker."
-      : "Honest no still counts as showing up.",
-  };
+    line: substantive
+      ? "You told the truth about the miss — that matters."
+      : "You told the truth about the miss — that matters.",
+  });
 }
 
 export function buildProofMomentForBlockerCaptured(args: {
   blockerMessageCharCount: number;
 }): ProofMomentMeta | null {
   if (args.blockerMessageCharCount < 12) {
-    return {
+    return metaWithMeaning({
       proof_moment: true,
       proof_moment_type: "blocker_named",
       proof_moment_reason: "blocker_logged_after_miss",
       proof_weight: "light",
-      user_visible_proof_line: "You named what got in the way instead of hiding it.",
-    };
+      line: "You named the obstacle instead of hiding.",
+    });
   }
-  return {
+  return metaWithMeaning({
     proof_moment: true,
     proof_moment_type: "blocker_named",
     proof_moment_reason: "named_obstacle_with_detail",
     proof_weight: "medium",
-    user_visible_proof_line: "You named the obstacle instead of disappearing.",
-  };
+    line: "You named what got in the way so we can work it.",
+  });
 }
 
 export function buildProofMomentForMemoryUpdated(args: {
@@ -198,13 +225,13 @@ export function buildProofMomentForMemoryUpdated(args: {
   } else if (!args.appliedIdentity && (args.appliedPeopleSummary || args.appliedResponsibility)) {
     line = "You confirmed context so I remember what matters now.";
   }
-  return {
+  return metaWithMeaning({
     proof_moment: true,
     proof_moment_type: "memory_updated",
     proof_moment_reason: "sms_confirmed_profile_update",
     proof_weight: "medium",
-    user_visible_proof_line: line,
-  };
+    line,
+  });
 }
 
 /** AI inbound: optional hint when weight is medium or strong (server-grounded). */
@@ -220,28 +247,28 @@ export function proofMomentToPromptHint(meta: ProofMomentMeta | null): ProofMome
   return {
     proof_weight: meta.proof_weight,
     proof_moment_type: meta.proof_moment_type,
-    user_visible_proof_line: clampLine(meta.user_visible_proof_line, 140),
+    user_visible_proof_line: clampLine(meta.proof_meaning_line ?? meta.user_visible_proof_line, 140),
   };
 }
 
 export function buildProofMomentCommitmentTightened(): ProofMomentMeta {
-  return {
+  return metaWithMeaning({
     proof_moment: true,
     proof_moment_type: "commitment_tightened",
     proof_moment_reason: "sms_confirmed_shrink_overlay_consent",
     proof_weight: "medium",
-    user_visible_proof_line: "You tightened the bar instead of quitting.",
-  };
+    line: "You adjusted the bar with honesty instead of quitting.",
+  });
 }
 
 export function buildProofMomentCommitmentReplaced(): ProofMomentMeta {
-  return {
+  return metaWithMeaning({
     proof_moment: true,
     proof_moment_type: "commitment_replaced",
     proof_moment_reason: "sms_confirmed_guided_commitment_replace",
     proof_weight: "strong",
-    user_visible_proof_line: "You named the next honest commitment instead of drifting.",
-  };
+    line: "You named the next honest commitment.",
+  });
 }
 
 const VICTORY_CALLOUT_COOLDOWN_MS = 5 * 24 * 60 * 60 * 1000;
@@ -447,7 +474,7 @@ export async function insertSmsCommitmentChangeProofEvent(args: {
     message_preview: preview,
     gated_mode: "commitment_change_confirmed",
     memory_signal: memory_signal_stub,
-    ...proofMomentPayloadFields(proof),
+    ...proofMomentPayloadFields(proof, preview),
     ...(args.victoryCalloutExtras ?? {}),
   };
 

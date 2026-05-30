@@ -6,9 +6,11 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   buildInboundProofCalloutHint,
+  buildProofMomentForAccountabilityOutcome,
   decideVictoryRoomSmsCallout,
   decideVictoryRoomSmsCalloutEligibility,
   INBOUND_PROOF_CALLOUT_LANE_INSTRUCTION,
+  proofMomentPayloadFields,
   type ProofMomentMeta,
 } from "@/lib/v2-proof-moment";
 
@@ -17,7 +19,8 @@ const strongYesProof: ProofMomentMeta = {
   proof_moment_type: "first_completion",
   proof_moment_reason: "first_logged_yes",
   proof_weight: "strong",
-  user_visible_proof_line: "You logged your first clear yes on this bar—that’s proof worth keeping.",
+  proof_meaning_line: "You logged your first clear yes on this bar.",
+  user_visible_proof_line: "You logged your first clear yes on this bar.",
 };
 
 describe("decideVictoryRoomSmsCalloutEligibility", () => {
@@ -80,5 +83,21 @@ describe("buildInboundProofCalloutHint", () => {
       shouldWriteOutcomeEvent: true,
     });
     expect(JSON.stringify(hint)).not.toMatch(/I'm saving that as proof/i);
+  });
+});
+
+describe("proofMomentPayloadFields", () => {
+  it("includes deterministic proof_meaning_line and optional proof_quote", () => {
+    const meta = buildProofMomentForAccountabilityOutcome({
+      finalEventType: "user_yes",
+      eventsNewestFirst: [],
+      isRepairOutcome: false,
+      userMessageCharCount: 3,
+    });
+    expect(meta).not.toBeNull();
+    const payload = proofMomentPayloadFields(meta, "yes");
+    expect(payload.proof_meaning_line).toBe("You logged your first clear yes on this bar.");
+    expect(payload.user_visible_proof_line).toBe("You logged your first clear yes on this bar.");
+    expect(payload.proof_quote).toBe("yes");
   });
 });
