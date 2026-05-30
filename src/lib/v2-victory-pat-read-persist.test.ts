@@ -657,7 +657,10 @@ describe("loadPatReadForVictoryRoom", () => {
     });
 
     expect(read).not.toBeNull();
-    expect(read!.nextMove).toContain("Walk before breakfast");
+    expect(read!.nextMove.length).toBeGreaterThan(10);
+    expect(read!.nextMove).not.toContain("Walk before breakfast");
+    expect(read!.nextMove).not.toContain("Walk 20 minutes");
+    expect(read!.nextMove.toLowerCase()).toContain("check-in");
   });
 });
 

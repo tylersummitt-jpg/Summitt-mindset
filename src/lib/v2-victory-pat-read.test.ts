@@ -4,7 +4,7 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {},
 }));
 
-import { buildDeterministicPatRead } from "@/lib/v2-victory-pat-read";
+import { buildDeterministicPatRead, buildNextMoveCopy } from "@/lib/v2-victory-pat-read";
 import type { VictoryRoomViewData } from "@/lib/v2-victory-room-view";
 import { EMPTY_VICTORY_EVIDENCE_COUNTS } from "@/lib/v2-victory-room-view";
 
@@ -37,15 +37,108 @@ function baseView(overrides: Partial<VictoryRoomViewData> = {}): VictoryRoomView
 }
 
 describe("buildDeterministicPatRead", () => {
-  it("renders strength and next move for sparse users", () => {
+  it("renders strength and next move for sparse users without repeating the goal", () => {
     const read = buildDeterministicPatRead(baseView(), "Alex");
     expect(read).not.toBeNull();
     expect(read!.provenance).toBe("deterministic");
     expect(read!.strength.length).toBeGreaterThan(10);
-    expect(read!.nextMove).toContain("Walk before breakfast");
+    expect(read!.nextMove.length).toBeGreaterThan(10);
+    expect(read!.nextMove.toLowerCase()).toContain("check-in");
+    expect(read!.nextMove).not.toContain("Walk before breakfast");
+    expect(read!.nextMove).not.toContain("Walk 20 minutes");
     expect(read!.pattern).toBeNull();
   });
 
+  it("next move for rich proof does not repeat the full behavior statement", () => {
+    const read = buildDeterministicPatRead(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Kept your word",
+            body: "You followed through today.",
+            groundedInEventTypes: ["user_yes"],
+          },
+        ],
+      }),
+      "Alex"
+    );
+    expect(read!.nextMove.length).toBeGreaterThan(10);
+    expect(read!.nextMove).not.toContain("Walk before breakfast");
+    expect(read!.nextMove).not.toContain("Walk 20 minutes");
+    expect(read!.nextMove.toLowerCase()).toContain("standard");
+  });
+
+  it("next move after honesty proof coaches forward without repeating the goal", () => {
+    const read = buildDeterministicPatRead(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Honesty",
+            body: "You got honest and stayed in it.",
+            groundedInEventTypes: ["user_no", "user_yes"],
+          },
+        ],
+      }),
+      "Alex"
+    );
+    expect(read!.nextMove.length).toBeGreaterThan(10);
+    expect(read!.nextMove).not.toContain("Walk before breakfast");
+    expect(read!.nextMove.toLowerCase()).toMatch(/truth|check-in|conversation/);
+  });
+
+  it("next move may reference adaptive ask when it differs from base goal", () => {
+    const adaptiveAsk = "Ten minutes only, not twenty.";
+    const read = buildDeterministicPatRead(
+      baseView({
+        commitment: { id: "c1", title: "Morning walk", behavior_statement: "Walk 20 minutes." },
+        effectiveCoachingAsk: adaptiveAsk,
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Bar adjusted",
+            body: "You tightened the standard honestly.",
+            groundedInEventTypes: ["user_yes"],
+          },
+        ],
+      }),
+      "Alex"
+    );
+    expect(read!.nextMove).toContain(adaptiveAsk);
+    expect(read!.nextMove.toLowerCase()).toContain("adjustment");
+  });
+});
+
+describe("buildNextMoveCopy", () => {
+  it("returns sparse-state coaching without echoing the goal", () => {
+    const view = baseView();
+    const copy = buildNextMoveCopy(view, {
+      address_as: "Alex",
+      preferred_name: "Alex",
+      identity_anchor_text: "I lead with calm courage.",
+      effective_ask: "Walk before breakfast.",
+      commitment_title: "Morning walk",
+      moments: [],
+      comeback_lines: [],
+      sparse: true,
+      input_contains_digit: false,
+    });
+    expect(copy).not.toContain("Walk before breakfast");
+    expect(copy.toLowerCase()).toContain("check-in");
+  });
+});
+
+describe("buildDeterministicPatRead patterns and copy guardrails", () => {
   it("omits pattern when only one weak signal exists", () => {
     const read = buildDeterministicPatRead(
       baseView({

@@ -107,6 +107,53 @@ export function buildVictorySummaryInput(
   return input;
 }
 
+function normalizeCompareText(value: string | null | undefined): string {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function hasAdaptiveOverlayAsk(view: VictoryRoomViewData, input: VictorySummaryInput): boolean {
+  const base = normalizeCompareText(view.commitment?.behavior_statement);
+  const effective = normalizeCompareText(input.effective_ask);
+  if (!effective || effective === "your commitment is active.") return false;
+  return base !== effective;
+}
+
+/** Evidence-aware coaching instruction — not a repeat of the canonical current goal. */
+export function buildNextMoveCopy(
+  view: VictoryRoomViewData,
+  input: VictorySummaryInput
+): string {
+  if (input.sparse) {
+    return "Start with one honest check-in today — name whether you kept the goal or tell the truth about what got in the way.";
+  }
+
+  const latestMoment = view.moments[0] ?? null;
+  const latestCategory = latestMoment ? inferRecentProofCategory(latestMoment) : null;
+
+  const hasComebackSignal =
+    view.comebackLines.length > 0 ||
+    latestCategory === "told_the_truth" ||
+    latestCategory === "came_back";
+
+  if (hasComebackSignal) {
+    if (view.comebackLines.length > 0 || latestCategory === "came_back") {
+      return "Stay in the conversation today — name the result plainly, then make the next move small enough to complete.";
+    }
+    return "Use the truth you just named. Remove one obstacle and answer the next check-in honestly.";
+  }
+
+  if (latestCategory === "showed_up" || latestCategory === "kept_the_thread_alive") {
+    return "Protect the same standard today. Do the work early enough that the day does not decide for you.";
+  }
+
+  if (hasAdaptiveOverlayAsk(view, input)) {
+    const adaptiveAsk = truncateOneLine(input.effective_ask, TRUNC.ask);
+    return `Today's adjustment is the move: ${adaptiveAsk}. Keep it honest and temporary.`;
+  }
+
+  return "Take the next honest step today, then let your check-in tell the truth about what happened.";
+}
+
 export type DeterministicPatRead = {
   strength: string;
   pattern: string | null;
@@ -121,7 +168,6 @@ export function buildDeterministicPatRead(
   const input = buildVictorySummaryInput(view, addressAs);
   if (!input) return null;
 
-  const ask = input.effective_ask;
   const name = input.address_as;
 
   let strength = "";
@@ -189,7 +235,7 @@ export function buildDeterministicPatRead(
     }
   }
 
-  const nextMove = `Next move your coach is holding you to: ${ask}`;
+  const nextMove = buildNextMoveCopy(view, input);
 
   return {
     strength: clampToMaxSentences(truncateOneLine(strength, MAX_CHARS), MAX_SENTENCES),
