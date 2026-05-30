@@ -35,8 +35,7 @@ function ReadRow({
 export function VictoryPatReadSection({ read }: VictoryPatReadSectionProps) {
   return (
     <VictoryRoomSectionShell
-      number={2}
-      title="Coach Pat's Read"
+      title="Coach Pat's Feedback"
       subtitle="Grounded in your commitment and real check-ins — not a scoreboard."
     >
       <div className="mt-8 space-y-8">

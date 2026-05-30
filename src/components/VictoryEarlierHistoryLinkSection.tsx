@@ -13,7 +13,6 @@ export function VictoryEarlierHistoryLinkSection({
 
   return (
     <VictoryRoomSectionShell
-      number={7}
       title="Earlier Chapters"
       subtitle="Proof from past commitments that is not shown in My Seasons. Open it when you want to look back."
     >

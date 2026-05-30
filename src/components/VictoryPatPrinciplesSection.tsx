@@ -12,7 +12,6 @@ export function VictoryPatPrinciplesSection({ principles }: VictoryPatPrinciples
 
   return (
     <VictoryRoomSectionShell
-      number={5}
       title="Pat Principles I'm Living"
       subtitle="Coach Pat connects your proof to the standards she taught: the Definite Dozen."
     >

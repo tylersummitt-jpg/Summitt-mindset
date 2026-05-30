@@ -1,25 +1,21 @@
 import Link from "next/link";
-import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VrIconGoal, VrIconIdentity } from "@/components/VictoryRoomIcons";
 import {
-  vrBody,
   vrBodyLarge,
   vrBodyMuted,
   vrDivider,
   vrFoundationBtn,
   vrIconCircle,
-  vrInnerPanel,
   vrLabel,
+  vrSectionCard,
   vrSectionCardFoundation,
+  vrSectionTitle,
 } from "@/components/victory-room-visual";
-import type { VictoryRoomActiveSeason, VictoryRoomProfileIdentity } from "@/lib/v2-victory-room-view";
-import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
+import type { VictoryRoomProfileIdentity } from "@/lib/v2-victory-room-view";
 
 type VictoryRoomTopCardProps = {
   profile: VictoryRoomProfileIdentity;
   commitment: { title: string; behavior_statement: string | null };
-  activeSeason: VictoryRoomActiveSeason | null;
-  timeZone: string;
   showUpdateGoalLink?: boolean;
   showEditIdentityLink?: boolean;
 };
@@ -27,40 +23,18 @@ type VictoryRoomTopCardProps = {
 export function VictoryRoomTopCard({
   profile,
   commitment,
-  activeSeason,
-  timeZone,
   showUpdateGoalLink = false,
   showEditIdentityLink = false,
 }: VictoryRoomTopCardProps) {
-  const seasonStarted =
-    activeSeason?.started_at && formatVictoryRoomDate(activeSeason.started_at, timeZone);
-
   return (
-    <VictoryRoomSectionShell
-      number={1}
-      title="Your Foundation"
-      subtitle="Who you are becoming and what Pat holds you to today."
-      className={vrSectionCardFoundation}
-    >
-        <div className={`${vrInnerPanel} mt-8 border-amber-500/35 bg-gradient-to-r from-[#121820] to-[#0a0e16]`}>
-        <p className={vrLabel}>Current season</p>
-        {activeSeason?.season_name ? (
-          <>
-            <p className="mt-3 font-serif text-2xl font-semibold leading-tight text-stone-50 sm:text-3xl">
-              {activeSeason.season_name}
-            </p>
-            {seasonStarted ? (
-              <p className="mt-2 text-sm text-stone-500">Opened {seasonStarted}</p>
-            ) : null}
-          </>
-        ) : (
-          <p className={`${vrBody} mt-3`}>Your first season is open.</p>
-        )}
-      </div>
+    <section className={`${vrSectionCard} ${vrSectionCardFoundation} mb-12`}>
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent"
+        aria-hidden
+      />
+      <h1 className={vrSectionTitle}>Victory Room</h1>
 
-      <div className={`${vrDivider} my-8`} />
-
-      <div className="flex gap-4 sm:gap-5">
+      <div className="mt-8 flex gap-4 sm:gap-5">
         <div className={vrIconCircle} aria-hidden>
           <VrIconIdentity />
         </div>
@@ -116,6 +90,6 @@ export function VictoryRoomTopCard({
           ) : null}
         </div>
       </div>
-    </VictoryRoomSectionShell>
+    </section>
   );
 }

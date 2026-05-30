@@ -21,7 +21,6 @@ type VictoryRecentProofSectionProps = {
 export function VictoryRecentProofSection({ viewForShare, moments }: VictoryRecentProofSectionProps) {
   return (
     <VictoryRoomSectionShell
-      number={3}
       title="Recent Proof"
       subtitle="Real moments from your recent check-ins — nothing invented."
     >

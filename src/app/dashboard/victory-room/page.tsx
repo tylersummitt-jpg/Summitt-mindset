@@ -6,23 +6,15 @@ import { VictoryPatPrinciplesSection } from "@/components/VictoryPatPrinciplesSe
 import { VictoryPatReadSection } from "@/components/VictoryPatReadSection";
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
 import { VictoryEarlierHistoryLinkSection } from "@/components/VictoryEarlierHistoryLinkSection";
-import { VictoryRoomFooterNav } from "@/components/VictoryRoomFooterNav";
 import { VictoryRoomTopCard } from "@/components/VictoryRoomTopCard";
 import { VictorySeasonsSection } from "@/components/VictorySeasonsSection";
 import {
   vrAccentLink,
-  vrHeroAccentLine,
-  vrHeroArtSlot,
-  vrHeroEyebrow,
-  vrHeroFrame,
-  vrHeroFrameGlow,
   vrEvolutionNudge,
   vrPageGlow,
   vrPageInner,
   vrPageOuter,
   vrSectionCard,
-  vrHeroSubtitle,
-  vrHeroTitle,
 } from "@/components/victory-room-visual";
 import { hasEarlierChapterHistory } from "@/lib/v2-victory-earlier-chapter-index";
 import { loadPatReadForVictoryRoom } from "@/lib/v2-victory-pat-read-persist";
@@ -133,20 +125,6 @@ export default async function VictoryRoomPage() {
           </section>
         ) : (
           <>
-            <header className={`${vrHeroFrame} mb-12 sm:mb-14`}>
-              <div className={vrHeroFrameGlow} aria-hidden />
-              <div className={vrHeroArtSlot} aria-hidden />
-              <div className="relative">
-                <p className={vrHeroEyebrow}>Summitt Mindset</p>
-                <h1 className={`${vrHeroTitle} mt-4`}>Victory Room</h1>
-                <p className={vrHeroSubtitle}>
-                  A living trophy room for character — where proof of who you are becoming is saved from your
-                  real choices.
-                </p>
-                <div className={vrHeroAccentLine} aria-hidden />
-              </div>
-            </header>
-
             {evolutionNudge ? (
               <section className={vrEvolutionNudge}>
                 <h2 className="text-base font-semibold text-amber-100 sm:text-lg">{evolutionNudge.headline}</h2>
@@ -161,8 +139,6 @@ export default async function VictoryRoomPage() {
               <VictoryRoomTopCard
                 profile={view.profile}
                 commitment={view.commitment}
-                activeSeason={view.activeSeason}
-                timeZone={timeZone}
                 showUpdateGoalLink={showUpdateGoalLink}
                 showEditIdentityLink={showEditIdentityLink}
               />
@@ -197,8 +173,6 @@ export default async function VictoryRoomPage() {
             ) : null}
 
             <VictoryEarlierHistoryLinkSection hasEarlierHistory={hasEarlierHistory} />
-
-            <VictoryRoomFooterNav />
           </>
         )}
       </main>

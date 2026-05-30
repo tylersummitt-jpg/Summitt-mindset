@@ -12,8 +12,6 @@ import { vrFoundationBtn } from "@/components/victory-room-visual";
 const baseProps = {
   profile: { identity_anchor_text: "I keep my word." },
   commitment: { title: "Morning focus", behavior_statement: "Ten minutes of planning before email." },
-  activeSeason: null,
-  timeZone: "America/New_York",
 };
 
 const foundationButtonClass = vrFoundationBtn;
@@ -21,11 +19,13 @@ const foundationButtonClass = vrFoundationBtn;
 describe("VictoryRoomTopCard", () => {
   it("renders My Identity and My Current Goal", () => {
     const html = renderToStaticMarkup(React.createElement(VictoryRoomTopCard, baseProps));
-    expect(html).toContain("Your Foundation");
+    expect(html).toContain("Victory Room");
     expect(html).toContain("My identity");
     expect(html).toContain("My current goal");
     expect(html).toContain("I keep my word.");
     expect(html).toContain("Ten minutes of planning before email.");
+    expect(html).not.toContain("Your Foundation");
+    expect(html).not.toContain("Current season");
     expect(html).not.toContain("Daily OS");
     expect(html).not.toContain("Open dashboard");
   });

@@ -174,7 +174,7 @@ describe("member app home routing (Package 5)", () => {
     expect(page).not.toMatch(/Open Account/);
     expect(page).not.toContain("smsEnabled");
     expect(page).toContain("VictoryRoomTopCard");
-    expect(topCard).toContain("Your Foundation");
+    expect(topCard).toContain("Victory Room");
     expect(topCard).toContain("My identity");
     expect(topCard).toContain("My current goal");
   });
@@ -188,17 +188,20 @@ describe("member app home routing (Package 5)", () => {
     expect(page).not.toContain("acquisitionSource");
   });
 
-  it("Victory Room does not surface day-zero notice card and uses shortened subtitle", () => {
+  it("Victory Room does not surface day-zero notice card or legacy hero subtitle", () => {
     const page = readSrc("src/app/dashboard/victory-room/page.tsx");
     const topCard = readSrc("src/components/VictoryRoomTopCard.tsx");
     expect(page).not.toContain("VictoryDayZeroNotice");
     expect(page).not.toContain("You have your identity, goal, and season in place");
     expect(page).not.toContain("Proof will start showing up here as you answer");
-    expect(page).not.toContain("not a scoreboard");
-    expect(page).toContain("saved from your");
-    expect(page).toContain("real choices.");
+    expect(page).not.toContain("Summitt Mindset");
+    expect(page).not.toContain("living trophy room");
+    expect(page).not.toContain("saved from your");
+    expect(page).not.toContain("real choices.");
     expect(page).toContain("VictoryRoomTopCard");
-    expect(topCard).toContain("Your Foundation");
+    expect(topCard).toContain("Victory Room");
+    expect(topCard).not.toContain("Your Foundation");
+    expect(topCard).not.toContain("Current season");
     expect(topCard).toContain("My identity");
     expect(topCard).toContain("My current goal");
   });

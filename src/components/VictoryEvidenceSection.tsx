@@ -44,7 +44,6 @@ export function VictoryEvidenceSection({ counts }: VictoryEvidenceSectionProps) 
 
   return (
     <VictoryRoomSectionShell
-      number={4}
       title="The Evidence"
       subtitle="Simple counts from your bounded check-in window. This is evidence, not a scoreboard."
     >

@@ -87,7 +87,6 @@ export function VictorySeasonsSection({
 }: VictorySeasonsSectionProps) {
   return (
     <VictoryRoomSectionShell
-      number={6}
       title="My Seasons"
       subtitle="Each season is a chapter of your accountability — proof lives inside the season where it happened."
     >
