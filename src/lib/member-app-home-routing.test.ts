@@ -42,6 +42,11 @@ describe("member app home routing (Package 5)", () => {
 
   it("Navbar includes Victory Room but not Daily OS for app users", () => {
     const src = readSrc("src/components/Navbar.tsx");
+    expect(src).toContain('href="/"');
+    expect(src).toContain("Summitt");
+    expect(src).toContain("Mindset");
+    expect(src).not.toContain("summitt-mindset-logo-transparent.png");
+    expect(src).not.toContain('from "next/image"');
     expect(src).toContain('href: "/dashboard/victory-room"');
     expect(src).toContain('label: "Victory Room"');
     expect(src).not.toContain('label: "Daily OS"');

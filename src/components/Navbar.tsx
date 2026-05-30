@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 const linkBase =
   "px-2 py-1 rounded transition-colors text-sm ";
 const linkActive =
-  "font-semibold text-[var(--text)] border-b-2 border-[var(--brand)]";
+  "font-semibold text-[var(--text)] border-b-2 border-[var(--text)]";
 const linkInactive =
   "text-[var(--muted)] hover:text-[var(--text)]";
 
@@ -129,9 +129,8 @@ export function Navbar() {
         }
       >
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-semibold text-lg tracking-tight">
-          <span className="text-[var(--text)]">Summitt</span>{" "}
-          <span className="text-[var(--brand)]">Mindset</span>
+        <Link href="/" className="font-semibold text-lg tracking-tight text-[var(--text)]">
+          <span>Summitt</span> <span>Mindset</span>
         </Link>
 
         {/* Desktop: horizontal nav (md and up) */}

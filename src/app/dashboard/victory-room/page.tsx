@@ -144,7 +144,7 @@ export default async function VictoryRoomPage() {
               />
             ) : null}
 
-            {patRead ? <VictoryPatReadSection read={patRead} /> : null}
+            <VictoryEvidenceSection counts={view.evidenceCounts} />
 
             {viewForShare ? (
               <VictoryRecentProofSection
@@ -160,7 +160,7 @@ export default async function VictoryRoomPage() {
               />
             ) : null}
 
-            <VictoryEvidenceSection counts={view.evidenceCounts} />
+            {patRead ? <VictoryPatReadSection read={patRead} /> : null}
 
             {patPrinciples ? <VictoryPatPrinciplesSection principles={patPrinciples} /> : null}
 
