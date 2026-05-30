@@ -118,71 +118,107 @@ export type VictoryProofCategoryTone = {
   pill: string;
   cardBorder: string;
   cardGlow: string;
+  /** Subtle left-edge category accent on proof cards. */
+  cardAccent: string;
+  cardDivider: string;
+  cardShadow: string;
   evidenceTile: string;
   evidenceCount: string;
   evidenceLabel: string;
 };
 
+/** Dark proof-card shell — category border/glow applied via tone tokens. */
+export const vrMomentCardBase =
+  "relative overflow-hidden rounded-2xl border bg-gradient-to-br from-[#0c1018] to-[#070b12] px-5 py-5 sm:px-6 sm:py-6";
+
+/** Dark evidence tile shell — category tint applied via tone tokens. */
+export const vrEvidenceTileBase =
+  "flex flex-col items-center justify-center rounded-2xl px-4 py-6 text-center sm:py-7";
+
 const VICTORY_PROOF_CATEGORY_TONES: Record<VictoryProofCategoryToneKey, VictoryProofCategoryTone> = {
   kept_the_goal: {
     key: "kept_the_goal",
-    pill: "inline-block rounded-full border border-emerald-500/45 bg-emerald-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-50",
-    cardBorder: "border-emerald-500/28",
-    cardGlow: "bg-emerald-500/10",
+    pill: "inline-block rounded-full border border-emerald-500/60 bg-emerald-950/35 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-300",
+    cardBorder: "border-emerald-500/55",
+    cardGlow: "bg-emerald-500/20",
+    cardAccent: "bg-gradient-to-b from-emerald-400/55 via-emerald-500/25 to-transparent",
+    cardDivider: "border-emerald-500/28",
+    cardShadow:
+      "shadow-[0_8px_40px_-16px_rgba(0,0,0,0.85),0_0_52px_-20px_rgba(52,211,153,0.28),inset_0_1px_0_rgba(255,255,255,0.06)]",
     evidenceTile:
-      "border-emerald-500/28 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_32px_-16px_rgba(52,211,153,0.2),inset_0_1px_0_rgba(255,255,255,0.06)]",
-    evidenceCount: "text-emerald-50",
-    evidenceLabel: "text-emerald-300/90",
+      "border-emerald-500/60 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_40px_-16px_rgba(52,211,153,0.28),inset_0_1px_0_rgba(255,255,255,0.06)]",
+    evidenceCount: "text-emerald-300",
+    evidenceLabel: "text-emerald-300",
   },
   told_the_truth: {
     key: "told_the_truth",
-    pill: "inline-block rounded-full border border-sky-500/45 bg-sky-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-50",
-    cardBorder: "border-sky-500/28",
-    cardGlow: "bg-sky-500/10",
+    pill: "inline-block rounded-full border border-sky-500/60 bg-sky-950/35 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-300",
+    cardBorder: "border-sky-500/55",
+    cardGlow: "bg-sky-500/20",
+    cardAccent: "bg-gradient-to-b from-sky-400/55 via-sky-500/25 to-transparent",
+    cardDivider: "border-sky-500/28",
+    cardShadow:
+      "shadow-[0_8px_40px_-16px_rgba(0,0,0,0.85),0_0_52px_-20px_rgba(56,189,248,0.26),inset_0_1px_0_rgba(255,255,255,0.06)]",
     evidenceTile:
-      "border-sky-500/28 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_32px_-16px_rgba(56,189,248,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]",
-    evidenceCount: "text-sky-50",
-    evidenceLabel: "text-sky-300/90",
+      "border-sky-500/60 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_40px_-16px_rgba(56,189,248,0.26),inset_0_1px_0_rgba(255,255,255,0.06)]",
+    evidenceCount: "text-sky-300",
+    evidenceLabel: "text-sky-300",
   },
   got_back_on_track: {
     key: "got_back_on_track",
-    pill: "inline-block rounded-full border border-orange-500/45 bg-orange-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-orange-50",
-    cardBorder: "border-orange-500/28",
-    cardGlow: "bg-orange-500/10",
+    pill: "inline-block rounded-full border border-orange-500/60 bg-orange-950/35 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-orange-300",
+    cardBorder: "border-orange-500/55",
+    cardGlow: "bg-orange-500/20",
+    cardAccent: "bg-gradient-to-b from-orange-400/55 via-orange-500/25 to-transparent",
+    cardDivider: "border-orange-500/28",
+    cardShadow:
+      "shadow-[0_8px_40px_-16px_rgba(0,0,0,0.85),0_0_52px_-20px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(255,255,255,0.06)]",
     evidenceTile:
-      "border-orange-500/28 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_32px_-16px_rgba(249,115,22,0.2),inset_0_1px_0_rgba(255,255,255,0.06)]",
-    evidenceCount: "text-orange-50",
-    evidenceLabel: "text-orange-300/90",
+      "border-orange-500/60 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_40px_-16px_rgba(249,115,22,0.28),inset_0_1px_0_rgba(255,255,255,0.06)]",
+    evidenceCount: "text-orange-300",
+    evidenceLabel: "text-orange-300",
   },
   adjusted_wisely: {
     key: "adjusted_wisely",
-    pill: "inline-block rounded-full border border-violet-500/45 bg-violet-500/12 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-violet-50",
-    cardBorder: "border-violet-500/28",
-    cardGlow: "bg-violet-500/10",
+    pill: "inline-block rounded-full border border-violet-500/60 bg-violet-950/35 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-violet-300",
+    cardBorder: "border-violet-500/55",
+    cardGlow: "bg-violet-500/20",
+    cardAccent: "bg-gradient-to-b from-violet-400/55 via-violet-500/25 to-transparent",
+    cardDivider: "border-violet-500/28",
+    cardShadow:
+      "shadow-[0_8px_40px_-16px_rgba(0,0,0,0.85),0_0_52px_-20px_rgba(167,139,250,0.26),inset_0_1px_0_rgba(255,255,255,0.06)]",
     evidenceTile:
-      "border-violet-500/28 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_32px_-16px_rgba(167,139,250,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]",
-    evidenceCount: "text-violet-50",
-    evidenceLabel: "text-violet-300/90",
+      "border-violet-500/60 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_40px_-16px_rgba(167,139,250,0.26),inset_0_1px_0_rgba(255,255,255,0.06)]",
+    evidenceCount: "text-violet-300",
+    evidenceLabel: "text-violet-300",
   },
   raised_the_bar: {
     key: "raised_the_bar",
-    pill: "inline-block rounded-full border border-amber-500/50 bg-amber-500/14 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-amber-50",
-    cardBorder: "border-amber-500/32",
-    cardGlow: "bg-amber-500/10",
+    pill: "inline-block rounded-full border border-amber-500/65 bg-amber-950/35 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-amber-300",
+    cardBorder: "border-amber-500/60",
+    cardGlow: "bg-amber-500/25",
+    cardAccent: "bg-gradient-to-b from-amber-400/55 via-amber-500/25 to-transparent",
+    cardDivider: "border-amber-500/30",
+    cardShadow:
+      "shadow-[0_8px_40px_-16px_rgba(0,0,0,0.85),0_0_52px_-20px_rgba(251,191,36,0.32),inset_0_1px_0_rgba(255,255,255,0.06)]",
     evidenceTile:
-      "border-amber-500/32 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_32px_-16px_rgba(251,191,36,0.22),inset_0_1px_0_rgba(255,255,255,0.06)]",
-    evidenceCount: "text-amber-50",
-    evidenceLabel: "text-amber-300/90",
+      "border-amber-500/65 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_40px_-16px_rgba(251,191,36,0.32),inset_0_1px_0_rgba(255,255,255,0.06)]",
+    evidenceCount: "text-amber-300",
+    evidenceLabel: "text-amber-300",
   },
   completed_season: {
     key: "completed_season",
-    pill: "inline-block rounded-full border border-stone-400/40 bg-stone-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-stone-50",
-    cardBorder: "border-stone-400/28",
-    cardGlow: "bg-stone-400/8",
+    pill: "inline-block rounded-full border border-stone-300/50 bg-stone-900/35 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-stone-100",
+    cardBorder: "border-stone-300/45",
+    cardGlow: "bg-stone-200/15",
+    cardAccent: "bg-gradient-to-b from-stone-300/45 via-stone-400/20 to-transparent",
+    cardDivider: "border-stone-300/25",
+    cardShadow:
+      "shadow-[0_8px_40px_-16px_rgba(0,0,0,0.85),0_0_52px_-20px_rgba(214,211,209,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]",
     evidenceTile:
-      "border-stone-400/28 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_32px_-16px_rgba(214,211,209,0.12),inset_0_1px_0_rgba(255,255,255,0.06)]",
-    evidenceCount: "text-stone-50",
-    evidenceLabel: "text-stone-300/90",
+      "border-stone-300/50 bg-gradient-to-b from-[#0c1018] to-[#070b12] shadow-[0_0_40px_-16px_rgba(214,211,209,0.18),inset_0_1px_0_rgba(255,255,255,0.06)]",
+    evidenceCount: "text-stone-100",
+    evidenceLabel: "text-stone-100",
   },
 };
 

@@ -35,7 +35,9 @@ describe("VictoryEvidenceSection", () => {
     expect(html).not.toContain("Told the truth");
     expect(html).toContain(">3<");
     expect(html).toContain(">1<");
-    expect(html).toContain("text-emerald-50");
-    expect(html).toContain("text-orange-50");
+    expect(html).toContain("text-emerald-300");
+    expect(html).toContain("text-orange-300");
+    expect(html).toContain("border-emerald-500/60");
+    expect(html).toContain("border-orange-500/60");
   });
 });

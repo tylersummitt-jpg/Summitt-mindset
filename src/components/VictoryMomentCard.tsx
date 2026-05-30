@@ -1,8 +1,7 @@
 import {
   getVictoryProofCategoryTone,
   vrAccentLink,
-  vrDivider,
-  vrMomentCard,
+  vrMomentCardBase,
 } from "@/components/victory-room-visual";
 
 type VictoryMomentCardProps = {
@@ -33,18 +32,26 @@ export function VictoryMomentCard({
   const quoteLine = quote?.trim() || null;
 
   return (
-    <article className={`${vrMomentCard} ${tone.cardBorder}`}>
+    <article className={`${vrMomentCardBase} ${tone.cardBorder} ${tone.cardShadow}`}>
       <div
-        className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-3xl ${tone.cardGlow}`}
+        className={`pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full blur-3xl ${tone.cardGlow}`}
+        aria-hidden
+      />
+      <div
+        className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl ${tone.cardGlow}`}
+        aria-hidden
+      />
+      <div
+        className={`pointer-events-none absolute inset-y-3 left-0 w-[2px] rounded-full ${tone.cardAccent}`}
         aria-hidden
       />
       <div className="relative flex flex-wrap items-center justify-between gap-2">
         {label ? <p className={tone.pill}>{label}</p> : null}
         {dateLabel ? (
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">{dateLabel}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-300">{dateLabel}</p>
         ) : null}
       </div>
-      <div className={`${vrDivider} my-4`} />
+      <div className={`border-t my-4 ${tone.cardDivider}`} />
       {quoteLine ? (
         <p className="relative text-lg leading-relaxed text-stone-50 sm:text-xl sm:leading-relaxed">
           &ldquo;{quoteLine}&rdquo;
@@ -61,7 +68,7 @@ export function VictoryMomentCard({
       ) : null}
       {momentId && onShareProof ? (
         <>
-          <div className={`${vrDivider} my-4`} />
+          <div className={`border-t my-4 ${tone.cardDivider}`} />
           <button
             type="button"
             onClick={() => onShareProof(momentId)}

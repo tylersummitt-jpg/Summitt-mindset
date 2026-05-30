@@ -2,8 +2,7 @@ import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import {
   getVictoryProofCategoryTone,
   vrEmptyState,
-  vrEvidenceTile,
-  vrLabel,
+  vrEvidenceTileBase,
 } from "@/components/victory-room-visual";
 import type { VictoryEvidenceCounts } from "@/lib/v2-victory-room-view";
 
@@ -57,14 +56,13 @@ export function VictoryEvidenceSection({ counts }: VictoryEvidenceSectionProps) 
           {tiles.map((t) => {
             const tone = getVictoryProofCategoryTone(t.label);
             return (
-              <li
-                key={t.label}
-                className={`${vrEvidenceTile} flex flex-col items-center justify-center rounded-2xl px-4 py-6 text-center sm:py-7 ${tone.evidenceTile}`}
-              >
-                <p className={`font-serif text-4xl font-semibold tabular-nums leading-none sm:text-5xl ${tone.evidenceCount}`}>
+              <li key={t.label} className={`${vrEvidenceTileBase} ${tone.evidenceTile}`}>
+                <p
+                  className={`font-serif text-4xl font-semibold tabular-nums leading-none sm:text-5xl ${tone.evidenceCount}`}
+                >
                   {t.count}
                 </p>
-                <p className={`${vrLabel} mt-3 normal-case tracking-normal ${tone.evidenceLabel}`}>{t.label}</p>
+                <p className={`mt-3 text-sm font-semibold tracking-wide ${tone.evidenceLabel}`}>{t.label}</p>
               </li>
             );
           })}
