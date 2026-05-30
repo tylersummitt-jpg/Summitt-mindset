@@ -1,4 +1,4 @@
-import { vrAccentLink, vrCategoryPill, vrDivider } from "@/components/victory-room-visual";
+import { vrAccentLink, vrCategoryPill, vrDivider, vrMomentCard } from "@/components/victory-room-visual";
 
 type VictoryMomentCardProps = {
   categoryLabel?: string;
@@ -21,15 +21,15 @@ export function VictoryMomentCard({
   const label = categoryLabel?.trim() || headline.trim();
 
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-br from-[#0c1018]/95 to-[#070b12]/95 px-5 py-5 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.05)] sm:px-6 sm:py-6">
+    <article className={vrMomentCard}>
       <div
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-500/8 blur-3xl"
+        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-500/10 blur-3xl"
         aria-hidden
       />
       <div className="relative flex flex-wrap items-center justify-between gap-2">
         {label ? <p className={vrCategoryPill}>{label}</p> : null}
         {dateLabel ? (
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">{dateLabel}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">{dateLabel}</p>
         ) : null}
       </div>
       <div className={`${vrDivider} my-4`} />

@@ -228,11 +228,19 @@ export function logInboundOutcomePersistAttempt(args: {
     idempotency_key: args.idempotencyKey ?? null,
   };
 
-  if ("persist" in args.result && args.result.persist === false) {
+  if ("persist" in args.result) {
+    if (!args.result.persist) {
+      console.info("[inbound-outcome-persist]", {
+        ...base,
+        outcome_persist_status: "skipped",
+        outcome_persist_skip_reason: args.result.skipReason,
+      });
+      return;
+    }
     console.info("[inbound-outcome-persist]", {
       ...base,
-      outcome_persist_status: "skipped",
-      outcome_persist_skip_reason: args.result.skipReason,
+      outcome_persist_status: "eligible",
+      override_gated_no_write: args.result.overrideGatedNoWrite,
     });
     return;
   }

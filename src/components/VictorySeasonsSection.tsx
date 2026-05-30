@@ -55,7 +55,7 @@ function SeasonCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-serif text-xl font-semibold text-stone-50 sm:text-2xl">{card.seasonName}</p>
-          <p className="mt-1.5 text-sm text-stone-500">
+          <p className="mt-1.5 text-sm text-stone-400">
             {formatSeasonRange(card.startedAt, card.endedAt, timeZone)}
           </p>
           {card.goalTitle ? (

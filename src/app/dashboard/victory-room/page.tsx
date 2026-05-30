@@ -16,6 +16,7 @@ import {
   vrHeroEyebrow,
   vrHeroFrame,
   vrHeroFrameGlow,
+  vrEvolutionNudge,
   vrPageGlow,
   vrPageInner,
   vrPageOuter,
@@ -113,7 +114,7 @@ export default async function VictoryRoomPage() {
     : null;
 
   return (
-    <div className={vrPageOuter}>
+    <div className={`victory-room-route-canvas ${vrPageOuter}`}>
       <div className={vrPageGlow} aria-hidden />
       <main className={vrPageInner}>
         {!view.hasActiveV2Commitment ? (
@@ -147,9 +148,9 @@ export default async function VictoryRoomPage() {
             </header>
 
             {evolutionNudge ? (
-              <section className="mb-10 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-[#101622]/95 to-[#0a0e16]/90 p-6 shadow-[0_0_40px_-12px_rgba(251,191,36,0.22)] sm:p-7">
+              <section className={vrEvolutionNudge}>
                 <h2 className="text-base font-semibold text-amber-100 sm:text-lg">{evolutionNudge.headline}</h2>
-                <p className="mt-3 text-base leading-relaxed text-stone-400">{evolutionNudge.body}</p>
+                <p className="mt-3 text-base leading-relaxed text-stone-300">{evolutionNudge.body}</p>
                 <Link href={evolutionNudge.href} className={`${vrAccentLink} mt-4 inline-block`}>
                   Review recommendation
                 </Link>

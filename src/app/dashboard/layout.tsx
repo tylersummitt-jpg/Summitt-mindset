@@ -1,13 +1,10 @@
 import { ReactNode } from "react";
-import Image from "next/image";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { DashboardBackgroundFrame } from "@/app/dashboard/DashboardBackgroundFrame";
 import { PendingResolutionBanner } from "@/app/dashboard/pending-resolution-banner";
 import { resolveActionablePendingResolutionKindForDashboard } from "@/lib/v2-dashboard-pending-resolution";
 import { getOnboardingSobStatus } from "@/lib/onboarding-sob-gates";
-
-const DASHBOARD_BG_MOBILE = "/brand/dashboard-bg-mobile.png";
-const DASHBOARD_BG_DESKTOP = "/brand/dashboard-bg-desktop.png";
 
 /**
  * ======================================================
@@ -67,38 +64,9 @@ export default async function DashboardLayout({
   const pendingKind = await resolveActionablePendingResolutionKindForDashboard(user.id);
 
   return (
-    <div className="relative isolate min-h-[calc(100dvh-8rem)] w-full min-w-0 overflow-x-hidden">
-      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-        <div className="absolute inset-0 md:hidden">
-          <Image
-            src={DASHBOARD_BG_MOBILE}
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover object-center"
-          />
-        </div>
-        <div className="absolute inset-0 hidden md:block">
-          <Image
-            src={DASHBOARD_BG_DESKTOP}
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover object-center"
-          />
-        </div>
-      </div>
-
-      {/* Subtle veil: slightly stronger on small screens if photography is busy */}
-      <div
-        className="pointer-events-none absolute inset-0 z-[1] bg-black/[0.08] md:bg-black/[0.05]"
-        aria-hidden
-      />
-
-      <div className="relative z-10">
-        {pendingKind ? <PendingResolutionBanner kind={pendingKind} /> : null}
-        {children}
-      </div>
-    </div>
+    <DashboardBackgroundFrame>
+      {pendingKind ? <PendingResolutionBanner kind={pendingKind} /> : null}
+      {children}
+    </DashboardBackgroundFrame>
   );
 }

@@ -42,7 +42,7 @@ export function VictoryRoomTopCard({
       subtitle="Who you are becoming and what Pat holds you to today."
       className={vrSectionCardFoundation}
     >
-      <div className={`${vrInnerPanel} mt-8 border-amber-500/30 bg-gradient-to-r from-amber-500/8 to-transparent`}>
+        <div className={`${vrInnerPanel} mt-8 border-amber-500/35 bg-gradient-to-r from-[#121820] to-[#0a0e16]`}>
         <p className={vrLabel}>Current season</p>
         {activeSeason?.season_name ? (
           <>
