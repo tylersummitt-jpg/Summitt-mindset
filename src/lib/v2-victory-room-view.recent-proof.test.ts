@@ -9,6 +9,8 @@ import {
   deriveMergedProofMomentsFromEventWindow,
   getRecentProofDedupeKey,
   inferRecentProofCategory,
+  normalizeProofTextForComparison,
+  sanitizeProofDisplayText,
   type VictoryMoment,
 } from "@/lib/v2-victory-room-view";
 
@@ -147,6 +149,100 @@ describe("blocker_captured proof derivation", () => {
       reactivationEnteredAt: null,
     });
     expect(merged).toHaveLength(0);
+  });
+});
+
+describe("proof display normalization (quote + meaning dedupe)", () => {
+  const visualTestLine = "[VISUAL TEST] I came back today and got the two hours done.";
+
+  it("quote and meaning identical => quote + deterministic meaning, not duplicate", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "dup-1",
+          event_type: "user_yes",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            proof_quote: visualTestLine,
+            proof_meaning_line: visualTestLine,
+            message: visualTestLine,
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.quote).toBe("I came back today and got the two hours done.");
+    expect(merged[0]!.meaning).toBe("You followed through when it counted.");
+    expect(merged[0]!.meaning).not.toContain("I came back today");
+  });
+
+  it("strips [VISUAL TEST] from quote display", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "vt-quote",
+          event_type: "user_yes",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            proof_quote: "[VISUAL TEST] yes",
+            proof_meaning_line: "You followed through when it counted.",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged[0]!.quote).toBe("yes");
+    expect(merged[0]!.quote).not.toContain("[VISUAL TEST]");
+  });
+
+  it("strips [VISUAL TEST] from meaning-only legacy display", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "vt-legacy",
+          event_type: "user_no",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            user_visible_proof_line: "[VISUAL TEST] Honest no still counts as showing up.",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged[0]!.quote).toBeNull();
+    expect(merged[0]!.meaning).toBe("Honest no still counts as showing up.");
+    expect(merged[0]!.meaning).not.toContain("[VISUAL TEST]");
+  });
+
+  it("treats prefixed quote and unprefixed meaning as duplicate after normalization", () => {
+    const core = "I came back today.";
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "vt-partial-dup",
+          event_type: "user_yes",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            message: `[VISUAL TEST] ${core}`,
+            proof_meaning_line: core,
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged[0]!.quote).toBe("I came back today.");
+    expect(merged[0]!.meaning).toBe("You followed through when it counted.");
+  });
+
+  it("normalizeProofTextForComparison strips test marker and trailing period", () => {
+    expect(normalizeProofTextForComparison("[VISUAL TEST] I did it.")).toBe("i did it");
+    expect(normalizeProofTextForComparison("I did it")).toBe("i did it");
+    expect(sanitizeProofDisplayText("[VISUAL TEST] I did it.")).toBe("I did it.");
   });
 });
 

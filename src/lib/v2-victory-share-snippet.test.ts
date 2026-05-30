@@ -69,5 +69,56 @@ describe("buildShareSnippetFromMoment (Phase 1 trust cleanup)", () => {
       expect(snippet!.plainText.toLowerCase()).not.toContain(term);
     }
   });
+
+  it("does not duplicate quote/meaning and omits [VISUAL TEST] scaffolding", () => {
+    const view: VictoryRoomViewForShare = {
+      hasActiveV2Commitment: true,
+      profile: { preferred_name: "Alex", identity_anchor_text: null },
+      commitment: { id: "c1", title: "Focus", behavior_statement: null },
+      activeSeason: null,
+      effectiveCoachingAsk: "Two focused hours daily.",
+      chapterRecord: {
+        openedAt: null,
+        firstProofAt: null,
+        latestProofAt: null,
+        proofCategoryLabels: [],
+        earlierSeasonCount: 0,
+      },
+      moments: [
+        {
+          id: "m-dup",
+          occurredAt: "2026-05-01T12:00:00Z",
+          headline: "Proof in the thread",
+          body: "You followed through when it counted.",
+          quote: "I came back today and got the two hours done.",
+          meaning: "You followed through when it counted.",
+          groundedInEventTypes: ["user_yes"],
+        },
+      ],
+      comebackLines: [],
+      isDayZeroUser: false,
+      hasSparseProof: false,
+      evidenceCounts: {
+        keptTheGoal: 1,
+        toldTheTruth: 0,
+        gotBackOnTrack: 0,
+        adjustedWisely: 0,
+        raisedTheBar: 0,
+        seasonsCompleted: 0,
+      },
+      pastSeasons: [],
+      optionalMemoryProjectionLine: null,
+      archiveMoments: [],
+      priorChapters: [],
+      cornerstoneMoments: [],
+    };
+
+    const snippet = buildShareSnippetFromMoment(view, "m-dup");
+    expect(snippet).not.toBeNull();
+    expect(snippet!.plainText).toContain('"I came back today and got the two hours done."');
+    expect(snippet!.plainText).toContain("You followed through when it counted.");
+    expect(snippet!.plainText).not.toContain("[VISUAL TEST]");
+    expect(snippet!.plainText.match(/I came back today and got the two hours done/g)?.length).toBe(1);
+  });
 });
 

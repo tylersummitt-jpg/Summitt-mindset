@@ -469,6 +469,123 @@ function proofBackedBody(payload: Record<string, unknown>, fallback: string): st
   return fallback;
 }
 
+const VISUAL_TEST_PREFIX = /^\[visual test\]\s*/i;
+const WRAP_QUOTES_RE = /^[\s"'""''«»]+|[\s"'""''«»]+$/g;
+
+/** Display-only: strip test scaffolding prefix from proof copy (does not mutate DB). */
+export function sanitizeProofDisplayText(text: string): string {
+  const collapsed = text.trim().replace(/\s+/g, " ");
+  if (!collapsed) return collapsed;
+  return collapsed.replace(VISUAL_TEST_PREFIX, "").trim();
+}
+
+/** Normalize quote vs meaning for duplicate detection (not for display). */
+export function normalizeProofTextForComparison(text: string): string {
+  let s = text.trim().toLowerCase();
+  s = s.replace(WRAP_QUOTES_RE, "");
+  s = s.replace(VISUAL_TEST_PREFIX, "");
+  s = s.replace(/\s+/g, " ").trim();
+  s = s.replace(/\.+$/, "");
+  return s;
+}
+
+function proofTextsAreDuplicate(quote: string, meaning: string): boolean {
+  const q = normalizeProofTextForComparison(quote);
+  const m = normalizeProofTextForComparison(meaning);
+  if (!q || !m) return false;
+  return q === m;
+}
+
+/** Category/event deterministic meaning when quote would duplicate meaning or meaning is missing. */
+export function deterministicMeaningForProofDisplay(args: {
+  groundedInEventTypes: string[];
+  headline: string;
+  proofMomentType?: string | null;
+  momentId?: string;
+}): string {
+  const pt = args.proofMomentType?.trim() ?? "";
+  const types = args.groundedInEventTypes;
+  const h = args.headline.trim();
+  const id = args.momentId?.trim() ?? "";
+
+  if (
+    id.startsWith("composite:reactivation_yes:") ||
+    h === "Comeback" ||
+    pt === "comeback_after_miss"
+  ) {
+    return "You came back after the miss.";
+  }
+  if (
+    id.startsWith("composite:honesty:") ||
+    (h === "Honesty" && (types.includes("user_no") || types.includes("user_partial")))
+  ) {
+    return "You told the truth instead of disappearing.";
+  }
+  if (types.includes("user_no") || h === "Honest miss" || pt === "honest_miss") {
+    return "You told the truth instead of disappearing.";
+  }
+  if (
+    types.includes("user_partial") ||
+    h === "Stayed engaged" ||
+    pt === "partial_but_stayed_engaged"
+  ) {
+    return "You stayed honest and adjusted wisely.";
+  }
+  if (types.includes("blocker_captured") || pt === "blocker_named") {
+    return "You stayed honest and adjusted wisely.";
+  }
+  if (h === "New chapter" || pt === "commitment_replaced") {
+    return "You named the next honest commitment.";
+  }
+  if (
+    h === "Bar adjusted" ||
+    h === "Honest adjustment" ||
+    pt === "commitment_tightened" ||
+    id.startsWith("merged:w12_2_tighten_display:")
+  ) {
+    return "You stayed honest and adjusted wisely.";
+  }
+  if (types.includes("user_yes") || h === "Kept your word" || h === "Proof in the thread") {
+    return "You followed through when it counted.";
+  }
+  if (pt === "meaningful_streak" || pt === "streak_continued" || pt === "followed_through") {
+    return "You followed through when it counted.";
+  }
+  if (pt === "first_completion") {
+    return "You followed through when it counted.";
+  }
+  return "You gave the check-in something honest to work with.";
+}
+
+function finalizeVictoryMomentProofDisplay(args: {
+  quote: string | null;
+  meaning: string;
+  groundedInEventTypes: string[];
+  headline: string;
+  proofMomentType?: string | null;
+  momentId?: string;
+}): Pick<VictoryMoment, "quote" | "meaning" | "body"> {
+  const quoteOut = args.quote ? sanitizeProofDisplayText(args.quote) : null;
+  let meaningOut = sanitizeProofDisplayText(args.meaning);
+
+  if (quoteOut) {
+    if (!meaningOut.trim() || proofTextsAreDuplicate(quoteOut, meaningOut)) {
+      meaningOut = deterministicMeaningForProofDisplay({
+        groundedInEventTypes: args.groundedInEventTypes,
+        headline: args.headline,
+        proofMomentType: args.proofMomentType,
+        momentId: args.momentId,
+      });
+    }
+  }
+
+  return {
+    quote: quoteOut,
+    meaning: meaningOut,
+    body: meaningOut,
+  };
+}
+
 function extractProofQuoteFromPayload(payload: Record<string, unknown>): string | null {
   if (typeof payload.proof_quote === "string" && payload.proof_quote.trim()) {
     return truncateOneLine(String(payload.proof_quote), 220);
@@ -491,15 +608,30 @@ function hasPersistedProofLine(payload: Record<string, unknown>): boolean {
 
 function victoryMomentDisplayFromPayload(
   payload: Record<string, unknown>,
-  fallbackMeaning: string
+  fallbackMeaning: string,
+  displayContext: {
+    groundedInEventTypes: string[];
+    headline: string;
+    momentId?: string;
+  }
 ): Pick<VictoryMoment, "quote" | "meaning" | "body"> {
   const quote = extractProofQuoteFromPayload(payload);
   const meaning = proofBackedBody(payload, fallbackMeaning);
-  return { quote, meaning, body: meaning };
+  const proofMomentType =
+    typeof payload.proof_moment_type === "string" ? payload.proof_moment_type : null;
+  return finalizeVictoryMomentProofDisplay({
+    quote,
+    meaning,
+    groundedInEventTypes: displayContext.groundedInEventTypes,
+    headline: displayContext.headline,
+    proofMomentType,
+    momentId: displayContext.momentId,
+  });
 }
 
 function withMeaningOnly(body: string): Pick<VictoryMoment, "quote" | "meaning" | "body"> {
-  return { quote: null, meaning: body, body };
+  const meaning = sanitizeProofDisplayText(body);
+  return { quote: null, meaning, body: meaning };
 }
 
 /** Wave 12.2 — display-only: pair shrink_ask overlay + supplemental tighten proof within this window. */
@@ -567,7 +699,11 @@ function dedupeTightenOverlayDisplayMoments(eventRows: EventRow[], moments: Vict
     pairedOverlay.add(o.id);
     pairedSms.add(best.id);
     const smsPayload = parsePayload(best);
-    const display = victoryMomentDisplayFromPayload(smsPayload, overlayActivatedCopy("shrink_ask").body);
+    const display = victoryMomentDisplayFromPayload(smsPayload, overlayActivatedCopy("shrink_ask").body, {
+      groundedInEventTypes: ["contract_overlay_activated", "sms_memory_signal"],
+      headline: "Honest adjustment",
+      momentId: `${MERGED_TIGHTEN_DISPLAY_ID_PREFIX}${o.id}:${best.id}`,
+    });
     const tOverlay = new Date(o.occurred_at).getTime();
     const tSms = new Date(best.occurred_at).getTime();
     const occurredAt =
@@ -602,11 +738,16 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
   for (const row of rows) {
     const payload = parsePayload(row);
     if (row.event_type === "user_yes") {
-      const display = victoryMomentDisplayFromPayload(payload, "You followed through when it counted.");
+      const headline = payload.proof_moment === true ? "Proof in the thread" : "Kept your word";
+      const display = victoryMomentDisplayFromPayload(payload, "You followed through when it counted.", {
+        groundedInEventTypes: ["user_yes"],
+        headline,
+        momentId: row.id,
+      });
       out.push({
         id: row.id,
         occurredAt: row.occurred_at,
-        headline: payload.proof_moment === true ? "Proof in the thread" : "Kept your word",
+        headline,
         ...display,
         groundedInEventTypes: ["user_yes"],
       });
@@ -614,15 +755,20 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
     }
     if (row.event_type === "user_no" || row.event_type === "user_partial") {
       if (hasPersistedProofLine(payload)) {
+        const headline = row.event_type === "user_no" ? "Honest miss" : "Stayed engaged";
         const fallback =
           row.event_type === "user_no"
             ? "You told the truth about the miss — that matters."
             : "You stayed in the conversation instead of disappearing.";
-        const display = victoryMomentDisplayFromPayload(payload, fallback);
+        const display = victoryMomentDisplayFromPayload(payload, fallback, {
+          groundedInEventTypes: [row.event_type],
+          headline,
+          momentId: row.id,
+        });
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
-          headline: row.event_type === "user_no" ? "Honest miss" : "Stayed engaged",
+          headline,
           ...display,
           groundedInEventTypes: [row.event_type],
         });
@@ -646,27 +792,34 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
         payload.wave11_memory_resolution === true &&
         hasPersistedProofLine(payload)
       ) {
+        const headline = "Coaching context updated";
         const display = victoryMomentDisplayFromPayload(
           payload,
-          "You gave the check-in something honest to work with."
+          "You gave the check-in something honest to work with.",
+          { groundedInEventTypes: ["sms_memory_signal"], headline, momentId: row.id }
         );
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
-          headline: "Coaching context updated",
+          headline,
           ...display,
           groundedInEventTypes: ["sms_memory_signal"],
         });
       } else if (wave12CommitProof && hasPersistedProofLine(payload)) {
+        const headline = proofTy === "commitment_replaced" ? "New chapter" : "Bar adjusted";
         const fallback =
           proofTy === "commitment_replaced"
             ? "You named the next honest commitment."
             : "You adjusted the bar with honesty instead of quitting.";
-        const display = victoryMomentDisplayFromPayload(payload, fallback);
+        const display = victoryMomentDisplayFromPayload(payload, fallback, {
+          groundedInEventTypes: ["sms_memory_signal"],
+          headline,
+          momentId: row.id,
+        });
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
-          headline: proofTy === "commitment_replaced" ? "New chapter" : "Bar adjusted",
+          headline,
           ...display,
           groundedInEventTypes: ["sms_memory_signal"],
         });
@@ -686,14 +839,16 @@ function buildSingleEventMoments(rows: EventRow[]): VictoryMoment[] {
     }
     if (row.event_type === "blocker_captured") {
       if (hasPersistedProofLine(payload)) {
+        const headline = "Honesty";
         const display = victoryMomentDisplayFromPayload(
           payload,
-          "You named what got in the way so we can work it."
+          "You named what got in the way so we can work it.",
+          { groundedInEventTypes: ["blocker_captured"], headline, momentId: row.id }
         );
         out.push({
           id: row.id,
           occurredAt: row.occurred_at,
-          headline: "Honesty",
+          headline,
           ...display,
           groundedInEventTypes: ["blocker_captured"],
         });
@@ -951,14 +1106,16 @@ function buildArchiveMomentsFromEvents(
   const yesCandidates = rowsAsc.filter((r) => r.event_type === "user_yes" && !excludeYesIds.has(r.id));
   const yesSampled = sampleEventRowsEvenly(yesCandidates, maxStandaloneYes);
   const yesMoments: VictoryMoment[] = yesSampled.map((row) => {
+    const headline = "Kept your word";
     const display = victoryMomentDisplayFromPayload(
       parsePayload(row),
-      "You followed through when it counted."
+      "You followed through when it counted.",
+      { groundedInEventTypes: ["user_yes"], headline, momentId: row.id }
     );
     return {
       id: row.id,
       occurredAt: row.occurred_at,
-      headline: "Kept your word",
+      headline,
       ...display,
       groundedInEventTypes: ["user_yes"],
     };

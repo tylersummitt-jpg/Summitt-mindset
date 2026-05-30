@@ -58,4 +58,23 @@ describe("VictoryMomentCard (Phase 1 trust cleanup)", () => {
     expect(html).not.toContain("&ldquo;");
     expect(html).toContain("Honest no still counts as showing up.");
   });
+
+  it("does not render duplicate quote and meaning text", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryMomentCard, {
+        categoryLabel: "Kept the goal",
+        headline: "Proof in the thread",
+        body: "You followed through when it counted.",
+        quote: "I came back today and got the two hours done.",
+        meaning: "You followed through when it counted.",
+        dateLabel: "May 4, 2026",
+        groundedInEventTypes: ["user_yes"],
+      })
+    );
+
+    expect(html).toContain("I came back today and got the two hours done.");
+    expect(html).toContain("You followed through when it counted.");
+    expect(html.match(/I came back today and got the two hours done\./g)?.length).toBe(1);
+    expect(html).not.toContain("[VISUAL TEST]");
+  });
 });
