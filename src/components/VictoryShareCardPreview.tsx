@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { VictoryCardShareLayout } from "@/components/VictoryCardShareLayout";
 import { VictoryProofExportFrame } from "@/components/VictoryProofExportFrame";
 import { downloadVictoryProofPng } from "@/lib/victory-proof-export-image";
 import type { VictoryShareSnippet } from "@/lib/v2-victory-share-snippet";
@@ -57,9 +58,9 @@ export function VictoryShareCardPreview({ snippet, onClose }: VictoryShareCardPr
     setExportError(null);
     try {
       await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       });
-      const result = await downloadVictoryProofPng(el, "victory-proof.png");
+      const result = await downloadVictoryProofPng(el, "victory-card.png");
       if (!result.ok) {
         setExportError(result.message);
       }
@@ -72,71 +73,63 @@ export function VictoryShareCardPreview({ snippet, onClose }: VictoryShareCardPr
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="victory-share-title"
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#0e131d] to-[#0a0e16] shadow-[0_24px_80px_-24px_rgba(0,0,0,0.9)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
-          <h2 id="victory-share-title" className="text-sm font-semibold text-gray-900">
-            Proof to share
+        <div className="flex items-start justify-between gap-3 border-b border-amber-500/20 px-4 py-3 sm:px-5">
+          <h2 id="victory-share-title" className="font-serif text-base font-semibold text-stone-50 sm:text-lg">
+            Share your Victory Card
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+            className="rounded-md px-2 py-1 text-sm text-stone-400 transition hover:bg-white/5 hover:text-stone-200"
           >
             Close
           </button>
         </div>
 
-        <div className="border-l-4 border-l-stone-500 bg-stone-50/90 px-4 py-4">
-          <p className="text-base font-medium text-gray-900">{snippet.title}</p>
-          {snippet.identityLine ? (
-            <p className="mt-1 text-sm leading-relaxed text-gray-700">{snippet.identityLine}</p>
-          ) : null}
-          <p className="mt-4 text-base leading-relaxed text-gray-900">{snippet.body}</p>
-          {snippet.barLine ? (
-            <p className="mt-4 text-sm leading-relaxed text-gray-600">{snippet.barLine}</p>
-          ) : null}
-          <p className="mt-4 text-xs text-gray-500">{snippet.attribution}</p>
+        <div className="px-4 py-4 sm:px-5">
+          <VictoryCardShareLayout snippet={snippet} variant="preview" />
         </div>
 
-        <p className="px-4 pb-2 text-[11px] leading-snug text-gray-500">
-          You&apos;re copying what you chose from your private Victory Room. Nothing posts automatically.
+        <p className="px-4 pb-2 text-[11px] leading-snug text-stone-400 sm:px-5">
+          You choose what to copy or save. Nothing posts from Summitt.
         </p>
 
-        <div className="flex flex-col gap-2 border-t border-gray-100 px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="flex flex-col gap-2 border-t border-amber-500/20 px-4 py-3 sm:flex-row sm:flex-wrap sm:justify-end sm:px-5">
           <button
             type="button"
             onClick={handleCopy}
             disabled={exportLoading}
-            className="rounded-lg bg-[var(--brand)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-100 disabled:hover:opacity-100"
+            className="rounded-lg bg-[var(--brand)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[#0a0e16] disabled:cursor-not-allowed disabled:bg-stone-600 disabled:opacity-100"
           >
-            Copy to clipboard
+            Copy caption
           </button>
           <button
             type="button"
             onClick={handleDownloadImage}
             disabled={exportLoading}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
           >
-            {exportLoading ? "Preparing image…" : "Download image"}
+            {exportLoading ? "Preparing image…" : "Save image"}
           </button>
           {copyState === "copied" ? (
-            <p className="self-center text-sm text-green-700">Copied.</p>
+            <p className="self-center text-sm text-emerald-400">Copied.</p>
           ) : null}
           {copyState === "error" ? (
-            <p className="self-center text-sm text-amber-800">
-              Couldn&apos;t copy automatically — select the text in the card above and copy manually.
+            <p className="self-center text-sm text-amber-200">
+              Couldn&apos;t copy automatically — select the caption above and copy manually.
             </p>
           ) : null}
-          {exportError ? <p className="w-full text-sm text-amber-800">{exportError}</p> : null}
+          {exportError ? <p className="w-full text-sm text-amber-200">{exportError}</p> : null}
         </div>
 
         <VictoryProofExportFrame ref={exportRef} snippet={snippet} />

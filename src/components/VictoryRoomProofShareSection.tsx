@@ -26,8 +26,12 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
 
   const snippet = useMemo(() => {
     if (!openMomentId) return null;
-    return buildShareSnippetFromMoment(viewForShare, openMomentId);
-  }, [viewForShare, openMomentId]);
+    const row = moments.find((m) => m.id === openMomentId);
+    return buildShareSnippetFromMoment(viewForShare, openMomentId, {
+      categoryLabel: row?.categoryLabel,
+      dateLabel: row?.dateLabel,
+    });
+  }, [viewForShare, openMomentId, moments]);
 
   const handleShareClick = useCallback((momentId: string) => {
     setOpenMomentId(momentId);
@@ -42,7 +46,7 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
   return (
     <>
       <ul className="mt-8 space-y-4">
-        {moments.map((m, idx) => (
+        {moments.map((m) => (
           <li key={m.id}>
             <VictoryMomentCard
               categoryLabel={m.categoryLabel}
@@ -52,8 +56,8 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
               meaning={m.meaning}
               dateLabel={m.dateLabel}
               groundedInEventTypes={m.groundedInEventTypes}
-              momentId={idx === 0 ? m.id : undefined}
-              onShareProof={idx === 0 ? handleShareClick : undefined}
+              momentId={m.id}
+              onShareProof={handleShareClick}
             />
           </li>
         ))}

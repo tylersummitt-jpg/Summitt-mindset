@@ -59,6 +59,26 @@ describe("VictoryMomentCard (Phase 1 trust cleanup)", () => {
     expect(html).toContain("Honest no still counts as showing up.");
   });
 
+  it("renders subtle accessible Share affordance when share handler is provided", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryMomentCard, {
+        categoryLabel: "Kept the goal",
+        headline: "Proof in the thread",
+        body: "You followed through when it counted.",
+        quote: "I came back today.",
+        meaning: "You followed through when it counted.",
+        dateLabel: "May 4, 2026",
+        groundedInEventTypes: ["user_yes"],
+        momentId: "m-share",
+        onShareProof: () => {},
+      })
+    );
+
+    expect(html).toContain(">Share<");
+    expect(html).toContain('aria-label="Share this Victory Card"');
+    expect(html).not.toContain("Share this proof");
+  });
+
   it("does not render duplicate quote and meaning text", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryMomentCard, {

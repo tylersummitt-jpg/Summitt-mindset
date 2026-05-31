@@ -1,8 +1,4 @@
-import {
-  getVictoryProofCategoryTone,
-  vrAccentLink,
-  vrMomentCardBase,
-} from "@/components/victory-room-visual";
+import { getVictoryProofCategoryTone, vrMomentCardBase } from "@/components/victory-room-visual";
 
 type VictoryMomentCardProps = {
   categoryLabel?: string;
@@ -47,9 +43,21 @@ export function VictoryMomentCard({
       />
       <div className="relative flex flex-wrap items-center justify-between gap-2">
         {label ? <p className={tone.pill}>{label}</p> : null}
-        {dateLabel ? (
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-300">{dateLabel}</p>
-        ) : null}
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          {dateLabel ? (
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-300">{dateLabel}</p>
+          ) : null}
+          {momentId && onShareProof ? (
+            <button
+              type="button"
+              onClick={() => onShareProof(momentId)}
+              aria-label="Share this Victory Card"
+              className="text-xs font-medium text-amber-300/75 underline decoration-amber-500/35 underline-offset-2 transition hover:text-amber-200 hover:decoration-amber-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0c1018]"
+            >
+              Share
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className={`border-t my-4 ${tone.cardDivider}`} />
       {quoteLine ? (
@@ -65,18 +73,6 @@ export function VictoryMomentCard({
         >
           {meaningLine}
         </p>
-      ) : null}
-      {momentId && onShareProof ? (
-        <>
-          <div className={`border-t my-4 ${tone.cardDivider}`} />
-          <button
-            type="button"
-            onClick={() => onShareProof(momentId)}
-            className={`${vrAccentLink} bg-transparent p-0 text-sm`}
-          >
-            Share this proof
-          </button>
-        </>
       ) : null}
     </article>
   );

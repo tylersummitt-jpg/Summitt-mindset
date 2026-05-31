@@ -25,7 +25,7 @@ export async function downloadVictoryProofPng(
       height: VICTORY_PROOF_EXPORT_HEIGHT,
       pixelRatio: 2,
       cacheBust: true,
-      backgroundColor: "#fafaf9",
+      backgroundColor: "#0a0e16",
       style: {
         transform: "none",
       },

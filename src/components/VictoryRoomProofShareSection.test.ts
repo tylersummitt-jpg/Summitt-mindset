@@ -4,14 +4,15 @@ import { describe, expect, it } from "vitest";
 
 import { VictoryRoomProofShareSection } from "@/components/VictoryRoomProofShareSection";
 
-describe("VictoryRoomProofShareSection (Phase 5 share CTA)", () => {
-  it("renders only one share CTA on the first card", () => {
+describe("VictoryRoomProofShareSection (Victory Card V1)", () => {
+  it("renders a subtle Share affordance on every Recent Proof card", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRoomProofShareSection, {
         viewForShare: {
           hasActiveV2Commitment: true,
           profile: { preferred_name: "Brooke", identity_anchor_text: null },
-          commitment: { id: "c1", title: "Morning writing" },
+          commitment: { id: "c1", title: "Morning writing", behavior_statement: null },
+          activeSeason: null,
           effectiveCoachingAsk: "Write 20 minutes before noon.",
           chapterRecord: {
             openedAt: null,
@@ -22,6 +23,17 @@ describe("VictoryRoomProofShareSection (Phase 5 share CTA)", () => {
           },
           moments: [],
           comebackLines: [],
+          isDayZeroUser: false,
+          hasSparseProof: false,
+          evidenceCounts: {
+            keptTheGoal: 0,
+            toldTheTruth: 0,
+            gotBackOnTrack: 0,
+            adjustedWisely: 0,
+            raisedTheBar: 0,
+            seasonsCompleted: 0,
+          },
+          pastSeasons: [],
           optionalMemoryProjectionLine: null,
           archiveMoments: [],
           priorChapters: [],
@@ -57,16 +69,8 @@ describe("VictoryRoomProofShareSection (Phase 5 share CTA)", () => {
       })
     );
 
-    // Only one share CTA should appear in the list.
-    expect(html.match(/Share this proof/g)?.length ?? 0).toBe(1);
-
-    // The first card should include the share CTA; later cards should not.
-    const firstIndex = html.indexOf("You got honest and stayed in it.");
-    const shareIndex = html.indexOf("Share this proof");
-    const secondIndex = html.indexOf("You stayed engaged instead of disappearing.");
-    expect(firstIndex).toBeGreaterThanOrEqual(0);
-    expect(shareIndex).toBeGreaterThan(firstIndex);
-    expect(secondIndex).toBeGreaterThan(shareIndex);
+    expect(html.match(/>Share</g)?.length ?? 0).toBe(3);
+    expect(html.match(/Share this Victory Card/g)?.length ?? 0).toBe(3);
+    expect(html).not.toContain("Share this proof");
   });
 });
-
