@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VictoryCardShareLayout } from "@/components/VictoryCardShareLayout";
-import { VictoryProofExportFrame } from "@/components/VictoryProofExportFrame";
 import { downloadVictoryProofPng } from "@/lib/victory-proof-export-image";
 import type { VictoryShareSnippet } from "@/lib/v2-victory-share-snippet";
 
@@ -12,7 +11,7 @@ type VictoryShareCardPreviewProps = {
 };
 
 export function VictoryShareCardPreview({ snippet, onClose }: VictoryShareCardPreviewProps) {
-  const exportRef = useRef<HTMLDivElement>(null);
+  const captureRef = useRef<HTMLDivElement>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -49,7 +48,7 @@ export function VictoryShareCardPreview({ snippet, onClose }: VictoryShareCardPr
   }, [snippet.plainText]);
 
   const handleDownloadImage = useCallback(async () => {
-    const el = exportRef.current;
+    const el = captureRef.current;
     if (!el) {
       setExportError("Export is not ready. Try again in a moment.");
       return;
@@ -97,7 +96,9 @@ export function VictoryShareCardPreview({ snippet, onClose }: VictoryShareCardPr
         </div>
 
         <div className="px-4 py-4 sm:px-5">
-          <VictoryCardShareLayout snippet={snippet} variant="preview" />
+          <div ref={captureRef} data-victory-card-capture>
+            <VictoryCardShareLayout snippet={snippet} />
+          </div>
         </div>
 
         <p className="px-4 pb-2 text-[11px] leading-snug text-stone-400 sm:px-5">
@@ -131,8 +132,6 @@ export function VictoryShareCardPreview({ snippet, onClose }: VictoryShareCardPr
           ) : null}
           {exportError ? <p className="w-full text-sm text-amber-200">{exportError}</p> : null}
         </div>
-
-        <VictoryProofExportFrame ref={exportRef} snippet={snippet} />
       </div>
     </div>
   );

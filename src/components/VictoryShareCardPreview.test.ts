@@ -39,5 +39,8 @@ describe("VictoryShareCardPreview", () => {
     expect(html).not.toContain("Copy to clipboard");
     expect(html).not.toContain("Download image");
     expect(html).not.toContain("identity_anchor");
+    expect(html).toContain("data-victory-card-capture");
+    expect(html).not.toContain("victory-proof-export-root");
+    expect(html).not.toContain("opacity:0");
   });
 });

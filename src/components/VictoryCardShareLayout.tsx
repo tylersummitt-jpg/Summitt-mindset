@@ -1,139 +1,14 @@
 import { getVictoryProofCategoryTone } from "@/components/victory-room-visual";
 import type { VictoryShareSnippet } from "@/lib/v2-victory-share-snippet";
 
-export type VictoryCardShareLayoutVariant = "preview" | "export";
-
 type VictoryCardShareLayoutProps = {
   snippet: VictoryShareSnippet;
-  variant: VictoryCardShareLayoutVariant;
 };
 
-const exportFontSerif =
-  'ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif';
-const exportFontSans =
-  'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-
-/** Shared Victory Card layout for modal preview and PNG export. */
-export function VictoryCardShareLayout({ snippet, variant }: VictoryCardShareLayoutProps) {
+/** Victory Card layout for modal preview and PNG capture (same visible tree). */
+export function VictoryCardShareLayout({ snippet }: VictoryCardShareLayoutProps) {
   const tone = getVictoryProofCategoryTone(snippet.categoryLabel);
   const quoteLine = snippet.quote?.trim() || null;
-
-  if (variant === "export") {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          boxSizing: "border-box",
-          padding: "72px 64px 56px",
-          background: "linear-gradient(160deg, #0e131d 0%, #0a0e16 55%, #070b12 100%)",
-          fontFamily: exportFontSans,
-          color: "#e7e5e4",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16 }}>
-          <span
-            style={{
-              display: "inline-block",
-              borderRadius: 9999,
-              border: "1px solid rgba(251, 191, 36, 0.45)",
-              backgroundColor: "rgba(245, 158, 11, 0.12)",
-              padding: "8px 16px",
-              fontSize: 18,
-              fontWeight: 600,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "#fef3c7",
-            }}
-          >
-            {snippet.categoryLabel}
-          </span>
-          {snippet.dateLabel ? (
-            <span
-              style={{
-                marginLeft: "auto",
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                color: "#a8a29e",
-              }}
-            >
-              {snippet.dateLabel}
-            </span>
-          ) : null}
-        </div>
-
-        <div
-          style={{
-            marginTop: 32,
-            marginBottom: 32,
-            height: 1,
-            backgroundColor: "rgba(251, 191, 36, 0.22)",
-          }}
-        />
-
-        <div style={{ flex: 1, minHeight: 24, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          {quoteLine ? (
-            <p
-              style={{
-                margin: 0,
-                fontFamily: exportFontSerif,
-                fontSize: 42,
-                fontWeight: 500,
-                lineHeight: 1.35,
-                color: "#fafaf9",
-                overflow: "hidden",
-              }}
-            >
-              &ldquo;{quoteLine}&rdquo;
-            </p>
-          ) : null}
-          <p
-            style={{
-              margin: quoteLine ? "28px 0 0" : 0,
-              fontFamily: exportFontSerif,
-              fontSize: quoteLine ? 32 : 42,
-              fontWeight: 500,
-              lineHeight: 1.4,
-              color: quoteLine ? "#a8a29e" : "#fafaf9",
-              overflow: "hidden",
-            }}
-          >
-            {snippet.meaning}
-          </p>
-        </div>
-
-        <div style={{ marginTop: "auto", paddingTop: 40 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: "0.02em",
-              color: "#fcd34d",
-            }}
-          >
-            {snippet.brandLine} · {snippet.brandUrl}
-          </p>
-          <p
-            style={{
-              margin: "12px 0 0",
-              fontSize: 18,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "#78716c",
-            }}
-          >
-            {snippet.tagline}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div

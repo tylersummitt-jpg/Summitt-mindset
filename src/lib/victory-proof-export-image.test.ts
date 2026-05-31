@@ -1,21 +1,76 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const toPngMock = vi.fn();
+const html2canvasMock = vi.fn();
 
-vi.mock("html-to-image", () => ({
-  toPng: (...args: unknown[]) => toPngMock(...args),
+vi.mock("html2canvas", () => ({
+  default: (...args: unknown[]) => html2canvasMock(...args),
 }));
 
 import {
   downloadVictoryProofPng,
-  VICTORY_PROOF_EXPORT_HEIGHT,
+  getVictoryCardCaptureUnsafeFlags,
   VICTORY_PROOF_EXPORT_WIDTH,
 } from "@/lib/victory-proof-export-image";
 
+describe("getVictoryCardCaptureUnsafeFlags", () => {
+  it("flags opacity zero, visibility hidden, display none, and negative z-index", () => {
+    expect(getVictoryCardCaptureUnsafeFlags(null)).toEqual(["missing-node"]);
+
+    expect(
+      getVictoryCardCaptureUnsafeFlags({} as HTMLElement, () => ({
+        display: "none",
+        visibility: "visible",
+        opacity: "1",
+        zIndex: "0",
+      } as CSSStyleDeclaration))
+    ).toContain("display-none");
+
+    expect(
+      getVictoryCardCaptureUnsafeFlags({} as HTMLElement, () => ({
+        display: "block",
+        visibility: "hidden",
+        opacity: "1",
+        zIndex: "0",
+      } as CSSStyleDeclaration))
+    ).toContain("visibility-hidden");
+
+    expect(
+      getVictoryCardCaptureUnsafeFlags({} as HTMLElement, () => ({
+        display: "block",
+        visibility: "visible",
+        opacity: "0",
+        zIndex: "0",
+      } as CSSStyleDeclaration))
+    ).toContain("opacity-zero");
+
+    expect(
+      getVictoryCardCaptureUnsafeFlags({} as HTMLElement, () => ({
+        display: "block",
+        visibility: "visible",
+        opacity: "1",
+        zIndex: "-1",
+      } as CSSStyleDeclaration))
+    ).toContain("negative-z-index");
+  });
+
+  it("returns no flags for an export-safe capture target", () => {
+    expect(
+      getVictoryCardCaptureUnsafeFlags({} as HTMLElement, () => ({
+        display: "block",
+        visibility: "visible",
+        opacity: "1",
+        zIndex: "auto",
+      } as CSSStyleDeclaration))
+    ).toEqual([]);
+  });
+});
+
 describe("downloadVictoryProofPng", () => {
   beforeEach(() => {
-    toPngMock.mockReset();
-    toPngMock.mockResolvedValue("data:image/png;base64,AAAA");
+    html2canvasMock.mockReset();
+    html2canvasMock.mockResolvedValue({
+      toDataURL: () => "data:image/png;base64,BBBB",
+    });
 
     const anchor = {
       href: "",
@@ -28,45 +83,30 @@ describe("downloadVictoryProofPng", () => {
       createElement: vi.fn(() => anchor),
       body: { appendChild: vi.fn() },
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        blob: () => Promise.resolve(new Blob(["x"], { type: "image/png" })),
-      })
-    );
-    vi.stubGlobal("URL", {
-      createObjectURL: vi.fn(() => "blob:test"),
-      revokeObjectURL: vi.fn(),
-    });
-    vi.stubGlobal("window", {
-      setTimeout: (fn: () => void) => {
-        fn();
-        return 0;
-      },
-    });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("passes opacity 1 on the cloned export root to html-to-image toPng", async () => {
-    const node = {} as HTMLElement;
+  it("uses html2canvas on a visible capture node with dark background", async () => {
+    const node = {
+      offsetWidth: 360,
+      clientWidth: 360,
+    } as HTMLElement;
 
     const result = await downloadVictoryProofPng(node, "victory-card.png");
 
     expect(result).toEqual({ ok: true });
-    expect(toPngMock).toHaveBeenCalledTimes(1);
+    expect(html2canvasMock).toHaveBeenCalledTimes(1);
 
-    const [, options] = toPngMock.mock.calls[0] as [HTMLElement, Record<string, unknown>];
-    expect(options.width).toBe(VICTORY_PROOF_EXPORT_WIDTH);
-    expect(options.height).toBe(VICTORY_PROOF_EXPORT_HEIGHT);
-    expect(options.pixelRatio).toBe(2);
-    expect(options.cacheBust).toBe(true);
+    const [target, options] = html2canvasMock.mock.calls[0] as [HTMLElement, Record<string, unknown>];
+    expect(target).toBe(node);
     expect(options.backgroundColor).toBe("#0a0e16");
-    expect(options.style).toEqual({
-      transform: "none",
-      opacity: "1",
-    });
+    expect(options.useCORS).toBe(true);
+    expect(options.scale).toBeGreaterThanOrEqual(2);
+    expect(options.scale).toBeLessThanOrEqual(4);
+    expect(Math.round(360 * (options.scale as number))).toBeGreaterThanOrEqual(VICTORY_PROOF_EXPORT_WIDTH);
   });
+
 });
