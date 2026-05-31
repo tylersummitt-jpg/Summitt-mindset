@@ -126,6 +126,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
     );
     expect(packet.recent_exact_messages.some((m) => m.speaker === "coach" && m.is_exact_body)).toBe(true);
     expect(packet.recent_exact_thread_72h.window_hours).toBe(72);
+    expect(packet.relationship_memory_7d.window_days).toBe(7);
   });
 
   it("prefers full sms_send_events.sms_body over check_sent body_preview", async () => {
@@ -477,6 +478,28 @@ function makeRbMemoryPacket(): SmsRelationshipMemoryPacket {
     ],
     recent_exact_thread_text:
       "Coach: What story will you dictate today?\nUser: Sunday School, farm, songs Mother sang\nUser: I already told you",
+    recent_exact_thread_72h: {
+      messages: [],
+      window_hours: 72,
+      message_count: 0,
+      had_preview_messages: false,
+      had_system_no_send: false,
+    },
+    relationship_memory_7d: {
+      window_days: 7,
+      built_at: NOW.toISOString(),
+      outcome_counts: { yes: 0, no: 0, partial: 0, blockers: 0, checks_sent: 0 },
+      wins: [],
+      misses: [],
+      partials: [],
+      comebacks: [],
+      blockers: [],
+      proof_moments: [],
+      open_loops: [],
+      direct_answer_history: [],
+      context_flags: {},
+      meta: { item_count: 0, sources_used: [] },
+    },
     last_outbound_full_body: "What story will you dictate today?",
     last_inbound_full_body: "I already told you",
     last_substantive_user_message: "Sunday School, farm, songs Mother sang",
@@ -500,7 +523,9 @@ function makeRbMemoryPacket(): SmsRelationshipMemoryPacket {
     latest_answer_after_open_question_guess: "Sunday School, farm, songs Mother sang",
     latest_open_question: "What story will you dictate today?",
     latest_answer_after_open_question: "Sunday School, farm, songs Mother sang",
+    open_question_answered_at: null,
     open_question_pending: false,
+    open_question_expected_answer_type: null,
     open_question_source: "runtime_guess",
     answer_source: "runtime_guess",
     do_not_repeat_phrases: [{ kind: "prior_coach_question", phrase: "What story will you dictate today?" }],

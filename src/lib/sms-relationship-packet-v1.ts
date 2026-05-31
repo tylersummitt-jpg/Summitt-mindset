@@ -1,5 +1,5 @@
 /**
- * Relationship Packet v1.6 — ordered, budgeted OpenAI context with 72h exact thread.
+ * Relationship Packet v1.7 — ordered, budgeted OpenAI context with 72h exact thread + 7d memory.
  * Server-owned packing only; no DB writes, no hard-coded SMS.
  */
 
@@ -8,8 +8,15 @@ import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-l
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
+import {
+  countRelationshipMemory7dItems,
+  DEFAULT_MEMORY_7D_SECTION_CHAR_BUDGET,
+  RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
+  trimRelationshipMemory7dData,
+  type RelationshipMemory7dData,
+} from "@/lib/sms-relationship-memory-7d";
 
-export const RELATIONSHIP_PACKET_VERSION = "1.6" as const;
+export const RELATIONSHIP_PACKET_VERSION = "1.7" as const;
 export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_000;
 
 export type RelationshipPacketLane = "inbound" | "daily";
@@ -123,19 +130,7 @@ export type RelationshipPacketProofVictoryPermission = {
   proof_saved?: boolean | null;
 };
 
-export type RelationshipPacketMemory7d = {
-  yes_count_14d?: number | null;
-  no_count_14d?: number | null;
-  partial_count_14d?: number | null;
-  yes_streak_14d?: number | null;
-  blocker_preview?: string | null;
-  silence_tier?: string | null;
-  unanswered_checks?: number | null;
-  days_since_last_user_outcome?: number | null;
-  pending_plan_proof_active?: boolean | null;
-  reentry_active?: boolean | null;
-  recent_outcomes_summary?: Record<string, unknown> | null;
-};
+export type RelationshipPacketMemory7d = RelationshipMemory7dData;
 
 export type RelationshipPacketMemory30dOrSeason = {
   coaching_memory_excerpt?: string | null;
@@ -183,6 +178,9 @@ export type RelationshipPacketMeta = {
   included_thread_newest_at: string | null;
   had_preview_messages: boolean;
   had_system_no_send: boolean;
+  included_memory_7d_window_days: number | null;
+  included_memory_7d_item_count: number | null;
+  relationship_memory_7d_truncated: boolean;
   total_chars: number;
   budget_chars: number;
 };
@@ -198,6 +196,8 @@ export function buildRelationshipPacketPromptGuidance(): string {
 RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats stale summaries):
 - authoritative_current and structured_recent_truth beat background_summary and low_authority_hint on conflict.
 - authoritative_recent_thread (recent_exact_thread_72h) beats relationship_memory_7d and relationship_memory_30d_or_season on conflict.
+- relationship_memory_7d is structured_background for weekly continuity only — never proof of today's completion or current open question state.
+- Never invent patterns beyond listed relationship_memory_7d evidence items.
 - background_summary and low_authority_hint must NEVER override recent exact thread or canonical_state.
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
@@ -486,30 +486,29 @@ function buildProofVictoryDaily(f: DailyV3RelationshipFacts): RelationshipPacket
   };
 }
 
-function buildMemory7dInbound(_f: InboundV3RelationshipFacts): RelationshipPacketMemory7d {
-  const f = _f;
-  return {
-    blocker_preview: null,
-    recent_outcomes_summary: {
-      proof_signal: f.v2_accountability.proof_signal,
-      miss_signal: f.v2_accountability.miss_signal,
-      blocker_signal: f.v2_accountability.blocker_signal,
-      today_completed: f.v2_accountability.today_completed,
-    },
-  };
+function resolveMemory7dInbound(f: InboundV3RelationshipFacts): RelationshipPacketMemory7d | null {
+  const raw = f.thread.memory_packet?.relationship_memory_7d;
+  if (!raw) return null;
+  const { meta: _meta, ...data } = raw;
+  void _meta;
+  return data;
 }
 
-function buildMemory7dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMemory7d {
+function resolveMemory7dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMemory7d | null {
+  const raw = f.thread_memory.relationship_memory_7d;
+  if (!raw) return null;
+  const { meta: _meta, ...data } = raw;
+  void _meta;
   return {
-    yes_streak_14d: f.accountability.yes_streak_14d,
-    no_count_14d: f.accountability.no_count_14d,
-    partial_count_14d: f.accountability.partial_count_14d,
-    blocker_preview: f.accountability.blocker_preview,
-    silence_tier: f.accountability.silence_tier,
-    unanswered_checks: f.accountability.unanswered_checks,
-    days_since_last_user_outcome: f.accountability.days_since_last_user_outcome,
-    pending_plan_proof_active: f.accountability.pending_plan_proof?.active ?? false,
-    reentry_active: f.accountability.reentry_active,
+    ...data,
+    context_flags: {
+      ...data.context_flags,
+      pending_plan_proof_active: f.accountability.pending_plan_proof?.active ?? false,
+      reentry_active: f.accountability.reentry_active,
+      silence_tier: f.accountability.silence_tier,
+      unanswered_checks: f.accountability.unanswered_checks,
+      days_since_last_user_outcome: f.accountability.days_since_last_user_outcome,
+    },
   };
 }
 
@@ -653,6 +652,18 @@ function trimMemory30d(
   return { authority: section.authority, data };
 }
 
+function trimMemory7d(
+  section: RelationshipPacketSection<RelationshipPacketMemory7d> | undefined,
+  maxChars: number
+): { section: RelationshipPacketSection<RelationshipPacketMemory7d> | undefined; truncated: boolean } {
+  if (!section) return { section: undefined, truncated: false };
+  const { data, truncated } = trimRelationshipMemory7dData(section.data, maxChars);
+  return {
+    section: { authority: section.authority, data },
+    truncated,
+  };
+}
+
 function dropOldestThreadMessage(
   thread: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null
 ): RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null {
@@ -694,6 +705,7 @@ export function buildRelationshipPacketForOpenAI(args: {
 }): BuildRelationshipPacketResult {
   const budget = args.totalCharBudget ?? DEFAULT_RELATIONSHIP_PACKET_BUDGET;
   const truncatedSections: string[] = [];
+  let memory7dTruncated = false;
 
   let build: MutablePacketBuild;
 
@@ -711,10 +723,12 @@ export function buildRelationshipPacketForOpenAI(args: {
         const p = buildProofVictoryInbound(f);
         return p ? { authority: "authoritative_current", data: p } : null;
       })(),
-      relationship_memory_7d: {
-        authority: "structured_background",
-        data: buildMemory7dInbound(f),
-      },
+      relationship_memory_7d: (() => {
+        const data = resolveMemory7dInbound(f);
+        return data
+          ? { authority: "structured_background" as const, data }
+          : undefined;
+      })(),
       relationship_memory_30d_or_season: {
         authority: "background_summary",
         data: buildMemory30dInbound(f),
@@ -738,10 +752,12 @@ export function buildRelationshipPacketForOpenAI(args: {
         const p = buildProofVictoryDaily(f);
         return p ? { authority: "authoritative_current", data: p } : null;
       })(),
-      relationship_memory_7d: {
-        authority: "structured_background",
-        data: buildMemory7dDaily(f),
-      },
+      relationship_memory_7d: (() => {
+        const data = resolveMemory7dDaily(f);
+        return data
+          ? { authority: "structured_background" as const, data }
+          : undefined;
+      })(),
       relationship_memory_30d_or_season: {
         authority: "background_summary",
         data: buildMemory30dDaily(f),
@@ -780,8 +796,21 @@ export function buildRelationshipPacketForOpenAI(args: {
         delete build.relationship_memory_30d_or_season;
       }
     } else if (build.relationship_memory_7d) {
-      delete build.relationship_memory_7d;
-      recordTrunc("relationship_memory_7d");
+      const trimmed = trimMemory7d(build.relationship_memory_7d, DEFAULT_MEMORY_7D_SECTION_CHAR_BUDGET);
+      if (trimmed.section) {
+        build.relationship_memory_7d = trimmed.section;
+        if (trimmed.truncated) {
+          memory7dTruncated = true;
+          recordTrunc("relationship_memory_7d");
+        }
+      }
+      packet = serializePacket(build);
+      size = measureUserPrompt(packet);
+      if (size > budget) {
+        delete build.relationship_memory_7d;
+        memory7dTruncated = true;
+        recordTrunc("relationship_memory_7d");
+      }
     } else if (build.recent_exact_thread_72h && build.recent_exact_thread_72h.data.messages.length > 2) {
       build.recent_exact_thread_72h = dropOldestThreadMessage(build.recent_exact_thread_72h);
       recordTrunc("recent_exact_thread_72h");
@@ -821,6 +850,8 @@ export function buildRelationshipPacketForOpenAI(args: {
     threadSection?.legacy_fallback_lines?.length ??
     null;
 
+  const memory7dSection = build.relationship_memory_7d?.data;
+
   const meta: RelationshipPacketMeta = {
     relationship_packet_version: RELATIONSHIP_PACKET_VERSION,
     relationship_packet_truncated: truncatedSections.length > 0 || size > budget,
@@ -833,6 +864,9 @@ export function buildRelationshipPacketForOpenAI(args: {
       threadSection?.messages[threadSection.messages.length - 1]?.at ?? null,
     had_preview_messages: threadSection?.had_preview_messages ?? false,
     had_system_no_send: threadSection?.had_system_no_send ?? false,
+    included_memory_7d_window_days: memory7dSection ? RELATIONSHIP_MEMORY_7D_WINDOW_DAYS : null,
+    included_memory_7d_item_count: memory7dSection ? countRelationshipMemory7dItems(memory7dSection) : null,
+    relationship_memory_7d_truncated: memory7dTruncated,
     total_chars: userPromptJson.length,
     budget_chars: budget,
   };
@@ -855,5 +889,8 @@ export function relationshipPacketMetaForLaneTelemetry(
     included_thread_newest_at: meta.included_thread_newest_at,
     had_preview_messages: meta.had_preview_messages,
     had_system_no_send: meta.had_system_no_send,
+    included_memory_7d_window_days: meta.included_memory_7d_window_days,
+    included_memory_7d_item_count: meta.included_memory_7d_item_count,
+    relationship_memory_7d_truncated: meta.relationship_memory_7d_truncated,
   };
 }

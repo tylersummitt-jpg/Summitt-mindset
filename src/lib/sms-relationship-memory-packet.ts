@@ -17,6 +17,12 @@ import {
   recentExactThreadTextFrom72hMessages,
   type RecentExactThread72hResult,
 } from "@/lib/sms-recent-exact-thread-72h";
+import {
+  buildRelationshipMemory7d,
+  type RelationshipMemory7dResult,
+} from "@/lib/sms-relationship-memory-7d";
+
+export type { RelationshipMemory7dData, RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
 
 export type SmsThreadMemoryProjectionSource = "projection" | "runtime_guess" | "none";
 
@@ -101,6 +107,7 @@ export type SmsRelationshipMemoryPacket = {
   recent_exact_messages: SmsRelationshipMessage[];
   recent_exact_thread_text: string;
   recent_exact_thread_72h: RecentExactThread72hResult;
+  relationship_memory_7d: RelationshipMemory7dResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_substantive_user_message: string | null;
@@ -185,55 +192,18 @@ function coachMessageContainsQuestion(coachMessage: string): boolean {
   return coachMessageLooksLikeQuestion(coachMessage);
 }
 
-function aggregateSevenDayOutcomes(events: V2EventRowForAi[]): SmsRelationshipMemoryPacket["recent_outcomes_summary"] {
-  const nowMs = Date.now();
-  const cutoff = nowMs - 7 * 24 * 60 * 60 * 1000;
-  let yes = 0;
-  let no = 0;
-  let partial = 0;
-  let blockers = 0;
-  let checks = 0;
-  let latestBlocker: string | null = null;
-  let latestProof: string | null = null;
-  for (const e of events) {
-    const t = new Date(e.occurred_at).getTime();
-    if (!Number.isFinite(t) || t < cutoff) continue;
-    switch (e.event_type) {
-      case "user_yes":
-        yes += 1;
-        break;
-      case "user_no":
-        no += 1;
-        break;
-      case "user_partial":
-        partial += 1;
-        break;
-      case "blocker_captured": {
-        blockers += 1;
-        const p = e.payload_json as Record<string, unknown> | undefined;
-        const msg = typeof p?.message === "string" ? p.message.trim() : "";
-        if (msg) latestBlocker = msg.slice(0, 140);
-        break;
-      }
-      case "check_sent":
-        checks += 1;
-        break;
-      default:
-        break;
-    }
-    const p = e.payload_json as Record<string, unknown> | undefined;
-    if (p?.proof_moment === true && !latestProof) {
-      latestProof = typeof p.proof_moment_type === "string" ? p.proof_moment_type : "proof";
-    }
-  }
+function recentOutcomesSummaryFromMemory7d(
+  memory7d: RelationshipMemory7dResult
+): SmsRelationshipMemoryPacket["recent_outcomes_summary"] {
+  const c = memory7d.outcome_counts;
   return {
-    yes_7d: yes,
-    no_7d: no,
-    partial_7d: partial,
-    blockers_7d: blockers,
-    checks_sent_7d: checks,
-    latest_blocker_preview: latestBlocker,
-    latest_proof_hint: latestProof,
+    yes_7d: c.yes,
+    no_7d: c.no,
+    partial_7d: c.partial,
+    blockers_7d: c.blockers,
+    checks_sent_7d: c.checks_sent,
+    latest_blocker_preview: memory7d.blockers[0]?.evidence ?? null,
+    latest_proof_hint: memory7d.proof_moments[0]?.proof_type ?? null,
   };
 }
 
@@ -284,6 +254,7 @@ export type SlimSmsRelationshipMemoryPacketForFacts = {
   recent_exact_thread_text: string;
   recent_exact_message_count: number;
   recent_exact_thread_72h: RecentExactThread72hResult;
+  relationship_memory_7d: RelationshipMemory7dResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_substantive_user_message: string | null;
@@ -311,6 +282,7 @@ export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): S
     recent_exact_thread_text: packet.recent_exact_thread_text,
     recent_exact_message_count: packet.recent_exact_messages.length,
     recent_exact_thread_72h: packet.recent_exact_thread_72h,
+    relationship_memory_7d: packet.relationship_memory_7d,
     last_outbound_full_body: packet.last_outbound_full_body,
     last_inbound_full_body: packet.last_inbound_full_body,
     last_substantive_user_message: packet.last_substantive_user_message,
@@ -360,6 +332,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
   coaching_memory_snippet: string;
   recent_exact_thread_text: string;
   recent_exact_thread_72h: RecentExactThread72hResult;
+  relationship_memory_7d: RelationshipMemory7dResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_5_coach_questions: string[];
@@ -397,6 +370,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
         : ""),
     recent_exact_thread_text: packet.recent_exact_thread_text,
     recent_exact_thread_72h: packet.recent_exact_thread_72h,
+    relationship_memory_7d: packet.relationship_memory_7d,
     last_outbound_full_body: packet.last_outbound_full_body,
     last_inbound_full_body: packet.last_inbound_full_body,
     last_5_coach_questions: packet.last_5_coach_questions.map((q) => q.text),
@@ -720,6 +694,15 @@ export async function buildSmsRelationshipMemoryPacket(args: {
   const open_question_expected_answer_type =
     projection?.open_question_expected_answer_type?.trim() ?? null;
 
+  const relationship_memory_7d = buildRelationshipMemory7d({
+    clerkUserId: args.clerkUserId,
+    commitmentId: args.commitmentId ?? commitment?.id ?? "unknown",
+    now,
+    timezone: args.timezone,
+    preloadedEvents: events,
+    preloadedProjection: projection,
+  });
+
   return {
     clerk_user_id: args.clerkUserId,
     commitment_id: args.commitmentId ?? commitment?.id ?? null,
@@ -728,13 +711,14 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     accountability_phase: commitment?.accountability_phase ?? coachingMemory?.accountability_phase ?? null,
     pending_resolution_summary,
     overlay_active: Boolean(commitment?.adaptive_proposal_text?.trim()),
-    recent_outcomes_summary: aggregateSevenDayOutcomes(events),
+    recent_outcomes_summary: recentOutcomesSummaryFromMemory7d(relationship_memory_7d),
     coaching_memory_summary,
     coaching_memory_is_background_only: true,
     relationship_profile_summary: relProfile,
     recent_exact_messages,
     recent_exact_thread_text,
     recent_exact_thread_72h,
+    relationship_memory_7d,
     last_outbound_full_body,
     last_inbound_full_body,
     last_substantive_user_message,

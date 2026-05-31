@@ -377,7 +377,7 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.daily_v3_lane_used).toBe(true);
     expect(r.metadata.old_daily_writer_used_as_voice).toBe(false);
-    expect(r.metadata.relationship_packet_version).toBe("1.6");
+    expect(r.metadata.relationship_packet_version).toBe("1.7");
     expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
   });
 

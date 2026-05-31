@@ -14,6 +14,10 @@ import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-l
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { RecentExactThread72hMessage, RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
+import {
+  RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
+  type RelationshipMemory7dResult,
+} from "@/lib/sms-relationship-memory-7d";
 
 function make72hMessage(
   partial: Partial<RecentExactThread72hMessage> & Pick<RecentExactThread72hMessage, "role" | "body">
@@ -40,6 +44,52 @@ function makeThread72h(messages: RecentExactThread72hMessage[]): RecentExactThre
     had_system_no_send: messages.some((m) => m.role === "system_no_send"),
     oldest_at: messages[0]?.at,
     newest_at: messages[messages.length - 1]?.at,
+  };
+}
+
+function makeSampleMemory7d(overrides?: Partial<RelationshipMemory7dResult>): RelationshipMemory7dResult {
+  return {
+    window_days: RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
+    built_at: "2026-05-18T12:00:00.000Z",
+    outcome_counts: { yes: 2, no: 1, partial: 0, blockers: 1, checks_sent: 3 },
+    wins: [
+      {
+        summary: "user_yes",
+        evidence: "Done two hours",
+        at: "2026-05-18T10:00:00.000Z",
+        source: "v2_commitment_event:user_yes",
+        message_sid: null,
+        is_exact_body: true,
+      },
+    ],
+    misses: [
+      {
+        summary: "user_no",
+        evidence: "Missed today",
+        at: "2026-05-17T10:00:00.000Z",
+        source: "v2_commitment_event:user_no",
+        message_sid: null,
+        is_exact_body: true,
+      },
+    ],
+    partials: [],
+    comebacks: [],
+    blockers: [
+      {
+        summary: "blocker_captured",
+        evidence: "Meetings stacked",
+        at: "2026-05-16T10:00:00.000Z",
+        source: "v2_commitment_event:blocker_captured",
+        message_sid: null,
+        is_exact_body: true,
+      },
+    ],
+    proof_moments: [],
+    open_loops: [],
+    direct_answer_history: [],
+    context_flags: {},
+    meta: { item_count: 3, sources_used: ["v2_commitment_event"] },
+    ...overrides,
   };
 }
 
@@ -100,6 +150,7 @@ function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): I
       memory_packet: {
         recent_exact_thread_text: "Coach: Stretch at lunch?\nUser: did that at lunch",
         recent_exact_thread_72h: thread72h,
+        relationship_memory_7d: makeSampleMemory7d(),
         recent_exact_message_count: 2,
         last_outbound_full_body: null,
         last_inbound_full_body: null,
@@ -184,6 +235,7 @@ function minimalDailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): Daily
       recent_pattern_hints: null,
       recent_exact_thread_text: "Coach: How did yesterday land?\nUser: Rough start",
       recent_exact_thread_72h: thread72h,
+      relationship_memory_7d: makeSampleMemory7d(),
     },
     accountability: {
       daily_purpose: "standard_accountability_check",
@@ -238,7 +290,8 @@ describe("buildRelationshipPacketForOpenAI", () => {
     });
 
     expect(packet.relationship_packet_version).toBe(RELATIONSHIP_PACKET_VERSION);
-    expect(RELATIONSHIP_PACKET_VERSION).toBe("1.6");
+    expect(RELATIONSHIP_PACKET_VERSION).toBe("1.7");
+    expect(packet.relationship_memory_7d?.data.window_days).toBe(7);
     expect(packet.recent_exact_thread_72h?.data.messages.some((m) => /did that at lunch/i.test(m.body))).toBe(
       true
     );
@@ -247,8 +300,99 @@ describe("buildRelationshipPacketForOpenAI", () => {
       "lunch stretch"
     );
     expect(userPromptJson).toContain("recent_exact_thread_72h");
+    expect(userPromptJson).toContain("relationship_memory_7d");
     expect(userPromptJson.length).toBeLessThanOrEqual(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
     expect(meta.included_thread_window_hours).toBe(72);
+    expect(meta.included_memory_7d_window_days).toBe(7);
+  });
+
+  it("inbound and daily share the same relationship_memory_7d shape", () => {
+    const memory7d = makeSampleMemory7d();
+    const inbound = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: minimalInboundFacts({
+        thread: {
+          ...minimalInboundFacts().thread,
+          memory_packet: {
+            ...minimalInboundFacts().thread.memory_packet!,
+            relationship_memory_7d: memory7d,
+          },
+        },
+      }),
+    });
+    const daily = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts({
+        thread_memory: {
+          ...minimalDailyFacts().thread_memory,
+          relationship_memory_7d: memory7d,
+        },
+      }),
+    });
+
+    expect(inbound.packet.relationship_memory_7d?.data.window_days).toBe(7);
+    expect(daily.packet.relationship_memory_7d?.data.window_days).toBe(7);
+    expect(inbound.packet.relationship_memory_7d?.data.outcome_counts).toEqual(
+      daily.packet.relationship_memory_7d?.data.outcome_counts
+    );
+    expect(daily.packet.relationship_memory_7d?.data.context_flags.reentry_active).toBe(false);
+  });
+
+  it("trims relationship_memory_7d before recent_exact_thread_72h under budget pressure", () => {
+    const hugeMemory7d = makeSampleMemory7d({
+      wins: Array.from({ length: 8 }, (_, i) => ({
+        summary: "user_yes",
+        evidence: hugePad(`win_${i}`, 200),
+        at: new Date(Date.parse("2026-05-18T10:00:00.000Z") - i * 60_000).toISOString(),
+        source: "v2_commitment_event:user_yes",
+        message_sid: null,
+        is_exact_body: false,
+      })),
+      meta: { item_count: 8, sources_used: ["v2_commitment_event"] },
+    });
+
+    const messages = [
+      make72hMessage({
+        role: "user",
+        body: "RECENT_THREAD_MARKER keep-me",
+        at: "2026-05-18T11:59:00.000Z",
+      }),
+    ];
+
+    const facts = minimalInboundFacts({
+      thread: {
+        ...minimalInboundFacts().thread,
+        memory_packet: {
+          ...minimalInboundFacts().thread.memory_packet!,
+          relationship_memory_7d: hugeMemory7d,
+          recent_exact_thread_72h: makeThread72h(messages),
+        },
+      },
+      victory_background: {
+        active_season_label: "Season Trim",
+        active_season_started_at: null,
+        pat_read_strength: hugePad("30d", 4000),
+        pat_read_pattern: hugePad("30d_pat", 4000),
+        pat_read_next_move: hugePad("30d_move", 4000),
+      },
+    });
+
+    const { packet, meta } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: facts,
+      totalCharBudget: 3500,
+    });
+
+    expect(
+      packet.recent_exact_thread_72h?.data.messages.some((m) => m.body.includes("RECENT_THREAD_MARKER"))
+    ).toBe(true);
+    expect(meta.truncated_sections).toEqual(expect.arrayContaining(["relationship_memory_7d"]));
+    const mem7Index = meta.truncated_sections.indexOf("relationship_memory_7d");
+    const threadIndex = meta.truncated_sections.indexOf("recent_exact_thread_72h");
+    expect(mem7Index).toBeGreaterThanOrEqual(0);
+    if (threadIndex >= 0) {
+      expect(mem7Index).toBeLessThan(threadIndex);
+    }
   });
 
   it("preserves thread_freshness when sourceFacts are oversized", () => {
@@ -434,5 +578,7 @@ describe("buildRelationshipPacketPromptGuidance", () => {
     const guidance = buildRelationshipPacketPromptGuidance();
     expect(guidance).toContain("RELATIONSHIP_PACKET_AUTHORITY");
     expect(guidance).toContain("recent_exact_thread_72h");
+    expect(guidance).toContain("relationship_memory_7d");
+    expect(guidance).toContain("continuity only");
   });
 });

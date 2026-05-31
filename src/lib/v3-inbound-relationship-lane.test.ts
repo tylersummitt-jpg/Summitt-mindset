@@ -38,6 +38,10 @@ import {
 } from "@/lib/v3-inbound-relationship-lane";
 import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
+import {
+  RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
+  type RelationshipMemory7dResult,
+} from "@/lib/sms-relationship-memory-7d";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 
@@ -49,6 +53,22 @@ const emptyThread72h = {
   had_system_no_send: false,
 } as const;
 
+const emptyMemory7d: RelationshipMemory7dResult = {
+  window_days: RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
+  built_at: "2026-05-18T12:00:00.000Z",
+  outcome_counts: { yes: 0, no: 0, partial: 0, blockers: 0, checks_sent: 0 },
+  wins: [],
+  misses: [],
+  partials: [],
+  comebacks: [],
+  blockers: [],
+  proof_moments: [],
+  open_loops: [],
+  direct_answer_history: [],
+  context_flags: {},
+  meta: { item_count: 0, sources_used: [] },
+};
+
 function minimalRelationshipMemoryPacket(
   overrides: Partial<SlimSmsRelationshipMemoryPacketForFacts>
 ): SlimSmsRelationshipMemoryPacketForFacts {
@@ -56,6 +76,7 @@ function minimalRelationshipMemoryPacket(
     recent_exact_thread_text: "",
     recent_exact_message_count: 0,
     recent_exact_thread_72h: emptyThread72h,
+    relationship_memory_7d: emptyMemory7d,
     last_outbound_full_body: null,
     last_inbound_full_body: null,
     last_substantive_user_message: null,
@@ -210,7 +231,7 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.inbound_v3_lane_used).toBe(true);
     expect(r.metadata.old_inbound_writer_used_as_voice).toBe(false);
-    expect(r.metadata.relationship_packet_version).toBe("1.6");
+    expect(r.metadata.relationship_packet_version).toBe("1.7");
     expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
   });
 
