@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import {
+  utBodyMuted,
+  utCard,
+  utFormField,
+  utPrimaryBtn,
+  utSecondaryBtn,
+} from "@/components/utility-page-visual";
 
 type Props = {
   dayNumber?: number | null;
@@ -44,7 +51,7 @@ export default function AskPatFeedback({ dayNumber = null }: Props) {
       }
     } catch (err) {
       console.error("Ask Pat feedback failed", err);
-      setSubmitted(true); // calm failure
+      setSubmitted(true);
     } finally {
       setLoading(false);
     }
@@ -83,35 +90,32 @@ export default function AskPatFeedback({ dayNumber = null }: Props) {
     }
   }
 
-  // ✅ Already complete
   if (submitted) {
     return (
-      <p className="text-xs text-gray-500 mt-3 text-center">
+      <p className={`text-xs mt-3 text-center ${utBodyMuted}`}>
         Thank you. Coach Pat will keep getting clearer.
       </p>
     );
   }
 
-  // ✅ Followup Prompt
   if (showFollowup) {
     return (
-      <div className="mt-4 border rounded-xl bg-white shadow-sm p-5 space-y-3">
-        <p className="font-semibold text-gray-900 text-sm">
-          Thank you. What was missing?
-        </p>
+      <div className={`mt-4 ${utCard} p-5 space-y-3`}>
+        <p className="font-semibold text-stone-100 text-sm">Thank you. What was missing?</p>
 
         <textarea
           rows={2}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="One sentence is enough."
-          className="w-full border rounded-md p-2 text-sm"
+          className={`${utFormField} min-h-0 py-2 text-sm`}
         />
 
         <button
+          type="button"
           disabled={loading}
           onClick={submitMissing}
-          className="w-full bg-black text-white rounded-md py-2 font-semibold disabled:opacity-50"
+          className={`${utPrimaryBtn} w-full`}
         >
           {loading ? "Saving…" : "Send"}
         </button>
@@ -119,26 +123,27 @@ export default function AskPatFeedback({ dayNumber = null }: Props) {
     );
   }
 
-  // ✅ Main Prompt
   return (
-    <div className="mt-4 border rounded-xl bg-white shadow-sm p-5 space-y-4">
-      <p className="font-semibold text-gray-900 text-sm">
+    <div className={`mt-4 ${utCard} p-5 space-y-4`}>
+      <p className="font-semibold text-stone-100 text-sm">
         Quick question — did this answer help?
       </p>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <button
+          type="button"
           disabled={loading}
           onClick={() => submitHelpful(true)}
-          className="flex-1 bg-black text-white rounded-md py-2 font-semibold disabled:opacity-50"
+          className={`${utPrimaryBtn} flex-1`}
         >
           Yes ✅
         </button>
 
         <button
+          type="button"
           disabled={loading}
           onClick={() => submitHelpful(false)}
-          className="flex-1 border rounded-md py-2 font-semibold disabled:opacity-50"
+          className={`${utSecondaryBtn} flex-1`}
         >
           Not really
         </button>

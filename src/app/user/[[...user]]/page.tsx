@@ -10,6 +10,19 @@ import {
 import Link from "next/link";
 
 import ManageMembershipButton from "@/components/manage-membership-button";
+import {
+  utBody,
+  utCard,
+  utCardDivider,
+  utClerkSectionLabel,
+  utClerkShell,
+  utLink,
+  utPageCanvas,
+  utPageInnerAccount,
+  utPageTitle,
+  utSecondaryBtn,
+  utSectionTitle,
+} from "@/components/utility-page-visual";
 
 function capitalizeDisplay(s: string): string {
   if (!s) return "";
@@ -51,55 +64,45 @@ function AccountMembershipRows() {
   }
 
   return (
-    <>
-      <div className="flex justify-between gap-4 py-1">
-        <span className="text-gray-600">Status</span>
-        <span className="font-medium text-gray-900">{status}</span>
-      </div>
-      <div className="flex justify-between gap-4 py-1">
-        <span className="text-gray-600">Plan</span>
-        <span className="font-medium text-gray-900">{plan}</span>
-      </div>
-    </>
+    <div className="grid w-fit max-w-full grid-cols-[auto_auto] gap-x-8 gap-y-1">
+      <span className="text-stone-400">Membership Status</span>
+      <span className="font-medium text-stone-100">{status}</span>
+      <span className="text-stone-400">Plan</span>
+      <span className="font-medium text-stone-100">{plan}</span>
+    </div>
   );
 }
 
 function AccountTopCard() {
   return (
-    <div className="w-full rounded-lg border border-gray-200 bg-white text-sm text-left">
-      <section className="px-4 py-4 space-y-2">
-        <h2 className="font-semibold text-gray-900">Need help?</h2>
-        <p className="text-gray-600 leading-relaxed">
+    <div className={`w-full text-sm text-left ${utCard}`}>
+      <section className="space-y-2 px-4 py-4">
+        <h2 className={utSectionTitle}>Need help?</h2>
+        <p className={utBody}>
           Email us anytime —{" "}
-          <a
-            href="mailto:Support@SummittMindset.com"
-            className="font-medium text-gray-900 underline underline-offset-2 hover:text-gray-700"
-          >
+          <a href="mailto:Support@SummittMindset.com" className={utLink}>
             Support@SummittMindset.com
           </a>
         </p>
       </section>
 
-      <section className="px-4 py-4 space-y-2 border-t border-gray-100">
-        <h2 className="font-semibold text-gray-900">Text Messages</h2>
-        <p className="text-gray-600 leading-relaxed">
+      <section className={`space-y-2 px-4 py-4 ${utCardDivider}`}>
+        <h2 className={utSectionTitle}>Text Messages</h2>
+        <p className={utBody}>
           Text STOP to stop text messages. Text START to resume text messages. Text HELP for info.
         </p>
       </section>
 
-      <section className="px-4 py-4 space-y-3 border-t border-gray-100">
-        <h2 className="font-semibold text-gray-900">Account</h2>
+      <section className={`space-y-3 px-4 py-4 ${utCardDivider}`}>
+        <h2 className={utSectionTitle}>Account</h2>
         <AccountMembershipRows />
-        <div className="pt-1">
-          <Link
-            href="/sign-out"
-            className="text-sm font-medium text-gray-700 underline underline-offset-2 hover:text-gray-900"
-          >
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Link href="/sign-out" className={utSecondaryBtn}>
             Sign out
           </Link>
-        </div>
-        <div className="flex flex-col items-center pt-1">
-          <ManageMembershipButton />
+          <div className="w-full sm:w-auto [&>div]:w-full sm:[&>div]:w-auto [&_button]:w-full sm:[&_button]:w-auto [&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-stone-100 [&_button]:hover:bg-white [&_button]:hover:text-gray-900">
+            <ManageMembershipButton />
+          </div>
         </div>
       </section>
     </div>
@@ -110,16 +113,19 @@ export default function UserProfilePage() {
   return (
     <>
       <SignedIn>
-        <main className="min-h-screen flex flex-col items-center px-6 py-8 md:py-10">
-          <div className="w-full max-w-4xl mx-auto flex flex-col gap-8">
+        <main className={utPageCanvas}>
+          <div className={utPageInnerAccount}>
             <header className="text-center">
-              <h1 className="text-2xl font-semibold">Account</h1>
+              <h1 className={utPageTitle}>Account</h1>
             </header>
 
             <AccountTopCard />
 
-            <div className="w-full">
-              <UserProfile />
+            <div className="w-full space-y-2">
+              <p className={utClerkSectionLabel}>Profile & security</p>
+              <div className={utClerkShell}>
+                <UserProfile />
+              </div>
             </div>
           </div>
         </main>

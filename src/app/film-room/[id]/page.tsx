@@ -1,5 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
+import {
+  utCard,
+  utPageCanvas,
+  utPageInnerFilm,
+  utPageTitle,
+} from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
@@ -39,16 +45,14 @@ export default async function FilmRoomVideoPage({
   if (error || !data) notFound();
 
   return (
-    <main className="max-w-6xl mx-auto py-12 px-6">
-      <h1 className="mt-4 mb-6 text-3xl font-semibold">
-        {data.title}
-      </h1>
+    <main className={`${utPageCanvas} ${utPageInnerFilm}`}>
+      <h1 className={`mt-4 mb-6 ${utPageTitle}`}>{data.title}</h1>
 
-      <div className="rounded-xl overflow-hidden border bg-white mb-10">
-        <div className="relative w-full aspect-video">
+      <div className={`${utCard} mb-10 overflow-hidden`}>
+        <div className="relative aspect-video w-full">
           <iframe
             src={`https://player.vimeo.com/video/${data.vimeo_video_id}`}
-            className="absolute inset-0 w-full h-full"
+            className="absolute inset-0 h-full w-full"
             allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
           />

@@ -1,6 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
+import {
+  utBody,
+  utFilmCardLink,
+  utPageCanvas,
+  utPageInnerFilm,
+  utPageTitle,
+  utSectionHeading,
+  utSubheading,
+  utWatchLink,
+} from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
@@ -62,9 +72,9 @@ export default async function FilmRoomPage() {
 
   if (error || !data) {
     return (
-      <main className="max-w-6xl mx-auto py-12 px-6">
-        <h1 className="text-3xl font-semibold">Film Room</h1>
-        <p className="text-red-500 mt-4">Error loading videos.</p>
+      <main className={`${utPageCanvas} ${utPageInnerFilm}`}>
+        <h1 className={utPageTitle}>Film Room</h1>
+        <p className="mt-4 text-sm text-red-300">Error loading videos.</p>
       </main>
     );
   }
@@ -111,29 +121,19 @@ export default async function FilmRoomPage() {
   }).filter((p) => p.principles.length > 0);
 
   return (
-    <main className="max-w-6xl mx-auto py-12 px-6">
+    <main className={`${utPageCanvas} ${utPageInnerFilm}`}>
       <header className="mb-12">
-        <h1 className="text-3xl font-semibold">
-          Film Room
-        </h1>
-        <p className="mt-2 text-gray-600 max-w-2xl">
-          Optional film study. Never required.
-        </p>
+        <h1 className={utPageTitle}>Film Room</h1>
+        <p className={`mt-2 max-w-2xl ${utBody}`}>Optional film study. Never required.</p>
       </header>
 
       {featuredVideos.length > 0 && (
         <section className="mb-20">
-          <h2 className="text-2xl font-semibold mb-6">
-            Spotlight
-          </h2>
+          <h2 className={`${utSectionHeading} mb-6`}>Spotlight</h2>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {featuredVideos.map((v) => (
-              <Link
-                key={v.id}
-                href={`/film-room/${v.id}`}
-                className="rounded-xl border bg-white overflow-hidden hover:shadow-md transition"
-              >
+              <Link key={v.id} href={`/film-room/${v.id}`} className={utFilmCardLink}>
                 {v.thumbnail_url && (
                   <img
                     src={v.thumbnail_url}
@@ -143,13 +143,9 @@ export default async function FilmRoomPage() {
                 )}
 
                 <div className="p-5">
-                  <h3 className="font-semibold mb-1">
-                    {v.title}
-                  </h3>
+                  <h3 className="mb-1 font-semibold text-stone-50">{v.title}</h3>
 
-                  <div className="mt-4 text-sm font-semibold">
-                    Watch →
-                  </div>
+                  <div className={`mt-4 ${utWatchLink}`}>Watch →</div>
                 </div>
               </Link>
             ))}
@@ -160,24 +156,16 @@ export default async function FilmRoomPage() {
       <div className="space-y-20">
         {grouped.map((program) => (
           <section key={program.program}>
-            <h2 className="text-2xl font-semibold mb-8">
-              {program.program}
-            </h2>
+            <h2 className={`${utSectionHeading} mb-8`}>{program.program}</h2>
 
             <div className="space-y-12">
               {program.principles.map((principle) => (
                 <div key={principle.principle}>
-                  <h3 className="text-lg font-medium mb-4">
-                    {principle.principle}
-                  </h3>
+                  <h3 className={`${utSubheading} mb-4`}>{principle.principle}</h3>
 
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {principle.videos.map((v) => (
-                      <Link
-                        key={v.id}
-                        href={`/film-room/${v.id}`}
-                        className="rounded-xl border bg-white overflow-hidden hover:shadow-md transition"
-                      >
+                      <Link key={v.id} href={`/film-room/${v.id}`} className={utFilmCardLink}>
                         {v.thumbnail_url && (
                           <img
                             src={v.thumbnail_url}
@@ -187,13 +175,9 @@ export default async function FilmRoomPage() {
                         )}
 
                         <div className="p-5">
-                          <h4 className="font-semibold mb-1">
-                            {v.title}
-                          </h4>
+                          <h4 className="mb-1 font-semibold text-stone-50">{v.title}</h4>
 
-                          <div className="mt-4 text-sm font-semibold">
-                            Watch →
-                          </div>
+                          <div className={`mt-4 ${utWatchLink}`}>Watch →</div>
                         </div>
                       </Link>
                     ))}
