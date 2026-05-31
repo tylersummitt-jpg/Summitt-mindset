@@ -52,6 +52,11 @@ import {
   detectThreadFreshnessViolations,
   type ThreadFreshnessFacts,
 } from "@/lib/sms-thread-freshness";
+import {
+  buildRelationshipPacketForOpenAI,
+  buildRelationshipPacketPromptGuidance,
+  relationshipPacketMetaForLaneTelemetry,
+} from "@/lib/sms-relationship-packet-v1";
 import type {
   SmsGoalAdjustmentCompatibleFlow,
   SmsGoalAdjustmentConfidence,
@@ -755,14 +760,20 @@ export async function produceDailyV3RelationshipSms(
     return empty("openai_unavailable", false, { lane_stage: "no_client" });
   }
 
-  const factsJson = JSON.stringify(laneFacts);
+  const relationshipPacket = buildRelationshipPacketForOpenAI({
+    lane: "daily",
+    sourceFacts: laneFacts,
+  });
+  Object.assign(baseMeta, relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta));
+
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
 
 RULES:
-- Use ACCOUNTABILITY_FACTS_JSON only as facts — never copy old template wording or paraphrase labeled machine drafts.
-- When thread_memory.projection_used is true, latest_open_question and latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and previews.
-- thread_memory.recent_exact_thread_text (when present) is the highest-priority transcript — it outranks coaching_memory_snippet, body_preview, and older transcript blocks when they conflict.
-- Do NOT ask the same question as any entry in thread_memory.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
+- Use RELATIONSHIP_PACKET_V1 only as facts — never copy old template wording or paraphrase labeled machine drafts.
+${buildRelationshipPacketPromptGuidance()}
+- When structured_recent_truth.projection_used is true, latest_open_question and latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and previews.
+- recent_exact_thread (when present) is the highest-priority transcript — it outranks coaching summaries and older transcript blocks when they conflict.
+- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
 ${buildDailyOpenQuestionAnswerPriorityGuidance()}
 - If thread_memory.latest_open_question is already answered in recent exact thread with proof/outcome (not only a forward plan while pending_plan_proof is active), advance from that answer.
 - Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
@@ -786,10 +797,7 @@ should_send (boolean), body (string, empty if should_send false), no_send_reason
 turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[])`;
 
-  const user = `ACCOUNTABILITY_FACTS_JSON (facts only; not copyable prose):
-${factsJson.slice(0, 12000)}
-
-Write JSON only.`;
+  const user = relationshipPacket.userPromptJson;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;

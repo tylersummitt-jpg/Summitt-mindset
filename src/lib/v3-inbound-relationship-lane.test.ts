@@ -169,6 +169,8 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.inbound_v3_lane_used).toBe(true);
     expect(r.metadata.old_inbound_writer_used_as_voice).toBe(false);
+    expect(r.metadata.relationship_packet_version).toBe("1.5");
+    expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
   });
 
   it("returns shouldSend=false when OpenAI is unavailable", async () => {
@@ -623,7 +625,9 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(systemMsg).toContain("THREAD_MEMORY_CORRECTION");
     expect(systemMsg).toContain("ALREADY_TOLD_YOU_CORRECTION");
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(userMsg).toContain("Sunday School, farm, songs Mother sang");
+    expect(userMsg).not.toContain("INBOUND_ACCOUNTABILITY_FACTS_JSON");
   });
 });
 
@@ -972,7 +976,7 @@ describe("inbound V3 victory_background", () => {
     expect(systemMsg).toMatch(/invitation/i);
   });
 
-  it("produceInboundV3RelationshipSms includes pat_principles in facts when passed", async () => {
+  it("produceInboundV3RelationshipSms includes pat_principles in relationship packet when passed", async () => {
     process.env.OPENAI_API_KEY = "test-key";
     createMock.mockResolvedValue({
       choices: [
@@ -1124,6 +1128,7 @@ describe("inbound V3 proof_callout_hint (Slice 2)", () => {
     )?.content as string;
     expect(userMsg).toContain("proof_callout_hint");
     expect(userMsg).toContain("proof_callout_claim_saved_allowed");
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
   });
 
   it("builds when proof_callout_hint is absent", async () => {
@@ -1379,11 +1384,13 @@ describe("thread_freshness in V3 inbound lane", () => {
       (m: { role: string }) => m.role === "system"
     )?.content as string;
     expect(systemMsg).toContain("THREAD_FRESHNESS");
+    expect(systemMsg).toContain("RELATIONSHIP_PACKET_AUTHORITY");
     expect(systemMsg).toContain(buildThreadFreshnessPromptGuidance().trim().slice(0, 40));
     const userMsg = firstCall?.messages?.find(
       (m: { role: string }) => m.role === "user"
     )?.content as string;
     expect(userMsg).toContain("thread_freshness");
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
   });
 
   it("repairs stale lunch-stretch re-ask via thread freshness guard", async () => {

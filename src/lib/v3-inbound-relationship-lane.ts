@@ -58,6 +58,11 @@ import {
 } from "@/lib/sms-victory-background-context";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 import {
+  buildRelationshipPacketForOpenAI,
+  buildRelationshipPacketPromptGuidance,
+  relationshipPacketMetaForLaneTelemetry,
+} from "@/lib/sms-relationship-packet-v1";
+import {
   applyThreadFreshnessGuard,
   buildThreadFreshnessPromptGuidance,
   deriveRecentThreadFreshnessFacts,
@@ -1881,13 +1886,18 @@ export async function produceInboundV3RelationshipSms(
     return empty("openai_unavailable", false, { lane_stage: "no_client" });
   }
 
-  const factsJson = JSON.stringify(args.facts);
+  const relationshipPacket = buildRelationshipPacketForOpenAI({
+    lane: "inbound",
+    sourceFacts: args.facts,
+  });
+  Object.assign(baseMeta, relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta));
   const routePurposeAux = buildRoutePurposeAux(args.facts) + buildMemoryPacketRouteAux(args.facts);
 
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
 
 RULES:
-- Use INBOUND_ACCOUNTABILITY_FACTS_JSON only as facts — never copy labeled machine drafts, template banks, or "prior hint" wording as your voice.
+- Use RELATIONSHIP_PACKET_V1 only as facts — never copy labeled machine drafts, template banks, or "prior hint" wording as your voice.
+${buildRelationshipPacketPromptGuidance()}
 - thread.memory_authority.projection_used: when true, thread.latest_open_question and thread.latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and north_star fallbacks.
 - thread.memory_packet.recent_exact_thread_text is the highest-priority transcript when present — it outranks recent_transcript_lines, body_preview, and coaching summaries.
 - If projection says open_question_pending is false and an answer exists: move forward from that answer only when it is proof/outcome — not when the answer is only a forward plan or outcome is still unknown (do not treat intention as completion).
@@ -1913,10 +1923,7 @@ turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[]),
 rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
-  const user = `INBOUND_ACCOUNTABILITY_FACTS_JSON (facts only; not copyable prose):
-${factsJson.slice(0, 12000)}
-
-Write JSON only.`;
+  const user = relationshipPacket.userPromptJson;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;

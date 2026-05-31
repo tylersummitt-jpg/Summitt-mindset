@@ -377,6 +377,8 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.daily_v3_lane_used).toBe(true);
     expect(r.metadata.old_daily_writer_used_as_voice).toBe(false);
+    expect(r.metadata.relationship_packet_version).toBe("1.5");
+    expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
   });
 
   it("includes recent exact thread priority in system prompt when thread_memory has packet fields", async () => {
@@ -415,10 +417,12 @@ describe("produceDailyV3RelationshipSms", () => {
     });
 
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
-    expect(systemMsg).toContain("recent_exact_thread_text");
+    expect(systemMsg).toContain("recent_exact_thread");
     expect(systemMsg).toContain("last_5_coach_questions");
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(userMsg).toContain("Sunday School, farm, songs Mother sang");
+    expect(userMsg).not.toContain("ACCOUNTABILITY_FACTS_JSON");
   });
 
   it("returns shouldSend=false when OpenAI is unavailable", async () => {
@@ -1792,7 +1796,7 @@ describe("daily V3 victory_background", () => {
     process.env.OPENAI_API_KEY = "test-key";
   });
 
-  it("passes victory_background in facts JSON to OpenAI when present", async () => {
+  it("passes victory_background in relationship packet to OpenAI when present", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
@@ -1827,8 +1831,9 @@ describe("daily V3 victory_background", () => {
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
       (m: { role: string }) => m.role === "user"
     )?.content as string;
-    expect(userMsg).toContain("victory_background");
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(userMsg).toContain("Spring Focus");
+    expect(userMsg).toContain("active_season_label");
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
       (m: { role: string }) => m.role === "system"
     )?.content as string;
@@ -1844,7 +1849,7 @@ describe("daily V3 victory_background", () => {
     expect(systemMsg).toMatch(/do not invent/i);
   });
 
-  it("passes victory_background.pat_principles in facts JSON when present", async () => {
+  it("passes victory_background.pat_principles in relationship packet when present", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
@@ -2009,12 +2014,14 @@ describe("thread_freshness in V3 daily lane", () => {
       (m: { role: string }) => m.role === "system"
     )?.content as string;
     expect(systemMsg).toContain("THREAD_FRESHNESS");
+    expect(systemMsg).toContain("RELATIONSHIP_PACKET_AUTHORITY");
     expect(systemMsg).toContain(buildThreadFreshnessPromptGuidance().trim().slice(0, 40));
 
     const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
       (m: { role: string }) => m.role === "user"
     )?.content as string;
     expect(userMsg).toContain("thread_freshness");
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(userMsg).toMatch(/active_temporal_frame.*tomorrow/s);
   });
 });

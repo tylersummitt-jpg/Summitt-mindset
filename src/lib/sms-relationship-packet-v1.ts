@@ -1,0 +1,749 @@
+/**
+ * Relationship Packet v1.5 — ordered, budgeted OpenAI context (Phase A+B).
+ * Server-owned packing only; no DB writes, no hard-coded SMS.
+ */
+
+import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
+
+export const RELATIONSHIP_PACKET_VERSION = "1.5" as const;
+export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_000;
+
+export type RelationshipPacketLane = "inbound" | "daily";
+
+export type RelationshipPacketAuthority =
+  | "authoritative_current"
+  | "structured_recent_truth"
+  | "authoritative_recent_thread"
+  | "structured_background"
+  | "background_summary"
+  | "low_authority_hint";
+
+export type RelationshipPacketSection<T> = {
+  authority: RelationshipPacketAuthority;
+  data: T;
+};
+
+export type RelationshipPacketCurrentTurn = {
+  route_purpose?: string;
+  route_kind?: string;
+  current_user_inbound?: string | null;
+  local_time_iso?: string | null;
+  expected_reply_semantics?: string | null;
+  daily_purpose?: string | null;
+  server_strategy?: string | null;
+  accountability_day_key?: string | null;
+  gated_mode?: string | null;
+  deterministic_classifier_event?: string | null;
+  should_write_outcome_event?: boolean;
+  split_message_sids?: string[];
+};
+
+export type RelationshipPacketStructuredRecentTruth = {
+  thread_freshness?: ThreadFreshnessFacts | null;
+  latest_open_question?: string | null;
+  latest_answer_after_open_question?: string | null;
+  open_question_pending?: boolean | null;
+  open_question_source?: string | null;
+  answer_source?: string | null;
+  projection_used?: boolean | null;
+  last_5_coach_questions?: string[];
+  last_5_user_answers?: string[];
+  do_not_repeat_phrases?: string[];
+  memory_correction?: {
+    already_told_you?: boolean;
+    short_ack?: boolean;
+    prior_substantive_user_message?: string | null;
+    most_recent_coach_question?: string | null;
+  };
+  route_constraints_summary?: {
+    required_verbatim_count?: number;
+    required_verbatim_present?: boolean;
+    required_meaning_summary?: string | null;
+    forbidden_substring_count?: number;
+  };
+};
+
+export type RelationshipPacketRecentExactThread = {
+  lines: string[];
+  line_count: number;
+  source: "recent_exact_thread_text" | "recent_transcript_or_context_block" | "recent_transcript_lines";
+  had_preview_lines?: boolean;
+};
+
+export type RelationshipPacketCanonicalState = {
+  commitment_id?: string | null;
+  title?: string | null;
+  behavior_statement?: string | null;
+  effective_ask?: string | null;
+  accountability_phase?: string | null;
+  identity_anchor?: string | null;
+  identity_anchor_allowed?: boolean;
+  active_season_label?: string | null;
+  overlay_active?: boolean | null;
+  contract_proposal_mode?: boolean | null;
+  pending_resolution_active?: boolean | null;
+  planned_interruption_active?: boolean | null;
+  constraints?: {
+    max_chars?: number;
+    required_verbatim_substrings?: string[];
+    required_meaning_summary?: string | null;
+    forbidden_substrings?: string[];
+    wrapper_must_not_repeat_substrings?: string[];
+  };
+};
+
+export type RelationshipPacketProofVictoryPermission = {
+  proof_signal?: boolean | null;
+  miss_signal?: boolean | null;
+  blocker_signal?: boolean | null;
+  today_completed?: boolean | null;
+  proof_callout_hint?: Record<string, unknown> | null;
+  accountability_proof_hint?: string | null;
+  proof_or_milestone_signal?: string | null;
+  can_reference_victory_room?: boolean | null;
+  can_say_saved_as_proof?: boolean | null;
+  proof_saved?: boolean | null;
+};
+
+export type RelationshipPacketMemory7d = {
+  yes_count_14d?: number | null;
+  no_count_14d?: number | null;
+  partial_count_14d?: number | null;
+  yes_streak_14d?: number | null;
+  blocker_preview?: string | null;
+  silence_tier?: string | null;
+  unanswered_checks?: number | null;
+  days_since_last_user_outcome?: number | null;
+  pending_plan_proof_active?: boolean | null;
+  reentry_active?: boolean | null;
+  recent_outcomes_summary?: Record<string, unknown> | null;
+};
+
+export type RelationshipPacketMemory30dOrSeason = {
+  coaching_memory_excerpt?: string | null;
+  recent_pattern_hints?: string | null;
+  pat_read_strength?: string | null;
+  pat_read_pattern?: string | null;
+  pat_read_next_move?: string | null;
+  pat_principles?: {
+    focus_next_title?: string | null;
+    focus_next_text?: string | null;
+    living_well_title?: string | null;
+    living_well_text?: string | null;
+  } | null;
+  pattern_signal_hint?: string | null;
+  goal_adjustment_hint?: string | null;
+  evolution_pattern_hint?: string | null;
+};
+
+export type RelationshipPacketLowerAuthorityBackground = {
+  relationship_profile_summary?: string | null;
+  legacy_suggestions_summary?: string | null;
+  coaching_memory_snippet?: string | null;
+  recent_transcript_or_context_block?: string | null;
+};
+
+export type RelationshipPacketV1 = {
+  relationship_packet_version: typeof RELATIONSHIP_PACKET_VERSION;
+  current_turn: RelationshipPacketSection<RelationshipPacketCurrentTurn>;
+  structured_recent_truth: RelationshipPacketSection<RelationshipPacketStructuredRecentTruth>;
+  recent_exact_thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null;
+  canonical_state: RelationshipPacketSection<RelationshipPacketCanonicalState>;
+  proof_victory_permission: RelationshipPacketSection<RelationshipPacketProofVictoryPermission> | null;
+  relationship_memory_7d?: RelationshipPacketSection<RelationshipPacketMemory7d>;
+  relationship_memory_30d_or_season?: RelationshipPacketSection<RelationshipPacketMemory30dOrSeason>;
+  lower_authority_background?: RelationshipPacketSection<RelationshipPacketLowerAuthorityBackground>;
+};
+
+export type RelationshipPacketMeta = {
+  relationship_packet_version: typeof RELATIONSHIP_PACKET_VERSION;
+  relationship_packet_truncated: boolean;
+  truncated_sections: string[];
+  included_thread_message_count: number | null;
+  included_thread_window_hours: number | null;
+  total_chars: number;
+  budget_chars: number;
+};
+
+export type BuildRelationshipPacketResult = {
+  packet: RelationshipPacketV1;
+  userPromptJson: string;
+  meta: RelationshipPacketMeta;
+};
+
+export function buildRelationshipPacketPromptGuidance(): string {
+  return `
+RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats stale summaries):
+- authoritative_current and structured_recent_truth beat background_summary and low_authority_hint on conflict.
+- authoritative_recent_thread beats relationship_memory_7d and relationship_memory_30d_or_season on conflict.
+- background_summary and low_authority_hint must NEVER override recent exact thread or canonical_state.
+- If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
+- If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
+- lower_authority_background and coaching summaries are tone/context only — not proof of what happened.`;
+}
+
+function isInboundFacts(
+  facts: InboundV3RelationshipFacts | DailyV3RelationshipFacts,
+  lane: RelationshipPacketLane
+): facts is InboundV3RelationshipFacts {
+  return lane === "inbound";
+}
+
+function compactStrings(items: string[] | null | undefined, max: number): string[] {
+  if (!items?.length) return [];
+  return items.map((s) => s.trim()).filter(Boolean).slice(0, max);
+}
+
+function truncateText(s: string, max: number): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+function splitThreadLines(text: string): string[] {
+  return text.split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
+function threadHasPreviewLine(lines: string[]): boolean {
+  return lines.some((l) => /\[preview\]/i.test(l));
+}
+
+function buildCurrentTurnInbound(f: InboundV3RelationshipFacts): RelationshipPacketCurrentTurn {
+  return {
+    route_purpose: f.route_purpose,
+    current_user_inbound: f.thread.coalesced_inbound_text || f.thread.latest_inbound_raw || null,
+    local_time_iso: f.user.local_time_iso,
+    expected_reply_semantics: f.thread.expected_reply_semantics,
+    gated_mode: f.v2_accountability.gated_mode,
+    deterministic_classifier_event: f.v2_accountability.deterministic_classifier_event,
+    should_write_outcome_event: f.v2_accountability.should_write_outcome_event,
+    split_message_sids:
+      f.thread.suppressed_message_sids.length > 0 ? f.thread.suppressed_message_sids : undefined,
+  };
+}
+
+function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketCurrentTurn {
+  return {
+    route_kind: f.route_kind,
+    daily_purpose: f.accountability.daily_purpose,
+    server_strategy: f.accountability.server_strategy,
+    accountability_day_key: f.accountability_day_key,
+    local_time_iso: f.user.local_time_iso,
+  };
+}
+
+function buildStructuredTruthInbound(f: InboundV3RelationshipFacts): RelationshipPacketStructuredRecentTruth {
+  const mp = f.thread.memory_packet;
+  const reqVerb = f.constraints.required_verbatim_substrings ?? [];
+  return {
+    thread_freshness: f.thread_freshness ?? null,
+    latest_open_question: f.thread.latest_open_question ?? mp?.latest_open_question ?? null,
+    latest_answer_after_open_question:
+      f.thread.latest_answer_after_open_question ?? mp?.latest_answer_after_open_question ?? null,
+    open_question_pending: mp?.open_question_pending ?? null,
+    open_question_source: mp?.open_question_source ?? f.thread.memory_authority.open_question_source,
+    answer_source: mp?.answer_source ?? f.thread.memory_authority.answer_source,
+    projection_used: mp?.projection_used ?? f.thread.memory_authority.projection_used,
+    last_5_coach_questions: compactStrings(mp?.last_5_coach_questions, 5),
+    last_5_user_answers: compactStrings(mp?.last_5_user_answers, 5),
+    do_not_repeat_phrases: compactStrings(mp?.do_not_repeat_phrases, 8),
+    memory_correction: {
+      already_told_you: f.thread.current_inbound_is_already_told_you_correction,
+      short_ack: f.thread.short_ack_should_not_reask_question,
+      prior_substantive_user_message: f.thread.most_recent_substantive_prior_user_message,
+      most_recent_coach_question: f.thread.most_recent_coach_question,
+    },
+    route_constraints_summary: {
+      required_verbatim_count: reqVerb.length,
+      required_verbatim_present: reqVerb.length > 0,
+      required_meaning_summary: f.constraints.required_meaning_summary ?? null,
+      forbidden_substring_count: f.constraints.forbidden_substrings?.length ?? 0,
+    },
+  };
+}
+
+function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPacketStructuredRecentTruth {
+  const tm = f.thread_memory;
+  const reqVerb = f.constraints.required_verbatim_substrings ?? [];
+  return {
+    thread_freshness: f.thread_freshness ?? null,
+    latest_open_question: tm.latest_open_question ?? null,
+    latest_answer_after_open_question: tm.latest_answer_after_open_question ?? null,
+    open_question_pending: tm.open_question_pending ?? null,
+    open_question_source: tm.open_question_source ?? null,
+    answer_source: tm.answer_source ?? null,
+    projection_used: tm.projection_used ?? null,
+    last_5_coach_questions: compactStrings(tm.last_5_coach_questions, 5),
+    last_5_user_answers: compactStrings(tm.last_5_user_answers, 5),
+    do_not_repeat_phrases: compactStrings(tm.do_not_repeat_hints, 8),
+    route_constraints_summary: {
+      required_verbatim_count: reqVerb.length,
+      required_verbatim_present: reqVerb.length > 0,
+      required_meaning_summary: null,
+      forbidden_substring_count: 0,
+    },
+  };
+}
+
+function resolveRecentThreadInbound(f: InboundV3RelationshipFacts): {
+  text: string;
+  source: RelationshipPacketRecentExactThread["source"];
+} {
+  const mpText = f.thread.memory_packet?.recent_exact_thread_text?.trim();
+  if (mpText) return { text: mpText, source: "recent_exact_thread_text" };
+  const lines = f.thread.recent_transcript_lines.filter(Boolean);
+  if (lines.length) return { text: lines.join("\n"), source: "recent_transcript_lines" };
+  return { text: "", source: "recent_transcript_lines" };
+}
+
+function resolveRecentThreadDaily(f: DailyV3RelationshipFacts): {
+  text: string;
+  source: RelationshipPacketRecentExactThread["source"];
+} {
+  const exact = f.thread_memory.recent_exact_thread_text?.trim();
+  if (exact) return { text: exact, source: "recent_exact_thread_text" };
+  const block = f.thread_memory.recent_transcript_or_context_block?.trim();
+  if (block) return { text: block, source: "recent_transcript_or_context_block" };
+  return { text: "", source: "recent_transcript_or_context_block" };
+}
+
+function buildRecentExactThread(
+  text: string,
+  source: RelationshipPacketRecentExactThread["source"]
+): RelationshipPacketSection<RelationshipPacketRecentExactThread> | null {
+  const lines = splitThreadLines(text);
+  if (!lines.length) return null;
+  return {
+    authority: "authoritative_recent_thread",
+    data: {
+      lines,
+      line_count: lines.length,
+      source,
+      had_preview_lines: threadHasPreviewLine(lines),
+    },
+  };
+}
+
+function buildCanonicalInbound(f: InboundV3RelationshipFacts): RelationshipPacketCanonicalState {
+  return {
+    commitment_id: f.commitment.id,
+    title: f.commitment.title,
+    behavior_statement: f.commitment.behavior_statement,
+    effective_ask: f.commitment.effective_ask,
+    accountability_phase: f.commitment.accountability_phase,
+    identity_anchor: null,
+    active_season_label: f.victory_background?.active_season_label ?? null,
+    overlay_active: f.contract_consent_facts != null ? true : undefined,
+    pending_resolution_active: f.pending_resolution_facts != null,
+    planned_interruption_active: f.commitment.planned_interruption_active,
+    constraints: {
+      max_chars: f.constraints.max_chars,
+      required_verbatim_substrings: f.constraints.required_verbatim_substrings,
+      required_meaning_summary: f.constraints.required_meaning_summary ?? null,
+      forbidden_substrings: f.constraints.forbidden_substrings?.slice(0, 12),
+    },
+  };
+}
+
+function buildCanonicalDaily(f: DailyV3RelationshipFacts): RelationshipPacketCanonicalState {
+  return {
+    commitment_id: f.commitment.id,
+    title: f.commitment.title,
+    behavior_statement: f.commitment.behavior_statement,
+    effective_ask: f.commitment.effective_ask,
+    accountability_phase: f.commitment.accountability_phase,
+    identity_anchor: f.commitment.identity_anchor_short,
+    identity_anchor_allowed: f.commitment.identity_anchor_allowed,
+    active_season_label: f.victory_background?.active_season_label ?? null,
+    overlay_active: f.accountability.overlay_active,
+    contract_proposal_mode: f.accountability.contract_proposal_mode,
+    pending_resolution_active: f.pending_resolution != null,
+    planned_interruption_active: f.accountability.planned_interruption_active,
+    constraints: {
+      max_chars: f.constraints.max_chars,
+      required_verbatim_substrings: f.constraints.required_verbatim_substrings,
+      wrapper_must_not_repeat_substrings: f.constraints.wrapper_must_not_repeat_substrings,
+    },
+  };
+}
+
+function buildProofVictoryInbound(f: InboundV3RelationshipFacts): RelationshipPacketProofVictoryPermission | null {
+  const hint = f.v2_accountability.proof_callout_hint;
+  const hasAny =
+    f.v2_accountability.proof_signal ||
+    f.v2_accountability.miss_signal ||
+    f.v2_accountability.blocker_signal ||
+    hint != null ||
+    f.legacy_suggestions.accountability_proof_hint ||
+    f.victory_background != null;
+  if (!hasAny) return null;
+  return {
+    proof_signal: f.v2_accountability.proof_signal,
+    miss_signal: f.v2_accountability.miss_signal,
+    blocker_signal: f.v2_accountability.blocker_signal,
+    today_completed: f.v2_accountability.today_completed,
+    proof_callout_hint: hint ? { ...hint } : null,
+    accountability_proof_hint: f.legacy_suggestions.accountability_proof_hint,
+    can_reference_victory_room: hint?.eligible === true ? true : hint ? false : null,
+    can_say_saved_as_proof: hint?.proof_callout_claim_saved_allowed === true ? true : false,
+    proof_saved: false,
+  };
+}
+
+function buildProofVictoryDaily(f: DailyV3RelationshipFacts): RelationshipPacketProofVictoryPermission | null {
+  const hasAny =
+    Boolean(f.accountability.proof_or_milestone_signal) || f.victory_background != null;
+  if (!hasAny) return null;
+  return {
+    proof_or_milestone_signal: f.accountability.proof_or_milestone_signal,
+    can_reference_victory_room: f.victory_background != null ? true : null,
+    can_say_saved_as_proof: false,
+    proof_saved: false,
+  };
+}
+
+function buildMemory7dInbound(_f: InboundV3RelationshipFacts): RelationshipPacketMemory7d {
+  const f = _f;
+  return {
+    blocker_preview: null,
+    recent_outcomes_summary: {
+      proof_signal: f.v2_accountability.proof_signal,
+      miss_signal: f.v2_accountability.miss_signal,
+      blocker_signal: f.v2_accountability.blocker_signal,
+      today_completed: f.v2_accountability.today_completed,
+    },
+  };
+}
+
+function buildMemory7dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMemory7d {
+  return {
+    yes_streak_14d: f.accountability.yes_streak_14d,
+    no_count_14d: f.accountability.no_count_14d,
+    partial_count_14d: f.accountability.partial_count_14d,
+    blocker_preview: f.accountability.blocker_preview,
+    silence_tier: f.accountability.silence_tier,
+    unanswered_checks: f.accountability.unanswered_checks,
+    days_since_last_user_outcome: f.accountability.days_since_last_user_outcome,
+    pending_plan_proof_active: f.accountability.pending_plan_proof?.active ?? false,
+    reentry_active: f.accountability.reentry_active,
+  };
+}
+
+function buildMemory30dInbound(f: InboundV3RelationshipFacts): RelationshipPacketMemory30dOrSeason {
+  const pp = f.victory_background?.pat_principles;
+  return {
+    pat_read_strength: f.victory_background?.pat_read_strength ?? null,
+    pat_read_pattern: f.victory_background?.pat_read_pattern ?? null,
+    pat_read_next_move: f.victory_background?.pat_read_next_move ?? null,
+    pat_principles: pp
+      ? {
+          focus_next_title: pp.focus_next_title ?? null,
+          focus_next_text: pp.focus_next_text ?? null,
+          living_well_title: pp.living_well_title ?? null,
+          living_well_text: pp.living_well_text ?? null,
+        }
+      : null,
+    pattern_signal_hint: f.v2_accountability.pattern_internal_hint ?? null,
+    goal_adjustment_hint: f.v2_accountability.goal_adjustment_internal_hint ?? null,
+  };
+}
+
+function buildMemory30dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMemory30dOrSeason {
+  const snippet = f.thread_memory.coaching_memory_snippet?.trim();
+  const pp = f.victory_background?.pat_principles;
+  return {
+    coaching_memory_excerpt: snippet ? truncateText(snippet, 400) : null,
+    recent_pattern_hints: f.thread_memory.recent_pattern_hints
+      ? truncateText(f.thread_memory.recent_pattern_hints, 480)
+      : null,
+    pat_read_strength: f.victory_background?.pat_read_strength ?? null,
+    pat_read_pattern: f.victory_background?.pat_read_pattern ?? null,
+    pat_read_next_move: f.victory_background?.pat_read_next_move ?? null,
+    pat_principles: pp
+      ? {
+          focus_next_title: pp.focus_next_title ?? null,
+          focus_next_text: pp.focus_next_text ?? null,
+          living_well_title: pp.living_well_title ?? null,
+          living_well_text: pp.living_well_text ?? null,
+        }
+      : null,
+    goal_adjustment_hint: f.accountability.goal_adjustment_internal_hint ?? null,
+    evolution_pattern_hint: f.accountability.evolution_pattern_hint,
+  };
+}
+
+function buildLowerAuthorityInbound(f: InboundV3RelationshipFacts): RelationshipPacketLowerAuthorityBackground {
+  return {
+    relationship_profile_summary: f.user.relationship_profile_summary,
+    legacy_suggestions_summary: truncateText(
+      JSON.stringify({
+        conversation_brain_enabled: f.legacy_suggestions.conversation_brain.enabled,
+        forced_future_stretch: f.legacy_suggestions.forced_future_stretch_intent_active,
+      }),
+      320
+    ),
+  };
+}
+
+function buildLowerAuthorityDaily(f: DailyV3RelationshipFacts): RelationshipPacketLowerAuthorityBackground {
+  return {
+    relationship_profile_summary: f.user.relationship_profile_summary,
+    coaching_memory_snippet:
+      f.thread_memory.coaching_memory_snippet?.trim() &&
+      !f.thread_memory.coaching_memory_snippet.includes("COACHING_MEMORY (background only")
+        ? truncateText(f.thread_memory.coaching_memory_snippet, 600)
+        : null,
+    recent_transcript_or_context_block: f.thread_memory.recent_transcript_or_context_block
+      ? truncateText(f.thread_memory.recent_transcript_or_context_block, 400)
+      : null,
+  };
+}
+
+type MutablePacketBuild = {
+  current_turn: RelationshipPacketSection<RelationshipPacketCurrentTurn>;
+  structured_recent_truth: RelationshipPacketSection<RelationshipPacketStructuredRecentTruth>;
+  recent_exact_thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null;
+  canonical_state: RelationshipPacketSection<RelationshipPacketCanonicalState>;
+  proof_victory_permission: RelationshipPacketSection<RelationshipPacketProofVictoryPermission> | null;
+  relationship_memory_7d?: RelationshipPacketSection<RelationshipPacketMemory7d>;
+  relationship_memory_30d_or_season?: RelationshipPacketSection<RelationshipPacketMemory30dOrSeason>;
+  lower_authority_background?: RelationshipPacketSection<RelationshipPacketLowerAuthorityBackground>;
+};
+
+function serializePacket(build: MutablePacketBuild): RelationshipPacketV1 {
+  const packet: RelationshipPacketV1 = {
+    relationship_packet_version: RELATIONSHIP_PACKET_VERSION,
+    current_turn: build.current_turn,
+    structured_recent_truth: build.structured_recent_truth,
+    recent_exact_thread: build.recent_exact_thread,
+    canonical_state: build.canonical_state,
+    proof_victory_permission: build.proof_victory_permission,
+  };
+  if (build.relationship_memory_7d) packet.relationship_memory_7d = build.relationship_memory_7d;
+  if (build.relationship_memory_30d_or_season) {
+    packet.relationship_memory_30d_or_season = build.relationship_memory_30d_or_season;
+  }
+  if (build.lower_authority_background) packet.lower_authority_background = build.lower_authority_background;
+  return packet;
+}
+
+function userPromptFromPacket(packet: RelationshipPacketV1): string {
+  return `RELATIONSHIP_PACKET_V1 (facts only; not copyable prose):
+${JSON.stringify(packet)}
+
+Write JSON only.`;
+}
+
+function measureUserPrompt(packet: RelationshipPacketV1): number {
+  return userPromptFromPacket(packet).length;
+}
+
+function trimLowerAuthority(
+  section: RelationshipPacketSection<RelationshipPacketLowerAuthorityBackground> | undefined,
+  maxChars: number
+): RelationshipPacketSection<RelationshipPacketLowerAuthorityBackground> | undefined {
+  if (!section) return undefined;
+  const data = { ...section.data };
+  if (data.coaching_memory_snippet) data.coaching_memory_snippet = truncateText(data.coaching_memory_snippet, maxChars);
+  if (data.recent_transcript_or_context_block) {
+    data.recent_transcript_or_context_block = truncateText(data.recent_transcript_or_context_block, maxChars);
+  }
+  if (data.relationship_profile_summary) {
+    data.relationship_profile_summary = truncateText(data.relationship_profile_summary, maxChars);
+  }
+  if (data.legacy_suggestions_summary) {
+    data.legacy_suggestions_summary = truncateText(data.legacy_suggestions_summary, maxChars);
+  }
+  return { authority: section.authority, data };
+}
+
+function trimMemory30d(
+  section: RelationshipPacketSection<RelationshipPacketMemory30dOrSeason> | undefined,
+  maxChars: number
+): RelationshipPacketSection<RelationshipPacketMemory30dOrSeason> | undefined {
+  if (!section) return undefined;
+  const data = { ...section.data };
+  if (data.coaching_memory_excerpt) data.coaching_memory_excerpt = truncateText(data.coaching_memory_excerpt, maxChars);
+  if (data.recent_pattern_hints) data.recent_pattern_hints = truncateText(data.recent_pattern_hints, maxChars);
+  return { authority: section.authority, data };
+}
+
+function dropOldestThreadLine(
+  thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null
+): RelationshipPacketSection<RelationshipPacketRecentExactThread> | null {
+  if (!thread || thread.data.lines.length <= 1) return thread;
+  const lines = thread.data.lines.slice(1);
+  return {
+    authority: thread.authority,
+    data: {
+      ...thread.data,
+      lines,
+      line_count: lines.length,
+    },
+  };
+}
+
+function truncateThreadFromOldest(
+  thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null,
+  maxChars: number
+): RelationshipPacketSection<RelationshipPacketRecentExactThread> | null {
+  if (!thread) return null;
+  const joined = thread.data.lines.join("\n");
+  if (joined.length <= maxChars) return thread;
+  const trimmed = joined.slice(-maxChars);
+  const lines = splitThreadLines(trimmed);
+  return {
+    authority: thread.authority,
+    data: {
+      ...thread.data,
+      lines: lines.length ? lines : [trimmed],
+      line_count: lines.length || 1,
+    },
+  };
+}
+
+export function buildRelationshipPacketForOpenAI(args: {
+  lane: RelationshipPacketLane;
+  sourceFacts: InboundV3RelationshipFacts | DailyV3RelationshipFacts;
+  totalCharBudget?: number;
+}): BuildRelationshipPacketResult {
+  const budget = args.totalCharBudget ?? DEFAULT_RELATIONSHIP_PACKET_BUDGET;
+  const truncatedSections: string[] = [];
+
+  let build: MutablePacketBuild;
+
+  if (isInboundFacts(args.sourceFacts, args.lane)) {
+    const f = args.sourceFacts;
+    const threadResolved = resolveRecentThreadInbound(f);
+    build = {
+      current_turn: { authority: "authoritative_current", data: buildCurrentTurnInbound(f) },
+      structured_recent_truth: {
+        authority: "structured_recent_truth",
+        data: buildStructuredTruthInbound(f),
+      },
+      recent_exact_thread: buildRecentExactThread(threadResolved.text, threadResolved.source),
+      canonical_state: { authority: "authoritative_current", data: buildCanonicalInbound(f) },
+      proof_victory_permission: (() => {
+        const p = buildProofVictoryInbound(f);
+        return p ? { authority: "authoritative_current", data: p } : null;
+      })(),
+      relationship_memory_7d: {
+        authority: "structured_background",
+        data: buildMemory7dInbound(f),
+      },
+      relationship_memory_30d_or_season: {
+        authority: "background_summary",
+        data: buildMemory30dInbound(f),
+      },
+      lower_authority_background: {
+        authority: "low_authority_hint",
+        data: buildLowerAuthorityInbound(f),
+      },
+    };
+  } else {
+    const f = args.sourceFacts;
+    const threadResolved = resolveRecentThreadDaily(f);
+    build = {
+      current_turn: { authority: "authoritative_current", data: buildCurrentTurnDaily(f) },
+      structured_recent_truth: {
+        authority: "structured_recent_truth",
+        data: buildStructuredTruthDaily(f),
+      },
+      recent_exact_thread: buildRecentExactThread(threadResolved.text, threadResolved.source),
+      canonical_state: { authority: "authoritative_current", data: buildCanonicalDaily(f) },
+      proof_victory_permission: (() => {
+        const p = buildProofVictoryDaily(f);
+        return p ? { authority: "authoritative_current", data: p } : null;
+      })(),
+      relationship_memory_7d: {
+        authority: "structured_background",
+        data: buildMemory7dDaily(f),
+      },
+      relationship_memory_30d_or_season: {
+        authority: "background_summary",
+        data: buildMemory30dDaily(f),
+      },
+      lower_authority_background: {
+        authority: "low_authority_hint",
+        data: buildLowerAuthorityDaily(f),
+      },
+    };
+  }
+
+  let packet = serializePacket(build);
+  let size = measureUserPrompt(packet);
+
+  const recordTrunc = (section: string) => {
+    if (!truncatedSections.includes(section)) truncatedSections.push(section);
+  };
+
+  while (size > budget) {
+    const prevSize = size;
+
+    if (build.lower_authority_background) {
+      build.lower_authority_background = trimLowerAuthority(build.lower_authority_background, 200);
+      recordTrunc("lower_authority_background");
+      packet = serializePacket(build);
+      size = measureUserPrompt(packet);
+      if (size > budget) {
+        delete build.lower_authority_background;
+      }
+    } else if (build.relationship_memory_30d_or_season) {
+      build.relationship_memory_30d_or_season = trimMemory30d(build.relationship_memory_30d_or_season, 200);
+      recordTrunc("relationship_memory_30d_or_season");
+      packet = serializePacket(build);
+      size = measureUserPrompt(packet);
+      if (size > budget) {
+        delete build.relationship_memory_30d_or_season;
+      }
+    } else if (build.relationship_memory_7d) {
+      delete build.relationship_memory_7d;
+      recordTrunc("relationship_memory_7d");
+    } else if (build.recent_exact_thread && build.recent_exact_thread.data.lines.length > 2) {
+      build.recent_exact_thread = dropOldestThreadLine(build.recent_exact_thread);
+      recordTrunc("recent_exact_thread");
+    } else if (build.recent_exact_thread) {
+      const joinedLen = build.recent_exact_thread.data.lines.join("\n").length;
+      const nextMax = Math.max(200, Math.floor(joinedLen * 0.65));
+      build.recent_exact_thread = truncateThreadFromOldest(build.recent_exact_thread, nextMax);
+      recordTrunc("recent_exact_thread");
+    } else {
+      break;
+    }
+
+    packet = serializePacket(build);
+    size = measureUserPrompt(packet);
+    if (size >= prevSize) break;
+  }
+
+  const userPromptJson = userPromptFromPacket(packet);
+  const threadCount = build.recent_exact_thread?.data.line_count ?? null;
+
+  const meta: RelationshipPacketMeta = {
+    relationship_packet_version: RELATIONSHIP_PACKET_VERSION,
+    relationship_packet_truncated: truncatedSections.length > 0 || size > budget,
+    truncated_sections: truncatedSections,
+    included_thread_message_count: threadCount,
+    included_thread_window_hours: null,
+    total_chars: userPromptJson.length,
+    budget_chars: budget,
+  };
+
+  return { packet, userPromptJson, meta };
+}
+
+export function relationshipPacketMetaForLaneTelemetry(
+  meta: RelationshipPacketMeta
+): Record<string, unknown> {
+  return {
+    relationship_packet_version: meta.relationship_packet_version,
+    relationship_packet_truncated: meta.relationship_packet_truncated,
+    truncated_sections: meta.truncated_sections,
+    relationship_packet_total_chars: meta.total_chars,
+    relationship_packet_budget_chars: meta.budget_chars,
+    included_thread_message_count: meta.included_thread_message_count,
+    included_thread_window_hours: meta.included_thread_window_hours,
+  };
+}
