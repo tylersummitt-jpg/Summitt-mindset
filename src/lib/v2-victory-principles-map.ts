@@ -198,10 +198,11 @@ function buildLivingWellText(principle: PatPrincipleDefinition, proofLabel: stri
 }
 
 function buildFocusNextText(principle: PatPrincipleDefinition, early: boolean): string {
-  const prefix = early
-    ? "Early proof is forming. This week, practice"
-    : "This week, practice";
-  return `${prefix} ${principle.focusPracticeHint}`;
+  const hint = principle.focusPracticeHint.trim();
+  const action =
+    hint.length > 0 ? hint[0]!.toLowerCase() + hint.slice(1) : hint;
+  const weekLine = `This week, ${action}`;
+  return early ? `Early proof is forming. ${weekLine}` : weekLine;
 }
 
 function assertCleanCopy(text: string) {

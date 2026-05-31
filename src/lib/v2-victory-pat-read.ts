@@ -27,6 +27,19 @@ function truncateOneLine(s: string, max: number): string {
   return `${x.slice(0, max - 1)}…`;
 }
 
+/**
+ * Lowercase proof clause lead when it continues a sentence (e.g. after "show" or ":").
+ * Keeps leading "I" as a pronoun; invalid/empty input is returned safely.
+ */
+export function normalizeProofClauseForMidSentence(clause: string): string {
+  const t = clause.trim();
+  if (!t) return t;
+  const head = t[0]!;
+  if (head === head.toLowerCase()) return t;
+  if (/^I[\s',]/.test(t)) return t;
+  return head.toLowerCase() + t.slice(1);
+}
+
 function countSentences(text: string): number {
   const t = text.trim().replace(/\s+/g, " ");
   if (!t) return 0;
@@ -174,17 +187,20 @@ export function buildDeterministicPatRead(
   if (input.sparse) {
     strength = `${name}, you opened this chapter with a clear identity and goal. Proof will gather here as you answer real check-ins honestly — no performance, just truth.`;
   } else if (input.identity_anchor_text) {
-    const proofHint =
+    const proofHintRaw =
       input.moments.length > 0
         ? truncateOneLine(input.moments[0].body, 160)
         : input.comeback_lines.length > 0
           ? truncateOneLine(input.comeback_lines[0], 160)
           : null;
+    const proofHint = proofHintRaw
+      ? normalizeProofClauseForMidSentence(proofHintRaw)
+      : null;
     strength = proofHint
       ? `You are building proof around who you said you are becoming: ${truncateOneLine(input.identity_anchor_text, 120)}. Recent check-ins show ${proofHint}`
       : `You are building proof around who you said you are becoming: ${truncateOneLine(input.identity_anchor_text, 160)}.`;
   } else if (input.moments.length > 0) {
-    strength = `Your recent check-ins show real follow-through: ${truncateOneLine(input.moments[0].body, 200)}`;
+    strength = `Your recent check-ins show real follow-through: ${normalizeProofClauseForMidSentence(truncateOneLine(input.moments[0].body, 200))}`;
   } else if (input.comeback_lines.length > 0) {
     strength = truncateOneLine(input.comeback_lines[0], 220);
   } else {
@@ -231,7 +247,7 @@ export function buildDeterministicPatRead(
       (cats.includes("came_back") || view.comebackLines.length > 0)
     ) {
       pattern =
-        "A pattern is showing up: you get honest after a miss and stay in the conversation instead of disappearing. The proof is that you kept coming back.";
+        "A pattern is showing up: you tell the truth after a miss and stay in the conversation instead of disappearing. The proof is that you kept coming back.";
     }
   }
 

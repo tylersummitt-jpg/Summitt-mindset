@@ -218,6 +218,34 @@ export function normalizeStoredPatReadBundle(raw: unknown): PatReadSourceBundle 
   };
 }
 
+function proofMomentsSignature(moments: PatReadSourceBundle["proof_moments"]): string {
+  return moments.map((m) => `${m.id}\u0000${m.body}`).join("\u0001");
+}
+
+function comebackLinesSignature(lines: string[] | undefined): string {
+  return (lines ?? []).join("\u0001");
+}
+
+/** Curated proof / comeback / pattern inputs that should refresh Coach Pat copy (same day). */
+export function detectMeaningfulCuratedProofChange(
+  previous: PatReadSourceBundle,
+  next: PatReadSourceBundle
+): boolean {
+  if (previous.latest_proof_moment_id !== next.latest_proof_moment_id) {
+    return true;
+  }
+  if (proofMomentsSignature(previous.proof_moments) !== proofMomentsSignature(next.proof_moments)) {
+    return true;
+  }
+  if (comebackLinesSignature(previous.comeback_lines) !== comebackLinesSignature(next.comeback_lines)) {
+    return true;
+  }
+  if (previous.pattern_confidence !== next.pattern_confidence) {
+    return true;
+  }
+  return false;
+}
+
 function detectMajorEvidenceChange(
   previous: PatReadSourceBundle,
   next: PatReadSourceBundle
@@ -290,6 +318,10 @@ function detectSameDayMajorChange(args: {
   }
 
   if (detectMajorEvidenceChange(args.previousBundle, args.nextBundle)) {
+    return "major_evidence_change";
+  }
+
+  if (detectMeaningfulCuratedProofChange(args.previousBundle, args.nextBundle)) {
     return "major_evidence_change";
   }
 

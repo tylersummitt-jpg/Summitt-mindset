@@ -152,14 +152,35 @@ function detectMajorEvidenceChange(
   return false;
 }
 
-function detectPatReadChanged(
+/** Curated proof inputs that affect principle selection/copy (not evidence-count-only bumps). */
+function detectPrincipleRelevantInputChange(
   previous: PatPrinciplesSourceBundle,
   next: PatPrinciplesSourceBundle
 ): boolean {
-  const prevHash = previous.pat_read_source_hash;
-  const nextHash = next.pat_read_source_hash;
-  if (!prevHash || !nextHash) return false;
-  return prevHash !== nextHash;
+  if (
+    stableSerializeForHash(previous.recent_proof_moment_ids) !==
+    stableSerializeForHash(next.recent_proof_moment_ids)
+  ) {
+    return true;
+  }
+  if (
+    stableSerializeForHash(previous.recent_proof_bodies) !==
+    stableSerializeForHash(next.recent_proof_bodies)
+  ) {
+    return true;
+  }
+  if (
+    stableSerializeForHash(previous.recent_proof_category_labels) !==
+    stableSerializeForHash(next.recent_proof_category_labels)
+  ) {
+    return true;
+  }
+  if (
+    stableSerializeForHash(previous.comeback_lines) !== stableSerializeForHash(next.comeback_lines)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function detectSameWeekMajorChange(args: {
@@ -213,7 +234,7 @@ function detectSameWeekMajorChange(args: {
     return "major_evidence_change";
   }
 
-  if (detectPatReadChanged(args.previousBundle, args.nextBundle)) {
+  if (detectPrincipleRelevantInputChange(args.previousBundle, args.nextBundle)) {
     return "pat_read_changed";
   }
 

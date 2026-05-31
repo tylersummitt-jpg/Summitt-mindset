@@ -4,7 +4,11 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {},
 }));
 
-import { buildDeterministicPatRead, buildNextMoveCopy } from "@/lib/v2-victory-pat-read";
+import {
+  buildDeterministicPatRead,
+  buildNextMoveCopy,
+  normalizeProofClauseForMidSentence,
+} from "@/lib/v2-victory-pat-read";
 import type { VictoryRoomViewData } from "@/lib/v2-victory-room-view";
 import { EMPTY_VICTORY_EVIDENCE_COUNTS } from "@/lib/v2-victory-room-view";
 
@@ -36,7 +40,46 @@ function baseView(overrides: Partial<VictoryRoomViewData> = {}): VictoryRoomView
   };
 }
 
+describe("normalizeProofClauseForMidSentence", () => {
+  it("lowercases You-led proof clauses for mid-sentence insertion", () => {
+    expect(normalizeProofClauseForMidSentence("You got honest and stayed in it.")).toBe(
+      "you got honest and stayed in it."
+    );
+  });
+
+  it("keeps leading I as a pronoun", () => {
+    expect(normalizeProofClauseForMidSentence("I named the miss plainly.")).toBe(
+      "I named the miss plainly."
+    );
+  });
+
+  it("returns empty/invalid input safely", () => {
+    expect(normalizeProofClauseForMidSentence("")).toBe("");
+    expect(normalizeProofClauseForMidSentence("   ")).toBe("");
+  });
+});
+
 describe("buildDeterministicPatRead", () => {
+  it("does not capitalize proof after Recent check-ins show", () => {
+    const read = buildDeterministicPatRead(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Honesty",
+            body: "You got honest and stayed in it.",
+            groundedInEventTypes: ["user_no", "user_yes"],
+          },
+        ],
+      }),
+      "Alex"
+    );
+    expect(read!.strength).toContain("Recent check-ins show you got honest");
+    expect(read!.strength).not.toMatch(/show You\b/);
+  });
   it("renders strength and next move for sparse users without repeating the goal", () => {
     const read = buildDeterministicPatRead(baseView(), "Alex");
     expect(read).not.toBeNull();
@@ -70,6 +113,29 @@ describe("buildDeterministicPatRead", () => {
     expect(read!.nextMove).not.toContain("Walk before breakfast");
     expect(read!.nextMove).not.toContain("Walk 20 minutes");
     expect(read!.nextMove.toLowerCase()).toContain("standard");
+  });
+
+  it("next move after comeback uses name the result plainly phrasing", () => {
+    const read = buildDeterministicPatRead(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        comebackLines: ["You came back."],
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Honesty",
+            body: "You got honest and stayed in it.",
+            groundedInEventTypes: ["user_no", "user_yes"],
+          },
+        ],
+      }),
+      "Alex"
+    );
+    expect(read!.nextMove).toBe(
+      "Stay in the conversation today — name the result plainly, then make the next move small enough to complete."
+    );
   });
 
   it("next move after honesty proof coaches forward without repeating the goal", () => {
@@ -157,6 +223,35 @@ describe("buildDeterministicPatRead patterns and copy guardrails", () => {
       "Alex"
     );
     expect(read!.pattern).toBeNull();
+  });
+
+  it("uses tell-the-truth wording in comeback pattern fallback", () => {
+    const read = buildDeterministicPatRead(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        comebackLines: ["You came back after a miss."],
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Honesty",
+            body: "You got honest and stayed in it.",
+            groundedInEventTypes: ["user_no", "user_yes"],
+          },
+          {
+            id: "m2",
+            occurredAt: "2026-05-03T10:00:00Z",
+            headline: "Comeback",
+            body: "You got back on track.",
+            groundedInEventTypes: ["user_yes"],
+          },
+        ],
+      }),
+      "Alex"
+    );
+    expect(read!.pattern).toContain("you tell the truth after a miss");
+    expect(read!.pattern).not.toContain("you get honest after a miss");
   });
 
   it("includes pattern when two moments share a category", () => {

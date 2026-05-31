@@ -45,7 +45,7 @@ describe("VictoryPatPrinciplesSection", () => {
       livingWell: null,
       focusNext: {
         title: "Discipline Yourself So No One Else Has To",
-        text: "Early proof is forming. This week, practice doing the daily bar before the day gets away from you.",
+        text: "Early proof is forming. This week, do the daily bar you agreed to before the day gets away from you.",
         evidenceIds: [],
       },
       updatedFromProof: true,
@@ -65,7 +65,7 @@ describe("VictoryPatPrinciplesSection", () => {
       },
       focusNext: {
         title: "Be a Competitor",
-        text: "This week, practice coming back after a miss.",
+        text: "This week, after a miss, answer honestly and take the next check-in instead of going quiet.",
         evidenceIds: [],
       },
       updatedFromProof: true,
@@ -86,7 +86,7 @@ describe("VictoryPatPrinciplesSection", () => {
       },
       focusNext: {
         title: "Discipline Yourself So No One Else Has To",
-        text: "This week, practice the daily bar.",
+        text: "This week, do the daily bar you agreed to before the day gets away from you.",
         evidenceIds: [],
       },
       updatedFromProof: true,

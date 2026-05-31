@@ -44,6 +44,7 @@ import {
   classifyPatReadSourceChange,
   computePatReadSourceBundle,
   computePatReadSourceHash,
+  detectMeaningfulCuratedProofChange,
   getPatReadDayKey,
   loadPatReadForVictoryRoom,
   stableSerializeForHash,
@@ -167,6 +168,76 @@ describe("classifyPatReadSourceChange", () => {
       todayDayKey: DAY,
     });
     expect(result).toEqual({ shouldRefresh: true, reasonForUpdate: "daily_refresh" });
+  });
+
+  it("same-day latest_proof_moment_id change refreshes as major_evidence_change", () => {
+    const proofBundle = computePatReadSourceBundle(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Kept your word",
+            body: "You followed through today.",
+            groundedInEventTypes: ["user_yes"],
+          },
+        ],
+      }),
+      { seasonId: "s1" }
+    )!;
+    const next = {
+      ...proofBundle,
+      latest_proof_moment_id: "m2",
+      proof_moments: [
+        {
+          id: "m2",
+          body: "You got honest and stayed in it.",
+          category_label: "Told the truth",
+        },
+        ...proofBundle.proof_moments,
+      ],
+    };
+    expect(detectMeaningfulCuratedProofChange(proofBundle, next)).toBe(true);
+    const result = classifyPatReadSourceChange({
+      existing: storedSnapshot(proofBundle),
+      newBundle: next,
+      newHash: computePatReadSourceHash(next),
+      todayDayKey: DAY,
+    });
+    expect(result).toEqual({ shouldRefresh: true, reasonForUpdate: "major_evidence_change" });
+  });
+
+  it("same-day curated proof body change refreshes", () => {
+    const proofBundle = computePatReadSourceBundle(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Honesty",
+            body: "You got honest and stayed in it.",
+            groundedInEventTypes: ["user_no"],
+          },
+        ],
+      }),
+      { seasonId: "s1" }
+    )!;
+    const next = {
+      ...proofBundle,
+      proof_moments: [{ ...proofBundle.proof_moments[0]!, body: "You named the miss plainly." }],
+    };
+    const result = classifyPatReadSourceChange({
+      existing: storedSnapshot(proofBundle),
+      newBundle: next,
+      newHash: computePatReadSourceHash(next),
+      todayDayKey: DAY,
+    });
+    expect(result.shouldRefresh).toBe(true);
+    expect(result.reasonForUpdate).toBe("major_evidence_change");
   });
 
   it("same-day proof count bump alone does not refresh", () => {
@@ -460,6 +531,53 @@ describe("loadPatReadForVictoryRoom", () => {
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
+  it("does not upsert on reload when view is unchanged", async () => {
+    const view = baseView({
+      isDayZeroUser: false,
+      hasSparseProof: false,
+      moments: [
+        {
+          id: "m1",
+          occurredAt: "2026-05-02T10:00:00Z",
+          headline: "Kept your word",
+          body: "You followed through today.",
+          groundedInEventTypes: ["user_yes"],
+        },
+      ],
+    });
+    const bundle = computePatReadSourceBundle(view, { seasonId: "season-1" })!;
+    const hash = computePatReadSourceHash(bundle);
+    mockSnapshotMaybeSingle.mockResolvedValue({
+      data: {
+        strength_text: "Saved strength.",
+        pattern_text: null,
+        next_move_text: "Saved next move.",
+        provenance: "deterministic",
+        source_hash: hash,
+        valid_for_day_key: getPatReadDayKey("UTC"),
+        input_bundle_json: bundle,
+        pattern_confidence: bundle.pattern_confidence,
+        reason_for_update: "initial",
+      },
+      error: null,
+    });
+
+    await loadPatReadForVictoryRoom({
+      clerkUserId: "u1",
+      view,
+      displayName: "Alex",
+      timezone: "UTC",
+    });
+    await loadPatReadForVictoryRoom({
+      clerkUserId: "u1",
+      view,
+      displayName: "Alex",
+      timezone: "UTC",
+    });
+
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
   it("returns persisted snapshot when hash matches", async () => {
     const view = baseView();
     const bundle = computePatReadSourceBundle(view, { seasonId: "season-1" })!;
@@ -569,6 +687,72 @@ describe("loadPatReadForVictoryRoom", () => {
 
     expect(mockUpsert).toHaveBeenCalledTimes(1);
     expect(mockUpsert.mock.calls[0][0].reason_for_update).toBe("identity_changed");
+  });
+
+  it("upserts same-day when a new curated proof moment appears", async () => {
+    const proofBundle = computePatReadSourceBundle(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Kept your word",
+            body: "You followed through today.",
+            groundedInEventTypes: ["user_yes"],
+          },
+        ],
+      }),
+      { seasonId: "season-1" }
+    )!;
+
+    mockSnapshotMaybeSingle.mockResolvedValue({
+      data: {
+        strength_text: "Saved strength.",
+        pattern_text: null,
+        next_move_text: "Saved next move.",
+        provenance: "deterministic",
+        source_hash: computePatReadSourceHash(proofBundle),
+        valid_for_day_key: getPatReadDayKey("UTC"),
+        input_bundle_json: proofBundle,
+        pattern_confidence: proofBundle.pattern_confidence,
+        reason_for_update: "first_real_proof",
+      },
+      error: null,
+    });
+
+    const view = baseView({
+      isDayZeroUser: false,
+      hasSparseProof: false,
+      moments: [
+        {
+          id: "m2",
+          occurredAt: "2026-05-02T14:00:00Z",
+          headline: "Honest miss",
+          body: "You got honest and stayed in it.",
+          groundedInEventTypes: ["user_no"],
+        },
+        {
+          id: "m1",
+          occurredAt: "2026-05-02T10:00:00Z",
+          headline: "Kept your word",
+          body: "You followed through today.",
+          groundedInEventTypes: ["user_yes"],
+        },
+      ],
+    });
+
+    await loadPatReadForVictoryRoom({
+      clerkUserId: "u1",
+      view,
+      displayName: "Alex",
+      timezone: "UTC",
+    });
+
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    expect(mockUpsert.mock.calls[0][0].reason_for_update).toBe("major_evidence_change");
+    expect(mockUpsert.mock.calls[0][0].strength_text).toContain("you got honest");
   });
 
   it("preserves snapshot on same-day minor proof change", async () => {

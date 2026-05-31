@@ -297,13 +297,28 @@ describe("classifyPrinciplesSourceChange", () => {
     expect(result).toEqual({ shouldRefresh: true, reasonForUpdate: "major_evidence_change" });
   });
 
-  it("pat_read_changed refreshes when pat read hash changes", () => {
-    const before = {
-      ...sparseBundle,
-      pat_read_source_hash: "hash-a",
-    };
+  it("pat_read_changed refreshes when curated proof ids change (not hash alone)", () => {
+    const before = computePrinciplesSourceBundle(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: false,
+        moments: [
+          {
+            id: "m1",
+            occurredAt: "2026-05-02T10:00:00Z",
+            headline: "Kept your word",
+            body: "Body one.",
+            groundedInEventTypes: [],
+          },
+        ],
+      }),
+      { seasonId: "s1", weekKey: WEEK }
+    )!;
     const after = {
-      ...sparseBundle,
+      ...before,
+      recent_proof_moment_ids: ["m2", "m1"],
+      recent_proof_bodies: ["Body two.", "Body one."],
+      recent_proof_category_labels: ["Told the truth", "Kept the goal"],
       pat_read_source_hash: "hash-b",
     };
     const result = classifyPrinciplesSourceChange({
@@ -313,6 +328,18 @@ describe("classifyPrinciplesSourceChange", () => {
       currentWeekKey: WEEK,
     });
     expect(result).toEqual({ shouldRefresh: true, reasonForUpdate: "pat_read_changed" });
+  });
+
+  it("pat read hash alone without curated input change does not refresh", () => {
+    const before = { ...sparseBundle, pat_read_source_hash: "hash-a" };
+    const after = { ...sparseBundle, pat_read_source_hash: "hash-b" };
+    const result = classifyPrinciplesSourceChange({
+      existing: storedSnapshot(before),
+      newBundle: after,
+      newHash: computePrinciplesSourceHash(after),
+      currentWeekKey: WEEK,
+    });
+    expect(result.shouldRefresh).toBe(false);
   });
 });
 

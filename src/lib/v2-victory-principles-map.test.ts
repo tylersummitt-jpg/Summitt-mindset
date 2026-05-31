@@ -318,6 +318,25 @@ describe("v2-victory-principles-map", () => {
     }
   });
 
+  it("focus next avoids practice Do phrasing and uses do the daily bar sentence", () => {
+    const result = buildDeterministicPrinciplesFromView(
+      baseView({
+        isDayZeroUser: false,
+        hasSparseProof: true,
+        comebackLines: ["You came back after silence."],
+        evidenceCounts: { ...EMPTY_VICTORY_EVIDENCE_COUNTS, gotBackOnTrack: 1 },
+      })
+    );
+    const copy = allCopy(result);
+    expect(copy).not.toMatch(/practice Do\b/i);
+    expect(copy).not.toMatch(/practice Pick\b/i);
+    if (result.focusNext.title === "Discipline Yourself So No One Else Has To") {
+      expect(result.focusNext.text).toBe(
+        "Early proof is forming. This week, do the daily bar you agreed to before the day gets away from you."
+      );
+    }
+  });
+
   it("generated copy avoids gamification words", () => {
     const result = buildDeterministicPrinciplesFromView(
       baseView({
