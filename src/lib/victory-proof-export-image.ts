@@ -28,6 +28,7 @@ export async function downloadVictoryProofPng(
       backgroundColor: "#0a0e16",
       style: {
         transform: "none",
+        opacity: "1",
       },
     });
 
