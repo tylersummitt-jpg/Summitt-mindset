@@ -725,6 +725,87 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(userMsg).toContain("Sunday School, farm, songs Mother sang");
     expect(userMsg).not.toContain("INBOUND_ACCOUNTABILITY_FACTS_JSON");
   });
+
+  it("system prompt keeps memory/correction guidance without duplicating thread body (Phase 3B)", async () => {
+    const duplicateThreadMarker = "ONLY_IN_PACKET_THREAD_BODY_XYZ98765";
+    const longThreadBody = `${duplicateThreadMarker} ${"Coach: line ".repeat(400)}User: done`;
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it — you already covered that thread. What is the next small move today?",
+              no_send_reason: null,
+              turn_purpose: "use_recent_answer",
+              voice_confidence: 0.85,
+              used_facts: ["thread"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Morning focus block",
+      userMessageRaw: "done",
+      coalescedInboundText: "done",
+      suppressedMessageSids: [],
+      transcriptLines: ["Coach: How did it go?", "User: done"],
+      northStarPacket: { source: "sms_inbound_coach" },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        recent_exact_thread_text: longThreadBody,
+        recent_exact_message_count: 2,
+        latest_open_question: "How did it go?",
+        latest_answer_after_open_question: "done",
+        open_question_pending: false,
+        open_question_source: "projection",
+        answer_source: "projection",
+        projection_used: true,
+        last_5_coach_questions: ["How did it go?"],
+        do_not_repeat_phrases: ["How did it go?"],
+      }),
+    });
+    await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(systemMsg).toContain("MEMORY_PACKET");
+    expect(systemMsg).toContain("RELATIONSHIP_PACKET_V1.recent_exact_thread_72h");
+    expect(systemMsg).toMatch(/do not rely on duplicated thread blobs/i);
+    expect(systemMsg).toMatch(/do NOT ask again/i);
+    expect(systemMsg).not.toContain("Recent exact thread (bounded):");
+    expect(systemMsg).not.toContain(duplicateThreadMarker);
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
+    expect(userMsg).toContain("recent_exact_thread_72h");
+    expect(userMsg).toContain(duplicateThreadMarker);
+  });
 });
 
 describe("Phase 3F-3 adaptive_proposal_consent_clarification facts", () => {

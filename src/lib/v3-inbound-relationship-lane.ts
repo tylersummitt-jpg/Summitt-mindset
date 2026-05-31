@@ -348,8 +348,9 @@ ${lines.map((l) => `- ${l}`).join("\n")}`;
 
 function buildMemoryPacketRouteAux(f: InboundV3RelationshipFacts): string {
   const mp = f.thread.memory_packet;
-  if (!mp?.recent_exact_thread_text?.trim()) return "";
+  if (!mp) return "";
   const lines: string[] = [
+    "Use RELATIONSHIP_PACKET_V1.recent_exact_thread_72h as the authoritative recent thread — do not rely on duplicated thread blobs elsewhere in this prompt.",
     "RECENT_EXACT_THREAD is highest-priority memory — it outranks coaching summaries and older transcript lines when they conflict.",
     "Do NOT ask any question in memory_packet.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.",
   ];
@@ -391,9 +392,7 @@ function buildMemoryPacketRouteAux(f: InboundV3RelationshipFacts): string {
   return `
 
 MEMORY_PACKET (server-owned; RECENT_EXACT_THREAD wins over COACHING_SUMMARY):
-${lines.map((l) => `- ${l}`).join("\n")}
-Recent exact thread (bounded):
-${mp.recent_exact_thread_text.trim().slice(0, 2800)}`;
+${lines.map((l) => `- ${l}`).join("\n")}`;
 }
 
 function enhanceThreadCorrectionFromMemoryPacket(
@@ -1906,7 +1905,7 @@ RULES:
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy labeled machine drafts, template banks, or "prior hint" wording as your voice.
 ${buildRelationshipPacketPromptGuidance()}
 - thread.memory_authority.projection_used: when true, thread.latest_open_question and thread.latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and north_star fallbacks.
-- thread.memory_packet.recent_exact_thread_text is the highest-priority transcript when present — it outranks recent_transcript_lines, body_preview, and coaching summaries.
+- RELATIONSHIP_PACKET_V1.recent_exact_thread_72h is the authoritative recent thread — it outranks recent_transcript_lines, body_preview, and coaching summaries.
 - If projection says open_question_pending is false and an answer exists: move forward from that answer only when it is proof/outcome — not when the answer is only a forward plan or outcome is still unknown (do not treat intention as completion).
 - Do not re-ask questions in thread.memory_packet.last_5_coach_questions unless the user has not answered and you briefly acknowledge that.
 - If thread.memory_packet.latest_answer_after_open_question_guess is set, use it — do not ask that question again.
