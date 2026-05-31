@@ -114,6 +114,19 @@ describe("tryResolveAnswerToOpenQuestionTurn — coach_yes_no", () => {
     });
     expect(r).toBeNull();
   });
+
+  it("returns null for bare yes on unknown semantics (strong accountability-only guard)", () => {
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "Yes",
+      latestOpenQuestion: "How are you feeling about progress?",
+      expectedReplySemantics: "unknown",
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Two hours daily",
+      behaviorStatement: "Two hours daily",
+    });
+    expect(r).toBeNull();
+  });
 });
 
 describe("isBoundedYesNoOpenQuestionAnswer", () => {
@@ -170,6 +183,21 @@ describe("tryResolveAnswerToOpenQuestionTurn — Angel bare hour after time ques
       behaviorStatement: "Focus block",
     });
     expect(r).toBeNull();
+  });
+
+  it("routes discrete_choice tokens for time, energy, or avoidance question", () => {
+    const blockerQ = "What's the tightest constraint — time, energy, or avoidance?";
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "time",
+      latestOpenQuestion: blockerQ,
+      expectedReplySemantics: "discrete_choice",
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Focus block",
+      behaviorStatement: "Focus block",
+    });
+    expect(r?.subkind).toBe("discrete_choice");
+    expect(r?.extractedAnswer).toBe("time");
   });
 });
 

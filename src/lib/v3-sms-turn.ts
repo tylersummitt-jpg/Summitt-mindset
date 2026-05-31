@@ -225,11 +225,7 @@ export function tryResolveAnswerToOpenQuestionTurn(
     return null;
   }
 
-  if (
-    inboundLooksLikeStrongAccountabilityOnly(inbound) &&
-    qSem !== "discrete_choice" &&
-    qSem !== "coach_yes_no"
-  ) {
+  if (inboundLooksLikeStrongAccountabilityOnly(inbound) && qSem !== "discrete_choice") {
     return null;
   }
 
