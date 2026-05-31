@@ -479,15 +479,6 @@ export function buildRepairRelationshipSnapshotV1(args: {
           : undefined,
       };
     }
-    if (isDailyFacts(args.laneFacts)) {
-      const forbidden = args.laneFacts.constraints.forbidden_substrings;
-      if (forbidden?.length) {
-        snapshot.canonical_state_min.required_constraints = {
-          ...snapshot.canonical_state_min.required_constraints,
-          forbidden_substrings: forbidden.slice(0, 8),
-        };
-      }
-    }
   }
 
   if (args.repairKind === "memory_repeat" && args.memoryRepeatContext) {

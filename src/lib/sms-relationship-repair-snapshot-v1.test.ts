@@ -393,7 +393,6 @@ describe("buildRepairRelationshipSnapshotV1", () => {
           max_chars: 300,
           required_verbatim_substrings: [binding],
           wrapper_must_not_repeat_substrings: wrapperForbidden,
-          forbidden_substrings: ["great job"],
         },
       },
     });
@@ -410,7 +409,40 @@ describe("buildRepairRelationshipSnapshotV1", () => {
       wrapperForbidden
     );
     expect(snapshot.canonical_state_min.required_constraints?.required_verbatim_substrings).toEqual([binding]);
-    expect(snapshot.canonical_state_min.required_constraints?.forbidden_substrings).toEqual(["great job"]);
+    expect(snapshot.canonical_state_min.required_constraints?.forbidden_substrings).toBeUndefined();
+  });
+
+  it("daily lane_post_validate snapshot omits forbidden_substrings", () => {
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "lane_post_validate",
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      blockedBody: "Great job staying consistent this week!",
+      blockedReasons: ["great_job"],
+      laneFacts: {
+        route_kind: "main_active_accountability",
+        accountability_day_key: "2026-05-12",
+        user: { local_time_iso: "2026-05-18T12:00:00.000Z" },
+        commitment: {
+          id: "cmt_1",
+          behavior_statement: "Morning focus",
+          effective_ask: "Two hours before noon",
+          accountability_phase: "active_accountability",
+        },
+        accountability: { daily_purpose: "standard_accountability_check" },
+        thread_memory: { recent_exact_thread_72h: thread72h },
+        constraints: {
+          max_chars: 300,
+          one_sms: true,
+          no_raw_title_or_behavior_paste: true,
+          no_generic_motivation: true,
+          if_unsafe_return_no_send: true,
+        },
+      },
+      laneBlockedReasons: ["great_job"],
+    });
+
+    expect(snapshot.canonical_state_min.required_constraints?.forbidden_substrings).toBeUndefined();
   });
 
   it("contract_wrapper snapshot excludes coaching_summary / 7d / 30d memory", () => {
