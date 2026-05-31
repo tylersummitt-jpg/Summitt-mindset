@@ -113,6 +113,7 @@ export type SmsRelationshipMemoryPacket = {
   latest_answer_after_open_question: string | null;
   open_question_answered_at: string | null;
   open_question_pending: boolean;
+  open_question_expected_answer_type: string | null;
   open_question_source: SmsThreadMemoryProjectionSource;
   answer_source: SmsThreadMemoryProjectionSource;
   do_not_repeat_phrases: SmsRelationshipDoNotRepeatHint[];
@@ -362,6 +363,7 @@ export type SlimSmsRelationshipMemoryPacketForFacts = {
   latest_answer_after_open_question: string | null;
   open_question_answered_at: string | null;
   open_question_pending: boolean;
+  open_question_expected_answer_type: string | null;
   open_question_source: SmsThreadMemoryProjectionSource;
   answer_source: SmsThreadMemoryProjectionSource;
   projection_used: boolean;
@@ -387,6 +389,7 @@ export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): S
     latest_answer_after_open_question: packet.latest_answer_after_open_question,
     open_question_answered_at: packet.open_question_answered_at,
     open_question_pending: packet.open_question_pending,
+    open_question_expected_answer_type: packet.open_question_expected_answer_type,
     open_question_source: packet.open_question_source,
     answer_source: packet.answer_source,
     projection_used: packet.meta.projection_used,
@@ -953,6 +956,9 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     ? projection.open_question_pending === true
     : Boolean(latest_open_question_guess && !latest_answer_after_open_question_guess);
 
+  const open_question_expected_answer_type =
+    projection?.open_question_expected_answer_type?.trim() ?? null;
+
   return {
     clerk_user_id: args.clerkUserId,
     commitment_id: args.commitmentId ?? commitment?.id ?? null,
@@ -979,6 +985,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     latest_answer_after_open_question,
     open_question_answered_at,
     open_question_pending,
+    open_question_expected_answer_type,
     open_question_source,
     answer_source,
     do_not_repeat_phrases,

@@ -260,6 +260,7 @@ import {
 } from "@/lib/north-star-coach-sms-openai";
 import {
   buildInboundNorthStarContextPacket,
+  mergeInboundOpenQuestionAuthority,
   recentEventsIncludeUserYesOnLocalDay,
   type ExpectedReplySemanticsV3,
 } from "@/lib/north-star-sms-context-packet";
@@ -2022,17 +2023,31 @@ async function processV2NormalInboundOutcome(
       latestBlockerPreview,
     });
 
+    const openQuestionAuthority = mergeInboundOpenQuestionAuthority({
+      northStarLatestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+      northStarExpectedSemantics: northStarPktEarly.expectedReplySemantics as ExpectedReplySemanticsV3,
+      threadLatestOpenQuestion: inboundRelationshipMemoryPacket.latest_open_question,
+      threadOpenQuestionPending: inboundRelationshipMemoryPacket.open_question_pending,
+      threadOpenQuestionExpectedAnswerType:
+        inboundRelationshipMemoryPacket.open_question_expected_answer_type,
+    });
+    const northStarPktOpenQuestion = {
+      ...northStarPktEarly,
+      latestOpenQuestion: openQuestionAuthority.latestOpenQuestion,
+      expectedReplySemantics: openQuestionAuthority.expectedReplySemantics,
+    };
+
     const v3Resolution = tryResolveAnswerToOpenQuestionTurn({
       inboundRaw: userMessage,
-      latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
-      expectedReplySemantics: northStarPktEarly.expectedReplySemantics as ExpectedReplySemanticsV3,
+      latestOpenQuestion: northStarPktOpenQuestion.latestOpenQuestion ?? null,
+      expectedReplySemantics: northStarPktOpenQuestion.expectedReplySemantics as ExpectedReplySemanticsV3,
       recentTranscriptLines: minimalLinesEarly,
       todayCompleted: priorYesToday,
       effectiveAsk: effectiveBehavior,
       behaviorStatement: commitment.behavior_statement ?? "",
     });
 
-    if (!v3Resolution && northStarPktEarly.latestOpenQuestion?.trim()) {
+    if (!v3Resolution && northStarPktOpenQuestion.latestOpenQuestion?.trim()) {
       registerInboundMeaningShadowPending({
         job,
         userId,
@@ -2042,22 +2057,22 @@ async function processV2NormalInboundOutcome(
           route: MEANING_INTERPRETER_ROUTES.normal_accountability,
           classifierEventType: eventType,
           classifierNormalizedHint: normalizedHint,
-          openQuestionText: northStarPktEarly.latestOpenQuestion.trim(),
+          openQuestionText: northStarPktOpenQuestion.latestOpenQuestion.trim(),
           pendingResolutionKind: commitment.pending_resolution_kind,
           lastOutboundPreview: lastOutboundSmsPreview,
           behaviorStatement: commitment.behavior_statement ?? null,
         }),
         extraFacts: buildEnrichedMeaningShadowFacts({
-          openQuestionText: northStarPktEarly.latestOpenQuestion.trim(),
+          openQuestionText: northStarPktOpenQuestion.latestOpenQuestion.trim(),
           expectedReplySemantics:
-            typeof northStarPktEarly.expectedReplySemantics === "string"
-              ? northStarPktEarly.expectedReplySemantics
+            typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+              ? northStarPktOpenQuestion.expectedReplySemantics
               : null,
-          openQuestionPending: true,
+          openQuestionPending: inboundRelationshipMemoryPacket.open_question_pending,
           openQuestionRoutingMiss: true,
           recentTranscriptPreview: minimalLinesEarly.slice(-4).join(" | ").slice(0, 280),
           lastOutboundPreview: lastOutboundSmsPreview,
-          lastOutboundFullBodyPreview: northStarPktEarly.latestOutboundBody?.slice(0, 280) ?? null,
+          lastOutboundFullBodyPreview: northStarPktOpenQuestion.latestOutboundBody?.slice(0, 280) ?? null,
           effectiveAskPreview: effectiveBehavior,
           behaviorStatement: commitment.behavior_statement ?? null,
           gatedOutcome: eventType,
@@ -2083,11 +2098,11 @@ async function processV2NormalInboundOutcome(
       const openBrain = buildAnswerToOpenQuestionV3BrainPackage({
         resolution: v3Resolution,
         learning: learningOpen,
-        latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+        latestOpenQuestion: northStarPktOpenQuestion.latestOpenQuestion ?? null,
         expectedSemantics:
-          typeof northStarPktEarly.expectedReplySemantics === "string"
-            ? northStarPktEarly.expectedReplySemantics
-            : String(northStarPktEarly.expectedReplySemantics ?? ""),
+          typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+            ? northStarPktOpenQuestion.expectedReplySemantics
+            : String(northStarPktOpenQuestion.expectedReplySemantics ?? ""),
       });
 
       /** Legacy writer — facts / preview only; never used as final visible SMS body. */
@@ -2098,10 +2113,10 @@ async function processV2NormalInboundOutcome(
         todayCompleted: priorYesToday,
         effectiveAsk: effectiveBehavior,
         behaviorStatement: commitment.behavior_statement ?? "",
-        northStarPacket: northStarPktEarly,
+        northStarPacket: northStarPktOpenQuestion,
         coachingMemory: coachingMemoryRow,
-        latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
-        expectedReplySemantics: northStarPktEarly.expectedReplySemantics as ExpectedReplySemanticsV3,
+        latestOpenQuestion: northStarPktOpenQuestion.latestOpenQuestion ?? null,
+        expectedReplySemantics: northStarPktOpenQuestion.expectedReplySemantics as ExpectedReplySemanticsV3,
         learningSignal: learningOpen,
       });
 
@@ -2116,12 +2131,12 @@ async function processV2NormalInboundOutcome(
       };
 
       const expectedSemanticsStr =
-        typeof northStarPktEarly.expectedReplySemantics === "string"
-          ? northStarPktEarly.expectedReplySemantics
-          : String(northStarPktEarly.expectedReplySemantics ?? "unknown");
+        typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+          ? northStarPktOpenQuestion.expectedReplySemantics
+          : String(northStarPktOpenQuestion.expectedReplySemantics ?? "unknown");
 
       const openQuestionFactsPayload: InboundV3OpenQuestionFacts = {
-        latest_open_question: northStarPktEarly.latestOpenQuestion ?? null,
+        latest_open_question: northStarPktOpenQuestion.latestOpenQuestion ?? null,
         expected_reply_semantics: expectedSemanticsStr,
         resolution_subkind: v3Resolution.subkind,
         extracted_answer: v3Resolution.extractedAnswer ?? null,
@@ -2178,7 +2193,7 @@ async function processV2NormalInboundOutcome(
         coalescedInboundText: userMessage,
         suppressedMessageSids: splitSuppressedMessageSids,
         transcriptLines: minimalLinesEarly,
-        northStarPacket: northStarPktEarly,
+        northStarPacket: northStarPktOpenQuestion,
         gatedDecision: V3_REFINE_ONLY_GATED,
         deterministicEventType: eventType,
         doNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRow),
@@ -2226,17 +2241,25 @@ async function processV2NormalInboundOutcome(
             commitmentId: commitment.id,
             classifierEventType: eventType,
             classifierNormalizedHint: normalizedHint,
-            openQuestionText: northStarPktEarly.latestOpenQuestion?.trim() || null,
+            openQuestionText: northStarPktOpenQuestion.latestOpenQuestion?.trim() || null,
             expectedReplySemantics:
-              typeof northStarPktEarly.expectedReplySemantics === "string"
-                ? northStarPktEarly.expectedReplySemantics
+              typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+                ? northStarPktOpenQuestion.expectedReplySemantics
                 : null,
             pendingResolutionKind: commitment.pending_resolution_kind,
             lastOutboundPreview: lastOutboundSmsPreview,
             behaviorStatement: commitment.behavior_statement ?? null,
           }),
           extraFacts: buildEnrichedMeaningShadowFacts({
+            openQuestionText: northStarPktOpenQuestion.latestOpenQuestion?.trim() || null,
+            expectedReplySemantics:
+              typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+                ? northStarPktOpenQuestion.expectedReplySemantics
+                : null,
+            openQuestionPending: inboundRelationshipMemoryPacket.open_question_pending,
             openQuestionRoutingMiss: true,
+            lastOutboundPreview: lastOutboundSmsPreview,
+            lastOutboundFullBodyPreview: northStarPktOpenQuestion.latestOutboundBody?.slice(0, 280) ?? null,
             v3NoSendReason: openLaneRes.noSendReason ?? null,
             routePurpose: "open_question_answer",
             branchName: "open_question_answer",
@@ -2262,11 +2285,11 @@ async function processV2NormalInboundOutcome(
       }
 
       const contextPacketV3: NorthStarSmsContextPacket = {
-        ...northStarPktEarly,
+        ...northStarPktOpenQuestion,
         v3AnswerToOpenQuestion: true,
         v3TurnSubkind: v3Resolution.subkind,
         debug: {
-          ...(northStarPktEarly.debug ?? {}),
+          ...(northStarPktOpenQuestion.debug ?? {}),
           v3_turn_purpose: "answer_to_open_question",
           v3_turn_subkind: v3Resolution.subkind,
           answered_open_question: true,
@@ -2274,10 +2297,10 @@ async function processV2NormalInboundOutcome(
           v3_brain: {
             ...buildV3BrainMetadata({
               brain: openBrainWithSource,
-              latestOpenQuestion: northStarPktEarly.latestOpenQuestion ?? null,
+              latestOpenQuestion: northStarPktOpenQuestion.latestOpenQuestion ?? null,
               expectedSemantics:
-                typeof northStarPktEarly.expectedReplySemantics === "string"
-                  ? northStarPktEarly.expectedReplySemantics
+                typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+                  ? northStarPktOpenQuestion.expectedReplySemantics
                   : null,
               coachReplySource: "v3_inbound_relationship_lane",
             }),
@@ -2366,17 +2389,17 @@ async function processV2NormalInboundOutcome(
       const openQuestionThreadMemoryCtx = {
         commitmentId: commitment.id,
         expectedAnswerType:
-          typeof northStarPktEarly.expectedReplySemantics === "string"
-            ? northStarPktEarly.expectedReplySemantics
+          typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+            ? northStarPktOpenQuestion.expectedReplySemantics
             : null,
         meaningShadow: buildOpenQuestionMeaningShadow({
           commitmentId: commitment.id,
           classifierEventType: eventType,
           classifierNormalizedHint: normalizedHint,
-          openQuestionText: northStarPktEarly.latestOpenQuestion?.trim() || null,
+          openQuestionText: northStarPktOpenQuestion.latestOpenQuestion?.trim() || null,
           expectedReplySemantics:
-            typeof northStarPktEarly.expectedReplySemantics === "string"
-              ? northStarPktEarly.expectedReplySemantics
+            typeof northStarPktOpenQuestion.expectedReplySemantics === "string"
+              ? northStarPktOpenQuestion.expectedReplySemantics
               : null,
           pendingResolutionKind: commitment.pending_resolution_kind,
           lastOutboundPreview: lastOutboundSmsPreview,
@@ -4248,7 +4271,18 @@ async function processV2NormalInboundOutcome(
     if (!laneRes.shouldSend || !laneRes.body.trim()) {
       enrichMeaningInterpreterShadowPending(job.message_sid, {
         deterministicFacts: buildEnrichedMeaningShadowFacts({
+          openQuestionText: northStarPktForV3.latestOpenQuestion?.trim() || null,
+          expectedReplySemantics:
+            typeof northStarPktForV3.expectedReplySemantics === "string"
+              ? northStarPktForV3.expectedReplySemantics
+              : null,
+          openQuestionPending: inboundRelationshipMemoryPacket.open_question_pending,
+          openQuestionRoutingMiss: Boolean(northStarPktForV3.latestOpenQuestion?.trim()),
+          lastOutboundPreview: lastOutboundSmsPreview,
+          lastOutboundFullBodyPreview:
+            northStarPktForV3.latestOutboundBody?.slice(0, 280) ?? lastOutboundSmsPreview,
           v3NoSendReason: laneRes.noSendReason ?? null,
+          routePurpose: mainInboundLaneRoutePurpose ?? "normal_inbound_reply",
         }),
       });
       await markJobFinal({

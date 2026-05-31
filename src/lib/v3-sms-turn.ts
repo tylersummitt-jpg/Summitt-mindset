@@ -13,6 +13,7 @@ export type V3AnswerToOpenQuestionSubkind =
   | "discrete_choice"
   | "blocker_detail"
   | "goal_change_clarification"
+  | "coach_yes_no"
   | "open_reflection"
   | "unknown_open_answer"
   /** User defers smallest-step-today to tomorrow / late — must not repeat the same today question. */
@@ -49,6 +50,13 @@ function parseTranscriptRoleLine(line: string): { role: "Coach" | "User" | null;
   const mUser = /^\s*User:\s*(.+)$/i.exec(line);
   if (mUser?.[1]) return { role: "User", text: norm(mUser[1]) };
   return { role: null, text: norm(line) };
+}
+
+/** Bounded yes/no only — for coach_yes_no open-question answers (not long replies). */
+export function isBoundedYesNoOpenQuestionAnswer(raw: string): boolean {
+  const core = raw.trim().toLowerCase().replace(/[.!?…]+$/g, "").trim();
+  if (!core || core.length > 12) return false;
+  return /^(yes|y|yeah|yep|yup|no|n|nope|nah)$/.test(core);
 }
 
 function inboundLooksLikeStrongAccountabilityOnly(raw: string): boolean {
@@ -198,11 +206,30 @@ export function tryResolveAnswerToOpenQuestionTurn(
     };
   }
 
+  if (qSem === "coach_yes_no") {
+    if (!isBoundedYesNoOpenQuestionAnswer(inbound)) return null;
+    const extracted = inbound.trim().toLowerCase().replace(/[.!?…]+$/g, "").trim();
+    const isNo = /^(no|n|nope|nah)$/.test(extracted);
+    return {
+      turnPurpose: "answer_to_open_question",
+      subkind: "coach_yes_no",
+      answeredOpenQuestion: true,
+      extractedAnswer: extracted,
+      shouldWriteOutcomeEvent: false,
+      shouldAskTodayCompletionAgain: false,
+      replyStrategy: isNo ? "ack_coach_yes_no_negative" : "ack_coach_yes_no_affirmative",
+    };
+  }
+
   if (isClearAccountabilityCompletionReply(inbound)) {
     return null;
   }
 
-  if (inboundLooksLikeStrongAccountabilityOnly(inbound) && qSem !== "discrete_choice") {
+  if (
+    inboundLooksLikeStrongAccountabilityOnly(inbound) &&
+    qSem !== "discrete_choice" &&
+    qSem !== "coach_yes_no"
+  ) {
     return null;
   }
 

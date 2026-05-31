@@ -19,6 +19,8 @@ export type ExpectedReplySemanticsV3 =
   | "blocker_detail"
   | "goal_change_clarification"
   | "proposal_yes_no"
+  /** Direct yes/no to an ordinary coach question (not contract consent or daily accountability). */
+  | "coach_yes_no"
   | "open_reflection"
   | "unknown";
 
@@ -138,8 +140,69 @@ function inferExpectedReplySemanticsFromCoachQuestionInner(q: string): ExpectedR
   ) {
     return "accountability_check";
   }
+  if (coachQuestionExpectsYesNoAnswer(q)) {
+    return "coach_yes_no";
+  }
   if (/\?/.test(q)) return "open_reflection";
   return "unknown";
+}
+
+/** High-precision: ordinary coach yes/no question (not contract/proposal consent). */
+export function coachQuestionExpectsYesNoAnswer(q: string): boolean {
+  const text = q.trim();
+  if (!/\?/.test(text)) return false;
+  const lower = text.toLowerCase();
+  if (/\b(reply|text)\s+(yes|no)\b/i.test(lower)) return false;
+  if (/\b(do you|would you|can you)\s+(accept|agree|confirm|approve)\b/i.test(lower)) return false;
+  if (/\b(yes|no)\s+(to|for)\s+(this|the)\s+(proposal|overlay|change)\b/i.test(lower)) return false;
+  if (/\bhave you\b/i.test(lower)) return true;
+  if (/\bdid you\b/i.test(lower)) return true;
+  if (/\bare you\b/i.test(lower)) return true;
+  if (/\bwill you\b/i.test(lower)) return true;
+  if (/\bdoes (this|that|it)\b/i.test(lower)) return true;
+  if (/\bis (this|that|it)\b/i.test(lower)) return true;
+  return false;
+}
+
+const YES_NO_STYLE_EXPECTED_ANSWER_TYPES = new Set(["yes_no_partial", "yes_no"]);
+
+/** Prefer thread-memory open question when pending; boost yes/no semantics from projection. */
+export function mergeInboundOpenQuestionAuthority(args: {
+  northStarLatestOpenQuestion: string | null;
+  northStarExpectedSemantics: ExpectedReplySemanticsV3;
+  threadLatestOpenQuestion?: string | null;
+  threadOpenQuestionPending?: boolean;
+  threadOpenQuestionExpectedAnswerType?: string | null;
+}): {
+  latestOpenQuestion: string | null;
+  expectedReplySemantics: ExpectedReplySemanticsV3;
+} {
+  let latestOpenQuestion = args.northStarLatestOpenQuestion?.trim() || null;
+  let expectedReplySemantics = args.northStarExpectedSemantics;
+
+  if (args.threadOpenQuestionPending && args.threadLatestOpenQuestion?.trim()) {
+    latestOpenQuestion = args.threadLatestOpenQuestion.trim();
+    expectedReplySemantics = inferExpectedReplySemanticsFromCoachQuestion(latestOpenQuestion);
+  }
+
+  const expectedType = args.threadOpenQuestionExpectedAnswerType?.trim().toLowerCase() ?? "";
+  if (latestOpenQuestion && YES_NO_STYLE_EXPECTED_ANSWER_TYPES.has(expectedType)) {
+    if (
+      expectedReplySemantics === "open_reflection" ||
+      expectedReplySemantics === "unknown" ||
+      coachQuestionExpectsYesNoAnswer(latestOpenQuestion)
+    ) {
+      expectedReplySemantics = "coach_yes_no";
+    }
+  } else if (
+    latestOpenQuestion &&
+    expectedReplySemantics === "open_reflection" &&
+    coachQuestionExpectsYesNoAnswer(latestOpenQuestion)
+  ) {
+    expectedReplySemantics = "coach_yes_no";
+  }
+
+  return { latestOpenQuestion, expectedReplySemantics };
 }
 
 export function recentEventsIncludeUserYesOnLocalDay(

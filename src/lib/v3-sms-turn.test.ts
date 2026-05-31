@@ -3,13 +3,32 @@ import {
   extractBareHourTimeAnswer,
   extractTimeOrRangeAnswer,
   generateV3OpenQuestionAnswerReply,
+  isBoundedYesNoOpenQuestionAnswer,
   looksLikeBlockerPhrase,
   tryResolveAnswerToOpenQuestionTurn,
 } from "./v3-sms-turn";
-import { inferExpectedReplySemanticsFromCoachQuestion } from "@/lib/north-star-sms-context-packet";
+import {
+  inferExpectedReplySemanticsFromCoachQuestion,
+} from "@/lib/north-star-sms-context-packet";
 
 const ANGEL_TIME_QUESTION =
   "What specific time will you set for your calls tomorrow to keep things on track?";
+
+const SISTER_SCHEDULE_Q =
+  "Have you scheduled a time to connect with your sister about the get-together?";
+
+function resolveCoachYesNo(inboundRaw: string, latestOpenQuestion: string) {
+  const expectedReplySemantics = inferExpectedReplySemanticsFromCoachQuestion(latestOpenQuestion);
+  return tryResolveAnswerToOpenQuestionTurn({
+    inboundRaw,
+    latestOpenQuestion,
+    expectedReplySemantics,
+    recentTranscriptLines: [],
+    todayCompleted: false,
+    effectiveAsk: "Daily connection",
+    behaviorStatement: "Daily connection",
+  });
+}
 
 function resolveTimeAnswer(inboundRaw: string, latestOpenQuestion: string = ANGEL_TIME_QUESTION) {
   const expectedReplySemantics = inferExpectedReplySemanticsFromCoachQuestion(latestOpenQuestion);
@@ -23,6 +42,88 @@ function resolveTimeAnswer(inboundRaw: string, latestOpenQuestion: string = ANGE
     behaviorStatement: "Make sales calls daily",
   });
 }
+
+describe("tryResolveAnswerToOpenQuestionTurn — coach_yes_no", () => {
+  it("routes Yes to Have you scheduled… as open_question_answer", () => {
+    const r = resolveCoachYesNo("Yes", SISTER_SCHEDULE_Q);
+    expect(r).not.toBeNull();
+    expect(r?.turnPurpose).toBe("answer_to_open_question");
+    expect(r?.subkind).toBe("coach_yes_no");
+    expect(r?.extractedAnswer).toBe("yes");
+    expect(r?.shouldWriteOutcomeEvent).toBe(false);
+  });
+
+  it("routes No to Did you talk to her? as coach_yes_no", () => {
+    const q = "Did you talk to her?";
+    const r = resolveCoachYesNo("No", q);
+    expect(r?.subkind).toBe("coach_yes_no");
+    expect(r?.extractedAnswer).toBe("no");
+  });
+
+  it("routes Yes to Are you ready… as coach_yes_no", () => {
+    const r = resolveCoachYesNo("Yes", "Are you ready for the meeting tomorrow?");
+    expect(r?.subkind).toBe("coach_yes_no");
+  });
+
+  it("returns null for bare Yes without latest open question", () => {
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "Yes",
+      latestOpenQuestion: null,
+      expectedReplySemantics: "coach_yes_no",
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Daily",
+      behaviorStatement: "Daily",
+    });
+    expect(r).toBeNull();
+  });
+
+  it("returns null for long paragraph on coach_yes_no", () => {
+    const r = resolveCoachYesNo(
+      "Yes I scheduled it for Tuesday afternoon with my sister",
+      SISTER_SCHEDULE_Q
+    );
+    expect(r).toBeNull();
+  });
+
+  it("returns null for bare Yes on open_reflection blocker question", () => {
+    const reflectionQ =
+      "What's one thing that got in the way today — time, energy, or avoidance?";
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "Yes",
+      latestOpenQuestion: reflectionQ,
+      expectedReplySemantics: inferExpectedReplySemanticsFromCoachQuestion(reflectionQ),
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Daily habit",
+      behaviorStatement: "Daily habit",
+    });
+    expect(r).toBeNull();
+  });
+
+  it("returns null for bare Yes when semantics is accountability_check", () => {
+    const q = "Did you complete it today?";
+    const r = tryResolveAnswerToOpenQuestionTurn({
+      inboundRaw: "Yes",
+      latestOpenQuestion: q,
+      expectedReplySemantics: inferExpectedReplySemanticsFromCoachQuestion(q),
+      recentTranscriptLines: [],
+      todayCompleted: false,
+      effectiveAsk: "Two hours daily",
+      behaviorStatement: "Two hours daily",
+    });
+    expect(r).toBeNull();
+  });
+});
+
+describe("isBoundedYesNoOpenQuestionAnswer", () => {
+  it("accepts bounded yes/no tokens only", () => {
+    expect(isBoundedYesNoOpenQuestionAnswer("Yes")).toBe(true);
+    expect(isBoundedYesNoOpenQuestionAnswer("nope")).toBe(true);
+    expect(isBoundedYesNoOpenQuestionAnswer("maybe")).toBe(false);
+    expect(isBoundedYesNoOpenQuestionAnswer("Yes I did")).toBe(false);
+  });
+});
 
 describe("tryResolveAnswerToOpenQuestionTurn — Angel bare hour after time question", () => {
   it("routes bare 8 after what specific time question", () => {
