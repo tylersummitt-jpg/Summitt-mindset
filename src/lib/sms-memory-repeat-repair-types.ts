@@ -25,6 +25,7 @@ export type MemoryRepeatRepairContext = {
   repeat_violation_reason: string | null;
   recommended_repair_strategy: SmsMemoryRepeatRepairStrategy;
   forbidden_coaching_frames: string[];
+  forbidden_content_tokens: string[];
   strategy_examples: string[];
 };
 

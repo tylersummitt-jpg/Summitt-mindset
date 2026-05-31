@@ -57,11 +57,54 @@ export const STRATEGY_EXAMPLE_SMS: Record<
   ],
 };
 
-const REPAIR_STRATEGY_ALTERNATE_CHAIN: readonly SmsMemoryRepeatRepairStrategy[] =
-  SMS_MEMORY_REPEAT_REPAIR_STRATEGIES;
-
 /** Telemetry: memory repeat repair uses fresh-angle coaching move shift (not legacy paraphrase repair). */
-export const SMS_MEMORY_REPEAT_REPAIR_SYSTEM = "fresh_angle_v1";
+export const SMS_MEMORY_REPEAT_REPAIR_SYSTEM = "fresh_angle_v2";
+
+const CONTENT_TOKEN_STOPWORDS = new Set([
+  "what",
+  "when",
+  "which",
+  "who",
+  "how",
+  "your",
+  "the",
+  "this",
+  "that",
+  "with",
+  "about",
+  "today",
+  "will",
+  "have",
+  "been",
+  "from",
+  "they",
+  "their",
+  "just",
+  "after",
+  "before",
+  "show",
+  "take",
+  "make",
+  "does",
+  "could",
+  "would",
+  "should",
+  "think",
+  "reflect",
+  "consider",
+  "share",
+  "being",
+  "something",
+  "specific",
+  "everyone",
+  "terms",
+  "week",
+  "feel",
+  "help",
+  "keep",
+  "stay",
+  "time",
+]);
 
 export type SmsMemoryRepeatViolationReason =
   | "repeated_recent_question"
@@ -79,7 +122,8 @@ export type SmsMemoryRepeatViolation = {
 };
 
 const MIN_PHRASE_CHARS = 12;
-const MIN_QUESTION_OVERLAP_CHARS = 18;
+export const MIN_QUESTION_OVERLAP_CHARS = 18;
+export const REPEAT_GUARD_WORD_OVERLAP_THRESHOLD = 0.45;
 
 const COMPLIANCE_PHRASE_PATTERNS = [
   /\breply\s+stop\b/i,
@@ -166,7 +210,7 @@ function phraseAppearsInCandidate(candidateNorm: string, phrase: string): boolea
   const pn = normalizeSmsMemoryRepeatText(phrase);
   if (pn.length < MIN_PHRASE_CHARS) return false;
   if (candidateNorm.includes(pn)) return true;
-  if (pn.length >= MIN_QUESTION_OVERLAP_CHARS && wordOverlapRatio(candidateNorm, pn) >= 0.45) {
+  if (pn.length >= MIN_QUESTION_OVERLAP_CHARS && wordOverlapRatio(candidateNorm, pn) >= REPEAT_GUARD_WORD_OVERLAP_THRESHOLD) {
     return /\?/.test(candidateNorm) || /\b(what|when|which|who|how|tell me|did you)\b/i.test(candidateNorm);
   }
   return false;
@@ -412,6 +456,117 @@ function buildForbiddenCoachingFrames(args: {
   return [...frames].slice(0, 6);
 }
 
+export function extractForbiddenContentTokens(args: {
+  repeatedQuestion: string | null;
+  repeatedPhrases: string[];
+  blockedCandidateBody: string;
+}): string[] {
+  const sources = [
+    args.repeatedQuestion,
+    ...args.repeatedPhrases,
+    args.blockedCandidateBody,
+  ].filter((s): s is string => Boolean(s?.trim()));
+
+  const tokenCounts = new Map<string, number>();
+  const phraseFreq = new Map<string, number>();
+
+  for (const source of sources) {
+    const norm = normalizeSmsMemoryRepeatText(source);
+    const rawWords = norm.split(" ").filter(Boolean);
+    for (const w of rawWords) {
+      if (w.length > 3 && !CONTENT_TOKEN_STOPWORDS.has(w)) {
+        tokenCounts.set(w, (tokenCounts.get(w) ?? 0) + 1);
+      }
+    }
+    for (let i = 0; i < rawWords.length - 1; i++) {
+      const bigram = `${rawWords[i]} ${rawWords[i + 1]}`.trim();
+      if (bigram.length >= 8) phraseFreq.set(bigram, (phraseFreq.get(bigram) ?? 0) + 1);
+      if (i < rawWords.length - 2) {
+        const trigram = `${rawWords[i]} ${rawWords[i + 1]} ${rawWords[i + 2]}`.trim();
+        if (trigram.length >= 12) phraseFreq.set(trigram, (phraseFreq.get(trigram) ?? 0) + 1);
+      }
+    }
+  }
+
+  const result: string[] = [];
+  for (const [phrase] of [...phraseFreq.entries()].sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)) {
+    if (result.length >= 12) break;
+    if (!result.includes(phrase)) result.push(phrase);
+  }
+  for (const [token] of [...tokenCounts.entries()].sort(
+    (a, b) => b[1] - a[1] || b[0].length - a[0].length
+  )) {
+    if (result.length >= 12) break;
+    if (!result.some((r) => r.includes(token) || token.includes(r))) result.push(token);
+  }
+  return result.slice(0, 12);
+}
+
+export function computeRepeatOverlapDiagnostics(args: {
+  candidateBody: string;
+  violation: SmsMemoryRepeatViolation;
+}): { triggeringPhrase: string | null; overlapTokens: string[] } {
+  const triggeringPhrase =
+    args.violation.repeatedQuestion ??
+    args.violation.repeatedPhrases[0] ??
+    null;
+  if (!triggeringPhrase?.trim()) {
+    return { triggeringPhrase: null, overlapTokens: [] };
+  }
+  const candidateWords = normalizeSmsMemoryRepeatText(args.candidateBody)
+    .split(" ")
+    .filter((w) => w.length > 3);
+  const phraseWords = new Set(
+    normalizeSmsMemoryRepeatText(triggeringPhrase)
+      .split(" ")
+      .filter((w) => w.length > 3)
+  );
+  const overlapTokens = [...new Set(candidateWords.filter((w) => phraseWords.has(w)))];
+  return { triggeringPhrase, overlapTokens };
+}
+
+function looksLikeOutcomeCoachQuestion(text: string): boolean {
+  const t = text.trim();
+  if (!t || !/\?/.test(t)) return false;
+  if (looksLikePlanningOrReflectionCoachText(t)) return false;
+  return (
+    isClosePriorPlanLoopOutcomeQuestion(t) ||
+    /\b(how did|were you able|did you|what actually happened|give me the honest|status on|in terms of)\b/i.test(t)
+  );
+}
+
+export function repairBodyMatchesStrategy(
+  body: string,
+  strategy: SmsMemoryRepeatRepairStrategy
+): boolean {
+  const t = body.trim();
+  if (!t) return false;
+  switch (strategy) {
+    case "reset_question":
+      return /\b(reset|start fresh|new plan|reset the|need to reset)\b/i.test(t) && /\?/.test(t);
+    case "barrier_check":
+      return /\b(way|block|blocked|blocker|friction|obstacle|pulled|got in the way|in the way|what got)\b/i.test(t);
+    case "next_first_step":
+      return (
+        /\b(first|next|step|move|start with|one thing|first move|first thing|which one|pick one|choose)\b/i.test(t) &&
+        /\?/.test(t)
+      );
+    case "binary_truth_check":
+      return (
+        /\b(yes|partial|missed|protected|not yet|follow through|fully|not at all)\b/i.test(t) ||
+        /\b(done|partial|missed)\b/i.test(t)
+      );
+    case "proof_check":
+      return /\b(evidence|proof|actually happened|followed through|what actually)\b/i.test(t);
+    case "outcome_check":
+      return /\b(honest|status|happened|actually|truth|what actually)\b/i.test(t);
+    case "identity_tie_back":
+      return /\b(standard|holding the line|who you|identity|require|what would)\b/i.test(t);
+    default:
+      return true;
+  }
+}
+
 function looksLikePlanningOrReflectionCoachText(text: string): boolean {
   const t = text.toLowerCase();
   return (
@@ -440,13 +595,34 @@ export function inferRecommendedRepeatRepairStrategy(args: {
     return "outcome_check";
   }
 
-  if (isClosePriorPlanLoopOutcomeQuestion(args.blockedCandidateBody)) {
-    return "binary_truth_check";
-  }
-
+  const repeatedQ = args.repeatedQuestion?.trim() ?? "";
+  const blocked = args.blockedCandidateBody.trim();
   const repeatedText = [args.repeatedQuestion, ...(args.repeatedPhrases ?? [])]
     .filter((s): s is string => Boolean(s?.trim()))
     .join(" ");
+
+  const nearExactDuplicate =
+    Boolean(repeatedQ) && isNearExactDuplicateSms(repeatedQ, blocked);
+
+  if (nearExactDuplicate) {
+    return looksLikeOutcomeCoachQuestion(repeatedQ) ? "barrier_check" : "next_first_step";
+  }
+
+  if (repeatedQ && looksLikeOutcomeCoachQuestion(repeatedQ) && !looksLikePlanningOrReflectionCoachText(repeatedText)) {
+    return args.suggestedCoachingMove === "ask_blocker" ? "barrier_check" : "next_first_step";
+  }
+
+  if (
+    looksLikePlanningOrReflectionCoachText(repeatedText) &&
+    isClosePriorPlanLoopOutcomeQuestion(blocked)
+  ) {
+    return "binary_truth_check";
+  }
+
+  if (isClosePriorPlanLoopOutcomeQuestion(blocked) && !nearExactDuplicate) {
+    return "binary_truth_check";
+  }
+
   if (looksLikePlanningOrReflectionCoachText(repeatedText)) {
     return "binary_truth_check";
   }
@@ -459,13 +635,28 @@ export function inferRecommendedRepeatRepairStrategy(args: {
 }
 
 export function pickAlternateRepeatRepairStrategy(
-  primary: SmsMemoryRepeatRepairStrategy
+  primary: SmsMemoryRepeatRepairStrategy,
+  options?: { nearExactOutcomeRepeat?: boolean }
 ): SmsMemoryRepeatRepairStrategy {
-  const idx = REPAIR_STRATEGY_ALTERNATE_CHAIN.indexOf(primary);
-  if (idx >= 0 && idx < REPAIR_STRATEGY_ALTERNATE_CHAIN.length - 1) {
-    return REPAIR_STRATEGY_ALTERNATE_CHAIN[idx + 1]!;
+  const nearExact = options?.nearExactOutcomeRepeat === true;
+  switch (primary) {
+    case "binary_truth_check":
+      return nearExact ? "next_first_step" : "barrier_check";
+    case "outcome_check":
+      return "proof_check";
+    case "barrier_check":
+      return "next_first_step";
+    case "next_first_step":
+      return "identity_tie_back";
+    case "proof_check":
+      return "barrier_check";
+    case "reset_question":
+      return "barrier_check";
+    case "identity_tie_back":
+      return "next_first_step";
+    default:
+      return "barrier_check";
   }
-  return primary === "binary_truth_check" ? "outcome_check" : "binary_truth_check";
 }
 
 export function buildMemoryRepeatRepairContext(args: {
@@ -486,6 +677,11 @@ export function buildMemoryRepeatRepairContext(args: {
     repeatedPhrases: args.violation.repeatedPhrases,
   });
   const examples = STRATEGY_EXAMPLE_SMS[recommended];
+  const forbiddenContentTokens = extractForbiddenContentTokens({
+    repeatedQuestion: args.violation.repeatedQuestion,
+    repeatedPhrases: args.violation.repeatedPhrases,
+    blockedCandidateBody: args.blockedCandidateBody,
+  });
   return {
     prior_outbound_full_body: extractPriorOutboundFullBodyFromFactsJson(args.factsJson, args.detectInput),
     blocked_candidate_body: args.blockedCandidateBody,
@@ -501,6 +697,7 @@ export function buildMemoryRepeatRepairContext(args: {
       repeatedPhrases: args.violation.repeatedPhrases,
       blockedCandidateBody: args.blockedCandidateBody,
     }),
+    forbidden_content_tokens: forbiddenContentTokens,
     strategy_examples: [examples[0], examples[1]],
   };
 }
@@ -514,6 +711,11 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
   suggestedCoachingMove?: string | null;
   repairContext?: MemoryRepeatRepairContext | null;
   forcedRepairStrategy?: SmsMemoryRepeatRepairStrategy | null;
+  attempt2Feedback?: {
+    firstRepairBody: string;
+    stillRepeatedPhrase: string | null;
+    overlapTokens: string[];
+  } | null;
 }): string {
   const closeLoopContext =
     args.pendingPlanProofActive === true || args.suggestedCoachingMove === "close_prior_plan_loop";
@@ -580,10 +782,33 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
           .join("; ")}.`
       );
     }
+    if (ctx.forbidden_content_tokens.length) {
+      parts.push(
+        `Forbidden content tokens (do not reuse unless absolutely necessary): ${ctx.forbidden_content_tokens
+          .slice(0, 10)
+          .map((t) => `"${t}"`)
+          .join(", ")}.`,
+        "Prefer a new coaching move that does not restate the same nouns or topic phrases.",
+        "Do not paraphrase the same question.",
+        "If using binary_truth_check, prefer a compact answer frame (yes/partial/not yet) without repeating topic nouns."
+      );
+    }
     if (ctx.strategy_examples.length) {
       parts.push(`Examples of ${targetStrategy} tone: ${ctx.strategy_examples.map((e) => `"${e}"`).join("; ")}.`);
     }
-    if (args.forcedRepairStrategy) {
+    if (args.attempt2Feedback) {
+      const fb = args.attempt2Feedback;
+      parts.push(
+        "Your first rewrite was still too similar. You MUST switch to the forced strategy now — different coaching move entirely.",
+        `First repair body (DO NOT reuse): "${fb.firstRepairBody.slice(0, 200)}".`
+      );
+      if (fb.stillRepeatedPhrase?.trim()) {
+        parts.push(`Blocked because it still matched prior phrase: "${fb.stillRepeatedPhrase.trim().slice(0, 160)}".`);
+      }
+      if (fb.overlapTokens.length) {
+        parts.push(`Overlapping tokens that triggered the block: ${fb.overlapTokens.join(", ")}.`);
+      }
+    } else if (args.forcedRepairStrategy) {
       parts.push(
         "Your first rewrite was still too similar. You MUST switch to the forced strategy now — different question frame entirely."
       );
@@ -794,10 +1019,19 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
   let lastPostValidateNoSendReason: string | null = null;
   let lastPostValidateExtraMeta: Record<string, unknown> = {};
   let winningStrategy: string | null = null;
+  let attempt1Strategy: SmsMemoryRepeatRepairStrategy | null = null;
+  let attempt2Strategy: SmsMemoryRepeatRepairStrategy | null = null;
+  let lastOverlapTokens: string[] = [];
+  let lastStillRepeatedPhrase: string | null = null;
+
+  const recommendedStrategy = repairContext.recommended_repair_strategy;
+  const nearExactOutcomeRepeat =
+    Boolean(firstViolation.repeatedQuestion) &&
+    isNearExactDuplicateSms(firstViolation.repeatedQuestion!, original);
 
   const strategiesToTry: SmsMemoryRepeatRepairStrategy[] = [
-    repairContext.recommended_repair_strategy,
-    pickAlternateRepeatRepairStrategy(repairContext.recommended_repair_strategy),
+    recommendedStrategy,
+    pickAlternateRepeatRepairStrategy(recommendedStrategy, { nearExactOutcomeRepeat }),
   ];
 
   for (let attemptIndex = 0; attemptIndex < 2; attemptIndex++) {
@@ -806,6 +1040,24 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     }
 
     const forcedStrategy = strategiesToTry[attemptIndex]!;
+    if (attemptIndex === 0) {
+      attempt1Strategy = forcedStrategy;
+    } else {
+      attempt2Strategy = forcedStrategy;
+    }
+
+    let attempt2Feedback: {
+      firstRepairBody: string;
+      stillRepeatedPhrase: string | null;
+      overlapTokens: string[];
+    } | null = null;
+    if (attemptIndex === 1 && lastRepairedPreview) {
+      attempt2Feedback = {
+        firstRepairBody: lastRepairedPreview.replace(/…$/, ""),
+        stillRepeatedPhrase: lastStillRepeatedPhrase,
+        overlapTokens: lastOverlapTokens,
+      };
+    }
 
     const repairInstruction = buildMemoryAntiRepeatRepairInstruction({
       repeatedQuestion: firstViolation.repeatedQuestion,
@@ -816,6 +1068,7 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
       suggestedCoachingMove: args.detectInput.suggestedCoachingMove,
       repairContext,
       forcedRepairStrategy: attemptIndex === 1 ? forcedStrategy : null,
+      attempt2Feedback,
     });
 
     const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
@@ -831,6 +1084,7 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
 
     if (!repairOut?.body?.trim()) {
       lastFailedReason = "repair_failed";
+      if (attemptIndex === 0) continue;
       break;
     }
 
@@ -844,6 +1098,12 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
           ? repairOut.metadata.repeat_repair_strategy
           : forcedStrategy ?? null;
 
+    if (!repairBodyMatchesStrategy(repaired, forcedStrategy)) {
+      lastFailedReason = "repair_strategy_body_mismatch";
+      if (attemptIndex === 0) continue;
+      break;
+    }
+
     const afterRepairViolation = detectSmsMemoryRepeatViolation({
       ...args.detectInput,
       candidateBody: repaired,
@@ -851,6 +1111,12 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
 
     if (afterRepairViolation.hasViolation) {
       lastFailedReason = "still_repeated_after_repair";
+      const diagnostics = computeRepeatOverlapDiagnostics({
+        candidateBody: repaired,
+        violation: afterRepairViolation,
+      });
+      lastStillRepeatedPhrase = diagnostics.triggeringPhrase;
+      lastOverlapTokens = diagnostics.overlapTokens;
       if (attemptIndex === 0) {
         continue;
       }
@@ -864,6 +1130,9 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
       lastPostValidateExtraMeta = postValidate.extraMeta ?? {};
       break;
     }
+
+    const finalStrategy =
+      typeof winningStrategy === "string" ? winningStrategy : forcedStrategy;
 
     return {
       outcome: "ok",
@@ -879,7 +1148,13 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
         memory_repeat_no_send_reason: null,
         repeat_detected: true,
         repeat_repair_attempted: true,
-        repeat_repair_strategy: winningStrategy,
+        repeat_repair_strategy: finalStrategy,
+        repeat_repair_recommended_strategy: recommendedStrategy,
+        repeat_repair_attempt_1_strategy: attempt1Strategy,
+        repeat_repair_attempt_2_strategy: attempt2Strategy,
+        repeat_repair_final_strategy: finalStrategy,
+        repeat_repair_overlap_tokens: lastOverlapTokens,
+        repeat_repair_still_repeated_phrase: null,
         repeat_repair_succeeded: true,
         repeat_repair_failed_reason: null,
         repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
@@ -900,6 +1175,12 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
         memory_repeat_no_send_reason: lastFailedReason,
         repeat_repair_failed_reason: lastFailedReason,
         repeat_repair_strategy: winningStrategy,
+        repeat_repair_recommended_strategy: recommendedStrategy,
+        repeat_repair_attempt_1_strategy: attempt1Strategy,
+        repeat_repair_attempt_2_strategy: attempt2Strategy,
+        repeat_repair_final_strategy: winningStrategy,
+        repeat_repair_overlap_tokens: lastOverlapTokens,
+        repeat_repair_still_repeated_phrase: lastStillRepeatedPhrase,
         memory_repeat_repaired_body_preview: lastRepairedPreview,
         forced_second_repair_attempted: forcedSecondRepairAttempted,
         memory_repeat_guard_reason: firstViolation.reason,

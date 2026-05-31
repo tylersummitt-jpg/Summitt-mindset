@@ -1372,7 +1372,7 @@ describe("produceDailyV3RelationshipSms", () => {
             message: {
               content: JSON.stringify({
                 body: "Sunday School, the farm, and your mother's songs are a rich thread — which one feels alive to dictate today?",
-                used_strategy: "outcome_check",
+                used_strategy: "next_first_step",
                 safety_notes: [],
               }),
             },
@@ -1424,8 +1424,8 @@ describe("produceDailyV3RelationshipSms", () => {
           {
             message: {
               content: JSON.stringify({
-                body: priorQ,
-                used_strategy: "outcome_check",
+                body: "What's the first story thread you'll dictate today?",
+                used_strategy: "next_first_step",
                 safety_notes: [],
               }),
             },
@@ -1437,8 +1437,8 @@ describe("produceDailyV3RelationshipSms", () => {
           {
             message: {
               content: JSON.stringify({
-                body: priorQ,
-                used_strategy: "binary_truth_check",
+                body: "What would the standard require for the story you'll dictate today?",
+                used_strategy: "identity_tie_back",
                 safety_notes: [],
               }),
             },
@@ -1530,7 +1530,7 @@ describe("produceDailyV3RelationshipSms", () => {
       expect(r.metadata.repeat_repair_succeeded).toBe(true);
       expect(r.metadata.repeat_repair_strategy).toBe("binary_truth_check");
       expect(r.metadata.repeat_detected).toBe(true);
-      expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+      expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v2");
     });
 
     it("Tyler distribution follow-up repairs into fresh angle and shouldSend true", async () => {
@@ -1596,7 +1596,7 @@ describe("produceDailyV3RelationshipSms", () => {
       expect(r.metadata.repeat_repair_succeeded).toBe(true);
       expect(r.metadata.repeat_repair_strategy).toBe("binary_truth_check");
       expect(r.metadata.repeat_detected).toBe(true);
-      expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+      expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v2");
     });
 
     it("repetitive self-care paraphrase still no-sends when repair stays repetitive", async () => {
@@ -1641,8 +1641,8 @@ describe("produceDailyV3RelationshipSms", () => {
             {
               message: {
                 content: JSON.stringify({
-                  body: paraphrase,
-                  used_strategy: "outcome_check",
+                  body: "What got in the way of taking that nurturing action to show kindness to yourself today?",
+                  used_strategy: "barrier_check",
                   safety_notes: [],
                 }),
               },

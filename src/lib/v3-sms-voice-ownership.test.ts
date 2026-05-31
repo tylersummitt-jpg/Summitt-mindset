@@ -710,6 +710,7 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
         repeat_violation_reason: "repeated_recent_question",
         recommended_repair_strategy: "binary_truth_check",
         forbidden_coaching_frames: ["What nurturing action can you take?"],
+        forbidden_content_tokens: ["nurturing", "kindness", "action"],
         strategy_examples: ["Protected, partial, or missed?"],
       },
     });
@@ -747,6 +748,7 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
         repeat_violation_reason: "repeated_recent_question",
         recommended_repair_strategy: "binary_truth_check",
         forbidden_coaching_frames: [],
+        forbidden_content_tokens: [],
         strategy_examples: ["Protected, partial, or missed?"],
       },
     });
@@ -777,6 +779,7 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
       repeat_violation_reason: "repeated_recent_question",
       recommended_repair_strategy: "binary_truth_check" as const,
       forbidden_coaching_frames: ["How did your hike go?"],
+      forbidden_content_tokens: ["hike", "mountains"],
       strategy_examples: ["Protected, partial, or missed?"],
     };
     const r = await repairV3RelationshipLaneBodyWithOpenAI({

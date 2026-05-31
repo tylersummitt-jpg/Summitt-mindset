@@ -9,14 +9,20 @@ import {
   applySmsMemoryAntiRepeatGuard,
   buildMemoryAntiRepeatRepairInstruction,
   buildMemoryRepeatRepairContext,
+  computeRepeatOverlapDiagnostics,
   detectSmsMemoryRepeatViolation,
+  extractForbiddenContentTokens,
   inferRecommendedRepeatRepairStrategy,
   isMemoryRepeatRepairBlockedReason,
   isNearExactDuplicateSms,
+  MIN_QUESTION_OVERLAP_CHARS,
   normalizeSmsMemoryRepeatText,
   pickAlternateRepeatRepairStrategy,
+  repairBodyMatchesStrategy,
+  REPEAT_GUARD_WORD_OVERLAP_THRESHOLD,
   shouldApplyClosePriorPlanLoopAntiRepeatExemption,
   SMS_MEMORY_REPEAT_REPAIR_STRATEGIES,
+  SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
 } from "@/lib/sms-memory-anti-repeat";
 
 const repairMock = vi.mocked(repairV3RelationshipLaneBodyWithOpenAI);
@@ -377,6 +383,40 @@ describe("inferRecommendedRepeatRepairStrategy", () => {
       expect(alt).not.toBe(primary);
     }
   });
+
+  it("binary_truth_check alternate is barrier_check or next_first_step, not reset_question", () => {
+    expect(pickAlternateRepeatRepairStrategy("binary_truth_check")).toBe("barrier_check");
+    expect(pickAlternateRepeatRepairStrategy("binary_truth_check")).not.toBe("reset_question");
+  });
+
+  it("huddles near-exact repeat recommends barrier_check or next_first_step, not binary_truth_check", () => {
+    const prior =
+      "How did the morning huddles go this week in terms of sharing positive thoughts?";
+    const candidate =
+      "How did the morning huddles go this week in terms of sharing positive thoughts? Did everyone feel encouraged to participate and share their observations?";
+    const strategy = inferRecommendedRepeatRepairStrategy({
+      blockedCandidateBody: candidate,
+      violationReason: "repeated_recent_question",
+      repeatedQuestion: prior,
+      repeatedPhrases: [prior],
+    });
+    expect(["barrier_check", "next_first_step"]).toContain(strategy);
+    expect(strategy).not.toBe("binary_truth_check");
+  });
+
+  it("planning prior with outcome candidate still recommends binary_truth_check", () => {
+    const prior =
+      "Consider what nurturing action you can take today to show yourself kindness. Your commitment to self-care is important.";
+    const candidate =
+      "What nurturing action did you choose to take today to show yourself kindness? Reflecting on this can help reinforce your commitment to self-care.";
+    const strategy = inferRecommendedRepeatRepairStrategy({
+      blockedCandidateBody: candidate,
+      violationReason: "repeated_recent_question",
+      repeatedQuestion: prior,
+      repeatedPhrases: [prior],
+    });
+    expect(strategy).toBe("binary_truth_check");
+  });
 });
 
 describe("buildMemoryRepeatRepairContext", () => {
@@ -479,7 +519,8 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
     expect(repairMock.mock.calls[0]?.[0]?.memoryRepeatRepairContext).toBeTruthy();
     expect(repairMock.mock.calls[0]?.[0]?.forcedRepairStrategy).toBeTruthy();
     expect(r.outcome).toBe("ok");
-    expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+    expect(r.metadata.repeat_repair_system).toBe(SMS_MEMORY_REPEAT_REPAIR_SYSTEM);
+    expect(SMS_MEMORY_REPEAT_REPAIR_SYSTEM).toBe("fresh_angle_v2");
   });
 
   it("rejects invalid used_strategy", async () => {
@@ -497,7 +538,8 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
 
     expect(r.outcome).toBe("no_send");
     expect(r.metadata.repeat_repair_failed_reason).toBe("repair_failed");
-    expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v1");
+    expect(r.metadata.repeat_repair_system).toBe(SMS_MEMORY_REPEAT_REPAIR_SYSTEM);
+    expect(SMS_MEMORY_REPEAT_REPAIR_SYSTEM).toBe("fresh_angle_v2");
   });
 
   it("succeeds with valid fresh-angle repair", async () => {
@@ -534,9 +576,9 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
         metadata: { lane_repair_used_strategy: "binary_truth_check" },
       })
       .mockResolvedValueOnce({
-        body: frameShiftRepair,
+        body: "What got in the way of taking a supportive step today?",
         openAiOk: true,
-        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+        metadata: { lane_repair_used_strategy: "barrier_check" },
       });
 
     const r = await applySmsMemoryAntiRepeatGuard({
@@ -574,5 +616,190 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
 
     expect(validateAfterRepair).toHaveBeenCalledTimes(1);
     expect(validateAfterRepair).toHaveBeenCalledWith(frameShiftRepair);
+  });
+});
+
+describe("fresh_angle_v2 repeat repair", () => {
+  const priorQ =
+    "Consider what nurturing action you can take today to show yourself kindness. Your commitment to self-care is important.";
+  const paraphraseRepair =
+    "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+  const frameShiftRepair =
+    "Did you take one small supportive step today — yes, partial, or not yet?";
+
+  const detectInput = {
+    lastCoachQuestions: [priorQ],
+    doNotRepeatPhrases: [priorQ],
+  };
+
+  it("repeat guard thresholds unchanged", () => {
+    expect(MIN_QUESTION_OVERLAP_CHARS).toBe(18);
+    expect(REPEAT_GUARD_WORD_OVERLAP_THRESHOLD).toBe(0.45);
+  });
+
+  it("self-care repair passes with fresh binary frame", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: frameShiftRepair,
+      openAiOk: true,
+      metadata: { lane_repair_used_strategy: "binary_truth_check" },
+    });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(r.outcome).toBe("ok");
+    expect(r.body).toBe(frameShiftRepair);
+    expect(r.metadata.repeat_repair_recommended_strategy).toBe("binary_truth_check");
+    expect(r.metadata.repeat_repair_final_strategy).toBe("binary_truth_check");
+    expect(repairBodyMatchesStrategy(frameShiftRepair, "binary_truth_check")).toBe(true);
+  });
+
+  it("extractForbiddenContentTokens includes phone/computer/away for device case", () => {
+    const prior =
+      "What specific steps will you take today to ensure you put your phone and computer away after your immediate work?";
+    const candidate =
+      "Payton, how did it go putting your phone and computer away after practice? Staying focused at home is key for your progress.";
+    const tokens = extractForbiddenContentTokens({
+      repeatedQuestion: prior,
+      repeatedPhrases: [prior],
+      blockedCandidateBody: candidate,
+    });
+    expect(tokens.some((t) => /phone/.test(t))).toBe(true);
+    expect(tokens.some((t) => /computer/.test(t))).toBe(true);
+    expect(tokens.some((t) => /away/.test(t))).toBe(true);
+  });
+
+  it("buildMemoryRepeatRepairContext includes forbidden_content_tokens", () => {
+    const prior =
+      "What specific steps will you take today to ensure you put your phone and computer away after your immediate work?";
+    const candidate =
+      "Payton, how did it go putting your phone and computer away after practice?";
+    const violation = detectSmsMemoryRepeatViolation({
+      candidateBody: candidate,
+      lastCoachQuestions: [prior],
+    });
+    const ctx = buildMemoryRepeatRepairContext({
+      routeKind: "daily",
+      blockedCandidateBody: candidate,
+      violation,
+      detectInput: { candidateBody: candidate, lastCoachQuestions: [prior] },
+      factsJson: {},
+    });
+    expect(ctx.forbidden_content_tokens.length).toBeGreaterThan(0);
+    expect(ctx.forbidden_content_tokens.some((t) => /phone|computer/.test(t))).toBe(true);
+  });
+
+  it("attempt 2 receives overlap diagnostics when attempt 1 still repeats", async () => {
+    repairMock
+      .mockResolvedValueOnce({
+        body: paraphraseRepair,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      })
+      .mockResolvedValueOnce({
+        body: "What got in the way of taking a supportive step today?",
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "barrier_check" },
+      });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(2);
+    const secondInstruction = repairMock.mock.calls[1]?.[0]?.systemInstruction as string;
+    expect(secondInstruction).toMatch(/Overlapping tokens|still matched prior phrase|First repair body/i);
+    expect(r.outcome).toBe("ok");
+    expect(r.metadata.repeat_repair_attempt_1_strategy).toBe("binary_truth_check");
+    expect(r.metadata.repeat_repair_attempt_2_strategy).toBe("barrier_check");
+    expect(r.metadata.forced_second_repair_attempted).toBe(true);
+  });
+
+  it("rejects repair when body does not match strategy label and tries alternate", async () => {
+    const mismatchedBody =
+      "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+    repairMock
+      .mockResolvedValueOnce({
+        body: mismatchedBody,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      })
+      .mockResolvedValueOnce({
+        body: "What got in the way of follow-through today?",
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "barrier_check" },
+      });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: {},
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(2);
+    expect(r.outcome).toBe("ok");
+  });
+
+  it("still no-sends when both repairs stay repetitive", async () => {
+    repairMock
+      .mockResolvedValueOnce({
+        body: paraphraseRepair,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      })
+      .mockResolvedValueOnce({
+        body: "What got in the way of taking that nurturing action to show kindness to yourself today?",
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "barrier_check" },
+      });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphraseRepair,
+      factsJson: {},
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(r.outcome).toBe("no_send");
+    expect(r.metadata.repeat_repair_failed_reason).toBe("still_repeated_after_repair");
+    expect(r.metadata.repeat_repair_still_repeated_phrase).toBeTruthy();
+  });
+
+  it("repairBodyMatchesStrategy rejects fake reset_question label", () => {
+    expect(repairBodyMatchesStrategy("How did you do today?", "reset_question")).toBe(false);
+    expect(repairBodyMatchesStrategy("Do we need to reset the window?", "reset_question")).toBe(true);
+  });
+
+  it("computeRepeatOverlapDiagnostics finds overlapping tokens", () => {
+    const prior =
+      "Consider what nurturing action you can take today to show yourself kindness.";
+    const repeated = paraphraseRepair;
+    const violation = detectSmsMemoryRepeatViolation({
+      candidateBody: repeated,
+      lastCoachQuestions: [prior],
+    });
+    const diag = computeRepeatOverlapDiagnostics({ candidateBody: repeated, violation });
+    expect(diag.triggeringPhrase).toBeTruthy();
+    expect(diag.overlapTokens.some((t) => /nurturing|kindness|action/.test(t))).toBe(true);
   });
 });
