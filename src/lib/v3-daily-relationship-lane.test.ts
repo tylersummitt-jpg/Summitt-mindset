@@ -997,6 +997,206 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(hits.some((h) => h.startsWith("contract_wrapper_duplicate:"))).toBe(true);
   });
 
+  it("contract_prompt: duplicate wrapper only triggers contract_wrapper snapshot repair then sends", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const duplicated = `keep this line — ${binding} — happy to keep this line with you this week.`;
+    const cleaned = `Diane — here's the bar. ${binding} Want me to hold it here with you this week?`;
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: duplicated,
+                no_send_reason: null,
+                turn_purpose: "contract_overlay",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: cleaned,
+                used_strategy: "contract_wrapper_dedup",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+          wrapper_must_not_repeat_substrings: [...DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT],
+        },
+      },
+      telemetry_fact_sources: ["v2_contract_binding_facts"],
+    });
+    expect(createMock.mock.calls.length).toBe(2);
+    const contractRepairUser = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(contractRepairUser).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(contractRepairUser).not.toMatch(/ACCOUNTABILITY_FACTS_JSON/);
+    expect(contractRepairUser).not.toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
+    expect(contractRepairUser).toMatch(/contract_wrapper/);
+    expect(createMock.mock.calls[1]?.[0]?.messages?.[0]?.content).toMatch(/REPAIR_SNAPSHOT_AUTHORITY/);
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toContain(binding);
+    expect(countSubstringOccurrences(r.body, binding)).toBe(1);
+    expect(r.metadata.contract_wrapper_repair_succeeded).toBe(true);
+    expect(r.metadata.repair_snapshot_kind).toBe("contract_wrapper");
+    expect(r.metadata.repair_snapshot_version).toBe("1.0");
+    expect(r.metadata.robot_consent_menu_repair_attempted).toBeUndefined();
+  });
+
+  it("contract_prompt: contract wrapper repair fail-closed when binding missing from repair output", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const duplicated = `keep this line — ${binding} — we'll keep this line steady.`;
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: duplicated,
+                no_send_reason: null,
+                turn_purpose: "contract_overlay",
+                voice_confidence: 0.7,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Quick check — want the smaller bar this week?",
+                used_strategy: "bad_drop_binding",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+        },
+      },
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("contract_wrapper_duplicate");
+    expect(r.metadata.contract_wrapper_repair_attempted).toBe(true);
+    expect(r.metadata.contract_wrapper_repair_succeeded).toBe(false);
+    const contractRepairUser = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(contractRepairUser).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(contractRepairUser).not.toMatch(/ACCOUNTABILITY_FACTS_JSON/);
+  });
+
+  it("contract_prompt: contract wrapper repair fail-closed when binding duplicated in repair output", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const duplicated = `keep this line — ${binding} — we'll keep this line steady.`;
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: duplicated,
+                no_send_reason: null,
+                turn_purpose: "contract_overlay",
+                voice_confidence: 0.7,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: `${binding} and again ${binding}`,
+                used_strategy: "bad_duplicate_binding",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+        },
+      },
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.contract_wrapper_repair_succeeded).toBe(false);
+    expect(r.metadata.repair_snapshot_kind).toBeUndefined();
+  });
+
   it("contract_prompt: duplicate wrapper triggers binding-preserving repair then sends", async () => {
     const binding = computeRecommitBindingText("I will text or call each day");
     const duplicated = `Welcome back, Diane! To maintain your commitment, let's keep this line for 7 days: ${binding} Do you agree? Reply YES or NO.`;

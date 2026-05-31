@@ -20,7 +20,8 @@ export type RepairSnapshotKind =
   | "thread_freshness"
   | "memory_repeat"
   | "lane_post_validate"
-  | "robot_consent_menu";
+  | "robot_consent_menu"
+  | "contract_wrapper";
 
 export type RepairSnapshotThreadMessage = {
   at: string;
@@ -47,6 +48,7 @@ export type RepairRelationshipSnapshotV1 = {
     lane_blocked_reasons?: string[];
     rejected_time_candidates?: string[];
     robot_menu_blocked_reasons?: string[];
+    wrapper_blocked_reasons?: string[];
     stale_topic?: string | null;
     repeated_question?: string | null;
     repeated_phrases?: string[];
@@ -90,6 +92,7 @@ export type RepairRelationshipSnapshotV1 = {
       forbidden_substrings?: string[];
       rejected_time_candidates?: string[];
       binding_text_verbatim?: string | null;
+      wrapper_must_not_repeat_substrings?: string[];
     };
   };
   proof_victory_permission?: {
@@ -314,6 +317,8 @@ export function buildRepairRelationshipSnapshotV1(args: {
   overlapTokens?: string[];
   laneBlockedReasons?: string[];
   robotMenuBlockedReasons?: string[];
+  wrapperBlockedReasons?: string[];
+  wrapperMustNotRepeatSubstrings?: string[];
   bindingTextVerbatim?: string | null;
 }): RepairRelationshipSnapshotV1 {
   const structuredTruth = buildStructuredRecentTruth(args.laneFacts);
@@ -358,6 +363,12 @@ export function buildRepairRelationshipSnapshotV1(args: {
       : args.blockedReasons;
   }
 
+  if (args.repairKind === "contract_wrapper") {
+    violation.wrapper_blocked_reasons = args.wrapperBlockedReasons?.length
+      ? args.wrapperBlockedReasons
+      : args.blockedReasons;
+  }
+
   const snapshot: RepairRelationshipSnapshotV1 = {
     repair_snapshot_version: REPAIR_SNAPSHOT_VERSION,
     repair_kind: args.repairKind,
@@ -379,6 +390,31 @@ export function buildRepairRelationshipSnapshotV1(args: {
         ...snapshot.canonical_state_min.required_constraints,
         binding_text_verbatim: binding,
       };
+    }
+  }
+
+  if (args.repairKind === "contract_wrapper") {
+    const binding = args.bindingTextVerbatim?.trim();
+    if (binding) {
+      snapshot.canonical_state_min.required_constraints = {
+        ...snapshot.canonical_state_min.required_constraints,
+        binding_text_verbatim: binding,
+        required_verbatim_substrings:
+          snapshot.canonical_state_min.required_constraints?.required_verbatim_substrings ??
+          [binding],
+        wrapper_must_not_repeat_substrings: args.wrapperMustNotRepeatSubstrings?.length
+          ? [...args.wrapperMustNotRepeatSubstrings]
+          : undefined,
+      };
+    }
+    if (isDailyFacts(args.laneFacts)) {
+      const forbidden = args.laneFacts.constraints.forbidden_substrings;
+      if (forbidden?.length) {
+        snapshot.canonical_state_min.required_constraints = {
+          ...snapshot.canonical_state_min.required_constraints,
+          forbidden_substrings: forbidden.slice(0, 8),
+        };
+      }
     }
   }
 
@@ -506,14 +542,24 @@ export function serializeRepairSnapshotForOpenAI(
   maxChars = DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS
 ): { json: string; meta: RepairSnapshotMeta } {
   const trimmed = trimRepairSnapshotToBudget(snapshot, maxChars);
-  const json = JSON.stringify(trimmed.snapshot);
+  let json = JSON.stringify(trimmed.snapshot);
+  let truncated = trimmed.truncated;
+  const bindingProtected =
+    trimmed.snapshot.repair_kind === "contract_wrapper" ||
+    trimmed.snapshot.repair_kind === "robot_consent_menu";
+  if (json.length > maxChars && !bindingProtected) {
+    json = `${json.slice(0, maxChars - 1)}…`;
+    truncated = true;
+  } else if (json.length > maxChars) {
+    truncated = true;
+  }
   return {
-    json: json.length > maxChars ? `${json.slice(0, maxChars - 1)}…` : json,
+    json,
     meta: {
       repair_snapshot_version: REPAIR_SNAPSHOT_VERSION,
       repair_snapshot_kind: trimmed.snapshot.repair_kind,
-      repair_snapshot_chars: Math.min(json.length, maxChars),
-      repair_snapshot_truncated: trimmed.truncated || json.length > maxChars,
+      repair_snapshot_chars: json.length,
+      repair_snapshot_truncated: truncated || json.length > maxChars,
     },
   };
 }

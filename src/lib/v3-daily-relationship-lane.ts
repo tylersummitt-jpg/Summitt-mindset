@@ -532,7 +532,9 @@ async function repairDailyContractWrapperDuplicate(args: {
   originalBody: string;
   bindingVerbatim: string;
   blockedReasons: string[];
-  factsJson: unknown;
+  laneFacts: DailyV3RelationshipFacts;
+  routePurpose: string;
+  wrapperMustNotRepeatSubstrings: readonly string[];
 }): Promise<{ body: string; metadata: Record<string, unknown> } | null> {
   const client = getOpenAIClient();
   if (!client) return null;
@@ -540,13 +542,17 @@ async function repairDailyContractWrapperDuplicate(args: {
   const binding = args.bindingVerbatim.trim();
   if (!binding) return null;
 
-  let factsSnippet: string;
-  try {
-    const raw = JSON.stringify(args.factsJson ?? null);
-    factsSnippet = raw.length > 6000 ? `${raw.slice(0, 5999)}…` : raw;
-  } catch {
-    factsSnippet = "(facts_json_unserializable)";
-  }
+  const { snapshot: repairSnapshot, meta: snapshotMeta } = prepareRepairSnapshotForOpenAI({
+    repairKind: "contract_wrapper",
+    routeKind: "daily",
+    routePurpose: args.routePurpose,
+    blockedBody: args.originalBody,
+    blockedReasons: args.blockedReasons,
+    laneFacts: args.laneFacts,
+    wrapperBlockedReasons: args.blockedReasons,
+    bindingTextVerbatim: binding,
+    wrapperMustNotRepeatSubstrings: [...args.wrapperMustNotRepeatSubstrings],
+  });
 
   const system = `You repair contract proposal SMS copy for Summitt Mindset.
 
@@ -560,13 +566,14 @@ RULES:
 - Remove duplicate wrapper language that restates the binding (keep this line, 7 days, same focus, same commitment, hold you to, recommit) OUTSIDE the binding.
 - Short human wrapper only before and/or after the binding — do not paraphrase the binding instruction.
 - One natural confirmation invitation total — not two questions. Never use "Reply YES", "Reply NO", "YES to confirm", or "NO to discard".
-- No markdown, bullets, or role labels. One short SMS; no newlines in body.`;
+- No markdown, bullets, or role labels. One short SMS; no newlines in body.
+${buildRepairSnapshotPromptGuidance()}`;
 
   const userContent = [
     `blocked_reasons: ${args.blockedReasons.join(", ")}`,
     `original_candidate_sms: ${args.originalBody}`,
-    `ACCOUNTABILITY_FACTS_JSON (facts only):`,
-    factsSnippet,
+    `REPAIR_RELATIONSHIP_SNAPSHOT_V1:`,
+    JSON.stringify(repairSnapshot),
   ].join("\n");
 
   try {
@@ -599,6 +606,10 @@ RULES:
       metadata: {
         contract_wrapper_repair_used_strategy: used_strategy,
         contract_wrapper_repair_safety_notes: sn,
+        repair_snapshot_version: snapshotMeta.repair_snapshot_version,
+        repair_snapshot_kind: snapshotMeta.repair_snapshot_kind,
+        repair_snapshot_chars: snapshotMeta.repair_snapshot_chars,
+        repair_snapshot_truncated: snapshotMeta.repair_snapshot_truncated,
       },
     };
   } catch (e) {
@@ -1124,7 +1135,9 @@ used_facts (string[]), safety_notes (string[])`;
         originalBody: body,
         bindingVerbatim,
         blockedReasons: contractDup,
-        factsJson: laneFacts,
+        laneFacts,
+        routePurpose: laneFacts.route_kind,
+        wrapperMustNotRepeatSubstrings: wrapperForbidden,
       });
 
       if (!contractRepair) {

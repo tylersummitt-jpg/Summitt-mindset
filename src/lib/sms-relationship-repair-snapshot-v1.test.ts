@@ -356,6 +356,124 @@ describe("buildRepairRelationshipSnapshotV1", () => {
     expect(json).not.toContain("relationship_memory_7d");
     expect(json).not.toContain("relationship_memory_30d");
   });
+
+  it("contract_wrapper snapshot includes wrapper_blocked_reasons, blocked body, turn, thread excerpt, canonical state min", () => {
+    const binding = "I will text or call each day.";
+    const wrapperForbidden = ["keep this line", "7 days", "same focus"];
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "contract_wrapper",
+      routeKind: "daily",
+      routePurpose: "contract_prompt",
+      blockedBody: `keep this line — ${binding} — we'll keep this line steady.`,
+      blockedReasons: ["contract_wrapper_duplicate:keep this line"],
+      wrapperBlockedReasons: ["contract_wrapper_duplicate:keep this line"],
+      bindingTextVerbatim: binding,
+      wrapperMustNotRepeatSubstrings: wrapperForbidden,
+      laneFacts: {
+        route_kind: "contract_prompt",
+        accountability_day_key: "2026-05-12",
+        user: { local_time_iso: "2026-05-18T12:00:00.000Z", preferred_name: "Diane" },
+        commitment: {
+          id: "cmt_1",
+          behavior_statement: "Text or call each day",
+          effective_ask: "Text or call each day",
+          accountability_phase: "active_accountability",
+        },
+        accountability: {
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        thread_memory: {
+          recent_exact_thread_72h: thread72h,
+          relationship_memory_7d: { window_days: 7, recurring_blockers: [] },
+          relationship_memory_30d: { window_days: 30, coaching_summary: "should not appear" },
+        },
+        constraints: {
+          max_chars: 300,
+          required_verbatim_substrings: [binding],
+          wrapper_must_not_repeat_substrings: wrapperForbidden,
+          forbidden_substrings: ["great job"],
+        },
+      },
+    });
+
+    expect(snapshot.repair_kind).toBe("contract_wrapper");
+    expect(snapshot.violation.blocked_body).toContain("keep this line");
+    expect(snapshot.violation.wrapper_blocked_reasons).toEqual([
+      "contract_wrapper_duplicate:keep this line",
+    ]);
+    expect(snapshot.current_turn.route_kind).toBe("contract_prompt");
+    expect(snapshot.recent_exact_thread_excerpt.messages.length).toBeGreaterThan(0);
+    expect(snapshot.canonical_state_min.required_constraints?.binding_text_verbatim).toBe(binding);
+    expect(snapshot.canonical_state_min.required_constraints?.wrapper_must_not_repeat_substrings).toEqual(
+      wrapperForbidden
+    );
+    expect(snapshot.canonical_state_min.required_constraints?.required_verbatim_substrings).toEqual([binding]);
+    expect(snapshot.canonical_state_min.required_constraints?.forbidden_substrings).toEqual(["great job"]);
+  });
+
+  it("contract_wrapper snapshot excludes coaching_summary / 7d / 30d memory", () => {
+    const binding = "Daily bar.";
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "contract_wrapper",
+      routeKind: "daily",
+      routePurpose: "contract_prompt",
+      blockedBody: `Wrapper dup ${binding}`,
+      blockedReasons: ["contract_wrapper_duplicate:keep this line"],
+      bindingTextVerbatim: binding,
+      laneFacts: {
+        route_kind: "contract_prompt",
+        accountability_day_key: "2026-05-12",
+        user: { local_time_iso: "2026-05-18T12:00:00.000Z" },
+        commitment: { effective_ask: "Daily check-in" },
+        accountability: { daily_purpose: "contract_overlay_proposal" },
+        thread_memory: {
+          recent_exact_thread_72h: thread72h,
+          relationship_memory_7d: { window_days: 7 },
+          relationship_memory_30d: { window_days: 30, coaching_summary: "hidden prose" },
+        },
+        constraints: { max_chars: 300, required_verbatim_substrings: [binding] },
+      },
+    });
+    const json = JSON.stringify(snapshot);
+    expect(json).not.toContain("coaching_summary");
+    expect(json).not.toContain("relationship_memory_7d");
+    expect(json).not.toContain("relationship_memory_30d");
+  });
+
+  it("contract_wrapper binding_text_verbatim survives serialize even when snapshot exceeds budget", () => {
+    const binding = "I will text or call each day — exact binding phrase.";
+    const hugeThread = {
+      ...thread72h,
+      message_count: 12,
+      messages: Array.from({ length: 12 }, (_, i) => ({
+        ...thread72h.messages[0]!,
+        at: `2026-05-${10 + i}T10:00:00.000Z`,
+        body: "x".repeat(500),
+      })),
+    };
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "contract_wrapper",
+      routeKind: "daily",
+      routePurpose: "contract_prompt",
+      blockedBody: `keep this line — ${binding}`,
+      blockedReasons: ["contract_wrapper_duplicate:keep this line"],
+      bindingTextVerbatim: binding,
+      wrapperMustNotRepeatSubstrings: ["keep this line"],
+      laneFacts: {
+        route_kind: "contract_prompt",
+        accountability_day_key: "2026-05-12",
+        user: { local_time_iso: "2026-05-18T12:00:00.000Z" },
+        commitment: { effective_ask: "Daily check-in" },
+        accountability: { daily_purpose: "contract_overlay_proposal" },
+        thread_memory: { recent_exact_thread_72h: hugeThread },
+        constraints: { max_chars: 300, required_verbatim_substrings: [binding] },
+      },
+    });
+    const { json } = serializeRepairSnapshotForOpenAI(snapshot, 800);
+    expect(json).toContain(binding);
+    expect(JSON.parse(json).canonical_state_min.required_constraints.binding_text_verbatim).toBe(binding);
+  });
 });
 
 describe("buildRepairSnapshotPromptGuidance", () => {
