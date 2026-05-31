@@ -60,7 +60,10 @@ import {
   buildRelationshipPacketPromptGuidance,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
-import { prepareRepairSnapshotForOpenAI } from "@/lib/sms-relationship-repair-snapshot-v1";
+import {
+  buildRepairSnapshotPromptGuidance,
+  prepareRepairSnapshotForOpenAI,
+} from "@/lib/sms-relationship-repair-snapshot-v1";
 import type {
   SmsGoalAdjustmentCompatibleFlow,
   SmsGoalAdjustmentConfidence,
@@ -627,19 +630,23 @@ async function repairDailyRelationshipRobotConsentMenu(args: {
   originalBody: string;
   bindingVerbatim: string | null;
   blockedReasons: string[];
-  factsJson: unknown;
+  laneFacts: DailyV3RelationshipFacts;
+  routePurpose: string;
 }): Promise<{ body: string; metadata: Record<string, unknown> } | null> {
   const client = getOpenAIClient();
   if (!client) return null;
 
   const binding = args.bindingVerbatim?.trim() ?? "";
-  let factsSnippet: string;
-  try {
-    const raw = JSON.stringify(args.factsJson ?? null);
-    factsSnippet = raw.length > 6000 ? `${raw.slice(0, 5999)}…` : raw;
-  } catch {
-    factsSnippet = "(facts_json_unserializable)";
-  }
+  const { snapshot: repairSnapshot, meta: snapshotMeta } = prepareRepairSnapshotForOpenAI({
+    repairKind: "robot_consent_menu",
+    routeKind: "daily",
+    routePurpose: args.routePurpose,
+    blockedBody: args.originalBody,
+    blockedReasons: args.blockedReasons,
+    laneFacts: args.laneFacts,
+    robotMenuBlockedReasons: args.blockedReasons,
+    bindingTextVerbatim: args.bindingVerbatim,
+  });
 
   const bindingRule = binding
     ? `- BINDING_VERBATIM must appear in body exactly once, character-for-character unchanged: ${JSON.stringify(binding)}`
@@ -657,13 +664,14 @@ ${bindingRule}
 - Remove robotic menu-bot consent phrasing: "Reply YES", "Reply NO", "YES to confirm", "NO to discard", "Reply YES to commit/recommit", etc.
 - Replace with one short natural confirmation ask (e.g. whether to keep the same bar for the week) — wording may vary; do not sound like a phone tree.
 - One confirmation invitation total — not two questions.
-- No markdown, bullets, or role labels. One short SMS; no newlines in body.`;
+- No markdown, bullets, or role labels. One short SMS; no newlines in body.
+${buildRepairSnapshotPromptGuidance()}`;
 
   const userContent = [
     `blocked_reasons: ${args.blockedReasons.join(", ")}`,
     `original_candidate_sms: ${args.originalBody}`,
-    `ACCOUNTABILITY_FACTS_JSON (facts only):`,
-    factsSnippet,
+    `REPAIR_RELATIONSHIP_SNAPSHOT_V1:`,
+    JSON.stringify(repairSnapshot),
   ].join("\n");
 
   try {
@@ -695,6 +703,10 @@ ${bindingRule}
       metadata: {
         robot_consent_menu_repair_used_strategy: used_strategy,
         robot_consent_menu_repair_safety_notes: sn,
+        repair_snapshot_version: snapshotMeta.repair_snapshot_version,
+        repair_snapshot_kind: snapshotMeta.repair_snapshot_kind,
+        repair_snapshot_chars: snapshotMeta.repair_snapshot_chars,
+        repair_snapshot_truncated: snapshotMeta.repair_snapshot_truncated,
       },
     };
   } catch (e) {
@@ -889,7 +901,8 @@ used_facts (string[]), safety_notes (string[])`;
       originalBody: body,
       bindingVerbatim,
       blockedReasons: robotMenuReasons,
-      factsJson: laneFacts,
+      laneFacts,
+      routePurpose: laneFacts.route_kind,
     });
     robotConsentMenuExtra = {
       robot_consent_menu_blocked_reasons: robotMenuReasons,

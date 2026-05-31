@@ -1056,6 +1056,11 @@ describe("produceDailyV3RelationshipSms", () => {
       telemetry_fact_sources: ["v2_contract_binding_facts"],
     });
     expect(createMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const robotRepairUser = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(robotRepairUser).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(robotRepairUser).not.toMatch(/ACCOUNTABILITY_FACTS_JSON/);
+    expect(robotRepairUser).toMatch(/robot_consent_menu/);
+    expect(createMock.mock.calls[1]?.[0]?.messages?.[0]?.content).toMatch(/REPAIR_SNAPSHOT_AUTHORITY/);
     expect(r.shouldSend).toBe(true);
     expect(r.body).toContain(binding);
     expect(countSubstringOccurrences(r.body, binding)).toBe(1);
@@ -1063,6 +1068,8 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.body.toLowerCase()).not.toMatch(/\breply\s+yes\b/);
     expect(r.body.toLowerCase()).not.toMatch(/\breply\s+no\b/);
     expect(r.metadata.robot_consent_menu_repair_succeeded).toBe(true);
+    expect(r.metadata.repair_snapshot_kind).toBe("robot_consent_menu");
+    expect(r.metadata.repair_snapshot_version).toBe("1.0");
   });
 
   it("contract_prompt: robotic Reply YES/NO no-sends when repair cannot naturalize", async () => {
@@ -1123,6 +1130,9 @@ describe("produceDailyV3RelationshipSms", () => {
     });
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("robotic_contract_menu_language");
+    const robotRepairUser = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(robotRepairUser).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(robotRepairUser).not.toMatch(/ACCOUNTABILITY_FACTS_JSON/);
     expect(r.metadata.lane_stage).toBe("robot_consent_menu_blocked");
     expect(r.metadata.robot_consent_menu_repair_attempted).toBe(true);
     expect(r.metadata.robot_consent_menu_repair_succeeded).toBe(false);
@@ -1186,7 +1196,72 @@ describe("produceDailyV3RelationshipSms", () => {
     });
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("robotic_contract_menu_language");
+    const robotRepairUser = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(robotRepairUser).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(robotRepairUser).not.toMatch(/ACCOUNTABILITY_FACTS_JSON/);
     expect(r.metadata.robot_consent_menu_repair_succeeded).toBe(false);
+  });
+
+  it("contract_prompt: robot consent repair fail-closed when binding duplicated in repair output", async () => {
+    const binding = computeRecommitBindingText("I will text or call each day");
+    const robotic = `${binding} Reply YES or NO.`;
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: robotic,
+                no_send_reason: null,
+                turn_purpose: "contract_overlay",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: `${binding} and again ${binding} — still want this bar?`,
+                used_strategy: "bad_duplicate_binding",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const base = baseFacts();
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...base,
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          binding_text_verbatim: binding,
+          contract_kind: "recommit_same",
+          required_reply_semantics: "yes_no_binding_only",
+        },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [binding],
+        },
+      },
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.robot_consent_menu_repair_attempted).toBe(true);
+    expect(r.metadata.robot_consent_menu_repair_succeeded).toBe(false);
+    expect(r.metadata.repair_snapshot_kind).toBeUndefined();
   });
 
   it("contract_prompt: sends when binding verbatim is embedded in relationship wrapper", async () => {

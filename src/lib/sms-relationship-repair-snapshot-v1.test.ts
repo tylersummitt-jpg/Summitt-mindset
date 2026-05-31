@@ -279,6 +279,83 @@ describe("buildRepairRelationshipSnapshotV1", () => {
     expect(json).not.toContain("relationship_memory_7d");
     expect(json).not.toContain("relationship_memory_30d");
   });
+
+  it("robot_consent_menu snapshot includes robot_menu_blocked_reasons, blocked body, turn, thread excerpt, canonical state min", () => {
+    const binding = "I will text or call each day.";
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "robot_consent_menu",
+      routeKind: "daily",
+      routePurpose: "contract_prompt",
+      blockedBody: `Welcome back! ${binding} Reply YES or NO.`,
+      blockedReasons: ["robot_menu_reply_yes_no"],
+      robotMenuBlockedReasons: ["robot_menu_reply_yes_no", "robot_menu_yes_to_confirm"],
+      laneFacts: {
+        route_kind: "contract_prompt",
+        accountability_day_key: "2026-05-12",
+        user: { local_time_iso: "2026-05-18T12:00:00.000Z", preferred_name: "Diane" },
+        commitment: {
+          id: "cmt_1",
+          behavior_statement: "Text or call each day",
+          effective_ask: "Text or call each day",
+          accountability_phase: "active_accountability",
+        },
+        accountability: {
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        thread_memory: {
+          recent_exact_thread_72h: thread72h,
+          relationship_memory_7d: { window_days: 7, recurring_blockers: [] },
+          relationship_memory_30d: { window_days: 30, coaching_summary: "should not appear" },
+        },
+        constraints: {
+          max_chars: 300,
+          required_verbatim_substrings: [binding],
+        },
+      },
+      bindingTextVerbatim: binding,
+    });
+
+    expect(snapshot.repair_kind).toBe("robot_consent_menu");
+    expect(snapshot.violation.blocked_body).toContain("Reply YES or NO");
+    expect(snapshot.violation.robot_menu_blocked_reasons).toEqual([
+      "robot_menu_reply_yes_no",
+      "robot_menu_yes_to_confirm",
+    ]);
+    expect(snapshot.current_turn.route_kind).toBe("contract_prompt");
+    expect(snapshot.current_turn.daily_purpose).toBe("contract_overlay_proposal");
+    expect(snapshot.recent_exact_thread_excerpt.messages.length).toBeGreaterThan(0);
+    expect(snapshot.canonical_state_min.effective_ask).toBe("Text or call each day");
+    expect(snapshot.canonical_state_min.required_constraints?.binding_text_verbatim).toBe(binding);
+    expect(snapshot.canonical_state_min.required_constraints?.max_chars).toBe(300);
+  });
+
+  it("robot_consent_menu snapshot excludes coaching_summary / 7d / 30d memory", () => {
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "robot_consent_menu",
+      routeKind: "daily",
+      routePurpose: "contract_prompt",
+      blockedBody: "Reply YES to confirm.",
+      blockedReasons: ["robot_menu_reply_yes_no"],
+      laneFacts: {
+        route_kind: "contract_prompt",
+        accountability_day_key: "2026-05-12",
+        user: { local_time_iso: "2026-05-18T12:00:00.000Z" },
+        commitment: { effective_ask: "Daily check-in" },
+        accountability: { daily_purpose: "contract_overlay_proposal" },
+        thread_memory: {
+          recent_exact_thread_72h: thread72h,
+          relationship_memory_7d: { window_days: 7 },
+          relationship_memory_30d: { window_days: 30, coaching_summary: "hidden prose" },
+        },
+        constraints: { max_chars: 300 },
+      },
+    });
+    const json = JSON.stringify(snapshot);
+    expect(json).not.toContain("coaching_summary");
+    expect(json).not.toContain("relationship_memory_7d");
+    expect(json).not.toContain("relationship_memory_30d");
+  });
 });
 
 describe("buildRepairSnapshotPromptGuidance", () => {

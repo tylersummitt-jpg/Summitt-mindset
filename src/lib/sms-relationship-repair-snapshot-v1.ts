@@ -19,7 +19,8 @@ export const REPAIR_THREAD_MIN_MESSAGES = 4;
 export type RepairSnapshotKind =
   | "thread_freshness"
   | "memory_repeat"
-  | "lane_post_validate";
+  | "lane_post_validate"
+  | "robot_consent_menu";
 
 export type RepairSnapshotThreadMessage = {
   at: string;
@@ -45,6 +46,7 @@ export type RepairRelationshipSnapshotV1 = {
     blocked_body: string;
     lane_blocked_reasons?: string[];
     rejected_time_candidates?: string[];
+    robot_menu_blocked_reasons?: string[];
     stale_topic?: string | null;
     repeated_question?: string | null;
     repeated_phrases?: string[];
@@ -87,6 +89,7 @@ export type RepairRelationshipSnapshotV1 = {
       required_meaning_summary?: string | null;
       forbidden_substrings?: string[];
       rejected_time_candidates?: string[];
+      binding_text_verbatim?: string | null;
     };
   };
   proof_victory_permission?: {
@@ -310,6 +313,8 @@ export function buildRepairRelationshipSnapshotV1(args: {
   forcedRepairStrategy?: string | null;
   overlapTokens?: string[];
   laneBlockedReasons?: string[];
+  robotMenuBlockedReasons?: string[];
+  bindingTextVerbatim?: string | null;
 }): RepairRelationshipSnapshotV1 {
   const structuredTruth = buildStructuredRecentTruth(args.laneFacts);
   const freshness = args.freshness ?? structuredTruth.thread_freshness ?? null;
@@ -347,6 +352,12 @@ export function buildRepairRelationshipSnapshotV1(args: {
     }
   }
 
+  if (args.repairKind === "robot_consent_menu") {
+    violation.robot_menu_blocked_reasons = args.robotMenuBlockedReasons?.length
+      ? args.robotMenuBlockedReasons
+      : args.blockedReasons;
+  }
+
   const snapshot: RepairRelationshipSnapshotV1 = {
     repair_snapshot_version: REPAIR_SNAPSHOT_VERSION,
     repair_kind: args.repairKind,
@@ -360,6 +371,16 @@ export function buildRepairRelationshipSnapshotV1(args: {
     canonical_state_min: buildCanonicalStateMin(args.laneFacts, args.routePurpose),
     proof_victory_permission: buildProofVictoryPermission(args.laneFacts),
   };
+
+  if (args.repairKind === "robot_consent_menu") {
+    const binding = args.bindingTextVerbatim?.trim();
+    if (binding) {
+      snapshot.canonical_state_min.required_constraints = {
+        ...snapshot.canonical_state_min.required_constraints,
+        binding_text_verbatim: binding,
+      };
+    }
+  }
 
   if (args.repairKind === "memory_repeat" && args.memoryRepeatContext) {
     snapshot.memory_repeat = {
