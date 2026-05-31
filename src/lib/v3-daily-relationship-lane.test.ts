@@ -29,8 +29,10 @@ import {
   DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT,
   detectContractWrapperDuplicates,
   deriveSuggestedCoachingMoveForDailyFacts,
+  enrichDailyFactsWithThreadFreshness,
   produceDailyV3RelationshipSms,
 } from "@/lib/v3-daily-relationship-lane";
+import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
 
 function countSubstringOccurrences(haystack: string, needle: string): number {
   if (!needle) return 0;
@@ -1922,5 +1924,97 @@ describe("daily V3 victory_background", () => {
       (m: { role: string }) => m.role === "user"
     )?.content as string;
     expect(userMsg).not.toContain("victory_background");
+  });
+});
+
+describe("thread_freshness in V3 daily lane", () => {
+  const env = { ...process.env };
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  afterEach(() => {
+    process.env = { ...env };
+    vi.clearAllMocks();
+  });
+
+  it("enrichDailyFactsWithThreadFreshness derives facts from thread_memory", () => {
+    const transcript = [
+      "Coach: How do you feel about calls tomorrow?",
+      "User: Early afternoon I have work early morning",
+      "User: Text before calling",
+    ].join("\n");
+    const enriched = enrichDailyFactsWithThreadFreshness(
+      baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          recent_exact_thread_text: transcript,
+          recent_transcript_or_context_block: transcript,
+          latest_inbound_sms: "Text before calling",
+          latest_open_question: "How do you feel about calls tomorrow?",
+          last_5_user_answers: [
+            "Early afternoon I have work early morning",
+            "Text before calling",
+          ],
+        },
+      })
+    );
+
+    expect(enriched.thread_freshness?.active_temporal_frame).toBe("tomorrow");
+    expect(enriched.thread_freshness?.temporal_anchors).toEqual(
+      expect.arrayContaining(["tomorrow", "early afternoon"])
+    );
+  });
+
+  it("produceDailyV3RelationshipSms system prompt includes THREAD_FRESHNESS authority", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Early afternoon works — text before you call tomorrow.",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const transcript = [
+      "Coach: How do you feel about calls tomorrow?",
+      "User: Early afternoon I have work early morning",
+      "User: Text before calling",
+    ].join("\n");
+
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          recent_exact_thread_text: transcript,
+          recent_transcript_or_context_block: transcript,
+          latest_inbound_sms: "Text before calling",
+          latest_open_question: "How do you feel about calls tomorrow?",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    const systemMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toContain("THREAD_FRESHNESS");
+    expect(systemMsg).toContain(buildThreadFreshnessPromptGuidance().trim().slice(0, 40));
+
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toContain("thread_freshness");
+    expect(userMsg).toMatch(/active_temporal_frame.*tomorrow/s);
   });
 });

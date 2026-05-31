@@ -45,6 +45,13 @@ import {
   inferHasProofOrKnownOutcomeForDailyAccountability,
   type TimingAnchorMemory,
 } from "@/lib/timing-anchor-memory";
+import {
+  applyThreadFreshnessGuard,
+  buildThreadFreshnessPromptGuidance,
+  deriveRecentThreadFreshnessFacts,
+  detectThreadFreshnessViolations,
+  type ThreadFreshnessFacts,
+} from "@/lib/sms-thread-freshness";
 import type {
   SmsGoalAdjustmentCompatibleFlow,
   SmsGoalAdjustmentConfidence,
@@ -114,6 +121,7 @@ export type DailyV3RefreshFacts = {
 export type DailyV3RelationshipFacts = {
   route_kind: DailyV3RouteKind;
   accountability_day_key: string;
+  thread_freshness?: ThreadFreshnessFacts | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -352,7 +360,38 @@ function collectDailyPostValidateVoiceViolations(
       hasProofOrKnownOutcome: hasProof,
     }),
   ];
+  const freshnessHit = detectThreadFreshnessViolations(body, facts.thread_freshness);
+  if (freshnessHit) hits.push(`thread_freshness_${freshnessHit.reason}`);
   return [...new Set(hits)];
+}
+
+const DAILY_THREAD_FRESHNESS_EXCLUDED_ROUTE_KINDS = new Set<DailyV3RouteKind>([
+  "contract_prompt",
+  "pending_resolution",
+  "refresh_identity",
+  "refresh_commitment",
+]);
+
+export function shouldRunDailyThreadFreshnessGuard(facts: DailyV3RelationshipFacts): boolean {
+  if (facts.constraints.required_verbatim_substrings?.length) return false;
+  return !DAILY_THREAD_FRESHNESS_EXCLUDED_ROUTE_KINDS.has(facts.route_kind);
+}
+
+export function enrichDailyFactsWithThreadFreshness(facts: DailyV3RelationshipFacts): DailyV3RelationshipFacts {
+  const tm = facts.thread_memory;
+  return {
+    ...facts,
+    thread_freshness: deriveRecentThreadFreshnessFacts({
+      recentExactThreadText: tm.recent_exact_thread_text ?? tm.recent_transcript_or_context_block ?? null,
+      recentTranscriptLines: tm.recent_transcript_or_context_block
+        ? tm.recent_transcript_or_context_block.split("\n").filter(Boolean)
+        : [],
+      last5UserAnswers: tm.last_5_user_answers ?? [],
+      latestUserInbound: tm.latest_inbound_sms ?? null,
+      latestCoachQuestion: tm.latest_open_question ?? tm.last_5_coach_questions?.slice(-1)[0] ?? null,
+      accountabilityDayKey: facts.accountability_day_key,
+    }),
+  };
 }
 
 function summarizeFacts(f: DailyV3RelationshipFacts): string {
@@ -683,15 +722,19 @@ function dailyLanePostValidateRepairExcluded(facts: DailyV3RelationshipFacts): b
 export async function produceDailyV3RelationshipSms(
   args: DailyV3RelationshipLaneInput
 ): Promise<DailyV3RelationshipLaneResult> {
+  const laneFacts = enrichDailyFactsWithThreadFreshness(args.facts);
   const baseMeta: Record<string, unknown> = {
     v3_brain_version: V3_BRAIN_VERSION,
     daily_v3_lane_used: true,
     v3_lane_reply_source: "v3_daily_relationship_lane" satisfies DailyV3RelationshipLaneReplySource,
     old_daily_writer_used_as_voice: false,
     old_daily_writer_fact_sources: args.telemetry_fact_sources,
-    daily_facts_summary: summarizeFacts(args.facts),
-    suggested_coaching_move: args.facts.suggested_coaching_move,
-    route_purpose: args.facts.route_kind,
+    daily_facts_summary: summarizeFacts(laneFacts),
+    suggested_coaching_move: laneFacts.suggested_coaching_move,
+    route_purpose: laneFacts.route_kind,
+    thread_freshness_used: Boolean(laneFacts.thread_freshness),
+    thread_freshness_active_temporal_frame: laneFacts.thread_freshness?.active_temporal_frame ?? null,
+    thread_freshness_completed_action_count: laneFacts.thread_freshness?.completed_actions.length ?? 0,
   };
 
   const empty = (reason: string, openAiOk: boolean, extra?: Record<string, unknown>): DailyV3RelationshipLaneResult => ({
@@ -712,7 +755,7 @@ export async function produceDailyV3RelationshipSms(
     return empty("openai_unavailable", false, { lane_stage: "no_client" });
   }
 
-  const factsJson = JSON.stringify(args.facts);
+  const factsJson = JSON.stringify(laneFacts);
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
 
 RULES:
@@ -729,13 +772,14 @@ ${buildDailyOpenQuestionAnswerPriorityGuidance()}
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
 - If facts say reentry/comeback after silence, acknowledge return briefly before the ask.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
+${buildThreadFreshnessPromptGuidance()}
 ${buildVictoryBackgroundLaneGuardrails()}
 ${buildSmsPatternSignalLaneGuardrails()}
 ${buildSmsGoalAdjustmentLaneGuardrails()}
 ${buildPlannedInterruptionLaneGuardrails()}
-${buildPendingPlanProofLaneGuardrails(args.facts.accountability.pending_plan_proof)}
-${buildTimingAnchorMemoryLaneGuardrails(args.facts.accountability.timing_anchor_memory)}
-${routeSpecificSystemAddendum(args.facts)}
+${buildPendingPlanProofLaneGuardrails(laneFacts.accountability.pending_plan_proof)}
+${buildTimingAnchorMemoryLaneGuardrails(laneFacts.accountability.timing_anchor_memory)}
+${routeSpecificSystemAddendum(laneFacts)}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -821,7 +865,7 @@ Write JSON only.`;
     return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta });
   }
 
-  const bindingVerbatim = dailyBindingVerbatimForRobotGuard(args.facts);
+  const bindingVerbatim = dailyBindingVerbatimForRobotGuard(laneFacts);
   const robotMenuReasons = detectRelationshipRobotConsentMenuReasons(body, { bindingVerbatim });
   let robotConsentMenuExtra: Record<string, unknown> = {};
   if (robotMenuReasons.length > 0) {
@@ -830,7 +874,7 @@ Write JSON only.`;
       originalBody: body,
       bindingVerbatim,
       blockedReasons: robotMenuReasons,
-      factsJson: args.facts,
+      factsJson: laneFacts,
     });
     robotConsentMenuExtra = {
       robot_consent_menu_blocked_reasons: robotMenuReasons,
@@ -879,16 +923,16 @@ Write JSON only.`;
     }
   }
 
-  const pendingPlan = args.facts.accountability.pending_plan_proof;
-  const timingMemory = args.facts.accountability.timing_anchor_memory;
-  const blocked = collectDailyPostValidateVoiceViolations(body, args.facts, bindingVerbatim);
+  const pendingPlan = laneFacts.accountability.pending_plan_proof;
+  const timingMemory = laneFacts.accountability.timing_anchor_memory;
+  const blocked = collectDailyPostValidateVoiceViolations(body, laneFacts, bindingVerbatim);
   if (blocked.length > 0) {
     const { repairable, hard } = partitionFinalVoiceBlockedReasons(blocked);
 
     if (
       hard.length > 0 ||
       repairable.length === 0 ||
-      dailyLanePostValidateRepairExcluded(args.facts)
+      dailyLanePostValidateRepairExcluded(laneFacts)
     ) {
       return {
         body: "",
@@ -916,7 +960,7 @@ Write JSON only.`;
       body,
       timingAnchorMemory: timingMemory,
       pendingPlanProof: pendingPlan,
-      hasProofOrKnownOutcome: inferHasProofOrKnownOutcomeForDailyAccountability(args.facts.accountability),
+      hasProofOrKnownOutcome: inferHasProofOrKnownOutcomeForDailyAccountability(laneFacts.accountability),
     });
     const pendingRepairHint =
       pendingPlan?.active === true &&
@@ -929,10 +973,10 @@ Write JSON only.`;
         : null;
     const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
       routeKind: "daily",
-      routePurpose: args.facts.route_kind,
+      routePurpose: laneFacts.route_kind,
       originalBody: body,
       blockedReasons: repairable,
-      factsJson: args.facts,
+      factsJson: laneFacts,
       systemInstruction:
         [pendingRepairHint, timingRepairHint].filter(Boolean).join("\n\n") || undefined,
     });
@@ -965,10 +1009,10 @@ Write JSON only.`;
     }
 
     let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
-    const blockedAfter = collectDailyPostValidateVoiceViolations(repaired, args.facts, bindingVerbatim);
+    const blockedAfter = collectDailyPostValidateVoiceViolations(repaired, laneFacts, bindingVerbatim);
     const missingAfterRepair = validateRequiredVerbatims(
       repaired,
-      args.facts.constraints.required_verbatim_substrings
+      laneFacts.constraints.required_verbatim_substrings
     );
 
     if (blockedAfter.length > 0 || missingAfterRepair != null) {
@@ -1020,14 +1064,14 @@ Write JSON only.`;
   }
 
   if (
-    args.facts.route_kind === "contract_prompt" &&
-    args.facts.contract_proposal &&
-    args.facts.contract_proposal.semantic_daily_contract_v1 !== true
+    laneFacts.route_kind === "contract_prompt" &&
+    laneFacts.contract_proposal &&
+    laneFacts.contract_proposal.semantic_daily_contract_v1 !== true
   ) {
-    const bindingVerbatim = (args.facts.contract_proposal.binding_text_verbatim ?? "").trim();
+    const bindingVerbatim = (laneFacts.contract_proposal.binding_text_verbatim ?? "").trim();
     const wrapperForbidden =
-      args.facts.constraints.wrapper_must_not_repeat_substrings?.length
-        ? args.facts.constraints.wrapper_must_not_repeat_substrings
+      laneFacts.constraints.wrapper_must_not_repeat_substrings?.length
+        ? laneFacts.constraints.wrapper_must_not_repeat_substrings
         : [...DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT];
 
     let contractDup = detectContractWrapperDuplicates(body, bindingVerbatim, wrapperForbidden);
@@ -1038,7 +1082,7 @@ Write JSON only.`;
         originalBody: body,
         bindingVerbatim,
         blockedReasons: contractDup,
-        factsJson: args.facts,
+        factsJson: laneFacts,
       });
 
       if (!contractRepair) {
@@ -1068,7 +1112,7 @@ Write JSON only.`;
       contractDup = detectContractWrapperDuplicates(body, bindingVerbatim, wrapperForbidden);
       const missingBindingAfterContractRepair = validateRequiredVerbatims(
         body,
-        args.facts.constraints.required_verbatim_substrings
+        laneFacts.constraints.required_verbatim_substrings
       );
       const fvgAfterContractRepair = detectRelationshipCoachingVoiceBlockedReasons(body, {
         bindingVerbatim,
@@ -1133,7 +1177,7 @@ Write JSON only.`;
     }
   }
 
-  const missingVerb = validateRequiredVerbatims(body, args.facts.constraints.required_verbatim_substrings);
+  const missingVerb = validateRequiredVerbatims(body, laneFacts.constraints.required_verbatim_substrings);
   if (missingVerb != null) {
     return {
       body: "",
@@ -1155,7 +1199,7 @@ Write JSON only.`;
     };
   }
 
-  const semanticContractFailEarly = runSemanticDailyContractValidatorIfApplicable(args.facts, body);
+  const semanticContractFailEarly = runSemanticDailyContractValidatorIfApplicable(laneFacts, body);
   if (semanticContractFailEarly != null) {
     return {
       body: "",
@@ -1181,18 +1225,56 @@ Write JSON only.`;
     };
   }
 
+  const freshnessGuard = await applyThreadFreshnessGuard({
+    routeKind: "daily",
+    routePurpose: laneFacts.route_kind,
+    body,
+    factsJson: laneFacts,
+    freshness: laneFacts.thread_freshness,
+    enabled: shouldRunDailyThreadFreshnessGuard(laneFacts),
+  });
+
+  if (freshnessGuard.outcome === "no_send") {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: freshnessGuard.noSendReason,
+      replySource: "v3_daily_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes,
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: "thread_freshness_guard_failed",
+        v3_candidate_body: body,
+        ...freshnessGuard.metadata,
+      },
+      openAiOk: true,
+    };
+  }
+
+  body = freshnessGuard.body;
+  if (freshnessGuard.metadata.thread_freshness_repair_succeeded === true) {
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = { ...successRepairExtra, ...freshnessGuard.metadata };
+  } else if (Object.keys(freshnessGuard.metadata).length > 0) {
+    successRepairExtra = { ...successRepairExtra, ...freshnessGuard.metadata };
+  }
+
   const memoryRepeatGuard = await applySmsMemoryAntiRepeatGuard({
     routeKind: "daily",
-    routePurpose: args.facts.route_kind,
+    routePurpose: laneFacts.route_kind,
     body,
-    factsJson: args.facts,
-    detectInput: buildAntiRepeatDetectArgsFromDailyFacts(args.facts, body),
-    enabled: shouldRunDailyMemoryRepeatGuard(args.facts),
+    factsJson: laneFacts,
+    detectInput: buildAntiRepeatDetectArgsFromDailyFacts(laneFacts, body),
+    enabled: shouldRunDailyMemoryRepeatGuard(laneFacts),
     validateAfterRepair: async (candidate) => {
       const blockedAfter = collectDailyPostValidateVoiceViolations(
         candidate,
-        args.facts,
-        dailyBindingVerbatimForRobotGuard(args.facts)
+        laneFacts,
+        dailyBindingVerbatimForRobotGuard(laneFacts)
       );
       if (blockedAfter.length > 0) {
         return {
@@ -1203,7 +1285,7 @@ Write JSON only.`;
       }
       const missingAfter = validateRequiredVerbatims(
         candidate,
-        args.facts.constraints.required_verbatim_substrings
+        laneFacts.constraints.required_verbatim_substrings
       );
       if (missingAfter != null) {
         return {
@@ -1213,7 +1295,7 @@ Write JSON only.`;
         };
       }
 
-      const semFail = runSemanticDailyContractValidatorIfApplicable(args.facts, candidate);
+      const semFail = runSemanticDailyContractValidatorIfApplicable(laneFacts, candidate);
       if (semFail != null) {
         return {
           ok: false,

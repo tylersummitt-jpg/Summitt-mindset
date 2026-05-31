@@ -57,6 +57,13 @@ import {
   type V3VictoryBackgroundFacts,
 } from "@/lib/sms-victory-background-context";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
+import {
+  applyThreadFreshnessGuard,
+  buildThreadFreshnessPromptGuidance,
+  deriveRecentThreadFreshnessFacts,
+  detectThreadFreshnessViolations,
+  type ThreadFreshnessFacts,
+} from "@/lib/sms-thread-freshness";
 
 const INBOUND_LANE_MAX_CHARS = 320;
 
@@ -919,6 +926,7 @@ export type InboundV3RelationshipFacts = {
   conversation_brain_fallback_facts?: InboundV3ConversationBrainFallbackFacts | null;
   /** Read-only Victory Room background (season label + Pat Read); non-speakable unless naturally relevant. */
   victory_background?: V3VictoryBackgroundFacts | null;
+  thread_freshness?: ThreadFreshnessFacts | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -1577,6 +1585,31 @@ function buildPendingReplacementRouteAux(f: InboundV3RelationshipFacts): string 
 PENDING_COMMITMENT_REPLACE_TRUTH: pending_replacement_facts.pending_candidate_behavior_statement is the user-facing daily bar while pending_resolution_applied is false. canonical_behavior_statement is background only — do not coach it as the active bar. Do not say goal/commitment updated/changed/locked in/applied unless pending_resolution_applied is true. If confirmation is needed, ask naturally about the candidate bar (e.g. walking 10,000 steps), not the old commitment.`;
 }
 
+const INBOUND_THREAD_FRESHNESS_EXCLUDED_ROUTE_PURPOSES = new Set<InboundV3RoutePurpose>([
+  "adaptive_proposal_consent_accept",
+  "adaptive_proposal_consent_decline",
+  "adaptive_proposal_consent_noop_ack",
+  "adaptive_proposal_consent_clarification",
+  "commitment_change_handoff",
+  "identity_edit_integrity",
+  "pending_resolution",
+  "memory_confirmation",
+  "memory_decline",
+  "memory_clarification",
+  "refresh",
+  "refresh_identity",
+  "refresh_commitment",
+  "refresh_confirmation",
+  "refresh_clarification",
+  "relationship_exit_integrity",
+]);
+
+export function shouldRunInboundThreadFreshnessGuard(facts: InboundV3RelationshipFacts): boolean {
+  if (facts.constraints.required_verbatim_substrings?.length) return false;
+  if (facts.contract_consent_facts != null) return false;
+  return !INBOUND_THREAD_FRESHNESS_EXCLUDED_ROUTE_PURPOSES.has(facts.route_purpose);
+}
+
 const INBOUND_LANE_REPAIR_EXCLUDED_ROUTE_PURPOSES = new Set<InboundV3RoutePurpose>([
   "adaptive_proposal_consent_accept",
   "adaptive_proposal_consent_decline",
@@ -1687,6 +1720,19 @@ function validateInboundLaneCandidateBody(
       laneStage: "thread_memory_reask_validation_failed",
       safetySuffix: "reasked_prior_coach_question",
       extraMeta: { v3_candidate_body: body },
+    };
+  }
+  const freshnessViolation = detectThreadFreshnessViolations(body, args.facts.thread_freshness);
+  if (freshnessViolation) {
+    return {
+      ok: false,
+      noSendReason: "thread_freshness_stale_blocked",
+      laneStage: "thread_freshness_validation_failed",
+      safetySuffix: freshnessViolation.reason,
+      extraMeta: {
+        v3_candidate_body: body,
+        thread_freshness_violation_reason: freshnessViolation.reason,
+      },
     };
   }
   return { ok: true };
@@ -1859,7 +1905,7 @@ RULES:
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
-${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
+${buildThreadFreshnessPromptGuidance()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -2083,6 +2129,32 @@ Write JSON only.`;
       repaired_blocked_reasons: [],
       ...repairOut.metadata,
     };
+  }
+
+  const freshnessGuard = await applyThreadFreshnessGuard({
+    routeKind: "inbound",
+    routePurpose: args.facts.route_purpose,
+    body,
+    factsJson: args.facts,
+    freshness: args.facts.thread_freshness,
+    enabled: shouldRunInboundThreadFreshnessGuard(args.facts),
+  });
+
+  if (freshnessGuard.outcome === "no_send") {
+    return empty(freshnessGuard.noSendReason, true, {
+      lane_stage: "thread_freshness_guard_failed",
+      v3_candidate_body: body,
+      ...laneOpenAiJsonMeta,
+      ...freshnessGuard.metadata,
+    });
+  }
+
+  body = freshnessGuard.body;
+  if (freshnessGuard.metadata.thread_freshness_repair_succeeded === true) {
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = { ...successRepairExtra, ...freshnessGuard.metadata };
+  } else if (Object.keys(freshnessGuard.metadata).length > 0) {
+    successRepairExtra = { ...successRepairExtra, ...freshnessGuard.metadata };
   }
 
   const memoryRepeatGuard = await applySmsMemoryAntiRepeatGuard({
@@ -2600,6 +2672,17 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       ];
     }
   }
+  facts.thread_freshness = deriveRecentThreadFreshnessFacts({
+    recentExactThreadText: mp?.recent_exact_thread_text ?? null,
+    recentTranscriptLines: args.transcriptLines,
+    last5UserAnswers: mp?.last_5_user_answers ?? [],
+    latestUserInbound: args.coalescedInboundText,
+    latestCoachQuestion:
+      threadMemory.most_recent_coach_question ??
+      mp?.latest_open_question ??
+      args.northStarPacket.latestOpenQuestion ??
+      null,
+  });
   facts.suggested_coaching_move = deriveSuggestedCoachingMoveForInboundFacts(facts);
   return facts;
 }

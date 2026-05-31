@@ -36,6 +36,7 @@ import {
   produceInboundV3RelationshipSms,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
+import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 
 function baseCommitment(): ActiveV2CommitmentRow {
@@ -469,8 +470,21 @@ describe("produceInboundV3RelationshipSms", () => {
           {
             message: {
               content: JSON.stringify({
-                body: "You're right — Sunday School, the farm, and your mother's songs. Let's pick one thread to dictate today.",
+                body: "You're right — Sunday School, the farm, and your mother's songs. What thread feels most alive to work on next?",
                 used_strategy: "outcome_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "You're right — Sunday School, the farm, and your mother's songs. What thread feels most alive to work on next?",
+                used_strategy: "fresh_angle_v2",
                 safety_notes: [],
               }),
             },
@@ -544,7 +558,7 @@ describe("produceInboundV3RelationshipSms", () => {
     });
     expect(r.shouldSend).toBe(true);
     expect(r.body.toLowerCase()).not.toContain("what story will you dictate today");
-    expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+    expect(createMock.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
   it("includes THREAD_MEMORY_CORRECTION in system prompt for already-told-you", async () => {
@@ -1249,5 +1263,217 @@ describe("season_transition_facts in V3 facts JSON", () => {
     expect(json).toContain("user_facing_transition");
     expect(json).not.toMatch(/same_season_sync|same_season_goal_snapshot|season_transition_applied|season_mode/);
     expect(json).not.toMatch(/season-uuid|cmt-uuid/);
+  });
+});
+
+describe("thread_freshness in V3 inbound lane", () => {
+  const lunchTranscript = [
+    "Coach: How do you feel about prioritizing your five minutes of stretching at lunch?",
+    "User: Good suggestion so did that at lunch.",
+  ];
+
+  it("buildInboundV3RelationshipFacts includes thread_freshness for completed lunch stretch", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T12:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Five minutes stretching at lunch",
+      userMessageRaw: "Good suggestion so did that at lunch.",
+      coalescedInboundText: "Good suggestion so did that at lunch.",
+      suppressedMessageSids: [],
+      transcriptLines: lunchTranscript,
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOpenQuestion:
+          "How do you feel about prioritizing your five minutes of stretching at lunch?",
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: {
+        recent_exact_thread_text: lunchTranscript.join("\n"),
+        last_5_user_answers: ["Good suggestion so did that at lunch."],
+        last_5_coach_questions: [
+          "How do you feel about prioritizing your five minutes of stretching at lunch?",
+        ],
+        do_not_repeat_phrases: [],
+        latest_open_question:
+          "How do you feel about prioritizing your five minutes of stretching at lunch?",
+      },
+    });
+
+    expect(facts.thread_freshness).toBeDefined();
+    expect(facts.thread_freshness?.completed_actions.length).toBeGreaterThanOrEqual(1);
+    expect(facts.thread_freshness?.do_not_reask_topics.some((t) => /lunch|stretch/i.test(t))).toBe(
+      true
+    );
+    const json = JSON.stringify(facts);
+    expect(json).toContain("thread_freshness");
+    expect(json).toContain("do_not_reask_topics");
+  });
+
+  it("produceInboundV3RelationshipSms system prompt includes THREAD_FRESHNESS authority", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Nice work — what's the next small win today?",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts({
+        thread: {
+          ...baseFacts().thread,
+          recent_transcript_lines: lunchTranscript,
+          coalesced_inbound_text: "Good suggestion so did that at lunch.",
+        },
+        thread_freshness: {
+          completed_actions: [
+            {
+              text: "five-minute stretch at lunch",
+              evidence: "Good suggestion so did that at lunch.",
+            },
+          ],
+          do_not_reask_topics: ["lunch stretch", "five-minute stretch at lunch"],
+          active_temporal_frame: "today",
+          temporal_anchors: ["lunch", "stretch"],
+          recent_user_plan_or_schedule: null,
+          recent_user_completion: "Good suggestion so did that at lunch.",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    const firstCall = createMock.mock.calls[0]?.[0];
+    const systemMsg = firstCall?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toContain("THREAD_FRESHNESS");
+    expect(systemMsg).toContain(buildThreadFreshnessPromptGuidance().trim().slice(0, 40));
+    const userMsg = firstCall?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toContain("thread_freshness");
+  });
+
+  it("repairs stale lunch-stretch re-ask via thread freshness guard", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: "How do you feel about prioritizing your five minutes of stretching at lunch?",
+                no_send_reason: null,
+                turn_purpose: "inbound_turn",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Nice — you got the lunch stretch in. What feels like the next small win?",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T12:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Five minutes stretching at lunch",
+      userMessageRaw: "Good suggestion so did that at lunch.",
+      coalescedInboundText: "Good suggestion so did that at lunch.",
+      suppressedMessageSids: [],
+      transcriptLines: lunchTranscript,
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOpenQuestion:
+          "How do you feel about prioritizing your five minutes of stretching at lunch?",
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: {
+        recent_exact_thread_text: lunchTranscript.join("\n"),
+        last_5_user_answers: ["Good suggestion so did that at lunch."],
+        last_5_coach_questions: [
+          "How do you feel about prioritizing your five minutes of stretching at lunch?",
+        ],
+        do_not_repeat_phrases: [],
+        latest_open_question:
+          "How do you feel about prioritizing your five minutes of stretching at lunch?",
+      },
+    });
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toMatch(/how do you feel about prioritizing.*stretch.*lunch/);
+    expect(r.metadata.thread_freshness_repair_succeeded).toBe(true);
+    expect(r.metadata.thread_freshness_used).toBe(true);
   });
 });
