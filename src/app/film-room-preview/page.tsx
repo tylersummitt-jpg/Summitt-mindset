@@ -1,5 +1,17 @@
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
+import {
+  utBody,
+  utBodyMuted,
+  utCardDivider,
+  utCtaOnDark,
+  utFilmCardLink,
+  utPageCanvas,
+  utPageInnerFilm,
+  utPreviewCard,
+  utPreviewHeroHeading,
+  utSectionTitle,
+} from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
 
 const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
@@ -17,9 +29,6 @@ export default async function FilmRoomPreviewPage() {
   const user = await currentUser();
   const trialHref = user ? "/subscribe" : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
 
-  const cardBase =
-    "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm";
-
   const [{ count: videoCount }, { data: videos }] = await Promise.all([
     supabaseServer
       .from("film_videos")
@@ -35,155 +44,110 @@ export default async function FilmRoomPreviewPage() {
   const videoList: FilmVideoPreview[] = (videos ?? []) as FilmVideoPreview[];
 
   return (
-    <main className="min-h-screen bg-[var(--bg)]">
-      {/* --------------------------------------------------
-          FILM ROOM LIBRARY (scale / social proof)
-          -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 pt-20 pb-12">
-        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-2">
-          Film Room Library
-        </h2>
-        <p className="text-lg text-[var(--muted)] text-center mb-6">
-          Included In Subscription
-        </p>
-        <p className="text-sm text-[var(--muted)] text-center">
-          Featuring insights from:
-        </p>
-        <p className="text-[var(--text)] text-center mt-1">
-          Pat Summitt · Peyton Manning · Robin Roberts · Phillip Fulmer · Morgan Vance · and more.
-        </p>
-      </section>
+    <main className={utPageCanvas}>
+      <div className={utPageInnerFilm}>
+        <section className="pb-12 pt-8 sm:pt-12">
+          <h2 className={`${utPreviewHeroHeading} mb-2`}>Film Room Library</h2>
+          <p className={`${utBody} text-center text-lg mb-6`}>Included In Subscription</p>
+          <p className={`${utBodyMuted} text-center text-sm`}>Featuring insights from:</p>
+          <p className="mt-1 text-center text-stone-200">
+            Pat Summitt · Peyton Manning · Robin Roberts · Phillip Fulmer · Morgan Vance · and
+            more.
+          </p>
+        </section>
 
-      {/* --------------------------------------------------
-          VIDEO PREVIEW GRID (locked — links to /subscribe)
-          -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 py-16">
-        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-12">
-          Featured in the Film Room
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {videoList.length === 0 ? (
-            <p className="text-[var(--muted)] text-center col-span-full py-8">
-              Film Room content is available to members.
-            </p>
-          ) : (
-            videoList.map((video) => (
-              <Link
-                key={video.id}
-                href={trialHref}
-                className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm block"
-              >
-                <div className="relative aspect-[4/3] sm:aspect-video bg-[var(--ink)]">
-                  {video.thumbnail_url ? (
-                    <img
-                      src={video.thumbnail_url}
-                      alt=""
-                      className="w-full h-full object-cover object-top"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center p-4">
-                      <span className="text-[var(--muted)] text-sm">Video</span>
+        <section className="py-16">
+          <h2 className={`${utPreviewHeroHeading} mb-12`}>Featured in the Film Room</h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {videoList.length === 0 ? (
+              <p className={`${utBodyMuted} col-span-full py-8 text-center`}>
+                Film Room content is available to members.
+              </p>
+            ) : (
+              videoList.map((video) => (
+                <Link key={video.id} href={trialHref} className={`group ${utFilmCardLink}`}>
+                  <div className="relative aspect-[4/3] bg-[#0f172a] sm:aspect-video">
+                    {video.thumbnail_url ? (
+                      <img
+                        src={video.thumbnail_url}
+                        alt=""
+                        className="h-full w-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center p-4">
+                        <span className={`${utBodyMuted} text-sm`}>Video</span>
+                      </div>
+                    )}
+                    <div
+                      className="absolute inset-0 flex items-center justify-center bg-black/60"
+                      aria-hidden
+                    >
+                      <span className="text-sm font-semibold text-white sm:text-base">
+                        🔒 Members Only
+                      </span>
                     </div>
-                  )}
-                  <div
-                    className="absolute inset-0 flex items-center justify-center bg-black/60"
-                    aria-hidden
-                  >
-                    <span className="text-white font-semibold text-sm sm:text-base">
-                      🔒 Members Only
-                    </span>
                   </div>
-                </div>
-                <div className="p-4">
-                  <p className="font-bold text-[var(--text)] group-hover:text-[var(--brand)] transition-colors line-clamp-2">
-                    {video.title}
-                  </p>
-                  {video.speaker && (
-                    <p className="text-sm text-[var(--muted)] mt-1">
-                      {video.speaker}
+                  <div className="p-4">
+                    <p className="line-clamp-2 font-bold text-stone-50 transition-colors group-hover:text-[var(--brand)]">
+                      {video.title}
                     </p>
-                  )}
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
-      </section>
+                    {video.speaker ? (
+                      <p className={`${utBodyMuted} mt-1 text-sm`}>{video.speaker}</p>
+                    ) : null}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
 
-      {/* --------------------------------------------------
-          INSIDE THE FILM ROOM (conversion)
-          -------------------------------------------------- */}
-      <section className="max-w-6xl mx-auto px-4 py-12">
-        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-6">
-          Inside the Film Room
-        </h2>
-        <p className="text-[var(--muted)] text-center mb-6">
-          Members unlock:
-        </p>
-        <ul className="max-w-xl mx-auto space-y-2 text-[var(--text)] text-center list-none">
-          <li>• 140+ leadership film sessions</li>
-          <li>• Lessons from elite leaders and championship coaches</li>
-          <li>• Real-world leadership principles you can apply immediately</li>
-        </ul>
-      </section>
+        <section className="py-12">
+          <h2 className={`${utPreviewHeroHeading} mb-6`}>Inside the Film Room</h2>
+          <p className={`${utBodyMuted} mb-6 text-center`}>Members unlock:</p>
+          <ul className="mx-auto max-w-xl list-none space-y-2 text-center text-stone-300">
+            <li>• 140+ leadership film sessions</li>
+            <li>• Lessons from elite leaders and championship coaches</li>
+            <li>• Real-world leadership principles you can apply immediately</li>
+          </ul>
+        </section>
 
-      {/* --------------------------------------------------
-          HOW FILM ROOM WORKS
-          -------------------------------------------------- */}
-      <section className="bg-[var(--ink)] py-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-12">
-            How the Film Room Works
-          </h2>
-          <div className="grid sm:grid-cols-3 gap-6">
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Watch When You Want
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
+        <section className={`${utCardDivider} py-16`}>
+          <h2 className={`${utPreviewHeroHeading} mb-12`}>How the Film Room Works</h2>
+          <div className="grid gap-6 sm:grid-cols-3">
+            <div className={utPreviewCard}>
+              <h3 className={`${utSectionTitle} mb-3`}>Watch When You Want</h3>
+              <p className={`${utBodyMuted} text-sm`}>
                 Film study is optional. Many members watch a short video after
                 completing their daily practice.
               </p>
             </div>
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Learn from Experience
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Speakers share real lessons about leadership, discipline,
-                teamwork, and standards.
+            <div className={utPreviewCard}>
+              <h3 className={`${utSectionTitle} mb-3`}>Learn from Experience</h3>
+              <p className={`${utBodyMuted} text-sm`}>
+                Speakers share real lessons about leadership, discipline, teamwork, and
+                standards.
               </p>
             </div>
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Apply the Principle
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                The goal is not just watching. It is taking one idea and applying
-                it in your life.
+            <div className={utPreviewCard}>
+              <h3 className={`${utSectionTitle} mb-3`}>Apply the Principle</h3>
+              <p className={`${utBodyMuted} text-sm`}>
+                The goal is not just watching. It is taking one idea and applying it in your
+                life.
               </p>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* --------------------------------------------------
-          FINAL CTA
-          -------------------------------------------------- */}
-      <section className="max-w-2xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
-        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
-          Great leadership leaves clues.
-        </h2>
-        <p className="text-[var(--muted)] mb-8 leading-relaxed">
-          Explore the Film Room inside Summitt Mindset.
-        </p>
-        <Link
-          href={trialHref}
-          className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
-        >
-          Start 7-Day Free Trial
-        </Link>
-      </section>
+        <section className="mx-auto max-w-2xl px-4 py-12 text-center sm:py-16 md:py-20">
+          <h2 className="mb-4 text-2xl font-bold text-stone-50 sm:text-3xl">
+            Great leadership leaves clues.
+          </h2>
+          <p className={`${utBodyMuted} mb-8`}>Explore the Film Room inside Summitt Mindset.</p>
+          <Link href={trialHref} className={utCtaOnDark}>
+            Start 7-Day Free Trial
+          </Link>
+        </section>
+      </div>
     </main>
   );
 }

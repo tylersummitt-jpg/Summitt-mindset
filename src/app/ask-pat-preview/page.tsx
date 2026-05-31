@@ -1,16 +1,23 @@
 import Link from "next/link";
 import Image from "next/image";
 import { currentUser } from "@clerk/nextjs/server";
+import {
+  utBody,
+  utBodyMuted,
+  utCardDivider,
+  utCtaOnDark,
+  utPageCanvas,
+  utPreviewCard,
+  utPreviewCardLg,
+  utPreviewSectionHeading,
+  utSectionTitle,
+} from "@/components/utility-page-visual";
 
 const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
 
-/** Primary CTA — homepage-style dark hero (ring offset for dark background). */
+/** Primary CTA — hero only (ring offset for neutral-950 hero). */
 const ctaHeroPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
-
-/** Primary CTA on light sections below the fold. */
-const ctaLightPrimaryClass =
-  "inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] md:px-8 md:py-4 md:text-base";
 
 const HERO_IMAGE_ALT =
   "Coach Pat Summitt coaching with focus and intensity on the court";
@@ -19,13 +26,10 @@ export default async function AskPatPreviewPage() {
   const user = await currentUser();
   const trialHref = user ? "/subscribe" : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
 
-  const cardBase =
-    "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm";
-
   return (
-    <div className="min-h-screen bg-[var(--bg)] overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden">
       {/* Hero — homepage-style full-bleed */}
-      <section className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950">
+      <section className="relative w-full overflow-hidden border-b border-white/10 bg-neutral-950">
         <div className="relative isolate min-h-[72vh] md:min-h-[80vh] w-full min-w-0">
           <div className="absolute inset-0 md:hidden">
             <Image
@@ -78,105 +82,92 @@ export default async function AskPatPreviewPage() {
         </div>
       </section>
 
-      {/* Membership / SMS bridge */}
-      <section className="border-b border-[var(--border)] bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 py-10 sm:py-12 text-center">
-          <p className="text-base sm:text-lg text-[var(--text)] leading-relaxed font-medium">
-            Included with the same membership as your daily text accountability —
-            optional depth when you need to think deeper.
-          </p>
-        </div>
-      </section>
-
-      {/* Example question */}
-      <section className="max-w-2xl mx-auto px-4 py-12 sm:py-14">
-        <h2 className="text-xl sm:text-2xl font-bold text-[var(--text)] mb-4">
-          Example question
-        </h2>
-        <div className={cardBase}>
-          <p className="text-[var(--text)] leading-relaxed italic text-lg">
-            &ldquo;How do I stay disciplined when I don&apos;t feel
-            motivated?&rdquo;
-          </p>
-        </div>
-      </section>
-
-      {/* Pat&apos;s Perspective — shortened sample */}
-      <section className="max-w-2xl mx-auto px-4 pb-12 sm:pb-16">
-        <h2 className="text-xl sm:text-2xl font-bold text-[var(--text)] mb-6">
-          Pat&apos;s Perspective
-        </h2>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 shadow-sm space-y-4">
-          <blockquote className="border-l-4 border-[var(--brand)] pl-5 text-[var(--text)] leading-relaxed">
-            <p className="mb-4">
-              Back in my playing days, motivation vanished—injury, doubt, and
-              voices saying I wouldn&apos;t make the Olympic team.
+      <div className={utPageCanvas}>
+        <section>
+          <div className="mx-auto max-w-3xl px-4 py-10 text-center sm:py-12">
+            <p className={`${utBody} text-base font-medium sm:text-lg`}>
+              Included with the same membership as your daily text accountability —
+              optional depth when you need to think deeper.
             </p>
-            <p className="mb-4">
-              It would have been easy to quit. I didn&apos;t. Discipline carried
-              me when motivation didn&apos;t—hours in the gym, standards I
-              refused to lower.
-            </p>
-            <p className="font-medium text-[var(--text)]">
-              Start smaller than you think you should. Finish one thing today you
-              said you&apos;d do—clean, no excuses. That&apos;s how standards
-              are built.
-            </p>
-          </blockquote>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* How Ask Pat Works */}
-      <section className="border-t border-[var(--border)] bg-gray-50 py-12 sm:py-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] text-center mb-10">
-            How Ask Pat Works
-          </h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Bring a real situation
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Name the pressure, the people, or the pattern—what you&apos;re
-                actually facing.
+        <section className="mx-auto max-w-2xl px-4 py-12 sm:py-14">
+          <h2 className={`${utPreviewSectionHeading} mb-4`}>Example question</h2>
+          <div className={utPreviewCard}>
+            <p className="text-lg italic leading-relaxed text-stone-200">
+              &ldquo;How do I stay disciplined when I don&apos;t feel
+              motivated?&rdquo;
+            </p>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-2xl px-4 pb-12 sm:pb-16">
+          <h2 className={`${utPreviewSectionHeading} mb-6`}>Pat&apos;s Perspective</h2>
+          <div className={`${utPreviewCardLg} space-y-4`}>
+            <blockquote className="border-l-4 border-[var(--brand)] pl-5 leading-relaxed text-stone-200">
+              <p className="mb-4">
+                Back in my playing days, motivation vanished—injury, doubt, and
+                voices saying I wouldn&apos;t make the Olympic team.
               </p>
-            </div>
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Get standards-based guidance
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Responses draw from Pat Summitt&apos;s leadership philosophy—firm,
-                honest, and grounded in the standards she lived.
+              <p className="mb-4">
+                It would have been easy to quit. I didn&apos;t. Discipline carried
+                me when motivation didn&apos;t—hours in the gym, standards I
+                refused to lower.
               </p>
-            </div>
-            <div className={cardBase}>
-              <h3 className="text-lg font-semibold text-[var(--text)] mb-3">
-                Carry it back into your day
-              </h3>
-              <p className="text-[var(--muted)] text-sm leading-relaxed">
-                Turn clarity into one next step—alongside your daily texts
-                accountability on the commitment that matters most.
+              <p className="font-medium text-stone-100">
+                Start smaller than you think you should. Finish one thing today you
+                said you&apos;d do—clean, no excuses. That&apos;s how standards
+                are built.
               </p>
+            </blockquote>
+          </div>
+        </section>
+
+        <section className={`${utCardDivider} py-12 sm:py-16`}>
+          <div className="mx-auto max-w-6xl px-4">
+            <h2 className="mb-10 text-center text-2xl font-bold text-stone-50 sm:text-3xl">
+              How Ask Pat Works
+            </h2>
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className={utPreviewCard}>
+                <h3 className={`${utSectionTitle} mb-3`}>Bring a real situation</h3>
+                <p className={`${utBodyMuted} text-sm`}>
+                  Name the pressure, the people, or the pattern—what you&apos;re
+                  actually facing.
+                </p>
+              </div>
+              <div className={utPreviewCard}>
+                <h3 className={`${utSectionTitle} mb-3`}>Get standards-based guidance</h3>
+                <p className={`${utBodyMuted} text-sm`}>
+                  Responses draw from Pat Summitt&apos;s leadership philosophy—firm,
+                  honest, and grounded in the standards she lived.
+                </p>
+              </div>
+              <div className={utPreviewCard}>
+                <h3 className={`${utSectionTitle} mb-3`}>Carry it back into your day</h3>
+                <p className={`${utBodyMuted} text-sm`}>
+                  Turn clarity into one next step—alongside your daily texts
+                  accountability on the commitment that matters most.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Final CTA */}
-      <section className="max-w-2xl mx-auto px-4 py-12 sm:py-16 md:py-20 text-center">
-        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)] mb-4">
-          Serious guidance. Same membership.
-        </h2>
-        <p className="text-[var(--muted)] mb-8 leading-relaxed">
-          Ask Pat when you need direction—your daily text cadence stays the spine
-          of your accountability.
-        </p>
-        <Link href={trialHref} className={ctaLightPrimaryClass}>
-          Start 7-Day Free Trial
-        </Link>
-      </section>
+        <section className="mx-auto max-w-2xl px-4 py-12 text-center sm:py-16 md:py-20">
+          <h2 className="mb-4 text-2xl font-bold text-stone-50 sm:text-3xl">
+            Serious guidance. Same membership.
+          </h2>
+          <p className={`${utBodyMuted} mb-8`}>
+            Ask Pat when you need direction—your daily text cadence stays the spine
+            of your accountability.
+          </p>
+          <Link href={trialHref} className={utCtaOnDark}>
+            Start 7-Day Free Trial
+          </Link>
+        </section>
+      </div>
     </div>
   );
 }

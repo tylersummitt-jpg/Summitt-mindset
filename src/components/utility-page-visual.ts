@@ -57,3 +57,18 @@ export const utClerkShell =
   "w-full overflow-hidden rounded-xl border border-white/10 bg-white shadow-sm";
 
 export const utClerkSectionLabel = "text-sm text-stone-400";
+
+/** Signed-out marketing preview pages — dark card padding variant. */
+export const utPreviewCard = `${utCard} p-6`;
+
+export const utPreviewCardLg = `${utCard} p-6 sm:p-8`;
+
+/** Orange CTA on dark preview/utility backgrounds. */
+export const utCtaOnDark =
+  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f18] md:px-8 md:py-4 md:text-base";
+
+export const utPreviewSectionHeading =
+  "text-xl font-bold text-stone-50 sm:text-2xl";
+
+export const utPreviewHeroHeading =
+  "text-2xl font-bold text-stone-50 sm:text-3xl text-center";
