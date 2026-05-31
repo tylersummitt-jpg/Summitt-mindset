@@ -53,7 +53,7 @@ function MembershipStatusCard() {
   }
 
   return (
-    <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
+    <div className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
       <div className="flex justify-between gap-4 py-1">
         <span className="text-gray-600">Status</span>
         <span className="font-medium text-gray-900">{status}</span>
@@ -68,7 +68,7 @@ function MembershipStatusCard() {
 
 function AccountabilitySummaryCard() {
   return (
-    <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-4 text-sm text-left space-y-3">
+    <div className="w-full rounded-lg border border-gray-200 bg-white px-4 py-4 text-sm text-left space-y-3">
       <p className="font-semibold text-gray-900">Accountability</p>
       <p className="text-gray-600 leading-relaxed">
         Pat checks in by text on one commitment you name—not a numbered-day score. Victory Room is
@@ -90,34 +90,48 @@ export default function UserProfilePage() {
   return (
     <>
       <SignedIn>
-        <main className="min-h-screen flex flex-col items-center justify-center gap-10 px-6 py-16">
-          <div className="text-center space-y-3">
-            <h1 className="text-2xl font-semibold">Account</h1>
-            <p className="text-sm text-gray-600">
-              Manage your membership, billing, and profile settings.
-            </p>
+        <main className="min-h-screen flex flex-col items-center px-6 py-8 md:py-10">
+          <div className="w-full max-w-4xl mx-auto flex flex-col gap-8">
+            <header className="text-center space-y-2">
+              <h1 className="text-2xl font-semibold">Account</h1>
+              <p className="text-sm text-gray-600">
+                Manage your membership, billing, and profile settings.
+              </p>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Need help? Email us anytime —{" "}
+                <a
+                  href="mailto:Support@SummittMindset.com"
+                  className="font-medium text-gray-900 underline underline-offset-2 hover:text-gray-700"
+                >
+                  Support@SummittMindset.com
+                </a>
+              </p>
+              <div className="pt-1">
+                <Link
+                  href="/sign-out"
+                  className="text-sm font-medium text-gray-700 underline underline-offset-2 hover:text-gray-900"
+                >
+                  Sign out
+                </Link>
+              </div>
+            </header>
+
+            <div className="w-full">
+              <UserProfile />
+            </div>
+
+            <section className="w-full flex flex-col gap-3">
+              <MembershipStatusCard />
+
+              <AccountSmsBlock />
+
+              <AccountabilitySummaryCard />
+
+              <div className="flex flex-col items-center pt-1">
+                <ManageMembershipButton />
+              </div>
+            </section>
           </div>
-
-          <div className="w-full max-w-4xl">
-            <UserProfile />
-          </div>
-
-          <section className="text-center space-y-3 w-full">
-            <MembershipStatusCard />
-
-            <AccountSmsBlock />
-
-            <AccountabilitySummaryCard />
-
-            <ManageMembershipButton />
-
-            <p className="mt-4 text-sm text-gray-600 text-center max-w-md sm:max-w-lg mx-auto">
-              Need help? Email us anytime —{" "}
-              <a href="mailto:Support@SummittMindset.com">
-                Support@SummittMindset.com
-              </a>
-            </p>
-          </section>
         </main>
       </SignedIn>
 

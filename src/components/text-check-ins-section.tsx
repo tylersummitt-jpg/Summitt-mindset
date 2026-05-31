@@ -79,7 +79,7 @@ export function LegacyTextMessagesCard() {
   }
 
   return (
-    <div className="w-full max-w-md sm:max-w-lg mx-auto space-y-2">
+    <div className="w-full space-y-2">
       <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
         <div className="flex justify-between gap-4 py-1">
           <span className="text-gray-600">Status</span>
@@ -149,7 +149,7 @@ function TextCheckInsContent({
   };
 
   return (
-    <div className="w-full max-w-md sm:max-w-lg mx-auto space-y-3 text-sm">
+    <div className="w-full space-y-3 text-sm">
       <div className="rounded-lg border border-gray-200 bg-white px-4 py-4 text-left space-y-3">
         <div className="space-y-1">
           <h2 className="font-semibold text-gray-900">Text check-ins</h2>
@@ -336,7 +336,7 @@ export default function AccountSmsBlock() {
 
   if (loadState === "loading") {
     return (
-      <div className="w-full max-w-md sm:max-w-lg mx-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500 text-center">
+      <div className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500 text-center">
         Loading text check-ins…
       </div>
     );
@@ -346,7 +346,7 @@ export default function AccountSmsBlock() {
     return (
       <>
         {fetchError ? (
-          <p className="text-xs text-amber-700 text-center max-w-md mx-auto">
+          <p className="text-xs text-amber-700 text-center">
             Could not load text check-in settings. Showing basic text check-in status.
           </p>
         ) : null}
