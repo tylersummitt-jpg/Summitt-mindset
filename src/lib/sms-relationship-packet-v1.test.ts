@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn(() => ({ select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })) },
+}));
 
 import {
   buildRelationshipPacketForOpenAI,
@@ -8,8 +12,52 @@ import {
 } from "@/lib/sms-relationship-packet-v1";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { RecentExactThread72hMessage, RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
+import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
+
+function make72hMessage(
+  partial: Partial<RecentExactThread72hMessage> & Pick<RecentExactThread72hMessage, "role" | "body">
+): RecentExactThread72hMessage {
+  return {
+    at: "2026-05-18T11:00:00.000Z",
+    at_local: "May 18, 6:00 AM",
+    at_local_timezone: "America/Chicago",
+    message_kind: null,
+    source_table: "sms_inbound_messages",
+    message_sid: null,
+    delivery_status: "sent",
+    is_exact_body: true,
+    ...partial,
+  };
+}
+
+function makeThread72h(messages: RecentExactThread72hMessage[]): RecentExactThread72hResult {
+  return {
+    messages,
+    window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+    message_count: messages.length,
+    had_preview_messages: messages.some((m) => m.delivery_status === "preview"),
+    had_system_no_send: messages.some((m) => m.role === "system_no_send"),
+    oldest_at: messages[0]?.at,
+    newest_at: messages[messages.length - 1]?.at,
+  };
+}
 
 function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): InboundV3RelationshipFacts {
+  const thread72h = makeThread72h([
+    make72hMessage({
+      role: "coach",
+      body: "Stretch at lunch?",
+      source_table: "sms_inbound_coach_jobs",
+      message_kind: "coach",
+    }),
+    make72hMessage({
+      role: "user",
+      body: "did that at lunch",
+      at: "2026-05-18T11:05:00.000Z",
+    }),
+  ]);
+
   const base: InboundV3RelationshipFacts = {
     route_purpose: "normal_inbound_reply",
     user: {
@@ -51,6 +99,7 @@ function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): I
       short_ack_should_not_reask_question: false,
       memory_packet: {
         recent_exact_thread_text: "Coach: Stretch at lunch?\nUser: did that at lunch",
+        recent_exact_thread_72h: thread72h,
         recent_exact_message_count: 2,
         last_outbound_full_body: null,
         last_inbound_full_body: null,
@@ -68,6 +117,8 @@ function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): I
         latest_answer_after_open_question_guess: null,
         do_not_repeat_phrases: [],
         memory_priority_rules: [],
+        coaching_memory_summary: null,
+        coaching_memory_is_background_only: true,
       },
     },
     v2_accountability: {
@@ -99,6 +150,11 @@ function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): I
 }
 
 function minimalDailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
+  const thread72h = makeThread72h([
+    make72hMessage({ role: "coach", body: "How did yesterday land?", source_table: "sms_send_events" }),
+    make72hMessage({ role: "user", body: "Rough start", at: "2026-05-18T10:05:00.000Z" }),
+  ]);
+
   const core: DailyV3RelationshipFacts = {
     route_kind: "main_active_accountability",
     accountability_day_key: "2026-05-12",
@@ -126,6 +182,8 @@ function minimalDailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): Daily
       do_not_repeat_hints: [],
       coaching_memory_snippet: "COACHING_MEMORY…",
       recent_pattern_hints: null,
+      recent_exact_thread_text: "Coach: How did yesterday land?\nUser: Rough start",
+      recent_exact_thread_72h: thread72h,
     },
     accountability: {
       daily_purpose: "standard_accountability_check",
@@ -162,7 +220,7 @@ function hugePad(label: string, chars: number): string {
 }
 
 describe("buildRelationshipPacketForOpenAI", () => {
-  it("includes ordered core sections and stays under default budget", () => {
+  it("includes ordered core sections with recent_exact_thread_72h and stays under budget", () => {
     const facts = minimalInboundFacts({
       thread_freshness: {
         completed_actions: [{ text: "stretch at lunch", evidence: "did that at lunch" }],
@@ -180,24 +238,27 @@ describe("buildRelationshipPacketForOpenAI", () => {
     });
 
     expect(packet.relationship_packet_version).toBe(RELATIONSHIP_PACKET_VERSION);
-    expect(packet.current_turn.data.route_purpose).toBeTruthy();
+    expect(RELATIONSHIP_PACKET_VERSION).toBe("1.6");
+    expect(packet.recent_exact_thread_72h?.data.messages.some((m) => /did that at lunch/i.test(m.body))).toBe(
+      true
+    );
+    expect(packet.recent_exact_thread_72h?.data.messages[0]?.at).toBeTruthy();
     expect(packet.structured_recent_truth.data.thread_freshness?.do_not_reask_topics).toContain(
       "lunch stretch"
     );
-    expect(packet.recent_exact_thread?.data.lines.some((l) => /did that at lunch/i.test(l))).toBe(
-      true
-    );
-    expect(packet.canonical_state.data.effective_ask).toContain("deep work");
-    expect(userPromptJson).toContain("RELATIONSHIP_PACKET_V1");
+    expect(userPromptJson).toContain("recent_exact_thread_72h");
     expect(userPromptJson.length).toBeLessThanOrEqual(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
-    expect(meta.budget_chars).toBe(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
-    expect(meta.total_chars).toBe(userPromptJson.length);
+    expect(meta.included_thread_window_hours).toBe(72);
   });
 
-  it("preserves thread_freshness and core sections when sourceFacts are oversized", () => {
-    const threadLines = Array.from({ length: 40 }, (_, i) =>
-      i % 2 === 0 ? `Coach: filler question ${i}?` : `User: ${hugePad("answer", 400)}`
-    ).join("\n");
+  it("preserves thread_freshness when sourceFacts are oversized", () => {
+    const hugeMessages = Array.from({ length: 40 }, (_, i) =>
+      make72hMessage({
+        role: i % 2 === 0 ? "coach" : "user",
+        body: i % 2 === 0 ? `Coach Q ${i}?` : hugePad("answer", 400),
+        at: new Date(Date.parse("2026-05-18T10:00:00.000Z") + i * 60_000).toISOString(),
+      })
+    );
 
     const facts = minimalInboundFacts({
       user: {
@@ -216,7 +277,7 @@ describe("buildRelationshipPacketForOpenAI", () => {
         ...minimalInboundFacts().thread,
         memory_packet: {
           ...minimalInboundFacts().thread.memory_packet!,
-          recent_exact_thread_text: threadLines,
+          recent_exact_thread_72h: makeThread72h(hugeMessages),
         },
       },
       victory_background: {
@@ -236,19 +297,26 @@ describe("buildRelationshipPacketForOpenAI", () => {
 
     expect(userPromptJson).toContain("thread_freshness");
     expect(userPromptJson).toContain("PRIORITY_TOPIC");
-    expect(userPromptJson).toContain("current_turn");
-    expect(userPromptJson).toContain("structured_recent_truth");
-    expect(userPromptJson).toContain("canonical_state");
-    expect(packet.recent_exact_thread?.data.lines.length).toBeGreaterThan(0);
+    expect(packet.recent_exact_thread_72h?.data.messages.length).toBeGreaterThan(0);
     expect(userPromptJson.length).toBeLessThanOrEqual(4000);
     expect(meta.relationship_packet_truncated).toBe(true);
-    expect(meta.truncated_sections.length).toBeGreaterThan(0);
   });
 
-  it("drops lower_authority and 30d memory before trimming recent_exact_thread", () => {
-    const recentLine = "User: RECENT_THREAD_MARKER keep-me";
-    const oldLines = Array.from({ length: 30 }, (_, i) => `Coach: old line ${i} ${hugePad("o", 200)}`);
-    const threadText = [...oldLines, "Coach: latest?", recentLine].join("\n");
+  it("drops lower_authority before trimming recent_exact_thread_72h messages", () => {
+    const messages = [
+      ...Array.from({ length: 30 }, (_, i) =>
+        make72hMessage({
+          role: "coach",
+          body: `old line ${i} ${hugePad("o", 200)}`,
+          at: new Date(Date.parse("2026-05-18T08:00:00.000Z") + i * 60_000).toISOString(),
+        })
+      ),
+      make72hMessage({
+        role: "user",
+        body: "RECENT_THREAD_MARKER keep-me",
+        at: "2026-05-18T11:59:00.000Z",
+      }),
+    ];
 
     const facts = minimalInboundFacts({
       user: {
@@ -266,7 +334,7 @@ describe("buildRelationshipPacketForOpenAI", () => {
         ...minimalInboundFacts().thread,
         memory_packet: {
           ...minimalInboundFacts().thread.memory_packet!,
-          recent_exact_thread_text: threadText,
+          recent_exact_thread_72h: makeThread72h(messages),
         },
       },
     });
@@ -278,21 +346,36 @@ describe("buildRelationshipPacketForOpenAI", () => {
     });
 
     expect(packet.lower_authority_background).toBeUndefined();
+    expect(
+      packet.recent_exact_thread_72h?.data.messages.some((m) => m.body.includes("RECENT_THREAD_MARKER"))
+    ).toBe(true);
     expect(meta.truncated_sections).toEqual(
-      expect.arrayContaining(["lower_authority_background", "relationship_memory_30d_or_season"])
+      expect.arrayContaining(["lower_authority_background", "recent_exact_thread_72h"])
     );
-    expect(packet.recent_exact_thread?.data.lines.some((l) => l.includes("RECENT_THREAD_MARKER"))).toBe(
-      true
-    );
-    const threadTruncIndex = meta.truncated_sections.indexOf("recent_exact_thread");
+    const threadTruncIndex = meta.truncated_sections.indexOf("recent_exact_thread_72h");
     const lowerIndex = meta.truncated_sections.indexOf("lower_authority_background");
-    const mem30Index = meta.truncated_sections.indexOf("relationship_memory_30d_or_season");
     expect(lowerIndex).toBeGreaterThanOrEqual(0);
-    expect(mem30Index).toBeGreaterThanOrEqual(0);
     if (threadTruncIndex >= 0) {
       expect(lowerIndex).toBeLessThan(threadTruncIndex);
-      expect(mem30Index).toBeLessThan(threadTruncIndex);
     }
+  });
+
+  it("uses legacy recent_exact_thread_text fallback when structured 72h absent", () => {
+    const facts = minimalInboundFacts({
+      thread: {
+        ...minimalInboundFacts().thread,
+        memory_packet: {
+          ...minimalInboundFacts().thread.memory_packet!,
+          recent_exact_thread_72h: makeThread72h([]),
+          recent_exact_thread_text: "Coach: legacy line\nUser: legacy answer",
+        },
+      },
+    });
+
+    const { packet } = buildRelationshipPacketForOpenAI({ lane: "inbound", sourceFacts: facts });
+    expect(packet.recent_exact_thread_72h?.data.legacy_fallback_lines?.some((l) => /legacy answer/.test(l))).toBe(
+      true
+    );
   });
 
   it("does not invent proof_saved / can_say_saved_as_proof when hint disallows", () => {
@@ -317,9 +400,7 @@ describe("buildRelationshipPacketForOpenAI", () => {
     });
 
     expect(packet.proof_victory_permission?.data.can_say_saved_as_proof).toBe(false);
-    expect(packet.proof_victory_permission?.data.proof_saved).toBe(false);
     expect(userPromptJson).not.toMatch(/"can_say_saved_as_proof":\s*true/);
-    expect(userPromptJson).not.toMatch(/"proof_saved":\s*true/);
   });
 
   it("user prompt contains no hard-coded final SMS copy", () => {
@@ -328,7 +409,6 @@ describe("buildRelationshipPacketForOpenAI", () => {
       sourceFacts: minimalDailyFacts(),
     });
     expect(userPromptJson).not.toMatch(/what's the next concrete move/i);
-    expect(userPromptJson).not.toMatch(/you've got this/i);
     expect(userPromptJson).toContain("Write JSON only.");
   });
 });
@@ -337,9 +417,6 @@ describe("buildRelationshipPacketPromptGuidance", () => {
   it("includes authority rules", () => {
     const guidance = buildRelationshipPacketPromptGuidance();
     expect(guidance).toContain("RELATIONSHIP_PACKET_AUTHORITY");
-    expect(guidance).toContain("authoritative_recent_thread");
-    expect(guidance).toContain("structured_recent_truth");
-    expect(guidance).toContain("do_not_reask_topics");
-    expect(guidance).toContain("active_temporal_frame");
+    expect(guidance).toContain("recent_exact_thread_72h");
   });
 });

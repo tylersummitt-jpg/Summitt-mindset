@@ -57,6 +57,7 @@ import {
   type V3VictoryBackgroundFacts,
 } from "@/lib/sms-victory-background-context";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
+import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import {
   buildRelationshipPacketForOpenAI,
   buildRelationshipPacketPromptGuidance,
@@ -975,6 +976,7 @@ export type InboundV3RelationshipFacts = {
     short_ack_should_not_reask_question: boolean;
     memory_packet?: {
       recent_exact_thread_text: string;
+      recent_exact_thread_72h: RecentExactThread72hResult;
       recent_exact_message_count: number;
       last_outbound_full_body: string | null;
       last_inbound_full_body: string | null;
@@ -2561,6 +2563,7 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
         ? {
             memory_packet: {
               recent_exact_thread_text: mp.recent_exact_thread_text,
+              recent_exact_thread_72h: mp.recent_exact_thread_72h,
               recent_exact_message_count: mp.recent_exact_message_count,
               last_outbound_full_body: mp.last_outbound_full_body,
               last_inbound_full_body: mp.last_inbound_full_body,

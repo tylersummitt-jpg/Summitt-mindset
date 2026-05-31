@@ -52,6 +52,7 @@ import {
   detectThreadFreshnessViolations,
   type ThreadFreshnessFacts,
 } from "@/lib/sms-thread-freshness";
+import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import {
   buildRelationshipPacketForOpenAI,
   buildRelationshipPacketPromptGuidance,
@@ -156,6 +157,7 @@ export type DailyV3RelationshipFacts = {
     open_question_source?: "projection" | "runtime_guess" | "none";
     answer_source?: "projection" | "runtime_guess" | "none";
     recent_exact_thread_text?: string | null;
+    recent_exact_thread_72h?: RecentExactThread72hResult;
     last_outbound_full_body?: string | null;
     last_inbound_full_body?: string | null;
     last_5_coach_questions?: string[];

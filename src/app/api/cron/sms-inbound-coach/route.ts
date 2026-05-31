@@ -1864,6 +1864,7 @@ async function processV2NormalInboundOutcome(
     await buildSmsRelationshipMemoryPacket({
       clerkUserId: userId,
       commitmentId: commitment.id,
+      timezone,
     })
   );
 
@@ -2179,6 +2180,7 @@ async function processV2NormalInboundOutcome(
         await buildSmsRelationshipMemoryPacket({
           clerkUserId: userId,
           commitmentId: commitment.id,
+          timezone,
         })
       );
 
@@ -5487,6 +5489,7 @@ async function processV2BlockerCapture(
     await buildSmsRelationshipMemoryPacket({
       clerkUserId: userId,
       commitmentId: commitment.id,
+      timezone,
     })
   );
 
@@ -6562,6 +6565,7 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     await buildSmsRelationshipMemoryPacket({
       clerkUserId: args.userId,
       commitmentId: args.commitment.id,
+      timezone: args.timezone,
     })
   );
   let transactionalVictoryBackgroundFacts: V3VictoryBackgroundFacts | null = null;

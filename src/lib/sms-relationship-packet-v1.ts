@@ -1,13 +1,15 @@
 /**
- * Relationship Packet v1.5 — ordered, budgeted OpenAI context (Phase A+B).
+ * Relationship Packet v1.6 — ordered, budgeted OpenAI context with 72h exact thread.
  * Server-owned packing only; no DB writes, no hard-coded SMS.
  */
 
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
+import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
+import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 
-export const RELATIONSHIP_PACKET_VERSION = "1.5" as const;
+export const RELATIONSHIP_PACKET_VERSION = "1.6" as const;
 export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_000;
 
 export type RelationshipPacketLane = "inbound" | "daily";
@@ -65,6 +67,20 @@ export type RelationshipPacketStructuredRecentTruth = {
   };
 };
 
+export type RelationshipPacketRecentExactThread72h = {
+  window_hours: typeof RECENT_EXACT_THREAD_WINDOW_HOURS;
+  messages: RecentExactThread72hMessage[];
+  message_count: number;
+  had_preview_messages: boolean;
+  had_system_no_send: boolean;
+  legacy_fallback_lines?: string[];
+  legacy_fallback_source?:
+    | "recent_exact_thread_text"
+    | "recent_transcript_or_context_block"
+    | "recent_transcript_lines";
+};
+
+/** @deprecated v1.5 legacy line format — fallback only */
 export type RelationshipPacketRecentExactThread = {
   lines: string[];
   line_count: number;
@@ -149,7 +165,7 @@ export type RelationshipPacketV1 = {
   relationship_packet_version: typeof RELATIONSHIP_PACKET_VERSION;
   current_turn: RelationshipPacketSection<RelationshipPacketCurrentTurn>;
   structured_recent_truth: RelationshipPacketSection<RelationshipPacketStructuredRecentTruth>;
-  recent_exact_thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null;
+  recent_exact_thread_72h: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null;
   canonical_state: RelationshipPacketSection<RelationshipPacketCanonicalState>;
   proof_victory_permission: RelationshipPacketSection<RelationshipPacketProofVictoryPermission> | null;
   relationship_memory_7d?: RelationshipPacketSection<RelationshipPacketMemory7d>;
@@ -163,6 +179,10 @@ export type RelationshipPacketMeta = {
   truncated_sections: string[];
   included_thread_message_count: number | null;
   included_thread_window_hours: number | null;
+  included_thread_oldest_at: string | null;
+  included_thread_newest_at: string | null;
+  had_preview_messages: boolean;
+  had_system_no_send: boolean;
   total_chars: number;
   budget_chars: number;
 };
@@ -177,7 +197,7 @@ export function buildRelationshipPacketPromptGuidance(): string {
   return `
 RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats stale summaries):
 - authoritative_current and structured_recent_truth beat background_summary and low_authority_hint on conflict.
-- authoritative_recent_thread beats relationship_memory_7d and relationship_memory_30d_or_season on conflict.
+- authoritative_recent_thread (recent_exact_thread_72h) beats relationship_memory_7d and relationship_memory_30d_or_season on conflict.
 - background_summary and low_authority_hint must NEVER override recent exact thread or canonical_state.
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
@@ -287,43 +307,105 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
   };
 }
 
-function resolveRecentThreadInbound(f: InboundV3RelationshipFacts): {
-  text: string;
-  source: RelationshipPacketRecentExactThread["source"];
-} {
+function resolveRecentThread72hInbound(
+  f: InboundV3RelationshipFacts
+): RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null {
+  const t72 = f.thread.memory_packet?.recent_exact_thread_72h;
+  if (t72?.messages?.length) {
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: t72.messages,
+        message_count: t72.message_count,
+        had_preview_messages: t72.had_preview_messages,
+        had_system_no_send: t72.had_system_no_send,
+      },
+    };
+  }
   const mpText = f.thread.memory_packet?.recent_exact_thread_text?.trim();
-  if (mpText) return { text: mpText, source: "recent_exact_thread_text" };
+  if (mpText) {
+    const lines = splitThreadLines(mpText);
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: [],
+        message_count: 0,
+        had_preview_messages: threadHasPreviewLine(lines),
+        had_system_no_send: false,
+        legacy_fallback_lines: lines,
+        legacy_fallback_source: "recent_exact_thread_text",
+      },
+    };
+  }
   const lines = f.thread.recent_transcript_lines.filter(Boolean);
-  if (lines.length) return { text: lines.join("\n"), source: "recent_transcript_lines" };
-  return { text: "", source: "recent_transcript_lines" };
+  if (lines.length) {
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: [],
+        message_count: 0,
+        had_preview_messages: threadHasPreviewLine(lines),
+        had_system_no_send: false,
+        legacy_fallback_lines: lines,
+        legacy_fallback_source: "recent_transcript_lines",
+      },
+    };
+  }
+  return null;
 }
 
-function resolveRecentThreadDaily(f: DailyV3RelationshipFacts): {
-  text: string;
-  source: RelationshipPacketRecentExactThread["source"];
-} {
+function resolveRecentThread72hDaily(
+  f: DailyV3RelationshipFacts
+): RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null {
+  const t72 = f.thread_memory.recent_exact_thread_72h;
+  if (t72?.messages?.length) {
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: t72.messages,
+        message_count: t72.message_count,
+        had_preview_messages: t72.had_preview_messages,
+        had_system_no_send: t72.had_system_no_send,
+      },
+    };
+  }
   const exact = f.thread_memory.recent_exact_thread_text?.trim();
-  if (exact) return { text: exact, source: "recent_exact_thread_text" };
+  if (exact) {
+    const lines = splitThreadLines(exact);
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: [],
+        message_count: 0,
+        had_preview_messages: threadHasPreviewLine(lines),
+        had_system_no_send: false,
+        legacy_fallback_lines: lines,
+        legacy_fallback_source: "recent_exact_thread_text",
+      },
+    };
+  }
   const block = f.thread_memory.recent_transcript_or_context_block?.trim();
-  if (block) return { text: block, source: "recent_transcript_or_context_block" };
-  return { text: "", source: "recent_transcript_or_context_block" };
-}
-
-function buildRecentExactThread(
-  text: string,
-  source: RelationshipPacketRecentExactThread["source"]
-): RelationshipPacketSection<RelationshipPacketRecentExactThread> | null {
-  const lines = splitThreadLines(text);
-  if (!lines.length) return null;
-  return {
-    authority: "authoritative_recent_thread",
-    data: {
-      lines,
-      line_count: lines.length,
-      source,
-      had_preview_lines: threadHasPreviewLine(lines),
-    },
-  };
+  if (block) {
+    const lines = splitThreadLines(block);
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: [],
+        message_count: 0,
+        had_preview_messages: threadHasPreviewLine(lines),
+        had_system_no_send: false,
+        legacy_fallback_lines: lines,
+        legacy_fallback_source: "recent_transcript_or_context_block",
+      },
+    };
+  }
+  return null;
 }
 
 function buildCanonicalInbound(f: InboundV3RelationshipFacts): RelationshipPacketCanonicalState {
@@ -504,7 +586,7 @@ function buildLowerAuthorityDaily(f: DailyV3RelationshipFacts): RelationshipPack
 type MutablePacketBuild = {
   current_turn: RelationshipPacketSection<RelationshipPacketCurrentTurn>;
   structured_recent_truth: RelationshipPacketSection<RelationshipPacketStructuredRecentTruth>;
-  recent_exact_thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null;
+  recent_exact_thread_72h: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null;
   canonical_state: RelationshipPacketSection<RelationshipPacketCanonicalState>;
   proof_victory_permission: RelationshipPacketSection<RelationshipPacketProofVictoryPermission> | null;
   relationship_memory_7d?: RelationshipPacketSection<RelationshipPacketMemory7d>;
@@ -517,7 +599,7 @@ function serializePacket(build: MutablePacketBuild): RelationshipPacketV1 {
     relationship_packet_version: RELATIONSHIP_PACKET_VERSION,
     current_turn: build.current_turn,
     structured_recent_truth: build.structured_recent_truth,
-    recent_exact_thread: build.recent_exact_thread,
+    recent_exact_thread_72h: build.recent_exact_thread_72h,
     canonical_state: build.canonical_state,
     proof_victory_permission: build.proof_victory_permission,
   };
@@ -570,37 +652,37 @@ function trimMemory30d(
   return { authority: section.authority, data };
 }
 
-function dropOldestThreadLine(
-  thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null
-): RelationshipPacketSection<RelationshipPacketRecentExactThread> | null {
-  if (!thread || thread.data.lines.length <= 1) return thread;
-  const lines = thread.data.lines.slice(1);
+function dropOldestThreadMessage(
+  thread: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null
+): RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null {
+  if (!thread || thread.data.messages.length <= 1) return thread;
+  const messages = thread.data.messages.slice(1);
   return {
     authority: thread.authority,
     data: {
       ...thread.data,
-      lines,
-      line_count: lines.length,
+      messages,
+      message_count: messages.length,
     },
   };
 }
 
-function truncateThreadFromOldest(
-  thread: RelationshipPacketSection<RelationshipPacketRecentExactThread> | null,
-  maxChars: number
-): RelationshipPacketSection<RelationshipPacketRecentExactThread> | null {
-  if (!thread) return null;
-  const joined = thread.data.lines.join("\n");
-  if (joined.length <= maxChars) return thread;
-  const trimmed = joined.slice(-maxChars);
-  const lines = splitThreadLines(trimmed);
+function truncateOldestThreadMessageBodies(
+  thread: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null,
+  maxBodyChars: number
+): RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null {
+  if (!thread || !thread.data.messages.length) return thread;
+  const messages = thread.data.messages.map((m, i) => {
+    if (i > 0 || m.body.length <= maxBodyChars) return m;
+    return {
+      ...m,
+      body: `${m.body.slice(0, maxBodyChars - 1)}…`,
+      body_truncated: true,
+    };
+  });
   return {
     authority: thread.authority,
-    data: {
-      ...thread.data,
-      lines: lines.length ? lines : [trimmed],
-      line_count: lines.length || 1,
-    },
+    data: { ...thread.data, messages },
   };
 }
 
@@ -616,14 +698,13 @@ export function buildRelationshipPacketForOpenAI(args: {
 
   if (isInboundFacts(args.sourceFacts, args.lane)) {
     const f = args.sourceFacts;
-    const threadResolved = resolveRecentThreadInbound(f);
     build = {
       current_turn: { authority: "authoritative_current", data: buildCurrentTurnInbound(f) },
       structured_recent_truth: {
         authority: "structured_recent_truth",
         data: buildStructuredTruthInbound(f),
       },
-      recent_exact_thread: buildRecentExactThread(threadResolved.text, threadResolved.source),
+      recent_exact_thread_72h: resolveRecentThread72hInbound(f),
       canonical_state: { authority: "authoritative_current", data: buildCanonicalInbound(f) },
       proof_victory_permission: (() => {
         const p = buildProofVictoryInbound(f);
@@ -644,14 +725,13 @@ export function buildRelationshipPacketForOpenAI(args: {
     };
   } else {
     const f = args.sourceFacts;
-    const threadResolved = resolveRecentThreadDaily(f);
     build = {
       current_turn: { authority: "authoritative_current", data: buildCurrentTurnDaily(f) },
       structured_recent_truth: {
         authority: "structured_recent_truth",
         data: buildStructuredTruthDaily(f),
       },
-      recent_exact_thread: buildRecentExactThread(threadResolved.text, threadResolved.source),
+      recent_exact_thread_72h: resolveRecentThread72hDaily(f),
       canonical_state: { authority: "authoritative_current", data: buildCanonicalDaily(f) },
       proof_victory_permission: (() => {
         const p = buildProofVictoryDaily(f);
@@ -701,14 +781,29 @@ export function buildRelationshipPacketForOpenAI(args: {
     } else if (build.relationship_memory_7d) {
       delete build.relationship_memory_7d;
       recordTrunc("relationship_memory_7d");
-    } else if (build.recent_exact_thread && build.recent_exact_thread.data.lines.length > 2) {
-      build.recent_exact_thread = dropOldestThreadLine(build.recent_exact_thread);
-      recordTrunc("recent_exact_thread");
-    } else if (build.recent_exact_thread) {
-      const joinedLen = build.recent_exact_thread.data.lines.join("\n").length;
-      const nextMax = Math.max(200, Math.floor(joinedLen * 0.65));
-      build.recent_exact_thread = truncateThreadFromOldest(build.recent_exact_thread, nextMax);
-      recordTrunc("recent_exact_thread");
+    } else if (build.recent_exact_thread_72h && build.recent_exact_thread_72h.data.messages.length > 2) {
+      build.recent_exact_thread_72h = dropOldestThreadMessage(build.recent_exact_thread_72h);
+      recordTrunc("recent_exact_thread_72h");
+    } else if (build.recent_exact_thread_72h?.data.legacy_fallback_lines?.length) {
+      const lines = build.recent_exact_thread_72h.data.legacy_fallback_lines;
+      if (lines.length > 2) {
+        build.recent_exact_thread_72h = {
+          ...build.recent_exact_thread_72h,
+          data: {
+            ...build.recent_exact_thread_72h.data,
+            legacy_fallback_lines: lines.slice(1),
+          },
+        };
+        recordTrunc("recent_exact_thread_72h");
+      }
+    } else if (build.recent_exact_thread_72h?.data.messages.length) {
+      const oldest = build.recent_exact_thread_72h.data.messages[0];
+      const nextMax = Math.max(200, Math.floor((oldest?.body.length ?? 400) * 0.65));
+      build.recent_exact_thread_72h = truncateOldestThreadMessageBodies(
+        build.recent_exact_thread_72h,
+        nextMax
+      );
+      recordTrunc("recent_exact_thread_72h");
     } else {
       break;
     }
@@ -719,14 +814,24 @@ export function buildRelationshipPacketForOpenAI(args: {
   }
 
   const userPromptJson = userPromptFromPacket(packet);
-  const threadCount = build.recent_exact_thread?.data.line_count ?? null;
+  const threadSection = build.recent_exact_thread_72h?.data;
+  const threadCount =
+    threadSection?.message_count ??
+    threadSection?.legacy_fallback_lines?.length ??
+    null;
 
   const meta: RelationshipPacketMeta = {
     relationship_packet_version: RELATIONSHIP_PACKET_VERSION,
     relationship_packet_truncated: truncatedSections.length > 0 || size > budget,
     truncated_sections: truncatedSections,
     included_thread_message_count: threadCount,
-    included_thread_window_hours: null,
+    included_thread_window_hours: threadSection ? RECENT_EXACT_THREAD_WINDOW_HOURS : null,
+    included_thread_oldest_at:
+      threadSection?.messages[0]?.at ?? null,
+    included_thread_newest_at:
+      threadSection?.messages[threadSection.messages.length - 1]?.at ?? null,
+    had_preview_messages: threadSection?.had_preview_messages ?? false,
+    had_system_no_send: threadSection?.had_system_no_send ?? false,
     total_chars: userPromptJson.length,
     budget_chars: budget,
   };
@@ -745,5 +850,9 @@ export function relationshipPacketMetaForLaneTelemetry(
     relationship_packet_budget_chars: meta.budget_chars,
     included_thread_message_count: meta.included_thread_message_count,
     included_thread_window_hours: meta.included_thread_window_hours,
+    included_thread_oldest_at: meta.included_thread_oldest_at,
+    included_thread_newest_at: meta.included_thread_newest_at,
+    had_preview_messages: meta.had_preview_messages,
+    had_system_no_send: meta.had_system_no_send,
   };
 }

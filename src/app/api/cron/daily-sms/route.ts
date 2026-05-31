@@ -743,6 +743,7 @@ async function buildDailySmsContent(
       const relationshipMemoryPacketRe = await buildSmsRelationshipMemoryPacket({
         clerkUserId,
         commitmentId: active.id,
+        timezone,
       });
 
       const factsCoreReBase: DailyV3RelationshipFactsForMove = {
@@ -1030,6 +1031,7 @@ async function buildDailySmsContent(
       const relationshipMemoryPacketPr = await buildSmsRelationshipMemoryPacket({
         clerkUserId,
         commitmentId: active.id,
+        timezone,
       });
 
       const factsCorePr: DailyV3RelationshipFactsForMove = {
@@ -1336,6 +1338,7 @@ async function buildDailySmsContent(
         const relationshipMemoryPacketRf = await buildSmsRelationshipMemoryPacket({
           clerkUserId,
           commitmentId: active.id,
+          timezone,
         });
 
         const factsCoreRf: DailyV3RelationshipFactsForMove = {
@@ -1577,6 +1580,7 @@ async function buildDailySmsContent(
         const relationshipMemoryPacketC = await buildSmsRelationshipMemoryPacket({
           clerkUserId,
           commitmentId: active.id,
+          timezone,
         });
 
         const factsCoreC: DailyV3RelationshipFactsForMove = {
@@ -2082,6 +2086,7 @@ async function buildDailySmsContent(
     const relationshipMemoryPacketMain = await buildSmsRelationshipMemoryPacket({
       clerkUserId,
       commitmentId: active.id,
+      timezone,
     });
 
     const factsCoreUnified: DailyV3RelationshipFactsForMove = {

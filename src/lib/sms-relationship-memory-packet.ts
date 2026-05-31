@@ -12,6 +12,11 @@ import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { loadV2CommitmentSmsThreadMemory } from "@/lib/v2-commitment-sms-thread-memory";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import { deriveV3LearningSignalsFromContext } from "@/lib/v3-sms-learning";
+import {
+  buildRecentExactThread72h,
+  recentExactThreadTextFrom72hMessages,
+  type RecentExactThread72hResult,
+} from "@/lib/sms-recent-exact-thread-72h";
 
 export type SmsThreadMemoryProjectionSource = "projection" | "runtime_guess" | "none";
 
@@ -71,12 +76,7 @@ export const MEMORY_PRIORITY_RULES: readonly string[] = [
 ] as const;
 
 const DEFAULT_MAX_MESSAGES = 25;
-const PER_MESSAGE_BODY_CAP = 500;
 const RECENT_EXACT_THREAD_TEXT_CAP = 11_000;
-const THREAD_LOOKBACK_MS = 45 * 24 * 60 * 60 * 1000;
-const DEDUPE_WINDOW_MS = 2500;
-
-const COACHING_OUTBOUND_KINDS = new Set(["coach", "question", "quote", "nudge", "weekly"]);
 
 export type SmsRelationshipMemoryPacket = {
   clerk_user_id: string;
@@ -100,6 +100,7 @@ export type SmsRelationshipMemoryPacket = {
   relationship_profile_summary: string | null;
   recent_exact_messages: SmsRelationshipMessage[];
   recent_exact_thread_text: string;
+  recent_exact_thread_72h: RecentExactThread72hResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_substantive_user_message: string | null;
@@ -128,32 +129,8 @@ export type SmsRelationshipMemoryPacket = {
   };
 };
 
-type TimelineEntry = {
-  t: number;
-  speaker: SmsRelationshipSpeaker;
-  body: string;
-  source_table: string;
-  message_kind: string | null;
-  is_exact_body: boolean;
-  is_preview: boolean;
-  priority: number;
-};
-
-function stripComplianceFooter(text: string): string {
-  return text
-    .replace(/\bReply STOP to opt out[\s\S]*$/i, "")
-    .replace(/\bReply HELP for help\.?[\s\S]*$/i, "")
-    .trim();
-}
-
 function normDedupeKey(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function capMessageBody(body: string, max: number): string {
-  const t = body.trim().replace(/\r?\n/g, " ");
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
 }
 
 function isComplianceInbound(raw: string): boolean {
@@ -206,37 +183,6 @@ function extractQuestionClause(coachMessage: string): string | null {
 
 function coachMessageContainsQuestion(coachMessage: string): boolean {
   return coachMessageLooksLikeQuestion(coachMessage);
-}
-
-function dedupeTimeline(entries: TimelineEntry[]): TimelineEntry[] {
-  const sorted = [...entries].sort((a, b) => a.t - b.t || b.priority - a.priority);
-  const out: TimelineEntry[] = [];
-  for (const e of sorted) {
-    let replaced = false;
-    for (let i = out.length - 1; i >= 0 && i >= out.length - 5; i--) {
-      const prev = out[i]!;
-      if (prev.speaker !== e.speaker) continue;
-      if (Math.abs(e.t - prev.t) > DEDUPE_WINDOW_MS) break;
-      if (normDedupeKey(prev.body) !== normDedupeKey(e.body)) continue;
-      if (e.priority >= prev.priority) out[i] = e;
-      replaced = true;
-      break;
-    }
-    if (!replaced) out.push(e);
-  }
-  return out.sort((a, b) => a.t - b.t);
-}
-
-function bodyFromSendEventRow(row: Record<string, unknown>): string {
-  if (typeof row.sms_body === "string" && row.sms_body.trim()) return row.sms_body.trim();
-  if (typeof row.body === "string" && row.body.trim()) return row.body.trim();
-  if (typeof row.message_body === "string" && row.message_body.trim()) return row.message_body.trim();
-  const meta = row.metadata;
-  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
-    const m = meta as Record<string, unknown>;
-    if (typeof m.sms_body === "string" && m.sms_body.trim()) return m.sms_body.trim();
-  }
-  return "";
 }
 
 function aggregateSevenDayOutcomes(events: V2EventRowForAi[]): SmsRelationshipMemoryPacket["recent_outcomes_summary"] {
@@ -320,22 +266,6 @@ function deriveOpenQuestionGuesses(messages: SmsRelationshipMessage[]): {
   return { latest_open_question_guess: latestQ.text, latest_answer_after_open_question_guess: null };
 }
 
-function buildRecentExactThreadText(messages: SmsRelationshipMessage[]): { text: string; capped: boolean } {
-  const lines: string[] = [];
-  for (const m of messages) {
-    const label = m.speaker === "coach" ? "Coach" : "User";
-    const previewTag = m.is_preview ? " [preview]" : "";
-    lines.push(`${label}${previewTag}: ${m.body}`);
-  }
-  let text = lines.join("\n");
-  let capped = false;
-  if (text.length > RECENT_EXACT_THREAD_TEXT_CAP) {
-    text = `${text.slice(0, RECENT_EXACT_THREAD_TEXT_CAP - 1)}…`;
-    capped = true;
-  }
-  return { text, capped };
-}
-
 function pushDoNotRepeat(
   out: SmsRelationshipDoNotRepeatHint[],
   seen: Set<string>,
@@ -353,6 +283,7 @@ function pushDoNotRepeat(
 export type SlimSmsRelationshipMemoryPacketForFacts = {
   recent_exact_thread_text: string;
   recent_exact_message_count: number;
+  recent_exact_thread_72h: RecentExactThread72hResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_substantive_user_message: string | null;
@@ -379,6 +310,7 @@ export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): S
   return {
     recent_exact_thread_text: packet.recent_exact_thread_text,
     recent_exact_message_count: packet.recent_exact_messages.length,
+    recent_exact_thread_72h: packet.recent_exact_thread_72h,
     last_outbound_full_body: packet.last_outbound_full_body,
     last_inbound_full_body: packet.last_inbound_full_body,
     last_substantive_user_message: packet.last_substantive_user_message,
@@ -427,6 +359,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
   do_not_repeat_hints: string[];
   coaching_memory_snippet: string;
   recent_exact_thread_text: string;
+  recent_exact_thread_72h: RecentExactThread72hResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_5_coach_questions: string[];
@@ -463,6 +396,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
         ? `COACHING_MEMORY (background only; RECENT_EXACT_THREAD wins on conflict):\n${packet.coaching_memory_summary}`
         : ""),
     recent_exact_thread_text: packet.recent_exact_thread_text,
+    recent_exact_thread_72h: packet.recent_exact_thread_72h,
     last_outbound_full_body: packet.last_outbound_full_body,
     last_inbound_full_body: packet.last_inbound_full_body,
     last_5_coach_questions: packet.last_5_coach_questions.map((q) => q.text),
@@ -545,12 +479,12 @@ export function buildWeeklyThreadMemoryFromPacket(args: WeeklyThreadMemoryFromPa
 export async function buildSmsRelationshipMemoryPacket(args: {
   clerkUserId: string;
   commitmentId?: string | null;
+  timezone?: string;
   maxMessages?: number;
   now?: Date;
 }): Promise<SmsRelationshipMemoryPacket> {
   const now = args.now ?? new Date();
   const nowMs = now.getTime();
-  const cutoffMs = nowMs - THREAD_LOOKBACK_MS;
   const maxMessages = args.maxMessages ?? DEFAULT_MAX_MESSAGES;
 
   let commitment: ActiveV2CommitmentRow | null = null;
@@ -568,213 +502,40 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     coachingMemory = await loadV2CoachingMemoryForPrompt(args.commitmentId);
   }
 
-  const [
-    { data: profile },
-    { data: lastCtx },
-    { data: inboundMsgRows },
-    { data: sendRows },
-    { data: coachJobRows },
-  ] = await Promise.all([
-    supabaseServer
-      .from("user_profiles")
-      .select("preferred_name, people_summary, identity_anchor_text, identity_source")
-      .eq("clerk_user_id", args.clerkUserId)
-      .maybeSingle(),
-    supabaseServer
-      .from("sms_last_outbound_context")
-      .select("sent_at, full_body, message_kind")
-      .eq("clerk_user_id", args.clerkUserId)
-      .maybeSingle(),
-    supabaseServer
-      .from("sms_inbound_messages")
-      .select("raw_body, created_at, message_sid")
-      .eq("clerk_user_id", args.clerkUserId)
-      .order("created_at", { ascending: false })
-      .limit(40),
-    supabaseServer
-      .from("sms_send_events")
-      .select("sms_body, body, message_body, created_at, metadata, status")
-      .eq("clerk_user_id", args.clerkUserId)
-      .order("created_at", { ascending: false })
-      .limit(40),
-    supabaseServer
-      .from("sms_inbound_coach_jobs")
-      .select(
-        "raw_body, reply_body, sent_at, updated_at, created_at, message_sid, status, outbound_message_sid"
-      )
-      .eq("clerk_user_id", args.clerkUserId)
-      .order("updated_at", { ascending: false })
-      .limit(40),
-  ]);
+  const { data: profile } = await supabaseServer
+    .from("user_profiles")
+    .select("preferred_name, people_summary, identity_anchor_text, identity_source")
+    .eq("clerk_user_id", args.clerkUserId)
+    .maybeSingle();
 
-  const rich: TimelineEntry[] = [];
-  const sourcesUsed = new Set<string>();
+  const recent_exact_thread_72h = await buildRecentExactThread72h({
+    clerkUserId: args.clerkUserId,
+    commitmentId: args.commitmentId,
+    timezone: args.timezone ?? "America/New_York",
+    now,
+    preloadedCheckSentEvents: events,
+  });
 
-  const sendBodiesByTime = new Map<number, string>();
+  const sourcesUsed = new Set<string>(recent_exact_thread_72h.messages.map((m) => m.source_table));
 
-  for (const r of sendRows ?? []) {
-    const row = r as Record<string, unknown>;
-    const ts = typeof row.created_at === "string" ? new Date(row.created_at).getTime() : 0;
-    const body = stripComplianceFooter(bodyFromSendEventRow(row));
-    if (!body || !Number.isFinite(ts) || ts < cutoffMs) continue;
-    sendBodiesByTime.set(ts, body);
-    rich.push({
-      t: ts,
-      speaker: "coach",
-      body: capMessageBody(body, PER_MESSAGE_BODY_CAP),
-      source_table: "sms_send_events",
-      message_kind: "daily",
-      is_exact_body: true,
-      is_preview: false,
-      priority: 90,
-    });
-    sourcesUsed.add("sms_send_events");
-  }
+  const recent_exact_messages: SmsRelationshipMessage[] = recent_exact_thread_72h.messages
+    .filter((m) => m.role === "coach" || m.role === "user")
+    .slice(-maxMessages)
+    .map((m) => ({
+      speaker: m.role === "coach" ? ("coach" as const) : ("user" as const),
+      body: m.body,
+      source_table: m.source_table,
+      created_at: m.at,
+      message_kind: m.message_kind,
+      is_exact_body: m.is_exact_body,
+      is_preview: m.delivery_status === "preview",
+    }));
 
-  for (const r of coachJobRows ?? []) {
-    const row = r as {
-      raw_body?: string | null;
-      reply_body?: string | null;
-      sent_at?: string | null;
-      updated_at?: string | null;
-      created_at?: string | null;
-      status?: string | null;
-      outbound_message_sid?: string | null;
-    };
-    const raw = typeof row.raw_body === "string" ? row.raw_body.trim() : "";
-    const reply = typeof row.reply_body === "string" ? row.reply_body.trim() : "";
-    const sentLike =
-      Boolean(row.sent_at?.trim()) ||
-      row.status === "sent" ||
-      Boolean(row.outbound_message_sid?.trim());
-
-    if (raw) {
-      const tsRaw = row.created_at ?? row.updated_at;
-      const ts = typeof tsRaw === "string" ? new Date(tsRaw).getTime() : 0;
-      if (Number.isFinite(ts) && ts >= cutoffMs && !isComplianceInbound(raw)) {
-        rich.push({
-          t: ts,
-          speaker: "user",
-          body: capMessageBody(raw, PER_MESSAGE_BODY_CAP),
-          source_table: "sms_inbound_coach_jobs",
-          message_kind: null,
-          is_exact_body: true,
-          is_preview: false,
-          priority: 95,
-        });
-        sourcesUsed.add("sms_inbound_coach_jobs");
-      }
-    }
-
-    if (reply && sentLike) {
-      const tsRaw = row.sent_at ?? row.updated_at ?? row.created_at;
-      const ts = typeof tsRaw === "string" ? new Date(tsRaw).getTime() : 0;
-      if (Number.isFinite(ts) && ts >= cutoffMs) {
-        rich.push({
-          t: ts,
-          speaker: "coach",
-          body: capMessageBody(stripComplianceFooter(reply), PER_MESSAGE_BODY_CAP),
-          source_table: "sms_inbound_coach_jobs",
-          message_kind: "coach",
-          is_exact_body: true,
-          is_preview: false,
-          priority: 100,
-        });
-        sourcesUsed.add("sms_inbound_coach_jobs");
-      }
-    }
-  }
-
-  for (const r of inboundMsgRows ?? []) {
-    const row = r as { raw_body?: string; created_at?: string };
-    const raw = typeof row.raw_body === "string" ? row.raw_body.trim() : "";
-    const ts = typeof row.created_at === "string" ? new Date(row.created_at).getTime() : 0;
-    if (!raw || !Number.isFinite(ts) || ts < cutoffMs || isComplianceInbound(raw)) continue;
-    rich.push({
-      t: ts,
-      speaker: "user",
-      body: capMessageBody(raw, PER_MESSAGE_BODY_CAP),
-      source_table: "sms_inbound_messages",
-      message_kind: null,
-      is_exact_body: true,
-      is_preview: false,
-      priority: 50,
-    });
-    sourcesUsed.add("sms_inbound_messages");
-  }
-
-  if (commitment && events.length) {
-    const eventsAsc = [...events].sort(
-      (a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime()
-    );
-    for (const e of eventsAsc) {
-      if (e.event_type !== "check_sent") continue;
-      const raw = e.payload_json as Record<string, unknown> | undefined;
-      const preview = typeof raw?.body_preview === "string" ? raw.body_preview.trim() : "";
-      if (!preview) continue;
-      const ts = new Date(e.occurred_at).getTime();
-      if (!Number.isFinite(ts) || ts < cutoffMs) continue;
-      const nearSend = [...sendBodiesByTime.keys()].some((st) => Math.abs(st - ts) < 120_000);
-      if (nearSend) continue;
-      rich.push({
-        t: ts,
-        speaker: "coach",
-        body: capMessageBody(stripComplianceFooter(preview), PER_MESSAGE_BODY_CAP),
-        source_table: "v2_commitment_event_check_sent",
-        message_kind: "check_sent_preview",
-        is_exact_body: false,
-        is_preview: true,
-        priority: 60,
-      });
-      sourcesUsed.add("v2_commitment_event_check_sent");
-    }
-  }
-
-  if (lastCtx && typeof (lastCtx as { sent_at?: string }).sent_at === "string") {
-    const row = lastCtx as { sent_at: string; full_body?: string; message_kind?: string };
-    const kind = typeof row.message_kind === "string" ? row.message_kind : "transactional";
-    if (COACHING_OUTBOUND_KINDS.has(kind)) {
-      const raw = typeof row.full_body === "string" ? row.full_body : "";
-      const ts = new Date(row.sent_at).getTime();
-      if (raw.trim() && Number.isFinite(ts) && ts >= cutoffMs) {
-        const alreadyCoach = rich.some(
-          (e) =>
-            e.speaker === "coach" &&
-            e.is_exact_body &&
-            Math.abs(e.t - ts) < 120_000 &&
-            normDedupeKey(e.body) === normDedupeKey(raw)
-        );
-        if (!alreadyCoach) {
-          rich.push({
-            t: ts,
-            speaker: "coach",
-            body: capMessageBody(stripComplianceFooter(raw), PER_MESSAGE_BODY_CAP),
-            source_table: "sms_last_outbound_context",
-            message_kind: kind,
-            is_exact_body: true,
-            is_preview: false,
-            priority: 35,
-          });
-          sourcesUsed.add("sms_last_outbound_context");
-        }
-      }
-    }
-  }
-
-  const merged = dedupeTimeline(rich);
-  const sliced = merged.slice(-maxMessages);
-  const recent_exact_messages: SmsRelationshipMessage[] = sliced.map((e) => ({
-    speaker: e.speaker,
-    body: e.body,
-    source_table: e.source_table,
-    created_at: new Date(e.t).toISOString(),
-    message_kind: e.message_kind,
-    is_exact_body: e.is_exact_body,
-    is_preview: e.is_preview,
-  }));
-
-  const { text: recent_exact_thread_text, capped: thread_text_capped } =
-    buildRecentExactThreadText(recent_exact_messages);
+  const legacyText = recentExactThreadTextFrom72hMessages(recent_exact_thread_72h.messages);
+  const thread_text_capped = legacyText.length > RECENT_EXACT_THREAD_TEXT_CAP;
+  const recent_exact_thread_text = thread_text_capped
+    ? `${legacyText.slice(0, RECENT_EXACT_THREAD_TEXT_CAP - 1)}…`
+    : legacyText;
 
   const lastCoach = [...recent_exact_messages].reverse().find((m) => m.speaker === "coach");
   const lastUser = [...recent_exact_messages].reverse().find((m) => m.speaker === "user");
@@ -973,6 +734,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     relationship_profile_summary: relProfile,
     recent_exact_messages,
     recent_exact_thread_text,
+    recent_exact_thread_72h,
     last_outbound_full_body,
     last_inbound_full_body,
     last_substantive_user_message,

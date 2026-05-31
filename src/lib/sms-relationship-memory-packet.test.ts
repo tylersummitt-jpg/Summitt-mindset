@@ -97,6 +97,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: "Daily check: did you get your two hours in?",
           created_at: "2026-05-18T11:00:00.000Z",
+          status: "sent",
         },
       ],
       jobRows: [
@@ -113,6 +114,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
 
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
+      timezone: "America/Chicago",
       now: NOW,
     });
 
@@ -123,6 +125,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
       true
     );
     expect(packet.recent_exact_messages.some((m) => m.speaker === "coach" && m.is_exact_body)).toBe(true);
+    expect(packet.recent_exact_thread_72h.window_hours).toBe(72);
   });
 
   it("prefers full sms_send_events.sms_body over check_sent body_preview", async () => {
@@ -132,6 +135,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: fullBody,
           created_at: "2026-05-18T10:00:00.000Z",
+          status: "sent",
         },
       ],
     });
@@ -146,6 +150,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
       commitmentId: "cmt_1",
+      timezone: "America/Chicago",
       now: NOW,
     });
 
@@ -160,6 +165,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: "Coach question: what is your smallest win today?",
           created_at: "2026-05-18T11:50:00.000Z",
+          status: "sent",
         },
       ],
       lastCtx: {
@@ -171,6 +177,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
 
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
+      timezone: "America/Chicago",
       now: NOW,
     });
 
@@ -203,6 +210,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
 
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
+      timezone: "America/Chicago",
       now: NOW,
     });
 
@@ -230,6 +238,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
 
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
+      timezone: "America/Chicago",
       now: NOW,
     });
 
@@ -251,6 +260,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
 
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
+      timezone: "America/Chicago",
       now: NOW,
     });
 
@@ -261,6 +271,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
     setupSupabaseTables({});
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
+      timezone: "America/Chicago",
       now: NOW,
     });
     expect(packet.memory_priority_rules).toEqual([...MEMORY_PRIORITY_RULES]);
@@ -278,15 +289,17 @@ describe("buildSmsRelationshipMemoryPacket", () => {
 
     const packet = await buildSmsRelationshipMemoryPacket({
       clerkUserId: "user_1",
+      timezone: "America/Chicago",
       maxMessages: 20,
       now: NOW,
     });
 
     expect(packet.recent_exact_messages.length).toBeLessThanOrEqual(20);
     for (const m of packet.recent_exact_messages) {
-      expect(m.body.length).toBeLessThanOrEqual(500);
+      expect(m.body.length).toBeLessThanOrEqual(8000);
     }
     expect(packet.recent_exact_thread_text.length).toBeLessThanOrEqual(11_000);
+    expect(packet.recent_exact_thread_72h.window_hours).toBe(72);
   });
 });
 

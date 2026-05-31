@@ -37,7 +37,48 @@ import {
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
 import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
+import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
+import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
+
+const emptyThread72h = {
+  messages: [],
+  window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+  message_count: 0,
+  had_preview_messages: false,
+  had_system_no_send: false,
+} as const;
+
+function minimalRelationshipMemoryPacket(
+  overrides: Partial<SlimSmsRelationshipMemoryPacketForFacts>
+): SlimSmsRelationshipMemoryPacketForFacts {
+  return {
+    recent_exact_thread_text: "",
+    recent_exact_message_count: 0,
+    recent_exact_thread_72h: emptyThread72h,
+    last_outbound_full_body: null,
+    last_inbound_full_body: null,
+    last_substantive_user_message: null,
+    last_substantive_coach_message: null,
+    last_5_coach_questions: [],
+    last_5_user_answers: [],
+    latest_open_question: null,
+    latest_answer_after_open_question: null,
+    open_question_answered_at: null,
+    open_question_pending: false,
+    open_question_expected_answer_type: null,
+    open_question_source: "none",
+    answer_source: "none",
+    projection_used: false,
+    latest_open_question_guess: null,
+    latest_answer_after_open_question_guess: null,
+    do_not_repeat_phrases: [],
+    memory_priority_rules: [],
+    coaching_memory_summary: null,
+    coaching_memory_is_background_only: true,
+    ...overrides,
+  };
+}
 
 function baseCommitment(): ActiveV2CommitmentRow {
   return {
@@ -169,7 +210,7 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.inbound_v3_lane_used).toBe(true);
     expect(r.metadata.old_inbound_writer_used_as_voice).toBe(false);
-    expect(r.metadata.relationship_packet_version).toBe("1.5");
+    expect(r.metadata.relationship_packet_version).toBe("1.6");
     expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
   });
 
@@ -525,7 +566,7 @@ describe("produceInboundV3RelationshipSms", () => {
       accountabilityProofHint: null,
       rejectedTimeCandidates: [],
       unavailableWindows: [],
-      relationshipMemoryPacket: {
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
         recent_exact_thread_text: rbTranscript.join("\n"),
         recent_exact_message_count: 4,
         last_outbound_full_body: "What specific stories are you considering?",
@@ -552,7 +593,7 @@ describe("produceInboundV3RelationshipSms", () => {
         memory_priority_rules: [],
         coaching_memory_summary: null,
         coaching_memory_is_background_only: true,
-      },
+      }),
     });
     const r = await produceInboundV3RelationshipSms({
       facts,
@@ -1311,7 +1352,7 @@ describe("thread_freshness in V3 inbound lane", () => {
       accountabilityProofHint: null,
       rejectedTimeCandidates: [],
       unavailableWindows: [],
-      relationshipMemoryPacket: {
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
         recent_exact_thread_text: lunchTranscript.join("\n"),
         last_5_user_answers: ["Good suggestion so did that at lunch."],
         last_5_coach_questions: [
@@ -1320,7 +1361,7 @@ describe("thread_freshness in V3 inbound lane", () => {
         do_not_repeat_phrases: [],
         latest_open_question:
           "How do you feel about prioritizing your five minutes of stretching at lunch?",
-      },
+      }),
     });
 
     expect(facts.thread_freshness).toBeDefined();
@@ -1461,7 +1502,7 @@ describe("thread_freshness in V3 inbound lane", () => {
       accountabilityProofHint: null,
       rejectedTimeCandidates: [],
       unavailableWindows: [],
-      relationshipMemoryPacket: {
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
         recent_exact_thread_text: lunchTranscript.join("\n"),
         last_5_user_answers: ["Good suggestion so did that at lunch."],
         last_5_coach_questions: [
@@ -1470,7 +1511,7 @@ describe("thread_freshness in V3 inbound lane", () => {
         do_not_repeat_phrases: [],
         latest_open_question:
           "How do you feel about prioritizing your five minutes of stretching at lunch?",
-      },
+      }),
     });
 
     const r = await produceInboundV3RelationshipSms({
