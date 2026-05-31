@@ -669,6 +669,10 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.lane_stage).toBe("post_validate_repaired");
     expect(r.metadata.repaired_blocked_reasons).toEqual([]);
     expect(Array.isArray(r.metadata.original_blocked_reasons)).toBe(true);
+    expect(r.metadata.repair_snapshot_kind).toBe("lane_post_validate");
+    const repairUserMsg = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(repairUserMsg).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(repairUserMsg).not.toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
   });
 
   it("lane repair output is revalidated; still-failing repair no-sends", async () => {

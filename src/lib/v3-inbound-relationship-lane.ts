@@ -65,6 +65,7 @@ import {
   buildRelationshipPacketPromptGuidance,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
+import { prepareRepairSnapshotForOpenAI } from "@/lib/sms-relationship-repair-snapshot-v1";
 import {
   applyThreadFreshnessGuard,
   buildThreadFreshnessPromptGuidance,
@@ -2060,12 +2061,22 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
     const originalCandidateSnapshot = body;
 
+    const { snapshot: repairSnapshot, meta: snapshotMeta } = prepareRepairSnapshotForOpenAI({
+      repairKind: "lane_post_validate",
+      routeKind: "inbound",
+      routePurpose: args.facts.route_purpose,
+      blockedBody: body,
+      blockedReasons: repairable,
+      laneFacts: args.facts,
+      laneBlockedReasons: blocked,
+    });
+
     const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
       routeKind: "inbound",
       routePurpose: args.facts.route_purpose,
       originalBody: body,
       blockedReasons: repairable,
-      factsJson: args.facts,
+      repairSnapshot,
     });
 
     if (!repairOut) {
@@ -2090,6 +2101,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
           repaired_candidate_body: null,
           repaired_blocked_reasons: null,
+          ...snapshotMeta,
         },
         openAiOk: true,
       };
@@ -2125,6 +2137,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           repaired_candidate_body: repaired,
           repaired_blocked_reasons: rb,
           ...repairOut.metadata,
+          ...snapshotMeta,
           ...post.extraMeta,
         },
         openAiOk: true,
@@ -2141,6 +2154,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       repaired_candidate_body: repaired,
       repaired_blocked_reasons: [],
       ...repairOut.metadata,
+      ...snapshotMeta,
     };
   }
 

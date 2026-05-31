@@ -843,4 +843,48 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
     expect(userMessage).toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
     expect(userMessage).not.toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
   });
+
+  it("lane_post_validate repairSnapshot uses snapshot payload without factsJson", async () => {
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              body: "Who did you thank today for showing up?",
+              used_strategy: "compress_remove_cliche",
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const repairSnapshot = {
+      repair_snapshot_version: "1.0" as const,
+      repair_kind: "lane_post_validate" as const,
+      violation: {
+        blocked_reasons: ["let_me_know_how_it_went"],
+        blocked_body: "Let me know how it went!",
+        lane_blocked_reasons: ["let_me_know_how_it_went"],
+      },
+      current_turn: { route_purpose: "main_active_accountability" },
+      structured_recent_truth: {},
+      recent_exact_thread_excerpt: { window_hours: 72 as const, messages: [], message_count: 0 },
+      canonical_state_min: {
+        route_purpose: "main_active_accountability",
+        required_constraints: { max_chars: 320 },
+      },
+    };
+    await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      originalBody: "Let me know how it went!",
+      blockedReasons: ["let_me_know_how_it_went"],
+      repairSnapshot,
+    });
+    const userMessage = repairCreateMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMessage).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(userMessage).toMatch(/lane_post_validate/);
+    expect(userMessage).not.toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
+    expect(userMessage).not.toMatch(/MEMORY_REPEAT_REPAIR_CONTEXT_JSON/);
+  });
 });

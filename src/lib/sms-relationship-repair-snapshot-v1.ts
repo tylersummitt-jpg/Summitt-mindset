@@ -16,7 +16,10 @@ export const REPAIR_THREAD_EXCERPT_MAX_MESSAGES = 8;
 export const REPAIR_THREAD_BODY_FLOOR_CHARS = 120;
 export const REPAIR_THREAD_MIN_MESSAGES = 4;
 
-export type RepairSnapshotKind = "thread_freshness" | "memory_repeat";
+export type RepairSnapshotKind =
+  | "thread_freshness"
+  | "memory_repeat"
+  | "lane_post_validate";
 
 export type RepairSnapshotThreadMessage = {
   at: string;
@@ -40,6 +43,8 @@ export type RepairRelationshipSnapshotV1 = {
   violation: {
     blocked_reasons: string[];
     blocked_body: string;
+    lane_blocked_reasons?: string[];
+    rejected_time_candidates?: string[];
     stale_topic?: string | null;
     repeated_question?: string | null;
     repeated_phrases?: string[];
@@ -81,6 +86,7 @@ export type RepairRelationshipSnapshotV1 = {
       required_verbatim_substrings?: string[];
       required_meaning_summary?: string | null;
       forbidden_substrings?: string[];
+      rejected_time_candidates?: string[];
     };
   };
   proof_victory_permission?: {
@@ -233,6 +239,7 @@ function buildCanonicalStateMin(
         required_verbatim_substrings: facts.constraints.required_verbatim_substrings,
         required_meaning_summary: facts.constraints.required_meaning_summary ?? null,
         forbidden_substrings: facts.constraints.forbidden_substrings?.slice(0, 8),
+        rejected_time_candidates: compactStrings(facts.thread.rejected_time_candidates, 6),
       },
     };
   }
@@ -302,6 +309,7 @@ export function buildRepairRelationshipSnapshotV1(args: {
   memoryRepeatContext?: MemoryRepeatRepairContext | null;
   forcedRepairStrategy?: string | null;
   overlapTokens?: string[];
+  laneBlockedReasons?: string[];
 }): RepairRelationshipSnapshotV1 {
   const structuredTruth = buildStructuredRecentTruth(args.laneFacts);
   const freshness = args.freshness ?? structuredTruth.thread_freshness ?? null;
@@ -325,6 +333,18 @@ export function buildRepairRelationshipSnapshotV1(args: {
     violation.repeated_phrases = ctx.repeated_phrases?.length ? ctx.repeated_phrases : undefined;
     violation.overlap_tokens = args.overlapTokens?.length ? args.overlapTokens : undefined;
     violation.forced_repair_strategy = args.forcedRepairStrategy ?? null;
+  }
+
+  if (args.repairKind === "lane_post_validate") {
+    violation.lane_blocked_reasons = args.laneBlockedReasons?.length
+      ? args.laneBlockedReasons
+      : args.blockedReasons;
+    if (isInboundFacts(args.laneFacts)) {
+      const rejectedTimes = compactStrings(args.laneFacts.thread.rejected_time_candidates, 6);
+      if (rejectedTimes.length) {
+        violation.rejected_time_candidates = rejectedTimes;
+      }
+    }
   }
 
   const snapshot: RepairRelationshipSnapshotV1 = {
@@ -491,4 +511,23 @@ REPAIR_SNAPSHOT_AUTHORITY (repair_relationship_snapshot_v1 — fix the violation
 
 export function repairSnapshotSupportedForRouteKind(routeKind: "inbound" | "daily" | "weekly"): boolean {
   return routeKind === "inbound" || routeKind === "daily";
+}
+
+/** Build and trim a repair snapshot for OpenAI repair calls. */
+export function prepareRepairSnapshotForOpenAI(
+  args: Parameters<typeof buildRepairRelationshipSnapshotV1>[0]
+): {
+  snapshot: RepairRelationshipSnapshotV1;
+  meta: RepairSnapshotMeta;
+} {
+  const built = buildRepairRelationshipSnapshotV1(args);
+  const { snapshot, truncated } = trimRepairSnapshotToBudget(built, DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS);
+  const { meta } = serializeRepairSnapshotForOpenAI(snapshot);
+  return {
+    snapshot,
+    meta: {
+      ...meta,
+      repair_snapshot_truncated: truncated || meta.repair_snapshot_truncated,
+    },
+  };
 }

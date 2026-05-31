@@ -227,6 +227,58 @@ describe("buildRepairRelationshipSnapshotV1", () => {
     expect(snapshot.proof_victory_permission?.can_reference_victory_room).toBeNull();
     expect(snapshot.proof_victory_permission?.can_say_saved_as_proof).toBe(false);
   });
+
+  it("lane_post_validate snapshot includes blocked reasons, thread excerpt, and constraints", () => {
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "lane_post_validate",
+      routeKind: "inbound",
+      routePurpose: "v2_accountability",
+      blockedBody: "Let me know how it went with your calls today!",
+      blockedReasons: ["let_me_know_how_it_went", "too_many_sentences"],
+      laneFacts: minimalInboundFacts({
+        thread: {
+          ...minimalInboundFacts().thread,
+          rejected_time_candidates: ["2 PM", "tomorrow morning"],
+        },
+        constraints: {
+          max_chars: 320,
+          forbidden_substrings: ["great job"],
+          required_verbatim_substrings: [],
+        },
+      }),
+      laneBlockedReasons: ["let_me_know_how_it_went", "too_many_sentences", "great_job"],
+    });
+
+    expect(snapshot.repair_kind).toBe("lane_post_validate");
+    expect(snapshot.violation.blocked_body).toContain("Let me know how it went");
+    expect(snapshot.violation.lane_blocked_reasons).toContain("great_job");
+    expect(snapshot.violation.rejected_time_candidates).toEqual(["2 PM", "tomorrow morning"]);
+    expect(snapshot.recent_exact_thread_excerpt.messages.length).toBeGreaterThan(0);
+    expect(snapshot.canonical_state_min.required_constraints?.forbidden_substrings).toContain(
+      "great job"
+    );
+    expect(snapshot.canonical_state_min.required_constraints?.rejected_time_candidates).toEqual([
+      "2 PM",
+      "tomorrow morning",
+    ]);
+  });
+
+  it("lane_post_validate snapshot stays under budget and excludes long memory blobs", () => {
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "lane_post_validate",
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      blockedBody: "Too long coaching copy with filler.",
+      blockedReasons: ["too_long"],
+      laneFacts: minimalInboundFacts(),
+      laneBlockedReasons: ["too_long"],
+    });
+    const { json } = serializeRepairSnapshotForOpenAI(snapshot);
+    expect(json.length).toBeLessThanOrEqual(DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS);
+    expect(json).not.toContain("coaching_summary");
+    expect(json).not.toContain("relationship_memory_7d");
+    expect(json).not.toContain("relationship_memory_30d");
+  });
 });
 
 describe("buildRepairSnapshotPromptGuidance", () => {

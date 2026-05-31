@@ -60,6 +60,7 @@ import {
   buildRelationshipPacketPromptGuidance,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
+import { prepareRepairSnapshotForOpenAI } from "@/lib/sms-relationship-repair-snapshot-v1";
 import type {
   SmsGoalAdjustmentCompatibleFlow,
   SmsGoalAdjustmentConfidence,
@@ -985,12 +986,23 @@ used_facts (string[]), safety_notes (string[])`;
       timingViolations.length > 0
         ? buildTimingAnchorVoiceRepairInstruction(timingViolations, timingMemory, pendingPlan)
         : null;
+
+    const { snapshot: repairSnapshot, meta: snapshotMeta } = prepareRepairSnapshotForOpenAI({
+      repairKind: "lane_post_validate",
+      routeKind: "daily",
+      routePurpose: laneFacts.route_kind,
+      blockedBody: body,
+      blockedReasons: repairable,
+      laneFacts,
+      laneBlockedReasons: blocked,
+    });
+
     const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
       routeKind: "daily",
       routePurpose: laneFacts.route_kind,
       originalBody: body,
       blockedReasons: repairable,
-      factsJson: laneFacts,
+      repairSnapshot,
       systemInstruction:
         [pendingRepairHint, timingRepairHint].filter(Boolean).join("\n\n") || undefined,
     });
@@ -1017,6 +1029,7 @@ used_facts (string[]), safety_notes (string[])`;
           original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
           repaired_candidate_body: null,
           repaired_blocked_reasons: null,
+          ...snapshotMeta,
         },
         openAiOk: true,
       };
@@ -1059,6 +1072,7 @@ used_facts (string[]), safety_notes (string[])`;
             ...(missingAfterRepair != null ? ["missing_required_verbatim_after_repair"] : []),
           ],
           ...repairOut.metadata,
+          ...snapshotMeta,
         },
         openAiOk: true,
       };
@@ -1074,6 +1088,7 @@ used_facts (string[]), safety_notes (string[])`;
       repaired_candidate_body: repaired,
       repaired_blocked_reasons: [],
       ...repairOut.metadata,
+      ...snapshotMeta,
     };
   }
 
