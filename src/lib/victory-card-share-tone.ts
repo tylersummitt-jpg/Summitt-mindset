@@ -87,13 +87,13 @@ const VICTORY_CARD_SHARE_TONES: Record<VictoryProofCategoryToneKey, VictoryCardS
 
 /** Shared typography colors — export-safe cream/gold palette. */
 export const VICTORY_CARD_SHARE_TEXT = {
-  eyebrow: "#78716c",
+  title: "#e7e5e4",
   date: "#a8a29e",
   hero: "#fafaf9",
   meaning: "#a8a29e",
   brand: "#fcd34d",
-  brandMuted: "#d6d3d1",
-  tagline: "#57534e",
+  patQuote: "#a8a29e",
+  patAttribution: "#78716c",
 } as const;
 
 const UNSAFE_COLOR_PATTERN = /oklab|oklch|color-mix|lab\(|lch\(/i;

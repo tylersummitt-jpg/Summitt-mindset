@@ -31,8 +31,9 @@ describe("VictoryShareCardPreview", () => {
     expect(html).toContain("Save image");
     expect(html).toContain("You choose what to copy or save. Nothing posts from Summitt.");
     expect(html).toContain("Told the truth");
-    expect(html).toContain("summittmindset.com");
-    expect(html).toContain("Proof over promises.");
+    expect(html).toContain("Victory Card");
+    expect(html).toContain("Pat Summitt");
+    expect(html).not.toContain("Summitt Mindset · Victory Card");
 
     expect(html).not.toContain("Proof to share");
     expect(html).not.toContain("Current bar");
@@ -46,5 +47,9 @@ describe("VictoryShareCardPreview", () => {
     expect(html).not.toContain("text-sky-");
     expect(html).not.toContain("border-emerald-");
     expect(html).not.toContain("bg-gradient-to-br");
+    const captureStart = html.indexOf("data-victory-card-capture");
+    const captureHtml = html.slice(captureStart);
+    expect(captureHtml).not.toContain("summittmindset.com");
+    expect(captureHtml).not.toContain("Proof over promises.");
   });
 });

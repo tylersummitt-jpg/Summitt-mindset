@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { getVictoryCardPatQuote } from "@/lib/victory-card-pat-quote";
 import {
   getVictoryCardShareTone,
   normalizeVictoryCardLine,
@@ -27,6 +28,7 @@ const pillBase: CSSProperties = {
 /** Portrait 4:5 Victory Card — modal preview and html2canvas capture (export-safe colors only). */
 export function VictoryCardShareLayout({ snippet }: VictoryCardShareLayoutProps) {
   const tone = getVictoryCardShareTone(snippet.categoryLabel);
+  const patQuote = getVictoryCardPatQuote(snippet.categoryLabel);
   const quoteLine = snippet.quote?.trim() || null;
   const meaningLine = snippet.meaning.trim();
   const meaningDiffersFromQuote =
@@ -87,18 +89,19 @@ export function VictoryCardShareLayout({ snippet }: VictoryCardShareLayoutProps)
         <p
           style={{
             margin: 0,
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: "0.28em",
+            fontFamily: VICTORY_CARD_SHARE_FONTS.serif,
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: "0.22em",
             textTransform: "uppercase",
-            color: VICTORY_CARD_SHARE_TEXT.eyebrow,
+            color: VICTORY_CARD_SHARE_TEXT.title,
           }}
         >
-          Summitt Mindset · Victory Card
+          Victory Card
         </p>
         <div
           style={{
-            marginTop: 20,
+            marginTop: 18,
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
@@ -139,8 +142,8 @@ export function VictoryCardShareLayout({ snippet }: VictoryCardShareLayoutProps)
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          paddingTop: 28,
-          paddingBottom: 28,
+          paddingTop: 24,
+          paddingBottom: 24,
           minHeight: 0,
         }}
       >
@@ -179,12 +182,12 @@ export function VictoryCardShareLayout({ snippet }: VictoryCardShareLayoutProps)
         ) : null}
       </section>
 
-      <footer style={{ position: "relative", flexShrink: 0, paddingTop: 8 }}>
+      <footer style={{ position: "relative", flexShrink: 0, paddingTop: 4 }}>
         <div
           aria-hidden
           style={{
             height: 1,
-            marginBottom: 20,
+            marginBottom: 18,
             background: `linear-gradient(90deg, transparent, ${tone.accentLine}, transparent)`,
           }}
         />
@@ -192,35 +195,38 @@ export function VictoryCardShareLayout({ snippet }: VictoryCardShareLayoutProps)
           style={{
             margin: 0,
             fontFamily: VICTORY_CARD_SHARE_FONTS.serif,
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: 600,
             letterSpacing: "-0.01em",
             color: VICTORY_CARD_SHARE_TEXT.brand,
           }}
         >
-          {snippet.brandLine}
+          Summitt Mindset
         </p>
         <p
           style={{
-            margin: "6px 0 0",
+            margin: "16px 0 0",
+            fontFamily: VICTORY_CARD_SHARE_FONTS.serif,
             fontSize: 13,
-            letterSpacing: "0.06em",
-            color: VICTORY_CARD_SHARE_TEXT.brandMuted,
+            fontStyle: "italic",
+            fontWeight: 400,
+            lineHeight: 1.45,
+            color: VICTORY_CARD_SHARE_TEXT.patQuote,
           }}
         >
-          {snippet.brandUrl}
+          &ldquo;{patQuote}&rdquo;
         </p>
         <p
           style={{
-            margin: "14px 0 0",
-            fontSize: 10,
+            margin: "8px 0 0",
+            fontSize: 11,
             fontWeight: 600,
-            letterSpacing: "0.2em",
+            letterSpacing: "0.12em",
             textTransform: "uppercase",
-            color: VICTORY_CARD_SHARE_TEXT.tagline,
+            color: VICTORY_CARD_SHARE_TEXT.patAttribution,
           }}
         >
-          {snippet.tagline}
+          — Pat Summitt
         </p>
       </footer>
     </div>
