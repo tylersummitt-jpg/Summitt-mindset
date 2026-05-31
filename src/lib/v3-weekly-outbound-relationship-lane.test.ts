@@ -299,6 +299,10 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.metadata.repaired_blocked_reasons).toEqual([]);
     expect(r.metadata.original_blocked_reasons).toContain("let_me_know_how_it_went");
     expect(r.metadata.repaired_candidate_body).toBeTruthy();
+    expect(r.metadata.repair_snapshot_kind).toBe("lane_post_validate");
+    const repairUserMsg = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(repairUserMsg).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(repairUserMsg).not.toMatch(/WEEKLY_FACTS_JSON/);
   });
 
   it("lane repair output is revalidated; still-failing repair no-sends", async () => {
@@ -463,7 +467,7 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(isV3RelationshipVoiceReplySource("v3_weekly_relationship_lane")).toBe(true);
   });
 
-  it("system prompt includes recent exact thread and projection priority (M2B-6)", async () => {
+  it("user prompt uses RELATIONSHIP_PACKET_V1 with thread and memory sections (M2B-6 / Phase 3A)", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
@@ -480,14 +484,99 @@ describe("produceWeeklyV3RelationshipSms", () => {
           memory_packet_used: true,
           projection_used: true,
           recent_exact_thread_text: "Coach: What story will you dictate today?\nUser: Sunday School",
+          recent_exact_thread_72h: {
+            window_hours: 72,
+            message_count: 2,
+            had_preview_messages: false,
+            had_system_no_send: false,
+            messages: [
+              {
+                at: "2026-05-10T10:00:00.000Z",
+                at_local: "May 10, 5:00 AM",
+                at_local_timezone: "America/Chicago",
+                role: "coach",
+                body: "What story will you dictate today?",
+                message_kind: null,
+                source_table: "sms_send_events",
+                message_sid: null,
+                delivery_status: "sent",
+                is_exact_body: true,
+              },
+              {
+                at: "2026-05-10T10:05:00.000Z",
+                at_local: "May 10, 5:05 AM",
+                at_local_timezone: "America/Chicago",
+                role: "user",
+                body: "Sunday School",
+                message_kind: null,
+                source_table: "sms_inbound_messages",
+                message_sid: null,
+                delivery_status: "sent",
+                is_exact_body: true,
+              },
+            ],
+          },
+          relationship_memory_7d: {
+            window_days: 7,
+            built_at: "2026-05-10T12:00:00.000Z",
+            outcome_counts: { yes: 2, no: 1, partial: 0, blockers: 0, checks_sent: 3 },
+            wins: [],
+            misses: [],
+            partials: [],
+            comebacks: [],
+            blockers: [],
+            proof_moments: [],
+            open_loops: [],
+            direct_answer_history: [],
+            context_flags: { reentry_active: false, silent_streak_days: 0 },
+            meta: { item_count: 0, sources_used: [] },
+          },
+          relationship_memory_30d: {
+            window_days: 30,
+            built_at: "2026-05-10T12:00:00.000Z",
+            commitment_id: "cmt_w1",
+            season: null,
+            outcome_counts_30d: {
+              yes: 5,
+              no: 2,
+              partial: 1,
+              blockers: 1,
+              checks_sent: 8,
+              overlay_activated: 0,
+              overlay_declined: 0,
+              reactivation_yes: 0,
+            },
+            recurring_blockers: [],
+            meaningful_proof: [],
+            adjustments: [],
+            goal_changes: [],
+            comebacks: [],
+            voice_preferences: null,
+            pat_read_snapshot: [],
+            meta: { item_count: 0, sources_used: [] },
+          },
+        },
+        weekly_proof: {
+          ...baseFacts().weekly_proof,
+          planned_pause_week: true,
+          silent_week: true,
+          rough_week: true,
         },
       }),
       telemetry_fact_sources: [],
     });
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
-    expect(systemMsg).toContain("recent_exact_thread_text");
-    expect(systemMsg).toContain("projection_used");
-    expect(systemMsg).toContain("last_5_coach_questions");
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(systemMsg).toContain("RELATIONSHIP_PACKET_V1");
+    expect(systemMsg).toContain("planned_pause_week");
+    expect(systemMsg).toContain("silent_week");
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
+    expect(userMsg).not.toContain("WEEKLY_FACTS_JSON");
+    expect(userMsg).toContain("recent_exact_thread_72h");
+    expect(userMsg).toContain("relationship_memory_7d");
+    expect(userMsg).toContain("relationship_memory_30d_or_season");
+    expect(userMsg).toContain("planned_pause_week");
+    expect(userMsg).toContain("Sunday School");
   });
 
   it("repairs repeated prior answered question on weekly (M2B-6)", async () => {
@@ -508,7 +597,7 @@ describe("produceWeeklyV3RelationshipSms", () => {
             message: {
               content: JSON.stringify({
                 body: "Sunday School, the farm, and your mother's songs are a rich thread this week — which one feels alive to start?",
-                used_strategy: "outcome_check",
+                used_strategy: "next_first_step",
                 safety_notes: [],
               }),
             },
@@ -533,6 +622,9 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.shouldSend).toBe(true);
     expect(r.body).not.toBe(rbQ);
     expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+    const repairUserMsg = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(repairUserMsg).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(repairUserMsg).not.toMatch(/WEEKLY_FACTS_JSON/);
   });
 
   it("no-sends when weekly memory repeat repair still repeats (M2B-6)", async () => {
@@ -552,8 +644,8 @@ describe("produceWeeklyV3RelationshipSms", () => {
           {
             message: {
               content: JSON.stringify({
-                body: rbQ,
-                used_strategy: "outcome_check",
+                body: "What story will you dictate today? Pick one thread to start.",
+                used_strategy: "next_first_step",
                 safety_notes: [],
               }),
             },
@@ -565,8 +657,8 @@ describe("produceWeeklyV3RelationshipSms", () => {
           {
             message: {
               content: JSON.stringify({
-                body: rbQ,
-                used_strategy: "binary_truth_check",
+                body: "What story will you dictate today — who you're becoming in that thread?",
+                used_strategy: "identity_tie_back",
                 safety_notes: [],
               }),
             },

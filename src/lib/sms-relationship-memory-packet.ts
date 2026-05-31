@@ -424,6 +424,9 @@ export function buildWeeklyThreadMemoryFromPacket(args: WeeklyThreadMemoryFromPa
   do_not_repeat_hints: string[];
   coaching_memory_snippet: string | null;
   memory_priority_rules: string[];
+  recent_exact_thread_72h?: SlimSmsRelationshipMemoryPacketForFacts["recent_exact_thread_72h"];
+  relationship_memory_7d?: SlimSmsRelationshipMemoryPacketForFacts["relationship_memory_7d"];
+  relationship_memory_30d?: SlimSmsRelationshipMemoryPacketForFacts["relationship_memory_30d"];
 } {
   const { packet } = args;
   const dnr = [
@@ -462,6 +465,9 @@ export function buildWeeklyThreadMemoryFromPacket(args: WeeklyThreadMemoryFromPa
         ? `COACHING_MEMORY (background only; RECENT_EXACT_THREAD wins on conflict):\n${packet.coaching_memory_summary}`
         : null),
     memory_priority_rules: [...packet.memory_priority_rules],
+    recent_exact_thread_72h: packet.recent_exact_thread_72h,
+    relationship_memory_7d: packet.relationship_memory_7d,
+    relationship_memory_30d: packet.relationship_memory_30d,
   };
 }
 

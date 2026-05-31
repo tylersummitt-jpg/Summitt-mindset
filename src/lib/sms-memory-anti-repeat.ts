@@ -1086,7 +1086,7 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     if (useRepairSnapshot) {
       const builtSnapshot = buildRepairRelationshipSnapshotV1({
         repairKind: "memory_repeat",
-        routeKind: args.routeKind as "inbound" | "daily",
+        routeKind: args.routeKind as "inbound" | "daily" | "weekly",
         routePurpose: args.routePurpose,
         blockedBody: original,
         blockedReasons: ["memory_repeat_question"],
@@ -1105,7 +1105,7 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
         repair_snapshot_truncated: snapshotTruncated || snapshotMeta.repair_snapshot_truncated,
       };
       repairCallArgs = {
-        routeKind: args.routeKind as "inbound" | "daily",
+        routeKind: args.routeKind as "inbound" | "daily" | "weekly",
         routePurpose: args.routePurpose,
         originalBody: original,
         blockedReasons: ["memory_repeat_question"],

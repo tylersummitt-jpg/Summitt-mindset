@@ -5,6 +5,7 @@
 
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
@@ -26,7 +27,7 @@ import {
 export const RELATIONSHIP_PACKET_VERSION = "1.8" as const;
 export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_000;
 
-export type RelationshipPacketLane = "inbound" | "daily";
+export type RelationshipPacketLane = "inbound" | "daily" | "weekly";
 
 export type RelationshipPacketAuthority =
   | "authoritative_current"
@@ -54,6 +55,15 @@ export type RelationshipPacketCurrentTurn = {
   deterministic_classifier_event?: string | null;
   should_write_outcome_event?: boolean;
   split_message_sids?: string[];
+  week_start?: string | null;
+  week_end?: string | null;
+  timezone?: string | null;
+  local_date?: string | null;
+  planned_pause_week?: boolean;
+  silent_week?: boolean;
+  rough_week?: boolean;
+  strong_week?: boolean;
+  reason_for_send?: string | null;
 };
 
 export type RelationshipPacketStructuredRecentTruth = {
@@ -78,6 +88,17 @@ export type RelationshipPacketStructuredRecentTruth = {
     required_verbatim_present?: boolean;
     required_meaning_summary?: string | null;
     forbidden_substring_count?: number;
+  };
+  weekly_week_summary?: {
+    completed_count?: number;
+    missed_count?: number;
+    partial_count?: number;
+    blocker_count?: number;
+    proof_moment_hints?: string[];
+    win_hints?: string[];
+    comeback_hints?: string[];
+    repeated_blocker_hints?: string[];
+    notable_pattern?: string | null;
   };
 };
 
@@ -121,6 +142,12 @@ export type RelationshipPacketCanonicalState = {
     required_meaning_summary?: string | null;
     forbidden_substrings?: string[];
     wrapper_must_not_repeat_substrings?: string[];
+    weekly_anti_shame?: {
+      planned_pause_week?: boolean;
+      silent_week?: boolean;
+      rough_week?: boolean;
+      anti_shame_required?: boolean;
+    };
   };
 };
 
@@ -202,11 +229,25 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.`;
 }
 
+function isWeeklyFacts(
+  facts: InboundV3RelationshipFacts | DailyV3RelationshipFacts | WeeklyV3OutboundFacts,
+  lane: RelationshipPacketLane
+): facts is WeeklyV3OutboundFacts {
+  return lane === "weekly";
+}
+
 function isInboundFacts(
-  facts: InboundV3RelationshipFacts | DailyV3RelationshipFacts,
+  facts: InboundV3RelationshipFacts | DailyV3RelationshipFacts | WeeklyV3OutboundFacts,
   lane: RelationshipPacketLane
 ): facts is InboundV3RelationshipFacts {
   return lane === "inbound";
+}
+
+function isDailyFacts(
+  facts: InboundV3RelationshipFacts | DailyV3RelationshipFacts | WeeklyV3OutboundFacts,
+  lane: RelationshipPacketLane
+): facts is DailyV3RelationshipFacts {
+  return lane === "daily";
 }
 
 function compactStrings(items: string[] | null | undefined, max: number): string[] {
@@ -249,6 +290,170 @@ function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketC
     server_strategy: f.accountability.server_strategy,
     accountability_day_key: f.accountability_day_key,
     local_time_iso: f.user.local_time_iso,
+  };
+}
+
+function buildCurrentTurnWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketCurrentTurn {
+  return {
+    route_kind: "weekly",
+    route_purpose: f.route.route_purpose,
+    week_start: f.weekly_proof.week_start,
+    week_end: f.weekly_proof.week_end,
+    timezone: f.user.timezone,
+    local_date: f.user.local_date,
+    local_time_iso: `${f.user.local_date}T${f.user.local_time}:00`,
+    planned_pause_week: f.weekly_proof.planned_pause_week === true,
+    silent_week: f.weekly_proof.silent_week,
+    rough_week: f.weekly_proof.rough_week,
+    strong_week: f.weekly_proof.strong_week,
+    reason_for_send: f.route.reason_for_send,
+  };
+}
+
+function buildStructuredTruthWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketStructuredRecentTruth {
+  const t = f.thread;
+  const wp = f.weekly_proof;
+  return {
+    thread_freshness: t.thread_freshness ?? null,
+    latest_open_question: t.latest_open_question,
+    latest_answer_after_open_question: t.latest_answer_after_open_question,
+    open_question_pending: t.open_question_pending,
+    open_question_source: t.open_question_source,
+    answer_source: t.answer_source,
+    projection_used: t.projection_used,
+    last_5_coach_questions: compactStrings(t.last_5_coach_questions, 5),
+    last_5_user_answers: compactStrings(t.last_5_user_answers, 5),
+    do_not_repeat_phrases: compactStrings(t.do_not_repeat_hints, 8),
+    weekly_week_summary: {
+      completed_count: wp.completed_count,
+      missed_count: wp.missed_count,
+      partial_count: wp.partial_count,
+      blocker_count: wp.blocker_count,
+      proof_moment_hints: compactStrings(wp.proof_moment_hints, 4),
+      win_hints: compactStrings(wp.win_hints, 4),
+      comeback_hints: compactStrings(wp.comeback_hints, 4),
+      repeated_blocker_hints: compactStrings(wp.repeated_blocker_hints, 4),
+      notable_pattern: wp.notable_pattern,
+    },
+    route_constraints_summary: {
+      required_verbatim_count: f.constraints?.required_verbatim_substrings?.length ?? 0,
+      required_verbatim_present: Boolean(f.constraints?.required_verbatim_substrings?.length),
+      forbidden_substring_count: 0,
+    },
+  };
+}
+
+function resolveRecentThread72hWeekly(
+  f: WeeklyV3OutboundFacts
+): RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null {
+  const t72 = f.thread.recent_exact_thread_72h;
+  if (t72?.messages?.length) {
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: t72.messages,
+        message_count: t72.message_count,
+        had_preview_messages: t72.had_preview_messages,
+        had_system_no_send: t72.had_system_no_send,
+      },
+    };
+  }
+  const exact = f.thread.recent_exact_thread_text?.trim();
+  if (exact) {
+    const lines = splitThreadLines(exact);
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: [],
+        message_count: 0,
+        had_preview_messages: threadHasPreviewLine(lines),
+        had_system_no_send: false,
+        legacy_fallback_lines: lines,
+        legacy_fallback_source: "recent_exact_thread_text",
+      },
+    };
+  }
+  const lines = f.thread.recent_transcript_lines.filter(Boolean);
+  if (lines.length) {
+    return {
+      authority: "authoritative_recent_thread",
+      data: {
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        messages: [],
+        message_count: 0,
+        had_preview_messages: threadHasPreviewLine(lines),
+        had_system_no_send: false,
+        legacy_fallback_lines: lines,
+        legacy_fallback_source: "recent_transcript_lines",
+      },
+    };
+  }
+  return null;
+}
+
+function buildCanonicalWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketCanonicalState {
+  const wp = f.weekly_proof;
+  return {
+    commitment_id: f.commitment.active_commitment_id,
+    behavior_statement: f.commitment.behavior_statement,
+    effective_ask: f.commitment.effective_ask,
+    accountability_phase: f.commitment.commitment_state,
+    identity_anchor: f.commitment.identity_anchor ?? null,
+    active_season_label: f.victory_background?.active_season_label ?? null,
+    planned_interruption_active: f.commitment.planned_interruption_active,
+    constraints: {
+      max_chars: 320,
+      required_verbatim_substrings: f.constraints?.required_verbatim_substrings,
+      weekly_anti_shame: {
+        planned_pause_week: wp.planned_pause_week === true,
+        silent_week: wp.silent_week,
+        rough_week: wp.rough_week,
+        anti_shame_required: wp.planned_pause_week === true || wp.silent_week || wp.rough_week,
+      },
+    },
+  };
+}
+
+function buildProofVictoryWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketProofVictoryPermission | null {
+  const wp = f.weekly_proof;
+  const hasAny =
+    wp.proof_moment_hints.length > 0 ||
+    wp.win_hints.length > 0 ||
+    wp.comeback_hints.length > 0 ||
+    f.victory_background != null;
+  if (!hasAny) return null;
+  return {
+    proof_or_milestone_signal: wp.notable_pattern,
+    can_reference_victory_room: f.victory_background != null ? true : null,
+    can_say_saved_as_proof: false,
+    proof_saved: false,
+  };
+}
+
+function resolveMemory7dWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketMemory7d | null {
+  const raw = f.thread.relationship_memory_7d;
+  if (!raw) return null;
+  const { meta: _meta, ...data } = raw;
+  void _meta;
+  return data;
+}
+
+function resolveMemory30dWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketMemory30dOrSeason | null {
+  const raw = f.thread.relationship_memory_30d;
+  if (!raw) return null;
+  const { meta: _meta, ...data } = raw;
+  void _meta;
+  return data;
+}
+
+function buildLowerAuthorityWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketLowerAuthorityBackground {
+  return {
+    relationship_profile_summary: f.user.sms_engagement_summary ?? null,
+    coaching_memory_snippet: f.thread.coaching_memory_snippet
+      ? truncateText(f.thread.coaching_memory_snippet, 600)
+      : null,
   };
 }
 
@@ -684,7 +889,7 @@ function truncateOldestThreadMessageBodies(
 
 export function buildRelationshipPacketForOpenAI(args: {
   lane: RelationshipPacketLane;
-  sourceFacts: InboundV3RelationshipFacts | DailyV3RelationshipFacts;
+  sourceFacts: InboundV3RelationshipFacts | DailyV3RelationshipFacts | WeeklyV3OutboundFacts;
   totalCharBudget?: number;
 }): BuildRelationshipPacketResult {
   const budget = args.totalCharBudget ?? DEFAULT_RELATIONSHIP_PACKET_BUDGET;
@@ -725,7 +930,7 @@ export function buildRelationshipPacketForOpenAI(args: {
         data: buildLowerAuthorityInbound(f),
       },
     };
-  } else {
+  } else if (isDailyFacts(args.sourceFacts, args.lane)) {
     const f = args.sourceFacts;
     build = {
       current_turn: { authority: "authoritative_current", data: buildCurrentTurnDaily(f) },
@@ -754,6 +959,33 @@ export function buildRelationshipPacketForOpenAI(args: {
       lower_authority_background: {
         authority: "low_authority_hint",
         data: buildLowerAuthorityDaily(f),
+      },
+    };
+  } else {
+    const f = args.sourceFacts;
+    build = {
+      current_turn: { authority: "authoritative_current", data: buildCurrentTurnWeekly(f) },
+      structured_recent_truth: {
+        authority: "structured_recent_truth",
+        data: buildStructuredTruthWeekly(f),
+      },
+      recent_exact_thread_72h: resolveRecentThread72hWeekly(f),
+      canonical_state: { authority: "authoritative_current", data: buildCanonicalWeekly(f) },
+      proof_victory_permission: (() => {
+        const p = buildProofVictoryWeekly(f);
+        return p ? { authority: "authoritative_current", data: p } : null;
+      })(),
+      relationship_memory_7d: (() => {
+        const data = resolveMemory7dWeekly(f);
+        return data ? { authority: "structured_background" as const, data } : undefined;
+      })(),
+      relationship_memory_30d_or_season: (() => {
+        const data = resolveMemory30dWeekly(f);
+        return data ? { authority: "background_summary" as const, data } : undefined;
+      })(),
+      lower_authority_background: {
+        authority: "low_authority_hint",
+        data: buildLowerAuthorityWeekly(f),
       },
     };
   }

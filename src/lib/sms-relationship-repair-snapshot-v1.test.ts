@@ -9,6 +9,7 @@ import {
 } from "@/lib/sms-relationship-repair-snapshot-v1";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import { deriveRecentThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
+import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 
 const lunchFreshness = deriveRecentThreadFreshnessFacts({
   recentExactThreadText: [
@@ -473,6 +474,190 @@ describe("buildRepairRelationshipSnapshotV1", () => {
     const { json } = serializeRepairSnapshotForOpenAI(snapshot, 800);
     expect(json).toContain(binding);
     expect(JSON.parse(json).canonical_state_min.required_constraints.binding_text_verbatim).toBe(binding);
+  });
+
+  it("weekly lane_post_validate snapshot includes weekly current_turn and no memory blobs", () => {
+    const weeklyFacts: WeeklyV3OutboundFacts = {
+      user: {
+        clerk_user_id: "user_w",
+        preferred_name: "Jordan",
+        timezone: "America/Chicago",
+        local_date: "2026-05-10",
+        local_time: "12:05",
+      },
+      commitment: {
+        active_commitment_id: "cmt_w1",
+        behavior_statement: "Morning hour",
+        effective_ask: "Morning hour",
+        commitment_state: "active_accountability",
+      },
+      thread: {
+        latest_outbound_preview: null,
+        latest_inbound_preview: null,
+        recent_transcript_lines: [],
+        recent_exact_thread_text: null,
+        last_outbound_full_body: null,
+        last_inbound_full_body: null,
+        last_5_coach_questions: ["What anchor for next week?"],
+        last_5_user_answers: ["Morning blocks"],
+        latest_open_question: null,
+        latest_answer_after_open_question: null,
+        open_question_pending: false,
+        open_question_source: null,
+        answer_source: null,
+        projection_used: false,
+        memory_packet_used: true,
+        recent_exact_message_count: 2,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: null,
+        memory_priority_rules: [],
+        recent_exact_thread_72h: thread72h,
+        relationship_memory_7d: { window_days: 7, recurring_blockers: [] } as never,
+        relationship_memory_30d: { window_days: 30, coaching_summary: "must not appear" } as never,
+      },
+      weekly_proof: {
+        week_start: "2026-05-04",
+        week_end: "2026-05-10",
+        completed_count: 3,
+        missed_count: 1,
+        partial_count: 0,
+        blocker_count: 0,
+        proof_moment_hints: [],
+        win_hints: [],
+        comeback_hints: [],
+        repeated_blocker_hints: [],
+        notable_pattern: null,
+        silent_week: true,
+        rough_week: true,
+        strong_week: false,
+        planned_pause_week: true,
+        old_weekly_proof_body_preview: null,
+        deterministic_weekly_body_preview: null,
+        legacy_reflection_preview: null,
+        legacy_template_preview: null,
+      },
+      route: {
+        route_purpose: "weekly_proof_v2",
+        fully_on_v2: true,
+        reason_for_send: "sunday_weekly_touchpoint",
+        legacy_weekly_branch: false,
+      },
+    };
+
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "lane_post_validate",
+      routeKind: "weekly",
+      routePurpose: "weekly_proof_v2",
+      blockedBody: "Great job on the week! Let me know how it went!",
+      blockedReasons: ["let_me_know_how_it_went"],
+      laneFacts: weeklyFacts,
+      laneBlockedReasons: ["let_me_know_how_it_went"],
+    });
+
+    expect(snapshot.current_turn.route_kind).toBe("weekly");
+    expect(snapshot.current_turn.planned_pause_week).toBe(true);
+    expect(snapshot.current_turn.silent_week).toBe(true);
+    expect(snapshot.current_turn.rough_week).toBe(true);
+    expect(snapshot.current_turn.week_start).toBe("2026-05-04");
+    expect(snapshot.canonical_state_min.required_constraints?.weekly_anti_shame?.silent_week).toBe(true);
+    expect(snapshot.recent_exact_thread_excerpt.messages.length).toBeGreaterThan(0);
+
+    const { json, meta } = serializeRepairSnapshotForOpenAI(snapshot);
+    expect(snapshot.repair_kind).toBe("lane_post_validate");
+    expect(json).not.toContain("coaching_summary");
+    expect(json).not.toContain("relationship_memory_7d");
+    expect(json).not.toContain("relationship_memory_30d");
+    expect(meta.repair_snapshot_chars).toBeLessThanOrEqual(DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS + 1);
+  });
+
+  it("weekly memory_repeat snapshot stays under budget", () => {
+    const weeklyFacts: WeeklyV3OutboundFacts = {
+      user: {
+        clerk_user_id: "user_w",
+        preferred_name: "Jordan",
+        timezone: "America/Chicago",
+        local_date: "2026-05-10",
+        local_time: "12:05",
+      },
+      commitment: {
+        active_commitment_id: "cmt_w1",
+        behavior_statement: "Morning hour",
+        effective_ask: "Morning hour",
+        commitment_state: "active_accountability",
+      },
+      thread: {
+        latest_outbound_preview: null,
+        latest_inbound_preview: null,
+        recent_transcript_lines: [],
+        recent_exact_thread_text: null,
+        last_outbound_full_body: "What story will you dictate today?",
+        last_inbound_full_body: "Sunday School",
+        last_5_coach_questions: ["What story will you dictate today?"],
+        last_5_user_answers: ["Sunday School"],
+        latest_open_question: "What story will you dictate today?",
+        latest_answer_after_open_question: "Sunday School",
+        open_question_pending: false,
+        open_question_source: null,
+        answer_source: null,
+        projection_used: false,
+        memory_packet_used: true,
+        recent_exact_message_count: 2,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: null,
+        memory_priority_rules: [],
+        recent_exact_thread_72h: thread72h,
+      },
+      weekly_proof: {
+        week_start: "2026-05-04",
+        week_end: "2026-05-10",
+        completed_count: 2,
+        missed_count: 0,
+        partial_count: 0,
+        blocker_count: 0,
+        proof_moment_hints: [],
+        win_hints: [],
+        comeback_hints: [],
+        repeated_blocker_hints: [],
+        notable_pattern: null,
+        silent_week: false,
+        rough_week: false,
+        strong_week: false,
+        old_weekly_proof_body_preview: null,
+        deterministic_weekly_body_preview: null,
+        legacy_reflection_preview: null,
+        legacy_template_preview: null,
+      },
+      route: {
+        route_purpose: "weekly_proof_v2",
+        fully_on_v2: true,
+        reason_for_send: "sunday_weekly_touchpoint",
+        legacy_weekly_branch: false,
+      },
+    };
+
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "memory_repeat",
+      routeKind: "weekly",
+      routePurpose: "weekly_proof_v2",
+      blockedBody: "What story will you dictate today?",
+      blockedReasons: ["memory_repeat_question"],
+      laneFacts: weeklyFacts,
+      memoryRepeatContext: {
+        prior_outbound_full_body: "What story will you dictate today?",
+        recommended_repair_strategy: "outcome_check",
+        forbidden_coaching_frames: [],
+        forbidden_content_tokens: [],
+        strategy_examples: [],
+        repeated_question: "What story will you dictate today?",
+        repeated_phrases: [],
+      },
+    });
+
+    const { json, meta } = serializeRepairSnapshotForOpenAI(snapshot);
+    expect(snapshot.repair_kind).toBe("memory_repeat");
+    expect(snapshot.current_turn.route_kind).toBe("weekly");
+    expect(json).not.toContain("coaching_summary");
+    expect(meta.repair_snapshot_chars).toBeLessThanOrEqual(DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS + 1);
   });
 });
 

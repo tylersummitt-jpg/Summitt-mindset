@@ -12,6 +12,7 @@ import {
 } from "@/lib/sms-relationship-packet-v1";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { RecentExactThread72hMessage, RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
@@ -337,6 +338,83 @@ function minimalDailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): Daily
       no_raw_title_or_behavior_paste: true,
       no_generic_motivation: true,
       if_unsafe_return_no_send: true,
+    },
+  };
+  return { ...core, ...overrides };
+}
+
+function minimalWeeklyFacts(overrides?: Partial<WeeklyV3OutboundFacts>): WeeklyV3OutboundFacts {
+  const thread72h = makeThread72h([
+    make72hMessage({ role: "coach", body: "How did the week land?", source_table: "sms_send_events" }),
+    make72hMessage({ role: "user", body: "Morning blocks held", at: "2026-05-10T10:05:00.000Z" }),
+  ]);
+
+  const core: WeeklyV3OutboundFacts = {
+    user: {
+      clerk_user_id: "user_weekly_pkt",
+      preferred_name: "Jordan",
+      timezone: "America/Chicago",
+      local_date: "2026-05-10",
+      local_time: "12:05",
+      sms_engagement_summary: "Replied to 3 checks this week",
+    },
+    commitment: {
+      active_commitment_id: "cmt_w1",
+      behavior_statement: "Protect one hour for deep work before noon",
+      effective_ask: "Protect one hour for deep work before noon",
+      commitment_state: "active_accountability",
+      identity_anchor: null,
+    },
+    thread: {
+      latest_outbound_preview: null,
+      latest_inbound_preview: null,
+      recent_transcript_lines: [],
+      recent_exact_thread_text: "Coach: How did the week land?\nUser: Morning blocks held",
+      last_outbound_full_body: null,
+      last_inbound_full_body: null,
+      last_5_coach_questions: [],
+      last_5_user_answers: [],
+      latest_open_question: null,
+      latest_answer_after_open_question: null,
+      open_question_pending: false,
+      open_question_source: null,
+      answer_source: null,
+      projection_used: false,
+      memory_packet_used: true,
+      recent_exact_message_count: 2,
+      do_not_repeat_hints: [],
+      coaching_memory_snippet: null,
+      memory_priority_rules: [],
+      recent_exact_thread_72h: thread72h,
+      relationship_memory_7d: makeSampleMemory7d(),
+      relationship_memory_30d: makeSampleMemory30d(),
+    },
+    weekly_proof: {
+      week_start: "2026-05-04",
+      week_end: "2026-05-10",
+      completed_count: 4,
+      missed_count: 1,
+      partial_count: 0,
+      blocker_count: 0,
+      proof_moment_hints: ["Showed up after a miss"],
+      win_hints: [],
+      comeback_hints: [],
+      repeated_blocker_hints: [],
+      notable_pattern: null,
+      silent_week: true,
+      rough_week: true,
+      strong_week: false,
+      planned_pause_week: true,
+      old_weekly_proof_body_preview: null,
+      deterministic_weekly_body_preview: null,
+      legacy_reflection_preview: null,
+      legacy_template_preview: null,
+    },
+    route: {
+      route_purpose: "weekly_proof_v2",
+      fully_on_v2: true,
+      reason_for_send: "sunday_weekly_touchpoint",
+      legacy_weekly_branch: false,
     },
   };
   return { ...core, ...overrides };
@@ -739,6 +817,70 @@ describe("buildRelationshipPacketForOpenAI", () => {
     });
     expect(userPromptJson).not.toMatch(/what's the next concrete move/i);
     expect(userPromptJson).toContain("Write JSON only.");
+  });
+
+  it("weekly lane is supported with current_turn flags and core sections", () => {
+    const { packet, userPromptJson, meta } = buildRelationshipPacketForOpenAI({
+      lane: "weekly",
+      sourceFacts: minimalWeeklyFacts(),
+    });
+
+    expect(packet.relationship_packet_version).toBe(RELATIONSHIP_PACKET_VERSION);
+    expect(packet.current_turn.data.route_kind).toBe("weekly");
+    expect(packet.current_turn.data.planned_pause_week).toBe(true);
+    expect(packet.current_turn.data.silent_week).toBe(true);
+    expect(packet.current_turn.data.rough_week).toBe(true);
+    expect(packet.current_turn.data.week_start).toBe("2026-05-04");
+    expect(packet.recent_exact_thread_72h?.data.messages.some((m) => /Morning blocks held/i.test(m.body))).toBe(
+      true
+    );
+    expect(packet.relationship_memory_7d?.data.window_days).toBe(7);
+    expect(packet.relationship_memory_30d_or_season?.data.window_days).toBe(30);
+    expect(packet.canonical_state.data.constraints?.weekly_anti_shame?.anti_shame_required).toBe(true);
+    expect(userPromptJson).toContain("RELATIONSHIP_PACKET_V1");
+    expect(userPromptJson).not.toContain("WEEKLY_FACTS_JSON");
+    expect(meta.included_thread_window_hours).toBe(RECENT_EXACT_THREAD_WINDOW_HOURS);
+    expect(meta.included_memory_7d_window_days).toBe(RELATIONSHIP_MEMORY_7D_WINDOW_DAYS);
+    expect(meta.included_memory_30d_window_days).toBe(RELATIONSHIP_MEMORY_30D_WINDOW_DAYS);
+  });
+
+  it("weekly packet trims relationship_memory_30d before thread under budget pressure", () => {
+    const hugeMemory30d = makeSampleMemory30d({
+      recurring_blockers: Array.from({ length: 4 }, (_, i) => ({
+        canonical: "phone_pull",
+        evidence_count: 4,
+        examples: [
+          {
+            evidence: hugePad(`weekly_blocker_${i}`, 200),
+            at: new Date(Date.parse("2026-05-18T10:00:00.000Z") - i * 60_000).toISOString(),
+            source: "v2_commitment_event:blocker_captured:phone_pull",
+            message_sid: null,
+            commitment_id: "cmt_w1",
+            is_exact_body: false,
+          },
+        ],
+        last_seen_at: "2026-05-18T10:00:00.000Z",
+        confidence: "high" as const,
+        commitment_id: "cmt_w1",
+      })),
+      meta: { item_count: 4, sources_used: ["v2_commitment_event"] },
+    });
+
+    const { packet, meta } = buildRelationshipPacketForOpenAI({
+      lane: "weekly",
+      sourceFacts: minimalWeeklyFacts({
+        thread: {
+          ...minimalWeeklyFacts().thread,
+          relationship_memory_30d: hugeMemory30d,
+        },
+      }),
+      totalCharBudget: 3500,
+    });
+
+    expect(
+      packet.recent_exact_thread_72h?.data.messages.some((m) => /Morning blocks held/i.test(m.body))
+    ).toBe(true);
+    expect(meta.truncated_sections).toEqual(expect.arrayContaining(["relationship_memory_30d_or_season"]));
   });
 });
 

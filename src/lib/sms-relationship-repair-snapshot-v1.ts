@@ -4,6 +4,7 @@
 
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { ThreadFreshnessViolation } from "@/lib/sms-thread-freshness";
 import type { MemoryRepeatRepairContext } from "@/lib/sms-memory-repeat-repair-types";
@@ -64,6 +65,12 @@ export type RepairRelationshipSnapshotV1 = {
     daily_purpose?: string | null;
     server_strategy?: string | null;
     accountability_day_key?: string | null;
+    week_start?: string | null;
+    week_end?: string | null;
+    planned_pause_week?: boolean;
+    silent_week?: boolean;
+    rough_week?: boolean;
+    strong_week?: boolean;
   };
   structured_recent_truth: {
     thread_freshness?: ThreadFreshnessFacts | null;
@@ -93,6 +100,11 @@ export type RepairRelationshipSnapshotV1 = {
       rejected_time_candidates?: string[];
       binding_text_verbatim?: string | null;
       wrapper_must_not_repeat_substrings?: string[];
+      weekly_anti_shame?: {
+        planned_pause_week?: boolean;
+        silent_week?: boolean;
+        rough_week?: boolean;
+      };
     };
   };
   proof_victory_permission?: {
@@ -133,12 +145,21 @@ function isDailyFacts(facts: unknown): facts is DailyV3RelationshipFacts {
   return typeof f.route_kind === "string" && f.thread_memory != null && typeof f.thread_memory === "object";
 }
 
+function isWeeklyFacts(facts: unknown): facts is WeeklyV3OutboundFacts {
+  if (facts == null || typeof facts !== "object") return false;
+  const f = facts as Record<string, unknown>;
+  return f.weekly_proof != null && typeof f.weekly_proof === "object" && f.thread != null && typeof f.thread === "object";
+}
+
 function thread72hFromFacts(facts: unknown): Thread72hResultLike | null {
   if (isInboundFacts(facts)) {
     return facts.thread.memory_packet?.recent_exact_thread_72h ?? null;
   }
   if (isDailyFacts(facts)) {
     return facts.thread_memory.recent_exact_thread_72h ?? null;
+  }
+  if (isWeeklyFacts(facts)) {
+    return facts.thread.recent_exact_thread_72h ?? null;
   }
   return null;
 }
@@ -165,7 +186,7 @@ function buildThreadExcerpt(
 
 function buildCurrentTurn(
   facts: unknown,
-  routeKind: "inbound" | "daily",
+  routeKind: "inbound" | "daily" | "weekly",
   routePurpose: string
 ): RepairRelationshipSnapshotV1["current_turn"] {
   if (isInboundFacts(facts)) {
@@ -183,6 +204,20 @@ function buildCurrentTurn(
       server_strategy: facts.accountability.server_strategy ?? null,
       accountability_day_key: facts.accountability_day_key ?? null,
       local_time_iso: facts.user.local_time_iso ?? null,
+    };
+  }
+  if (isWeeklyFacts(facts)) {
+    const wp = facts.weekly_proof;
+    return {
+      route_kind: "weekly",
+      route_purpose: facts.route.route_purpose ?? routePurpose,
+      week_start: wp.week_start,
+      week_end: wp.week_end,
+      planned_pause_week: wp.planned_pause_week === true,
+      silent_week: wp.silent_week,
+      rough_week: wp.rough_week,
+      strong_week: wp.strong_week,
+      local_time_iso: `${facts.user.local_date}T${facts.user.local_time}:00`,
     };
   }
   return {
@@ -215,6 +250,18 @@ function buildStructuredRecentTruth(facts: unknown): RepairRelationshipSnapshotV
       projection_used: tm.projection_used ?? null,
       last_5_coach_questions: compactStrings(tm.last_5_coach_questions, 3),
       last_5_user_answers: compactStrings(tm.last_5_user_answers, 3),
+    };
+  }
+  if (isWeeklyFacts(facts)) {
+    const t = facts.thread;
+    return {
+      thread_freshness: t.thread_freshness ?? null,
+      latest_open_question: t.latest_open_question ?? null,
+      latest_answer_after_open_question: t.latest_answer_after_open_question ?? null,
+      open_question_pending: t.open_question_pending ?? null,
+      projection_used: t.projection_used ?? null,
+      last_5_coach_questions: compactStrings(t.last_5_coach_questions, 3),
+      last_5_user_answers: compactStrings(t.last_5_user_answers, 3),
     };
   }
   return {
@@ -262,6 +309,25 @@ function buildCanonicalStateMin(
       },
     };
   }
+  if (isWeeklyFacts(facts)) {
+    const wp = facts.weekly_proof;
+    return {
+      commitment_id: facts.commitment.active_commitment_id ?? null,
+      behavior_statement: facts.commitment.behavior_statement ?? null,
+      effective_ask: facts.commitment.effective_ask ?? null,
+      accountability_phase: facts.commitment.commitment_state ?? null,
+      route_purpose: facts.route.route_purpose ?? routePurpose,
+      required_constraints: {
+        max_chars: 320,
+        required_verbatim_substrings: facts.constraints?.required_verbatim_substrings,
+        weekly_anti_shame: {
+          planned_pause_week: wp.planned_pause_week === true,
+          silent_week: wp.silent_week,
+          rough_week: wp.rough_week,
+        },
+      },
+    };
+  }
   const loose = facts as Record<string, unknown> | null;
   const commitment =
     loose?.commitment != null && typeof loose.commitment === "object"
@@ -289,6 +355,12 @@ function buildProofVictoryPermission(facts: unknown): RepairRelationshipSnapshot
       can_say_saved_as_proof: false,
     };
   }
+  if (isWeeklyFacts(facts)) {
+    return {
+      can_reference_victory_room: facts.victory_background != null ? true : null,
+      can_say_saved_as_proof: false,
+    };
+  }
   return {
     can_reference_victory_room: null,
     can_say_saved_as_proof: false,
@@ -305,7 +377,7 @@ function staleTopicFromFreshness(freshness: ThreadFreshnessFacts | null | undefi
 
 export function buildRepairRelationshipSnapshotV1(args: {
   repairKind: RepairSnapshotKind;
-  routeKind: "inbound" | "daily";
+  routeKind: "inbound" | "daily" | "weekly";
   routePurpose: string;
   blockedBody: string;
   blockedReasons: string[];
@@ -577,7 +649,7 @@ REPAIR_SNAPSHOT_AUTHORITY (repair_relationship_snapshot_v1 — fix the violation
 }
 
 export function repairSnapshotSupportedForRouteKind(routeKind: "inbound" | "daily" | "weekly"): boolean {
-  return routeKind === "inbound" || routeKind === "daily";
+  return routeKind === "inbound" || routeKind === "daily" || routeKind === "weekly";
 }
 
 /** Build and trim a repair snapshot for OpenAI repair calls. */

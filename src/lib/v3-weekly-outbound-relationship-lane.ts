@@ -20,6 +20,16 @@ import {
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
 import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
+import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
+import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
+import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
+import {
+  buildRelationshipPacketForOpenAI,
+  buildRelationshipPacketPromptGuidance,
+  relationshipPacketMetaForLaneTelemetry,
+} from "@/lib/sms-relationship-packet-v1";
+import { prepareRepairSnapshotForOpenAI } from "@/lib/sms-relationship-repair-snapshot-v1";
+import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import {
   buildVictoryBackgroundLaneGuardrails,
   type V3VictoryBackgroundFacts,
@@ -78,6 +88,10 @@ export type WeeklyV3ThreadFacts = {
   do_not_repeat_hints: string[];
   coaching_memory_snippet: string | null;
   memory_priority_rules: string[];
+  recent_exact_thread_72h?: RecentExactThread72hResult | null;
+  relationship_memory_7d?: RelationshipMemory7dResult | null;
+  relationship_memory_30d?: RelationshipMemory30dResult | null;
+  thread_freshness?: ThreadFreshnessFacts | null;
 };
 
 export type WeeklyV3ProofFacts = {
@@ -366,29 +380,31 @@ export async function produceWeeklyV3RelationshipSms(
     return empty("openai_unavailable", false, { lane_stage: "no_client" });
   }
 
-  const factsJson = JSON.stringify(f);
+  const relationshipPacket = buildRelationshipPacketForOpenAI({
+    lane: "weekly",
+    sourceFacts: f,
+  });
+  Object.assign(baseMeta, relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta));
+
   const system = `You write the NEXT SMS in one long coaching relationship (months of texts). This weekly touchpoint is NOT a newsletter or performance report.
 
 RULES:
-- Use WEEKLY_FACTS_JSON only as facts. Never invent wins, proof moments, or numbers not implied there.
-- thread.recent_exact_thread_text is the highest-priority relationship context when present — it outranks previews, weekly_proof hints, and coaching_memory_snippet.
-- When thread.projection_used is true, thread.latest_open_question and thread.latest_answer_after_open_question are server-owned durable projection — they beat transcript guesses and previews.
-- weekly_proof facts matter for the week, but do not override exact recent SMS thread or projection open Q/A.
-- thread.coaching_memory_snippet is background only — never quote it as if the user just said it.
-- Do not repeat questions in thread.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
-- If thread.open_question_pending is false and thread.latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
-- Bring back meaningful user language from the thread naturally when useful; do not re-ask for information they already gave.
-- Do not use "Welcome back" unless reentry/silence context in facts truly supports it.
-- If weekly_proof.planned_pause_week is true, sparse or silent replies are planned context — not failure; do not shame missed days or quiet weeks.
-- If the week was rough (rough_week) or quiet (silent_week / thin facts), be honest and useful without shaming. If there is not enough context for a genuinely useful weekly coaching text, return should_send false.
-- If there is proof (proof_moment_hints, win_hints, comeback_hints), make acknowledgment specific and earned — not generic hype.
+- Use RELATIONSHIP_PACKET_V1 only as facts — never copy labeled machine drafts, template banks, or telemetry previews as your voice.
+- If current_turn.planned_pause_week is true, sparse or silent replies are planned context — not failure; do not shame missed days or quiet weeks.
+- If current_turn.silent_week or current_turn.rough_week is true, be honest and useful without shaming. If there is not enough context for a genuinely useful weekly coaching text, return should_send false.
+- If structured_recent_truth.weekly_week_summary lists proof_moment_hints, win_hints, or comeback_hints, acknowledgment must be specific and earned — not generic hype.
+- Do not repeat questions in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
+- If structured_recent_truth.open_question_pending is false and structured_recent_truth.latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
+- Bring back meaningful user language from recent_exact_thread_72h naturally when useful; do not re-ask for information they already gave.
+- Do not use "Welcome back" unless silent_week / reentry context in the packet truly supports it.
 - At most one useful question in the body, or none if a question would feel forced.
 - One short SMS, max ${WEEKLY_V3_LANE_MAX_CHARS} characters, single line or very short paragraphs; no markdown, bullets, or "Coach:" prefix.
 - Do not use generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope you're having").
-- Do not quote, imitate, or paste text from old_weekly_proof_body_preview, deterministic_weekly_body_preview, legacy_reflection_preview, legacy_template_preview, thread.latest_outbound_preview, thread.latest_inbound_preview, or Pat Pause-style openers — those are telemetry-only / non-speakable.
+- Do not use Pat Pause-style openers or newsletter/report language.
 - Never mention internal systems, schema, memory, projection, or "V2".
 - Never emit raw machine tokens like event_type, blocker_captured, user_partial.
 - Avoid daily-check phrasing like "Did [raw behavior text] happen today?" — this is weekly, not today's rep check.
+${buildRelationshipPacketPromptGuidance()}
 ${buildVictoryBackgroundLaneGuardrails()}
 ${buildWeeklyGoalAdjustmentLaneGuardrails()}
 ${f.commitment.planned_interruption_active || f.weekly_proof.planned_pause_week ? buildWeeklyPlannedInterruptionLaneGuardrails() : ""}
@@ -402,10 +418,7 @@ voice_confidence (number 0-1 or null),
 used_facts (string[]),
 safety_notes (string[])`;
 
-  const user = `WEEKLY_FACTS_JSON (facts only; previews are NOT speakable copy):
-${factsJson.slice(0, 14000)}
-
-Write JSON only.`;
+  const user = relationshipPacket.userPromptJson;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;
@@ -523,12 +536,22 @@ Write JSON only.`;
 
     const originalCandidateSnapshot = body;
 
+    const { snapshot: repairSnapshot, meta: snapshotMeta } = prepareRepairSnapshotForOpenAI({
+      repairKind: "lane_post_validate",
+      routeKind: "weekly",
+      routePurpose,
+      blockedBody: body,
+      blockedReasons: repairable,
+      laneFacts: f,
+      laneBlockedReasons: blockedReasons,
+    });
+
     const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
       routeKind: "weekly",
       routePurpose,
       originalBody: body,
       blockedReasons: repairable,
-      factsJson: f,
+      repairSnapshot,
       systemInstruction: WEEKLY_LANE_REPAIR_SYSTEM_INSTRUCTION,
     });
 
@@ -612,6 +635,7 @@ Write JSON only.`;
       repaired_blocked_reasons: [],
       lane_repair_used_strategy: repairOut.metadata.lane_repair_used_strategy,
       lane_repair_safety_notes: repairOut.metadata.lane_repair_safety_notes,
+      ...snapshotMeta,
     };
   }
 
