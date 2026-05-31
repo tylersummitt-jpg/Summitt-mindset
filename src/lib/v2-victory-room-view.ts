@@ -372,9 +372,21 @@ export function getRecentProofCategoryLabel(moment: VictoryMoment): string {
   }
 }
 
-function occurredMs(m: VictoryMoment): number {
+/** Proof timestamp for sort/display — same `occurredAt` shown on Victory Room cards (`formatVictoryRoomDate`). */
+export function victoryMomentProofTimeMs(m: VictoryMoment): number {
   const t = new Date(m.occurredAt).getTime();
   return Number.isFinite(t) ? t : 0;
+}
+
+/** Newest-first; tie-break on moment id for deterministic order. */
+export function compareVictoryMomentsByProofTimeDesc(a: VictoryMoment, b: VictoryMoment): number {
+  const dt = victoryMomentProofTimeMs(b) - victoryMomentProofTimeMs(a);
+  if (dt !== 0) return dt;
+  return b.id.localeCompare(a.id);
+}
+
+function occurredMs(m: VictoryMoment): number {
+  return victoryMomentProofTimeMs(m);
 }
 
 export function curateRecentProofMoments(
@@ -406,25 +418,16 @@ export function curateRecentProofMoments(
     }
   }
 
-  // 3) Order by meaning priority, then recency, take up to max.
-  const winners = [...winnerByCategory.entries()].map(([category, moment]) => ({
-    category,
-    moment,
-    priority: getRecentProofCategoryPriority(category),
-    t: occurredMs(moment),
-  }));
+  // 3) Newest-first among category winners (matches card date); take up to max.
+  const winners = [...winnerByCategory.values()];
 
-  winners.sort((a, b) => {
-    const dp = b.priority - a.priority;
-    if (dp !== 0) return dp;
-    return b.t - a.t;
-  });
+  winners.sort(compareVictoryMomentsByProofTimeDesc);
 
-  const selected = winners.map((w) => w.moment).slice(0, max);
+  const selected = winners.slice(0, max);
 
   // 4) Safety: never return empty if there were candidates.
   if (selected.length === 0) {
-    const newest = [...deduped].sort((a, b) => occurredMs(b) - occurredMs(a))[0];
+    const newest = [...deduped].sort(compareVictoryMomentsByProofTimeDesc)[0];
     return newest ? [newest] : [];
   }
 

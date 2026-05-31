@@ -5,7 +5,9 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import {
+  compareVictoryMomentsByProofTimeDesc,
   curateRecentProofMoments,
+  victoryMomentProofTimeMs,
   deriveMergedProofMomentsFromEventWindow,
   getRecentProofDedupeKey,
   inferRecentProofCategory,
@@ -19,6 +21,8 @@ function m(args: {
   occurredAt: string;
   headline: string;
   body: string;
+  quote?: string | null;
+  meaning?: string | null;
   groundedInEventTypes?: string[];
 }): VictoryMoment {
   return {
@@ -26,6 +30,8 @@ function m(args: {
     occurredAt: args.occurredAt,
     headline: args.headline,
     body: args.body,
+    quote: args.quote,
+    meaning: args.meaning,
     groundedInEventTypes: args.groundedInEventTypes ?? [],
   };
 }
@@ -288,7 +294,103 @@ describe("season_lifecycle proof exclusion", () => {
   });
 });
 
+describe("victoryMomentProofTimeMs", () => {
+  it("uses occurredAt and treats invalid timestamps as zero without throwing", () => {
+    expect(
+      victoryMomentProofTimeMs(
+        m({
+          id: "ok",
+          occurredAt: "2026-05-10T12:00:00Z",
+          headline: "Proof",
+          body: "Body",
+        })
+      )
+    ).toBe(new Date("2026-05-10T12:00:00Z").getTime());
+    expect(
+      victoryMomentProofTimeMs(
+        m({
+          id: "bad",
+          occurredAt: "not-a-date",
+          headline: "Proof",
+          body: "Body",
+        })
+      )
+    ).toBe(0);
+  });
+});
+
 describe("curateRecentProofMoments (Phase 2)", () => {
+  it("orders Recent Proof newest-first by occurredAt, not category priority", () => {
+    const olderKept = m({
+      id: "kept-old",
+      occurredAt: "2026-05-01T10:00:00Z",
+      headline: "Stayed engaged",
+      body: "You stayed engaged instead of disappearing.",
+      groundedInEventTypes: ["user_partial"],
+    });
+    const newerTruth = m({
+      id: "truth-new",
+      occurredAt: "2026-05-10T10:00:00Z",
+      headline: "Honest miss",
+      body: "Honest no still counts as showing up.",
+      groundedInEventTypes: ["user_no"],
+    });
+
+    const out = curateRecentProofMoments([olderKept, newerTruth], 4);
+    expect(out.map((x) => x.id)).toEqual(["truth-new", "kept-old"]);
+  });
+
+  it("returns newest-first when input arrives out of chronological order", () => {
+    const mid = m({
+      id: "mid",
+      occurredAt: "2026-05-05T10:00:00Z",
+      headline: "Honest adjustment",
+      body: "You tightened the bar instead of quitting.",
+      groundedInEventTypes: ["user_partial"],
+    });
+    const newest = m({
+      id: "newest",
+      occurredAt: "2026-05-12T10:00:00Z",
+      headline: "Honest miss",
+      body: "You told the truth.",
+      groundedInEventTypes: ["user_no"],
+    });
+    const oldest = m({
+      id: "oldest",
+      occurredAt: "2026-05-01T10:00:00Z",
+      headline: "Stayed engaged",
+      body: "You stayed engaged.",
+      groundedInEventTypes: ["user_partial"],
+    });
+
+    const shuffled = [mid, oldest, newest];
+    const out = curateRecentProofMoments(shuffled, 4);
+    expect(out.map((x) => x.id)).toEqual(["newest", "mid", "oldest"]);
+    expect(compareVictoryMomentsByProofTimeDesc(out[0]!, out[1]!)).toBeLessThanOrEqual(0);
+  });
+
+  it("keeps quote and meaning on moments after ordering (no content rewrite)", () => {
+    const older = m({
+      id: "old",
+      occurredAt: "2026-05-01T10:00:00Z",
+      headline: "Bar adjusted",
+      body: "Meaning old",
+      quote: "quote old",
+      meaning: "Meaning old",
+    });
+    const newer = m({
+      id: "new",
+      occurredAt: "2026-05-08T10:00:00Z",
+      headline: "Honest miss",
+      body: "Meaning new",
+      quote: "quote new",
+      meaning: "Meaning new",
+    });
+    const out = curateRecentProofMoments([older, newer], 4);
+    expect(out[0]!.quote).toBe("quote new");
+    expect(out[0]!.meaning).toBe("Meaning new");
+  });
+
   it("Test 1 — identical partials collapse (keeps most recent duplicate)", () => {
     const a = m({
       id: "p1",
