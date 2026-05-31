@@ -9,6 +9,8 @@ import {
   buildRelationshipPacketPromptGuidance,
   DEFAULT_RELATIONSHIP_PACKET_BUDGET,
   RELATIONSHIP_PACKET_VERSION,
+  relationshipObservabilityFromLaneMetadata,
+  relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
@@ -881,6 +883,37 @@ describe("buildRelationshipPacketForOpenAI", () => {
       packet.recent_exact_thread_72h?.data.messages.some((m) => /Morning blocks held/i.test(m.body))
     ).toBe(true);
     expect(meta.truncated_sections).toEqual(expect.arrayContaining(["relationship_memory_30d_or_season"]));
+  });
+});
+
+describe("relationshipObservabilityFromLaneMetadata", () => {
+  it("extracts packet and repair keys for SQL observability", () => {
+    const { meta } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts(),
+    });
+    const obs = relationshipObservabilityFromLaneMetadata({
+      ...relationshipPacketMetaForLaneTelemetry(meta),
+      repair_snapshot_kind: "thread_freshness",
+      repair_snapshot_version: "1.0",
+      repair_snapshot_chars: 1200,
+      repair_snapshot_truncated: false,
+      thread_freshness_repair_succeeded: true,
+      lane_stage: "post_validate_repaired",
+      route_purpose: "standard_check",
+    });
+    expect(obs.relationship_packet_version).toBe(RELATIONSHIP_PACKET_VERSION);
+    expect(obs.relationship_packet_truncated).toBeDefined();
+    expect(obs.included_thread_message_count).toBeDefined();
+    expect(obs.included_thread_window_hours).toBeDefined();
+    expect(obs.repair_snapshot_kind).toBe("thread_freshness");
+    expect(obs.repair_snapshot_repair_succeeded).toBe(true);
+    expect(obs.lane_stage).toBe("post_validate_repaired");
+  });
+
+  it("returns empty object for null/undefined metadata", () => {
+    expect(relationshipObservabilityFromLaneMetadata(null)).toEqual({});
+    expect(relationshipObservabilityFromLaneMetadata(undefined)).toEqual({});
   });
 });
 

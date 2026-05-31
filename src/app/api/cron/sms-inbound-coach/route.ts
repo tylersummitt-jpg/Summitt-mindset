@@ -330,6 +330,7 @@ import {
   buildSmsRelationshipMemoryPacket,
   slimMemoryPacketForFacts,
 } from "@/lib/sms-relationship-memory-packet";
+import { relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
 import {
   loadSmsVictoryBackgroundContext,
   mapSmsVictoryBackgroundToFacts,
@@ -640,11 +641,15 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
   });
 
   let gatedBody: string | null = null;
+  const lanePacketObs = relationshipObservabilityFromLaneMetadata(lane.metadata);
   let v3SendTelemetry: Record<string, unknown> = {
     inbound_v3_lane_used: true,
     branch_migrated_to_lane: true,
     branch_name: "contract_consent_ack",
     v3_lane_reply_source: "v3_inbound_relationship_lane",
+    ...(Object.keys(lanePacketObs).length > 0
+      ? { relationship_packet_observability: lanePacketObs }
+      : {}),
   };
 
   if (!lane.shouldSend || !lane.body.trim()) {
@@ -652,6 +657,9 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
     v3FailureDetail = {
       reason: lane.noSendReason,
       lane_metadata: lane.metadata,
+      ...(Object.keys(lanePacketObs).length > 0
+        ? { relationship_packet_observability: lanePacketObs }
+        : {}),
     };
     console.warn("[sms-inbound-coach] contract_consent_ack_inbound_lane_no_send", {
       message_sid: args.job.message_sid,
@@ -859,6 +867,7 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
       sendTelemetry: {
         inbound_v3_lane_used: false,
         contract_consent_human_voice_ack: true,
+        contract_consent_ack_fallback: true,
         generation_source: humanVoiceAck.generation_source,
         v3_failure_tag: v3FailureTag,
         final_voice_gate: humanVoiceAck.voice.metadata,
@@ -5130,6 +5139,13 @@ async function processV2NormalInboundOutcome(
     final_voice_gate: finalVoiceGate.metadata,
   };
 
+  const inboundPacketObservability =
+    v3BrainPayload?.metadata != null && typeof v3BrainPayload.metadata === "object"
+      ? relationshipObservabilityFromLaneMetadata(v3BrainPayload.metadata)
+      : inboundRelationshipLane?.metadata != null
+        ? relationshipObservabilityFromLaneMetadata(inboundRelationshipLane.metadata)
+        : {};
+
   const v3BrainEventMeta =
     v3BrainPayload != null
       ? {
@@ -5145,6 +5161,9 @@ async function processV2NormalInboundOutcome(
             northStarGate: northStarGateTelemetry,
             priorDraftSource: priorDraftFromConversationBrain?.source ?? null,
           }),
+          ...(Object.keys(inboundPacketObservability).length > 0
+            ? { relationship_packet_observability: inboundPacketObservability }
+            : {}),
           ...(inboundCoachingBriefV1Log != null
             ? { coaching_brief_v1: inboundCoachingBriefV1Log }
             : {}),
@@ -5167,6 +5186,9 @@ async function processV2NormalInboundOutcome(
           reply_resolution: replyResolutionPayload,
           north_star_gate: northStarGateTelemetry,
           final_voice_gate: finalVoiceGate.metadata,
+          ...(Object.keys(inboundPacketObservability).length > 0
+            ? { relationship_packet_observability: inboundPacketObservability }
+            : {}),
         }
       : {
           model: inboundAiModelUsed,
@@ -5179,6 +5201,9 @@ async function processV2NormalInboundOutcome(
           reply_resolution: replyResolutionPayload,
           north_star_gate: northStarGateTelemetry,
           final_voice_gate: finalVoiceGate.metadata,
+          ...(Object.keys(inboundPacketObservability).length > 0
+            ? { relationship_packet_observability: inboundPacketObservability }
+            : {}),
         };
 
   if (

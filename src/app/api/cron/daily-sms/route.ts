@@ -147,6 +147,7 @@ import {
   type V3VictoryBackgroundFacts,
 } from "@/lib/sms-victory-background-context";
 import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
+import { relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
 import {
   evaluateCommitmentEvolutionForSms,
   pickWave7DailyEvolutionAction,
@@ -375,6 +376,12 @@ function dailySmsSentEventVoiceMetadata(
   }
   const fvg = p.final_voice_gate as Record<string, unknown>;
   const vsd = p.voice_send_decision as { should_send?: boolean } | undefined;
+  const v3Brain =
+    p.v3_brain != null && typeof p.v3_brain === "object"
+      ? (p.v3_brain as Record<string, unknown>)
+      : null;
+  const packetObservability =
+    v3Brain != null ? relationshipObservabilityFromLaneMetadata(v3Brain) : {};
   return {
     final_voice_gate: fvg,
     north_star_gate: p.north_star_gate,
@@ -385,6 +392,28 @@ function dailySmsSentEventVoiceMetadata(
     voice_decision: vsd?.should_send === false ? "skipped_no_safe_v3_voice" : "accepted_post_final_voice_gate",
     final_voice_source: fvg.final_voice_source,
     final_voice_blocked_reasons: fvg.final_voice_blocked_reasons,
+    v3_repair_attempted: fvg.v3_repair_attempted ?? null,
+    v3_repair_succeeded: fvg.v3_repair_succeeded ?? null,
+    ...(Object.keys(packetObservability).length > 0
+      ? { relationship_packet_observability: packetObservability }
+      : {}),
+  };
+}
+
+function withRelationshipPacketObservabilityOnVoiceSkipPatch(
+  patch: ReturnType<typeof dailySmsVoiceSkipEventPatch>,
+  v3Brain: unknown
+): ReturnType<typeof dailySmsVoiceSkipEventPatch> {
+  const packetObs = relationshipObservabilityFromLaneMetadata(
+    v3Brain != null && typeof v3Brain === "object" ? (v3Brain as Record<string, unknown>) : undefined
+  );
+  if (Object.keys(packetObs).length === 0) return patch;
+  return {
+    ...patch,
+    metadata: {
+      ...patch.metadata,
+      relationship_packet_observability: packetObs,
+    },
   };
 }
 
@@ -854,6 +883,7 @@ async function buildDailySmsContent(
           daily_v3_lane_used: true,
           v3_lane_reply_source: "v3_daily_relationship_lane",
           v3_lane_turn_purpose: laneRe.turnPurpose,
+          ...relationshipObservabilityFromLaneMetadata(laneRe.metadata),
           v3_candidate_body: (laneRe.metadata.v3_candidate_body as string | undefined) ?? laneRe.body,
           old_daily_writer_used_as_voice: false,
           old_daily_writer_fact_sources: laneRe.metadata.old_daily_writer_fact_sources,
@@ -1161,6 +1191,7 @@ async function buildDailySmsContent(
             daily_v3_lane_used: true,
             v3_lane_reply_source: "v3_daily_relationship_lane",
             v3_lane_turn_purpose: lanePr.turnPurpose,
+            ...relationshipObservabilityFromLaneMetadata(lanePr.metadata),
             v3_candidate_body: (lanePr.metadata.v3_candidate_body as string | undefined) ?? lanePr.body,
             old_daily_writer_used_as_voice: false,
             old_daily_writer_fact_sources: lanePr.metadata.old_daily_writer_fact_sources,
@@ -1461,6 +1492,7 @@ async function buildDailySmsContent(
               daily_v3_lane_used: true,
               v3_lane_reply_source: "v3_daily_relationship_lane",
               v3_lane_turn_purpose: laneRf.turnPurpose,
+              ...relationshipObservabilityFromLaneMetadata(laneRf.metadata),
               v3_candidate_body: (laneRf.metadata.v3_candidate_body as string | undefined) ?? laneRf.body,
               old_daily_writer_used_as_voice: false,
               old_daily_writer_fact_sources: laneRf.metadata.old_daily_writer_fact_sources,
@@ -1703,6 +1735,7 @@ async function buildDailySmsContent(
               daily_v3_lane_used: true,
               v3_lane_reply_source: "v3_daily_relationship_lane",
               v3_lane_turn_purpose: laneC.turnPurpose,
+              ...relationshipObservabilityFromLaneMetadata(laneC.metadata),
               v3_candidate_body: (laneC.metadata.v3_candidate_body as string | undefined) ?? laneC.body,
               old_daily_writer_used_as_voice: false,
               old_daily_writer_fact_sources: laneC.metadata.old_daily_writer_fact_sources,
@@ -2248,6 +2281,7 @@ async function buildDailySmsContent(
         daily_v3_lane_used: true,
         v3_lane_reply_source: "v3_daily_relationship_lane",
         v3_lane_turn_purpose: laneUnified.turnPurpose,
+        ...relationshipObservabilityFromLaneMetadata(laneUnified.metadata),
         v3_candidate_body: (laneUnified.metadata.v3_candidate_body as string | undefined) ?? laneUnified.body,
         old_daily_writer_used_as_voice: false,
         old_daily_writer_fact_sources: laneUnified.metadata.old_daily_writer_fact_sources,
@@ -3018,6 +3052,12 @@ export async function GET(req: Request) {
                       timezone,
                       local_time: localNow.toISOString(),
                       ...(built.dailyLaneMeta ? { daily_v3_lane: built.dailyLaneMeta } : {}),
+                      ...(built.dailyLaneMeta
+                        ? {
+                            relationship_packet_observability:
+                              relationshipObservabilityFromLaneMetadata(built.dailyLaneMeta),
+                          }
+                        : {}),
                     },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
@@ -3059,7 +3099,8 @@ export async function GET(req: Request) {
                 | undefined;
               const northStarGateR = (built.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
               const finalVoiceGateR = (built.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
-              const patchR = dailySmsVoiceSkipEventPatch({
+              const patchR = withRelationshipPacketObservabilityOnVoiceSkipPatch(
+                dailySmsVoiceSkipEventPatch({
                 existingMeta: existingMeta,
                 northStarGate: northStarGateR,
                 finalVoiceGate: finalVoiceGateR,
@@ -3068,7 +3109,9 @@ export async function GET(req: Request) {
                 localTimeIso: localNow.toISOString(),
                 blockedReasons: voiceSendDecisionRetry?.blocked_reasons ?? [],
                 northStarVisibleBody: voiceSendDecisionRetry?.north_star_visible_body,
-              });
+              }),
+                built.v2AiPayload?.v3_brain
+              );
               await supabaseServer
                 .from("sms_send_events")
                 .update(patchR)
@@ -3613,6 +3656,13 @@ export async function GET(req: Request) {
                 timezone,
                 local_time: localNow.toISOString(),
                 ...(builtMain.dailyLaneMeta ? { daily_v3_lane: builtMain.dailyLaneMeta } : {}),
+                ...(builtMain.dailyLaneMeta
+                  ? {
+                      relationship_packet_observability: relationshipObservabilityFromLaneMetadata(
+                        builtMain.dailyLaneMeta
+                      ),
+                    }
+                  : {}),
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
@@ -3653,7 +3703,8 @@ export async function GET(req: Request) {
           | undefined;
         const northStarGate = (builtMain.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
         const finalVoiceGate = (builtMain.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
-        const patch = dailySmsVoiceSkipEventPatch({
+        const patch = withRelationshipPacketObservabilityOnVoiceSkipPatch(
+          dailySmsVoiceSkipEventPatch({
           existingMeta: { note: "reserved_by_cron" },
           northStarGate,
           finalVoiceGate,
@@ -3662,7 +3713,9 @@ export async function GET(req: Request) {
           localTimeIso: localNow.toISOString(),
           blockedReasons: voiceSendDecision?.blocked_reasons ?? [],
           northStarVisibleBody: voiceSendDecision?.north_star_visible_body,
-        });
+        }),
+          builtMain.v2AiPayload?.v3_brain
+        );
         await supabaseServer
           .from("sms_send_events")
           .update(patch)

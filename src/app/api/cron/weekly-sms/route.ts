@@ -42,6 +42,7 @@ import {
 import { produceWeeklyV3RelationshipSms } from "@/lib/v3-weekly-outbound-relationship-lane";
 import { buildWeeklyV3OutboundFactsForV2WeeklyProof } from "@/lib/weekly-sms-v2-weekly-lane-facts";
 import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
+import { relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -395,6 +396,7 @@ export async function GET(req: Request) {
           weekly_lane_no_send_reason: weeklyLane.noSendReason,
           weekly_lane_openai_ok: weeklyLane.openAiOk,
           weekly_lane_metadata: weeklyLane.metadata,
+          relationship_packet_observability: relationshipObservabilityFromLaneMetadata(weeklyLane.metadata),
         };
 
         if (!weeklyLane.shouldSend) {

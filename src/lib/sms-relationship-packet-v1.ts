@@ -1135,3 +1135,83 @@ export function relationshipPacketMetaForLaneTelemetry(
     relationship_memory_30d_truncated: meta.relationship_memory_30d_truncated,
   };
 }
+
+/** Keys copied from lane metadata into send/job observability blobs (SQL-friendly). */
+const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
+  "relationship_packet_version",
+  "relationship_packet_truncated",
+  "truncated_sections",
+  "relationship_packet_total_chars",
+  "relationship_packet_budget_chars",
+  "included_thread_message_count",
+  "included_thread_window_hours",
+  "included_thread_oldest_at",
+  "included_thread_newest_at",
+  "had_preview_messages",
+  "had_system_no_send",
+  "included_memory_7d_window_days",
+  "included_memory_7d_item_count",
+  "relationship_memory_7d_truncated",
+  "included_memory_30d_window_days",
+  "included_memory_30d_item_count",
+  "relationship_memory_30d_truncated",
+] as const;
+
+const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [
+  "repair_snapshot_version",
+  "repair_snapshot_kind",
+  "repair_snapshot_chars",
+  "repair_snapshot_truncated",
+  "lane_repair_attempted",
+  "lane_repair_succeeded",
+  "thread_freshness_repair_attempted",
+  "thread_freshness_repair_succeeded",
+  "thread_freshness_violation_reason",
+  "memory_repeat_guard_attempted",
+  "memory_repeat_guard_succeeded",
+  "memory_repeat_guard_reason",
+  "memory_repeat_no_send_reason",
+  "still_repeated_after_repair",
+] as const;
+
+const LANE_CONTEXT_OBSERVABILITY_KEYS = [
+  "lane_stage",
+  "route_purpose",
+  "v3_lane_reply_source",
+  "v3_lane_turn_purpose",
+  "no_send_reason",
+] as const;
+
+function inferRepairSnapshotRepairSucceeded(metadata: Record<string, unknown>): boolean | null {
+  if (metadata.lane_repair_succeeded === true) return true;
+  if (metadata.lane_repair_succeeded === false) return false;
+  if (metadata.thread_freshness_repair_succeeded === true) return true;
+  if (metadata.thread_freshness_repair_succeeded === false) return false;
+  if (metadata.memory_repeat_guard_succeeded === true) return true;
+  if (metadata.memory_repeat_guard_succeeded === false) return false;
+  if (metadata.still_repeated_after_repair === true) return false;
+  return null;
+}
+
+/**
+ * Compact packet + repair telemetry for sms_send_events / inbound spine / weekly metadata.
+ * Does not affect OpenAI prompts or visible SMS.
+ */
+export function relationshipObservabilityFromLaneMetadata(
+  metadata: Record<string, unknown> | null | undefined
+): Record<string, unknown> {
+  if (metadata == null || typeof metadata !== "object") return {};
+  const out: Record<string, unknown> = {};
+  for (const key of [
+    ...RELATIONSHIP_PACKET_OBSERVABILITY_KEYS,
+    ...REPAIR_SNAPSHOT_OBSERVABILITY_KEYS,
+    ...LANE_CONTEXT_OBSERVABILITY_KEYS,
+  ]) {
+    if (metadata[key] !== undefined) out[key] = metadata[key];
+  }
+  const repairSucceeded = inferRepairSnapshotRepairSucceeded(metadata);
+  if (repairSucceeded !== null) {
+    out.repair_snapshot_repair_succeeded = repairSucceeded;
+  }
+  return out;
+}
