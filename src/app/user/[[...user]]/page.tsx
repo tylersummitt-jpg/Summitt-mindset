@@ -8,17 +8,15 @@ import {
   useUser,
 } from "@clerk/nextjs";
 import Link from "next/link";
-import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 
 import ManageMembershipButton from "@/components/manage-membership-button";
-import AccountSmsBlock from "@/components/text-check-ins-section";
 
 function capitalizeDisplay(s: string): string {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-function MembershipStatusCard() {
+function AccountMembershipRows() {
   const { user, isLoaded } = useUser();
   const md = user?.publicMetadata as Record<string, unknown> | undefined;
 
@@ -53,7 +51,7 @@ function MembershipStatusCard() {
   }
 
   return (
-    <div className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
+    <>
       <div className="flex justify-between gap-4 py-1">
         <span className="text-gray-600">Status</span>
         <span className="font-medium text-gray-900">{status}</span>
@@ -62,26 +60,48 @@ function MembershipStatusCard() {
         <span className="text-gray-600">Plan</span>
         <span className="font-medium text-gray-900">{plan}</span>
       </div>
-    </div>
+    </>
   );
 }
 
-function AccountabilitySummaryCard() {
+function AccountTopCard() {
   return (
-    <div className="w-full rounded-lg border border-gray-200 bg-white px-4 py-4 text-sm text-left space-y-3">
-      <p className="font-semibold text-gray-900">Accountability</p>
-      <p className="text-gray-600 leading-relaxed">
-        Pat checks in by text on one commitment you name—not a numbered-day score. Victory Room is
-        your home for proof, your current bar, and goal updates.
-      </p>
-      <div className="flex flex-col gap-2 pt-1">
-        <Link
-          href={MEMBER_APP_HOME_PATH}
-          className="inline-flex w-full justify-center rounded-md bg-[var(--brand)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--bg)]"
-        >
-          Open Victory Room
-        </Link>
-      </div>
+    <div className="w-full rounded-lg border border-gray-200 bg-white text-sm text-left">
+      <section className="px-4 py-4 space-y-2">
+        <h2 className="font-semibold text-gray-900">Need help?</h2>
+        <p className="text-gray-600 leading-relaxed">
+          Email us anytime —{" "}
+          <a
+            href="mailto:Support@SummittMindset.com"
+            className="font-medium text-gray-900 underline underline-offset-2 hover:text-gray-700"
+          >
+            Support@SummittMindset.com
+          </a>
+        </p>
+      </section>
+
+      <section className="px-4 py-4 space-y-2 border-t border-gray-100">
+        <h2 className="font-semibold text-gray-900">Text Messages</h2>
+        <p className="text-gray-600 leading-relaxed">
+          Text STOP to stop text messages. Text START to resume text messages. Text HELP for info.
+        </p>
+      </section>
+
+      <section className="px-4 py-4 space-y-3 border-t border-gray-100">
+        <h2 className="font-semibold text-gray-900">Account</h2>
+        <AccountMembershipRows />
+        <div className="pt-1">
+          <Link
+            href="/sign-out"
+            className="text-sm font-medium text-gray-700 underline underline-offset-2 hover:text-gray-900"
+          >
+            Sign out
+          </Link>
+        </div>
+        <div className="flex flex-col items-center pt-1">
+          <ManageMembershipButton />
+        </div>
+      </section>
     </div>
   );
 }
@@ -92,45 +112,15 @@ export default function UserProfilePage() {
       <SignedIn>
         <main className="min-h-screen flex flex-col items-center px-6 py-8 md:py-10">
           <div className="w-full max-w-4xl mx-auto flex flex-col gap-8">
-            <header className="text-center space-y-2">
+            <header className="text-center">
               <h1 className="text-2xl font-semibold">Account</h1>
-              <p className="text-sm text-gray-600">
-                Manage your membership, billing, and profile settings.
-              </p>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Need help? Email us anytime —{" "}
-                <a
-                  href="mailto:Support@SummittMindset.com"
-                  className="font-medium text-gray-900 underline underline-offset-2 hover:text-gray-700"
-                >
-                  Support@SummittMindset.com
-                </a>
-              </p>
-              <div className="pt-1">
-                <Link
-                  href="/sign-out"
-                  className="text-sm font-medium text-gray-700 underline underline-offset-2 hover:text-gray-900"
-                >
-                  Sign out
-                </Link>
-              </div>
             </header>
+
+            <AccountTopCard />
 
             <div className="w-full">
               <UserProfile />
             </div>
-
-            <section className="w-full flex flex-col gap-3">
-              <MembershipStatusCard />
-
-              <AccountSmsBlock />
-
-              <AccountabilitySummaryCard />
-
-              <div className="flex flex-col items-center pt-1">
-                <ManageMembershipButton />
-              </div>
-            </section>
           </div>
         </main>
       </SignedIn>

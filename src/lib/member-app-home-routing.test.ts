@@ -118,9 +118,9 @@ describe("member app home routing (Package 5)", () => {
     expect(home).toContain("MEMBER_APP_HOME_PATH");
     expect(home).toContain("Open Victory Room");
     expect(home).not.toContain("Open dashboard");
-    expect(user).toContain("MEMBER_APP_HOME_PATH");
-    expect(user).toContain("Open Victory Room");
+    expect(user).not.toContain("Open Victory Room");
     expect(user).not.toContain("Open dashboard");
+    expect(user).not.toContain("MEMBER_APP_HOME_PATH");
   });
 
   it("Account page does not surface legacy Life Context card", () => {
@@ -128,8 +128,8 @@ describe("member app home routing (Package 5)", () => {
     expect(user).not.toContain('href="/life-context"');
     expect(user).not.toContain("Update Life Context");
     expect(user).not.toContain("Keep Your Coaching Accurate");
-    expect(user).toContain("MEMBER_APP_HOME_PATH");
-    expect(user).toContain("Open Victory Room");
+    expect(user).not.toContain("Open Victory Room");
+    expect(user).not.toContain("MEMBER_APP_HOME_PATH");
   });
 
   it("key product surfaces avoid user-facing SMS jargon", () => {
@@ -211,12 +211,17 @@ describe("member app home routing (Package 5)", () => {
     expect(topCard).toContain("My current goal");
   });
 
-  it("Account still surfaces text check-ins settings block", () => {
+  it("Account surfaces static Text Messages compliance, not preferences block", () => {
     const user = readSrc("src/app/user/[[...user]]/page.tsx");
-    const smsBlock = readSrc("src/components/text-check-ins-section.tsx");
-    expect(user).toContain("AccountSmsBlock");
-    expect(user).toContain("text-check-ins-section");
-    expect(smsBlock).toContain("Text check-ins");
+    expect(user).toContain("Text Messages");
+    expect(user).toContain("Text STOP to stop text messages");
+    expect(user).toContain("Text START to resume text messages");
+    expect(user).toContain("Text HELP for info");
+    expect(user).not.toContain("AccountSmsBlock");
+    expect(user).not.toContain("text-check-ins-section");
+    expect(user).not.toContain("Accountability");
+    expect(user).not.toContain("Open Victory Room");
+    expect(user).not.toContain("Manage your membership, billing, and profile settings");
   });
 
   it("coach setup redirects address-collected coaches to Victory Room", () => {
