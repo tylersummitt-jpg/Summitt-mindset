@@ -3,8 +3,9 @@
  * Inspired by Victory Room navy base; no gold/amber VR tokens.
  */
 
+/** Full-width page shell — background only; pair with a utPageInner* container. */
 export const utPageCanvas =
-  "min-h-[calc(100dvh-4rem)] w-full bg-[#0a0f18] text-stone-100";
+  "block w-full max-w-none min-h-[calc(100dvh-4rem)] bg-[#0a0f18] text-stone-100";
 
 export const utPageInnerAskPat = "mx-auto w-full max-w-3xl px-5 py-10 sm:px-6 sm:py-12";
 

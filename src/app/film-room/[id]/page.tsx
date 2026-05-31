@@ -45,17 +45,19 @@ export default async function FilmRoomVideoPage({
   if (error || !data) notFound();
 
   return (
-    <main className={`${utPageCanvas} ${utPageInnerFilm}`}>
-      <h1 className={`mt-4 mb-6 ${utPageTitle}`}>{data.title}</h1>
+    <main className={utPageCanvas}>
+      <div className={utPageInnerFilm}>
+        <h1 className={`mt-4 mb-6 ${utPageTitle}`}>{data.title}</h1>
 
-      <div className={`${utCard} mb-10 overflow-hidden`}>
-        <div className="relative aspect-video w-full">
-          <iframe
-            src={`https://player.vimeo.com/video/${data.vimeo_video_id}`}
-            className="absolute inset-0 h-full w-full"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-          />
+        <div className={`${utCard} mb-10 overflow-hidden`}>
+          <div className="relative aspect-video w-full">
+            <iframe
+              src={`https://player.vimeo.com/video/${data.vimeo_video_id}`}
+              className="absolute inset-0 h-full w-full"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
         </div>
       </div>
     </main>

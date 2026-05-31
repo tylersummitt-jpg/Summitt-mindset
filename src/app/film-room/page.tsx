@@ -72,9 +72,11 @@ export default async function FilmRoomPage() {
 
   if (error || !data) {
     return (
-      <main className={`${utPageCanvas} ${utPageInnerFilm}`}>
-        <h1 className={utPageTitle}>Film Room</h1>
-        <p className="mt-4 text-sm text-red-300">Error loading videos.</p>
+      <main className={utPageCanvas}>
+        <div className={utPageInnerFilm}>
+          <h1 className={utPageTitle}>Film Room</h1>
+          <p className="mt-4 text-sm text-red-300">Error loading videos.</p>
+        </div>
       </main>
     );
   }
@@ -121,7 +123,8 @@ export default async function FilmRoomPage() {
   }).filter((p) => p.principles.length > 0);
 
   return (
-    <main className={`${utPageCanvas} ${utPageInnerFilm}`}>
+    <main className={utPageCanvas}>
+      <div className={utPageInnerFilm}>
       <header className="mb-12">
         <h1 className={utPageTitle}>Film Room</h1>
         <p className={`mt-2 max-w-2xl ${utBody}`}>Optional film study. Never required.</p>
@@ -187,6 +190,7 @@ export default async function FilmRoomPage() {
             </div>
           </section>
         ))}
+      </div>
       </div>
     </main>
   );

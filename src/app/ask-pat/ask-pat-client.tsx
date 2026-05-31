@@ -50,7 +50,8 @@ export default function AskPatClient({ isSubscribed }: Props) {
   // ======================================================
   if (!isSubscribed) {
     return (
-      <main className={`${utPageCanvas} ${utPageInnerAskPat} space-y-8`}>
+      <main className={utPageCanvas}>
+        <div className={`${utPageInnerAskPat} space-y-8`}>
         <section>
           <h1 className={`${utHeroTitle} mb-4`}>Ask Pat</h1>
 
@@ -68,6 +69,7 @@ export default function AskPatClient({ isSubscribed }: Props) {
             Daily text accountability on your commitment. Cancel anytime before your trial ends.
           </div>
         </section>
+        </div>
       </main>
     );
   }
@@ -124,7 +126,8 @@ export default function AskPatClient({ isSubscribed }: Props) {
   }
 
   return (
-    <main className={`${utPageCanvas} ${utPageInnerAskPat} space-y-10`}>
+    <main className={utPageCanvas}>
+      <div className={`${utPageInnerAskPat} space-y-10`}>
       <header className="space-y-3">
         <h1 className={utHeroTitle}>Ask Pat</h1>
         <p className={`${utBody} max-w-2xl`}>
@@ -166,6 +169,7 @@ export default function AskPatClient({ isSubscribed }: Props) {
           <AskPatFeedback dayNumber={null} />
         </section>
       ) : null}
+      </div>
     </main>
   );
 }
