@@ -96,7 +96,15 @@ export function VictoryShareCardPreview({ snippet, onClose }: VictoryShareCardPr
         </div>
 
         <div className="px-4 py-4 sm:px-5">
-          <div ref={captureRef} data-victory-card-capture>
+          <div
+            ref={captureRef}
+            data-victory-card-capture
+            style={{
+              backgroundColor: "#04060c",
+              padding: "12px 0 4px",
+              borderRadius: 12,
+            }}
+          >
             <VictoryCardShareLayout snippet={snippet} />
           </div>
         </div>

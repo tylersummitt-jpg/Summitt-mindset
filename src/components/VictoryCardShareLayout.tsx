@@ -1,6 +1,10 @@
 import type { CSSProperties } from "react";
 import {
   getVictoryCardShareTone,
+  normalizeVictoryCardLine,
+  VICTORY_CARD_ASPECT_RATIO,
+  VICTORY_CARD_BASE_WIDTH_PX,
+  VICTORY_CARD_SHARE_FONTS,
   VICTORY_CARD_SHARE_TEXT,
 } from "@/lib/victory-card-share-tone";
 import type { VictoryShareSnippet } from "@/lib/v2-victory-share-snippet";
@@ -12,70 +16,213 @@ type VictoryCardShareLayoutProps = {
 const pillBase: CSSProperties = {
   display: "inline-block",
   borderRadius: 9999,
-  padding: "4px 12px",
-  fontSize: 12,
+  padding: "6px 14px",
+  fontSize: 11,
   fontWeight: 600,
-  letterSpacing: "0.12em",
+  letterSpacing: "0.14em",
   textTransform: "uppercase",
+  fontFamily: VICTORY_CARD_SHARE_FONTS.sans,
 };
 
-/** Victory Card layout for modal preview and PNG capture (html2canvas-safe colors only). */
+/** Portrait 4:5 Victory Card — modal preview and html2canvas capture (export-safe colors only). */
 export function VictoryCardShareLayout({ snippet }: VictoryCardShareLayoutProps) {
   const tone = getVictoryCardShareTone(snippet.categoryLabel);
   const quoteLine = snippet.quote?.trim() || null;
+  const meaningLine = snippet.meaning.trim();
+  const meaningDiffersFromQuote =
+    !quoteLine || normalizeVictoryCardLine(quoteLine) !== normalizeVictoryCardLine(meaningLine);
+  const showMeaningBelow = quoteLine ? meaningDiffersFromQuote : false;
+  const heroText = quoteLine || meaningLine;
+
+  const cardHeight = Math.round(VICTORY_CARD_BASE_WIDTH_PX / VICTORY_CARD_ASPECT_RATIO);
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl px-5 py-5 sm:px-6 sm:py-6"
       style={{
-        borderWidth: 1,
-        borderStyle: "solid",
-        borderColor: tone.cardBorder,
+        position: "relative",
+        width: "100%",
+        maxWidth: VICTORY_CARD_BASE_WIDTH_PX,
+        margin: "0 auto",
+        aspectRatio: `${4} / ${5}`,
+        minHeight: cardHeight,
+        boxSizing: "border-box",
+        overflow: "hidden",
+        borderRadius: 20,
+        border: `1px solid ${tone.cardBorder}`,
         background: tone.cardBackground,
-        boxShadow: tone.cardShadow,
+        boxShadow: tone.cardInnerGlow,
+        display: "flex",
+        flexDirection: "column",
+        padding: "32px 28px 28px",
+        fontFamily: VICTORY_CARD_SHARE_FONTS.sans,
       }}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-3 left-0 w-[2px] rounded-full"
-        style={{ backgroundColor: tone.accentBar }}
+        style={{
+          pointerEvents: "none",
+          position: "absolute",
+          top: -48,
+          right: -48,
+          width: 180,
+          height: 180,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${tone.cornerHalo} 0%, transparent 68%)`,
+        }}
       />
-      <div className="relative flex flex-wrap items-center justify-between gap-2">
-        <p style={{ ...pillBase, color: tone.pillText, border: `1px solid ${tone.pillBorder}`, backgroundColor: tone.pillBackground }}>
-          {snippet.categoryLabel}
+      <div
+        aria-hidden
+        style={{
+          pointerEvents: "none",
+          position: "absolute",
+          bottom: 0,
+          left: 28,
+          right: 28,
+          height: 1,
+          background: `linear-gradient(90deg, transparent 0%, ${tone.accentLine} 18%, ${tone.accentLine} 82%, transparent 100%)`,
+        }}
+      />
+
+      <header style={{ position: "relative", flexShrink: 0 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.28em",
+            textTransform: "uppercase",
+            color: VICTORY_CARD_SHARE_TEXT.eyebrow,
+          }}
+        >
+          Summitt Mindset · Victory Card
         </p>
-        {snippet.dateLabel ? (
-          <p
-            className="text-xs font-semibold uppercase"
-            style={{ letterSpacing: "0.14em", color: VICTORY_CARD_SHARE_TEXT.date }}
+        <div
+          style={{
+            marginTop: 20,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <span
+            style={{
+              ...pillBase,
+              color: tone.pillText,
+              border: `1px solid ${tone.pillBorder}`,
+              backgroundColor: tone.pillBackground,
+            }}
           >
-            {snippet.dateLabel}
+            {snippet.categoryLabel}
+          </span>
+          {snippet.dateLabel ? (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: VICTORY_CARD_SHARE_TEXT.date,
+              }}
+            >
+              {snippet.dateLabel}
+            </span>
+          ) : null}
+        </div>
+      </header>
+
+      <section
+        style={{
+          position: "relative",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          paddingTop: 28,
+          paddingBottom: 28,
+          minHeight: 0,
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontFamily: VICTORY_CARD_SHARE_FONTS.serif,
+            fontSize: quoteLine ? 26 : 28,
+            fontWeight: 500,
+            lineHeight: 1.32,
+            letterSpacing: "-0.02em",
+            color: VICTORY_CARD_SHARE_TEXT.hero,
+          }}
+        >
+          {quoteLine ? (
+            <>
+              <span style={{ color: "rgba(252, 211, 77, 0.75)" }}>&ldquo;</span>
+              {heroText}
+              <span style={{ color: "rgba(252, 211, 77, 0.75)" }}>&rdquo;</span>
+            </>
+          ) : (
+            heroText
+          )}
+        </p>
+        {showMeaningBelow ? (
+          <p
+            style={{
+              margin: "20px 0 0",
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: VICTORY_CARD_SHARE_TEXT.meaning,
+            }}
+          >
+            {meaningLine}
           </p>
         ) : null}
-      </div>
-      <div className="my-4 border-t" style={{ borderColor: tone.divider }} />
-      {quoteLine ? (
-        <p className="text-lg leading-relaxed sm:text-xl sm:leading-relaxed" style={{ color: VICTORY_CARD_SHARE_TEXT.quote }}>
-          &ldquo;{quoteLine}&rdquo;
-        </p>
-      ) : null}
-      <p
-        className={`text-base leading-relaxed sm:text-[17px] sm:leading-relaxed${quoteLine ? " mt-3" : " text-lg sm:text-xl sm:leading-relaxed"}`}
-        style={{ color: quoteLine ? VICTORY_CARD_SHARE_TEXT.meaning : VICTORY_CARD_SHARE_TEXT.meaningPrimary }}
-      >
-        {snippet.meaning}
-      </p>
-      <div className="mt-6 border-t pt-4" style={{ borderColor: tone.divider }}>
-        <p className="text-sm font-semibold" style={{ color: VICTORY_CARD_SHARE_TEXT.brand }}>
-          {snippet.brandLine} · {snippet.brandUrl}
+      </section>
+
+      <footer style={{ position: "relative", flexShrink: 0, paddingTop: 8 }}>
+        <div
+          aria-hidden
+          style={{
+            height: 1,
+            marginBottom: 20,
+            background: `linear-gradient(90deg, transparent, ${tone.accentLine}, transparent)`,
+          }}
+        />
+        <p
+          style={{
+            margin: 0,
+            fontFamily: VICTORY_CARD_SHARE_FONTS.serif,
+            fontSize: 18,
+            fontWeight: 600,
+            letterSpacing: "-0.01em",
+            color: VICTORY_CARD_SHARE_TEXT.brand,
+          }}
+        >
+          {snippet.brandLine}
         </p>
         <p
-          className="mt-1 text-xs font-semibold uppercase"
-          style={{ letterSpacing: "0.12em", color: VICTORY_CARD_SHARE_TEXT.tagline }}
+          style={{
+            margin: "6px 0 0",
+            fontSize: 13,
+            letterSpacing: "0.06em",
+            color: VICTORY_CARD_SHARE_TEXT.brandMuted,
+          }}
+        >
+          {snippet.brandUrl}
+        </p>
+        <p
+          style={{
+            margin: "14px 0 0",
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: VICTORY_CARD_SHARE_TEXT.tagline,
+          }}
         >
           {snippet.tagline}
         </p>
-      </div>
+      </footer>
     </div>
   );
 }

@@ -6,6 +6,7 @@ vi.mock("html2canvas", () => ({
   default: (...args: unknown[]) => html2canvasMock(...args),
 }));
 
+import { VICTORY_CARD_BASE_WIDTH_PX } from "@/lib/victory-card-share-tone";
 import {
   downloadVictoryProofPng,
   getVictoryCardCaptureUnsafeFlags,
@@ -102,7 +103,8 @@ describe("downloadVictoryProofPng", () => {
 
     const [target, options] = html2canvasMock.mock.calls[0] as [HTMLElement, Record<string, unknown>];
     expect(target).toBe(node);
-    expect(options.backgroundColor).toBe("#0a0e16");
+    expect(options.backgroundColor).toBe("#04060c");
+    expect(options.scale).toBeGreaterThanOrEqual(VICTORY_PROOF_EXPORT_WIDTH / VICTORY_CARD_BASE_WIDTH_PX);
     expect(options.useCORS).toBe(true);
     expect(options.scale).toBeGreaterThanOrEqual(2);
     expect(options.scale).toBeLessThanOrEqual(4);

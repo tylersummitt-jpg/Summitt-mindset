@@ -41,7 +41,8 @@ describe("VictoryShareCardPreview", () => {
     expect(html).not.toContain("identity_anchor");
     expect(html).toContain("data-victory-card-capture");
     expect(html).not.toContain("victory-proof-export-root");
-    expect(html).not.toContain("opacity:0");
+    expect(html).toContain("background-color:#04060c");
+    expect(html).toContain("aspect-ratio:4 / 5");
     expect(html).not.toContain("text-sky-");
     expect(html).not.toContain("border-emerald-");
     expect(html).not.toContain("bg-gradient-to-br");

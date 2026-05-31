@@ -27,7 +27,7 @@ describe("victory-card-share-tone", () => {
         expect(value.toLowerCase()).not.toContain("oklch");
         expect(value.toLowerCase()).not.toContain("color-mix");
       }
-      expect(isExportSafeBoxShadow(tone.cardShadow), `${label} shadow`).toBe(true);
+      expect(isExportSafeBoxShadow(tone.cardInnerGlow), `${label} glow`).toBe(true);
     }
   });
 

@@ -2,6 +2,8 @@
  * Client-only PNG export for Victory Card share. Captures a visible DOM node via html2canvas.
  */
 
+import { VICTORY_CARD_BASE_WIDTH_PX } from "@/lib/victory-card-share-tone";
+
 export const VICTORY_PROOF_EXPORT_WIDTH = 1080;
 export const VICTORY_PROOF_EXPORT_HEIGHT = 1350;
 
@@ -62,15 +64,16 @@ export async function downloadVictoryProofPng(
   try {
     const html2canvas = (await import("html2canvas")).default;
     const width = node.offsetWidth || node.clientWidth;
+    const targetScale = VICTORY_PROOF_EXPORT_WIDTH / VICTORY_CARD_BASE_WIDTH_PX;
     const scale =
       width > 0
-        ? Math.min(4, Math.max(2, VICTORY_PROOF_EXPORT_WIDTH / width))
-        : 2;
+        ? Math.min(4, Math.max(targetScale, VICTORY_PROOF_EXPORT_WIDTH / width))
+        : targetScale;
 
     const canvas = await html2canvas(node, {
       useCORS: true,
       scale,
-      backgroundColor: "#0a0e16",
+      backgroundColor: "#04060c",
       logging: false,
     });
 
