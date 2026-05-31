@@ -403,6 +403,22 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(userPromptJson).not.toMatch(/"can_say_saved_as_proof":\s*true/);
   });
 
+  it("handles null conversation_brain in legacy_suggestions_summary", () => {
+    const facts = minimalInboundFacts({
+      legacy_suggestions: {
+        ...minimalInboundFacts().legacy_suggestions,
+        conversation_brain: null,
+      },
+    });
+
+    const { packet } = buildRelationshipPacketForOpenAI({ lane: "inbound", sourceFacts: facts });
+
+    expect(packet.lower_authority_background).toBeDefined();
+    expect(packet.lower_authority_background?.data.legacy_suggestions_summary).toMatch(
+      /conversation_brain_enabled":false/
+    );
+  });
+
   it("user prompt contains no hard-coded final SMS copy", () => {
     const { userPromptJson } = buildRelationshipPacketForOpenAI({
       lane: "daily",

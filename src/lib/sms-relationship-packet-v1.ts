@@ -557,11 +557,12 @@ function buildMemory30dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMem
 }
 
 function buildLowerAuthorityInbound(f: InboundV3RelationshipFacts): RelationshipPacketLowerAuthorityBackground {
+  const conversationBrain = f.legacy_suggestions.conversation_brain ?? null;
   return {
     relationship_profile_summary: f.user.relationship_profile_summary,
     legacy_suggestions_summary: truncateText(
       JSON.stringify({
-        conversation_brain_enabled: f.legacy_suggestions.conversation_brain.enabled,
+        conversation_brain_enabled: conversationBrain?.enabled ?? false,
         forced_future_stretch: f.legacy_suggestions.forced_future_stretch_intent_active,
       }),
       320
