@@ -4,6 +4,12 @@
  */
 
 import { looksLikeReportedCompletion } from "@/lib/pending-plan-proof";
+import {
+  buildRepairRelationshipSnapshotV1,
+  DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS,
+  serializeRepairSnapshotForOpenAI,
+  trimRepairSnapshotToBudget,
+} from "@/lib/sms-relationship-repair-snapshot-v1";
 import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 
 export type ThreadFreshnessTemporalFrame = "today" | "tomorrow" | "unclear";
@@ -386,12 +392,29 @@ export async function applyThreadFreshnessGuard(args: {
     return { outcome: "ok", body: original, metadata: baseMeta() };
   }
 
+  const blockedReasons = [`thread_freshness_${violation.reason}`];
+  const builtSnapshot = buildRepairRelationshipSnapshotV1({
+    repairKind: "thread_freshness",
+    routeKind: args.routeKind,
+    routePurpose: args.routePurpose,
+    blockedBody: original,
+    blockedReasons,
+    laneFacts: args.factsJson,
+    freshness: args.freshness,
+    freshnessViolation: violation,
+  });
+  const { snapshot: repairSnapshot, truncated: snapshotTruncated } = trimRepairSnapshotToBudget(
+    builtSnapshot,
+    DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS
+  );
+  const { meta: snapshotMeta } = serializeRepairSnapshotForOpenAI(repairSnapshot);
+
   const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
     routeKind: args.routeKind,
     routePurpose: args.routePurpose,
     originalBody: original,
-    blockedReasons: [`thread_freshness_${violation.reason}`],
-    factsJson: args.factsJson,
+    blockedReasons,
+    repairSnapshot,
     systemInstruction: buildThreadFreshnessRepairInstruction({
       violation,
       freshness: args.freshness,
@@ -408,6 +431,8 @@ export async function applyThreadFreshnessGuard(args: {
         thread_freshness_violation_reason: violation.reason,
         thread_freshness_repair_attempted: true,
         thread_freshness_repair_succeeded: false,
+        ...snapshotMeta,
+        repair_snapshot_truncated: snapshotTruncated || snapshotMeta.repair_snapshot_truncated,
       }),
     };
   }
@@ -425,6 +450,8 @@ export async function applyThreadFreshnessGuard(args: {
         thread_freshness_repair_succeeded: false,
         thread_freshness_repaired_body_preview:
           repaired.length > 220 ? `${repaired.slice(0, 219)}…` : repaired,
+        ...snapshotMeta,
+        repair_snapshot_truncated: snapshotTruncated || snapshotMeta.repair_snapshot_truncated,
       }),
     };
   }
@@ -439,6 +466,8 @@ export async function applyThreadFreshnessGuard(args: {
       thread_freshness_repair_succeeded: true,
       thread_freshness_repaired_body_preview:
         repaired.length > 220 ? `${repaired.slice(0, 219)}…` : repaired,
+      ...snapshotMeta,
+      repair_snapshot_truncated: snapshotTruncated || snapshotMeta.repair_snapshot_truncated,
     }),
   };
 }

@@ -368,12 +368,18 @@ export function partitionFinalVoiceBlockedReasons(reasons: string[]): {
   return { repairable, hard };
 }
 
+import {
+  buildRepairSnapshotPromptGuidance,
+  type RepairRelationshipSnapshotV1,
+} from "@/lib/sms-relationship-repair-snapshot-v1";
+
 export type RepairV3RelationshipLaneBodyArgs = {
   routeKind: "daily" | "inbound" | "weekly";
   routePurpose: string;
   originalBody: string;
   blockedReasons: string[];
-  factsJson: unknown;
+  factsJson?: unknown;
+  repairSnapshot?: RepairRelationshipSnapshotV1 | null;
   systemInstruction?: string;
   memoryRepeatRepairContext?: MemoryRepeatRepairContext | null;
   forcedRepairStrategy?: SmsMemoryRepeatRepairStrategy | null;
@@ -408,19 +414,25 @@ export async function repairV3RelationshipLaneBodyWithOpenAI(
   const client = getOpenAIClientOrNull();
   if (!client) return null;
 
-  let factsSnippet: string;
-  try {
-    const raw = JSON.stringify(args.factsJson ?? null);
-    const maxLen = args.memoryRepeatRepairContext ? 2000 : 9000;
-    factsSnippet = raw.length > maxLen ? `${raw.slice(0, maxLen - 1)}…` : raw;
-  } catch {
-    factsSnippet = "(facts_json_unserializable)";
+  const usesRepairSnapshot = args.repairSnapshot != null;
+
+  let factsSnippet: string | null = null;
+  if (!usesRepairSnapshot) {
+    try {
+      const raw = JSON.stringify(args.factsJson ?? null);
+      const maxLen = args.memoryRepeatRepairContext ? 2000 : 9000;
+      factsSnippet = raw.length > maxLen ? `${raw.slice(0, maxLen - 1)}…` : raw;
+    } catch {
+      factsSnippet = "(facts_json_unserializable)";
+    }
   }
 
   const memoryRepeatRepair = args.blockedReasons.some(
     (r) => r === "memory_repeat_question" || /\bmemory_repeat\b/i.test(r)
   );
-  const strictMemoryRepeatRepair = memoryRepeatRepair && args.memoryRepeatRepairContext != null;
+  const strictMemoryRepeatRepair =
+    memoryRepeatRepair &&
+    (args.memoryRepeatRepairContext != null || args.repairSnapshot?.memory_repeat != null);
   const preserveMeaningRule = memoryRepeatRepair
     ? "- Preserve the same facts, current goal, and accountability purpose, but change the coaching move so this is not the same question frame; do not paraphrase the blocked question."
     : "- Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.";
@@ -450,9 +462,15 @@ ${strictStrategyRule}
 - Never use the phrase "let me know how it went" or close variants.
 - One short SMS suitable for Twilio; no newlines in body.`;
 
-  const system = args.systemInstruction?.trim()
-    ? `${baseSystem}\n\nADDITIONAL_INSTRUCTIONS:\n${args.systemInstruction.trim()}`
-    : baseSystem;
+  const repairSnapshotGuidance = usesRepairSnapshot ? buildRepairSnapshotPromptGuidance() : "";
+
+  const system = [
+    baseSystem,
+    repairSnapshotGuidance.trim() || null,
+    args.systemInstruction?.trim() ? `ADDITIONAL_INSTRUCTIONS:\n${args.systemInstruction.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const userContentParts = [
     `route_kind: ${args.routeKind}`,
@@ -461,17 +479,24 @@ ${strictStrategyRule}
     `original_candidate_sms: ${args.originalBody}`,
   ];
 
-  if (args.memoryRepeatRepairContext) {
+  if (usesRepairSnapshot) {
     userContentParts.push(
-      "MEMORY_REPEAT_REPAIR_CONTEXT_JSON:",
-      JSON.stringify(args.memoryRepeatRepairContext)
+      "REPAIR_RELATIONSHIP_SNAPSHOT_V1:",
+      JSON.stringify(args.repairSnapshot)
+    );
+  } else {
+    if (args.memoryRepeatRepairContext) {
+      userContentParts.push(
+        "MEMORY_REPEAT_REPAIR_CONTEXT_JSON:",
+        JSON.stringify(args.memoryRepeatRepairContext)
+      );
+    }
+
+    userContentParts.push(
+      "OPTIONAL_ACCOUNTABILITY_FACTS_JSON (secondary context only; do not paste as user-visible labels):",
+      factsSnippet ?? "(facts_json_unserializable)"
     );
   }
-
-  userContentParts.push(
-    "OPTIONAL_ACCOUNTABILITY_FACTS_JSON (secondary context only; do not paste as user-visible labels):",
-    factsSnippet
-  );
 
   const userContent = userContentParts.join("\n");
 
@@ -519,6 +544,13 @@ ${strictStrategyRule}
         lane_repair_used_strategy: used_strategy,
         repeat_repair_strategy: strictMemoryRepeatRepair ? used_strategy : undefined,
         lane_repair_safety_notes: sn,
+        repair_snapshot_used: usesRepairSnapshot,
+        ...(usesRepairSnapshot
+          ? {
+              repair_snapshot_version: args.repairSnapshot!.repair_snapshot_version,
+              repair_snapshot_kind: args.repairSnapshot!.repair_kind,
+            }
+          : {}),
       },
     };
   } catch (e) {

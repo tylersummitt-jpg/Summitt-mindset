@@ -516,7 +516,9 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
     });
 
     expect(repairMock).toHaveBeenCalledTimes(1);
-    expect(repairMock.mock.calls[0]?.[0]?.memoryRepeatRepairContext).toBeTruthy();
+    expect(repairMock.mock.calls[0]?.[0]?.repairSnapshot).toBeTruthy();
+    expect(repairMock.mock.calls[0]?.[0]?.memoryRepeatRepairContext).toBeUndefined();
+    expect(repairMock.mock.calls[0]?.[0]?.factsJson).toBeUndefined();
     expect(repairMock.mock.calls[0]?.[0]?.forcedRepairStrategy).toBeTruthy();
     expect(r.outcome).toBe("ok");
     expect(r.metadata.repeat_repair_system).toBe(SMS_MEMORY_REPEAT_REPAIR_SYSTEM);
@@ -720,6 +722,11 @@ describe("fresh_angle_v2 repeat repair", () => {
     });
 
     expect(repairMock).toHaveBeenCalledTimes(2);
+    expect(repairMock.mock.calls[0]?.[0]?.repairSnapshot?.repair_kind).toBe("memory_repeat");
+    expect(repairMock.mock.calls[1]?.[0]?.repairSnapshot?.repair_kind).toBe("memory_repeat");
+    expect(repairMock.mock.calls[1]?.[0]?.repairSnapshot?.violation.forced_repair_strategy).toBe(
+      "barrier_check"
+    );
     const secondInstruction = repairMock.mock.calls[1]?.[0]?.systemInstruction as string;
     expect(secondInstruction).toMatch(/Overlapping tokens|still matched prior phrase|First repair body/i);
     expect(r.outcome).toBe("ok");

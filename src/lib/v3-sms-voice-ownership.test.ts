@@ -693,26 +693,32 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
     repairCreateMock.mockResolvedValueOnce({
       choices: [{ message: { content: JSON.stringify({ body: "Protected, partial, or missed?" }) } }],
     });
+    const repairSnapshot = {
+      repair_snapshot_version: "1.0" as const,
+      repair_kind: "memory_repeat" as const,
+      violation: {
+        blocked_reasons: ["memory_repeat_question"],
+        blocked_body: "What nurturing action can you take today?",
+      },
+      current_turn: { route_purpose: "main_active_accountability" },
+      structured_recent_truth: {},
+      recent_exact_thread_excerpt: { window_hours: 72 as const, messages: [], message_count: 0 },
+      canonical_state_min: { route_purpose: "main_active_accountability" },
+      memory_repeat: {
+        prior_outbound_full_body: null,
+        recommended_repair_strategy: "binary_truth_check",
+        forbidden_coaching_frames: [],
+        forbidden_content_tokens: [],
+        strategy_examples: ["Protected, partial, or missed?"],
+      },
+    };
     const r = await repairV3RelationshipLaneBodyWithOpenAI({
       routeKind: "daily",
       routePurpose: "main_active_accountability",
       originalBody: "What nurturing action can you take today?",
       blockedReasons: ["memory_repeat_question"],
-      factsJson: {},
-      memoryRepeatRepairContext: {
-        prior_outbound_full_body: null,
-        blocked_candidate_body: "What nurturing action can you take today?",
-        repeated_question: "What nurturing action can you take?",
-        repeated_phrases: [],
-        latest_user_answer: null,
-        accountability_purpose: "Self-care",
-        suggested_coaching_move: null,
-        repeat_violation_reason: "repeated_recent_question",
-        recommended_repair_strategy: "binary_truth_check",
-        forbidden_coaching_frames: ["What nurturing action can you take?"],
-        forbidden_content_tokens: ["nurturing", "kindness", "action"],
-        strategy_examples: ["Protected, partial, or missed?"],
-      },
+      repairSnapshot,
+      forcedRepairStrategy: "binary_truth_check",
     });
     expect(r).toBeNull();
   });
@@ -730,32 +736,37 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
         },
       ],
     });
-    const r = await repairV3RelationshipLaneBodyWithOpenAI({
-      routeKind: "daily",
-      routePurpose: "main_active_accountability",
-      originalBody: "What nurturing action can you take today?",
-      blockedReasons: ["memory_repeat_question"],
-      factsJson: {},
-      forcedRepairStrategy: "binary_truth_check",
-      memoryRepeatRepairContext: {
+    const repairSnapshot = {
+      repair_snapshot_version: "1.0" as const,
+      repair_kind: "memory_repeat" as const,
+      violation: {
+        blocked_reasons: ["memory_repeat_question"],
+        blocked_body: "What nurturing action can you take today?",
+      },
+      current_turn: { route_purpose: "main_active_accountability" },
+      structured_recent_truth: {},
+      recent_exact_thread_excerpt: { window_hours: 72 as const, messages: [], message_count: 0 },
+      canonical_state_min: { route_purpose: "main_active_accountability" },
+      memory_repeat: {
         prior_outbound_full_body: null,
-        blocked_candidate_body: "What nurturing action can you take today?",
-        repeated_question: "What nurturing action can you take?",
-        repeated_phrases: [],
-        latest_user_answer: null,
-        accountability_purpose: "Self-care",
-        suggested_coaching_move: null,
-        repeat_violation_reason: "repeated_recent_question",
         recommended_repair_strategy: "binary_truth_check",
         forbidden_coaching_frames: [],
         forbidden_content_tokens: [],
         strategy_examples: ["Protected, partial, or missed?"],
       },
+    };
+    const r = await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      originalBody: "What nurturing action can you take today?",
+      blockedReasons: ["memory_repeat_question"],
+      forcedRepairStrategy: "binary_truth_check",
+      repairSnapshot,
     });
     expect(r).toBeNull();
   });
 
-  it("accepts valid strict enum repair and includes structured context in user payload", async () => {
+  it("accepts valid strict enum repair and includes repair snapshot in user payload", async () => {
     repairCreateMock.mockResolvedValueOnce({
       choices: [
         {
@@ -768,32 +779,68 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
         },
       ],
     });
-    const ctx = {
-      prior_outbound_full_body: "Enjoy your hike!",
-      blocked_candidate_body: "How did your hike go?",
-      repeated_question: "Enjoy your hike!",
-      repeated_phrases: ["Enjoy your hike!"],
-      latest_user_answer: null,
-      accountability_purpose: "Hike weekly",
-      suggested_coaching_move: null,
-      repeat_violation_reason: "repeated_recent_question",
-      recommended_repair_strategy: "binary_truth_check" as const,
-      forbidden_coaching_frames: ["How did your hike go?"],
-      forbidden_content_tokens: ["hike", "mountains"],
-      strategy_examples: ["Protected, partial, or missed?"],
+    const repairSnapshot = {
+      repair_snapshot_version: "1.0" as const,
+      repair_kind: "memory_repeat" as const,
+      violation: {
+        blocked_reasons: ["memory_repeat_question"],
+        blocked_body: "How did your hike go?",
+        repeated_question: "Enjoy your hike!",
+      },
+      current_turn: { route_purpose: "main_active_accountability" },
+      structured_recent_truth: {},
+      recent_exact_thread_excerpt: { window_hours: 72 as const, messages: [], message_count: 0 },
+      canonical_state_min: {
+        behavior_statement: "Hike weekly",
+        route_purpose: "main_active_accountability",
+      },
+      memory_repeat: {
+        prior_outbound_full_body: "Enjoy your hike!",
+        recommended_repair_strategy: "binary_truth_check" as const,
+        forbidden_coaching_frames: ["How did your hike go?"],
+        forbidden_content_tokens: ["hike", "mountains"],
+        strategy_examples: ["Protected, partial, or missed?"],
+      },
     };
     const r = await repairV3RelationshipLaneBodyWithOpenAI({
       routeKind: "daily",
       routePurpose: "main_active_accountability",
       originalBody: "How did your hike go?",
       blockedReasons: ["memory_repeat_question"],
-      factsJson: { commitment: { behavior_statement: "Hike weekly" } },
-      memoryRepeatRepairContext: ctx,
+      repairSnapshot,
+      forcedRepairStrategy: "binary_truth_check",
     });
     expect(r?.body).toMatch(/Protected, partial, or missed/i);
     expect(r?.metadata.repeat_repair_strategy).toBe("binary_truth_check");
     const userMessage = repairCreateMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
-    expect(userMessage).toMatch(/MEMORY_REPEAT_REPAIR_CONTEXT_JSON/);
+    expect(userMessage).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+    expect(userMessage).not.toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
+    expect(userMessage).not.toMatch(/MEMORY_REPEAT_REPAIR_CONTEXT_JSON/);
     expect(userMessage).toMatch(/Enjoy your hike/);
+  });
+
+  it("preserves factsJson path when repairSnapshot is absent", async () => {
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              body: "Shorter coaching SMS.",
+              used_strategy: "lane_compress",
+            }),
+          },
+        },
+      ],
+    });
+    await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "inbound",
+      routePurpose: "v2_accountability",
+      originalBody: "Too long coaching SMS with extra filler.",
+      blockedReasons: ["too_long"],
+      factsJson: { commitment: { behavior_statement: "Daily bar" } },
+    });
+    const userMessage = repairCreateMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMessage).toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
+    expect(userMessage).not.toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
   });
 });

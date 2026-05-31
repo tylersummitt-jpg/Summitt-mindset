@@ -13,6 +13,13 @@ import {
 } from "@/lib/sms-memory-repeat-repair-types";
 import { isClosePriorPlanLoopOutcomeQuestion } from "@/lib/timing-anchor-memory";
 import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
+import {
+  buildRepairRelationshipSnapshotV1,
+  DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS,
+  repairSnapshotSupportedForRouteKind,
+  serializeRepairSnapshotForOpenAI,
+  trimRepairSnapshotToBudget,
+} from "@/lib/sms-relationship-repair-snapshot-v1";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
@@ -1071,16 +1078,55 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
       attempt2Feedback,
     });
 
-    const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
-      routeKind: args.routeKind === "weekly" ? "weekly" : args.routeKind,
-      routePurpose: args.routePurpose,
-      originalBody: original,
-      blockedReasons: ["memory_repeat_question"],
-      factsJson: args.factsJson,
-      systemInstruction: extraRepair ? `${repairInstruction}\n${extraRepair}` : repairInstruction,
-      memoryRepeatRepairContext: repairContext,
-      forcedRepairStrategy: forcedStrategy,
-    });
+    const useRepairSnapshot = repairSnapshotSupportedForRouteKind(args.routeKind);
+
+    let repairSnapshotMeta: Record<string, unknown> = {};
+    let repairCallArgs: Parameters<typeof repairV3RelationshipLaneBodyWithOpenAI>[0];
+
+    if (useRepairSnapshot) {
+      const builtSnapshot = buildRepairRelationshipSnapshotV1({
+        repairKind: "memory_repeat",
+        routeKind: args.routeKind as "inbound" | "daily",
+        routePurpose: args.routePurpose,
+        blockedBody: original,
+        blockedReasons: ["memory_repeat_question"],
+        laneFacts: args.factsJson,
+        memoryRepeatContext: repairContext,
+        forcedRepairStrategy: forcedStrategy,
+        overlapTokens: attempt2Feedback?.overlapTokens,
+      });
+      const { snapshot: repairSnapshot, truncated: snapshotTruncated } = trimRepairSnapshotToBudget(
+        builtSnapshot,
+        DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS
+      );
+      const { meta: snapshotMeta } = serializeRepairSnapshotForOpenAI(repairSnapshot);
+      repairSnapshotMeta = {
+        ...snapshotMeta,
+        repair_snapshot_truncated: snapshotTruncated || snapshotMeta.repair_snapshot_truncated,
+      };
+      repairCallArgs = {
+        routeKind: args.routeKind as "inbound" | "daily",
+        routePurpose: args.routePurpose,
+        originalBody: original,
+        blockedReasons: ["memory_repeat_question"],
+        repairSnapshot,
+        systemInstruction: extraRepair ? `${repairInstruction}\n${extraRepair}` : repairInstruction,
+        forcedRepairStrategy: forcedStrategy,
+      };
+    } else {
+      repairCallArgs = {
+        routeKind: args.routeKind === "weekly" ? "weekly" : args.routeKind,
+        routePurpose: args.routePurpose,
+        originalBody: original,
+        blockedReasons: ["memory_repeat_question"],
+        factsJson: args.factsJson,
+        systemInstruction: extraRepair ? `${repairInstruction}\n${extraRepair}` : repairInstruction,
+        memoryRepeatRepairContext: repairContext,
+        forcedRepairStrategy: forcedStrategy,
+      };
+    }
+
+    const repairOut = await repairV3RelationshipLaneBodyWithOpenAI(repairCallArgs);
 
     if (!repairOut?.body?.trim()) {
       lastFailedReason = "repair_failed";
@@ -1090,7 +1136,7 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
 
     const repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
     lastRepairedPreview = repaired.length > 220 ? `${repaired.slice(0, 219)}…` : repaired;
-    lastRepairMetadata = repairOut.metadata;
+    lastRepairMetadata = { ...repairOut.metadata, ...repairSnapshotMeta };
     winningStrategy =
       typeof repairOut.metadata.lane_repair_used_strategy === "string"
         ? repairOut.metadata.lane_repair_used_strategy

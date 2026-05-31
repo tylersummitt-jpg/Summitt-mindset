@@ -183,6 +183,8 @@ describe("applyThreadFreshnessGuard", () => {
     });
 
     expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(repairMock.mock.calls[0]?.[0]?.repairSnapshot?.repair_kind).toBe("thread_freshness");
+    expect(repairMock.mock.calls[0]?.[0]?.factsJson).toBeUndefined();
     expect(r.outcome).toBe("ok");
     expect(r.body).toBe(repaired);
     expect(r.metadata.thread_freshness_repair_succeeded).toBe(true);
@@ -206,6 +208,8 @@ describe("applyThreadFreshnessGuard", () => {
     });
 
     expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(repairMock.mock.calls[0]?.[0]?.repairSnapshot?.repair_kind).toBe("thread_freshness");
+    expect(repairMock.mock.calls[0]?.[0]?.factsJson).toBeUndefined();
     expect(r.outcome).toBe("ok");
     expect(r.body).toBe(repaired);
     expect(r.metadata.thread_freshness_repair_succeeded).toBe(true);
@@ -228,6 +232,8 @@ describe("applyThreadFreshnessGuard", () => {
       enabled: true,
     });
 
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(repairMock.mock.calls[0]?.[0]?.repairSnapshot?.repair_kind).toBe("thread_freshness");
     expect(r.outcome).toBe("no_send");
     expect(r.noSendReason).toBe("thread_freshness_stale_blocked");
     expect(r.metadata.thread_freshness_repair_succeeded).toBe(false);
