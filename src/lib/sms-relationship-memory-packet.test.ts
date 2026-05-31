@@ -4,6 +4,8 @@ const supabaseFrom = vi.hoisted(() => vi.fn());
 const getRecentV2EventsForAi = vi.hoisted(() => vi.fn());
 const loadV2CoachingMemoryForPrompt = vi.hoisted(() => vi.fn());
 const loadV2CommitmentSmsThreadMemory = vi.hoisted(() => vi.fn());
+const fetchEventsForRelationshipProfile = vi.hoisted(() => vi.fn());
+const loadSmsVictoryBackgroundContext = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: supabaseFrom },
@@ -26,6 +28,22 @@ vi.mock("@/lib/v2-commitment-sms-thread-memory", async (importOriginal) => {
   return {
     ...actual,
     loadV2CommitmentSmsThreadMemory,
+  };
+});
+
+vi.mock("@/lib/v2-sms-relationship-profile", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/v2-sms-relationship-profile")>();
+  return {
+    ...actual,
+    fetchEventsForRelationshipProfile,
+  };
+});
+
+vi.mock("@/lib/sms-victory-background-context", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/sms-victory-background-context")>();
+  return {
+    ...actual,
+    loadSmsVictoryBackgroundContext,
   };
 });
 
@@ -87,6 +105,12 @@ describe("buildSmsRelationshipMemoryPacket", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getRecentV2EventsForAi.mockResolvedValue([]);
+    fetchEventsForRelationshipProfile.mockResolvedValue([]);
+    loadSmsVictoryBackgroundContext.mockResolvedValue({
+      activeSeason: null,
+      patRead: null,
+      patPrinciples: null,
+    });
     loadV2CoachingMemoryForPrompt.mockResolvedValue(null);
     loadV2CommitmentSmsThreadMemory.mockResolvedValue(null);
   });
@@ -127,6 +151,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
     expect(packet.recent_exact_messages.some((m) => m.speaker === "coach" && m.is_exact_body)).toBe(true);
     expect(packet.recent_exact_thread_72h.window_hours).toBe(72);
     expect(packet.relationship_memory_7d.window_days).toBe(7);
+    expect(packet.relationship_memory_30d.window_days).toBe(30);
   });
 
   it("prefers full sms_send_events.sms_body over check_sent body_preview", async () => {
@@ -498,6 +523,30 @@ function makeRbMemoryPacket(): SmsRelationshipMemoryPacket {
       open_loops: [],
       direct_answer_history: [],
       context_flags: {},
+      meta: { item_count: 0, sources_used: [] },
+    },
+    relationship_memory_30d: {
+      window_days: 30,
+      built_at: NOW.toISOString(),
+      commitment_id: "cmt_mem",
+      season: null,
+      outcome_counts_30d: {
+        yes: 0,
+        no: 0,
+        partial: 0,
+        blockers: 0,
+        checks_sent: 0,
+        overlay_activated: 0,
+        overlay_declined: 0,
+        reactivation_yes: 0,
+      },
+      recurring_blockers: [],
+      meaningful_proof: [],
+      adjustments: [],
+      goal_changes: [],
+      comebacks: [],
+      voice_preferences: null,
+      pat_read_snapshot: [],
       meta: { item_count: 0, sources_used: [] },
     },
     last_outbound_full_body: "What story will you dictate today?",

@@ -54,6 +54,7 @@ import {
 } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
+import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
 import {
   buildRelationshipPacketForOpenAI,
   buildRelationshipPacketPromptGuidance,
@@ -160,6 +161,7 @@ export type DailyV3RelationshipFacts = {
     recent_exact_thread_text?: string | null;
     recent_exact_thread_72h?: RecentExactThread72hResult;
     relationship_memory_7d?: RelationshipMemory7dResult;
+    relationship_memory_30d?: RelationshipMemory30dResult;
     last_outbound_full_body?: string | null;
     last_inbound_full_body?: string | null;
     last_5_coach_questions?: string[];

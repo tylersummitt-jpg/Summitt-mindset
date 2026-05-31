@@ -18,6 +18,10 @@ import {
   RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
   type RelationshipMemory7dResult,
 } from "@/lib/sms-relationship-memory-7d";
+import {
+  RELATIONSHIP_MEMORY_30D_WINDOW_DAYS,
+  type RelationshipMemory30dResult,
+} from "@/lib/sms-relationship-memory-30d";
 
 function make72hMessage(
   partial: Partial<RecentExactThread72hMessage> & Pick<RecentExactThread72hMessage, "role" | "body">
@@ -93,6 +97,75 @@ function makeSampleMemory7d(overrides?: Partial<RelationshipMemory7dResult>): Re
   };
 }
 
+function makeSampleMemory30d(overrides?: Partial<RelationshipMemory30dResult>): RelationshipMemory30dResult {
+  return {
+    window_days: RELATIONSHIP_MEMORY_30D_WINDOW_DAYS,
+    built_at: "2026-05-18T12:00:00.000Z",
+    commitment_id: "cmt_pkt",
+    season: {
+      label: "Spring Focus",
+      started_at: "2026-01-01T00:00:00Z",
+      source: "user_accountability_season",
+    },
+    outcome_counts_30d: {
+      yes: 8,
+      no: 3,
+      partial: 1,
+      blockers: 2,
+      checks_sent: 12,
+      overlay_activated: 1,
+      overlay_declined: 0,
+      reactivation_yes: 0,
+    },
+    recurring_blockers: [
+      {
+        canonical: "phone_pull",
+        evidence_count: 2,
+        examples: [
+          {
+            evidence: "scrolling on phone",
+            at: "2026-05-17T10:00:00.000Z",
+            source: "v2_commitment_event:blocker_captured:phone_pull",
+            message_sid: null,
+            commitment_id: "cmt_pkt",
+            is_exact_body: true,
+          },
+        ],
+        last_seen_at: "2026-05-18T10:00:00.000Z",
+        confidence: "low",
+        commitment_id: "cmt_pkt",
+      },
+    ],
+    meaningful_proof: [
+      {
+        summary: "first clear yes on this bar",
+        proof_type: "first_completion",
+        evidence: "first clear yes on this bar",
+        at: "2026-05-10T10:00:00.000Z",
+        source: "v2_commitment_event:proof_moment:user_yes",
+        message_sid: null,
+        commitment_id: "cmt_pkt",
+        is_exact_body: false,
+      },
+    ],
+    adjustments: [],
+    goal_changes: [],
+    comebacks: [],
+    voice_preferences: null,
+    pat_read_snapshot: [
+      {
+        field: "pattern",
+        text: "Evening drift",
+        source: "v2_victory_pat_read_snapshot",
+        is_ai_snapshot: true,
+        commitment_id: "cmt_pkt",
+      },
+    ],
+    meta: { item_count: 3, sources_used: ["v2_commitment_event"] },
+    ...overrides,
+  };
+}
+
 function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): InboundV3RelationshipFacts {
   const thread72h = makeThread72h([
     make72hMessage({
@@ -151,6 +224,7 @@ function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): I
         recent_exact_thread_text: "Coach: Stretch at lunch?\nUser: did that at lunch",
         recent_exact_thread_72h: thread72h,
         relationship_memory_7d: makeSampleMemory7d(),
+        relationship_memory_30d: makeSampleMemory30d(),
         recent_exact_message_count: 2,
         last_outbound_full_body: null,
         last_inbound_full_body: null,
@@ -236,6 +310,7 @@ function minimalDailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): Daily
       recent_exact_thread_text: "Coach: How did yesterday land?\nUser: Rough start",
       recent_exact_thread_72h: thread72h,
       relationship_memory_7d: makeSampleMemory7d(),
+      relationship_memory_30d: makeSampleMemory30d(),
     },
     accountability: {
       daily_purpose: "standard_accountability_check",
@@ -290,8 +365,9 @@ describe("buildRelationshipPacketForOpenAI", () => {
     });
 
     expect(packet.relationship_packet_version).toBe(RELATIONSHIP_PACKET_VERSION);
-    expect(RELATIONSHIP_PACKET_VERSION).toBe("1.7");
+    expect(RELATIONSHIP_PACKET_VERSION).toBe("1.8");
     expect(packet.relationship_memory_7d?.data.window_days).toBe(7);
+    expect(packet.relationship_memory_30d_or_season?.data.window_days).toBe(30);
     expect(packet.recent_exact_thread_72h?.data.messages.some((m) => /did that at lunch/i.test(m.body))).toBe(
       true
     );
@@ -301,9 +377,44 @@ describe("buildRelationshipPacketForOpenAI", () => {
     );
     expect(userPromptJson).toContain("recent_exact_thread_72h");
     expect(userPromptJson).toContain("relationship_memory_7d");
+    expect(userPromptJson).toContain("relationship_memory_30d_or_season");
+    expect(userPromptJson).not.toContain("coaching_summary");
     expect(userPromptJson.length).toBeLessThanOrEqual(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
     expect(meta.included_thread_window_hours).toBe(72);
     expect(meta.included_memory_7d_window_days).toBe(7);
+    expect(meta.included_memory_30d_window_days).toBe(30);
+  });
+
+  it("inbound and daily share the same relationship_memory_30d_or_season shape", () => {
+    const memory30d = makeSampleMemory30d();
+    const inbound = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: minimalInboundFacts({
+        thread: {
+          ...minimalInboundFacts().thread,
+          memory_packet: {
+            ...minimalInboundFacts().thread.memory_packet!,
+            relationship_memory_30d: memory30d,
+          },
+        },
+      }),
+    });
+    const daily = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts({
+        thread_memory: {
+          ...minimalDailyFacts().thread_memory,
+          relationship_memory_30d: memory30d,
+        },
+      }),
+    });
+
+    expect(inbound.packet.relationship_memory_30d_or_season?.data.window_days).toBe(30);
+    expect(daily.packet.relationship_memory_30d_or_season?.data.window_days).toBe(30);
+    expect(inbound.packet.relationship_memory_30d_or_season?.data.outcome_counts_30d).toEqual(
+      daily.packet.relationship_memory_30d_or_season?.data.outcome_counts_30d
+    );
+    expect(daily.packet.relationship_memory_30d_or_season?.data.runtime_hints?.evolution_pattern_hint).toBeNull();
   });
 
   it("inbound and daily share the same relationship_memory_7d shape", () => {
@@ -338,6 +449,66 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(daily.packet.relationship_memory_7d?.data.context_flags.reentry_active).toBe(false);
   });
 
+  it("trims relationship_memory_30d before relationship_memory_7d and recent_exact_thread_72h", () => {
+    const hugeMemory30d = makeSampleMemory30d({
+      recurring_blockers: Array.from({ length: 4 }, (_, i) => ({
+        canonical: "phone_pull",
+        evidence_count: 4,
+        examples: [
+          {
+            evidence: hugePad(`blocker_${i}`, 200),
+            at: new Date(Date.parse("2026-05-18T10:00:00.000Z") - i * 60_000).toISOString(),
+            source: "v2_commitment_event:blocker_captured:phone_pull",
+            message_sid: null,
+            commitment_id: "cmt_pkt",
+            is_exact_body: false,
+          },
+        ],
+        last_seen_at: "2026-05-18T10:00:00.000Z",
+        confidence: "high" as const,
+        commitment_id: "cmt_pkt",
+      })),
+      meta: { item_count: 4, sources_used: ["v2_commitment_event"] },
+    });
+
+    const messages = [
+      make72hMessage({
+        role: "user",
+        body: "RECENT_THREAD_MARKER keep-me",
+        at: "2026-05-18T11:59:00.000Z",
+      }),
+    ];
+
+    const facts = minimalInboundFacts({
+      thread: {
+        ...minimalInboundFacts().thread,
+        memory_packet: {
+          ...minimalInboundFacts().thread.memory_packet!,
+          relationship_memory_30d: hugeMemory30d,
+          relationship_memory_7d: makeSampleMemory7d(),
+          recent_exact_thread_72h: makeThread72h(messages),
+        },
+      },
+    });
+
+    const { packet, meta } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: facts,
+      totalCharBudget: 3500,
+    });
+
+    expect(
+      packet.recent_exact_thread_72h?.data.messages.some((m) => m.body.includes("RECENT_THREAD_MARKER"))
+    ).toBe(true);
+    expect(meta.truncated_sections).toEqual(expect.arrayContaining(["relationship_memory_30d_or_season"]));
+    const mem30Index = meta.truncated_sections.indexOf("relationship_memory_30d_or_season");
+    const mem7Index = meta.truncated_sections.indexOf("relationship_memory_7d");
+    const threadIndex = meta.truncated_sections.indexOf("recent_exact_thread_72h");
+    expect(mem30Index).toBeGreaterThanOrEqual(0);
+    if (mem7Index >= 0) expect(mem30Index).toBeLessThan(mem7Index);
+    if (threadIndex >= 0 && mem7Index >= 0) expect(mem7Index).toBeLessThan(threadIndex);
+  });
+
   it("trims relationship_memory_7d before recent_exact_thread_72h under budget pressure", () => {
     const hugeMemory7d = makeSampleMemory7d({
       wins: Array.from({ length: 8 }, (_, i) => ({
@@ -365,15 +536,9 @@ describe("buildRelationshipPacketForOpenAI", () => {
         memory_packet: {
           ...minimalInboundFacts().thread.memory_packet!,
           relationship_memory_7d: hugeMemory7d,
+          relationship_memory_30d: makeSampleMemory30d(),
           recent_exact_thread_72h: makeThread72h(messages),
         },
-      },
-      victory_background: {
-        active_season_label: "Season Trim",
-        active_season_started_at: null,
-        pat_read_strength: hugePad("30d", 4000),
-        pat_read_pattern: hugePad("30d_pat", 4000),
-        pat_read_next_move: hugePad("30d_move", 4000),
       },
     });
 
@@ -467,17 +632,21 @@ describe("buildRelationshipPacketForOpenAI", () => {
         ...minimalInboundFacts().user,
         relationship_profile_summary: hugePad("low_auth", 5000),
       },
-      victory_background: {
-        active_season_label: "Season Beta",
-        active_season_started_at: null,
-        pat_read_strength: hugePad("30d", 4000),
-        pat_read_pattern: hugePad("30d_pat", 4000),
-        pat_read_next_move: hugePad("30d_move", 4000),
-      },
       thread: {
         ...minimalInboundFacts().thread,
         memory_packet: {
           ...minimalInboundFacts().thread.memory_packet!,
+          relationship_memory_30d: makeSampleMemory30d({
+            pat_read_snapshot: [
+              {
+                field: "strength",
+                text: hugePad("30d_strength", 4000),
+                source: "v2_victory_pat_read_snapshot",
+                is_ai_snapshot: true,
+                commitment_id: "cmt_pkt",
+              },
+            ],
+          }),
           recent_exact_thread_72h: makeThread72h(messages),
         },
       },
@@ -579,6 +748,9 @@ describe("buildRelationshipPacketPromptGuidance", () => {
     expect(guidance).toContain("RELATIONSHIP_PACKET_AUTHORITY");
     expect(guidance).toContain("recent_exact_thread_72h");
     expect(guidance).toContain("relationship_memory_7d");
+    expect(guidance).toContain("relationship_memory_30d_or_season");
+    expect(guidance).toContain("relationship_memory_7d beats relationship_memory_30d_or_season");
     expect(guidance).toContain("continuity only");
+    expect(guidance).toContain("is_ai_snapshot");
   });
 });

@@ -60,6 +60,8 @@ const RELATIONSHIP_EVENT_TYPES = [
   "contract_overlay_declined",
   "coaching_refresh_prompted",
   "coaching_refresh_resolved",
+  /** Wave 9+/12 — living memory + commitment-change proof metadata (excluded from outcome counters). */
+  "sms_memory_signal",
 ] as const;
 
 const RELATIONSHIP_MAX_EVENTS = 500;

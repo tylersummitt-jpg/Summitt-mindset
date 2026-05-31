@@ -33,6 +33,7 @@ import {
   produceDailyV3RelationshipSms,
 } from "@/lib/v3-daily-relationship-lane";
 import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
+import { RELATIONSHIP_MEMORY_30D_WINDOW_DAYS } from "@/lib/sms-relationship-memory-30d";
 
 function countSubstringOccurrences(haystack: string, needle: string): number {
   if (!needle) return 0;
@@ -377,7 +378,7 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.daily_v3_lane_used).toBe(true);
     expect(r.metadata.old_daily_writer_used_as_voice).toBe(false);
-    expect(r.metadata.relationship_packet_version).toBe("1.7");
+    expect(r.metadata.relationship_packet_version).toBe("1.8");
     expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
   });
 
@@ -1849,7 +1850,7 @@ describe("daily V3 victory_background", () => {
     expect(systemMsg).toMatch(/do not invent/i);
   });
 
-  it("passes victory_background.pat_principles in relationship packet when present", async () => {
+  it("passes structured relationship_memory_30d pat_read_snapshot when memory packet present", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
@@ -1870,10 +1871,45 @@ describe("daily V3 victory_background", () => {
 
     await produceDailyV3RelationshipSms({
       facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          relationship_memory_30d: {
+            window_days: RELATIONSHIP_MEMORY_30D_WINDOW_DAYS,
+            built_at: "2026-05-18T12:00:00.000Z",
+            commitment_id: "cmt_1",
+            season: null,
+            outcome_counts_30d: {
+              yes: 0,
+              no: 0,
+              partial: 0,
+              blockers: 0,
+              checks_sent: 0,
+              overlay_activated: 0,
+              overlay_declined: 0,
+              reactivation_yes: 0,
+            },
+            recurring_blockers: [],
+            meaningful_proof: [],
+            adjustments: [],
+            goal_changes: [],
+            comebacks: [],
+            voice_preferences: null,
+            pat_read_snapshot: [
+              {
+                field: "strength",
+                text: "Discipline Yourself",
+                source: "v2_victory_pat_read_snapshot",
+                is_ai_snapshot: true,
+                commitment_id: "cmt_1",
+              },
+            ],
+            meta: { item_count: 1, sources_used: ["v2_victory_pat_read_snapshot"] },
+          },
+        },
         victory_background: {
           active_season_label: null,
           active_season_started_at: null,
-          pat_read_strength: null,
+          pat_read_strength: "Discipline Yourself",
           pat_read_pattern: null,
           pat_read_next_move: null,
           pat_principles: {
@@ -1890,8 +1926,10 @@ describe("daily V3 victory_background", () => {
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
       (m: { role: string }) => m.role === "user"
     )?.content as string;
-    expect(userMsg).toContain("pat_principles");
+    expect(userMsg).toContain("relationship_memory_30d_or_season");
+    expect(userMsg).toContain("pat_read_snapshot");
     expect(userMsg).toContain("Discipline Yourself");
+    expect(userMsg).not.toContain("pat_principles");
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
       (m: { role: string }) => m.role === "system"
     )?.content as string;

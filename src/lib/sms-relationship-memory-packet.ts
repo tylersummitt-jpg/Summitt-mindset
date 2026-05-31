@@ -21,8 +21,18 @@ import {
   buildRelationshipMemory7d,
   type RelationshipMemory7dResult,
 } from "@/lib/sms-relationship-memory-7d";
+import {
+  buildRelationshipMemory30d,
+  type RelationshipMemory30dResult,
+} from "@/lib/sms-relationship-memory-30d";
+import { fetchEventsForRelationshipProfile } from "@/lib/v2-sms-relationship-profile";
+import {
+  loadSmsVictoryBackgroundContext,
+  mapSmsVictoryBackgroundToFacts,
+} from "@/lib/sms-victory-background-context";
 
 export type { RelationshipMemory7dData, RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
+export type { RelationshipMemory30dData, RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
 
 export type SmsThreadMemoryProjectionSource = "projection" | "runtime_guess" | "none";
 
@@ -108,6 +118,7 @@ export type SmsRelationshipMemoryPacket = {
   recent_exact_thread_text: string;
   recent_exact_thread_72h: RecentExactThread72hResult;
   relationship_memory_7d: RelationshipMemory7dResult;
+  relationship_memory_30d: RelationshipMemory30dResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_substantive_user_message: string | null;
@@ -255,6 +266,7 @@ export type SlimSmsRelationshipMemoryPacketForFacts = {
   recent_exact_message_count: number;
   recent_exact_thread_72h: RecentExactThread72hResult;
   relationship_memory_7d: RelationshipMemory7dResult;
+  relationship_memory_30d: RelationshipMemory30dResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_substantive_user_message: string | null;
@@ -283,6 +295,7 @@ export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): S
     recent_exact_message_count: packet.recent_exact_messages.length,
     recent_exact_thread_72h: packet.recent_exact_thread_72h,
     relationship_memory_7d: packet.relationship_memory_7d,
+    relationship_memory_30d: packet.relationship_memory_30d,
     last_outbound_full_body: packet.last_outbound_full_body,
     last_inbound_full_body: packet.last_inbound_full_body,
     last_substantive_user_message: packet.last_substantive_user_message,
@@ -333,6 +346,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
   recent_exact_thread_text: string;
   recent_exact_thread_72h: RecentExactThread72hResult;
   relationship_memory_7d: RelationshipMemory7dResult;
+  relationship_memory_30d: RelationshipMemory30dResult;
   last_outbound_full_body: string | null;
   last_inbound_full_body: string | null;
   last_5_coach_questions: string[];
@@ -371,6 +385,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
     recent_exact_thread_text: packet.recent_exact_thread_text,
     recent_exact_thread_72h: packet.recent_exact_thread_72h,
     relationship_memory_7d: packet.relationship_memory_7d,
+    relationship_memory_30d: packet.relationship_memory_30d,
     last_outbound_full_body: packet.last_outbound_full_body,
     last_inbound_full_body: packet.last_inbound_full_body,
     last_5_coach_questions: packet.last_5_coach_questions.map((q) => q.text),
@@ -463,6 +478,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
 
   let commitment: ActiveV2CommitmentRow | null = null;
   let events: V2EventRowForAi[] = [];
+  let events30d: V2EventRowForAi[] = [];
   let coachingMemory: V2CoachingMemoryForPrompt | null = null;
 
   if (args.commitmentId) {
@@ -473,6 +489,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
       .maybeSingle();
     if (cRow) commitment = cRow as ActiveV2CommitmentRow;
     events = await getRecentV2EventsForAi(args.commitmentId);
+    events30d = await fetchEventsForRelationshipProfile(args.commitmentId);
     coachingMemory = await loadV2CoachingMemoryForPrompt(args.commitmentId);
   }
 
@@ -703,6 +720,33 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     preloadedProjection: projection,
   });
 
+  const commitmentIdFor30d = args.commitmentId ?? commitment?.id ?? "unknown";
+  let victoryBackgroundFacts = null;
+  if (args.commitmentId) {
+    try {
+      victoryBackgroundFacts = mapSmsVictoryBackgroundToFacts(
+        await loadSmsVictoryBackgroundContext({
+          clerkUserId: args.clerkUserId,
+          commitmentId: args.commitmentId,
+          timezone: args.timezone,
+        })
+      );
+    } catch {
+      victoryBackgroundFacts = null;
+    }
+  }
+
+  const relationship_memory_30d = buildRelationshipMemory30d({
+    commitmentId: commitmentIdFor30d,
+    now,
+    timezone: args.timezone,
+    preloadedEvents30d: events30d,
+    coachingMemory,
+    victoryBackground: victoryBackgroundFacts,
+    reactivationEnteredAt: commitment?.reactivation_entered_at ?? null,
+    accountabilityPhase: commitment?.accountability_phase ?? coachingMemory?.accountability_phase ?? null,
+  });
+
   return {
     clerk_user_id: args.clerkUserId,
     commitment_id: args.commitmentId ?? commitment?.id ?? null,
@@ -719,6 +763,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     recent_exact_thread_text,
     recent_exact_thread_72h,
     relationship_memory_7d,
+    relationship_memory_30d,
     last_outbound_full_body,
     last_inbound_full_body,
     last_substantive_user_message,

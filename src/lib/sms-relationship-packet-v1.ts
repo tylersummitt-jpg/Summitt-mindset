@@ -1,5 +1,5 @@
 /**
- * Relationship Packet v1.7 — ordered, budgeted OpenAI context with 72h exact thread + 7d memory.
+ * Relationship Packet v1.8 — ordered, budgeted OpenAI context with 72h thread + 7d + 30d memory.
  * Server-owned packing only; no DB writes, no hard-coded SMS.
  */
 
@@ -15,8 +15,15 @@ import {
   trimRelationshipMemory7dData,
   type RelationshipMemory7dData,
 } from "@/lib/sms-relationship-memory-7d";
+import {
+  countRelationshipMemory30dItems,
+  DEFAULT_MEMORY_30D_SECTION_CHAR_BUDGET,
+  RELATIONSHIP_MEMORY_30D_WINDOW_DAYS,
+  trimRelationshipMemory30dData,
+  type RelationshipMemory30dData,
+} from "@/lib/sms-relationship-memory-30d";
 
-export const RELATIONSHIP_PACKET_VERSION = "1.7" as const;
+export const RELATIONSHIP_PACKET_VERSION = "1.8" as const;
 export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_000;
 
 export type RelationshipPacketLane = "inbound" | "daily";
@@ -132,22 +139,7 @@ export type RelationshipPacketProofVictoryPermission = {
 
 export type RelationshipPacketMemory7d = RelationshipMemory7dData;
 
-export type RelationshipPacketMemory30dOrSeason = {
-  coaching_memory_excerpt?: string | null;
-  recent_pattern_hints?: string | null;
-  pat_read_strength?: string | null;
-  pat_read_pattern?: string | null;
-  pat_read_next_move?: string | null;
-  pat_principles?: {
-    focus_next_title?: string | null;
-    focus_next_text?: string | null;
-    living_well_title?: string | null;
-    living_well_text?: string | null;
-  } | null;
-  pattern_signal_hint?: string | null;
-  goal_adjustment_hint?: string | null;
-  evolution_pattern_hint?: string | null;
-};
+export type RelationshipPacketMemory30dOrSeason = RelationshipMemory30dData;
 
 export type RelationshipPacketLowerAuthorityBackground = {
   relationship_profile_summary?: string | null;
@@ -181,6 +173,9 @@ export type RelationshipPacketMeta = {
   included_memory_7d_window_days: number | null;
   included_memory_7d_item_count: number | null;
   relationship_memory_7d_truncated: boolean;
+  included_memory_30d_window_days: number | null;
+  included_memory_30d_item_count: number | null;
+  relationship_memory_30d_truncated: boolean;
   total_chars: number;
   budget_chars: number;
 };
@@ -196,8 +191,11 @@ export function buildRelationshipPacketPromptGuidance(): string {
 RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats stale summaries):
 - authoritative_current and structured_recent_truth beat background_summary and low_authority_hint on conflict.
 - authoritative_recent_thread (recent_exact_thread_72h) beats relationship_memory_7d and relationship_memory_30d_or_season on conflict.
+- relationship_memory_7d beats relationship_memory_30d_or_season on conflict.
 - relationship_memory_7d is structured_background for weekly continuity only — never proof of today's completion or current open question state.
-- Never invent patterns beyond listed relationship_memory_7d evidence items.
+- relationship_memory_30d_or_season is background_summary for season-arc context only — never proof of today's completion or current open question state.
+- Never invent patterns beyond listed relationship_memory_7d or relationship_memory_30d_or_season evidence items.
+- pat_read_snapshot entries are AI snapshots (is_ai_snapshot: true) and must lose to exact SMS thread and event-backed memory.
 - background_summary and low_authority_hint must NEVER override recent exact thread or canonical_state.
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
@@ -512,46 +510,31 @@ function resolveMemory7dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMe
   };
 }
 
-function buildMemory30dInbound(f: InboundV3RelationshipFacts): RelationshipPacketMemory30dOrSeason {
-  const pp = f.victory_background?.pat_principles;
+function resolveMemory30dInbound(f: InboundV3RelationshipFacts): RelationshipPacketMemory30dOrSeason | null {
+  const raw = f.thread.memory_packet?.relationship_memory_30d;
+  if (!raw) return null;
+  const { meta: _meta, ...data } = raw;
+  void _meta;
   return {
-    pat_read_strength: f.victory_background?.pat_read_strength ?? null,
-    pat_read_pattern: f.victory_background?.pat_read_pattern ?? null,
-    pat_read_next_move: f.victory_background?.pat_read_next_move ?? null,
-    pat_principles: pp
-      ? {
-          focus_next_title: pp.focus_next_title ?? null,
-          focus_next_text: pp.focus_next_text ?? null,
-          living_well_title: pp.living_well_title ?? null,
-          living_well_text: pp.living_well_text ?? null,
-        }
-      : null,
-    pattern_signal_hint: f.v2_accountability.pattern_internal_hint ?? null,
-    goal_adjustment_hint: f.v2_accountability.goal_adjustment_internal_hint ?? null,
+    ...data,
+    runtime_hints: {
+      pattern_internal_hint: f.v2_accountability.pattern_internal_hint ?? null,
+      goal_adjustment_internal_hint: f.v2_accountability.goal_adjustment_internal_hint ?? null,
+    },
   };
 }
 
-function buildMemory30dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMemory30dOrSeason {
-  const snippet = f.thread_memory.coaching_memory_snippet?.trim();
-  const pp = f.victory_background?.pat_principles;
+function resolveMemory30dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMemory30dOrSeason | null {
+  const raw = f.thread_memory.relationship_memory_30d;
+  if (!raw) return null;
+  const { meta: _meta, ...data } = raw;
+  void _meta;
   return {
-    coaching_memory_excerpt: snippet ? truncateText(snippet, 400) : null,
-    recent_pattern_hints: f.thread_memory.recent_pattern_hints
-      ? truncateText(f.thread_memory.recent_pattern_hints, 480)
-      : null,
-    pat_read_strength: f.victory_background?.pat_read_strength ?? null,
-    pat_read_pattern: f.victory_background?.pat_read_pattern ?? null,
-    pat_read_next_move: f.victory_background?.pat_read_next_move ?? null,
-    pat_principles: pp
-      ? {
-          focus_next_title: pp.focus_next_title ?? null,
-          focus_next_text: pp.focus_next_text ?? null,
-          living_well_title: pp.living_well_title ?? null,
-          living_well_text: pp.living_well_text ?? null,
-        }
-      : null,
-    goal_adjustment_hint: f.accountability.goal_adjustment_internal_hint ?? null,
-    evolution_pattern_hint: f.accountability.evolution_pattern_hint,
+    ...data,
+    runtime_hints: {
+      goal_adjustment_internal_hint: f.accountability.goal_adjustment_internal_hint ?? null,
+      evolution_pattern_hint: f.accountability.evolution_pattern_hint ?? null,
+    },
   };
 }
 
@@ -644,12 +627,13 @@ function trimLowerAuthority(
 function trimMemory30d(
   section: RelationshipPacketSection<RelationshipPacketMemory30dOrSeason> | undefined,
   maxChars: number
-): RelationshipPacketSection<RelationshipPacketMemory30dOrSeason> | undefined {
-  if (!section) return undefined;
-  const data = { ...section.data };
-  if (data.coaching_memory_excerpt) data.coaching_memory_excerpt = truncateText(data.coaching_memory_excerpt, maxChars);
-  if (data.recent_pattern_hints) data.recent_pattern_hints = truncateText(data.recent_pattern_hints, maxChars);
-  return { authority: section.authority, data };
+): { section: RelationshipPacketSection<RelationshipPacketMemory30dOrSeason> | undefined; truncated: boolean } {
+  if (!section) return { section: undefined, truncated: false };
+  const { data, truncated } = trimRelationshipMemory30dData(section.data, maxChars);
+  return {
+    section: { authority: section.authority, data },
+    truncated,
+  };
 }
 
 function trimMemory7d(
@@ -706,6 +690,7 @@ export function buildRelationshipPacketForOpenAI(args: {
   const budget = args.totalCharBudget ?? DEFAULT_RELATIONSHIP_PACKET_BUDGET;
   const truncatedSections: string[] = [];
   let memory7dTruncated = false;
+  let memory30dTruncated = false;
 
   let build: MutablePacketBuild;
 
@@ -729,10 +714,12 @@ export function buildRelationshipPacketForOpenAI(args: {
           ? { authority: "structured_background" as const, data }
           : undefined;
       })(),
-      relationship_memory_30d_or_season: {
-        authority: "background_summary",
-        data: buildMemory30dInbound(f),
-      },
+      relationship_memory_30d_or_season: (() => {
+        const data = resolveMemory30dInbound(f);
+        return data
+          ? { authority: "background_summary" as const, data }
+          : undefined;
+      })(),
       lower_authority_background: {
         authority: "low_authority_hint",
         data: buildLowerAuthorityInbound(f),
@@ -758,10 +745,12 @@ export function buildRelationshipPacketForOpenAI(args: {
           ? { authority: "structured_background" as const, data }
           : undefined;
       })(),
-      relationship_memory_30d_or_season: {
-        authority: "background_summary",
-        data: buildMemory30dDaily(f),
-      },
+      relationship_memory_30d_or_season: (() => {
+        const data = resolveMemory30dDaily(f);
+        return data
+          ? { authority: "background_summary" as const, data }
+          : undefined;
+      })(),
       lower_authority_background: {
         authority: "low_authority_hint",
         data: buildLowerAuthorityDaily(f),
@@ -788,12 +777,23 @@ export function buildRelationshipPacketForOpenAI(args: {
         delete build.lower_authority_background;
       }
     } else if (build.relationship_memory_30d_or_season) {
-      build.relationship_memory_30d_or_season = trimMemory30d(build.relationship_memory_30d_or_season, 200);
-      recordTrunc("relationship_memory_30d_or_season");
+      const trimmed = trimMemory30d(
+        build.relationship_memory_30d_or_season,
+        DEFAULT_MEMORY_30D_SECTION_CHAR_BUDGET
+      );
+      if (trimmed.section) {
+        build.relationship_memory_30d_or_season = trimmed.section;
+        if (trimmed.truncated) {
+          memory30dTruncated = true;
+          recordTrunc("relationship_memory_30d_or_season");
+        }
+      }
       packet = serializePacket(build);
       size = measureUserPrompt(packet);
       if (size > budget) {
         delete build.relationship_memory_30d_or_season;
+        memory30dTruncated = true;
+        recordTrunc("relationship_memory_30d_or_season");
       }
     } else if (build.relationship_memory_7d) {
       const trimmed = trimMemory7d(build.relationship_memory_7d, DEFAULT_MEMORY_7D_SECTION_CHAR_BUDGET);
@@ -851,6 +851,7 @@ export function buildRelationshipPacketForOpenAI(args: {
     null;
 
   const memory7dSection = build.relationship_memory_7d?.data;
+  const memory30dSection = build.relationship_memory_30d_or_season?.data;
 
   const meta: RelationshipPacketMeta = {
     relationship_packet_version: RELATIONSHIP_PACKET_VERSION,
@@ -867,6 +868,11 @@ export function buildRelationshipPacketForOpenAI(args: {
     included_memory_7d_window_days: memory7dSection ? RELATIONSHIP_MEMORY_7D_WINDOW_DAYS : null,
     included_memory_7d_item_count: memory7dSection ? countRelationshipMemory7dItems(memory7dSection) : null,
     relationship_memory_7d_truncated: memory7dTruncated,
+    included_memory_30d_window_days: memory30dSection ? RELATIONSHIP_MEMORY_30D_WINDOW_DAYS : null,
+    included_memory_30d_item_count: memory30dSection
+      ? countRelationshipMemory30dItems(memory30dSection)
+      : null,
+    relationship_memory_30d_truncated: memory30dTruncated,
     total_chars: userPromptJson.length,
     budget_chars: budget,
   };
@@ -892,5 +898,8 @@ export function relationshipPacketMetaForLaneTelemetry(
     included_memory_7d_window_days: meta.included_memory_7d_window_days,
     included_memory_7d_item_count: meta.included_memory_7d_item_count,
     relationship_memory_7d_truncated: meta.relationship_memory_7d_truncated,
+    included_memory_30d_window_days: meta.included_memory_30d_window_days,
+    included_memory_30d_item_count: meta.included_memory_30d_item_count,
+    relationship_memory_30d_truncated: meta.relationship_memory_30d_truncated,
   };
 }

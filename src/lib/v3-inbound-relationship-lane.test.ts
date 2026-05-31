@@ -42,6 +42,10 @@ import {
   RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
   type RelationshipMemory7dResult,
 } from "@/lib/sms-relationship-memory-7d";
+import {
+  RELATIONSHIP_MEMORY_30D_WINDOW_DAYS,
+  type RelationshipMemory30dResult,
+} from "@/lib/sms-relationship-memory-30d";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 
@@ -69,6 +73,31 @@ const emptyMemory7d: RelationshipMemory7dResult = {
   meta: { item_count: 0, sources_used: [] },
 };
 
+const emptyMemory30d: RelationshipMemory30dResult = {
+  window_days: RELATIONSHIP_MEMORY_30D_WINDOW_DAYS,
+  built_at: "2026-05-18T12:00:00.000Z",
+  commitment_id: "cmt_test",
+  season: null,
+  outcome_counts_30d: {
+    yes: 0,
+    no: 0,
+    partial: 0,
+    blockers: 0,
+    checks_sent: 0,
+    overlay_activated: 0,
+    overlay_declined: 0,
+    reactivation_yes: 0,
+  },
+  recurring_blockers: [],
+  meaningful_proof: [],
+  adjustments: [],
+  goal_changes: [],
+  comebacks: [],
+  voice_preferences: null,
+  pat_read_snapshot: [],
+  meta: { item_count: 0, sources_used: [] },
+};
+
 function minimalRelationshipMemoryPacket(
   overrides: Partial<SlimSmsRelationshipMemoryPacketForFacts>
 ): SlimSmsRelationshipMemoryPacketForFacts {
@@ -77,6 +106,7 @@ function minimalRelationshipMemoryPacket(
     recent_exact_message_count: 0,
     recent_exact_thread_72h: emptyThread72h,
     relationship_memory_7d: emptyMemory7d,
+    relationship_memory_30d: emptyMemory30d,
     last_outbound_full_body: null,
     last_inbound_full_body: null,
     last_substantive_user_message: null,
@@ -231,7 +261,7 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.openAiOk).toBe(true);
     expect(r.metadata.inbound_v3_lane_used).toBe(true);
     expect(r.metadata.old_inbound_writer_used_as_voice).toBe(false);
-    expect(r.metadata.relationship_packet_version).toBe("1.7");
+    expect(r.metadata.relationship_packet_version).toBe("1.8");
     expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
   });
 
@@ -1038,7 +1068,7 @@ describe("inbound V3 victory_background", () => {
     expect(systemMsg).toMatch(/invitation/i);
   });
 
-  it("produceInboundV3RelationshipSms includes pat_principles in relationship packet when passed", async () => {
+  it("produceInboundV3RelationshipSms includes structured 30d pat_read_snapshot when memory packet present", async () => {
     process.env.OPENAI_API_KEY = "test-key";
     createMock.mockResolvedValue({
       choices: [
@@ -1062,11 +1092,30 @@ describe("inbound V3 victory_background", () => {
 
     await produceInboundV3RelationshipSms({
       facts: baseFacts({
+        thread: {
+          ...baseFacts().thread,
+          memory_packet: {
+            ...minimalRelationshipMemoryPacket({}),
+            recent_exact_thread_text: "Coach: How did it go?\nUser: done",
+            relationship_memory_30d: {
+              ...emptyMemory30d,
+              pat_read_snapshot: [
+                {
+                  field: "pattern",
+                  text: "Work Smart pattern",
+                  source: "v2_victory_pat_read_snapshot",
+                  is_ai_snapshot: true,
+                  commitment_id: "cmt_inbound_lane",
+                },
+              ],
+            },
+          },
+        },
         victory_background: {
           active_season_label: null,
           active_season_started_at: null,
           pat_read_strength: null,
-          pat_read_pattern: null,
+          pat_read_pattern: "Work Smart",
           pat_read_next_move: null,
           pat_principles: {
             focus_next_title: "Work Smart",
@@ -1082,8 +1131,10 @@ describe("inbound V3 victory_background", () => {
     const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
       (m: { role: string }) => m.role === "user"
     )?.content as string;
-    expect(userMsg).toContain("pat_principles");
-    expect(userMsg).toContain("Work Smart");
+    expect(userMsg).toContain("relationship_memory_30d_or_season");
+    expect(userMsg).toContain("pat_read_snapshot");
+    expect(userMsg).toContain("Work Smart pattern");
+    expect(userMsg).not.toContain("pat_principles");
   });
 });
 
