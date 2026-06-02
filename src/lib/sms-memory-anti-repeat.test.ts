@@ -797,6 +797,36 @@ describe("fresh_angle_v2 repeat repair", () => {
     expect(repairBodyMatchesStrategy("Do we need to reset the window?", "reset_question")).toBe(true);
   });
 
+  it("accepts clear completion repair when strategy label mismatches but body is non-repetitive", async () => {
+    const repeatedQ = "Have you started your commitment to take at least 10,000 steps today?";
+    const detectInput = {
+      candidateBody: repeatedQ,
+      lastCoachQuestions: [repeatedQ],
+      latestAnswerText: "I did my 10,000 steps yesterday!",
+      suggestedCoachingMove: "acknowledge_completion",
+      clearCompletionInbound: true,
+      latestInboundText: "I did my 10,000 steps yesterday!",
+    };
+    repairMock.mockResolvedValueOnce({
+      body: "Solid work yesterday — that's real follow-through on the bar. What's one honest move for today?",
+      openAiOk: true,
+      metadata: { lane_repair_used_strategy: "proof_check" },
+    });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "inbound",
+      routePurpose: "normal_inbound_reply",
+      body: repeatedQ,
+      factsJson: {},
+      detectInput,
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(r.outcome).toBe("ok");
+    expect(r.body.toLowerCase()).not.toContain("have you started");
+  });
+
   it("computeRepeatOverlapDiagnostics finds overlapping tokens", () => {
     const prior =
       "Consider what nurturing action you can take today to show yourself kindness.";

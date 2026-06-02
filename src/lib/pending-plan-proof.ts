@@ -60,15 +60,67 @@ export function hasFuturePlanIntentLanguage(text: string): boolean {
   return false;
 }
 
-/** User message reads as reported completion, not a forward plan. */
-export function looksLikeReportedCompletion(text: string): boolean {
+/** Negation, plan, partial, wish, or uncertainty — not relationship completion. */
+export function extractCompletionDisqualifiers(text: string): string[] {
+  const t = text.trim();
+  if (!t) return [];
+  const found: string[] = [];
+  const rules: Array<{ re: RegExp; label: string }> = [
+    { re: /\b(didn'?t|did not|didnt|never|not done|haven'?t|have not)\b/i, label: "negation" },
+    { re: /\b(almost|tried to|attempted to|started to|working on|not finished|partially|halfway)\b/i, label: "partial_attempt" },
+    { re: /\b(made a plan|planned to|plan to|going to|gonna|i'?ll|i will|intend to|want to)\b/i, label: "plan_intent" },
+    { re: /\b(wish i|wished i|thought about|think about|thinking about|considered)\b/i, label: "wish_or_thinking" },
+    { re: /\b(maybe|not sure|i guess|i think)\b/i, label: "uncertainty" },
+    { re: /\?\s*$/i, label: "trailing_question" },
+  ];
+  for (const { re, label } of rules) {
+    if (re.test(t) && !found.includes(label)) found.push(label);
+  }
+  if (/\b(i did|i made)\s+a\s+plan\b/i.test(t) && !found.includes("plan_intent")) {
+    found.push("plan_intent");
+  }
+  return found;
+}
+
+export function inferTemporalScopeFromInbound(text: string): "today" | "yesterday" | "past" | "future" | "unclear" {
+  const t = text.trim().toLowerCase();
+  if (!t) return "unclear";
+  if (/\byesterday\b|\blast night\b|\bthe other day\b/i.test(t)) return "yesterday";
+  if (/\b(last week|last month|earlier|already|before)\b/i.test(t)) return "past";
+  if (/\b(tomorrow|tonight|later|next week)\b/i.test(t) && /\b(will|going to|gonna|'ll|plan)\b/i.test(t)) {
+    return "future";
+  }
+  if (/\bfor today\b|\btoday\b/i.test(t)) return "today";
+  return "unclear";
+}
+
+/**
+ * Hardened relationship completion candidate — not sufficient alone for user_yes persist.
+ * Requires positive completion shape and no disqualifiers.
+ */
+export function isReportedCompletionRelationshipCandidate(text: string): boolean {
   const t = text.trim();
   if (!t || hasFuturePlanIntentLanguage(t)) return false;
+  if (extractCompletionDisqualifiers(t).length > 0) return false;
   if (/\b(i did|i got it done|finished|completed|it happened|done[, ]+yes|yes[, ]+done|made it happen)\b/i.test(t)) {
     return true;
   }
-  if (/^\s*(yes|done|partial)\s*$/i.test(t)) return true;
+  if (/\b(i did|i made|i completed|i finished)\s+(the\s+|my\s+|at\s+least\s+)?[\w',-]+/i.test(t)) {
+    if (/\b(i did|i made)\s+a\s+plan\b/i.test(t)) return false;
+    return true;
+  }
+  if (/\b(i\s+)?got\s+(it\s+)?done\b/i.test(t)) return true;
+  if (/\b(hit my|reached|got my)\s+[\w',-]+\s+(goal|steps|hours|calls)\b/i.test(t)) return true;
+  if (/\b(i got|got)\s+(my\s+)?(two|2|\d+)\s+hours?\s+in\b/i.test(t)) return true;
+  if (/^\s*(yes|done)\s*$/i.test(t)) return true;
+  if (/\b(i\s+)?did\s+the\s+\w+/i.test(t)) return true;
+  if (/\b(i\s+)?did\s+it\b/i.test(t) && !/\b(almost|wish|think)\b/i.test(t)) return true;
   return false;
+}
+
+/** User message reads as reported completion, not a forward plan (shared helper — uses hardened candidate). */
+export function looksLikeReportedCompletion(text: string): boolean {
+  return isReportedCompletionRelationshipCandidate(text);
 }
 
 export function extractAnchorPhraseHint(answer: string): string | null {

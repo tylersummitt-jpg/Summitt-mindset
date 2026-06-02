@@ -9,7 +9,12 @@ import type { V2AccountabilityOutcome } from "@/lib/v2-commitment";
 import type { V2InboundGatedDecision, V2InboundGatedMode } from "@/lib/v2-ai-inbound";
 import type { ProofMomentMeta } from "@/lib/v2-proof-moment";
 import { proofMomentPayloadFields } from "@/lib/v2-proof-moment";
-import { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
+import {
+  buildInboundMeaningFacts,
+  persistenceDecisionToOutcomeEventType,
+  slimInboundMeaningForFacts,
+  type InboundMeaningFacts,
+} from "@/lib/inbound-relationship-meaning";
 import {
   v2UserReplyIdempotencyKey,
   type V2InboundEventType,
@@ -47,7 +52,10 @@ export type InboundOutcomePersistSkipReason =
   | "no_live_accountability_prompt"
   | "lane_excluded"
   | "gated_non_outcome_mode"
-  | "arc_clarify_only";
+  | "arc_clarify_only"
+  | "meaning_ack_only"
+  | "meaning_no_outcome_write"
+  | "meaning_deferred_route";
 
 export type InboundOutcomePersistResult =
   | {
@@ -111,12 +119,14 @@ export type ShouldPersistInboundAccountabilityOutcomeArgs = {
   commitmentId: string;
   rawBody: string;
   classifierEventType: V2InboundEventType;
+  classifierNormalizedHint?: string | null;
   gatedDecision: V2InboundGatedDecision;
   laneExclusion: InboundOutcomePersistLaneExclusion;
   activeReplyContext: Pick<
     V2ActiveReplyContext,
     "has_live_accountability_prompt" | "self_contained_accountability_answer"
   > | null;
+  inboundMeaning?: InboundMeaningFacts | null;
 };
 
 export type ShouldPersistInboundAccountabilityOutcomeResult =
@@ -170,10 +180,40 @@ export function shouldPersistInboundAccountabilityOutcome(
     return { persist: false, skipReason: "gated_non_outcome_mode" };
   }
 
+  const inboundMeaning =
+    args.inboundMeaning ??
+    buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: args.classifierEventType,
+      classifierNormalizedHint: args.classifierNormalizedHint ?? null,
+    });
+
+  const persistence = inboundMeaning.persistence_decision;
+  if (
+    persistence === "defer_to_pending_resolution" ||
+    persistence === "defer_to_contract_consent"
+  ) {
+    return { persist: false, skipReason: "meaning_deferred_route" };
+  }
+  if (persistence === "ack_only") {
+    return { persist: false, skipReason: "meaning_ack_only" };
+  }
+  if (persistence === "no_outcome_write") {
+    return { persist: false, skipReason: "meaning_no_outcome_write" };
+  }
+
+  const meaningEventType = persistenceDecisionToOutcomeEventType(persistence);
+  if (!meaningEventType) {
+    return { persist: false, skipReason: "meaning_no_outcome_write" };
+  }
+
   const livePrompt = args.activeReplyContext?.has_live_accountability_prompt === true;
   const selfContained = args.activeReplyContext?.self_contained_accountability_answer === true;
-  const clearCompletion = isClearAccountabilityCompletionReply(raw);
-  const promptOk = livePrompt || selfContained || clearCompletion;
+  const todayCompletionBypass =
+    persistence === "write_user_yes_today" &&
+    inboundMeaning.relationship_meaning === "reported_completion";
+  const promptOk =
+    livePrompt || selfContained || (persistence === "write_user_yes_today" && todayCompletionBypass);
 
   if (!promptOk) {
     return { persist: false, skipReason: "no_live_accountability_prompt" };
@@ -184,7 +224,7 @@ export function shouldPersistInboundAccountabilityOutcome(
   if (
     !args.gatedDecision.should_write_outcome_event &&
     args.gatedDecision.mode === "clarify" &&
-    !clearCompletion &&
+    persistence !== "write_user_yes_today" &&
     !selfContained
   ) {
     return { persist: false, skipReason: "gated_non_outcome_mode" };
@@ -192,13 +232,16 @@ export function shouldPersistInboundAccountabilityOutcome(
 
   return {
     persist: true,
-    resolvedEventType: resolveInboundAccountabilityOutcomeEventType({
-      classifierEventType: args.classifierEventType,
-      gatedDecision: args.gatedDecision,
-    }),
+    resolvedEventType: meaningEventType,
     liveAccountabilityPromptDetected: livePrompt,
     overrideGatedNoWrite,
   };
+}
+
+export function inboundMeaningPayloadForOutcomePersist(
+  meaning: InboundMeaningFacts
+): Record<string, unknown> {
+  return { inbound_meaning: slimInboundMeaningForFacts(meaning) };
 }
 
 export function logInboundOutcomePersistAttempt(args: {

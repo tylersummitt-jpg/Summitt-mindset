@@ -253,6 +253,75 @@ describe("decideV2InboundOutcomeFromInterpretation — commitment_change_handoff
   });
 });
 
+describe("resolveV2InboundGatedDecision — clear reported completion", () => {
+  it("prefers deterministic user_yes for steps completion even when AI needs clarification", () => {
+    const interpretation: V2InboundShadowInterpretationResult = {
+      ok: true,
+      model: "gpt-4o-mini",
+      data: {
+        version: 1,
+        intent: "accountability_reply",
+        proposed_outcome: "no",
+        confidence: 0.72,
+        needs_clarification: true,
+        clarification_question: "Was that for yesterday or today?",
+        is_repair: false,
+        repair_of: null,
+        user_asks_question: false,
+        suggests_commitment_change: false,
+        blocker_likely: false,
+        discouraged_or_frustrated: false,
+        substitution_counts: false,
+        opt_out_like_but_not_stop: false,
+        reasoning_short: "Timing unclear",
+        suggested_reply: null,
+      },
+    };
+    const d = resolveV2InboundGatedDecision({
+      gatedEnabled: true,
+      interpretation,
+      deterministicEventType: "user_partial",
+      deterministicNormalizedHint: "unclear",
+      rawInboundBody: "I did my 10,000 steps yesterday!",
+    });
+    expect(d.mode).toBe("clarify");
+    expect(d.should_write_outcome_event).toBe(false);
+    expect(d.decision_reason).not.toBe("reported_completion_today_persist");
+  });
+
+  it("does not override contract pending safety routes", () => {
+    const d = decideV2InboundOutcomeFromInterpretation({
+      deterministicEventType: "user_partial",
+      deterministicNormalizedHint: "unclear",
+      rawInboundBody: "I did my 10,000 steps yesterday!",
+      interpretation: {
+        ok: true,
+        model: "gpt-4o-mini",
+        data: {
+          version: 1,
+          intent: "commitment_change_request",
+          proposed_outcome: "partial",
+          confidence: 0.9,
+          needs_clarification: true,
+          clarification_question: null,
+          is_repair: false,
+          repair_of: null,
+          user_asks_question: false,
+          suggests_commitment_change: true,
+          blocker_likely: false,
+          discouraged_or_frustrated: false,
+          substitution_counts: false,
+          opt_out_like_but_not_stop: false,
+          reasoning_short: "Wants new bar",
+          suggested_reply: null,
+        },
+      },
+    });
+    expect(d.mode).toBe("commitment_change_handoff");
+    expect(d.should_write_outcome_event).toBe(false);
+  });
+});
+
 describe("validateAiSuggestedReplyForInbound — ban weak user_yes suggested copy", () => {
   const ctx = {
     finalEventType: "user_yes" as const,

@@ -8,6 +8,8 @@ import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationshi
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { ThreadFreshnessViolation } from "@/lib/sms-thread-freshness";
 import type { MemoryRepeatRepairContext } from "@/lib/sms-memory-repeat-repair-types";
+import type { InboundPriorMemoryRepeatNoSendContext } from "@/lib/inbound-completion-memory-repeat-escalation";
+import { slimInboundMeaningForFacts } from "@/lib/inbound-relationship-meaning";
 
 export const REPAIR_RECENT_THREAD_WINDOW_HOURS = 72 as const;
 
@@ -80,6 +82,7 @@ export type RepairRelationshipSnapshotV1 = {
     projection_used?: boolean | null;
     last_5_coach_questions?: string[];
     last_5_user_answers?: string[];
+    inbound_meaning?: Record<string, unknown> | null;
   };
   recent_exact_thread_excerpt: {
     window_hours: typeof REPAIR_RECENT_THREAD_WINDOW_HOURS;
@@ -118,6 +121,10 @@ export type RepairRelationshipSnapshotV1 = {
     forbidden_coaching_frames: string[];
     forbidden_content_tokens: string[];
     strategy_examples: string[];
+    clear_completion_inbound?: boolean;
+    latest_inbound_text?: string | null;
+    prior_no_send?: InboundPriorMemoryRepeatNoSendContext | null;
+    proof_victory_room_allowed?: boolean;
   };
 };
 
@@ -238,6 +245,7 @@ function buildStructuredRecentTruth(facts: unknown): RepairRelationshipSnapshotV
       projection_used: mp?.projection_used ?? facts.thread.memory_authority?.projection_used ?? null,
       last_5_coach_questions: compactStrings(mp?.last_5_coach_questions, 3),
       last_5_user_answers: compactStrings(mp?.last_5_user_answers, 3),
+      inbound_meaning: slimInboundMeaningForFacts(facts.inbound_meaning),
     };
   }
   if (isDailyFacts(facts)) {
@@ -489,7 +497,32 @@ export function buildRepairRelationshipSnapshotV1(args: {
       forbidden_coaching_frames: args.memoryRepeatContext.forbidden_coaching_frames,
       forbidden_content_tokens: args.memoryRepeatContext.forbidden_content_tokens,
       strategy_examples: args.memoryRepeatContext.strategy_examples,
+      clear_completion_inbound: args.memoryRepeatContext.clear_completion_inbound === true,
+      latest_inbound_text: args.memoryRepeatContext.latest_inbound_text ?? null,
+      prior_no_send: args.memoryRepeatContext.prior_no_send ?? null,
+      proof_victory_room_allowed: args.memoryRepeatContext.proof_victory_room_allowed === true,
     };
+  }
+
+  if (args.repairKind === "thread_freshness" && isInboundFacts(args.laneFacts)) {
+    const escalation = args.laneFacts.memory_repeat_escalation;
+    const inbound = args.laneFacts.thread.coalesced_inbound_text?.trim() ?? "";
+    if (escalation?.escalation_attempt === true) {
+      snapshot.memory_repeat = {
+        prior_outbound_full_body:
+          args.laneFacts.thread.memory_packet?.last_outbound_full_body ??
+          args.laneFacts.thread.latest_outbound_coach_sms ??
+          null,
+        recommended_repair_strategy: "proof_check",
+        forbidden_coaching_frames: [],
+        forbidden_content_tokens: [],
+        strategy_examples: [],
+        clear_completion_inbound: inbound.length > 0,
+        latest_inbound_text: inbound || null,
+        prior_no_send: escalation,
+        proof_victory_room_allowed: false,
+      };
+    }
   }
 
   return snapshot;

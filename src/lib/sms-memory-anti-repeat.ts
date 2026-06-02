@@ -6,6 +6,9 @@ import {
   hasFuturePlanIntentLanguage,
   looksLikeReportedCompletion,
 } from "@/lib/pending-plan-proof";
+import type { InboundPriorMemoryRepeatNoSendContext } from "@/lib/inbound-completion-memory-repeat-escalation";
+import { isInboundReportedCompletionForAntiGhost } from "@/lib/inbound-relationship-meaning";
+import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import {
   type MemoryRepeatRepairContext,
   type SmsMemoryRepeatRepairStrategy,
@@ -21,7 +24,6 @@ import {
   trimRepairSnapshotToBudget,
 } from "@/lib/sms-relationship-repair-snapshot-v1";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
-import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 
 export {
@@ -285,6 +287,9 @@ export function detectSmsMemoryRepeatViolation(args: {
   pendingPlanProofActive?: boolean;
   suggestedCoachingMove?: string | null;
   lastOutboundFullBody?: string | null;
+  clearCompletionInbound?: boolean;
+  latestInboundText?: string | null;
+  priorNoSendContext?: InboundPriorMemoryRepeatNoSendContext | null;
 }): SmsMemoryRepeatViolation {
   const candidate = args.candidateBody.trim();
   if (!candidate) {
@@ -590,7 +595,15 @@ export function inferRecommendedRepeatRepairStrategy(args: {
   suggestedCoachingMove?: string | null;
   repeatedQuestion?: string | null;
   repeatedPhrases?: string[];
+  clearCompletionInbound?: boolean;
 }): SmsMemoryRepeatRepairStrategy {
+  if (
+    args.clearCompletionInbound === true ||
+    args.suggestedCoachingMove === "acknowledge_completion"
+  ) {
+    return "proof_check";
+  }
+
   const closeLoopContext =
     args.pendingPlanProofActive === true || args.suggestedCoachingMove === "close_prior_plan_loop";
   if (closeLoopContext) return "outcome_check";
@@ -674,6 +687,7 @@ export function buildMemoryRepeatRepairContext(args: {
   factsJson: unknown;
 }): MemoryRepeatRepairContext {
   void args.routeKind;
+  const clearCompletionInbound = args.detectInput.clearCompletionInbound === true;
   const recommended = inferRecommendedRepeatRepairStrategy({
     blockedCandidateBody: args.blockedCandidateBody,
     violationReason: args.violation.reason,
@@ -682,6 +696,7 @@ export function buildMemoryRepeatRepairContext(args: {
     suggestedCoachingMove: args.detectInput.suggestedCoachingMove,
     repeatedQuestion: args.violation.repeatedQuestion,
     repeatedPhrases: args.violation.repeatedPhrases,
+    clearCompletionInbound,
   });
   const examples = STRATEGY_EXAMPLE_SMS[recommended];
   const forbiddenContentTokens = extractForbiddenContentTokens({
@@ -689,6 +704,11 @@ export function buildMemoryRepeatRepairContext(args: {
     repeatedPhrases: args.violation.repeatedPhrases,
     blockedCandidateBody: args.blockedCandidateBody,
   });
+  const priorNoSend =
+    args.detectInput.priorNoSendContext != null &&
+    args.detectInput.priorNoSendContext.escalation_attempt === true
+      ? args.detectInput.priorNoSendContext
+      : null;
   return {
     prior_outbound_full_body: extractPriorOutboundFullBodyFromFactsJson(args.factsJson, args.detectInput),
     blocked_candidate_body: args.blockedCandidateBody,
@@ -706,6 +726,10 @@ export function buildMemoryRepeatRepairContext(args: {
     }),
     forbidden_content_tokens: forbiddenContentTokens,
     strategy_examples: [examples[0], examples[1]],
+    clear_completion_inbound: clearCompletionInbound,
+    latest_inbound_text: args.detectInput.latestInboundText?.trim() ?? null,
+    prior_no_send: priorNoSend,
+    proof_victory_room_allowed: extractProofVictoryRoomAllowedFromFactsJson(args.factsJson),
   };
 }
 
@@ -724,10 +748,23 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
     overlapTokens: string[];
   } | null;
 }): string {
+  const completionAckContext =
+    args.repairContext?.clear_completion_inbound === true ||
+    args.suggestedCoachingMove === "acknowledge_completion";
   const closeLoopContext =
     args.pendingPlanProofActive === true || args.suggestedCoachingMove === "close_prior_plan_loop";
 
-  const parts = closeLoopContext
+  const parts = completionAckContext
+    ? [
+        "The user just reported a real completion or proof (not a future plan).",
+        "Acknowledge what they reported as true — do NOT re-ask whether they did the completed behavior.",
+        "Move forward with one honest next step tied to the active commitment.",
+        "Do NOT mention Victory Room unless proof_victory_room_allowed is true in repair context.",
+        "Do NOT claim proof was saved, logged, or stored unless the server already did.",
+        "Keep one short SMS, human and direct.",
+        "Return strict JSON with keys: body, used_strategy, safety_notes.",
+      ]
+    : closeLoopContext
     ? [
         "The prior user reply was a plan or intention, not proof of completion.",
         "Rewrite to close that loop: ask whether the planned block or action happened (done, partial, or missed) in natural language.",
@@ -822,6 +859,27 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
     }
   }
 
+  if (args.repairContext?.prior_no_send?.escalation_attempt === true) {
+    parts.push(
+      "PRIOR_NO_SEND_ESCALATION: The same user message was recently ghosted by thread_memory_repeat_blocked.",
+      `Prior no-send at ${args.repairContext.prior_no_send.prior_cancelled_at}.`,
+      "You MUST send a non-repetitive proof-ack reply now — do not re-ask the completed behavior."
+    );
+    if (args.repairContext.prior_no_send.repeated_question_preview?.trim()) {
+      parts.push(
+        `Do not repeat: "${args.repairContext.prior_no_send.repeated_question_preview.trim().slice(0, 180)}".`
+      );
+    }
+  }
+  if (args.repairContext?.latest_inbound_text?.trim()) {
+    parts.push(
+      `Latest inbound completion/proof (ground truth): "${args.repairContext.latest_inbound_text.trim().slice(0, 220)}".`
+    );
+  }
+  if (args.repairContext?.proof_victory_room_allowed === false) {
+    parts.push("Do NOT mention Victory Room in this reply.");
+  }
+
   return parts.join(" ");
 }
 
@@ -831,6 +889,47 @@ const INBOUND_MEMORY_REPEAT_GUARD_ROUTES = new Set<string>([
   "commitment_change_context",
   "conversation_brain_unavailable",
 ]);
+
+function extractProofVictoryRoomAllowedFromFactsJson(factsJson: unknown): boolean {
+  if (factsJson == null || typeof factsJson !== "object") return false;
+  const hint = (factsJson as Record<string, unknown>).v2_accountability;
+  if (hint == null || typeof hint !== "object") return false;
+  const proofCallout = (hint as Record<string, unknown>).proof_callout_hint;
+  if (proofCallout == null || typeof proofCallout !== "object") return false;
+  return (proofCallout as Record<string, unknown>).eligible === true;
+}
+
+function extractPriorNoSendFromInboundFacts(
+  facts: InboundV3RelationshipFacts
+): InboundPriorMemoryRepeatNoSendContext | null {
+  const ctx = facts.memory_repeat_escalation;
+  if (ctx?.escalation_attempt === true) return ctx;
+  return null;
+}
+
+/** Reported completion for anti-ghost repair — not authorization for today's user_yes persist. */
+export function isInboundClearCompletionFromFacts(facts: InboundV3RelationshipFacts): boolean {
+  if (facts.contract_consent_facts != null) return false;
+  if (facts.pending_resolution_facts != null) return false;
+  if (facts.memory_confirmation_facts != null) return false;
+  if (facts.relationship_exit != null) return false;
+  if (facts.identity_edit != null) return false;
+  return isInboundReportedCompletionForAntiGhost(facts.inbound_meaning);
+}
+
+function shouldAcceptCompletionRepairDespiteStrategyMismatch(args: {
+  detectInput: Parameters<typeof detectSmsMemoryRepeatViolation>[0];
+  repaired: string;
+  forcedStrategy: SmsMemoryRepeatRepairStrategy;
+}): boolean {
+  if (args.detectInput.clearCompletionInbound !== true) return false;
+  if (repairBodyMatchesStrategy(args.repaired, args.forcedStrategy)) return false;
+  const afterRepairViolation = detectSmsMemoryRepeatViolation({
+    ...args.detectInput,
+    candidateBody: args.repaired,
+  });
+  return !afterRepairViolation.hasViolation;
+}
 
 const DAILY_MEMORY_REPEAT_GUARD_ROUTE_KINDS = new Set<string>([
   "main_active_accountability",
@@ -911,20 +1010,41 @@ export function buildAntiRepeatDetectArgsFromInboundFacts(
     ...facts.thread.do_not_repeat_hints.map((h) => h.replace(/^[^:]+:\s*/i, "").trim()).filter(Boolean),
   ];
 
+  const latestInbound =
+    facts.thread.coalesced_inbound_text?.trim() ||
+    facts.thread.latest_inbound_raw?.trim() ||
+    null;
+  const clearCompletionInbound = isInboundClearCompletionFromFacts(facts);
+
   return {
     candidateBody,
     lastCoachQuestions: coachQuestions,
     doNotRepeatPhrases: dnr,
     answeredOpenQuestion:
       facts.thread.latest_open_question ?? mp?.latest_open_question ?? mp?.latest_open_question_guess ?? null,
-    latestAnswerText:
-      facts.thread.latest_answer_after_open_question ??
-      mp?.latest_answer_after_open_question ??
-      mp?.latest_answer_after_open_question_guess ??
-      facts.thread.most_recent_substantive_prior_user_message ??
-      null,
+    latestAnswerText: clearCompletionInbound
+      ? (latestInbound ??
+        facts.thread.latest_answer_after_open_question ??
+        mp?.latest_answer_after_open_question ??
+        mp?.latest_answer_after_open_question_guess ??
+        facts.thread.most_recent_substantive_prior_user_message ??
+        null)
+      : (facts.thread.latest_answer_after_open_question ??
+        mp?.latest_answer_after_open_question ??
+        mp?.latest_answer_after_open_question_guess ??
+        facts.thread.most_recent_substantive_prior_user_message ??
+        null),
     requiredVerbatimSubstrings: facts.constraints.required_verbatim_substrings,
     routePurpose: facts.route_purpose,
+    suggestedCoachingMove: facts.suggested_coaching_move,
+    pendingPlanProofActive: false,
+    lastOutboundFullBody:
+      mp?.last_outbound_full_body ??
+      facts.thread.latest_outbound_coach_sms ??
+      null,
+    clearCompletionInbound,
+    latestInboundText: latestInbound,
+    priorNoSendContext: extractPriorNoSendFromInboundFacts(facts),
   };
 }
 
@@ -1036,10 +1156,13 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     Boolean(firstViolation.repeatedQuestion) &&
     isNearExactDuplicateSms(firstViolation.repeatedQuestion!, original);
 
-  const strategiesToTry: SmsMemoryRepeatRepairStrategy[] = [
-    recommendedStrategy,
-    pickAlternateRepeatRepairStrategy(recommendedStrategy, { nearExactOutcomeRepeat }),
-  ];
+  const strategiesToTry: SmsMemoryRepeatRepairStrategy[] =
+    repairContext.clear_completion_inbound === true
+      ? ["proof_check", "outcome_check"]
+      : [
+          recommendedStrategy,
+          pickAlternateRepeatRepairStrategy(recommendedStrategy, { nearExactOutcomeRepeat }),
+        ];
 
   for (let attemptIndex = 0; attemptIndex < 2; attemptIndex++) {
     if (attemptIndex === 1) {
@@ -1145,9 +1268,21 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
           : forcedStrategy ?? null;
 
     if (!repairBodyMatchesStrategy(repaired, forcedStrategy)) {
-      lastFailedReason = "repair_strategy_body_mismatch";
-      if (attemptIndex === 0) continue;
-      break;
+      const completionStrategyBypass = shouldAcceptCompletionRepairDespiteStrategyMismatch({
+        detectInput: args.detectInput,
+        repaired,
+        forcedStrategy,
+      });
+      if (!completionStrategyBypass) {
+        lastFailedReason = "repair_strategy_body_mismatch";
+        if (attemptIndex === 0) continue;
+        break;
+      }
+      lastRepairMetadata = {
+        ...lastRepairMetadata,
+        completion_repair_strategy_label_bypass: true,
+        repeat_repair_strategy_label_requested: forcedStrategy,
+      };
     }
 
     const afterRepairViolation = detectSmsMemoryRepeatViolation({

@@ -3,6 +3,11 @@
  * Server-owned heuristics only — no DB writes, no hard-coded final SMS.
  */
 
+import type { InboundPriorMemoryRepeatNoSendContext } from "@/lib/inbound-completion-memory-repeat-escalation";
+import {
+  isInboundReportedCompletionForAntiGhost,
+  type InboundMeaningFacts,
+} from "@/lib/inbound-relationship-meaning";
 import { looksLikeReportedCompletion } from "@/lib/pending-plan-proof";
 import {
   buildRepairRelationshipSnapshotV1,
@@ -325,10 +330,40 @@ export function detectThreadFreshnessViolations(
   return null;
 }
 
+function extractInboundFreshnessRepairEscalation(factsJson: unknown): {
+  priorNoSend: InboundPriorMemoryRepeatNoSendContext | null;
+  latestInboundText: string | null;
+  inboundMeaning: InboundMeaningFacts | null;
+} {
+  if (factsJson == null || typeof factsJson !== "object") {
+    return { priorNoSend: null, latestInboundText: null, inboundMeaning: null };
+  }
+  const root = factsJson as Record<string, unknown>;
+  const thread = root.thread;
+  const latestInboundText =
+    thread != null && typeof thread === "object"
+      ? typeof (thread as Record<string, unknown>).coalesced_inbound_text === "string"
+        ? ((thread as Record<string, unknown>).coalesced_inbound_text as string).trim() || null
+        : null
+      : null;
+  const inboundMeaning =
+    root.inbound_meaning != null && typeof root.inbound_meaning === "object"
+      ? (root.inbound_meaning as InboundMeaningFacts)
+      : null;
+  const ctx = root.memory_repeat_escalation;
+  if (ctx != null && typeof ctx === "object" && (ctx as InboundPriorMemoryRepeatNoSendContext).escalation_attempt === true) {
+    return { priorNoSend: ctx as InboundPriorMemoryRepeatNoSendContext, latestInboundText, inboundMeaning };
+  }
+  return { priorNoSend: null, latestInboundText, inboundMeaning };
+}
+
 export function buildThreadFreshnessRepairInstruction(args: {
   violation: ThreadFreshnessViolation;
   freshness: ThreadFreshnessFacts;
   originalBody: string;
+  priorNoSend?: InboundPriorMemoryRepeatNoSendContext | null;
+  latestInboundText?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
 }): string {
   const parts = [
     "THREAD_FRESHNESS_REPAIR: Your draft contradicts the recent SMS thread.",
@@ -351,6 +386,41 @@ export function buildThreadFreshnessRepairInstruction(args: {
     parts.push(
       `Recent user plan/schedule: "${args.freshness.recent_user_plan_or_schedule.slice(0, 160)}".`
     );
+  }
+  const reportedCompletion =
+    isInboundReportedCompletionForAntiGhost(args.inboundMeaning) ||
+    (args.inboundMeaning == null &&
+      args.latestInboundText?.trim() &&
+      /\b(did|done|completed|got it done|finished)\b/i.test(args.latestInboundText));
+  if (args.latestInboundText?.trim() && reportedCompletion) {
+    parts.push(
+      `Latest inbound completion/proof (ground truth): "${args.latestInboundText.trim().slice(0, 220)}".`,
+      "Acknowledge the completed behavior truthfully — do not re-ask whether they did it.",
+      "Move to one honest next step. Do NOT mention Victory Room unless proof permission explicitly allows it."
+    );
+    if (args.inboundMeaning?.persistence_decision === "ack_only") {
+      parts.push(
+        "Do NOT claim today's accountability is complete or that proof was saved for today — past completion only."
+      );
+    }
+  } else if (args.inboundMeaning?.relationship_meaning === "miss") {
+    parts.push("User reported a miss — do not congratulate; help recover with one honest next step.");
+  } else if (args.inboundMeaning?.relationship_meaning === "plan_made") {
+    parts.push("User made a plan — do not treat as proof; help choose the first concrete move.");
+  } else if (args.inboundMeaning?.relationship_meaning === "partial_attempt") {
+    parts.push("Partial attempt — identify blocker or next move; do not score as full completion.");
+  }
+  if (args.priorNoSend?.escalation_attempt === true) {
+    parts.push(
+      "PRIOR_NO_SEND_ESCALATION: The same user message was recently ghosted by thread_memory_repeat_blocked.",
+      `Prior no-send at ${args.priorNoSend.prior_cancelled_at}.`,
+      "You MUST send a non-repetitive proof-ack reply now — do not re-ask the completed behavior."
+    );
+    if (args.priorNoSend.repeated_question_preview?.trim()) {
+      parts.push(
+        `Do not repeat: "${args.priorNoSend.repeated_question_preview.trim().slice(0, 180)}".`
+      );
+    }
   }
   parts.push(
     "Write ONE short SMS that moves forward without contradicting the thread. Change the coaching move — do not paraphrase the blocked draft.",
@@ -409,6 +479,9 @@ export async function applyThreadFreshnessGuard(args: {
   );
   const { meta: snapshotMeta } = serializeRepairSnapshotForOpenAI(repairSnapshot);
 
+  const { priorNoSend, latestInboundText, inboundMeaning } =
+    extractInboundFreshnessRepairEscalation(args.factsJson);
+
   const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
     routeKind: args.routeKind,
     routePurpose: args.routePurpose,
@@ -419,6 +492,9 @@ export async function applyThreadFreshnessGuard(args: {
       violation,
       freshness: args.freshness,
       originalBody: original,
+      priorNoSend,
+      latestInboundText,
+      inboundMeaning,
     }),
   });
 

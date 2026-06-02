@@ -29,6 +29,11 @@ import {
   isGoalIncreaseIntentClarifyInbound,
 } from "@/lib/v2-sms-future-stretch-intent";
 import { isRoboticAccountabilityMenuLanguage } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
+import {
+  buildInboundMeaningFacts,
+  shouldPromoteClarifyForReportedCompletionPersist,
+  type InboundMeaningFacts,
+} from "@/lib/inbound-relationship-meaning";
 
 export const V2_INBOUND_AI_PROMPT_VERSION = "v2_inbound_v1";
 
@@ -1342,6 +1347,78 @@ function hasClearAccountabilityAnswer(
   return false;
 }
 
+const GATED_MODES_NON_OVERRIDABLE_FOR_CLEAR_COMPLETION = new Set<V2InboundGatedMode>([
+  "soft_opt_out_reply",
+  "commitment_change_handoff",
+  "relationship_exit_integrity",
+  "identity_edit_integrity",
+]);
+
+function buildTodayReportedCompletionGatedDecision(args: {
+  confidenceUsed: number | null;
+  overrodeDeterministic: boolean;
+}): V2InboundGatedDecision {
+  return {
+    mode: "use_deterministic",
+    final_event_type: "user_yes",
+    decision_reason: "reported_completion_today_persist",
+    confidence_used: args.confidenceUsed,
+    should_write_outcome_event: true,
+    should_open_blocker_capture: false,
+    reply_style: "normal_outcome",
+    overrode_deterministic: args.overrodeDeterministic,
+  };
+}
+
+function buildInboundMeaningForGating(args: {
+  rawInboundBody: string;
+  deterministicEventType: V2InboundEventType;
+  deterministicNormalizedHint: string | null;
+}): InboundMeaningFacts {
+  return buildInboundMeaningFacts({
+    rawInbound: args.rawInboundBody.trim(),
+    classifierEventType: args.deterministicEventType,
+    classifierNormalizedHint: args.deterministicNormalizedHint,
+  });
+}
+
+/** Promote clarify → today user_yes only when persistence_decision allows today's write. */
+export function applyInboundMeaningGatedCoherence(args: {
+  decision: V2InboundGatedDecision;
+  rawInboundBody: string;
+  deterministicEventType: V2InboundEventType;
+  deterministicNormalizedHint?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+}): V2InboundGatedDecision {
+  const inboundMeaning =
+    args.inboundMeaning ??
+    buildInboundMeaningForGating({
+      rawInboundBody: args.rawInboundBody,
+      deterministicEventType: args.deterministicEventType,
+      deterministicNormalizedHint: args.deterministicNormalizedHint ?? null,
+    });
+
+  if (!shouldPromoteClarifyForReportedCompletionPersist({ inboundMeaning })) {
+    return args.decision;
+  }
+  if (GATED_MODES_NON_OVERRIDABLE_FOR_CLEAR_COMPLETION.has(args.decision.mode)) {
+    return args.decision;
+  }
+  if (
+    args.decision.mode === "clarify" ||
+    args.decision.mode === "repair_reply_only" ||
+    (args.decision.mode === "use_deterministic" &&
+      args.decision.final_event_type !== "user_yes" &&
+      args.decision.should_write_outcome_event === false)
+  ) {
+    return buildTodayReportedCompletionGatedDecision({
+      confidenceUsed: args.decision.confidence_used,
+      overrodeDeterministic: true,
+    });
+  }
+  return args.decision;
+}
+
 export function defaultGatedDecision(det: V2InboundEventType, reason: string): V2InboundGatedDecision {
   return {
     mode: "use_deterministic",
@@ -1399,16 +1476,31 @@ export function resolveV2InboundGatedDecision(args: {
   }
 
   if (!args.gatedEnabled) {
-    return defaultGatedDecision(args.deterministicEventType, "gated_disabled");
+    return applyInboundMeaningGatedCoherence({
+      decision: defaultGatedDecision(args.deterministicEventType, "gated_disabled"),
+      rawInboundBody: raw,
+      deterministicEventType: args.deterministicEventType,
+      deterministicNormalizedHint: args.deterministicNormalizedHint,
+    });
   }
   if (!args.interpretation) {
-    return defaultGatedDecision(args.deterministicEventType, "no_interpretation_result");
+    return applyInboundMeaningGatedCoherence({
+      decision: defaultGatedDecision(args.deterministicEventType, "no_interpretation_result"),
+      rawInboundBody: raw,
+      deterministicEventType: args.deterministicEventType,
+      deterministicNormalizedHint: args.deterministicNormalizedHint,
+    });
   }
-  return decideV2InboundOutcomeFromInterpretation({
+  return applyInboundMeaningGatedCoherence({
+    decision: decideV2InboundOutcomeFromInterpretation({
+      deterministicEventType: args.deterministicEventType,
+      deterministicNormalizedHint: args.deterministicNormalizedHint,
+      rawInboundBody: args.rawInboundBody,
+      interpretation: args.interpretation,
+    }),
+    rawInboundBody: raw,
     deterministicEventType: args.deterministicEventType,
     deterministicNormalizedHint: args.deterministicNormalizedHint,
-    rawInboundBody: args.rawInboundBody,
-    interpretation: args.interpretation,
   });
 }
 
@@ -1455,6 +1547,18 @@ export function decideV2InboundOutcomeFromInterpretation(args: {
       reply_style: "commitment_change",
       overrode_deterministic: false,
     };
+  }
+
+  const inboundMeaningEarly = buildInboundMeaningForGating({
+    rawInboundBody: raw,
+    deterministicEventType: det,
+    deterministicNormalizedHint: args.deterministicNormalizedHint,
+  });
+  if (inboundMeaningEarly.persistence_decision === "write_user_yes_today") {
+    return buildTodayReportedCompletionGatedDecision({
+      confidenceUsed: conf,
+      overrodeDeterministic: true,
+    });
   }
 
   if (ai.intent === "meta_question" || ai.user_asks_question === true) {
@@ -1592,6 +1696,17 @@ export function decideV2InboundOutcomeFromInterpretation(args: {
       };
     }
     if (opposite && aiKey != null) {
+      const meaningOpposite = buildInboundMeaningForGating({
+        rawInboundBody: raw,
+        deterministicEventType: det,
+        deterministicNormalizedHint: args.deterministicNormalizedHint,
+      });
+      if (meaningOpposite.persistence_decision === "write_user_yes_today") {
+        return buildTodayReportedCompletionGatedDecision({
+          confidenceUsed: conf,
+          overrodeDeterministic: true,
+        });
+      }
       return {
         mode: "clarify",
         final_event_type: null,

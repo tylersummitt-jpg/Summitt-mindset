@@ -227,6 +227,10 @@ import {
   isV2ActiveReplyContextEnabled,
 } from "@/lib/v2-active-reply-context";
 import {
+  buildInboundMeaningFacts,
+} from "@/lib/inbound-relationship-meaning";
+import {
+  inboundMeaningPayloadForOutcomePersist,
   isClearAccountabilityCompletionReply,
   laneExclusionFromGatedMode,
   logInboundOutcomePersistAttempt,
@@ -236,6 +240,10 @@ import {
   type InboundOutcomePersistLaneExclusion,
   type InboundOutcomePersistResult,
 } from "@/lib/v2-inbound-accountability-outcome-persist";
+import {
+  loadPriorInboundMemoryRepeatNoSendContext,
+  normalizeInboundTextForEscalation,
+} from "@/lib/inbound-completion-memory-repeat-escalation";
 import {
   clearBlockerCapturePending,
   exitLowPressureReactivationOnInbound,
@@ -1748,14 +1756,22 @@ async function tryPersistInboundAccountabilityOutcomeBeforeSend(
     effectiveAsk: args.effectiveBehavior,
   });
 
+  const inboundMeaning = buildInboundMeaningFacts({
+    rawInbound: args.userMessage,
+    classifierEventType: args.eventType,
+    classifierNormalizedHint: args.normalizedHint,
+  });
+
   const should = shouldPersistInboundAccountabilityOutcome({
     messageSid: args.job.message_sid,
     commitmentId: args.commitment.id,
     rawBody: args.userMessage,
     classifierEventType: args.eventType,
+    classifierNormalizedHint: args.normalizedHint,
     gatedDecision: args.gatedDecision,
     laneExclusion,
     activeReplyContext,
+    inboundMeaning,
   });
 
   logInboundOutcomePersistAttempt({
@@ -1798,7 +1814,10 @@ async function tryPersistInboundAccountabilityOutcomeBeforeSend(
     liveAccountabilityPromptDetected: should.liveAccountabilityPromptDetected,
     overrideGatedNoWrite: should.overrideGatedNoWrite,
     proofMeta,
-    payloadJson: args.payloadJson ?? {},
+    payloadJson: {
+      ...(args.payloadJson ?? {}),
+      ...inboundMeaningPayloadForOutcomePersist(inboundMeaning),
+    },
     idempotencyKey,
   });
 
@@ -4151,6 +4170,13 @@ async function processV2NormalInboundOutcome(
       };
     }
 
+    const priorMemoryRepeatNoSend = await loadPriorInboundMemoryRepeatNoSendContext({
+      clerkUserId: userId,
+      commitmentId: commitment.id,
+      normalizedInboundText: normalizeInboundTextForEscalation(userMessage),
+      excludeMessageSid: job.message_sid,
+    });
+
     const inboundFacts = buildInboundV3RelationshipFacts({
       clerkUserId: userId,
       preferredName,
@@ -4204,6 +4230,7 @@ async function processV2NormalInboundOutcome(
       proofCalloutHint,
       ...(relationshipExitFactsForLane != null ? { relationshipExitFacts: relationshipExitFactsForLane } : {}),
       ...(identityEditFactsForLane != null ? { identityEditFacts: identityEditFactsForLane } : {}),
+      ...(priorMemoryRepeatNoSend != null ? { priorMemoryRepeatNoSend: priorMemoryRepeatNoSend } : {}),
     });
     inboundCoachingBriefV1Log = compactCoachingBriefV1ForV3Brain(
       buildCoachingBriefV1FromInboundFacts(inboundFacts)

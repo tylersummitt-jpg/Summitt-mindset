@@ -143,6 +143,13 @@ function rbMemoryPacket(): ReturnType<typeof slimMemoryPacketForFacts> {
   });
 }
 
+function expectAntiGhostRepairSucceeded(metadata: Record<string, unknown>) {
+  expect(
+    metadata.memory_repeat_guard_succeeded === true ||
+      metadata.thread_freshness_repair_succeeded === true
+  ).toBe(true);
+}
+
 describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
   const env = { ...process.env };
 
@@ -182,8 +189,8 @@ describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
           {
             message: {
               content: JSON.stringify({
-                body: "You're right — Sunday School, the farm, and your mother's songs. Let's pick one thread to dictate today.",
-                used_strategy: "outcome_check",
+                body: "You're right — Sunday School, the farm, and your mother's songs. What's the first thread you'll dictate today?",
+                used_strategy: "next_first_step",
                 safety_notes: [],
               }),
             },
@@ -264,8 +271,8 @@ describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
           {
             message: {
               content: JSON.stringify({
-                body: "What story will you dictate today?",
-                used_strategy: "outcome_check",
+                body: "What's the first story you'll dictate today?",
+                used_strategy: "next_first_step",
                 safety_notes: [],
               }),
             },
@@ -277,8 +284,8 @@ describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
           {
             message: {
               content: JSON.stringify({
-                body: "What story will you dictate today?",
-                used_strategy: "binary_truth_check",
+                body: "What story shows who you're becoming today?",
+                used_strategy: "identity_tie_back",
                 safety_notes: [],
               }),
             },
@@ -384,5 +391,197 @@ describe("produceInboundV3RelationshipSms memory repeat guard (M2B-5)", () => {
       requiredVerbatimSubstrings: [binding],
     });
     expect(v.hasViolation).toBe(false);
+  });
+
+  it("clear completion repair sends when repaired body is non-repetitive (steps yesterday)", async () => {
+    const repeatedQ = "Have you started your commitment to take at least 10,000 steps today?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: repeatedQ,
+                no_send_reason: null,
+                turn_purpose: "acknowledge_completion",
+                voice_confidence: 0.85,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "What actually happened with yesterday's bar is in the books. What's the next honest move for today?",
+                used_strategy: "proof_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_steps",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-01T12:00:00.000Z",
+      commitment: {
+        ...baseCommitment(),
+        behavior_statement: "Take at least 10,000 steps daily",
+      },
+      effectiveAsk: "Take at least 10,000 steps daily",
+      userMessageRaw: "I did my 10,000 steps yesterday!",
+      coalescedInboundText: "I did my 10,000 steps yesterday!",
+      suppressedMessageSids: [],
+      transcriptLines: [`Coach: ${repeatedQ}`, "User: I did my 10,000 steps yesterday!"],
+      northStarPacket: { source: "sms_inbound_coach" },
+      gatedDecision: {
+        ...baseGated(),
+        mode: "use_deterministic",
+        final_event_type: "user_yes",
+        decision_reason: "clear_reported_completion_outcome",
+        should_write_outcome_event: true,
+      },
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: {
+        ...rbMemoryPacket(),
+        last_5_coach_questions: [repeatedQ],
+        last_outbound_full_body: repeatedQ,
+      },
+    });
+
+    expect(facts.suggested_coaching_move).toBe("acknowledge_completion");
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_completion_memory_repeat"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toContain("have you started");
+    expectAntiGhostRepairSucceeded(r.metadata);
+    expect(String(r.body).toLowerCase()).not.toContain("victory room");
+  });
+
+  it("duplicate completion after prior memory-repeat no-send includes escalation and can send", async () => {
+    const repeatedQ = "Have you started your commitment to take at least 10,000 steps today?";
+    const inbound = "I did my 10,000 steps yesterday!";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: repeatedQ,
+                no_send_reason: null,
+                turn_purpose: "acknowledge_completion",
+                voice_confidence: 0.85,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Good — yesterday's bar is in the books. What honest move keeps today on track?",
+                used_strategy: "outcome_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_steps",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-01T14:00:00.000Z",
+      commitment: {
+        ...baseCommitment(),
+        behavior_statement: "Take at least 10,000 steps daily",
+      },
+      effectiveAsk: "Take at least 10,000 steps daily",
+      userMessageRaw: inbound,
+      coalescedInboundText: inbound,
+      suppressedMessageSids: [],
+      transcriptLines: [`Coach: ${repeatedQ}`, `User: ${inbound}`],
+      northStarPacket: { source: "sms_inbound_coach" },
+      gatedDecision: {
+        ...baseGated(),
+        mode: "use_deterministic",
+        final_event_type: "user_yes",
+        decision_reason: "clear_reported_completion_outcome",
+        should_write_outcome_event: true,
+      },
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      priorMemoryRepeatNoSend: {
+        prior_message_sid: "SM_prior",
+        prior_no_send_reason: "thread_memory_repeat_blocked",
+        prior_cancelled_at: "2026-06-01T13:00:00.000Z",
+        normalized_inbound_text: "i did my 10,000 steps yesterday!",
+        repeated_question_preview: repeatedQ,
+        escalation_attempt: true,
+      },
+      relationshipMemoryPacket: {
+        ...rbMemoryPacket(),
+        last_5_coach_questions: [repeatedQ],
+        last_outbound_full_body: repeatedQ,
+      },
+    });
+
+    const r = await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+
+    expect(r.shouldSend).toBe(true);
+    expectAntiGhostRepairSucceeded(r.metadata);
+    expect(r.metadata.repair_snapshot_kind).toBe("thread_freshness");
+    expect(r.metadata.thread_freshness_violation_reason).toBe("reasked_completed_action");
   });
 });

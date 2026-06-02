@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { V3_REFINE_ONLY_GATED } from "@/lib/v3-sms-machine-refine";
 import { defaultGatedDecision } from "@/lib/v2-ai-inbound";
 import { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
+import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import {
   persistInboundAccountabilityOutcomeEvent,
   shouldPersistInboundAccountabilityOutcome,
@@ -25,11 +26,24 @@ describe("isClearAccountabilityCompletionReply", () => {
     expect(isClearAccountabilityCompletionReply("yes")).toBe(true);
     expect(isClearAccountabilityCompletionReply("I got it done")).toBe(true);
     expect(isClearAccountabilityCompletionReply("nope")).toBe(true);
+    expect(isClearAccountabilityCompletionReply("I did my 10,000 steps yesterday!")).toBe(true);
+    expect(isClearAccountabilityCompletionReply("I completed it")).toBe(true);
+    expect(isClearAccountabilityCompletionReply("I made the calls")).toBe(true);
+    expect(isClearAccountabilityCompletionReply("I did the workout")).toBe(true);
   });
 
   it("does not treat open-ended reflection as completion", () => {
     expect(isClearAccountabilityCompletionReply("because I was tired")).toBe(false);
     expect(isClearAccountabilityCompletionReply("8")).toBe(false);
+  });
+
+  it("does not treat negation, plan, wish, or uncertainty as completion", () => {
+    expect(isClearAccountabilityCompletionReply("I did not do it")).toBe(false);
+    expect(isClearAccountabilityCompletionReply("I made a plan")).toBe(false);
+    expect(isClearAccountabilityCompletionReply("I wish I did")).toBe(false);
+    expect(isClearAccountabilityCompletionReply("I did think about it")).toBe(false);
+    expect(isClearAccountabilityCompletionReply("I did?")).toBe(false);
+    expect(isClearAccountabilityCompletionReply("I almost did it")).toBe(false);
   });
 });
 
@@ -87,6 +101,95 @@ describe("shouldPersistInboundAccountabilityOutcome", () => {
       activeReplyContext: livePromptCtx,
     });
     expect(result).toEqual({ persist: false, skipReason: "arc_clarify_only" });
+  });
+
+  it("skips yesterday reported completion with meaning_ack_only", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "I did my 10,000 steps yesterday!",
+      classifierEventType: "user_yes",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_yest",
+      commitmentId: "commit-1",
+      rawBody: "I did my 10,000 steps yesterday!",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toEqual({ persist: false, skipReason: "meaning_ack_only" });
+  });
+
+  it("does not persist false-positive completion phrases as user_yes", () => {
+    const missMeaning = buildInboundMeaningFacts({
+      rawInbound: "I did not do it",
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+    });
+    const missResult = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_miss",
+      commitmentId: "commit-1",
+      rawBody: "I did not do it",
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: missMeaning,
+    });
+    expect(missResult).toMatchObject({ persist: true, resolvedEventType: "user_no" });
+
+    const planResult = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_plan",
+      commitmentId: "commit-1",
+      rawBody: "I made a plan",
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: "I made a plan",
+        classifierEventType: "user_yes",
+        classifierNormalizedHint: "completion_detail",
+      }),
+    });
+    expect(planResult).toEqual({ persist: false, skipReason: "meaning_no_outcome_write" });
+    const partialMeaning = buildInboundMeaningFacts({
+      rawInbound: "I almost did it",
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+    });
+    const partialResult = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_partial",
+      commitmentId: "commit-1",
+      rawBody: "I almost did it",
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: partialMeaning,
+    });
+    expect(partialResult).toMatchObject({ persist: true, resolvedEventType: "user_partial" });
+
+    const cancelResult = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_cancel",
+      commitmentId: "commit-1",
+      rawBody: "I need to cancel my subscription",
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: "I need to cancel my subscription",
+        classifierEventType: "user_yes",
+        classifierNormalizedHint: "completion_detail",
+      }),
+    });
+    expect(cancelResult).toEqual({ persist: false, skipReason: "meaning_no_outcome_write" });
   });
 
   it("skips explicit lane exclusions", () => {

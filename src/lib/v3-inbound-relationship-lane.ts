@@ -13,6 +13,16 @@ import type { V2InboundGatedDecision, V2InboundShadowInterpretationResult } from
 import type { V2SmsCommitmentIntentPack } from "@/lib/v2-sms-commitment-change";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import {
+  buildInboundMeaningFacts,
+  buildInboundMeaningRoutePriorityFromV3BuildArgs,
+  buildInboundMeaningAuthorityLaneGuardrails,
+  coachingMoveFromSmsResponseIntent,
+  inboundMeaningAuthorizesTodayCompleted,
+  isInboundReportedCompletionForAntiGhost,
+  reconcileLegacyAccountabilityEventTypeFromMeaning,
+  type InboundMeaningFacts,
+} from "@/lib/inbound-relationship-meaning";
+import {
   applySmsMemoryAntiRepeatGuard,
   buildAntiRepeatDetectArgsFromInboundFacts,
   detectSmsMemoryRepeatViolation,
@@ -51,6 +61,7 @@ import {
   buildIdentityEditLaneGuardrails,
   type InboundV3IdentityEditFacts,
 } from "@/lib/sms-identity-edit-intent";
+import type { InboundPriorMemoryRepeatNoSendContext } from "@/lib/inbound-completion-memory-repeat-escalation";
 import type { InboundV3ProofCalloutHint } from "@/lib/v2-proof-moment";
 import {
   buildVictoryBackgroundLaneGuardrails,
@@ -1041,6 +1052,8 @@ export type InboundV3RelationshipFacts = {
   };
   relationship_exit?: InboundV3RelationshipExitFacts | null;
   identity_edit?: InboundV3IdentityEditFacts | null;
+  memory_repeat_escalation?: InboundPriorMemoryRepeatNoSendContext | null;
+  inbound_meaning: InboundMeaningFacts;
   suggested_coaching_move: string;
   constraints: {
     max_chars: number;
@@ -1131,6 +1144,12 @@ function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
     final_event_type: f.v2_accountability.final_event_type,
     classifier: f.v2_accountability.deterministic_classifier_event,
     suggested_move: f.suggested_coaching_move,
+    inbound_meaning: {
+      relationship_meaning: f.inbound_meaning.relationship_meaning,
+      temporal_scope: f.inbound_meaning.temporal_scope,
+      persistence_decision: f.inbound_meaning.persistence_decision,
+      sms_response_intent: f.inbound_meaning.sms_response_intent,
+    },
     proof: f.v2_accountability.proof_signal,
     miss: f.v2_accountability.miss_signal,
     wave11_pending: f.legacy_suggestions.wave11_memory_confirmation_pending,
@@ -1398,6 +1417,10 @@ export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3Relations
   }
   if (f.thread.short_ack_should_not_reask_question) {
     return "acknowledge_prior_answer_without_reasking";
+  }
+  const meaningMove = coachingMoveFromSmsResponseIntent(f.inbound_meaning.sms_response_intent);
+  if (meaningMove) {
+    return meaningMove;
   }
   const ft = f.v2_accountability.final_event_type;
   if (ft === "user_yes") return "acknowledge_completion";
@@ -1921,7 +1944,7 @@ ${buildRelationshipPacketPromptGuidance()}
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
-${buildThreadFreshnessPromptGuidance()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
+${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -2407,6 +2430,7 @@ export type BuildInboundV3RelationshipFactsArgs = {
   proofCalloutHint?: InboundV3ProofCalloutHint | null;
   relationshipExitFacts?: InboundV3RelationshipExitFacts | null;
   identityEditFacts?: InboundV3IdentityEditFacts | null;
+  priorMemoryRepeatNoSend?: InboundPriorMemoryRepeatNoSendContext | null;
 };
 
 /** Optional Victory / proof mention — V3-owned; no deterministic post-FVG append. */
@@ -2479,6 +2503,27 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       `prior_user_answer:${threadMemory.most_recent_substantive_prior_user_message.trim().slice(0, 140)}`
     );
   }
+
+  const inboundMeaning = buildInboundMeaningFacts({
+    rawInbound: args.coalescedInboundText,
+    classifierEventType: args.deterministicEventType,
+    classifierNormalizedHint: null,
+    routePriority: buildInboundMeaningRoutePriorityFromV3BuildArgs({
+      rawInbound: args.coalescedInboundText,
+      pendingResolutionFacts: args.pendingResolutionFacts,
+      contractConsentFacts: args.contractConsentFacts,
+      relationshipExitFacts: args.relationshipExitFacts,
+      identityEditFacts: args.identityEditFacts,
+      commitmentChangeFacts: args.commitmentChangeFacts,
+      openQuestionFacts: args.openQuestionFacts,
+    }),
+    openQuestionPending: mp?.open_question_pending === true,
+    latestOpenQuestion:
+      mp?.latest_open_question ??
+      mp?.latest_open_question_guess ??
+      args.northStarPacket.latestOpenQuestion ??
+      null,
+  });
 
   const facts: InboundV3RelationshipFacts = {
     route_purpose: routePurpose,
@@ -2607,13 +2652,23 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     v2_accountability: {
       deterministic_classifier_event: args.deterministicEventType,
       gated_mode: args.gatedDecision.mode,
-      final_event_type: args.gatedDecision.final_event_type ?? null,
-      should_write_outcome_event: args.gatedDecision.should_write_outcome_event,
+      final_event_type: reconcileLegacyAccountabilityEventTypeFromMeaning({
+        inboundMeaning,
+        gatedFinalEventType: args.gatedDecision.final_event_type ?? null,
+      }),
+      should_write_outcome_event:
+        inboundMeaning.persistence_decision === "write_user_yes_today" ||
+        inboundMeaning.persistence_decision === "write_user_no" ||
+        inboundMeaning.persistence_decision === "write_user_partial",
       reply_style: args.gatedDecision.reply_style ?? null,
-      proof_signal: args.northStarPacket.proofSignal === true,
+      proof_signal:
+        inboundMeaningAuthorizesTodayCompleted(inboundMeaning) &&
+        args.northStarPacket.proofSignal === true,
       miss_signal: args.northStarPacket.missSignal === true,
       blocker_signal: args.northStarPacket.blockerSignal === true,
-      today_completed: args.northStarPacket.todayCompleted === true,
+      today_completed:
+        inboundMeaningAuthorizesTodayCompleted(inboundMeaning) &&
+        args.northStarPacket.todayCompleted === true,
       future_intent_hint: args.northStarPacket.futureIntentHint ?? null,
       supplement_commitment_change_guidance: args.gatedDecision.supplement_commitment_change_guidance === true,
       ...(args.patternSignal
@@ -2645,6 +2700,10 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     },
     ...(args.relationshipExitFacts ? { relationship_exit: args.relationshipExitFacts } : {}),
     ...(args.identityEditFacts ? { identity_edit: args.identityEditFacts } : {}),
+    ...(args.priorMemoryRepeatNoSend != null
+      ? { memory_repeat_escalation: args.priorMemoryRepeatNoSend }
+      : {}),
+    inbound_meaning: inboundMeaning,
     legacy_suggestions: {
       conversation_brain: args.conversationBrain,
       central_brain: args.centralBrain,

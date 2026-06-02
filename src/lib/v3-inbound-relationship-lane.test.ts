@@ -1469,6 +1469,55 @@ describe("season_transition_facts in V3 facts JSON", () => {
   });
 });
 
+describe("inbound_meaning authority on V3 facts", () => {
+  it("yesterday ack_only does not expose today_completed or user_yes final_event_type", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-01T12:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Take at least 10,000 steps daily",
+      userMessageRaw: "I did my 10,000 steps yesterday!",
+      coalescedInboundText: "I did my 10,000 steps yesterday!",
+      suppressedMessageSids: [],
+      transcriptLines: [],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        todayCompleted: true,
+        proofSignal: true,
+      },
+      gatedDecision: {
+        ...baseGatedDecision(),
+        final_event_type: "user_yes",
+        should_write_outcome_event: true,
+      },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+    });
+    expect(facts.inbound_meaning.persistence_decision).toBe("ack_only");
+    expect(facts.inbound_meaning.temporal_scope).toBe("yesterday");
+    expect(facts.v2_accountability.today_completed).toBe(false);
+    expect(facts.v2_accountability.proof_signal).toBe(false);
+    expect(facts.v2_accountability.final_event_type).not.toBe("user_yes");
+    expect(facts.suggested_coaching_move).toBe("acknowledge_completion");
+  });
+});
+
 describe("thread_freshness in V3 inbound lane", () => {
   const lunchTranscript = [
     "Coach: How do you feel about prioritizing your five minutes of stretching at lunch?",

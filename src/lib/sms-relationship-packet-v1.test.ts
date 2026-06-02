@@ -12,6 +12,7 @@ import {
   relationshipObservabilityFromLaneMetadata,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
+import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
@@ -270,8 +271,16 @@ function minimalInboundFacts(overrides?: Partial<InboundV3RelationshipFacts>): I
     },
     constraints: {
       max_chars: 320,
+      one_sms: true,
+      no_generic_motivation: true,
+      no_quoted_or_truncated_echo_of_inbound: true,
+      if_unsafe_return_no_send: true,
       forbidden_substrings: [],
     },
+    inbound_meaning: buildInboundMeaningFacts({
+      rawInbound: "done",
+      classifierEventType: "user_yes",
+    }),
     suggested_coaching_move: "ack_outcome",
   };
   return { ...base, ...overrides };

@@ -27,6 +27,17 @@ export type MemoryRepeatRepairContext = {
   forbidden_coaching_frames: string[];
   forbidden_content_tokens: string[];
   strategy_examples: string[];
+  clear_completion_inbound?: boolean;
+  latest_inbound_text?: string | null;
+  prior_no_send?: {
+    prior_message_sid: string;
+    prior_no_send_reason: string;
+    prior_cancelled_at: string;
+    normalized_inbound_text: string;
+    repeated_question_preview: string | null;
+    escalation_attempt: true;
+  } | null;
+  proof_victory_room_allowed?: boolean;
 };
 
 export function isSmsMemoryRepeatRepairStrategy(value: string): value is SmsMemoryRepeatRepairStrategy {
