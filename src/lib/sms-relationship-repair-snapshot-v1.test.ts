@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildTemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import {
   buildRepairRelationshipSnapshotV1,
   buildRepairSnapshotPromptGuidance,
@@ -98,6 +99,47 @@ describe("buildRepairRelationshipSnapshotV1", () => {
     expect(snapshot.recent_exact_thread_excerpt.messages).toHaveLength(2);
     expect(snapshot.canonical_state_min.effective_ask).toBe("Five minutes at lunch");
     expect(snapshot.proof_victory_permission?.can_reference_victory_room).toBe(false);
+  });
+
+  it("temporal_wording snapshot includes temporal_contract on current_turn", () => {
+    const temporalContract = buildTemporalContractV1({
+      timezone: "America/New_York",
+      now: new Date("2026-06-02T12:00:00.000Z"),
+      sendDayKey: "2026-06-02",
+      referencedEvents: [
+        {
+          ref_id: "memory_7d_latest_win",
+          event_type: "user_yes",
+          local_day_key: "2026-05-31",
+          allowed_relative_label: "the_other_day",
+          evidence_preview: "distribution time today",
+        },
+      ],
+    });
+    const snapshot = buildRepairRelationshipSnapshotV1({
+      repairKind: "temporal_wording",
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      blockedBody: "You did great with your distribution time yesterday!",
+      blockedReasons: ["invalid_yesterday_reference"],
+      laneFacts: {
+        ...minimalInboundFacts(),
+        temporal_contract: temporalContract,
+      },
+      freshnessViolation: { reason: "invalid_yesterday_reference", detail: "wrong yesterday" },
+    });
+
+    expect(snapshot.repair_kind).toBe("temporal_wording");
+    expect(snapshot.violation.temporal_conflict).toBe("invalid_yesterday_reference");
+    expect(snapshot.current_turn.temporal_contract).toMatchObject({
+      version: "temporal_contract_v1",
+      today_key: "2026-06-02",
+      yesterday_key: "2026-06-01",
+    });
+    expect(
+      (snapshot.current_turn.temporal_contract as { referenced_events?: unknown[] })
+        ?.referenced_events?.[0]
+    ).toMatchObject({ local_day_key: "2026-05-31" });
   });
 
   it("memory repeat snapshot includes forbidden_content_tokens, repeated_question, memory_repeat context", () => {

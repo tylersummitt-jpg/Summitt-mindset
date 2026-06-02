@@ -99,3 +99,34 @@ export function resolveUserTimezone(raw: unknown): string {
 
   return trimmed;
 }
+
+export type SmsTimezoneSource = "clerk" | "audience" | "default";
+
+export type ResolvedSmsUserTimezone = {
+  timezone: string;
+  timezone_source: SmsTimezoneSource;
+};
+
+/**
+ * Single SMS timezone resolution: Clerk public metadata first, then sms_audience, then default.
+ */
+export function resolveSmsUserTimezone(args: {
+  clerkMetadataTimezone?: unknown;
+  audienceTimezone?: unknown;
+}): ResolvedSmsUserTimezone {
+  const clerk =
+    typeof args.clerkMetadataTimezone === "string" && args.clerkMetadataTimezone.trim()
+      ? args.clerkMetadataTimezone.trim()
+      : null;
+  if (clerk && isValidIanaTimezone(clerk)) {
+    return { timezone: clerk, timezone_source: "clerk" };
+  }
+  const audience =
+    typeof args.audienceTimezone === "string" && args.audienceTimezone.trim()
+      ? args.audienceTimezone.trim()
+      : null;
+  if (audience && isValidIanaTimezone(audience)) {
+    return { timezone: audience, timezone_source: "audience" };
+  }
+  return { timezone: DEFAULT_TZ, timezone_source: "default" };
+}

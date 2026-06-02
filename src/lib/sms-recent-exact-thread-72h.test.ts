@@ -279,4 +279,16 @@ describe("buildRecentExactThread72h", () => {
     expect(local).toMatch(/May/);
     expect(local.length).toBeGreaterThan(5);
   });
+
+  it("toOutputMessage includes local_day_key", async () => {
+    const { buildRecentExactThread72h } = await import("@/lib/sms-recent-exact-thread-72h");
+    const result = await buildRecentExactThread72h({
+      clerkUserId: "user_tz",
+      timezone: TZ,
+      now: new Date("2026-06-02T12:00:00.000Z"),
+    });
+    for (const m of result.messages) {
+      expect(m.local_day_key).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
 });

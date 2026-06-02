@@ -14,6 +14,8 @@ import { SMS_SUBSCRIPTION_BILLING_INTEGRITY_RE } from "@/lib/sms-relationship-ex
 import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
 import { classifyV2InboundReply } from "@/lib/v2-sms-accountability";
+import { deriveInboundTemporalDayKeys } from "@/lib/sms-temporal-contract-v1";
+import { resolveUserTimezone } from "@/lib/timezone";
 
 export type InboundRelationshipMeaning =
   | "reported_completion"
@@ -81,7 +83,11 @@ export type InboundSmsResponseIntentResult = {
 
 export type InboundMeaningFacts = InboundRelationshipMeaningResult &
   InboundPersistenceDecisionResult &
-  InboundSmsResponseIntentResult;
+  InboundSmsResponseIntentResult & {
+    spoken_local_day_key: string | null;
+    reported_for_day_key: string | null;
+    user_timezone: string | null;
+  };
 
 export type DeriveInboundRelationshipMeaningArgs = {
   rawInbound: string;
@@ -90,6 +96,9 @@ export type DeriveInboundRelationshipMeaningArgs = {
   routePriority?: InboundMeaningRoutePriority;
   openQuestionPending?: boolean;
   latestOpenQuestion?: string | null;
+  /** When omitted, anchoring uses `new Date()` at derive time. */
+  receivedAt?: Date;
+  timezone?: string;
 };
 
 function looksLikeUserQuestion(text: string): boolean {
@@ -655,7 +664,22 @@ export function buildInboundMeaningFacts(
     classifierEventType: args.classifierEventType,
   });
   const sms = deriveSmsResponseIntent({ meaning, persistence });
-  return { ...meaning, ...persistence, ...sms };
+  const receivedAt = args.receivedAt ?? new Date();
+  const user_timezone = args.timezone ? resolveUserTimezone(args.timezone) : null;
+  const tz = user_timezone ?? resolveUserTimezone(null);
+  const { spoken_local_day_key, reported_for_day_key } = deriveInboundTemporalDayKeys({
+    temporalScope: meaning.temporal_scope,
+    receivedAt,
+    timezone: tz,
+  });
+  return {
+    ...meaning,
+    ...persistence,
+    ...sms,
+    spoken_local_day_key,
+    reported_for_day_key,
+    user_timezone: user_timezone ?? tz,
+  };
 }
 
 export function coachingMoveFromSmsResponseIntent(intent: InboundSmsResponseIntent): string | null {
@@ -717,6 +741,9 @@ export function slimInboundMeaningForFacts(
     confidence: meaning.confidence,
     evidence: meaning.evidence.slice(0, 6),
     disqualifiers: meaning.disqualifiers.slice(0, 6),
+    spoken_local_day_key: meaning.spoken_local_day_key,
+    reported_for_day_key: meaning.reported_for_day_key,
+    user_timezone: meaning.user_timezone,
   };
 }
 

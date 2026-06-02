@@ -10,6 +10,11 @@ import {
 } from "@/lib/inbound-relationship-meaning";
 import { looksLikeReportedCompletion } from "@/lib/pending-plan-proof";
 import {
+  allowedRelativeLabelForLocalDay,
+  dayKeyOffset,
+  getLocalDayKeyForTimestamp,
+} from "@/lib/sms-temporal-contract-v1";
+import {
   buildRepairRelationshipSnapshotV1,
   DEFAULT_REPAIR_SNAPSHOT_MAX_CHARS,
   serializeRepairSnapshotForOpenAI,
@@ -22,6 +27,14 @@ export type ThreadFreshnessTemporalFrame = "today" | "tomorrow" | "unclear";
 export type ThreadFreshnessCompletedAction = {
   text: string;
   evidence: string;
+  local_day_key?: string | null;
+  allowed_relative_label?:
+    | "today"
+    | "yesterday"
+    | "tomorrow"
+    | "the_other_day"
+    | "none"
+    | null;
 };
 
 export type ThreadFreshnessFacts = {
@@ -159,7 +172,15 @@ export function deriveRecentThreadFreshnessFacts(args: {
   latestUserInbound?: string | null;
   latestCoachQuestion?: string | null;
   accountabilityDayKey?: string | null;
+  timezone?: string | null;
+  /** ISO timestamps aligned with user answer lines (newest-first), when available */
+  userAnswerTimestamps?: string[];
 }): ThreadFreshnessFacts {
+  const sendDayKey = args.accountabilityDayKey?.trim() || null;
+  const tz = args.timezone?.trim() || "America/New_York";
+  const todayKey = sendDayKey ?? getLocalDayKeyForTimestamp(new Date(), tz);
+  const yesterdayKey = dayKeyOffset(todayKey, -1);
+  const tomorrowKey = dayKeyOffset(todayKey, 1);
   const lines = threadLinesFromArgs(args);
   const userLines = lines.filter((l) => l.role === "User").map((l) => l.text);
   const coachLines = lines.filter((l) => l.role === "Coach").map((l) => l.text);
@@ -179,6 +200,8 @@ export function deriveRecentThreadFreshnessFacts(args: {
   let recent_user_completion: string | null = null;
   let recent_user_plan_or_schedule: string | null = null;
 
+  const answerTs = args.userAnswerTimestamps ?? [];
+
   for (let i = userLines.length - 1; i >= 0; i--) {
     const text = userLines[i]!;
     if (!looksLikeConservativeCompletion(text)) continue;
@@ -186,12 +209,34 @@ export function deriveRecentThreadFreshnessFacts(args: {
       inferTopicFromCoachContext(coachLines.slice(-3), text) ??
       (/\blunch\b/i.test(text) ? "lunch stretch" : null);
     const actionText = topic ?? text.slice(0, 80);
-    completed_actions.push({ text: actionText, evidence: text.slice(0, 220) });
+    const tsIso = answerTs[i]?.trim();
+    const localDayKey = tsIso
+      ? getLocalDayKeyForTimestamp(tsIso, tz)
+      : sendDayKey
+        ? null
+        : getLocalDayKeyForTimestamp(new Date(), tz);
+    const allowed_relative_label = localDayKey
+      ? allowedRelativeLabelForLocalDay({
+          eventLocalDayKey: localDayKey,
+          todayKey,
+          yesterdayKey,
+          tomorrowKey,
+        })
+      : null;
+    completed_actions.push({
+      text: actionText,
+      evidence: text.slice(0, 220),
+      local_day_key: localDayKey,
+      allowed_relative_label,
+    });
     if (topic) do_not_reask_topics.push(topic);
     if (/\blunch\b/i.test(text) && /\bstretch/.test(coachLines.join(" "))) {
       do_not_reask_topics.push("lunch stretch");
     }
-    recent_user_completion = text.slice(0, 220);
+    recent_user_completion =
+      localDayKey && sendDayKey && localDayKey !== sendDayKey
+        ? `[completion on ${localDayKey}] ${text.slice(0, 180)}`
+        : text.slice(0, 220);
     break;
   }
 

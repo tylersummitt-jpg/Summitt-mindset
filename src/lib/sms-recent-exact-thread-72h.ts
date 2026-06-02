@@ -4,6 +4,7 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { getRecentV2EventsForAi, type V2EventRowForAi } from "@/lib/v2-commitment";
+import { getLocalDayKeyForTimestamp } from "@/lib/sms-temporal-contract-v1";
 import { resolveUserTimezone } from "@/lib/timezone";
 
 export const RECENT_EXACT_THREAD_WINDOW_HOURS = 72;
@@ -22,6 +23,7 @@ export type RecentExactThread72hMessage = {
   at: string;
   at_local: string;
   at_local_timezone: string;
+  local_day_key: string;
   role: RecentExactThread72hRole;
   body: string;
   message_kind: string | null;
@@ -183,6 +185,7 @@ function toOutputMessage(entry: TimelineEntry, timezone: string): RecentExactThr
     at: d.toISOString(),
     at_local: formatAtLocal(d, timezone),
     at_local_timezone: timezone,
+    local_day_key: getLocalDayKeyForTimestamp(d, timezone),
     role: entry.role,
     body: entry.body,
     message_kind: entry.message_kind,

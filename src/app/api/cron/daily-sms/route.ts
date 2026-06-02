@@ -7,7 +7,8 @@ import { getClerkUser } from "@/lib/clerk-rest";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
-import { resolveUserTimezone, getDateKeyInTimezone } from "@/lib/timezone";
+import { resolveUserTimezone, getDateKeyInTimezone, resolveSmsUserTimezone } from "@/lib/timezone";
+import { slimTemporalContractForTelemetry } from "@/lib/sms-temporal-contract-v1";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import {
   deriveSmsGoalAdjustmentSignal,
@@ -586,11 +587,16 @@ async function insertV2CheckSentEventBestEffort(args: {
 async function buildDailySmsContent(
   clerkUserId: string,
   md: Record<string, unknown>,
-  accountabilityDayKey: string
+  accountabilityDayKey: string,
+  audienceTimezone?: string | null
 ): Promise<DailySmsBuilt> {
   let active = await getActiveCommitment(clerkUserId);
   if (active?.behavior_statement?.trim()) {
-    const timezone = resolveUserTimezone(md.timezone);
+    const tzResolved = resolveSmsUserTimezone({
+      clerkMetadataTimezone: md.timezone,
+      audienceTimezone,
+    });
+    const timezone = tzResolved.timezone;
     await clearStaleAdaptiveContractColumns(active.id);
     try {
       const checkSentReconcile = await reconcileCheckSentPostSendBookkeepingForCommitment({
@@ -2718,7 +2724,11 @@ export async function GET(req: Request) {
 
       const commsPrefs = await fetchV2UserSmsCommsPreferences(audienceUser.clerk_user_id);
 
-      const timezone = resolveUserTimezone(md.timezone ?? audienceUser.timezone);
+      const tzResolved = resolveSmsUserTimezone({
+        clerkMetadataTimezone: md.timezone,
+        audienceTimezone: audienceUser.timezone,
+      });
+      const timezone = tzResolved.timezone;
       const now = new Date();
 
       // localNow = "now" interpreted in that user's timezone
@@ -2937,7 +2947,8 @@ export async function GET(req: Request) {
             const builtRaw = await buildDailySmsContent(
               audienceUser.clerk_user_id,
               md as Record<string, unknown>,
-              todayKey
+              todayKey,
+              audienceUser.timezone
             );
             const built = builtRaw.ok
               ? await withNorthStarDailyGate(builtRaw, { localHour: localNow.getHours() })
@@ -3547,7 +3558,8 @@ export async function GET(req: Request) {
       const builtMainRaw = await buildDailySmsContent(
         audienceUser.clerk_user_id,
         md as Record<string, unknown>,
-        todayKey
+        todayKey,
+        audienceUser.timezone
       );
       const builtMain = builtMainRaw.ok
         ? await withNorthStarDailyGate(builtMainRaw, { localHour: localNow.getHours() })

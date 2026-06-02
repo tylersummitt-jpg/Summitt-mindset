@@ -60,6 +60,19 @@ import {
   buildRelationshipPacketPromptGuidance,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
+import type { TemporalContractV1, TemporalReferencedEventV1 } from "@/lib/sms-temporal-contract-v1";
+import {
+  buildReferencedEventsFromDailySources,
+  buildTemporalContractV1,
+  buildTemporalWordingRepairInstruction,
+  dayKeyOffset,
+  slimTemporalContractForTelemetry,
+} from "@/lib/sms-temporal-contract-v1";
+import {
+  detectTemporalWordingViolations,
+  pickSalientReferencedEvent,
+  temporalWordingViolationReasons,
+} from "@/lib/sms-temporal-wording-validator";
 import {
   buildRepairSnapshotPromptGuidance,
   prepareRepairSnapshotForOpenAI,
@@ -133,6 +146,7 @@ export type DailyV3RefreshFacts = {
 export type DailyV3RelationshipFacts = {
   route_kind: DailyV3RouteKind;
   accountability_day_key: string;
+  temporal_contract?: TemporalContractV1 | null;
   thread_freshness?: ThreadFreshnessFacts | null;
   user: {
     clerk_user_id: string;
@@ -392,18 +406,215 @@ export function shouldRunDailyThreadFreshnessGuard(facts: DailyV3RelationshipFac
 
 export function enrichDailyFactsWithThreadFreshness(facts: DailyV3RelationshipFacts): DailyV3RelationshipFacts {
   const tm = facts.thread_memory;
+  const threadFreshness = deriveRecentThreadFreshnessFacts({
+    recentExactThreadText: tm.recent_exact_thread_text ?? tm.recent_transcript_or_context_block ?? null,
+    recentTranscriptLines: tm.recent_transcript_or_context_block
+      ? tm.recent_transcript_or_context_block.split("\n").filter(Boolean)
+      : [],
+    last5UserAnswers: tm.last_5_user_answers ?? [],
+    latestUserInbound: tm.latest_inbound_sms ?? null,
+    latestCoachQuestion: tm.latest_open_question ?? tm.last_5_coach_questions?.slice(-1)[0] ?? null,
+    accountabilityDayKey: facts.accountability_day_key,
+    timezone: facts.user.timezone,
+  });
+
+  const sendDayKey = facts.accountability_day_key;
+  const now = Number.isFinite(new Date(facts.user.local_time_iso).getTime())
+    ? new Date(facts.user.local_time_iso)
+    : new Date();
+  const contractBase: TemporalContractV1 = {
+    ...buildTemporalContractV1({
+      timezone: facts.user.timezone,
+      now,
+      sendDayKey,
+    }),
+    today_key: sendDayKey,
+    yesterday_key: dayKeyOffset(sendDayKey, -1),
+    tomorrow_key: dayKeyOffset(sendDayKey, 1),
+    send_day_key: sendDayKey,
+  };
+  const referencedEvents = buildReferencedEventsFromDailySources({
+    timezone: facts.user.timezone,
+    contract: contractBase,
+    threadFreshness,
+    memory7d: tm.relationship_memory_7d,
+    recentThread72h: tm.recent_exact_thread_72h,
+    pendingPlanProof: facts.accountability.pending_plan_proof,
+  });
+  const temporal_contract: TemporalContractV1 = {
+    ...contractBase,
+    referenced_events: referencedEvents.length ? referencedEvents : undefined,
+  };
+
   return {
     ...facts,
-    thread_freshness: deriveRecentThreadFreshnessFacts({
-      recentExactThreadText: tm.recent_exact_thread_text ?? tm.recent_transcript_or_context_block ?? null,
-      recentTranscriptLines: tm.recent_transcript_or_context_block
-        ? tm.recent_transcript_or_context_block.split("\n").filter(Boolean)
-        : [],
-      last5UserAnswers: tm.last_5_user_answers ?? [],
-      latestUserInbound: tm.latest_inbound_sms ?? null,
-      latestCoachQuestion: tm.latest_open_question ?? tm.last_5_coach_questions?.slice(-1)[0] ?? null,
-      accountabilityDayKey: facts.accountability_day_key,
+    thread_freshness: threadFreshness,
+    temporal_contract,
+  };
+}
+
+export function shouldRunDailyTemporalWordingGuard(facts: DailyV3RelationshipFacts): boolean {
+  if (facts.constraints.required_verbatim_substrings?.length) return false;
+  if (DAILY_THREAD_FRESHNESS_EXCLUDED_ROUTE_KINDS.has(facts.route_kind)) return false;
+  return Boolean(facts.temporal_contract);
+}
+
+function resolveDailyTemporalReferencedEvents(
+  laneFacts: DailyV3RelationshipFacts
+): TemporalReferencedEventV1[] {
+  const contract = laneFacts.temporal_contract!;
+  return (
+    contract.referenced_events ??
+    buildReferencedEventsFromDailySources({
+      timezone: laneFacts.user.timezone,
+      contract,
+      threadFreshness: laneFacts.thread_freshness,
+      memory7d: laneFacts.thread_memory.relationship_memory_7d,
+      recentThread72h: laneFacts.thread_memory.recent_exact_thread_72h,
+      pendingPlanProof: laneFacts.accountability.pending_plan_proof,
+    })
+  );
+}
+
+function dailyTemporalBindingSkipsValidation(bindingVerbatim: string | null): boolean {
+  const binding = bindingVerbatim?.trim() ?? "";
+  return Boolean(binding) && /\b(yesterday|today|tomorrow)\b/i.test(binding);
+}
+
+function detectDailyTemporalWordingViolationsForLane(
+  body: string,
+  laneFacts: DailyV3RelationshipFacts,
+  bindingVerbatim: string | null
+) {
+  if (!shouldRunDailyTemporalWordingGuard(laneFacts)) return [];
+  const contract = laneFacts.temporal_contract!;
+  return detectTemporalWordingViolations(body, {
+    temporal_contract: contract,
+    referenced_events: resolveDailyTemporalReferencedEvents(laneFacts),
+    mode: "daily",
+    skip_validation: dailyTemporalBindingSkipsValidation(bindingVerbatim),
+  });
+}
+
+type DailyTemporalGuardResult =
+  | { outcome: "ok"; body: string; metadata: Record<string, unknown> }
+  | { outcome: "no_send"; noSendReason: string; metadata: Record<string, unknown> };
+
+async function applyDailyTemporalWordingGuard(args: {
+  body: string;
+  laneFacts: DailyV3RelationshipFacts;
+  bindingVerbatim: string | null;
+  turnPurpose: string;
+  voiceConfidence: number | null;
+  usedFacts: string[];
+  safetyNotes: string[];
+  baseMeta: Record<string, unknown>;
+  laneOpenAiJsonMeta: Record<string, unknown>;
+  successRepairExtra: Record<string, unknown>;
+}): Promise<DailyTemporalGuardResult> {
+  const baseTelemetry = (): Record<string, unknown> => {
+    const c = args.laneFacts.temporal_contract;
+    return {
+      ...(c ? slimTemporalContractForTelemetry(c) : {}),
+      temporal_wording_violation_detected: false,
+      temporal_wording_violation_reason: null,
+      temporal_wording_repair_attempted: false,
+      temporal_wording_repair_succeeded: false,
+    };
+  };
+
+  if (!shouldRunDailyTemporalWordingGuard(args.laneFacts)) {
+    return { outcome: "ok", body: args.body, metadata: baseTelemetry() };
+  }
+
+  const contract = args.laneFacts.temporal_contract!;
+  const referenced = resolveDailyTemporalReferencedEvents(args.laneFacts);
+
+  let body = args.body.trim();
+  let violations = detectDailyTemporalWordingViolationsForLane(
+    body,
+    args.laneFacts,
+    args.bindingVerbatim
+  );
+
+  if (!violations.length) {
+    return { outcome: "ok", body, metadata: baseTelemetry() };
+  }
+
+  const original = body;
+  const salient = pickSalientReferencedEvent(referenced);
+  const { snapshot: repairSnapshot, meta: snapshotMeta } = prepareRepairSnapshotForOpenAI({
+    repairKind: "temporal_wording",
+    routeKind: "daily",
+    routePurpose: args.laneFacts.route_kind,
+    blockedBody: body,
+    blockedReasons: temporalWordingViolationReasons(violations),
+    laneFacts: args.laneFacts,
+    freshness: args.laneFacts.thread_freshness,
+  });
+
+  const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
+    routeKind: "daily",
+    routePurpose: args.laneFacts.route_kind,
+    originalBody: body,
+    blockedReasons: temporalWordingViolationReasons(violations),
+    repairSnapshot,
+    systemInstruction: buildTemporalWordingRepairInstruction({
+      contract,
+      violationReason: violations[0]!.reason,
+      salientEvent: salient,
     }),
+  });
+
+  const attemptMeta: Record<string, unknown> = {
+    ...baseTelemetry(),
+    temporal_wording_violation_detected: true,
+    temporal_wording_violation_reason: violations[0]!.reason,
+    temporal_wording_repair_attempted: true,
+    temporal_wording_repair_succeeded: false,
+    ...snapshotMeta,
+  };
+
+  if (!repairOut?.body?.trim()) {
+    return {
+      outcome: "no_send",
+      noSendReason: "temporal_wording_blocked",
+      metadata: attemptMeta,
+    };
+  }
+
+  body = repairOut.body.replace(/^["']|["']$/g, "").trim();
+  violations = detectDailyTemporalWordingViolationsForLane(
+    body,
+    args.laneFacts,
+    args.bindingVerbatim
+  );
+
+  if (violations.length > 0) {
+    return {
+      outcome: "no_send",
+      noSendReason: "temporal_wording_blocked",
+      metadata: {
+        ...attemptMeta,
+        temporal_wording_repair_succeeded: false,
+        v3_candidate_body: original,
+        repaired_candidate_body: body,
+        temporal_wording_repaired_blocked_reasons: temporalWordingViolationReasons(violations),
+        ...repairOut.metadata,
+      },
+    };
+  }
+
+  return {
+    outcome: "ok",
+    body,
+    metadata: {
+      ...attemptMeta,
+      temporal_wording_repair_succeeded: true,
+      v3_candidate_body: original,
+      repaired_candidate_body: body,
+      ...repairOut.metadata,
+    },
   };
 }
 
@@ -758,6 +969,9 @@ export async function produceDailyV3RelationshipSms(
   const laneFacts = enrichDailyFactsWithThreadFreshness(args.facts);
   const baseMeta: Record<string, unknown> = {
     v3_brain_version: V3_BRAIN_VERSION,
+    ...(laneFacts.temporal_contract
+      ? slimTemporalContractForTelemetry(laneFacts.temporal_contract)
+      : {}),
     daily_v3_lane_used: true,
     v3_lane_reply_source: "v3_daily_relationship_lane" satisfies DailyV3RelationshipLaneReplySource,
     old_daily_writer_used_as_voice: false,
@@ -805,7 +1019,7 @@ ${buildRelationshipPacketPromptGuidance()}
 ${buildDailyOpenQuestionAnswerPriorityGuidance()}
 - If thread_memory.latest_open_question is already answered in recent exact thread with proof/outcome (not only a forward plan while pending_plan_proof is active), advance from that answer.
 - Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
-- Avoid repeating yesterday's opener or the same coach question from recent exact thread.
+- Avoid repeating the prior day's opener or the same coach question from recent exact thread.
 - Anchor to the user's real commitment (effective ask + state), without pasting raw title or behavior_statement as a quoted phrase or "Did [raw] happen today?" / "Did you protect [raw]?" style checks.
 - One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, one clear question or one concrete action.
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
@@ -1278,6 +1492,46 @@ used_facts (string[]), safety_notes (string[])`;
     };
   }
 
+  const temporalGuard = await applyDailyTemporalWordingGuard({
+    body,
+    laneFacts,
+    bindingVerbatim: dailyBindingVerbatimForRobotGuard(laneFacts),
+    turnPurpose,
+    voiceConfidence,
+    usedFacts,
+    safetyNotes,
+    baseMeta,
+    laneOpenAiJsonMeta,
+    successRepairExtra,
+  });
+  if (temporalGuard.outcome === "no_send") {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: temporalGuard.noSendReason,
+      replySource: "v3_daily_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes,
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: "temporal_wording_blocked",
+        v3_candidate_body: body,
+        ...temporalGuard.metadata,
+      },
+      openAiOk: true,
+    };
+  }
+  body = temporalGuard.body;
+  if (temporalGuard.metadata.temporal_wording_repair_succeeded === true) {
+    successLaneStage = "post_validate_repaired";
+    successRepairExtra = { ...successRepairExtra, ...temporalGuard.metadata };
+  } else if (Object.keys(temporalGuard.metadata).length > 0) {
+    successRepairExtra = { ...successRepairExtra, ...temporalGuard.metadata };
+  }
+
   const freshnessGuard = await applyThreadFreshnessGuard({
     routeKind: "daily",
     routePurpose: laneFacts.route_kind,
@@ -1351,6 +1605,25 @@ used_facts (string[]), safety_notes (string[])`;
             },
           };
         }
+      }
+      const temporalAfterRepeat = detectDailyTemporalWordingViolationsForLane(
+        candidate,
+        laneFacts,
+        dailyBindingVerbatimForRobotGuard(laneFacts)
+      );
+      if (temporalAfterRepeat.length > 0) {
+        return {
+          ok: false,
+          noSendReason: "temporal_wording_blocked",
+          extraMeta: {
+            temporal_wording_violation_detected: true,
+            temporal_wording_violation_reason: temporalAfterRepeat[0]!.reason,
+            ...(successRepairExtra.temporal_wording_repair_attempted === true
+              ? { temporal_wording_repair_attempted: true }
+              : {}),
+            temporal_wording_repair_succeeded: false,
+          },
+        };
       }
       const missingAfter = validateRequiredVerbatims(
         candidate,

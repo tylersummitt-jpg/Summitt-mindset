@@ -64,6 +64,20 @@ describe("derivePersistenceDecision — no false today user_yes", () => {
   });
 });
 
+describe("inbound temporal anchoring", () => {
+  it("anchors got it done today to received local day", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "Yes! I got it done today! Super proud of myself.",
+      receivedAt: new Date("2026-05-31T21:17:00.000Z"),
+      timezone: "America/New_York",
+    });
+    expect(facts.temporal_scope).toBe("today");
+    expect(facts.spoken_local_day_key).toBe("2026-05-31");
+    expect(facts.reported_for_day_key).toBe("2026-05-31");
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+  });
+});
+
 describe("classifier bad hint — must not promote completion", () => {
   it("cancel/support text with forced completion_detail", () => {
     const facts = meaningFor("I need to cancel my subscription", badClassifier);

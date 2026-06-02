@@ -4,6 +4,12 @@
 
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import type { V2CommitmentSmsThreadMemory } from "@/lib/v2-commitment-sms-thread-memory";
+import {
+  allowedRelativeLabelForLocalDay,
+  getLocalDayKeyForTimestamp,
+  type TemporalContractV1,
+  type TemporalRelativeLabel,
+} from "@/lib/sms-temporal-contract-v1";
 
 export const RELATIONSHIP_MEMORY_7D_WINDOW_DAYS = 7;
 export const RELATIONSHIP_MEMORY_7D_WINDOW_MS =
@@ -18,6 +24,8 @@ export type Memory7dItem = {
   summary: string;
   evidence: string;
   at: string;
+  local_day_key?: string | null;
+  allowed_relative_label?: TemporalRelativeLabel | null;
   source: string;
   message_sid: string | null;
   is_exact_body: boolean;
@@ -32,6 +40,8 @@ export type Memory7dProofItem = {
   proof_type: string;
   evidence: string;
   at: string;
+  local_day_key?: string | null;
+  allowed_relative_label?: TemporalRelativeLabel | null;
   source: string;
   message_sid: string | null;
   is_exact_body: false;
@@ -110,6 +120,54 @@ function truncateEvidence(text: string, max = MAX_MEMORY_7D_EVIDENCE_CHARS): str
   const t = text.trim().replace(/\s+/g, " ");
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
+}
+
+function localDayKeyFromOutcomePayload(
+  p: Record<string, unknown> | null,
+  occurredAt: string,
+  timezone: string
+): string {
+  const meaning = p?.inbound_meaning;
+  if (meaning && typeof meaning === "object" && !Array.isArray(meaning)) {
+    const m = meaning as Record<string, unknown>;
+    const reported =
+      typeof m.reported_for_day_key === "string" ? m.reported_for_day_key.trim() : "";
+    if (reported) return reported;
+    const spoken =
+      typeof m.spoken_local_day_key === "string" ? m.spoken_local_day_key.trim() : "";
+    if (spoken) return spoken;
+  }
+  return getLocalDayKeyForTimestamp(occurredAt, timezone);
+}
+
+export function applyMemory7dTemporalLabels(
+  data: RelationshipMemory7dData,
+  contract: Pick<TemporalContractV1, "today_key" | "yesterday_key" | "tomorrow_key">
+): RelationshipMemory7dData {
+  const labelItem = <T extends { local_day_key?: string | null; allowed_relative_label?: TemporalRelativeLabel | null }>(
+    item: T
+  ): T => {
+    const key = item.local_day_key?.trim();
+    if (!key) return item;
+    return {
+      ...item,
+      allowed_relative_label: allowedRelativeLabelForLocalDay({
+        eventLocalDayKey: key,
+        todayKey: contract.today_key,
+        yesterdayKey: contract.yesterday_key,
+        tomorrowKey: contract.tomorrow_key,
+      }),
+    };
+  };
+
+  return {
+    ...data,
+    wins: data.wins.map(labelItem),
+    misses: data.misses.map(labelItem),
+    partials: data.partials.map(labelItem),
+    comebacks: data.comebacks.map(labelItem),
+    proof_moments: data.proof_moments.map(labelItem),
+  };
 }
 
 function payloadRecord(payload: unknown): Record<string, unknown> | null {
@@ -248,7 +306,9 @@ export function buildRelationshipMemory7d(args: {
   dailyContextFlags?: RelationshipMemory7dContextFlags | null;
 }): RelationshipMemory7dResult {
   void args.clerkUserId;
-  void args.timezone;
+
+  const timezone =
+    typeof args.timezone === "string" && args.timezone.trim() ? args.timezone.trim() : "America/New_York";
 
   const now = args.now ?? new Date();
   const cutoffMs = now.getTime() - RELATIONSHIP_MEMORY_7D_WINDOW_MS;
@@ -287,6 +347,7 @@ export function buildRelationshipMemory7d(args: {
             summary: "user_yes",
             evidence: outcomeEvidence(p, e.event_type),
             at: e.occurred_at,
+            local_day_key: localDayKeyFromOutcomePayload(p, e.occurred_at, timezone),
             source,
             message_sid: sid,
             is_exact_body: Boolean(typeof p?.message === "string" && p.message.trim()),
@@ -347,6 +408,7 @@ export function buildRelationshipMemory7d(args: {
 
     if (p?.proof_moment === true) {
       const proofType = typeof p.proof_moment_type === "string" ? p.proof_moment_type.trim() : "";
+      const proofLocalDay = localDayKeyFromOutcomePayload(p, e.occurred_at, timezone);
       if (proofType && !proofTypesSeen.has(proofType) && proofMoments.length < MAX_MEMORY_7D_ITEMS_PER_CATEGORY) {
         proofTypesSeen.add(proofType);
         proofMoments.push({
@@ -354,6 +416,7 @@ export function buildRelationshipMemory7d(args: {
           proof_type: proofType,
           evidence: proofLabel(proofType),
           at: e.occurred_at,
+          local_day_key: proofLocalDay,
           source: `v2_commitment_event:proof_moment:${e.event_type}`,
           message_sid: sid,
           is_exact_body: false,

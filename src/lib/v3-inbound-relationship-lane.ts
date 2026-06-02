@@ -84,6 +84,8 @@ import {
   detectThreadFreshnessViolations,
   type ThreadFreshnessFacts,
 } from "@/lib/sms-thread-freshness";
+import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
+import { buildTemporalContractForInbound } from "@/lib/sms-temporal-contract-v1";
 
 const INBOUND_LANE_MAX_CHARS = 320;
 
@@ -946,6 +948,7 @@ export type InboundV3RelationshipFacts = {
   /** Read-only Victory Room background (season label + Pat Read); non-speakable unless naturally relevant. */
   victory_background?: V3VictoryBackgroundFacts | null;
   thread_freshness?: ThreadFreshnessFacts | null;
+  temporal_contract?: TemporalContractV1 | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -2506,6 +2509,8 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
 
   const inboundMeaning = buildInboundMeaningFacts({
     rawInbound: args.coalescedInboundText,
+    receivedAt: new Date(args.localTimeIso),
+    timezone: args.timezone,
     classifierEventType: args.deterministicEventType,
     classifierNormalizedHint: null,
     routePriority: buildInboundMeaningRoutePriorityFromV3BuildArgs({
@@ -2770,6 +2775,13 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       mp?.latest_open_question ??
       args.northStarPacket.latestOpenQuestion ??
       null,
+    accountabilityDayKey: inboundMeaning.reported_for_day_key ?? inboundMeaning.spoken_local_day_key,
+    timezone: args.timezone,
+  });
+  facts.temporal_contract = buildTemporalContractForInbound({
+    timezone: args.timezone,
+    receivedAt: new Date(args.localTimeIso),
+    inboundMeaning,
   });
   facts.suggested_coaching_move = deriveSuggestedCoachingMoveForInboundFacts(facts);
   return facts;

@@ -2713,3 +2713,299 @@ describe("thread_freshness in V3 daily lane", () => {
     expect(createMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Tyler June 2 temporal wording (T1+T2)", () => {
+  const tylerBad =
+    "You did great with your distribution time yesterday! As you continue today, does sticking with two hours still feel right?";
+  const tylerRepaired =
+    "You did great with your distribution time the other day! As you continue today, does sticking with two hours still feel right?";
+
+  const tylerThread = {
+    messages: [
+      {
+        at: "2026-05-31T21:17:00.000Z",
+        at_local: "May 31, 5:17 PM",
+        at_local_timezone: "America/New_York",
+        local_day_key: "2026-05-31",
+        role: "user" as const,
+        body: "Yes! I got it done today! Super proud of myself.",
+        message_kind: null,
+        source_table: "sms_inbound_messages",
+        message_sid: "SM_tyler",
+        delivery_status: "sent" as const,
+        is_exact_body: true,
+      },
+    ],
+    window_hours: 72 as const,
+    message_count: 1,
+    had_preview_messages: false,
+    had_system_no_send: false,
+  };
+
+  function tylerFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
+    const core = baseFacts({
+      accountability_day_key: "2026-06-02",
+      user: {
+        ...baseFacts().user,
+        timezone: "America/New_York",
+        local_time_iso: "2026-06-02T09:00:00.000Z",
+      },
+      thread_memory: {
+        ...baseFacts().thread_memory,
+        recent_exact_thread_72h: tylerThread,
+        recent_exact_thread_text: "User: Yes! I got it done today! Super proud of myself.",
+        latest_inbound_sms: "Yes! I got it done today! Super proud of myself.",
+        relationship_memory_7d: {
+          window_days: 7,
+          built_at: "2026-06-02T09:00:00.000Z",
+          outcome_counts: { yes: 1, no: 0, partial: 0, blockers: 0, checks_sent: 0 },
+          wins: [
+            {
+              summary: "user_yes",
+              evidence: "distribution time today",
+              at: "2026-05-31T21:17:00.000Z",
+              local_day_key: "2026-05-31",
+              source: "v2_commitment_event:user_yes",
+              message_sid: null,
+              is_exact_body: false,
+            },
+          ],
+          misses: [],
+          partials: [],
+          comebacks: [],
+          blockers: [],
+          proof_moments: [],
+          open_loops: [],
+          direct_answer_history: [],
+          context_flags: {},
+          meta: { item_count: 1, sources_used: ["v2_commitment_event"] },
+        },
+      },
+    });
+    if (!overrides) return core;
+    return {
+      ...core,
+      ...overrides,
+      user: { ...core.user, ...(overrides.user ?? {}) },
+      thread_memory: { ...core.thread_memory, ...(overrides.thread_memory ?? {}) },
+    };
+  }
+
+  it("enrichDailyFactsWithThreadFreshness builds temporal_contract with May 31 win", () => {
+    const enriched = enrichDailyFactsWithThreadFreshness(tylerFacts());
+    expect(enriched.temporal_contract?.today_key).toBe("2026-06-02");
+    expect(enriched.temporal_contract?.yesterday_key).toBe("2026-06-01");
+    const ref = enriched.temporal_contract?.referenced_events ?? [];
+    expect(ref.some((e) => e.local_day_key === "2026-05-31")).toBe(true);
+    expect(ref.find((e) => e.local_day_key === "2026-05-31")?.allowed_relative_label).toBe(
+      "the_other_day"
+    );
+  });
+
+  it("temporal repair fixes wrong yesterday then sends", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: tylerBad,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.85,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: tylerRepaired,
+                used_strategy: "temporal_wording_fix",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: tylerFacts(),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.metadata.temporal_wording_violation_detected).toBe(true);
+    expect(r.metadata.temporal_wording_repair_attempted).toBe(true);
+    expect(r.metadata.temporal_wording_repair_succeeded).toBe(true);
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toMatch(/\byesterday\b/);
+    expect(r.body).toContain("the other day");
+  });
+
+  it("no-send when temporal repair still says yesterday", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: tylerBad,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.85,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: tylerBad,
+                used_strategy: "temporal_wording_fix",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: tylerFacts(),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("temporal_wording_blocked");
+  });
+
+  it("no-send when memory-repeat repair reintroduces wrong yesterday", async () => {
+    const priorQ = "Does sticking with two hours of distribution still feel right for the week?";
+    const memoryRepeatBad =
+      "You did great with your distribution time yesterday! What is the next step to protect those two hours?";
+
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: priorQ,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.85,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: memoryRepeatBad,
+                used_strategy: "next_first_step",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: tylerFacts({
+        thread_memory: {
+          latest_open_question: priorQ,
+          latest_answer_after_open_question: "Yes, two hours still works.",
+          last_5_coach_questions: [priorQ],
+          do_not_repeat_hints: [priorQ],
+          projection_used: true,
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("temporal_wording_blocked");
+    expect(r.metadata.temporal_wording_violation_detected).toBe(true);
+    expect(r.metadata.temporal_wording_violation_reason).toBe("invalid_yesterday_reference");
+    expect(r.metadata.temporal_wording_repair_succeeded).toBe(false);
+    expect(r.metadata.memory_repeat_guard_attempted).toBe(true);
+  });
+
+  it("sends when memory-repeat repair uses the other day for May 31 win", async () => {
+    const priorQ = "Does sticking with two hours of distribution still feel right for the week?";
+    const memoryRepeatClean =
+      "You did great with your distribution time the other day! What is the next step to protect those two hours?";
+
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: priorQ,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.85,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: memoryRepeatClean,
+                used_strategy: "next_first_step",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: tylerFacts({
+        thread_memory: {
+          latest_open_question: priorQ,
+          latest_answer_after_open_question: "Yes, two hours still works.",
+          last_5_coach_questions: [priorQ],
+          do_not_repeat_hints: [priorQ],
+          projection_used: true,
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe(memoryRepeatClean);
+    expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+    expect(r.metadata.temporal_wording_violation_detected).not.toBe(true);
+    expect(r.body.toLowerCase()).not.toMatch(/\byesterday\b/);
+  });
+});

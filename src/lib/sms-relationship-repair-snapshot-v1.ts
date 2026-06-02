@@ -24,7 +24,8 @@ export type RepairSnapshotKind =
   | "memory_repeat"
   | "lane_post_validate"
   | "robot_consent_menu"
-  | "contract_wrapper";
+  | "contract_wrapper"
+  | "temporal_wording";
 
 export type RepairSnapshotThreadMessage = {
   at: string;
@@ -67,6 +68,7 @@ export type RepairRelationshipSnapshotV1 = {
     daily_purpose?: string | null;
     server_strategy?: string | null;
     accountability_day_key?: string | null;
+    temporal_contract?: Record<string, unknown> | null;
     week_start?: string | null;
     week_end?: string | null;
     planned_pause_week?: boolean;
@@ -201,6 +203,9 @@ function buildCurrentTurn(
       route_purpose: facts.route_purpose ?? routePurpose,
       current_user_inbound: facts.thread.coalesced_inbound_text || facts.thread.latest_inbound_raw || null,
       local_time_iso: facts.user.local_time_iso ?? null,
+      temporal_contract: facts.temporal_contract
+        ? (facts.temporal_contract as unknown as Record<string, unknown>)
+        : null,
     };
   }
   if (isDailyFacts(facts)) {
@@ -211,6 +216,9 @@ function buildCurrentTurn(
       server_strategy: facts.accountability.server_strategy ?? null,
       accountability_day_key: facts.accountability_day_key ?? null,
       local_time_iso: facts.user.local_time_iso ?? null,
+      temporal_contract: facts.temporal_contract
+        ? (facts.temporal_contract as unknown as Record<string, unknown>)
+        : null,
     };
   }
   if (isWeeklyFacts(facts)) {
@@ -451,6 +459,10 @@ export function buildRepairRelationshipSnapshotV1(args: {
       : args.blockedReasons;
   }
 
+  if (args.repairKind === "temporal_wording") {
+    violation.temporal_conflict = args.blockedReasons[0] ?? "temporal_wording";
+  }
+
   const snapshot: RepairRelationshipSnapshotV1 = {
     repair_snapshot_version: REPAIR_SNAPSHOT_VERSION,
     repair_kind: args.repairKind,
@@ -671,6 +683,7 @@ REPAIR_SNAPSHOT_AUTHORITY (repair_relationship_snapshot_v1 — fix the violation
 - Preserve canonical_state_min and required_constraints (verbatim substrings, max chars, meaning summary).
 - Do not use hard-coded templates or copy strategy_examples verbatim.
 - Do not mention Victory Room unless proof_victory_permission.can_reference_victory_room === true.
+- current_turn.temporal_contract is authoritative for today/yesterday/tomorrow — fix relative date words only.
 - If uncertain or constraints cannot be satisfied, return an empty body (fail closed).`;
 }
 

@@ -4,6 +4,14 @@
  */
 
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import {
+  applyMemory7dTemporalLabels,
+} from "@/lib/sms-relationship-memory-7d";
+import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
+import {
+  buildTemporalContractPromptGuidance,
+  buildTemporalContractV1,
+} from "@/lib/sms-temporal-contract-v1";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
@@ -64,6 +72,7 @@ export type RelationshipPacketCurrentTurn = {
   rough_week?: boolean;
   strong_week?: boolean;
   reason_for_send?: string | null;
+  temporal_contract?: TemporalContractV1 | null;
 };
 
 export type RelationshipPacketStructuredRecentTruth = {
@@ -226,7 +235,8 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - background_summary and low_authority_hint must NEVER override recent exact thread or canonical_state.
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
-- lower_authority_background and coaching summaries are tone/context only — not proof of what happened.`;
+- lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
+${buildTemporalContractPromptGuidance()}`;
 }
 
 function isWeeklyFacts(
@@ -280,6 +290,8 @@ function buildCurrentTurnInbound(f: InboundV3RelationshipFacts): RelationshipPac
     should_write_outcome_event: f.v2_accountability.should_write_outcome_event,
     split_message_sids:
       f.thread.suppressed_message_sids.length > 0 ? f.thread.suppressed_message_sids : undefined,
+    timezone: f.user.timezone,
+    temporal_contract: f.temporal_contract ?? null,
   };
 }
 
@@ -290,6 +302,8 @@ function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketC
     server_strategy: f.accountability.server_strategy,
     accountability_day_key: f.accountability_day_key,
     local_time_iso: f.user.local_time_iso,
+    timezone: f.user.timezone,
+    temporal_contract: f.temporal_contract ?? null,
   };
 }
 
@@ -302,6 +316,13 @@ function buildCurrentTurnWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketCur
     timezone: f.user.timezone,
     local_date: f.user.local_date,
     local_time_iso: `${f.user.local_date}T${f.user.local_time}:00`,
+    temporal_contract:
+      f.temporal_contract ??
+      buildTemporalContractV1({
+        timezone: f.user.timezone,
+        now: new Date(`${f.user.local_date}T${f.user.local_time}:00`),
+        sendDayKey: f.user.local_date,
+      }),
     planned_pause_week: f.weekly_proof.planned_pause_week === true,
     silent_week: f.weekly_proof.silent_week,
     rough_week: f.weekly_proof.rough_week,
@@ -702,7 +723,7 @@ function resolveMemory7dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMe
   if (!raw) return null;
   const { meta: _meta, ...data } = raw;
   void _meta;
-  return {
+  let merged = {
     ...data,
     context_flags: {
       ...data.context_flags,
@@ -713,6 +734,10 @@ function resolveMemory7dDaily(f: DailyV3RelationshipFacts): RelationshipPacketMe
       days_since_last_user_outcome: f.accountability.days_since_last_user_outcome,
     },
   };
+  if (f.temporal_contract) {
+    merged = applyMemory7dTemporalLabels(merged, f.temporal_contract) as typeof merged;
+  }
+  return merged;
 }
 
 function resolveMemory30dInbound(f: InboundV3RelationshipFacts): RelationshipPacketMemory30dOrSeason | null {
@@ -1180,6 +1205,16 @@ const LANE_CONTEXT_OBSERVABILITY_KEYS = [
   "v3_lane_reply_source",
   "v3_lane_turn_purpose",
   "no_send_reason",
+  "temporal_contract_version",
+  "user_timezone",
+  "today_key",
+  "yesterday_key",
+  "tomorrow_key",
+  "send_day_key",
+  "temporal_wording_violation_detected",
+  "temporal_wording_violation_reason",
+  "temporal_wording_repair_attempted",
+  "temporal_wording_repair_succeeded",
 ] as const;
 
 function inferRepairSnapshotRepairSucceeded(metadata: Record<string, unknown>): boolean | null {
@@ -1190,6 +1225,8 @@ function inferRepairSnapshotRepairSucceeded(metadata: Record<string, unknown>): 
   if (metadata.memory_repeat_guard_succeeded === true) return true;
   if (metadata.memory_repeat_guard_succeeded === false) return false;
   if (metadata.still_repeated_after_repair === true) return false;
+  if (metadata.temporal_wording_repair_succeeded === true) return true;
+  if (metadata.temporal_wording_repair_succeeded === false) return false;
   return null;
 }
 

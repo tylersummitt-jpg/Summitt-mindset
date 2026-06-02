@@ -138,6 +138,7 @@ export type WeeklyV3OutboundFacts = {
   };
   /** Read-only Victory Room background (season label + Pat Read); non-speakable unless naturally relevant. */
   victory_background?: V3VictoryBackgroundFacts | null;
+  temporal_contract?: import("@/lib/sms-temporal-contract-v1").TemporalContractV1 | null;
   constraints?: {
     required_verbatim_substrings?: string[];
   };
