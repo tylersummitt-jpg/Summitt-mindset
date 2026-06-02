@@ -31,6 +31,7 @@ import {
   deriveSuggestedCoachingMoveForDailyFacts,
   enrichDailyFactsWithThreadFreshness,
   produceDailyV3RelationshipSms,
+  shouldRunDailyThreadFreshnessGuard,
 } from "@/lib/v3-daily-relationship-lane";
 import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
 import { RELATIONSHIP_MEMORY_30D_WINDOW_DAYS } from "@/lib/sms-relationship-memory-30d";
@@ -2340,5 +2341,375 @@ describe("thread_freshness in V3 daily lane", () => {
     expect(userMsg).toContain("thread_freshness");
     expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(userMsg).toMatch(/active_temporal_frame.*tomorrow/s);
+  });
+
+  const stepsTranscript = [
+    "Coach: Have you started your commitment to take at least 10,000 steps today?",
+    "User: I did my 10,000 steps yesterday!",
+  ].join("\n");
+
+  function stepsThreadDailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
+    return baseFacts({
+      thread_memory: {
+        ...baseFacts().thread_memory,
+        recent_exact_thread_text: stepsTranscript,
+        recent_transcript_or_context_block: stepsTranscript,
+        latest_inbound_sms: "I did my 10,000 steps yesterday!",
+        latest_open_question: "Have you started your commitment to take at least 10,000 steps today?",
+      },
+      commitment: {
+        ...baseFacts().commitment,
+        behavior_statement: "Take at least 10,000 steps daily",
+        effective_ask: "Take at least 10,000 steps daily",
+      },
+      ...overrides,
+    });
+  }
+
+  it("re-asked completed steps routes to freshness guard repair, not post-validate hard block", async () => {
+    const staleCandidate =
+      "Have you started your commitment to take at least 10,000 steps today? Let me know how it's going!";
+    const freshnessRepaired =
+      "Yesterday's steps are logged — what's one honest move for today's bar?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: staleCandidate,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: freshnessRepaired,
+                used_strategy: "fresh_thread_angle",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: stepsThreadDailyFacts(),
+      telemetry_fact_sources: ["test_daily_freshness_guard"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.noSendReason).not.toBe("lane_post_validate_blocked");
+    expect(r.body).toBe(freshnessRepaired);
+    expect(r.metadata.thread_freshness_repair_attempted).toBe(true);
+    expect(r.metadata.thread_freshness_repair_succeeded).toBe(true);
+    expect(r.metadata.thread_freshness_violation_reason).toBe("reasked_completed_action");
+    expect(createMock).toHaveBeenCalledTimes(2);
+    const repairUserMsg = createMock.mock.calls[1]?.[0]?.messages?.[1]?.content as string;
+    expect(repairUserMsg).toMatch(/thread_freshness_reasked_completed_action/);
+    expect(repairUserMsg).toMatch(/REPAIR_RELATIONSHIP_SNAPSHOT_V1/);
+  });
+
+  it("temporal today-when-tomorrow freshness repair no-sends when repair stays stale", async () => {
+    const transcript = [
+      "Coach: How do you feel about calls tomorrow?",
+      "User: Early afternoon I have work early morning",
+      "User: Text before calling",
+    ].join("\n");
+    const staleCandidate =
+      "It sounds like you're ready to text before calling. How do you feel about that approach for today?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: staleCandidate,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: staleCandidate,
+                used_strategy: "temporal_fix",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          recent_exact_thread_text: transcript,
+          recent_transcript_or_context_block: transcript,
+          latest_inbound_sms: "Text before calling",
+          latest_open_question: "How do you feel about calls tomorrow?",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("thread_freshness_stale_blocked");
+    expect(r.metadata.thread_freshness_repair_attempted).toBe(true);
+    expect(r.metadata.thread_freshness_repair_succeeded).toBe(false);
+    expect(r.metadata.lane_stage).toBe("thread_freshness_guard_failed");
+  });
+
+  it("temporal today-when-tomorrow freshness repair sends when repair is clean", async () => {
+    const transcript = [
+      "Coach: How do you feel about calls tomorrow?",
+      "User: Early afternoon I have work early morning",
+      "User: Text before calling",
+    ].join("\n");
+    const staleCandidate =
+      "It sounds like you're ready to text before calling. How do you feel about that approach for today?";
+    const freshnessRepaired =
+      "Early afternoon works — text before you call tomorrow and we'll go from there.";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: staleCandidate,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: freshnessRepaired,
+                used_strategy: "temporal_fix",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          recent_exact_thread_text: transcript,
+          recent_transcript_or_context_block: transcript,
+          latest_inbound_sms: "Text before calling",
+          latest_open_question: "How do you feel about calls tomorrow?",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe(freshnessRepaired);
+    expect(r.metadata.thread_freshness_repair_succeeded).toBe(true);
+  });
+
+  it("mixed freshness + repairable post-validate issue repairs both without hard freshness block", async () => {
+    const staleMixed =
+      "Have you started your commitment to take at least 10,000 steps today? Let me know how it went!";
+    const postValidateRepaired =
+      "Have you started your commitment to take at least 10,000 steps today?";
+    const freshnessRepaired =
+      "You already logged yesterday's steps — what's the next honest move for today?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: staleMixed,
+                no_send_reason: null,
+                turn_purpose: "daily_check",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: postValidateRepaired,
+                used_strategy: "compress_remove_cliche",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: freshnessRepaired,
+                used_strategy: "fresh_thread_angle",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: stepsThreadDailyFacts(),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.noSendReason).not.toBe("lane_post_validate_blocked");
+    expect(r.body).toBe(freshnessRepaired);
+    expect(r.metadata.lane_repair_succeeded).toBe(true);
+    expect(r.metadata.thread_freshness_repair_succeeded).toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("true hard post-validate issue still hard-blocks without freshness repair", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Say it straight — did you get the bar done today?",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: stepsThreadDailyFacts(),
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("lane_post_validate_blocked");
+    expect(r.metadata.lane_stage).toBe("post_validate_blocked");
+    expect(r.metadata.blocked_reasons).toContain("say_it_straight");
+    expect(r.metadata.thread_freshness_repair_attempted).toBeUndefined();
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("contract_prompt skips freshness guard even when thread would be stale", async () => {
+    const base = baseFacts();
+    const ask = "30 minutes of deep work";
+    expect(
+      shouldRunDailyThreadFreshnessGuard({
+        ...base,
+        route_kind: "contract_prompt",
+        contract_proposal: {
+          contract_kind: "shrink_ask",
+          required_reply_semantics: "yes_no_binding_only",
+          semantic_daily_contract_v1: true,
+          daily_contract_semantic_facts: {
+            proposal_kind: "shrink_ask",
+            duration_days: 7,
+            base_behavior_statement: base.commitment.behavior_statement,
+            proposed_overlay_ask: ask,
+            proposed_behavior_preview: ask,
+            desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+            must_not_claim_goal_updated: true,
+            forbidden_phrases: [],
+          },
+        },
+      })
+    ).toBe(false);
+
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: `For the next few days, want to keep ${ask} as your bar — or would you rather dial it back a notch?`,
+              no_send_reason: null,
+              turn_purpose: "contract_overlay",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: {
+        ...stepsThreadDailyFacts(),
+        route_kind: "contract_prompt",
+        accountability: {
+          ...base.accountability,
+          daily_purpose: "contract_overlay_proposal",
+          contract_proposal_mode: true,
+        },
+        contract_proposal: {
+          contract_kind: "shrink_ask",
+          required_reply_semantics: "yes_no_binding_only",
+          semantic_daily_contract_v1: true,
+          daily_contract_semantic_facts: {
+            proposal_kind: "shrink_ask",
+            duration_days: 7,
+            base_behavior_statement: base.commitment.behavior_statement,
+            proposed_overlay_ask: ask,
+            proposed_behavior_preview: ask,
+            desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+            must_not_claim_goal_updated: true,
+            forbidden_phrases: [],
+          },
+        },
+      },
+      telemetry_fact_sources: [],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.thread_freshness_repair_attempted).not.toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -375,8 +375,6 @@ function collectDailyPostValidateVoiceViolations(
       hasProofOrKnownOutcome: hasProof,
     }),
   ];
-  const freshnessHit = detectThreadFreshnessViolations(body, facts.thread_freshness);
-  if (freshnessHit) hits.push(`thread_freshness_${freshnessHit.reason}`);
   return [...new Set(hits)];
 }
 
@@ -1337,6 +1335,22 @@ used_facts (string[]), safety_notes (string[])`;
           noSendReason: "lane_post_validate_blocked",
           extraMeta: { repaired_blocked_reasons: blockedAfter },
         };
+      }
+      if (shouldRunDailyThreadFreshnessGuard(laneFacts)) {
+        const freshnessAfterRepeat = detectThreadFreshnessViolations(
+          candidate,
+          laneFacts.thread_freshness
+        );
+        if (freshnessAfterRepeat) {
+          return {
+            ok: false,
+            noSendReason: "thread_freshness_stale_blocked",
+            extraMeta: {
+              thread_freshness_violation_detected: true,
+              thread_freshness_violation_reason: freshnessAfterRepeat.reason,
+            },
+          };
+        }
       }
       const missingAfter = validateRequiredVerbatims(
         candidate,

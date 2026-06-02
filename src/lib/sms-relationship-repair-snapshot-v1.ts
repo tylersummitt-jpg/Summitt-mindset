@@ -245,7 +245,9 @@ function buildStructuredRecentTruth(facts: unknown): RepairRelationshipSnapshotV
       projection_used: mp?.projection_used ?? facts.thread.memory_authority?.projection_used ?? null,
       last_5_coach_questions: compactStrings(mp?.last_5_coach_questions, 3),
       last_5_user_answers: compactStrings(mp?.last_5_user_answers, 3),
-      inbound_meaning: slimInboundMeaningForFacts(facts.inbound_meaning),
+      inbound_meaning: facts.inbound_meaning
+        ? slimInboundMeaningForFacts(facts.inbound_meaning)
+        : null,
     };
   }
   if (isDailyFacts(facts)) {
