@@ -25,6 +25,7 @@ import {
   applyFinalVoiceOwnershipGate,
   detectFinalVoiceBlockedReasons,
   detectRelationshipCoachingVoiceBlockedReasons,
+  evaluateRelationshipVoiceWithPraisePolicy,
   isRepairableFinalVoiceBlockedReason,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
@@ -1014,5 +1015,49 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
     expect(userMessage).toMatch(/lane_post_validate/);
     expect(userMessage).not.toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
     expect(userMessage).not.toMatch(/MEMORY_REPEAT_REPAIR_CONTEXT_JSON/);
+  });
+
+  it("repair prompt includes praise-family guidance and forbids great_job → keep_momentum swap", async () => {
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              body: "What made the two hours work today?",
+              used_strategy: "remove_unearned_praise",
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      originalBody: "Great job — keep going.",
+      blockedReasons: ["generic_praise_unearned"],
+    });
+    const systemMessage = repairCreateMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMessage).toMatch(/do NOT rotate to a different warm phrase/i);
+    expect(systemMessage).toMatch(/do NOT swap "great job" for "keep momentum"/i);
+    expect(systemMessage).toMatch(/warm phrases.*must be rare/i);
+  });
+
+  it("earned praise policy: lane and FVG agree; great_job not blocked when earned and specific", () => {
+    const body =
+      "Great job getting the two hours done — what made it work?";
+    const praisePolicy = {
+      body,
+      laneKind: "daily" as const,
+      priorOutcome: "user_yes",
+      effectiveAsk: "Protect two hours for distribution time",
+      behaviorStatement: "distribution time each day",
+      praisePolicyContextFromLane: true,
+    };
+    const laneReasons = evaluateRelationshipVoiceWithPraisePolicy(body, { praisePolicy }).reasons;
+    const fvgReasons = evaluateRelationshipVoiceWithPraisePolicy(body, { praisePolicy }).reasons;
+    expect(laneReasons).toEqual(fvgReasons);
+    expect(laneReasons).not.toContain("great_job");
+    expect(laneReasons.some((r) => r.startsWith("generic_praise"))).toBe(false);
   });
 });

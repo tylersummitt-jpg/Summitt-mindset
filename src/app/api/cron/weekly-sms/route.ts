@@ -442,6 +442,11 @@ export async function GET(req: Request) {
           behaviorStatement: commitment.behavior_statement,
           contextPacket: weeklyNorthStarCtx,
           northStarMeta: gatedWeeklyV2.meta,
+          v3BrainMetadata:
+            weeklyLane.metadata.praise_policy_context &&
+            typeof weeklyLane.metadata.praise_policy_context === "object"
+              ? { praise_policy_context: weeklyLane.metadata.praise_policy_context }
+              : undefined,
           /** Phase 4.1: weekly proof is relationship/coaching — always fail-closed FVG (never implicit missing-commitment bypass). */
           normalCoaching: true,
         });

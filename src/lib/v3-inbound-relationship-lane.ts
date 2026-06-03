@@ -29,10 +29,14 @@ import {
   shouldRunInboundMemoryRepeatGuard,
 } from "@/lib/sms-memory-anti-repeat";
 import {
-  detectRelationshipCoachingVoiceBlockedReasons,
+  evaluateRelationshipVoiceWithPraisePolicy,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
+import {
+  buildSmsPraisePolicyArgsFromInboundFacts,
+  type SmsPraisePolicyEvaluateArgs,
+} from "@/lib/sms-earned-praise-policy";
 import {
   buildInboundPendingReplacementFactsFromCommitment,
   detectPendingReplacementStateTruthViolations,
@@ -1670,6 +1674,33 @@ function inboundLanePostValidateRepairExcluded(facts: InboundV3RelationshipFacts
   return INBOUND_LANE_REPAIR_EXCLUDED_ROUTE_PURPOSES.has(facts.route_purpose);
 }
 
+function buildInboundPraisePolicyArgs(
+  body: string,
+  facts: InboundV3RelationshipFacts
+): SmsPraisePolicyEvaluateArgs {
+  const priorOutcome =
+    facts.v2_accountability.final_event_type === "user_yes" ||
+    facts.v2_accountability.deterministic_classifier_event === "user_yes" ||
+    facts.v2_accountability.today_completed
+      ? "user_yes"
+      : null;
+  return buildSmsPraisePolicyArgsFromInboundFacts({
+    body,
+    routePurpose: facts.route_purpose,
+    inbound_meaning: facts.inbound_meaning,
+    commitment: facts.commitment,
+    thread: facts.thread,
+    prior_outcome: priorOutcome,
+    proof_or_milestone_signal: facts.legacy_suggestions.accountability_proof_hint,
+  });
+}
+
+function evaluateInboundVoiceWithPraisePolicy(body: string, facts: InboundV3RelationshipFacts) {
+  return evaluateRelationshipVoiceWithPraisePolicy(body, {
+    praisePolicy: buildInboundPraisePolicyArgs(body, facts),
+  });
+}
+
 type InboundPostRepairValidation =
   | { ok: true }
   | {
@@ -1706,7 +1737,7 @@ function validateInboundLaneCandidateBody(
       };
     }
   }
-  const blockedAfter = detectRelationshipCoachingVoiceBlockedReasons(body);
+  const blockedAfter = evaluateInboundVoiceWithPraisePolicy(body, args.facts).reasons;
   if (blockedAfter.length > 0) {
     return {
       ok: false,
@@ -2059,7 +2090,9 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     }
   }
 
-  const blocked = detectRelationshipCoachingVoiceBlockedReasons(body);
+  const inboundVoice = evaluateInboundVoiceWithPraisePolicy(body, args.facts);
+  const blocked = inboundVoice.reasons;
+  const praiseMetadata = inboundVoice.praiseMetadata;
   if (blocked.length > 0) {
     const { repairable, hard } = partitionFinalVoiceBlockedReasons(blocked);
 
@@ -2079,6 +2112,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           lane_stage: "post_validate_blocked",
           v3_candidate_body: body,
           blocked_reasons: blocked,
+          ...praiseMetadata,
         },
         openAiOk: true,
       };
@@ -2336,6 +2370,8 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     };
   }
 
+  const finalInboundPraise = evaluateInboundVoiceWithPraisePolicy(body, args.facts);
+
   return {
     body,
     shouldSend: true,
@@ -2353,6 +2389,8 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       v3_lane_turn_purpose: turnPurpose,
       should_send: true,
       ...successRepairExtra,
+      ...finalInboundPraise.praiseMetadata,
+      praise_policy_context: buildInboundPraisePolicyArgs(body, args.facts),
     },
     openAiOk: true,
   };

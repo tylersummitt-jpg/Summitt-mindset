@@ -13,10 +13,11 @@ import {
 } from "@/lib/sms-memory-anti-repeat";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import {
-  detectRelationshipCoachingVoiceBlockedReasons,
+  evaluateRelationshipVoiceWithPraisePolicy,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
+import { buildSmsPraisePolicyArgsFromWeeklyFacts } from "@/lib/sms-earned-praise-policy";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
 import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
@@ -313,13 +314,33 @@ function weeklyPostValidateHits(body: string, facts: WeeklyV3OutboundFacts): {
   blockedReasons: string[];
   repairable: string[];
   hard: string[];
+  praiseMetadata: Record<string, unknown>;
 } {
   const localHits = weeklyLaneLocalValidation(body, facts);
-  const fvgHits = detectRelationshipCoachingVoiceBlockedReasons(body);
+  const praisePolicy = buildSmsPraisePolicyArgsFromWeeklyFacts({
+    body,
+    routePurpose: facts.route.route_purpose,
+    commitment: facts.commitment,
+    weekly_proof: facts.weekly_proof,
+    thread: {
+      recent_exact_thread_72h: facts.thread.recent_exact_thread_72h,
+      relationship_memory_7d: facts.thread.relationship_memory_7d,
+      last_5_coach_questions: facts.thread.last_5_coach_questions,
+    },
+  });
+  const voice = evaluateRelationshipVoiceWithPraisePolicy(body, { praisePolicy });
+  const fvgHits = voice.reasons;
   const { repairable, hard: hardFvg } = partitionFinalVoiceBlockedReasons(fvgHits);
   const hard = [...localHits, ...hardFvg];
   const blockedReasons = [...new Set([...localHits, ...fvgHits])];
-  return { localHits, fvgHits, blockedReasons, repairable, hard };
+  return {
+    localHits,
+    fvgHits,
+    blockedReasons,
+    repairable,
+    hard,
+    praiseMetadata: voice.praiseMetadata,
+  };
 }
 
 /**
@@ -692,6 +713,8 @@ safety_notes (string[])`;
     successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
   }
 
+  const finalWeeklyPraise = weeklyPostValidateHits(body, f);
+
   return {
     body,
     shouldSend: true,
@@ -712,6 +735,18 @@ safety_notes (string[])`;
       used_facts: usedFacts,
       safety_notes: safetyNotes,
       ...successRepairExtra,
+      ...finalWeeklyPraise.praiseMetadata,
+      praise_policy_context: buildSmsPraisePolicyArgsFromWeeklyFacts({
+        body,
+        routePurpose: f.route.route_purpose,
+        commitment: f.commitment,
+        weekly_proof: f.weekly_proof,
+        thread: {
+          recent_exact_thread_72h: f.thread.recent_exact_thread_72h,
+          relationship_memory_7d: f.thread.relationship_memory_7d,
+          last_5_coach_questions: f.thread.last_5_coach_questions,
+        },
+      }),
     },
     openAiOk: true,
   };

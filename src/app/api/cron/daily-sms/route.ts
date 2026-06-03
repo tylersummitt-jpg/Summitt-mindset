@@ -257,6 +257,8 @@ type DailySmsBuilt =
       v3DailyDeterministicFallback?: boolean;
       /** Central V3 daily relationship lane (Phase 2 — all daily branches). */
       v3DailyRelationshipLane?: boolean;
+      /** Lane-built praise policy context for Final Voice Gate parity. */
+      v3PraisePolicyContext?: Record<string, unknown>;
     }
   | {
       ok: false;
@@ -264,6 +266,16 @@ type DailySmsBuilt =
       adaptiveProposalWithheldMeta?: Record<string, unknown>;
       dailyLaneMeta?: Record<string, unknown>;
     };
+
+function praisePolicyContextFromLaneMetadata(
+  metadata: Record<string, unknown>
+): Record<string, unknown> | undefined {
+  const ctx = metadata.praise_policy_context;
+  if (ctx && typeof ctx === "object" && !Array.isArray(ctx)) {
+    return ctx as Record<string, unknown>;
+  }
+  return undefined;
+}
 
 async function withNorthStarDailyGate(
   built: DailySmsBuilt,
@@ -336,6 +348,9 @@ async function withNorthStarDailyGate(
       Boolean(built.v2CommitmentId),
     /** Daily adaptive proposals route through semantic relationship wording — no pasted server binding verbatim. */
     bindingVerbatim: null,
+    v3BrainMetadata: built.v3PraisePolicyContext
+      ? { praise_policy_context: built.v3PraisePolicyContext }
+      : undefined,
   });
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,
@@ -942,10 +957,9 @@ async function buildDailySmsContent(
         v3DailySms: true,
         v3DailyDeterministicFallback: false,
         v3DailyRelationshipLane: true,
+        v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRe.metadata),
       };
     }
-
-    const [latestOutcome, recentEvents] = await Promise.all([
       getLatestV2AccountabilityOutcome(active.id),
       getRecentV2EventsForAi(active.id),
     ]);
@@ -1225,6 +1239,7 @@ async function buildDailySmsContent(
         v3DailySms: true,
         v3DailyDeterministicFallback: false,
         v3DailyRelationshipLane: true,
+        v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(lanePr.metadata),
       };
     }
 
@@ -1536,6 +1551,7 @@ async function buildDailySmsContent(
           v3DailySms: true,
           v3DailyDeterministicFallback: false,
           v3DailyRelationshipLane: true,
+          v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRf.metadata),
         };
       }
 
@@ -1779,6 +1795,7 @@ async function buildDailySmsContent(
           v3DailySms: true,
           v3DailyDeterministicFallback: false,
           v3DailyRelationshipLane: true,
+          v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneC.metadata),
         };
       }
     }
@@ -2372,6 +2389,7 @@ async function buildDailySmsContent(
       v3DailySms,
       v3DailyDeterministicFallback,
       v3DailyRelationshipLane,
+      v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneUnified.metadata),
     };
   }
 

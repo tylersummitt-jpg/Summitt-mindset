@@ -17,9 +17,13 @@ import {
 } from "@/lib/sms-memory-anti-repeat";
 import {
   detectRelationshipCoachingVoiceBlockedReasons,
+  evaluateRelationshipVoiceWithPraisePolicy,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
+import {
+  buildSmsPraisePolicyArgsFromDailyFacts,
+} from "@/lib/sms-earned-praise-policy";
 import {
   detectRelationshipRobotConsentMenuReasons,
   relationshipRobotConsentMenuNoSendReason,
@@ -377,10 +381,21 @@ function collectDailyPostValidateVoiceViolations(
   body: string,
   facts: DailyV3RelationshipFacts,
   bindingVerbatim?: string | null
-): string[] {
+): { blocked: string[]; praiseMetadata: Record<string, unknown> } {
   const hasProof = inferHasProofOrKnownOutcomeForDailyAccountability(facts.accountability);
+  const praisePolicy = buildSmsPraisePolicyArgsFromDailyFacts({
+    body,
+    routeKind: facts.route_kind,
+    accountability: facts.accountability,
+    commitment: facts.commitment,
+    thread_memory: facts.thread_memory,
+  });
+  const voice = evaluateRelationshipVoiceWithPraisePolicy(body, {
+    bindingVerbatim: bindingVerbatim ?? undefined,
+    praisePolicy,
+  });
   const hits = [
-    ...detectRelationshipCoachingVoiceBlockedReasons(body, { bindingVerbatim: bindingVerbatim ?? undefined }),
+    ...voice.reasons,
     ...detectPendingPlanProofVoiceViolations(body, facts.accountability.pending_plan_proof),
     ...detectTimingAnchorVoiceViolations({
       body,
@@ -389,7 +404,10 @@ function collectDailyPostValidateVoiceViolations(
       hasProofOrKnownOutcome: hasProof,
     }),
   ];
-  return [...new Set(hits)];
+  return {
+    blocked: [...new Set(hits)],
+    praiseMetadata: voice.praiseMetadata,
+  };
 }
 
 const DAILY_THREAD_FRESHNESS_EXCLUDED_ROUTE_KINDS = new Set<DailyV3RouteKind>([
@@ -1176,7 +1194,9 @@ used_facts (string[]), safety_notes (string[])`;
 
   const pendingPlan = laneFacts.accountability.pending_plan_proof;
   const timingMemory = laneFacts.accountability.timing_anchor_memory;
-  const blocked = collectDailyPostValidateVoiceViolations(body, laneFacts, bindingVerbatim);
+  const postValidate = collectDailyPostValidateVoiceViolations(body, laneFacts, bindingVerbatim);
+  const blocked = postValidate.blocked;
+  const praiseMetadata = postValidate.praiseMetadata;
   if (blocked.length > 0) {
     const { repairable, hard } = partitionFinalVoiceBlockedReasons(blocked);
 
@@ -1200,6 +1220,7 @@ used_facts (string[]), safety_notes (string[])`;
           lane_stage: "post_validate_blocked",
           v3_candidate_body: body,
           blocked_reasons: blocked,
+          ...praiseMetadata,
         },
         openAiOk: true,
       };
@@ -1272,7 +1293,8 @@ used_facts (string[]), safety_notes (string[])`;
     }
 
     let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
-    const blockedAfter = collectDailyPostValidateVoiceViolations(repaired, laneFacts, bindingVerbatim);
+    const postValidateAfter = collectDailyPostValidateVoiceViolations(repaired, laneFacts, bindingVerbatim);
+    const blockedAfter = postValidateAfter.blocked;
     const missingAfterRepair = validateRequiredVerbatims(
       repaired,
       laneFacts.constraints.required_verbatim_substrings
@@ -1578,11 +1600,12 @@ used_facts (string[]), safety_notes (string[])`;
     detectInput: buildAntiRepeatDetectArgsFromDailyFacts(laneFacts, body),
     enabled: shouldRunDailyMemoryRepeatGuard(laneFacts),
     validateAfterRepair: async (candidate) => {
-      const blockedAfter = collectDailyPostValidateVoiceViolations(
+      const after = collectDailyPostValidateVoiceViolations(
         candidate,
         laneFacts,
         dailyBindingVerbatimForRobotGuard(laneFacts)
       );
+      const blockedAfter = after.blocked;
       if (blockedAfter.length > 0) {
         return {
           ok: false,
@@ -1680,6 +1703,12 @@ used_facts (string[]), safety_notes (string[])`;
     successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
   }
 
+  const finalPraise = collectDailyPostValidateVoiceViolations(
+    body,
+    laneFacts,
+    dailyBindingVerbatimForRobotGuard(laneFacts)
+  );
+
   return {
     body,
     shouldSend: true,
@@ -1695,6 +1724,14 @@ used_facts (string[]), safety_notes (string[])`;
       lane_stage: successLaneStage,
       v3_candidate_body: body,
       ...successRepairExtra,
+      ...finalPraise.praiseMetadata,
+      praise_policy_context: buildSmsPraisePolicyArgsFromDailyFacts({
+        body,
+        routeKind: laneFacts.route_kind,
+        accountability: laneFacts.accountability,
+        commitment: laneFacts.commitment,
+        thread_memory: laneFacts.thread_memory,
+      }),
     },
     openAiOk: true,
   };

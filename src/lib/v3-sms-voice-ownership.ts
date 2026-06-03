@@ -19,6 +19,14 @@ import {
   detectRelationshipRobotConsentMenuReasons,
   isRelationshipRobotConsentMenuRepairableReason,
 } from "@/lib/relationship-robot-consent-menu";
+import {
+  applyEarnedPraisePolicyToVoiceBlockedReasons,
+  buildSmsPraisePolicyArgsFromFinalVoiceGate,
+  compactPraisePolicyMetadata,
+  evaluateSmsPraisePolicy,
+  type SmsPraisePolicyEvaluateArgs,
+  type SmsPraisePolicyResult,
+} from "@/lib/sms-earned-praise-policy";
 
 export type SmsVoiceOwner =
   | "v3_openai"
@@ -79,6 +87,8 @@ export type ApplyFinalVoiceOwnershipGateArgs = {
    * this substring; duplicate binding or phrases outside the binding window still block.
    */
   bindingVerbatim?: string | null;
+  /** Optional lane facts for earned praise policy; FVG builds minimal context from contextPacket when omitted. */
+  praisePolicyInput?: SmsPraisePolicyEvaluateArgs | null;
 };
 
 export function appendPreservedSmsSuffix(body: string, suffix: string): string {
@@ -315,17 +325,43 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
 }
 
 /** Final voice + relationship robotic consent/menu guards (daily/inbound/weekly coaching). */
-export function detectRelationshipCoachingVoiceBlockedReasons(
+export type DetectRelationshipCoachingVoiceOptions = DetectRelationshipRobotConsentMenuOptions & {
+  praisePolicy?: SmsPraisePolicyEvaluateArgs | null;
+  /** When false, skip earned praise relabeling (raw great_job / keep_momentum remain). */
+  applyEarnedPraisePolicy?: boolean;
+};
+
+export function evaluateRelationshipVoiceWithPraisePolicy(
   body: string,
-  options?: DetectRelationshipRobotConsentMenuOptions
-): string[] {
+  options?: DetectRelationshipCoachingVoiceOptions
+): { reasons: string[]; praisePolicy: SmsPraisePolicyResult; praiseMetadata: Record<string, unknown> } {
   const fvg = detectFinalVoiceBlockedReasons(body);
   const robot = detectRelationshipRobotConsentMenuReasons(body, options);
   const merged = [...fvg];
   for (const r of robot) {
     if (!merged.includes(r)) merged.push(r);
   }
-  return merged;
+
+  if (options?.applyEarnedPraisePolicy === false) {
+    const emptyPolicy = evaluateSmsPraisePolicy({ body, laneKind: "daily" });
+    return { reasons: merged, praisePolicy: emptyPolicy, praiseMetadata: {} };
+  }
+
+  const policyInput: SmsPraisePolicyEvaluateArgs = options?.praisePolicy ?? { body, laneKind: "daily" };
+  const praisePolicy = evaluateSmsPraisePolicy({ ...policyInput, body });
+  const reasons = applyEarnedPraisePolicyToVoiceBlockedReasons(merged, praisePolicy);
+  return {
+    reasons,
+    praisePolicy,
+    praiseMetadata: compactPraisePolicyMetadata(praisePolicy),
+  };
+}
+
+export function detectRelationshipCoachingVoiceBlockedReasons(
+  body: string,
+  options?: DetectRelationshipCoachingVoiceOptions
+): string[] {
+  return evaluateRelationshipVoiceWithPraisePolicy(body, options).reasons;
 }
 
 /** Style / length / mild cliché hits from {@link detectFinalVoiceBlockedReasons} — lane may attempt OpenAI repair. */
@@ -336,6 +372,13 @@ const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
   "staying_consistent_key",
   "great_job",
   "keep_momentum",
+  "generic_praise_unearned",
+  "generic_praise_overused",
+  "generic_praise_overused_warm_family",
+  "generic_praise_vague",
+  "generic_praise_insufficient_context",
+  "generic_keep_momentum",
+  "generic_momentum",
   "unearned_focus_praise",
   "unearned_back_on_track",
   "unearned_followed_through",
@@ -467,6 +510,8 @@ ${strictStrategyRule}
 - Do not quote the user. Do not paste raw database fields or internal system names.
 - Do not add generic motivation filler.
 - Never use the phrase "let me know how it went" or close variants.
+- Praise can be human, but warm phrases (great job, good work, nice work, proud of you, well done) must be rare. If blocked for overuse, replace with specific evidence (streak, behavior, proof) — do NOT rotate to a different warm phrase. Do NOT swap "great job" for "keep momentum" or "continue this momentum." If acknowledgment is earned, use specific proof/behavior/streak language instead of generic warm praise or momentum hype.
+- If blocked_reasons includes generic_praise_unearned, generic_praise_overused_warm_family, generic_praise_vague, generic_momentum, generic_keep_momentum, great_job, or keep_momentum: remove unearned, overused, vague, or momentum filler; name actual behavior/proof when earned acknowledgment stays.
 - One short SMS suitable for Twilio; no newlines in body.`;
 
   const repairSnapshotGuidance = usesRepairSnapshot ? buildRepairSnapshotPromptGuidance() : "";
@@ -745,8 +790,31 @@ export async function applyFinalVoiceOwnershipGate(
   const initialOwner = classifyVoiceOwner(args.replySource, args.northStarMeta);
   const initialV3Owned = voiceOwnerIsV3(initialOwner);
   const robotDetectOptions = finalVoiceRobotDetectOptions(args);
+  const praisePolicyInput =
+    args.praisePolicyInput ??
+    buildSmsPraisePolicyArgsFromFinalVoiceGate({
+      proposedBody: originalBody,
+      effectiveAsk: args.effectiveAsk,
+      behaviorStatement: args.behaviorStatement,
+      latestInboundRaw: args.latestInboundRaw,
+      contextPacket: args.contextPacket,
+      v3BrainMetadata: args.v3BrainMetadata,
+      laneKind:
+        args.channel === "weekly_outbound" || args.channel === "weekly_reflection"
+          ? "weekly"
+          : args.channel === "inbound_coach_reply" ||
+              args.channel === "blocker_followup" ||
+              args.channel === "central_brain_pivot" ||
+              args.channel === "clarification"
+            ? "inbound"
+            : "daily",
+    });
+  const voiceWithPraise = evaluateRelationshipVoiceWithPraisePolicy(originalBody, {
+    ...robotDetectOptions,
+    praisePolicy: praisePolicyInput,
+  });
   const blocked = [
-    ...detectRelationshipCoachingVoiceBlockedReasons(originalBody, robotDetectOptions),
+    ...voiceWithPraise.reasons,
     ...(args.northStarMeta?.source === "deterministic_minimal" ? ["north_star_deterministic_replacement"] : []),
     ...(args.northStarMeta?.north_star_structural_replacement ? ["north_star_structural_replacement"] : []),
     ...(args.northStarMeta?.requires_v3_repair === true ? ["north_star_requires_v3_repair"] : []),
@@ -786,7 +854,10 @@ export async function applyFinalVoiceOwnershipGate(
       contextPacket: args.contextPacket ?? undefined,
     });
     const cleaned = nsRepair.visibleBody;
-    const repairBlocked = detectRelationshipCoachingVoiceBlockedReasons(cleaned, robotDetectOptions);
+    const repairBlocked = detectRelationshipCoachingVoiceBlockedReasons(cleaned, {
+      ...robotDetectOptions,
+      praisePolicy: { ...praisePolicyInput, body: cleaned },
+    });
     if (repairBlocked.length === 0) {
       return result({
         body: cleaned,
