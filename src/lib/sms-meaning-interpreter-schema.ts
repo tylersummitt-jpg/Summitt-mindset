@@ -172,6 +172,116 @@ function parseAnswerType(raw: unknown): MeaningInterpreterAnswerType | null {
     : null;
 }
 
+export type MeaningInterpreterShadowValidationFailureDetail = {
+  stage: "schema_validation";
+  invalid_field?: string;
+  invalid_value_preview?: string;
+  missing_fields?: string[];
+};
+
+function previewInvalidValue(value: unknown, max = 48): string | undefined {
+  if (typeof value === "string") {
+    const t = value.trim();
+    return t ? truncateStore(t, max) : undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  return undefined;
+}
+
+/** Safe diagnostic detail when parseAndValidateMeaningInterpreterShadow returns null. */
+export function describeMeaningInterpreterShadowValidationFailure(
+  raw: Record<string, unknown>
+): MeaningInterpreterShadowValidationFailureDetail {
+  if (
+    raw.version !== MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION &&
+    raw.version !== MEANING_INTERPRETER_SHADOW_SCHEMA_VERSION_V2
+  ) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "version",
+      invalid_value_preview: previewInvalidValue(raw.version),
+      missing_fields: ["version"],
+    };
+  }
+
+  if (typeof raw.primary_intent !== "string" || !PRIMARY_SET.has(raw.primary_intent)) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "primary_intent",
+      invalid_value_preview: previewInvalidValue(raw.primary_intent),
+    };
+  }
+
+  if (typeof raw.emotional_tone !== "string" || !TONE_SET.has(raw.emotional_tone)) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "emotional_tone",
+      invalid_value_preview: previewInvalidValue(raw.emotional_tone),
+    };
+  }
+
+  if (
+    typeof raw.answered_open_question !== "string" ||
+    !ANSWERED_SET.has(raw.answered_open_question)
+  ) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "answered_open_question",
+      invalid_value_preview: previewInvalidValue(raw.answered_open_question),
+    };
+  }
+
+  if (typeof raw.safety_hint !== "string" || !SAFETY_SET.has(raw.safety_hint)) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "safety_hint",
+      invalid_value_preview: previewInvalidValue(raw.safety_hint),
+    };
+  }
+
+  if (
+    typeof raw.recommended_followup_kind !== "string" ||
+    !FOLLOWUP_SET.has(raw.recommended_followup_kind)
+  ) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "recommended_followup_kind",
+      invalid_value_preview: previewInvalidValue(raw.recommended_followup_kind),
+    };
+  }
+
+  if (typeof raw.confidence !== "number" || !Number.isFinite(raw.confidence)) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "confidence",
+      invalid_value_preview: previewInvalidValue(raw.confidence),
+    };
+  }
+
+  if (parseSignals(raw.signals) == null) {
+    return {
+      stage: "schema_validation",
+      invalid_field: "signals",
+    };
+  }
+
+  const explanation =
+    typeof raw.explanation_short === "string" ? truncateStore(raw.explanation_short, 280) : "";
+  if (!explanation) {
+    return {
+      stage: "schema_validation",
+      missing_fields: ["explanation_short"],
+    };
+  }
+
+  return { stage: "schema_validation", missing_fields: ["unknown"] };
+}
+
 export function parseAndValidateMeaningInterpreterShadow(
   raw: Record<string, unknown>
 ): MeaningInterpreterShadowParsed | null {

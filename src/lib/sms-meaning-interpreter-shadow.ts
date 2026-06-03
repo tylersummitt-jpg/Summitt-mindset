@@ -16,8 +16,10 @@ import {
   type MeaningInterpreterShadowFinalizeInput,
 } from "@/lib/sms-meaning-interpreter-context";
 import {
+  describeMeaningInterpreterShadowValidationFailure,
   parseAndValidateMeaningInterpreterShadow,
   type MeaningInterpreterShadowParsed,
+  type MeaningInterpreterShadowValidationFailureDetail,
 } from "@/lib/sms-meaning-interpreter-schema";
 import { listApprovedSmsPatternCorrectionsForShadowPrompt } from "@/lib/sms-pattern-correction";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -96,6 +98,8 @@ export type MeaningInterpreterDeterministicFacts = {
   inbound_preview?: string | null;
   gated_outcome?: string | null;
   contract_consent_gate_miss?: boolean | null;
+  /** Shadow S1: sanitized OpenAI/validation failure detail (observability only). */
+  shadow_failure_detail?: Record<string, unknown> | null;
 };
 
 export type MeaningInterpreterShadowScheduleArgs = {
@@ -168,14 +172,77 @@ const PENDING_ROUTES = new Set([
 
 const CONTRACT_ROUTES = new Set(["contract_consent", "contract_ambiguous_consent"]);
 
+const SHADOW_SKIP_REASONS_FROM_FACTS = new Set<MeaningInterpreterShadowSkipReason>([
+  "compliance_turn",
+  "safety_turn",
+  "tapback_suppressed",
+  "suppressed_no_send",
+  "send_failed",
+]);
+
+/** Resolve finalize skipReason from explicit input or deterministic_facts.skip_reason. */
+export function resolveMeaningInterpreterShadowSkipReason(args: {
+  skipReason?: MeaningInterpreterShadowSkipReason;
+  deterministicFacts?: MeaningInterpreterDeterministicFacts;
+}): MeaningInterpreterShadowSkipReason | undefined {
+  if (args.skipReason) return args.skipReason;
+  const fromFacts = args.deterministicFacts?.skip_reason?.trim();
+  if (!fromFacts) return undefined;
+  if (SHADOW_SKIP_REASONS_FROM_FACTS.has(fromFacts as MeaningInterpreterShadowSkipReason)) {
+    return fromFacts as MeaningInterpreterShadowSkipReason;
+  }
+  return undefined;
+}
+
+function openAiErrorStatus(err: unknown): number | null {
+  if (err != null && typeof err === "object" && "status" in err) {
+    const status = (err as { status: unknown }).status;
+    if (typeof status === "number" && Number.isFinite(status)) return status;
+  }
+  return null;
+}
+
+/** Map OpenAI SDK errors to granular shadow error_code values (no secrets). */
+export function classifyMeaningInterpreterOpenAIError(err: unknown): string {
+  if (err instanceof Error && err.name === "AbortError") return "openai_timeout";
+  const status = openAiErrorStatus(err);
+  if (status === 401 || status === 403) return "openai_auth_error";
+  if (status === 429) return "openai_rate_limit";
+  if (status === 404) return "openai_model_error";
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  if (msg.includes("incorrect api key") || msg.includes("invalid api key") || msg.includes("authentication")) {
+    return "openai_auth_error";
+  }
+  if (msg.includes("rate limit") || msg.includes("too many requests")) return "openai_rate_limit";
+  if (
+    msg.includes("model") &&
+    (msg.includes("not found") || msg.includes("does not exist") || msg.includes("not available"))
+  ) {
+    return "openai_model_error";
+  }
+  return "openai_api_error";
+}
+
+function sanitizedOpenAIApiFailureDetail(err: unknown): Record<string, unknown> {
+  const status = openAiErrorStatus(err);
+  const detail: Record<string, unknown> = { stage: "openai_api" };
+  if (status != null) detail.http_status = status;
+  if (err instanceof Error && err.name && err.name !== "Error") {
+    detail.error_name = err.name.slice(0, 64);
+  }
+  return detail;
+}
+
 export function isEligibleForMeaningInterpreterShadow(args: {
   rawBody: string;
   skipReason?: MeaningInterpreterShadowSkipReason;
+  deterministicFacts?: MeaningInterpreterDeterministicFacts;
 }): boolean {
-  if (args.skipReason === "compliance_turn" || args.skipReason === "safety_turn") return false;
-  if (args.skipReason === "tapback_suppressed") return false;
-  if (args.skipReason === "suppressed_no_send") return false;
-  if (args.skipReason === "send_failed") return false;
+  const effectiveSkip = resolveMeaningInterpreterShadowSkipReason(args);
+  if (effectiveSkip === "compliance_turn" || effectiveSkip === "safety_turn") return false;
+  if (effectiveSkip === "tapback_suppressed") return false;
+  if (effectiveSkip === "suppressed_no_send") return false;
+  if (effectiveSkip === "send_failed") return false;
   if (!args.rawBody.trim()) return false;
   if (isComplianceTurn(args.rawBody)) return false;
   return true;
@@ -188,7 +255,15 @@ export function shouldRunMeaningInterpreterShadow(args: {
   deterministicFacts?: MeaningInterpreterDeterministicFacts;
 }): boolean {
   if (!isSmsMeaningInterpreterShadowEnabled()) return false;
-  if (!isEligibleForMeaningInterpreterShadow(args)) return false;
+  if (
+    !isEligibleForMeaningInterpreterShadow({
+      rawBody: args.rawBody,
+      skipReason: args.skipReason,
+      deterministicFacts: args.deterministicFacts,
+    })
+  ) {
+    return false;
+  }
   const rate = getSmsMeaningInterpreterSampleRate();
   if (!shouldSampleMeaningInterpreter(args.inboundMessageSid, rate)) return false;
   if (isSmsMeaningInterpreterAmbiguousOnly()) {
@@ -386,7 +461,13 @@ async function lookupSmsInboundMessageId(messageSid: string): Promise<string | n
 
 export type MeaningInterpreterOpenAIResult =
   | { ok: true; parsed: MeaningInterpreterShadowParsed; model: string; latencyMs: number }
-  | { ok: false; errorCode: string; model: string | null; latencyMs: number };
+  | {
+      ok: false;
+      errorCode: string;
+      model: string | null;
+      latencyMs: number;
+      failureDetail?: Record<string, unknown>;
+    };
 
 export async function callMeaningInterpreterOpenAI(
   args: MeaningInterpreterShadowRunArgs
@@ -437,9 +518,10 @@ export async function callMeaningInterpreterOpenAI(
     if (!rawStr) {
       return {
         ok: false,
-        errorCode: "empty_model_output",
+        errorCode: "openai_response_empty",
         model,
         latencyMs: Date.now() - started,
+        failureDetail: { stage: "openai_response", reason: "empty_content" },
       };
     }
 
@@ -447,19 +529,38 @@ export async function callMeaningInterpreterOpenAI(
     try {
       parsedJson = JSON.parse(rawStr) as Record<string, unknown>;
     } catch {
-      return { ok: false, errorCode: "invalid_json", model, latencyMs: Date.now() - started };
+      return {
+        ok: false,
+        errorCode: "openai_json_parse_failed",
+        model,
+        latencyMs: Date.now() - started,
+        failureDetail: { stage: "json_parse" },
+      };
     }
 
     const parsed = parseAndValidateMeaningInterpreterShadow(parsedJson);
     if (!parsed) {
-      return { ok: false, errorCode: "validation_failed", model, latencyMs: Date.now() - started };
+      const validationDetail: MeaningInterpreterShadowValidationFailureDetail =
+        describeMeaningInterpreterShadowValidationFailure(parsedJson);
+      return {
+        ok: false,
+        errorCode: "schema_validation_failed",
+        model,
+        latencyMs: Date.now() - started,
+        failureDetail: validationDetail as unknown as Record<string, unknown>,
+      };
     }
 
     return { ok: true, parsed, model, latencyMs: Date.now() - started };
   } catch (err) {
-    const errorCode =
-      err instanceof Error && err.name === "AbortError" ? "openai_timeout" : "openai_error";
-    return { ok: false, errorCode, model, latencyMs: Date.now() - started };
+    const errorCode = classifyMeaningInterpreterOpenAIError(err);
+    return {
+      ok: false,
+      errorCode,
+      model,
+      latencyMs: Date.now() - started,
+      failureDetail: sanitizedOpenAIApiFailureDetail(err),
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -526,6 +627,13 @@ async function insertMeaningInterpreterShadowRowInternal(
 
   const smsInboundMessageId = await lookupSmsInboundMessageId(args.run.inboundMessageSid);
 
+  let deterministicFacts = args.run.deterministicFacts;
+  if (args.openAi && !args.openAi.ok && args.openAi.failureDetail) {
+    deterministicFacts = mergeMeaningInterpreterDeterministicFacts(deterministicFacts, {
+      shadow_failure_detail: args.openAi.failureDetail,
+    });
+  }
+
   const row = {
     clerk_user_id: args.run.clerkUserId,
     commitment_id: args.run.commitmentId ?? null,
@@ -533,7 +641,7 @@ async function insertMeaningInterpreterShadowRowInternal(
     inbound_message_sid: args.run.inboundMessageSid,
     coach_job_message_sid: args.run.coachJobMessageSid ?? args.run.inboundMessageSid,
     deterministic_route: args.run.deterministicRoute,
-    deterministic_facts: args.run.deterministicFacts,
+    deterministic_facts: deterministicFacts,
     model,
     prompt_version: promptVersion,
     shadow_json: shadowJson,
@@ -558,6 +666,11 @@ async function insertMeaningInterpreterShadowRowInternal(
     if (code === "23505") {
       return { ok: true };
     }
+    console.warn("[meaning-interpreter-shadow] db_insert_failed", {
+      message_sid: args.run.inboundMessageSid,
+      error_code: "db_insert_failed",
+      db_code: code ?? null,
+    });
     return { ok: false, error: error.message };
   }
   return { ok: true };
@@ -612,13 +725,21 @@ function resolveMeaningInterpreterShadowSkippedReason(args: {
   input: MeaningInterpreterShadowFinalizeInput;
   run: MeaningInterpreterShadowRunArgs;
 }): string {
+  const effectiveSkip = resolveMeaningInterpreterShadowSkipReason({
+    skipReason: args.run.skipReason,
+    deterministicFacts: args.run.deterministicFacts,
+  });
   if (
     !isEligibleForMeaningInterpreterShadow({
       rawBody: args.run.rawBody,
-      skipReason: args.run.skipReason,
+      skipReason: effectiveSkip,
+      deterministicFacts: args.run.deterministicFacts,
     })
   ) {
+    if (effectiveSkip) return effectiveSkip;
     if (args.run.skipReason) return args.run.skipReason;
+    const factsSkip = args.run.deterministicFacts.skip_reason?.trim();
+    if (factsSkip) return factsSkip;
     if (!args.run.rawBody.trim()) return "empty_message";
     if (isComplianceTurn(args.run.rawBody)) return "compliance_turn";
     return "ineligible";
@@ -646,6 +767,11 @@ export async function finalizeMeaningInterpreterShadowForInboundJob(
 ): Promise<void> {
   if (!isSmsMeaningInterpreterShadowEnabled()) return;
 
+  const effectiveSkipReason = resolveMeaningInterpreterShadowSkipReason({
+    skipReason: input.skipReason,
+    deterministicFacts: input.deterministicFacts,
+  });
+
   const run: MeaningInterpreterShadowRunArgs = {
     clerkUserId: input.clerkUserId,
     inboundMessageSid: input.inboundMessageSid,
@@ -654,7 +780,7 @@ export async function finalizeMeaningInterpreterShadowForInboundJob(
     rawBody: input.rawBody,
     replyBody: input.replyBody ?? null,
     deterministicRoute: input.deterministicRoute,
-    skipReason: input.skipReason,
+    skipReason: effectiveSkipReason,
     deterministicFacts: mergeMeaningInterpreterDeterministicFacts(input.deterministicFacts, {
       job_status: input.jobStatus ?? input.deterministicFacts.job_status ?? null,
       last_error_tag:
@@ -670,7 +796,7 @@ export async function finalizeMeaningInterpreterShadowForInboundJob(
   const shouldOpenAi = shouldRunMeaningInterpreterShadow({
     inboundMessageSid: input.inboundMessageSid,
     rawBody: input.rawBody,
-    skipReason: input.skipReason,
+    skipReason: effectiveSkipReason,
     deterministicFacts: run.deterministicFacts,
   });
 
@@ -685,6 +811,7 @@ export async function finalizeMeaningInterpreterShadowForInboundJob(
     if (!ins.ok) {
       console.warn("[meaning-interpreter-shadow] insert_failed", {
         message_sid: input.inboundMessageSid,
+        error_code: "db_insert_failed",
         error: ins.error,
       });
       return;
@@ -692,6 +819,7 @@ export async function finalizeMeaningInterpreterShadowForInboundJob(
     if (openAi.ok) {
       console.log("[meaning-interpreter-shadow] stored", {
         message_sid: input.inboundMessageSid,
+        shadow_status: "openai_ok",
         route: input.deterministicRoute,
         primary_intent: openAi.parsed.primary_intent,
         confidence: openAi.parsed.confidence,
@@ -700,7 +828,10 @@ export async function finalizeMeaningInterpreterShadowForInboundJob(
     } else {
       console.warn("[meaning-interpreter-shadow] openai_failed_stored", {
         message_sid: input.inboundMessageSid,
+        shadow_status: "openai_failed",
         error_code: openAi.errorCode,
+        model: openAi.model,
+        latency_ms: openAi.latencyMs,
       });
     }
     return;
@@ -716,7 +847,16 @@ export async function finalizeMeaningInterpreterShadowForInboundJob(
   if (!ins.ok) {
     console.warn("[meaning-interpreter-shadow] skipped_insert_failed", {
       message_sid: input.inboundMessageSid,
+      error_code: "db_insert_failed",
+      skipped_reason: skippedReason,
       error: ins.error,
+    });
+  } else {
+    console.log("[meaning-interpreter-shadow] skipped_stored", {
+      message_sid: input.inboundMessageSid,
+      shadow_status: "skipped",
+      skipped_reason: skippedReason,
+      route: input.deterministicRoute,
     });
   }
 }

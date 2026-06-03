@@ -44,19 +44,27 @@ import {
   shouldLogMeaningInterpreterSkipped,
   shouldSampleMeaningInterpreter,
 } from "@/lib/sms-meaning-interpreter-flags";
-import { parseAndValidateMeaningInterpreterShadow } from "@/lib/sms-meaning-interpreter-schema";
+import {
+  describeMeaningInterpreterShadowValidationFailure,
+  parseAndValidateMeaningInterpreterShadow,
+} from "@/lib/sms-meaning-interpreter-schema";
 import {
   buildMeaningShadowScheduleArgs,
   callMeaningInterpreterOpenAI,
+  classifyMeaningInterpreterOpenAIError,
   computeMeaningInterpreterDisagreement,
   finalizeMeaningInterpreterShadowForInboundJob,
   isEligibleForMeaningInterpreterShadow,
   recordMeaningInterpreterSkippedShadow,
+  resolveMeaningInterpreterShadowSkipReason,
   runMeaningInterpreterShadowPipeline,
   shouldRunMeaningInterpreterShadow,
 } from "@/lib/sms-meaning-interpreter-shadow";
 import { buildMeaningInterpreterShadowFinalizeFromSchedule } from "@/lib/sms-meaning-interpreter-context";
-import { MEANING_INTERPRETER_ROUTES } from "@/lib/sms-meaning-interpreter-routes";
+import {
+  buildSkippedMeaningShadowFacts,
+  MEANING_INTERPRETER_ROUTES,
+} from "@/lib/sms-meaning-interpreter-routes";
 
 const validShadowJson = {
   version: 1,
@@ -126,6 +134,16 @@ describe("meaning interpreter schema", () => {
       })
     ).toBeNull();
   });
+
+  it("describes invalid primary_intent for schema_validation_failed telemetry", () => {
+    const detail = describeMeaningInterpreterShadowValidationFailure({
+      ...validShadowJson,
+      primary_intent: "mark_complete",
+    });
+    expect(detail.stage).toBe("schema_validation");
+    expect(detail.invalid_field).toBe("primary_intent");
+    expect(detail.invalid_value_preview).toBe("mark_complete");
+  });
 });
 
 describe("eligibility and shouldRun", () => {
@@ -136,6 +154,30 @@ describe("eligibility and shouldRun", () => {
 
   it("excludes STOP compliance turns", () => {
     expect(isEligibleForMeaningInterpreterShadow({ rawBody: "STOP" })).toBe(false);
+  });
+
+  it("excludes safety_turn via skipReason on finalize input", () => {
+    expect(
+      isEligibleForMeaningInterpreterShadow({
+        rawBody: "I want to hurt myself",
+        skipReason: "safety_turn",
+      })
+    ).toBe(false);
+  });
+
+  it("resolves skipReason from deterministic_facts.skip_reason", () => {
+    expect(
+      resolveMeaningInterpreterShadowSkipReason({
+        deterministicFacts: { skip_reason: "safety_turn" },
+      })
+    ).toBe("safety_turn");
+    expect(
+      shouldRunMeaningInterpreterShadow({
+        inboundMessageSid: "SM_SAFE",
+        rawBody: "crisis message",
+        deterministicFacts: { skip_reason: "safety_turn" },
+      })
+    ).toBe(false);
   });
 
   it("excludes empty messages", () => {
@@ -394,9 +436,184 @@ describe("OpenAI call and insert pipeline", () => {
       expect.objectContaining({
         inbound_message_sid: "SM101",
         ok: false,
-        error_code: "invalid_json",
+        shadow_status: "openai_failed",
+        error_code: "openai_json_parse_failed",
       })
     );
+  });
+
+  it("stores schema_validation_failed with failure detail in deterministic_facts", async () => {
+    openAiCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              ...validShadowJson,
+              primary_intent: "completion",
+            }),
+          },
+        },
+      ],
+    });
+    insertMock.mockClear();
+    await runMeaningInterpreterShadowPipeline({
+      ...buildMeaningShadowScheduleArgs({
+        deterministicRoute: "normal_accountability",
+        deterministicFacts: {},
+      }),
+      clerkUserId: "user_1",
+      inboundMessageSid: "SM_SCHEMA",
+      rawBody: "done",
+    });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inbound_message_sid: "SM_SCHEMA",
+        shadow_status: "openai_failed",
+        error_code: "schema_validation_failed",
+        deterministic_facts: expect.objectContaining({
+          shadow_failure_detail: expect.objectContaining({
+            stage: "schema_validation",
+            invalid_field: "primary_intent",
+          }),
+        }),
+      })
+    );
+  });
+
+  it("stores no_openai_key row on finalize without calling OpenAI", async () => {
+    delete process.env.OPENAI_API_KEY;
+    insertMock.mockClear();
+    await finalizeMeaningInterpreterShadowForInboundJob(
+      buildMeaningInterpreterShadowFinalizeFromSchedule({
+        clerkUserId: "user_1",
+        inboundMessageSid: "SM_NO_KEY",
+        rawBody: "hello",
+        outcomeSent: true,
+        jobStatus: "sent",
+        deterministicRoute: MEANING_INTERPRETER_ROUTES.normal_accountability,
+        deterministicFacts: {},
+      })
+    );
+    expect(openAiCreate).not.toHaveBeenCalled();
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inbound_message_sid: "SM_NO_KEY",
+        shadow_status: "openai_failed",
+        error_code: "no_openai_key",
+        ok: false,
+      })
+    );
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  it("stores openai_timeout on AbortError", async () => {
+    const abortErr = new Error("aborted");
+    abortErr.name = "AbortError";
+    openAiCreate.mockRejectedValue(abortErr);
+    insertMock.mockClear();
+    await runMeaningInterpreterShadowPipeline({
+      ...buildMeaningShadowScheduleArgs({ deterministicRoute: "normal_accountability", deterministicFacts: {} }),
+      clerkUserId: "user_1",
+      inboundMessageSid: "SM_TIMEOUT",
+      rawBody: "hello",
+    });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error_code: "openai_timeout",
+        shadow_status: "openai_failed",
+      })
+    );
+  });
+
+  it("classifies rate limit and auth errors", () => {
+    expect(classifyMeaningInterpreterOpenAIError(Object.assign(new Error("rl"), { status: 429 }))).toBe(
+      "openai_rate_limit"
+    );
+    expect(classifyMeaningInterpreterOpenAIError(Object.assign(new Error("auth"), { status: 401 }))).toBe(
+      "openai_auth_error"
+    );
+    expect(classifyMeaningInterpreterOpenAIError(Object.assign(new Error("missing"), { status: 404 }))).toBe(
+      "openai_model_error"
+    );
+    expect(classifyMeaningInterpreterOpenAIError(new Error("something else"))).toBe("openai_api_error");
+  });
+
+  it("stores openai_rate_limit on 429 from API", async () => {
+    openAiCreate.mockRejectedValue(Object.assign(new Error("Rate limit"), { status: 429 }));
+    insertMock.mockClear();
+    await runMeaningInterpreterShadowPipeline({
+      ...buildMeaningShadowScheduleArgs({ deterministicRoute: "normal_accountability", deterministicFacts: {} }),
+      clerkUserId: "user_1",
+      inboundMessageSid: "SM_RL",
+      rawBody: "hello",
+    });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error_code: "openai_rate_limit",
+        shadow_status: "openai_failed",
+      })
+    );
+  });
+
+  it("skips OpenAI for safety_turn with skipped row", async () => {
+    insertMock.mockClear();
+    await finalizeMeaningInterpreterShadowForInboundJob(
+      buildMeaningInterpreterShadowFinalizeFromSchedule({
+        clerkUserId: "user_1",
+        inboundMessageSid: "SM_SAFETY",
+        rawBody: "crisis text",
+        outcomeSent: false,
+        jobStatus: "cancelled",
+        skipReason: "safety_turn",
+        deterministicRoute: MEANING_INTERPRETER_ROUTES.safety_short_circuit_skipped,
+        deterministicFacts: buildSkippedMeaningShadowFacts({
+          skipReason: "safety_turn",
+          jobFinalStatus: "cancelled",
+        }),
+      })
+    );
+    expect(openAiCreate).not.toHaveBeenCalled();
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inbound_message_sid: "SM_SAFETY",
+        shadow_status: "skipped",
+        skipped_reason: "safety_turn",
+      })
+    );
+  });
+
+  it("skips OpenAI when only facts.skip_reason is safety_turn", async () => {
+    insertMock.mockClear();
+    await finalizeMeaningInterpreterShadowForInboundJob(
+      buildMeaningInterpreterShadowFinalizeFromSchedule({
+        clerkUserId: "user_1",
+        inboundMessageSid: "SM_SAFETY_FACTS",
+        rawBody: "crisis text",
+        outcomeSent: false,
+        jobStatus: "cancelled",
+        deterministicRoute: MEANING_INTERPRETER_ROUTES.safety_short_circuit_skipped,
+        deterministicFacts: { skip_reason: "safety_turn", job_final_status: "cancelled" },
+      })
+    );
+    expect(openAiCreate).not.toHaveBeenCalled();
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shadow_status: "skipped",
+        skipped_reason: "safety_turn",
+      })
+    );
+  });
+
+  it("pipeline failure does not throw", async () => {
+    openAiCreate.mockRejectedValue(new Error("network down"));
+    await expect(
+      runMeaningInterpreterShadowPipeline({
+        ...buildMeaningShadowScheduleArgs({ deterministicRoute: "normal_accountability", deterministicFacts: {} }),
+        clerkUserId: "user_1",
+        inboundMessageSid: "SM_THROW",
+        rawBody: "x",
+      })
+    ).resolves.toBeUndefined();
   });
 
   it("flag off skips OpenAI and insert", async () => {

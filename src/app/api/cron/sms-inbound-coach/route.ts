@@ -57,6 +57,7 @@ import {
   scheduleFinalizeMeaningInterpreterShadowForInboundJob,
   type MeaningInterpreterDeterministicFacts,
   type MeaningInterpreterShadowScheduleArgs,
+  type MeaningInterpreterShadowSkipReason,
 } from "@/lib/sms-meaning-interpreter-shadow";
 import {
   buildMeaningInterpreterShadowFinalizeFromSchedule,
@@ -1445,11 +1446,14 @@ function recordInboundMeaningShadowSuppressedNoSend(args: {
   schedule?: MeaningInterpreterShadowScheduleArgs | null;
   extraFacts?: Partial<MeaningInterpreterDeterministicFacts>;
 }): void {
+  const suppressedSkipReason = args.skipReason as MeaningInterpreterShadowSkipReason;
+
   const schedule =
     args.schedule ??
     buildMeaningShadowScheduleArgs({
       deterministicRoute: args.routeOverride ?? MEANING_INTERPRETER_ROUTES.suppressed_no_send,
       commitmentId: args.commitmentId,
+      skipReason: suppressedSkipReason,
       deterministicFacts: buildSkippedMeaningShadowFacts({
         skipReason: args.skipReason,
         jobFinalStatus: "cancelled",
@@ -1478,7 +1482,7 @@ function recordInboundMeaningShadowSuppressedNoSend(args: {
           args.extraFacts ?? {}
         )
       ),
-      skipReason: schedule.skipReason,
+      skipReason: schedule.skipReason ?? suppressedSkipReason,
     })
   );
 }

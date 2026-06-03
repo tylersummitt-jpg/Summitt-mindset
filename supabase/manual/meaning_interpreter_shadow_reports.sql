@@ -132,3 +132,97 @@ WHERE s.created_at >= :day_start
   )
 ORDER BY s.created_at DESC
 LIMIT 100;
+
+-- =============================================================================
+-- S1 observability reports (read-only; use now() - interval or :day_start/:day_end)
+-- =============================================================================
+
+-- S1-A) Last 24h shadow rows by status
+SELECT shadow_status, COUNT(*) AS n
+FROM v2_sms_meaning_interpretation_shadow
+WHERE created_at >= now() - interval '24 hours'
+GROUP BY 1
+ORDER BY n DESC;
+
+-- S1-B) openai_failed by error_code (granular taxonomy)
+SELECT error_code, COUNT(*) AS n
+FROM v2_sms_meaning_interpretation_shadow
+WHERE created_at >= now() - interval '24 hours'
+  AND shadow_status = 'openai_failed'
+GROUP BY 1
+ORDER BY n DESC;
+
+-- S1-C) schema_validation_failed samples with validation detail + job context
+SELECT
+  s.created_at,
+  s.inbound_message_sid,
+  s.error_code,
+  s.model,
+  s.deterministic_route,
+  s.deterministic_facts -> 'shadow_failure_detail' AS validation_detail,
+  s.deterministic_facts ->> 'classifier_event_type' AS classifier_event_type,
+  s.body_preview,
+  left(m.raw_body, 160) AS inbound_raw,
+  j.status AS job_status,
+  j.last_error IS NOT NULL AS job_has_last_error
+FROM v2_sms_meaning_interpretation_shadow s
+LEFT JOIN sms_inbound_messages m ON m.message_sid = s.inbound_message_sid
+LEFT JOIN sms_inbound_coach_jobs j ON j.message_sid = s.inbound_message_sid
+WHERE s.created_at >= now() - interval '24 hours'
+  AND s.error_code = 'schema_validation_failed'
+ORDER BY s.created_at DESC
+LIMIT 50;
+
+-- S1-D) Skipped rows by skipped_reason
+SELECT skipped_reason, COUNT(*) AS n
+FROM v2_sms_meaning_interpretation_shadow
+WHERE created_at >= now() - interval '24 hours'
+  AND shadow_status = 'skipped'
+GROUP BY 1
+ORDER BY n DESC;
+
+-- S1-E) Safety/compliance/suppressed routes that incorrectly attempted OpenAI
+SELECT
+  s.deterministic_route,
+  s.shadow_status,
+  s.skipped_reason,
+  s.error_code,
+  s.deterministic_facts ->> 'skip_reason' AS facts_skip_reason,
+  COUNT(*) AS n
+FROM v2_sms_meaning_interpretation_shadow s
+WHERE s.created_at >= now() - interval '7 days'
+  AND s.deterministic_route IN (
+    'safety_short_circuit_skipped',
+    'compliance_skipped',
+    'suppressed_tapback',
+    'suppressed_no_send'
+  )
+GROUP BY 1, 2, 3, 4, 5
+ORDER BY n DESC;
+
+-- S1-F) openai_ok disagreement rate (7d)
+SELECT
+  COUNT(*) FILTER (WHERE shadow_status = 'openai_ok') AS openai_ok,
+  COUNT(*) FILTER (WHERE shadow_status = 'openai_ok' AND disagreement = true) AS disagreed,
+  ROUND(
+    100.0 * COUNT(*) FILTER (WHERE shadow_status = 'openai_ok' AND disagreement = true)
+    / NULLIF(COUNT(*) FILTER (WHERE shadow_status = 'openai_ok'), 0),
+    1
+  ) AS disagreement_pct
+FROM v2_sms_meaning_interpretation_shadow
+WHERE created_at >= now() - interval '7 days';
+
+-- S1-G) Latency by status / error_code / model (24h)
+SELECT
+  shadow_status,
+  error_code,
+  model,
+  COUNT(*) AS n,
+  ROUND(AVG(latency_ms)) AS avg_latency_ms,
+  ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms)) AS p50_latency_ms,
+  ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms)) AS p95_latency_ms
+FROM v2_sms_meaning_interpretation_shadow
+WHERE created_at >= now() - interval '24 hours'
+  AND latency_ms IS NOT NULL
+GROUP BY 1, 2, 3
+ORDER BY n DESC;
