@@ -960,6 +960,8 @@ async function buildDailySmsContent(
         v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRe.metadata),
       };
     }
+
+    const [latestOutcome, recentEvents] = await Promise.all([
       getLatestV2AccountabilityOutcome(active.id),
       getRecentV2EventsForAi(active.id),
     ]);
