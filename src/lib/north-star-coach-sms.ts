@@ -172,6 +172,42 @@ export function matchesMalformedDidRawPhraseHappenToday(text: string): boolean {
   return /\bDid\s+(?!\d)(?!you\b)(?!the\s+rep\b)(?!it\b)(?!your\b)[^\?]{2,}\bhappen\s+today\?/i.test(t);
 }
 
+/**
+ * Deterministic artifacts from clause-deletion micro-edits (e.g. "how does it feel to Would").
+ * Used by North Star post-scrub guard and Final Voice Gate.
+ */
+export function detectBrokenMicroEditArtifacts(text: string): string[] {
+  const t = norm(text);
+  if (!t) return [];
+  const hits: string[] = [];
+  const checks: Array<[string, RegExp]> = [
+    ["broken_micro_edit_feel_to_would", /\bhow does it feel to Would\b/i],
+    ["broken_micro_edit_to_would", /\bto Would\b/i],
+    ["broken_micro_edit_to_what", /\bto What\b/i],
+    ["broken_micro_edit_to_how", /\bto How\b/i],
+    ["broken_micro_edit_to_did", /\bto Did\b/i],
+    ["broken_micro_edit_to_let", /\bto Let\b/i],
+    ["broken_micro_edit_with_to", /\bwith to\b/i],
+    [
+      "broken_micro_edit_dangling_prep_cap",
+      /\b(?:feel|seem|sound)\s+to\s+(?!(?:be|have|get|do|make)\b)[A-Z]/,
+    ],
+    [
+      "broken_micro_edit_prep_before_cap_sentence",
+      /\b(?:to|with|for|of|and)\s+(?:Would|What|How|Did|Let|I|You|We|It|That|This)\b/,
+    ],
+  ];
+  for (const [name, re] of checks) {
+    if (re.test(t)) hits.push(name);
+  }
+  return hits;
+}
+
+/** Single FVG / telemetry reason when {@link detectBrokenMicroEditArtifacts} finds issues. */
+export function detectBrokenMicroEditReason(text: string): string | null {
+  return detectBrokenMicroEditArtifacts(text).length > 0 ? "broken_micro_edit" : null;
+}
+
 /** Exact replySource values whose relationship copy must not be replaced by deterministic banks or NS OpenAI full finalizer. */
 const V3_RELATIONSHIP_VOICE_EXACT_SOURCES = new Set([
   "v3_sms_brain",
@@ -909,15 +945,9 @@ function scrubDailyOutboundFinalQuality(
   if (qCount >= 2) {
     hits.push("daily_multi_question");
     if (protectV3RelationshipVoice) {
-      const firstQ = t.indexOf("?");
-      if (firstQ > 0) {
-        t = t.slice(0, firstQ + 1).trim();
-        hits.push("daily_multi_question_micro_kept_first");
-      } else {
-        hits.push("daily_multi_question_requires_v3_repair");
-        requiresV3Repair = true;
-        unsafeRewritePrevented = true;
-      }
+      hits.push("daily_multi_question_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
     } else {
       t = buildDailyCommitmentAsk(mergedAsk);
     }
@@ -1171,9 +1201,11 @@ function scrubWrongTemporal(s: string, preserveNl: boolean): { text: string; hit
 function scrubProductJargon(
   s: string,
   preserveNl: boolean,
-  channel?: NorthStarCoachChannel
-): { text: string; hits: string[] } {
+  channel?: NorthStarCoachChannel,
+  protectV3RelationshipVoice = false
+): { text: string; hits: string[]; requiresV3Repair: boolean } {
   const hits: string[] = [];
+  let requiresV3Repair = false;
   let t = s;
   const preserveServerBindingPhrasing =
     channel === "contract_prompt" || channel === "guided_contract_proposal";
@@ -1206,10 +1238,15 @@ function scrubProductJargon(
   ]);
   for (const [re, rep] of pairs) {
     if (preserveServerBindingPhrasing && bindingSafeSkip.has(re.source)) continue;
-    if (re.test(t)) hits.push(re.source.slice(0, 30));
+    if (!re.test(t)) continue;
+    hits.push(re.source.slice(0, 30));
+    if (protectV3RelationshipVoice && rep === "") {
+      requiresV3Repair = true;
+      continue;
+    }
     t = t.replace(re, rep);
   }
-  return { text: finalizeTextShape(t, preserveNl), hits };
+  return { text: finalizeTextShape(t, preserveNl), hits, requiresV3Repair };
 }
 
 function scrubAppDeflection(s: string, allow: boolean, preserveNl: boolean): { text: string; hits: string[] } {
@@ -1629,11 +1666,19 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = "rewritten";
   }
 
-  const jargon = scrubProductJargon(working, preserveNl, args.channel);
-  working = jargon.text;
-  if (jargon.hits.length) {
-    blockedReasons.push("product_jargon_scrub");
-    source = "rewritten";
+  const beforeProductJargon = working;
+  const jargon = scrubProductJargon(working, preserveNl, args.channel, protectV3);
+  if (protectV3 && jargon.requiresV3Repair) {
+    working = beforeProductJargon;
+    bumpRepair("product_jargon_requires_v3_repair");
+    unsafeRewritePreventedAcc = true;
+    blockedReasons.push("product_jargon_scrub", "product_jargon_requires_v3_repair");
+  } else {
+    working = jargon.text;
+    if (jargon.hits.length) {
+      blockedReasons.push("product_jargon_scrub");
+      source = "rewritten";
+    }
   }
 
   if (
@@ -1754,6 +1799,19 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
 
   if (!preserveNl) {
     working = stripIncompleteTrailingSms(working);
+  }
+
+  const brokenMicro = detectBrokenMicroEditArtifacts(working);
+  if (brokenMicro.length) {
+    blockedReasons.push("broken_micro_edit", ...brokenMicro.slice(0, 3));
+    if (protectV3) {
+      const origTrim = preserveNl ? originalBody.trim() : norm(originalBody);
+      if (origTrim.length >= 10) {
+        working = preserveNl ? finalizeTextShape(origTrim, true) : norm(origTrim);
+      }
+      bumpRepair("broken_micro_edit_requires_v3_repair");
+      unsafeRewritePreventedAcc = true;
+    }
   }
 
   const echoGuard = applyBrokenTranscriptEchoGuard(args, working, mergedFields);

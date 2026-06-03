@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildDailyCommitmentAsk,
   deriveFutureIntentHint,
+  detectBrokenMicroEditArtifacts,
+  detectBrokenMicroEditReason,
   finalizeNorthStarCoachSms,
   finalizeNorthStarCoachSmsPreservingSuffix,
   inboundSignalsCompletion,
@@ -524,6 +526,84 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(r.visibleBody.length).toBeLessThan(120);
     expect(r.visibleBody.toLowerCase()).not.toContain("as you move forward");
     expect(r.visibleBody.toLowerCase()).not.toContain("really make a difference");
+  });
+});
+
+const PRODUCTION_STAY_ON_TRACK_BODY =
+  "As you think about your calls this week, how does it feel to stay on track with your plan? Would you like to keep this cadence for the next 7 days, ease up, or adjust your approach?";
+
+describe("V3 relationship product jargon scrub (production regression)", () => {
+  it("detectBrokenMicroEditReason catches feel-to-Would splice", () => {
+    expect(
+      detectBrokenMicroEditReason(
+        "As you think about your calls this week, how does it feel to Would you like to keep this cadence?"
+      )
+    ).toBe("broken_micro_edit");
+    expect(detectBrokenMicroEditArtifacts("how does it feel to Would you like")).toContain(
+      "broken_micro_edit_feel_to_would"
+    );
+  });
+
+  it("v3_daily_relationship_lane: does not destructive-delete stay on track into broken grammar", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: PRODUCTION_STAY_ON_TRACK_BODY,
+      channel: "daily_outbound",
+      replySource: "v3_daily_relationship_lane",
+    });
+    expect(r.visibleBody).not.toMatch(/feel to Would/i);
+    expect(r.visibleBody).toBe(PRODUCTION_STAY_ON_TRACK_BODY);
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.north_star_rewrite_type).toBe("repair_required");
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["product_jargon_scrub", "product_jargon_requires_v3_repair"])
+    );
+    expect(r.meta.north_star_rewrote_body).toBe(false);
+  });
+
+  it("v3_inbound_relationship_lane: same non-destructive product jargon policy", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: PRODUCTION_STAY_ON_TRACK_BODY,
+      channel: "inbound_coach_reply",
+      replySource: "v3_inbound_relationship_lane",
+    });
+    expect(r.visibleBody).not.toMatch(/feel to Would/i);
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toContain("product_jargon_requires_v3_repair");
+  });
+
+  it("v3_weekly_relationship_lane: same non-destructive product jargon policy", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: PRODUCTION_STAY_ON_TRACK_BODY,
+      channel: "weekly_sms",
+      replySource: "v3_weekly_relationship_lane",
+    });
+    expect(r.visibleBody).not.toMatch(/feel to Would/i);
+    expect(r.meta.requires_v3_repair).toBe(true);
+  });
+
+  it("non-V3 daily_outbound: legacy destructive stay-on-track scrub still applies", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: PRODUCTION_STAY_ON_TRACK_BODY,
+      channel: "daily_outbound",
+      effectiveAskText: "make sales calls",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("stay on track");
+    expect(r.meta.blockedReasons).toContain("product_jargon_scrub");
+    expect(r.meta.requires_v3_repair).toBeFalsy();
+  });
+
+  it("V3: flags broken_micro_edit and requires_v3_repair without shipping damaged copy as final", () => {
+    const broken =
+      "As you think about your calls this week, how does it feel to Would you like to keep this cadence?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: broken,
+      channel: "daily_outbound",
+      replySource: "v3_daily_relationship_lane",
+    });
+    expect(r.meta.blockedReasons).toContain("broken_micro_edit");
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.north_star_rewrite_type).toBe("repair_required");
+    expect(r.visibleBody).toBe(broken);
   });
 });
 

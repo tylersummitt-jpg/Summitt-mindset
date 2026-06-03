@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 
 import {
+  detectBrokenMicroEditReason,
   finalizeNorthStarCoachSms,
   matchesMalformedDidRawPhraseHappenToday,
   pickNorthStarWriterAttributionFields,
@@ -284,11 +285,15 @@ export function detectFinalVoiceBlockedReasons(body: string): string[] {
     ["generic_rep_happen_ask", /\bDid the rep happen today\?\s*$/i],
     /** Generic “reset” copy that abandons thread continuity after an active reply. */
     ["generic_day_reminder_reset", /\bHope you(?:'re| are) having a great day\b.*\bremind you\b/is],
+    /** Forbidden product jargon — repair via OpenAI, never deterministic clause deletion. */
+    ["stay_on_track", /\bstay on track\b/i],
   ];
   for (const [name, re] of checks) {
     if (re.test(t)) hits.push(name);
   }
   if (matchesMalformedDidRawPhraseHappenToday(t)) hits.push("malformed_did_raw_phrase_happen_today");
+  const brokenMicro = detectBrokenMicroEditReason(t);
+  if (brokenMicro) hits.push(brokenMicro);
 
   /**
    * `too_many_sentences` = density / ramble / SMS-unfriendly length — not “3 clauses = bad”.
@@ -346,6 +351,8 @@ const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
   "great_step_forward",
   "generic_day_reminder_reset",
   "did_you_manage",
+  "broken_micro_edit",
+  "stay_on_track",
 ]);
 
 export function isRepairableFinalVoiceBlockedReason(reason: string): boolean {

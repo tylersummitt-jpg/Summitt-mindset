@@ -18,7 +18,7 @@ vi.mock("openai", () => ({
 }));
 
 import { computeRecommitBindingText } from "./v2-adaptive-contract";
-import { finalizeNorthStarCoachSms } from "./north-star-coach-sms";
+import { finalizeNorthStarCoachSms, detectBrokenMicroEditReason } from "./north-star-coach-sms";
 import {
   appendPreservedSignedLink,
   appendPreservedSmsSuffix,
@@ -109,6 +109,22 @@ describe("detectFinalVoiceBlockedReasons", () => {
 
   it("adds too_many_sentences for obvious adjacent word stutter under 480 chars", () => {
     expect(detectFinalVoiceBlockedReasons("That sounds really really hard.")).toContain("too_many_sentences");
+  });
+
+  it("flags broken_micro_edit and stay_on_track for repair routing", () => {
+    expect(
+      detectFinalVoiceBlockedReasons(
+        "As you think about your calls this week, how does it feel to Would you like to keep this cadence?"
+      )
+    ).toEqual(expect.arrayContaining(["broken_micro_edit"]));
+    expect(
+      detectFinalVoiceBlockedReasons(
+        "As you think about your calls this week, how does it feel to stay on track with your plan?"
+      )
+    ).toEqual(expect.arrayContaining(["stay_on_track"]));
+    expect(isRepairableFinalVoiceBlockedReason("broken_micro_edit")).toBe(true);
+    expect(isRepairableFinalVoiceBlockedReason("stay_on_track")).toBe(true);
+    expect(detectBrokenMicroEditReason("how does it feel to Would you like")).toBe("broken_micro_edit");
   });
 
   it("May 14-style gratitude SMS still hits repairable phrase gate without too_many from sentence count alone", () => {
@@ -387,6 +403,118 @@ describe("applyFinalVoiceOwnershipGate", () => {
     expect(r.metadata.v3_repair_attempted).toBe(false);
     expect(r.metadata.v3_repair_succeeded).toBe(false);
     expect(r.body).not.toContain("Did you protect the focused work block");
+  });
+
+  it("FVG: broken_micro_edit blocks; OpenAI repair sends clean body; broken repair no-sends", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    const broken =
+      "As you think about your calls this week, how does it feel to Would you like to keep this cadence?";
+    expect(detectFinalVoiceBlockedReasons(broken)).toContain("broken_micro_edit");
+
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content:
+              "As you think about your calls this week, how is the cadence feeling? Would you like to keep it for the next 7 days, ease up, or adjust?",
+          },
+        },
+      ],
+    });
+    const repaired = await applyFinalVoiceOwnershipGate({
+      proposedBody: broken,
+      replySource: "v3_daily_relationship_lane",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "sales calls",
+      normalCoaching: true,
+    });
+    expect(repaired.shouldSend).toBe(true);
+    expect(repaired.voiceOwner).toBe("v3_repair");
+    expect(repaired.body).not.toMatch(/feel to Would/i);
+    expect(repaired.body.toLowerCase()).not.toContain("stay on track");
+    expect(repairCreateMock).toHaveBeenCalled();
+
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content:
+              "As you think about your calls this week, how does it feel to Would you like to keep this cadence?",
+          },
+        },
+      ],
+    });
+    const stillBroken = await applyFinalVoiceOwnershipGate({
+      proposedBody: broken,
+      replySource: "v3_daily_relationship_lane",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "sales calls",
+      normalCoaching: true,
+    });
+    expect(stillBroken.shouldSend).toBe(false);
+    expect(stillBroken.body).toBe("");
+    expect(stillBroken.skipReason).toBe("v3_repair_failed");
+  });
+
+  it("FVG: V3 stay on track requires repair; does not send unchanged jargon without repair", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const withJargon =
+      "As you think about your calls this week, how does it feel to stay on track with your plan? Would you like to keep this cadence?";
+    const ns = finalizeNorthStarCoachSms({
+      proposedBody: withJargon,
+      channel: "daily_outbound",
+      replySource: "v3_daily_relationship_lane",
+    });
+    expect(ns.meta.requires_v3_repair).toBe(true);
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: ns.visibleBody,
+      replySource: "v3_daily_relationship_lane",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "sales calls",
+      northStarMeta: ns.meta,
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+    expect(r.blockedReasons).toEqual(expect.arrayContaining(["north_star_requires_v3_repair"]));
+    expect(r.blockedReasons).toEqual(expect.arrayContaining(["stay_on_track"]));
+  });
+
+  it("FVG: V3 stay on track OpenAI repair removes jargon and sends", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    const withJargon =
+      "As you think about your calls this week, how does it feel to stay on track with your plan? Would you like to keep this cadence?";
+    const ns = finalizeNorthStarCoachSms({
+      proposedBody: withJargon,
+      channel: "daily_outbound",
+      replySource: "v3_daily_relationship_lane",
+    });
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content:
+              "As you think about your calls this week, how is the rhythm feeling? Would you like to keep this cadence for the next 7 days?",
+          },
+        },
+      ],
+    });
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: ns.visibleBody,
+      replySource: "v3_daily_relationship_lane",
+      channel: "daily_outbound",
+      activeCommitmentId: "c1",
+      effectiveAsk: "sales calls",
+      northStarMeta: ns.meta,
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.voiceOwner).toBe("v3_repair");
+    expect(r.body.toLowerCase()).not.toContain("stay on track");
+    expect(r.body).not.toMatch(/feel to Would/i);
   });
 
   it("allows clean v3-owned daily_outbound copy to pass without repair", async () => {
