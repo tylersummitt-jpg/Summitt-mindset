@@ -223,7 +223,7 @@ function hasStreakOrComebackEvidence(args: SmsPraisePolicyEvaluateArgs): boolean
   if ((args.yesStreak14d ?? 0) >= 2) return true;
   const mem = args.relationshipMemory7d;
   if (mem?.comebacks.length) return true;
-  if (mem?.outcome_counts.yes >= 2) return true;
+  if ((mem?.outcome_counts?.yes ?? 0) >= 2) return true;
   if (args.weeklyStrongWeek === true) return true;
   if ((args.weeklyCompletedCount ?? 0) >= 2) return true;
   return false;
@@ -252,9 +252,9 @@ function hasWarmPraiseAuthorization(args: SmsPraisePolicyEvaluateArgs): boolean 
   if (mem?.proof_moments.length) return true;
   if (mem?.comebacks.length) return true;
   if (
-    mem?.outcome_counts.yes >= 1 &&
-    mem.context_flags?.days_since_last_user_outcome != null &&
-    mem.context_flags.days_since_last_user_outcome <= 3
+    (mem?.outcome_counts?.yes ?? 0) >= 1 &&
+    mem?.context_flags?.days_since_last_user_outcome != null &&
+    mem?.context_flags?.days_since_last_user_outcome <= 3
   ) {
     return true;
   }
@@ -563,9 +563,9 @@ export function buildSmsPraisePolicyArgsFromWeeklyFacts(args: {
     completed_count?: number | null;
   };
   thread: {
-    recent_exact_thread_72h?: RecentExactThread72hResult;
-    relationship_memory_7d?: RelationshipMemory7dResult;
-    last_5_coach_questions?: string[];
+    recent_exact_thread_72h?: RecentExactThread72hResult | null;
+    relationship_memory_7d?: RelationshipMemory7dResult | null;
+    last_5_coach_questions?: string[] | null;
   };
 }): SmsPraisePolicyEvaluateArgs {
   return {

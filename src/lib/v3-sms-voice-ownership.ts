@@ -800,7 +800,7 @@ export async function applyFinalVoiceOwnershipGate(
       contextPacket: args.contextPacket,
       v3BrainMetadata: args.v3BrainMetadata,
       laneKind:
-        args.channel === "weekly_outbound" || args.channel === "weekly_reflection"
+        args.channel === "weekly_sms"
           ? "weekly"
           : args.channel === "inbound_coach_reply" ||
               args.channel === "blocker_followup" ||
