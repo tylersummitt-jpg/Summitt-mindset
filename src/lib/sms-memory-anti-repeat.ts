@@ -1156,6 +1156,46 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     Boolean(firstViolation.repeatedQuestion) &&
     isNearExactDuplicateSms(firstViolation.repeatedQuestion!, original);
 
+  const returnGuardSuccess = (
+    repaired: string,
+    forcedStrategy: SmsMemoryRepeatRepairStrategy,
+    repairOutMetadata: Record<string, unknown>,
+    repairSnapshotMeta: Record<string, unknown>,
+    labelMeta: Record<string, unknown> = {}
+  ): MemoryRepeatGuardResult => {
+    const finalStrategy = typeof winningStrategy === "string" ? winningStrategy : forcedStrategy;
+    return {
+      outcome: "ok",
+      body: repaired,
+      metadata: {
+        memory_repeat_guard_attempted: true,
+        memory_repeat_guard_succeeded: true,
+        memory_repeat_guard_reason: firstViolation.reason,
+        repeated_phrases: [],
+        repeated_question: firstViolation.repeatedQuestion,
+        memory_repeat_original_body_preview: original.length > 220 ? `${original.slice(0, 219)}…` : original,
+        memory_repeat_repaired_body_preview: lastRepairedPreview,
+        memory_repeat_no_send_reason: null,
+        repeat_detected: true,
+        repeat_repair_attempted: true,
+        repeat_repair_strategy: finalStrategy,
+        repeat_repair_recommended_strategy: recommendedStrategy,
+        repeat_repair_attempt_1_strategy: attempt1Strategy,
+        repeat_repair_attempt_2_strategy: attempt2Strategy,
+        repeat_repair_final_strategy: finalStrategy,
+        repeat_repair_overlap_tokens: lastOverlapTokens,
+        repeat_repair_still_repeated_phrase: null,
+        repeat_repair_succeeded: true,
+        repeat_repair_failed_reason: null,
+        repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
+        forced_second_repair_attempted: forcedSecondRepairAttempted,
+        ...repairOutMetadata,
+        ...repairSnapshotMeta,
+        ...labelMeta,
+      },
+    };
+  };
+
   const strategiesToTry: SmsMemoryRepeatRepairStrategy[] =
     repairContext.clear_completion_inbound === true
       ? ["proof_check", "outcome_check"]
@@ -1267,22 +1307,53 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
           ? repairOut.metadata.repeat_repair_strategy
           : forcedStrategy ?? null;
 
-    if (!repairBodyMatchesStrategy(repaired, forcedStrategy)) {
+    const strategyLabelMatched = repairBodyMatchesStrategy(repaired, forcedStrategy);
+
+    if (!strategyLabelMatched) {
       const completionStrategyBypass = shouldAcceptCompletionRepairDespiteStrategyMismatch({
         detectInput: args.detectInput,
         repaired,
         forcedStrategy,
       });
-      if (!completionStrategyBypass) {
-        lastFailedReason = "repair_strategy_body_mismatch";
-        if (attemptIndex === 0) continue;
-        break;
+      if (completionStrategyBypass) {
+        lastRepairMetadata = {
+          ...lastRepairMetadata,
+          completion_repair_strategy_label_bypass: true,
+          repeat_repair_strategy_label_requested: forcedStrategy,
+        };
+      } else {
+        const afterRepairOnMismatch = detectSmsMemoryRepeatViolation({
+          ...args.detectInput,
+          candidateBody: repaired,
+        });
+
+        if (afterRepairOnMismatch.hasViolation) {
+          lastFailedReason = "still_repeated_after_repair";
+          const diagnostics = computeRepeatOverlapDiagnostics({
+            candidateBody: repaired,
+            violation: afterRepairOnMismatch,
+          });
+          lastStillRepeatedPhrase = diagnostics.triggeringPhrase;
+          lastOverlapTokens = diagnostics.overlapTokens;
+          if (attemptIndex === 0) continue;
+          break;
+        }
+
+        const postValidateOnMismatch = await args.validateAfterRepair(repaired);
+        if (!postValidateOnMismatch.ok) {
+          lastFailedReason = "post_repair_validation_failed";
+          lastPostValidateNoSendReason = postValidateOnMismatch.noSendReason;
+          lastPostValidateExtraMeta = postValidateOnMismatch.extraMeta ?? {};
+          break;
+        }
+
+        return returnGuardSuccess(repaired, forcedStrategy, repairOut.metadata, repairSnapshotMeta, {
+          repeat_repair_strategy_label_mismatch: true,
+          repeat_repair_strategy_label_requested: forcedStrategy,
+          repeat_repair_strategy_label_matched: false,
+          repeat_repair_strategy_label_soft_accepted: true,
+        });
       }
-      lastRepairMetadata = {
-        ...lastRepairMetadata,
-        completion_repair_strategy_label_bypass: true,
-        repeat_repair_strategy_label_requested: forcedStrategy,
-      };
     }
 
     const afterRepairViolation = detectSmsMemoryRepeatViolation({
@@ -1312,37 +1383,20 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
       break;
     }
 
-    const finalStrategy =
-      typeof winningStrategy === "string" ? winningStrategy : forcedStrategy;
-
-    return {
-      outcome: "ok",
-      body: repaired,
-      metadata: {
-        memory_repeat_guard_attempted: true,
-        memory_repeat_guard_succeeded: true,
-        memory_repeat_guard_reason: firstViolation.reason,
-        repeated_phrases: [],
-        repeated_question: firstViolation.repeatedQuestion,
-        memory_repeat_original_body_preview: original.length > 220 ? `${original.slice(0, 219)}…` : original,
-        memory_repeat_repaired_body_preview: lastRepairedPreview,
-        memory_repeat_no_send_reason: null,
-        repeat_detected: true,
-        repeat_repair_attempted: true,
-        repeat_repair_strategy: finalStrategy,
-        repeat_repair_recommended_strategy: recommendedStrategy,
-        repeat_repair_attempt_1_strategy: attempt1Strategy,
-        repeat_repair_attempt_2_strategy: attempt2Strategy,
-        repeat_repair_final_strategy: finalStrategy,
-        repeat_repair_overlap_tokens: lastOverlapTokens,
-        repeat_repair_still_repeated_phrase: null,
-        repeat_repair_succeeded: true,
-        repeat_repair_failed_reason: null,
-        repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
-        forced_second_repair_attempted: forcedSecondRepairAttempted,
-        ...repairOut.metadata,
-      },
-    };
+    return returnGuardSuccess(
+      repaired,
+      forcedStrategy,
+      repairOut.metadata,
+      repairSnapshotMeta,
+      strategyLabelMatched
+        ? { repeat_repair_strategy_label_matched: true }
+        : {
+            repeat_repair_strategy_label_mismatch: true,
+            repeat_repair_strategy_label_requested: forcedStrategy,
+            repeat_repair_strategy_label_matched: false,
+            completion_repair_strategy_label_bypass: true,
+          }
+    );
   }
 
   return {

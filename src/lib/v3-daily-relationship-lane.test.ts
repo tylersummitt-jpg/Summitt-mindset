@@ -1886,6 +1886,64 @@ describe("produceDailyV3RelationshipSms", () => {
       expect(r.metadata.repeat_repair_system).toBe("fresh_angle_v2");
     });
 
+    it("production evening wind-down: strategy-mismatch repair soft-accepts and sends", async () => {
+      const priorQ = "How did your evening wind-down go?";
+      const candidate = `${priorQ} Let's keep focusing on that consistency to hit your 9:30 goal.`;
+      const repair =
+        "What challenges came up that might have affected your plan to be in bed by 9:30 pm?";
+
+      createMock
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  should_send: true,
+                  body: candidate,
+                  no_send_reason: null,
+                  turn_purpose: "daily_accountability",
+                  voice_confidence: 0.8,
+                  used_facts: [],
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  body: repair,
+                  used_strategy: "barrier_check",
+                  safety_notes: [],
+                }),
+              },
+            },
+          ],
+        });
+
+      const r = await produceDailyV3RelationshipSms({
+        facts: baseFacts({
+          thread_memory: {
+            ...baseFacts().thread_memory,
+            last_outbound_full_body: priorQ,
+            latest_outbound_sms: priorQ,
+            last_5_coach_questions: [priorQ],
+            do_not_repeat_hints: [priorQ],
+          },
+        }),
+        telemetry_fact_sources: ["test_evening_wind_down_strategy_soft_accept"],
+      });
+
+      expect(r.shouldSend).toBe(true);
+      expect(r.body).toBe(repair);
+      expect(r.metadata.repeat_repair_strategy_label_soft_accepted).toBe(true);
+      expect(r.metadata.memory_repeat_no_send_reason).not.toBe("repair_strategy_body_mismatch");
+      expect(r.metadata.repeat_repair_failed_reason).not.toBe("repair_strategy_body_mismatch");
+    });
+
     it("repetitive self-care paraphrase still no-sends when repair stays repetitive", async () => {
       const prior =
         "As you think about being kind to yourself today, what nurturing action can you take? Reflect on something that feels supportive and share your plan!";

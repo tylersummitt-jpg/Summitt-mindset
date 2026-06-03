@@ -840,3 +840,185 @@ describe("fresh_angle_v2 repeat repair", () => {
     expect(diag.overlapTokens.some((t) => /nurturing|kindness|action/.test(t))).toBe(true);
   });
 });
+
+describe("strategy label mismatch soft-accept (B/C hybrid)", () => {
+  const eveningPrior = "How did your evening wind-down go?";
+  const eveningCandidate = `${eveningPrior} Let's keep focusing on that consistency to hit your 9:30 goal.`;
+  const eveningBarrierRepair =
+    "What challenges came up that might have affected your plan to be in bed by 9:30 pm?";
+
+  const devicePrior =
+    "What specific steps will you take today to ensure you put your phone and computer away after your immediate work?";
+  const deviceCandidate =
+    "Payton, how did it go putting your phone and computer away after practice? Staying focused at home is key.";
+  const deviceFocusRepair =
+    "How did your focus environment feel today — did you find it easier to stay on task, or were there distractions?";
+
+  it("A: soft-accepts clean barrier-like repair when strategy label regex mismatches", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: eveningBarrierRepair,
+      openAiOk: true,
+      metadata: { lane_repair_used_strategy: "barrier_check" },
+    });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: eveningCandidate,
+      factsJson: {},
+      detectInput: { lastCoachQuestions: [eveningPrior], candidateBody: eveningCandidate },
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("ok");
+    expect(r.body).toBe(eveningBarrierRepair);
+    expect(repairBodyMatchesStrategy(eveningBarrierRepair, "barrier_check")).toBe(false);
+    expect(r.metadata.repeat_repair_strategy_label_soft_accepted).toBe(true);
+    expect(r.metadata.repeat_repair_strategy_label_mismatch).toBe(true);
+    expect(r.metadata.memory_repeat_no_send_reason).toBeNull();
+    expect(r.metadata.repeat_repair_failed_reason).toBeNull();
+  });
+
+  it("B: soft-accepts clean focus-environment repair when binary_truth_check label mismatches", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: deviceFocusRepair,
+      openAiOk: true,
+      metadata: { lane_repair_used_strategy: "binary_truth_check" },
+    });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: deviceCandidate,
+      factsJson: {},
+      detectInput: { lastCoachQuestions: [devicePrior], candidateBody: deviceCandidate },
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("ok");
+    expect(r.body).toBe(deviceFocusRepair);
+    expect(repairBodyMatchesStrategy(deviceFocusRepair, "binary_truth_check")).toBe(false);
+    expect(r.metadata.repeat_repair_strategy_label_soft_accepted).toBe(true);
+  });
+
+  it("C: still-repeated mismatch repair does not soft-accept", async () => {
+    const prior =
+      "Consider what nurturing action you can take today to show yourself kindness.";
+    const paraphrase =
+      "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+
+    repairMock
+      .mockResolvedValueOnce({
+        body: paraphrase,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      })
+      .mockResolvedValueOnce({
+        body: "What got in the way of taking that nurturing action to show kindness to yourself today?",
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "barrier_check" },
+      });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphrase,
+      factsJson: {},
+      detectInput: { lastCoachQuestions: [prior], candidateBody: paraphrase },
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(r.outcome).toBe("no_send");
+    expect(r.metadata.repeat_repair_failed_reason).toBe("still_repeated_after_repair");
+    expect(r.metadata.repeat_repair_strategy_label_soft_accepted).toBeFalsy();
+  });
+
+  it("D: validateAfterRepair failure no-sends with lane reason, not strategy mismatch", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: eveningBarrierRepair,
+      openAiOk: true,
+      metadata: { lane_repair_used_strategy: "barrier_check" },
+    });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: eveningCandidate,
+      factsJson: {},
+      detectInput: { lastCoachQuestions: [eveningPrior], candidateBody: eveningCandidate },
+      enabled: true,
+      validateAfterRepair: async () => ({
+        ok: false,
+        noSendReason: "temporal_wording_blocked",
+      }),
+    });
+
+    expect(r.outcome).toBe("no_send");
+    expect(r.noSendReason).toBe("temporal_wording_blocked");
+    expect(r.metadata.memory_repeat_no_send_reason).toBe("post_repair_validation_failed");
+    expect(r.metadata.repeat_repair_strategy_label_soft_accepted).toBeFalsy();
+  });
+
+  it("E: attempt 1 clean mismatch soft-accepted without second OpenAI call", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: eveningBarrierRepair,
+      openAiOk: true,
+      metadata: { lane_repair_used_strategy: "barrier_check" },
+    });
+
+    await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: eveningCandidate,
+      factsJson: {},
+      detectInput: { lastCoachQuestions: [eveningPrior] },
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("F: attempt 1 still-repeats, attempt 2 clean mismatch soft-accepts", async () => {
+    const prior =
+      "Consider what nurturing action you can take today to show yourself kindness.";
+    const paraphrase =
+      "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+    const frameShift = "Did you take one small supportive step today — yes, partial, or not yet?";
+
+    repairMock
+      .mockResolvedValueOnce({
+        body: paraphrase,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      })
+      .mockResolvedValueOnce({
+        body: frameShift,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "barrier_check" },
+      });
+
+    const r = await applySmsMemoryAntiRepeatGuard({
+      routeKind: "daily",
+      routePurpose: "main_active_accountability",
+      body: paraphrase,
+      factsJson: {},
+      detectInput: { lastCoachQuestions: [prior], candidateBody: paraphrase },
+      enabled: true,
+      validateAfterRepair: async () => ({ ok: true }),
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(2);
+    expect(r.outcome).toBe("ok");
+    expect(r.body).toBe(frameShift);
+    expect(r.metadata.repeat_repair_attempt_1_strategy).toBe("binary_truth_check");
+    expect(r.metadata.repeat_repair_attempt_2_strategy).toBe("barrier_check");
+    expect(r.metadata.repeat_repair_strategy_label_soft_accepted).toBe(true);
+    expect(r.metadata.forced_second_repair_attempted).toBe(true);
+  });
+});
