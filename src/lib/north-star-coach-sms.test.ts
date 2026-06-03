@@ -210,7 +210,7 @@ describe("finalizeNorthStarCoachSms", () => {
     expect(matchesMalformedDidRawPhraseHappenToday(r.visibleBody)).toBe(false);
   });
 
-  it("v3 daily: did_you_manage_scrub is safe micro-edit only (not assembled Did raw happen today)", () => {
+  it("v3 daily: did_you_manage_scrub preserves OpenAI body and requires repair (no deterministic rewrite)", () => {
     const proposedBody =
       "You made a comeback yesterday! Did you manage to get in that focused work session today without distractions?";
     const r = finalizeNorthStarCoachSms({
@@ -221,9 +221,13 @@ describe("finalizeNorthStarCoachSms", () => {
       behaviorStatement: "I will stay focused on work without distractions",
       contextPacket: { source: "test" },
     });
-    expect(r.visibleBody).toContain("Did you get in that focused work session today without distractions");
+    expect(r.visibleBody).toBe(proposedBody);
+    expect(r.visibleBody).toContain("Did you manage to get in that focused work session");
     expect(r.visibleBody.toLowerCase()).not.toContain("did focused on work without distractions happen");
-    expect(r.meta.requires_v3_repair).not.toBe(true);
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["did_you_manage_requires_v3_repair"])
+    );
     expect(matchesMalformedDidRawPhraseHappenToday(r.visibleBody)).toBe(false);
   });
 
@@ -666,6 +670,57 @@ describe("V3 generalized destructive scrub policy", () => {
     expect(r.meta.requires_v3_repair).toBe(true);
     expect(r.meta.blockedReasons).toEqual(
       expect.arrayContaining(["daily_outbound_final_quality", "daily_fluff_requires_v3_repair"])
+    );
+  });
+
+  it("daily_strides: V3 preserves you're making strides and requires repair", () => {
+    const body =
+      "You're making strides on the calls — did you get in that focused work session today?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody).toBe(body);
+    expect(r.visibleBody.toLowerCase()).toContain("making strides");
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["daily_strides_requires_v3_repair", "daily_outbound_final_quality_requires_v3_repair"])
+    );
+  });
+
+  it("check_in_workflow: V3 preserves quick-check prefix and requires repair", () => {
+    const body = "Quick check — how did your sales calls feel today?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody).toBe(body);
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["check_in_workflow_scrub", "check_in_workflow_requires_v3_repair"])
+    );
+  });
+
+  it("daily_outbound_essay: V3 did you manage preserves body and requires repair", () => {
+    const body =
+      "With time being tight, did you manage to get in that focused work session today without distractions?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody).toBe(body);
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining([
+        "daily_outbound_essay_scrub",
+        "did_you_manage_requires_v3_repair",
+        "with_time_tight_requires_v3_repair",
+      ])
+    );
+  });
+
+  it("daily_outbound_flavor: V3 quick check strip requires repair without mutating", () => {
+    const body = "Today's check-in: how did the rep land for you?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody).toBe(body);
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining([
+        "daily_outbound_flavor",
+        "daily_outbound_flavor_requires_v3_repair",
+        "daily_outbound_flavor_quick_check_requires_v3_repair",
+      ])
     );
   });
 

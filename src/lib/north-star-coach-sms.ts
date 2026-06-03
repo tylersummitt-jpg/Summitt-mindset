@@ -264,6 +264,37 @@ function mergeV3SafeScrubIntoPipeline(args: {
   return args.scrub.text;
 }
 
+/** Multi-hit scrubs (check-in, essay, flavor, daily final) — restore pre-scrub body on V3 repair. */
+function applyNorthStarV3AwareScrubResult(args: {
+  beforeScrub: string;
+  scrub: {
+    text: string;
+    requiresV3Repair?: boolean;
+    unsafeRewritePrevented?: boolean;
+    hits?: string[];
+  };
+  protectV3: boolean;
+  telemetryPrefix: string;
+  repairReason: string;
+  bumpRepair: (...reasons: string[]) => void;
+  blockedReasons: string[];
+  onUnsafeRewritePrevented: () => void;
+}): string {
+  if (args.scrub.hits?.length) {
+    args.blockedReasons.push(args.telemetryPrefix, ...args.scrub.hits.slice(0, 4));
+  }
+  if (
+    args.protectV3 &&
+    (args.scrub.requiresV3Repair === true || args.scrub.unsafeRewritePrevented === true)
+  ) {
+    args.bumpRepair(args.repairReason);
+    args.onUnsafeRewritePrevented();
+    args.blockedReasons.push(args.repairReason);
+    return args.beforeScrub;
+  }
+  return args.scrub.text;
+}
+
 /** Single FVG / telemetry reason when {@link detectBrokenMicroEditArtifacts} finds issues. */
 export function detectBrokenMicroEditReason(text: string): string | null {
   return detectBrokenMicroEditArtifacts(text).length > 0 ? "broken_micro_edit" : null;
@@ -920,9 +951,24 @@ function scrubDailyOutboundEssayAndManage(
 
   if (/\blet's\s+did\b/i.test(t)) {
     hits.push("lets_did_scrub");
-    t = t.replace(/\blet's\s+did\b/gi, "Did");
+    if (protectV3RelationshipVoice) {
+      hits.push("lets_did_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = t.replace(/\blet's\s+did\b/gi, "Did");
+    }
   }
-  t = t.replace(/\bwith\s+time\s+being\s+tight,?\s*/gi, "");
+  if (/\bwith\s+time\s+being\s+tight,?\s*/i.test(t)) {
+    hits.push("with_time_tight_scrub");
+    if (protectV3RelationshipVoice) {
+      hits.push("with_time_tight_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = t.replace(/\bwith\s+time\s+being\s+tight,?\s*/gi, "");
+    }
+  }
 
   if (/\bdid\s+it\s+happen\s+with\b/i.test(t)) {
     hits.push("did_it_happen_with_scrub");
@@ -967,24 +1013,24 @@ function scrubDailyOutboundEssayAndManage(
     }
   } else if (/\bdid you manage to\b/i.test(t)) {
     hits.push("did_you_manage_scrub");
-    t = t.replace(/\bdid you manage to[^.!?]+\?/gi, (fullMatch) => {
-      const minimal = fullMatch.replace(/\bdid you manage to\s+/i, "Did you ");
-      if (
-        minimal !== fullMatch &&
-        minimal.length >= 12 &&
-        /\?\s*$/.test(minimal) &&
-        !matchesMalformedDidRawPhraseHappenToday(minimal)
-      ) {
-        return minimal;
-      }
-      if (protectV3RelationshipVoice) {
-        hits.push("did_you_manage_scrub_fallback_requires_v3_repair");
-        requiresV3Repair = true;
-        unsafeRewritePrevented = true;
-        return fullMatch;
-      }
-      return oneAsk;
-    });
+    if (protectV3RelationshipVoice) {
+      hits.push("did_you_manage_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = t.replace(/\bdid you manage to[^.!?]+\?/gi, (fullMatch) => {
+        const minimal = fullMatch.replace(/\bdid you manage to\s+/i, "Did you ");
+        if (
+          minimal !== fullMatch &&
+          minimal.length >= 12 &&
+          /\?\s*$/.test(minimal) &&
+          !matchesMalformedDidRawPhraseHappenToday(minimal)
+        ) {
+          return minimal;
+        }
+        return oneAsk;
+      });
+    }
   }
 
   return { text: finalizeTextShape(t, preserveNl), hits, requiresV3Repair, unsafeRewritePrevented };
@@ -1025,9 +1071,15 @@ function scrubDailyOutboundFinalQuality(
     }
   } else if (/\byou'?re making strides\b/i.test(t.toLowerCase())) {
     hits.push("daily_strides_cliche");
-    t = t.replace(/\byou'?re making strides[!.,]?\s*/gi, "").trim();
-    if (!protectV3RelationshipVoice && !t) {
-      t = buildDailyCommitmentAsk(mergedAsk);
+    if (protectV3RelationshipVoice) {
+      hits.push("daily_strides_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+    } else {
+      t = t.replace(/\byou'?re making strides[!.,]?\s*/gi, "").trim();
+      if (!t) {
+        t = buildDailyCommitmentAsk(mergedAsk);
+      }
     }
   } else if (
     /\b(journey|powerful practice|your commitment matters|keep that connection alive)\b/i.test(
@@ -1452,7 +1504,12 @@ function dailyOutboundFlavor(
   channel: NorthStarCoachChannel,
   mergedAsk: string,
   protectV3RelationshipVoice: boolean
-): { text: string; requiresV3Repair: boolean; unsafeRewritePrevented: boolean } {
+): {
+  text: string;
+  requiresV3Repair: boolean;
+  unsafeRewritePrevented: boolean;
+  hits: string[];
+} {
   let requiresV3Repair = false;
   let unsafeRewritePrevented = false;
   let t = body;
@@ -1462,12 +1519,27 @@ function dailyOutboundFlavor(
     if (protectV3RelationshipVoice) {
       requiresV3Repair = true;
       unsafeRewritePrevented = true;
-      return { text: t.trim() || body.trim(), requiresV3Repair, unsafeRewritePrevented };
+      return {
+        text: t.trim() || body.trim(),
+        requiresV3Repair,
+        unsafeRewritePrevented,
+        hits: ["daily_outbound_flavor_thin_body_requires_v3_repair"],
+      };
     }
     if (ask.length >= 8) {
-      return { text: buildDailyCommitmentAsk(ask), requiresV3Repair: false, unsafeRewritePrevented: false };
+      return {
+        text: buildDailyCommitmentAsk(ask),
+        requiresV3Repair: false,
+        unsafeRewritePrevented: false,
+        hits: [],
+      };
     }
-    return { text: "Did the rep happen today?", requiresV3Repair: false, unsafeRewritePrevented: false };
+    return {
+      text: "Did the rep happen today?",
+      requiresV3Repair: false,
+      unsafeRewritePrevented: false,
+      hits: [],
+    };
   }
   if (weeklyLike && (/^\s*$/i.test(t) || t.length < 12)) {
     if (ask.length >= 8 && ask.length <= 120) {
@@ -1476,33 +1548,39 @@ function dailyOutboundFlavor(
         text: `Pat Pause — ${one}. What's true about your week in one honest line?`,
         requiresV3Repair: false,
         unsafeRewritePrevented: false,
+        hits: [],
       };
     }
     return {
       text: "Pat Pause: what's true about your week — one honest line?",
       requiresV3Repair: false,
       unsafeRewritePrevented: false,
+      hits: [],
     };
   }
   if (/quick check|today'?s check/i.test(t)) {
+    if (protectV3RelationshipVoice && !weeklyLike) {
+      return {
+        text: body,
+        requiresV3Repair: true,
+        unsafeRewritePrevented: true,
+        hits: ["daily_outbound_flavor_quick_check_requires_v3_repair"],
+      };
+    }
     const beforeQuickStrip = t;
     t = t.replace(/quick check|today'?s check-?in/gi, "").trim();
     if (!t) {
-      if (protectV3RelationshipVoice && !weeklyLike) {
-        requiresV3Repair = true;
-        unsafeRewritePrevented = true;
-        return { text: beforeQuickStrip.trim(), requiresV3Repair, unsafeRewritePrevented };
-      }
       return {
         text: weeklyLike
           ? "What's true about this week — wins and misses?"
           : "Today is simple — did you do the rep? Tell me straight.",
         requiresV3Repair: false,
         unsafeRewritePrevented: false,
+        hits: ["daily_outbound_flavor_quick_check_empty"],
       };
     }
   }
-  return { text: t, requiresV3Repair: false, unsafeRewritePrevented: false };
+  return { text: t, requiresV3Repair: false, unsafeRewritePrevented: false, hits: [] };
 }
 
 /** Compact context for inbound coach routes (cron). */
@@ -1706,21 +1784,39 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = "rewritten";
   }
 
+  const beforeChk = working;
   const chk = scrubCheckInWorkflow(working, args.channel, preserveNl, protectV3);
-  working = chk.text;
-  if (chk.requiresV3Repair) bumpRepair("check_in_workflow_requires_v3_repair");
-  if (chk.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
-  if (chk.hits.length) {
-    blockedReasons.push("check_in_workflow_scrub", ...chk.hits.slice(0, 4));
+  working = applyNorthStarV3AwareScrubResult({
+    beforeScrub: beforeChk,
+    scrub: chk,
+    protectV3,
+    telemetryPrefix: "check_in_workflow_scrub",
+    repairReason: "check_in_workflow_requires_v3_repair",
+    bumpRepair,
+    blockedReasons,
+    onUnsafeRewritePrevented: () => {
+      unsafeRewritePreventedAcc = true;
+    },
+  });
+  if (norm(working) !== norm(beforeChk) && !(protectV3 && chk.requiresV3Repair)) {
     source = "rewritten";
   }
 
+  const beforeEssay = working;
   const dailyEssay = scrubDailyOutboundEssayAndManage(working, args.channel, mergedAsk, preserveNl, protectV3);
-  working = dailyEssay.text;
-  if (dailyEssay.requiresV3Repair) bumpRepair("daily_outbound_essay_requires_v3_repair");
-  if (dailyEssay.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
-  if (dailyEssay.hits.length) {
-    blockedReasons.push("daily_outbound_essay_scrub", ...dailyEssay.hits.slice(0, 4));
+  working = applyNorthStarV3AwareScrubResult({
+    beforeScrub: beforeEssay,
+    scrub: dailyEssay,
+    protectV3,
+    telemetryPrefix: "daily_outbound_essay_scrub",
+    repairReason: "daily_outbound_essay_requires_v3_repair",
+    bumpRepair,
+    blockedReasons,
+    onUnsafeRewritePrevented: () => {
+      unsafeRewritePreventedAcc = true;
+    },
+  });
+  if (norm(working) !== norm(beforeEssay) && !(protectV3 && dailyEssay.requiresV3Repair)) {
     source = "rewritten";
   }
 
@@ -1820,21 +1916,40 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     args.channel === "weekly_sms" ||
     args.channel === "lifecycle_sms"
   ) {
-    const before = working;
+    const beforeFlav = working;
     const flav = dailyOutboundFlavor(working, args.channel, mergedAsk, protectV3);
-    working = flav.text;
-    if (flav.requiresV3Repair) bumpRepair("daily_outbound_flavor_requires_v3_repair");
-    if (flav.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
-    if (working !== before) blockedReasons.push("daily_outbound_flavor");
-    source = working !== before ? "rewritten" : source;
+    working = applyNorthStarV3AwareScrubResult({
+      beforeScrub: beforeFlav,
+      scrub: flav,
+      protectV3,
+      telemetryPrefix: "daily_outbound_flavor",
+      repairReason: "daily_outbound_flavor_requires_v3_repair",
+      bumpRepair,
+      blockedReasons,
+      onUnsafeRewritePrevented: () => {
+        unsafeRewritePreventedAcc = true;
+      },
+    });
+    if (working !== beforeFlav && !(protectV3 && flav.requiresV3Repair)) {
+      source = "rewritten";
+    }
   }
 
+  const beforeDailyFinal = working;
   const dailyFinal = scrubDailyOutboundFinalQuality(working, args.channel, mergedAsk, preserveNl, protectV3);
-  working = dailyFinal.text;
-  if (dailyFinal.requiresV3Repair) bumpRepair("daily_outbound_final_quality_requires_v3_repair");
-  if (dailyFinal.unsafeRewritePrevented) unsafeRewritePreventedAcc = true;
-  if (dailyFinal.hits.length) {
-    blockedReasons.push("daily_outbound_final_quality", ...dailyFinal.hits.slice(0, 4));
+  working = applyNorthStarV3AwareScrubResult({
+    beforeScrub: beforeDailyFinal,
+    scrub: dailyFinal,
+    protectV3,
+    telemetryPrefix: "daily_outbound_final_quality",
+    repairReason: "daily_outbound_final_quality_requires_v3_repair",
+    bumpRepair,
+    blockedReasons,
+    onUnsafeRewritePrevented: () => {
+      unsafeRewritePreventedAcc = true;
+    },
+  });
+  if (norm(working) !== norm(beforeDailyFinal) && !(protectV3 && dailyFinal.requiresV3Repair)) {
     source = "rewritten";
   }
 
