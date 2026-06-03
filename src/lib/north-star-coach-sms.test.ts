@@ -607,6 +607,106 @@ describe("V3 relationship product jargon scrub (production regression)", () => {
   });
 });
 
+describe("V3 generalized destructive scrub policy", () => {
+  const v3Daily = { replySource: "v3_daily_relationship_lane" as const, channel: "daily_outbound" as const };
+
+  it("robot_motivation: V3 preserves journey clause and requires repair", () => {
+    const body =
+      "How did the call land? On your journey toward steady outreach, what felt true for you today?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody).toBe(body);
+    expect(r.visibleBody.toLowerCase()).toContain("journey");
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["robot_motivation_scrub", "robot_motivation_requires_v3_repair"])
+    );
+    expect(r.visibleBody).not.toMatch(/journey\.?\s+Would/i);
+  });
+
+  it("wrong_temporal: V3 does not delete temporal clause", () => {
+    const body = "Focus on the commitment first today — how did the rep feel?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody.toLowerCase()).toContain("focus on the commitment first");
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["wrong_temporal_scrub", "wrong_temporal_requires_v3_repair"])
+    );
+  });
+
+  it("app_deflection: V3 does not delete check-the-app fragment", () => {
+    const body = "Nice work today. Check the app when you want to tweak your plan — what felt hardest?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody.toLowerCase()).toContain("check the app");
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["app_deflection", "app_deflection_requires_v3_repair"])
+    );
+  });
+
+  it("v3_open_answer: V3 requires repair instead of mid-sentence deletion", () => {
+    const body = "Did you manage to dictate a story today, or did something else take priority?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: body,
+      channel: "inbound_coach_reply",
+      replySource: "v3_inbound_relationship_lane",
+      contextPacket: { v3AnswerToOpenQuestion: true },
+    });
+    expect(r.visibleBody).toBe(body);
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["v3_open_answer_scrub", "v3_open_answer_requires_v3_repair"])
+    );
+  });
+
+  it("daily_fluff: V3 requires repair instead of stripping fluff/journey", () => {
+    const body =
+      "Your commitment matters on this path — did you get in that focused work session today?";
+    const r = finalizeNorthStarCoachSms({ proposedBody: body, ...v3Daily });
+    expect(r.visibleBody.toLowerCase()).toContain("your commitment matters");
+    expect(r.meta.requires_v3_repair).toBe(true);
+    expect(r.meta.blockedReasons).toEqual(
+      expect.arrayContaining(["daily_outbound_final_quality", "daily_fluff_requires_v3_repair"])
+    );
+  });
+
+  it("detectBrokenMicroEditArtifacts: allowed lowercase phrases are not flagged", () => {
+    for (const phrase of [
+      "Tell me to what extent that landed for you.",
+      "It can help to let go of the old story.",
+      "What would it take to do this once today?",
+    ]) {
+      expect(detectBrokenMicroEditArtifacts(phrase)).toEqual([]);
+      expect(detectBrokenMicroEditReason(phrase)).toBeNull();
+    }
+  });
+
+  it("detectBrokenMicroEditArtifacts: catches journey.Would and on-this-dot-Would splices", () => {
+    expect(detectBrokenMicroEditArtifacts("On your journey. Would you try again?")).toContain(
+      "broken_micro_edit_journey_would"
+    );
+    expect(detectBrokenMicroEditArtifacts("Stay on this . Would that work?")).toContain(
+      "broken_micro_edit_on_this_dot_would"
+    );
+  });
+
+  it("non-V3 legacy: robot motivation still scrubs journey clause", () => {
+    const body = "How was today? On your journey toward balance, what stood out?";
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: body,
+      channel: "inbound_coach_reply",
+      latestInboundRaw: "Good day",
+    });
+    expect(r.visibleBody.toLowerCase()).not.toContain("journey");
+    expect(r.meta.blockedReasons).toContain("robot_motivation_scrub");
+    expect(r.meta.requires_v3_repair).toBeFalsy();
+  });
+
+  it("non-V3 legacy: FVG backstop blocks feel-to-Would if scrub damage slips through", () => {
+    const damaged = "how does it feel to Would you like to adjust?";
+    expect(detectBrokenMicroEditReason(damaged)).toBe("broken_micro_edit");
+  });
+});
+
 describe("deriveFutureIntentHint", () => {
   it("buckets tomorrow vs durable change", () => {
     expect(deriveFutureIntentHint("I'll go two hours tomorrow")).toBe("tomorrow");

@@ -182,11 +182,11 @@ export function detectBrokenMicroEditArtifacts(text: string): string[] {
   const hits: string[] = [];
   const checks: Array<[string, RegExp]> = [
     ["broken_micro_edit_feel_to_would", /\bhow does it feel to Would\b/i],
-    ["broken_micro_edit_to_would", /\bto Would\b/i],
-    ["broken_micro_edit_to_what", /\bto What\b/i],
-    ["broken_micro_edit_to_how", /\bto How\b/i],
-    ["broken_micro_edit_to_did", /\bto Did\b/i],
-    ["broken_micro_edit_to_let", /\bto Let\b/i],
+    ["broken_micro_edit_to_would", /\bto Would\b/],
+    ["broken_micro_edit_to_what", /\bto What\b/],
+    ["broken_micro_edit_to_how", /\bto How\b/],
+    ["broken_micro_edit_to_did", /\bto Did\b/],
+    ["broken_micro_edit_to_let", /\bto Let\b/],
     ["broken_micro_edit_with_to", /\bwith to\b/i],
     [
       "broken_micro_edit_dangling_prep_cap",
@@ -196,11 +196,72 @@ export function detectBrokenMicroEditArtifacts(text: string): string[] {
       "broken_micro_edit_prep_before_cap_sentence",
       /\b(?:to|with|for|of|and)\s+(?:Would|What|How|Did|Let|I|You|We|It|That|This)\b/,
     ],
+    ["broken_micro_edit_journey_would", /\bjourney\.?\s+Would\b/i],
+    ["broken_micro_edit_on_this_dot_would", /\bon this\s+\.\s+Would\b/i],
+    ["broken_micro_edit_if_you_need_tail", /\bif you need\s*$/i],
   ];
   for (const [name, re] of checks) {
     if (re.test(t)) hits.push(name);
   }
   return hits;
+}
+
+/** Empty replacement or clause-span delete — must not mutate V3 relationship visible copy. */
+function isDestructiveScrubReplacement(_re: RegExp, rep: string): boolean {
+  return rep === "";
+}
+
+type NorthStarV3SafeScrubResult = {
+  text: string;
+  hits: string[];
+  requiresV3Repair: boolean;
+};
+
+/** Apply regex scrub pairs; on V3 relationship voice, skip destructive deletes and flag repair. */
+function applyScrubPairsV3Safe(
+  text: string,
+  pairs: Array<[RegExp, string]>,
+  protectV3RelationshipVoice: boolean,
+  hitForPair?: (re: RegExp) => string
+): NorthStarV3SafeScrubResult {
+  const hits: string[] = [];
+  let requiresV3Repair = false;
+  let t = text;
+  for (const [re, rep] of pairs) {
+    if (!re.test(t)) continue;
+    hits.push(hitForPair?.(re) ?? re.source.slice(0, 40));
+    if (protectV3RelationshipVoice && isDestructiveScrubReplacement(re, rep)) {
+      requiresV3Repair = true;
+      continue;
+    }
+    t = t.replace(re, rep);
+  }
+  return { text: t, hits, requiresV3Repair };
+}
+
+function mergeV3SafeScrubIntoPipeline(args: {
+  working: string;
+  beforeScrub: string;
+  scrub: NorthStarV3SafeScrubResult;
+  protectV3: boolean;
+  telemetryPrefix: string;
+  repairReason: string;
+  bumpRepair: (...reasons: string[]) => void;
+  blockedReasons: string[];
+  onUnsafeRewritePrevented: () => void;
+}): string {
+  if (args.protectV3 && args.scrub.requiresV3Repair) {
+    args.bumpRepair(args.repairReason);
+    args.onUnsafeRewritePrevented();
+    if (args.scrub.hits.length) {
+      args.blockedReasons.push(args.telemetryPrefix, args.repairReason, ...args.scrub.hits.slice(0, 3));
+    }
+    return args.beforeScrub;
+  }
+  if (args.scrub.hits.length) {
+    args.blockedReasons.push(args.telemetryPrefix, ...args.scrub.hits.slice(0, 4));
+  }
+  return args.scrub.text;
 }
 
 /** Single FVG / telemetry reason when {@link detectBrokenMicroEditArtifacts} finds issues. */
@@ -554,9 +615,11 @@ function applyRepeatedQuestionKillSwitch(
   };
 }
 
-function scrubRobotMotivation(s: string, preserveNl: boolean): { text: string; hits: string[] } {
-  const hits: string[] = [];
-  let t = s;
+function scrubRobotMotivation(
+  s: string,
+  preserveNl: boolean,
+  protectV3RelationshipVoice = false
+): NorthStarV3SafeScrubResult {
   const pairs: Array<[RegExp, string]> = [
     [/yes\s*,\s*no\s*,\s*or\s*partial[^.!?]*[.!?]?/gi, ""],
     [/reply\s+yes\s*,\s*no[^.!?]*[.!?]?/gi, ""],
@@ -580,11 +643,12 @@ function scrubRobotMotivation(s: string, preserveNl: boolean): { text: string; h
     [/powerful\s+practice[^.!?]*[.!?]?/gi, ""],
     [/keep\s+that\s+connection\s+alive[^.!?]*[.!?]?/gi, ""],
   ];
-  for (const [re, rep] of pairs) {
-    if (re.test(t)) hits.push(re.source.slice(0, 40));
-    t = t.replace(re, rep);
-  }
-  return { text: finalizeTextShape(t, preserveNl), hits };
+  const r = applyScrubPairsV3Safe(s, pairs, protectV3RelationshipVoice);
+  return {
+    text: finalizeTextShape(r.text, preserveNl),
+    hits: r.hits,
+    requiresV3Repair: r.requiresV3Repair,
+  };
 }
 
 function scrubCheckInWorkflow(
@@ -606,23 +670,22 @@ function scrubCheckInWorkflow(
     [/first\s+week\s+of\s+your\s+commitment[^.!?]*[.!?]?/gi, ""],
     [/daily\s+check-?\s*ins?[^.!?]*[.!?]?/gi, ""],
   ];
-  for (const [re, rep] of simple) {
-    if (re.test(t)) hits.push(re.source.slice(0, 35));
-    t = t.replace(re, rep);
+  const simpleScrub = applyScrubPairsV3Safe(t, simple, protectV3RelationshipVoice);
+  t = simpleScrub.text;
+  if (simpleScrub.hits.length) hits.push(...simpleScrub.hits.slice(0, 4));
+  if (simpleScrub.requiresV3Repair) {
+    requiresV3Repair = true;
+    unsafeRewritePrevented = true;
+    hits.push("check_in_workflow_requires_v3_repair");
   }
 
   const chanceRe = /did\s+you\s+get\s+a\s+chance[^.!?]*\?/gi;
   if (chanceRe.test(t)) {
     hits.push("did_you_get_a_chance_scrub");
     if (dailyish && protectV3RelationshipVoice) {
-      const stripped = t.replace(chanceRe, "").trim();
-      if (norm(stripped).length >= 8) {
-        t = stripped;
-      } else {
-        requiresV3Repair = true;
-        unsafeRewritePrevented = true;
-        hits.push("did_you_get_a_chance_requires_v3_repair");
-      }
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
+      hits.push("did_you_get_a_chance_requires_v3_repair");
     } else {
       t = t.replace(chanceRe, dailyish ? "Did the rep happen today?" : "Did you do it?");
     }
@@ -973,20 +1036,9 @@ function scrubDailyOutboundFinalQuality(
   ) {
     hits.push("daily_fluff_phrase");
     if (protectV3RelationshipVoice) {
-      let t2 = t;
-      t2 = t2.replace(/\bjourney\b[^.!?]*[.!?]?/gi, "").trim();
-      t2 = t2.replace(/\bpowerful practice\b[^.!?]*[.!?]?/gi, "").trim();
-      t2 = t2.replace(/\byour commitment matters\b[^.!?]*[.!?]?/gi, "").trim();
-      t2 = t2.replace(/\bkeep that connection alive\b[^.!?]*[.!?]?/gi, "").trim();
-      t2 = finalizeTextShape(t2, preserveNl);
-      if (t2.length >= 12) {
-        t = t2;
-        hits.push("daily_fluff_micro_strip");
-      } else {
-        hits.push("daily_fluff_requires_v3_repair");
-        requiresV3Repair = true;
-        unsafeRewritePrevented = true;
-      }
+      hits.push("daily_fluff_requires_v3_repair");
+      requiresV3Repair = true;
+      unsafeRewritePrevented = true;
     } else {
       t = buildDailyCommitmentAsk(mergedAsk);
     }
@@ -1182,20 +1234,23 @@ function scrubDailyOutboundGreetingHour(
   return { text: finalizeTextShape(t, preserveNl), hits };
 }
 
-function scrubWrongTemporal(s: string, preserveNl: boolean): { text: string; hits: string[] } {
-  const hits: string[] = [];
-  let t = s;
+function scrubWrongTemporal(
+  s: string,
+  preserveNl: boolean,
+  protectV3RelationshipVoice = false
+): NorthStarV3SafeScrubResult {
   const pairs: Array<[RegExp, string]> = [
     [/focus\s+on\s+the\s+commitment\s+first[^.!?]*[.!?]?/gi, ""],
     [/for\s+today,\s+aim[^.!?]*[.!?]?/gi, ""],
     [/build\s+from\s+there[^.!?]*[.!?]?/gi, ""],
     [/ambitious\s+goal[^.!?]*[.!?]?/gi, ""],
   ];
-  for (const [re, rep] of pairs) {
-    if (re.test(t)) hits.push(re.source.slice(0, 35));
-    t = t.replace(re, rep);
-  }
-  return { text: finalizeTextShape(t, preserveNl), hits };
+  const r = applyScrubPairsV3Safe(s, pairs, protectV3RelationshipVoice);
+  return {
+    text: finalizeTextShape(r.text, preserveNl),
+    hits: r.hits,
+    requiresV3Repair: r.requiresV3Repair,
+  };
 }
 
 function scrubProductJargon(
@@ -1236,23 +1291,24 @@ function scrubProductJargon(
     String.raw`\brecommit\s+to\s+this\s+bar\b`,
     String.raw`\brecommit\s+to\s+this\b`,
   ]);
-  for (const [re, rep] of pairs) {
-    if (preserveServerBindingPhrasing && bindingSafeSkip.has(re.source)) continue;
-    if (!re.test(t)) continue;
-    hits.push(re.source.slice(0, 30));
-    if (protectV3RelationshipVoice && rep === "") {
-      requiresV3Repair = true;
-      continue;
-    }
-    t = t.replace(re, rep);
-  }
-  return { text: finalizeTextShape(t, preserveNl), hits, requiresV3Repair };
+  const filteredPairs = preserveServerBindingPhrasing
+    ? pairs.filter(([re]) => !bindingSafeSkip.has(re.source))
+    : pairs;
+  const r = applyScrubPairsV3Safe(t, filteredPairs, protectV3RelationshipVoice, () => "product_jargon_scrub");
+  return {
+    text: finalizeTextShape(r.text, preserveNl),
+    hits: r.hits,
+    requiresV3Repair: r.requiresV3Repair,
+  };
 }
 
-function scrubAppDeflection(s: string, allow: boolean, preserveNl: boolean): { text: string; hits: string[] } {
-  if (allow) return { text: finalizeTextShape(s, preserveNl), hits: [] };
-  const hits: string[] = [];
-  let t = s;
+function scrubAppDeflection(
+  s: string,
+  allow: boolean,
+  preserveNl: boolean,
+  protectV3RelationshipVoice = false
+): NorthStarV3SafeScrubResult {
+  if (allow) return { text: finalizeTextShape(s, preserveNl), hits: [], requiresV3Repair: false };
   const pairs: Array<[RegExp, string]> = [
     [/check\s+the\s+app[^.!?]*[.!?]?/gi, ""],
     [/open\s+the\s+app[^.!?]*[.!?]?/gi, ""],
@@ -1260,11 +1316,12 @@ function scrubAppDeflection(s: string, allow: boolean, preserveNl: boolean): { t
     [/if\s+you\s+need\s+to\s+adjust\s+your\s+plan[^.!?]*[.!?]?/gi, ""],
     [/in\s+the\s+app\s+for\s+updates[^.!?]*[.!?]?/gi, ""],
   ];
-  for (const [re, rep] of pairs) {
-    if (re.test(t)) hits.push("app_deflection");
-    t = t.replace(re, rep);
-  }
-  return { text: finalizeTextShape(t, preserveNl), hits };
+  const r = applyScrubPairsV3Safe(s, pairs, protectV3RelationshipVoice, () => "app_deflection");
+  return {
+    text: finalizeTextShape(r.text, preserveNl),
+    hits: r.hits,
+    requiresV3Repair: r.requiresV3Repair,
+  };
 }
 
 function softenHeavyContractJargon(s: string, preserveNl: boolean): string {
@@ -1278,9 +1335,11 @@ function softenHeavyContractJargon(s: string, preserveNl: boolean): string {
   return finalizeTextShape(t, preserveNl);
 }
 
-function scrubV3AnswerToOpenQuestionCopy(s: string, preserveNl: boolean): { text: string; hits: string[] } {
-  const hits: string[] = [];
-  let t = s;
+function scrubV3AnswerToOpenQuestionCopy(
+  s: string,
+  preserveNl: boolean,
+  protectV3RelationshipVoice = false
+): NorthStarV3SafeScrubResult {
   const pairs: Array<[RegExp, string]> = [
     [/did\s+you\s+manage\s+to\s+dictate[^.!?]*\??/gi, ""],
     [/dictate\s+a\s+story\s+today[^.!?]*\??/gi, ""],
@@ -1292,11 +1351,12 @@ function scrubV3AnswerToOpenQuestionCopy(s: string, preserveNl: boolean): { text
     [/reply\s+yes\s+or\s+no[^.!?]*[.!?]?/gi, ""],
     [/what\s+story\s+are\s+you\s+excited\s+to\s+dictate[^.!?]*\??/gi, ""],
   ];
-  for (const [re, rep] of pairs) {
-    if (re.test(t)) hits.push(re.source.slice(0, 36));
-    t = t.replace(re, rep);
-  }
-  return { text: finalizeTextShape(t, preserveNl), hits };
+  const r = applyScrubPairsV3Safe(s, pairs, protectV3RelationshipVoice);
+  return {
+    text: finalizeTextShape(r.text, preserveNl),
+    hits: r.hits,
+    requiresV3Repair: r.requiresV3Repair,
+  };
 }
 
 /**
@@ -1592,10 +1652,22 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
   }
 
   if (args.contextPacket?.v3AnswerToOpenQuestion) {
-    const v3scrub = scrubV3AnswerToOpenQuestionCopy(working, preserveNl);
-    working = v3scrub.text;
-    if (v3scrub.hits.length) {
-      blockedReasons.push("v3_open_answer_scrub", ...v3scrub.hits.slice(0, 4));
+    const beforeV3Open = working;
+    const v3scrub = scrubV3AnswerToOpenQuestionCopy(working, preserveNl, protectV3);
+    working = mergeV3SafeScrubIntoPipeline({
+      working,
+      beforeScrub: beforeV3Open,
+      scrub: v3scrub,
+      protectV3,
+      telemetryPrefix: "v3_open_answer_scrub",
+      repairReason: "v3_open_answer_requires_v3_repair",
+      bumpRepair,
+      blockedReasons,
+      onUnsafeRewritePrevented: () => {
+        unsafeRewritePreventedAcc = true;
+      },
+    });
+    if (norm(working) !== norm(beforeV3Open) && !(protectV3 && v3scrub.requiresV3Repair)) {
       source = "rewritten";
     }
   }
@@ -1615,10 +1687,22 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     }
   }
 
-  const robo = scrubRobotMotivation(working, preserveNl);
-  working = robo.text;
-  if (robo.hits.length) {
-    blockedReasons.push("robot_motivation_scrub", ...robo.hits.slice(0, 3));
+  const beforeRobo = working;
+  const robo = scrubRobotMotivation(working, preserveNl, protectV3);
+  working = mergeV3SafeScrubIntoPipeline({
+    working,
+    beforeScrub: beforeRobo,
+    scrub: robo,
+    protectV3,
+    telemetryPrefix: "robot_motivation_scrub",
+    repairReason: "robot_motivation_requires_v3_repair",
+    bumpRepair,
+    blockedReasons,
+    onUnsafeRewritePrevented: () => {
+      unsafeRewritePreventedAcc = true;
+    },
+  });
+  if (norm(working) !== norm(beforeRobo) && !(protectV3 && robo.requiresV3Repair)) {
     source = "rewritten";
   }
 
@@ -1659,26 +1743,42 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     source = "rewritten";
   }
 
-  const tmp = scrubWrongTemporal(working, preserveNl);
-  working = tmp.text;
-  if (tmp.hits.length) {
-    blockedReasons.push("wrong_temporal_scrub");
+  const beforeTemporal = working;
+  const tmp = scrubWrongTemporal(working, preserveNl, protectV3);
+  working = mergeV3SafeScrubIntoPipeline({
+    working,
+    beforeScrub: beforeTemporal,
+    scrub: tmp,
+    protectV3,
+    telemetryPrefix: "wrong_temporal_scrub",
+    repairReason: "wrong_temporal_requires_v3_repair",
+    bumpRepair,
+    blockedReasons,
+    onUnsafeRewritePrevented: () => {
+      unsafeRewritePreventedAcc = true;
+    },
+  });
+  if (norm(working) !== norm(beforeTemporal) && !(protectV3 && tmp.requiresV3Repair)) {
     source = "rewritten";
   }
 
   const beforeProductJargon = working;
   const jargon = scrubProductJargon(working, preserveNl, args.channel, protectV3);
-  if (protectV3 && jargon.requiresV3Repair) {
-    working = beforeProductJargon;
-    bumpRepair("product_jargon_requires_v3_repair");
-    unsafeRewritePreventedAcc = true;
-    blockedReasons.push("product_jargon_scrub", "product_jargon_requires_v3_repair");
-  } else {
-    working = jargon.text;
-    if (jargon.hits.length) {
-      blockedReasons.push("product_jargon_scrub");
-      source = "rewritten";
-    }
+  working = mergeV3SafeScrubIntoPipeline({
+    working,
+    beforeScrub: beforeProductJargon,
+    scrub: jargon,
+    protectV3,
+    telemetryPrefix: "product_jargon_scrub",
+    repairReason: "product_jargon_requires_v3_repair",
+    bumpRepair,
+    blockedReasons,
+    onUnsafeRewritePrevented: () => {
+      unsafeRewritePreventedAcc = true;
+    },
+  });
+  if (norm(working) !== norm(beforeProductJargon) && !(protectV3 && jargon.requiresV3Repair)) {
+    source = "rewritten";
   }
 
   if (
@@ -1695,10 +1795,22 @@ export function finalizeNorthStarCoachSms(args: NorthStarCoachSmsArgs): NorthSta
     }
   }
 
-  const app = scrubAppDeflection(working, args.userAskedAboutAppNavigation === true, preserveNl);
-  working = app.text;
-  if (app.hits.length) {
-    blockedReasons.push(...app.hits);
+  const beforeApp = working;
+  const app = scrubAppDeflection(working, args.userAskedAboutAppNavigation === true, preserveNl, protectV3);
+  working = mergeV3SafeScrubIntoPipeline({
+    working,
+    beforeScrub: beforeApp,
+    scrub: app,
+    protectV3,
+    telemetryPrefix: "app_deflection",
+    repairReason: "app_deflection_requires_v3_repair",
+    bumpRepair,
+    blockedReasons,
+    onUnsafeRewritePrevented: () => {
+      unsafeRewritePreventedAcc = true;
+    },
+  });
+  if (norm(working) !== norm(beforeApp) && !(protectV3 && app.requiresV3Repair)) {
     source = "rewritten";
   }
 

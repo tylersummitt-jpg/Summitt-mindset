@@ -23,10 +23,23 @@ WHERE e.created_at >= NOW() - INTERVAL '7 days'
     e.metadata->>'sms_body' ILIKE '%how does it feel to Would%'
     OR e.metadata->>'sms_body' ILIKE '% to Would%'
     OR e.metadata->>'sms_body' ILIKE '% to What%'
+    OR e.metadata->>'sms_body' ILIKE '%journey. Would%'
+    OR e.metadata->>'sms_body' ILIKE '%on this . Would%'
+    OR e.metadata->>'sms_body' ILIKE '%if you need%'
     OR e.metadata->'north_star_gate'->>'body_after_north_star' ILIKE '%how does it feel to Would%'
     OR e.metadata->'north_star_gate'->>'body_after_north_star' ILIKE '% to Would%'
     OR e.metadata->'north_star_gate'->>'north_star_rewrite_type' = 'micro_edit'
     OR e.metadata->'north_star_gate'->'north_star_gate_reasons'::text ILIKE '%product_jargon_scrub%'
+    OR e.metadata->'north_star_gate'->'north_star_gate_reasons'::text ILIKE '%robot_motivation_scrub%'
+    OR e.metadata->'north_star_gate'->'north_star_gate_reasons'::text ILIKE '%wrong_temporal_scrub%'
+    OR e.metadata->'north_star_gate'->'north_star_gate_reasons'::text ILIKE '%app_deflection%'
+    OR e.metadata->'north_star_gate'->'north_star_gate_reasons'::text ILIKE '%daily_fluff%'
+    OR e.metadata->'north_star_gate'->'north_star_gate_reasons'::text ILIKE '%v3_open_answer_scrub%'
+    OR e.metadata->'north_star_gate'->'north_star_gate_reasons'::text ILIKE '%daily_fluff_micro_strip%'
+    OR (
+      e.metadata->'north_star_gate'->>'reply_source' ~ '^v3_.*relationship'
+      AND e.metadata->'north_star_gate'->>'north_star_rewrite_type' = 'micro_edit'
+    )
     OR (
       e.metadata->'north_star_gate'->>'original_body' IS NOT NULL
       AND e.metadata->'north_star_gate'->>'body_after_north_star' IS NOT NULL
@@ -37,6 +50,28 @@ WHERE e.created_at >= NOW() - INTERVAL '7 days'
   )
 ORDER BY e.created_at DESC
 LIMIT 500;
+
+-- V3 relationship sources: micro_edit with body change (repair_required expected instead)
+SELECT
+  e.clerk_user_id,
+  e.created_at,
+  e.metadata->'north_star_gate'->>'reply_source' AS reply_source,
+  e.metadata->'north_star_gate'->>'north_star_rewrite_type' AS rewrite_type,
+  e.metadata->'north_star_gate'->>'original_body' AS original_body,
+  e.metadata->'north_star_gate'->>'body_after_north_star' AS body_after_north_star,
+  e.metadata->>'sms_body' AS sent_body,
+  e.metadata->'north_star_gate'->'north_star_gate_reasons' AS gate_reasons
+FROM sms_send_events e
+WHERE e.created_at >= NOW() - INTERVAL '7 days'
+  AND e.status IN ('sent', 'delivered', 'queued')
+  AND e.metadata->'north_star_gate'->>'reply_source' ~ '^v3_.*'
+  AND e.metadata->'north_star_gate'->>'north_star_rewrite_type' = 'micro_edit'
+  AND e.metadata->'north_star_gate'->>'original_body' IS NOT NULL
+  AND e.metadata->'north_star_gate'->>'body_after_north_star' IS NOT NULL
+  AND e.metadata->'north_star_gate'->>'original_body'
+    <> e.metadata->'north_star_gate'->>'body_after_north_star'
+ORDER BY e.created_at DESC
+LIMIT 200;
 
 -- Last outbound per user
 SELECT
@@ -49,5 +84,7 @@ WHERE c.sent_at >= NOW() - INTERVAL '7 days'
     c.full_body ILIKE '%how does it feel to Would%'
     OR c.full_body ILIKE '% to Would%'
     OR c.full_body ILIKE '% to What%'
+    OR c.full_body ILIKE '%journey. Would%'
+    OR c.full_body ILIKE '%on this . Would%'
   )
 ORDER BY c.sent_at DESC;
