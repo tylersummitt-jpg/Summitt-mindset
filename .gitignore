@@ -33,6 +33,10 @@ yarn-error.log*
 # local schema dumps from scripts/capture-baseline-schema.sh (do not commit)
 .tmp/
 
+# SMS Review Place local reports (fake fixtures only; do not commit)
+/sms-review-place/reports/
+/sms-review-place/reports-real-openai/
+
 # Pat Summitt book source files (raw Word docs — do not commit)
 private/pat-books/
 

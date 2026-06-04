@@ -1,0 +1,514 @@
+/**
+ * SMS Review Place — fake lane facts from curated scenarios (no DB loaders).
+ */
+
+import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import type { V2InboundGatedDecision } from "@/lib/v2-ai-inbound";
+import type { InboundV3ProofCalloutHint } from "@/lib/v2-proof-moment";
+import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
+import { RELATIONSHIP_MEMORY_7D_WINDOW_DAYS } from "@/lib/sms-relationship-memory-7d";
+import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
+import { RELATIONSHIP_MEMORY_30D_WINDOW_DAYS } from "@/lib/sms-relationship-memory-30d";
+import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
+
+/** Mirror `RECENT_EXACT_THREAD_WINDOW_HOURS` without importing DB-backed module. */
+const RECENT_EXACT_THREAD_WINDOW_HOURS = 72 as const;
+import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
+import { buildTemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
+import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
+import {
+  buildInboundV3RelationshipFacts,
+  type InboundV3RelationshipFacts,
+} from "@/lib/v3-inbound-relationship-lane";
+import {
+  enrichDailyFactsWithThreadFreshness,
+  type DailyV3RelationshipFacts,
+} from "@/lib/v3-daily-relationship-lane";
+import { getPersona } from "@/sms-review-place/fixtures/personas";
+import type { SmsReviewScenario } from "@/sms-review-place/types";
+
+const SIM_DAY_KEY = "2026-06-04";
+const SIM_LOCAL_ISO = "2026-06-04T14:00:00.000Z";
+
+export function emptyThread72h(): RecentExactThread72hResult {
+  return {
+    messages: [],
+    window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+    message_count: 0,
+    had_preview_messages: false,
+    had_system_no_send: false,
+  };
+}
+
+export function emptyMemory7d(commitmentId = "sim_cmt_1"): RelationshipMemory7dResult {
+  return {
+    window_days: RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
+    built_at: SIM_LOCAL_ISO,
+    outcome_counts: { yes: 0, no: 0, partial: 0, blockers: 0, checks_sent: 0 },
+    wins: [],
+    misses: [],
+    partials: [],
+    comebacks: [],
+    blockers: [],
+    proof_moments: [],
+    open_loops: [],
+    direct_answer_history: [],
+    context_flags: {},
+    meta: { item_count: 0, sources_used: ["sms_review_place_fixture"] },
+  };
+}
+
+export function emptyMemory30d(commitmentId = "sim_cmt_1"): RelationshipMemory30dResult {
+  return {
+    window_days: RELATIONSHIP_MEMORY_30D_WINDOW_DAYS,
+    built_at: SIM_LOCAL_ISO,
+    commitment_id: commitmentId,
+    season: null,
+    outcome_counts_30d: {
+      yes: 0,
+      no: 0,
+      partial: 0,
+      blockers: 0,
+      checks_sent: 0,
+      overlay_activated: 0,
+      overlay_declined: 0,
+      reactivation_yes: 0,
+    },
+    recurring_blockers: [],
+    meaningful_proof: [],
+    adjustments: [],
+    goal_changes: [],
+    comebacks: [],
+    voice_preferences: null,
+    pat_read_snapshot: [],
+    meta: { item_count: 0, sources_used: ["sms_review_place_fixture"] },
+  };
+}
+
+function minimalMemoryPacket(
+  overrides: Partial<SlimSmsRelationshipMemoryPacketForFacts> = {}
+): SlimSmsRelationshipMemoryPacketForFacts {
+  return {
+    recent_exact_thread_text: "",
+    recent_exact_message_count: 0,
+    recent_exact_thread_72h: emptyThread72h(),
+    relationship_memory_7d: emptyMemory7d(),
+    relationship_memory_30d: emptyMemory30d(),
+    last_outbound_full_body: null,
+    last_inbound_full_body: null,
+    last_substantive_user_message: null,
+    last_substantive_coach_message: null,
+    last_5_coach_questions: [],
+    last_5_user_answers: [],
+    latest_open_question: null,
+    latest_answer_after_open_question: null,
+    open_question_answered_at: null,
+    open_question_pending: false,
+    open_question_expected_answer_type: null,
+    open_question_source: "none",
+    answer_source: "none",
+    projection_used: false,
+    latest_open_question_guess: null,
+    latest_answer_after_open_question_guess: null,
+    do_not_repeat_phrases: [],
+    memory_priority_rules: [],
+    coaching_memory_summary: null,
+    coaching_memory_is_background_only: true,
+    ...overrides,
+  };
+}
+
+function buildTemporalForScenario(scenario: SmsReviewScenario): TemporalContractV1 {
+  return buildTemporalContractV1({
+    timezone: scenario.timezone,
+    now: new Date(SIM_LOCAL_ISO),
+    sendDayKey: SIM_DAY_KEY,
+  });
+}
+
+function baseCommitment(scenario: SmsReviewScenario): ActiveV2CommitmentRow {
+  const persona = getPersona(scenario.personaId);
+  const row: ActiveV2CommitmentRow = {
+    id: `sim_cmt_${scenario.id}`,
+    clerk_user_id: persona.clerkUserId,
+    status: "active",
+    behavior_statement: scenario.behaviorStatement,
+    title: scenario.goalTitle,
+    success_criteria: null,
+    blocker_capture_expires_at: null,
+    blocker_capture_after_event: null,
+    adaptive_ask_text: null,
+    adaptive_ask_active_from: null,
+    adaptive_ask_expires_at: null,
+    adaptive_proposal_text: null,
+    adaptive_proposal_created_at: null,
+    adaptive_proposal_expires_at: null,
+    accountability_phase: "active_accountability",
+    reactivation_entered_at: null,
+    reactivation_last_sent_at: null,
+    reactivation_entry_reason_code: null,
+    refresh_session: null,
+    commitment_refresh_last_prompted_at: null,
+    pending_resolution_kind: null,
+    pending_resolution_created_at: null,
+    pending_resolution_expires_at: null,
+    pending_resolution_payload: null,
+    updated_at: null,
+    started_at: null,
+  };
+
+  if (scenario.id === "stale-goal") {
+    row.pending_resolution_kind = "commitment_replace";
+    row.pending_resolution_created_at = "2026-06-01T12:00:00.000Z";
+    row.pending_resolution_expires_at = "2026-06-10T12:00:00.000Z";
+    row.pending_resolution_payload = {
+      source: "sms_inbound",
+      sms_state: "awaiting_confirmation",
+      candidate_behavior_statement: "No screens after 9pm",
+      candidate_new_bar: "No screens after 9pm",
+    };
+  }
+
+  return row;
+}
+
+function baseGatedDecision(event: "user_yes" | "user_no" | "user_partial"): V2InboundGatedDecision {
+  return {
+    mode: "use_deterministic",
+    final_event_type: event,
+    decision_reason: "sms_review_place_fixture",
+    confidence_used: null,
+    should_write_outcome_event: true,
+    should_open_blocker_capture: false,
+    reply_style: "normal_outcome",
+    overrode_deterministic: false,
+  };
+}
+
+function inboundEventForScenario(scenario: SmsReviewScenario): "user_yes" | "user_no" | "user_partial" {
+  if (scenario.id === "partial-not-win") return "user_partial";
+  if (scenario.id === "repeated-miss-no-shame") return "user_no";
+  if (scenario.id === "blocker-heavy") return "user_no";
+  return "user_yes";
+}
+
+function proofHintForScenario(scenario: SmsReviewScenario): InboundV3ProofCalloutHint | null {
+  if (scenario.id === "proof-victory-allowed") {
+    return {
+      eligible: true,
+      surface: "victory_room",
+      reason: "followed_through",
+      instruction: "May mention Victory Room naturally.",
+      proof_insert_will_attempt: true,
+      proof_callout_claim_saved_allowed: false,
+    };
+  }
+  if (scenario.id === "proof-victory-forbidden") {
+    return {
+      eligible: true,
+      surface: "victory_room",
+      reason: "followed_through",
+      instruction: "May mention Victory Room naturally.",
+      proof_insert_will_attempt: true,
+      proof_callout_claim_saved_allowed: false,
+    };
+  }
+  return null;
+}
+
+export function buildDailyFacts(scenario: SmsReviewScenario): DailyV3RelationshipFacts {
+  const persona = getPersona(scenario.personaId);
+  const temporal = buildTemporalForScenario(scenario);
+  const transcript = scenario.transcriptLines?.join("\n") ?? scenario.threadSummary;
+
+  const lastCoachQ =
+    scenario.id === "repeated-question-risk"
+      ? "Did the two hours happen today?"
+      : scenario.transcriptLines?.[0]?.replace(/^Coach:\s*/i, "") ?? null;
+
+  const facts: DailyV3RelationshipFacts = {
+    route_kind: "main_active_accountability",
+    accountability_day_key: SIM_DAY_KEY,
+    temporal_contract: temporal,
+    user: {
+      clerk_user_id: persona.clerkUserId,
+      preferred_name: persona.preferredName,
+      timezone: scenario.timezone,
+      local_time_iso: SIM_LOCAL_ISO,
+      relationship_profile_summary: persona.identityLabel,
+    },
+    commitment: {
+      id: `sim_cmt_${scenario.id}`,
+      title: scenario.goalTitle,
+      behavior_statement: scenario.behaviorStatement,
+      effective_ask: scenario.effectiveAsk,
+      accountability_phase: "active_accountability",
+      identity_anchor_allowed: false,
+      identity_anchor_short: null,
+    },
+    thread_memory: {
+      latest_outbound_sms: scenario.transcriptLines?.[0] ?? "Coach: Quick check",
+      latest_inbound_sms: scenario.transcriptLines?.[1]?.replace(/^User:\s*/i, "") ?? null,
+      recent_transcript_or_context_block: transcript,
+      latest_open_question: lastCoachQ,
+      do_not_repeat_hints: scenario.id === "repeated-question-risk" ? ["do_not_reask_coach_question"] : [],
+      coaching_memory_snippet: `COACHING_MEMORY (fixture): ${scenario.memorySummary}`,
+      recent_pattern_hints: null,
+      recent_exact_thread_72h: emptyThread72h(),
+      relationship_memory_7d: emptyMemory7d(),
+      relationship_memory_30d: emptyMemory30d(),
+      last_5_coach_questions: lastCoachQ ? [lastCoachQ] : [],
+      last_5_user_answers: [],
+    },
+    accountability: {
+      daily_purpose: "standard_accountability_check",
+      server_strategy: "standard_check",
+      next_move_type: "hold_standard",
+      prior_outcome: scenario.id === "repeated-miss-no-shame" ? "user_no" : "user_yes",
+      yes_streak_14d: scenario.id === "warm-praise-overuse" ? 6 : 2,
+      no_count_14d: scenario.id === "repeated-miss-no-shame" ? 4 : 1,
+      partial_count_14d: 0,
+      blocker_preview: scenario.id === "blocker-heavy" ? "childcare" : null,
+      proof_or_milestone_signal: null,
+      silence_tier: "none",
+      unanswered_checks: 0,
+      days_since_last_user_outcome: 1,
+      reentry_active: false,
+      overlay_active: false,
+      evolution_pattern_hint: null,
+      contract_proposal_mode: false,
+    },
+    suggested_coaching_move: "ask_completion",
+    constraints: {
+      max_chars: 300,
+      one_sms: true,
+      no_raw_title_or_behavior_paste: true,
+      no_generic_motivation: true,
+      if_unsafe_return_no_send: true,
+    },
+  };
+
+  if (scenario.id === "plan-not-proof") {
+    facts.accountability.pending_plan_proof = {
+      active: true,
+      plan_summary_hint: "workout after Brooke",
+      anchor_phrase_hint: "after Brooke's workout",
+      anchor_key: "brooke|workout",
+      plan_for_day_key: "2026-06-03",
+      source_answer_preview: "I'll do it after Brooke's workout",
+      recurrence_confidence: "unknown",
+      outcome_known: false,
+    };
+    facts.suggested_coaching_move = "close_prior_plan_loop";
+  }
+
+  if (scenario.id === "repeated-miss-no-shame") {
+    facts.accountability.daily_purpose = "standard_accountability_check";
+    facts.accountability.prior_outcome = "user_no";
+  }
+
+  if (scenario.id === "time-ref-yesterday") {
+    const thread72h: RecentExactThread72hResult = {
+      messages: [
+        {
+          at: "2026-06-04T12:00:00.000Z",
+          at_local: "Jun 4, 8:00 AM",
+          at_local_timezone: scenario.timezone,
+          local_day_key: SIM_DAY_KEY,
+          role: "coach",
+          body: "Quick check on the block",
+          message_kind: null,
+          source_table: "sms_outbound_messages",
+          message_sid: "SM_sim_coach",
+          delivery_status: "sent",
+          is_exact_body: true,
+        },
+        {
+          at: "2026-06-03T15:00:00.000Z",
+          at_local: "Jun 3, 11:00 AM",
+          at_local_timezone: scenario.timezone,
+          local_day_key: "2026-06-03",
+          role: "user",
+          body: "Yes — got the two hours in yesterday.",
+          message_kind: null,
+          source_table: "sms_inbound_messages",
+          message_sid: "SM_sim_yesterday",
+          delivery_status: "sent",
+          is_exact_body: true,
+        },
+        {
+          at: "2026-06-04T13:30:00.000Z",
+          at_local: "Jun 4, 9:30 AM",
+          at_local_timezone: scenario.timezone,
+          local_day_key: SIM_DAY_KEY,
+          role: "user",
+          body: "I did it yesterday",
+          message_kind: null,
+          source_table: "sms_inbound_messages",
+          message_sid: "SM_sim_today",
+          delivery_status: "sent",
+          is_exact_body: true,
+        },
+      ],
+      window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+      message_count: 3,
+      had_preview_messages: false,
+      had_system_no_send: false,
+    };
+    facts.thread_memory.recent_exact_thread_72h = thread72h;
+    facts.thread_memory.recent_exact_thread_text =
+      "User: Yes — got the two hours in yesterday.\nUser: I did it yesterday";
+    facts.thread_memory.latest_inbound_sms = "I did it yesterday";
+    facts.thread_memory.relationship_memory_7d = {
+      ...emptyMemory7d(),
+      outcome_counts: { yes: 2, no: 0, partial: 0, blockers: 0, checks_sent: 1 },
+      wins: [
+        {
+          summary: "user_yes",
+          evidence: "two hours deep work yesterday",
+          at: "2026-06-03T15:00:00.000Z",
+          local_day_key: "2026-06-03",
+          source: "v2_commitment_event:user_yes",
+          message_sid: null,
+          is_exact_body: false,
+        },
+      ],
+      meta: { item_count: 1, sources_used: ["sms_review_place_fixture"] },
+    };
+    return enrichDailyFactsWithThreadFreshness(facts);
+  }
+
+  return facts;
+}
+
+export function buildInboundFacts(
+  scenario: SmsReviewScenario,
+  userReply: string
+): InboundV3RelationshipFacts {
+  const persona = getPersona(scenario.personaId);
+  const commitment = baseCommitment(scenario);
+  const event = inboundEventForScenario(scenario);
+  const lines = scenario.transcriptLines ?? [`Coach: Quick check`, `User: ${userReply}`];
+
+  const openQ = lines[0]?.replace(/^Coach:\s*/i, "") ?? "Quick check";
+  const mp = minimalMemoryPacket({
+    recent_exact_thread_text: lines.join("\n"),
+    recent_exact_message_count: lines.length,
+    last_5_coach_questions: [openQ],
+    latest_open_question: openQ,
+    latest_answer_after_open_question:
+      scenario.id === "open-question-answered" ? "After Brooke's workout" : null,
+    open_question_pending: scenario.id !== "open-question-answered",
+    open_question_source: "projection",
+    answer_source: scenario.id === "open-question-answered" ? "projection" : "none",
+    projection_used: scenario.id === "open-question-answered",
+  });
+
+  const built = buildInboundV3RelationshipFacts({
+    clerkUserId: persona.clerkUserId,
+    preferredName: persona.preferredName,
+    timezone: scenario.timezone,
+    localTimeIso: SIM_LOCAL_ISO,
+    commitment,
+    effectiveAsk: scenario.effectiveAsk,
+    userMessageRaw: userReply,
+    coalescedInboundText: userReply,
+    suppressedMessageSids: ["sim_SM001"],
+    transcriptLines: lines,
+    northStarPacket: {
+      source: "sms_review_place",
+      latestOutboundBody: openQ,
+      latestOpenQuestion: openQ,
+      expectedReplySemantics: "completion_check",
+      proofSignal: scenario.id.startsWith("proof-victory"),
+      missSignal: event === "user_no",
+      blockerSignal: scenario.id === "blocker-heavy",
+      todayCompleted: event === "user_yes",
+    },
+    gatedDecision: baseGatedDecision(event),
+    deterministicEventType: event,
+    doNotRepeatHints: [],
+    relationshipProfileSummary: persona.identityLabel,
+    conversationBrain: { enabled: false },
+    centralBrain: { shadow_stored: false },
+    arc: { ambiguous_short_reply: false, clarification_required: false },
+    phase5a: {
+      central_tether_brain_enabled: false,
+      arc_clarify_brain_enabled: false,
+      inbound_stitched_final_enabled: false,
+    },
+    forcedFutureStretchIntentActive: false,
+    wave11MemoryConfirmationPending: false,
+    accountabilityProofHint: null,
+    rejectedTimeCandidates: [],
+    unavailableWindows: [],
+    relationshipMemoryPacket: mp,
+    proofCalloutHint: proofHintForScenario(scenario),
+  });
+
+  if (scenario.id === "time-ref-yesterday") {
+    const thread72h: RecentExactThread72hResult = {
+      messages: [
+        {
+          at: "2026-06-03T15:00:00.000Z",
+          at_local: "Jun 3, 11:00 AM",
+          at_local_timezone: scenario.timezone,
+          local_day_key: "2026-06-03",
+          role: "user",
+          body: "Yes — got the two hours in yesterday.",
+          message_kind: null,
+          source_table: "sms_inbound_messages",
+          message_sid: "SM_sim_yesterday_in",
+          delivery_status: "sent",
+          is_exact_body: true,
+        },
+      ],
+      window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+      message_count: 1,
+      had_preview_messages: false,
+      had_system_no_send: false,
+    };
+    built.thread.memory_packet = {
+      ...built.thread.memory_packet,
+      recent_exact_thread_72h: thread72h,
+      recent_exact_thread_text: "User: Yes — got the two hours in yesterday.",
+      relationship_memory_7d: {
+        ...emptyMemory7d(),
+        wins: [
+          {
+            summary: "user_yes",
+            evidence: "two hours yesterday",
+            at: "2026-06-03T15:00:00.000Z",
+            local_day_key: "2026-06-03",
+            source: "v2_commitment_event:user_yes",
+            message_sid: null,
+            is_exact_body: false,
+          },
+        ],
+        meta: { item_count: 1, sources_used: ["sms_review_place_fixture"] },
+      },
+    };
+    built.temporal_contract = buildTemporalForScenario(scenario);
+  }
+
+  return built;
+}
+
+/** Minimal in-memory thread advance for future multi-day (unused in Sim-1 v1). */
+export function advanceThreadForStep(
+  lines: string[],
+  step: { coachLine?: string; userLine?: string }
+): string[] {
+  const next = [...lines];
+  if (step.coachLine) next.push(`Coach: ${step.coachLine}`);
+  if (step.userLine) next.push(`User: ${step.userLine}`);
+  return next;
+}
+
+export function simulatedLocalIso(): string {
+  return SIM_LOCAL_ISO;
+}
+
+export function simulatedDayKey(): string {
+  return SIM_DAY_KEY;
+}
