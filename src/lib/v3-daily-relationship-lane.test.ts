@@ -559,6 +559,19 @@ describe("produceDailyV3RelationshipSms", () => {
             },
           },
         ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Did you manage to close the loop on those calls?",
+                used_strategy: "still_bad",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
       });
     const r = await produceDailyV3RelationshipSms({
       facts: baseFacts(),
@@ -567,6 +580,11 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.shouldSend).toBe(false);
     expect(r.metadata.lane_repair_attempted).toBe(true);
     expect(r.metadata.lane_repair_succeeded).toBe(false);
+    expect(r.metadata.lane_post_validate_repair_attempt_count).toBe(2);
+    expect(r.metadata.lane_post_validate_second_repair_attempted).toBe(true);
+    expect(r.metadata.lane_post_validate_repair_failed_reason).toBe(
+      "still_blocked_after_second_repair"
+    );
   });
 
   it("malformed Did raw phrase happen today stays hard no-send without lane repair", async () => {
@@ -667,6 +685,8 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.body).toContain("thank");
     expect(r.metadata.lane_repair_attempted).toBe(true);
     expect(r.metadata.lane_repair_succeeded).toBe(true);
+    expect(r.metadata.lane_post_validate_repair_attempt_count).toBe(1);
+    expect(r.metadata.lane_post_validate_second_repair_attempted).toBe(false);
     expect(r.metadata.lane_stage).toBe("post_validate_repaired");
     expect(r.metadata.repaired_blocked_reasons).toEqual([]);
     expect(Array.isArray(r.metadata.original_blocked_reasons)).toBe(true);
@@ -702,8 +722,21 @@ describe("produceDailyV3RelationshipSms", () => {
           {
             message: {
               content: JSON.stringify({
-                body: "Still really really weak as a coach line here.",
+                body: "Still really really weak as a coach line here with let me know how it went!",
                 used_strategy: "still_rambly_after_repair",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Still really really weak as a coach line here with let me know how it went again!",
+                used_strategy: "still_rambly_after_second_repair",
                 safety_notes: [],
               }),
             },
@@ -718,6 +751,71 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.lane_repair_attempted).toBe(true);
     expect(r.metadata.lane_repair_succeeded).toBe(false);
     expect(r.metadata.lane_stage).toBe("post_validate_repair_failed");
+    expect(r.metadata.lane_post_validate_repair_attempt_count).toBe(2);
+    expect(r.metadata.lane_post_validate_repair_failed_reason).toBe(
+      "still_blocked_after_second_repair"
+    );
+  });
+
+  it("second lane post-validate repair succeeds when first repair swaps repairable issue", async () => {
+    const wordy =
+      "As you reflect on your day, who did you thank? Sharing gratitude strengthens bonds. Let me know how it went!";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: wordy,
+                no_send_reason: null,
+                turn_purpose: "daily",
+                voice_confidence: 0.7,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Great job — as you continue this momentum, who did you thank today?",
+                used_strategy: "bad_momentum_swap",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Who did you thank today for showing up for you?",
+                used_strategy: "specific_ack_no_momentum",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(createMock).toHaveBeenCalledTimes(3);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_post_validate_repair_attempt_count).toBe(2);
+    expect(r.metadata.lane_post_validate_second_repair_attempted).toBe(true);
+    expect(r.metadata.lane_post_validate_second_repair_succeeded).toBe(true);
+    const secondRepairMsg = createMock.mock.calls[2]?.[0]?.messages?.[1]?.content as string;
+    expect(secondRepairMsg).toMatch(/generic_momentum|let_me_know_how_it_went|great_job|keep_momentum/);
+    expect(secondRepairMsg).toMatch(/repair_pass: 2/);
   });
 
   it("contract_prompt skips lane repair even when blocks are repairable-only", async () => {

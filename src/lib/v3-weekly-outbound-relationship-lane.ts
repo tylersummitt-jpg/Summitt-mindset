@@ -15,6 +15,8 @@ import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import {
   evaluateRelationshipVoiceWithPraisePolicy,
   partitionFinalVoiceBlockedReasons,
+  runLanePostValidateRepairLoop,
+  type LanePostValidateRepairValidationResult,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
 import { buildSmsPraisePolicyArgsFromWeeklyFacts } from "@/lib/sms-earned-praise-policy";
@@ -308,6 +310,22 @@ export function weeklyLaneLocalValidation(body: string, facts: WeeklyV3OutboundF
   return hits;
 }
 
+function weeklyValidateAfterPostRepair(
+  body: string,
+  facts: WeeklyV3OutboundFacts
+): LanePostValidateRepairValidationResult {
+  const afterRepair = weeklyPostValidateHits(body, facts);
+  if (afterRepair.blockedReasons.length === 0) {
+    return { blockedReasons: [] };
+  }
+  const hardReasons = [...afterRepair.localHits, ...afterRepair.hard];
+  return {
+    blockedReasons: afterRepair.blockedReasons,
+    hardReasons: hardReasons.length > 0 ? hardReasons : undefined,
+    failedReason: hardReasons.length > 0 ? "hard_after_first_repair" : undefined,
+  };
+}
+
 function weeklyPostValidateHits(body: string, facts: WeeklyV3OutboundFacts): {
   localHits: string[];
   fvgHits: string[];
@@ -568,48 +586,19 @@ safety_notes (string[])`;
       laneBlockedReasons: blockedReasons,
     });
 
-    const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
+    const repairLoop = await runLanePostValidateRepairLoop({
       routeKind: "weekly",
       routePurpose,
       originalBody: body,
-      blockedReasons: repairable,
+      initialBlocked: blockedReasons,
+      initialRepairable: repairable,
       repairSnapshot,
+      snapshotMeta,
       systemInstruction: WEEKLY_LANE_REPAIR_SYSTEM_INSTRUCTION,
+      validateAfterRepair: (candidate) => weeklyValidateAfterPostRepair(candidate, f),
     });
 
-    if (!repairOut) {
-      return {
-        body: "",
-        shouldSend: false,
-        noSendReason: "lane_post_validate_blocked",
-        replySource: "v3_weekly_relationship_lane",
-        routePurpose,
-        voiceConfidence,
-        usedFacts,
-        safetyNotes: [...safetyNotes, ...blockedReasons.map((b) => `blocked:${b}`)],
-        metadata: {
-          ...baseMeta,
-          ...laneOpenAiJsonMeta,
-          lane_stage: "post_validate_repair_failed",
-          v3_candidate_body: originalCandidateSnapshot,
-          blocked_reasons: blockedReasons,
-          repairable_blocked_reasons: repairable,
-          hard_blocked_reasons: [],
-          lane_repair_attempted: true,
-          lane_repair_succeeded: false,
-          original_blocked_reasons: repairable,
-          original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-          repaired_candidate_body: null,
-          repaired_blocked_reasons: null,
-        },
-        openAiOk: true,
-      };
-    }
-
-    let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
-    const afterRepair = weeklyPostValidateHits(repaired, f);
-
-    if (afterRepair.blockedReasons.length > 0) {
+    if (!repairLoop.ok) {
       return {
         body: "",
         shouldSend: false,
@@ -621,7 +610,7 @@ safety_notes (string[])`;
         safetyNotes: [
           ...safetyNotes,
           ...blockedReasons.map((b) => `blocked:${b}`),
-          ...afterRepair.blockedReasons.map((b) => `repaired_blocked:${b}`),
+          ...(repairLoop.repairedBlockedReasons ?? []).map((b) => `repaired_blocked:${b}`),
         ],
         metadata: {
           ...baseMeta,
@@ -635,16 +624,18 @@ safety_notes (string[])`;
           lane_repair_succeeded: false,
           original_blocked_reasons: repairable,
           original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-          repaired_candidate_body: repaired,
-          repaired_blocked_reasons: afterRepair.blockedReasons,
-          lane_repair_used_strategy: repairOut.metadata.lane_repair_used_strategy,
-          lane_repair_safety_notes: repairOut.metadata.lane_repair_safety_notes,
+          repaired_candidate_body: repairLoop.repairedBody,
+          repaired_blocked_reasons: repairLoop.repairedBlockedReasons,
+          lane_repair_used_strategy: repairLoop.lastRepairMetadata.lane_repair_used_strategy,
+          lane_repair_safety_notes: repairLoop.lastRepairMetadata.lane_repair_safety_notes,
+          ...snapshotMeta,
+          ...repairLoop.telemetry,
         },
         openAiOk: true,
       };
     }
 
-    body = repaired;
+    body = repairLoop.body;
     successLaneStage = "post_validate_repaired";
     successRepairExtra = {
       lane_repair_attempted: true,
@@ -653,11 +644,12 @@ safety_notes (string[])`;
       repairable_blocked_reasons: repairable,
       hard_blocked_reasons: [],
       original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-      repaired_candidate_body: repaired,
+      repaired_candidate_body: repairLoop.body,
       repaired_blocked_reasons: [],
-      lane_repair_used_strategy: repairOut.metadata.lane_repair_used_strategy,
-      lane_repair_safety_notes: repairOut.metadata.lane_repair_safety_notes,
+      lane_repair_used_strategy: repairLoop.lastRepairMetadata.lane_repair_used_strategy,
+      lane_repair_safety_notes: repairLoop.lastRepairMetadata.lane_repair_safety_notes,
       ...snapshotMeta,
+      ...repairLoop.telemetry,
     };
   }
 

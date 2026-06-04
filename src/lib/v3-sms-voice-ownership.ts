@@ -418,6 +418,290 @@ export function partitionFinalVoiceBlockedReasons(reasons: string[]): {
   return { repairable, hard };
 }
 
+export type LanePostValidateRepairValidationResult = {
+  blockedReasons: string[];
+  hardReasons?: string[];
+  missingRequiredVerbatim?: boolean;
+  failedReason?: string;
+  extraMeta?: Record<string, unknown>;
+};
+
+export type RunLanePostValidateRepairLoopArgs = {
+  routeKind: "daily" | "inbound" | "weekly";
+  routePurpose: string;
+  originalBody: string;
+  initialBlocked: string[];
+  initialRepairable: string[];
+  repairSnapshot: RepairRelationshipSnapshotV1;
+  snapshotMeta: Record<string, unknown>;
+  systemInstruction?: string;
+  validateAfterRepair: (body: string) => LanePostValidateRepairValidationResult;
+};
+
+export type LanePostValidateRepairLoopResult =
+  | {
+      ok: true;
+      body: string;
+      telemetry: Record<string, unknown>;
+      lastRepairMetadata: Record<string, unknown>;
+    }
+  | {
+      ok: false;
+      failedReason: string;
+      repairedBody: string | null;
+      telemetry: Record<string, unknown>;
+      lastRepairMetadata: Record<string, unknown>;
+      repairedBlockedReasons: string[] | null;
+      extraMeta?: Record<string, unknown>;
+    };
+
+function sanitizeLaneRepairBody(raw: string): string {
+  return raw.replace(/^["']|["']$/g, "").trim();
+}
+
+function uniqueBlockedReasons(reasons: string[]): string[] {
+  return [...new Set(reasons)];
+}
+
+function introducedRepairableReasons(
+  initialRepairable: string[],
+  afterAttemptRepairable: string[]
+): string[] {
+  const initial = new Set(initialRepairable);
+  return afterAttemptRepairable.filter((r) => !initial.has(r));
+}
+
+function buildLanePostValidateRepairTelemetry(args: {
+  initialBlocked: string[];
+  initialRepairable: string[];
+  blockedAfterAttempt1: string[];
+  blockedAfterAttempt2?: string[];
+  attemptCount: 1 | 2;
+  secondRepairAttempted: boolean;
+  secondRepairSucceeded: boolean;
+  introducedRepairableReasons: string[];
+  failedReason?: string;
+}): Record<string, unknown> {
+  return {
+    lane_post_validate_repair_attempt_count: args.attemptCount,
+    lane_post_validate_blocked_reasons_initial: args.initialBlocked,
+    lane_post_validate_blocked_reasons_after_attempt_1: args.blockedAfterAttempt1,
+    ...(args.blockedAfterAttempt2 != null
+      ? { lane_post_validate_blocked_reasons_after_attempt_2: args.blockedAfterAttempt2 }
+      : {}),
+    lane_post_validate_second_repair_attempted: args.secondRepairAttempted,
+    lane_post_validate_second_repair_succeeded: args.secondRepairSucceeded,
+    lane_post_validate_introduced_repairable_reasons: args.introducedRepairableReasons,
+    ...(args.failedReason ? { lane_post_validate_repair_failed_reason: args.failedReason } : {}),
+  };
+}
+
+function lanePostValidateHardAfterValidation(
+  validation: LanePostValidateRepairValidationResult
+): string[] {
+  const hard = [...(validation.hardReasons ?? [])];
+  if (validation.missingRequiredVerbatim) {
+    hard.push("missing_required_verbatim_after_repair");
+  }
+  const { hard: partitionedHard } = partitionFinalVoiceBlockedReasons(validation.blockedReasons);
+  for (const r of partitionedHard) {
+    if (!hard.includes(r)) hard.push(r);
+  }
+  return hard;
+}
+
+function lanePostValidateEligibleForSecondRepair(
+  validation: LanePostValidateRepairValidationResult
+): boolean {
+  if (validation.blockedReasons.length === 0) return false;
+  if (lanePostValidateHardAfterValidation(validation).length > 0) return false;
+  const { repairable } = partitionFinalVoiceBlockedReasons(validation.blockedReasons);
+  return repairable.length > 0;
+}
+
+function lanePostValidateRepairedBlockedReasons(
+  validation: LanePostValidateRepairValidationResult
+): string[] {
+  const reasons = [...validation.blockedReasons];
+  if (validation.missingRequiredVerbatim && !reasons.includes("missing_required_verbatim_after_repair")) {
+    reasons.push("missing_required_verbatim_after_repair");
+  }
+  return reasons;
+}
+
+/**
+ * Lane post-validate repair loop: at most two OpenAI repair attempts.
+ * Second attempt runs only when attempt 1 leaves repairable-only block reasons.
+ */
+export async function runLanePostValidateRepairLoop(
+  args: RunLanePostValidateRepairLoopArgs
+): Promise<LanePostValidateRepairLoopResult> {
+  const repair1 = await repairV3RelationshipLaneBodyWithOpenAI({
+    routeKind: args.routeKind,
+    routePurpose: args.routePurpose,
+    originalBody: args.originalBody,
+    blockedReasons: args.initialRepairable,
+    repairSnapshot: args.repairSnapshot,
+    systemInstruction: args.systemInstruction,
+    repairPass: 1,
+  });
+
+  if (!repair1) {
+    return {
+      ok: false,
+      failedReason: "post_repair_validation_failed",
+      repairedBody: null,
+      lastRepairMetadata: {},
+      repairedBlockedReasons: null,
+      telemetry: buildLanePostValidateRepairTelemetry({
+        initialBlocked: args.initialBlocked,
+        initialRepairable: args.initialRepairable,
+        blockedAfterAttempt1: [],
+        attemptCount: 1,
+        secondRepairAttempted: false,
+        secondRepairSucceeded: false,
+        introducedRepairableReasons: [],
+        failedReason: "post_repair_validation_failed",
+      }),
+    };
+  }
+
+  const bodyAfter1 = sanitizeLaneRepairBody(repair1.body);
+  const validation1 = args.validateAfterRepair(bodyAfter1);
+  const blockedAfterAttempt1 = validation1.blockedReasons;
+  const introducedAfter1 = introducedRepairableReasons(
+    args.initialRepairable,
+    partitionFinalVoiceBlockedReasons(blockedAfterAttempt1).repairable
+  );
+
+  if (blockedAfterAttempt1.length === 0) {
+    return {
+      ok: true,
+      body: bodyAfter1,
+      lastRepairMetadata: repair1.metadata,
+      telemetry: buildLanePostValidateRepairTelemetry({
+        initialBlocked: args.initialBlocked,
+        initialRepairable: args.initialRepairable,
+        blockedAfterAttempt1: [],
+        attemptCount: 1,
+        secondRepairAttempted: false,
+        secondRepairSucceeded: false,
+        introducedRepairableReasons: introducedAfter1,
+      }),
+    };
+  }
+
+  if (!lanePostValidateEligibleForSecondRepair(validation1)) {
+    const hardAfter1 = lanePostValidateHardAfterValidation(validation1);
+    const failedReason =
+      validation1.failedReason ??
+      (hardAfter1.length > 0 ? "hard_after_first_repair" : "still_blocked_after_second_repair");
+    return {
+      ok: false,
+      failedReason,
+      repairedBody: bodyAfter1,
+      lastRepairMetadata: repair1.metadata,
+      repairedBlockedReasons: lanePostValidateRepairedBlockedReasons(validation1),
+      extraMeta: validation1.extraMeta,
+      telemetry: buildLanePostValidateRepairTelemetry({
+        initialBlocked: args.initialBlocked,
+        initialRepairable: args.initialRepairable,
+        blockedAfterAttempt1,
+        attemptCount: 1,
+        secondRepairAttempted: false,
+        secondRepairSucceeded: false,
+        introducedRepairableReasons: introducedAfter1,
+        failedReason,
+      }),
+    };
+  }
+
+  const repairableAfter1 = partitionFinalVoiceBlockedReasons(blockedAfterAttempt1).repairable;
+  const cumulativeReasons = uniqueBlockedReasons([...args.initialRepairable, ...repairableAfter1]);
+
+  const repair2 = await repairV3RelationshipLaneBodyWithOpenAI({
+    routeKind: args.routeKind,
+    routePurpose: args.routePurpose,
+    originalBody: bodyAfter1,
+    blockedReasons: cumulativeReasons,
+    repairSnapshot: args.repairSnapshot,
+    systemInstruction: args.systemInstruction,
+    repairPass: 2,
+  });
+
+  if (!repair2) {
+    return {
+      ok: false,
+      failedReason: "second_repair_openai_failed",
+      repairedBody: bodyAfter1,
+      lastRepairMetadata: repair1.metadata,
+      repairedBlockedReasons: blockedAfterAttempt1,
+      extraMeta: validation1.extraMeta,
+      telemetry: buildLanePostValidateRepairTelemetry({
+        initialBlocked: args.initialBlocked,
+        initialRepairable: args.initialRepairable,
+        blockedAfterAttempt1,
+        attemptCount: 2,
+        secondRepairAttempted: true,
+        secondRepairSucceeded: false,
+        introducedRepairableReasons: introducedAfter1,
+        failedReason: "second_repair_openai_failed",
+      }),
+    };
+  }
+
+  const bodyAfter2 = sanitizeLaneRepairBody(repair2.body);
+  const validation2 = args.validateAfterRepair(bodyAfter2);
+  const blockedAfterAttempt2 = validation2.blockedReasons;
+
+  if (blockedAfterAttempt2.length === 0) {
+    return {
+      ok: true,
+      body: bodyAfter2,
+      lastRepairMetadata: repair2.metadata,
+      telemetry: buildLanePostValidateRepairTelemetry({
+        initialBlocked: args.initialBlocked,
+        initialRepairable: args.initialRepairable,
+        blockedAfterAttempt1,
+        blockedAfterAttempt2: [],
+        attemptCount: 2,
+        secondRepairAttempted: true,
+        secondRepairSucceeded: true,
+        introducedRepairableReasons: introducedAfter1,
+      }),
+    };
+  }
+
+  const failedReason2 =
+    validation2.failedReason ??
+    (lanePostValidateHardAfterValidation(validation2).length > 0
+      ? "hard_after_first_repair"
+      : "still_blocked_after_second_repair");
+
+  return {
+    ok: false,
+    failedReason: failedReason2 === "hard_after_first_repair" ? "still_blocked_after_second_repair" : failedReason2,
+    repairedBody: bodyAfter2,
+    lastRepairMetadata: repair2.metadata,
+    repairedBlockedReasons: lanePostValidateRepairedBlockedReasons(validation2),
+    extraMeta: validation2.extraMeta,
+    telemetry: buildLanePostValidateRepairTelemetry({
+      initialBlocked: args.initialBlocked,
+      initialRepairable: args.initialRepairable,
+      blockedAfterAttempt1,
+      blockedAfterAttempt2: blockedAfterAttempt2,
+      attemptCount: 2,
+      secondRepairAttempted: true,
+      secondRepairSucceeded: false,
+      introducedRepairableReasons: introducedAfter1,
+      failedReason:
+        failedReason2 === "hard_after_first_repair"
+          ? "still_blocked_after_second_repair"
+          : failedReason2,
+    }),
+  };
+}
+
 import {
   buildRepairSnapshotPromptGuidance,
   type RepairRelationshipSnapshotV1,
@@ -433,6 +717,7 @@ export type RepairV3RelationshipLaneBodyArgs = {
   systemInstruction?: string;
   memoryRepeatRepairContext?: MemoryRepeatRepairContext | null;
   forcedRepairStrategy?: SmsMemoryRepeatRepairStrategy | null;
+  repairPass?: 1 | 2;
 };
 
 type LaneRepairModelJson = {
@@ -527,6 +812,7 @@ ${strictStrategyRule}
   const userContentParts = [
     `route_kind: ${args.routeKind}`,
     `route_purpose: ${args.routePurpose}`,
+    ...(args.repairPass != null ? [`repair_pass: ${args.repairPass}`] : []),
     `blocked_reasons: ${args.blockedReasons.join(", ")}`,
     `original_candidate_sms: ${args.originalBody}`,
   ];
@@ -597,6 +883,7 @@ ${strictStrategyRule}
         repeat_repair_strategy: strictMemoryRepeatRepair ? used_strategy : undefined,
         lane_repair_safety_notes: sn,
         repair_snapshot_used: usesRepairSnapshot,
+        ...(args.repairPass != null ? { lane_repair_pass: args.repairPass } : {}),
         ...(usesRepairSnapshot
           ? {
               repair_snapshot_version: args.repairSnapshot!.repair_snapshot_version,

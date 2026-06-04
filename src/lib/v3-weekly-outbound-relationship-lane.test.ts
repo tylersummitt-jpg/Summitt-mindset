@@ -324,6 +324,19 @@ describe("produceWeeklyV3RelationshipSms", () => {
             },
           },
         ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Still great job on the week — keep the momentum going on this journey again!",
+                used_strategy: "still_cliche_2",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
       });
     const r = await produceWeeklyV3RelationshipSms({
       facts: baseFacts(),
@@ -334,8 +347,55 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.metadata.lane_stage).toBe("post_validate_repair_failed");
     expect(r.metadata.lane_repair_attempted).toBe(true);
     expect(r.metadata.lane_repair_succeeded).toBe(false);
+    expect(r.metadata.lane_post_validate_repair_attempt_count).toBe(2);
+    expect(r.metadata.lane_post_validate_repair_failed_reason).toBe(
+      "still_blocked_after_second_repair"
+    );
     expect(Array.isArray(r.metadata.repaired_blocked_reasons)).toBe(true);
     expect((r.metadata.repaired_blocked_reasons as string[]).length).toBeGreaterThan(0);
+  });
+
+  it("second weekly post-validate repair succeeds when first repair swaps repairable issue", async () => {
+    const cliche =
+      "Rough week, but you still logged wins. Who showed up for you this week? Let me know how it went.";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: validWeeklyJson(cliche) } }],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Great job — as you continue this momentum, who showed up for you this week?",
+                used_strategy: "bad_momentum_swap",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Who showed up for you this week when things got rough?",
+                used_strategy: "specific_question",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(createMock).toHaveBeenCalledTimes(3);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_post_validate_repair_attempt_count).toBe(2);
+    expect(r.metadata.lane_post_validate_second_repair_succeeded).toBe(true);
   });
 
   it("hard local preview echo does not attempt lane repair", async () => {

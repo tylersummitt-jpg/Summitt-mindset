@@ -19,6 +19,7 @@ import {
   detectRelationshipCoachingVoiceBlockedReasons,
   evaluateRelationshipVoiceWithPraisePolicy,
   partitionFinalVoiceBlockedReasons,
+  runLanePostValidateRepairLoop,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "@/lib/v3-sms-voice-ownership";
 import {
@@ -1254,53 +1255,34 @@ used_facts (string[]), safety_notes (string[])`;
       laneBlockedReasons: blocked,
     });
 
-    const repairOut = await repairV3RelationshipLaneBodyWithOpenAI({
+    const repairLoop = await runLanePostValidateRepairLoop({
       routeKind: "daily",
       routePurpose: laneFacts.route_kind,
       originalBody: body,
-      blockedReasons: repairable,
+      initialBlocked: blocked,
+      initialRepairable: repairable,
       repairSnapshot,
+      snapshotMeta,
       systemInstruction:
         [pendingRepairHint, timingRepairHint].filter(Boolean).join("\n\n") || undefined,
+      validateAfterRepair: (candidate) => {
+        const postValidateAfter = collectDailyPostValidateVoiceViolations(
+          candidate,
+          laneFacts,
+          bindingVerbatim
+        );
+        const missingAfterRepair = validateRequiredVerbatims(
+          candidate,
+          laneFacts.constraints.required_verbatim_substrings
+        );
+        return {
+          blockedReasons: postValidateAfter.blocked,
+          missingRequiredVerbatim: missingAfterRepair != null,
+        };
+      },
     });
 
-    if (!repairOut) {
-      return {
-        body: "",
-        shouldSend: false,
-        noSendReason: "lane_post_validate_blocked",
-        replySource: "v3_daily_relationship_lane",
-        turnPurpose: turnPurpose || "no_send",
-        voiceConfidence,
-        usedFacts,
-        safetyNotes: [...safetyNotes, ...blocked.map((b) => `blocked:${b}`)],
-        metadata: {
-          ...baseMeta,
-          ...laneOpenAiJsonMeta,
-          lane_stage: "post_validate_repair_failed",
-          v3_candidate_body: body,
-          blocked_reasons: blocked,
-          lane_repair_attempted: true,
-          lane_repair_succeeded: false,
-          original_blocked_reasons: repairable,
-          original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-          repaired_candidate_body: null,
-          repaired_blocked_reasons: null,
-          ...snapshotMeta,
-        },
-        openAiOk: true,
-      };
-    }
-
-    let repaired = repairOut.body.replace(/^["']|["']$/g, "").trim();
-    const postValidateAfter = collectDailyPostValidateVoiceViolations(repaired, laneFacts, bindingVerbatim);
-    const blockedAfter = postValidateAfter.blocked;
-    const missingAfterRepair = validateRequiredVerbatims(
-      repaired,
-      laneFacts.constraints.required_verbatim_substrings
-    );
-
-    if (blockedAfter.length > 0 || missingAfterRepair != null) {
+    if (!repairLoop.ok) {
       return {
         body: "",
         shouldSend: false,
@@ -1312,7 +1294,7 @@ used_facts (string[]), safety_notes (string[])`;
         safetyNotes: [
           ...safetyNotes,
           ...blocked.map((b) => `blocked:${b}`),
-          ...blockedAfter.map((b) => `repaired_blocked:${b}`),
+          ...(repairLoop.repairedBlockedReasons ?? []).map((b) => `repaired_blocked:${b}`),
         ],
         metadata: {
           ...baseMeta,
@@ -1324,29 +1306,29 @@ used_facts (string[]), safety_notes (string[])`;
           lane_repair_succeeded: false,
           original_blocked_reasons: repairable,
           original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-          repaired_candidate_body: repaired,
-          repaired_blocked_reasons: [
-            ...blockedAfter,
-            ...(missingAfterRepair != null ? ["missing_required_verbatim_after_repair"] : []),
-          ],
-          ...repairOut.metadata,
+          repaired_candidate_body: repairLoop.repairedBody,
+          repaired_blocked_reasons: repairLoop.repairedBlockedReasons,
+          ...repairLoop.lastRepairMetadata,
           ...snapshotMeta,
+          ...repairLoop.telemetry,
+          ...(repairLoop.extraMeta ?? {}),
         },
         openAiOk: true,
       };
     }
 
-    body = repaired;
+    body = repairLoop.body;
     successLaneStage = "post_validate_repaired";
     successRepairExtra = {
       lane_repair_attempted: true,
       lane_repair_succeeded: true,
       original_blocked_reasons: repairable,
       original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-      repaired_candidate_body: repaired,
+      repaired_candidate_body: repairLoop.body,
       repaired_blocked_reasons: [],
-      ...repairOut.metadata,
+      ...repairLoop.lastRepairMetadata,
       ...snapshotMeta,
+      ...repairLoop.telemetry,
     };
   }
 

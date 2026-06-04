@@ -464,6 +464,67 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(repairUserMsg).not.toMatch(/OPTIONAL_ACCOUNTABILITY_FACTS_JSON/);
   });
 
+  it("second inbound post-validate repair succeeds when first repair swaps repairable issue", async () => {
+    const wordy =
+      "Great to hear you made those calls! Let me know how it went — what felt strongest?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: wordy,
+                no_send_reason: null,
+                turn_purpose: "inbound",
+                voice_confidence: 0.75,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Great job — as you continue this momentum, what felt strongest in those calls?",
+                used_strategy: "bad_momentum_swap",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "What felt strongest in those calls for you?",
+                used_strategy: "specific_question",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(3);
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_post_validate_repair_attempt_count).toBe(2);
+    expect(r.metadata.lane_post_validate_second_repair_succeeded).toBe(true);
+    const secondRepairMsg = createMock.mock.calls[2]?.[0]?.messages?.[1]?.content as string;
+    expect(secondRepairMsg).toMatch(/repair_pass: 2/);
+  });
+
   it("inbound lane repair failure keeps no-send metadata", async () => {
     const wordy =
       "Great to hear you made those calls, Angel! How did you feel about the conversations? Reflecting on them can help us prepare for tomorrow's 2 PM commitment. Let me know how it went!";
