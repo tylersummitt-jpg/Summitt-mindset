@@ -1,0 +1,1148 @@
+/**
+ * OpenAI Relationship Turn Understanding V1 — inbound advisory meaning (not persistence authority).
+ */
+
+import OpenAI from "openai";
+
+import type { InboundMeaningFacts, InboundPersistenceDecision } from "@/lib/inbound-relationship-meaning";
+import type { InboundMeaningRoutePriority } from "@/lib/inbound-relationship-meaning";
+import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
+import { shouldPromoteClarifyForReportedCompletionPersist } from "@/lib/inbound-relationship-meaning";
+import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
+import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
+import { classifyV2InboundReply, type V2InboundEventType } from "@/lib/v2-sms-accountability";
+import { inboundSignalsCompletion } from "@/lib/north-star-coach-sms";
+import { isReportedCompletionRelationshipCandidate } from "@/lib/pending-plan-proof";
+
+export const OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION =
+  "openai_relationship_turn_understanding_v1" as const;
+
+/** Live inbound turn interpreter — single model, no env override. */
+export const TURN_UNDERSTANDING_OPENAI_MODEL = "gpt-4o-mini" as const;
+
+const OPENAI_TIMEOUT_MS = 10_000;
+const MAX_EVIDENCE_QUOTES = 2;
+const MAX_DO_NOT_REPEAT = 6;
+const LOW_CONFIDENCE_THRESHOLD = 0.55;
+
+export type TurnUnderstandingRelationshipMeaning =
+  | "reported_completion"
+  | "miss"
+  | "partial_attempt"
+  | "blocker_detail"
+  | "plan_made"
+  | "already_scheduled_or_happening"
+  | "prior_ask_satisfied"
+  | "reported_metric_or_result"
+  | "goal_adjustment_request"
+  | "support_request"
+  | "emotional_reflection"
+  | "direct_answer"
+  | "unclear";
+
+export type TurnUnderstandingAnsweredLastCoachAsk = "yes" | "no" | "unclear";
+
+export type TurnUnderstandingSatisfactionKind =
+  | "completed"
+  | "already_scheduled"
+  | "currently_happening"
+  | "plan_exists"
+  | "answered_no"
+  | "partial"
+  | "not_satisfied"
+  | "unclear";
+
+export type TurnUnderstandingCommitmentOutcomeRecommendation =
+  | "write_user_yes_today"
+  | "write_user_no"
+  | "write_user_partial"
+  | "ack_only"
+  | "no_outcome_write"
+  | "unclear";
+
+export type TurnUnderstandingPersistenceSafety =
+  | "safe_to_write"
+  | "do_not_write_but_acknowledge"
+  | "defer_to_server";
+
+export type TurnUnderstandingResponseIntent =
+  | "acknowledge_completion"
+  | "acknowledge_prior_ask_satisfied"
+  | "tell_truth_and_recover"
+  | "identify_blocker"
+  | "reinforce_plan_without_proof"
+  | "clarify_goal_change"
+  | "answer_user_question"
+  | "acknowledge_result_and_next_standard"
+  | "ask_next_specific_step"
+  | "close_loop_no_new_action"
+  | "unclear_clarify";
+
+export type TurnUnderstandingTemporalScope =
+  | "today"
+  | "yesterday"
+  | "past"
+  | "future"
+  | "unclear";
+
+export type TurnUnderstandingRoutePriorityRecommendation =
+  | "none"
+  | "support"
+  | "crisis"
+  | "compliance"
+  | "contract_consent"
+  | "pending_resolution"
+  | "commitment_change"
+  | "defer";
+
+export type OpenAIRelationshipTurnUnderstandingV1 = {
+  version: typeof OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION;
+  user_turn_summary: string;
+  evidence_quotes: string[];
+  relationship_meaning: TurnUnderstandingRelationshipMeaning;
+  answered_last_coach_ask: TurnUnderstandingAnsweredLastCoachAsk;
+  last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk;
+  satisfaction_kind: TurnUnderstandingSatisfactionKind;
+  do_not_repeat_asks: string[];
+  stale_ask_risk: boolean;
+  commitment_outcome_recommendation: TurnUnderstandingCommitmentOutcomeRecommendation;
+  persistence_safety: TurnUnderstandingPersistenceSafety;
+  response_intent: TurnUnderstandingResponseIntent;
+  temporal_scope: TurnUnderstandingTemporalScope;
+  reported_for_day_key: string | null;
+  confidence: number;
+  uncertainty_flags: string[];
+  route_priority_recommendation: TurnUnderstandingRoutePriorityRecommendation;
+  safety_or_support_flags: string[];
+};
+
+export type ReconciledTurnUnderstanding = {
+  proposal: OpenAIRelationshipTurnUnderstandingV1 | null;
+  reconciled_relationship_meaning: TurnUnderstandingRelationshipMeaning;
+  reconciled_response_intent: TurnUnderstandingResponseIntent;
+  reconciled_persistence_decision: InboundPersistenceDecision;
+  reconciled_do_not_repeat_asks: string[];
+  last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk;
+  satisfaction_kind: TurnUnderstandingSatisfactionKind;
+  stale_ask_risk: boolean;
+  confidence: number;
+  disagreement_flags: string[];
+  interpreter_failed_reason: string | null;
+  stale_ask_avoided: boolean;
+  persistence_note: string;
+  interpreter_latency_ms?: number | null;
+  /** Conservative server fallback when live interpreter failed — still authoritative for guards. */
+  turn_understanding_failed_safe_fallback?: boolean;
+  turn_understanding_failed_safe_reason?: string | null;
+  turn_understanding_failed_safe_do_not_repeat_asks?: string[];
+};
+
+export type TurnUnderstandingPersistGuardMeta = {
+  persistence_narrowed_by_turn_understanding: boolean;
+  persistence_narrowed_from: string | null;
+  persistence_narrowed_to: string | null;
+  turn_understanding_persistence_guard_reason: string | null;
+  turn_understanding_applied_to_persist?: boolean;
+  turn_understanding_persist_skip_reason?: string | null;
+};
+
+export type RelationshipPacketTurnUnderstanding = {
+  authority: "authoritative_current";
+  relationship_meaning: TurnUnderstandingRelationshipMeaning;
+  response_intent: TurnUnderstandingResponseIntent;
+  last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk;
+  satisfaction_kind: TurnUnderstandingSatisfactionKind;
+  do_not_repeat_asks: string[];
+  stale_ask_risk: boolean;
+  evidence_quotes: string[];
+  confidence: number;
+  persistence_note: string;
+};
+
+const SATISFACTION_KINDS_BLOCKING_CLASSIFIER_YES = new Set<TurnUnderstandingSatisfactionKind>([
+  "already_scheduled",
+  "currently_happening",
+  "plan_exists",
+]);
+
+/** Hard routes: interpreter must not be authoritative (skip live call). */
+export function shouldSkipInboundTurnUnderstandingRoute(args: {
+  routePurpose?: string | null;
+  routePriority?: InboundMeaningRoutePriority;
+}): boolean {
+  const rp = args.routePurpose?.trim() ?? "";
+  if (
+    rp &&
+    rp !== "normal_inbound_reply" &&
+    rp !== "commitment_change_context_heuristic"
+  ) {
+    return true;
+  }
+  const pr = args.routePriority ?? {};
+  if (
+    pr.compliance_or_stop ||
+    pr.crisis_or_safety ||
+    pr.support_or_cancel ||
+    pr.pending_resolution ||
+    pr.contract_consent ||
+    pr.relationship_exit ||
+    pr.identity_edit ||
+    pr.commitment_change_handoff
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Explicit skip reason for observability when interpreter must not run. */
+export function resolveInboundTurnUnderstandingSkipReason(args: {
+  routePurpose?: string | null;
+  routePriority?: InboundMeaningRoutePriority;
+}): string | null {
+  if (!shouldSkipInboundTurnUnderstandingRoute(args)) return null;
+  const pr = args.routePriority ?? {};
+  if (pr.compliance_or_stop) return "hard_route_compliance_or_stop";
+  if (pr.crisis_or_safety) return "hard_route_crisis_or_safety";
+  if (pr.support_or_cancel) return "hard_route_support_or_cancel";
+  if (pr.pending_resolution) return "hard_route_pending_resolution";
+  if (pr.contract_consent) return "hard_route_contract_consent";
+  if (pr.relationship_exit) return "hard_route_relationship_exit";
+  if (pr.identity_edit) return "hard_route_identity_edit";
+  if (pr.commitment_change_handoff) return "hard_route_commitment_change_handoff";
+  const rp = args.routePurpose?.trim() ?? "";
+  if (
+    rp &&
+    rp !== "normal_inbound_reply" &&
+    rp !== "commitment_change_context_heuristic"
+  ) {
+    return `hard_route_route_purpose_${rp}`;
+  }
+  return "hard_route_priority";
+}
+
+function truncateStore(s: string, max: number): string {
+  const t = s.trim().replace(/\s+/g, " ").replace(/\n+/g, " ");
+  if (!t) return "";
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+const RELATIONSHIP_MEANINGS = new Set<string>([
+  "reported_completion",
+  "miss",
+  "partial_attempt",
+  "blocker_detail",
+  "plan_made",
+  "already_scheduled_or_happening",
+  "prior_ask_satisfied",
+  "reported_metric_or_result",
+  "goal_adjustment_request",
+  "support_request",
+  "emotional_reflection",
+  "direct_answer",
+  "unclear",
+]);
+
+const YES_NO_UNCLEAR = new Set(["yes", "no", "unclear"]);
+
+const SATISFACTION_KINDS = new Set([
+  "completed",
+  "already_scheduled",
+  "currently_happening",
+  "plan_exists",
+  "answered_no",
+  "partial",
+  "not_satisfied",
+  "unclear",
+]);
+
+const OUTCOME_RECS = new Set([
+  "write_user_yes_today",
+  "write_user_no",
+  "write_user_partial",
+  "ack_only",
+  "no_outcome_write",
+  "unclear",
+]);
+
+const PERSISTENCE_SAFETY = new Set([
+  "safe_to_write",
+  "do_not_write_but_acknowledge",
+  "defer_to_server",
+]);
+
+const RESPONSE_INTENTS = new Set([
+  "acknowledge_completion",
+  "acknowledge_prior_ask_satisfied",
+  "tell_truth_and_recover",
+  "identify_blocker",
+  "reinforce_plan_without_proof",
+  "clarify_goal_change",
+  "answer_user_question",
+  "acknowledge_result_and_next_standard",
+  "ask_next_specific_step",
+  "close_loop_no_new_action",
+  "unclear_clarify",
+]);
+
+const TEMPORAL_SCOPES = new Set(["today", "yesterday", "past", "future", "unclear"]);
+
+const ROUTE_RECS = new Set([
+  "none",
+  "support",
+  "crisis",
+  "compliance",
+  "contract_consent",
+  "pending_resolution",
+  "commitment_change",
+  "defer",
+]);
+
+function parseEnum<T extends string>(raw: unknown, allowed: Set<string>): T | null {
+  return typeof raw === "string" && allowed.has(raw) ? (raw as T) : null;
+}
+
+function parseStringArray(raw: unknown, maxItems: number, maxLen: number): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string" || !item.trim()) continue;
+    out.push(truncateStore(item, maxLen));
+    if (out.length >= maxItems) break;
+  }
+  return out;
+}
+
+export function parseOpenAIRelationshipTurnUnderstandingV1(
+  raw: Record<string, unknown>
+): OpenAIRelationshipTurnUnderstandingV1 | null {
+  if (raw.version !== OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION) return null;
+
+  const user_turn_summary =
+    typeof raw.user_turn_summary === "string" ? truncateStore(raw.user_turn_summary, 400) : "";
+  if (user_turn_summary.length < 3) return null;
+
+  const evidenceRaw = parseStringArray(raw.evidence_quotes, MAX_EVIDENCE_QUOTES, 120);
+  if (evidenceRaw == null) return null;
+
+  const relationship_meaning = parseEnum<TurnUnderstandingRelationshipMeaning>(
+    raw.relationship_meaning,
+    RELATIONSHIP_MEANINGS
+  );
+  const answered_last_coach_ask = parseEnum<TurnUnderstandingAnsweredLastCoachAsk>(
+    raw.answered_last_coach_ask,
+    YES_NO_UNCLEAR
+  );
+  const last_ask_satisfied = parseEnum<TurnUnderstandingAnsweredLastCoachAsk>(
+    raw.last_ask_satisfied,
+    YES_NO_UNCLEAR
+  );
+  const satisfaction_kind = parseEnum<TurnUnderstandingSatisfactionKind>(
+    raw.satisfaction_kind,
+    SATISFACTION_KINDS
+  );
+  const response_intent = parseEnum<TurnUnderstandingResponseIntent>(
+    raw.response_intent,
+    RESPONSE_INTENTS
+  );
+  const commitment_outcome_recommendation =
+    parseEnum<TurnUnderstandingCommitmentOutcomeRecommendation>(
+      raw.commitment_outcome_recommendation,
+      OUTCOME_RECS
+    );
+  const persistence_safety = parseEnum<TurnUnderstandingPersistenceSafety>(
+    raw.persistence_safety,
+    PERSISTENCE_SAFETY
+  );
+  const temporal_scope = parseEnum<TurnUnderstandingTemporalScope>(
+    raw.temporal_scope,
+    TEMPORAL_SCOPES
+  );
+  const route_priority_recommendation = parseEnum<TurnUnderstandingRoutePriorityRecommendation>(
+    raw.route_priority_recommendation,
+    ROUTE_RECS
+  );
+
+  if (
+    !relationship_meaning ||
+    !answered_last_coach_ask ||
+    !last_ask_satisfied ||
+    !satisfaction_kind ||
+    !response_intent ||
+    !commitment_outcome_recommendation ||
+    !persistence_safety ||
+    !temporal_scope ||
+    !route_priority_recommendation
+  ) {
+    return null;
+  }
+
+  if (
+    typeof raw.confidence !== "number" ||
+    !Number.isFinite(raw.confidence) ||
+    raw.confidence < 0 ||
+    raw.confidence > 1
+  ) {
+    return null;
+  }
+  const confidence = raw.confidence;
+
+  if (typeof raw.stale_ask_risk !== "boolean") return null;
+
+  const doNotRaw = parseStringArray(raw.do_not_repeat_asks, MAX_DO_NOT_REPEAT, 160);
+  if (doNotRaw == null) return null;
+
+  const uncertainty_flags =
+    parseStringArray(raw.uncertainty_flags, 8, 80) ?? [];
+  const safety_or_support_flags =
+    parseStringArray(raw.safety_or_support_flags, 6, 80) ?? [];
+
+  const reported_for_day_key =
+    typeof raw.reported_for_day_key === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.reported_for_day_key.trim())
+      ? raw.reported_for_day_key.trim()
+      : null;
+
+  return {
+    version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+    user_turn_summary,
+    evidence_quotes: evidenceRaw,
+    relationship_meaning,
+    answered_last_coach_ask,
+    last_ask_satisfied,
+    satisfaction_kind,
+    do_not_repeat_asks: doNotRaw,
+    stale_ask_risk: raw.stale_ask_risk,
+    commitment_outcome_recommendation,
+    persistence_safety,
+    response_intent,
+    temporal_scope,
+    reported_for_day_key,
+    confidence,
+    uncertainty_flags,
+    route_priority_recommendation,
+    safety_or_support_flags,
+  };
+}
+
+export type BuildTurnUnderstandingPromptArgs = {
+  inboundBody: string;
+  lastCoachOutbound: string | null;
+  latestOpenQuestion: string | null;
+  latestAnswerAfterOpenQuestion: string | null;
+  openQuestionPending: boolean;
+  expectedReplySemantics: string | null;
+  effectiveAsk: string;
+  behaviorStatement: string;
+  recentThreadExcerpt: string;
+  routePurpose: string | null;
+  routePriority: InboundMeaningRoutePriority;
+  temporalContract: TemporalContractV1 | null;
+  proofCalloutClaimSavedAllowed: boolean;
+  deterministicMeaning: InboundMeaningFacts;
+  classifierEventType: V2InboundEventType;
+};
+
+export function buildTurnUnderstandingUserPrompt(args: BuildTurnUnderstandingPromptArgs): string {
+  const lines: string[] = [
+    "Interpret the user's latest inbound SMS for relationship turn understanding (shadow advisory — not final SMS).",
+    "",
+    "OUTPUT: Return ONLY valid JSON matching OpenAIRelationshipTurnUnderstandingV1:",
+    `{"version":"${OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION}","user_turn_summary":"...","evidence_quotes":["..."],"relationship_meaning":"...","answered_last_coach_ask":"yes|no|unclear","last_ask_satisfied":"yes|no|unclear","satisfaction_kind":"...","do_not_repeat_asks":["..."],"stale_ask_risk":false,"commitment_outcome_recommendation":"...","persistence_safety":"...","response_intent":"...","temporal_scope":"...","reported_for_day_key":null,"confidence":0.0,"uncertainty_flags":[],"route_priority_recommendation":"none","safety_or_support_flags":[]}`,
+    "",
+    "RULES:",
+    "- Propose meaning only. Do NOT write coach SMS.",
+    "- Distinguish what the coach should acknowledge vs what the server may persist as proof/outcome.",
+    "- Plans, already-scheduled, or currently-happening family/time can satisfy the prior coach ask without being proof.",
+    "- If the user already answered or satisfied the last coach ask, set last_ask_satisfied yes and list normalized do_not_repeat_asks (coach question phrases to avoid repeating).",
+    "- Do NOT infer proof saved or Victory Room unless explicitly allowed below.",
+    "- If support/crisis/compliance, set route_priority_recommendation and safety_or_support_flags; persistence_safety defer_to_server.",
+    "- If uncertain, confidence < 0.55 and response_intent unclear_clarify.",
+    "- evidence_quotes: at most 2 short spans from inbound only.",
+    "- do_not_repeat_asks: at most 6 short normalized phrases.",
+    "",
+    `proof_callout_claim_saved_allowed: ${args.proofCalloutClaimSavedAllowed}`,
+    `deterministic_relationship_meaning: ${args.deterministicMeaning.relationship_meaning}`,
+    `deterministic_persistence_decision: ${args.deterministicMeaning.persistence_decision}`,
+    `deterministic_sms_response_intent: ${args.deterministicMeaning.sms_response_intent}`,
+    `classifier_event_type: ${args.classifierEventType}`,
+    `route_purpose: ${args.routePurpose ?? "normal_inbound_reply"}`,
+    `route_priority: ${JSON.stringify(args.routePriority)}`,
+    "",
+    `latest_inbound: ${truncateStore(args.inboundBody, 900)}`,
+    `last_coach_outbound: ${truncateStore(args.lastCoachOutbound ?? "", 500)}`,
+    `latest_open_question: ${truncateStore(args.latestOpenQuestion ?? "", 280)}`,
+    `latest_answer_after_open_question: ${truncateStore(args.latestAnswerAfterOpenQuestion ?? "", 220)}`,
+    `open_question_pending: ${args.openQuestionPending}`,
+    `expected_reply_semantics: ${args.expectedReplySemantics ?? "unknown"}`,
+    `effective_ask: ${truncateStore(args.effectiveAsk, 220)}`,
+    `behavior_statement: ${truncateStore(args.behaviorStatement, 220)}`,
+  ];
+  if (args.temporalContract) {
+    lines.push(`temporal_contract: ${JSON.stringify(args.temporalContract).slice(0, 1200)}`);
+  }
+  if (args.recentThreadExcerpt.trim()) {
+    lines.push("", "recent_thread_excerpt:", args.recentThreadExcerpt.trim().slice(0, 2200));
+  }
+  return lines.join("\n");
+}
+
+const TURN_UNDERSTANDING_SYSTEM_PROMPT = `You interpret inbound SMS for a long-term coaching relationship.
+Return strict JSON only. Never write the coach's reply text.`;
+
+function getOpenAIClientOrNull(): OpenAI | null {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) return null;
+  return new OpenAI({ apiKey });
+}
+
+export type CallTurnUnderstandingOpenAIResult =
+  | { ok: true; proposal: OpenAIRelationshipTurnUnderstandingV1; model: string; latencyMs: number }
+  | {
+      ok: false;
+      reason: string;
+      model: string | null;
+      latencyMs: number;
+    };
+
+export async function callOpenAIRelationshipTurnUnderstandingV1(
+  promptArgs: BuildTurnUnderstandingPromptArgs
+): Promise<CallTurnUnderstandingOpenAIResult> {
+  const started = Date.now();
+  const model = TURN_UNDERSTANDING_OPENAI_MODEL;
+  const client = getOpenAIClientOrNull();
+  if (!client) {
+    return { ok: false, reason: "no_openai_key", model: null, latencyMs: Date.now() - started };
+  }
+
+  const userPrompt = buildTurnUnderstandingUserPrompt(promptArgs);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+
+  try {
+    const jsonOut = await runLaneOpenAiJsonWithOneRetry<OpenAIRelationshipTurnUnderstandingV1>({
+      client,
+      model,
+      temperature: 0.25,
+      maxTokens: 520,
+      primaryMessages: [
+        { role: "system", content: TURN_UNDERSTANDING_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      jsonSchemaReminder: `version must be "${OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION}" with all required enum fields.`,
+      signal: controller.signal,
+      allowRetry: false,
+      parse: (raw) => {
+        try {
+          return parseOpenAIRelationshipTurnUnderstandingV1(JSON.parse(raw) as Record<string, unknown>);
+        } catch {
+          return null;
+        }
+      },
+    });
+
+    clearTimeout(timer);
+
+    if (!jsonOut.value) {
+      return {
+        ok: false,
+        reason: "schema_validation_failed",
+        model,
+        latencyMs: Date.now() - started,
+      };
+    }
+
+    return {
+      ok: true,
+      proposal: jsonOut.value,
+      model,
+      latencyMs: Date.now() - started,
+    };
+  } catch (e) {
+    clearTimeout(timer);
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      ok: false,
+      reason: msg.includes("abort") ? "openai_timeout" : "openai_request_failed",
+      model,
+      latencyMs: Date.now() - started,
+    };
+  }
+}
+
+function mapProposalOutcomeToPersistence(
+  rec: TurnUnderstandingCommitmentOutcomeRecommendation
+): InboundPersistenceDecision {
+  switch (rec) {
+    case "write_user_yes_today":
+      return "write_user_yes_today";
+    case "write_user_no":
+      return "write_user_no";
+    case "write_user_partial":
+      return "write_user_partial";
+    case "ack_only":
+      return "ack_only";
+    case "no_outcome_write":
+      return "no_outcome_write";
+    default:
+      return "no_outcome_write";
+  }
+}
+
+function serverAllowsPersistenceWrite(
+  decision: InboundPersistenceDecision,
+  deterministicMeaning: InboundMeaningFacts
+): boolean {
+  if (decision === "write_user_yes_today") {
+    return shouldPromoteClarifyForReportedCompletionPersist({ inboundMeaning: deterministicMeaning });
+  }
+  if (decision === "write_user_no" || decision === "write_user_partial") {
+    return (
+      deterministicMeaning.relationship_meaning === "miss" ||
+      deterministicMeaning.relationship_meaning === "partial_attempt" ||
+      deterministicMeaning.persistence_decision === decision
+    );
+  }
+  return false;
+}
+
+export type ReconcileTurnUnderstandingArgs = {
+  proposal: OpenAIRelationshipTurnUnderstandingV1 | null;
+  deterministicMeaning: InboundMeaningFacts;
+  routePriority?: InboundMeaningRoutePriority;
+  latestCoachQuestion?: string | null;
+  interpreterFailedReason?: string | null;
+};
+
+function hardRoutePriorityOverridesProposal(routePriority?: InboundMeaningRoutePriority): boolean {
+  const pr = routePriority ?? {};
+  return Boolean(
+    pr.compliance_or_stop ||
+    pr.crisis_or_safety ||
+    pr.support_or_cancel ||
+    pr.pending_resolution ||
+    pr.contract_consent
+  );
+}
+
+export function isTurnUnderstandingAuthoritative(
+  tu: ReconciledTurnUnderstanding | null | undefined
+): boolean {
+  if (!tu) return false;
+  if (tu.turn_understanding_failed_safe_fallback) return true;
+  return !tu.interpreter_failed_reason;
+}
+
+const TU_INTENTS_OVERRIDING_OPEN_QUESTION_FACTS: ReadonlySet<TurnUnderstandingResponseIntent> =
+  new Set([
+    "acknowledge_prior_ask_satisfied",
+    "close_loop_no_new_action",
+    "acknowledge_result_and_next_standard",
+    "unclear_clarify",
+  ]);
+
+/** When true, reconciled TU coaching move wins over open_question_facts. */
+export function reconciledTurnUnderstandingOverridesOpenQuestionFacts(
+  tu: ReconciledTurnUnderstanding | null | undefined
+): boolean {
+  if (!isTurnUnderstandingAuthoritative(tu) || !tu) return false;
+  if (tu.last_ask_satisfied === "yes") return true;
+  if (tu.stale_ask_risk) return true;
+  if (tu.reconciled_do_not_repeat_asks.length > 0) return true;
+  return TU_INTENTS_OVERRIDING_OPEN_QUESTION_FACTS.has(tu.reconciled_response_intent);
+}
+
+export function isSubstantiveInboundForFailedSafe(raw: string): boolean {
+  const t = raw.trim();
+  if (t.length >= 24) return true;
+  if (/\b(family|slept|hours|minutes|visiting|tomorrow|ohio|plans|calendar)\b/i.test(t)) {
+    return true;
+  }
+  return !/^(yes|y|yeah|yep|yup|no|n|nope|ok|okay|sure)\.?$/i.test(t);
+}
+
+/** Strong completion for persist on interpreter failure — excludes bare/contextual yes. */
+export function isStrongServerOutcomeForFailedSafePersist(
+  raw: string,
+  classifierEventType: V2InboundEventType
+): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (classifierEventType === "user_partial") {
+    const c = classifyV2InboundReply(t);
+    return c.eventType === "user_partial" && c.normalizedHint === "keyword_partial";
+  }
+  if (classifierEventType === "user_no") {
+    const c = classifyV2InboundReply(t);
+    if (c.eventType !== "user_no") return false;
+    return (
+      c.normalizedHint === null ||
+      c.normalizedHint === "unclear" ||
+      Boolean(c.normalizedHint?.includes("honest"))
+    );
+  }
+  if (classifierEventType !== "user_yes") return false;
+  if (/^(yes|y|yeah|yep|yup|sure|ok|okay)\.?$/i.test(t)) return false;
+  if (
+    isSubstantiveInboundForFailedSafe(t) &&
+    !/\b(did it|done|finished|got it done|completed|knocked it out|i did it today)\b/i.test(t)
+  ) {
+    return false;
+  }
+  if (/\b(i\s+)?did\s+it\b/i.test(t) && !/\b(did not|didn't|almost|wish)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(got\s+it\s+done|finished\s+it|completed\s+it|knocked\s+it\s+out)\b/i.test(t)) {
+    return true;
+  }
+  if (/\bi\s+did\s+it\s+today\b/i.test(t)) return true;
+  if (inboundSignalsCompletion(t) && /\b(today|this morning|tonight)\b/i.test(t)) return true;
+  if (isReportedCompletionRelationshipCandidate(t) && inboundSignalsCompletion(t)) return true;
+  return false;
+}
+
+export function resolveFailedSafePersistenceDecision(args: {
+  deterministicMeaning: InboundMeaningFacts;
+  rawInbound: string;
+  classifierEventType: V2InboundEventType;
+}): InboundPersistenceDecision {
+  const det = args.deterministicMeaning.persistence_decision;
+  const raw = args.rawInbound.trim();
+
+  if (args.classifierEventType === "user_no" && isStrongServerOutcomeForFailedSafePersist(raw, "user_no")) {
+    return "write_user_no";
+  }
+  if (
+    args.classifierEventType === "user_partial" &&
+    isStrongServerOutcomeForFailedSafePersist(raw, "user_partial")
+  ) {
+    return "write_user_partial";
+  }
+  if (
+    isStrongServerOutcomeForFailedSafePersist(raw, args.classifierEventType) &&
+    (det === "write_user_yes_today" || args.classifierEventType === "user_yes")
+  ) {
+    return "write_user_yes_today";
+  }
+
+  if (det === "write_user_yes_today" && !isStrongServerOutcomeForFailedSafePersist(raw, "user_yes")) {
+    return "no_outcome_write";
+  }
+  if (det === "write_user_no" || det === "write_user_partial") {
+    return det;
+  }
+  if (det === "ack_only") return "ack_only";
+  return "no_outcome_write";
+}
+
+export function buildInterpreterFailedSafeReconciled(args: {
+  interpreterFailedReason: string;
+  proposal: OpenAIRelationshipTurnUnderstandingV1 | null;
+  deterministicMeaning: InboundMeaningFacts;
+  latestCoachQuestion?: string | null;
+  openQuestionPending?: boolean;
+  rawInbound: string;
+  classifierEventType: V2InboundEventType;
+}): ReconciledTurnUnderstanding {
+  const coachQ = args.latestCoachQuestion?.trim() ?? "";
+  const substantive = isSubstantiveInboundForFailedSafe(args.rawInbound);
+  const stale_ask_risk =
+    substantive && (coachQ.length >= 12 || args.openQuestionPending === true);
+  const do_not_repeat_asks =
+    coachQ.length >= 12 ? [coachQ.slice(0, 160)] : [];
+  const reconciled_persistence_decision = resolveFailedSafePersistenceDecision({
+    deterministicMeaning: args.deterministicMeaning,
+    rawInbound: args.rawInbound,
+    classifierEventType: args.classifierEventType,
+  });
+
+  return {
+    proposal: args.proposal,
+    reconciled_relationship_meaning: mapDeterministicToTurnMeaning(
+      args.deterministicMeaning.relationship_meaning
+    ),
+    reconciled_response_intent: "unclear_clarify",
+    reconciled_persistence_decision,
+    reconciled_do_not_repeat_asks: do_not_repeat_asks,
+    last_ask_satisfied: "unclear",
+    satisfaction_kind: "unclear",
+    stale_ask_risk,
+    confidence: 0.35,
+    disagreement_flags: ["interpreter_failed_safe_fallback"],
+    interpreter_failed_reason: args.interpreterFailedReason,
+    stale_ask_avoided: stale_ask_risk && do_not_repeat_asks.length > 0,
+    persistence_note:
+      "server failed-safe fallback: clarify without repeating prior ask; persistence only on strong clear outcomes",
+    turn_understanding_failed_safe_fallback: true,
+    turn_understanding_failed_safe_reason: args.interpreterFailedReason,
+    turn_understanding_failed_safe_do_not_repeat_asks: do_not_repeat_asks,
+  };
+}
+
+export function reconcileTurnUnderstanding(
+  args: ReconcileTurnUnderstandingArgs
+): ReconciledTurnUnderstanding {
+  const det = args.deterministicMeaning;
+  const failed = args.interpreterFailedReason?.trim() || null;
+  const disagreement_flags: string[] = [];
+  const coachQ = args.latestCoachQuestion?.trim() ?? "";
+
+  if (hardRoutePriorityOverridesProposal(args.routePriority) && args.proposal) {
+    const fallbackDnr = coachQ.length >= 12 ? [coachQ.slice(0, 160)] : [];
+    return {
+      proposal: args.proposal,
+      reconciled_relationship_meaning: mapDeterministicToTurnMeaning(det.relationship_meaning),
+      reconciled_response_intent: mapDeterministicToTurnResponseIntent(det),
+      reconciled_persistence_decision: det.persistence_decision,
+      reconciled_do_not_repeat_asks: fallbackDnr,
+      last_ask_satisfied: "unclear",
+      satisfaction_kind: "unclear",
+      stale_ask_risk: false,
+      confidence: det.confidence === "high" ? 0.7 : det.confidence === "medium" ? 0.55 : 0.4,
+      disagreement_flags: ["hard_route_priority_override"],
+      interpreter_failed_reason: null,
+      stale_ask_avoided: false,
+      persistence_note: "server kept deterministic persistence (hard route priority)",
+    };
+  }
+
+  if (failed || !args.proposal) {
+    const fallbackDnr = coachQ.length >= 12 ? [coachQ.slice(0, 160)] : [];
+    return {
+      proposal: args.proposal,
+      reconciled_relationship_meaning: mapDeterministicToTurnMeaning(det.relationship_meaning),
+      reconciled_response_intent: mapDeterministicToTurnResponseIntent(det),
+      reconciled_persistence_decision: det.persistence_decision,
+      reconciled_do_not_repeat_asks: fallbackDnr,
+      last_ask_satisfied: "unclear",
+      satisfaction_kind: "unclear",
+      stale_ask_risk: false,
+      confidence: det.confidence === "high" ? 0.7 : det.confidence === "medium" ? 0.55 : 0.4,
+      disagreement_flags: failed ? ["interpreter_failed"] : ["no_proposal"],
+      interpreter_failed_reason: failed ?? "no_proposal",
+      stale_ask_avoided: false,
+      persistence_note: "server kept deterministic persistence (interpreter unavailable)",
+    };
+  }
+
+  const p = args.proposal;
+  let reconciled_relationship_meaning = p.relationship_meaning;
+  let reconciled_response_intent = p.response_intent;
+  let reconciled_persistence_decision = det.persistence_decision;
+  let reconciled_do_not_repeat_asks = [...p.do_not_repeat_asks];
+  let last_ask_satisfied = p.last_ask_satisfied;
+  let satisfaction_kind = p.satisfaction_kind;
+  let stale_ask_risk = p.stale_ask_risk;
+  let confidence = p.confidence;
+
+  if (p.route_priority_recommendation === "compliance" || p.route_priority_recommendation === "crisis") {
+    disagreement_flags.push("route_priority_advisory_only");
+  }
+
+  if (confidence < LOW_CONFIDENCE_THRESHOLD) {
+    reconciled_response_intent = "unclear_clarify";
+    disagreement_flags.push("low_confidence_clarify");
+    if (stale_ask_risk && coachQ.length >= 12) {
+      reconciled_do_not_repeat_asks.push(coachQ.slice(0, 160));
+    }
+  }
+
+  if (last_ask_satisfied === "yes") {
+    if (
+      reconciled_response_intent === "ask_next_specific_step" ||
+      reconciled_response_intent === "reinforce_plan_without_proof"
+    ) {
+      reconciled_response_intent = "acknowledge_prior_ask_satisfied";
+      disagreement_flags.push("intent_downgraded_after_satisfied_ask");
+    }
+    if (coachQ.length >= 12 && !reconciled_do_not_repeat_asks.some((x) => x.includes(coachQ.slice(0, 40)))) {
+      reconciled_do_not_repeat_asks.unshift(coachQ.slice(0, 160));
+    }
+    stale_ask_risk = true;
+  }
+
+  if (p.persistence_safety !== "safe_to_write") {
+    const proposedPersist = mapProposalOutcomeToPersistence(p.commitment_outcome_recommendation);
+    if (proposedPersist === "write_user_yes_today" || proposedPersist === "write_user_no" || proposedPersist === "write_user_partial") {
+      disagreement_flags.push("openai_outcome_write_declined");
+    }
+    reconciled_persistence_decision =
+      det.persistence_decision === "ack_only" || det.persistence_decision === "no_outcome_write"
+        ? det.persistence_decision
+        : "no_outcome_write";
+  } else if (p.commitment_outcome_recommendation !== "unclear") {
+    const proposedPersist = mapProposalOutcomeToPersistence(p.commitment_outcome_recommendation);
+    if (serverAllowsPersistenceWrite(proposedPersist, det)) {
+      reconciled_persistence_decision = proposedPersist;
+    } else {
+      disagreement_flags.push("server_rejected_openai_persistence");
+      reconciled_persistence_decision = det.persistence_decision;
+    }
+  }
+
+  reconciled_do_not_repeat_asks = reconciled_do_not_repeat_asks
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, MAX_DO_NOT_REPEAT);
+
+  const stale_ask_avoided =
+    last_ask_satisfied === "yes" && reconciled_do_not_repeat_asks.length > 0 && stale_ask_risk;
+
+  const persistence_note =
+    reconciled_persistence_decision === det.persistence_decision
+      ? `server persistence unchanged: ${reconciled_persistence_decision}`
+      : `server adjusted persistence to ${reconciled_persistence_decision} (deterministic was ${det.persistence_decision})`;
+
+  return {
+    proposal: p,
+    reconciled_relationship_meaning,
+    reconciled_response_intent,
+    reconciled_persistence_decision,
+    reconciled_do_not_repeat_asks,
+    last_ask_satisfied,
+    satisfaction_kind,
+    stale_ask_risk,
+    confidence,
+    disagreement_flags,
+    interpreter_failed_reason: null,
+    stale_ask_avoided,
+    persistence_note,
+  };
+}
+
+function mapDeterministicToTurnMeaning(
+  m: InboundMeaningFacts["relationship_meaning"]
+): TurnUnderstandingRelationshipMeaning {
+  if (m === "answer_to_prior_question") return "direct_answer";
+  if (m === "question") return "unclear";
+  if (m === "uncertain") return "unclear";
+  if (m === "unknown") return "unclear";
+  if (m === "contract_consent") return "unclear";
+  if (RELATIONSHIP_MEANINGS.has(m)) return m as TurnUnderstandingRelationshipMeaning;
+  return "unclear";
+}
+
+function mapDeterministicToTurnResponseIntent(
+  det: InboundMeaningFacts
+): TurnUnderstandingResponseIntent {
+  switch (det.sms_response_intent) {
+    case "acknowledge_completion_and_next_step":
+      return "acknowledge_completion";
+    case "tell_truth_and_recover":
+      return "tell_truth_and_recover";
+    case "identify_blocker_or_next_move":
+      return "identify_blocker";
+    case "reinforce_plan_and_choose_first_step":
+      return "reinforce_plan_without_proof";
+    case "answer_prior_question":
+      return "answer_user_question";
+    case "clarify_gently":
+      return "unclear_clarify";
+    default:
+      return "ask_next_specific_step";
+  }
+}
+
+export function coachingMoveFromReconciledResponseIntent(
+  intent: TurnUnderstandingResponseIntent
+): string | null {
+  switch (intent) {
+    case "acknowledge_completion":
+      return "acknowledge_completion";
+    case "acknowledge_prior_ask_satisfied":
+      return "acknowledge_prior_ask_satisfied";
+    case "tell_truth_and_recover":
+      return "name_blocker";
+    case "identify_blocker":
+      return "narrow_blocker";
+    case "reinforce_plan_without_proof":
+      return "next_first_step";
+    case "clarify_goal_change":
+      return "respond_commitment_change_context_without_pending_resolution";
+    case "answer_user_question":
+      return "respond_to_open_question_answer_natural";
+    case "acknowledge_result_and_next_standard":
+      return "acknowledge_result_and_next_standard";
+    case "ask_next_specific_step":
+      return "ask_accountability";
+    case "close_loop_no_new_action":
+      return "close_loop_no_new_action";
+    case "unclear_clarify":
+      return "clarify_intent";
+    default:
+      return null;
+  }
+}
+
+export function buildRelationshipPacketTurnUnderstanding(
+  r: ReconciledTurnUnderstanding
+): RelationshipPacketTurnUnderstanding {
+  return {
+    authority: "authoritative_current",
+    relationship_meaning: r.reconciled_relationship_meaning,
+    response_intent: r.reconciled_response_intent,
+    last_ask_satisfied: r.last_ask_satisfied,
+    satisfaction_kind: r.satisfaction_kind,
+    do_not_repeat_asks: r.reconciled_do_not_repeat_asks,
+    stale_ask_risk: r.stale_ask_risk,
+    evidence_quotes: r.proposal?.evidence_quotes ?? [],
+    confidence: r.confidence,
+    persistence_note: r.persistence_note,
+  };
+}
+
+export function buildTurnUnderstandingLaneGuardrails(): string {
+  return `
+TURN_UNDERSTANDING (structured_recent_truth.turn_understanding — authoritative_current):
+- If turn_understanding.last_ask_satisfied is yes: acknowledge that the prior coach ask is satisfied; do NOT ask do_not_repeat_asks again in different words.
+- turn_understanding overrides generic effective_ask / accountability re-asks when they conflict.
+- acknowledge_prior_ask_satisfied and close_loop_no_new_action are NOT proof saved and NOT Victory Room unless proof_victory_permission explicitly allows.
+- If response_intent is acknowledge_result_and_next_standard: acknowledge the user's reported result and their stated next standard; do NOT ask an old outcome triad (protected/partial/missed) they already answered.
+- If response_intent is unclear_clarify: one concise clarifying question — not the stale old coach ask.
+`;
+}
+
+export function buildTurnUnderstandingPersistGuardMeta(args: {
+  turn: ReconciledTurnUnderstanding;
+  baselinePersistence: InboundPersistenceDecision;
+  effectivePersistence: InboundPersistenceDecision;
+  persistAllowed: boolean;
+  guardReason: string | null;
+}): TurnUnderstandingPersistGuardMeta {
+  const narrowed =
+    args.baselinePersistence !== args.effectivePersistence || !args.persistAllowed;
+  return {
+    persistence_narrowed_by_turn_understanding: narrowed,
+    persistence_narrowed_from: narrowed ? args.baselinePersistence : null,
+    persistence_narrowed_to: narrowed ? args.effectivePersistence : null,
+    turn_understanding_persistence_guard_reason: args.guardReason,
+    turn_understanding_applied_to_persist: true,
+    turn_understanding_persist_skip_reason: null,
+  };
+}
+
+export function shouldBlockClassifierYesForSatisfiedAsk(
+  turn: ReconciledTurnUnderstanding,
+  inboundMeaning: InboundMeaningFacts
+): boolean {
+  if (turn.last_ask_satisfied !== "yes") return false;
+  if (!SATISFACTION_KINDS_BLOCKING_CLASSIFIER_YES.has(turn.satisfaction_kind)) return false;
+  if (shouldPromoteClarifyForReportedCompletionPersist({ inboundMeaning })) return false;
+  if (turn.reconciled_relationship_meaning === "reported_completion") return false;
+  const safety = turn.proposal?.persistence_safety;
+  if (safety === "safe_to_write" && turn.reconciled_persistence_decision === "write_user_yes_today") {
+    return false;
+  }
+  return true;
+}
+
+export function slimTurnUnderstandingMetadata(
+  r: ReconciledTurnUnderstanding | null | undefined,
+  persistGuard?: TurnUnderstandingPersistGuardMeta | null
+): Record<string, unknown> {
+  if (!r) return { openai_turn_understanding_version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION };
+  return {
+    openai_turn_understanding_version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+    ...(r.interpreter_latency_ms != null ? { interpreter_latency_ms: r.interpreter_latency_ms } : {}),
+    ...(persistGuard ?? {}),
+    turn_understanding_relationship_meaning: r.reconciled_relationship_meaning,
+    turn_understanding_response_intent: r.reconciled_response_intent,
+    turn_understanding_last_ask_satisfied: r.last_ask_satisfied,
+    turn_understanding_satisfaction_kind: r.satisfaction_kind,
+    turn_understanding_persistence_recommendation: r.proposal?.commitment_outcome_recommendation ?? null,
+    server_reconciled_persistence_decision: r.reconciled_persistence_decision,
+    server_reconciled_response_intent: r.reconciled_response_intent,
+    do_not_repeat_asks: r.reconciled_do_not_repeat_asks,
+    turn_understanding_confidence: r.confidence,
+    uncertainty_flags: r.proposal?.uncertainty_flags ?? [],
+    interpreter_failed_reason: r.interpreter_failed_reason,
+    stale_ask_avoided: r.stale_ask_avoided,
+    disagreement_flags: r.disagreement_flags,
+    persistence_note: r.persistence_note,
+    ...(r.turn_understanding_failed_safe_fallback
+      ? {
+          turn_understanding_failed_safe_fallback: true,
+          turn_understanding_failed_safe_reason:
+            r.turn_understanding_failed_safe_reason ?? r.interpreter_failed_reason,
+          turn_understanding_failed_safe_do_not_repeat_asks:
+            r.turn_understanding_failed_safe_do_not_repeat_asks ?? r.reconciled_do_not_repeat_asks,
+        }
+      : {}),
+  };
+}
+
+export type RunInboundTurnUnderstandingArgs = {
+  inboundBody: string;
+  timezone: string;
+  receivedAtIso: string;
+  classifierEventType: V2InboundEventType;
+  classifierNormalizedHint: string | null;
+  routePurpose?: string | null;
+  routePriority?: InboundMeaningRoutePriority;
+  effectiveAsk: string;
+  behaviorStatement: string;
+  lastCoachOutbound: string | null;
+  latestOpenQuestion: string | null;
+  latestAnswerAfterOpenQuestion: string | null;
+  openQuestionPending: boolean;
+  expectedReplySemantics: string | null;
+  recentThreadExcerpt: string;
+  temporalContract: TemporalContractV1 | null;
+  proofCalloutClaimSavedAllowed: boolean;
+  openQuestionFacts?: unknown;
+};
+
+/** Build deterministic meaning, optionally call OpenAI, reconcile — inbound normal lane only. */
+export async function runInboundRelationshipTurnUnderstanding(
+  args: RunInboundTurnUnderstandingArgs
+): Promise<ReconciledTurnUnderstanding | null> {
+  if (
+    shouldSkipInboundTurnUnderstandingRoute({
+      routePurpose: args.routePurpose,
+      routePriority: args.routePriority,
+    })
+  ) {
+    return null;
+  }
+
+  const routePriority = args.routePriority ?? {};
+  const deterministicMeaning = buildInboundMeaningFacts({
+    rawInbound: args.inboundBody,
+    receivedAt: new Date(args.receivedAtIso),
+    timezone: args.timezone,
+    classifierEventType: args.classifierEventType,
+    classifierNormalizedHint: args.classifierNormalizedHint,
+    routePriority,
+    openQuestionPending: args.openQuestionPending,
+    latestOpenQuestion: args.latestOpenQuestion,
+  });
+
+  const promptArgs: BuildTurnUnderstandingPromptArgs = {
+    inboundBody: args.inboundBody,
+    lastCoachOutbound: args.lastCoachOutbound,
+    latestOpenQuestion: args.latestOpenQuestion,
+    latestAnswerAfterOpenQuestion: args.latestAnswerAfterOpenQuestion,
+    openQuestionPending: args.openQuestionPending,
+    expectedReplySemantics: args.expectedReplySemantics,
+    effectiveAsk: args.effectiveAsk,
+    behaviorStatement: args.behaviorStatement,
+    recentThreadExcerpt: args.recentThreadExcerpt,
+    routePurpose: args.routePurpose ?? "normal_inbound_reply",
+    routePriority,
+    temporalContract: args.temporalContract,
+    proofCalloutClaimSavedAllowed: args.proofCalloutClaimSavedAllowed,
+    deterministicMeaning,
+    classifierEventType: args.classifierEventType,
+  };
+
+  const openAi = await callOpenAIRelationshipTurnUnderstandingV1(promptArgs);
+  const coachQ = args.latestOpenQuestion?.trim() || args.lastCoachOutbound?.trim() || null;
+
+  const reconciled = reconcileTurnUnderstanding({
+    proposal: openAi.ok ? openAi.proposal : null,
+    deterministicMeaning,
+    routePriority,
+    latestCoachQuestion: coachQ,
+    interpreterFailedReason: openAi.ok ? null : openAi.reason,
+  });
+  return { ...reconciled, interpreter_latency_ms: openAi.latencyMs };
+}

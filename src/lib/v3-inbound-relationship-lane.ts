@@ -92,6 +92,18 @@ import {
 } from "@/lib/sms-thread-freshness";
 import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import { buildTemporalContractForInbound } from "@/lib/sms-temporal-contract-v1";
+import {
+  buildTurnUnderstandingLaneGuardrails,
+  coachingMoveFromReconciledResponseIntent,
+  isTurnUnderstandingAuthoritative,
+  reconciledTurnUnderstandingOverridesOpenQuestionFacts,
+  slimTurnUnderstandingMetadata,
+  type ReconciledTurnUnderstanding,
+} from "@/lib/openai-relationship-turn-understanding-v1";
+import {
+  detectTurnUnderstandingStaleAskViolationFromFacts,
+  paraphraseRepeatsStaleCoachAsk,
+} from "@/lib/inbound-turn-understanding-context";
 
 const INBOUND_LANE_MAX_CHARS = 320;
 
@@ -281,35 +293,28 @@ export function deriveInboundThreadMemoryCorrectionFields(args: {
   };
 }
 
-function normalizeForQuestionOverlap(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^\w\s?]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function substantiallyRepeatsCoachQuestion(proposedBody: string, coachLine: string): boolean {
-  const p = normalizeForQuestionOverlap(proposedBody);
-  const c = normalizeForQuestionOverlap(coachLine);
-  if (c.length < 18 || p.length < 12) return false;
-  const cWords = c.split(" ").filter((w) => w.length > 3);
-  const pWords = new Set(p.split(" ").filter((w) => w.length > 3));
-  let overlap = 0;
-  for (const w of cWords) if (pWords.has(w)) overlap++;
-  const ratio = cWords.length ? overlap / cWords.length : 0;
-  if (ratio >= 0.45 && /\?/.test(proposedBody)) return true;
-  if (p.includes(c.slice(0, Math.min(72, c.length)))) return true;
-  return false;
+/** Blocks outbound SMS that repeats a coach ask listed in turn_understanding.do_not_repeat_asks. */
+export function detectTurnUnderstandingStaleAskViolation(
+  body: string,
+  facts: InboundV3RelationshipFacts
+): { violation: boolean; repeatedPhrase: string | null } {
+  return detectTurnUnderstandingStaleAskViolationFromFacts(body, facts);
 }
 
 function inboundBodyReasksThreadQuestion(body: string, facts: InboundV3RelationshipFacts): boolean {
+  const tu = facts.turn_understanding;
   if (
     !facts.thread.memory_correction_should_use_prior_user_answer &&
     !facts.thread.short_ack_should_not_reask_question &&
     !facts.thread.latest_answer_after_open_question?.trim() &&
     !facts.thread.memory_packet?.latest_answer_after_open_question?.trim() &&
-    !facts.thread.memory_packet?.latest_answer_after_open_question_guess
+    !facts.thread.memory_packet?.latest_answer_after_open_question_guess &&
+    !(
+      tu &&
+      isTurnUnderstandingAuthoritative(tu) &&
+      (tu.last_ask_satisfied === "yes" || tu.stale_ask_risk) &&
+      tu.reconciled_do_not_repeat_asks.length > 0
+    )
   ) {
     return false;
   }
@@ -321,7 +326,7 @@ function inboundBodyReasksThreadQuestion(body: string, facts: InboundV3Relations
     ...(facts.thread.memory_packet?.last_5_coach_questions ?? []),
   ].filter((t): t is string => Boolean(t?.trim()));
   for (const t of targets) {
-    if (substantiallyRepeatsCoachQuestion(body, t)) return true;
+    if (paraphraseRepeatsStaleCoachAsk(body, t)) return true;
   }
   if (/\bwhat\s+story\s+will\s+you\s+dictate\b/i.test(body)) return true;
   return false;
@@ -1063,7 +1068,13 @@ export type InboundV3RelationshipFacts = {
   identity_edit?: InboundV3IdentityEditFacts | null;
   memory_repeat_escalation?: InboundPriorMemoryRepeatNoSendContext | null;
   inbound_meaning: InboundMeaningFacts;
+  /** Server-reconciled OpenAI turn understanding (advisory; persistence still server-owned). */
+  turn_understanding?: ReconciledTurnUnderstanding | null;
   suggested_coaching_move: string;
+  /** How suggested_coaching_move was chosen (telemetry). */
+  coaching_move_source?: InboundCoachingMoveSource;
+  /** True when legacy fallback move existed but authoritative TU owned the move. */
+  conversation_brain_fallback_suppressed_by_turn_understanding?: boolean;
   constraints: {
     max_chars: number;
     one_sms: true;
@@ -1077,6 +1088,20 @@ export type InboundV3RelationshipFacts = {
     /** Coach must satisfy this meaning without contradicting server-owned state. */
     required_meaning_summary?: string | null;
   };
+};
+
+export type InboundCoachingMoveSource =
+  | "turn_understanding"
+  | "conversation_brain_fallback"
+  | "hard_route"
+  | "open_question"
+  | "deterministic"
+  | "thread_correction";
+
+export type DerivedInboundCoachingMove = {
+  move: string;
+  coaching_move_source: InboundCoachingMoveSource;
+  conversation_brain_fallback_suppressed_by_turn_understanding?: boolean;
 };
 
 export type InboundV3RelationshipLaneInput = {
@@ -1153,12 +1178,22 @@ function summarizeInboundFacts(f: InboundV3RelationshipFacts): string {
     final_event_type: f.v2_accountability.final_event_type,
     classifier: f.v2_accountability.deterministic_classifier_event,
     suggested_move: f.suggested_coaching_move,
+    coaching_move_source: f.coaching_move_source ?? null,
+    conversation_brain_fallback_suppressed_by_turn_understanding:
+      f.conversation_brain_fallback_suppressed_by_turn_understanding ?? null,
     inbound_meaning: {
       relationship_meaning: f.inbound_meaning.relationship_meaning,
       temporal_scope: f.inbound_meaning.temporal_scope,
       persistence_decision: f.inbound_meaning.persistence_decision,
       sms_response_intent: f.inbound_meaning.sms_response_intent,
     },
+    turn_understanding: f.turn_understanding
+      ? {
+          reconciled_response_intent: f.turn_understanding.reconciled_response_intent,
+          last_ask_satisfied: f.turn_understanding.last_ask_satisfied,
+          interpreter_failed: Boolean(f.turn_understanding.interpreter_failed_reason),
+        }
+      : null,
     proof: f.v2_accountability.proof_signal,
     miss: f.v2_accountability.miss_signal,
     wave11_pending: f.legacy_suggestions.wave11_memory_confirmation_pending,
@@ -1357,86 +1392,169 @@ export function slimCommitmentChangeContextFactsForTelemetry(
   };
 }
 
-export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3RelationshipFacts): string {
-  if (f.conversation_brain_fallback_facts) {
-    return f.conversation_brain_fallback_facts.suggested_coaching_move;
-  }
+/** Authoritative TU owns coaching move when satisfied/stale/DNR or mapped response intent exists. */
+export function turnUnderstandingShouldSourceCoachingMove(
+  tu: ReconciledTurnUnderstanding | null | undefined
+): boolean {
+  if (!tu || !isTurnUnderstandingAuthoritative(tu)) return false;
+  if (tu.last_ask_satisfied === "yes") return true;
+  if (tu.stale_ask_risk) return true;
+  if (tu.reconciled_do_not_repeat_asks.length > 0) return true;
+  return coachingMoveFromReconciledResponseIntent(tu.reconciled_response_intent) != null;
+}
+
+export function deriveInboundCoachingMoveForFacts(
+  f: InboundV3RelationshipFacts
+): DerivedInboundCoachingMove {
+  const fallbackFacts = f.conversation_brain_fallback_facts;
+  const tu = f.turn_understanding;
+
   if (
     f.pending_replacement_facts?.pending_resolution_active === true &&
     f.pending_replacement_facts.pending_resolution_applied !== true
   ) {
-    return "coach_pending_commitment_replace_candidate";
+    return { move: "coach_pending_commitment_replace_candidate", coaching_move_source: "hard_route" };
   }
   if (f.central_brain_pivot_facts) {
     const m = f.central_brain_pivot_facts.suggested_move?.trim();
-    return m && m.length > 0 ? m : "pivot_respond_humanely";
+    return {
+      move: m && m.length > 0 ? m : "pivot_respond_humanely",
+      coaching_move_source: "hard_route",
+    };
   }
   if (f.central_brain_blocker_pivot_facts) {
     const m = f.central_brain_blocker_pivot_facts.suggested_move?.trim();
-    return m && m.length > 0 ? m : "blocker_pivot_respond_humanely";
+    return {
+      move: m && m.length > 0 ? m : "blocker_pivot_respond_humanely",
+      coaching_move_source: "hard_route",
+    };
   }
   if (f.arc_clarification_facts) {
-    return "clarify_ambiguous_short_natural_sms";
+    return { move: "clarify_ambiguous_short_natural_sms", coaching_move_source: "hard_route" };
   }
   if (f.blocker_facts) {
-    return "acknowledge_blocker_capture";
+    return { move: "acknowledge_blocker_capture", coaching_move_source: "hard_route" };
   }
   if (f.adaptive_consent_clarification_facts) {
-    return "ask_clear_yes_or_no_for_pending_adaptive_proposal";
+    return {
+      move: "ask_clear_yes_or_no_for_pending_adaptive_proposal",
+      coaching_move_source: "hard_route",
+    };
   }
   if (f.commitment_change_context_facts) {
-    return "respond_commitment_change_context_without_pending_resolution";
+    return {
+      move: "respond_commitment_change_context_without_pending_resolution",
+      coaching_move_source: "hard_route",
+    };
   }
   if (f.identity_edit) {
-    if (f.identity_edit.goal_confusion_risk) return "separate_identity_from_goal_clarify";
-    if (f.identity_edit.discouragement_risk) return "protect_identity_after_bad_day";
-    if (f.identity_edit.should_invite_victory_room_review) {
-      return "clarify_identity_optional_victory_room_review";
+    if (f.identity_edit.goal_confusion_risk) {
+      return { move: "separate_identity_from_goal_clarify", coaching_move_source: "hard_route" };
     }
-    return "clarify_identity_integrity";
+    if (f.identity_edit.discouragement_risk) {
+      return { move: "protect_identity_after_bad_day", coaching_move_source: "hard_route" };
+    }
+    if (f.identity_edit.should_invite_victory_room_review) {
+      return {
+        move: "clarify_identity_optional_victory_room_review",
+        coaching_move_source: "hard_route",
+      };
+    }
+    return { move: "clarify_identity_integrity", coaching_move_source: "hard_route" };
   }
   if (f.commitment_change_facts) {
-    return "commitment_change_handoff_respond_with_server_owned_next_steps";
+    return {
+      move: "commitment_change_handoff_respond_with_server_owned_next_steps",
+      coaching_move_source: "hard_route",
+    };
   }
   if (f.contract_consent_facts) {
     if (f.route_purpose === "adaptive_proposal_consent_decline") {
-      return "acknowledge_adaptive_overlay_declined";
+      return { move: "acknowledge_adaptive_overlay_declined", coaching_move_source: "hard_route" };
     }
     if (f.route_purpose === "adaptive_proposal_consent_noop_ack") {
-      return "acknowledge_adaptive_proposal_noop";
+      return { move: "acknowledge_adaptive_proposal_noop", coaching_move_source: "hard_route" };
     }
-    return "acknowledge_adaptive_overlay_accepted";
+    return { move: "acknowledge_adaptive_overlay_accepted", coaching_move_source: "hard_route" };
   }
   if (f.refresh_facts) {
-    return "continue_refresh_coach_sms";
+    return { move: "continue_refresh_coach_sms", coaching_move_source: "hard_route" };
   }
   if (f.pending_resolution_facts) {
-    return "continue_pending_resolution_coach_sms";
+    return { move: "continue_pending_resolution_coach_sms", coaching_move_source: "hard_route" };
   }
   if (f.memory_confirmation_facts) {
-    if (f.route_purpose === "memory_decline") return "acknowledge_memory_declined";
-    if (f.route_purpose === "memory_clarification") return "clarify_memory_confirmation_reply";
-    return "acknowledge_memory_update_outcome";
+    if (f.route_purpose === "memory_decline") {
+      return { move: "acknowledge_memory_declined", coaching_move_source: "hard_route" };
+    }
+    if (f.route_purpose === "memory_clarification") {
+      return { move: "clarify_memory_confirmation_reply", coaching_move_source: "hard_route" };
+    }
+    return { move: "acknowledge_memory_update_outcome", coaching_move_source: "hard_route" };
   }
-  if (f.open_question_facts) {
-    return "respond_to_open_question_answer_natural";
+
+  if (turnUnderstandingShouldSourceCoachingMove(tu)) {
+    const reconciledMove = coachingMoveFromReconciledResponseIntent(tu!.reconciled_response_intent);
+    const move = reconciledMove ?? "clarify_intent";
+    return {
+      move,
+      coaching_move_source: "turn_understanding",
+      ...(fallbackFacts
+        ? { conversation_brain_fallback_suppressed_by_turn_understanding: true }
+        : {}),
+    };
+  }
+
+  if (fallbackFacts) {
+    return {
+      move: fallbackFacts.suggested_coaching_move,
+      coaching_move_source: "conversation_brain_fallback",
+    };
+  }
+
+  if (
+    f.open_question_facts &&
+    !reconciledTurnUnderstandingOverridesOpenQuestionFacts(f.turn_understanding)
+  ) {
+    return {
+      move: "respond_to_open_question_answer_natural",
+      coaching_move_source: "open_question",
+    };
   }
   if (f.thread.current_inbound_is_already_told_you_correction) {
-    return "use_recent_answer_after_correction";
+    return {
+      move: "use_recent_answer_after_correction",
+      coaching_move_source: "thread_correction",
+    };
   }
   if (f.thread.short_ack_should_not_reask_question) {
-    return "acknowledge_prior_answer_without_reasking";
+    return {
+      move: "acknowledge_prior_answer_without_reasking",
+      coaching_move_source: "thread_correction",
+    };
   }
   const meaningMove = coachingMoveFromSmsResponseIntent(f.inbound_meaning.sms_response_intent);
   if (meaningMove) {
-    return meaningMove;
+    return { move: meaningMove, coaching_move_source: "deterministic" };
   }
   const ft = f.v2_accountability.final_event_type;
-  if (ft === "user_yes") return "acknowledge_completion";
-  if (ft === "user_no") return "name_blocker";
-  if (ft === "user_partial") return "narrow_blocker";
-  if (f.v2_accountability.gated_mode === "clarify") return "clarify_intent";
-  return "ask_accountability";
+  if (ft === "user_yes") {
+    return { move: "acknowledge_completion", coaching_move_source: "deterministic" };
+  }
+  if (ft === "user_no") {
+    return { move: "name_blocker", coaching_move_source: "deterministic" };
+  }
+  if (ft === "user_partial") {
+    return { move: "narrow_blocker", coaching_move_source: "deterministic" };
+  }
+  if (f.v2_accountability.gated_mode === "clarify") {
+    return { move: "clarify_intent", coaching_move_source: "deterministic" };
+  }
+  return { move: "ask_accountability", coaching_move_source: "deterministic" };
+}
+
+export function deriveSuggestedCoachingMoveForInboundFacts(f: InboundV3RelationshipFacts): string {
+  return deriveInboundCoachingMoveForFacts(f).move;
 }
 
 function validateForbiddenSubstrings(body: string, forbidden: string[] | undefined): string | null {
@@ -1758,6 +1876,19 @@ function validateInboundLaneCandidateBody(
       extraMeta: { v3_candidate_body: body, forbidden_hit: badSub.slice(0, 120) },
     };
   }
+  const staleAsk = detectTurnUnderstandingStaleAskViolation(body, args.facts);
+  if (staleAsk.violation) {
+    return {
+      ok: false,
+      noSendReason: "turn_understanding_stale_ask_blocked",
+      laneStage: "turn_understanding_stale_ask_validation_failed",
+      safetySuffix: "reasked_turn_understanding_do_not_repeat",
+      extraMeta: {
+        v3_candidate_body: body,
+        turn_understanding_stale_ask_phrase: staleAsk.repeatedPhrase,
+      },
+    };
+  }
   const missReq = validateRequiredVerbatimSubstrings(body, args.facts.constraints.required_verbatim_substrings);
   if (missReq != null) {
     return {
@@ -1969,6 +2100,7 @@ export async function produceInboundV3RelationshipSms(
     rejected_time_candidates: args.facts.thread.rejected_time_candidates,
     unavailable_windows: args.facts.thread.unavailable_windows,
     voice_writer_chain: ["v3_inbound_relationship_lane", "north_star_validator", "final_voice_gate"],
+    ...slimTurnUnderstandingMetadata(args.facts.turn_understanding),
   };
 
   const empty = (reason: string, openAiOk: boolean, extra?: Record<string, unknown>): InboundV3RelationshipLaneResult => ({
@@ -2018,7 +2150,7 @@ ${buildRelationshipPacketPromptGuidance()}
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
-${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
+${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -2104,6 +2236,16 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
   if (body.length > args.facts.constraints.max_chars) {
     return empty("over_max_chars", true, { lane_stage: "length", v3_candidate_body: body, ...laneOpenAiJsonMeta });
+  }
+
+  const staleAskEarly = detectTurnUnderstandingStaleAskViolation(body, args.facts);
+  if (staleAskEarly.violation) {
+    return empty("turn_understanding_stale_ask_blocked", true, {
+      lane_stage: "turn_understanding_stale_ask_validation_failed",
+      v3_candidate_body: body,
+      turn_understanding_stale_ask_phrase: staleAskEarly.repeatedPhrase,
+      ...laneOpenAiJsonMeta,
+    });
   }
 
   const rt = args.facts.thread.rejected_time_candidates;
@@ -2313,6 +2455,28 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     };
   }
 
+  const staleAskFinal = detectTurnUnderstandingStaleAskViolation(body, args.facts);
+  if (staleAskFinal.violation) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: "turn_understanding_stale_ask_blocked",
+      replySource: "v3_inbound_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes: [...safetyNotes, "reasked_turn_understanding_do_not_repeat"],
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: "turn_understanding_stale_ask_after_memory_repeat",
+        v3_candidate_body: body,
+        turn_understanding_stale_ask_phrase: staleAskFinal.repeatedPhrase,
+      },
+      openAiOk: true,
+    };
+  }
+
   const missReq = validateRequiredVerbatimSubstrings(body, args.facts.constraints.required_verbatim_substrings);
   if (missReq != null) {
     return {
@@ -2487,6 +2651,7 @@ export type BuildInboundV3RelationshipFactsArgs = {
   relationshipExitFacts?: InboundV3RelationshipExitFacts | null;
   identityEditFacts?: InboundV3IdentityEditFacts | null;
   priorMemoryRepeatNoSend?: InboundPriorMemoryRepeatNoSendContext | null;
+  turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
 };
 
 /** Optional Victory / proof mention — V3-owned; no deterministic post-FVG append. */
@@ -2582,6 +2747,14 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       args.northStarPacket.latestOpenQuestion ??
       null,
   });
+
+  const turnReconciled = args.turnUnderstandingReconciled ?? null;
+  const persistenceForFacts =
+    turnReconciled?.reconciled_persistence_decision ?? inboundMeaning.persistence_decision;
+  const effectiveInboundMeaning: InboundMeaningFacts =
+    turnReconciled != null
+      ? { ...inboundMeaning, persistence_decision: persistenceForFacts }
+      : inboundMeaning;
 
   const facts: InboundV3RelationshipFacts = {
     route_purpose: routePurpose,
@@ -2711,21 +2884,21 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       deterministic_classifier_event: args.deterministicEventType,
       gated_mode: args.gatedDecision.mode,
       final_event_type: reconcileLegacyAccountabilityEventTypeFromMeaning({
-        inboundMeaning,
+        inboundMeaning: effectiveInboundMeaning,
         gatedFinalEventType: args.gatedDecision.final_event_type ?? null,
       }),
       should_write_outcome_event:
-        inboundMeaning.persistence_decision === "write_user_yes_today" ||
-        inboundMeaning.persistence_decision === "write_user_no" ||
-        inboundMeaning.persistence_decision === "write_user_partial",
+        persistenceForFacts === "write_user_yes_today" ||
+        persistenceForFacts === "write_user_no" ||
+        persistenceForFacts === "write_user_partial",
       reply_style: args.gatedDecision.reply_style ?? null,
       proof_signal:
-        inboundMeaningAuthorizesTodayCompleted(inboundMeaning) &&
+        inboundMeaningAuthorizesTodayCompleted(effectiveInboundMeaning) &&
         args.northStarPacket.proofSignal === true,
       miss_signal: args.northStarPacket.missSignal === true,
       blocker_signal: args.northStarPacket.blockerSignal === true,
       today_completed:
-        inboundMeaningAuthorizesTodayCompleted(inboundMeaning) &&
+        inboundMeaningAuthorizesTodayCompleted(effectiveInboundMeaning) &&
         args.northStarPacket.todayCompleted === true,
       future_intent_hint: args.northStarPacket.futureIntentHint ?? null,
       supplement_commitment_change_guidance: args.gatedDecision.supplement_commitment_change_guidance === true,
@@ -2761,7 +2934,8 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     ...(args.priorMemoryRepeatNoSend != null
       ? { memory_repeat_escalation: args.priorMemoryRepeatNoSend }
       : {}),
-    inbound_meaning: inboundMeaning,
+    inbound_meaning: effectiveInboundMeaning,
+    ...(turnReconciled ? { turn_understanding: turnReconciled } : {}),
     legacy_suggestions: {
       conversation_brain: args.conversationBrain,
       central_brain: args.centralBrain,
@@ -2818,6 +2992,14 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       ];
     }
   }
+  if (turnReconciled?.reconciled_do_not_repeat_asks.length) {
+    const forbidden = [...(facts.constraints.forbidden_substrings ?? [])];
+    for (const phrase of turnReconciled.reconciled_do_not_repeat_asks) {
+      const t = phrase.trim();
+      if (t.length >= 12) forbidden.push(t.slice(0, Math.min(120, t.length)));
+    }
+    facts.constraints.forbidden_substrings = [...new Set(forbidden)];
+  }
   facts.thread_freshness = deriveRecentThreadFreshnessFacts({
     recentExactThreadText: mp?.recent_exact_thread_text ?? null,
     recentTranscriptLines: args.transcriptLines,
@@ -2836,6 +3018,12 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     receivedAt: new Date(args.localTimeIso),
     inboundMeaning,
   });
-  facts.suggested_coaching_move = deriveSuggestedCoachingMoveForInboundFacts(facts);
+  const derivedMove = deriveInboundCoachingMoveForFacts(facts);
+  facts.suggested_coaching_move = derivedMove.move;
+  facts.coaching_move_source = derivedMove.coaching_move_source;
+  if (derivedMove.conversation_brain_fallback_suppressed_by_turn_understanding != null) {
+    facts.conversation_brain_fallback_suppressed_by_turn_understanding =
+      derivedMove.conversation_brain_fallback_suppressed_by_turn_understanding;
+  }
   return facts;
 }

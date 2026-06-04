@@ -474,6 +474,35 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(meta.included_memory_30d_window_days).toBe(30);
   });
 
+  it("includes turn_understanding in structured_recent_truth when facts carry reconciled understanding", () => {
+    const facts = minimalInboundFacts();
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: {
+        ...facts,
+        turn_understanding: {
+          proposal: null,
+          reconciled_relationship_meaning: "prior_ask_satisfied",
+          reconciled_response_intent: "acknowledge_prior_ask_satisfied",
+          reconciled_persistence_decision: "no_outcome_write",
+          reconciled_do_not_repeat_asks: ["calendar for tomorrow"],
+          last_ask_satisfied: "yes",
+          satisfaction_kind: "already_scheduled",
+          stale_ask_risk: true,
+          confidence: 0.9,
+          disagreement_flags: [],
+          interpreter_failed_reason: null,
+          stale_ask_avoided: true,
+          persistence_note: "server persistence unchanged: no_outcome_write",
+        },
+      },
+    });
+    expect(packet.structured_recent_truth.data.turn_understanding?.response_intent).toBe(
+      "acknowledge_prior_ask_satisfied"
+    );
+    expect(userPromptJson).toContain("turn_understanding");
+  });
+
   it("inbound and daily share the same relationship_memory_30d_or_season shape", () => {
     const memory30d = makeSampleMemory30d();
     const inbound = buildRelationshipPacketForOpenAI({

@@ -4,10 +4,39 @@ import { defaultGatedDecision } from "@/lib/v2-ai-inbound";
 import { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import {
+  buildInterpreterFailedSafeReconciled,
+  OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+  reconcileTurnUnderstanding,
+  type OpenAIRelationshipTurnUnderstandingV1,
+} from "@/lib/openai-relationship-turn-understanding-v1";
+import {
   persistInboundAccountabilityOutcomeEvent,
   shouldPersistInboundAccountabilityOutcome,
   resolveInboundAccountabilityOutcomeEventType,
 } from "@/lib/v2-inbound-accountability-outcome-persist";
+
+function familyTurnProposal(): OpenAIRelationshipTurnUnderstandingV1 {
+  return {
+    version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+    user_turn_summary: "Visiting family; plans tomorrow.",
+    evidence_quotes: ["visiting with family"],
+    relationship_meaning: "prior_ask_satisfied",
+    answered_last_coach_ask: "yes",
+    last_ask_satisfied: "yes",
+    satisfaction_kind: "currently_happening",
+    do_not_repeat_asks: ["put one family connection on the calendar for tomorrow"],
+    stale_ask_risk: true,
+    commitment_outcome_recommendation: "no_outcome_write",
+    persistence_safety: "defer_to_server",
+    response_intent: "acknowledge_prior_ask_satisfied",
+    temporal_scope: "today",
+    reported_for_day_key: null,
+    confidence: 0.9,
+    uncertainty_flags: [],
+    route_priority_recommendation: "none",
+    safety_or_support_flags: [],
+  };
+}
 
 const insertMock = vi.fn();
 
@@ -18,6 +47,11 @@ vi.mock("@/lib/supabase-server", () => ({
     }),
   },
 }));
+
+const livePromptCtx = {
+  has_live_accountability_prompt: true,
+  self_contained_accountability_answer: false,
+};
 
 describe("isClearAccountabilityCompletionReply", () => {
   it("detects I did it and similar completion phrases", () => {
@@ -48,10 +82,6 @@ describe("isClearAccountabilityCompletionReply", () => {
 });
 
 describe("shouldPersistInboundAccountabilityOutcome", () => {
-  const livePromptCtx = {
-    has_live_accountability_prompt: true,
-    self_contained_accountability_answer: false,
-  };
 
   it("persists clear user_yes even when gated should_write_outcome_event is false", () => {
     const result = shouldPersistInboundAccountabilityOutcome({
@@ -192,6 +222,75 @@ describe("shouldPersistInboundAccountabilityOutcome", () => {
     expect(cancelResult).toEqual({ persist: false, skipReason: "meaning_no_outcome_write" });
   });
 
+  it("narrows persistence when turn understanding says no_outcome_write (family visiting)", () => {
+    const body =
+      "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: "put one family connection on the calendar for tomorrow",
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: familyTurnProposal(),
+      deterministicMeaning: inboundMeaning,
+      latestCoachQuestion: "put one family connection on the calendar for tomorrow",
+    });
+    const withoutTu = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_family",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    const withTu = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_family",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    if (withoutTu.persist) {
+      expect(withTu.persist).toBe(false);
+      expect(withTu.turnUnderstandingPersistGuard?.persistence_narrowed_by_turn_understanding).toBe(
+        true
+      );
+    } else {
+      expect(withTu.persist).toBe(false);
+    }
+  });
+
+  it("blocks expand: turn understanding cannot enable persist when baseline skipped", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "All good for now",
+      classifierEventType: "user_yes",
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: familyTurnProposal(),
+      deterministicMeaning: inboundMeaning,
+    });
+    tu.reconciled_persistence_decision = "write_user_yes_today";
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_expand",
+      commitmentId: "commit-1",
+      rawBody: "All good for now",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: { has_live_accountability_prompt: false, self_contained_accountability_answer: false },
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(false);
+  });
+
   it("skips explicit lane exclusions", () => {
     const result = shouldPersistInboundAccountabilityOutcome({
       messageSid: "SM_test_004",
@@ -212,6 +311,225 @@ describe("shouldPersistInboundAccountabilityOutcome", () => {
       activeReplyContext: livePromptCtx,
     });
     expect(result).toEqual({ persist: false, skipReason: "lane_excluded" });
+  });
+});
+
+describe("turn understanding — all inbound persist branches", () => {
+  const body =
+    "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.";
+  const inboundMeaning = buildInboundMeaningFacts({
+    rawInbound: body,
+    classifierEventType: "user_yes",
+    openQuestionPending: true,
+    latestOpenQuestion: "put one family connection on the calendar for tomorrow",
+  });
+  const tu = reconcileTurnUnderstanding({
+    proposal: familyTurnProposal(),
+    deterministicMeaning: inboundMeaning,
+    latestCoachQuestion: "put one family connection on the calendar for tomorrow",
+  });
+
+  for (const branch of [
+    "main",
+    "open_question",
+    "central_pivot",
+    "arc_clarify",
+    "conversation_brain_legacy_fallback",
+  ] as const) {
+    it(`A: family visiting no false user_yes (${branch})`, () => {
+      const result = shouldPersistInboundAccountabilityOutcome({
+        messageSid: `SM_branch_${branch}`,
+        commitmentId: "commit-1",
+        rawBody: body,
+        classifierEventType: "user_yes",
+        gatedDecision: defaultGatedDecision("user_yes", "test"),
+        laneExclusion: "none",
+        activeReplyContext: livePromptCtx,
+        inboundMeaning,
+        turnUnderstandingReconciled: tu,
+      });
+      expect(result.persist).toBe(false);
+    });
+  }
+
+  it("B: yes already on no false user_yes", () => {
+    const alreadyOn = "Yes already on";
+    const det = buildInboundMeaningFacts({
+      rawInbound: alreadyOn,
+      classifierEventType: "user_yes",
+      latestOpenQuestion: "put one family connection on the calendar for tomorrow",
+    });
+    const tuOn = reconcileTurnUnderstanding({
+      proposal: familyTurnProposal(),
+      deterministicMeaning: det,
+      latestCoachQuestion: "put one family connection on the calendar for tomorrow",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_already_on_branch",
+      commitmentId: "commit-1",
+      rawBody: alreadyOn,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: det,
+      turnUnderstandingReconciled: tuOn,
+    });
+    expect(result.persist).toBe(false);
+  });
+});
+
+describe("interpreter failed-safe persistence", () => {
+  const livePromptCtx = {
+    has_live_accountability_prompt: true,
+    self_contained_accountability_answer: false,
+  };
+
+  it("A: family/plans substantive — no fake user_yes", () => {
+    const body =
+      "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: "put one family connection on the calendar for tomorrow",
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "timeout",
+      proposal: null,
+      deterministicMeaning: inboundMeaning,
+      latestCoachQuestion: "put one family connection on the calendar for tomorrow",
+      openQuestionPending: true,
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_fail_family",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("B: bare yes with open question — no fake user_yes", () => {
+    const body = "yes";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: "put one family connection on the calendar for tomorrow",
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "timeout",
+      proposal: null,
+      deterministicMeaning: inboundMeaning,
+      latestCoachQuestion: "put one family connection on the calendar for tomorrow",
+      openQuestionPending: true,
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_fail_yes",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("C: I did it today — can still persist", () => {
+    const body = "I did it today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "timeout",
+      proposal: null,
+      deterministicMeaning: inboundMeaning,
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_fail_done",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_yes");
+  });
+
+  it("D: No I missed — can still persist", () => {
+    const body = "No, I missed";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "timeout",
+      proposal: null,
+      deterministicMeaning: inboundMeaning,
+      rawInbound: body,
+      classifierEventType: "user_no",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_fail_miss",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_no");
+  });
+
+  it("E: I did half — partial can persist", () => {
+    const body = "I did half";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_partial",
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "timeout",
+      proposal: null,
+      deterministicMeaning: inboundMeaning,
+      rawInbound: body,
+      classifierEventType: "user_partial",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_fail_partial",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_partial",
+      gatedDecision: defaultGatedDecision("user_partial", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_partial");
   });
 });
 

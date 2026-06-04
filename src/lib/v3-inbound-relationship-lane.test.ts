@@ -30,12 +30,17 @@ import {
   type InboundV3ProofCalloutHint,
 } from "@/lib/v2-proof-moment";
 import {
+  buildConversationBrainFallbackFacts,
   buildInboundProofCalloutLaneGuardrails,
   buildInboundV3RelationshipFacts,
   buildSeasonTransitionRouteAux,
+  deriveInboundCoachingMoveForFacts,
+  detectTurnUnderstandingStaleAskViolation,
   produceInboundV3RelationshipSms,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
+import { applyInboundFinalBodyTurnUnderstandingGuard } from "@/lib/inbound-turn-understanding-context";
+import { buildInterpreterFailedSafeReconciled } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
@@ -48,6 +53,13 @@ import {
 } from "@/lib/sms-relationship-memory-30d";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
+import {
+  OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+  reconcileTurnUnderstanding,
+  type OpenAIRelationshipTurnUnderstandingV1,
+} from "@/lib/openai-relationship-turn-understanding-v1";
+import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
+import { buildRelationshipPacketForOpenAI } from "@/lib/sms-relationship-packet-v1";
 
 const emptyThread72h = {
   messages: [],
@@ -1790,5 +1802,857 @@ describe("thread_freshness in V3 inbound lane", () => {
     expect(r.body.toLowerCase()).not.toMatch(/how do you feel about prioritizing.*stretch.*lunch/);
     expect(r.metadata.thread_freshness_repair_succeeded).toBe(true);
     expect(r.metadata.thread_freshness_used).toBe(true);
+  });
+});
+
+function turnProposal(
+  overrides: Partial<OpenAIRelationshipTurnUnderstandingV1> = {}
+): OpenAIRelationshipTurnUnderstandingV1 {
+  return {
+    version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+    user_turn_summary: "User satisfied prior ask.",
+    evidence_quotes: ["Yes already on"],
+    relationship_meaning: "prior_ask_satisfied",
+    answered_last_coach_ask: "yes",
+    last_ask_satisfied: "yes",
+    satisfaction_kind: "already_scheduled",
+    do_not_repeat_asks: ["put one family connection on the calendar for tomorrow"],
+    stale_ask_risk: true,
+    commitment_outcome_recommendation: "no_outcome_write",
+    persistence_safety: "defer_to_server",
+    response_intent: "acknowledge_prior_ask_satisfied",
+    temporal_scope: "today",
+    reported_for_day_key: null,
+    confidence: 0.9,
+    uncertainty_flags: [],
+    route_priority_recommendation: "none",
+    safety_or_support_flags: [],
+    ...overrides,
+  };
+}
+
+describe("OpenAI turn understanding — inbound facts integration", () => {
+  const calendarAsk = "let me know if you're ready to put one family connection on the calendar for tomorrow";
+
+  it("open_question_facts yields to TU when last_ask_satisfied yes", () => {
+    const body = "Yes already on";
+    const det = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: calendarAsk,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        user_turn_summary: "Already on calendar.",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "already_scheduled",
+        response_intent: "acknowledge_prior_ask_satisfied",
+        do_not_repeat_asks: [calendarAsk],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: body,
+      coalescedInboundText: body,
+      suppressedMessageSids: ["SM_oq"],
+      transcriptLines: [`Coach: ${calendarAsk}`, `User: ${body}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: calendarAsk,
+        latestOpenQuestion: calendarAsk,
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      openQuestionFacts: {
+        latest_open_question: calendarAsk,
+        expected_reply_semantics: "proposal_yes_no",
+        resolution_subkind: "proposal_yes_no",
+        extracted_answer: "yes",
+        answer_kind: "yes_no",
+        old_open_question_reply_preview: "LEGACY",
+        deterministic_fallback_used: false,
+        deterministic_fallback_reason: null,
+        legacy_open_question_reply_source: "deterministic_fallback",
+        latest_outbound_preview: calendarAsk,
+      },
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: calendarAsk,
+        open_question_pending: true,
+        last_outbound_full_body: calendarAsk,
+      }),
+    });
+    expect(facts.suggested_coaching_move).toBe("acknowledge_prior_ask_satisfied");
+    expect(facts.suggested_coaching_move).not.toBe("respond_to_open_question_answer_natural");
+  });
+
+  it("A family visiting: satisfied ask, no stale calendar push", () => {
+    const body =
+      "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.";
+    const det = buildInboundMeaningFacts({ rawInbound: body, classifierEventType: "user_yes" });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        user_turn_summary: "Visiting family; plans tomorrow.",
+        evidence_quotes: ["visiting with family in Ohio"],
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: body,
+      coalescedInboundText: body,
+      suppressedMessageSids: ["SM_family"],
+      transcriptLines: [`Coach: ${calendarAsk}`, `User: ${body}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: calendarAsk,
+        latestOpenQuestion: calendarAsk,
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: calendarAsk,
+        open_question_pending: true,
+        last_outbound_full_body: calendarAsk,
+      }),
+    });
+    expect(facts.suggested_coaching_move).toBe("acknowledge_prior_ask_satisfied");
+    expect(facts.v2_accountability.should_write_outcome_event).toBe(false);
+    const forbidden = facts.constraints.forbidden_substrings ?? [];
+    expect(forbidden.some((s) => /family connection|calendar/i.test(s))).toBe(true);
+  });
+
+  it("B/C yes already on then all good: close loop coaching move", () => {
+    const det = buildInboundMeaningFacts({ rawInbound: "All good for now", classifierEventType: "user_yes" });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        user_turn_summary: "All good; prior calendar ask satisfied.",
+        response_intent: "close_loop_no_new_action",
+        last_ask_satisfied: "yes",
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: "All good for now",
+      coalescedInboundText: "All good for now",
+      suppressedMessageSids: ["SM_ok"],
+      transcriptLines: [`Coach: ${calendarAsk}`, "User: Yes already on", "User: All good for now"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: calendarAsk,
+        latestOpenQuestion: calendarAsk,
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+    });
+    expect(facts.suggested_coaching_move).toBe("close_loop_no_new_action");
+  });
+
+  it("D sleep metric: acknowledge_result_and_next_standard", () => {
+    const body =
+      "I slept 7 hrs 18 minutes. I feel pretty good. Id like to have 2 nights in a row of more than 7 hrs of sleep";
+    const bedtimeAsk =
+      "How did your bedtime routine go last night — protected, partial, or missed?";
+    const det = buildInboundMeaningFacts({ rawInbound: body, classifierEventType: "user_yes" });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        relationship_meaning: "reported_metric_or_result",
+        response_intent: "acknowledge_result_and_next_standard",
+        user_turn_summary: "Reported sleep duration and goal for two nights over 7h.",
+        evidence_quotes: ["slept 7 hrs 18 minutes"],
+        do_not_repeat_asks: [bedtimeAsk],
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: bedtimeAsk,
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Protect bedtime routine",
+      userMessageRaw: body,
+      coalescedInboundText: body,
+      suppressedMessageSids: ["SM_sleep"],
+      transcriptLines: [`Coach: ${bedtimeAsk}`, `User: ${body}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: bedtimeAsk,
+        latestOpenQuestion: bedtimeAsk,
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+    });
+    expect(facts.suggested_coaching_move).toBe("acknowledge_result_and_next_standard");
+    expect(facts.v2_accountability.should_write_outcome_event).toBe(false);
+  });
+
+  it("J relationship packet includes turn_understanding in structured_recent_truth", () => {
+    const body = "Yes already on";
+    const det = buildInboundMeaningFacts({ rawInbound: body, classifierEventType: "user_yes" });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal(),
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: body,
+      coalescedInboundText: body,
+      suppressedMessageSids: ["SM_on"],
+      transcriptLines: [`Coach: ${calendarAsk}`, `User: ${body}`],
+      northStarPacket: { source: "sms_inbound_coach", latestOpenQuestion: calendarAsk },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+    });
+    const { packet } = buildRelationshipPacketForOpenAI({ lane: "inbound", sourceFacts: facts });
+    expect(packet.structured_recent_truth.data.turn_understanding?.authority).toBe(
+      "authoritative_current"
+    );
+    expect(packet.structured_recent_truth.data.turn_understanding?.last_ask_satisfied).toBe("yes");
+  });
+});
+
+describe("turn understanding — writer stale-ask guard (E2E lane)", () => {
+  beforeEach(() => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    createMock.mockReset();
+  });
+
+  const calendarAsk =
+    "let me know if you're ready to put one family connection on the calendar for tomorrow";
+
+  function familyFactsWithTurnUnderstanding() {
+    const body =
+      "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.";
+    const det = buildInboundMeaningFacts({ rawInbound: body, classifierEventType: "user_yes" });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal(),
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: body,
+      coalescedInboundText: body,
+      suppressedMessageSids: ["SM_family_writer"],
+      transcriptLines: [`Coach: ${calendarAsk}`, `User: ${body}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: calendarAsk,
+        latestOpenQuestion: calendarAsk,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: calendarAsk,
+        open_question_pending: true,
+        last_outbound_full_body: calendarAsk,
+      }),
+    });
+  }
+
+  it("detectTurnUnderstandingStaleAskViolation flags calendar re-ask", () => {
+    const facts = familyFactsWithTurnUnderstanding();
+    const bad =
+      "When you get a chance, let me know if you're ready to put one family connection on the calendar for tomorrow.";
+    const v = detectTurnUnderstandingStaleAskViolation(bad, facts);
+    expect(v.violation).toBe(true);
+  });
+
+  it("N/O/P: paraphrase calendar re-asks blocked", () => {
+    const facts = familyFactsWithTurnUnderstanding();
+    const paraphrases = [
+      "Let me know when you put family time on your calendar.",
+      "Are you ready to schedule that family connection?",
+      "When will you put it on the calendar?",
+    ];
+    for (const bad of paraphrases) {
+      const v = detectTurnUnderstandingStaleAskViolation(bad, facts);
+      expect(v.violation).toBe(true);
+    }
+  });
+
+  it("A: blocks writer output that stale-asks calendar", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "When you get a chance, let me know if you're ready to put one family connection on the calendar for tomorrow.",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: ["turn_understanding"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = familyFactsWithTurnUnderstanding();
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("turn_understanding_stale_ask_blocked");
+  });
+
+  it("A: allows writer output that acknowledges without calendar re-ask", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "You're with family in Ohio today — enjoy tomorrow with them.",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.85,
+              used_facts: ["turn_understanding"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = familyFactsWithTurnUnderstanding();
+    facts.thread.memory_packet = {
+      ...minimalRelationshipMemoryPacket({
+        latest_open_question: calendarAsk,
+        open_question_pending: true,
+        last_outbound_full_body: calendarAsk,
+      }),
+      last_5_coach_questions: [],
+      last_5_user_answers: [],
+    };
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(r.noSendReason).not.toBe("turn_understanding_stale_ask_blocked");
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toMatch(/put one family connection on the calendar/);
+  });
+});
+
+describe("coaching move — authoritative TU vs conversation_brain_fallback", () => {
+  const calendarAsk =
+    "let me know if you're ready to put one family connection on the calendar for tomorrow";
+
+  function legacyFallbackAskAccountability() {
+    return buildConversationBrainFallbackFacts({
+      legacyFallbackReason: "conversation_brain_legacy_fallback_disabled",
+      deterministicTemplateBody: "Legacy template",
+      classifierResult: "user_yes",
+      gatedEventType: "user_yes",
+      shouldWriteOutcomeEvent: true,
+      gatedMode: "use_deterministic",
+      commitment: baseCommitment(),
+      effectiveAsk: "Family connection",
+      inboundMessageSid: "SM_cb",
+    });
+  }
+
+  function baseFactsWithCbAndTu(
+    tu: ReturnType<typeof reconcileTurnUnderstanding>,
+    overrides?: Partial<Parameters<typeof buildInboundV3RelationshipFacts>[0]>
+  ): InboundV3RelationshipFacts {
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: "Yes already on",
+      coalescedInboundText: "Yes already on",
+      suppressedMessageSids: ["SM_cb"],
+      transcriptLines: [`Coach: ${calendarAsk}`, "User: Yes already on"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: calendarAsk,
+        latestOpenQuestion: calendarAsk,
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "conversation_brain_unavailable",
+      conversationBrainFallbackFacts: legacyFallbackAskAccountability(),
+      turnUnderstandingReconciled: tu,
+      ...overrides,
+    });
+  }
+
+  it("A: authoritative TU beats conversation_brain_fallback_facts", () => {
+    const det = buildInboundMeaningFacts({
+      rawInbound: "Yes already on",
+      classifierEventType: "user_yes",
+      latestOpenQuestion: calendarAsk,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+        user_turn_summary: "Already scheduled.",
+        evidence_quotes: ["Yes already on"],
+        relationship_meaning: "already_scheduled_or_happening",
+        answered_last_coach_ask: "yes",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "already_scheduled",
+        do_not_repeat_asks: [calendarAsk],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+        response_intent: "acknowledge_prior_ask_satisfied",
+        temporal_scope: "today",
+        reported_for_day_key: null,
+        confidence: 0.9,
+        uncertainty_flags: [],
+        route_priority_recommendation: "none",
+        safety_or_support_flags: [],
+      },
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    const facts = baseFactsWithCbAndTu(tu);
+    expect(facts.suggested_coaching_move).toBe("acknowledge_prior_ask_satisfied");
+    expect(facts.coaching_move_source).toBe("turn_understanding");
+    expect(facts.conversation_brain_fallback_suppressed_by_turn_understanding).toBe(true);
+    expect(legacyFallbackAskAccountability().suggested_coaching_move).toBe("acknowledge_completion");
+  });
+
+  it("B: failed-safe authoritative TU beats conversation_brain_fallback_facts", () => {
+    const body =
+      "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.";
+    const det = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: calendarAsk,
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "timeout",
+      proposal: null,
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+      openQuestionPending: true,
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const facts = baseFactsWithCbAndTu(tu, {
+      userMessageRaw: body,
+      coalescedInboundText: body,
+    });
+    expect(facts.suggested_coaching_move).toBe("clarify_intent");
+    expect(facts.coaching_move_source).toBe("turn_understanding");
+    expect(facts.conversation_brain_fallback_suppressed_by_turn_understanding).toBe(true);
+  });
+
+  it("C: conversation_brain_fallback_facts used when TU is absent", () => {
+    const cb = buildConversationBrainFallbackFacts({
+      legacyFallbackReason: "conversation_brain_legacy_fallback_disabled",
+      deterministicTemplateBody: "Legacy",
+      classifierResult: "user_no",
+      gatedEventType: "user_no",
+      shouldWriteOutcomeEvent: true,
+      gatedMode: "use_deterministic",
+      commitment: baseCommitment(),
+      effectiveAsk: "Did you show up?",
+      inboundMessageSid: "SM_no_tu",
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Did you show up?",
+      userMessageRaw: "no",
+      coalescedInboundText: "no",
+      suppressedMessageSids: [],
+      transcriptLines: [],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "prev",
+        latestOpenQuestion: null,
+        expectedReplySemantics: "yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_no" },
+      deterministicEventType: "user_no",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "conversation_brain_unavailable",
+      conversationBrainFallbackFacts: cb,
+    });
+    expect(facts.suggested_coaching_move).toBe("name_blocker");
+    expect(facts.coaching_move_source).toBe("conversation_brain_fallback");
+    expect(facts.conversation_brain_fallback_suppressed_by_turn_understanding).toBeUndefined();
+  });
+
+  it("D: hard route blocker_facts wins over authoritative TU", () => {
+    const det = buildInboundMeaningFacts({
+      rawInbound: "traffic jam",
+      classifierEventType: "user_no",
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+        user_turn_summary: "Blocker detail.",
+        evidence_quotes: ["traffic"],
+        relationship_meaning: "blocker_detail",
+        answered_last_coach_ask: "no",
+        last_ask_satisfied: "no",
+        satisfaction_kind: "unclear",
+        do_not_repeat_asks: [],
+        stale_ask_risk: false,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "safe_to_write",
+        response_intent: "identify_blocker",
+        temporal_scope: "today",
+        reported_for_day_key: null,
+        confidence: 0.8,
+        uncertainty_flags: [],
+        route_priority_recommendation: "none",
+        safety_or_support_flags: [],
+      },
+      deterministicMeaning: det,
+    });
+    const facts = baseFacts();
+    facts.turn_understanding = tu;
+    facts.blocker_facts = {
+      blocker_text: "traffic jam",
+      blocker_category: null,
+      following_event_type: "user_no",
+      repeated_blocker_signal: false,
+      blocker_pending_age_minutes_remaining: 30,
+      suggested_next_move: "acknowledge_blocker_capture",
+      legacy_blocker_ack_preview: "LEGACY_PREVIEW",
+    };
+    const derived = deriveInboundCoachingMoveForFacts(facts);
+    expect(derived.move).toBe("acknowledge_blocker_capture");
+    expect(derived.coaching_move_source).toBe("hard_route");
+  });
+
+  it("E: family stale ask — TU move + final guard blocks calendar re-ask", () => {
+    const det = buildInboundMeaningFacts({
+      rawInbound:
+        "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.",
+      classifierEventType: "user_yes",
+      latestOpenQuestion: calendarAsk,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+        user_turn_summary: "Family visiting.",
+        evidence_quotes: ["visiting with family"],
+        relationship_meaning: "already_scheduled_or_happening",
+        answered_last_coach_ask: "yes",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "plan_exists",
+        do_not_repeat_asks: [calendarAsk],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+        response_intent: "acknowledge_prior_ask_satisfied",
+        temporal_scope: "today",
+        reported_for_day_key: null,
+        confidence: 0.88,
+        uncertainty_flags: [],
+        route_priority_recommendation: "none",
+        safety_or_support_flags: [],
+      },
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    const facts = baseFactsWithCbAndTu(tu, {
+      userMessageRaw:
+        "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.",
+      coalescedInboundText:
+        "Yes. Yesterday & today am actually visiting with family in Ohio. Also have family plans tomorrow.",
+    });
+    expect(facts.suggested_coaching_move).toBe("acknowledge_prior_ask_satisfied");
+    expect(facts.conversation_brain_fallback_suppressed_by_turn_understanding).toBe(true);
+    const guard = applyInboundFinalBodyTurnUnderstandingGuard({
+      body: "Do you still want to put that family connection on the calendar?",
+      context: {
+        didRun: true,
+        reconciled: tu,
+        proposal: tu.proposal,
+        skippedReason: null,
+        failedReason: null,
+      },
+      latestOpenQuestion: calendarAsk,
+      stage: "test_family_regression",
+    });
+    expect(guard.shouldSend).toBe(false);
+  });
+
+  it("F: sleep metric — acknowledge_result_and_next_standard beats fallback triad move", () => {
+    const sleepBody = "I slept 7 hrs 18 minutes last night. I want 2 nights in a row.";
+    const det = buildInboundMeaningFacts({
+      rawInbound: sleepBody,
+      classifierEventType: "user_yes",
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+        user_turn_summary: "Reported sleep; wants streak.",
+        evidence_quotes: ["slept 7 hrs"],
+        relationship_meaning: "reported_metric_or_result",
+        answered_last_coach_ask: "yes",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "unclear",
+        do_not_repeat_asks: ["protected, partial, or missed?"],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+        response_intent: "acknowledge_result_and_next_standard",
+        temporal_scope: "today",
+        reported_for_day_key: null,
+        confidence: 0.85,
+        uncertainty_flags: [],
+        route_priority_recommendation: "none",
+        safety_or_support_flags: [],
+      },
+      deterministicMeaning: det,
+    });
+    const cb = buildConversationBrainFallbackFacts({
+      legacyFallbackReason: "test",
+      deterministicTemplateBody: "Was it protected, partial, or missed?",
+      classifierResult: "user_yes",
+      gatedEventType: "user_yes",
+      shouldWriteOutcomeEvent: false,
+      gatedMode: "use_deterministic",
+      commitment: baseCommitment(),
+      effectiveAsk: "Sleep",
+      inboundMessageSid: "SM_sleep",
+    });
+    expect(cb.suggested_coaching_move).toBe("acknowledge_completion");
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Sleep standard",
+      userMessageRaw: sleepBody,
+      coalescedInboundText: sleepBody,
+      suppressedMessageSids: ["SM_sleep"],
+      transcriptLines: ["Coach: protected, partial, or missed?", `User: ${sleepBody}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "protected, partial, or missed?",
+        latestOpenQuestion: null,
+        expectedReplySemantics: "yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), mode: "clarify", should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      conversationBrainFallbackFacts: cb,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(facts.suggested_coaching_move).toBe("acknowledge_result_and_next_standard");
+    expect(facts.coaching_move_source).toBe("turn_understanding");
+    expect(facts.conversation_brain_fallback_suppressed_by_turn_understanding).toBe(true);
   });
 });

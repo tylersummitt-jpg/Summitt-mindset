@@ -16,6 +16,13 @@ import {
   type InboundMeaningFacts,
 } from "@/lib/inbound-relationship-meaning";
 import {
+  buildTurnUnderstandingPersistGuardMeta,
+  isTurnUnderstandingAuthoritative,
+  shouldBlockClassifierYesForSatisfiedAsk,
+  type ReconciledTurnUnderstanding,
+  type TurnUnderstandingPersistGuardMeta,
+} from "@/lib/openai-relationship-turn-understanding-v1";
+import {
   v2UserReplyIdempotencyKey,
   type V2InboundEventType,
 } from "@/lib/v2-sms-accountability";
@@ -55,7 +62,9 @@ export type InboundOutcomePersistSkipReason =
   | "arc_clarify_only"
   | "meaning_ack_only"
   | "meaning_no_outcome_write"
-  | "meaning_deferred_route";
+  | "meaning_deferred_route"
+  | "turn_understanding_expand_blocked"
+  | "turn_understanding_satisfied_ask_no_proof";
 
 export type InboundOutcomePersistResult =
   | {
@@ -127,6 +136,7 @@ export type ShouldPersistInboundAccountabilityOutcomeArgs = {
     "has_live_accountability_prompt" | "self_contained_accountability_answer"
   > | null;
   inboundMeaning?: InboundMeaningFacts | null;
+  turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
 };
 
 export type ShouldPersistInboundAccountabilityOutcomeResult =
@@ -135,11 +145,17 @@ export type ShouldPersistInboundAccountabilityOutcomeResult =
       resolvedEventType: V2AccountabilityOutcome;
       liveAccountabilityPromptDetected: boolean;
       overrideGatedNoWrite: boolean;
+      turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
     }
-  | { persist: false; skipReason: InboundOutcomePersistSkipReason };
+  | {
+      persist: false;
+      skipReason: InboundOutcomePersistSkipReason;
+      turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
+    };
 
-export function shouldPersistInboundAccountabilityOutcome(
-  args: ShouldPersistInboundAccountabilityOutcomeArgs
+function evaluateShouldPersistWithMeaning(
+  args: ShouldPersistInboundAccountabilityOutcomeArgs,
+  inboundMeaning: InboundMeaningFacts
 ): ShouldPersistInboundAccountabilityOutcomeResult {
   const messageSid = args.messageSid.trim();
   if (!messageSid) {
@@ -179,14 +195,6 @@ export function shouldPersistInboundAccountabilityOutcome(
   if (GATED_MODES_BLOCKING_PERSIST.has(args.gatedDecision.mode)) {
     return { persist: false, skipReason: "gated_non_outcome_mode" };
   }
-
-  const inboundMeaning =
-    args.inboundMeaning ??
-    buildInboundMeaningFacts({
-      rawInbound: raw,
-      classifierEventType: args.classifierEventType,
-      classifierNormalizedHint: args.classifierNormalizedHint ?? null,
-    });
 
   const persistence = inboundMeaning.persistence_decision;
   if (
@@ -236,6 +244,81 @@ export function shouldPersistInboundAccountabilityOutcome(
     liveAccountabilityPromptDetected: livePrompt,
     overrideGatedNoWrite,
   };
+}
+
+export function shouldPersistInboundAccountabilityOutcome(
+  args: ShouldPersistInboundAccountabilityOutcomeArgs
+): ShouldPersistInboundAccountabilityOutcomeResult {
+  const raw = args.rawBody.trim();
+  const inboundMeaning =
+    args.inboundMeaning ??
+    buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: args.classifierEventType,
+      classifierNormalizedHint: args.classifierNormalizedHint ?? null,
+    });
+
+  const baselineResult = evaluateShouldPersistWithMeaning(args, inboundMeaning);
+  const tu = args.turnUnderstandingReconciled;
+  if (!tu || !isTurnUnderstandingAuthoritative(tu)) {
+    return baselineResult;
+  }
+
+  const narrowedMeaning: InboundMeaningFacts = {
+    ...inboundMeaning,
+    persistence_decision: tu.reconciled_persistence_decision,
+  };
+  const narrowedResult = evaluateShouldPersistWithMeaning(args, narrowedMeaning);
+
+  if (narrowedResult.persist && !baselineResult.persist) {
+    const guard = buildTurnUnderstandingPersistGuardMeta({
+      turn: tu,
+      baselinePersistence: inboundMeaning.persistence_decision,
+      effectivePersistence: tu.reconciled_persistence_decision,
+      persistAllowed: false,
+      guardReason: "turn_understanding_expand_blocked",
+    });
+    return {
+      persist: false,
+      skipReason: "turn_understanding_expand_blocked",
+      turnUnderstandingPersistGuard: guard,
+    };
+  }
+
+  if (
+    narrowedResult.persist &&
+    narrowedResult.resolvedEventType === "user_yes" &&
+    shouldBlockClassifierYesForSatisfiedAsk(tu, narrowedMeaning)
+  ) {
+    const guard = buildTurnUnderstandingPersistGuardMeta({
+      turn: tu,
+      baselinePersistence: inboundMeaning.persistence_decision,
+      effectivePersistence: tu.reconciled_persistence_decision,
+      persistAllowed: false,
+      guardReason: "turn_understanding_satisfied_ask_no_proof",
+    });
+    return {
+      persist: false,
+      skipReason: "turn_understanding_satisfied_ask_no_proof",
+      turnUnderstandingPersistGuard: guard,
+    };
+  }
+
+  const guard = buildTurnUnderstandingPersistGuardMeta({
+    turn: tu,
+    baselinePersistence: inboundMeaning.persistence_decision,
+    effectivePersistence: tu.reconciled_persistence_decision,
+    persistAllowed: narrowedResult.persist,
+    guardReason: narrowedResult.persist
+      ? null
+      : narrowedResult.skipReason,
+  });
+
+  if (!narrowedResult.persist) {
+    return { ...narrowedResult, turnUnderstandingPersistGuard: guard };
+  }
+
+  return { ...narrowedResult, turnUnderstandingPersistGuard: guard };
 }
 
 export function inboundMeaningPayloadForOutcomePersist(

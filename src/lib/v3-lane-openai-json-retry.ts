@@ -20,12 +20,17 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
   primaryMessages: ChatCompletionMessageParam[];
   jsonSchemaReminder: string;
   parse: (raw: string) => T | null;
+  /** When set, passed to OpenAI; abort ends the in-flight request. */
+  signal?: AbortSignal;
+  /** Default true. Interpreter lanes should pass false to stay within a single timeout budget. */
+  allowRetry?: boolean;
 }): Promise<{ value: T | null; raw: string; retryMeta: LaneJsonRetryMeta }> {
   const base = {
     model: args.model,
     temperature: args.temperature,
     max_tokens: args.maxTokens,
     response_format: { type: "json_object" as const },
+    ...(args.signal ? { signal: args.signal } : {}),
   };
 
   const first = await args.client.chat.completions.create({
@@ -45,6 +50,10 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
   const firstParse = args.parse(raw);
   if (firstParse != null) {
     return { value: firstParse, raw, retryMeta: initialMeta };
+  }
+
+  if (args.allowRetry === false) {
+    return { value: null, raw, retryMeta: initialMeta };
   }
 
   const retryMessages: ChatCompletionMessageParam[] = [
