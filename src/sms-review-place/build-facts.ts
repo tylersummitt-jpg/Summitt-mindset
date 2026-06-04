@@ -468,8 +468,9 @@ export function buildInboundFacts(
       had_preview_messages: false,
       had_system_no_send: false,
     };
+    const memoryPacketBase = built.thread.memory_packet ?? minimalMemoryPacket();
     built.thread.memory_packet = {
-      ...built.thread.memory_packet,
+      ...memoryPacketBase,
       recent_exact_thread_72h: thread72h,
       recent_exact_thread_text: "User: Yes — got the two hours in yesterday.",
       relationship_memory_7d: {
@@ -487,6 +488,7 @@ export function buildInboundFacts(
         ],
         meta: { item_count: 1, sources_used: ["sms_review_place_fixture"] },
       },
+      relationship_memory_30d: memoryPacketBase.relationship_memory_30d,
     };
     built.temporal_contract = buildTemporalForScenario(scenario);
   }

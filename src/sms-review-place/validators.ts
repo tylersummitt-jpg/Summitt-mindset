@@ -141,7 +141,7 @@ export function evaluateHardFlags(input: ValidatorInput): SmsReviewHardFlag[] {
       if (violations.length > 0) flags.push("temporal_wording_violation");
     }
 
-    const human = validateHumanVisibleSms(text, { channel: "inbound_coach_reply" });
+    const human = validateHumanVisibleSms(text, { channel: "normal_inbound", maxChars: 320 });
     if (!human.ok) {
       const reason = human.reason ?? "";
       if (reason.includes("robotic") || reason.includes("menu")) {

@@ -300,7 +300,7 @@ export async function runInboundPipeline(
   });
 
   const proofSavedAllowed =
-    facts.accountabilityProofHint?.proof_callout_claim_saved_allowed === true;
+    facts.v2_accountability.proof_callout_hint?.proof_callout_claim_saved_allowed === true;
 
   const validatorInput: ValidatorInput = {
     scenario,
