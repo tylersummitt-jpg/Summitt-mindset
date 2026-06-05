@@ -234,7 +234,12 @@ function hasWarmPraiseAuthorization(args: SmsPraisePolicyEvaluateArgs): boolean 
   if (args.pendingPlanProofActive) return false;
 
   const meaning = args.inboundMeaning;
-  if (meaning?.relationship_meaning === "reported_completion") return true;
+  if (
+    meaning?.relationship_meaning === "reported_completion" &&
+    meaning.persistence_decision === "write_user_yes_today"
+  ) {
+    return true;
+  }
 
   if (args.proofOrMilestoneSignal?.trim()) return true;
 

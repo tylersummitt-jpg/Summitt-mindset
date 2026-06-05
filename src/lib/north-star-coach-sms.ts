@@ -436,7 +436,7 @@ export function inboundSignalsCompletion(raw: string | null | undefined): boolea
   const t = (raw ?? "").toLowerCase().trim();
   if (!t) return false;
   const rt = (raw ?? "").trim();
-  if (/^(yes|yep|yeah|yup)\s*!*$/i.test(rt)) return true;
+  if (/^(yes|yep|yeah|yup)\s*!*$/i.test(rt)) return false;
   if (/^i\s*have\s*!+$/i.test(t)) return true;
   if (/^have\s*!+$/i.test(t)) return true;
   if (/\byes\s+already\b/.test(t)) return true;

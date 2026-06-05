@@ -11,6 +11,11 @@ import { shouldPromoteClarifyForReportedCompletionPersist } from "@/lib/inbound-
 import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { classifyV2InboundReply, type V2InboundEventType } from "@/lib/v2-sms-accountability";
+import {
+  inboundHasExplicitCompletionClause,
+  inboundHasPlanConfirmationClause,
+  splitInboundClauses,
+} from "@/lib/inbound-short-answer-clauses";
 import { inboundSignalsCompletion } from "@/lib/north-star-coach-sms";
 import { isReportedCompletionRelationshipCandidate } from "@/lib/pending-plan-proof";
 
@@ -682,6 +687,23 @@ export function isStrongServerOutcomeForFailedSafePersist(
   }
   if (classifierEventType !== "user_yes") return false;
   if (/^(yes|y|yeah|yep|yup|sure|ok|okay)\.?$/i.test(t)) return false;
+  if (inboundHasExplicitCompletionClause(t)) return true;
+
+  for (const clause of splitInboundClauses(t)) {
+    const c = clause.trim();
+    if (!c) continue;
+    if (/\b(i\s+)?did\s+it\b/i.test(c) && !/\b(did not|didn't|almost|wish)\b/i.test(c)) {
+      return true;
+    }
+    if (/\b(got\s+it\s+done|finished\s+it|completed\s+it|knocked\s+it\s+out)\b/i.test(c)) {
+      return true;
+    }
+    if (/\bi\s+did\s+it\s+today\b/i.test(c)) return true;
+    if (/\b(got\s+my\s+[^.!?]{2,48}\s+in\s+today)\b/i.test(c)) return true;
+    if (inboundSignalsCompletion(c) && /\b(today|this morning|tonight)\b/i.test(c)) return true;
+    if (isReportedCompletionRelationshipCandidate(c) && inboundSignalsCompletion(c)) return true;
+  }
+
   if (
     isSubstantiveInboundForFailedSafe(t) &&
     !/\b(did it|done|finished|got it done|completed|knocked it out|i did it today)\b/i.test(t)
@@ -755,12 +777,28 @@ export function buildInterpreterFailedSafeReconciled(args: {
     classifierEventType: args.classifierEventType,
   });
 
+  const hasCompletionClause = inboundHasExplicitCompletionClause(args.rawInbound);
+  const hasPlanClause = inboundHasPlanConfirmationClause(args.rawInbound);
+  let reconciled_response_intent: TurnUnderstandingResponseIntent = "unclear_clarify";
+  if (hasCompletionClause && reconciled_persistence_decision === "write_user_yes_today") {
+    reconciled_response_intent = hasPlanClause
+      ? "acknowledge_result_and_next_standard"
+      : "acknowledge_completion";
+  } else if (
+    args.deterministicMeaning.relationship_meaning === "answer_to_prior_question" ||
+    hasPlanClause
+  ) {
+    reconciled_response_intent = "answer_user_question";
+  } else if (args.deterministicMeaning.relationship_meaning === "miss") {
+    reconciled_response_intent = "tell_truth_and_recover";
+  }
+
   return {
     proposal: args.proposal,
-    reconciled_relationship_meaning: mapDeterministicToTurnMeaning(
-      args.deterministicMeaning.relationship_meaning
-    ),
-    reconciled_response_intent: "unclear_clarify",
+    reconciled_relationship_meaning: hasCompletionClause
+      ? "reported_completion"
+      : mapDeterministicToTurnMeaning(args.deterministicMeaning.relationship_meaning),
+    reconciled_response_intent,
     reconciled_persistence_decision,
     reconciled_do_not_repeat_asks: do_not_repeat_asks,
     last_ask_satisfied: "unclear",
@@ -1089,6 +1127,9 @@ export type RunInboundTurnUnderstandingArgs = {
   temporalContract: TemporalContractV1 | null;
   proofCalloutClaimSavedAllowed: boolean;
   openQuestionFacts?: unknown;
+  expectedAnswerType?: string | null;
+  recentEventsNewestFirst?: import("@/lib/v2-commitment").V2EventRowForAi[];
+  commitmentTitle?: string | null;
 };
 
 /** Build deterministic meaning, optionally call OpenAI, reconcile — inbound normal lane only. */
@@ -1114,6 +1155,13 @@ export async function runInboundRelationshipTurnUnderstanding(
     routePriority,
     openQuestionPending: args.openQuestionPending,
     latestOpenQuestion: args.latestOpenQuestion,
+    latestOutboundBody: args.lastCoachOutbound,
+    expectedAnswerType: args.expectedAnswerType,
+    expectedReplySemantics: args.expectedReplySemantics,
+    effectiveAsk: args.effectiveAsk,
+    behaviorStatement: args.behaviorStatement,
+    commitmentTitle: args.commitmentTitle,
+    recentEventsNewestFirst: args.recentEventsNewestFirst,
   });
 
   const promptArgs: BuildTurnUnderstandingPromptArgs = {

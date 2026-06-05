@@ -10,6 +10,11 @@ import {
   normalizeAnchorKey,
   type TimingAnchorMemory,
 } from "@/lib/timing-anchor-memory";
+import {
+  inboundHasExplicitCompletionClause,
+  splitInboundClauses,
+} from "@/lib/inbound-short-answer-clauses";
+import type { ShortAnswerContextAuthority } from "@/lib/inbound-short-answer-context";
 
 export type PendingPlanProofRecurrenceConfidence = "unknown" | "low";
 
@@ -94,13 +99,12 @@ export function inferTemporalScopeFromInbound(text: string): "today" | "yesterda
   return "unclear";
 }
 
-/**
- * Hardened relationship completion candidate — not sufficient alone for user_yes persist.
- * Requires positive completion shape and no disqualifiers.
- */
-export function isReportedCompletionRelationshipCandidate(text: string): boolean {
-  const t = text.trim();
-  if (!t || hasFuturePlanIntentLanguage(t)) return false;
+function isReportedCompletionClauseCandidate(clause: string): boolean {
+  const t = clause.trim();
+  if (!t) return false;
+  if (hasFuturePlanIntentLanguage(t) && !/\b(got my|got\s+\d+|completed|finished|did it)\b/i.test(t)) {
+    return false;
+  }
   if (extractCompletionDisqualifiers(t).length > 0) return false;
   if (/\b(i did|i got it done|finished|completed|it happened|done[, ]+yes|yes[, ]+done|made it happen)\b/i.test(t)) {
     return true;
@@ -111,11 +115,37 @@ export function isReportedCompletionRelationshipCandidate(text: string): boolean
   }
   if (/\b(i\s+)?got\s+(it\s+)?done\b/i.test(t)) return true;
   if (/\b(hit my|reached|got my)\s+[\w',-]+\s+(goal|steps|hours|calls)\b/i.test(t)) return true;
+  if (/\b(got\s+my\s+[^.!?]{2,48}\s+in\s+today)\b/i.test(t)) return true;
   if (/\b(i got|got)\s+(my\s+)?(two|2|\d+)\s+hours?\s+in\b/i.test(t)) return true;
-  if (/^\s*(yes|done)\s*$/i.test(t)) return true;
   if (/\b(i\s+)?did\s+the\s+\w+/i.test(t)) return true;
   if (/\b(i\s+)?did\s+it\b/i.test(t) && !/\b(almost|wish|think)\b/i.test(t)) return true;
   return false;
+}
+
+/**
+ * Hardened relationship completion candidate — not sufficient alone for user_yes persist.
+ * Requires positive completion shape and no disqualifiers. Clause-aware for compound messages.
+ */
+export function isReportedCompletionRelationshipCandidate(
+  text: string,
+  shortAnswerContext?: ShortAnswerContextAuthority | null
+): boolean {
+  const t = text.trim();
+  if (!t) return false;
+
+  if (/^\s*(yes|done)\s*$/i.test(t)) {
+    return shortAnswerContext?.outcome_proof_eligible === true;
+  }
+
+  if (inboundHasExplicitCompletionClause(t)) return true;
+
+  for (const clause of splitInboundClauses(t)) {
+    if (isReportedCompletionClauseCandidate(clause)) return true;
+  }
+
+  if (hasFuturePlanIntentLanguage(t)) return false;
+  if (extractCompletionDisqualifiers(t).length > 0) return false;
+  return isReportedCompletionClauseCandidate(t);
 }
 
 /** User message reads as reported completion, not a forward plan (shared helper — uses hardened candidate). */

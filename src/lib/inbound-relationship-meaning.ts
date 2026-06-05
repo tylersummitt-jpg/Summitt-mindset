@@ -9,6 +9,19 @@ import {
   inferTemporalScopeFromInbound,
   isReportedCompletionRelationshipCandidate,
 } from "@/lib/pending-plan-proof";
+import {
+  inboundHasExplicitCompletionClause,
+  inboundHasExplicitMissClause,
+  inboundHasExplicitPartialClause,
+  inboundHasPlanConfirmationClause,
+} from "@/lib/inbound-short-answer-clauses";
+import {
+  isShortContextualAnswer,
+  resolveShortAnswerContextAuthority,
+  type ShortAnswerContextAuthority,
+} from "@/lib/inbound-short-answer-context";
+import type { ExpectedReplySemanticsV3 } from "@/lib/north-star-sms-context-packet";
+import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import { classifyInboundSmsSafetyTier } from "@/lib/sms-inbound-safety";
 import { SMS_SUBSCRIPTION_BILLING_INTEGRITY_RE } from "@/lib/sms-relationship-exit-intent";
 import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
@@ -96,6 +109,14 @@ export type DeriveInboundRelationshipMeaningArgs = {
   routePriority?: InboundMeaningRoutePriority;
   openQuestionPending?: boolean;
   latestOpenQuestion?: string | null;
+  latestOutboundBody?: string | null;
+  expectedAnswerType?: string | null;
+  expectedReplySemantics?: ExpectedReplySemanticsV3 | string | null;
+  recentEventsNewestFirst?: V2EventRowForAi[];
+  effectiveAsk?: string | null;
+  behaviorStatement?: string | null;
+  commitmentTitle?: string | null;
+  shortAnswerContext?: ShortAnswerContextAuthority | null;
   /** When omitted, anchoring uses `new Date()` at derive time. */
   receivedAt?: Date;
   timezone?: string;
@@ -320,6 +341,61 @@ export function deriveInboundRelationshipMeaning(
   const disqualifiers = extractCompletionDisqualifiers(raw);
   const temporal_scope = inferTemporalScopeFromInbound(raw);
 
+  const saca =
+    args.shortAnswerContext ??
+    resolveShortAnswerContextAuthority({
+      rawInbound: raw,
+      latestOpenQuestion: args.latestOpenQuestion,
+      latestOutboundBody: args.latestOutboundBody,
+      expectedAnswerType: args.expectedAnswerType,
+      expectedReplySemantics: args.expectedReplySemantics,
+      openQuestionPending: args.openQuestionPending,
+      effectiveAsk: args.effectiveAsk,
+      behaviorStatement: args.behaviorStatement,
+      commitmentTitle: args.commitmentTitle,
+      recentEventsNewestFirst: args.recentEventsNewestFirst,
+    });
+
+  if (inboundHasExplicitCompletionClause(raw)) {
+    return {
+      relationship_meaning: "reported_completion",
+      temporal_scope,
+      confidence: "high",
+      evidence: ["compound_or_explicit_completion_clause"],
+      disqualifiers,
+    };
+  }
+
+  if (looksLikePartialAttempt(raw)) {
+    return {
+      relationship_meaning: "partial_attempt",
+      temporal_scope,
+      confidence: "high",
+      evidence: ["partial_attempt_phrasing"],
+      disqualifiers,
+    };
+  }
+
+  if (inboundHasExplicitMissClause(raw)) {
+    return {
+      relationship_meaning: "miss",
+      temporal_scope,
+      confidence: "high",
+      evidence: ["explicit_miss_clause"],
+      disqualifiers,
+    };
+  }
+
+  if (inboundHasExplicitPartialClause(raw)) {
+    return {
+      relationship_meaning: "partial_attempt",
+      temporal_scope,
+      confidence: "high",
+      evidence: ["explicit_partial_clause"],
+      disqualifiers,
+    };
+  }
+
   if (route.open_question_owns_turn && looksLikeBoundedYesNo(raw)) {
     return {
       relationship_meaning: "answer_to_prior_question",
@@ -370,7 +446,20 @@ export function deriveInboundRelationshipMeaning(
     };
   }
 
-  if (looksLikePlanMade(raw)) {
+  if (
+    looksLikePlanMade(raw) &&
+    !inboundHasExplicitCompletionClause(raw) &&
+    !inboundHasExplicitMissClause(raw)
+  ) {
+    if (inboundHasPlanConfirmationClause(raw) && saca.prior_question_type === "plan_confirmation") {
+      return {
+        relationship_meaning: "answer_to_prior_question",
+        temporal_scope: temporal_scope === "unclear" ? "future" : temporal_scope,
+        confidence: "high",
+        evidence: ["plan_confirmation_with_future_intent", saca.reason],
+        disqualifiers,
+      };
+    }
     return {
       relationship_meaning: "plan_made",
       temporal_scope: temporal_scope === "unclear" ? "future" : temporal_scope,
@@ -391,6 +480,19 @@ export function deriveInboundRelationshipMeaning(
   }
 
   if (looksLikeMissStatement(raw)) {
+    if (
+      saca.is_short_contextual_answer &&
+      !saca.outcome_proof_eligible &&
+      !inboundHasExplicitMissClause(raw)
+    ) {
+      return {
+        relationship_meaning: saca.prior_question_type === "plan_confirmation" ? "answer_to_prior_question" : "uncertain",
+        temporal_scope,
+        confidence: "medium",
+        evidence: ["short_deny_without_outcome_antecedent", saca.reason],
+        disqualifiers,
+      };
+    }
     return {
       relationship_meaning: "miss",
       temporal_scope,
@@ -433,7 +535,7 @@ export function deriveInboundRelationshipMeaning(
     };
   }
 
-  if (isReportedCompletionRelationshipCandidate(raw)) {
+  if (isReportedCompletionRelationshipCandidate(raw, saca)) {
     evidence.push("reported_completion_candidate");
     return {
       relationship_meaning: "reported_completion",
@@ -494,6 +596,32 @@ export function deriveInboundRelationshipMeaning(
     }
   }
 
+  if (
+    saca.is_short_contextual_answer &&
+    saca.prior_question_type === "plan_confirmation"
+  ) {
+    return {
+      relationship_meaning: "answer_to_prior_question",
+      temporal_scope,
+      confidence: "high",
+      evidence: ["short_answer_plan_confirmation", saca.reason],
+      disqualifiers,
+    };
+  }
+
+  if (
+    saca.is_short_contextual_answer &&
+    saca.prior_question_type === "no_recent_question"
+  ) {
+    return {
+      relationship_meaning: "uncertain",
+      temporal_scope,
+      confidence: "medium",
+      evidence: ["contextless_short_answer", saca.reason],
+      disqualifiers: [],
+    };
+  }
+
   if (looksLikeBoundedYesNo(raw)) {
     return {
       relationship_meaning: args.openQuestionPending
@@ -519,6 +647,8 @@ export function derivePersistenceDecision(args: {
   meaning: InboundRelationshipMeaningResult;
   routePriority?: InboundMeaningRoutePriority;
   classifierEventType?: V2InboundEventType;
+  shortAnswerContext?: ShortAnswerContextAuthority | null;
+  rawInbound?: string;
 }): InboundPersistenceDecisionResult {
   const route = args.routePriority ?? {};
   const m = args.meaning.relationship_meaning;
@@ -551,6 +681,21 @@ export function derivePersistenceDecision(args: {
     return {
       persistence_decision: "no_outcome_write",
       reason: "open_question_route_owns_turn",
+    };
+  }
+
+  const saca = args.shortAnswerContext;
+  const raw = args.rawInbound?.trim() ?? "";
+  if (
+    saca?.is_short_contextual_answer &&
+    !saca.outcome_proof_eligible &&
+    !inboundHasExplicitCompletionClause(raw) &&
+    !inboundHasExplicitMissClause(raw) &&
+    !inboundHasExplicitPartialClause(raw)
+  ) {
+    return {
+      persistence_decision: "no_outcome_write",
+      reason: `short_answer_no_outcome_proof:${saca.reason}`,
     };
   }
 
@@ -657,11 +802,31 @@ export function buildInboundMeaningFacts(
     inferInboundMeaningRoutePriorityFromText(args.rawInbound),
     args.routePriority
   );
-  const meaning = deriveInboundRelationshipMeaning({ ...args, routePriority });
+  const shortAnswerContext =
+    args.shortAnswerContext ??
+    resolveShortAnswerContextAuthority({
+      rawInbound: args.rawInbound,
+      latestOpenQuestion: args.latestOpenQuestion,
+      latestOutboundBody: args.latestOutboundBody,
+      expectedAnswerType: args.expectedAnswerType,
+      expectedReplySemantics: args.expectedReplySemantics,
+      openQuestionPending: args.openQuestionPending,
+      effectiveAsk: args.effectiveAsk,
+      behaviorStatement: args.behaviorStatement,
+      commitmentTitle: args.commitmentTitle,
+      recentEventsNewestFirst: args.recentEventsNewestFirst,
+    });
+  const meaning = deriveInboundRelationshipMeaning({
+    ...args,
+    routePriority,
+    shortAnswerContext,
+  });
   const persistence = derivePersistenceDecision({
     meaning,
     routePriority,
     classifierEventType: args.classifierEventType,
+    shortAnswerContext,
+    rawInbound: args.rawInbound,
   });
   const sms = deriveSmsResponseIntent({ meaning, persistence });
   const receivedAt = args.receivedAt ?? new Date();
@@ -772,7 +937,10 @@ export function buildInboundMeaningRoutePriorityFromV3BuildArgs(args: {
 export function inboundMeaningAuthorizesTodayCompleted(
   meaning: InboundMeaningFacts
 ): boolean {
-  return meaning.persistence_decision === "write_user_yes_today";
+  return (
+    meaning.persistence_decision === "write_user_yes_today" &&
+    meaning.relationship_meaning === "reported_completion"
+  );
 }
 
 export function reconcileLegacyAccountabilityEventTypeFromMeaning(args: {

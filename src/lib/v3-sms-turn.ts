@@ -4,6 +4,7 @@
  */
 
 import type { ExpectedReplySemanticsV3 } from "@/lib/north-star-sms-context-packet";
+import { isBoundedPlanConfirmationAnswer } from "@/lib/inbound-short-answer-context";
 import { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
 import { classifyV2InboundReply } from "@/lib/v2-sms-accountability";
 
@@ -14,6 +15,7 @@ export type V3AnswerToOpenQuestionSubkind =
   | "blocker_detail"
   | "goal_change_clarification"
   | "coach_yes_no"
+  | "plan_confirmation"
   | "open_reflection"
   | "unknown_open_answer"
   /** User defers smallest-step-today to tomorrow / late — must not repeat the same today question. */
@@ -186,7 +188,20 @@ export function tryResolveAnswerToOpenQuestionTurn(
 
   const qSem = args.expectedReplySemantics;
 
-  if (qSem === "proposal_yes_no") return null;
+  if (qSem === "proposal_yes_no") {
+    if (!isBoundedPlanConfirmationAnswer(inbound)) return null;
+    const extracted = inbound.trim().toLowerCase().replace(/[.!?…]+$/g, "").trim();
+    const isNo = /^(no|n|nope|nah)$/.test(extracted);
+    return {
+      turnPurpose: "answer_to_open_question",
+      subkind: "plan_confirmation",
+      answeredOpenQuestion: true,
+      extractedAnswer: extracted,
+      shouldWriteOutcomeEvent: false,
+      shouldAskTodayCompletionAgain: false,
+      replyStrategy: isNo ? "ack_plan_confirmation_negative" : "ack_plan_confirmation_affirmative",
+    };
+  }
 
   if (qSem === "accountability_check") {
     return null;

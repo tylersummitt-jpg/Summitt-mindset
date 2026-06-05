@@ -369,6 +369,13 @@ export async function runInboundTurnUnderstandingContext(
     routePriority,
     openQuestionPending: args.openQuestionPending,
     latestOpenQuestion: args.latestOpenQuestion,
+    latestOutboundBody: args.lastCoachOutbound,
+    expectedAnswerType: args.expectedAnswerType,
+    expectedReplySemantics: args.expectedReplySemantics,
+    effectiveAsk: args.effectiveAsk,
+    behaviorStatement: args.behaviorStatement,
+    commitmentTitle: args.commitmentTitle,
+    recentEventsNewestFirst: args.recentEventsNewestFirst,
   });
 
   if (skipReason) {

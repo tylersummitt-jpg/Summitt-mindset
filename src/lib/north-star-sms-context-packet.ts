@@ -9,6 +9,14 @@ import type { V2SmsConversationContextPack } from "@/lib/v2-sms-conversation-con
 import { parseContractOverlayProposalFromCheckPayload } from "@/lib/v2-check-payload-contract-parse";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 import { deriveFutureIntentHint } from "@/lib/north-star-coach-sms";
+import {
+  authorizesProofSignalDisplay,
+  authorizesTodayCompletedDisplay,
+  resolveShortAnswerContextAuthority,
+  type ShortAnswerContextAuthority,
+} from "@/lib/inbound-short-answer-context";
+import { inboundHasExplicitCompletionClause } from "@/lib/inbound-short-answer-clauses";
+import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 
 /** V3 — expected answer shape for the latest coach question (not spine scoring). */
 export type ExpectedReplySemanticsV3 =
@@ -165,6 +173,7 @@ export function coachQuestionExpectsYesNoAnswer(q: string): boolean {
 }
 
 const YES_NO_STYLE_EXPECTED_ANSWER_TYPES = new Set(["yes_no_partial", "yes_no"]);
+const PLAN_CONFIRMATION_EXPECTED_ANSWER_TYPES = new Set(["proposal_yes_no"]);
 
 /** Prefer thread-memory open question when pending; boost yes/no semantics from projection. */
 export function mergeInboundOpenQuestionAuthority(args: {
@@ -180,12 +189,25 @@ export function mergeInboundOpenQuestionAuthority(args: {
   let latestOpenQuestion = args.northStarLatestOpenQuestion?.trim() || null;
   let expectedReplySemantics = args.northStarExpectedSemantics;
 
+  const expectedType = args.threadOpenQuestionExpectedAnswerType?.trim().toLowerCase() ?? "";
+
   if (args.threadOpenQuestionPending && args.threadLatestOpenQuestion?.trim()) {
     latestOpenQuestion = args.threadLatestOpenQuestion.trim();
-    expectedReplySemantics = inferExpectedReplySemanticsFromCoachQuestion(latestOpenQuestion);
+    if (PLAN_CONFIRMATION_EXPECTED_ANSWER_TYPES.has(expectedType)) {
+      expectedReplySemantics = "proposal_yes_no";
+    } else {
+      expectedReplySemantics = inferExpectedReplySemanticsFromCoachQuestion(latestOpenQuestion);
+    }
   }
 
-  const expectedType = args.threadOpenQuestionExpectedAnswerType?.trim().toLowerCase() ?? "";
+  if (
+    latestOpenQuestion &&
+    PLAN_CONFIRMATION_EXPECTED_ANSWER_TYPES.has(expectedType) &&
+    expectedReplySemantics !== "proposal_yes_no"
+  ) {
+    expectedReplySemantics = "proposal_yes_no";
+  }
+
   if (latestOpenQuestion && YES_NO_STYLE_EXPECTED_ANSWER_TYPES.has(expectedType)) {
     if (
       expectedReplySemantics === "open_reflection" ||
@@ -292,6 +314,13 @@ export function buildInboundNorthStarContextPacket(args: {
   identityAnchorText: string | null;
   latestBlockerPreview: string | null;
   proofDisplayedOrMoment?: boolean;
+  inboundMeaning?: InboundMeaningFacts | null;
+  shortAnswerContext?: ShortAnswerContextAuthority | null;
+  willPersistUserYes?: boolean;
+  latestOpenQuestionForContext?: string | null;
+  expectedAnswerTypeForContext?: string | null;
+  expectedReplySemanticsForContext?: ExpectedReplySemanticsV3 | string | null;
+  openQuestionPendingForContext?: boolean;
 }): NorthStarSmsContextPacket {
   const todayLocalDayKey = getDateKeyInTimezone(new Date(), args.timezone);
   const priorYesToday = recentEventsIncludeUserYesOnLocalDay(
@@ -299,7 +328,29 @@ export function buildInboundNorthStarContextPacket(args: {
     args.timezone,
     todayLocalDayKey
   );
-  const todayCompleted = priorYesToday || args.finalEventType === "user_yes";
+
+  const saca =
+    args.shortAnswerContext ??
+    resolveShortAnswerContextAuthority({
+      rawInbound: args.userMessage,
+      latestOutboundBody: args.lastOutboundSmsPreview,
+      latestOpenQuestion: args.latestOpenQuestionForContext ?? null,
+      expectedAnswerType: args.expectedAnswerTypeForContext,
+      expectedReplySemantics: args.expectedReplySemanticsForContext,
+      openQuestionPending: args.openQuestionPendingForContext,
+      effectiveAsk: args.effectiveAskText,
+      behaviorStatement: args.behaviorStatement,
+      recentEventsNewestFirst: args.recentEvents,
+    });
+
+  const inboundReportsCompletion = inboundHasExplicitCompletionClause(args.userMessage);
+  const todayCompleted = authorizesTodayCompletedDisplay({
+    priorYesToday,
+    rawInbound: args.userMessage,
+    shortAnswerContext: saca,
+    willPersistUserYes: args.willPersistUserYes ?? args.inboundMeaning?.persistence_decision === "write_user_yes_today",
+    inboundReportsCompletion,
+  });
 
   const intent = deriveFutureIntentHint(args.userMessage);
 
@@ -337,7 +388,12 @@ export function buildInboundNorthStarContextPacket(args: {
     latestOutcomeType === "user_no" ||
     latestOutcomeType === "user_partial";
 
-  const proofSignal = args.finalEventType === "user_yes" || args.proofDisplayedOrMoment === true;
+  const proofSignal = authorizesProofSignalDisplay({
+    proofDisplayedOrMoment: args.proofDisplayedOrMoment,
+    willPersistUserYes: args.willPersistUserYes ?? args.inboundMeaning?.persistence_decision === "write_user_yes_today",
+    shortAnswerContext: saca,
+    inboundReportsCompletion,
+  });
 
   return {
     activeCommitmentId: args.commitmentId,

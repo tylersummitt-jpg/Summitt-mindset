@@ -219,7 +219,9 @@ function evaluateShouldPersistWithMeaning(
   const selfContained = args.activeReplyContext?.self_contained_accountability_answer === true;
   const todayCompletionBypass =
     persistence === "write_user_yes_today" &&
-    inboundMeaning.relationship_meaning === "reported_completion";
+    inboundMeaning.relationship_meaning === "reported_completion" &&
+    (inboundMeaning.evidence.some((e) => e.includes("completion") || e.includes("explicit")) ||
+      /\b(did it|got my|completed|finished|i did)\b/i.test(raw));
   const promptOk =
     livePrompt || selfContained || (persistence === "write_user_yes_today" && todayCompletionBypass);
 
