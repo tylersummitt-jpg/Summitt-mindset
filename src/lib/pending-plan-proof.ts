@@ -305,7 +305,11 @@ export function derivePendingPlanProof(args: DerivePendingPlanProofArgs): Pendin
 export function buildDailyOpenQuestionAnswerPriorityGuidance(): string {
   return `
 OPEN QUESTION / LATEST ANSWER PRIORITY (read accountability.pending_plan_proof and accountability.timing_anchor_memory in facts):
-1. If accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof. Close that loop BEFORE new tactical advice. Ask naturally whether the planned block happened (done, partial, or missed). Do not re-ask the same open accountability question as if unanswered. Do not praise completion, focus, follow-through, or being back on track unless proof exists in facts.
+1. If accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof. Close that loop BEFORE new tactical advice. Ask whether the planned action happened (done, partial, or missed) — NOT whether to plan/schedule/calendar it again.
+   - If the user already gave a concrete plan detail (who/when/what), do NOT ask them to plan or schedule it again.
+   - Good outcome-close: "Did the noon call with Bond happen, or did something get in the way?" / "Did the planned block happen?" / "What happened with the plan today?"
+   - Bad (stale re-plan): "Are you ready to put it on the calendar?" / "How does this plan feel for the rest of the week?" / "Should we get family time on the calendar?"
+   - Do not re-ask the same open accountability question as if unanswered. Do not praise completion, focus, follow-through, or being back on track unless proof exists in facts.
 2. Else if accountability.pending_plan_proof is inactive and facts show a clear outcome/proof for the prior check (prior_outcome, user yes/no/partial, or completion-shaped answer): you may move forward from that answer/outcome.
 3. Else if thread_memory.latest_answer_after_open_question exists but reads as a forward plan (future intent, timing window, "I will/I'll…") and outcome is still unknown: do not treat the answer as proof. Apply timing_anchor_memory confidence rules if active. Prefer truth-closing over new advice when uncertain.
 4. Else if thread_memory.open_question_pending is false and latest_answer_after_open_question is set: you may move forward from that answer — do not ask that open question again.
@@ -322,6 +326,7 @@ PENDING PLAN PROOF (facts only — do not say these labels in SMS):
 - accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof.
 - suggested_coaching_move is close_prior_plan_loop: close the loop before giving new advice or reusing today's plan.
 - Ask for the outcome of the prior plan in natural language (done, partial, or missed) for ${JSON.stringify(pending.plan_for_day_key)}.
+- If the user already gave a concrete plan detail in facts, ask whether that planned action happened or what got in the way — do NOT ask them to schedule/plan/calendar it again.
 - You may reference a timing detail only as a dated or tentative window; use accountability.timing_anchor_memory.confidence_level if present.
 - Do NOT treat the timing anchor as a recurring daily habit unless timing_anchor_memory supports it.
 - Do NOT praise focus, completion, being back on track, or follow-through unless proof exists in facts.

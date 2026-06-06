@@ -503,6 +503,50 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(userPromptJson).toContain("turn_understanding");
   });
 
+  it("daily packet includes satisfied-ask turn_understanding from daily_satisfied_ask_context", () => {
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts({
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "plan_detail",
+          do_not_repeat_asks: [
+            "let me know if you're ready to put one family connection on the calendar for tomorrow",
+          ],
+          evidence_preview: "Call Bond about 12PM tomorrow",
+          source: "inbound_turn_telemetry",
+          occurred_at: "2026-06-04T18:00:00.000Z",
+          last_ask_satisfied: "yes",
+          stale_ask_risk: true,
+          relationship_meaning: "plan_made",
+          response_intent: "acknowledge_prior_ask_satisfied",
+          prior_question_type: "plan_confirmation",
+          outcome_proof_eligible: false,
+          persistence_note:
+            "Satisfied-ask context only — does not authorize proof, user_yes, or Victory claims without server outcome evidence.",
+        },
+        thread_memory: {
+          ...minimalDailyFacts().thread_memory,
+          do_not_repeat_hints: ["generic lower authority hint"],
+        },
+      }),
+    });
+    expect(packet.structured_recent_truth.data.turn_understanding?.last_ask_satisfied).toBe("yes");
+    expect(packet.structured_recent_truth.data.turn_understanding?.do_not_repeat_asks?.[0]).toMatch(
+      /family connection on the calendar/i
+    );
+    expect(packet.structured_recent_truth.data.daily_satisfied_ask_context?.source).toBe(
+      "inbound_turn_telemetry"
+    );
+    expect(packet.structured_recent_truth.data.turn_understanding?.persistence_note).toMatch(
+      /does not authorize proof/i
+    );
+    expect(packet.structured_recent_truth.data.turn_understanding?.authority).toBe(
+      "authoritative_current"
+    );
+    expect(userPromptJson).toContain("daily_satisfied_ask_context");
+  });
+
   it("inbound and daily share the same relationship_memory_30d_or_season shape", () => {
     const memory30d = makeSampleMemory30d();
     const inbound = buildRelationshipPacketForOpenAI({

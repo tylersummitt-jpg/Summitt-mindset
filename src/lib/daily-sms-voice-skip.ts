@@ -34,6 +34,7 @@ export function dailySmsVoiceSkipEventPatch(args: {
   localTimeIso: string;
   blockedReasons: string[];
   northStarVisibleBody?: string;
+  skipSource?: string;
 }): { status: string; metadata: Record<string, unknown>; sms_body: string } {
   return {
     status: "skipped_no_safe_v3_voice",
@@ -42,6 +43,7 @@ export function dailySmsVoiceSkipEventPatch(args: {
       ...(args.existingMeta ?? {}),
       note: "skipped_no_safe_v3_voice",
       voice_decision: "skipped_no_safe_v3_voice",
+      skip_source: args.skipSource ?? "FVG_no_send",
       cron_route: "/api/cron/daily-sms",
       sms_purpose: "v2_daily_accountability_coaching",
       voice_channel: args.channel,

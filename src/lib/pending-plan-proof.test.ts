@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDailyOpenQuestionAnswerPriorityGuidance,
   buildPendingPlanProofLaneGuardrails,
   derivePendingPlanProof,
   detectPendingPlanProofVoiceViolations,
@@ -192,6 +193,24 @@ describe("buildPendingPlanProofLaneGuardrails", () => {
     expect(g).toMatch(/do not assume/i);
     expect(g).toMatch(/recurring/i);
     expect(g).toMatch(/close the loop/i);
+  });
+
+  it("does not instruct re-scheduling when concrete plan detail already exists", () => {
+    const pending = derivePendingPlanProof({
+      accountabilityDayKey: "2026-05-12",
+      timezone: "America/Chicago",
+      latestOpenQuestion: DIST_Q,
+      latestAnswerAfterOpenQuestion: BROOKE_ANSWER,
+      openQuestionAnsweredAt: "2026-05-11T20:30:00.000Z",
+      openQuestionPending: false,
+      effectiveAsk: "Two hours of distribution",
+      behaviorStatement: "Two hours of distribution",
+    });
+    const guidance = buildDailyOpenQuestionAnswerPriorityGuidance();
+    const guardrails = buildPendingPlanProofLaneGuardrails(pending);
+    expect(guidance).toMatch(/Did the noon call with Bond happen/i);
+    expect(guidance).toMatch(/Are you ready to put it on the calendar/i);
+    expect(guardrails).toMatch(/do NOT ask them to schedule\/plan\/calendar it again/i);
   });
 });
 

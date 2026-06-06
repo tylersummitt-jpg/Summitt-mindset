@@ -164,6 +164,16 @@ import {
 } from "@/lib/v2-guided-resolution";
 import { pickNorthStarWriterAttributionFields, type NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
 import { dailySmsVoiceSkipEventPatch, isDailySmsWithheldByFinalVoiceGate } from "@/lib/daily-sms-voice-skip";
+import {
+  resolveDailySatisfiedAskContext,
+  slimDailySatisfiedAskContextForTelemetry,
+  type DailySatisfiedAskContext,
+} from "@/lib/daily-satisfied-ask-context";
+import {
+  applyDailyStaleAskGuard,
+  DAILY_STALE_ASK_BLOCKED,
+} from "@/lib/daily-stale-ask-guard";
+import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
@@ -259,6 +269,8 @@ type DailySmsBuilt =
       v3DailyRelationshipLane?: boolean;
       /** Lane-built praise policy context for Final Voice Gate parity. */
       v3PraisePolicyContext?: Record<string, unknown>;
+      /** Satisfied-ask truth fed into daily lane + post-FVG stale guard. */
+      dailySatisfiedAskContext?: DailySatisfiedAskContext | null;
     }
   | {
       ok: false;
@@ -266,6 +278,54 @@ type DailySmsBuilt =
       adaptiveProposalWithheldMeta?: Record<string, unknown>;
       dailyLaneMeta?: Record<string, unknown>;
     };
+
+function resolveDailySatisfiedAskFromPacket(args: {
+  recentEvents: V2EventRowForAi[];
+  packet: SmsRelationshipMemoryPacket;
+}): DailySatisfiedAskContext | null {
+  return resolveDailySatisfiedAskContext({
+    eventsNewestFirst: args.recentEvents,
+    latestOpenQuestion: args.packet.latest_open_question,
+    latestAnswerAfterOpenQuestion: args.packet.latest_answer_after_open_question,
+    openQuestionPending: args.packet.open_question_pending,
+    doNotRepeatPhrases: args.packet.do_not_repeat_phrases.map((p) => p.phrase),
+    lastInboundFullBody: args.packet.last_inbound_full_body,
+    openQuestionExpectedAnswerType: args.packet.open_question_expected_answer_type,
+  });
+}
+
+function attachDailySatisfiedAskToFacts(
+  facts: DailyV3RelationshipFacts,
+  args: { recentEvents: V2EventRowForAi[]; packet: SmsRelationshipMemoryPacket }
+): DailyV3RelationshipFacts {
+  return {
+    ...facts,
+    daily_satisfied_ask_context: resolveDailySatisfiedAskFromPacket(args),
+  };
+}
+
+function inferDailyLaneSkipSource(metadata: Record<string, unknown>): string {
+  if (typeof metadata.skip_source === "string" && metadata.skip_source.trim()) {
+    return metadata.skip_source.trim();
+  }
+  if (metadata.lane_stage === "daily_stale_ask_guard_failed") return "stale_ask_no_send";
+  if (metadata.lane_stage === "daily_thread_memory_repeat_guard_failed") {
+    return "memory_repeat_no_send";
+  }
+  if (metadata.lane_stage === "post_validate_repair_failed") return "post_validate_repair_failed";
+  return "lane_no_send";
+}
+
+function enrichDailyLaneNoSendMeta(
+  metadata: Record<string, unknown>,
+  noSendReason: string | null
+): Record<string, unknown> {
+  return {
+    ...metadata,
+    no_send_reason: noSendReason,
+    skip_source: inferDailyLaneSkipSource(metadata),
+  };
+}
 
 function praisePolicyContextFromLaneMetadata(
   metadata: Record<string, unknown>
@@ -352,16 +412,53 @@ async function withNorthStarDailyGate(
       ? { praise_policy_context: built.v3PraisePolicyContext }
       : undefined,
   });
+  let finalReplyBody = voiceGate.shouldSend ? voiceGate.body : "";
+  let finalShouldSend = voiceGate.shouldSend;
+  let finalSkipReason = voiceGate.skipReason ?? null;
+  let finalBlockedReasons = voiceGate.blockedReasons;
+  let postFvgStaleMeta: Record<string, unknown> = {};
+
+  if (built.dailySatisfiedAskContext?.has_satisfied_recent_ask && finalShouldSend && finalReplyBody.trim() && !built.v2ContractProposalMode) {
+    const stalePostFvg = await applyDailyStaleAskGuard({
+      body: finalReplyBody,
+      satisfiedAskContext: built.dailySatisfiedAskContext,
+      routePurpose: built.v2ReactivationNudge
+        ? "low_pressure_reactivation"
+        : built.v2PendingResolutionReminder
+          ? "pending_resolution"
+          : built.v2RefreshOutboundPlan
+            ? "refresh"
+            : "main_active_accountability",
+      stage: "daily_post_final_voice_gate",
+    });
+    postFvgStaleMeta = stalePostFvg.metadata;
+    if (stalePostFvg.outcome === "no_send") {
+      finalShouldSend = false;
+      finalSkipReason = "final_voice_blocked";
+      finalReplyBody = "";
+      finalBlockedReasons = [...(finalBlockedReasons ?? []), DAILY_STALE_ASK_BLOCKED];
+    } else {
+      finalReplyBody = stalePostFvg.body;
+    }
+  }
+
+  const skipSource =
+    !finalShouldSend && finalBlockedReasons?.includes(DAILY_STALE_ASK_BLOCKED)
+      ? "stale_ask_no_send"
+      : !finalShouldSend
+        ? "FVG_no_send"
+        : null;
+
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,
-    smsBody: voiceGate.shouldSend ? voiceGate.body : "",
+    smsBody: finalShouldSend ? finalReplyBody : "",
   };
   out.v2AiPayload = {
     ...(built.v2AiPayload && typeof built.v2AiPayload === "object" ? built.v2AiPayload : {}),
     north_star_gate: {
       original_body: ns.meta.originalBody,
       body_after_north_star: ns.visibleBody,
-      final_body: voiceGate.shouldSend ? voiceGate.body : ns.visibleBody,
+      final_body: finalShouldSend ? finalReplyBody : ns.visibleBody,
       north_star_gate_source: ns.meta.source,
       north_star_gate_reasons: ns.meta.blockedReasons,
       openai_attempted: ns.meta.openaiAttempted,
@@ -370,14 +467,20 @@ async function withNorthStarDailyGate(
       finalizer_version: ns.meta.finalizerVersion,
       ...pickNorthStarWriterAttributionFields(ns.meta),
     },
-    final_voice_gate: voiceGate.metadata,
+    final_voice_gate: {
+      ...(voiceGate.metadata as Record<string, unknown>),
+      ...postFvgStaleMeta,
+    },
     voice_send_decision: {
-      should_send: voiceGate.shouldSend,
-      skip_reason: voiceGate.skipReason ?? null,
+      should_send: finalShouldSend,
+      skip_reason: finalSkipReason,
       voice_channel: channel,
       north_star_visible_body: ns.visibleBody,
-      blocked_reasons: voiceGate.blockedReasons,
-      ...(voiceGate.shouldSend ? {} : { twilio_send_attempted: false }),
+      blocked_reasons: finalBlockedReasons,
+      ...(skipSource ? { skip_source: skipSource } : {}),
+      ...(postFvgStaleMeta),
+      ...(slimDailySatisfiedAskContextForTelemetry(built.dailySatisfiedAskContext) ?? {}),
+      ...(finalShouldSend ? {} : { twilio_send_attempted: false }),
     },
   };
   return out;
@@ -852,17 +955,20 @@ async function buildDailySmsContent(
         })),
       });
       const suggestedMoveRe = deriveSuggestedCoachingMoveForDailyFacts(factsCoreRe);
-      const factsRe: DailyV3RelationshipFacts = {
-        ...factsCoreRe,
-        suggested_coaching_move: suggestedMoveRe,
-        constraints: {
-          max_chars: 300,
-          one_sms: true,
-          no_raw_title_or_behavior_paste: true,
-          no_generic_motivation: true,
-          if_unsafe_return_no_send: true,
+      const factsRe: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
+        {
+          ...factsCoreRe,
+          suggested_coaching_move: suggestedMoveRe,
+          constraints: {
+            max_chars: 300,
+            one_sms: true,
+            no_raw_title_or_behavior_paste: true,
+            no_generic_motivation: true,
+            if_unsafe_return_no_send: true,
+          },
         },
-      };
+        { recentEvents, packet: relationshipMemoryPacketRe }
+      );
       const laneRe = await produceDailyV3RelationshipSms({
         facts: factsRe,
         telemetry_fact_sources: [
@@ -880,7 +986,7 @@ async function buildDailySmsContent(
         return {
           ok: false,
           error: "daily_v3_lane_no_send",
-          dailyLaneMeta: { ...laneRe.metadata, no_send_reason: laneRe.noSendReason },
+          dailyLaneMeta: enrichDailyLaneNoSendMeta(laneRe.metadata, laneRe.noSendReason),
         };
       }
       const smsBodyRe = laneRe.body;
@@ -958,6 +1064,7 @@ async function buildDailySmsContent(
         v3DailyDeterministicFallback: false,
         v3DailyRelationshipLane: true,
         v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRe.metadata),
+        dailySatisfiedAskContext: factsRe.daily_satisfied_ask_context ?? null,
       };
     }
 
@@ -1146,18 +1253,21 @@ async function buildDailySmsContent(
         ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
       };
       const suggestedPr = deriveSuggestedCoachingMoveForDailyFacts(factsCorePr);
-      const factsPr: DailyV3RelationshipFacts = {
-        ...factsCorePr,
-        suggested_coaching_move: suggestedPr,
-        constraints: {
-          max_chars: 300,
-          one_sms: true,
-          no_raw_title_or_behavior_paste: true,
-          no_generic_motivation: true,
-          if_unsafe_return_no_send: true,
-          ...(verbatimPr.length ? { required_verbatim_substrings: verbatimPr } : {}),
+      const factsPr: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
+        {
+          ...factsCorePr,
+          suggested_coaching_move: suggestedPr,
+          constraints: {
+            max_chars: 300,
+            one_sms: true,
+            no_raw_title_or_behavior_paste: true,
+            no_generic_motivation: true,
+            if_unsafe_return_no_send: true,
+            ...(verbatimPr.length ? { required_verbatim_substrings: verbatimPr } : {}),
+          },
         },
-      };
+        { recentEvents, packet: relationshipMemoryPacketPr }
+      );
       const remTemplate = buildPendingResolutionDailyReminderSms(active);
       const lanePr = await produceDailyV3RelationshipSms({
         facts: factsPr,
@@ -1173,7 +1283,7 @@ async function buildDailySmsContent(
         return {
           ok: false,
           error: "daily_v3_lane_no_send",
-          dailyLaneMeta: { ...lanePr.metadata, no_send_reason: lanePr.noSendReason },
+          dailyLaneMeta: enrichDailyLaneNoSendMeta(lanePr.metadata, lanePr.noSendReason),
         };
       }
       console.info("[daily-sms] pending_resolution_reminder_selected", {
@@ -1242,6 +1352,7 @@ async function buildDailySmsContent(
         v3DailyDeterministicFallback: false,
         v3DailyRelationshipLane: true,
         v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(lanePr.metadata),
+        dailySatisfiedAskContext: factsPr.daily_satisfied_ask_context ?? null,
       };
     }
 
@@ -1450,18 +1561,21 @@ async function buildDailySmsContent(
           ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
         };
         const suggestedRf = deriveSuggestedCoachingMoveForDailyFacts(factsCoreRf);
-        const factsRf: DailyV3RelationshipFacts = {
-          ...factsCoreRf,
-          suggested_coaching_move: suggestedRf,
-          constraints: {
-            max_chars: 300,
-            one_sms: true,
-            no_raw_title_or_behavior_paste: true,
-            no_generic_motivation: true,
-            if_unsafe_return_no_send: true,
-            ...(verbatimRf.length ? { required_verbatim_substrings: verbatimRf } : {}),
+        const factsRf: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
+          {
+            ...factsCoreRf,
+            suggested_coaching_move: suggestedRf,
+            constraints: {
+              max_chars: 300,
+              one_sms: true,
+              no_raw_title_or_behavior_paste: true,
+              no_generic_motivation: true,
+              if_unsafe_return_no_send: true,
+              ...(verbatimRf.length ? { required_verbatim_substrings: verbatimRf } : {}),
+            },
           },
-        };
+          { recentEvents, packet: relationshipMemoryPacketRf }
+        );
         const laneRf = await produceDailyV3RelationshipSms({
           facts: factsRf,
           telemetry_fact_sources: [
@@ -1478,7 +1592,7 @@ async function buildDailySmsContent(
           return {
             ok: false,
             error: "daily_v3_lane_no_send",
-            dailyLaneMeta: { ...laneRf.metadata, no_send_reason: laneRf.noSendReason },
+            dailyLaneMeta: enrichDailyLaneNoSendMeta(laneRf.metadata, laneRf.noSendReason),
           };
         }
 
@@ -1554,6 +1668,7 @@ async function buildDailySmsContent(
           v3DailyDeterministicFallback: false,
           v3DailyRelationshipLane: true,
           v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRf.metadata),
+          dailySatisfiedAskContext: factsRf.daily_satisfied_ask_context ?? null,
         };
       }
 
@@ -1694,18 +1809,21 @@ async function buildDailySmsContent(
           ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
         };
         const suggestedC = deriveSuggestedCoachingMoveForDailyFacts(factsCoreC);
-        const factsC: DailyV3RelationshipFacts = {
-          ...factsCoreC,
-          suggested_coaching_move: suggestedC,
-          constraints: {
-            max_chars: 300,
-            one_sms: true,
-            no_raw_title_or_behavior_paste: true,
-            no_generic_motivation: true,
-            if_unsafe_return_no_send: true,
-            ...(verbatimC.length ? { required_verbatim_substrings: verbatimC } : {}),
+        const factsC: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
+          {
+            ...factsCoreC,
+            suggested_coaching_move: suggestedC,
+            constraints: {
+              max_chars: 300,
+              one_sms: true,
+              no_raw_title_or_behavior_paste: true,
+              no_generic_motivation: true,
+              if_unsafe_return_no_send: true,
+              ...(verbatimC.length ? { required_verbatim_substrings: verbatimC } : {}),
+            },
           },
-        };
+          { recentEvents, packet: relationshipMemoryPacketC }
+        );
         const laneC = await produceDailyV3RelationshipSms({
           facts: factsC,
           telemetry_fact_sources: [
@@ -1722,7 +1840,7 @@ async function buildDailySmsContent(
           return {
             ok: false,
             error: "daily_v3_lane_no_send",
-            dailyLaneMeta: { ...laneC.metadata, no_send_reason: laneC.noSendReason },
+            dailyLaneMeta: enrichDailyLaneNoSendMeta(laneC.metadata, laneC.noSendReason),
           };
         }
 
@@ -1798,6 +1916,7 @@ async function buildDailySmsContent(
           v3DailyDeterministicFallback: false,
           v3DailyRelationshipLane: true,
           v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneC.metadata),
+          dailySatisfiedAskContext: factsC.daily_satisfied_ask_context ?? null,
         };
       }
     }
@@ -2229,18 +2348,21 @@ async function buildDailySmsContent(
       })),
     });
     const suggestedUnified = deriveSuggestedCoachingMoveForDailyFacts(factsCoreWithPlanProof);
-    const factsUnified: DailyV3RelationshipFacts = {
-      ...factsCoreWithPlanProof,
-      suggested_coaching_move: suggestedUnified,
-      constraints: {
-        max_chars: 300,
-        one_sms: true,
-        no_raw_title_or_behavior_paste: true,
-        no_generic_motivation: true,
-        if_unsafe_return_no_send: true,
-        ...(requiredVerbatimMain.length ? { required_verbatim_substrings: requiredVerbatimMain } : {}),
+    const factsUnified: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
+      {
+        ...factsCoreWithPlanProof,
+        suggested_coaching_move: suggestedUnified,
+        constraints: {
+          max_chars: 300,
+          one_sms: true,
+          no_raw_title_or_behavior_paste: true,
+          no_generic_motivation: true,
+          if_unsafe_return_no_send: true,
+          ...(requiredVerbatimMain.length ? { required_verbatim_substrings: requiredVerbatimMain } : {}),
+        },
       },
-    };
+      { recentEvents, packet: relationshipMemoryPacketMain }
+    );
     const telemetryUnified: string[] = [
       "deriveV2CoachingState",
       "deriveV2SilenceContext",
@@ -2277,7 +2399,7 @@ async function buildDailySmsContent(
       return {
         ok: false,
         error: "daily_v3_lane_no_send",
-        dailyLaneMeta: { ...laneUnified.metadata, no_send_reason: laneUnified.noSendReason },
+        dailyLaneMeta: enrichDailyLaneNoSendMeta(laneUnified.metadata, laneUnified.noSendReason),
       };
     }
     smsBody = laneUnified.body;
@@ -2392,6 +2514,7 @@ async function buildDailySmsContent(
       v3DailyDeterministicFallback,
       v3DailyRelationshipLane,
       v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneUnified.metadata),
+      dailySatisfiedAskContext: factsUnified.daily_satisfied_ask_context ?? null,
     };
   }
 
@@ -3083,6 +3206,9 @@ export async function GET(req: Request) {
                       timezone,
                       local_time: localNow.toISOString(),
                       ...(built.dailyLaneMeta ? { daily_v3_lane: built.dailyLaneMeta } : {}),
+                      ...(built.dailyLaneMeta?.skip_source
+                        ? { skip_source: built.dailyLaneMeta.skip_source }
+                        : { skip_source: "lane_no_send" }),
                       ...(built.dailyLaneMeta
                         ? {
                             relationship_packet_observability:
@@ -3126,6 +3252,7 @@ export async function GET(req: Request) {
                     voice_channel?: NorthStarCoachChannel;
                     blocked_reasons?: string[];
                     north_star_visible_body?: string;
+                    skip_source?: string;
                   }
                 | undefined;
               const northStarGateR = (built.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
@@ -3140,6 +3267,7 @@ export async function GET(req: Request) {
                 localTimeIso: localNow.toISOString(),
                 blockedReasons: voiceSendDecisionRetry?.blocked_reasons ?? [],
                 northStarVisibleBody: voiceSendDecisionRetry?.north_star_visible_body,
+                skipSource: voiceSendDecisionRetry?.skip_source,
               }),
                 built.v2AiPayload?.v3_brain
               );
@@ -3688,6 +3816,9 @@ export async function GET(req: Request) {
                 timezone,
                 local_time: localNow.toISOString(),
                 ...(builtMain.dailyLaneMeta ? { daily_v3_lane: builtMain.dailyLaneMeta } : {}),
+                ...(builtMain.dailyLaneMeta?.skip_source
+                  ? { skip_source: builtMain.dailyLaneMeta.skip_source }
+                  : { skip_source: "lane_no_send" }),
                 ...(builtMain.dailyLaneMeta
                   ? {
                       relationship_packet_observability: relationshipObservabilityFromLaneMetadata(
@@ -3731,6 +3862,7 @@ export async function GET(req: Request) {
               voice_channel?: NorthStarCoachChannel;
               blocked_reasons?: string[];
               north_star_visible_body?: string;
+              skip_source?: string;
             }
           | undefined;
         const northStarGate = (builtMain.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
@@ -3745,6 +3877,7 @@ export async function GET(req: Request) {
           localTimeIso: localNow.toISOString(),
           blockedReasons: voiceSendDecision?.blocked_reasons ?? [],
           northStarVisibleBody: voiceSendDecision?.north_star_visible_body,
+          skipSource: voiceSendDecision?.skip_source,
         }),
           builtMain.v2AiPayload?.v3_brain
         );

@@ -4,6 +4,7 @@
  */
 
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
 import {
   applyMemory7dTemporalLabels,
 } from "@/lib/sms-relationship-memory-7d";
@@ -91,6 +92,15 @@ export type RelationshipPacketTurnUnderstandingSection = {
 
 export type RelationshipPacketStructuredRecentTruth = {
   turn_understanding?: RelationshipPacketTurnUnderstandingSection | null;
+  daily_satisfied_ask_context?: {
+    has_satisfied_recent_ask: boolean;
+    satisfied_ask_type: string;
+    do_not_repeat_asks: string[];
+    evidence_preview: string | null;
+    source: string;
+    occurred_at: string | null;
+    persistence_note: string;
+  } | null;
   thread_freshness?: ThreadFreshnessFacts | null;
   latest_open_question?: string | null;
   latest_answer_after_open_question?: string | null;
@@ -248,7 +258,7 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - Never invent patterns beyond listed relationship_memory_7d or relationship_memory_30d_or_season evidence items.
 - pat_read_snapshot entries are AI snapshots (is_ai_snapshot: true) and must lose to exact SMS thread and event-backed memory.
 - background_summary and low_authority_hint must NEVER override recent exact thread or canonical_state.
-- If structured_recent_truth.turn_understanding is present, it is authoritative for whether the prior coach ask is satisfied — do not repeat do_not_repeat_asks.
+- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context is present, it is authoritative for whether the prior coach ask is satisfied — do not repeat do_not_repeat_asks.
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
@@ -541,10 +551,51 @@ function buildStructuredTruthInbound(f: InboundV3RelationshipFacts): Relationshi
   };
 }
 
+function turnUnderstandingFromDailySatisfiedAskContext(
+  ctx: DailySatisfiedAskContext
+): RelationshipPacketTurnUnderstandingSection {
+  return {
+    authority: "authoritative_current",
+    relationship_meaning: ctx.relationship_meaning ?? "answer_to_prior_question",
+    response_intent: ctx.response_intent ?? "acknowledge_prior_answer",
+    last_ask_satisfied: ctx.last_ask_satisfied,
+    satisfaction_kind:
+      ctx.satisfied_ask_type === "plan_detail"
+        ? "plan_detail_provided"
+        : ctx.satisfied_ask_type === "plan_confirmation"
+          ? "plan_confirmed"
+          : ctx.satisfied_ask_type === "outcome_answer"
+            ? "outcome_reported"
+            : "prior_ask_satisfied",
+    do_not_repeat_asks: compactStrings(ctx.do_not_repeat_asks, 6),
+    stale_ask_risk: ctx.stale_ask_risk,
+    evidence_quotes: ctx.evidence_preview ? [ctx.evidence_preview.slice(0, 160)] : [],
+    confidence: ctx.source === "inbound_turn_telemetry" ? 0.88 : 0.72,
+    persistence_note: ctx.persistence_note,
+  };
+}
+
 function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPacketStructuredRecentTruth {
   const tm = f.thread_memory;
   const reqVerb = f.constraints.required_verbatim_substrings ?? [];
+  const sac = f.daily_satisfied_ask_context;
+  const turnUnderstanding =
+    sac?.has_satisfied_recent_ask === true ? turnUnderstandingFromDailySatisfiedAskContext(sac) : null;
   return {
+    ...(turnUnderstanding ? { turn_understanding: turnUnderstanding } : {}),
+    ...(sac?.has_satisfied_recent_ask
+      ? {
+          daily_satisfied_ask_context: {
+            has_satisfied_recent_ask: true,
+            satisfied_ask_type: sac.satisfied_ask_type,
+            do_not_repeat_asks: compactStrings(sac.do_not_repeat_asks, 6),
+            evidence_preview: sac.evidence_preview,
+            source: sac.source,
+            occurred_at: sac.occurred_at,
+            persistence_note: sac.persistence_note,
+          },
+        }
+      : {}),
     thread_freshness: f.thread_freshness ?? null,
     latest_open_question: tm.latest_open_question ?? null,
     latest_answer_after_open_question: tm.latest_answer_after_open_question ?? null,
