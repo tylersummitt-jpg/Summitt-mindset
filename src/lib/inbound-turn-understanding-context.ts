@@ -3,6 +3,8 @@
  */
 
 import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
+import { inboundExplicitOutcomeDetected } from "@/lib/inbound-short-answer-clauses";
+import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 import {
   buildInboundMeaningFacts,
   type InboundMeaningRoutePriority,
@@ -98,6 +100,24 @@ const REFLECTION_FOLLOW_UP_HINTS = [
   "noticed",
 ];
 
+const SAFE_NON_STALE_FOLLOW_UP_RES: ReadonlyArray<RegExp> = [
+  /\bwhat helped you\b/i,
+  /\bwhat made\b.+\bwork for you\b/i,
+  /\bwhat do you want to carry\b/i,
+  /\bwhat will help you protect\b/i,
+  /\bwhat did you notice\b/i,
+  /\bwhat felt best\b/i,
+  /\bwhat helped\b.+\b(steps|workout|call)\b/i,
+];
+
+const PLAN_CONTINUATION_STALE_RES: ReadonlyArray<RegExp> = [
+  /\bhow do you feel about\b.+\b(plan|continuing|rest of the week)\b/i,
+  /\bhow does staying committed\b/i,
+  /\bdoes this plan feel\b/i,
+  /\bready to continue\b.+\bplan\b/i,
+  /\bfeel about your plan for the rest of the week\b/i,
+];
+
 const SCHEDULING_NOUN_HINTS = [
   "calendar",
   "schedul",
@@ -146,6 +166,14 @@ function looksLikeReflectionFollowUp(proposedBody: string, bodyNorm: string): bo
   return REFLECTION_FOLLOW_UP_HINTS.some((h) => bodyNorm.includes(h));
 }
 
+function looksLikeSafeNonStaleFollowUp(proposedBody: string): boolean {
+  return SAFE_NON_STALE_FOLLOW_UP_RES.some((rx) => rx.test(proposedBody));
+}
+
+function looksLikePlanContinuationStaleAsk(proposedBody: string): boolean {
+  return PLAN_CONTINUATION_STALE_RES.some((rx) => rx.test(proposedBody));
+}
+
 /** Conservative paraphrase detection for satisfied-ask do_not_repeat phrases. */
 export function paraphraseRepeatsStaleCoachAsk(proposedBody: string, coachLine: string): boolean {
   if (substantiallyRepeatsCoachQuestion(proposedBody, coachLine)) return true;
@@ -155,6 +183,11 @@ export function paraphraseRepeatsStaleCoachAsk(proposedBody: string, coachLine: 
   if (phraseNorm.length < 12 || bodyNorm.length < 12) return false;
 
   if (looksLikeReflectionFollowUp(proposedBody, bodyNorm)) return false;
+  if (looksLikeSafeNonStaleFollowUp(proposedBody)) return false;
+
+  if (looksLikePlanContinuationStaleAsk(proposedBody) && /\?/.test(proposedBody)) {
+    return true;
+  }
 
   const keyTokens = extractStaleAskKeyTokens(phraseNorm);
   if (keyTokens.length < 2) return false;
@@ -317,6 +350,7 @@ export function applyInboundFinalBodyTurnUnderstandingGuard(args: {
       metadata: {
         ...baseMeta,
         turn_understanding_final_body_violation_detected: false,
+        turn_understanding_stale_ask_violation_detected: false,
         final_body_stale_ask_blocked: false,
         stale_ask_avoided: reconciled.stale_ask_avoided,
         do_not_repeat_asks: reconciled.reconciled_do_not_repeat_asks,
@@ -324,19 +358,221 @@ export function applyInboundFinalBodyTurnUnderstandingGuard(args: {
     };
   }
 
+  return buildStaleAskBlockedGuardResult({
+    baseMeta,
+    reconciled,
+    violation,
+    stage,
+  });
+}
+
+function buildStaleAskBlockedGuardResult(args: {
+  baseMeta: Record<string, unknown>;
+  reconciled: ReconciledTurnUnderstanding;
+  violation: { violation: boolean; repeatedPhrase: string | null };
+  stage: string;
+  repairMetadata?: Record<string, unknown>;
+}): InboundFinalBodyTurnUnderstandingGuardResult {
+  const meta: Record<string, unknown> = {
+    ...args.baseMeta,
+    ...args.repairMetadata,
+    turn_understanding_final_body_violation_detected: true,
+    turn_understanding_stale_ask_violation_detected: true,
+    turn_understanding_final_body_repair_attempted:
+      args.repairMetadata?.turn_understanding_stale_ask_repair_attempted ?? false,
+    turn_understanding_stale_ask_repair_attempted:
+      args.repairMetadata?.turn_understanding_stale_ask_repair_attempted ?? false,
+    turn_understanding_final_body_repair_succeeded:
+      args.repairMetadata?.turn_understanding_stale_ask_repair_succeeded ?? false,
+    turn_understanding_stale_ask_repair_succeeded:
+      args.repairMetadata?.turn_understanding_stale_ask_repair_succeeded ?? false,
+    turn_understanding_final_body_no_send_reason: TURN_UNDERSTANDING_FINAL_BODY_NO_SEND,
+    turn_understanding_stale_ask_no_send_reason: TURN_UNDERSTANDING_FINAL_BODY_NO_SEND,
+    final_body_stale_ask_blocked: true,
+    turn_understanding_stale_ask_phrase: args.violation.repeatedPhrase,
+    stale_ask_phrase: args.violation.repeatedPhrase,
+    do_not_repeat_asks: args.reconciled.reconciled_do_not_repeat_asks,
+    final_body_guard_stage: args.stage,
+  };
   return {
     body: "",
     shouldSend: false,
     noSendReason: TURN_UNDERSTANDING_FINAL_BODY_NO_SEND,
+    metadata: meta,
+  };
+}
+
+function buildStaleAskRepairSystemInstruction(args: {
+  repeatedPhrase: string | null;
+  doNotRepeatAsks: string[];
+  rawInbound?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+  reconciled?: ReconciledTurnUnderstanding | null;
+}): string {
+  const dnr = args.doNotRepeatAsks.slice(0, 4).join(" | ");
+  const inboundPreview = args.rawInbound?.trim().slice(0, 200) ?? "";
+  const meaning = args.reconciled?.reconciled_relationship_meaning ?? args.inboundMeaning?.relationship_meaning;
+  return `STALE ASK REPAIR: The draft repeats a coach question the user already answered or satisfied.
+Do NOT repeat or paraphrase these stale asks: ${dnr || args.repeatedPhrase || "prior satisfied ask"}.
+The user already answered/satisfied the prior ask. Remove the stale question tail entirely.
+Preserve any supported truth from the latest inbound only when evidence supports it.
+Latest inbound preview: ${inboundPreview || "(none)"}.
+Inbound meaning hint: ${meaning ?? "unclear"}.
+If the user reported completion with evidence, you may acknowledge completion briefly — no fake proof or Victory language.
+If the user gave a concrete plan detail, acknowledge that specific plan detail.
+Ask at most one non-stale next question, or close the loop without re-asking the stale prompt.
+No hard-coded templates. One short SMS.`;
+}
+
+export type TryRepairInboundStaleAskViolationArgs = {
+  body: string;
+  violation: { violation: boolean; repeatedPhrase: string | null };
+  reconciled: ReconciledTurnUnderstanding;
+  latestOpenQuestion?: string | null;
+  lastCoachOutbound?: string | null;
+  rawInbound?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+  routePurpose?: string;
+  factsJson?: Record<string, unknown> | null;
+  repairSnapshot?: import("@/lib/sms-relationship-repair-snapshot-v1").RepairRelationshipSnapshotV1 | null;
+};
+
+export async function tryRepairInboundStaleAskViolation(
+  args: TryRepairInboundStaleAskViolationArgs
+): Promise<{ body: string; metadata: Record<string, unknown> } | null> {
+  const repair = await repairV3RelationshipLaneBodyWithOpenAI({
+    routeKind: "inbound",
+    routePurpose: args.routePurpose ?? "turn_understanding_stale_ask_guard",
+    originalBody: args.body,
+    blockedReasons: ["turn_understanding_stale_ask"],
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: args.repairSnapshot ?? null,
+    systemInstruction: buildStaleAskRepairSystemInstruction({
+      repeatedPhrase: args.violation.repeatedPhrase,
+      doNotRepeatAsks: args.reconciled.reconciled_do_not_repeat_asks,
+      rawInbound: args.rawInbound,
+      inboundMeaning: args.inboundMeaning,
+      reconciled: args.reconciled,
+    }),
+  });
+
+  if (!repair?.body?.trim()) {
+    return null;
+  }
+
+  return {
+    body: repair.body.trim(),
     metadata: {
-      ...baseMeta,
+      turn_understanding_stale_ask_repair_attempted: true,
+      turn_understanding_final_body_repair_attempted: true,
+      turn_understanding_stale_ask_repair_openai_ok: repair.openAiOk,
+      turn_understanding_stale_ask_repair_metadata: repair.metadata,
+      stale_guard_repair_body_preview: repair.body.trim().slice(0, 220),
+    },
+  };
+}
+
+export async function applyInboundFinalBodyTurnUnderstandingGuardAsync(args: {
+  body: string;
+  context: InboundTurnUnderstandingContext | null | undefined;
+  latestOpenQuestion?: string | null;
+  lastCoachOutbound?: string | null;
+  stage?: string;
+  routePurpose?: string;
+  factsJson?: Record<string, unknown> | null;
+  repairSnapshot?: TryRepairInboundStaleAskViolationArgs["repairSnapshot"];
+  rawInbound?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+}): Promise<InboundFinalBodyTurnUnderstandingGuardResult> {
+  const stage = args.stage ?? "pre_send";
+  const initial = applyInboundFinalBodyTurnUnderstandingGuard({
+    body: args.body,
+    context: args.context,
+    latestOpenQuestion: args.latestOpenQuestion,
+    lastCoachOutbound: args.lastCoachOutbound,
+    stage,
+  });
+
+  if (initial.shouldSend || !args.context?.reconciled) {
+    return initial;
+  }
+
+  const reconciled = args.context.reconciled;
+  const violation = detectReconciledTurnUnderstandingStaleAskViolation(args.body, {
+    reconciled,
+    latestOpenQuestion: args.latestOpenQuestion,
+    lastCoachOutbound: args.lastCoachOutbound,
+  });
+  if (!violation.violation) {
+    return initial;
+  }
+
+  const repaired = await tryRepairInboundStaleAskViolation({
+    body: args.body,
+    violation,
+    reconciled,
+    latestOpenQuestion: args.latestOpenQuestion,
+    lastCoachOutbound: args.lastCoachOutbound,
+    rawInbound: args.rawInbound,
+    inboundMeaning: args.inboundMeaning ?? args.context.inboundMeaningForPersist ?? null,
+    routePurpose: args.routePurpose,
+    factsJson: args.factsJson,
+    repairSnapshot: args.repairSnapshot,
+  });
+
+  if (!repaired?.body) {
+    return buildStaleAskBlockedGuardResult({
+      baseMeta: {
+        ...initial.metadata,
+        turn_understanding_stale_ask_repair_attempted: true,
+        turn_understanding_final_body_repair_attempted: true,
+        turn_understanding_stale_ask_repair_succeeded: false,
+        turn_understanding_final_body_repair_succeeded: false,
+        explicit_outcome_detected: inboundExplicitOutcomeDetected(args.rawInbound ?? ""),
+      },
+      reconciled,
+      violation,
+      stage,
+    });
+  }
+
+  const recheck = detectReconciledTurnUnderstandingStaleAskViolation(repaired.body, {
+    reconciled,
+    latestOpenQuestion: args.latestOpenQuestion,
+    lastCoachOutbound: args.lastCoachOutbound,
+  });
+  if (recheck.violation) {
+    return buildStaleAskBlockedGuardResult({
+      baseMeta: {
+        ...initial.metadata,
+        ...repaired.metadata,
+        turn_understanding_stale_ask_repair_succeeded: false,
+        turn_understanding_final_body_repair_succeeded: false,
+        explicit_outcome_detected: inboundExplicitOutcomeDetected(args.rawInbound ?? ""),
+      },
+      reconciled,
+      violation: recheck,
+      stage,
+      repairMetadata: repaired.metadata,
+    });
+  }
+
+  return {
+    body: repaired.body,
+    shouldSend: true,
+    noSendReason: null,
+    metadata: {
+      ...initial.metadata,
+      ...repaired.metadata,
       turn_understanding_final_body_violation_detected: true,
-      turn_understanding_final_body_repair_attempted: false,
-      turn_understanding_final_body_repair_succeeded: false,
-      turn_understanding_final_body_no_send_reason: TURN_UNDERSTANDING_FINAL_BODY_NO_SEND,
-      final_body_stale_ask_blocked: true,
+      turn_understanding_stale_ask_violation_detected: true,
+      turn_understanding_stale_ask_repair_succeeded: true,
+      turn_understanding_final_body_repair_succeeded: true,
+      final_body_stale_ask_blocked: false,
       turn_understanding_stale_ask_phrase: violation.repeatedPhrase,
-      do_not_repeat_asks: reconciled.reconciled_do_not_repeat_asks,
+      stale_ask_phrase: violation.repeatedPhrase,
+      explicit_outcome_detected: inboundExplicitOutcomeDetected(args.rawInbound ?? ""),
+      final_body_guard_stage: stage,
     },
   };
 }

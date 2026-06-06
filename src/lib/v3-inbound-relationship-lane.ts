@@ -103,6 +103,7 @@ import {
 import {
   detectTurnUnderstandingStaleAskViolationFromFacts,
   paraphraseRepeatsStaleCoachAsk,
+  tryRepairInboundStaleAskViolation,
 } from "@/lib/inbound-turn-understanding-context";
 
 const INBOUND_LANE_MAX_CHARS = 320;
@@ -299,6 +300,68 @@ export function detectTurnUnderstandingStaleAskViolation(
   facts: InboundV3RelationshipFacts
 ): { violation: boolean; repeatedPhrase: string | null } {
   return detectTurnUnderstandingStaleAskViolationFromFacts(body, facts);
+}
+
+async function tryResolveStaleAskBlockedInboundBody(
+  body: string,
+  args: InboundV3RelationshipLaneInput,
+  staleAsk: { violation: boolean; repeatedPhrase: string | null }
+): Promise<
+  | { ok: true; body: string; repairMeta: Record<string, unknown> }
+  | { ok: false; repairMeta: Record<string, unknown> }
+> {
+  const tu = args.facts.turn_understanding;
+  if (!tu || !isTurnUnderstandingAuthoritative(tu)) {
+    return { ok: false, repairMeta: {} };
+  }
+
+  const repaired = await tryRepairInboundStaleAskViolation({
+    body,
+    violation: staleAsk,
+    reconciled: tu,
+    latestOpenQuestion:
+      args.facts.thread.latest_open_question ??
+      args.facts.thread.memory_packet?.latest_open_question ??
+      null,
+    lastCoachOutbound:
+      args.facts.thread.memory_packet?.last_outbound_full_body ??
+      args.facts.thread.latest_outbound_coach_sms ??
+      null,
+    rawInbound: args.facts.thread.coalesced_inbound_text ?? null,
+    inboundMeaning: args.facts.inbound_meaning,
+    routePurpose: args.facts.route_purpose,
+    factsJson: args.facts as unknown as Record<string, unknown>,
+  });
+
+  if (!repaired?.body) {
+    return {
+      ok: false,
+      repairMeta: {
+        turn_understanding_stale_ask_repair_attempted: true,
+        turn_understanding_stale_ask_repair_succeeded: false,
+      },
+    };
+  }
+
+  const recheck = detectTurnUnderstandingStaleAskViolation(repaired.body, args.facts);
+  if (recheck.violation) {
+    return {
+      ok: false,
+      repairMeta: {
+        ...repaired.metadata,
+        turn_understanding_stale_ask_repair_succeeded: false,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    body: repaired.body,
+    repairMeta: {
+      ...repaired.metadata,
+      turn_understanding_stale_ask_repair_succeeded: true,
+    },
+  };
 }
 
 function inboundBodyReasksThreadQuestion(body: string, facts: InboundV3RelationshipFacts): boolean {
@@ -2240,12 +2303,19 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
   const staleAskEarly = detectTurnUnderstandingStaleAskViolation(body, args.facts);
   if (staleAskEarly.violation) {
-    return empty("turn_understanding_stale_ask_blocked", true, {
-      lane_stage: "turn_understanding_stale_ask_validation_failed",
-      v3_candidate_body: body,
-      turn_understanding_stale_ask_phrase: staleAskEarly.repeatedPhrase,
-      ...laneOpenAiJsonMeta,
-    });
+    const repairedEarly = await tryResolveStaleAskBlockedInboundBody(body, args, staleAskEarly);
+    if (repairedEarly.ok) {
+      body = repairedEarly.body;
+      laneOpenAiJsonMeta = { ...laneOpenAiJsonMeta, ...repairedEarly.repairMeta };
+    } else {
+      return empty("turn_understanding_stale_ask_blocked", true, {
+        lane_stage: "turn_understanding_stale_ask_validation_failed",
+        v3_candidate_body: body,
+        turn_understanding_stale_ask_phrase: staleAskEarly.repeatedPhrase,
+        ...repairedEarly.repairMeta,
+        ...laneOpenAiJsonMeta,
+      });
+    }
   }
 
   const rt = args.facts.thread.rejected_time_candidates;
@@ -2457,24 +2527,32 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
   const staleAskFinal = detectTurnUnderstandingStaleAskViolation(body, args.facts);
   if (staleAskFinal.violation) {
-    return {
-      body: "",
-      shouldSend: false,
-      noSendReason: "turn_understanding_stale_ask_blocked",
-      replySource: "v3_inbound_relationship_lane",
-      turnPurpose: turnPurpose || "no_send",
-      voiceConfidence,
-      usedFacts,
-      safetyNotes: [...safetyNotes, "reasked_turn_understanding_do_not_repeat"],
-      metadata: {
-        ...baseMeta,
-        ...laneOpenAiJsonMeta,
-        lane_stage: "turn_understanding_stale_ask_after_memory_repeat",
-        v3_candidate_body: body,
-        turn_understanding_stale_ask_phrase: staleAskFinal.repeatedPhrase,
-      },
-      openAiOk: true,
-    };
+    const repairedFinal = await tryResolveStaleAskBlockedInboundBody(body, args, staleAskFinal);
+    if (repairedFinal.ok) {
+      body = repairedFinal.body;
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = { ...successRepairExtra, ...repairedFinal.repairMeta };
+    } else {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "turn_understanding_stale_ask_blocked",
+        replySource: "v3_inbound_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, "reasked_turn_understanding_do_not_repeat"],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "turn_understanding_stale_ask_after_memory_repeat",
+          v3_candidate_body: body,
+          turn_understanding_stale_ask_phrase: staleAskFinal.repeatedPhrase,
+          ...repairedFinal.repairMeta,
+        },
+        openAiOk: true,
+      };
+    }
   }
 
   const missReq = validateRequiredVerbatimSubstrings(body, args.facts.constraints.required_verbatim_substrings);

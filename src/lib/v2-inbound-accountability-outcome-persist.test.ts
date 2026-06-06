@@ -448,6 +448,34 @@ describe("interpreter failed-safe persistence", () => {
     expect(result.persist).toBe(false);
   });
 
+  it("C: I got my steps today — can still persist with failed-safe TU", () => {
+    const body = "I got my steps today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "timeout",
+      proposal: null,
+      deterministicMeaning: inboundMeaning,
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_steps_today",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_yes");
+  });
+
   it("C: I did it today — can still persist", () => {
     const body = "I did it today";
     const inboundMeaning = buildInboundMeaningFacts({

@@ -115,6 +115,14 @@ export function inboundHasPlanConfirmationClause(text: string): boolean {
   return analyzeInboundClauses(text).some((c) => c.outcome_kind === "plan_intent");
 }
 
+export function inboundExplicitOutcomeDetected(text: string): boolean {
+  return (
+    inboundHasExplicitCompletionClause(text) ||
+    inboundHasExplicitMissClause(text) ||
+    inboundHasExplicitPartialClause(text)
+  );
+}
+
 export function strongestExplicitOutcomeClause(
   text: string
 ): InboundClauseAnalysis | null {

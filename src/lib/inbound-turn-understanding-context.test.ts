@@ -172,6 +172,23 @@ describe("stale ask paraphrase detection", () => {
       )
     ).toBe(false);
   });
+
+  it("H: allows what helped you get your steps in today", () => {
+    const planAsk = "how does staying committed to this plan feel for the rest of the week";
+    expect(
+      paraphraseRepeatsStaleCoachAsk("What helped you get your steps in today?", planAsk)
+    ).toBe(false);
+  });
+
+  it("K: blocks stale plan continuation ask", () => {
+    const planAsk = "how does staying committed to this plan feel for the rest of the week";
+    expect(
+      paraphraseRepeatsStaleCoachAsk(
+        "How do you feel about continuing the plan for the rest of the week?",
+        planAsk
+      )
+    ).toBe(true);
+  });
 });
 
 describe("final body guard", () => {

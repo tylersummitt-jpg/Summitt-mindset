@@ -11,7 +11,7 @@ import {
   inboundHasExplicitPartialClause,
 } from "@/lib/inbound-short-answer-clauses";
 import {
-  applyInboundFinalBodyTurnUnderstandingGuard,
+  applyInboundFinalBodyTurnUnderstandingGuardAsync,
   type InboundFinalBodyTurnUnderstandingGuardResult,
   type InboundTurnUnderstandingContext,
 } from "@/lib/inbound-turn-understanding-context";
@@ -245,12 +245,17 @@ export async function applyInboundCoachFinalBodyGuards(args: {
   stage?: string;
   routePurpose?: string;
 }): Promise<InboundCoachFinalBodyGuardsResult> {
-  const tuGuard = applyInboundFinalBodyTurnUnderstandingGuard({
+  const tuGuard = await applyInboundFinalBodyTurnUnderstandingGuardAsync({
     body: args.body,
     context: args.turnUnderstandingContext,
     latestOpenQuestion: args.latestOpenQuestion,
     lastCoachOutbound: args.lastCoachOutbound,
     stage: args.stage ?? "pre_truth_guard",
+    routePurpose: args.routePurpose,
+    factsJson: args.factsJson,
+    repairSnapshot: args.repairSnapshot,
+    rawInbound: args.evidence.rawInbound,
+    inboundMeaning: args.evidence.inboundMeaning,
   });
 
   if (!tuGuard.shouldSend) {

@@ -241,6 +241,7 @@ import {
   resolveShortAnswerContextAuthority,
   type ShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
+import { buildExplicitOutcomeBeforeNoSendTelemetry } from "@/lib/inbound-reply-no-send-outcome-persist";
 import { insertInboundTurnTelemetryBestEffort } from "@/lib/inbound-turn-telemetry";
 import {
   isInboundTurnUnderstandingContextAuthoritative,
@@ -1951,6 +1952,48 @@ function turnUnderstandingPersistSkipReasonForTelemetry(
   return null;
 }
 
+async function persistExplicitOutcomeBeforeReplyNoSend(
+  args: InboundOutcomePersistOrchestrationArgs
+): Promise<{
+  persistResult: InboundOutcomePersistResult;
+  telemetry: Record<string, unknown>;
+}> {
+  const persistResult = await tryPersistInboundAccountabilityOutcomeBeforeSend(args);
+  return {
+    persistResult,
+    telemetry: buildExplicitOutcomeBeforeNoSendTelemetry(args.userMessage, persistResult),
+  };
+}
+
+async function cancelInboundV3LaneNoSendWithExplicitOutcomePersist(args: {
+  lane: InboundV3RelationshipLaneResult;
+  messageSid: string;
+  persist: InboundOutcomePersistOrchestrationArgs;
+  laneExtras?: Record<string, unknown>;
+  logKey: string;
+  logContext: Record<string, unknown>;
+}): Promise<InboundOutcomePersistResult> {
+  const { persistResult, telemetry } = await persistExplicitOutcomeBeforeReplyNoSend({
+    ...args.persist,
+    payloadJson: {
+      lane_no_send_before_final_guard: true,
+      lane_no_send_reason: args.lane.noSendReason,
+      ...(args.persist.payloadJson ?? {}),
+    },
+  });
+  await markJobFinal({
+    messageSid: args.messageSid,
+    status: "cancelled",
+    lastError: formatInboundV3LaneNoSendLastError(args.lane, {
+      ...args.laneExtras,
+      ...telemetry,
+    }),
+    nextRetry: farFutureIso(),
+  });
+  console.warn(`[sms-inbound-coach] ${args.logKey}`, args.logContext);
+  return persistResult;
+}
+
 async function processV2NormalInboundOutcome(
   job: JobRow,
   userId: string,
@@ -2473,20 +2516,33 @@ async function processV2NormalInboundOutcome(
             recentTranscriptPreview: minimalLinesEarly.slice(-4).join(" | ").slice(0, 280),
           }),
         });
-        await markJobFinal({
+        await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
+          lane: openLaneRes,
           messageSid: job.message_sid,
-          status: "cancelled",
-          lastError: formatInboundV3LaneNoSendLastError(openLaneRes, {
+          persist: {
+            branch: "open_question",
+            job,
+            userId,
+            commitment,
+            userMessage,
+            eventType,
+            normalizedHint,
+            gatedDecision: V3_REFINE_ONLY_GATED,
+            recentEvents,
+            effectiveBehavior,
+            turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          },
+          laneExtras: {
             route_purpose: "open_question_answer",
             branch_name: "open_question_answer",
             branch_migrated_to_lane: true,
-          }),
-          nextRetry: farFutureIso(),
-        });
-        console.warn("[sms-inbound-coach] open_question_inbound_relationship_lane_no_send", {
-          message_sid: job.message_sid,
-          commitment_id: commitment.id,
-          reason: openLaneRes.noSendReason,
+          },
+          logKey: "open_question_inbound_relationship_lane_no_send",
+          logContext: {
+            message_sid: job.message_sid,
+            commitment_id: commitment.id,
+            reason: openLaneRes.noSendReason,
+          },
         });
         return;
       }
@@ -2602,6 +2658,27 @@ async function processV2NormalInboundOutcome(
         stage: "open_question_post_final_voice_gate",
       });
       if (!finalGuardsOq.shouldSend) {
+        const guardMetaOq = {
+          ...finalGuardsOq.tuGuard.metadata,
+          ...(finalGuardsOq.truthGuard?.metadata ?? {}),
+        };
+        const { telemetry: persistTelemetryOq } = await persistExplicitOutcomeBeforeReplyNoSend({
+          branch: "open_question",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision: V3_REFINE_ONLY_GATED,
+          recentEvents,
+          effectiveBehavior,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          payloadJson: {
+            final_body_guard_no_send: true,
+            ...guardMetaOq,
+          },
+        });
         await markJobFinal({
           messageSid: job.message_sid,
           status: "cancelled",
@@ -2616,8 +2693,8 @@ async function processV2NormalInboundOutcome(
               usedFacts: [],
               safetyNotes: ["turn_understanding_final_body_guard"],
               metadata: {
-                ...finalGuardsOq.tuGuard.metadata,
-                ...(finalGuardsOq.truthGuard?.metadata ?? {}),
+                ...guardMetaOq,
+                ...persistTelemetryOq,
               },
               openAiOk: true,
             },
@@ -3083,6 +3160,23 @@ async function processV2NormalInboundOutcome(
       };
 
       if (!cbLaneRes.shouldSend || !cbLaneRes.body.trim()) {
+        const { telemetry: lanePersistTelemetryCb } = await persistExplicitOutcomeBeforeReplyNoSend({
+          branch: "conversation_brain_legacy_fallback",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision: gdFallback,
+          recentEvents,
+          effectiveBehavior,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          payloadJson: {
+            lane_no_send_before_final_guard: true,
+            lane_no_send_reason: cbLaneRes.noSendReason,
+          },
+        });
         await persistConversationBrainLegacyDisabledServerOutcome(
           "",
           "conversation_brain_legacy_fallback_disabled_inbound_v3_lane_no_send",
@@ -3091,6 +3185,7 @@ async function processV2NormalInboundOutcome(
               no_send_reason: cbLaneRes.noSendReason,
               lane_metadata_preview: JSON.stringify(cbLaneRes.metadata).slice(0, 900),
             },
+            ...lanePersistTelemetryCb,
           }
         );
         await markJobFinal({
@@ -3101,6 +3196,7 @@ async function processV2NormalInboundOutcome(
             branch_name: "conversation_brain_legacy_disabled_lane",
             branch_migrated_to_lane: true,
             conversation_brain_fallback_facts_summary: cbSlimFactsSummary,
+            ...lanePersistTelemetryCb,
           }),
           nextRetry: farFutureIso(),
         });
@@ -3199,11 +3295,32 @@ async function processV2NormalInboundOutcome(
           ...finalGuardsLegacy.tuGuard.metadata,
           ...(finalGuardsLegacy.truthGuard?.metadata ?? {}),
         };
+        const { telemetry: persistTelemetryLegacy } =
+          await persistExplicitOutcomeBeforeReplyNoSend({
+            branch: "conversation_brain_legacy_fallback",
+            job,
+            userId,
+            commitment,
+            userMessage,
+            eventType,
+            normalizedHint,
+            gatedDecision: gdFallback,
+            recentEvents,
+            effectiveBehavior,
+            turnUnderstandingContext: inboundTurnUnderstandingCtx,
+            payloadJson: {
+              final_body_guard_no_send: true,
+              ...legacyGuardMeta,
+            },
+          });
         await persistConversationBrainLegacyDisabledServerOutcome(
           "",
           "conversation_brain_legacy_fallback_turn_understanding_final_body_blocked",
           {
-            turn_understanding_final_body_guard: legacyGuardMeta,
+            turn_understanding_final_body_guard: {
+              ...legacyGuardMeta,
+              ...persistTelemetryLegacy,
+            },
           }
         );
         await markJobFinal({
@@ -3219,7 +3336,10 @@ async function processV2NormalInboundOutcome(
               voiceConfidence: 0,
               usedFacts: [],
               safetyNotes: ["turn_understanding_final_body_guard"],
-              metadata: legacyGuardMeta,
+              metadata: {
+                ...legacyGuardMeta,
+                ...persistTelemetryLegacy,
+              },
               openAiOk: true,
             },
             {
@@ -3840,20 +3960,34 @@ async function processV2NormalInboundOutcome(
     });
 
     if (!pivotLaneRes.shouldSend || !pivotLaneRes.body.trim()) {
-      await markJobFinal({
+      await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
+        lane: pivotLaneRes,
         messageSid: job.message_sid,
-        status: "cancelled",
-        lastError: formatInboundV3LaneNoSendLastError(pivotLaneRes, {
+        persist: {
+          branch: "central_pivot",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision,
+          recentEvents,
+          effectiveBehavior,
+          proofMeta: accountabilityProofMoment,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+        },
+        laneExtras: {
           route_purpose: "central_brain_pivot",
           branch_name: "central_brain_outcome_blocking_pivot",
           branch_migrated_to_lane: true,
-        }),
-        nextRetry: farFutureIso(),
-      });
-      console.warn("[sms-inbound-coach] pivot_inbound_relationship_lane_no_send", {
-        message_sid: job.message_sid,
-        commitment_id: commitment.id,
-        reason: pivotLaneRes.noSendReason,
+        },
+        logKey: "pivot_inbound_relationship_lane_no_send",
+        logContext: {
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          reason: pivotLaneRes.noSendReason,
+        },
       });
       return;
     }
@@ -3930,6 +4064,27 @@ async function processV2NormalInboundOutcome(
       stage: "central_pivot_post_final_voice_gate",
     });
     if (!finalGuardsPivot.shouldSend) {
+      const guardMetaPivot = {
+        ...finalGuardsPivot.tuGuard.metadata,
+        ...(finalGuardsPivot.truthGuard?.metadata ?? {}),
+      };
+      const { telemetry: persistTelemetryPivot } = await persistExplicitOutcomeBeforeReplyNoSend({
+        branch: "central_pivot",
+        job,
+        userId,
+        commitment,
+        userMessage,
+        eventType,
+        normalizedHint,
+        gatedDecision,
+        recentEvents,
+        effectiveBehavior,
+        turnUnderstandingContext: inboundTurnUnderstandingCtx,
+        payloadJson: {
+          final_body_guard_no_send: true,
+          ...guardMetaPivot,
+        },
+      });
       await markJobFinal({
         messageSid: job.message_sid,
         status: "cancelled",
@@ -3944,8 +4099,8 @@ async function processV2NormalInboundOutcome(
             usedFacts: [],
             safetyNotes: ["turn_understanding_final_body_guard"],
             metadata: {
-              ...finalGuardsPivot.tuGuard.metadata,
-              ...(finalGuardsPivot.truthGuard?.metadata ?? {}),
+              ...guardMetaPivot,
+              ...persistTelemetryPivot,
             },
             openAiOk: true,
           },
@@ -4188,20 +4343,35 @@ async function processV2NormalInboundOutcome(
       });
 
       if (!arcLaneRes.shouldSend || !arcLaneRes.body.trim()) {
-        await markJobFinal({
+        await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
+          lane: arcLaneRes,
           messageSid: job.message_sid,
-          status: "cancelled",
-          lastError: formatInboundV3LaneNoSendLastError(arcLaneRes, {
+          persist: {
+            branch: "arc_clarify",
+            job,
+            userId,
+            commitment,
+            userMessage,
+            eventType,
+            normalizedHint,
+            gatedDecision,
+            recentEvents,
+            effectiveBehavior,
+            proofMeta: accountabilityProofMoment,
+            laneExclusion: "arc_clarify_only",
+            turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          },
+          laneExtras: {
             route_purpose: "arc_clarify_ambiguous_short",
             branch_name: "arc_ambiguous_short_clarify",
             branch_migrated_to_lane: true,
-          }),
-          nextRetry: farFutureIso(),
-        });
-        console.warn("[sms-inbound-coach] arc_inbound_relationship_lane_no_send", {
-          message_sid: job.message_sid,
-          commitment_id: commitment.id,
-          reason: arcLaneRes.noSendReason,
+          },
+          logKey: "arc_inbound_relationship_lane_no_send",
+          logContext: {
+            message_sid: job.message_sid,
+            commitment_id: commitment.id,
+            reason: arcLaneRes.noSendReason,
+          },
         });
         return;
       }
@@ -4278,6 +4448,28 @@ async function processV2NormalInboundOutcome(
         stage: "arc_clarify_post_final_voice_gate",
       });
       if (!finalGuardsArc.shouldSend) {
+        const guardMetaArc = {
+          ...finalGuardsArc.tuGuard.metadata,
+          ...(finalGuardsArc.truthGuard?.metadata ?? {}),
+        };
+        const { telemetry: persistTelemetryArc } = await persistExplicitOutcomeBeforeReplyNoSend({
+          branch: "arc_clarify",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision,
+          recentEvents,
+          effectiveBehavior,
+          laneExclusion: "arc_clarify_only",
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          payloadJson: {
+            final_body_guard_no_send: true,
+            ...guardMetaArc,
+          },
+        });
         await markJobFinal({
           messageSid: job.message_sid,
           status: "cancelled",
@@ -4292,8 +4484,8 @@ async function processV2NormalInboundOutcome(
               usedFacts: [],
               safetyNotes: ["turn_understanding_final_body_guard"],
               metadata: {
-                ...finalGuardsArc.tuGuard.metadata,
-                ...(finalGuardsArc.truthGuard?.metadata ?? {}),
+                ...guardMetaArc,
+                ...persistTelemetryArc,
               },
               openAiOk: true,
             },
@@ -4833,16 +5025,29 @@ async function processV2NormalInboundOutcome(
           routePurpose: mainInboundLaneRoutePurpose ?? "normal_inbound_reply",
         }),
       });
-      await markJobFinal({
+      await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
+        lane: laneRes,
         messageSid: job.message_sid,
-        status: "cancelled",
-        lastError: formatInboundV3LaneNoSendLastError(laneRes),
-        nextRetry: farFutureIso(),
-      });
-      console.warn("[sms-inbound-coach] inbound_relationship_lane_no_send", {
-        message_sid: job.message_sid,
-        commitment_id: commitment.id,
-        reason: laneRes.noSendReason,
+        persist: {
+          branch: "main",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision,
+          recentEvents,
+          effectiveBehavior,
+          proofMeta: accountabilityProofMoment,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+        },
+        logKey: "inbound_relationship_lane_no_send",
+        logContext: {
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          reason: laneRes.noSendReason,
+        },
       });
       return;
     }
@@ -5648,6 +5853,24 @@ async function processV2NormalInboundOutcome(
       ...finalGuardsMain.tuGuard.metadata,
       ...(finalGuardsMain.truthGuard?.metadata ?? {}),
     };
+    const { telemetry: persistTelemetryMain } = await persistExplicitOutcomeBeforeReplyNoSend({
+      branch: "main",
+      job,
+      userId,
+      commitment,
+      userMessage,
+      eventType,
+      normalizedHint,
+      gatedDecision,
+      recentEvents,
+      effectiveBehavior,
+      proofMeta: accountabilityProofMoment,
+      turnUnderstandingContext: inboundTurnUnderstandingCtx,
+      payloadJson: {
+        final_body_guard_no_send: true,
+        ...guardMeta,
+      },
+    });
     await markJobFinal({
       messageSid: job.message_sid,
       status: "cancelled",
@@ -5664,7 +5887,10 @@ async function processV2NormalInboundOutcome(
             "turn_understanding_final_body_guard",
             ...(finalGuardsMain.truthGuard ? ["unsupported_accountability_claim_guard"] : []),
           ],
-          metadata: guardMeta,
+          metadata: {
+            ...guardMeta,
+            ...persistTelemetryMain,
+          },
           openAiOk: true,
         },
         {
@@ -6411,20 +6637,32 @@ async function processV2BlockerCapture(
     });
 
     if (!blkPivotLaneRes.shouldSend || !blkPivotLaneRes.body.trim()) {
-      await markJobFinal({
+      await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
+        lane: blkPivotLaneRes,
         messageSid: job.message_sid,
-        status: "cancelled",
-        lastError: formatInboundV3LaneNoSendLastError(blkPivotLaneRes, {
+        persist: {
+          branch: "main",
+          job,
+          userId,
+          commitment,
+          userMessage: blockerText,
+          eventType: blockerClassification.eventType,
+          normalizedHint: blockerClassification.normalizedHint ?? null,
+          gatedDecision: V3_REFINE_ONLY_GATED,
+          recentEvents: recentEventsForCentral,
+          effectiveBehavior: effectiveBlockerAsk,
+        },
+        laneExtras: {
           route_purpose: "central_brain_blocker_pivot",
           branch_name: "central_brain_blocker_capture_pivot",
           branch_migrated_to_lane: true,
-        }),
-        nextRetry: farFutureIso(),
-      });
-      console.warn("[sms-inbound-coach] blocker_pivot_inbound_relationship_lane_no_send", {
-        message_sid: job.message_sid,
-        commitment_id: commitment.id,
-        reason: blkPivotLaneRes.noSendReason,
+        },
+        logKey: "blocker_pivot_inbound_relationship_lane_no_send",
+        logContext: {
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          reason: blkPivotLaneRes.noSendReason,
+        },
       });
       return;
     }
@@ -6644,20 +6882,32 @@ async function processV2BlockerCapture(
   let ackSid: string | null = null;
 
   if (!ackLaneRes.shouldSend || !ackLaneRes.body.trim()) {
-    await markJobFinal({
+    await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
+      lane: ackLaneRes,
       messageSid: job.message_sid,
-      status: "cancelled",
-      lastError: formatInboundV3LaneNoSendLastError(ackLaneRes, {
+      persist: {
+        branch: "main",
+        job,
+        userId,
+        commitment,
+        userMessage: blockerText,
+        eventType: blockerClassification.eventType,
+        normalizedHint: blockerClassification.normalizedHint ?? null,
+        gatedDecision: V3_REFINE_ONLY_GATED,
+        recentEvents: recentEventsForCentral,
+        effectiveBehavior: effectiveBlockerAsk,
+      },
+      laneExtras: {
         route_purpose: "blocker_capture_ack",
         branch_name: "blocker_capture_ack",
         branch_migrated_to_lane: true,
-      }),
-      nextRetry: farFutureIso(),
-    });
-    console.warn("[sms-inbound-coach] blocker_ack_inbound_relationship_lane_no_send", {
-      message_sid: job.message_sid,
-      commitment_id: commitment.id,
-      reason: ackLaneRes.noSendReason,
+      },
+      logKey: "blocker_ack_inbound_relationship_lane_no_send",
+      logContext: {
+        message_sid: job.message_sid,
+        commitment_id: commitment.id,
+        reason: ackLaneRes.noSendReason,
+      },
     });
   } else {
     const ackV3BrainMetadata: Record<string, unknown> = {
