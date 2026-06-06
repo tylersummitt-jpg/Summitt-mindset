@@ -1,5 +1,8 @@
 -- Read-only: Earned Praise Policy v1.1 observability.
 -- Run in Supabase SQL editor. SELECT-only; does not mutate data.
+-- Daily outbound sent rows: use Twilio-accepted semantics — not only status = 'sent'.
+--   status IN ('sent','delivered','queued','accepted','sending')
+--   OR message_sid IS NOT NULL OR metadata.note = 'sent_to_twilio'
 -- App cadence: cross-family warm praise in last 5 coach bodies (72h thread + last_5_coach_questions).
 -- 14-day enforcement remains SQL monitoring only (no app DB query in generation path).
 
@@ -20,7 +23,11 @@ SELECT
   END AS praise_group
 FROM sms_send_events e
 WHERE e.created_at >= NOW() - INTERVAL '30 days'
-  AND e.status IN ('sent', 'delivered', 'queued')
+  AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
   AND (
     COALESCE(e.metadata->>'sms_body', e.metadata->>'final_voice_gate_body', '') ~*
       '\b(great job|good job|good work|nice work|proud of you|proud of this|strong work|well done)\b'
@@ -128,7 +135,11 @@ WITH warm_sends AS (
     e.created_at
   FROM sms_send_events e
   WHERE e.created_at >= NOW() - INTERVAL '30 days'
-    AND e.status IN ('sent', 'delivered', 'queued')
+    AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
     AND COALESCE(e.metadata->>'sms_body', '') ~*
       '\b(great job|good job|good work|nice work|proud of you|proud of this|strong work|well done)\b'
 )
@@ -152,7 +163,11 @@ SELECT
   e.metadata->>'warm_praise_recently_used' AS warm_praise_recently_used
 FROM sms_send_events e
 WHERE e.created_at >= NOW() - INTERVAL '14 days'
-  AND e.status IN ('sent', 'delivered', 'queued')
+  AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
   AND COALESCE(e.metadata->>'sms_body', '') !~*
     '\b(great job|good job|good work|nice work|proud of you|proud of this|strong work|well done)\b'
   AND COALESCE(e.metadata->>'sms_body', '') ~*
@@ -190,7 +205,11 @@ SELECT
   e.metadata->>'praise_policy_reason' AS praise_policy_reason
 FROM sms_send_events e
 WHERE e.created_at >= NOW() - INTERVAL '30 days'
-  AND e.status IN ('sent', 'delivered', 'queued')
+  AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
   AND COALESCE(e.metadata->>'sms_body', '') ~*
     '\b(great job|good job|good work|nice work|proud of you|proud of this|strong work|well done)\b'
   AND COALESCE(
@@ -210,7 +229,11 @@ SELECT
   e.metadata->>'praise_policy_reason' AS praise_policy_reason
 FROM sms_send_events e
 WHERE e.created_at >= NOW() - INTERVAL '30 days'
-  AND e.status IN ('sent', 'delivered', 'queued')
+  AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
   AND COALESCE(e.metadata->>'sms_body', '') ~*
     '\b(great job|good job|good work|nice work|proud of you|proud of this|strong work|well done)\b'
   AND COALESCE(e.metadata->>'earned_praise_allowed', 'unknown') NOT IN ('true', '1')

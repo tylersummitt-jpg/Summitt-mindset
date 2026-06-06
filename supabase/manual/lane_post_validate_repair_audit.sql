@@ -134,6 +134,7 @@ SELECT
   e.clerk_user_id,
   e.status,
   e.metadata->>'voice_decision' AS voice_decision,
+  e.metadata->>'skip_source' AS skip_source,
   COALESCE(
     e.metadata->'daily_v3_lane'->>'lane_stage',
     e.metadata->'inbound_v3_lane'->>'lane_stage',

@@ -1,5 +1,6 @@
 -- Read-only: find recent SMS possibly damaged by North Star destructive micro-edits.
 -- Run in Supabase SQL editor. Does not mutate data.
+-- Daily sent rows: status IN ('sent','delivered','queued','accepted','sending') OR message_sid OR note='sent_to_twilio'.
 
 -- Daily outbound (sms_send_events)
 SELECT
@@ -18,7 +19,11 @@ SELECT
   e.metadata->'final_voice_gate'->>'voice_decision' AS voice_decision
 FROM sms_send_events e
 WHERE e.created_at >= NOW() - INTERVAL '7 days'
-  AND e.status IN ('sent', 'delivered', 'queued')
+  AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
   AND (
     e.metadata->>'sms_body' ILIKE '%how does it feel to Would%'
     OR e.metadata->>'sms_body' ILIKE '% to Would%'
@@ -71,7 +76,11 @@ SELECT
   e.metadata->'north_star_gate'->'north_star_gate_reasons' AS gate_reasons
 FROM sms_send_events e
 WHERE e.created_at >= NOW() - INTERVAL '7 days'
-  AND e.status IN ('sent', 'delivered', 'queued')
+  AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
   AND e.metadata->'north_star_gate'->>'reply_source' ~ '^v3_.*'
   AND e.metadata->'north_star_gate'->>'north_star_rewrite_type' = 'micro_edit'
   AND e.metadata->'north_star_gate'->>'original_body' IS NOT NULL

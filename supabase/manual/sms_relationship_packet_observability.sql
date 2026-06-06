@@ -2,8 +2,23 @@
 -- Run in Supabase SQL editor. Does not mutate data.
 --
 -- Replace :day_start / :day_end with timestamps, e.g.:
---   :day_start => '2026-05-27 00:00:00+00'
---   :day_end   => '2026-05-28 00:00:00+00'
+--   :day_start => '2026-06-05 00:00:00+00'
+--   :day_end   => '2026-06-06 00:00:00+00'
+--
+-- sms_send_events.status semantics (daily cron — do NOT count only status = 'sent'):
+--   reserved                         — row reserved before build/send; not user-visible SMS yet
+--   accepted / queued / sending      — common Twilio message.status after sendSMS success
+--   sent / delivered                 — Twilio delivery progression (when present)
+--   skipped_* / skipped_no_safe_v3_voice — intentional no-send (lane, FVG, prefs, cutover, …)
+--   send_failed                      — build/Twilio/record failure
+--   dry_run / skipped_missing_twilio — non-production send paths
+-- After Twilio accept, cron sets message_sid and metadata.note = 'sent_to_twilio'.
+-- Treat outbound as sent/accepted when ANY of:
+--   status IN ('sent','delivered','queued','accepted','sending')
+--   OR message_sid IS NOT NULL
+--   OR metadata->>'note' = 'sent_to_twilio'
+-- Skipped/no-send: status LIKE 'skipped_%' OR voice_decision LIKE 'skipped%'
+-- Failed: status IN ('send_failed','failed','cancelled') on send events
 --
 -- JSON paths (post observability wiring):
 --   Daily sent/skipped: sms_send_events.metadata->relationship_packet_observability
@@ -58,6 +73,35 @@ SELECT
     e.metadata->'voice_send_decision'->>'skip_reason',
     e.metadata->'daily_v3_lane'->>'no_send_reason'
   ) AS no_send_reason,
+  e.metadata->>'skip_source' AS skip_source,
+  e.metadata->>'note' AS note,
+  e.metadata->'daily_v3_lane'->>'no_send_reason' AS daily_v3_lane_no_send_reason,
+  e.metadata->'final_voice_gate'->>'skip_reason' AS final_voice_gate_skip_reason,
+  (COALESCE(
+    (e.metadata->'final_voice_gate'->>'daily_stale_ask_detected')::boolean,
+    (e.metadata->'daily_v3_lane'->>'daily_stale_ask_detected')::boolean
+  )) AS daily_stale_ask_detected,
+  (COALESCE(
+    (e.metadata->'final_voice_gate'->>'daily_stale_ask_repair_attempted')::boolean,
+    (e.metadata->'daily_v3_lane'->>'daily_stale_ask_repair_attempted')::boolean
+  )) AS daily_stale_ask_repair_attempted,
+  (COALESCE(
+    (e.metadata->'final_voice_gate'->>'daily_stale_ask_repair_succeeded')::boolean,
+    (e.metadata->'daily_v3_lane'->>'daily_stale_ask_repair_succeeded')::boolean
+  )) AS daily_stale_ask_repair_succeeded,
+  COALESCE(
+    e.metadata->'final_voice_gate'->>'daily_stale_ask_no_send_reason',
+    e.metadata->'daily_v3_lane'->>'daily_stale_ask_no_send_reason'
+  ) AS daily_stale_ask_no_send_reason,
+  COALESCE(
+    e.metadata->'voice_send_decision'->>'daily_satisfied_ask_context_source',
+    e.metadata->'daily_v3_lane'->>'daily_satisfied_ask_context_source',
+    e.metadata->'relationship_packet_observability'->>'daily_satisfied_ask_context_source'
+  ) AS daily_satisfied_ask_context_source,
+  COALESCE(
+    (e.metadata->'voice_send_decision'->>'do_not_repeat_asks_count')::int,
+    (e.metadata->'daily_v3_lane'->>'do_not_repeat_asks_count')::int
+  ) AS do_not_repeat_asks_count,
   e.metadata->>'voice_decision' AS voice_decision,
   e.metadata->'final_voice_gate'->>'final_voice_source' AS final_voice_source
 FROM sms_send_events e
@@ -388,21 +432,51 @@ SELECT
   e.clerk_user_id,
   e.status,
   e.metadata->>'note' AS note,
+  e.metadata->>'skip_source' AS skip_source,
   e.metadata->>'voice_decision' AS voice_decision,
   COALESCE(
     e.metadata->>'skip_reason',
     e.metadata->'voice_send_decision'->>'skip_reason',
     e.metadata->'daily_v3_lane'->>'no_send_reason'
   ) AS no_send_reason,
+  e.metadata->'daily_v3_lane'->>'no_send_reason' AS daily_v3_lane_no_send_reason,
+  e.metadata->'final_voice_gate'->>'skip_reason' AS final_voice_gate_skip_reason,
+  (COALESCE(
+    (e.metadata->'final_voice_gate'->>'daily_stale_ask_detected')::boolean,
+    (e.metadata->'daily_v3_lane'->>'daily_stale_ask_detected')::boolean
+  )) AS daily_stale_ask_detected,
+  (COALESCE(
+    (e.metadata->'final_voice_gate'->>'daily_stale_ask_repair_attempted')::boolean,
+    (e.metadata->'daily_v3_lane'->>'daily_stale_ask_repair_attempted')::boolean
+  )) AS daily_stale_ask_repair_attempted,
+  (COALESCE(
+    (e.metadata->'final_voice_gate'->>'daily_stale_ask_repair_succeeded')::boolean,
+    (e.metadata->'daily_v3_lane'->>'daily_stale_ask_repair_succeeded')::boolean
+  )) AS daily_stale_ask_repair_succeeded,
+  COALESCE(
+    e.metadata->'final_voice_gate'->>'daily_stale_ask_no_send_reason',
+    e.metadata->'daily_v3_lane'->>'daily_stale_ask_no_send_reason'
+  ) AS daily_stale_ask_no_send_reason,
+  e.metadata->'final_voice_gate'->>'daily_stale_ask_phrase' AS daily_stale_ask_phrase,
+  COALESCE(
+    e.metadata->'voice_send_decision'->>'daily_satisfied_ask_context_source',
+    e.metadata->'daily_v3_lane'->>'daily_satisfied_ask_context_source'
+  ) AS daily_satisfied_ask_context_source,
+  COALESCE(
+    (e.metadata->'voice_send_decision'->>'do_not_repeat_asks_count')::int,
+    (e.metadata->'daily_v3_lane'->>'do_not_repeat_asks_count')::int
+  ) AS do_not_repeat_asks_count,
   e.metadata->'relationship_packet_observability' AS packet_obs,
   e.metadata->'final_voice_gate' AS final_voice_gate
 FROM sms_send_events e
 WHERE e.created_at >= :day_start
   AND e.created_at < :day_end
   AND (
-    e.status IN ('skipped_no_safe_v3_voice', 'send_failed')
-    OR e.metadata->>'voice_decision' = 'skipped_no_safe_v3_voice'
+    e.status LIKE 'skipped_%'
+    OR e.status IN ('skipped_no_safe_v3_voice', 'send_failed', 'failed')
+    OR e.metadata->>'voice_decision' LIKE 'skipped%'
     OR e.metadata->'daily_v3_lane'->>'no_send_reason' IS NOT NULL
+    OR (e.metadata->'final_voice_gate'->>'daily_stale_ask_detected')::boolean IS TRUE
   )
 ORDER BY e.created_at DESC
 LIMIT 200;
@@ -489,6 +563,136 @@ WHERE j.updated_at >= :day_start
   )
 ORDER BY j.updated_at DESC
 LIMIT 100;
+
+-- ---------------------------------------------------------------------------
+-- H) Daily SMS dashboard rollup (sent vs skipped vs failed vs reserved/unknown)
+-- ---------------------------------------------------------------------------
+-- Replaces misleading counts that used only status = 'sent'.
+-- sms_inbound_coach_jobs uses different status vocabulary (sent/cancelled/…) — not mixed here.
+
+WITH daily_rows AS (
+  SELECT
+    e.*,
+    (
+      e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+      OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+      OR e.metadata->>'note' = 'sent_to_twilio'
+    ) AS is_sent_or_accepted,
+    (
+      e.status LIKE 'skipped_%'
+      OR e.metadata->>'voice_decision' LIKE 'skipped%'
+      OR COALESCE(e.metadata->'voice_send_decision'->>'should_send', '') = 'false'
+    ) AS is_skipped,
+    (
+      e.status IN ('send_failed', 'failed')
+      OR e.metadata->>'note' IN ('new_delivery_body_failed', 'send_failed')
+    ) AS is_failed,
+    (
+      e.status IN ('reserved', 'dry_run', 'skipped_missing_twilio')
+      OR (
+        NOT (
+          e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+          OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+          OR e.metadata->>'note' = 'sent_to_twilio'
+        )
+        AND NOT (e.status LIKE 'skipped_%' OR e.metadata->>'voice_decision' LIKE 'skipped%')
+        AND e.status NOT IN ('send_failed', 'failed')
+      )
+    ) AS is_unknown_or_in_progress
+  FROM sms_send_events e
+  WHERE e.created_at >= :day_start
+    AND e.created_at < :day_end
+)
+SELECT
+  COUNT(*) AS daily_rows_total,
+  COUNT(*) FILTER (WHERE is_sent_or_accepted) AS daily_sent_or_accepted,
+  COUNT(*) FILTER (WHERE is_skipped) AS daily_skipped_or_not_sent,
+  COUNT(*) FILTER (WHERE is_failed) AS daily_failed,
+  COUNT(*) FILTER (WHERE is_unknown_or_in_progress) AS daily_unknown_or_in_progress,
+  COUNT(*) FILTER (WHERE status = 'reserved') AS daily_reserved,
+  COUNT(*) FILTER (WHERE status = 'skipped_no_safe_v3_voice') AS daily_skipped_no_safe_v3_voice_status,
+  COUNT(*) FILTER (WHERE metadata->>'skip_source' = 'lane_no_send') AS daily_skip_source_lane_no_send,
+  COUNT(*) FILTER (WHERE metadata->>'skip_source' = 'FVG_no_send') AS daily_skip_source_fvg_no_send,
+  COUNT(*) FILTER (WHERE metadata->>'skip_source' = 'stale_ask_no_send') AS daily_skip_source_stale_ask_no_send,
+  COUNT(*) FILTER (WHERE metadata->>'skip_source' = 'memory_repeat_no_send') AS daily_skip_source_memory_repeat_no_send,
+  COUNT(*) FILTER (WHERE metadata->>'skip_source' = 'post_validate_repair_failed') AS daily_skip_source_post_validate_repair_failed,
+  COUNT(*) FILTER (
+    WHERE COALESCE(
+      (metadata->'final_voice_gate'->>'daily_stale_ask_detected')::boolean,
+      (metadata->'daily_v3_lane'->>'daily_stale_ask_detected')::boolean,
+      false
+    )
+  ) AS daily_stale_ask_detected_rows,
+  COUNT(*) FILTER (
+    WHERE COALESCE(
+      (metadata->'final_voice_gate'->>'daily_stale_ask_repair_attempted')::boolean,
+      (metadata->'daily_v3_lane'->>'daily_stale_ask_repair_attempted')::boolean,
+      false
+    )
+  ) AS daily_stale_ask_repair_attempted_rows,
+  COUNT(*) FILTER (
+    WHERE COALESCE(
+      (metadata->'final_voice_gate'->>'daily_stale_ask_repair_succeeded')::boolean,
+      (metadata->'daily_v3_lane'->>'daily_stale_ask_repair_succeeded')::boolean,
+      false
+    )
+  ) AS daily_stale_ask_repair_succeeded_rows
+FROM daily_rows;
+
+-- H2) Daily status breakdown (debug bucket assignment)
+SELECT
+  e.status,
+  e.metadata->>'note' AS note,
+  e.metadata->>'skip_source' AS skip_source,
+  e.metadata->>'voice_decision' AS voice_decision,
+  (NULLIF(BTRIM(e.message_sid), '') IS NOT NULL) AS has_message_sid,
+  COUNT(*) AS row_count
+FROM sms_send_events e
+WHERE e.created_at >= :day_start
+  AND e.created_at < :day_end
+GROUP BY 1, 2, 3, 4, 5
+ORDER BY row_count DESC, e.status;
+
+-- H3) Stale-ask / satisfied-ask no-send detail (post daily satisfied-ask wiring)
+SELECT
+  e.created_at,
+  e.clerk_user_id,
+  e.status,
+  e.metadata->>'skip_source' AS skip_source,
+  e.metadata->>'note' AS note,
+  e.metadata->'daily_v3_lane'->>'no_send_reason' AS daily_v3_lane_no_send_reason,
+  e.metadata->'final_voice_gate'->>'skip_reason' AS final_voice_gate_skip_reason,
+  COALESCE(
+    e.metadata->'final_voice_gate'->>'daily_stale_ask_guard_stage',
+    e.metadata->'daily_v3_lane'->>'daily_stale_ask_guard_stage'
+  ) AS daily_stale_ask_guard_stage,
+  COALESCE(
+    e.metadata->'final_voice_gate'->>'daily_stale_ask_phrase',
+    e.metadata->'daily_v3_lane'->>'daily_stale_ask_phrase'
+  ) AS daily_stale_ask_phrase,
+  COALESCE(
+    e.metadata->'final_voice_gate'->>'daily_stale_ask_no_send_reason',
+    e.metadata->'daily_v3_lane'->>'daily_stale_ask_no_send_reason'
+  ) AS daily_stale_ask_no_send_reason,
+  COALESCE(
+    e.metadata->'voice_send_decision'->>'daily_satisfied_ask_context_source',
+    e.metadata->'daily_v3_lane'->>'daily_satisfied_ask_context_source'
+  ) AS daily_satisfied_ask_context_source,
+  LEFT(COALESCE(e.metadata->>'sms_body', e.sms_body, ''), 160) AS body_preview
+FROM sms_send_events e
+WHERE e.created_at >= :day_start
+  AND e.created_at < :day_end
+  AND (
+    e.metadata->>'skip_source' = 'stale_ask_no_send'
+    OR COALESCE(
+      (e.metadata->'final_voice_gate'->>'daily_stale_ask_detected')::boolean,
+      (e.metadata->'daily_v3_lane'->>'daily_stale_ask_detected')::boolean,
+      false
+    )
+    OR e.metadata->'daily_v3_lane'->>'no_send_reason' = 'daily_stale_ask_blocked'
+  )
+ORDER BY e.created_at DESC
+LIMIT 200;
 
 -- ---------------------------------------------------------------------------
 -- F) Legacy / fallback user-visible SMS report

@@ -1,5 +1,6 @@
 -- Read-only: monitor memory-repeat strategy label mismatch vs real guard failures.
 -- Run in Supabase SQL editor. Does not mutate data.
+-- Daily sent rows: status IN ('sent','delivered','queued','accepted','sending') OR message_sid OR note='sent_to_twilio'.
 
 -- Remaining no-sends where strategy mismatch was the recorded failure (should drop after soft-accept deploy)
 SELECT
@@ -76,7 +77,11 @@ SELECT
   ) AS repair_preview
 FROM sms_send_events e
 WHERE e.created_at >= NOW() - INTERVAL '7 days'
-  AND e.status IN ('sent', 'delivered', 'queued')
+  AND (
+    e.status IN ('sent', 'delivered', 'queued', 'accepted', 'sending')
+    OR NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
+    OR e.metadata->>'note' = 'sent_to_twilio'
+  )
   AND (
     (e.metadata->'daily_v3_lane'->>'repeat_repair_strategy_label_soft_accepted')::boolean IS TRUE
     OR (e.metadata->'relationship_packet_observability'->>'repeat_repair_strategy_label_soft_accepted')::boolean IS TRUE
