@@ -140,4 +140,31 @@ describe("inbound turn understanding route invariants", () => {
     expect(contractIdx).toBeGreaterThan(pendingIdx);
     expect(memoryIdx).toBeGreaterThan(contractIdx);
   });
+
+  it("Q: Phase 2.2.1 defers non-blocker gate to transactional dispatch before normal", () => {
+    expect(src).toContain("deferredBlockerGate");
+    expect(src).toContain("blocker_gate_deferred_to_transactional_dispatch");
+    expect(src).toContain("logBlockerGateTransactionalHandlerConsumed");
+    expect(src).toContain("did_normal_inbound_run_after_blocker_deferral");
+    expect(src).toContain("transactional_handler_consumed_after_blocker_gate");
+
+    const start = src.indexOf("if (isBlockerCapturePendingActive(c))");
+    expect(start).toBeGreaterThan(0);
+    const slice = src.slice(start, start + 4500);
+    expect(slice).toContain("deferredBlockerGate = {");
+    expect(slice).not.toMatch(
+      /deferredBlockerGate[\s\S]{0,1200}await processV2NormalInboundOutcome/
+    );
+
+    const refreshIdx = src.indexOf("if (await processV2CoachingRefreshInbound");
+    const deferredIdx = src.indexOf("let deferredBlockerGate");
+    expect(deferredIdx).toBeGreaterThan(0);
+    expect(refreshIdx).toBeGreaterThan(deferredIdx);
+
+    const memoryHandlerIdx = src.indexOf("if (await processV2MemoryConfirmationInbound");
+    const finalDeferredNormalIdx = src.indexOf(
+      "if (deferredBlockerGate) {\n    const normalCommitment ="
+    );
+    expect(finalDeferredNormalIdx).toBeGreaterThan(memoryHandlerIdx);
+  });
 });

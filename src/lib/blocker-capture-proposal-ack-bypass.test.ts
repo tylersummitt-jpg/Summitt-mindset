@@ -205,6 +205,7 @@ describe("blocker-capture route wiring (static)", () => {
     expect(slice).toContain("runBlockerPendingPreCaptureGate");
     expect(slice).toContain("blocker_pending_pre_capture_gate");
     expect(route).toContain("evaluateBlockerPendingRouteDecision");
+    expect(route).toContain("deferredBlockerGate");
     const gateIdx = slice.indexOf("runBlockerPendingPreCaptureGate");
     const captureIdx = slice.indexOf("processV2BlockerCapture");
     expect(gateIdx).toBeGreaterThanOrEqual(0);

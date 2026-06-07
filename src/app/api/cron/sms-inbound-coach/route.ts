@@ -253,7 +253,11 @@ import {
   extractLatestCoachQuestionFromOutboundBody,
   shouldBypassBlockerCaptureForProposalAck,
 } from "@/lib/blocker-capture-proposal-ack-bypass";
-import { evaluateBlockerPendingRouteDecision } from "@/lib/blocker-pending-route-decision";
+import {
+  evaluateBlockerPendingRouteDecision,
+  type BlockerPendingRouteDecision,
+  type BlockerPendingRouteDecisionSource,
+} from "@/lib/blocker-pending-route-decision";
 import {
   resolveShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
@@ -2025,6 +2029,41 @@ type BlockerPendingNormalInboundOptions = {
   precomputedTurnUnderstandingCtx?: InboundTurnUnderstandingContext | null;
   blockerRouteTelemetry?: Record<string, unknown> | null;
 };
+
+type DeferredBlockerGateAfterTransactionalDispatch = {
+  commitment: ActiveV2CommitmentRow;
+  classification: ReturnType<typeof classifyV2InboundReply>;
+  precomputedTurnUnderstandingCtx: InboundTurnUnderstandingContext | null;
+  telemetry: Record<string, unknown>;
+  decision: BlockerPendingRouteDecision;
+  source: BlockerPendingRouteDecisionSource;
+};
+
+type BlockerGateTransactionalHandler =
+  | "refresh"
+  | "pending_resolution"
+  | "contract"
+  | "adaptive"
+  | "memory";
+
+function logBlockerGateTransactionalHandlerConsumed(args: {
+  job: JobRow;
+  commitmentId: string;
+  handler: BlockerGateTransactionalHandler;
+  deferredBlockerGate: DeferredBlockerGateAfterTransactionalDispatch;
+}): void {
+  console.info("[sms-inbound-coach] blocker_gate_transactional_handler_consumed", {
+    message_sid: args.job.message_sid,
+    commitment_id: args.commitmentId,
+    transactional_handler_consumed_after_blocker_gate: args.handler,
+    blocker_gate_deferred_to_transactional_dispatch: true,
+    did_transactional_dispatch_continue_after_blocker_gate: true,
+    did_normal_inbound_run_after_blocker_deferral: false,
+    blocker_route_decision: args.deferredBlockerGate.decision,
+    blocker_route_decision_source: args.deferredBlockerGate.source,
+    ...args.deferredBlockerGate.telemetry,
+  });
+}
 
 async function processV2NormalInboundOutcome(
   job: JobRow,
@@ -9781,27 +9820,33 @@ async function handleV2SmsInboundCoachJob(
     timezone,
   });
 
+  let deferredBlockerGate: DeferredBlockerGateAfterTransactionalDispatch | null = null;
+
   if (isBlockerCapturePendingActive(c)) {
     const original = (job.raw_body || "").trim();
     if (!original) {
       await clearBlockerCapturePending(c.id);
-      const cleared: ActiveV2CommitmentRow = {
+      c = {
         ...c,
         blocker_capture_expires_at: null,
         blocker_capture_after_event: null,
       };
-      await processV2NormalInboundOutcome(
-        job,
-        userId,
-        cleared,
-        classifyV2InboundReply(""),
-        timezone,
-        splitSuppressedMessageSids,
-        commsPrefsTurn
-      );
-      return;
-    }
-
+      deferredBlockerGate = {
+        commitment: c,
+        classification: classifyV2InboundReply(""),
+        precomputedTurnUnderstandingCtx: null,
+        telemetry: {
+          blocker_gate_deferred_to_transactional_dispatch: true,
+          did_transactional_dispatch_continue_after_blocker_gate: true,
+          transactional_handler_consumed_after_blocker_gate: null,
+          blocker_route_decision: "not_blocker_normal_inbound",
+          blocker_route_decision_source: "fallback",
+          blocker_capture_decision_reason: "empty_inbound_deferred_to_transactional_dispatch",
+        },
+        decision: "not_blocker_normal_inbound",
+        source: "fallback",
+      };
+    } else {
     const classification = classifyV2InboundReply(original);
 
     const { data: blockerBypassLastCtx } = await supabaseServer
@@ -9871,23 +9916,21 @@ async function handleV2SmsInboundCoachJob(
       });
     }
 
-    await processV2NormalInboundOutcome(
-      job,
-      userId,
-      workingCommitment,
-      normalClassification,
-      timezone,
-      splitSuppressedMessageSids,
-      commsPrefsTurn,
-      {
-        precomputedTurnUnderstandingCtx: blockerTuCtx,
-        blockerRouteTelemetry: {
-          ...routeDecision.telemetry,
-          blocker_pending_tu_reused_in_normal_path: true,
-        },
-      }
-    );
-    return;
+    c = workingCommitment;
+    deferredBlockerGate = {
+      commitment: workingCommitment,
+      classification: normalClassification,
+      precomputedTurnUnderstandingCtx: blockerTuCtx,
+      telemetry: {
+        ...routeDecision.telemetry,
+        blocker_gate_deferred_to_transactional_dispatch: true,
+        did_transactional_dispatch_continue_after_blocker_gate: true,
+        transactional_handler_consumed_after_blocker_gate: null,
+      },
+      decision: routeDecision.decision,
+      source: routeDecision.source,
+    };
+    }
   }
 
   await clearStaleAdaptiveContractColumns(c.id);
@@ -9897,23 +9940,91 @@ async function handleV2SmsInboundCoachJob(
   }
 
   if (await processV2CoachingRefreshInbound(job, userId, c, timezone)) {
+    if (deferredBlockerGate) {
+      logBlockerGateTransactionalHandlerConsumed({
+        job,
+        commitmentId: c.id,
+        handler: "refresh",
+        deferredBlockerGate,
+      });
+    }
     return;
   }
 
   if (await processV2SmsInboundPendingResolution(job, userId, c, timezone)) {
+    if (deferredBlockerGate) {
+      logBlockerGateTransactionalHandlerConsumed({
+        job,
+        commitmentId: c.id,
+        handler: "pending_resolution",
+        deferredBlockerGate,
+      });
+    }
     return;
   }
 
   if (await processV2ContractProposalConsent(job, userId, c, timezone)) {
+    if (deferredBlockerGate) {
+      logBlockerGateTransactionalHandlerConsumed({
+        job,
+        commitmentId: c.id,
+        handler: "contract",
+        deferredBlockerGate,
+      });
+    }
     return;
   }
 
   if (await handleAdaptiveProposalConsentAmbiguousInbound(job, userId, c, timezone)) {
+    if (deferredBlockerGate) {
+      logBlockerGateTransactionalHandlerConsumed({
+        job,
+        commitmentId: c.id,
+        handler: "adaptive",
+        deferredBlockerGate,
+      });
+    }
     return;
   }
 
-  const inboundClassification = classifyV2InboundReply((job.raw_body || "").trim());
+  const inboundClassification =
+    deferredBlockerGate?.classification ??
+    classifyV2InboundReply((job.raw_body || "").trim());
   if (await processV2MemoryConfirmationInbound(job, userId, c, timezone, inboundClassification)) {
+    if (deferredBlockerGate) {
+      logBlockerGateTransactionalHandlerConsumed({
+        job,
+        commitmentId: c.id,
+        handler: "memory",
+        deferredBlockerGate,
+      });
+    }
+    return;
+  }
+
+  if (deferredBlockerGate) {
+    const normalCommitment =
+      (await getActiveCommitment(userId)) ?? deferredBlockerGate.commitment;
+    await processV2NormalInboundOutcome(
+      job,
+      userId,
+      normalCommitment,
+      deferredBlockerGate.classification,
+      timezone,
+      splitSuppressedMessageSids,
+      commsPrefsTurn,
+      {
+        precomputedTurnUnderstandingCtx: deferredBlockerGate.precomputedTurnUnderstandingCtx,
+        blockerRouteTelemetry: {
+          ...deferredBlockerGate.telemetry,
+          did_normal_inbound_run_after_blocker_deferral: true,
+          transactional_handler_consumed_after_blocker_gate: null,
+          blocker_tu_reused_in_normal_path: Boolean(
+            deferredBlockerGate.precomputedTurnUnderstandingCtx?.didRun
+          ),
+        },
+      }
+    );
     return;
   }
 
