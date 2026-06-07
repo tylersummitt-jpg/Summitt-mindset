@@ -76,13 +76,14 @@ describe("inbound turn understanding route invariants", () => {
   });
 
   it("L: PR 2.1b-pr2a/pr2b wires memory confirmation via opt-in helper guard + shared no-send truth", () => {
-    const helperBlock = src.slice(
-      src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend"),
-      src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend") + 12000
-    );
+  const helperBlock = src.slice(
+    src.indexOf("type InboundLaneUnifiedFinalGuardConfig"),
+    src.indexOf("async function processV2MemoryConfirmationInbound")
+  );
     expect(helperBlock).toContain("if (args.unifiedFinalGuard)");
     expect(helperBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(helperBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+    expect(helperBlock).toContain("runPendingResolutionNoSendTruthPolicyIfConfigured");
     expect(src).toContain("memoryNoSendTruthPolicy?: MemoryConfirmationNoSendTruthPolicyContext");
 
     expect(src).toContain('branch: "ambiguous"');
@@ -166,5 +167,22 @@ describe("inbound turn understanding route invariants", () => {
       "if (deferredBlockerGate) {\n    const normalCommitment ="
     );
     expect(finalDeferredNormalIdx).toBeGreaterThan(memoryHandlerIdx);
+  });
+
+  it("R: Phase 2.1c pending resolution uses opt-in unified guard + pending no-send truth policy", () => {
+    expect(src).toContain("persistPendingResolutionTruthOnNoSend");
+    expect(src).toContain("runPendingResolutionNoSendTruthPolicyIfConfigured");
+    expect(src).toContain("evaluatePostUnifiedGuardPendingTruthRecheck");
+    expect(src).toContain("pendingNoSendTruthPolicy");
+
+    const pendingIdx = src.indexOf("async function processV2SmsInboundPendingResolution");
+    expect(pendingIdx).toBeGreaterThan(0);
+    const pendingBlock = src.slice(
+      pendingIdx,
+      src.indexOf("async function processV2CoachingRefreshInbound")
+    );
+    expect(pendingBlock).toContain("unifiedFinalGuard:");
+    expect(pendingBlock).toContain('routePurpose: "pending_resolution"');
+    expect(pendingBlock).toContain("pendingNoSendTruthPolicy");
   });
 });

@@ -374,7 +374,15 @@ import {
   buildInboundCommsPreferenceV3Facts,
   type InboundSmsCommsPreferenceTurnSnapshot,
 } from "@/lib/v2-sms-comms-preferences";
-import { computePendingCommitmentReplaceApplied } from "@/lib/v3-inbound-pending-replacement-truth";
+import {
+  computePendingCommitmentReplaceApplied,
+  detectPendingReplacementStateTruthViolations,
+  detectSeasonTransitionTruthViolations,
+} from "@/lib/v3-inbound-pending-replacement-truth";
+import {
+  persistPendingResolutionTruthOnNoSend,
+  type PendingResolutionNoSendTruthPolicyContext,
+} from "@/lib/v2-pending-resolution-no-send-truth";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import {
@@ -7941,7 +7949,65 @@ type InboundLaneUnifiedFinalGuardConfig = {
   branchName: string;
   outcomeClaimEvidence: OutcomeClaimEvidenceBundle;
   memoryNoSendTruthPolicy?: MemoryConfirmationNoSendTruthPolicyContext;
+  pendingNoSendTruthPolicy?: PendingResolutionNoSendTruthPolicyContext;
 };
+
+function evaluatePostUnifiedGuardPendingTruthRecheck(args: {
+  body: string;
+  relationshipFacts: InboundV3RelationshipFacts;
+}): {
+  blocked: boolean;
+  noSendReason: string | null;
+  pendingTruthFailed: boolean;
+  seasonTruthFailed: boolean;
+  verbatimMissing: string[] | null;
+} {
+  const requiredVerbatim = args.relationshipFacts.constraints.required_verbatim_substrings;
+  let verbatimMissing: string[] | null = null;
+  if (requiredVerbatim && requiredVerbatim.length > 0) {
+    const verbatimCheck = assertRequiredVerbatimSubstringsPresent(
+      "post_final_voice_gate",
+      args.body,
+      requiredVerbatim
+    );
+    if (!verbatimCheck.ok) {
+      verbatimMissing = verbatimCheck.missing;
+    }
+  }
+
+  let pendingTruthFailed = false;
+  const prFacts = args.relationshipFacts.pending_replacement_facts;
+  if (prFacts?.pending_resolution_active && !prFacts.pending_resolution_applied) {
+    const violations = detectPendingReplacementStateTruthViolations(args.body, prFacts);
+    pendingTruthFailed = violations.length > 0;
+  }
+
+  let seasonTruthFailed = false;
+  const seasonViolations = detectSeasonTransitionTruthViolations(
+    args.body,
+    args.relationshipFacts.season_transition_facts
+  );
+  if (seasonViolations.length > 0) {
+    seasonTruthFailed = true;
+  }
+
+  let noSendReason: string | null = null;
+  if (verbatimMissing != null) {
+    noSendReason = "required_verbatim_missing_post_unified_final_guard";
+  } else if (pendingTruthFailed) {
+    noSendReason = "pending_resolution_truth_violation_after_final_guard";
+  } else if (seasonTruthFailed) {
+    noSendReason = "season_transition_truth_violation_after_final_guard";
+  }
+
+  return {
+    blocked: noSendReason != null,
+    noSendReason,
+    pendingTruthFailed,
+    seasonTruthFailed,
+    verbatimMissing,
+  };
+}
 
 async function runMemoryConfirmationNoSendTruthPolicyIfConfigured(args: {
   unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
@@ -7964,6 +8030,46 @@ async function runMemoryConfirmationNoSendTruthPolicyIfConfigured(args: {
     ...telemetry,
   });
   return telemetry;
+}
+
+async function runPendingResolutionNoSendTruthPolicyIfConfigured(args: {
+  unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
+  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard";
+  noSendReason: string;
+  stageMetadata?: Record<string, unknown>;
+  logTag: string;
+}): Promise<Record<string, unknown> | null> {
+  const policy = args.unifiedFinalGuard?.pendingNoSendTruthPolicy;
+  if (!policy) return null;
+  const telemetry = await persistPendingResolutionTruthOnNoSend({
+    ...policy,
+    noSendStage: args.noSendStage,
+    noSendReason: args.noSendReason,
+    stageMetadata: args.stageMetadata,
+  });
+  console.info(`[sms-inbound-coach] ${args.logTag}_pending_resolution_no_send_truth`, {
+    message_sid: policy.inboundMessageSid,
+    commitment_id: policy.commitmentId,
+    ...telemetry,
+  });
+  return telemetry;
+}
+
+async function runInboundLaneNoSendTruthPoliciesIfConfigured(args: {
+  unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
+  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard";
+  noSendReason: string;
+  stageMetadata?: Record<string, unknown>;
+  logTag: string;
+}): Promise<{
+  memoryTruth: Record<string, unknown> | null;
+  pendingTruth: Record<string, unknown> | null;
+}> {
+  const [memoryTruth, pendingTruth] = await Promise.all([
+    runMemoryConfirmationNoSendTruthPolicyIfConfigured(args),
+    runPendingResolutionNoSendTruthPolicyIfConfigured(args),
+  ]);
+  return { memoryTruth, pendingTruth };
 }
 
 async function buildMemoryLaneOutcomeClaimEvidence(args: {
@@ -8044,18 +8150,20 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       nextRetry: farFutureIso(),
     });
     const laneNoSendReason = lane.noSendReason ?? "inbound_lane_no_send";
-    const memoryTruthLane = await runMemoryConfirmationNoSendTruthPolicyIfConfigured({
-      unifiedFinalGuard: args.unifiedFinalGuard,
-      noSendStage: "lane",
-      noSendReason: laneNoSendReason,
-      stageMetadata: { lane_metadata: lane.metadata, lane_stage: lane.metadata?.lane_stage ?? null },
-      logTag: args.logTag,
-    });
+    const { memoryTruth: memoryTruthLane, pendingTruth: pendingTruthLane } =
+      await runInboundLaneNoSendTruthPoliciesIfConfigured({
+        unifiedFinalGuard: args.unifiedFinalGuard,
+        noSendStage: "lane",
+        noSendReason: laneNoSendReason,
+        stageMetadata: { lane_metadata: lane.metadata, lane_stage: lane.metadata?.lane_stage ?? null },
+        logTag: args.logTag,
+      });
     console.warn(`[sms-inbound-coach] ${args.logTag}_inbound_lane_no_send`, {
       message_sid: args.job.message_sid,
       commitment_id: args.commitment.id,
       reason: laneNoSendReason,
       ...(memoryTruthLane ? { memory_no_send_truth: memoryTruthLane } : {}),
+      ...(pendingTruthLane ? { pending_resolution_no_send_truth: pendingTruthLane } : {}),
     });
     return { ok: false };
   }
@@ -8121,20 +8229,22 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       nextRetry: farFutureIso(),
     });
     const fvgNoSendReason = voicePack.voice.skipReason ?? "final_voice_gate_no_send";
-    const memoryTruthFvg = await runMemoryConfirmationNoSendTruthPolicyIfConfigured({
-      unifiedFinalGuard: args.unifiedFinalGuard,
-      noSendStage: "final_voice_gate",
-      noSendReason: fvgNoSendReason,
-      stageMetadata: {
-        final_voice_gate: voicePack.voice.metadata,
-        north_star_gate_source: voicePack.northStarMeta.source,
-      },
-      logTag: args.logTag,
-    });
+    const { memoryTruth: memoryTruthFvg, pendingTruth: pendingTruthFvg } =
+      await runInboundLaneNoSendTruthPoliciesIfConfigured({
+        unifiedFinalGuard: args.unifiedFinalGuard,
+        noSendStage: "final_voice_gate",
+        noSendReason: fvgNoSendReason,
+        stageMetadata: {
+          final_voice_gate: voicePack.voice.metadata,
+          north_star_gate_source: voicePack.northStarMeta.source,
+        },
+        logTag: args.logTag,
+      });
     console.warn(`[sms-inbound-coach] ${args.logTag}_final_voice_suppressed`, {
       message_sid: args.job.message_sid,
       reason: fvgNoSendReason,
       ...(memoryTruthFvg ? { memory_no_send_truth: memoryTruthFvg } : {}),
+      ...(pendingTruthFvg ? { pending_resolution_no_send_truth: pendingTruthFvg } : {}),
     });
     return { ok: false };
   }
@@ -8165,25 +8275,17 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       },
     });
 
-    const requiredVerbatim = args.relationshipFacts.constraints.required_verbatim_substrings;
-    let verbatimMissing: string[] | null = null;
-    if (requiredVerbatim && requiredVerbatim.length > 0) {
-      const verbatimCheck = assertRequiredVerbatimSubstringsPresent(
-        "post_final_voice_gate",
-        unifiedGuard.body,
-        requiredVerbatim
-      );
-      if (!verbatimCheck.ok) {
-        verbatimMissing = verbatimCheck.missing;
-      }
-    }
+    const postGuardRecheck = evaluatePostUnifiedGuardPendingTruthRecheck({
+      body: unifiedGuard.body,
+      relationshipFacts: args.relationshipFacts,
+    });
 
-    const unifiedGuardBlocked = !unifiedGuard.shouldSend || verbatimMissing != null;
+    const unifiedGuardBlocked = !unifiedGuard.shouldSend || postGuardRecheck.blocked;
     if (unifiedGuardBlocked) {
       const noSendReason =
-        verbatimMissing != null
-          ? "required_verbatim_missing_post_unified_final_guard"
-          : unifiedGuard.noSendReason ?? "unified_final_product_law_guard_no_send";
+        postGuardRecheck.noSendReason ??
+        unifiedGuard.noSendReason ??
+        "unified_final_product_law_guard_no_send";
       const guardSafetyNotes = ["unified_final_product_law_guard"];
       if (unifiedGuard.noSendReason === RAPID_NEAR_DUPLICATE_REPLY_NO_SEND) {
         guardSafetyNotes.push("rapid_near_duplicate_reply_guard");
@@ -8191,8 +8293,14 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       if (unifiedGuard.noSendReason === UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND) {
         guardSafetyNotes.push("unsupported_accountability_claim_guard");
       }
-      if (verbatimMissing != null) {
+      if (postGuardRecheck.verbatimMissing != null) {
         guardSafetyNotes.push("required_verbatim_missing_post_unified_final_guard");
+      }
+      if (postGuardRecheck.pendingTruthFailed) {
+        guardSafetyNotes.push("pending_resolution_truth_violation_after_final_guard");
+      }
+      if (postGuardRecheck.seasonTruthFailed) {
+        guardSafetyNotes.push("season_transition_truth_violation_after_final_guard");
       }
       if (args.meaningShadow) {
         registerInboundMeaningShadowPending({
@@ -8225,7 +8333,9 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
               branch_name: ug.branchName,
               branch_migrated_to_lane: true,
               unified_final_guard: compactUnifiedFinalGuardForTelemetry(unifiedGuard),
-              required_verbatim_missing: verbatimMissing,
+              required_verbatim_missing: postGuardRecheck.verbatimMissing,
+              pending_truth_recheck_failed: postGuardRecheck.pendingTruthFailed,
+              season_transition_truth_recheck_failed: postGuardRecheck.seasonTruthFailed,
             },
             openAiOk: true,
           },
@@ -8237,17 +8347,20 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
         ),
         nextRetry: farFutureIso(),
       });
-      const memoryTruthUnified = await runMemoryConfirmationNoSendTruthPolicyIfConfigured({
-        unifiedFinalGuard: ug,
-        noSendStage: "unified_final_guard",
-        noSendReason,
-        stageMetadata: {
-          unified_final_guard: compactUnifiedFinalGuardForTelemetry(unifiedGuard),
-          required_verbatim_missing: verbatimMissing,
-          ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
-        },
-        logTag: args.logTag,
-      });
+      const { memoryTruth: memoryTruthUnified, pendingTruth: pendingTruthUnified } =
+        await runInboundLaneNoSendTruthPoliciesIfConfigured({
+          unifiedFinalGuard: ug,
+          noSendStage: "unified_final_guard",
+          noSendReason,
+          stageMetadata: {
+            unified_final_guard: compactUnifiedFinalGuardForTelemetry(unifiedGuard),
+            required_verbatim_missing: postGuardRecheck.verbatimMissing,
+            pending_truth_recheck_failed: postGuardRecheck.pendingTruthFailed,
+            season_transition_truth_recheck_failed: postGuardRecheck.seasonTruthFailed,
+            ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, postGuardRecheck.verbatimMissing),
+          },
+          logTag: args.logTag,
+        });
       console.warn(`[sms-inbound-coach] ${args.logTag}_unified_final_guard_no_send`, {
         message_sid: args.job.message_sid,
         commitment_id: args.commitment.id,
@@ -8255,6 +8368,7 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
         branch_name: ug.branchName,
         no_send_reason: noSendReason,
         ...(memoryTruthUnified ? { memory_no_send_truth: memoryTruthUnified } : {}),
+        ...(pendingTruthUnified ? { pending_resolution_no_send_truth: pendingTruthUnified } : {}),
       });
       return { ok: false };
     }
@@ -8933,14 +9047,14 @@ async function processV2SmsInboundPendingResolution(
       commitmentBefore: c,
       commitmentAfter: cAfter,
     });
+  const pendingResolutionAppliedForLane =
+    result.pendingResolutionApplied || pendingReplaceApplied;
 
   const pendingFacts: InboundV3PendingResolutionFacts = {
     resolution_type: pendBefore?.kind ?? "unknown",
     pending_action: pendBefore?.kind ?? "unknown",
     user_answer_type: classificationPr.eventType,
-    state_transition_summary: pendingReplaceApplied
-      ? `SMS pending-resolution replace applied; canonical commitment updated (pending_cleared=${pendingCleared}).`
-      : `SMS pending-resolution handler finished for ${pendBefore?.kind ?? "unknown"}; pending still active or unchanged (pending_cleared=${pendingCleared}).`,
+    state_transition_summary: result.stateTransitionSummary,
     updated_commitment_snapshot: snapshot,
     legacy_pending_reply_preview: pendingVisible.slice(0, 500),
   };
@@ -8961,8 +9075,40 @@ async function processV2SmsInboundPendingResolution(
     wave11MemoryConfirmationPending: wave11MemoryPending,
     pendingResolutionFacts: pendingFacts,
     seasonTransitionFacts,
-    pendingResolutionAppliedOverride: pendingReplaceApplied,
+    pendingResolutionAppliedOverride: pendingResolutionAppliedForLane,
   });
+
+  const recentEventsPr = await getRecentV2EventsForAi(cAfter.id);
+  const memoryPacketPr = facts.thread.memory_packet ?? {};
+  const outcomeClaimEvidencePr = buildInboundOutcomeClaimEvidence({
+    userMessage: rawPr,
+    commitment: cAfter,
+    effectiveBehavior: getEffectiveCoachingAsk(cAfter, Date.now()),
+    recentEvents: recentEventsPr,
+    memoryPacket: memoryPacketPr,
+    lastOutboundSmsPreview: contextPacket.latestOutboundBody ?? null,
+    latestOpenQuestion: contextPacket.latestOpenQuestion ?? null,
+    expectedReplySemantics: facts.thread.expected_reply_semantics ?? null,
+    finalEventType: contextPacket.finalEventType ?? null,
+  });
+
+  const pendingNoSendTruthPolicy: PendingResolutionNoSendTruthPolicyContext = {
+    policyBranch: result.pendingNoSendPolicyBranch,
+    pendingResolutionKind: result.pendingResolutionKind,
+    commitmentId: cAfter.id,
+    clerkUserId: userId,
+    inboundMessageSid: job.message_sid,
+    pendingResolutionApplied: result.pendingResolutionApplied,
+    stateMutationCompletedBeforeSms:
+      result.pendingNoSendPolicyBranch === "mutation_applied"
+        ? true
+        : result.pendingStateMutatedBeforeSms,
+    pendingClearedBeforeSms: result.pendingClearedBeforeSms,
+    pendingStillActiveAfterPhase1: result.pendingStillActiveAfterPhase1,
+    pendingProgressed: result.pendingProgressed,
+    stateTransitionSummary: result.stateTransitionSummary,
+    seasonTransitionFacts,
+  };
 
   const sendStill = await persistInboundV3RelationshipLaneReplyReadyAndSend({
     job,
@@ -8986,7 +9132,7 @@ async function processV2SmsInboundPendingResolution(
       commitmentId: cAfter.id,
       pendingKind: pendBefore?.kind ?? null,
       userAnswerType: classificationPr.eventType,
-      pendingApplied: pendingReplaceApplied,
+      pendingApplied: pendingResolutionAppliedForLane,
       pendingCleared,
       seasonMutationKind: result.seasonMutation?.ok
         ? result.seasonMutation.seasonTransitionApplied
@@ -8997,6 +9143,13 @@ async function processV2SmsInboundPendingResolution(
         : null,
       behaviorStatement: cAfter.behavior_statement ?? null,
     }),
+    unifiedFinalGuard: {
+      mode: "transactional_coaching_limited",
+      routePurpose: "pending_resolution",
+      branchName: "sms_pending_resolution_complete",
+      outcomeClaimEvidence: outcomeClaimEvidencePr,
+      pendingNoSendTruthPolicy,
+    },
   });
 
   if (!sendStill.ok) {

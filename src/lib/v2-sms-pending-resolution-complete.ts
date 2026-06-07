@@ -53,6 +53,8 @@ import {
   insertSmsCommitmentChangeProofEvent,
   patchVictoryCalloutOnSpineEventBestEffort,
 } from "@/lib/v2-proof-moment";
+import type { PendingResolutionNoSendPolicyBranch } from "@/lib/v2-pending-resolution-no-send-truth";
+export type { PendingResolutionNoSendPolicyBranch } from "@/lib/v2-pending-resolution-no-send-truth";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 import { interpretCommitmentMeaningFromUserText } from "@/lib/v2-commitment-meaning-interpreter/commitment-meaning-interpreter";
 import { COMMITMENT_MEANING_INTERPRETER_PROMPT_VERSION } from "@/lib/v2-commitment-meaning-interpreter/types";
@@ -403,9 +405,37 @@ async function phase1PendingReply(args: {
   return r.message;
 }
 
+export type PendingResolutionPhase1PolicyHints = {
+  pendingNoSendPolicyBranch: PendingResolutionNoSendPolicyBranch;
+  pendingResolutionKind: "commitment_replace" | "commitment_tighten";
+  pendingStateMutatedBeforeSms: boolean;
+  pendingClearedBeforeSms: boolean;
+  pendingStillActiveAfterPhase1: boolean;
+  pendingResolutionApplied: boolean;
+  pendingProgressed?: boolean;
+  stateTransitionSummary: string;
+};
+
+function pendingHandled(
+  replyBody: string,
+  hints: PendingResolutionPhase1PolicyHints,
+  seasonMutation?: SmsGoalSeasonMutationResult
+): Extract<SmsPendingResolutionHandleResult, { handled: true }> {
+  return {
+    handled: true,
+    replyBody,
+    seasonMutation,
+    ...hints,
+  };
+}
+
 export type SmsPendingResolutionHandleResult =
   | { handled: false }
-  | { handled: true; replyBody: string; seasonMutation?: SmsGoalSeasonMutationResult };
+  | ({
+      handled: true;
+      replyBody: string;
+      seasonMutation?: SmsGoalSeasonMutationResult;
+    } & PendingResolutionPhase1PolicyHints);
 
 export async function tryHandleSmsInboundPendingResolution(args: {
   job: { message_sid: string; raw_body: string | null };
@@ -454,16 +484,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     });
     const pausedDraft =
       "I can’t update your commitment while you’re in low-pressure mode. When you’re ready for full accountability again, text me and we’ll set the bar.";
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: pausedDraft,
         brainCase: "pending_resolution_vague_need_detail",
         allowVictoryRoomPhrase: false,
         currentBarSummary,
         safeFallback: pausedDraft,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "pending_cleared_no_mutation",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: true,
+        pendingClearedBeforeSms: true,
+        pendingStillActiveAfterPhase1: false,
+        pendingResolutionApplied: false,
+        stateTransitionSummary:
+          "Pending resolution cleared due to low-pressure reactivation before visible SMS.",
+      }
+    );
   }
 
   if (looksLikeCancellation(rawFull) && smsState === "awaiting_candidate") {
@@ -483,16 +522,24 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     });
     const cancelDraft =
       "Okay—I’ll drop that update for now. Text me anytime you want to adjust the bar.";
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: cancelDraft,
         brainCase: "pending_resolution_no_problem_reenter",
         allowVictoryRoomPhrase: false,
         currentBarSummary,
         safeFallback: cancelDraft,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "pending_cleared_no_mutation",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: true,
+        pendingClearedBeforeSms: true,
+        pendingStillActiveAfterPhase1: false,
+        pendingResolutionApplied: false,
+        stateTransitionSummary: "User cancelled pending resolution; pending cleared before visible SMS.",
+      }
+    );
   }
 
   if (smsState === "awaiting_confirmation") {
@@ -514,16 +561,26 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       const lostDraft = raiseNeedsBar
         ? "What harder daily bar should I hold you to? One clear action—then tell me YES when it's right."
         : "I lost track of the candidate—what exactly should I hold you to tomorrow? One clear action.";
-      return {
-        handled: true,
-        replyBody: await phase1PendingReply({
+      return pendingHandled(
+        await phase1PendingReply({
           machineDraft: lostDraft,
           brainCase: "pending_resolution_lost_candidate",
           allowVictoryRoomPhrase: false,
           currentBarSummary,
           safeFallback: lostDraft,
         }),
-      };
+        {
+          pendingNoSendPolicyBranch: "pending_active_clarify",
+          pendingResolutionKind: kind,
+          pendingStateMutatedBeforeSms: true,
+          pendingClearedBeforeSms: false,
+          pendingStillActiveAfterPhase1: true,
+          pendingResolutionApplied: false,
+          pendingProgressed: true,
+          stateTransitionSummary:
+            "Lost confirmation candidate; regressed pending to awaiting_candidate before visible SMS.",
+        }
+      );
     }
 
     const conf = parseSmsConfirmation(rawFull);
@@ -541,16 +598,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         raw_text_preview: rawPreview,
       });
       const ambDraft = `I’m still holding: ${cand}. Tell me if that’s the lock—or what you want instead.`;
-      return {
-        handled: true,
-        replyBody: await phase1PendingReply({
+      return pendingHandled(
+        await phase1PendingReply({
           machineDraft: ambDraft,
           brainCase: "pending_resolution_ambiguous_confirm",
           allowVictoryRoomPhrase: false,
           currentBarSummary,
           safeFallback: ambDraft,
         }),
-      };
+        {
+          pendingNoSendPolicyBranch: "pending_active_clarify",
+          pendingResolutionKind: kind,
+          pendingStateMutatedBeforeSms: false,
+          pendingClearedBeforeSms: false,
+          pendingStillActiveAfterPhase1: true,
+          pendingResolutionApplied: false,
+          stateTransitionSummary:
+            "Confirmation ambiguous; pending remains awaiting_confirmation before visible SMS.",
+        }
+      );
     }
 
     if (conf === "no") {
@@ -567,16 +633,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       });
       if (!merged.ok) {
         const glitchDraft = "Something glitched—try naming the bar again in one short sentence.";
-        return {
-          handled: true,
-          replyBody: await phase1PendingReply({
+        return pendingHandled(
+          await phase1PendingReply({
             machineDraft: glitchDraft,
             brainCase: "pending_resolution_lost_candidate",
             allowVictoryRoomPhrase: false,
             currentBarSummary,
             safeFallback: glitchDraft,
           }),
-        };
+          {
+            pendingNoSendPolicyBranch: "pending_active_clarify",
+            pendingResolutionKind: kind,
+            pendingStateMutatedBeforeSms: false,
+            pendingClearedBeforeSms: false,
+            pendingStillActiveAfterPhase1: true,
+            pendingResolutionApplied: false,
+            stateTransitionSummary:
+              "Reject-no payload merge failed; pending still awaiting_confirmation before visible SMS.",
+          }
+        );
       }
       logSmsPending({
         pending_resolution_sms_state: "awaiting_candidate",
@@ -592,16 +667,26 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       });
       const noProbDraft =
         "No problem—what would work better? Send one clear daily action you want me to hold you to.";
-      return {
-        handled: true,
-        replyBody: await phase1PendingReply({
+      return pendingHandled(
+        await phase1PendingReply({
           machineDraft: noProbDraft,
           brainCase: "pending_resolution_no_problem_reenter",
           allowVictoryRoomPhrase: false,
           currentBarSummary,
           safeFallback: noProbDraft,
         }),
-      };
+        {
+          pendingNoSendPolicyBranch: "pending_active_clarify",
+          pendingResolutionKind: kind,
+          pendingStateMutatedBeforeSms: true,
+          pendingClearedBeforeSms: false,
+          pendingStillActiveAfterPhase1: true,
+          pendingResolutionApplied: false,
+          pendingProgressed: true,
+          stateTransitionSummary:
+            "User rejected candidate; reset to awaiting_candidate before visible SMS.",
+        }
+      );
     }
 
     c = (await getActiveCommitment(args.clerkUserId)) ?? c;
@@ -648,16 +733,24 @@ export async function tryHandleSmsInboundPendingResolution(args: {
           error: rep.code,
         });
         const rpcHoldDraft = buildSmsPendingRpcHoldPreviewDraft(cand);
-        return {
-          handled: true,
-          replyBody: await phase1PendingReply({
+        return pendingHandled(
+          await phase1PendingReply({
             machineDraft: rpcHoldDraft,
             brainCase: "pending_resolution_rpc_error_hold",
             allowVictoryRoomPhrase: false,
             currentBarSummary,
             safeFallback: rpcHoldDraft,
           }),
-        };
+          {
+            pendingNoSendPolicyBranch: "pending_active_clarify",
+            pendingResolutionKind: kind,
+            pendingStateMutatedBeforeSms: false,
+            pendingClearedBeforeSms: false,
+            pendingStillActiveAfterPhase1: true,
+            pendingResolutionApplied: false,
+            stateTransitionSummary: `Replace RPC failed (${rep.code}); pending still awaiting_confirmation before visible SMS.`,
+          }
+        );
       }
       logSmsPending({
         pending_resolution_sms_state: "confirmed",
@@ -707,33 +800,50 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       }
       const allowVrReplace = /\bvictory room\b/i.test(replaceReplyFinal);
       const replaceSafeFallback = replaceReply;
-      return {
-        handled: true,
-        replyBody: await phase1PendingReply({
+      return pendingHandled(
+        await phase1PendingReply({
           machineDraft: replaceReplyFinal,
           brainCase: "pending_resolution_replace_applied",
           allowVictoryRoomPhrase: allowVrReplace,
           currentBarSummary,
           safeFallback: replaceSafeFallback,
         }),
-        seasonMutation: rep,
-      };
+        {
+          pendingNoSendPolicyBranch: "mutation_applied",
+          pendingResolutionKind: kind,
+          pendingStateMutatedBeforeSms: true,
+          pendingClearedBeforeSms: true,
+          pendingStillActiveAfterPhase1: false,
+          pendingResolutionApplied: true,
+          stateTransitionSummary: `SMS pending-resolution replace applied (season_mode=${rep.seasonMode}); pending cleared before visible SMS.`,
+        },
+        rep
+      );
     }
 
     const normalized = normalizeShrinkProposalBindingText(cand);
     if (!normalized) {
       const fmtDraft =
         "That wording doesn’t fit the safe format from here. What smaller bar should I hold you to—one short sentence?";
-      return {
-        handled: true,
-        replyBody: await phase1PendingReply({
+      return pendingHandled(
+        await phase1PendingReply({
           machineDraft: fmtDraft,
           brainCase: "pending_resolution_clarify_candidate",
           allowVictoryRoomPhrase: false,
           currentBarSummary,
           safeFallback: fmtDraft,
         }),
-      };
+        {
+          pendingNoSendPolicyBranch: "pending_active_no_mutation",
+          pendingResolutionKind: kind,
+          pendingStateMutatedBeforeSms: false,
+          pendingClearedBeforeSms: false,
+          pendingStillActiveAfterPhase1: true,
+          pendingResolutionApplied: false,
+          stateTransitionSummary:
+            "Tighten candidate failed safe-format validation; pending still awaiting_confirmation before visible SMS.",
+        }
+      );
     }
 
     logSmsPending({
@@ -771,16 +881,24 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         error: tight.code,
       });
       const rpcHoldTightDraft = buildSmsPendingRpcHoldPreviewDraft(cand);
-      return {
-        handled: true,
-        replyBody: await phase1PendingReply({
-          machineDraft: rpcHoldTightDraft,
-          brainCase: "pending_resolution_rpc_error_hold",
-          allowVictoryRoomPhrase: false,
-          currentBarSummary,
-          safeFallback: rpcHoldTightDraft,
-        }),
-      };
+        return pendingHandled(
+          await phase1PendingReply({
+            machineDraft: rpcHoldTightDraft,
+            brainCase: "pending_resolution_rpc_error_hold",
+            allowVictoryRoomPhrase: false,
+            currentBarSummary,
+            safeFallback: rpcHoldTightDraft,
+          }),
+          {
+            pendingNoSendPolicyBranch: "pending_active_clarify",
+            pendingResolutionKind: kind,
+            pendingStateMutatedBeforeSms: false,
+            pendingClearedBeforeSms: false,
+            pendingStillActiveAfterPhase1: true,
+            pendingResolutionApplied: false,
+            stateTransitionSummary: `Tighten overlay RPC failed (${tight.code}); pending still awaiting_confirmation before visible SMS.`,
+          }
+        );
     }
 
     const reloaded = (await getActiveCommitment(args.clerkUserId)) ?? c;
@@ -833,16 +951,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     }
     const allowVrTight = /\bvictory room\b/i.test(tightenReply);
     const tightenSafeFallback = `Done. New bar: ${normalized}. I’ll hold you to that tomorrow.`;
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: tightenReply,
         brainCase: "pending_resolution_tighten_applied",
         allowVictoryRoomPhrase: allowVrTight,
         currentBarSummary,
         safeFallback: tightenSafeFallback,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "mutation_applied",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: true,
+        pendingClearedBeforeSms: true,
+        pendingStillActiveAfterPhase1: false,
+        pendingResolutionApplied: true,
+        stateTransitionSummary:
+          "SMS pending-resolution tighten overlay applied; pending cleared before visible SMS.",
+      }
+    );
   }
 
   let meaningInterpreterAcceptedBar: string | null = null;
@@ -890,16 +1017,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         raw_text_preview: rawPreview,
         meaning_interpreter_clarification: true,
       });
-      return {
-        handled: true,
-        replyBody: await phase1PendingReply({
+      return pendingHandled(
+        await phase1PendingReply({
           machineDraft: clarDraft,
           brainCase: "pending_resolution_clarify_candidate",
           allowVictoryRoomPhrase: false,
           currentBarSummary,
           safeFallback: clarDraft,
         }),
-      };
+        {
+          pendingNoSendPolicyBranch: "pending_active_clarify",
+          pendingResolutionKind: kind,
+          pendingStateMutatedBeforeSms: true,
+          pendingClearedBeforeSms: false,
+          pendingStillActiveAfterPhase1: true,
+          pendingResolutionApplied: false,
+          stateTransitionSummary:
+            "Meaning interpreter requested clarification; pending remains awaiting_candidate before visible SMS.",
+        }
+      );
     }
 
     if (
@@ -1029,16 +1165,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     });
     const vagueDraft =
       "I need the new bar to be one clear action. What exactly should I hold you to tomorrow?";
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: vagueDraft,
         brainCase: "pending_resolution_vague_need_detail",
         allowVictoryRoomPhrase: false,
         currentBarSummary,
         safeFallback: vagueDraft,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "pending_active_clarify",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: false,
+        pendingClearedBeforeSms: false,
+        pendingStillActiveAfterPhase1: true,
+        pendingResolutionApplied: false,
+        stateTransitionSummary:
+          "Candidate vague or invalid; pending remains awaiting_candidate before visible SMS.",
+      }
+    );
   }
 
   const clamped = clampCandidateForKind(kind, candidateRaw);
@@ -1047,16 +1192,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       kind === "commitment_tighten"
         ? "That’s too long or unclear for a tightened bar here—what’s one shorter honest version?"
         : "That text doesn’t fit as a commitment here—try one clear daily-action sentence.";
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: clampDraft,
         brainCase: "pending_resolution_clarify_candidate",
         allowVictoryRoomPhrase: false,
         currentBarSummary,
         safeFallback: clampDraft,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "pending_active_no_mutation",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: false,
+        pendingClearedBeforeSms: false,
+        pendingStillActiveAfterPhase1: true,
+        pendingResolutionApplied: false,
+        stateTransitionSummary:
+          "Candidate failed clamp validation; pending remains awaiting_candidate before visible SMS.",
+      }
+    );
   }
 
   if (isUnsafeSmsGoalCandidateText(clamped) || isUnsafeSmsGoalCandidateText(candidateRaw)) {
@@ -1064,16 +1218,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     const unsafeDraft =
       buildInboundSmsSafetyReplyBody(unsafeSafety) ??
       "Summitt Mindset cannot help with that request. Send me a safe daily commitment and we’ll work from there.";
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: unsafeDraft,
         brainCase: "pending_resolution_unsafe_candidate",
         allowVictoryRoomPhrase: false,
         currentBarSummary,
         safeFallback: unsafeDraft,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "pending_active_no_mutation",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: false,
+        pendingClearedBeforeSms: false,
+        pendingStillActiveAfterPhase1: true,
+        pendingResolutionApplied: false,
+        stateTransitionSummary:
+          "Unsafe candidate rejected; pending remains awaiting_candidate before visible SMS.",
+      }
+    );
   }
 
   const mergedOk = await mergeSmsPendingResolutionPayload({
@@ -1116,16 +1279,25 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   if (!mergedOk.ok) {
     const saveGlitchDraft =
       "Something glitched saving that—try your candidate again in one short sentence.";
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: saveGlitchDraft,
         brainCase: "pending_resolution_lost_candidate",
         allowVictoryRoomPhrase: false,
         currentBarSummary,
         safeFallback: saveGlitchDraft,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "pending_active_clarify",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: false,
+        pendingClearedBeforeSms: false,
+        pendingStillActiveAfterPhase1: true,
+        pendingResolutionApplied: false,
+        stateTransitionSummary:
+          "Candidate save merge failed; pending remains awaiting_candidate before visible SMS.",
+      }
+    );
   }
 
   logSmsPending({
@@ -1144,16 +1316,26 @@ export async function tryHandleSmsInboundPendingResolution(args: {
 
   if (kind === "commitment_tighten") {
     const tightenPromptDraft = `I can tighten it to: ${clamped}. Should I make that the new daily bar?`;
-    return {
-      handled: true,
-      replyBody: await phase1PendingReply({
+    return pendingHandled(
+      await phase1PendingReply({
         machineDraft: tightenPromptDraft,
         brainCase: "pending_resolution_confirmation_prompt",
         allowVictoryRoomPhrase: false,
         currentBarSummary,
         safeFallback: tightenPromptDraft,
       }),
-    };
+      {
+        pendingNoSendPolicyBranch: "pending_active_clarify",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: true,
+        pendingClearedBeforeSms: false,
+        pendingStillActiveAfterPhase1: true,
+        pendingResolutionApplied: false,
+        pendingProgressed: true,
+        stateTransitionSummary:
+          "Candidate saved; pending advanced to awaiting_confirmation before visible SMS.",
+      }
+    );
   }
   const replaceSeasonResolved = resolveSeasonModeForPendingReplace({
     payload,
@@ -1164,14 +1346,24 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     replaceSeasonResolved.mode === "new_chapter"
       ? `I can change the focus to: ${clamped}. Want to lock that in?`
       : `I can raise the bar to: ${clamped}. Want me to hold you to that?`;
-  return {
-    handled: true,
-    replyBody: await phase1PendingReply({
+  return pendingHandled(
+    await phase1PendingReply({
       machineDraft: replacePromptDraft,
       brainCase: "pending_resolution_confirmation_prompt",
       allowVictoryRoomPhrase: false,
       currentBarSummary,
       safeFallback: replacePromptDraft,
     }),
-  };
+    {
+      pendingNoSendPolicyBranch: "pending_active_clarify",
+      pendingResolutionKind: kind,
+      pendingStateMutatedBeforeSms: true,
+      pendingClearedBeforeSms: false,
+      pendingStillActiveAfterPhase1: true,
+      pendingResolutionApplied: false,
+      pendingProgressed: true,
+      stateTransitionSummary:
+        "Candidate saved; pending advanced to awaiting_confirmation before visible SMS.",
+    }
+  );
 }

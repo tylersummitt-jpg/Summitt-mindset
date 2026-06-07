@@ -455,7 +455,7 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 
-  it("15: contract/adaptive/pending/refresh/handoff are still not directly wired to unified guard", () => {
+  it("15: contract/adaptive/refresh/handoff are still not directly wired; pending uses opt-in helper guard", () => {
     const forbiddenDirectPurposes = [
       "contract_proposal_consent",
       "adaptive_proposal_consent",
@@ -473,6 +473,17 @@ describe("PR 2.1b route wiring invariants", () => {
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
     const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
     expect(refreshBlock).not.toContain("unifiedFinalGuard");
+
+    const pendingIdx = src.indexOf("async function processV2SmsInboundPendingResolution");
+    expect(pendingIdx).toBeGreaterThan(0);
+    const pendingBlock = src.slice(
+      pendingIdx,
+      src.indexOf("async function processV2CoachingRefreshInbound")
+    );
+    expect(pendingBlock).toContain("unifiedFinalGuard:");
+    expect(pendingBlock).not.toMatch(
+      /processV2SmsInboundPendingResolution[\s\S]{0,3500}applyUnifiedSmsFinalProductLawGuard/
+    );
   });
 
   it("22: no-send includes unified_final_guard metadata and persists blocker truth", () => {

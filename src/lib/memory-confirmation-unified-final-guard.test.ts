@@ -83,6 +83,15 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
   const src = fs.readFileSync(ROUTE, "utf8");
   const memoryFnStart = src.indexOf("async function processV2MemoryConfirmationInbound");
   const memoryBlock = src.slice(memoryFnStart, memoryFnStart + 12000);
+  const pendingFnStart = src.indexOf("async function processV2SmsInboundPendingResolution");
+  const pendingBlock = src.slice(
+    pendingFnStart,
+    src.indexOf("async function processV2CoachingRefreshInbound")
+  );
+  const laneGuardBlock = src.slice(
+    src.indexOf("type InboundLaneUnifiedFinalGuardConfig"),
+    src.indexOf("async function processV2MemoryConfirmationInbound")
+  );
 
   const helperStart = src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend");
   const helperBlock = src.slice(helperStart, helperStart + 12000);
@@ -113,11 +122,9 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
     expect(refreshBlock).not.toContain("unifiedFinalGuard");
   });
 
-  it("5: pending resolution helper call does NOT pass unifiedFinalGuard", () => {
-    const pendingIdx = src.indexOf("async function processV2SmsInboundPendingResolution");
-    expect(pendingIdx).toBeGreaterThan(0);
-    const pendingBlock = src.slice(pendingIdx, pendingIdx + 3500);
-    expect(pendingBlock).not.toContain("unifiedFinalGuard");
+  it("5: pending resolution helper call passes unifiedFinalGuard opt-in (Phase 2.1c)", () => {
+    expect(pendingBlock).toContain("unifiedFinalGuard:");
+    expect(pendingBlock).toContain("pendingNoSendTruthPolicy");
   });
 
   it("6: helper applies guard only when unifiedFinalGuard is provided", () => {
@@ -127,38 +134,36 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
   });
 
   it("pr2b: lane no-send calls shared memory truth policy when configured", () => {
-    expect(helperBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
-    expect(helperBlock).toContain('noSendStage: "lane"');
+    expect(laneGuardBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+    expect(laneGuardBlock).toContain("runInboundLaneNoSendTruthPoliciesIfConfigured");
+    expect(laneGuardBlock).toContain('noSendStage: "lane"');
     const laneIdx = helperBlock.indexOf("_inbound_lane_no_send");
     expect(laneIdx).toBeGreaterThan(0);
     const laneBlock = helperBlock.slice(laneIdx - 800, laneIdx + 200);
-    expect(laneBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+    expect(laneBlock).toContain("runInboundLaneNoSendTruthPoliciesIfConfigured");
   });
 
   it("pr2b: FVG no-send calls shared memory truth policy when configured", () => {
-    expect(helperBlock).toContain('noSendStage: "final_voice_gate"');
+    expect(laneGuardBlock).toContain('noSendStage: "final_voice_gate"');
     const fvgIdx = helperBlock.indexOf("_final_voice_suppressed");
     expect(fvgIdx).toBeGreaterThan(0);
     const fvgBlock = helperBlock.slice(fvgIdx - 800, fvgIdx + 200);
-    expect(fvgBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+    expect(fvgBlock).toContain("runInboundLaneNoSendTruthPoliciesIfConfigured");
   });
 
   it("pr2b: unified guard no-send uses shared helper not inline onNoSendTruthPersist", () => {
     expect(helperBlock).not.toContain("onNoSendTruthPersist");
-    expect(helperBlock).toContain('noSendStage: "unified_final_guard"');
-    expect(helperBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+    expect(laneGuardBlock).toContain('noSendStage: "unified_final_guard"');
+    expect(laneGuardBlock).toContain("runInboundLaneNoSendTruthPoliciesIfConfigured");
   });
 
   it("21: refresh callers unchanged — no unifiedFinalGuard on persistRefreshSmsLaneAndSend", () => {
     expect(refreshBlockNotWired(src)).toBe(true);
   });
 
-  it("22: pending resolution callers unchanged", () => {
-    const callIdx = src.indexOf("persistInboundV3RelationshipLaneReplyReadyAndSend({");
-    const pendingCall = src.indexOf("logTag: \"pending_resolution\"", callIdx);
-    expect(pendingCall).toBeGreaterThan(0);
-    const block = src.slice(pendingCall - 800, pendingCall + 200);
-    expect(block).not.toContain("unifiedFinalGuard");
+  it("22: pending resolution passes unifiedFinalGuard opt-in (Phase 2.1c)", () => {
+    expect(pendingBlock).toContain("unifiedFinalGuard:");
+    expect(pendingBlock).toContain("pendingNoSendTruthPolicy");
   });
 
   it("23: helper not broad-wired — guard is opt-in parameter only", () => {
