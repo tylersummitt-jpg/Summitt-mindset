@@ -7,6 +7,7 @@ import {
   applyInboundCoachFinalBodyGuards,
   type ApplyInboundFinalBodyTruthGuardArgs,
   type InboundCoachFinalBodyGuardsResult,
+  type OutcomeClaimEvidenceBundle,
 } from "@/lib/inbound-final-body-truth-guard";
 import type { InboundTurnUnderstandingContext } from "@/lib/inbound-turn-understanding-context";
 
