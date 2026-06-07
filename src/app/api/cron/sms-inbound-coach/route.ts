@@ -234,9 +234,12 @@ import {
 } from "@/lib/inbound-relationship-meaning";
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
-  applyInboundCoachFinalBodyGuards,
   type OutcomeClaimEvidenceBundle,
 } from "@/lib/inbound-final-body-truth-guard";
+import {
+  applyUnifiedSmsFinalProductLawGuard,
+  compactUnifiedFinalGuardForTelemetry,
+} from "@/lib/sms-final-product-law-guard";
 import type { MissAdjustmentPolicyResult } from "@/lib/inbound-miss-adjustment-policy";
 import {
   applyRapidNearDuplicateCoachReplyGuard,
@@ -2668,19 +2671,25 @@ async function processV2NormalInboundOutcome(
             : null,
         inboundTurnUnderstandingCtx,
       });
-      const finalGuardsOq = await applyInboundCoachFinalBodyGuards({
-        body: gatedOqBody,
-        turnUnderstandingContext: inboundTurnUnderstandingCtx,
-        latestOpenQuestion: northStarPktOpenQuestion.latestOpenQuestion ?? null,
-        lastCoachOutbound:
-          northStarPktOpenQuestion.latestOutboundBody ?? lastOutboundSmsPreview,
-        evidence: outcomeClaimEvidenceOq,
-        stage: "open_question_post_final_voice_gate",
+      const finalGuardsOq = await applyUnifiedSmsFinalProductLawGuard({
+        mode: "normal_coaching_full",
+        surface: "inbound",
+        preGuardBodyPreview: gatedOqBody,
+        normalCoachingFull: {
+          body: gatedOqBody,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          latestOpenQuestion: northStarPktOpenQuestion.latestOpenQuestion ?? null,
+          lastCoachOutbound:
+            northStarPktOpenQuestion.latestOutboundBody ?? lastOutboundSmsPreview,
+          evidence: outcomeClaimEvidenceOq,
+          stage: "open_question_post_final_voice_gate",
+        },
       });
       if (!finalGuardsOq.shouldSend) {
         const guardMetaOq = {
           ...finalGuardsOq.tuGuard.metadata,
           ...(finalGuardsOq.truthGuard?.metadata ?? {}),
+          ...compactUnifiedFinalGuardForTelemetry(finalGuardsOq),
         };
         const { telemetry: persistTelemetryOq } = await persistExplicitOutcomeBeforeReplyNoSend({
           branch: "open_question",
@@ -3301,19 +3310,25 @@ async function processV2NormalInboundOutcome(
         latestOpenQuestion: northStarPktCb.latestOpenQuestion ?? null,
         inboundTurnUnderstandingCtx,
       });
-      const finalGuardsLegacy = await applyInboundCoachFinalBodyGuards({
-        body: cbVoicePack.voice.body,
-        turnUnderstandingContext: inboundTurnUnderstandingCtx,
-        latestOpenQuestion: northStarPktCb.latestOpenQuestion ?? null,
-        lastCoachOutbound: lastOutboundSmsPreview,
-        evidence: outcomeClaimEvidenceLegacy,
-        stage: "legacy_fallback_pre_send",
+      const finalGuardsLegacy = await applyUnifiedSmsFinalProductLawGuard({
+        mode: "normal_coaching_full",
+        surface: "inbound",
+        preGuardBodyPreview: cbVoicePack.voice.body,
+        normalCoachingFull: {
+          body: cbVoicePack.voice.body,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          latestOpenQuestion: northStarPktCb.latestOpenQuestion ?? null,
+          lastCoachOutbound: lastOutboundSmsPreview,
+          evidence: outcomeClaimEvidenceLegacy,
+          stage: "legacy_fallback_pre_send",
+        },
       });
 
       if (!finalGuardsLegacy.shouldSend) {
         const legacyGuardMeta = {
           ...finalGuardsLegacy.tuGuard.metadata,
           ...(finalGuardsLegacy.truthGuard?.metadata ?? {}),
+          ...compactUnifiedFinalGuardForTelemetry(finalGuardsLegacy),
         };
         const { telemetry: persistTelemetryLegacy } =
           await persistExplicitOutcomeBeforeReplyNoSend({
@@ -4075,18 +4090,24 @@ async function processV2NormalInboundOutcome(
       latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
       inboundTurnUnderstandingCtx,
     });
-    const finalGuardsPivot = await applyInboundCoachFinalBodyGuards({
-      body: gatedPivot,
-      turnUnderstandingContext: inboundTurnUnderstandingCtx,
-      latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-      lastCoachOutbound: lastOutboundSmsPreview,
-      evidence: outcomeClaimEvidencePivot,
-      stage: "central_pivot_post_final_voice_gate",
+    const finalGuardsPivot = await applyUnifiedSmsFinalProductLawGuard({
+      mode: "normal_coaching_full",
+      surface: "inbound",
+      preGuardBodyPreview: gatedPivot,
+      normalCoachingFull: {
+        body: gatedPivot,
+        turnUnderstandingContext: inboundTurnUnderstandingCtx,
+        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+        lastCoachOutbound: lastOutboundSmsPreview,
+        evidence: outcomeClaimEvidencePivot,
+        stage: "central_pivot_post_final_voice_gate",
+      },
     });
     if (!finalGuardsPivot.shouldSend) {
       const guardMetaPivot = {
         ...finalGuardsPivot.tuGuard.metadata,
         ...(finalGuardsPivot.truthGuard?.metadata ?? {}),
+        ...compactUnifiedFinalGuardForTelemetry(finalGuardsPivot),
       };
       const { telemetry: persistTelemetryPivot } = await persistExplicitOutcomeBeforeReplyNoSend({
         branch: "central_pivot",
@@ -4459,18 +4480,24 @@ async function processV2NormalInboundOutcome(
         latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
         inboundTurnUnderstandingCtx,
       });
-      const finalGuardsArc = await applyInboundCoachFinalBodyGuards({
-        body: gatedClarify,
-        turnUnderstandingContext: inboundTurnUnderstandingCtx,
-        latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
-        lastCoachOutbound: lastOutboundSmsPreview,
-        evidence: outcomeClaimEvidenceArc,
-        stage: "arc_clarify_post_final_voice_gate",
+      const finalGuardsArc = await applyUnifiedSmsFinalProductLawGuard({
+        mode: "normal_coaching_full",
+        surface: "inbound",
+        preGuardBodyPreview: gatedClarify,
+        normalCoachingFull: {
+          body: gatedClarify,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          latestOpenQuestion: northStarPktForV3.latestOpenQuestion ?? null,
+          lastCoachOutbound: lastOutboundSmsPreview,
+          evidence: outcomeClaimEvidenceArc,
+          stage: "arc_clarify_post_final_voice_gate",
+        },
       });
       if (!finalGuardsArc.shouldSend) {
         const guardMetaArc = {
           ...finalGuardsArc.tuGuard.metadata,
           ...(finalGuardsArc.truthGuard?.metadata ?? {}),
+          ...compactUnifiedFinalGuardForTelemetry(finalGuardsArc),
         };
         const { telemetry: persistTelemetryArc } = await persistExplicitOutcomeBeforeReplyNoSend({
           branch: "arc_clarify",
@@ -5865,18 +5892,24 @@ async function processV2NormalInboundOutcome(
     missAdjustmentPolicy: mainInboundMissAdjustmentPolicy,
     finalEventType: resolved.meta.final_event_type ?? eventType,
   });
-  const finalGuardsMain = await applyInboundCoachFinalBodyGuards({
-    body: finalReplyBody,
-    turnUnderstandingContext: inboundTurnUnderstandingCtx,
-    latestOpenQuestion: northStarInboundContextPacket.latestOpenQuestion ?? null,
-    lastCoachOutbound: lastOutboundSmsPreview,
-    evidence: outcomeClaimEvidenceMain,
-    stage: "post_final_voice_gate",
+  const finalGuardsMain = await applyUnifiedSmsFinalProductLawGuard({
+    mode: "normal_coaching_full",
+    surface: "inbound",
+    preGuardBodyPreview: finalReplyBody,
+    normalCoachingFull: {
+      body: finalReplyBody,
+      turnUnderstandingContext: inboundTurnUnderstandingCtx,
+      latestOpenQuestion: northStarInboundContextPacket.latestOpenQuestion ?? null,
+      lastCoachOutbound: lastOutboundSmsPreview,
+      evidence: outcomeClaimEvidenceMain,
+      stage: "post_final_voice_gate",
+    },
   });
   if (!finalGuardsMain.shouldSend) {
     const guardMeta = {
       ...finalGuardsMain.tuGuard.metadata,
       ...(finalGuardsMain.truthGuard?.metadata ?? {}),
+      ...compactUnifiedFinalGuardForTelemetry(finalGuardsMain),
     };
     const { telemetry: persistTelemetryMain } = await persistExplicitOutcomeBeforeReplyNoSend({
       branch: "main",
@@ -6335,7 +6368,10 @@ async function processV2NormalInboundOutcome(
     inboundMeaning: inboundTurnUnderstandingCtx.inboundMeaningForPersist,
     turnUnderstandingReconciled: inboundTurnUnderstandingCtx.reconciled,
     coachingMoveSource: effectiveInboundReplySource ?? resolved.meta.reply_source ?? null,
-    truthGuardMetadata: finalGuardsMain.truthGuard?.metadata ?? null,
+    truthGuardMetadata: {
+      ...(finalGuardsMain.truthGuard?.metadata ?? {}),
+      ...compactUnifiedFinalGuardForTelemetry(finalGuardsMain),
+    },
     tuGuardMetadata: finalGuardsMain.tuGuard.metadata,
     branch: "main",
   });
