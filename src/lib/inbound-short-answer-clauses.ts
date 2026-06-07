@@ -111,6 +111,7 @@ export function inboundHasExplicitPartialClause(text: string): boolean {
 
 export function inboundHasExplicitMissClause(text: string): boolean {
   if (inboundHasExplicitPartialClause(text)) return false;
+  if (/\bstarted\s+but\b/i.test(text)) return false;
   return analyzeInboundClauses(text).some((c) => c.outcome_kind === "miss");
 }
 

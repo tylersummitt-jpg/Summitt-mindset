@@ -16,6 +16,7 @@ import {
   inboundHasPlanConfirmationClause,
 } from "@/lib/inbound-short-answer-clauses";
 import {
+  detectShortAnswerPartialLanguage,
   isShortContextualAnswer,
   resolveShortAnswerContextAuthority,
   type ShortAnswerContextAuthority,
@@ -117,6 +118,8 @@ export type DeriveInboundRelationshipMeaningArgs = {
   behaviorStatement?: string | null;
   commitmentTitle?: string | null;
   shortAnswerContext?: ShortAnswerContextAuthority | null;
+  /** OpenAI TU fallback polarity when deterministic SACA is unclear (server gate still required). */
+  tuAnsweredLastCoachAsk?: "yes" | "no" | "unclear" | null;
   /** When omitted, anchoring uses `new Date()` at derive time. */
   receivedAt?: Date;
   timezone?: string;
@@ -721,7 +724,8 @@ export function derivePersistenceDecision(args: {
     !saca.outcome_proof_eligible &&
     !inboundHasExplicitCompletionClause(raw) &&
     !inboundHasExplicitMissClause(raw) &&
-    !inboundHasExplicitPartialClause(raw)
+    !inboundHasExplicitPartialClause(raw) &&
+    !detectShortAnswerPartialLanguage(raw)
   ) {
     return {
       persistence_decision: "no_outcome_write",
@@ -856,6 +860,7 @@ export function buildInboundMeaningFacts(
       behaviorStatement: args.behaviorStatement,
       commitmentTitle: args.commitmentTitle,
       recentEventsNewestFirst: args.recentEventsNewestFirst,
+      tuAnsweredLastCoachAsk: args.tuAnsweredLastCoachAsk,
     });
   const meaning = deriveInboundRelationshipMeaning({
     ...args,

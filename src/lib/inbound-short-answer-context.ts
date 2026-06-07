@@ -16,6 +16,13 @@ import {
 import type { InboundPersistenceDecision } from "@/lib/inbound-relationship-meaning";
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import { buildV2ActiveReplyContext } from "@/lib/v2-active-reply-context";
+import {
+  detectNormalizedPartialLanguage,
+  detectNormalizedShortAnswerPolarity,
+  mapTuAnsweredLastCoachAskToPolarityHint,
+  normalizeShortAnswerText,
+  shortAnswerDisqualifiesOutcomeProof,
+} from "@/lib/inbound-short-answer-polarity";
 
 export type ShortAnswerPolarity = "affirm" | "deny" | "unclear" | "not_applicable";
 
@@ -68,6 +75,8 @@ export type ResolveShortAnswerContextAuthorityArgs = {
   recentEventsNewestFirst?: V2EventRowForAi[];
   hasLiveAccountabilityPrompt?: boolean;
   promptFreshEnough?: boolean;
+  /** OpenAI TU fallback: answered_last_coach_ask when deterministic polarity is unclear. */
+  tuAnsweredLastCoachAsk?: "yes" | "no" | "unclear" | null;
 };
 
 const PLAN_CONFIRMATION_QUESTION_RE =
@@ -82,54 +91,31 @@ const FUTURE_PLAN_QUESTION_RE =
 const IDENTITY_REFLECTION_RE = /\b(who are you becoming|identity|who you want to be)\b/i;
 
 function normCore(text: string): string {
-  return text.trim().toLowerCase().replace(/[.!?…]+$/g, "").trim();
+  return normalizeShortAnswerText(text).normalized;
 }
 
-const SHORT_AFFIRM_LEAD_RE =
-  /^(yes|y|yeah|yep|yup|sure|absolutely|definitely|correct|right|totally|for sure|heck yeah|sure did|i sure did|yes i did|yep i did)\b/i;
-
-const SHORT_AFFIRM_PHRASE_RE =
-  /^(sounds good|that works|that works for me|ok|okay|kk)\b/i;
-
-const SHORT_DENY_LEAD_RE = /^(no|n|nope|nah|not today)\b/i;
-
-const SHORT_DENY_PHRASE_RE =
-  /^(no i missed|missed it|didn'?t|did not|not yet)\b/i;
-
 export function detectShortAnswerPartialLanguage(raw: string): boolean {
-  const t = normCore(raw);
-  if (!t || t.length > 48) return false;
-  if (/\b(i did half|half|some of it|part of it|got some of it done|started it|almost|not all of it)\b/i.test(t)) {
-    return true;
+  const { normalized } = normalizeShortAnswerText(raw);
+  return detectNormalizedPartialLanguage(normalized);
+}
+
+function resolveShortAnswerPolarity(
+  raw: string,
+  tuAnsweredLastCoachAsk?: "yes" | "no" | "unclear" | null
+): ShortAnswerPolarity {
+  let polarity = detectNormalizedShortAnswerPolarity(raw);
+  if (
+    (polarity === "unclear" || polarity === "not_applicable") &&
+    tuAnsweredLastCoachAsk
+  ) {
+    const tuPolarity = mapTuAnsweredLastCoachAskToPolarityHint(tuAnsweredLastCoachAsk);
+    if (tuPolarity) polarity = tuPolarity;
   }
-  if (/\b(got part of it done|something got in the way)\b/i.test(t)) return true;
-  return false;
+  return polarity;
 }
 
 export function detectShortAnswerPolarity(raw: string): ShortAnswerPolarity {
-  const t = normCore(raw);
-  if (!t) return "not_applicable";
-  if (t.length > 48) return "not_applicable";
-
-  if (detectShortAnswerPartialLanguage(t) && !SHORT_AFFIRM_LEAD_RE.test(t) && !SHORT_DENY_LEAD_RE.test(t)) {
-    return "unclear";
-  }
-
-  if (SHORT_AFFIRM_LEAD_RE.test(t)) return "affirm";
-  if (SHORT_AFFIRM_PHRASE_RE.test(t)) return "affirm";
-  if (SHORT_DENY_LEAD_RE.test(t)) return "deny";
-  if (SHORT_DENY_PHRASE_RE.test(t)) return "deny";
-  if (/^(maybe|kinda|kind of|sort of|somewhat|partially)\b/.test(t)) return "unclear";
-  if (/^not yet\b/.test(t)) return "unclear";
-
-  const words = t.split(/\s+/).filter(Boolean);
-  if (words.length <= 5 && /\b(yes|yeah|yep|yup|sure|ok|okay|absolutely|definitely|totally|for sure|heck yeah)\b/.test(t)) {
-    return "affirm";
-  }
-  if (words.length <= 4 && /\b(no|nope|nah|missed)\b/.test(t)) return "deny";
-  if (words.length <= 4 && /^i did\b/i.test(t)) return "affirm";
-
-  return "not_applicable";
+  return resolveShortAnswerPolarity(raw);
 }
 
 export function isShortContextualAnswer(raw: string): boolean {
@@ -221,7 +207,8 @@ export function resolveShortAnswerContextAuthority(
   args: ResolveShortAnswerContextAuthorityArgs
 ): ShortAnswerContextAuthority {
   const raw = args.rawInbound.trim();
-  const polarity = detectShortAnswerPolarity(raw);
+  const normalizedMeta = normalizeShortAnswerText(raw);
+  const polarity = resolveShortAnswerPolarity(raw, args.tuAnsweredLastCoachAsk);
   const priorType = inferPriorQuestionType(args);
   const explicitCompletion = inboundHasExplicitCompletionClause(raw);
   const explicitMiss = inboundHasExplicitMissClause(raw);
@@ -252,7 +239,8 @@ export function resolveShortAnswerContextAuthority(
   }
 
   const { hasLive, freshEnough } = resolvePromptFreshness(args);
-  const isShort = polarity !== "not_applicable";
+  const isShort =
+    polarity !== "not_applicable" || detectShortAnswerPartialLanguage(raw);
 
   let outcomeProofEligible = false;
   let allowedPersistence: InboundPersistenceDecision = "no_outcome_write";
@@ -266,20 +254,24 @@ export function resolveShortAnswerContextAuthority(
     claims.completion = true;
     intent = "acknowledge_outcome";
     reason = "explicit_completion_clause";
-  } else if (explicitMiss) {
-    outcomeProofEligible = true;
-    allowedPersistence = "write_user_no";
-    claims.miss = true;
-    intent = "tell_truth_and_recover";
-    reason = "explicit_miss_clause";
   } else if (explicitPartial) {
     outcomeProofEligible = true;
     allowedPersistence = "write_user_partial";
     claims.partial = true;
     intent = "tell_truth_and_recover";
     reason = "explicit_partial_clause";
+  } else if (explicitMiss) {
+    outcomeProofEligible = true;
+    allowedPersistence = "write_user_no";
+    claims.miss = true;
+    intent = "tell_truth_and_recover";
+    reason = "explicit_miss_clause";
   } else if (priorType === "outcome_check" && hasLive && freshEnough && isShort) {
-    if (polarity === "affirm") {
+    const disqualifier = shortAnswerDisqualifiesOutcomeProof(raw, normalizedMeta.normalized);
+    if (disqualifier.disqualified) {
+      reason = `short_answer_disqualified:${disqualifier.reason ?? "unknown"}`;
+      intent = "unclear_clarify";
+    } else if (polarity === "affirm") {
       outcomeProofEligible = true;
       allowedPersistence = "write_user_yes_today";
       claims.completion = true;
@@ -307,11 +299,17 @@ export function resolveShortAnswerContextAuthority(
     freshEnough &&
     detectShortAnswerPartialLanguage(raw)
   ) {
-    outcomeProofEligible = true;
-    allowedPersistence = "write_user_partial";
-    claims.partial = true;
-    intent = "tell_truth_and_recover";
-    reason = "short_partial_to_fresh_outcome_check";
+    const disqualifier = shortAnswerDisqualifiesOutcomeProof(raw, normalizedMeta.normalized);
+    if (!disqualifier.disqualified) {
+      outcomeProofEligible = true;
+      allowedPersistence = "write_user_partial";
+      claims.partial = true;
+      intent = "tell_truth_and_recover";
+      reason = "short_partial_to_fresh_outcome_check";
+    } else {
+      reason = `short_answer_disqualified:${disqualifier.reason ?? "unknown"}`;
+      intent = "unclear_clarify";
+    }
   } else if (priorType === "plan_confirmation" && isShort) {
     if (polarity === "affirm") {
       intent = "acknowledge_plan_confirmation";
