@@ -145,7 +145,7 @@ describe("produceDailyV3RelationshipSms prompt guidance (plan proof + timing anc
           message: {
             content: JSON.stringify({
               should_send: true,
-              body: "Quick check — did yesterday's block happen: done, partial, or missed?",
+              body: "Quick check — did yesterday's block happen, or did something get in the way?",
               no_send_reason: null,
               turn_purpose: "daily_check",
               voice_confidence: 0.8,
@@ -220,7 +220,7 @@ describe("produceDailyV3RelationshipSms prompt guidance (plan proof + timing anc
     const bad =
       "After Brooke's workout, dive into those two hours and make the most of that time.";
     const repaired =
-      "Yesterday you named the Brooke workout window — did the two hours happen: done, partial, or missed?";
+      "Yesterday you named the Brooke workout window — did the two hours happen, or did something get in the way?";
     createMock
       .mockResolvedValueOnce({
         choices: [
@@ -294,7 +294,7 @@ describe("produceDailyV3RelationshipSms prompt guidance (plan proof + timing anc
       pendingPlanProof: pending,
     });
     const closeLoop =
-      "Did that Brooke workout window happen — done, partial, or missed?";
+      "Did that Brooke workout window happen, or did something get in the way?";
     createMock.mockResolvedValueOnce({
       choices: [
         {
@@ -1857,7 +1857,7 @@ describe("produceDailyV3RelationshipSms", () => {
       const kathyCandidate =
         "How did your hike go, Kathy? Did you find a Pat Summitt quote that inspired you during your time in the mountains?";
       const kathyRepair =
-        "Give me the honest status on the hike today — protected, partial, or missed?";
+        "Give me the honest status on the hike today — did it happen, or did something get in the way?";
 
       createMock
         .mockResolvedValueOnce({
@@ -1924,7 +1924,7 @@ describe("produceDailyV3RelationshipSms", () => {
       const tylerCandidate =
         "After Brooke's workout, were you able to spend those two hours on distribution?";
       const tylerRepair =
-        "Protected, partial, or missed on the distribution block today?";
+        "Did the distribution block happen today, or did something get in the way?";
 
       createMock
         .mockResolvedValueOnce({

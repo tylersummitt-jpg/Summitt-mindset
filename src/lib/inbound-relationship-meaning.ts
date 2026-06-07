@@ -622,6 +622,36 @@ export function deriveInboundRelationshipMeaning(
     };
   }
 
+  if (saca.outcome_proof_eligible && saca.prior_question_type === "outcome_check") {
+    if (saca.allowed_outbound_claims.completion) {
+      return {
+        relationship_meaning: "reported_completion",
+        temporal_scope,
+        confidence: "high",
+        evidence: ["saca_short_affirm_outcome_check", saca.reason],
+        disqualifiers: [],
+      };
+    }
+    if (saca.allowed_outbound_claims.miss) {
+      return {
+        relationship_meaning: "miss",
+        temporal_scope,
+        confidence: "high",
+        evidence: ["saca_short_deny_outcome_check", saca.reason],
+        disqualifiers: [],
+      };
+    }
+    if (saca.allowed_outbound_claims.partial) {
+      return {
+        relationship_meaning: "partial_attempt",
+        temporal_scope,
+        confidence: "high",
+        evidence: ["saca_short_partial_outcome_check", saca.reason],
+        disqualifiers: [],
+      };
+    }
+  }
+
   if (looksLikeBoundedYesNo(raw)) {
     return {
       relationship_meaning: args.openQuestionPending
@@ -696,6 +726,17 @@ export function derivePersistenceDecision(args: {
     return {
       persistence_decision: "no_outcome_write",
       reason: `short_answer_no_outcome_proof:${saca.reason}`,
+    };
+  }
+
+  if (
+    saca?.outcome_proof_eligible === true &&
+    saca.allowed_persistence !== "no_outcome_write" &&
+    /^short_(affirm|deny|partial)_to_fresh_outcome_check/.test(saca.reason)
+  ) {
+    return {
+      persistence_decision: saca.allowed_persistence,
+      reason: `saca_authorized:${saca.reason}`,
     };
   }
 

@@ -25,6 +25,19 @@ const PLAN_Q =
 
 const OUTCOME_Q = "Did you get your 10,000 steps in today?";
 
+const OUTCOME_FOLLOW_THROUGH_Q =
+  "Did you follow through with your plan before your doctor appointment?";
+
+function recentCheckSent() {
+  return [
+    {
+      event_type: "check_sent",
+      occurred_at: new Date().toISOString(),
+      payload_json: {},
+    },
+  ] as never[];
+}
+
 function saca(inbound: string, coachQ: string, extra: Record<string, unknown> = {}) {
   return resolveShortAnswerContextAuthority({
     rawInbound: inbound,
@@ -49,13 +62,7 @@ describe("resolveShortAnswerContextAuthority", () => {
   });
 
   it("A: yes to fresh outcome check — outcome proof eligible", () => {
-    const recent = [
-      {
-        event_type: "check_sent",
-        occurred_at: new Date().toISOString(),
-        payload_json: {},
-      },
-    ] as never[];
+    const recent = recentCheckSent();
     const r = saca("Yes", OUTCOME_Q, {
       expectedReplySemantics: "accountability_check",
       openQuestionPending: true,
@@ -65,6 +72,74 @@ describe("resolveShortAnswerContextAuthority", () => {
     expect(r.outcome_proof_eligible).toBe(true);
     expect(r.allowed_persistence).toBe("write_user_yes_today");
     expect(r.allowed_outbound_claims.completion).toBe(true);
+  });
+
+  it("A: Heck yeah! to fresh outcome check — outcome proof eligible", () => {
+    const r = saca("Heck yeah!", OUTCOME_FOLLOW_THROUGH_Q, {
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent(),
+    });
+    expect(r.prior_question_type).toBe("outcome_check");
+    expect(r.outcome_proof_eligible).toBe(true);
+    expect(r.allowed_persistence).toBe("write_user_yes_today");
+  });
+
+  it("B: Absolutely to fresh outcome check — outcome proof eligible", () => {
+    const r = saca("Absolutely", OUTCOME_Q, {
+      expectedReplySemantics: "accountability_check",
+      recentEventsNewestFirst: recentCheckSent(),
+    });
+    expect(r.outcome_proof_eligible).toBe(true);
+    expect(r.allowed_persistence).toBe("write_user_yes_today");
+  });
+
+  it("C: Sure did to fresh outcome check — outcome proof eligible", () => {
+    const r = saca("Sure did", OUTCOME_Q, {
+      expectedReplySemantics: "accountability_check",
+      recentEventsNewestFirst: recentCheckSent(),
+    });
+    expect(r.outcome_proof_eligible).toBe(true);
+    expect(r.allowed_persistence).toBe("write_user_yes_today");
+  });
+
+  it("D: contextless Heck yeah! — no proof", () => {
+    const r = saca("Heck yeah!", "", { openQuestionPending: false });
+    expect(r.prior_question_type).toBe("no_recent_question");
+    expect(r.outcome_proof_eligible).toBe(false);
+  });
+
+  it("E: Heck yeah! to plan confirmation — no outcome proof", () => {
+    const r = saca("Heck yeah!", PLAN_Q, {
+      expectedAnswerType: "proposal_yes_no",
+      expectedReplySemantics: "proposal_yes_no",
+      openQuestionPending: true,
+    });
+    expect(r.prior_question_type).toBe("plan_confirmation");
+    expect(r.outcome_proof_eligible).toBe(false);
+  });
+
+  it("F: Nope to fresh outcome check — user_no eligible", () => {
+    const r = saca("Nope", OUTCOME_Q, {
+      expectedReplySemantics: "accountability_check",
+      recentEventsNewestFirst: recentCheckSent(),
+    });
+    expect(r.outcome_proof_eligible).toBe(true);
+    expect(r.allowed_persistence).toBe("write_user_no");
+  });
+
+  it("G: contextless Nope — no user_no proof", () => {
+    const r = saca("Nope", "", { openQuestionPending: false });
+    expect(r.outcome_proof_eligible).toBe(false);
+  });
+
+  it("H: I got some of it done — user_partial eligible", () => {
+    const r = saca("I got some of it done", OUTCOME_Q, {
+      expectedReplySemantics: "accountability_check",
+      recentEventsNewestFirst: recentCheckSent(),
+    });
+    expect(r.outcome_proof_eligible).toBe(true);
+    expect(r.allowed_persistence).toBe("write_user_partial");
   });
 
   it("F: contextless yes — ambiguous, no proof", () => {

@@ -74,7 +74,7 @@ const PLAN_CONFIRMATION_QUESTION_RE =
   /\b(let me know if that works|would you like to adjust|does (this|that|it) work|how does\b.*\bfeel\b|stay(ing)? committed\b|for the next \d+ days\b|next week\b|ready to continue\b|are you (ok|okay) with)\b/i;
 
 const OUTCOME_CHECK_QUESTION_RE =
-  /\b(did you\b.*\b(today|this morning|tonight)\b|did you\b.*\b(get|do|complete|finish|protect|hit)\b|were you able to\b.*\b(today|get|do)\b|did the\b.*\b(happen|get done)\b.*\btoday\b|did you get your\b)/i;
+  /\b(did you\b.*\b(today|this morning|tonight)\b|did you\b.*\b(get|do|complete|finish|protect|hit|follow through|follow-through)\b|did you\b.*\bbefore your\b|were you able to\b.*\b(today|get|do)\b|did the\b.*\b(happen|get done)\b.*\btoday\b|did you get your\b|what happened with\b.*\b(plan|block|appointment)\b)/i;
 
 const FUTURE_PLAN_QUESTION_RE =
   /\b(what will you|what are you going to|what's the plan for tomorrow|tomorrow's story|what story\b.*\btomorrow)\b/i;
@@ -85,19 +85,49 @@ function normCore(text: string): string {
   return text.trim().toLowerCase().replace(/[.!?…]+$/g, "").trim();
 }
 
+const SHORT_AFFIRM_LEAD_RE =
+  /^(yes|y|yeah|yep|yup|sure|absolutely|definitely|correct|right|totally|for sure|heck yeah|sure did|i sure did|yes i did|yep i did)\b/i;
+
+const SHORT_AFFIRM_PHRASE_RE =
+  /^(sounds good|that works|that works for me|ok|okay|kk)\b/i;
+
+const SHORT_DENY_LEAD_RE = /^(no|n|nope|nah|not today)\b/i;
+
+const SHORT_DENY_PHRASE_RE =
+  /^(no i missed|missed it|didn'?t|did not|not yet)\b/i;
+
+export function detectShortAnswerPartialLanguage(raw: string): boolean {
+  const t = normCore(raw);
+  if (!t || t.length > 48) return false;
+  if (/\b(i did half|half|some of it|part of it|got some of it done|started it|almost|not all of it)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(got part of it done|something got in the way)\b/i.test(t)) return true;
+  return false;
+}
+
 export function detectShortAnswerPolarity(raw: string): ShortAnswerPolarity {
   const t = normCore(raw);
   if (!t) return "not_applicable";
-  if (t.length > 36) return "not_applicable";
+  if (t.length > 48) return "not_applicable";
 
-  if (/^(yes|y|yeah|yep|yup|sure|absolutely|definitely|correct|right)\b/.test(t)) return "affirm";
-  if (/^(sounds good|that works|that works for me|ok|okay|kk)\b/.test(t)) return "affirm";
-  if (/^(no|n|nope|nah)\b/.test(t)) return "deny";
-  if (/^(not yet|maybe|kinda|kind of|sort of|somewhat|partially)\b/.test(t)) return "unclear";
+  if (detectShortAnswerPartialLanguage(t) && !SHORT_AFFIRM_LEAD_RE.test(t) && !SHORT_DENY_LEAD_RE.test(t)) {
+    return "unclear";
+  }
+
+  if (SHORT_AFFIRM_LEAD_RE.test(t)) return "affirm";
+  if (SHORT_AFFIRM_PHRASE_RE.test(t)) return "affirm";
+  if (SHORT_DENY_LEAD_RE.test(t)) return "deny";
+  if (SHORT_DENY_PHRASE_RE.test(t)) return "deny";
+  if (/^(maybe|kinda|kind of|sort of|somewhat|partially)\b/.test(t)) return "unclear";
+  if (/^not yet\b/.test(t)) return "unclear";
 
   const words = t.split(/\s+/).filter(Boolean);
-  if (words.length <= 4 && /\b(yes|yeah|yep|yup|sure|ok|okay)\b/.test(t)) return "affirm";
-  if (words.length <= 3 && /\b(no|nope|nah)\b/.test(t)) return "deny";
+  if (words.length <= 5 && /\b(yes|yeah|yep|yup|sure|ok|okay|absolutely|definitely|totally|for sure|heck yeah)\b/.test(t)) {
+    return "affirm";
+  }
+  if (words.length <= 4 && /\b(no|nope|nah|missed)\b/.test(t)) return "deny";
+  if (words.length <= 4 && /^i did\b/i.test(t)) return "affirm";
 
   return "not_applicable";
 }
@@ -261,10 +291,27 @@ export function resolveShortAnswerContextAuthority(
       claims.miss = true;
       intent = "tell_truth_and_recover";
       reason = "short_deny_to_fresh_outcome_check";
+    } else if (detectShortAnswerPartialLanguage(raw)) {
+      outcomeProofEligible = true;
+      allowedPersistence = "write_user_partial";
+      claims.partial = true;
+      intent = "tell_truth_and_recover";
+      reason = "short_partial_to_fresh_outcome_check";
     } else {
       reason = "short_unclear_to_outcome_check";
       intent = "unclear_clarify";
     }
+  } else if (
+    priorType === "outcome_check" &&
+    hasLive &&
+    freshEnough &&
+    detectShortAnswerPartialLanguage(raw)
+  ) {
+    outcomeProofEligible = true;
+    allowedPersistence = "write_user_partial";
+    claims.partial = true;
+    intent = "tell_truth_and_recover";
+    reason = "short_partial_to_fresh_outcome_check";
   } else if (priorType === "plan_confirmation" && isShort) {
     if (polarity === "affirm") {
       intent = "acknowledge_plan_confirmation";

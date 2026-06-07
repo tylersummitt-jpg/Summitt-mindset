@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import {
   buildExplicitOutcomeBeforeNoSendTelemetry,
+  isShortAnswerOutcomeAuthorizedForPersist,
 } from "@/lib/inbound-reply-no-send-outcome-persist";
+import { resolveShortAnswerContextAuthority } from "@/lib/inbound-short-answer-context";
 import { defaultGatedDecision } from "@/lib/v2-ai-inbound";
+import { classifyV2InboundReply } from "@/lib/v2-sms-accountability";
 import { V3_REFINE_ONLY_GATED } from "@/lib/v3-sms-machine-refine";
 import {
   persistInboundAccountabilityOutcomeEvent,
@@ -28,6 +31,28 @@ const livePromptCtx = {
 
 const PLAN_Q = "how does staying committed to this plan feel for the rest of the week";
 
+const OUTCOME_Q = "Did you follow through with your plan before your doctor appointment?";
+
+const recentCheckSent = [
+  {
+    event_type: "check_sent",
+    occurred_at: new Date().toISOString(),
+    payload_json: {},
+  },
+] as never[];
+
+function meaningForOutcomeCheck(rawBody: string, classifierEventType?: string) {
+  return buildInboundMeaningFacts({
+    rawInbound: rawBody,
+    classifierEventType: classifierEventType ?? "user_yes",
+    expectedReplySemantics: "accountability_check",
+    openQuestionPending: true,
+    latestOpenQuestion: OUTCOME_Q,
+    latestOutboundBody: OUTCOME_Q,
+    recentEventsNewestFirst: recentCheckSent,
+  });
+}
+
 describe("buildExplicitOutcomeBeforeNoSendTelemetry", () => {
   it("A/C: reports explicit completion detected and persisted on insert", () => {
     const telemetry = buildExplicitOutcomeBeforeNoSendTelemetry("I got my steps today", {
@@ -48,8 +73,71 @@ describe("buildExplicitOutcomeBeforeNoSendTelemetry", () => {
       skipReason: "meaning_no_outcome_write",
     });
     expect(telemetry.explicit_outcome_detected).toBe(false);
+    expect(telemetry.short_answer_outcome_authorized).toBe(false);
     expect(telemetry.explicit_outcome_persisted_before_no_send).toBe(false);
     expect(telemetry.outcome_persist_skip_reason_before_no_send).toBe("meaning_no_outcome_write");
+  });
+
+  it("J: Heck yeah! after outcome_check — short_answer_outcome_authorized true", () => {
+    const body = "Heck yeah!";
+    const saca = resolveShortAnswerContextAuthority({
+      rawInbound: body,
+      latestOpenQuestion: OUTCOME_Q,
+      expectedReplySemantics: "accountability_check",
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    expect(isShortAnswerOutcomeAuthorizedForPersist(body, { shortAnswerContext: saca })).toBe(true);
+    const telemetry = buildExplicitOutcomeBeforeNoSendTelemetry(
+      body,
+      {
+        status: "inserted",
+        eventType: "user_yes",
+        eventId: "evt-1",
+        idempotencyKey: "k",
+        overrideGatedNoWrite: true,
+      },
+      { shortAnswerContext: saca }
+    );
+    expect(telemetry.short_answer_outcome_authorized).toBe(true);
+    expect(telemetry.prior_question_type).toBe("outcome_check");
+    expect(telemetry.outcome_proof_eligible).toBe(true);
+  });
+
+  it("L: contextless Heck yeah! — not authorized", () => {
+    expect(isShortAnswerOutcomeAuthorizedForPersist("Heck yeah!")).toBe(false);
+  });
+
+  it("M: plan-confirmation Heck yeah! — not authorized", () => {
+    const meaning = buildInboundMeaningFacts({
+      rawInbound: "Heck yeah!",
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: PLAN_Q,
+      expectedReplySemantics: "proposal_yes_no",
+    });
+    expect(isShortAnswerOutcomeAuthorizedForPersist("Heck yeah!", { inboundMeaning: meaning })).toBe(
+      false
+    );
+  });
+
+  it("N: classifier-realistic Heck yeah! is user_partial/unclear but SACA still authorizes", () => {
+    const body = "Heck yeah!";
+    const classification = classifyV2InboundReply(body);
+    expect(classification.eventType).toBe("user_partial");
+    expect(classification.normalizedHint).toBe("unclear");
+
+    const meaning = meaningForOutcomeCheck(body, classification.eventType);
+    expect(meaning.persistence_decision).toBe("write_user_yes_today");
+
+    const saca = resolveShortAnswerContextAuthority({
+      rawInbound: body,
+      latestOpenQuestion: OUTCOME_Q,
+      expectedReplySemantics: "accountability_check",
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    expect(saca.outcome_proof_eligible).toBe(true);
+    expect(saca.reason).toMatch(/^short_affirm_to_fresh_outcome_check/);
+    expect(isShortAnswerOutcomeAuthorizedForPersist(body, { shortAnswerContext: saca })).toBe(true);
   });
 });
 
@@ -103,6 +191,142 @@ describe("lane no-send explicit outcome persistence eligibility", () => {
       inboundMeaning: buildInboundMeaningFacts({
         rawInbound: "Yes",
         classifierEventType: "user_yes",
+        openQuestionPending: true,
+        latestOpenQuestion: PLAN_Q,
+        expectedReplySemantics: "proposal_yes_no",
+      }),
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("J: lane no-send Heck yeah! after outcome_check persists user_yes", () => {
+    const body = "Heck yeah!";
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_lane_heck_yeah",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: meaningForOutcomeCheck(body),
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_yes");
+  });
+
+  it("K: final-guard style no-send Heck yeah! after outcome_check persists user_yes", () => {
+    const body = "Heck yeah!";
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_final_heck_yeah",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: { ...defaultGatedDecision("user_yes", "test"), should_write_outcome_event: false },
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: meaningForOutcomeCheck(body),
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_yes");
+  });
+
+  it("L: contextless Heck yeah! does not persist", () => {
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_ctxless_heck",
+      commitmentId: "commit-1",
+      rawBody: "Heck yeah!",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: "Heck yeah!",
+        classifierEventType: "user_yes",
+        openQuestionPending: false,
+      }),
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("M: plan-confirmation Heck yeah! does not persist user_yes", () => {
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_plan_heck",
+      commitmentId: "commit-1",
+      rawBody: "Heck yeah!",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: "Heck yeah!",
+        classifierEventType: "user_yes",
+        openQuestionPending: true,
+        latestOpenQuestion: PLAN_Q,
+        expectedReplySemantics: "proposal_yes_no",
+      }),
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("N: classifier-realistic Heck yeah! after outcome_check persists user_yes despite user_partial", () => {
+    const body = "Heck yeah!";
+    const classification = classifyV2InboundReply(body);
+    expect(classification.eventType).toBe("user_partial");
+
+    const meaning = meaningForOutcomeCheck(body, classification.eventType);
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_heck_classifier_partial",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: classification.eventType,
+      gatedDecision: defaultGatedDecision(classification.eventType, "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: meaning,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_yes");
+  });
+
+  it("O: classifier-realistic contextless Heck yeah! does not persist", () => {
+    const body = "Heck yeah!";
+    const classification = classifyV2InboundReply(body);
+    expect(classification.eventType).toBe("user_partial");
+
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_ctxless_classifier_partial",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: classification.eventType,
+      gatedDecision: defaultGatedDecision(classification.eventType, "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: body,
+        classifierEventType: classification.eventType,
+        openQuestionPending: false,
+      }),
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("P: classifier-realistic plan-confirmation Heck yeah! does not persist", () => {
+    const body = "Heck yeah!";
+    const classification = classifyV2InboundReply(body);
+    expect(classification.eventType).toBe("user_partial");
+
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_plan_classifier_partial",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: classification.eventType,
+      gatedDecision: defaultGatedDecision(classification.eventType, "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: body,
+        classifierEventType: classification.eventType,
         openQuestionPending: true,
         latestOpenQuestion: PLAN_Q,
         expectedReplySemantics: "proposal_yes_no",

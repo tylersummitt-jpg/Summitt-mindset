@@ -85,7 +85,7 @@ export const MEMORY_PRIORITY_RULES: readonly string[] = [
   "RECENT_EXACT_THREAD_BEATS_COACHING_SUMMARY when they conflict.",
   "FINAL_SENT_BODY_BEATS_BODY_PREVIEW for what coach last said.",
   "DO_NOT_REPEAT_PROJECTION_QUESTIONS — honor do_not_repeat_phrases and last_5_coach_questions.",
-  "If projection open_question_pending is false and open_question_answer_text exists: move forward from that answer only when it is proof/outcome (done, partial, miss, yes/no) or no pending plan proof is active. A plan-only answer is not proof — if pending plan proof is active, close the prior plan loop first.",
+  "If projection open_question_pending is false and open_question_answer_text exists: move forward from that answer only when it is proof/outcome (they got it done, started it, missed it, or said yes/no to a check) or no pending plan proof is active. A plan-only answer is not proof — if pending plan proof is active, close the prior plan loop first.",
   "LAST_SUBSTANTIVE_USER_MESSAGE overrides older memory summaries.",
   "If uncertain, ask a brief clarifying question — do not repeat the same coach question.",
   "COACHING_MEMORY_IS_BACKGROUND — coaching summary and relationship profile are tone only.",

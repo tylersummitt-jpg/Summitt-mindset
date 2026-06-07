@@ -220,10 +220,23 @@ function evaluateShouldPersistWithMeaning(
   const todayCompletionBypass =
     persistence === "write_user_yes_today" &&
     inboundMeaning.relationship_meaning === "reported_completion" &&
-    (inboundMeaning.evidence.some((e) => e.includes("completion") || e.includes("explicit")) ||
+    (inboundMeaning.evidence.some(
+      (e) =>
+        e.includes("completion") ||
+        e.includes("explicit") ||
+        e.includes("saca_short_affirm")
+    ) ||
       /\b(did it|got my|completed|finished|i did)\b/i.test(raw));
+  const sacaShortOutcomeBypass =
+    (persistence === "write_user_yes_today" ||
+      persistence === "write_user_no" ||
+      persistence === "write_user_partial") &&
+    inboundMeaning.evidence.some((e) => e.startsWith("saca_short_"));
   const promptOk =
-    livePrompt || selfContained || (persistence === "write_user_yes_today" && todayCompletionBypass);
+    livePrompt ||
+    selfContained ||
+    (persistence === "write_user_yes_today" && todayCompletionBypass) ||
+    sacaShortOutcomeBypass;
 
   if (!promptOk) {
     return { persist: false, skipReason: "no_live_accountability_prompt" };

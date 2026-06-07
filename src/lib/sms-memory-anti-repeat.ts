@@ -41,8 +41,8 @@ export const STRATEGY_EXAMPLE_SMS: Record<
     "Give me the honest status on the distribution block.",
   ],
   binary_truth_check: [
-    "Protected, partial, or missed?",
-    "Did you follow through today — yes, partial, or not yet?",
+    "Did it happen today, or did something get in the way?",
+    "Did you follow through today — or not yet?",
   ],
   reset_question: [
     "Do we need to reset the window?",
@@ -767,7 +767,7 @@ export function buildMemoryAntiRepeatRepairInstruction(args: {
     : closeLoopContext
     ? [
         "The prior user reply was a plan or intention, not proof of completion.",
-        "Rewrite to close that loop: ask whether the planned block or action happened (done, partial, or missed) in natural language.",
+        "Rewrite to close that loop: ask whether the planned block or action happened, started, or something got in the way — in natural language.",
         "Do NOT merely repeat the prior coach question verbatim or paraphrase it.",
         "Do NOT tell the model to build on the plan answer as if it were proof.",
         "Keep one short SMS, human and direct.",

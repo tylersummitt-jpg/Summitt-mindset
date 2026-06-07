@@ -20,6 +20,10 @@ import {
   isRelationshipRobotConsentMenuRepairableReason,
 } from "@/lib/relationship-robot-consent-menu";
 import {
+  mergeInternalLabelRepairInstruction,
+  userVisibleInternalLabelBlockedReasons,
+} from "@/lib/user-visible-internal-label-guard";
+import {
   applyEarnedPraisePolicyToVoiceBlockedReasons,
   buildSmsPraisePolicyArgsFromFinalVoiceGate,
   compactPraisePolicyMetadata,
@@ -337,8 +341,12 @@ export function evaluateRelationshipVoiceWithPraisePolicy(
 ): { reasons: string[]; praisePolicy: SmsPraisePolicyResult; praiseMetadata: Record<string, unknown> } {
   const fvg = detectFinalVoiceBlockedReasons(body);
   const robot = detectRelationshipRobotConsentMenuReasons(body, options);
+  const internalLabels = userVisibleInternalLabelBlockedReasons(body);
   const merged = [...fvg];
   for (const r of robot) {
+    if (!merged.includes(r)) merged.push(r);
+  }
+  for (const r of internalLabels) {
     if (!merged.includes(r)) merged.push(r);
   }
 
@@ -396,6 +404,25 @@ const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
   "did_you_manage",
   "broken_micro_edit",
   "stay_on_track",
+  "internal_label_partial_word",
+  "internal_label_yes_partial_not_yet",
+  "internal_label_yes_comma_partial",
+  "internal_label_yes_no_partial_menu",
+  "internal_label_yes_no_or_partial",
+  "internal_label_yes_no_partial_commas",
+  "internal_label_yes_no_or_partial_spaces",
+  "internal_label_protected_partial_missed",
+  "internal_label_done_partial_missed",
+  "internal_label_done_missed_or_partial",
+  "internal_label_done_partial_or_missed_menu",
+  "internal_label_finished_started_or_partial",
+  "internal_label_user_yes",
+  "internal_label_user_no",
+  "internal_label_user_partial",
+  "internal_label_classification",
+  "internal_label_classifier",
+  "internal_label_event_type",
+  "internal_label_route",
 ]);
 
 export function isRepairableFinalVoiceBlockedReason(reason: string): boolean {
@@ -536,13 +563,19 @@ function lanePostValidateRepairedBlockedReasons(
 export async function runLanePostValidateRepairLoop(
   args: RunLanePostValidateRepairLoopArgs
 ): Promise<LanePostValidateRepairLoopResult> {
+  const systemInstruction = mergeInternalLabelRepairInstruction(
+    args.systemInstruction,
+    args.initialRepairable,
+    args.originalBody
+  );
+
   const repair1 = await repairV3RelationshipLaneBodyWithOpenAI({
     routeKind: args.routeKind,
     routePurpose: args.routePurpose,
     originalBody: args.originalBody,
     blockedReasons: args.initialRepairable,
     repairSnapshot: args.repairSnapshot,
-    systemInstruction: args.systemInstruction,
+    systemInstruction,
     repairPass: 1,
   });
 
@@ -625,7 +658,7 @@ export async function runLanePostValidateRepairLoop(
     originalBody: bodyAfter1,
     blockedReasons: cumulativeReasons,
     repairSnapshot: args.repairSnapshot,
-    systemInstruction: args.systemInstruction,
+    systemInstruction,
     repairPass: 2,
   });
 
@@ -938,6 +971,11 @@ async function repairWithOpenAI(
 ): Promise<string | null> {
   const client = getOpenAIClientOrNull();
   if (!client) return null;
+  const internalLabelRepair = mergeInternalLabelRepairInstruction(
+    undefined,
+    blockedReasons,
+    args.proposedBody
+  );
   try {
     const completion = await client.chat.completions.create({
       model: modelName(),
@@ -952,6 +990,7 @@ async function repairWithOpenAI(
           role: "user",
           content: [
             `Blocked reasons: ${blockedReasons.join(", ")}`,
+            ...(internalLabelRepair ? [internalLabelRepair] : []),
             `Channel: ${args.channel}`,
             `Reply source: ${args.replySource ?? "(none)"}`,
             ...(args.bindingVerbatim?.trim()

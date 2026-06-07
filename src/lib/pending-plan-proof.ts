@@ -137,6 +137,12 @@ export function isReportedCompletionRelationshipCandidate(
     return shortAnswerContext?.outcome_proof_eligible === true;
   }
 
+  const bareAffirm =
+    /^\s*(yes|y|yeah|yep|yup|sure|ok|okay|absolutely|definitely|totally|for sure|heck yeah|sure did|i sure did|yes i did|yep i did)\s*[!.]*\s*$/i;
+  if (bareAffirm.test(t)) {
+    return shortAnswerContext?.outcome_proof_eligible === true;
+  }
+
   if (inboundHasExplicitCompletionClause(t)) return true;
 
   for (const clause of splitInboundClauses(t)) {
@@ -305,10 +311,11 @@ export function derivePendingPlanProof(args: DerivePendingPlanProofArgs): Pendin
 export function buildDailyOpenQuestionAnswerPriorityGuidance(): string {
   return `
 OPEN QUESTION / LATEST ANSWER PRIORITY (read accountability.pending_plan_proof and accountability.timing_anchor_memory in facts):
-1. If accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof. Close that loop BEFORE new tactical advice. Ask whether the planned action happened (done, partial, or missed) — NOT whether to plan/schedule/calendar it again.
+1. If accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof. Close that loop BEFORE new tactical advice. Ask whether the planned action happened or something got in the way — NOT whether to plan/schedule/calendar it again.
    - If the user already gave a concrete plan detail (who/when/what), do NOT ask them to plan or schedule it again.
-   - Good outcome-close: "Did the noon call with Bond happen, or did something get in the way?" / "Did the planned block happen?" / "What happened with the plan today?"
+   - Good outcome-close: "Did the noon call with Bond happen, or did something get in the way?" / "Did the planned block happen?" / "What happened with the plan today?" / "Did you get it done, start it, or miss it?"
    - Bad (stale re-plan): "Are you ready to put it on the calendar?" / "How does this plan feel for the rest of the week?" / "Should we get family time on the calendar?"
+   - Never use internal menu tokens in visible SMS: partial, yes/no/partial, done/partial/missed, protected/partial/missed, user_yes, user_no, user_partial.
    - Do not re-ask the same open accountability question as if unanswered. Do not praise completion, focus, follow-through, or being back on track unless proof exists in facts.
 2. Else if accountability.pending_plan_proof is inactive and facts show a clear outcome/proof for the prior check (prior_outcome, user yes/no/partial, or completion-shaped answer): you may move forward from that answer/outcome.
 3. Else if thread_memory.latest_answer_after_open_question exists but reads as a forward plan (future intent, timing window, "I will/I'll…") and outcome is still unknown: do not treat the answer as proof. Apply timing_anchor_memory confidence rules if active. Prefer truth-closing over new advice when uncertain.
@@ -325,7 +332,8 @@ export function buildPendingPlanProofLaneGuardrails(pending: PendingPlanProofFac
 PENDING PLAN PROOF (facts only — do not say these labels in SMS):
 - accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof.
 - suggested_coaching_move is close_prior_plan_loop: close the loop before giving new advice or reusing today's plan.
-- Ask for the outcome of the prior plan in natural language (done, partial, or missed) for ${JSON.stringify(pending.plan_for_day_key)}.
+- Ask for the outcome of the prior plan in natural language for ${JSON.stringify(pending.plan_for_day_key)} — e.g. did it happen, did they start it, or did something get in the way.
+- Never use internal labels in visible SMS: partial, yes/no/partial, done/partial/missed, protected/partial/missed, user_yes, user_no, user_partial.
 - If the user already gave a concrete plan detail in facts, ask whether that planned action happened or what got in the way — do NOT ask them to schedule/plan/calendar it again.
 - You may reference a timing detail only as a dated or tentative window; use accountability.timing_anchor_memory.confidence_level if present.
 - Do NOT treat the timing anchor as a recurring daily habit unless timing_anchor_memory supports it.
@@ -438,7 +446,7 @@ export function enrichDailyFactsCoreWithPendingPlanProof<T extends DailyFactsCor
 export function buildPendingPlanProofVoiceRepairInstruction(pending: PendingPlanProofFact): string {
   return [
     "The user had a stated plan whose outcome is still unknown.",
-    "Rewrite to close that loop first: ask whether the planned action happened (done, partial, or missed).",
+    "Rewrite to close that loop first: ask what happened with the plan — did they get it done, start it, or did something get in the way?",
     "Do not praise focus or completion. Do not assume a timing detail repeats every day.",
     "Natural warmth is fine; unearned proof language is not.",
     pending.anchor_phrase_hint

@@ -1050,6 +1050,7 @@ ${buildDailyOpenQuestionAnswerPriorityGuidance()}
 - Avoid repeating the prior day's opener or the same coach question from recent exact thread.
 - Anchor to the user's real commitment (effective ask + state), without pasting raw title or behavior_statement as a quoted phrase or "Did [raw] happen today?" / "Did you protect [raw]?" style checks.
 - One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, one clear question or one concrete action.
+- Never expose internal accountability labels in visible SMS (partial, yes/no/partial, done/partial/missed, user_yes, user_no, user_partial, classification, route). Use human language: "did it happen or did something get in the way?", "did you get it done, start it, or miss it?", "what happened with the plan?"
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
 - If facts say reentry/comeback after silence, acknowledge return briefly before the ask.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.

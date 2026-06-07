@@ -66,7 +66,10 @@ function clauseHasExplicitMiss(clause: string): boolean {
 function clauseHasExplicitPartial(clause: string): boolean {
   const t = clause.trim();
   if (!t) return false;
-  if (/\b(almost|halfway|partially|part of|not finished|only did part)\b/i.test(t)) return true;
+  if (/\b(almost|halfway|partially|part of|not finished|only did part|some of it|got some of it done|started it|not all of it)\b/i.test(t)) {
+    return true;
+  }
+  if (/\bgot part of it done\b/i.test(t)) return true;
   if (/\bhalf\b/i.test(t) && /\b(done|got|did)\b/i.test(t)) return true;
   if (/\bstarted\s+but\b/i.test(t)) return true;
   if (/\btried\s+but\b/i.test(t) && /\b(couldn'?t|could not|didn'?t|did not)\b/i.test(t)) {

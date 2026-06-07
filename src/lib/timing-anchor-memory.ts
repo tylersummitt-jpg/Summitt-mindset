@@ -580,7 +580,12 @@ export function isClosePriorPlanLoopOutcomeQuestion(text: string): boolean {
   const t = text.trim();
   if (!t || !/\?/.test(t)) return false;
   if (NEW_PLAN_ASK_RE.test(t)) return false;
-  if (/\b(done,?\s*partial,?\s*or\s*missed|tell me the truth)\b/i.test(t)) return true;
+  if (
+    /\b(done,?\s*partial,?\s*or\s*missed|get it done,?\s*start it,?\s*or\s*did something get in the way|what happened with the plan|tell me the truth)\b/i.test(
+      t
+    )
+  )
+    return true;
   if (
     /\b(before we (make|set)|first[,]?\s+(did|tell))\b/i.test(t) &&
     /\b(happen|happened|did|done|partial|missed)\b/i.test(t)
@@ -609,7 +614,9 @@ function isAccountabilityTruthAskWithoutPraise(text: string): boolean {
   if (/\b(great|proud|back on track|followed through|nice work|you completed|you showed up)\b/i.test(text)) {
     return false;
   }
-  return /\b(tell me the truth|did it happen|done, partial, or missed|did yesterday)\b/i.test(text);
+  return /\b(tell me the truth|did it happen|what happened with the plan|get it done, start it, or did something get in the way|did yesterday)\b/i.test(
+    text
+  );
 }
 
 function isLowConfidenceAnchorLevel(
@@ -744,7 +751,7 @@ export function buildTimingAnchorVoiceRepairInstruction(
 
   if (pendingPlanProof?.active) {
     lines.push(
-      "- accountability.pending_plan_proof is active: close the prior plan loop first — ask whether the planned block happened (done, partial, or missed) before new tactical advice."
+      "- accountability.pending_plan_proof is active: close the prior plan loop first — ask what happened with the plan (did they get it done, start it, or did something get in the way?) before new tactical advice."
     );
   }
 
