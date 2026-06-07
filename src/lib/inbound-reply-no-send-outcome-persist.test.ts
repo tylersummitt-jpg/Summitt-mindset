@@ -33,6 +33,20 @@ const PLAN_Q = "how does staying committed to this plan feel for the rest of the
 
 const OUTCOME_Q = "Did you follow through with your plan before your doctor appointment?";
 
+const DISTRIBUTION_OUTCOME_Q =
+  "What actually happened with your distribution plan since your last check-in?";
+
+const clarifyGatedNoOutcomeWrite = {
+  mode: "clarify" as const,
+  final_event_type: null,
+  decision_reason: "clarify_no_outcome_write",
+  confidence_used: 0.85,
+  should_write_outcome_event: false,
+  should_open_blocker_capture: false,
+  reply_style: "clarification" as const,
+  overrode_deterministic: true,
+};
+
 const recentCheckSent = [
   {
     event_type: "check_sent",
@@ -371,6 +385,48 @@ describe("lane no-send explicit outcome persistence eligibility", () => {
     });
     expect(result.persist).toBe(true);
     if (result.persist) expect(result.resolvedEventType).toBe("user_partial");
+  });
+
+  it("P0-B: I missed it yesterday + clarify gated no-send path persists user_no", () => {
+    const body = "I missed it yesterday";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      latestOpenQuestion: DISTRIBUTION_OUTCOME_Q,
+      latestOutboundBody: DISTRIBUTION_OUTCOME_Q,
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_nosend_missed_yesterday",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) {
+      expect(result.resolvedEventType).toBe("user_no");
+      expect(result.overrideGatedNoWrite).toBe(true);
+    }
+    const telemetry = buildExplicitOutcomeBeforeNoSendTelemetry(body, {
+      status: result.persist ? "inserted" : "skipped",
+      ...(result.persist
+        ? {
+            eventType: "user_no" as const,
+            eventId: "evt-miss",
+            idempotencyKey: "v2_user_no:SM_nosend_missed_yesterday",
+            overrideGatedNoWrite: true,
+          }
+        : { skipReason: "gated_non_outcome_mode" as const }),
+    });
+    expect(telemetry.explicit_outcome_detected).toBe(true);
+    expect(telemetry.explicit_outcome_persisted_before_no_send).toBe(true);
+    expect(telemetry.outcome_persist_skip_reason_before_no_send).toBeUndefined();
   });
 });
 

@@ -13,6 +13,7 @@ import {
   persistInboundAccountabilityOutcomeEvent,
   shouldPersistInboundAccountabilityOutcome,
   resolveInboundAccountabilityOutcomeEventType,
+  canBypassClarifyGateForExplicitNonYesOutcome,
 } from "@/lib/v2-inbound-accountability-outcome-persist";
 
 function familyTurnProposal(): OpenAIRelationshipTurnUnderstandingV1 {
@@ -52,6 +53,40 @@ const livePromptCtx = {
   has_live_accountability_prompt: true,
   self_contained_accountability_answer: false,
 };
+
+const DISTRIBUTION_OUTCOME_Q =
+  "What actually happened with your distribution plan since your last check-in?";
+
+const recentCheckSent = [
+  {
+    event_type: "check_sent",
+    occurred_at: new Date().toISOString(),
+    payload_json: {},
+  },
+] as never[];
+
+const clarifyGatedNoOutcomeWrite = {
+  mode: "clarify" as const,
+  final_event_type: null,
+  decision_reason: "clarify_no_outcome_write",
+  confidence_used: 0.85,
+  should_write_outcome_event: false,
+  should_open_blocker_capture: false,
+  reply_style: "clarification" as const,
+  overrode_deterministic: true,
+};
+
+function meaningForDistributionOutcome(rawBody: string, classifierEventType: "user_no" | "user_partial" = "user_no") {
+  return buildInboundMeaningFacts({
+    rawInbound: rawBody,
+    classifierEventType,
+    expectedReplySemantics: "accountability_check",
+    openQuestionPending: true,
+    latestOpenQuestion: DISTRIBUTION_OUTCOME_Q,
+    latestOutboundBody: DISTRIBUTION_OUTCOME_Q,
+    recentEventsNewestFirst: recentCheckSent,
+  });
+}
 
 describe("isClearAccountabilityCompletionReply", () => {
   it("detects I did it and similar completion phrases", () => {
@@ -311,6 +346,261 @@ describe("shouldPersistInboundAccountabilityOutcome", () => {
       activeReplyContext: livePromptCtx,
     });
     expect(result).toEqual({ persist: false, skipReason: "lane_excluded" });
+  });
+});
+
+describe("gated clarify — explicit miss/partial bypass (P0 B)", () => {
+  it("1: I missed it yesterday + clarify gated → user_no persists", () => {
+    const body = "I missed it yesterday";
+    const inboundMeaning = meaningForDistributionOutcome(body);
+    expect(inboundMeaning.persistence_decision).toBe("write_user_no");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_missed_yesterday",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({
+      persist: true,
+      resolvedEventType: "user_no",
+      overrideGatedNoWrite: true,
+    });
+    if (!result.persist) expect(result.skipReason).not.toBe("gated_non_outcome_mode");
+  });
+
+  it("2: I did not hit my goal yesterday + clarify gated → user_no persists", () => {
+    const body = "I did not hit my goal yesterday";
+    const inboundMeaning = meaningForDistributionOutcome(body);
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_did_not_hit",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_no" });
+  });
+
+  it("3: No, I missed + clarify gated → user_no persists", () => {
+    const body = "No, I missed";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_no_i_missed",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_no" });
+  });
+
+  it("4: I did half + clarify gated → user_partial persists", () => {
+    const body = "I did half";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_partial",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_did_half",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_partial",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_partial" });
+  });
+
+  it("5: I started but didn't finish + clarify gated → user_partial persists", () => {
+    const body = "I started but didn't finish";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_partial",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_started_but",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_partial",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_partial" });
+  });
+
+  it("6: I got my steps today regression — user_yes unchanged under clarify", () => {
+    const body = "I got my steps today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_steps_regress",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("7: contextless no → no user_no", () => {
+    const body = "no";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+      openQuestionPending: false,
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_ctx_no",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: { has_live_accountability_prompt: false, self_contained_accountability_answer: false },
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) expect(result.skipReason).not.toBe("gated_non_outcome_mode");
+  });
+
+  it("8: contextless nope → no user_no", () => {
+    const body = "nope";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+      openQuestionPending: false,
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_ctx_nope",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: { has_live_accountability_prompt: false, self_contained_accountability_answer: false },
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("9: plan-confirmation no → no user_no", () => {
+    const body = "no";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+      openQuestionPending: true,
+      latestOpenQuestion: "Does this 7-day step plan work?",
+      expectedReplySemantics: "proposal_yes_no",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_plan_no",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) expect(result.skipReason).toBe("meaning_no_outcome_write");
+  });
+
+  it("10: plan-confirmation nope → no user_no", () => {
+    const body = "nope";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+      openQuestionPending: true,
+      latestOpenQuestion: "Does this 7-day step plan work?",
+      expectedReplySemantics: "proposal_yes_no",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_plan_nope",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("11: no problem → no user_no", () => {
+    const body = "no problem";
+    const inboundMeaning = meaningForDistributionOutcome(body, "user_no");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_no_problem",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    expect(canBypassClarifyGateForExplicitNonYesOutcome({
+      rawBody: body,
+      persistence: inboundMeaning.persistence_decision,
+      inboundMeaning,
+    })).toBe(false);
+  });
+
+  it("12: TU cannot expand to write_user_no without server miss evidence", () => {
+    const body = "All good for now";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: familyTurnProposal(),
+      deterministicMeaning: inboundMeaning,
+    });
+    tu.reconciled_persistence_decision = "write_user_no";
+    expect(
+      canBypassClarifyGateForExplicitNonYesOutcome({
+        rawBody: body,
+        persistence: "write_user_no",
+        inboundMeaning: { ...inboundMeaning, persistence_decision: "write_user_no" },
+      })
+    ).toBe(false);
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_tu_expand_no",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(result.persist).toBe(false);
   });
 });
 

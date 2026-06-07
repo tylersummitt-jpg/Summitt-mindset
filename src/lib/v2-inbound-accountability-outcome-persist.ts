@@ -14,7 +14,13 @@ import {
   persistenceDecisionToOutcomeEventType,
   slimInboundMeaningForFacts,
   type InboundMeaningFacts,
+  type InboundPersistenceDecision,
 } from "@/lib/inbound-relationship-meaning";
+import {
+  inboundHasExplicitMissClause,
+  inboundHasExplicitPartialClause,
+} from "@/lib/inbound-short-answer-clauses";
+import { shortAnswerDisqualifiesOutcomeProof } from "@/lib/inbound-short-answer-polarity";
 import {
   buildTurnUnderstandingPersistGuardMeta,
   isTurnUnderstandingAuthoritative,
@@ -96,6 +102,46 @@ const ACCOUNTABILITY_OUTCOMES: ReadonlySet<V2AccountabilityOutcome> = new Set([
   "user_no",
   "user_partial",
 ]);
+
+/**
+ * Clarify-gated no-send may still persist explicit miss/partial when server meaning + CLOE agree.
+ * Stricter than completion bypass: requires matching relationship_meaning and explicit clause/SACA deny.
+ */
+export function canBypassClarifyGateForExplicitNonYesOutcome(args: {
+  rawBody: string;
+  persistence: InboundPersistenceDecision;
+  inboundMeaning: InboundMeaningFacts;
+}): boolean {
+  const raw = args.rawBody.trim();
+  if (!raw) return false;
+
+  if (shortAnswerDisqualifiesOutcomeProof(raw).disqualified) return false;
+
+  if (args.persistence === "write_user_no") {
+    if (args.inboundMeaning.relationship_meaning !== "miss") return false;
+    return (
+      inboundHasExplicitMissClause(raw) ||
+      args.inboundMeaning.evidence.some(
+        (e) => e.startsWith("saca_short_deny") || e.includes("explicit_miss")
+      )
+    );
+  }
+
+  if (args.persistence === "write_user_partial") {
+    if (args.inboundMeaning.relationship_meaning !== "partial_attempt") return false;
+    return (
+      inboundHasExplicitPartialClause(raw) ||
+      args.inboundMeaning.evidence.some(
+        (e) =>
+          e.startsWith("saca_short_partial") ||
+          e.includes("explicit_partial") ||
+          e === "partial_attempt_phrasing"
+      )
+    );
+  }
+
+  return false;
+}
 
 export function resolveInboundAccountabilityOutcomeEventType(args: {
   classifierEventType: V2InboundEventType;
@@ -248,7 +294,12 @@ function evaluateShouldPersistWithMeaning(
     !args.gatedDecision.should_write_outcome_event &&
     args.gatedDecision.mode === "clarify" &&
     persistence !== "write_user_yes_today" &&
-    !selfContained
+    !selfContained &&
+    !canBypassClarifyGateForExplicitNonYesOutcome({
+      rawBody: raw,
+      persistence,
+      inboundMeaning,
+    })
   ) {
     return { persist: false, skipReason: "gated_non_outcome_mode" };
   }
