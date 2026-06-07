@@ -240,6 +240,7 @@ import {
 import {
   applyUnifiedSmsFinalProductLawGuard,
   compactUnifiedFinalGuardForTelemetry,
+  type UnifiedFinalGuardResult,
 } from "@/lib/sms-final-product-law-guard";
 import type { MissAdjustmentPolicyResult } from "@/lib/inbound-miss-adjustment-policy";
 import {
@@ -7870,6 +7871,53 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
   return { facts, contextPacket: northStarPkt };
 }
 
+type MemoryConfirmationUnifiedBranch = "ambiguous" | "decline" | "yes";
+
+type InboundLaneUnifiedFinalGuardConfig = {
+  mode: "transactional_coaching_limited";
+  routePurpose: string;
+  branchName: string;
+  memoryConfirmationBranch?: MemoryConfirmationUnifiedBranch;
+  outcomeClaimEvidence: OutcomeClaimEvidenceBundle;
+  onNoSendTruthPersist?: (args: {
+    unifiedGuard: UnifiedFinalGuardResult;
+    verbatimMissing: string[] | null;
+  }) => Promise<void>;
+};
+
+async function buildMemoryLaneOutcomeClaimEvidence(args: {
+  inboundRaw: string;
+  commitment: ActiveV2CommitmentRow;
+  contextPacket: NorthStarSmsContextPacket;
+  relationshipFacts: InboundV3RelationshipFacts;
+}): Promise<OutcomeClaimEvidenceBundle> {
+  const recentEvents = await getRecentV2EventsForAi(args.commitment.id);
+  const memoryPacket = args.relationshipFacts.thread.memory_packet ?? {};
+  return buildInboundOutcomeClaimEvidence({
+    userMessage: args.inboundRaw,
+    commitment: args.commitment,
+    effectiveBehavior: getEffectiveCoachingAsk(args.commitment, Date.now()),
+    recentEvents,
+    memoryPacket,
+    lastOutboundSmsPreview: args.contextPacket.latestOutboundBody ?? null,
+    latestOpenQuestion: args.contextPacket.latestOpenQuestion ?? null,
+    expectedReplySemantics: args.relationshipFacts.thread.expected_reply_semantics ?? null,
+    finalEventType: args.contextPacket.finalEventType ?? null,
+  });
+}
+
+function memoryUnifiedGuardNoSendTelemetry(
+  unifiedGuard: UnifiedFinalGuardResult,
+  verbatimMissing: string[] | null
+): Record<string, unknown> {
+  return {
+    ...compactUnifiedFinalGuardForTelemetry(unifiedGuard),
+    visible_sent: false,
+    unified_final_guard_no_send_reason: unifiedGuard.noSendReason,
+    ...(verbatimMissing?.length ? { required_verbatim_missing: verbatimMissing } : {}),
+  };
+}
+
 async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
   job: JobRow;
   userId: string;
@@ -7884,6 +7932,7 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
   branchName: string;
   logTag: string;
   meaningShadow?: MeaningInterpreterShadowScheduleArgs | null;
+  unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const lane = await produceInboundV3RelationshipSms({
     facts: args.relationshipFacts,
@@ -7986,7 +8035,122 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
     });
     return { ok: false };
   }
-  const gatedBody = voicePack.voice.body;
+  let gatedBody = voicePack.voice.body;
+
+  if (args.unifiedFinalGuard) {
+    const ug = args.unifiedFinalGuard;
+    const memoryPacket = args.relationshipFacts.thread.memory_packet ?? {};
+    const priorCoach = resolvePriorCoachContextFromMemoryPacket({
+      memoryPacket,
+      fallbackPriorBody: args.contextPacket.latestOutboundBody ?? null,
+    });
+    const unifiedGuard = await applyUnifiedSmsFinalProductLawGuard({
+      mode: "transactional_coaching_limited",
+      surface: "inbound",
+      routePurpose: ug.routePurpose,
+      branchName: ug.branchName,
+      preGuardBodyPreview: gatedBody,
+      transactionalCoachingLimited: {
+        body: gatedBody,
+        evidence: ug.outcomeClaimEvidence,
+        priorCoachBody: priorCoach.priorCoachBody,
+        priorCoachSentAt: priorCoach.priorCoachSentAt,
+        inboundRaw: args.inboundRaw,
+        routePurpose: ug.routePurpose,
+        nearDuplicateStage: `${ug.branchName}_near_duplicate`,
+        ocegStage: `${ug.branchName}_oceg`,
+      },
+    });
+
+    const requiredVerbatim = args.relationshipFacts.constraints.required_verbatim_substrings;
+    let verbatimMissing: string[] | null = null;
+    if (requiredVerbatim && requiredVerbatim.length > 0) {
+      const verbatimCheck = assertRequiredVerbatimSubstringsPresent(
+        "post_final_voice_gate",
+        unifiedGuard.body,
+        requiredVerbatim
+      );
+      if (!verbatimCheck.ok) {
+        verbatimMissing = verbatimCheck.missing;
+      }
+    }
+
+    const unifiedGuardBlocked = !unifiedGuard.shouldSend || verbatimMissing != null;
+    if (unifiedGuardBlocked) {
+      const noSendReason =
+        verbatimMissing != null
+          ? "required_verbatim_missing_post_unified_final_guard"
+          : unifiedGuard.noSendReason ?? "unified_final_product_law_guard_no_send";
+      const guardSafetyNotes = ["unified_final_product_law_guard"];
+      if (unifiedGuard.noSendReason === RAPID_NEAR_DUPLICATE_REPLY_NO_SEND) {
+        guardSafetyNotes.push("rapid_near_duplicate_reply_guard");
+      }
+      if (unifiedGuard.noSendReason === UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND) {
+        guardSafetyNotes.push("unsupported_accountability_claim_guard");
+      }
+      if (verbatimMissing != null) {
+        guardSafetyNotes.push("required_verbatim_missing_post_unified_final_guard");
+      }
+      if (args.meaningShadow) {
+        registerInboundMeaningShadowPending({
+          job: args.job,
+          userId: args.userId,
+          rawBody: args.inboundRaw,
+          schedule: args.meaningShadow,
+          extraFacts: buildEnrichedMeaningShadowFacts({
+            routePurpose: args.relationshipFacts.route_purpose ?? null,
+            branchName: args.branchName,
+            v3NoSendReason: noSendReason,
+          }),
+        });
+      }
+      await markJobFinal({
+        messageSid: args.job.message_sid,
+        status: "cancelled",
+        lastError: formatInboundV3LaneNoSendLastError(
+          {
+            shouldSend: false,
+            body: "",
+            noSendReason,
+            replySource: "v3_inbound_relationship_lane",
+            turnPurpose: "no_send",
+            voiceConfidence: 0,
+            usedFacts: [],
+            safetyNotes: guardSafetyNotes,
+            metadata: {
+              route_purpose: ug.routePurpose,
+              branch_name: ug.branchName,
+              branch_migrated_to_lane: true,
+              unified_final_guard: compactUnifiedFinalGuardForTelemetry(unifiedGuard),
+              required_verbatim_missing: verbatimMissing,
+            },
+            openAiOk: true,
+          },
+          {
+            route_purpose: args.relationshipFacts.route_purpose,
+            branch_name: args.branchName,
+            branch_migrated_to_lane: true,
+          }
+        ),
+        nextRetry: farFutureIso(),
+      });
+      if (ug.onNoSendTruthPersist) {
+        await ug.onNoSendTruthPersist({ unifiedGuard, verbatimMissing });
+      }
+      console.warn(`[sms-inbound-coach] ${args.logTag}_unified_final_guard_no_send`, {
+        message_sid: args.job.message_sid,
+        commitment_id: args.commitment.id,
+        route_purpose: ug.routePurpose,
+        branch_name: ug.branchName,
+        memory_confirmation_branch: ug.memoryConfirmationBranch ?? null,
+        no_send_reason: noSendReason,
+        ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
+      });
+      return { ok: false };
+    }
+    gatedBody = unifiedGuard.body;
+  }
+
   const threadMemoryCtx: InboundCoachReplyThreadMemoryContext = {
     commitmentId: args.commitment.id,
     expectedAnswerType: args.relationshipFacts.thread.expected_reply_semantics,
@@ -8345,6 +8509,12 @@ async function processV2MemoryConfirmationInbound(
       wave11MemoryConfirmationPending: true,
       memoryConfirmationFacts: memFacts,
     });
+    const outcomeClaimEvidenceAmb = await buildMemoryLaneOutcomeClaimEvidence({
+      inboundRaw: raw,
+      commitment,
+      contextPacket,
+      relationshipFacts: facts,
+    });
     const sendAmb = await persistInboundV3RelationshipLaneReplyReadyAndSend({
       job,
       userId,
@@ -8370,6 +8540,24 @@ async function processV2MemoryConfirmationInbound(
         memoryApplied: false,
         classifierEventType: classification.eventType,
       }),
+      unifiedFinalGuard: {
+        mode: "transactional_coaching_limited",
+        routePurpose: "memory_clarification",
+        branchName: "wave11_memory_ambiguous",
+        memoryConfirmationBranch: "ambiguous",
+        outcomeClaimEvidence: outcomeClaimEvidenceAmb,
+        onNoSendTruthPersist: async ({ unifiedGuard, verbatimMissing }) => {
+          console.info("[sms-inbound-coach] memory_clarification_unified_guard_no_send", {
+            message_sid: job.message_sid,
+            commitment_id: commitment.id,
+            memory_confirmation_branch: "ambiguous",
+            memory_resolution_persisted: false,
+            memory_resolution_visible_sent: false,
+            pending_memory_cleared: false,
+            ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
+          });
+        },
+      },
     });
     if (!sendAmb.ok) {
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -8414,6 +8602,12 @@ async function processV2MemoryConfirmationInbound(
       wave11MemoryConfirmationPending: true,
       memoryConfirmationFacts: memFacts,
     });
+    const outcomeClaimEvidenceDecl = await buildMemoryLaneOutcomeClaimEvidence({
+      inboundRaw: raw,
+      commitment,
+      contextPacket,
+      relationshipFacts: facts,
+    });
     const sendDecl = await persistInboundV3RelationshipLaneReplyReadyAndSend({
       job,
       userId,
@@ -8439,6 +8633,42 @@ async function processV2MemoryConfirmationInbound(
         memoryApplied: false,
         classifierEventType: classification.eventType,
       }),
+      unifiedFinalGuard: {
+        mode: "transactional_coaching_limited",
+        routePurpose: "memory_decline",
+        branchName: "wave11_memory_declined",
+        memoryConfirmationBranch: "decline",
+        outcomeClaimEvidence: outcomeClaimEvidenceDecl,
+        onNoSendTruthPersist: async ({ unifiedGuard, verbatimMissing }) => {
+          await insertWave11MemoryResolutionEvent({
+            commitmentId: commitment.id,
+            clerkUserId: userId,
+            inboundMessageSid: job.message_sid,
+            resolvedPendingSourceMessageSid: pending.sourceMessageSid,
+            outcome: "declined",
+            priorEventId: pending.eventId,
+            appliedIdentity: false,
+            appliedPeopleSummary: false,
+            appliedResponsibility: false,
+            resolutionTelemetry: {
+              memory_confirmation_branch: "decline",
+              memory_resolution_persisted: true,
+              memory_resolution_visible_sent: false,
+              pending_memory_cleared: true,
+              memory_update_applied_before_sms: false,
+              ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
+            },
+          });
+          console.info("[sms-inbound-coach] memory_decline_unified_guard_no_send_truth_persisted", {
+            message_sid: job.message_sid,
+            commitment_id: commitment.id,
+            memory_confirmation_branch: "decline",
+            memory_resolution_persisted: true,
+            memory_resolution_visible_sent: false,
+            pending_memory_cleared: true,
+          });
+        },
+      },
     });
     if (!sendDecl.ok) {
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -8498,6 +8728,12 @@ async function processV2MemoryConfirmationInbound(
     wave11MemoryConfirmationPending: true,
     memoryConfirmationFacts: memFacts,
   });
+  const outcomeClaimEvidenceYes = await buildMemoryLaneOutcomeClaimEvidence({
+    inboundRaw: raw,
+    commitment,
+    contextPacket,
+    relationshipFacts: facts,
+  });
   const sendYes = await persistInboundV3RelationshipLaneReplyReadyAndSend({
     job,
     userId,
@@ -8524,6 +8760,49 @@ async function processV2MemoryConfirmationInbound(
       memoryApplied: anyApplied,
       classifierEventType: classification.eventType,
     }),
+    unifiedFinalGuard: {
+      mode: "transactional_coaching_limited",
+      routePurpose: "memory_confirmation",
+      branchName: "wave11_memory_confirmed",
+      memoryConfirmationBranch: "yes",
+      outcomeClaimEvidence: outcomeClaimEvidenceYes,
+      onNoSendTruthPersist: async ({ unifiedGuard, verbatimMissing }) => {
+        if (anyApplied) {
+          await recomputeV2CoachingMemory(commitment.id, {
+            reasonCode: "wave11_sms_memory_confirmation",
+          });
+        }
+        await insertWave11MemoryResolutionEvent({
+          commitmentId: commitment.id,
+          clerkUserId: userId,
+          inboundMessageSid: job.message_sid,
+          resolvedPendingSourceMessageSid: pending.sourceMessageSid,
+          outcome: "confirmed",
+          priorEventId: pending.eventId,
+          appliedIdentity: applied.appliedIdentity,
+          appliedPeopleSummary: applied.appliedPeopleSummary,
+          appliedResponsibility: applied.appliedResponsibility,
+          resolutionTelemetry: {
+            memory_confirmation_branch: "yes",
+            memory_resolution_persisted: true,
+            memory_resolution_visible_sent: false,
+            pending_memory_cleared: true,
+            memory_update_applied_before_sms: true,
+            memory_applied_any: anyApplied,
+            ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
+          },
+        });
+        console.info("[sms-inbound-coach] memory_confirmation_unified_guard_no_send_truth_persisted", {
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          memory_confirmation_branch: "yes",
+          memory_resolution_persisted: true,
+          memory_resolution_visible_sent: false,
+          pending_memory_cleared: true,
+          memory_applied_any: anyApplied,
+        });
+      },
+    },
   });
   if (!sendYes.ok) {
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());

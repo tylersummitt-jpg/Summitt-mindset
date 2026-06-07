@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const updateMock = vi.fn();
 const persistWave11Mock = vi.fn();
+const insertMock = vi.fn();
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
     from: () => ({
       update: (...args: unknown[]) => updateMock(...args),
+      insert: (...args: unknown[]) => insertMock(...args),
       select: () => ({
         eq: () => ({
           order: () => ({
@@ -22,7 +24,7 @@ vi.mock("@/lib/v2-persist-identity-edit", () => ({
   persistWave11ConfirmedIdentityAnchorEdit: (...args: unknown[]) => persistWave11Mock(...args),
 }));
 
-import { applyWave11ConfirmedProfileUpdates } from "@/lib/v2-memory-confirmation-sms";
+import { applyWave11ConfirmedProfileUpdates, insertWave11MemoryResolutionEvent } from "@/lib/v2-memory-confirmation-sms";
 
 const USER = "user_wave11";
 const VALID_ANCHOR =
@@ -34,6 +36,7 @@ describe("applyWave11ConfirmedProfileUpdates", () => {
     updateMock.mockReturnValue({
       eq: () => Promise.resolve({ error: null }),
     });
+    insertMock.mockResolvedValue({ error: null });
     persistWave11Mock.mockResolvedValue({
       ok: true,
       versionId: "ver_wave11",
@@ -138,5 +141,82 @@ describe("applyWave11ConfirmedProfileUpdates", () => {
     expect(result.appliedIdentity).toBe(false);
     expect(persistWave11Mock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("insertWave11MemoryResolutionEvent idempotency", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertMock.mockResolvedValue({ error: null });
+  });
+
+  it("returns inserted true on first insert", async () => {
+    const result = await insertWave11MemoryResolutionEvent({
+      commitmentId: "cmt_1",
+      clerkUserId: USER,
+      inboundMessageSid: "SM_retry_1",
+      resolvedPendingSourceMessageSid: "SM_pending",
+      outcome: "declined",
+      priorEventId: "evt_1",
+      appliedIdentity: false,
+      appliedPeopleSummary: false,
+      appliedResponsibility: false,
+      resolutionTelemetry: { memory_resolution_visible_sent: false },
+    });
+
+    expect(result).toEqual({ inserted: true, duplicate: false });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotency_key: "v2_wave11_memory_resolution:SM_retry_1",
+      })
+    );
+  });
+
+  it("returns duplicate true on 23505 without throwing", async () => {
+    insertMock.mockResolvedValueOnce({ error: { code: "23505", message: "duplicate" } });
+
+    const result = await insertWave11MemoryResolutionEvent({
+      commitmentId: "cmt_1",
+      clerkUserId: USER,
+      inboundMessageSid: "SM_retry_2",
+      resolvedPendingSourceMessageSid: "SM_pending",
+      outcome: "confirmed",
+      priorEventId: "evt_1",
+      appliedIdentity: true,
+      appliedPeopleSummary: false,
+      appliedResponsibility: false,
+      resolutionTelemetry: { memory_resolution_visible_sent: false },
+    });
+
+    expect(result).toEqual({ inserted: false, duplicate: true });
+  });
+
+  it("merges resolutionTelemetry into payload_json", async () => {
+    await insertWave11MemoryResolutionEvent({
+      commitmentId: "cmt_1",
+      clerkUserId: USER,
+      inboundMessageSid: "SM_telemetry",
+      resolvedPendingSourceMessageSid: "SM_pending",
+      outcome: "declined",
+      priorEventId: null,
+      appliedIdentity: false,
+      appliedPeopleSummary: false,
+      appliedResponsibility: false,
+      resolutionTelemetry: {
+        memory_confirmation_branch: "decline",
+        memory_resolution_visible_sent: false,
+        unified_final_guard_no_send_reason: "unsupported_accountability_claim",
+      },
+    });
+
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload_json: expect.objectContaining({
+          memory_confirmation_branch: "decline",
+          memory_resolution_visible_sent: false,
+          unified_final_guard_no_send_reason: "unsupported_accountability_claim",
+        }),
+      })
+    );
   });
 });

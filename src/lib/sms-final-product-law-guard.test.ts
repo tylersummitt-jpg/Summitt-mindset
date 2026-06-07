@@ -436,12 +436,14 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(src).not.toContain("applyRapidNearDuplicateCoachReplyGuard");
   });
 
-  it("13: persistInboundV3RelationshipLaneReplyReadyAndSend helper is still not wired", () => {
+  it("13: persistInboundV3RelationshipLaneReplyReadyAndSend uses opt-in unified guard for memory only", () => {
     const helperBlock = src.slice(
       src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend"),
-      src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend") + 5000
+      src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend") + 12000
     );
-    expect(helperBlock).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(helperBlock).toContain("if (args.unifiedFinalGuard)");
+    expect(helperBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(helperBlock).toMatch(/unifiedFinalGuard\?: InboundLaneUnifiedFinalGuardConfig/);
   });
 
   it("14: daily/weekly are still not wired", () => {
@@ -453,22 +455,24 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 
-  it("15: contract/adaptive/pending/memory/handoff are still not wired", () => {
-    const forbiddenPurposes = [
+  it("15: contract/adaptive/pending/refresh/handoff are still not directly wired to unified guard", () => {
+    const forbiddenDirectPurposes = [
       "contract_proposal_consent",
       "adaptive_proposal_consent",
       "pending_resolution_inbound",
-      "memory_confirmation",
       "commitment_change_handoff",
       "refresh_session_inbound",
     ];
-    for (const purpose of forbiddenPurposes) {
+    for (const purpose of forbiddenDirectPurposes) {
       const idx = src.indexOf(`routePurpose: "${purpose}"`);
       if (idx >= 0) {
         const block = src.slice(idx - 300, idx + 600);
         expect(block).not.toContain("applyUnifiedSmsFinalProductLawGuard");
       }
     }
+    const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
+    const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
+    expect(refreshBlock).not.toContain("unifiedFinalGuard");
   });
 
   it("22: no-send includes unified_final_guard metadata and persists blocker truth", () => {

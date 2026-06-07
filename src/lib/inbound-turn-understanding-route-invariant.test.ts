@@ -75,12 +75,18 @@ describe("inbound turn understanding route invariants", () => {
     expect(block).toContain('status: "reply_ready"');
   });
 
-  it("L: PR 2.1b wires blocker ack/pivot only; helper still not wired", () => {
+  it("L: PR 2.1b-pr2a wires memory confirmation via opt-in helper guard only", () => {
     const helperBlock = src.slice(
       src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend"),
-      src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend") + 5000
+      src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend") + 12000
     );
-    expect(helperBlock).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(helperBlock).toContain("if (args.unifiedFinalGuard)");
+    expect(helperBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(helperBlock).toContain('mode: "transactional_coaching_limited"');
+
+    expect(src).toContain('memoryConfirmationBranch: "ambiguous"');
+    expect(src).toContain('memoryConfirmationBranch: "decline"');
+    expect(src).toContain('memoryConfirmationBranch: "yes"');
 
     expect(src).toContain("const unifiedGuardBlockerAck = await applyUnifiedSmsFinalProductLawGuard");
     expect(src).toContain("const unifiedGuardBlockerPivot = await applyUnifiedSmsFinalProductLawGuard");

@@ -137,7 +137,9 @@ export async function insertWave11MemoryResolutionEvent(args: {
   appliedResponsibility: boolean;
   /** Wave 12.1 — only when Victory callout text was appended to the outbound SMS. */
   victoryCalloutExtras?: Record<string, unknown>;
-}): Promise<void> {
+  /** Optional resolution telemetry (visible_sent, unified guard metadata, etc.). */
+  resolutionTelemetry?: Record<string, unknown> | null;
+}): Promise<{ inserted: boolean; duplicate: boolean }> {
   try {
     const memoryProof =
       args.outcome === "confirmed"
@@ -164,18 +166,22 @@ export async function insertWave11MemoryResolutionEvent(args: {
         inbound_resolution_message_sid: args.inboundMessageSid,
         ...proofMomentPayloadFields(memoryProof),
         ...(args.victoryCalloutExtras ?? {}),
+        ...(args.resolutionTelemetry ?? {}),
       },
       idempotency_key: `v2_wave11_memory_resolution:${args.inboundMessageSid}`,
     });
     if (error) {
       const code = (error as { code?: string }).code;
-      if (code === "23505") return;
+      if (code === "23505") return { inserted: false, duplicate: true };
       console.warn("[wave11] memory_resolution insert skipped", { message: error.message, code });
+      return { inserted: false, duplicate: false };
     }
+    return { inserted: true, duplicate: false };
   } catch (e) {
     console.warn("[wave11] memory_resolution insert failed", {
       message: e instanceof Error ? e.message : String(e),
     });
+    return { inserted: false, duplicate: false };
   }
 }
 
