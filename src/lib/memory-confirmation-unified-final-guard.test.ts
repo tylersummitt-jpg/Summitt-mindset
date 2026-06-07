@@ -90,17 +90,20 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
   it("1: memory_confirmation yes helper call uses unified guard opt-in", () => {
     expect(memoryBlock).toContain('routePurpose: "memory_confirmation"');
     expect(memoryBlock).toContain("unifiedFinalGuard:");
-    expect(memoryBlock).toContain('memoryConfirmationBranch: "yes"');
+    expect(memoryBlock).toContain('branch: "yes"');
+    expect(memoryBlock).toContain("memoryNoSendTruthPolicy:");
   });
 
   it("2: memory_decline helper call uses unified guard opt-in", () => {
     expect(memoryBlock).toContain('routePurpose: "memory_decline"');
-    expect(memoryBlock).toContain('memoryConfirmationBranch: "decline"');
+    expect(memoryBlock).toContain('branch: "decline"');
+    expect(memoryBlock).toContain("memoryNoSendTruthPolicy:");
   });
 
   it("3: memory_clarification helper call uses unified guard opt-in", () => {
     expect(memoryBlock).toContain('routePurpose: "memory_clarification"');
-    expect(memoryBlock).toContain('memoryConfirmationBranch: "ambiguous"');
+    expect(memoryBlock).toContain('branch: "ambiguous"');
+    expect(memoryBlock).toContain("memoryNoSendTruthPolicy:");
   });
 
   it("4: refresh helper calls do NOT pass unifiedFinalGuard", () => {
@@ -121,6 +124,29 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
     expect(helperBlock).toContain("if (args.unifiedFinalGuard)");
     expect(helperBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(helperBlock).toContain('mode: "transactional_coaching_limited"');
+  });
+
+  it("pr2b: lane no-send calls shared memory truth policy when configured", () => {
+    expect(helperBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+    expect(helperBlock).toContain('noSendStage: "lane"');
+    const laneIdx = helperBlock.indexOf("_inbound_lane_no_send");
+    expect(laneIdx).toBeGreaterThan(0);
+    const laneBlock = helperBlock.slice(laneIdx - 800, laneIdx + 200);
+    expect(laneBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+  });
+
+  it("pr2b: FVG no-send calls shared memory truth policy when configured", () => {
+    expect(helperBlock).toContain('noSendStage: "final_voice_gate"');
+    const fvgIdx = helperBlock.indexOf("_final_voice_suppressed");
+    expect(fvgIdx).toBeGreaterThan(0);
+    const fvgBlock = helperBlock.slice(fvgIdx - 800, fvgIdx + 200);
+    expect(fvgBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
+  });
+
+  it("pr2b: unified guard no-send uses shared helper not inline onNoSendTruthPersist", () => {
+    expect(helperBlock).not.toContain("onNoSendTruthPersist");
+    expect(helperBlock).toContain('noSendStage: "unified_final_guard"');
+    expect(helperBlock).toContain("runMemoryConfirmationNoSendTruthPolicyIfConfigured");
   });
 
   it("21: refresh callers unchanged — no unifiedFinalGuard on persistRefreshSmsLaneAndSend", () => {
@@ -160,30 +186,35 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
   });
 
   it("decline no-send persists resolution with visible_sent=false", () => {
-    const idx = src.indexOf("memory_decline_unified_guard_no_send_truth_persisted");
-    expect(idx).toBeGreaterThan(0);
-    const block = src.slice(idx - 1200, idx);
-    expect(block).toContain('outcome: "declined"');
-    expect(block).toContain("memory_resolution_visible_sent: false");
-    expect(block).toContain("pending_memory_cleared: true");
+    expect(src).toContain("persistMemoryConfirmationTruthOnNoSend");
+    const memSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-memory-confirmation-sms.ts"),
+      "utf8"
+    );
+    expect(memSrc).toContain('outcome: "declined"');
+    expect(memSrc).toContain("memory_update_applied_before_sms: false");
   });
 
   it("yes no-send persists resolution + recompute when applied", () => {
-    const idx = src.indexOf("memory_confirmation_unified_guard_no_send_truth_persisted");
-    expect(idx).toBeGreaterThan(0);
-    const block = src.slice(idx - 1800, idx);
-    expect(block).toContain('outcome: "confirmed"');
-    expect(block).toContain("recomputeV2CoachingMemory");
-    expect(block).toContain("memory_resolution_visible_sent: false");
+    const memSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-memory-confirmation-sms.ts"),
+      "utf8"
+    );
+    expect(memSrc).toContain('outcome: "confirmed"');
+    expect(memSrc).toContain("recomputeV2CoachingMemory");
+    expect(memSrc).toContain("memory_update_applied_before_sms: anyApplied");
   });
 
   it("ambiguous no-send does not insert resolution event", () => {
-    const idx = src.indexOf("memory_clarification_unified_guard_no_send");
-    expect(idx).toBeGreaterThan(0);
-    const block = src.slice(idx - 800, idx + 400);
-    expect(block).toContain("memory_resolution_persisted: false");
-    expect(block).toContain("pending_memory_cleared: false");
-    expect(block).not.toContain("insertWave11MemoryResolutionEvent");
+    const memSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-memory-confirmation-sms.ts"),
+      "utf8"
+    );
+    const ambIdx = memSrc.indexOf('if (args.branch === "ambiguous")');
+    expect(ambIdx).toBeGreaterThan(0);
+    const ambBlock = memSrc.slice(ambIdx, ambIdx + 120);
+    expect(ambBlock).toContain("return baseTelemetry");
+    expect(ambBlock).not.toContain("insertWave11MemoryResolutionEvent");
   });
 
   it("idempotency key unchanged on resolution insert", () => {

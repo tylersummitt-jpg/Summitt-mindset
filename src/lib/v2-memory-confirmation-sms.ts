@@ -4,6 +4,7 @@
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
+import { recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
 import { validateOnboardingIdentityAnchorInput } from "@/lib/v2-identity-anchor";
 import { persistWave11ConfirmedIdentityAnchorEdit } from "@/lib/v2-persist-identity-edit";
 import { buildProofMomentForMemoryUpdated, proofMomentPayloadFields } from "@/lib/v2-proof-moment";
@@ -183,6 +184,138 @@ export async function insertWave11MemoryResolutionEvent(args: {
     });
     return { inserted: false, duplicate: false };
   }
+}
+
+export type MemoryConfirmationNoSendStage = "lane" | "final_voice_gate" | "unified_final_guard";
+
+export type MemoryConfirmationNoSendBranch = "ambiguous" | "decline" | "yes";
+
+export type MemoryConfirmationNoSendTruthPolicyContext = {
+  branch: MemoryConfirmationNoSendBranch;
+  commitmentId: string;
+  clerkUserId: string;
+  inboundMessageSid: string;
+  pendingSourceMessageSid: string;
+  pendingEventId?: string | null;
+  applied?: Wave11ProfileApplyResult | null;
+  anyApplied?: boolean;
+};
+
+export type PersistMemoryConfirmationTruthOnNoSendArgs = MemoryConfirmationNoSendTruthPolicyContext & {
+  noSendStage: MemoryConfirmationNoSendStage;
+  noSendReason: string;
+  stageMetadata?: Record<string, unknown>;
+};
+
+export type MemoryConfirmationNoSendTruthTelemetry = {
+  memory_confirmation_branch: MemoryConfirmationNoSendBranch;
+  memory_no_send_stage: MemoryConfirmationNoSendStage;
+  memory_resolution_persisted: boolean;
+  memory_resolution_visible_sent: false;
+  pending_memory_cleared: boolean;
+  no_send_reason: string;
+  visible_sent: false;
+  memory_update_applied_before_sms?: boolean;
+  memory_applied_any?: boolean;
+  memory_resolution_duplicate?: boolean;
+  lane_no_send_reason?: string;
+  final_voice_gate_skip_reason?: string;
+  unified_final_guard_no_send_reason?: string;
+};
+
+function memoryNoSendStageReasonField(
+  stage: MemoryConfirmationNoSendStage,
+  reason: string
+): Pick<
+  MemoryConfirmationNoSendTruthTelemetry,
+  "lane_no_send_reason" | "final_voice_gate_skip_reason" | "unified_final_guard_no_send_reason"
+> {
+  if (stage === "lane") return { lane_no_send_reason: reason };
+  if (stage === "final_voice_gate") return { final_voice_gate_skip_reason: reason };
+  return { unified_final_guard_no_send_reason: reason };
+}
+
+/**
+ * Branch-specific truth/state policy when memory confirmation visible SMS no-sends
+ * (lane, FVG, or unified final guard).
+ */
+export async function persistMemoryConfirmationTruthOnNoSend(
+  args: PersistMemoryConfirmationTruthOnNoSendArgs
+): Promise<MemoryConfirmationNoSendTruthTelemetry> {
+  const anyApplied = args.anyApplied === true;
+  const applied = args.applied ?? null;
+  const stageReason = memoryNoSendStageReasonField(args.noSendStage, args.noSendReason);
+
+  const baseTelemetry: MemoryConfirmationNoSendTruthTelemetry = {
+    memory_confirmation_branch: args.branch,
+    memory_no_send_stage: args.noSendStage,
+    memory_resolution_visible_sent: false,
+    visible_sent: false,
+    no_send_reason: args.noSendReason,
+    ...stageReason,
+    ...(args.stageMetadata ?? {}),
+    memory_resolution_persisted: false,
+    pending_memory_cleared: false,
+  };
+
+  if (args.branch === "ambiguous") {
+    return baseTelemetry;
+  }
+
+  if (args.branch === "decline") {
+    const resolutionPayload = {
+      ...baseTelemetry,
+      memory_resolution_persisted: true,
+      pending_memory_cleared: true,
+      memory_update_applied_before_sms: false,
+    };
+    const insertResult = await insertWave11MemoryResolutionEvent({
+      commitmentId: args.commitmentId,
+      clerkUserId: args.clerkUserId,
+      inboundMessageSid: args.inboundMessageSid,
+      resolvedPendingSourceMessageSid: args.pendingSourceMessageSid,
+      outcome: "declined",
+      priorEventId: args.pendingEventId ?? null,
+      appliedIdentity: false,
+      appliedPeopleSummary: false,
+      appliedResponsibility: false,
+      resolutionTelemetry: resolutionPayload,
+    });
+    return {
+      ...resolutionPayload,
+      memory_resolution_duplicate: insertResult.duplicate,
+    };
+  }
+
+  if (anyApplied) {
+    await recomputeV2CoachingMemory(args.commitmentId, {
+      reasonCode: "wave11_sms_memory_confirmation",
+    });
+  }
+
+  const resolutionPayload = {
+    ...baseTelemetry,
+    memory_resolution_persisted: true,
+    pending_memory_cleared: true,
+    memory_update_applied_before_sms: anyApplied,
+    memory_applied_any: anyApplied,
+  };
+  const insertResult = await insertWave11MemoryResolutionEvent({
+    commitmentId: args.commitmentId,
+    clerkUserId: args.clerkUserId,
+    inboundMessageSid: args.inboundMessageSid,
+    resolvedPendingSourceMessageSid: args.pendingSourceMessageSid,
+    outcome: "confirmed",
+    priorEventId: args.pendingEventId ?? null,
+    appliedIdentity: applied?.appliedIdentity ?? false,
+    appliedPeopleSummary: applied?.appliedPeopleSummary ?? false,
+    appliedResponsibility: applied?.appliedResponsibility ?? false,
+    resolutionTelemetry: resolutionPayload,
+  });
+  return {
+    ...resolutionPayload,
+    memory_resolution_duplicate: insertResult.duplicate,
+  };
 }
 
 export type Wave11ProfileApplyResult = {

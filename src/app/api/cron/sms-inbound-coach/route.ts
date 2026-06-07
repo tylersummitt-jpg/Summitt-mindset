@@ -163,9 +163,11 @@ import {
   fetchLatestAwaitingMemoryConfirmation,
   insertWave11MemoryResolutionEvent,
   parseMemoryConfirmationReply,
+  persistMemoryConfirmationTruthOnNoSend,
   wave11AppendConfirmationIfFits,
   wave11ShouldOfferConfirmationOffer,
   WAVE11_MEMORY_CONFIRMATION_TTL_MS,
+  type MemoryConfirmationNoSendTruthPolicyContext,
   type Wave11PendingMemoryKind,
 } from "@/lib/v2-memory-confirmation-sms";
 import {
@@ -7871,19 +7873,36 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
   return { facts, contextPacket: northStarPkt };
 }
 
-type MemoryConfirmationUnifiedBranch = "ambiguous" | "decline" | "yes";
-
 type InboundLaneUnifiedFinalGuardConfig = {
   mode: "transactional_coaching_limited";
   routePurpose: string;
   branchName: string;
-  memoryConfirmationBranch?: MemoryConfirmationUnifiedBranch;
   outcomeClaimEvidence: OutcomeClaimEvidenceBundle;
-  onNoSendTruthPersist?: (args: {
-    unifiedGuard: UnifiedFinalGuardResult;
-    verbatimMissing: string[] | null;
-  }) => Promise<void>;
+  memoryNoSendTruthPolicy?: MemoryConfirmationNoSendTruthPolicyContext;
 };
+
+async function runMemoryConfirmationNoSendTruthPolicyIfConfigured(args: {
+  unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
+  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard";
+  noSendReason: string;
+  stageMetadata?: Record<string, unknown>;
+  logTag: string;
+}): Promise<Record<string, unknown> | null> {
+  const policy = args.unifiedFinalGuard?.memoryNoSendTruthPolicy;
+  if (!policy) return null;
+  const telemetry = await persistMemoryConfirmationTruthOnNoSend({
+    ...policy,
+    noSendStage: args.noSendStage,
+    noSendReason: args.noSendReason,
+    stageMetadata: args.stageMetadata,
+  });
+  console.info(`[sms-inbound-coach] ${args.logTag}_memory_confirmation_no_send_truth`, {
+    message_sid: policy.inboundMessageSid,
+    commitment_id: policy.commitmentId,
+    ...telemetry,
+  });
+  return telemetry;
+}
 
 async function buildMemoryLaneOutcomeClaimEvidence(args: {
   inboundRaw: string;
@@ -7962,10 +7981,19 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       }),
       nextRetry: farFutureIso(),
     });
+    const laneNoSendReason = lane.noSendReason ?? "inbound_lane_no_send";
+    const memoryTruthLane = await runMemoryConfirmationNoSendTruthPolicyIfConfigured({
+      unifiedFinalGuard: args.unifiedFinalGuard,
+      noSendStage: "lane",
+      noSendReason: laneNoSendReason,
+      stageMetadata: { lane_metadata: lane.metadata, lane_stage: lane.metadata?.lane_stage ?? null },
+      logTag: args.logTag,
+    });
     console.warn(`[sms-inbound-coach] ${args.logTag}_inbound_lane_no_send`, {
       message_sid: args.job.message_sid,
       commitment_id: args.commitment.id,
-      reason: lane.noSendReason,
+      reason: laneNoSendReason,
+      ...(memoryTruthLane ? { memory_no_send_truth: memoryTruthLane } : {}),
     });
     return { ok: false };
   }
@@ -8030,8 +8058,21 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       }),
       nextRetry: farFutureIso(),
     });
+    const fvgNoSendReason = voicePack.voice.skipReason ?? "final_voice_gate_no_send";
+    const memoryTruthFvg = await runMemoryConfirmationNoSendTruthPolicyIfConfigured({
+      unifiedFinalGuard: args.unifiedFinalGuard,
+      noSendStage: "final_voice_gate",
+      noSendReason: fvgNoSendReason,
+      stageMetadata: {
+        final_voice_gate: voicePack.voice.metadata,
+        north_star_gate_source: voicePack.northStarMeta.source,
+      },
+      logTag: args.logTag,
+    });
     console.warn(`[sms-inbound-coach] ${args.logTag}_final_voice_suppressed`, {
       message_sid: args.job.message_sid,
+      reason: fvgNoSendReason,
+      ...(memoryTruthFvg ? { memory_no_send_truth: memoryTruthFvg } : {}),
     });
     return { ok: false };
   }
@@ -8134,17 +8175,24 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
         ),
         nextRetry: farFutureIso(),
       });
-      if (ug.onNoSendTruthPersist) {
-        await ug.onNoSendTruthPersist({ unifiedGuard, verbatimMissing });
-      }
+      const memoryTruthUnified = await runMemoryConfirmationNoSendTruthPolicyIfConfigured({
+        unifiedFinalGuard: ug,
+        noSendStage: "unified_final_guard",
+        noSendReason,
+        stageMetadata: {
+          unified_final_guard: compactUnifiedFinalGuardForTelemetry(unifiedGuard),
+          required_verbatim_missing: verbatimMissing,
+          ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
+        },
+        logTag: args.logTag,
+      });
       console.warn(`[sms-inbound-coach] ${args.logTag}_unified_final_guard_no_send`, {
         message_sid: args.job.message_sid,
         commitment_id: args.commitment.id,
         route_purpose: ug.routePurpose,
         branch_name: ug.branchName,
-        memory_confirmation_branch: ug.memoryConfirmationBranch ?? null,
         no_send_reason: noSendReason,
-        ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
+        ...(memoryTruthUnified ? { memory_no_send_truth: memoryTruthUnified } : {}),
       });
       return { ok: false };
     }
@@ -8544,18 +8592,14 @@ async function processV2MemoryConfirmationInbound(
         mode: "transactional_coaching_limited",
         routePurpose: "memory_clarification",
         branchName: "wave11_memory_ambiguous",
-        memoryConfirmationBranch: "ambiguous",
         outcomeClaimEvidence: outcomeClaimEvidenceAmb,
-        onNoSendTruthPersist: async ({ unifiedGuard, verbatimMissing }) => {
-          console.info("[sms-inbound-coach] memory_clarification_unified_guard_no_send", {
-            message_sid: job.message_sid,
-            commitment_id: commitment.id,
-            memory_confirmation_branch: "ambiguous",
-            memory_resolution_persisted: false,
-            memory_resolution_visible_sent: false,
-            pending_memory_cleared: false,
-            ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
-          });
+        memoryNoSendTruthPolicy: {
+          branch: "ambiguous",
+          commitmentId: commitment.id,
+          clerkUserId: userId,
+          inboundMessageSid: job.message_sid,
+          pendingSourceMessageSid: pending.sourceMessageSid,
+          pendingEventId: pending.eventId,
         },
       },
     });
@@ -8637,36 +8681,14 @@ async function processV2MemoryConfirmationInbound(
         mode: "transactional_coaching_limited",
         routePurpose: "memory_decline",
         branchName: "wave11_memory_declined",
-        memoryConfirmationBranch: "decline",
         outcomeClaimEvidence: outcomeClaimEvidenceDecl,
-        onNoSendTruthPersist: async ({ unifiedGuard, verbatimMissing }) => {
-          await insertWave11MemoryResolutionEvent({
-            commitmentId: commitment.id,
-            clerkUserId: userId,
-            inboundMessageSid: job.message_sid,
-            resolvedPendingSourceMessageSid: pending.sourceMessageSid,
-            outcome: "declined",
-            priorEventId: pending.eventId,
-            appliedIdentity: false,
-            appliedPeopleSummary: false,
-            appliedResponsibility: false,
-            resolutionTelemetry: {
-              memory_confirmation_branch: "decline",
-              memory_resolution_persisted: true,
-              memory_resolution_visible_sent: false,
-              pending_memory_cleared: true,
-              memory_update_applied_before_sms: false,
-              ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
-            },
-          });
-          console.info("[sms-inbound-coach] memory_decline_unified_guard_no_send_truth_persisted", {
-            message_sid: job.message_sid,
-            commitment_id: commitment.id,
-            memory_confirmation_branch: "decline",
-            memory_resolution_persisted: true,
-            memory_resolution_visible_sent: false,
-            pending_memory_cleared: true,
-          });
+        memoryNoSendTruthPolicy: {
+          branch: "decline",
+          commitmentId: commitment.id,
+          clerkUserId: userId,
+          inboundMessageSid: job.message_sid,
+          pendingSourceMessageSid: pending.sourceMessageSid,
+          pendingEventId: pending.eventId,
         },
       },
     });
@@ -8764,43 +8786,16 @@ async function processV2MemoryConfirmationInbound(
       mode: "transactional_coaching_limited",
       routePurpose: "memory_confirmation",
       branchName: "wave11_memory_confirmed",
-      memoryConfirmationBranch: "yes",
       outcomeClaimEvidence: outcomeClaimEvidenceYes,
-      onNoSendTruthPersist: async ({ unifiedGuard, verbatimMissing }) => {
-        if (anyApplied) {
-          await recomputeV2CoachingMemory(commitment.id, {
-            reasonCode: "wave11_sms_memory_confirmation",
-          });
-        }
-        await insertWave11MemoryResolutionEvent({
-          commitmentId: commitment.id,
-          clerkUserId: userId,
-          inboundMessageSid: job.message_sid,
-          resolvedPendingSourceMessageSid: pending.sourceMessageSid,
-          outcome: "confirmed",
-          priorEventId: pending.eventId,
-          appliedIdentity: applied.appliedIdentity,
-          appliedPeopleSummary: applied.appliedPeopleSummary,
-          appliedResponsibility: applied.appliedResponsibility,
-          resolutionTelemetry: {
-            memory_confirmation_branch: "yes",
-            memory_resolution_persisted: true,
-            memory_resolution_visible_sent: false,
-            pending_memory_cleared: true,
-            memory_update_applied_before_sms: true,
-            memory_applied_any: anyApplied,
-            ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, verbatimMissing),
-          },
-        });
-        console.info("[sms-inbound-coach] memory_confirmation_unified_guard_no_send_truth_persisted", {
-          message_sid: job.message_sid,
-          commitment_id: commitment.id,
-          memory_confirmation_branch: "yes",
-          memory_resolution_persisted: true,
-          memory_resolution_visible_sent: false,
-          pending_memory_cleared: true,
-          memory_applied_any: anyApplied,
-        });
+      memoryNoSendTruthPolicy: {
+        branch: "yes",
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        inboundMessageSid: job.message_sid,
+        pendingSourceMessageSid: pending.sourceMessageSid,
+        pendingEventId: pending.eventId,
+        applied,
+        anyApplied,
       },
     },
   });
