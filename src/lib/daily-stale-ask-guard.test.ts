@@ -94,6 +94,36 @@ describe("detectDailyStaleAskViolation", () => {
     });
     expect(hit.violation).toBe(false);
   });
+
+  it("P0-A: allows Bond outcome-close after plan detail", () => {
+    const hit = detectDailyStaleAskViolation({
+      body: "Did the conversation with Bond happen, or did something get in the way?",
+      satisfiedAskContext: familySatisfiedContext(),
+      lastCoachQuestions: [
+        "What actually happened with your distribution plan since your last check-in?",
+      ],
+      answeredOpenQuestion:
+        "What actually happened with your distribution plan since your last check-in?",
+      latestAnswerText: "Call Bond at 12PM tomorrow",
+    });
+    expect(hit.violation).toBe(false);
+  });
+
+  it("P0-A: allows planned block outcome-close", () => {
+    const hit = detectDailyStaleAskViolation({
+      body: "Did the planned block happen, or did something get in the way?",
+      satisfiedAskContext: familySatisfiedContext(),
+    });
+    expect(hit.violation).toBe(false);
+  });
+
+  it("P0-A: blocks family calendar re-ask after plan detail", () => {
+    const hit = detectDailyStaleAskViolation({
+      body: "Are you ready to put one family connection on the calendar?",
+      satisfiedAskContext: familySatisfiedContext(),
+    });
+    expect(hit.violation).toBe(true);
+  });
 });
 
 describe("applyDailyStaleAskGuard", () => {

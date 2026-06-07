@@ -23,6 +23,11 @@ import {
   slimTurnUnderstandingMetadata,
   type RunInboundTurnUnderstandingArgs,
 } from "@/lib/openai-relationship-turn-understanding-v1";
+import {
+  isSafeRecoveryOrOutcomeCloseNotRepeatingPriorAsk,
+  normalizeTextForStaleAskOverlap,
+  STALE_ASK_OVERLAP_STOP_WORDS,
+} from "@/lib/stale-ask-safe-follow-up";
 
 export {
   isTurnUnderstandingAuthoritative,
@@ -40,38 +45,7 @@ export type InboundTurnUnderstandingContext = {
 
 export const TURN_UNDERSTANDING_FINAL_BODY_NO_SEND = "turn_understanding_stale_ask_blocked" as const;
 
-const STALE_ASK_STOP_WORDS = new Set([
-  "your",
-  "the",
-  "for",
-  "with",
-  "that",
-  "this",
-  "have",
-  "will",
-  "when",
-  "ready",
-  "about",
-  "from",
-  "into",
-  "what",
-  "would",
-  "could",
-  "should",
-  "been",
-  "were",
-  "they",
-  "them",
-  "then",
-  "than",
-  "also",
-  "just",
-  "like",
-  "know",
-  "tell",
-  "let",
-  "one",
-]);
+const STALE_ASK_STOP_WORDS = STALE_ASK_OVERLAP_STOP_WORDS;
 
 const SCHEDULING_ASK_PATTERNS: ReadonlyArray<RegExp> = [
   /\bcalendar\b/i,
@@ -131,25 +105,21 @@ export function emptyInboundTurnUnderstandingContext(): InboundTurnUnderstanding
   return { didRun: false, skippedReason: null, failedReason: null, reconciled: null };
 }
 
-export function normalizeTextForStaleAskOverlap(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^\w\s?]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { normalizeTextForStaleAskOverlap } from "@/lib/stale-ask-safe-follow-up";
 
 /** Shared overlap check — exact prefix + word overlap with question mark. */
 export function substantiallyRepeatsCoachQuestion(proposedBody: string, coachLine: string): boolean {
   const p = normalizeTextForStaleAskOverlap(proposedBody);
   const c = normalizeTextForStaleAskOverlap(coachLine);
   if (c.length < 18 || p.length < 12) return false;
-  const cWords = c.split(" ").filter((w) => w.length > 3);
-  const pWords = new Set(p.split(" ").filter((w) => w.length > 3));
+  const cWords = c.split(" ").filter((w) => w.length > 3 && !STALE_ASK_OVERLAP_STOP_WORDS.has(w));
+  const pWords = new Set(
+    p.split(" ").filter((w) => w.length > 3 && !STALE_ASK_OVERLAP_STOP_WORDS.has(w))
+  );
   let overlap = 0;
   for (const w of cWords) if (pWords.has(w)) overlap++;
   const ratio = cWords.length ? overlap / cWords.length : 0;
-  if (ratio >= 0.45 && /\?/.test(proposedBody)) return true;
+  if (overlap >= 3 && ratio >= 0.45 && /\?/.test(proposedBody)) return true;
   if (p.includes(c.slice(0, Math.min(72, c.length)))) return true;
   return false;
 }
@@ -176,6 +146,10 @@ function looksLikePlanContinuationStaleAsk(proposedBody: string): boolean {
 
 /** Conservative paraphrase detection for satisfied-ask do_not_repeat phrases. */
 export function paraphraseRepeatsStaleCoachAsk(proposedBody: string, coachLine: string): boolean {
+  if (isSafeRecoveryOrOutcomeCloseNotRepeatingPriorAsk(proposedBody, coachLine)) {
+    return false;
+  }
+
   if (substantiallyRepeatsCoachQuestion(proposedBody, coachLine)) return true;
 
   const phraseNorm = normalizeTextForStaleAskOverlap(coachLine);

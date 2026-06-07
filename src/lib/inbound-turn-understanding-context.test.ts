@@ -191,6 +191,45 @@ describe("stale ask paraphrase detection", () => {
   });
 });
 
+describe("P0 Step A — recovery/outcome-close stale-ask exemption", () => {
+  const DIST_PRIOR =
+    "What actually happened with your distribution plan since your last check-in?";
+
+  it("1: allows miss recovery after distribution outcome ask", () => {
+    expect(
+      paraphraseRepeatsStaleCoachAsk(
+        "Missing a day happens. What do you think led to that? Let's explore how you can get back on track with your distribution plan.",
+        DIST_PRIOR
+      )
+    ).toBe(false);
+  });
+
+  it("2: allows got in the way recovery", () => {
+    expect(paraphraseRepeatsStaleCoachAsk("What got in the way yesterday?", DIST_PRIOR)).toBe(false);
+  });
+
+  it("3: blocks exact repeat of distribution outcome ask", () => {
+    expect(paraphraseRepeatsStaleCoachAsk(DIST_PRIOR, DIST_PRIOR)).toBe(true);
+  });
+
+  it("4: blocks near-repeat of distribution outcome ask", () => {
+    expect(
+      paraphraseRepeatsStaleCoachAsk(
+        "What happened with your distribution plan since your last check-in?",
+        DIST_PRIOR
+      )
+    ).toBe(true);
+  });
+
+  it("blocks plan-confirmation re-ask after user confirmed", () => {
+    const planAsk = "How does committing to one hour of distribution per day sound?";
+    expect(paraphraseRepeatsStaleCoachAsk(planAsk, planAsk)).toBe(true);
+    expect(
+      paraphraseRepeatsStaleCoachAsk("How does staying committed to this plan feel?", planAsk)
+    ).toBe(true);
+  });
+});
+
 describe("final body guard", () => {
   const tu = reconciledFamily();
   const ctx = {
