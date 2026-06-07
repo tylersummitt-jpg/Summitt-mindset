@@ -108,4 +108,36 @@ describe("inbound turn understanding route invariants", () => {
     expect(src).toContain("isInboundTurnUnderstandingContextAuthoritative(inboundTurnUnderstandingCtx)");
     expect(src).toContain("brain_gate_skipped_turn_understanding_authoritative");
   });
+
+  it("N: Phase 2.2.0 blocker pending runs TU gate before processV2BlockerCapture", () => {
+    const start = src.indexOf("if (isBlockerCapturePendingActive(c))");
+    expect(start).toBeGreaterThan(0);
+    const slice = src.slice(start, start + 5500);
+    expect(slice).toContain("runBlockerPendingPreCaptureGate");
+    expect(slice).toContain("routeDecision.shouldRunProcessV2BlockerCapture");
+    const gateIdx = slice.indexOf("runBlockerPendingPreCaptureGate");
+    const captureIdx = slice.indexOf("processV2BlockerCapture");
+    expect(gateIdx).toBeGreaterThan(0);
+    expect(captureIdx).toBeGreaterThan(gateIdx);
+    expect(slice).not.toContain("isStrongV2YesNoOutcome");
+  });
+
+  it("O: normal inbound accepts precomputed TU from blocker gate", () => {
+    expect(src).toContain("precomputedTurnUnderstandingCtx");
+    expect(src).toContain("blockerRouteTelemetry");
+    expect(src).toContain("blocker_tu_reused_in_normal_path");
+  });
+
+  it("P: refresh/pending/contract/memory ordering unchanged after blocker branch", () => {
+    const refreshIdx = src.indexOf("if (await processV2CoachingRefreshInbound");
+    const pendingIdx = src.indexOf("if (await processV2SmsInboundPendingResolution");
+    const contractIdx = src.indexOf("if (await processV2ContractProposalConsent");
+    const memoryIdx = src.indexOf("if (await processV2MemoryConfirmationInbound");
+    const blockerBranchEnd = src.indexOf("await clearStaleAdaptiveContractColumns");
+    expect(blockerBranchEnd).toBeGreaterThan(0);
+    expect(refreshIdx).toBeGreaterThan(blockerBranchEnd);
+    expect(pendingIdx).toBeGreaterThan(refreshIdx);
+    expect(contractIdx).toBeGreaterThan(pendingIdx);
+    expect(memoryIdx).toBeGreaterThan(contractIdx);
+  });
 });

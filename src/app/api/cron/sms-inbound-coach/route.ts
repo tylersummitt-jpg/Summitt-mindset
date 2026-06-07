@@ -253,6 +253,7 @@ import {
   extractLatestCoachQuestionFromOutboundBody,
   shouldBypassBlockerCaptureForProposalAck,
 } from "@/lib/blocker-capture-proposal-ack-bypass";
+import { evaluateBlockerPendingRouteDecision } from "@/lib/blocker-pending-route-decision";
 import {
   resolveShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
@@ -2020,6 +2021,11 @@ async function cancelInboundV3LaneNoSendWithExplicitOutcomePersist(args: {
   return persistResult;
 }
 
+type BlockerPendingNormalInboundOptions = {
+  precomputedTurnUnderstandingCtx?: InboundTurnUnderstandingContext | null;
+  blockerRouteTelemetry?: Record<string, unknown> | null;
+};
+
 async function processV2NormalInboundOutcome(
   job: JobRow,
   userId: string,
@@ -2027,10 +2033,22 @@ async function processV2NormalInboundOutcome(
   classification: ReturnType<typeof classifyV2InboundReply>,
   timezone: string,
   splitSuppressedMessageSids: string[] = [],
-  commsPrefsTurn: InboundSmsCommsPreferenceTurnSnapshot | null = null
+  commsPrefsTurn: InboundSmsCommsPreferenceTurnSnapshot | null = null,
+  normalInboundOptions: BlockerPendingNormalInboundOptions | null = null
 ): Promise<void> {
   // 1) Classification is rule-based at call sites; event_type is server-controlled here.
   const { eventType, normalizedHint } = classification;
+  const blockerRouteTelemetryFromGate = normalInboundOptions?.blockerRouteTelemetry ?? null;
+  if (blockerRouteTelemetryFromGate) {
+    console.info("[sms-inbound-coach] blocker_pending_route_decision", {
+      message_sid: job.message_sid,
+      commitment_id: commitment.id,
+      blocker_tu_reused_in_normal_path: Boolean(
+        normalInboundOptions?.precomputedTurnUnderstandingCtx?.didRun
+      ),
+      ...blockerRouteTelemetryFromGate,
+    });
+  }
   const effectiveBehavior = getEffectiveCoachingAsk(commitment);
   const userMessage = (job.raw_body || "").trim();
   const plannedInterruptionDetection = detectSmsPlannedInterruption(userMessage);
@@ -2158,6 +2176,7 @@ async function processV2NormalInboundOutcome(
   const pendingAwaitingMemoryConfirmation = await fetchLatestAwaitingMemoryConfirmation(commitment.id);
 
   let inboundTurnUnderstandingCtx: InboundTurnUnderstandingContext =
+    normalInboundOptions?.precomputedTurnUnderstandingCtx ??
     emptyInboundTurnUnderstandingContext();
 
   let smsConvPackBlock: string | null = null;
@@ -2253,7 +2272,11 @@ async function processV2NormalInboundOutcome(
       northStarPktOpenQuestion.latestOpenQuestion?.trim() ||
       null;
 
-    if (!relationshipExitLaneActiveEarly && !identityEditLaneActiveEarly) {
+    if (
+      !relationshipExitLaneActiveEarly &&
+      !identityEditLaneActiveEarly &&
+      !inboundTurnUnderstandingCtx.didRun
+    ) {
       const turnRoutePriorityEarly = buildInboundMeaningRoutePriorityFromV3BuildArgs({
         rawInbound: userMessage,
         openQuestionFacts:
@@ -9578,6 +9601,105 @@ async function processInboundSmsSafetyShortCircuit(
   return true;
 }
 
+async function runBlockerPendingPreCaptureGate(args: {
+  job: JobRow;
+  userId: string;
+  commitment: ActiveV2CommitmentRow;
+  timezone: string;
+  original: string;
+  classification: ReturnType<typeof classifyV2InboundReply>;
+  lastCoachBody: string;
+  latestOpenQuestion: string | null;
+  proposalAckBypass: ReturnType<typeof shouldBypassBlockerCaptureForProposalAck>;
+}): Promise<{
+  routeDecision: ReturnType<typeof evaluateBlockerPendingRouteDecision>;
+  turnUnderstandingCtx: InboundTurnUnderstandingContext;
+}> {
+  const effectiveBehavior = getEffectiveCoachingAsk(args.commitment);
+  const [recentEvents, memoryPacket] = await Promise.all([
+    getRecentV2EventsForAi(args.commitment.id),
+    buildSmsRelationshipMemoryPacket({
+      clerkUserId: args.userId,
+      commitmentId: args.commitment.id,
+      timezone: args.timezone,
+    }),
+  ]);
+  const slimPacket = slimMemoryPacketForFacts(memoryPacket);
+
+  const latestCheckEv = recentEvents.find((e) => e.event_type === "check_sent");
+  const checkPayload = latestCheckEv?.payload_json ?? {};
+  const lastOutboundSmsPreview =
+    typeof checkPayload.body_preview === "string" && checkPayload.body_preview.trim().length > 0
+      ? checkPayload.body_preview.trim().slice(0, 260)
+      : null;
+
+  const openQ =
+    args.latestOpenQuestion?.trim() || slimPacket.latest_open_question?.trim() || null;
+
+  const turnRoutePriority = buildInboundMeaningRoutePriorityFromV3BuildArgs({
+    rawInbound: args.original,
+    openQuestionFacts:
+      slimPacket.open_question_pending === true && Boolean(openQ) ? { pending: true } : null,
+  });
+
+  const inboundMeaningForGate = buildInboundMeaningFacts({
+    rawInbound: args.original,
+    classifierEventType: args.classification.eventType,
+    classifierNormalizedHint: args.classification.normalizedHint,
+    routePriority: turnRoutePriority,
+    openQuestionPending: slimPacket.open_question_pending === true || Boolean(openQ),
+    latestOpenQuestion: openQ,
+    latestOutboundBody: args.lastCoachBody || lastOutboundSmsPreview,
+  });
+
+  const turnUnderstandingCtx = await runInboundTurnUnderstandingContext({
+    inboundBody: args.original,
+    timezone: args.timezone,
+    receivedAtIso: new Date().toISOString(),
+    classifierEventType: args.classification.eventType,
+    classifierNormalizedHint: args.classification.normalizedHint,
+    interpreterRoutePurpose: "normal_inbound_reply",
+    routePriority: turnRoutePriority,
+    effectiveAsk: effectiveBehavior,
+    behaviorStatement: args.commitment.behavior_statement ?? "",
+    lastCoachOutbound:
+      slimPacket.last_outbound_full_body ?? args.lastCoachBody ?? lastOutboundSmsPreview,
+    latestOpenQuestion: openQ,
+    latestAnswerAfterOpenQuestion: slimPacket.latest_answer_after_open_question ?? null,
+    openQuestionPending: slimPacket.open_question_pending === true || Boolean(openQ),
+    expectedReplySemantics: null,
+    recentThreadExcerpt: args.original.slice(0, 500),
+    temporalContract: buildTemporalContractForInbound({
+      timezone: args.timezone,
+      receivedAt: new Date(),
+      inboundMeaning: inboundMeaningForGate,
+    }),
+    proofCalloutClaimSavedAllowed: false,
+    expectedAnswerType: slimPacket.open_question_expected_answer_type,
+    recentEventsNewestFirst: recentEvents,
+    commitmentTitle: args.commitment.title,
+  });
+
+  const routeDecision = evaluateBlockerPendingRouteDecision({
+    rawInbound: args.original,
+    blockerCapturePendingActive: true,
+    blockerCaptureAfterEvent: args.commitment.blocker_capture_after_event,
+    blockerCaptureExpiresAt: args.commitment.blocker_capture_expires_at,
+    lastCoachBody: args.lastCoachBody,
+    latestOpenQuestion: openQ,
+    blockerClassification: args.classification,
+    turnUnderstandingContext: turnUnderstandingCtx,
+    saca: args.proposalAckBypass.saca,
+    stepEProposalAck: {
+      bypass: args.proposalAckBypass.bypass,
+      reason: args.proposalAckBypass.reason,
+    },
+    inboundRelationshipMeaning: inboundMeaningForGate,
+  });
+
+  return { routeDecision, turnUnderstandingCtx };
+}
+
 async function handleV2SmsInboundCoachJob(
   job: JobRow,
   userId: string,
@@ -9681,24 +9803,6 @@ async function handleV2SmsInboundCoachJob(
     }
 
     const classification = classifyV2InboundReply(original);
-    if (isStrongV2YesNoOutcome(classification.eventType)) {
-      await clearBlockerCapturePending(c.id);
-      const cleared: ActiveV2CommitmentRow = {
-        ...c,
-        blocker_capture_expires_at: null,
-        blocker_capture_after_event: null,
-      };
-      await processV2NormalInboundOutcome(
-        job,
-        userId,
-        cleared,
-        classification,
-        timezone,
-        splitSuppressedMessageSids,
-        commsPrefsTurn
-      );
-      return;
-    }
 
     const { data: blockerBypassLastCtx } = await supabaseServer
       .from("sms_last_outbound_context")
@@ -9714,33 +9818,75 @@ async function handleV2SmsInboundCoachJob(
       latestOpenQuestion: blockerBypassOpenQuestion,
       openQuestionPending: Boolean(blockerBypassOpenQuestion),
     });
-    if (proposalAckBypass.bypass) {
+
+    const { routeDecision, turnUnderstandingCtx: blockerTuCtx } =
+      await runBlockerPendingPreCaptureGate({
+        job,
+        userId,
+        commitment: c,
+        timezone,
+        original,
+        classification,
+        lastCoachBody: blockerBypassLastBody,
+        latestOpenQuestion: blockerBypassOpenQuestion,
+        proposalAckBypass,
+      });
+
+    console.info("[sms-inbound-coach] blocker_pending_pre_capture_gate", {
+      message_sid: job.message_sid,
+      commitment_id: c.id,
+      ...routeDecision.telemetry,
+    });
+
+    if (routeDecision.shouldRunProcessV2BlockerCapture) {
+      await processV2BlockerCapture(job, userId, c, original, timezone);
+      return;
+    }
+
+    let workingCommitment = c;
+    if (routeDecision.shouldClearBlockerPending) {
       await clearBlockerCapturePending(c.id);
-      const cleared: ActiveV2CommitmentRow = {
+      workingCommitment = {
         ...c,
         blocker_capture_expires_at: null,
         blocker_capture_after_event: null,
       };
+    }
+
+    const normalClassification = routeDecision.normalInboundClassificationOverride
+      ? {
+          eventType: routeDecision.normalInboundClassificationOverride.eventType,
+          normalizedHint: routeDecision.normalInboundClassificationOverride.normalizedHint,
+        }
+      : classification;
+
+    if (routeDecision.decision === "proposal_ack") {
       console.info("[sms-inbound-coach] blocker_capture_bypassed_proposal_ack", {
         message_sid: job.message_sid,
         commitment_id: c.id,
         bypass_reason: proposalAckBypass.reason,
         prior_question_type: proposalAckBypass.saca.prior_question_type,
         response_intent_hint: proposalAckBypass.saca.response_intent_hint,
+        blocker_route_decision_source: routeDecision.source,
       });
-      await processV2NormalInboundOutcome(
-        job,
-        userId,
-        cleared,
-        classification,
-        timezone,
-        splitSuppressedMessageSids,
-        commsPrefsTurn
-      );
-      return;
     }
 
-    await processV2BlockerCapture(job, userId, c, original, timezone);
+    await processV2NormalInboundOutcome(
+      job,
+      userId,
+      workingCommitment,
+      normalClassification,
+      timezone,
+      splitSuppressedMessageSids,
+      commsPrefsTurn,
+      {
+        precomputedTurnUnderstandingCtx: blockerTuCtx,
+        blockerRouteTelemetry: {
+          ...routeDecision.telemetry,
+          blocker_pending_tu_reused_in_normal_path: true,
+        },
+      }
+    );
     return;
   }
 

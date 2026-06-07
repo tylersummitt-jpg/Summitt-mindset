@@ -192,7 +192,7 @@ describe("shouldBypassBlockerCaptureForProposalAck — P0 Step E", () => {
 });
 
 describe("blocker-capture route wiring (static)", () => {
-  it("blocker pending branch checks proposal ack bypass before processV2BlockerCapture", async () => {
+  it("blocker pending branch runs TU gate before processV2BlockerCapture", async () => {
     const fs = await import("fs");
     const path = await import("path");
     const route = fs.readFileSync(
@@ -201,13 +201,14 @@ describe("blocker-capture route wiring (static)", () => {
     );
     const start = route.indexOf("if (isBlockerCapturePendingActive(c))");
     expect(start).toBeGreaterThanOrEqual(0);
-    const slice = route.slice(start, start + 3500);
-    expect(slice).toContain("shouldBypassBlockerCaptureForProposalAck");
-    expect(slice).toContain("blocker_capture_bypassed_proposal_ack");
-    expect(slice).toContain("processV2NormalInboundOutcome");
-    const bypassIdx = slice.indexOf("shouldBypassBlockerCaptureForProposalAck");
+    const slice = route.slice(start, start + 5500);
+    expect(slice).toContain("runBlockerPendingPreCaptureGate");
+    expect(slice).toContain("blocker_pending_pre_capture_gate");
+    expect(route).toContain("evaluateBlockerPendingRouteDecision");
+    const gateIdx = slice.indexOf("runBlockerPendingPreCaptureGate");
     const captureIdx = slice.indexOf("processV2BlockerCapture");
-    expect(bypassIdx).toBeGreaterThanOrEqual(0);
-    expect(captureIdx).toBeGreaterThan(bypassIdx);
+    expect(gateIdx).toBeGreaterThanOrEqual(0);
+    expect(captureIdx).toBeGreaterThan(gateIdx);
+    expect(slice).not.toContain("isStrongV2YesNoOutcome");
   });
 });
