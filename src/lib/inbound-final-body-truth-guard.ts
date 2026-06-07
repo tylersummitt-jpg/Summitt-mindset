@@ -15,6 +15,11 @@ import {
   type InboundFinalBodyTurnUnderstandingGuardResult,
   type InboundTurnUnderstandingContext,
 } from "@/lib/inbound-turn-understanding-context";
+import {
+  applyPrematureAdjustmentProposalGuard,
+  type MissAdjustmentPolicyResult,
+  PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND,
+} from "@/lib/inbound-miss-adjustment-policy";
 import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 
 export const UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND =
@@ -37,6 +42,8 @@ export type OutcomeClaimEvidenceBundle = {
   turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
   persistedOutcomeThisTurn?: "user_yes" | "user_no" | "user_partial" | null;
   willPersistOutcomeThisTurn?: boolean;
+  missAdjustmentPolicy?: MissAdjustmentPolicyResult | null;
+  finalEventType?: string | null;
 };
 
 const COMPLETION_CLAIM_RE =
@@ -231,6 +238,7 @@ export type InboundCoachFinalBodyGuardsResult = {
   shouldSend: boolean;
   noSendReason: string | null;
   tuGuard: InboundFinalBodyTurnUnderstandingGuardResult;
+  prematureAdjustmentGuard: import("@/lib/inbound-miss-adjustment-policy").PrematureAdjustmentProposalGuardResult | null;
   truthGuard: InboundFinalBodyTruthGuardResult | null;
 };
 
@@ -264,12 +272,36 @@ export async function applyInboundCoachFinalBodyGuards(args: {
       shouldSend: false,
       noSendReason: tuGuard.noSendReason,
       tuGuard,
+      prematureAdjustmentGuard: null,
+      truthGuard: null,
+    };
+  }
+
+  const prematureAdjustmentGuard = await applyPrematureAdjustmentProposalGuard({
+    body: tuGuard.body,
+    policy: args.evidence.missAdjustmentPolicy,
+    inboundMeaning: args.evidence.inboundMeaning,
+    finalEventType: args.evidence.finalEventType ?? null,
+    routePurpose: args.routePurpose,
+    factsJson: args.factsJson,
+    repairSnapshot: args.repairSnapshot,
+    stage: "post_turn_understanding_premature_adjustment",
+  });
+
+  if (!prematureAdjustmentGuard.shouldSend) {
+    return {
+      body: prematureAdjustmentGuard.body,
+      shouldSend: false,
+      noSendReason:
+        prematureAdjustmentGuard.noSendReason ?? PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND,
+      tuGuard,
+      prematureAdjustmentGuard,
       truthGuard: null,
     };
   }
 
   const truthGuard = await applyInboundFinalBodyTruthGuard({
-    body: tuGuard.body,
+    body: prematureAdjustmentGuard.body,
     evidence: args.evidence,
     stage: "post_turn_understanding_guard",
     routePurpose: args.routePurpose,
@@ -282,6 +314,7 @@ export async function applyInboundCoachFinalBodyGuards(args: {
     shouldSend: truthGuard.shouldSend,
     noSendReason: truthGuard.noSendReason,
     tuGuard,
+    prematureAdjustmentGuard,
     truthGuard,
   };
 }

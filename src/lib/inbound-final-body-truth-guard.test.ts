@@ -12,6 +12,10 @@ import {
   evidenceAllowsOutcomeClaim,
 } from "@/lib/inbound-final-body-truth-guard";
 import {
+  deriveAdjustmentProposalAllowedByEvidence,
+  PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND,
+} from "@/lib/inbound-miss-adjustment-policy";
+import {
   emptyInboundTurnUnderstandingContext,
   paraphraseRepeatsStaleCoachAsk,
 } from "@/lib/inbound-turn-understanding-context";
@@ -263,5 +267,142 @@ describe("detectUnsupportedAccountabilityClaimInOutbound", () => {
         rawInbound: "Yes",
       })
     ).toBeNull();
+  });
+});
+
+describe("applyInboundCoachFinalBodyGuards premature adjustment (Step C)", () => {
+  beforeEach(() => {
+    repairMock.mockReset();
+  });
+
+  const missRaw = "I did not hit my goal yesterday";
+  const missMeaning = buildInboundMeaningFacts({
+    rawInbound: missRaw,
+    classifierEventType: "user_partial",
+  });
+  const singleMissPolicy = deriveAdjustmentProposalAllowedByEvidence({
+    inboundMeaning: missMeaning,
+    inboundRaw: missRaw,
+    finalEventType: "user_partial",
+    eventsNewestFirst: [],
+  });
+
+  it("Q: explicit miss + premature proposal + no evidence → repair then no-send if still bad", async () => {
+    const badBody =
+      "I see you didn't hit your goal yesterday; let's adjust our approach. How does committing to one hour of distribution per day sound?";
+    repairMock.mockResolvedValueOnce({
+      body: "How does committing to one hour of distribution per day sound?",
+      openAiOk: true,
+      metadata: {},
+    });
+
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: badBody,
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      evidence: {
+        rawInbound: missRaw,
+        inboundMeaning: missMeaning,
+        missAdjustmentPolicy: singleMissPolicy,
+        finalEventType: "user_partial",
+      },
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe(PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND);
+    expect(r.prematureAdjustmentGuard?.metadata.premature_adjustment_proposal_repair_attempted).toBe(
+      true
+    );
+  });
+
+  it("Q2: repair to recovery question → allowed send", async () => {
+    const badBody =
+      "Let's adjust our approach. How does committing to one hour of distribution per day sound?";
+    repairMock.mockResolvedValueOnce({
+      body: "What got in the way yesterday?",
+      openAiOk: true,
+      metadata: {},
+    });
+
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: badBody,
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      evidence: {
+        rawInbound: missRaw,
+        inboundMeaning: missMeaning,
+        missAdjustmentPolicy: singleMissPolicy,
+        finalEventType: "user_partial",
+      },
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe("What got in the way yesterday?");
+    expect(r.prematureAdjustmentGuard?.metadata.premature_adjustment_proposal_repair_succeeded).toBe(
+      true
+    );
+  });
+
+  it("R: premature repair that introduces fake completion → OCEG still blocks", async () => {
+    repairMock
+      .mockResolvedValueOnce({
+        body: "Great to hear you got your steps in today!",
+        openAiOk: true,
+        metadata: {},
+      })
+      .mockResolvedValueOnce({
+        body: "What got in the way yesterday?",
+        openAiOk: true,
+        metadata: {},
+      });
+
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "How does committing to one hour per day sound?",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      evidence: {
+        rawInbound: missRaw,
+        inboundMeaning: missMeaning,
+        missAdjustmentPolicy: singleMissPolicy,
+        finalEventType: "user_partial",
+      },
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe("What got in the way yesterday?");
+    expect(r.truthGuard?.metadata.unsupported_accountability_claim_repair_succeeded).toBe(true);
+  });
+
+  it("S: reflective adjust phrasing on miss turn → allowed", async () => {
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "Let's understand what got in the way before changing anything.",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      evidence: {
+        rawInbound: missRaw,
+        inboundMeaning: missMeaning,
+        missAdjustmentPolicy: singleMissPolicy,
+        finalEventType: "user_partial",
+      },
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(repairMock).not.toHaveBeenCalled();
+    expect(r.prematureAdjustmentGuard?.metadata.premature_adjustment_proposal_violation_detected).toBe(
+      false
+    );
+  });
+
+  it("Step A regression: what led to that still allowed on miss turn", async () => {
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "What led to that?",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      evidence: {
+        rawInbound: missRaw,
+        inboundMeaning: missMeaning,
+        missAdjustmentPolicy: singleMissPolicy,
+        finalEventType: "user_partial",
+      },
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe("What led to that?");
   });
 });

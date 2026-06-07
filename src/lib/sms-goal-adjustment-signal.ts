@@ -426,6 +426,8 @@ export function smsGoalAdjustmentShrinkOverlayEligible(
 export function buildSmsGoalAdjustmentLaneGuardrails(): string {
   return `
 GOAL_ADJUSTMENT (when goal_adjustment_* present): background ladder guidance only — not permission to mutate.
+- When goal_adjustment_mention_allowed is false, do NOT propose changing the commitment or offer a new commitment target.
+- After a miss, ask what got in the way or what blocked the plan before any adjustment language.
 - Do not say the goal changed unless existing server state already shows it changed.
 - Mutating moves require user confirmation through existing flows (overlay YES/NO, pending resolution, guided app).
 - If goal_adjustment_move is pause_cadence, do not shame planned interruption as failure.

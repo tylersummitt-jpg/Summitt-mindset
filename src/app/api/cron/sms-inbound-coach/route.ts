@@ -237,6 +237,7 @@ import {
   applyInboundCoachFinalBodyGuards,
   type OutcomeClaimEvidenceBundle,
 } from "@/lib/inbound-final-body-truth-guard";
+import type { MissAdjustmentPolicyResult } from "@/lib/inbound-miss-adjustment-policy";
 import {
   extractLatestCoachQuestionFromOutboundBody,
   shouldBypassBlockerCaptureForProposalAck,
@@ -1592,6 +1593,8 @@ function buildInboundOutcomeClaimEvidence(args: {
   inboundTurnUnderstandingCtx?: InboundTurnUnderstandingContext | null;
   willPersistOutcomeThisTurn?: boolean;
   persistedOutcomeThisTurn?: "user_yes" | "user_no" | "user_partial" | null;
+  missAdjustmentPolicy?: MissAdjustmentPolicyResult | null;
+  finalEventType?: string | null;
 }): OutcomeClaimEvidenceBundle {
   const shortAnswerContext = resolveShortAnswerContextAuthority({
     rawInbound: args.userMessage,
@@ -1618,6 +1621,8 @@ function buildInboundOutcomeClaimEvidence(args: {
     turnUnderstandingReconciled: args.inboundTurnUnderstandingCtx?.reconciled ?? null,
     persistedOutcomeThisTurn: args.persistedOutcomeThisTurn ?? null,
     willPersistOutcomeThisTurn: args.willPersistOutcomeThisTurn ?? false,
+    missAdjustmentPolicy: args.missAdjustmentPolicy ?? null,
+    finalEventType: args.finalEventType ?? null,
   };
 }
 
@@ -4644,6 +4649,7 @@ async function processV2NormalInboundOutcome(
   }
 
   let inboundRelationshipLane: InboundV3RelationshipLaneResult | null = null;
+  let mainInboundMissAdjustmentPolicy: MissAdjustmentPolicyResult | null = null;
   if (normalInboundV3OwnershipEligible) {
     const forcedCoachSmsForFacts =
       conversationBrainControlTurn == null
@@ -4936,7 +4942,9 @@ async function processV2NormalInboundOutcome(
       ...(inboundTurnUnderstandingCtx.reconciled != null
         ? { turnUnderstandingReconciled: inboundTurnUnderstandingCtx.reconciled }
         : {}),
+      eventsNewestFirst: recentEvents,
     });
+    mainInboundMissAdjustmentPolicy = inboundFacts.miss_adjustment_policy ?? null;
     inboundCoachingBriefV1Log = compactCoachingBriefV1ForV3Brain(
       buildCoachingBriefV1FromInboundFacts(inboundFacts)
     );
@@ -5842,6 +5850,8 @@ async function processV2NormalInboundOutcome(
         "write_user_no" ||
       inboundTurnUnderstandingCtx.inboundMeaningForPersist?.persistence_decision ===
         "write_user_partial",
+    missAdjustmentPolicy: mainInboundMissAdjustmentPolicy,
+    finalEventType: resolved.meta.final_event_type ?? eventType,
   });
   const finalGuardsMain = await applyInboundCoachFinalBodyGuards({
     body: finalReplyBody,

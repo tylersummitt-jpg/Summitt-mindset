@@ -75,6 +75,11 @@ export type RelationshipPacketCurrentTurn = {
   strong_week?: boolean;
   reason_for_send?: string | null;
   temporal_contract?: TemporalContractV1 | null;
+  suggested_coaching_move?: string | null;
+  adjustment_proposal_allowed_by_evidence?: boolean | null;
+  single_miss_recovery_required?: boolean | null;
+  adjustment_evidence_reason?: string | null;
+  goal_adjustment_mention_allowed?: boolean | null;
 };
 
 export type RelationshipPacketTurnUnderstandingSection = {
@@ -318,6 +323,20 @@ function buildCurrentTurnInbound(f: InboundV3RelationshipFacts): RelationshipPac
       f.thread.suppressed_message_sids.length > 0 ? f.thread.suppressed_message_sids : undefined,
     timezone: f.user.timezone,
     temporal_contract: f.temporal_contract ?? null,
+    suggested_coaching_move: f.suggested_coaching_move?.trim() || null,
+    adjustment_proposal_allowed_by_evidence:
+      f.miss_adjustment_policy?.adjustment_proposal_allowed_by_evidence ??
+      f.v2_accountability.adjustment_proposal_allowed_by_evidence ??
+      null,
+    single_miss_recovery_required:
+      f.miss_adjustment_policy?.single_miss_recovery_required ??
+      f.v2_accountability.single_miss_recovery_required ??
+      null,
+    adjustment_evidence_reason:
+      f.miss_adjustment_policy?.adjustment_evidence_reason ??
+      f.v2_accountability.adjustment_evidence_reason ??
+      null,
+    goal_adjustment_mention_allowed: f.v2_accountability.goal_adjustment_mention_allowed ?? null,
   };
 }
 

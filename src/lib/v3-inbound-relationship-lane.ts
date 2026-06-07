@@ -105,6 +105,14 @@ import {
   paraphraseRepeatsStaleCoachAsk,
   tryRepairInboundStaleAskViolation,
 } from "@/lib/inbound-turn-understanding-context";
+import {
+  buildSingleMissRecoveryLaneGuardrails,
+  buildSingleMissRecoveryRequiredMeaningSummary,
+  deriveAdjustmentProposalAllowedByEvidence,
+  type MissAdjustmentPolicyResult,
+} from "@/lib/inbound-miss-adjustment-policy";
+import { isV2PendingProposalValid } from "@/lib/v2-adaptive-contract";
+import type { V2EventRowForAi } from "@/lib/v2-commitment";
 
 const INBOUND_LANE_MAX_CHARS = 320;
 
@@ -1111,6 +1119,9 @@ export type InboundV3RelationshipFacts = {
     goal_adjustment_internal_hint?: string | null;
     goal_adjustment_requires_confirmation?: boolean;
     goal_adjustment_compatible_flow?: string | null;
+    adjustment_proposal_allowed_by_evidence?: boolean;
+    single_miss_recovery_required?: boolean;
+    adjustment_evidence_reason?: string | null;
     proof_callout_hint?: InboundV3ProofCalloutHint | null;
   };
   legacy_suggestions: {
@@ -1136,6 +1147,8 @@ export type InboundV3RelationshipFacts = {
   suggested_coaching_move: string;
   /** How suggested_coaching_move was chosen (telemetry). */
   coaching_move_source?: InboundCoachingMoveSource;
+  /** P0 Step C — server-owned miss/adjustment policy for writer + final guard. */
+  miss_adjustment_policy?: MissAdjustmentPolicyResult;
   /** True when legacy fallback move existed but authoritative TU owned the move. */
   conversation_brain_fallback_suppressed_by_turn_understanding?: boolean;
   constraints: {
@@ -2213,7 +2226,7 @@ ${buildRelationshipPacketPromptGuidance()}
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
-${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
+${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildSingleMissRecoveryLaneGuardrails(args.facts.miss_adjustment_policy)}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -2730,6 +2743,7 @@ export type BuildInboundV3RelationshipFactsArgs = {
   identityEditFacts?: InboundV3IdentityEditFacts | null;
   priorMemoryRepeatNoSend?: InboundPriorMemoryRepeatNoSendContext | null;
   turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
+  eventsNewestFirst?: V2EventRowForAi[];
 };
 
 /** Optional Victory / proof mention — V3-owned; no deterministic post-FVG append. */
@@ -2833,6 +2847,37 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     turnReconciled != null
       ? { ...inboundMeaning, persistence_decision: persistenceForFacts }
       : inboundMeaning;
+
+  const reconciledFinalEventType = reconcileLegacyAccountabilityEventTypeFromMeaning({
+    inboundMeaning: effectiveInboundMeaning,
+    gatedFinalEventType: args.gatedDecision.final_event_type ?? null,
+  });
+
+  const missAdjustmentPolicy = deriveAdjustmentProposalAllowedByEvidence({
+    inboundMeaning: effectiveInboundMeaning,
+    inboundRaw: args.coalescedInboundText,
+    finalEventType: reconciledFinalEventType,
+    routePurpose,
+    goalAdjustmentSignal: args.goalAdjustmentSignal ?? null,
+    patternSignal: args.patternSignal ?? null,
+    eventsNewestFirst: args.eventsNewestFirst,
+    adaptiveProposalPending: isV2PendingProposalValid(args.commitment),
+    pendingResolutionActive:
+      Boolean(args.pendingResolutionFacts) ||
+      pendingReplacementFromCommitment?.pending_resolution_active === true,
+    commitmentChangeRouteActive: Boolean(
+      args.commitmentChangeFacts ||
+        args.adaptiveConsentClarificationFacts ||
+        args.contractConsentFacts
+    ),
+  });
+
+  const singleMissRecoveryMeaning =
+    buildSingleMissRecoveryRequiredMeaningSummary(missAdjustmentPolicy);
+  const reqMeanMerged =
+    reqMeanRaw && singleMissRecoveryMeaning
+      ? `${reqMeanRaw} ${singleMissRecoveryMeaning}`
+      : reqMeanRaw ?? singleMissRecoveryMeaning;
 
   const facts: InboundV3RelationshipFacts = {
     route_purpose: routePurpose,
@@ -2961,10 +3006,7 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     v2_accountability: {
       deterministic_classifier_event: args.deterministicEventType,
       gated_mode: args.gatedDecision.mode,
-      final_event_type: reconcileLegacyAccountabilityEventTypeFromMeaning({
-        inboundMeaning: effectiveInboundMeaning,
-        gatedFinalEventType: args.gatedDecision.final_event_type ?? null,
-      }),
+      final_event_type: reconciledFinalEventType,
       should_write_outcome_event:
         persistenceForFacts === "write_user_yes_today" ||
         persistenceForFacts === "write_user_no" ||
@@ -2999,6 +3041,10 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
           }
         : {}),
       ...(args.proofCalloutHint ? { proof_callout_hint: args.proofCalloutHint } : {}),
+      adjustment_proposal_allowed_by_evidence:
+        missAdjustmentPolicy.adjustment_proposal_allowed_by_evidence,
+      single_miss_recovery_required: missAdjustmentPolicy.single_miss_recovery_required,
+      adjustment_evidence_reason: missAdjustmentPolicy.adjustment_evidence_reason,
       ...((args.relationshipExitFacts || args.identityEditFacts)
         ? {
             proof_signal: false,
@@ -3014,6 +3060,7 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       : {}),
     inbound_meaning: effectiveInboundMeaning,
     ...(turnReconciled ? { turn_understanding: turnReconciled } : {}),
+    miss_adjustment_policy: missAdjustmentPolicy,
     legacy_suggestions: {
       conversation_brain: args.conversationBrain,
       central_brain: args.centralBrain,
@@ -3041,8 +3088,8 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
   if (reqVerb.length > 0) {
     facts.constraints.required_verbatim_substrings = reqVerb;
   }
-  if (reqMeanRaw) {
-    facts.constraints.required_meaning_summary = reqMeanRaw;
+  if (reqMeanMerged) {
+    facts.constraints.required_meaning_summary = reqMeanMerged;
   }
   if (threadMemory.memory_correction_should_use_prior_user_answer) {
     const cq = threadMemory.most_recent_coach_question?.trim();

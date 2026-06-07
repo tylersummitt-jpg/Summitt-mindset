@@ -2656,3 +2656,142 @@ describe("coaching move — authoritative TU vs conversation_brain_fallback", ()
     expect(facts.conversation_brain_fallback_suppressed_by_turn_understanding).toBe(true);
   });
 });
+
+describe("Step C single-miss adjustment policy facts", () => {
+  it("L: single miss facts include recovery policy and blocker-first guardrails", () => {
+    const missBody = "I did not hit my goal yesterday";
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-07T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "One hour distribution per day",
+      userMessageRaw: missBody,
+      coalescedInboundText: missBody,
+      suppressedMessageSids: ["SM_miss"],
+      transcriptLines: [`User: ${missBody}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "How did distribution go yesterday?",
+        latestOpenQuestion: null,
+        expectedReplySemantics: "yes_no",
+        proofSignal: false,
+        missSignal: true,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: {
+        ...baseGatedDecision(),
+        final_event_type: "user_partial",
+        mode: "use_deterministic",
+      },
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      eventsNewestFirst: [],
+      goalAdjustmentSignal: {
+        move: "keep",
+        confidence: "low",
+        mentionAllowed: false,
+        internalHint: null,
+        requiresUserConfirmation: false,
+        compatibleFlow: "none",
+        doNotRepeatKey: null,
+      },
+    });
+
+    expect(facts.miss_adjustment_policy?.adjustment_proposal_allowed_by_evidence).toBe(false);
+    expect(facts.miss_adjustment_policy?.single_miss_recovery_required).toBe(true);
+    expect(facts.v2_accountability.adjustment_proposal_allowed_by_evidence).toBe(false);
+    expect(facts.v2_accountability.single_miss_recovery_required).toBe(true);
+    expect(facts.constraints.required_meaning_summary).toMatch(/what got in the way/i);
+
+    const { packet } = buildRelationshipPacketForOpenAI({ lane: "inbound", sourceFacts: facts });
+    expect(packet.current_turn.data.single_miss_recovery_required).toBe(true);
+    expect(packet.current_turn.data.adjustment_proposal_allowed_by_evidence).toBe(false);
+    expect(packet.current_turn.data.goal_adjustment_mention_allowed).toBe(false);
+  });
+
+  it("M: system prompt guardrails include single-miss recovery when policy requires", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    createMock.mockReset();
+    const missBody = "I did not hit my goal yesterday";
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-07T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "One hour distribution per day",
+      userMessageRaw: missBody,
+      coalescedInboundText: missBody,
+      suppressedMessageSids: ["SM_miss2"],
+      transcriptLines: [`User: ${missBody}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "How did distribution go?",
+        latestOpenQuestion: null,
+        expectedReplySemantics: "yes_no",
+        proofSignal: false,
+        missSignal: true,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_partial" },
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      eventsNewestFirst: [],
+    });
+
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "What got in the way yesterday?",
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    const systemPrompt = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemPrompt).toMatch(/SINGLE_MISS_RECOVERY/i);
+    expect(systemPrompt).toMatch(/adjustment_proposal_allowed_by_evidence is false/i);
+  });
+});
