@@ -80,7 +80,7 @@ export type ResolveShortAnswerContextAuthorityArgs = {
 };
 
 const PLAN_CONFIRMATION_QUESTION_RE =
-  /\b(let me know if that works|would you like to adjust|does (this|that|it) work|how does\b.*\bfeel\b|stay(ing)? committed\b|for the next \d+ days\b|next week\b|ready to continue\b|are you (ok|okay) with)\b/i;
+  /\b(let me know if that works|would you like to adjust|does (this|that|it) work|how does\b.*\b(sound|feel)\b|how do you feel about committing|does (this|that|it) adjustment work|should we adjust|what do you think about committing|committing to\b|stay(ing)? committed\b|for the next \d+ days\b|next week\b|ready to continue\b|are you (ok|okay) with|adjust our approach)\b/i;
 
 const OUTCOME_CHECK_QUESTION_RE =
   /\b(did you\b.*\b(today|this morning|tonight)\b|did you\b.*\b(get|do|complete|finish|protect|hit|follow through|follow-through)\b|did you\b.*\bbefore your\b|were you able to\b.*\b(today|get|do)\b|did the\b.*\b(happen|get done)\b.*\btoday\b|did you get your\b|what happened with\b.*\b(plan|block|appointment)\b)/i;
@@ -122,13 +122,19 @@ export function isShortContextualAnswer(raw: string): boolean {
   return detectShortAnswerPolarity(raw) !== "not_applicable";
 }
 
+function isProposalAckOnlyToken(raw: string): boolean {
+  const core = normCore(raw);
+  return /^(good|fine|great)$/.test(core);
+}
+
 export function isBoundedPlanConfirmationAnswer(raw: string): boolean {
   const core = normCore(raw);
   if (!core || core.length > 32) return false;
   if (/^(yes|y|yeah|yep|yup|no|n|nope|nah)$/.test(core)) return true;
   if (/^(sure|ok|okay)$/.test(core)) return true;
   if (/^sounds good$/.test(core)) return true;
-  if (/^(that works|that works for me)$/.test(core)) return true;
+  if (/^(good|fine|great)$/.test(core)) return true;
+  if (/^(that works|that works for me|works for me)$/.test(core)) return true;
   return false;
 }
 
@@ -214,8 +220,9 @@ export function resolveShortAnswerContextAuthority(
   const explicitMiss = inboundHasExplicitMissClause(raw);
   const explicitPartial = inboundHasExplicitPartialClause(raw);
   const hasExplicitOutcome = explicitCompletion || explicitMiss || explicitPartial;
+  const boundedPlanAck = isBoundedPlanConfirmationAnswer(raw);
 
-  if (polarity === "not_applicable" && !hasExplicitOutcome) {
+  if (polarity === "not_applicable" && !hasExplicitOutcome && !boundedPlanAck) {
     return {
       is_short_contextual_answer: false,
       short_answer_polarity: "not_applicable",
@@ -240,7 +247,9 @@ export function resolveShortAnswerContextAuthority(
 
   const { hasLive, freshEnough } = resolvePromptFreshness(args);
   const isShort =
-    polarity !== "not_applicable" || detectShortAnswerPartialLanguage(raw);
+    polarity !== "not_applicable" ||
+    detectShortAnswerPartialLanguage(raw) ||
+    boundedPlanAck;
 
   let outcomeProofEligible = false;
   let allowedPersistence: InboundPersistenceDecision = "no_outcome_write";
@@ -268,8 +277,10 @@ export function resolveShortAnswerContextAuthority(
     reason = "explicit_miss_clause";
   } else if (priorType === "outcome_check" && hasLive && freshEnough && isShort) {
     const disqualifier = shortAnswerDisqualifiesOutcomeProof(raw, normalizedMeta.normalized);
-    if (disqualifier.disqualified) {
-      reason = `short_answer_disqualified:${disqualifier.reason ?? "unknown"}`;
+    if (disqualifier.disqualified || isProposalAckOnlyToken(raw)) {
+      reason = isProposalAckOnlyToken(raw)
+        ? "proposal_ack_token_not_outcome_proof"
+        : `short_answer_disqualified:${disqualifier.reason ?? "unknown"}`;
       intent = "unclear_clarify";
     } else if (polarity === "affirm") {
       outcomeProofEligible = true;
@@ -310,10 +321,11 @@ export function resolveShortAnswerContextAuthority(
       reason = `short_answer_disqualified:${disqualifier.reason ?? "unknown"}`;
       intent = "unclear_clarify";
     }
-  } else if (priorType === "plan_confirmation" && isShort) {
-    if (polarity === "affirm") {
+  } else if (priorType === "plan_confirmation" && (isShort || boundedPlanAck)) {
+    if (polarity === "affirm" || boundedPlanAck) {
       intent = "acknowledge_plan_confirmation";
-      reason = "short_affirm_plan_confirmation";
+      reason =
+        polarity === "affirm" ? "short_affirm_plan_confirmation" : "bounded_proposal_ack_plan_confirmation";
     } else if (polarity === "deny") {
       intent = "clarify_adjustment";
       reason = "short_deny_plan_adjustment";

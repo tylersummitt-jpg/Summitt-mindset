@@ -157,6 +157,51 @@ describe("resolveShortAnswerContextAuthority", () => {
     expect(r.prior_question_type).toBe("plan_confirmation");
     expect(r.outcome_proof_eligible).toBe(false);
   });
+
+  it("P0-E: Good to adjustment sound proposal — plan confirmation, no outcome", () => {
+    const adjustmentQ = "How does committing to one hour of distribution per day sound?";
+    const r = saca("Good", adjustmentQ, { openQuestionPending: true });
+    expect(r.prior_question_type).toBe("plan_confirmation");
+    expect(r.outcome_proof_eligible).toBe(false);
+    expect(r.allowed_persistence).toBe("no_outcome_write");
+    expect(r.response_intent_hint).toBe("acknowledge_plan_confirmation");
+  });
+
+  describe("P0-E hardening — good/fine/great proposal-ack only", () => {
+    const ADJUSTMENT_Q = "How does committing to one hour of distribution per day sound?";
+
+    it.each(["Good", "Fine", "Great"] as const)(
+      "proposal + %s → plan ack, no outcome write",
+      (phrase) => {
+        const r = saca(phrase, ADJUSTMENT_Q, { openQuestionPending: true });
+        expect(r.prior_question_type).toBe("plan_confirmation");
+        expect(r.outcome_proof_eligible).toBe(false);
+        expect(r.allowed_persistence).toBe("no_outcome_write");
+        expect(r.response_intent_hint).toBe("acknowledge_plan_confirmation");
+      }
+    );
+
+    it.each(["Good", "Fine", "Great"] as const)(
+      "outcome-check + %s → no user_yes",
+      (phrase) => {
+        const r = saca(phrase, OUTCOME_Q, {
+          expectedReplySemantics: "accountability_check",
+          openQuestionPending: true,
+          recentEventsNewestFirst: recentCheckSent(),
+        });
+        expect(r.prior_question_type).toBe("outcome_check");
+        expect(r.outcome_proof_eligible).toBe(false);
+        expect(r.allowed_persistence).toBe("no_outcome_write");
+        expect(r.response_intent_hint).toBe("unclear_clarify");
+      }
+    );
+
+    it.each(["Good", "Fine", "Great"] as const)("contextless %s → no user_yes", (phrase) => {
+      const r = saca(phrase, "", { openQuestionPending: false });
+      expect(r.outcome_proof_eligible).toBe(false);
+      expect(r.allowed_persistence).toBe("no_outcome_write");
+    });
+  });
 });
 
 describe("buildInboundMeaningFacts integration", () => {

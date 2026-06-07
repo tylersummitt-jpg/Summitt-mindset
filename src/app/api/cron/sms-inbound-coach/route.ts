@@ -238,8 +238,11 @@ import {
   type OutcomeClaimEvidenceBundle,
 } from "@/lib/inbound-final-body-truth-guard";
 import {
+  extractLatestCoachQuestionFromOutboundBody,
+  shouldBypassBlockerCaptureForProposalAck,
+} from "@/lib/blocker-capture-proposal-ack-bypass";
+import {
   resolveShortAnswerContextAuthority,
-  type ShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
 import { buildExplicitOutcomeBeforeNoSendTelemetry } from "@/lib/inbound-reply-no-send-outcome-persist";
 import { insertInboundTurnTelemetryBestEffort } from "@/lib/inbound-turn-telemetry";
@@ -9197,6 +9200,46 @@ async function handleV2SmsInboundCoachJob(
         blocker_capture_expires_at: null,
         blocker_capture_after_event: null,
       };
+      await processV2NormalInboundOutcome(
+        job,
+        userId,
+        cleared,
+        classification,
+        timezone,
+        splitSuppressedMessageSids,
+        commsPrefsTurn
+      );
+      return;
+    }
+
+    const { data: blockerBypassLastCtx } = await supabaseServer
+      .from("sms_last_outbound_context")
+      .select("full_body")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+    const blockerBypassLastBody =
+      typeof blockerBypassLastCtx?.full_body === "string" ? blockerBypassLastCtx.full_body.trim() : "";
+    const blockerBypassOpenQuestion = extractLatestCoachQuestionFromOutboundBody(blockerBypassLastBody);
+    const proposalAckBypass = shouldBypassBlockerCaptureForProposalAck({
+      rawInbound: original,
+      latestOutboundBody: blockerBypassLastBody || null,
+      latestOpenQuestion: blockerBypassOpenQuestion,
+      openQuestionPending: Boolean(blockerBypassOpenQuestion),
+    });
+    if (proposalAckBypass.bypass) {
+      await clearBlockerCapturePending(c.id);
+      const cleared: ActiveV2CommitmentRow = {
+        ...c,
+        blocker_capture_expires_at: null,
+        blocker_capture_after_event: null,
+      };
+      console.info("[sms-inbound-coach] blocker_capture_bypassed_proposal_ack", {
+        message_sid: job.message_sid,
+        commitment_id: c.id,
+        bypass_reason: proposalAckBypass.reason,
+        prior_question_type: proposalAckBypass.saca.prior_question_type,
+        response_intent_hint: proposalAckBypass.saca.response_intent_hint,
+      });
       await processV2NormalInboundOutcome(
         job,
         userId,
