@@ -20,6 +20,10 @@ import {
   type MissAdjustmentPolicyResult,
   PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND,
 } from "@/lib/inbound-miss-adjustment-policy";
+import {
+  applyRapidNearDuplicateCoachReplyGuard,
+  RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+} from "@/lib/inbound-near-duplicate-reply-policy";
 import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 
 export const UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND =
@@ -44,6 +48,8 @@ export type OutcomeClaimEvidenceBundle = {
   willPersistOutcomeThisTurn?: boolean;
   missAdjustmentPolicy?: MissAdjustmentPolicyResult | null;
   finalEventType?: string | null;
+  priorCoachBody?: string | null;
+  priorCoachSentAt?: string | null;
 };
 
 const COMPLETION_CLAIM_RE =
@@ -240,6 +246,7 @@ export type InboundCoachFinalBodyGuardsResult = {
   tuGuard: InboundFinalBodyTurnUnderstandingGuardResult;
   prematureAdjustmentGuard: import("@/lib/inbound-miss-adjustment-policy").PrematureAdjustmentProposalGuardResult | null;
   truthGuard: InboundFinalBodyTruthGuardResult | null;
+  nearDuplicateGuard: import("@/lib/inbound-near-duplicate-reply-policy").RapidNearDuplicateCoachReplyGuardResult | null;
 };
 
 export async function applyInboundCoachFinalBodyGuards(args: {
@@ -252,6 +259,8 @@ export async function applyInboundCoachFinalBodyGuards(args: {
   repairSnapshot?: ApplyInboundFinalBodyTruthGuardArgs["repairSnapshot"];
   stage?: string;
   routePurpose?: string;
+  /** Test hook — defaults to Date.now() in near-duplicate recency checks. */
+  nowMs?: number;
 }): Promise<InboundCoachFinalBodyGuardsResult> {
   const tuGuard = await applyInboundFinalBodyTurnUnderstandingGuardAsync({
     body: args.body,
@@ -274,6 +283,7 @@ export async function applyInboundCoachFinalBodyGuards(args: {
       tuGuard,
       prematureAdjustmentGuard: null,
       truthGuard: null,
+      nearDuplicateGuard: null,
     };
   }
 
@@ -297,6 +307,7 @@ export async function applyInboundCoachFinalBodyGuards(args: {
       tuGuard,
       prematureAdjustmentGuard,
       truthGuard: null,
+      nearDuplicateGuard: null,
     };
   }
 
@@ -309,12 +320,80 @@ export async function applyInboundCoachFinalBodyGuards(args: {
     repairSnapshot: args.repairSnapshot,
   });
 
-  return {
+  if (!truthGuard.shouldSend) {
+    return {
+      body: truthGuard.body,
+      shouldSend: false,
+      noSendReason: truthGuard.noSendReason,
+      tuGuard,
+      prematureAdjustmentGuard,
+      truthGuard,
+      nearDuplicateGuard: null,
+    };
+  }
+
+  const nearDuplicateGuard = await applyRapidNearDuplicateCoachReplyGuard({
     body: truthGuard.body,
-    shouldSend: truthGuard.shouldSend,
-    noSendReason: truthGuard.noSendReason,
+    priorCoachBody: args.evidence.priorCoachBody ?? args.lastCoachOutbound ?? null,
+    priorCoachSentAt: args.evidence.priorCoachSentAt ?? null,
+    inboundRaw: args.evidence.rawInbound,
+    nowMs: args.nowMs,
+    routePurpose: args.routePurpose,
+    factsJson: args.factsJson,
+    repairSnapshot: args.repairSnapshot,
+    stage: "post_oceg_near_duplicate",
+  });
+
+  if (!nearDuplicateGuard.shouldSend) {
+    return {
+      body: nearDuplicateGuard.body,
+      shouldSend: false,
+      noSendReason: nearDuplicateGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+      tuGuard,
+      prematureAdjustmentGuard,
+      truthGuard,
+      nearDuplicateGuard,
+    };
+  }
+
+  let finalBody = nearDuplicateGuard.body;
+  let finalTruthGuard = truthGuard;
+
+  const postNearDupOcegViolation = detectUnsupportedAccountabilityClaimInOutbound(
+    finalBody,
+    args.evidence
+  );
+  if (postNearDupOcegViolation) {
+    const truthRecheck = await applyInboundFinalBodyTruthGuard({
+      body: finalBody,
+      evidence: args.evidence,
+      stage: "post_near_duplicate_oceg_recheck",
+      routePurpose: args.routePurpose,
+      factsJson: args.factsJson,
+      repairSnapshot: args.repairSnapshot,
+    });
+    finalTruthGuard = truthRecheck;
+    if (!truthRecheck.shouldSend) {
+      return {
+        body: truthRecheck.body,
+        shouldSend: false,
+        noSendReason: truthRecheck.noSendReason,
+        tuGuard,
+        prematureAdjustmentGuard,
+        truthGuard: finalTruthGuard,
+        nearDuplicateGuard,
+      };
+    }
+    finalBody = truthRecheck.body;
+  }
+
+  return {
+    body: finalBody,
+    shouldSend: true,
+    noSendReason: null,
     tuGuard,
     prematureAdjustmentGuard,
-    truthGuard,
+    truthGuard: finalTruthGuard,
+    nearDuplicateGuard,
   };
 }

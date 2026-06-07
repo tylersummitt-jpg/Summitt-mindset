@@ -239,6 +239,11 @@ import {
 } from "@/lib/inbound-final-body-truth-guard";
 import type { MissAdjustmentPolicyResult } from "@/lib/inbound-miss-adjustment-policy";
 import {
+  applyRapidNearDuplicateCoachReplyGuard,
+  RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+  resolvePriorCoachContextFromMemoryPacket,
+} from "@/lib/inbound-near-duplicate-reply-policy";
+import {
   extractLatestCoachQuestionFromOutboundBody,
   shouldBypassBlockerCaptureForProposalAck,
 } from "@/lib/blocker-capture-proposal-ack-bypass";
@@ -1586,6 +1591,7 @@ function buildInboundOutcomeClaimEvidence(args: {
     latest_open_question?: string | null;
     open_question_expected_answer_type?: string | null;
     open_question_pending?: boolean;
+    recent_exact_thread_72h?: import("@/lib/sms-recent-exact-thread-72h").RecentExactThread72hResult | null;
   };
   lastOutboundSmsPreview: string | null;
   latestOpenQuestion?: string | null;
@@ -1610,6 +1616,10 @@ function buildInboundOutcomeClaimEvidence(args: {
     commitmentTitle: args.commitment.title,
     recentEventsNewestFirst: args.recentEvents,
   });
+  const priorCoachContext = resolvePriorCoachContextFromMemoryPacket({
+    memoryPacket: args.memoryPacket,
+    fallbackPriorBody: args.memoryPacket.last_outbound_full_body ?? args.lastOutboundSmsPreview,
+  });
   return {
     rawInbound: args.userMessage,
     latestOpenQuestion:
@@ -1623,6 +1633,8 @@ function buildInboundOutcomeClaimEvidence(args: {
     willPersistOutcomeThisTurn: args.willPersistOutcomeThisTurn ?? false,
     missAdjustmentPolicy: args.missAdjustmentPolicy ?? null,
     finalEventType: args.finalEventType ?? null,
+    priorCoachBody: priorCoachContext.priorCoachBody,
+    priorCoachSentAt: priorCoachContext.priorCoachSentAt,
   };
 }
 
@@ -6974,7 +6986,49 @@ async function processV2BlockerCapture(
         message_sid: job.message_sid,
       });
     } else {
-      gatedAckBody = ackVoicePack.voice.body;
+      const blockerAckPriorCoach = resolvePriorCoachContextFromMemoryPacket({
+        memoryPacket: blockerRelationshipMemoryPacket,
+        fallbackPriorBody: lastOutboundBlockPreview,
+      });
+      const nearDupAckGuard = await applyRapidNearDuplicateCoachReplyGuard({
+        body: ackVoicePack.voice.body,
+        priorCoachBody: blockerAckPriorCoach.priorCoachBody,
+        priorCoachSentAt: blockerAckPriorCoach.priorCoachSentAt,
+        inboundRaw: blockerText,
+        routePurpose: "blocker_capture_ack",
+      });
+      if (!nearDupAckGuard.shouldSend) {
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: formatInboundV3LaneNoSendLastError(
+            {
+              shouldSend: false,
+              body: "",
+              noSendReason: nearDupAckGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+              replySource: "v3_inbound_relationship_lane",
+              turnPurpose: "no_send",
+              voiceConfidence: 0,
+              usedFacts: [],
+              safetyNotes: ["rapid_near_duplicate_reply_guard"],
+              metadata: {
+                route_purpose: "blocker_capture_ack",
+                branch_name: "blocker_capture_ack",
+                ...nearDupAckGuard.metadata,
+              },
+              openAiOk: true,
+            },
+            { route_purpose: "blocker_capture_ack" }
+          ),
+          nextRetry: farFutureIso(),
+        });
+        console.warn("[sms-inbound-coach] blocker_ack_near_duplicate_blocked", {
+          message_sid: job.message_sid,
+          reason: nearDupAckGuard.noSendReason,
+        });
+        return;
+      }
+      gatedAckBody = nearDupAckGuard.body;
       visibleSent = true;
       const now = new Date().toISOString();
 

@@ -16,6 +16,9 @@ import {
   PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND,
 } from "@/lib/inbound-miss-adjustment-policy";
 import {
+  RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+} from "@/lib/inbound-near-duplicate-reply-policy";
+import {
   emptyInboundTurnUnderstandingContext,
   paraphraseRepeatsStaleCoachAsk,
 } from "@/lib/inbound-turn-understanding-context";
@@ -404,5 +407,124 @@ describe("applyInboundCoachFinalBodyGuards premature adjustment (Step C)", () =>
 
     expect(r.shouldSend).toBe(true);
     expect(r.body).toBe("What led to that?");
+  });
+});
+
+describe("applyInboundCoachFinalBodyGuards near duplicate (Step F)", () => {
+  beforeEach(() => {
+    repairMock.mockReset();
+  });
+
+  const NOW = Date.parse("2026-06-07T12:00:00.000Z");
+  const RECENT = new Date(NOW - 2 * 60 * 1000).toISOString();
+  const PRIOR_PROPOSAL =
+    "How does committing to one hour of distribution per day sound?";
+
+  it("A: proposal + Good + near-duplicate candidate → no-send when repair fails", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: "How do you feel about committing to one hour of distribution per day?",
+      openAiOk: true,
+      metadata: {},
+    });
+
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "How do you feel about committing to one hour of distribution per day?",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      nowMs: NOW,
+      evidence: {
+        rawInbound: "Good",
+        priorCoachBody: PRIOR_PROPOSAL,
+        priorCoachSentAt: RECENT,
+      },
+    });
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe(RAPID_NEAR_DUPLICATE_REPLY_NO_SEND);
+    expect(r.nearDuplicateGuard?.metadata.rapid_near_duplicate_repair_attempted).toBe(true);
+  });
+
+  it("B: proposal + Good + loop-close candidate → allowed", async () => {
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "Good — we'll keep that plan in place.",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      nowMs: NOW,
+      evidence: {
+        rawInbound: "Good",
+        priorCoachBody: PRIOR_PROPOSAL,
+        priorCoachSentAt: RECENT,
+      },
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(repairMock).not.toHaveBeenCalled();
+  });
+
+  it("M: near-duplicate repair introducing fake completion → OCEG recheck blocks", async () => {
+    repairMock
+      .mockResolvedValueOnce({
+        body: "Great to hear you got your steps in today!",
+        openAiOk: true,
+        metadata: {},
+      })
+      .mockResolvedValueOnce({
+        body: "Good — we'll keep that plan in place.",
+        openAiOk: true,
+        metadata: {},
+      });
+
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "How do you feel about committing to one hour of distribution per day?",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      nowMs: NOW,
+      evidence: {
+        rawInbound: "Good",
+        priorCoachBody: PRIOR_PROPOSAL,
+        priorCoachSentAt: RECENT,
+      },
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe("Good — we'll keep that plan in place.");
+    expect(repairMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("I: Step A regression — what led to that allowed when not near-duplicate of prior", async () => {
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "What led to that?",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      nowMs: NOW,
+      evidence: {
+        rawInbound: "I missed it",
+        priorCoachBody: PRIOR_PROPOSAL,
+        priorCoachSentAt: RECENT,
+      },
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe("What led to that?");
+  });
+
+  it("guard order: runs after OCEG on clean truth body", async () => {
+    repairMock.mockResolvedValueOnce({
+      body: "Good — locked in.",
+      openAiOk: true,
+      metadata: {},
+    });
+
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "How do you feel about committing to one hour of distribution per day?",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      nowMs: NOW,
+      evidence: {
+        rawInbound: "Good",
+        priorCoachBody: PRIOR_PROPOSAL,
+        priorCoachSentAt: RECENT,
+      },
+    });
+
+    expect(r.truthGuard?.shouldSend).toBe(true);
+    expect(r.nearDuplicateGuard?.shouldSend).toBe(true);
+    expect(r.body).toBe("Good — locked in.");
   });
 });
