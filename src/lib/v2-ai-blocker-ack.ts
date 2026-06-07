@@ -391,10 +391,18 @@ export type BlockerCapturedAckObservabilityFields = {
   route_purpose: "blocker_capture_ack";
   job_message_sid: string;
   twilio_send_attempted: boolean;
-  no_send_tag: "inbound_v3_lane_no_send" | "final_voice_gate_no_send" | null;
+  no_send_tag:
+    | "inbound_v3_lane_no_send"
+    | "final_voice_gate_no_send"
+    | "unified_final_product_law_guard_no_send"
+    | null;
+  no_send_reason: string | null;
   lane_no_send_reason: string | null;
   final_voice_gate_no_send: boolean;
   final_voice_gate_no_send_reason: string | null;
+  unified_final_guard_no_send: boolean;
+  unified_final_guard_no_send_reason: string | null;
+  blocker_ack_no_send_truth_persisted: boolean;
   visible_ack_body_preview: string | null;
   state_first_sms_second_policy: "blocker_captured_persists_even_if_ack_no_sends";
   old_inbound_writer_used_as_voice: false;
@@ -421,23 +429,38 @@ export function buildBlockerCapturedAckObservability(args: {
   visibleSent: boolean;
   ackVoicePackForPayload: VoicePackLite | null;
   gatedAckBody: string;
+  unifiedGuardNoSendReason?: string | null;
 }): BlockerCapturedAckObservabilityFields {
   const laneNoSend = !args.ackLaneRes.shouldSend || !args.ackLaneRes.body.trim();
   const fvgNoSend =
     !laneNoSend &&
     args.ackVoicePackForPayload != null &&
     !args.ackVoicePackForPayload.voice.shouldSend;
+  const unifiedGuardNoSendReason = args.unifiedGuardNoSendReason?.trim() || null;
+  const unifiedGuardNoSend =
+    !laneNoSend && !fvgNoSend && unifiedGuardNoSendReason != null;
 
   let no_send_tag: BlockerCapturedAckObservabilityFields["no_send_tag"] = null;
+  let no_send_reason: string | null = null;
   let lane_no_send_reason: string | null = null;
   let final_voice_gate_no_send = false;
   let final_voice_gate_no_send_reason: string | null = null;
+  let unified_final_guard_no_send = false;
+  let unified_final_guard_no_send_reason: string | null = null;
+  let blocker_ack_no_send_truth_persisted = false;
 
   if (laneNoSend) {
     no_send_tag = "inbound_v3_lane_no_send";
-    lane_no_send_reason =
+    no_send_reason =
       args.ackLaneRes.noSendReason?.trim() ||
       (!args.ackLaneRes.shouldSend ? "lane_should_send_false" : "lane_empty_body");
+    lane_no_send_reason = no_send_reason;
+  } else if (unifiedGuardNoSend) {
+    no_send_tag = "unified_final_product_law_guard_no_send";
+    no_send_reason = unifiedGuardNoSendReason;
+    unified_final_guard_no_send = true;
+    unified_final_guard_no_send_reason = unifiedGuardNoSendReason;
+    blocker_ack_no_send_truth_persisted = true;
   } else if (fvgNoSend && args.ackVoicePackForPayload) {
     no_send_tag = "final_voice_gate_no_send";
     final_voice_gate_no_send = true;
@@ -457,6 +480,7 @@ export function buildBlockerCapturedAckObservability(args: {
           return "final_voice_gate_no_send";
         }
       })();
+    no_send_reason = final_voice_gate_no_send_reason;
   }
 
   const sms_ack_sent = args.visibleSent;
@@ -472,9 +496,13 @@ export function buildBlockerCapturedAckObservability(args: {
     job_message_sid: args.jobMessageSid,
     twilio_send_attempted,
     no_send_tag,
+    no_send_reason,
     lane_no_send_reason,
     final_voice_gate_no_send,
     final_voice_gate_no_send_reason,
+    unified_final_guard_no_send,
+    unified_final_guard_no_send_reason,
+    blocker_ack_no_send_truth_persisted,
     visible_ack_body_preview,
     state_first_sms_second_policy: "blocker_captured_persists_even_if_ack_no_sends",
     old_inbound_writer_used_as_voice: false,

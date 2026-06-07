@@ -1,14 +1,22 @@
 /**
- * PR 2.1a — unified final product-law guard entry point.
- * Delegates to existing inbound guard stack for normal_coaching_full (behavior-preserving).
+ * Unified final product-law guard — PR 2.1a full inbound + PR 2.1b transactional blocker paths.
  */
 
 import {
   applyInboundCoachFinalBodyGuards,
+  applyInboundFinalBodyTruthGuard,
   type ApplyInboundFinalBodyTruthGuardArgs,
   type InboundCoachFinalBodyGuardsResult,
+  type InboundFinalBodyTruthGuardResult,
   type OutcomeClaimEvidenceBundle,
+  UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
 } from "@/lib/inbound-final-body-truth-guard";
+import {
+  applyRapidNearDuplicateCoachReplyGuard,
+  RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+  type RapidNearDuplicateCoachReplyGuardResult,
+} from "@/lib/inbound-near-duplicate-reply-policy";
+import type { InboundFinalBodyTurnUnderstandingGuardResult } from "@/lib/inbound-turn-understanding-context";
 import type { InboundTurnUnderstandingContext } from "@/lib/inbound-turn-understanding-context";
 
 export const SMS_FINAL_PRODUCT_LAW_GUARD_VERSION = "sms_final_product_law_v1" as const;
@@ -37,11 +45,26 @@ export type NormalCoachingFullGuardArgs = {
   nowMs?: number;
 };
 
+export type TransactionalCoachingLimitedGuardArgs = {
+  body: string;
+  evidence: OutcomeClaimEvidenceBundle;
+  priorCoachBody?: string | null;
+  priorCoachSentAt?: string | null;
+  inboundRaw?: string | null;
+  routePurpose?: string | null;
+  factsJson?: Record<string, unknown> | null;
+  repairSnapshot?: ApplyInboundFinalBodyTruthGuardArgs["repairSnapshot"];
+  nearDuplicateStage?: string;
+  ocegStage?: string;
+  nowMs?: number;
+};
+
 export type UnifiedFinalGuardArgs = {
   mode: SmsFinalGuardMode;
   surface: SmsFinalGuardSurface;
   normalCoachingFull?: NormalCoachingFullGuardArgs;
-  /** Body entering unified guard (for telemetry previews). Defaults to normalCoachingFull.body. */
+  transactionalCoachingLimited?: TransactionalCoachingLimitedGuardArgs;
+  /** Body entering unified guard (for telemetry previews). */
   preGuardBodyPreview?: string | null;
   routePurpose?: string | null;
   branchName?: string | null;
@@ -68,16 +91,23 @@ export type UnifiedFinalGuardResult = {
   checks_run: string[];
   checks_skipped: UnifiedFinalGuardSkippedCheck[];
   guard_results: {
-    inbound_coach_final_body_guards: InboundCoachFinalBodyGuardsResult;
+    inbound_coach_final_body_guards: InboundCoachFinalBodyGuardsResult | null;
+    transactional_coaching_limited: TransactionalCoachingLimitedGuardResult | null;
   };
   repair_attempts: number;
   repair_succeeded: boolean | null;
   metadata: Record<string, unknown>;
   /** Preserved sub-guard outputs for downstream telemetry (route parity). */
-  tuGuard: InboundCoachFinalBodyGuardsResult["tuGuard"];
+  tuGuard: InboundFinalBodyTurnUnderstandingGuardResult;
   prematureAdjustmentGuard: InboundCoachFinalBodyGuardsResult["prematureAdjustmentGuard"];
-  truthGuard: InboundCoachFinalBodyGuardsResult["truthGuard"];
-  nearDuplicateGuard: InboundCoachFinalBodyGuardsResult["nearDuplicateGuard"];
+  truthGuard: InboundFinalBodyTruthGuardResult | null;
+  nearDuplicateGuard: RapidNearDuplicateCoachReplyGuardResult | null;
+};
+
+export type TransactionalCoachingLimitedGuardResult = {
+  near_duplicate_guard: RapidNearDuplicateCoachReplyGuardResult;
+  near_duplicate_post_oceg_recheck: RapidNearDuplicateCoachReplyGuardResult | null;
+  truth_guard: InboundFinalBodyTruthGuardResult;
 };
 
 const NORMAL_COACHING_FULL_CHECKS = [
@@ -87,7 +117,14 @@ const NORMAL_COACHING_FULL_CHECKS = [
   "near_duplicate",
 ] as const;
 
-function deriveChecksRun(inbound: InboundCoachFinalBodyGuardsResult): string[] {
+export const TRANSACTIONAL_COACHING_LIMITED_CHECKS_SKIPPED: UnifiedFinalGuardSkippedCheck[] = [
+  { check: "turn_understanding_stale_ask", reason: "no_turn_understanding_context" },
+  { check: "premature_adjustment", reason: "no_miss_adjustment_policy" },
+  { check: "internal_label", reason: "final_voice_gate_already_ran" },
+  { check: "contract_legal", reason: "not_contract_path" },
+];
+
+function deriveChecksRunFromInbound(inbound: InboundCoachFinalBodyGuardsResult): string[] {
   const checks: string[] = ["turn_understanding_stale_ask"];
   if (inbound.prematureAdjustmentGuard !== null) {
     checks.push("premature_adjustment");
@@ -108,22 +145,19 @@ function repairAttemptedInMeta(meta: Record<string, unknown> | undefined): boole
   );
 }
 
-function countRepairAttempts(inbound: InboundCoachFinalBodyGuardsResult): number {
+function countRepairAttemptsFromMetas(
+  metas: Array<Record<string, unknown> | undefined | null>
+): number {
   let count = 0;
-  if (repairAttemptedInMeta(inbound.tuGuard.metadata)) count += 1;
-  if (repairAttemptedInMeta(inbound.prematureAdjustmentGuard?.metadata)) count += 1;
-  if (repairAttemptedInMeta(inbound.truthGuard?.metadata)) count += 1;
-  if (repairAttemptedInMeta(inbound.nearDuplicateGuard?.metadata)) count += 1;
+  for (const meta of metas) {
+    if (repairAttemptedInMeta(meta ?? undefined)) count += 1;
+  }
   return count;
 }
 
-function anyRepairSucceeded(inbound: InboundCoachFinalBodyGuardsResult): boolean | null {
-  const metas = [
-    inbound.tuGuard.metadata,
-    inbound.prematureAdjustmentGuard?.metadata,
-    inbound.truthGuard?.metadata,
-    inbound.nearDuplicateGuard?.metadata,
-  ];
+function anyRepairSucceededFromMetas(
+  metas: Array<Record<string, unknown> | undefined | null>
+): boolean | null {
   const outcomes: boolean[] = [];
   for (const meta of metas) {
     if (!meta) continue;
@@ -138,28 +172,41 @@ function anyRepairSucceeded(inbound: InboundCoachFinalBodyGuardsResult): boolean
 }
 
 function buildWrapperMetadata(args: {
-  args: UnifiedFinalGuardArgs;
+  unifiedArgs: UnifiedFinalGuardArgs;
   preBody: string;
   postBody: string;
-  inbound: InboundCoachFinalBodyGuardsResult;
+  checksRun: string[];
+  delegatedTo: string;
+  shouldSend: boolean;
 }): Record<string, unknown> {
-  const sentEqualsGuard =
-    args.inbound.shouldSend && args.postBody.trim().length > 0
-      ? args.postBody.trim() === args.postBody.trim()
-      : null;
-
   return {
     unified_final_guard_version: SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
-    unified_final_guard_mode: args.args.mode,
+    unified_final_guard_mode: args.unifiedArgs.mode,
     final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
     pre_unified_guard_body_preview: args.preBody.slice(0, 120),
     post_unified_guard_body_preview: args.postBody.slice(0, 120),
-    sent_body_equals_guard_body: sentEqualsGuard,
-    unified_final_guard_route_purpose: args.args.routePurpose ?? args.args.normalCoachingFull?.routePurpose ?? null,
-    unified_final_guard_branch_name: args.args.branchName ?? null,
-    unified_final_guard_surface: args.args.surface,
-    unified_final_guard_checks_run: deriveChecksRun(args.inbound),
-    unified_final_guard_delegated_to: "applyInboundCoachFinalBodyGuards",
+    sent_body_equals_guard_body: args.shouldSend && args.postBody.trim().length > 0 ? true : null,
+    unified_final_guard_route_purpose:
+      args.unifiedArgs.routePurpose ??
+      args.unifiedArgs.normalCoachingFull?.routePurpose ??
+      args.unifiedArgs.transactionalCoachingLimited?.routePurpose ??
+      null,
+    unified_final_guard_branch_name: args.unifiedArgs.branchName ?? null,
+    unified_final_guard_surface: args.unifiedArgs.surface,
+    unified_final_guard_checks_run: args.checksRun,
+    unified_final_guard_delegated_to: args.delegatedTo,
+  };
+}
+
+function passThroughTuGuard(body: string): InboundFinalBodyTurnUnderstandingGuardResult {
+  return {
+    body,
+    shouldSend: true,
+    noSendReason: null,
+    metadata: {
+      transactional_coaching_limited_tu_stale_skipped: true,
+      skip_reason: "no_turn_understanding_context",
+    },
   };
 }
 
@@ -168,12 +215,20 @@ function mapInboundToUnified(
   inbound: InboundCoachFinalBodyGuardsResult,
   preBody: string
 ): UnifiedFinalGuardResult {
-  const repairAttempts = countRepairAttempts(inbound);
+  const checksRun = deriveChecksRunFromInbound(inbound);
+  const repairAttempts = countRepairAttemptsFromMetas([
+    inbound.tuGuard.metadata,
+    inbound.prematureAdjustmentGuard?.metadata,
+    inbound.truthGuard?.metadata,
+    inbound.nearDuplicateGuard?.metadata,
+  ]);
   const metadata = buildWrapperMetadata({
-    args,
+    unifiedArgs: args,
     preBody,
     postBody: inbound.body,
-    inbound,
+    checksRun,
+    delegatedTo: "applyInboundCoachFinalBodyGuards",
+    shouldSend: inbound.shouldSend,
   });
 
   return {
@@ -185,24 +240,223 @@ function mapInboundToUnified(
     final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
     guard_version: SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
     guard_mode: args.mode,
-    checks_run: deriveChecksRun(inbound),
-    checks_skipped: NORMAL_COACHING_FULL_CHECKS.filter(
-      (c) => !deriveChecksRun(inbound).includes(c)
-    ).map((check) => ({
-      check,
-      reason: "not_reached_due_to_earlier_no_send_or_short_circuit",
-    })),
+    checks_run: checksRun,
+    checks_skipped: NORMAL_COACHING_FULL_CHECKS.filter((c) => !checksRun.includes(c)).map(
+      (check) => ({
+        check,
+        reason: "not_reached_due_to_earlier_no_send_or_short_circuit",
+      })
+    ),
     guard_results: {
       inbound_coach_final_body_guards: inbound,
+      transactional_coaching_limited: null,
     },
     repair_attempts: repairAttempts,
-    repair_succeeded: anyRepairSucceeded(inbound),
+    repair_succeeded: anyRepairSucceededFromMetas([
+      inbound.tuGuard.metadata,
+      inbound.prematureAdjustmentGuard?.metadata,
+      inbound.truthGuard?.metadata,
+      inbound.nearDuplicateGuard?.metadata,
+    ]),
     metadata,
     tuGuard: inbound.tuGuard,
     prematureAdjustmentGuard: inbound.prematureAdjustmentGuard,
     truthGuard: inbound.truthGuard,
     nearDuplicateGuard: inbound.nearDuplicateGuard,
   };
+}
+
+function mapTransactionalToUnified(args: {
+  unifiedArgs: UnifiedFinalGuardArgs;
+  preBody: string;
+  body: string;
+  shouldSend: boolean;
+  noSendReason: string | null;
+  checksRun: string[];
+  transactional: TransactionalCoachingLimitedGuardResult;
+}): UnifiedFinalGuardResult {
+  const repairAttempts = countRepairAttemptsFromMetas([
+    args.transactional.near_duplicate_guard.metadata,
+    args.transactional.truth_guard.metadata,
+    args.transactional.near_duplicate_post_oceg_recheck?.metadata,
+  ]);
+  const metadata = buildWrapperMetadata({
+    unifiedArgs: args.unifiedArgs,
+    preBody: args.preBody,
+    postBody: args.body,
+    checksRun: args.checksRun,
+    delegatedTo: "transactional_coaching_limited",
+    shouldSend: args.shouldSend,
+  });
+
+  return {
+    should_send: args.shouldSend,
+    shouldSend: args.shouldSend,
+    body: args.body,
+    no_send_reason: args.noSendReason,
+    noSendReason: args.noSendReason,
+    final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+    guard_version: SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
+    guard_mode: "transactional_coaching_limited",
+    checks_run: args.checksRun,
+    checks_skipped: TRANSACTIONAL_COACHING_LIMITED_CHECKS_SKIPPED,
+    guard_results: {
+      inbound_coach_final_body_guards: null,
+      transactional_coaching_limited: args.transactional,
+    },
+    repair_attempts: repairAttempts,
+    repair_succeeded: anyRepairSucceededFromMetas([
+      args.transactional.near_duplicate_guard.metadata,
+      args.transactional.truth_guard.metadata,
+      args.transactional.near_duplicate_post_oceg_recheck?.metadata,
+    ]),
+    metadata: {
+      ...metadata,
+      unified_final_guard_checks_skipped: TRANSACTIONAL_COACHING_LIMITED_CHECKS_SKIPPED,
+    },
+    tuGuard: passThroughTuGuard(args.body),
+    prematureAdjustmentGuard: null,
+    truthGuard: args.transactional.truth_guard,
+    nearDuplicateGuard:
+      args.transactional.near_duplicate_post_oceg_recheck ??
+      args.transactional.near_duplicate_guard,
+  };
+}
+
+async function applyTransactionalCoachingLimitedGuard(
+  args: TransactionalCoachingLimitedGuardArgs
+): Promise<UnifiedFinalGuardResult> {
+  const checksRun: string[] = [];
+  const preBody = args.body.trim();
+
+  const nearDuplicateGuard = await applyRapidNearDuplicateCoachReplyGuard({
+    body: preBody,
+    priorCoachBody: args.priorCoachBody,
+    priorCoachSentAt: args.priorCoachSentAt,
+    inboundRaw: args.inboundRaw,
+    routePurpose: args.routePurpose ?? "transactional_coaching_limited",
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: args.repairSnapshot ?? null,
+    stage: args.nearDuplicateStage ?? "transactional_near_duplicate",
+    nowMs: args.nowMs,
+  });
+  checksRun.push("near_duplicate");
+
+  if (!nearDuplicateGuard.shouldSend) {
+    return mapTransactionalToUnified({
+      unifiedArgs: {
+        mode: "transactional_coaching_limited",
+        surface: "inbound",
+        routePurpose: args.routePurpose,
+      },
+      preBody,
+      body: nearDuplicateGuard.body,
+      shouldSend: false,
+      noSendReason: nearDuplicateGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+      checksRun,
+      transactional: {
+        near_duplicate_guard: nearDuplicateGuard,
+        near_duplicate_post_oceg_recheck: null,
+        truth_guard: {
+          body: "",
+          shouldSend: false,
+          noSendReason: null,
+          metadata: { unsupported_accountability_claim_guard_skipped: true },
+        },
+      },
+    });
+  }
+
+  let body = nearDuplicateGuard.body;
+  const bodyBeforeOceg = body;
+
+  const truthGuard = await applyInboundFinalBodyTruthGuard({
+    body,
+    evidence: args.evidence,
+    stage: args.ocegStage ?? "transactional_coaching_limited_oceg",
+    routePurpose: args.routePurpose ?? "transactional_coaching_limited",
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: args.repairSnapshot ?? null,
+  });
+  checksRun.push("unsupported_claim_oceg");
+
+  if (!truthGuard.shouldSend) {
+    return mapTransactionalToUnified({
+      unifiedArgs: {
+        mode: "transactional_coaching_limited",
+        surface: "inbound",
+        routePurpose: args.routePurpose,
+      },
+      preBody,
+      body: truthGuard.body,
+      shouldSend: false,
+      noSendReason: truthGuard.noSendReason ?? UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
+      checksRun,
+      transactional: {
+        near_duplicate_guard: nearDuplicateGuard,
+        near_duplicate_post_oceg_recheck: null,
+        truth_guard: truthGuard,
+      },
+    });
+  }
+
+  body = truthGuard.body;
+
+  let nearDuplicatePostOcegRecheck: RapidNearDuplicateCoachReplyGuardResult | null = null;
+  if (body.trim() !== bodyBeforeOceg.trim()) {
+    nearDuplicatePostOcegRecheck = await applyRapidNearDuplicateCoachReplyGuard({
+      body,
+      priorCoachBody: args.priorCoachBody,
+      priorCoachSentAt: args.priorCoachSentAt,
+      inboundRaw: args.inboundRaw,
+      routePurpose: args.routePurpose ?? "transactional_coaching_limited",
+      factsJson: args.factsJson ?? null,
+      repairSnapshot: args.repairSnapshot ?? null,
+      stage: "transactional_near_duplicate_post_oceg_recheck",
+      nowMs: args.nowMs,
+    });
+    checksRun.push("near_duplicate_post_oceg_recheck");
+
+    if (!nearDuplicatePostOcegRecheck.shouldSend) {
+      return mapTransactionalToUnified({
+        unifiedArgs: {
+          mode: "transactional_coaching_limited",
+          surface: "inbound",
+          routePurpose: args.routePurpose,
+        },
+        preBody,
+        body: nearDuplicatePostOcegRecheck.body,
+        shouldSend: false,
+        noSendReason:
+          nearDuplicatePostOcegRecheck.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+        checksRun,
+        transactional: {
+          near_duplicate_guard: nearDuplicateGuard,
+          near_duplicate_post_oceg_recheck: nearDuplicatePostOcegRecheck,
+          truth_guard: truthGuard,
+        },
+      });
+    }
+    body = nearDuplicatePostOcegRecheck.body;
+  }
+
+  return mapTransactionalToUnified({
+    unifiedArgs: {
+      mode: "transactional_coaching_limited",
+      surface: "inbound",
+      routePurpose: args.routePurpose,
+    },
+    preBody,
+    body,
+    shouldSend: true,
+    noSendReason: null,
+    checksRun,
+    transactional: {
+      near_duplicate_guard: nearDuplicateGuard,
+      near_duplicate_post_oceg_recheck: nearDuplicatePostOcegRecheck,
+      truth_guard: truthGuard,
+    },
+  });
 }
 
 export function compactUnifiedFinalGuardForTelemetry(
@@ -213,6 +467,7 @@ export function compactUnifiedFinalGuardForTelemetry(
     unified_final_guard_no_send_reason: result.no_send_reason,
     unified_final_guard_repair_attempts: result.repair_attempts,
     unified_final_guard_repair_succeeded: result.repair_succeeded,
+    unified_final_guard_checks_skipped: result.checks_skipped,
   };
 }
 
@@ -221,20 +476,7 @@ export async function applyUnifiedSmsFinalProductLawGuard(
 ): Promise<UnifiedFinalGuardResult> {
   if (args.mode === "hard_route_bypass") {
     const body = (args.candidateBody ?? args.normalCoachingFull?.body ?? "").trim();
-    const emptyInbound: InboundCoachFinalBodyGuardsResult = {
-      body,
-      shouldSend: true,
-      noSendReason: null,
-      tuGuard: {
-        body,
-        shouldSend: true,
-        noSendReason: null,
-        metadata: { hard_route_bypass: true },
-      },
-      prematureAdjustmentGuard: null,
-      truthGuard: null,
-      nearDuplicateGuard: null,
-    };
+    const tuGuard = passThroughTuGuard(body);
     return {
       should_send: true,
       shouldSend: true,
@@ -249,7 +491,10 @@ export async function applyUnifiedSmsFinalProductLawGuard(
         check,
         reason: "hard_route_bypass",
       })),
-      guard_results: { inbound_coach_final_body_guards: emptyInbound },
+      guard_results: {
+        inbound_coach_final_body_guards: null,
+        transactional_coaching_limited: null,
+      },
       repair_attempts: 0,
       repair_succeeded: null,
       metadata: {
@@ -258,17 +503,43 @@ export async function applyUnifiedSmsFinalProductLawGuard(
         final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
         hard_route_bypass: true,
       },
-      tuGuard: emptyInbound.tuGuard,
+      tuGuard,
       prematureAdjustmentGuard: null,
       truthGuard: null,
       nearDuplicateGuard: null,
     };
   }
 
-  if (args.mode !== "normal_coaching_full") {
+  if (args.mode === "transactional_coaching_limited") {
+    if (!args.transactionalCoachingLimited) {
+      throw new Error(
+        "sms_final_product_law_guard: transactionalCoachingLimited args required for transactional_coaching_limited mode"
+      );
+    }
+    const preBody = (args.preGuardBodyPreview ?? args.transactionalCoachingLimited.body).trim();
+    const result = await applyTransactionalCoachingLimitedGuard({
+      ...args.transactionalCoachingLimited,
+      body: args.transactionalCoachingLimited.body.trim(),
+    });
+    return {
+      ...result,
+      metadata: {
+        ...result.metadata,
+        pre_unified_guard_body_preview: preBody.slice(0, 120),
+        unified_final_guard_branch_name: args.branchName ?? null,
+        unified_final_guard_route_purpose: args.routePurpose ?? args.transactionalCoachingLimited.routePurpose ?? null,
+      },
+    };
+  }
+
+  if (args.mode === "outbound_daily" || args.mode === "outbound_weekly") {
     throw new Error(
-      `sms_final_product_law_guard: mode "${args.mode}" is not activated in PR 2.1a`
+      `sms_final_product_law_guard: mode "${args.mode}" is not activated in PR 2.1b`
     );
+  }
+
+  if (args.mode !== "normal_coaching_full") {
+    throw new Error(`sms_final_product_law_guard: unsupported mode "${args.mode}"`);
   }
 
   if (!args.normalCoachingFull) {

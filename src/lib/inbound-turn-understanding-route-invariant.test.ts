@@ -75,21 +75,20 @@ describe("inbound turn understanding route invariants", () => {
     expect(block).toContain('status: "reply_ready"');
   });
 
-  it("L: transactional helper paths are NOT wired to unified guard in PR 2.1a", () => {
+  it("L: PR 2.1b wires blocker ack/pivot only; helper still not wired", () => {
     const helperBlock = src.slice(
       src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend"),
       src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend") + 5000
     );
     expect(helperBlock).not.toContain("applyUnifiedSmsFinalProductLawGuard");
 
-    expect(src).toContain("applyRapidNearDuplicateCoachReplyGuard");
-    const nearDupIdx = src.indexOf("const nearDupAckGuard = await applyRapidNearDuplicateCoachReplyGuard");
-    expect(nearDupIdx).toBeGreaterThan(0);
-    const nearDupBlock = src.slice(nearDupIdx, nearDupIdx + 800);
-    expect(nearDupBlock).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(src).toContain("const unifiedGuardBlockerAck = await applyUnifiedSmsFinalProductLawGuard");
+    expect(src).toContain("const unifiedGuardBlockerPivot = await applyUnifiedSmsFinalProductLawGuard");
+    expect(src).not.toContain("const nearDupAckGuard = await applyRapidNearDuplicateCoachReplyGuard");
+    expect(src).not.toContain("applyRapidNearDuplicateCoachReplyGuard");
   });
 
-  it("M: daily and weekly routes are NOT wired to unified guard in PR 2.1a", () => {
+  it("M: daily and weekly routes are NOT wired to unified guard in PR 2.1b", () => {
     expect(src).not.toContain('surface: "daily"');
     expect(src).not.toContain('surface: "weekly"');
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");

@@ -30,6 +30,10 @@ describe("buildBlockerCapturedAckObservability (Phase 3G-3)", () => {
     expect(o.final_voice_gate_no_send).toBe(false);
     expect(o.final_voice_gate_no_send_reason).toBeNull();
     expect(o.visible_ack_body_preview).toBeNull();
+    expect(o.no_send_reason).toBe("model_no_send");
+    expect(o.unified_final_guard_no_send).toBe(false);
+    expect(o.unified_final_guard_no_send_reason).toBeNull();
+    expect(o.blocker_ack_no_send_truth_persisted).toBe(false);
     expect(o.state_first_sms_second_policy).toBe("blocker_captured_persists_even_if_ack_no_sends");
     expect(o.old_inbound_writer_used_as_voice).toBe(false);
   });
@@ -55,6 +59,51 @@ describe("buildBlockerCapturedAckObservability (Phase 3G-3)", () => {
     expect(o.final_voice_gate_no_send).toBe(true);
     expect(o.final_voice_gate_no_send_reason).toBe("no_safe_v3_voice");
     expect(o.lane_no_send_reason).toBeNull();
+    expect(o.no_send_reason).toBe("no_safe_v3_voice");
+    expect(o.unified_final_guard_no_send).toBe(false);
+    expect(o.blocker_ack_no_send_truth_persisted).toBe(false);
+  });
+
+  it("unified final guard no-send: truth persisted metadata, no SMS", () => {
+    const o = buildBlockerCapturedAckObservability({
+      jobMessageSid: "SMguard1",
+      ackLaneRes: baseLane,
+      visibleSent: false,
+      ackVoicePackForPayload: {
+        voice: {
+          shouldSend: true,
+          metadata: {},
+          blockedReasons: [],
+        },
+      },
+      gatedAckBody: "",
+      unifiedGuardNoSendReason: "unsupported_accountability_claim_blocked",
+    });
+    expect(o.sms_ack_sent).toBe(false);
+    expect(o.twilio_send_attempted).toBe(false);
+    expect(o.no_send_tag).toBe("unified_final_product_law_guard_no_send");
+    expect(o.no_send_reason).toBe("unsupported_accountability_claim_blocked");
+    expect(o.unified_final_guard_no_send).toBe(true);
+    expect(o.unified_final_guard_no_send_reason).toBe("unsupported_accountability_claim_blocked");
+    expect(o.blocker_ack_no_send_truth_persisted).toBe(true);
+    expect(o.final_voice_gate_no_send).toBe(false);
+    expect(o.visible_ack_body_preview).toBeNull();
+  });
+
+  it("near-duplicate unified guard no-send: rapid_near_duplicate reason", () => {
+    const o = buildBlockerCapturedAckObservability({
+      jobMessageSid: "SMguard2",
+      ackLaneRes: baseLane,
+      visibleSent: false,
+      ackVoicePackForPayload: {
+        voice: { shouldSend: true, metadata: {}, blockedReasons: [] },
+      },
+      gatedAckBody: "",
+      unifiedGuardNoSendReason: "rapid_near_duplicate_reply_blocked",
+    });
+    expect(o.no_send_tag).toBe("unified_final_product_law_guard_no_send");
+    expect(o.no_send_reason).toBe("rapid_near_duplicate_reply_blocked");
+    expect(o.blocker_ack_no_send_truth_persisted).toBe(true);
   });
 
   it("successful ACK: sms_ack_sent true, twilio_send_attempted true, preview set", () => {
@@ -98,5 +147,20 @@ describe("Phase 3G-3 — sms-inbound-coach blocker_captured payload wiring (stat
 
   it("preserves blocker_captured idempotency key", () => {
     expect(route).toContain("v2_blocker_captured:${job.message_sid}");
+  });
+
+  it("unified guard no-send falls through to blocker_captured insert (no early return)", () => {
+    expect(route).toContain("blocker_ack_unified_final_guard_blocked");
+    const idx = route.indexOf("blocker_ack_unified_final_guard_blocked");
+    const block = route.slice(idx - 800, idx + 1200);
+    expect(block).toContain("blocker_ack_no_send_truth_persisted: true");
+    expect(block).not.toMatch(/blocker_ack_unified_final_guard_blocked[\s\S]{0,200}\sreturn;/);
+    const insertIdx = route.indexOf('event_type: "blocker_captured"', idx);
+    expect(insertIdx).toBeGreaterThan(idx);
+  });
+
+  it("unified guard no-send sets fallback reason before blocker_captured payload", () => {
+    expect(route).toContain("blockerAckUnifiedGuardNoSendReason");
+    expect(route).toContain("unifiedGuardNoSendReason: blockerAckUnifiedGuardNoSendReason");
   });
 });

@@ -235,6 +235,7 @@ import {
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
   type OutcomeClaimEvidenceBundle,
+  UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
 } from "@/lib/inbound-final-body-truth-guard";
 import {
   applyUnifiedSmsFinalProductLawGuard,
@@ -242,7 +243,6 @@ import {
 } from "@/lib/sms-final-product-law-guard";
 import type { MissAdjustmentPolicyResult } from "@/lib/inbound-miss-adjustment-policy";
 import {
-  applyRapidNearDuplicateCoachReplyGuard,
   RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
   resolvePriorCoachContextFromMemoryPacket,
 } from "@/lib/inbound-near-duplicate-reply-policy";
@@ -6782,7 +6782,80 @@ async function processV2BlockerCapture(
       });
       return;
     }
-    const gatedBlockerPivot = blockerPivotVoicePack.voice.body;
+    const blockerPivotPriorCoach = resolvePriorCoachContextFromMemoryPacket({
+      memoryPacket: blockerRelationshipMemoryPacket,
+      fallbackPriorBody: lastOutboundBlockPreview,
+    });
+    const outcomeClaimEvidenceBlockerPivot = buildInboundOutcomeClaimEvidence({
+      userMessage: blockerText,
+      commitment,
+      effectiveBehavior: effectiveBlockerAsk,
+      recentEvents: recentEventsForCentral,
+      memoryPacket: blockerRelationshipMemoryPacket,
+      lastOutboundSmsPreview: lastOutboundBlockPreview,
+      latestOpenQuestion: northStarBlockerPkt.latestOpenQuestion ?? null,
+      finalEventType: blockerClassification.eventType,
+    });
+    const unifiedGuardBlockerPivot = await applyUnifiedSmsFinalProductLawGuard({
+      mode: "transactional_coaching_limited",
+      surface: "inbound",
+      routePurpose: "central_brain_blocker_pivot",
+      branchName: "central_brain_blocker_capture_pivot",
+      preGuardBodyPreview: blockerPivotVoicePack.voice.body,
+      transactionalCoachingLimited: {
+        body: blockerPivotVoicePack.voice.body,
+        evidence: outcomeClaimEvidenceBlockerPivot,
+        priorCoachBody: blockerPivotPriorCoach.priorCoachBody,
+        priorCoachSentAt: blockerPivotPriorCoach.priorCoachSentAt,
+        inboundRaw: blockerText,
+        routePurpose: "central_brain_blocker_pivot",
+        nearDuplicateStage: "central_brain_blocker_pivot_near_duplicate",
+        ocegStage: "central_brain_blocker_pivot_oceg",
+      },
+    });
+    if (!unifiedGuardBlockerPivot.shouldSend) {
+      const pivotGuardSafetyNotes = ["unified_final_product_law_guard"];
+      if (unifiedGuardBlockerPivot.noSendReason === RAPID_NEAR_DUPLICATE_REPLY_NO_SEND) {
+        pivotGuardSafetyNotes.push("rapid_near_duplicate_reply_guard");
+      }
+      if (unifiedGuardBlockerPivot.noSendReason === UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND) {
+        pivotGuardSafetyNotes.push("unsupported_accountability_claim_guard");
+      }
+      await markJobFinal({
+        messageSid: job.message_sid,
+        status: "cancelled",
+        lastError: formatInboundV3LaneNoSendLastError(
+          {
+            shouldSend: false,
+            body: "",
+            noSendReason:
+              unifiedGuardBlockerPivot.noSendReason ?? "unified_final_product_law_guard_no_send",
+            replySource: "v3_inbound_relationship_lane",
+            turnPurpose: "no_send",
+            voiceConfidence: 0,
+            usedFacts: [],
+            safetyNotes: pivotGuardSafetyNotes,
+            metadata: {
+              route_purpose: "central_brain_blocker_pivot",
+              branch_name: "central_brain_blocker_capture_pivot",
+              sent_body_equals_guard_body: false,
+              ...compactUnifiedFinalGuardForTelemetry(unifiedGuardBlockerPivot),
+              ...(unifiedGuardBlockerPivot.nearDuplicateGuard?.metadata ?? {}),
+              ...(unifiedGuardBlockerPivot.truthGuard?.metadata ?? {}),
+            },
+            openAiOk: true,
+          },
+          { route_purpose: "central_brain_blocker_pivot" }
+        ),
+        nextRetry: farFutureIso(),
+      });
+      console.warn("[sms-inbound-coach] blocker_pivot_unified_final_guard_blocked", {
+        message_sid: job.message_sid,
+        reason: unifiedGuardBlockerPivot.noSendReason,
+      });
+      return;
+    }
+    const gatedBlockerPivot = unifiedGuardBlockerPivot.body;
     const pivotNow = new Date().toISOString();
     const { data: persistedPivot } = await supabaseServer
       .from("sms_inbound_coach_jobs")
@@ -6941,6 +7014,8 @@ async function processV2BlockerCapture(
   let ackVoicePackForPayload: Awaited<ReturnType<typeof northStarGatePersistBodyAsync>> | null = null;
   let visibleSent = false;
   let ackSid: string | null = null;
+  let blockerAckUnifiedGuardNoSendReason: string | null = null;
+  let blockerAckUnifiedGuardTelemetry: Record<string, unknown> | null = null;
 
   if (!ackLaneRes.shouldSend || !ackLaneRes.body.trim()) {
     await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
@@ -7026,14 +7101,44 @@ async function processV2BlockerCapture(
         memoryPacket: blockerRelationshipMemoryPacket,
         fallbackPriorBody: lastOutboundBlockPreview,
       });
-      const nearDupAckGuard = await applyRapidNearDuplicateCoachReplyGuard({
-        body: ackVoicePack.voice.body,
-        priorCoachBody: blockerAckPriorCoach.priorCoachBody,
-        priorCoachSentAt: blockerAckPriorCoach.priorCoachSentAt,
-        inboundRaw: blockerText,
-        routePurpose: "blocker_capture_ack",
+      const outcomeClaimEvidenceBlockerAck = buildInboundOutcomeClaimEvidence({
+        userMessage: blockerText,
+        commitment,
+        effectiveBehavior: effectiveBlockerAsk,
+        recentEvents: recentEventsForCentral,
+        memoryPacket: blockerRelationshipMemoryPacket,
+        lastOutboundSmsPreview: lastOutboundBlockPreview,
+        latestOpenQuestion: northStarBlockerPkt.latestOpenQuestion ?? null,
+        finalEventType: blockerClassification.eventType,
       });
-      if (!nearDupAckGuard.shouldSend) {
+      const unifiedGuardBlockerAck = await applyUnifiedSmsFinalProductLawGuard({
+        mode: "transactional_coaching_limited",
+        surface: "inbound",
+        routePurpose: "blocker_capture_ack",
+        branchName: "blocker_capture_ack",
+        preGuardBodyPreview: ackVoicePack.voice.body,
+        transactionalCoachingLimited: {
+          body: ackVoicePack.voice.body,
+          evidence: outcomeClaimEvidenceBlockerAck,
+          priorCoachBody: blockerAckPriorCoach.priorCoachBody,
+          priorCoachSentAt: blockerAckPriorCoach.priorCoachSentAt,
+          inboundRaw: blockerText,
+          routePurpose: "blocker_capture_ack",
+          nearDuplicateStage: "blocker_capture_ack_near_duplicate",
+          ocegStage: "blocker_capture_ack_oceg",
+        },
+      });
+      if (!unifiedGuardBlockerAck.shouldSend) {
+        const ackGuardSafetyNotes = ["unified_final_product_law_guard"];
+        if (unifiedGuardBlockerAck.noSendReason === RAPID_NEAR_DUPLICATE_REPLY_NO_SEND) {
+          ackGuardSafetyNotes.push("rapid_near_duplicate_reply_guard");
+        }
+        if (unifiedGuardBlockerAck.noSendReason === UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND) {
+          ackGuardSafetyNotes.push("unsupported_accountability_claim_guard");
+        }
+        blockerAckUnifiedGuardNoSendReason =
+          unifiedGuardBlockerAck.noSendReason ?? "unified_final_product_law_guard_no_send";
+        blockerAckUnifiedGuardTelemetry = compactUnifiedFinalGuardForTelemetry(unifiedGuardBlockerAck);
         await markJobFinal({
           messageSid: job.message_sid,
           status: "cancelled",
@@ -7041,16 +7146,20 @@ async function processV2BlockerCapture(
             {
               shouldSend: false,
               body: "",
-              noSendReason: nearDupAckGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+              noSendReason: blockerAckUnifiedGuardNoSendReason,
               replySource: "v3_inbound_relationship_lane",
               turnPurpose: "no_send",
               voiceConfidence: 0,
               usedFacts: [],
-              safetyNotes: ["rapid_near_duplicate_reply_guard"],
+              safetyNotes: ackGuardSafetyNotes,
               metadata: {
                 route_purpose: "blocker_capture_ack",
                 branch_name: "blocker_capture_ack",
-                ...nearDupAckGuard.metadata,
+                sent_body_equals_guard_body: false,
+                blocker_ack_no_send_truth_persisted: true,
+                ...blockerAckUnifiedGuardTelemetry,
+                ...(unifiedGuardBlockerAck.nearDuplicateGuard?.metadata ?? {}),
+                ...(unifiedGuardBlockerAck.truthGuard?.metadata ?? {}),
               },
               openAiOk: true,
             },
@@ -7058,13 +7167,13 @@ async function processV2BlockerCapture(
           ),
           nextRetry: farFutureIso(),
         });
-        console.warn("[sms-inbound-coach] blocker_ack_near_duplicate_blocked", {
+        console.warn("[sms-inbound-coach] blocker_ack_unified_final_guard_blocked", {
           message_sid: job.message_sid,
-          reason: nearDupAckGuard.noSendReason,
+          reason: unifiedGuardBlockerAck.noSendReason,
+          blocker_ack_no_send_truth_persisted: true,
         });
-        return;
-      }
-      gatedAckBody = nearDupAckGuard.body;
+      } else {
+      gatedAckBody = unifiedGuardBlockerAck.body;
       visibleSent = true;
       const now = new Date().toISOString();
 
@@ -7115,6 +7224,7 @@ async function processV2BlockerCapture(
         typeof afterSend.outbound_message_sid === "string" && afterSend.outbound_message_sid.length > 0
           ? afterSend.outbound_message_sid
           : null;
+      }
     }
   }
 
@@ -7124,6 +7234,8 @@ async function processV2BlockerCapture(
     blockerAckFallbackReason = ackLaneRes.noSendReason ?? "inbound_v3_lane_no_send";
   } else if (ackVoicePackForPayload && !ackVoicePackForPayload.voice.shouldSend) {
     blockerAckFallbackReason = "final_voice_gate_no_send";
+  } else if (blockerAckUnifiedGuardNoSendReason != null) {
+    blockerAckFallbackReason = blockerAckUnifiedGuardNoSendReason;
   }
 
   const blockerAiPayload = {
@@ -7160,6 +7272,7 @@ async function processV2BlockerCapture(
     visibleSent,
     ackVoicePackForPayload,
     gatedAckBody,
+    unifiedGuardNoSendReason: blockerAckUnifiedGuardNoSendReason,
   });
 
   const { error: evErr } = await supabaseServer.from("v2_commitment_event").insert({
@@ -7177,6 +7290,7 @@ async function processV2BlockerCapture(
       ...(blockerMemoryStored != null ? { memory_signal: blockerMemoryStored } : {}),
       ...proofMomentPayloadFields(blockerProofMoment, blockerText),
       ...(centralBlockerShadowStored != null ? { central_sms_turn_shadow: centralBlockerShadowStored } : {}),
+      ...(blockerAckUnifiedGuardTelemetry != null ? blockerAckUnifiedGuardTelemetry : {}),
       ai: blockerAiPayload,
     },
     idempotency_key: `v2_blocker_captured:${job.message_sid}`,
