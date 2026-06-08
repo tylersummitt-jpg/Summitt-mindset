@@ -968,6 +968,89 @@ describe("buildRelationshipPacketForOpenAI", () => {
     ).toBe(true);
     expect(meta.truncated_sections).toEqual(expect.arrayContaining(["relationship_memory_30d_or_season"]));
   });
+
+  it("passes commitmentRow into row-authoritative active_pending_state for inbound", () => {
+    const commitmentRow = {
+      id: "cmt_row",
+      clerk_user_id: "user_1",
+      status: "active",
+      behavior_statement: "Deep work",
+      title: "Focus",
+      success_criteria: null,
+      blocker_capture_expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+      blocker_capture_after_event: "user_no",
+      adaptive_ask_text: null,
+      adaptive_ask_active_from: null,
+      adaptive_ask_expires_at: null,
+      adaptive_proposal_text: null,
+      adaptive_proposal_created_at: null,
+      adaptive_proposal_expires_at: null,
+      accountability_phase: "active_accountability",
+      reactivation_entered_at: null,
+      reactivation_last_sent_at: null,
+      reactivation_entry_reason_code: null,
+      refresh_session: { step: "identity_first" },
+      commitment_refresh_last_prompted_at: null,
+      pending_resolution_kind: null,
+      pending_resolution_created_at: null,
+      pending_resolution_expires_at: null,
+      pending_resolution_payload: null,
+      updated_at: null,
+      started_at: null,
+    };
+
+    const { snapshotV2, snapshotV2Meta } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: minimalInboundFacts(),
+      commitmentRow,
+    });
+
+    expect(snapshotV2.active_pending_state.items.some((i) => i.kind === "blocker_capture")).toBe(true);
+    expect(snapshotV2.active_pending_state.items.some((i) => i.kind === "refresh_session")).toBe(true);
+    expect(snapshotV2Meta.active_pending_state_has_commitment_row).toBe(true);
+    expect(snapshotV2Meta.row_authoritative_pending_kinds).toContain("blocker_capture");
+    expect(snapshotV2Meta.row_authoritative_pending_kinds).toContain("refresh_session");
+  });
+
+  it("daily snapshot uses commitment row telemetry when row provided", () => {
+    const row = {
+      id: "cmt_daily",
+      clerk_user_id: "user_1",
+      status: "active",
+      behavior_statement: "Walk",
+      title: "Walk",
+      success_criteria: null,
+      blocker_capture_expires_at: null,
+      blocker_capture_after_event: null,
+      adaptive_ask_text: null,
+      adaptive_ask_active_from: null,
+      adaptive_ask_expires_at: null,
+      adaptive_proposal_text: null,
+      adaptive_proposal_created_at: null,
+      adaptive_proposal_expires_at: null,
+      accountability_phase: "active_accountability",
+      reactivation_entered_at: null,
+      reactivation_last_sent_at: null,
+      reactivation_entry_reason_code: null,
+      refresh_session: { step: "commitment" },
+      commitment_refresh_last_prompted_at: null,
+      pending_resolution_kind: null,
+      pending_resolution_created_at: null,
+      pending_resolution_expires_at: null,
+      pending_resolution_payload: null,
+      updated_at: null,
+      started_at: null,
+    };
+
+    const { snapshotV2Meta } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts(),
+      commitmentRow: row,
+    });
+
+    expect(snapshotV2Meta.active_pending_state_has_commitment_row).toBe(true);
+    expect(snapshotV2Meta.row_authoritative_pending_kinds).toContain("refresh_session");
+  });
 });
 
 describe("relationshipObservabilityFromLaneMetadata", () => {

@@ -262,6 +262,8 @@ export type DailyV3RelationshipLaneInput = {
   facts: DailyV3RelationshipFacts;
   /** Upstream modules that supplied structured facts only (observability). */
   telemetry_fact_sources: string[];
+  /** Authoritative server row for row-backed active_pending_state (read-only context). */
+  commitmentRow?: import("@/lib/v2-commitment").ActiveV2CommitmentRow | null;
 };
 
 export type DailyV3RelationshipLaneReplySource = "v3_daily_relationship_lane";
@@ -1032,6 +1034,7 @@ export async function produceDailyV3RelationshipSms(
   const relationshipPacket = buildRelationshipPacketForOpenAI({
     lane: "daily",
     sourceFacts: laneFacts,
+    commitmentRow: args.commitmentRow ?? null,
   });
   Object.assign(
     baseMeta,

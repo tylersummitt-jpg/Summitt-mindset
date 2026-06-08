@@ -1101,6 +1101,7 @@ async function buildDailySmsContent(
       );
       const laneRe = await produceDailyV3RelationshipSms({
         facts: factsRe,
+        commitmentRow: active,
         telemetry_fact_sources: [
           "deriveV2CoachingState",
           "deriveV2SilenceContext",
@@ -1416,6 +1417,7 @@ async function buildDailySmsContent(
       const remTemplate = buildPendingResolutionDailyReminderSms(active);
       const lanePr = await produceDailyV3RelationshipSms({
         facts: factsPr,
+        commitmentRow: active,
         telemetry_fact_sources: [
           "getPendingResolutionOrNull",
           "getEffectiveCoachingAsk",
@@ -1743,6 +1745,7 @@ async function buildDailySmsContent(
         );
         const laneRf = await produceDailyV3RelationshipSms({
           facts: factsRf,
+          commitmentRow: active,
           telemetry_fact_sources: [
             "computeWave1ColdStartRefreshEligible",
             "buildRefreshStepIdentitySms",
@@ -2008,6 +2011,7 @@ async function buildDailySmsContent(
         );
         const laneC = await produceDailyV3RelationshipSms({
           facts: factsC,
+          commitmentRow: active,
           telemetry_fact_sources: [
             "buildRefreshStepCommitmentSms",
             "getEffectiveCoachingAsk",
@@ -2592,6 +2596,7 @@ async function buildDailySmsContent(
 
     const laneUnified = await produceDailyV3RelationshipSms({
       facts: factsUnified,
+      commitmentRow: active,
       telemetry_fact_sources: telemetryUnified,
     });
     if (!laneUnified.shouldSend || !laneUnified.body.trim()) {

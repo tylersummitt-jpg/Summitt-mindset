@@ -1012,6 +1012,7 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
   const lane = await produceInboundV3RelationshipSms({
     facts,
     telemetry_fact_sources,
+    commitmentRow: args.commitment,
   });
 
   let gatedBody: string | null = null;
@@ -1364,6 +1365,7 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   const lane = await produceInboundV3RelationshipSms({
     facts,
     telemetry_fact_sources,
+    commitmentRow: args.commitment,
   });
 
   const baseTelemetry = () => ({
@@ -1820,6 +1822,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
   const lane = await produceInboundV3RelationshipSms({
     facts,
     telemetry_fact_sources,
+    commitmentRow: args.commitment,
   });
 
   const baseTelemetry = () => ({
@@ -3301,6 +3304,7 @@ async function processV2NormalInboundOutcome(
 
       const openLaneRes = await produceInboundV3RelationshipSms({
         facts: oqInboundFacts,
+        commitmentRow: commitment,
         telemetry_fact_sources: [
           "classifyV2InboundReply",
           "buildInboundNorthStarContextPacket",
@@ -3931,6 +3935,7 @@ async function processV2NormalInboundOutcome(
 
       const cbLaneRes = await produceInboundV3RelationshipSms({
         facts: cbInboundFacts,
+        commitmentRow: commitment,
         telemetry_fact_sources: [
           "classifyV2InboundReply",
           "defaultGatedDecision_conversation_brain_legacy_fallback_disabled",
@@ -4787,6 +4792,7 @@ async function processV2NormalInboundOutcome(
 
     const pivotLaneRes = await produceInboundV3RelationshipSms({
       facts: pivotFacts,
+      commitmentRow: commitment,
       telemetry_fact_sources: [
         "classifyV2InboundReply",
         "resolveV2InboundGatedDecision",
@@ -5177,6 +5183,7 @@ async function processV2NormalInboundOutcome(
 
       const arcLaneRes = await produceInboundV3RelationshipSms({
         facts: arcInboundFacts,
+        commitmentRow: commitment,
         telemetry_fact_sources: [
           "classifyV2InboundReply",
           "resolveV2InboundGatedDecision",
@@ -5863,6 +5870,7 @@ async function processV2NormalInboundOutcome(
 
     const laneRes = await produceInboundV3RelationshipSms({
       facts: inboundFacts,
+      commitmentRow: commitment,
       telemetry_fact_sources: laneTelemetryFactSources,
     });
 
@@ -7495,6 +7503,7 @@ async function processV2BlockerCapture(
 
     const blkPivotLaneRes = await produceInboundV3RelationshipSms({
       facts: blkPivotFacts,
+      commitmentRow: commitment,
       telemetry_fact_sources: [
         "buildInboundNorthStarContextPacket",
         "buildMinimalInboundTranscriptLines",
@@ -7809,6 +7818,7 @@ async function processV2BlockerCapture(
 
   const ackLaneRes = await produceInboundV3RelationshipSms({
     facts: ackInboundFacts,
+    commitmentRow: commitment,
     telemetry_fact_sources: [
       "tryGenerateV2BlockerAckMessage_legacy_preview_only",
       "buildBlockerAckSms_legacy_preview_only",
@@ -8908,6 +8918,7 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
   const lane = await produceInboundV3RelationshipSms({
     facts: args.relationshipFacts,
     telemetry_fact_sources: args.telemetry_fact_sources,
+    commitmentRow: args.commitment,
   });
   if (!lane.shouldSend || !lane.body.trim()) {
     if (args.meaningShadow) {

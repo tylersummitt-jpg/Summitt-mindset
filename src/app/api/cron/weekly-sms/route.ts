@@ -361,6 +361,7 @@ export async function GET(req: Request) {
         });
         const weeklyLane = await produceWeeklyV3RelationshipSms({
           facts: weeklyFacts,
+          commitmentRow: commitment,
           telemetry_fact_sources: weeklyV3TelemetryFactSources,
         });
 

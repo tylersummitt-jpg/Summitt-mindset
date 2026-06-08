@@ -59,6 +59,7 @@ import {
   type OpenAIRelationshipTurnUnderstandingV1,
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
+import * as relationshipPacketModule from "@/lib/sms-relationship-packet-v1";
 import { buildRelationshipPacketForOpenAI } from "@/lib/sms-relationship-packet-v1";
 
 const emptyThread72h = {
@@ -275,6 +276,40 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.metadata.old_inbound_writer_used_as_voice).toBe(false);
     expect(r.metadata.relationship_packet_version).toBe("1.8");
     expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
+  });
+
+  it("passes commitmentRow into buildRelationshipPacketForOpenAI", async () => {
+    const packetSpy = vi.spyOn(relationshipPacketModule, "buildRelationshipPacketForOpenAI");
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it — thanks for the update.",
+              no_send_reason: null,
+              turn_purpose: "inbound_ack",
+              voice_confidence: 0.8,
+              used_facts: ["thread"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const row = baseCommitment();
+    row.refresh_session = { step: "identity_first" };
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["test_commitment_row"],
+      commitmentRow: row,
+    });
+    expect(packetSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ lane: "inbound", commitmentRow: row })
+    );
+    packetSpy.mockRestore();
   });
 
   it("returns shouldSend=false when OpenAI is unavailable", async () => {

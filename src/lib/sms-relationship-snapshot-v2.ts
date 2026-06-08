@@ -9,6 +9,10 @@ import {
   buildActivePendingStateFromInboundFacts,
   buildActivePendingStateFromWeeklyFacts,
   type ActivePendingState,
+  type ActivePendingStateBuildMeta,
+  type ActivePendingStateBuildResult,
+  type ActivePendingStateItemKind,
+  type ActivePendingStateSource,
 } from "@/lib/sms-active-pending-state";
 import type {
   RelationshipPacketAuthority,
@@ -100,6 +104,10 @@ export type RelationshipSnapshotV2Meta = {
   had_preview_messages: boolean;
   had_system_no_send: boolean;
   active_pending_state_item_count: number;
+  active_pending_state_source?: ActivePendingStateSource;
+  active_pending_state_has_commitment_row?: boolean;
+  row_authoritative_pending_kinds?: ActivePendingStateItemKind[];
+  facts_fallback_pending_kinds?: ActivePendingStateItemKind[];
   relationship_snapshot_truncated: boolean;
   thread_fallback_used: boolean;
 };
@@ -199,6 +207,7 @@ function resolveRouteContext(
 export function buildRelationshipSnapshotV2(args: {
   packet: RelationshipPacketV1;
   activePendingState: ActivePendingState;
+  activePendingMeta?: ActivePendingStateBuildMeta | null;
   surface: RelationshipSnapshotSurface;
   lane?: RelationshipPacketLane | null;
   timezone?: string | null;
@@ -248,6 +257,7 @@ export function buildRelationshipSnapshotV2(args: {
     snapshot.low_confidence_hints = args.packet.lower_authority_background;
   }
 
+  const pendingMeta = args.activePendingMeta;
   const meta: RelationshipSnapshotV2Meta = {
     relationship_snapshot_version: RELATIONSHIP_SNAPSHOT_V2_VERSION,
     included_thread_message_count: threadSection.data.message_count,
@@ -255,6 +265,14 @@ export function buildRelationshipSnapshotV2(args: {
     had_preview_messages: threadSection.data.had_preview_messages,
     had_system_no_send: threadSection.data.had_system_no_send,
     active_pending_state_item_count: args.activePendingState.items.length,
+    ...(pendingMeta
+      ? {
+          active_pending_state_source: pendingMeta.active_pending_state_source,
+          active_pending_state_has_commitment_row: pendingMeta.active_pending_state_has_commitment_row,
+          row_authoritative_pending_kinds: pendingMeta.row_authoritative_pending_kinds,
+          facts_fallback_pending_kinds: pendingMeta.facts_fallback_pending_kinds,
+        }
+      : {}),
     relationship_snapshot_truncated: args.truncated === true,
     thread_fallback_used: threadSection.data.thread_fallback_used,
   };
@@ -314,7 +332,7 @@ export function activePendingStateForLaneFacts(args: {
   lane: RelationshipPacketLane;
   sourceFacts: InboundV3RelationshipFacts | DailyV3RelationshipFacts | WeeklyV3OutboundFacts;
   commitmentRow?: ActiveV2CommitmentRow | null;
-}): ActivePendingState {
+}): ActivePendingStateBuildResult {
   if (args.lane === "inbound") {
     return buildActivePendingStateFromInboundFacts(
       args.sourceFacts as InboundV3RelationshipFacts,
@@ -322,9 +340,15 @@ export function activePendingStateForLaneFacts(args: {
     );
   }
   if (args.lane === "daily") {
-    return buildActivePendingStateFromDailyFacts(args.sourceFacts as DailyV3RelationshipFacts);
+    return buildActivePendingStateFromDailyFacts(
+      args.sourceFacts as DailyV3RelationshipFacts,
+      args.commitmentRow
+    );
   }
-  return buildActivePendingStateFromWeeklyFacts(args.sourceFacts as WeeklyV3OutboundFacts);
+  return buildActivePendingStateFromWeeklyFacts(
+    args.sourceFacts as WeeklyV3OutboundFacts,
+    args.commitmentRow
+  );
 }
 
 export function latestCoachBodyFromSnapshotThread(snapshot: RelationshipSnapshotV2): string | null {

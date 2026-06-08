@@ -151,6 +151,8 @@ export type WeeklyV3RelationshipLaneInput = {
   facts: WeeklyV3OutboundFacts;
   /** Labels for upstream fact modules (never treated as authored voice). */
   telemetry_fact_sources: string[];
+  /** Authoritative server row for row-backed active_pending_state (read-only context). */
+  commitmentRow?: import("@/lib/v2-commitment").ActiveV2CommitmentRow | null;
 };
 
 export type WeeklyV3RelationshipLaneResult = {
@@ -423,6 +425,7 @@ export async function produceWeeklyV3RelationshipSms(
   const relationshipPacket = buildRelationshipPacketForOpenAI({
     lane: "weekly",
     sourceFacts: f,
+    commitmentRow: args.commitmentRow ?? null,
   });
   Object.assign(
     baseMeta,

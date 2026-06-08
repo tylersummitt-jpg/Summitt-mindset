@@ -1131,16 +1131,19 @@ export function buildRelationshipPacketForOpenAI(args: {
     };
   }
 
-  const activePendingState = activePendingStateForLaneFacts({
+  const pendingBuilt = activePendingStateForLaneFacts({
     lane: args.lane,
     sourceFacts: args.sourceFacts,
     commitmentRow: args.commitmentRow,
   });
+  const activePendingState = pendingBuilt.state;
+  const activePendingMeta = pendingBuilt.meta;
 
   let packet = serializePacket(build);
   let snapshotBuilt = buildRelationshipSnapshotV2({
     packet,
     activePendingState,
+    activePendingMeta,
     surface: args.lane,
     lane: args.lane,
     truncated: false,
@@ -1161,6 +1164,7 @@ export function buildRelationshipPacketForOpenAI(args: {
       snapshotBuilt = buildRelationshipSnapshotV2({
         packet,
         activePendingState,
+        activePendingMeta,
         surface: args.lane,
         lane: args.lane,
         truncated: truncatedSections.length > 0,
@@ -1185,6 +1189,7 @@ export function buildRelationshipPacketForOpenAI(args: {
       snapshotBuilt = buildRelationshipSnapshotV2({
         packet,
         activePendingState,
+        activePendingMeta,
         surface: args.lane,
         lane: args.lane,
         truncated: truncatedSections.length > 0,
@@ -1208,6 +1213,7 @@ export function buildRelationshipPacketForOpenAI(args: {
       snapshotBuilt = buildRelationshipSnapshotV2({
         packet,
         activePendingState,
+        activePendingMeta,
         surface: args.lane,
         lane: args.lane,
         truncated: truncatedSections.length > 0,
@@ -1249,6 +1255,7 @@ export function buildRelationshipPacketForOpenAI(args: {
     snapshotBuilt = buildRelationshipSnapshotV2({
       packet,
       activePendingState,
+      activePendingMeta,
       surface: args.lane,
       lane: args.lane,
       truncated: truncatedSections.length > 0,
@@ -1260,6 +1267,7 @@ export function buildRelationshipPacketForOpenAI(args: {
   snapshotBuilt = buildRelationshipSnapshotV2({
     packet,
     activePendingState,
+    activePendingMeta,
     surface: args.lane,
     lane: args.lane,
     truncated: truncatedSections.length > 0 || size > budget,
@@ -1334,6 +1342,10 @@ export function relationshipPacketMetaForLaneTelemetry(
       ? {
           relationship_snapshot_version: snapshotMeta.relationship_snapshot_version,
           active_pending_state_item_count: snapshotMeta.active_pending_state_item_count,
+          active_pending_state_source: snapshotMeta.active_pending_state_source,
+          active_pending_state_has_commitment_row: snapshotMeta.active_pending_state_has_commitment_row,
+          row_authoritative_pending_kinds: snapshotMeta.row_authoritative_pending_kinds,
+          facts_fallback_pending_kinds: snapshotMeta.facts_fallback_pending_kinds,
           relationship_snapshot_truncated: snapshotMeta.relationship_snapshot_truncated,
           thread_fallback_used: snapshotMeta.thread_fallback_used,
         }
@@ -1362,6 +1374,10 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "relationship_memory_30d_truncated",
   "relationship_snapshot_version",
   "active_pending_state_item_count",
+  "active_pending_state_source",
+  "active_pending_state_has_commitment_row",
+  "row_authoritative_pending_kinds",
+  "facts_fallback_pending_kinds",
   "relationship_snapshot_truncated",
   "thread_fallback_used",
 ] as const;

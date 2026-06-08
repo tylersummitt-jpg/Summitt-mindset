@@ -4,7 +4,11 @@
 
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
-import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
+import {
+  buildActivePendingStateFromCommitmentRow,
+  emptyActivePendingKindTrack,
+  finalizeActivePendingStateBuildMeta,
+} from "@/lib/sms-active-pending-state";
 import { buildSmsRelationshipMemoryPacket } from "@/lib/sms-relationship-memory-packet";
 import type { RelationshipPacketV1 } from "@/lib/sms-relationship-packet-v1";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
@@ -115,15 +119,22 @@ export async function buildGuidedContractRelationshipSnapshotV2(args: {
       : undefined,
   };
 
-  const activePending = buildActivePendingStateFromCommitmentRow(args.commitment, {
-    openQuestionPending: mem.open_question_pending,
-    latestOpenQuestion: mem.latest_open_question,
-    contractProposalPending: true,
-  });
+  const pendingTrack = emptyActivePendingKindTrack();
+  const activePending = buildActivePendingStateFromCommitmentRow(
+    args.commitment,
+    {
+      openQuestionPending: mem.open_question_pending,
+      latestOpenQuestion: mem.latest_open_question,
+      contractProposalPending: true,
+    },
+    pendingTrack
+  );
+  const activePendingMeta = finalizeActivePendingStateBuildMeta(true, pendingTrack);
 
   const built = buildRelationshipSnapshotV2({
     packet,
     activePendingState: activePending,
+    activePendingMeta,
     surface: "guided_contract",
     timezone: args.timezone,
     proposalKind: "shrink_ask",

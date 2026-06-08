@@ -1183,6 +1183,8 @@ export type DerivedInboundCoachingMove = {
 export type InboundV3RelationshipLaneInput = {
   facts: InboundV3RelationshipFacts;
   telemetry_fact_sources: string[];
+  /** Authoritative server row for row-backed active_pending_state (read-only context). */
+  commitmentRow?: ActiveV2CommitmentRow | null;
 };
 
 export type InboundV3RelationshipLaneReplySource = "v3_inbound_relationship_lane";
@@ -2200,6 +2202,7 @@ export async function produceInboundV3RelationshipSms(
   const relationshipPacket = buildRelationshipPacketForOpenAI({
     lane: "inbound",
     sourceFacts: args.facts,
+    commitmentRow: args.commitmentRow ?? null,
   });
   Object.assign(
     baseMeta,

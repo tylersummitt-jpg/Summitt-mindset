@@ -39,6 +39,25 @@ export type ActivePendingState = {
   items: ActivePendingStateItem[];
 };
 
+export type ActivePendingStateSource = "commitment_row" | "facts_fallback" | "mixed";
+
+export type ActivePendingKindTrack = {
+  rowKinds: ActivePendingStateItemKind[];
+  factsKinds: ActivePendingStateItemKind[];
+};
+
+export type ActivePendingStateBuildMeta = {
+  active_pending_state_source: ActivePendingStateSource;
+  active_pending_state_has_commitment_row: boolean;
+  row_authoritative_pending_kinds: ActivePendingStateItemKind[];
+  facts_fallback_pending_kinds: ActivePendingStateItemKind[];
+};
+
+export type ActivePendingStateBuildResult = {
+  state: ActivePendingState;
+  meta: ActivePendingStateBuildMeta;
+};
+
 export type BuildActivePendingStateExtras = {
   nowMs?: number;
   openQuestionPending?: boolean | null;
@@ -56,6 +75,50 @@ export type BuildActivePendingStateExtras = {
 
 function pushItem(items: ActivePendingStateItem[], item: ActivePendingStateItem | null): void {
   if (item) items.push(item);
+}
+
+export function emptyActivePendingKindTrack(): ActivePendingKindTrack {
+  return { rowKinds: [], factsKinds: [] };
+}
+
+function dedupeKinds(kinds: ActivePendingStateItemKind[]): ActivePendingStateItemKind[] {
+  return [...new Set(kinds)];
+}
+
+export function finalizeActivePendingStateBuildMeta(
+  hasCommitmentRow: boolean,
+  track: ActivePendingKindTrack
+): ActivePendingStateBuildMeta {
+  const rowKinds = dedupeKinds(track.rowKinds);
+  const factsKinds = dedupeKinds(track.factsKinds);
+  let source: ActivePendingStateSource;
+  if (hasCommitmentRow && rowKinds.length > 0 && factsKinds.length > 0) {
+    source = "mixed";
+  } else if (hasCommitmentRow && rowKinds.length > 0) {
+    source = "commitment_row";
+  } else {
+    source = "facts_fallback";
+  }
+  return {
+    active_pending_state_source: source,
+    active_pending_state_has_commitment_row: hasCommitmentRow,
+    row_authoritative_pending_kinds: rowKinds,
+    facts_fallback_pending_kinds: factsKinds,
+  };
+}
+
+function pushTrackedItem(
+  items: ActivePendingStateItem[],
+  track: ActivePendingKindTrack | undefined,
+  source: "row" | "facts",
+  item: ActivePendingStateItem | null
+): void {
+  if (!item) return;
+  items.push(item);
+  if (track) {
+    if (source === "row") track.rowKinds.push(item.kind);
+    else track.factsKinds.push(item.kind);
+  }
 }
 
 function parseMs(iso: string | null | undefined): number | null {
@@ -107,14 +170,15 @@ function isPendingResolutionExpired(row: ActiveV2CommitmentRow, nowMs: number): 
 
 export function buildActivePendingStateFromCommitmentRow(
   row: ActiveV2CommitmentRow | null | undefined,
-  extras?: BuildActivePendingStateExtras
+  extras?: BuildActivePendingStateExtras,
+  track?: ActivePendingKindTrack
 ): ActivePendingState {
   const nowMs = extras?.nowMs ?? Date.now();
   const items: ActivePendingStateItem[] = [];
 
   if (row) {
     if (isBlockerCapturePendingActive(row, nowMs)) {
-      pushItem(items, {
+      pushTrackedItem(items, track, "row", {
         kind: "blocker_capture",
         active: true,
         summary: "Blocker capture window is open — user may still send blocker detail.",
@@ -129,7 +193,7 @@ export function buildActivePendingStateFromCommitmentRow(
 
     const pending = getPendingResolutionOrNull(row);
     if (pending && !isPendingResolutionExpired(row, nowMs)) {
-      pushItem(items, {
+      pushTrackedItem(items, track, "row", {
         kind: "pending_resolution",
         active: true,
         summary: `Pending resolution (${pending.kind}) awaiting user confirmation.`,
@@ -143,7 +207,7 @@ export function buildActivePendingStateFromCommitmentRow(
     }
 
     if (isRefreshSessionActive(row)) {
-      pushItem(items, {
+      pushTrackedItem(items, track, "row", {
         kind: "refresh_session",
         active: true,
         summary: "Refresh session is active on commitment row.",
@@ -156,7 +220,7 @@ export function buildActivePendingStateFromCommitmentRow(
     }
 
     if (isV2PendingProposalValid(row, nowMs)) {
-      pushItem(items, {
+      pushTrackedItem(items, track, "row", {
         kind: "adaptive_proposal",
         active: true,
         summary: "Adaptive contract proposal pending user yes/no.",
@@ -170,7 +234,7 @@ export function buildActivePendingStateFromCommitmentRow(
     }
 
     if (isV2AdaptiveOverlayActive(row, nowMs)) {
-      pushItem(items, {
+      pushTrackedItem(items, track, "row", {
         kind: "contract_proposal",
         active: true,
         summary: "Adaptive overlay ask is active (temporary coaching bar).",
@@ -185,7 +249,7 @@ export function buildActivePendingStateFromCommitmentRow(
   }
 
   if (extras?.memoryConfirmationPending) {
-    pushItem(items, {
+    pushTrackedItem(items, track, "facts", {
       kind: "memory_confirmation",
       active: true,
       summary: "Memory confirmation pending user reply.",
@@ -197,7 +261,7 @@ export function buildActivePendingStateFromCommitmentRow(
   }
 
   if (extras?.handoffPending) {
-    pushItem(items, {
+    pushTrackedItem(items, track, "facts", {
       kind: "handoff",
       active: true,
       summary: "Commitment change handoff pending resolution.",
@@ -209,7 +273,7 @@ export function buildActivePendingStateFromCommitmentRow(
   }
 
   if (extras?.openQuestionPending && extras.latestOpenQuestion?.trim()) {
-    pushItem(items, {
+    pushTrackedItem(items, track, "facts", {
       kind: "open_question",
       active: true,
       summary: "Open coach question awaiting user answer.",
@@ -221,7 +285,7 @@ export function buildActivePendingStateFromCommitmentRow(
   }
 
   if (extras?.pendingPlanProofActive) {
-    pushItem(items, {
+    pushTrackedItem(items, track, "facts", {
       kind: "pending_plan_proof",
       active: true,
       summary: "User gave a forward plan — proof of execution still pending.",
@@ -232,7 +296,7 @@ export function buildActivePendingStateFromCommitmentRow(
   }
 
   if (extras?.contractProposalPending) {
-    pushItem(items, {
+    pushTrackedItem(items, track, "facts", {
       kind: "contract_proposal",
       active: true,
       summary: "Contract overlay proposal pending user confirmation.",
@@ -243,7 +307,7 @@ export function buildActivePendingStateFromCommitmentRow(
   }
 
   if (extras?.goalAdjustmentPending) {
-    pushItem(items, {
+    pushTrackedItem(items, track, "facts", {
       kind: "goal_adjustment",
       active: true,
       summary: "Goal adjustment evidence present — mention only when server allows.",
@@ -260,7 +324,9 @@ export function buildActivePendingStateFromInboundFacts(
   f: InboundV3RelationshipFacts,
   commitmentRow?: ActiveV2CommitmentRow | null,
   nowMs: number = Date.now()
-): ActivePendingState {
+): ActivePendingStateBuildResult {
+  const track = emptyActivePendingKindTrack();
+  const hasCommitmentRow = Boolean(commitmentRow);
   const mp = f.thread.memory_packet;
   const state = buildActivePendingStateFromCommitmentRow(commitmentRow, {
     nowMs,
@@ -278,13 +344,13 @@ export function buildActivePendingStateFromInboundFacts(
       f.miss_adjustment_policy?.adjustment_proposal_allowed_by_evidence === true,
     blockerSummary: f.blocker_facts?.blocker_text ?? null,
     contractProposalPending: Boolean(f.contract_consent_facts),
-  });
+  }, track);
 
   const remaining =
     f.blocker_facts?.blocker_pending_age_minutes_remaining != null &&
     f.blocker_facts.blocker_pending_age_minutes_remaining > 0;
   if (remaining && !state.items.some((i) => i.kind === "blocker_capture")) {
-    pushItem(state.items, {
+    pushTrackedItem(state.items, track, "facts", {
       kind: "blocker_capture",
       active: true,
       summary: "Blocker capture window is open — user may still send blocker detail.",
@@ -299,7 +365,7 @@ export function buildActivePendingStateFromInboundFacts(
   }
 
   if (f.pending_resolution_facts && !state.items.some((i) => i.kind === "pending_resolution")) {
-    pushItem(state.items, {
+    pushTrackedItem(state.items, track, "facts", {
       kind: "pending_resolution",
       active: true,
       summary: `Pending resolution (${f.pending_resolution_facts.resolution_type}) awaiting user confirmation.`,
@@ -311,7 +377,7 @@ export function buildActivePendingStateFromInboundFacts(
   }
 
   if (f.refresh_facts && !state.items.some((i) => i.kind === "refresh_session")) {
-    pushItem(state.items, {
+    pushTrackedItem(state.items, track, "facts", {
       kind: "refresh_session",
       active: true,
       summary: `Refresh session step: ${f.refresh_facts.refresh_step}.`,
@@ -321,43 +387,51 @@ export function buildActivePendingStateFromInboundFacts(
     });
   }
 
-  return state;
+  return { state, meta: finalizeActivePendingStateBuildMeta(hasCommitmentRow, track) };
+}
+
+function buildSyntheticDailyCommitmentRow(f: DailyV3RelationshipFacts): ActiveV2CommitmentRow {
+  return {
+    id: f.commitment.id,
+    clerk_user_id: f.user.clerk_user_id,
+    status: "active",
+    behavior_statement: f.commitment.behavior_statement,
+    title: f.commitment.title ?? "",
+    success_criteria: null,
+    blocker_capture_expires_at: null,
+    blocker_capture_after_event: null,
+    adaptive_ask_text: f.accountability.overlay_active ? f.commitment.effective_ask : null,
+    adaptive_ask_active_from: null,
+    adaptive_ask_expires_at: null,
+    adaptive_proposal_text: f.contract_proposal?.binding_text_verbatim ?? null,
+    adaptive_proposal_created_at: null,
+    adaptive_proposal_expires_at: null,
+    accountability_phase: f.commitment.accountability_phase,
+    reactivation_entered_at: null,
+    reactivation_last_sent_at: null,
+    reactivation_entry_reason_code: null,
+    refresh_session: f.refresh ? { step: f.refresh.refresh_step } : null,
+    commitment_refresh_last_prompted_at: null,
+    pending_resolution_kind: f.pending_resolution?.resolution_kind,
+    pending_resolution_created_at: null,
+    pending_resolution_expires_at: f.pending_resolution?.expires_at ?? null,
+    pending_resolution_payload: null,
+    updated_at: null,
+    started_at: null,
+  } as ActiveV2CommitmentRow;
 }
 
 export function buildActivePendingStateFromDailyFacts(
   f: DailyV3RelationshipFacts,
+  commitmentRow?: ActiveV2CommitmentRow | null,
   nowMs: number = Date.now()
-): ActivePendingState {
+): ActivePendingStateBuildResult {
+  const track = emptyActivePendingKindTrack();
   const tm = f.thread_memory;
-  return buildActivePendingStateFromCommitmentRow(
-    {
-      id: f.commitment.id,
-      clerk_user_id: f.user.clerk_user_id,
-      status: "active",
-      behavior_statement: f.commitment.behavior_statement,
-      title: f.commitment.title ?? "",
-      success_criteria: null,
-      blocker_capture_expires_at: null,
-      blocker_capture_after_event: null,
-      adaptive_ask_text: f.accountability.overlay_active ? f.commitment.effective_ask : null,
-      adaptive_ask_active_from: null,
-      adaptive_ask_expires_at: null,
-      adaptive_proposal_text: f.contract_proposal?.binding_text_verbatim ?? null,
-      adaptive_proposal_created_at: null,
-      adaptive_proposal_expires_at: null,
-      accountability_phase: f.commitment.accountability_phase,
-      reactivation_entered_at: null,
-      reactivation_last_sent_at: null,
-      reactivation_entry_reason_code: null,
-      refresh_session: f.refresh ? { step: f.refresh.refresh_step } : null,
-      commitment_refresh_last_prompted_at: null,
-      pending_resolution_kind: f.pending_resolution?.resolution_kind,
-      pending_resolution_created_at: null,
-      pending_resolution_expires_at: f.pending_resolution?.expires_at ?? null,
-      pending_resolution_payload: null,
-      updated_at: null,
-      started_at: null,
-    } as ActiveV2CommitmentRow,
+  const hasCommitmentRow = Boolean(commitmentRow);
+  const row = commitmentRow ?? buildSyntheticDailyCommitmentRow(f);
+  const state = buildActivePendingStateFromCommitmentRow(
+    row,
     {
       nowMs,
       openQuestionPending: tm.open_question_pending ?? false,
@@ -366,19 +440,36 @@ export function buildActivePendingStateFromDailyFacts(
       contractProposalPending: Boolean(f.contract_proposal),
       pendingResolutionSummary: f.pending_resolution?.candidate_behavior_snippet ?? null,
       goalAdjustmentPending: f.accountability.goal_adjustment_mention_allowed === true,
-    }
+    },
+    track
   );
+
+  if (!hasCommitmentRow) {
+    track.factsKinds.push(...track.rowKinds);
+    track.rowKinds = [];
+  }
+
+  return { state, meta: finalizeActivePendingStateBuildMeta(hasCommitmentRow, track) };
 }
 
 export function buildActivePendingStateFromWeeklyFacts(
   f: WeeklyV3OutboundFacts,
+  commitmentRow?: ActiveV2CommitmentRow | null,
   nowMs: number = Date.now()
-): ActivePendingState {
+): ActivePendingStateBuildResult {
+  const track = emptyActivePendingKindTrack();
   const t = f.thread;
-  return buildActivePendingStateFromCommitmentRow(null, {
-    nowMs,
-    openQuestionPending: t.open_question_pending ?? false,
-    latestOpenQuestion: t.latest_open_question,
-    pendingPlanProofActive: false,
-  });
+  const hasCommitmentRow = Boolean(commitmentRow);
+  const state = buildActivePendingStateFromCommitmentRow(
+    commitmentRow ?? null,
+    {
+      nowMs,
+      openQuestionPending: t.open_question_pending ?? false,
+      latestOpenQuestion: t.latest_open_question,
+      pendingPlanProofActive: false,
+    },
+    track
+  );
+
+  return { state, meta: finalizeActivePendingStateBuildMeta(hasCommitmentRow, track) };
 }
