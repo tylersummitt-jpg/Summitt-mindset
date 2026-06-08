@@ -40,6 +40,12 @@ export function dailySmsVoiceSkipEventPatch(args: {
   noSendReason?: string | null;
   contractProposalKind?: string | null;
   proposalNoSendReason?: string | null;
+  pendingReminderNoSendReason?: string | null;
+  pendingResolutionKind?: string | null;
+  pendingExpiredClearedBeforeBuild?: boolean;
+  refreshNoSendReason?: string | null;
+  refreshStep?: string | null;
+  refreshStaleSessionAbandonedBeforeBuild?: boolean;
 }): { status: string; metadata: Record<string, unknown>; sms_body: string } {
   return {
     status: "skipped_no_safe_v3_voice",
@@ -68,6 +74,32 @@ export function dailySmsVoiceSkipEventPatch(args: {
             proposal_state_written_after_sms: false,
             ...(args.proposalNoSendReason
               ? { proposal_no_send_reason: args.proposalNoSendReason }
+              : {}),
+          }
+        : {}),
+      ...(args.pendingResolutionKind || args.pendingReminderNoSendReason
+        ? {
+            pending_state_written_before_sms: false,
+            ...(args.pendingExpiredClearedBeforeBuild
+              ? { pending_expired_cleared_before_build: true }
+              : {}),
+            ...(args.pendingResolutionKind
+              ? { v2_pending_resolution_kind: args.pendingResolutionKind }
+              : {}),
+            ...(args.pendingReminderNoSendReason
+              ? { pending_reminder_no_send_reason: args.pendingReminderNoSendReason }
+              : {}),
+          }
+        : {}),
+      ...(args.refreshStep || args.refreshNoSendReason
+        ? {
+            refresh_session_written_before_sms: false,
+            ...(args.refreshStaleSessionAbandonedBeforeBuild
+              ? { refresh_stale_session_abandoned_before_build: true }
+              : {}),
+            ...(args.refreshStep ? { refresh_step: args.refreshStep } : {}),
+            ...(args.refreshNoSendReason
+              ? { refresh_no_send_reason: args.refreshNoSendReason }
               : {}),
           }
         : {}),

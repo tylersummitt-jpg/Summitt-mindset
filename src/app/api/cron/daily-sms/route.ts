@@ -561,6 +561,44 @@ async function withNorthStarDailyGate(
                         proposal_no_send_reason: unifiedGuardNoSendReason,
                       }
                     : {}),
+                  ...(built.v2PendingResolutionReminder
+                    ? {
+                        pending_state_written_before_sms: false,
+                        ...(built.dailyUnifiedGuardCtx?.pendingResolutionFacts
+                          ?.pendingExpiredClearedBeforeBuild
+                          ? { pending_expired_cleared_before_build: true }
+                          : {}),
+                        pending_reminder_no_send_reason: unifiedGuardNoSendReason,
+                        ...(built.dailyUnifiedGuardCtx?.pendingResolutionFacts?.resolutionKind
+                          ? {
+                              v2_pending_resolution_kind:
+                                built.dailyUnifiedGuardCtx.pendingResolutionFacts.resolutionKind,
+                            }
+                          : {}),
+                        ...(built.dailyUnifiedGuardCtx?.pendingResolutionFacts?.candidateSnippet
+                          ? {
+                              pending_candidate_preview:
+                                built.dailyUnifiedGuardCtx.pendingResolutionFacts.candidateSnippet.slice(
+                                  0,
+                                  80
+                                ),
+                            }
+                          : {}),
+                      }
+                    : {}),
+                  ...(built.v2RefreshOutboundPlan
+                    ? {
+                        refresh_session_written_before_sms: false,
+                        ...(built.dailyUnifiedGuardCtx?.refreshGuardFacts
+                          ?.refreshStaleSessionAbandonedBeforeBuild
+                          ? { refresh_stale_session_abandoned_before_build: true }
+                          : {}),
+                        refresh_no_send_reason: unifiedGuardNoSendReason,
+                        refresh_step:
+                          built.dailyUnifiedGuardCtx?.refreshGuardFacts?.refreshStep ??
+                          built.v2RefreshOutboundPlan.kind,
+                      }
+                    : {}),
                 }
               : {}),
           }),
@@ -1177,10 +1215,13 @@ async function buildDailySmsContent(
     ]);
 
     let refreshSessionParsed = parseRefreshSession(active.refresh_session);
+    let refreshStaleSessionAbandonedBeforeBuild = false;
+    let pendingExpiredClearedBeforeBuild = false;
     if (
       refreshSessionParsed &&
       shouldAbandonStaleIdentityStep(refreshSessionParsed, now.getTime())
     ) {
+      refreshStaleSessionAbandonedBeforeBuild = true;
       await abandonRefreshSessionTimeout({
         commitmentId: active.id,
         clerkUserId,
@@ -1199,6 +1240,7 @@ async function buildDailySmsContent(
 
     const clearedPending = await clearPendingResolutionIfExpired(active.id, active, now.getTime());
     if (clearedPending) {
+      pendingExpiredClearedBeforeBuild = true;
       const reloadedAfterPending = await getActiveCommitment(clerkUserId);
       if (reloadedAfterPending?.behavior_statement?.trim()) {
         active = reloadedAfterPending;
@@ -1456,6 +1498,26 @@ async function buildDailySmsContent(
         v3DailyRelationshipLane: true,
         v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(lanePr.metadata),
         dailySatisfiedAskContext: factsPr.daily_satisfied_ask_context ?? null,
+        dailyUnifiedGuardCtx: buildDailyOutboundUnifiedGuardCtx({
+          routeKind: "pending_resolution",
+          clerkUserId,
+          commitmentId: active.id,
+          priorCoachBody: relationshipMemoryPacketPr.last_outbound_full_body,
+          priorCoachSentAt: null,
+          lastInboundBody: relationshipMemoryPacketPr.last_inbound_full_body,
+          priorOutcome: latestOutcome?.type ?? null,
+          pendingPlanProof: null,
+          proofOrMilestoneSignal: null,
+          pendingResolutionFacts: {
+            resolutionKind: pr?.kind ?? null,
+            smsState: smsStatePr,
+            candidateSnippet: candidateSnippetPr,
+            awaitingUserConfirmation: awaitingConfirmationPr,
+            canonicalBehaviorStatement: active.behavior_statement.trim(),
+            requiredVerbatimSubstrings: verbatimPr,
+            pendingExpiredClearedBeforeBuild,
+          },
+        }),
       };
     }
 
@@ -1772,6 +1834,23 @@ async function buildDailySmsContent(
           v3DailyRelationshipLane: true,
           v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRf.metadata),
           dailySatisfiedAskContext: factsRf.daily_satisfied_ask_context ?? null,
+          dailyUnifiedGuardCtx: buildDailyOutboundUnifiedGuardCtx({
+            routeKind: "refresh_identity",
+            clerkUserId,
+            commitmentId: active.id,
+            priorCoachBody: relationshipMemoryPacketRf.last_outbound_full_body,
+            priorCoachSentAt: null,
+            lastInboundBody: relationshipMemoryPacketRf.last_inbound_full_body,
+            priorOutcome: latestOutcome?.type ?? null,
+            pendingPlanProof: null,
+            proofOrMilestoneSignal: null,
+            refreshGuardFacts: {
+              refreshStep: "identity_first",
+              identityAnchorText: anchorTrim || null,
+              requiredVerbatimSubstrings: verbatimRf,
+              refreshStaleSessionAbandonedBeforeBuild,
+            },
+          }),
         };
       }
 
@@ -2020,6 +2099,23 @@ async function buildDailySmsContent(
           v3DailyRelationshipLane: true,
           v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneC.metadata),
           dailySatisfiedAskContext: factsC.daily_satisfied_ask_context ?? null,
+          dailyUnifiedGuardCtx: buildDailyOutboundUnifiedGuardCtx({
+            routeKind: "refresh_commitment",
+            clerkUserId,
+            commitmentId: active.id,
+            priorCoachBody: relationshipMemoryPacketC.last_outbound_full_body,
+            priorCoachSentAt: null,
+            lastInboundBody: relationshipMemoryPacketC.last_inbound_full_body,
+            priorOutcome: latestOutcome?.type ?? null,
+            pendingPlanProof: null,
+            proofOrMilestoneSignal: null,
+            refreshGuardFacts: {
+              refreshStep: "commitment_daily",
+              effectiveAskForBar: askTrim || null,
+              requiredVerbatimSubstrings: verbatimC,
+              refreshStaleSessionAbandonedBeforeBuild,
+            },
+          }),
         };
       }
     }
@@ -3417,6 +3513,36 @@ export async function GET(req: Request) {
                     (voiceSendDecisionRetry?.no_send_reason as string | undefined) ??
                     null)
                   : null,
+                pendingReminderNoSendReason: built.v2PendingResolutionReminder
+                  ? ((voiceSendDecisionRetry?.pending_reminder_no_send_reason as string | undefined) ??
+                    (voiceSendDecisionRetry?.no_send_reason as string | undefined) ??
+                    null)
+                  : null,
+                pendingResolutionKind: built.v2PendingResolutionReminder
+                  ? (built.dailyUnifiedGuardCtx?.pendingResolutionFacts?.resolutionKind ?? null)
+                  : null,
+                pendingExpiredClearedBeforeBuild: built.v2PendingResolutionReminder
+                  ? Boolean(
+                      built.dailyUnifiedGuardCtx?.pendingResolutionFacts
+                        ?.pendingExpiredClearedBeforeBuild
+                    )
+                  : undefined,
+                refreshNoSendReason: built.v2RefreshOutboundPlan
+                  ? ((voiceSendDecisionRetry?.refresh_no_send_reason as string | undefined) ??
+                    (voiceSendDecisionRetry?.no_send_reason as string | undefined) ??
+                    null)
+                  : null,
+                refreshStep: built.v2RefreshOutboundPlan
+                  ? ((voiceSendDecisionRetry?.refresh_step as string | undefined) ??
+                    built.dailyUnifiedGuardCtx?.refreshGuardFacts?.refreshStep ??
+                    built.v2RefreshOutboundPlan.kind)
+                  : null,
+                refreshStaleSessionAbandonedBeforeBuild: built.v2RefreshOutboundPlan
+                  ? Boolean(
+                      built.dailyUnifiedGuardCtx?.refreshGuardFacts
+                        ?.refreshStaleSessionAbandonedBeforeBuild
+                    )
+                  : undefined,
               }),
                 built.v2AiPayload?.v3_brain
               );
@@ -4039,6 +4165,34 @@ export async function GET(req: Request) {
               (voiceSendDecision?.no_send_reason as string | undefined) ??
               null)
             : null,
+          pendingReminderNoSendReason: builtMain.v2PendingResolutionReminder
+            ? ((voiceSendDecision?.pending_reminder_no_send_reason as string | undefined) ??
+              (voiceSendDecision?.no_send_reason as string | undefined) ??
+              null)
+            : null,
+          pendingResolutionKind: builtMain.v2PendingResolutionReminder
+            ? (builtMain.dailyUnifiedGuardCtx?.pendingResolutionFacts?.resolutionKind ?? null)
+            : null,
+          pendingExpiredClearedBeforeBuild: builtMain.v2PendingResolutionReminder
+            ? Boolean(
+                builtMain.dailyUnifiedGuardCtx?.pendingResolutionFacts?.pendingExpiredClearedBeforeBuild
+              )
+            : undefined,
+          refreshNoSendReason: builtMain.v2RefreshOutboundPlan
+            ? ((voiceSendDecision?.refresh_no_send_reason as string | undefined) ??
+              (voiceSendDecision?.no_send_reason as string | undefined) ??
+              null)
+            : null,
+          refreshStep: builtMain.v2RefreshOutboundPlan
+            ? ((voiceSendDecision?.refresh_step as string | undefined) ??
+              builtMain.dailyUnifiedGuardCtx?.refreshGuardFacts?.refreshStep ??
+              builtMain.v2RefreshOutboundPlan.kind)
+            : null,
+          refreshStaleSessionAbandonedBeforeBuild: builtMain.v2RefreshOutboundPlan
+            ? Boolean(
+                builtMain.dailyUnifiedGuardCtx?.refreshGuardFacts?.refreshStaleSessionAbandonedBeforeBuild
+              )
+            : undefined,
         }),
           builtMain.v2AiPayload?.v3_brain
         );

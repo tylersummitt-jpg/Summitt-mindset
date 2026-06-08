@@ -21,12 +21,14 @@ import type { InboundTurnUnderstandingContext } from "@/lib/inbound-turn-underst
 import {
   detectDailyOutboundUnsupportedProofClaim,
   isOutboundDailyC2RoutePurpose,
+  isOutboundDailyC3RoutePurpose,
   isOutboundDailyWiredRoutePurpose,
   OUTBOUND_DAILY_INTERNAL_LABEL_NO_SEND,
   OUTBOUND_DAILY_UNSUPPORTED_PROOF_NO_SEND,
   type DailyOutboundUnifiedGuardCtx,
 } from "@/lib/daily-outbound-final-guard-evidence";
 import { evaluatePostUnifiedGuardDailyContractProposalTruthRecheck } from "@/lib/daily-outbound-contract-proposal-truth";
+import { evaluatePostUnifiedGuardDailyPendingRefreshTruthRecheck } from "@/lib/daily-outbound-pending-refresh-truth";
 import { userVisibleInternalLabelBlockedReasons } from "@/lib/user-visible-internal-label-guard";
 
 export const SMS_FINAL_PRODUCT_LAW_GUARD_VERSION = "sms_final_product_law_v1" as const;
@@ -163,12 +165,19 @@ export const OUTBOUND_DAILY_C2_CHECKS_SKIPPED: UnifiedFinalGuardSkippedCheck[] =
   { check: "refresh_pending_truth_recheck", reason: "c3_deferred" },
 ];
 
+export const OUTBOUND_DAILY_C3_CHECKS_SKIPPED: UnifiedFinalGuardSkippedCheck[] = [
+  { check: "turn_understanding_stale_ask", reason: "inbound_only" },
+  { check: "premature_adjustment", reason: "daily_server_strategy" },
+  { check: "daily_stale_ask", reason: "pre_unified_daily_stale_guards" },
+  { check: "contract_truth_recheck", reason: "c2_only" },
+];
+
 export function outboundDailyChecksSkipped(
   routePurpose: string
 ): UnifiedFinalGuardSkippedCheck[] {
-  return isOutboundDailyC2RoutePurpose(routePurpose)
-    ? OUTBOUND_DAILY_C2_CHECKS_SKIPPED
-    : OUTBOUND_DAILY_C1_CHECKS_SKIPPED;
+  if (isOutboundDailyC2RoutePurpose(routePurpose)) return OUTBOUND_DAILY_C2_CHECKS_SKIPPED;
+  if (isOutboundDailyC3RoutePurpose(routePurpose)) return OUTBOUND_DAILY_C3_CHECKS_SKIPPED;
+  return OUTBOUND_DAILY_C1_CHECKS_SKIPPED;
 }
 
 function deriveChecksRunFromInbound(inbound: InboundCoachFinalBodyGuardsResult): string[] {
@@ -577,7 +586,9 @@ async function applyOutboundDailyC1Guard(
   const checksSkipped = outboundDailyChecksSkipped(routePurpose);
   const delegatedTo = isOutboundDailyC2RoutePurpose(routePurpose)
     ? "outbound_daily_c2"
-    : "outbound_daily_c1";
+    : isOutboundDailyC3RoutePurpose(routePurpose)
+      ? "outbound_daily_c3"
+      : "outbound_daily_c1";
 
   const nearDuplicateGuard = await applyRapidNearDuplicateCoachReplyGuard({
     body: preBody,
@@ -769,6 +780,42 @@ async function applyOutboundDailyC1Guard(
           nearDuplicateGuard,
           nearDuplicatePostOcegRecheck,
           productLawFailures: contractRecheck.violations,
+        });
+      }
+    }
+  }
+
+  if (isOutboundDailyC3RoutePurpose(routePurpose)) {
+    const ctx = args.dailyGuardCtx;
+    const hasC3Facts =
+      (routePurpose === "pending_resolution" && ctx.pendingResolutionFacts) ||
+      ((routePurpose === "refresh_identity" || routePurpose === "refresh_commitment") &&
+        ctx.refreshGuardFacts);
+    if (hasC3Facts) {
+      const pendingRefreshRecheck = evaluatePostUnifiedGuardDailyPendingRefreshTruthRecheck({
+        body,
+        dailyRouteKind: routePurpose,
+        dailyGuardCtx: ctx,
+      });
+      checksRun.push("pending_refresh_truth_recheck");
+      if (pendingRefreshRecheck.blocked) {
+        return mapOutboundDailyToUnified({
+          unifiedArgs: {
+            mode: "outbound_daily",
+            surface: "daily",
+            routePurpose,
+          },
+          preBody,
+          body: "",
+          shouldSend: false,
+          noSendReason: pendingRefreshRecheck.noSendReason,
+          checksRun,
+          checksSkipped,
+          delegatedTo,
+          truthGuard,
+          nearDuplicateGuard,
+          nearDuplicatePostOcegRecheck,
+          productLawFailures: pendingRefreshRecheck.violations,
         });
       }
     }

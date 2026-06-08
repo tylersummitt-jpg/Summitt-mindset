@@ -10,8 +10,16 @@ import {
   detectDailyOutboundUnsupportedProofClaim,
   isOutboundDailyC1RoutePurpose,
   isOutboundDailyC2RoutePurpose,
+  isOutboundDailyC3RoutePurpose,
   isOutboundDailyWiredRoutePurpose,
 } from "@/lib/daily-outbound-final-guard-evidence";
+import {
+  DAILY_PENDING_REFRESH_FALSE_STATE_CLAIM_NO_SEND,
+  DAILY_PENDING_REFRESH_REQUIRED_VERBATIM_MISSING_NO_SEND,
+  DAILY_PENDING_RESOLUTION_TRUTH_VIOLATION_NO_SEND,
+  DAILY_REFRESH_COMMITMENT_TRUTH_VIOLATION_NO_SEND,
+  DAILY_REFRESH_IDENTITY_TRUTH_VIOLATION_NO_SEND,
+} from "@/lib/daily-outbound-pending-refresh-truth";
 import {
   DAILY_CONTRACT_PROPOSAL_FALSE_STATE_CLAIM_NO_SEND,
   DAILY_CONTRACT_PROPOSAL_SEMANTIC_MISSING_NO_SEND,
@@ -19,6 +27,7 @@ import {
 import {
   OUTBOUND_DAILY_C1_CHECKS_SKIPPED,
   OUTBOUND_DAILY_C2_CHECKS_SKIPPED,
+  OUTBOUND_DAILY_C3_CHECKS_SKIPPED,
   SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
   UNIFIED_FINAL_BODY_AUTHORITY,
   applyUnifiedSmsFinalProductLawGuard,
@@ -144,6 +153,109 @@ function c2GuardArgs(
       priorCoachBody: ctx.priorCoachBody,
       priorCoachSentAt: null,
       routePurpose: "contract_prompt",
+    },
+  };
+}
+
+const PENDING_CANDIDATE = "30 minutes of deep work before noon";
+const IDENTITY_ANCHOR = "I am a focused builder";
+const EFFECTIVE_ASK = "60 minutes of deep work every morning";
+
+function c3PendingGuardArgs(
+  body = `Let's finish the commitment update. I'm holding this candidate: ${PENDING_CANDIDATE}. Should I make that the new bar?`
+) {
+  const ctx = buildDailyOutboundUnifiedGuardCtx({
+    routeKind: "pending_resolution",
+    clerkUserId: "user_1",
+    commitmentId: "commit_1",
+    priorCoachBody: "Still waiting on your bar update.",
+    priorOutcome: null,
+    pendingResolutionFacts: {
+      resolutionKind: "commitment_tighten",
+      smsState: "awaiting_confirmation",
+      candidateSnippet: PENDING_CANDIDATE,
+      awaitingUserConfirmation: true,
+      canonicalBehaviorStatement: EFFECTIVE_ASK,
+      requiredVerbatimSubstrings: [PENDING_CANDIDATE],
+    },
+  });
+  return {
+    mode: "outbound_daily" as const,
+    surface: "daily" as const,
+    routePurpose: "pending_resolution",
+    branchName: "pending_resolution",
+    preGuardBodyPreview: body,
+    outboundDaily: {
+      body,
+      evidence: buildDailyOutboundOcegEvidence(ctx),
+      dailyGuardCtx: ctx,
+      priorCoachBody: ctx.priorCoachBody,
+      priorCoachSentAt: null,
+      routePurpose: "pending_resolution",
+    },
+  };
+}
+
+function c3RefreshIdentityGuardArgs(
+  body = `Quick alignment — does this still fit who you're becoming? "${IDENTITY_ANCHOR}" Same vibe, or life shifted?`
+) {
+  const ctx = buildDailyOutboundUnifiedGuardCtx({
+    routeKind: "refresh_identity",
+    clerkUserId: "user_1",
+    commitmentId: "commit_1",
+    priorCoachBody: "Prior refresh outbound.",
+    priorOutcome: null,
+    refreshGuardFacts: {
+      refreshStep: "identity_first",
+      identityAnchorText: IDENTITY_ANCHOR,
+      requiredVerbatimSubstrings: [IDENTITY_ANCHOR],
+    },
+  });
+  return {
+    mode: "outbound_daily" as const,
+    surface: "daily" as const,
+    routePurpose: "refresh_identity",
+    branchName: "refresh_identity",
+    preGuardBodyPreview: body,
+    outboundDaily: {
+      body,
+      evidence: buildDailyOutboundOcegEvidence(ctx),
+      dailyGuardCtx: ctx,
+      priorCoachBody: ctx.priorCoachBody,
+      priorCoachSentAt: null,
+      routePurpose: "refresh_identity",
+    },
+  };
+}
+
+function c3RefreshCommitmentGuardArgs(
+  body = `Does this commitment still fit, or does it need to get smaller or change? Today's bar: ${EFFECTIVE_ASK} Tell me keep, smaller, or new goal.`
+) {
+  const ctx = buildDailyOutboundUnifiedGuardCtx({
+    routeKind: "refresh_commitment",
+    clerkUserId: "user_1",
+    commitmentId: "commit_1",
+    priorCoachBody: "Prior commitment refresh.",
+    priorOutcome: null,
+    refreshGuardFacts: {
+      refreshStep: "commitment_daily",
+      effectiveAskForBar: EFFECTIVE_ASK,
+      requiredVerbatimSubstrings: [EFFECTIVE_ASK],
+    },
+  });
+  return {
+    mode: "outbound_daily" as const,
+    surface: "daily" as const,
+    routePurpose: "refresh_commitment",
+    branchName: "refresh_commitment",
+    preGuardBodyPreview: body,
+    outboundDaily: {
+      body,
+      evidence: buildDailyOutboundOcegEvidence(ctx),
+      dailyGuardCtx: ctx,
+      priorCoachBody: ctx.priorCoachBody,
+      priorCoachSentAt: null,
+      routePurpose: "refresh_commitment",
     },
   };
 }
@@ -284,15 +396,16 @@ describe("Phase 2.3-C1 outbound_daily unified guard", () => {
     await expect(
       applyUnifiedSmsFinalProductLawGuard({
         ...c1GuardArgs(),
-        routePurpose: "pending_resolution",
+        routePurpose: "unknown_daily_branch",
         outboundDaily: {
           ...c1GuardArgs().outboundDaily!,
-          routePurpose: "pending_resolution",
+          routePurpose: "unknown_daily_branch",
         },
       })
     ).rejects.toThrow(/not activated for route/);
     expect(isOutboundDailyC1RoutePurpose("contract_prompt")).toBe(false);
     expect(isOutboundDailyC2RoutePurpose("contract_prompt")).toBe(true);
+    expect(isOutboundDailyC3RoutePurpose("pending_resolution")).toBe(true);
     expect(isOutboundDailyWiredRoutePurpose("main_active_accountability")).toBe(true);
   });
 
@@ -337,16 +450,19 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     expect(slice).not.toContain("pending_resolution");
   });
 
-  it("14: pending_resolution branch does not set dailyUnifiedGuardCtx", () => {
-    const pendingIdx = dailySrc.indexOf('route_kind: "pending_resolution"');
-    const pendingReturn = dailySrc.slice(pendingIdx, pendingIdx + 3500);
-    expect(pendingReturn).not.toContain("dailyUnifiedGuardCtx");
+  it("14: pending_resolution branch sets dailyUnifiedGuardCtx", () => {
+    const pendingCtxIdx = dailySrc.indexOf(
+      'dailyUnifiedGuardCtx: buildDailyOutboundUnifiedGuardCtx({\n          routeKind: "pending_resolution"'
+    );
+    expect(pendingCtxIdx).toBeGreaterThan(-1);
+    const slice = dailySrc.slice(pendingCtxIdx, pendingCtxIdx + 700);
+    expect(slice).toContain("pendingResolutionFacts");
   });
 
-  it("15: refresh_identity / refresh_commitment do not set dailyUnifiedGuardCtx", () => {
-    const refreshIdx = dailySrc.indexOf('route_kind: "refresh_identity"');
-    const refreshSlice = dailySrc.slice(refreshIdx, refreshIdx + 8000);
-    expect(refreshSlice).not.toContain("dailyUnifiedGuardCtx");
+  it("15: refresh_identity / refresh_commitment set dailyUnifiedGuardCtx", () => {
+    expect(dailySrc).toContain('routeKind: "refresh_identity"');
+    expect(dailySrc).toContain('routeKind: "refresh_commitment"');
+    expect(dailySrc).toContain("refreshGuardFacts");
   });
 
   it("16: weekly route untouched", () => {
@@ -434,16 +550,14 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     );
   });
 
-  it("21f: pending_resolution branch does not set dailyUnifiedGuardCtx", () => {
-    const pendingIdx = dailySrc.indexOf('route_kind: "pending_resolution"');
-    const pendingReturn = dailySrc.slice(pendingIdx, pendingIdx + 3500);
-    expect(pendingReturn).not.toContain("dailyUnifiedGuardCtx");
+  it("21f: pending_resolution branch sets dailyUnifiedGuardCtx", () => {
+    expect(dailySrc).toContain('routeKind: "pending_resolution"');
+    expect(dailySrc).toContain("pendingResolutionFacts");
   });
 
-  it("21g: refresh_identity / refresh_commitment do not set dailyUnifiedGuardCtx", () => {
-    const refreshIdx = dailySrc.indexOf('route_kind: "refresh_identity"');
-    const refreshSlice = dailySrc.slice(refreshIdx, refreshIdx + 8000);
-    expect(refreshSlice).not.toContain("dailyUnifiedGuardCtx");
+  it("21g: refresh_identity / refresh_commitment set dailyUnifiedGuardCtx", () => {
+    expect(dailySrc).toContain('routeKind: "refresh_identity"');
+    expect(dailySrc).toContain('routeKind: "refresh_commitment"');
   });
 
   it("21h: non-C1 success does not set sent_body_equals_guard_body without unifiedGuardTelemetry", () => {
@@ -654,6 +768,219 @@ describe("Phase 2.3-C2 outbound_daily contract_prompt guard", () => {
   });
 
   it("28: non-C2 daily success does not falsely claim unified authority", () => {
+    const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
+    const northStarFnStart = dailySrc.indexOf("async function withNorthStarDailyGate");
+    const northStarFnEnd = dailySrc.indexOf("function dailySmsSentEventVoiceMetadata");
+    const northStarBlock = dailySrc.slice(northStarFnStart, northStarFnEnd);
+    const successBranch = northStarBlock.slice(
+      northStarBlock.indexOf("finalShouldSend\n        ? {"),
+      northStarBlock.indexOf("finalShouldSend\n        ? {") + 450
+    );
+    expect(successBranch).toContain("unifiedGuardTelemetry");
+    expect(successBranch).not.toMatch(
+      /finalShouldSend\s*\?\s*\{\s*final_body_authority:\s*UNIFIED_FINAL_BODY_AUTHORITY/
+    );
+  });
+});
+
+describe("Phase 2.3-C3 outbound_daily pending/refresh guard", () => {
+  beforeEach(() => {
+    nearDupMock.mockReset();
+    truthGuardMock.mockReset();
+    nearDupMock.mockImplementation(async (args) => ({
+      ...PASS_NEAR_DUP,
+      body: args.body,
+    }));
+    truthGuardMock.mockImplementation(async (args) => ({
+      ...PASS_TRUTH,
+      body: args.body,
+    }));
+  });
+
+  it("1: pending_resolution calls outbound_daily guard", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3PendingGuardArgs());
+    expect(r.should_send).toBe(true);
+    expect(r.guard_mode).toBe("outbound_daily");
+    expect(r.checks_run).toContain("pending_refresh_truth_recheck");
+    expect(r.checks_skipped).toEqual(OUTBOUND_DAILY_C3_CHECKS_SKIPPED);
+  });
+
+  it("2: refresh_identity calls outbound_daily guard", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3RefreshIdentityGuardArgs());
+    expect(r.should_send).toBe(true);
+    expect(r.checks_run).toContain("pending_refresh_truth_recheck");
+  });
+
+  it("3: refresh_commitment calls outbound_daily guard", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3RefreshCommitmentGuardArgs());
+    expect(r.should_send).toBe(true);
+    expect(r.checks_run).toContain("pending_refresh_truth_recheck");
+  });
+
+  it("8: valid pending reminder passes", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3PendingGuardArgs());
+    expect(r.should_send).toBe(true);
+  });
+
+  it("9: false pending resolved/applied blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3PendingGuardArgs(`Pending is resolved — ${PENDING_CANDIDATE} is now your bar.`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("10: false goal/commitment changed blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3PendingGuardArgs(`Your goal has been updated to ${PENDING_CANDIDATE}.`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("11: missing candidate/verbatim blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3PendingGuardArgs("Let's finish the commitment update when you can.")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_REQUIRED_VERBATIM_MISSING_NO_SEND);
+  });
+
+  it("12: OCEG repair stripping candidate meaning blocked", async () => {
+    truthGuardMock.mockResolvedValueOnce({
+      ...PASS_TRUTH,
+      body: "Let's finish the commitment update when you can.",
+    });
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3PendingGuardArgs());
+    expect(r.should_send).toBe(false);
+    expect(r.checks_run).toContain("pending_refresh_truth_recheck");
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_REQUIRED_VERBATIM_MISSING_NO_SEND);
+  });
+
+  it("13: valid refresh identity prompt passes", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3RefreshIdentityGuardArgs());
+    expect(r.should_send).toBe(true);
+  });
+
+  it("14: false identity updated blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3RefreshIdentityGuardArgs(`Your identity has been updated. "${IDENTITY_ANCHOR}"`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("15: false refresh complete blocked on identity", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3RefreshIdentityGuardArgs(`Refresh is complete. "${IDENTITY_ANCHOR}"`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("16: missing identity anchor/verbatim blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3RefreshIdentityGuardArgs("Does this still fit who you're becoming?")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_REQUIRED_VERBATIM_MISSING_NO_SEND);
+  });
+
+  it("17: valid refresh commitment prompt passes", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3RefreshCommitmentGuardArgs());
+    expect(r.should_send).toBe(true);
+  });
+
+  it("18: false commitment changed blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3RefreshCommitmentGuardArgs(
+        `Your commitment has been updated. Today's bar: ${EFFECTIVE_ASK}`
+      )
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("19: false refresh complete blocked on commitment", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3RefreshCommitmentGuardArgs(`Refresh is complete. Today's bar: ${EFFECTIVE_ASK}`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("20: missing effective ask/verbatim blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3RefreshCommitmentGuardArgs("Does this commitment still fit?")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_PENDING_REFRESH_REQUIRED_VERBATIM_MISSING_NO_SEND);
+  });
+
+  it("21: fake Victory / proof blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3PendingGuardArgs(`That's proof for your Victory Room streak. ${PENDING_CANDIDATE}`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(OUTBOUND_DAILY_UNSUPPORTED_PROOF_NO_SEND);
+  });
+
+  it("22: near-duplicate blocked", async () => {
+    nearDupMock.mockResolvedValueOnce({
+      ...PASS_NEAR_DUP,
+      shouldSend: false,
+      noSendReason: RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+      body: "",
+    });
+    const r = await applyUnifiedSmsFinalProductLawGuard(c3PendingGuardArgs());
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(RAPID_NEAR_DUPLICATE_REPLY_NO_SEND);
+  });
+
+  it("23: internal label blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3PendingGuardArgs(`Finish update — reply user_yes. ${PENDING_CANDIDATE}`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(OUTBOUND_DAILY_INTERNAL_LABEL_NO_SEND);
+  });
+
+  it("24: OCEG unsupported claim no-sends", async () => {
+    truthGuardMock.mockResolvedValueOnce({
+      body: "",
+      shouldSend: false,
+      noSendReason: UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
+      metadata: {},
+    });
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c3PendingGuardArgs("Great — you completed your workout today!")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND);
+  });
+
+  it("25: C3 no-send metadata fields in route", () => {
+    const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
+    expect(dailySrc).toContain("pending_state_written_before_sms: false");
+    expect(dailySrc).toContain("refresh_session_written_before_sms: false");
+    expect(dailySrc).toContain("pending_reminder_no_send_reason");
+    expect(dailySrc).toContain("refresh_no_send_reason");
+  });
+
+  it("29: onV2RefreshOutboundSendSuccess remains after Twilio", () => {
+    const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
+    const postSendIdx = dailySrc.lastIndexOf("await onV2RefreshOutboundSendSuccess");
+    const twilioIdx = dailySrc.indexOf("await sendSMS({");
+    expect(postSendIdx).toBeGreaterThan(twilioIdx);
+  });
+
+  it("30: pending reminder does not call pending RPC on success path", () => {
+    const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
+    expect(dailySrc).toContain("daily_sms_pending_resolution_reminder");
+    expect(dailySrc).not.toContain("persistPendingResolutionTruthOnNoSend");
+  });
+
+  it("33: non-C3 success does not falsely claim unified authority", () => {
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
     const northStarFnStart = dailySrc.indexOf("async function withNorthStarDailyGate");
     const northStarFnEnd = dailySrc.indexOf("function dailySmsSentEventVoiceMetadata");

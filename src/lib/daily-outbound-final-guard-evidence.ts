@@ -19,13 +19,21 @@ export const OUTBOUND_DAILY_C1_ROUTE_PURPOSES = [
 
 export const OUTBOUND_DAILY_C2_ROUTE_PURPOSES = ["contract_prompt"] as const;
 
+export const OUTBOUND_DAILY_C3_ROUTE_PURPOSES = [
+  "pending_resolution",
+  "refresh_identity",
+  "refresh_commitment",
+] as const;
+
 export const OUTBOUND_DAILY_WIRED_ROUTE_PURPOSES = [
   ...OUTBOUND_DAILY_C1_ROUTE_PURPOSES,
   ...OUTBOUND_DAILY_C2_ROUTE_PURPOSES,
+  ...OUTBOUND_DAILY_C3_ROUTE_PURPOSES,
 ] as const;
 
 export type OutboundDailyC1RoutePurpose = (typeof OUTBOUND_DAILY_C1_ROUTE_PURPOSES)[number];
 export type OutboundDailyC2RoutePurpose = (typeof OUTBOUND_DAILY_C2_ROUTE_PURPOSES)[number];
+export type OutboundDailyC3RoutePurpose = (typeof OUTBOUND_DAILY_C3_ROUTE_PURPOSES)[number];
 export type OutboundDailyWiredRoutePurpose = (typeof OUTBOUND_DAILY_WIRED_ROUTE_PURPOSES)[number];
 
 export function isOutboundDailyC1RoutePurpose(
@@ -42,13 +50,43 @@ export function isOutboundDailyC2RoutePurpose(
   return routePurpose === "contract_prompt";
 }
 
+export function isOutboundDailyC3RoutePurpose(
+  routePurpose: string | null | undefined
+): routePurpose is OutboundDailyC3RoutePurpose {
+  return (
+    routePurpose === "pending_resolution" ||
+    routePurpose === "refresh_identity" ||
+    routePurpose === "refresh_commitment"
+  );
+}
+
 export function isOutboundDailyWiredRoutePurpose(
   routePurpose: string | null | undefined
 ): routePurpose is OutboundDailyWiredRoutePurpose {
   return (
-    isOutboundDailyC1RoutePurpose(routePurpose) || isOutboundDailyC2RoutePurpose(routePurpose)
+    isOutboundDailyC1RoutePurpose(routePurpose) ||
+    isOutboundDailyC2RoutePurpose(routePurpose) ||
+    isOutboundDailyC3RoutePurpose(routePurpose)
   );
 }
+
+export type DailyOutboundPendingGuardFacts = {
+  resolutionKind: string | null;
+  smsState: string | null;
+  candidateSnippet: string | null;
+  awaitingUserConfirmation: boolean;
+  canonicalBehaviorStatement: string;
+  requiredVerbatimSubstrings: string[];
+  pendingExpiredClearedBeforeBuild?: boolean;
+};
+
+export type DailyOutboundRefreshGuardFacts = {
+  refreshStep: "identity_first" | "commitment_daily";
+  identityAnchorText?: string | null;
+  effectiveAskForBar?: string | null;
+  requiredVerbatimSubstrings: string[];
+  refreshStaleSessionAbandonedBeforeBuild?: boolean;
+};
 
 export type DailyOutboundUnifiedGuardCtx = {
   routeKind: OutboundDailyWiredRoutePurpose;
@@ -67,6 +105,10 @@ export type DailyOutboundUnifiedGuardCtx = {
   canonicalProposalAskTrim?: string | null;
   baseBehaviorStatement?: string | null;
   proposalPending?: boolean;
+  /** C3 pending_resolution only */
+  pendingResolutionFacts?: DailyOutboundPendingGuardFacts | null;
+  /** C3 refresh_identity / refresh_commitment only */
+  refreshGuardFacts?: DailyOutboundRefreshGuardFacts | null;
 };
 
 export function buildDailyOutboundUnifiedGuardCtx(args: {
@@ -84,6 +126,8 @@ export function buildDailyOutboundUnifiedGuardCtx(args: {
   canonicalProposalAskTrim?: string | null;
   baseBehaviorStatement?: string | null;
   proposalPending?: boolean;
+  pendingResolutionFacts?: DailyOutboundPendingGuardFacts | null;
+  refreshGuardFacts?: DailyOutboundRefreshGuardFacts | null;
 }): DailyOutboundUnifiedGuardCtx {
   const pendingPlanProof = args.pendingPlanProof ?? null;
   const priorOutcome = args.priorOutcome?.trim() || null;
@@ -110,7 +154,18 @@ export function buildDailyOutboundUnifiedGuardCtx(args: {
     canonicalProposalAskTrim: args.canonicalProposalAskTrim?.trim() || null,
     baseBehaviorStatement: args.baseBehaviorStatement?.trim() || null,
     proposalPending: args.proposalPending ?? false,
+    pendingResolutionFacts: args.pendingResolutionFacts ?? null,
+    refreshGuardFacts: args.refreshGuardFacts ?? null,
   };
+}
+
+function isOutboundDailyConservativeOcegRoute(routeKind: OutboundDailyWiredRoutePurpose): boolean {
+  return (
+    routeKind === "contract_prompt" ||
+    routeKind === "pending_resolution" ||
+    routeKind === "refresh_identity" ||
+    routeKind === "refresh_commitment"
+  );
 }
 
 function dailyAllowedOutboundClaims(priorOutcome: string | null): ShortAnswerContextAuthority["allowed_outbound_claims"] {
@@ -127,10 +182,9 @@ function dailyAllowedOutboundClaims(priorOutcome: string | null): ShortAnswerCon
 export function buildDailyOutboundOcegEvidence(
   ctx: DailyOutboundUnifiedGuardCtx
 ): OutcomeClaimEvidenceBundle {
-  const allowed =
-    ctx.routeKind === "contract_prompt"
-      ? { completion: false, miss: false, partial: false }
-      : dailyAllowedOutboundClaims(ctx.priorOutcome);
+  const allowed = isOutboundDailyConservativeOcegRoute(ctx.routeKind)
+    ? { completion: false, miss: false, partial: false }
+    : dailyAllowedOutboundClaims(ctx.priorOutcome);
   const shortAnswerContext: ShortAnswerContextAuthority = {
     is_short_contextual_answer: Boolean(ctx.lastInboundBody?.trim()),
     short_answer_polarity:
@@ -141,14 +195,20 @@ export function buildDailyOutboundOcegEvidence(
           : ctx.priorOutcome === "user_partial"
             ? "unclear"
             : "unclear",
-    prior_question_type: ctx.routeKind === "contract_prompt" ? "plan_confirmation" : "outcome_check",
+    prior_question_type:
+      ctx.routeKind === "contract_prompt"
+        ? "plan_confirmation"
+        : isOutboundDailyC3RoutePurpose(ctx.routeKind)
+          ? "plan_confirmation"
+          : "outcome_check",
     outcome_proof_eligible: ctx.hasProofOrKnownOutcome,
     allowed_persistence: "no_outcome_write",
     allowed_outbound_claims: allowed,
     response_intent_hint: null,
-    reason:
-      ctx.routeKind === "contract_prompt"
-        ? "daily_outbound_c2_contract_evidence"
+    reason: isOutboundDailyC2RoutePurpose(ctx.routeKind)
+      ? "daily_outbound_c2_contract_evidence"
+      : isOutboundDailyC3RoutePurpose(ctx.routeKind)
+        ? "daily_outbound_c3_reminder_evidence"
         : "daily_outbound_c1_evidence",
   };
 
