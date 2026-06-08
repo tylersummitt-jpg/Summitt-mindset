@@ -1151,6 +1151,35 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
     expect(obsJson).not.toMatch(/Did you protect focus/i);
   });
 
+  it("includes no-send silence snapshot telemetry counts and tier without question bodies", () => {
+    const { meta, snapshotV2Meta } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts(),
+    });
+
+    expect(snapshotV2Meta.no_send_silence_history_emitted).toBe(true);
+    expect(snapshotV2Meta.silence_tier).toBeDefined();
+    expect(typeof snapshotV2Meta.recent_questions_not_delivered_count).toBe("number");
+    expect(typeof snapshotV2Meta.recent_questions_delivered_unanswered_count).toBe("number");
+
+    const laneMeta = relationshipPacketMetaForLaneTelemetry(meta, snapshotV2Meta);
+    const obs = relationshipObservabilityFromLaneMetadata(laneMeta);
+
+    expect(obs.no_send_silence_history_emitted).toBe(true);
+    expect(obs.silence_tier).toBe(snapshotV2Meta.silence_tier);
+    expect(obs.recent_questions_not_delivered_count).toBe(
+      snapshotV2Meta.recent_questions_not_delivered_count
+    );
+    expect(obs.recent_questions_delivered_unanswered_count).toBe(
+      snapshotV2Meta.recent_questions_delivered_unanswered_count
+    );
+
+    const obsJson = JSON.stringify(obs);
+    expect(obsJson).not.toMatch(/"quote"/i);
+    expect(obsJson).not.toMatch(/no_send_reason/i);
+    expect(obsJson).not.toMatch(/skipped_no_safe_v3_voice/i);
+  });
+
   it("returns empty object for null/undefined metadata", () => {
     expect(relationshipObservabilityFromLaneMetadata(null)).toEqual({});
     expect(relationshipObservabilityFromLaneMetadata(undefined)).toEqual({});

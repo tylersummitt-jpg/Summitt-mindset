@@ -44,7 +44,7 @@ import {
 } from "@/lib/sms-relationship-snapshot-v2";
 
 export const RELATIONSHIP_PACKET_VERSION = "1.8" as const;
-export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_800;
+export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 13_200;
 
 export type RelationshipPacketLane = "inbound" | "daily" | "weekly";
 
@@ -1333,6 +1333,16 @@ export function relationshipPacketMetaForLaneTelemetry(
           proof_evidence_count: snapshotMeta.proof_evidence_count,
           proof_permission_sources: snapshotMeta.proof_permission_sources,
           proof_permission_has_legacy_v1: snapshotMeta.proof_permission_has_legacy_v1,
+          no_send_silence_history_emitted: snapshotMeta.no_send_silence_history_emitted,
+          days_since_last_visible_coach_sms: snapshotMeta.days_since_last_visible_coach_sms,
+          days_since_last_user_reply: snapshotMeta.days_since_last_user_reply,
+          days_since_last_outcome: snapshotMeta.days_since_last_outcome,
+          silence_tier: snapshotMeta.silence_tier,
+          reentry_context: snapshotMeta.reentry_context,
+          recent_questions_not_delivered_count: snapshotMeta.recent_questions_not_delivered_count,
+          recent_questions_delivered_unanswered_count:
+            snapshotMeta.recent_questions_delivered_unanswered_count,
+          no_send_silence_history_truncated: snapshotMeta.no_send_silence_history_truncated,
         }
       : {}),
   };
@@ -1380,6 +1390,15 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "proof_evidence_count",
   "proof_permission_sources",
   "proof_permission_has_legacy_v1",
+  "no_send_silence_history_emitted",
+  "days_since_last_visible_coach_sms",
+  "days_since_last_user_reply",
+  "days_since_last_outcome",
+  "silence_tier",
+  "reentry_context",
+  "recent_questions_not_delivered_count",
+  "recent_questions_delivered_unanswered_count",
+  "no_send_silence_history_truncated",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

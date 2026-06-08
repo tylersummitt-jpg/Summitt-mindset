@@ -28,6 +28,11 @@ import {
   type OpenLoopsAndDoNotRepeatData,
 } from "@/lib/sms-open-loops-and-do-not-repeat";
 import {
+  buildNoSendAndSilenceHistoryV2,
+  buildNoSendAndSilenceHistoryV2PromptGuidance,
+  type NoSendAndSilenceHistoryV2Section,
+} from "@/lib/sms-no-send-and-silence-history-v2";
+import {
   buildProofAndPraisePermissionV2,
   buildProofAndPraisePermissionV2PromptGuidance,
   DEFAULT_FORBIDDEN_PROOF_CLAIMS,
@@ -97,6 +102,7 @@ export type RelationshipSnapshotV2 = {
   relationship_memory_30d_or_season?: RelationshipPacketV1["relationship_memory_30d_or_season"];
   proof_and_praise_permission: ProofAndPraisePermissionV2Section;
   open_loops_and_do_not_repeat: RelationshipPacketSection<OpenLoopsAndDoNotRepeatData>;
+  no_send_and_silence_history: NoSendAndSilenceHistoryV2Section;
   route_context: RelationshipPacketSection<RelationshipSnapshotRouteContext>;
   long_term_background_summary?: RelationshipPacketV1["lower_authority_background"];
   low_confidence_hints?: RelationshipPacketV1["lower_authority_background"];
@@ -131,6 +137,15 @@ export type RelationshipSnapshotV2Meta = {
   proof_evidence_count?: number;
   proof_permission_sources?: string[];
   proof_permission_has_legacy_v1?: boolean;
+  no_send_silence_history_emitted?: true;
+  days_since_last_visible_coach_sms?: number | null;
+  days_since_last_user_reply?: number | null;
+  days_since_last_outcome?: number | null;
+  silence_tier?: string | null;
+  reentry_context?: boolean;
+  recent_questions_not_delivered_count?: number;
+  recent_questions_delivered_unanswered_count?: number;
+  no_send_silence_history_truncated?: boolean;
 };
 
 export function normalizeStructuredRecentExactThread72hForV2(
@@ -269,6 +284,16 @@ export function buildRelationshipSnapshotV2(args: {
     compact: args.proofPermissionCompact === true || args.truncated === true,
   });
 
+  const noSendSilenceBuilt = buildNoSendAndSilenceHistoryV2({
+    surface: args.surface,
+    messages: threadSection.data.messages,
+    structuredRecentTruth: args.packet.structured_recent_truth.data,
+    openLoopsAndDoNotRepeat: openLoopsBuilt.section.data,
+    relationshipMemory7d: args.packet.relationship_memory_7d?.data ?? null,
+    currentTurn: args.packet.current_turn.data as Record<string, unknown>,
+    routeContext: resolveRouteContext(args.packet, args.surface, args.lane, args.proposalKind).data,
+  });
+
   const snapshot: RelationshipSnapshotV2 = {
     version: RELATIONSHIP_SNAPSHOT_V2_VERSION,
     generated_at: args.generatedAt ?? new Date().toISOString(),
@@ -282,6 +307,7 @@ export function buildRelationshipSnapshotV2(args: {
     recent_exact_thread_72h: threadSection,
     proof_and_praise_permission: proofPermissionBuilt.section,
     open_loops_and_do_not_repeat: openLoopsBuilt.section,
+    no_send_and_silence_history: noSendSilenceBuilt.section,
     route_context: resolveRouteContext(args.packet, args.surface, args.lane, args.proposalKind),
     finalization_context: { note: "server_validates_send_separately" },
   };
@@ -324,6 +350,7 @@ export function buildRelationshipSnapshotV2(args: {
     thread_fallback_used: threadSection.data.thread_fallback_used,
     ...openLoopsBuilt.meta,
     ...proofPermissionBuilt.meta,
+    ...noSendSilenceBuilt.meta,
   };
 
   return { snapshot, meta };
@@ -342,6 +369,7 @@ RELATIONSHIP_SNAPSHOT_V2_AUTHORITY (read-only context — server final guard val
 - active_pending_state tells you what is still open — must_not_claim_resolved items must NOT be treated as closed in visible SMS.
 ${buildOpenLoopsAndDoNotRepeatPromptGuidance()}
 ${buildProofAndPraisePermissionV2PromptGuidance()}
+${buildNoSendAndSilenceHistoryV2PromptGuidance()}
 - finalization_context is NOT permission to make proof/state claims; server validates send separately.
 - thread_fallback_used true with empty messages[] means no prose transcript fallback — do not invent thread history.`;
 }
