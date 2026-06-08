@@ -108,8 +108,9 @@ describe("Phase 2.1d-A1 contract consent — route wiring", () => {
     expect(contractBlock).toContain("cancelContractConsentAckNoSend");
   });
 
-  it("27: adaptive clarify not wired to unified guard", () => {
-    expect(adaptiveBlock).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+  it("27: adaptive clarify wired separately from contract truth policy", () => {
+    expect(adaptiveBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(adaptiveBlock).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
     expect(adaptiveBlock).not.toContain("persistContractConsentTruthOnNoSend");
   });
 

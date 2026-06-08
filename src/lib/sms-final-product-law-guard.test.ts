@@ -455,9 +455,8 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 
-  it("15: contract wired via persistContractConsentInboundLaneAckAndSend; pending uses opt-in helper guard", () => {
+  it("15: contract + adaptive clarify wired via dedicated pipelines; pending uses opt-in helper guard", () => {
     const forbiddenDirectPurposes = [
-      "adaptive_proposal_consent_clarification",
       "pending_resolution_inbound",
       "commitment_change_handoff",
       "refresh_session_inbound",
@@ -477,6 +476,15 @@ describe("PR 2.1b route wiring invariants", () => {
     );
     expect(contractBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(contractBlock).toContain("persistContractConsentTruthOnNoSend");
+
+    const adaptiveIdx = src.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
+    expect(adaptiveIdx).toBeGreaterThan(0);
+    const adaptiveBlock = src.slice(
+      adaptiveIdx,
+      src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend")
+    );
+    expect(adaptiveBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(adaptiveBlock).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
 
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
     const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);

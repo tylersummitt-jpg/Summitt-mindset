@@ -390,6 +390,7 @@ import {
   type ContractConsentNoSendTruthPolicyContext,
 } from "@/lib/v2-contract-consent-no-send-truth";
 import { evaluatePostUnifiedGuardContractTruthRecheck } from "@/lib/v2-contract-consent-post-unified-truth";
+import { evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck } from "@/lib/v2-adaptive-consent-clarify-post-unified-truth";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import {
@@ -1291,6 +1292,25 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
  * Phase 3F-3 — pending adaptive proposal + consent-adjacent ambiguous inbound: V3 clarification only.
  * No overlay RPC, no accountability outcome event, no blocker capture pending.
  */
+function adaptiveClarifyNoSendTelemetryBase(args: {
+  noSendReason: string;
+  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard" | "post_unified_truth_recheck";
+  guardTelemetry?: Record<string, unknown>;
+  adaptiveTruthRecheckFailed?: boolean;
+}): Record<string, unknown> {
+  return {
+    adaptive_clarify_no_send: true,
+    adaptive_clarify_state_mutated_before_sms: false,
+    adaptive_clarify_proposal_remains_pending: true,
+    adaptive_clarify_pending_remains_active: true,
+    visible_sent: false,
+    no_send_stage: args.noSendStage,
+    no_send_reason: args.noSendReason,
+    ...(args.adaptiveTruthRecheckFailed ? { adaptive_truth_recheck_failed: true } : {}),
+    ...(args.guardTelemetry ?? {}),
+  };
+}
+
 async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   job: JobRow;
   userId: string;
@@ -1336,16 +1356,25 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   });
 
   if (!lane.shouldSend || !lane.body.trim()) {
+    const laneNoSendReason = lane.noSendReason ?? "inbound_lane_no_send";
     await markJobFinal({
       messageSid: args.job.message_sid,
       status: "cancelled",
-      lastError: formatInboundV3LaneNoSendLastError(lane, baseTelemetry()),
+      lastError: formatInboundV3LaneNoSendLastError(lane, {
+        ...baseTelemetry(),
+        ...adaptiveClarifyNoSendTelemetryBase({
+          noSendReason: laneNoSendReason,
+          noSendStage: "lane",
+        }),
+      }),
       nextRetry: farFutureIso(),
     });
     console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_lane_no_send", {
       message_sid: args.job.message_sid,
       commitment_id: args.commitment.id,
-      reason: lane.noSendReason,
+      reason: laneNoSendReason,
+      adaptive_clarify_no_send: true,
+      adaptive_clarify_proposal_remains_pending: true,
     });
     return { ok: false };
   }
@@ -1385,11 +1414,16 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   });
 
   if (!voicePack.voice.shouldSend) {
+    const fvgNoSendReason = voicePack.voice.skipReason ?? "final_voice_gate_no_send";
     await markJobFinal({
       messageSid: args.job.message_sid,
       status: "cancelled",
       lastError: finalVoiceSkipLastError(voicePack.voice, {
         ...baseTelemetry(),
+        ...adaptiveClarifyNoSendTelemetryBase({
+          noSendReason: fvgNoSendReason,
+          noSendStage: "final_voice_gate",
+        }),
         v3_lane_reply_source: "v3_inbound_relationship_lane",
         v3_candidate_body: lane.body.slice(0, 500),
         lane_metadata: lane.metadata,
@@ -1407,11 +1441,115 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
     });
     console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_final_voice_suppressed", {
       message_sid: args.job.message_sid,
+      adaptive_clarify_no_send: true,
+      adaptive_clarify_proposal_remains_pending: true,
     });
     return { ok: false };
   }
 
-  const gatedBody = voicePack.voice.body;
+  const recentEvents = await getRecentV2EventsForAi(args.commitment.id);
+  const memoryPacket = facts.thread.memory_packet ?? {};
+  const outcomeClaimEvidence = buildInboundOutcomeClaimEvidence({
+    userMessage: args.inboundRaw,
+    commitment: args.commitment,
+    effectiveBehavior: getEffectiveCoachingAsk(args.commitment, Date.now()),
+    recentEvents,
+    memoryPacket,
+    lastOutboundSmsPreview: contextPacket.latestOutboundBody ?? null,
+    latestOpenQuestion: contextPacket.latestOpenQuestion ?? null,
+    finalEventType: contextPacket.finalEventType ?? null,
+  });
+  const priorCoach = resolvePriorCoachContextFromMemoryPacket({
+    memoryPacket,
+    fallbackPriorBody: contextPacket.latestOutboundBody ?? null,
+  });
+
+  const unifiedGuard = await applyUnifiedSmsFinalProductLawGuard({
+    mode: "transactional_coaching_limited",
+    surface: "inbound",
+    routePurpose: "adaptive_proposal_consent_clarification",
+    branchName: "adaptive_proposal_consent_clarification",
+    preGuardBodyPreview: voicePack.voice.body,
+    transactionalCoachingLimited: {
+      body: voicePack.voice.body,
+      evidence: outcomeClaimEvidence,
+      priorCoachBody: priorCoach.priorCoachBody,
+      priorCoachSentAt: priorCoach.priorCoachSentAt,
+      inboundRaw: args.inboundRaw,
+      routePurpose: "adaptive_proposal_consent_clarification",
+      nearDuplicateStage: "adaptive_proposal_consent_clarification_near_duplicate",
+      ocegStage: "adaptive_proposal_consent_clarification_oceg",
+    },
+  });
+
+  const postRecheck = evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck({
+    body: unifiedGuard.body,
+    adaptiveConsentClarificationFacts: args.adaptiveConsentClarificationFacts,
+    requiredVerbatimSubstrings: facts.constraints.required_verbatim_substrings ?? null,
+  });
+
+  const guardTelemetry = {
+    ...compactUnifiedFinalGuardForTelemetry(unifiedGuard),
+    unified_final_product_law_guard_applied: true,
+    ...(postRecheck.verbatimMissing?.length
+      ? { required_verbatim_missing: postRecheck.verbatimMissing }
+      : {}),
+    ...(postRecheck.adaptiveTruthViolations.length
+      ? { adaptive_truth_violations: postRecheck.adaptiveTruthViolations }
+      : {}),
+  };
+
+  if (!unifiedGuard.shouldSend) {
+    const noSendReason = unifiedGuard.noSendReason ?? "unified_final_product_law_guard_no_send";
+    await markJobFinal({
+      messageSid: args.job.message_sid,
+      status: "cancelled",
+      lastError: JSON.stringify({
+        ...baseTelemetry(),
+        ...adaptiveClarifyNoSendTelemetryBase({
+          noSendReason,
+          noSendStage: "unified_final_guard",
+          guardTelemetry,
+        }),
+      }).slice(0, 1900),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_unified_guard_no_send", {
+      message_sid: args.job.message_sid,
+      commitment_id: args.commitment.id,
+      no_send_reason: noSendReason,
+      ...guardTelemetry,
+    });
+    return { ok: false };
+  }
+
+  if (postRecheck.blocked) {
+    const noSendReason =
+      postRecheck.noSendReason ?? "adaptive_clarify_post_unified_truth_recheck_failed";
+    await markJobFinal({
+      messageSid: args.job.message_sid,
+      status: "cancelled",
+      lastError: JSON.stringify({
+        ...baseTelemetry(),
+        ...adaptiveClarifyNoSendTelemetryBase({
+          noSendReason,
+          noSendStage: "post_unified_truth_recheck",
+          guardTelemetry,
+          adaptiveTruthRecheckFailed: true,
+        }),
+      }).slice(0, 1900),
+      nextRetry: farFutureIso(),
+    });
+    console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_post_unified_truth_no_send", {
+      message_sid: args.job.message_sid,
+      commitment_id: args.commitment.id,
+      no_send_reason: noSendReason,
+      adaptive_truth_violations: postRecheck.adaptiveTruthViolations,
+    });
+    return { ok: false };
+  }
+
+  const gatedBody = unifiedGuard.body;
   const adaptiveConsentClassification = classifyV2InboundReply(args.inboundRaw.trim());
   const adaptiveClarificationThreadMemoryCtx = {
     commitmentId: args.commitment.id,
@@ -1470,8 +1608,11 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
     v3_lane_reply_source: "v3_inbound_relationship_lane",
     v3_candidate_body: gatedBody.slice(0, 500),
     should_send: true,
+    visible_sent: true,
+    sent_body_equals_guard_body: true,
     server_action_taken: "none",
     state_remains_pending: true,
+    adaptive_clarify_proposal_remains_pending: true,
     adaptive_consent_clarification_facts_summary: slimAdaptiveConsentClarificationFactsForTelemetry(
       args.adaptiveConsentClarificationFacts
     ),
@@ -1483,6 +1624,7 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
       ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
     },
     final_voice_gate: voicePack.voice.metadata,
+    ...guardTelemetry,
   });
   return { ok: true, sentBody: gatedBody };
 }

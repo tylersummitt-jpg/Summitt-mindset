@@ -201,4 +201,18 @@ describe("inbound turn understanding route invariants", () => {
     expect(contractBlock).toContain("trySendContractConsentBodyAfterUnifiedGuard");
     expect(contractBlock).not.toContain("unifiedFinalGuard:");
   });
+
+  it("T: Phase 2.1d-A2 adaptive clarify uses dedicated unified guard + adaptive post-unified recheck", () => {
+    const adaptiveIdx = src.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
+    expect(adaptiveIdx).toBeGreaterThan(0);
+    const adaptiveBlock = src.slice(
+      adaptiveIdx,
+      src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend")
+    );
+    expect(adaptiveBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(adaptiveBlock).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
+    expect(adaptiveBlock).toContain("adaptive_clarify_no_send: true");
+    expect(adaptiveBlock).not.toContain("unifiedFinalGuard:");
+    expect(adaptiveBlock).not.toContain("persistContractConsentTruthOnNoSend");
+  });
 });
