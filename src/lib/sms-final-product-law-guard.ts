@@ -18,6 +18,14 @@ import {
 } from "@/lib/inbound-near-duplicate-reply-policy";
 import type { InboundFinalBodyTurnUnderstandingGuardResult } from "@/lib/inbound-turn-understanding-context";
 import type { InboundTurnUnderstandingContext } from "@/lib/inbound-turn-understanding-context";
+import {
+  detectDailyOutboundUnsupportedProofClaim,
+  isOutboundDailyC1RoutePurpose,
+  OUTBOUND_DAILY_INTERNAL_LABEL_NO_SEND,
+  OUTBOUND_DAILY_UNSUPPORTED_PROOF_NO_SEND,
+  type DailyOutboundUnifiedGuardCtx,
+} from "@/lib/daily-outbound-final-guard-evidence";
+import { userVisibleInternalLabelBlockedReasons } from "@/lib/user-visible-internal-label-guard";
 
 export const SMS_FINAL_PRODUCT_LAW_GUARD_VERSION = "sms_final_product_law_v1" as const;
 
@@ -59,11 +67,25 @@ export type TransactionalCoachingLimitedGuardArgs = {
   nowMs?: number;
 };
 
+export type OutboundDailyGuardArgs = {
+  body: string;
+  evidence: OutcomeClaimEvidenceBundle;
+  dailyGuardCtx: DailyOutboundUnifiedGuardCtx;
+  priorCoachBody?: string | null;
+  priorCoachSentAt?: string | null;
+  routePurpose: string;
+  factsJson?: Record<string, unknown> | null;
+  nearDuplicateStage?: string;
+  ocegStage?: string;
+  nowMs?: number;
+};
+
 export type UnifiedFinalGuardArgs = {
   mode: SmsFinalGuardMode;
   surface: SmsFinalGuardSurface;
   normalCoachingFull?: NormalCoachingFullGuardArgs;
   transactionalCoachingLimited?: TransactionalCoachingLimitedGuardArgs;
+  outboundDaily?: OutboundDailyGuardArgs;
   /** Body entering unified guard (for telemetry previews). */
   preGuardBodyPreview?: string | null;
   routePurpose?: string | null;
@@ -122,6 +144,14 @@ export const TRANSACTIONAL_COACHING_LIMITED_CHECKS_SKIPPED: UnifiedFinalGuardSki
   { check: "premature_adjustment", reason: "no_miss_adjustment_policy" },
   { check: "internal_label", reason: "final_voice_gate_already_ran" },
   { check: "contract_legal", reason: "not_contract_path" },
+];
+
+export const OUTBOUND_DAILY_C1_CHECKS_SKIPPED: UnifiedFinalGuardSkippedCheck[] = [
+  { check: "turn_understanding_stale_ask", reason: "inbound_only" },
+  { check: "premature_adjustment", reason: "daily_server_strategy" },
+  { check: "daily_stale_ask", reason: "pre_unified_daily_stale_guards" },
+  { check: "contract_truth_recheck", reason: "c2_deferred" },
+  { check: "refresh_pending_truth_recheck", reason: "c3_deferred" },
 ];
 
 function deriveChecksRunFromInbound(inbound: InboundCoachFinalBodyGuardsResult): string[] {
@@ -459,6 +489,237 @@ async function applyTransactionalCoachingLimitedGuard(
   });
 }
 
+function mapOutboundDailyToUnified(args: {
+  unifiedArgs: UnifiedFinalGuardArgs;
+  preBody: string;
+  body: string;
+  shouldSend: boolean;
+  noSendReason: string | null;
+  checksRun: string[];
+  truthGuard: InboundFinalBodyTruthGuardResult | null;
+  nearDuplicateGuard: RapidNearDuplicateCoachReplyGuardResult | null;
+  nearDuplicatePostOcegRecheck: RapidNearDuplicateCoachReplyGuardResult | null;
+  productLawFailures?: string[] | null;
+}): UnifiedFinalGuardResult {
+  const repairAttempts = countRepairAttemptsFromMetas([
+    args.nearDuplicateGuard?.metadata,
+    args.truthGuard?.metadata,
+    args.nearDuplicatePostOcegRecheck?.metadata,
+  ]);
+  const metadata = buildWrapperMetadata({
+    unifiedArgs: args.unifiedArgs,
+    preBody: args.preBody,
+    postBody: args.body,
+    checksRun: args.checksRun,
+    delegatedTo: "outbound_daily_c1",
+    shouldSend: args.shouldSend,
+  });
+
+  return {
+    should_send: args.shouldSend,
+    shouldSend: args.shouldSend,
+    body: args.body,
+    no_send_reason: args.noSendReason,
+    noSendReason: args.noSendReason,
+    final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+    guard_version: SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
+    guard_mode: "outbound_daily",
+    checks_run: args.checksRun,
+    checks_skipped: OUTBOUND_DAILY_C1_CHECKS_SKIPPED,
+    guard_results: {
+      inbound_coach_final_body_guards: null,
+      transactional_coaching_limited: null,
+    },
+    repair_attempts: repairAttempts,
+    repair_succeeded: anyRepairSucceededFromMetas([
+      args.nearDuplicateGuard?.metadata,
+      args.truthGuard?.metadata,
+      args.nearDuplicatePostOcegRecheck?.metadata,
+    ]),
+    metadata: {
+      ...metadata,
+      unified_final_guard_checks_skipped: OUTBOUND_DAILY_C1_CHECKS_SKIPPED,
+      ...(args.productLawFailures?.length ? { product_law_failures: args.productLawFailures } : {}),
+      visible_sent: args.shouldSend ? true : false,
+    },
+    tuGuard: passThroughTuGuard(args.body),
+    prematureAdjustmentGuard: null,
+    truthGuard: args.truthGuard,
+    nearDuplicateGuard: args.nearDuplicatePostOcegRecheck ?? args.nearDuplicateGuard,
+  };
+}
+
+async function applyOutboundDailyC1Guard(
+  args: OutboundDailyGuardArgs
+): Promise<UnifiedFinalGuardResult> {
+  const checksRun: string[] = [];
+  const preBody = args.body.trim();
+  const routePurpose = args.routePurpose;
+
+  const nearDuplicateGuard = await applyRapidNearDuplicateCoachReplyGuard({
+    body: preBody,
+    priorCoachBody: args.priorCoachBody,
+    priorCoachSentAt: args.priorCoachSentAt,
+    inboundRaw: null,
+    routePurpose,
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: null,
+    stage: args.nearDuplicateStage ?? "outbound_daily_near_duplicate",
+    nowMs: args.nowMs,
+  });
+  checksRun.push("near_duplicate");
+
+  if (!nearDuplicateGuard.shouldSend) {
+    return mapOutboundDailyToUnified({
+      unifiedArgs: {
+        mode: "outbound_daily",
+        surface: "daily",
+        routePurpose,
+      },
+      preBody,
+      body: nearDuplicateGuard.body,
+      shouldSend: false,
+      noSendReason: nearDuplicateGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+      checksRun,
+      truthGuard: null,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck: null,
+      productLawFailures: [nearDuplicateGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND],
+    });
+  }
+
+  let body = nearDuplicateGuard.body;
+  const bodyBeforeOceg = body;
+
+  const truthGuard = await applyInboundFinalBodyTruthGuard({
+    body,
+    evidence: args.evidence,
+    stage: args.ocegStage ?? "outbound_daily_oceg",
+    routePurpose,
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: null,
+  });
+  checksRun.push("unsupported_claim_oceg");
+
+  if (!truthGuard.shouldSend) {
+    return mapOutboundDailyToUnified({
+      unifiedArgs: {
+        mode: "outbound_daily",
+        surface: "daily",
+        routePurpose,
+      },
+      preBody,
+      body: truthGuard.body,
+      shouldSend: false,
+      noSendReason: truthGuard.noSendReason ?? UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
+      checksRun,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck: null,
+      productLawFailures: [truthGuard.noSendReason ?? UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND],
+    });
+  }
+
+  body = truthGuard.body;
+
+  let nearDuplicatePostOcegRecheck: RapidNearDuplicateCoachReplyGuardResult | null = null;
+  if (body.trim() !== bodyBeforeOceg.trim()) {
+    nearDuplicatePostOcegRecheck = await applyRapidNearDuplicateCoachReplyGuard({
+      body,
+      priorCoachBody: args.priorCoachBody,
+      priorCoachSentAt: args.priorCoachSentAt,
+      inboundRaw: null,
+      routePurpose,
+      factsJson: args.factsJson ?? null,
+      repairSnapshot: null,
+      stage: "outbound_daily_near_duplicate_post_oceg_recheck",
+      nowMs: args.nowMs,
+    });
+    checksRun.push("near_duplicate_post_oceg_recheck");
+
+    if (!nearDuplicatePostOcegRecheck.shouldSend) {
+      return mapOutboundDailyToUnified({
+        unifiedArgs: {
+          mode: "outbound_daily",
+          surface: "daily",
+          routePurpose,
+        },
+        preBody,
+        body: nearDuplicatePostOcegRecheck.body,
+        shouldSend: false,
+        noSendReason:
+          nearDuplicatePostOcegRecheck.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+        checksRun,
+        truthGuard,
+        nearDuplicateGuard,
+        nearDuplicatePostOcegRecheck,
+        productLawFailures: [
+          nearDuplicatePostOcegRecheck.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+        ],
+      });
+    }
+    body = nearDuplicatePostOcegRecheck.body;
+  }
+
+  const proofViolation = detectDailyOutboundUnsupportedProofClaim(body, args.dailyGuardCtx);
+  checksRun.push("unsupported_proof_victory");
+  if (proofViolation) {
+    return mapOutboundDailyToUnified({
+      unifiedArgs: {
+        mode: "outbound_daily",
+        surface: "daily",
+        routePurpose,
+      },
+      preBody,
+      body: "",
+      shouldSend: false,
+      noSendReason: OUTBOUND_DAILY_UNSUPPORTED_PROOF_NO_SEND,
+      checksRun,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck,
+      productLawFailures: [proofViolation.violation],
+    });
+  }
+
+  const internalLabels = userVisibleInternalLabelBlockedReasons(body);
+  checksRun.push("internal_label_detect");
+  if (internalLabels.length > 0) {
+    return mapOutboundDailyToUnified({
+      unifiedArgs: {
+        mode: "outbound_daily",
+        surface: "daily",
+        routePurpose,
+      },
+      preBody,
+      body: "",
+      shouldSend: false,
+      noSendReason: OUTBOUND_DAILY_INTERNAL_LABEL_NO_SEND,
+      checksRun,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck,
+      productLawFailures: internalLabels,
+    });
+  }
+
+  return mapOutboundDailyToUnified({
+    unifiedArgs: {
+      mode: "outbound_daily",
+      surface: "daily",
+      routePurpose,
+    },
+    preBody,
+    body,
+    shouldSend: true,
+    noSendReason: null,
+    checksRun,
+    truthGuard,
+    nearDuplicateGuard,
+    nearDuplicatePostOcegRecheck,
+  });
+}
+
 export function compactUnifiedFinalGuardForTelemetry(
   result: UnifiedFinalGuardResult
 ): Record<string, unknown> {
@@ -532,10 +793,41 @@ export async function applyUnifiedSmsFinalProductLawGuard(
     };
   }
 
-  if (args.mode === "outbound_daily" || args.mode === "outbound_weekly") {
+  if (args.mode === "outbound_weekly") {
     throw new Error(
       `sms_final_product_law_guard: mode "${args.mode}" is not activated in PR 2.1b`
     );
+  }
+
+  if (args.mode === "outbound_daily") {
+    if (!args.outboundDaily) {
+      throw new Error(
+        "sms_final_product_law_guard: outboundDaily args required for outbound_daily mode"
+      );
+    }
+    const routePurpose = args.routePurpose ?? args.outboundDaily.routePurpose;
+    if (!isOutboundDailyC1RoutePurpose(routePurpose)) {
+      throw new Error(
+        `sms_final_product_law_guard: outbound_daily not activated for route "${routePurpose ?? "unknown"}"`
+      );
+    }
+    const preBody = (args.preGuardBodyPreview ?? args.outboundDaily.body).trim();
+    const result = await applyOutboundDailyC1Guard({
+      ...args.outboundDaily,
+      body: args.outboundDaily.body.trim(),
+      routePurpose,
+    });
+    return {
+      ...result,
+      metadata: {
+        ...result.metadata,
+        pre_unified_guard_body_preview: preBody.slice(0, 120),
+        post_unified_guard_body_preview: result.body.slice(0, 120),
+        unified_final_guard_branch_name: args.branchName ?? routePurpose,
+        unified_final_guard_route_purpose: routePurpose,
+        sent_body_equals_guard_body: result.shouldSend && result.body.trim().length > 0,
+      },
+    };
   }
 
   if (args.mode !== "normal_coaching_full") {

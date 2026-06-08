@@ -349,14 +349,14 @@ describe("applyUnifiedSmsFinalProductLawGuard", () => {
     expect(truthGuardMock).not.toHaveBeenCalled();
   });
 
-  it("8: unimplemented outbound_daily/outbound_weekly modes still throw", async () => {
+  it("8: outbound_weekly still throws; outbound_daily requires C1 args", async () => {
     await expect(
       applyUnifiedSmsFinalProductLawGuard({
         mode: "outbound_daily",
         surface: "daily",
         candidateBody: "test",
       })
-    ).rejects.toThrow(/not activated in PR 2.1b/);
+    ).rejects.toThrow(/outboundDaily args required/);
 
     await expect(
       applyUnifiedSmsFinalProductLawGuard({
@@ -446,12 +446,13 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(helperBlock).toMatch(/unifiedFinalGuard\?: InboundLaneUnifiedFinalGuardConfig/);
   });
 
-  it("14: daily/weekly are still not wired", () => {
+  it("14: daily C1 wired; weekly still not wired", () => {
     expect(src).not.toContain('surface: "daily"');
     expect(src).not.toContain('surface: "weekly"');
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
     const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
-    expect(dailySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(dailySrc).toContain('mode: "outbound_daily"');
+    expect(dailySrc).toContain("isOutboundDailyC1RoutePurpose");
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 

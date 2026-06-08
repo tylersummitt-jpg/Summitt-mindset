@@ -35,6 +35,9 @@ export function dailySmsVoiceSkipEventPatch(args: {
   blockedReasons: string[];
   northStarVisibleBody?: string;
   skipSource?: string;
+  unifiedFinalGuard?: Record<string, unknown> | null;
+  routeKind?: string | null;
+  noSendReason?: string | null;
 }): { status: string; metadata: Record<string, unknown>; sms_body: string } {
   return {
     status: "skipped_no_safe_v3_voice",
@@ -48,9 +51,14 @@ export function dailySmsVoiceSkipEventPatch(args: {
       sms_purpose: "v2_daily_accountability_coaching",
       voice_channel: args.channel,
       blocked_reasons: args.blockedReasons,
+      visible_sent: false,
       twilio_send_attempted: false,
+      final_body_authority: args.unifiedFinalGuard?.final_body_authority ?? null,
       north_star_gate: args.northStarGate,
       final_voice_gate: args.finalVoiceGate,
+      ...(args.unifiedFinalGuard ? { unified_final_product_law_guard: args.unifiedFinalGuard } : {}),
+      ...(args.routeKind ? { daily_route_kind: args.routeKind } : {}),
+      ...(args.noSendReason ? { no_send_reason: args.noSendReason } : {}),
       ...(args.northStarVisibleBody != null && args.northStarVisibleBody !== ""
         ? { north_star_visible_body: args.northStarVisibleBody }
         : {}),

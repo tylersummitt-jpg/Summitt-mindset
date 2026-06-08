@@ -179,6 +179,18 @@ import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-opena
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import {
+  applyUnifiedSmsFinalProductLawGuard,
+  compactUnifiedFinalGuardForTelemetry,
+  UNIFIED_FINAL_BODY_AUTHORITY,
+} from "@/lib/sms-final-product-law-guard";
+import {
+  buildDailyOutboundOcegEvidence,
+  buildDailyOutboundUnifiedGuardCtx,
+  isOutboundDailyC1RoutePurpose,
+  resolveDailyBuiltRouteKind,
+  type DailyOutboundUnifiedGuardCtx,
+} from "@/lib/daily-outbound-final-guard-evidence";
+import {
   DAILY_SEMANTIC_CONTRACT_PROPOSAL_VERSION,
   DEFAULT_SEMANTIC_DAILY_CONTRACT_FORBIDDEN_PHRASES,
   type DailySemanticContractProposalFactsPacket,
@@ -271,6 +283,8 @@ type DailySmsBuilt =
       v3PraisePolicyContext?: Record<string, unknown>;
       /** Satisfied-ask truth fed into daily lane + post-FVG stale guard. */
       dailySatisfiedAskContext?: DailySatisfiedAskContext | null;
+      /** Phase 2.3-C1 unified final guard evidence (main + reactivation only). */
+      dailyUnifiedGuardCtx?: DailyOutboundUnifiedGuardCtx | null;
     }
   | {
       ok: false;
@@ -313,6 +327,7 @@ function inferDailyLaneSkipSource(metadata: Record<string, unknown>): string {
     return "memory_repeat_no_send";
   }
   if (metadata.lane_stage === "post_validate_repair_failed") return "post_validate_repair_failed";
+  if (metadata.skip_source === "unified_final_guard_no_send") return "unified_final_guard_no_send";
   return "lane_no_send";
 }
 
@@ -442,12 +457,52 @@ async function withNorthStarDailyGate(
     }
   }
 
+  let unifiedGuardTelemetry: Record<string, unknown> | null = null;
+  let unifiedGuardNoSendReason: string | null = null;
+  const dailyRouteKind = resolveDailyBuiltRouteKind(built);
+
+  if (
+    finalShouldSend &&
+    finalReplyBody.trim() &&
+    built.dailyUnifiedGuardCtx &&
+    isOutboundDailyC1RoutePurpose(built.dailyUnifiedGuardCtx.routeKind)
+  ) {
+    const ocegEvidence = buildDailyOutboundOcegEvidence(built.dailyUnifiedGuardCtx);
+    const unifiedGuard = await applyUnifiedSmsFinalProductLawGuard({
+      mode: "outbound_daily",
+      surface: "daily",
+      routePurpose: built.dailyUnifiedGuardCtx.routeKind,
+      branchName: built.dailyUnifiedGuardCtx.routeKind,
+      preGuardBodyPreview: finalReplyBody,
+      outboundDaily: {
+        body: finalReplyBody,
+        evidence: ocegEvidence,
+        dailyGuardCtx: built.dailyUnifiedGuardCtx,
+        priorCoachBody: built.dailyUnifiedGuardCtx.priorCoachBody,
+        priorCoachSentAt: built.dailyUnifiedGuardCtx.priorCoachSentAt,
+        routePurpose: built.dailyUnifiedGuardCtx.routeKind,
+      },
+    });
+    unifiedGuardTelemetry = compactUnifiedFinalGuardForTelemetry(unifiedGuard);
+    if (!unifiedGuard.shouldSend) {
+      unifiedGuardNoSendReason = unifiedGuard.noSendReason;
+      finalShouldSend = false;
+      finalReplyBody = "";
+      finalSkipReason = "final_voice_blocked";
+      finalBlockedReasons = [...(finalBlockedReasons ?? []), "unified_final_product_law_guard"];
+    } else {
+      finalReplyBody = unifiedGuard.body;
+    }
+  }
+
   const skipSource =
-    !finalShouldSend && finalBlockedReasons?.includes(DAILY_STALE_ASK_BLOCKED)
-      ? "stale_ask_no_send"
-      : !finalShouldSend
-        ? "FVG_no_send"
-        : null;
+    !finalShouldSend && unifiedGuardNoSendReason
+      ? "unified_final_guard_no_send"
+      : !finalShouldSend && finalBlockedReasons?.includes(DAILY_STALE_ASK_BLOCKED)
+        ? "stale_ask_no_send"
+        : !finalShouldSend
+          ? "FVG_no_send"
+          : null;
 
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,
@@ -480,7 +535,28 @@ async function withNorthStarDailyGate(
       ...(skipSource ? { skip_source: skipSource } : {}),
       ...(postFvgStaleMeta),
       ...(slimDailySatisfiedAskContextForTelemetry(built.dailySatisfiedAskContext) ?? {}),
-      ...(finalShouldSend ? {} : { twilio_send_attempted: false }),
+      ...(finalShouldSend
+        ? {
+            ...(unifiedGuardTelemetry
+              ? {
+                  final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+                  sent_body_equals_guard_body: true,
+                  unified_final_product_law_guard: unifiedGuardTelemetry,
+                }
+              : {}),
+          }
+        : {
+            visible_sent: false,
+            twilio_send_attempted: false,
+            ...(unifiedGuardTelemetry
+              ? {
+                  final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+                  unified_final_product_law_guard: unifiedGuardTelemetry,
+                  no_send_reason: unifiedGuardNoSendReason,
+                }
+              : {}),
+          }),
+      daily_route_kind: dailyRouteKind,
     },
   };
   return out;
@@ -494,13 +570,18 @@ function dailySmsSentEventVoiceMetadata(
     return {};
   }
   const fvg = p.final_voice_gate as Record<string, unknown>;
-  const vsd = p.voice_send_decision as { should_send?: boolean } | undefined;
+  const vsd = p.voice_send_decision as Record<string, unknown> | undefined;
   const v3Brain =
     p.v3_brain != null && typeof p.v3_brain === "object"
       ? (p.v3_brain as Record<string, unknown>)
       : null;
   const packetObservability =
     v3Brain != null ? relationshipObservabilityFromLaneMetadata(v3Brain) : {};
+  const unifiedGuard =
+    vsd?.unified_final_product_law_guard != null &&
+    typeof vsd.unified_final_product_law_guard === "object"
+      ? (vsd.unified_final_product_law_guard as Record<string, unknown>)
+      : null;
   return {
     final_voice_gate: fvg,
     north_star_gate: p.north_star_gate,
@@ -513,6 +594,9 @@ function dailySmsSentEventVoiceMetadata(
     final_voice_blocked_reasons: fvg.final_voice_blocked_reasons,
     v3_repair_attempted: fvg.v3_repair_attempted ?? null,
     v3_repair_succeeded: fvg.v3_repair_succeeded ?? null,
+    ...(vsd?.final_body_authority ? { final_body_authority: vsd.final_body_authority } : {}),
+    ...(vsd?.sent_body_equals_guard_body === true ? { sent_body_equals_guard_body: true } : {}),
+    ...(unifiedGuard ? { unified_final_product_law_guard: unifiedGuard } : {}),
     ...(Object.keys(packetObservability).length > 0
       ? { relationship_packet_observability: packetObservability }
       : {}),
@@ -1065,6 +1149,17 @@ async function buildDailySmsContent(
         v3DailyRelationshipLane: true,
         v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRe.metadata),
         dailySatisfiedAskContext: factsRe.daily_satisfied_ask_context ?? null,
+        dailyUnifiedGuardCtx: buildDailyOutboundUnifiedGuardCtx({
+          routeKind: "low_pressure_reactivation",
+          clerkUserId,
+          commitmentId: active.id,
+          priorCoachBody: relationshipMemoryPacketRe.last_outbound_full_body,
+          priorCoachSentAt: null,
+          lastInboundBody: relationshipMemoryPacketRe.last_inbound_full_body,
+          priorOutcome: null,
+          pendingPlanProof: factsRe.accountability.pending_plan_proof ?? null,
+          proofOrMilestoneSignal: factsRe.accountability.proof_or_milestone_signal ?? null,
+        }),
       };
     }
 
@@ -2515,6 +2610,20 @@ async function buildDailySmsContent(
       v3DailyRelationshipLane,
       v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneUnified.metadata),
       dailySatisfiedAskContext: factsUnified.daily_satisfied_ask_context ?? null,
+      dailyUnifiedGuardCtx:
+        routeKind === "main_active_accountability"
+          ? buildDailyOutboundUnifiedGuardCtx({
+              routeKind: "main_active_accountability",
+              clerkUserId,
+              commitmentId: active.id,
+              priorCoachBody: relationshipMemoryPacketMain.last_outbound_full_body,
+              priorCoachSentAt: null,
+              lastInboundBody: relationshipMemoryPacketMain.last_inbound_full_body,
+              priorOutcome: latestOutcome?.type ?? null,
+              pendingPlanProof: factsUnified.accountability.pending_plan_proof ?? null,
+              proofOrMilestoneSignal: factsUnified.accountability.proof_or_milestone_signal ?? null,
+            })
+          : null,
     };
   }
 
@@ -3247,13 +3356,7 @@ export async function GET(req: Request) {
 
             if (isDailySmsWithheldByFinalVoiceGate(built)) {
               const voiceSendDecisionRetry = built.v2AiPayload?.voice_send_decision as
-                | {
-                    should_send?: boolean;
-                    voice_channel?: NorthStarCoachChannel;
-                    blocked_reasons?: string[];
-                    north_star_visible_body?: string;
-                    skip_source?: string;
-                  }
+                | Record<string, unknown>
                 | undefined;
               const northStarGateR = (built.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
               const finalVoiceGateR = (built.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
@@ -3262,12 +3365,22 @@ export async function GET(req: Request) {
                 existingMeta: existingMeta,
                 northStarGate: northStarGateR,
                 finalVoiceGate: finalVoiceGateR,
-                channel: voiceSendDecisionRetry?.voice_channel ?? "daily_outbound",
+                channel: (voiceSendDecisionRetry?.voice_channel as NorthStarCoachChannel | undefined) ?? "daily_outbound",
                 timezone,
                 localTimeIso: localNow.toISOString(),
-                blockedReasons: voiceSendDecisionRetry?.blocked_reasons ?? [],
-                northStarVisibleBody: voiceSendDecisionRetry?.north_star_visible_body,
-                skipSource: voiceSendDecisionRetry?.skip_source,
+                blockedReasons: (voiceSendDecisionRetry?.blocked_reasons as string[] | undefined) ?? [],
+                northStarVisibleBody: voiceSendDecisionRetry?.north_star_visible_body as string | undefined,
+                skipSource: voiceSendDecisionRetry?.skip_source as string | undefined,
+                unifiedFinalGuard:
+                  voiceSendDecisionRetry?.unified_final_product_law_guard != null &&
+                  typeof voiceSendDecisionRetry.unified_final_product_law_guard === "object"
+                    ? (voiceSendDecisionRetry.unified_final_product_law_guard as Record<string, unknown>)
+                    : null,
+                routeKind: (voiceSendDecisionRetry?.daily_route_kind as string | undefined) ?? null,
+                noSendReason:
+                  (voiceSendDecisionRetry?.no_send_reason as string | undefined) ??
+                  (voiceSendDecisionRetry?.skip_reason as string | undefined) ??
+                  null,
               }),
                 built.v2AiPayload?.v3_brain
               );
@@ -3857,13 +3970,7 @@ export async function GET(req: Request) {
 
       if (isDailySmsWithheldByFinalVoiceGate(builtMain)) {
         const voiceSendDecision = builtMain.v2AiPayload?.voice_send_decision as
-          | {
-              should_send?: boolean;
-              voice_channel?: NorthStarCoachChannel;
-              blocked_reasons?: string[];
-              north_star_visible_body?: string;
-              skip_source?: string;
-            }
+          | Record<string, unknown>
           | undefined;
         const northStarGate = (builtMain.v2AiPayload?.north_star_gate ?? {}) as Record<string, unknown>;
         const finalVoiceGate = (builtMain.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
@@ -3872,12 +3979,22 @@ export async function GET(req: Request) {
           existingMeta: { note: "reserved_by_cron" },
           northStarGate,
           finalVoiceGate,
-          channel: voiceSendDecision?.voice_channel ?? "daily_outbound",
+          channel: (voiceSendDecision?.voice_channel as NorthStarCoachChannel | undefined) ?? "daily_outbound",
           timezone,
           localTimeIso: localNow.toISOString(),
-          blockedReasons: voiceSendDecision?.blocked_reasons ?? [],
-          northStarVisibleBody: voiceSendDecision?.north_star_visible_body,
-          skipSource: voiceSendDecision?.skip_source,
+          blockedReasons: (voiceSendDecision?.blocked_reasons as string[] | undefined) ?? [],
+          northStarVisibleBody: voiceSendDecision?.north_star_visible_body as string | undefined,
+          skipSource: voiceSendDecision?.skip_source as string | undefined,
+          unifiedFinalGuard:
+            voiceSendDecision?.unified_final_product_law_guard != null &&
+            typeof voiceSendDecision.unified_final_product_law_guard === "object"
+              ? (voiceSendDecision.unified_final_product_law_guard as Record<string, unknown>)
+              : null,
+          routeKind: (voiceSendDecision?.daily_route_kind as string | undefined) ?? null,
+          noSendReason:
+            (voiceSendDecision?.no_send_reason as string | undefined) ??
+            (voiceSendDecision?.skip_reason as string | undefined) ??
+            null,
         }),
           builtMain.v2AiPayload?.v3_brain
         );

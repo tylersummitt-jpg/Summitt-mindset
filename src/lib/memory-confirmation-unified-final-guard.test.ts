@@ -525,7 +525,7 @@ describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", (
     expect(src).toContain("blocker_ack_no_send_truth_persisted: true");
   });
 
-  it("19: daily/weekly untouched", () => {
+  it("19: weekly unified guard untouched; daily C1 only", () => {
     const dailySrc = fs.readFileSync(
       path.join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
@@ -534,7 +534,7 @@ describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", (
       path.join(process.cwd(), "src/app/api/cron/weekly-sms/route.ts"),
       "utf8"
     );
-    expect(dailySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(dailySrc).toContain("isOutboundDailyC1RoutePurpose");
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 

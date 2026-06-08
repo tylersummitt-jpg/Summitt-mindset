@@ -96,12 +96,13 @@ describe("inbound turn understanding route invariants", () => {
     expect(src).not.toContain("applyRapidNearDuplicateCoachReplyGuard");
   });
 
-  it("M: daily and weekly routes are NOT wired to unified guard in PR 2.1b", () => {
+  it("M: daily C1 wired; weekly route still not wired to unified guard", () => {
     expect(src).not.toContain('surface: "daily"');
     expect(src).not.toContain('surface: "weekly"');
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
     const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
-    expect(dailySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(dailySrc).toContain('mode: "outbound_daily"');
+    expect(dailySrc).toContain("isOutboundDailyC1RoutePurpose");
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 
@@ -615,10 +616,9 @@ describe("Phase 2.1g-B2.1 duplicate reply_ready engagement micro-gaps", () => {
     expect(src.slice(handoffIdx, handoffEnd)).toContain("recordV2SendTimeProfileInboundEngagement");
   });
 
-  it("9: daily/weekly untouched", () => {
+  it("9: daily/weekly inbound engagement untouched; weekly unified guard untouched", () => {
     expect(dailySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
     expect(weeklySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
-    expect(dailySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 
