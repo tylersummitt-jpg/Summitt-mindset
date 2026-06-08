@@ -17,7 +17,10 @@ export const OUTBOUND_DAILY_C1_ROUTE_PURPOSES = [
   "low_pressure_reactivation",
 ] as const;
 
-export const OUTBOUND_DAILY_C2_ROUTE_PURPOSES = ["contract_prompt"] as const;
+export const OUTBOUND_DAILY_C2_ROUTE_PURPOSES = [
+  "contract_prompt",
+  "guided_shrink_contract_prompt",
+] as const;
 
 export const OUTBOUND_DAILY_C3_ROUTE_PURPOSES = [
   "pending_resolution",
@@ -47,7 +50,7 @@ export function isOutboundDailyC1RoutePurpose(
 export function isOutboundDailyC2RoutePurpose(
   routePurpose: string | null | undefined
 ): routePurpose is OutboundDailyC2RoutePurpose {
-  return routePurpose === "contract_prompt";
+  return routePurpose === "contract_prompt" || routePurpose === "guided_shrink_contract_prompt";
 }
 
 export function isOutboundDailyC3RoutePurpose(
@@ -162,6 +165,7 @@ export function buildDailyOutboundUnifiedGuardCtx(args: {
 function isOutboundDailyConservativeOcegRoute(routeKind: OutboundDailyWiredRoutePurpose): boolean {
   return (
     routeKind === "contract_prompt" ||
+    routeKind === "guided_shrink_contract_prompt" ||
     routeKind === "pending_resolution" ||
     routeKind === "refresh_identity" ||
     routeKind === "refresh_commitment"
@@ -196,7 +200,7 @@ export function buildDailyOutboundOcegEvidence(
             ? "unclear"
             : "unclear",
     prior_question_type:
-      ctx.routeKind === "contract_prompt"
+      ctx.routeKind === "contract_prompt" || ctx.routeKind === "guided_shrink_contract_prompt"
         ? "plan_confirmation"
         : isOutboundDailyC3RoutePurpose(ctx.routeKind)
           ? "plan_confirmation"

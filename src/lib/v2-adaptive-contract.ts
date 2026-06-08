@@ -14,6 +14,15 @@ import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-opena
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { getV2CommitmentByIdForCoaching, type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import {
+  GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
+  buildGuidedShrinkOutboundDailyGuardArgs,
+} from "@/lib/guided-outbound-contract-proposal-evidence";
+import {
+  UNIFIED_FINAL_BODY_AUTHORITY,
+  applyUnifiedSmsFinalProductLawGuard,
+  type UnifiedFinalGuardResult,
+} from "@/lib/sms-final-product-law-guard";
 
 export type V2AdaptiveContractKind = "shrink_ask" | "recommit_same";
 
@@ -344,8 +353,8 @@ export async function declineAdaptiveProposal(args: {
 async function rollbackGuidedContractProposalReservation(args: {
   commitmentId: string;
   proposalBindingText: string;
-}): Promise<void> {
-  await supabaseServer
+}): Promise<boolean> {
+  const { error } = await supabaseServer
     .from("v2_commitment")
     .update({
       adaptive_proposal_text: null,
@@ -355,6 +364,7 @@ async function rollbackGuidedContractProposalReservation(args: {
     })
     .eq("id", args.commitmentId)
     .eq("adaptive_proposal_text", args.proposalBindingText.trim());
+  return !error;
 }
 
 function buildGuidedContractProposalEventExtras(args: {
@@ -364,21 +374,38 @@ function buildGuidedContractProposalEventExtras(args: {
   finalBodyForPreview: string;
   twilioSendAttempted: boolean;
   bindingNeedleVerified: boolean;
+  bindingNeedleStage?: "post_unified_guard" | null;
+  unifiedFinalGuard?: UnifiedFinalGuardResult | null;
+  visibleSent?: boolean;
+  proposalStateWrittenBeforeSms?: boolean;
+  proposalFinalizedAfterSms?: boolean;
 }): Record<string, unknown> {
   const smsContextUpdated = !args.dryRun && args.twilioSendAttempted;
   const smsLastOutboundContextUpdateMethod = args.dryRun ? "dry_run_skipped" : "sendSMS";
+  const visibleSent = args.visibleSent ?? (!args.dryRun && args.twilioSendAttempted);
   return {
     guided_contract_sms_policy: "option_a_v3_refine_fvg_fail_closed",
     binding_text_server_owned: true,
     binding_needle_verified: args.bindingNeedleVerified,
+    ...(args.bindingNeedleStage ? { binding_needle_stage: args.bindingNeedleStage } : {}),
     sms_last_outbound_context_updated: smsContextUpdated,
     sms_last_outbound_context_update_method: smsLastOutboundContextUpdateMethod,
     v3_refine_reply_source: args.northStarReplySource ?? null,
     north_star_channels: ["contract_prompt", "guided_contract_proposal"],
     twilio_send_attempted: args.twilioSendAttempted,
+    visible_sent: visibleSent,
     final_sms_body_preview: args.finalBodyForPreview.trim().slice(0, 360),
     old_outbound_writer_used_as_voice: false,
     contract_binding_source: "proposal_binding_text",
+    route_kind: GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
+    proposal_state_written_before_sms: args.proposalStateWrittenBeforeSms ?? true,
+    proposal_finalized_after_sms: args.proposalFinalizedAfterSms ?? visibleSent,
+    ...(args.unifiedFinalGuard
+      ? {
+          final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+          unified_final_product_law_guard: args.unifiedFinalGuard.metadata,
+        }
+      : {}),
     ...(args.guidedFinalVoiceGate ? { final_voice_gate: args.guidedFinalVoiceGate } : {}),
   };
 }
@@ -463,6 +490,7 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
 
   let messageSid: string;
   let guidedFinalVoiceGate: Record<string, unknown> | null = null;
+  let unifiedFinalGuard: UnifiedFinalGuardResult | null = null;
   let twilioSendAttempted = false;
   let bindingNeedleVerified = false;
   let finalBodyForPreview = smsBody.trim();
@@ -528,14 +556,57 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
         console.warn("[v2-adaptive-contract] guided_shrink_withheld_final_voice_gate", {
           commitment_id: args.commitmentId,
           clerk_user_id: args.clerkUserId,
+          visible_sent: false,
+          twilio_send_attempted: false,
           final_voice_gate: voiceGuided.metadata,
+          proposal_state_written_before_sms: true,
+          route_kind: GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
         });
         return { ok: false, error: "final_voice_gate_no_send" };
       }
-      const finalGuidedBody = voiceGuided.body.trim();
+      const fvgGuidedBody = voiceGuided.body.trim();
+      const outboundDailyGuardArgs = await buildGuidedShrinkOutboundDailyGuardArgs({
+        body: fvgGuidedBody,
+        clerkUserId: args.clerkUserId,
+        commitmentId: args.commitmentId,
+        proposalBindingText: args.proposalBindingText,
+        originalBehaviorStatement: args.originalBehaviorStatement,
+      });
+      unifiedFinalGuard = await applyUnifiedSmsFinalProductLawGuard({
+        mode: "outbound_daily",
+        surface: "daily",
+        routePurpose: GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
+        branchName: GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
+        preGuardBodyPreview: fvgGuidedBody,
+        outboundDaily: outboundDailyGuardArgs,
+      });
+      if (!unifiedFinalGuard.shouldSend) {
+        const rollbackOk = await rollbackGuidedContractProposalReservation({
+          commitmentId: args.commitmentId,
+          proposalBindingText: args.proposalBindingText,
+        });
+        console.warn("[v2-adaptive-contract] guided_shrink_unified_final_guard_no_send", {
+          commitment_id: args.commitmentId,
+          clerk_user_id: args.clerkUserId,
+          visible_sent: false,
+          twilio_send_attempted: false,
+          skip_source: "unified_final_guard_no_send",
+          final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+          unified_final_product_law_guard: unifiedFinalGuard.metadata,
+          no_send_reason: unifiedFinalGuard.noSendReason,
+          route_kind: GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
+          proposal_state_written_before_sms: true,
+          proposal_rollback_attempted: true,
+          proposal_rollback_succeeded: rollbackOk,
+          idempotency_suffix: idempotencySuffix,
+          proposed_bar_preview: args.proposalBindingText.trim().slice(0, 120),
+        });
+        return { ok: false, error: "unified_final_guard_no_send" };
+      }
+      const finalGuidedBody = unifiedFinalGuard.body.trim();
       finalBodyForPreview = finalGuidedBody;
       if (!latestOutboundBodyContainsAdaptiveProposalBindingNeedle(finalGuidedBody, args.proposalBindingText)) {
-        await rollbackGuidedContractProposalReservation({
+        const rollbackOk = await rollbackGuidedContractProposalReservation({
           commitmentId: args.commitmentId,
           proposalBindingText: args.proposalBindingText,
         });
@@ -544,11 +615,18 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
           commitment_id: args.commitmentId,
           clerk_user_id: args.clerkUserId,
           required_binding_needle_missing: true,
+          visible_sent: false,
+          twilio_send_attempted: false,
+          skip_source: "post_unified_binding_needle_failed",
           proposal_needle_prefix_len: needle.length,
           proposal_needle_prefix_hash: needle ? hashSmsSnippet(needle) : null,
           final_body_preview: finalGuidedBody.slice(0, 360),
-          twilio_send_attempted: false,
+          proposal_state_written_before_sms: true,
+          proposal_rollback_attempted: true,
+          proposal_rollback_succeeded: rollbackOk,
           final_voice_gate: guidedFinalVoiceGate,
+          unified_final_product_law_guard: unifiedFinalGuard.metadata,
+          route_kind: GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
         });
         return { ok: false, error: "guided_contract_binding_needle_missing" };
       }
@@ -581,6 +659,11 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
     finalBodyForPreview,
     twilioSendAttempted,
     bindingNeedleVerified,
+    bindingNeedleStage: bindingNeedleVerified && !dryRun ? "post_unified_guard" : null,
+    unifiedFinalGuard,
+    visibleSent: !dryRun && twilioSendAttempted,
+    proposalStateWrittenBeforeSms: true,
+    proposalFinalizedAfterSms: !dryRun && twilioSendAttempted,
   });
 
   const finalized = await persistContractOverlayProposed({

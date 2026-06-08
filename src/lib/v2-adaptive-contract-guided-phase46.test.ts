@@ -22,6 +22,32 @@ const finalizeNorthStarCoachSmsAsyncMock = vi.hoisted(() =>
 
 const applyFinalVoiceOwnershipGateMock = vi.hoisted(() => vi.fn());
 
+const applyUnifiedSmsFinalProductLawGuardMock = vi.hoisted(() =>
+  vi.fn(async (args: { outboundDaily?: { body: string } }) => ({
+    should_send: true,
+    shouldSend: true,
+    body: args.outboundDaily?.body?.trim() ?? "",
+    no_send_reason: null,
+    noSendReason: null,
+    final_body_authority: "unified_final_product_law_guard",
+    guard_version: "test",
+    guard_mode: "outbound_daily",
+    checks_run: ["contract_proposal_truth_recheck"],
+    checks_skipped: [],
+    guard_results: {
+      inbound_coach_final_body_guards: null,
+      transactional_coaching_limited: null,
+    },
+    repair_attempts: 0,
+    repair_succeeded: null,
+    metadata: { unified_final_guard_mode: "outbound_daily" },
+    tuGuard: null,
+    prematureAdjustmentGuard: null,
+    truthGuard: null,
+    nearDuplicateGuard: null,
+  }))
+);
+
 const getV2CommitmentByIdForCoachingMock = vi.hoisted(() => vi.fn());
 
 const commitmentEventInserts: unknown[] = [];
@@ -63,6 +89,21 @@ vi.mock("@/lib/north-star-coach-sms-openai", () => ({
 
 vi.mock("@/lib/v3-sms-voice-ownership", () => ({
   applyFinalVoiceOwnershipGate: applyFinalVoiceOwnershipGateMock,
+}));
+
+vi.mock("@/lib/sms-final-product-law-guard", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/sms-final-product-law-guard")>();
+  return {
+    ...actual,
+    applyUnifiedSmsFinalProductLawGuard: applyUnifiedSmsFinalProductLawGuardMock,
+  };
+});
+
+vi.mock("@/lib/sms-relationship-memory-packet", () => ({
+  buildSmsRelationshipMemoryPacket: vi.fn(async () => ({
+    last_outbound_full_body: null,
+    recent_exact_thread_72h: {},
+  })),
 }));
 
 vi.mock("@/lib/clerk-rest", () => ({
@@ -222,6 +263,18 @@ describe("Phase 4.6 — guided contract proposal SMS (snapshot + needle + metada
     expect(lastInsert?.payload_json?.sms_last_outbound_context_update_method).toBe("sendSMS");
     expect(lastInsert?.payload_json?.twilio_send_attempted).toBe(true);
     expect(lastInsert?.payload_json?.final_voice_gate).toEqual({ final_voice_gate_test: true });
+    expect(lastInsert?.payload_json?.final_body_authority).toBe("unified_final_product_law_guard");
+    expect(lastInsert?.payload_json?.binding_needle_stage).toBe("post_unified_guard");
+    expect(lastInsert?.payload_json?.visible_sent).toBe(true);
+    expect(applyUnifiedSmsFinalProductLawGuardMock).toHaveBeenCalledTimes(1);
+    const guardCall = applyUnifiedSmsFinalProductLawGuardMock.mock.calls[0]![0] as {
+      mode?: string;
+      routePurpose?: string;
+    };
+    expect(guardCall.mode).toBe("outbound_daily");
+    expect(guardCall.routePurpose).toBe("guided_shrink_contract_prompt");
+    const guardResult = await applyUnifiedSmsFinalProductLawGuardMock.mock.results[0]!.value;
+    expect(sendArg.body).toBe(guardResult.body);
   });
 
   it("missing binding needle: no Twilio send, rollback, guided_contract_binding_needle_missing", async () => {
@@ -254,7 +307,44 @@ describe("Phase 4.6 — guided contract proposal SMS (snapshot + needle + metada
     expect(updateCalls.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("FVG no-send does not call Twilio", async () => {
+  it("unified guard no-send does not call Twilio and rolls back reservation", async () => {
+    applyUnifiedSmsFinalProductLawGuardMock.mockResolvedValueOnce({
+      should_send: false,
+      shouldSend: false,
+      body: "",
+      no_send_reason: "daily_contract_proposal_false_state_claim_after_unified_guard",
+      noSendReason: "daily_contract_proposal_false_state_claim_after_unified_guard",
+      final_body_authority: "unified_final_product_law_guard",
+      guard_version: "test",
+      guard_mode: "outbound_daily",
+      checks_run: ["contract_proposal_truth_recheck"],
+      checks_skipped: [],
+      guard_results: {
+        inbound_coach_final_body_guards: null,
+        transactional_coaching_limited: null,
+      },
+      repair_attempts: 0,
+      repair_succeeded: null,
+      metadata: { unified_final_guard_mode: "outbound_daily" },
+      tuGuard: null,
+      prematureAdjustmentGuard: null,
+      truthGuard: null,
+      nearDuplicateGuard: null,
+    });
+    const r = await proposeShrinkAskFromGuidedResolution({
+      commitmentId: "cmt_guided_phase46",
+      clerkUserId: "user_phase46",
+      proposalBindingText: BINDING,
+      originalBehaviorStatement: stubCommitment().behavior_statement,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("expected failure");
+    expect(r.error).toBe("unified_final_guard_no_send");
+    expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(commitmentEventInserts.length).toBe(0);
+  });
+
+  it("FVG no-send does not call Twilio or unified guard", async () => {
     applyFinalVoiceOwnershipGateMock.mockResolvedValue({
       shouldSend: false,
       body: "",
@@ -276,6 +366,7 @@ describe("Phase 4.6 — guided contract proposal SMS (snapshot + needle + metada
     if (r.ok) throw new Error("expected failure");
     expect(r.error).toBe("final_voice_gate_no_send");
     expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(applyUnifiedSmsFinalProductLawGuardMock).not.toHaveBeenCalled();
   });
 
   it("send failure clears reservation and does not finalize success", async () => {

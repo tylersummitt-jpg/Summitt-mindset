@@ -405,6 +405,7 @@ describe("Phase 2.3-C1 outbound_daily unified guard", () => {
     ).rejects.toThrow(/not activated for route/);
     expect(isOutboundDailyC1RoutePurpose("contract_prompt")).toBe(false);
     expect(isOutboundDailyC2RoutePurpose("contract_prompt")).toBe(true);
+    expect(isOutboundDailyC2RoutePurpose("guided_shrink_contract_prompt")).toBe(true);
     expect(isOutboundDailyC3RoutePurpose("pending_resolution")).toBe(true);
     expect(isOutboundDailyWiredRoutePurpose("main_active_accountability")).toBe(true);
   });
