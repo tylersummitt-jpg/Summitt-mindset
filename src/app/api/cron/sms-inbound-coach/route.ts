@@ -3606,6 +3606,7 @@ async function processV2NormalInboundOutcome(
             },
           });
           await commitAndSendInboundRelationshipCoachReply(j3, userId, openQuestionThreadMemoryCtx);
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return;
         }
         throw new Error("v3_open_question_reply_ready_persist_failed");
@@ -7697,6 +7698,7 @@ async function processV2BlockerCapture(
       const j2 = await loadJob(job.message_sid);
       if (j2?.reply_body?.trim()) {
         await commitAndSendInboundRelationshipCoachReply(j2, userId, blockerPivotThreadMemoryCtx);
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return;
       }
       throw new Error("v2_blocker_human_pivot_reply_ready_failed");

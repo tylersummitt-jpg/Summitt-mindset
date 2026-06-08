@@ -507,3 +507,137 @@ describe("Phase 2.1g-B2 normal coaching — engagement-on-no-send cleanup", () =
     expect(src.slice(legacySendIdx, legacySendIdx + 2000)).not.toContain('reply_body: "');
   });
 });
+
+describe("Phase 2.1g-B2.1 duplicate reply_ready engagement micro-gaps", () => {
+  const src = fs.readFileSync(ROUTE, "utf8");
+  const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
+  const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
+  const normalFnStart = src.indexOf("async function processV2NormalInboundOutcome");
+  const normalFnEnd = src.indexOf("async function processV2BlockerCapture");
+  const normalBlock = src.slice(normalFnStart, normalFnEnd);
+  const blockerFnStart = src.indexOf("async function processV2BlockerCapture");
+  const blockerFnEnd = src.indexOf("async function processV2ContractProposalConsent");
+  const blockerBlock = src.slice(blockerFnStart, blockerFnEnd);
+
+  it("1: Open Question duplicate reply_ready records engagement after commitAndSend", () => {
+    const sendIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(j3, userId, openQuestionThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("2: Open Question unified guard no-send does not record engagement", () => {
+    const idx = src.indexOf("open_question_final_body_guard_blocked");
+    const guardIdx = src.lastIndexOf("if (!finalGuardsOq.shouldSend)", idx);
+    const noSendBlock = src.slice(guardIdx, idx + 200);
+    expect(noSendBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(noSendBlock).toContain("persistExplicitOutcomeBeforeReplyNoSend");
+  });
+
+  it("3: Open Question fresh path remains post-send engagement", () => {
+    const sendIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshV3, userId, openQuestionThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("4: blocker pivot duplicate reply_ready records engagement after commitAndSend", () => {
+    const sendIdx = blockerBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(j2, userId, blockerPivotThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = blockerBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("5: blocker pivot unified guard no-send does not record engagement", () => {
+    const idx = blockerBlock.indexOf("blocker_pivot_unified_final_guard_blocked");
+    const guardIdx = blockerBlock.lastIndexOf("if (!unifiedGuardBlockerPivot.shouldSend)", idx);
+    const noSendBlock = blockerBlock.slice(guardIdx, idx + 200);
+    expect(noSendBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("6: blocker pivot fresh path remains post-send engagement", () => {
+    const sendIdx = blockerBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshPv, userId, blockerPivotThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = blockerBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("7: B2 normal main / pivot / arc / legacy engagement ordering unchanged", () => {
+    const mainFreshIdx = normalBlock.indexOf(
+      "await commitAndSendInboundCoachReply(fresh, userId, inboundV3ThreadMemory)"
+    );
+    expect(normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", mainFreshIdx)).toBeGreaterThan(
+      mainFreshIdx
+    );
+    const pivotFreshIdx = normalBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx)"
+    );
+    expect(normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", pivotFreshIdx)).toBeGreaterThan(
+      pivotFreshIdx
+    );
+    const arcFreshIdx = normalBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx)"
+    );
+    expect(normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", arcFreshIdx)).toBeGreaterThan(
+      arcFreshIdx
+    );
+    const legacyFreshIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshFb, userId, legacyFallbackThreadMemoryCtx)"
+    );
+    expect(src.indexOf("recordV2SendTimeProfileInboundEngagement", legacyFreshIdx)).toBeGreaterThan(
+      legacyFreshIdx
+    );
+  });
+
+  it("8: contract/adaptive/pending/memory/handoff/refresh/blocker ack untouched", () => {
+    expect(src).toContain("if (sendContractYes.ok)");
+    expect(src).toContain("if (visibleSent)");
+    const memoryStart = src.indexOf("async function processV2MemoryConfirmationInbound");
+    const memoryBlock = src.slice(memoryStart, src.indexOf("async function processV2SmsInboundPendingResolution"));
+    const ambNoSend = memoryBlock.indexOf("if (!sendAmb.ok)");
+    expect(memoryBlock.slice(ambNoSend, memoryBlock.indexOf("}", ambNoSend) + 1)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+    const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+    const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound", handoffIdx);
+    expect(src.slice(handoffIdx, handoffEnd)).toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("9: daily/weekly untouched", () => {
+    expect(dailySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(weeklySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(dailySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+  });
+
+  it("10: no Twilio/send mechanics changes in B2.1 scope", () => {
+    expect(src).toContain("sendSMSChunked");
+    expect(blockerBlock).not.toContain("async function commitAndSendInboundCoachReply");
+  });
+
+  it("11: no persistence enum changes in blocker pivot duplicate/fresh slice", () => {
+    const pivotSliceStart = blockerBlock.indexOf("const blockerPivotThreadMemoryCtx");
+    const pivotSlice = blockerBlock.slice(pivotSliceStart, pivotSliceStart + 1200);
+    expect(pivotSlice).not.toMatch(/event_type:\s*"/);
+  });
+
+  it("12: no hard-coded SMS in OQ/pivot duplicate paths", () => {
+    const oqDupIdx = src.indexOf("openQuestionThreadMemoryCtx");
+    const oqSlice = src.slice(oqDupIdx, oqDupIdx + 2500);
+    expect(oqSlice).not.toContain('reply_body: "');
+    const pivotDupIdx = blockerBlock.indexOf("blockerPivotThreadMemoryCtx");
+    expect(blockerBlock.slice(pivotDupIdx, pivotDupIdx + 800)).not.toContain('reply_body: "');
+  });
+});
