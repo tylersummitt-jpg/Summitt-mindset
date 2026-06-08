@@ -20,12 +20,16 @@ import type {
   RelationshipPacketMeta,
   RelationshipPacketSection,
   RelationshipPacketRecentExactThread72h,
-  RelationshipPacketStructuredRecentTruth,
   RelationshipPacketV1,
 } from "@/lib/sms-relationship-packet-v1";
-import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
+import {
+  buildOpenLoopsAndDoNotRepeat,
+  buildOpenLoopsAndDoNotRepeatPromptGuidance,
+  type OpenLoopsAndDoNotRepeatData,
+} from "@/lib/sms-open-loops-and-do-not-repeat";
 
 const SNAPSHOT_THREAD_WINDOW_HOURS = 72 as const;
+import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
@@ -84,13 +88,7 @@ export type RelationshipSnapshotV2 = {
   relationship_memory_7d?: RelationshipPacketV1["relationship_memory_7d"];
   relationship_memory_30d_or_season?: RelationshipPacketV1["relationship_memory_30d_or_season"];
   proof_and_praise_permission: RelationshipPacketV1["proof_victory_permission"];
-  open_loops_and_do_not_repeat: RelationshipPacketSection<{
-    do_not_repeat_asks?: string[];
-    do_not_repeat_phrases?: string[];
-    last_5_coach_questions?: string[];
-    open_question_pending?: boolean | null;
-    latest_open_question?: string | null;
-  }>;
+  open_loops_and_do_not_repeat: RelationshipPacketSection<OpenLoopsAndDoNotRepeatData>;
   route_context: RelationshipPacketSection<RelationshipSnapshotRouteContext>;
   long_term_background_summary?: RelationshipPacketV1["lower_authority_background"];
   low_confidence_hints?: RelationshipPacketV1["lower_authority_background"];
@@ -110,6 +108,12 @@ export type RelationshipSnapshotV2Meta = {
   facts_fallback_pending_kinds?: ActivePendingStateItemKind[];
   relationship_snapshot_truncated: boolean;
   thread_fallback_used: boolean;
+  open_loop_count?: number;
+  satisfied_ask_count?: number;
+  do_not_repeat_ask_count?: number;
+  recent_unanswered_question_count?: number;
+  open_loops_sources?: string[];
+  open_loops_truncated?: boolean;
 };
 
 export function normalizeStructuredRecentExactThread72hForV2(
@@ -152,25 +156,34 @@ export function normalizeStructuredRecentExactThread72hForV2(
   };
 }
 
-function buildOpenLoopsFromStructuredTruth(
-  truth: RelationshipPacketStructuredRecentTruth
-): RelationshipSnapshotV2["open_loops_and_do_not_repeat"] {
-  const dnr =
-    truth.turn_understanding?.do_not_repeat_asks ??
-    truth.daily_satisfied_ask_context?.do_not_repeat_asks ??
-    [];
-  return {
-    authority: "structured_recent_truth",
-    data: {
-      do_not_repeat_asks: dnr.length ? dnr : undefined,
-      do_not_repeat_phrases: truth.do_not_repeat_phrases?.length ? truth.do_not_repeat_phrases : undefined,
-      last_5_coach_questions: truth.last_5_coach_questions?.length
-        ? truth.last_5_coach_questions
-        : undefined,
-      open_question_pending: truth.open_question_pending ?? null,
-      latest_open_question: truth.latest_open_question ?? null,
-    },
-  };
+function buildOpenLoopsSectionForSnapshot(args: {
+  packet: RelationshipPacketV1;
+  activePendingState: ActivePendingState;
+  threadSection: RelationshipPacketSection<SnapshotRecentExactThread72hData>;
+  surface: RelationshipSnapshotSurface;
+  lane?: RelationshipPacketLane | null;
+  proposalKind?: string | null;
+}): {
+  section: RelationshipSnapshotV2["open_loops_and_do_not_repeat"];
+  meta: Pick<
+    RelationshipSnapshotV2Meta,
+    | "open_loop_count"
+    | "satisfied_ask_count"
+    | "do_not_repeat_ask_count"
+    | "recent_unanswered_question_count"
+    | "open_loops_sources"
+    | "open_loops_truncated"
+  >;
+} {
+  const routeCtx = resolveRouteContext(args.packet, args.surface, args.lane, args.proposalKind);
+  const built = buildOpenLoopsAndDoNotRepeat({
+    structuredRecentTruth: args.packet.structured_recent_truth.data,
+    activePendingState: args.activePendingState,
+    relationshipMemory7d: args.packet.relationship_memory_7d?.data,
+    recentExactThread72h: args.threadSection.data,
+    routeContext: routeCtx.data,
+  });
+  return { section: built.section, meta: built.meta };
 }
 
 function resolveTimezoneFromPacket(
@@ -219,6 +232,14 @@ export function buildRelationshipSnapshotV2(args: {
   const threadSection = normalizeStructuredRecentExactThread72hForV2(
     args.packet.recent_exact_thread_72h
   );
+  const openLoopsBuilt = buildOpenLoopsSectionForSnapshot({
+    packet: args.packet,
+    activePendingState: args.activePendingState,
+    threadSection,
+    surface: args.surface,
+    lane: args.lane,
+    proposalKind: args.proposalKind,
+  });
 
   const snapshot: RelationshipSnapshotV2 = {
     version: RELATIONSHIP_SNAPSHOT_V2_VERSION,
@@ -232,9 +253,7 @@ export function buildRelationshipSnapshotV2(args: {
     structured_recent_truth: args.packet.structured_recent_truth,
     recent_exact_thread_72h: threadSection,
     proof_and_praise_permission: args.packet.proof_victory_permission,
-    open_loops_and_do_not_repeat: buildOpenLoopsFromStructuredTruth(
-      args.packet.structured_recent_truth.data
-    ),
+    open_loops_and_do_not_repeat: openLoopsBuilt.section,
     route_context: resolveRouteContext(args.packet, args.surface, args.lane, args.proposalKind),
     finalization_context: { note: "server_validates_send_separately" },
   };
@@ -275,6 +294,7 @@ export function buildRelationshipSnapshotV2(args: {
       : {}),
     relationship_snapshot_truncated: args.truncated === true,
     thread_fallback_used: threadSection.data.thread_fallback_used,
+    ...openLoopsBuilt.meta,
   };
 
   return { snapshot, meta };
@@ -291,6 +311,7 @@ RELATIONSHIP_SNAPSHOT_V2_AUTHORITY (read-only context — server final guard val
 - relationship_memory_7d beats relationship_memory_30d_or_season.
 - low_confidence_hints and long_term_background_summary are background tone only — never proof of completion or resolution.
 - active_pending_state tells you what is still open — must_not_claim_resolved items must NOT be treated as closed in visible SMS.
+${buildOpenLoopsAndDoNotRepeatPromptGuidance()}
 - finalization_context is NOT permission to make proof/state claims; server validates send separately.
 - thread_fallback_used true with empty messages[] means no prose transcript fallback — do not invent thread history.`;
 }

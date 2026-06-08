@@ -207,6 +207,8 @@ describe("buildRelationshipSnapshotV2PromptGuidance", () => {
     expect(guidance).toMatch(/relationship_memory_7d beats relationship_memory_30d/i);
     expect(guidance).toMatch(/low_confidence_hints/i);
     expect(guidance).toMatch(/server validates send separately/i);
+    expect(guidance).toMatch(/satisfied_asks must not be re-asked/i);
+    expect(guidance).toMatch(/do_not_repeat_asks are guidance only/i);
   });
 
   it("is included in combined packet prompt guidance", () => {
@@ -556,5 +558,209 @@ describe("buildRelationshipPacketForOpenAI snapshot v2 integration", () => {
     expect(result.snapshotV2.active_pending_state).toBeTruthy();
     expect(result.snapshotV2.authority_hierarchy.length).toBeGreaterThan(0);
     expect(result.userPromptJson.length).toBeLessThanOrEqual(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
+  });
+
+  it("includes unified open_loops_and_do_not_repeat on inbound snapshot", () => {
+    const result = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: {
+        route_purpose: "normal_inbound_reply",
+        user: {
+          clerk_user_id: "u",
+          preferred_name: null,
+          timezone: "America/Chicago",
+          local_time_iso: "2026-05-12T09:00:00.000Z",
+          relationship_profile_summary: null,
+        },
+        commitment: {
+          id: "c",
+          title: "T",
+          behavior_statement: "B",
+          effective_ask: "B",
+          accountability_phase: "active_accountability",
+        },
+        thread: {
+          latest_inbound_raw: "yes",
+          coalesced_inbound_text: "yes",
+          suppressed_message_sids: [],
+          recent_transcript_lines: [],
+          latest_outbound_coach_sms: null,
+          latest_open_question: "Did you protect focus?",
+          latest_answer_after_open_question: null,
+          expected_reply_semantics: "unknown",
+          memory_authority: {
+            open_question_source: "none",
+            answer_source: "none",
+            projection_used: false,
+          },
+          do_not_repeat_hints: [],
+          rejected_time_candidates: [],
+          unavailable_windows: [],
+          current_inbound_is_already_told_you_correction: false,
+          current_inbound_is_short_acknowledgement: false,
+          most_recent_substantive_prior_user_message: null,
+          most_recent_coach_question: null,
+          memory_correction_should_use_prior_user_answer: false,
+          short_ack_should_not_reask_question: false,
+          memory_packet: {
+            open_question_pending: true,
+            latest_open_question: "Did you protect focus?",
+            recent_exact_thread_72h: {
+              messages: [make72hMessage({ role: "coach", body: "Did you protect focus?" })],
+              window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+              message_count: 1,
+              had_preview_messages: false,
+              had_system_no_send: false,
+            },
+          },
+        },
+        v2_accountability: {
+          deterministic_classifier_event: "user_yes",
+          gated_mode: "use_deterministic",
+          final_event_type: "user_yes",
+          should_write_outcome_event: true,
+          reply_style: "normal_outcome",
+          proof_signal: false,
+          miss_signal: false,
+          blocker_signal: false,
+          today_completed: false,
+          future_intent_hint: null,
+          supplement_commitment_change_guidance: false,
+          proof_callout_hint: null,
+        },
+        legacy_suggestions: {
+          conversation_brain: { enabled: false },
+          forced_future_stretch_intent_active: false,
+          accountability_proof_hint: null,
+        },
+        constraints: {
+          max_chars: 320,
+          one_sms: true,
+          no_generic_motivation: true,
+          no_quoted_or_truncated_echo_of_inbound: true,
+          if_unsafe_return_no_send: true,
+          forbidden_substrings: [],
+        },
+        inbound_meaning: {
+          raw_inbound: "yes",
+          classifier_event_type: "user_yes",
+          relationship_meaning: "outcome_reported",
+          response_intent: "acknowledge_outcome",
+          persistence_decision: "write_outcome",
+          do_not_repeat_asks: [],
+          stale_ask_risk: false,
+          confidence: 0.8,
+          persistence_note: "test",
+        },
+        suggested_coaching_move: "ack_outcome",
+      } as never,
+    });
+
+    const section = result.snapshotV2.open_loops_and_do_not_repeat;
+    expect(section.authority).toBe("structured_recent_truth");
+    expect(section.data.open_loops).toBeInstanceOf(Array);
+    expect(section.data.satisfied_asks).toBeInstanceOf(Array);
+    expect(section.data.do_not_repeat_asks).toBeInstanceOf(Array);
+    expect(section.data.recent_unanswered_coach_questions).toBeInstanceOf(Array);
+    expect(result.snapshotV2Meta.open_loop_count).toBeGreaterThanOrEqual(0);
+    expect(result.snapshotV2Meta.open_loops_sources).toBeInstanceOf(Array);
+  });
+
+  it("includes unified open_loops_and_do_not_repeat on all snapshot surfaces", () => {
+    const packet = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: {
+        route_purpose: "normal_inbound_reply",
+        user: {
+          clerk_user_id: "u",
+          preferred_name: null,
+          timezone: "America/Chicago",
+          local_time_iso: "2026-05-12T09:00:00.000Z",
+          relationship_profile_summary: null,
+        },
+        commitment: {
+          id: "c",
+          title: "T",
+          behavior_statement: "B",
+          effective_ask: "B",
+          accountability_phase: "active_accountability",
+        },
+        thread: {
+          latest_inbound_raw: "yes",
+          coalesced_inbound_text: "yes",
+          suppressed_message_sids: [],
+          recent_transcript_lines: [],
+          latest_outbound_coach_sms: null,
+          latest_open_question: null,
+          latest_answer_after_open_question: null,
+          expected_reply_semantics: "unknown",
+          memory_authority: {
+            open_question_source: "none",
+            answer_source: "none",
+            projection_used: false,
+          },
+          do_not_repeat_hints: [],
+          rejected_time_candidates: [],
+          unavailable_windows: [],
+          current_inbound_is_already_told_you_correction: false,
+          current_inbound_is_short_acknowledgement: false,
+          most_recent_substantive_prior_user_message: null,
+          most_recent_coach_question: null,
+          memory_correction_should_use_prior_user_answer: false,
+          short_ack_should_not_reask_question: false,
+          memory_packet: null,
+        },
+        v2_accountability: {
+          deterministic_classifier_event: "user_yes",
+          gated_mode: "use_deterministic",
+          final_event_type: "user_yes",
+          should_write_outcome_event: true,
+          reply_style: "normal_outcome",
+          proof_signal: false,
+          miss_signal: false,
+          blocker_signal: false,
+          today_completed: false,
+          future_intent_hint: null,
+          supplement_commitment_change_guidance: false,
+          proof_callout_hint: null,
+        },
+        legacy_suggestions: {
+          conversation_brain: { enabled: false },
+          forced_future_stretch_intent_active: false,
+          accountability_proof_hint: null,
+        },
+        constraints: {
+          max_chars: 320,
+          one_sms: true,
+          no_generic_motivation: true,
+          no_quoted_or_truncated_echo_of_inbound: true,
+          if_unsafe_return_no_send: true,
+          forbidden_substrings: [],
+        },
+        inbound_meaning: {
+          raw_inbound: "yes",
+          classifier_event_type: "user_yes",
+          relationship_meaning: "outcome_reported",
+          response_intent: "acknowledge_outcome",
+          persistence_decision: "write_outcome",
+          do_not_repeat_asks: [],
+          stale_ask_risk: false,
+          confidence: 0.8,
+          persistence_note: "test",
+        },
+        suggested_coaching_move: "ack_outcome",
+      } as never,
+    }).packet;
+
+    for (const surface of ["inbound", "daily", "weekly", "guided_contract"] as const) {
+      const { snapshot } = buildRelationshipSnapshotV2({
+        packet,
+        activePendingState: buildActivePendingStateFromCommitmentRow(null),
+        surface,
+      });
+      expect(snapshot.open_loops_and_do_not_repeat.data.open_loops).toBeInstanceOf(Array);
+      expect(snapshot.open_loops_and_do_not_repeat.data.satisfied_asks).toBeInstanceOf(Array);
+      expect(snapshot.open_loops_and_do_not_repeat.data.do_not_repeat_asks).toBeInstanceOf(Array);
+    }
   });
 });
