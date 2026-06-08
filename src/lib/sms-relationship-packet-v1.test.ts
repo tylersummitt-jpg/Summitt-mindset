@@ -1109,6 +1109,48 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
     expect(JSON.stringify(obs)).not.toMatch(/Did you protect focus today/i);
   });
 
+  it("includes proof permission snapshot telemetry counts and sources without evidence quotes", () => {
+    const { meta, snapshotV2Meta } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: minimalInboundFacts({
+        v2_accountability: {
+          ...minimalInboundFacts().v2_accountability,
+          proof_callout_hint: {
+            eligible: true,
+            surface: "victory_room",
+            reason: "first_completion",
+            instruction: null,
+            proof_callout_claim_saved_allowed: false,
+          },
+        },
+      }),
+    });
+
+    expect(snapshotV2Meta.proof_permission_emitted).toBe(true);
+    expect(snapshotV2Meta.can_claim_proof).toBeDefined();
+    expect(snapshotV2Meta.can_reference_victory_room).toBeDefined();
+    expect(snapshotV2Meta.proof_evidence_count).toBeDefined();
+    expect(Array.isArray(snapshotV2Meta.proof_permission_sources)).toBe(true);
+
+    const laneMeta = relationshipPacketMetaForLaneTelemetry(meta, snapshotV2Meta);
+    const obs = relationshipObservabilityFromLaneMetadata(laneMeta);
+
+    expect(obs.proof_permission_emitted).toBe(true);
+    expect(obs.can_claim_completion).toBe(snapshotV2Meta.can_claim_completion);
+    expect(obs.can_claim_miss).toBe(snapshotV2Meta.can_claim_miss);
+    expect(obs.can_claim_partial).toBe(snapshotV2Meta.can_claim_partial);
+    expect(obs.can_claim_proof).toBe(snapshotV2Meta.can_claim_proof);
+    expect(obs.can_reference_victory_room).toBe(snapshotV2Meta.can_reference_victory_room);
+    expect(obs.proof_evidence_count).toBe(snapshotV2Meta.proof_evidence_count);
+    expect(obs.proof_permission_sources).toEqual(snapshotV2Meta.proof_permission_sources);
+    expect(obs.proof_permission_has_legacy_v1).toBe(snapshotV2Meta.proof_permission_has_legacy_v1);
+
+    const obsJson = JSON.stringify(obs);
+    expect(obsJson).not.toMatch(/first_completion/i);
+    expect(obsJson).not.toMatch(/"quote"/i);
+    expect(obsJson).not.toMatch(/Did you protect focus/i);
+  });
+
   it("returns empty object for null/undefined metadata", () => {
     expect(relationshipObservabilityFromLaneMetadata(null)).toEqual({});
     expect(relationshipObservabilityFromLaneMetadata(undefined)).toEqual({});

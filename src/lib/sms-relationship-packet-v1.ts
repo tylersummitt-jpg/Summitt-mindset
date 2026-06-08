@@ -1324,6 +1324,15 @@ export function relationshipPacketMetaForLaneTelemetry(
           recent_unanswered_question_count: snapshotMeta.recent_unanswered_question_count,
           open_loops_sources: snapshotMeta.open_loops_sources,
           open_loops_truncated: snapshotMeta.open_loops_truncated,
+          proof_permission_emitted: snapshotMeta.proof_permission_emitted,
+          can_claim_completion: snapshotMeta.can_claim_completion,
+          can_claim_miss: snapshotMeta.can_claim_miss,
+          can_claim_partial: snapshotMeta.can_claim_partial,
+          can_claim_proof: snapshotMeta.can_claim_proof,
+          can_reference_victory_room: snapshotMeta.can_reference_victory_room,
+          proof_evidence_count: snapshotMeta.proof_evidence_count,
+          proof_permission_sources: snapshotMeta.proof_permission_sources,
+          proof_permission_has_legacy_v1: snapshotMeta.proof_permission_has_legacy_v1,
         }
       : {}),
   };
@@ -1362,6 +1371,15 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "recent_unanswered_question_count",
   "open_loops_sources",
   "open_loops_truncated",
+  "proof_permission_emitted",
+  "can_claim_completion",
+  "can_claim_miss",
+  "can_claim_partial",
+  "can_claim_proof",
+  "can_reference_victory_room",
+  "proof_evidence_count",
+  "proof_permission_sources",
+  "proof_permission_has_legacy_v1",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [
