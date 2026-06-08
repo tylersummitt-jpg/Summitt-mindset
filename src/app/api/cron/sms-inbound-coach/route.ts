@@ -3979,10 +3979,6 @@ async function processV2NormalInboundOutcome(
           throwOnPersistError: gdFallback.should_write_outcome_event,
         });
 
-        if (legacyPersistResult.status === "inserted") {
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-        }
-
         await recomputeV2CoachingMemory(commitment.id, {
           reasonCode: "inbound_user_outcome",
         });
@@ -4248,6 +4244,7 @@ async function processV2NormalInboundOutcome(
         const jfb = await loadJob(job.message_sid);
         if (jfb?.reply_body?.trim()) {
           await commitAndSendInboundRelationshipCoachReply(jfb, userId, legacyFallbackThreadMemoryCtx);
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return;
         }
         throw new Error("v2_reply_ready_persist_failed");
@@ -4255,6 +4252,7 @@ async function processV2NormalInboundOutcome(
 
       const freshFb = (await loadJob(job.message_sid)) ?? job;
       await commitAndSendInboundRelationshipCoachReply(freshFb, userId, legacyFallbackThreadMemoryCtx);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       return;
     }
   }
@@ -5014,6 +5012,7 @@ async function processV2NormalInboundOutcome(
           turnUnderstandingContext: inboundTurnUnderstandingCtx,
         });
         await commitAndSendInboundRelationshipCoachReply(j2, userId, centralBrainPivotThreadMemoryCtx);
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return;
       }
       throw new Error("v2_reply_ready_persist_failed");
@@ -5033,9 +5032,9 @@ async function processV2NormalInboundOutcome(
       proofMeta: accountabilityProofMoment,
       turnUnderstandingContext: inboundTurnUnderstandingCtx,
     });
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     const freshPivot = (await loadJob(job.message_sid)) ?? job;
     await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx);
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     return;
   }
 
@@ -5409,6 +5408,7 @@ async function processV2NormalInboundOutcome(
             turnUnderstandingContext: inboundTurnUnderstandingCtx,
           });
           await commitAndSendInboundRelationshipCoachReply(j2, userId, arcClarifyThreadMemoryCtx);
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return;
         }
         throw new Error("v2_reply_ready_persist_failed");
@@ -5429,9 +5429,9 @@ async function processV2NormalInboundOutcome(
         proofMeta: accountabilityProofMoment,
         turnUnderstandingContext: inboundTurnUnderstandingCtx,
       });
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       const freshArc = (await loadJob(job.message_sid)) ?? job;
       await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       return;
     }
   }
@@ -7006,7 +7006,6 @@ async function processV2NormalInboundOutcome(
       : (gatedDecision.final_event_type ?? eventType);
 
   if (spineInsertSucceeded) {
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     maybeLogCentralBrainDisagreement({
       commitmentId: commitment.id,
       stored: centralSmsTurnShadowStored ?? undefined,
@@ -7051,7 +7050,6 @@ async function processV2NormalInboundOutcome(
       );
     }
   } else {
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     const nonOutcomeNotebook =
       !gatedDecision.should_write_outcome_event &&
       v3BrainPayload?.learningSignal?.confidence != null &&
@@ -7159,6 +7157,7 @@ async function processV2NormalInboundOutcome(
     const j2 = await loadJob(job.message_sid);
     if (j2?.reply_body?.trim()) {
       await commitAndSendInboundCoachReply(j2, userId, inboundV3ThreadMemory);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       return;
     }
     throw new Error("v2_reply_ready_persist_failed");
@@ -7183,6 +7182,7 @@ async function processV2NormalInboundOutcome(
     branch: "main",
   });
   await commitAndSendInboundCoachReply(fresh, userId, inboundV3ThreadMemory);
+  await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
 }
 
 async function processV2BlockerCapture(

@@ -235,3 +235,275 @@ describe("inbound turn understanding route invariants", () => {
     expect(handoffBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
   });
 });
+
+describe("Phase 2.1g-B2 normal coaching — engagement-on-no-send cleanup", () => {
+  const src = fs.readFileSync(ROUTE, "utf8");
+  const normalFnStart = src.indexOf("async function processV2NormalInboundOutcome");
+  const normalFnEnd = src.indexOf("async function processV2BlockerCapture");
+  const normalBlock = src.slice(normalFnStart, normalFnEnd);
+
+  it("1: main outcome path does not call engagement inside spineInsertSucceeded before FVG", () => {
+    const idx = normalBlock.indexOf("if (spineInsertSucceeded)");
+    expect(idx).toBeGreaterThan(-1);
+    const fvgIdx = normalBlock.indexOf("if (!finalVoiceGate.shouldSend)", idx);
+    const spineBlock = normalBlock.slice(idx, fvgIdx);
+    expect(spineBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(spineBlock).toContain("maybeLogCentralBrainDisagreement");
+  });
+
+  it("2: main non-outcome path does not call engagement before FVG", () => {
+    const elseIdx = normalBlock.indexOf("} else {\n    const nonOutcomeNotebook");
+    expect(elseIdx).toBeGreaterThan(-1);
+    const fvgIdx = normalBlock.indexOf("if (!finalVoiceGate.shouldSend)", elseIdx);
+    const elseBlock = normalBlock.slice(elseIdx, fvgIdx);
+    expect(elseBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("3: main FVG no-send block has no engagement", () => {
+    const idx = normalBlock.indexOf("if (!finalVoiceGate.shouldSend)");
+    const retIdx = normalBlock.indexOf("return;", idx);
+    const fvgBlock = normalBlock.slice(idx, retIdx + "return;".length);
+    expect(fvgBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(fvgBlock).toContain("normal_inbound_final_voice_suppressed");
+  });
+
+  it("4: main unified guard no-send path has no engagement", () => {
+    const idx = normalBlock.indexOf("if (!finalGuardsMain.shouldSend)");
+    const retIdx = normalBlock.indexOf("return;", idx);
+    const guardBlock = normalBlock.slice(idx, retIdx + "return;".length);
+    expect(guardBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(guardBlock).toContain("persistExplicitOutcomeBeforeReplyNoSend");
+  });
+
+  it("5: main successful send records engagement after commitAndSend", () => {
+    const sendIdx = normalBlock.indexOf(
+      "await commitAndSendInboundCoachReply(fresh, userId, inboundV3ThreadMemory)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("6: main duplicate reply_ready path records engagement after commitAndSend", () => {
+    const dupIdx = normalBlock.indexOf(
+      "await commitAndSendInboundCoachReply(j2, userId, inboundV3ThreadMemory)"
+    );
+    expect(dupIdx).toBeGreaterThan(-1);
+    const engIdx = normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", dupIdx);
+    expect(engIdx).toBeGreaterThan(dupIdx);
+    expect(engIdx - dupIdx).toBeLessThan(120);
+  });
+
+  it("7: pivot does not call engagement before commitAndSend", () => {
+    const freshPivotIdx = normalBlock.indexOf("const freshPivot = (await loadJob(job.message_sid))");
+    const freshSendIdx = normalBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx)",
+      freshPivotIdx
+    );
+    expect(freshPivotIdx).toBeGreaterThan(-1);
+    expect(freshSendIdx).toBeGreaterThan(freshPivotIdx);
+    expect(normalBlock.slice(freshPivotIdx, freshSendIdx)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+  });
+
+  it("8: pivot guard/FVG no-send paths have no engagement", () => {
+    const fvgIdx = normalBlock.indexOf("pivot_final_voice_suppressed");
+    const fvgBlock = normalBlock.slice(fvgIdx - 600, fvgIdx + 200);
+    expect(fvgBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    const guardIdx = normalBlock.indexOf("pivot_unified_final_guard_blocked");
+    const guardBlock = normalBlock.slice(guardIdx - 600, guardIdx + 200);
+    expect(guardBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("9: pivot successful send records engagement after commitAndSend", () => {
+    const sendIdx = normalBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("10: pivot duplicate reply_ready path records engagement after commitAndSend", () => {
+    const sendIdx = normalBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(j2, userId, centralBrainPivotThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("11: arc does not call engagement before commitAndSend", () => {
+    const freshArcIdx = normalBlock.indexOf("const freshArc = (await loadJob(job.message_sid))");
+    const freshSendIdx = normalBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx)",
+      freshArcIdx
+    );
+    expect(freshArcIdx).toBeGreaterThan(-1);
+    expect(freshSendIdx).toBeGreaterThan(freshArcIdx);
+    expect(normalBlock.slice(freshArcIdx, freshSendIdx)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+  });
+
+  it("12: arc guard/FVG no-send paths have no engagement", () => {
+    const guardIdx = normalBlock.indexOf("if (!finalGuardsArc.shouldSend)");
+    const retIdx = normalBlock.indexOf("return;", guardIdx);
+    expect(normalBlock.slice(guardIdx, retIdx + "return;".length)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+    const fvgIdx = normalBlock.indexOf("arc_clarify_final_voice_suppressed");
+    expect(normalBlock.slice(fvgIdx - 600, fvgIdx + 200)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+  });
+
+  it("13: arc successful send records engagement after commitAndSend", () => {
+    const sendIdx = normalBlock.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("14: arc duplicate reply_ready path records engagement after commitAndSend", () => {
+    const dupIdx = normalBlock.lastIndexOf(
+      "await commitAndSendInboundRelationshipCoachReply(j2, userId, arcClarifyThreadMemoryCtx)"
+    );
+    expect(dupIdx).toBeGreaterThan(-1);
+    const engIdx = normalBlock.indexOf("recordV2SendTimeProfileInboundEngagement", dupIdx);
+    expect(engIdx).toBeGreaterThan(dupIdx);
+    expect(engIdx - dupIdx).toBeLessThan(120);
+  });
+
+  it("15: legacy persistence helper no longer records engagement", () => {
+    const helperStart = src.indexOf("const persistConversationBrainLegacyDisabledServerOutcome = async");
+    const helperEnd = src.indexOf("if (!cbLaneRes.shouldSend", helperStart);
+    const helperBlock = src.slice(helperStart, helperEnd);
+    expect(helperBlock).toContain("tryPersistInboundAccountabilityOutcomeBeforeSend");
+    expect(helperBlock).not.toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("16: legacy lane/FVG/guard no-send paths have no engagement", () => {
+    const laneIdx = src.indexOf("conversation_brain_legacy_disabled_lane_no_send");
+    expect(src.slice(laneIdx - 800, laneIdx + 200)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+    const fvgIdx = src.indexOf("legacy_fallback_final_voice_suppressed");
+    expect(src.slice(fvgIdx - 800, fvgIdx + 200)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+    const guardIdx = src.indexOf("legacy_fallback_final_body_guard_blocked");
+    expect(src.slice(guardIdx - 800, guardIdx + 200)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+  });
+
+  it("17: legacy successful send records engagement after commitAndSend", () => {
+    const sendIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshFb, userId, legacyFallbackThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("18: legacy duplicate reply_ready path records engagement after commitAndSend", () => {
+    const sendIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(jfb, userId, legacyFallbackThreadMemoryCtx)"
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+    expect(engIdx - sendIdx).toBeLessThan(120);
+  });
+
+  it("19: outcome persistence still present before send where designed", () => {
+    expect(normalBlock).toContain("tryPersistInboundAccountabilityOutcomeBeforeSend");
+    expect(normalBlock).toContain("persistExplicitOutcomeBeforeReplyNoSend");
+    const mainPersistIdx = normalBlock.indexOf('branch: "main"');
+    const sendIdx = normalBlock.indexOf("commitAndSendInboundCoachReply(fresh, userId");
+    expect(mainPersistIdx).toBeLessThan(sendIdx);
+  });
+
+  it("20: recomputeV2CoachingMemory still present where designed", () => {
+    const fvgIdx = normalBlock.indexOf("if (!finalVoiceGate.shouldSend)");
+    const preFvg = normalBlock.slice(0, fvgIdx);
+    expect(preFvg).toContain("recomputeV2CoachingMemory");
+    expect(preFvg).toContain('reasonCode: "inbound_user_outcome"');
+  });
+
+  it("21: setBlockerCapturePending unchanged before FVG", () => {
+    const fvgIdx = normalBlock.indexOf("if (!finalVoiceGate.shouldSend)");
+    const preFvg = normalBlock.slice(0, fvgIdx);
+    expect(preFvg).toContain("setBlockerCapturePending");
+    expect(preFvg).toContain("should_open_blocker_capture");
+  });
+
+  it("22: memory/pending g-A behavior unchanged", () => {
+    const memoryStart = src.indexOf("async function processV2MemoryConfirmationInbound");
+    const memoryBlock = src.slice(memoryStart, src.indexOf("async function processV2SmsInboundPendingResolution"));
+    const ambNoSend = memoryBlock.indexOf("if (!sendAmb.ok)");
+    expect(memoryBlock.slice(ambNoSend, memoryBlock.indexOf("}", ambNoSend) + 1)).not.toContain(
+      "recordV2SendTimeProfileInboundEngagement"
+    );
+  });
+
+  it("23: contract/blocker B1 behavior unchanged", () => {
+    expect(src).toContain("const sendContractYes = await persistContractConsentInboundLaneAckAndSend");
+    expect(src).toContain("if (sendContractYes.ok)");
+    const blockerFnStart = src.indexOf("async function processV2BlockerCapture");
+    const blockerFnEnd = src.indexOf("async function processV2ContractProposalConsent");
+    const blockerBlock = src.slice(blockerFnStart, blockerFnEnd);
+    expect(blockerBlock).toContain("if (visibleSent)");
+  });
+
+  it("24: refresh B1/B2 behavior unchanged", () => {
+    const refreshIdx = src.indexOf('laneIntent: "commitment_keep_ack"');
+    const keepSlice = src.slice(refreshIdx, refreshIdx + 2500);
+    const noSendReturn = keepSlice.indexOf("if (!sendKeep.ok)");
+    expect(keepSlice.slice(0, noSendReturn)).not.toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("25: handoff behavior unchanged", () => {
+    const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+    expect(handoffIdx).toBeGreaterThan(-1);
+    const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound", handoffIdx);
+    const handoffBlock = src.slice(handoffIdx, handoffEnd);
+    const sendIdx = handoffBlock.indexOf("commitAndSendInboundRelationshipCoachReply");
+    expect(sendIdx).toBeGreaterThan(-1);
+    const engIdx = handoffBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
+    expect(engIdx).toBeGreaterThan(sendIdx);
+  });
+
+  it("26: adaptive behavior unchanged", () => {
+    const adaptiveIdx = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
+    const adaptiveEnd = src.indexOf("async function finalizeMeaningShadowAfterJobTerminal", adaptiveIdx);
+    const adaptiveBlock = src.slice(adaptiveIdx, adaptiveEnd);
+    expect(adaptiveBlock).toContain("if (r.ok)");
+    expect(adaptiveBlock).toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("27: no Twilio/send mechanics changes", () => {
+    expect(src).toContain("sendSMSChunked");
+    expect(normalBlock).not.toContain("twilioClient");
+    expect(normalBlock).not.toContain("async function commitAndSendInboundCoachReply");
+  });
+
+  it("28: no persistence enum changes in normal block", () => {
+    expect(normalBlock).not.toMatch(/event_type:\s*"/);
+  });
+
+  it("29: no hard-coded SMS in B2 paths", () => {
+    expect(normalBlock).not.toContain("reply_body: \"");
+    const legacySendIdx = src.indexOf("legacyFallbackThreadMemoryCtx");
+    expect(src.slice(legacySendIdx, legacySendIdx + 2000)).not.toContain('reply_body: "');
+  });
+});

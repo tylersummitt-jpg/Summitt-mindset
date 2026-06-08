@@ -308,35 +308,40 @@ describe("Phase 2.1g-B1 contract consent — engagement-on-no-send cleanup", () 
     expect(declSend).toBeGreaterThan(declRecompute);
   });
 
-  it("14: normal main engagement untouched", () => {
-    const mainIdx = src.indexOf('branch: "main"');
-    const spineIdx = src.indexOf("if (spineInsertSucceeded)", mainIdx - 5000);
-    expect(spineIdx).toBeGreaterThan(-1);
-    const mainSlice = src.slice(spineIdx, spineIdx + 400);
-    expect(mainSlice).toContain("recordV2SendTimeProfileInboundEngagement");
+  it("14: normal main engagement post-send after B2", () => {
+    const spineIdx = src.indexOf("if (spineInsertSucceeded)");
+    const fvgIdx = src.indexOf("if (!finalVoiceGate.shouldSend)", spineIdx);
+    expect(src.slice(spineIdx, fvgIdx)).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    const sendIdx = src.indexOf("await commitAndSendInboundCoachReply(fresh, userId, inboundV3ThreadMemory)");
+    expect(src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx)).toBeGreaterThan(sendIdx);
   });
 
-  it("15: central pivot engagement untouched", () => {
-    const pivotEngIdx = src.indexOf("const freshPivot = (await loadJob(job.message_sid))");
-    expect(pivotEngIdx).toBeGreaterThan(-1);
-    const pivotSlice = src.slice(pivotEngIdx - 500, pivotEngIdx);
-    expect(pivotSlice).toContain("recordV2SendTimeProfileInboundEngagement");
-    expect(pivotSlice).toContain('branch: "central_pivot"');
+  it("15: central pivot engagement post-send after B2", () => {
+    const sendIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx)"
+    );
+    const preSend = src.slice(sendIdx - 400, sendIdx);
+    expect(preSend).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx)).toBeGreaterThan(sendIdx);
   });
 
-  it("16: arc clarification engagement untouched", () => {
-    const arcEngIdx = src.indexOf("const freshArc = (await loadJob(job.message_sid))");
-    expect(arcEngIdx).toBeGreaterThan(-1);
-    const arcSlice = src.slice(arcEngIdx - 500, arcEngIdx);
-    expect(arcSlice).toContain("recordV2SendTimeProfileInboundEngagement");
-    expect(arcSlice).toContain('branch: "arc_clarify"');
+  it("16: arc clarification engagement post-send after B2", () => {
+    const sendIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx)"
+    );
+    const preSend = src.slice(sendIdx - 400, sendIdx);
+    expect(preSend).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx)).toBeGreaterThan(sendIdx);
   });
 
-  it("17: legacy fallback engagement untouched", () => {
-    const legacyIdx = src.indexOf('branch: "conversation_brain_legacy_fallback"');
-    expect(legacyIdx).toBeGreaterThan(-1);
-    const legacySlice = src.slice(legacyIdx, legacyIdx + 3500);
-    expect(legacySlice).toContain("recordV2SendTimeProfileInboundEngagement");
+  it("17: legacy fallback engagement post-send after B2", () => {
+    const helperStart = src.indexOf("const persistConversationBrainLegacyDisabledServerOutcome = async");
+    const helperEnd = src.indexOf("if (!cbLaneRes.shouldSend", helperStart);
+    expect(src.slice(helperStart, helperEnd)).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    const sendIdx = src.indexOf(
+      "await commitAndSendInboundRelationshipCoachReply(freshFb, userId, legacyFallbackThreadMemoryCtx)"
+    );
+    expect(src.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx)).toBeGreaterThan(sendIdx);
   });
 
   it("18: memory/pending g-A behavior unchanged", () => {
