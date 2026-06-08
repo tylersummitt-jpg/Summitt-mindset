@@ -457,8 +457,12 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
   const mdGuided = await getClerkPublicMetadata(args.clerkUserId);
   const timezoneGuided = resolveUserTimezone(mdGuided?.timezone);
 
-  const { body: smsBody, northStarReplySource, adaptiveProposalVoiceWithheld } =
-    await buildV2ShrinkProposalOutboundSms({
+  const {
+    body: smsBody,
+    northStarReplySource,
+    adaptiveProposalVoiceWithheld,
+    relationshipSnapshotV2,
+  } = await buildV2ShrinkProposalOutboundSms({
       clerkUserId: args.clerkUserId,
       dayKey,
       proposalBindingText: args.proposalBindingText,
@@ -571,6 +575,7 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
         commitmentId: args.commitmentId,
         proposalBindingText: args.proposalBindingText,
         originalBehaviorStatement: args.originalBehaviorStatement,
+        relationshipSnapshotV2: relationshipSnapshotV2 ?? null,
       });
       unifiedFinalGuard = await applyUnifiedSmsFinalProductLawGuard({
         mode: "outbound_daily",

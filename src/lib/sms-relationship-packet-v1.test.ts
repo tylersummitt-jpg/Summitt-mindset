@@ -465,6 +465,7 @@ describe("buildRelationshipPacketForOpenAI", () => {
       "lunch stretch"
     );
     expect(userPromptJson).toContain("recent_exact_thread_72h");
+    expect(userPromptJson).toContain("RELATIONSHIP_SNAPSHOT_V2");
     expect(userPromptJson).toContain("relationship_memory_7d");
     expect(userPromptJson).toContain("relationship_memory_30d_or_season");
     expect(userPromptJson).not.toContain("coaching_summary");
@@ -763,13 +764,14 @@ describe("buildRelationshipPacketForOpenAI", () => {
     const { packet, userPromptJson, meta } = buildRelationshipPacketForOpenAI({
       lane: "inbound",
       sourceFacts: facts,
-      totalCharBudget: 4000,
+      totalCharBudget: DEFAULT_RELATIONSHIP_PACKET_BUDGET,
     });
 
     expect(userPromptJson).toContain("thread_freshness");
     expect(userPromptJson).toContain("PRIORITY_TOPIC");
     expect(packet.recent_exact_thread_72h?.data.messages.length).toBeGreaterThan(0);
-    expect(userPromptJson.length).toBeLessThanOrEqual(4000);
+    expect(userPromptJson).toContain("RELATIONSHIP_SNAPSHOT_V2");
+    expect(userPromptJson.length).toBeLessThanOrEqual(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
     expect(meta.relationship_packet_truncated).toBe(true);
   });
 
@@ -970,12 +972,12 @@ describe("buildRelationshipPacketForOpenAI", () => {
 
 describe("relationshipObservabilityFromLaneMetadata", () => {
   it("extracts packet and repair keys for SQL observability", () => {
-    const { meta } = buildRelationshipPacketForOpenAI({
+    const { meta, snapshotV2Meta } = buildRelationshipPacketForOpenAI({
       lane: "daily",
       sourceFacts: minimalDailyFacts(),
     });
     const obs = relationshipObservabilityFromLaneMetadata({
-      ...relationshipPacketMetaForLaneTelemetry(meta),
+      ...relationshipPacketMetaForLaneTelemetry(meta, snapshotV2Meta),
       repair_snapshot_kind: "thread_freshness",
       repair_snapshot_version: "1.0",
       repair_snapshot_chars: 1200,
@@ -1000,6 +1002,11 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
 });
 
 describe("buildRelationshipPacketPromptGuidance", () => {
+  it("includes snapshot v2 authority rules", () => {
+    const guidance = buildRelationshipPacketPromptGuidance();
+    expect(guidance).toContain("RELATIONSHIP_SNAPSHOT_V2_AUTHORITY");
+  });
+
   it("includes authority rules", () => {
     const guidance = buildRelationshipPacketPromptGuidance();
     expect(guidance).toContain("RELATIONSHIP_PACKET_AUTHORITY");

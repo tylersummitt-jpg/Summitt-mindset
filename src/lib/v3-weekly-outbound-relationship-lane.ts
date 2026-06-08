@@ -424,7 +424,10 @@ export async function produceWeeklyV3RelationshipSms(
     lane: "weekly",
     sourceFacts: f,
   });
-  Object.assign(baseMeta, relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta));
+  Object.assign(
+    baseMeta,
+    relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta, relationshipPacket.snapshotV2Meta)
+  );
 
   const system = `You write the NEXT SMS in one long coaching relationship (months of texts). This weekly touchpoint is NOT a newsletter or performance report.
 

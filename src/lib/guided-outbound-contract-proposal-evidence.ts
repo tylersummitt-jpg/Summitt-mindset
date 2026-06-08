@@ -11,6 +11,11 @@ import {
   type DailySemanticContractProposalFactsPacket,
 } from "@/lib/v3-daily-contract-proposal-semantic";
 import { buildSmsRelationshipMemoryPacket } from "@/lib/sms-relationship-memory-packet";
+import type { RelationshipSnapshotV2 } from "@/lib/sms-relationship-snapshot-v2";
+import {
+  latestCoachBodyFromSnapshotThread,
+  latestCoachSentAtFromSnapshotThread,
+} from "@/lib/sms-relationship-snapshot-v2";
 import type { OutboundDailyGuardArgs } from "@/lib/sms-final-product-law-guard";
 
 export const GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE = "guided_shrink_contract_prompt" as const;
@@ -41,6 +46,7 @@ export async function buildGuidedShrinkOutboundDailyGuardArgs(args: {
   originalBehaviorStatement: string;
   priorCoachBody?: string | null;
   priorCoachSentAt?: string | null;
+  relationshipSnapshotV2?: RelationshipSnapshotV2 | null;
 }): Promise<OutboundDailyGuardArgs> {
   const proposed = args.proposalBindingText.trim();
   const semFacts = buildGuidedShrinkContractProposalSemanticFacts({
@@ -50,6 +56,11 @@ export async function buildGuidedShrinkOutboundDailyGuardArgs(args: {
 
   let priorCoachBody = args.priorCoachBody?.trim() || null;
   let priorCoachSentAt = args.priorCoachSentAt?.trim() || null;
+
+  if (!priorCoachBody && args.relationshipSnapshotV2) {
+    priorCoachBody = latestCoachBodyFromSnapshotThread(args.relationshipSnapshotV2);
+    priorCoachSentAt = latestCoachSentAtFromSnapshotThread(args.relationshipSnapshotV2);
+  }
 
   if (!priorCoachBody) {
     try {

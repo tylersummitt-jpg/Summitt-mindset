@@ -33,6 +33,15 @@ import {
   trimRelationshipMemory30dData,
   type RelationshipMemory30dData,
 } from "@/lib/sms-relationship-memory-30d";
+import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import {
+  activePendingStateForLaneFacts,
+  buildRelationshipSnapshotV2,
+  buildRelationshipSnapshotV2PromptGuidance,
+  combinedUserPromptFromPacketAndSnapshot,
+  type RelationshipSnapshotV2,
+  type RelationshipSnapshotV2Meta,
+} from "@/lib/sms-relationship-snapshot-v2";
 
 export const RELATIONSHIP_PACKET_VERSION = "1.8" as const;
 export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_000;
@@ -250,6 +259,8 @@ export type BuildRelationshipPacketResult = {
   packet: RelationshipPacketV1;
   userPromptJson: string;
   meta: RelationshipPacketMeta;
+  snapshotV2: RelationshipSnapshotV2;
+  snapshotV2Meta: RelationshipSnapshotV2Meta;
 };
 
 export function buildRelationshipPacketPromptGuidance(): string {
@@ -267,7 +278,8 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
-${buildTemporalContractPromptGuidance()}`;
+${buildTemporalContractPromptGuidance()}
+${buildRelationshipSnapshotV2PromptGuidance()}`;
 }
 
 function isWeeklyFacts(
@@ -934,8 +946,8 @@ ${JSON.stringify(packet)}
 Write JSON only.`;
 }
 
-function measureUserPrompt(packet: RelationshipPacketV1): number {
-  return userPromptFromPacket(packet).length;
+function measureCombinedPrompt(packet: RelationshipPacketV1, snapshot: RelationshipSnapshotV2): number {
+  return combinedUserPromptFromPacketAndSnapshot(packet, snapshot).length;
 }
 
 function trimLowerAuthority(
@@ -1019,6 +1031,7 @@ export function buildRelationshipPacketForOpenAI(args: {
   lane: RelationshipPacketLane;
   sourceFacts: InboundV3RelationshipFacts | DailyV3RelationshipFacts | WeeklyV3OutboundFacts;
   totalCharBudget?: number;
+  commitmentRow?: ActiveV2CommitmentRow | null;
 }): BuildRelationshipPacketResult {
   const budget = args.totalCharBudget ?? DEFAULT_RELATIONSHIP_PACKET_BUDGET;
   const truncatedSections: string[] = [];
@@ -1118,8 +1131,21 @@ export function buildRelationshipPacketForOpenAI(args: {
     };
   }
 
+  const activePendingState = activePendingStateForLaneFacts({
+    lane: args.lane,
+    sourceFacts: args.sourceFacts,
+    commitmentRow: args.commitmentRow,
+  });
+
   let packet = serializePacket(build);
-  let size = measureUserPrompt(packet);
+  let snapshotBuilt = buildRelationshipSnapshotV2({
+    packet,
+    activePendingState,
+    surface: args.lane,
+    lane: args.lane,
+    truncated: false,
+  });
+  let size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
 
   const recordTrunc = (section: string) => {
     if (!truncatedSections.includes(section)) truncatedSections.push(section);
@@ -1132,7 +1158,14 @@ export function buildRelationshipPacketForOpenAI(args: {
       build.lower_authority_background = trimLowerAuthority(build.lower_authority_background, 200);
       recordTrunc("lower_authority_background");
       packet = serializePacket(build);
-      size = measureUserPrompt(packet);
+      snapshotBuilt = buildRelationshipSnapshotV2({
+        packet,
+        activePendingState,
+        surface: args.lane,
+        lane: args.lane,
+        truncated: truncatedSections.length > 0,
+      });
+      size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
       if (size > budget) {
         delete build.lower_authority_background;
       }
@@ -1149,7 +1182,14 @@ export function buildRelationshipPacketForOpenAI(args: {
         }
       }
       packet = serializePacket(build);
-      size = measureUserPrompt(packet);
+      snapshotBuilt = buildRelationshipSnapshotV2({
+        packet,
+        activePendingState,
+        surface: args.lane,
+        lane: args.lane,
+        truncated: truncatedSections.length > 0,
+      });
+      size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
       if (size > budget) {
         delete build.relationship_memory_30d_or_season;
         memory30dTruncated = true;
@@ -1165,7 +1205,14 @@ export function buildRelationshipPacketForOpenAI(args: {
         }
       }
       packet = serializePacket(build);
-      size = measureUserPrompt(packet);
+      snapshotBuilt = buildRelationshipSnapshotV2({
+        packet,
+        activePendingState,
+        surface: args.lane,
+        lane: args.lane,
+        truncated: truncatedSections.length > 0,
+      });
+      size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
       if (size > budget) {
         delete build.relationship_memory_7d;
         memory7dTruncated = true;
@@ -1199,11 +1246,26 @@ export function buildRelationshipPacketForOpenAI(args: {
     }
 
     packet = serializePacket(build);
-    size = measureUserPrompt(packet);
+    snapshotBuilt = buildRelationshipSnapshotV2({
+      packet,
+      activePendingState,
+      surface: args.lane,
+      lane: args.lane,
+      truncated: truncatedSections.length > 0,
+    });
+    size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
     if (size >= prevSize) break;
   }
 
-  const userPromptJson = userPromptFromPacket(packet);
+  snapshotBuilt = buildRelationshipSnapshotV2({
+    packet,
+    activePendingState,
+    surface: args.lane,
+    lane: args.lane,
+    truncated: truncatedSections.length > 0 || size > budget,
+  });
+
+  const userPromptJson = combinedUserPromptFromPacketAndSnapshot(packet, snapshotBuilt.snapshot);
   const threadSection = build.recent_exact_thread_72h?.data;
   const threadCount =
     threadSection?.message_count ??
@@ -1237,11 +1299,18 @@ export function buildRelationshipPacketForOpenAI(args: {
     budget_chars: budget,
   };
 
-  return { packet, userPromptJson, meta };
+  return {
+    packet,
+    userPromptJson,
+    meta,
+    snapshotV2: snapshotBuilt.snapshot,
+    snapshotV2Meta: snapshotBuilt.meta,
+  };
 }
 
 export function relationshipPacketMetaForLaneTelemetry(
-  meta: RelationshipPacketMeta
+  meta: RelationshipPacketMeta,
+  snapshotMeta?: RelationshipSnapshotV2Meta
 ): Record<string, unknown> {
   return {
     relationship_packet_version: meta.relationship_packet_version,
@@ -1261,6 +1330,14 @@ export function relationshipPacketMetaForLaneTelemetry(
     included_memory_30d_window_days: meta.included_memory_30d_window_days,
     included_memory_30d_item_count: meta.included_memory_30d_item_count,
     relationship_memory_30d_truncated: meta.relationship_memory_30d_truncated,
+    ...(snapshotMeta
+      ? {
+          relationship_snapshot_version: snapshotMeta.relationship_snapshot_version,
+          active_pending_state_item_count: snapshotMeta.active_pending_state_item_count,
+          relationship_snapshot_truncated: snapshotMeta.relationship_snapshot_truncated,
+          thread_fallback_used: snapshotMeta.thread_fallback_used,
+        }
+      : {}),
   };
 }
 
@@ -1283,6 +1360,10 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "included_memory_30d_window_days",
   "included_memory_30d_item_count",
   "relationship_memory_30d_truncated",
+  "relationship_snapshot_version",
+  "active_pending_state_item_count",
+  "relationship_snapshot_truncated",
+  "thread_fallback_used",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

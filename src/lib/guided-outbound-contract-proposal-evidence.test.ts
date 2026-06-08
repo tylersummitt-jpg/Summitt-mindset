@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  },
+}));
+
 import {
   GUIDED_SHRINK_CONTRACT_ROUTE_PURPOSE,
   buildGuidedShrinkContractProposalSemanticFacts,

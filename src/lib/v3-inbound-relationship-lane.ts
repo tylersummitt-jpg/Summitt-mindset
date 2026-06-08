@@ -2201,7 +2201,10 @@ export async function produceInboundV3RelationshipSms(
     lane: "inbound",
     sourceFacts: args.facts,
   });
-  Object.assign(baseMeta, relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta));
+  Object.assign(
+    baseMeta,
+    relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta, relationshipPacket.snapshotV2Meta)
+  );
   const routePurposeAux = buildRoutePurposeAux(args.facts) + buildMemoryPacketRouteAux(args.facts);
 
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.

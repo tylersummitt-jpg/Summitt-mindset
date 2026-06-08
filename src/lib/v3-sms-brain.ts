@@ -379,6 +379,8 @@ export type GenerateV3CoachReplyArgs = {
   preferredName?: string | null;
   /** Prior visible SMS from advisory layers (conversation brain, pivot, clarify). V3 rewrites into final voice. */
   priorDraftHint?: { source: string; text: string } | null;
+  /** Optional Relationship Snapshot v2 appendix for writer context (read-only). */
+  relationshipSnapshotV2Appendix?: string | null;
 };
 
 export type OpenQuestionReplyGenerationMeta = {
@@ -577,7 +579,7 @@ ${dnrLine}${hint}Transcript context:
 ${transcript}
 Memory snapshot:
 ${memoryBlock.slice(0, 1800)}
-Draft the reply SMS only.`;
+${args.relationshipSnapshotV2Appendix?.trim() ? `\n${args.relationshipSnapshotV2Appendix.trim()}\n` : ""}Draft the reply SMS only.`;
 
   try {
     const completion = await client.chat.completions.create({
@@ -896,6 +898,7 @@ export type ProduceV3InboundCoachDraftArgs = {
   gatedDecision: V2InboundGatedDecision;
   deterministicEventType: "user_yes" | "user_no" | "user_partial";
   priorDraftHint?: { source: string; text: string } | null;
+  relationshipSnapshotV2Appendix?: string | null;
 };
 
 function mergeBrainWithCoachGenerateMeta(
@@ -946,6 +949,7 @@ export async function produceV3InboundCoachDraft(
     northStarPacket: args.northStarPacket,
     coachingMemory: args.coachingMemory,
     priorDraftHint: args.priorDraftHint ?? null,
+    relationshipSnapshotV2Appendix: args.relationshipSnapshotV2Appendix ?? null,
   });
 
   return { draft: gen.text, brain: mergeBrainWithCoachGenerateMeta(understanding, gen), openAiOk: gen.openAiOk };
@@ -1061,6 +1065,7 @@ export async function recoverV3InboundCoachDraftFromArgs(
       northStarPacket: args.northStarPacket,
       coachingMemory: args.coachingMemory,
       priorDraftHint: args.priorDraftHint ?? null,
+      relationshipSnapshotV2Appendix: args.relationshipSnapshotV2Appendix ?? null,
     });
     return {
       draft: gen.text,

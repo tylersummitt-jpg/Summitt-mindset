@@ -9,6 +9,7 @@ import {
   shouldRunPhase3AdaptiveProposalBrain,
 } from "@/lib/v2-human-sms-brain/flags";
 import type { ActiveV2CommitmentRow, V2AccountabilityOutcome } from "@/lib/v2-commitment";
+import type { RelationshipSnapshotV2 } from "@/lib/sms-relationship-snapshot-v2";
 
 /** Max length for `behavior_statement` when embedded in SMS ({{B}}). */
 const BEHAVIOR_SNIPPET_MAX = 100;
@@ -19,6 +20,7 @@ export type V2AdaptiveProposalOutboundBuild = {
   northStarReplySource?: string | null;
   adaptiveProposalVoiceWithheld?: boolean;
   adaptiveProposalOutboundMeta?: Record<string, unknown>;
+  relationshipSnapshotV2?: RelationshipSnapshotV2 | null;
 };
 
 function packAdaptiveProposalWithheldExtras(
@@ -408,6 +410,16 @@ export async function buildV2ShrinkProposalOutboundSms(args: {
       : undefined);
 
   if (effectiveV3Refine) {
+    const { buildGuidedContractRelationshipSnapshotV2 } = await import(
+      "@/lib/sms-relationship-snapshot-v2-guided"
+    );
+    const guidedSnapshot = await buildGuidedContractRelationshipSnapshotV2({
+      clerkUserId: args.clerkUserId,
+      commitment: effectiveV3Refine.commitment,
+      timezone: effectiveV3Refine.timezone,
+      proposalBindingText: args.proposalBindingText,
+      originalBehaviorStatement: args.originalBehaviorStatement,
+    });
     const finalized = await finalizeAdaptiveProposalOutboundSms({
       machineDraft: legacy.body,
       proposalKind: "shrink",
@@ -419,13 +431,20 @@ export async function buildV2ShrinkProposalOutboundSms(args: {
         messageSid: `adaptive_proposal:${args.clerkUserId}:${args.dayKey}:shrink`,
         commitment: effectiveV3Refine.commitment,
         timezone: effectiveV3Refine.timezone,
+        relationshipSnapshotV2Appendix: guidedSnapshot.userPromptAppendix,
       },
     });
+    const withheld = packAdaptiveProposalWithheldExtras(finalized);
     return {
       body: finalized.message,
       templateId: legacy.templateId,
       northStarReplySource: finalized.northStarReplySource ?? null,
-      ...packAdaptiveProposalWithheldExtras(finalized),
+      relationshipSnapshotV2: guidedSnapshot.snapshot,
+      ...withheld,
+      adaptiveProposalOutboundMeta: {
+        ...guidedSnapshot.meta,
+        ...withheld.adaptiveProposalOutboundMeta,
+      },
     };
   }
 

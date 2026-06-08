@@ -182,6 +182,7 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
     messageSid: string;
     commitment: ActiveV2CommitmentRow;
     timezone: string;
+    relationshipSnapshotV2Appendix?: string | null;
   };
 }): Promise<FinalizeAdaptiveProposalOutboundSmsResult> {
   const maxChars = args.maxChars ?? DEFAULT_MAX;
@@ -210,6 +211,7 @@ export async function finalizeAdaptiveProposalOutboundSms(args: {
         machineBody: args.machineDraft.trim(),
         hintSource: "adaptive_proposal_outbound",
         ownedReplySource: "v3_adaptive_proposal_refined",
+        relationshipSnapshotV2Appendix: args.v3Refine.relationshipSnapshotV2Appendix ?? null,
       });
       text = r.body;
       v3ReplySource = r.replySource;

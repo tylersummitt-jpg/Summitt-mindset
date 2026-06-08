@@ -112,6 +112,7 @@ export async function refineMachineSmsBodyWithV3RefineLane(args: {
   machineBody: string;
   hintSource: string;
   ownedReplySource: string;
+  relationshipSnapshotV2Appendix?: string | null;
 }): Promise<{ body: string; replySource?: string; contextPacket?: NorthStarSmsContextPacket }> {
   let body = args.machineBody;
   let replySource: string | undefined;
@@ -194,6 +195,7 @@ export async function refineMachineSmsBodyWithV3RefineLane(args: {
       gatedDecision: V3_REFINE_ONLY_GATED,
       deterministicEventType: classification.eventType,
       priorDraftHint: { source: args.hintSource, text: args.machineBody },
+      relationshipSnapshotV2Appendix: args.relationshipSnapshotV2Appendix ?? null,
     };
 
     let refined: Awaited<ReturnType<typeof produceV3InboundCoachDraft>>;

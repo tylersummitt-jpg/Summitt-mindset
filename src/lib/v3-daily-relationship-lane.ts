@@ -1033,7 +1033,10 @@ export async function produceDailyV3RelationshipSms(
     lane: "daily",
     sourceFacts: laneFacts,
   });
-  Object.assign(baseMeta, relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta));
+  Object.assign(
+    baseMeta,
+    relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta, relationshipPacket.snapshotV2Meta)
+  );
 
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
 
