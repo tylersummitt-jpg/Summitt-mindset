@@ -164,3 +164,40 @@ describe("Phase 3G-3 — sms-inbound-coach blocker_captured payload wiring (stat
     expect(route).toContain("unifiedGuardNoSendReason: blockerAckUnifiedGuardNoSendReason");
   });
 });
+
+describe("Phase 2.1g-B1 blocker ack — engagement-on-no-send cleanup", () => {
+  const blockerFnStart = route.indexOf("async function processV2BlockerCapture");
+  const blockerFnEnd = route.indexOf("async function processV2ContractProposalConsent");
+  const blockerFnBlock = route.slice(blockerFnStart, blockerFnEnd);
+
+  it("engagement gated on visibleSent after blocker_captured insert", () => {
+    const insertIdx = blockerFnBlock.indexOf('event_type: "blocker_captured"');
+    const clearIdx = blockerFnBlock.indexOf("clearBlockerCapturePending", insertIdx);
+    const gateIdx = blockerFnBlock.indexOf("if (visibleSent)", clearIdx);
+    const recomputeIdx = blockerFnBlock.indexOf("inbound_blocker_captured", gateIdx);
+    expect(insertIdx).toBeGreaterThan(-1);
+    expect(gateIdx).toBeGreaterThan(clearIdx);
+    expect(recomputeIdx).toBeGreaterThan(gateIdx);
+    const preGate = blockerFnBlock.slice(clearIdx, gateIdx);
+    expect(preGate).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    const gateBody = blockerFnBlock.slice(gateIdx, blockerFnBlock.indexOf("}", gateIdx) + 1);
+    expect(gateBody).toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("recompute still runs when visibleSent is false", () => {
+    const gateIdx = blockerFnBlock.indexOf("if (visibleSent)");
+    const afterGate = blockerFnBlock.slice(gateIdx, gateIdx + 400);
+    expect(afterGate).toContain("recomputeV2CoachingMemory");
+    expect(afterGate).toContain("inbound_blocker_captured");
+  });
+
+  it("blocker pivot engagement path unchanged", () => {
+    const pivotIdx = blockerFnBlock.indexOf("blocker_pivot_unified_final_guard_blocked");
+    const pivotEngIdx = blockerFnBlock.indexOf(
+      "recordV2SendTimeProfileInboundEngagement",
+      blockerFnBlock.indexOf("commitAndSendInboundRelationshipCoachReply")
+    );
+    expect(pivotEngIdx).toBeGreaterThan(-1);
+    expect(pivotIdx).toBeGreaterThan(-1);
+  });
+});

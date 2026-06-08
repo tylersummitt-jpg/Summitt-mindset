@@ -8124,7 +8124,9 @@ async function processV2BlockerCapture(
   });
 
   await clearBlockerCapturePending(commitment.id);
-  await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+  if (visibleSent) {
+    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+  }
   await recomputeV2CoachingMemory(commitment.id, {
     reasonCode: "inbound_blocker_captured",
   });
@@ -8307,7 +8309,7 @@ async function processV2ContractProposalConsent(
     const bindingSlice = contractConsentYesBindingVerbatimSubstring(proposalText);
     const requiredVerb = bindingSlice ? [bindingSlice] : undefined;
 
-    await persistContractConsentInboundLaneAckAndSend({
+    const sendContractYes = await persistContractConsentInboundLaneAckAndSend({
       job,
       userId,
       commitment: workingCommitment,
@@ -8334,7 +8336,9 @@ async function processV2ContractProposalConsent(
       proposalText,
       contractKind,
     });
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    if (sendContractYes.ok) {
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    }
     return true;
   }
 
@@ -8424,7 +8428,7 @@ async function processV2ContractProposalConsent(
       reasonCode: "inbound_contract_overlay_declined",
     });
 
-    await persistContractConsentInboundLaneAckAndSend({
+    const sendContractDecline = await persistContractConsentInboundLaneAckAndSend({
       job,
       userId,
       commitment: workingCommitment,
@@ -8450,7 +8454,9 @@ async function processV2ContractProposalConsent(
       proposalText,
       contractKind,
     });
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    if (sendContractDecline.ok) {
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+    }
     return true;
   }
 
