@@ -114,10 +114,14 @@ describe("Phase 2.1d-A1 contract consent — route wiring", () => {
     expect(adaptiveBlock).not.toContain("persistContractConsentTruthOnNoSend");
   });
 
-  it("28: refresh still not wired", () => {
+  it("28: refresh identity opt-in wired; commitment refresh not wired", () => {
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
-    const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
-    expect(refreshBlock).not.toContain("unifiedFinalGuard");
+    const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);
+    expect(refreshBlock).toContain("refreshNoSendTruthPolicy");
+    const processStart = src.indexOf("async function processV2CoachingRefreshInbound");
+    const commitmentIdx = src.indexOf('if (session.step === "commitment")', processStart);
+    const commitmentBlock = src.slice(commitmentIdx, commitmentIdx + 4000);
+    expect(commitmentBlock).not.toContain("identityTruthContext");
   });
 
   it("29: pending still uses pendingNoSendTruthPolicy only", () => {

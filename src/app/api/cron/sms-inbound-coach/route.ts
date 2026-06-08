@@ -398,6 +398,18 @@ import {
   type CommitmentHandoffNoSendTruthPolicyContext,
 } from "@/lib/v2-commitment-handoff-no-send-truth";
 import { evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck } from "@/lib/v2-commitment-handoff-post-unified-truth";
+import {
+  buildRefreshIdentityNoSendTruthPolicyContext,
+  buildRefreshIdentityRequiredMeaningSummary,
+  isRefreshIdentityLaneIntent,
+  persistRefreshTruthOnNoSend,
+  type RefreshNoSendStage,
+  type RefreshNoSendTruthPolicyContext,
+} from "@/lib/v2-refresh-no-send-truth";
+import {
+  evaluatePostUnifiedGuardRefreshTruthRecheck,
+  type RefreshPostUnifiedMutationFlags,
+} from "@/lib/v2-refresh-post-unified-truth";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import {
@@ -8669,6 +8681,12 @@ type InboundLaneUnifiedFinalGuardConfig = {
   outcomeClaimEvidence: OutcomeClaimEvidenceBundle;
   memoryNoSendTruthPolicy?: MemoryConfirmationNoSendTruthPolicyContext;
   pendingNoSendTruthPolicy?: PendingResolutionNoSendTruthPolicyContext;
+  refreshNoSendTruthPolicy?: RefreshNoSendTruthPolicyContext;
+  refreshPostUnifiedRecheck?: {
+    mutationFlags: RefreshPostUnifiedMutationFlags;
+    requiredVerbatimSubstrings?: string[] | null;
+    requiredMeaningSummary?: string | null;
+  };
 };
 
 function evaluatePostUnifiedGuardPendingTruthRecheck(args: {
@@ -8730,16 +8748,18 @@ function evaluatePostUnifiedGuardPendingTruthRecheck(args: {
 
 async function runMemoryConfirmationNoSendTruthPolicyIfConfigured(args: {
   unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
-  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard";
+  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard" | "post_unified_truth_recheck";
   noSendReason: string;
   stageMetadata?: Record<string, unknown>;
   logTag: string;
 }): Promise<Record<string, unknown> | null> {
   const policy = args.unifiedFinalGuard?.memoryNoSendTruthPolicy;
   if (!policy) return null;
+  const memoryStage =
+    args.noSendStage === "post_unified_truth_recheck" ? "unified_final_guard" : args.noSendStage;
   const telemetry = await persistMemoryConfirmationTruthOnNoSend({
     ...policy,
-    noSendStage: args.noSendStage,
+    noSendStage: memoryStage,
     noSendReason: args.noSendReason,
     stageMetadata: args.stageMetadata,
   });
@@ -8753,7 +8773,7 @@ async function runMemoryConfirmationNoSendTruthPolicyIfConfigured(args: {
 
 async function runPendingResolutionNoSendTruthPolicyIfConfigured(args: {
   unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
-  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard";
+  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard" | "post_unified_truth_recheck";
   noSendReason: string;
   stageMetadata?: Record<string, unknown>;
   logTag: string;
@@ -8762,7 +8782,7 @@ async function runPendingResolutionNoSendTruthPolicyIfConfigured(args: {
   if (!policy) return null;
   const telemetry = await persistPendingResolutionTruthOnNoSend({
     ...policy,
-    noSendStage: args.noSendStage,
+    noSendStage: args.noSendStage === "post_unified_truth_recheck" ? "unified_final_guard" : args.noSendStage,
     noSendReason: args.noSendReason,
     stageMetadata: args.stageMetadata,
   });
@@ -8774,21 +8794,55 @@ async function runPendingResolutionNoSendTruthPolicyIfConfigured(args: {
   return telemetry;
 }
 
-async function runInboundLaneNoSendTruthPoliciesIfConfigured(args: {
+async function runRefreshNoSendTruthPolicyIfConfigured(args: {
   unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
-  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard";
+  noSendStage: RefreshNoSendStage;
   noSendReason: string;
   stageMetadata?: Record<string, unknown>;
   logTag: string;
+  requiredVerbatimMissing?: string[] | null;
+  refreshTruthViolation?: string | null;
+  sendTimeEngagementRecordedBeforeSms?: boolean;
+}): Promise<Record<string, unknown> | null> {
+  const policy = args.unifiedFinalGuard?.refreshNoSendTruthPolicy;
+  if (!policy) return null;
+  const telemetry = await persistRefreshTruthOnNoSend({
+    ...policy,
+    noSendStage: args.noSendStage,
+    noSendReason: args.noSendReason,
+    requiredVerbatimMissing: args.requiredVerbatimMissing,
+    refreshTruthViolation: args.refreshTruthViolation,
+    sendTimeEngagementRecordedBeforeSms: args.sendTimeEngagementRecordedBeforeSms ?? false,
+    stageMetadata: args.stageMetadata,
+  });
+  console.info(`[sms-inbound-coach] ${args.logTag}_refresh_no_send_truth`, {
+    message_sid: policy.inboundMessageSid,
+    commitment_id: policy.commitmentId,
+    ...telemetry,
+  });
+  return telemetry;
+}
+
+async function runInboundLaneNoSendTruthPoliciesIfConfigured(args: {
+  unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
+  noSendStage: "lane" | "final_voice_gate" | "unified_final_guard" | "post_unified_truth_recheck";
+  noSendReason: string;
+  stageMetadata?: Record<string, unknown>;
+  logTag: string;
+  requiredVerbatimMissing?: string[] | null;
+  refreshTruthViolation?: string | null;
+  sendTimeEngagementRecordedBeforeSms?: boolean;
 }): Promise<{
   memoryTruth: Record<string, unknown> | null;
   pendingTruth: Record<string, unknown> | null;
+  refreshTruth: Record<string, unknown> | null;
 }> {
-  const [memoryTruth, pendingTruth] = await Promise.all([
+  const [memoryTruth, pendingTruth, refreshTruth] = await Promise.all([
     runMemoryConfirmationNoSendTruthPolicyIfConfigured(args),
     runPendingResolutionNoSendTruthPolicyIfConfigured(args),
+    runRefreshNoSendTruthPolicyIfConfigured(args),
   ]);
-  return { memoryTruth, pendingTruth };
+  return { memoryTruth, pendingTruth, refreshTruth };
 }
 
 async function buildMemoryLaneOutcomeClaimEvidence(args: {
@@ -8869,13 +8923,14 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       nextRetry: farFutureIso(),
     });
     const laneNoSendReason = lane.noSendReason ?? "inbound_lane_no_send";
-    const { memoryTruth: memoryTruthLane, pendingTruth: pendingTruthLane } =
+    const { memoryTruth: memoryTruthLane, pendingTruth: pendingTruthLane, refreshTruth: refreshTruthLane } =
       await runInboundLaneNoSendTruthPoliciesIfConfigured({
         unifiedFinalGuard: args.unifiedFinalGuard,
         noSendStage: "lane",
         noSendReason: laneNoSendReason,
         stageMetadata: { lane_metadata: lane.metadata, lane_stage: lane.metadata?.lane_stage ?? null },
         logTag: args.logTag,
+        sendTimeEngagementRecordedBeforeSms: false,
       });
     console.warn(`[sms-inbound-coach] ${args.logTag}_inbound_lane_no_send`, {
       message_sid: args.job.message_sid,
@@ -8883,6 +8938,7 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       reason: laneNoSendReason,
       ...(memoryTruthLane ? { memory_no_send_truth: memoryTruthLane } : {}),
       ...(pendingTruthLane ? { pending_resolution_no_send_truth: pendingTruthLane } : {}),
+      ...(refreshTruthLane ? { refresh_no_send_truth: refreshTruthLane } : {}),
     });
     return { ok: false };
   }
@@ -8948,7 +9004,7 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       nextRetry: farFutureIso(),
     });
     const fvgNoSendReason = voicePack.voice.skipReason ?? "final_voice_gate_no_send";
-    const { memoryTruth: memoryTruthFvg, pendingTruth: pendingTruthFvg } =
+    const { memoryTruth: memoryTruthFvg, pendingTruth: pendingTruthFvg, refreshTruth: refreshTruthFvg } =
       await runInboundLaneNoSendTruthPoliciesIfConfigured({
         unifiedFinalGuard: args.unifiedFinalGuard,
         noSendStage: "final_voice_gate",
@@ -8958,12 +9014,14 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
           north_star_gate_source: voicePack.northStarMeta.source,
         },
         logTag: args.logTag,
+        sendTimeEngagementRecordedBeforeSms: false,
       });
     console.warn(`[sms-inbound-coach] ${args.logTag}_final_voice_suppressed`, {
       message_sid: args.job.message_sid,
       reason: fvgNoSendReason,
       ...(memoryTruthFvg ? { memory_no_send_truth: memoryTruthFvg } : {}),
       ...(pendingTruthFvg ? { pending_resolution_no_send_truth: pendingTruthFvg } : {}),
+      ...(refreshTruthFvg ? { refresh_no_send_truth: refreshTruthFvg } : {}),
     });
     return { ok: false };
   }
@@ -8994,15 +9052,47 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       },
     });
 
-    const postGuardRecheck = evaluatePostUnifiedGuardPendingTruthRecheck({
-      body: unifiedGuard.body,
-      relationshipFacts: args.relationshipFacts,
-    });
+    const refreshPostRecheck =
+      ug.refreshNoSendTruthPolicy && ug.refreshPostUnifiedRecheck
+        ? evaluatePostUnifiedGuardRefreshTruthRecheck({
+            body: unifiedGuard.body,
+            refreshIntent: ug.refreshNoSendTruthPolicy.refreshIntent,
+            refreshFamily: "identity",
+            stateTransitionSummary: ug.refreshNoSendTruthPolicy.stateTransitionSummary,
+            requiredMeaningSummary: ug.refreshPostUnifiedRecheck.requiredMeaningSummary,
+            requiredVerbatimSubstrings: ug.refreshPostUnifiedRecheck.requiredVerbatimSubstrings,
+            refreshFacts: args.relationshipFacts.refresh_facts ?? null,
+            mutationFlags: ug.refreshPostUnifiedRecheck.mutationFlags,
+            routePurpose: ug.routePurpose,
+            branchName: ug.branchName,
+          })
+        : null;
 
-    const unifiedGuardBlocked = !unifiedGuard.shouldSend || postGuardRecheck.blocked;
+    const pendingPostRecheck =
+      refreshPostRecheck == null
+        ? evaluatePostUnifiedGuardPendingTruthRecheck({
+            body: unifiedGuard.body,
+            relationshipFacts: args.relationshipFacts,
+          })
+        : null;
+
+    const postGuardRecheckBlocked =
+      refreshPostRecheck?.blocked === true || pendingPostRecheck?.blocked === true;
+    const postGuardNoSendReason =
+      refreshPostRecheck?.noSendReason ?? pendingPostRecheck?.noSendReason ?? null;
+    const postGuardVerbatimMissing =
+      refreshPostRecheck?.verbatimMissing ?? pendingPostRecheck?.verbatimMissing ?? null;
+    const postGuardRefreshViolations = refreshPostRecheck?.refreshTruthViolations ?? [];
+
+    const unifiedGuardBlocked =
+      !unifiedGuard.shouldSend || postGuardRecheckBlocked;
     if (unifiedGuardBlocked) {
+      const noSendStage: RefreshNoSendStage =
+        !unifiedGuard.shouldSend
+          ? "unified_final_guard"
+          : "post_unified_truth_recheck";
       const noSendReason =
-        postGuardRecheck.noSendReason ??
+        postGuardNoSendReason ??
         unifiedGuard.noSendReason ??
         "unified_final_product_law_guard_no_send";
       const guardSafetyNotes = ["unified_final_product_law_guard"];
@@ -9012,14 +9102,17 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
       if (unifiedGuard.noSendReason === UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND) {
         guardSafetyNotes.push("unsupported_accountability_claim_guard");
       }
-      if (postGuardRecheck.verbatimMissing != null) {
+      if (postGuardVerbatimMissing != null) {
         guardSafetyNotes.push("required_verbatim_missing_post_unified_final_guard");
       }
-      if (postGuardRecheck.pendingTruthFailed) {
+      if (pendingPostRecheck?.pendingTruthFailed) {
         guardSafetyNotes.push("pending_resolution_truth_violation_after_final_guard");
       }
-      if (postGuardRecheck.seasonTruthFailed) {
+      if (pendingPostRecheck?.seasonTruthFailed) {
         guardSafetyNotes.push("season_transition_truth_violation_after_final_guard");
+      }
+      if (postGuardRefreshViolations.length > 0) {
+        guardSafetyNotes.push("refresh_truth_violation_after_final_guard");
       }
       if (args.meaningShadow) {
         registerInboundMeaningShadowPending({
@@ -9052,9 +9145,12 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
               branch_name: ug.branchName,
               branch_migrated_to_lane: true,
               unified_final_guard: compactUnifiedFinalGuardForTelemetry(unifiedGuard),
-              required_verbatim_missing: postGuardRecheck.verbatimMissing,
-              pending_truth_recheck_failed: postGuardRecheck.pendingTruthFailed,
-              season_transition_truth_recheck_failed: postGuardRecheck.seasonTruthFailed,
+              required_verbatim_missing: postGuardVerbatimMissing,
+              pending_truth_recheck_failed: pendingPostRecheck?.pendingTruthFailed ?? false,
+              season_transition_truth_recheck_failed: pendingPostRecheck?.seasonTruthFailed ?? false,
+              ...(postGuardRefreshViolations.length
+                ? { refresh_truth_violations: postGuardRefreshViolations }
+                : {}),
             },
             openAiOk: true,
           },
@@ -9066,19 +9162,25 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
         ),
         nextRetry: farFutureIso(),
       });
-      const { memoryTruth: memoryTruthUnified, pendingTruth: pendingTruthUnified } =
+      const { memoryTruth: memoryTruthUnified, pendingTruth: pendingTruthUnified, refreshTruth: refreshTruthUnified } =
         await runInboundLaneNoSendTruthPoliciesIfConfigured({
           unifiedFinalGuard: ug,
-          noSendStage: "unified_final_guard",
+          noSendStage: noSendStage,
           noSendReason,
           stageMetadata: {
             unified_final_guard: compactUnifiedFinalGuardForTelemetry(unifiedGuard),
-            required_verbatim_missing: postGuardRecheck.verbatimMissing,
-            pending_truth_recheck_failed: postGuardRecheck.pendingTruthFailed,
-            season_transition_truth_recheck_failed: postGuardRecheck.seasonTruthFailed,
-            ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, postGuardRecheck.verbatimMissing),
+            required_verbatim_missing: postGuardVerbatimMissing,
+            pending_truth_recheck_failed: pendingPostRecheck?.pendingTruthFailed ?? false,
+            season_transition_truth_recheck_failed: pendingPostRecheck?.seasonTruthFailed ?? false,
+            ...(postGuardRefreshViolations.length
+              ? { refresh_truth_violations: postGuardRefreshViolations }
+              : {}),
+            ...memoryUnifiedGuardNoSendTelemetry(unifiedGuard, postGuardVerbatimMissing),
           },
           logTag: args.logTag,
+          requiredVerbatimMissing: postGuardVerbatimMissing,
+          refreshTruthViolation: postGuardRefreshViolations[0] ?? null,
+          sendTimeEngagementRecordedBeforeSms: false,
         });
       console.warn(`[sms-inbound-coach] ${args.logTag}_unified_final_guard_no_send`, {
         message_sid: args.job.message_sid,
@@ -9086,8 +9188,10 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
         route_purpose: ug.routePurpose,
         branch_name: ug.branchName,
         no_send_reason: noSendReason,
+        no_send_stage: noSendStage,
         ...(memoryTruthUnified ? { memory_no_send_truth: memoryTruthUnified } : {}),
         ...(pendingTruthUnified ? { pending_resolution_no_send_truth: pendingTruthUnified } : {}),
+        ...(refreshTruthUnified ? { refresh_no_send_truth: refreshTruthUnified } : {}),
       });
       return { ok: false };
     }
@@ -9241,6 +9345,19 @@ const REFRESH_LANE_INTENTS = {
 
 type RefreshLaneIntent = keyof typeof REFRESH_LANE_INTENTS;
 
+type RefreshIdentityTruthContext = {
+  refreshSessionId?: string | null;
+  stateMutationCompletedBeforeSms: boolean;
+  refreshSessionAdvancedBeforeSms?: boolean;
+  identityUpdatedBeforeSms?: boolean;
+  pendingCreatedBeforeSms?: boolean;
+  refreshClearedBeforeSms?: boolean;
+  commitmentPromptDeliveredBeforeSms?: boolean;
+  refreshClarificationConsumedBeforeSms?: boolean;
+  requiredVerbatimSubstrings?: string[] | null;
+  mutationFlags: RefreshPostUnifiedMutationFlags;
+};
+
 async function persistRefreshSmsLaneAndSend(args: {
   job: JobRow;
   userId: string;
@@ -9249,6 +9366,7 @@ async function persistRefreshSmsLaneAndSend(args: {
   machineBody: string;
   inboundRaw: string;
   laneIntent: RefreshLaneIntent;
+  identityTruthContext?: RefreshIdentityTruthContext | null;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const meta = REFRESH_LANE_INTENTS[args.laneIntent];
   const session = parseRefreshSession(args.commitment.refresh_session);
@@ -9257,12 +9375,19 @@ async function persistRefreshSmsLaneAndSend(args: {
       ? parseRefreshInboundWithNaturalLanguage(args.inboundRaw.trim(), session.step)
       : "UNKNOWN";
   const exactToken = parseRefreshInboundToken(args.inboundRaw.trim());
+  const identityIntent = isRefreshIdentityLaneIntent(args.laneIntent) ? args.laneIntent : null;
+  const requiredMeaningSummary =
+    identityIntent != null ? buildRefreshIdentityRequiredMeaningSummary(identityIntent) : null;
   const refreshFacts: InboundV3RefreshFacts = {
     refresh_step: session?.step ?? "unknown",
     expected_answer: exactToken !== "UNKNOWN" ? exactToken : String(token),
     user_answer_type: String(token),
     state_transition_summary: meta.summary,
     legacy_refresh_reply_preview: args.machineBody.trim().slice(0, 500),
+    ...(args.identityTruthContext?.requiredVerbatimSubstrings?.length
+      ? { required_verbatim_substrings: args.identityTruthContext.requiredVerbatimSubstrings }
+      : {}),
+    ...(requiredMeaningSummary ? { required_meaning_summary: requiredMeaningSummary } : {}),
   };
   const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
     job: args.job,
@@ -9276,6 +9401,48 @@ async function persistRefreshSmsLaneAndSend(args: {
     wave11MemoryConfirmationPending: false,
     refreshFacts,
   });
+
+  let unifiedFinalGuard: InboundLaneUnifiedFinalGuardConfig | undefined;
+  if (identityIntent != null && args.identityTruthContext) {
+    const outcomeClaimEvidence = await buildMemoryLaneOutcomeClaimEvidence({
+      inboundRaw: args.inboundRaw,
+      commitment: args.commitment,
+      contextPacket,
+      relationshipFacts: facts,
+    });
+    unifiedFinalGuard = {
+      mode: "transactional_coaching_limited",
+      routePurpose: meta.routePurpose,
+      branchName: meta.branchName,
+      outcomeClaimEvidence,
+      refreshNoSendTruthPolicy: buildRefreshIdentityNoSendTruthPolicyContext({
+        refreshIntent: identityIntent,
+        commitmentId: args.commitment.id,
+        clerkUserId: args.userId,
+        inboundMessageSid: args.job.message_sid,
+        refreshSessionId: args.identityTruthContext.refreshSessionId ?? session?.session_id ?? null,
+        stateMutationCompletedBeforeSms: args.identityTruthContext.stateMutationCompletedBeforeSms,
+        refreshSessionAdvancedBeforeSms: args.identityTruthContext.refreshSessionAdvancedBeforeSms,
+        identityUpdatedBeforeSms: args.identityTruthContext.identityUpdatedBeforeSms,
+        pendingCreatedBeforeSms: args.identityTruthContext.pendingCreatedBeforeSms,
+        refreshClearedBeforeSms: args.identityTruthContext.refreshClearedBeforeSms,
+        commitmentPromptDeliveredBeforeSms:
+          args.identityTruthContext.commitmentPromptDeliveredBeforeSms,
+        refreshClarificationConsumedBeforeSms:
+          args.identityTruthContext.refreshClarificationConsumedBeforeSms,
+        stateTransitionSummary: meta.summary,
+      }),
+      refreshPostUnifiedRecheck: {
+        mutationFlags: args.identityTruthContext.mutationFlags,
+        requiredVerbatimSubstrings:
+          args.identityTruthContext.requiredVerbatimSubstrings ??
+          facts.constraints.required_verbatim_substrings ??
+          null,
+        requiredMeaningSummary: requiredMeaningSummary,
+      },
+    };
+  }
+
   return persistInboundV3RelationshipLaneReplyReadyAndSend({
     job: args.job,
     userId: args.userId,
@@ -9301,6 +9468,7 @@ async function persistRefreshSmsLaneAndSend(args: {
       userAnswerToken: exactToken !== "UNKNOWN" ? exactToken : String(token),
       classifierEventType: classifyV2InboundReply(args.inboundRaw.trim()).eventType,
     }),
+    unifiedFinalGuard,
   });
 }
 
@@ -9926,7 +10094,7 @@ async function processV2CoachingRefreshInbound(
       });
       if (!still.ok) {
         if (still.result === "already_applied") {
-          await persistRefreshSmsLaneAndSend({
+          const sendAlready = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -9935,12 +10103,19 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "Already recorded from a prior reply in this thread. Normal checks continue.",
             laneIntent: "identity_already_applied",
+            identityTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { alreadyApplied: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendAlready.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         if (still.result === "state_conflict" || still.result === "not_found") {
-          await persistRefreshSmsLaneAndSend({
+          const sendInactive = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -9949,8 +10124,15 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "No active identity refresh step to update from this reply. Normal checks continue.",
             laneIntent: "identity_inactive_step",
+            identityTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { inactiveStep: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendInactive.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         throw new Error(`refresh_identity_still_failed:${still.error}`);
@@ -9967,9 +10149,17 @@ async function processV2CoachingRefreshInbound(
         inboundRaw: rawTrimmed,
         machineBody: stepB,
         laneIntent: "identity_still_commitment_prompt",
+        identityTruthContext: {
+          refreshSessionId: session.session_id,
+          stateMutationCompletedBeforeSms: true,
+          refreshSessionAdvancedBeforeSms: true,
+          identityUpdatedBeforeSms: true,
+          commitmentPromptDeliveredBeforeSms: false,
+          requiredVerbatimSubstrings: [`Today's bar: ${effectiveAsk.trim()}`],
+          mutationFlags: { identityStill: true, sessionAdvanced: true },
+        },
       });
       if (!sendStill.ok) {
-        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return true;
       }
       const delivered: V2RefreshSessionState = {
@@ -10015,7 +10205,7 @@ async function processV2CoachingRefreshInbound(
       });
       if (!change.ok) {
         if (change.result === "already_applied") {
-          await persistRefreshSmsLaneAndSend({
+          const sendAlready = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10024,12 +10214,19 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "Already recorded from a prior reply in this thread. Normal checks continue.",
             laneIntent: "identity_already_applied",
+            identityTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { alreadyApplied: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendAlready.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         if (change.result === "state_conflict" || change.result === "not_found") {
-          await persistRefreshSmsLaneAndSend({
+          const sendInactive = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10038,14 +10235,21 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "No active identity refresh step to update from this reply. Normal checks continue.",
             laneIntent: "identity_inactive_step",
+            identityTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { inactiveStep: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendInactive.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         throw new Error(`refresh_identity_change_failed:${change.error}`);
       }
       const { body } = buildGuidedResolutionChangeHandoffSms();
-      await persistRefreshSmsLaneAndSend({
+      const sendChange = await persistRefreshSmsLaneAndSend({
         job,
         userId,
         commitment,
@@ -10053,11 +10257,24 @@ async function processV2CoachingRefreshInbound(
         inboundRaw: rawTrimmed,
         machineBody: body,
         laneIntent: "identity_change_handoff",
+        identityTruthContext: {
+          refreshSessionId: session.session_id,
+          stateMutationCompletedBeforeSms: true,
+          pendingCreatedBeforeSms: true,
+          refreshClearedBeforeSms: true,
+          mutationFlags: {
+            identityChangedHandoff: true,
+            pendingCreated: true,
+            refreshCleared: true,
+          },
+        },
       });
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      await recomputeV2CoachingMemory(commitment.id, {
-        reasonCode: "inbound_refresh_change",
-      });
+      if (sendChange.ok) {
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        await recomputeV2CoachingMemory(commitment.id, {
+          reasonCode: "inbound_refresh_change",
+        });
+      }
       return true;
     }
 
@@ -10072,7 +10289,7 @@ async function processV2CoachingRefreshInbound(
       });
       if (!clarify.ok) {
         if (clarify.result === "already_applied") {
-          await persistRefreshSmsLaneAndSend({
+          const sendAlready = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10081,12 +10298,19 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "Already recorded from a prior reply in this thread. Normal checks continue.",
             laneIntent: "identity_already_applied",
+            identityTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { alreadyApplied: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendAlready.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         if (clarify.result === "state_conflict" || clarify.result === "not_found") {
-          await persistRefreshSmsLaneAndSend({
+          const sendInactive = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10095,14 +10319,21 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "No active identity refresh step to update from this reply. Normal checks continue.",
             laneIntent: "identity_inactive_step",
+            identityTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { inactiveStep: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendInactive.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         throw new Error(`refresh_identity_clarify_failed:${clarify.error}`);
       }
       const { body } = buildRefreshClarifyIdentitySms();
-      await persistRefreshSmsLaneAndSend({
+      const sendClarify = await persistRefreshSmsLaneAndSend({
         job,
         userId,
         commitment,
@@ -10110,11 +10341,19 @@ async function processV2CoachingRefreshInbound(
         inboundRaw: rawTrimmed,
         machineBody: body,
         laneIntent: "identity_clarify_prompt",
+        identityTruthContext: {
+          refreshSessionId: session.session_id,
+          stateMutationCompletedBeforeSms: true,
+          refreshClarificationConsumedBeforeSms: true,
+          mutationFlags: { identityClarify: true },
+        },
       });
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      await recomputeV2CoachingMemory(commitment.id, {
-        reasonCode: "inbound_refresh_identity_clarify",
-      });
+      if (sendClarify.ok) {
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        await recomputeV2CoachingMemory(commitment.id, {
+          reasonCode: "inbound_refresh_identity_clarify",
+        });
+      }
       return true;
     }
 
@@ -10128,7 +10367,7 @@ async function processV2CoachingRefreshInbound(
     });
     if (!abortIdentity.ok) {
       if (abortIdentity.result === "already_applied") {
-        await persistRefreshSmsLaneAndSend({
+        const sendAlready = await persistRefreshSmsLaneAndSend({
           job,
           userId,
           commitment,
@@ -10137,12 +10376,19 @@ async function processV2CoachingRefreshInbound(
           machineBody:
             "Already recorded from a prior reply in this thread. Normal checks continue.",
           laneIntent: "identity_already_applied",
+          identityTruthContext: {
+            refreshSessionId: session.session_id,
+            stateMutationCompletedBeforeSms: false,
+            mutationFlags: { alreadyApplied: true },
+          },
         });
-        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        if (sendAlready.ok) {
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        }
         return true;
       }
       if (abortIdentity.result === "state_conflict" || abortIdentity.result === "not_found") {
-        await persistRefreshSmsLaneAndSend({
+        const sendInactive = await persistRefreshSmsLaneAndSend({
           job,
           userId,
           commitment,
@@ -10151,13 +10397,20 @@ async function processV2CoachingRefreshInbound(
           machineBody:
             "No active identity refresh step to update from this reply. Normal checks continue.",
           laneIntent: "identity_inactive_step",
+          identityTruthContext: {
+            refreshSessionId: session.session_id,
+            stateMutationCompletedBeforeSms: false,
+            mutationFlags: { inactiveStep: true },
+          },
         });
-        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        if (sendInactive.ok) {
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        }
         return true;
       }
       throw new Error(`refresh_identity_aborted_unclear_failed:${abortIdentity.error}`);
     }
-    await persistRefreshSmsLaneAndSend({
+    const sendAbort = await persistRefreshSmsLaneAndSend({
       job,
       userId,
       commitment,
@@ -10166,11 +10419,19 @@ async function processV2CoachingRefreshInbound(
       machineBody:
         "Closing that alignment check for now—no changes saved from this thread. Normal checks continue.",
       laneIntent: "identity_aborted_unclear",
+      identityTruthContext: {
+        refreshSessionId: session.session_id,
+        stateMutationCompletedBeforeSms: true,
+        refreshClearedBeforeSms: true,
+        mutationFlags: { identityAborted: true, refreshCleared: true },
+      },
     });
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-    await recomputeV2CoachingMemory(commitment.id, {
-      reasonCode: "inbound_refresh_identity_aborted_unclear",
-    });
+    if (sendAbort.ok) {
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_identity_aborted_unclear",
+      });
+    }
     return true;
   }
 

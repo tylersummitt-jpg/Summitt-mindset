@@ -494,8 +494,9 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(src).toContain("persistCommitmentHandoffTruthOnNoSend");
 
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
-    const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
-    expect(refreshBlock).not.toContain("unifiedFinalGuard");
+    const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);
+    expect(refreshBlock).toContain("refreshNoSendTruthPolicy");
+    expect(refreshBlock).not.toContain('mode: "normal_coaching_full"');
 
     const pendingIdx = src.indexOf("async function processV2SmsInboundPendingResolution");
     expect(pendingIdx).toBeGreaterThan(0);

@@ -79,7 +79,7 @@ describe("Phase 2.1c pending resolution unified guard — route wiring", () => {
   const laneGuardStart = src.indexOf("type InboundLaneUnifiedFinalGuardConfig");
   const laneGuardBlock = src.slice(laneGuardStart, laneGuardStart + 16000);
   const helperStart = src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend");
-  const helperBlock = src.slice(helperStart, helperStart + 12000);
+  const helperBlock = src.slice(helperStart, helperStart + 32000);
 
   it("G: pending resolution passes unifiedFinalGuard opt-in", () => {
     expect(pendingBlock).toContain("unifiedFinalGuard:");
@@ -89,11 +89,12 @@ describe("Phase 2.1c pending resolution unified guard — route wiring", () => {
     expect(pendingBlock).toContain("outcomeClaimEvidence: outcomeClaimEvidencePr");
   });
 
-  it("H: refresh helper calls do NOT pass unifiedFinalGuard", () => {
+  it("H: refresh helper passes unifiedFinalGuard opt-in for identity intents only", () => {
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
     expect(refreshIdx).toBeGreaterThan(0);
-    const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
-    expect(refreshBlock).not.toContain("unifiedFinalGuard");
+    const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);
+    expect(refreshBlock).toContain("isRefreshIdentityLaneIntent");
+    expect(refreshBlock).toContain("refreshNoSendTruthPolicy");
   });
 
   it("I: memory confirmation still uses memoryNoSendTruthPolicy", () => {
@@ -125,11 +126,9 @@ describe("Phase 2.1c pending resolution unified guard — route wiring", () => {
   });
 
   it("M: unified guard no-send calls pending truth policy when configured", () => {
-    expect(laneGuardBlock).toContain('noSendStage: "unified_final_guard"');
-    const ugIdx = helperBlock.indexOf("_unified_final_guard_no_send");
-    expect(ugIdx).toBeGreaterThan(0);
-    const ugBlock = helperBlock.slice(ugIdx - 900, ugIdx + 200);
-    expect(ugBlock).toContain("runInboundLaneNoSendTruthPoliciesIfConfigured");
+    expect(helperBlock).toContain("noSendStage: noSendStage");
+    expect(helperBlock).toContain("_unified_final_guard_no_send");
+    expect(helperBlock).toContain("runInboundLaneNoSendTruthPoliciesIfConfigured");
   });
 
   it("N: post-guard pending/season truth recheck wired", () => {

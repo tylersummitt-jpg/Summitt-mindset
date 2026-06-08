@@ -116,10 +116,10 @@ describe("Phase 2.1d-A2 adaptive clarify — route wiring", () => {
     expect(contractBlock).toContain("prepareContractConsentHumanVoiceAckForSend");
   });
 
-  it("19: refresh untouched", () => {
+  it("19: refresh identity wired; adaptive recheck not on refresh", () => {
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
-    const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
-    expect(refreshBlock).not.toContain("unifiedFinalGuard");
+    const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);
+    expect(refreshBlock).toContain("refreshNoSendTruthPolicy");
     expect(refreshBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
   });
 

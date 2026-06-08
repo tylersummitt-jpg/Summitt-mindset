@@ -172,10 +172,12 @@ describe("Phase 2.1e commitment handoff — route wiring", () => {
     expect(memoryBlock).not.toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
   });
 
-  it("31: refresh untouched", () => {
+  it("31: refresh identity uses refresh recheck not handoff recheck", () => {
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
-    const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
+    const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);
+    expect(refreshBlock).toContain("refreshNoSendTruthPolicy");
     expect(refreshBlock).not.toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
+    expect(src).toContain("evaluatePostUnifiedGuardRefreshTruthRecheck");
   });
 
   it("32: daily/weekly untouched", () => {

@@ -115,11 +115,12 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
     expect(memoryBlock).toContain("memoryNoSendTruthPolicy:");
   });
 
-  it("4: refresh helper calls do NOT pass unifiedFinalGuard", () => {
+  it("4: refresh helper passes unifiedFinalGuard opt-in for identity intents only", () => {
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
     expect(refreshIdx).toBeGreaterThan(0);
-    const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
-    expect(refreshBlock).not.toContain("unifiedFinalGuard");
+    const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);
+    expect(refreshBlock).toContain("isRefreshIdentityLaneIntent");
+    expect(refreshBlock).toContain("unifiedFinalGuard");
   });
 
   it("5: pending resolution helper call passes unifiedFinalGuard opt-in (Phase 2.1c)", () => {
@@ -153,12 +154,15 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
 
   it("pr2b: unified guard no-send uses shared helper not inline onNoSendTruthPersist", () => {
     expect(helperBlock).not.toContain("onNoSendTruthPersist");
-    expect(laneGuardBlock).toContain('noSendStage: "unified_final_guard"');
+    expect(laneGuardBlock).toContain("post_unified_truth_recheck");
     expect(laneGuardBlock).toContain("runInboundLaneNoSendTruthPoliciesIfConfigured");
   });
 
-  it("21: refresh callers unchanged — no unifiedFinalGuard on persistRefreshSmsLaneAndSend", () => {
-    expect(refreshBlockNotWired(src)).toBe(true);
+  it("21: refresh identity opt-in wired — commitment refresh not wired in processV2CoachingRefreshInbound", () => {
+    const processStart = src.indexOf("async function processV2CoachingRefreshInbound");
+    const commitmentIdx = src.indexOf('if (session.step === "commitment")', processStart);
+    const commitmentBlock = src.slice(commitmentIdx, commitmentIdx + 6000);
+    expect(commitmentBlock).not.toContain("identityTruthContext");
   });
 
   it("22: pending resolution passes unifiedFinalGuard opt-in (Phase 2.1c)", () => {
@@ -231,11 +235,6 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
   });
 });
 
-function refreshBlockNotWired(src: string): boolean {
-  const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
-  const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);
-  return !refreshBlock.includes("unifiedFinalGuard");
-}
 
 describe("PR 2.1b-pr2a memory confirmation — guard behavior (transactional_coaching_limited)", () => {
   beforeEach(() => {
