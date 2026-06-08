@@ -380,7 +380,7 @@ describe("Phase 2.1g-A pending resolution — engagement-on-no-send cleanup", ()
       path.join(process.cwd(), "src/app/api/cron/weekly-sms/route.ts"),
       "utf8"
     );
-    expect(dailySrc).toContain("isOutboundDailyC1RoutePurpose");
+    expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 

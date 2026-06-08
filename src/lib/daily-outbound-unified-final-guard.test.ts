@@ -9,9 +9,16 @@ import {
   buildDailyOutboundUnifiedGuardCtx,
   detectDailyOutboundUnsupportedProofClaim,
   isOutboundDailyC1RoutePurpose,
+  isOutboundDailyC2RoutePurpose,
+  isOutboundDailyWiredRoutePurpose,
 } from "@/lib/daily-outbound-final-guard-evidence";
 import {
+  DAILY_CONTRACT_PROPOSAL_FALSE_STATE_CLAIM_NO_SEND,
+  DAILY_CONTRACT_PROPOSAL_SEMANTIC_MISSING_NO_SEND,
+} from "@/lib/daily-outbound-contract-proposal-truth";
+import {
   OUTBOUND_DAILY_C1_CHECKS_SKIPPED,
+  OUTBOUND_DAILY_C2_CHECKS_SKIPPED,
   SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
   UNIFIED_FINAL_BODY_AUTHORITY,
   applyUnifiedSmsFinalProductLawGuard,
@@ -91,6 +98,52 @@ function c1GuardArgs(body = "Did you get your workout in today?", routePurpose =
       priorCoachBody: ctx.priorCoachBody,
       priorCoachSentAt: null,
       routePurpose,
+    },
+  };
+}
+
+const SHRINK_ASK = "30 minutes of deep work before noon";
+const BASE_BEHAVIOR = "60 minutes of deep work every morning";
+
+function c2GuardArgs(
+  body = `Would ${SHRINK_ASK} work better for you this week — want to try that bar?`,
+  proposalKind: "shrink_ask" | "recommit_same" = "shrink_ask"
+) {
+  const semFacts = {
+    proposal_kind: proposalKind,
+    duration_days: 7 as const,
+    base_behavior_statement: BASE_BEHAVIOR,
+    proposed_overlay_ask: proposalKind === "shrink_ask" ? SHRINK_ASK : null,
+    proposed_behavior_preview: proposalKind === "shrink_ask" ? SHRINK_ASK : BASE_BEHAVIOR,
+    desired_response_semantics: "natural_confirmation_or_decline_or_adjustment" as const,
+    must_not_claim_goal_updated: true,
+    forbidden_phrases: [] as readonly string[],
+  };
+  const ctx = buildDailyOutboundUnifiedGuardCtx({
+    routeKind: "contract_prompt",
+    clerkUserId: "user_1",
+    commitmentId: "commit_1",
+    priorCoachBody: "Want to keep the same line this week?",
+    priorOutcome: null,
+    proposalKind,
+    contractSemanticFacts: semFacts,
+    canonicalProposalAskTrim: proposalKind === "shrink_ask" ? SHRINK_ASK : BASE_BEHAVIOR,
+    baseBehaviorStatement: BASE_BEHAVIOR,
+    proposalPending: false,
+  });
+  return {
+    mode: "outbound_daily" as const,
+    surface: "daily" as const,
+    routePurpose: "contract_prompt",
+    branchName: "contract_prompt",
+    preGuardBodyPreview: body,
+    outboundDaily: {
+      body,
+      evidence: buildDailyOutboundOcegEvidence(ctx),
+      dailyGuardCtx: ctx,
+      priorCoachBody: ctx.priorCoachBody,
+      priorCoachSentAt: null,
+      routePurpose: "contract_prompt",
     },
   };
 }
@@ -227,19 +280,20 @@ describe("Phase 2.3-C1 outbound_daily unified guard", () => {
     expect(r.checks_run).toContain("near_duplicate_post_oceg_recheck");
   });
 
-  it("10: non-C1 route kind not activated", async () => {
+  it("10: non-wired route kind not activated", async () => {
     await expect(
       applyUnifiedSmsFinalProductLawGuard({
         ...c1GuardArgs(),
-        routePurpose: "contract_prompt",
+        routePurpose: "pending_resolution",
         outboundDaily: {
           ...c1GuardArgs().outboundDaily!,
-          routePurpose: "contract_prompt",
+          routePurpose: "pending_resolution",
         },
       })
     ).rejects.toThrow(/not activated for route/);
     expect(isOutboundDailyC1RoutePurpose("contract_prompt")).toBe(false);
-    expect(isOutboundDailyC1RoutePurpose("main_active_accountability")).toBe(true);
+    expect(isOutboundDailyC2RoutePurpose("contract_prompt")).toBe(true);
+    expect(isOutboundDailyWiredRoutePurpose("main_active_accountability")).toBe(true);
   });
 
   it("metadata includes C1 skipped checks and version", async () => {
@@ -260,7 +314,7 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
 
   it("11: main_active_accountability calls outbound_daily guard before Twilio", () => {
     expect(dailySrc).toContain('mode: "outbound_daily"');
-    expect(dailySrc).toContain("isOutboundDailyC1RoutePurpose(built.dailyUnifiedGuardCtx.routeKind)");
+    expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose(built.dailyUnifiedGuardCtx.routeKind)");
     const twilioIdx = dailySrc.indexOf("await sendSMS({");
     const guardIdx = dailySrc.indexOf('mode: "outbound_daily"');
     expect(guardIdx).toBeGreaterThan(-1);
@@ -272,13 +326,14 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     expect(dailySrc).toContain("dailyUnifiedGuardCtx:");
   });
 
-  it("13: contract_prompt does NOT set dailyUnifiedGuardCtx in main return", () => {
-    const assignIdx = dailySrc.indexOf(
-      'dailyUnifiedGuardCtx:\n        routeKind === "main_active_accountability"'
+  it("13: contract_prompt sets dailyUnifiedGuardCtx in main return", () => {
+    const contractCtxIdx = dailySrc.indexOf(
+      'routeKind === "contract_prompt" &&\n              contractProposalKind'
     );
-    expect(assignIdx).toBeGreaterThan(-1);
-    const slice = dailySrc.slice(assignIdx, assignIdx + 600);
-    expect(slice).not.toContain("contract_prompt");
+    expect(contractCtxIdx).toBeGreaterThan(-1);
+    const slice = dailySrc.slice(contractCtxIdx, contractCtxIdx + 900);
+    expect(slice).toContain('routeKind: "contract_prompt"');
+    expect(slice).toContain("contractSemanticFacts");
     expect(slice).not.toContain("pending_resolution");
   });
 
@@ -411,10 +466,23 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     expect(guardIdx).toBeLessThan(twilioIdx);
   });
 
-  it("21j: non-C1 body/send chain unchanged — smsBody still from withNorthStarDailyGate only", () => {
+  it("21j: body/send chain — smsBody from withNorthStarDailyGate only", () => {
     expect(dailySrc).toContain("await withNorthStarDailyGate(builtMainRaw");
     expect(dailySrc).toContain("const smsBody = builtMain.smsBody");
-    expect(dailySrc).not.toMatch(/contract_prompt[\s\S]{0,200}applyUnifiedSmsFinalProductLawGuard/);
+    expect(dailySrc).toContain("onV2StandardCheckSentOutboundSendSuccess");
+  });
+
+  it("29: proposal state not written before send", () => {
+    const postSendIdx = dailySrc.lastIndexOf("await onV2StandardCheckSentOutboundSendSuccess");
+    const twilioIdx = dailySrc.indexOf("await sendSMS({");
+    expect(postSendIdx).toBeGreaterThan(-1);
+    expect(twilioIdx).toBeLessThan(postSendIdx);
+  });
+
+  it("30: onV2StandardCheckSentOutboundSendSuccess unchanged in post-send block", () => {
+    expect(dailySrc).toContain("await onV2StandardCheckSentOutboundSendSuccess");
+    expect(dailySrc).toContain("contractOverlayProposal:");
+    expect(dailySrc).toContain('builtMain.v2ContractProposalMode ? "proposal_yes_no"');
   });
 
   it("22: existing daily stale ask guard remains present", () => {
@@ -446,8 +514,157 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     expect(guardSlice).not.toMatch(/event_type:\s*"/);
   });
 
-  it("27: no hard-coded SMS in C1 guard wiring", () => {
+  it("27: no hard-coded SMS in guard wiring", () => {
     expect(northStarBlock).not.toContain('smsBody: "');
     expect(northStarBlock).not.toContain('reply_body: "');
+  });
+});
+
+describe("Phase 2.3-C2 outbound_daily contract_prompt guard", () => {
+  beforeEach(() => {
+    nearDupMock.mockReset();
+    truthGuardMock.mockReset();
+    nearDupMock.mockImplementation(async (args) => ({
+      ...PASS_NEAR_DUP,
+      body: args.body,
+    }));
+    truthGuardMock.mockImplementation(async (args) => ({
+      ...PASS_TRUTH,
+      body: args.body,
+    }));
+  });
+
+  it("1: contract_prompt calls outbound_daily guard", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c2GuardArgs());
+    expect(r.should_send).toBe(true);
+    expect(r.guard_mode).toBe("outbound_daily");
+    expect(r.checks_run).toContain("contract_proposal_truth_recheck");
+  });
+
+  it("2: valid shrink proposal passes", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(c2GuardArgs());
+    expect(r.should_send).toBe(true);
+    expect(r.checks_skipped).toEqual(OUTBOUND_DAILY_C2_CHECKS_SKIPPED);
+  });
+
+  it("3: valid recommit proposal passes", async () => {
+    const body = `Want to keep holding the same line — ${BASE_BEHAVIOR.slice(0, 30)} — for another week?`;
+    const r = await applyUnifiedSmsFinalProductLawGuard(c2GuardArgs(body, "recommit_same"));
+    expect(r.should_send).toBe(true);
+  });
+
+  it("4: fake completion blocked", async () => {
+    truthGuardMock.mockResolvedValueOnce({
+      body: "",
+      shouldSend: false,
+      noSendReason: UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
+      metadata: {},
+    });
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs("Great — you completed your workout today!")
+    );
+    expect(r.should_send).toBe(false);
+  });
+
+  it("5: fake Victory / proof blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs("That's proof for your Victory Room streak.")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(OUTBOUND_DAILY_UNSUPPORTED_PROOF_NO_SEND);
+  });
+
+  it("6: goal already updated blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs(`Your goal already changed to ${SHRINK_ASK}. Sound good?`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_CONTRACT_PROPOSAL_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("7: proposal active / accepted blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs(
+        `Would ${SHRINK_ASK} work for you this week? You already accepted it and the proposal is active.`
+      )
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_CONTRACT_PROPOSAL_FALSE_STATE_CLAIM_NO_SEND);
+  });
+
+  it("8: missing shrink proposed bar signal blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs("Want to adjust something this week?")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_CONTRACT_PROPOSAL_SEMANTIC_MISSING_NO_SEND);
+  });
+
+  it("9: missing recommit meaning blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs("Something different this week?", "recommit_same")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_CONTRACT_PROPOSAL_SEMANTIC_MISSING_NO_SEND);
+  });
+
+  it("10: robotic Reply YES blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs(`${SHRINK_ASK}. Reply YES to confirm or NO to discard.`)
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(DAILY_CONTRACT_PROPOSAL_SEMANTIC_MISSING_NO_SEND);
+  });
+
+  it("11: OCEG repair that removes required proposal meaning blocked", async () => {
+    truthGuardMock.mockResolvedValueOnce({
+      ...PASS_TRUTH,
+      body: "Want to adjust something this week?",
+    });
+    const r = await applyUnifiedSmsFinalProductLawGuard(c2GuardArgs(SHRINK_ASK));
+    expect(r.should_send).toBe(false);
+    expect(r.checks_run).toContain("contract_proposal_truth_recheck");
+    expect(r.no_send_reason).toBe(DAILY_CONTRACT_PROPOSAL_SEMANTIC_MISSING_NO_SEND);
+  });
+
+  it("12: near-duplicate proposal blocked", async () => {
+    nearDupMock.mockResolvedValueOnce({
+      ...PASS_NEAR_DUP,
+      shouldSend: false,
+      noSendReason: RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+      body: "",
+    });
+    const r = await applyUnifiedSmsFinalProductLawGuard(c2GuardArgs());
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(RAPID_NEAR_DUPLICATE_REPLY_NO_SEND);
+  });
+
+  it("13: internal label blocked", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c2GuardArgs(`Try ${SHRINK_ASK} — reply user_yes if that works?`)
+    );
+    expect(r.should_send).toBe(false);
+  });
+
+  it("24: C2 no-send metadata fields in route", () => {
+    const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
+    expect(dailySrc).toContain("proposal_state_written_before_sms: false");
+    expect(dailySrc).toContain("v2_contract_proposal_kind");
+    expect(dailySrc).toContain("proposal_no_send_reason");
+  });
+
+  it("28: non-C2 daily success does not falsely claim unified authority", () => {
+    const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
+    const northStarFnStart = dailySrc.indexOf("async function withNorthStarDailyGate");
+    const northStarFnEnd = dailySrc.indexOf("function dailySmsSentEventVoiceMetadata");
+    const northStarBlock = dailySrc.slice(northStarFnStart, northStarFnEnd);
+    const successBranch = northStarBlock.slice(
+      northStarBlock.indexOf("finalShouldSend\n        ? {"),
+      northStarBlock.indexOf("finalShouldSend\n        ? {") + 450
+    );
+    expect(successBranch).toContain("unifiedGuardTelemetry");
+    expect(successBranch).not.toMatch(
+      /finalShouldSend\s*\?\s*\{\s*final_body_authority:\s*UNIFIED_FINAL_BODY_AUTHORITY/
+    );
   });
 });

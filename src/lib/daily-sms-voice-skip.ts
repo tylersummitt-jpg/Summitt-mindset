@@ -38,6 +38,8 @@ export function dailySmsVoiceSkipEventPatch(args: {
   unifiedFinalGuard?: Record<string, unknown> | null;
   routeKind?: string | null;
   noSendReason?: string | null;
+  contractProposalKind?: string | null;
+  proposalNoSendReason?: string | null;
 }): { status: string; metadata: Record<string, unknown>; sms_body: string } {
   return {
     status: "skipped_no_safe_v3_voice",
@@ -59,6 +61,16 @@ export function dailySmsVoiceSkipEventPatch(args: {
       ...(args.unifiedFinalGuard ? { unified_final_product_law_guard: args.unifiedFinalGuard } : {}),
       ...(args.routeKind ? { daily_route_kind: args.routeKind } : {}),
       ...(args.noSendReason ? { no_send_reason: args.noSendReason } : {}),
+      ...(args.contractProposalKind
+        ? {
+            v2_contract_proposal_kind: args.contractProposalKind,
+            proposal_state_written_before_sms: false,
+            proposal_state_written_after_sms: false,
+            ...(args.proposalNoSendReason
+              ? { proposal_no_send_reason: args.proposalNoSendReason }
+              : {}),
+          }
+        : {}),
       ...(args.northStarVisibleBody != null && args.northStarVisibleBody !== ""
         ? { north_star_visible_body: args.northStarVisibleBody }
         : {}),

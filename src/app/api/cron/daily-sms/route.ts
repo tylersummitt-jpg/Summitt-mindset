@@ -186,7 +186,7 @@ import {
 import {
   buildDailyOutboundOcegEvidence,
   buildDailyOutboundUnifiedGuardCtx,
-  isOutboundDailyC1RoutePurpose,
+  isOutboundDailyWiredRoutePurpose,
   resolveDailyBuiltRouteKind,
   type DailyOutboundUnifiedGuardCtx,
 } from "@/lib/daily-outbound-final-guard-evidence";
@@ -465,7 +465,7 @@ async function withNorthStarDailyGate(
     finalShouldSend &&
     finalReplyBody.trim() &&
     built.dailyUnifiedGuardCtx &&
-    isOutboundDailyC1RoutePurpose(built.dailyUnifiedGuardCtx.routeKind)
+    isOutboundDailyWiredRoutePurpose(built.dailyUnifiedGuardCtx.routeKind)
   ) {
     const ocegEvidence = buildDailyOutboundOcegEvidence(built.dailyUnifiedGuardCtx);
     const unifiedGuard = await applyUnifiedSmsFinalProductLawGuard({
@@ -553,6 +553,14 @@ async function withNorthStarDailyGate(
                   final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
                   unified_final_product_law_guard: unifiedGuardTelemetry,
                   no_send_reason: unifiedGuardNoSendReason,
+                  ...(built.v2ContractProposalMode
+                    ? {
+                        v2_contract_proposal_kind: built.v2ContractProposalKind ?? null,
+                        proposal_state_written_before_sms: false,
+                        proposal_state_written_after_sms: false,
+                        proposal_no_send_reason: unifiedGuardNoSendReason,
+                      }
+                    : {}),
                 }
               : {}),
           }),
@@ -2623,7 +2631,27 @@ async function buildDailySmsContent(
               pendingPlanProof: factsUnified.accountability.pending_plan_proof ?? null,
               proofOrMilestoneSignal: factsUnified.accountability.proof_or_milestone_signal ?? null,
             })
-          : null,
+          : routeKind === "contract_prompt" &&
+              contractProposalKind &&
+              contractSemanticFacts &&
+              canonicalProposalAskTrim
+            ? buildDailyOutboundUnifiedGuardCtx({
+                routeKind: "contract_prompt",
+                clerkUserId,
+                commitmentId: active.id,
+                priorCoachBody: relationshipMemoryPacketMain.last_outbound_full_body,
+                priorCoachSentAt: null,
+                lastInboundBody: relationshipMemoryPacketMain.last_inbound_full_body,
+                priorOutcome: latestOutcome?.type ?? null,
+                pendingPlanProof: factsUnified.accountability.pending_plan_proof ?? null,
+                proofOrMilestoneSignal: factsUnified.accountability.proof_or_milestone_signal ?? null,
+                proposalKind: contractProposalKind,
+                contractSemanticFacts,
+                canonicalProposalAskTrim,
+                baseBehaviorStatement: active.behavior_statement.trim(),
+                proposalPending: false,
+              })
+            : null,
     };
   }
 
@@ -3381,6 +3409,14 @@ export async function GET(req: Request) {
                   (voiceSendDecisionRetry?.no_send_reason as string | undefined) ??
                   (voiceSendDecisionRetry?.skip_reason as string | undefined) ??
                   null,
+                contractProposalKind: built.v2ContractProposalMode
+                  ? (built.v2ContractProposalKind ?? null)
+                  : null,
+                proposalNoSendReason: built.v2ContractProposalMode
+                  ? ((voiceSendDecisionRetry?.proposal_no_send_reason as string | undefined) ??
+                    (voiceSendDecisionRetry?.no_send_reason as string | undefined) ??
+                    null)
+                  : null,
               }),
                 built.v2AiPayload?.v3_brain
               );
@@ -3995,6 +4031,14 @@ export async function GET(req: Request) {
             (voiceSendDecision?.no_send_reason as string | undefined) ??
             (voiceSendDecision?.skip_reason as string | undefined) ??
             null,
+          contractProposalKind: builtMain.v2ContractProposalMode
+            ? (builtMain.v2ContractProposalKind ?? null)
+            : null,
+          proposalNoSendReason: builtMain.v2ContractProposalMode
+            ? ((voiceSendDecision?.proposal_no_send_reason as string | undefined) ??
+              (voiceSendDecision?.no_send_reason as string | undefined) ??
+              null)
+            : null,
         }),
           builtMain.v2AiPayload?.v3_brain
         );

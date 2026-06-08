@@ -102,7 +102,7 @@ describe("inbound turn understanding route invariants", () => {
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
     const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
     expect(dailySrc).toContain('mode: "outbound_daily"');
-    expect(dailySrc).toContain("isOutboundDailyC1RoutePurpose");
+    expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 
