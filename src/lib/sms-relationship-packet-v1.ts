@@ -44,7 +44,7 @@ import {
 } from "@/lib/sms-relationship-snapshot-v2";
 
 export const RELATIONSHIP_PACKET_VERSION = "1.8" as const;
-export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_000;
+export const DEFAULT_RELATIONSHIP_PACKET_BUDGET = 12_800;
 
 export type RelationshipPacketLane = "inbound" | "daily" | "weekly";
 
@@ -1139,15 +1139,20 @@ export function buildRelationshipPacketForOpenAI(args: {
   const activePendingState = pendingBuilt.state;
   const activePendingMeta = pendingBuilt.meta;
 
+  const rebuildSnapshot = (truncated: boolean) =>
+    buildRelationshipSnapshotV2({
+      packet,
+      activePendingState,
+      activePendingMeta,
+      surface: args.lane,
+      lane: args.lane,
+      truncated,
+      // Packet already carries proof_victory_permission when present; keep snapshot proof compact.
+      proofPermissionCompact: true,
+    });
+
   let packet = serializePacket(build);
-  let snapshotBuilt = buildRelationshipSnapshotV2({
-    packet,
-    activePendingState,
-    activePendingMeta,
-    surface: args.lane,
-    lane: args.lane,
-    truncated: false,
-  });
+  let snapshotBuilt = rebuildSnapshot(false);
   let size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
 
   const recordTrunc = (section: string) => {
@@ -1161,14 +1166,7 @@ export function buildRelationshipPacketForOpenAI(args: {
       build.lower_authority_background = trimLowerAuthority(build.lower_authority_background, 200);
       recordTrunc("lower_authority_background");
       packet = serializePacket(build);
-      snapshotBuilt = buildRelationshipSnapshotV2({
-        packet,
-        activePendingState,
-        activePendingMeta,
-        surface: args.lane,
-        lane: args.lane,
-        truncated: truncatedSections.length > 0,
-      });
+      snapshotBuilt = rebuildSnapshot(truncatedSections.length > 0);
       size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
       if (size > budget) {
         delete build.lower_authority_background;
@@ -1186,14 +1184,7 @@ export function buildRelationshipPacketForOpenAI(args: {
         }
       }
       packet = serializePacket(build);
-      snapshotBuilt = buildRelationshipSnapshotV2({
-        packet,
-        activePendingState,
-        activePendingMeta,
-        surface: args.lane,
-        lane: args.lane,
-        truncated: truncatedSections.length > 0,
-      });
+      snapshotBuilt = rebuildSnapshot(truncatedSections.length > 0);
       size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
       if (size > budget) {
         delete build.relationship_memory_30d_or_season;
@@ -1210,14 +1201,7 @@ export function buildRelationshipPacketForOpenAI(args: {
         }
       }
       packet = serializePacket(build);
-      snapshotBuilt = buildRelationshipSnapshotV2({
-        packet,
-        activePendingState,
-        activePendingMeta,
-        surface: args.lane,
-        lane: args.lane,
-        truncated: truncatedSections.length > 0,
-      });
+      snapshotBuilt = rebuildSnapshot(truncatedSections.length > 0);
       size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
       if (size > budget) {
         delete build.relationship_memory_7d;
@@ -1252,26 +1236,12 @@ export function buildRelationshipPacketForOpenAI(args: {
     }
 
     packet = serializePacket(build);
-    snapshotBuilt = buildRelationshipSnapshotV2({
-      packet,
-      activePendingState,
-      activePendingMeta,
-      surface: args.lane,
-      lane: args.lane,
-      truncated: truncatedSections.length > 0,
-    });
+    snapshotBuilt = rebuildSnapshot(truncatedSections.length > 0);
     size = measureCombinedPrompt(packet, snapshotBuilt.snapshot);
     if (size >= prevSize) break;
   }
 
-  snapshotBuilt = buildRelationshipSnapshotV2({
-    packet,
-    activePendingState,
-    activePendingMeta,
-    surface: args.lane,
-    lane: args.lane,
-    truncated: truncatedSections.length > 0 || size > budget,
-  });
+  snapshotBuilt = rebuildSnapshot(truncatedSections.length > 0 || size > budget);
 
   const userPromptJson = combinedUserPromptFromPacketAndSnapshot(packet, snapshotBuilt.snapshot);
   const threadSection = build.recent_exact_thread_72h?.data;

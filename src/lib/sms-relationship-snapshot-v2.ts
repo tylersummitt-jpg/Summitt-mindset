@@ -27,6 +27,14 @@ import {
   buildOpenLoopsAndDoNotRepeatPromptGuidance,
   type OpenLoopsAndDoNotRepeatData,
 } from "@/lib/sms-open-loops-and-do-not-repeat";
+import {
+  buildProofAndPraisePermissionV2,
+  buildProofAndPraisePermissionV2PromptGuidance,
+  DEFAULT_FORBIDDEN_PROOF_CLAIMS,
+  PROOF_PRAISE_EVIDENCE_MAX_ITEMS,
+  PROOF_PRAISE_QUOTE_MAX_CHARS,
+  type ProofAndPraisePermissionV2Section,
+} from "@/lib/sms-proof-praise-permission-v2";
 
 const SNAPSHOT_THREAD_WINDOW_HOURS = 72 as const;
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
@@ -87,7 +95,7 @@ export type RelationshipSnapshotV2 = {
   recent_exact_thread_72h: RelationshipPacketSection<SnapshotRecentExactThread72hData>;
   relationship_memory_7d?: RelationshipPacketV1["relationship_memory_7d"];
   relationship_memory_30d_or_season?: RelationshipPacketV1["relationship_memory_30d_or_season"];
-  proof_and_praise_permission: RelationshipPacketV1["proof_victory_permission"];
+  proof_and_praise_permission: ProofAndPraisePermissionV2Section;
   open_loops_and_do_not_repeat: RelationshipPacketSection<OpenLoopsAndDoNotRepeatData>;
   route_context: RelationshipPacketSection<RelationshipSnapshotRouteContext>;
   long_term_background_summary?: RelationshipPacketV1["lower_authority_background"];
@@ -114,6 +122,15 @@ export type RelationshipSnapshotV2Meta = {
   recent_unanswered_question_count?: number;
   open_loops_sources?: string[];
   open_loops_truncated?: boolean;
+  proof_permission_emitted?: true;
+  can_claim_completion?: boolean;
+  can_claim_miss?: boolean;
+  can_claim_partial?: boolean;
+  can_claim_proof?: boolean;
+  can_reference_victory_room?: boolean;
+  proof_evidence_count?: number;
+  proof_permission_sources?: string[];
+  proof_permission_has_legacy_v1?: boolean;
 };
 
 export function normalizeStructuredRecentExactThread72hForV2(
@@ -227,6 +244,7 @@ export function buildRelationshipSnapshotV2(args: {
   proposalKind?: string | null;
   generatedAt?: string;
   truncated?: boolean;
+  proofPermissionCompact?: boolean;
 }): { snapshot: RelationshipSnapshotV2; meta: RelationshipSnapshotV2Meta } {
   const timezone = args.timezone?.trim() || resolveTimezoneFromPacket(args.packet, args.surface);
   const threadSection = normalizeStructuredRecentExactThread72hForV2(
@@ -241,6 +259,16 @@ export function buildRelationshipSnapshotV2(args: {
     proposalKind: args.proposalKind,
   });
 
+  const proofPermissionBuilt = buildProofAndPraisePermissionV2({
+    surface: args.surface,
+    legacyProofVictoryPermission: args.packet.proof_victory_permission,
+    structuredRecentTruth: args.packet.structured_recent_truth.data,
+    currentTurn: args.packet.current_turn.data,
+    relationshipMemory7d: args.packet.relationship_memory_7d?.data ?? null,
+    routeContext: resolveRouteContext(args.packet, args.surface, args.lane, args.proposalKind).data,
+    compact: args.proofPermissionCompact === true || args.truncated === true,
+  });
+
   const snapshot: RelationshipSnapshotV2 = {
     version: RELATIONSHIP_SNAPSHOT_V2_VERSION,
     generated_at: args.generatedAt ?? new Date().toISOString(),
@@ -252,7 +280,7 @@ export function buildRelationshipSnapshotV2(args: {
     active_pending_state: args.activePendingState,
     structured_recent_truth: args.packet.structured_recent_truth,
     recent_exact_thread_72h: threadSection,
-    proof_and_praise_permission: args.packet.proof_victory_permission,
+    proof_and_praise_permission: proofPermissionBuilt.section,
     open_loops_and_do_not_repeat: openLoopsBuilt.section,
     route_context: resolveRouteContext(args.packet, args.surface, args.lane, args.proposalKind),
     finalization_context: { note: "server_validates_send_separately" },
@@ -295,6 +323,7 @@ export function buildRelationshipSnapshotV2(args: {
     relationship_snapshot_truncated: args.truncated === true,
     thread_fallback_used: threadSection.data.thread_fallback_used,
     ...openLoopsBuilt.meta,
+    ...proofPermissionBuilt.meta,
   };
 
   return { snapshot, meta };
@@ -312,6 +341,7 @@ RELATIONSHIP_SNAPSHOT_V2_AUTHORITY (read-only context — server final guard val
 - low_confidence_hints and long_term_background_summary are background tone only — never proof of completion or resolution.
 - active_pending_state tells you what is still open — must_not_claim_resolved items must NOT be treated as closed in visible SMS.
 ${buildOpenLoopsAndDoNotRepeatPromptGuidance()}
+${buildProofAndPraisePermissionV2PromptGuidance()}
 - finalization_context is NOT permission to make proof/state claims; server validates send separately.
 - thread_fallback_used true with empty messages[] means no prose transcript fallback — do not invent thread history.`;
 }

@@ -17,6 +17,7 @@ vi.mock("openai", () => ({
   },
 }));
 
+import { DEFAULT_RELATIONSHIP_PACKET_BUDGET } from "@/lib/sms-relationship-packet-v1";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { computeRecommitBindingText } from "@/lib/v2-adaptive-contract";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
@@ -380,7 +381,7 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.daily_v3_lane_used).toBe(true);
     expect(r.metadata.old_daily_writer_used_as_voice).toBe(false);
     expect(r.metadata.relationship_packet_version).toBe("1.8");
-    expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
+    expect(r.metadata.relationship_packet_budget_chars).toBe(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
   });
 
   it("includes recent exact thread priority in system prompt when thread_memory has packet fields", async () => {

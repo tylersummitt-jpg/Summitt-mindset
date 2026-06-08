@@ -60,7 +60,7 @@ import {
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import * as relationshipPacketModule from "@/lib/sms-relationship-packet-v1";
-import { buildRelationshipPacketForOpenAI } from "@/lib/sms-relationship-packet-v1";
+import { buildRelationshipPacketForOpenAI, DEFAULT_RELATIONSHIP_PACKET_BUDGET } from "@/lib/sms-relationship-packet-v1";
 
 const emptyThread72h = {
   messages: [],
@@ -275,7 +275,7 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.metadata.inbound_v3_lane_used).toBe(true);
     expect(r.metadata.old_inbound_writer_used_as_voice).toBe(false);
     expect(r.metadata.relationship_packet_version).toBe("1.8");
-    expect(r.metadata.relationship_packet_budget_chars).toBe(12000);
+    expect(r.metadata.relationship_packet_budget_chars).toBe(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
   });
 
   it("passes commitmentRow into buildRelationshipPacketForOpenAI", async () => {

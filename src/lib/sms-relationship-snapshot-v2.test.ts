@@ -763,4 +763,221 @@ describe("buildRelationshipPacketForOpenAI snapshot v2 integration", () => {
       expect(snapshot.open_loops_and_do_not_repeat.data.do_not_repeat_asks).toBeInstanceOf(Array);
     }
   });
+
+  it("always emits proof_and_praise_permission on all surfaces", () => {
+    const pending = buildActivePendingStateFromCommitmentRow(null);
+    const basePacket = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: {
+        route_purpose: "normal_inbound_reply",
+        user: {
+          clerk_user_id: "u",
+          preferred_name: null,
+          timezone: "America/Chicago",
+          local_time_iso: "2026-05-12T09:00:00.000Z",
+          relationship_profile_summary: null,
+        },
+        commitment: {
+          id: "c",
+          title: "T",
+          behavior_statement: "B",
+          effective_ask: "B",
+          accountability_phase: "active_accountability",
+        },
+        thread: {
+          latest_inbound_raw: "yes",
+          coalesced_inbound_text: "yes",
+          suppressed_message_sids: [],
+          recent_transcript_lines: [],
+          latest_outbound_coach_sms: null,
+          latest_open_question: null,
+          latest_answer_after_open_question: null,
+          expected_reply_semantics: "unknown",
+          memory_authority: {
+            open_question_source: "none",
+            answer_source: "none",
+            projection_used: false,
+          },
+          do_not_repeat_hints: [],
+          rejected_time_candidates: [],
+          unavailable_windows: [],
+          current_inbound_is_already_told_you_correction: false,
+          current_inbound_is_short_acknowledgement: false,
+          most_recent_substantive_prior_user_message: null,
+          most_recent_coach_question: null,
+          memory_correction_should_use_prior_user_answer: false,
+          short_ack_should_not_reask_question: false,
+        },
+        v2_accountability: {
+          deterministic_classifier_event: "user_yes",
+          gated_mode: "use_deterministic",
+          final_event_type: "user_yes",
+          should_write_outcome_event: true,
+          reply_style: "normal_outcome",
+          proof_signal: false,
+          miss_signal: false,
+          blocker_signal: false,
+          today_completed: false,
+          future_intent_hint: null,
+          supplement_commitment_change_guidance: false,
+          proof_callout_hint: null,
+        },
+        legacy_suggestions: {
+          conversation_brain: { enabled: false },
+          forced_future_stretch_intent_active: false,
+          accountability_proof_hint: null,
+        },
+        constraints: {
+          max_chars: 320,
+          one_sms: true,
+          no_generic_motivation: true,
+          no_quoted_or_truncated_echo_of_inbound: true,
+          if_unsafe_return_no_send: true,
+          forbidden_substrings: [],
+        },
+        inbound_meaning: {
+          raw_inbound: "yes",
+          classifier_event_type: "user_yes",
+          relationship_meaning: "outcome_reported",
+          response_intent: "acknowledge_outcome",
+          persistence_decision: "write_outcome",
+          do_not_repeat_asks: [],
+          stale_ask_risk: false,
+          confidence: 0.8,
+          persistence_note: "test",
+        },
+        suggested_coaching_move: "ack_outcome",
+      } as never,
+    }).packet;
+
+    for (const surface of ["inbound", "daily", "weekly"] as const) {
+      const { snapshot, meta } = buildRelationshipSnapshotV2({
+        packet: basePacket,
+        activePendingState: pending,
+        surface,
+      });
+      expect(snapshot.proof_and_praise_permission.authority).toBe("server_state_authoritative");
+      expect(snapshot.proof_and_praise_permission.data.writer_guidance.final_guard_still_validates).toBe(
+        true
+      );
+      expect(meta.proof_permission_emitted).toBe(true);
+    }
+
+    const guided = buildRelationshipSnapshotV2({
+      packet: basePacket,
+      activePendingState: pending,
+      surface: "guided_contract",
+    });
+    expect(guided.snapshot.proof_and_praise_permission.data.can_claim_proof).toBe(false);
+    expect(guided.snapshot.proof_and_praise_permission.data.can_reference_victory_room).toBe(false);
+  });
+
+  it("prompt guidance covers proof permission and final guard separation", () => {
+    const guidance = buildRelationshipSnapshotV2PromptGuidance();
+    expect(guidance).toContain("proof_and_praise_permission");
+    expect(guidance).toContain("finalization_context");
+    expect(guidance).toContain("can_praise_effort");
+    expect(guidance).not.toMatch(/what's the next concrete move/i);
+  });
+
+  it("preserves authority hierarchy with proof_and_praise_permission", () => {
+    expect(RELATIONSHIP_SNAPSHOT_AUTHORITY_HIERARCHY).toContain("proof_and_praise_permission");
+    expect(RELATIONSHIP_SNAPSHOT_AUTHORITY_HIERARCHY.indexOf("server_state_authoritative")).toBeLessThan(
+      RELATIONSHIP_SNAPSHOT_AUTHORITY_HIERARCHY.indexOf("proof_and_praise_permission")
+    );
+  });
+
+  it("snapshot keeps finalization_context server validates send separately", () => {
+    const packet = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: {
+        route_purpose: "normal_inbound_reply",
+        user: {
+          clerk_user_id: "u",
+          preferred_name: null,
+          timezone: "America/Chicago",
+          local_time_iso: "2026-05-12T09:00:00.000Z",
+          relationship_profile_summary: null,
+        },
+        commitment: {
+          id: "c",
+          title: "T",
+          behavior_statement: "B",
+          effective_ask: "B",
+          accountability_phase: "active_accountability",
+        },
+        thread: {
+          latest_inbound_raw: "ok",
+          coalesced_inbound_text: "ok",
+          suppressed_message_sids: [],
+          recent_transcript_lines: [],
+          latest_outbound_coach_sms: null,
+          latest_open_question: null,
+          latest_answer_after_open_question: null,
+          expected_reply_semantics: "unknown",
+          memory_authority: {
+            open_question_source: "none",
+            answer_source: "none",
+            projection_used: false,
+          },
+          do_not_repeat_hints: [],
+          rejected_time_candidates: [],
+          unavailable_windows: [],
+          current_inbound_is_already_told_you_correction: false,
+          current_inbound_is_short_acknowledgement: false,
+          most_recent_substantive_prior_user_message: null,
+          most_recent_coach_question: null,
+          memory_correction_should_use_prior_user_answer: false,
+          short_ack_should_not_reask_question: false,
+        },
+        v2_accountability: {
+          deterministic_classifier_event: "user_yes",
+          gated_mode: "use_deterministic",
+          final_event_type: "user_yes",
+          should_write_outcome_event: false,
+          reply_style: "normal_outcome",
+          proof_signal: false,
+          miss_signal: false,
+          blocker_signal: false,
+          today_completed: false,
+          future_intent_hint: null,
+          supplement_commitment_change_guidance: false,
+          proof_callout_hint: null,
+        },
+        legacy_suggestions: {
+          conversation_brain: { enabled: false },
+          forced_future_stretch_intent_active: false,
+          accountability_proof_hint: null,
+        },
+        constraints: {
+          max_chars: 320,
+          one_sms: true,
+          no_generic_motivation: true,
+          no_quoted_or_truncated_echo_of_inbound: true,
+          if_unsafe_return_no_send: true,
+          forbidden_substrings: [],
+        },
+        inbound_meaning: {
+          raw_inbound: "ok",
+          classifier_event_type: "user_yes",
+          relationship_meaning: "outcome_reported",
+          response_intent: "acknowledge_outcome",
+          persistence_decision: "write_outcome",
+          do_not_repeat_asks: [],
+          stale_ask_risk: false,
+          confidence: 0.8,
+          persistence_note: "test",
+        },
+        suggested_coaching_move: "ack_outcome",
+      } as never,
+    }).packet;
+
+    const { snapshot } = buildRelationshipSnapshotV2({
+      packet,
+      activePendingState: buildActivePendingStateFromCommitmentRow(null),
+      surface: "inbound",
+    });
+    expect(snapshot.finalization_context.note).toBe("server_validates_send_separately");
+    expect(snapshot.proof_and_praise_permission.data.forbidden_proof_claims.length).toBeGreaterThan(0);
+  });
 });
