@@ -11,6 +11,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import {
+  buildRefreshCommitmentNoSendTruthPolicyContext,
   buildRefreshIdentityNoSendTruthPolicyContext,
   persistRefreshTruthOnNoSend,
 } from "@/lib/v2-refresh-no-send-truth";
@@ -200,6 +201,188 @@ describe("persistRefreshTruthOnNoSend", () => {
       noSendReason: "rapid_near_duplicate_reply",
       sendTimeEngagementRecordedBeforeSms: false,
     });
+    expect(r.send_time_engagement_recorded_before_sms).toBeUndefined();
+  });
+});
+
+describe("persistRefreshTruthOnNoSend — commitment family", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertMock.mockResolvedValue({ error: null });
+  });
+
+  it("1: commitment_keep_ack no-send durable audit", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_keep_ack",
+      stateMutationCompletedBeforeSms: true,
+      refreshClearedBeforeSms: true,
+      commitmentUpdatedBeforeSms: false,
+      commitmentKeepRecordedBeforeSms: true,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "unified_final_guard",
+      noSendReason: "rapid_near_duplicate_reply",
+    });
+    expect(r.refresh_family).toBe("commitment");
+    expect(r.refresh_intent).toBe("commitment_keep_ack");
+    expect(r.refresh_no_send_policy_branch).toBe("refresh_mutation_applied");
+    expect(r.visible_sent).toBe(false);
+    expect(r.refresh_truth_persisted).toBe(true);
+    expect(insertMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("2: keep audit includes refresh_cleared and commitment_updated=false", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_keep_ack",
+      stateMutationCompletedBeforeSms: true,
+      refreshClearedBeforeSms: true,
+      commitmentUpdatedBeforeSms: false,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "lane",
+      noSendReason: "inbound_lane_no_send",
+    });
+    expect(r.refresh_cleared_before_sms).toBe(true);
+    expect(r.commitment_updated_before_sms).toBe(false);
+  });
+
+  it("3: commitment_tighten_handoff durable audit + pending_created_before_sms", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_tighten_handoff",
+      stateMutationCompletedBeforeSms: true,
+      pendingCreatedBeforeSms: true,
+      pendingResolutionKind: "commitment_tighten",
+      refreshClearedBeforeSms: true,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "final_voice_gate",
+      noSendReason: "final_voice_gate_no_send",
+    });
+    expect(r.pending_created_before_sms).toBe(true);
+    expect(r.pending_resolution_kind).toBe("commitment_tighten");
+    expect(r.refresh_truth_persisted).toBe(true);
+  });
+
+  it("4: commitment_new_handoff durable audit + pending_created_before_sms", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_new_handoff",
+      stateMutationCompletedBeforeSms: true,
+      pendingCreatedBeforeSms: true,
+      pendingResolutionKind: "commitment_replace",
+      refreshClearedBeforeSms: true,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "unified_final_guard",
+      noSendReason: "unsupported_accountability_claim",
+    });
+    expect(r.pending_created_before_sms).toBe(true);
+    expect(r.pending_resolution_kind).toBe("commitment_replace");
+    expect(r.refresh_truth_persisted).toBe(true);
+  });
+
+  it("5: commitment_aborted_unclear durable audit + refresh_cleared_before_sms", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_aborted_unclear",
+      stateMutationCompletedBeforeSms: true,
+      refreshClearedBeforeSms: true,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "post_unified_truth_recheck",
+      noSendReason: "refresh_state_truth_violation_after_unified_guard",
+    });
+    expect(r.refresh_cleared_before_sms).toBe(true);
+    expect(r.refresh_truth_persisted).toBe(true);
+  });
+
+  it("6: commitment_clarify_prompt telemetry-only", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_clarify_prompt",
+      stateMutationCompletedBeforeSms: true,
+      refreshClarificationConsumedBeforeSms: true,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "lane",
+      noSendReason: "inbound_lane_no_send",
+    });
+    expect(r.refresh_no_send_policy_branch).toBe("refresh_active_clarify");
+    expect(r.refresh_truth_persisted).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("7: commitment_already_applied telemetry-only", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_already_applied",
+      stateMutationCompletedBeforeSms: false,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "final_voice_gate",
+      noSendReason: "final_voice_gate_no_send",
+    });
+    expect(r.refresh_truth_persisted).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("8: commitment_inactive_step telemetry-only", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_inactive_step",
+      stateMutationCompletedBeforeSms: false,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "lane",
+      noSendReason: "inbound_lane_no_send",
+    });
+    expect(r.refresh_truth_persisted).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("9: duplicate commitment refresh no-send audit safe", async () => {
+    insertMock.mockResolvedValueOnce({ error: { code: "23505", message: "duplicate" } });
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_keep_ack",
+      stateMutationCompletedBeforeSms: true,
+      refreshClearedBeforeSms: true,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "unified_final_guard",
+      noSendReason: "rapid_near_duplicate_reply",
+    });
+    expect(r.refresh_truth_persisted).toBe(true);
+    expect(r.refresh_no_send_duplicate).toBe(true);
+  });
+
+  it("10: sideEffectsRecordedBeforeSms on keep no-send", async () => {
+    const policy = buildRefreshCommitmentNoSendTruthPolicyContext({
+      ...BASE,
+      refreshIntent: "commitment_keep_ack",
+      stateMutationCompletedBeforeSms: true,
+      refreshClearedBeforeSms: true,
+      sideEffectsRecordedBeforeSms: true,
+    });
+    const r = await persistRefreshTruthOnNoSend({
+      ...policy,
+      noSendStage: "unified_final_guard",
+      noSendReason: "rapid_near_duplicate_reply",
+      sendTimeEngagementRecordedBeforeSms: false,
+    });
+    expect(r.side_effects_recorded_before_sms).toBe(true);
     expect(r.send_time_engagement_recorded_before_sms).toBeUndefined();
   });
 });

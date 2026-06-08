@@ -399,8 +399,11 @@ import {
 } from "@/lib/v2-commitment-handoff-no-send-truth";
 import { evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck } from "@/lib/v2-commitment-handoff-post-unified-truth";
 import {
+  buildRefreshCommitmentNoSendTruthPolicyContext,
+  buildRefreshCommitmentRequiredMeaningSummary,
   buildRefreshIdentityNoSendTruthPolicyContext,
   buildRefreshIdentityRequiredMeaningSummary,
+  isRefreshCommitmentLaneIntent,
   isRefreshIdentityLaneIntent,
   persistRefreshTruthOnNoSend,
   type RefreshNoSendStage,
@@ -9057,7 +9060,7 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
         ? evaluatePostUnifiedGuardRefreshTruthRecheck({
             body: unifiedGuard.body,
             refreshIntent: ug.refreshNoSendTruthPolicy.refreshIntent,
-            refreshFamily: "identity",
+            refreshFamily: ug.refreshNoSendTruthPolicy.refreshFamily,
             stateTransitionSummary: ug.refreshNoSendTruthPolicy.stateTransitionSummary,
             requiredMeaningSummary: ug.refreshPostUnifiedRecheck.requiredMeaningSummary,
             requiredVerbatimSubstrings: ug.refreshPostUnifiedRecheck.requiredVerbatimSubstrings,
@@ -9358,6 +9361,20 @@ type RefreshIdentityTruthContext = {
   mutationFlags: RefreshPostUnifiedMutationFlags;
 };
 
+type RefreshCommitmentTruthContext = {
+  refreshSessionId?: string | null;
+  stateMutationCompletedBeforeSms: boolean;
+  commitmentUpdatedBeforeSms?: boolean;
+  commitmentKeepRecordedBeforeSms?: boolean;
+  pendingCreatedBeforeSms?: boolean;
+  pendingResolutionKind?: string | null;
+  refreshClearedBeforeSms?: boolean;
+  refreshClarificationConsumedBeforeSms?: boolean;
+  sideEffectsRecordedBeforeSms?: boolean;
+  requiredVerbatimSubstrings?: string[] | null;
+  mutationFlags: RefreshPostUnifiedMutationFlags;
+};
+
 async function persistRefreshSmsLaneAndSend(args: {
   job: JobRow;
   userId: string;
@@ -9367,6 +9384,7 @@ async function persistRefreshSmsLaneAndSend(args: {
   inboundRaw: string;
   laneIntent: RefreshLaneIntent;
   identityTruthContext?: RefreshIdentityTruthContext | null;
+  commitmentTruthContext?: RefreshCommitmentTruthContext | null;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const meta = REFRESH_LANE_INTENTS[args.laneIntent];
   const session = parseRefreshSession(args.commitment.refresh_session);
@@ -9376,16 +9394,25 @@ async function persistRefreshSmsLaneAndSend(args: {
       : "UNKNOWN";
   const exactToken = parseRefreshInboundToken(args.inboundRaw.trim());
   const identityIntent = isRefreshIdentityLaneIntent(args.laneIntent) ? args.laneIntent : null;
+  const commitmentIntent = isRefreshCommitmentLaneIntent(args.laneIntent) ? args.laneIntent : null;
   const requiredMeaningSummary =
-    identityIntent != null ? buildRefreshIdentityRequiredMeaningSummary(identityIntent) : null;
+    identityIntent != null
+      ? buildRefreshIdentityRequiredMeaningSummary(identityIntent)
+      : commitmentIntent != null
+        ? buildRefreshCommitmentRequiredMeaningSummary(commitmentIntent)
+        : null;
+  const requiredVerbatimSubstrings =
+    args.identityTruthContext?.requiredVerbatimSubstrings ??
+    args.commitmentTruthContext?.requiredVerbatimSubstrings ??
+    null;
   const refreshFacts: InboundV3RefreshFacts = {
     refresh_step: session?.step ?? "unknown",
     expected_answer: exactToken !== "UNKNOWN" ? exactToken : String(token),
     user_answer_type: String(token),
     state_transition_summary: meta.summary,
     legacy_refresh_reply_preview: args.machineBody.trim().slice(0, 500),
-    ...(args.identityTruthContext?.requiredVerbatimSubstrings?.length
-      ? { required_verbatim_substrings: args.identityTruthContext.requiredVerbatimSubstrings }
+    ...(requiredVerbatimSubstrings?.length
+      ? { required_verbatim_substrings: requiredVerbatimSubstrings }
       : {}),
     ...(requiredMeaningSummary ? { required_meaning_summary: requiredMeaningSummary } : {}),
   };
@@ -9403,41 +9430,69 @@ async function persistRefreshSmsLaneAndSend(args: {
   });
 
   let unifiedFinalGuard: InboundLaneUnifiedFinalGuardConfig | undefined;
-  if (identityIntent != null && args.identityTruthContext) {
+  if (
+    (identityIntent != null && args.identityTruthContext) ||
+    (commitmentIntent != null && args.commitmentTruthContext)
+  ) {
     const outcomeClaimEvidence = await buildMemoryLaneOutcomeClaimEvidence({
       inboundRaw: args.inboundRaw,
       commitment: args.commitment,
       contextPacket,
       relationshipFacts: facts,
     });
+    const refreshNoSendTruthPolicy: RefreshNoSendTruthPolicyContext =
+      identityIntent != null && args.identityTruthContext
+        ? buildRefreshIdentityNoSendTruthPolicyContext({
+            refreshIntent: identityIntent,
+            commitmentId: args.commitment.id,
+            clerkUserId: args.userId,
+            inboundMessageSid: args.job.message_sid,
+            refreshSessionId:
+              args.identityTruthContext.refreshSessionId ?? session?.session_id ?? null,
+            stateMutationCompletedBeforeSms:
+              args.identityTruthContext.stateMutationCompletedBeforeSms,
+            refreshSessionAdvancedBeforeSms:
+              args.identityTruthContext.refreshSessionAdvancedBeforeSms,
+            identityUpdatedBeforeSms: args.identityTruthContext.identityUpdatedBeforeSms,
+            pendingCreatedBeforeSms: args.identityTruthContext.pendingCreatedBeforeSms,
+            refreshClearedBeforeSms: args.identityTruthContext.refreshClearedBeforeSms,
+            commitmentPromptDeliveredBeforeSms:
+              args.identityTruthContext.commitmentPromptDeliveredBeforeSms,
+            refreshClarificationConsumedBeforeSms:
+              args.identityTruthContext.refreshClarificationConsumedBeforeSms,
+            stateTransitionSummary: meta.summary,
+          })
+        : buildRefreshCommitmentNoSendTruthPolicyContext({
+            refreshIntent: commitmentIntent!,
+            commitmentId: args.commitment.id,
+            clerkUserId: args.userId,
+            inboundMessageSid: args.job.message_sid,
+            refreshSessionId:
+              args.commitmentTruthContext!.refreshSessionId ?? session?.session_id ?? null,
+            stateMutationCompletedBeforeSms:
+              args.commitmentTruthContext!.stateMutationCompletedBeforeSms,
+            commitmentUpdatedBeforeSms: args.commitmentTruthContext!.commitmentUpdatedBeforeSms,
+            commitmentKeepRecordedBeforeSms:
+              args.commitmentTruthContext!.commitmentKeepRecordedBeforeSms,
+            pendingCreatedBeforeSms: args.commitmentTruthContext!.pendingCreatedBeforeSms,
+            pendingResolutionKind: args.commitmentTruthContext!.pendingResolutionKind,
+            refreshClearedBeforeSms: args.commitmentTruthContext!.refreshClearedBeforeSms,
+            refreshClarificationConsumedBeforeSms:
+              args.commitmentTruthContext!.refreshClarificationConsumedBeforeSms,
+            sideEffectsRecordedBeforeSms: args.commitmentTruthContext!.sideEffectsRecordedBeforeSms,
+            stateTransitionSummary: meta.summary,
+          });
+    const truthContext = args.identityTruthContext ?? args.commitmentTruthContext!;
     unifiedFinalGuard = {
       mode: "transactional_coaching_limited",
       routePurpose: meta.routePurpose,
       branchName: meta.branchName,
       outcomeClaimEvidence,
-      refreshNoSendTruthPolicy: buildRefreshIdentityNoSendTruthPolicyContext({
-        refreshIntent: identityIntent,
-        commitmentId: args.commitment.id,
-        clerkUserId: args.userId,
-        inboundMessageSid: args.job.message_sid,
-        refreshSessionId: args.identityTruthContext.refreshSessionId ?? session?.session_id ?? null,
-        stateMutationCompletedBeforeSms: args.identityTruthContext.stateMutationCompletedBeforeSms,
-        refreshSessionAdvancedBeforeSms: args.identityTruthContext.refreshSessionAdvancedBeforeSms,
-        identityUpdatedBeforeSms: args.identityTruthContext.identityUpdatedBeforeSms,
-        pendingCreatedBeforeSms: args.identityTruthContext.pendingCreatedBeforeSms,
-        refreshClearedBeforeSms: args.identityTruthContext.refreshClearedBeforeSms,
-        commitmentPromptDeliveredBeforeSms:
-          args.identityTruthContext.commitmentPromptDeliveredBeforeSms,
-        refreshClarificationConsumedBeforeSms:
-          args.identityTruthContext.refreshClarificationConsumedBeforeSms,
-        stateTransitionSummary: meta.summary,
-      }),
+      refreshNoSendTruthPolicy,
       refreshPostUnifiedRecheck: {
-        mutationFlags: args.identityTruthContext.mutationFlags,
+        mutationFlags: truthContext.mutationFlags,
         requiredVerbatimSubstrings:
-          args.identityTruthContext.requiredVerbatimSubstrings ??
-          facts.constraints.required_verbatim_substrings ??
-          null,
+          requiredVerbatimSubstrings ?? facts.constraints.required_verbatim_substrings ?? null,
         requiredMeaningSummary: requiredMeaningSummary,
       },
     };
@@ -10447,7 +10502,7 @@ async function processV2CoachingRefreshInbound(
       });
       if (!keep.ok) {
         if (keep.result === "already_applied") {
-          await persistRefreshSmsLaneAndSend({
+          const sendAlready = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10456,12 +10511,19 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "Already recorded from a prior reply in this thread. Normal checks continue.",
             laneIntent: "commitment_already_applied",
+            commitmentTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { commitmentAlreadyApplied: true, alreadyApplied: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendAlready.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         if (keep.result === "state_conflict" || keep.result === "not_found") {
-          await persistRefreshSmsLaneAndSend({
+          const sendInactive = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10470,15 +10532,22 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "No active commitment refresh step to update from this reply. Normal checks continue.",
             laneIntent: "commitment_inactive_step",
+            commitmentTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { commitmentInactive: true, inactiveStep: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendInactive.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         throw new Error(`refresh_commitment_keep_failed:${keep.error}`);
       }
       await touchCommitmentRefreshPromptedTimestamp(commitment.id);
       const { body } = buildRefreshKeepAckSms();
-      await persistRefreshSmsLaneAndSend({
+      const sendKeep = await persistRefreshSmsLaneAndSend({
         job,
         userId,
         commitment,
@@ -10486,7 +10555,19 @@ async function processV2CoachingRefreshInbound(
         inboundRaw: rawTrimmed,
         machineBody: body,
         laneIntent: "commitment_keep_ack",
+        commitmentTruthContext: {
+          refreshSessionId: session.session_id,
+          stateMutationCompletedBeforeSms: true,
+          refreshClearedBeforeSms: true,
+          commitmentUpdatedBeforeSms: false,
+          commitmentKeepRecordedBeforeSms: true,
+          sideEffectsRecordedBeforeSms: true,
+          mutationFlags: { commitmentKeep: true, refreshCleared: true },
+        },
       });
+      if (!sendKeep.ok) {
+        return true;
+      }
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       await recomputeV2CoachingMemory(commitment.id, {
         reasonCode: "inbound_refresh_keep",
@@ -10505,7 +10586,7 @@ async function processV2CoachingRefreshInbound(
       });
       if (!tighten.ok) {
         if (tighten.result === "already_applied") {
-          await persistRefreshSmsLaneAndSend({
+          const sendAlready = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10514,12 +10595,19 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "Already recorded from a prior reply in this thread. Normal checks continue.",
             laneIntent: "commitment_already_applied",
+            commitmentTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { commitmentAlreadyApplied: true, alreadyApplied: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendAlready.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         if (tighten.result === "state_conflict" || tighten.result === "not_found") {
-          await persistRefreshSmsLaneAndSend({
+          const sendInactive = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10528,14 +10616,21 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "No active commitment refresh step to update from this reply. Normal checks continue.",
             laneIntent: "commitment_inactive_step",
+            commitmentTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { commitmentInactive: true, inactiveStep: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendInactive.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         throw new Error(`refresh_commitment_tighten_failed:${tighten.error}`);
       }
       const { body } = buildGuidedTightenHandoffSms();
-      await persistRefreshSmsLaneAndSend({
+      const sendTighten = await persistRefreshSmsLaneAndSend({
         job,
         userId,
         commitment,
@@ -10543,11 +10638,26 @@ async function processV2CoachingRefreshInbound(
         inboundRaw: rawTrimmed,
         machineBody: body,
         laneIntent: "commitment_tighten_handoff",
+        commitmentTruthContext: {
+          refreshSessionId: session.session_id,
+          stateMutationCompletedBeforeSms: true,
+          pendingCreatedBeforeSms: true,
+          pendingResolutionKind: tighten.pendingResolutionKind ?? "commitment_tighten",
+          refreshClearedBeforeSms: true,
+          commitmentUpdatedBeforeSms: false,
+          mutationFlags: {
+            commitmentTightenHandoff: true,
+            pendingCreated: true,
+            refreshCleared: true,
+          },
+        },
       });
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      await recomputeV2CoachingMemory(commitment.id, {
-        reasonCode: "inbound_refresh_tighten",
-      });
+      if (sendTighten.ok) {
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        await recomputeV2CoachingMemory(commitment.id, {
+          reasonCode: "inbound_refresh_tighten",
+        });
+      }
       return true;
     }
 
@@ -10562,7 +10672,7 @@ async function processV2CoachingRefreshInbound(
       });
       if (!replace.ok) {
         if (replace.result === "already_applied") {
-          await persistRefreshSmsLaneAndSend({
+          const sendAlready = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10571,12 +10681,19 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "Already recorded from a prior reply in this thread. Normal checks continue.",
             laneIntent: "commitment_already_applied",
+            commitmentTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { commitmentAlreadyApplied: true, alreadyApplied: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendAlready.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         if (replace.result === "state_conflict" || replace.result === "not_found") {
-          await persistRefreshSmsLaneAndSend({
+          const sendInactive = await persistRefreshSmsLaneAndSend({
             job,
             userId,
             commitment,
@@ -10585,14 +10702,21 @@ async function processV2CoachingRefreshInbound(
             machineBody:
               "No active commitment refresh step to update from this reply. Normal checks continue.",
             laneIntent: "commitment_inactive_step",
+            commitmentTruthContext: {
+              refreshSessionId: session.session_id,
+              stateMutationCompletedBeforeSms: false,
+              mutationFlags: { commitmentInactive: true, inactiveStep: true },
+            },
           });
-          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          if (sendInactive.ok) {
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          }
           return true;
         }
         throw new Error(`refresh_commitment_new_failed:${replace.error}`);
       }
       const { body } = buildGuidedResolutionNewHandoffSms();
-      await persistRefreshSmsLaneAndSend({
+      const sendNew = await persistRefreshSmsLaneAndSend({
         job,
         userId,
         commitment,
@@ -10600,11 +10724,26 @@ async function processV2CoachingRefreshInbound(
         inboundRaw: rawTrimmed,
         machineBody: body,
         laneIntent: "commitment_new_handoff",
+        commitmentTruthContext: {
+          refreshSessionId: session.session_id,
+          stateMutationCompletedBeforeSms: true,
+          pendingCreatedBeforeSms: true,
+          pendingResolutionKind: replace.pendingResolutionKind ?? "commitment_replace",
+          refreshClearedBeforeSms: true,
+          commitmentUpdatedBeforeSms: false,
+          mutationFlags: {
+            commitmentNewHandoff: true,
+            pendingCreated: true,
+            refreshCleared: true,
+          },
+        },
       });
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      await recomputeV2CoachingMemory(commitment.id, {
-        reasonCode: "inbound_refresh_new",
-      });
+      if (sendNew.ok) {
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        await recomputeV2CoachingMemory(commitment.id, {
+          reasonCode: "inbound_refresh_new",
+        });
+      }
       return true;
     }
 
@@ -10617,7 +10756,7 @@ async function processV2CoachingRefreshInbound(
         expectedUpdatedAt: expectedCommitmentUpdatedAt,
       });
       const { body } = buildRefreshClarifyCommitmentSms();
-      await persistRefreshSmsLaneAndSend({
+      const sendClarify = await persistRefreshSmsLaneAndSend({
         job,
         userId,
         commitment,
@@ -10625,11 +10764,19 @@ async function processV2CoachingRefreshInbound(
         inboundRaw: rawTrimmed,
         machineBody: body,
         laneIntent: "commitment_clarify_prompt",
+        commitmentTruthContext: {
+          refreshSessionId: session.session_id,
+          stateMutationCompletedBeforeSms: true,
+          refreshClarificationConsumedBeforeSms: true,
+          mutationFlags: { commitmentClarify: true },
+        },
       });
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      await recomputeV2CoachingMemory(commitment.id, {
-        reasonCode: "inbound_refresh_commitment_clarify",
-      });
+      if (sendClarify.ok) {
+        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        await recomputeV2CoachingMemory(commitment.id, {
+          reasonCode: "inbound_refresh_commitment_clarify",
+        });
+      }
       return true;
     }
 
@@ -10643,7 +10790,7 @@ async function processV2CoachingRefreshInbound(
     });
     if (!aborted.ok) {
       if (aborted.result === "already_applied") {
-        await persistRefreshSmsLaneAndSend({
+        const sendAlready = await persistRefreshSmsLaneAndSend({
           job,
           userId,
           commitment,
@@ -10652,12 +10799,19 @@ async function processV2CoachingRefreshInbound(
           machineBody:
             "Already recorded from a prior reply in this thread. Normal checks continue.",
           laneIntent: "commitment_already_applied",
+          commitmentTruthContext: {
+            refreshSessionId: session.session_id,
+            stateMutationCompletedBeforeSms: false,
+            mutationFlags: { commitmentAlreadyApplied: true, alreadyApplied: true },
+          },
         });
-        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        if (sendAlready.ok) {
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        }
         return true;
       }
       if (aborted.result === "state_conflict" || aborted.result === "not_found") {
-        await persistRefreshSmsLaneAndSend({
+        const sendInactive = await persistRefreshSmsLaneAndSend({
           job,
           userId,
           commitment,
@@ -10666,13 +10820,20 @@ async function processV2CoachingRefreshInbound(
           machineBody:
             "No active commitment refresh step to update from this reply. Normal checks continue.",
           laneIntent: "commitment_inactive_step",
+          commitmentTruthContext: {
+            refreshSessionId: session.session_id,
+            stateMutationCompletedBeforeSms: false,
+            mutationFlags: { commitmentInactive: true, inactiveStep: true },
+          },
         });
-        await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        if (sendInactive.ok) {
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+        }
         return true;
       }
       throw new Error(`refresh_commitment_aborted_unclear_failed:${aborted.error}`);
     }
-    await persistRefreshSmsLaneAndSend({
+    const sendAbort = await persistRefreshSmsLaneAndSend({
       job,
       userId,
       commitment,
@@ -10681,11 +10842,20 @@ async function processV2CoachingRefreshInbound(
       machineBody:
         "Didn’t catch a clear answer on that. Normal checks continue—update the commitment in the app when you’re ready.",
       laneIntent: "commitment_aborted_unclear",
+      commitmentTruthContext: {
+        refreshSessionId: session.session_id,
+        stateMutationCompletedBeforeSms: true,
+        refreshClearedBeforeSms: true,
+        commitmentUpdatedBeforeSms: false,
+        mutationFlags: { commitmentAborted: true, refreshCleared: true },
+      },
     });
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-    await recomputeV2CoachingMemory(commitment.id, {
-      reasonCode: "inbound_refresh_commitment_aborted_unclear",
-    });
+    if (sendAbort.ok) {
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      await recomputeV2CoachingMemory(commitment.id, {
+        reasonCode: "inbound_refresh_commitment_aborted_unclear",
+      });
+    }
     return true;
   }
 

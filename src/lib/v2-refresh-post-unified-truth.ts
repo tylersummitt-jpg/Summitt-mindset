@@ -1,12 +1,12 @@
 /**
- * Phase 2.1f-B1 — post-unified-guard refresh identity truth / verbatim recheck.
+ * Phase 2.1f-B1/B2 — post-unified-guard refresh identity + commitment truth / verbatim recheck.
  */
 
 import {
   assertRequiredVerbatimSubstringsPresent,
   type InboundV3RefreshFacts,
 } from "@/lib/v3-inbound-relationship-lane";
-import type { RefreshIdentityLaneIntent } from "@/lib/v2-refresh-no-send-truth";
+import type { RefreshLaneIntent } from "@/lib/v2-refresh-no-send-truth";
 
 const IDENTITY_CHANGED_CLAIM_PATTERNS: RegExp[] = [
   /\bidentity(?:\s+line)?\s+(?:has\s+been\s+)?(?:updated|changed)\b/i,
@@ -30,10 +30,33 @@ const REFRESH_FULLY_COMPLETE_PATTERNS: RegExp[] = [
   /\bback\s+to\s+normal\s+checks\b/i,
 ];
 
+/** Complete claims without the keep_ack-allowed "back to normal checks" phrase. */
+const REFRESH_FULLY_COMPLETE_WITHOUT_NORMAL_CHECKS_PATTERNS: RegExp[] = [
+  /\brefresh\s+(?:is\s+)?(?:complete|completed|done|finished)\b/i,
+  /\ball\s+(?:set|done)\s+on\s+(?:the\s+)?refresh\b/i,
+  /\balignment\s+(?:check\s+)?(?:is\s+)?complete\b/i,
+  /\beverything\s+(?:is\s+)?(?:aligned|updated|set)\b/i,
+];
+
 const IDENTITY_CONFIRMED_PATTERNS: RegExp[] = [
   /\bidentity\s+(?:still\s+)?(?:fits|confirmed|locked\s+in)\b/i,
   /\b(?:confirmed|locked\s+in)\s+(?:your\s+)?identity\b/i,
   /\bidentity\s+line\s+(?:is\s+)?(?:still\s+)?(?:good|right|accurate)\b/i,
+];
+
+const COMMITMENT_ALREADY_APPLIED_CLAIM_PATTERNS: RegExp[] = [
+  ...GOAL_COMMITMENT_CHANGED_PATTERNS,
+  /\bcommitment(?:'s)?\s+(?:has\s+been\s+)?(?:tightened|updated|changed|replaced)\b/i,
+  /\b(?:tightened|applied|locked\s+in)\s+(?:your\s+)?(?:bar|commitment|focus)\b/i,
+  /\b(?:new|updated)\s+(?:commitment|focus|goal)\s+(?:is\s+)?(?:active|set|live)\b/i,
+  /\bcommitment\s+(?:is\s+)?(?:now\s+)?(?:tightened|smaller|updated|replaced)\b/i,
+  /\b(?:smaller|tighter)\s+bar\s+(?:is\s+)?(?:now\s+)?(?:set|active|locked)\b/i,
+];
+
+const COMMITMENT_REFRESH_STILL_WAITING_PATTERNS: RegExp[] = [
+  /\bstill\s+(?:waiting|need)\s+(?:on\s+)?(?:the\s+)?commitment\b/i,
+  /\bcommitment\s+(?:check|refresh|alignment)\s+(?:is\s+)?still\s+(?:pending|open|waiting)\b/i,
+  /\brefresh\s+(?:is\s+)?still\s+(?:waiting|open)\s+(?:on\s+)?commitment\b/i,
 ];
 
 const FRESH_MUTATION_PATTERNS: RegExp[] = [
@@ -73,6 +96,13 @@ export type RefreshPostUnifiedMutationFlags = {
   identityChangedHandoff?: boolean;
   identityClarify?: boolean;
   identityAborted?: boolean;
+  commitmentKeep?: boolean;
+  commitmentTightenHandoff?: boolean;
+  commitmentNewHandoff?: boolean;
+  commitmentClarify?: boolean;
+  commitmentAborted?: boolean;
+  commitmentAlreadyApplied?: boolean;
+  commitmentInactive?: boolean;
   alreadyApplied?: boolean;
   inactiveStep?: boolean;
   sessionAdvanced?: boolean;
@@ -82,8 +112,8 @@ export type RefreshPostUnifiedMutationFlags = {
 
 export function evaluatePostUnifiedGuardRefreshTruthRecheck(args: {
   body: string;
-  refreshIntent: RefreshIdentityLaneIntent;
-  refreshFamily: "identity";
+  refreshIntent: RefreshLaneIntent;
+  refreshFamily: "identity" | "commitment";
   stateTransitionSummary?: string | null;
   requiredMeaningSummary?: string | null;
   requiredVerbatimSubstrings?: string[] | null;
@@ -173,18 +203,85 @@ export function evaluatePostUnifiedGuardRefreshTruthRecheck(args: {
     }
   }
 
-  if (args.refreshIntent === "identity_already_applied" || flags.alreadyApplied) {
+  if (
+    args.refreshIntent === "commitment_keep_ack" ||
+    (flags.commitmentKeep && args.refreshFamily === "commitment")
+  ) {
+    if (matchesAny(trimmed, GOAL_COMMITMENT_CHANGED_PATTERNS)) {
+      violations.push("refresh_commitment_keep_but_body_claims_commitment_changed");
+    }
+    if (flags.refreshCleared && matchesAny(trimmed, COMMITMENT_REFRESH_STILL_WAITING_PATTERNS)) {
+      violations.push("refresh_commitment_keep_but_body_claims_refresh_still_waiting");
+    }
+    if (
+      flags.refreshCleared &&
+      matchesAny(trimmed, REFRESH_FULLY_COMPLETE_WITHOUT_NORMAL_CHECKS_PATTERNS)
+    ) {
+      violations.push("refresh_commitment_keep_but_body_claims_refresh_fully_complete");
+    }
+  }
+
+  if (
+    args.refreshIntent === "commitment_tighten_handoff" ||
+    flags.commitmentTightenHandoff
+  ) {
+    if (matchesAny(trimmed, COMMITMENT_ALREADY_APPLIED_CLAIM_PATTERNS)) {
+      violations.push("refresh_commitment_tighten_but_body_claims_already_applied");
+    }
+  }
+
+  if (args.refreshIntent === "commitment_new_handoff" || flags.commitmentNewHandoff) {
+    if (matchesAny(trimmed, COMMITMENT_ALREADY_APPLIED_CLAIM_PATTERNS)) {
+      violations.push("refresh_commitment_new_but_body_claims_already_applied");
+    }
+  }
+
+  if (args.refreshIntent === "commitment_clarify_prompt" || flags.commitmentClarify) {
+    if (matchesAny(trimmed, FRESH_MUTATION_PATTERNS)) {
+      violations.push("refresh_commitment_clarify_but_body_claims_mutation_applied");
+    }
+    if (matchesAny(trimmed, GOAL_COMMITMENT_CHANGED_PATTERNS)) {
+      violations.push("refresh_commitment_clarify_but_body_claims_commitment_changed");
+    }
+    if (matchesAny(trimmed, REFRESH_FULLY_COMPLETE_WITHOUT_NORMAL_CHECKS_PATTERNS)) {
+      violations.push("refresh_commitment_clarify_but_body_claims_refresh_completed");
+    }
+  }
+
+  if (args.refreshIntent === "commitment_aborted_unclear" || flags.commitmentAborted) {
+    if (matchesAny(trimmed, GOAL_COMMITMENT_CHANGED_PATTERNS)) {
+      violations.push("refresh_commitment_aborted_but_body_claims_commitment_changed");
+    }
+    if (/\brefresh\s+(?:was\s+)?(?:successful|completed)\b/i.test(trimmed)) {
+      violations.push("refresh_commitment_aborted_but_body_claims_successful_alignment");
+    }
+  }
+
+  if (
+    args.refreshIntent === "identity_already_applied" ||
+    args.refreshIntent === "commitment_already_applied" ||
+    flags.alreadyApplied ||
+    flags.commitmentAlreadyApplied
+  ) {
     if (matchesAny(trimmed, FRESH_MUTATION_PATTERNS)) {
       violations.push("refresh_already_applied_but_body_claims_fresh_mutation");
     }
   }
 
-  if (args.refreshIntent === "identity_inactive_step" || flags.inactiveStep) {
+  if (
+    args.refreshIntent === "identity_inactive_step" ||
+    args.refreshIntent === "commitment_inactive_step" ||
+    flags.inactiveStep ||
+    flags.commitmentInactive
+  ) {
     if (matchesAny(trimmed, FRESH_MUTATION_PATTERNS)) {
       violations.push("refresh_inactive_but_body_claims_mutation");
     }
     if (matchesAny(trimmed, IDENTITY_CHANGED_CLAIM_PATTERNS)) {
       violations.push("refresh_inactive_but_body_claims_identity_changed");
+    }
+    if (matchesAny(trimmed, GOAL_COMMITMENT_CHANGED_PATTERNS)) {
+      violations.push("refresh_inactive_but_body_claims_commitment_changed");
     }
   }
 

@@ -120,6 +120,7 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
     expect(refreshIdx).toBeGreaterThan(0);
     const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);
     expect(refreshBlock).toContain("isRefreshIdentityLaneIntent");
+    expect(refreshBlock).toContain("isRefreshCommitmentLaneIntent");
     expect(refreshBlock).toContain("unifiedFinalGuard");
   });
 

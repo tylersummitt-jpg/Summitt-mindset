@@ -1,5 +1,5 @@
 /**
- * Phase 2.1f-B1 — refresh identity no-send truth policy (lane / FVG / unified guard / post-recheck).
+ * Phase 2.1f-B1/B2 — refresh identity + commitment no-send truth policy.
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
@@ -27,32 +27,57 @@ export type RefreshIdentityLaneIntent =
   | "identity_already_applied"
   | "identity_inactive_step";
 
-export type RefreshNoSendTruthPolicyContext = {
+export type RefreshCommitmentLaneIntent =
+  | "commitment_keep_ack"
+  | "commitment_tighten_handoff"
+  | "commitment_new_handoff"
+  | "commitment_clarify_prompt"
+  | "commitment_aborted_unclear"
+  | "commitment_already_applied"
+  | "commitment_inactive_step";
+
+export type RefreshLaneIntent = RefreshIdentityLaneIntent | RefreshCommitmentLaneIntent;
+
+type RefreshNoSendTruthPolicyContextBase = {
   branch: RefreshNoSendPolicyBranch;
-  refreshIntent: RefreshIdentityLaneIntent;
-  refreshFamily: "identity";
   commitmentId: string;
   clerkUserId: string;
   inboundMessageSid: string;
   refreshSessionId?: string | null;
   stateMutationCompletedBeforeSms: boolean;
-  refreshSessionAdvancedBeforeSms?: boolean;
-  identityUpdatedBeforeSms?: boolean;
   pendingCreatedBeforeSms?: boolean;
   refreshClearedBeforeSms?: boolean;
-  commitmentPromptDeliveredBeforeSms?: boolean;
   refreshClarificationConsumedBeforeSms?: boolean;
   stateTransitionSummary?: string | null;
+  sideEffectsRecordedBeforeSms?: boolean;
 };
+
+export type RefreshIdentityNoSendTruthPolicyContext = RefreshNoSendTruthPolicyContextBase & {
+  refreshFamily: "identity";
+  refreshIntent: RefreshIdentityLaneIntent;
+  refreshSessionAdvancedBeforeSms?: boolean;
+  identityUpdatedBeforeSms?: boolean;
+  commitmentPromptDeliveredBeforeSms?: boolean;
+};
+
+export type RefreshCommitmentNoSendTruthPolicyContext = RefreshNoSendTruthPolicyContextBase & {
+  refreshFamily: "commitment";
+  refreshIntent: RefreshCommitmentLaneIntent;
+  commitmentUpdatedBeforeSms?: boolean;
+  commitmentKeepRecordedBeforeSms?: boolean;
+  pendingResolutionKind?: string | null;
+};
+
+export type RefreshNoSendTruthPolicyContext =
+  | RefreshIdentityNoSendTruthPolicyContext
+  | RefreshCommitmentNoSendTruthPolicyContext;
 
 export type PersistRefreshTruthOnNoSendArgs = RefreshNoSendTruthPolicyContext & {
   noSendStage: RefreshNoSendStage;
   noSendReason: string;
-  commitmentUpdatedBeforeSms?: boolean;
   requiredVerbatimMissing?: string[] | null;
   refreshTruthViolation?: string | null;
   sendTimeEngagementRecordedBeforeSms?: boolean;
-  sideEffectsRecordedBeforeSms?: boolean;
   stageMetadata?: Record<string, unknown>;
 };
 
@@ -60,12 +85,14 @@ export type RefreshNoSendTruthTelemetry = {
   refresh_no_send_truth_policy: true;
   refresh_no_send_policy_branch: RefreshNoSendPolicyBranch;
   refresh_intent: string;
-  refresh_family: "identity";
+  refresh_family: "identity" | "commitment";
   state_mutation_completed_before_sms: boolean;
   refresh_session_advanced_before_sms?: boolean;
   identity_updated_before_sms?: boolean;
   commitment_updated_before_sms?: boolean;
+  commitment_keep_recorded_before_sms?: boolean;
   pending_created_before_sms?: boolean;
+  pending_resolution_kind?: string | null;
   refresh_cleared_before_sms?: boolean;
   commitment_prompt_delivered_before_sms?: boolean;
   refresh_clarification_consumed_before_sms?: boolean;
@@ -97,6 +124,16 @@ const IDENTITY_INTENT_BRANCH: Record<RefreshIdentityLaneIntent, RefreshNoSendPol
   identity_inactive_step: "refresh_failed_before_mutation",
 };
 
+const COMMITMENT_INTENT_BRANCH: Record<RefreshCommitmentLaneIntent, RefreshNoSendPolicyBranch> = {
+  commitment_keep_ack: "refresh_mutation_applied",
+  commitment_tighten_handoff: "refresh_pending_or_handoff_created",
+  commitment_new_handoff: "refresh_pending_or_handoff_created",
+  commitment_clarify_prompt: "refresh_active_clarify",
+  commitment_aborted_unclear: "refresh_cleared_or_aborted",
+  commitment_already_applied: "refresh_noop_already_applied",
+  commitment_inactive_step: "refresh_failed_before_mutation",
+};
+
 const DURABLE_AUDIT_BRANCHES = new Set<RefreshNoSendPolicyBranch>([
   "refresh_mutation_applied",
   "refresh_pending_or_handoff_created",
@@ -107,10 +144,20 @@ export function isRefreshIdentityLaneIntent(intent: string): intent is RefreshId
   return intent in IDENTITY_INTENT_BRANCH;
 }
 
+export function isRefreshCommitmentLaneIntent(intent: string): intent is RefreshCommitmentLaneIntent {
+  return intent in COMMITMENT_INTENT_BRANCH;
+}
+
 export function deriveRefreshIdentityNoSendPolicyBranch(
   intent: RefreshIdentityLaneIntent
 ): RefreshNoSendPolicyBranch {
   return IDENTITY_INTENT_BRANCH[intent];
+}
+
+export function deriveRefreshCommitmentNoSendPolicyBranch(
+  intent: RefreshCommitmentLaneIntent
+): RefreshNoSendPolicyBranch {
+  return COMMITMENT_INTENT_BRANCH[intent];
 }
 
 export function buildRefreshIdentityRequiredMeaningSummary(
@@ -132,6 +179,27 @@ export function buildRefreshIdentityRequiredMeaningSummary(
   }
 }
 
+export function buildRefreshCommitmentRequiredMeaningSummary(
+  intent: RefreshCommitmentLaneIntent
+): string {
+  switch (intent) {
+    case "commitment_keep_ack":
+      return "Acknowledge the current commitment bar stays; normal checks resume. Do not claim commitment changed or that refresh is still waiting on commitment.";
+    case "commitment_tighten_handoff":
+      return "Direct user to tighten the bar in the app; do not claim commitment already tightened or goal already changed.";
+    case "commitment_new_handoff":
+      return "Direct user to update accountability focus in the app; do not claim new commitment already active.";
+    case "commitment_clarify_prompt":
+      return "Ask whether to keep, tighten, or replace the commitment; do not claim mutation applied or refresh complete.";
+    case "commitment_aborted_unclear":
+      return "Close commitment alignment without saving ambiguous change; do not claim commitment changed.";
+    case "commitment_already_applied":
+      return "Reassure this thread was already handled; do not claim a fresh mutation from this reply.";
+    case "commitment_inactive_step":
+      return "No active commitment refresh step matched; do not claim mutation occurred.";
+  }
+}
+
 export function buildRefreshIdentityNoSendTruthPolicyContext(args: {
   refreshIntent: RefreshIdentityLaneIntent;
   commitmentId: string;
@@ -146,7 +214,7 @@ export function buildRefreshIdentityNoSendTruthPolicyContext(args: {
   commitmentPromptDeliveredBeforeSms?: boolean;
   refreshClarificationConsumedBeforeSms?: boolean;
   stateTransitionSummary?: string | null;
-}): RefreshNoSendTruthPolicyContext {
+}): RefreshIdentityNoSendTruthPolicyContext {
   return {
     branch: deriveRefreshIdentityNoSendPolicyBranch(args.refreshIntent),
     refreshIntent: args.refreshIntent,
@@ -162,6 +230,42 @@ export function buildRefreshIdentityNoSendTruthPolicyContext(args: {
     refreshClearedBeforeSms: args.refreshClearedBeforeSms,
     commitmentPromptDeliveredBeforeSms: args.commitmentPromptDeliveredBeforeSms,
     refreshClarificationConsumedBeforeSms: args.refreshClarificationConsumedBeforeSms,
+    stateTransitionSummary: args.stateTransitionSummary ?? null,
+  };
+}
+
+export function buildRefreshCommitmentNoSendTruthPolicyContext(args: {
+  refreshIntent: RefreshCommitmentLaneIntent;
+  commitmentId: string;
+  clerkUserId: string;
+  inboundMessageSid: string;
+  refreshSessionId?: string | null;
+  stateMutationCompletedBeforeSms: boolean;
+  commitmentUpdatedBeforeSms?: boolean;
+  commitmentKeepRecordedBeforeSms?: boolean;
+  pendingCreatedBeforeSms?: boolean;
+  pendingResolutionKind?: string | null;
+  refreshClearedBeforeSms?: boolean;
+  refreshClarificationConsumedBeforeSms?: boolean;
+  sideEffectsRecordedBeforeSms?: boolean;
+  stateTransitionSummary?: string | null;
+}): RefreshCommitmentNoSendTruthPolicyContext {
+  return {
+    branch: deriveRefreshCommitmentNoSendPolicyBranch(args.refreshIntent),
+    refreshIntent: args.refreshIntent,
+    refreshFamily: "commitment",
+    commitmentId: args.commitmentId,
+    clerkUserId: args.clerkUserId,
+    inboundMessageSid: args.inboundMessageSid,
+    refreshSessionId: args.refreshSessionId ?? null,
+    stateMutationCompletedBeforeSms: args.stateMutationCompletedBeforeSms,
+    commitmentUpdatedBeforeSms: args.commitmentUpdatedBeforeSms,
+    commitmentKeepRecordedBeforeSms: args.commitmentKeepRecordedBeforeSms,
+    pendingCreatedBeforeSms: args.pendingCreatedBeforeSms,
+    pendingResolutionKind: args.pendingResolutionKind ?? null,
+    refreshClearedBeforeSms: args.refreshClearedBeforeSms,
+    refreshClarificationConsumedBeforeSms: args.refreshClarificationConsumedBeforeSms,
+    sideEffectsRecordedBeforeSms: args.sideEffectsRecordedBeforeSms,
     stateTransitionSummary: args.stateTransitionSummary ?? null,
   };
 }
@@ -215,7 +319,7 @@ async function insertRefreshNoSendTruthEvent(args: {
 }
 
 /**
- * Branch-specific truth/state policy when refresh identity visible SMS no-sends.
+ * Branch-specific truth/state policy when refresh visible SMS no-sends.
  */
 export async function persistRefreshTruthOnNoSend(
   args: PersistRefreshTruthOnNoSendArgs
@@ -239,22 +343,28 @@ export async function persistRefreshTruthOnNoSend(
     ...(args.stageMetadata ?? {}),
     state_transition_summary: args.stateTransitionSummary ?? null,
     refresh_session_id: args.refreshSessionId ?? null,
-    ...(args.refreshSessionAdvancedBeforeSms !== undefined
+    ...(args.refreshFamily === "identity" && args.refreshSessionAdvancedBeforeSms !== undefined
       ? { refresh_session_advanced_before_sms: args.refreshSessionAdvancedBeforeSms }
       : {}),
-    ...(args.identityUpdatedBeforeSms !== undefined
+    ...(args.refreshFamily === "identity" && args.identityUpdatedBeforeSms !== undefined
       ? { identity_updated_before_sms: args.identityUpdatedBeforeSms }
       : {}),
-    ...(args.commitmentUpdatedBeforeSms !== undefined
+    ...(args.refreshFamily === "commitment" && args.commitmentUpdatedBeforeSms !== undefined
       ? { commitment_updated_before_sms: args.commitmentUpdatedBeforeSms }
+      : {}),
+    ...(args.refreshFamily === "commitment" && args.commitmentKeepRecordedBeforeSms !== undefined
+      ? { commitment_keep_recorded_before_sms: args.commitmentKeepRecordedBeforeSms }
       : {}),
     ...(args.pendingCreatedBeforeSms !== undefined
       ? { pending_created_before_sms: args.pendingCreatedBeforeSms }
       : {}),
+    ...(args.refreshFamily === "commitment" && args.pendingResolutionKind !== undefined
+      ? { pending_resolution_kind: args.pendingResolutionKind }
+      : {}),
     ...(args.refreshClearedBeforeSms !== undefined
       ? { refresh_cleared_before_sms: args.refreshClearedBeforeSms }
       : {}),
-    ...(args.commitmentPromptDeliveredBeforeSms !== undefined
+    ...(args.refreshFamily === "identity" && args.commitmentPromptDeliveredBeforeSms !== undefined
       ? { commitment_prompt_delivered_before_sms: args.commitmentPromptDeliveredBeforeSms }
       : {}),
     ...(args.refreshClarificationConsumedBeforeSms !== undefined

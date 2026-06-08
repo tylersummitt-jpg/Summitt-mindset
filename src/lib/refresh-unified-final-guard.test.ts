@@ -1,5 +1,5 @@
 /**
- * Phase 2.1f-B1 — refresh identity family unified final guard + no-send truth policy.
+ * Phase 2.1f-B1/B2 — refresh identity + commitment unified final guard + no-send truth policy.
  */
 
 import fs from "node:fs";
@@ -154,13 +154,16 @@ describe("Phase 2.1f-B1 refresh identity — route wiring", () => {
     expect(refreshBlock).toContain("persistInboundV3RelationshipLaneReplyReadyAndSend");
   });
 
-  it("32: commitment refresh intents are not wired", () => {
+  it("32: commitment refresh intents are wired with commitmentTruthContext", () => {
+    expect(refreshBlock).toContain("isRefreshCommitmentLaneIntent");
+    expect(refreshBlock).toContain("buildRefreshCommitmentNoSendTruthPolicyContext");
+    expect(commitmentBlock).toContain("commitmentTruthContext");
     expect(commitmentBlock).not.toContain("identityTruthContext");
-    expect(commitmentBlock).not.toContain("refreshNoSendTruthPolicy");
     const keepIdx = commitmentBlock.indexOf('laneIntent: "commitment_keep_ack"');
     expect(keepIdx).toBeGreaterThan(-1);
-    const keepSlice = commitmentBlock.slice(keepIdx - 200, keepIdx + 400);
-    expect(keepSlice).not.toContain("identityTruthContext");
+    const keepSlice = commitmentBlock.slice(keepIdx - 400, keepIdx + 600);
+    expect(keepSlice).toContain("commitmentTruthContext");
+    expect(keepSlice).toContain("commitmentKeep");
   });
 
   it("33: contract/adaptive/pending/memory/handoff unchanged", () => {
@@ -193,13 +196,70 @@ describe("Phase 2.1f-B1 refresh identity — route wiring", () => {
     expect(refreshBlock).not.toMatch(/event_type:\s*"/);
   });
 
-  it("38: no hard-coded SMS in refresh identity wiring", () => {
+  it("38: no hard-coded SMS in refresh lane wiring", () => {
     expect(refreshBlock).not.toContain("reply_body:");
     expect(refreshBlock).not.toContain("twilioClient");
   });
+
+  it("30: recordV2SendTimeProfileInboundEngagement post-send for commitment keep", () => {
+    const keepIdx = commitmentBlock.indexOf('laneIntent: "commitment_keep_ack"');
+    expect(keepIdx).toBeGreaterThan(-1);
+    const keepSlice = commitmentBlock.slice(keepIdx, keepIdx + 2500);
+    const noSendReturn = keepSlice.indexOf("if (!sendKeep.ok)");
+    const engagementIdx = keepSlice.indexOf("recordV2SendTimeProfileInboundEngagement", noSendReturn);
+    expect(noSendReturn).toBeGreaterThan(-1);
+    expect(engagementIdx).toBeGreaterThan(noSendReturn);
+    const preSend = keepSlice.slice(0, noSendReturn);
+    expect(preSend).not.toContain("recordV2SendTimeProfileInboundEngagement");
+  });
+
+  it("31: identity refresh remains wired unchanged", () => {
+    expect(identityBlock).toContain("identityTruthContext");
+    expect(identityBlock).toContain('laneIntent: "identity_still_commitment_prompt"');
+    const stillIdx = identityBlock.indexOf('laneIntent: "identity_still_commitment_prompt"');
+    const stillSlice = identityBlock.slice(stillIdx, stillIdx + 2000);
+    expect(stillSlice).toContain("identityStill");
+    expect(stillSlice).not.toContain("commitmentTruthContext");
+  });
 });
 
-describe("Phase 2.1f-B1 refresh identity — guard behavior", () => {
+describe("Phase 2.1f-B2 refresh commitment — route wiring", () => {
+  const src = fs.readFileSync(ROUTE, "utf8");
+  const refreshStart = src.indexOf("async function persistRefreshSmsLaneAndSend");
+  const refreshEnd = src.indexOf("async function mergeInboundMemoryIntoSmsPendingResolution");
+  const refreshBlock = src.slice(refreshStart, refreshEnd);
+  const processStart = src.indexOf("async function processV2CoachingRefreshInbound");
+  const processEnd = src.indexOf("async function processInboundSmsSafetyShortCircuit");
+  const processBlock = src.slice(processStart, processEnd);
+  const commitmentStart = processBlock.indexOf('if (session.step === "commitment")');
+  const commitmentBlock = processBlock.slice(commitmentStart);
+  const helperStart = src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend");
+  const helperBlock = src.slice(helperStart, helperStart + 32000);
+
+  it("23: commitment refresh path calls unified guard before reply_body", () => {
+    expect(refreshBlock).toContain("commitmentTruthContext");
+    expect(refreshBlock).toContain("isRefreshCommitmentLaneIntent");
+    expect(helperBlock).toContain("evaluatePostUnifiedGuardRefreshTruthRecheck");
+    expect(helperBlock).toContain("refreshNoSendTruthPolicy.refreshFamily");
+  });
+
+  it("24: commitment refresh uses transactional_coaching_limited", () => {
+    expect(refreshBlock).toContain('mode: "transactional_coaching_limited"');
+  });
+
+  it("25: unified guard body becomes reply_body", () => {
+    expect(helperBlock).toContain("gatedBody = unifiedGuard.body");
+  });
+
+  it("26-29: commitment mutation no-send stages call refresh truth policy", () => {
+    expect(helperBlock).toContain('noSendStage: "lane"');
+    expect(helperBlock).toContain('noSendStage: "final_voice_gate"');
+    expect(helperBlock).toContain("post_unified_truth_recheck");
+    expect(helperBlock).toContain("refresh_truth_violation_after_final_guard");
+  });
+});
+
+describe("Phase 2.1f-B1/B2 refresh — guard behavior", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     nearDupMock.mockReturnValue({ ...PASS_NEAR_DUP, body: "Good — identity still fits. Does today's bar still work?" });
@@ -253,5 +313,15 @@ describe("Phase 2.1f-B1 refresh identity — guard behavior", () => {
     });
     expect(recheck.blocked).toBe(true);
     expect(recheck.fakeProofFailed).toBe(true);
+  });
+
+  it("commitment keep back to normal checks allowed by post-unified recheck", () => {
+    const recheck = evaluatePostUnifiedGuardRefreshTruthRecheck({
+      body: "Got it—keeping this same focus for accountability. Back to normal checks.",
+      refreshIntent: "commitment_keep_ack",
+      refreshFamily: "commitment",
+      mutationFlags: { commitmentKeep: true, refreshCleared: true },
+    });
+    expect(recheck.blocked).toBe(false);
   });
 });
