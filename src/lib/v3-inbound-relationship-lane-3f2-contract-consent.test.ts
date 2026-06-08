@@ -85,6 +85,16 @@ describe("sms-inbound-coach route — Phase 3F-2 contract consent (static)", () 
     expect(body).not.toContain("v3_contract_consent_refined");
   });
 
+  it("persistContractConsentInboundLaneAckAndSend runs unified guard before send (Phase 2.1d-A1)", () => {
+    const start = route.indexOf("async function runContractConsentNoSendTruthPolicy");
+    const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
+    const body = route.slice(start, end);
+    expect(body).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(body).toContain("evaluatePostUnifiedGuardContractTruthRecheck");
+    expect(body).toContain("persistContractConsentTruthOnNoSend");
+    expect(body).toContain("trySendContractConsentBodyAfterUnifiedGuard");
+  });
+
   it("persistContractConsentInboundLaneAckAndSend falls back to human-voice contract ack when V3 path fails", () => {
     const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
     const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");

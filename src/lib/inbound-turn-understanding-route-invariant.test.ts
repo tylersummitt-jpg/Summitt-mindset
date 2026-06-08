@@ -185,4 +185,20 @@ describe("inbound turn understanding route invariants", () => {
     expect(pendingBlock).toContain('routePurpose: "pending_resolution"');
     expect(pendingBlock).toContain("pendingNoSendTruthPolicy");
   });
+
+  it("S: Phase 2.1d-A1 contract consent uses unified guard + contract no-send truth in ack path", () => {
+    expect(src).toContain("persistContractConsentTruthOnNoSend");
+    expect(src).toContain("evaluatePostUnifiedGuardContractTruthRecheck");
+    expect(src).toContain("buildContractConsentNoSendTruthPolicyContext");
+
+    const contractIdx = src.indexOf("async function runContractConsentNoSendTruthPolicy");
+    expect(contractIdx).toBeGreaterThan(0);
+    const contractBlock = src.slice(
+      contractIdx,
+      src.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend")
+    );
+    expect(contractBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(contractBlock).toContain("trySendContractConsentBodyAfterUnifiedGuard");
+    expect(contractBlock).not.toContain("unifiedFinalGuard:");
+  });
 });
