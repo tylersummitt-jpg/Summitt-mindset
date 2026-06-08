@@ -215,4 +215,23 @@ describe("inbound turn understanding route invariants", () => {
     expect(adaptiveBlock).not.toContain("unifiedFinalGuard:");
     expect(adaptiveBlock).not.toContain("persistContractConsentTruthOnNoSend");
   });
+
+  it("U: Phase 2.1e commitment handoff uses dedicated unified guard + handoff no-send truth", () => {
+    expect(src).toContain("persistCommitmentHandoffTruthOnNoSend");
+    expect(src).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
+    expect(src).toContain("buildCommitmentHandoffNoSendTruthPolicyContext");
+
+    const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+    expect(handoffIdx).toBeGreaterThan(0);
+    const handoffBlock = src.slice(
+      handoffIdx,
+      src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound")
+    );
+    expect(handoffBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(handoffBlock).toContain('mode: "transactional_coaching_limited"');
+    expect(handoffBlock).toContain("cancelCommitmentHandoffNoSend");
+    expect(handoffBlock).not.toContain("unifiedFinalGuard:");
+    expect(handoffBlock).not.toContain("persistContractConsentTruthOnNoSend");
+    expect(handoffBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
+  });
 });

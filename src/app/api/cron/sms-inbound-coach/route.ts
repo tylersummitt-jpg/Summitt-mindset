@@ -391,6 +391,13 @@ import {
 } from "@/lib/v2-contract-consent-no-send-truth";
 import { evaluatePostUnifiedGuardContractTruthRecheck } from "@/lib/v2-contract-consent-post-unified-truth";
 import { evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck } from "@/lib/v2-adaptive-consent-clarify-post-unified-truth";
+import {
+  buildCommitmentHandoffNoSendTruthPolicyContext,
+  persistCommitmentHandoffTruthOnNoSend,
+  type CommitmentHandoffNoSendStage,
+  type CommitmentHandoffNoSendTruthPolicyContext,
+} from "@/lib/v2-commitment-handoff-no-send-truth";
+import { evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck } from "@/lib/v2-commitment-handoff-post-unified-truth";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import {
@@ -1629,9 +1636,134 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   return { ok: true, sentBody: gatedBody };
 }
 
+type CommitmentHandoffPreSendSideEffectsSummary = {
+  memoryMergedIntoPendingBeforeSms: boolean;
+  memorySignalInsertedBeforeSms: boolean;
+  sideEffectsRecordedBeforeSms: boolean;
+};
+
+function handoffNoSendTelemetryBase(args: {
+  noSendReason: string;
+  noSendStage: CommitmentHandoffNoSendStage;
+  guardTelemetry?: Record<string, unknown>;
+  handoffTruthRecheckFailed?: boolean;
+  sideEffectsSummary?: CommitmentHandoffPreSendSideEffectsSummary;
+}): Record<string, unknown> {
+  return {
+    commitment_handoff_no_send: true,
+    visible_sent: false,
+    no_send_stage: args.noSendStage,
+    no_send_reason: args.noSendReason,
+    ...(args.handoffTruthRecheckFailed ? { handoff_truth_recheck_failed: true } : {}),
+    ...(args.sideEffectsSummary?.sideEffectsRecordedBeforeSms
+      ? { side_effects_recorded_before_sms: true }
+      : {}),
+    ...(args.sideEffectsSummary?.memoryMergedIntoPendingBeforeSms
+      ? { memory_merged_into_pending_before_sms: true }
+      : {}),
+    ...(args.guardTelemetry ?? {}),
+  };
+}
+
+async function runCommitmentHandoffNoSendTruthPolicy(args: {
+  policy: CommitmentHandoffNoSendTruthPolicyContext;
+  noSendStage: CommitmentHandoffNoSendStage;
+  noSendReason: string;
+  sideEffectsSummary?: CommitmentHandoffPreSendSideEffectsSummary;
+  requiredVerbatimMissing?: string[] | null;
+  handoffTruthViolation?: string | null;
+  stageMetadata?: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  const telemetry = await persistCommitmentHandoffTruthOnNoSend({
+    ...args.policy,
+    noSendStage: args.noSendStage,
+    noSendReason: args.noSendReason,
+    pendingSourceMessageSid: args.policy.inboundMessageSid,
+    sideEffectsRecordedBeforeSms: args.sideEffectsSummary?.sideEffectsRecordedBeforeSms,
+    memoryMergedIntoPendingBeforeSms: args.sideEffectsSummary?.memoryMergedIntoPendingBeforeSms,
+    sendTimeEngagementRecordedBeforeSms: false,
+    requiredVerbatimMissing: args.requiredVerbatimMissing,
+    handoffTruthViolation: args.handoffTruthViolation,
+    stageMetadata: args.stageMetadata,
+  });
+  console.info("[sms-inbound-coach] commitment_handoff_no_send_truth", {
+    message_sid: args.policy.inboundMessageSid,
+    commitment_id: args.policy.commitmentId,
+    ...telemetry,
+  });
+  return telemetry;
+}
+
+async function cancelCommitmentHandoffNoSend(args: {
+  job: JobRow;
+  commitmentId: string;
+  policy: CommitmentHandoffNoSendTruthPolicyContext;
+  noSendStage: CommitmentHandoffNoSendStage;
+  noSendReason: string;
+  lastErrorTag: string;
+  lastErrorPayload: Record<string, unknown> | string;
+  sideEffectsSummary?: CommitmentHandoffPreSendSideEffectsSummary;
+  requiredVerbatimMissing?: string[] | null;
+  handoffTruthViolation?: string | null;
+  guardTelemetry?: Record<string, unknown>;
+}): Promise<{ ok: false }> {
+  const handoffTruthTelemetry = await runCommitmentHandoffNoSendTruthPolicy({
+    policy: args.policy,
+    noSendStage: args.noSendStage,
+    noSendReason: args.noSendReason,
+    sideEffectsSummary: args.sideEffectsSummary,
+    requiredVerbatimMissing: args.requiredVerbatimMissing,
+    handoffTruthViolation: args.handoffTruthViolation,
+    stageMetadata: args.guardTelemetry,
+  });
+
+  const telemetryExtra: Record<string, unknown> = {
+    ...handoffNoSendTelemetryBase({
+      noSendReason: args.noSendReason,
+      noSendStage: args.noSendStage,
+      guardTelemetry: args.guardTelemetry,
+      handoffTruthRecheckFailed: args.noSendStage === "post_unified_truth_recheck",
+      sideEffectsSummary: args.sideEffectsSummary,
+    }),
+    commitment_handoff_no_send_truth: handoffTruthTelemetry,
+  };
+
+  let lastError: string;
+  if (typeof args.lastErrorPayload === "string") {
+    try {
+      const parsed = JSON.parse(args.lastErrorPayload) as Record<string, unknown>;
+      lastError = JSON.stringify({ ...parsed, ...telemetryExtra }).slice(0, 1900);
+    } catch {
+      lastError = JSON.stringify({ message: args.lastErrorPayload, ...telemetryExtra }).slice(
+        0,
+        1900
+      );
+    }
+  } else {
+    lastError = JSON.stringify({ ...args.lastErrorPayload, ...telemetryExtra }).slice(0, 1900);
+  }
+
+  await markJobFinal({
+    messageSid: args.job.message_sid,
+    status: "cancelled",
+    lastError,
+    nextRetry: farFutureIso(),
+  });
+
+  console.warn(`[sms-inbound-coach] ${args.lastErrorTag}`, {
+    message_sid: args.job.message_sid,
+    commitment_id: args.commitmentId,
+    no_send_reason: args.noSendReason,
+    no_send_stage: args.noSendStage,
+    ...handoffTruthTelemetry,
+  });
+  return { ok: false };
+}
+
 /**
  * Phase 3F-4 Slice 1 — commitment_change_handoff: visible SMS from inbound V3 relationship lane only.
  * Server-owned Wave4 pending resolution runs upstream; no deterministic/V3-refine fallback as final body.
+ * Phase 2.1e — unified final guard + handoff no-send truth policy + post-unified handoff recheck.
  */
 async function persistCommitmentChangeHandoffLaneAndSend(args: {
   job: JobRow;
@@ -1689,21 +1821,26 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
     required_verbatim_substrings: args.commitmentChangeFacts.required_verbatim_substrings ?? null,
   });
 
+  const handoffTruthPolicy = buildCommitmentHandoffNoSendTruthPolicyContext({
+    commitmentChangeFacts: args.commitmentChangeFacts,
+    commitmentId: args.commitment.id,
+    clerkUserId: args.userId,
+    inboundMessageSid: args.job.message_sid,
+  });
+
   if (!lane.shouldSend || !lane.body.trim()) {
-    await markJobFinal({
-      messageSid: args.job.message_sid,
-      status: "cancelled",
-      lastError: formatInboundV3LaneNoSendLastError(lane, {
+    const laneNoSendReason = lane.noSendReason ?? "inbound_lane_no_send";
+    return cancelCommitmentHandoffNoSend({
+      job: args.job,
+      commitmentId: args.commitment.id,
+      policy: handoffTruthPolicy,
+      noSendStage: "lane",
+      noSendReason: laneNoSendReason,
+      lastErrorTag: "commitment_change_handoff_lane_no_send",
+      lastErrorPayload: formatInboundV3LaneNoSendLastError(lane, {
         ...baseTelemetry(),
       }),
-      nextRetry: farFutureIso(),
     });
-    console.warn("[sms-inbound-coach] commitment_change_handoff_lane_no_send", {
-      message_sid: args.job.message_sid,
-      commitment_id: args.commitment.id,
-      reason: lane.noSendReason,
-    });
-    return { ok: false };
   }
 
   const v3BrainMetadata: Record<string, unknown> = {
@@ -1732,7 +1869,10 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
     v3BrainMetadata,
   });
 
-  const runRecordedSideEffects = async () => {
+  const runPreSendHandoffSideEffects = async (): Promise<CommitmentHandoffPreSendSideEffectsSummary> => {
+    let memoryMergedIntoPendingBeforeSms = false;
+    let memorySignalInsertedBeforeSms = false;
+
     if (
       args.wave4PendingResult.pendingApplied &&
       args.memorySignalStored != null &&
@@ -1747,7 +1887,9 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
           last_inbound_memory_signal_at: new Date().toISOString(),
         }),
       });
-      if (!mergedPr.ok) {
+      if (mergedPr.ok) {
+        memoryMergedIntoPendingBeforeSms = true;
+      } else {
         console.warn("[v9.1-memory-signals] pending_payload_merge_failed", {
           commitment_id: args.commitment.id,
           error: mergedPr.error,
@@ -1763,17 +1905,30 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
         gatedMode: args.gatedDecision.mode,
         memorySignal: args.memorySignalStored,
       });
+      memorySignalInsertedBeforeSms = true;
     }
-    await recordV2SendTimeProfileInboundEngagement(args.userId, args.timezone, new Date());
+
+    return {
+      memoryMergedIntoPendingBeforeSms,
+      memorySignalInsertedBeforeSms,
+      sideEffectsRecordedBeforeSms:
+        memoryMergedIntoPendingBeforeSms || memorySignalInsertedBeforeSms,
+    };
   };
 
-  await runRecordedSideEffects();
+  const preSendSideEffects = await runPreSendHandoffSideEffects();
 
   if (!voicePack.voice.shouldSend) {
-    await markJobFinal({
-      messageSid: args.job.message_sid,
-      status: "cancelled",
-      lastError: finalVoiceSkipLastError(voicePack.voice, {
+    const fvgNoSendReason = voicePack.voice.skipReason ?? "final_voice_gate_no_send";
+    return cancelCommitmentHandoffNoSend({
+      job: args.job,
+      commitmentId: args.commitment.id,
+      policy: handoffTruthPolicy,
+      noSendStage: "final_voice_gate",
+      noSendReason: fvgNoSendReason,
+      lastErrorTag: "commitment_change_handoff_final_voice_suppressed",
+      sideEffectsSummary: preSendSideEffects,
+      lastErrorPayload: finalVoiceSkipLastError(voicePack.voice, {
         ...baseTelemetry(),
         v3_lane_reply_source: "v3_inbound_relationship_lane",
         v3_candidate_body: lane.body.slice(0, 500),
@@ -1788,15 +1943,112 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
         final_voice_gate: voicePack.voice.metadata,
         should_send: false,
       }),
-      nextRetry: farFutureIso(),
     });
-    console.warn("[sms-inbound-coach] commitment_change_handoff_final_voice_suppressed", {
-      message_sid: args.job.message_sid,
-    });
-    return { ok: false };
   }
 
-  const gatedBody = voicePack.voice.body;
+  const recentEvents = await getRecentV2EventsForAi(args.commitment.id);
+  const memoryPacket = facts.thread.memory_packet ?? {};
+  const outcomeClaimEvidence = buildInboundOutcomeClaimEvidence({
+    userMessage: args.inboundRaw,
+    commitment: args.commitment,
+    effectiveBehavior: getEffectiveCoachingAsk(args.commitment, Date.now()),
+    recentEvents,
+    memoryPacket,
+    lastOutboundSmsPreview: contextPacket.latestOutboundBody ?? null,
+    latestOpenQuestion: contextPacket.latestOpenQuestion ?? null,
+    finalEventType: contextPacket.finalEventType ?? null,
+  });
+  const priorCoach = resolvePriorCoachContextFromMemoryPacket({
+    memoryPacket,
+    fallbackPriorBody: contextPacket.latestOutboundBody ?? null,
+  });
+
+  const unifiedGuard = await applyUnifiedSmsFinalProductLawGuard({
+    mode: "transactional_coaching_limited",
+    surface: "inbound",
+    routePurpose: "commitment_change_handoff",
+    branchName: "commitment_change_handoff",
+    preGuardBodyPreview: voicePack.voice.body,
+    transactionalCoachingLimited: {
+      body: voicePack.voice.body,
+      evidence: outcomeClaimEvidence,
+      priorCoachBody: priorCoach.priorCoachBody,
+      priorCoachSentAt: priorCoach.priorCoachSentAt,
+      inboundRaw: args.inboundRaw,
+      routePurpose: "commitment_change_handoff",
+      nearDuplicateStage: "commitment_change_handoff_near_duplicate",
+      ocegStage: "commitment_change_handoff_oceg",
+    },
+  });
+
+  const postRecheck = evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck({
+    body: unifiedGuard.body,
+    commitmentChangeFacts: args.commitmentChangeFacts,
+    requiredVerbatimSubstrings: facts.constraints.required_verbatim_substrings ?? null,
+  });
+
+  const guardTelemetry = {
+    ...compactUnifiedFinalGuardForTelemetry(unifiedGuard),
+    unified_final_product_law_guard_applied: true,
+    ...(postRecheck.verbatimMissing?.length
+      ? { required_verbatim_missing: postRecheck.verbatimMissing }
+      : {}),
+    ...(postRecheck.handoffTruthViolations.length
+      ? { handoff_truth_violations: postRecheck.handoffTruthViolations }
+      : {}),
+  };
+
+  if (!unifiedGuard.shouldSend) {
+    const noSendReason = unifiedGuard.noSendReason ?? "unified_final_product_law_guard_no_send";
+    return cancelCommitmentHandoffNoSend({
+      job: args.job,
+      commitmentId: args.commitment.id,
+      policy: handoffTruthPolicy,
+      noSendStage: "unified_final_guard",
+      noSendReason,
+      lastErrorTag: "commitment_change_handoff_unified_guard_no_send",
+      sideEffectsSummary: preSendSideEffects,
+      guardTelemetry,
+      lastErrorPayload: {
+        ...baseTelemetry(),
+        ...handoffNoSendTelemetryBase({
+          noSendReason,
+          noSendStage: "unified_final_guard",
+          guardTelemetry,
+          sideEffectsSummary: preSendSideEffects,
+        }),
+      },
+    });
+  }
+
+  if (postRecheck.blocked) {
+    const noSendReason =
+      postRecheck.noSendReason ?? "commitment_handoff_post_unified_truth_recheck_failed";
+    return cancelCommitmentHandoffNoSend({
+      job: args.job,
+      commitmentId: args.commitment.id,
+      policy: handoffTruthPolicy,
+      noSendStage: "post_unified_truth_recheck",
+      noSendReason,
+      lastErrorTag: "commitment_change_handoff_post_unified_truth_no_send",
+      sideEffectsSummary: preSendSideEffects,
+      requiredVerbatimMissing: postRecheck.verbatimMissing,
+      handoffTruthViolation: postRecheck.handoffTruthViolations[0] ?? null,
+      guardTelemetry,
+      lastErrorPayload: {
+        ...baseTelemetry(),
+        ...handoffNoSendTelemetryBase({
+          noSendReason,
+          noSendStage: "post_unified_truth_recheck",
+          guardTelemetry,
+          handoffTruthRecheckFailed: true,
+          sideEffectsSummary: preSendSideEffects,
+        }),
+      },
+    });
+  }
+
+  const gatedBody = unifiedGuard.body;
   const handoffSmsState = deriveCommitmentChangeHandoffSmsStateFromFacts({
     pendingResolutionCreated: args.commitmentChangeFacts.pending_resolution_created,
     serverStateTransitionSummary: args.commitmentChangeFacts.server_state_transition_summary,
@@ -1842,6 +2094,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
         args.userId,
         commitmentChangeHandoffThreadMemoryCtx
       );
+      await recordV2SendTimeProfileInboundEngagement(args.userId, args.timezone, new Date());
       return { ok: true, sentBody: j2.reply_body.trim() };
     }
     throw new Error("commitment_change_handoff_reply_ready_persist_failed");
@@ -1853,6 +2106,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
     args.userId,
     commitmentChangeHandoffThreadMemoryCtx
   );
+  await recordV2SendTimeProfileInboundEngagement(args.userId, args.timezone, new Date());
   console.info("[sms-inbound-coach] commitment_change_handoff_lane_sent", {
     message_sid: args.job.message_sid,
     commitment_id: args.commitment.id,
@@ -1870,6 +2124,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
       ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
     },
     final_voice_gate: voicePack.voice.metadata,
+    unified_final_product_law_guard: guardTelemetry,
   });
   return { ok: true, sentBody: gatedBody };
 }

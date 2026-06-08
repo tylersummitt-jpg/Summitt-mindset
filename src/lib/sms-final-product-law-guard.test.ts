@@ -455,12 +455,8 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
   });
 
-  it("15: contract + adaptive clarify wired via dedicated pipelines; pending uses opt-in helper guard", () => {
-    const forbiddenDirectPurposes = [
-      "pending_resolution_inbound",
-      "commitment_change_handoff",
-      "refresh_session_inbound",
-    ];
+  it("15: contract + adaptive + handoff wired via dedicated pipelines; pending uses opt-in helper guard", () => {
+    const forbiddenDirectPurposes = ["pending_resolution_inbound", "refresh_session_inbound"];
     for (const purpose of forbiddenDirectPurposes) {
       const idx = src.indexOf(`routePurpose: "${purpose}"`);
       if (idx >= 0) {
@@ -485,6 +481,17 @@ describe("PR 2.1b route wiring invariants", () => {
     );
     expect(adaptiveBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(adaptiveBlock).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
+
+    const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+    expect(handoffIdx).toBeGreaterThan(0);
+    const handoffBlock = src.slice(
+      handoffIdx,
+      src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound")
+    );
+    expect(handoffBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(handoffBlock).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
+    expect(handoffBlock).toContain("cancelCommitmentHandoffNoSend");
+    expect(src).toContain("persistCommitmentHandoffTruthOnNoSend");
 
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
     const refreshBlock = src.slice(refreshIdx, refreshIdx + 4000);

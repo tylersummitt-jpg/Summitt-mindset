@@ -140,10 +140,12 @@ describe("Phase 2.1d-A2 adaptive clarify — route wiring", () => {
     expect(memoryBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
   });
 
-  it("22: handoff untouched", () => {
+  it("22: handoff wired separately (Phase 2.1e)", () => {
     const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    const handoffBlock = src.slice(handoffStart, handoffStart + 5000);
-    expect(handoffBlock).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
+    const handoffBlock = src.slice(handoffStart, handoffEnd);
+    expect(handoffBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(handoffBlock).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
     expect(handoffBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
   });
 });

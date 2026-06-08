@@ -154,7 +154,11 @@ describe("sms-inbound-coach route — Phase 3F-4 commitment_change_handoff (stat
     expect(body).not.toContain("produceV3InboundCoachDraft");
     expect(body).toContain("buildCommitmentChangeHandoffThreadMemoryContext");
     expect(body).toContain("commitAndSendInboundRelationshipCoachReply");
-    expect(body).toContain("const gatedBody = voicePack.voice.body");
+    expect(body).toContain("const gatedBody = unifiedGuard.body");
+    expect(body).toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(body).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
+    expect(route).toContain("persistCommitmentHandoffTruthOnNoSend");
+    expect(body).toContain("cancelCommitmentHandoffNoSend");
     expect(body).not.toContain("legacy_commitment_change_reply_preview");
     expect(body).not.toContain('expectedAnswerType: "proposal_yes_no"');
   });
