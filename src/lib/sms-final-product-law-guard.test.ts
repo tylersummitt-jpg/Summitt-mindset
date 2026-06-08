@@ -349,7 +349,7 @@ describe("applyUnifiedSmsFinalProductLawGuard", () => {
     expect(truthGuardMock).not.toHaveBeenCalled();
   });
 
-  it("8: outbound_weekly still throws; outbound_daily requires C1 args", async () => {
+  it("8: outbound_weekly requires weekly args; outbound_daily requires C1 args", async () => {
     await expect(
       applyUnifiedSmsFinalProductLawGuard({
         mode: "outbound_daily",
@@ -364,7 +364,7 @@ describe("applyUnifiedSmsFinalProductLawGuard", () => {
         surface: "weekly",
         candidateBody: "test",
       })
-    ).rejects.toThrow(/not activated in PR 2.1b/);
+    ).rejects.toThrow(/outboundWeekly args required/);
   });
 
   it("transactional OCEG no-send preserves unsupported_accountability_claim reason", async () => {
@@ -446,14 +446,15 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(helperBlock).toMatch(/unifiedFinalGuard\?: InboundLaneUnifiedFinalGuardConfig/);
   });
 
-  it("14: daily C1 wired; weekly still not wired", () => {
+  it("14: daily C1 wired; weekly wired to outbound_weekly", () => {
     expect(src).not.toContain('surface: "daily"');
     expect(src).not.toContain('surface: "weekly"');
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
     const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
     expect(dailySrc).toContain('mode: "outbound_daily"');
     expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
-    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(weeklySrc).toContain('mode: "outbound_weekly"');
+    expect(weeklySrc).toContain("buildWeeklyOutboundUnifiedGuardCtx");
   });
 
   it("15: contract + adaptive + handoff wired via dedicated pipelines; pending uses opt-in helper guard", () => {

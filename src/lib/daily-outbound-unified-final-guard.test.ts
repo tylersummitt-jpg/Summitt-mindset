@@ -465,9 +465,10 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     expect(dailySrc).toContain("refreshGuardFacts");
   });
 
-  it("16: weekly route untouched", () => {
-    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
-    expect(weeklySrc).not.toContain("outbound_daily");
+  it("16: weekly route wired to outbound_weekly only (daily C1 scope unchanged)", () => {
+    expect(weeklySrc).toContain('mode: "outbound_weekly"');
+    expect(weeklySrc).not.toContain('mode: "outbound_daily"');
+    expect(weeklySrc).not.toContain("isOutboundDailyWiredRoutePurpose");
   });
 
   it("17: inbound route untouched by C1", () => {

@@ -91,22 +91,23 @@ describe("weekly-sms V2 branch — durable thread memory projection wire", () =>
     expect(src).toContain('source: "weekly_sms"');
   });
 
-  it("calls projection helper after sendSMS with voiceWeeklyV2.body (not finalBodyV2)", () => {
+  it("calls projection helper after sendSMS with guardedWeeklyBody (not finalBodyV2)", () => {
     const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
     const v2 = v2WeeklySlice(src);
     const sendIdx = v2.indexOf("await sendSMS(");
     const memIdx = v2.indexOf("writeV2SmsThreadMemoryAfterWeeklyV3Outbound");
     expect(sendIdx).toBeGreaterThanOrEqual(0);
     expect(memIdx).toBeGreaterThan(sendIdx);
-    expect(v2).toMatch(/coachBodyForMemory:\s*voiceWeeklyV2\.body/);
+    expect(v2).toMatch(/coachBodyForMemory:\s*guardedWeeklyBody/);
     expect(v2).not.toMatch(/coachBodyForMemory:\s*finalBodyV2/);
   });
 
-  it("still appends compliance footer to finalBodyV2 for Twilio send", () => {
+  it("still appends compliance footer to finalBodyV2 for Twilio send after unified guard", () => {
     const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
     const v2 = v2WeeklySlice(src);
-    expect(v2).toContain("appendPreservedSmsSuffix(voiceWeeklyV2.body, WEEKLY_SMS_COMPLIANCE_FOOTER)");
+    expect(v2).toContain("appendPreservedSmsSuffix(guardedWeeklyBody, WEEKLY_SMS_COMPLIANCE_FOOTER)");
     expect(v2).toMatch(/body:\s*finalBodyV2/);
+    expect(v2).toContain('mode: "outbound_weekly"');
   });
 
   it("records thread memory projection metadata on successful send update", () => {

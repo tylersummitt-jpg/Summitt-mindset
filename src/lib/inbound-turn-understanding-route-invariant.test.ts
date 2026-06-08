@@ -96,14 +96,15 @@ describe("inbound turn understanding route invariants", () => {
     expect(src).not.toContain("applyRapidNearDuplicateCoachReplyGuard");
   });
 
-  it("M: daily C1 wired; weekly route still not wired to unified guard", () => {
+  it("M: daily C1 wired; weekly route wired to outbound_weekly", () => {
     expect(src).not.toContain('surface: "daily"');
     expect(src).not.toContain('surface: "weekly"');
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
     const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
     expect(dailySrc).toContain('mode: "outbound_daily"');
     expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
-    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(weeklySrc).toContain('mode: "outbound_weekly"');
+    expect(weeklySrc).not.toContain('mode: "outbound_daily"');
   });
 
   it("conversation brain control defers when TU is authoritative", () => {
@@ -616,10 +617,10 @@ describe("Phase 2.1g-B2.1 duplicate reply_ready engagement micro-gaps", () => {
     expect(src.slice(handoffIdx, handoffEnd)).toContain("recordV2SendTimeProfileInboundEngagement");
   });
 
-  it("9: daily/weekly inbound engagement untouched; weekly unified guard untouched", () => {
+  it("9: daily/weekly inbound engagement untouched; weekly uses outbound_weekly guard", () => {
     expect(dailySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
     expect(weeklySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
-    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(weeklySrc).toContain('mode: "outbound_weekly"');
   });
 
   it("10: no Twilio/send mechanics changes in B2.1 scope", () => {

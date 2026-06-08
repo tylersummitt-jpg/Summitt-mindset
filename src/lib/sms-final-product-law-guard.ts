@@ -29,6 +29,14 @@ import {
 } from "@/lib/daily-outbound-final-guard-evidence";
 import { evaluatePostUnifiedGuardDailyContractProposalTruthRecheck } from "@/lib/daily-outbound-contract-proposal-truth";
 import { evaluatePostUnifiedGuardDailyPendingRefreshTruthRecheck } from "@/lib/daily-outbound-pending-refresh-truth";
+import {
+  detectWeeklyOutboundUnsupportedProofClaim,
+  isOutboundWeeklyWiredRoutePurpose,
+  OUTBOUND_WEEKLY_INTERNAL_LABEL_NO_SEND,
+  OUTBOUND_WEEKLY_UNSUPPORTED_PROOF_NO_SEND,
+  type WeeklyOutboundUnifiedGuardCtx,
+} from "@/lib/weekly-outbound-final-guard-evidence";
+import { evaluatePostUnifiedGuardWeeklyProofTruthRecheck } from "@/lib/weekly-outbound-proof-truth";
 import { userVisibleInternalLabelBlockedReasons } from "@/lib/user-visible-internal-label-guard";
 
 export const SMS_FINAL_PRODUCT_LAW_GUARD_VERSION = "sms_final_product_law_v1" as const;
@@ -84,12 +92,26 @@ export type OutboundDailyGuardArgs = {
   nowMs?: number;
 };
 
+export type OutboundWeeklyGuardArgs = {
+  body: string;
+  evidence: OutcomeClaimEvidenceBundle;
+  weeklyGuardCtx: WeeklyOutboundUnifiedGuardCtx;
+  priorCoachBody?: string | null;
+  priorCoachSentAt?: string | null;
+  routePurpose: string;
+  factsJson?: Record<string, unknown> | null;
+  nearDuplicateStage?: string;
+  ocegStage?: string;
+  nowMs?: number;
+};
+
 export type UnifiedFinalGuardArgs = {
   mode: SmsFinalGuardMode;
   surface: SmsFinalGuardSurface;
   normalCoachingFull?: NormalCoachingFullGuardArgs;
   transactionalCoachingLimited?: TransactionalCoachingLimitedGuardArgs;
   outboundDaily?: OutboundDailyGuardArgs;
+  outboundWeekly?: OutboundWeeklyGuardArgs;
   /** Body entering unified guard (for telemetry previews). */
   preGuardBodyPreview?: string | null;
   routePurpose?: string | null;
@@ -170,6 +192,15 @@ export const OUTBOUND_DAILY_C3_CHECKS_SKIPPED: UnifiedFinalGuardSkippedCheck[] =
   { check: "premature_adjustment", reason: "daily_server_strategy" },
   { check: "daily_stale_ask", reason: "pre_unified_daily_stale_guards" },
   { check: "contract_truth_recheck", reason: "c2_only" },
+];
+
+export const OUTBOUND_WEEKLY_CHECKS_SKIPPED: UnifiedFinalGuardSkippedCheck[] = [
+  { check: "turn_understanding_stale_ask", reason: "inbound_only" },
+  { check: "premature_adjustment", reason: "weekly_server_strategy" },
+  { check: "daily_stale_ask", reason: "daily_only" },
+  { check: "contract_truth_recheck", reason: "daily_c2_only" },
+  { check: "pending_refresh_truth_recheck", reason: "daily_c3_only" },
+  { check: "strategy_card_validation", reason: "deferred" },
 ];
 
 export function outboundDailyChecksSkipped(
@@ -577,6 +608,286 @@ function mapOutboundDailyToUnified(args: {
   };
 }
 
+function mapOutboundWeeklyToUnified(args: {
+  unifiedArgs: UnifiedFinalGuardArgs;
+  preBody: string;
+  body: string;
+  shouldSend: boolean;
+  noSendReason: string | null;
+  checksRun: string[];
+  checksSkipped: UnifiedFinalGuardSkippedCheck[];
+  delegatedTo: string;
+  truthGuard: InboundFinalBodyTruthGuardResult | null;
+  nearDuplicateGuard: RapidNearDuplicateCoachReplyGuardResult | null;
+  nearDuplicatePostOcegRecheck: RapidNearDuplicateCoachReplyGuardResult | null;
+  productLawFailures?: string[] | null;
+}): UnifiedFinalGuardResult {
+  const repairAttempts = countRepairAttemptsFromMetas([
+    args.nearDuplicateGuard?.metadata,
+    args.truthGuard?.metadata,
+    args.nearDuplicatePostOcegRecheck?.metadata,
+  ]);
+  const metadata = buildWrapperMetadata({
+    unifiedArgs: args.unifiedArgs,
+    preBody: args.preBody,
+    postBody: args.body,
+    checksRun: args.checksRun,
+    delegatedTo: args.delegatedTo,
+    shouldSend: args.shouldSend,
+  });
+
+  return {
+    should_send: args.shouldSend,
+    shouldSend: args.shouldSend,
+    body: args.body,
+    no_send_reason: args.noSendReason,
+    noSendReason: args.noSendReason,
+    final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+    guard_version: SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
+    guard_mode: "outbound_weekly",
+    checks_run: args.checksRun,
+    checks_skipped: args.checksSkipped,
+    guard_results: {
+      inbound_coach_final_body_guards: null,
+      transactional_coaching_limited: null,
+    },
+    repair_attempts: repairAttempts,
+    repair_succeeded: anyRepairSucceededFromMetas([
+      args.nearDuplicateGuard?.metadata,
+      args.truthGuard?.metadata,
+      args.nearDuplicatePostOcegRecheck?.metadata,
+    ]),
+    metadata: {
+      ...metadata,
+      unified_final_guard_checks_skipped: args.checksSkipped,
+      ...(args.productLawFailures?.length ? { product_law_failures: args.productLawFailures } : {}),
+      visible_sent: args.shouldSend ? true : false,
+      sent_body_equals_guard_body: null,
+      sent_body_equals_guard_body_pre_footer: args.shouldSend && args.body.trim().length > 0,
+      compliance_footer_appended_after_guard: false,
+      weekly_route_kind: args.unifiedArgs.routePurpose ?? "weekly_proof_v2",
+      weekly_guard_mode: "outbound_weekly",
+    },
+    tuGuard: passThroughTuGuard(args.body),
+    prematureAdjustmentGuard: null,
+    truthGuard: args.truthGuard,
+    nearDuplicateGuard: args.nearDuplicatePostOcegRecheck ?? args.nearDuplicateGuard,
+  };
+}
+
+async function applyOutboundWeeklyGuard(
+  args: OutboundWeeklyGuardArgs
+): Promise<UnifiedFinalGuardResult> {
+  const checksRun: string[] = [];
+  const preBody = args.body.trim();
+  const routePurpose = args.routePurpose;
+  const checksSkipped = OUTBOUND_WEEKLY_CHECKS_SKIPPED;
+  const delegatedTo = "outbound_weekly_proof_v2";
+
+  const nearDuplicateGuard = await applyRapidNearDuplicateCoachReplyGuard({
+    body: preBody,
+    priorCoachBody: args.priorCoachBody,
+    priorCoachSentAt: args.priorCoachSentAt,
+    inboundRaw: null,
+    routePurpose,
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: null,
+    stage: args.nearDuplicateStage ?? "outbound_weekly_near_duplicate",
+    nowMs: args.nowMs,
+  });
+  checksRun.push("near_duplicate");
+
+  if (!nearDuplicateGuard.shouldSend) {
+    return mapOutboundWeeklyToUnified({
+      unifiedArgs: {
+        mode: "outbound_weekly",
+        surface: "weekly",
+        routePurpose,
+      },
+      preBody,
+      body: nearDuplicateGuard.body,
+      shouldSend: false,
+      noSendReason: nearDuplicateGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+      checksRun,
+      checksSkipped,
+      delegatedTo,
+      truthGuard: null,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck: null,
+      productLawFailures: [nearDuplicateGuard.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND],
+    });
+  }
+
+  let body = nearDuplicateGuard.body;
+  const bodyBeforeOceg = body;
+
+  const truthGuard = await applyInboundFinalBodyTruthGuard({
+    body,
+    evidence: args.evidence,
+    stage: args.ocegStage ?? "outbound_weekly_oceg",
+    routePurpose,
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: null,
+  });
+  checksRun.push("unsupported_claim_oceg");
+
+  if (!truthGuard.shouldSend) {
+    return mapOutboundWeeklyToUnified({
+      unifiedArgs: {
+        mode: "outbound_weekly",
+        surface: "weekly",
+        routePurpose,
+      },
+      preBody,
+      body: truthGuard.body,
+      shouldSend: false,
+      noSendReason: truthGuard.noSendReason ?? UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
+      checksRun,
+      checksSkipped,
+      delegatedTo,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck: null,
+      productLawFailures: [truthGuard.noSendReason ?? UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND],
+    });
+  }
+
+  body = truthGuard.body;
+
+  let nearDuplicatePostOcegRecheck: RapidNearDuplicateCoachReplyGuardResult | null = null;
+  if (body.trim() !== bodyBeforeOceg.trim()) {
+    nearDuplicatePostOcegRecheck = await applyRapidNearDuplicateCoachReplyGuard({
+      body,
+      priorCoachBody: args.priorCoachBody,
+      priorCoachSentAt: args.priorCoachSentAt,
+      inboundRaw: null,
+      routePurpose,
+      factsJson: args.factsJson ?? null,
+      repairSnapshot: null,
+      stage: "outbound_weekly_near_duplicate_post_oceg_recheck",
+      nowMs: args.nowMs,
+    });
+    checksRun.push("near_duplicate_post_oceg_recheck");
+
+    if (!nearDuplicatePostOcegRecheck.shouldSend) {
+      return mapOutboundWeeklyToUnified({
+        unifiedArgs: {
+          mode: "outbound_weekly",
+          surface: "weekly",
+          routePurpose,
+        },
+        preBody,
+        body: nearDuplicatePostOcegRecheck.body,
+        shouldSend: false,
+        noSendReason:
+          nearDuplicatePostOcegRecheck.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+        checksRun,
+        checksSkipped,
+        delegatedTo,
+        truthGuard,
+        nearDuplicateGuard,
+        nearDuplicatePostOcegRecheck,
+        productLawFailures: [
+          nearDuplicatePostOcegRecheck.noSendReason ?? RAPID_NEAR_DUPLICATE_REPLY_NO_SEND,
+        ],
+      });
+    }
+    body = nearDuplicatePostOcegRecheck.body;
+  }
+
+  const proofViolation = detectWeeklyOutboundUnsupportedProofClaim(body, args.weeklyGuardCtx);
+  checksRun.push("unsupported_proof_victory");
+  if (proofViolation) {
+    return mapOutboundWeeklyToUnified({
+      unifiedArgs: {
+        mode: "outbound_weekly",
+        surface: "weekly",
+        routePurpose,
+      },
+      preBody,
+      body: "",
+      shouldSend: false,
+      noSendReason: OUTBOUND_WEEKLY_UNSUPPORTED_PROOF_NO_SEND,
+      checksRun,
+      checksSkipped,
+      delegatedTo,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck,
+      productLawFailures: [proofViolation.violation],
+    });
+  }
+
+  const internalLabels = userVisibleInternalLabelBlockedReasons(body);
+  checksRun.push("internal_label_detect");
+  if (internalLabels.length > 0) {
+    return mapOutboundWeeklyToUnified({
+      unifiedArgs: {
+        mode: "outbound_weekly",
+        surface: "weekly",
+        routePurpose,
+      },
+      preBody,
+      body: "",
+      shouldSend: false,
+      noSendReason: OUTBOUND_WEEKLY_INTERNAL_LABEL_NO_SEND,
+      checksRun,
+      checksSkipped,
+      delegatedTo,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck,
+      productLawFailures: internalLabels,
+    });
+  }
+
+  const weeklyTruthRecheck = evaluatePostUnifiedGuardWeeklyProofTruthRecheck({
+    body,
+    weeklyProof: args.weeklyGuardCtx.weeklyProof,
+    hasProofOrKnownOutcome: args.weeklyGuardCtx.hasProofOrKnownOutcome,
+    effectiveAsk: args.weeklyGuardCtx.effectiveAsk,
+  });
+  checksRun.push("weekly_proof_truth_recheck");
+  if (weeklyTruthRecheck.blocked) {
+    return mapOutboundWeeklyToUnified({
+      unifiedArgs: {
+        mode: "outbound_weekly",
+        surface: "weekly",
+        routePurpose,
+      },
+      preBody,
+      body: "",
+      shouldSend: false,
+      noSendReason: weeklyTruthRecheck.noSendReason,
+      checksRun,
+      checksSkipped,
+      delegatedTo,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck,
+      productLawFailures: weeklyTruthRecheck.violations,
+    });
+  }
+
+  return mapOutboundWeeklyToUnified({
+    unifiedArgs: {
+      mode: "outbound_weekly",
+      surface: "weekly",
+      routePurpose,
+    },
+    preBody,
+    body,
+    shouldSend: true,
+    noSendReason: null,
+    checksRun,
+    checksSkipped,
+    delegatedTo,
+    truthGuard,
+    nearDuplicateGuard,
+    nearDuplicatePostOcegRecheck,
+  });
+}
+
 async function applyOutboundDailyC1Guard(
   args: OutboundDailyGuardArgs
 ): Promise<UnifiedFinalGuardResult> {
@@ -914,9 +1225,33 @@ export async function applyUnifiedSmsFinalProductLawGuard(
   }
 
   if (args.mode === "outbound_weekly") {
-    throw new Error(
-      `sms_final_product_law_guard: mode "${args.mode}" is not activated in PR 2.1b`
-    );
+    if (!args.outboundWeekly) {
+      throw new Error(
+        "sms_final_product_law_guard: outboundWeekly args required for outbound_weekly mode"
+      );
+    }
+    const routePurpose = args.routePurpose ?? args.outboundWeekly.routePurpose;
+    if (!isOutboundWeeklyWiredRoutePurpose(routePurpose)) {
+      throw new Error(
+        `sms_final_product_law_guard: outbound_weekly not activated for route "${routePurpose ?? "unknown"}"`
+      );
+    }
+    const preBody = (args.preGuardBodyPreview ?? args.outboundWeekly.body).trim();
+    const result = await applyOutboundWeeklyGuard({
+      ...args.outboundWeekly,
+      body: args.outboundWeekly.body.trim(),
+      routePurpose,
+    });
+    return {
+      ...result,
+      metadata: {
+        ...result.metadata,
+        pre_unified_guard_body_preview: preBody.slice(0, 120),
+        post_unified_guard_body_preview: result.body.slice(0, 120),
+        unified_final_guard_branch_name: args.branchName ?? routePurpose,
+        unified_final_guard_route_purpose: routePurpose,
+      },
+    };
   }
 
   if (args.mode === "outbound_daily") {

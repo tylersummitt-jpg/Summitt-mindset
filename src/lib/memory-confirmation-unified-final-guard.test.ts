@@ -525,7 +525,7 @@ describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", (
     expect(src).toContain("blocker_ack_no_send_truth_persisted: true");
   });
 
-  it("19: weekly unified guard untouched; daily C1 only", () => {
+  it("19: weekly wired to outbound_weekly; daily C1 only for outbound_daily", () => {
     const dailySrc = fs.readFileSync(
       path.join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
@@ -535,7 +535,8 @@ describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", (
       "utf8"
     );
     expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
-    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(weeklySrc).toContain('mode: "outbound_weekly"');
+    expect(weeklySrc).not.toContain('mode: "outbound_daily"');
   });
 
   it("20: no Twilio/send changes in memory block", () => {

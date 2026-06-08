@@ -27,6 +27,15 @@ import { buildWeeklySmsNorthStarContextPacket } from "@/lib/north-star-sms-conte
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { appendPreservedSmsSuffix, applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import {
+  applyUnifiedSmsFinalProductLawGuard,
+  compactUnifiedFinalGuardForTelemetry,
+  UNIFIED_FINAL_BODY_AUTHORITY,
+} from "@/lib/sms-final-product-law-guard";
+import {
+  buildWeeklyOutboundOcegEvidence,
+  buildWeeklyOutboundUnifiedGuardCtx,
+} from "@/lib/weekly-outbound-final-guard-evidence";
+import {
   buildSmsRelationshipMemoryPacket,
   slimMemoryPacketForFacts,
 } from "@/lib/sms-relationship-memory-packet";
@@ -463,8 +472,10 @@ export async function GET(req: Request) {
                 no_send_reason: voiceWeeklyV2.skipReason ?? null,
                 voice_decision: "skipped_no_safe_v3_voice",
                 twilio_send_attempted: false,
+                visible_sent: false,
                 compliance_suffix_preserved: false,
                 compliance_footer_appended_after_fvg: false,
+                compliance_footer_appended: false,
                 fvg_policy_classification: "relationship_coaching",
                 normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
                 north_star_gate: {
@@ -493,13 +504,108 @@ export async function GET(req: Request) {
           continue;
         }
 
-        const finalBodyV2 = appendPreservedSmsSuffix(voiceWeeklyV2.body, WEEKLY_SMS_COMPLIANCE_FOOTER);
+        const weeklyUnifiedGuardCtx = buildWeeklyOutboundUnifiedGuardCtx({
+          routeKind: "weekly_proof_v2",
+          clerkUserId: user.id,
+          commitmentId: commitment.id,
+          pack,
+          priorCoachBody: convForNorthStar?.lastOutboundPreview ?? null,
+          priorCoachSentAt: null,
+          effectiveAsk: getEffectiveCoachingAsk(commitment, Date.now()),
+          identityAnchor: pack.identity_anchor_short,
+          roughWeek: weeklyFacts.weekly_proof.rough_week,
+        });
+        const weeklyOcegEvidence = buildWeeklyOutboundOcegEvidence(weeklyUnifiedGuardCtx);
+        const unifiedGuard = await applyUnifiedSmsFinalProductLawGuard({
+          mode: "outbound_weekly",
+          surface: "weekly",
+          routePurpose: "weekly_proof_v2",
+          branchName: "weekly_proof_v2",
+          preGuardBodyPreview: voiceWeeklyV2.body,
+          outboundWeekly: {
+            body: voiceWeeklyV2.body,
+            evidence: weeklyOcegEvidence,
+            weeklyGuardCtx: weeklyUnifiedGuardCtx,
+            priorCoachBody: weeklyUnifiedGuardCtx.priorCoachBody,
+            priorCoachSentAt: null,
+            routePurpose: "weekly_proof_v2",
+          },
+        });
+        const unifiedGuardTelemetry = compactUnifiedFinalGuardForTelemetry(unifiedGuard);
+
+        if (!unifiedGuard.shouldSend) {
+          await supabaseServer
+            .from("sms_weekly_send_events")
+            .update({
+              status: "skipped_no_safe_v3_voice",
+              metadata: {
+                ...packTelemetryBase,
+                ...weeklyV3MetaBase,
+                no_send_tag: "unified_final_guard_no_send",
+                no_send_reason: unifiedGuard.noSendReason,
+                voice_decision: "skipped_no_safe_v3_voice",
+                visible_sent: false,
+                twilio_send_attempted: false,
+                skip_source: "unified_final_guard_no_send",
+                final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+                unified_final_guard_mode: "outbound_weekly",
+                weekly_route_kind: "weekly_proof_v2",
+                weekly_guard_mode: "outbound_weekly",
+                weekly_proof_counts: {
+                  completed_count: pack.yes_count,
+                  missed_count: pack.no_count,
+                  partial_count: pack.partial_count,
+                  silent_week: pack.silent_week,
+                },
+                proof_state_written_before_sms: false,
+                compliance_suffix_preserved: false,
+                compliance_footer_appended_after_fvg: false,
+                compliance_footer_appended: false,
+                fvg_policy_classification: "relationship_coaching",
+                normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
+                north_star_gate: {
+                  original_body: gatedWeeklyV2.meta.originalBody,
+                  final_body: "",
+                  north_star_gate_source: gatedWeeklyV2.meta.source,
+                  north_star_gate_reasons: gatedWeeklyV2.meta.blockedReasons,
+                  openai_attempted: gatedWeeklyV2.meta.openaiAttempted,
+                  openai_failed_reason: gatedWeeklyV2.meta.openaiFailedReason ?? null,
+                  context_packet_used: gatedWeeklyV2.meta.contextPacketUsed,
+                  finalizer_version: gatedWeeklyV2.meta.finalizerVersion,
+                  ...pickNorthStarWriterAttributionFields(gatedWeeklyV2.meta),
+                },
+                final_voice_gate: voiceWeeklyV2.metadata,
+                unified_final_product_law_guard: unifiedGuardTelemetry,
+                voice_send_decision: {
+                  should_send: false,
+                  skip_reason: unifiedGuard.noSendReason,
+                  blocked_reasons: voiceWeeklyV2.blockedReasons,
+                  twilio_send_attempted: false,
+                },
+              },
+            })
+            .eq("clerk_user_id", user.id)
+            .eq("week_key", weekKeyV2);
+          stats.skippedNoSafeV3Voice += 1;
+          continue;
+        }
+
+        const guardedWeeklyBody = unifiedGuard.body;
+        const finalBodyV2 = appendPreservedSmsSuffix(guardedWeeklyBody, WEEKLY_SMS_COMPLIANCE_FOOTER);
 
         const v2Metadata = {
           ...packTelemetryBase,
           ...weeklyV3MetaBase,
           no_send_tag: null,
           no_send_reason: null,
+          visible_sent: true,
+          final_body_authority: UNIFIED_FINAL_BODY_AUTHORITY,
+          unified_final_guard_mode: "outbound_weekly",
+          weekly_route_kind: "weekly_proof_v2",
+          weekly_guard_mode: "outbound_weekly",
+          proof_state_written_before_sms: false,
+          sent_body_equals_guard_body_pre_footer: true,
+          sent_body_equals_guard_body: false,
           north_star_gate: {
             original_body: gatedWeeklyV2.meta.originalBody,
             final_body: finalBodyV2,
@@ -512,6 +618,10 @@ export async function GET(req: Request) {
             ...pickNorthStarWriterAttributionFields(gatedWeeklyV2.meta),
           },
           final_voice_gate: voiceWeeklyV2.metadata,
+          unified_final_product_law_guard: {
+            ...unifiedGuardTelemetry,
+            compliance_footer_appended_after_guard: true,
+          },
           voice_send_decision: {
             should_send: true,
             skip_reason: null,
@@ -520,6 +630,7 @@ export async function GET(req: Request) {
           },
           compliance_suffix_preserved: true,
           compliance_footer_appended_after_fvg: true,
+          compliance_footer_appended_after_guard: true,
           fvg_policy_classification: "relationship_coaching",
           normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
         };
@@ -552,7 +663,7 @@ export async function GET(req: Request) {
           const mem = await writeV2SmsThreadMemoryAfterWeeklyV3Outbound({
             commitmentId: commitment.id,
             clerkUserId: user.id,
-            coachBodyForMemory: voiceWeeklyV2.body,
+            coachBodyForMemory: guardedWeeklyBody,
             messageSid: messageV2.sid,
             sentAt: new Date(),
           });
