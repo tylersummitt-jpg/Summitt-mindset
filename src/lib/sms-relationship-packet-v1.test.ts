@@ -1078,6 +1078,37 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
     expect(obs.lane_stage).toBe("post_validate_repaired");
   });
 
+  it("includes open-loop snapshot telemetry counts and sources without question bodies", () => {
+    const { meta, snapshotV2Meta } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: minimalInboundFacts({
+        thread: {
+          ...minimalInboundFacts().thread,
+          memory_packet: {
+            ...minimalInboundFacts().thread.memory_packet!,
+            open_question_pending: true,
+            latest_open_question: "Did you protect focus today?",
+          },
+        },
+      }),
+    });
+    expect(snapshotV2Meta.open_loop_count).toBeDefined();
+    expect(snapshotV2Meta.satisfied_ask_count).toBeDefined();
+    expect(snapshotV2Meta.do_not_repeat_ask_count).toBeDefined();
+    expect(snapshotV2Meta.recent_unanswered_question_count).toBeDefined();
+    expect(Array.isArray(snapshotV2Meta.open_loops_sources)).toBe(true);
+
+    const laneMeta = relationshipPacketMetaForLaneTelemetry(meta, snapshotV2Meta);
+    const obs = relationshipObservabilityFromLaneMetadata(laneMeta);
+    expect(obs.open_loop_count).toBe(snapshotV2Meta.open_loop_count);
+    expect(obs.satisfied_ask_count).toBe(snapshotV2Meta.satisfied_ask_count);
+    expect(obs.do_not_repeat_ask_count).toBe(snapshotV2Meta.do_not_repeat_ask_count);
+    expect(obs.recent_unanswered_question_count).toBe(snapshotV2Meta.recent_unanswered_question_count);
+    expect(obs.open_loops_sources).toEqual(snapshotV2Meta.open_loops_sources);
+    expect(obs.open_loops_truncated).toBe(snapshotV2Meta.open_loops_truncated);
+    expect(JSON.stringify(obs)).not.toMatch(/Did you protect focus today/i);
+  });
+
   it("returns empty object for null/undefined metadata", () => {
     expect(relationshipObservabilityFromLaneMetadata(null)).toEqual({});
     expect(relationshipObservabilityFromLaneMetadata(undefined)).toEqual({});

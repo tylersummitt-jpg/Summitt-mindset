@@ -161,11 +161,13 @@ function isSubstantiveUserMessage(text: string): boolean {
   return t.length >= 8 || t.split(/\s+/).filter(Boolean).length >= 2;
 }
 
-function isDeliveredCoachMessage(m: RecentExactThread72hMessage): boolean {
+/** Visible/sent coach SMS only — excludes preview, skipped, cancelled, and unknown statuses. */
+export function isDeliveredCoachQuestionMessage(m: RecentExactThread72hMessage): boolean {
   if (m.role !== "coach") return false;
-  if (m.delivery_status === "preview") return false;
   if (!m.body.trim()) return false;
-  return true;
+  if (m.is_exact_body === false) return false;
+  // recent_exact_thread_72h marks truly sent coach bodies as "sent" only.
+  return m.delivery_status === "sent";
 }
 
 function resolveRouteRelevance(route?: OpenLoopsRouteContextInput | null): string | null {
@@ -413,7 +415,7 @@ function dedupeOpenLoops(loops: ScoredOpenLoop[]): ScoredOpenLoop[] {
 function deliveredCoachQuestionTexts(messages: RecentExactThread72hMessage[]): Set<string> {
   const out = new Set<string>();
   for (const m of messages) {
-    if (!isDeliveredCoachMessage(m)) continue;
+    if (!isDeliveredCoachQuestionMessage(m)) continue;
     const q = extractQuestionClause(m.body);
     if (q) out.add(normAskKey(q));
     out.add(normAskKey(m.body));
@@ -425,7 +427,7 @@ function coachQuestionWasDelivered(
   question: string,
   deliveredKeys: Set<string> | null
 ): boolean {
-  if (!deliveredKeys) return true;
+  if (!deliveredKeys || deliveredKeys.size === 0) return false;
   const key = normAskKey(question);
   if (deliveredKeys.has(key)) return true;
   for (const dk of deliveredKeys) {
@@ -443,7 +445,7 @@ function extractUnansweredFromThread(
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
-    if (!isDeliveredCoachMessage(m)) continue;
+    if (!isDeliveredCoachQuestionMessage(m)) continue;
     const q = extractQuestionClause(m.body);
     if (!q || askMatchesAny(q, blockedAsks)) continue;
 

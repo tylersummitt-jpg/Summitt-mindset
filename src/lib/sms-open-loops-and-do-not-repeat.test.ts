@@ -10,6 +10,7 @@ import {
   MAX_SATISFIED_ASKS,
   buildOpenLoopsAndDoNotRepeat,
   buildOpenLoopsAndDoNotRepeatPromptGuidance,
+  isDeliveredCoachQuestionMessage,
 } from "@/lib/sms-open-loops-and-do-not-repeat";
 import type { RelationshipMemory7dData } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipPacketStructuredRecentTruth } from "@/lib/sms-relationship-packet-v1";
@@ -421,5 +422,139 @@ describe("buildOpenLoopsAndDoNotRepeatPromptGuidance", () => {
     expect(guidance).toMatch(/satisfied_asks must not be re-asked/i);
     expect(guidance).toMatch(/do_not_repeat_asks are guidance only/i);
     expect(guidance).toMatch(/relationship_memory_7d open loops are lower authority/i);
+  });
+});
+
+describe("isDeliveredCoachQuestionMessage", () => {
+  it("allows sent coach messages with exact body", () => {
+    expect(
+      isDeliveredCoachQuestionMessage(
+        makeMessage({ role: "coach", body: "Did you protect focus?", delivery_status: "sent" })
+      )
+    ).toBe(true);
+  });
+
+  it("rejects non-sent delivery statuses", () => {
+    for (const status of ["skipped", "cancelled", "preview", "unknown"] as const) {
+      expect(
+        isDeliveredCoachQuestionMessage(
+          makeMessage({ role: "coach", body: "Did you start?", delivery_status: status })
+        )
+      ).toBe(false);
+    }
+  });
+
+  it("rejects system_no_send and non-coach roles", () => {
+    expect(
+      isDeliveredCoachQuestionMessage(
+        makeMessage({
+          role: "system_no_send",
+          body: "[no_send: stale_ask_blocked]",
+          delivery_status: "unknown",
+        })
+      )
+    ).toBe(false);
+    expect(
+      isDeliveredCoachQuestionMessage(makeMessage({ role: "user", body: "yes", delivery_status: "sent" }))
+    ).toBe(false);
+  });
+
+  it("rejects non-exact coach bodies", () => {
+    expect(
+      isDeliveredCoachQuestionMessage(
+        makeMessage({
+          role: "coach",
+          body: "Truncated?",
+          delivery_status: "sent",
+          is_exact_body: false,
+        })
+      )
+    ).toBe(false);
+  });
+});
+
+describe("recent_unanswered_coach_questions delivered filtering", () => {
+  function unansweredFromThread(messages: RecentExactThread72hMessage[]) {
+    return buildOpenLoopsAndDoNotRepeat({
+      structuredRecentTruth: baseTruth(),
+      activePendingState: buildActivePendingStateFromCommitmentRow(null),
+      recentExactThread72h: { messages },
+    }).section.data.recent_unanswered_coach_questions;
+  }
+
+  it("H1: sent coach question can become recent_unanswered_coach_question", () => {
+    const unanswered = unansweredFromThread([
+      makeMessage({ role: "coach", body: "When will you block focus?", delivery_status: "sent" }),
+    ]);
+    expect(unanswered.some((q) => /block focus/i.test(q))).toBe(true);
+  });
+
+  it("H2: skipped coach row does NOT become recent_unanswered_coach_question", () => {
+    const unanswered = unansweredFromThread([
+      makeMessage({ role: "coach", body: "Skipped question?", delivery_status: "skipped" }),
+    ]);
+    expect(unanswered.some((q) => /Skipped question/i.test(q))).toBe(false);
+  });
+
+  it("H3: cancelled coach row does NOT become recent_unanswered_coach_question", () => {
+    const unanswered = unansweredFromThread([
+      makeMessage({ role: "coach", body: "Cancelled question?", delivery_status: "cancelled" }),
+    ]);
+    expect(unanswered.some((q) => /Cancelled question/i.test(q))).toBe(false);
+  });
+
+  it("H4: system_no_send does NOT become recent_unanswered_coach_question", () => {
+    const unanswered = unansweredFromThread([
+      makeMessage({
+        role: "system_no_send",
+        body: "[no_send: stale_ask_blocked]",
+        delivery_status: "unknown",
+      }),
+    ]);
+    expect(unanswered.some((q) => /no_send/i.test(q))).toBe(false);
+  });
+
+  it("H5: preview coach message does NOT become recent_unanswered_coach_question", () => {
+    const unanswered = unansweredFromThread([
+      makeMessage({ role: "coach", body: "Preview only?", delivery_status: "preview" }),
+    ]);
+    expect(unanswered.some((q) => /Preview only/i.test(q))).toBe(false);
+  });
+
+  it("H6: unsent draft (preview) does NOT become recent_unanswered even via last_5", () => {
+    const { section } = buildOpenLoopsAndDoNotRepeat({
+      structuredRecentTruth: baseTruth({
+        last_5_coach_questions: ["Draft-only question?"],
+      }),
+      activePendingState: buildActivePendingStateFromCommitmentRow(null),
+      recentExactThread72h: {
+        messages: [
+          makeMessage({ role: "coach", body: "Draft-only question?", delivery_status: "preview" }),
+        ],
+      },
+    });
+    expect(section.data.recent_unanswered_coach_questions.some((q) => /Draft-only/i.test(q))).toBe(false);
+  });
+
+  it("H7: no thread proof does NOT allow legacy last_5_coach_questions", () => {
+    const { section } = buildOpenLoopsAndDoNotRepeat({
+      structuredRecentTruth: baseTruth({
+        last_5_coach_questions: ["Legacy projection question?"],
+        open_question_pending: true,
+        latest_open_question: "Legacy projection question?",
+      }),
+      activePendingState: buildActivePendingStateFromCommitmentRow(null),
+    });
+    expect(section.data.recent_unanswered_coach_questions.some((q) => /Legacy projection/i.test(q))).toBe(
+      false
+    );
+  });
+
+  it("H8: answered delivered coach question is excluded", () => {
+    const unanswered = unansweredFromThread([
+      makeMessage({ role: "coach", body: STALE_MEMORY_Q, delivery_status: "sent" }),
+      makeMessage({ role: "user", body: "The leadership delegation story." }),
+    ]);
+    expect(unanswered.some((q) => /dictate today/i.test(q))).toBe(false);
   });
 });

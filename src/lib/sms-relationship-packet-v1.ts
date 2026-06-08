@@ -1348,6 +1348,12 @@ export function relationshipPacketMetaForLaneTelemetry(
           facts_fallback_pending_kinds: snapshotMeta.facts_fallback_pending_kinds,
           relationship_snapshot_truncated: snapshotMeta.relationship_snapshot_truncated,
           thread_fallback_used: snapshotMeta.thread_fallback_used,
+          open_loop_count: snapshotMeta.open_loop_count,
+          satisfied_ask_count: snapshotMeta.satisfied_ask_count,
+          do_not_repeat_ask_count: snapshotMeta.do_not_repeat_ask_count,
+          recent_unanswered_question_count: snapshotMeta.recent_unanswered_question_count,
+          open_loops_sources: snapshotMeta.open_loops_sources,
+          open_loops_truncated: snapshotMeta.open_loops_truncated,
         }
       : {}),
   };
@@ -1380,6 +1386,12 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "facts_fallback_pending_kinds",
   "relationship_snapshot_truncated",
   "thread_fallback_used",
+  "open_loop_count",
+  "satisfied_ask_count",
+  "do_not_repeat_ask_count",
+  "recent_unanswered_question_count",
+  "open_loops_sources",
+  "open_loops_truncated",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [
