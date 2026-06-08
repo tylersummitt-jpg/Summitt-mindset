@@ -393,3 +393,161 @@ describe("PR 2.1b-pr2a memory confirmation — guard behavior (transactional_coa
     expect(r.should_send).toBe(false);
   });
 });
+
+describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", () => {
+  const src = fs.readFileSync(ROUTE, "utf8");
+  const memoryFnStart = src.indexOf("async function processV2MemoryConfirmationInbound");
+  const memoryBlock = src.slice(memoryFnStart, src.indexOf("async function processV2SmsInboundPendingResolution"));
+  const refreshBlock = src.slice(
+    src.indexOf("async function processV2CoachingRefreshInbound"),
+    src.indexOf("async function processV2CoachingRefreshInbound") + 80000
+  );
+  const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+  const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
+  const handoffBlock = src.slice(handoffStart, handoffEnd);
+
+  function noSendIfBody(sendVar: string): string {
+    const idx = memoryBlock.indexOf(`if (!${sendVar}.ok)`);
+    expect(idx).toBeGreaterThan(-1);
+    const braceStart = memoryBlock.indexOf("{", idx);
+    const braceEnd = memoryBlock.indexOf("}", braceStart);
+    return memoryBlock.slice(idx, braceEnd + 1);
+  }
+
+  it("1: memory ambiguous no-send does NOT call recordV2SendTimeProfileInboundEngagement", () => {
+    const block = noSendIfBody("sendAmb");
+    expect(block).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(block).toContain("return true");
+  });
+
+  it("2: memory decline no-send does NOT call engagement", () => {
+    const block = noSendIfBody("sendDecl");
+    expect(block).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(block).toContain("return true");
+  });
+
+  it("3: memory yes no-send does NOT call engagement", () => {
+    const block = noSendIfBody("sendYes");
+    expect(block).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(block).toContain("return true");
+  });
+
+  it("4: memory ambiguous successful send DOES call engagement", () => {
+    const ambIdx = memoryBlock.indexOf("const sendAmb = await persistInboundV3RelationshipLaneReplyReadyAndSend");
+    const ambSlice = memoryBlock.slice(ambIdx, ambIdx + 1800);
+    const noSendReturn = ambSlice.indexOf("if (!sendAmb.ok)");
+    const engagementIdx = ambSlice.indexOf("recordV2SendTimeProfileInboundEngagement", noSendReturn);
+    expect(noSendReturn).toBeGreaterThan(-1);
+    expect(engagementIdx).toBeGreaterThan(noSendReturn);
+  });
+
+  it("5: memory decline successful send DOES call engagement", () => {
+    const declIdx = memoryBlock.indexOf("const sendDecl = await persistInboundV3RelationshipLaneReplyReadyAndSend");
+    const declSlice = memoryBlock.slice(declIdx, declIdx + 1800);
+    const noSendReturn = declSlice.indexOf("if (!sendDecl.ok)");
+    const engagementIdx = declSlice.indexOf("recordV2SendTimeProfileInboundEngagement", noSendReturn);
+    expect(noSendReturn).toBeGreaterThan(-1);
+    expect(engagementIdx).toBeGreaterThan(noSendReturn);
+  });
+
+  it("6: memory yes successful send DOES call engagement", () => {
+    const yesIdx = memoryBlock.indexOf("const sendYes = await persistInboundV3RelationshipLaneReplyReadyAndSend");
+    const yesSlice = memoryBlock.slice(yesIdx, yesIdx + 1800);
+    const noSendReturn = yesSlice.indexOf("if (!sendYes.ok)");
+    const engagementIdx = yesSlice.indexOf("recordV2SendTimeProfileInboundEngagement", noSendReturn);
+    expect(noSendReturn).toBeGreaterThan(-1);
+    expect(engagementIdx).toBeGreaterThan(noSendReturn);
+  });
+
+  it("7: memory yes no-send still persists confirmed resolution via truth policy", () => {
+    const memSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-memory-confirmation-sms.ts"),
+      "utf8"
+    );
+    expect(memSrc).toContain("persistMemoryConfirmationTruthOnNoSend");
+    expect(memSrc).toContain('outcome: "confirmed"');
+    expect(memSrc).toContain("recomputeV2CoachingMemory");
+    expect(memSrc).toContain("memory_update_applied_before_sms: anyApplied");
+  });
+
+  it("8: memory decline no-send still persists declined resolution via truth policy", () => {
+    const memSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-memory-confirmation-sms.ts"),
+      "utf8"
+    );
+    expect(memSrc).toContain('if (args.branch === "decline")');
+    expect(memSrc).toContain('outcome: "declined"');
+    expect(memSrc).toContain("insertWave11MemoryResolutionEvent");
+  });
+
+  it("9: memory ambiguous no-send still leaves pending active", () => {
+    const ambNoSend = noSendIfBody("sendAmb");
+    expect(ambNoSend).not.toContain("insertWave11MemoryResolutionEvent");
+    const memSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-memory-confirmation-sms.ts"),
+      "utf8"
+    );
+    const ambIdx = memSrc.indexOf('if (args.branch === "ambiguous")');
+    expect(memSrc.slice(ambIdx, ambIdx + 120)).not.toContain("insertWave11MemoryResolutionEvent");
+  });
+
+  it("15: refresh B1/B2 engagement ordering unchanged", () => {
+    const stillIdx = refreshBlock.indexOf('laneIntent: "identity_still_commitment_prompt"');
+    const stillSlice = refreshBlock.slice(stillIdx, stillIdx + 3500);
+    const noSendReturn = stillSlice.indexOf("if (!sendStill.ok)");
+    const engagementIdx = stillSlice.indexOf("recordV2SendTimeProfileInboundEngagement", noSendReturn);
+    expect(engagementIdx).toBeGreaterThan(noSendReturn);
+    const keepIdx = refreshBlock.indexOf('laneIntent: "commitment_keep_ack"');
+    const keepSlice = refreshBlock.slice(keepIdx, keepIdx + 2500);
+    const keepNoSend = keepSlice.indexOf("if (!sendKeep.ok)");
+    const keepEngagement = keepSlice.indexOf("recordV2SendTimeProfileInboundEngagement", keepNoSend);
+    expect(keepEngagement).toBeGreaterThan(keepNoSend);
+  });
+
+  it("16: handoff engagement ordering unchanged", () => {
+    const sendIdx = handoffBlock.indexOf("await commitAndSendInboundRelationshipCoachReply");
+    const engagementIdx = handoffBlock.indexOf(
+      "await recordV2SendTimeProfileInboundEngagement",
+      sendIdx
+    );
+    expect(sendIdx).toBeGreaterThan(-1);
+    expect(engagementIdx).toBeGreaterThan(sendIdx);
+  });
+
+  it("17: contract/adaptive unchanged", () => {
+    expect(src).toContain("persistContractConsentInboundLaneAckAndSend");
+    expect(src).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
+    expect(memoryBlock).toContain("memoryNoSendTruthPolicy:");
+  });
+
+  it("18: blocker unchanged", () => {
+    expect(src).toContain("const unifiedGuardBlockerAck = await applyUnifiedSmsFinalProductLawGuard");
+    expect(src).toContain("blocker_ack_no_send_truth_persisted: true");
+  });
+
+  it("19: daily/weekly untouched", () => {
+    const dailySrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
+      "utf8"
+    );
+    const weeklySrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/cron/weekly-sms/route.ts"),
+      "utf8"
+    );
+    expect(dailySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+  });
+
+  it("20: no Twilio/send changes in memory block", () => {
+    expect(memoryBlock).not.toContain("twilioClient");
+    expect(memoryBlock).toContain("persistInboundV3RelationshipLaneReplyReadyAndSend");
+  });
+
+  it("21: no persistence enum changes in memory block", () => {
+    expect(memoryBlock).not.toMatch(/event_type:\s*"/);
+  });
+
+  it("22: no hard-coded SMS in memory block", () => {
+    expect(memoryBlock).not.toContain("reply_body:");
+  });
+});

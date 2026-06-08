@@ -279,3 +279,121 @@ describe("Phase 2.1c pending resolution unified guard — guard behavior", () =>
     expect(violations.length).toBeGreaterThan(0);
   });
 });
+
+describe("Phase 2.1g-A pending resolution — engagement-on-no-send cleanup", () => {
+  const src = fs.readFileSync(ROUTE, "utf8");
+  const pendingFnStart = src.indexOf("async function processV2SmsInboundPendingResolution");
+  const pendingBlock = src.slice(pendingFnStart, src.indexOf("async function processV2CoachingRefreshInbound"));
+  const refreshBlock = src.slice(
+    src.indexOf("async function processV2CoachingRefreshInbound"),
+    src.indexOf("async function processV2CoachingRefreshInbound") + 80000
+  );
+  const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+  const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
+  const handoffBlock = src.slice(handoffStart, handoffEnd);
+
+  it("10: pending resolution no-send does NOT call engagement", () => {
+    const idx = pendingBlock.indexOf("if (!sendStill.ok)");
+    expect(idx).toBeGreaterThan(-1);
+    const braceStart = pendingBlock.indexOf("{", idx);
+    const braceEnd = pendingBlock.indexOf("}", braceStart);
+    const noSendIfBody = pendingBlock.slice(idx, braceEnd + 1);
+    expect(noSendIfBody).not.toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(noSendIfBody).toContain("return true");
+  });
+
+  it("11: pending resolution successful send DOES call engagement", () => {
+    const sendIdx = pendingBlock.indexOf("const sendStill = await persistInboundV3RelationshipLaneReplyReadyAndSend");
+    const sendSlice = pendingBlock.slice(sendIdx, sendIdx + 2200);
+    const noSendReturn = sendSlice.indexOf("if (!sendStill.ok)");
+    const engagementIdx = sendSlice.indexOf("recordV2SendTimeProfileInboundEngagement", noSendReturn);
+    expect(noSendReturn).toBeGreaterThan(-1);
+    expect(engagementIdx).toBeGreaterThan(noSendReturn);
+  });
+
+  it("12: pending mutation_applied no-send still writes pending no-send truth audit", () => {
+    const pendingTruthSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-pending-resolution-no-send-truth.ts"),
+      "utf8"
+    );
+    expect(pendingTruthSrc).toContain("persistPendingResolutionTruthOnNoSend");
+    expect(pendingTruthSrc).toContain('"mutation_applied"');
+    expect(pendingBlock).toContain("pendingNoSendTruthPolicy");
+    expect(src).toContain("runPendingResolutionNoSendTruthPolicyIfConfigured");
+  });
+
+  it("13: pending active clarify no-send behavior unchanged", () => {
+    const pendingTruthSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-pending-resolution-no-send-truth.ts"),
+      "utf8"
+    );
+    expect(pendingTruthSrc).toContain('"pending_active_clarify"');
+    const activeIdx = pendingTruthSrc.indexOf('args.policyBranch === "pending_active_clarify"');
+    expect(activeIdx).toBeGreaterThan(-1);
+    const activeBlock = pendingTruthSrc.slice(activeIdx, activeIdx + 200);
+    expect(activeBlock).toContain("return baseTelemetry");
+    expect(activeBlock).not.toContain("visible_sent");
+  });
+
+  it("14: mergeInboundMemoryIntoSmsPendingResolution only runs on sendStill.ok", () => {
+    const mergeIdx = pendingBlock.indexOf("mergeInboundMemoryIntoSmsPendingResolution");
+    const noSendReturn = pendingBlock.indexOf("if (!sendStill.ok)");
+    expect(mergeIdx).toBeGreaterThan(noSendReturn);
+    const between = pendingBlock.slice(noSendReturn, mergeIdx);
+    expect(between).toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(between).not.toContain("mergeInboundMemoryIntoSmsPendingResolution");
+  });
+
+  it("15: refresh B1/B2 engagement ordering unchanged", () => {
+    const stillIdx = refreshBlock.indexOf('laneIntent: "identity_still_commitment_prompt"');
+    const stillSlice = refreshBlock.slice(stillIdx, stillIdx + 3500);
+    const noSendReturn = stillSlice.indexOf("if (!sendStill.ok)");
+    const engagementIdx = stillSlice.indexOf("recordV2SendTimeProfileInboundEngagement", noSendReturn);
+    expect(engagementIdx).toBeGreaterThan(noSendReturn);
+  });
+
+  it("16: handoff engagement ordering unchanged", () => {
+    const sendIdx = handoffBlock.indexOf("await commitAndSendInboundRelationshipCoachReply");
+    const engagementIdx = handoffBlock.indexOf(
+      "await recordV2SendTimeProfileInboundEngagement",
+      sendIdx
+    );
+    expect(engagementIdx).toBeGreaterThan(sendIdx);
+  });
+
+  it("17: contract/adaptive unchanged", () => {
+    expect(src).toContain("persistContractConsentInboundLaneAckAndSend");
+    expect(src).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
+    expect(pendingBlock).toContain("pendingNoSendTruthPolicy");
+  });
+
+  it("18: blocker unchanged", () => {
+    expect(src).toContain("const unifiedGuardBlockerAck = await applyUnifiedSmsFinalProductLawGuard");
+  });
+
+  it("19: daily/weekly untouched", () => {
+    const dailySrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
+      "utf8"
+    );
+    const weeklySrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/cron/weekly-sms/route.ts"),
+      "utf8"
+    );
+    expect(dailySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(weeklySrc).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+  });
+
+  it("20: no Twilio/send changes in pending block", () => {
+    expect(pendingBlock).not.toContain("twilioClient");
+    expect(pendingBlock).toContain("persistInboundV3RelationshipLaneReplyReadyAndSend");
+  });
+
+  it("21: no persistence enum changes in pending block", () => {
+    expect(pendingBlock).not.toMatch(/event_type:\s*"/);
+  });
+
+  it("22: no hard-coded SMS in pending block", () => {
+    expect(pendingBlock).not.toContain("reply_body:");
+  });
+});

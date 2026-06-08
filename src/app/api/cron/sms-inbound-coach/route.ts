@@ -9722,7 +9722,6 @@ async function processV2MemoryConfirmationInbound(
       },
     });
     if (!sendAmb.ok) {
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       return true;
     }
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -9811,7 +9810,6 @@ async function processV2MemoryConfirmationInbound(
       },
     });
     if (!sendDecl.ok) {
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       return true;
     }
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -9918,7 +9916,6 @@ async function processV2MemoryConfirmationInbound(
     },
   });
   if (!sendYes.ok) {
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     return true;
   }
   await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -10095,7 +10092,6 @@ async function processV2SmsInboundPendingResolution(
   });
 
   if (!sendStill.ok) {
-    await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     return true;
   }
 
