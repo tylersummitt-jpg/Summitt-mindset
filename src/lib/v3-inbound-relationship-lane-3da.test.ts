@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const createMock = vi.hoisted(() => vi.fn());
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
 vi.mock("openai", () => ({
   __esModule: true,
   default: class MockOpenAI {
@@ -364,7 +368,7 @@ describe("Phase 3D-a inbound lane (central pivot + ARC clarify)", () => {
     expect(isV3OwnedInboundReplySource("v3_inbound_relationship_lane")).toBe(true);
   });
 
-  it("pivot facts preserve no-outcome-event semantics (facts only, no event insert in route)", () => {
+  it("pivot facts preserve blocked scoring with no outcome write", () => {
     const f: InboundV3RelationshipFacts = buildInboundV3RelationshipFacts({
       ...baseFactsArgs(),
       routePurpose: "central_brain_pivot",
@@ -377,8 +381,9 @@ describe("Phase 3D-a inbound lane (central pivot + ARC clarify)", () => {
         legacy_tether_text_preview: "x",
       },
     });
-    expect(f.v2_accountability.should_write_outcome_event).toBe(true);
+    expect(f.v2_accountability.should_write_outcome_event).toBe(false);
     expect(f.central_brain_pivot_facts?.blocked_outcome_scoring).toBe(true);
+    expect(f.inbound_meaning.persistence_decision).toBe("no_outcome_write");
   });
 });
 
@@ -608,10 +613,15 @@ describe("Phase 3C inbound lane (open_question_answer)", () => {
     expect(r.body.trim()).not.toBe(legacyPreview.trim());
     expect(r.metadata.route_purpose).toBe("open_question_answer");
     expect(r.metadata.open_question_facts_summary).toEqual(slimOpenQuestionFactsForTelemetry(oqFacts));
-    const messages = createMock.mock.calls[0]?.[0]?.messages as { content?: string }[] | undefined;
-    const userContent = messages?.[1]?.content ?? "";
-    expect(userContent).toContain('"open_question_facts"');
-    expect(userContent).toContain('"resolution_subkind":"time_or_schedule"');
+    const messages = createMock.mock.calls[0]?.[0]?.messages as { content?: string; role?: string }[] | undefined;
+    const systemContent = messages?.find((m) => m.role === "system")?.content ?? "";
+    const userContent = messages?.find((m) => m.role === "user")?.content ?? "";
+    expect(systemContent).toMatch(/primary coaching move/i);
+    expect(systemContent).not.toMatch(/ROUTE \(open_question_answer\)/);
+    expect(userContent).toContain("STRATEGY_CARD_V1");
+    expect(userContent).toContain('"route_kind":"open_question_answer"');
+    expect(userContent).toContain('"open_question_answer_kind":"time_or_schedule"');
+    expect(userContent).not.toContain('"open_question_facts"');
   });
 
   it("open_question_answer lane no-send is tagged for operator last_error", async () => {
