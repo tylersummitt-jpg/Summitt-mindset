@@ -57,7 +57,7 @@ const RESPONSES: Record<string, LaneJson> = {
   },
   "partial-not-win:inbound": {
     ...GOOD_INBOUND,
-    body: "Almost counts as partial — what stopped the full hour?",
+    body: "Almost — what stopped the full hour?",
     turn_purpose: "partial_followup",
   },
   "blocker-heavy:inbound": {
@@ -106,7 +106,7 @@ const RESPONSES: Record<string, LaneJson> = {
   },
   "stale-goal:inbound": {
     ...GOOD_INBOUND,
-    body: "For no screens after 9pm — did wind-down happen: done, partial, or missed?",
+    body: "For no screens after 9pm — did the wind-down happen, or did something interrupt it?",
   },
   "open-question-answered:inbound": {
     ...GOOD_INBOUND,
