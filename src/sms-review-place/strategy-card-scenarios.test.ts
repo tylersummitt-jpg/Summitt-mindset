@@ -18,6 +18,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import { resolveMockOpenAiResponse } from "@/sms-review-place/fixtures/openai-responses";
+import { ARC_CLARIFY_STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/arc-clarify-strategy-card-scenarios";
 import { OPEN_QUESTION_STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/open-question-strategy-card-scenarios";
 import { STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import { runScenarioStep } from "@/sms-review-place/pipeline";
@@ -93,6 +94,34 @@ describe("open_question_answer Strategy Card Review Place scenarios", () => {
 
   it("open-question-unclear-answer uses clarify", async () => {
     const scenario = OPEN_QUESTION_STRATEGY_CARD_SCENARIOS.find((s) => s.id === "open-question-unclear-answer")!;
+    const step = scenario.steps[0]!;
+    process.env.SMS_REVIEW_STEP_KEY = step.mockKey!;
+    const row = await runScenarioStep(scenario, step, 0);
+    expect(row.strategy_card_move_type).toBe("clarify");
+  });
+});
+
+describe("arc_clarify_ambiguous_short Strategy Card Review Place scenarios", () => {
+  for (const scenario of ARC_CLARIFY_STRATEGY_CARD_SCENARIOS) {
+    it(`${scenario.id} passes card invariants without exact SMS copy assertions`, async () => {
+      process.env.SMS_REVIEW_SCENARIO = scenario.id;
+      const step = scenario.steps[0]!;
+      process.env.SMS_REVIEW_STEP_KEY = step.mockKey ?? `${scenario.id}:${step.lane}`;
+      const row = await runScenarioStep(scenario, step, 0);
+
+      expect(row.lane).toBe("inbound");
+      expect(row.strategy_card_route_kind).toBe("arc_clarify_ambiguous_short");
+      expect(row.strategy_card_failures).toEqual([]);
+      expect(row.pass).toBe(true);
+      expect(row.hard_flags).toEqual([]);
+      expect(row.final_body.length).toBeGreaterThan(10);
+      expect(row.final_body).not.toContain("STRATEGY_CARD_V1");
+      expect(row.final_body).not.toContain("INTERNAL_STUB_DO_NOT_SPEAK_LEGACY_ARC_CLARIFICATION_TEMPLATE");
+    });
+  }
+
+  it("arc-clarify-ambiguous-short uses clarify with max_questions 1", async () => {
+    const scenario = ARC_CLARIFY_STRATEGY_CARD_SCENARIOS.find((s) => s.id === "arc-clarify-ambiguous-short")!;
     const step = scenario.steps[0]!;
     process.env.SMS_REVIEW_STEP_KEY = step.mockKey!;
     const row = await runScenarioStep(scenario, step, 0);

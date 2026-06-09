@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO,
+  ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO,
+  arcClarifyLegacyPreviewFingerprint,
+  buildArcClarifyStrategyCardV1,
   deriveStrategyCardPlanAckSource,
   buildInboundNormalStrategyCardV1,
   buildOpenQuestionAnswerStrategyCardV1,
   buildStrategyCardContextFromSnapshot,
   buildStrategyCardV1PromptGuidance,
+  isArcClarifyStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   isOpenQuestionSatisfied,
@@ -1078,5 +1083,151 @@ describe("Phase 4.3 open_question_answer Strategy Card", () => {
       card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === fp!.toLowerCase())
     ).toBe(true);
     expect(card.must_not_do.some((m) => /old_open_question_reply_preview/i.test(m))).toBe(false);
+  });
+});
+
+function arcFactsFixture(
+  overrides?: Partial<InboundV3RelationshipFacts>
+): InboundV3RelationshipFacts {
+  return {
+    ...minimalFacts(),
+    route_purpose: "arc_clarify_ambiguous_short",
+    suggested_coaching_move: "clarify_ambiguous_short_natural_sms",
+    coaching_move_source: "hard_route",
+    arc_clarification_facts: {
+      ambiguous_short_reply: true,
+      tentative_outcome: "user_yes",
+      clarification_reason: "ambiguous_short_reply",
+      context_age: {
+        accountability_prompt_age_minutes: 200,
+        accountability_prompt_sent_at: "2026-06-04T13:00:00.000Z",
+        latest_outcome_at: null,
+      },
+      latest_question: "Did you hit two hours of deep work before noon?",
+      legacy_clarification_text_preview: "LEGACY_ARC_CLARIFICATION_TEMPLATE_STUB",
+    },
+    ...overrides,
+  };
+}
+
+describe("Phase 4.4a Strategy Card v1 arc clarify", () => {
+  it("arc eligibility true only for arc_clarify_ambiguous_short with arc facts", () => {
+    expect(isArcClarifyStrategyCardEligible(arcFactsFixture())).toBe(true);
+    expect(isArcClarifyStrategyCardEligible(minimalFacts())).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(arcFactsFixture({ route_purpose: "normal_inbound_reply" }))).toBe(
+      false
+    );
+  });
+
+  it("normal and OQ eligibility unchanged when arc facts absent", () => {
+    expect(isInboundNormalStrategyCardEligible(minimalFacts())).toBe(true);
+    expect(isOpenQuestionAnswerStrategyCardEligible(minimalFacts())).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(minimalFacts())).toBe(false);
+  });
+
+  it("pivot, legacy, OQ, blocker exclude arc eligibility", () => {
+    expect(
+      isArcClarifyStrategyCardEligible(
+        arcFactsFixture({ central_brain_pivot_facts: { blocked_outcome_scoring: true, central_turn_purpose: "human_conversation", confidence: 0.9, reason: "x", suggested_move: "x", legacy_tether_text_preview: "L" } })
+      )
+    ).toBe(false);
+    expect(
+      isArcClarifyStrategyCardEligible(
+        arcFactsFixture({
+          conversation_brain_fallback_facts: {
+            conversation_brain_control_available: false,
+            legacy_fallback_reason: "x",
+            deterministic_template_preview: "T",
+            classifier_result: "user_yes",
+            gated_event_type: "user_yes",
+            should_write_outcome_event: true,
+            suggested_coaching_move: "ask_accountability",
+            current_commitment_snapshot: "snap",
+            server_state_summary: "s",
+            inbound_message_sid: "SM1",
+            coaching_route_meaning_summary: "m",
+          },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isArcClarifyStrategyCardEligible(
+        arcFactsFixture({
+          open_question_facts: {
+            latest_open_question: "Q?",
+            expected_reply_semantics: "open_reflection",
+            resolution_subkind: "open_reflection",
+            extracted_answer: null,
+            answer_kind: "ambiguous",
+            old_open_question_reply_preview: "P",
+            deterministic_fallback_used: false,
+            deterministic_fallback_reason: null,
+            legacy_open_question_reply_source: "deterministic_fallback",
+            latest_outbound_preview: null,
+          },
+        })
+      )
+    ).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(arcFactsFixture({ blocker_facts: { blocker_text: "kids", blocker_category: null, repeated_blocker_signal: false, following_event_type: "user_no", blocker_pending_age_minutes_remaining: null, suggested_next_move: null, legacy_blocker_ack_preview: "L" } }))).toBe(false);
+  });
+
+  it("arc builder returns clarify with max_questions 1 and all claims false", () => {
+    const ctx = buildCtx(arcFactsFixture());
+    const card = buildArcClarifyStrategyCardV1({ ctx });
+    expect(card.route_kind).toBe("arc_clarify_ambiguous_short");
+    expect(card.move.type).toBe("clarify");
+    expect(card.writer_constraints.max_questions).toBe(1);
+    expect(card.allowed_claims).toEqual({
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: false,
+    });
+  });
+
+  it("arc must_not_do includes tentative-outcome-not-confirmed and preview constraint", () => {
+    const ctx = buildCtx(arcFactsFixture());
+    const card = buildArcClarifyStrategyCardV1({ ctx });
+    expect(card.must_not_do).toContain(ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO);
+    const fp = arcClarifyLegacyPreviewFingerprint(ctx.facts.arc_clarification_facts);
+    expect(
+      card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === fp!.toLowerCase())
+    ).toBe(true);
+    expect(card.must_not_do.some((m) => /legacy_clarification_text_preview/i.test(m))).toBe(false);
+  });
+
+  it("validator repairs invalid arc move to clarify", () => {
+    const ctx = buildCtx(arcFactsFixture());
+    const card = buildArcClarifyStrategyCardV1({ ctx });
+    card.move.type = "ack_completion";
+    card.allowed_claims.completion = true;
+    const result = validateAndRepairStrategyCardV1(card, ctx);
+    expect(result.validation_status).toBe("repaired");
+    expect(result.card.move.type).toBe("clarify");
+    expect(result.card.allowed_claims.completion).toBe(false);
+  });
+
+  it("no SMS copy in arc card fields", () => {
+    const card = buildArcClarifyStrategyCardV1({ ctx: buildCtx(arcFactsFixture()) });
+    expect(card.must_do.join(" ")).not.toMatch(/Did you hit two hours/i);
+    expect(card.must_not_do.join(" ")).not.toMatch(/LEGACY_ARC_CLARIFICATION_TEMPLATE_STUB/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+  });
+
+  it("arc telemetry includes tentative outcome and context age", () => {
+    const ctx = buildCtx(arcFactsFixture());
+    const card = buildArcClarifyStrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_route_kind).toBe("arc_clarify_ambiguous_short");
+    expect(meta.strategy_card_move_type).toBe("clarify");
+    expect(meta.strategy_card_arc_tentative_outcome).toBe("user_yes");
+    expect(meta.strategy_card_arc_context_age).toMatch(/prompt_age_min:200/);
   });
 });

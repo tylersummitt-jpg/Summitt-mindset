@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import {
+  isArcClarifyStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
 } from "@/lib/coaching-strategy-card-v1";
@@ -116,6 +117,17 @@ describe("Strategy Card scope — open_question_answer Review Place", () => {
     expect(facts.route_purpose).toBe("open_question_answer");
     expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(true);
     expect(isInboundNormalStrategyCardEligible(facts)).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(facts)).toBe(false);
+  });
+
+  it("arc_clarify_ambiguous_short scenarios are Strategy Card eligible", () => {
+    const scenario = getScenarioById("arc-clarify-ambiguous-short");
+    expect(scenario).toBeDefined();
+    const facts = buildInboundFacts(scenario!, "k");
+    expect(facts.route_purpose).toBe("arc_clarify_ambiguous_short");
+    expect(isArcClarifyStrategyCardEligible(facts)).toBe(true);
+    expect(isInboundNormalStrategyCardEligible(facts)).toBe(false);
+    expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(false);
   });
 
   it("classifier boundary scenarios have no inbound Strategy Card surface", () => {

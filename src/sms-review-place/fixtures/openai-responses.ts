@@ -136,6 +136,18 @@ const RESPONSES: Record<string, LaneJson> = {
     ...GOOD_INBOUND,
     body: "Eating before Brooke's workout is a smart fix — what would you grab on a normal night?",
   },
+  "arc-clarify-ambiguous-short:inbound": {
+    ...GOOD_INBOUND,
+    body: "Quick read — did you mean yes to the two hours, or something else?",
+  },
+  "arc-clarify-legacy-preview-non-speakable:inbound": {
+    ...GOOD_INBOUND,
+    body: "Say more — did you mean yes to the bar today, or were you thinking of something else?",
+  },
+  "arc-clarify-tentative-outcome-not-scored:inbound": {
+    ...GOOD_INBOUND,
+    body: "When you say yep — did the two hours happen, or not quite?",
+  },
   "plan-not-proof:daily": {
     ...GOOD_DAILY,
     body: "Before a new ask — did yesterday's after-workout plan actually happen?",

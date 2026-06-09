@@ -40,6 +40,7 @@ import {
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
 import {
+  isArcClarifyStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
 } from "@/lib/coaching-strategy-card-v1";
@@ -3268,5 +3269,109 @@ describe("Phase 4.3 Strategy Card v1 open_question_answer wiring", () => {
     )?.content as string;
     expect(userMsg).toContain('"route_kind":"normal_inbound_reply"');
     expect(isInboundNormalStrategyCardEligible(baseFacts())).toBe(true);
+  });
+});
+
+describe("Phase 4.4a Strategy Card v1 arc clarify wiring", () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockReset();
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Quick read — did you mean yes to the bar, or something else?",
+              no_send_reason: null,
+              turn_purpose: "arc_clarify",
+              voice_confidence: 0.75,
+              used_facts: ["arc_clarification_facts"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+  });
+
+  function arcBaseFacts(): InboundV3RelationshipFacts {
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-07T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours of deep work before noon",
+      userMessageRaw: "k",
+      coalescedInboundText: "k",
+      suppressedMessageSids: ["SM_arc"],
+      transcriptLines: ["Coach: Did you hit two hours?", "User: k"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "Did you hit two hours?",
+        latestOpenQuestion: "Did you hit two hours?",
+        expectedReplySemantics: "completion_check",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: {
+        ...baseGatedDecision(),
+        final_event_type: "user_yes",
+        should_write_outcome_event: true,
+      },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: true, clarification_required: true },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "arc_clarify_ambiguous_short",
+      branchMigratedToLane: true,
+      branchName: "arc_ambiguous_short_clarify",
+      arcClarificationFacts: {
+        ambiguous_short_reply: true,
+        tentative_outcome: "user_yes",
+        clarification_reason: "ambiguous_short_reply",
+        context_age: {
+          accountability_prompt_age_minutes: 180,
+          accountability_prompt_sent_at: "2026-06-04T13:00:00.000Z",
+          latest_outcome_at: null,
+        },
+        latest_question: "Did you hit two hours?",
+        legacy_clarification_text_preview: "LEGACY_ARC_CLARIFICATION_TEMPLATE_STUB",
+      },
+    });
+  }
+
+  it("arc clarify writer prompt includes STRATEGY_CARD_V1 as primary move", async () => {
+    const facts = arcBaseFacts();
+    expect(isArcClarifyStrategyCardEligible(facts)).toBe(true);
+    await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    const systemPrompt = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemPrompt).toMatch(/primary coaching move/i);
+    expect(systemPrompt).not.toMatch(/ROUTE \(arc_clarify_ambiguous_short\)/);
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain('"route_kind":"arc_clarify_ambiguous_short"');
+    expect(userMsg).toContain('"type":"clarify"');
   });
 });

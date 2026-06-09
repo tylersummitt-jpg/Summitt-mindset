@@ -73,10 +73,16 @@ function supplementalBodiesForStep(scenario: SmsReviewScenario, step: SmsReviewS
   return body ? [body] : [];
 }
 
-function isOpenQuestionStrategyCardExpectations(
+function isCardBasedStrategyCardExpectations(
   exp: StrategyCardExpectations | SmsReviewStrategyCardExpectations
 ): exp is SmsReviewStrategyCardExpectations {
   return "routeKind" in exp;
+}
+
+function isInboundNormalStrategyCardExpectations(
+  exp: StrategyCardExpectations | SmsReviewStrategyCardExpectations
+): exp is StrategyCardExpectations {
+  return "expectCardPresent" in exp;
 }
 
 function baseRow(
@@ -193,7 +199,7 @@ function evaluateInboundStrategyCardFields(args: {
 > {
   if (!args.scenario.strategyCard) return emptyStrategyCardFields();
 
-  if (isOpenQuestionStrategyCardExpectations(args.scenario.strategyCard)) {
+  if (isCardBasedStrategyCardExpectations(args.scenario.strategyCard)) {
     const card = rebuildInboundStrategyCardForReview(args.facts);
     const userPromptAppendix = card ? strategyCardV1UserPromptAppendix(card) : "";
     const failures = evaluateStrategyCardExpectations({
@@ -203,6 +209,7 @@ function evaluateInboundStrategyCardFields(args: {
       finalShouldSend: args.finalShouldSend,
       laneShouldSend: args.laneShouldSend,
       openQuestionFacts: args.facts.open_question_facts,
+      arcClarificationFacts: args.facts.arc_clarification_facts,
       userPromptAppendix,
     });
     return {
@@ -213,6 +220,10 @@ function evaluateInboundStrategyCardFields(args: {
       strategy_card_violations: [],
       strategy_card_pass: failures.length === 0,
     };
+  }
+
+  if (!isInboundNormalStrategyCardExpectations(args.scenario.strategyCard)) {
+    return emptyStrategyCardFields();
   }
 
   const outcome = evaluateInboundNormalStrategyCardExpectations({

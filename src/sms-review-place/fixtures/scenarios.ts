@@ -1,6 +1,7 @@
 import { STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import type { SmsReviewScenario } from "@/sms-review-place/types";
 import { OPEN_QUESTION_STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/open-question-strategy-card-scenarios";
+import { ARC_CLARIFY_STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/arc-clarify-strategy-card-scenarios";
 
 const BASE_SCENARIOS: SmsReviewScenario[] = [
   {
@@ -322,6 +323,7 @@ const BASE_SCENARIOS: SmsReviewScenario[] = [
     steps: [{ lane: "inbound", userReply: "YES" }],
   },
   ...OPEN_QUESTION_STRATEGY_CARD_SCENARIOS,
+  ...ARC_CLARIFY_STRATEGY_CARD_SCENARIOS,
 ];
 
 export const SCENARIOS: SmsReviewScenario[] = [...BASE_SCENARIOS, ...STRATEGY_CARD_SCENARIOS];

@@ -32,6 +32,7 @@ import {
 } from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import { getPersona } from "@/sms-review-place/fixtures/personas";
 import { OLD_PREVIEW_STUB_TEXT } from "@/sms-review-place/fixtures/open-question-strategy-card-scenarios";
+import { ARC_LEGACY_PREVIEW_STUB } from "@/sms-review-place/fixtures/arc-clarify-strategy-card-scenarios";
 import type { SmsReviewScenario } from "@/sms-review-place/types";
 
 const SIM_DAY_KEY = "2026-06-04";
@@ -249,6 +250,12 @@ const OPEN_QUESTION_SCENARIO_IDS = new Set([
   "open-question-satisfied-no-repeat",
   "open-question-not-delivered",
   "open-question-old-preview-non-speakable",
+]);
+
+const ARC_CLARIFY_SCENARIO_IDS = new Set([
+  "arc-clarify-ambiguous-short",
+  "arc-clarify-legacy-preview-non-speakable",
+  "arc-clarify-tentative-outcome-not-scored",
 ]);
 
 function buildOpenQuestionAnswerInboundFacts(args: {
@@ -534,6 +541,145 @@ function buildOpenQuestionAnswerInboundFacts(args: {
 
   built.thread.expected_reply_semantics =
     id === "open-question-plan-ack" ? "plan_confirmation" : "open_reflection";
+
+  return built;
+}
+
+function buildArcClarifyInboundFacts(args: {
+  scenario: SmsReviewScenario;
+  persona: ReturnType<typeof getPersona>;
+  commitment: ActiveV2CommitmentRow;
+  checkQ: string;
+  userReply: string;
+  lines: string[];
+  memoryPacket: SlimSmsRelationshipMemoryPacketForFacts;
+}): InboundV3RelationshipFacts {
+  const { scenario, persona, commitment, checkQ, userReply, lines, memoryPacket } = args;
+  const id = scenario.id;
+
+  const tentativeOutcome =
+    id === "arc-clarify-tentative-outcome-not-scored" ? ("user_yes" as const) : ("user_yes" as const);
+
+  const arcClarificationFacts = {
+    ambiguous_short_reply: true,
+    tentative_outcome: tentativeOutcome,
+    clarification_reason:
+      id === "arc-clarify-legacy-preview-non-speakable"
+        ? "ambiguous_short_stale_prompt"
+        : "ambiguous_short_reply",
+    context_age: {
+      accountability_prompt_age_minutes: 180,
+      accountability_prompt_sent_at: "2026-06-04T13:00:00.000Z",
+      latest_outcome_at: null,
+    },
+    latest_question: checkQ,
+    legacy_clarification_text_preview:
+      id === "arc-clarify-legacy-preview-non-speakable"
+        ? ARC_LEGACY_PREVIEW_STUB
+        : "LEGACY_ARC_PREVIEW",
+  };
+
+  const mp = { ...memoryPacket };
+  const thread72h: RecentExactThread72hResult = {
+    messages: [
+      {
+        at: "2026-06-04T13:00:00.000Z",
+        at_local: "Jun 4, 8:00 AM",
+        at_local_timezone: scenario.timezone,
+        local_day_key: SIM_DAY_KEY,
+        role: "coach",
+        body: checkQ,
+        message_kind: null,
+        source_table: "sms_outbound_messages",
+        message_sid: "SM_sim_arc_coach",
+        delivery_status: "sent",
+        is_exact_body: true,
+      },
+      {
+        at: "2026-06-04T13:05:00.000Z",
+        at_local: "Jun 4, 8:05 AM",
+        at_local_timezone: scenario.timezone,
+        local_day_key: SIM_DAY_KEY,
+        role: "user",
+        body: userReply,
+        message_kind: null,
+        source_table: "sms_inbound_messages",
+        message_sid: "SM_sim_arc_user",
+        delivery_status: "sent",
+        is_exact_body: true,
+      },
+    ],
+    window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+    message_count: 2,
+    had_preview_messages: false,
+    had_system_no_send: false,
+  };
+  mp.recent_exact_thread_72h = thread72h;
+  mp.recent_exact_thread_text = lines.join("\n");
+  mp.last_outbound_full_body = checkQ;
+  mp.last_5_coach_questions = [checkQ];
+
+  const built = buildInboundV3RelationshipFacts({
+    clerkUserId: persona.clerkUserId,
+    preferredName: persona.preferredName,
+    timezone: scenario.timezone,
+    localTimeIso: SIM_LOCAL_ISO,
+    commitment,
+    effectiveAsk: scenario.effectiveAsk,
+    userMessageRaw: userReply,
+    coalescedInboundText: userReply,
+    suppressedMessageSids: ["sim_SM001"],
+    transcriptLines: lines,
+    northStarPacket: {
+      source: "sms_review_place",
+      latestOutboundBody: checkQ,
+      latestOpenQuestion: checkQ,
+      expectedReplySemantics: "completion_check",
+      proofSignal: false,
+      missSignal: false,
+      blockerSignal: false,
+      todayCompleted: false,
+    },
+    gatedDecision: {
+      mode: "use_deterministic",
+      final_event_type: tentativeOutcome,
+      decision_reason: "sms_review_place_arc_fixture",
+      confidence_used: null,
+      should_write_outcome_event: true,
+      should_open_blocker_capture: false,
+      reply_style: "normal_outcome",
+      overrode_deterministic: false,
+    },
+    deterministicEventType: tentativeOutcome,
+    doNotRepeatHints: [],
+    relationshipProfileSummary: persona.identityLabel,
+    conversationBrain: { enabled: false },
+    centralBrain: { shadow_stored: false },
+    arc: { ambiguous_short_reply: true, clarification_required: true },
+    phase5a: {
+      central_tether_brain_enabled: false,
+      arc_clarify_brain_enabled: false,
+      inbound_stitched_final_enabled: false,
+    },
+    forcedFutureStretchIntentActive: false,
+    wave11MemoryConfirmationPending: false,
+    accountabilityProofHint: null,
+    rejectedTimeCandidates: [],
+    unavailableWindows: [],
+    relationshipMemoryPacket: mp,
+    routePurpose: "arc_clarify_ambiguous_short",
+    branchMigratedToLane: true,
+    branchName: "arc_ambiguous_short_clarify",
+    arcClarificationFacts,
+  });
+
+  built.inbound_meaning = {
+    ...built.inbound_meaning,
+    relationship_meaning: "uncertain",
+    persistence_decision: "no_outcome_write",
+    sms_response_intent: "clarify_gently",
+  };
+  built.thread.expected_reply_semantics = "completion_check";
 
   return built;
 }
@@ -990,6 +1136,18 @@ export function buildInboundFacts(
       persona,
       commitment,
       openQ,
+      userReply,
+      lines,
+      memoryPacket: mp,
+    });
+  }
+
+  if (ARC_CLARIFY_SCENARIO_IDS.has(scenario.id)) {
+    return buildArcClarifyInboundFacts({
+      scenario,
+      persona,
+      commitment,
+      checkQ: openQ,
       userReply,
       lines,
       memoryPacket: mp,

@@ -109,6 +109,7 @@ import {
   buildStrategyCardContextFromSnapshot,
   buildStrategyCardV1ForFacts,
   buildStrategyCardV1PromptGuidance,
+  isArcClarifyStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   strategyCardV1MetaForTelemetry,
@@ -1710,7 +1711,7 @@ function validateNoRejectedTimeRepeat(body: string, rejected: string[]): string 
 
 function buildRoutePurposeAux(
   f: InboundV3RelationshipFacts,
-  opts?: { omitOpenQuestionStrategyAux?: boolean }
+  opts?: { omitOpenQuestionStrategyAux?: boolean; omitArcClarifyStrategyAux?: boolean }
 ): string {
   const rp = f.route_purpose;
   if (rp === "central_brain_pivot") {
@@ -1726,6 +1727,7 @@ ROUTE (central_brain_blocker_pivot): Blocker capture was blocked by central brai
 ROUTE (blocker_capture_ack): The user submitted blocker text after a miss; server already owns state. Use blocker_facts (blocker_text, following_event_type, repeated_blocker_signal, blocker_pending_age_minutes_remaining, suggested_next_move). The field legacy_blocker_ack_preview is NON-SPEAKABLE legacy AI/template copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one short SMS acknowledging the blocker and holding the standard, as the coach.`;
   }
   if (rp === "arc_clarify_ambiguous_short") {
+    if (opts?.omitArcClarifyStrategyAux) return "";
     return `
 ROUTE (arc_clarify_ambiguous_short): The user's latest reply is ambiguous relative to accountability context. Use arc_clarification_facts (tentative_outcome, clarification_reason, context_age, latest_question). The field legacy_clarification_text_preview is NON-SPEAKABLE legacy template copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one natural clarifying SMS as the coach.`;
   }
@@ -2226,7 +2228,9 @@ export async function produceInboundV3RelationshipSms(
   let strategyCardPromptGuidance = "";
   const strategyCardNormalEligible = isInboundNormalStrategyCardEligible(args.facts);
   const strategyCardOqEligible = isOpenQuestionAnswerStrategyCardEligible(args.facts);
-  const strategyCardEligible = strategyCardNormalEligible || strategyCardOqEligible;
+  const strategyCardArcEligible = isArcClarifyStrategyCardEligible(args.facts);
+  const strategyCardEligible =
+    strategyCardNormalEligible || strategyCardOqEligible || strategyCardArcEligible;
   if (strategyCardEligible) {
     const strategyCtx = buildStrategyCardContextFromSnapshot({
       facts: args.facts,
@@ -2240,7 +2244,10 @@ export async function produceInboundV3RelationshipSms(
   }
 
   const routePurposeAux =
-    buildRoutePurposeAux(args.facts, { omitOpenQuestionStrategyAux: strategyCardOqEligible }) +
+    buildRoutePurposeAux(args.facts, {
+      omitOpenQuestionStrategyAux: strategyCardOqEligible,
+      omitArcClarifyStrategyAux: strategyCardArcEligible,
+    }) +
     buildMemoryPacketRouteAux(args.facts);
 
   const singleMissRecoveryGuidance = strategyCardNormalEligible

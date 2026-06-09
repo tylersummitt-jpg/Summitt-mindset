@@ -1,10 +1,13 @@
 /**
- * SMS Review Place — Strategy Card v1 invariant validators (inbound normal + open_question_answer).
+ * SMS Review Place — Strategy Card v1 invariant validators (inbound normal + OQ + arc).
  * Review Place only — inspects lane metadata and/or rebuilds cards from facts (read-only).
  */
 
 import type { StrategyCardMoveType, StrategyCardV1 } from "@/lib/coaching-strategy-card-v1";
 import {
+  ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO,
+  arcClarifyLegacyPreviewFingerprint,
+  arcClarifyLegacyPreviewText,
   OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO,
   buildInboundNormalStrategyCardV1,
   buildStrategyCardContextFromSnapshot,
@@ -13,7 +16,11 @@ import {
   validateAndRepairInboundNormalStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import { buildRelationshipPacketForOpenAI } from "@/lib/sms-relationship-packet-v1";
-import type { InboundV3OpenQuestionFacts, InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+import type {
+  InboundV3ArcClarificationFacts,
+  InboundV3OpenQuestionFacts,
+  InboundV3RelationshipFacts,
+} from "@/lib/v3-inbound-relationship-lane";
 import type {
   SmsReviewLane,
   SmsReviewStrategyCardExpectations,
@@ -341,6 +348,47 @@ export function assertStrategyCardDoesNotSpeakOldPreview(args: {
   return null;
 }
 
+export function assertStrategyCardDoesNotSpeakArcPreview(args: {
+  card: StrategyCardV1;
+  arcClarificationFacts?: InboundV3ArcClarificationFacts | null;
+  finalBody?: string;
+}): StrategyCardValidatorFailure | null {
+  const preview = arcClarifyLegacyPreviewText(args.arcClarificationFacts);
+  if (!preview) return null;
+
+  const speakableParts = [
+    ...args.card.must_do,
+    ...args.card.must_not_do,
+    args.card.move.reason,
+    args.card.turn_kind,
+  ];
+  if (speakableParts.some((part) => part.includes(preview))) {
+    return "strategy_card_old_preview_speakable";
+  }
+
+  const hasConstraint =
+    args.card.must_not_do.some((m) =>
+      /internal clarification template preview|clarification template preview/i.test(m)
+    ) || args.card.must_not_do.includes(ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO);
+
+  const previewFp = arcClarifyLegacyPreviewFingerprint(args.arcClarificationFacts);
+  const hasFingerprint =
+    previewFp != null &&
+    args.card.writer_constraints.avoid_repeating.some(
+      (a) => a.toLowerCase() === previewFp.toLowerCase()
+    );
+
+  if (!hasConstraint && !hasFingerprint) {
+    return "strategy_card_old_preview_speakable";
+  }
+
+  if (args.finalBody && args.finalBody.includes(preview)) {
+    return "strategy_card_old_preview_speakable";
+  }
+
+  return null;
+}
+
 export function assertNoDuplicateStrategyAuthority(
   userPromptAppendix: string
 ): StrategyCardValidatorFailure | null {
@@ -439,6 +487,7 @@ export function evaluateStrategyCardExpectations(args: {
   finalShouldSend: boolean;
   laneShouldSend: boolean;
   openQuestionFacts?: InboundV3OpenQuestionFacts | null;
+  arcClarificationFacts?: InboundV3ArcClarificationFacts | null;
   userPromptAppendix?: string;
 }): StrategyCardValidatorFailure[] {
   const failures: StrategyCardValidatorFailure[] = [];
@@ -504,6 +553,15 @@ export function evaluateStrategyCardExpectations(args: {
     const f = assertStrategyCardDoesNotSpeakOldPreview({
       card,
       openQuestionFacts: args.openQuestionFacts,
+      finalBody: args.finalBody,
+    });
+    if (f) failures.push(f);
+  }
+
+  if (exp.assertArcPreviewNonSpeakable) {
+    const f = assertStrategyCardDoesNotSpeakArcPreview({
+      card,
+      arcClarificationFacts: args.arcClarificationFacts,
       finalBody: args.finalBody,
     });
     if (f) failures.push(f);

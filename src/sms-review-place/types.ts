@@ -38,9 +38,9 @@ export type StrategyCardExpectations = {
   expectFinalGuardRan?: boolean;
 };
 
-/** Open-question Strategy Card assertions (not final SMS copy). */
+/** Card-based Strategy Card assertions for OQ + arc (not final SMS copy). */
 export type SmsReviewStrategyCardExpectations = {
-  routeKind: "open_question_answer";
+  routeKind: "open_question_answer" | "arc_clarify_ambiguous_short";
   moveType?: StrategyCardMoveType | StrategyCardMoveType[];
   forbiddenMoves?: StrategyCardMoveType[];
   maxQuestions?: number;
@@ -52,6 +52,7 @@ export type SmsReviewStrategyCardExpectations = {
   >;
   assertFinalGuardRan?: boolean;
   assertOldPreviewNonSpeakable?: boolean;
+  assertArcPreviewNonSpeakable?: boolean;
   assertSingleStrategyAuthority?: boolean;
 };
 
@@ -75,7 +76,7 @@ export type SmsReviewScenario = {
   expectHardFlags?: SmsReviewHardFlag[];
   /** If true, expect zero hard flags for this scenario. */
   expectClean?: boolean;
-  /** Inbound Strategy Card invariants — normal metadata or open-question card shape. */
+  /** Inbound Strategy Card invariants — normal metadata or card-based (OQ/arc). */
   strategyCard?: StrategyCardExpectations | SmsReviewStrategyCardExpectations;
   deferredReason?: string;
 };

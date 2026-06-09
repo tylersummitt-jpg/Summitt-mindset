@@ -1,5 +1,5 @@
 /**
- * Phase 4.1/4.3 — Coaching Strategy Card v1 (inbound normal + open_question_answer).
+ * Phase 4.1/4.3/4.4a — Coaching Strategy Card v1 (inbound normal + open_question_answer + arc clarify).
  * Server-built coaching move envelope; writer-facing after validation/repair.
  * Does not route, mutate state, send SMS, or replace Relationship Snapshot.
  */
@@ -20,6 +20,7 @@ import {
   resolveShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
 import type {
+  InboundV3ArcClarificationFacts,
   InboundV3OpenQuestionFacts,
   InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
@@ -27,7 +28,10 @@ import type {
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
 
 export type StrategyCardSurface = "inbound";
-export type StrategyCardRouteKind = "normal_inbound_reply" | "open_question_answer";
+export type StrategyCardRouteKind =
+  | "normal_inbound_reply"
+  | "open_question_answer"
+  | "arc_clarify_ambiguous_short";
 
 export type StrategyCardOutcome = "completed" | "missed" | "partial" | "none" | "unclear";
 
@@ -69,6 +73,9 @@ export type StrategyCardV1 = {
     satisfied_ask_fingerprints: string[];
     open_question_answer_kind?: string | null;
     open_question_satisfied?: boolean | null;
+    arc_tentative_outcome?: string | null;
+    arc_clarification_reason?: string | null;
+    arc_context_age?: string | null;
   };
   move: {
     type: StrategyCardMoveType;
@@ -130,6 +137,14 @@ const MAX_FINGERPRINT_CHARS = 120;
 export const OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO =
   "Do not quote, paraphrase, or answer as if a prior internal coach draft preview is new user-facing text.";
 
+/** Writer-facing must_not_do when a prior internal clarification template preview exists on arc turns. */
+export const ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO =
+  "Do not quote, paraphrase, or reuse a prior internal clarification template preview as new user-facing text.";
+
+/** Writer-facing must_not_do — arc tentative classifier hint is not confirmed server truth. */
+export const ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO =
+  "Do not treat tentative_outcome as confirmed completion, miss, partial, or proof.";
+
 const SINGLE_MISS_FORBIDDEN_MOVES: StrategyCardMoveType[] = [
   "propose_adjustment",
   "evaluate_commitment",
@@ -170,8 +185,38 @@ export function isOpenQuestionAnswerStrategyCardEligible(facts: InboundV3Relatio
   return true;
 }
 
+function hasArcClarifyBlockingBranchFacts(facts: InboundV3RelationshipFacts): boolean {
+  if (facts.blocker_facts) return true;
+  if (facts.refresh_facts) return true;
+  if (facts.pending_resolution_facts) return true;
+  if (facts.memory_confirmation_facts) return true;
+  if (facts.contract_consent_facts) return true;
+  if (facts.adaptive_consent_clarification_facts) return true;
+  if (facts.commitment_change_facts) return true;
+  if (facts.commitment_change_context_facts) return true;
+  if (facts.central_brain_pivot_facts) return true;
+  if (facts.central_brain_blocker_pivot_facts) return true;
+  if (facts.open_question_facts) return true;
+  if (facts.conversation_brain_fallback_facts) return true;
+  if (facts.pending_replacement_facts?.pending_resolution_active === true) return true;
+  if (facts.identity_edit) return true;
+  if (facts.relationship_exit) return true;
+  return false;
+}
+
+export function isArcClarifyStrategyCardEligible(facts: InboundV3RelationshipFacts): boolean {
+  if (facts.route_purpose !== "arc_clarify_ambiguous_short") return false;
+  if (!facts.arc_clarification_facts) return false;
+  if (hasArcClarifyBlockingBranchFacts(facts)) return false;
+  return true;
+}
+
 export function isStrategyCardEligible(facts: InboundV3RelationshipFacts): boolean {
-  return isInboundNormalStrategyCardEligible(facts) || isOpenQuestionAnswerStrategyCardEligible(facts);
+  return (
+    isInboundNormalStrategyCardEligible(facts) ||
+    isOpenQuestionAnswerStrategyCardEligible(facts) ||
+    isArcClarifyStrategyCardEligible(facts)
+  );
 }
 
 function truncateText(text: string, max: number): string {
@@ -296,6 +341,186 @@ export function openQuestionOldCoachPreviewFingerprint(
   const preview = openQuestionOldCoachPreviewText(oq);
   if (!preview) return null;
   return fingerprintAsk(preview);
+}
+
+export function arcClarifyLegacyPreviewText(
+  arc: InboundV3ArcClarificationFacts | null | undefined
+): string | null {
+  const preview = arc?.legacy_clarification_text_preview?.trim();
+  if (!preview || preview.length < 2) return null;
+  return preview;
+}
+
+export function arcClarifyLegacyPreviewFingerprint(
+  arc: InboundV3ArcClarificationFacts | null | undefined
+): string | null {
+  const preview = arcClarifyLegacyPreviewText(arc);
+  if (!preview) return null;
+  return fingerprintAsk(preview);
+}
+
+function arcLatestQuestionFingerprint(
+  arc: InboundV3ArcClarificationFacts | null | undefined
+): string | null {
+  const q = arc?.latest_question?.trim();
+  if (!q) return null;
+  return fingerprintAsk(q);
+}
+
+function formatArcContextAgeSummary(
+  age: InboundV3ArcClarificationFacts["context_age"] | null | undefined
+): string | null {
+  if (!age) return null;
+  const parts: string[] = [];
+  if (age.accountability_prompt_age_minutes != null) {
+    parts.push(`prompt_age_min:${age.accountability_prompt_age_minutes}`);
+  }
+  if (age.accountability_prompt_sent_at?.trim()) {
+    parts.push(`prompt_sent:${age.accountability_prompt_sent_at.trim().slice(0, 24)}`);
+  }
+  if (age.latest_outcome_at?.trim()) {
+    parts.push(`latest_outcome:${age.latest_outcome_at.trim().slice(0, 24)}`);
+  }
+  return parts.length > 0 ? parts.join("|") : null;
+}
+
+function arcQuestionAlreadySatisfied(ctx: StrategyCardBuildContext): boolean {
+  const fp = arcLatestQuestionFingerprint(ctx.facts.arc_clarification_facts);
+  if (!fp) return false;
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    if (s.ask_text?.trim() && fingerprintAsk(s.ask_text).toLowerCase() === fp.toLowerCase()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function collectArcClarifyAvoidRepeating(ctx: StrategyCardBuildContext): string[] {
+  const out = collectAvoidRepeating(ctx);
+  const arc = ctx.facts.arc_clarification_facts;
+  const qFp = arcLatestQuestionFingerprint(arc);
+  if (qFp && !out.some((a) => a.toLowerCase() === qFp.toLowerCase())) {
+    out.unshift(qFp);
+  }
+  const previewFp = arcClarifyLegacyPreviewFingerprint(arc);
+  if (previewFp && !out.some((a) => a.toLowerCase() === previewFp.toLowerCase())) {
+    out.push(previewFp);
+  }
+  return out.slice(0, MAX_AVOID_REPEATING);
+}
+
+function buildArcClarifyMustDoMustNotDo(ctx: StrategyCardBuildContext): {
+  must_do: string[];
+  must_not_do: string[];
+} {
+  const must_do = [
+    "Ask exactly one natural clarification question.",
+    "Anchor lightly to the latest coach accountability question or context.",
+    "Make clear the reply is not being scored as an outcome yet.",
+  ];
+  const must_not_do = [
+    ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO,
+    "Do not claim completion.",
+    "Do not claim miss.",
+    "Do not claim partial.",
+    "Do not claim proof.",
+    "Do not mention Victory Room.",
+  ];
+
+  if (arcClarifyLegacyPreviewText(ctx.facts.arc_clarification_facts)) {
+    must_not_do.push(ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO);
+  }
+
+  if (arcQuestionAlreadySatisfied(ctx)) {
+    must_not_do.push("Do not repeat the stale accountability question verbatim if thread memory shows it was already answered.");
+  }
+
+  if (ctx.openLoops.satisfied_asks?.length) {
+    must_not_do.push("Do not re-ask satisfied asks from open_loops.");
+  }
+
+  return {
+    must_do: must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+  };
+}
+
+export function buildArcClarifyStrategyCardV1(args: {
+  ctx: StrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  const { ctx } = args;
+  const { facts } = ctx;
+  const arc = facts.arc_clarification_facts!;
+  const legacyType = mapLegacyMoveToType(facts.suggested_coaching_move);
+  const legacyUsed = legacyType === "clarify";
+  const legacyReplaced =
+    legacyType != null && legacyType !== "clarify" && facts.suggested_coaching_move?.trim();
+
+  const promptAge = arc.context_age?.accountability_prompt_age_minutes;
+  const priority: "normal" | "high" =
+    promptAge != null && promptAge >= 120 ? "high" : "normal";
+
+  const { must_do, must_not_do } = buildArcClarifyMustDoMustNotDo(ctx);
+  const avoid_repeating = collectArcClarifyAvoidRepeating(ctx);
+
+  const allowed: StrategyCardV1["allowed_claims"] = {
+    completion: false,
+    miss: false,
+    partial: false,
+    proof: false,
+    victory_room: false,
+    state_changed: false,
+    proposal_active: false,
+  };
+
+  const turnKind =
+    facts.turn_understanding?.reconciled_response_intent ??
+    arc.clarification_reason ??
+    "arc_clarify_ambiguous_short";
+
+  return {
+    version: STRATEGY_CARD_V1_VERSION,
+    generated_at: args.generatedAt ?? new Date().toISOString(),
+    surface: "inbound",
+    route_kind: "arc_clarify_ambiguous_short",
+    turn_kind: String(turnKind),
+    server_truth_summary: {
+      outcome: "unclear",
+      explicit_user_truth: false,
+      persistence_decision: facts.inbound_meaning?.persistence_decision ?? null,
+      active_pending_kinds: activePendingKinds(ctx.activePending),
+      answered_last_question: null,
+      satisfied_ask_fingerprints: [],
+      arc_tentative_outcome: arc.tentative_outcome ?? null,
+      arc_clarification_reason: arc.clarification_reason ?? null,
+      arc_context_age: formatArcContextAgeSummary(arc.context_age),
+    },
+    move: {
+      type: "clarify",
+      priority,
+      confidence: "high",
+      reason: truncateText(
+        "Ambiguous short reply — one natural clarification before scoring the accountability outcome.",
+        MAX_REASON_CHARS
+      ),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims: allowed,
+    writer_constraints: {
+      max_questions: 1,
+      avoid_repeating,
+      tone_posture: "clarifying",
+    },
+    meta: {
+      generation_source: "server_strategy_card_v1",
+      legacy_suggested_coaching_move: facts.suggested_coaching_move ?? null,
+      legacy_coaching_move_source: facts.coaching_move_source ?? null,
+      legacy_hint_used: legacyUsed || undefined,
+      legacy_hint_replaced: legacyReplaced ? true : undefined,
+    },
+  };
 }
 
 function isOpenQuestionAnswerUnclear(
@@ -1068,6 +1293,61 @@ function validateOpenQuestionStrategyCardV1(card: StrategyCardV1, ctx: StrategyC
   return reasons;
 }
 
+function validateArcClarifyStrategyCardV1(card: StrategyCardV1, ctx: StrategyCardBuildContext): string[] {
+  const reasons: string[] = [];
+  if (card.route_kind !== "arc_clarify_ambiguous_short") return reasons;
+
+  if (card.move.type !== "clarify") {
+    reasons.push("arc_clarify_move_not_clarify");
+  }
+
+  if (card.writer_constraints.max_questions > 1) {
+    reasons.push("arc_clarify_max_questions");
+  }
+
+  for (const key of ["completion", "miss", "partial", "proof", "victory_room", "state_changed", "proposal_active"] as const) {
+    if (card.allowed_claims[key]) {
+      reasons.push(`arc_clarify_claim_${key}`);
+    }
+  }
+
+  if (
+    !card.must_not_do.some((m) =>
+      /tentative_outcome|tentative outcome/i.test(m)
+    )
+  ) {
+    reasons.push("missing_arc_tentative_outcome_not_confirmed");
+  }
+
+  const legacyPreview = arcClarifyLegacyPreviewText(ctx.facts.arc_clarification_facts);
+  if (legacyPreview) {
+    if (
+      !card.must_not_do.some((m) =>
+        /internal clarification template preview|clarification template preview/i.test(m)
+      )
+    ) {
+      reasons.push("missing_arc_legacy_preview_non_speakable");
+    }
+    const previewFp = arcClarifyLegacyPreviewFingerprint(ctx.facts.arc_clarification_facts);
+    if (
+      previewFp &&
+      !card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === previewFp.toLowerCase())
+    ) {
+      reasons.push("missing_arc_legacy_preview_avoid_repeat");
+    }
+  }
+
+  const qFp = arcLatestQuestionFingerprint(ctx.facts.arc_clarification_facts);
+  if (
+    qFp &&
+    !card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === qFp.toLowerCase())
+  ) {
+    reasons.push("missing_arc_latest_question_avoid_repeat");
+  }
+
+  return reasons;
+}
+
 export function validateStrategyCardV1(
   card: StrategyCardV1,
   ctx: StrategyCardBuildContext
@@ -1075,6 +1355,7 @@ export function validateStrategyCardV1(
   const reasons = [
     ...validateSharedStrategyCardV1(card, ctx),
     ...validateOpenQuestionStrategyCardV1(card, ctx),
+    ...validateArcClarifyStrategyCardV1(card, ctx),
   ];
   return { valid: reasons.length === 0, reasons };
 }
@@ -1208,12 +1489,23 @@ function repairOpenQuestionCard(
   };
 }
 
+function repairArcClarifyCard(
+  card: StrategyCardV1,
+  ctx: StrategyCardBuildContext,
+  _reasons: string[]
+): StrategyCardV1 {
+  return buildArcClarifyStrategyCardV1({ ctx, generatedAt: card.generated_at });
+}
+
 export function buildStrategyCardV1ForFacts(args: {
   ctx: StrategyCardBuildContext;
   generatedAt?: string;
 }): StrategyCardV1 {
   if (isOpenQuestionAnswerStrategyCardEligible(args.ctx.facts)) {
     return buildOpenQuestionAnswerStrategyCardV1(args);
+  }
+  if (isArcClarifyStrategyCardEligible(args.ctx.facts)) {
+    return buildArcClarifyStrategyCardV1(args);
   }
   return buildInboundNormalStrategyCardV1(args);
 }
@@ -1229,7 +1521,9 @@ export function validateAndRepairStrategyCardV1(
   const repaired =
     card.route_kind === "open_question_answer"
       ? repairOpenQuestionCard(card, ctx, first.reasons)
-      : repairNormalCard(card, ctx, first.reasons);
+      : card.route_kind === "arc_clarify_ambiguous_short"
+        ? repairArcClarifyCard(card, ctx, first.reasons)
+        : repairNormalCard(card, ctx, first.reasons);
   const second = validateStrategyCardV1(repaired, ctx);
   return {
     card: repaired,
@@ -1293,6 +1587,19 @@ export function strategyCardV1MetaForTelemetry(
           strategy_card_open_question_satisfied:
             c.server_truth_summary.open_question_satisfied ??
             (ctx ? isOpenQuestionSatisfied(ctx) : null),
+        }
+      : {}),
+    ...(c.route_kind === "arc_clarify_ambiguous_short"
+      ? {
+          strategy_card_arc_tentative_outcome:
+            c.server_truth_summary.arc_tentative_outcome ??
+            ctx?.facts.arc_clarification_facts?.tentative_outcome ??
+            null,
+          strategy_card_arc_context_age: c.server_truth_summary.arc_context_age ?? null,
+          strategy_card_arc_clarification_reason:
+            c.server_truth_summary.arc_clarification_reason ??
+            ctx?.facts.arc_clarification_facts?.clarification_reason ??
+            null,
         }
       : {}),
   };

@@ -1416,6 +1416,9 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_plan_ack_source",
   "strategy_card_open_question_answer_kind",
   "strategy_card_open_question_satisfied",
+  "strategy_card_arc_tentative_outcome",
+  "strategy_card_arc_context_age",
+  "strategy_card_arc_clarification_reason",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [
