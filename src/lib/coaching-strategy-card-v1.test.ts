@@ -9,6 +9,8 @@ import {
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   isOpenQuestionSatisfied,
+  OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO,
+  openQuestionOldCoachPreviewFingerprint,
   resolveShortAnswerPlanAckFromInboundFacts,
   strategyCardV1MetaForTelemetry,
   strategyCardV1UserPromptAppendix,
@@ -1063,5 +1065,18 @@ describe("Phase 4.3 open_question_answer Strategy Card", () => {
     expect(meta.strategy_card_route_kind).toBe("open_question_answer");
     expect(meta.strategy_card_open_question_answer_kind).toBe("open_reflection");
     expect(meta.strategy_card_open_question_satisfied).toBeDefined();
+  });
+
+  it("old coach preview adds non-speakable must_not_do and avoid_repeating fingerprint", () => {
+    const oq = openQuestionFactsFixture();
+    const ctx = buildCtx(oqMinimalFacts({ open_question_facts: oq }));
+    const card = buildOpenQuestionAnswerStrategyCardV1({ ctx });
+    expect(card.must_not_do).toContain(OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO);
+    const fp = openQuestionOldCoachPreviewFingerprint(oq);
+    expect(fp).toBeTruthy();
+    expect(
+      card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === fp!.toLowerCase())
+    ).toBe(true);
+    expect(card.must_not_do.some((m) => /old_open_question_reply_preview/i.test(m))).toBe(false);
   });
 });

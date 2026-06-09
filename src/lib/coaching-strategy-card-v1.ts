@@ -126,6 +126,10 @@ const MAX_MUST_NOT_DO = 8;
 const MAX_AVOID_REPEATING = 10;
 const MAX_FINGERPRINT_CHARS = 120;
 
+/** Writer-facing must_not_do when a prior internal coach draft preview exists on open-question turns. */
+export const OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO =
+  "Do not quote, paraphrase, or answer as if a prior internal coach draft preview is new user-facing text.";
+
 const SINGLE_MISS_FORBIDDEN_MOVES: StrategyCardMoveType[] = [
   "propose_adjustment",
   "evaluate_commitment",
@@ -278,6 +282,22 @@ function openQuestionFingerprint(oq: InboundV3OpenQuestionFacts | null | undefin
   return fingerprintAsk(q);
 }
 
+export function openQuestionOldCoachPreviewText(
+  oq: InboundV3OpenQuestionFacts | null | undefined
+): string | null {
+  const preview = oq?.old_open_question_reply_preview?.trim();
+  if (!preview || preview.length < 2) return null;
+  return preview;
+}
+
+export function openQuestionOldCoachPreviewFingerprint(
+  oq: InboundV3OpenQuestionFacts | null | undefined
+): string | null {
+  const preview = openQuestionOldCoachPreviewText(oq);
+  if (!preview) return null;
+  return fingerprintAsk(preview);
+}
+
 function isOpenQuestionAnswerUnclear(
   oq: InboundV3OpenQuestionFacts,
   facts: InboundV3RelationshipFacts
@@ -333,9 +353,23 @@ function missTurnNeedsBlocker(facts: InboundV3RelationshipFacts): boolean {
 
 function collectOpenQuestionAvoidRepeating(ctx: StrategyCardBuildContext): string[] {
   const out = collectAvoidRepeating(ctx);
-  const fp = openQuestionFingerprint(ctx.facts.open_question_facts);
-  if (fp && isOpenQuestionSatisfied(ctx) && !out.some((a) => a.toLowerCase() === fp.toLowerCase())) {
-    out.unshift(fp);
+  const oq = ctx.facts.open_question_facts;
+  const fp = openQuestionFingerprint(oq);
+  if (fp) {
+    const clearAnswer =
+      Boolean(oq?.extracted_answer?.trim()) &&
+      oq!.extracted_answer!.trim().length >= 2 &&
+      !isOpenQuestionAnswerUnclear(oq!, ctx.facts);
+    if (
+      (isOpenQuestionSatisfied(ctx) || clearAnswer) &&
+      !out.some((a) => a.toLowerCase() === fp.toLowerCase())
+    ) {
+      out.unshift(fp);
+    }
+  }
+  const previewFp = openQuestionOldCoachPreviewFingerprint(oq);
+  if (previewFp && !out.some((a) => a.toLowerCase() === previewFp.toLowerCase())) {
+    out.push(previewFp);
   }
   return out.slice(0, MAX_AVOID_REPEATING);
 }
@@ -472,6 +506,10 @@ function buildOpenQuestionMustDoMustNotDo(args: {
 
   if (args.notDelivered) {
     must_not_do.push("Do not imply the user ignored the earlier question.");
+  }
+
+  if (openQuestionOldCoachPreviewText(args.ctx.facts.open_question_facts)) {
+    must_not_do.push(OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO);
   }
 
   if (pendingKinds.length > 0) {
@@ -1007,6 +1045,24 @@ function validateOpenQuestionStrategyCardV1(card: StrategyCardV1, ctx: StrategyC
 
   if (card.move.type === "clarify" && card.writer_constraints.max_questions !== 1) {
     reasons.push("open_question_clarify_max_questions");
+  }
+
+  const oldPreview = openQuestionOldCoachPreviewText(ctx.facts.open_question_facts);
+  if (oldPreview) {
+    if (
+      !card.must_not_do.some((m) =>
+        /prior internal coach draft preview|internal coach draft preview/i.test(m)
+      )
+    ) {
+      reasons.push("missing_open_question_old_preview_non_speakable");
+    }
+    const previewFp = openQuestionOldCoachPreviewFingerprint(ctx.facts.open_question_facts);
+    if (
+      previewFp &&
+      !card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === previewFp.toLowerCase())
+    ) {
+      reasons.push("missing_open_question_old_preview_avoid_repeat");
+    }
   }
 
   return reasons;

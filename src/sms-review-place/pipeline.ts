@@ -2,6 +2,7 @@
  * SMS Review Place — safe V3 lane orchestration (no Twilio, no DB, no cron).
  */
 
+import { strategyCardV1UserPromptAppendix } from "@/lib/coaching-strategy-card-v1";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import {
@@ -24,8 +25,18 @@ import {
 import { peekMockLaneBody } from "@/sms-review-place/fixtures/openai-responses";
 import { getPersona } from "@/sms-review-place/fixtures/personas";
 import { resolveFinalSmsOutput } from "@/sms-review-place/sms-output";
-import type { SmsReviewScenario, SmsReviewScenarioStep, SmsReviewRunRow } from "@/sms-review-place/types";
-import { evaluateStrategyCardExpectations } from "@/sms-review-place/strategy-card-validators";
+import { rebuildInboundStrategyCardForReview } from "@/sms-review-place/strategy-card-review";
+import {
+  evaluateInboundNormalStrategyCardExpectations,
+  evaluateStrategyCardExpectations,
+} from "@/sms-review-place/strategy-card-validators";
+import type {
+  SmsReviewScenario,
+  SmsReviewScenarioStep,
+  SmsReviewRunRow,
+  SmsReviewStrategyCardExpectations,
+  StrategyCardExpectations,
+} from "@/sms-review-place/types";
 import {
   buildSoftReviewFields,
   evaluateHardFlags,
@@ -60,6 +71,12 @@ function supplementalBodiesForStep(scenario: SmsReviewScenario, step: SmsReviewS
   if (!scenario.expectHardFlags?.length) return [];
   const body = peekMockLaneBody(mockKeyForStep(scenario, step));
   return body ? [body] : [];
+}
+
+function isOpenQuestionStrategyCardExpectations(
+  exp: StrategyCardExpectations | SmsReviewStrategyCardExpectations
+): exp is SmsReviewStrategyCardExpectations {
+  return "routeKind" in exp;
 }
 
 function baseRow(
@@ -117,9 +134,11 @@ function passForRow(
     | "expect_clean"
     | "expect_hard_flags"
     | "strategy_card_pass"
+    | "strategy_card_failures"
   >
 ): boolean {
   if (row.strategy_card_pass === false) return false;
+  if (row.strategy_card_failures.length > 0) return false;
   return scenarioPass(scenario, {
     hard_flags: hardFlags,
     lane: row.lane,
@@ -135,54 +154,88 @@ function passForRow(
 
 function emptyStrategyCardFields(): Pick<
   SmsReviewRunRow,
+  | "strategy_card_failures"
   | "strategy_card_move_type"
+  | "strategy_card_route_kind"
   | "strategy_card_validation_status"
   | "strategy_card_violations"
   | "strategy_card_pass"
 > {
   return {
+    strategy_card_failures: [],
     strategy_card_move_type: null,
+    strategy_card_route_kind: null,
     strategy_card_validation_status: null,
     strategy_card_violations: [],
     strategy_card_pass: null,
   };
 }
 
-function evaluateStrategyCardForScenario(args: {
+function evaluateInboundStrategyCardFields(args: {
   scenario: SmsReviewScenario;
+  facts: InboundV3RelationshipFacts;
   laneMetadata: Record<string, unknown>;
-  inboundFacts?: InboundV3RelationshipFacts | null;
   laneBody: string;
   finalBody: string;
-  lane: SmsReviewRunRow["lane"];
-  laneSkipped: boolean;
   northStarBody: string;
   finalShouldSend: boolean;
   finalSkipReason: string | null;
+  laneShouldSend: boolean;
   blockedReasons: string[];
 }): Pick<
   SmsReviewRunRow,
+  | "strategy_card_failures"
   | "strategy_card_move_type"
+  | "strategy_card_route_kind"
   | "strategy_card_validation_status"
   | "strategy_card_violations"
   | "strategy_card_pass"
 > {
   if (!args.scenario.strategyCard) return emptyStrategyCardFields();
-  const outcome = evaluateStrategyCardExpectations({
+
+  if (isOpenQuestionStrategyCardExpectations(args.scenario.strategyCard)) {
+    const card = rebuildInboundStrategyCardForReview(args.facts);
+    const userPromptAppendix = card ? strategyCardV1UserPromptAppendix(card) : "";
+    const failures = evaluateStrategyCardExpectations({
+      card,
+      expectations: args.scenario.strategyCard,
+      finalBody: args.finalBody,
+      finalShouldSend: args.finalShouldSend,
+      laneShouldSend: args.laneShouldSend,
+      openQuestionFacts: args.facts.open_question_facts,
+      userPromptAppendix,
+    });
+    return {
+      strategy_card_failures: failures,
+      strategy_card_move_type: card?.move.type ?? null,
+      strategy_card_route_kind: card?.route_kind ?? null,
+      strategy_card_validation_status: null,
+      strategy_card_violations: [],
+      strategy_card_pass: failures.length === 0,
+    };
+  }
+
+  const outcome = evaluateInboundNormalStrategyCardExpectations({
     expectations: args.scenario.strategyCard,
     laneMetadata: args.laneMetadata,
-    inboundFacts: args.inboundFacts,
+    inboundFacts: args.facts,
     laneBody: args.laneBody,
     finalBody: args.finalBody,
-    lane: args.lane,
-    laneSkipped: args.laneSkipped,
+    lane: "inbound",
+    laneSkipped: false,
     northStarBody: args.northStarBody,
     finalShouldSend: args.finalShouldSend,
     finalSkipReason: args.finalSkipReason,
     blockedReasons: args.blockedReasons,
   });
+  const routeKind =
+    typeof args.laneMetadata.strategy_card_route_kind === "string"
+      ? args.laneMetadata.strategy_card_route_kind
+      : null;
   return {
+    strategy_card_failures: [],
     strategy_card_move_type: outcome.move_type,
+    strategy_card_route_kind: routeKind,
     strategy_card_validation_status: outcome.validation_status,
     strategy_card_violations: outcome.violations,
     strategy_card_pass: outcome.pass,
@@ -262,8 +315,6 @@ export async function runDailyPipeline(
 
   const hardFlags = evaluateHardFlags(validatorInput);
 
-  const strategyCardFields = emptyStrategyCardFields();
-
   const rowBase = {
     ...baseRow(scenario, stepIndex, step),
     accountability_day_key: simulatedDayKey(),
@@ -285,7 +336,7 @@ export async function runDailyPipeline(
     hard_flags: hardFlags,
     lane_skipped_reason: null,
     classifier_results: null,
-    ...strategyCardFields,
+    ...emptyStrategyCardFields(),
   };
 
   return {
@@ -386,17 +437,16 @@ export async function runInboundPipeline(
 
   const hardFlags = evaluateHardFlags(validatorInput);
 
-  const strategyCardFields = evaluateStrategyCardForScenario({
+  const strategyCardFields = evaluateInboundStrategyCardFields({
     scenario,
+    facts,
     laneMetadata: lane.metadata,
-    inboundFacts: facts,
     laneBody: lane.body,
     finalBody: resolved.final_body,
-    lane: "inbound",
-    laneSkipped: false,
     northStarBody: ns.visibleBody,
     finalShouldSend: resolved.final_should_send,
     finalSkipReason: fvg.skipReason ?? null,
+    laneShouldSend: lane.shouldSend,
     blockedReasons: fvg.blockedReasons,
   });
 

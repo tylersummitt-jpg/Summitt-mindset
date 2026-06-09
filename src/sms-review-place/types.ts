@@ -2,6 +2,8 @@
  * SMS Review Place — internal types only (not imported by production SMS routes).
  */
 
+import type { StrategyCardMoveType } from "@/lib/coaching-strategy-card-v1";
+
 export type SmsReviewRunMode = "mock" | "real_openai";
 
 export type SmsReviewLane = "daily" | "inbound" | "weekly" | "classifier";
@@ -21,7 +23,7 @@ export type SmsReviewScenarioStep = {
   userReply?: string;
 };
 
-/** Phase 4.2 — Strategy Card metadata assertions (not final SMS copy). */
+/** Phase 4.2 — inbound-normal Strategy Card metadata assertions (not final SMS copy). */
 export type StrategyCardExpectations = {
   expectCardPresent: boolean;
   allowedMoveTypes?: string[];
@@ -34,6 +36,23 @@ export type StrategyCardExpectations = {
   avoidRepeatingIncludes?: RegExp[];
   /** When true (default), assert North Star + FVG ran for coaching lanes. */
   expectFinalGuardRan?: boolean;
+};
+
+/** Open-question Strategy Card assertions (not final SMS copy). */
+export type SmsReviewStrategyCardExpectations = {
+  routeKind: "open_question_answer";
+  moveType?: StrategyCardMoveType | StrategyCardMoveType[];
+  forbiddenMoves?: StrategyCardMoveType[];
+  maxQuestions?: number;
+  mustDoIncludes?: Array<RegExp | string>;
+  mustNotDoIncludes?: Array<RegExp | string>;
+  avoidRepeatingIncludes?: Array<RegExp | string>;
+  allowedClaimsFalse?: Array<
+    "completion" | "miss" | "partial" | "proof" | "victory_room" | "state_changed" | "proposal_active"
+  >;
+  assertFinalGuardRan?: boolean;
+  assertOldPreviewNonSpeakable?: boolean;
+  assertSingleStrategyAuthority?: boolean;
 };
 
 export type SmsReviewScenario = {
@@ -56,10 +75,25 @@ export type SmsReviewScenario = {
   expectHardFlags?: SmsReviewHardFlag[];
   /** If true, expect zero hard flags for this scenario. */
   expectClean?: boolean;
-  /** Phase 4.2 — inbound-normal Strategy Card invariants. */
-  strategyCard?: StrategyCardExpectations;
+  /** Inbound Strategy Card invariants — normal metadata or open-question card shape. */
+  strategyCard?: StrategyCardExpectations | SmsReviewStrategyCardExpectations;
   deferredReason?: string;
 };
+
+export type SmsReviewStrategyCardFailure =
+  | "strategy_card_missing"
+  | "strategy_card_route_kind_mismatch"
+  | "strategy_card_move_mismatch"
+  | "strategy_card_forbidden_move"
+  | "strategy_card_max_questions_mismatch"
+  | "strategy_card_must_do_missing"
+  | "strategy_card_must_not_do_missing"
+  | "strategy_card_avoid_repeating_missing"
+  | "strategy_card_allowed_claims_not_false"
+  | "strategy_card_sms_body_leak"
+  | "strategy_card_final_guard_not_ran"
+  | "strategy_card_old_preview_speakable"
+  | "strategy_card_duplicate_strategy_authority";
 
 export type SmsReviewHardFlag =
   | "fake_proof_claim"
@@ -116,6 +150,12 @@ export type SmsReviewRunRow = {
   final_skip_reason: string | null;
   blocked_reasons: string[];
   hard_flags: SmsReviewHardFlag[];
+  strategy_card_failures: SmsReviewStrategyCardFailure[];
+  strategy_card_move_type: string | null;
+  strategy_card_route_kind: string | null;
+  strategy_card_validation_status: string | null;
+  strategy_card_violations: string[];
+  strategy_card_pass: boolean | null;
   soft_review: SmsReviewSoftReviewFields;
   expected_behavior: string;
   bug_category: string;
@@ -124,11 +164,6 @@ export type SmsReviewRunRow = {
   pass: boolean;
   lane_skipped_reason: string | null;
   classifier_results: Record<string, unknown> | null;
-  /** Phase 4.2 — Strategy Card lane metadata (null when not applicable). */
-  strategy_card_move_type: string | null;
-  strategy_card_validation_status: string | null;
-  strategy_card_violations: string[];
-  strategy_card_pass: boolean | null;
   human_notes: string;
   run_mode: SmsReviewRunMode;
 };

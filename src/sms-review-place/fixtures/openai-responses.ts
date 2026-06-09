@@ -112,6 +112,30 @@ const RESPONSES: Record<string, LaneJson> = {
     ...GOOD_INBOUND,
     body: "Good — lock in the strength session once Brooke's workout wraps.",
   },
+  "open-question-clear-answer:inbound": {
+    ...GOOD_INBOUND,
+    body: "Eating before Brooke's workout makes sense — what would you grab on a normal night?",
+  },
+  "open-question-unclear-answer:inbound": {
+    ...GOOD_INBOUND,
+    body: "When you say it depends on Brooke's workout — what part is hardest to predict?",
+  },
+  "open-question-plan-ack:inbound": {
+    ...GOOD_INBOUND,
+    body: "Good — we'll hold the after-Brooke's-workout plan. Text me when you're heading in.",
+  },
+  "open-question-satisfied-no-repeat:inbound": {
+    ...GOOD_INBOUND,
+    body: "Good — I won't re-ask that. I'll check in after Brooke's workout.",
+  },
+  "open-question-not-delivered:inbound": {
+    ...GOOD_INBOUND,
+    body: "If my last note didn't land — what's the one thing that would make training after Brooke's workout realistic this week?",
+  },
+  "open-question-old-preview-non-speakable:inbound": {
+    ...GOOD_INBOUND,
+    body: "Eating before Brooke's workout is a smart fix — what would you grab on a normal night?",
+  },
   "plan-not-proof:daily": {
     ...GOOD_DAILY,
     body: "Before a new ask — did yesterday's after-workout plan actually happen?",

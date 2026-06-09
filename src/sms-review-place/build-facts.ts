@@ -19,6 +19,7 @@ import { buildTemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import {
   buildInboundV3RelationshipFacts,
+  type InboundV3OpenQuestionFacts,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
 import {
@@ -30,6 +31,7 @@ import {
   SATISFIED_ASK_Q,
 } from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import { getPersona } from "@/sms-review-place/fixtures/personas";
+import { OLD_PREVIEW_STUB_TEXT } from "@/sms-review-place/fixtures/open-question-strategy-card-scenarios";
 import type { SmsReviewScenario } from "@/sms-review-place/types";
 
 const SIM_DAY_KEY = "2026-06-04";
@@ -237,6 +239,303 @@ function proofHintForScenario(scenario: SmsReviewScenario): InboundV3ProofCallou
     };
   }
   return null;
+}
+
+const OPEN_QUESTION_SCENARIO_IDS = new Set([
+  "open-question-answered",
+  "open-question-clear-answer",
+  "open-question-unclear-answer",
+  "open-question-plan-ack",
+  "open-question-satisfied-no-repeat",
+  "open-question-not-delivered",
+  "open-question-old-preview-non-speakable",
+]);
+
+function buildOpenQuestionAnswerInboundFacts(args: {
+  scenario: SmsReviewScenario;
+  persona: ReturnType<typeof getPersona>;
+  commitment: ActiveV2CommitmentRow;
+  openQ: string;
+  userReply: string;
+  lines: string[];
+  memoryPacket: SlimSmsRelationshipMemoryPacketForFacts;
+}): InboundV3RelationshipFacts {
+  const { scenario, persona, commitment, openQ, userReply, lines, memoryPacket } = args;
+  const id = scenario.id;
+
+  let openQuestionFacts: InboundV3OpenQuestionFacts = {
+    latest_open_question: openQ,
+    expected_reply_semantics: id === "open-question-plan-ack" ? "plan_confirmation" : "open_reflection",
+    resolution_subkind: id === "open-question-plan-ack" ? "plan_confirmation" : "open_reflection",
+    extracted_answer:
+      id === "open-question-unclear-answer"
+        ? null
+        : id === "open-question-plan-ack"
+          ? userReply
+          : userReply,
+    answer_kind: id === "open-question-unclear-answer" ? "ambiguous" : "open_reflection",
+    old_open_question_reply_preview:
+      id === "open-question-old-preview-non-speakable" ? OLD_PREVIEW_STUB_TEXT : "LEGACY_PREVIEW",
+    deterministic_fallback_used: false,
+    deterministic_fallback_reason: null,
+    legacy_open_question_reply_source: "deterministic_fallback",
+    latest_outbound_preview: openQ,
+  };
+
+  if (id === "open-question-unclear-answer") {
+    openQuestionFacts = {
+      ...openQuestionFacts,
+      extracted_answer: null,
+      answer_kind: "ambiguous",
+    };
+  }
+
+  const mp = { ...memoryPacket };
+
+  if (id !== "open-question-not-delivered") {
+    const thread72h: RecentExactThread72hResult = {
+      messages: [
+        {
+          at: "2026-06-04T13:00:00.000Z",
+          at_local: "Jun 4, 8:00 AM",
+          at_local_timezone: scenario.timezone,
+          local_day_key: SIM_DAY_KEY,
+          role: "coach",
+          body: openQ,
+          message_kind: null,
+          source_table: "sms_outbound_messages",
+          message_sid: "SM_sim_oq_sent",
+          delivery_status: "sent",
+          is_exact_body: true,
+        },
+        {
+          at: "2026-06-04T14:00:00.000Z",
+          at_local: "Jun 4, 9:00 AM",
+          at_local_timezone: scenario.timezone,
+          local_day_key: SIM_DAY_KEY,
+          role: "user",
+          body: userReply,
+          message_kind: null,
+          source_table: "sms_inbound_messages",
+          message_sid: "sim_SM001",
+          delivery_status: "sent",
+          is_exact_body: true,
+        },
+      ],
+      window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+      message_count: 2,
+      had_preview_messages: false,
+      had_system_no_send: false,
+    };
+    mp.recent_exact_thread_72h = thread72h;
+    mp.recent_exact_thread_text = `Coach: ${openQ}\nUser: ${userReply}`;
+  }
+
+  if (id === "open-question-satisfied-no-repeat" || id === "open-question-answered") {
+    mp.open_question_pending = false;
+    mp.latest_answer_after_open_question = "After Brooke's workout";
+    mp.answer_source = "projection";
+    mp.projection_used = true;
+  }
+
+  if (id === "open-question-not-delivered") {
+    const thread72h: RecentExactThread72hResult = {
+      messages: [
+        {
+          at: "2026-06-04T13:00:00.000Z",
+          at_local: "Jun 4, 8:00 AM",
+          at_local_timezone: scenario.timezone,
+          local_day_key: SIM_DAY_KEY,
+          role: "coach",
+          body: openQ,
+          message_kind: "check_sent_preview",
+          source_table: "sms_outbound_messages",
+          message_sid: "SM_sim_preview_oq",
+          delivery_status: "preview",
+          is_exact_body: true,
+        },
+      ],
+      window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+      message_count: 1,
+      had_preview_messages: true,
+      had_system_no_send: false,
+    };
+    mp.recent_exact_thread_72h = thread72h;
+    mp.recent_exact_thread_text = `${openQ} [preview]`;
+    mp.open_question_pending = true;
+  }
+
+  const clearAnswerTu =
+    id === "open-question-clear-answer"
+      ? {
+          reconciled_relationship_meaning: "direct_answer" as const,
+          reconciled_response_intent: "close_loop_no_new_action" as const,
+          reconciled_persistence_decision: "no_outcome_write" as const,
+          reconciled_do_not_repeat_asks: [] as string[],
+          last_ask_satisfied: "no" as const,
+          satisfaction_kind: "unclear" as const,
+          stale_ask_risk: false,
+          confidence: 0.9,
+          disagreement_flags: [] as string[],
+          interpreter_failed_reason: null,
+          stale_ask_avoided: false,
+          persistence_note: "clear open question answer",
+          proposal: null,
+        }
+      : undefined;
+
+  const unclearTu =
+    id === "open-question-unclear-answer"
+      ? {
+          reconciled_relationship_meaning: "direct_answer" as const,
+          reconciled_response_intent: "unclear_clarify" as const,
+          reconciled_persistence_decision: "no_outcome_write" as const,
+          reconciled_do_not_repeat_asks: [] as string[],
+          last_ask_satisfied: "no" as const,
+          satisfaction_kind: "unclear" as const,
+          stale_ask_risk: false,
+          confidence: 0.7,
+          disagreement_flags: [] as string[],
+          interpreter_failed_reason: null,
+          stale_ask_avoided: false,
+          persistence_note: "unclear open question answer",
+          proposal: null,
+        }
+      : undefined;
+
+  const planAckTu =
+    id === "open-question-plan-ack"
+      ? {
+          reconciled_relationship_meaning: "direct_answer" as const,
+          reconciled_response_intent: "reinforce_plan_without_proof" as const,
+          reconciled_persistence_decision: "no_outcome_write" as const,
+          reconciled_do_not_repeat_asks: [] as string[],
+          last_ask_satisfied: "no" as const,
+          satisfaction_kind: "unclear" as const,
+          stale_ask_risk: false,
+          confidence: 0.85,
+          disagreement_flags: [] as string[],
+          interpreter_failed_reason: null,
+          stale_ask_avoided: false,
+          persistence_note: "plan ack",
+          proposal: null,
+        }
+      : undefined;
+
+  const satisfiedTu =
+    id === "open-question-satisfied-no-repeat"
+      ? {
+          reconciled_relationship_meaning: "direct_answer" as const,
+          reconciled_response_intent: "acknowledge_prior_ask_satisfied" as const,
+          reconciled_persistence_decision: "no_outcome_write" as const,
+          reconciled_do_not_repeat_asks: [openQ],
+          last_ask_satisfied: "yes" as const,
+          satisfaction_kind: "plan_exists" as const,
+          stale_ask_risk: false,
+          confidence: 0.9,
+          disagreement_flags: [] as string[],
+          interpreter_failed_reason: null,
+          stale_ask_avoided: true,
+          persistence_note: "satisfied open question",
+          proposal: null,
+        }
+      : undefined;
+
+  const built = buildInboundV3RelationshipFacts({
+    clerkUserId: persona.clerkUserId,
+    preferredName: persona.preferredName,
+    timezone: scenario.timezone,
+    localTimeIso: SIM_LOCAL_ISO,
+    commitment,
+    effectiveAsk: scenario.effectiveAsk,
+    userMessageRaw: userReply,
+    coalescedInboundText: userReply,
+    suppressedMessageSids: ["sim_SM001"],
+    transcriptLines: lines,
+    northStarPacket: {
+      source: "sms_review_place",
+      latestOutboundBody: openQ,
+      latestOpenQuestion: openQ,
+      expectedReplySemantics:
+        id === "open-question-plan-ack" ? "plan_confirmation" : "open_reflection",
+      proofSignal: false,
+      missSignal: false,
+      blockerSignal: false,
+      todayCompleted: false,
+    },
+    gatedDecision:
+      id === "open-question-unclear-answer"
+        ? {
+            mode: "clarify",
+            final_event_type: null,
+            decision_reason: "sms_review_place_fixture",
+            confidence_used: null,
+            should_write_outcome_event: false,
+            should_open_blocker_capture: false,
+            reply_style: "normal_outcome",
+            overrode_deterministic: false,
+          }
+        : {
+            mode: "use_deterministic",
+            final_event_type: null,
+            decision_reason: "sms_review_place_fixture",
+            confidence_used: null,
+            should_write_outcome_event: false,
+            should_open_blocker_capture: false,
+            reply_style: "normal_outcome",
+            overrode_deterministic: false,
+          },
+    deterministicEventType: "user_yes",
+    doNotRepeatHints: [],
+    relationshipProfileSummary: persona.identityLabel,
+    conversationBrain: { enabled: false },
+    centralBrain: { shadow_stored: false },
+    arc: { ambiguous_short_reply: false, clarification_required: false },
+    phase5a: {
+      central_tether_brain_enabled: false,
+      arc_clarify_brain_enabled: false,
+      inbound_stitched_final_enabled: false,
+    },
+    forcedFutureStretchIntentActive: false,
+    wave11MemoryConfirmationPending: false,
+    accountabilityProofHint: null,
+    rejectedTimeCandidates: [],
+    unavailableWindows: [],
+    relationshipMemoryPacket: mp,
+    routePurpose: "open_question_answer",
+    branchMigratedToLane: true,
+    branchName: "open_question_answer",
+    openQuestionFacts,
+    turnUnderstandingReconciled: planAckTu ?? satisfiedTu ?? clearAnswerTu ?? unclearTu,
+  });
+
+  if (id === "open-question-plan-ack") {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "answer_to_prior_question",
+      persistence_decision: "no_outcome_write",
+      sms_response_intent: "reinforce_plan_and_choose_first_step",
+    };
+  } else if (id === "open-question-unclear-answer") {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "answer_to_prior_question",
+      persistence_decision: "no_outcome_write",
+      sms_response_intent: "clarify_gently",
+    };
+  } else {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "answer_to_prior_question",
+      persistence_decision: "no_outcome_write",
+      sms_response_intent: "answer_prior_question",
+    };
+  }
+
+  built.thread.expected_reply_semantics =
+    id === "open-question-plan-ack" ? "plan_confirmation" : "open_reflection";
+
+  return built;
 }
 
 export function buildDailyFacts(scenario: SmsReviewScenario): DailyV3RelationshipFacts {
@@ -685,72 +984,15 @@ export function buildInboundFacts(
     proofCalloutHint: proofHintForScenario(scenario),
   });
 
-  if (scenario.id === "open-question-answered") {
-    const coachQ = openQ;
-    const userAnswer = userReply;
-    return buildInboundV3RelationshipFacts({
-      clerkUserId: persona.clerkUserId,
-      preferredName: persona.preferredName,
-      timezone: scenario.timezone,
-      localTimeIso: SIM_LOCAL_ISO,
+  if (OPEN_QUESTION_SCENARIO_IDS.has(scenario.id)) {
+    return buildOpenQuestionAnswerInboundFacts({
+      scenario,
+      persona,
       commitment,
-      effectiveAsk: scenario.effectiveAsk,
-      userMessageRaw: userReply,
-      coalescedInboundText: userReply,
-      suppressedMessageSids: ["sim_SM001"],
-      transcriptLines: lines,
-      northStarPacket: {
-        source: "sms_review_place",
-        latestOutboundBody: coachQ,
-        latestOpenQuestion: coachQ,
-        expectedReplySemantics: "open_reflection",
-        proofSignal: false,
-        missSignal: false,
-        blockerSignal: false,
-        todayCompleted: false,
-      },
-      gatedDecision: {
-        mode: "use_deterministic",
-        final_event_type: null,
-        decision_reason: "sms_review_place_fixture",
-        confidence_used: null,
-        should_write_outcome_event: false,
-        should_open_blocker_capture: false,
-        reply_style: "normal_outcome",
-        overrode_deterministic: false,
-      },
-      deterministicEventType: "user_yes",
-      doNotRepeatHints: [],
-      relationshipProfileSummary: persona.identityLabel,
-      conversationBrain: { enabled: false },
-      centralBrain: { shadow_stored: false },
-      arc: { ambiguous_short_reply: false, clarification_required: false },
-      phase5a: {
-        central_tether_brain_enabled: false,
-        arc_clarify_brain_enabled: false,
-        inbound_stitched_final_enabled: false,
-      },
-      forcedFutureStretchIntentActive: false,
-      wave11MemoryConfirmationPending: false,
-      accountabilityProofHint: null,
-      rejectedTimeCandidates: [],
-      unavailableWindows: [],
-      relationshipMemoryPacket: mp,
-      routePurpose: "open_question_answer",
-      branchMigratedToLane: true,
-      branchName: "open_question_answer",
-      openQuestionFacts: {
-        latest_open_question: coachQ,
-        expected_reply_semantics: "open_reflection",
-        resolution_subkind: "open_reflection",
-        extracted_answer: userAnswer,
-        answer_kind: "open_reflection",
-        old_open_question_reply_preview: "LEGACY_PREVIEW",
-        deterministic_fallback_used: false,
-        deterministic_fallback_reason: null,
-        legacy_open_question_reply_source: "deterministic_fallback",
-        latest_outbound_preview: coachQ,
-      },
+      openQ,
+      userReply,
+      lines,
+      memoryPacket: mp,
     });
   }
 
