@@ -685,6 +685,75 @@ export function buildInboundFacts(
     proofCalloutHint: proofHintForScenario(scenario),
   });
 
+  if (scenario.id === "open-question-answered") {
+    const coachQ = openQ;
+    const userAnswer = userReply;
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: persona.clerkUserId,
+      preferredName: persona.preferredName,
+      timezone: scenario.timezone,
+      localTimeIso: SIM_LOCAL_ISO,
+      commitment,
+      effectiveAsk: scenario.effectiveAsk,
+      userMessageRaw: userReply,
+      coalescedInboundText: userReply,
+      suppressedMessageSids: ["sim_SM001"],
+      transcriptLines: lines,
+      northStarPacket: {
+        source: "sms_review_place",
+        latestOutboundBody: coachQ,
+        latestOpenQuestion: coachQ,
+        expectedReplySemantics: "open_reflection",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: {
+        mode: "use_deterministic",
+        final_event_type: null,
+        decision_reason: "sms_review_place_fixture",
+        confidence_used: null,
+        should_write_outcome_event: false,
+        should_open_blocker_capture: false,
+        reply_style: "normal_outcome",
+        overrode_deterministic: false,
+      },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: persona.identityLabel,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: mp,
+      routePurpose: "open_question_answer",
+      branchMigratedToLane: true,
+      branchName: "open_question_answer",
+      openQuestionFacts: {
+        latest_open_question: coachQ,
+        expected_reply_semantics: "open_reflection",
+        resolution_subkind: "open_reflection",
+        extracted_answer: userAnswer,
+        answer_kind: "open_reflection",
+        old_open_question_reply_preview: "LEGACY_PREVIEW",
+        deterministic_fallback_used: false,
+        deterministic_fallback_reason: null,
+        legacy_open_question_reply_source: "deterministic_fallback",
+        latest_outbound_preview: coachQ,
+      },
+    });
+  }
+
   if (scenario.id === "time-ref-yesterday") {
     const thread72h: RecentExactThread72hResult = {
       messages: [

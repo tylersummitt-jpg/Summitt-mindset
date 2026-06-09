@@ -1,5 +1,5 @@
 /**
- * Phase 4.1 — Coaching Strategy Card v1 (inbound normal only).
+ * Phase 4.1/4.3 — Coaching Strategy Card v1 (inbound normal + open_question_answer).
  * Server-built coaching move envelope; writer-facing after validation/repair.
  * Does not route, mutate state, send SMS, or replace Relationship Snapshot.
  */
@@ -19,12 +19,15 @@ import {
   isPlanAckFromShortAnswerContext,
   resolveShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
-import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+import type {
+  InboundV3OpenQuestionFacts,
+  InboundV3RelationshipFacts,
+} from "@/lib/v3-inbound-relationship-lane";
 
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
 
 export type StrategyCardSurface = "inbound";
-export type StrategyCardRouteKind = "normal_inbound_reply";
+export type StrategyCardRouteKind = "normal_inbound_reply" | "open_question_answer";
 
 export type StrategyCardOutcome = "completed" | "missed" | "partial" | "none" | "unclear";
 
@@ -64,6 +67,8 @@ export type StrategyCardV1 = {
     active_pending_kinds: string[];
     answered_last_question?: boolean | null;
     satisfied_ask_fingerprints: string[];
+    open_question_answer_kind?: string | null;
+    open_question_satisfied?: boolean | null;
   };
   move: {
     type: StrategyCardMoveType;
@@ -129,24 +134,40 @@ const SINGLE_MISS_FORBIDDEN_MOVES: StrategyCardMoveType[] = [
 
 const SMS_COPY_RE = /\b(hey|hi|thanks|thank you|great job|you've got this)\b/i;
 
+function hasStrategyCardBlockingBranchFacts(facts: InboundV3RelationshipFacts): boolean {
+  if (facts.blocker_facts) return true;
+  if (facts.refresh_facts) return true;
+  if (facts.pending_resolution_facts) return true;
+  if (facts.memory_confirmation_facts) return true;
+  if (facts.contract_consent_facts) return true;
+  if (facts.adaptive_consent_clarification_facts) return true;
+  if (facts.commitment_change_facts) return true;
+  if (facts.commitment_change_context_facts) return true;
+  if (facts.central_brain_pivot_facts) return true;
+  if (facts.central_brain_blocker_pivot_facts) return true;
+  if (facts.arc_clarification_facts) return true;
+  if (facts.pending_replacement_facts?.pending_resolution_active === true) return true;
+  if (facts.identity_edit) return true;
+  if (facts.relationship_exit) return true;
+  return false;
+}
+
 export function isInboundNormalStrategyCardEligible(facts: InboundV3RelationshipFacts): boolean {
   if (facts.route_purpose !== "normal_inbound_reply") return false;
-  if (facts.blocker_facts) return false;
-  if (facts.refresh_facts) return false;
-  if (facts.pending_resolution_facts) return false;
-  if (facts.memory_confirmation_facts) return false;
-  if (facts.contract_consent_facts) return false;
-  if (facts.adaptive_consent_clarification_facts) return false;
-  if (facts.commitment_change_facts) return false;
-  if (facts.commitment_change_context_facts) return false;
-  if (facts.central_brain_pivot_facts) return false;
-  if (facts.central_brain_blocker_pivot_facts) return false;
-  if (facts.arc_clarification_facts) return false;
   if (facts.open_question_facts) return false;
-  if (facts.pending_replacement_facts?.pending_resolution_active === true) return false;
-  if (facts.identity_edit) return false;
-  if (facts.relationship_exit) return false;
+  if (hasStrategyCardBlockingBranchFacts(facts)) return false;
   return true;
+}
+
+export function isOpenQuestionAnswerStrategyCardEligible(facts: InboundV3RelationshipFacts): boolean {
+  if (facts.route_purpose !== "open_question_answer") return false;
+  if (!facts.open_question_facts) return false;
+  if (hasStrategyCardBlockingBranchFacts(facts)) return false;
+  return true;
+}
+
+export function isStrategyCardEligible(facts: InboundV3RelationshipFacts): boolean {
+  return isInboundNormalStrategyCardEligible(facts) || isOpenQuestionAnswerStrategyCardEligible(facts);
 }
 
 function truncateText(text: string, max: number): string {
@@ -208,6 +229,8 @@ function mapLegacyMoveToType(legacy: string | null | undefined): StrategyCardMov
   if (m === "acknowledge_completion" || m === "acknowledge_result_and_next_standard") return "ack_completion";
   if (m === "clarify_intent" || m === "clarify_ambiguous_short_natural_sms") return "clarify";
   if (m === "close_loop_no_new_action" || m === "acknowledge_prior_ask_satisfied") return "close_loop";
+  if (m === "respond_to_open_question_answer_natural") return "close_loop";
+  if (m === "acknowledge_prior_answer_without_reasking") return "close_loop";
   if (m === "next_first_step" || m === "reinforce_plan_without_proof") return "protect_existing_plan";
   if (m === "respond_commitment_change_context_without_pending_resolution") return "evaluate_commitment";
   if (m === "commitment_change_handoff_respond_with_server_owned_next_steps") return "handoff";
@@ -247,6 +270,348 @@ function collectAvoidRepeating(ctx: StrategyCardBuildContext): string[] {
   for (const a of ctx.facts.turn_understanding?.reconciled_do_not_repeat_asks ?? []) push(a);
   for (const p of ctx.openLoops.do_not_repeat_phrases ?? []) push(p);
   return out.slice(0, MAX_AVOID_REPEATING);
+}
+
+function openQuestionFingerprint(oq: InboundV3OpenQuestionFacts | null | undefined): string | null {
+  const q = oq?.latest_open_question?.trim();
+  if (!q) return null;
+  return fingerprintAsk(q);
+}
+
+function isOpenQuestionAnswerUnclear(
+  oq: InboundV3OpenQuestionFacts,
+  facts: InboundV3RelationshipFacts
+): boolean {
+  if (facts.v2_accountability.gated_mode === "clarify") return true;
+  const kind = oq.answer_kind?.toLowerCase() ?? "";
+  if (kind === "ambiguous" || kind === "unclear") return true;
+  const tu = facts.turn_understanding;
+  if (tu?.reconciled_response_intent === "unclear_clarify") return true;
+  const ans = oq.extracted_answer?.trim();
+  return !ans || ans.length < 2;
+}
+
+function isOpenQuestionAnswerClear(
+  oq: InboundV3OpenQuestionFacts,
+  facts: InboundV3RelationshipFacts
+): boolean {
+  return !isOpenQuestionAnswerUnclear(oq, facts);
+}
+
+function isOpenQuestionNotDelivered(ctx: StrategyCardBuildContext): boolean {
+  const fp = openQuestionFingerprint(ctx.facts.open_question_facts);
+  if (!fp) return false;
+  const notDelivered = ctx.noSendSilence?.delivery_truth?.recent_questions_not_delivered ?? [];
+  return notDelivered.some((q) => {
+    const a = q.toLowerCase();
+    const b = fp.toLowerCase();
+    return a.includes(b.slice(0, 24)) || b.includes(a.slice(0, 24));
+  });
+}
+
+export function isOpenQuestionSatisfied(ctx: StrategyCardBuildContext): boolean {
+  const tu = ctx.facts.turn_understanding;
+  if (tu?.last_ask_satisfied === "yes") return true;
+  if (ctx.facts.thread.short_ack_should_not_reask_question) return true;
+  const mp = ctx.facts.thread.memory_packet;
+  if (mp?.open_question_pending === false && mp?.latest_answer_after_open_question?.trim()) return true;
+  if (ctx.facts.thread.latest_answer_after_open_question?.trim() && mp?.open_question_pending === false) {
+    return true;
+  }
+  const fp = openQuestionFingerprint(ctx.facts.open_question_facts);
+  if (!fp) return false;
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    if (s.ask_text?.trim() && fingerprintAsk(s.ask_text).toLowerCase() === fp.toLowerCase()) return true;
+  }
+  return false;
+}
+
+function missTurnNeedsBlocker(facts: InboundV3RelationshipFacts): boolean {
+  const outcome = deriveOutcome(facts);
+  return outcome === "missed" || outcome === "partial" || facts.miss_adjustment_policy?.single_miss_recovery_required === true;
+}
+
+function collectOpenQuestionAvoidRepeating(ctx: StrategyCardBuildContext): string[] {
+  const out = collectAvoidRepeating(ctx);
+  const fp = openQuestionFingerprint(ctx.facts.open_question_facts);
+  if (fp && isOpenQuestionSatisfied(ctx) && !out.some((a) => a.toLowerCase() === fp.toLowerCase())) {
+    out.unshift(fp);
+  }
+  return out.slice(0, MAX_AVOID_REPEATING);
+}
+
+function selectOpenQuestionMoveType(ctx: StrategyCardBuildContext): {
+  type: StrategyCardMoveType;
+  reason: string;
+  confidence: "low" | "medium" | "high";
+} {
+  const { facts } = ctx;
+  const oq = facts.open_question_facts!;
+  const tu = facts.turn_understanding;
+  const planAck = isPlanAckTurn({ facts, tu, shortAnswerPlanAck: ctx.shortAnswerPlanAck });
+  const satisfied = isOpenQuestionSatisfied(ctx);
+  const notDelivered = isOpenQuestionNotDelivered(ctx);
+  const adjustmentRequested = inboundUserRequestedGoalAdjustment(facts.thread.coalesced_inbound_text);
+  const adjustmentAllowed = facts.miss_adjustment_policy?.adjustment_proposal_allowed_by_evidence === true;
+
+  if (planAck) {
+    return {
+      type: tu?.last_ask_satisfied === "yes" ? "close_loop" : "protect_existing_plan",
+      reason: "Plan acknowledgment on open-question turn — protect the plan, not an outcome triad.",
+      confidence: "high",
+    };
+  }
+
+  if (satisfied) {
+    return {
+      type: "close_loop",
+      reason: "Open question already satisfied — close the loop without re-asking.",
+      confidence: "high",
+    };
+  }
+
+  if (notDelivered) {
+    return {
+      type: "clarify",
+      reason: "Prior open question may not have been delivered — one natural follow-up is allowed.",
+      confidence: "medium",
+    };
+  }
+
+  if (isOpenQuestionAnswerUnclear(oq, facts)) {
+    return {
+      type: "clarify",
+      reason: "Open-question answer is partial or unclear — one clarifying question only.",
+      confidence: "medium",
+    };
+  }
+
+  if (adjustmentRequested) {
+    if (adjustmentAllowed) {
+      return {
+        type: "evaluate_commitment",
+        reason: "User asked to change the bar while answering — evaluate with confirmation.",
+        confidence: "medium",
+      };
+    }
+    return {
+      type: "clarify",
+      reason: "Adjustment language without evidence permission — clarify intent only.",
+      confidence: "medium",
+    };
+  }
+
+  const tuIntent = tu?.reconciled_response_intent;
+  if (tuIntent === "unclear_clarify") {
+    return { type: "clarify", reason: "Turn understanding requests gentle clarification.", confidence: "medium" };
+  }
+  if (tuIntent === "close_loop_no_new_action" || tuIntent === "acknowledge_prior_ask_satisfied") {
+    return { type: "close_loop", reason: "Prior ask satisfied — close the loop.", confidence: "high" };
+  }
+  if (tuIntent === "reinforce_plan_without_proof") {
+    return { type: "protect_existing_plan", reason: "Turn understanding reinforces plan without proof.", confidence: "high" };
+  }
+
+  if (isOpenQuestionAnswerClear(oq, facts) || oq.extracted_answer?.trim()) {
+    return {
+      type: "close_loop",
+      reason: "User answered the open question clearly — acknowledge and continue the thread.",
+      confidence: "high",
+    };
+  }
+
+  const legacyType = mapLegacyMoveToType(facts.suggested_coaching_move);
+  if (legacyType && legacyType !== "ask_blocker") {
+    return {
+      type: legacyType,
+      reason: `Consolidated from legacy suggested_coaching_move (${facts.suggested_coaching_move}).`,
+      confidence: "medium",
+    };
+  }
+
+  return {
+    type: "close_loop",
+    reason: "Default open-question answer handling — acknowledge and move forward.",
+    confidence: "medium",
+  };
+}
+
+function buildOpenQuestionMustDoMustNotDo(args: {
+  moveType: StrategyCardMoveType;
+  ctx: StrategyCardBuildContext;
+  planAck: boolean;
+  satisfied: boolean;
+  notDelivered: boolean;
+}): { must_do: string[]; must_not_do: string[] } {
+  const must_do: string[] = [];
+  const must_not_do: string[] = [];
+  const pendingKinds = activePendingKinds(args.ctx.activePending);
+
+  if (args.moveType === "close_loop" || args.moveType === "protect_existing_plan") {
+    must_do.push("Acknowledge the user's answer naturally.");
+    must_do.push("Continue the accountability thread forward.");
+    must_not_do.push("Do not re-ask the same open question.");
+    must_not_do.push("Do not treat the answer as completion, miss, partial, or proof unless allowed_claims permit.");
+  }
+
+  if (args.moveType === "clarify") {
+    must_do.push("Ask one natural clarification about the open question.");
+    must_not_do.push("Do not pile on unrelated new questions.");
+    must_not_do.push("Do not claim the open question is resolved.");
+  }
+
+  if (args.planAck) {
+    must_do.push("Acknowledge the plan confirmation briefly.");
+    must_not_do.push("Do not treat plan acknowledgment as completion, miss, partial, or proof.");
+    must_not_do.push("Do not ask what got in the way as if this were a miss.");
+  }
+
+  if (args.satisfied) {
+    must_not_do.push("Do not re-ask the satisfied open question.");
+  }
+
+  if (args.notDelivered) {
+    must_not_do.push("Do not imply the user ignored the earlier question.");
+  }
+
+  if (pendingKinds.length > 0) {
+    must_not_do.push("Do not claim pending items are resolved, applied, or closed.");
+  }
+
+  if (args.ctx.openLoops.satisfied_asks?.length) {
+    must_not_do.push("Do not re-ask satisfied asks from open_loops.");
+  }
+
+  return {
+    must_do: must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+  };
+}
+
+function buildOpenQuestionAllowedClaims(
+  ctx: StrategyCardBuildContext,
+  outcome: StrategyCardOutcome
+): StrategyCardV1["allowed_claims"] {
+  const p = ctx.proofPermission;
+  const planAck = isPlanAckTurn({
+    facts: ctx.facts,
+    tu: ctx.facts.turn_understanding,
+    shortAnswerPlanAck: ctx.shortAnswerPlanAck,
+  });
+
+  if (planAck) {
+    return {
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: proposalActive(ctx.activePending, ctx.facts),
+    };
+  }
+
+  return {
+    completion: outcome === "completed" && p.can_claim_completion,
+    miss: outcome === "missed" && p.can_claim_miss,
+    partial: outcome === "partial" && p.can_claim_partial,
+    proof: outcome === "completed" && p.can_claim_proof,
+    victory_room: outcome === "completed" && p.can_reference_victory_room,
+    state_changed: false,
+    proposal_active: proposalActive(ctx.activePending, ctx.facts),
+  };
+}
+
+export function buildOpenQuestionAnswerStrategyCardV1(args: {
+  ctx: StrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  const { ctx } = args;
+  const { facts } = ctx;
+  const oq = facts.open_question_facts!;
+  const outcome = deriveOutcome(facts);
+  const planAck = isPlanAckTurn({ facts, tu: facts.turn_understanding, shortAnswerPlanAck: ctx.shortAnswerPlanAck });
+  const satisfied = isOpenQuestionSatisfied(ctx);
+  const notDelivered = isOpenQuestionNotDelivered(ctx);
+  const selected = selectOpenQuestionMoveType(ctx);
+  const legacyType = mapLegacyMoveToType(facts.suggested_coaching_move);
+  const legacyUsed =
+    legacyType != null && legacyType === selected.type && selected.type !== "ask_blocker";
+  const legacyReplaced =
+    legacyType != null && legacyType !== selected.type && facts.suggested_coaching_move?.trim();
+
+  const { must_do, must_not_do } = buildOpenQuestionMustDoMustNotDo({
+    moveType: selected.type,
+    ctx,
+    planAck,
+    satisfied,
+    notDelivered,
+  });
+
+  const avoid_repeating = collectOpenQuestionAvoidRepeating(ctx);
+  const satisfiedFingerprints = (ctx.openLoops.satisfied_asks ?? []).map((s) =>
+    fingerprintAsk(s.ask_text ?? "")
+  );
+  const oqFp = openQuestionFingerprint(oq);
+  if (oqFp && satisfied && !satisfiedFingerprints.includes(oqFp)) {
+    satisfiedFingerprints.unshift(oqFp);
+  }
+
+  const allowed = buildOpenQuestionAllowedClaims(ctx, outcome);
+  const canCelebrate = allowed.completion && ctx.proofPermission.can_praise_consistency;
+
+  const turnKind =
+    oq.answer_kind ??
+    facts.turn_understanding?.reconciled_response_intent ??
+    facts.inbound_meaning?.relationship_meaning ??
+    "open_question_answer";
+
+  return {
+    version: STRATEGY_CARD_V1_VERSION,
+    generated_at: args.generatedAt ?? new Date().toISOString(),
+    surface: "inbound",
+    route_kind: "open_question_answer",
+    turn_kind: String(turnKind),
+    server_truth_summary: {
+      outcome,
+      explicit_user_truth: outcome !== "unclear" && outcome !== "none",
+      persistence_decision: facts.inbound_meaning?.persistence_decision ?? null,
+      active_pending_kinds: activePendingKinds(ctx.activePending),
+      answered_last_question:
+        facts.turn_understanding?.last_ask_satisfied === "yes" ||
+        satisfied ||
+        facts.thread.short_ack_should_not_reask_question ||
+        null,
+      satisfied_ask_fingerprints: satisfiedFingerprints.filter(Boolean).slice(0, MAX_AVOID_REPEATING),
+      open_question_answer_kind: oq.answer_kind ?? null,
+      open_question_satisfied: satisfied,
+    },
+    move: {
+      type: selected.type,
+      priority: selected.confidence === "high" ? "high" : "normal",
+      confidence: selected.confidence,
+      reason: truncateText(selected.reason, MAX_REASON_CHARS),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims: allowed,
+    writer_constraints: {
+      max_questions: selected.type === "clarify" ? 1 : 1,
+      avoid_repeating,
+      tone_posture: resolveTonePosture({
+        moveType: selected.type,
+        noSendSilence: ctx.noSendSilence,
+        canCelebrate,
+      }),
+    },
+    meta: {
+      generation_source: "server_strategy_card_v1",
+      legacy_suggested_coaching_move: facts.suggested_coaching_move ?? null,
+      legacy_coaching_move_source: facts.coaching_move_source ?? null,
+      legacy_hint_used: legacyUsed || undefined,
+      legacy_hint_replaced: legacyReplaced ? true : undefined,
+    },
+  };
 }
 
 function activePendingKinds(activePending: ActivePendingState): string[] {
@@ -542,16 +907,18 @@ export function buildInboundNormalStrategyCardV1(args: {
   };
 }
 
-export function validateInboundNormalStrategyCardV1(
+function validateSharedStrategyCardV1(
   card: StrategyCardV1,
   ctx: StrategyCardBuildContext
-): { valid: boolean; reasons: string[] } {
+): string[] {
   const reasons: string[] = [];
   const policy = ctx.facts.miss_adjustment_policy;
   const outcome = card.server_truth_summary.outcome;
 
-  if (policy?.single_miss_recovery_required && SINGLE_MISS_FORBIDDEN_MOVES.includes(card.move.type)) {
-    reasons.push("single_miss_forbidden_move");
+  if (card.route_kind === "normal_inbound_reply") {
+    if (policy?.single_miss_recovery_required && SINGLE_MISS_FORBIDDEN_MOVES.includes(card.move.type)) {
+      reasons.push("single_miss_forbidden_move");
+    }
   }
 
   if (!policy?.adjustment_proposal_allowed_by_evidence && card.move.type === "propose_adjustment") {
@@ -614,10 +981,56 @@ export function validateInboundNormalStrategyCardV1(
     }
   }
 
+  return reasons;
+}
+
+function validateOpenQuestionStrategyCardV1(card: StrategyCardV1, ctx: StrategyCardBuildContext): string[] {
+  const reasons: string[] = [];
+  if (card.route_kind !== "open_question_answer") return reasons;
+
+  if (card.move.type === "ask_blocker" && !missTurnNeedsBlocker(ctx.facts)) {
+    reasons.push("open_question_ask_blocker_without_miss");
+  }
+
+  if (isOpenQuestionSatisfied(ctx)) {
+    if (!card.must_not_do.some((m) => /re-ask|same open question|satisfied open question/i.test(m))) {
+      reasons.push("missing_open_question_no_reask");
+    }
+    const fp = openQuestionFingerprint(ctx.facts.open_question_facts);
+    if (
+      fp &&
+      !card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === fp.toLowerCase())
+    ) {
+      reasons.push("missing_open_question_avoid_repeat");
+    }
+  }
+
+  if (card.move.type === "clarify" && card.writer_constraints.max_questions !== 1) {
+    reasons.push("open_question_clarify_max_questions");
+  }
+
+  return reasons;
+}
+
+export function validateStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: StrategyCardBuildContext
+): { valid: boolean; reasons: string[] } {
+  const reasons = [
+    ...validateSharedStrategyCardV1(card, ctx),
+    ...validateOpenQuestionStrategyCardV1(card, ctx),
+  ];
   return { valid: reasons.length === 0, reasons };
 }
 
-function repairCard(card: StrategyCardV1, ctx: StrategyCardBuildContext, reasons: string[]): StrategyCardV1 {
+export function validateInboundNormalStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: StrategyCardBuildContext
+): { valid: boolean; reasons: string[] } {
+  return validateStrategyCardV1(card, ctx);
+}
+
+function repairNormalCard(card: StrategyCardV1, ctx: StrategyCardBuildContext, reasons: string[]): StrategyCardV1 {
   const rebuilt = buildInboundNormalStrategyCardV1({ ctx, generatedAt: card.generated_at });
   let moveType = rebuilt.move.type;
   let reason = rebuilt.move.reason;
@@ -670,21 +1083,110 @@ function repairCard(card: StrategyCardV1, ctx: StrategyCardBuildContext, reasons
   };
 }
 
-export function validateAndRepairInboundNormalStrategyCardV1(
+function repairOpenQuestionCard(
+  card: StrategyCardV1,
+  ctx: StrategyCardBuildContext,
+  reasons: string[]
+): StrategyCardV1 {
+  const rebuilt = buildOpenQuestionAnswerStrategyCardV1({ ctx, generatedAt: card.generated_at });
+  let moveType: StrategyCardMoveType = "close_loop";
+  let reason = "Repaired: acknowledge open-question answer and continue the thread.";
+
+  if (
+    reasons.includes("open_question_ask_blocker_without_miss") ||
+    reasons.includes("missing_open_question_no_reask") ||
+    reasons.includes("missing_open_question_avoid_repeat")
+  ) {
+    moveType = isOpenQuestionAnswerUnclear(ctx.facts.open_question_facts!, ctx.facts)
+      ? "clarify"
+      : "close_loop";
+    reason =
+      moveType === "clarify"
+        ? "Repaired: one clarifying question about the open question."
+        : "Repaired: close the open-question loop without re-asking.";
+  } else if (reasons.some((r) => r.includes("proof") || r.includes("victory"))) {
+    moveType = "close_loop";
+    reason = "Repaired: open-question claims aligned to server proof permission.";
+  } else if (reasons.includes("adjustment_not_allowed") || reasons.includes("evaluate_without_permission")) {
+    moveType = "clarify";
+    reason = "Repaired: clarify intent without commitment change.";
+  }
+
+  const planAck = isPlanAckTurn({
+    facts: ctx.facts,
+    tu: ctx.facts.turn_understanding,
+    shortAnswerPlanAck: ctx.shortAnswerPlanAck,
+  });
+  const satisfied = isOpenQuestionSatisfied(ctx);
+  const notDelivered = isOpenQuestionNotDelivered(ctx);
+  const allowed = buildOpenQuestionAllowedClaims(ctx, rebuilt.server_truth_summary.outcome);
+  const { must_do, must_not_do } = buildOpenQuestionMustDoMustNotDo({
+    moveType,
+    ctx,
+    planAck,
+    satisfied,
+    notDelivered,
+  });
+
+  return {
+    ...rebuilt,
+    move: {
+      type: moveType,
+      priority: "normal",
+      confidence: "medium",
+      reason: truncateText(reason, MAX_REASON_CHARS),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims: allowed,
+    writer_constraints: {
+      ...rebuilt.writer_constraints,
+      avoid_repeating: collectOpenQuestionAvoidRepeating(ctx),
+      max_questions: moveType === "clarify" ? 1 : 1,
+      tone_posture: moveType === "clarify" ? "clarifying" : rebuilt.writer_constraints.tone_posture,
+    },
+    meta: {
+      ...rebuilt.meta,
+      legacy_hint_replaced: true,
+    },
+  };
+}
+
+export function buildStrategyCardV1ForFacts(args: {
+  ctx: StrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  if (isOpenQuestionAnswerStrategyCardEligible(args.ctx.facts)) {
+    return buildOpenQuestionAnswerStrategyCardV1(args);
+  }
+  return buildInboundNormalStrategyCardV1(args);
+}
+
+export function validateAndRepairStrategyCardV1(
   card: StrategyCardV1,
   ctx: StrategyCardBuildContext
 ): StrategyCardValidationResult {
-  const first = validateInboundNormalStrategyCardV1(card, ctx);
+  const first = validateStrategyCardV1(card, ctx);
   if (first.valid) {
     return { card, validation_status: "valid", validation_reasons: [] };
   }
-  const repaired = repairCard(card, ctx, first.reasons);
-  const second = validateInboundNormalStrategyCardV1(repaired, ctx);
+  const repaired =
+    card.route_kind === "open_question_answer"
+      ? repairOpenQuestionCard(card, ctx, first.reasons)
+      : repairNormalCard(card, ctx, first.reasons);
+  const second = validateStrategyCardV1(repaired, ctx);
   return {
     card: repaired,
     validation_status: "repaired",
     validation_reasons: [...first.reasons, ...second.reasons.filter((r) => !first.reasons.includes(r))],
   };
+}
+
+export function validateAndRepairInboundNormalStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: StrategyCardBuildContext
+): StrategyCardValidationResult {
+  return validateAndRepairStrategyCardV1(card, ctx);
 }
 
 export function buildStrategyCardV1PromptGuidance(): string {
@@ -726,6 +1228,17 @@ export function strategyCardV1MetaForTelemetry(
     strategy_card_can_reference_victory_room: c.allowed_claims.victory_room,
     strategy_card_tone_posture: c.writer_constraints.tone_posture,
     ...(ctx ? { strategy_card_plan_ack_source: deriveStrategyCardPlanAckSource(ctx) } : {}),
+    ...(c.route_kind === "open_question_answer"
+      ? {
+          strategy_card_open_question_answer_kind:
+            c.server_truth_summary.open_question_answer_kind ??
+            ctx?.facts.open_question_facts?.answer_kind ??
+            null,
+          strategy_card_open_question_satisfied:
+            c.server_truth_summary.open_question_satisfied ??
+            (ctx ? isOpenQuestionSatisfied(ctx) : null),
+        }
+      : {}),
   };
 }
 

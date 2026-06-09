@@ -3,13 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   deriveStrategyCardPlanAckSource,
   buildInboundNormalStrategyCardV1,
+  buildOpenQuestionAnswerStrategyCardV1,
   buildStrategyCardContextFromSnapshot,
   buildStrategyCardV1PromptGuidance,
   isInboundNormalStrategyCardEligible,
+  isOpenQuestionAnswerStrategyCardEligible,
+  isOpenQuestionSatisfied,
   resolveShortAnswerPlanAckFromInboundFacts,
   strategyCardV1MetaForTelemetry,
   strategyCardV1UserPromptAppendix,
   validateAndRepairInboundNormalStrategyCardV1,
+  validateAndRepairStrategyCardV1,
   type StrategyCardBuildContext,
 } from "@/lib/coaching-strategy-card-v1";
 import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
@@ -799,5 +803,265 @@ describe("strategy card telemetry", () => {
       ctx
     );
     expect(meta.strategy_card_plan_ack_source).toBe("saca");
+  });
+});
+
+const OPEN_QUESTION =
+  "Still on for a strength session after Brooke's workout?";
+
+function openQuestionFactsFixture() {
+  return {
+    latest_open_question: OPEN_QUESTION,
+    expected_reply_semantics: "open_reflection",
+    resolution_subkind: "open_reflection",
+    extracted_answer: "After Brooke's workout",
+    answer_kind: "open_reflection",
+    old_open_question_reply_preview: "LEGACY_PREVIEW",
+    deterministic_fallback_used: false,
+    deterministic_fallback_reason: null,
+    legacy_open_question_reply_source: "deterministic_fallback" as const,
+    latest_outbound_preview: OPEN_QUESTION,
+  };
+}
+
+function openQuestionInboundMeaning() {
+  return {
+    raw_inbound: "After Brooke's workout",
+    classifier_event_type: "user_yes" as const,
+    relationship_meaning: "answer_to_prior_question" as const,
+    response_intent: "answer_to_prior_question" as const,
+    persistence_decision: "no_outcome_write" as const,
+    do_not_repeat_asks: [] as string[],
+    stale_ask_risk: false,
+    confidence: 0.9,
+    persistence_note: "open_question_answer",
+    sms_response_intent: "answer_prior_question" as const,
+  };
+}
+
+function oqMinimalFacts(overrides?: Partial<InboundV3RelationshipFacts>): InboundV3RelationshipFacts {
+  return minimalFacts({
+    route_purpose: "open_question_answer",
+    open_question_facts: openQuestionFactsFixture(),
+    suggested_coaching_move: "respond_to_open_question_answer_natural",
+    coaching_move_source: "open_question",
+    inbound_meaning: openQuestionInboundMeaning(),
+    v2_accountability: {
+      ...minimalFacts().v2_accountability,
+      final_event_type: null,
+      deterministic_classifier_event: "user_yes",
+      should_write_outcome_event: false,
+      today_completed: false,
+      miss_signal: false,
+    },
+    miss_adjustment_policy: {
+      adjustment_proposal_allowed_by_evidence: true,
+      single_miss_recovery_required: false,
+      adjustment_evidence_reason: "not_a_miss_turn",
+    },
+    thread: {
+      ...minimalFacts().thread,
+      coalesced_inbound_text: "After Brooke's workout",
+      latest_inbound_raw: "After Brooke's workout",
+      latest_open_question: OPEN_QUESTION,
+      latest_answer_after_open_question: "After Brooke's workout",
+      expected_reply_semantics: "open_reflection",
+    },
+    ...overrides,
+  });
+}
+
+describe("Phase 4.3 open_question_answer Strategy Card", () => {
+  it("eligibility requires open_question_answer route and open_question_facts", () => {
+    expect(isOpenQuestionAnswerStrategyCardEligible(oqMinimalFacts())).toBe(true);
+    expect(isOpenQuestionAnswerStrategyCardEligible(minimalFacts())).toBe(false);
+    expect(
+      isOpenQuestionAnswerStrategyCardEligible(
+        oqMinimalFacts({ route_purpose: "blocker_capture_ack" })
+      )
+    ).toBe(false);
+    expect(
+      isOpenQuestionAnswerStrategyCardEligible(
+        oqMinimalFacts({
+          blocker_facts: {
+            blocker_text: "traffic",
+            blocker_category: null,
+            following_event_type: "user_no",
+            repeated_blocker_signal: false,
+            blocker_pending_age_minutes_remaining: 30,
+            suggested_next_move: "acknowledge_blocker_capture",
+            legacy_blocker_ack_preview: "",
+          },
+        })
+      )
+    ).toBe(false);
+    expect(isInboundNormalStrategyCardEligible(oqMinimalFacts())).toBe(false);
+  });
+
+  it("clear open-question answer produces close_loop", () => {
+    const card = buildOpenQuestionAnswerStrategyCardV1({ ctx: buildCtx(oqMinimalFacts()) });
+    expect(card.route_kind).toBe("open_question_answer");
+    expect(card.move.type).toBe("close_loop");
+    expect(card.must_not_do.some((m) => /re-ask the same open question/i.test(m))).toBe(true);
+    expect(card.allowed_claims.completion).toBe(false);
+    expect(card.allowed_claims.proof).toBe(false);
+  });
+
+  it("unclear answer produces clarify with max_questions=1", () => {
+    const card = buildOpenQuestionAnswerStrategyCardV1({
+      ctx: buildCtx(
+        oqMinimalFacts({
+          open_question_facts: {
+            ...openQuestionFactsFixture(),
+            extracted_answer: null,
+            answer_kind: "ambiguous",
+          },
+        })
+      ),
+    });
+    expect(card.move.type).toBe("clarify");
+    expect(card.writer_constraints.max_questions).toBe(1);
+    expect(card.must_do.some((m) => /one natural clarification/i.test(m))).toBe(true);
+  });
+
+  it("plan ack on open question protects plan without outcome claims", () => {
+    const card = buildOpenQuestionAnswerStrategyCardV1({
+      ctx: buildCtx(
+        oqMinimalFacts({
+          turn_understanding: {
+            reconciled_relationship_meaning: "direct_answer",
+            reconciled_response_intent: "reinforce_plan_without_proof",
+            reconciled_persistence_decision: "no_outcome_write",
+            reconciled_do_not_repeat_asks: [],
+            last_ask_satisfied: "no",
+            satisfaction_kind: null,
+            stale_ask_risk: false,
+            confidence: 0.85,
+            disagreement_flags: [],
+            interpreter_failed_reason: null,
+            stale_ask_avoided: false,
+            persistence_note: "plan ack",
+            proposal: null,
+          },
+        })
+      ),
+    });
+    expect(["protect_existing_plan", "close_loop"]).toContain(card.move.type);
+    expect(card.allowed_claims.completion).toBe(false);
+    expect(card.allowed_claims.proof).toBe(false);
+  });
+
+  it("not-delivered open question may clarify without implying ignored", () => {
+    const card = buildOpenQuestionAnswerStrategyCardV1({
+      ctx: buildCtx(oqMinimalFacts(), {
+        noSendSilence: {
+          silence_context: {
+            writer_tone_hint: "direct",
+            days_since_last_user_reply: 1,
+            days_since_last_outcome: null,
+            silence_tier: "none",
+            reentry_context: null,
+          },
+          delivery_truth: {
+            recent_questions_not_delivered: [OPEN_QUESTION],
+            recent_questions_delivered_unanswered: [],
+            may_naturally_reask_if_prior_question_not_delivered: true,
+          },
+          recent_questions_not_delivered_count: 1,
+          recent_questions_delivered_unanswered_count: 0,
+        },
+      }),
+    });
+    expect(card.move.type).toBe("clarify");
+    expect(card.must_not_do.some((m) => /ignored the earlier question/i.test(m))).toBe(true);
+  });
+
+  it("satisfied open question includes fingerprint in avoid_repeating", () => {
+    const ctx = buildCtx(
+      oqMinimalFacts({
+        thread: {
+          ...oqMinimalFacts().thread,
+          memory_packet: {
+            ...minimalFacts().thread.memory_packet!,
+            open_question_pending: false,
+            latest_answer_after_open_question: "After Brooke's workout",
+          },
+        },
+      })
+    );
+    expect(isOpenQuestionSatisfied(ctx)).toBe(true);
+    const card = buildOpenQuestionAnswerStrategyCardV1({ ctx });
+    expect(card.writer_constraints.avoid_repeating.some((a) => /Brooke's workout/i.test(a))).toBe(
+      true
+    );
+  });
+
+  it("proof permission false keeps proof/victory false on open question", () => {
+    const card = buildOpenQuestionAnswerStrategyCardV1({ ctx: buildCtx(oqMinimalFacts()) });
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+  });
+
+  it("active pending adds must_not_do resolved/applied", () => {
+    const pending = buildActivePendingStateFromCommitmentRow({
+      id: "c",
+      clerk_user_id: "u",
+      status: "active",
+      behavior_statement: "B",
+      title: "T",
+      success_criteria: null,
+      blocker_capture_expires_at: null,
+      blocker_capture_after_event: null,
+      adaptive_ask_text: null,
+      adaptive_ask_active_from: null,
+      adaptive_ask_expires_at: null,
+      adaptive_proposal_text: "Try a smaller rep?",
+      adaptive_proposal_created_at: "2026-06-01T00:00:00.000Z",
+      adaptive_proposal_expires_at: "2026-06-15T00:00:00.000Z",
+      accountability_phase: "active_accountability",
+      reactivation_entered_at: null,
+      reactivation_last_sent_at: null,
+      reactivation_entry_reason_code: null,
+      refresh_session: null,
+      commitment_refresh_last_prompted_at: null,
+      pending_resolution_kind: null,
+      pending_resolution_created_at: null,
+      pending_resolution_expires_at: null,
+      pending_resolution_payload: null,
+      updated_at: null,
+      started_at: null,
+    });
+    const card = buildOpenQuestionAnswerStrategyCardV1({
+      ctx: buildCtx(oqMinimalFacts(), { activePending: pending }),
+    });
+    expect(card.must_not_do.some((m) => /resolved|applied|closed/i.test(m))).toBe(true);
+  });
+
+  it("validator repairs invalid ask_blocker for open_question_answer", () => {
+    const ctx = buildCtx(oqMinimalFacts());
+    const card = buildOpenQuestionAnswerStrategyCardV1({ ctx });
+    card.move.type = "ask_blocker";
+    const result = validateAndRepairStrategyCardV1(card, ctx);
+    expect(result.validation_status).toBe("repaired");
+    expect(result.card.move.type).not.toBe("ask_blocker");
+    expect(["close_loop", "clarify"]).toContain(result.card.move.type);
+  });
+
+  it("no SMS copy in open-question card fields", () => {
+    const card = buildOpenQuestionAnswerStrategyCardV1({ ctx: buildCtx(oqMinimalFacts()) });
+    expect(JSON.stringify(card)).not.toMatch(/Nice — what made/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+  });
+
+  it("open-question telemetry includes answer_kind and satisfied", () => {
+    const ctx = buildCtx(oqMinimalFacts());
+    const card = buildOpenQuestionAnswerStrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_route_kind).toBe("open_question_answer");
+    expect(meta.strategy_card_open_question_answer_kind).toBe("open_reflection");
+    expect(meta.strategy_card_open_question_satisfied).toBeDefined();
   });
 });

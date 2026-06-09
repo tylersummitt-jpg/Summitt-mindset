@@ -1414,6 +1414,8 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_can_claim_proof",
   "strategy_card_can_reference_victory_room",
   "strategy_card_plan_ack_source",
+  "strategy_card_open_question_answer_kind",
+  "strategy_card_open_question_satisfied",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

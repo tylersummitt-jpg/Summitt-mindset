@@ -107,12 +107,13 @@ import {
 } from "@/lib/inbound-turn-understanding-context";
 import {
   buildStrategyCardContextFromSnapshot,
+  buildStrategyCardV1ForFacts,
   buildStrategyCardV1PromptGuidance,
-  buildInboundNormalStrategyCardV1,
   isInboundNormalStrategyCardEligible,
+  isOpenQuestionAnswerStrategyCardEligible,
   strategyCardV1MetaForTelemetry,
   strategyCardV1UserPromptAppendix,
-  validateAndRepairInboundNormalStrategyCardV1,
+  validateAndRepairStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import {
   buildSingleMissRecoveryLaneGuardrails,
@@ -1707,7 +1708,10 @@ function validateNoRejectedTimeRepeat(body: string, rejected: string[]): string 
   return null;
 }
 
-function buildRoutePurposeAux(f: InboundV3RelationshipFacts): string {
+function buildRoutePurposeAux(
+  f: InboundV3RelationshipFacts,
+  opts?: { omitOpenQuestionStrategyAux?: boolean }
+): string {
   const rp = f.route_purpose;
   if (rp === "central_brain_pivot") {
     return `
@@ -1726,6 +1730,7 @@ ROUTE (blocker_capture_ack): The user submitted blocker text after a miss; serve
 ROUTE (arc_clarify_ambiguous_short): The user's latest reply is ambiguous relative to accountability context. Use arc_clarification_facts (tentative_outcome, clarification_reason, context_age, latest_question). The field legacy_clarification_text_preview is NON-SPEAKABLE legacy template copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one natural clarifying SMS as the coach.`;
   }
   if (rp === "open_question_answer") {
+    if (opts?.omitOpenQuestionStrategyAux) return "";
     return `
 ROUTE (open_question_answer): The user is answering the coach's latest question in-thread. Use open_question_facts (latest_open_question, expected_reply_semantics, resolution_subkind, extracted_answer, answer_kind) plus thread and commitment facts. The field old_open_question_reply_preview is NON-SPEAKABLE legacy machine copy from an old writer path — do not quote it, imitate it, paste it, or treat it as your voice. Write the NEXT SMS as the coach responding naturally to the user's answer.`;
   }
@@ -2217,24 +2222,28 @@ export async function produceInboundV3RelationshipSms(
     baseMeta,
     relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta, relationshipPacket.snapshotV2Meta)
   );
-  const routePurposeAux = buildRoutePurposeAux(args.facts) + buildMemoryPacketRouteAux(args.facts);
-
   let strategyCardUserAppendix = "";
   let strategyCardPromptGuidance = "";
-  const strategyCardEligible = isInboundNormalStrategyCardEligible(args.facts);
+  const strategyCardNormalEligible = isInboundNormalStrategyCardEligible(args.facts);
+  const strategyCardOqEligible = isOpenQuestionAnswerStrategyCardEligible(args.facts);
+  const strategyCardEligible = strategyCardNormalEligible || strategyCardOqEligible;
   if (strategyCardEligible) {
     const strategyCtx = buildStrategyCardContextFromSnapshot({
       facts: args.facts,
       snapshot: relationshipPacket.snapshotV2,
     });
-    const draftCard = buildInboundNormalStrategyCardV1({ ctx: strategyCtx });
-    const validated = validateAndRepairInboundNormalStrategyCardV1(draftCard, strategyCtx);
+    const draftCard = buildStrategyCardV1ForFacts({ ctx: strategyCtx });
+    const validated = validateAndRepairStrategyCardV1(draftCard, strategyCtx);
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
     Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
   }
 
-  const singleMissRecoveryGuidance = strategyCardEligible
+  const routePurposeAux =
+    buildRoutePurposeAux(args.facts, { omitOpenQuestionStrategyAux: strategyCardOqEligible }) +
+    buildMemoryPacketRouteAux(args.facts);
+
+  const singleMissRecoveryGuidance = strategyCardNormalEligible
     ? ""
     : buildSingleMissRecoveryLaneGuardrails(args.facts.miss_adjustment_policy);
 

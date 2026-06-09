@@ -39,7 +39,10 @@ import {
   produceInboundV3RelationshipSms,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
-import { isInboundNormalStrategyCardEligible } from "@/lib/coaching-strategy-card-v1";
+import {
+  isInboundNormalStrategyCardEligible,
+  isOpenQuestionAnswerStrategyCardEligible,
+} from "@/lib/coaching-strategy-card-v1";
 import { applyInboundFinalBodyTurnUnderstandingGuard } from "@/lib/inbound-turn-understanding-context";
 import { buildInterpreterFailedSafeReconciled } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
@@ -3137,5 +3140,133 @@ describe("Phase 4.1 Strategy Card v1 inbound normal wiring", () => {
     expect(obs.strategy_card_version).toBe("1.0");
     expect(obs.strategy_card_move_type).toBe(r.metadata.strategy_card_move_type);
     expect(JSON.stringify(obs)).not.toMatch(/Nice — what made/i);
+  });
+});
+
+describe("Phase 4.3 Strategy Card v1 open_question_answer wiring", () => {
+  const openQuestion =
+    "Still on for a strength session after Brooke's workout?";
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockReset();
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it.",
+              no_send_reason: null,
+              turn_purpose: "answer_open_question",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+  });
+
+  function openQuestionFacts() {
+    return {
+      latest_open_question: openQuestion,
+      expected_reply_semantics: "open_reflection",
+      resolution_subkind: "open_reflection",
+      extracted_answer: "After Brooke's workout",
+      answer_kind: "open_reflection",
+      old_open_question_reply_preview: "LEGACY_PREVIEW",
+      deterministic_fallback_used: false,
+      deterministic_fallback_reason: null,
+      legacy_open_question_reply_source: "deterministic_fallback" as const,
+      latest_outbound_preview: openQuestion,
+    };
+  }
+
+  function openQuestionBaseFacts() {
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Brooke",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-07T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Strength session after Brooke's workout",
+      userMessageRaw: "After Brooke's workout",
+      coalescedInboundText: "After Brooke's workout",
+      suppressedMessageSids: ["SM_oq"],
+      transcriptLines: [`Coach: ${openQuestion}`, "User: After Brooke's workout"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: openQuestion,
+        latestOpenQuestion: openQuestion,
+        expectedReplySemantics: "open_reflection",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: null, should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "open_question_answer",
+      branchMigratedToLane: true,
+      branchName: "open_question_answer",
+      openQuestionFacts: openQuestionFacts(),
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: openQuestion,
+        latest_answer_after_open_question: "After Brooke's workout",
+        open_question_pending: false,
+        open_question_source: "projection",
+        last_outbound_full_body: openQuestion,
+      }),
+    });
+  }
+
+  it("open_question_answer writer prompt includes STRATEGY_CARD_V1 as primary move", async () => {
+    const facts = openQuestionBaseFacts();
+    expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(true);
+    await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    const systemMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(systemMsg).toMatch(/primary coaching move/i);
+    expect(systemMsg).toMatch(/final guard still validates/i);
+    expect(systemMsg).not.toMatch(/TURN_UNDERSTANDING \(structured_recent_truth/);
+    expect(systemMsg).not.toMatch(/ROUTE \(open_question_answer\)/);
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain('"route_kind":"open_question_answer"');
+    expect(userMsg).toMatch(/"type":"close_loop"|"type":"clarify"|"type":"protect_existing_plan"/);
+  });
+
+  it("normal inbound still receives normal route_kind card unchanged", async () => {
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toContain('"route_kind":"normal_inbound_reply"');
+    expect(isInboundNormalStrategyCardEligible(baseFacts())).toBe(true);
   });
 });
