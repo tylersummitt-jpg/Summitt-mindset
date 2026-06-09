@@ -8,6 +8,7 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   isArcClarifyStrategyCardEligible,
+  isCentralPivotStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
 } from "@/lib/coaching-strategy-card-v1";
@@ -128,6 +129,17 @@ describe("Strategy Card scope — open_question_answer Review Place", () => {
     expect(isArcClarifyStrategyCardEligible(facts)).toBe(true);
     expect(isInboundNormalStrategyCardEligible(facts)).toBe(false);
     expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(false);
+  });
+
+  it("central_brain_pivot scenarios are Strategy Card eligible", () => {
+    const scenario = getScenarioById("central-pivot-human-conversation");
+    expect(scenario).toBeDefined();
+    const facts = buildInboundFacts(scenario!, "Hey — rough morning, kids were sick");
+    expect(facts.route_purpose).toBe("central_brain_pivot");
+    expect(isCentralPivotStrategyCardEligible(facts)).toBe(true);
+    expect(isInboundNormalStrategyCardEligible(facts)).toBe(false);
+    expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(facts)).toBe(false);
   });
 
   it("classifier boundary scenarios have no inbound Strategy Card surface", () => {

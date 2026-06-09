@@ -1,5 +1,5 @@
 /**
- * SMS Review Place — Strategy Card v1 invariant validators (inbound normal + OQ + arc).
+ * SMS Review Place — Strategy Card v1 invariant validators (inbound normal + OQ + arc + central pivot).
  * Review Place only — inspects lane metadata and/or rebuilds cards from facts (read-only).
  */
 
@@ -8,6 +8,8 @@ import {
   ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO,
   arcClarifyLegacyPreviewFingerprint,
   arcClarifyLegacyPreviewText,
+  centralPivotTetherPreviewFingerprint,
+  centralPivotTetherPreviewText,
   OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO,
   buildInboundNormalStrategyCardV1,
   buildStrategyCardContextFromSnapshot,
@@ -18,6 +20,7 @@ import {
 import { buildRelationshipPacketForOpenAI } from "@/lib/sms-relationship-packet-v1";
 import type {
   InboundV3ArcClarificationFacts,
+  InboundV3CentralBrainPivotFacts,
   InboundV3OpenQuestionFacts,
   InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
@@ -389,6 +392,47 @@ export function assertStrategyCardDoesNotSpeakArcPreview(args: {
   return null;
 }
 
+export function assertStrategyCardDoesNotSpeakCentralPivotPreview(args: {
+  card: StrategyCardV1;
+  centralBrainPivotFacts?: InboundV3CentralBrainPivotFacts | null;
+  finalBody?: string;
+}): StrategyCardValidatorFailure | null {
+  const preview = centralPivotTetherPreviewText(args.centralBrainPivotFacts);
+  if (!preview) return null;
+
+  const speakableParts = [
+    ...args.card.must_do,
+    ...args.card.must_not_do,
+    args.card.move.reason,
+    args.card.turn_kind,
+  ];
+  if (speakableParts.some((part) => part.includes(preview))) {
+    return "strategy_card_old_preview_speakable";
+  }
+
+  const hasConstraint =
+    args.card.must_not_do.some((m) =>
+      /prior internal coach draft preview|internal coach draft preview/i.test(m)
+    ) || args.card.must_not_do.includes(OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO);
+
+  const previewFp = centralPivotTetherPreviewFingerprint(args.centralBrainPivotFacts);
+  const hasFingerprint =
+    previewFp != null &&
+    args.card.writer_constraints.avoid_repeating.some(
+      (a) => a.toLowerCase() === previewFp.toLowerCase()
+    );
+
+  if (!hasConstraint && !hasFingerprint) {
+    return "strategy_card_old_preview_speakable";
+  }
+
+  if (args.finalBody && args.finalBody.includes(preview)) {
+    return "strategy_card_old_preview_speakable";
+  }
+
+  return null;
+}
+
 export function assertNoDuplicateStrategyAuthority(
   userPromptAppendix: string
 ): StrategyCardValidatorFailure | null {
@@ -488,6 +532,7 @@ export function evaluateStrategyCardExpectations(args: {
   laneShouldSend: boolean;
   openQuestionFacts?: InboundV3OpenQuestionFacts | null;
   arcClarificationFacts?: InboundV3ArcClarificationFacts | null;
+  centralBrainPivotFacts?: InboundV3CentralBrainPivotFacts | null;
   userPromptAppendix?: string;
 }): StrategyCardValidatorFailure[] {
   const failures: StrategyCardValidatorFailure[] = [];
@@ -562,6 +607,15 @@ export function evaluateStrategyCardExpectations(args: {
     const f = assertStrategyCardDoesNotSpeakArcPreview({
       card,
       arcClarificationFacts: args.arcClarificationFacts,
+      finalBody: args.finalBody,
+    });
+    if (f) failures.push(f);
+  }
+
+  if (exp.assertCentralPivotPreviewNonSpeakable) {
+    const f = assertStrategyCardDoesNotSpeakCentralPivotPreview({
+      card,
+      centralBrainPivotFacts: args.centralBrainPivotFacts,
       finalBody: args.finalBody,
     });
     if (f) failures.push(f);

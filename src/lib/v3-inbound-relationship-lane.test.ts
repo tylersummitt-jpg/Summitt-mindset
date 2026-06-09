@@ -41,6 +41,7 @@ import {
 } from "@/lib/v3-inbound-relationship-lane";
 import {
   isArcClarifyStrategyCardEligible,
+  isCentralPivotStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
 } from "@/lib/coaching-strategy-card-v1";
@@ -3373,5 +3374,107 @@ describe("Phase 4.4a Strategy Card v1 arc clarify wiring", () => {
     expect(userMsg).toContain("STRATEGY_CARD_V1");
     expect(userMsg).toContain('"route_kind":"arc_clarify_ambiguous_short"');
     expect(userMsg).toContain('"type":"clarify"');
+  });
+});
+
+describe("Phase 4.5 Strategy Card v1 central pivot wiring", () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockReset();
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "That sounds rough — hope things settle. We'll pick up the two-hour block when you're ready.",
+              no_send_reason: null,
+              turn_purpose: "pivot_human",
+              voice_confidence: 0.75,
+              used_facts: ["central_brain_pivot_facts"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+  });
+
+  function pivotBaseFacts(): InboundV3RelationshipFacts {
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-07T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours of deep work before noon",
+      userMessageRaw: "Hey — rough morning",
+      coalescedInboundText: "Hey — rough morning",
+      suppressedMessageSids: ["SM_pivot"],
+      transcriptLines: ["Coach: Did you hit two hours?", "User: Hey — rough morning"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "Did you hit two hours?",
+        latestOpenQuestion: "Did you hit two hours?",
+        expectedReplySemantics: "completion_check",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: {
+        ...baseGatedDecision(),
+        final_event_type: "user_yes",
+        should_write_outcome_event: false,
+      },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "central_brain_pivot",
+      branchMigratedToLane: true,
+      branchName: "central_brain_outcome_blocking_pivot",
+      centralBrainPivotFacts: {
+        blocked_outcome_scoring: true,
+        central_turn_purpose: "human_conversation",
+        confidence: 0.9,
+        reason: "central_brain_human_or_meta",
+        suggested_move: "close_loop_no_new_action",
+        legacy_tether_text_preview: "LEGACY_TETHER_PREVIEW_STUB",
+      },
+    });
+  }
+
+  it("central pivot writer prompt includes STRATEGY_CARD_V1 as primary move", async () => {
+    const facts = pivotBaseFacts();
+    expect(isCentralPivotStrategyCardEligible(facts)).toBe(true);
+    await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    const systemPrompt = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemPrompt).toMatch(/primary coaching move/i);
+    expect(systemPrompt).not.toMatch(/ROUTE \(central_brain_pivot\)/);
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain('"route_kind":"central_brain_pivot"');
+    expect(isInboundNormalStrategyCardEligible(facts)).toBe(false);
+    expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(facts)).toBe(false);
   });
 });

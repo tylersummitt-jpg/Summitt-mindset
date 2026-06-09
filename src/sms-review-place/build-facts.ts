@@ -33,6 +33,7 @@ import {
 import { getPersona } from "@/sms-review-place/fixtures/personas";
 import { OLD_PREVIEW_STUB_TEXT } from "@/sms-review-place/fixtures/open-question-strategy-card-scenarios";
 import { ARC_LEGACY_PREVIEW_STUB } from "@/sms-review-place/fixtures/arc-clarify-strategy-card-scenarios";
+import { CENTRAL_PIVOT_LEGACY_TETHER_PREVIEW_STUB } from "@/sms-review-place/fixtures/central-pivot-strategy-card-scenarios";
 import type { SmsReviewScenario } from "@/sms-review-place/types";
 
 const SIM_DAY_KEY = "2026-06-04";
@@ -256,6 +257,13 @@ const ARC_CLARIFY_SCENARIO_IDS = new Set([
   "arc-clarify-ambiguous-short",
   "arc-clarify-legacy-preview-non-speakable",
   "arc-clarify-tentative-outcome-not-scored",
+]);
+
+const CENTRAL_PIVOT_SCENARIO_IDS = new Set([
+  "central-pivot-human-conversation",
+  "central-pivot-meta-confusion",
+  "central-pivot-legacy-tether-non-speakable",
+  "central-pivot-advice-request",
 ]);
 
 function buildOpenQuestionAnswerInboundFacts(args: {
@@ -678,6 +686,153 @@ function buildArcClarifyInboundFacts(args: {
     relationship_meaning: "uncertain",
     persistence_decision: "no_outcome_write",
     sms_response_intent: "clarify_gently",
+  };
+  built.thread.expected_reply_semantics = "completion_check";
+
+  return built;
+}
+
+function buildCentralPivotInboundFacts(args: {
+  scenario: SmsReviewScenario;
+  persona: ReturnType<typeof getPersona>;
+  commitment: ActiveV2CommitmentRow;
+  checkQ: string;
+  userReply: string;
+  lines: string[];
+  memoryPacket: SlimSmsRelationshipMemoryPacketForFacts;
+}): InboundV3RelationshipFacts {
+  const { scenario, persona, commitment, checkQ, userReply, lines, memoryPacket } = args;
+  const id = scenario.id;
+
+  const centralTurnPurpose =
+    id === "central-pivot-meta-confusion"
+      ? "meta_question_or_confusion"
+      : id === "central-pivot-advice-request"
+        ? "advice_or_coaching_request"
+        : "human_conversation";
+
+  const suggestedMove =
+    id === "central-pivot-meta-confusion"
+      ? "clarify_intent"
+      : id === "central-pivot-advice-request"
+        ? "reinforce_plan_without_proof"
+        : "close_loop_no_new_action";
+
+  const centralBrainPivotFacts = {
+    blocked_outcome_scoring: true,
+    central_turn_purpose: centralTurnPurpose,
+    confidence: 0.9,
+    reason: "central_brain_human_or_meta",
+    suggested_move: suggestedMove,
+    legacy_tether_text_preview:
+      id === "central-pivot-legacy-tether-non-speakable"
+        ? CENTRAL_PIVOT_LEGACY_TETHER_PREVIEW_STUB
+        : "LEGACY_TETHER_PREVIEW",
+  };
+
+  const mp = { ...memoryPacket };
+  const thread72h: RecentExactThread72hResult = {
+    messages: [
+      {
+        at: "2026-06-04T13:00:00.000Z",
+        at_local: "Jun 4, 8:00 AM",
+        at_local_timezone: scenario.timezone,
+        local_day_key: SIM_DAY_KEY,
+        role: "coach",
+        body: checkQ,
+        message_kind: null,
+        source_table: "sms_outbound_messages",
+        message_sid: "SM_sim_pivot_coach",
+        delivery_status: "sent",
+        is_exact_body: true,
+      },
+      {
+        at: "2026-06-04T13:05:00.000Z",
+        at_local: "Jun 4, 8:05 AM",
+        at_local_timezone: scenario.timezone,
+        local_day_key: SIM_DAY_KEY,
+        role: "user",
+        body: userReply,
+        message_kind: null,
+        source_table: "sms_inbound_messages",
+        message_sid: "SM_sim_pivot_user",
+        delivery_status: "sent",
+        is_exact_body: true,
+      },
+    ],
+    window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+    message_count: 2,
+    had_preview_messages: false,
+    had_system_no_send: false,
+  };
+  mp.recent_exact_thread_72h = thread72h;
+  mp.recent_exact_thread_text = lines.join("\n");
+  mp.last_outbound_full_body = checkQ;
+  mp.last_5_coach_questions = [checkQ];
+
+  const built = buildInboundV3RelationshipFacts({
+    clerkUserId: persona.clerkUserId,
+    preferredName: persona.preferredName,
+    timezone: scenario.timezone,
+    localTimeIso: SIM_LOCAL_ISO,
+    commitment,
+    effectiveAsk: scenario.effectiveAsk,
+    userMessageRaw: userReply,
+    coalescedInboundText: userReply,
+    suppressedMessageSids: ["sim_SM001"],
+    transcriptLines: lines,
+    northStarPacket: {
+      source: "sms_review_place",
+      latestOutboundBody: checkQ,
+      latestOpenQuestion: checkQ,
+      expectedReplySemantics: "completion_check",
+      proofSignal: false,
+      missSignal: false,
+      blockerSignal: false,
+      todayCompleted: false,
+    },
+    gatedDecision: {
+      mode: "use_deterministic",
+      final_event_type: "user_yes",
+      decision_reason: "sms_review_place_central_pivot_fixture",
+      confidence_used: null,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "normal_outcome",
+      overrode_deterministic: false,
+    },
+    deterministicEventType: "user_yes",
+    doNotRepeatHints: [],
+    relationshipProfileSummary: persona.identityLabel,
+    conversationBrain: { enabled: false },
+    centralBrain: { shadow_stored: false },
+    arc: { ambiguous_short_reply: false, clarification_required: false },
+    phase5a: {
+      central_tether_brain_enabled: false,
+      arc_clarify_brain_enabled: false,
+      inbound_stitched_final_enabled: false,
+    },
+    forcedFutureStretchIntentActive: false,
+    wave11MemoryConfirmationPending: false,
+    accountabilityProofHint: null,
+    rejectedTimeCandidates: [],
+    unavailableWindows: [],
+    relationshipMemoryPacket: mp,
+    routePurpose: "central_brain_pivot",
+    branchMigratedToLane: true,
+    branchName: "central_brain_outcome_blocking_pivot",
+    centralBrainPivotFacts,
+  });
+
+  built.inbound_meaning = {
+    ...built.inbound_meaning,
+    relationship_meaning: "uncertain",
+    persistence_decision: "no_outcome_write",
+    sms_response_intent: "clarify_gently",
+  };
+  built.v2_accountability = {
+    ...built.v2_accountability,
+    should_write_outcome_event: false,
   };
   built.thread.expected_reply_semantics = "completion_check";
 
@@ -1144,6 +1299,18 @@ export function buildInboundFacts(
 
   if (ARC_CLARIFY_SCENARIO_IDS.has(scenario.id)) {
     return buildArcClarifyInboundFacts({
+      scenario,
+      persona,
+      commitment,
+      checkQ: openQ,
+      userReply,
+      lines,
+      memoryPacket: mp,
+    });
+  }
+
+  if (CENTRAL_PIVOT_SCENARIO_IDS.has(scenario.id)) {
+    return buildCentralPivotInboundFacts({
       scenario,
       persona,
       commitment,

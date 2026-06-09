@@ -1419,6 +1419,9 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_arc_tentative_outcome",
   "strategy_card_arc_context_age",
   "strategy_card_arc_clarification_reason",
+  "strategy_card_central_turn_purpose",
+  "strategy_card_central_pivot_blocked_outcome_scoring",
+  "strategy_card_central_pivot_should_answer_without_scoring",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

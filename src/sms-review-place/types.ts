@@ -40,7 +40,7 @@ export type StrategyCardExpectations = {
 
 /** Card-based Strategy Card assertions for OQ + arc (not final SMS copy). */
 export type SmsReviewStrategyCardExpectations = {
-  routeKind: "open_question_answer" | "arc_clarify_ambiguous_short";
+  routeKind: "open_question_answer" | "arc_clarify_ambiguous_short" | "central_brain_pivot";
   moveType?: StrategyCardMoveType | StrategyCardMoveType[];
   forbiddenMoves?: StrategyCardMoveType[];
   maxQuestions?: number;
@@ -53,6 +53,7 @@ export type SmsReviewStrategyCardExpectations = {
   assertFinalGuardRan?: boolean;
   assertOldPreviewNonSpeakable?: boolean;
   assertArcPreviewNonSpeakable?: boolean;
+  assertCentralPivotPreviewNonSpeakable?: boolean;
   assertSingleStrategyAuthority?: boolean;
 };
 

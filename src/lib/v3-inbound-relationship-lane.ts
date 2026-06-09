@@ -110,6 +110,7 @@ import {
   buildStrategyCardV1ForFacts,
   buildStrategyCardV1PromptGuidance,
   isArcClarifyStrategyCardEligible,
+  isCentralPivotStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   strategyCardV1MetaForTelemetry,
@@ -1711,10 +1712,15 @@ function validateNoRejectedTimeRepeat(body: string, rejected: string[]): string 
 
 function buildRoutePurposeAux(
   f: InboundV3RelationshipFacts,
-  opts?: { omitOpenQuestionStrategyAux?: boolean; omitArcClarifyStrategyAux?: boolean }
+  opts?: {
+    omitOpenQuestionStrategyAux?: boolean;
+    omitArcClarifyStrategyAux?: boolean;
+    omitCentralPivotStrategyAux?: boolean;
+  }
 ): string {
   const rp = f.route_purpose;
   if (rp === "central_brain_pivot") {
+    if (opts?.omitCentralPivotStrategyAux) return "";
     return `
 ROUTE (central_brain_pivot): Outcome scoring was blocked by central brain for this turn. Use central_brain_pivot_facts for central_turn_purpose, confidence, reason, and suggested_move. The field legacy_tether_text_preview is NON-SPEAKABLE legacy machine/coached copy — do not quote it, imitate it, paste it, or treat it as your voice. Write one fresh humane SMS as the coach for this pivot.`;
   }
@@ -2229,8 +2235,12 @@ export async function produceInboundV3RelationshipSms(
   const strategyCardNormalEligible = isInboundNormalStrategyCardEligible(args.facts);
   const strategyCardOqEligible = isOpenQuestionAnswerStrategyCardEligible(args.facts);
   const strategyCardArcEligible = isArcClarifyStrategyCardEligible(args.facts);
+  const strategyCardPivotEligible = isCentralPivotStrategyCardEligible(args.facts);
   const strategyCardEligible =
-    strategyCardNormalEligible || strategyCardOqEligible || strategyCardArcEligible;
+    strategyCardNormalEligible ||
+    strategyCardOqEligible ||
+    strategyCardArcEligible ||
+    strategyCardPivotEligible;
   if (strategyCardEligible) {
     const strategyCtx = buildStrategyCardContextFromSnapshot({
       facts: args.facts,
@@ -2247,6 +2257,7 @@ export async function produceInboundV3RelationshipSms(
     buildRoutePurposeAux(args.facts, {
       omitOpenQuestionStrategyAux: strategyCardOqEligible,
       omitArcClarifyStrategyAux: strategyCardArcEligible,
+      omitCentralPivotStrategyAux: strategyCardPivotEligible,
     }) +
     buildMemoryPacketRouteAux(args.facts);
 

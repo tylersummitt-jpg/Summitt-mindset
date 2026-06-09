@@ -5,12 +5,16 @@ import {
   ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO,
   arcClarifyLegacyPreviewFingerprint,
   buildArcClarifyStrategyCardV1,
+  buildCentralPivotStrategyCardV1,
   deriveStrategyCardPlanAckSource,
   buildInboundNormalStrategyCardV1,
   buildOpenQuestionAnswerStrategyCardV1,
   buildStrategyCardContextFromSnapshot,
   buildStrategyCardV1PromptGuidance,
+  CENTRAL_PIVOT_NO_OUTCOME_SCORING_MUST_NOT_DO,
+  centralPivotTetherPreviewFingerprint,
   isArcClarifyStrategyCardEligible,
+  isCentralPivotStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   isOpenQuestionSatisfied,
@@ -1229,5 +1233,221 @@ describe("Phase 4.4a Strategy Card v1 arc clarify", () => {
     expect(meta.strategy_card_move_type).toBe("clarify");
     expect(meta.strategy_card_arc_tentative_outcome).toBe("user_yes");
     expect(meta.strategy_card_arc_context_age).toMatch(/prompt_age_min:200/);
+  });
+});
+
+function pivotFactsFixture(
+  overrides?: Partial<InboundV3RelationshipFacts>,
+  purpose = "human_conversation"
+): InboundV3RelationshipFacts {
+  return {
+    ...minimalFacts(),
+    route_purpose: "central_brain_pivot",
+    suggested_coaching_move: "close_loop_no_new_action",
+    coaching_move_source: "central_brain",
+    central_brain_pivot_facts: {
+      blocked_outcome_scoring: true,
+      central_turn_purpose: purpose,
+      confidence: 0.9,
+      reason: "central_brain_human_or_meta",
+      suggested_move: "close_loop_no_new_action",
+      legacy_tether_text_preview: "LEGACY_TETHER_STUB_DO_NOT_SPEAK",
+    },
+    inbound_meaning: {
+      relationship_meaning: "uncertain",
+      persistence_decision: "no_outcome_write",
+      sms_response_intent: "clarify_gently",
+      evidence: [],
+    },
+    v2_accountability: {
+      ...minimalFacts().v2_accountability,
+      should_write_outcome_event: false,
+    },
+    ...overrides,
+  };
+}
+
+describe("Phase 4.5 Strategy Card v1 central brain pivot", () => {
+  it("central pivot eligibility true only for central_brain_pivot with pivot facts", () => {
+    expect(isCentralPivotStrategyCardEligible(pivotFactsFixture())).toBe(true);
+    expect(isCentralPivotStrategyCardEligible(minimalFacts())).toBe(false);
+    expect(
+      isCentralPivotStrategyCardEligible(pivotFactsFixture({ route_purpose: "normal_inbound_reply" }))
+    ).toBe(false);
+  });
+
+  it("normal, OQ, and arc eligibility unchanged when pivot facts absent", () => {
+    expect(isInboundNormalStrategyCardEligible(minimalFacts())).toBe(true);
+    expect(isOpenQuestionAnswerStrategyCardEligible(minimalFacts())).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(minimalFacts())).toBe(false);
+    expect(isCentralPivotStrategyCardEligible(minimalFacts())).toBe(false);
+  });
+
+  it("legacy, transactional, arc, OQ, and blocker families exclude pivot eligibility", () => {
+    expect(
+      isCentralPivotStrategyCardEligible(
+        pivotFactsFixture({
+          conversation_brain_fallback_facts: {
+            conversation_brain_control_available: false,
+            legacy_fallback_reason: "x",
+            deterministic_template_preview: "T",
+            classifier_result: "user_yes",
+            gated_event_type: "user_yes",
+            should_write_outcome_event: true,
+            suggested_coaching_move: "ask_accountability",
+            current_commitment_snapshot: "snap",
+            server_state_summary: "s",
+            inbound_message_sid: "SM1",
+            coaching_route_meaning_summary: "m",
+          },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isCentralPivotStrategyCardEligible(
+        pivotFactsFixture({
+          arc_clarification_facts: arcFactsFixture().arc_clarification_facts!,
+        })
+      )
+    ).toBe(false);
+    expect(
+      isCentralPivotStrategyCardEligible(
+        pivotFactsFixture({
+          open_question_facts: {
+            latest_open_question: "Q?",
+            expected_reply_semantics: "open_reflection",
+            resolution_subkind: "open_reflection",
+            extracted_answer: null,
+            answer_kind: "ambiguous",
+            old_open_question_reply_preview: "P",
+            deterministic_fallback_used: false,
+            deterministic_fallback_reason: null,
+            legacy_open_question_reply_source: "deterministic_fallback",
+            latest_outbound_preview: null,
+          },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isCentralPivotStrategyCardEligible(
+        pivotFactsFixture({
+          blocker_facts: {
+            blocker_text: "kids",
+            blocker_category: null,
+            repeated_blocker_signal: false,
+            following_event_type: "user_no",
+            blocker_pending_age_minutes_remaining: null,
+            suggested_next_move: null,
+            legacy_blocker_ack_preview: "L",
+          },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isCentralPivotStrategyCardEligible(
+        pivotFactsFixture({
+          refresh_facts: {
+            refresh_step: "identity_anchor",
+            user_answer_type: "free_text",
+            expected_answer: null,
+            state_transition_summary: "none",
+            updated_identity_anchor: null,
+            updated_commitment_bar: null,
+            legacy_refresh_reply_preview: "PREVIEW",
+          },
+        })
+      )
+    ).toBe(false);
+  });
+
+  it("pivot builder sets central_pivot_blocked_outcome_scoring and all claims false", () => {
+    const ctx = buildCtx(pivotFactsFixture());
+    const card = buildCentralPivotStrategyCardV1({ ctx });
+    expect(card.route_kind).toBe("central_brain_pivot");
+    expect(card.server_truth_summary.central_pivot_blocked_outcome_scoring).toBe(true);
+    expect(card.allowed_claims).toEqual({
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: false,
+    });
+  });
+
+  it("human_conversation maps to close_loop or other", () => {
+    const card = buildCentralPivotStrategyCardV1({ ctx: buildCtx(pivotFactsFixture()) });
+    expect(["close_loop", "other"]).toContain(card.move.type);
+    expect(card.must_not_do).toContain(CENTRAL_PIVOT_NO_OUTCOME_SCORING_MUST_NOT_DO);
+  });
+
+  it("meta_question_or_confusion maps to clarify with max_questions 1", () => {
+    const card = buildCentralPivotStrategyCardV1({
+      ctx: buildCtx(pivotFactsFixture(undefined, "meta_question_or_confusion")),
+    });
+    expect(card.move.type).toBe("clarify");
+    expect(card.writer_constraints.max_questions).toBe(1);
+    expect(card.must_not_do.some((m) => /confusion as today's/i.test(m))).toBe(true);
+  });
+
+  it("advice_or_coaching_request maps to protect_existing_plan or clarify", () => {
+    const card = buildCentralPivotStrategyCardV1({
+      ctx: buildCtx(pivotFactsFixture(undefined, "advice_or_coaching_request")),
+    });
+    expect(["protect_existing_plan", "clarify"]).toContain(card.move.type);
+    expect(card.allowed_claims.state_changed).toBe(false);
+    expect(card.allowed_claims.proposal_active).toBe(false);
+  });
+
+  it("legacy tether preview adds non-speakable constraint and fingerprint", () => {
+    const ctx = buildCtx(pivotFactsFixture());
+    const card = buildCentralPivotStrategyCardV1({ ctx });
+    expect(card.must_not_do).toContain(OLD_COACH_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO);
+    const fp = centralPivotTetherPreviewFingerprint(ctx.facts.central_brain_pivot_facts);
+    expect(
+      card.writer_constraints.avoid_repeating.some((a) => a.toLowerCase() === fp!.toLowerCase())
+    ).toBe(true);
+    expect(card.must_not_do.some((m) => /legacy_tether_text_preview/i.test(m))).toBe(false);
+  });
+
+  it("validator repairs invalid outcome-claiming pivot card", () => {
+    const ctx = buildCtx(pivotFactsFixture());
+    const card = buildCentralPivotStrategyCardV1({ ctx });
+    card.move.type = "ack_completion";
+    card.allowed_claims.completion = true;
+    const result = validateAndRepairStrategyCardV1(card, ctx);
+    expect(result.validation_status).toBe("repaired");
+    expect(result.card.allowed_claims.completion).toBe(false);
+    expect(["close_loop", "clarify", "protect_existing_plan", "recover_today", "other"]).toContain(
+      result.card.move.type
+    );
+  });
+
+  it("validator rejects claim overreach on proof when card claims proof", () => {
+    const ctx = buildCtx(pivotFactsFixture());
+    const card = buildCentralPivotStrategyCardV1({ ctx });
+    card.allowed_claims.proof = true;
+    const first = validateAndRepairStrategyCardV1(card, ctx);
+    expect(first.card.allowed_claims.proof).toBe(false);
+  });
+
+  it("no SMS copy in pivot card fields", () => {
+    const card = buildCentralPivotStrategyCardV1({ ctx: buildCtx(pivotFactsFixture()) });
+    expect(card.must_do.join(" ")).not.toMatch(/LEGACY_TETHER_STUB/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+  });
+
+  it("pivot telemetry includes central turn purpose and blocked scoring", () => {
+    const ctx = buildCtx(pivotFactsFixture());
+    const card = buildCentralPivotStrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_route_kind).toBe("central_brain_pivot");
+    expect(meta.strategy_card_central_turn_purpose).toBe("human_conversation");
+    expect(meta.strategy_card_central_pivot_blocked_outcome_scoring).toBe(true);
+    expect(meta.strategy_card_central_pivot_should_answer_without_scoring).toBe(true);
   });
 });

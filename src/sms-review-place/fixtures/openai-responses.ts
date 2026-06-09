@@ -148,6 +148,22 @@ const RESPONSES: Record<string, LaneJson> = {
     ...GOOD_INBOUND,
     body: "When you say yep — did the two hours happen, or not quite?",
   },
+  "central-pivot-human-conversation:inbound": {
+    ...GOOD_INBOUND,
+    body: "That sounds rough — hope the kids feel better. We'll pick up the two-hour block when you're ready.",
+  },
+  "central-pivot-meta-confusion:inbound": {
+    ...GOOD_INBOUND,
+    body: "You can reply naturally — yes/no when I'm checking the bar, or just text me like this when something else is going on.",
+  },
+  "central-pivot-legacy-tether-non-speakable:inbound": {
+    ...GOOD_INBOUND,
+    body: "Totally fair — say more about what felt unclear.",
+  },
+  "central-pivot-advice-request:inbound": {
+    ...GOOD_INBOUND,
+    body: "When you're dragging, start with ten minutes at your desk before noon — same two-hour bar, just a smaller first step.",
+  },
   "plan-not-proof:daily": {
     ...GOOD_DAILY,
     body: "Before a new ask — did yesterday's after-workout plan actually happen?",

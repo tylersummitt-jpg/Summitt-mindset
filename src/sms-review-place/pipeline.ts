@@ -210,6 +210,7 @@ function evaluateInboundStrategyCardFields(args: {
       laneShouldSend: args.laneShouldSend,
       openQuestionFacts: args.facts.open_question_facts,
       arcClarificationFacts: args.facts.arc_clarification_facts,
+      centralBrainPivotFacts: args.facts.central_brain_pivot_facts,
       userPromptAppendix,
     });
     return {

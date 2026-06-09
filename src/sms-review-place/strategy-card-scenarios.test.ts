@@ -19,6 +19,7 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import { resolveMockOpenAiResponse } from "@/sms-review-place/fixtures/openai-responses";
 import { ARC_CLARIFY_STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/arc-clarify-strategy-card-scenarios";
+import { CENTRAL_PIVOT_STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/central-pivot-strategy-card-scenarios";
 import { OPEN_QUESTION_STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/open-question-strategy-card-scenarios";
 import { STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import { runScenarioStep } from "@/sms-review-place/pipeline";
@@ -122,6 +123,36 @@ describe("arc_clarify_ambiguous_short Strategy Card Review Place scenarios", () 
 
   it("arc-clarify-ambiguous-short uses clarify with max_questions 1", async () => {
     const scenario = ARC_CLARIFY_STRATEGY_CARD_SCENARIOS.find((s) => s.id === "arc-clarify-ambiguous-short")!;
+    const step = scenario.steps[0]!;
+    process.env.SMS_REVIEW_STEP_KEY = step.mockKey!;
+    const row = await runScenarioStep(scenario, step, 0);
+    expect(row.strategy_card_move_type).toBe("clarify");
+  });
+});
+
+describe("central_brain_pivot Strategy Card Review Place scenarios", () => {
+  for (const scenario of CENTRAL_PIVOT_STRATEGY_CARD_SCENARIOS) {
+    it(`${scenario.id} passes card invariants without exact SMS copy assertions`, async () => {
+      process.env.SMS_REVIEW_SCENARIO = scenario.id;
+      const step = scenario.steps[0]!;
+      process.env.SMS_REVIEW_STEP_KEY = step.mockKey ?? `${scenario.id}:${step.lane}`;
+      const row = await runScenarioStep(scenario, step, 0);
+
+      expect(row.lane).toBe("inbound");
+      expect(row.strategy_card_route_kind).toBe("central_brain_pivot");
+      expect(row.strategy_card_failures).toEqual([]);
+      expect(row.pass).toBe(true);
+      expect(row.hard_flags).toEqual([]);
+      expect(row.final_body.length).toBeGreaterThan(10);
+      expect(row.final_body).not.toContain("STRATEGY_CARD_V1");
+      expect(row.final_body).not.toContain("INTERNAL_STUB_DO_NOT_SPEAK_LEGACY_CENTRAL_TETHER_PREVIEW");
+    });
+  }
+
+  it("central-pivot-meta-confusion uses clarify with max_questions 1", async () => {
+    const scenario = CENTRAL_PIVOT_STRATEGY_CARD_SCENARIOS.find(
+      (s) => s.id === "central-pivot-meta-confusion"
+    )!;
     const step = scenario.steps[0]!;
     process.env.SMS_REVIEW_STEP_KEY = step.mockKey!;
     const row = await runScenarioStep(scenario, step, 0);
