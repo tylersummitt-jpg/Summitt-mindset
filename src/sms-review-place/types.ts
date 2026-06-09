@@ -21,6 +21,21 @@ export type SmsReviewScenarioStep = {
   userReply?: string;
 };
 
+/** Phase 4.2 — Strategy Card metadata assertions (not final SMS copy). */
+export type StrategyCardExpectations = {
+  expectCardPresent: boolean;
+  allowedMoveTypes?: string[];
+  forbiddenMoveTypes?: string[];
+  allowedClaims?: Partial<
+    Record<"completion" | "miss" | "partial" | "proof" | "victory_room" | "state_changed", boolean>
+  >;
+  mustNotDoIncludes?: RegExp[];
+  mustDoIncludes?: RegExp[];
+  avoidRepeatingIncludes?: RegExp[];
+  /** When true (default), assert North Star + FVG ran for coaching lanes. */
+  expectFinalGuardRan?: boolean;
+};
+
 export type SmsReviewScenario = {
   id: string;
   personaId: string;
@@ -41,6 +56,8 @@ export type SmsReviewScenario = {
   expectHardFlags?: SmsReviewHardFlag[];
   /** If true, expect zero hard flags for this scenario. */
   expectClean?: boolean;
+  /** Phase 4.2 — inbound-normal Strategy Card invariants. */
+  strategyCard?: StrategyCardExpectations;
   deferredReason?: string;
 };
 
@@ -107,6 +124,11 @@ export type SmsReviewRunRow = {
   pass: boolean;
   lane_skipped_reason: string | null;
   classifier_results: Record<string, unknown> | null;
+  /** Phase 4.2 — Strategy Card lane metadata (null when not applicable). */
+  strategy_card_move_type: string | null;
+  strategy_card_validation_status: string | null;
+  strategy_card_violations: string[];
+  strategy_card_pass: boolean | null;
   human_notes: string;
   run_mode: SmsReviewRunMode;
 };

@@ -1,6 +1,7 @@
+import { STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import type { SmsReviewScenario } from "@/sms-review-place/types";
 
-export const SCENARIOS: SmsReviewScenario[] = [
+const BASE_SCENARIOS: SmsReviewScenario[] = [
   {
     id: "consistent-winner",
     personaId: "alex",
@@ -320,6 +321,8 @@ export const SCENARIOS: SmsReviewScenario[] = [
     steps: [{ lane: "inbound", userReply: "YES" }],
   },
 ];
+
+export const SCENARIOS: SmsReviewScenario[] = [...BASE_SCENARIOS, ...STRATEGY_CARD_SCENARIOS];
 
 export function getScenarioById(id: string): SmsReviewScenario | undefined {
   return SCENARIOS.find((s) => s.id === id);

@@ -2231,7 +2231,7 @@ export async function produceInboundV3RelationshipSms(
     const validated = validateAndRepairInboundNormalStrategyCardV1(draftCard, strategyCtx);
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
-    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated));
+    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
   }
 
   const singleMissRecoveryGuidance = strategyCardEligible

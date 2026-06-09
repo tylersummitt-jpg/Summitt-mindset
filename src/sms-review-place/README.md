@@ -45,7 +45,12 @@ North Star OpenAI finalizer remains **disabled for V3** in production (same as p
 ```bash
 npx vitest run src/sms-review-place/guards/no-side-effects.test.ts
 npx vitest run src/sms-review-place/run-review.test.ts
+npx vitest run src/sms-review-place/strategy-card-scenarios.test.ts
+npx vitest run src/sms-review-place/strategy-card-validators.test.ts
+npx vitest run src/sms-review-place/strategy-card-scope.test.ts
 ```
+
+Phase 4.2 Strategy Card observation checklist: [STRATEGY_CARD_OBSERVATION.md](./STRATEGY_CARD_OBSERVATION.md)
 
 Optional filters:
 

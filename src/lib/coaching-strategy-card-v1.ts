@@ -98,6 +98,8 @@ export type StrategyCardV1 = {
 
 export type StrategyCardValidationStatus = "valid" | "repaired";
 
+export type StrategyCardPlanAckSource = "saca" | "tu" | "sms_intent" | "none";
+
 export type StrategyCardBuildContext = {
   facts: InboundV3RelationshipFacts;
   proofPermission: ProofAndPraisePermissionV2Data;
@@ -703,7 +705,8 @@ ${JSON.stringify(card)}`;
 }
 
 export function strategyCardV1MetaForTelemetry(
-  result: StrategyCardValidationResult
+  result: StrategyCardValidationResult,
+  ctx?: StrategyCardBuildContext
 ): Record<string, unknown> {
   const c = result.card;
   return {
@@ -722,6 +725,7 @@ export function strategyCardV1MetaForTelemetry(
     strategy_card_can_claim_proof: c.allowed_claims.proof,
     strategy_card_can_reference_victory_room: c.allowed_claims.victory_room,
     strategy_card_tone_posture: c.writer_constraints.tone_posture,
+    ...(ctx ? { strategy_card_plan_ack_source: deriveStrategyCardPlanAckSource(ctx) } : {}),
   };
 }
 
@@ -763,6 +767,20 @@ export function resolveShortAnswerPlanAckFromInboundFacts(
     return true;
   }
   return false;
+}
+
+/** Read-only telemetry: which signal drove plan-ack classification for the card. */
+export function deriveStrategyCardPlanAckSource(ctx: StrategyCardBuildContext): StrategyCardPlanAckSource {
+  const facts = ctx.facts;
+  if (ctx.shortAnswerPlanAck === true || resolveShortAnswerPlanAckFromInboundFacts(facts)) {
+    return "saca";
+  }
+  const intent = facts.turn_understanding?.reconciled_response_intent;
+  if (intent === "reinforce_plan_without_proof") return "tu";
+  if (facts.inbound_meaning?.sms_response_intent === "reinforce_plan_and_choose_first_step") {
+    return "sms_intent";
+  }
+  return "none";
 }
 
 export function buildStrategyCardContextFromSnapshot(args: {

@@ -3,6 +3,7 @@
  */
 
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { V2InboundGatedDecision } from "@/lib/v2-ai-inbound";
 import type { InboundV3ProofCalloutHint } from "@/lib/v2-proof-moment";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
@@ -24,6 +25,10 @@ import {
   enrichDailyFactsWithThreadFreshness,
   type DailyV3RelationshipFacts,
 } from "@/lib/v3-daily-relationship-lane";
+import {
+  PLAN_CONFIRMATION_Q,
+  SATISFIED_ASK_Q,
+} from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import { getPersona } from "@/sms-review-place/fixtures/personas";
 import type { SmsReviewScenario } from "@/sms-review-place/types";
 
@@ -169,6 +174,12 @@ function baseCommitment(scenario: SmsReviewScenario): ActiveV2CommitmentRow {
     };
   }
 
+  if (scenario.id === "strategy-card-active-pending") {
+    row.adaptive_proposal_text = "Try a smaller rep?";
+    row.adaptive_proposal_created_at = "2026-06-01T00:00:00.000Z";
+    row.adaptive_proposal_expires_at = "2026-06-15T00:00:00.000Z";
+  }
+
   return row;
 }
 
@@ -185,10 +196,22 @@ function baseGatedDecision(event: "user_yes" | "user_no" | "user_partial"): V2In
   };
 }
 
+function isStrategyCardScenario(scenario: SmsReviewScenario): boolean {
+  return scenario.id.startsWith("strategy-card-");
+}
+
 function inboundEventForScenario(scenario: SmsReviewScenario): "user_yes" | "user_no" | "user_partial" {
-  if (scenario.id === "partial-not-win") return "user_partial";
-  if (scenario.id === "repeated-miss-no-shame") return "user_no";
-  if (scenario.id === "blocker-heavy") return "user_no";
+  if (scenario.id === "partial-not-win" || scenario.id === "strategy-card-partial") return "user_partial";
+  if (
+    scenario.id === "repeated-miss-no-shame" ||
+    scenario.id === "blocker-heavy" ||
+    scenario.id === "strategy-card-single-miss" ||
+    scenario.id === "strategy-card-blocker-known" ||
+    scenario.id === "strategy-card-active-pending"
+  ) {
+    return "user_no";
+  }
+  if (scenario.id === "strategy-card-plan-ack-good") return "user_yes";
   return "user_yes";
 }
 
@@ -381,6 +404,222 @@ export function buildDailyFacts(scenario: SmsReviewScenario): DailyV3Relationshi
   return facts;
 }
 
+function applyStrategyCardScenarioPatches(
+  scenario: SmsReviewScenario,
+  built: InboundV3RelationshipFacts,
+  userReply: string
+): InboundV3RelationshipFacts {
+  if (!isStrategyCardScenario(scenario)) return built;
+
+  if (scenario.id === "strategy-card-single-miss") {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "miss",
+      persistence_decision: "write_user_no",
+      sms_response_intent: "tell_truth_and_recover",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_no",
+      deterministic_classifier_event: "user_no",
+      miss_signal: true,
+      blocker_signal: false,
+      today_completed: false,
+    };
+    built.miss_adjustment_policy = {
+      adjustment_proposal_allowed_by_evidence: false,
+      single_miss_recovery_required: true,
+      adjustment_evidence_reason: "not_allowed_single_miss",
+    };
+    return built;
+  }
+
+  if (scenario.id === "strategy-card-plan-ack-good") {
+    const inboundMeaning = {
+      classifier_event_type: "user_yes" as const,
+      relationship_meaning: "answer_to_prior_question" as const,
+      response_intent: "answer_to_prior_question" as const,
+      persistence_decision: "no_outcome_write" as const,
+      do_not_repeat_asks: [] as string[],
+      stale_ask_risk: false,
+      confidence: "high" as const,
+      persistence_note: "short_answer_no_outcome_proof:short_affirm_plan_confirmation",
+      sms_response_intent: "answer_prior_question" as const,
+      temporal_scope: "today" as const,
+      evidence: ["short_answer_plan_confirmation", "short_affirm_plan_confirmation"],
+      disqualifiers: [] as string[],
+      spoken_local_day_key: SIM_DAY_KEY,
+      reported_for_day_key: null,
+      user_timezone: scenario.timezone,
+    };
+    built.turn_understanding = undefined;
+    built.inbound_meaning = { ...built.inbound_meaning, ...inboundMeaning } as InboundMeaningFacts;
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: null,
+      deterministic_classifier_event: "user_yes",
+      miss_signal: false,
+      today_completed: false,
+    };
+    built.miss_adjustment_policy = {
+      adjustment_proposal_allowed_by_evidence: true,
+      single_miss_recovery_required: false,
+      adjustment_evidence_reason: "not_a_miss_turn",
+    };
+    built.thread = {
+      ...built.thread,
+      coalesced_inbound_text: userReply,
+      latest_inbound_raw: userReply,
+      latest_outbound_coach_sms: PLAN_CONFIRMATION_Q,
+      latest_open_question: PLAN_CONFIRMATION_Q,
+      expected_reply_semantics: "proposal_yes_no",
+      current_inbound_is_short_acknowledgement: true,
+      memory_packet: {
+        ...(built.thread.memory_packet ?? minimalMemoryPacket()),
+        recent_exact_thread_text: `Coach: ${PLAN_CONFIRMATION_Q}\nUser: ${userReply}`,
+        recent_exact_message_count: 2,
+        last_outbound_full_body: PLAN_CONFIRMATION_Q,
+        last_inbound_full_body: userReply,
+        last_substantive_coach_message: PLAN_CONFIRMATION_Q,
+        last_5_coach_questions: [PLAN_CONFIRMATION_Q],
+        latest_open_question: PLAN_CONFIRMATION_Q,
+        open_question_pending: true,
+        open_question_source: "projection",
+      },
+    };
+    return built;
+  }
+
+  if (scenario.id === "strategy-card-completion") {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "reported_completion",
+      persistence_decision: "write_user_yes_today",
+      sms_response_intent: "acknowledge_completion_and_next_step",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_yes",
+      deterministic_classifier_event: "user_yes",
+      miss_signal: false,
+      proof_signal: false,
+      today_completed: true,
+    };
+    built.miss_adjustment_policy = {
+      adjustment_proposal_allowed_by_evidence: true,
+      single_miss_recovery_required: false,
+      adjustment_evidence_reason: "not_a_miss_turn",
+    };
+    return built;
+  }
+
+  if (scenario.id === "strategy-card-partial") {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "partial_attempt",
+      persistence_decision: "write_user_partial",
+      sms_response_intent: "identify_blocker_or_next_move",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_partial",
+      deterministic_classifier_event: "user_partial",
+      miss_signal: false,
+      today_completed: false,
+    };
+    built.miss_adjustment_policy = {
+      adjustment_proposal_allowed_by_evidence: true,
+      single_miss_recovery_required: false,
+      adjustment_evidence_reason: "not_a_miss_turn",
+    };
+    return built;
+  }
+
+  if (scenario.id === "strategy-card-blocker-known") {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "miss",
+      persistence_decision: "write_user_no",
+      sms_response_intent: "tell_truth_and_recover",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_no",
+      deterministic_classifier_event: "user_no",
+      miss_signal: true,
+      blocker_signal: true,
+      today_completed: false,
+    };
+    return built;
+  }
+
+  if (scenario.id === "strategy-card-satisfied-ask") {
+    const memory7d = {
+      ...emptyMemory7d(),
+      direct_answer_history: [
+        {
+          coach_question: SATISFIED_ASK_Q,
+          user_answer: "Already did that yesterday",
+          answer_type: "direct_answer",
+          at: "2026-06-03T12:00:00.000Z",
+          source: "v2_commitment_sms_thread_memory",
+          message_sid: null,
+        },
+      ],
+      meta: { item_count: 1, sources_used: ["sms_review_place_fixture"] },
+    };
+    built.thread = {
+      ...built.thread,
+      coalesced_inbound_text: userReply,
+      latest_inbound_raw: userReply,
+      latest_outbound_coach_sms: SATISFIED_ASK_Q,
+      latest_open_question: SATISFIED_ASK_Q,
+      memory_packet: {
+        ...(built.thread.memory_packet ?? minimalMemoryPacket()),
+        recent_exact_thread_text: `Coach: ${SATISFIED_ASK_Q}\nUser: Already did that yesterday\nUser: ${userReply}`,
+        recent_exact_message_count: 3,
+        last_5_coach_questions: [SATISFIED_ASK_Q],
+        latest_open_question: SATISFIED_ASK_Q,
+        relationship_memory_7d: memory7d,
+      },
+    };
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "miss",
+      persistence_decision: "write_user_no",
+      sms_response_intent: "tell_truth_and_recover",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_no",
+      deterministic_classifier_event: "user_no",
+      miss_signal: true,
+      today_completed: false,
+    };
+    return built;
+  }
+
+  if (scenario.id === "strategy-card-proof-forbidden") {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "reported_completion",
+      persistence_decision: "write_user_yes_today",
+      sms_response_intent: "acknowledge_completion_and_next_step",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_yes",
+      deterministic_classifier_event: "user_yes",
+      proof_signal: false,
+      today_completed: true,
+      proof_callout_hint: null,
+    };
+    return built;
+  }
+
+  return built;
+}
+
 export function buildInboundFacts(
   scenario: SmsReviewScenario,
   userReply: string
@@ -493,7 +732,7 @@ export function buildInboundFacts(
     built.temporal_contract = buildTemporalForScenario(scenario);
   }
 
-  return built;
+  return applyStrategyCardScenarioPatches(scenario, built, userReply);
 }
 
 /** Minimal in-memory thread advance for future multi-day (unused in Sim-1 v1). */

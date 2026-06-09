@@ -126,6 +126,46 @@ const RESPONSES: Record<string, LaneJson> = {
     used_facts: [],
     safety_notes: [],
   },
+  "strategy-card-single-miss:inbound": {
+    ...GOOD_INBOUND,
+    body: "What got in the way of the block today?",
+    turn_purpose: "miss_recovery",
+  },
+  "strategy-card-plan-ack-good:inbound": {
+    ...GOOD_INBOUND,
+    body: "We'll hold that plan for the deep work block.",
+    turn_purpose: "plan_ack",
+  },
+  "strategy-card-completion:inbound": {
+    ...GOOD_INBOUND,
+    body: "What helped you protect the full two hours?",
+    turn_purpose: "completion_ack",
+  },
+  "strategy-card-partial:inbound": {
+    ...GOOD_INBOUND,
+    body: "Almost — what stopped the full movement block?",
+    turn_purpose: "partial_followup",
+  },
+  "strategy-card-blocker-known:inbound": {
+    ...GOOD_INBOUND,
+    body: "Kids sick makes sense — what's one small call you could still make?",
+    turn_purpose: "blocker_pivot",
+  },
+  "strategy-card-satisfied-ask:inbound": {
+    ...GOOD_INBOUND,
+    body: "Got it — what's the honest next step on the study block tonight?",
+    turn_purpose: "forward_move",
+  },
+  "strategy-card-proof-forbidden:inbound": {
+    ...GOOD_INBOUND,
+    body: "What is tomorrow's first move on the block?",
+    turn_purpose: "completion_ack",
+  },
+  "strategy-card-active-pending:inbound": {
+    ...GOOD_INBOUND,
+    body: "Not yet — want to try the smaller rep today or hold the original ask?",
+    turn_purpose: "pending_followup",
+  },
   default: GOOD_DAILY,
 };
 

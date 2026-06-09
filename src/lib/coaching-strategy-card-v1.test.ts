@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  deriveStrategyCardPlanAckSource,
   buildInboundNormalStrategyCardV1,
   buildStrategyCardContextFromSnapshot,
   buildStrategyCardV1PromptGuidance,
@@ -779,5 +780,24 @@ describe("strategy card telemetry", () => {
     const json = JSON.stringify(meta);
     expect(json).not.toMatch(/Sounds good|Nice — what made/i);
     expect(json.length).toBeLessThan(2000);
+  });
+
+  it("deriveStrategyCardPlanAckSource returns saca for SACA plan ack", () => {
+    const facts = sacaOnlyPlanAckFacts();
+    const ctx = buildStrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: { data: baseProof() },
+        open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+        active_pending_state: buildActivePendingStateFromCommitmentRow(null),
+        no_send_and_silence_history: null,
+      },
+    });
+    expect(deriveStrategyCardPlanAckSource(ctx)).toBe("saca");
+    const meta = strategyCardV1MetaForTelemetry(
+      { card: buildInboundNormalStrategyCardV1({ ctx }), validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_plan_ack_source).toBe("saca");
   });
 });

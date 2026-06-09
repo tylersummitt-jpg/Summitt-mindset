@@ -13,6 +13,7 @@ import { classifyInboundSmsSafetyTier, buildInboundSmsSafetyReplyBody } from "@/
 import { detectSmsRelationshipExitIntent } from "@/lib/sms-relationship-exit-intent";
 import { produceDailyV3RelationshipSms } from "@/lib/v3-daily-relationship-lane";
 import { produceInboundV3RelationshipSms } from "@/lib/v3-inbound-relationship-lane";
+import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import {
   buildDailyFacts,
@@ -24,6 +25,7 @@ import { peekMockLaneBody } from "@/sms-review-place/fixtures/openai-responses";
 import { getPersona } from "@/sms-review-place/fixtures/personas";
 import { resolveFinalSmsOutput } from "@/sms-review-place/sms-output";
 import type { SmsReviewScenario, SmsReviewScenarioStep, SmsReviewRunRow } from "@/sms-review-place/types";
+import { evaluateStrategyCardExpectations } from "@/sms-review-place/strategy-card-validators";
 import {
   buildSoftReviewFields,
   evaluateHardFlags,
@@ -114,8 +116,10 @@ function passForRow(
     | "lane_should_send"
     | "expect_clean"
     | "expect_hard_flags"
+    | "strategy_card_pass"
   >
 ): boolean {
+  if (row.strategy_card_pass === false) return false;
   return scenarioPass(scenario, {
     hard_flags: hardFlags,
     lane: row.lane,
@@ -127,6 +131,62 @@ function passForRow(
     expect_clean: row.expect_clean,
     expect_hard_flags: row.expect_hard_flags,
   });
+}
+
+function emptyStrategyCardFields(): Pick<
+  SmsReviewRunRow,
+  | "strategy_card_move_type"
+  | "strategy_card_validation_status"
+  | "strategy_card_violations"
+  | "strategy_card_pass"
+> {
+  return {
+    strategy_card_move_type: null,
+    strategy_card_validation_status: null,
+    strategy_card_violations: [],
+    strategy_card_pass: null,
+  };
+}
+
+function evaluateStrategyCardForScenario(args: {
+  scenario: SmsReviewScenario;
+  laneMetadata: Record<string, unknown>;
+  inboundFacts?: InboundV3RelationshipFacts | null;
+  laneBody: string;
+  finalBody: string;
+  lane: SmsReviewRunRow["lane"];
+  laneSkipped: boolean;
+  northStarBody: string;
+  finalShouldSend: boolean;
+  finalSkipReason: string | null;
+  blockedReasons: string[];
+}): Pick<
+  SmsReviewRunRow,
+  | "strategy_card_move_type"
+  | "strategy_card_validation_status"
+  | "strategy_card_violations"
+  | "strategy_card_pass"
+> {
+  if (!args.scenario.strategyCard) return emptyStrategyCardFields();
+  const outcome = evaluateStrategyCardExpectations({
+    expectations: args.scenario.strategyCard,
+    laneMetadata: args.laneMetadata,
+    inboundFacts: args.inboundFacts,
+    laneBody: args.laneBody,
+    finalBody: args.finalBody,
+    lane: args.lane,
+    laneSkipped: args.laneSkipped,
+    northStarBody: args.northStarBody,
+    finalShouldSend: args.finalShouldSend,
+    finalSkipReason: args.finalSkipReason,
+    blockedReasons: args.blockedReasons,
+  });
+  return {
+    strategy_card_move_type: outcome.move_type,
+    strategy_card_validation_status: outcome.validation_status,
+    strategy_card_violations: outcome.violations,
+    strategy_card_pass: outcome.pass,
+  };
 }
 
 export async function runDailyPipeline(
@@ -202,6 +262,8 @@ export async function runDailyPipeline(
 
   const hardFlags = evaluateHardFlags(validatorInput);
 
+  const strategyCardFields = emptyStrategyCardFields();
+
   const rowBase = {
     ...baseRow(scenario, stepIndex, step),
     accountability_day_key: simulatedDayKey(),
@@ -223,6 +285,7 @@ export async function runDailyPipeline(
     hard_flags: hardFlags,
     lane_skipped_reason: null,
     classifier_results: null,
+    ...strategyCardFields,
   };
 
   return {
@@ -323,6 +386,20 @@ export async function runInboundPipeline(
 
   const hardFlags = evaluateHardFlags(validatorInput);
 
+  const strategyCardFields = evaluateStrategyCardForScenario({
+    scenario,
+    laneMetadata: lane.metadata,
+    inboundFacts: facts,
+    laneBody: lane.body,
+    finalBody: resolved.final_body,
+    lane: "inbound",
+    laneSkipped: false,
+    northStarBody: ns.visibleBody,
+    finalShouldSend: resolved.final_should_send,
+    finalSkipReason: fvg.skipReason ?? null,
+    blockedReasons: fvg.blockedReasons,
+  });
+
   const rowBase = {
     ...baseRow(scenario, stepIndex, step),
     accountability_day_key: simulatedDayKey(),
@@ -344,6 +421,7 @@ export async function runInboundPipeline(
     hard_flags: hardFlags,
     lane_skipped_reason: null,
     classifier_results: null,
+    ...strategyCardFields,
   };
 
   return {
@@ -423,6 +501,7 @@ export async function runClassifierPipeline(
     hard_flags: uniqueFlags,
     lane_skipped_reason: "classifier_only",
     classifier_results: classifierResults,
+    ...emptyStrategyCardFields(),
   };
 
   return {
