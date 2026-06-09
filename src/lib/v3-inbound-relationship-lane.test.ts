@@ -39,6 +39,7 @@ import {
   produceInboundV3RelationshipSms,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
+import { isInboundNormalStrategyCardEligible } from "@/lib/coaching-strategy-card-v1";
 import { applyInboundFinalBodyTurnUnderstandingGuard } from "@/lib/inbound-turn-understanding-context";
 import { buildInterpreterFailedSafeReconciled } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
@@ -2761,7 +2762,7 @@ describe("Step C single-miss adjustment policy facts", () => {
     expect(packet.current_turn.data.goal_adjustment_mention_allowed).toBe(false);
   });
 
-  it("M: system prompt guardrails include single-miss recovery when policy requires", async () => {
+  it("M: normal inbound single miss uses Strategy Card instead of duplicate guardrails", async () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-test");
     createMock.mockReset();
     const missBody = "I did not hit my goal yesterday";
@@ -2820,13 +2821,194 @@ describe("Step C single-miss adjustment policy facts", () => {
       ],
     });
 
-    await produceInboundV3RelationshipSms({
+    const r = await produceInboundV3RelationshipSms({
       facts,
       telemetry_fact_sources: ["test_fixture"],
     });
 
+    expect(isInboundNormalStrategyCardEligible(facts)).toBe(true);
     const systemPrompt = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
-    expect(systemPrompt).toMatch(/SINGLE_MISS_RECOVERY/i);
-    expect(systemPrompt).toMatch(/adjustment_proposal_allowed_by_evidence is false/i);
+    const userPrompt = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(systemPrompt).toMatch(/STRATEGY_CARD_V1.*primary coaching move/i);
+    expect(systemPrompt).not.toMatch(/SINGLE_MISS_RECOVERY/i);
+    expect(userPrompt).toContain("STRATEGY_CARD_V1");
+    expect(userPrompt).toMatch(/ask_blocker|recover_today/);
+    expect(userPrompt).not.toMatch(/propose_adjustment/);
+    expect(r.metadata.strategy_card_version).toBe("1.0");
+    expect(r.metadata.strategy_card_route_kind).toBe("normal_inbound_reply");
+    expect(["ask_blocker", "recover_today"]).toContain(r.metadata.strategy_card_move_type);
+  });
+});
+
+describe("Phase 4.1 Strategy Card v1 inbound normal wiring", () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockReset();
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it.",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+  });
+
+  it("normal inbound writer prompt includes strategy_card_v1 as primary move", async () => {
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    const systemMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(systemMsg).toMatch(/primary coaching move/i);
+    expect(systemMsg).toMatch(/RELATIONSHIP_SNAPSHOT_V2/i);
+    expect(systemMsg).toMatch(/final guard still validates/i);
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain('"route_kind":"normal_inbound_reply"');
+  });
+
+  it("transactional blocker_capture_ack does not receive Strategy Card", async () => {
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts({
+        route_purpose: "blocker_capture_ack",
+        blocker_facts: {
+          blocker_text: "traffic jam",
+          blocker_category: null,
+          following_event_type: "user_no",
+          repeated_blocker_signal: false,
+          blocker_pending_age_minutes_remaining: 30,
+          suggested_next_move: "acknowledge_blocker_capture",
+          legacy_blocker_ack_preview: "",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).not.toContain("STRATEGY_CARD_V1");
+    expect(isInboundNormalStrategyCardEligible(baseFacts({ route_purpose: "blocker_capture_ack" }))).toBe(
+      false
+    );
+  });
+
+  it("plan ack fixture card tells protect plan / close loop", async () => {
+    const facts = baseFacts({
+      thread: {
+        ...baseFacts().thread,
+        coalesced_inbound_text: "yes sounds good",
+        current_inbound_is_short_acknowledgement: true,
+      },
+      turn_understanding: {
+        reconciled_relationship_meaning: "direct_answer",
+        reconciled_response_intent: "reinforce_plan_without_proof",
+        reconciled_persistence_decision: "no_outcome_write",
+        reconciled_do_not_repeat_asks: [],
+        last_ask_satisfied: "no",
+        satisfaction_kind: null,
+        stale_ask_risk: false,
+        confidence: 0.85,
+        disagreement_flags: [],
+        interpreter_failed_reason: null,
+        stale_ask_avoided: false,
+        persistence_note: "plan ack",
+        proposal: null,
+      },
+    });
+    await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toMatch(/protect_existing_plan|close_loop/);
+    expect(userMsg).not.toMatch(/ask_blocker/);
+  });
+
+  it("proof forbidden fixture card forbids proof and Victory Room claims", async () => {
+    await produceInboundV3RelationshipSms({
+      facts: baseFacts({
+        v2_accountability: {
+          ...baseFacts().v2_accountability,
+          proof_signal: false,
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toMatch(/"proof":false/);
+    expect(userMsg).toMatch(/"victory_room":false/);
+  });
+
+  it("active pending fixture forbids claiming resolved in must_not_do", async () => {
+    const commitment = {
+      ...baseCommitment(),
+      adaptive_proposal_text: "Try a smaller rep?",
+      adaptive_proposal_created_at: "2026-06-01T00:00:00.000Z",
+      adaptive_proposal_expires_at: "2026-06-15T00:00:00.000Z",
+    };
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment,
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: "done",
+      coalescedInboundText: "done",
+      suppressedMessageSids: ["SM123"],
+      transcriptLines: ["Coach: How did it go?", "User: done"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "How did it go?",
+        latestOpenQuestion: "How did it go?",
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+    });
+    await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toMatch(/must_not_do/);
+    expect(userMsg).toMatch(/pending|resolved|applied/i);
   });
 });

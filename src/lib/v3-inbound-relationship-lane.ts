@@ -106,6 +106,15 @@ import {
   tryRepairInboundStaleAskViolation,
 } from "@/lib/inbound-turn-understanding-context";
 import {
+  buildStrategyCardContextFromSnapshot,
+  buildStrategyCardV1PromptGuidance,
+  buildInboundNormalStrategyCardV1,
+  isInboundNormalStrategyCardEligible,
+  strategyCardV1MetaForTelemetry,
+  strategyCardV1UserPromptAppendix,
+  validateAndRepairInboundNormalStrategyCardV1,
+} from "@/lib/coaching-strategy-card-v1";
+import {
   buildSingleMissRecoveryLaneGuardrails,
   buildSingleMissRecoveryRequiredMeaningSummary,
   deriveAdjustmentProposalAllowedByEvidence,
@@ -2210,11 +2219,31 @@ export async function produceInboundV3RelationshipSms(
   );
   const routePurposeAux = buildRoutePurposeAux(args.facts) + buildMemoryPacketRouteAux(args.facts);
 
+  let strategyCardUserAppendix = "";
+  let strategyCardPromptGuidance = "";
+  const strategyCardEligible = isInboundNormalStrategyCardEligible(args.facts);
+  if (strategyCardEligible) {
+    const strategyCtx = buildStrategyCardContextFromSnapshot({
+      facts: args.facts,
+      snapshot: relationshipPacket.snapshotV2,
+    });
+    const draftCard = buildInboundNormalStrategyCardV1({ ctx: strategyCtx });
+    const validated = validateAndRepairInboundNormalStrategyCardV1(draftCard, strategyCtx);
+    strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
+    strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
+    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated));
+  }
+
+  const singleMissRecoveryGuidance = strategyCardEligible
+    ? ""
+    : buildSingleMissRecoveryLaneGuardrails(args.facts.miss_adjustment_policy);
+
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
 
 RULES:
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy labeled machine drafts, template banks, or "prior hint" wording as your voice.
 ${buildRelationshipPacketPromptGuidance()}
+${strategyCardPromptGuidance}
 - thread.memory_authority.projection_used: when true, thread.latest_open_question and thread.latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and north_star fallbacks.
 - RELATIONSHIP_PACKET_V1.recent_exact_thread_72h is the authoritative recent thread — it outranks recent_transcript_lines, body_preview, and coaching summaries.
 - If projection says open_question_pending is false and an answer exists: move forward from that answer only when it is proof/outcome — not when the answer is only a forward plan or outcome is still unknown (do not treat intention as completion).
@@ -2232,7 +2261,7 @@ ${buildRelationshipPacketPromptGuidance()}
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
-${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${buildSingleMissRecoveryLaneGuardrails(args.facts.miss_adjustment_policy)}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
+${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${strategyCardEligible ? "" : buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${singleMissRecoveryGuidance}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -2240,7 +2269,7 @@ turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[]),
 rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
-  const user = relationshipPacket.userPromptJson;
+  const user = relationshipPacket.userPromptJson + (strategyCardUserAppendix ? `\n\n${strategyCardUserAppendix}` : "");
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;
