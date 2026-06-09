@@ -61,7 +61,7 @@ import {
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import * as relationshipPacketModule from "@/lib/sms-relationship-packet-v1";
-import { buildRelationshipPacketForOpenAI, DEFAULT_RELATIONSHIP_PACKET_BUDGET } from "@/lib/sms-relationship-packet-v1";
+import { buildRelationshipPacketForOpenAI, DEFAULT_RELATIONSHIP_PACKET_BUDGET, relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
 
 const emptyThread72h = {
   messages: [],
@@ -3010,5 +3010,132 @@ describe("Phase 4.1 Strategy Card v1 inbound normal wiring", () => {
     )?.content as string;
     expect(userMsg).toMatch(/must_not_do/);
     expect(userMsg).toMatch(/pending|resolved|applied/i);
+  });
+
+  it("SACA-only plan ack writer card is protect/close not blocker or completion", async () => {
+    const planQ =
+      "How does two hours deep work before noon this week feel? Let me know if that works or if you'd like to adjust!";
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-08T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: "Good",
+      coalescedInboundText: "Good",
+      suppressedMessageSids: ["SM_good"],
+      transcriptLines: [`Coach: ${planQ}`, "User: Good"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: planQ,
+        latestOpenQuestion: planQ,
+        expectedReplySemantics: "proposal_yes_no",
+        proofSignal: false,
+        missSignal: false,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_yes", should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: planQ,
+        open_question_pending: true,
+        last_outbound_full_body: planQ,
+        last_substantive_coach_message: planQ,
+      }),
+    });
+
+    const r = await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    expect(r.metadata.strategy_card_move_type).toMatch(/protect_existing_plan|close_loop/);
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+    expect(userMsg).toMatch(/protect_existing_plan|close_loop/);
+    expect(userMsg).not.toMatch(/"type":"ask_blocker"/);
+    expect(userMsg).not.toMatch(/"type":"ack_completion"/);
+  });
+
+  it("prompt conflict invariant: Strategy Card primary, legacy hints demoted", async () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-07T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: "no",
+      coalescedInboundText: "no",
+      suppressedMessageSids: ["SM_miss_conflict"],
+      transcriptLines: ["Coach: How did it go?", "User: no"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "How did it go?",
+        latestOpenQuestion: "How did it go?",
+        expectedReplySemantics: "yes_no",
+        proofSignal: false,
+        missSignal: true,
+        blockerSignal: false,
+        todayCompleted: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_no" },
+      deterministicEventType: "user_no",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+    });
+    facts.suggested_coaching_move = "propose_adjustment";
+    facts.coaching_move_source = "deterministic";
+
+    const r = await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    const systemMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "user"
+    )?.content as string;
+
+    expect(systemMsg).toMatch(/primary coaching move/i);
+    expect(systemMsg).toMatch(/do not invent a different move/i);
+    expect(systemMsg).not.toMatch(/SINGLE_MISS_RECOVERY/i);
+    expect(systemMsg).not.toMatch(/TURN_UNDERSTANDING \(structured_recent_truth/);
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toMatch(/"type":"ask_blocker"|"type":"recover_today"/);
+    expect(userMsg).not.toMatch(/"type":"propose_adjustment"/);
+    expect(userMsg).toContain("suggested_coaching_move");
+    expect(userMsg).toContain('"legacy_hint_replaced":true');
+    expect(["ask_blocker", "recover_today"]).toContain(r.metadata.strategy_card_move_type);
+
+    const obs = relationshipObservabilityFromLaneMetadata(r.metadata);
+    expect(obs.strategy_card_version).toBe("1.0");
+    expect(obs.strategy_card_move_type).toBe(r.metadata.strategy_card_move_type);
+    expect(JSON.stringify(obs)).not.toMatch(/Nice — what made/i);
   });
 });

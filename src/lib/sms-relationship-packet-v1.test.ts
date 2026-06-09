@@ -12,6 +12,12 @@ import {
   relationshipObservabilityFromLaneMetadata,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
+import {
+  buildInboundNormalStrategyCardV1,
+  buildStrategyCardContextFromSnapshot,
+  strategyCardV1MetaForTelemetry,
+  validateAndRepairInboundNormalStrategyCardV1,
+} from "@/lib/coaching-strategy-card-v1";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
@@ -1183,6 +1189,32 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
   it("returns empty object for null/undefined metadata", () => {
     expect(relationshipObservabilityFromLaneMetadata(null)).toEqual({});
     expect(relationshipObservabilityFromLaneMetadata(undefined)).toEqual({});
+  });
+
+  it("includes Strategy Card telemetry keys without SMS body or user text", () => {
+    const facts = minimalInboundFacts();
+    const { meta, snapshotV2, snapshotV2Meta } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: facts,
+    });
+    const ctx = buildStrategyCardContextFromSnapshot({ facts, snapshot: snapshotV2 });
+    const validated = validateAndRepairInboundNormalStrategyCardV1(
+      buildInboundNormalStrategyCardV1({ ctx }),
+      ctx
+    );
+    const obs = relationshipObservabilityFromLaneMetadata({
+      ...relationshipPacketMetaForLaneTelemetry(meta, snapshotV2Meta),
+      ...strategyCardV1MetaForTelemetry(validated),
+    });
+    expect(obs.strategy_card_version).toBe("1.0");
+    expect(obs.strategy_card_surface).toBe("inbound");
+    expect(obs.strategy_card_route_kind).toBe("normal_inbound_reply");
+    expect(obs.strategy_card_move_type).toBeDefined();
+    expect(obs.strategy_card_can_claim_proof).toBeDefined();
+    expect(obs.strategy_card_can_reference_victory_room).toBeDefined();
+    expect(obs.strategy_card_legacy_suggested_coaching_move).toBeDefined();
+    expect(JSON.stringify(obs)).not.toMatch(/two hours deep work before noon/i);
+    expect(JSON.stringify(obs)).not.toMatch(/Nice — what made/i);
   });
 });
 

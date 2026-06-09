@@ -209,6 +209,16 @@ function resolvePromptFreshness(args: ResolveShortAnswerContextAuthorityArgs): {
   return { hasLive: ctx.has_live_accountability_prompt, freshEnough };
 }
 
+/** True when SACA says the user acknowledged a plan/proposal — not an outcome check. */
+export function isPlanAckFromShortAnswerContext(saca: ShortAnswerContextAuthority): boolean {
+  if (!saca.is_short_contextual_answer) return false;
+  if (saca.response_intent_hint === "acknowledge_plan_confirmation") return true;
+  if (saca.prior_question_type === "plan_confirmation" && saca.short_answer_polarity === "affirm") {
+    return true;
+  }
+  return false;
+}
+
 export function resolveShortAnswerContextAuthority(
   args: ResolveShortAnswerContextAuthorityArgs
 ): ShortAnswerContextAuthority {

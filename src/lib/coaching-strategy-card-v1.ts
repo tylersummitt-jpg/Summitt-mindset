@@ -15,6 +15,10 @@ import type { ProofAndPraisePermissionV2Data } from "@/lib/sms-proof-praise-perm
 import type { OpenLoopsAndDoNotRepeatData } from "@/lib/sms-open-loops-and-do-not-repeat";
 import type { NoSendAndSilenceHistoryV2Data } from "@/lib/sms-no-send-and-silence-history-v2";
 import type { ActivePendingState } from "@/lib/sms-active-pending-state";
+import {
+  isPlanAckFromShortAnswerContext,
+  resolveShortAnswerContextAuthority,
+} from "@/lib/inbound-short-answer-context";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
@@ -715,8 +719,50 @@ export function strategyCardV1MetaForTelemetry(
     strategy_card_legacy_hint_used: c.meta.legacy_hint_used === true,
     strategy_card_legacy_hint_replaced: c.meta.legacy_hint_replaced === true,
     strategy_card_allowed_claims: c.allowed_claims,
+    strategy_card_can_claim_proof: c.allowed_claims.proof,
+    strategy_card_can_reference_victory_room: c.allowed_claims.victory_room,
     strategy_card_tone_posture: c.writer_constraints.tone_posture,
   };
+}
+
+/** Resolve SACA plan-ack from inbound facts (thread + meaning); used for Strategy Card context. */
+export function resolveShortAnswerPlanAckFromInboundFacts(
+  facts: InboundV3RelationshipFacts
+): boolean {
+  const mp = facts.thread.memory_packet;
+  const saca = resolveShortAnswerContextAuthority({
+    rawInbound: facts.thread.coalesced_inbound_text,
+    latestOpenQuestion:
+      facts.thread.latest_open_question ??
+      mp?.latest_open_question ??
+      mp?.latest_open_question_guess ??
+      null,
+    latestOutboundBody:
+      facts.thread.latest_outbound_coach_sms ??
+      mp?.last_substantive_coach_message ??
+      mp?.last_outbound_full_body ??
+      null,
+    expectedReplySemantics: facts.thread.expected_reply_semantics,
+    openQuestionPending: mp?.open_question_pending,
+    effectiveAsk: facts.commitment.effective_ask,
+    behaviorStatement: facts.commitment.behavior_statement,
+    commitmentTitle: facts.commitment.title,
+    tuAnsweredLastCoachAsk: facts.turn_understanding?.proposal?.answered_last_coach_ask ?? null,
+  });
+  if (isPlanAckFromShortAnswerContext(saca)) return true;
+
+  const evidence = facts.inbound_meaning?.evidence ?? [];
+  const sacaPlanEvidence = evidence.some(
+    (e) => e === "short_answer_plan_confirmation" || e.startsWith("plan_confirmation")
+  );
+  if (
+    sacaPlanEvidence &&
+    facts.inbound_meaning?.persistence_decision === "no_outcome_write" &&
+    facts.inbound_meaning?.relationship_meaning === "answer_to_prior_question"
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function buildStrategyCardContextFromSnapshot(args: {
@@ -735,7 +781,10 @@ export function buildStrategyCardContextFromSnapshot(args: {
     openLoops: args.snapshot.open_loops_and_do_not_repeat.data,
     activePending: args.snapshot.active_pending_state,
     noSendSilence: args.snapshot.no_send_and_silence_history?.data ?? null,
-    shortAnswerPlanAck: args.shortAnswerPlanAck,
+    shortAnswerPlanAck:
+      args.shortAnswerPlanAck === true
+        ? true
+        : resolveShortAnswerPlanAckFromInboundFacts(args.facts),
   };
 }
 

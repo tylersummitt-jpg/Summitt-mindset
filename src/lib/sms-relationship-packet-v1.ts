@@ -1399,6 +1399,20 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "recent_questions_not_delivered_count",
   "recent_questions_delivered_unanswered_count",
   "no_send_silence_history_truncated",
+  "strategy_card_version",
+  "strategy_card_surface",
+  "strategy_card_route_kind",
+  "strategy_card_move_type",
+  "strategy_card_move_confidence",
+  "strategy_card_validation_status",
+  "strategy_card_validation_reasons",
+  "strategy_card_legacy_suggested_coaching_move",
+  "strategy_card_legacy_coaching_move_source",
+  "strategy_card_legacy_hint_used",
+  "strategy_card_legacy_hint_replaced",
+  "strategy_card_tone_posture",
+  "strategy_card_can_claim_proof",
+  "strategy_card_can_reference_victory_room",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

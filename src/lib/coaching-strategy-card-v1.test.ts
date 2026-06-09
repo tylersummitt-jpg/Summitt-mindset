@@ -5,6 +5,8 @@ import {
   buildStrategyCardContextFromSnapshot,
   buildStrategyCardV1PromptGuidance,
   isInboundNormalStrategyCardEligible,
+  resolveShortAnswerPlanAckFromInboundFacts,
+  strategyCardV1MetaForTelemetry,
   strategyCardV1UserPromptAppendix,
   validateAndRepairInboundNormalStrategyCardV1,
   type StrategyCardBuildContext,
@@ -14,6 +16,9 @@ import { deriveAdjustmentProposalAllowedByEvidence } from "@/lib/inbound-miss-ad
 import type { ProofAndPraisePermissionV2Data } from "@/lib/sms-proof-praise-permission-v2";
 import type { OpenLoopsAndDoNotRepeatData } from "@/lib/sms-open-loops-and-do-not-repeat";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+
+const PLAN_CONFIRMATION_Q =
+  "How does committing to two hours deep work before noon this week feel? Let me know if that works or if you'd like to adjust!";
 
 function baseProof(overrides?: Partial<ProofAndPraisePermissionV2Data>): ProofAndPraisePermissionV2Data {
   return {
@@ -148,6 +153,129 @@ function minimalFacts(overrides?: Partial<InboundV3RelationshipFacts>): InboundV
     },
     ...overrides,
   } as InboundV3RelationshipFacts;
+}
+
+function sacaOnlyPlanAckFacts(overrides?: Partial<InboundV3RelationshipFacts>): InboundV3RelationshipFacts {
+  const inboundMeaning = {
+    raw_inbound: "Sounds good",
+    classifier_event_type: "user_yes" as const,
+    relationship_meaning: "answer_to_prior_question" as const,
+    response_intent: "answer_to_prior_question" as const,
+    persistence_decision: "no_outcome_write" as const,
+    do_not_repeat_asks: [] as string[],
+    stale_ask_risk: false,
+    confidence: 0.9,
+    persistence_note: "short_answer_no_outcome_proof:short_affirm_plan_confirmation",
+    sms_response_intent: "answer_prior_question" as const,
+    temporal_scope: "today" as const,
+    evidence: ["short_answer_plan_confirmation", "short_affirm_plan_confirmation"],
+    disqualifiers: [] as string[],
+    spoken_local_day_key: "2026-06-08",
+    reported_for_day_key: null,
+    user_timezone: "America/Chicago",
+  };
+  return minimalFacts({
+    turn_understanding: undefined,
+    suggested_coaching_move: "respond_to_open_question_answer_natural",
+    coaching_move_source: "deterministic",
+    v2_accountability: {
+      ...minimalFacts().v2_accountability,
+      final_event_type: null,
+      deterministic_classifier_event: "user_yes",
+      today_completed: false,
+      miss_signal: false,
+    },
+    inbound_meaning: inboundMeaning,
+    miss_adjustment_policy: {
+      adjustment_proposal_allowed_by_evidence: true,
+      single_miss_recovery_required: false,
+      adjustment_evidence_reason: "none",
+    },
+    thread: {
+      ...minimalFacts().thread,
+      coalesced_inbound_text: "Sounds good",
+      latest_inbound_raw: "Sounds good",
+      latest_outbound_coach_sms: PLAN_CONFIRMATION_Q,
+      latest_open_question: PLAN_CONFIRMATION_Q,
+      expected_reply_semantics: "proposal_yes_no",
+      current_inbound_is_short_acknowledgement: true,
+      memory_packet: {
+        recent_exact_thread_text: `Coach: ${PLAN_CONFIRMATION_Q}\nUser: Sounds good`,
+        recent_exact_thread_72h: {
+          messages: [],
+          window_hours: 72,
+          message_count: 2,
+          had_preview_messages: false,
+          had_system_no_send: false,
+        },
+        relationship_memory_7d: emptyMemory7d(),
+        relationship_memory_30d: emptyMemory30d(),
+        recent_exact_message_count: 2,
+        last_outbound_full_body: PLAN_CONFIRMATION_Q,
+        last_inbound_full_body: "Sounds good",
+        last_substantive_coach_message: PLAN_CONFIRMATION_Q,
+        last_substantive_user_message: null,
+        last_5_coach_questions: [PLAN_CONFIRMATION_Q],
+        last_5_user_answers: [],
+        latest_open_question: PLAN_CONFIRMATION_Q,
+        latest_answer_after_open_question: null,
+        open_question_pending: true,
+        open_question_source: "projection" as const,
+        answer_source: "none" as const,
+        projection_used: false,
+        latest_open_question_guess: null,
+        latest_answer_after_open_question_guess: null,
+        do_not_repeat_phrases: [],
+        memory_priority_rules: [],
+      },
+    },
+    ...overrides,
+  });
+}
+
+function emptyMemory7d() {
+  return {
+    window_days: 7,
+    built_at: "2026-06-08T12:00:00.000Z",
+    outcome_counts: { yes: 0, no: 0, partial: 0, blockers: 0, checks_sent: 0 },
+    wins: [],
+    misses: [],
+    partials: [],
+    comebacks: [],
+    blockers: [],
+    proof_moments: [],
+    open_loops: [],
+    direct_answer_history: [],
+    context_flags: {},
+    meta: { item_count: 0, sources_used: [] },
+  };
+}
+
+function emptyMemory30d() {
+  return {
+    window_days: 30,
+    built_at: "2026-06-08T12:00:00.000Z",
+    commitment_id: "c",
+    season: null,
+    outcome_counts_30d: {
+      yes: 0,
+      no: 0,
+      partial: 0,
+      blockers: 0,
+      checks_sent: 0,
+      overlay_activated: 0,
+      overlay_declined: 0,
+      reactivation_yes: 0,
+    },
+    recurring_blockers: [],
+    meaningful_proof: [],
+    adjustments: [],
+    goal_changes: [],
+    comebacks: [],
+    voice_preferences: null,
+    pat_read_snapshot: [],
+    meta: { item_count: 0, sources_used: [] },
+  };
 }
 
 function buildCtx(facts: InboundV3RelationshipFacts, extra?: Partial<StrategyCardBuildContext>): StrategyCardBuildContext {
@@ -497,5 +625,159 @@ describe("buildStrategyCardContextFromSnapshot", () => {
     });
     expect(ctx.proofPermission.can_claim_proof).toBe(false);
     expect(ctx.facts.route_purpose).toBe("normal_inbound_reply");
+  });
+
+  it("derives shortAnswerPlanAck from SACA plan confirmation without explicit flag", () => {
+    const facts = sacaOnlyPlanAckFacts();
+    expect(resolveShortAnswerPlanAckFromInboundFacts(facts)).toBe(true);
+    const ctx = buildStrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: { data: baseProof() },
+        open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+        active_pending_state: buildActivePendingStateFromCommitmentRow(null),
+        no_send_and_silence_history: null,
+      },
+    });
+    expect(ctx.shortAnswerPlanAck).toBe(true);
+  });
+});
+
+describe("SACA plan ack Strategy Card (no TU)", () => {
+  it("SACA-only plan ack produces protect_existing_plan or close_loop", () => {
+    const facts = sacaOnlyPlanAckFacts();
+    const card = buildInboundNormalStrategyCardV1({
+      ctx: buildStrategyCardContextFromSnapshot({
+        facts,
+        snapshot: {
+          proof_and_praise_permission: { data: baseProof() },
+          open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+          active_pending_state: buildActivePendingStateFromCommitmentRow(null),
+          no_send_and_silence_history: null,
+        },
+      }),
+    });
+    expect(["protect_existing_plan", "close_loop"]).toContain(card.move.type);
+  });
+
+  it("SACA-only plan ack does not produce ask_blocker or ack_completion", () => {
+    const card = buildInboundNormalStrategyCardV1({
+      ctx: buildStrategyCardContextFromSnapshot({
+        facts: sacaOnlyPlanAckFacts(),
+        snapshot: {
+          proof_and_praise_permission: { data: baseProof() },
+          open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+          active_pending_state: buildActivePendingStateFromCommitmentRow(null),
+          no_send_and_silence_history: null,
+        },
+      }),
+    });
+    expect(card.move.type).not.toBe("ask_blocker");
+    expect(card.move.type).not.toBe("ack_completion");
+  });
+
+  it("SACA-only plan ack forbids outcome and proof claims", () => {
+    const card = buildInboundNormalStrategyCardV1({
+      ctx: buildStrategyCardContextFromSnapshot({
+        facts: sacaOnlyPlanAckFacts(),
+        snapshot: {
+          proof_and_praise_permission: { data: baseProof({ can_claim_proof: true, can_claim_completion: true }) },
+          open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+          active_pending_state: buildActivePendingStateFromCommitmentRow(null),
+          no_send_and_silence_history: null,
+        },
+      }),
+    });
+    expect(card.allowed_claims.completion).toBe(false);
+    expect(card.allowed_claims.miss).toBe(false);
+    expect(card.allowed_claims.partial).toBe(false);
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.must_not_do.some((m) => /plan acknowledgment|completion|blocker|proof/i.test(m))).toBe(true);
+  });
+
+  it("Good on plan confirmation resolves via SACA", () => {
+    const facts = sacaOnlyPlanAckFacts({
+      thread: {
+        ...sacaOnlyPlanAckFacts().thread,
+        coalesced_inbound_text: "Good",
+        latest_inbound_raw: "Good",
+      },
+      inbound_meaning: {
+        ...sacaOnlyPlanAckFacts().inbound_meaning,
+        raw_inbound: "Good",
+      },
+    });
+    expect(resolveShortAnswerPlanAckFromInboundFacts(facts)).toBe(true);
+  });
+
+  it("TU plan ack still works when present", () => {
+    const facts = minimalFacts({
+      turn_understanding: {
+        reconciled_relationship_meaning: "direct_answer",
+        reconciled_response_intent: "reinforce_plan_without_proof",
+        reconciled_persistence_decision: "no_outcome_write",
+        reconciled_do_not_repeat_asks: [],
+        last_ask_satisfied: "no",
+        satisfaction_kind: null,
+        stale_ask_risk: false,
+        confidence: 0.85,
+        disagreement_flags: [],
+        interpreter_failed_reason: null,
+        stale_ask_avoided: false,
+        persistence_note: "plan ack",
+        proposal: null,
+      },
+    });
+    const card = buildInboundNormalStrategyCardV1({ ctx: buildCtx(facts) });
+    expect(["protect_existing_plan", "close_loop"]).toContain(card.move.type);
+  });
+
+  it("non-plan outcome yes still produces ack_completion when server truth supports", () => {
+    const facts = minimalFacts({
+      v2_accountability: {
+        ...minimalFacts().v2_accountability,
+        final_event_type: "user_yes",
+        deterministic_classifier_event: "user_yes",
+        today_completed: true,
+      },
+      inbound_meaning: {
+        ...minimalFacts().inbound_meaning,
+        relationship_meaning: "reported_completion",
+        persistence_decision: "write_user_yes_today",
+        sms_response_intent: "acknowledge_completion_and_next_step",
+      },
+      miss_adjustment_policy: {
+        adjustment_proposal_allowed_by_evidence: true,
+        single_miss_recovery_required: false,
+        adjustment_evidence_reason: "none",
+      },
+    });
+    const card = buildInboundNormalStrategyCardV1({
+      ctx: buildCtx(facts, {
+        proofPermission: baseProof({
+          can_claim_completion: true,
+          allowed_outbound_claims: { completion: true, miss: false, partial: false, proof: false, victory_room: false },
+        }),
+      }),
+    });
+    expect(card.move.type).toBe("ack_completion");
+    expect(card.allowed_claims.completion).toBe(true);
+  });
+});
+
+describe("strategy card telemetry", () => {
+  it("includes compact SQL-safe keys without SMS body or user text", () => {
+    const card = buildInboundNormalStrategyCardV1({ ctx: buildCtx(minimalFacts()) });
+    const meta = strategyCardV1MetaForTelemetry({
+      card,
+      validation_status: "valid",
+      validation_reasons: [],
+    });
+    expect(meta.strategy_card_version).toBe("1.0");
+    expect(meta.strategy_card_can_claim_proof).toBe(false);
+    expect(meta.strategy_card_can_reference_victory_room).toBe(false);
+    const json = JSON.stringify(meta);
+    expect(json).not.toMatch(/Sounds good|Nice — what made/i);
+    expect(json.length).toBeLessThan(2000);
   });
 });
