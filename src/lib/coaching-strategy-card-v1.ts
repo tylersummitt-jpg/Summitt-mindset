@@ -1,5 +1,5 @@
 /**
- * Phase 4.1/4.3/4.4a/4.5/4.7a/4.7b/4.7c-A — Coaching Strategy Card v1 (inbound + daily C1/C2/C3 refresh).
+ * Phase 4.1/4.3/4.4a/4.5/4.7a/4.7b/4.7c-A/4.7c-B — Coaching Strategy Card v1 (inbound + daily C1/C2/C3).
  * Server-built coaching move envelope; writer-facing after validation/repair.
  * Does not route, mutate state, send SMS, or replace Relationship Snapshot.
  */
@@ -40,7 +40,8 @@ export type StrategyCardRouteKind =
   | "low_pressure_reactivation"
   | "contract_prompt"
   | "refresh_identity"
-  | "refresh_commitment";
+  | "refresh_commitment"
+  | "pending_resolution";
 
 export type DailyC1StrategyCardRouteKind =
   | "main_active_accountability"
@@ -49,6 +50,8 @@ export type DailyC1StrategyCardRouteKind =
 export type DailyC2StrategyCardRouteKind = "contract_prompt";
 
 export type DailyC3RefreshStrategyCardRouteKind = "refresh_identity" | "refresh_commitment";
+
+export type DailyC3PendingResolutionStrategyCardRouteKind = "pending_resolution";
 
 export type DailyRefreshStepSummary = "identity" | "commitment";
 
@@ -72,6 +75,7 @@ export type StrategyCardMoveType =
   | "contract_proposal"
   | "refresh_identity"
   | "refresh_commitment"
+  | "pending_resolution_reminder"
   | "handoff"
   | "other";
 
@@ -122,6 +126,11 @@ export type StrategyCardV1 = {
     daily_refresh_required_anchor_fingerprint?: string | null;
     daily_refresh_required_ask_fingerprint?: string | null;
     daily_refresh_session_written_before_sms?: boolean;
+    daily_pending_resolution_kind?: string | null;
+    daily_pending_candidate_fingerprint?: string | null;
+    daily_pending_state_written_before_sms?: boolean;
+    daily_pending_awaiting_user_confirmation?: boolean | null;
+    daily_pending_required_candidate_fingerprint?: string | null;
   };
   move: {
     type: StrategyCardMoveType;
@@ -177,6 +186,25 @@ export type DailyC3RefreshStrategyCardBuildContext = {
   openLoops: OpenLoopsAndDoNotRepeatData;
   activePending: ActivePendingState;
   noSendSilence: NoSendAndSilenceHistoryV2Data | null;
+};
+
+export type DailyC3PendingResolutionStrategyCardBuildContext = {
+  facts: DailyV3RelationshipFacts;
+  proofPermission: ProofAndPraisePermissionV2Data;
+  openLoops: OpenLoopsAndDoNotRepeatData;
+  activePending: ActivePendingState;
+  noSendSilence: NoSendAndSilenceHistoryV2Data | null;
+};
+
+export type PendingResolutionFactsPacketForPrompt = {
+  resolution_kind: string | null;
+  sms_state: string | null;
+  awaiting_user_confirmation: boolean;
+  candidate_behavior_snippet: string | null;
+  candidate_fingerprint: string | null;
+  required_verbatim_note: string | null;
+  must_not_claim_resolved: true;
+  must_not_claim_goal_changed: true;
 };
 
 export type StrategyCardValidationStatus = "valid" | "repaired";
@@ -1957,6 +1985,7 @@ export function strategyCardV1MetaForTelemetry(
     | DailyC1StrategyCardBuildContext
     | DailyC2StrategyCardBuildContext
     | DailyC3RefreshStrategyCardBuildContext
+    | DailyC3PendingResolutionStrategyCardBuildContext
 ): Record<string, unknown> {
   const c = result.card;
   const inboundCtx =
@@ -2024,7 +2053,8 @@ export function strategyCardV1MetaForTelemetry(
     ...(c.surface === "daily" &&
     c.route_kind !== "contract_prompt" &&
     c.route_kind !== "refresh_identity" &&
-    c.route_kind !== "refresh_commitment"
+    c.route_kind !== "refresh_commitment" &&
+    c.route_kind !== "pending_resolution"
       ? {
           strategy_card_legacy_server_strategy: c.meta.legacy_server_strategy ?? null,
           strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
@@ -2055,6 +2085,22 @@ export function strategyCardV1MetaForTelemetry(
             c.server_truth_summary.daily_refresh_required_anchor_fingerprint ?? null,
           strategy_card_daily_refresh_required_ask_fingerprint:
             c.server_truth_summary.daily_refresh_required_ask_fingerprint ?? null,
+        }
+      : {}),
+    ...(c.route_kind === "pending_resolution"
+      ? {
+          strategy_card_legacy_server_strategy: c.meta.legacy_server_strategy ?? null,
+          strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
+          strategy_card_daily_pending_resolution_kind:
+            c.server_truth_summary.daily_pending_resolution_kind ?? null,
+          strategy_card_daily_pending_state_written_before_sms:
+            c.server_truth_summary.daily_pending_state_written_before_sms === false
+              ? false
+              : null,
+          strategy_card_daily_pending_candidate_fingerprint:
+            c.server_truth_summary.daily_pending_candidate_fingerprint ?? null,
+          strategy_card_daily_pending_awaiting_user_confirmation:
+            c.server_truth_summary.daily_pending_awaiting_user_confirmation ?? null,
         }
       : {}),
   };
@@ -2215,11 +2261,22 @@ export function isDailyC3RefreshStrategyCardEligible(facts: DailyV3RelationshipF
   return ask.length > 0;
 }
 
+export function isDailyC3PendingResolutionStrategyCardEligible(
+  facts: DailyV3RelationshipFacts
+): boolean {
+  if (facts.route_kind !== "pending_resolution") return false;
+  if (!facts.pending_resolution) return false;
+  if (facts.refresh) return false;
+  if (facts.contract_proposal) return false;
+  return true;
+}
+
 export function isDailyStrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
   return (
     isDailyC1StrategyCardEligible(facts) ||
     isDailyC2StrategyCardEligible(facts) ||
-    isDailyC3RefreshStrategyCardEligible(facts)
+    isDailyC3RefreshStrategyCardEligible(facts) ||
+    isDailyC3PendingResolutionStrategyCardEligible(facts)
   );
 }
 
@@ -3110,6 +3167,285 @@ export function validateAndRepairDailyC3RefreshStrategyCardV1(
   }
   const repaired = repairDailyC3RefreshCard(card, ctx, first.reasons);
   const second = validateDailyC3RefreshStrategyCardV1(repaired, ctx);
+  return {
+    card: repaired,
+    validation_status: "repaired",
+    validation_reasons: [...first.reasons, ...second.reasons.filter((r) => !first.reasons.includes(r))],
+  };
+}
+
+// --- Daily C3 pending_resolution Strategy Card v1 ---
+
+const DAILY_C3_PENDING_ALLOWED_MOVES: StrategyCardMoveType[] = ["pending_resolution_reminder"];
+
+function derivePendingCandidateSource(ctx: DailyC3PendingResolutionStrategyCardBuildContext): string {
+  const pr = ctx.facts.pending_resolution;
+  return (
+    pr?.candidate_behavior_snippet?.trim() ||
+    ctx.facts.constraints.required_verbatim_substrings?.[0]?.trim() ||
+    ""
+  );
+}
+
+function derivePendingCandidateFingerprint(
+  ctx: DailyC3PendingResolutionStrategyCardBuildContext
+): string | null {
+  const source = derivePendingCandidateSource(ctx);
+  return source ? fingerprintAsk(source) : null;
+}
+
+function derivePendingRequiredCandidateFingerprint(
+  ctx: DailyC3PendingResolutionStrategyCardBuildContext
+): string | null {
+  const source = ctx.facts.constraints.required_verbatim_substrings?.[0]?.trim() || "";
+  return source ? fingerprintAsk(source) : null;
+}
+
+function collectDailyC3PendingAvoidRepeating(
+  ctx: DailyC3PendingResolutionStrategyCardBuildContext
+): string[] {
+  const items: string[] = [];
+  for (const ask of ctx.openLoops.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    const fp = fingerprintAsk(s.ask_text ?? "");
+    if (fp) items.push(fp);
+  }
+  for (const ask of ctx.facts.daily_satisfied_ask_context?.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const q of ctx.facts.thread_memory.last_5_coach_questions ?? []) {
+    const fp = fingerprintAsk(q);
+    if (fp) items.push(fp);
+  }
+  const candidateFp = derivePendingCandidateFingerprint(ctx);
+  const requiredFp = derivePendingRequiredCandidateFingerprint(ctx);
+  if (candidateFp) items.push(candidateFp);
+  if (requiredFp) items.push(requiredFp);
+  for (const v of ctx.facts.constraints.required_verbatim_substrings ?? []) {
+    const fp = fingerprintAsk(v);
+    if (fp) items.push(fp);
+  }
+  return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
+}
+
+function buildDailyC3PendingMustDoMustNotDo(): { must_do: string[]; must_not_do: string[] } {
+  const must_do = [
+    "Remind the user about the pending resolution / candidate change in flight.",
+    "Preserve pending candidate meaning from route facts and PENDING_RESOLUTION_FACTS.",
+    "Ask naturally for confirmation or completion of the pending loop.",
+    "Use required candidate/verbatim from server facts when present.",
+    "Keep this as a pending resolution reminder — server state has not applied the change yet.",
+  ];
+  const must_not_do = [
+    "Do not claim the pending resolution is already applied or resolved.",
+    "Do not claim the goal or commitment already changed.",
+    "Do not claim the user already accepted or confirmed the change.",
+    "Do not invent a new candidate bar or alternate obligation.",
+    "Do not use robotic menu wording (Reply YES/NO, phone-tree confirmations).",
+    "Do not claim proof or Victory Room on this pending reminder turn.",
+    "Do not pile on unrelated questions — one pending reminder question only.",
+  ];
+  return {
+    must_do: must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+  };
+}
+
+export function buildPendingResolutionFactsPacketForPrompt(
+  facts: DailyV3RelationshipFacts
+): PendingResolutionFactsPacketForPrompt | null {
+  const pr = facts.pending_resolution;
+  if (!pr) return null;
+  const candidate =
+    pr.candidate_behavior_snippet?.trim() ||
+    facts.constraints.required_verbatim_substrings?.[0]?.trim() ||
+    null;
+  return {
+    resolution_kind: pr.resolution_kind,
+    sms_state: pr.sms_state,
+    awaiting_user_confirmation: pr.awaiting_user_confirmation,
+    candidate_behavior_snippet: candidate,
+    candidate_fingerprint: candidate ? fingerprintAsk(candidate) : null,
+    required_verbatim_note: facts.constraints.required_verbatim_substrings?.length
+      ? "Use constraints.required_verbatim_substrings when present."
+      : null,
+    must_not_claim_resolved: true,
+    must_not_claim_goal_changed: true,
+  };
+}
+
+export function buildDailyC3PendingResolutionStrategyCardContextFromSnapshot(args: {
+  facts: DailyV3RelationshipFacts;
+  snapshot: {
+    proof_and_praise_permission: { data: ProofAndPraisePermissionV2Data };
+    open_loops_and_do_not_repeat: { data: OpenLoopsAndDoNotRepeatData };
+    active_pending_state: ActivePendingState;
+    no_send_and_silence_history?: { data: NoSendAndSilenceHistoryV2Data } | null;
+  };
+}): DailyC3PendingResolutionStrategyCardBuildContext {
+  return {
+    facts: args.facts,
+    proofPermission: args.snapshot.proof_and_praise_permission.data,
+    openLoops: args.snapshot.open_loops_and_do_not_repeat.data,
+    activePending: args.snapshot.active_pending_state,
+    noSendSilence: args.snapshot.no_send_and_silence_history?.data ?? null,
+  };
+}
+
+export function buildDailyC3PendingResolutionStrategyCardV1(args: {
+  ctx: DailyC3PendingResolutionStrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  const { ctx } = args;
+  const { facts } = ctx;
+  const pr = facts.pending_resolution!;
+  const legacyMove = facts.suggested_coaching_move?.trim() || "pending_resolution_reminder";
+  const { must_do, must_not_do } = buildDailyC3PendingMustDoMustNotDo();
+  const avoid_repeating = collectDailyC3PendingAvoidRepeating(ctx);
+  const candidateFp = derivePendingCandidateFingerprint(ctx);
+  const requiredFp = derivePendingRequiredCandidateFingerprint(ctx);
+
+  return {
+    version: STRATEGY_CARD_V1_VERSION,
+    generated_at: args.generatedAt ?? new Date().toISOString(),
+    surface: "daily",
+    route_kind: "pending_resolution",
+    turn_kind: facts.accountability.daily_purpose ?? "pending_resolution",
+    server_truth_summary: {
+      outcome: "none",
+      explicit_user_truth: false,
+      active_pending_kinds: pr.resolution_kind ? [pr.resolution_kind] : [],
+      satisfied_ask_fingerprints: [],
+      daily_route_kind: facts.route_kind,
+      daily_server_strategy: facts.accountability.server_strategy ?? null,
+      daily_purpose: facts.accountability.daily_purpose ?? null,
+      daily_pending_resolution_kind: pr.resolution_kind,
+      daily_pending_candidate_fingerprint: candidateFp,
+      daily_pending_state_written_before_sms: false,
+      daily_pending_awaiting_user_confirmation: pr.awaiting_user_confirmation,
+      daily_pending_required_candidate_fingerprint: requiredFp,
+    },
+    move: {
+      type: "pending_resolution_reminder",
+      priority: "normal",
+      confidence: "high",
+      reason: truncateText(
+        "Pending resolution reminder — nudge completion without claiming the change is applied.",
+        MAX_REASON_CHARS
+      ),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims: {
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: false,
+    },
+    writer_constraints: {
+      max_questions: 1,
+      avoid_repeating,
+      tone_posture: "contract_precise",
+    },
+    meta: {
+      generation_source: "server_strategy_card_v1",
+      legacy_suggested_coaching_move: legacyMove,
+      legacy_coaching_move_source: "rule_derived",
+      legacy_server_strategy: facts.accountability.server_strategy ?? null,
+      legacy_next_move_type: facts.accountability.next_move_type ?? null,
+    },
+  };
+}
+
+function mustNotDoIncludesPendingResolutionConstraints(must_not_do: string[]): boolean {
+  const joined = must_not_do.join(" ").toLowerCase();
+  return (
+    (joined.includes("resolved") || joined.includes("applied")) &&
+    joined.includes("goal") &&
+    joined.includes("accepted") &&
+    joined.includes("invent")
+  );
+}
+
+function mustDoIncludesPendingMeaning(must_do: string[]): boolean {
+  const joined = must_do.join(" ").toLowerCase();
+  return joined.includes("pending") && (joined.includes("candidate") || joined.includes("resolution"));
+}
+
+export function validateDailyC3PendingResolutionStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC3PendingResolutionStrategyCardBuildContext
+): { valid: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (card.surface !== "daily") reasons.push("surface_not_daily");
+  if (card.route_kind !== "pending_resolution") reasons.push("daily_c3_pending_route_kind_invalid");
+  if (card.move.type !== "pending_resolution_reminder") {
+    reasons.push("daily_c3_pending_move_type_invalid");
+  }
+  if (!DAILY_C3_PENDING_ALLOWED_MOVES.includes(card.move.type)) {
+    reasons.push("daily_c3_pending_forbidden_move");
+  }
+  if (
+    card.allowed_claims.completion ||
+    card.allowed_claims.miss ||
+    card.allowed_claims.partial ||
+    card.allowed_claims.proof ||
+    card.allowed_claims.victory_room ||
+    card.allowed_claims.state_changed ||
+    card.allowed_claims.proposal_active
+  ) {
+    reasons.push("daily_c3_pending_forbidden_claim");
+  }
+  if (card.server_truth_summary.daily_pending_state_written_before_sms !== false) {
+    reasons.push("daily_c3_pending_state_must_be_false");
+  }
+  if (card.writer_constraints.max_questions > 1) reasons.push("daily_c3_pending_max_questions_exceeded");
+  if (!mustNotDoIncludesPendingResolutionConstraints(card.must_not_do)) {
+    reasons.push("daily_c3_pending_must_not_do_missing");
+  }
+  if (!mustDoIncludesPendingMeaning(card.must_do)) {
+    reasons.push("daily_c3_pending_must_do_missing");
+  }
+  const candidateFp = derivePendingCandidateFingerprint(ctx);
+  if (candidateFp && !card.writer_constraints.avoid_repeating.includes(candidateFp)) {
+    reasons.push("daily_c3_pending_missing_candidate_fingerprint");
+  }
+  for (const item of [...card.must_do, ...card.must_not_do, card.move.reason]) {
+    if (SMS_COPY_RE.test(item) && item.length > 80) {
+      reasons.push("sms_copy_in_card");
+    }
+  }
+  if (card.move.reason.length > MAX_REASON_CHARS) reasons.push("reason_too_long");
+
+  return { valid: reasons.length === 0, reasons };
+}
+
+function repairDailyC3PendingCard(
+  card: StrategyCardV1,
+  ctx: DailyC3PendingResolutionStrategyCardBuildContext,
+  _reasons: string[]
+): StrategyCardV1 {
+  return buildDailyC3PendingResolutionStrategyCardV1({ ctx, generatedAt: card.generated_at });
+}
+
+export function validateAndRepairDailyC3PendingResolutionStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC3PendingResolutionStrategyCardBuildContext
+): StrategyCardValidationResult {
+  const first = validateDailyC3PendingResolutionStrategyCardV1(card, ctx);
+  if (first.valid) {
+    return { card, validation_status: "valid", validation_reasons: [] };
+  }
+  const repaired = repairDailyC3PendingCard(card, ctx, first.reasons);
+  const second = validateDailyC3PendingResolutionStrategyCardV1(repaired, ctx);
   return {
     card: repaired,
     validation_status: "repaired",

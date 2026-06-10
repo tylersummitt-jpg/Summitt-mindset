@@ -11,6 +11,7 @@ import {
   isCentralPivotStrategyCardEligible,
   isDailyC1StrategyCardEligible,
   isDailyC2StrategyCardEligible,
+  isDailyC3PendingResolutionStrategyCardEligible,
   isDailyC3RefreshStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
@@ -363,5 +364,49 @@ describe("Phase 4.7c-A — Daily C3 refresh Strategy Card scope guards", () => {
     expect(content).toMatch(/refresh_identity/);
     expect(content).toMatch(/refresh_commitment/);
     expect(content).toMatch(/daily_refresh_step/);
+  });
+});
+
+describe("Phase 4.7c-B — Daily C3 pending_resolution Strategy Card scope guards", () => {
+  it("daily C3 pending eligibility is limited to pending_resolution route", () => {
+    const mainFacts = buildDailyFacts(getScenarioById("consistent-winner")!);
+    const pendingFacts = {
+      ...mainFacts,
+      route_kind: "pending_resolution" as const,
+      pending_resolution: {
+        resolution_kind: "replace",
+        expires_at: null,
+        payload_source: "v2",
+        sms_state: "awaiting_confirm",
+        detected_intent: "replace",
+        candidate_behavior_snippet: "Walk 10 minutes",
+        awaiting_user_confirmation: true,
+      },
+    };
+    expect(isDailyC3PendingResolutionStrategyCardEligible(pendingFacts)).toBe(true);
+    expect(isDailyC1StrategyCardEligible(pendingFacts)).toBe(false);
+    expect(isDailyC3RefreshStrategyCardEligible(pendingFacts)).toBe(false);
+    expect(isDailyC3PendingResolutionStrategyCardEligible(mainFacts)).toBe(false);
+  });
+
+  it("daily lane wires C3 pending Strategy Card eligibility and facts appendix", () => {
+    const daily = fs.readFileSync(
+      path.join(REPO, "src/lib/v3-daily-relationship-lane.ts"),
+      "utf8"
+    );
+    expect(daily).toMatch(/isDailyC3PendingResolutionStrategyCardEligible/);
+    expect(daily).toMatch(/validateAndRepairDailyC3PendingResolutionStrategyCardV1/);
+    expect(daily).toMatch(/PENDING_RESOLUTION_FACTS/);
+    expect(daily).toMatch(/PENDING_RESOLUTION_ROUTE/);
+  });
+
+  it("StrategyCardRouteKind includes pending_resolution and pending_resolution_reminder move", () => {
+    const content = fs.readFileSync(
+      path.join(REPO, "src/lib/coaching-strategy-card-v1.ts"),
+      "utf8"
+    );
+    expect(content).toMatch(/pending_resolution/);
+    expect(content).toMatch(/pending_resolution_reminder/);
+    expect(content).toMatch(/daily_pending_resolution_kind/);
   });
 });

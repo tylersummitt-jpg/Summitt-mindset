@@ -1886,14 +1886,15 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.route_purpose).toBe("refresh_identity");
   });
 
-  it("pending_resolution route writes lane metadata and does not use old writer as voice", async () => {
+  it("pending_resolution route attaches Daily C3 pending Strategy Card and facts appendix", async () => {
+    const candidate = "Walk 10 minutes";
     createMock.mockResolvedValue({
       choices: [
         {
           message: {
             content: JSON.stringify({
               should_send: true,
-              body: "Before we lock the swap: what feels most honest about the smaller bar for this week?",
+              body: `Before we lock the swap — ${candidate} — does that still feel right?`,
               no_send_reason: null,
               turn_purpose: "pending_resolution",
               voice_confidence: 0.75,
@@ -1915,9 +1916,14 @@ describe("produceDailyV3RelationshipSms", () => {
           payload_source: "v2",
           sms_state: "awaiting_confirm",
           detected_intent: "replace",
-          candidate_behavior_snippet: "Walk 10 minutes",
+          candidate_behavior_snippet: candidate,
           awaiting_user_confirmation: true,
         },
+        constraints: {
+          ...base.constraints,
+          required_verbatim_substrings: [candidate],
+        },
+        suggested_coaching_move: "pending_resolution_reminder",
       },
       telemetry_fact_sources: ["v2_pending_resolution_facts"],
     });
@@ -1928,9 +1934,18 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.v3_lane_reply_source).toBe("v3_daily_relationship_lane");
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
-    expect(systemMsg).not.toContain("STRATEGY_CARD_V1");
-    expect(userMsg).not.toContain("STRATEGY_CARD_V1");
-    expect(r.metadata.strategy_card_surface).toBeUndefined();
+    expect(systemMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).toContain("primary coaching move");
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).toContain("PENDING_RESOLUTION_FACTS");
+    expect(systemMsg).toContain("candidate_behavior_snippet");
+    expect(systemMsg).toContain("PENDING_RESOLUTION_ROUTE");
+    expect(systemMsg).toContain("REQUIRED_VERBATIM");
+    expect(userMsg).toContain("required_verbatim_substrings");
+    expect(r.metadata.strategy_card_surface).toBe("daily");
+    expect(r.metadata.strategy_card_route_kind).toBe("pending_resolution");
+    expect(r.metadata.strategy_card_move_type).toBe("pending_resolution_reminder");
+    expect(r.metadata.strategy_card_daily_pending_state_written_before_sms).toBe(false);
   });
 
   it("repairs repeated prior coach question on main accountability (M2B-5)", async () => {

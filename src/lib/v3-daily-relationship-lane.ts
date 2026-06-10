@@ -76,15 +76,20 @@ import {
   buildDailyC1StrategyCardV1,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
+  buildDailyC3PendingResolutionStrategyCardContextFromSnapshot,
+  buildDailyC3PendingResolutionStrategyCardV1,
   buildDailyC3RefreshStrategyCardContextFromSnapshot,
   buildDailyC3RefreshStrategyCardV1,
+  buildPendingResolutionFactsPacketForPrompt,
   buildStrategyCardV1PromptGuidance,
   isDailyC1StrategyCardEligible,
   isDailyC2StrategyCardEligible,
+  isDailyC3PendingResolutionStrategyCardEligible,
   isDailyC3RefreshStrategyCardEligible,
   strategyCardV1MetaForTelemetry,
   strategyCardV1UserPromptAppendix,
   validateAndRepairDailyC1StrategyCardV1,
+  validateAndRepairDailyC3PendingResolutionStrategyCardV1,
   validateAndRepairDailyC3RefreshStrategyCardV1,
   validateAndRepairDailyContractPromptStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
@@ -323,11 +328,20 @@ export function deriveSuggestedCoachingMoveForDailyFacts(f: DailyV3RelationshipF
 
 function routeSpecificSystemAddendum(
   f: DailyV3RelationshipFacts,
-  opts?: { strategyCardC2Active?: boolean }
+  opts?: { strategyCardC2Active?: boolean; strategyCardC3PendingActive?: boolean }
 ): string {
   const lines: string[] = [];
   const strategyCardC2Active = opts?.strategyCardC2Active === true;
+  const strategyCardC3PendingActive = opts?.strategyCardC3PendingActive === true;
   if (f.route_kind === "pending_resolution") {
+    if (strategyCardC3PendingActive && f.pending_resolution) {
+      const packet = buildPendingResolutionFactsPacketForPrompt(f);
+      if (packet) {
+        lines.push(
+          `PENDING_RESOLUTION_FACTS (authoritative pending candidate / route facts — Strategy Card owns coaching move; not scripted lines): ${JSON.stringify(packet)}.`
+        );
+      }
+    }
     lines.push(
       "PENDING_RESOLUTION_ROUTE: User has an in-flight guided commitment update. Nudge them to complete it in-app or via SMS per facts. Do not invent a new bar or change server state."
     );
@@ -1073,6 +1087,7 @@ export async function produceDailyV3RelationshipSms(
   const strategyCardC1Eligible = isDailyC1StrategyCardEligible(laneFacts);
   const strategyCardC2Eligible = isDailyC2StrategyCardEligible(laneFacts);
   const strategyCardC3RefreshEligible = isDailyC3RefreshStrategyCardEligible(laneFacts);
+  const strategyCardC3PendingEligible = isDailyC3PendingResolutionStrategyCardEligible(laneFacts);
   if (strategyCardC1Eligible) {
     const strategyCtx = buildDailyC1StrategyCardContextFromSnapshot({
       facts: laneFacts,
@@ -1100,6 +1115,16 @@ export async function produceDailyV3RelationshipSms(
     });
     const draftCard = buildDailyC3RefreshStrategyCardV1({ ctx: strategyCtx });
     const validated = validateAndRepairDailyC3RefreshStrategyCardV1(draftCard, strategyCtx);
+    strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
+    strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
+    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
+  } else if (strategyCardC3PendingEligible) {
+    const strategyCtx = buildDailyC3PendingResolutionStrategyCardContextFromSnapshot({
+      facts: laneFacts,
+      snapshot: relationshipPacket.snapshotV2,
+    });
+    const draftCard = buildDailyC3PendingResolutionStrategyCardV1({ ctx: strategyCtx });
+    const validated = validateAndRepairDailyC3PendingResolutionStrategyCardV1(draftCard, strategyCtx);
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
     Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
@@ -1132,7 +1157,10 @@ ${buildSmsGoalAdjustmentLaneGuardrails()}
 ${buildPlannedInterruptionLaneGuardrails()}
 ${buildPendingPlanProofLaneGuardrails(laneFacts.accountability.pending_plan_proof)}
 ${buildTimingAnchorMemoryLaneGuardrails(laneFacts.accountability.timing_anchor_memory)}
-${routeSpecificSystemAddendum(laneFacts, { strategyCardC2Active: strategyCardC2Eligible })}
+${routeSpecificSystemAddendum(laneFacts, {
+  strategyCardC2Active: strategyCardC2Eligible,
+  strategyCardC3PendingActive: strategyCardC3PendingEligible,
+})}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),

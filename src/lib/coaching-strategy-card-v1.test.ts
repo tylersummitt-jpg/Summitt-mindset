@@ -30,13 +30,18 @@ import {
   buildDailyC1StrategyCardV1,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
+  buildDailyC3PendingResolutionStrategyCardContextFromSnapshot,
+  buildDailyC3PendingResolutionStrategyCardV1,
   buildDailyC3RefreshStrategyCardContextFromSnapshot,
   buildDailyC3RefreshStrategyCardV1,
+  buildPendingResolutionFactsPacketForPrompt,
   isDailyC1StrategyCardEligible,
   isDailyC2StrategyCardEligible,
+  isDailyC3PendingResolutionStrategyCardEligible,
   isDailyC3RefreshStrategyCardEligible,
   isDailyStrategyCardEligible,
   validateAndRepairDailyC1StrategyCardV1,
+  validateAndRepairDailyC3PendingResolutionStrategyCardV1,
   validateAndRepairDailyC3RefreshStrategyCardV1,
   validateAndRepairDailyContractPromptStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
@@ -2150,5 +2155,217 @@ describe("Daily C3 refresh Strategy Card v1", () => {
     expect(meta.strategy_card_daily_refresh_step).toBe("identity");
     expect(meta.strategy_card_daily_refresh_session_written_before_sms).toBe(false);
     expect(meta.strategy_card_daily_refresh_required_anchor_fingerprint).toBeTruthy();
+  });
+});
+
+describe("Daily C3 pending_resolution Strategy Card v1", () => {
+  const candidateBar = "Walk 10 minutes after dinner.";
+
+  function pendingDailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
+    return {
+      route_kind: "pending_resolution",
+      accountability_day_key: "2026-05-12",
+      user: {
+        clerk_user_id: "user_test",
+        preferred_name: "Alex",
+        timezone: "America/Chicago",
+        local_time_iso: "2026-05-12T09:00:00.000Z",
+        relationship_profile_summary: null,
+      },
+      commitment: {
+        id: "cmt_1",
+        title: "Evening walk",
+        behavior_statement: candidateBar,
+        effective_ask: candidateBar,
+        accountability_phase: "active_accountability",
+        identity_anchor_allowed: false,
+        identity_anchor_short: null,
+      },
+      thread_memory: {
+        latest_outbound_sms: "Did you confirm the swap?",
+        latest_inbound_sms: null,
+        recent_transcript_or_context_block: null,
+        latest_open_question: null,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: "",
+        recent_pattern_hints: null,
+        last_5_coach_questions: [],
+      },
+      accountability: {
+        daily_purpose: "standard_accountability_check",
+        server_strategy: "pending_nudge",
+        next_move_type: "hold_standard",
+        prior_outcome: null,
+        yes_streak_14d: 0,
+        no_count_14d: 0,
+        partial_count_14d: 0,
+        blocker_preview: null,
+        proof_or_milestone_signal: null,
+        silence_tier: "none",
+        unanswered_checks: 0,
+        days_since_last_user_outcome: null,
+        reentry_active: false,
+        overlay_active: false,
+        evolution_pattern_hint: null,
+        contract_proposal_mode: false,
+      },
+      pending_resolution: {
+        resolution_kind: "replace",
+        expires_at: null,
+        payload_source: "v2",
+        sms_state: "awaiting_confirm",
+        detected_intent: "replace",
+        candidate_behavior_snippet: candidateBar,
+        awaiting_user_confirmation: true,
+      },
+      suggested_coaching_move: "pending_resolution_reminder",
+      constraints: {
+        max_chars: 300,
+        one_sms: true,
+        no_raw_title_or_behavior_paste: true,
+        no_generic_motivation: true,
+        if_unsafe_return_no_send: true,
+        required_verbatim_substrings: [candidateBar],
+      },
+      ...overrides,
+    };
+  }
+
+  function buildPendingCtx(facts: DailyV3RelationshipFacts) {
+    return buildDailyC3PendingResolutionStrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: { data: baseProof() },
+        open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+        active_pending_state: { items: [] },
+        no_send_and_silence_history: null,
+      },
+    });
+  }
+
+  it("pending_resolution uses move pending_resolution_reminder", () => {
+    const card = buildDailyC3PendingResolutionStrategyCardV1({
+      ctx: buildPendingCtx(pendingDailyFacts()),
+    });
+    expect(card.route_kind).toBe("pending_resolution");
+    expect(card.move.type).toBe("pending_resolution_reminder");
+  });
+
+  it("all claims false on pending card", () => {
+    const card = buildDailyC3PendingResolutionStrategyCardV1({
+      ctx: buildPendingCtx(pendingDailyFacts()),
+    });
+    expect(card.allowed_claims.completion).toBe(false);
+    expect(card.allowed_claims.miss).toBe(false);
+    expect(card.allowed_claims.partial).toBe(false);
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+    expect(card.allowed_claims.state_changed).toBe(false);
+    expect(card.allowed_claims.proposal_active).toBe(false);
+  });
+
+  it("must_not_do blocks resolved/applied, goal changed, accepted, invented candidate", () => {
+    const card = buildDailyC3PendingResolutionStrategyCardV1({
+      ctx: buildPendingCtx(pendingDailyFacts()),
+    });
+    const joined = card.must_not_do.join(" ").toLowerCase();
+    expect(joined).toMatch(/resolved|applied/);
+    expect(joined).toMatch(/goal/);
+    expect(joined).toMatch(/accepted/);
+    expect(joined).toMatch(/invent/);
+  });
+
+  it("max_questions <= 1", () => {
+    const card = buildDailyC3PendingResolutionStrategyCardV1({
+      ctx: buildPendingCtx(pendingDailyFacts()),
+    });
+    expect(card.writer_constraints.max_questions).toBeLessThanOrEqual(1);
+  });
+
+  it("avoid_repeating includes candidate fingerprint when available", () => {
+    const card = buildDailyC3PendingResolutionStrategyCardV1({
+      ctx: buildPendingCtx(pendingDailyFacts()),
+    });
+    expect(card.server_truth_summary.daily_pending_candidate_fingerprint).toBeTruthy();
+    expect(card.writer_constraints.avoid_repeating).toContain(
+      card.server_truth_summary.daily_pending_candidate_fingerprint
+    );
+  });
+
+  it("invalid pending card repairs", () => {
+    const ctx = buildPendingCtx(pendingDailyFacts());
+    const bad = buildDailyC3PendingResolutionStrategyCardV1({ ctx });
+    bad.move.type = "daily_check_in";
+    bad.allowed_claims.state_changed = true;
+    const result = validateAndRepairDailyC3PendingResolutionStrategyCardV1(bad, ctx);
+    expect(result.card.move.type).toBe("pending_resolution_reminder");
+    expect(result.card.allowed_claims.state_changed).toBe(false);
+    expect(result.validation_status).toBe("repaired");
+  });
+
+  it("no SMS copy in pending card fields", () => {
+    const card = buildDailyC3PendingResolutionStrategyCardV1({
+      ctx: buildPendingCtx(pendingDailyFacts()),
+    });
+    expect(card.must_do.join(" ")).not.toMatch(/\b(hey|thanks for texting)\b/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+  });
+
+  it("pending eligibility excludes refresh, contract, and C1 routes", () => {
+    expect(isDailyC3PendingResolutionStrategyCardEligible(pendingDailyFacts())).toBe(true);
+    expect(
+      isDailyC3RefreshStrategyCardEligible({
+        route_kind: "refresh_identity",
+        refresh: { refresh_step: "identity_first", identity_anchor_text: "Leader" },
+        constraints: {
+          max_chars: 300,
+          one_sms: true,
+          no_raw_title_or_behavior_paste: true,
+          no_generic_motivation: true,
+          if_unsafe_return_no_send: true,
+          required_verbatim_substrings: ["Leader"],
+        },
+      } as DailyV3RelationshipFacts)
+    ).toBe(true);
+    expect(
+      isDailyC3PendingResolutionStrategyCardEligible(
+        pendingDailyFacts({ refresh: { refresh_step: "identity_first", identity_anchor_text: "Leader" } })
+      )
+    ).toBe(false);
+    expect(
+      isDailyC3PendingResolutionStrategyCardEligible(
+        pendingDailyFacts({
+          route_kind: "main_active_accountability",
+          pending_resolution: null,
+        })
+      )
+    ).toBe(false);
+    expect(isDailyStrategyCardEligible(pendingDailyFacts())).toBe(true);
+  });
+
+  it("buildPendingResolutionFactsPacketForPrompt is compact and safe", () => {
+    const packet = buildPendingResolutionFactsPacketForPrompt(pendingDailyFacts());
+    expect(packet).toBeTruthy();
+    expect(packet!.must_not_claim_resolved).toBe(true);
+    expect(packet!.must_not_claim_goal_changed).toBe(true);
+    expect(packet!.candidate_behavior_snippet).toBe(candidateBar);
+    expect(packet!.candidate_fingerprint).toBeTruthy();
+    expect(packet!.required_verbatim_note).toContain("required_verbatim_substrings");
+  });
+
+  it("pending telemetry includes compact pending fields", () => {
+    const ctx = buildPendingCtx(pendingDailyFacts());
+    const card = buildDailyC3PendingResolutionStrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_surface).toBe("daily");
+    expect(meta.strategy_card_route_kind).toBe("pending_resolution");
+    expect(meta.strategy_card_move_type).toBe("pending_resolution_reminder");
+    expect(meta.strategy_card_daily_pending_resolution_kind).toBe("replace");
+    expect(meta.strategy_card_daily_pending_state_written_before_sms).toBe(false);
+    expect(meta.strategy_card_daily_pending_candidate_fingerprint).toBeTruthy();
+    expect(meta.strategy_card_daily_pending_awaiting_user_confirmation).toBe(true);
   });
 });
