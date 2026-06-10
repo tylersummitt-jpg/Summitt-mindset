@@ -31,6 +31,15 @@ import {
   buildRelationshipPacketPromptGuidance,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
+import {
+  buildStrategyCardV1PromptGuidance,
+  buildWeeklyProofStrategyCardV1,
+  buildWeeklyStrategyCardContextFromSnapshot,
+  isWeeklyProofStrategyCardEligible,
+  strategyCardV1MetaForTelemetry,
+  strategyCardV1UserPromptAppendix,
+  validateAndRepairWeeklyProofStrategyCardV1,
+} from "@/lib/coaching-strategy-card-v1";
 import { prepareRepairSnapshotForOpenAI } from "@/lib/sms-relationship-repair-snapshot-v1";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import {
@@ -432,18 +441,33 @@ export async function produceWeeklyV3RelationshipSms(
     relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta, relationshipPacket.snapshotV2Meta)
   );
 
+  let strategyCardUserAppendix = "";
+  let strategyCardPromptGuidance = "";
+  const strategyCardWeeklyEligible = isWeeklyProofStrategyCardEligible(f);
+  if (strategyCardWeeklyEligible) {
+    const strategyCtx = buildWeeklyStrategyCardContextFromSnapshot({
+      facts: f,
+      snapshot: relationshipPacket.snapshotV2,
+    });
+    const draftCard = buildWeeklyProofStrategyCardV1({ ctx: strategyCtx });
+    const validated = validateAndRepairWeeklyProofStrategyCardV1(draftCard, strategyCtx);
+    strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
+    strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
+    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
+  }
+
   const system = `You write the NEXT SMS in one long coaching relationship (months of texts). This weekly touchpoint is NOT a newsletter or performance report.
 
 RULES:
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy labeled machine drafts, template banks, or telemetry previews as your voice.
 - If current_turn.planned_pause_week is true, sparse or silent replies are planned context — not failure; do not shame missed days or quiet weeks.
-- If current_turn.silent_week or current_turn.rough_week is true, be honest and useful without shaming. If there is not enough context for a genuinely useful weekly coaching text, return should_send false.
-- If structured_recent_truth.weekly_week_summary lists proof_moment_hints, win_hints, or comeback_hints, acknowledgment must be specific and earned — not generic hype.
+${strategyCardWeeklyEligible ? "" : `- If current_turn.silent_week or current_turn.rough_week is true, be honest and useful without shaming. If there is not enough context for a genuinely useful weekly coaching text, return should_send false.`}
+${strategyCardWeeklyEligible ? "" : `- If structured_recent_truth.weekly_week_summary lists proof_moment_hints, win_hints, or comeback_hints, acknowledgment must be specific and earned — not generic hype.`}
 - Do not repeat questions in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
 - If structured_recent_truth.open_question_pending is false and structured_recent_truth.latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
 - Bring back meaningful user language from recent_exact_thread_72h naturally when useful; do not re-ask for information they already gave.
-- Do not use "Welcome back" unless silent_week / reentry context in the packet truly supports it.
-- At most one useful question in the body, or none if a question would feel forced.
+${strategyCardWeeklyEligible ? "" : `- Do not use "Welcome back" unless silent_week / reentry context in the packet truly supports it.`}
+${strategyCardWeeklyEligible ? "" : `- At most one useful question in the body, or none if a question would feel forced.`}
 - One short SMS, max ${WEEKLY_V3_LANE_MAX_CHARS} characters, single line or very short paragraphs; no markdown, bullets, or "Coach:" prefix.
 - Do not use generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope you're having").
 - Do not use Pat Pause-style openers or newsletter/report language.
@@ -451,6 +475,7 @@ RULES:
 - Never emit raw machine tokens like event_type, blocker_captured, user_partial.
 - Avoid daily-check phrasing like "Did [raw behavior text] happen today?" — this is weekly, not today's rep check.
 ${buildRelationshipPacketPromptGuidance()}
+${strategyCardPromptGuidance}
 ${buildVictoryBackgroundLaneGuardrails()}
 ${buildWeeklyGoalAdjustmentLaneGuardrails()}
 ${f.commitment.planned_interruption_active || f.weekly_proof.planned_pause_week ? buildWeeklyPlannedInterruptionLaneGuardrails() : ""}
@@ -464,7 +489,9 @@ voice_confidence (number 0-1 or null),
 used_facts (string[]),
 safety_notes (string[])`;
 
-  const user = relationshipPacket.userPromptJson;
+  const user =
+    relationshipPacket.userPromptJson +
+    (strategyCardUserAppendix ? `\n\n${strategyCardUserAppendix}` : "");
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;

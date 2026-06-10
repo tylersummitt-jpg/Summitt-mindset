@@ -629,14 +629,18 @@ describe("produceWeeklyV3RelationshipSms", () => {
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
     expect(systemMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(systemMsg).toContain("planned_pause_week");
-    expect(systemMsg).toContain("silent_week");
     expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(userMsg).not.toContain("WEEKLY_FACTS_JSON");
     expect(userMsg).toContain("recent_exact_thread_72h");
     expect(userMsg).toContain("relationship_memory_7d");
     expect(userMsg).toContain("relationship_memory_30d_or_season");
     expect(userMsg).toContain("planned_pause_week");
-    expect(userMsg).toContain("Sunday School");
+    expect(userMsg).toContain("silent_week");
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain("weekly_week_summary");
+    expect(systemMsg).not.toMatch(
+      /If current_turn\.silent_week or current_turn\.rough_week is true, be honest and useful without shaming/
+    );
   });
 
   it("repairs repeated prior answered question on weekly (M2B-6)", async () => {
@@ -894,6 +898,69 @@ describe("produceWeeklyV3RelationshipSms", () => {
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
     expect(systemMsg).toContain("WEEKLY GOAL_ADJUSTMENT");
     expect(baseFacts().commitment.goal_adjustment_move).toBeUndefined();
+  });
+
+  it("weekly_proof_v2 Strategy Card: appends STRATEGY_CARD_V1 and demotes duplicated move prose", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson(
+              "Rough week, but you still fought for mornings. What is the smallest guardrail before noon tomorrow?"
+            ),
+          },
+        },
+      ],
+    });
+
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["test_weekly_strategy_card"],
+    });
+
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(systemMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
+    expect(userMsg).toContain("weekly_week_summary");
+    expect(systemMsg).not.toMatch(
+      /If current_turn\.silent_week or current_turn\.rough_week is true, be honest and useful without shaming/
+    );
+    expect(systemMsg).not.toMatch(
+      /If structured_recent_truth\.weekly_week_summary lists proof_moment_hints/
+    );
+    expect(systemMsg).not.toMatch(/At most one useful question in the body/);
+    expect(r.metadata.strategy_card_surface).toBe("weekly");
+    expect(r.metadata.strategy_card_route_kind).toBe("weekly_proof_v2");
+    expect(r.metadata.strategy_card_move_type).toBe("weekly_recover");
+    expect(r.metadata.strategy_card_weekly_rough_week).toBe(true);
+  });
+
+  it("legacy weekly branch does not attach Strategy Card", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("Legacy weekly reflection without strategy card."),
+          },
+        },
+      ],
+    });
+
+    await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        route: {
+          ...baseFacts().route,
+          legacy_weekly_branch: true,
+          route_purpose: "weekly_legacy_reflection",
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).not.toContain("STRATEGY_CARD_V1");
   });
 
   it("applyFinalVoiceOwnershipGate accepts safe weekly body with v3_weekly_relationship_lane", async () => {

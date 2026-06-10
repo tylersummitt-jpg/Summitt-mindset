@@ -57,7 +57,7 @@ describe("Phase 4.2 — inbound-normal Strategy Card scope guards", () => {
     ).toBe(false);
   });
 
-  it("daily and weekly lane files unchanged by Phase 4.2 Review Place work", () => {
+  it("daily lane still has no weekly Strategy Card wiring", () => {
     const daily = fs.readFileSync(
       path.join(REPO, "src/lib/v3-daily-relationship-lane.ts"),
       "utf8"
@@ -67,9 +67,11 @@ describe("Phase 4.2 — inbound-normal Strategy Card scope guards", () => {
       "utf8"
     );
     expect(daily).not.toContain("buildInboundNormalStrategyCardV1");
-    expect(daily).not.toContain("STRATEGY_CARD_V1");
+    expect(daily).not.toContain("buildWeeklyProofStrategyCardV1");
     expect(weekly).not.toContain("buildInboundNormalStrategyCardV1");
-    expect(weekly).not.toContain("STRATEGY_CARD_V1");
+    expect(weekly).toContain("buildWeeklyProofStrategyCardV1");
+    expect(weekly).toContain("strategyCardV1UserPromptAppendix");
+    expect(weekly).toContain("isWeeklyProofStrategyCardEligible");
   });
 
   it("Twilio send module not touched by sms-review-place strategy card files", () => {

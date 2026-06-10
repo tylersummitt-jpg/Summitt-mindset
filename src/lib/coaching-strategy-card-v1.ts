@@ -1,5 +1,5 @@
 /**
- * Phase 4.1/4.3/4.4a/4.5/4.7a/4.7b/4.7c-A/4.7c-B — Coaching Strategy Card v1 (inbound + daily C1/C2/C3).
+ * Phase 4.1/4.3/4.4a/4.5/4.7a/4.7b/4.7c-A/4.7c-B/4.8a — Coaching Strategy Card v1 (inbound + daily + weekly).
  * Server-built coaching move envelope; writer-facing after validation/repair.
  * Does not route, mutate state, send SMS, or replace Relationship Snapshot.
  */
@@ -26,11 +26,12 @@ import type {
   InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { DailySemanticContractProposalFactsPacket } from "@/lib/v3-daily-contract-proposal-semantic";
 
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
 
-export type StrategyCardSurface = "inbound" | "daily";
+export type StrategyCardSurface = "inbound" | "daily" | "weekly";
 export type StrategyCardRouteKind =
   | "normal_inbound_reply"
   | "open_question_answer"
@@ -41,7 +42,10 @@ export type StrategyCardRouteKind =
   | "contract_prompt"
   | "refresh_identity"
   | "refresh_commitment"
-  | "pending_resolution";
+  | "pending_resolution"
+  | "weekly_proof_v2";
+
+export type WeeklyProofStrategyCardRouteKind = "weekly_proof_v2";
 
 export type DailyC1StrategyCardRouteKind =
   | "main_active_accountability"
@@ -76,6 +80,10 @@ export type StrategyCardMoveType =
   | "refresh_identity"
   | "refresh_commitment"
   | "pending_resolution_reminder"
+  | "weekly_reflect"
+  | "weekly_recover"
+  | "weekly_celebrate_earned"
+  | "weekly_low_pressure"
   | "handoff"
   | "other";
 
@@ -131,6 +139,16 @@ export type StrategyCardV1 = {
     daily_pending_state_written_before_sms?: boolean;
     daily_pending_awaiting_user_confirmation?: boolean | null;
     daily_pending_required_candidate_fingerprint?: string | null;
+    weekly_completed_count?: number | null;
+    weekly_missed_count?: number | null;
+    weekly_partial_count?: number | null;
+    weekly_silent_week?: boolean | null;
+    weekly_rough_week?: boolean | null;
+    weekly_strong_week?: boolean | null;
+    weekly_has_proof_hints?: boolean | null;
+    weekly_can_claim_proof?: boolean | null;
+    weekly_can_reference_victory_room?: boolean | null;
+    weekly_proof_state_written_before_sms?: boolean;
   };
   move: {
     type: StrategyCardMoveType;
@@ -190,6 +208,14 @@ export type DailyC3RefreshStrategyCardBuildContext = {
 
 export type DailyC3PendingResolutionStrategyCardBuildContext = {
   facts: DailyV3RelationshipFacts;
+  proofPermission: ProofAndPraisePermissionV2Data;
+  openLoops: OpenLoopsAndDoNotRepeatData;
+  activePending: ActivePendingState;
+  noSendSilence: NoSendAndSilenceHistoryV2Data | null;
+};
+
+export type WeeklyStrategyCardBuildContext = {
+  facts: WeeklyV3OutboundFacts;
   proofPermission: ProofAndPraisePermissionV2Data;
   openLoops: OpenLoopsAndDoNotRepeatData;
   activePending: ActivePendingState;
@@ -1986,10 +2012,11 @@ export function strategyCardV1MetaForTelemetry(
     | DailyC2StrategyCardBuildContext
     | DailyC3RefreshStrategyCardBuildContext
     | DailyC3PendingResolutionStrategyCardBuildContext
+    | WeeklyStrategyCardBuildContext
 ): Record<string, unknown> {
   const c = result.card;
   const inboundCtx =
-    ctx && c.surface !== "daily" ? (ctx as StrategyCardBuildContext) : undefined;
+    ctx && c.surface === "inbound" ? (ctx as StrategyCardBuildContext) : undefined;
   return {
     strategy_card_version: c.version,
     strategy_card_surface: c.surface,
@@ -2006,7 +2033,7 @@ export function strategyCardV1MetaForTelemetry(
     strategy_card_can_claim_proof: c.allowed_claims.proof,
     strategy_card_can_reference_victory_room: c.allowed_claims.victory_room,
     strategy_card_tone_posture: c.writer_constraints.tone_posture,
-    ...(ctx && c.surface !== "daily"
+    ...(ctx && c.surface === "inbound"
       ? { strategy_card_plan_ack_source: deriveStrategyCardPlanAckSource(inboundCtx!) }
       : {}),
     ...(c.route_kind === "open_question_answer"
@@ -2101,6 +2128,26 @@ export function strategyCardV1MetaForTelemetry(
             c.server_truth_summary.daily_pending_candidate_fingerprint ?? null,
           strategy_card_daily_pending_awaiting_user_confirmation:
             c.server_truth_summary.daily_pending_awaiting_user_confirmation ?? null,
+        }
+      : {}),
+    ...(c.surface === "weekly" && c.route_kind === "weekly_proof_v2"
+      ? {
+          strategy_card_weekly_completed_count:
+            c.server_truth_summary.weekly_completed_count ?? null,
+          strategy_card_weekly_missed_count: c.server_truth_summary.weekly_missed_count ?? null,
+          strategy_card_weekly_partial_count: c.server_truth_summary.weekly_partial_count ?? null,
+          strategy_card_weekly_silent_week: c.server_truth_summary.weekly_silent_week === true,
+          strategy_card_weekly_rough_week: c.server_truth_summary.weekly_rough_week === true,
+          strategy_card_weekly_strong_week: c.server_truth_summary.weekly_strong_week === true,
+          strategy_card_weekly_has_proof_hints: c.server_truth_summary.weekly_has_proof_hints === true,
+          strategy_card_weekly_can_claim_proof:
+            c.server_truth_summary.weekly_can_claim_proof === true,
+          strategy_card_weekly_can_reference_victory_room:
+            c.server_truth_summary.weekly_can_reference_victory_room === true,
+          strategy_card_weekly_proof_state_written_before_sms:
+            c.server_truth_summary.weekly_proof_state_written_before_sms === false
+              ? false
+              : null,
         }
       : {}),
   };
@@ -3446,6 +3493,338 @@ export function validateAndRepairDailyC3PendingResolutionStrategyCardV1(
   }
   const repaired = repairDailyC3PendingCard(card, ctx, first.reasons);
   const second = validateDailyC3PendingResolutionStrategyCardV1(repaired, ctx);
+  return {
+    card: repaired,
+    validation_status: "repaired",
+    validation_reasons: [...first.reasons, ...second.reasons.filter((r) => !first.reasons.includes(r))],
+  };
+}
+
+// --- Weekly proof Strategy Card v1 (weekly_proof_v2) ---
+
+const WEEKLY_PROOF_ALLOWED_MOVES: StrategyCardMoveType[] = [
+  "weekly_reflect",
+  "weekly_recover",
+  "weekly_celebrate_earned",
+  "weekly_low_pressure",
+  "protect_existing_plan",
+  "close_loop",
+  "other",
+];
+
+export function isWeeklyProofStrategyCardEligible(facts: WeeklyV3OutboundFacts): boolean {
+  if (facts.route.route_purpose !== "weekly_proof_v2") return false;
+  if (facts.route.legacy_weekly_branch) return false;
+  if (!facts.weekly_proof) return false;
+  return true;
+}
+
+function deriveWeeklyProofMoveType(ctx: WeeklyStrategyCardBuildContext): StrategyCardMoveType {
+  const wp = ctx.facts.weekly_proof;
+  const canProof = ctx.proofPermission.can_claim_proof === true;
+
+  if (wp.planned_pause_week || ctx.facts.commitment.planned_interruption_active) {
+    return "protect_existing_plan";
+  }
+  if (wp.silent_week) {
+    return "weekly_low_pressure";
+  }
+  if (wp.rough_week) {
+    return "weekly_recover";
+  }
+  if (wp.proof_moment_hints.length > 0 && canProof) {
+    return "weekly_celebrate_earned";
+  }
+  if (wp.strong_week) {
+    return "weekly_celebrate_earned";
+  }
+  if (wp.missed_count > 0 && wp.completed_count > 0) {
+    return "weekly_reflect";
+  }
+  if (wp.missed_count > wp.completed_count) {
+    return "weekly_recover";
+  }
+  return "weekly_reflect";
+}
+
+function deriveWeeklyTonePosture(
+  moveType: StrategyCardMoveType,
+  ctx: WeeklyStrategyCardBuildContext
+): StrategyCardTonePosture {
+  if (moveType === "weekly_low_pressure") return "low_pressure";
+  if (moveType === "weekly_recover") return "gentle_reentry";
+  if (moveType === "protect_existing_plan") return "gentle_reentry";
+  if (moveType === "weekly_celebrate_earned" && ctx.proofPermission.can_claim_proof) {
+    return "celebrate_earned";
+  }
+  return "warm_direct";
+}
+
+function buildWeeklyAllowedClaims(ctx: WeeklyStrategyCardBuildContext): StrategyCardV1["allowed_claims"] {
+  const wp = ctx.facts.weekly_proof;
+  const perm = ctx.proofPermission.allowed_outbound_claims;
+  if (wp.silent_week) {
+    return {
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: false,
+    };
+  }
+  return {
+    completion: perm.completion === true && wp.completed_count > 0,
+    miss: perm.miss === true && wp.missed_count > 0,
+    partial: perm.partial === true && wp.partial_count > 0,
+    proof: perm.proof === true && wp.proof_moment_hints.length > 0,
+    victory_room: perm.victory_room === true,
+    state_changed: false,
+    proposal_active: false,
+  };
+}
+
+function buildWeeklyMustDoMustNotDo(
+  moveType: StrategyCardMoveType,
+  ctx: WeeklyStrategyCardBuildContext
+): { must_do: string[]; must_not_do: string[] } {
+  const wp = ctx.facts.weekly_proof;
+  const must_not_do = [
+    "Do not claim the goal or commitment changed unless server state already shows it.",
+    "Do not invent proof or Victory Room beyond proof_and_praise_permission.",
+    "Do not pile on unrelated questions — one weekly coaching move only.",
+  ];
+  const must_do: string[] = [
+    "Ground weekly framing in RELATIONSHIP_PACKET_V1 weekly_week_summary counts — not invented progress.",
+    "Keep this as a weekly reflection touchpoint, not a daily rep check.",
+  ];
+
+  if (moveType === "weekly_low_pressure") {
+    must_do.push("Keep the tone light and low-pressure for a sparse or silent week.");
+    must_do.push("Point toward next week and the current commitment without shame.");
+    must_not_do.push("Do not invent progress, streaks, or a strong week.");
+    must_not_do.push("Do not claim proof or Victory Room.");
+  } else if (moveType === "weekly_recover") {
+    must_do.push("Be honest about a rough week without shaming.");
+    must_do.push("Orient toward recovery and next week.");
+    must_not_do.push("Do not overpraise or call it an amazing or strong week.");
+    must_not_do.push("Do not fake proof or Victory Room.");
+  } else if (moveType === "weekly_celebrate_earned") {
+    must_do.push("Celebrate consistency only to the level weekly counts and permission support.");
+    must_do.push("Reference proof only if proof permission allows.");
+    must_not_do.push("Do not claim perfect or every-day streak unless counts support it.");
+    must_not_do.push("Do not invent additional proof moments.");
+  } else if (moveType === "weekly_reflect") {
+    must_do.push("Reflect honestly on completed, missed, and partial balance this week.");
+    must_do.push("Point toward next week without overstatement.");
+    must_not_do.push("Do not overstate progress beyond weekly counts.");
+    must_not_do.push("Do not shame missed days.");
+  } else if (moveType === "protect_existing_plan") {
+    must_do.push("Protect the current plan and acknowledge pause context if present.");
+    must_do.push("Honor planned pause — sparse replies are context, not failure.");
+    must_not_do.push("Do not claim cadence or commitment already changed.");
+  }
+
+  if (wp.planned_pause_week) {
+    must_not_do.push("Do not shame silence or missed days during a planned pause week.");
+  }
+
+  return {
+    must_do: must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+  };
+}
+
+function collectWeeklyAvoidRepeating(ctx: WeeklyStrategyCardBuildContext): string[] {
+  const items: string[] = [];
+  for (const ask of ctx.openLoops.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    const fp = fingerprintAsk(s.ask_text ?? "");
+    if (fp) items.push(fp);
+  }
+  for (const q of ctx.facts.thread.last_5_coach_questions ?? []) {
+    const fp = fingerprintAsk(q);
+    if (fp) items.push(fp);
+  }
+  for (const h of ctx.facts.thread.do_not_repeat_hints ?? []) {
+    const fp = fingerprintAsk(h);
+    if (fp) items.push(fp);
+  }
+  return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
+}
+
+export function buildWeeklyStrategyCardContextFromSnapshot(args: {
+  facts: WeeklyV3OutboundFacts;
+  snapshot: {
+    proof_and_praise_permission: { data: ProofAndPraisePermissionV2Data };
+    open_loops_and_do_not_repeat: { data: OpenLoopsAndDoNotRepeatData };
+    active_pending_state: ActivePendingState;
+    no_send_and_silence_history?: { data: NoSendAndSilenceHistoryV2Data } | null;
+  };
+}): WeeklyStrategyCardBuildContext {
+  return {
+    facts: args.facts,
+    proofPermission: args.snapshot.proof_and_praise_permission.data,
+    openLoops: args.snapshot.open_loops_and_do_not_repeat.data,
+    activePending: args.snapshot.active_pending_state,
+    noSendSilence: args.snapshot.no_send_and_silence_history?.data ?? null,
+  };
+}
+
+export function buildWeeklyProofStrategyCardV1(args: {
+  ctx: WeeklyStrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  const { ctx } = args;
+  const { facts } = ctx;
+  const wp = facts.weekly_proof;
+  const moveType = deriveWeeklyProofMoveType(ctx);
+  const { must_do, must_not_do } = buildWeeklyMustDoMustNotDo(moveType, ctx);
+  const allowed_claims = buildWeeklyAllowedClaims(ctx);
+  const avoid_repeating = collectWeeklyAvoidRepeating(ctx);
+  const reasonByMove: Partial<Record<StrategyCardMoveType, string>> = {
+    weekly_low_pressure: "Silent or sparse week — keep it low-pressure without inventing progress.",
+    weekly_recover: "Rough week — recover with honesty, not shame or overpraise.",
+    weekly_celebrate_earned: "Earned consistency — celebrate only to the level counts and permission allow.",
+    weekly_reflect: "Mixed week — reflect honestly on the balance and next week.",
+    protect_existing_plan: "Planned pause week — protect the current plan without failure framing.",
+  };
+
+  return {
+    version: STRATEGY_CARD_V1_VERSION,
+    generated_at: args.generatedAt ?? new Date().toISOString(),
+    surface: "weekly",
+    route_kind: "weekly_proof_v2",
+    turn_kind: facts.route.route_purpose,
+    server_truth_summary: {
+      outcome: "none",
+      explicit_user_truth: false,
+      active_pending_kinds: [],
+      satisfied_ask_fingerprints: [],
+      weekly_completed_count: wp.completed_count,
+      weekly_missed_count: wp.missed_count,
+      weekly_partial_count: wp.partial_count,
+      weekly_silent_week: wp.silent_week,
+      weekly_rough_week: wp.rough_week,
+      weekly_strong_week: wp.strong_week,
+      weekly_has_proof_hints: wp.proof_moment_hints.length > 0,
+      weekly_can_claim_proof: ctx.proofPermission.can_claim_proof === true,
+      weekly_can_reference_victory_room: ctx.proofPermission.can_reference_victory_room === true,
+      weekly_proof_state_written_before_sms: false,
+    },
+    move: {
+      type: moveType,
+      priority: "normal",
+      confidence: "high",
+      reason: truncateText(reasonByMove[moveType] ?? "Weekly proof reflection.", MAX_REASON_CHARS),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims,
+    writer_constraints: {
+      max_questions: 1,
+      avoid_repeating,
+      tone_posture: deriveWeeklyTonePosture(moveType, ctx),
+    },
+    meta: {
+      generation_source: "server_strategy_card_v1",
+      legacy_suggested_coaching_move: moveType,
+      legacy_coaching_move_source: "rule_derived",
+    },
+  };
+}
+
+function mustNotDoExcludesStrongWeekFraming(must_not_do: string[]): boolean {
+  const joined = must_not_do.join(" ").toLowerCase();
+  return joined.includes("strong") || joined.includes("amazing");
+}
+
+function claimsWithinWeeklyCounts(
+  claims: StrategyCardV1["allowed_claims"],
+  wp: WeeklyV3OutboundFacts["weekly_proof"]
+): boolean {
+  if (claims.completion && wp.completed_count < 1) return false;
+  if (claims.miss && wp.missed_count < 1) return false;
+  if (claims.partial && wp.partial_count < 1) return false;
+  return true;
+}
+
+export function validateWeeklyProofStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: WeeklyStrategyCardBuildContext
+): { valid: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const wp = ctx.facts.weekly_proof;
+  const perm = ctx.proofPermission;
+
+  if (card.surface !== "weekly") reasons.push("surface_not_weekly");
+  if (card.route_kind !== "weekly_proof_v2") reasons.push("weekly_route_kind_invalid");
+  if (!WEEKLY_PROOF_ALLOWED_MOVES.includes(card.move.type)) {
+    reasons.push("weekly_forbidden_move");
+  }
+  if (card.server_truth_summary.weekly_proof_state_written_before_sms !== false) {
+    reasons.push("weekly_proof_state_must_be_false");
+  }
+  if (card.allowed_claims.state_changed || card.allowed_claims.proposal_active) {
+    reasons.push("weekly_forbidden_state_claim");
+  }
+  if (wp.silent_week && card.move.type === "weekly_celebrate_earned") {
+    reasons.push("weekly_silent_cannot_celebrate");
+  }
+  if (wp.silent_week && (card.allowed_claims.proof || card.allowed_claims.victory_room)) {
+    reasons.push("weekly_silent_cannot_claim_proof");
+  }
+  if (wp.rough_week && card.move.type === "weekly_celebrate_earned") {
+    reasons.push("weekly_rough_cannot_celebrate");
+  }
+  if (
+    card.allowed_claims.proof &&
+    !(perm.can_claim_proof === true && wp.proof_moment_hints.length > 0)
+  ) {
+    reasons.push("weekly_proof_claim_without_permission");
+  }
+  if (card.allowed_claims.victory_room && perm.can_reference_victory_room !== true) {
+    reasons.push("weekly_victory_claim_without_permission");
+  }
+  if (!claimsWithinWeeklyCounts(card.allowed_claims, wp)) {
+    reasons.push("weekly_claims_exceed_counts");
+  }
+  if (wp.rough_week && !mustNotDoExcludesStrongWeekFraming(card.must_not_do)) {
+    reasons.push("weekly_rough_must_not_do_missing");
+  }
+  if (card.writer_constraints.max_questions > 1) reasons.push("weekly_max_questions_exceeded");
+  for (const item of [...card.must_do, ...card.must_not_do, card.move.reason]) {
+    if (SMS_COPY_RE.test(item) && item.length > 80) {
+      reasons.push("sms_copy_in_card");
+    }
+  }
+  if (card.move.reason.length > MAX_REASON_CHARS) reasons.push("reason_too_long");
+
+  return { valid: reasons.length === 0, reasons };
+}
+
+function repairWeeklyProofCard(
+  card: StrategyCardV1,
+  ctx: WeeklyStrategyCardBuildContext,
+  _reasons: string[]
+): StrategyCardV1 {
+  return buildWeeklyProofStrategyCardV1({ ctx, generatedAt: card.generated_at });
+}
+
+export function validateAndRepairWeeklyProofStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: WeeklyStrategyCardBuildContext
+): StrategyCardValidationResult {
+  const first = validateWeeklyProofStrategyCardV1(card, ctx);
+  if (first.valid) {
+    return { card, validation_status: "valid", validation_reasons: [] };
+  }
+  const repaired = repairWeeklyProofCard(card, ctx, first.reasons);
+  const second = validateWeeklyProofStrategyCardV1(repaired, ctx);
   return {
     card: repaired,
     validation_status: "repaired",

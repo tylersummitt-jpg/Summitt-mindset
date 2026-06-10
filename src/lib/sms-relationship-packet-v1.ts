@@ -1436,6 +1436,16 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_daily_pending_state_written_before_sms",
   "strategy_card_daily_pending_candidate_fingerprint",
   "strategy_card_daily_pending_awaiting_user_confirmation",
+  "strategy_card_weekly_completed_count",
+  "strategy_card_weekly_missed_count",
+  "strategy_card_weekly_partial_count",
+  "strategy_card_weekly_silent_week",
+  "strategy_card_weekly_rough_week",
+  "strategy_card_weekly_strong_week",
+  "strategy_card_weekly_has_proof_hints",
+  "strategy_card_weekly_can_claim_proof",
+  "strategy_card_weekly_can_reference_victory_room",
+  "strategy_card_weekly_proof_state_written_before_sms",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

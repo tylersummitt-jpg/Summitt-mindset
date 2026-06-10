@@ -44,6 +44,12 @@ import {
   validateAndRepairDailyC3PendingResolutionStrategyCardV1,
   validateAndRepairDailyC3RefreshStrategyCardV1,
   validateAndRepairDailyContractPromptStrategyCardV1,
+  buildWeeklyProofStrategyCardV1,
+  buildWeeklyStrategyCardContextFromSnapshot,
+  isWeeklyProofStrategyCardEligible,
+  strategyCardV1MetaForTelemetry,
+  validateAndRepairWeeklyProofStrategyCardV1,
+  validateWeeklyProofStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
 import { deriveAdjustmentProposalAllowedByEvidence } from "@/lib/inbound-miss-adjustment-policy";
@@ -51,6 +57,7 @@ import type { ProofAndPraisePermissionV2Data } from "@/lib/sms-proof-praise-perm
 import type { OpenLoopsAndDoNotRepeatData } from "@/lib/sms-open-loops-and-do-not-repeat";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 
 const PLAN_CONFIRMATION_Q =
   "How does committing to two hours deep work before noon this week feel? Let me know if that works or if you'd like to adjust!";
@@ -2367,5 +2374,337 @@ describe("Daily C3 pending_resolution Strategy Card v1", () => {
     expect(meta.strategy_card_daily_pending_state_written_before_sms).toBe(false);
     expect(meta.strategy_card_daily_pending_candidate_fingerprint).toBeTruthy();
     expect(meta.strategy_card_daily_pending_awaiting_user_confirmation).toBe(true);
+  });
+});
+
+describe("Phase 4.8a weekly_proof_v2 Strategy Card v1", () => {
+  function weeklyFacts(overrides?: Partial<WeeklyV3OutboundFacts>): WeeklyV3OutboundFacts {
+    const core: WeeklyV3OutboundFacts = {
+      user: {
+        clerk_user_id: "user_weekly_card",
+        preferred_name: "Jordan",
+        timezone: "America/Chicago",
+        local_date: "2026-05-10",
+        local_time: "12:05",
+        sms_engagement_summary: "Replied to 3 checks this week",
+      },
+      commitment: {
+        active_commitment_id: "cmt_w1",
+        behavior_statement: "Protect one hour for deep work before noon",
+        effective_ask: "Protect one hour for deep work before noon",
+        commitment_state: "active_accountability",
+        identity_anchor: null,
+      },
+      thread: {
+        latest_outbound_preview: "Where did the hour land?",
+        latest_inbound_preview: "Slid to afternoon",
+        recent_transcript_lines: [],
+        recent_exact_thread_text: null,
+        last_outbound_full_body: null,
+        last_inbound_full_body: null,
+        last_5_coach_questions: [],
+        last_5_user_answers: [],
+        latest_open_question: null,
+        latest_answer_after_open_question: null,
+        open_question_pending: false,
+        open_question_source: null,
+        answer_source: null,
+        projection_used: false,
+        memory_packet_used: false,
+        recent_exact_message_count: null,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: null,
+        memory_priority_rules: [],
+      },
+      weekly_proof: {
+        week_start: "2026-05-04",
+        week_end: "2026-05-10",
+        completed_count: 4,
+        missed_count: 1,
+        partial_count: 1,
+        blocker_count: 0,
+        proof_moment_hints: [],
+        win_hints: [],
+        comeback_hints: [],
+        repeated_blocker_hints: [],
+        notable_pattern: null,
+        silent_week: false,
+        rough_week: false,
+        strong_week: false,
+        old_weekly_proof_body_preview: null,
+        deterministic_weekly_body_preview: null,
+        legacy_reflection_preview: null,
+        legacy_template_preview: null,
+      },
+      route: {
+        route_purpose: "weekly_proof_v2",
+        fully_on_v2: true,
+        reason_for_send: "sunday_weekly_touchpoint",
+        legacy_weekly_branch: false,
+      },
+    };
+    if (!overrides) return core;
+    return {
+      ...core,
+      ...overrides,
+      user: { ...core.user, ...overrides.user },
+      commitment: { ...core.commitment, ...overrides.commitment },
+      thread: { ...core.thread, ...overrides.thread },
+      weekly_proof: { ...core.weekly_proof, ...overrides.weekly_proof },
+      route: { ...core.route, ...overrides.route },
+    };
+  }
+
+  function buildWeeklyCtx(
+    facts: WeeklyV3OutboundFacts,
+    proofOverrides?: Partial<ProofAndPraisePermissionV2Data>
+  ) {
+    return buildWeeklyStrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: { data: baseProof(proofOverrides) },
+        open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+        active_pending_state: { items: [] },
+        no_send_and_silence_history: null,
+      },
+    });
+  }
+
+  it("silent week → weekly_low_pressure or weekly_recover", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          silent_week: true,
+          rough_week: false,
+          strong_week: false,
+          completed_count: 0,
+          missed_count: 0,
+          partial_count: 0,
+        },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(["weekly_low_pressure", "weekly_recover"]).toContain(card.move.type);
+  });
+
+  it("silent week cannot claim proof or Victory Room", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          silent_week: true,
+          proof_moment_hints: ["Should not matter"],
+        },
+      }),
+      {
+        can_claim_proof: true,
+        can_reference_victory_room: true,
+        allowed_outbound_claims: {
+          completion: true,
+          miss: true,
+          partial: true,
+          proof: true,
+          victory_room: true,
+        },
+      }
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+    const validation = validateWeeklyProofStrategyCardV1(card, ctx);
+    expect(validation.valid).toBe(true);
+  });
+
+  it("rough week → weekly_recover", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          rough_week: true,
+          strong_week: false,
+          silent_week: false,
+        },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.move.type).toBe("weekly_recover");
+  });
+
+  it("rough week must_not_do excludes strong-week framing", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: { ...weeklyFacts().weekly_proof, rough_week: true },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    const joined = card.must_not_do.join(" ").toLowerCase();
+    expect(joined).toMatch(/strong|amazing/);
+  });
+
+  it("strong week without proof hints → no proof or Victory claims", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          strong_week: true,
+          rough_week: false,
+          proof_moment_hints: [],
+        },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+  });
+
+  it("proof hints with permission → proof allowed", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          strong_week: true,
+          rough_week: false,
+          proof_moment_hints: ["Earned comeback mid-week"],
+        },
+      }),
+      {
+        can_claim_proof: true,
+        allowed_outbound_claims: {
+          completion: true,
+          miss: false,
+          partial: false,
+          proof: true,
+          victory_room: false,
+        },
+      }
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.allowed_claims.proof).toBe(true);
+    expect(card.move.type).toBe("weekly_celebrate_earned");
+  });
+
+  it("no permission → proof and Victory false even with hints", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          proof_moment_hints: ["Earned comeback"],
+          strong_week: true,
+          rough_week: false,
+        },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+  });
+
+  it("mixed week → weekly_reflect or weekly_recover", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          completed_count: 3,
+          missed_count: 2,
+          partial_count: 1,
+          rough_week: false,
+          strong_week: false,
+          silent_week: false,
+        },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(["weekly_reflect", "weekly_recover"]).toContain(card.move.type);
+  });
+
+  it("counts constrain completion/miss/partial claims", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          completed_count: 0,
+          missed_count: 0,
+          partial_count: 0,
+          rough_week: false,
+          strong_week: false,
+          silent_week: false,
+        },
+      }),
+      {
+        allowed_outbound_claims: {
+          completion: true,
+          miss: true,
+          partial: true,
+          proof: false,
+          victory_room: false,
+        },
+      }
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.allowed_claims.completion).toBe(false);
+    expect(card.allowed_claims.miss).toBe(false);
+    expect(card.allowed_claims.partial).toBe(false);
+  });
+
+  it("invalid weekly card repairs", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: { ...weeklyFacts().weekly_proof, silent_week: true },
+      })
+    );
+    const bad = buildWeeklyProofStrategyCardV1({ ctx });
+    bad.move.type = "weekly_celebrate_earned";
+    bad.allowed_claims.proof = true;
+    const result = validateAndRepairWeeklyProofStrategyCardV1(bad, ctx);
+    expect(result.validation_status).toBe("repaired");
+    expect(result.card.move.type).not.toBe("weekly_celebrate_earned");
+    expect(result.card.allowed_claims.proof).toBe(false);
+  });
+
+  it("no SMS copy in weekly card fields", () => {
+    const ctx = buildWeeklyCtx(weeklyFacts());
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.must_do.join(" ")).not.toMatch(/\b(hey|thanks for texting)\b/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+    expect(JSON.stringify(card)).not.toContain("UNIQUE_OLD_PROOF");
+  });
+
+  it("eligibility requires weekly_proof_v2 with proof pack, excludes legacy branch", () => {
+    expect(isWeeklyProofStrategyCardEligible(weeklyFacts())).toBe(true);
+    expect(
+      isWeeklyProofStrategyCardEligible(
+        weeklyFacts({ route: { ...weeklyFacts().route, legacy_weekly_branch: true } })
+      )
+    ).toBe(false);
+    expect(
+      isWeeklyProofStrategyCardEligible(
+        weeklyFacts({ route: { ...weeklyFacts().route, route_purpose: "weekly_legacy_reflection" } })
+      )
+    ).toBe(false);
+  });
+
+  it("weekly telemetry includes compact weekly fields", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          rough_week: true,
+          completed_count: 4,
+          missed_count: 1,
+        },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_surface).toBe("weekly");
+    expect(meta.strategy_card_route_kind).toBe("weekly_proof_v2");
+    expect(meta.strategy_card_weekly_completed_count).toBe(4);
+    expect(meta.strategy_card_weekly_missed_count).toBe(1);
+    expect(meta.strategy_card_weekly_rough_week).toBe(true);
+    expect(meta.strategy_card_weekly_proof_state_written_before_sms).toBe(false);
   });
 });
