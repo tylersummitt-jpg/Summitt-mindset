@@ -87,6 +87,10 @@ All eight `strategy-card-*` scenarios assert **card metadata and invariants**, n
 
 Intentional non-card surfaces are listed in `src/lib/sms-strategy-card-exception-registry.ts` (signed registry, test-guarded).
 
+### Surface authority registry (Phase 4.9b)
+
+Executable no-unknown-side-room gate: `src/lib/sms-surface-authority-registry.ts` + [SMS_SURFACE_AUTHORITY_REGISTRY.md](./SMS_SURFACE_AUTHORITY_REGISTRY.md). Static source grep and send-caller tests fail CI if a new visible route is unclassified.
+
 ## Consolidated surfaces (reference)
 
 Strategy Card is active for: inbound normal / open question / arc clarify / central pivot; all daily route kinds; `weekly_proof_v2`.

@@ -11,6 +11,10 @@ import {
   FORBIDDEN_INBOUND_DETERMINISTIC_RELATIONSHIP_APPEND,
   RELATIONSHIP_SMS_ROUTE_FILES,
 } from "./sms-voice-ownership-static-policy";
+import {
+  findSurfaceAuthorityEntriesByRouteIdentifier,
+  SMS_SURFACE_AUTHORITY_REGISTRY,
+} from "./sms-surface-authority-registry";
 
 const REPO_ROOT = process.cwd();
 
@@ -368,6 +372,49 @@ describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relatio
     expect(winback).not.toContain("appendPreservedSignedLink");
     expect(winback).not.toContain("createWinbackToken");
     expect(winback).not.toContain("/winback?t=");
+  });
+});
+
+describe("Phase 4.9b — send caller surface authority registry linkage", () => {
+  const COACHING_SEND_CALLERS = [
+    "src/app/api/cron/sms-inbound-coach/route.ts",
+    "src/app/api/cron/daily-sms/route.ts",
+    "src/app/api/cron/weekly-sms/route.ts",
+    "src/lib/v2-adaptive-contract.ts",
+  ] as const;
+
+  it("every coaching send caller is covered by at least one authority registry entry", () => {
+    for (const caller of COACHING_SEND_CALLERS) {
+      const covering = SMS_SURFACE_AUTHORITY_REGISTRY.filter((e) =>
+        e.send_caller_files?.includes(caller)
+      );
+      expect(covering.length, caller).toBeGreaterThan(0);
+    }
+  });
+
+  it("onboarding send caller maps to hard_route_deterministic_exception", () => {
+    const entries = SMS_SURFACE_AUTHORITY_REGISTRY.filter((e) =>
+      e.send_caller_files?.includes("src/app/api/onboarding/sms/route.ts")
+    );
+    expect(entries.some((e) => e.id === "hard_onboarding_consent")).toBe(true);
+    expect(entries.every((e) => e.classification !== "active_strategy_card_surface")).toBe(true);
+  });
+
+  it("guided shrink maps to app_driven_constrained_exception, not active card", () => {
+    const entry = findSurfaceAuthorityEntriesByRouteIdentifier("guided_shrink_contract_prompt")[0];
+    expect(entry?.classification).toBe("app_driven_constrained_exception");
+    expect(entry?.strategy_card_route_kind).toBeFalsy();
+  });
+
+  it("hard-route TwiML/compliance surfaces are never_strategy_card dispositions", () => {
+    for (const route of ["stop", "help", "start", "onboarding_consent"]) {
+      const entry = findSurfaceAuthorityEntriesByRouteIdentifier(route)[0];
+      expect(
+        entry?.classification === "hard_route_deterministic_exception" ||
+          entry?.classification === "suppressed_no_visible_sms"
+      ).toBe(true);
+      expect(entry?.disposition).toBe("never_card");
+    }
   });
 });
 
