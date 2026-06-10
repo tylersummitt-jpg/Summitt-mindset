@@ -164,6 +164,22 @@ const RESPONSES: Record<string, LaneJson> = {
     ...GOOD_INBOUND,
     body: "When you're dragging, start with ten minutes at your desk before noon — same two-hour bar, just a smaller first step.",
   },
+  "legacy-fallback-completion-safe:inbound": {
+    ...GOOD_INBOUND,
+    body: "Nice — two hours before noon counts. Same bar tomorrow when you're ready.",
+  },
+  "legacy-fallback-miss-safe:inbound": {
+    ...GOOD_INBOUND,
+    body: "What got in the way of the block today?",
+  },
+  "legacy-fallback-template-preview-non-speakable:inbound": {
+    ...GOOD_INBOUND,
+    body: "Nice — two hours before noon counts. Same bar tomorrow when you're ready.",
+  },
+  "legacy-fallback-tu-suppresses-fallback:inbound": {
+    ...GOOD_INBOUND,
+    body: "Sounds like you already got the two hours in — we'll hold that for tomorrow.",
+  },
   "plan-not-proof:daily": {
     ...GOOD_DAILY,
     body: "Before a new ask — did yesterday's after-workout plan actually happen?",

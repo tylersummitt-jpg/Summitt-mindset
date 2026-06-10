@@ -57,6 +57,23 @@ export type SmsReviewStrategyCardExpectations = {
   assertSingleStrategyAuthority?: boolean;
 };
 
+/** Legacy fallback (conversation_brain_unavailable) — not Strategy Card; product-law only. */
+export type SmsReviewLegacyFallbackExpectations = {
+  assertNoStrategyCard?: boolean;
+  assertFinalGuardRan?: boolean;
+  assertTemplatePreviewNonSpeakable?: boolean;
+  assertTuSuppressesFallback?: boolean;
+  assertRoutePurpose?: "conversation_brain_unavailable";
+};
+
+export type SmsReviewLegacyFallbackFailure =
+  | "legacy_fallback_strategy_card_present"
+  | "legacy_fallback_route_purpose_mismatch"
+  | "legacy_fallback_template_preview_speakable"
+  | "legacy_fallback_final_guard_not_ran"
+  | "legacy_fallback_tu_not_suppressing_fallback"
+  | "legacy_fallback_internal_label_leak";
+
 export type SmsReviewScenario = {
   id: string;
   personaId: string;
@@ -77,8 +94,10 @@ export type SmsReviewScenario = {
   expectHardFlags?: SmsReviewHardFlag[];
   /** If true, expect zero hard flags for this scenario. */
   expectClean?: boolean;
-  /** Inbound Strategy Card invariants — normal metadata or card-based (OQ/arc). */
+  /** Inbound Strategy Card invariants — normal metadata or card-based (OQ/arc/pivot). */
   strategyCard?: StrategyCardExpectations | SmsReviewStrategyCardExpectations;
+  /** Legacy fallback lane invariants — conversation_brain_unavailable (no Strategy Card). */
+  legacyFallback?: SmsReviewLegacyFallbackExpectations;
   deferredReason?: string;
 };
 
@@ -158,6 +177,8 @@ export type SmsReviewRunRow = {
   strategy_card_validation_status: string | null;
   strategy_card_violations: string[];
   strategy_card_pass: boolean | null;
+  legacy_fallback_failures: SmsReviewLegacyFallbackFailure[];
+  legacy_fallback_pass: boolean | null;
   soft_review: SmsReviewSoftReviewFields;
   expected_behavior: string;
   bug_category: string;

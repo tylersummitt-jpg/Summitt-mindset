@@ -30,6 +30,7 @@ import {
   evaluateInboundNormalStrategyCardExpectations,
   evaluateStrategyCardExpectations,
 } from "@/sms-review-place/strategy-card-validators";
+import { evaluateLegacyFallbackExpectations } from "@/sms-review-place/legacy-fallback-validators";
 import type {
   SmsReviewScenario,
   SmsReviewScenarioStep,
@@ -141,10 +142,14 @@ function passForRow(
     | "expect_hard_flags"
     | "strategy_card_pass"
     | "strategy_card_failures"
+    | "legacy_fallback_pass"
+    | "legacy_fallback_failures"
   >
 ): boolean {
   if (row.strategy_card_pass === false) return false;
   if (row.strategy_card_failures.length > 0) return false;
+  if (row.legacy_fallback_pass === false) return false;
+  if (row.legacy_fallback_failures.length > 0) return false;
   return scenarioPass(scenario, {
     hard_flags: hardFlags,
     lane: row.lane,
@@ -156,6 +161,43 @@ function passForRow(
     expect_clean: row.expect_clean,
     expect_hard_flags: row.expect_hard_flags,
   });
+}
+
+function emptyLegacyFallbackFields(): Pick<
+  SmsReviewRunRow,
+  "legacy_fallback_failures" | "legacy_fallback_pass"
+> {
+  return {
+    legacy_fallback_failures: [],
+    legacy_fallback_pass: null,
+  };
+}
+
+function evaluateInboundLegacyFallbackFields(args: {
+  scenario: SmsReviewScenario;
+  facts: InboundV3RelationshipFacts;
+  laneMetadata: Record<string, unknown>;
+  laneBody: string;
+  finalBody: string;
+  finalShouldSend: boolean;
+  laneShouldSend: boolean;
+}): Pick<SmsReviewRunRow, "legacy_fallback_failures" | "legacy_fallback_pass"> {
+  if (!args.scenario.legacyFallback) return emptyLegacyFallbackFields();
+
+  const failures = evaluateLegacyFallbackExpectations({
+    expectations: args.scenario.legacyFallback,
+    facts: args.facts,
+    laneMetadata: args.laneMetadata,
+    laneBody: args.laneBody,
+    finalBody: args.finalBody,
+    finalShouldSend: args.finalShouldSend,
+    laneShouldSend: args.laneShouldSend,
+  });
+
+  return {
+    legacy_fallback_failures: failures,
+    legacy_fallback_pass: failures.length === 0,
+  };
 }
 
 function emptyStrategyCardFields(): Pick<
@@ -349,6 +391,7 @@ export async function runDailyPipeline(
     lane_skipped_reason: null,
     classifier_results: null,
     ...emptyStrategyCardFields(),
+    ...emptyLegacyFallbackFields(),
   };
 
   return {
@@ -462,6 +505,16 @@ export async function runInboundPipeline(
     blockedReasons: fvg.blockedReasons,
   });
 
+  const legacyFallbackFields = evaluateInboundLegacyFallbackFields({
+    scenario,
+    facts,
+    laneMetadata: lane.metadata,
+    laneBody: lane.body,
+    finalBody: resolved.final_body,
+    finalShouldSend: resolved.final_should_send,
+    laneShouldSend: lane.shouldSend,
+  });
+
   const rowBase = {
     ...baseRow(scenario, stepIndex, step),
     accountability_day_key: simulatedDayKey(),
@@ -484,6 +537,7 @@ export async function runInboundPipeline(
     lane_skipped_reason: null,
     classifier_results: null,
     ...strategyCardFields,
+    ...legacyFallbackFields,
   };
 
   return {
@@ -564,6 +618,7 @@ export async function runClassifierPipeline(
     lane_skipped_reason: "classifier_only",
     classifier_results: classifierResults,
     ...emptyStrategyCardFields(),
+    ...emptyLegacyFallbackFields(),
   };
 
   return {

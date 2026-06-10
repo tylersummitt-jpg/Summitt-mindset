@@ -19,6 +19,7 @@ import { buildTemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import {
   buildInboundV3RelationshipFacts,
+  buildConversationBrainFallbackFacts,
   type InboundV3OpenQuestionFacts,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
@@ -34,6 +35,7 @@ import { getPersona } from "@/sms-review-place/fixtures/personas";
 import { OLD_PREVIEW_STUB_TEXT } from "@/sms-review-place/fixtures/open-question-strategy-card-scenarios";
 import { ARC_LEGACY_PREVIEW_STUB } from "@/sms-review-place/fixtures/arc-clarify-strategy-card-scenarios";
 import { CENTRAL_PIVOT_LEGACY_TETHER_PREVIEW_STUB } from "@/sms-review-place/fixtures/central-pivot-strategy-card-scenarios";
+import { LEGACY_FALLBACK_TEMPLATE_PREVIEW_STUB } from "@/sms-review-place/fixtures/conversation-brain-fallback-scenarios";
 import type { SmsReviewScenario } from "@/sms-review-place/types";
 
 const SIM_DAY_KEY = "2026-06-04";
@@ -264,6 +266,13 @@ const CENTRAL_PIVOT_SCENARIO_IDS = new Set([
   "central-pivot-meta-confusion",
   "central-pivot-legacy-tether-non-speakable",
   "central-pivot-advice-request",
+]);
+
+const LEGACY_FALLBACK_SCENARIO_IDS = new Set([
+  "legacy-fallback-completion-safe",
+  "legacy-fallback-miss-safe",
+  "legacy-fallback-template-preview-non-speakable",
+  "legacy-fallback-tu-suppresses-fallback",
 ]);
 
 function buildOpenQuestionAnswerInboundFacts(args: {
@@ -839,6 +848,179 @@ function buildCentralPivotInboundFacts(args: {
   return built;
 }
 
+function buildConversationBrainFallbackInboundFacts(args: {
+  scenario: SmsReviewScenario;
+  persona: ReturnType<typeof getPersona>;
+  commitment: ActiveV2CommitmentRow;
+  checkQ: string;
+  userReply: string;
+  lines: string[];
+  memoryPacket: SlimSmsRelationshipMemoryPacketForFacts;
+}): InboundV3RelationshipFacts {
+  const { scenario, persona, commitment, checkQ, userReply, lines, memoryPacket } = args;
+  const id = scenario.id;
+
+  const isMiss = id === "legacy-fallback-miss-safe";
+  const isPreview = id === "legacy-fallback-template-preview-non-speakable";
+  const isTuSuppress = id === "legacy-fallback-tu-suppresses-fallback";
+  const gatedEventType = isMiss ? "user_no" : "user_yes";
+  const classifierResult = isMiss ? "user_no" : "user_yes";
+
+  const conversationBrainFallbackFacts = buildConversationBrainFallbackFacts({
+    legacyFallbackReason: "conversation_brain_legacy_fallback_disabled",
+    deterministicTemplateBody: isPreview
+      ? LEGACY_FALLBACK_TEMPLATE_PREVIEW_STUB
+      : "LEGACY_DETERMINISTIC_TEMPLATE_PREVIEW",
+    classifierResult,
+    gatedEventType,
+    shouldWriteOutcomeEvent: !isTuSuppress,
+    gatedMode: "use_deterministic",
+    commitment,
+    effectiveAsk: scenario.effectiveAsk,
+    inboundMessageSid: "sim_SM_legacy_fb",
+  });
+
+  const mp = { ...memoryPacket };
+  mp.last_outbound_full_body = checkQ;
+  mp.last_5_coach_questions = [checkQ];
+
+  const tuSuppress =
+    isTuSuppress
+      ? {
+          reconciled_relationship_meaning: "direct_answer" as const,
+          reconciled_response_intent: "acknowledge_prior_ask_satisfied" as const,
+          reconciled_persistence_decision: "no_outcome_write" as const,
+          reconciled_do_not_repeat_asks: [checkQ],
+          last_ask_satisfied: "yes" as const,
+          satisfaction_kind: "already_scheduled" as const,
+          stale_ask_risk: true,
+          confidence: 0.9,
+          disagreement_flags: [] as string[],
+          interpreter_failed_reason: null,
+          stale_ask_avoided: true,
+          persistence_note: "legacy fallback TU suppress fixture",
+          proposal: null,
+        }
+      : undefined;
+
+  const built = buildInboundV3RelationshipFacts({
+    clerkUserId: persona.clerkUserId,
+    preferredName: persona.preferredName,
+    timezone: scenario.timezone,
+    localTimeIso: SIM_LOCAL_ISO,
+    commitment,
+    effectiveAsk: scenario.effectiveAsk,
+    userMessageRaw: userReply,
+    coalescedInboundText: userReply,
+    suppressedMessageSids: ["sim_SM001"],
+    transcriptLines: lines,
+    northStarPacket: {
+      source: "sms_review_place",
+      latestOutboundBody: checkQ,
+      latestOpenQuestion: checkQ,
+      expectedReplySemantics: "completion_check",
+      proofSignal: false,
+      missSignal: isMiss,
+      blockerSignal: false,
+      todayCompleted: !isMiss && !isTuSuppress,
+    },
+    gatedDecision: {
+      mode: "use_deterministic",
+      final_event_type: gatedEventType,
+      decision_reason: "sms_review_place_legacy_fallback_fixture",
+      confidence_used: null,
+      should_write_outcome_event: !isTuSuppress,
+      should_open_blocker_capture: isMiss,
+      reply_style: "normal_outcome",
+      overrode_deterministic: false,
+    },
+    deterministicEventType: classifierResult,
+    doNotRepeatHints: [],
+    relationshipProfileSummary: persona.identityLabel,
+    conversationBrain: { enabled: false },
+    centralBrain: { shadow_stored: false },
+    arc: { ambiguous_short_reply: false, clarification_required: false },
+    phase5a: {
+      central_tether_brain_enabled: false,
+      arc_clarify_brain_enabled: false,
+      inbound_stitched_final_enabled: false,
+    },
+    forcedFutureStretchIntentActive: false,
+    wave11MemoryConfirmationPending: false,
+    accountabilityProofHint: null,
+    rejectedTimeCandidates: [],
+    unavailableWindows: [],
+    relationshipMemoryPacket: mp,
+    routePurpose: "conversation_brain_unavailable",
+    branchName: "conversation_brain_legacy_disabled_lane",
+    branchMigratedToLane: true,
+    conversationBrainFallbackFacts,
+    turnUnderstandingReconciled: tuSuppress,
+  });
+
+  if (isMiss) {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "miss",
+      persistence_decision: "write_user_no",
+      sms_response_intent: "tell_truth_and_recover",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_no",
+      deterministic_classifier_event: "user_no",
+      miss_signal: true,
+      today_completed: false,
+      should_write_outcome_event: true,
+    };
+  } else if (isPreview) {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "reported_completion",
+      persistence_decision: "write_user_yes_today",
+      sms_response_intent: "acknowledge_completion_and_next_step",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_yes",
+      deterministic_classifier_event: "user_yes",
+      today_completed: true,
+      should_write_outcome_event: true,
+    };
+  } else if (isTuSuppress) {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "reported_completion",
+      persistence_decision: "no_outcome_write",
+      sms_response_intent: "acknowledge_completion_and_next_step",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_yes",
+      deterministic_classifier_event: "user_yes",
+      today_completed: true,
+      should_write_outcome_event: false,
+    };
+  } else {
+    built.inbound_meaning = {
+      ...built.inbound_meaning,
+      relationship_meaning: "reported_completion",
+      persistence_decision: "write_user_yes_today",
+      sms_response_intent: "acknowledge_completion_and_next_step",
+    };
+    built.v2_accountability = {
+      ...built.v2_accountability,
+      final_event_type: "user_yes",
+      deterministic_classifier_event: "user_yes",
+      today_completed: true,
+      should_write_outcome_event: true,
+    };
+  }
+
+  built.thread.expected_reply_semantics = "completion_check";
+  return built;
+}
+
 export function buildDailyFacts(scenario: SmsReviewScenario): DailyV3RelationshipFacts {
   const persona = getPersona(scenario.personaId);
   const temporal = buildTemporalForScenario(scenario);
@@ -1311,6 +1493,18 @@ export function buildInboundFacts(
 
   if (CENTRAL_PIVOT_SCENARIO_IDS.has(scenario.id)) {
     return buildCentralPivotInboundFacts({
+      scenario,
+      persona,
+      commitment,
+      checkQ: openQ,
+      userReply,
+      lines,
+      memoryPacket: mp,
+    });
+  }
+
+  if (LEGACY_FALLBACK_SCENARIO_IDS.has(scenario.id)) {
+    return buildConversationBrainFallbackInboundFacts({
       scenario,
       persona,
       commitment,

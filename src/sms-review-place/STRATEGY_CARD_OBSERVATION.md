@@ -62,3 +62,7 @@ All eight `strategy-card-*` scenarios assert **card metadata and invariants**, n
 - `open_question_answer` Strategy Card (Phase 4.3)
 - Daily / weekly / guided / transactional / pivot / arc surfaces
 - Shadow mode or env flags
+
+## Related: legacy fallback (not Strategy Card)
+
+See [LEGACY_FALLBACK_OBSERVATION.md](./LEGACY_FALLBACK_OBSERVATION.md) for `conversation_brain_unavailable` / `conversation_brain_legacy_disabled_lane` telemetry and Review Place coverage (Phase 4.6a). That branch is intentionally **not** Strategy Card consolidated.

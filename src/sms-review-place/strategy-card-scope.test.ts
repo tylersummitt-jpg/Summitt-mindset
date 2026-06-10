@@ -11,10 +11,12 @@ import {
   isCentralPivotStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
+  isStrategyCardEligible,
 } from "@/lib/coaching-strategy-card-v1";
 import { buildInboundFacts } from "@/sms-review-place/build-facts";
 import { getScenarioById } from "@/sms-review-place/fixtures/scenarios";
 import { STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/strategy-card-scenarios";
+import { CONVERSATION_BRAIN_FALLBACK_SCENARIOS } from "@/sms-review-place/fixtures/conversation-brain-fallback-scenarios";
 
 const REPO = process.cwd();
 const envSnapshot = { ...process.env };
@@ -152,5 +154,73 @@ describe("Strategy Card scope — open_question_answer Review Place", () => {
     const scenario = getScenarioById("plan-not-proof");
     expect(scenario).toBeDefined();
     expect(scenario!.steps[0]!.lane).toBe("daily");
+  });
+});
+
+describe("Phase 4.6a — legacy fallback scope guards", () => {
+  it("legacy fallback scenarios assert metadata invariants, not exact SMS copy", () => {
+    for (const scenario of CONVERSATION_BRAIN_FALLBACK_SCENARIOS) {
+      expect(scenario.legacyFallback).toBeDefined();
+      expect(scenario.strategyCard).toBeUndefined();
+      expect(scenario.expectedBehavior.toLowerCase()).not.toMatch(/exact sms|verbatim body|must say/i);
+    }
+  });
+
+  it("conversation_brain_unavailable facts are not Strategy Card eligible", () => {
+    const scenario = getScenarioById("legacy-fallback-completion-safe");
+    expect(scenario).toBeDefined();
+    const facts = buildInboundFacts(scenario!, "Yes — got the two hours in before noon");
+    expect(facts.route_purpose).toBe("conversation_brain_unavailable");
+    expect(facts.conversation_brain_fallback_facts).toBeTruthy();
+    expect(isStrategyCardEligible(facts)).toBe(false);
+    expect(isInboundNormalStrategyCardEligible(facts)).toBe(false);
+    expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(false);
+    expect(isArcClarifyStrategyCardEligible(facts)).toBe(false);
+    expect(isCentralPivotStrategyCardEligible(facts)).toBe(false);
+  });
+
+  it("no Strategy Card route kind conversation_brain_unavailable in coaching-strategy-card-v1", () => {
+    const content = fs.readFileSync(
+      path.join(REPO, "src/lib/coaching-strategy-card-v1.ts"),
+      "utf8"
+    );
+    expect(content).not.toMatch(/route_kind:\s*["']conversation_brain_unavailable["']/);
+    expect(content).not.toMatch(/StrategyCardRouteKind.*conversation_brain_unavailable/);
+  });
+
+  it("daily and weekly lane files unchanged by legacy fallback Review Place work", () => {
+    const daily = fs.readFileSync(
+      path.join(REPO, "src/lib/v3-daily-relationship-lane.ts"),
+      "utf8"
+    );
+    const weekly = fs.readFileSync(
+      path.join(REPO, "src/lib/v3-weekly-outbound-relationship-lane.ts"),
+      "utf8"
+    );
+    expect(daily).not.toContain("conversation_brain_legacy_disabled_lane");
+    expect(daily).not.toContain("buildConversationBrainFallbackFacts");
+    expect(weekly).not.toContain("conversation_brain_legacy_disabled_lane");
+    expect(weekly).not.toContain("buildConversationBrainFallbackFacts");
+  });
+
+  it("legacy fallback review modules do not touch Twilio send", () => {
+    const reviewFiles = [
+      "src/sms-review-place/legacy-fallback-validators.ts",
+      "src/sms-review-place/fixtures/conversation-brain-fallback-scenarios.ts",
+      "src/sms-review-place/build-facts.ts",
+    ];
+    for (const rel of reviewFiles) {
+      const content = fs.readFileSync(path.join(REPO, rel), "utf8");
+      expect(content).not.toContain("@/lib/twilio");
+      expect(content).not.toContain("sendSMS");
+    }
+  });
+
+  it("no hard-coded final SMS in legacy fallback scenario fixtures", () => {
+    const content = fs.readFileSync(
+      path.join(REPO, "src/sms-review-place/fixtures/conversation-brain-fallback-scenarios.ts"),
+      "utf8"
+    );
+    expect(content).not.toMatch(/finalBodyMustEqual|expectedFinalSms|mustEqualBody/i);
   });
 });
