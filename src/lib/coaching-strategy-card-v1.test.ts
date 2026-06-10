@@ -28,9 +28,13 @@ import {
   type StrategyCardBuildContext,
   buildDailyC1StrategyCardContextFromSnapshot,
   buildDailyC1StrategyCardV1,
+  buildDailyC2StrategyCardContextFromSnapshot,
+  buildDailyC2StrategyCardV1,
   isDailyC1StrategyCardEligible,
+  isDailyC2StrategyCardEligible,
   isDailyStrategyCardEligible,
   validateAndRepairDailyC1StrategyCardV1,
+  validateAndRepairDailyContractPromptStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
 import { deriveAdjustmentProposalAllowedByEvidence } from "@/lib/inbound-miss-adjustment-policy";
@@ -1663,5 +1667,197 @@ describe("Daily C1 Strategy Card v1", () => {
     expect(meta.strategy_card_surface).toBe("daily");
     expect(meta.strategy_card_legacy_server_strategy).toBe("standard_check");
     expect(meta.strategy_card_daily_reactivation).toBe(false);
+  });
+});
+
+describe("Daily C2 Strategy Card v1", () => {
+  function contractSemanticFacts(
+    kind: "shrink_ask" | "recommit_same"
+  ): DailyV3RelationshipFacts["contract_proposal"] extends infer _T
+    ? NonNullable<DailyV3RelationshipFacts["contract_proposal"]>["daily_contract_semantic_facts"]
+    : never {
+    const baseBehavior = "Two hours deep work before noon";
+    const shrinkAsk = "One hour deep work before noon";
+    return {
+      proposal_kind: kind,
+      duration_days: 7,
+      base_behavior_statement: baseBehavior,
+      proposed_overlay_ask: kind === "shrink_ask" ? shrinkAsk : null,
+      proposed_behavior_preview: kind === "shrink_ask" ? shrinkAsk : baseBehavior,
+      desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+      must_not_claim_goal_updated: true,
+      forbidden_phrases: ["Reply YES"],
+    };
+  }
+
+  function contractDailyFacts(
+    kind: "shrink_ask" | "recommit_same",
+    overrides?: Partial<DailyV3RelationshipFacts>
+  ): DailyV3RelationshipFacts {
+    return {
+      route_kind: "contract_prompt",
+      accountability_day_key: "2026-06-08",
+      user: {
+        clerk_user_id: "u_contract",
+        preferred_name: "Alex",
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-08T09:00:00.000Z",
+        relationship_profile_summary: null,
+      },
+      commitment: {
+        id: "cmt_c",
+        title: "Focus",
+        behavior_statement: "Two hours deep work before noon",
+        effective_ask: "Two hours deep work before noon",
+        accountability_phase: "active_accountability",
+        identity_anchor_allowed: false,
+        identity_anchor_short: null,
+      },
+      thread_memory: {
+        latest_outbound_sms: "How did today go?",
+        latest_inbound_sms: null,
+        recent_transcript_or_context_block: null,
+        latest_open_question: null,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: "",
+        recent_pattern_hints: null,
+        last_5_coach_questions: [],
+      },
+      accountability: {
+        daily_purpose: "contract_overlay_proposal",
+        server_strategy: "standard_check",
+        next_move_type: "shrink_ask",
+        prior_outcome: null,
+        yes_streak_14d: 0,
+        no_count_14d: 0,
+        partial_count_14d: 0,
+        blocker_preview: null,
+        proof_or_milestone_signal: null,
+        silence_tier: "none",
+        unanswered_checks: 0,
+        days_since_last_user_outcome: 2,
+        reentry_active: false,
+        overlay_active: false,
+        evolution_pattern_hint: null,
+        contract_proposal_mode: true,
+      },
+      contract_proposal: {
+        contract_kind: kind,
+        required_reply_semantics: "yes_no_binding_only",
+        semantic_daily_contract_v1: true,
+        daily_contract_semantic_facts: contractSemanticFacts(kind),
+      },
+      suggested_coaching_move: "propose_contract",
+      constraints: {
+        max_chars: 300,
+        one_sms: true,
+        no_raw_title_or_behavior_paste: true,
+        no_generic_motivation: true,
+        if_unsafe_return_no_send: true,
+      },
+      ...overrides,
+    };
+  }
+
+  function buildC2Ctx(facts: DailyV3RelationshipFacts) {
+    return buildDailyC2StrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+      },
+    });
+  }
+
+  it("shrink_ask uses contract_proposal move", () => {
+    const card = buildDailyC2StrategyCardV1({ ctx: buildC2Ctx(contractDailyFacts("shrink_ask")) });
+    expect(card.route_kind).toBe("contract_prompt");
+    expect(card.move.type).toBe("contract_proposal");
+    expect(card.server_truth_summary.daily_contract_proposal_kind).toBe("shrink_ask");
+    expect(card.writer_constraints.tone_posture).toBe("contract_precise");
+  });
+
+  it("recommit_same uses contract_proposal move", () => {
+    const card = buildDailyC2StrategyCardV1({
+      ctx: buildC2Ctx(contractDailyFacts("recommit_same")),
+    });
+    expect(card.move.type).toBe("contract_proposal");
+    expect(card.server_truth_summary.daily_contract_proposal_kind).toBe("recommit_same");
+    expect(card.writer_constraints.tone_posture).toBe("warm_direct");
+  });
+
+  it("state_changed and proposal_active are false", () => {
+    const card = buildDailyC2StrategyCardV1({ ctx: buildC2Ctx(contractDailyFacts("shrink_ask")) });
+    expect(card.allowed_claims.state_changed).toBe(false);
+    expect(card.allowed_claims.proposal_active).toBe(false);
+    expect(card.server_truth_summary.daily_contract_proposal_pending_before_sms).toBe(false);
+  });
+
+  it("proof and Victory false by default", () => {
+    const card = buildDailyC2StrategyCardV1({ ctx: buildC2Ctx(contractDailyFacts("shrink_ask")) });
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+  });
+
+  it("must_not_do includes goal changed, accepted, active, and robotic consent", () => {
+    const joined = buildDailyC2StrategyCardV1({
+      ctx: buildC2Ctx(contractDailyFacts("shrink_ask")),
+    }).must_not_do.join(" ").toLowerCase();
+    expect(joined).toMatch(/goal/);
+    expect(joined).toMatch(/changed/);
+    expect(joined).toMatch(/accepted/);
+    expect(joined).toMatch(/active/);
+    expect(joined).toMatch(/reply yes/);
+  });
+
+  it("max_questions <= 1", () => {
+    const card = buildDailyC2StrategyCardV1({ ctx: buildC2Ctx(contractDailyFacts("recommit_same")) });
+    expect(card.writer_constraints.max_questions).toBeLessThanOrEqual(1);
+  });
+
+  it("invalid card repairs to safe contract_proposal", () => {
+    const ctx = buildC2Ctx(contractDailyFacts("shrink_ask"));
+    const bad = buildDailyC2StrategyCardV1({ ctx });
+    bad.move.type = "daily_check_in";
+    bad.allowed_claims.proposal_active = true;
+    const result = validateAndRepairDailyContractPromptStrategyCardV1(bad, ctx);
+    expect(result.card.move.type).toBe("contract_proposal");
+    expect(result.card.allowed_claims.proposal_active).toBe(false);
+  });
+
+  it("no SMS copy in daily C2 card fields", () => {
+    const card = buildDailyC2StrategyCardV1({ ctx: buildC2Ctx(contractDailyFacts("shrink_ask")) });
+    expect(card.must_do.join(" ")).not.toMatch(/\b(hey|thanks for texting)\b/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+  });
+
+  it("C2 eligibility excludes legacy binding path and C1 routes", () => {
+    expect(isDailyC2StrategyCardEligible(contractDailyFacts("shrink_ask"))).toBe(true);
+    expect(isDailyC1StrategyCardEligible(contractDailyFacts("shrink_ask"))).toBe(false);
+    expect(
+      isDailyC2StrategyCardEligible(
+        contractDailyFacts("shrink_ask", {
+          contract_proposal: {
+            contract_kind: "shrink_ask",
+            required_reply_semantics: "yes_no_binding_only",
+            binding_text_verbatim: "Reply YES to confirm",
+          },
+        })
+      )
+    ).toBe(false);
+    expect(isDailyStrategyCardEligible(contractDailyFacts("shrink_ask"))).toBe(true);
+  });
+
+  it("C2 telemetry includes contract proposal kind", () => {
+    const ctx = buildC2Ctx(contractDailyFacts("shrink_ask"));
+    const card = buildDailyC2StrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_surface).toBe("daily");
+    expect(meta.strategy_card_route_kind).toBe("contract_prompt");
+    expect(meta.strategy_card_move_type).toBe("contract_proposal");
+    expect(meta.strategy_card_daily_contract_proposal_kind).toBe("shrink_ask");
+    expect(meta.strategy_card_legacy_v2_contract_proposal_kind).toBe("shrink_ask");
   });
 });

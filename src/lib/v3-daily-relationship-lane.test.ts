@@ -465,14 +465,14 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.strategy_card_move_type).toBeTruthy();
   });
 
-  it("contract_prompt route does not attach Daily C1 Strategy Card", async () => {
+  it("contract_prompt route attaches Daily C2 Strategy Card and keeps semantic facts", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
           message: {
             content: JSON.stringify({
               should_send: true,
-              body: "Would staying with this bar for the week still fit?",
+              body: "Would one hour before noon work better for you this week?",
               no_send_reason: null,
               turn_purpose: "contract_proposal",
               voice_confidence: 0.8,
@@ -508,12 +508,20 @@ describe("produceDailyV3RelationshipSms", () => {
           daily_purpose: "contract_overlay_proposal",
         },
       }),
-      telemetry_fact_sources: ["test_daily_no_strategy_card_contract"],
+      telemetry_fact_sources: ["test_daily_strategy_card_contract"],
     });
 
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
-    expect(userMsg).not.toContain("STRATEGY_CARD_V1");
-    expect(r.metadata.strategy_card_surface).toBeUndefined();
+    expect(systemMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).toContain("SEMANTIC_DAILY_CONTRACT_FACTS");
+    expect(systemMsg).toContain("proposed_behavior_preview");
+    expect(systemMsg).not.toContain("SEMANTIC_DAILY_CONTRACT_ROUTE:");
+    expect(r.metadata.strategy_card_surface).toBe("daily");
+    expect(r.metadata.strategy_card_route_kind).toBe("contract_prompt");
+    expect(r.metadata.strategy_card_move_type).toBe("contract_proposal");
+    expect(r.metadata.strategy_card_daily_contract_proposal_kind).toBe("shrink_ask");
   });
 
   it("returns shouldSend=false when OpenAI is unavailable", async () => {

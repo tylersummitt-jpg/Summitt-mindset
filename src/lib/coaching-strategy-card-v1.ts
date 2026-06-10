@@ -1,5 +1,5 @@
 /**
- * Phase 4.1/4.3/4.4a/4.5/4.7a — Coaching Strategy Card v1 (inbound + daily C1).
+ * Phase 4.1/4.3/4.4a/4.5/4.7a/4.7b — Coaching Strategy Card v1 (inbound + daily C1/C2).
  * Server-built coaching move envelope; writer-facing after validation/repair.
  * Does not route, mutate state, send SMS, or replace Relationship Snapshot.
  */
@@ -26,6 +26,7 @@ import type {
   InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { DailySemanticContractProposalFactsPacket } from "@/lib/v3-daily-contract-proposal-semantic";
 
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
 
@@ -36,11 +37,16 @@ export type StrategyCardRouteKind =
   | "arc_clarify_ambiguous_short"
   | "central_brain_pivot"
   | "main_active_accountability"
-  | "low_pressure_reactivation";
+  | "low_pressure_reactivation"
+  | "contract_prompt";
 
 export type DailyC1StrategyCardRouteKind =
   | "main_active_accountability"
   | "low_pressure_reactivation";
+
+export type DailyC2StrategyCardRouteKind = "contract_prompt";
+
+export type DailyContractProposalKind = "shrink_ask" | "recommit_same";
 
 export type StrategyCardOutcome = "completed" | "missed" | "partial" | "none" | "unclear";
 
@@ -57,6 +63,7 @@ export type StrategyCardMoveType =
   | "raise_standard"
   | "reactivate_gently"
   | "daily_check_in"
+  | "contract_proposal"
   | "handoff"
   | "other";
 
@@ -66,7 +73,8 @@ export type StrategyCardTonePosture =
   | "gentle_reentry"
   | "celebrate_earned"
   | "low_pressure"
-  | "clarifying";
+  | "clarifying"
+  | "contract_precise";
 
 export type StrategyCardV1 = {
   version: typeof STRATEGY_CARD_V1_VERSION;
@@ -97,6 +105,11 @@ export type StrategyCardV1 = {
     daily_pending_plan_proof_active?: boolean;
     daily_reactivation?: boolean;
     daily_silence_tier?: string | null;
+    daily_contract_proposal_kind?: DailyContractProposalKind | null;
+    daily_contract_proposal_pending_before_sms?: boolean;
+    daily_contract_must_not_claim_goal_updated?: boolean;
+    daily_contract_required_bar_fingerprint?: string | null;
+    daily_contract_required_meaning?: string | null;
   };
   move: {
     type: StrategyCardMoveType;
@@ -128,6 +141,7 @@ export type StrategyCardV1 = {
     legacy_hint_replaced?: boolean;
     legacy_server_strategy?: string | null;
     legacy_next_move_type?: string | null;
+    legacy_v2_contract_proposal_kind?: string | null;
   };
 };
 
@@ -137,6 +151,12 @@ export type DailyC1StrategyCardBuildContext = {
   openLoops: OpenLoopsAndDoNotRepeatData;
   activePending: ActivePendingState;
   noSendSilence: NoSendAndSilenceHistoryV2Data | null;
+};
+
+export type DailyC2StrategyCardBuildContext = {
+  facts: DailyV3RelationshipFacts;
+  semanticFacts: DailySemanticContractProposalFactsPacket;
+  openLoops: OpenLoopsAndDoNotRepeatData;
 };
 
 export type StrategyCardValidationStatus = "valid" | "repaired";
@@ -1912,7 +1932,7 @@ ${JSON.stringify(card)}`;
 
 export function strategyCardV1MetaForTelemetry(
   result: StrategyCardValidationResult,
-  ctx?: StrategyCardBuildContext | DailyC1StrategyCardBuildContext
+  ctx?: StrategyCardBuildContext | DailyC1StrategyCardBuildContext | DailyC2StrategyCardBuildContext
 ): Record<string, unknown> {
   const c = result.card;
   const inboundCtx =
@@ -1977,12 +1997,22 @@ export function strategyCardV1MetaForTelemetry(
               : null),
         }
       : {}),
-    ...(c.surface === "daily"
+    ...(c.surface === "daily" && c.route_kind !== "contract_prompt"
       ? {
           strategy_card_legacy_server_strategy: c.meta.legacy_server_strategy ?? null,
           strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
           strategy_card_daily_purpose: c.server_truth_summary.daily_purpose ?? null,
           strategy_card_daily_reactivation: c.server_truth_summary.daily_reactivation === true,
+        }
+      : {}),
+    ...(c.route_kind === "contract_prompt"
+      ? {
+          strategy_card_legacy_server_strategy: c.meta.legacy_server_strategy ?? null,
+          strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
+          strategy_card_legacy_v2_contract_proposal_kind:
+            c.meta.legacy_v2_contract_proposal_kind ?? null,
+          strategy_card_daily_contract_proposal_kind:
+            c.server_truth_summary.daily_contract_proposal_kind ?? null,
         }
       : {}),
   };
@@ -2107,8 +2137,18 @@ export function isDailyC1StrategyCardEligible(facts: DailyV3RelationshipFacts): 
   return true;
 }
 
+export function isDailyC2StrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
+  if (facts.route_kind !== "contract_prompt") return false;
+  if (facts.pending_resolution) return false;
+  if (facts.refresh) return false;
+  const cp = facts.contract_proposal;
+  if (!cp || cp.semantic_daily_contract_v1 !== true) return false;
+  if (!cp.daily_contract_semantic_facts) return false;
+  return true;
+}
+
 export function isDailyStrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
-  return isDailyC1StrategyCardEligible(facts);
+  return isDailyC1StrategyCardEligible(facts) || isDailyC2StrategyCardEligible(facts);
 }
 
 function deriveDailyOutcomeFromPriorOutcome(prior: string | null | undefined): StrategyCardOutcome {
@@ -2439,4 +2479,260 @@ export function buildDailyC1StrategyCardDemotedPromptRules(): string {
 - If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.
 - Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
 - If facts say reentry/comeback after silence, acknowledge return briefly before the ask.`;
+}
+
+// --- Daily C2 Strategy Card v1 (contract_prompt semantic shrink_ask + recommit_same) ---
+
+const DAILY_C2_ALLOWED_MOVES: StrategyCardMoveType[] = ["contract_proposal"];
+
+const C2_MUST_NOT_GOAL_CHANGED = "Do not claim the goal, commitment, or bar already changed or is now active.";
+const C2_MUST_NOT_ACCEPTED = "Do not claim the user already accepted or recommitted to the proposal.";
+const C2_MUST_NOT_ACTIVE = "Do not claim the proposal or overlay is already active or applied.";
+const C2_MUST_NOT_ROBOTIC = "Do not use robotic menu consent copy (Reply YES, Reply NO, YES to confirm, etc.).";
+
+function deriveDailyC2RequiredMeaning(kind: DailyContractProposalKind): string {
+  if (kind === "shrink_ask") {
+    return "Propose a smaller or tighter bar as an offer — not already applied.";
+  }
+  return "Ask whether they want to recommit to the same current bar — not already recommitted.";
+}
+
+function deriveDailyC2BarFingerprint(sem: DailySemanticContractProposalFactsPacket): string | null {
+  const source =
+    sem.proposal_kind === "shrink_ask"
+      ? (sem.proposed_overlay_ask?.trim() || sem.proposed_behavior_preview.trim())
+      : sem.proposed_behavior_preview.trim() || sem.base_behavior_statement.trim();
+  return source ? fingerprintAsk(source) : null;
+}
+
+function collectDailyC2AvoidRepeating(ctx: DailyC2StrategyCardBuildContext): string[] {
+  const items: string[] = [];
+  for (const ask of ctx.openLoops.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    const fp = fingerprintAsk(s.ask_text ?? "");
+    if (fp) items.push(fp);
+  }
+  for (const ask of ctx.facts.daily_satisfied_ask_context?.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const q of ctx.facts.thread_memory.last_5_coach_questions ?? []) {
+    const fp = fingerprintAsk(q);
+    if (fp) items.push(fp);
+  }
+  const barFp = deriveDailyC2BarFingerprint(ctx.semanticFacts);
+  if (barFp) items.push(barFp);
+  return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
+}
+
+function buildDailyC2MustDoMustNotDo(
+  kind: DailyContractProposalKind
+): { must_do: string[]; must_not_do: string[] } {
+  const must_not_do = [
+    C2_MUST_NOT_GOAL_CHANGED,
+    C2_MUST_NOT_ACCEPTED,
+    C2_MUST_NOT_ACTIVE,
+    C2_MUST_NOT_ROBOTIC,
+    "Do not claim proof or Victory Room on this contract proposal turn.",
+    "Do not invent a different bar or obligation than semantic proposal facts describe.",
+  ];
+  const must_do: string[] = [
+    "Present this as a proposal or offer — server state has not changed yet.",
+    "Use structured proposal semantics for bar meaning — do not paraphrase into a different obligation.",
+    "One natural conversational question or closing cue at most.",
+  ];
+  if (kind === "shrink_ask") {
+    must_do.push("Present the smaller or tighter bar as a proposal the user may try.");
+    must_do.push("Preserve proposed bar meaning from semantic facts.");
+    must_do.push("Ask naturally whether they want to try this bar.");
+    must_not_do.push("Do not claim the new smaller bar is already active.");
+  } else {
+    must_do.push("Ask whether they want to recommit to the same current bar.");
+    must_do.push("Preserve current behavior statement meaning from semantic facts.");
+    must_not_do.push("Do not claim they already recommitted.");
+  }
+  return {
+    must_do: must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+  };
+}
+
+function resolveDailyC2TonePosture(kind: DailyContractProposalKind): StrategyCardTonePosture {
+  return kind === "shrink_ask" ? "contract_precise" : "warm_direct";
+}
+
+export function buildDailyC2StrategyCardContextFromSnapshot(args: {
+  facts: DailyV3RelationshipFacts;
+  snapshot: {
+    open_loops_and_do_not_repeat: { data: OpenLoopsAndDoNotRepeatData };
+  };
+}): DailyC2StrategyCardBuildContext {
+  const sem = args.facts.contract_proposal!.daily_contract_semantic_facts!;
+  return {
+    facts: args.facts,
+    semanticFacts: sem,
+    openLoops: args.snapshot.open_loops_and_do_not_repeat.data,
+  };
+}
+
+export function buildDailyC2StrategyCardV1(args: {
+  ctx: DailyC2StrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  const { ctx } = args;
+  const { facts, semanticFacts: sem } = ctx;
+  const kind = sem.proposal_kind;
+  const legacyMove = facts.suggested_coaching_move?.trim() || null;
+  const { must_do, must_not_do } = buildDailyC2MustDoMustNotDo(kind);
+  const avoid_repeating = collectDailyC2AvoidRepeating(ctx);
+  const barFingerprint = deriveDailyC2BarFingerprint(sem);
+  const requiredMeaning = deriveDailyC2RequiredMeaning(kind);
+  const reason =
+    kind === "shrink_ask"
+      ? "Semantic daily contract — propose a smaller bar without claiming it is active."
+      : "Semantic daily contract — recommit offer for the current bar without claiming state changed.";
+
+  return {
+    version: STRATEGY_CARD_V1_VERSION,
+    generated_at: args.generatedAt ?? new Date().toISOString(),
+    surface: "daily",
+    route_kind: "contract_prompt",
+    turn_kind: facts.accountability.daily_purpose ?? "contract_overlay_proposal",
+    server_truth_summary: {
+      outcome: "none",
+      explicit_user_truth: false,
+      active_pending_kinds: [],
+      satisfied_ask_fingerprints: [],
+      daily_route_kind: facts.route_kind,
+      daily_server_strategy: facts.accountability.server_strategy ?? null,
+      daily_purpose: facts.accountability.daily_purpose ?? null,
+      daily_contract_proposal_kind: kind,
+      daily_contract_proposal_pending_before_sms: false,
+      daily_contract_must_not_claim_goal_updated: sem.must_not_claim_goal_updated,
+      daily_contract_required_bar_fingerprint: barFingerprint,
+      daily_contract_required_meaning: requiredMeaning,
+    },
+    move: {
+      type: "contract_proposal",
+      priority: "normal",
+      confidence: "high",
+      reason: truncateText(reason, MAX_REASON_CHARS),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims: {
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: false,
+    },
+    writer_constraints: {
+      max_questions: 1,
+      avoid_repeating,
+      tone_posture: resolveDailyC2TonePosture(kind),
+    },
+    meta: {
+      generation_source: "server_strategy_card_v1",
+      legacy_suggested_coaching_move: legacyMove,
+      legacy_coaching_move_source: "rule_derived",
+      legacy_server_strategy: facts.accountability.server_strategy ?? null,
+      legacy_next_move_type: facts.accountability.next_move_type ?? null,
+      legacy_v2_contract_proposal_kind: kind,
+    },
+  };
+}
+
+function mustNotDoIncludesC2CoreConstraints(must_not_do: string[]): boolean {
+  const joined = must_not_do.join(" ").toLowerCase();
+  return (
+    joined.includes("goal") &&
+    joined.includes("changed") &&
+    joined.includes("accepted") &&
+    joined.includes("reply yes")
+  );
+}
+
+function mustDoIncludesC2ProposalMeaning(must_do: string[], kind: DailyContractProposalKind): boolean {
+  const joined = must_do.join(" ").toLowerCase();
+  if (kind === "shrink_ask") {
+    return joined.includes("proposal") && joined.includes("semantic");
+  }
+  return joined.includes("recommit") && joined.includes("semantic");
+}
+
+export function validateDailyContractPromptStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC2StrategyCardBuildContext
+): { valid: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const semKind = ctx.semanticFacts.proposal_kind;
+
+  if (card.surface !== "daily") reasons.push("surface_not_daily");
+  if (card.route_kind !== "contract_prompt") reasons.push("daily_c2_route_kind_invalid");
+  if (card.move.type !== "contract_proposal") reasons.push("daily_c2_forbidden_move");
+  if (!DAILY_C2_ALLOWED_MOVES.includes(card.move.type)) reasons.push("daily_c2_move_not_allowed");
+  if (card.server_truth_summary.daily_contract_proposal_kind !== semKind) {
+    reasons.push("daily_c2_proposal_kind_mismatch");
+  }
+  if (card.allowed_claims.proposal_active || card.allowed_claims.state_changed) {
+    reasons.push("daily_c2_forbidden_claim");
+  }
+  if (
+    card.allowed_claims.completion ||
+    card.allowed_claims.miss ||
+    card.allowed_claims.partial ||
+    card.allowed_claims.proof ||
+    card.allowed_claims.victory_room
+  ) {
+    reasons.push("daily_c2_outcome_claim_forbidden");
+  }
+  if (card.server_truth_summary.daily_contract_proposal_pending_before_sms !== false) {
+    reasons.push("daily_c2_proposal_pending_must_be_false");
+  }
+  if (card.writer_constraints.max_questions > 1) reasons.push("daily_c2_max_questions_exceeded");
+  if (!mustNotDoIncludesC2CoreConstraints(card.must_not_do)) {
+    reasons.push("daily_c2_missing_core_must_not_do");
+  }
+  if (!mustDoIncludesC2ProposalMeaning(card.must_do, semKind)) {
+    reasons.push("daily_c2_missing_proposal_must_do");
+  }
+  for (const item of [...card.must_do, ...card.must_not_do, card.move.reason]) {
+    if (SMS_COPY_RE.test(item) && item.length > 80) {
+      reasons.push("sms_copy_in_card");
+    }
+  }
+  if (card.move.reason.length > MAX_REASON_CHARS) reasons.push("reason_too_long");
+
+  return { valid: reasons.length === 0, reasons };
+}
+
+function repairDailyC2Card(
+  card: StrategyCardV1,
+  ctx: DailyC2StrategyCardBuildContext,
+  _reasons: string[]
+): StrategyCardV1 {
+  return buildDailyC2StrategyCardV1({ ctx, generatedAt: card.generated_at });
+}
+
+export function validateAndRepairDailyContractPromptStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC2StrategyCardBuildContext
+): StrategyCardValidationResult {
+  const first = validateDailyContractPromptStrategyCardV1(card, ctx);
+  if (first.valid) {
+    return { card, validation_status: "valid", validation_reasons: [] };
+  }
+  const repaired = repairDailyC2Card(card, ctx, first.reasons);
+  const second = validateDailyContractPromptStrategyCardV1(repaired, ctx);
+  return {
+    card: repaired,
+    validation_status: "repaired",
+    validation_reasons: [...first.reasons, ...second.reasons.filter((r) => !first.reasons.includes(r))],
+  };
 }

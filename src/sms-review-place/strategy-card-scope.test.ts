@@ -10,6 +10,7 @@ import {
   isArcClarifyStrategyCardEligible,
   isCentralPivotStrategyCardEligible,
   isDailyC1StrategyCardEligible,
+  isDailyC2StrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   isStrategyCardEligible,
@@ -266,5 +267,57 @@ describe("Phase 4.7a — Daily C1 Strategy Card scope guards", () => {
     expect(content).toMatch(/main_active_accountability/);
     expect(content).toMatch(/low_pressure_reactivation/);
     expect(content).toMatch(/daily_check_in/);
+  });
+});
+
+describe("Phase 4.7b — Daily C2 Strategy Card scope guards", () => {
+  it("daily C2 eligibility is limited to semantic contract_prompt routes", () => {
+    const mainFacts = buildDailyFacts(getScenarioById("consistent-winner")!);
+    const contractFacts = {
+      ...mainFacts,
+      route_kind: "contract_prompt" as const,
+      contract_proposal: {
+        contract_kind: "shrink_ask" as const,
+        required_reply_semantics: "yes_no_binding_only" as const,
+        semantic_daily_contract_v1: true as const,
+        daily_contract_semantic_facts: {
+          proposal_kind: "recommit_same" as const,
+          duration_days: 7 as const,
+          base_behavior_statement: "Two hours",
+          proposed_overlay_ask: null,
+          proposed_behavior_preview: "Two hours",
+          desired_response_semantics: "natural_confirmation_or_decline_or_adjustment" as const,
+          must_not_claim_goal_updated: true,
+          forbidden_phrases: [],
+        },
+      },
+      accountability: {
+        ...mainFacts.accountability,
+        contract_proposal_mode: true,
+      },
+    };
+    expect(isDailyC2StrategyCardEligible(contractFacts)).toBe(true);
+    expect(isDailyC1StrategyCardEligible(contractFacts)).toBe(false);
+    expect(isDailyC2StrategyCardEligible(mainFacts)).toBe(false);
+  });
+
+  it("daily lane wires C2 contract Strategy Card eligibility", () => {
+    const daily = fs.readFileSync(
+      path.join(REPO, "src/lib/v3-daily-relationship-lane.ts"),
+      "utf8"
+    );
+    expect(daily).toMatch(/isDailyC2StrategyCardEligible/);
+    expect(daily).toMatch(/validateAndRepairDailyContractPromptStrategyCardV1/);
+    expect(daily).toMatch(/SEMANTIC_DAILY_CONTRACT_FACTS/);
+  });
+
+  it("StrategyCardRouteKind includes contract_prompt and contract_proposal move", () => {
+    const content = fs.readFileSync(
+      path.join(REPO, "src/lib/coaching-strategy-card-v1.ts"),
+      "utf8"
+    );
+    expect(content).toMatch(/contract_prompt/);
+    expect(content).toMatch(/contract_proposal/);
+    expect(content).toMatch(/contract_precise/);
   });
 });

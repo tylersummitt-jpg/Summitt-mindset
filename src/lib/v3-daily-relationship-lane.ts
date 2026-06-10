@@ -74,11 +74,15 @@ import {
 import {
   buildDailyC1StrategyCardContextFromSnapshot,
   buildDailyC1StrategyCardV1,
+  buildDailyC2StrategyCardContextFromSnapshot,
+  buildDailyC2StrategyCardV1,
   buildStrategyCardV1PromptGuidance,
   isDailyC1StrategyCardEligible,
+  isDailyC2StrategyCardEligible,
   strategyCardV1MetaForTelemetry,
   strategyCardV1UserPromptAppendix,
   validateAndRepairDailyC1StrategyCardV1,
+  validateAndRepairDailyContractPromptStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import type { TemporalContractV1, TemporalReferencedEventV1 } from "@/lib/sms-temporal-contract-v1";
 import {
@@ -313,8 +317,12 @@ export function deriveSuggestedCoachingMoveForDailyFacts(f: DailyV3RelationshipF
   return "ask_completion";
 }
 
-function routeSpecificSystemAddendum(f: DailyV3RelationshipFacts): string {
+function routeSpecificSystemAddendum(
+  f: DailyV3RelationshipFacts,
+  opts?: { strategyCardC2Active?: boolean }
+): string {
   const lines: string[] = [];
+  const strategyCardC2Active = opts?.strategyCardC2Active === true;
   if (f.route_kind === "pending_resolution") {
     lines.push(
       "PENDING_RESOLUTION_ROUTE: User has an in-flight guided commitment update. Nudge them to complete it in-app or via SMS per facts. Do not invent a new bar or change server state."
@@ -337,18 +345,24 @@ function routeSpecificSystemAddendum(f: DailyV3RelationshipFacts): string {
 
     if (sem) {
       const d = f.contract_proposal.daily_contract_semantic_facts!;
-      lines.push(
-        `SEMANTIC_DAILY_CONTRACT_ROUTE: Write one SMS in one long relational coaching arc — concise, humane, unmistakably the same steady coach thread.`,
-        `Ground in thread_memory blocks (recent SMS, transcript, coaching memory hints, anti-repeat cues) plus identity + goal facts — facts are not screenplay dialogue to paste.`,
-        `Naturally reflect the bar/effective commitment described in structured facts.`,
-        `- Ask gently whether staying with this cadence/bar for roughly ${String(d.duration_days)} days fits, they'd rather ease up, or they want an adjustment.`,
-        `- One conversational question/closing cue — not stacked menu interrogation.`,
-        `- Do NOT use menu consent copy or phone-tree confirmations (examples forbidden in facts.forbidden_phrases + ${DEFAULT_SEMANTIC_DAILY_CONTRACT_FORBIDDEN_PHRASES.map((p) => JSON.stringify(p)).join(", ")}).`,
-        `- Never claim server-side goal/overlay/state already mutated (must_not_claim_goal_updated stays true server-side until RPC applies).`,
-        `- Do NOT fabricate an alternate obligation or swap in a invented different goal.`,
-        `- Avoid reading raw behavior text aloud like contractual fine print unless a compact natural mention feels humane.`,
-        `Structured proposal semantics (FACTS_JSON fragment only — not scripted lines): ${JSON.stringify(d)}.`
-      );
+      if (strategyCardC2Active) {
+        lines.push(
+          `SEMANTIC_DAILY_CONTRACT_FACTS (authoritative proposal meaning — Strategy Card owns coaching move; not scripted lines): ${JSON.stringify(d)}.`
+        );
+      } else {
+        lines.push(
+          `SEMANTIC_DAILY_CONTRACT_ROUTE: Write one SMS in one long relational coaching arc — concise, humane, unmistakably the same steady coach thread.`,
+          `Ground in thread_memory blocks (recent SMS, transcript, coaching memory hints, anti-repeat cues) plus identity + goal facts — facts are not screenplay dialogue to paste.`,
+          `Naturally reflect the bar/effective commitment described in structured facts.`,
+          `- Ask gently whether staying with this cadence/bar for roughly ${String(d.duration_days)} days fits, they'd rather ease up, or they want an adjustment.`,
+          `- One conversational question/closing cue — not stacked menu interrogation.`,
+          `- Do NOT use menu consent copy or phone-tree confirmations (examples forbidden in facts.forbidden_phrases + ${DEFAULT_SEMANTIC_DAILY_CONTRACT_FORBIDDEN_PHRASES.map((p) => JSON.stringify(p)).join(", ")}).`,
+          `- Never claim server-side goal/overlay/state already mutated (must_not_claim_goal_updated stays true server-side until RPC applies).`,
+          `- Do NOT fabricate an alternate obligation or swap in a invented different goal.`,
+          `- Avoid reading raw behavior text aloud like contractual fine print unless a compact natural mention feels humane.`,
+          `Structured proposal semantics (FACTS_JSON fragment only — not scripted lines): ${JSON.stringify(d)}.`
+        );
+      }
     } else {
       const wrapperForbidden =
         f.constraints.wrapper_must_not_repeat_substrings?.length
@@ -1053,6 +1067,7 @@ export async function produceDailyV3RelationshipSms(
   let strategyCardUserAppendix = "";
   let strategyCardPromptGuidance = "";
   const strategyCardC1Eligible = isDailyC1StrategyCardEligible(laneFacts);
+  const strategyCardC2Eligible = isDailyC2StrategyCardEligible(laneFacts);
   if (strategyCardC1Eligible) {
     const strategyCtx = buildDailyC1StrategyCardContextFromSnapshot({
       facts: laneFacts,
@@ -1060,6 +1075,16 @@ export async function produceDailyV3RelationshipSms(
     });
     const draftCard = buildDailyC1StrategyCardV1({ ctx: strategyCtx });
     const validated = validateAndRepairDailyC1StrategyCardV1(draftCard, strategyCtx);
+    strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
+    strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
+    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
+  } else if (strategyCardC2Eligible) {
+    const strategyCtx = buildDailyC2StrategyCardContextFromSnapshot({
+      facts: laneFacts,
+      snapshot: relationshipPacket.snapshotV2,
+    });
+    const draftCard = buildDailyC2StrategyCardV1({ ctx: strategyCtx });
+    const validated = validateAndRepairDailyContractPromptStrategyCardV1(draftCard, strategyCtx);
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
     Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
@@ -1092,7 +1117,7 @@ ${buildSmsGoalAdjustmentLaneGuardrails()}
 ${buildPlannedInterruptionLaneGuardrails()}
 ${buildPendingPlanProofLaneGuardrails(laneFacts.accountability.pending_plan_proof)}
 ${buildTimingAnchorMemoryLaneGuardrails(laneFacts.accountability.timing_anchor_memory)}
-${routeSpecificSystemAddendum(laneFacts)}
+${routeSpecificSystemAddendum(laneFacts, { strategyCardC2Active: strategyCardC2Eligible })}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
