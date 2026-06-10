@@ -71,6 +71,15 @@ import {
   buildRelationshipPacketPromptGuidance,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
+import {
+  buildDailyC1StrategyCardContextFromSnapshot,
+  buildDailyC1StrategyCardV1,
+  buildStrategyCardV1PromptGuidance,
+  isDailyC1StrategyCardEligible,
+  strategyCardV1MetaForTelemetry,
+  strategyCardV1UserPromptAppendix,
+  validateAndRepairDailyC1StrategyCardV1,
+} from "@/lib/coaching-strategy-card-v1";
 import type { TemporalContractV1, TemporalReferencedEventV1 } from "@/lib/sms-temporal-contract-v1";
 import {
   buildReferencedEventsFromDailySources,
@@ -1041,24 +1050,40 @@ export async function produceDailyV3RelationshipSms(
     relationshipPacketMetaForLaneTelemetry(relationshipPacket.meta, relationshipPacket.snapshotV2Meta)
   );
 
+  let strategyCardUserAppendix = "";
+  let strategyCardPromptGuidance = "";
+  const strategyCardC1Eligible = isDailyC1StrategyCardEligible(laneFacts);
+  if (strategyCardC1Eligible) {
+    const strategyCtx = buildDailyC1StrategyCardContextFromSnapshot({
+      facts: laneFacts,
+      snapshot: relationshipPacket.snapshotV2,
+    });
+    const draftCard = buildDailyC1StrategyCardV1({ ctx: strategyCtx });
+    const validated = validateAndRepairDailyC1StrategyCardV1(draftCard, strategyCtx);
+    strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
+    strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
+    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
+  }
+
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
 
 RULES:
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy old template wording or paraphrase labeled machine drafts.
 ${buildRelationshipPacketPromptGuidance()}
+${strategyCardPromptGuidance}
 - When structured_recent_truth.projection_used is true, latest_open_question and latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and previews.
 - recent_exact_thread (when present) is the highest-priority transcript — it outranks coaching summaries and older transcript blocks when they conflict.
-- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
+${strategyCardC1Eligible ? "" : `- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.`}
 ${buildDailyOpenQuestionAnswerPriorityGuidance()}
-- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.
+${strategyCardC1Eligible ? "" : `- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.`}
 - If thread_memory.latest_open_question is already answered in recent exact thread with proof/outcome (not only a forward plan while pending_plan_proof is active), advance from that answer.
-- Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
+${strategyCardC1Eligible ? "" : `- Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.`}
 - Avoid repeating the prior day's opener or the same coach question from recent exact thread.
 - Anchor to the user's real commitment (effective ask + state), without pasting raw title or behavior_statement as a quoted phrase or "Did [raw] happen today?" / "Did you protect [raw]?" style checks.
 - One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, one clear question or one concrete action.
 - Never expose internal accountability labels in visible SMS (partial, yes/no/partial, done/partial/missed, user_yes, user_no, user_partial, classification, route). Use human language: "did it happen or did something get in the way?", "did you get it done, start it, or miss it?", "what happened with the plan?"
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
-- If facts say reentry/comeback after silence, acknowledge return briefly before the ask.
+${strategyCardC1Eligible ? "" : `- If facts say reentry/comeback after silence, acknowledge return briefly before the ask.`}
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
 ${buildThreadFreshnessPromptGuidance()}
 ${buildVictoryBackgroundLaneGuardrails()}
@@ -1074,7 +1099,9 @@ should_send (boolean), body (string, empty if should_send false), no_send_reason
 turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[])`;
 
-  const user = relationshipPacket.userPromptJson;
+  const user =
+    relationshipPacket.userPromptJson +
+    (strategyCardUserAppendix ? `\n\n${strategyCardUserAppendix}` : "");
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;

@@ -9,11 +9,12 @@ vi.mock("@/lib/supabase-server", () => ({
 import {
   isArcClarifyStrategyCardEligible,
   isCentralPivotStrategyCardEligible,
+  isDailyC1StrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   isStrategyCardEligible,
 } from "@/lib/coaching-strategy-card-v1";
-import { buildInboundFacts } from "@/sms-review-place/build-facts";
+import { buildDailyFacts, buildInboundFacts } from "@/sms-review-place/build-facts";
 import { getScenarioById } from "@/sms-review-place/fixtures/scenarios";
 import { STRATEGY_CARD_SCENARIOS } from "@/sms-review-place/fixtures/strategy-card-scenarios";
 import { CONVERSATION_BRAIN_FALLBACK_SCENARIOS } from "@/sms-review-place/fixtures/conversation-brain-fallback-scenarios";
@@ -222,5 +223,48 @@ describe("Phase 4.6a — legacy fallback scope guards", () => {
       "utf8"
     );
     expect(content).not.toMatch(/finalBodyMustEqual|expectedFinalSms|mustEqualBody/i);
+  });
+});
+
+describe("Phase 4.7a — Daily C1 Strategy Card scope guards", () => {
+  it("daily C1 eligibility is limited to main and reactivation routes", () => {
+    const mainFacts = buildDailyFacts(getScenarioById("consistent-winner")!);
+    expect(mainFacts.route_kind).toBe("main_active_accountability");
+    expect(isDailyC1StrategyCardEligible(mainFacts)).toBe(true);
+    const contractFacts = {
+      ...mainFacts,
+      route_kind: "contract_prompt" as const,
+      contract_proposal: {
+        contract_kind: "shrink_ask" as const,
+        required_reply_semantics: "yes_no_binding_only" as const,
+        semantic_daily_contract_v1: true as const,
+      },
+    };
+    expect(isDailyC1StrategyCardEligible(contractFacts)).toBe(false);
+  });
+
+  it("inbound Strategy Card module wires daily C1 in daily lane only", () => {
+    const daily = fs.readFileSync(
+      path.join(REPO, "src/lib/v3-daily-relationship-lane.ts"),
+      "utf8"
+    );
+    const inbound = fs.readFileSync(
+      path.join(REPO, "src/lib/v3-inbound-relationship-lane.ts"),
+      "utf8"
+    );
+    expect(daily).toMatch(/isDailyC1StrategyCardEligible/);
+    expect(daily).toMatch(/validateAndRepairDailyC1StrategyCardV1/);
+    expect(inbound).not.toMatch(/isDailyC1StrategyCardEligible/);
+    expect(inbound).toMatch(/isInboundNormalStrategyCardEligible/);
+  });
+
+  it("StrategyCardRouteKind includes daily C1 kinds in coaching-strategy-card-v1", () => {
+    const content = fs.readFileSync(
+      path.join(REPO, "src/lib/coaching-strategy-card-v1.ts"),
+      "utf8"
+    );
+    expect(content).toMatch(/main_active_accountability/);
+    expect(content).toMatch(/low_pressure_reactivation/);
+    expect(content).toMatch(/daily_check_in/);
   });
 });

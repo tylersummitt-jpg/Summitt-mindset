@@ -421,11 +421,99 @@ describe("produceDailyV3RelationshipSms", () => {
 
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
     expect(systemMsg).toContain("recent_exact_thread");
-    expect(systemMsg).toContain("last_5_coach_questions");
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("last_5_coach_questions");
     expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
     expect(userMsg).toContain("Sunday School, farm, songs Mother sang");
     expect(userMsg).not.toContain("ACCOUNTABILITY_FACTS_JSON");
+  });
+
+  it("C1 Strategy Card: appends STRATEGY_CARD_V1 and demotes duplicated move prose", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Did the two hours happen before noon today?",
+              no_send_reason: null,
+              turn_purpose: "daily_accountability",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["test_daily_strategy_card"],
+    });
+
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(systemMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).not.toContain(
+      "do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer"
+    );
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
+    expect(r.metadata.strategy_card_surface).toBe("daily");
+    expect(r.metadata.strategy_card_route_kind).toBe("main_active_accountability");
+    expect(r.metadata.strategy_card_move_type).toBeTruthy();
+  });
+
+  it("contract_prompt route does not attach Daily C1 Strategy Card", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Would staying with this bar for the week still fit?",
+              no_send_reason: null,
+              turn_purpose: "contract_proposal",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        route_kind: "contract_prompt",
+        contract_proposal: {
+          contract_kind: "shrink_ask",
+          required_reply_semantics: "yes_no_binding_only",
+          semantic_daily_contract_v1: true,
+          daily_contract_semantic_facts: {
+            proposal_kind: "shrink_ask",
+            duration_days: 7,
+            base_behavior_statement: "Two hours before noon",
+            proposed_overlay_ask: "One hour before noon",
+            proposed_behavior_preview: "One hour before noon",
+            desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+            must_not_claim_goal_updated: true,
+            forbidden_phrases: ["Reply YES"],
+          },
+        },
+        accountability: {
+          ...baseFacts().accountability,
+          contract_proposal_mode: true,
+          daily_purpose: "contract_overlay_proposal",
+        },
+      }),
+      telemetry_fact_sources: ["test_daily_no_strategy_card_contract"],
+    });
+
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).not.toContain("STRATEGY_CARD_V1");
+    expect(r.metadata.strategy_card_surface).toBeUndefined();
   });
 
   it("returns shouldSend=false when OpenAI is unavailable", async () => {

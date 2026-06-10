@@ -26,12 +26,18 @@ import {
   validateAndRepairInboundNormalStrategyCardV1,
   validateAndRepairStrategyCardV1,
   type StrategyCardBuildContext,
+  buildDailyC1StrategyCardContextFromSnapshot,
+  buildDailyC1StrategyCardV1,
+  isDailyC1StrategyCardEligible,
+  isDailyStrategyCardEligible,
+  validateAndRepairDailyC1StrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
 import { deriveAdjustmentProposalAllowedByEvidence } from "@/lib/inbound-miss-adjustment-policy";
 import type { ProofAndPraisePermissionV2Data } from "@/lib/sms-proof-praise-permission-v2";
 import type { OpenLoopsAndDoNotRepeatData } from "@/lib/sms-open-loops-and-do-not-repeat";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 
 const PLAN_CONFIRMATION_Q =
   "How does committing to two hours deep work before noon this week feel? Let me know if that works or if you'd like to adjust!";
@@ -1449,5 +1455,213 @@ describe("Phase 4.5 Strategy Card v1 central brain pivot", () => {
     expect(meta.strategy_card_central_turn_purpose).toBe("human_conversation");
     expect(meta.strategy_card_central_pivot_blocked_outcome_scoring).toBe(true);
     expect(meta.strategy_card_central_pivot_should_answer_without_scoring).toBe(true);
+  });
+});
+
+describe("Daily C1 Strategy Card v1", () => {
+  function dailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
+    return {
+      route_kind: "main_active_accountability",
+      accountability_day_key: "2026-06-08",
+      user: {
+        clerk_user_id: "u_daily",
+        preferred_name: "Alex",
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-08T09:00:00.000Z",
+        relationship_profile_summary: null,
+      },
+      commitment: {
+        id: "cmt_d",
+        title: "Focus",
+        behavior_statement: "Two hours deep work",
+        effective_ask: "Two hours deep work",
+        accountability_phase: "active_accountability",
+        identity_anchor_allowed: false,
+        identity_anchor_short: null,
+      },
+      thread_memory: {
+        latest_outbound_sms: "Did it happen?",
+        latest_inbound_sms: null,
+        recent_transcript_or_context_block: null,
+        latest_open_question: null,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: "",
+        recent_pattern_hints: null,
+        last_5_coach_questions: ["Did it happen yesterday?"],
+      },
+      accountability: {
+        daily_purpose: "standard_accountability_check",
+        server_strategy: "standard_check",
+        next_move_type: "hold_standard",
+        prior_outcome: "user_yes",
+        yes_streak_14d: 2,
+        no_count_14d: 0,
+        partial_count_14d: 0,
+        blocker_preview: null,
+        proof_or_milestone_signal: null,
+        silence_tier: "none",
+        unanswered_checks: 0,
+        days_since_last_user_outcome: 1,
+        reentry_active: false,
+        overlay_active: false,
+        evolution_pattern_hint: null,
+        contract_proposal_mode: false,
+      },
+      suggested_coaching_move: "ask_completion",
+      constraints: {
+        max_chars: 300,
+        one_sms: true,
+        no_raw_title_or_behavior_paste: true,
+        no_generic_motivation: true,
+        if_unsafe_return_no_send: true,
+      },
+      ...overrides,
+    };
+  }
+
+  function buildDailyCtx(facts: DailyV3RelationshipFacts) {
+    return buildDailyC1StrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: { data: baseProof() },
+        open_loops_and_do_not_repeat: {
+          data: {
+            ...emptyOpenLoops(),
+            satisfied_asks: [
+              {
+                ask_text: "Did it happen yesterday?",
+                satisfied_at: "2026-06-07",
+                source: "projection",
+                do_not_repeat: true,
+              },
+            ],
+            do_not_repeat_asks: ["Did it happen yesterday?"],
+          },
+        },
+        active_pending_state: { items: [] },
+        no_send_and_silence_history: null,
+      },
+    });
+  }
+
+  it("main_active_accountability defaults to daily_check_in", () => {
+    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+    expect(card.surface).toBe("daily");
+    expect(card.route_kind).toBe("main_active_accountability");
+    expect(card.move.type).toBe("daily_check_in");
+  });
+
+  it("main with pending_plan_proof uses protect_existing_plan", () => {
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyCtx(
+        dailyFacts({
+          accountability: {
+            ...dailyFacts().accountability,
+            pending_plan_proof: {
+              active: true,
+              plan_summary_hint: "after workout",
+              anchor_phrase_hint: "workout",
+              anchor_key: "wk",
+              plan_for_day_key: "2026-06-08",
+              source_answer_preview: "after workout",
+              recurrence_confidence: "medium",
+              outcome_known: false,
+            },
+          },
+          suggested_coaching_move: "close_prior_plan_loop",
+        })
+      ),
+    });
+    expect(card.move.type).toBe("protect_existing_plan");
+  });
+
+  it("low_pressure_reactivation uses reactivate_gently", () => {
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyCtx(
+        dailyFacts({
+          route_kind: "low_pressure_reactivation",
+          suggested_coaching_move: "low_pressure_reactivation",
+          accountability: {
+            ...dailyFacts().accountability,
+            prior_outcome: null,
+            server_strategy: "reactivation_nudge",
+          },
+        })
+      ),
+    });
+    expect(card.move.type).toBe("reactivate_gently");
+    expect(card.writer_constraints.tone_posture).toBe("gentle_reentry");
+    expect(card.writer_constraints.max_questions).toBeLessThanOrEqual(1);
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+  });
+
+  it("C1 eligibility excludes contract, pending, and refresh routes", () => {
+    expect(isDailyC1StrategyCardEligible(dailyFacts())).toBe(true);
+    expect(
+      isDailyC1StrategyCardEligible(
+        dailyFacts({ contract_proposal: { contract_kind: "shrink_ask", required_reply_semantics: "yes_no_binding_only", semantic_daily_contract_v1: true } })
+      )
+    ).toBe(false);
+    expect(
+      isDailyC1StrategyCardEligible(
+        dailyFacts({
+          pending_resolution: {
+            resolution_kind: "replace",
+            expires_at: null,
+            payload_source: null,
+            sms_state: null,
+            detected_intent: null,
+            candidate_behavior_snippet: null,
+            awaiting_user_confirmation: false,
+          },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isDailyC1StrategyCardEligible(
+        dailyFacts({ refresh: { refresh_step: "identity_first", identity_anchor_text: "Leader" } })
+      )
+    ).toBe(false);
+    expect(isDailyStrategyCardEligible(dailyFacts())).toBe(true);
+  });
+
+  it("proof false keeps proof and Victory false", () => {
+    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+    expect(card.allowed_claims.proof).toBe(false);
+    expect(card.allowed_claims.victory_room).toBe(false);
+  });
+
+  it("includes satisfied asks in avoid_repeating", () => {
+    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+    expect(card.writer_constraints.avoid_repeating.length).toBeGreaterThan(0);
+  });
+
+  it("invalid card repairs to safe daily default", () => {
+    const ctx = buildDailyCtx(dailyFacts({ route_kind: "low_pressure_reactivation" }));
+    const bad = buildDailyC1StrategyCardV1({ ctx });
+    bad.move.type = "propose_adjustment";
+    bad.allowed_claims.proposal_active = true;
+    const result = validateAndRepairDailyC1StrategyCardV1(bad, ctx);
+    expect(result.card.move.type).toBe("reactivate_gently");
+    expect(result.card.allowed_claims.proposal_active).toBe(false);
+  });
+
+  it("no SMS copy in daily card fields", () => {
+    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+    expect(card.must_do.join(" ")).not.toMatch(/\b(hey|thanks for texting)\b/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+  });
+
+  it("daily telemetry includes surface and legacy strategy hints", () => {
+    const ctx = buildDailyCtx(dailyFacts());
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_surface).toBe("daily");
+    expect(meta.strategy_card_legacy_server_strategy).toBe("standard_check");
+    expect(meta.strategy_card_daily_reactivation).toBe(false);
   });
 });

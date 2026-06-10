@@ -1422,6 +1422,10 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_central_turn_purpose",
   "strategy_card_central_pivot_blocked_outcome_scoring",
   "strategy_card_central_pivot_should_answer_without_scoring",
+  "strategy_card_legacy_server_strategy",
+  "strategy_card_legacy_next_move_type",
+  "strategy_card_daily_purpose",
+  "strategy_card_daily_reactivation",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

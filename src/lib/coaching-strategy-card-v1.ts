@@ -1,5 +1,5 @@
 /**
- * Phase 4.1/4.3/4.4a/4.5 — Coaching Strategy Card v1 (inbound normal + OQ + arc + central pivot).
+ * Phase 4.1/4.3/4.4a/4.5/4.7a — Coaching Strategy Card v1 (inbound + daily C1).
  * Server-built coaching move envelope; writer-facing after validation/repair.
  * Does not route, mutate state, send SMS, or replace Relationship Snapshot.
  */
@@ -25,15 +25,22 @@ import type {
   InboundV3OpenQuestionFacts,
   InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
+import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
 
-export type StrategyCardSurface = "inbound";
+export type StrategyCardSurface = "inbound" | "daily";
 export type StrategyCardRouteKind =
   | "normal_inbound_reply"
   | "open_question_answer"
   | "arc_clarify_ambiguous_short"
-  | "central_brain_pivot";
+  | "central_brain_pivot"
+  | "main_active_accountability"
+  | "low_pressure_reactivation";
+
+export type DailyC1StrategyCardRouteKind =
+  | "main_active_accountability"
+  | "low_pressure_reactivation";
 
 export type StrategyCardOutcome = "completed" | "missed" | "partial" | "none" | "unclear";
 
@@ -49,6 +56,7 @@ export type StrategyCardMoveType =
   | "evaluate_commitment"
   | "raise_standard"
   | "reactivate_gently"
+  | "daily_check_in"
   | "handoff"
   | "other";
 
@@ -82,6 +90,13 @@ export type StrategyCardV1 = {
     central_pivot_blocked_outcome_scoring?: boolean | null;
     central_pivot_should_answer_without_scoring?: boolean | null;
     central_pivot_suggested_move?: string | null;
+    daily_route_kind?: string | null;
+    daily_server_strategy?: string | null;
+    daily_purpose?: string | null;
+    daily_prior_outcome?: StrategyCardOutcome | null;
+    daily_pending_plan_proof_active?: boolean;
+    daily_reactivation?: boolean;
+    daily_silence_tier?: string | null;
   };
   move: {
     type: StrategyCardMoveType;
@@ -111,7 +126,17 @@ export type StrategyCardV1 = {
     legacy_coaching_move_source?: string | null;
     legacy_hint_used?: boolean;
     legacy_hint_replaced?: boolean;
+    legacy_server_strategy?: string | null;
+    legacy_next_move_type?: string | null;
   };
+};
+
+export type DailyC1StrategyCardBuildContext = {
+  facts: DailyV3RelationshipFacts;
+  proofPermission: ProofAndPraisePermissionV2Data;
+  openLoops: OpenLoopsAndDoNotRepeatData;
+  activePending: ActivePendingState;
+  noSendSilence: NoSendAndSilenceHistoryV2Data | null;
 };
 
 export type StrategyCardValidationStatus = "valid" | "repaired";
@@ -326,6 +351,9 @@ function mapLegacyMoveToType(legacy: string | null | undefined): StrategyCardMov
   if (m === "respond_to_open_question_answer_natural") return "close_loop";
   if (m === "acknowledge_prior_answer_without_reasking") return "close_loop";
   if (m === "next_first_step" || m === "reinforce_plan_without_proof") return "protect_existing_plan";
+  if (m === "close_prior_plan_loop") return "protect_existing_plan";
+  if (m === "low_pressure_reactivation") return "reactivate_gently";
+  if (m === "ask_completion" || m === "hold_standard" || m === "invite_smaller_rep") return "daily_check_in";
   if (m === "respond_commitment_change_context_without_pending_resolution") return "evaluate_commitment";
   if (m === "commitment_change_handoff_respond_with_server_owned_next_steps") return "handoff";
   if (m === "ask_accountability") return "other";
@@ -1884,9 +1912,11 @@ ${JSON.stringify(card)}`;
 
 export function strategyCardV1MetaForTelemetry(
   result: StrategyCardValidationResult,
-  ctx?: StrategyCardBuildContext
+  ctx?: StrategyCardBuildContext | DailyC1StrategyCardBuildContext
 ): Record<string, unknown> {
   const c = result.card;
+  const inboundCtx =
+    ctx && c.surface !== "daily" ? (ctx as StrategyCardBuildContext) : undefined;
   return {
     strategy_card_version: c.version,
     strategy_card_surface: c.surface,
@@ -1903,28 +1933,30 @@ export function strategyCardV1MetaForTelemetry(
     strategy_card_can_claim_proof: c.allowed_claims.proof,
     strategy_card_can_reference_victory_room: c.allowed_claims.victory_room,
     strategy_card_tone_posture: c.writer_constraints.tone_posture,
-    ...(ctx ? { strategy_card_plan_ack_source: deriveStrategyCardPlanAckSource(ctx) } : {}),
+    ...(ctx && c.surface !== "daily"
+      ? { strategy_card_plan_ack_source: deriveStrategyCardPlanAckSource(inboundCtx!) }
+      : {}),
     ...(c.route_kind === "open_question_answer"
       ? {
           strategy_card_open_question_answer_kind:
             c.server_truth_summary.open_question_answer_kind ??
-            ctx?.facts.open_question_facts?.answer_kind ??
+            inboundCtx?.facts.open_question_facts?.answer_kind ??
             null,
           strategy_card_open_question_satisfied:
             c.server_truth_summary.open_question_satisfied ??
-            (ctx ? isOpenQuestionSatisfied(ctx) : null),
+            (inboundCtx ? isOpenQuestionSatisfied(inboundCtx) : null),
         }
       : {}),
     ...(c.route_kind === "arc_clarify_ambiguous_short"
       ? {
           strategy_card_arc_tentative_outcome:
             c.server_truth_summary.arc_tentative_outcome ??
-            ctx?.facts.arc_clarification_facts?.tentative_outcome ??
+            inboundCtx?.facts.arc_clarification_facts?.tentative_outcome ??
             null,
           strategy_card_arc_context_age: c.server_truth_summary.arc_context_age ?? null,
           strategy_card_arc_clarification_reason:
             c.server_truth_summary.arc_clarification_reason ??
-            ctx?.facts.arc_clarification_facts?.clarification_reason ??
+            inboundCtx?.facts.arc_clarification_facts?.clarification_reason ??
             null,
         }
       : {}),
@@ -1932,15 +1964,25 @@ export function strategyCardV1MetaForTelemetry(
       ? {
           strategy_card_central_turn_purpose:
             c.server_truth_summary.central_turn_purpose ??
-            ctx?.facts.central_brain_pivot_facts?.central_turn_purpose ??
+            inboundCtx?.facts.central_brain_pivot_facts?.central_turn_purpose ??
             null,
           strategy_card_central_pivot_blocked_outcome_scoring:
             c.server_truth_summary.central_pivot_blocked_outcome_scoring ??
-            ctx?.facts.central_brain_pivot_facts?.blocked_outcome_scoring ??
+            inboundCtx?.facts.central_brain_pivot_facts?.blocked_outcome_scoring ??
             null,
           strategy_card_central_pivot_should_answer_without_scoring:
             c.server_truth_summary.central_pivot_should_answer_without_scoring ??
-            (ctx?.facts.central_brain_pivot_facts?.blocked_outcome_scoring === true ? true : null),
+            (inboundCtx?.facts.central_brain_pivot_facts?.blocked_outcome_scoring === true
+              ? true
+              : null),
+        }
+      : {}),
+    ...(c.surface === "daily"
+      ? {
+          strategy_card_legacy_server_strategy: c.meta.legacy_server_strategy ?? null,
+          strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
+          strategy_card_daily_purpose: c.server_truth_summary.daily_purpose ?? null,
+          strategy_card_daily_reactivation: c.server_truth_summary.daily_reactivation === true,
         }
       : {}),
   };
@@ -2036,4 +2078,365 @@ export function deriveAdjustmentPolicyForCard(
   facts: InboundV3RelationshipFacts
 ): MissAdjustmentPolicyResult | null | undefined {
   return facts.miss_adjustment_policy;
+}
+
+// --- Daily C1 Strategy Card v1 (main_active_accountability + low_pressure_reactivation) ---
+
+const DAILY_C1_ALLOWED_MOVES: StrategyCardMoveType[] = [
+  "daily_check_in",
+  "reactivate_gently",
+  "protect_existing_plan",
+  "close_loop",
+  "ask_blocker",
+  "recover_today",
+  "clarify",
+  "other",
+];
+
+export function isDailyC1StrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
+  if (
+    facts.route_kind !== "main_active_accountability" &&
+    facts.route_kind !== "low_pressure_reactivation"
+  ) {
+    return false;
+  }
+  if (facts.contract_proposal) return false;
+  if (facts.accountability.contract_proposal_mode) return false;
+  if (facts.pending_resolution) return false;
+  if (facts.refresh) return false;
+  return true;
+}
+
+export function isDailyStrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
+  return isDailyC1StrategyCardEligible(facts);
+}
+
+function deriveDailyOutcomeFromPriorOutcome(prior: string | null | undefined): StrategyCardOutcome {
+  const p = prior?.trim();
+  if (p === "user_yes") return "completed";
+  if (p === "user_no") return "missed";
+  if (p === "user_partial") return "partial";
+  return "none";
+}
+
+function collectDailyAvoidRepeating(ctx: DailyC1StrategyCardBuildContext): string[] {
+  const items: string[] = [];
+  for (const ask of ctx.openLoops.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    const fp = fingerprintAsk(s.ask_text ?? "");
+    if (fp) items.push(fp);
+  }
+  for (const ask of ctx.facts.daily_satisfied_ask_context?.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const q of ctx.facts.thread_memory.last_5_coach_questions ?? []) {
+    const fp = fingerprintAsk(q);
+    if (fp) items.push(fp);
+  }
+  return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
+}
+
+function selectDailyC1MainMoveType(facts: DailyV3RelationshipFacts): StrategyCardMoveType {
+  if (facts.accountability.pending_plan_proof?.active === true) {
+    return "protect_existing_plan";
+  }
+  if (facts.accountability.blocker_preview?.trim()) {
+    return "ask_blocker";
+  }
+  if (facts.accountability.daily_purpose === "comeback_after_silence") {
+    return "daily_check_in";
+  }
+  return "daily_check_in";
+}
+
+function buildDailyC1AllowedClaims(
+  ctx: DailyC1StrategyCardBuildContext,
+  outcome: StrategyCardOutcome
+): StrategyCardV1["allowed_claims"] {
+  const p = ctx.proofPermission;
+  if (ctx.facts.route_kind === "low_pressure_reactivation") {
+    return {
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: false,
+    };
+  }
+  return {
+    completion: outcome === "completed" && p.can_claim_completion,
+    miss: outcome === "missed" && p.can_claim_miss,
+    partial: outcome === "partial" && p.can_claim_partial,
+    proof: p.can_claim_proof,
+    victory_room: p.can_reference_victory_room,
+    state_changed: false,
+    proposal_active: false,
+  };
+}
+
+function buildDailyC1MustDoMustNotDo(args: {
+  moveType: StrategyCardMoveType;
+  ctx: DailyC1StrategyCardBuildContext;
+}): { must_do: string[]; must_not_do: string[] } {
+  const { moveType, ctx } = args;
+  const must_do: string[] = [];
+  const must_not_do: string[] = [
+    "Do not claim proof or Victory Room unless allowed_claims permits it.",
+    "Do not claim server-side state changed or an active proposal.",
+  ];
+
+  if (ctx.facts.route_kind === "low_pressure_reactivation") {
+    must_do.push("Low-pressure re-entry — one natural question at most.");
+    must_do.push("Acknowledge quiet context only when appropriate, without guilt.");
+    must_not_do.push("Do not scold or imply the user ignored undelivered messages.");
+    must_not_do.push("Do not claim completion, miss, partial, or proof on this turn.");
+    must_not_do.push("Do not overstate continuity or pressure.");
+  } else if (moveType === "protect_existing_plan" || moveType === "close_loop") {
+    must_do.push("Close the pending plan loop or protect the existing plan first.");
+    must_do.push("Use current commitment and relevant recent context.");
+    must_not_do.push("Do not treat pending plan proof as actual proof unless permission allows.");
+    must_not_do.push("Do not invent a new plan.");
+  } else if (moveType === "ask_blocker") {
+    must_do.push("Ask about today's commitment in natural human language.");
+    must_do.push("Name or explore what got in the way using known blocker context.");
+    must_not_do.push("Do not propose goal change on this turn.");
+  } else {
+    must_do.push("Ask about today's commitment / accountability in natural human language.");
+    must_do.push("Use current commitment and relevant recent context.");
+    must_not_do.push("Do not propose goal change unless server strategy explicitly requires it.");
+  }
+
+  must_not_do.push("Do not re-ask satisfied questions from avoid_repeating.");
+  if ((ctx.openLoops.satisfied_asks?.length ?? 0) > 0 || ctx.facts.daily_satisfied_ask_context) {
+    must_not_do.push("Do not repeat or paraphrase satisfied coach asks.");
+  }
+
+  return {
+    must_do: must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+  };
+}
+
+function resolveDailyC1TonePosture(args: {
+  facts: DailyV3RelationshipFacts;
+  moveType: StrategyCardMoveType;
+}): StrategyCardTonePosture {
+  if (args.facts.route_kind === "low_pressure_reactivation") {
+    return "gentle_reentry";
+  }
+  if (
+    args.facts.accountability.reentry_active ||
+    args.facts.accountability.daily_purpose === "comeback_after_silence"
+  ) {
+    return "warm_direct";
+  }
+  return "warm_direct";
+}
+
+export function buildDailyC1StrategyCardContextFromSnapshot(args: {
+  facts: DailyV3RelationshipFacts;
+  snapshot: {
+    proof_and_praise_permission: { data: ProofAndPraisePermissionV2Data };
+    open_loops_and_do_not_repeat: { data: OpenLoopsAndDoNotRepeatData };
+    active_pending_state: ActivePendingState;
+    no_send_and_silence_history?: { data: NoSendAndSilenceHistoryV2Data } | null;
+  };
+}): DailyC1StrategyCardBuildContext {
+  return {
+    facts: args.facts,
+    proofPermission: args.snapshot.proof_and_praise_permission.data,
+    openLoops: args.snapshot.open_loops_and_do_not_repeat.data,
+    activePending: args.snapshot.active_pending_state,
+    noSendSilence: args.snapshot.no_send_and_silence_history?.data ?? null,
+  };
+}
+
+export function buildDailyC1StrategyCardV1(args: {
+  ctx: DailyC1StrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  const { ctx } = args;
+  const { facts } = ctx;
+  const isReactivation = facts.route_kind === "low_pressure_reactivation";
+  const outcome = deriveDailyOutcomeFromPriorOutcome(facts.accountability.prior_outcome);
+  const moveType = isReactivation ? "reactivate_gently" : selectDailyC1MainMoveType(facts);
+  const legacyMove = facts.suggested_coaching_move?.trim() || null;
+  const legacyType = mapLegacyMoveToType(legacyMove ?? undefined);
+  const legacyUsed = legacyType != null && legacyType === moveType;
+  const legacyReplaced = legacyType != null && legacyType !== moveType && legacyMove;
+
+  const { must_do, must_not_do } = buildDailyC1MustDoMustNotDo({ moveType, ctx });
+  const avoid_repeating = collectDailyAvoidRepeating(ctx);
+  const allowed = buildDailyC1AllowedClaims(ctx, outcome);
+  const satisfiedFingerprints = (ctx.openLoops.satisfied_asks ?? [])
+    .map((s) => fingerprintAsk(s.ask_text ?? ""))
+    .filter(Boolean)
+    .slice(0, MAX_AVOID_REPEATING);
+
+  const reason = isReactivation
+    ? "Low-pressure reactivation — gentle re-entry without outcome claims."
+    : moveType === "protect_existing_plan"
+      ? "Close pending plan loop before a fresh accountability check."
+      : moveType === "ask_blocker"
+        ? "Daily check-in with known blocker context."
+        : "Daily accountability check-in for today's commitment.";
+
+  return {
+    version: STRATEGY_CARD_V1_VERSION,
+    generated_at: args.generatedAt ?? new Date().toISOString(),
+    surface: "daily",
+    route_kind: facts.route_kind as DailyC1StrategyCardRouteKind,
+    turn_kind: facts.accountability.daily_purpose ?? facts.route_kind,
+    server_truth_summary: {
+      outcome,
+      explicit_user_truth: outcome !== "none" && outcome !== "unclear",
+      active_pending_kinds: activePendingKinds(ctx.activePending),
+      satisfied_ask_fingerprints: satisfiedFingerprints,
+      daily_route_kind: facts.route_kind,
+      daily_server_strategy: facts.accountability.server_strategy ?? null,
+      daily_purpose: facts.accountability.daily_purpose ?? null,
+      daily_prior_outcome: outcome,
+      daily_pending_plan_proof_active: facts.accountability.pending_plan_proof?.active === true,
+      daily_reactivation: isReactivation,
+      daily_silence_tier: facts.accountability.silence_tier ?? null,
+    },
+    move: {
+      type: moveType,
+      priority: isReactivation ? "low" : "normal",
+      confidence: "high",
+      reason: truncateText(reason, MAX_REASON_CHARS),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims: allowed,
+    writer_constraints: {
+      max_questions: isReactivation ? 1 : 1,
+      avoid_repeating,
+      tone_posture: resolveDailyC1TonePosture({ facts, moveType }),
+    },
+    meta: {
+      generation_source: "server_strategy_card_v1",
+      legacy_suggested_coaching_move: legacyMove,
+      legacy_coaching_move_source: "rule_derived",
+      legacy_server_strategy: facts.accountability.server_strategy ?? null,
+      legacy_next_move_type: facts.accountability.next_move_type ?? null,
+      legacy_hint_used: legacyUsed || undefined,
+      legacy_hint_replaced: legacyReplaced ? true : undefined,
+    },
+  };
+}
+
+export function validateDailyC1StrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC1StrategyCardBuildContext
+): { valid: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (card.surface !== "daily") reasons.push("surface_not_daily");
+  if (
+    card.route_kind !== "main_active_accountability" &&
+    card.route_kind !== "low_pressure_reactivation"
+  ) {
+    reasons.push("daily_c1_route_kind_invalid");
+  }
+  if (!DAILY_C1_ALLOWED_MOVES.includes(card.move.type)) {
+    reasons.push("daily_c1_forbidden_move");
+  }
+  if (card.route_kind === "low_pressure_reactivation" && card.move.type !== "reactivate_gently") {
+    reasons.push("reactivation_move_mismatch");
+  }
+  if (card.allowed_claims.proposal_active || card.allowed_claims.state_changed) {
+    reasons.push("daily_c1_forbidden_claim");
+  }
+  if (card.allowed_claims.proof && !ctx.proofPermission.can_claim_proof) {
+    reasons.push("proof_not_permitted");
+  }
+  if (card.allowed_claims.victory_room && !ctx.proofPermission.can_reference_victory_room) {
+    reasons.push("victory_room_not_permitted");
+  }
+  if (card.allowed_claims.completion && !ctx.proofPermission.can_claim_completion) {
+    reasons.push("completion_not_permitted");
+  }
+  if (card.allowed_claims.miss && !ctx.proofPermission.can_claim_miss) {
+    reasons.push("miss_not_permitted");
+  }
+  if (card.allowed_claims.partial && !ctx.proofPermission.can_claim_partial) {
+    reasons.push("partial_not_permitted");
+  }
+  if (
+    card.route_kind === "low_pressure_reactivation" &&
+    (card.allowed_claims.completion ||
+      card.allowed_claims.miss ||
+      card.allowed_claims.partial ||
+      card.allowed_claims.proof ||
+      card.allowed_claims.victory_room)
+  ) {
+    reasons.push("reactivation_outcome_claim_forbidden");
+  }
+  if (
+    card.route_kind === "low_pressure_reactivation" &&
+    card.writer_constraints.tone_posture !== "gentle_reentry" &&
+    card.writer_constraints.tone_posture !== "low_pressure"
+  ) {
+    reasons.push("reactivation_tone_invalid");
+  }
+  if (card.route_kind === "low_pressure_reactivation" && card.writer_constraints.max_questions > 1) {
+    reasons.push("reactivation_max_questions_exceeded");
+  }
+  const hasSatisfied =
+    (ctx.openLoops.satisfied_asks?.length ?? 0) > 0 ||
+    (ctx.facts.daily_satisfied_ask_context?.do_not_repeat_asks?.length ?? 0) > 0;
+  if (hasSatisfied && card.writer_constraints.avoid_repeating.length === 0) {
+    reasons.push("missing_satisfied_avoid_repeating");
+  }
+  for (const item of card.must_do) {
+    if (SMS_COPY_RE.test(item) && item.length > 80) {
+      reasons.push("sms_copy_in_must_do");
+    }
+  }
+  if (card.move.reason.length > MAX_REASON_CHARS) {
+    reasons.push("reason_too_long");
+  }
+
+  return { valid: reasons.length === 0, reasons };
+}
+
+function repairDailyC1Card(
+  card: StrategyCardV1,
+  ctx: DailyC1StrategyCardBuildContext,
+  _reasons: string[]
+): StrategyCardV1 {
+  return buildDailyC1StrategyCardV1({ ctx, generatedAt: card.generated_at });
+}
+
+export function validateAndRepairDailyC1StrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC1StrategyCardBuildContext
+): StrategyCardValidationResult {
+  const first = validateDailyC1StrategyCardV1(card, ctx);
+  if (first.valid) {
+    return { card, validation_status: "valid", validation_reasons: [] };
+  }
+  const repaired = repairDailyC1Card(card, ctx, first.reasons);
+  const second = validateDailyC1StrategyCardV1(repaired, ctx);
+  return {
+    card: repaired,
+    validation_status: "repaired",
+    validation_reasons: [...first.reasons, ...second.reasons.filter((r) => !first.reasons.includes(r))],
+  };
+}
+
+/** Writer strategy prose demoted when Daily C1 Strategy Card is active. */
+export function buildDailyC1StrategyCardDemotedPromptRules(): string {
+  return `
+- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
+- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.
+- Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
+- If facts say reentry/comeback after silence, acknowledge return briefly before the ask.`;
 }
