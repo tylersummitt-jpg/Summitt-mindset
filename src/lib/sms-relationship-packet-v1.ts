@@ -1428,6 +1428,10 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_daily_reactivation",
   "strategy_card_legacy_v2_contract_proposal_kind",
   "strategy_card_daily_contract_proposal_kind",
+  "strategy_card_daily_refresh_step",
+  "strategy_card_daily_refresh_session_written_before_sms",
+  "strategy_card_daily_refresh_required_anchor_fingerprint",
+  "strategy_card_daily_refresh_required_ask_fingerprint",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

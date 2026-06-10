@@ -30,10 +30,14 @@ import {
   buildDailyC1StrategyCardV1,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
+  buildDailyC3RefreshStrategyCardContextFromSnapshot,
+  buildDailyC3RefreshStrategyCardV1,
   isDailyC1StrategyCardEligible,
   isDailyC2StrategyCardEligible,
+  isDailyC3RefreshStrategyCardEligible,
   isDailyStrategyCardEligible,
   validateAndRepairDailyC1StrategyCardV1,
+  validateAndRepairDailyC3RefreshStrategyCardV1,
   validateAndRepairDailyContractPromptStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
@@ -1859,5 +1863,292 @@ describe("Daily C2 Strategy Card v1", () => {
     expect(meta.strategy_card_move_type).toBe("contract_proposal");
     expect(meta.strategy_card_daily_contract_proposal_kind).toBe("shrink_ask");
     expect(meta.strategy_card_legacy_v2_contract_proposal_kind).toBe("shrink_ask");
+  });
+});
+
+describe("Daily C3 refresh Strategy Card v1", () => {
+  const anchor = "I lead with calm focus before noon.";
+  const effectiveAsk = "Two hours of deep work before noon.";
+
+  function c3DailyFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
+    return {
+      route_kind: "main_active_accountability",
+      accountability_day_key: "2026-05-12",
+      user: {
+        clerk_user_id: "user_test",
+        preferred_name: "Alex",
+        timezone: "America/Chicago",
+        local_time_iso: "2026-05-12T09:00:00.000Z",
+        relationship_profile_summary: null,
+      },
+      commitment: {
+        id: "cmt_1",
+        title: "Morning focus",
+        behavior_statement: "Two hours deep work",
+        effective_ask: effectiveAsk,
+        accountability_phase: "active_accountability",
+        identity_anchor_allowed: false,
+        identity_anchor_short: anchor,
+      },
+      thread_memory: {
+        latest_outbound_sms: "Did it happen?",
+        latest_inbound_sms: null,
+        recent_transcript_or_context_block: null,
+        latest_open_question: null,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: "",
+        recent_pattern_hints: null,
+        last_5_coach_questions: [],
+      },
+      accountability: {
+        daily_purpose: "standard_accountability_check",
+        server_strategy: "standard_check",
+        next_move_type: "hold_standard",
+        prior_outcome: "user_yes",
+        yes_streak_14d: 2,
+        no_count_14d: 0,
+        partial_count_14d: 0,
+        blocker_preview: null,
+        proof_or_milestone_signal: null,
+        silence_tier: "none",
+        unanswered_checks: 0,
+        days_since_last_user_outcome: 1,
+        reentry_active: false,
+        overlay_active: false,
+        evolution_pattern_hint: null,
+        contract_proposal_mode: false,
+      },
+      suggested_coaching_move: "ask_completion",
+      constraints: {
+        max_chars: 300,
+        one_sms: true,
+        no_raw_title_or_behavior_paste: true,
+        no_generic_motivation: true,
+        if_unsafe_return_no_send: true,
+      },
+      ...overrides,
+    };
+  }
+
+  function refreshFacts(
+    routeKind: "refresh_identity" | "refresh_commitment",
+    overrides?: Partial<DailyV3RelationshipFacts>
+  ): DailyV3RelationshipFacts {
+    return c3DailyFacts({
+      route_kind: routeKind,
+      suggested_coaching_move:
+        routeKind === "refresh_identity"
+          ? "refresh_identity_alignment"
+          : "refresh_commitment_fit_check",
+      refresh:
+        routeKind === "refresh_identity"
+          ? { refresh_step: "identity_first", identity_anchor_text: anchor }
+          : { refresh_step: "commitment_daily", effective_ask_for_bar: effectiveAsk },
+      constraints: {
+        ...c3DailyFacts().constraints,
+        required_verbatim_substrings: [routeKind === "refresh_identity" ? anchor : effectiveAsk],
+      },
+      ...overrides,
+    });
+  }
+
+  function buildC3Ctx(facts: DailyV3RelationshipFacts) {
+    return buildDailyC3RefreshStrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: { data: baseProof() },
+        open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+        active_pending_state: { items: [] },
+        no_send_and_silence_history: null,
+      },
+    });
+  }
+
+  it("refresh_identity uses move refresh_identity", () => {
+    const card = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_identity")),
+    });
+    expect(card.route_kind).toBe("refresh_identity");
+    expect(card.move.type).toBe("refresh_identity");
+  });
+
+  it("refresh_commitment uses move refresh_commitment", () => {
+    const card = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_commitment")),
+    });
+    expect(card.route_kind).toBe("refresh_commitment");
+    expect(card.move.type).toBe("refresh_commitment");
+  });
+
+  it("all claims false on refresh cards", () => {
+    for (const route of ["refresh_identity", "refresh_commitment"] as const) {
+      const card = buildDailyC3RefreshStrategyCardV1({
+        ctx: buildC3Ctx(refreshFacts(route)),
+      });
+      expect(card.allowed_claims.completion).toBe(false);
+      expect(card.allowed_claims.miss).toBe(false);
+      expect(card.allowed_claims.partial).toBe(false);
+      expect(card.allowed_claims.proof).toBe(false);
+      expect(card.allowed_claims.victory_room).toBe(false);
+      expect(card.allowed_claims.state_changed).toBe(false);
+      expect(card.allowed_claims.proposal_active).toBe(false);
+    }
+  });
+
+  it("refresh_identity must_not_do blocks identity/refresh/commitment false claims", () => {
+    const card = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_identity")),
+    });
+    const joined = card.must_not_do.join(" ").toLowerCase();
+    expect(joined).toMatch(/identity/);
+    expect(joined).toMatch(/updated/);
+    expect(joined).toMatch(/refresh/);
+    expect(joined).toMatch(/complete/);
+    expect(joined).toMatch(/commitment/);
+  });
+
+  it("refresh_commitment must_not_do blocks commitment/refresh/recommitted false claims", () => {
+    const card = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_commitment")),
+    });
+    const joined = card.must_not_do.join(" ").toLowerCase();
+    expect(joined).toMatch(/commitment/);
+    expect(joined).toMatch(/changed/);
+    expect(joined).toMatch(/refresh/);
+    expect(joined).toMatch(/complete/);
+    expect(joined).toMatch(/recommitted/);
+  });
+
+  it("max_questions <= 1", () => {
+    const card = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_identity")),
+    });
+    expect(card.writer_constraints.max_questions).toBeLessThanOrEqual(1);
+  });
+
+  it("avoid_repeating includes anchor/effective ask fingerprint when available", () => {
+    const identityCard = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_identity")),
+    });
+    expect(
+      identityCard.server_truth_summary.daily_refresh_required_anchor_fingerprint
+    ).toBeTruthy();
+    expect(identityCard.writer_constraints.avoid_repeating).toContain(
+      identityCard.server_truth_summary.daily_refresh_required_anchor_fingerprint
+    );
+
+    const commitmentCard = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_commitment")),
+    });
+    expect(
+      commitmentCard.server_truth_summary.daily_refresh_required_ask_fingerprint
+    ).toBeTruthy();
+    expect(commitmentCard.writer_constraints.avoid_repeating).toContain(
+      commitmentCard.server_truth_summary.daily_refresh_required_ask_fingerprint
+    );
+  });
+
+  it("invalid refresh_identity card repairs", () => {
+    const ctx = buildC3Ctx(refreshFacts("refresh_identity"));
+    const bad = buildDailyC3RefreshStrategyCardV1({ ctx });
+    bad.move.type = "refresh_commitment";
+    bad.allowed_claims.state_changed = true;
+    const result = validateAndRepairDailyC3RefreshStrategyCardV1(bad, ctx);
+    expect(result.card.move.type).toBe("refresh_identity");
+    expect(result.card.allowed_claims.state_changed).toBe(false);
+    expect(result.validation_status).toBe("repaired");
+  });
+
+  it("invalid refresh_commitment card repairs", () => {
+    const ctx = buildC3Ctx(refreshFacts("refresh_commitment"));
+    const bad = buildDailyC3RefreshStrategyCardV1({ ctx });
+    bad.move.type = "refresh_identity";
+    bad.writer_constraints.max_questions = 3;
+    const result = validateAndRepairDailyC3RefreshStrategyCardV1(bad, ctx);
+    expect(result.card.move.type).toBe("refresh_commitment");
+    expect(result.card.writer_constraints.max_questions).toBeLessThanOrEqual(1);
+    expect(result.validation_status).toBe("repaired");
+  });
+
+  it("no SMS copy in refresh card fields", () => {
+    const card = buildDailyC3RefreshStrategyCardV1({
+      ctx: buildC3Ctx(refreshFacts("refresh_commitment")),
+    });
+    expect(card.must_do.join(" ")).not.toMatch(/\b(hey|thanks for texting)\b/i);
+    expect(card.move.reason.length).toBeLessThanOrEqual(200);
+  });
+
+  it("C3 refresh eligibility excludes pending, contract, and C1 routes", () => {
+    expect(isDailyC3RefreshStrategyCardEligible(refreshFacts("refresh_identity"))).toBe(true);
+    expect(isDailyC3RefreshStrategyCardEligible(refreshFacts("refresh_commitment"))).toBe(true);
+    expect(isDailyC3RefreshStrategyCardEligible(c3DailyFacts())).toBe(false);
+    expect(
+      isDailyC3RefreshStrategyCardEligible(
+        refreshFacts("refresh_identity", {
+          pending_resolution: {
+            resolution_kind: "replace",
+            expires_at: null,
+            payload_source: null,
+            sms_state: null,
+            detected_intent: null,
+            candidate_behavior_snippet: null,
+            awaiting_user_confirmation: false,
+          },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isDailyC3RefreshStrategyCardEligible(
+        refreshFacts("refresh_identity", {
+          contract_proposal: {
+            contract_kind: "shrink_ask",
+            required_reply_semantics: "yes_no_binding_only",
+          },
+        })
+      )
+    ).toBe(false);
+    expect(isDailyStrategyCardEligible(refreshFacts("refresh_identity"))).toBe(true);
+    expect(isDailyC1StrategyCardEligible(c3DailyFacts())).toBe(true);
+    expect(
+      isDailyC2StrategyCardEligible(
+        c3DailyFacts({
+          route_kind: "contract_prompt",
+          contract_proposal: {
+            contract_kind: "shrink_ask",
+            required_reply_semantics: "yes_no_binding_only",
+            semantic_daily_contract_v1: true,
+            daily_contract_semantic_facts: {
+              proposal_kind: "shrink_ask",
+              duration_days: 7,
+              base_behavior_statement: "Two hours",
+              proposed_overlay_ask: "One hour",
+              proposed_behavior_preview: "One hour",
+              desired_response_semantics: "natural_confirmation_or_decline_or_adjustment",
+              must_not_claim_goal_updated: true,
+              forbidden_phrases: [],
+            },
+          },
+          accountability: {
+            ...c3DailyFacts().accountability,
+            contract_proposal_mode: true,
+          },
+        })
+      )
+    ).toBe(true);
+  });
+
+  it("refresh telemetry includes compact refresh fields", () => {
+    const ctx = buildC3Ctx(refreshFacts("refresh_identity"));
+    const card = buildDailyC3RefreshStrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_surface).toBe("daily");
+    expect(meta.strategy_card_route_kind).toBe("refresh_identity");
+    expect(meta.strategy_card_move_type).toBe("refresh_identity");
+    expect(meta.strategy_card_daily_refresh_step).toBe("identity");
+    expect(meta.strategy_card_daily_refresh_session_written_before_sms).toBe(false);
+    expect(meta.strategy_card_daily_refresh_required_anchor_fingerprint).toBeTruthy();
   });
 });

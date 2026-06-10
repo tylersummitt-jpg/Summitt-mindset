@@ -76,12 +76,16 @@ import {
   buildDailyC1StrategyCardV1,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
+  buildDailyC3RefreshStrategyCardContextFromSnapshot,
+  buildDailyC3RefreshStrategyCardV1,
   buildStrategyCardV1PromptGuidance,
   isDailyC1StrategyCardEligible,
   isDailyC2StrategyCardEligible,
+  isDailyC3RefreshStrategyCardEligible,
   strategyCardV1MetaForTelemetry,
   strategyCardV1UserPromptAppendix,
   validateAndRepairDailyC1StrategyCardV1,
+  validateAndRepairDailyC3RefreshStrategyCardV1,
   validateAndRepairDailyContractPromptStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import type { TemporalContractV1, TemporalReferencedEventV1 } from "@/lib/sms-temporal-contract-v1";
@@ -1068,6 +1072,7 @@ export async function produceDailyV3RelationshipSms(
   let strategyCardPromptGuidance = "";
   const strategyCardC1Eligible = isDailyC1StrategyCardEligible(laneFacts);
   const strategyCardC2Eligible = isDailyC2StrategyCardEligible(laneFacts);
+  const strategyCardC3RefreshEligible = isDailyC3RefreshStrategyCardEligible(laneFacts);
   if (strategyCardC1Eligible) {
     const strategyCtx = buildDailyC1StrategyCardContextFromSnapshot({
       facts: laneFacts,
@@ -1085,6 +1090,16 @@ export async function produceDailyV3RelationshipSms(
     });
     const draftCard = buildDailyC2StrategyCardV1({ ctx: strategyCtx });
     const validated = validateAndRepairDailyContractPromptStrategyCardV1(draftCard, strategyCtx);
+    strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
+    strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
+    Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
+  } else if (strategyCardC3RefreshEligible) {
+    const strategyCtx = buildDailyC3RefreshStrategyCardContextFromSnapshot({
+      facts: laneFacts,
+      snapshot: relationshipPacket.snapshotV2,
+    });
+    const draftCard = buildDailyC3RefreshStrategyCardV1({ ctx: strategyCtx });
+    const validated = validateAndRepairDailyC3RefreshStrategyCardV1(draftCard, strategyCtx);
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
     Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));

@@ -524,6 +524,106 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.strategy_card_daily_contract_proposal_kind).toBe("shrink_ask");
   });
 
+  it("refresh_identity route attaches Daily C3 refresh Strategy Card and keeps verbatim addendum", async () => {
+    const anchor = "I lead with calm focus before noon.";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: `Still you — ${anchor} Does that still fit who you're becoming?`,
+              no_send_reason: null,
+              turn_purpose: "refresh_identity",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        route_kind: "refresh_identity",
+        refresh: {
+          refresh_step: "identity_first",
+          identity_anchor_text: anchor,
+        },
+        constraints: {
+          ...baseFacts().constraints,
+          required_verbatim_substrings: [anchor],
+        },
+        suggested_coaching_move: "refresh_identity_alignment",
+      }),
+      telemetry_fact_sources: ["test_daily_strategy_card_refresh_identity"],
+    });
+
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(systemMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).toContain("primary coaching move");
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).toContain("REFRESH_IDENTITY_ROUTE");
+    expect(systemMsg).toContain("REQUIRED_VERBATIM");
+    expect(userMsg).toContain("required_verbatim_substrings");
+    expect(r.metadata.strategy_card_surface).toBe("daily");
+    expect(r.metadata.strategy_card_route_kind).toBe("refresh_identity");
+    expect(r.metadata.strategy_card_move_type).toBe("refresh_identity");
+    expect(r.metadata.strategy_card_daily_refresh_step).toBe("identity");
+    expect(r.metadata.strategy_card_daily_refresh_session_written_before_sms).toBe(false);
+  });
+
+  it("refresh_commitment route attaches Daily C3 refresh Strategy Card and keeps verbatim addendum", async () => {
+    const bar = "Two hours of deep work before noon.";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: `Does ${bar} still feel like the right bar today?`,
+              no_send_reason: null,
+              turn_purpose: "refresh_commitment",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        route_kind: "refresh_commitment",
+        refresh: {
+          refresh_step: "commitment_daily",
+          effective_ask_for_bar: bar,
+        },
+        constraints: {
+          ...baseFacts().constraints,
+          required_verbatim_substrings: [bar],
+        },
+        suggested_coaching_move: "refresh_commitment_fit_check",
+      }),
+      telemetry_fact_sources: ["test_daily_strategy_card_refresh_commitment"],
+    });
+
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(systemMsg).toContain("STRATEGY_CARD_V1");
+    expect(userMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).toContain("REFRESH_COMMITMENT_ROUTE");
+    expect(systemMsg).toContain("REQUIRED_VERBATIM");
+    expect(userMsg).toContain("required_verbatim_substrings");
+    expect(r.metadata.strategy_card_surface).toBe("daily");
+    expect(r.metadata.strategy_card_route_kind).toBe("refresh_commitment");
+    expect(r.metadata.strategy_card_move_type).toBe("refresh_commitment");
+    expect(r.metadata.strategy_card_daily_refresh_step).toBe("commitment");
+  });
+
   it("returns shouldSend=false when OpenAI is unavailable", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await produceDailyV3RelationshipSms({
@@ -1826,6 +1926,11 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.daily_v3_lane_used).toBe(true);
     expect(r.metadata.old_daily_writer_used_as_voice).toBe(false);
     expect(r.metadata.v3_lane_reply_source).toBe("v3_daily_relationship_lane");
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(systemMsg).not.toContain("STRATEGY_CARD_V1");
+    expect(userMsg).not.toContain("STRATEGY_CARD_V1");
+    expect(r.metadata.strategy_card_surface).toBeUndefined();
   });
 
   it("repairs repeated prior coach question on main accountability (M2B-5)", async () => {

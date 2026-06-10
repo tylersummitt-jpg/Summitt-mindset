@@ -1,5 +1,5 @@
 /**
- * Phase 4.1/4.3/4.4a/4.5/4.7a/4.7b — Coaching Strategy Card v1 (inbound + daily C1/C2).
+ * Phase 4.1/4.3/4.4a/4.5/4.7a/4.7b/4.7c-A — Coaching Strategy Card v1 (inbound + daily C1/C2/C3 refresh).
  * Server-built coaching move envelope; writer-facing after validation/repair.
  * Does not route, mutate state, send SMS, or replace Relationship Snapshot.
  */
@@ -38,13 +38,19 @@ export type StrategyCardRouteKind =
   | "central_brain_pivot"
   | "main_active_accountability"
   | "low_pressure_reactivation"
-  | "contract_prompt";
+  | "contract_prompt"
+  | "refresh_identity"
+  | "refresh_commitment";
 
 export type DailyC1StrategyCardRouteKind =
   | "main_active_accountability"
   | "low_pressure_reactivation";
 
 export type DailyC2StrategyCardRouteKind = "contract_prompt";
+
+export type DailyC3RefreshStrategyCardRouteKind = "refresh_identity" | "refresh_commitment";
+
+export type DailyRefreshStepSummary = "identity" | "commitment";
 
 export type DailyContractProposalKind = "shrink_ask" | "recommit_same";
 
@@ -64,6 +70,8 @@ export type StrategyCardMoveType =
   | "reactivate_gently"
   | "daily_check_in"
   | "contract_proposal"
+  | "refresh_identity"
+  | "refresh_commitment"
   | "handoff"
   | "other";
 
@@ -110,6 +118,10 @@ export type StrategyCardV1 = {
     daily_contract_must_not_claim_goal_updated?: boolean;
     daily_contract_required_bar_fingerprint?: string | null;
     daily_contract_required_meaning?: string | null;
+    daily_refresh_step?: DailyRefreshStepSummary | null;
+    daily_refresh_required_anchor_fingerprint?: string | null;
+    daily_refresh_required_ask_fingerprint?: string | null;
+    daily_refresh_session_written_before_sms?: boolean;
   };
   move: {
     type: StrategyCardMoveType;
@@ -157,6 +169,14 @@ export type DailyC2StrategyCardBuildContext = {
   facts: DailyV3RelationshipFacts;
   semanticFacts: DailySemanticContractProposalFactsPacket;
   openLoops: OpenLoopsAndDoNotRepeatData;
+};
+
+export type DailyC3RefreshStrategyCardBuildContext = {
+  facts: DailyV3RelationshipFacts;
+  proofPermission: ProofAndPraisePermissionV2Data;
+  openLoops: OpenLoopsAndDoNotRepeatData;
+  activePending: ActivePendingState;
+  noSendSilence: NoSendAndSilenceHistoryV2Data | null;
 };
 
 export type StrategyCardValidationStatus = "valid" | "repaired";
@@ -1932,7 +1952,11 @@ ${JSON.stringify(card)}`;
 
 export function strategyCardV1MetaForTelemetry(
   result: StrategyCardValidationResult,
-  ctx?: StrategyCardBuildContext | DailyC1StrategyCardBuildContext | DailyC2StrategyCardBuildContext
+  ctx?:
+    | StrategyCardBuildContext
+    | DailyC1StrategyCardBuildContext
+    | DailyC2StrategyCardBuildContext
+    | DailyC3RefreshStrategyCardBuildContext
 ): Record<string, unknown> {
   const c = result.card;
   const inboundCtx =
@@ -1997,7 +2021,10 @@ export function strategyCardV1MetaForTelemetry(
               : null),
         }
       : {}),
-    ...(c.surface === "daily" && c.route_kind !== "contract_prompt"
+    ...(c.surface === "daily" &&
+    c.route_kind !== "contract_prompt" &&
+    c.route_kind !== "refresh_identity" &&
+    c.route_kind !== "refresh_commitment"
       ? {
           strategy_card_legacy_server_strategy: c.meta.legacy_server_strategy ?? null,
           strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
@@ -2013,6 +2040,21 @@ export function strategyCardV1MetaForTelemetry(
             c.meta.legacy_v2_contract_proposal_kind ?? null,
           strategy_card_daily_contract_proposal_kind:
             c.server_truth_summary.daily_contract_proposal_kind ?? null,
+        }
+      : {}),
+    ...(c.route_kind === "refresh_identity" || c.route_kind === "refresh_commitment"
+      ? {
+          strategy_card_legacy_server_strategy: c.meta.legacy_server_strategy ?? null,
+          strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
+          strategy_card_daily_refresh_step: c.server_truth_summary.daily_refresh_step ?? null,
+          strategy_card_daily_refresh_session_written_before_sms:
+            c.server_truth_summary.daily_refresh_session_written_before_sms === false
+              ? false
+              : null,
+          strategy_card_daily_refresh_required_anchor_fingerprint:
+            c.server_truth_summary.daily_refresh_required_anchor_fingerprint ?? null,
+          strategy_card_daily_refresh_required_ask_fingerprint:
+            c.server_truth_summary.daily_refresh_required_ask_fingerprint ?? null,
         }
       : {}),
   };
@@ -2147,8 +2189,38 @@ export function isDailyC2StrategyCardEligible(facts: DailyV3RelationshipFacts): 
   return true;
 }
 
+export function isDailyC3RefreshStrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
+  if (facts.route_kind !== "refresh_identity" && facts.route_kind !== "refresh_commitment") {
+    return false;
+  }
+  if (facts.pending_resolution) return false;
+  if (facts.contract_proposal) return false;
+  const refresh = facts.refresh;
+  if (!refresh) return false;
+  if (facts.route_kind === "refresh_identity") {
+    if (refresh.refresh_step !== "identity_first") return false;
+    const anchor =
+      refresh.identity_anchor_text?.trim() ||
+      facts.constraints.required_verbatim_substrings?.[0]?.trim() ||
+      facts.commitment.identity_anchor_short?.trim() ||
+      "";
+    return anchor.length > 0;
+  }
+  if (refresh.refresh_step !== "commitment_daily") return false;
+  const ask =
+    refresh.effective_ask_for_bar?.trim() ||
+    facts.constraints.required_verbatim_substrings?.[0]?.trim() ||
+    facts.commitment.effective_ask?.trim() ||
+    "";
+  return ask.length > 0;
+}
+
 export function isDailyStrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
-  return isDailyC1StrategyCardEligible(facts) || isDailyC2StrategyCardEligible(facts);
+  return (
+    isDailyC1StrategyCardEligible(facts) ||
+    isDailyC2StrategyCardEligible(facts) ||
+    isDailyC3RefreshStrategyCardEligible(facts)
+  );
 }
 
 function deriveDailyOutcomeFromPriorOutcome(prior: string | null | undefined): StrategyCardOutcome {
@@ -2730,6 +2802,314 @@ export function validateAndRepairDailyContractPromptStrategyCardV1(
   }
   const repaired = repairDailyC2Card(card, ctx, first.reasons);
   const second = validateDailyContractPromptStrategyCardV1(repaired, ctx);
+  return {
+    card: repaired,
+    validation_status: "repaired",
+    validation_reasons: [...first.reasons, ...second.reasons.filter((r) => !first.reasons.includes(r))],
+  };
+}
+
+// --- Daily C3 refresh Strategy Card v1 (refresh_identity + refresh_commitment) ---
+
+const DAILY_C3_REFRESH_ALLOWED_MOVES: StrategyCardMoveType[] = [
+  "refresh_identity",
+  "refresh_commitment",
+];
+
+function summarizeDailyRefreshStep(
+  refreshStep: DailyV3RelationshipFacts["refresh"] extends infer R
+    ? R extends { refresh_step: infer S }
+      ? S
+      : never
+    : never
+): DailyRefreshStepSummary | null {
+  if (refreshStep === "identity_first") return "identity";
+  if (refreshStep === "commitment_daily") return "commitment";
+  return null;
+}
+
+function deriveRefreshIdentityAnchorFingerprint(ctx: DailyC3RefreshStrategyCardBuildContext): string | null {
+  const source =
+    ctx.facts.refresh?.identity_anchor_text?.trim() ||
+    ctx.facts.constraints.required_verbatim_substrings?.[0]?.trim() ||
+    ctx.facts.commitment.identity_anchor_short?.trim() ||
+    "";
+  return source ? fingerprintAsk(source) : null;
+}
+
+function deriveRefreshCommitmentAskFingerprint(ctx: DailyC3RefreshStrategyCardBuildContext): string | null {
+  const source =
+    ctx.facts.refresh?.effective_ask_for_bar?.trim() ||
+    ctx.facts.constraints.required_verbatim_substrings?.[0]?.trim() ||
+    ctx.facts.commitment.effective_ask?.trim() ||
+    "";
+  return source ? fingerprintAsk(source) : null;
+}
+
+function collectDailyC3RefreshAvoidRepeating(ctx: DailyC3RefreshStrategyCardBuildContext): string[] {
+  const items: string[] = [];
+  for (const ask of ctx.openLoops.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    const fp = fingerprintAsk(s.ask_text ?? "");
+    if (fp) items.push(fp);
+  }
+  for (const ask of ctx.facts.daily_satisfied_ask_context?.do_not_repeat_asks ?? []) {
+    const fp = fingerprintAsk(ask);
+    if (fp) items.push(fp);
+  }
+  for (const q of ctx.facts.thread_memory.last_5_coach_questions ?? []) {
+    const fp = fingerprintAsk(q);
+    if (fp) items.push(fp);
+  }
+  const anchorFp = deriveRefreshIdentityAnchorFingerprint(ctx);
+  const askFp = deriveRefreshCommitmentAskFingerprint(ctx);
+  if (anchorFp) items.push(anchorFp);
+  if (askFp) items.push(askFp);
+  for (const v of ctx.facts.constraints.required_verbatim_substrings ?? []) {
+    const fp = fingerprintAsk(v);
+    if (fp) items.push(fp);
+  }
+  return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
+}
+
+function buildDailyC3RefreshMustDoMustNotDo(
+  routeKind: DailyC3RefreshStrategyCardRouteKind
+): { must_do: string[]; must_not_do: string[] } {
+  const must_not_do = [
+    "Do not claim proof or Victory Room on this refresh turn.",
+    "Do not pile on unrelated questions — one refresh question only.",
+  ];
+  const must_do: string[] = [
+    "Keep this as an in-progress refresh question — server state has not changed yet.",
+    "Use required verbatim substrings from server facts when present.",
+  ];
+
+  if (routeKind === "refresh_identity") {
+    must_do.push("Ask an identity-fit / alignment question for this refresh step.");
+    must_do.push("Preserve required identity anchor meaning from server facts.");
+    must_not_do.push("Do not claim identity was updated or changed.");
+    must_not_do.push("Do not claim the refresh is complete.");
+    must_not_do.push("Do not claim the commitment changed.");
+    must_not_do.push("Do not invent a new identity anchor.");
+  } else {
+    must_do.push("Ask whether the effective ask / commitment still fits today.");
+    must_do.push("Preserve required effective ask meaning from server facts.");
+    must_not_do.push("Do not claim the commitment changed or was updated.");
+    must_not_do.push("Do not claim the refresh is complete.");
+    must_not_do.push("Do not claim the user already recommitted.");
+    must_not_do.push("Do not invent a new commitment or bar.");
+  }
+
+  return {
+    must_do: must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+  };
+}
+
+export function buildDailyC3RefreshStrategyCardContextFromSnapshot(args: {
+  facts: DailyV3RelationshipFacts;
+  snapshot: {
+    proof_and_praise_permission: { data: ProofAndPraisePermissionV2Data };
+    open_loops_and_do_not_repeat: { data: OpenLoopsAndDoNotRepeatData };
+    active_pending_state: ActivePendingState;
+    no_send_and_silence_history?: { data: NoSendAndSilenceHistoryV2Data } | null;
+  };
+}): DailyC3RefreshStrategyCardBuildContext {
+  return {
+    facts: args.facts,
+    proofPermission: args.snapshot.proof_and_praise_permission.data,
+    openLoops: args.snapshot.open_loops_and_do_not_repeat.data,
+    activePending: args.snapshot.active_pending_state,
+    noSendSilence: args.snapshot.no_send_and_silence_history?.data ?? null,
+  };
+}
+
+export function buildDailyC3RefreshStrategyCardV1(args: {
+  ctx: DailyC3RefreshStrategyCardBuildContext;
+  generatedAt?: string;
+}): StrategyCardV1 {
+  const { ctx } = args;
+  const { facts } = ctx;
+  const routeKind = facts.route_kind as DailyC3RefreshStrategyCardRouteKind;
+  const moveType = routeKind;
+  const legacyMove = facts.suggested_coaching_move?.trim() || null;
+  const { must_do, must_not_do } = buildDailyC3RefreshMustDoMustNotDo(routeKind);
+  const avoid_repeating = collectDailyC3RefreshAvoidRepeating(ctx);
+  const refreshStep = facts.refresh
+    ? summarizeDailyRefreshStep(facts.refresh.refresh_step)
+    : null;
+  const anchorFp = deriveRefreshIdentityAnchorFingerprint(ctx);
+  const askFp = deriveRefreshCommitmentAskFingerprint(ctx);
+  const reason =
+    routeKind === "refresh_identity"
+      ? "Refresh identity alignment — ask fit without claiming state changed."
+      : "Refresh commitment fit-check — ask whether the bar still fits without claiming state changed.";
+
+  return {
+    version: STRATEGY_CARD_V1_VERSION,
+    generated_at: args.generatedAt ?? new Date().toISOString(),
+    surface: "daily",
+    route_kind: routeKind,
+    turn_kind: facts.accountability.daily_purpose ?? routeKind,
+    server_truth_summary: {
+      outcome: "none",
+      explicit_user_truth: false,
+      active_pending_kinds: [],
+      satisfied_ask_fingerprints: [],
+      daily_route_kind: facts.route_kind,
+      daily_server_strategy: facts.accountability.server_strategy ?? null,
+      daily_purpose: facts.accountability.daily_purpose ?? null,
+      daily_refresh_step: refreshStep,
+      daily_refresh_required_anchor_fingerprint: anchorFp,
+      daily_refresh_required_ask_fingerprint: askFp,
+      daily_refresh_session_written_before_sms: false,
+    },
+    move: {
+      type: moveType,
+      priority: "normal",
+      confidence: "high",
+      reason: truncateText(reason, MAX_REASON_CHARS),
+    },
+    must_do,
+    must_not_do,
+    allowed_claims: {
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+      victory_room: false,
+      state_changed: false,
+      proposal_active: false,
+    },
+    writer_constraints: {
+      max_questions: 1,
+      avoid_repeating,
+      tone_posture: "clarifying",
+    },
+    meta: {
+      generation_source: "server_strategy_card_v1",
+      legacy_suggested_coaching_move: legacyMove,
+      legacy_coaching_move_source: "rule_derived",
+      legacy_server_strategy: facts.accountability.server_strategy ?? null,
+      legacy_next_move_type: facts.accountability.next_move_type ?? null,
+    },
+  };
+}
+
+function mustNotDoIncludesRefreshIdentityConstraints(must_not_do: string[]): boolean {
+  const joined = must_not_do.join(" ").toLowerCase();
+  return (
+    joined.includes("identity") &&
+    joined.includes("updated") &&
+    joined.includes("refresh") &&
+    joined.includes("complete") &&
+    joined.includes("commitment")
+  );
+}
+
+function mustNotDoIncludesRefreshCommitmentConstraints(must_not_do: string[]): boolean {
+  const joined = must_not_do.join(" ").toLowerCase();
+  return (
+    joined.includes("commitment") &&
+    joined.includes("changed") &&
+    joined.includes("refresh") &&
+    joined.includes("complete") &&
+    joined.includes("recommitted")
+  );
+}
+
+function mustDoIncludesRefreshMeaning(must_do: string[], routeKind: DailyC3RefreshStrategyCardRouteKind): boolean {
+  const joined = must_do.join(" ").toLowerCase();
+  if (routeKind === "refresh_identity") {
+    return joined.includes("identity") && joined.includes("anchor");
+  }
+  return joined.includes("effective ask") || joined.includes("commitment");
+}
+
+export function validateDailyC3RefreshStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC3RefreshStrategyCardBuildContext
+): { valid: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const routeKind = ctx.facts.route_kind;
+
+  if (card.surface !== "daily") reasons.push("surface_not_daily");
+  if (card.route_kind !== "refresh_identity" && card.route_kind !== "refresh_commitment") {
+    reasons.push("daily_c3_refresh_route_kind_invalid");
+  }
+  if (card.move.type !== card.route_kind) reasons.push("daily_c3_refresh_move_route_mismatch");
+  if (!DAILY_C3_REFRESH_ALLOWED_MOVES.includes(card.move.type)) {
+    reasons.push("daily_c3_refresh_forbidden_move");
+  }
+  if (
+    card.allowed_claims.completion ||
+    card.allowed_claims.miss ||
+    card.allowed_claims.partial ||
+    card.allowed_claims.proof ||
+    card.allowed_claims.victory_room ||
+    card.allowed_claims.state_changed ||
+    card.allowed_claims.proposal_active
+  ) {
+    reasons.push("daily_c3_refresh_forbidden_claim");
+  }
+  if (card.server_truth_summary.daily_refresh_session_written_before_sms !== false) {
+    reasons.push("daily_c3_refresh_session_must_be_false");
+  }
+  if (card.writer_constraints.max_questions > 1) reasons.push("daily_c3_refresh_max_questions_exceeded");
+  if (routeKind === "refresh_identity") {
+    if (!mustNotDoIncludesRefreshIdentityConstraints(card.must_not_do)) {
+      reasons.push("daily_c3_refresh_identity_must_not_do_missing");
+    }
+    if (!mustDoIncludesRefreshMeaning(card.must_do, "refresh_identity")) {
+      reasons.push("daily_c3_refresh_identity_must_do_missing");
+    }
+  }
+  if (routeKind === "refresh_commitment") {
+    if (!mustNotDoIncludesRefreshCommitmentConstraints(card.must_not_do)) {
+      reasons.push("daily_c3_refresh_commitment_must_not_do_missing");
+    }
+    if (!mustDoIncludesRefreshMeaning(card.must_do, "refresh_commitment")) {
+      reasons.push("daily_c3_refresh_commitment_must_do_missing");
+    }
+  }
+  const requiredFp =
+    routeKind === "refresh_identity"
+      ? deriveRefreshIdentityAnchorFingerprint(ctx)
+      : deriveRefreshCommitmentAskFingerprint(ctx);
+  if (requiredFp && !card.writer_constraints.avoid_repeating.includes(requiredFp)) {
+    reasons.push("daily_c3_refresh_missing_required_fingerprint");
+  }
+  for (const item of [...card.must_do, ...card.must_not_do, card.move.reason]) {
+    if (SMS_COPY_RE.test(item) && item.length > 80) {
+      reasons.push("sms_copy_in_card");
+    }
+  }
+  if (card.move.reason.length > MAX_REASON_CHARS) reasons.push("reason_too_long");
+
+  return { valid: reasons.length === 0, reasons };
+}
+
+function repairDailyC3RefreshCard(
+  card: StrategyCardV1,
+  ctx: DailyC3RefreshStrategyCardBuildContext,
+  _reasons: string[]
+): StrategyCardV1 {
+  return buildDailyC3RefreshStrategyCardV1({ ctx, generatedAt: card.generated_at });
+}
+
+export function validateAndRepairDailyC3RefreshStrategyCardV1(
+  card: StrategyCardV1,
+  ctx: DailyC3RefreshStrategyCardBuildContext
+): StrategyCardValidationResult {
+  const first = validateDailyC3RefreshStrategyCardV1(card, ctx);
+  if (first.valid) {
+    return { card, validation_status: "valid", validation_reasons: [] };
+  }
+  const repaired = repairDailyC3RefreshCard(card, ctx, first.reasons);
+  const second = validateDailyC3RefreshStrategyCardV1(repaired, ctx);
   return {
     card: repaired,
     validation_status: "repaired",

@@ -11,6 +11,7 @@ import {
   isCentralPivotStrategyCardEligible,
   isDailyC1StrategyCardEligible,
   isDailyC2StrategyCardEligible,
+  isDailyC3RefreshStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
   isOpenQuestionAnswerStrategyCardEligible,
   isStrategyCardEligible,
@@ -319,5 +320,48 @@ describe("Phase 4.7b — Daily C2 Strategy Card scope guards", () => {
     expect(content).toMatch(/contract_prompt/);
     expect(content).toMatch(/contract_proposal/);
     expect(content).toMatch(/contract_precise/);
+  });
+});
+
+describe("Phase 4.7c-A — Daily C3 refresh Strategy Card scope guards", () => {
+  it("daily C3 refresh eligibility is limited to refresh_identity and refresh_commitment", () => {
+    const mainFacts = buildDailyFacts(getScenarioById("consistent-winner")!);
+    const identityFacts = {
+      ...mainFacts,
+      route_kind: "refresh_identity" as const,
+      refresh: {
+        refresh_step: "identity_first" as const,
+        identity_anchor_text: "Calm focused leader",
+      },
+      constraints: {
+        ...mainFacts.constraints,
+        required_verbatim_substrings: ["Calm focused leader"],
+      },
+    };
+    expect(isDailyC3RefreshStrategyCardEligible(identityFacts)).toBe(true);
+    expect(isDailyC1StrategyCardEligible(identityFacts)).toBe(false);
+    expect(isDailyC2StrategyCardEligible(identityFacts)).toBe(false);
+    expect(isDailyC3RefreshStrategyCardEligible(mainFacts)).toBe(false);
+  });
+
+  it("daily lane wires C3 refresh Strategy Card eligibility", () => {
+    const daily = fs.readFileSync(
+      path.join(REPO, "src/lib/v3-daily-relationship-lane.ts"),
+      "utf8"
+    );
+    expect(daily).toMatch(/isDailyC3RefreshStrategyCardEligible/);
+    expect(daily).toMatch(/validateAndRepairDailyC3RefreshStrategyCardV1/);
+    expect(daily).toMatch(/REFRESH_IDENTITY_ROUTE/);
+    expect(daily).toMatch(/REFRESH_COMMITMENT_ROUTE/);
+  });
+
+  it("StrategyCardRouteKind includes refresh_identity and refresh_commitment", () => {
+    const content = fs.readFileSync(
+      path.join(REPO, "src/lib/coaching-strategy-card-v1.ts"),
+      "utf8"
+    );
+    expect(content).toMatch(/refresh_identity/);
+    expect(content).toMatch(/refresh_commitment/);
+    expect(content).toMatch(/daily_refresh_step/);
   });
 });
