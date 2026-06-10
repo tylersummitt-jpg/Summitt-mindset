@@ -3134,7 +3134,9 @@ describe("Phase 4.1 Strategy Card v1 inbound normal wiring", () => {
     expect(userMsg).toContain("STRATEGY_CARD_V1");
     expect(userMsg).toMatch(/"type":"ask_blocker"|"type":"recover_today"/);
     expect(userMsg).not.toMatch(/"type":"propose_adjustment"/);
-    expect(userMsg).toContain("suggested_coaching_move");
+    expect(userMsg).not.toMatch(/"suggested_coaching_move":/);
+    expect(r.metadata.strategy_card_packet_writer_hints_stripped).toBe(true);
+    expect(r.metadata.strategy_card_legacy_suggested_coaching_move).toBeTruthy();
     expect(userMsg).toContain('"legacy_hint_replaced":true');
     expect(["ask_blocker", "recover_today"]).toContain(r.metadata.strategy_card_move_type);
 

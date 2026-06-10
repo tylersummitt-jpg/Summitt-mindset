@@ -80,6 +80,7 @@ import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-
 import {
   buildRelationshipPacketForOpenAI,
   buildRelationshipPacketPromptGuidance,
+  buildWriterUserPromptWithStrategyCard,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
 import { prepareRepairSnapshotForOpenAI } from "@/lib/sms-relationship-repair-snapshot-v1";
@@ -2296,7 +2297,18 @@ turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[]),
 rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
-  const user = relationshipPacket.userPromptJson + (strategyCardUserAppendix ? `\n\n${strategyCardUserAppendix}` : "");
+  const writerUserPrompt = buildWriterUserPromptWithStrategyCard({
+    userPromptJson: relationshipPacket.userPromptJson,
+    strategyCardAppendix: strategyCardUserAppendix,
+    stripWhenCardActive: strategyCardEligible ? { lane: "inbound" } : undefined,
+  });
+  if (writerUserPrompt.stripped_fields.length > 0) {
+    Object.assign(baseMeta, {
+      strategy_card_packet_writer_hints_stripped: true,
+      strategy_card_packet_stripped_fields: writerUserPrompt.stripped_fields,
+    });
+  }
+  const user = writerUserPrompt.prompt;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;

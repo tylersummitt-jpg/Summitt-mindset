@@ -57,11 +57,39 @@ npx vitest run src/sms-review-place/strategy-card-scope.test.ts
 
 All eight `strategy-card-*` scenarios assert **card metadata and invariants**, not exact final SMS copy.
 
-## Out of scope (Phase 4.2)
+## Phase 4.9a — production soak window (1–2 weeks)
 
-- `open_question_answer` Strategy Card (Phase 4.3)
-- Daily / weekly / guided / transactional / pivot / arc surfaces
-- Shadow mode or env flags
+**Allowed during soak:** packet dual-authority cleanup (`strategy_card_packet_writer_hints_stripped`), signed exception registry docs/tests.
+
+**Not allowed during soak:** new Strategy Card surfaces unless **P0** user-facing bug.
+
+### Fields to watch
+
+| Area | Fields / signals |
+|------|------------------|
+| Card shape | `strategy_card_surface`, `strategy_card_route_kind`, `strategy_card_move_type`, `strategy_card_validation_status`, `strategy_card_validation_reasons` |
+| Packet cleanup | `strategy_card_packet_writer_hints_stripped`, `strategy_card_packet_stripped_fields` |
+| Final guard | Unified final guard no-send rate, blocked reason clusters, `unified_final_guard_mode` |
+| Lane no-send | `no_send_reason`, `lane_stage` by surface (daily / inbound / weekly) |
+| Legacy fallback | `route_purpose=conversation_brain_unavailable`, `branch_name=conversation_brain_legacy_disabled_lane` volume |
+| Guided shrink | `guided_shrink_contract_prompt`, `guided_contract_proposal` no-send / rollback |
+| Transactional inbound | Contract consent, memory, pending inbound, adaptive clarify no-send rates |
+| Quality | User-reported embarrassing SMS; repeated-question reports |
+
+### Soak success criteria (informal)
+
+- No sustained spike in final-guard no-sends on card-active routes after packet strip deploy
+- `strategy_card_packet_writer_hints_stripped` present on card-active sends without new wrong-move themes
+- Legacy fallback volume remains near zero under default env
+- No P0 “writer followed packet suggested_move instead of card” incidents
+
+### Exception registry
+
+Intentional non-card surfaces are listed in `src/lib/sms-strategy-card-exception-registry.ts` (signed registry, test-guarded).
+
+## Consolidated surfaces (reference)
+
+Strategy Card is active for: inbound normal / open question / arc clarify / central pivot; all daily route kinds; `weekly_proof_v2`.
 
 ## Related: legacy fallback (not Strategy Card)
 

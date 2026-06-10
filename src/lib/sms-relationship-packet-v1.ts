@@ -1286,6 +1286,149 @@ export function buildRelationshipPacketForOpenAI(args: {
   };
 }
 
+export const RELATIONSHIP_PACKET_V1_USER_PROMPT_HEADER =
+  "RELATIONSHIP_PACKET_V1 (facts only; not copyable prose):" as const;
+
+const RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_HEADER =
+  "RELATIONSHIP_SNAPSHOT_V2 (authority-labeled context; not copyable prose):" as const;
+
+const RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_MARKER = `\n\n${RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_HEADER}`;
+
+export type StripWriterStrategyHintsLane = "inbound" | "daily" | "weekly";
+
+export type StripWriterStrategyHintsArgs = {
+  lane: StripWriterStrategyHintsLane;
+};
+
+export type StripWriterStrategyHintsResult = {
+  prompt: string;
+  stripped_fields: string[];
+};
+
+/** Parse packet JSON embedded in combined lane user prompt (packet + snapshot appendix). */
+export function parseRelationshipPacketFromUserPrompt(
+  userPromptJson: string
+): { packet: RelationshipPacketV1; header: string; tail: string } | null {
+  const header = `${RELATIONSHIP_PACKET_V1_USER_PROMPT_HEADER}\n`;
+  if (!userPromptJson.startsWith(header)) return null;
+  const rest = userPromptJson.slice(header.length);
+  const snapshotIdx = rest.indexOf(RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_MARKER);
+  const packetJson =
+    snapshotIdx >= 0 ? rest.slice(0, snapshotIdx) : rest.split("\n\nWrite JSON only.")[0] ?? rest;
+  try {
+    const packet = JSON.parse(packetJson) as RelationshipPacketV1;
+    const tail = snapshotIdx >= 0 ? rest.slice(snapshotIdx) : rest.slice(packetJson.length);
+    return { packet, header, tail };
+  } catch {
+    return null;
+  }
+}
+
+function stripFieldsFromCurrentTurn(
+  packet: RelationshipPacketV1,
+  fieldNames: (keyof RelationshipPacketCurrentTurn)[]
+): string[] {
+  const stripped: string[] = [];
+  const data = packet.current_turn?.data;
+  if (!data) return stripped;
+  for (const name of fieldNames) {
+    if (data[name] !== undefined && data[name] !== null) {
+      delete data[name];
+      stripped.push(String(name));
+    }
+  }
+  return stripped;
+}
+
+/**
+ * Remove stale writer-facing move hints from the OpenAI user prompt when Strategy Card is active.
+ * Does not mutate the in-memory packet used for telemetry — only the writer prompt string.
+ */
+export function stripCardSupersededWriterStrategyHintsFromUserPrompt(
+  userPromptJson: string,
+  args: StripWriterStrategyHintsArgs
+): StripWriterStrategyHintsResult {
+  const parsed = parseRelationshipPacketFromUserPrompt(userPromptJson);
+  if (!parsed) {
+    return { prompt: userPromptJson, stripped_fields: [] };
+  }
+
+  const fieldNames: (keyof RelationshipPacketCurrentTurn)[] = [];
+  if (args.lane === "inbound") {
+    fieldNames.push("suggested_coaching_move");
+  } else if (args.lane === "daily") {
+    fieldNames.push("server_strategy");
+  }
+
+  if (fieldNames.length === 0) {
+    return { prompt: userPromptJson, stripped_fields: [] };
+  }
+
+  const stripped_fields = stripFieldsFromCurrentTurn(parsed.packet, fieldNames);
+
+  let tail = parsed.tail;
+  const snapshotHeader = `${RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_HEADER}\n`;
+  if (tail.startsWith(RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_MARKER)) {
+    const snapshotRest = tail.slice(RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_MARKER.length);
+    const writeIdx = snapshotRest.indexOf("\n\nWrite JSON only.");
+    const snapshotJson =
+      writeIdx >= 0 ? snapshotRest.slice(0, writeIdx) : snapshotRest;
+    const snapshotTail = writeIdx >= 0 ? snapshotRest.slice(writeIdx) : "";
+    try {
+      const snapshot = JSON.parse(snapshotJson) as {
+        current_turn?: RelationshipPacketSection<RelationshipPacketCurrentTurn>;
+      };
+      if (snapshot.current_turn?.data) {
+        for (const name of fieldNames) {
+          if (
+            snapshot.current_turn.data[name] !== undefined &&
+            snapshot.current_turn.data[name] !== null &&
+            !stripped_fields.includes(String(name))
+          ) {
+            stripped_fields.push(String(name));
+          }
+          delete snapshot.current_turn.data[name];
+        }
+      }
+      tail =
+        RELATIONSHIP_SNAPSHOT_V2_USER_PROMPT_MARKER +
+        JSON.stringify(snapshot) +
+        snapshotTail;
+    } catch {
+      // keep original tail if snapshot parse fails
+    }
+  }
+
+  const uniqueStripped = [...new Set(stripped_fields)];
+  if (uniqueStripped.length === 0) {
+    return { prompt: userPromptJson, stripped_fields: [] };
+  }
+
+  const prompt = parsed.header + JSON.stringify(parsed.packet) + tail;
+  return { prompt, stripped_fields: uniqueStripped };
+}
+
+/** Writer user prompt: optional packet hint strip + Strategy Card appendix. Telemetry packet unchanged. */
+export function buildWriterUserPromptWithStrategyCard(args: {
+  userPromptJson: string;
+  strategyCardAppendix: string;
+  stripWhenCardActive?: StripWriterStrategyHintsArgs;
+}): StripWriterStrategyHintsResult & { prompt: string } {
+  let base = args.userPromptJson;
+  let stripped_fields: string[] = [];
+  if (args.stripWhenCardActive) {
+    const stripped = stripCardSupersededWriterStrategyHintsFromUserPrompt(
+      base,
+      args.stripWhenCardActive
+    );
+    base = stripped.prompt;
+    stripped_fields = stripped.stripped_fields;
+  }
+  const prompt =
+    base + (args.strategyCardAppendix ? `\n\n${args.strategyCardAppendix}` : "");
+  return { prompt, stripped_fields };
+}
+
 export function relationshipPacketMetaForLaneTelemetry(
   meta: RelationshipPacketMeta,
   snapshotMeta?: RelationshipSnapshotV2Meta
@@ -1446,6 +1589,8 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_weekly_can_claim_proof",
   "strategy_card_weekly_can_reference_victory_room",
   "strategy_card_weekly_proof_state_written_before_sms",
+  "strategy_card_packet_writer_hints_stripped",
+  "strategy_card_packet_stripped_fields",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

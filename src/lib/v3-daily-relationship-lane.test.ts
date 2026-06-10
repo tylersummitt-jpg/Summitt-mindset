@@ -460,6 +460,9 @@ describe("produceDailyV3RelationshipSms", () => {
     );
     expect(userMsg).toContain("STRATEGY_CARD_V1");
     expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
+    expect(userMsg).not.toMatch(/"server_strategy":/);
+    expect(r.metadata.strategy_card_packet_writer_hints_stripped).toBe(true);
+    expect(r.metadata.strategy_card_legacy_server_strategy).toBeTruthy();
     expect(r.metadata.strategy_card_surface).toBe("daily");
     expect(r.metadata.strategy_card_route_kind).toBe("main_active_accountability");
     expect(r.metadata.strategy_card_move_type).toBeTruthy();

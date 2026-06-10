@@ -69,6 +69,7 @@ import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-
 import {
   buildRelationshipPacketForOpenAI,
   buildRelationshipPacketPromptGuidance,
+  buildWriterUserPromptWithStrategyCard,
   relationshipPacketMetaForLaneTelemetry,
 } from "@/lib/sms-relationship-packet-v1";
 import {
@@ -1130,6 +1131,12 @@ export async function produceDailyV3RelationshipSms(
     Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
   }
 
+  const strategyCardDailyActive =
+    strategyCardC1Eligible ||
+    strategyCardC2Eligible ||
+    strategyCardC3RefreshEligible ||
+    strategyCardC3PendingEligible;
+
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
 
 RULES:
@@ -1167,9 +1174,18 @@ should_send (boolean), body (string, empty if should_send false), no_send_reason
 turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[])`;
 
-  const user =
-    relationshipPacket.userPromptJson +
-    (strategyCardUserAppendix ? `\n\n${strategyCardUserAppendix}` : "");
+  const writerUserPrompt = buildWriterUserPromptWithStrategyCard({
+    userPromptJson: relationshipPacket.userPromptJson,
+    strategyCardAppendix: strategyCardUserAppendix,
+    stripWhenCardActive: strategyCardDailyActive ? { lane: "daily" } : undefined,
+  });
+  if (writerUserPrompt.stripped_fields.length > 0) {
+    Object.assign(baseMeta, {
+      strategy_card_packet_writer_hints_stripped: true,
+      strategy_card_packet_stripped_fields: writerUserPrompt.stripped_fields,
+    });
+  }
+  const user = writerUserPrompt.prompt;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;

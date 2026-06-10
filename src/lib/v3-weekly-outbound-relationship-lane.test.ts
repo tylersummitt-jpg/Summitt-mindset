@@ -935,6 +935,8 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.metadata.strategy_card_route_kind).toBe("weekly_proof_v2");
     expect(r.metadata.strategy_card_move_type).toBe("weekly_recover");
     expect(r.metadata.strategy_card_weekly_rough_week).toBe(true);
+    expect(userMsg).toContain("weekly_week_summary");
+    expect(userMsg).not.toMatch(/"server_strategy":/);
   });
 
   it("legacy weekly branch does not attach Strategy Card", async () => {

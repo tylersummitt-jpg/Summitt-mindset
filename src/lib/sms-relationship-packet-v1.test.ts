@@ -7,10 +7,12 @@ vi.mock("@/lib/supabase-server", () => ({
 import {
   buildRelationshipPacketForOpenAI,
   buildRelationshipPacketPromptGuidance,
+  buildWriterUserPromptWithStrategyCard,
   DEFAULT_RELATIONSHIP_PACKET_BUDGET,
   RELATIONSHIP_PACKET_VERSION,
   relationshipObservabilityFromLaneMetadata,
   relationshipPacketMetaForLaneTelemetry,
+  stripCardSupersededWriterStrategyHintsFromUserPrompt,
 } from "@/lib/sms-relationship-packet-v1";
 import {
   buildInboundNormalStrategyCardV1,
@@ -1215,6 +1217,60 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
     expect(obs.strategy_card_legacy_suggested_coaching_move).toBeDefined();
     expect(JSON.stringify(obs)).not.toMatch(/two hours deep work before noon/i);
     expect(JSON.stringify(obs)).not.toMatch(/Nice — what made/i);
+  });
+});
+
+describe("stripCardSupersededWriterStrategyHintsFromUserPrompt (Phase 4.9a)", () => {
+  it("strips suggested_coaching_move from inbound writer prompt when card active", () => {
+    const facts = minimalInboundFacts();
+    const built = buildRelationshipPacketForOpenAI({ lane: "inbound", sourceFacts: facts });
+    expect(built.userPromptJson).toMatch(/"suggested_coaching_move":/);
+
+    const stripped = stripCardSupersededWriterStrategyHintsFromUserPrompt(built.userPromptJson, {
+      lane: "inbound",
+    });
+    expect(stripped.stripped_fields).toContain("suggested_coaching_move");
+    expect(stripped.prompt).not.toMatch(/"suggested_coaching_move":/);
+    expect(stripped.prompt).toContain("RELATIONSHIP_SNAPSHOT_V2");
+    expect(stripped.prompt).toContain("route_purpose");
+  });
+
+  it("strips server_strategy from daily writer prompt when card active", () => {
+    const facts = minimalDailyFacts();
+    const built = buildRelationshipPacketForOpenAI({ lane: "daily", sourceFacts: facts });
+    expect(built.userPromptJson).toMatch(/"server_strategy":/);
+
+    const stripped = stripCardSupersededWriterStrategyHintsFromUserPrompt(built.userPromptJson, {
+      lane: "daily",
+    });
+    expect(stripped.stripped_fields).toContain("server_strategy");
+    expect(stripped.prompt).not.toMatch(/"server_strategy":/);
+    expect(stripped.prompt).toContain("route_kind");
+    expect(stripped.prompt).toContain("daily_purpose");
+  });
+
+  it("weekly lane strip is a no-op for move hints", () => {
+    const facts = minimalWeeklyFacts();
+    const built = buildRelationshipPacketForOpenAI({ lane: "weekly", sourceFacts: facts });
+    const stripped = stripCardSupersededWriterStrategyHintsFromUserPrompt(built.userPromptJson, {
+      lane: "weekly",
+    });
+    expect(stripped.stripped_fields).toEqual([]);
+    expect(stripped.prompt).toContain("weekly_week_summary");
+  });
+
+  it("buildWriterUserPromptWithStrategyCard appends STRATEGY_CARD_V1 after strip", () => {
+    const facts = minimalInboundFacts();
+    const built = buildRelationshipPacketForOpenAI({ lane: "inbound", sourceFacts: facts });
+    const card = '{"move":{"type":"ask_blocker"}}';
+    const out = buildWriterUserPromptWithStrategyCard({
+      userPromptJson: built.userPromptJson,
+      strategyCardAppendix: `STRATEGY_CARD_V1 (primary coaching move — follow exactly; do not invent a different move):\n${card}`,
+      stripWhenCardActive: { lane: "inbound" },
+    });
+    expect(out.prompt).toContain("STRATEGY_CARD_V1");
+    expect(out.prompt).not.toMatch(/"suggested_coaching_move":/);
+    expect(out.stripped_fields).toContain("suggested_coaching_move");
   });
 });
 
