@@ -20,6 +20,11 @@ export type OpenLoopsRouteContextInput = {
   route_purpose?: string | null;
   route_kind?: string | null;
 };
+import {
+  GENERIC_FUTURE_RECOMMITMENT_DNR_ASK,
+  GENERIC_FUTURE_RECOMMITMENT_DNR_FAMILY_KEY,
+  isGenericFutureRecommitmentQuestionFamily,
+} from "@/lib/sms-generic-future-recommitment-question-family";
 import { isNearExactDuplicateSms, normalizeSmsMemoryRepeatText } from "@/lib/sms-memory-anti-repeat";
 
 export const OPEN_LOOPS_AND_DO_NOT_REPEAT_AUTHORITY = "structured_recent_truth" as const;
@@ -94,6 +99,7 @@ export type OpenLoopsAndDoNotRepeatBuildMeta = {
   recent_unanswered_question_count: number;
   open_loops_sources: string[];
   open_loops_truncated: boolean;
+  generic_future_recommitment_dnr_active?: boolean;
 };
 
 type ScoredOpenLoop = OpenLoopItem & { _priority: number; _trimProtected: boolean };
@@ -341,10 +347,23 @@ function mergeSatisfiedAsks(items: SatisfiedAskItem[]): SatisfiedAskItem[] {
   return out.slice(0, MAX_SATISFIED_ASKS);
 }
 
+function recentVisibleGenericFutureRecommitAsk(
+  thread?: OpenLoopsRecentExactThreadInput | null
+): boolean {
+  if (!thread?.messages?.length) return false;
+  for (const m of thread.messages) {
+    if (!isDeliveredCoachQuestionMessage(m)) continue;
+    const q = extractQuestionClause(m.body) ?? m.body;
+    if (isGenericFutureRecommitmentQuestionFamily(q)) return true;
+  }
+  return false;
+}
+
 function collectDoNotRepeatAsks(args: {
   truth: RelationshipPacketStructuredRecentTruth;
   satisfiedAsks: SatisfiedAskItem[];
-}): { asks: string[]; protectedKeys: Set<string> } {
+  recentExactThread?: OpenLoopsRecentExactThreadInput | null;
+}): { asks: string[]; protectedKeys: Set<string>; genericFutureRecommitActive: boolean } {
   const protectedKeys = new Set<string>();
   const out: string[] = [];
   const seen = new Set<string>();
@@ -365,7 +384,12 @@ function collectDoNotRepeatAsks(args: {
     if (sa.do_not_repeat) pushUniqueAsk(out, seen, sa.ask_text);
   }
 
-  return { asks: dedupeAskList(out), protectedKeys };
+  let genericFutureRecommitActive = false;
+  if (recentVisibleGenericFutureRecommitAsk(args.recentExactThread)) {
+    genericFutureRecommitActive = pushUniqueAsk(out, seen, GENERIC_FUTURE_RECOMMITMENT_DNR_ASK);
+  }
+
+  return { asks: dedupeAskList(out), protectedKeys, genericFutureRecommitActive };
 }
 
 function trimDoNotRepeatAsks(asks: string[], protectedKeys: Set<string>): string[] {
@@ -536,10 +560,12 @@ export function buildOpenLoopsAndDoNotRepeat(args: {
   const satisfiedAsks = mergeSatisfiedAsks(satisfiedRaw);
 
   const staleAskTexts = satisfiedAsks.filter((s) => s.do_not_repeat).map((s) => s.ask_text);
-  const { asks: doNotRepeatAsksRaw, protectedKeys } = collectDoNotRepeatAsks({
-    truth,
-    satisfiedAsks,
-  });
+  const { asks: doNotRepeatAsksRaw, protectedKeys, genericFutureRecommitActive } =
+    collectDoNotRepeatAsks({
+      truth,
+      satisfiedAsks,
+      recentExactThread: args.recentExactThread72h,
+    });
   const doNotRepeatAsks = trimDoNotRepeatAsks(doNotRepeatAsksRaw, protectedKeys);
 
   const blockedAsks = [...doNotRepeatAsks, ...staleAskTexts];
@@ -613,6 +639,11 @@ export function buildOpenLoopsAndDoNotRepeat(args: {
     recent_unanswered_question_count: recentUnanswered.length,
     open_loops_sources: sourcesUsed,
     open_loops_truncated: truncated,
+    ...(genericFutureRecommitActive
+      ? {
+          generic_future_recommitment_dnr_active: true,
+        }
+      : {}),
   };
 
   return { section, meta };
@@ -624,6 +655,7 @@ OPEN_LOOPS_AND_DO_NOT_REPEAT (writer guidance — final stale/near-duplicate gua
 - current_turn and recent_exact_thread_72h beat older open_loops from relationship_memory_7d.
 - satisfied_asks must not be re-asked; honor do_not_repeat_asks and do_not_repeat_phrases.
 - do_not_repeat_asks are guidance only — server final guard still blocks stale/near-duplicate sends.
+- When ${JSON.stringify(GENERIC_FUTURE_RECOMMITMENT_DNR_ASK)} appears, a generic future recommitment question was visibly asked recently — do not paraphrase that family (${GENERIC_FUTURE_RECOMMITMENT_DNR_FAMILY_KEY}).
 - active_pending_state open loops may be referenced, but do not claim resolved unless server state confirms.
 - relationship_memory_7d open loops are lower authority than recent exact answers and turn_understanding.
 - recent_unanswered_coach_questions lists coach asks still awaiting a substantive user reply.

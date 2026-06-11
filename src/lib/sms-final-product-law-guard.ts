@@ -38,6 +38,11 @@ import {
 } from "@/lib/weekly-outbound-final-guard-evidence";
 import { evaluatePostUnifiedGuardWeeklyProofTruthRecheck } from "@/lib/weekly-outbound-proof-truth";
 import { userVisibleInternalLabelBlockedReasons } from "@/lib/user-visible-internal-label-guard";
+import {
+  GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND,
+  collectGenericRecommitSpecificBarSubstrings,
+  evaluateGenericFutureRecommitmentProductLaw,
+} from "@/lib/sms-generic-future-recommitment-question-family";
 
 export const SMS_FINAL_PRODUCT_LAW_GUARD_VERSION = "sms_final_product_law_v1" as const;
 
@@ -559,6 +564,7 @@ function mapOutboundDailyToUnified(args: {
   nearDuplicateGuard: RapidNearDuplicateCoachReplyGuardResult | null;
   nearDuplicatePostOcegRecheck: RapidNearDuplicateCoachReplyGuardResult | null;
   productLawFailures?: string[] | null;
+  productLawMeta?: Record<string, unknown>;
 }): UnifiedFinalGuardResult {
   const repairAttempts = countRepairAttemptsFromMetas([
     args.nearDuplicateGuard?.metadata,
@@ -599,6 +605,7 @@ function mapOutboundDailyToUnified(args: {
       ...metadata,
       unified_final_guard_checks_skipped: args.checksSkipped,
       ...(args.productLawFailures?.length ? { product_law_failures: args.productLawFailures } : {}),
+      ...(args.productLawMeta ?? {}),
       visible_sent: args.shouldSend ? true : false,
     },
     tuGuard: passThroughTuGuard(args.body),
@@ -621,6 +628,7 @@ function mapOutboundWeeklyToUnified(args: {
   nearDuplicateGuard: RapidNearDuplicateCoachReplyGuardResult | null;
   nearDuplicatePostOcegRecheck: RapidNearDuplicateCoachReplyGuardResult | null;
   productLawFailures?: string[] | null;
+  productLawMeta?: Record<string, unknown>;
 }): UnifiedFinalGuardResult {
   const repairAttempts = countRepairAttemptsFromMetas([
     args.nearDuplicateGuard?.metadata,
@@ -661,6 +669,7 @@ function mapOutboundWeeklyToUnified(args: {
       ...metadata,
       unified_final_guard_checks_skipped: args.checksSkipped,
       ...(args.productLawFailures?.length ? { product_law_failures: args.productLawFailures } : {}),
+      ...(args.productLawMeta ?? {}),
       visible_sent: args.shouldSend ? true : false,
       sent_body_equals_guard_body: null,
       sent_body_equals_guard_body_pre_footer: args.shouldSend && args.body.trim().length > 0,
@@ -866,6 +875,33 @@ async function applyOutboundWeeklyGuard(
       nearDuplicateGuard,
       nearDuplicatePostOcegRecheck,
       productLawFailures: weeklyTruthRecheck.violations,
+    });
+  }
+
+  const genericRecommitWeekly = evaluateGenericFutureRecommitmentProductLaw({
+    body,
+    routePurpose,
+  });
+  checksRun.push("generic_future_recommitment_question");
+  if (genericRecommitWeekly.block) {
+    return mapOutboundWeeklyToUnified({
+      unifiedArgs: {
+        mode: "outbound_weekly",
+        surface: "weekly",
+        routePurpose,
+      },
+      preBody,
+      body: "",
+      shouldSend: false,
+      noSendReason: GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND,
+      checksRun,
+      checksSkipped,
+      delegatedTo,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck,
+      productLawFailures: [GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND],
+      productLawMeta: genericRecommitWeekly.metadata,
     });
   }
 
@@ -1132,6 +1168,37 @@ async function applyOutboundDailyC1Guard(
     }
   }
 
+  const genericRecommitDaily = evaluateGenericFutureRecommitmentProductLaw({
+    body,
+    routePurpose,
+    specificBarSubstrings: collectGenericRecommitSpecificBarSubstrings({
+      dailyGuardCtx: args.dailyGuardCtx,
+      factsJson: args.factsJson ?? null,
+    }),
+  });
+  checksRun.push("generic_future_recommitment_question");
+  if (genericRecommitDaily.block) {
+    return mapOutboundDailyToUnified({
+      unifiedArgs: {
+        mode: "outbound_daily",
+        surface: "daily",
+        routePurpose,
+      },
+      preBody,
+      body: "",
+      shouldSend: false,
+      noSendReason: GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND,
+      checksRun,
+      checksSkipped,
+      delegatedTo,
+      truthGuard,
+      nearDuplicateGuard,
+      nearDuplicatePostOcegRecheck,
+      productLawFailures: [GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND],
+      productLawMeta: genericRecommitDaily.metadata,
+    });
+  }
+
   return mapOutboundDailyToUnified({
     unifiedArgs: {
       mode: "outbound_daily",
@@ -1148,6 +1215,7 @@ async function applyOutboundDailyC1Guard(
     truthGuard,
     nearDuplicateGuard,
     nearDuplicatePostOcegRecheck,
+    productLawMeta: genericRecommitDaily.metadata,
   });
 }
 

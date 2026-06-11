@@ -12,6 +12,10 @@ import {
   buildOpenLoopsAndDoNotRepeatPromptGuidance,
   isDeliveredCoachQuestionMessage,
 } from "@/lib/sms-open-loops-and-do-not-repeat";
+import {
+  GENERIC_FUTURE_RECOMMITMENT_DNR_ASK,
+  isGenericFutureRecommitmentQuestionFamily,
+} from "@/lib/sms-generic-future-recommitment-question-family";
 import type { RelationshipMemory7dData } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipPacketStructuredRecentTruth } from "@/lib/sms-relationship-packet-v1";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
@@ -556,5 +560,50 @@ describe("recent_unanswered_coach_questions delivered filtering", () => {
       makeMessage({ role: "user", body: "The leadership delegation story." }),
     ]);
     expect(unanswered.some((q) => /dictate today/i.test(q))).toBe(false);
+  });
+});
+
+describe("generic future recommitment do-not-repeat family", () => {
+  const GENERIC_ASK =
+    "Are you ready to stay committed to your goal for the next week?";
+  const PARAPHRASE_ASK =
+    "Do you want to recommit to this for the next 7 days?";
+
+  it("recent visible coach generic recommit question creates do-not-repeat family", () => {
+    const { section, meta } = buildOpenLoopsAndDoNotRepeat({
+      structuredRecentTruth: baseTruth(),
+      activePendingState: buildActivePendingStateFromCommitmentRow(null),
+      recentExactThread72h: {
+        messages: [
+          makeMessage({ role: "coach", body: GENERIC_ASK, delivery_status: "sent" }),
+        ],
+      },
+    });
+    expect(section.data.do_not_repeat_asks).toContain(GENERIC_FUTURE_RECOMMITMENT_DNR_ASK);
+    expect(meta.generic_future_recommitment_dnr_active).toBe(true);
+    expect(isGenericFutureRecommitmentQuestionFamily(PARAPHRASE_ASK)).toBe(true);
+  });
+
+  it("no-send/system generic question does not create visible do-not-repeat", () => {
+    const { section, meta } = buildOpenLoopsAndDoNotRepeat({
+      structuredRecentTruth: baseTruth(),
+      activePendingState: buildActivePendingStateFromCommitmentRow(null),
+      recentExactThread72h: {
+        messages: [
+          makeMessage({
+            role: "system_no_send",
+            body: GENERIC_ASK,
+            delivery_status: "unknown",
+          }),
+        ],
+      },
+    });
+    expect(section.data.do_not_repeat_asks).not.toContain(GENERIC_FUTURE_RECOMMITMENT_DNR_ASK);
+    expect(meta.generic_future_recommitment_dnr_active).toBeUndefined();
+  });
+
+  it("paraphrased same question is treated as same family by detector", () => {
+    expect(isGenericFutureRecommitmentQuestionFamily(GENERIC_ASK)).toBe(true);
+    expect(isGenericFutureRecommitmentQuestionFamily(PARAPHRASE_ASK)).toBe(true);
   });
 });

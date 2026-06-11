@@ -16,6 +16,11 @@ import {
   type InboundTurnUnderstandingContext,
 } from "@/lib/inbound-turn-understanding-context";
 import {
+  GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND,
+  collectGenericRecommitSpecificBarSubstrings,
+  evaluateGenericFutureRecommitmentProductLaw,
+} from "@/lib/sms-generic-future-recommitment-question-family";
+import {
   applyPrematureAdjustmentProposalGuard,
   type MissAdjustmentPolicyResult,
   PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND,
@@ -385,6 +390,25 @@ export async function applyInboundCoachFinalBodyGuards(args: {
       };
     }
     finalBody = truthRecheck.body;
+  }
+
+  const genericRecommitInbound = evaluateGenericFutureRecommitmentProductLaw({
+    body: finalBody,
+    routePurpose: args.routePurpose ?? null,
+    specificBarSubstrings: collectGenericRecommitSpecificBarSubstrings({
+      factsJson: args.factsJson ?? null,
+    }),
+  });
+  if (genericRecommitInbound.block) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND,
+      tuGuard,
+      prematureAdjustmentGuard,
+      truthGuard: finalTruthGuard,
+      nearDuplicateGuard,
+    };
   }
 
   return {

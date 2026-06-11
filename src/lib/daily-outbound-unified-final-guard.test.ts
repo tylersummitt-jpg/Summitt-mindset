@@ -32,6 +32,7 @@ import {
   UNIFIED_FINAL_BODY_AUTHORITY,
   applyUnifiedSmsFinalProductLawGuard,
 } from "@/lib/sms-final-product-law-guard";
+import { GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND } from "@/lib/sms-generic-future-recommitment-question-family";
 import {
   UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
   detectUnsupportedAccountabilityClaimInOutbound,
@@ -293,6 +294,16 @@ describe("Phase 2.3-C1 outbound_daily unified guard", () => {
     );
     expect(r.should_send).toBe(true);
     expect(r.guard_mode).toBe("outbound_daily");
+  });
+
+  it("3b: generic next-week recommit question blocks on daily main", async () => {
+    const r = await applyUnifiedSmsFinalProductLawGuard(
+      c1GuardArgs("Are you ready to stay committed to your goal for the next week?")
+    );
+    expect(r.should_send).toBe(false);
+    expect(r.no_send_reason).toBe(GENERIC_FUTURE_RECOMMITMENT_QUESTION_NO_SEND);
+    expect(r.metadata.generic_recommitment_question_family_detected).toBe(true);
+    expect(r.checks_run).toContain("generic_future_recommitment_question");
   });
 
   it("4: fake completion claim blocks when no evidence", async () => {

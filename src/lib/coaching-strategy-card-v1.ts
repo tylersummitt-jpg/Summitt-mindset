@@ -27,6 +27,14 @@ import type {
 } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
+import {
+  CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+} from "@/lib/sms-generic-future-recommitment-question-family";
 import type { DailySemanticContractProposalFactsPacket } from "@/lib/v3-daily-contract-proposal-semantic";
 
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
@@ -619,6 +627,8 @@ function buildCentralPivotMustDoMustNotDo(args: {
       break;
   }
 
+  must_not_do.push(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+
   return {
     must_do: must_do.slice(0, MAX_MUST_DO),
     must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
@@ -704,6 +714,8 @@ function buildArcClarifyMustDoMustNotDo(ctx: StrategyCardBuildContext): {
   if (ctx.openLoops.satisfied_asks?.length) {
     must_not_do.push("Do not re-ask satisfied asks from open_loops.");
   }
+
+  must_not_do.push(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
 
   return {
     must_do: must_do.slice(0, MAX_MUST_DO),
@@ -1113,6 +1125,8 @@ function buildOpenQuestionMustDoMustNotDo(args: {
     must_not_do.push("Do not re-ask satisfied asks from open_loops.");
   }
 
+  must_not_do.push(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+
   return {
     must_do: must_do.slice(0, MAX_MUST_DO),
     must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
@@ -1417,6 +1431,8 @@ function buildMustDoMustNotDo(args: {
   if (args.ctx.openLoops.satisfied_asks?.length) {
     must_not_do.push("Do not re-ask satisfied asks from open_loops.");
   }
+
+  must_not_do.push(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
 
   return {
     must_do: must_do.slice(0, MAX_MUST_DO),
@@ -2413,6 +2429,7 @@ function buildDailyC1MustDoMustNotDo(args: {
     must_not_do.push("Do not scold or imply the user ignored undelivered messages.");
     must_not_do.push("Do not claim completion, miss, partial, or proof on this turn.");
     must_not_do.push("Do not overstate continuity or pressure.");
+    must_not_do.push(DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
   } else if (moveType === "protect_existing_plan" || moveType === "close_loop") {
     must_do.push("Close the pending plan loop or protect the existing plan first.");
     must_do.push("Use current commitment and relevant recent context.");
@@ -2426,6 +2443,7 @@ function buildDailyC1MustDoMustNotDo(args: {
     must_do.push("Ask about today's commitment / accountability in natural human language.");
     must_do.push("Use current commitment and relevant recent context.");
     must_not_do.push("Do not propose goal change unless server strategy explicitly requires it.");
+    must_not_do.push(DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
   }
 
   must_not_do.push("Do not re-ask satisfied questions from avoid_repeating.");
@@ -2712,8 +2730,10 @@ function buildDailyC2MustDoMustNotDo(
     C2_MUST_NOT_ACCEPTED,
     C2_MUST_NOT_ACTIVE,
     C2_MUST_NOT_ROBOTIC,
+    CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
     "Do not claim proof or Victory Room on this contract proposal turn.",
     "Do not invent a different bar or obligation than semantic proposal facts describe.",
+    "Do not repeat a recently visible generic recommitment ask.",
   ];
   const must_do: string[] = [
     "Present this as a proposal or offer — server state has not changed yet.",
@@ -2990,6 +3010,10 @@ function buildDailyC3RefreshMustDoMustNotDo(
     "Keep this as an in-progress refresh question — server state has not changed yet.",
     "Use required verbatim substrings from server facts when present.",
   ];
+
+  if (routeKind === "refresh_commitment") {
+    must_not_do.push(REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+  }
 
   if (routeKind === "refresh_identity") {
     must_do.push("Ask an identity-fit / alignment question for this refresh step.");
@@ -3594,6 +3618,7 @@ function buildWeeklyMustDoMustNotDo(
     "Do not claim the goal or commitment changed unless server state already shows it.",
     "Do not invent proof or Victory Room beyond proof_and_praise_permission.",
     "Do not pile on unrelated questions — one weekly coaching move only.",
+    WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
   ];
   const must_do: string[] = [
     "Ground weekly framing in RELATIONSHIP_PACKET_V1 weekly_week_summary counts — not invented progress.",
@@ -3603,11 +3628,13 @@ function buildWeeklyMustDoMustNotDo(
   if (moveType === "weekly_low_pressure") {
     must_do.push("Keep the tone light and low-pressure for a sparse or silent week.");
     must_do.push("Point toward next week and the current commitment without shame.");
+    must_do.push("Offer a specific coach-led next-week direction or reflection — not a generic recommitment question.");
     must_not_do.push("Do not invent progress, streaks, or a strong week.");
     must_not_do.push("Do not claim proof or Victory Room.");
   } else if (moveType === "weekly_recover") {
     must_do.push("Be honest about a rough week without shaming.");
     must_do.push("Orient toward recovery and next week.");
+    must_do.push("Offer a specific recovery direction for next week — not a generic recommitment question.");
     must_not_do.push("Do not overpraise or call it an amazing or strong week.");
     must_not_do.push("Do not fake proof or Victory Room.");
   } else if (moveType === "weekly_celebrate_earned") {
@@ -3618,6 +3645,7 @@ function buildWeeklyMustDoMustNotDo(
   } else if (moveType === "weekly_reflect") {
     must_do.push("Reflect honestly on completed, missed, and partial balance this week.");
     must_do.push("Point toward next week without overstatement.");
+    must_do.push("Use a specific next-week direction or reflection — not a generic recommitment question.");
     must_not_do.push("Do not overstate progress beyond weekly counts.");
     must_not_do.push("Do not shame missed days.");
   } else if (moveType === "protect_existing_plan") {
