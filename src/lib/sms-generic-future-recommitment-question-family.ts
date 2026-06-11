@@ -34,7 +34,39 @@ export const REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO =
 
 /** Writer-facing must_not_do — inbound coaching turns. */
 export const INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO =
-  "Do not introduce a generic future recommitment question unless the current route/state explicitly requires a server-owned contract or refresh decision; answer the user's current message first.";
+  "Do not introduce generic future recommitment or abstract renewal questions; answer the user's current message first unless contract/refresh requires a server-owned decision.";
+
+/** Writer-facing — abstract commitment-renewal cousin family (no future window required). */
+export const ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO =
+  "Do not ask an abstract commitment-renewal question (still committed, still want this goal, want to recommit, still in); use a specific next step, recovery question, or server-owned proposal instead.";
+
+/** Writer-facing — generic plan/goal re-approval without naming the bar or candidate. */
+export const ABSTRACT_PLAN_RENEWAL_MUST_NOT_DO =
+  "Do not ask the user to re-approve the goal or keep the same plan in generic terms; coach the concrete bar, step, or server-owned candidate.";
+
+/** Writer-facing — weekly yes/no reset / abstract renewal polls. */
+export const WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO =
+  "Do not ask a yes/no ready-for-next-week reset or abstract stay-committed/recommit question; use coach-led next-week direction or reflection instead.";
+
+/** Writer-facing — daily main today/current-step focus (includes future-window generic recommit). */
+export const DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO =
+  "Do not ask abstract renewal or generic stay-committed/recommit-for-next-week questions; coach today's current step or accountability check.";
+
+/** Writer-facing — low-pressure reactivation specific re-entry. */
+export const REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO =
+  "Do not poll still-in, guilt, or abstract recommitment; use one low-pressure specific re-entry step.";
+
+/** Writer-facing — contract proposal must name server bar, not abstract renewal. */
+export const CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO =
+  "Do not ask abstract still-committed or goal-renewal; present only the specific server-authorized shrink/recommit bar from semantic facts.";
+
+/** Writer-facing — refresh commitment route-required fit-check only. */
+export const REFRESH_FIT_CHECK_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO =
+  "Do not ask abstract commitment renewal; ask only the route-required fit-check tied to the effective ask/verbatim.";
+
+/** Writer-facing — pending resolution candidate-specific only. */
+export const PENDING_CANDIDATE_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO =
+  "Do not ask abstract goal renewal; ask only about the actual pending candidate/loop from server facts.";
 
 export type GenericFutureRecommitmentDetectOptions = {
   /** Route-specific effective ask / bar substring — exempts specific fit-check or proposal copy. */

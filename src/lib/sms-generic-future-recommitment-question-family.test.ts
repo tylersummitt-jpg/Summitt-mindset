@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
+  CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO,
   GENERIC_FUTURE_RECOMMITMENT_DNR_ASK,
   GENERIC_FUTURE_RECOMMITMENT_DNR_FAMILY_KEY,
   INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO,
+  REFRESH_FIT_CHECK_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO,
   evaluateGenericFutureRecommitmentProductLaw,
   isGenericFutureRecommitmentQuestionFamily,
 } from "@/lib/sms-generic-future-recommitment-question-family";
@@ -99,12 +100,13 @@ describe("evaluateGenericFutureRecommitmentProductLaw", () => {
 
 describe("writer must_not_do constants", () => {
   it("exports stable anti-generic recommit strings for Strategy Card surfaces", () => {
-    expect(DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO).toMatch(/next-week|7-days/i);
-    expect(DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO).toMatch(/recommit/i);
-    expect(WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO).toMatch(/generic/i);
-    expect(CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO).toMatch(/server-authorized/i);
-    expect(REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO).toMatch(/fit-check/i);
-    expect(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO).toMatch(/contract or refresh/i);
+    expect(DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO).toMatch(/today|abstract renewal/i);
+    expect(REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO).toMatch(/still-in|re-entry/i);
+    expect(WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO).toMatch(/ready-for-next-week|abstract/i);
+    expect(CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO).toMatch(/server-authorized|semantic/i);
+    expect(REFRESH_FIT_CHECK_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO).toMatch(/fit-check|verbatim/i);
+    expect(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO).toMatch(/contract\/refresh|current message/i);
+    expect(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO).toMatch(/still committed|want to recommit/i);
     expect(GENERIC_FUTURE_RECOMMITMENT_DNR_ASK).toMatch(/already asked recently/i);
     expect(GENERIC_FUTURE_RECOMMITMENT_DNR_FAMILY_KEY).toBe(
       "commitment_future_recommitment_question"

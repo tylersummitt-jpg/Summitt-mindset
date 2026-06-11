@@ -28,12 +28,14 @@ import type {
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
-  CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
+  CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO,
   INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  PENDING_CANDIDATE_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO,
+  REFRESH_FIT_CHECK_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO,
 } from "@/lib/sms-generic-future-recommitment-question-family";
 import type { DailySemanticContractProposalFactsPacket } from "@/lib/v3-daily-contract-proposal-semantic";
 
@@ -627,6 +629,7 @@ function buildCentralPivotMustDoMustNotDo(args: {
       break;
   }
 
+  must_not_do.push(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
   must_not_do.push(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
 
   return {
@@ -696,10 +699,8 @@ function buildArcClarifyMustDoMustNotDo(ctx: StrategyCardBuildContext): {
   ];
   const must_not_do = [
     ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO,
-    "Do not claim completion.",
-    "Do not claim miss.",
-    "Do not claim partial.",
-    "Do not claim proof.",
+    ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
+    "Do not claim completion, miss, partial, or proof.",
     "Do not mention Victory Room.",
   ];
 
@@ -1125,6 +1126,7 @@ function buildOpenQuestionMustDoMustNotDo(args: {
     must_not_do.push("Do not re-ask satisfied asks from open_loops.");
   }
 
+  must_not_do.push(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
   must_not_do.push(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
 
   return {
@@ -1432,6 +1434,7 @@ function buildMustDoMustNotDo(args: {
     must_not_do.push("Do not re-ask satisfied asks from open_loops.");
   }
 
+  must_not_do.push(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
   must_not_do.push(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
 
   return {
@@ -2421,6 +2424,7 @@ function buildDailyC1MustDoMustNotDo(args: {
   const must_not_do: string[] = [
     "Do not claim proof or Victory Room unless allowed_claims permits it.",
     "Do not claim server-side state changed or an active proposal.",
+    ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
   ];
 
   if (ctx.facts.route_kind === "low_pressure_reactivation") {
@@ -2429,7 +2433,7 @@ function buildDailyC1MustDoMustNotDo(args: {
     must_not_do.push("Do not scold or imply the user ignored undelivered messages.");
     must_not_do.push("Do not claim completion, miss, partial, or proof on this turn.");
     must_not_do.push("Do not overstate continuity or pressure.");
-    must_not_do.push(DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    must_not_do.push(REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO);
   } else if (moveType === "protect_existing_plan" || moveType === "close_loop") {
     must_do.push("Close the pending plan loop or protect the existing plan first.");
     must_do.push("Use current commitment and relevant recent context.");
@@ -2443,7 +2447,7 @@ function buildDailyC1MustDoMustNotDo(args: {
     must_do.push("Ask about today's commitment / accountability in natural human language.");
     must_do.push("Use current commitment and relevant recent context.");
     must_not_do.push("Do not propose goal change unless server strategy explicitly requires it.");
-    must_not_do.push(DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    must_not_do.push(DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO);
   }
 
   must_not_do.push("Do not re-ask satisfied questions from avoid_repeating.");
@@ -2730,10 +2734,9 @@ function buildDailyC2MustDoMustNotDo(
     C2_MUST_NOT_ACCEPTED,
     C2_MUST_NOT_ACTIVE,
     C2_MUST_NOT_ROBOTIC,
-    CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+    CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
     "Do not claim proof or Victory Room on this contract proposal turn.",
     "Do not invent a different bar or obligation than semantic proposal facts describe.",
-    "Do not repeat a recently visible generic recommitment ask.",
   ];
   const must_do: string[] = [
     "Present this as a proposal or offer — server state has not changed yet.",
@@ -3012,7 +3015,7 @@ function buildDailyC3RefreshMustDoMustNotDo(
   ];
 
   if (routeKind === "refresh_commitment") {
-    must_not_do.push(REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    must_not_do.push(REFRESH_FIT_CHECK_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO);
   }
 
   if (routeKind === "refresh_identity") {
@@ -3316,6 +3319,7 @@ function buildDailyC3PendingMustDoMustNotDo(): { must_do: string[]; must_not_do:
     "Do not claim the goal or commitment already changed.",
     "Do not claim the user already accepted or confirmed the change.",
     "Do not invent a new candidate bar or alternate obligation.",
+    PENDING_CANDIDATE_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
     "Do not use robotic menu wording (Reply YES/NO, phone-tree confirmations).",
     "Do not claim proof or Victory Room on this pending reminder turn.",
     "Do not pile on unrelated questions — one pending reminder question only.",
@@ -3618,7 +3622,7 @@ function buildWeeklyMustDoMustNotDo(
     "Do not claim the goal or commitment changed unless server state already shows it.",
     "Do not invent proof or Victory Room beyond proof_and_praise_permission.",
     "Do not pile on unrelated questions — one weekly coaching move only.",
-    WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+    WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO,
   ];
   const must_do: string[] = [
     "Ground weekly framing in RELATIONSHIP_PACKET_V1 weekly_week_summary counts — not invented progress.",

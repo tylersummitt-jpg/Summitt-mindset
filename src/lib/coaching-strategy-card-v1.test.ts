@@ -52,12 +52,14 @@ import {
   validateWeeklyProofStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
 import {
-  CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
+  CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO,
   INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
-  WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO,
+  PENDING_CANDIDATE_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO,
+  REFRESH_FIT_CHECK_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
+  WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO,
 } from "@/lib/sms-generic-future-recommitment-question-family";
 import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
 import { deriveAdjustmentProposalAllowedByEvidence } from "@/lib/inbound-miss-adjustment-policy";
@@ -1693,13 +1695,14 @@ describe("Daily C1 Strategy Card v1", () => {
     expect(meta.strategy_card_daily_reactivation).toBe(false);
   });
 
-  it("main_active_accountability must_not_do blocks generic next-week recommit ask", () => {
+  it("main_active_accountability must_not_do blocks abstract renewal and today-not-recommit guidance", () => {
     const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
-    expect(card.must_not_do).toContain(DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
-    expect(strategyCardV1UserPromptAppendix(card)).toContain(DAILY_MAIN_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO);
+    expect(strategyCardV1UserPromptAppendix(card)).toContain(DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO);
   });
 
-  it("low_pressure_reactivation must_not_do blocks generic recommit ask", () => {
+  it("low_pressure_reactivation must_not_do blocks abstract renewal and specific re-entry rule", () => {
     const card = buildDailyC1StrategyCardV1({
       ctx: buildDailyCtx(
         dailyFacts({
@@ -1708,7 +1711,8 @@ describe("Daily C1 Strategy Card v1", () => {
         })
       ),
     });
-    expect(card.must_not_do).toContain(DAILY_REACTIVATION_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO);
   });
 });
 
@@ -1903,13 +1907,19 @@ describe("Daily C2 Strategy Card v1", () => {
     expect(meta.strategy_card_legacy_v2_contract_proposal_kind).toBe("shrink_ask");
   });
 
-  it("contract_prompt/recommit_same avoids generic recommit language but preserves contract_proposal move", () => {
+  it("contract_prompt/recommit_same avoids abstract renewal but preserves contract_proposal move", () => {
     const card = buildDailyC2StrategyCardV1({
       ctx: buildC2Ctx(contractDailyFacts("recommit_same")),
     });
     expect(card.move.type).toBe("contract_proposal");
-    expect(card.must_not_do).toContain(CONTRACT_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO);
     expect(card.must_do.join(" ").toLowerCase()).toMatch(/recommit|proposal|bar/);
+    const joined = card.must_not_do.join(" ").toLowerCase();
+    expect(joined).toMatch(/goal/);
+    expect(joined).toMatch(/accepted/);
+    expect(joined).toMatch(/active/);
+    expect(joined).toMatch(/reply yes/);
+    expect(card.must_not_do.length).toBeLessThanOrEqual(8);
   });
 });
 
@@ -2066,13 +2076,13 @@ describe("Daily C3 refresh Strategy Card v1", () => {
     expect(joined).toMatch(/recommitted/);
   });
 
-  it("refresh_commitment avoids generic recommit language but preserves required fit-check move", () => {
+  it("refresh_commitment avoids abstract renewal but preserves required fit-check move", () => {
     const card = buildDailyC3RefreshStrategyCardV1({
       ctx: buildC3Ctx(refreshFacts("refresh_commitment")),
     });
     expect(card.move.type).toBe("refresh_commitment");
-    expect(card.must_not_do).toContain(REFRESH_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
-    expect(card.must_do.join(" ").toLowerCase()).toMatch(/verbatim|refresh/);
+    expect(card.must_not_do).toContain(REFRESH_FIT_CHECK_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO);
+    expect(card.must_do.join(" ").toLowerCase()).toMatch(/verbatim|effective ask|still fits/);
   });
 
   it("max_questions <= 1", () => {
@@ -2324,6 +2334,14 @@ describe("Daily C3 pending_resolution Strategy Card v1", () => {
     expect(joined).toMatch(/goal/);
     expect(joined).toMatch(/accepted/);
     expect(joined).toMatch(/invent/);
+  });
+
+  it("pending_resolution forbids abstract renewal but keeps candidate must_do", () => {
+    const card = buildDailyC3PendingResolutionStrategyCardV1({
+      ctx: buildPendingCtx(pendingDailyFacts()),
+    });
+    expect(card.must_not_do).toContain(PENDING_CANDIDATE_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO);
+    expect(card.must_do.join(" ").toLowerCase()).toMatch(/pending candidate|pending_resolution_facts/);
   });
 
   it("max_questions <= 1", () => {
@@ -2752,7 +2770,7 @@ describe("Phase 4.8a weekly_proof_v2 Strategy Card v1", () => {
     expect(meta.strategy_card_weekly_proof_state_written_before_sms).toBe(false);
   });
 
-  it("weekly card includes anti-generic-recommit rule", () => {
+  it("weekly card includes no yes/no next-week reset and abstract renewal rule", () => {
     const ctx = buildWeeklyCtx(
       weeklyFacts({
         weekly_proof: {
@@ -2765,29 +2783,34 @@ describe("Phase 4.8a weekly_proof_v2 Strategy Card v1", () => {
       })
     );
     const card = buildWeeklyProofStrategyCardV1({ ctx });
-    expect(card.must_not_do).toContain(WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
-    expect(strategyCardV1UserPromptAppendix(card)).toContain(WEEKLY_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO);
+    expect(strategyCardV1UserPromptAppendix(card)).toContain(WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO);
   });
 });
 
-describe("generic future recommit inbound Strategy Card rules", () => {
-  it("inbound normal includes anti-generic future recommit must_not_do", () => {
+describe("abstract commitment-renewal Strategy Card rules", () => {
+  it("inbound normal includes anti-abstract-renewal must_not_do", () => {
     const card = buildInboundNormalStrategyCardV1({ ctx: buildCtx(minimalFacts()) });
+    expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
     expect(card.must_not_do).toContain(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
   });
 
-  it("open question answer includes anti-generic future recommit must_not_do", () => {
+  it("open question answer includes anti-abstract-renewal must_not_do", () => {
     const card = buildOpenQuestionAnswerStrategyCardV1({ ctx: buildCtx(oqMinimalFacts()) });
+    expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
     expect(card.must_not_do).toContain(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
   });
 
-  it("central pivot includes anti-generic future recommit must_not_do", () => {
+  it("central pivot includes anti-abstract-renewal must_not_do", () => {
     const card = buildCentralPivotStrategyCardV1({ ctx: buildCtx(pivotFactsFixture()) });
+    expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
     expect(card.must_not_do).toContain(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
   });
 
-  it("arc clarify includes anti-generic future recommit must_not_do", () => {
+  it("arc clarify includes anti-abstract-renewal must_not_do", () => {
     const card = buildArcClarifyStrategyCardV1({ ctx: buildCtx(arcFactsFixture()) });
+    expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
     expect(card.must_not_do).toContain(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
+    expect(card.must_not_do).toContain(ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO);
   });
 });
