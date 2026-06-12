@@ -1,18 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/lib/v3-sms-voice-ownership", () => ({
-  repairV3RelationshipLaneBodyWithOpenAI: vi.fn(),
-}));
-
-import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 import {
-  applyDailyStaleAskGuard,
+  applyDailyPostFvgStaleAskDetectOnly,
+  applyDailyStaleAskDetectOnly,
   detectDailyStaleAskViolation,
-  DAILY_STALE_ASK_BLOCKED,
+  DAILY_LANE_STALE_ASK_BLOCKED,
+  DAILY_POST_FVG_STALE_ASK_BLOCKED,
 } from "@/lib/daily-stale-ask-guard";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
-
-const repairMock = vi.mocked(repairV3RelationshipLaneBodyWithOpenAI);
 
 const CALENDAR_ASK =
   "let me know if you're ready to put one family connection on the calendar for tomorrow";
@@ -126,66 +122,148 @@ describe("detectDailyStaleAskViolation", () => {
   });
 });
 
-describe("applyDailyStaleAskGuard", () => {
-  beforeEach(() => {
-    repairMock.mockReset();
-  });
+describe("applyDailyStaleAskDetectOnly @ daily_lane_pre_send", () => {
+  const STALE_CALENDAR_BODY =
+    "Are you ready to put one family connection on the calendar for tomorrow?";
 
-  it("returns ok without repair when draft is safe", async () => {
-    const result = await applyDailyStaleAskGuard({
-      body: "Did the noon call with Bond happen, or did something get in the way?",
+  it("1: daily_lane_pre_send stale violation no-sends", () => {
+    const result = applyDailyStaleAskDetectOnly({
+      body: STALE_CALENDAR_BODY,
       satisfiedAskContext: familySatisfiedContext(),
       routePurpose: "main_active_accountability",
+      stage: "daily_lane_pre_send",
     });
-    expect(result.outcome).toBe("ok");
-    expect(repairMock).not.toHaveBeenCalled();
-    expect(result.metadata.daily_stale_ask_detected).toBe(false);
+    expect(result.outcome).toBe("no_send");
+    if (result.outcome === "no_send") {
+      expect(result.noSendReason).toBe(DAILY_LANE_STALE_ASK_BLOCKED);
+      expect(result.metadata.daily_lane_stale_ask_detected).toBe(true);
+      expect(result.metadata.daily_lane_stale_ask_source).toBe("daily_lane_pre_send");
+      expect(result.metadata.stale_guard_repair_body_preview).toBeUndefined();
+    }
   });
 
-  it("F: repairs stale draft once and succeeds when repair is non-stale", async () => {
-    repairMock.mockResolvedValueOnce({
-      body: "Did the noon call with Bond happen, or did something get in the way?",
-      model: "gpt-test",
-    });
-    const result = await applyDailyStaleAskGuard({
+  it("2: clear no-send reason and metadata", () => {
+    const result = applyDailyStaleAskDetectOnly({
       body: "Are you ready to put one family connection on the calendar?",
+      satisfiedAskContext: familySatisfiedContext(),
+      routePurpose: "main_active_accountability",
+      stage: "daily_lane_pre_send",
+    });
+    expect(result.outcome).toBe("no_send");
+    if (result.outcome === "no_send") {
+      expect(result.metadata.daily_lane_stale_ask_no_send_reason).toBe(DAILY_LANE_STALE_ASK_BLOCKED);
+      expect(result.metadata.daily_stale_ask_repair_attempted).toBe(false);
+      expect(result.metadata.skip_source).toBe("stale_ask_no_send");
+    }
+  });
+
+  it("3: non-stale body proceeds unchanged", () => {
+    const safeBody = "Did the noon call with Bond happen, or did something get in the way?";
+    const result = applyDailyStaleAskDetectOnly({
+      body: safeBody,
+      satisfiedAskContext: familySatisfiedContext(),
+      routePurpose: "main_active_accountability",
+      stage: "daily_lane_pre_send",
+    });
+    expect(result.outcome).toBe("ok");
+    if (result.outcome === "ok") {
+      expect(result.body).toBe(safeBody);
+      expect(result.metadata.daily_lane_stale_ask_detected).toBe(false);
+    }
+  });
+
+  it("4: true stale repeated daily question still blocks", () => {
+    const result = applyDailyStaleAskDetectOnly({
+      body: "Are you ready to put one family connection on the calendar?",
+      satisfiedAskContext: familySatisfiedContext(),
+      routePurpose: "low_pressure_reactivation",
+      stage: "daily_lane_pre_send",
+    });
+    expect(result.outcome).toBe("no_send");
+  });
+});
+
+describe("applyDailyPostFvgStaleAskDetectOnly", () => {
+  const POST_FVG_STALE_CALENDAR_BODY =
+    "Are you ready to put one family connection on the calendar for tomorrow?";
+
+  it("1: post-FVG stale calendar re-ask no-sends without replacement SMS", () => {
+    const result = applyDailyPostFvgStaleAskDetectOnly({
+      body: POST_FVG_STALE_CALENDAR_BODY,
       satisfiedAskContext: familySatisfiedContext(),
       routePurpose: "main_active_accountability",
       stage: "daily_post_final_voice_gate",
     });
-    expect(repairMock).toHaveBeenCalledTimes(1);
-    expect(result.outcome).toBe("ok");
-    expect(result.metadata.daily_stale_ask_repair_attempted).toBe(true);
-    expect(result.metadata.daily_stale_ask_repair_succeeded).toBe(true);
-    if (result.outcome === "ok") {
-      expect(result.body).toMatch(/Bond/i);
+    expect(result.outcome).toBe("no_send");
+    if (result.outcome === "no_send") {
+      expect(result.noSendReason).toBe(DAILY_POST_FVG_STALE_ASK_BLOCKED);
+      expect(result.metadata.daily_post_fvg_stale_ask_detected).toBe(true);
+      expect(result.metadata.daily_post_fvg_stale_ask_source).toBe("daily_post_final_voice_gate");
+      expect(result.metadata.stale_guard_repair_body_preview).toBeUndefined();
     }
   });
 
-  it("no-sends when repair still stale", async () => {
-    repairMock.mockResolvedValueOnce({
-      body: "Ready to put family time on the calendar tomorrow?",
-      model: "gpt-test",
-    });
-    const result = await applyDailyStaleAskGuard({
+  it("3: no-send reason is daily_post_fvg_stale_ask_blocked", () => {
+    const result = applyDailyPostFvgStaleAskDetectOnly({
       body: "Are you ready to put one family connection on the calendar?",
       satisfiedAskContext: familySatisfiedContext(),
       routePurpose: "main_active_accountability",
     });
     expect(result.outcome).toBe("no_send");
     if (result.outcome === "no_send") {
-      expect(result.noSendReason).toBe(DAILY_STALE_ASK_BLOCKED);
-      expect(result.metadata.daily_stale_ask_no_send_reason).toBe(DAILY_STALE_ASK_BLOCKED);
+      expect(result.noSendReason).toBe(DAILY_POST_FVG_STALE_ASK_BLOCKED);
+      expect(result.metadata.daily_post_fvg_stale_ask_no_send_reason).toBe(
+        DAILY_POST_FVG_STALE_ASK_BLOCKED
+      );
+      expect(result.metadata.daily_stale_ask_repair_attempted).toBe(false);
     }
   });
 
-  it("no-sends when repair returns empty body", async () => {
-    repairMock.mockResolvedValueOnce(null);
-    const result = await applyDailyStaleAskGuard({
+  it("4: non-stale FVG body proceeds unchanged", () => {
+    const safeBody = "Did the noon call with Bond happen, or did something get in the way?";
+    const result = applyDailyPostFvgStaleAskDetectOnly({
+      body: safeBody,
+      satisfiedAskContext: familySatisfiedContext(),
+      routePurpose: "main_active_accountability",
+      stage: "daily_post_final_voice_gate",
+    });
+    expect(result.outcome).toBe("ok");
+    if (result.outcome === "ok") {
+      expect(result.body).toBe(safeBody);
+      expect(result.metadata.daily_post_fvg_stale_ask_detected).toBe(false);
+    }
+  });
+
+  it("5: true stale repeated daily question still blocks", () => {
+    const result = applyDailyPostFvgStaleAskDetectOnly({
       body: "Are you ready to put one family connection on the calendar?",
       satisfiedAskContext: familySatisfiedContext(),
       routePurpose: "main_active_accountability",
     });
     expect(result.outcome).toBe("no_send");
+  });
+});
+
+describe("daily stale helper production wiring", () => {
+  const guardSrc = readFileSync(
+    join(process.cwd(), "src/lib/daily-stale-ask-guard.ts"),
+    "utf8"
+  );
+  const laneSrc = readFileSync(
+    join(process.cwd(), "src/lib/v3-daily-relationship-lane.ts"),
+    "utf8"
+  );
+
+  it("daily stale helper has no OpenAI repair path", () => {
+    expect(guardSrc).not.toContain("repairV3RelationshipLaneBodyWithOpenAI");
+    expect(guardSrc).not.toContain("applyDailyStaleAskGuard");
+    expect(guardSrc).not.toContain("buildDailyStaleAskRepairInstruction");
+  });
+
+  it("lane pre-send stale is detect-only with contract exclusion", () => {
+    expect(laneSrc).toContain("applyDailyStaleAskDetectOnly");
+    expect(laneSrc).toContain('stage: "daily_lane_pre_send"');
+    expect(laneSrc).not.toContain("applyDailyStaleAskGuard");
+    expect(laneSrc).toContain('laneFacts.route_kind !== "contract_prompt"');
   });
 });

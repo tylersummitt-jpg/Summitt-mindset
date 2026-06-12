@@ -170,7 +170,8 @@ import {
   type DailySatisfiedAskContext,
 } from "@/lib/daily-satisfied-ask-context";
 import {
-  applyDailyStaleAskGuard,
+  applyDailyPostFvgStaleAskDetectOnly,
+  DAILY_POST_FVG_STALE_ASK_BLOCKED,
   DAILY_STALE_ASK_BLOCKED,
 } from "@/lib/daily-stale-ask-guard";
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
@@ -434,7 +435,7 @@ async function withNorthStarDailyGate(
   let postFvgStaleMeta: Record<string, unknown> = {};
 
   if (built.dailySatisfiedAskContext?.has_satisfied_recent_ask && finalShouldSend && finalReplyBody.trim() && !built.v2ContractProposalMode) {
-    const stalePostFvg = await applyDailyStaleAskGuard({
+    const stalePostFvg = applyDailyPostFvgStaleAskDetectOnly({
       body: finalReplyBody,
       satisfiedAskContext: built.dailySatisfiedAskContext,
       routePurpose: built.v2ReactivationNudge
@@ -446,14 +447,17 @@ async function withNorthStarDailyGate(
             : "main_active_accountability",
       stage: "daily_post_final_voice_gate",
     });
-    postFvgStaleMeta = stalePostFvg.metadata;
     if (stalePostFvg.outcome === "no_send") {
+      postFvgStaleMeta = {
+        ...stalePostFvg.metadata,
+        no_send_reason: stalePostFvg.noSendReason,
+      };
       finalShouldSend = false;
       finalSkipReason = "final_voice_blocked";
       finalReplyBody = "";
-      finalBlockedReasons = [...(finalBlockedReasons ?? []), DAILY_STALE_ASK_BLOCKED];
+      finalBlockedReasons = [...(finalBlockedReasons ?? []), DAILY_POST_FVG_STALE_ASK_BLOCKED];
     } else {
-      finalReplyBody = stalePostFvg.body;
+      postFvgStaleMeta = stalePostFvg.metadata;
     }
   }
 
@@ -498,11 +502,13 @@ async function withNorthStarDailyGate(
   const skipSource =
     !finalShouldSend && unifiedGuardNoSendReason
       ? "unified_final_guard_no_send"
-      : !finalShouldSend && finalBlockedReasons?.includes(DAILY_STALE_ASK_BLOCKED)
-        ? "stale_ask_no_send"
-        : !finalShouldSend
-          ? "FVG_no_send"
-          : null;
+      : !finalShouldSend && finalBlockedReasons?.includes(DAILY_POST_FVG_STALE_ASK_BLOCKED)
+        ? "daily_post_fvg_stale_ask_no_send"
+        : !finalShouldSend && finalBlockedReasons?.includes(DAILY_STALE_ASK_BLOCKED)
+          ? "stale_ask_no_send"
+          : !finalShouldSend
+            ? "FVG_no_send"
+            : null;
 
   const out: Extract<DailySmsBuilt, { ok: true }> = {
     ...built,

@@ -1,15 +1,24 @@
 /**
- * Daily outbound stale-ask detect + one OpenAI repair before no-send.
+ * Daily outbound stale-ask detection with fail-closed no-send (no OpenAI rewrite).
  */
 
 import {
   paraphraseRepeatsStaleCoachAsk,
 } from "@/lib/inbound-turn-understanding-context";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
-import { repairV3RelationshipLaneBodyWithOpenAI } from "@/lib/v3-sms-voice-ownership";
 import { detectSmsMemoryRepeatViolation } from "@/lib/sms-memory-anti-repeat";
 
+/** Legacy lane/post-unified stale no-send token (telemetry compatibility). */
 export const DAILY_STALE_ASK_BLOCKED = "daily_stale_ask_blocked" as const;
+
+export const DAILY_LANE_STALE_ASK_BLOCKED = "daily_lane_stale_ask_blocked" as const;
+
+/** Post-FVG stale ask: detect only — no OpenAI rewrite after voice polish. */
+export const DAILY_POST_FVG_STALE_ASK_BLOCKED = "daily_post_fvg_stale_ask_blocked" as const;
+
+export type DailyStaleAskDetectStage =
+  | "daily_lane_pre_send"
+  | "daily_post_final_voice_gate";
 
 export type DailyStaleAskDetectArgs = {
   body: string;
@@ -67,106 +76,84 @@ export function detectDailyStaleAskViolation(
   return { violation: false, repeatedPhrase: null };
 }
 
-function buildDailyStaleAskRepairInstruction(args: {
-  violation: { repeatedPhrase: string | null };
-  context: DailySatisfiedAskContext | null | undefined;
-  latestAnswerText?: string | null;
-}): string {
-  const dnr = args.context?.do_not_repeat_asks.slice(0, 4).join(" | ") ?? args.violation.repeatedPhrase ?? "";
-  const evidence = args.context?.evidence_preview ?? args.latestAnswerText ?? "";
-  return `DAILY STALE ASK REPAIR: The draft repeats a coach question the user already answered or satisfied.
-Do NOT repeat or paraphrase these stale asks: ${dnr || "(prior satisfied ask)"}.
-The user already answered/satisfied the prior ask. Remove the stale question entirely.
-You may briefly acknowledge their latest answer if useful: ${JSON.stringify(evidence.slice(0, 200))}.
-Ask one non-stale next step or outcome-close question if appropriate (e.g. did the planned action happen, or what got in the way).
-Do NOT re-ask planning/scheduling/calendar setup they already gave.
-Do NOT claim proof, completion, user_yes, or Victory Room saves unless server outcome evidence exists.
-No hard-coded templates. One short SMS.`;
-}
-
-export type ApplyDailyStaleAskGuardArgs = DailyStaleAskDetectArgs & {
+export type DailyStaleAskDetectOnlyArgs = DailyStaleAskDetectArgs & {
   routePurpose: string;
-  factsJson?: Record<string, unknown> | null;
-  stage?: string;
+  stage?: DailyStaleAskDetectStage;
 };
 
 export type DailyStaleAskGuardResult =
   | { outcome: "ok"; body: string; metadata: Record<string, unknown> }
   | { outcome: "no_send"; noSendReason: string; metadata: Record<string, unknown> };
 
-export async function applyDailyStaleAskGuard(
-  args: ApplyDailyStaleAskGuardArgs
-): Promise<DailyStaleAskGuardResult> {
-  const stage = args.stage ?? "daily_stale_ask_guard";
+function stageNoSendReason(stage: DailyStaleAskDetectStage): string {
+  return stage === "daily_lane_pre_send"
+    ? DAILY_LANE_STALE_ASK_BLOCKED
+    : DAILY_POST_FVG_STALE_ASK_BLOCKED;
+}
+
+function stageSkipSource(stage: DailyStaleAskDetectStage): string {
+  return stage === "daily_lane_pre_send" ? "stale_ask_no_send" : "daily_post_final_voice_gate";
+}
+
+/** Stale detection with fail-closed no-send — never rewrites the body. */
+export function applyDailyStaleAskDetectOnly(
+  args: DailyStaleAskDetectOnlyArgs
+): DailyStaleAskGuardResult {
+  const stage = args.stage ?? "daily_lane_pre_send";
   const original = args.body.trim();
   const violation = detectDailyStaleAskViolation(args);
+  const noSendReason = stageNoSendReason(stage);
 
   const baseMeta: Record<string, unknown> = {
     daily_stale_ask_detected: violation.violation,
     daily_stale_ask_guard_stage: stage,
-    ...(violation.repeatedPhrase ? { daily_stale_ask_phrase: violation.repeatedPhrase } : {}),
     daily_stale_ask_repair_attempted: false,
     daily_stale_ask_repair_succeeded: false,
+    ...(stage === "daily_lane_pre_send"
+      ? {
+          daily_lane_stale_ask_detected: violation.violation,
+          daily_lane_stale_ask_source: stage,
+          daily_lane_stale_ask_repair_attempted: false,
+        }
+      : {
+          daily_post_fvg_stale_ask_detected: violation.violation,
+          daily_post_fvg_stale_ask_source: stage,
+          daily_post_fvg_stale_ask_repair_attempted: false,
+        }),
+    ...(violation.repeatedPhrase
+      ? {
+          daily_stale_ask_phrase: violation.repeatedPhrase,
+          ...(stage === "daily_lane_pre_send"
+            ? { daily_lane_stale_ask_phrase: violation.repeatedPhrase }
+            : { daily_post_fvg_stale_ask_phrase: violation.repeatedPhrase }),
+        }
+      : {}),
   };
 
   if (!violation.violation) {
     return { outcome: "ok", body: original, metadata: baseMeta };
   }
 
-  const repair = await repairV3RelationshipLaneBodyWithOpenAI({
-    routeKind: "daily",
-    routePurpose: args.routePurpose,
-    originalBody: original,
-    blockedReasons: ["daily_stale_ask"],
-    factsJson: args.factsJson ?? null,
-    systemInstruction: buildDailyStaleAskRepairInstruction({
-      violation,
-      context: args.satisfiedAskContext,
-      latestAnswerText: args.latestAnswerText,
-    }),
-  });
-
-  baseMeta.daily_stale_ask_repair_attempted = true;
-
-  if (!repair?.body?.trim()) {
-    return {
-      outcome: "no_send",
-      noSendReason: DAILY_STALE_ASK_BLOCKED,
-      metadata: {
-        ...baseMeta,
-        daily_stale_ask_repair_succeeded: false,
-        daily_stale_ask_no_send_reason: DAILY_STALE_ASK_BLOCKED,
-      },
-    };
-  }
-
-  const repairedBody = repair.body.trim();
-  const recheck = detectDailyStaleAskViolation({
-    ...args,
-    body: repairedBody,
-  });
-
-  if (recheck.violation) {
-    return {
-      outcome: "no_send",
-      noSendReason: DAILY_STALE_ASK_BLOCKED,
-      metadata: {
-        ...baseMeta,
-        daily_stale_ask_repair_succeeded: false,
-        daily_stale_ask_no_send_reason: DAILY_STALE_ASK_BLOCKED,
-        daily_stale_ask_recheck_phrase: recheck.repeatedPhrase,
-        stale_guard_repair_body_preview: repairedBody.slice(0, 220),
-      },
-    };
-  }
-
   return {
-    outcome: "ok",
-    body: repairedBody,
+    outcome: "no_send",
+    noSendReason,
     metadata: {
       ...baseMeta,
-      daily_stale_ask_repair_succeeded: true,
-      stale_guard_repair_body_preview: repairedBody.slice(0, 220),
+      daily_stale_ask_no_send_reason: noSendReason,
+      ...(stage === "daily_lane_pre_send"
+        ? { daily_lane_stale_ask_no_send_reason: noSendReason }
+        : { daily_post_fvg_stale_ask_no_send_reason: noSendReason }),
+      skip_source: stageSkipSource(stage),
     },
   };
+}
+
+/** After FVG: stale detection with fail-closed no-send — never rewrites the body. */
+export function applyDailyPostFvgStaleAskDetectOnly(
+  args: DailyStaleAskDetectArgs & { routePurpose: string; stage?: string }
+): DailyStaleAskGuardResult {
+  return applyDailyStaleAskDetectOnly({
+    ...args,
+    stage: (args.stage as DailyStaleAskDetectStage | undefined) ?? "daily_post_final_voice_gate",
+  });
 }

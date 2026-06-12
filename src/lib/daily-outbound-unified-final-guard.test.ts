@@ -612,9 +612,10 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     expect(dailySrc).toContain('builtMain.v2ContractProposalMode ? "proposal_yes_no"');
   });
 
-  it("22: existing daily stale ask guard remains present", () => {
-    expect(dailySrc).toContain("applyDailyStaleAskGuard");
+  it("22: post-FVG daily stale ask is detect-only (no OpenAI repair)", () => {
+    expect(dailySrc).toContain("applyDailyPostFvgStaleAskDetectOnly");
     expect(dailySrc).toContain("daily_post_final_voice_gate");
+    expect(dailySrc).not.toContain("applyDailyStaleAskGuard");
   });
 
   it("23: existing FVG remains present", () => {

@@ -1951,7 +1951,7 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.strategy_card_daily_pending_state_written_before_sms).toBe(false);
   });
 
-  it("repairs repeated prior coach question on main accountability (M2B-5)", async () => {
+  it("M2B-5: no-sends at lane pre-send when repeated answered coach question survives memory repeat repair", async () => {
     const priorQ = "What story will you dictate today?";
     createMock
       .mockResolvedValueOnce({
@@ -1999,9 +1999,11 @@ describe("produceDailyV3RelationshipSms", () => {
       telemetry_fact_sources: ["test_memory_repeat"],
     });
 
-    expect(r.shouldSend).toBe(true);
-    expect(r.body).not.toBe(priorQ);
-    expect(r.metadata.memory_repeat_guard_succeeded).toBe(true);
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("daily_lane_stale_ask_blocked");
+    expect(r.metadata.lane_stage).toBe("daily_stale_ask_guard_failed");
+    expect(r.metadata.daily_lane_stale_ask_detected).toBe(true);
+    expect(r.body).toBe("");
   });
 
   it("no-sends when memory repeat repair still repeats answered open question", async () => {

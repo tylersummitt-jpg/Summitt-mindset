@@ -38,10 +38,7 @@ import {
 import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
 import { slimDailySatisfiedAskContextForTelemetry } from "@/lib/daily-satisfied-ask-context";
-import {
-  applyDailyStaleAskGuard,
-  DAILY_STALE_ASK_BLOCKED,
-} from "@/lib/daily-stale-ask-guard";
+import { applyDailyStaleAskDetectOnly } from "@/lib/daily-stale-ask-guard";
 import {
   buildDailyOpenQuestionAnswerPriorityGuidance,
   buildPendingPlanProofLaneGuardrails,
@@ -1814,14 +1811,13 @@ used_facts (string[]), safety_notes (string[])`;
   }
 
   if (laneFacts.route_kind !== "contract_prompt") {
-    const staleAskGuard = await applyDailyStaleAskGuard({
+    const staleAskGuard = applyDailyStaleAskDetectOnly({
       body,
       satisfiedAskContext: laneFacts.daily_satisfied_ask_context,
       lastCoachQuestions: laneFacts.thread_memory.last_5_coach_questions,
       answeredOpenQuestion: laneFacts.thread_memory.latest_open_question ?? null,
       latestAnswerText: laneFacts.thread_memory.latest_answer_after_open_question ?? null,
       routePurpose: laneFacts.route_kind,
-      factsJson: laneFacts as unknown as Record<string, unknown>,
       stage: "daily_lane_pre_send",
     });
 
@@ -1842,6 +1838,7 @@ used_facts (string[]), safety_notes (string[])`;
           v3_candidate_body: body,
           ...successRepairExtra,
           ...staleAskGuard.metadata,
+          no_send_reason: staleAskGuard.noSendReason,
           ...(slimDailySatisfiedAskContextForTelemetry(laneFacts.daily_satisfied_ask_context) ?? {}),
           skip_source: "stale_ask_no_send",
         },
@@ -1849,11 +1846,7 @@ used_facts (string[]), safety_notes (string[])`;
       };
     }
 
-    body = staleAskGuard.body;
-    if (staleAskGuard.metadata.daily_stale_ask_repair_succeeded === true) {
-      successLaneStage = "post_validate_repaired";
-      successRepairExtra = { ...successRepairExtra, ...staleAskGuard.metadata };
-    } else if (Object.keys(staleAskGuard.metadata).length > 0) {
+    if (Object.keys(staleAskGuard.metadata).length > 0) {
       successRepairExtra = { ...successRepairExtra, ...staleAskGuard.metadata };
     }
   }
