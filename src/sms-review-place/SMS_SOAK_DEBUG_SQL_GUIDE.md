@@ -82,3 +82,32 @@ Still available for specialized audits (not duplicated here):
 - SELECT-only. No migrations, views, or schema changes.
 - All-users; no Brooke or user-specific filters.
 - No Twilio/send/persistence/runtime changes.
+
+## v1.1 — inbound telemetry join (June 2026)
+
+`sms_inbound_coach_jobs` has no metadata column. Core queries enrich inbound rows via **inbound turn telemetry**:
+
+```sql
+LEFT JOIN LATERAL (
+  SELECT ev.payload_json AS tel
+  FROM v2_commitment_event ev
+  WHERE ev.event_type = 'sms_memory_signal'
+    AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+    AND ev.payload_json->>'message_sid' = j.message_sid
+  ORDER BY ev.occurred_at DESC
+  LIMIT 1
+) it ON TRUE
+```
+
+**Do not** join on `v2_user_reply:{message_sid}` — that idempotency key does not match telemetry rows.
+
+### Inbound SQL inference (job table only)
+
+| Field | Rule |
+|-------|------|
+| `visible_sent` | `status = 'sent'` AND `outbound_message_sid` IS NOT NULL |
+| `twilio_send_attempted` | `outbound_message_sid` IS NOT NULL |
+| `route_purpose` / strategy card | COALESCE from `it.tel->>'route_purpose'`, `strategy_card_*`, etc. |
+| `no_send_reason` | job status + `unified_final_guard_no_send_reason` + `last_error` |
+
+Telemetry payload is written pre-Twilio by `insertInboundTurnTelemetryBestEffort` (`inbound_turn_telemetry:{message_sid}`). Older rows may lack new compact lane fields until new inbound traffic soaks.

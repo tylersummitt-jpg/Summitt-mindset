@@ -9,6 +9,37 @@ import type { ShortAnswerContextAuthority } from "@/lib/inbound-short-answer-con
 import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
 
+/** Compact lane / packet fields safe for soak SQL — no prompts, packets, or snapshots. */
+export const INBOUND_TURN_TELEMETRY_COMPACT_KEYS = [
+  "route_purpose",
+  "branch_name",
+  "v3_lane_reply_source",
+  "reply_source",
+  "strategy_card_surface",
+  "strategy_card_route_kind",
+  "strategy_card_move_type",
+  "strategy_card_validation_status",
+  "strategy_card_validation_reasons",
+  "strategy_card_packet_writer_hints_stripped",
+  "strategy_card_packet_stripped_fields",
+  "relationship_packet_version",
+  "relationship_snapshot_version",
+  "relationship_packet_truncated",
+  "relationship_snapshot_truncated",
+  "open_loop_count",
+  "do_not_repeat_ask_count",
+  "recent_unanswered_question_count",
+  "active_pending_state_source",
+  "proof_permission_emitted",
+  "can_claim_proof",
+  "can_claim_miss",
+  "can_claim_partial",
+  "can_reference_victory_room",
+  "strategy_card_can_claim_proof",
+  "strategy_card_can_reference_victory_room",
+  "no_send_reason",
+] as const;
+
 export type InboundTurnTelemetryArgs = {
   commitmentId: string;
   clerkUserId: string;
@@ -22,7 +53,57 @@ export type InboundTurnTelemetryArgs = {
   truthGuardMetadata?: Record<string, unknown> | null;
   tuGuardMetadata?: Record<string, unknown> | null;
   branch?: string | null;
+  laneMetadata?: Record<string, unknown> | null;
+  packetObservability?: Record<string, unknown> | null;
+  routePurpose?: string | null;
+  branchName?: string | null;
+  /** True when a visible send is intended immediately after telemetry insert (pre-Twilio). */
+  visibleSentIntended?: boolean;
 };
+
+export function compactInboundTurnTelemetryLaneFields(
+  args: Pick<
+    InboundTurnTelemetryArgs,
+    | "laneMetadata"
+    | "packetObservability"
+    | "routePurpose"
+    | "branchName"
+    | "coachingMoveSource"
+    | "visibleSentIntended"
+  >
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+
+  const absorb = (src: Record<string, unknown> | null | undefined) => {
+    if (src == null || typeof src !== "object") return;
+    for (const key of INBOUND_TURN_TELEMETRY_COMPACT_KEYS) {
+      if (src[key] !== undefined && merged[key] === undefined) {
+        merged[key] = src[key];
+      }
+    }
+  };
+
+  absorb(args.laneMetadata);
+  absorb(args.packetObservability);
+
+  const routePurpose = args.routePurpose?.trim();
+  if (routePurpose) merged.route_purpose = routePurpose;
+
+  const branchName = args.branchName?.trim();
+  if (branchName) merged.branch_name = branchName;
+
+  const replySource = args.coachingMoveSource?.trim();
+  if (replySource) {
+    merged.v3_lane_reply_source = replySource;
+    merged.reply_source = replySource;
+  }
+
+  if (args.visibleSentIntended === true) {
+    merged.visible_sent_intended = true;
+  }
+
+  return merged;
+}
 
 export async function insertInboundTurnTelemetryBestEffort(
   args: InboundTurnTelemetryArgs
@@ -30,6 +111,8 @@ export async function insertInboundTurnTelemetryBestEffort(
   const messageSid = args.messageSid.trim();
   const commitmentId = args.commitmentId.trim();
   if (!messageSid || !commitmentId) return;
+
+  const laneFields = compactInboundTurnTelemetryLaneFields(args);
 
   const payload: Record<string, unknown> = {
     inbound_turn_telemetry: true,
@@ -54,6 +137,7 @@ export async function insertInboundTurnTelemetryBestEffort(
     coaching_move_source: args.coachingMoveSource ?? null,
     inbound_meaning_relationship: args.inboundMeaning?.relationship_meaning ?? null,
     inbound_meaning_persistence: args.inboundMeaning?.persistence_decision ?? null,
+    ...laneFields,
     ...(args.truthGuardMetadata ?? {}),
     ...(args.tuGuardMetadata ?? {}),
   };

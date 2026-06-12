@@ -20,9 +20,15 @@
 --   no_send / skip      relationship_packet_observability | daily_v3_lane | inbound_v3_lane |
 --                         skip_reason | voice_send_decision | final_voice_gate |
 --                         unified_final_product_law_guard
---   visible_sent        voice_send_decision | top-level metadata | inferred from status+SID
---   twilio_send_attempted voice_send_decision | top-level | message_sid present
+--   visible_sent (inbound)  status='sent' AND outbound_message_sid IS NOT NULL (SQL inference)
+--   twilio_send_attempted (inbound)  outbound_message_sid IS NOT NULL
 --   final guard mode    unified_final_product_law_guard | voice_send_decision | top-level
+--
+-- Inbound coach jobs have no metadata column. Join sms_memory_signal telemetry:
+--   v2_commitment_event.event_type = 'sms_memory_signal'
+--   payload_json->>'inbound_turn_telemetry' = 'true'
+--   payload_json->>'message_sid' = sms_inbound_coach_jobs.message_sid
+-- Use LATERAL subquery alias `it.tel` in core queries below.
 --
 -- sms_send_events.status (daily cron — do NOT count only status = 'sent'):
 --   sent/delivered/queued/accepted/sending + message_sid + note='sent_to_twilio' => outbound accepted
@@ -214,63 +220,49 @@ normalized AS (
     j.clerk_user_id,
     j.status,
     COALESCE(j.outbound_message_sid, j.message_sid),
-    COALESCE(ev.payload_json, '{}'::jsonb),
+    COALESCE(it.tel, '{}'::jsonb),
     COALESCE(
-      ev.payload_json->'inbound_v3_lane'->>'route_kind',
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_route_kind',
-      ev.payload_json->>'route_kind'
+      it.tel->>'route_purpose',
+      it.tel->>'strategy_card_route_kind'
     ),
     COALESCE(
-      ev.payload_json->>'route_purpose',
-      ev.payload_json->'inbound_v3_lane'->>'route_purpose',
-      ev.payload_json->'ai'->>'route_purpose'
+      it.tel->>'route_purpose',
+      it.tel->>'strategy_card_route_kind'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_surface',
-      ev.payload_json->>'strategy_card_surface',
-      ev.payload_json->'inbound_v3_lane'->>'strategy_card_surface',
-      ev.payload_json->'v3_brain'->>'strategy_card_surface'
+      it.tel->>'strategy_card_surface'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_route_kind',
-      ev.payload_json->>'strategy_card_route_kind',
-      ev.payload_json->'inbound_v3_lane'->>'strategy_card_route_kind'
+      it.tel->>'strategy_card_route_kind'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_move_type',
-      ev.payload_json->>'strategy_card_move_type',
-      ev.payload_json->'inbound_v3_lane'->>'strategy_card_move_type'
+      it.tel->>'strategy_card_move_type'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'no_send_reason',
-      ev.payload_json->'inbound_v3_lane'->>'no_send_reason',
-      ev.payload_json->'ai'->'reply_resolution'->>'reply_source',
-      ev.payload_json->'final_voice_gate'->>'skip_reason',
-      ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason',
-      ev.payload_json->>'no_send_reason'
+      it.tel->>'no_send_reason',
+      it.tel->>'unified_final_guard_no_send_reason',
+      CASE WHEN j.status IN ('cancelled', 'failed') THEN LEFT(j.last_error, 120) END
     ),
+    it.tel->>'skip_source',
     COALESCE(
-      ev.payload_json->>'skip_source',
-      ev.payload_json->'voice_send_decision'->>'skip_source'
+      it.tel->>'unified_final_guard_mode'
     ),
-    COALESCE(
-      ev.payload_json->'unified_final_product_law_guard'->>'unified_final_guard_mode',
-      ev.payload_json->>'unified_final_guard_mode'
-    ),
-    COALESCE(
-      (ev.payload_json->>'visible_sent')::boolean,
-      (ev.payload_json->'voice_send_decision'->>'visible_sent')::boolean,
+    (
       j.status = 'sent'
-    ),
-    COALESCE(
-      (ev.payload_json->>'twilio_send_attempted')::boolean,
-      (ev.payload_json->'voice_send_decision'->>'twilio_send_attempted')::boolean,
-      NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
-    )
+      AND NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
+    ) AS visible_sent,
+    (NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL) AS twilio_send_attempted
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
-  LEFT JOIN v2_commitment_event ev
-    ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+  LEFT JOIN LATERAL (
+    SELECT ev.payload_json AS tel
+    FROM v2_commitment_event ev
+    WHERE ev.event_type = 'sms_memory_signal'
+      AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+      AND ev.payload_json->>'message_sid' = j.message_sid
+    ORDER BY ev.occurred_at DESC
+    LIMIT 1
+  ) it ON TRUE
   WHERE j.updated_at >= b.day_start
     AND j.updated_at < b.day_end
 )
@@ -345,37 +337,40 @@ timeline AS (
     CASE WHEN j.status = 'sent' THEN 'outbound' ELSE 'internal' END,
     'inbound_coach_job',
     COALESCE(
-      ev.payload_json->>'route_purpose',
-      ev.payload_json->'inbound_v3_lane'->>'route_purpose'
+      it.tel->>'route_purpose',
+      it.tel->>'strategy_card_route_kind'
     ),
     COALESCE(j.outbound_message_sid, j.message_sid),
     j.status,
-    COALESCE(
-      (ev.payload_json->>'visible_sent')::boolean,
+    (
       j.status = 'sent'
+      AND NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
+    ),
+    (NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL),
+    COALESCE(
+      it.tel->>'no_send_reason',
+      it.tel->>'unified_final_guard_no_send_reason',
+      CASE WHEN j.status IN ('cancelled', 'failed') THEN LEFT(j.last_error, 120) END
     ),
     COALESCE(
-      (ev.payload_json->>'twilio_send_attempted')::boolean,
-      NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
+      it.tel->>'strategy_card_route_kind'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'no_send_reason',
-      ev.payload_json->'inbound_v3_lane'->>'no_send_reason',
-      ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason'
+      it.tel->>'strategy_card_move_type'
     ),
-    COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_route_kind',
-      ev.payload_json->>'strategy_card_route_kind'
-    ),
-    COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_move_type',
-      ev.payload_json->>'strategy_card_move_type'
-    ),
-    LEFT(COALESCE(j.reply_body, j.raw_body, ''), 240),
-    jsonb_build_object('job', to_jsonb(j), 'event', to_jsonb(ev))
+    LEFT(COALESCE(it.tel->>'reply_body_preview', j.reply_body, j.raw_body, ''), 240),
+    jsonb_build_object('job', to_jsonb(j), 'inbound_turn_telemetry', it.tel)
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
-  LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+  LEFT JOIN LATERAL (
+    SELECT ev.payload_json AS tel
+    FROM v2_commitment_event ev
+    WHERE ev.event_type = 'sms_memory_signal'
+      AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+      AND ev.payload_json->>'message_sid' = j.message_sid
+    ORDER BY ev.occurred_at DESC
+    LIMIT 1
+  ) it ON TRUE
   WHERE j.updated_at >= b.day_start
     AND j.updated_at < b.day_end
 
@@ -641,33 +636,38 @@ visible_rows AS (
     j.clerk_user_id,
     'sms_inbound_coach_jobs',
     COALESCE(
-      ev.payload_json->>'route_purpose',
-      ev.payload_json->'inbound_v3_lane'->>'route_purpose'
+      it.tel->>'route_purpose',
+      it.tel->>'strategy_card_route_kind'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_move_type',
-      ev.payload_json->>'strategy_card_move_type'
+      it.tel->>'strategy_card_move_type'
     ),
-    LEFT(COALESCE(j.reply_body, ''), 400),
+    LEFT(COALESCE(it.tel->>'reply_body_preview', j.reply_body, ''), 400),
     COALESCE(
-      ev.payload_json->>'final_body_authority',
-      ev.payload_json->'voice_send_decision'->>'final_body_authority'
+      it.tel->>'final_body_authority'
     ),
-    (ev.payload_json->'final_voice_gate'->>'v3_repair_attempted')::boolean,
-    (ev.payload_json->'final_voice_gate'->>'v3_repair_succeeded')::boolean,
+    NULL::boolean AS fvg_repair_attempted,
+    NULL::boolean AS fvg_repair_succeeded,
     COALESCE(
-      ev.payload_json->'unified_final_product_law_guard'->>'unified_final_guard_mode',
-      ev.payload_json->>'unified_final_guard_mode'
+      it.tel->>'unified_final_guard_mode'
     ),
     j.outbound_message_sid,
-    jsonb_build_object('job', to_jsonb(j), 'event', to_jsonb(ev)),
-    COALESCE(
-      (ev.payload_json->>'visible_sent')::boolean,
+    jsonb_build_object('job', to_jsonb(j), 'inbound_turn_telemetry', it.tel),
+    (
       j.status = 'sent'
-    )
+      AND NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
+    ) AS visible_sent
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
-  LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+  LEFT JOIN LATERAL (
+    SELECT ev.payload_json AS tel
+    FROM v2_commitment_event ev
+    WHERE ev.event_type = 'sms_memory_signal'
+      AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+      AND ev.payload_json->>'message_sid' = j.message_sid
+    ORDER BY ev.occurred_at DESC
+    LIMIT 1
+  ) it ON TRUE
   WHERE j.updated_at >= b.day_start
     AND j.updated_at < b.day_end
 )
@@ -845,50 +845,50 @@ no_send_rows AS (
     j.clerk_user_id,
     'sms_inbound_coach_jobs',
     COALESCE(
-      ev.payload_json->>'route_purpose',
-      ev.payload_json->'inbound_v3_lane'->>'route_purpose'
+      it.tel->>'route_purpose',
+      it.tel->>'strategy_card_route_kind'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'no_send_reason',
-      ev.payload_json->'inbound_v3_lane'->>'no_send_reason',
-      ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason',
-      ev.payload_json->'final_voice_gate'->>'skip_reason',
-      CASE WHEN j.status = 'cancelled' THEN COALESCE(j.last_error, 'job_cancelled') END
+      it.tel->>'no_send_reason',
+      it.tel->>'unified_final_guard_no_send_reason',
+      CASE WHEN j.status IN ('cancelled', 'failed') THEN LEFT(j.last_error, 120) END
     ),
-    ev.payload_json->>'skip_source',
+    it.tel->>'skip_source',
+    it.tel->>'lane_stage',
     COALESCE(
-      ev.payload_json->'inbound_v3_lane'->>'lane_stage',
-      ev.payload_json->'relationship_packet_observability'->>'lane_stage'
+      it.tel->>'unified_final_guard_no_send_reason'
     ),
-    ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason',
-    COALESCE(
-      ev.payload_json->'unified_final_product_law_guard'->'product_law_failures',
-      ev.payload_json->'final_voice_gate'->'final_voice_blocked_reasons'
-    ),
-    COALESCE(
-      (ev.payload_json->'final_voice_gate'->>'v3_repair_attempted')::boolean,
-      (ev.payload_json->'relationship_packet_observability'->>'repair_snapshot_repair_attempted')::boolean
-    ),
-    COALESCE(
-      (ev.payload_json->'final_voice_gate'->>'v3_repair_succeeded')::boolean,
-      (ev.payload_json->'relationship_packet_observability'->>'repair_snapshot_repair_succeeded')::boolean
-    ),
+    it.tel->'product_law_failures',
+    (it.tel->>'repair_snapshot_repair_attempted')::boolean,
+    (it.tel->>'repair_snapshot_repair_succeeded')::boolean,
     jsonb_build_object(
-      'memory_repeat_no_send_reason', ev.payload_json->'relationship_packet_observability'->>'memory_repeat_no_send_reason',
-      'thread_freshness_violation_reason', ev.payload_json->'relationship_packet_observability'->>'thread_freshness_violation_reason'
+      'memory_repeat_no_send_reason', it.tel->>'memory_repeat_no_send_reason',
+      'thread_freshness_violation_reason', it.tel->>'thread_freshness_violation_reason',
+      'do_not_repeat_ask_count', it.tel->>'do_not_repeat_ask_count'
     ),
-    LEFT(COALESCE(j.reply_body, j.raw_body, ''), 240),
-    jsonb_build_object('job', to_jsonb(j), 'event', to_jsonb(ev))
+    LEFT(COALESCE(it.tel->>'reply_body_preview', j.reply_body, j.raw_body, ''), 240),
+    jsonb_build_object('job', to_jsonb(j), 'inbound_turn_telemetry', it.tel)
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
-  LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+  LEFT JOIN LATERAL (
+    SELECT ev.payload_json AS tel
+    FROM v2_commitment_event ev
+    WHERE ev.event_type = 'sms_memory_signal'
+      AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+      AND ev.payload_json->>'message_sid' = j.message_sid
+    ORDER BY ev.occurred_at DESC
+    LIMIT 1
+  ) it ON TRUE
   WHERE j.updated_at >= b.day_start
     AND j.updated_at < b.day_end
     AND (
       j.status IN ('cancelled', 'failed')
-      OR COALESCE((ev.payload_json->>'visible_sent')::boolean, j.status = 'sent') IS FALSE
-      OR ev.payload_json->'relationship_packet_observability'->>'no_send_reason' IS NOT NULL
-      OR ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason' IS NOT NULL
+      OR NOT (
+        j.status = 'sent'
+        AND NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
+      )
+      OR it.tel->>'no_send_reason' IS NOT NULL
+      OR it.tel->>'unified_final_guard_no_send_reason' IS NOT NULL
     )
 )
 SELECT *
@@ -913,30 +913,50 @@ SELECT
   COALESCE(m.message_sid, j.message_sid) AS inbound_message_sid,
   j.status AS job_status,
   COALESCE(
-    ev.payload_json->>'route_purpose',
-    ev.payload_json->'inbound_v3_lane'->>'route_purpose'
+    it.tel->>'route_purpose',
+    it.tel->>'strategy_card_route_kind'
   ) AS job_route_purpose,
   COALESCE(
-    ev.payload_json->>'branch_name',
-    ev.payload_json->'inbound_v3_lane'->>'branch_name'
+    it.tel->>'branch_name',
+    it.tel->>'branch'
   ) AS branch_name,
   COALESCE(
-    ev.payload_json->'relationship_packet_observability'->>'no_send_reason',
-    ev.payload_json->'inbound_v3_lane'->>'no_send_reason',
-    ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason'
+    it.tel->>'no_send_reason',
+    it.tel->>'unified_final_guard_no_send_reason',
+    CASE WHEN j.status IN ('cancelled', 'failed') THEN LEFT(j.last_error, 120) END
   ) AS no_send_reason,
-  LEFT(COALESCE(j.reply_body, ''), 240) AS reply_body_preview,
+  LEFT(COALESCE(it.tel->>'reply_body_preview', j.reply_body, ''), 240) AS reply_body_preview,
   COALESCE(
-    ev.payload_json->'relationship_packet_observability'->>'strategy_card_move_type',
-    ev.payload_json->>'strategy_card_move_type'
+    it.tel->>'strategy_card_move_type'
   ) AS strategy_card_move_type,
+  COALESCE(
+    it.tel->>'strategy_card_route_kind'
+  ) AS strategy_card_route_kind,
+  COALESCE(
+    it.tel->>'unified_final_guard_mode'
+  ) AS unified_final_guard_mode,
+  COALESCE(
+    it.tel->>'final_body_authority'
+  ) AS final_body_authority,
+  COALESCE(
+    it.tel->>'server_reconciled_persistence_decision',
+    it.tel->>'inbound_meaning_persistence'
+  ) AS persistence_decision,
   j.outbound_message_sid AS twilio_outbound_sid,
   to_jsonb(m) AS raw_inbound,
-  jsonb_build_object('job', to_jsonb(j), 'event', to_jsonb(ev)) AS raw_job
+  jsonb_build_object('job', to_jsonb(j), 'inbound_turn_telemetry', it.tel) AS raw_job
 FROM sms_inbound_coach_jobs j
 CROSS JOIN bounds b
 LEFT JOIN sms_inbound_messages m ON m.message_sid = j.message_sid
-LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+LEFT JOIN LATERAL (
+  SELECT ev.payload_json AS tel
+  FROM v2_commitment_event ev
+  WHERE ev.event_type = 'sms_memory_signal'
+    AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+    AND ev.payload_json->>'message_sid' = j.message_sid
+  ORDER BY ev.occurred_at DESC
+  LIMIT 1
+) it ON TRUE
 WHERE COALESCE(m.created_at, j.created_at) >= b.day_start
   AND COALESCE(m.created_at, j.created_at) < b.day_end
 ORDER BY inbound_at ASC;
@@ -1059,7 +1079,10 @@ outbound AS (
   SELECT
     j.clerk_user_id,
     0,
-    COUNT(*) FILTER (WHERE j.status = 'sent'),
+    COUNT(*) FILTER (WHERE
+      j.status = 'sent'
+      AND NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
+    ),
     COUNT(*) FILTER (WHERE j.status IN ('cancelled', 'failed')),
     COUNT(*) FILTER (WHERE NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL),
     COUNT(*) FILTER (WHERE j.status IN ('cancelled', 'failed')),
@@ -1124,13 +1147,25 @@ last_events AS (
     SELECT
       j.clerk_user_id,
       j.updated_at,
-      LEFT(COALESCE(j.reply_body, j.raw_body, ''), 160),
-      ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason',
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_route_kind',
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_move_type'
+      LEFT(COALESCE(it.tel->>'reply_body_preview', j.reply_body, j.raw_body, ''), 160),
+      COALESCE(
+        it.tel->>'unified_final_guard_no_send_reason',
+        it.tel->>'no_send_reason',
+        CASE WHEN j.status IN ('cancelled', 'failed') THEN LEFT(j.last_error, 120) END
+      ),
+      COALESCE(it.tel->>'strategy_card_route_kind'),
+      COALESCE(it.tel->>'strategy_card_move_type')
     FROM sms_inbound_coach_jobs j
     CROSS JOIN bounds b
-    LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+    LEFT JOIN LATERAL (
+      SELECT ev.payload_json AS tel
+      FROM v2_commitment_event ev
+      WHERE ev.event_type = 'sms_memory_signal'
+        AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+        AND ev.payload_json->>'message_sid' = j.message_sid
+      ORDER BY ev.occurred_at DESC
+      LIMIT 1
+    ) it ON TRUE
     WHERE j.updated_at >= b.day_start AND j.updated_at < b.day_end
 
     UNION ALL
@@ -1255,29 +1290,38 @@ state_rows AS (
     j.clerk_user_id,
     'sms_inbound_coach_jobs',
     COALESCE(
-      ev.payload_json->>'route_purpose',
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_route_kind'
+      it.tel->>'route_purpose',
+      it.tel->>'strategy_card_route_kind'
     ),
-    ev.payload_json->'unified_final_product_law_guard'->>'required_verbatim_missing',
-    ev.payload_json->>'v2_contract_proposal_kind',
-    ev.payload_json->>'pending_resolution_kind',
-    ev.payload_json->>'refresh_step',
-    ev.payload_json->>'truth_recheck_reason',
+    it.tel->>'required_verbatim_missing',
+    it.tel->>'v2_contract_proposal_kind',
+    it.tel->>'pending_resolution_kind',
+    it.tel->>'refresh_step',
+    it.tel->>'truth_recheck_reason',
     jsonb_build_object(
-      'pending_candidate_fingerprint', ev.payload_json->'relationship_packet_observability'->>'strategy_card_daily_pending_candidate_fingerprint'
+      'pending_candidate_fingerprint', it.tel->>'strategy_card_daily_pending_candidate_fingerprint'
     ),
     COALESCE(
-      ev.payload_json->'unified_final_product_law_guard'->>'no_send_reason',
-      ev.payload_json->'inbound_v3_lane'->>'no_send_reason'
+      it.tel->>'unified_final_guard_no_send_reason',
+      it.tel->>'no_send_reason',
+      CASE WHEN j.status IN ('cancelled', 'failed') THEN LEFT(j.last_error, 120) END
     ),
-    jsonb_build_object('job', to_jsonb(j), 'event', to_jsonb(ev))
+    jsonb_build_object('job', to_jsonb(j), 'inbound_turn_telemetry', it.tel)
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
-  LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+  LEFT JOIN LATERAL (
+    SELECT ev.payload_json AS tel
+    FROM v2_commitment_event ev
+    WHERE ev.event_type = 'sms_memory_signal'
+      AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+      AND ev.payload_json->>'message_sid' = j.message_sid
+    ORDER BY ev.occurred_at DESC
+    LIMIT 1
+  ) it ON TRUE
   WHERE j.updated_at >= b.day_start AND j.updated_at < b.day_end
     AND COALESCE(
-      ev.payload_json->>'route_purpose',
-      ev.payload_json->'relationship_packet_observability'->>'strategy_card_route_kind',
+      it.tel->>'route_purpose',
+      it.tel->>'strategy_card_route_kind',
       ''
     ) IN (
       'contract_prompt',
@@ -1385,37 +1429,45 @@ repair_rows AS (
     j.clerk_user_id,
     'sms_inbound_coach_jobs',
     COALESCE(
-      ev.payload_json->'inbound_v3_lane'->>'no_send_reason',
-      ev.payload_json->'relationship_packet_observability'->>'no_send_reason',
-      ev.payload_json->'final_voice_gate'->>'skip_reason'
+      it.tel->>'no_send_reason',
+      it.tel->>'unified_final_guard_no_send_reason',
+      CASE WHEN j.status IN ('cancelled', 'failed') THEN LEFT(j.last_error, 120) END
     ),
     COALESCE(
-      (ev.payload_json->'final_voice_gate'->>'v3_repair_attempted')::boolean,
-      (ev.payload_json->'relationship_packet_observability'->>'repair_snapshot_repair_attempted')::boolean
+      (it.tel->>'v3_repair_attempted')::boolean,
+      (it.tel->>'repair_snapshot_repair_attempted')::boolean
     ),
     COALESCE(
-      (ev.payload_json->'final_voice_gate'->>'v3_repair_succeeded')::boolean,
-      (ev.payload_json->'relationship_packet_observability'->>'repair_snapshot_repair_succeeded')::boolean
+      (it.tel->>'v3_repair_succeeded')::boolean,
+      (it.tel->>'repair_snapshot_repair_succeeded')::boolean
     ),
     COALESCE(
-      ev.payload_json->'inbound_v3_lane'->>'lane_post_validate_repair_failed_reason',
-      ev.payload_json->'relationship_packet_observability'->>'repeat_repair_failed_reason'
+      it.tel->>'lane_post_validate_repair_failed_reason',
+      it.tel->>'repeat_repair_failed_reason'
     ),
     COALESCE(
-      ev.payload_json->'relationship_packet_observability'->>'repair_snapshot_kind',
-      ev.payload_json->'final_voice_gate'->>'final_voice_source'
+      it.tel->>'repair_snapshot_kind',
+      it.tel->>'final_voice_source'
     ),
-    LEFT(COALESCE(j.reply_body, j.raw_body, ''), 240),
-    jsonb_build_object('job', to_jsonb(j), 'event', to_jsonb(ev))
+    LEFT(COALESCE(it.tel->>'reply_body_preview', j.reply_body, j.raw_body, ''), 240),
+    jsonb_build_object('job', to_jsonb(j), 'inbound_turn_telemetry', it.tel)
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
-  LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+  LEFT JOIN LATERAL (
+    SELECT ev.payload_json AS tel
+    FROM v2_commitment_event ev
+    WHERE ev.event_type = 'sms_memory_signal'
+      AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+      AND ev.payload_json->>'message_sid' = j.message_sid
+    ORDER BY ev.occurred_at DESC
+    LIMIT 1
+  ) it ON TRUE
   WHERE j.updated_at >= b.day_start AND j.updated_at < b.day_end
     AND (
-      (ev.payload_json->'final_voice_gate'->>'v3_repair_attempted')::boolean IS TRUE
+      (it.tel->>'v3_repair_attempted')::boolean IS TRUE
       OR COALESCE(
-        ev.payload_json->'inbound_v3_lane'->>'no_send_reason',
-        ev.payload_json->'relationship_packet_observability'->>'no_send_reason',
+        it.tel->>'no_send_reason',
+        it.tel->>'unified_final_guard_no_send_reason',
         ''
       ) IN (SELECT reason_key FROM target_reasons)
     )
@@ -1567,10 +1619,18 @@ packet_rows AS (
     j.clerk_user_id,
     'inbound',
     j.status,
-    COALESCE(ev.payload_json, '{}'::jsonb)
+    COALESCE(it.tel, '{}'::jsonb)
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
-  LEFT JOIN v2_commitment_event ev ON ev.idempotency_key = 'v2_user_reply:' || j.message_sid
+  LEFT JOIN LATERAL (
+    SELECT ev.payload_json AS tel
+    FROM v2_commitment_event ev
+    WHERE ev.event_type = 'sms_memory_signal'
+      AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
+      AND ev.payload_json->>'message_sid' = j.message_sid
+    ORDER BY ev.occurred_at DESC
+    LIMIT 1
+  ) it ON TRUE
   WHERE j.updated_at >= b.day_start AND j.updated_at < b.day_end
 )
 SELECT
@@ -1582,12 +1642,14 @@ SELECT
     meta->'relationship_packet_observability'->>'relationship_packet_version',
     meta->'daily_v3_lane'->>'relationship_packet_version',
     meta->'weekly_lane_metadata'->>'relationship_packet_version',
-    meta->'inbound_v3_lane'->>'relationship_packet_version'
+    meta->'inbound_v3_lane'->>'relationship_packet_version',
+    meta->>'relationship_packet_version'
   ) AS relationship_packet_version,
   COALESCE(
     meta->'relationship_packet_observability'->>'relationship_packet_truncated',
     meta->'daily_v3_lane'->>'relationship_packet_truncated',
-    meta->'weekly_lane_metadata'->>'relationship_packet_truncated'
+    meta->'weekly_lane_metadata'->>'relationship_packet_truncated',
+    meta->>'relationship_packet_truncated'
   ) AS relationship_packet_truncated,
   COALESCE(
     meta->'relationship_packet_observability'->'truncated_sections',
@@ -1602,15 +1664,18 @@ SELECT
   COALESCE(
     (meta->'relationship_packet_observability'->>'do_not_repeat_ask_count')::int,
     (meta->'daily_v3_lane'->>'do_not_repeat_asks_count')::int,
-    (meta->'voice_send_decision'->>'do_not_repeat_asks_count')::int
+    (meta->'voice_send_decision'->>'do_not_repeat_asks_count')::int,
+    (meta->>'do_not_repeat_ask_count')::int
   ) AS do_not_repeat_ask_count,
   COALESCE(
     (meta->'relationship_packet_observability'->>'open_loop_count')::int,
-    (meta->'daily_v3_lane'->>'open_loop_count')::int
+    (meta->'daily_v3_lane'->>'open_loop_count')::int,
+    (meta->>'open_loop_count')::int
   ) AS open_loop_count,
   COALESCE(
     meta->'relationship_packet_observability'->>'active_pending_state_source',
-    meta->'daily_v3_lane'->>'active_pending_state_source'
+    meta->'daily_v3_lane'->>'active_pending_state_source',
+    meta->>'active_pending_state_source'
   ) AS active_pending_state_source,
   COALESCE(
     meta->'relationship_packet_observability'->>'strategy_card_packet_writer_hints_stripped',
@@ -1621,14 +1686,21 @@ SELECT
     meta->'strategy_card_packet_stripped_fields'
   ) AS packet_stripped_fields,
   jsonb_build_object(
-    'proof_permission_emitted', meta->'relationship_packet_observability'->>'proof_permission_emitted',
+    'proof_permission_emitted', COALESCE(
+      meta->'relationship_packet_observability'->>'proof_permission_emitted',
+      meta->>'proof_permission_emitted'
+    ),
     'can_claim_proof', COALESCE(
       meta->'relationship_packet_observability'->>'can_claim_proof',
-      meta->'relationship_packet_observability'->>'strategy_card_can_claim_proof'
+      meta->'relationship_packet_observability'->>'strategy_card_can_claim_proof',
+      meta->>'can_claim_proof',
+      meta->>'strategy_card_can_claim_proof'
     ),
     'can_reference_victory_room', COALESCE(
       meta->'relationship_packet_observability'->>'can_reference_victory_room',
-      meta->'relationship_packet_observability'->>'strategy_card_can_reference_victory_room'
+      meta->'relationship_packet_observability'->>'strategy_card_can_reference_victory_room',
+      meta->>'can_reference_victory_room',
+      meta->>'strategy_card_can_reference_victory_room'
     ),
     'proof_evidence_count', meta->'relationship_packet_observability'->>'proof_evidence_count',
     'proof_permission_sources', meta->'relationship_packet_observability'->'proof_permission_sources'

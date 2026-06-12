@@ -7162,18 +7162,7 @@ async function processV2NormalInboundOutcome(
     meaningShadow,
   };
 
-  if (!persisted) {
-    const j2 = await loadJob(job.message_sid);
-    if (j2?.reply_body?.trim()) {
-      await commitAndSendInboundCoachReply(j2, userId, inboundV3ThreadMemory);
-      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
-      return;
-    }
-    throw new Error("v2_reply_ready_persist_failed");
-  }
-
-  const fresh = (await loadJob(job.message_sid)) ?? job;
-  await insertInboundTurnTelemetryBestEffort({
+  const mainInboundTurnTelemetryArgs = {
     commitmentId: commitment.id,
     clerkUserId: userId,
     messageSid: job.message_sid,
@@ -7188,8 +7177,33 @@ async function processV2NormalInboundOutcome(
       ...compactUnifiedFinalGuardForTelemetry(finalGuardsMain),
     },
     tuGuardMetadata: finalGuardsMain.tuGuard.metadata,
+    laneMetadata: inboundRelationshipLane?.metadata ?? null,
+    packetObservability:
+      Object.keys(inboundPacketObservability).length > 0 ? inboundPacketObservability : null,
+    routePurpose: inboundThreadRoutePurpose,
+    branchName:
+      typeof inboundRelationshipLane?.metadata?.branch_name === "string"
+        ? inboundRelationshipLane.metadata.branch_name
+        : isLikelyCommitmentChangeIntentTurn(userMessage)
+          ? "commitment_change_context_heuristic"
+          : null,
+    visibleSentIntended: true,
     branch: "main",
-  });
+  };
+
+  if (!persisted) {
+    const j2 = await loadJob(job.message_sid);
+    if (j2?.reply_body?.trim()) {
+      await insertInboundTurnTelemetryBestEffort(mainInboundTurnTelemetryArgs);
+      await commitAndSendInboundCoachReply(j2, userId, inboundV3ThreadMemory);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      return;
+    }
+    throw new Error("v2_reply_ready_persist_failed");
+  }
+
+  const fresh = (await loadJob(job.message_sid)) ?? job;
+  await insertInboundTurnTelemetryBestEffort(mainInboundTurnTelemetryArgs);
   await commitAndSendInboundCoachReply(fresh, userId, inboundV3ThreadMemory);
   await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
 }
