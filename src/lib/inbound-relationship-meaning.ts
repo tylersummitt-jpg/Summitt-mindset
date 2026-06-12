@@ -17,6 +17,8 @@ import {
 } from "@/lib/inbound-short-answer-clauses";
 import {
   detectShortAnswerPartialLanguage,
+  isBoundedPlanConfirmationAnswer,
+  isPlanAckFromShortAnswerContext,
   isShortContextualAnswer,
   resolveShortAnswerContextAuthority,
   type ShortAnswerContextAuthority,
@@ -676,6 +678,70 @@ export function deriveInboundRelationshipMeaning(
   };
 }
 
+/** Block short affirmative / future commitment from persisting as today's completion. */
+function shouldBlockAffirmativeAsTodayCompletion(args: {
+  raw: string;
+  saca?: ShortAnswerContextAuthority | null;
+  meaning: InboundRelationshipMeaningResult;
+}): string | null {
+  const raw = args.raw.trim();
+  if (!raw) return null;
+  if (inboundHasExplicitCompletionClause(raw)) return null;
+  if (inboundHasExplicitMissClause(raw) || inboundHasExplicitPartialClause(raw)) return null;
+
+  const saca = args.saca;
+  const isShortAffirmative =
+    (saca?.is_short_contextual_answer === true && saca.short_answer_polarity === "affirm") ||
+    isBoundedPlanConfirmationAnswer(raw);
+  const isPlanContext =
+    saca?.prior_question_type === "plan_confirmation" ||
+    saca?.prior_question_type === "future_plan_question" ||
+    saca?.prior_question_type === "adjustment_prompt";
+
+  if (
+    args.meaning.relationship_meaning === "reported_completion" &&
+    !isShortAffirmative &&
+    !isPlanContext &&
+    !hasFuturePlanIntentLanguage(raw) &&
+    !inboundHasPlanConfirmationClause(raw)
+  ) {
+    return null;
+  }
+
+  if (saca && isPlanAckFromShortAnswerContext(saca)) {
+    return "plan_or_proposal_ack";
+  }
+  if (
+    saca &&
+    (saca.prior_question_type === "plan_confirmation" ||
+      saca.prior_question_type === "future_plan_question" ||
+      saca.prior_question_type === "adjustment_prompt") &&
+    !saca.outcome_proof_eligible
+  ) {
+    return `prior_question_${saca.prior_question_type}`;
+  }
+
+  if (
+    args.meaning.relationship_meaning === "answer_to_prior_question" ||
+    args.meaning.relationship_meaning === "plan_made"
+  ) {
+    return `meaning_${args.meaning.relationship_meaning}`;
+  }
+
+  if (
+    hasFuturePlanIntentLanguage(raw) ||
+    (inboundHasPlanConfirmationClause(raw) && (isShortAffirmative || isPlanContext))
+  ) {
+    return "future_commitment_without_completion";
+  }
+
+  if (isBoundedPlanConfirmationAnswer(raw) && saca?.prior_question_type === "plan_confirmation") {
+    return "bounded_plan_ack";
+  }
+
+  return null;
+}
+
 export function derivePersistenceDecision(args: {
   meaning: InboundRelationshipMeaningResult;
   routePriority?: InboundMeaningRoutePriority;
@@ -733,6 +799,18 @@ export function derivePersistenceDecision(args: {
     };
   }
 
+  const blockAffirmativeReason = shouldBlockAffirmativeAsTodayCompletion({
+    raw,
+    saca,
+    meaning: args.meaning,
+  });
+  if (blockAffirmativeReason) {
+    return {
+      persistence_decision: "no_outcome_write",
+      reason: `future_affirmative_not_completion:${blockAffirmativeReason}`,
+    };
+  }
+
   if (
     saca?.outcome_proof_eligible === true &&
     saca.allowed_persistence !== "no_outcome_write" &&
@@ -759,6 +837,12 @@ export function derivePersistenceDecision(args: {
         return {
           persistence_decision: "no_outcome_write",
           reason: "reported_future_not_today_completion",
+        };
+      }
+      if (shouldBlockAffirmativeAsTodayCompletion({ raw, saca, meaning: args.meaning })) {
+        return {
+          persistence_decision: "no_outcome_write",
+          reason: "reported_completion_blocked_future_affirmative",
         };
       }
       return {

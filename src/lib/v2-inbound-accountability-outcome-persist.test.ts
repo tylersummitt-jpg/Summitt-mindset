@@ -349,6 +349,96 @@ describe("shouldPersistInboundAccountabilityOutcome", () => {
   });
 });
 
+describe("future/proposal affirmative — persist backstop", () => {
+  const RECOMMIT_Q =
+    "Would you like to recommit to taking at least 10,000 steps a day for the next week?";
+  const recentCheckSent = [
+    {
+      event_type: "check_sent",
+      occurred_at: new Date().toISOString(),
+      payload_json: {},
+    },
+  ] as never[];
+
+  it("blocks Yes I will after recommit question", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "Yes I will",
+      classifierEventType: "user_yes",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    expect(inboundMeaning.persistence_decision).not.toBe("write_user_yes_today");
+
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_recommit_yes_i_will",
+      commitmentId: "commit-1",
+      rawBody: "Yes I will",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("meaning_no_outcome_write");
+    }
+  });
+
+  it("blocks bare Yes after recommit with stale accountability_check metadata", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "Yes",
+      classifierEventType: "user_yes",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_recommit_bare_yes",
+      commitmentId: "commit-1",
+      rawBody: "Yes",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("still persists Yes I did after outcome check", () => {
+    const outcomeQ = "Did you hit 10,000 steps today?";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "Yes I did",
+      classifierEventType: "user_yes",
+      latestOpenQuestion: outcomeQ,
+      latestOutboundBody: outcomeQ,
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_outcome_yes_i_did",
+      commitmentId: "commit-1",
+      rawBody: "Yes I did",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) {
+      expect(result.resolvedEventType).toBe("user_yes");
+    }
+  });
+});
+
 describe("gated clarify — explicit miss/partial bypass (P0 B)", () => {
   it("1: I missed it yesterday + clarify gated → user_no persists", () => {
     const body = "I missed it yesterday";

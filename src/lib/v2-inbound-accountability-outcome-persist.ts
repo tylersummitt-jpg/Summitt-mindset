@@ -17,9 +17,14 @@ import {
   type InboundPersistenceDecision,
 } from "@/lib/inbound-relationship-meaning";
 import {
+  inboundHasExplicitCompletionClause,
   inboundHasExplicitMissClause,
   inboundHasExplicitPartialClause,
 } from "@/lib/inbound-short-answer-clauses";
+import {
+  isPlanAckFromShortAnswerContext,
+  resolveShortAnswerContextAuthority,
+} from "@/lib/inbound-short-answer-context";
 import { shortAnswerDisqualifiesOutcomeProof } from "@/lib/inbound-short-answer-polarity";
 import {
   buildTurnUnderstandingPersistGuardMeta,
@@ -70,7 +75,8 @@ export type InboundOutcomePersistSkipReason =
   | "meaning_no_outcome_write"
   | "meaning_deferred_route"
   | "turn_understanding_expand_blocked"
-  | "turn_understanding_satisfied_ask_no_proof";
+  | "turn_understanding_satisfied_ask_no_proof"
+  | "plan_or_proposal_ack_backstop";
 
 export type InboundOutcomePersistResult =
   | {
@@ -199,6 +205,59 @@ export type ShouldPersistInboundAccountabilityOutcomeResult =
       turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
     };
 
+function evaluateUserYesPersistBackstop(args: {
+  raw: string;
+  inboundMeaning: InboundMeaningFacts;
+}): InboundOutcomePersistSkipReason | null {
+  const raw = args.raw.trim();
+  if (args.inboundMeaning.persistence_decision !== "write_user_yes_today") return null;
+  if (inboundHasExplicitCompletionClause(raw)) return null;
+
+  const m = args.inboundMeaning;
+  if (m.relationship_meaning === "answer_to_prior_question" || m.relationship_meaning === "plan_made") {
+    return "plan_or_proposal_ack_backstop";
+  }
+
+  if (
+    m.evidence.some(
+      (e) =>
+        e.includes("plan_confirmation") ||
+        e.includes("short_answer_plan") ||
+        e.includes("plan_or_future") ||
+        e.includes("bounded_proposal") ||
+        e.includes("future_affirmative_not_completion") ||
+        e.includes("reported_completion_blocked_future_affirmative")
+    )
+  ) {
+    return "plan_or_proposal_ack_backstop";
+  }
+
+  if (
+    typeof m.reason === "string" &&
+    (m.reason.includes("future_affirmative_not_completion") ||
+      m.reason.includes("reported_completion_blocked_future_affirmative") ||
+      m.reason.includes("short_answer_no_outcome_proof"))
+  ) {
+    return "plan_or_proposal_ack_backstop";
+  }
+
+  const saca = resolveShortAnswerContextAuthority({ rawInbound: raw });
+  if (isPlanAckFromShortAnswerContext(saca)) {
+    return "plan_or_proposal_ack_backstop";
+  }
+
+  const disqualifier = shortAnswerDisqualifiesOutcomeProof(raw);
+  if (
+    disqualifier.disqualified &&
+    (disqualifier.reason === "short_answer_future_or_intent" ||
+      disqualifier.reason === "short_answer_future_plan_intent")
+  ) {
+    return "plan_or_proposal_ack_backstop";
+  }
+
+  return null;
+}
+
 function evaluateShouldPersistWithMeaning(
   args: ShouldPersistInboundAccountabilityOutcomeArgs,
   inboundMeaning: InboundMeaningFacts
@@ -302,6 +361,13 @@ function evaluateShouldPersistWithMeaning(
     })
   ) {
     return { persist: false, skipReason: "gated_non_outcome_mode" };
+  }
+
+  if (meaningEventType === "user_yes") {
+    const backstop = evaluateUserYesPersistBackstop({ raw, inboundMeaning });
+    if (backstop) {
+      return { persist: false, skipReason: backstop };
+    }
   }
 
   return {

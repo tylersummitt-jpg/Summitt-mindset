@@ -5,6 +5,7 @@
 
 import type { ExpectedReplySemanticsV3 } from "@/lib/north-star-sms-context-packet";
 import {
+  coachQuestionExpectsTimeOrScheduleAnswer,
   coachQuestionExpectsYesNoAnswer,
   inferExpectedReplySemanticsFromCoachQuestion,
 } from "@/lib/north-star-sms-context-packet";
@@ -80,7 +81,7 @@ export type ResolveShortAnswerContextAuthorityArgs = {
 };
 
 const PLAN_CONFIRMATION_QUESTION_RE =
-  /\b(let me know if that works|would you like to adjust|does (this|that|it) work|how does\b.*\b(sound|feel)\b|how do you feel about committing|does (this|that|it) adjustment work|should we adjust|what do you think about committing|committing to\b|stay(ing)? committed\b|for the next \d+ days\b|next week\b|ready to continue\b|are you (ok|okay) with|adjust our approach)\b/i;
+  /\b(let me know if that works|would you like to adjust|would you like to\b|do you want to\b|does (this|that|it) work|how does\b.*\b(sound|feel)\b|how do you feel about committing|does (this|that|it) adjustment work|should we adjust|what do you think about committing|committing to\b|recommit\b|stay(ing)? committed\b|keep the same (line|bar)\b|keep this going\b|for a week\b|for the next \d+ days\b|next week\b|next 7 days\b|seven days\b|\b7 days\b|ready to continue\b|are you (ok|okay) with|adjust our approach|can you schedule\b|what time will you\b|still fits?\b|bar still fits\b|proposal\b|try the smaller bar\b)\b/i;
 
 const OUTCOME_CHECK_QUESTION_RE =
   /\b(did you\b.*\b(today|this morning|tonight)\b|did you\b.*\b(get|do|complete|finish|protect|hit|follow through|follow-through)\b|did you\b.*\bbefore your\b|were you able to\b.*\b(today|get|do)\b|did the\b.*\b(happen|get done)\b.*\btoday\b|did you get your\b|what happened with\b.*\b(plan|block|appointment)\b)/i;
@@ -146,6 +147,17 @@ function coachQuestionText(args: ResolveShortAnswerContextAuthorityArgs): string
   );
 }
 
+/** Coach is asking for plan/proposal/recommit/refresh ack — not a today outcome check. */
+export function coachQuestionExpectsPlanOrProposalAck(q: string): boolean {
+  const text = q.trim();
+  if (!text) return false;
+  if (OUTCOME_CHECK_QUESTION_RE.test(text)) return false;
+  if (PLAN_CONFIRMATION_QUESTION_RE.test(text)) return true;
+  if (coachQuestionExpectsTimeOrScheduleAnswer(text)) return true;
+  if (FUTURE_PLAN_QUESTION_RE.test(text)) return true;
+  return false;
+}
+
 export function inferPriorQuestionType(
   args: ResolveShortAnswerContextAuthorityArgs
 ): PriorQuestionType {
@@ -156,6 +168,12 @@ export function inferPriorQuestionType(
   if (expectedType === "proposal_yes_no" || semantics === "proposal_yes_no") {
     return "plan_confirmation";
   }
+
+  if (q) {
+    if (OUTCOME_CHECK_QUESTION_RE.test(q)) return "outcome_check";
+    if (coachQuestionExpectsPlanOrProposalAck(q)) return "plan_confirmation";
+  }
+
   if (semantics === "accountability_check") return "outcome_check";
   if (semantics === "goal_change_clarification") return "adjustment_prompt";
   if (semantics === "future_plan_story_title" || FUTURE_PLAN_QUESTION_RE.test(q)) {
