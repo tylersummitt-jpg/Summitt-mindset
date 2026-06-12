@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 
 /**
@@ -25,6 +27,15 @@ export default async function AdminLayout({
           <p className="text-xs text-gray-500">
             Retention intelligence. Testimonial truth. Calm compounding.
           </p>
+
+          <nav className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <Link href="/admin/customers" className="text-gray-700 underline hover:text-gray-900">
+              Subscribed customers
+            </Link>
+            <Link href="/admin/feedback" className="text-gray-700 underline hover:text-gray-900">
+              Weekly feedback
+            </Link>
+          </nav>
         </div>
       </header>
 
