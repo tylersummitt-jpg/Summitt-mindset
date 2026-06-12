@@ -18,8 +18,11 @@ import {
 import {
   detectShortAnswerPartialLanguage,
   isBoundedPlanConfirmationAnswer,
+  isNonOutcomePlanPriorQuestionType,
   isPlanAckFromShortAnswerContext,
+  isPlanRejectionFromShortAnswerContext,
   isShortContextualAnswer,
+  looksLikeShortProposalRejectionLanguage,
   resolveShortAnswerContextAuthority,
   type ShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
@@ -485,18 +488,30 @@ export function deriveInboundRelationshipMeaning(
   }
 
   if (looksLikeMissStatement(raw)) {
-    if (
-      saca.is_short_contextual_answer &&
-      !saca.outcome_proof_eligible &&
-      !inboundHasExplicitMissClause(raw)
-    ) {
-      return {
-        relationship_meaning: saca.prior_question_type === "plan_confirmation" ? "answer_to_prior_question" : "uncertain",
-        temporal_scope,
-        confidence: "medium",
-        evidence: ["short_deny_without_outcome_antecedent", saca.reason],
-        disqualifiers,
-      };
+    if (!inboundHasExplicitMissClause(raw) && !saca.outcome_proof_eligible) {
+      if (
+        isNonOutcomePlanPriorQuestionType(saca.prior_question_type) &&
+        (saca.is_short_contextual_answer ||
+          looksLikeShortProposalRejectionLanguage(raw) ||
+          saca.short_answer_polarity === "deny")
+      ) {
+        return {
+          relationship_meaning: "answer_to_prior_question",
+          temporal_scope,
+          confidence: "high",
+          evidence: ["short_deny_plan_proposal_rejection", saca.reason],
+          disqualifiers,
+        };
+      }
+      if (saca.is_short_contextual_answer) {
+        return {
+          relationship_meaning: "uncertain",
+          temporal_scope,
+          confidence: "medium",
+          evidence: ["short_deny_without_outcome_antecedent", saca.reason],
+          disqualifiers,
+        };
+      }
     }
     return {
       relationship_meaning: "miss",
@@ -507,6 +522,16 @@ export function deriveInboundRelationshipMeaning(
     };
   }
 
+  const planProposalRejection = resolvePlanProposalShortAnswerRejectionMeaning({
+    saca,
+    raw,
+    temporal_scope,
+    disqualifiers,
+  });
+  if (planProposalRejection) {
+    return planProposalRejection;
+  }
+
   if (disqualifiers.length > 0) {
     const classification =
       args.classifierEventType != null
@@ -514,6 +539,15 @@ export function deriveInboundRelationshipMeaning(
         : classifyV2InboundReply(raw);
 
     if (classification.eventType === "user_no") {
+      const rejectionAfterDisqualifiers = resolvePlanProposalShortAnswerRejectionMeaning({
+        saca,
+        raw,
+        temporal_scope,
+        disqualifiers,
+      });
+      if (rejectionAfterDisqualifiers) {
+        return rejectionAfterDisqualifiers;
+      }
       return {
         relationship_meaning: "miss",
         temporal_scope,
@@ -557,6 +591,15 @@ export function deriveInboundRelationshipMeaning(
       : classifyV2InboundReply(raw);
 
   if (classification.eventType === "user_no") {
+    const rejectionBeforeMiss = resolvePlanProposalShortAnswerRejectionMeaning({
+      saca,
+      raw,
+      temporal_scope,
+      disqualifiers,
+    });
+    if (rejectionBeforeMiss) {
+      return rejectionBeforeMiss;
+    }
     return {
       relationship_meaning: "miss",
       temporal_scope,
@@ -742,6 +785,78 @@ function shouldBlockAffirmativeAsTodayCompletion(args: {
   return null;
 }
 
+function resolvePlanProposalShortAnswerRejectionMeaning(args: {
+  saca: ShortAnswerContextAuthority;
+  raw: string;
+  temporal_scope: InboundTemporalScope;
+  disqualifiers: string[];
+}): InboundRelationshipMeaningResult | null {
+  const raw = args.raw.trim();
+  if (!raw || inboundHasExplicitMissClause(raw)) return null;
+
+  const saca = args.saca;
+  const planPrior = isNonOutcomePlanPriorQuestionType(saca.prior_question_type);
+  const rejectionLanguage = looksLikeShortProposalRejectionLanguage(raw);
+
+  if (
+    isPlanRejectionFromShortAnswerContext(saca) ||
+    (planPrior && !saca.outcome_proof_eligible && rejectionLanguage) ||
+    (planPrior &&
+      !saca.outcome_proof_eligible &&
+      saca.is_short_contextual_answer &&
+      saca.short_answer_polarity === "deny")
+  ) {
+    return {
+      relationship_meaning: "answer_to_prior_question",
+      temporal_scope: args.temporal_scope,
+      confidence: "high",
+      evidence: ["short_answer_plan_proposal_rejection", saca.reason],
+      disqualifiers: args.disqualifiers,
+    };
+  }
+
+  return null;
+}
+
+/** Block short negative / proposal rejection from persisting as today's miss. */
+function shouldBlockNegativeAsTodayMiss(args: {
+  raw: string;
+  saca?: ShortAnswerContextAuthority | null;
+  meaning: InboundRelationshipMeaningResult;
+}): string | null {
+  const raw = args.raw.trim();
+  if (!raw) return null;
+  if (inboundHasExplicitMissClause(raw)) return null;
+
+  const saca = args.saca;
+
+  if (saca && isPlanRejectionFromShortAnswerContext(saca)) {
+    return "plan_or_proposal_rejection";
+  }
+
+  if (
+    saca &&
+    isNonOutcomePlanPriorQuestionType(saca.prior_question_type) &&
+    !saca.outcome_proof_eligible &&
+    (saca.short_answer_polarity === "deny" || looksLikeShortProposalRejectionLanguage(raw))
+  ) {
+    return `prior_question_${saca.prior_question_type}`;
+  }
+
+  if (
+    args.meaning.relationship_meaning === "answer_to_prior_question" &&
+    args.meaning.evidence.some((e) => e.includes("plan_proposal_rejection") || e.includes("short_deny_plan"))
+  ) {
+    return `meaning_${args.meaning.relationship_meaning}`;
+  }
+
+  if (looksLikeShortProposalRejectionLanguage(raw) && saca && !saca.outcome_proof_eligible && saca.prior_question_type !== "outcome_check") {
+    return "short_proposal_rejection_language";
+  }
+
+  return null;
+}
+
 export function derivePersistenceDecision(args: {
   meaning: InboundRelationshipMeaningResult;
   routePriority?: InboundMeaningRoutePriority;
@@ -811,6 +926,18 @@ export function derivePersistenceDecision(args: {
     };
   }
 
+  const blockNegativeReason = shouldBlockNegativeAsTodayMiss({
+    raw,
+    saca,
+    meaning: args.meaning,
+  });
+  if (blockNegativeReason) {
+    return {
+      persistence_decision: "no_outcome_write",
+      reason: `future_negative_not_miss:${blockNegativeReason}`,
+    };
+  }
+
   if (
     saca?.outcome_proof_eligible === true &&
     saca.allowed_persistence !== "no_outcome_write" &&
@@ -851,6 +978,12 @@ export function derivePersistenceDecision(args: {
       };
     }
     case "miss":
+      if (shouldBlockNegativeAsTodayMiss({ raw, saca, meaning: args.meaning })) {
+        return {
+          persistence_decision: "no_outcome_write",
+          reason: "explicit_miss_blocked_plan_proposal_rejection",
+        };
+      }
       return {
         persistence_decision: "write_user_no",
         reason: "explicit_miss",

@@ -2254,7 +2254,54 @@ describe("turn understanding — writer stale-ask guard (E2E lane)", () => {
     }
   });
 
-  it("A: blocks writer output that stale-asks calendar", async () => {
+  it("A: close-loop repairs writer stale calendar re-ask when prior ask satisfied", async () => {
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: "When you get a chance, let me know if you're ready to put one family connection on the calendar for tomorrow.",
+                no_send_reason: null,
+                turn_purpose: "inbound_turn",
+                voice_confidence: 0.8,
+                used_facts: ["turn_understanding"],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Enjoy your time with family in Ohio — sounds like tomorrow is set.",
+                used_strategy: "close_loop",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const facts = familyFactsWithTurnUnderstanding();
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.noSendReason).not.toBe("turn_understanding_stale_ask_blocked");
+    expect(r.body.toLowerCase()).not.toMatch(/put one family connection on the calendar/);
+    expect(r.metadata.answered_prior_ask_close_loop_repair_eligible).toBe(true);
+    expect(r.metadata.answered_prior_ask_close_loop_repair_succeeded).toBe(true);
+    expect(r.metadata.turn_understanding_stale_ask_repair_succeeded).toBe(true);
+  });
+
+  it("A2: still blocks stale calendar re-ask when prior ask not answered", async () => {
     createMock.mockResolvedValueOnce({
       choices: [
         {
@@ -2274,13 +2321,75 @@ describe("turn understanding — writer stale-ask guard (E2E lane)", () => {
         },
       ],
     });
-    const facts = familyFactsWithTurnUnderstanding();
+    const body = "Maybe later";
+    const det = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_partial",
+      openQuestionPending: true,
+      latestOpenQuestion: calendarAsk,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        user_turn_summary: "User deferred.",
+        relationship_meaning: "unclear",
+        last_ask_satisfied: "no",
+        answered_last_coach_ask: "no",
+        stale_ask_risk: true,
+        do_not_repeat_asks: [calendarAsk],
+        response_intent: "unclear_clarify",
+        commitment_outcome_recommendation: "no_outcome_write",
+        confidence: 0.9,
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: calendarAsk,
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-04T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: body,
+      coalescedInboundText: body,
+      suppressedMessageSids: ["SM_unanswered"],
+      transcriptLines: [`Coach: ${calendarAsk}`, `User: ${body}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: calendarAsk,
+        latestOpenQuestion: calendarAsk,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false },
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: calendarAsk,
+        open_question_pending: true,
+        last_outbound_full_body: calendarAsk,
+      }),
+    });
     const r = await produceInboundV3RelationshipSms({
       facts,
       telemetry_fact_sources: ["test_fixture"],
     });
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("turn_understanding_stale_ask_blocked");
+    expect(r.metadata.answered_prior_ask_close_loop_repair_eligible).toBe(false);
   });
 
   it("A: allows writer output that acknowledges without calendar re-ask", async () => {
@@ -2320,6 +2429,378 @@ describe("turn understanding — writer stale-ask guard (E2E lane)", () => {
     expect(r.noSendReason).not.toBe("turn_understanding_stale_ask_blocked");
     expect(r.shouldSend).toBe(true);
     expect(r.body.toLowerCase()).not.toMatch(/put one family connection on the calendar/);
+  });
+});
+
+describe("answered-prior-ask stale-ask close-loop repair (E2E lane)", () => {
+  beforeEach(() => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    createMock.mockReset();
+  });
+
+  function mockWriterThenRepair(writerBody: string, repairBody: string) {
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: writerBody,
+                no_send_reason: null,
+                turn_purpose: "inbound_turn",
+                voice_confidence: 0.8,
+                used_facts: ["turn_understanding"],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: repairBody,
+                used_strategy: "close_loop",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+  }
+
+  it("scheduling 3pm: repairs stale time re-ask into close-loop acknowledgement", async () => {
+    const schedulingAsk = "What time will you schedule the family connection tomorrow?";
+    const inbound = "3pm";
+    const det = buildInboundMeaningFacts({
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: schedulingAsk,
+      latestOutboundBody: schedulingAsk,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        user_turn_summary: "User gave scheduling time.",
+        last_ask_satisfied: "yes",
+        answered_last_coach_ask: "yes",
+        satisfaction_kind: "plan_exists",
+        response_intent: "close_loop_no_new_action",
+        do_not_repeat_asks: [schedulingAsk],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: schedulingAsk,
+    });
+    mockWriterThenRepair(
+      "What time will you schedule the family connection tomorrow?",
+      "Afternoon works — thanks for locking that in."
+    );
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-11T15:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: inbound,
+      coalescedInboundText: inbound,
+      suppressedMessageSids: ["SM_3pm"],
+      transcriptLines: [`Coach: ${schedulingAsk}`, `User: ${inbound}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: schedulingAsk,
+        latestOpenQuestion: schedulingAsk,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: schedulingAsk,
+        latest_answer_after_open_question: inbound,
+        open_question_pending: true,
+        last_outbound_full_body: schedulingAsk,
+      }),
+    });
+    facts.suggested_coaching_move = "close_loop_no_new_action";
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.noSendReason).not.toBe("turn_understanding_stale_ask_blocked");
+    expect(r.body.toLowerCase()).not.toMatch(/what time will you schedule/);
+    expect(r.metadata.answered_prior_ask_close_loop_repair_succeeded).toBe(true);
+  });
+
+  it("long plan detail: repairs stale planning re-ask", async () => {
+    const planAsk = "What is your plan for getting the steps in this week?";
+    const inbound =
+      "I'll walk after dinner Mon through Thu, do a longer hike Saturday, and keep mornings light on travel days.";
+    const det = buildInboundMeaningFacts({
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: planAsk,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        user_turn_summary: "User shared detailed step plan.",
+        relationship_meaning: "plan_made",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "plan_exists",
+        response_intent: "close_loop_no_new_action",
+        do_not_repeat_asks: [planAsk],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: planAsk,
+    });
+    mockWriterThenRepair(
+      "What is your plan for getting the steps in this week?",
+      "That week plan is clear — dinner walks plus Saturday hike should carry you."
+    );
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-11T10:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "10,000 steps daily",
+      userMessageRaw: inbound,
+      coalescedInboundText: inbound,
+      suppressedMessageSids: ["SM_plan"],
+      transcriptLines: [`Coach: ${planAsk}`, `User: ${inbound}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: planAsk,
+        latestOpenQuestion: planAsk,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: planAsk,
+        latest_answer_after_open_question: inbound,
+        open_question_pending: true,
+        last_outbound_full_body: planAsk,
+      }),
+    });
+    facts.inbound_meaning = det;
+    facts.suggested_coaching_move = "close_loop_no_new_action";
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.noSendReason).not.toBe("turn_understanding_stale_ask_blocked");
+    expect(r.body.toLowerCase()).not.toMatch(/what is your plan for getting the steps/);
+  });
+
+  it("Yes I will after proposal ask: close-loop repair without completion claims", async () => {
+    const proposalAsk = "Would you like to recommit to 10,000 steps next week?";
+    const inbound = "Yes I will";
+    const det = buildInboundMeaningFacts({
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: proposalAsk,
+      latestOutboundBody: proposalAsk,
+    });
+    expect(det.persistence_decision).toBe("no_outcome_write");
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        user_turn_summary: "User accepted proposal.",
+        relationship_meaning: "plan_made",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "plan_exists",
+        response_intent: "close_loop_no_new_action",
+        do_not_repeat_asks: [proposalAsk],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: proposalAsk,
+    });
+    mockWriterThenRepair(
+      "Would you like to recommit to 10,000 steps next week?",
+      "Good — recommitting next week makes sense."
+    );
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-11T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "10,000 steps daily",
+      userMessageRaw: inbound,
+      coalescedInboundText: inbound,
+      suppressedMessageSids: ["SM_yes_i_will"],
+      transcriptLines: [`Coach: ${proposalAsk}`, `User: ${inbound}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: proposalAsk,
+        latestOpenQuestion: proposalAsk,
+        expectedReplySemantics: "proposal_yes_no",
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false, final_event_type: null },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: proposalAsk,
+        latest_answer_after_open_question: inbound,
+        open_question_pending: true,
+        last_outbound_full_body: proposalAsk,
+      }),
+    });
+    facts.inbound_meaning = det;
+    facts.suggested_coaching_move = "close_loop_no_new_action";
+    facts.v2_accountability.should_write_outcome_event = false;
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.noSendReason).not.toBe("turn_understanding_stale_ask_blocked");
+    expect(facts.inbound_meaning.persistence_decision).toBe("no_outcome_write");
+    expect(r.body.toLowerCase()).not.toMatch(/logged|completed|proof|victory|saved/);
+    expect(r.body.toLowerCase()).not.toMatch(/would you like to recommit/);
+  });
+
+  it("repair that still re-asks satisfied question still no-sends", async () => {
+    const schedulingAsk = "What time will you schedule the family connection tomorrow?";
+    const inbound = "3pm";
+    const det = buildInboundMeaningFacts({
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: schedulingAsk,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: turnProposal({
+        last_ask_satisfied: "yes",
+        do_not_repeat_asks: [schedulingAsk],
+        stale_ask_risk: true,
+        response_intent: "close_loop_no_new_action",
+      }),
+      deterministicMeaning: det,
+      latestCoachQuestion: schedulingAsk,
+    });
+    mockWriterThenRepair(
+      "What time will you schedule the family connection tomorrow?",
+      "What time will you schedule the family connection tomorrow?"
+    );
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-11T15:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Weekly family connection",
+      userMessageRaw: inbound,
+      coalescedInboundText: inbound,
+      suppressedMessageSids: ["SM_reask_fail"],
+      transcriptLines: [`Coach: ${schedulingAsk}`, `User: ${inbound}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: schedulingAsk,
+        latestOpenQuestion: schedulingAsk,
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: schedulingAsk,
+        latest_answer_after_open_question: inbound,
+        open_question_pending: true,
+        last_outbound_full_body: schedulingAsk,
+      }),
+    });
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("turn_understanding_stale_ask_blocked");
+    expect(r.metadata.answered_prior_ask_close_loop_repair_eligible).toBe(true);
+    expect(r.metadata.answered_prior_ask_close_loop_repair_succeeded).toBe(false);
   });
 });
 

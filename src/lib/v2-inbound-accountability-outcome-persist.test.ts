@@ -439,6 +439,123 @@ describe("future/proposal affirmative — persist backstop", () => {
   });
 });
 
+describe("future/proposal negative — persist backstop", () => {
+  const RECOMMIT_Q =
+    "Would you like to recommit to taking at least 10,000 steps a day for the next week?";
+  const recentCheckSent = [
+    {
+      event_type: "check_sent",
+      occurred_at: new Date().toISOString(),
+      payload_json: {},
+    },
+  ] as never[];
+
+  it("11: blocks No after recommit when meaning would write user_no", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "Not this week",
+      classifierEventType: "user_no",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    expect(inboundMeaning.persistence_decision).not.toBe("write_user_no");
+
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_recommit_not_this_week",
+      commitmentId: "commit-1",
+      rawBody: "Not this week",
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("meaning_no_outcome_write");
+    }
+  });
+
+  it("12: explicit miss clause bypasses backstop and persists user_no", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "I missed it",
+      classifierEventType: "user_no",
+    });
+    expect(inboundMeaning.persistence_decision).toBe("write_user_no");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_explicit_miss",
+      commitmentId: "commit-1",
+      rawBody: "I missed it",
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_no");
+  });
+
+  it("13: backstop blocks synthetic write_user_no with plan proposal rejection evidence", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "No I won't",
+      classifierEventType: "user_no",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    const forcedWrite: typeof inboundMeaning = {
+      ...inboundMeaning,
+      persistence_decision: "write_user_no",
+      relationship_meaning: "miss",
+    };
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_forced_no",
+      commitmentId: "commit-1",
+      rawBody: "No I won't",
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: forcedWrite,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("plan_or_proposal_rejection_backstop");
+    }
+  });
+
+  it("still persists No after true outcome check", () => {
+    const outcomeQ = "Did you hit 10,000 steps today?";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "No",
+      classifierEventType: "user_no",
+      latestOpenQuestion: outcomeQ,
+      latestOutboundBody: outcomeQ,
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent,
+    });
+    expect(inboundMeaning.persistence_decision).toBe("write_user_no");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_outcome_no",
+      commitmentId: "commit-1",
+      rawBody: "No",
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_no");
+  });
+});
+
 describe("gated clarify — explicit miss/partial bypass (P0 B)", () => {
   it("1: I missed it yesterday + clarify gated → user_no persists", () => {
     const body = "I missed it yesterday";

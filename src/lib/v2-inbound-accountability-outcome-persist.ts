@@ -22,10 +22,13 @@ import {
   inboundHasExplicitPartialClause,
 } from "@/lib/inbound-short-answer-clauses";
 import {
+  isNonOutcomePlanPriorQuestionType,
   isPlanAckFromShortAnswerContext,
+  isPlanRejectionFromShortAnswerContext,
+  looksLikeShortProposalRejectionLanguage,
   resolveShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
-import { shortAnswerDisqualifiesOutcomeProof } from "@/lib/inbound-short-answer-polarity";
+import { shortAnswerDisqualifiesOutcomeProof, normalizeShortAnswerText } from "@/lib/inbound-short-answer-polarity";
 import {
   buildTurnUnderstandingPersistGuardMeta,
   isTurnUnderstandingAuthoritative,
@@ -76,7 +79,8 @@ export type InboundOutcomePersistSkipReason =
   | "meaning_deferred_route"
   | "turn_understanding_expand_blocked"
   | "turn_understanding_satisfied_ask_no_proof"
-  | "plan_or_proposal_ack_backstop";
+  | "plan_or_proposal_ack_backstop"
+  | "plan_or_proposal_rejection_backstop";
 
 export type InboundOutcomePersistResult =
   | {
@@ -258,6 +262,66 @@ function evaluateUserYesPersistBackstop(args: {
   return null;
 }
 
+function isExplicitProposalRejectionPhrase(raw: string): boolean {
+  if (!looksLikeShortProposalRejectionLanguage(raw)) return false;
+  const core = normalizeShortAnswerText(raw).normalized;
+  return !/^(no|n|nope|nah)$/.test(core);
+}
+
+function evaluateUserNoPersistBackstop(args: {
+  raw: string;
+  inboundMeaning: InboundMeaningFacts;
+}): InboundOutcomePersistSkipReason | null {
+  const raw = args.raw.trim();
+  if (args.inboundMeaning.persistence_decision !== "write_user_no") return null;
+  if (inboundHasExplicitMissClause(raw)) return null;
+
+  const m = args.inboundMeaning;
+  if (m.relationship_meaning === "answer_to_prior_question") {
+    return "plan_or_proposal_rejection_backstop";
+  }
+
+  if (
+    m.evidence.some(
+      (e) =>
+        e.includes("plan_proposal_rejection") ||
+        e.includes("short_answer_plan_proposal_rejection") ||
+        e.includes("short_deny_plan_proposal_rejection") ||
+        e.includes("future_negative_not_miss")
+    )
+  ) {
+    return "plan_or_proposal_rejection_backstop";
+  }
+
+  if (
+    typeof m.reason === "string" &&
+    (m.reason.includes("future_negative_not_miss") ||
+      m.reason.includes("explicit_miss_blocked_plan_proposal_rejection") ||
+      m.reason.includes("short_answer_no_outcome_proof"))
+  ) {
+    return "plan_or_proposal_rejection_backstop";
+  }
+
+  const saca = resolveShortAnswerContextAuthority({ rawInbound: raw });
+  if (isPlanRejectionFromShortAnswerContext(saca)) {
+    return "plan_or_proposal_rejection_backstop";
+  }
+
+  if (
+    isNonOutcomePlanPriorQuestionType(saca.prior_question_type) &&
+    !saca.outcome_proof_eligible &&
+    looksLikeShortProposalRejectionLanguage(raw)
+  ) {
+    return "plan_or_proposal_rejection_backstop";
+  }
+
+  if (isExplicitProposalRejectionPhrase(raw)) {
+    return "plan_or_proposal_rejection_backstop";
+  }
+
+  return null;
+}
+
 function evaluateShouldPersistWithMeaning(
   args: ShouldPersistInboundAccountabilityOutcomeArgs,
   inboundMeaning: InboundMeaningFacts
@@ -365,6 +429,13 @@ function evaluateShouldPersistWithMeaning(
 
   if (meaningEventType === "user_yes") {
     const backstop = evaluateUserYesPersistBackstop({ raw, inboundMeaning });
+    if (backstop) {
+      return { persist: false, skipReason: backstop };
+    }
+  }
+
+  if (meaningEventType === "user_no") {
+    const backstop = evaluateUserNoPersistBackstop({ raw, inboundMeaning });
     if (backstop) {
       return { persist: false, skipReason: backstop };
     }

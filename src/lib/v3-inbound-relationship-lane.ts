@@ -104,7 +104,7 @@ import {
 import {
   detectTurnUnderstandingStaleAskViolationFromFacts,
   paraphraseRepeatsStaleCoachAsk,
-  tryRepairInboundStaleAskViolation,
+  resolveStaleAskViolationWithRepair,
 } from "@/lib/inbound-turn-understanding-context";
 import {
   buildStrategyCardContextFromSnapshot,
@@ -336,7 +336,7 @@ async function tryResolveStaleAskBlockedInboundBody(
     return { ok: false, repairMeta: {} };
   }
 
-  const repaired = await tryRepairInboundStaleAskViolation({
+  return resolveStaleAskViolationWithRepair({
     body,
     violation: staleAsk,
     reconciled: tu,
@@ -352,37 +352,14 @@ async function tryResolveStaleAskBlockedInboundBody(
     inboundMeaning: args.facts.inbound_meaning,
     routePurpose: args.facts.route_purpose,
     factsJson: args.facts as unknown as Record<string, unknown>,
+    currentInboundIsShortAcknowledgement: args.facts.thread.current_inbound_is_short_acknowledgement,
+    suggestedCoachingMove: args.facts.suggested_coaching_move,
+    latestAnswerAfterOpenQuestion:
+      args.facts.thread.latest_answer_after_open_question ??
+      args.facts.thread.memory_packet?.latest_answer_after_open_question ??
+      null,
+    recheckStaleAsk: (candidate) => detectTurnUnderstandingStaleAskViolation(candidate, args.facts),
   });
-
-  if (!repaired?.body) {
-    return {
-      ok: false,
-      repairMeta: {
-        turn_understanding_stale_ask_repair_attempted: true,
-        turn_understanding_stale_ask_repair_succeeded: false,
-      },
-    };
-  }
-
-  const recheck = detectTurnUnderstandingStaleAskViolation(repaired.body, args.facts);
-  if (recheck.violation) {
-    return {
-      ok: false,
-      repairMeta: {
-        ...repaired.metadata,
-        turn_understanding_stale_ask_repair_succeeded: false,
-      },
-    };
-  }
-
-  return {
-    ok: true,
-    body: repaired.body,
-    repairMeta: {
-      ...repaired.metadata,
-      turn_understanding_stale_ask_repair_succeeded: true,
-    },
-  };
 }
 
 function inboundBodyReasksThreadQuestion(body: string, facts: InboundV3RelationshipFacts): boolean {

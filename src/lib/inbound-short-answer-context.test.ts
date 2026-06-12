@@ -374,6 +374,145 @@ describe("future/proposal recommit — must not persist completion", () => {
   });
 });
 
+describe("future/proposal recommit — must not persist miss", () => {
+  const liveCtx = {
+    expectedReplySemantics: "accountability_check" as const,
+    openQuestionPending: true,
+    recentEventsNewestFirst: recentCheckSent(),
+  };
+
+  it("1: No after recommit → no write_user_no", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No",
+      classifierEventType: "user_no",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      ...liveCtx,
+    });
+    expect(facts.persistence_decision).not.toBe("write_user_no");
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+    expect(facts.relationship_meaning).toBe("answer_to_prior_question");
+  });
+
+  it("2: No I don't after recommit → no write_user_no", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No I don't",
+      classifierEventType: "user_no",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      ...liveCtx,
+    });
+    expect(facts.persistence_decision).not.toBe("write_user_no");
+    expect(facts.relationship_meaning).toBe("answer_to_prior_question");
+  });
+
+  it("3: Not this week after recommit → no write_user_no", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "Not this week",
+      classifierEventType: "user_no",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      ...liveCtx,
+    });
+    expect(facts.persistence_decision).not.toBe("write_user_no");
+    expect(facts.relationship_meaning).toBe("answer_to_prior_question");
+  });
+
+  it("4: No thanks after smaller-bar proposal → no write_user_no", () => {
+    const proposalQ = "Do you want to try this smaller bar this week?";
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No thanks",
+      classifierEventType: "user_no",
+      latestOpenQuestion: proposalQ,
+      latestOutboundBody: proposalQ,
+      expectedAnswerType: "proposal_yes_no",
+      expectedReplySemantics: "proposal_yes_no",
+      openQuestionPending: true,
+    });
+    expect(facts.persistence_decision).not.toBe("write_user_no");
+    expect(facts.relationship_meaning).toBe("answer_to_prior_question");
+  });
+
+  it("5: No after refresh fit-check → no write_user_no", () => {
+    const refreshQ = "Does this bar still fit today?";
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No",
+      classifierEventType: "user_no",
+      latestOpenQuestion: refreshQ,
+      latestOutboundBody: refreshQ,
+      openQuestionPending: true,
+    });
+    expect(facts.persistence_decision).not.toBe("write_user_no");
+    expect(facts.relationship_meaning).toBe("answer_to_prior_question");
+  });
+
+  it("6: No after schedule question → no write_user_no", () => {
+    const scheduleQ = "What time will you schedule the family connection tomorrow?";
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No",
+      classifierEventType: "user_no",
+      latestOpenQuestion: scheduleQ,
+      latestOutboundBody: scheduleQ,
+      openQuestionPending: true,
+    });
+    expect(facts.persistence_decision).not.toBe("write_user_no");
+  });
+
+  it("7: No after outcome check → write_user_no", () => {
+    const outcomeQ = "Did you hit 10,000 steps today?";
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No",
+      classifierEventType: "user_no",
+      latestOpenQuestion: outcomeQ,
+      latestOutboundBody: outcomeQ,
+      ...liveCtx,
+    });
+    expect(facts.persistence_decision).toBe("write_user_no");
+    expect(facts.relationship_meaning).toBe("miss");
+  });
+
+  it("8: No, I didn't after outcome check → write_user_no", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No, I didn't",
+      classifierEventType: "user_no",
+      latestOpenQuestion: OUTCOME_Q,
+      latestOutboundBody: OUTCOME_Q,
+      ...liveCtx,
+    });
+    expect(facts.persistence_decision).toBe("write_user_no");
+  });
+
+  it("9: unsolicited I missed it → write_user_no", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "I missed it",
+      classifierEventType: "user_no",
+    });
+    expect(facts.persistence_decision).toBe("write_user_no");
+  });
+
+  it("10: unsolicited Didn't happen → write_user_no", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "Didn't happen",
+      classifierEventType: "user_no",
+    });
+    expect(facts.persistence_decision).toBe("write_user_no");
+  });
+
+  it("14: stale accountability_check metadata + recommit coach body + No → no write_user_no", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "No",
+      classifierEventType: "user_no",
+      latestOpenQuestion: RECOMMIT_Q,
+      latestOutboundBody: RECOMMIT_Q,
+      expectedReplySemantics: "accountability_check",
+      openQuestionPending: true,
+      recentEventsNewestFirst: recentCheckSent(),
+    });
+    expect(facts.persistence_decision).not.toBe("write_user_no");
+    expect(saca("No", RECOMMIT_Q, liveCtx).prior_question_type).toBe("plan_confirmation");
+  });
+});
+
 describe("daily downstream — proposal ack must not support completion claim", () => {
   it("11-13: no completion server support when recommit ack does not persist user_yes", () => {
     const meaning = buildInboundMeaningFacts({

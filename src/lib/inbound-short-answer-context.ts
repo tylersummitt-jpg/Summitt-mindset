@@ -81,7 +81,7 @@ export type ResolveShortAnswerContextAuthorityArgs = {
 };
 
 const PLAN_CONFIRMATION_QUESTION_RE =
-  /\b(let me know if that works|would you like to adjust|would you like to\b|do you want to\b|does (this|that|it) work|how does\b.*\b(sound|feel)\b|how do you feel about committing|does (this|that|it) adjustment work|should we adjust|what do you think about committing|committing to\b|recommit\b|stay(ing)? committed\b|keep the same (line|bar)\b|keep this going\b|for a week\b|for the next \d+ days\b|next week\b|next 7 days\b|seven days\b|\b7 days\b|ready to continue\b|are you (ok|okay) with|adjust our approach|can you schedule\b|what time will you\b|still fits?\b|bar still fits\b|proposal\b|try the smaller bar\b)\b/i;
+  /\b(let me know if that works|would you like to adjust|would you like to\b|do you want to\b|does (this|that|it) work|how does\b.*\b(sound|feel)\b|how do you feel about committing|does (this|that|it) adjustment work|should we adjust|what do you think about committing|committing to\b|recommit\b|stay(ing)? committed\b|keep the same (line|bar)\b|keep this going\b|for a week\b|for the next \d+ days\b|next week\b|next 7 days\b|seven days\b|\b7 days\b|ready to continue\b|are you (ok|okay) with|adjust our approach|can you schedule\b|what time will you\b|will you\b.*\b(tomorrow|next week)\b|still fits?\b|bar still fits\b|proposal\b|try the smaller bar\b)\b/i;
 
 const OUTCOME_CHECK_QUESTION_RE =
   /\b(did you\b.*\b(today|this morning|tonight)\b|did you\b.*\b(get|do|complete|finish|protect|hit|follow through|follow-through)\b|did you\b.*\bbefore your\b|were you able to\b.*\b(today|get|do)\b|did the\b.*\b(happen|get done)\b.*\btoday\b|did you get your\b|what happened with\b.*\b(plan|block|appointment)\b)/i;
@@ -227,11 +227,64 @@ function resolvePromptFreshness(args: ResolveShortAnswerContextAuthorityArgs): {
   return { hasLive: ctx.has_live_accountability_prompt, freshEnough };
 }
 
+const NON_OUTCOME_PLAN_PRIOR_TYPES: ReadonlySet<PriorQuestionType> = new Set([
+  "plan_confirmation",
+  "future_plan_question",
+  "adjustment_prompt",
+]);
+
+export function isNonOutcomePlanPriorQuestionType(priorType: PriorQuestionType): boolean {
+  return NON_OUTCOME_PLAN_PRIOR_TYPES.has(priorType);
+}
+
+/** Short negative / proposal rejection — not an explicit missed-outcome statement. */
+export function looksLikeShortProposalRejectionLanguage(text: string): boolean {
+  const raw = text.trim();
+  if (!raw || inboundHasExplicitMissClause(raw)) return false;
+  if (raw.length > 80) return false;
+
+  const core = normalizeShortAnswerText(raw).normalized;
+  if (!core) return false;
+
+  if (/^(no|n|nope|nah)$/.test(core)) return true;
+  if (/^(no way|not today|not now|no thanks|nah thanks)$/.test(core)) return true;
+  if (/^no i (don'?t|do not|won'?t|will not)$/.test(core)) return true;
+  if (/^i (don'?t|do not) want to\b/.test(core)) return true;
+  if (/^(not this week|not next week|not doing that|i'?m not doing that)$/.test(core)) return true;
+  if (/^(not that|that doesn'?t work|that does not work|doesn'?t work for me)$/.test(core)) return true;
+
+  if (
+    core.length <= 48 &&
+    /\b(no thanks|not this week|not next week|not now|not doing that|don'?t want to|do not want to|that doesn'?t work|doesn'?t work for me|not that time)\b/.test(
+      core
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 /** True when SACA says the user acknowledged a plan/proposal — not an outcome check. */
 export function isPlanAckFromShortAnswerContext(saca: ShortAnswerContextAuthority): boolean {
   if (!saca.is_short_contextual_answer) return false;
   if (saca.response_intent_hint === "acknowledge_plan_confirmation") return true;
   if (saca.prior_question_type === "plan_confirmation" && saca.short_answer_polarity === "affirm") {
+    return true;
+  }
+  return false;
+}
+
+/** True when SACA says the user rejected a plan/proposal — not a missed outcome. */
+export function isPlanRejectionFromShortAnswerContext(saca: ShortAnswerContextAuthority): boolean {
+  if (saca.response_intent_hint === "clarify_adjustment") return true;
+  if (saca.reason === "short_deny_plan_adjustment") return true;
+  if (
+    saca.is_short_contextual_answer &&
+    isNonOutcomePlanPriorQuestionType(saca.prior_question_type) &&
+    saca.short_answer_polarity === "deny" &&
+    !saca.outcome_proof_eligible
+  ) {
     return true;
   }
   return false;

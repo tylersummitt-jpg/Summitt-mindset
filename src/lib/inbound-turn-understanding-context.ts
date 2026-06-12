@@ -18,6 +18,7 @@ import {
   OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
   type OpenAIRelationshipTurnUnderstandingV1,
   type ReconciledTurnUnderstanding,
+  type TurnUnderstandingResponseIntent,
   resolveInboundTurnUnderstandingSkipReason,
   runInboundRelationshipTurnUnderstanding,
   slimTurnUnderstandingMetadata,
@@ -376,6 +377,87 @@ function buildStaleAskBlockedGuardResult(args: {
   };
 }
 
+const ANSWERED_PRIOR_ASK_CLOSE_LOOP_INBOUND_MEANINGS = new Set<InboundMeaningFacts["relationship_meaning"]>([
+  "answer_to_prior_question",
+  "plan_made",
+]);
+
+const ANSWERED_PRIOR_ASK_CLOSE_LOOP_RESPONSE_INTENTS = new Set<TurnUnderstandingResponseIntent>([
+  "close_loop_no_new_action",
+  "acknowledge_prior_ask_satisfied",
+  "answer_user_question",
+  "reinforce_plan_without_proof",
+]);
+
+const ANSWERED_PRIOR_ASK_CLOSE_LOOP_MOVES = new Set([
+  "close_loop_no_new_action",
+  "acknowledge_prior_ask_satisfied",
+  "protect_existing_plan",
+  "respond_to_open_question_answer_natural",
+  "acknowledge_prior_answer_without_reasking",
+]);
+
+/** User answered/satisfied the prior coach ask — stale re-ask repair may close the loop instead of ghosting. */
+export function isAnsweredPriorAskCloseLoopEligible(args: {
+  reconciled: ReconciledTurnUnderstanding | null | undefined;
+  inboundMeaning?: InboundMeaningFacts | null;
+  rawInbound?: string | null;
+  currentInboundIsShortAcknowledgement?: boolean;
+  suggestedCoachingMove?: string | null;
+  latestAnswerAfterOpenQuestion?: string | null;
+}): boolean {
+  if (args.currentInboundIsShortAcknowledgement) return false;
+  if (inboundExplicitOutcomeDetected(args.rawInbound ?? "")) return false;
+
+  const tu = args.reconciled;
+  if (!tu || !isTurnUnderstandingAuthoritative(tu)) return false;
+
+  const meaning = args.inboundMeaning?.relationship_meaning;
+  const askExplicitlySatisfied =
+    tu.last_ask_satisfied === "yes" || tu.proposal?.answered_last_coach_ask === "yes";
+  const answeredViaOpenQuestion =
+    Boolean(args.latestAnswerAfterOpenQuestion?.trim()) &&
+    meaning != null &&
+    ANSWERED_PRIOR_ASK_CLOSE_LOOP_INBOUND_MEANINGS.has(meaning);
+  const answeredViaCloseLoopIntent =
+    askExplicitlySatisfied &&
+    (ANSWERED_PRIOR_ASK_CLOSE_LOOP_RESPONSE_INTENTS.has(tu.reconciled_response_intent) ||
+      (args.suggestedCoachingMove != null &&
+        ANSWERED_PRIOR_ASK_CLOSE_LOOP_MOVES.has(args.suggestedCoachingMove)));
+
+  const answeredPriorAsk =
+    askExplicitlySatisfied || answeredViaOpenQuestion || answeredViaCloseLoopIntent;
+
+  if (!answeredPriorAsk) return false;
+
+  return (
+    tu.last_ask_satisfied === "yes" ||
+    tu.stale_ask_risk ||
+    tu.reconciled_do_not_repeat_asks.length > 0
+  );
+}
+
+function buildStaleAskCloseLoopRepairSystemInstruction(args: {
+  repeatedPhrase: string | null;
+  doNotRepeatAsks: string[];
+  rawInbound?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+  reconciled?: ReconciledTurnUnderstanding | null;
+}): string {
+  const dnr = args.doNotRepeatAsks.slice(0, 4).join(" | ");
+  const inboundPreview = args.rawInbound?.trim().slice(0, 200) ?? "";
+  const meaning = args.reconciled?.reconciled_relationship_meaning ?? args.inboundMeaning?.relationship_meaning;
+  return `ANSWERED-PRIOR-ASK CLOSE-LOOP REPAIR: The draft repeats a coach question the user already answered.
+Rewrite as a short human close-loop acknowledgement of the user's answer.
+Do not re-ask the satisfied question or paraphrase it as a new ask.
+Do not ask another scheduling, commitment, or accountability question.
+Do not claim completion, proof saved, Victory, or any server state change.
+Do NOT repeat or paraphrase these stale asks: ${dnr || args.repeatedPhrase || "prior satisfied ask"}.
+Latest inbound preview: ${inboundPreview || "(none)"}.
+Inbound meaning hint: ${meaning ?? "unclear"}.
+No hard-coded templates. One short SMS.`;
+}
+
 function buildStaleAskRepairSystemInstruction(args: {
   repeatedPhrase: string | null;
   doNotRepeatAsks: string[];
@@ -409,11 +491,20 @@ export type TryRepairInboundStaleAskViolationArgs = {
   routePurpose?: string;
   factsJson?: Record<string, unknown> | null;
   repairSnapshot?: import("@/lib/sms-relationship-repair-snapshot-v1").RepairRelationshipSnapshotV1 | null;
+  closeLoopEligible?: boolean;
+  repairPass?: 1 | 2;
 };
 
 export async function tryRepairInboundStaleAskViolation(
   args: TryRepairInboundStaleAskViolationArgs
 ): Promise<{ body: string; metadata: Record<string, unknown> } | null> {
+  const instructionArgs = {
+    repeatedPhrase: args.violation.repeatedPhrase,
+    doNotRepeatAsks: args.reconciled.reconciled_do_not_repeat_asks,
+    rawInbound: args.rawInbound,
+    inboundMeaning: args.inboundMeaning,
+    reconciled: args.reconciled,
+  };
   const repair = await repairV3RelationshipLaneBodyWithOpenAI({
     routeKind: "inbound",
     routePurpose: args.routePurpose ?? "turn_understanding_stale_ask_guard",
@@ -421,13 +512,10 @@ export async function tryRepairInboundStaleAskViolation(
     blockedReasons: ["turn_understanding_stale_ask"],
     factsJson: args.factsJson ?? null,
     repairSnapshot: args.repairSnapshot ?? null,
-    systemInstruction: buildStaleAskRepairSystemInstruction({
-      repeatedPhrase: args.violation.repeatedPhrase,
-      doNotRepeatAsks: args.reconciled.reconciled_do_not_repeat_asks,
-      rawInbound: args.rawInbound,
-      inboundMeaning: args.inboundMeaning,
-      reconciled: args.reconciled,
-    }),
+    repairPass: args.repairPass,
+    systemInstruction: args.closeLoopEligible
+      ? buildStaleAskCloseLoopRepairSystemInstruction(instructionArgs)
+      : buildStaleAskRepairSystemInstruction(instructionArgs),
   });
 
   if (!repair?.body?.trim()) {
@@ -442,6 +530,122 @@ export async function tryRepairInboundStaleAskViolation(
       turn_understanding_stale_ask_repair_openai_ok: repair.openAiOk,
       turn_understanding_stale_ask_repair_metadata: repair.metadata,
       stale_guard_repair_body_preview: repair.body.trim().slice(0, 220),
+      answered_prior_ask_close_loop_repair: args.closeLoopEligible === true,
+      ...(args.repairPass != null
+        ? { answered_prior_ask_close_loop_repair_pass: args.repairPass }
+        : {}),
+    },
+  };
+}
+
+export type ResolveStaleAskViolationWithRepairArgs = {
+  body: string;
+  violation: { violation: boolean; repeatedPhrase: string | null };
+  reconciled: ReconciledTurnUnderstanding;
+  latestOpenQuestion?: string | null;
+  lastCoachOutbound?: string | null;
+  rawInbound?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+  routePurpose?: string;
+  factsJson?: Record<string, unknown> | null;
+  repairSnapshot?: TryRepairInboundStaleAskViolationArgs["repairSnapshot"];
+  currentInboundIsShortAcknowledgement?: boolean;
+  suggestedCoachingMove?: string | null;
+  latestAnswerAfterOpenQuestion?: string | null;
+  closeLoopEligible?: boolean;
+  recheckStaleAsk: (body: string) => { violation: boolean; repeatedPhrase: string | null };
+};
+
+export async function resolveStaleAskViolationWithRepair(
+  args: ResolveStaleAskViolationWithRepairArgs
+): Promise<
+  | { ok: true; body: string; repairMeta: Record<string, unknown> }
+  | { ok: false; repairMeta: Record<string, unknown> }
+> {
+  const closeLoopEligible =
+    args.closeLoopEligible ??
+    isAnsweredPriorAskCloseLoopEligible({
+      reconciled: args.reconciled,
+      inboundMeaning: args.inboundMeaning,
+      rawInbound: args.rawInbound,
+      currentInboundIsShortAcknowledgement: args.currentInboundIsShortAcknowledgement,
+      suggestedCoachingMove: args.suggestedCoachingMove,
+      latestAnswerAfterOpenQuestion: args.latestAnswerAfterOpenQuestion,
+    });
+
+  const baseRepairMeta: Record<string, unknown> = {
+    answered_prior_ask_close_loop_repair_eligible: closeLoopEligible,
+  };
+
+  const attempt = async (candidateBody: string, pass?: 1 | 2) => {
+    const repaired = await tryRepairInboundStaleAskViolation({
+      body: candidateBody,
+      violation: args.violation,
+      reconciled: args.reconciled,
+      latestOpenQuestion: args.latestOpenQuestion,
+      lastCoachOutbound: args.lastCoachOutbound,
+      rawInbound: args.rawInbound,
+      inboundMeaning: args.inboundMeaning,
+      routePurpose: args.routePurpose,
+      factsJson: args.factsJson,
+      repairSnapshot: args.repairSnapshot,
+      closeLoopEligible,
+      repairPass: pass,
+    });
+    if (!repaired?.body) return null;
+    const recheck = args.recheckStaleAsk(repaired.body);
+    return { repaired, stillStale: recheck.violation };
+  };
+
+  const first = await attempt(args.body, closeLoopEligible ? 1 : undefined);
+  if (!first) {
+    return {
+      ok: false,
+      repairMeta: {
+        ...baseRepairMeta,
+        turn_understanding_stale_ask_repair_attempted: true,
+        turn_understanding_stale_ask_repair_succeeded: false,
+      },
+    };
+  }
+
+  if (!first.stillStale) {
+    return {
+      ok: true,
+      body: first.repaired.body,
+      repairMeta: {
+        ...baseRepairMeta,
+        ...first.repaired.metadata,
+        turn_understanding_stale_ask_repair_succeeded: true,
+        answered_prior_ask_close_loop_repair_succeeded: closeLoopEligible,
+      },
+    };
+  }
+
+  if (closeLoopEligible) {
+    const second = await attempt(first.repaired.body, 2);
+    if (second && !second.stillStale) {
+      return {
+        ok: true,
+        body: second.repaired.body,
+        repairMeta: {
+          ...baseRepairMeta,
+          ...second.repaired.metadata,
+          turn_understanding_stale_ask_repair_succeeded: true,
+          answered_prior_ask_close_loop_repair_succeeded: true,
+          answered_prior_ask_close_loop_repair_second_pass: true,
+        },
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    repairMeta: {
+      ...baseRepairMeta,
+      ...first.repaired.metadata,
+      turn_understanding_stale_ask_repair_succeeded: false,
+      answered_prior_ask_close_loop_repair_succeeded: false,
     },
   };
 }
@@ -481,66 +685,51 @@ export async function applyInboundFinalBodyTurnUnderstandingGuardAsync(args: {
     return initial;
   }
 
-  const repaired = await tryRepairInboundStaleAskViolation({
+  const inboundMeaning = args.inboundMeaning ?? args.context.inboundMeaningForPersist ?? null;
+  const resolved = await resolveStaleAskViolationWithRepair({
     body: args.body,
     violation,
     reconciled,
     latestOpenQuestion: args.latestOpenQuestion,
     lastCoachOutbound: args.lastCoachOutbound,
     rawInbound: args.rawInbound,
-    inboundMeaning: args.inboundMeaning ?? args.context.inboundMeaningForPersist ?? null,
+    inboundMeaning,
     routePurpose: args.routePurpose,
     factsJson: args.factsJson,
     repairSnapshot: args.repairSnapshot,
+    recheckStaleAsk: (candidate) =>
+      detectReconciledTurnUnderstandingStaleAskViolation(candidate, {
+        reconciled,
+        latestOpenQuestion: args.latestOpenQuestion,
+        lastCoachOutbound: args.lastCoachOutbound,
+      }),
   });
 
-  if (!repaired?.body) {
+  if (!resolved.ok) {
     return buildStaleAskBlockedGuardResult({
       baseMeta: {
         ...initial.metadata,
-        turn_understanding_stale_ask_repair_attempted: true,
+        ...resolved.repairMeta,
         turn_understanding_final_body_repair_attempted: true,
-        turn_understanding_stale_ask_repair_succeeded: false,
         turn_understanding_final_body_repair_succeeded: false,
         explicit_outcome_detected: inboundExplicitOutcomeDetected(args.rawInbound ?? ""),
       },
       reconciled,
       violation,
       stage,
-    });
-  }
-
-  const recheck = detectReconciledTurnUnderstandingStaleAskViolation(repaired.body, {
-    reconciled,
-    latestOpenQuestion: args.latestOpenQuestion,
-    lastCoachOutbound: args.lastCoachOutbound,
-  });
-  if (recheck.violation) {
-    return buildStaleAskBlockedGuardResult({
-      baseMeta: {
-        ...initial.metadata,
-        ...repaired.metadata,
-        turn_understanding_stale_ask_repair_succeeded: false,
-        turn_understanding_final_body_repair_succeeded: false,
-        explicit_outcome_detected: inboundExplicitOutcomeDetected(args.rawInbound ?? ""),
-      },
-      reconciled,
-      violation: recheck,
-      stage,
-      repairMetadata: repaired.metadata,
+      repairMetadata: resolved.repairMeta,
     });
   }
 
   return {
-    body: repaired.body,
+    body: resolved.body,
     shouldSend: true,
     noSendReason: null,
     metadata: {
       ...initial.metadata,
-      ...repaired.metadata,
+      ...resolved.repairMeta,
       turn_understanding_final_body_violation_detected: true,
       turn_understanding_stale_ask_violation_detected: true,
-      turn_understanding_stale_ask_repair_succeeded: true,
       turn_understanding_final_body_repair_succeeded: true,
       final_body_stale_ask_blocked: false,
       turn_understanding_stale_ask_phrase: violation.repeatedPhrase,
