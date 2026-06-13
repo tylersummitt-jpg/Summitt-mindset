@@ -544,6 +544,7 @@ export function buildOpenLoopsAndDoNotRepeat(args: {
   relationshipMemory7d?: RelationshipMemory7dData | null;
   recentExactThread72h?: OpenLoopsRecentExactThreadInput | null;
   routeContext?: OpenLoopsRouteContextInput | null;
+  extraDoNotRepeatPhrases?: string[];
 }): { section: OpenLoopsAndDoNotRepeatSection; meta: OpenLoopsAndDoNotRepeatBuildMeta } {
   const routeRelevance = resolveRouteRelevance(args.routeContext);
   const truth = args.structuredRecentTruth;
@@ -604,9 +605,11 @@ export function buildOpenLoopsAndDoNotRepeat(args: {
 
   const { loops: openLoops, truncated } = trimOpenLoops(scoredLoops);
 
-  const doNotRepeatPhrases = (truth.do_not_repeat_phrases ?? [])
-    .map((p) => p.trim())
-    .filter(Boolean)
+  const doNotRepeatPhrases = [
+    ...(truth.do_not_repeat_phrases ?? []).map((p) => p.trim()).filter(Boolean),
+    ...(args.extraDoNotRepeatPhrases ?? []).map((p) => p.trim()).filter(Boolean),
+  ]
+    .filter((p, i, arr) => arr.indexOf(p) === i)
     .slice(0, MAX_DO_NOT_REPEAT_PHRASES);
 
   const recentUnanswered = recentUnansweredCoachQuestions({

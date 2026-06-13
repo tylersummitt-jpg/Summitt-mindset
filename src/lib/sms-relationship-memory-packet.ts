@@ -3,6 +3,15 @@
  * Recent exact thread outranks coaching summaries for V3 lane facts.
  */
 
+import {
+  isImportantPeopleRelationshipType,
+  type ImportantPeopleRelationshipType,
+} from "@/lib/onboarding-people-summary";
+import {
+  relationshipAnchorSourcesFromProfileAndPeople,
+  type ImportantPersonRow,
+  type RelationshipAnchorSources,
+} from "@/lib/sms-relationship-anchors";
 import { supabaseServer } from "@/lib/supabase-server";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { getRecentV2EventsForAi, type V2EventRowForAi } from "@/lib/v2-commitment";
@@ -137,6 +146,7 @@ export type SmsRelationshipMemoryPacket = {
   answer_source: SmsThreadMemoryProjectionSource;
   do_not_repeat_phrases: SmsRelationshipDoNotRepeatHint[];
   memory_priority_rules: string[];
+  relationship_anchor_sources: RelationshipAnchorSources;
   meta: {
     message_count: number;
     thread_text_capped: boolean;
@@ -287,6 +297,7 @@ export type SlimSmsRelationshipMemoryPacketForFacts = {
   memory_priority_rules: string[];
   coaching_memory_summary: string | null;
   coaching_memory_is_background_only: true;
+  relationship_anchor_sources: RelationshipAnchorSources;
 };
 
 export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): SlimSmsRelationshipMemoryPacketForFacts {
@@ -316,6 +327,7 @@ export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): S
     memory_priority_rules: [...packet.memory_priority_rules],
     coaching_memory_summary: packet.coaching_memory_summary,
     coaching_memory_is_background_only: true,
+    relationship_anchor_sources: packet.relationship_anchor_sources,
   };
 }
 
@@ -501,9 +513,35 @@ export async function buildSmsRelationshipMemoryPacket(args: {
 
   const { data: profile } = await supabaseServer
     .from("user_profiles")
-    .select("preferred_name, people_summary, identity_anchor_text, identity_source")
+    .select("preferred_name, people_summary, identity_anchor_text, identity_source, updated_at")
     .eq("clerk_user_id", args.clerkUserId)
     .maybeSingle();
+
+  const { data: importantPeopleRows } = await supabaseServer
+    .from("important_people")
+    .select("display_name, relationship_type, source")
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("is_active", true)
+    .is("removed_at", null);
+
+  const importantPeople: ImportantPersonRow[] = [];
+  for (const row of importantPeopleRows ?? []) {
+    const name = typeof row.display_name === "string" ? row.display_name.trim() : "";
+    if (!name || !isImportantPeopleRelationshipType(row.relationship_type)) continue;
+    importantPeople.push({
+      display_name: name,
+      relationship_type: row.relationship_type as ImportantPeopleRelationshipType,
+      source: typeof row.source === "string" ? row.source : null,
+    });
+  }
+
+  const relationship_anchor_sources = relationshipAnchorSourcesFromProfileAndPeople({
+    importantPeople,
+    peopleSummary:
+      typeof profile?.people_summary === "string" ? profile.people_summary : null,
+    peopleSummaryUpdatedAt:
+      typeof profile?.updated_at === "string" ? profile.updated_at : null,
+  });
 
   const recent_exact_thread_72h = await buildRecentExactThread72h({
     clerkUserId: args.clerkUserId,
@@ -786,6 +824,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     open_question_source,
     answer_source,
     do_not_repeat_phrases,
+    relationship_anchor_sources,
     memory_priority_rules: [...MEMORY_PRIORITY_RULES],
     meta: {
       message_count: recent_exact_messages.length,

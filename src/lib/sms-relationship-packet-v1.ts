@@ -20,6 +20,15 @@ import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
+  buildRelationshipAndScheduleAnchors,
+  buildRelationshipAnchorsPromptGuidance,
+  relationshipAnchorAvoidRepeatingFingerprints,
+  type RelationshipAnchor,
+  type RelationshipAnchorSources,
+  type RelationshipAnchorTelemetryCounts,
+  type ScheduleAnchor,
+} from "@/lib/sms-relationship-anchors";
+import {
   countRelationshipMemory7dItems,
   DEFAULT_MEMORY_7D_SECTION_CHAR_BUDGET,
   RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
@@ -223,6 +232,14 @@ export type RelationshipPacketLowerAuthorityBackground = {
   recent_transcript_or_context_block?: string | null;
 };
 
+export type RelationshipPacketRelationshipAnchorsData = {
+  anchors: RelationshipAnchor[];
+};
+
+export type RelationshipPacketScheduleAnchorsData = {
+  anchors: ScheduleAnchor[];
+};
+
 export type RelationshipPacketV1 = {
   relationship_packet_version: typeof RELATIONSHIP_PACKET_VERSION;
   current_turn: RelationshipPacketSection<RelationshipPacketCurrentTurn>;
@@ -230,6 +247,8 @@ export type RelationshipPacketV1 = {
   recent_exact_thread_72h: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null;
   canonical_state: RelationshipPacketSection<RelationshipPacketCanonicalState>;
   proof_victory_permission: RelationshipPacketSection<RelationshipPacketProofVictoryPermission> | null;
+  relationship_anchors?: RelationshipPacketSection<RelationshipPacketRelationshipAnchorsData>;
+  schedule_anchors?: RelationshipPacketSection<RelationshipPacketScheduleAnchorsData>;
   relationship_memory_7d?: RelationshipPacketSection<RelationshipPacketMemory7d>;
   relationship_memory_30d_or_season?: RelationshipPacketSection<RelationshipPacketMemory30dOrSeason>;
   lower_authority_background?: RelationshipPacketSection<RelationshipPacketLowerAuthorityBackground>;
@@ -253,6 +272,12 @@ export type RelationshipPacketMeta = {
   relationship_memory_30d_truncated: boolean;
   total_chars: number;
   budget_chars: number;
+  relationship_anchor_available_count?: number;
+  schedule_anchor_available_count?: number;
+  relationship_anchor_recently_used_count?: number;
+  relationship_anchor_source_onboarding_count?: number;
+  relationship_anchor_source_sms_confirmed_count?: number;
+  strategy_card_relationship_anchor_boundary_present?: boolean;
 };
 
 export type BuildRelationshipPacketResult = {
@@ -278,6 +303,7 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
+${buildRelationshipAnchorsPromptGuidance()}
 ${buildTemporalContractPromptGuidance()}
 ${buildRelationshipSnapshotV2PromptGuidance()}`;
 }
@@ -917,10 +943,72 @@ type MutablePacketBuild = {
   recent_exact_thread_72h: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null;
   canonical_state: RelationshipPacketSection<RelationshipPacketCanonicalState>;
   proof_victory_permission: RelationshipPacketSection<RelationshipPacketProofVictoryPermission> | null;
+  relationship_anchors?: RelationshipPacketSection<RelationshipPacketRelationshipAnchorsData>;
+  schedule_anchors?: RelationshipPacketSection<RelationshipPacketScheduleAnchorsData>;
   relationship_memory_7d?: RelationshipPacketSection<RelationshipPacketMemory7d>;
   relationship_memory_30d_or_season?: RelationshipPacketSection<RelationshipPacketMemory30dOrSeason>;
   lower_authority_background?: RelationshipPacketSection<RelationshipPacketLowerAuthorityBackground>;
 };
+
+function coachThreadBodiesFrom72h(
+  thread: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null | undefined
+): string[] {
+  if (!thread?.data.messages?.length) return [];
+  return thread.data.messages
+    .filter((m) => m.role === "coach")
+    .map((m) => m.body)
+    .filter(Boolean);
+}
+
+function resolveAnchorsForLaneFacts(args: {
+  lane: RelationshipPacketLane;
+  facts: InboundV3RelationshipFacts | DailyV3RelationshipFacts | WeeklyV3OutboundFacts;
+  thread72h: RelationshipPacketSection<RelationshipPacketRecentExactThread72h> | null;
+}): {
+  built: ReturnType<typeof buildRelationshipAndScheduleAnchors>;
+  extraAvoidRepeating: string[];
+} {
+  const facts = args.facts;
+  if (!("relationship_anchor_sources" in facts)) {
+    return {
+      built: buildRelationshipAndScheduleAnchors({
+        sources: null,
+        timezone: facts.user.timezone,
+        timingAnchorMemory: null,
+        threadFreshness: "thread_freshness" in facts ? facts.thread_freshness : null,
+      }),
+      extraAvoidRepeating: [],
+    };
+  }
+
+  const inboundOrDaily = facts as InboundV3RelationshipFacts | DailyV3RelationshipFacts;
+  const coachQuestions =
+    "thread_memory" in inboundOrDaily
+      ? (inboundOrDaily.thread_memory.last_5_coach_questions ?? []).map((q) =>
+          typeof q === "string" ? q : ""
+        )
+      : [];
+  const coachThreadBodies = coachThreadBodiesFrom72h(args.thread72h);
+
+  const built = buildRelationshipAndScheduleAnchors({
+    sources: inboundOrDaily.relationship_anchor_sources ?? null,
+    timezone: inboundOrDaily.user.timezone,
+    timingAnchorMemory:
+      args.lane === "daily" && "accountability" in inboundOrDaily
+        ? inboundOrDaily.accountability.timing_anchor_memory ?? null
+        : null,
+    threadFreshness: inboundOrDaily.thread_freshness ?? null,
+    lastCoachMessages: coachQuestions,
+    recentCoachThreadBodies: coachThreadBodies,
+  });
+
+  return {
+    built,
+    extraAvoidRepeating: relationshipAnchorAvoidRepeatingFingerprints(
+      built.relationship_anchor_recently_used_keys
+    ),
+  };
+}
 
 function serializePacket(build: MutablePacketBuild): RelationshipPacketV1 {
   const packet: RelationshipPacketV1 = {
@@ -931,6 +1019,8 @@ function serializePacket(build: MutablePacketBuild): RelationshipPacketV1 {
     canonical_state: build.canonical_state,
     proof_victory_permission: build.proof_victory_permission,
   };
+  if (build.relationship_anchors) packet.relationship_anchors = build.relationship_anchors;
+  if (build.schedule_anchors) packet.schedule_anchors = build.schedule_anchors;
   if (build.relationship_memory_7d) packet.relationship_memory_7d = build.relationship_memory_7d;
   if (build.relationship_memory_30d_or_season) {
     packet.relationship_memory_30d_or_season = build.relationship_memory_30d_or_season;
@@ -1131,6 +1221,30 @@ export function buildRelationshipPacketForOpenAI(args: {
     };
   }
 
+  let anchorAvoidRepeating: string[] = [];
+  let anchorTelemetry: RelationshipAnchorTelemetryCounts | null = null;
+  if (args.lane !== "weekly") {
+    const resolved = resolveAnchorsForLaneFacts({
+      lane: args.lane,
+      facts: args.sourceFacts,
+      thread72h: build.recent_exact_thread_72h,
+    });
+    anchorAvoidRepeating = resolved.extraAvoidRepeating;
+    anchorTelemetry = resolved.built.telemetry;
+    if (resolved.built.relationship_anchors.length > 0) {
+      build.relationship_anchors = {
+        authority: "structured_background",
+        data: { anchors: resolved.built.relationship_anchors },
+      };
+    }
+    if (resolved.built.schedule_anchors.length > 0) {
+      build.schedule_anchors = {
+        authority: "structured_background",
+        data: { anchors: resolved.built.schedule_anchors },
+      };
+    }
+  }
+
   const pendingBuilt = activePendingStateForLaneFacts({
     lane: args.lane,
     sourceFacts: args.sourceFacts,
@@ -1147,6 +1261,7 @@ export function buildRelationshipPacketForOpenAI(args: {
       surface: args.lane,
       lane: args.lane,
       truncated,
+      relationshipAnchorAvoidRepeating: anchorAvoidRepeating,
       // Packet already carries proof_victory_permission when present; keep snapshot proof compact.
       proofPermissionCompact: true,
     });
@@ -1275,6 +1390,19 @@ export function buildRelationshipPacketForOpenAI(args: {
     relationship_memory_30d_truncated: memory30dTruncated,
     total_chars: userPromptJson.length,
     budget_chars: budget,
+    ...(anchorTelemetry
+      ? {
+          relationship_anchor_available_count: anchorTelemetry.relationship_anchor_available_count,
+          schedule_anchor_available_count: anchorTelemetry.schedule_anchor_available_count,
+          relationship_anchor_recently_used_count: anchorTelemetry.relationship_anchor_recently_used_count,
+          relationship_anchor_source_onboarding_count:
+            anchorTelemetry.relationship_anchor_source_onboarding_count,
+          relationship_anchor_source_sms_confirmed_count:
+            anchorTelemetry.relationship_anchor_source_sms_confirmed_count,
+          strategy_card_relationship_anchor_boundary_present:
+            anchorTelemetry.strategy_card_relationship_anchor_boundary_present,
+        }
+      : {}),
   };
 
   return {
@@ -1451,6 +1579,18 @@ export function relationshipPacketMetaForLaneTelemetry(
     included_memory_30d_window_days: meta.included_memory_30d_window_days,
     included_memory_30d_item_count: meta.included_memory_30d_item_count,
     relationship_memory_30d_truncated: meta.relationship_memory_30d_truncated,
+    ...(meta.relationship_anchor_available_count != null
+      ? {
+          relationship_anchor_available_count: meta.relationship_anchor_available_count,
+          schedule_anchor_available_count: meta.schedule_anchor_available_count,
+          relationship_anchor_recently_used_count: meta.relationship_anchor_recently_used_count,
+          relationship_anchor_source_onboarding_count: meta.relationship_anchor_source_onboarding_count,
+          relationship_anchor_source_sms_confirmed_count:
+            meta.relationship_anchor_source_sms_confirmed_count,
+          strategy_card_relationship_anchor_boundary_present:
+            meta.strategy_card_relationship_anchor_boundary_present,
+        }
+      : {}),
     ...(snapshotMeta
       ? {
           relationship_snapshot_version: snapshotMeta.relationship_snapshot_version,
@@ -1591,6 +1731,12 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_weekly_proof_state_written_before_sms",
   "strategy_card_packet_writer_hints_stripped",
   "strategy_card_packet_stripped_fields",
+  "relationship_anchor_available_count",
+  "schedule_anchor_available_count",
+  "relationship_anchor_recently_used_count",
+  "relationship_anchor_source_onboarding_count",
+  "relationship_anchor_source_sms_confirmed_count",
+  "strategy_card_relationship_anchor_boundary_present",
 ] as const;
 
 const REPAIR_SNAPSHOT_OBSERVABILITY_KEYS = [

@@ -74,6 +74,7 @@ import {
   type V3VictoryBackgroundFacts,
 } from "@/lib/sms-victory-background-context";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
+import type { RelationshipAnchorSources } from "@/lib/sms-relationship-anchors";
 import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
@@ -110,6 +111,7 @@ import {
   buildStrategyCardContextFromSnapshot,
   buildStrategyCardV1ForFacts,
   buildStrategyCardV1PromptGuidance,
+  finalizeStrategyCardWithRelationshipAnchorBoundaries,
   isArcClarifyStrategyCardEligible,
   isCentralPivotStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
@@ -1021,6 +1023,7 @@ export type InboundV3RelationshipFacts = {
   victory_background?: V3VictoryBackgroundFacts | null;
   thread_freshness?: ThreadFreshnessFacts | null;
   temporal_contract?: TemporalContractV1 | null;
+  relationship_anchor_sources?: RelationshipAnchorSources | null;
   user: {
     clerk_user_id: string;
     preferred_name: string | null;
@@ -2224,7 +2227,13 @@ export async function produceInboundV3RelationshipSms(
       facts: args.facts,
       snapshot: relationshipPacket.snapshotV2,
     });
-    const draftCard = buildStrategyCardV1ForFacts({ ctx: strategyCtx });
+    const draftCard = finalizeStrategyCardWithRelationshipAnchorBoundaries(
+      buildStrategyCardV1ForFacts({ ctx: strategyCtx }),
+      {
+        relationshipAnchorCount: relationshipPacket.meta.relationship_anchor_available_count ?? 0,
+        scheduleAnchorCount: relationshipPacket.meta.schedule_anchor_available_count ?? 0,
+      }
+    );
     const validated = validateAndRepairStrategyCardV1(draftCard, strategyCtx);
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
@@ -2934,6 +2943,7 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     route_purpose: routePurpose,
     branch_name: args.branchName ?? null,
     branch_migrated_to_lane: args.branchMigratedToLane === true,
+    relationship_anchor_sources: mp?.relationship_anchor_sources ?? null,
     ...(args.centralBrainPivotFacts != null ? { central_brain_pivot_facts: args.centralBrainPivotFacts } : {}),
     ...(args.arcClarificationFacts != null ? { arc_clarification_facts: args.arcClarificationFacts } : {}),
     ...(args.centralBrainBlockerPivotFacts != null

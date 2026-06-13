@@ -1290,4 +1290,57 @@ describe("buildRelationshipPacketPromptGuidance", () => {
     expect(guidance).toContain("continuity only");
     expect(guidance).toContain("is_ai_snapshot");
   });
+
+  it("frames relationship anchors as optional writer context", () => {
+    const guidance = buildRelationshipPacketPromptGuidance();
+    expect(guidance).toMatch(/optional user-provided/i);
+    expect(guidance).toMatch(/at most one anchor/i);
+    expect(guidance).not.toMatch(/Ask how/i);
+  });
+});
+
+describe("relationship anchors in packet", () => {
+  it("includes compact relationship_anchors when important_people provided", () => {
+    const { packet, meta, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: minimalInboundFacts({
+        relationship_anchor_sources: {
+          important_people: [
+            { display_name: "Callie", relationship_type: "child", source: "onboarding" },
+          ],
+          people_summary: "Showing up for 1 child",
+        },
+      }),
+    });
+    expect(packet.relationship_anchors?.data.anchors).toHaveLength(1);
+    expect(packet.relationship_anchors?.data.anchors[0]?.display_label).toBe("Callie");
+    expect(userPromptJson).toMatch(/relationship_anchors/i);
+    expect(meta.relationship_anchor_available_count).toBe(1);
+    expect(JSON.stringify(meta)).not.toContain("Callie");
+  });
+
+  it("omits relationship_anchors when no important_people", () => {
+    const { packet } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts({
+        relationship_anchor_sources: { important_people: [], people_summary: null },
+      }),
+    });
+    expect(packet.relationship_anchors).toBeUndefined();
+  });
+
+  it("does not include anchors on weekly lane", () => {
+    const { packet } = buildRelationshipPacketForOpenAI({
+      lane: "weekly",
+      sourceFacts: minimalWeeklyFacts({
+        relationship_anchor_sources: {
+          important_people: [
+            { display_name: "Callie", relationship_type: "child", source: "onboarding" },
+          ],
+          people_summary: null,
+        },
+      }),
+    });
+    expect(packet.relationship_anchors).toBeUndefined();
+  });
 });

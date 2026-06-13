@@ -28,6 +28,11 @@ import {
   type OpenLoopsAndDoNotRepeatData,
 } from "@/lib/sms-open-loops-and-do-not-repeat";
 import {
+  buildRelationshipAnchorsPromptGuidance,
+  type RelationshipAnchor,
+  type ScheduleAnchor,
+} from "@/lib/sms-relationship-anchors";
+import {
   buildNoSendAndSilenceHistoryV2,
   buildNoSendAndSilenceHistoryV2PromptGuidance,
   type NoSendAndSilenceHistoryV2Section,
@@ -103,6 +108,8 @@ export type RelationshipSnapshotV2 = {
   proof_and_praise_permission: ProofAndPraisePermissionV2Section;
   open_loops_and_do_not_repeat: RelationshipPacketSection<OpenLoopsAndDoNotRepeatData>;
   no_send_and_silence_history: NoSendAndSilenceHistoryV2Section;
+  relationship_anchors?: RelationshipPacketSection<{ anchors: RelationshipAnchor[] }>;
+  schedule_anchors?: RelationshipPacketSection<{ anchors: ScheduleAnchor[] }>;
   route_context: RelationshipPacketSection<RelationshipSnapshotRouteContext>;
   long_term_background_summary?: RelationshipPacketV1["lower_authority_background"];
   low_confidence_hints?: RelationshipPacketV1["lower_authority_background"];
@@ -195,6 +202,7 @@ function buildOpenLoopsSectionForSnapshot(args: {
   surface: RelationshipSnapshotSurface;
   lane?: RelationshipPacketLane | null;
   proposalKind?: string | null;
+  relationshipAnchorAvoidRepeating?: string[];
 }): {
   section: RelationshipSnapshotV2["open_loops_and_do_not_repeat"];
   meta: Pick<
@@ -214,6 +222,7 @@ function buildOpenLoopsSectionForSnapshot(args: {
     relationshipMemory7d: args.packet.relationship_memory_7d?.data,
     recentExactThread72h: args.threadSection.data,
     routeContext: routeCtx.data,
+    extraDoNotRepeatPhrases: args.relationshipAnchorAvoidRepeating,
   });
   return { section: built.section, meta: built.meta };
 }
@@ -260,6 +269,7 @@ export function buildRelationshipSnapshotV2(args: {
   generatedAt?: string;
   truncated?: boolean;
   proofPermissionCompact?: boolean;
+  relationshipAnchorAvoidRepeating?: string[];
 }): { snapshot: RelationshipSnapshotV2; meta: RelationshipSnapshotV2Meta } {
   const timezone = args.timezone?.trim() || resolveTimezoneFromPacket(args.packet, args.surface);
   const threadSection = normalizeStructuredRecentExactThread72hForV2(
@@ -272,6 +282,7 @@ export function buildRelationshipSnapshotV2(args: {
     surface: args.surface,
     lane: args.lane,
     proposalKind: args.proposalKind,
+    relationshipAnchorAvoidRepeating: args.relationshipAnchorAvoidRepeating,
   });
 
   const proofPermissionBuilt = buildProofAndPraisePermissionV2({
@@ -317,6 +328,12 @@ export function buildRelationshipSnapshotV2(args: {
   }
   if (args.packet.relationship_memory_30d_or_season) {
     snapshot.relationship_memory_30d_or_season = args.packet.relationship_memory_30d_or_season;
+  }
+  if (args.packet.relationship_anchors) {
+    snapshot.relationship_anchors = args.packet.relationship_anchors;
+  }
+  if (args.packet.schedule_anchors) {
+    snapshot.schedule_anchors = args.packet.schedule_anchors;
   }
   if (args.packet.lower_authority_background) {
     snapshot.long_term_background_summary = {
@@ -367,6 +384,7 @@ RELATIONSHIP_SNAPSHOT_V2_AUTHORITY (read-only context — server final guard val
 - relationship_memory_7d beats relationship_memory_30d_or_season.
 - low_confidence_hints and long_term_background_summary are background tone only — never proof of completion or resolution.
 - active_pending_state tells you what is still open — must_not_claim_resolved items must NOT be treated as closed in visible SMS.
+${buildRelationshipAnchorsPromptGuidance()}
 ${buildOpenLoopsAndDoNotRepeatPromptGuidance()}
 ${buildProofAndPraisePermissionV2PromptGuidance()}
 ${buildNoSendAndSilenceHistoryV2PromptGuidance()}

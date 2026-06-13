@@ -65,6 +65,7 @@ function chain(rows: unknown[] | unknown | null) {
   const builder = {
     select: () => builder,
     eq: () => builder,
+    is: () => builder,
     order: () => builder,
     limit: () => builder,
     maybeSingle: () => Promise.resolve(Array.isArray(rows) ? { data: rows[0] ?? null, error: null } : result),
@@ -80,6 +81,7 @@ function setupSupabaseTables(args: {
   lastCtx?: unknown | null;
   profile?: unknown | null;
   commitment?: unknown | null;
+  importantPeopleRows?: unknown[];
 }) {
   supabaseFrom.mockImplementation((table: string) => {
     switch (table) {
@@ -93,6 +95,8 @@ function setupSupabaseTables(args: {
         return chain(args.lastCtx ?? null);
       case "user_profiles":
         return chain(args.profile ?? null);
+      case "important_people":
+        return chain(args.importantPeopleRows ?? []);
       case "v2_commitment":
         return chain(args.commitment ?? null);
       default:
@@ -301,6 +305,37 @@ describe("buildSmsRelationshipMemoryPacket", () => {
       now: NOW,
     });
     expect(packet.memory_priority_rules).toEqual([...MEMORY_PRIORITY_RULES]);
+  });
+
+  it("loads important_people into relationship_anchor_sources", async () => {
+    setupSupabaseTables({
+      importantPeopleRows: [
+        {
+          display_name: "Callie",
+          relationship_type: "child",
+          source: "onboarding",
+        },
+      ],
+      profile: { preferred_name: "Tyler", people_summary: "Showing up for 1 child" },
+    });
+    const packet = await buildSmsRelationshipMemoryPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      now: NOW,
+    });
+    expect(packet.relationship_anchor_sources.important_people).toHaveLength(1);
+    expect(packet.relationship_anchor_sources.important_people[0]?.display_name).toBe("Callie");
+    expect(packet.relationship_anchor_sources.people_summary).toBe("Showing up for 1 child");
+  });
+
+  it("returns empty relationship_anchor_sources when no important_people", async () => {
+    setupSupabaseTables({ profile: { preferred_name: "Tyler", people_summary: null } });
+    const packet = await buildSmsRelationshipMemoryPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      now: NOW,
+    });
+    expect(packet.relationship_anchor_sources.important_people).toEqual([]);
   });
 
   it("caps packet size safely", async () => {

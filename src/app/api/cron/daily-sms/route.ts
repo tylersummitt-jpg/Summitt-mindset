@@ -1081,6 +1081,7 @@ async function buildDailySmsContent(
           contract_proposal_mode: false,
         },
         ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
+        relationship_anchor_sources: relationshipMemoryPacketRe.relationship_anchor_sources,
       };
       const factsCoreRe = enrichDailyFactsCoreWithPendingPlanProof(factsCoreReBase, {
         eventsNewestFirst: recentEvents,
@@ -1403,6 +1404,7 @@ async function buildDailySmsContent(
           awaiting_user_confirmation: awaitingConfirmationPr,
         },
         ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
+        relationship_anchor_sources: relationshipMemoryPacketPr.relationship_anchor_sources,
       };
       const suggestedPr = deriveSuggestedCoachingMoveForDailyFacts(factsCorePr);
       const factsPr: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
@@ -1732,6 +1734,7 @@ async function buildDailySmsContent(
             identity_anchor_text: anchorTrim || null,
           },
           ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
+          relationship_anchor_sources: relationshipMemoryPacketRf.relationship_anchor_sources,
         };
         const suggestedRf = deriveSuggestedCoachingMoveForDailyFacts(factsCoreRf);
         const factsRf: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
@@ -1998,6 +2001,7 @@ async function buildDailySmsContent(
             effective_ask_for_bar: askTrim || null,
           },
           ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
+          relationship_anchor_sources: relationshipMemoryPacketC.relationship_anchor_sources,
         };
         const suggestedC = deriveSuggestedCoachingMoveForDailyFacts(factsCoreC);
         const factsC: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
@@ -2547,6 +2551,7 @@ async function buildDailySmsContent(
           }
         : {}),
       ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
+      relationship_anchor_sources: relationshipMemoryPacketMain.relationship_anchor_sources,
     };
     const factsCoreWithPlanProof = enrichDailyFactsCoreWithPendingPlanProof(factsCoreUnified, {
       eventsNewestFirst: recentEvents,

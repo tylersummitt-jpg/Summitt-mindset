@@ -37,6 +37,7 @@ import {
 } from "@/lib/sms-planned-interruption";
 import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
+import type { RelationshipAnchorSources } from "@/lib/sms-relationship-anchors";
 import { slimDailySatisfiedAskContextForTelemetry } from "@/lib/daily-satisfied-ask-context";
 import { applyDailyStaleAskDetectOnly } from "@/lib/daily-stale-ask-guard";
 import {
@@ -72,6 +73,7 @@ import {
 import {
   buildDailyC1StrategyCardContextFromSnapshot,
   buildDailyC1StrategyCardV1,
+  finalizeStrategyCardWithRelationshipAnchorBoundaries,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
   buildDailyC3PendingResolutionStrategyCardContextFromSnapshot,
@@ -261,6 +263,8 @@ export type DailyV3RelationshipFacts = {
   victory_background?: V3VictoryBackgroundFacts | null;
   /** Latest inbound satisfied-ask / do-not-repeat truth for daily stale-ask prevention. */
   daily_satisfied_ask_context?: DailySatisfiedAskContext | null;
+  /** Optional user-provided people context for relationship anchors (read-only). */
+  relationship_anchor_sources?: RelationshipAnchorSources | null;
   suggested_coaching_move: string;
   constraints: {
     max_chars: number;
@@ -1091,7 +1095,13 @@ export async function produceDailyV3RelationshipSms(
       facts: laneFacts,
       snapshot: relationshipPacket.snapshotV2,
     });
-    const draftCard = buildDailyC1StrategyCardV1({ ctx: strategyCtx });
+    const draftCard = finalizeStrategyCardWithRelationshipAnchorBoundaries(
+      buildDailyC1StrategyCardV1({ ctx: strategyCtx }),
+      {
+        relationshipAnchorCount: relationshipPacket.meta.relationship_anchor_available_count ?? 0,
+        scheduleAnchorCount: relationshipPacket.meta.schedule_anchor_available_count ?? 0,
+      }
+    );
     const validated = validateAndRepairDailyC1StrategyCardV1(draftCard, strategyCtx);
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();

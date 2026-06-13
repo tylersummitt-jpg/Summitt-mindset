@@ -125,6 +125,7 @@ function minimalMemoryPacket(
     memory_priority_rules: [],
     coaching_memory_summary: null,
     coaching_memory_is_background_only: true,
+    relationship_anchor_sources: { important_people: [], people_summary: null },
     ...overrides,
   };
 }

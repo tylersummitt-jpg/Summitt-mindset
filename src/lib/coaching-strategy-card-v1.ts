@@ -28,6 +28,9 @@ import type {
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
+  applyRelationshipAnchorStrategyBoundaries,
+} from "@/lib/sms-relationship-anchors";
+import {
   ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
   CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
   DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO,
@@ -1957,6 +1960,35 @@ function repairCentralPivotCard(
   _reasons: string[]
 ): StrategyCardV1 {
   return buildCentralPivotStrategyCardV1({ ctx, generatedAt: card.generated_at });
+}
+
+export function finalizeStrategyCardWithRelationshipAnchorBoundaries(
+  card: StrategyCardV1,
+  counts: { relationshipAnchorCount: number; scheduleAnchorCount: number }
+): StrategyCardV1 {
+  if (counts.relationshipAnchorCount === 0 && counts.scheduleAnchorCount === 0) {
+    return card;
+  }
+  const must_do = [...card.must_do];
+  const must_not_do = [...card.must_not_do];
+  const avoid_repeating = [...card.writer_constraints.avoid_repeating];
+  applyRelationshipAnchorStrategyBoundaries({
+    must_do,
+    must_not_do,
+    avoid_repeating,
+    relationshipAnchorCount: counts.relationshipAnchorCount,
+    scheduleAnchorCount: counts.scheduleAnchorCount,
+    recentlyUsedAnchorKeys: [],
+  });
+  return {
+    ...card,
+    must_do: [...new Set(must_do)].slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+    writer_constraints: {
+      ...card.writer_constraints,
+      avoid_repeating: avoid_repeating.slice(0, MAX_AVOID_REPEATING),
+    },
+  };
 }
 
 export function buildStrategyCardV1ForFacts(args: {
