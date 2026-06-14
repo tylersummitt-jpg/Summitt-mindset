@@ -1,5 +1,5 @@
 -- =============================================================================
--- VICTORY ROOM ↔ SMS BRIDGE DEBUG PACK v1 (read-only)
+-- VICTORY ROOM ↔ SMS BRIDGE DEBUG PACK v1.2 (read-only)
 -- =============================================================================
 -- Run in Supabase SQL editor. SELECT-only — does not mutate data.
 --
@@ -319,7 +319,12 @@ sms_context AS (
   SELECT
     e.created_at AS event_at,
     e.clerk_user_id,
-    e.commitment_id,
+    COALESCE(
+      NULLIF(BTRIM(e.metadata->>'commitment_id'), ''),
+      NULLIF(BTRIM(e.metadata->'daily_v3_lane'->>'commitment_id'), ''),
+      NULLIF(BTRIM(e.metadata->'relationship_packet_observability'->>'commitment_id'), ''),
+      ac.id::text
+    )::uuid AS commitment_id,
     'daily'::text AS sms_lane,
     COALESCE(
       e.metadata->'relationship_packet_observability'->>'strategy_card_route_kind',
@@ -348,6 +353,8 @@ sms_context AS (
     e.metadata AS raw_meta
   FROM sms_send_events e
   CROSS JOIN bounds b
+  LEFT JOIN v2_commitment ac
+    ON ac.clerk_user_id = e.clerk_user_id AND ac.status = 'active'
   WHERE e.created_at >= b.day_start
     AND e.created_at < b.day_end
 
@@ -419,6 +426,28 @@ SELECT
       AND cs.adaptive_proposal_expires_at IS NOT NULL
       AND cs.adaptive_proposal_expires_at > now()
       AND cs.effective_coaching_ask_sql IS NOT DISTINCT FROM cs.base_behavior_statement
+      AND (
+        s.contract_proposal_kind = 'recommit_same'
+        OR BTRIM(cs.adaptive_proposal_text) IS NOT DISTINCT FROM BTRIM(cs.base_behavior_statement)
+      )
+      THEN true
+    ELSE false
+  END AS pending_same_base_recommit_proposal,
+  CASE
+    WHEN cs.adaptive_proposal_text IS NOT NULL
+      AND cs.adaptive_proposal_expires_at IS NOT NULL
+      AND cs.adaptive_proposal_expires_at > now()
+      AND cs.effective_coaching_ask_sql IS NOT DISTINCT FROM cs.base_behavior_statement
+      AND NOT (
+        s.contract_proposal_kind = 'recommit_same'
+        OR BTRIM(cs.adaptive_proposal_text) IS NOT DISTINCT FROM BTRIM(cs.base_behavior_statement)
+      )
+      AND (
+        BTRIM(cs.adaptive_proposal_text) IS DISTINCT FROM BTRIM(cs.base_behavior_statement)
+        OR s.contract_proposal_kind = 'shrink_ask'
+        OR s.pending_resolution_kind_meta IN ('commitment_replace', 'commitment_tighten', 'identity_anchor_update')
+        OR cs.pending_resolution_kind IN ('commitment_replace', 'commitment_tighten', 'identity_anchor_update')
+      )
       THEN true
     ELSE false
   END AS pending_overlay_not_displayed,
@@ -786,7 +815,13 @@ no_send_rows AS (
   SELECT
     e.created_at AS event_at,
     e.clerk_user_id,
-    e.commitment_id,
+    COALESCE(
+      NULLIF(BTRIM(e.metadata->>'commitment_id'), ''),
+      NULLIF(BTRIM(e.metadata->'daily_v3_lane'->>'commitment_id'), ''),
+      NULLIF(BTRIM(e.metadata->'relationship_packet_observability'->>'commitment_id'), ''),
+      NULLIF(BTRIM(e.metadata->'payload_json'->>'commitment_id'), ''),
+      ac.id::text
+    )::uuid AS commitment_id,
     'daily'::text AS sms_lane,
     NULL::text AS message_sid,
     COALESCE(
@@ -803,6 +838,8 @@ no_send_rows AS (
     e.metadata AS raw_meta
   FROM sms_send_events e
   CROSS JOIN bounds b
+  LEFT JOIN v2_commitment ac
+    ON ac.clerk_user_id = e.clerk_user_id AND ac.status = 'active'
   WHERE e.created_at >= b.day_start
     AND e.created_at < b.day_end
     AND (
@@ -816,7 +853,12 @@ no_send_rows AS (
   SELECT
     j.updated_at,
     j.clerk_user_id,
-    ac.id AS commitment_id,
+    COALESCE(
+      NULLIF(BTRIM(it.tel->>'commitment_id'), ''),
+      NULLIF(BTRIM(it.tel->'relationship_packet_observability'->>'commitment_id'), ''),
+      NULLIF(BTRIM(it.tel->'payload_json'->>'commitment_id'), ''),
+      ac.id::text
+    )::uuid AS commitment_id,
     'inbound',
     j.message_sid,
     COALESCE(
@@ -973,7 +1015,15 @@ with_next_sms AS (
       s.metadata AS raw_next_meta
     FROM sms_send_events s
     LEFT JOIN user_profiles p ON p.clerk_user_id = s.clerk_user_id
-    LEFT JOIN v2_commitment c ON c.id = s.commitment_id
+    LEFT JOIN v2_commitment ac
+      ON ac.clerk_user_id = s.clerk_user_id AND ac.status = 'active'
+    LEFT JOIN v2_commitment c ON c.id = COALESCE(
+      NULLIF(BTRIM(s.metadata->>'commitment_id'), ''),
+      NULLIF(BTRIM(s.metadata->'daily_v3_lane'->>'commitment_id'), ''),
+      NULLIF(BTRIM(s.metadata->'relationship_packet_observability'->>'commitment_id'), ''),
+      NULLIF(BTRIM(s.metadata->'payload_json'->>'commitment_id'), ''),
+      ac.id::text
+    )::uuid
     WHERE s.clerk_user_id = e.clerk_user_id
       AND s.created_at > e.edit_at
     ORDER BY s.created_at ASC
@@ -1270,14 +1320,14 @@ WITH bounds AS (
 ),
 day_series AS (
   SELECT generate_series(
-    (SELECT day_start FROM bounds),
-    (SELECT day_end FROM bounds) - interval '1 day',
+    ((SELECT day_start FROM bounds) AT TIME ZONE 'America/New_York')::date,
+    ((SELECT day_end FROM bounds) AT TIME ZONE 'America/New_York')::date - 1,
     interval '1 day'
-  ) AS day_start
+  )::date AS day_et
 ),
 outcome_counts AS (
   SELECT
-    date_trunc('day', ev.occurred_at AT TIME ZONE 'America/New_York') AS day_et,
+    (ev.occurred_at AT TIME ZONE 'America/New_York')::date AS day_et,
     COUNT(*) FILTER (
       WHERE ev.event_type IN ('user_yes', 'user_no', 'user_partial')
     ) AS outcome_events,
@@ -1299,7 +1349,7 @@ outcome_counts AS (
 ),
 language_counts AS (
   SELECT
-    date_trunc('day', u.event_at AT TIME ZONE 'America/New_York') AS day_et,
+    (u.event_at AT TIME ZONE 'America/New_York')::date AS day_et,
     COUNT(*) AS sms_proof_victory_mentions,
     COUNT(*) FILTER (
       WHERE u.body_preview ~* '(add this|may belong|consider adding|saved|saving|logged as proof)'
@@ -1320,7 +1370,7 @@ language_counts AS (
 ),
 overlay_mismatch AS (
   SELECT
-    date_trunc('day', c.updated_at AT TIME ZONE 'America/New_York') AS day_et,
+    (c.updated_at AT TIME ZONE 'America/New_York')::date AS day_et,
     COUNT(*) FILTER (
       WHERE NULLIF(BTRIM(c.adaptive_ask_text), '') IS NOT NULL
         AND c.adaptive_ask_expires_at IS NOT NULL
@@ -1328,12 +1378,15 @@ overlay_mismatch AS (
         AND BTRIM(c.adaptive_ask_text) IS DISTINCT FROM BTRIM(c.behavior_statement)
     ) AS shrink_effective_ask_mismatches
   FROM v2_commitment c
+  CROSS JOIN bounds b
   WHERE c.status = 'active'
+    AND c.updated_at >= b.day_start
+    AND c.updated_at < b.day_end
   GROUP BY 1
 ),
 edit_counts AS (
   SELECT
-    date_trunc('day', uiv.created_at AT TIME ZONE 'America/New_York') AS day_et,
+    (uiv.created_at AT TIME ZONE 'America/New_York')::date AS day_et,
     COUNT(*) AS identity_edits_in_window
   FROM user_identity_version uiv
   CROSS JOIN bounds b
@@ -1342,7 +1395,7 @@ edit_counts AS (
 ),
 goal_edit_counts AS (
   SELECT
-    date_trunc('day', c.updated_at AT TIME ZONE 'America/New_York') AS day_et,
+    (c.updated_at AT TIME ZONE 'America/New_York')::date AS day_et,
     COUNT(*) AS goal_edits_in_window
   FROM v2_commitment c
   CROSS JOIN bounds b
@@ -1352,7 +1405,7 @@ goal_edit_counts AS (
 ),
 no_send_proof AS (
   SELECT
-    date_trunc('day', ev.occurred_at AT TIME ZONE 'America/New_York') AS day_et,
+    (ev.occurred_at AT TIME ZONE 'America/New_York')::date AS day_et,
     COUNT(*) AS no_send_proof_rows
   FROM v2_commitment_event ev
   CROSS JOIN bounds b
@@ -1372,7 +1425,7 @@ no_send_proof AS (
 ),
 anchor_anomalies AS (
   SELECT
-    date_trunc('day', e.created_at AT TIME ZONE 'America/New_York') AS day_et,
+    (e.created_at AT TIME ZONE 'America/New_York')::date AS day_et,
     COUNT(*) FILTER (
       WHERE COALESCE(
         (e.metadata->'relationship_packet_observability'->>'relationship_anchor_available_count')::int,
@@ -1390,7 +1443,7 @@ anchor_anomalies AS (
   GROUP BY 1
 )
 SELECT
-  d.day_start::date AS day_et,
+  d.day_et,
   COALESCE(o.outcome_events, 0) AS outcome_events,
   COALESCE(o.proof_moment_true, 0) AS proof_moment_true,
   COALESCE(o.displayable_proof_candidates, 0) AS displayable_proof_candidates,
@@ -1402,11 +1455,11 @@ SELECT
   COALESCE(n.no_send_proof_rows, 0) AS no_send_proof_rows,
   COALESCE(a.important_people_anchor_anomalies, 0) AS important_people_anchor_anomalies
 FROM day_series d
-LEFT JOIN outcome_counts o ON o.day_et = d.day_start
-LEFT JOIN language_counts l ON l.day_et = d.day_start
-LEFT JOIN overlay_mismatch m ON m.day_et = d.day_start
-LEFT JOIN edit_counts ec ON ec.day_et = d.day_start
-LEFT JOIN goal_edit_counts gc ON gc.day_et = d.day_start
-LEFT JOIN no_send_proof n ON n.day_et = d.day_start
-LEFT JOIN anchor_anomalies a ON a.day_et = d.day_start
+LEFT JOIN outcome_counts o ON o.day_et = d.day_et
+LEFT JOIN language_counts l ON l.day_et = d.day_et
+LEFT JOIN overlay_mismatch m ON m.day_et = d.day_et
+LEFT JOIN edit_counts ec ON ec.day_et = d.day_et
+LEFT JOIN goal_edit_counts gc ON gc.day_et = d.day_et
+LEFT JOIN no_send_proof n ON n.day_et = d.day_et
+LEFT JOIN anchor_anomalies a ON a.day_et = d.day_et
 ORDER BY day_et;

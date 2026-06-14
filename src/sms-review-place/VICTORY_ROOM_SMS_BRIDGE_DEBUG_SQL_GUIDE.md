@@ -24,17 +24,54 @@ Change `day_start` / `day_end` in **each** query before running. `day_end` is ex
 
 ## Recommended workflow
 
+**First run order:** Query **11** → **3** → **1** → **5**, then optional deep-dives (2, 4, 6–10).
+
 1. Set bounds to your soak window (e.g. 48h after Daily C1 deploy).
-2. Run **Query 11** (`bridge_health_rollup`) first — one row per day summary.
-3. If proof volume looks wrong → **Query 1** + **Query 2**.
-4. If shrink/overlay suspected → **Query 3** + **Query 8**.
-5. If Victory Room / proof language suspected → **Query 4** + **Query 5**.
-6. If no-send + proof suspected → **Query 6**.
-7. If identity/goal edit bridge suspected → **Query 7**.
-8. If anchor privacy suspected → **Query 9** (counts only — no names).
-9. If persisted proof copy looks gamified → **Query 10**.
+2. Run **Query 11** (`bridge_health_rollup`) first — one row per local day summary.
+3. Run **Query 3** — shrink overlay / effective ask vs Victory Room goal.
+4. Run **Query 1** — proof spine map; counts should align with Query 11 `proof_moment_true`.
+5. Run **Query 5** — unsupported proof/Victory claims.
+6. If displayability suspected → **Query 2**.
+7. If Victory Room / proof language suspected → **Query 4**.
+8. If no-send + proof suspected → **Query 6**.
+9. If identity/goal edit bridge suspected → **Query 7**.
+10. If SMS goal change suspected → **Query 8**.
+11. If anchor privacy suspected → **Query 9** (counts only — no names).
+12. If persisted proof copy looks gamified → **Query 10**.
 
 Export CSV → share with read-only audit → behavior fix only if SQL proves harm.
+
+## v1.1 fixes
+
+### Query 11 — day rollup
+
+v1.0 joined `day_series` timestamptz to `date_trunc` timestamps, which produced all-zero rollups when Query 1 had proof rows. v1.1:
+
+- `day_series` uses **local ET dates**: `(bounds AT TIME ZONE 'America/New_York')::date`
+- All rollup CTEs bucket with `(occurred_at AT TIME ZONE 'America/New_York')::date`
+- Joins use `o.day_et = d.day_et` (date ↔ date)
+
+`proof_moment_true` on Query 11 should match proof rows visible in Query 1 for the same bounds.
+
+### Query 3 — commitment resolution + recommit false positives
+
+- **No** `sms_send_events.commitment_id` column reference — resolves via metadata COALESCE + active `v2_commitment` by `clerk_user_id`.
+- **`pending_same_base_recommit_proposal`** — informational only when `recommit_same` or proposal text equals base goal while overlay is inactive.
+- **`pending_overlay_not_displayed`** — only true for real pending shrink/replace/change semantics, not same-base recommit.
+
+**Do not treat as P1** if Query 3 shows only `pending_same_base_recommit_proposal=true` and all of `overlay_active_sql`, `sms_effective_ask_differs_from_victory_goal`, `active_overlay_not_displayed` are false.
+
+## v1.2 fixes
+
+### Query 6 and Query 7 — commitment resolution
+
+v1.1 left `e.commitment_id` / `s.commitment_id` on `sms_send_events`, which has **no** `commitment_id` column — Queries 6 and 7 would error if run. v1.2:
+
+- Resolves commitment via metadata COALESCE (`commitment_id`, `daily_v3_lane`, `relationship_packet_observability`, `payload_json`) + active `v2_commitment` by `clerk_user_id`.
+- Query 6 inbound branch also COALESCEs from inbound telemetry when present.
+- Query 7 lateral “next daily SMS” join uses the same pattern for `next_commitment_goal` / `next_effective_ask_sql`.
+
+**All 11 queries should now be runnable** in Supabase SQL editor. Query 6 and Query 7 remain **optional deep dives** after the first-run quartet (11 → 3 → 1 → 5).
 
 ## Queries
 
@@ -71,8 +108,10 @@ If Query 1 shows `proof_moment=true` but Query 2 says `missing_proof_line`, Vict
 | `effective_coaching_ask_sql` | Active overlay when `adaptive_ask_text` not expired, else base |
 | `sms_effective_ask_differs_from_victory_goal` | SMS may coach on a different bar than VR displays |
 | `active_overlay_not_displayed` | Shrink overlay active; VR still shows base goal |
+| `pending_same_base_recommit_proposal` | **Informational** — `recommit_same` or same-text proposal; not a bridge risk |
+| `pending_overlay_not_displayed` | Real pending shrink/replace/change proposal differs from VR-visible base |
 
-**Expected during shrink:** overlay active + mismatch flags true. **P1** if users are confused; not necessarily a write bug.
+**Expected during shrink:** `active_overlay_not_displayed` or `sms_effective_ask_differs_from_victory_goal` true. **Not P1** if only `pending_same_base_recommit_proposal` is true.
 
 ### Proof language (Queries 4–5)
 
@@ -101,7 +140,7 @@ Compare `edited_preview` to `next_profile_identity` / `next_commitment_goal` on 
 | **P0** | Query 5: saved/manual-add language with no proof + no permission |
 | **P1** | Query 3: active overlay mismatch during shrink soak; Query 7: stale goal after app edit |
 | **P2** | Query 10: benign wording; Query 2: missing category on old rows |
-| **Soak** | Query 6: intentional no-send proof; Query 4: category language with linked proof |
+| **Soak** | Query 6: intentional no-send proof; Query 4: category language with linked proof; Query 3: `pending_same_base_recommit_proposal` only |
 
 ## Privacy
 
@@ -110,7 +149,7 @@ Query 9 **does not** select `important_people.display_name`. A commented optiona
 ## Data gaps
 
 - Victory Room UI copy ("trophy room", "no scoreboard") is **not in DB** — Query 10 notes code paths; UI audit is separate.
-- Inbound jobs have no `commitment_id` column — pack resolves active `v2_commitment` by `clerk_user_id`.
+- `sms_send_events` and inbound jobs have no `commitment_id` column — pack resolves via metadata COALESCE + active `v2_commitment` by `clerk_user_id`.
 - Pre-consolidation rows may lack `relationship_packet_observability` proof permission fields.
 - Query 2 displayability heuristics approximate `loadVictoryRoomView` — not a full loader replay.
 - Victory Room Recent Proof caps at 5 curated cards / 400 event window — proof may exist in spine but not appear on home.
