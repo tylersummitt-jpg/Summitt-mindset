@@ -15,6 +15,8 @@ import {
   stripCardSupersededWriterStrategyHintsFromUserPrompt,
 } from "@/lib/sms-relationship-packet-v1";
 import {
+  buildDailyC1StrategyCardContextFromSnapshot,
+  buildDailyC1StrategyCardV1,
   buildInboundNormalStrategyCardV1,
   buildStrategyCardContextFromSnapshot,
   strategyCardV1MetaForTelemetry,
@@ -1182,6 +1184,73 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
     expect(obs.open_loops_sources).toEqual(snapshotV2Meta.open_loops_sources);
     expect(obs.open_loops_truncated).toBe(snapshotV2Meta.open_loops_truncated);
     expect(JSON.stringify(obs)).not.toMatch(/Did you protect focus today/i);
+  });
+
+  it("whitelists Daily C1 conversation intent and stale-ask count telemetry", () => {
+    const { meta, snapshotV2Meta } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts({
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "outcome_reported",
+          do_not_repeat_asks: ["Did the two hours happen yesterday?"],
+          evidence_preview: "Yes before noon",
+          source: "projection",
+          occurred_at: "2026-06-07",
+          last_ask_satisfied: "yes",
+          stale_ask_risk: true,
+          relationship_meaning: "outcome_reported",
+          response_intent: "acknowledge_prior_ask_satisfied",
+          prior_question_type: "outcome_check",
+          outcome_proof_eligible: false,
+          persistence_note: "satisfied ask only",
+        },
+      }),
+    });
+    const strategyCtx = buildDailyC1StrategyCardContextFromSnapshot({
+      facts: minimalDailyFacts({
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "outcome_reported",
+          do_not_repeat_asks: ["Did the two hours happen yesterday?"],
+          evidence_preview: "Yes before noon",
+          source: "projection",
+          occurred_at: "2026-06-07",
+          last_ask_satisfied: "yes",
+          stale_ask_risk: true,
+          relationship_meaning: "outcome_reported",
+          response_intent: "acknowledge_prior_ask_satisfied",
+          prior_question_type: "outcome_check",
+          outcome_proof_eligible: false,
+          persistence_note: "satisfied ask only",
+        },
+      }),
+      snapshot: {
+        proof_and_praise_permission: { data: { can_claim_proof: false, can_reference_victory_room: false, can_claim_completion: false, can_claim_miss: false, can_claim_partial: false } },
+        open_loops_and_do_not_repeat: {
+          data: {
+            open_loops: [],
+            satisfied_asks: [],
+            do_not_repeat_asks: ["Did the two hours happen yesterday?"],
+            do_not_repeat_phrases: [],
+            recent_unanswered_coach_questions: [],
+          },
+        },
+        active_pending_state: { items: [] },
+      },
+    });
+    const card = buildDailyC1StrategyCardV1({ ctx: strategyCtx });
+    const laneMeta = {
+      ...relationshipPacketMetaForLaneTelemetry(meta, snapshotV2Meta),
+      ...strategyCardV1MetaForTelemetry({ card, validation_status: "valid", validation_reasons: [] }, strategyCtx),
+    };
+    const obs = relationshipObservabilityFromLaneMetadata(laneMeta);
+    expect(obs.strategy_card_daily_conversation_intent).toBeTruthy();
+    expect(obs.stale_ask_avoidance_has_satisfied_recent_ask).toBe(true);
+    expect(obs.stale_ask_avoidance_satisfied_label_count).toBeGreaterThan(0);
+    expect(obs.stale_ask_avoidance_do_not_reask_label_count).toBeGreaterThan(0);
+    expect(JSON.stringify(obs)).not.toMatch(/two hours happen yesterday/i);
+    expect(JSON.stringify(obs)).not.toMatch(/Callie|Brooke/i);
   });
 
   it("includes proof permission snapshot telemetry counts and sources without evidence quotes", () => {

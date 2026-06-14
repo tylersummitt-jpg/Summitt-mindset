@@ -290,6 +290,10 @@ export type RelationshipPacketMeta = {
   relationship_anchor_source_onboarding_count?: number;
   relationship_anchor_source_sms_confirmed_count?: number;
   strategy_card_relationship_anchor_boundary_present?: boolean;
+  stale_ask_avoidance_has_satisfied_recent_ask?: boolean;
+  stale_ask_avoidance_satisfied_label_count?: number;
+  stale_ask_avoidance_do_not_reask_label_count?: number;
+  stale_ask_avoidance_recent_question_label_count?: number;
 };
 
 export type BuildRelationshipPacketResult = {
@@ -439,6 +443,32 @@ function buildStaleAskAvoidanceSummaryFromDailyFacts(
     recent_unanswered_coach_questions: compactStrings(tm.last_5_coach_questions, 2),
   };
   return buildStaleAskAvoidanceSummary(data);
+}
+
+/** Compact stale-ask counts for telemetry — no raw label text. */
+export function staleAskAvoidanceTelemetryFromSummary(
+  summary: ReturnType<typeof buildStaleAskAvoidanceSummary>
+): Pick<
+  RelationshipPacketMeta,
+  | "stale_ask_avoidance_has_satisfied_recent_ask"
+  | "stale_ask_avoidance_satisfied_label_count"
+  | "stale_ask_avoidance_do_not_reask_label_count"
+  | "stale_ask_avoidance_recent_question_label_count"
+> {
+  if (!summary) {
+    return {
+      stale_ask_avoidance_has_satisfied_recent_ask: false,
+      stale_ask_avoidance_satisfied_label_count: 0,
+      stale_ask_avoidance_do_not_reask_label_count: 0,
+      stale_ask_avoidance_recent_question_label_count: 0,
+    };
+  }
+  return {
+    stale_ask_avoidance_has_satisfied_recent_ask: summary.has_satisfied_recent_ask,
+    stale_ask_avoidance_satisfied_label_count: summary.satisfied_ask_labels.length,
+    stale_ask_avoidance_do_not_reask_label_count: summary.do_not_reask_labels.length,
+    stale_ask_avoidance_recent_question_label_count: summary.recent_coach_question_labels.length,
+  };
 }
 
 function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketCurrentTurn {
@@ -1471,6 +1501,11 @@ export function buildRelationshipPacketForOpenAI(args: {
             anchorTelemetry.strategy_card_relationship_anchor_boundary_present,
         }
       : {}),
+    ...(args.lane === "daily" && isDailyFacts(args.sourceFacts, args.lane)
+      ? staleAskAvoidanceTelemetryFromSummary(
+          buildStaleAskAvoidanceSummaryFromDailyFacts(args.sourceFacts)
+        )
+      : {}),
   };
 
   return {
@@ -1696,6 +1731,18 @@ export function relationshipPacketMetaForLaneTelemetry(
           no_send_silence_history_truncated: snapshotMeta.no_send_silence_history_truncated,
         }
       : {}),
+    ...(meta.stale_ask_avoidance_has_satisfied_recent_ask !== undefined
+      ? {
+          stale_ask_avoidance_has_satisfied_recent_ask:
+            meta.stale_ask_avoidance_has_satisfied_recent_ask,
+          stale_ask_avoidance_satisfied_label_count:
+            meta.stale_ask_avoidance_satisfied_label_count ?? 0,
+          stale_ask_avoidance_do_not_reask_label_count:
+            meta.stale_ask_avoidance_do_not_reask_label_count ?? 0,
+          stale_ask_avoidance_recent_question_label_count:
+            meta.stale_ask_avoidance_recent_question_label_count ?? 0,
+        }
+      : {}),
   };
 }
 
@@ -1777,6 +1824,15 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_legacy_next_move_type",
   "strategy_card_daily_purpose",
   "strategy_card_daily_reactivation",
+  "strategy_card_daily_conversation_intent",
+  "strategy_card_local_date",
+  "strategy_card_local_weekday",
+  "strategy_card_user_timezone",
+  "strategy_card_is_new_accountability_day",
+  "stale_ask_avoidance_has_satisfied_recent_ask",
+  "stale_ask_avoidance_satisfied_label_count",
+  "stale_ask_avoidance_do_not_reask_label_count",
+  "stale_ask_avoidance_recent_question_label_count",
   "strategy_card_legacy_v2_contract_proposal_kind",
   "strategy_card_daily_contract_proposal_kind",
   "strategy_card_daily_refresh_step",

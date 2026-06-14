@@ -1790,6 +1790,21 @@ describe("Daily C1 Strategy Card v1", () => {
     expect(meta.strategy_card_daily_reactivation).toBe(false);
   });
 
+  it("daily telemetry emits conversation intent and local day fields", () => {
+    const ctx = buildDailyCtx(dailyFacts(), { withSatisfiedAsk: false });
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    const meta = strategyCardV1MetaForTelemetry(
+      { card, validation_status: "valid", validation_reasons: [] },
+      ctx
+    );
+    expect(meta.strategy_card_daily_conversation_intent).toBeTruthy();
+    expect(meta.strategy_card_local_date).toBe("2026-06-08");
+    expect(meta.strategy_card_local_weekday).toBe("Monday");
+    expect(meta.strategy_card_user_timezone).toBe("America/Chicago");
+    expect(meta.strategy_card_is_new_accountability_day).toBeDefined();
+    expect(JSON.stringify(meta)).not.toMatch(/satisfied_ask_labels/);
+  });
+
   it("main_active_accountability must_not_do blocks abstract renewal and today-not-recommit guidance", () => {
     const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
     expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);

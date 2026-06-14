@@ -1,7 +1,11 @@
 -- =============================================================================
--- SMS SOAK DEBUG PACK (read-only)
+-- SMS SOAK DEBUG PACK v1.2 (read-only)
 -- =============================================================================
 -- Run in Supabase SQL editor. SELECT-only — does not mutate data.
+--
+-- v1.2 adds Daily C1 observability COALESCE paths:
+--   strategy_card_daily_conversation_intent, local day fields,
+--   stale_ask_avoidance_* counts, relationship anchor counts.
 --
 -- Daily workflow (replaces ~15 ad-hoc exports):
 --   1. Query 1  — health rollup (start here)
@@ -132,7 +136,61 @@ normalized AS (
       (e.metadata->'voice_send_decision'->>'twilio_send_attempted')::boolean,
       (e.metadata->>'twilio_send_attempted')::boolean,
       NULLIF(BTRIM(e.message_sid), '') IS NOT NULL
-    ) AS twilio_send_attempted
+    ) AS twilio_send_attempted,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) AS strategy_card_daily_conversation_intent,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_local_weekday',
+      e.metadata->'daily_v3_lane'->>'strategy_card_local_weekday',
+      e.metadata->>'strategy_card_local_weekday'
+    ) AS strategy_card_local_weekday,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->'daily_v3_lane'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->>'strategy_card_is_new_accountability_day')::boolean
+    ) AS strategy_card_is_new_accountability_day,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      (e.metadata->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      false
+    ) AS stale_ask_avoidance_has_satisfied_recent_ask,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_satisfied_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_satisfied_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_satisfied_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_satisfied_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_do_not_reask_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_recent_question_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_recent_question_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_recent_question_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_recent_question_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'relationship_anchor_available_count')::int,
+      (e.metadata->'daily_v3_lane'->>'relationship_anchor_available_count')::int,
+      (e.metadata->>'relationship_anchor_available_count')::int
+    ) AS relationship_anchor_available_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'relationship_anchor_recently_used_count')::int,
+      (e.metadata->'daily_v3_lane'->>'relationship_anchor_recently_used_count')::int,
+      (e.metadata->>'relationship_anchor_recently_used_count')::int
+    ) AS relationship_anchor_recently_used_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+      (e.metadata->'daily_v3_lane'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+      (e.metadata->>'strategy_card_relationship_anchor_boundary_present')::boolean
+    ) AS strategy_card_relationship_anchor_boundary_present
   FROM sms_send_events e
   CROSS JOIN bounds b
   WHERE e.created_at >= b.day_start
@@ -207,7 +265,17 @@ normalized AS (
       (w.metadata->'voice_send_decision'->>'twilio_send_attempted')::boolean,
       (w.metadata->>'twilio_send_attempted')::boolean,
       NULLIF(BTRIM(w.message_sid), '') IS NOT NULL
-    )
+    ),
+    NULL::text,
+    NULL::text,
+    NULL::boolean,
+    false,
+    0,
+    0,
+    0,
+    NULL::int,
+    NULL::int,
+    NULL::boolean
   FROM sms_weekly_send_events w
   CROSS JOIN bounds b
   WHERE w.created_at >= b.day_start
@@ -251,7 +319,17 @@ normalized AS (
       j.status = 'sent'
       AND NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL
     ) AS visible_sent,
-    (NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL) AS twilio_send_attempted
+    (NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL) AS twilio_send_attempted,
+    it.tel->>'strategy_card_daily_conversation_intent',
+    NULL::text,
+    NULL::boolean,
+    COALESCE((it.tel->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean, false),
+    COALESCE((it.tel->>'stale_ask_avoidance_satisfied_label_count')::int, 0),
+    COALESCE((it.tel->>'stale_ask_avoidance_do_not_reask_label_count')::int, 0),
+    COALESCE((it.tel->>'stale_ask_avoidance_recent_question_label_count')::int, 0),
+    (it.tel->>'relationship_anchor_available_count')::int,
+    (it.tel->>'relationship_anchor_recently_used_count')::int,
+    (it.tel->>'strategy_card_relationship_anchor_boundary_present')::boolean
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
   LEFT JOIN LATERAL (
@@ -273,13 +351,33 @@ SELECT
   strategy_card_surface,
   strategy_card_route_kind,
   strategy_card_move_type,
+  strategy_card_daily_conversation_intent,
+  strategy_card_local_weekday,
+  strategy_card_is_new_accountability_day,
+  stale_ask_avoidance_has_satisfied_recent_ask,
   no_send_reason,
   skip_source,
   final_guard_mode,
   COUNT(*) AS row_count,
   COUNT(DISTINCT clerk_user_id) AS distinct_users,
   COUNT(*) FILTER (WHERE visible_sent IS TRUE) AS visible_sent_count,
-  COUNT(*) FILTER (WHERE twilio_send_attempted IS TRUE) AS twilio_send_attempted_count
+  COUNT(*) FILTER (WHERE twilio_send_attempted IS TRUE) AS twilio_send_attempted_count,
+  COUNT(*) FILTER (WHERE strategy_card_daily_conversation_intent = 'direct_outcome_check') AS direct_outcome_check_count,
+  COUNT(*) FILTER (
+    WHERE strategy_card_daily_conversation_intent IS NOT NULL
+      AND strategy_card_daily_conversation_intent <> 'direct_outcome_check'
+  ) AS non_direct_outcome_daily_intent_count,
+  COUNT(*) FILTER (
+    WHERE strategy_card_daily_conversation_intent = 'relationship_anchor_bridge'
+  ) AS relationship_anchor_bridge_count,
+  COUNT(*) FILTER (
+    WHERE no_send_reason ILIKE '%stale%ask%'
+      OR skip_source = 'stale_ask_no_send'
+  ) AS daily_stale_no_send_by_intent_row_count,
+  COUNT(*) FILTER (
+    WHERE no_send_reason ILIKE '%memory_repeat%'
+      OR no_send_reason ILIKE '%thread_memory_repeat%'
+  ) AS memory_repeat_no_send_by_intent_row_count
 FROM normalized
 GROUP BY
   lane,
@@ -288,6 +386,10 @@ GROUP BY
   strategy_card_surface,
   strategy_card_route_kind,
   strategy_card_move_type,
+  strategy_card_daily_conversation_intent,
+  strategy_card_local_weekday,
+  strategy_card_is_new_accountability_day,
+  stale_ask_avoidance_has_satisfied_recent_ask,
   no_send_reason,
   skip_source,
   final_guard_mode
@@ -547,6 +649,50 @@ visible_rows AS (
       e.metadata->'relationship_packet_observability'->>'strategy_card_move_type',
       e.metadata->>'strategy_card_move_type'
     ) AS strategy_card_move_type,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) AS strategy_card_daily_conversation_intent,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_local_date',
+      e.metadata->'daily_v3_lane'->>'strategy_card_local_date',
+      e.metadata->>'strategy_card_local_date',
+      e.metadata->'relationship_packet_observability'->>'today_key',
+      e.metadata->'daily_v3_lane'->>'today_key'
+    ) AS strategy_card_local_date,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_local_weekday',
+      e.metadata->'daily_v3_lane'->>'strategy_card_local_weekday',
+      e.metadata->>'strategy_card_local_weekday'
+    ) AS strategy_card_local_weekday,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_user_timezone',
+      e.metadata->'daily_v3_lane'->>'strategy_card_user_timezone',
+      e.metadata->'daily_v3_lane'->>'user_timezone',
+      e.metadata->>'strategy_card_user_timezone',
+      e.metadata->>'user_timezone'
+    ) AS strategy_card_user_timezone,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->'daily_v3_lane'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->>'strategy_card_is_new_accountability_day')::boolean
+    ) AS strategy_card_is_new_accountability_day,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'relationship_anchor_available_count')::int,
+      (e.metadata->'daily_v3_lane'->>'relationship_anchor_available_count')::int,
+      (e.metadata->>'relationship_anchor_available_count')::int
+    ) AS relationship_anchor_available_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'relationship_anchor_recently_used_count')::int,
+      (e.metadata->'daily_v3_lane'->>'relationship_anchor_recently_used_count')::int,
+      (e.metadata->>'relationship_anchor_recently_used_count')::int
+    ) AS relationship_anchor_recently_used_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+      (e.metadata->'daily_v3_lane'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+      (e.metadata->>'strategy_card_relationship_anchor_boundary_present')::boolean
+    ) AS strategy_card_relationship_anchor_boundary_present,
     LEFT(COALESCE(
       e.metadata->>'sms_body',
       e.metadata->'voice_send_decision'->>'north_star_visible_body',
@@ -601,6 +747,14 @@ visible_rows AS (
       w.metadata->'relationship_packet_observability'->>'strategy_card_move_type',
       w.metadata->>'strategy_card_move_type'
     ),
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::boolean,
+    NULL::int,
+    NULL::int,
+    NULL::boolean,
     LEFT(COALESCE(
       w.metadata->>'sms_body',
       w.metadata->'voice_send_decision'->>'north_star_visible_body',
@@ -642,6 +796,14 @@ visible_rows AS (
     COALESCE(
       it.tel->>'strategy_card_move_type'
     ),
+    it.tel->>'strategy_card_daily_conversation_intent',
+    NULL::text,
+    NULL::text,
+    it.tel->>'strategy_card_user_timezone',
+    NULL::boolean,
+    (it.tel->>'relationship_anchor_available_count')::int,
+    (it.tel->>'relationship_anchor_recently_used_count')::int,
+    (it.tel->>'strategy_card_relationship_anchor_boundary_present')::boolean,
     LEFT(COALESCE(it.tel->>'reply_body_preview', j.reply_body, ''), 400),
     COALESCE(
       it.tel->>'final_body_authority'
@@ -677,6 +839,14 @@ SELECT
   source_table,
   route,
   strategy_card_move_type,
+  strategy_card_daily_conversation_intent,
+  strategy_card_local_date,
+  strategy_card_local_weekday,
+  strategy_card_user_timezone,
+  strategy_card_is_new_accountability_day,
+  relationship_anchor_available_count,
+  relationship_anchor_recently_used_count,
+  strategy_card_relationship_anchor_boundary_present,
   body_preview,
   final_body_authority,
   fvg_repair_attempted,
@@ -710,6 +880,67 @@ no_send_rows AS (
       e.metadata->'daily_v3_lane'->>'route_kind',
       e.metadata->'relationship_packet_observability'->>'strategy_card_route_kind'
     ) AS route,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) AS strategy_card_daily_conversation_intent,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_local_date',
+      e.metadata->'daily_v3_lane'->>'strategy_card_local_date',
+      e.metadata->>'strategy_card_local_date',
+      e.metadata->'relationship_packet_observability'->>'today_key',
+      e.metadata->'daily_v3_lane'->>'today_key'
+    ) AS strategy_card_local_date,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_local_weekday',
+      e.metadata->'daily_v3_lane'->>'strategy_card_local_weekday',
+      e.metadata->>'strategy_card_local_weekday'
+    ) AS strategy_card_local_weekday,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->'daily_v3_lane'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->>'strategy_card_is_new_accountability_day')::boolean
+    ) AS strategy_card_is_new_accountability_day,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      (e.metadata->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      false
+    ) AS stale_ask_avoidance_has_satisfied_recent_ask,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_satisfied_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_satisfied_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_satisfied_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_satisfied_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_do_not_reask_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_recent_question_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_recent_question_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_recent_question_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_recent_question_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'relationship_anchor_available_count')::int,
+      (e.metadata->'daily_v3_lane'->>'relationship_anchor_available_count')::int,
+      (e.metadata->>'relationship_anchor_available_count')::int
+    ) AS relationship_anchor_available_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'relationship_anchor_recently_used_count')::int,
+      (e.metadata->'daily_v3_lane'->>'relationship_anchor_recently_used_count')::int,
+      (e.metadata->>'relationship_anchor_recently_used_count')::int
+    ) AS relationship_anchor_recently_used_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+      (e.metadata->'daily_v3_lane'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+      (e.metadata->>'strategy_card_relationship_anchor_boundary_present')::boolean
+    ) AS strategy_card_relationship_anchor_boundary_present,
     COALESCE(
       e.metadata->'relationship_packet_observability'->>'no_send_reason',
       e.metadata->'daily_v3_lane'->>'no_send_reason',
@@ -806,6 +1037,17 @@ no_send_rows AS (
       w.metadata->'weekly_lane_metadata'->>'route_purpose',
       w.metadata->'relationship_packet_observability'->>'strategy_card_route_kind'
     ),
+    NULL::text,
+    NULL::text,
+    NULL::text,
+    NULL::boolean,
+    false,
+    0,
+    0,
+    0,
+    NULL::int,
+    NULL::int,
+    NULL::boolean,
     COALESCE(
       w.metadata->>'no_send_reason',
       w.metadata->'voice_send_decision'->>'skip_reason',
@@ -848,6 +1090,17 @@ no_send_rows AS (
       it.tel->>'route_purpose',
       it.tel->>'strategy_card_route_kind'
     ),
+    it.tel->>'strategy_card_daily_conversation_intent',
+    NULL::text,
+    NULL::text,
+    NULL::boolean,
+    COALESCE((it.tel->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean, false),
+    COALESCE((it.tel->>'stale_ask_avoidance_satisfied_label_count')::int, 0),
+    COALESCE((it.tel->>'stale_ask_avoidance_do_not_reask_label_count')::int, 0),
+    COALESCE((it.tel->>'stale_ask_avoidance_recent_question_label_count')::int, 0),
+    (it.tel->>'relationship_anchor_available_count')::int,
+    (it.tel->>'relationship_anchor_recently_used_count')::int,
+    (it.tel->>'strategy_card_relationship_anchor_boundary_present')::boolean,
     COALESCE(
       it.tel->>'no_send_reason',
       it.tel->>'unified_final_guard_no_send_reason',
@@ -1050,7 +1303,32 @@ outbound AS (
         e.metadata->'daily_v3_lane'->>'thread_freshness_violation_reason',
         e.metadata->'relationship_packet_observability'->>'thread_freshness_violation_reason',
         ''
-      ) <> '') AS thread_freshness_count
+      ) <> '') AS thread_freshness_count,
+    COUNT(*) FILTER (WHERE COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) = 'direct_outcome_check') AS direct_outcome_check_count,
+    COUNT(*) FILTER (WHERE COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) = 'plan_today') AS plan_today_count,
+    COUNT(*) FILTER (WHERE COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) = 'close_loop') AS close_loop_count,
+    COUNT(*) FILTER (WHERE COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) = 'protect_existing_plan') AS protect_existing_plan_count,
+    COUNT(*) FILTER (WHERE COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) = 'relationship_anchor_bridge') AS relationship_anchor_bridge_count
   FROM sms_send_events e
   CROSS JOIN bounds b
   WHERE e.created_at >= b.day_start AND e.created_at < b.day_end
@@ -1068,7 +1346,7 @@ outbound AS (
     COUNT(*) FILTER (WHERE w.status LIKE 'skipped_%'),
     COUNT(*) FILTER (WHERE NULLIF(BTRIM(w.message_sid), '') IS NOT NULL),
     COUNT(*) FILTER (WHERE w.metadata->>'no_send_reason' IS NOT NULL),
-    0, 0, 0, 0
+    0, 0, 0, 0, 0, 0, 0, 0, 0
   FROM sms_weekly_send_events w
   CROSS JOIN bounds b
   WHERE w.created_at >= b.day_start AND w.created_at < b.day_end
@@ -1087,7 +1365,7 @@ outbound AS (
     COUNT(*) FILTER (WHERE NULLIF(BTRIM(j.outbound_message_sid), '') IS NOT NULL),
     COUNT(*) FILTER (WHERE j.status IN ('cancelled', 'failed')),
     COUNT(*) FILTER (WHERE COALESCE(j.last_error, '') ILIKE '%robot%'),
-    0, 0, 0
+    0, 0, 0, 0, 0, 0, 0, 0
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
   WHERE j.updated_at >= b.day_start AND j.updated_at < b.day_end
@@ -1104,7 +1382,12 @@ outbound_agg AS (
     SUM(robot_commitment_pattern_count) AS robot_commitment_pattern_count,
     SUM(daily_stale_block_count) AS daily_stale_block_count,
     SUM(thread_memory_repeat_count) AS thread_memory_repeat_count,
-    SUM(thread_freshness_count) AS thread_freshness_count
+    SUM(thread_freshness_count) AS thread_freshness_count,
+    SUM(direct_outcome_check_count) AS direct_outcome_check_count,
+    SUM(plan_today_count) AS plan_today_count,
+    SUM(close_loop_count) AS close_loop_count,
+    SUM(protect_existing_plan_count) AS protect_existing_plan_count,
+    SUM(relationship_anchor_bridge_count) AS relationship_anchor_bridge_count
   FROM outbound
   GROUP BY clerk_user_id
 ),
@@ -1195,6 +1478,11 @@ SELECT
   COALESCE(oa.daily_stale_block_count, 0) AS daily_stale_block_count,
   COALESCE(oa.thread_memory_repeat_count, 0) AS thread_memory_repeat_count,
   COALESCE(oa.thread_freshness_count, 0) AS thread_freshness_count,
+  COALESCE(oa.direct_outcome_check_count, 0) AS direct_outcome_check_count,
+  COALESCE(oa.plan_today_count, 0) AS plan_today_count,
+  COALESCE(oa.close_loop_count, 0) AS close_loop_count,
+  COALESCE(oa.protect_existing_plan_count, 0) AS protect_existing_plan_count,
+  COALESCE(oa.relationship_anchor_bridge_count, 0) AS relationship_anchor_bridge_count,
   le.last_event_at,
   le.last_text_or_preview,
   le.last_no_send_reason,
@@ -1367,6 +1655,52 @@ repair_rows AS (
     e.clerk_user_id,
     'sms_send_events'::text AS source_table,
     COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+      e.metadata->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+      e.metadata->>'strategy_card_daily_conversation_intent'
+    ) AS strategy_card_daily_conversation_intent,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_local_date',
+      e.metadata->'daily_v3_lane'->>'strategy_card_local_date',
+      e.metadata->>'strategy_card_local_date',
+      e.metadata->'relationship_packet_observability'->>'today_key',
+      e.metadata->'daily_v3_lane'->>'today_key'
+    ) AS strategy_card_local_date,
+    COALESCE(
+      e.metadata->'relationship_packet_observability'->>'strategy_card_local_weekday',
+      e.metadata->'daily_v3_lane'->>'strategy_card_local_weekday',
+      e.metadata->>'strategy_card_local_weekday'
+    ) AS strategy_card_local_weekday,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->'daily_v3_lane'->>'strategy_card_is_new_accountability_day')::boolean,
+      (e.metadata->>'strategy_card_is_new_accountability_day')::boolean
+    ) AS strategy_card_is_new_accountability_day,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      (e.metadata->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+      false
+    ) AS stale_ask_avoidance_has_satisfied_recent_ask,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_satisfied_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_satisfied_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_satisfied_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_satisfied_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_do_not_reask_label_count,
+    COALESCE(
+      (e.metadata->'relationship_packet_observability'->>'stale_ask_avoidance_recent_question_label_count')::int,
+      (e.metadata->'daily_v3_lane'->>'stale_ask_avoidance_recent_question_label_count')::int,
+      (e.metadata->>'stale_ask_avoidance_recent_question_label_count')::int,
+      0
+    ) AS stale_ask_avoidance_recent_question_label_count,
+    COALESCE(
       e.metadata->'daily_v3_lane'->>'no_send_reason',
       e.metadata->'relationship_packet_observability'->>'no_send_reason',
       e.metadata->>'skip_reason',
@@ -1428,6 +1762,14 @@ repair_rows AS (
     j.updated_at,
     j.clerk_user_id,
     'sms_inbound_coach_jobs',
+    it.tel->>'strategy_card_daily_conversation_intent',
+    NULL::text,
+    NULL::text,
+    NULL::boolean,
+    COALESCE((it.tel->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean, false),
+    COALESCE((it.tel->>'stale_ask_avoidance_satisfied_label_count')::int, 0),
+    COALESCE((it.tel->>'stale_ask_avoidance_do_not_reask_label_count')::int, 0),
+    COALESCE((it.tel->>'stale_ask_avoidance_recent_question_label_count')::int, 0),
     COALESCE(
       it.tel->>'no_send_reason',
       it.tel->>'unified_final_guard_no_send_reason',
@@ -1685,6 +2027,67 @@ SELECT
     meta->'relationship_packet_observability'->'strategy_card_packet_stripped_fields',
     meta->'strategy_card_packet_stripped_fields'
   ) AS packet_stripped_fields,
+  COALESCE(
+    meta->'relationship_packet_observability'->>'strategy_card_daily_conversation_intent',
+    meta->'daily_v3_lane'->>'strategy_card_daily_conversation_intent',
+    meta->>'strategy_card_daily_conversation_intent'
+  ) AS strategy_card_daily_conversation_intent,
+  COALESCE(
+    meta->'relationship_packet_observability'->>'strategy_card_local_date',
+    meta->'daily_v3_lane'->>'strategy_card_local_date',
+    meta->>'strategy_card_local_date',
+    meta->'relationship_packet_observability'->>'today_key',
+    meta->'daily_v3_lane'->>'today_key'
+  ) AS strategy_card_local_date,
+  COALESCE(
+    meta->'relationship_packet_observability'->>'strategy_card_local_weekday',
+    meta->'daily_v3_lane'->>'strategy_card_local_weekday',
+    meta->>'strategy_card_local_weekday'
+  ) AS strategy_card_local_weekday,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'strategy_card_is_new_accountability_day')::boolean,
+    (meta->'daily_v3_lane'->>'strategy_card_is_new_accountability_day')::boolean,
+    (meta->>'strategy_card_is_new_accountability_day')::boolean
+  ) AS strategy_card_is_new_accountability_day,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+    (meta->'daily_v3_lane'->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+    (meta->>'stale_ask_avoidance_has_satisfied_recent_ask')::boolean,
+    false
+  ) AS stale_ask_avoidance_has_satisfied_recent_ask,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'stale_ask_avoidance_satisfied_label_count')::int,
+    (meta->'daily_v3_lane'->>'stale_ask_avoidance_satisfied_label_count')::int,
+    (meta->>'stale_ask_avoidance_satisfied_label_count')::int,
+    0
+  ) AS stale_ask_avoidance_satisfied_label_count,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+    (meta->'daily_v3_lane'->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+    (meta->>'stale_ask_avoidance_do_not_reask_label_count')::int,
+    0
+  ) AS stale_ask_avoidance_do_not_reask_label_count,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'stale_ask_avoidance_recent_question_label_count')::int,
+    (meta->'daily_v3_lane'->>'stale_ask_avoidance_recent_question_label_count')::int,
+    (meta->>'stale_ask_avoidance_recent_question_label_count')::int,
+    0
+  ) AS stale_ask_avoidance_recent_question_label_count,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'relationship_anchor_available_count')::int,
+    (meta->'daily_v3_lane'->>'relationship_anchor_available_count')::int,
+    (meta->>'relationship_anchor_available_count')::int
+  ) AS relationship_anchor_available_count,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'relationship_anchor_recently_used_count')::int,
+    (meta->'daily_v3_lane'->>'relationship_anchor_recently_used_count')::int,
+    (meta->>'relationship_anchor_recently_used_count')::int
+  ) AS relationship_anchor_recently_used_count,
+  COALESCE(
+    (meta->'relationship_packet_observability'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+    (meta->'daily_v3_lane'->>'strategy_card_relationship_anchor_boundary_present')::boolean,
+    (meta->>'strategy_card_relationship_anchor_boundary_present')::boolean
+  ) AS strategy_card_relationship_anchor_boundary_present,
   jsonb_build_object(
     'proof_permission_emitted', COALESCE(
       meta->'relationship_packet_observability'->>'proof_permission_emitted',

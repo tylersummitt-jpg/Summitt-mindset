@@ -19,7 +19,7 @@ Export CSV from Supabase → share with ChatGPT review → Cursor read-only root
 
 | # | Name | Purpose |
 |---|------|---------|
-| 1 | `sms_day_health_rollup` | One row per lane × route × strategy card × no-send reason |
+| 1 | `sms_day_health_rollup` | One row per lane × route × strategy card × conversation intent × no-send reason |
 | 2 | `sms_day_unified_timeline` | Chronological all-user timeline |
 | 3 | `sms_day_visible_bodies` | User-visible SMS copy with FVG/guard/Twilio context |
 | 4 | `sms_day_no_send_details` | Skips/blocks with repair and stale/memory metadata |
@@ -43,6 +43,8 @@ Strategy card fields — COALESCE across:
 - `metadata.strategy_card_*` (top-level)
 - `metadata.daily_v3_lane.*` / `weekly_lane_metadata.*` / `inbound_v3_lane.*`
 - `metadata.extras.*` when present
+
+Daily C1 intent (v1.2): `strategy_card_daily_conversation_intent` plus compact `stale_ask_avoidance_*` counts.
 
 No-send / guard:
 
@@ -111,3 +113,20 @@ LEFT JOIN LATERAL (
 | `no_send_reason` | job status + `unified_final_guard_no_send_reason` + `last_error` |
 
 Telemetry payload is written pre-Twilio by `insertInboundTurnTelemetryBestEffort` (`inbound_turn_telemetry:{message_sid}`). Older rows may lack new compact lane fields until new inbound traffic soaks.
+
+## v1.2 — Daily C1 conversation intent observability (June 2026)
+
+Adds COALESCE paths for soak SQL (counts only — no raw satisfied-ask labels or person names):
+
+- `strategy_card_daily_conversation_intent`
+- `strategy_card_local_date` / `strategy_card_local_weekday` / `strategy_card_is_new_accountability_day`
+- `stale_ask_avoidance_has_satisfied_recent_ask` and compact label counts
+- `relationship_anchor_available_count` / `relationship_anchor_recently_used_count`
+
+Telemetry is emitted from `strategyCardV1MetaForTelemetry` and whitelisted in `RELATIONSHIP_PACKET_OBSERVABILITY_KEYS`. Rows before deploy will have null intent fields.
+
+Queries updated: **1, 3, 4, 6, 8, 10**.
+
+Query 1 adds `direct_outcome_check_count`, `relationship_anchor_bridge_count`, and stale/memory no-send counts grouped by intent.
+
+Post-deploy soak: run Query 1 first, then Query 4 for no-sends by intent, Query 3 for visible bodies by intent.

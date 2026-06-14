@@ -2147,6 +2147,13 @@ export function strategyCardV1MetaForTelemetry(
           strategy_card_legacy_next_move_type: c.meta.legacy_next_move_type ?? null,
           strategy_card_daily_purpose: c.server_truth_summary.daily_purpose ?? null,
           strategy_card_daily_reactivation: c.server_truth_summary.daily_reactivation === true,
+          strategy_card_daily_conversation_intent:
+            c.server_truth_summary.daily_conversation_intent ?? null,
+          strategy_card_local_date: c.server_truth_summary.local_date ?? null,
+          strategy_card_local_weekday: c.server_truth_summary.local_weekday ?? null,
+          strategy_card_user_timezone: c.server_truth_summary.user_timezone ?? null,
+          strategy_card_is_new_accountability_day:
+            c.server_truth_summary.is_new_accountability_day ?? null,
         }
       : {}),
     ...(c.route_kind === "contract_prompt"
