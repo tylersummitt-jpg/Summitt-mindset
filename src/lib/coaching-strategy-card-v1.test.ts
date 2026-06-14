@@ -28,6 +28,7 @@ import {
   type StrategyCardBuildContext,
   buildDailyC1StrategyCardContextFromSnapshot,
   buildDailyC1StrategyCardV1,
+  buildDailyC1StrategyCardDemotedPromptRules,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
   buildDailyC3PendingResolutionStrategyCardContextFromSnapshot,
@@ -1549,7 +1550,11 @@ describe("Daily C1 Strategy Card v1", () => {
     };
   }
 
-  function buildDailyCtx(facts: DailyV3RelationshipFacts) {
+  function buildDailyCtx(
+    facts: DailyV3RelationshipFacts,
+    opts?: { withSatisfiedAsk?: boolean }
+  ) {
+    const withSatisfied = opts?.withSatisfiedAsk !== false;
     return buildDailyC1StrategyCardContextFromSnapshot({
       facts,
       snapshot: {
@@ -1557,15 +1562,19 @@ describe("Daily C1 Strategy Card v1", () => {
         open_loops_and_do_not_repeat: {
           data: {
             ...emptyOpenLoops(),
-            satisfied_asks: [
-              {
-                ask_text: "Did it happen yesterday?",
-                satisfied_at: "2026-06-07",
-                source: "projection",
-                do_not_repeat: true,
-              },
-            ],
-            do_not_repeat_asks: ["Did it happen yesterday?"],
+            ...(withSatisfied
+              ? {
+                  satisfied_asks: [
+                    {
+                      ask_text: "Did it happen yesterday?",
+                      satisfied_at: "2026-06-07",
+                      source: "projection",
+                      do_not_repeat: true,
+                    },
+                  ],
+                  do_not_repeat_asks: ["Did it happen yesterday?"],
+                }
+              : {}),
           },
         },
         active_pending_state: { items: [] },
@@ -1574,11 +1583,97 @@ describe("Daily C1 Strategy Card v1", () => {
     });
   }
 
-  it("main_active_accountability defaults to daily_check_in", () => {
-    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+  it("main_active_accountability without satisfied ask uses relationship-first intent", () => {
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyCtx(dailyFacts(), { withSatisfiedAsk: false }),
+    });
     expect(card.surface).toBe("daily");
     expect(card.route_kind).toBe("main_active_accountability");
+    expect(card.server_truth_summary.daily_conversation_intent).toMatch(
+      /plan_today|identity_encouragement|celebrate_progress_honest/
+    );
+    expect(card.server_truth_summary.daily_conversation_intent).not.toBe("direct_outcome_check");
+    expect(card.must_do.join(" ")).toContain(
+      "Make one natural relationship-accountability touch for today"
+    );
+    expect(card.must_do.join(" ")).not.toMatch(/ask about today's commitment/i);
+  });
+
+  it("satisfied ask present selects close_loop not direct_outcome_check", () => {
+    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+    expect(card.server_truth_summary.daily_conversation_intent).toBe("close_loop");
+    expect(card.move.type).toBe("close_loop");
+    expect(card.must_not_do.some((m) => /paraphrase satisfied/i.test(m))).toBe(true);
+    expect(card.must_not_do.some((m) => /How did X go/i.test(m))).toBe(true);
+  });
+
+  it("plan-affirming satisfied ask selects plan_today or protect_existing_plan", () => {
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyCtx(
+        dailyFacts({
+          daily_satisfied_ask_context: {
+            has_satisfied_recent_ask: true,
+            satisfied_ask_type: "plan_detail",
+            do_not_repeat_asks: ["What time works tonight?"],
+            evidence_preview: "I'll call at 8pm",
+            source: "daily_satisfied_ask_context",
+            occurred_at: "2026-06-07",
+            persistence_note: "plan affirmed",
+            stale_ask_risk: true,
+          },
+        })
+      ),
+    });
+    expect(["plan_today", "protect_existing_plan"]).toContain(
+      card.server_truth_summary.daily_conversation_intent
+    );
+    expect(card.server_truth_summary.daily_conversation_intent).not.toBe("direct_outcome_check");
+  });
+
+  it("direct_outcome_check when outcome unknown and no satisfied ask", () => {
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyCtx(
+        dailyFacts({
+          accountability: {
+            ...dailyFacts().accountability,
+            prior_outcome: null,
+            yes_streak_14d: 0,
+            days_since_last_user_outcome: 2,
+            unanswered_checks: 0,
+            silence_tier: "none",
+            proof_or_milestone_signal: null,
+          },
+        }),
+        { withSatisfiedAsk: false }
+      ),
+    });
+    expect(card.server_truth_summary.daily_conversation_intent).toBe("direct_outcome_check");
     expect(card.move.type).toBe("daily_check_in");
+  });
+
+  it("exposes local day context on server_truth_summary", () => {
+    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+    expect(card.server_truth_summary.local_date).toBe("2026-06-08");
+    expect(card.server_truth_summary.local_weekday).toBe("Monday");
+    expect(card.server_truth_summary.user_timezone).toBe("America/Chicago");
+    expect(card.server_truth_summary.is_new_accountability_day).toBeDefined();
+  });
+
+  it("avoid_repeating includes semantic satisfied_ask keys", () => {
+    const card = buildDailyC1StrategyCardV1({ ctx: buildDailyCtx(dailyFacts()) });
+    expect(card.writer_constraints.avoid_repeating.some((x) => x.startsWith("satisfied_ask:"))).toBe(
+      true
+    );
+    expect(card.writer_constraints.avoid_repeating.some((x) => x.startsWith("do_not_reask:"))).toBe(
+      true
+    );
+  });
+
+  it("buildDailyC1StrategyCardDemotedPromptRules includes checkbox-bot and question optionality", () => {
+    const rules = buildDailyC1StrategyCardDemotedPromptRules();
+    expect(rules).toMatch(/checkbox bot/i);
+    expect(rules).toMatch(/zero questions/i);
+    expect(rules).toMatch(/How did X go/i);
   });
 
   it("main with pending_plan_proof uses protect_existing_plan", () => {

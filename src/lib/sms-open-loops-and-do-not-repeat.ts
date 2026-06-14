@@ -652,6 +652,42 @@ export function buildOpenLoopsAndDoNotRepeat(args: {
   return { section, meta };
 }
 
+export type StaleAskAvoidanceSummary = {
+  satisfied_ask_labels: string[];
+  do_not_reask_labels: string[];
+  recent_coach_question_labels: string[];
+  has_satisfied_recent_ask: boolean;
+};
+
+function compactAskLabel(text: string, maxLen = 72): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1)}…`;
+}
+
+/** Compact DNR/satisfied-ask summary for packet trim-protected truth (no raw long blobs). */
+export function buildStaleAskAvoidanceSummary(
+  data: OpenLoopsAndDoNotRepeatData | null | undefined
+): StaleAskAvoidanceSummary | null {
+  if (!data) return null;
+  const satisfied = (data.satisfied_asks ?? []).slice(0, 4).map((s) =>
+    compactAskLabel(s.ask_text ?? "satisfied_ask")
+  );
+  const dnr = (data.do_not_repeat_asks ?? []).slice(0, 4).map((a) => compactAskLabel(a));
+  const recentQ = (data.recent_unanswered_coach_questions ?? []).slice(0, 2).map((q) =>
+    compactAskLabel(q)
+  );
+  const hasAny =
+    satisfied.length > 0 || dnr.length > 0 || recentQ.length > 0;
+  if (!hasAny) return null;
+  return {
+    satisfied_ask_labels: satisfied,
+    do_not_reask_labels: dnr,
+    recent_coach_question_labels: recentQ,
+    has_satisfied_recent_ask: satisfied.length > 0,
+  };
+}
+
 export function buildOpenLoopsAndDoNotRepeatPromptGuidance(): string {
   return `
 OPEN_LOOPS_AND_DO_NOT_REPEAT (writer guidance — final stale/near-duplicate guards still enforce separately):

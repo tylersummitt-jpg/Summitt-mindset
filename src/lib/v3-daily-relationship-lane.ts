@@ -73,6 +73,7 @@ import {
 import {
   buildDailyC1StrategyCardContextFromSnapshot,
   buildDailyC1StrategyCardV1,
+  buildDailyC1StrategyCardDemotedPromptRules,
   finalizeStrategyCardWithRelationshipAnchorBoundaries,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
@@ -1152,6 +1153,7 @@ ${buildRelationshipPacketPromptGuidance()}
 ${strategyCardPromptGuidance}
 - When structured_recent_truth.projection_used is true, latest_open_question and latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and previews.
 - recent_exact_thread (when present) is the highest-priority transcript — it outranks coaching summaries and older transcript blocks when they conflict.
+${strategyCardC1Eligible ? buildDailyC1StrategyCardDemotedPromptRules() : ""}
 ${strategyCardC1Eligible ? "" : `- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.`}
 ${buildDailyOpenQuestionAnswerPriorityGuidance()}
 ${strategyCardC1Eligible ? "" : `- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.`}
@@ -1159,7 +1161,7 @@ ${strategyCardC1Eligible ? "" : `- If structured_recent_truth.turn_understanding
 ${strategyCardC1Eligible ? "" : `- Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.`}
 - Avoid repeating the prior day's opener or the same coach question from recent exact thread.
 - Anchor to the user's real commitment (effective ask + state), without pasting raw title or behavior_statement as a quoted phrase or "Did [raw] happen today?" / "Did you protect [raw]?" style checks.
-- One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, one clear question or one concrete action.
+- One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, ${strategyCardC1Eligible ? "at most one question (zero questions okay when closing, protecting, encouraging, or planning) or one concrete action" : "one clear question or one concrete action"}.
 - Never expose internal accountability labels in visible SMS (partial, yes/no/partial, done/partial/missed, user_yes, user_no, user_partial, classification, route). Use human language: "did it happen or did something get in the way?", "did you get it done, start it, or miss it?", "what happened with the plan?"
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
 ${strategyCardC1Eligible ? "" : `- If facts say reentry/comeback after silence, acknowledge return briefly before the ask.`}

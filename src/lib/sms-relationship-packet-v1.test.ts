@@ -554,6 +554,73 @@ describe("buildRelationshipPacketForOpenAI", () => {
       "authoritative_current"
     );
     expect(userPromptJson).toContain("daily_satisfied_ask_context");
+    expect(packet.structured_recent_truth.data.stale_ask_avoidance_summary?.has_satisfied_recent_ask).toBe(
+      true
+    );
+    expect(
+      packet.structured_recent_truth.data.stale_ask_avoidance_summary?.satisfied_ask_labels?.length
+    ).toBeGreaterThan(0);
+    expect(userPromptJson).toContain("stale_ask_avoidance_summary");
+  });
+
+  it("daily packet exposes local day fields on current_turn", () => {
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts(),
+    });
+    expect(packet.current_turn.data.local_date).toBe("2026-05-12");
+    expect(packet.current_turn.data.local_weekday).toBe("Tuesday");
+    expect(packet.current_turn.data.timezone).toBe("America/Chicago");
+    expect(packet.current_turn.data.is_new_accountability_day).toBeDefined();
+    expect(userPromptJson).toContain("local_weekday");
+    expect(userPromptJson).toContain("is_new_accountability_day");
+  });
+
+  it("stale_ask_avoidance_summary omitted when no satisfied or DNR context", () => {
+    const { packet } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts({
+        thread_memory: {
+          ...minimalDailyFacts().thread_memory,
+          do_not_repeat_hints: [],
+          last_5_coach_questions: [],
+        },
+      }),
+    });
+    expect(packet.structured_recent_truth.data.stale_ask_avoidance_summary).toBeUndefined();
+  });
+
+  it("stale_ask_avoidance_summary survives packet trim ahead of lower-authority memory", () => {
+    const { packet } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts({
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "outcome_reported",
+          do_not_repeat_asks: ["Did the two hours happen yesterday?"],
+          evidence_preview: "Yes before noon",
+          source: "projection",
+          occurred_at: "2026-06-07",
+          last_ask_satisfied: "yes",
+          stale_ask_risk: true,
+          relationship_meaning: "outcome_reported",
+          response_intent: "acknowledge_prior_ask_satisfied",
+          prior_question_type: "outcome_check",
+          outcome_proof_eligible: false,
+          persistence_note: "satisfied ask only",
+        },
+        thread_memory: {
+          ...minimalDailyFacts().thread_memory,
+          coaching_memory_snippet: "x".repeat(4000),
+          recent_transcript_or_context_block: "y".repeat(4000),
+        },
+      }),
+      totalCharBudget: 1200,
+    });
+    expect(packet.structured_recent_truth.data.stale_ask_avoidance_summary?.has_satisfied_recent_ask).toBe(
+      true
+    );
+    expect(packet.lower_authority_background?.data.coaching_memory_snippet?.length ?? 0).toBeLessThan(500);
   });
 
   it("inbound and daily share the same relationship_memory_30d_or_season shape", () => {

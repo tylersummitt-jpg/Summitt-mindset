@@ -455,8 +455,10 @@ describe("produceDailyV3RelationshipSms", () => {
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
     const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
     expect(systemMsg).toContain("STRATEGY_CARD_V1");
+    expect(systemMsg).toContain("checkbox bot");
+    expect(systemMsg).toContain("zero questions");
     expect(systemMsg).not.toContain(
-      "do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer"
+      "do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step"
     );
     expect(userMsg).toContain("STRATEGY_CARD_V1");
     expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");

@@ -10,6 +10,7 @@ import {
   MAX_SATISFIED_ASKS,
   buildOpenLoopsAndDoNotRepeat,
   buildOpenLoopsAndDoNotRepeatPromptGuidance,
+  buildStaleAskAvoidanceSummary,
   isDeliveredCoachQuestionMessage,
 } from "@/lib/sms-open-loops-and-do-not-repeat";
 import {
@@ -605,5 +606,37 @@ describe("generic future recommitment do-not-repeat family", () => {
   it("paraphrased same question is treated as same family by detector", () => {
     expect(isGenericFutureRecommitmentQuestionFamily(GENERIC_ASK)).toBe(true);
     expect(isGenericFutureRecommitmentQuestionFamily(PARAPHRASE_ASK)).toBe(true);
+  });
+
+  it("buildStaleAskAvoidanceSummary returns compact labels without raw blobs", () => {
+    const summary = buildStaleAskAvoidanceSummary({
+      open_loops: [],
+      satisfied_asks: [
+        {
+          ask_text: "Did the two hours happen yesterday before noon?",
+          source: "projection",
+          do_not_repeat: true,
+        },
+      ],
+      do_not_repeat_asks: ["Did the two hours happen yesterday before noon?"],
+      do_not_repeat_phrases: [],
+      recent_unanswered_coach_questions: ["What time works for your first block today?"],
+    });
+    expect(summary?.has_satisfied_recent_ask).toBe(true);
+    expect(summary?.satisfied_ask_labels[0]).toMatch(/two hours/i);
+    expect(summary?.satisfied_ask_labels[0]!.length).toBeLessThanOrEqual(72);
+    expect(summary?.do_not_reask_labels.length).toBeGreaterThan(0);
+  });
+
+  it("buildStaleAskAvoidanceSummary returns null when empty", () => {
+    expect(
+      buildStaleAskAvoidanceSummary({
+        open_loops: [],
+        satisfied_asks: [],
+        do_not_repeat_asks: [],
+        do_not_repeat_phrases: [],
+        recent_unanswered_coach_questions: [],
+      })
+    ).toBeNull();
   });
 });

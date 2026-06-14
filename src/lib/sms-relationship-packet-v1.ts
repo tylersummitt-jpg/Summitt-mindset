@@ -6,6 +6,10 @@
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
 import {
+  buildStaleAskAvoidanceSummary,
+  type OpenLoopsAndDoNotRepeatData,
+} from "@/lib/sms-open-loops-and-do-not-repeat";
+import {
   applyMemory7dTemporalLabels,
 } from "@/lib/sms-relationship-memory-7d";
 import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
@@ -87,6 +91,8 @@ export type RelationshipPacketCurrentTurn = {
   week_end?: string | null;
   timezone?: string | null;
   local_date?: string | null;
+  local_weekday?: string | null;
+  is_new_accountability_day?: boolean;
   planned_pause_week?: boolean;
   silent_week?: boolean;
   rough_week?: boolean;
@@ -157,6 +163,12 @@ export type RelationshipPacketStructuredRecentTruth = {
     repeated_blocker_hints?: string[];
     notable_pattern?: string | null;
   };
+  stale_ask_avoidance_summary?: {
+    satisfied_ask_labels: string[];
+    do_not_reask_labels: string[];
+    recent_coach_question_labels: string[];
+    has_satisfied_recent_ask: boolean;
+  } | null;
 };
 
 export type RelationshipPacketRecentExactThread72h = {
@@ -300,6 +312,7 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - pat_read_snapshot entries are AI snapshots (is_ai_snapshot: true) and must lose to exact SMS thread and event-backed memory.
 - background_summary and low_authority_hint must NEVER override recent exact thread or canonical_state.
 - If structured_recent_truth.turn_understanding or daily_satisfied_ask_context is present, it is authoritative for whether the prior coach ask is satisfied — do not repeat do_not_repeat_asks.
+- If structured_recent_truth.stale_ask_avoidance_summary is present, honor satisfied_ask_labels and do_not_reask_labels — do not paraphrase satisfied asks.
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
@@ -378,6 +391,56 @@ function buildCurrentTurnInbound(f: InboundV3RelationshipFacts): RelationshipPac
   };
 }
 
+function weekdayFromAccountabilityDayKey(dayKey: string): string | null {
+  const parts = dayKey.split("-").map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+  const [y, m, d] = parts;
+  const date = new Date(Date.UTC(y!, m! - 1, d!));
+  const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  return names[date.getUTCDay()] ?? null;
+}
+
+function deriveIsNewAccountabilityDayForPacket(f: DailyV3RelationshipFacts): boolean {
+  const today = f.accountability_day_key?.trim();
+  if (!today) return true;
+  const t72 = f.thread_memory.recent_exact_thread_72h;
+  if (t72?.messages?.length) {
+    for (let i = t72.messages.length - 1; i >= 0; i--) {
+      const m = t72.messages[i]!;
+      if (m.role === "coach" && m.delivery_status === "sent" && m.local_day_key?.trim()) {
+        return m.local_day_key.trim() !== today;
+      }
+    }
+  }
+  return true;
+}
+
+function buildStaleAskAvoidanceSummaryFromDailyFacts(
+  f: DailyV3RelationshipFacts
+): ReturnType<typeof buildStaleAskAvoidanceSummary> {
+  const tm = f.thread_memory;
+  const sac = f.daily_satisfied_ask_context;
+  const satisfiedAsks =
+    sac?.has_satisfied_recent_ask === true
+      ? (sac.do_not_repeat_asks ?? []).map((ask) => ({
+          ask_text: ask.slice(0, 160),
+          source: "daily_satisfied_ask_context" as const,
+          do_not_repeat: true,
+        }))
+      : [];
+  const data: OpenLoopsAndDoNotRepeatData = {
+    open_loops: [],
+    satisfied_asks: satisfiedAsks,
+    do_not_repeat_asks: compactStrings(
+      [...(sac?.do_not_repeat_asks ?? []), ...(tm.do_not_repeat_hints ?? [])],
+      6
+    ),
+    do_not_repeat_phrases: [],
+    recent_unanswered_coach_questions: compactStrings(tm.last_5_coach_questions, 2),
+  };
+  return buildStaleAskAvoidanceSummary(data);
+}
+
 function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketCurrentTurn {
   return {
     route_kind: f.route_kind,
@@ -386,6 +449,9 @@ function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketC
     accountability_day_key: f.accountability_day_key,
     local_time_iso: f.user.local_time_iso,
     timezone: f.user.timezone,
+    local_date: f.accountability_day_key,
+    local_weekday: weekdayFromAccountabilityDayKey(f.accountability_day_key),
+    is_new_accountability_day: deriveIsNewAccountabilityDayForPacket(f),
     temporal_contract: f.temporal_contract ?? null,
   };
 }
@@ -638,6 +704,7 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
   const sac = f.daily_satisfied_ask_context;
   const turnUnderstanding =
     sac?.has_satisfied_recent_ask === true ? turnUnderstandingFromDailySatisfiedAskContext(sac) : null;
+  const staleAskAvoidanceSummary = buildStaleAskAvoidanceSummaryFromDailyFacts(f);
   return {
     ...(turnUnderstanding ? { turn_understanding: turnUnderstanding } : {}),
     ...(sac?.has_satisfied_recent_ask
@@ -653,6 +720,7 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
           },
         }
       : {}),
+    ...(staleAskAvoidanceSummary ? { stale_ask_avoidance_summary: staleAskAvoidanceSummary } : {}),
     thread_freshness: f.thread_freshness ?? null,
     latest_open_question: tm.latest_open_question ?? null,
     latest_answer_after_open_question: tm.latest_answer_after_open_question ?? null,

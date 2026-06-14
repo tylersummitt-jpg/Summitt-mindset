@@ -25,11 +25,15 @@ import type {
   InboundV3OpenQuestionFacts,
   InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
+import { createHash } from "crypto";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
-import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
+  buildRelationshipAnchors,
+  detectRecentlyUsedRelationshipAnchorKeys,
+  relationshipAnchorAvoidRepeatingFingerprints,
   applyRelationshipAnchorStrategyBoundaries,
 } from "@/lib/sms-relationship-anchors";
+import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
   ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
   CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO,
@@ -138,6 +142,11 @@ export type StrategyCardV1 = {
     daily_pending_plan_proof_active?: boolean;
     daily_reactivation?: boolean;
     daily_silence_tier?: string | null;
+    daily_conversation_intent?: DailyC1ConversationIntent | null;
+    local_date?: string | null;
+    local_weekday?: string | null;
+    user_timezone?: string | null;
+    is_new_accountability_day?: boolean | null;
     daily_contract_proposal_kind?: DailyContractProposalKind | null;
     daily_contract_proposal_pending_before_sms?: boolean;
     daily_contract_must_not_claim_goal_updated?: boolean;
@@ -2298,6 +2307,21 @@ export function deriveAdjustmentPolicyForCard(
 
 // --- Daily C1 Strategy Card v1 (main_active_accountability + low_pressure_reactivation) ---
 
+export type DailyC1ConversationIntent =
+  | "plan_today"
+  | "obstacle_recovery"
+  | "reflect_pattern"
+  | "protect_existing_plan"
+  | "close_loop"
+  | "relationship_anchor_bridge"
+  | "identity_encouragement"
+  | "direct_outcome_check"
+  | "low_pressure_reentry"
+  | "celebrate_progress_honest";
+
+const DAILY_C1_RELATIONSHIP_ACCOUNTABILITY_TOUCH =
+  "Make one natural relationship-accountability touch for today. Create an opening for the user to report progress, make a plan, name a blocker, reflect on a pattern, or take the next honest step. Do not default to a binary completion question.";
+
 const DAILY_C1_ALLOWED_MOVES: StrategyCardMoveType[] = [
   "daily_check_in",
   "reactivate_gently",
@@ -2386,8 +2410,221 @@ function deriveDailyOutcomeFromPriorOutcome(prior: string | null | undefined): S
   return "none";
 }
 
+function weekdayFromDayKey(dayKey: string): string | null {
+  const parts = dayKey.split("-").map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+  const [y, m, d] = parts;
+  const date = new Date(Date.UTC(y!, m! - 1, d!));
+  const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  return names[date.getUTCDay()] ?? null;
+}
+
+function deriveIsNewAccountabilityDay(facts: DailyV3RelationshipFacts): boolean {
+  const today = facts.accountability_day_key?.trim();
+  if (!today) return true;
+  const t72 = facts.thread_memory.recent_exact_thread_72h;
+  if (t72?.messages?.length) {
+    for (let i = t72.messages.length - 1; i >= 0; i--) {
+      const m = t72.messages[i]!;
+      if (m.role === "coach" && m.delivery_status === "sent" && m.local_day_key?.trim()) {
+        return m.local_day_key.trim() !== today;
+      }
+    }
+  }
+  return true;
+}
+
+function deriveDailyC1LocalDayContext(facts: DailyV3RelationshipFacts): {
+  local_date: string;
+  local_weekday: string | null;
+  user_timezone: string;
+  is_new_accountability_day: boolean;
+} {
+  return {
+    local_date: facts.accountability_day_key,
+    local_weekday: weekdayFromDayKey(facts.accountability_day_key),
+    user_timezone: facts.user.timezone,
+    is_new_accountability_day: deriveIsNewAccountabilityDay(facts),
+  };
+}
+
+function semanticAvoidKey(prefix: string, text: string): string {
+  const t = text.trim();
+  if (t.length < 8) return "";
+  const hash = createHash("sha256").update(t.toLowerCase()).digest("hex").slice(0, 12);
+  return `${prefix}:${hash}`;
+}
+
+function hasSatisfiedRecentAsk(ctx: DailyC1StrategyCardBuildContext): boolean {
+  return (
+    ctx.facts.daily_satisfied_ask_context?.has_satisfied_recent_ask === true ||
+    (ctx.openLoops.satisfied_asks?.length ?? 0) > 0
+  );
+}
+
+function isPlanAffirmingSatisfiedAsk(ctx: DailyC1StrategyCardBuildContext): boolean {
+  const t = ctx.facts.daily_satisfied_ask_context?.satisfied_ask_type;
+  if (t === "plan_detail" || t === "plan_confirmation") return true;
+  if (ctx.facts.accountability.pending_plan_proof?.active === true) return true;
+  const evidence = ctx.facts.daily_satisfied_ask_context?.evidence_preview?.trim() ?? "";
+  return /\b(i'll|i will|plan|8pm|am|pm)\b/i.test(evidence);
+}
+
+function hasExtendedSilence(ctx: DailyC1StrategyCardBuildContext): boolean {
+  const a = ctx.facts.accountability;
+  const silence = ctx.noSendSilence?.silence_context;
+  if (a.reentry_active || a.daily_purpose === "comeback_after_silence") return true;
+  if (a.silence_tier === "quiet" || a.silence_tier === "nudge") return true;
+  if ((silence?.days_since_last_user_reply ?? 0) >= 2) return true;
+  if (a.unanswered_checks >= 2) return true;
+  if (a.days_since_last_user_outcome >= 3) return true;
+  return false;
+}
+
+function hasRecentPositiveProgress(ctx: DailyC1StrategyCardBuildContext): boolean {
+  const a = ctx.facts.accountability;
+  if (a.prior_outcome === "user_yes") return true;
+  if ((a.yes_streak_14d ?? 0) >= 2) return true;
+  if (a.proof_or_milestone_signal?.trim()) return true;
+  return false;
+}
+
+function outcomeCheckAppropriate(ctx: DailyC1StrategyCardBuildContext): boolean {
+  if (hasSatisfiedRecentAsk(ctx)) return false;
+  if (ctx.facts.accountability.pending_plan_proof?.active === true) return true;
+  if (ctx.facts.accountability.pending_plan_proof?.outcome_known === false) return true;
+  if (hasExtendedSilence(ctx)) return false;
+  if (ctx.facts.accountability.prior_outcome === "user_no") return true;
+  if (ctx.facts.accountability.prior_outcome === "user_partial") return true;
+  if ((ctx.facts.accountability.days_since_last_user_outcome ?? 0) >= 2) return true;
+  return false;
+}
+
+function relationshipAnchorBridgeEligible(ctx: DailyC1StrategyCardBuildContext): boolean {
+  const sources = ctx.facts.relationship_anchor_sources;
+  if (!sources?.important_people?.length) return false;
+  const coachBodies = [
+    ...(ctx.facts.thread_memory.last_5_coach_questions ?? []),
+    ctx.facts.thread_memory.latest_outbound_sms ?? "",
+  ].filter((b) => typeof b === "string" && b.trim().length > 0) as string[];
+  const anchors = buildRelationshipAnchors({
+    sources,
+    timezone: ctx.facts.user.timezone,
+    lastCoachMessages: ctx.facts.thread_memory.last_5_coach_questions,
+    recentCoachThreadBodies: coachBodies,
+  });
+  if (!anchors.length) return false;
+  const recentlyUsed = detectRecentlyUsedRelationshipAnchorKeys({
+    anchors,
+    coachBodies,
+  });
+  return anchors.some((a) => !recentlyUsed.includes(a.anchor_key) && !a.last_coach_referenced_at);
+}
+
+export function selectDailyC1ConversationIntent(
+  ctx: DailyC1StrategyCardBuildContext
+): DailyC1ConversationIntent {
+  const { facts } = ctx;
+
+  if (facts.route_kind === "low_pressure_reactivation") {
+    return "low_pressure_reentry";
+  }
+
+  if (facts.accountability.pending_plan_proof?.active === true) {
+    return "protect_existing_plan";
+  }
+
+  if (facts.accountability.blocker_preview?.trim() || facts.accountability.prior_outcome === "user_no") {
+    return "obstacle_recovery";
+  }
+
+  if (hasSatisfiedRecentAsk(ctx)) {
+    if (isPlanAffirmingSatisfiedAsk(ctx)) {
+      return facts.accountability.pending_plan_proof?.active ? "protect_existing_plan" : "plan_today";
+    }
+    return "close_loop";
+  }
+
+  if (relationshipAnchorBridgeEligible(ctx)) {
+    return "relationship_anchor_bridge";
+  }
+
+  if (hasExtendedSilence(ctx)) {
+    return "plan_today";
+  }
+
+  if (hasRecentPositiveProgress(ctx)) {
+    return ctx.proofPermission.can_claim_proof ? "celebrate_progress_honest" : "identity_encouragement";
+  }
+
+  if (outcomeCheckAppropriate(ctx)) {
+    return "direct_outcome_check";
+  }
+
+  if (facts.accountability.prior_outcome === "user_partial") {
+    return "reflect_pattern";
+  }
+
+  return "plan_today";
+}
+
+export function mapDailyC1IntentToMoveType(
+  intent: DailyC1ConversationIntent,
+  ctx: DailyC1StrategyCardBuildContext
+): StrategyCardMoveType {
+  switch (intent) {
+    case "low_pressure_reentry":
+      return "reactivate_gently";
+    case "protect_existing_plan":
+      return "protect_existing_plan";
+    case "close_loop":
+      return "close_loop";
+    case "obstacle_recovery":
+      return ctx.facts.accountability.blocker_preview?.trim() ? "ask_blocker" : "recover_today";
+    case "direct_outcome_check":
+      return "daily_check_in";
+    case "celebrate_progress_honest":
+    case "identity_encouragement":
+    case "plan_today":
+    case "reflect_pattern":
+    case "relationship_anchor_bridge":
+      return "recover_today";
+    default:
+      return "recover_today";
+  }
+}
+
 function collectDailyAvoidRepeating(ctx: DailyC1StrategyCardBuildContext): string[] {
   const items: string[] = [];
+
+  for (const ask of ctx.openLoops.do_not_repeat_asks ?? []) {
+    const sk = semanticAvoidKey("do_not_reask", ask);
+    if (sk) items.push(sk);
+  }
+  for (const s of ctx.openLoops.satisfied_asks ?? []) {
+    const sk = semanticAvoidKey("satisfied_ask", s.ask_text ?? "");
+    if (sk) items.push(sk);
+  }
+  for (const ask of ctx.facts.daily_satisfied_ask_context?.do_not_repeat_asks ?? []) {
+    const sk = semanticAvoidKey("satisfied_ask", ask);
+    if (sk) items.push(sk);
+  }
+
+  const coachBodies = [
+    ...(ctx.facts.thread_memory.last_5_coach_questions ?? []),
+    ctx.facts.thread_memory.latest_outbound_sms ?? "",
+  ].filter((b) => typeof b === "string" && b.trim().length > 0) as string[];
+  const anchors = buildRelationshipAnchors({
+    sources: ctx.facts.relationship_anchor_sources,
+    timezone: ctx.facts.user.timezone,
+    lastCoachMessages: ctx.facts.thread_memory.last_5_coach_questions,
+    recentCoachThreadBodies: coachBodies,
+  });
+  const recentlyUsed = detectRecentlyUsedRelationshipAnchorKeys({ anchors, coachBodies });
+  for (const fp of relationshipAnchorAvoidRepeatingFingerprints(recentlyUsed)) {
+    items.push(fp);
+  }
+
   for (const ask of ctx.openLoops.do_not_repeat_asks ?? []) {
     const fp = fingerprintAsk(ask);
     if (fp) items.push(fp);
@@ -2401,23 +2638,31 @@ function collectDailyAvoidRepeating(ctx: DailyC1StrategyCardBuildContext): strin
     if (fp) items.push(fp);
   }
   for (const q of ctx.facts.thread_memory.last_5_coach_questions ?? []) {
+    const sk = semanticAvoidKey("recent_coach_question", q);
+    if (sk) items.push(sk);
     const fp = fingerprintAsk(q);
     if (fp) items.push(fp);
   }
+
   return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
 }
 
-function selectDailyC1MainMoveType(facts: DailyV3RelationshipFacts): StrategyCardMoveType {
-  if (facts.accountability.pending_plan_proof?.active === true) {
-    return "protect_existing_plan";
-  }
-  if (facts.accountability.blocker_preview?.trim()) {
-    return "ask_blocker";
-  }
-  if (facts.accountability.daily_purpose === "comeback_after_silence") {
-    return "daily_check_in";
-  }
-  return "daily_check_in";
+function selectDailyC1MainMoveType(
+  ctx: DailyC1StrategyCardBuildContext,
+  intent: DailyC1ConversationIntent
+): StrategyCardMoveType {
+  return mapDailyC1IntentToMoveType(intent, ctx);
+}
+
+function intentAllowsZeroQuestions(intent: DailyC1ConversationIntent): boolean {
+  return (
+    intent === "close_loop" ||
+    intent === "protect_existing_plan" ||
+    intent === "identity_encouragement" ||
+    intent === "celebrate_progress_honest" ||
+    intent === "relationship_anchor_bridge" ||
+    intent === "plan_today"
+  );
 }
 
 function buildDailyC1AllowedClaims(
@@ -2449,14 +2694,16 @@ function buildDailyC1AllowedClaims(
 
 function buildDailyC1MustDoMustNotDo(args: {
   moveType: StrategyCardMoveType;
+  intent: DailyC1ConversationIntent;
   ctx: DailyC1StrategyCardBuildContext;
 }): { must_do: string[]; must_not_do: string[] } {
-  const { moveType, ctx } = args;
+  const { moveType, intent, ctx } = args;
   const must_do: string[] = [];
   const must_not_do: string[] = [
     "Do not claim proof or Victory Room unless allowed_claims permits it.",
     "Do not claim server-side state changed or an active proposal.",
     ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
+    DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO,
   ];
 
   if (ctx.facts.route_kind === "low_pressure_reactivation") {
@@ -2464,27 +2711,67 @@ function buildDailyC1MustDoMustNotDo(args: {
     must_do.push("Acknowledge quiet context only when appropriate, without guilt.");
     must_not_do.push("Do not scold or imply the user ignored undelivered messages.");
     must_not_do.push("Do not claim completion, miss, partial, or proof on this turn.");
-    must_not_do.push("Do not overstate continuity or pressure.");
     must_not_do.push(REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO);
-  } else if (moveType === "protect_existing_plan" || moveType === "close_loop") {
-    must_do.push("Close the pending plan loop or protect the existing plan first.");
-    must_do.push("Use current commitment and relevant recent context.");
-    must_not_do.push("Do not treat pending plan proof as actual proof unless permission allows.");
-    must_not_do.push("Do not invent a new plan.");
-  } else if (moveType === "ask_blocker") {
-    must_do.push("Ask about today's commitment in natural human language.");
-    must_do.push("Name or explore what got in the way using known blocker context.");
-    must_not_do.push("Do not propose goal change on this turn.");
+  } else if (intent === "direct_outcome_check") {
+    must_do.push(DAILY_C1_RELATIONSHIP_ACCOUNTABILITY_TOUCH);
+    must_do.push("One natural direct outcome check is allowed when prior outcome is still unknown.");
+    must_not_do.push("Do not stack multiple interrogation questions.");
   } else {
-    must_do.push("Ask about today's commitment / accountability in natural human language.");
-    must_do.push("Use current commitment and relevant recent context.");
-    must_not_do.push("Do not propose goal change unless server strategy explicitly requires it.");
-    must_not_do.push(DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO);
+    must_do.push(DAILY_C1_RELATIONSHIP_ACCOUNTABILITY_TOUCH);
+    if (intentAllowsZeroQuestions(intent)) {
+      must_do.push("Zero questions is allowed — encouragement, planning, or close-loop is fine.");
+    }
+  }
+
+  switch (intent) {
+    case "plan_today":
+      must_do.push("Help identify today's realistic first step or window.");
+      must_not_do.push("Do not ask if they already completed unless direct_outcome_check was intended.");
+      break;
+    case "obstacle_recovery":
+      must_do.push("Name or explore today's likely blocker without shame.");
+      must_not_do.push("Do not imply failure unless server truth says miss.");
+      break;
+    case "reflect_pattern":
+      must_do.push("Help notice what usually makes this goal work or slip.");
+      must_not_do.push("Do not turn this into unrelated therapy or chit-chat.");
+      break;
+    case "protect_existing_plan":
+      must_do.push("Acknowledge and protect the current plan.");
+      must_not_do.push("Do not add new obligations unless the user invited them.");
+      break;
+    case "close_loop":
+      must_do.push("Acknowledge the prior answer and close the loop.");
+      must_not_do.push("Do not ask the same satisfied question again.");
+      break;
+    case "relationship_anchor_bridge":
+      must_do.push("You may use at most one relationship anchor only if it bridges into today's goal.");
+      must_not_do.push("Do not open with standalone person chit-chat.");
+      must_not_do.push("Do not use guilt, shame, or pride pressure via a person.");
+      break;
+    case "identity_encouragement":
+      must_do.push("Connect today's move to who they are becoming.");
+      must_not_do.push("Do not use generic motivational fluff.");
+      break;
+    case "celebrate_progress_honest":
+      must_do.push("Acknowledge honest progress within allowed_claims only.");
+      must_not_do.push("Do not invent proof or Victory Room.");
+      break;
+    case "low_pressure_reentry":
+      break;
+    case "direct_outcome_check":
+      break;
+  }
+
+  if (moveType === "ask_blocker" && intent === "obstacle_recovery") {
+    must_do.push("Use known blocker context from facts.");
+    must_not_do.push("Do not propose goal change on this turn.");
   }
 
   must_not_do.push("Do not re-ask satisfied questions from avoid_repeating.");
-  if ((ctx.openLoops.satisfied_asks?.length ?? 0) > 0 || ctx.facts.daily_satisfied_ask_context) {
+  if (hasSatisfiedRecentAsk(ctx)) {
     must_not_do.push("Do not repeat or paraphrase satisfied coach asks.");
+    must_not_do.push("Do not use How did X go as a paraphrase re-ask.");
   }
 
   return {
@@ -2527,6 +2814,29 @@ export function buildDailyC1StrategyCardContextFromSnapshot(args: {
   };
 }
 
+function dailyC1MoveReason(intent: DailyC1ConversationIntent, moveType: StrategyCardMoveType): string {
+  const byIntent: Partial<Record<DailyC1ConversationIntent, string>> = {
+    low_pressure_reentry: "Low-pressure reactivation — gentle re-entry without outcome claims.",
+    protect_existing_plan: "Protect the user's stated plan before a fresh check.",
+    close_loop: "Prior ask was answered — close the loop without re-asking.",
+    obstacle_recovery: "Explore what got in the way today.",
+    plan_today: "Relationship-first touch — help shape today's realistic step.",
+    reflect_pattern: "Reflect on what makes this goal work or slip.",
+    relationship_anchor_bridge: "Bridge optional relationship context into today's move.",
+    identity_encouragement: "Encourage identity-aligned progress without interrogation.",
+    celebrate_progress_honest: "Acknowledge honest progress within allowed claims.",
+    direct_outcome_check: "Direct outcome check when prior result is still unknown.",
+  };
+  return (
+    byIntent[intent] ??
+    (moveType === "protect_existing_plan"
+      ? "Close pending plan loop before a fresh accountability check."
+      : moveType === "ask_blocker"
+        ? "Daily touch with known blocker context."
+        : "Relationship-first daily accountability touch.")
+  );
+}
+
 export function buildDailyC1StrategyCardV1(args: {
   ctx: DailyC1StrategyCardBuildContext;
   generatedAt?: string;
@@ -2535,27 +2845,27 @@ export function buildDailyC1StrategyCardV1(args: {
   const { facts } = ctx;
   const isReactivation = facts.route_kind === "low_pressure_reactivation";
   const outcome = deriveDailyOutcomeFromPriorOutcome(facts.accountability.prior_outcome);
-  const moveType = isReactivation ? "reactivate_gently" : selectDailyC1MainMoveType(facts);
+  const conversationIntent = selectDailyC1ConversationIntent(ctx);
+  const moveType = isReactivation
+    ? "reactivate_gently"
+    : selectDailyC1MainMoveType(ctx, conversationIntent);
   const legacyMove = facts.suggested_coaching_move?.trim() || null;
   const legacyType = mapLegacyMoveToType(legacyMove ?? undefined);
   const legacyUsed = legacyType != null && legacyType === moveType;
   const legacyReplaced = legacyType != null && legacyType !== moveType && legacyMove;
+  const localDay = deriveDailyC1LocalDayContext(facts);
 
-  const { must_do, must_not_do } = buildDailyC1MustDoMustNotDo({ moveType, ctx });
+  const { must_do, must_not_do } = buildDailyC1MustDoMustNotDo({
+    moveType,
+    intent: conversationIntent,
+    ctx,
+  });
   const avoid_repeating = collectDailyAvoidRepeating(ctx);
   const allowed = buildDailyC1AllowedClaims(ctx, outcome);
   const satisfiedFingerprints = (ctx.openLoops.satisfied_asks ?? [])
     .map((s) => fingerprintAsk(s.ask_text ?? ""))
     .filter(Boolean)
     .slice(0, MAX_AVOID_REPEATING);
-
-  const reason = isReactivation
-    ? "Low-pressure reactivation — gentle re-entry without outcome claims."
-    : moveType === "protect_existing_plan"
-      ? "Close pending plan loop before a fresh accountability check."
-      : moveType === "ask_blocker"
-        ? "Daily check-in with known blocker context."
-        : "Daily accountability check-in for today's commitment.";
 
   return {
     version: STRATEGY_CARD_V1_VERSION,
@@ -2575,18 +2885,23 @@ export function buildDailyC1StrategyCardV1(args: {
       daily_pending_plan_proof_active: facts.accountability.pending_plan_proof?.active === true,
       daily_reactivation: isReactivation,
       daily_silence_tier: facts.accountability.silence_tier ?? null,
+      daily_conversation_intent: conversationIntent,
+      local_date: localDay.local_date,
+      local_weekday: localDay.local_weekday,
+      user_timezone: localDay.user_timezone,
+      is_new_accountability_day: localDay.is_new_accountability_day,
     },
     move: {
       type: moveType,
       priority: isReactivation ? "low" : "normal",
       confidence: "high",
-      reason: truncateText(reason, MAX_REASON_CHARS),
+      reason: truncateText(dailyC1MoveReason(conversationIntent, moveType), MAX_REASON_CHARS),
     },
     must_do,
     must_not_do,
     allowed_claims: allowed,
     writer_constraints: {
-      max_questions: isReactivation ? 1 : 1,
+      max_questions: 1,
       avoid_repeating,
       tone_posture: resolveDailyC1TonePosture({ facts, moveType }),
     },
@@ -2665,6 +2980,19 @@ export function validateDailyC1StrategyCardV1(
   if (hasSatisfied && card.writer_constraints.avoid_repeating.length === 0) {
     reasons.push("missing_satisfied_avoid_repeating");
   }
+  if (
+    hasSatisfied &&
+    card.server_truth_summary.daily_conversation_intent === "direct_outcome_check"
+  ) {
+    reasons.push("satisfied_ask_direct_outcome_forbidden");
+  }
+  if (
+    card.must_do.some((m) =>
+      /ask about today's commitment \/ accountability/i.test(m)
+    )
+  ) {
+    reasons.push("legacy_checkbox_must_do");
+  }
   for (const item of card.must_do) {
     if (SMS_COPY_RE.test(item) && item.length > 80) {
       reasons.push("sms_copy_in_must_do");
@@ -2705,10 +3033,13 @@ export function validateAndRepairDailyC1StrategyCardV1(
 /** Writer strategy prose demoted when Daily C1 Strategy Card is active. */
 export function buildDailyC1StrategyCardDemotedPromptRules(): string {
   return `
+RELATIONSHIP-FIRST DAILY (one continuous coaching relationship — not a daily checkbox bot):
+- At most one question in the SMS; zero questions is okay when closing, protecting, encouraging, or planning.
 - Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
-- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.
+- If structured_recent_truth, stale_ask_avoidance_summary, or daily_satisfied_ask_context shows the user already satisfied a prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — no "How did X go?" paraphrase re-asks.
+- Make a fresh current-step, plan, obstacle, identity, or relationship-bridge move instead of another outcome interrogation.
 - Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
-- If facts say reentry/comeback after silence, acknowledge return briefly before the ask.`;
+- If facts say reentry/comeback after silence, acknowledge return briefly before the next move.`;
 }
 
 // --- Daily C2 Strategy Card v1 (contract_prompt semantic shrink_ask + recommit_same) ---
