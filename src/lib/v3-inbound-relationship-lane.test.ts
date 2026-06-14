@@ -47,7 +47,11 @@ import {
 } from "@/lib/coaching-strategy-card-v1";
 import { applyInboundFinalBodyTurnUnderstandingGuard } from "@/lib/inbound-turn-understanding-context";
 import { buildInterpreterFailedSafeReconciled } from "@/lib/openai-relationship-turn-understanding-v1";
-import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
+import {
+  OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+  reconcileTurnUnderstanding,
+  type OpenAIRelationshipTurnUnderstandingV1,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
   RELATIONSHIP_MEMORY_7D_WINDOW_DAYS,
@@ -59,11 +63,7 @@ import {
 } from "@/lib/sms-relationship-memory-30d";
 import type { SlimSmsRelationshipMemoryPacketForFacts } from "@/lib/sms-relationship-memory-packet";
 import { buildInboundSeasonTransitionFacts } from "@/lib/v2-sms-goal-season-mutation";
-import {
-  OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
-  reconcileTurnUnderstanding,
-  type OpenAIRelationshipTurnUnderstandingV1,
-} from "@/lib/openai-relationship-turn-understanding-v1";
+import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import * as relationshipPacketModule from "@/lib/sms-relationship-packet-v1";
 import { buildRelationshipPacketForOpenAI, DEFAULT_RELATIONSHIP_PACKET_BUDGET, relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
@@ -2801,6 +2801,272 @@ describe("answered-prior-ask stale-ask close-loop repair (E2E lane)", () => {
     expect(r.noSendReason).toBe("turn_understanding_stale_ask_blocked");
     expect(r.metadata.answered_prior_ask_close_loop_repair_eligible).toBe(true);
     expect(r.metadata.answered_prior_ask_close_loop_repair_succeeded).toBe(false);
+  });
+
+  it("June 13 recommit + Yes 8pm call California: post-validate close-loop repair sends without extra calls", async () => {
+    const recommitAsk =
+      "Would you like to recommit to putting one family connection on the calendar before the day ends?";
+    const inbound = "Yes 8pm call California";
+    const momentumBody =
+      "Great, you confirmed the 8pm call with California! Let's keep that momentum going. If it fits, you might also consider scheduling the Chattanooga cousins for tomorrow at 3pm and Amber at 4pm Friday. How does that sound?";
+    const det = buildInboundMeaningFacts({
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: recommitAsk,
+      latestOutboundBody: recommitAsk,
+    });
+    expect(det.relationship_meaning).toBe("answer_to_prior_question");
+    expect(det.persistence_decision).toBe("no_outcome_write");
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "openai_request_failed",
+      proposal: null,
+      deterministicMeaning: det,
+      latestCoachQuestion: recommitAsk,
+      openQuestionPending: true,
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+    });
+    tu.reconciled_do_not_repeat_asks = [recommitAsk];
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: momentumBody,
+                no_send_reason: null,
+                turn_purpose: "inbound_turn",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: "Good — 8pm with California is the plan for tonight.",
+                used_strategy: "close_loop_protect_plan",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-13T19:43:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "One family connection on the calendar",
+      userMessageRaw: inbound,
+      coalescedInboundText: inbound,
+      suppressedMessageSids: ["SM_june13"],
+      transcriptLines: [`Coach: ${recommitAsk}`, `User: ${inbound}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: recommitAsk,
+        latestOpenQuestion: recommitAsk,
+        expectedReplySemantics: "proposal_yes_no",
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false, final_event_type: null },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: recommitAsk,
+        latest_answer_after_open_question: inbound,
+        open_question_pending: true,
+        last_outbound_full_body: recommitAsk,
+      }),
+    });
+    facts.inbound_meaning = det;
+    facts.suggested_coaching_move = "respond_to_open_question_answer_natural";
+    facts.v2_accountability.should_write_outcome_event = false;
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).not.toMatch(/momentum/);
+    expect(r.body.toLowerCase()).not.toMatch(/chattanooga|amber/);
+    expect(r.body.toLowerCase()).not.toMatch(/how does that sound/);
+    expect(r.body.toLowerCase()).not.toMatch(/would you like to recommit/);
+    expect(r.metadata.lane_stage).toBe("post_validate_repaired");
+    expect(r.metadata.answered_prior_ask_close_loop_post_validate_proactive).toBe(true);
+  });
+
+  it("June 13 class: fallback close-loop still no-sends when repair keeps extra scheduling", async () => {
+    const recommitAsk =
+      "Would you like to recommit to putting one family connection on the calendar before the day ends?";
+    const inbound = "Yes 8pm call California";
+    const momentumBody =
+      "Great, you confirmed the 8pm call with California! Let's keep that momentum going. How does that sound?";
+    const badRepair =
+      "You confirmed the 8pm call with California! You might also consider scheduling the Chattanooga cousins for tomorrow.";
+    const det = buildInboundMeaningFacts({
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: recommitAsk,
+      latestOutboundBody: recommitAsk,
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "openai_request_failed",
+      proposal: null,
+      deterministicMeaning: det,
+      latestCoachQuestion: recommitAsk,
+      openQuestionPending: true,
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+    });
+    tu.reconciled_do_not_repeat_asks = [recommitAsk];
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: momentumBody,
+                no_send_reason: null,
+                turn_purpose: "inbound_turn",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+                rejected_times_obeyed: true,
+                split_messages_handled: true,
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: badRepair,
+                used_strategy: "bad_extra_scheduling",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: badRepair,
+                used_strategy: "bad_extra_scheduling_fallback",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: badRepair,
+                used_strategy: "bad_extra_scheduling_fallback_pass2",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-06-13T19:43:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "One family connection on the calendar",
+      userMessageRaw: inbound,
+      coalescedInboundText: inbound,
+      suppressedMessageSids: ["SM_june13_fail"],
+      transcriptLines: [`Coach: ${recommitAsk}`, `User: ${inbound}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: recommitAsk,
+        latestOpenQuestion: recommitAsk,
+      },
+      gatedDecision: { ...baseGatedDecision(), should_write_outcome_event: false, final_event_type: null },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      turnUnderstandingReconciled: tu,
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: recommitAsk,
+        latest_answer_after_open_question: inbound,
+        open_question_pending: true,
+        last_outbound_full_body: recommitAsk,
+      }),
+    });
+    facts.inbound_meaning = det;
+    facts.suggested_coaching_move = "respond_to_open_question_answer_natural";
+    facts.v2_accountability.should_write_outcome_event = false;
+    facts.thread_freshness = {
+      completed_actions: [],
+      do_not_reask_topics: [],
+      active_temporal_frame: "today",
+      temporal_anchors: ["calls"],
+      recent_user_plan_or_schedule: inbound,
+      recent_user_completion: null,
+    };
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_fixture"],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.metadata.lane_stage).toBe("post_validate_repair_failed");
+    expect(r.metadata.answered_prior_ask_close_loop_post_validate_fallback).toBe(true);
+    expect(r.metadata.answered_prior_ask_close_loop_post_validate_succeeded).toBe(false);
   });
 });
 

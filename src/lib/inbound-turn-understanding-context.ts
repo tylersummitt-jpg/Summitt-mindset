@@ -650,6 +650,231 @@ export async function resolveStaleAskViolationWithRepair(
   };
 }
 
+const ANSWERED_PRIOR_ASK_POST_VALIDATE_PROTECT_MOVES = new Set([
+  "close_loop_no_new_action",
+  "acknowledge_prior_ask_satisfied",
+  "respond_to_open_question_answer_natural",
+  "acknowledge_prior_answer_without_reasking",
+  "reinforce_plan_without_proof",
+  "close_prior_plan_loop",
+  "next_first_step",
+]);
+
+const POST_VALIDATE_CLOSE_LOOP_ROUTE_PURPOSES = new Set([
+  "normal_inbound_reply",
+  "open_question_answer",
+]);
+
+const TRIVIAL_INBOUND_ACK_ONLY_RE = /^(ok|okay|yes|yep|yup|sure|thanks|thx|got it)\.?$/i;
+
+export function inboundHasConcretePlanOrAnswerDetail(rawInbound: string | null | undefined): boolean {
+  const t = rawInbound?.trim() ?? "";
+  if (t.length < 4) return false;
+  if (TRIVIAL_INBOUND_ACK_ONLY_RE.test(t)) return false;
+  return true;
+}
+
+export function isProtectOrCloseLoopCoachingMove(suggestedCoachingMove: string | null | undefined): boolean {
+  const move = suggestedCoachingMove?.trim();
+  if (!move) return false;
+  return ANSWERED_PRIOR_ASK_POST_VALIDATE_PROTECT_MOVES.has(move);
+}
+
+/** Post-validate close-loop when user answered prior ask — uses inbound_meaning, not authoritative TU. */
+export function isAnsweredPriorAskPostValidateCloseLoopEligible(args: {
+  inboundMeaning?: InboundMeaningFacts | null;
+  rawInbound?: string | null;
+  currentInboundIsShortAcknowledgement?: boolean;
+  suggestedCoachingMove?: string | null;
+  routePurpose?: string | null;
+}): boolean {
+  if (args.currentInboundIsShortAcknowledgement) return false;
+  if (inboundExplicitOutcomeDetected(args.rawInbound ?? "")) return false;
+  if (!inboundHasConcretePlanOrAnswerDetail(args.rawInbound)) return false;
+
+  const meaning = args.inboundMeaning?.relationship_meaning;
+  if (!meaning || !ANSWERED_PRIOR_ASK_CLOSE_LOOP_INBOUND_MEANINGS.has(meaning)) {
+    return false;
+  }
+
+  if (args.inboundMeaning?.persistence_decision !== "no_outcome_write") {
+    return false;
+  }
+
+  if (!isProtectOrCloseLoopCoachingMove(args.suggestedCoachingMove)) {
+    return false;
+  }
+
+  const route = args.routePurpose?.trim() ?? "normal_inbound_reply";
+  return POST_VALIDATE_CLOSE_LOOP_ROUTE_PURPOSES.has(route);
+}
+
+export function postValidateCloseLoopBlockedReasonsEligible(
+  initialBlocked: string[],
+  repairedBlocked?: string[] | null
+): boolean {
+  const all = [...initialBlocked, ...(repairedBlocked ?? [])];
+  return all.some(
+    (r) =>
+      r === "generic_momentum" ||
+      r === "thread_freshness_validation_failed" ||
+      r.startsWith("thread_freshness_")
+  );
+}
+
+export function buildPostValidateCloseLoopProtectPlanRepairInstruction(args: {
+  doNotRepeatAsks: string[];
+  rawInbound?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+  blockedReasons: string[];
+}): string {
+  const dnr = args.doNotRepeatAsks.slice(0, 4).join(" | ");
+  const inboundPreview = args.rawInbound?.trim().slice(0, 200) ?? "";
+  const meaning = args.inboundMeaning?.relationship_meaning ?? "unclear";
+  const blocked = args.blockedReasons.slice(0, 6).join(", ");
+  return `ANSWERED-PRIOR-ASK POST-VALIDATE CLOSE-LOOP REPAIR: The user already answered the prior coach ask with a concrete plan or detail.
+Rewrite as a short human acknowledgement that protects the specific plan they stated in their latest inbound.
+Do not use generic momentum phrases (keep momentum, let's keep going, continuing momentum, etc.).
+Do not suggest additional scheduling, extra calls, or new tasks beyond what the user already confirmed.
+Do not ask another question — close the loop without a new ask.
+Do not claim completion, proof saved, Victory, or any server state change.
+Do NOT repeat or paraphrase these stale asks: ${dnr || "prior satisfied ask"}.
+Latest inbound preview: ${inboundPreview || "(none)"}.
+Inbound meaning hint: ${meaning}.
+Blocked issues to fix: ${blocked || "generic_momentum"}.
+No hard-coded templates. One short SMS.`;
+}
+
+export async function tryRepairInboundPostValidateCloseLoop(
+  args: {
+    body: string;
+    blockedReasons: string[];
+    doNotRepeatAsks: string[];
+    rawInbound?: string | null;
+    inboundMeaning?: InboundMeaningFacts | null;
+    routePurpose?: string;
+    factsJson?: Record<string, unknown> | null;
+    repairSnapshot?: TryRepairInboundStaleAskViolationArgs["repairSnapshot"];
+    repairPass?: 1 | 2;
+  }
+): Promise<{ body: string; metadata: Record<string, unknown> } | null> {
+  const repair = await repairV3RelationshipLaneBodyWithOpenAI({
+    routeKind: "inbound",
+    routePurpose: args.routePurpose ?? "answered_prior_ask_post_validate_close_loop",
+    originalBody: args.body,
+    blockedReasons: args.blockedReasons,
+    factsJson: args.factsJson ?? null,
+    repairSnapshot: args.repairSnapshot ?? null,
+    repairPass: args.repairPass,
+    systemInstruction: buildPostValidateCloseLoopProtectPlanRepairInstruction({
+      doNotRepeatAsks: args.doNotRepeatAsks,
+      rawInbound: args.rawInbound,
+      inboundMeaning: args.inboundMeaning,
+      blockedReasons: args.blockedReasons,
+    }),
+  });
+
+  if (!repair?.body?.trim()) {
+    return null;
+  }
+
+  return {
+    body: repair.body.trim(),
+    metadata: {
+      answered_prior_ask_close_loop_post_validate_attempted: true,
+      answered_prior_ask_close_loop_post_validate_repair_openai_ok: repair.openAiOk,
+      answered_prior_ask_close_loop_post_validate_repair_metadata: repair.metadata,
+      answered_prior_ask_close_loop_post_validate_repair_body_preview: repair.body.trim().slice(0, 220),
+      ...(args.repairPass != null
+        ? { answered_prior_ask_close_loop_post_validate_repair_pass: args.repairPass }
+        : {}),
+    },
+  };
+}
+
+export async function resolvePostValidateCloseLoopRepair(args: {
+  body: string;
+  blockedReasons: string[];
+  doNotRepeatAsks: string[];
+  rawInbound?: string | null;
+  inboundMeaning?: InboundMeaningFacts | null;
+  routePurpose?: string;
+  factsJson?: Record<string, unknown> | null;
+  repairSnapshot?: TryRepairInboundStaleAskViolationArgs["repairSnapshot"];
+  validateCandidate: (body: string) => boolean;
+}): Promise<
+  | { ok: true; body: string; repairMeta: Record<string, unknown> }
+  | { ok: false; repairMeta: Record<string, unknown> }
+> {
+  const baseMeta: Record<string, unknown> = {
+    answered_prior_ask_close_loop_post_validate_eligible: true,
+    answered_prior_ask_close_loop_post_validate_attempted: true,
+  };
+
+  const attempt = async (candidateBody: string, pass?: 1 | 2) => {
+    const repaired = await tryRepairInboundPostValidateCloseLoop({
+      body: candidateBody,
+      blockedReasons: args.blockedReasons,
+      doNotRepeatAsks: args.doNotRepeatAsks,
+      rawInbound: args.rawInbound,
+      inboundMeaning: args.inboundMeaning,
+      routePurpose: args.routePurpose,
+      factsJson: args.factsJson,
+      repairSnapshot: args.repairSnapshot,
+      repairPass: pass,
+    });
+    if (!repaired?.body) return null;
+    return { repaired, valid: args.validateCandidate(repaired.body) };
+  };
+
+  const first = await attempt(args.body, 1);
+  if (!first) {
+    return {
+      ok: false,
+      repairMeta: {
+        ...baseMeta,
+        answered_prior_ask_close_loop_post_validate_succeeded: false,
+      },
+    };
+  }
+
+  if (first.valid) {
+    return {
+      ok: true,
+      body: first.repaired.body,
+      repairMeta: {
+        ...baseMeta,
+        ...first.repaired.metadata,
+        answered_prior_ask_close_loop_post_validate_succeeded: true,
+      },
+    };
+  }
+
+  const second = await attempt(first.repaired.body, 2);
+  if (second?.valid) {
+    return {
+      ok: true,
+      body: second.repaired.body,
+      repairMeta: {
+        ...baseMeta,
+        ...second.repaired.metadata,
+        answered_prior_ask_close_loop_post_validate_succeeded: true,
+        answered_prior_ask_close_loop_post_validate_second_pass: true,
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    repairMeta: {
+      ...baseMeta,
+      ...(first.repaired.metadata ?? {}),
+      ...(second?.repaired.metadata ?? {}),
+      answered_prior_ask_close_loop_post_validate_succeeded: false,
+    },
+  };
+}
+
 export async function applyInboundFinalBodyTurnUnderstandingGuardAsync(args: {
   body: string;
   context: InboundTurnUnderstandingContext | null | undefined;

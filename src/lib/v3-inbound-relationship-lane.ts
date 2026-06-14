@@ -103,8 +103,12 @@ import {
   type ReconciledTurnUnderstanding,
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
+  buildPostValidateCloseLoopProtectPlanRepairInstruction,
   detectTurnUnderstandingStaleAskViolationFromFacts,
+  isAnsweredPriorAskPostValidateCloseLoopEligible,
   paraphraseRepeatsStaleCoachAsk,
+  postValidateCloseLoopBlockedReasonsEligible,
+  resolvePostValidateCloseLoopRepair,
   resolveStaleAskViolationWithRepair,
 } from "@/lib/inbound-turn-understanding-context";
 import {
@@ -315,6 +319,68 @@ export function deriveInboundThreadMemoryCorrectionFields(args: {
     memory_correction_should_use_prior_user_answer: alreadyTold && Boolean(priorUser?.trim()),
     short_ack_should_not_reask_question: shortAck && Boolean(priorUser?.trim()),
   };
+}
+
+function inboundDoNotRepeatAsksForCloseLoop(facts: InboundV3RelationshipFacts): string[] {
+  const out: string[] = [];
+  for (const a of facts.turn_understanding?.reconciled_do_not_repeat_asks ?? []) {
+    const t = a?.trim();
+    if (t) out.push(t);
+  }
+  const openQ =
+    facts.thread.latest_open_question ?? facts.thread.memory_packet?.latest_open_question ?? null;
+  if (openQ?.trim()) out.push(openQ.trim());
+  const coachOut =
+    facts.thread.latest_outbound_coach_sms ??
+    facts.thread.memory_packet?.last_outbound_full_body ??
+    null;
+  if (coachOut?.trim() && coachOut.trim().length >= 12) out.push(coachOut.trim());
+  return [...new Set(out)];
+}
+
+function inboundPostValidateCloseLoopContext(facts: InboundV3RelationshipFacts) {
+  return {
+    inboundMeaning: facts.inbound_meaning,
+    rawInbound: facts.thread.coalesced_inbound_text ?? null,
+    currentInboundIsShortAcknowledgement: facts.thread.current_inbound_is_short_acknowledgement,
+    suggestedCoachingMove: facts.suggested_coaching_move,
+    routePurpose: facts.route_purpose,
+    doNotRepeatAsks: inboundDoNotRepeatAsksForCloseLoop(facts),
+  };
+}
+
+function inboundPostValidateCloseLoopEligible(
+  facts: InboundV3RelationshipFacts,
+  initialBlocked: string[],
+  repairedBlocked?: string[] | null
+): boolean {
+  return (
+    isAnsweredPriorAskPostValidateCloseLoopEligible(inboundPostValidateCloseLoopContext(facts)) &&
+    postValidateCloseLoopBlockedReasonsEligible(initialBlocked, repairedBlocked)
+  );
+}
+
+async function tryResolvePostValidateCloseLoopFallback(
+  body: string,
+  args: InboundV3RelationshipLaneInput,
+  blockedReasons: string[],
+  repairSnapshot: import("@/lib/sms-relationship-repair-snapshot-v1").RepairRelationshipSnapshotV1
+): Promise<
+  | { ok: true; body: string; repairMeta: Record<string, unknown> }
+  | { ok: false; repairMeta: Record<string, unknown> }
+> {
+  const ctx = inboundPostValidateCloseLoopContext(args.facts);
+  return resolvePostValidateCloseLoopRepair({
+    body,
+    blockedReasons,
+    doNotRepeatAsks: ctx.doNotRepeatAsks,
+    rawInbound: ctx.rawInbound,
+    inboundMeaning: ctx.inboundMeaning,
+    routePurpose: args.facts.route_purpose,
+    factsJson: args.facts as unknown as Record<string, unknown>,
+    repairSnapshot,
+    validateCandidate: (candidate) => validateInboundLaneCandidateBody(candidate, args).ok,
+  });
 }
 
 /** Blocks outbound SMS that repeats a coach ask listed in turn_understanding.do_not_repeat_asks. */
@@ -2444,6 +2510,18 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     }
 
     const originalCandidateSnapshot = body;
+    const closeLoopCtx = inboundPostValidateCloseLoopContext(args.facts);
+    const closeLoopPostValidateEligible =
+      inboundPostValidateCloseLoopEligible(args.facts, repairable) &&
+      repairable.includes("generic_momentum");
+    const closeLoopPostValidateInstruction = closeLoopPostValidateEligible
+      ? buildPostValidateCloseLoopProtectPlanRepairInstruction({
+          doNotRepeatAsks: closeLoopCtx.doNotRepeatAsks,
+          rawInbound: closeLoopCtx.rawInbound,
+          inboundMeaning: closeLoopCtx.inboundMeaning,
+          blockedReasons: repairable,
+        })
+      : undefined;
 
     const { snapshot: repairSnapshot, meta: snapshotMeta } = prepareRepairSnapshotForOpenAI({
       repairKind: "lane_post_validate",
@@ -2463,58 +2541,128 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       initialRepairable: repairable,
       repairSnapshot,
       snapshotMeta,
+      systemInstruction: closeLoopPostValidateInstruction,
       validateAfterRepair: (candidate) => inboundValidateAfterPostRepair(candidate, args),
     });
 
     if (!repairLoop.ok) {
       const postFail = validateInboundLaneCandidateBody(repairLoop.repairedBody ?? "", args);
-      return {
-        body: "",
-        shouldSend: false,
-        noSendReason: postFail.ok ? "lane_post_validate_blocked" : postFail.noSendReason,
-        replySource: "v3_inbound_relationship_lane",
-        turnPurpose: turnPurpose || "no_send",
-        voiceConfidence,
-        usedFacts,
-        safetyNotes: [
-          ...safetyNotes,
-          ...blocked.map((b) => `blocked:${b}`),
-          ...(!postFail.ok && postFail.safetySuffix ? [postFail.safetySuffix] : []),
-        ],
-        metadata: {
-          ...baseMeta,
-          ...laneOpenAiJsonMeta,
-          lane_stage: "post_validate_repair_failed",
-          v3_candidate_body: originalCandidateSnapshot,
-          blocked_reasons: blocked,
-          lane_repair_attempted: true,
-          lane_repair_succeeded: false,
-          original_blocked_reasons: repairable,
-          original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-          repaired_candidate_body: repairLoop.repairedBody,
-          repaired_blocked_reasons: repairLoop.repairedBlockedReasons,
-          ...repairLoop.lastRepairMetadata,
-          ...snapshotMeta,
-          ...repairLoop.telemetry,
-          ...(repairLoop.extraMeta ?? {}),
-        },
-        openAiOk: true,
+      const closeLoopFallbackEligible = inboundPostValidateCloseLoopEligible(
+        args.facts,
+        blocked,
+        repairLoop.repairedBlockedReasons
+      );
+
+      if (closeLoopFallbackEligible) {
+        const fallback = await tryResolvePostValidateCloseLoopFallback(
+          originalCandidateSnapshot,
+          args,
+          blocked,
+          repairSnapshot
+        );
+        if (fallback.ok) {
+          body = fallback.body;
+          successLaneStage = "post_validate_repaired";
+          successRepairExtra = {
+            lane_repair_attempted: true,
+            lane_repair_succeeded: true,
+            original_blocked_reasons: repairable,
+            original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+            repaired_candidate_body: fallback.body,
+            repaired_blocked_reasons: [],
+            answered_prior_ask_close_loop_post_validate_fallback: true,
+            ...fallback.repairMeta,
+            ...snapshotMeta,
+            ...repairLoop.telemetry,
+          };
+        } else {
+          return {
+            body: "",
+            shouldSend: false,
+            noSendReason: postFail.ok ? "lane_post_validate_blocked" : postFail.noSendReason,
+            replySource: "v3_inbound_relationship_lane",
+            turnPurpose: turnPurpose || "no_send",
+            voiceConfidence,
+            usedFacts,
+            safetyNotes: [
+              ...safetyNotes,
+              ...blocked.map((b) => `blocked:${b}`),
+              ...(!postFail.ok && postFail.safetySuffix ? [postFail.safetySuffix] : []),
+            ],
+            metadata: {
+              ...baseMeta,
+              ...laneOpenAiJsonMeta,
+              lane_stage: "post_validate_repair_failed",
+              v3_candidate_body: originalCandidateSnapshot,
+              blocked_reasons: blocked,
+              lane_repair_attempted: true,
+              lane_repair_succeeded: false,
+              original_blocked_reasons: repairable,
+              original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+              repaired_candidate_body: repairLoop.repairedBody,
+              repaired_blocked_reasons: repairLoop.repairedBlockedReasons,
+              answered_prior_ask_close_loop_post_validate_fallback: true,
+              ...repairLoop.lastRepairMetadata,
+              ...snapshotMeta,
+              ...repairLoop.telemetry,
+              ...fallback.repairMeta,
+              ...(repairLoop.extraMeta ?? {}),
+            },
+            openAiOk: true,
+          };
+        }
+      } else {
+        return {
+          body: "",
+          shouldSend: false,
+          noSendReason: postFail.ok ? "lane_post_validate_blocked" : postFail.noSendReason,
+          replySource: "v3_inbound_relationship_lane",
+          turnPurpose: turnPurpose || "no_send",
+          voiceConfidence,
+          usedFacts,
+          safetyNotes: [
+            ...safetyNotes,
+            ...blocked.map((b) => `blocked:${b}`),
+            ...(!postFail.ok && postFail.safetySuffix ? [postFail.safetySuffix] : []),
+          ],
+          metadata: {
+            ...baseMeta,
+            ...laneOpenAiJsonMeta,
+            lane_stage: "post_validate_repair_failed",
+            v3_candidate_body: originalCandidateSnapshot,
+            blocked_reasons: blocked,
+            lane_repair_attempted: true,
+            lane_repair_succeeded: false,
+            original_blocked_reasons: repairable,
+            original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+            repaired_candidate_body: repairLoop.repairedBody,
+            repaired_blocked_reasons: repairLoop.repairedBlockedReasons,
+            ...repairLoop.lastRepairMetadata,
+            ...snapshotMeta,
+            ...repairLoop.telemetry,
+            ...(repairLoop.extraMeta ?? {}),
+          },
+          openAiOk: true,
+        };
+      }
+    } else {
+      body = repairLoop.body;
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = {
+        lane_repair_attempted: true,
+        lane_repair_succeeded: true,
+        original_blocked_reasons: repairable,
+        original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
+        repaired_candidate_body: repairLoop.body,
+        repaired_blocked_reasons: [],
+        ...(closeLoopPostValidateEligible
+          ? { answered_prior_ask_close_loop_post_validate_proactive: true }
+          : {}),
+        ...repairLoop.lastRepairMetadata,
+        ...snapshotMeta,
+        ...repairLoop.telemetry,
       };
     }
-
-    body = repairLoop.body;
-    successLaneStage = "post_validate_repaired";
-    successRepairExtra = {
-      lane_repair_attempted: true,
-      lane_repair_succeeded: true,
-      original_blocked_reasons: repairable,
-      original_candidate_body_preview: bodyPreview(originalCandidateSnapshot),
-      repaired_candidate_body: repairLoop.body,
-      repaired_blocked_reasons: [],
-      ...repairLoop.lastRepairMetadata,
-      ...snapshotMeta,
-      ...repairLoop.telemetry,
-    };
   }
 
   const freshnessGuard = await applyThreadFreshnessGuard({

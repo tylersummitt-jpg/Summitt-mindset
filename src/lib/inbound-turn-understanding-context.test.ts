@@ -27,7 +27,9 @@ import {
   detectReconciledTurnUnderstandingStaleAskViolation,
   emptyInboundTurnUnderstandingContext,
   isAnsweredPriorAskCloseLoopEligible,
+  isAnsweredPriorAskPostValidateCloseLoopEligible,
   paraphraseRepeatsStaleCoachAsk,
+  postValidateCloseLoopBlockedReasonsEligible,
   resolveStaleAskViolationWithRepair,
 } from "@/lib/inbound-turn-understanding-context";
 
@@ -393,6 +395,53 @@ describe("answered-prior-ask close-loop eligibility", () => {
         rawInbound: "maybe later",
       })
     ).toBe(false);
+  });
+});
+
+describe("answered-prior-ask post-validate close-loop eligibility", () => {
+  it("eligible for June 13 class without authoritative TU", () => {
+    const recommitAsk =
+      "Would you like to recommit to putting one family connection on the calendar before the day ends?";
+    const inbound = "Yes 8pm call California";
+    const det = buildInboundMeaningFacts({
+      rawInbound: inbound,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: recommitAsk,
+      latestOutboundBody: recommitAsk,
+    });
+    expect(
+      isAnsweredPriorAskPostValidateCloseLoopEligible({
+        inboundMeaning: det,
+        rawInbound: inbound,
+        suggestedCoachingMove: "respond_to_open_question_answer_natural",
+        routePurpose: "normal_inbound_reply",
+      })
+    ).toBe(true);
+  });
+
+  it("not eligible for write_user_yes_today persistence", () => {
+    const det = buildInboundMeaningFacts({
+      rawInbound: "done two hours",
+      classifierEventType: "user_yes",
+    });
+    expect(
+      isAnsweredPriorAskPostValidateCloseLoopEligible({
+        inboundMeaning: det,
+        rawInbound: "done two hours",
+        suggestedCoachingMove: "respond_to_open_question_answer_natural",
+      })
+    ).toBe(false);
+  });
+
+  it("postValidateCloseLoopBlockedReasonsEligible accepts generic_momentum and thread freshness", () => {
+    expect(postValidateCloseLoopBlockedReasonsEligible(["generic_momentum"])).toBe(true);
+    expect(
+      postValidateCloseLoopBlockedReasonsEligible(
+        ["generic_momentum"],
+        ["thread_freshness_validation_failed"]
+      )
+    ).toBe(true);
   });
 });
 
