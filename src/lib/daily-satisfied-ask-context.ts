@@ -265,6 +265,74 @@ export function resolveDailySatisfiedAskContext(
   return null;
 }
 
+const PLAN_AFFIRMING_SATISFIED_ASK_TYPES = new Set<DailySatisfiedAskType>([
+  "plan_confirmation",
+  "plan_detail",
+]);
+
+/** True when satisfied-ask context indicates the user already affirmed a plan or timing. */
+export function isPlanAffirmingDailySatisfiedAskContext(
+  ctx: DailySatisfiedAskContext | null | undefined
+): boolean {
+  if (!ctx?.has_satisfied_recent_ask) return false;
+
+  const priorQuestionType = ctx.prior_question_type?.trim().toLowerCase() ?? "";
+  if (priorQuestionType === "outcome_check") return false;
+  if (ctx.satisfied_ask_type === "outcome_answer") return false;
+
+  if (PLAN_AFFIRMING_SATISFIED_ASK_TYPES.has(ctx.satisfied_ask_type)) return true;
+  if (priorQuestionType === "plan_confirmation") return true;
+
+  const relationshipMeaning = ctx.relationship_meaning?.trim().toLowerCase() ?? "";
+  if (
+    relationshipMeaning === "plan_made" ||
+    relationshipMeaning === "answer_to_prior_question"
+  ) {
+    return true;
+  }
+
+  const evidence = ctx.evidence_preview?.trim() ?? "";
+  return Boolean(evidence && hasFuturePlanIntentLanguage(evidence));
+}
+
+export type SameBaseRecommitSuppressionResult = {
+  suppress: boolean;
+  reason: string | null;
+};
+
+/**
+ * Suppress same-base recommit_same contract_prompt when recent thread already affirms the plan.
+ * Internal nextMove type may remain recommit_same; visible contract proposal should not fire.
+ */
+export function shouldSuppressSameBaseRecommitForSatisfiedPlan(args: {
+  nextMoveType: string;
+  satisfiedAskContext: DailySatisfiedAskContext | null | undefined;
+  /** Same-base recommit proposals use the current/base behavior statement. */
+  proposedBarText: string;
+  baseBehaviorStatement: string;
+}): SameBaseRecommitSuppressionResult {
+  if (args.nextMoveType !== "recommit_same") {
+    return { suppress: false, reason: null };
+  }
+  if (!isPlanAffirmingDailySatisfiedAskContext(args.satisfiedAskContext)) {
+    return { suppress: false, reason: null };
+  }
+
+  const proposed = args.proposedBarText.trim();
+  const base = args.baseBehaviorStatement.trim();
+  if (!proposed || !base) {
+    return { suppress: false, reason: null };
+  }
+  if (proposed.toLowerCase() !== base.toLowerCase()) {
+    return { suppress: false, reason: null };
+  }
+
+  return {
+    suppress: true,
+    reason: "satisfied_plan_already_affirmed",
+  };
+}
+
 export function slimDailySatisfiedAskContextForTelemetry(
   ctx: DailySatisfiedAskContext | null | undefined
 ): Record<string, unknown> | null {

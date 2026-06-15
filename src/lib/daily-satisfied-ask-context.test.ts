@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isPlanAffirmingDailySatisfiedAskContext,
   resolveDailySatisfiedAskContext,
+  shouldSuppressSameBaseRecommitForSatisfiedPlan,
   slimDailySatisfiedAskContextForTelemetry,
   type DailySatisfiedAskContext,
 } from "@/lib/daily-satisfied-ask-context";
@@ -91,6 +93,109 @@ describe("resolveDailySatisfiedAskContext", () => {
         openQuestionPending: true,
       })
     ).toBeNull();
+  });
+});
+
+describe("shouldSuppressSameBaseRecommitForSatisfiedPlan", () => {
+  const baseBar = "One hour of distribution per day";
+
+  function planConfirmationContext(
+    overrides?: Partial<DailySatisfiedAskContext>
+  ): DailySatisfiedAskContext {
+    return {
+      has_satisfied_recent_ask: true,
+      satisfied_ask_type: "plan_confirmation",
+      do_not_repeat_asks: ["Does morning distribution still work for you?"],
+      evidence_preview:
+        "I think if I do distribution first thing in the morning, we'll get the 30 minutes done each day.",
+      source: "inbound_turn_telemetry",
+      occurred_at: "2026-06-14T18:00:00.000Z",
+      last_ask_satisfied: "yes",
+      stale_ask_risk: true,
+      relationship_meaning: "plan_made",
+      response_intent: "acknowledge_prior_ask_satisfied",
+      prior_question_type: "plan_confirmation",
+      outcome_proof_eligible: false,
+      persistence_note: "no proof",
+      ...overrides,
+    };
+  }
+
+  it("suppresses same-base recommit_same when plan_confirmation satisfied", () => {
+    const r = shouldSuppressSameBaseRecommitForSatisfiedPlan({
+      nextMoveType: "recommit_same",
+      satisfiedAskContext: planConfirmationContext(),
+      proposedBarText: baseBar,
+      baseBehaviorStatement: baseBar,
+    });
+    expect(r.suppress).toBe(true);
+    expect(r.reason).toBe("satisfied_plan_already_affirmed");
+  });
+
+  it("does not suppress shrink_ask or hold_standard", () => {
+    const ctx = planConfirmationContext();
+    expect(
+      shouldSuppressSameBaseRecommitForSatisfiedPlan({
+        nextMoveType: "shrink_ask",
+        satisfiedAskContext: ctx,
+        proposedBarText: baseBar,
+        baseBehaviorStatement: baseBar,
+      }).suppress
+    ).toBe(false);
+    expect(
+      shouldSuppressSameBaseRecommitForSatisfiedPlan({
+        nextMoveType: "hold_standard",
+        satisfiedAskContext: ctx,
+        proposedBarText: baseBar,
+        baseBehaviorStatement: baseBar,
+      }).suppress
+    ).toBe(false);
+  });
+
+  it("does not suppress recommit_same without satisfied plan context", () => {
+    expect(
+      shouldSuppressSameBaseRecommitForSatisfiedPlan({
+        nextMoveType: "recommit_same",
+        satisfiedAskContext: null,
+        proposedBarText: baseBar,
+        baseBehaviorStatement: baseBar,
+      }).suppress
+    ).toBe(false);
+  });
+
+  it("does not suppress when proposed bar differs from base", () => {
+    expect(
+      shouldSuppressSameBaseRecommitForSatisfiedPlan({
+        nextMoveType: "recommit_same",
+        satisfiedAskContext: planConfirmationContext(),
+        proposedBarText: "Thirty minutes of distribution per day",
+        baseBehaviorStatement: baseBar,
+      }).suppress
+    ).toBe(false);
+  });
+
+  it("does not suppress outcome_answer satisfied context", () => {
+    expect(
+      shouldSuppressSameBaseRecommitForSatisfiedPlan({
+        nextMoveType: "recommit_same",
+        satisfiedAskContext: planConfirmationContext({
+          satisfied_ask_type: "outcome_answer",
+          prior_question_type: "outcome_check",
+          relationship_meaning: "reported_completion",
+          evidence_preview: "Yes I got it done yesterday.",
+        }),
+        proposedBarText: baseBar,
+        baseBehaviorStatement: baseBar,
+      }).suppress
+    ).toBe(false);
+    expect(
+      isPlanAffirmingDailySatisfiedAskContext(
+        planConfirmationContext({
+          satisfied_ask_type: "outcome_answer",
+          prior_question_type: "outcome_check",
+        })
+      )
+    ).toBe(false);
   });
 });
 

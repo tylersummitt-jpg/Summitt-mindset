@@ -3054,7 +3054,7 @@ RELATIONSHIP-FIRST DAILY (one continuous coaching relationship — not a daily c
 const DAILY_C2_ALLOWED_MOVES: StrategyCardMoveType[] = ["contract_proposal"];
 
 const C2_MUST_NOT_GOAL_CHANGED = "Do not claim the goal, commitment, or bar already changed or is now active.";
-const C2_MUST_NOT_ACCEPTED = "Do not claim the user already accepted or recommitted to the proposal.";
+const C2_MUST_NOT_ACCEPTED = "Do not claim the user already accepted the proposal or that it is active.";
 const C2_MUST_NOT_ACTIVE = "Do not claim the proposal or overlay is already active or applied.";
 const C2_MUST_NOT_ROBOTIC = "Do not use robotic menu consent copy (Reply YES, Reply NO, YES to confirm, etc.).";
 
@@ -3062,7 +3062,7 @@ function deriveDailyC2RequiredMeaning(kind: DailyContractProposalKind): string {
   if (kind === "shrink_ask") {
     return "Propose a smaller or tighter bar as an offer — not already applied.";
   }
-  return "Ask whether they want to recommit to the same current bar — not already recommitted.";
+  return "Present the server-authorized same-bar continuity decision in natural coaching language — not already accepted or active.";
 }
 
 function deriveDailyC2BarFingerprint(sem: DailySemanticContractProposalFactsPacket): string | null {
@@ -3119,9 +3119,19 @@ function buildDailyC2MustDoMustNotDo(
     must_do.push("Ask naturally whether they want to try this bar.");
     must_not_do.push("Do not claim the new smaller bar is already active.");
   } else {
-    must_do.push("Ask whether they want to recommit to the same current bar.");
-    must_do.push("Preserve current behavior statement meaning from semantic facts.");
-    must_not_do.push("Do not claim they already recommitted.");
+    must_do.push(
+      "Present same-bar continuity in natural coaching language only if still needed."
+    );
+    must_do.push(
+      "Preserve current bar meaning; let the user accept, decline, or adjust in natural coaching language."
+    );
+    must_not_do.push("Do not use recommit or Would you like to recommit in visible SMS.");
+    must_not_do.push(
+      "Do not re-ask same-bar consent when the recent thread already affirms the plan."
+    );
+    must_not_do.push(
+      "Do not claim the same-bar proposal is accepted or active before the user confirms."
+    );
   }
   return {
     must_do: must_do.slice(0, MAX_MUST_DO),
@@ -3162,7 +3172,7 @@ export function buildDailyC2StrategyCardV1(args: {
   const reason =
     kind === "shrink_ask"
       ? "Semantic daily contract — propose a smaller bar without claiming it is active."
-      : "Semantic daily contract — recommit offer for the current bar without claiming state changed.";
+      : "Semantic daily contract — same-bar continuity offer without claiming state changed.";
 
   return {
     version: STRATEGY_CARD_V1_VERSION,
@@ -3232,7 +3242,7 @@ function mustDoIncludesC2ProposalMeaning(must_do: string[], kind: DailyContractP
   if (kind === "shrink_ask") {
     return joined.includes("proposal") && joined.includes("semantic");
   }
-  return joined.includes("recommit") && joined.includes("semantic");
+  return joined.includes("same-bar") && joined.includes("semantic");
 }
 
 export function validateDailyContractPromptStrategyCardV1(

@@ -166,6 +166,7 @@ import { pickNorthStarWriterAttributionFields, type NorthStarCoachChannel } from
 import { dailySmsVoiceSkipEventPatch, isDailySmsWithheldByFinalVoiceGate } from "@/lib/daily-sms-voice-skip";
 import {
   resolveDailySatisfiedAskContext,
+  shouldSuppressSameBaseRecommitForSatisfiedPlan,
   slimDailySatisfiedAskContextForTelemetry,
   type DailySatisfiedAskContext,
 } from "@/lib/daily-satisfied-ask-context";
@@ -2153,6 +2154,12 @@ async function buildDailySmsContent(
       recentEvents,
     });
 
+    const relationshipMemoryPacketMain = await buildSmsRelationshipMemoryPacket({
+      clerkUserId,
+      commitmentId: active.id,
+      timezone,
+    });
+
     const hasBlockerPreview = Boolean(blockerPreview && blockerPreview.trim().length > 0);
     const cadencePayload = deriveV2CadencePayload({
       eventsNewestFirst: recentEvents,
@@ -2254,11 +2261,26 @@ async function buildDailySmsContent(
       !refreshSessionActive &&
       smsGoalAdjustmentShrinkOverlayEligible(goalAdjustmentSignal);
 
+    const sameBaseRecommitBarText = active.behavior_statement.trim();
+    const earlySatisfiedAskContext = resolveDailySatisfiedAskFromPacket({
+      recentEvents,
+      packet: relationshipMemoryPacketMain,
+    });
+    const sameBaseRecommitSuppression = shouldSuppressSameBaseRecommitForSatisfiedPlan({
+      nextMoveType: nextMove.type,
+      satisfiedAskContext: earlySatisfiedAskContext,
+      proposedBarText: sameBaseRecommitBarText,
+      baseBehaviorStatement: sameBaseRecommitBarText,
+    });
+    const recommitSameSuppressedForSatisfiedPlan = sameBaseRecommitSuppression.suppress;
+    const recommitSameSuppressionReason = sameBaseRecommitSuppression.reason;
+
     const recommitProposalMode =
       nextMove.type === "recommit_same" &&
       !isV2AdaptiveOverlayActive(active, now.getTime()) &&
       !isV2PendingProposalValid(active, now.getTime()) &&
-      !refreshSessionActive;
+      !refreshSessionActive &&
+      !recommitSameSuppressedForSatisfiedPlan;
 
     const contractProposalMode = shrinkProposalMode || recommitProposalMode;
     const contractProposalKind: V2AdaptiveContractKind | null = shrinkProposalMode
@@ -2473,12 +2495,6 @@ async function buildDailySmsContent(
         ? JSON.stringify(coachingMemoryRow.sms_relationship_profile).slice(0, 240)
         : null;
 
-    const relationshipMemoryPacketMain = await buildSmsRelationshipMemoryPacket({
-      clerkUserId,
-      commitmentId: active.id,
-      timezone,
-    });
-
     const factsCoreUnified: DailyV3RelationshipFactsForMove = {
       route_kind: routeKind,
       accountability_day_key: accountabilityDayKey,
@@ -2658,6 +2674,12 @@ async function buildDailySmsContent(
         coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
           buildCoachingBriefV1FromDailyFacts(factsUnified)
         ),
+        ...(recommitSameSuppressedForSatisfiedPlan
+          ? {
+              recommit_same_suppressed_for_satisfied_plan: true,
+              recommit_same_suppression_reason: recommitSameSuppressionReason,
+            }
+          : {}),
       },
     };
 
@@ -2677,6 +2699,10 @@ async function buildDailySmsContent(
       nextMovePayload.shrunk_ask_text = shrinkProposalMode
         ? canonicalProposalAskTrim
         : nextMove.shrunk_ask_text;
+    }
+    if (recommitSameSuppressedForSatisfiedPlan) {
+      nextMovePayload.recommit_same_suppressed_for_satisfied_plan = true;
+      nextMovePayload.recommit_same_suppression_reason = recommitSameSuppressionReason;
     }
     if (contractProposalMode && contractProposalKind) {
       nextMovePayload.contract_proposal_pending = true;

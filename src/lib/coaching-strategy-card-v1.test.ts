@@ -2017,19 +2017,26 @@ describe("Daily C2 Strategy Card v1", () => {
     expect(meta.strategy_card_legacy_v2_contract_proposal_kind).toBe("shrink_ask");
   });
 
-  it("contract_prompt/recommit_same avoids abstract renewal but preserves contract_proposal move", () => {
+  it("contract_prompt/recommit_same avoids abstract renewal and robot recommit wording", () => {
     const card = buildDailyC2StrategyCardV1({
       ctx: buildC2Ctx(contractDailyFacts("recommit_same")),
     });
     expect(card.move.type).toBe("contract_proposal");
     expect(card.must_not_do).toContain(CONTRACT_BAR_SPECIFIC_NOT_ABSTRACT_RENEWAL_MUST_NOT_DO);
-    expect(card.must_do.join(" ").toLowerCase()).toMatch(/recommit|proposal|bar/);
-    const joined = card.must_not_do.join(" ").toLowerCase();
-    expect(joined).toMatch(/goal/);
-    expect(joined).toMatch(/accepted/);
-    expect(joined).toMatch(/active/);
-    expect(joined).toMatch(/reply yes/);
+    const mustDoJoined = card.must_do.join(" ").toLowerCase();
+    const mustNotJoined = card.must_not_do.join(" ").toLowerCase();
+    expect(mustDoJoined).toMatch(/same-bar|continuity/);
+    expect(mustDoJoined).not.toMatch(/\brecommit\b/);
+    expect(mustNotJoined).toMatch(/would you like to recommit/);
+    expect(mustNotJoined).toMatch(/goal/);
+    expect(mustNotJoined).toMatch(/accepted/);
+    expect(mustNotJoined).toMatch(/active/);
+    expect(mustNotJoined).toMatch(/reply yes/);
+    expect(card.server_truth_summary.daily_contract_required_meaning?.toLowerCase()).not.toMatch(
+      /\brecommit\b/
+    );
     expect(card.must_not_do.length).toBeLessThanOrEqual(8);
+    expect(card.must_do.length).toBeLessThanOrEqual(5);
   });
 });
 
