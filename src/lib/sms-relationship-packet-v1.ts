@@ -332,9 +332,20 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
 ${buildRelationshipAnchorsPromptGuidance()}
+${buildDailyC1HighRepeatRiskPacketGuidance()}
 ${buildTemporalContractPromptGuidance()}
 ${buildDailyTemporalAwarenessPromptGuidance()}
 ${buildRelationshipSnapshotV2PromptGuidance()}`;
+}
+
+/** Compact product law when stale/DNR context makes another question likely to repeat-block. */
+export function buildDailyC1HighRepeatRiskPacketGuidance(): string {
+  return `
+DAILY_C1_HIGH_REPEAT_RISK (when stale_ask_avoidance_summary, daily_satisfied_ask_context, or avoid_repeating shows recent satisfied/repeated asks):
+- Treat RELATIONSHIP_PACKET_V1 as the relationship notebook: read temporal awareness, recent thread timeline, current goal/standard, identity, stale/do-not-repeat context, and relationship anchors only if naturally useful before writing.
+- Then write one fresh, human, no-question coaching touch: concrete action, protect plan, close loop, identity reminder, low-pressure reentry, or relational bridge into action — not another question or question-shaped command.
+- Do not paraphrase satisfied asks, do_not_reask_labels, or recent_coach_question_labels into planning, outcome, blocker, evidence, or strategy phrasing.
+- Do not use tell me, let me know, reply with, name the blocker, choose one, or send me as a substitute for a question mark.`;
 }
 
 function isWeeklyFacts(
@@ -1834,6 +1845,9 @@ const RELATIONSHIP_PACKET_OBSERVABILITY_KEYS = [
   "strategy_card_local_weekday",
   "strategy_card_user_timezone",
   "strategy_card_is_new_accountability_day",
+  "strategy_card_high_repeat_risk",
+  "strategy_card_zero_question_required",
+  "strategy_card_zero_question_reason",
   "stale_ask_avoidance_has_satisfied_recent_ask",
   "stale_ask_avoidance_satisfied_label_count",
   "stale_ask_avoidance_do_not_reask_label_count",

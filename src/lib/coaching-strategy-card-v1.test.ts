@@ -29,6 +29,8 @@ import {
   buildDailyC1StrategyCardContextFromSnapshot,
   buildDailyC1StrategyCardV1,
   buildDailyC1StrategyCardDemotedPromptRules,
+  dailyC1HasHighRepeatRisk,
+  DAILY_C1_ZERO_QUESTION_REASON,
   buildDailyC2StrategyCardContextFromSnapshot,
   buildDailyC2StrategyCardV1,
   buildDailyC3PendingResolutionStrategyCardContextFromSnapshot,
@@ -67,6 +69,7 @@ import {
 import { buildActivePendingStateFromCommitmentRow } from "@/lib/sms-active-pending-state";
 import { deriveAdjustmentProposalAllowedByEvidence } from "@/lib/inbound-miss-adjustment-policy";
 import type { ProofAndPraisePermissionV2Data } from "@/lib/sms-proof-praise-permission-v2";
+import { applyDailyStaleAskDetectOnly } from "@/lib/daily-stale-ask-guard";
 import type { OpenLoopsAndDoNotRepeatData } from "@/lib/sms-open-loops-and-do-not-repeat";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
@@ -1968,6 +1971,230 @@ describe("Daily C1 Strategy Card v1", () => {
     });
     expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
     expect(card.must_not_do).toContain(REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO);
+  });
+
+  function lowRepeatRiskCtx() {
+    return buildDailyCtx(
+      dailyFacts({
+        thread_memory: {
+          ...dailyFacts().thread_memory,
+          last_5_coach_questions: [],
+          latest_outbound_sms: null,
+        },
+        daily_satisfied_ask_context: undefined,
+      }),
+      { withSatisfiedAsk: false }
+    );
+  }
+
+  describe("Daily C1 high-repeat-risk zero-question mode", () => {
+    it("plan_today + high repeat risk requires zero questions and blocks planning paraphrases", () => {
+      const ctx = buildDailyCtx(
+        dailyFacts({
+          daily_satisfied_ask_context: {
+            has_satisfied_recent_ask: true,
+            satisfied_ask_type: "plan_detail",
+            do_not_repeat_asks: [
+              "When it's time to put your phone and computer away, what do you find helps you most to follow through?",
+            ],
+            evidence_preview: "I'll shut down at 6",
+            source: "daily_satisfied_ask_context",
+            occurred_at: "2026-06-14",
+            persistence_note: "plan affirmed",
+            stale_ask_risk: true,
+          },
+        }),
+        {
+          withSatisfiedAsk: true,
+        }
+      );
+      expect(dailyC1HasHighRepeatRisk(ctx)).toBe(true);
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.server_truth_summary.daily_conversation_intent).toBe("plan_today");
+      expect(card.writer_constraints.max_questions).toBe(0);
+      expect(card.server_truth_summary.daily_zero_question_required).toBe(true);
+      expect(card.server_truth_summary.daily_zero_question_reason).toBe(
+        DAILY_C1_ZERO_QUESTION_REASON
+      );
+      expect(card.must_do.join(" ")).toMatch(/Do not ask a question/i);
+      expect(card.must_do.join(" ")).toMatch(/relationship notebook/i);
+      expect(card.must_do.join(" ")).toMatch(/temporal_awareness_summary/i);
+      expect(card.must_do.join(" ")).toMatch(/concrete protect-plan or action statement/i);
+      expect(card.must_not_do.some((m) => /first-step, outcome, blocker/i.test(m))).toBe(true);
+      expect(card.must_not_do.some((m) => /tell me, let me know, reply with/i.test(m))).toBe(true);
+      expect(card.must_do.join(" ")).toMatch(/relationship-accountability touch/i);
+      expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
+      expect(card.must_not_do).toContain(DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO);
+      expect(card.must_not_do.some((m) => /repeat or paraphrase satisfied/i.test(m))).toBe(true);
+    });
+
+    it("close_loop + high repeat risk closes without a new question", () => {
+      const ctx = buildDailyCtx(dailyFacts());
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.server_truth_summary.daily_conversation_intent).toBe("close_loop");
+      expect(card.writer_constraints.max_questions).toBe(0);
+      expect(card.must_do.join(" ")).toMatch(/close the loop with a concrete statement/i);
+      expect(card.must_do.join(" ")).toMatch(/Do not ask a question/i);
+    });
+
+    it("obstacle_recovery + high repeat risk + no current-day miss stays prospective without blocker questions", () => {
+      const facts = dailyFacts({
+        accountability_day_key: "2026-06-15",
+        user: {
+          clerk_user_id: "u_daily",
+          preferred_name: "Alex",
+          timezone: "America/New_York",
+          local_time_iso: "2026-06-15T06:01:00-04:00",
+          relationship_profile_summary: null,
+        },
+        accountability: {
+          ...dailyFacts().accountability,
+          prior_outcome: null,
+          days_since_last_user_outcome: 1,
+          blocker_preview: "kids schedule changes step plans",
+          yes_streak_14d: 0,
+        },
+        thread_memory: {
+          ...dailyFacts().thread_memory,
+          last_5_coach_questions: [
+            "What could you plan to do instead to reach your step goal?",
+          ],
+        },
+      });
+      const ctx = buildDailyCtx(facts, { withSatisfiedAsk: false });
+      ctx.openLoops.do_not_repeat_asks = [
+        "What could you plan to do instead to reach your step goal?",
+      ];
+      expect(dailyC1HasHighRepeatRisk(ctx)).toBe(true);
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.server_truth_summary.daily_conversation_intent).toBe("obstacle_recovery");
+      expect(obstacleRecoveryUsesProspectiveFraming(ctx)).toBe(true);
+      expect(card.writer_constraints.max_questions).toBe(0);
+      expect(card.must_do.join(" ")).toMatch(/prospective blocker or concrete action frame/i);
+      expect(card.must_not_do.some((m) => /what got in the way/i.test(m))).toBe(true);
+      expect(card.must_not_do.some((m) => /held you back/i.test(m))).toBe(true);
+    });
+
+    it("relationship_anchor_bridge + high repeat risk forbids standalone person questions", () => {
+      const facts = dailyFacts({
+        relationship_anchor_sources: {
+          important_people: [
+            { display_name: "Callie", relationship_type: "child", source: "onboarding" },
+          ],
+          people_summary: "Showing up for 1 child",
+        },
+        accountability: {
+          ...dailyFacts().accountability,
+          prior_outcome: null,
+          yes_streak_14d: 0,
+          blocker_preview: null,
+          days_since_last_user_outcome: 1,
+          silence_tier: "none",
+          unanswered_checks: 0,
+          reentry_active: false,
+        },
+        thread_memory: {
+          ...dailyFacts().thread_memory,
+          last_5_coach_questions: [],
+          latest_outbound_sms: null,
+        },
+      });
+      const ctx = buildDailyCtx(facts, { withSatisfiedAsk: false });
+      ctx.openLoops.do_not_repeat_asks = ["How is Callie doing?"];
+      expect(selectDailyC1ConversationIntent(ctx)).toBe("relationship_anchor_bridge");
+      expect(dailyC1HasHighRepeatRisk(ctx)).toBe(true);
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.server_truth_summary.daily_conversation_intent).toBe("relationship_anchor_bridge");
+      expect(card.writer_constraints.max_questions).toBe(0);
+      expect(card.must_not_do.some((m) => /standalone person question/i.test(m))).toBe(true);
+      expect(card.must_do.join(" ")).toMatch(/bridges into a concrete action/i);
+    });
+
+    it("direct_outcome_check intent is avoided when high repeat risk conflicts with DNR", () => {
+      const ctx = buildDailyCtx(
+        dailyFacts({
+          accountability: {
+            ...dailyFacts().accountability,
+            prior_outcome: "user_no",
+            days_since_last_user_outcome: 2,
+            yes_streak_14d: 0,
+          },
+          thread_memory: {
+            ...dailyFacts().thread_memory,
+            last_5_coach_questions: ["Did you follow through yesterday?"],
+          },
+        }),
+        {
+          withSatisfiedAsk: false,
+        }
+      );
+      ctx.openLoops.do_not_repeat_asks = ["Did you follow through yesterday?"];
+      expect(dailyC1HasHighRepeatRisk(ctx)).toBe(true);
+      expect(selectDailyC1ConversationIntent(ctx)).not.toBe("direct_outcome_check");
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.server_truth_summary.daily_conversation_intent).not.toBe("direct_outcome_check");
+      expect(card.writer_constraints.max_questions).toBe(0);
+    });
+
+    it("normal low-repeat-risk Daily C1 still allows one question", () => {
+      const ctx = lowRepeatRiskCtx();
+      expect(dailyC1HasHighRepeatRisk(ctx)).toBe(false);
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.writer_constraints.max_questions).toBe(1);
+      expect(card.server_truth_summary.daily_zero_question_required).toBe(false);
+      expect(card.must_do.join(" ")).not.toMatch(/Do not ask a question in this SMS/i);
+    });
+
+    it("stale detect-only guard still no-sends stale candidates unchanged", () => {
+      const stale = applyDailyStaleAskDetectOnly({
+        body: "What's the first step you'll take today to fit in that five-minute stretch during lunch?",
+        satisfiedAskContext: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "plan_confirmation",
+          do_not_repeat_asks: ["Did you stand and stretch for five minutes at lunch today?"],
+          evidence_preview: "yes at lunch",
+          source: "daily_satisfied_ask_context",
+          occurred_at: "2026-06-14",
+          persistence_note: "satisfied",
+          stale_ask_risk: true,
+        },
+        lastCoachQuestions: ["Did you stand and stretch for five minutes at lunch today?"],
+        routePurpose: "main_active_accountability",
+      });
+      expect(stale.outcome).toBe("no_send");
+      expect(stale.noSendReason).toBe("daily_lane_stale_ask_blocked");
+    });
+
+    it("telemetry emits high-repeat-risk and zero-question fields", () => {
+      const ctx = buildDailyCtx(dailyFacts());
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      const meta = strategyCardV1MetaForTelemetry(
+        { card, validation_status: "valid", validation_reasons: [] },
+        ctx
+      );
+      expect(meta.strategy_card_high_repeat_risk).toBe(true);
+      expect(meta.strategy_card_zero_question_required).toBe(true);
+      expect(meta.strategy_card_zero_question_reason).toBe(DAILY_C1_ZERO_QUESTION_REASON);
+    });
+
+    it("demoted prompt rules mention zero-question mode under high repeat risk", () => {
+      expect(buildDailyC1StrategyCardDemotedPromptRules()).toMatch(
+        /strategy_card_zero_question_required/i
+      );
+      expect(buildDailyC1StrategyCardDemotedPromptRules()).toMatch(/relationship notebook/i);
+    });
+
+    it("high-repeat must_not_do blocks hidden question-shaped commands", () => {
+      const ctx = buildDailyCtx(dailyFacts());
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.must_not_do.some((m) => /tell me, let me know, reply with/i.test(m))).toBe(
+        true
+      );
+      expect(card.must_not_do.some((m) => /name the blocker, choose one/i.test(m))).toBe(true);
+      expect(card.must_not_do.some((m) => /did-you, do-you, will-you, or can-you/i.test(m))).toBe(
+        true
+      );
+    });
   });
 });
 

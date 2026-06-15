@@ -152,6 +152,9 @@ export type StrategyCardV1 = {
     local_weekday?: string | null;
     user_timezone?: string | null;
     is_new_accountability_day?: boolean | null;
+    daily_high_repeat_risk?: boolean;
+    daily_zero_question_required?: boolean;
+    daily_zero_question_reason?: string | null;
     daily_contract_proposal_kind?: DailyContractProposalKind | null;
     daily_contract_proposal_pending_before_sms?: boolean;
     daily_contract_must_not_claim_goal_updated?: boolean;
@@ -2159,6 +2162,12 @@ export function strategyCardV1MetaForTelemetry(
           strategy_card_user_timezone: c.server_truth_summary.user_timezone ?? null,
           strategy_card_is_new_accountability_day:
             c.server_truth_summary.is_new_accountability_day ?? null,
+          strategy_card_high_repeat_risk:
+            c.server_truth_summary.daily_high_repeat_risk === true,
+          strategy_card_zero_question_required:
+            c.server_truth_summary.daily_zero_question_required === true,
+          strategy_card_zero_question_reason:
+            c.server_truth_summary.daily_zero_question_reason ?? null,
         }
       : {}),
     ...(c.route_kind === "contract_prompt"
@@ -2481,6 +2490,61 @@ function hasSatisfiedRecentAsk(ctx: DailyC1StrategyCardBuildContext): boolean {
   );
 }
 
+export const DAILY_C1_ZERO_QUESTION_REASON = "stale_or_memory_repeat_risk" as const;
+
+const DAILY_C1_ZERO_QUESTION_MUST_DO =
+  "Do not ask a question in this SMS — give one concrete current-step, protect-plan, close-loop, or identity/accountability statement instead.";
+const DAILY_C1_NOTEBOOK_FIRST_MUST_DO =
+  "Read RELATIONSHIP_PACKET_V1 as the relationship notebook before writing: current goal/standard, identity, temporal_awareness_summary, recent_thread_timeline_summary_72h, stale_ask_avoidance_summary, avoid_repeating, satisfied-ask context; use relationship anchors only if naturally relevant to today's move.";
+const DAILY_C1_NOTEBOOK_FRESH_TOUCH_MUST_DO =
+  "Then write one fresh, human, no-question coaching touch — concrete action, protect plan, close loop, identity/accountability reminder, low-pressure reentry, or relational bridge into action when natural.";
+const DAILY_C1_ZERO_QUESTION_NO_INTERROGATION =
+  "Do not ask first-step, outcome, blocker, evidence, strategy, how-did-it-go, what-got-in-the-way, did-you, do-you, will-you, or can-you phrasing.";
+const DAILY_C1_ZERO_QUESTION_HIDDEN_COMMANDS =
+  "Do not use question-shaped commands such as tell me, let me know, reply with, name the blocker, choose one, or send me.";
+
+function dailyC1DoNotRepeatAskCount(ctx: DailyC1StrategyCardBuildContext): number {
+  return (
+    (ctx.openLoops.do_not_repeat_asks?.length ?? 0) +
+    (ctx.facts.daily_satisfied_ask_context?.do_not_repeat_asks?.length ?? 0)
+  );
+}
+
+function dailyC1RecentCoachQuestionCount(ctx: DailyC1StrategyCardBuildContext): number {
+  return (ctx.facts.thread_memory.last_5_coach_questions ?? []).filter(
+    (q) => typeof q === "string" && q.trim().length >= 12
+  ).length;
+}
+
+/** True when satisfied/DNR/recent-ask context makes another question likely to stale-repeat or memory-block. */
+export function dailyC1HasHighRepeatRisk(ctx: DailyC1StrategyCardBuildContext): boolean {
+  if (hasSatisfiedRecentAsk(ctx)) return true;
+  if (ctx.facts.daily_satisfied_ask_context?.stale_ask_risk === true) return true;
+
+  const doNotRepeatCount = dailyC1DoNotRepeatAskCount(ctx);
+  if (doNotRepeatCount > 0) return true;
+
+  const recentUnanswered = (ctx.openLoops.recent_unanswered_coach_questions ?? []).filter(
+    (q) => q.trim().length >= 12
+  );
+  if (recentUnanswered.length > 0 && (hasSatisfiedRecentAsk(ctx) || doNotRepeatCount > 0)) {
+    return true;
+  }
+
+  const recentCoachQCount = dailyC1RecentCoachQuestionCount(ctx);
+  if (recentCoachQCount > 0 && (hasSatisfiedRecentAsk(ctx) || doNotRepeatCount > 0)) {
+    return true;
+  }
+
+  return false;
+}
+
+function dailyC1ZeroQuestionRequired(ctx: DailyC1StrategyCardBuildContext): boolean {
+  return (
+    ctx.facts.route_kind === "main_active_accountability" && dailyC1HasHighRepeatRisk(ctx)
+  );
+}
+
 function isPlanAffirmingSatisfiedAsk(ctx: DailyC1StrategyCardBuildContext): boolean {
   const t = ctx.facts.daily_satisfied_ask_context?.satisfied_ask_type;
   if (t === "plan_detail" || t === "plan_confirmation") return true;
@@ -2581,6 +2645,9 @@ export function selectDailyC1ConversationIntent(
   }
 
   if (outcomeCheckAppropriate(ctx)) {
+    if (dailyC1HasHighRepeatRisk(ctx)) {
+      return "plan_today";
+    }
     return "direct_outcome_check";
   }
 
@@ -2723,8 +2790,10 @@ function buildDailyC1MustDoMustNotDo(args: {
   moveType: StrategyCardMoveType;
   intent: DailyC1ConversationIntent;
   ctx: DailyC1StrategyCardBuildContext;
+  zeroQuestionRequired?: boolean;
 }): { must_do: string[]; must_not_do: string[] } {
   const { moveType, intent, ctx } = args;
+  const zeroQuestionRequired = args.zeroQuestionRequired === true;
   const must_do: string[] = [];
   const must_not_do: string[] = [
     "Do not claim proof or Victory Room unless allowed_claims permits it.",
@@ -2732,6 +2801,19 @@ function buildDailyC1MustDoMustNotDo(args: {
     ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
     DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO,
   ];
+
+  if (zeroQuestionRequired) {
+    must_do.unshift(
+      DAILY_C1_NOTEBOOK_FRESH_TOUCH_MUST_DO,
+      DAILY_C1_NOTEBOOK_FIRST_MUST_DO,
+      DAILY_C1_ZERO_QUESTION_MUST_DO
+    );
+    must_not_do.push(
+      DAILY_C1_ZERO_QUESTION_NO_INTERROGATION,
+      DAILY_C1_ZERO_QUESTION_HIDDEN_COMMANDS,
+      "Do not force a yes/no reply."
+    );
+  }
 
   if (ctx.facts.route_kind === "low_pressure_reactivation") {
     must_do.push("Low-pressure re-entry — one natural question at most.");
@@ -2741,23 +2823,44 @@ function buildDailyC1MustDoMustNotDo(args: {
     must_not_do.push(REACTIVATION_SPECIFIC_STEP_NOT_RENEWAL_MUST_NOT_DO);
   } else if (intent === "direct_outcome_check") {
     must_do.push(DAILY_C1_RELATIONSHIP_ACCOUNTABILITY_TOUCH);
-    must_do.push("One natural direct outcome check is allowed when prior outcome is still unknown.");
-    must_not_do.push("Do not stack multiple interrogation questions.");
+    if (zeroQuestionRequired) {
+      must_do.push(
+        "Use a concrete accountability statement — direct outcome interrogation is not appropriate when repeat risk is high."
+      );
+      must_not_do.push("Do not ask a direct outcome check question on this turn.");
+    } else {
+      must_do.push("One natural direct outcome check is allowed when prior outcome is still unknown.");
+      must_not_do.push("Do not stack multiple interrogation questions.");
+    }
   } else {
     must_do.push(DAILY_C1_RELATIONSHIP_ACCOUNTABILITY_TOUCH);
-    if (intentAllowsZeroQuestions(intent)) {
+    if (zeroQuestionRequired) {
+      must_do.push("Ground the touch in notebook context — do not invent facts beyond the packet.");
+    } else if (intentAllowsZeroQuestions(intent)) {
       must_do.push("Zero questions is allowed — encouragement, planning, or close-loop is fine.");
     }
   }
 
   switch (intent) {
     case "plan_today":
-      must_do.push("Help identify today's realistic first step or window.");
+      if (zeroQuestionRequired) {
+        must_do.push(
+          "Give one concrete protect-plan or action statement for today — no planning question."
+        );
+      } else {
+        must_do.push("Help identify today's realistic first step or window.");
+      }
       must_not_do.push("Do not ask if they already completed unless direct_outcome_check was intended.");
       break;
     case "obstacle_recovery":
       if (obstacleRecoveryUsesProspectiveFraming(ctx)) {
-        must_do.push("Name or explore what might get in the way today.");
+        if (zeroQuestionRequired) {
+          must_do.push(
+            "Name a prospective blocker or concrete action frame for today — no blocker interrogation."
+          );
+        } else {
+          must_do.push("Name or explore what might get in the way today.");
+        }
         must_do.push(
           "If referencing a prior miss, use yesterday or last time — not today-failure wording."
         );
@@ -2768,7 +2871,13 @@ function buildDailyC1MustDoMustNotDo(args: {
           "Do not use what got in the way today, what held you back today, why didn't you today, or what stopped you today."
         );
       } else {
-        must_do.push("Name or explore today's likely blocker without shame.");
+        if (zeroQuestionRequired) {
+          must_do.push(
+            "Acknowledge today's blocker with a concrete next-move statement — avoid repeating the exact blocker question."
+          );
+        } else {
+          must_do.push("Name or explore today's likely blocker without shame.");
+        }
         must_not_do.push("Do not imply failure beyond what allowed_claims.miss permits.");
       }
       break;
@@ -2777,16 +2886,33 @@ function buildDailyC1MustDoMustNotDo(args: {
       must_not_do.push("Do not turn this into unrelated therapy or chit-chat.");
       break;
     case "protect_existing_plan":
-      must_do.push("Acknowledge and protect the current plan.");
+      if (zeroQuestionRequired) {
+        must_do.push("Protect the stated plan with a concrete accountability statement — no question.");
+      } else {
+        must_do.push("Acknowledge and protect the current plan.");
+      }
       must_not_do.push("Do not add new obligations unless the user invited them.");
       break;
     case "close_loop":
-      must_do.push("Acknowledge the prior answer and close the loop.");
+      if (zeroQuestionRequired) {
+        must_do.push(
+          "Acknowledge the prior answer and close the loop with a concrete statement — no new question."
+        );
+      } else {
+        must_do.push("Acknowledge the prior answer and close the loop.");
+      }
       must_not_do.push("Do not ask the same satisfied question again.");
       break;
     case "relationship_anchor_bridge":
-      must_do.push("You may use at most one relationship anchor only if it bridges into today's goal.");
-      must_not_do.push("Do not open with standalone person chit-chat.");
+      if (zeroQuestionRequired) {
+        must_do.push(
+          "You may use at most one relationship anchor only if it bridges into a concrete action for today's goal."
+        );
+        must_not_do.push("Do not ask a standalone person question or opener.");
+      } else {
+        must_do.push("You may use at most one relationship anchor only if it bridges into today's goal.");
+        must_not_do.push("Do not open with standalone person chit-chat.");
+      }
       must_not_do.push("Do not use guilt, shame, or pride pressure via a person.");
       break;
     case "identity_encouragement":
@@ -2810,13 +2936,23 @@ function buildDailyC1MustDoMustNotDo(args: {
 
   must_not_do.push("Do not re-ask satisfied questions from avoid_repeating.");
   if (hasSatisfiedRecentAsk(ctx)) {
-    must_not_do.push("Do not repeat or paraphrase satisfied coach asks.");
-    must_not_do.push("Do not use How did X go as a paraphrase re-ask.");
+    const satisfiedLines = [
+      "Do not repeat or paraphrase satisfied coach asks.",
+      "Do not use How did X go as a paraphrase re-ask.",
+    ];
+    if (zeroQuestionRequired) {
+      must_not_do.unshift(...satisfiedLines);
+    } else {
+      must_not_do.push(...satisfiedLines);
+    }
   }
 
+  const mustDoLimit = zeroQuestionRequired ? 7 : MAX_MUST_DO;
+  const mustNotDoLimit = zeroQuestionRequired ? 11 : MAX_MUST_NOT_DO;
+
   return {
-    must_do: must_do.slice(0, MAX_MUST_DO),
-    must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),
+    must_do: must_do.slice(0, mustDoLimit),
+    must_not_do: [...new Set(must_not_do)].slice(0, mustNotDoLimit),
   };
 }
 
@@ -2900,11 +3036,14 @@ export function buildDailyC1StrategyCardV1(args: {
   const legacyUsed = legacyType != null && legacyType === moveType;
   const legacyReplaced = legacyType != null && legacyType !== moveType && legacyMove;
   const localDay = deriveDailyC1LocalDayContext(facts);
+  const highRepeatRisk = dailyC1HasHighRepeatRisk(ctx);
+  const zeroQuestionRequired = dailyC1ZeroQuestionRequired(ctx);
 
   const { must_do, must_not_do } = buildDailyC1MustDoMustNotDo({
     moveType,
     intent: conversationIntent,
     ctx,
+    zeroQuestionRequired,
   });
   const avoid_repeating = collectDailyAvoidRepeating(ctx);
   const allowed = buildDailyC1AllowedClaims(ctx, outcome);
@@ -2936,6 +3075,11 @@ export function buildDailyC1StrategyCardV1(args: {
       local_weekday: localDay.local_weekday,
       user_timezone: localDay.user_timezone,
       is_new_accountability_day: localDay.is_new_accountability_day,
+      daily_high_repeat_risk: highRepeatRisk,
+      daily_zero_question_required: zeroQuestionRequired,
+      daily_zero_question_reason: zeroQuestionRequired
+        ? DAILY_C1_ZERO_QUESTION_REASON
+        : null,
     },
     move: {
       type: moveType,
@@ -2947,7 +3091,7 @@ export function buildDailyC1StrategyCardV1(args: {
     must_not_do,
     allowed_claims: allowed,
     writer_constraints: {
-      max_questions: 1,
+      max_questions: zeroQuestionRequired ? 0 : 1,
       avoid_repeating,
       tone_posture: resolveDailyC1TonePosture({ facts, moveType }),
     },
@@ -3081,6 +3225,7 @@ export function buildDailyC1StrategyCardDemotedPromptRules(): string {
   return `
 RELATIONSHIP-FIRST DAILY (one continuous coaching relationship — not a daily checkbox bot):
 - At most one question in the SMS; zero questions is okay when closing, protecting, encouraging, or planning.
+- When strategy_card_high_repeat_risk or strategy_card_zero_question_required is true, read RELATIONSHIP_PACKET_V1 as the relationship notebook first (goal, identity, temporal awareness, recent thread timeline, stale/do-not-repeat context), then write one fresh no-question coaching touch — not another question or question-shaped command.
 - Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
 - If structured_recent_truth, stale_ask_avoidance_summary, or daily_satisfied_ask_context shows the user already satisfied a prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — no "How did X go?" paraphrase re-asks.
 - Make a fresh current-step, plan, obstacle, identity, or relationship-bridge move instead of another outcome interrogation.

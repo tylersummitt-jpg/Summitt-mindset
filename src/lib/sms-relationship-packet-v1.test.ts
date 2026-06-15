@@ -1463,6 +1463,18 @@ describe("buildRelationshipPacketPromptGuidance", () => {
     expect(guidance).toMatch(/at most one anchor/i);
     expect(guidance).not.toMatch(/Ask how/i);
   });
+
+  it("includes high-repeat-risk zero-question packet guidance", () => {
+    const guidance = buildRelationshipPacketPromptGuidance();
+    expect(guidance).toContain("DAILY_C1_HIGH_REPEAT_RISK");
+    expect(guidance).toMatch(/relationship notebook/i);
+    expect(guidance).toMatch(/temporal awareness/i);
+    expect(guidance).toMatch(/recent thread timeline/i);
+    expect(guidance).toMatch(/no-question coaching touch/i);
+    expect(guidance).toMatch(/tell me, let me know, reply with/i);
+    expect(guidance).not.toMatch(/Say this/i);
+    expect(guidance).not.toMatch(/Coach:/i);
+  });
 });
 
 describe("relationship anchors in packet", () => {
