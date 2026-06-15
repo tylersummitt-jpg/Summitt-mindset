@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  deriveRecommitSameVisibleContractRoutePolicy,
   isPlanAffirmingDailySatisfiedAskContext,
+  RECOMMIT_SAME_VISIBLE_CONTRACT_SUPPRESSION_INTERNAL,
   resolveDailySatisfiedAskContext,
   shouldSuppressSameBaseRecommitForSatisfiedPlan,
   slimDailySatisfiedAskContextForTelemetry,
@@ -196,6 +198,106 @@ describe("shouldSuppressSameBaseRecommitForSatisfiedPlan", () => {
         })
       )
     ).toBe(false);
+  });
+});
+
+describe("deriveRecommitSameVisibleContractRoutePolicy", () => {
+  const baseBar = "One hour of distribution per day";
+
+  function planConfirmationContext(): DailySatisfiedAskContext {
+    return {
+      has_satisfied_recent_ask: true,
+      satisfied_ask_type: "plan_confirmation",
+      do_not_repeat_asks: ["Does morning distribution still work for you?"],
+      evidence_preview:
+        "I think if I do distribution first thing in the morning, we'll get the 30 minutes done each day.",
+      source: "inbound_turn_telemetry",
+      occurred_at: "2026-06-14T18:00:00.000Z",
+      last_ask_satisfied: "yes",
+      stale_ask_risk: true,
+      relationship_meaning: "plan_made",
+      response_intent: "acknowledge_prior_ask_satisfied",
+      prior_question_type: "plan_confirmation",
+      outcome_proof_eligible: false,
+      persistence_note: "no proof",
+    };
+  }
+
+  it("recommit_same is always internal-only with no satisfied context", () => {
+    const r = deriveRecommitSameVisibleContractRoutePolicy({
+      nextMoveType: "recommit_same",
+      satisfiedAskContext: null,
+      proposedBarText: baseBar,
+      baseBehaviorStatement: baseBar,
+    });
+    expect(r.recommitProposalMode).toBe(false);
+    expect(r.recommitSameVisibleContractSuppressed).toBe(true);
+    expect(r.recommitSameVisibleContractSuppressionReason).toBe(
+      RECOMMIT_SAME_VISIBLE_CONTRACT_SUPPRESSION_INTERNAL
+    );
+    expect(r.useHoldStandardOutboundNextMove).toBe(true);
+    expect(r.recommitSameSuppressedForSatisfiedPlan).toBe(false);
+  });
+
+  it("recommit_same + plan_confirmation uses satisfied_plan metadata reason", () => {
+    const ctx = planConfirmationContext();
+    const r = deriveRecommitSameVisibleContractRoutePolicy({
+      nextMoveType: "recommit_same",
+      satisfiedAskContext: ctx,
+      proposedBarText: baseBar,
+      baseBehaviorStatement: baseBar,
+    });
+    expect(r.recommitProposalMode).toBe(false);
+    expect(r.recommitSameVisibleContractSuppressed).toBe(true);
+    expect(r.recommitSameVisibleContractSuppressionReason).toBe("satisfied_plan_already_affirmed");
+    expect(r.recommitSameSuppressedForSatisfiedPlan).toBe(true);
+    expect(r.recommitSameSuppressionReason).toBe("satisfied_plan_already_affirmed");
+    expect(ctx.has_satisfied_recent_ask).toBe(true);
+    expect(ctx.stale_ask_risk).toBe(true);
+  });
+
+  it("shrink_ask does not trigger visible recommit suppression policy", () => {
+    const r = deriveRecommitSameVisibleContractRoutePolicy({
+      nextMoveType: "shrink_ask",
+      satisfiedAskContext: planConfirmationContext(),
+      proposedBarText: baseBar,
+      baseBehaviorStatement: baseBar,
+    });
+    expect(r.recommitProposalMode).toBe(false);
+    expect(r.recommitSameVisibleContractSuppressed).toBe(false);
+    expect(r.useHoldStandardOutboundNextMove).toBe(false);
+  });
+
+  it("satisfied ask context remains available for C1 fallback when recommit_same is internal", () => {
+    const ctx = resolveDailySatisfiedAskContext({
+      eventsNewestFirst: [
+        {
+          event_type: "sms_memory_signal",
+          occurred_at: "2026-06-14T18:00:00.000Z",
+          payload_json: {
+            inbound_turn_telemetry: true,
+            turn_understanding_last_ask_satisfied: "yes",
+            do_not_repeat_asks: ["Does morning distribution still work for you?"],
+            prior_question_type: "plan_confirmation",
+            turn_understanding_relationship_meaning: "plan_made",
+            raw_body_preview:
+              "I think if I do distribution first thing in the morning, we're good.",
+            outcome_proof_eligible: false,
+          },
+        },
+      ],
+    });
+    const policy = deriveRecommitSameVisibleContractRoutePolicy({
+      nextMoveType: "recommit_same",
+      satisfiedAskContext: ctx,
+      proposedBarText: baseBar,
+      baseBehaviorStatement: baseBar,
+    });
+    expect(policy.recommitProposalMode).toBe(false);
+    expect(policy.recommitSameVisibleContractSuppressed).toBe(true);
+    expect(ctx?.has_satisfied_recent_ask).toBe(true);
+    expect(ctx?.satisfied_ask_type).toBe("plan_confirmation");
+    expect(ctx?.do_not_repeat_asks.length).toBeGreaterThan(0);
   });
 });
 

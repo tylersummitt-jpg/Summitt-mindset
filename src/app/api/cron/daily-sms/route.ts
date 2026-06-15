@@ -39,7 +39,6 @@ import {
 } from "@/lib/v2-ai-outbound";
 import {
   buildV2OutboundAccountabilitySmsForStrategy,
-  buildV2RecommitProposalOutboundSms,
   buildV2ShrinkProposalOutboundSms,
   type V2NextMoveKind,
 } from "@/lib/v2-sms-accountability";
@@ -165,8 +164,8 @@ import {
 import { pickNorthStarWriterAttributionFields, type NorthStarCoachChannel } from "@/lib/north-star-coach-sms";
 import { dailySmsVoiceSkipEventPatch, isDailySmsWithheldByFinalVoiceGate } from "@/lib/daily-sms-voice-skip";
 import {
+  deriveRecommitSameVisibleContractRoutePolicy,
   resolveDailySatisfiedAskContext,
-  shouldSuppressSameBaseRecommitForSatisfiedPlan,
   slimDailySatisfiedAskContextForTelemetry,
   type DailySatisfiedAskContext,
 } from "@/lib/daily-satisfied-ask-context";
@@ -2266,62 +2265,41 @@ async function buildDailySmsContent(
       recentEvents,
       packet: relationshipMemoryPacketMain,
     });
-    const sameBaseRecommitSuppression = shouldSuppressSameBaseRecommitForSatisfiedPlan({
+    const recommitRoutePolicy = deriveRecommitSameVisibleContractRoutePolicy({
       nextMoveType: nextMove.type,
       satisfiedAskContext: earlySatisfiedAskContext,
       proposedBarText: sameBaseRecommitBarText,
       baseBehaviorStatement: sameBaseRecommitBarText,
     });
-    const recommitSameSuppressedForSatisfiedPlan = sameBaseRecommitSuppression.suppress;
-    const recommitSameSuppressionReason = sameBaseRecommitSuppression.reason;
-
-    const recommitProposalMode =
-      nextMove.type === "recommit_same" &&
-      !isV2AdaptiveOverlayActive(active, now.getTime()) &&
-      !isV2PendingProposalValid(active, now.getTime()) &&
-      !refreshSessionActive &&
-      !recommitSameSuppressedForSatisfiedPlan;
+    const recommitProposalMode = recommitRoutePolicy.recommitProposalMode;
+    const recommitSameSuppressedForSatisfiedPlan =
+      recommitRoutePolicy.recommitSameSuppressedForSatisfiedPlan;
+    const recommitSameSuppressionReason = recommitRoutePolicy.recommitSameSuppressionReason;
+    const recommitSameVisibleContractSuppressed =
+      recommitRoutePolicy.recommitSameVisibleContractSuppressed;
+    const recommitSameVisibleContractSuppressionReason =
+      recommitRoutePolicy.recommitSameVisibleContractSuppressionReason;
 
     const contractProposalMode = shrinkProposalMode || recommitProposalMode;
     const contractProposalKind: V2AdaptiveContractKind | null = shrinkProposalMode
       ? "shrink_ask"
-      : recommitProposalMode
-        ? "recommit_same"
-        : null;
+      : null;
 
     const canonicalDailyProposalAsk: string | null =
       contractProposalMode && contractProposalKind === "shrink_ask"
         ? (computeCanonicalShrinkProposalAskFromBehavior(active.behavior_statement) ??
             active.behavior_statement.trim()).trim()
-        : contractProposalMode && contractProposalKind === "recommit_same"
-          ? active.behavior_statement.trim()
-          : null;
+        : null;
 
     const outboundNextMove: V2NextMoveKind =
       (nextMove.type === "shrink_ask" && !shrinkProposalMode) ||
-      (nextMove.type === "recommit_same" && !recommitProposalMode)
+      recommitRoutePolicy.useHoldStandardOutboundNextMove
         ? "hold_standard"
         : nextMove.type;
 
     let templateId: number;
     if (contractProposalMode && canonicalDailyProposalAsk && contractProposalKind === "shrink_ask") {
       const pack = await buildV2ShrinkProposalOutboundSms({
-        clerkUserId,
-        dayKey: accountabilityDayKey,
-        proposalBindingText: canonicalDailyProposalAsk,
-        originalBehaviorStatement: active.behavior_statement,
-        v3Refine: { commitment: active, timezone },
-      });
-      if (pack.adaptiveProposalVoiceWithheld) {
-        return {
-          ok: false,
-          error: "adaptive_proposal_finalizer_no_safe_voice",
-          adaptiveProposalWithheldMeta: pack.adaptiveProposalOutboundMeta,
-        };
-      }
-      templateId = pack.templateId;
-    } else if (contractProposalMode && canonicalDailyProposalAsk && contractProposalKind === "recommit_same") {
-      const pack = await buildV2RecommitProposalOutboundSms({
         clerkUserId,
         dayKey: accountabilityDayKey,
         proposalBindingText: canonicalDailyProposalAsk,
@@ -2615,8 +2593,6 @@ async function buildDailySmsContent(
     ];
     if (contractProposalMode && contractProposalKind === "shrink_ask") {
       telemetryUnified.push("buildV2ShrinkProposalOutboundSms");
-    } else if (contractProposalMode && contractProposalKind === "recommit_same") {
-      telemetryUnified.push("buildV2RecommitProposalOutboundSms");
     } else {
       telemetryUnified.push("buildV2OutboundAccountabilitySmsForStrategy");
     }
@@ -2674,10 +2650,17 @@ async function buildDailySmsContent(
         coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
           buildCoachingBriefV1FromDailyFacts(factsUnified)
         ),
-        ...(recommitSameSuppressedForSatisfiedPlan
+        ...(recommitSameVisibleContractSuppressed
           ? {
-              recommit_same_suppressed_for_satisfied_plan: true,
-              recommit_same_suppression_reason: recommitSameSuppressionReason,
+              recommit_same_visible_contract_suppressed: true,
+              recommit_same_visible_contract_suppression_reason:
+                recommitSameVisibleContractSuppressionReason,
+              ...(recommitSameSuppressedForSatisfiedPlan
+                ? {
+                    recommit_same_suppressed_for_satisfied_plan: true,
+                    recommit_same_suppression_reason: recommitSameSuppressionReason,
+                  }
+                : {}),
             }
           : {}),
       },
@@ -2700,9 +2683,14 @@ async function buildDailySmsContent(
         ? canonicalProposalAskTrim
         : nextMove.shrunk_ask_text;
     }
-    if (recommitSameSuppressedForSatisfiedPlan) {
-      nextMovePayload.recommit_same_suppressed_for_satisfied_plan = true;
-      nextMovePayload.recommit_same_suppression_reason = recommitSameSuppressionReason;
+    if (recommitSameVisibleContractSuppressed) {
+      nextMovePayload.recommit_same_visible_contract_suppressed = true;
+      nextMovePayload.recommit_same_visible_contract_suppression_reason =
+        recommitSameVisibleContractSuppressionReason;
+      if (recommitSameSuppressedForSatisfiedPlan) {
+        nextMovePayload.recommit_same_suppressed_for_satisfied_plan = true;
+        nextMovePayload.recommit_same_suppression_reason = recommitSameSuppressionReason;
+      }
     }
     if (contractProposalMode && contractProposalKind) {
       nextMovePayload.contract_proposal_pending = true;

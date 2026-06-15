@@ -333,6 +333,54 @@ export function shouldSuppressSameBaseRecommitForSatisfiedPlan(args: {
   };
 }
 
+export const RECOMMIT_SAME_VISIBLE_CONTRACT_SUPPRESSION_INTERNAL =
+  "same_bar_continuity_is_internal" as const;
+
+export type RecommitSameVisibleContractRoutePolicy = {
+  /** Always false — same-base recommit_same never enters visible contract_prompt. */
+  recommitProposalMode: false;
+  recommitSameVisibleContractSuppressed: boolean;
+  recommitSameVisibleContractSuppressionReason: string | null;
+  recommitSameSuppressedForSatisfiedPlan: boolean;
+  recommitSameSuppressionReason: string | null;
+  useHoldStandardOutboundNextMove: boolean;
+};
+
+/**
+ * Daily route policy: recommit_same stays internal; visible SMS uses C1 main accountability.
+ */
+export function deriveRecommitSameVisibleContractRoutePolicy(args: {
+  nextMoveType: string;
+  satisfiedAskContext: DailySatisfiedAskContext | null | undefined;
+  proposedBarText: string;
+  baseBehaviorStatement: string;
+}): RecommitSameVisibleContractRoutePolicy {
+  if (args.nextMoveType !== "recommit_same") {
+    return {
+      recommitProposalMode: false,
+      recommitSameVisibleContractSuppressed: false,
+      recommitSameVisibleContractSuppressionReason: null,
+      recommitSameSuppressedForSatisfiedPlan: false,
+      recommitSameSuppressionReason: null,
+      useHoldStandardOutboundNextMove: false,
+    };
+  }
+
+  const satisfiedPlan = shouldSuppressSameBaseRecommitForSatisfiedPlan(args);
+  const visibleReason = satisfiedPlan.suppress
+    ? satisfiedPlan.reason
+    : RECOMMIT_SAME_VISIBLE_CONTRACT_SUPPRESSION_INTERNAL;
+
+  return {
+    recommitProposalMode: false,
+    recommitSameVisibleContractSuppressed: true,
+    recommitSameVisibleContractSuppressionReason: visibleReason,
+    recommitSameSuppressedForSatisfiedPlan: satisfiedPlan.suppress,
+    recommitSameSuppressionReason: satisfiedPlan.reason,
+    useHoldStandardOutboundNextMove: true,
+  };
+}
+
 export function slimDailySatisfiedAskContextForTelemetry(
   ctx: DailySatisfiedAskContext | null | undefined
 ): Record<string, unknown> | null {
