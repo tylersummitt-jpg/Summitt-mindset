@@ -101,3 +101,32 @@ describe("proofMomentPayloadFields", () => {
     expect(payload.proof_quote).toBe("yes");
   });
 });
+
+describe("buildProofMomentForAccountabilityOutcome — user_no proof gate", () => {
+  const PRODUCTION_META_CORRECTION =
+    "Yes! I was wondering why you asked it because I did not say I would be playing with the kids tomorrow";
+
+  it("meta-correction does not create honest_miss proof", () => {
+    const meta = buildProofMomentForAccountabilityOutcome({
+      finalEventType: "user_no",
+      eventsNewestFirst: [],
+      isRepairOutcome: false,
+      userMessageCharCount: PRODUCTION_META_CORRECTION.length,
+      rawBody: PRODUCTION_META_CORRECTION,
+    });
+    expect(meta).toBeNull();
+  });
+
+  it("explicit miss still creates honest_miss proof", () => {
+    const raw = "I didn't hit my steps today";
+    const meta = buildProofMomentForAccountabilityOutcome({
+      finalEventType: "user_no",
+      eventsNewestFirst: [],
+      isRepairOutcome: false,
+      userMessageCharCount: raw.length,
+      rawBody: raw,
+    });
+    expect(meta?.proof_moment_type).toBe("honest_miss");
+    expect(meta?.user_visible_proof_line).toContain("told the truth about the miss");
+  });
+});

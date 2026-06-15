@@ -53,14 +53,63 @@ function clauseHasExplicitCompletion(clause: string): boolean {
   return false;
 }
 
+const SPEECH_META_AFTER_NEGATION_RE =
+  /\b(didn'?t|did not|didnt|never)\s+(say|said|mean|meant|promise|promised|agree|agreed|tell|told|mention|mentioned)\b/i;
+
+const ACCOUNTABILITY_MISS_IDIOMS_RE =
+  /\b(missed\s+(it|my\s+goal)|failed\s+today|skipped\s+it|didn'?t\s+happen|wasn'?t\s+able|couldn'?t\s+get\s+it\s+done|not\s+done|haven'?t|have\s+not)\b/i;
+
+const ACCOUNTABILITY_ACTION_AFTER_NEGATION_RE =
+  /\b(didn'?t|did not|didnt)\s+(do|finish|complete|hit|make|run|walk|workout|work\s+out|get|follow\s+through|follow\s+up|call|write|read|practice|show\s+up)\b/i;
+
+function clauseHasSpeechMetaNegation(clause: string): boolean {
+  const t = clause.trim();
+  if (!t) return false;
+  if (SPEECH_META_AFTER_NEGATION_RE.test(t)) return true;
+  if (/\b(that'?s\s+not\s+what\s+i\s+said|not\s+what\s+i\s+meant)\b/i.test(t)) return true;
+  return false;
+}
+
 function clauseHasExplicitMiss(clause: string): boolean {
   const t = clause.trim();
   if (!t) return false;
-  if (/\b(didn'?t|did not|didnt|never|not done|haven'?t|have not|missed|wasn'?t able|couldn'?t)\b/i.test(t)) {
-    return true;
-  }
+  if (clauseHasSpeechMetaNegation(t)) return false;
+  if (ACCOUNTABILITY_MISS_IDIOMS_RE.test(t)) return true;
+  if (ACCOUNTABILITY_ACTION_AFTER_NEGATION_RE.test(t)) return true;
+  if (/\b(missed|wasn'?t able|couldn'?t)\b/i.test(t)) return true;
+  if (/\bnever\b/i.test(t) && !/\bnever\s+(said|meant)\b/i.test(t)) return true;
   if (/^(no|nope|nah)\b/i.test(t) && /\b(miss|didn'?t|not)\b/i.test(t)) return true;
   return false;
+}
+
+/** Coach disputing prior coach wording — not an accountability miss. */
+export function looksLikeCoachContextCorrectionOrMetaDispute(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (inboundHasExplicitAccountabilityMissClause(t)) return false;
+
+  return (
+    /\b(didn'?t|did not|didnt)\s+say\b/i.test(t) ||
+    /\bnever\s+said\b/i.test(t) ||
+    /\b(didn'?t|did not)\s+mean\b/i.test(t) ||
+    /\bthat'?s\s+not\s+what\s+i\s+said\b/i.test(t) ||
+    /\bnot\s+what\s+i\s+meant\b/i.test(t) ||
+    /\bwhy\s+did\s+you\s+(say|ask)\b/i.test(t) ||
+    /\bwhere\s+did\s+you\s+get\s+that\b/i.test(t) ||
+    /\b(was\s+)?wondering\s+why\s+you\s+(asked|said)\b/i.test(t) ||
+    /\byou\s+misunderstood\b/i.test(t) ||
+    /\bno,?\s+i\s+was\s+asking\s+why\b/i.test(t) ||
+    /\bi'?m\s+correcting\s+you\b/i.test(t) ||
+    /\b(didn'?t|did not)\s+say\s+i\s+would\b/i.test(t) ||
+    /\b(didn'?t|did not)\s+say\s+that\b/i.test(t)
+  );
+}
+
+/** Narrow miss: accountability action/idiom only — excludes "did not say/mean". */
+export function inboundHasExplicitAccountabilityMissClause(text: string): boolean {
+  if (inboundHasExplicitPartialClause(text)) return false;
+  if (/\bstarted\s+but\b/i.test(text)) return false;
+  return analyzeInboundClauses(text).some((c) => c.outcome_kind === "miss");
 }
 
 function clauseHasExplicitPartial(clause: string): boolean {
@@ -110,9 +159,7 @@ export function inboundHasExplicitPartialClause(text: string): boolean {
 }
 
 export function inboundHasExplicitMissClause(text: string): boolean {
-  if (inboundHasExplicitPartialClause(text)) return false;
-  if (/\bstarted\s+but\b/i.test(text)) return false;
-  return analyzeInboundClauses(text).some((c) => c.outcome_kind === "miss");
+  return inboundHasExplicitAccountabilityMissClause(text);
 }
 
 export function inboundHasPlanConfirmationClause(text: string): boolean {

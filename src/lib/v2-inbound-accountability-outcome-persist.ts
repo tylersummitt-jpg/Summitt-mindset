@@ -20,6 +20,8 @@ import {
   inboundHasExplicitCompletionClause,
   inboundHasExplicitMissClause,
   inboundHasExplicitPartialClause,
+  inboundHasExplicitAccountabilityMissClause,
+  looksLikeCoachContextCorrectionOrMetaDispute,
 } from "@/lib/inbound-short-answer-clauses";
 import {
   isNonOutcomePlanPriorQuestionType,
@@ -80,7 +82,8 @@ export type InboundOutcomePersistSkipReason =
   | "turn_understanding_expand_blocked"
   | "turn_understanding_satisfied_ask_no_proof"
   | "plan_or_proposal_ack_backstop"
-  | "plan_or_proposal_rejection_backstop";
+  | "plan_or_proposal_rejection_backstop"
+  | "coach_context_correction_not_miss";
 
 export type InboundOutcomePersistResult =
   | {
@@ -274,6 +277,20 @@ function evaluateUserNoPersistBackstop(args: {
 }): InboundOutcomePersistSkipReason | null {
   const raw = args.raw.trim();
   if (args.inboundMeaning.persistence_decision !== "write_user_no") return null;
+
+  if (
+    looksLikeCoachContextCorrectionOrMetaDispute(raw) &&
+    !inboundHasExplicitAccountabilityMissClause(raw)
+  ) {
+    return "coach_context_correction_not_miss";
+  }
+
+  if (
+    args.inboundMeaning.evidence.some((e) => e.includes("coach_context_correction_not_miss"))
+  ) {
+    return "coach_context_correction_not_miss";
+  }
+
   if (inboundHasExplicitMissClause(raw)) return null;
 
   const m = args.inboundMeaning;

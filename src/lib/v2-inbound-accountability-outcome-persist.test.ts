@@ -1137,3 +1137,78 @@ describe("persistInboundAccountabilityOutcomeEvent", () => {
     expect(result).toMatchObject({ status: "duplicate", eventType: "user_yes" });
   });
 });
+
+describe("coach-context correction — persist backstop", () => {
+  const PRODUCTION_META_CORRECTION =
+    "Yes! I was wondering why you asked it because I did not say I would be playing with the kids tomorrow";
+
+  it("production meta-correction does not persist user_no", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: PRODUCTION_META_CORRECTION,
+      classifierEventType: "user_yes",
+    });
+    expect(inboundMeaning.persistence_decision).toBe("no_outcome_write");
+    expect(inboundMeaning.relationship_meaning).toBe("answer_to_prior_question");
+
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_meta_correction",
+      commitmentId: "commit-1",
+      rawBody: PRODUCTION_META_CORRECTION,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("meaning_no_outcome_write");
+    }
+  });
+
+  it("backstop blocks forced write_user_no on meta-correction", () => {
+    const forcedWrite = buildInboundMeaningFacts({
+      rawInbound: "Where did you get that? I didn't say that.",
+      classifierEventType: "user_no",
+    });
+    const inboundMeaning = {
+      ...forcedWrite,
+      persistence_decision: "write_user_no" as const,
+      relationship_meaning: "miss" as const,
+    };
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_forced_meta",
+      commitmentId: "commit-1",
+      rawBody: "Where did you get that? I didn't say that.",
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("coach_context_correction_not_miss");
+    }
+  });
+
+  it("explicit miss still persists user_no after narrowing", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "I didn't hit my steps",
+      classifierEventType: "user_no",
+    });
+    expect(inboundMeaning.persistence_decision).toBe("write_user_no");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_hit_steps_miss",
+      commitmentId: "commit-1",
+      rawBody: "I didn't hit my steps",
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_no");
+  });
+});

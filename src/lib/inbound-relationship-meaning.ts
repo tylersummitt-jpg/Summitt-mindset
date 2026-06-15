@@ -14,6 +14,7 @@ import {
   inboundHasExplicitMissClause,
   inboundHasExplicitPartialClause,
   inboundHasPlanConfirmationClause,
+  looksLikeCoachContextCorrectionOrMetaDispute,
 } from "@/lib/inbound-short-answer-clauses";
 import {
   detectShortAnswerPartialLanguage,
@@ -370,6 +371,16 @@ export function deriveInboundRelationshipMeaning(
       temporal_scope,
       confidence: "high",
       evidence: ["compound_or_explicit_completion_clause"],
+      disqualifiers,
+    };
+  }
+
+  if (looksLikeCoachContextCorrectionOrMetaDispute(raw)) {
+    return {
+      relationship_meaning: "answer_to_prior_question",
+      temporal_scope,
+      confidence: "high",
+      evidence: ["coach_context_correction_not_miss"],
       disqualifiers,
     };
   }

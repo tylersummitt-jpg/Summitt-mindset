@@ -226,3 +226,45 @@ describe("clear today completion persistence decision", () => {
     expect(meaningFor("I did my 10,000 steps yesterday!").persistence_decision).toBe("ack_only");
   });
 });
+
+describe("coach-context correction — not miss / no user_no", () => {
+  const PRODUCTION_META_CORRECTION =
+    "Yes! I was wondering why you asked it because I did not say I would be playing with the kids tomorrow";
+
+  const noWriteCases = [
+    PRODUCTION_META_CORRECTION,
+    "Where did you get that? I didn't say that.",
+    "No, I didn't say I would do that tomorrow.",
+    "That's not what I said.",
+    "You misunderstood me.",
+  ];
+
+  it.each(noWriteCases)("%s → answer_to_prior_question, no_outcome_write", (text) => {
+    const facts = meaningFor(text, { eventType: "user_yes" });
+    expect(facts.relationship_meaning).not.toBe("miss");
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+    expect(facts.evidence).toContain("coach_context_correction_not_miss");
+  });
+
+  it("production case is not classified as miss", () => {
+    const m = deriveInboundRelationshipMeaning({ rawInbound: PRODUCTION_META_CORRECTION });
+    expect(m.relationship_meaning).toBe("answer_to_prior_question");
+    expect(m.evidence).toContain("coach_context_correction_not_miss");
+  });
+});
+
+describe("true accountability misses — still write_user_no", () => {
+  const missCases = [
+    "I didn't do my goal today.",
+    "No, I didn't hit my steps.",
+    "I missed it.",
+    "I didn't make the calls.",
+    "Didn't happen.",
+  ];
+
+  it.each(missCases)("%s → miss / write_user_no", (text) => {
+    const facts = meaningFor(text, { eventType: "user_no" });
+    expect(facts.relationship_meaning).toBe("miss");
+    expect(facts.persistence_decision).toBe("write_user_no");
+  });
+});

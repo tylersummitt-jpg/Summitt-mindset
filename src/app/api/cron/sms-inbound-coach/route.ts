@@ -2656,6 +2656,7 @@ async function tryPersistInboundAccountabilityOutcomeBeforeSend(
       eventsNewestFirst: args.recentEvents,
       isRepairOutcome: false,
       userMessageCharCount: args.userMessage.length,
+      rawBody: args.userMessage,
     });
 
   const idempotencyKey = v2UserReplyIdempotencyKey(finalOutcomeType, args.job.message_sid);
@@ -3833,6 +3834,7 @@ async function processV2NormalInboundOutcome(
               eventsNewestFirst: recentEvents,
               isRepairOutcome: false,
               userMessageCharCount: userMessage.length,
+              rawBody: userMessage,
             })
           : null;
 
@@ -4481,6 +4483,7 @@ async function processV2NormalInboundOutcome(
           eventsNewestFirst: recentEvents,
           isRepairOutcome: isRepairProof,
           userMessageCharCount: userMessage.length,
+          rawBody: userMessage,
         })
       : null;
 

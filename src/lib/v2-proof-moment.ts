@@ -6,6 +6,11 @@
 
 import { supabaseServer } from "@/lib/supabase-server";
 
+import {
+  inboundHasExplicitAccountabilityMissClause,
+  looksLikeCoachContextCorrectionOrMetaDispute,
+} from "@/lib/inbound-short-answer-clauses";
+
 export type ProofMomentType =
   | "followed_through"
   | "comeback_after_miss"
@@ -109,6 +114,7 @@ export function buildProofMomentForAccountabilityOutcome(args: {
   eventsNewestFirst: { event_type: string }[];
   isRepairOutcome: boolean;
   userMessageCharCount: number;
+  rawBody?: string;
 }): ProofMomentMeta | null {
   const prev = getMostRecentPastOutcomeType(args.eventsNewestFirst);
   const leadingYes = countLeadingUserYesStreakFromNewest(args.eventsNewestFirst);
@@ -177,6 +183,19 @@ export function buildProofMomentForAccountabilityOutcome(args: {
       proof_weight: "medium",
       line: "You stayed in the conversation instead of disappearing.",
     });
+  }
+
+  const rawBody = args.rawBody?.trim() ?? "";
+  if (rawBody) {
+    if (
+      looksLikeCoachContextCorrectionOrMetaDispute(rawBody) &&
+      !inboundHasExplicitAccountabilityMissClause(rawBody)
+    ) {
+      return null;
+    }
+    if (!inboundHasExplicitAccountabilityMissClause(rawBody)) {
+      return null;
+    }
   }
 
   const substantive = args.userMessageCharCount >= 36;
