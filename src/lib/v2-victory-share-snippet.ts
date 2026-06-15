@@ -8,7 +8,14 @@ import type { VictoryMoment, VictoryRoomViewData } from "@/lib/v2-victory-room-v
 /** Optional display line (e.g. Clerk firstName) when `preferred_name` is empty — set only by the page. */
 export type VictoryRoomViewForShare = VictoryRoomViewData & {
   share_identity_line?: string;
+  /** Moments eligible for share lookup (home wins, all proof, etc.). */
+  shareProofMoments?: VictoryMoment[];
 };
+
+function findShareMoment(view: VictoryRoomViewForShare, momentId: string): VictoryMoment | undefined {
+  const pool = view.shareProofMoments ?? view.recentWins ?? view.moments;
+  return pool.find((m) => m.id === momentId);
+}
 
 export const VICTORY_SHARE_LEDE = "Building proof, not just intentions.";
 export const VICTORY_SHARE_TAGLINE = "Proof over promises.";
@@ -68,7 +75,7 @@ export function buildShareSnippetFromMoment(
   display?: VictoryShareDisplayHints
 ): VictoryShareSnippet | null {
   if (!view.hasActiveV2Commitment) return null;
-  const moment: VictoryMoment | undefined = view.moments.find((m) => m.id === momentId);
+  const moment = findShareMoment(view, momentId);
   if (!moment) return null;
 
   const categoryLabel = truncateIntentional(

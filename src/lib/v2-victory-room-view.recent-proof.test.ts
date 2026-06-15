@@ -5,8 +5,10 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import {
+  buildChronologicalProofList,
   compareVictoryMomentsByProofTimeDesc,
   curateRecentProofMoments,
+  RECENT_WINS_DISPLAY_LIMIT,
   victoryMomentProofTimeMs,
   deriveMergedProofMomentsFromEventWindow,
   getRecentProofDedupeKey,
@@ -501,3 +503,75 @@ describe("curateRecentProofMoments (Phase 2)", () => {
   });
 });
 
+describe("buildChronologicalProofList (Your Wins)", () => {
+  const yesBody = "You followed through when it counted.";
+
+  function yesMoment(id: string, day: number): VictoryMoment {
+    return m({
+      id,
+      occurredAt: `2026-05-${String(day).padStart(2, "0")}T12:00:00Z`,
+      headline: "Kept your word",
+      body: yesBody,
+      groundedInEventTypes: ["user_yes"],
+    });
+  }
+
+  it("shows seven repeated goal hits as seven rows", () => {
+    const merged = Array.from({ length: 10 }, (_, i) => yesMoment(`yes-${i + 1}`, i + 1));
+    const wins = buildChronologicalProofList(merged, RECENT_WINS_DISPLAY_LIMIT);
+    expect(wins).toHaveLength(7);
+    expect(wins.map((x) => x.id)).toEqual([
+      "yes-10",
+      "yes-9",
+      "yes-8",
+      "yes-7",
+      "yes-6",
+      "yes-5",
+      "yes-4",
+    ]);
+  });
+
+  it("does not category-dedupe unlike curateRecentProofMoments", () => {
+    const yeses = Array.from({ length: 4 }, (_, i) => yesMoment(`y${i}`, i + 1));
+    const miss = m({
+      id: "miss-1",
+      occurredAt: "2026-05-05T12:00:00Z",
+      headline: "Honest miss",
+      body: "You told the truth about the miss — that matters.",
+      groundedInEventTypes: ["user_no"],
+    });
+    const merged = [...yeses, miss];
+    const wins = buildChronologicalProofList(merged, RECENT_WINS_DISPLAY_LIMIT);
+    expect(wins).toHaveLength(5);
+    expect(curateRecentProofMoments(merged, 7)).toHaveLength(2);
+  });
+
+  it("does not text-dedupe identical body lines", () => {
+    const a = yesMoment("a", 1);
+    const b = yesMoment("b", 2);
+    const wins = buildChronologicalProofList([a, b], RECENT_WINS_DISPLAY_LIMIT);
+    expect(wins).toHaveLength(2);
+  });
+
+  it("dedupes duplicate ids only", () => {
+    const one = yesMoment("dup", 1);
+    const wins = buildChronologicalProofList([one, one], RECENT_WINS_DISPLAY_LIMIT);
+    expect(wins).toHaveLength(1);
+  });
+
+  it("derives seven user_yes spine rows as seven wins", () => {
+    const rows = Array.from({ length: 7 }, (_, i) => ({
+      id: `spine-yes-${i}`,
+      event_type: "user_yes",
+      occurred_at: `2026-05-${String(i + 1).padStart(2, "0")}T10:00:00Z`,
+      payload_json: { proof_moment: true, proof_meaning_line: yesBody },
+    }));
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: rows,
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(7);
+    const wins = buildChronologicalProofList(merged, RECENT_WINS_DISPLAY_LIMIT);
+    expect(wins).toHaveLength(7);
+  });
+});

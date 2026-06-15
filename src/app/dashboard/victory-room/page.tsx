@@ -31,6 +31,8 @@ import {
 } from "@/lib/v2-victory-room-view";
 import type { VictoryRoomViewForShare } from "@/lib/v2-victory-share-snippet";
 
+export const dynamic = "force-dynamic";
+
 export default async function VictoryRoomPage() {
   const user = await currentUser();
   if (!user?.id) redirect("/sign-in");
@@ -102,7 +104,11 @@ export default async function VictoryRoomPage() {
     : null;
 
   const viewForShare: VictoryRoomViewForShare | null = view.hasActiveV2Commitment
-    ? { ...view, share_identity_line: displayName }
+    ? {
+        ...view,
+        share_identity_line: displayName,
+        shareProofMoments: view.recentWins,
+      }
     : null;
 
   return (

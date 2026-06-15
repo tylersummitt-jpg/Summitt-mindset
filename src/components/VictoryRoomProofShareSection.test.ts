@@ -21,6 +21,7 @@ describe("VictoryRoomProofShareSection (Victory Card V1)", () => {
             proofCategoryLabels: [],
             earlierSeasonCount: 0,
           },
+          recentWins: [],
           moments: [],
           comebackLines: [],
           isDayZeroUser: false,

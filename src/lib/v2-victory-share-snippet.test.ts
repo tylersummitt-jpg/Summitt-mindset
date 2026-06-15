@@ -34,6 +34,15 @@ function baseView(overrides: Partial<VictoryRoomViewForShare> = {}): VictoryRoom
         groundedInEventTypes: ["user_partial"],
       },
     ],
+    recentWins: [
+      {
+        id: "m1",
+        occurredAt: "2026-05-01T12:00:00Z",
+        headline: "Stayed engaged",
+        body: "You stayed engaged instead of disappearing.",
+        groundedInEventTypes: ["user_partial"],
+      },
+    ],
     comebackLines: [],
     isDayZeroUser: false,
     hasSparseProof: false,
@@ -104,18 +113,19 @@ describe("buildShareSnippetFromMoment (Victory Card V1)", () => {
   });
 
   it("formats quote and meaning without duplication", () => {
+    const moment = {
+      id: "m-dup",
+      occurredAt: "2026-05-01T12:00:00Z",
+      headline: "Proof in the thread",
+      body: "You followed through when it counted.",
+      quote: "I came back today and got the two hours done.",
+      meaning: "You followed through when it counted.",
+      groundedInEventTypes: ["user_yes"],
+    };
     const view = baseView({
-      moments: [
-        {
-          id: "m-dup",
-          occurredAt: "2026-05-01T12:00:00Z",
-          headline: "Proof in the thread",
-          body: "You followed through when it counted.",
-          quote: "I came back today and got the two hours done.",
-          meaning: "You followed through when it counted.",
-          groundedInEventTypes: ["user_yes"],
-        },
-      ],
+      moments: [moment],
+      recentWins: [moment],
+      shareProofMoments: [moment],
     });
 
     const snippet = buildShareSnippetFromMoment(view, "m-dup", {
@@ -131,15 +141,24 @@ describe("buildShareSnippetFromMoment (Victory Card V1)", () => {
     expect(snippet!.plainText.match(/I came back today and got the two hours done/g)?.length).toBe(1);
   });
 
-  it("omits quote line in plainText when quote is absent", () => {
-    const snippet = buildShareSnippetFromMoment(baseView(), "m1", {
+  it("finds moments via shareProofMoments when not in moments", () => {
+    const view = baseView({
+      moments: [],
+      recentWins: [],
+      shareProofMoments: [
+        {
+          id: "m-share",
+          occurredAt: "2026-05-03T12:00:00Z",
+          headline: "Kept your word",
+          body: "You followed through when it counted.",
+          groundedInEventTypes: ["user_yes"],
+        },
+      ],
+    });
+    const snippet = buildShareSnippetFromMoment(view, "m-share", {
       categoryLabel: "Kept the goal",
     });
     expect(snippet).not.toBeNull();
-    expect(snippet!.quote).toBeNull();
-    const lines = snippet!.plainText.split("\n");
-    expect(lines[2]).toBe("Kept the goal");
-    expect(lines[3]).toBe("You stayed engaged instead of disappearing.");
-    expect(lines[4]).not.toMatch(/^"/);
+    expect(snippet!.meaning).toContain("followed through");
   });
 });

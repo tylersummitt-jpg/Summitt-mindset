@@ -35,8 +35,7 @@ export function VictoryRoomTopCard({
       />
       <h1 className={vrSectionTitle}>Victory Room</h1>
       <p className={`${vrSectionSubtitle} mt-2.5 max-w-2xl`}>
-        A living trophy room for character — where proof of who you are becoming is saved from your
-        real choices.
+        A calm home for proof of who you are becoming — saved from your real choices.
       </p>
 
       <div className="mt-8 flex gap-4 sm:gap-5">

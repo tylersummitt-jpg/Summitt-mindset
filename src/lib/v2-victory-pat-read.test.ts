@@ -27,6 +27,7 @@ function baseView(overrides: Partial<VictoryRoomViewData> = {}): VictoryRoomView
       earlierSeasonCount: 0,
     },
     moments: [],
+    recentWins: [],
     comebackLines: [],
     isDayZeroUser: true,
     hasSparseProof: true,

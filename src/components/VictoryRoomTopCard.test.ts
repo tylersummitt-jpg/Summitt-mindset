@@ -20,7 +20,7 @@ describe("VictoryRoomTopCard", () => {
   it("renders My Identity and My Current Goal", () => {
     const html = renderToStaticMarkup(React.createElement(VictoryRoomTopCard, baseProps));
     expect(html).toContain("Victory Room");
-    expect(html).toContain("living trophy room");
+    expect(html).toContain("calm home for proof");
     expect(html).toContain("saved from your");
     expect(html).toContain("real choices.");
     expect(html).not.toContain("Summitt Mindset");

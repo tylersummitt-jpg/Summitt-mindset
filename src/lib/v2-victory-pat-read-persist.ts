@@ -373,15 +373,14 @@ export function computePatReadSourceBundle(
     return null;
   }
 
-  const proofMoments = view.moments.map((m) => ({
+  const proofSource = view.recentWins?.length ? view.recentWins : view.moments;
+  const proofMoments = proofSource.map((m) => ({
     id: m.id,
     body: m.body.trim(),
     category_label: getRecentProofCategoryLabel(m),
   }));
 
-  const latest = [...view.moments].sort(
-    (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
-  )[0];
+  const latest = proofSource[0] ?? null;
 
   const deterministic = buildDeterministicPatRead(view, "there");
   const patternConfidence = computePatReadPatternConfidence(

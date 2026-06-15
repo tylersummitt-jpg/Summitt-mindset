@@ -17,7 +17,7 @@ type MomentRow = {
 };
 
 type VictoryRoomProofShareSectionProps = {
-  viewForShare: VictoryRoomViewForShare;
+  viewForShare: VictoryRoomViewForShare | null;
   moments: MomentRow[];
 };
 
@@ -25,7 +25,7 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
   const [openMomentId, setOpenMomentId] = useState<string | null>(null);
 
   const snippet = useMemo(() => {
-    if (!openMomentId) return null;
+    if (!openMomentId || !viewForShare) return null;
     const row = moments.find((m) => m.id === openMomentId);
     return buildShareSnippetFromMoment(viewForShare, openMomentId, {
       categoryLabel: row?.categoryLabel,
@@ -43,6 +43,8 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
 
   if (moments.length === 0) return null;
 
+  const shareEnabled = Boolean(viewForShare?.hasActiveV2Commitment);
+
   return (
     <>
       <ul className="mt-8 space-y-4">
@@ -57,7 +59,7 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
               dateLabel={m.dateLabel}
               groundedInEventTypes={m.groundedInEventTypes}
               momentId={m.id}
-              onShareProof={handleShareClick}
+              onShareProof={shareEnabled ? handleShareClick : undefined}
             />
           </li>
         ))}

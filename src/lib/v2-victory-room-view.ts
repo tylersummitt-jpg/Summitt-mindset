@@ -32,16 +32,22 @@ export const ACTIVE_EVENT_FETCH_LIMIT = 400;
  */
 export const PROOF_DERIVATION_EVENT_LIMIT = ACTIVE_EVENT_FETCH_LIMIT;
 
-/** Max recent proof cards on the Victory Room page. */
+/** Max recent proof cards on the Victory Room page (legacy curated highlights). */
 export const RECENT_PROOF_DISPLAY_LIMIT = 5;
+
+/** Max proof cards in home "Your Wins" — newest first, no category dedupe. */
+export const RECENT_WINS_DISPLAY_LIMIT = 7;
+
+/** Account-wide All Proof page: max spine events fetched by clerk_user_id. */
+export const ALL_PROOF_EVENT_FETCH_LIMIT = 2500;
 
 /** Max proof cards on a lazy season detail page. */
 export const SEASON_PROOF_DISPLAY_LIMIT = 20;
 
 /**
- * Legacy archive path cap (prior chapters / full archive). Not used on default page load.
+ * Legacy archive path cap (prior chapters / full archive). Same as ALL_PROOF_EVENT_FETCH_LIMIT.
  */
-const ARCHIVE_EVENT_LIMIT = 2500;
+const ARCHIVE_EVENT_LIMIT = ALL_PROOF_EVENT_FETCH_LIMIT;
 
 /** Max items shown in the Lifetime proof section (curated, capped). */
 export const VICTORY_ARCHIVE_MAX_ITEMS = 18;
@@ -147,6 +153,9 @@ export type VictoryRoomViewData = {
   activeSeason: VictoryRoomActiveSeason | null;
   effectiveCoachingAsk: string | null;
   chapterRecord: VictoryChapterRecord;
+  /** Home "Your Wins" — newest displayable proof, max RECENT_WINS_DISPLAY_LIMIT. */
+  recentWins: VictoryMoment[];
+  /** @deprecated Alias for `recentWins` (share + Pat Read compat). */
   moments: VictoryMoment[];
   comebackLines: string[];
   /** True when commitment is active but visible proof is still thin (day-zero / early chapter). */
@@ -432,6 +441,21 @@ export function curateRecentProofMoments(
   }
 
   return selected;
+}
+
+/**
+ * Chronological proof list for Your Wins / All Proof — id dedupe only, no category or text collapse.
+ */
+export function buildChronologicalProofList(
+  moments: VictoryMoment[],
+  max?: number | null
+): VictoryMoment[] {
+  const deduped = dedupeMomentsById([...moments]);
+  deduped.sort(compareVictoryMomentsByProofTimeDesc);
+  if (max == null || max <= 0) {
+    return deduped;
+  }
+  return deduped.slice(0, max);
 }
 
 function parsePayload(row: EventRow): Record<string, unknown> {
@@ -1512,10 +1536,10 @@ export function buildVictoryEvidenceCounts(
 }
 
 export function computeHasSparseProof(args: {
-  moments: VictoryMoment[];
+  mergedProofCount: number;
   comebackLines: string[];
 }): boolean {
-  return args.moments.length === 0 && args.comebackLines.length === 0;
+  return args.mergedProofCount === 0 && args.comebackLines.length === 0;
 }
 
 async function loadPastAccountabilitySeasons(clerkUserId: string): Promise<{
@@ -1628,6 +1652,7 @@ export async function loadVictoryRoomView(
         proofCategoryLabels: [],
         earlierSeasonCount: 0,
       },
+      recentWins: [],
       moments: [],
       comebackLines: [],
       isDayZeroUser: false,
@@ -1664,15 +1689,15 @@ export async function loadVictoryRoomView(
     reactivationEnteredAt: commitment.reactivation_entered_at,
   });
 
-  const moments = curateRecentProofMoments(merged, RECENT_PROOF_DISPLAY_LIMIT);
+  const recentWins = buildChronologicalProofList(merged, RECENT_WINS_DISPLAY_LIMIT);
   const evidenceCounts = buildVictoryEvidenceCounts(merged, seasonsCompleted);
-  const hasSparseProof = computeHasSparseProof({ moments, comebackLines });
+  const hasSparseProof = computeHasSparseProof({ mergedProofCount: merged.length, comebackLines });
   const isDayZeroUser = hasSparseProof;
 
   const chapterRecord = buildChapterRecord({
     commitmentStartedAt: commitment.started_at,
     eventRowsFull,
-    moments,
+    moments: recentWins,
     archiveMoments: [],
     cornerstoneMoments: [],
     earlierSeasonCount: pastSeasons.length,
@@ -1689,7 +1714,8 @@ export async function loadVictoryRoomView(
     activeSeason,
     effectiveCoachingAsk: getEffectiveCoachingAsk(commitment, Date.now()),
     chapterRecord,
-    moments,
+    recentWins,
+    moments: recentWins,
     comebackLines,
     isDayZeroUser,
     hasSparseProof,
@@ -1717,4 +1743,91 @@ export function formatVictoryRoomDate(iso: string, timeZone: string | undefined)
       t
     );
   }
+}
+
+export function formatVictoryRoomMonthYear(iso: string, timeZone: string | undefined): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const tz = timeZone && timeZone.trim() ? timeZone : "UTC";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      year: "numeric",
+      timeZone: tz,
+    }).format(t);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(t);
+  }
+}
+
+export type VictoryProofMonthGroup = {
+  monthLabel: string;
+  moments: VictoryMoment[];
+};
+
+/** Preserve newest-first order within each month bucket. */
+export function groupProofMomentsByMonth(
+  moments: VictoryMoment[],
+  timeZone: string | undefined
+): VictoryProofMonthGroup[] {
+  const order: string[] = [];
+  const buckets = new Map<string, VictoryMoment[]>();
+  for (const m of moments) {
+    const monthLabel = formatVictoryRoomMonthYear(m.occurredAt, timeZone) || "Unknown";
+    if (!buckets.has(monthLabel)) {
+      buckets.set(monthLabel, []);
+      order.push(monthLabel);
+    }
+    buckets.get(monthLabel)!.push(m);
+  }
+  return order.map((monthLabel) => ({ monthLabel, moments: buckets.get(monthLabel)! }));
+}
+
+export type MappedCommitmentEventRow = EventRow & {
+  commitmentId: string;
+};
+
+export function mapVictoryCommitmentEventRowsWithCommitmentId(
+  rows: unknown
+): MappedCommitmentEventRow[] {
+  return (rows as Record<string, unknown>[])
+    .filter(
+      (r) =>
+        typeof r.id === "string" &&
+        typeof r.event_type === "string" &&
+        typeof r.occurred_at === "string" &&
+        typeof r.commitment_id === "string"
+    )
+    .map((r) => ({
+      id: String(r.id),
+      event_type: String(r.event_type),
+      occurred_at: String(r.occurred_at),
+      commitmentId: String(r.commitment_id),
+      payload_json:
+        r.payload_json != null && typeof r.payload_json === "object" && !Array.isArray(r.payload_json)
+          ? (r.payload_json as Record<string, unknown>)
+          : {},
+    }));
+}
+
+/** Group mapped spine rows by commitment for per-commitment proof derivation. */
+export function groupEventRowsByCommitmentId(
+  rows: MappedCommitmentEventRow[]
+): Map<string, EventRow[]> {
+  const map = new Map<string, EventRow[]>();
+  for (const row of rows) {
+    const list = map.get(row.commitmentId) ?? [];
+    list.push({
+      id: row.id,
+      event_type: row.event_type,
+      occurred_at: row.occurred_at,
+      payload_json: row.payload_json,
+    });
+    map.set(row.commitmentId, list);
+  }
+  return map;
 }

@@ -4,6 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 
 const VIEW_SRC = readFileSync(join(process.cwd(), "src/lib/v2-victory-room-view.ts"), "utf8");
 const PAGE_SRC = readFileSync(join(process.cwd(), "src/app/dashboard/victory-room/page.tsx"), "utf8");
+const ALL_PROOF_PAGE_SRC = readFileSync(
+  join(process.cwd(), "src/app/dashboard/victory-room/all-proof/page.tsx"),
+  "utf8"
+);
+const ALL_PROOF_VIEW_SRC = readFileSync(
+  join(process.cwd(), "src/lib/v2-victory-all-proof-view.ts"),
+  "utf8"
+);
 const PAT_READ_SRC = readFileSync(join(process.cwd(), "src/lib/v2-victory-pat-read.ts"), "utf8");
 const PERSIST_SRC = readFileSync(
   join(process.cwd(), "src/lib/v2-victory-pat-read-persist.ts"),
@@ -65,6 +73,23 @@ describe("Victory Room loader policy", () => {
     const loadSection = VIEW_SRC.slice(VIEW_SRC.indexOf("export async function loadVictoryRoomView"));
     expect(loadSection).not.toMatch(/loadPriorChaptersView\(/);
     expect(loadSection).not.toContain("loadV2CoachingMemoryForPrompt");
+    expect(loadSection).toContain("buildChronologicalProofList");
+    expect(loadSection).toContain("RECENT_WINS_DISPLAY_LIMIT");
+    expect(loadSection).not.toContain("curateRecentProofMoments(merged");
+  });
+
+  it("Victory Room and All Proof pages are force-dynamic and avoid OpenAI", () => {
+    expect(PAGE_SRC).toContain('export const dynamic = "force-dynamic"');
+    expect(ALL_PROOF_PAGE_SRC).toContain('export const dynamic = "force-dynamic"');
+    expect(PAGE_SRC).not.toContain("openai");
+    expect(ALL_PROOF_PAGE_SRC).not.toContain("openai");
+    expect(ALL_PROOF_VIEW_SRC).not.toContain("openai");
+  });
+
+  it("All Proof loader uses clerk_user_id event window cap", () => {
+    expect(ALL_PROOF_VIEW_SRC).toContain("ALL_PROOF_EVENT_FETCH_LIMIT");
+    expect(ALL_PROOF_VIEW_SRC).toContain("clerk_user_id");
+    expect(ALL_PROOF_VIEW_SRC).toContain("groupEventRowsByCommitmentId");
   });
 
   it("page does not call OpenAI summary on render", () => {

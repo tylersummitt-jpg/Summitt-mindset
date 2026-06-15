@@ -43,13 +43,13 @@ export function VictoryEvidenceSection({ counts }: VictoryEvidenceSectionProps) 
 
   return (
     <VictoryRoomSectionShell
-      title="The Evidence"
-      subtitle="Simple counts from your bounded check-in window. This is evidence, not a scoreboard."
+      title="Your Stats"
+      subtitle="Simple counts from your recent check-ins. Evidence, not a scoreboard."
     >
       {tiles.length === 0 ? (
         <p className={vrEmptyState}>
-          Evidence fills in as you answer real check-ins. There is no scoreboard here — only honest
-          proof of who you are becoming.
+          Your stats fill in as you answer real check-ins. No streaks, no badges — just honest proof
+          of who you are becoming.
         </p>
       ) : (
         <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-4">

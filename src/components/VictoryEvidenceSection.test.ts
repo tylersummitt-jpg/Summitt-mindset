@@ -14,8 +14,9 @@ describe("VictoryEvidenceSection", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryEvidenceSection, { counts: EMPTY_VICTORY_EVIDENCE_COUNTS })
     );
-    expect(html).toContain("The Evidence");
-    expect(html).toContain("no scoreboard");
+    expect(html).toContain("Your Stats");
+    expect(html).toContain("not a scoreboard");
+    expect(html).not.toContain("The Evidence");
     expect(html).not.toContain(">0<");
   });
 
