@@ -24,6 +24,15 @@ import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
+  buildDailyTemporalAwarenessPromptGuidance,
+  buildRecentThreadTimelineSummary72h,
+  deriveDailyTemporalAwarenessSummary,
+  deriveIsNewAccountabilityDayFromThread,
+  weekdayFromAccountabilityDayKey,
+  type DailyRecentThreadTimelineEntry,
+  type DailyTemporalAwarenessSummary,
+} from "@/lib/sms-daily-temporal-awareness";
+import {
   buildRelationshipAndScheduleAnchors,
   buildRelationshipAnchorsPromptGuidance,
   relationshipAnchorAvoidRepeatingFingerprints,
@@ -99,6 +108,7 @@ export type RelationshipPacketCurrentTurn = {
   strong_week?: boolean;
   reason_for_send?: string | null;
   temporal_contract?: TemporalContractV1 | null;
+  temporal_awareness_summary?: DailyTemporalAwarenessSummary | null;
   suggested_coaching_move?: string | null;
   adjustment_proposal_allowed_by_evidence?: boolean | null;
   single_miss_recovery_required?: boolean | null;
@@ -169,6 +179,7 @@ export type RelationshipPacketStructuredRecentTruth = {
     recent_coach_question_labels: string[];
     has_satisfied_recent_ask: boolean;
   } | null;
+  recent_thread_timeline_summary_72h?: DailyRecentThreadTimelineEntry[] | null;
 };
 
 export type RelationshipPacketRecentExactThread72h = {
@@ -322,6 +333,7 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
 ${buildRelationshipAnchorsPromptGuidance()}
 ${buildTemporalContractPromptGuidance()}
+${buildDailyTemporalAwarenessPromptGuidance()}
 ${buildRelationshipSnapshotV2PromptGuidance()}`;
 }
 
@@ -395,28 +407,31 @@ function buildCurrentTurnInbound(f: InboundV3RelationshipFacts): RelationshipPac
   };
 }
 
-function weekdayFromAccountabilityDayKey(dayKey: string): string | null {
-  const parts = dayKey.split("-").map((x) => parseInt(x, 10));
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
-  const [y, m, d] = parts;
-  const date = new Date(Date.UTC(y!, m! - 1, d!));
-  const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return names[date.getUTCDay()] ?? null;
+function deriveIsNewAccountabilityDayForPacket(f: DailyV3RelationshipFacts): boolean {
+  return deriveIsNewAccountabilityDayFromThread({
+    accountabilityDayKey: f.accountability_day_key,
+    messages: f.thread_memory.recent_exact_thread_72h?.messages,
+  });
 }
 
-function deriveIsNewAccountabilityDayForPacket(f: DailyV3RelationshipFacts): boolean {
-  const today = f.accountability_day_key?.trim();
-  if (!today) return true;
-  const t72 = f.thread_memory.recent_exact_thread_72h;
-  if (t72?.messages?.length) {
-    for (let i = t72.messages.length - 1; i >= 0; i--) {
-      const m = t72.messages[i]!;
-      if (m.role === "coach" && m.delivery_status === "sent" && m.local_day_key?.trim()) {
-        return m.local_day_key.trim() !== today;
-      }
-    }
-  }
-  return true;
+function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketCurrentTurn {
+  const temporal_awareness_summary = deriveDailyTemporalAwarenessSummary({
+    facts: f,
+    isNewAccountabilityDay: deriveIsNewAccountabilityDayForPacket(f),
+  });
+  return {
+    route_kind: f.route_kind,
+    daily_purpose: f.accountability.daily_purpose,
+    server_strategy: f.accountability.server_strategy,
+    accountability_day_key: f.accountability_day_key,
+    local_time_iso: f.user.local_time_iso,
+    timezone: f.user.timezone,
+    local_date: f.accountability_day_key,
+    local_weekday: weekdayFromAccountabilityDayKey(f.accountability_day_key),
+    is_new_accountability_day: temporal_awareness_summary.is_new_accountability_day,
+    temporal_contract: f.temporal_contract ?? null,
+    temporal_awareness_summary,
+  };
 }
 
 function buildStaleAskAvoidanceSummaryFromDailyFacts(
@@ -468,21 +483,6 @@ export function staleAskAvoidanceTelemetryFromSummary(
     stale_ask_avoidance_satisfied_label_count: summary.satisfied_ask_labels.length,
     stale_ask_avoidance_do_not_reask_label_count: summary.do_not_reask_labels.length,
     stale_ask_avoidance_recent_question_label_count: summary.recent_coach_question_labels.length,
-  };
-}
-
-function buildCurrentTurnDaily(f: DailyV3RelationshipFacts): RelationshipPacketCurrentTurn {
-  return {
-    route_kind: f.route_kind,
-    daily_purpose: f.accountability.daily_purpose,
-    server_strategy: f.accountability.server_strategy,
-    accountability_day_key: f.accountability_day_key,
-    local_time_iso: f.user.local_time_iso,
-    timezone: f.user.timezone,
-    local_date: f.accountability_day_key,
-    local_weekday: weekdayFromAccountabilityDayKey(f.accountability_day_key),
-    is_new_accountability_day: deriveIsNewAccountabilityDayForPacket(f),
-    temporal_contract: f.temporal_contract ?? null,
   };
 }
 
@@ -735,6 +735,10 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
   const turnUnderstanding =
     sac?.has_satisfied_recent_ask === true ? turnUnderstandingFromDailySatisfiedAskContext(sac) : null;
   const staleAskAvoidanceSummary = buildStaleAskAvoidanceSummaryFromDailyFacts(f);
+  const timeline = buildRecentThreadTimelineSummary72h({
+    messages: tm.recent_exact_thread_72h?.messages,
+    accountabilityDayKey: f.accountability_day_key,
+  });
   return {
     ...(turnUnderstanding ? { turn_understanding: turnUnderstanding } : {}),
     ...(sac?.has_satisfied_recent_ask
@@ -751,6 +755,7 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
         }
       : {}),
     ...(staleAskAvoidanceSummary ? { stale_ask_avoidance_summary: staleAskAvoidanceSummary } : {}),
+    ...(timeline.length ? { recent_thread_timeline_summary_72h: timeline } : {}),
     thread_freshness: f.thread_freshness ?? null,
     latest_open_question: tm.latest_open_question ?? null,
     latest_answer_after_open_question: tm.latest_answer_after_open_question ?? null,

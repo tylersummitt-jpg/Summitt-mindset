@@ -45,6 +45,11 @@ import {
   WEEKLY_NO_YES_NO_RESET_MUST_NOT_DO,
 } from "@/lib/sms-generic-future-recommitment-question-family";
 import type { DailySemanticContractProposalFactsPacket } from "@/lib/v3-daily-contract-proposal-semantic";
+import {
+  buildDailyTemporalAwarenessPromptGuidance,
+  dailyC1CanImplyTodayMissed,
+  dailyC1IsCurrentDayMiss,
+} from "@/lib/sms-daily-temporal-awareness";
 
 export const STRATEGY_CARD_V1_VERSION = "1.0" as const;
 
@@ -2455,6 +2460,13 @@ function deriveDailyC1LocalDayContext(facts: DailyV3RelationshipFacts): {
   };
 }
 
+/** @internal test helper — prospective when no current-day miss server truth. */
+export function obstacleRecoveryUsesProspectiveFraming(
+  ctx: DailyC1StrategyCardBuildContext
+): boolean {
+  return !dailyC1CanImplyTodayMissed({ proofPermission: ctx.proofPermission });
+}
+
 function semanticAvoidKey(prefix: string, text: string): string {
   const t = text.trim();
   if (t.length < 8) return "";
@@ -2541,7 +2553,7 @@ export function selectDailyC1ConversationIntent(
     return "protect_existing_plan";
   }
 
-  if (facts.accountability.blocker_preview?.trim() || facts.accountability.prior_outcome === "user_no") {
+  if (dailyC1IsCurrentDayMiss({ facts, proofPermission: ctx.proofPermission })) {
     return "obstacle_recovery";
   }
 
@@ -2550,6 +2562,10 @@ export function selectDailyC1ConversationIntent(
       return facts.accountability.pending_plan_proof?.active ? "protect_existing_plan" : "plan_today";
     }
     return "close_loop";
+  }
+
+  if (facts.accountability.blocker_preview?.trim()) {
+    return "obstacle_recovery";
   }
 
   if (relationshipAnchorBridgeEligible(ctx)) {
@@ -2568,7 +2584,11 @@ export function selectDailyC1ConversationIntent(
     return "direct_outcome_check";
   }
 
-  if (facts.accountability.prior_outcome === "user_partial") {
+  if (
+    ctx.proofPermission.can_claim_partial ||
+    (facts.accountability.prior_outcome === "user_partial" &&
+      facts.accountability.days_since_last_user_outcome === 0)
+  ) {
     return "reflect_pattern";
   }
 
@@ -2736,8 +2756,21 @@ function buildDailyC1MustDoMustNotDo(args: {
       must_not_do.push("Do not ask if they already completed unless direct_outcome_check was intended.");
       break;
     case "obstacle_recovery":
-      must_do.push("Name or explore today's likely blocker without shame.");
-      must_not_do.push("Do not imply failure unless server truth says miss.");
+      if (obstacleRecoveryUsesProspectiveFraming(ctx)) {
+        must_do.push("Name or explore what might get in the way today.");
+        must_do.push(
+          "If referencing a prior miss, use yesterday or last time — not today-failure wording."
+        );
+        must_not_do.push(
+          "Do not imply today already failed or ask what held them back today unless allowed_claims.miss is true."
+        );
+        must_not_do.push(
+          "Do not use what got in the way today, what held you back today, why didn't you today, or what stopped you today."
+        );
+      } else {
+        must_do.push("Name or explore today's likely blocker without shame.");
+        must_not_do.push("Do not imply failure beyond what allowed_claims.miss permits.");
+      }
       break;
     case "reflect_pattern":
       must_do.push("Help notice what usually makes this goal work or slip.");
@@ -2821,12 +2854,18 @@ export function buildDailyC1StrategyCardContextFromSnapshot(args: {
   };
 }
 
-function dailyC1MoveReason(intent: DailyC1ConversationIntent, moveType: StrategyCardMoveType): string {
+function dailyC1MoveReason(
+  intent: DailyC1ConversationIntent,
+  moveType: StrategyCardMoveType,
+  ctx: DailyC1StrategyCardBuildContext
+): string {
   const byIntent: Partial<Record<DailyC1ConversationIntent, string>> = {
     low_pressure_reentry: "Low-pressure reactivation — gentle re-entry without outcome claims.",
     protect_existing_plan: "Protect the user's stated plan before a fresh check.",
     close_loop: "Prior ask was answered — close the loop without re-asking.",
-    obstacle_recovery: "Explore what got in the way today.",
+    obstacle_recovery: obstacleRecoveryUsesProspectiveFraming(ctx)
+      ? "Explore what might get in the way today."
+      : "Explore what got in the way today.",
     plan_today: "Relationship-first touch — help shape today's realistic step.",
     reflect_pattern: "Reflect on what makes this goal work or slip.",
     relationship_anchor_bridge: "Bridge optional relationship context into today's move.",
@@ -2902,7 +2941,7 @@ export function buildDailyC1StrategyCardV1(args: {
       type: moveType,
       priority: isReactivation ? "low" : "normal",
       confidence: "high",
-      reason: truncateText(dailyC1MoveReason(conversationIntent, moveType), MAX_REASON_CHARS),
+      reason: truncateText(dailyC1MoveReason(conversationIntent, moveType, ctx), MAX_REASON_CHARS),
     },
     must_do,
     must_not_do,
@@ -3046,7 +3085,8 @@ RELATIONSHIP-FIRST DAILY (one continuous coaching relationship — not a daily c
 - If structured_recent_truth, stale_ask_avoidance_summary, or daily_satisfied_ask_context shows the user already satisfied a prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — no "How did X go?" paraphrase re-asks.
 - Make a fresh current-step, plan, obstacle, identity, or relationship-bridge move instead of another outcome interrogation.
 - Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.
-- If facts say reentry/comeback after silence, acknowledge return briefly before the next move.`;
+- If facts say reentry/comeback after silence, acknowledge return briefly before the next move.
+${buildDailyTemporalAwarenessPromptGuidance()}`;
 }
 
 // --- Daily C2 Strategy Card v1 (contract_prompt semantic shrink_ask + recommit_same) ---

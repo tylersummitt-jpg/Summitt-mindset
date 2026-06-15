@@ -578,6 +578,36 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(userPromptJson).toContain("is_new_accountability_day");
   });
 
+  it("daily packet exposes temporal_awareness_summary on current_turn", () => {
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts(),
+    });
+    const summary = packet.current_turn.data.temporal_awareness_summary;
+    expect(summary).toBeDefined();
+    expect(summary?.local_date).toBe("2026-05-12");
+    expect(summary?.accountability_day_key).toBe("2026-05-12");
+    expect(summary?.user_timezone).toBe("America/Chicago");
+    expect(summary?.current_day_outcome_status).toBeDefined();
+    expect(typeof summary?.can_imply_today_missed).toBe("boolean");
+    expect(typeof summary?.can_imply_today_completed).toBe("boolean");
+    expect(userPromptJson).toContain("temporal_awareness_summary");
+    expect(userPromptJson).toContain("can_imply_today_missed");
+  });
+
+  it("daily packet exposes compact recent_thread_timeline_summary_72h", () => {
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts(),
+    });
+    const timeline = packet.structured_recent_truth.data.recent_thread_timeline_summary_72h;
+    expect(timeline?.length).toBeGreaterThan(0);
+    expect(timeline?.[0]?.role).toMatch(/coach|user/);
+    expect(timeline?.[0]?.local_day_relation).toBeDefined();
+    expect(timeline?.[0]?.body_preview.length).toBeGreaterThan(0);
+    expect(userPromptJson).toContain("recent_thread_timeline_summary_72h");
+  });
+
   it("stale_ask_avoidance_summary omitted when no satisfied or DNR context", () => {
     const { packet } = buildRelationshipPacketForOpenAI({
       lane: "daily",

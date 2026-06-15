@@ -41,6 +41,8 @@ import {
   isDailyC3PendingResolutionStrategyCardEligible,
   isDailyC3RefreshStrategyCardEligible,
   isDailyStrategyCardEligible,
+  obstacleRecoveryUsesProspectiveFraming,
+  selectDailyC1ConversationIntent,
   validateAndRepairDailyC1StrategyCardV1,
   validateAndRepairDailyC3PendingResolutionStrategyCardV1,
   validateAndRepairDailyC3RefreshStrategyCardV1,
@@ -1628,6 +1630,149 @@ describe("Daily C1 Strategy Card v1", () => {
       card.server_truth_summary.daily_conversation_intent
     );
     expect(card.server_truth_summary.daily_conversation_intent).not.toBe("direct_outcome_check");
+  });
+
+  it("obstacle_recovery on new accountability morning without miss uses prospective framing", () => {
+    const facts = dailyFacts({
+      accountability_day_key: "2026-06-15",
+      user: {
+        clerk_user_id: "u_daily",
+        preferred_name: "Alex",
+        timezone: "America/New_York",
+        local_time_iso: "2026-06-15T06:01:00-04:00",
+        relationship_profile_summary: null,
+      },
+      accountability: {
+        ...dailyFacts().accountability,
+        prior_outcome: null,
+        yes_streak_14d: 0,
+        days_since_last_user_outcome: 1,
+        blocker_preview: "meetings often run long",
+        proof_or_milestone_signal: null,
+      },
+    });
+    const ctx = buildDailyCtx(facts, { withSatisfiedAsk: false });
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    expect(card.server_truth_summary.daily_conversation_intent).toBe("obstacle_recovery");
+    expect(obstacleRecoveryUsesProspectiveFraming(ctx)).toBe(true);
+    expect(card.must_do.join(" ")).toMatch(/might get in the way today/i);
+    expect(card.must_not_do.some((m) => /held them back today/i.test(m))).toBe(true);
+    expect(card.move.reason).toMatch(/might get in the way/i);
+    expect(card.move.reason).not.toMatch(/got in the way/i);
+    expect(card.allowed_claims.miss).toBe(false);
+  });
+
+  it("obstacle_recovery with known miss allows retrospective blocker language", () => {
+    const facts = dailyFacts({
+      accountability: {
+        ...dailyFacts().accountability,
+        prior_outcome: "user_no",
+        days_since_last_user_outcome: 0,
+        blocker_preview: "meetings ran long",
+        yes_streak_14d: 0,
+      },
+    });
+    const ctx = {
+      ...buildDailyCtx(facts, { withSatisfiedAsk: false }),
+      proofPermission: baseProof({ can_claim_miss: true }),
+    };
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    expect(card.server_truth_summary.daily_conversation_intent).toBe("obstacle_recovery");
+    expect(obstacleRecoveryUsesProspectiveFraming(ctx)).toBe(false);
+    expect(card.must_do.join(" ")).toMatch(/likely blocker/i);
+    expect(card.move.reason).toMatch(/got in the way today/i);
+    expect(card.allowed_claims.miss).toBe(true);
+  });
+
+  it("yesterday miss on current morning uses prospective today framing", () => {
+    const facts = dailyFacts({
+      accountability_day_key: "2026-06-15",
+      user: {
+        clerk_user_id: "u_daily",
+        preferred_name: "Alex",
+        timezone: "America/New_York",
+        local_time_iso: "2026-06-15T06:01:00-04:00",
+        relationship_profile_summary: null,
+      },
+      accountability: {
+        ...dailyFacts().accountability,
+        prior_outcome: "user_no",
+        days_since_last_user_outcome: 1,
+        blocker_preview: "meetings ran long",
+        yes_streak_14d: 0,
+      },
+    });
+    const ctx = buildDailyCtx(facts, { withSatisfiedAsk: false });
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    expect(obstacleRecoveryUsesProspectiveFraming(ctx)).toBe(true);
+    expect(card.allowed_claims.miss).toBe(false);
+    expect(card.must_do.join(" ")).toMatch(/might get in the way today/i);
+    expect(card.move.reason).not.toMatch(/got in the way today/i);
+    expect(card.must_not_do.some((m) => /what got in the way today/i.test(m))).toBe(true);
+  });
+
+  it("plan-affirming satisfied ask beats yesterday miss when not current-day scoped", () => {
+    const facts = dailyFacts({
+      accountability: {
+        ...dailyFacts().accountability,
+        prior_outcome: "user_no",
+        days_since_last_user_outcome: 1,
+        blocker_preview: "meetings ran long",
+      },
+      daily_satisfied_ask_context: {
+        has_satisfied_recent_ask: true,
+        satisfied_ask_type: "plan_confirmation",
+        do_not_repeat_asks: ["Does morning distribution still work for you?"],
+        evidence_preview: "I'll do distribution first thing in the morning.",
+        source: "inbound_turn_telemetry",
+        occurred_at: "2026-06-14T18:00:00.000Z",
+        persistence_note: "plan affirmed",
+        stale_ask_risk: true,
+      },
+    });
+    const ctx = buildDailyCtx(facts, { withSatisfiedAsk: false });
+    expect(selectDailyC1ConversationIntent(ctx)).toBe("plan_today");
+  });
+
+  it("prior-day partial does not select reflect_pattern without current-day partial claim", () => {
+    const facts = dailyFacts({
+      accountability: {
+        ...dailyFacts().accountability,
+        prior_outcome: "user_partial",
+        days_since_last_user_outcome: 2,
+      },
+    });
+    const ctx = buildDailyCtx(facts, { withSatisfiedAsk: false });
+    expect(selectDailyC1ConversationIntent(ctx)).not.toBe("reflect_pattern");
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    expect(card.allowed_claims.partial).toBe(false);
+  });
+
+  it("plan-affirming satisfied ask beats stale blocker_preview when no current miss", () => {
+    const facts = dailyFacts({
+      accountability: {
+        ...dailyFacts().accountability,
+        prior_outcome: null,
+        blocker_preview: "meetings often run long",
+        yes_streak_14d: 0,
+      },
+      daily_satisfied_ask_context: {
+        has_satisfied_recent_ask: true,
+        satisfied_ask_type: "plan_confirmation",
+        do_not_repeat_asks: ["Does morning distribution still work for you?"],
+        evidence_preview:
+          "I think if I do distribution first thing in the morning, we'll get the 30 minutes done each day.",
+        source: "inbound_turn_telemetry",
+        occurred_at: "2026-06-14T18:00:00.000Z",
+        persistence_note: "plan affirmed",
+        stale_ask_risk: true,
+      },
+    });
+    const ctx = buildDailyCtx(facts, { withSatisfiedAsk: false });
+    expect(selectDailyC1ConversationIntent(ctx)).toBe("plan_today");
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    expect(card.server_truth_summary.daily_conversation_intent).toBe("plan_today");
+    expect(card.server_truth_summary.daily_conversation_intent).not.toBe("obstacle_recovery");
   });
 
   it("direct_outcome_check when outcome unknown and no satisfied ask", () => {
