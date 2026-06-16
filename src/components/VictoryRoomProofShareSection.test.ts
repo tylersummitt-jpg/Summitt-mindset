@@ -1,6 +1,10 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {},
+}));
 
 import { VictoryRoomProofShareSection } from "@/components/VictoryRoomProofShareSection";
 
@@ -22,6 +26,7 @@ describe("VictoryRoomProofShareSection (Victory Card V1)", () => {
             earlierSeasonCount: 0,
           },
           recentWins: [],
+          proofFeedMoments: [],
           moments: [],
           comebackLines: [],
           isDayZeroUser: false,

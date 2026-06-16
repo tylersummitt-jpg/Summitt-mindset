@@ -29,6 +29,7 @@ import {
   getRecentProofCategoryLabel,
   loadVictoryRoomView,
 } from "@/lib/v2-victory-room-view";
+import { mapVictoryMomentToProofCardRow } from "@/lib/v2-victory-room-display";
 import type { VictoryRoomViewForShare } from "@/lib/v2-victory-share-snippet";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export default async function VictoryRoomPage() {
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   const timeZone = resolveUserTimezone(md?.timezone);
 
-  const view = await loadVictoryRoomView(user.id);
+  const view = await loadVictoryRoomView(user.id, { timeZone });
 
   let showUpdateGoalLink = false;
   let showEditIdentityLink = false;
@@ -155,16 +156,14 @@ export default async function VictoryRoomPage() {
             {viewForShare ? (
               <VictoryRecentProofSection
                 viewForShare={viewForShare}
-                moments={view.moments.map((m) => ({
-                  id: m.id,
-                  categoryLabel: getRecentProofCategoryLabel(m),
-                  headline: m.headline,
-                  body: m.body,
-                  quote: m.quote,
-                  meaning: m.meaning,
-                  dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
-                  groundedInEventTypes: m.groundedInEventTypes,
-                }))}
+                moments={view.recentWins.map((m) =>
+                  mapVictoryMomentToProofCardRow({
+                    moment: m,
+                    surface: "home",
+                    dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
+                    categoryLabel: getRecentProofCategoryLabel(m),
+                  })
+                )}
               />
             ) : null}
 

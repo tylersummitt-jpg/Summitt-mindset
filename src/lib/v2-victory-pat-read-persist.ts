@@ -14,6 +14,7 @@ import {
   type VictoryMoment,
   type VictoryRoomViewData,
 } from "@/lib/v2-victory-room-view";
+import { victoryMomentProofFeedText } from "@/lib/v2-victory-room-display";
 
 export type PatReadProvenance = "deterministic" | "ai" | "fallback";
 
@@ -373,10 +374,15 @@ export function computePatReadSourceBundle(
     return null;
   }
 
-  const proofSource = view.recentWins?.length ? view.recentWins : view.moments;
+  const proofSource =
+    view.proofFeedMoments?.length > 0
+      ? view.proofFeedMoments
+      : view.recentWins?.length
+        ? view.recentWins
+        : view.moments;
   const proofMoments = proofSource.map((m) => ({
     id: m.id,
-    body: m.body.trim(),
+    body: victoryMomentProofFeedText(m),
     category_label: getRecentProofCategoryLabel(m),
   }));
 

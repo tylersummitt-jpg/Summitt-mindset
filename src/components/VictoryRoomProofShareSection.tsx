@@ -14,6 +14,10 @@ type MomentRow = {
   meaning?: string | null;
   dateLabel: string;
   groundedInEventTypes: string[];
+  primaryText?: string;
+  secondaryText?: string | null;
+  showQuoteMarks?: boolean;
+  mutedReceiptText?: string | null;
 };
 
 type VictoryRoomProofShareSectionProps = {
@@ -60,6 +64,10 @@ export function VictoryRoomProofShareSection({ viewForShare, moments }: VictoryR
               groundedInEventTypes={m.groundedInEventTypes}
               momentId={m.id}
               onShareProof={shareEnabled ? handleShareClick : undefined}
+              primaryText={m.primaryText}
+              secondaryText={m.secondaryText}
+              showQuoteMarks={m.showQuoteMarks}
+              mutedReceiptText={m.mutedReceiptText}
             />
           </li>
         ))}

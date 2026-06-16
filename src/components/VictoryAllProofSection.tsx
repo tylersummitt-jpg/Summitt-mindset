@@ -9,6 +9,7 @@ import {
   groupProofMomentsByMonth,
   type VictoryMoment,
 } from "@/lib/v2-victory-room-view";
+import { mapVictoryMomentToProofCardRow } from "@/lib/v2-victory-room-display";
 import type { VictoryRoomViewForShare } from "@/lib/v2-victory-share-snippet";
 
 type VictoryAllProofSectionProps = {
@@ -54,16 +55,14 @@ export function VictoryAllProofSection({
                 </h2>
                 <VictoryRoomProofShareSection
                   viewForShare={viewForShare}
-                  moments={group.moments.map((m) => ({
-                    id: m.id,
-                    categoryLabel: getRecentProofCategoryLabel(m),
-                    headline: m.headline,
-                    body: m.body,
-                    quote: m.quote,
-                    meaning: m.meaning,
-                    dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
-                    groundedInEventTypes: m.groundedInEventTypes,
-                  }))}
+                  moments={group.moments.map((m) =>
+                    mapVictoryMomentToProofCardRow({
+                      moment: m,
+                      surface: "allProof",
+                      dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
+                      categoryLabel: getRecentProofCategoryLabel(m),
+                    })
+                  )}
                 />
               </section>
             ))}

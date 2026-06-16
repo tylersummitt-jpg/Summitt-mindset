@@ -22,6 +22,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor";
+import { proofQuoteDisplayScore } from "@/lib/v2-victory-proof-quote";
 
 /** Default Victory Room page load: newest spine rows for the active commitment. */
 export const ACTIVE_EVENT_FETCH_LIMIT = 400;
@@ -37,6 +38,9 @@ export const RECENT_PROOF_DISPLAY_LIMIT = 5;
 
 /** Max proof cards in home "Your Wins" — newest first, no category dedupe. */
 export const RECENT_WINS_DISPLAY_LIMIT = 7;
+
+/** Raw chronological proof feed for Pat Read / principles (before home display cleanup). */
+export const PROOF_FEED_MOMENTS_LIMIT = 10;
 
 /** Account-wide All Proof page: max spine events fetched by clerk_user_id. */
 export const ALL_PROOF_EVENT_FETCH_LIMIT = 2500;
@@ -153,9 +157,11 @@ export type VictoryRoomViewData = {
   activeSeason: VictoryRoomActiveSeason | null;
   effectiveCoachingAsk: string | null;
   chapterRecord: VictoryChapterRecord;
-  /** Home "Your Wins" — newest displayable proof, max RECENT_WINS_DISPLAY_LIMIT. */
+  /** Home "Your Wins" — display wins after same-day/category cleanup, max RECENT_WINS_DISPLAY_LIMIT. */
   recentWins: VictoryMoment[];
-  /** @deprecated Alias for `recentWins` (share + Pat Read compat). */
+  /** Chronological proof feed for Pat Read / principles (not home-cleaned). */
+  proofFeedMoments: VictoryMoment[];
+  /** @deprecated Alias for `recentWins` (home display compat). */
   moments: VictoryMoment[];
   comebackLines: string[];
   /** True when commitment is active but visible proof is still thin (day-zero / early chapter). */
@@ -456,6 +462,76 @@ export function buildChronologicalProofList(
     return deduped;
   }
   return deduped.slice(0, max);
+}
+
+function localCalendarDateKeyForVictoryRoom(iso: string, timeZone: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "invalid";
+  const tz = timeZone.trim() || "UTC";
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(t);
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(t);
+  }
+}
+
+function homeDisplayRepresentativeScore(moment: VictoryMoment): number {
+  const quoteScore = proofQuoteDisplayScore(moment.quote);
+  const meaning = (moment.meaning ?? moment.body).trim();
+  const meaningLen = Math.min(meaning.length, 120);
+  const categoryPriority = getRecentProofCategoryPriority(inferRecentProofCategory(moment));
+  const occurredMs = victoryMomentProofTimeMs(moment);
+  return (
+    quoteScore * 1_000_000 +
+    meaningLen * 1_000 +
+    categoryPriority * 10 +
+    occurredMs / 1_000_000_000
+  );
+}
+
+/**
+ * Home Your Wins — same local date + same category → best representative; cap at maxCards.
+ * Different categories on the same day may remain as separate cards.
+ */
+export function buildHomeDisplayWinsList(
+  moments: VictoryMoment[],
+  options: { maxCards: number; timeZone: string }
+): VictoryMoment[] {
+  const deduped = buildChronologicalProofList(moments, null);
+  if (deduped.length === 0 || options.maxCards <= 0) return [];
+
+  const tz = options.timeZone.trim() || "UTC";
+  const groups = new Map<string, VictoryMoment[]>();
+
+  for (const m of deduped) {
+    const dateKey = localCalendarDateKeyForVictoryRoom(m.occurredAt, tz);
+    const category = inferRecentProofCategory(m);
+    const groupKey = `${dateKey}::${category}`;
+    const bucket = groups.get(groupKey);
+    if (bucket) bucket.push(m);
+    else groups.set(groupKey, [m]);
+  }
+
+  const representatives: VictoryMoment[] = [];
+  for (const bucket of groups.values()) {
+    const best = [...bucket].sort(
+      (a, b) => homeDisplayRepresentativeScore(b) - homeDisplayRepresentativeScore(a)
+    )[0];
+    if (best) representatives.push(best);
+  }
+
+  representatives.sort(compareVictoryMomentsByProofTimeDesc);
+  return representatives.slice(0, options.maxCards);
 }
 
 function parsePayload(row: EventRow): Record<string, unknown> {
@@ -1590,9 +1666,15 @@ async function loadPastAccountabilitySeasons(clerkUserId: string): Promise<{
   };
 }
 
+export type LoadVictoryRoomViewOptions = {
+  timeZone?: string;
+};
+
 export async function loadVictoryRoomView(
-  clerkUserId: string
+  clerkUserId: string,
+  options?: LoadVictoryRoomViewOptions
 ): Promise<VictoryRoomViewData> {
+  const timeZone = options?.timeZone?.trim() || "UTC";
   const { data: prof, error: profErr } = await supabaseServer
     .from("user_profiles")
     .select("preferred_name, identity_anchor_text, identity_source")
@@ -1653,6 +1735,7 @@ export async function loadVictoryRoomView(
         earlierSeasonCount: 0,
       },
       recentWins: [],
+      proofFeedMoments: [],
       moments: [],
       comebackLines: [],
       isDayZeroUser: false,
@@ -1689,7 +1772,11 @@ export async function loadVictoryRoomView(
     reactivationEnteredAt: commitment.reactivation_entered_at,
   });
 
-  const recentWins = buildChronologicalProofList(merged, RECENT_WINS_DISPLAY_LIMIT);
+  const proofFeedMoments = buildChronologicalProofList(merged, PROOF_FEED_MOMENTS_LIMIT);
+  const recentWins = buildHomeDisplayWinsList(merged, {
+    maxCards: RECENT_WINS_DISPLAY_LIMIT,
+    timeZone,
+  });
   const evidenceCounts = buildVictoryEvidenceCounts(merged, seasonsCompleted);
   const hasSparseProof = computeHasSparseProof({ mergedProofCount: merged.length, comebackLines });
   const isDayZeroUser = hasSparseProof;
@@ -1697,7 +1784,7 @@ export async function loadVictoryRoomView(
   const chapterRecord = buildChapterRecord({
     commitmentStartedAt: commitment.started_at,
     eventRowsFull,
-    moments: recentWins,
+    moments: proofFeedMoments,
     archiveMoments: [],
     cornerstoneMoments: [],
     earlierSeasonCount: pastSeasons.length,
@@ -1715,6 +1802,7 @@ export async function loadVictoryRoomView(
     effectiveCoachingAsk: getEffectiveCoachingAsk(commitment, Date.now()),
     chapterRecord,
     recentWins,
+    proofFeedMoments,
     moments: recentWins,
     comebackLines,
     isDayZeroUser,

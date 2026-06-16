@@ -17,7 +17,7 @@ export default async function VictoryAllProofPage() {
   const timeZone = resolveUserTimezone(md?.timezone);
 
   const [view, allProof] = await Promise.all([
-    loadVictoryRoomView(user.id),
+    loadVictoryRoomView(user.id, { timeZone }),
     loadVictoryAllProofView(user.id),
   ]);
 

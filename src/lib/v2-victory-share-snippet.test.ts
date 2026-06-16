@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {},
+}));
 
 import {
   buildShareSnippetFromMoment,
@@ -35,6 +39,15 @@ function baseView(overrides: Partial<VictoryRoomViewForShare> = {}): VictoryRoom
       },
     ],
     recentWins: [
+      {
+        id: "m1",
+        occurredAt: "2026-05-01T12:00:00Z",
+        headline: "Stayed engaged",
+        body: "You stayed engaged instead of disappearing.",
+        groundedInEventTypes: ["user_partial"],
+      },
+    ],
+    proofFeedMoments: [
       {
         id: "m1",
         occurredAt: "2026-05-01T12:00:00Z",
@@ -160,5 +173,47 @@ describe("buildShareSnippetFromMoment (Victory Card V1)", () => {
     });
     expect(snippet).not.toBeNull();
     expect(snippet!.meaning).toContain("followed through");
+  });
+
+  it("uses meaning line instead of contextless quote in share", () => {
+    const moment = {
+      id: "m-good",
+      occurredAt: "2026-06-07T12:00:00Z",
+      headline: "Honesty",
+      body: "You named the obstacle instead of hiding.",
+      meaning: "You named the obstacle instead of hiding.",
+      quote: "Good",
+      groundedInEventTypes: ["blocker_captured"],
+    };
+    const snippet = buildShareSnippetFromMoment(
+      baseView({ shareProofMoments: [moment], recentWins: [moment], moments: [moment] }),
+      "m-good",
+      { categoryLabel: "Told the truth" }
+    );
+    expect(snippet).not.toBeNull();
+    expect(snippet!.quote).toBeNull();
+    expect(snippet!.meaning).toBe("You named the obstacle instead of hiding.");
+    expect(snippet!.plainText).not.toContain('"Good"');
+    expect(snippet!.plainText).toContain("You named the obstacle instead of hiding.");
+  });
+
+  it("uses verbatim quote in share when self-explanatory", () => {
+    const moment = {
+      id: "m-miss",
+      occurredAt: "2026-06-07T12:00:00Z",
+      headline: "Honest miss",
+      body: "You stayed in the conversation instead of disappearing.",
+      meaning: "You stayed in the conversation instead of disappearing.",
+      quote: "I did not hit my goal yesterday",
+      groundedInEventTypes: ["user_partial"],
+    };
+    const snippet = buildShareSnippetFromMoment(
+      baseView({ shareProofMoments: [moment], recentWins: [moment], moments: [moment] }),
+      "m-miss",
+      { categoryLabel: "Told the truth" }
+    );
+    expect(snippet).not.toBeNull();
+    expect(snippet!.quote).toBe("I did not hit my goal yesterday");
+    expect(snippet!.plainText).toContain('"I did not hit my goal yesterday"');
   });
 });

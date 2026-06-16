@@ -51,4 +51,28 @@ describe("VictoryAllProofSection", () => {
     );
     expect(html).toContain("Showing your most recent saved proof");
   });
+
+  it("shows meaning-first display with muted receipt for contextless quote", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryAllProofSection, {
+        moments: [
+          {
+            id: "good",
+            occurredAt: "2026-06-07T12:00:00Z",
+            headline: "Honesty",
+            body: "You named the obstacle instead of hiding.",
+            meaning: "You named the obstacle instead of hiding.",
+            quote: "Good",
+            groundedInEventTypes: ["blocker_captured"],
+          },
+        ],
+        timeZone: "UTC",
+        truncated: false,
+        viewForShare: null,
+      })
+    );
+    expect(html).toContain("You named the obstacle instead of hiding.");
+    expect(html).toContain('Your reply: &quot;Good&quot;');
+    expect(html).not.toContain("&ldquo;Good&rdquo;");
+  });
 });

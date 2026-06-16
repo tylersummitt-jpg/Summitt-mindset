@@ -74,6 +74,8 @@ describe("Victory Room loader policy", () => {
     expect(loadSection).not.toMatch(/loadPriorChaptersView\(/);
     expect(loadSection).not.toContain("loadV2CoachingMemoryForPrompt");
     expect(loadSection).toContain("buildChronologicalProofList");
+    expect(loadSection).toContain("buildHomeDisplayWinsList");
+    expect(loadSection).toContain("PROOF_FEED_MOMENTS_LIMIT");
     expect(loadSection).toContain("RECENT_WINS_DISPLAY_LIMIT");
     expect(loadSection).not.toContain("curateRecentProofMoments(merged");
   });
@@ -98,6 +100,7 @@ describe("Victory Room loader policy", () => {
     expect(PAGE_SRC).not.toContain("v2-victory-room-summary");
     expect(PAGE_SRC).not.toContain("openai");
     expect(PAGE_SRC).not.toContain("OPENAI_API_KEY");
+    expect(PAGE_SRC).toContain("loadVictoryRoomView(user.id, { timeZone })");
     expect(PAGE_SRC).toContain("loadPatReadForVictoryRoom");
     expect(PAGE_SRC).toContain("loadPatPrinciplesForVictoryRoom");
     expect(PAGE_SRC).toContain("v2-victory-pat-read-persist");

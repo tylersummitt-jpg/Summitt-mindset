@@ -10,6 +10,11 @@ type VictoryMomentCardProps = {
   groundedInEventTypes: string[];
   momentId?: string;
   onShareProof?: (momentId: string) => void;
+  /** Resolved display copy — when set, overrides quote/meaning layout. */
+  primaryText?: string;
+  secondaryText?: string | null;
+  showQuoteMarks?: boolean;
+  mutedReceiptText?: string | null;
 };
 
 export function VictoryMomentCard({
@@ -21,11 +26,41 @@ export function VictoryMomentCard({
   dateLabel,
   momentId,
   onShareProof,
+  primaryText,
+  secondaryText,
+  showQuoteMarks,
+  mutedReceiptText,
 }: VictoryMomentCardProps) {
   const label = categoryLabel?.trim() || headline.trim();
   const tone = getVictoryProofCategoryTone(label);
-  const meaningLine = (meaning ?? body).trim();
-  const quoteLine = quote?.trim() || null;
+
+  const resolvedPrimary = primaryText?.trim() || null;
+  const useResolved = Boolean(resolvedPrimary);
+
+  let quotedPrimary: string | null = null;
+  let unquotedPrimary: string | null = null;
+  let meaningLine = "";
+
+  if (useResolved) {
+    if (showQuoteMarks) {
+      quotedPrimary = resolvedPrimary;
+      meaningLine = secondaryText?.trim() || "";
+    } else {
+      unquotedPrimary = resolvedPrimary;
+      meaningLine = "";
+    }
+  } else {
+    const legacyQuote = quote?.trim() || null;
+    meaningLine = (meaning ?? body).trim();
+    if (legacyQuote) {
+      quotedPrimary = legacyQuote;
+    } else if (meaningLine) {
+      unquotedPrimary = meaningLine;
+      meaningLine = "";
+    }
+  }
+
+  const receiptLine = mutedReceiptText?.trim() || null;
 
   return (
     <article className={`${vrMomentCardBase} ${tone.cardBorder} ${tone.cardShadow}`}>
@@ -60,19 +95,27 @@ export function VictoryMomentCard({
         </div>
       </div>
       <div className={`border-t my-4 ${tone.cardDivider}`} />
-      {quoteLine ? (
+      {quotedPrimary ? (
         <p className="relative text-lg leading-relaxed text-stone-50 sm:text-xl sm:leading-relaxed">
-          &ldquo;{quoteLine}&rdquo;
+          &ldquo;{quotedPrimary}&rdquo;
+        </p>
+      ) : null}
+      {unquotedPrimary ? (
+        <p className="relative text-lg leading-relaxed text-stone-100 sm:text-xl sm:leading-relaxed">
+          {unquotedPrimary}
         </p>
       ) : null}
       {meaningLine ? (
         <p
           className={`relative text-base leading-relaxed text-stone-400 sm:text-[17px] sm:leading-relaxed${
-            quoteLine ? " mt-3" : " text-lg text-stone-100 sm:text-xl sm:leading-relaxed"
+            quotedPrimary ? " mt-3" : ""
           }`}
         >
           {meaningLine}
         </p>
+      ) : null}
+      {receiptLine ? (
+        <p className="relative mt-3 text-sm leading-relaxed text-stone-500">{receiptLine}</p>
       ) : null}
     </article>
   );

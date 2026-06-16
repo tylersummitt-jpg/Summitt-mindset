@@ -3,6 +3,7 @@
  * Built only from the loaded view + a selected VictoryMoment id.
  */
 
+import { resolveVictoryMomentCardDisplay } from "@/lib/v2-victory-room-display";
 import type { VictoryMoment, VictoryRoomViewData } from "@/lib/v2-victory-room-view";
 
 /** Optional display line (e.g. Clerk firstName) when `preferred_name` is empty — set only by the page. */
@@ -83,9 +84,18 @@ export function buildShareSnippetFromMoment(
     MAX_CATEGORY
   );
   const dateLabel = truncateIntentional(display?.dateLabel?.trim() ?? "", MAX_DATE);
-  const meaning = truncateIntentional(moment.meaning ?? moment.body, MAX_MEANING);
-  const quoteRaw = moment.quote?.trim();
-  const quote = quoteRaw ? truncateIntentional(quoteRaw, MAX_QUOTE) : null;
+  const cardDisplay = resolveVictoryMomentCardDisplay(moment, "share");
+  let quote: string | null = null;
+  let meaning: string;
+  if (cardDisplay.showQuoteMarks) {
+    quote = truncateIntentional(cardDisplay.primaryText, MAX_QUOTE);
+    meaning = truncateIntentional(
+      cardDisplay.secondaryText ?? moment.meaning ?? moment.body,
+      MAX_MEANING
+    );
+  } else {
+    meaning = truncateIntentional(cardDisplay.primaryText, MAX_MEANING);
+  }
 
   const plainText = buildPlainText({ categoryLabel, quote, meaning });
 

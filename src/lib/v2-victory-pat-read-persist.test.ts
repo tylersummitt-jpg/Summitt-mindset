@@ -70,6 +70,7 @@ function baseView(overrides: Partial<VictoryRoomViewData> = {}): VictoryRoomView
     },
     moments: [],
     recentWins: [],
+    proofFeedMoments: [],
     comebackLines: [],
     isDayZeroUser: true,
     hasSparseProof: true,
@@ -133,6 +134,59 @@ describe("Pat read source hash", () => {
     expect(serialized).not.toContain("payload_json");
     expect(serialized).not.toContain("event_type");
     expect(serialized).not.toContain("important_people");
+  });
+
+  it("uses proofFeedMoments when home recentWins is cleaned", () => {
+    const good = {
+      id: "good",
+      occurredAt: "2026-06-07T10:00:00Z",
+      headline: "Honesty",
+      body: "You named the obstacle instead of hiding.",
+      meaning: "You named the obstacle instead of hiding.",
+      quote: "Good",
+      groundedInEventTypes: ["blocker_captured"],
+    };
+    const miss = {
+      id: "miss",
+      occurredAt: "2026-06-07T18:00:00Z",
+      headline: "Honest miss",
+      body: "You stayed in the conversation instead of disappearing.",
+      meaning: "You stayed in the conversation instead of disappearing.",
+      quote: "I did not hit my goal yesterday",
+      groundedInEventTypes: ["user_partial"],
+    };
+    const view = baseView({
+      isDayZeroUser: false,
+      hasSparseProof: false,
+      recentWins: [miss],
+      proofFeedMoments: [miss, good],
+      moments: [miss],
+    });
+    const bundle = computePatReadSourceBundle(view, { seasonId: "s1" })!;
+    expect(bundle.proof_moments.map((m) => m.id)).toEqual(["miss", "good"]);
+    expect(bundle.proof_moments[0]!.body).toContain("did not hit my goal yesterday");
+  });
+
+  it("uses meaning-safe proof text instead of contextless quote", () => {
+    const view = baseView({
+      isDayZeroUser: false,
+      hasSparseProof: false,
+      proofFeedMoments: [
+        {
+          id: "good",
+          occurredAt: "2026-06-07T10:00:00Z",
+          headline: "Honesty",
+          body: "You named the obstacle instead of hiding.",
+          meaning: "You named the obstacle instead of hiding.",
+          quote: "Good",
+          groundedInEventTypes: ["blocker_captured"],
+        },
+      ],
+      recentWins: [],
+      moments: [],
+    });
+    const bundle = computePatReadSourceBundle(view, { seasonId: "s1" })!;
+    expect(bundle.proof_moments[0]!.body).toBe("You named the obstacle instead of hiding.");
   });
 });
 

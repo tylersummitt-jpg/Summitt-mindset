@@ -21,6 +21,7 @@ import {
   getRecentProofCategoryLabel,
   type VictoryRoomViewData,
 } from "@/lib/v2-victory-room-view";
+import { victoryMomentProofFeedText } from "@/lib/v2-victory-room-display";
 import { createHash } from "node:crypto";
 
 export type PrinciplesProvenance = "deterministic" | "ai" | "fallback";
@@ -363,6 +364,11 @@ export function computePrinciplesSourceBundle(
     deterministic?.pattern ?? null
   );
 
+  const proofFeed =
+    view.proofFeedMoments?.length > 0
+      ? view.proofFeedMoments
+      : view.moments;
+
   return {
     commitment_id: view.commitment.id,
     season_id: options?.seasonId ?? null,
@@ -381,9 +387,9 @@ export function computePrinciplesSourceBundle(
       raised_the_bar: view.evidenceCounts.raisedTheBar,
       seasons_completed: view.evidenceCounts.seasonsCompleted,
     },
-    recent_proof_moment_ids: view.moments.map((m) => m.id),
-    recent_proof_category_labels: view.moments.map((m) => getRecentProofCategoryLabel(m)),
-    recent_proof_bodies: view.moments.map((m) => m.body.trim()).filter(Boolean),
+    recent_proof_moment_ids: proofFeed.map((m) => m.id),
+    recent_proof_category_labels: proofFeed.map((m) => getRecentProofCategoryLabel(m)),
+    recent_proof_bodies: proofFeed.map((m) => victoryMomentProofFeedText(m)).filter(Boolean),
     comeback_lines: view.comebackLines.map((l) => l.trim()).filter(Boolean),
     pat_read_source_hash: patReadHash,
     week_key: options?.weekKey ?? "",

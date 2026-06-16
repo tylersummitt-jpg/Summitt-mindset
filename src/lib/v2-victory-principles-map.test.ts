@@ -23,6 +23,7 @@ function baseView(overrides: Partial<VictoryRoomViewData> = {}): VictoryRoomView
     },
     moments: [],
     recentWins: [],
+    proofFeedMoments: [],
     comebackLines: [],
     isDayZeroUser: true,
     hasSparseProof: true,
