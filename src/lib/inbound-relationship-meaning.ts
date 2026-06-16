@@ -33,6 +33,7 @@ import { classifyInboundSmsSafetyTier } from "@/lib/sms-inbound-safety";
 import { SMS_SUBSCRIPTION_BILLING_INTEGRITY_RE } from "@/lib/sms-relationship-exit-intent";
 import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
+import { isSubstantiveSelfReportedCompletionForProof } from "@/lib/inbound-self-reported-completion";
 import { classifyV2InboundReply } from "@/lib/v2-sms-accountability";
 import { deriveInboundTemporalDayKeys } from "@/lib/sms-temporal-contract-v1";
 import { resolveUserTimezone } from "@/lib/timezone";
@@ -868,6 +869,50 @@ function shouldBlockNegativeAsTodayMiss(args: {
   return null;
 }
 
+function resolveSubstantiveSelfReportedCompletionPersistence(args: {
+  raw: string;
+  meaning: InboundRelationshipMeaningResult;
+  saca?: ShortAnswerContextAuthority | null;
+}): InboundPersistenceDecisionResult | null {
+  if (!isSubstantiveSelfReportedCompletionForProof(args.raw)) return null;
+
+  const m = args.meaning.relationship_meaning;
+  if (m !== "reported_completion") {
+    if (!inboundHasExplicitCompletionClause(args.raw)) return null;
+    if (m === "miss" || m === "partial_attempt" || m === "support_request") {
+      return null;
+    }
+  }
+
+  if (args.meaning.temporal_scope === "yesterday" || args.meaning.temporal_scope === "past") {
+    return {
+      persistence_decision: "ack_only",
+      reason: "substantive_self_reported_past_completion",
+    };
+  }
+  if (args.meaning.temporal_scope === "future") {
+    const hasCompletedTodayClause =
+      inboundHasExplicitCompletionClause(args.raw) &&
+      /\b(today|this morning|this evening)\b/i.test(args.raw);
+    if (!hasCompletedTodayClause) return null;
+  }
+
+  if (
+    shouldBlockAffirmativeAsTodayCompletion({
+      raw: args.raw,
+      saca: args.saca,
+      meaning: args.meaning,
+    })
+  ) {
+    return null;
+  }
+
+  return {
+    persistence_decision: "write_user_yes_today",
+    reason: "substantive_self_reported_completion",
+  };
+}
+
 export function derivePersistenceDecision(args: {
   meaning: InboundRelationshipMeaningResult;
   routePriority?: InboundMeaningRoutePriority;
@@ -902,6 +947,19 @@ export function derivePersistenceDecision(args: {
       reason: "integrity_or_change_route",
     };
   }
+
+  const saca = args.shortAnswerContext;
+  const raw = args.rawInbound?.trim() ?? "";
+
+  const substantiveCompletion = resolveSubstantiveSelfReportedCompletionPersistence({
+    raw,
+    meaning: args.meaning,
+    saca,
+  });
+  if (substantiveCompletion) {
+    return substantiveCompletion;
+  }
+
   if (route.open_question_owns_turn) {
     return {
       persistence_decision: "no_outcome_write",
@@ -909,8 +967,6 @@ export function derivePersistenceDecision(args: {
     };
   }
 
-  const saca = args.shortAnswerContext;
-  const raw = args.rawInbound?.trim() ?? "";
   if (
     saca?.is_short_contextual_answer &&
     !saca.outcome_proof_eligible &&

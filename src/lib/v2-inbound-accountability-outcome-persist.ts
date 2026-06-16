@@ -44,6 +44,7 @@ import {
 } from "@/lib/v2-sms-accountability";
 
 export { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
+import { isSubstantiveSelfReportedCompletionForProof } from "@/lib/inbound-self-reported-completion";
 import {
   isFutureForwardPlanInbound,
   isGoalIncreaseIntentClarifyInbound,
@@ -219,6 +220,7 @@ function evaluateUserYesPersistBackstop(args: {
   const raw = args.raw.trim();
   if (args.inboundMeaning.persistence_decision !== "write_user_yes_today") return null;
   if (inboundHasExplicitCompletionClause(raw)) return null;
+  if (isSubstantiveSelfReportedCompletionForProof(raw)) return null;
 
   const m = args.inboundMeaning;
   if (m.relationship_meaning === "answer_to_prior_question" || m.relationship_meaning === "plan_made") {
@@ -403,16 +405,19 @@ function evaluateShouldPersistWithMeaning(
 
   const livePrompt = args.activeReplyContext?.has_live_accountability_prompt === true;
   const selfContained = args.activeReplyContext?.self_contained_accountability_answer === true;
+  const substantiveSelfReportedCompletion = isSubstantiveSelfReportedCompletionForProof(raw);
   const todayCompletionBypass =
     persistence === "write_user_yes_today" &&
     inboundMeaning.relationship_meaning === "reported_completion" &&
-    (inboundMeaning.evidence.some(
-      (e) =>
-        e.includes("completion") ||
-        e.includes("explicit") ||
-        e.includes("saca_short_affirm")
-    ) ||
-      /\b(did it|got my|completed|finished|i did)\b/i.test(raw));
+    (substantiveSelfReportedCompletion ||
+      inboundMeaning.reason === "substantive_self_reported_completion" ||
+      inboundMeaning.evidence.some(
+        (e) =>
+          e.includes("completion") ||
+          e.includes("explicit") ||
+          e.includes("saca_short_affirm")
+      ) ||
+      /\b(did it|got my|completed|finished|i did|hit the goal|hit my goal)\b/i.test(raw));
   const sacaShortOutcomeBypass =
     (persistence === "write_user_yes_today" ||
       persistence === "write_user_no" ||

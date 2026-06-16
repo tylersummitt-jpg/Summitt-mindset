@@ -36,10 +36,17 @@ export function splitInboundClauses(text: string): string[] {
 function clauseHasExplicitCompletion(clause: string): boolean {
   const t = clause.trim();
   if (!t || extractCompletionDisqualifiers(t).length > 0) return false;
+  if (/\bhit\s+(the|my|today'?s?)\s+goal\b/i.test(t)) return true;
+  if (/\bgot\s+(the\s+)?goal\s+done\b/i.test(t)) return true;
+  if (/\bgot\s+my\s+[\w',-]{2,48}\s+done(\s+today)?\b/i.test(t)) return true;
   if (/\b(got\s+my|got\s+(the\s+)?\d+|reached|hit\s+my)\b[^.!?]{0,48}\b(steps|hours|calls|reps?|workout)\b/i.test(t)) {
     return true;
   }
   if (/\b(got\s+my\s+[^.!?]{2,40}\s+in\s+today)\b/i.test(t)) return true;
+  if (/\bcompleted\s+(my\s+[\w',-]+|today'?s?\s+commitment)\b/i.test(t)) return true;
+  if (/\bfinished\s+(my\s+[\w',-]+|another)\b/i.test(t)) return true;
+  if (/\bdid\s+my\s+hour\b/i.test(t)) return true;
+  if (/\b(just\s+)?finished\s+another\b/i.test(t)) return true;
   if (/\b(i\s+)?(did\s+it|got\s+it\s+done|finished|completed|knocked\s+it\s+out)\b/i.test(t)) {
     if (/\b(did not|didn't|almost|wish|plan to)\b/i.test(t)) return false;
     return true;

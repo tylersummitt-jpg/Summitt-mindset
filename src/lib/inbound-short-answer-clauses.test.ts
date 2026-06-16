@@ -1,9 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
   inboundHasExplicitAccountabilityMissClause,
+  inboundHasExplicitCompletionClause,
   inboundHasExplicitMissClause,
   looksLikeCoachContextCorrectionOrMetaDispute,
 } from "@/lib/inbound-short-answer-clauses";
+
+describe("inbound-short-answer-clauses — explicit completion expansion", () => {
+  const completionCases = [
+    "I hit the goal",
+    "I hit my goal today",
+    "I hit today's goal",
+    "I got my distribution done today",
+    "I got the goal done",
+    "I got it done",
+    "I completed my run today",
+    "I completed today's commitment",
+    "I finished my goal",
+    "Did my hour today",
+    "Just finished another 2 miles",
+  ];
+
+  it.each(completionCases)("%s has explicit completion clause", (text) => {
+    expect(inboundHasExplicitCompletionClause(text)).toBe(true);
+  });
+});
 
 describe("inbound-short-answer-clauses — accountability miss vs meta-correction", () => {
   it("did not say is not an accountability miss clause", () => {

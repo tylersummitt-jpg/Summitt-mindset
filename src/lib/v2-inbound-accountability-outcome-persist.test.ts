@@ -1212,3 +1212,156 @@ describe("coach-context correction — persist backstop", () => {
     if (result.persist) expect(result.resolvedEventType).toBe("user_no");
   });
 });
+
+describe("substantive self-reported completion — persist without live prompt", () => {
+  const noLivePromptCtx = {
+    has_live_accountability_prompt: false,
+    self_contained_accountability_answer: false,
+  };
+
+  const TYLER_DISTRIBUTION_COMPLETION =
+    "I got my distribution done today! I hit the goal! Woo hoo!";
+
+  function substantiveCompletionMeaning(rawBody: string) {
+    return buildInboundMeaningFacts({
+      rawInbound: rawBody,
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+      openQuestionPending: true,
+      latestOpenQuestion: "What happened with your distribution plan?",
+      routePriority: { open_question_owns_turn: true },
+    });
+  }
+
+  it("write_user_yes_today + substantive completion + no live prompt → persist user_yes", () => {
+    const inboundMeaning = substantiveCompletionMeaning(TYLER_DISTRIBUTION_COMPLETION);
+    expect(inboundMeaning.persistence_decision).toBe("write_user_yes_today");
+
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_tyler_distribution",
+      commitmentId: "commit-1",
+      rawBody: TYLER_DISTRIBUTION_COMPLETION,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("I hit the goal without live prompt → persist user_yes", () => {
+    const body = "I hit the goal";
+    const inboundMeaning = substantiveCompletionMeaning(body);
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_hit_goal",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("I got my distribution done today without live prompt → persist user_yes", () => {
+    const body = "I got my distribution done today";
+    const inboundMeaning = substantiveCompletionMeaning(body);
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_distribution_done",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("bare Yes without live prompt → persist false", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "Yes",
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: "Did you finish?",
+      routePriority: { open_question_owns_turn: true },
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_bare_yes",
+      commitmentId: "commit-1",
+      rawBody: "Yes",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("meaning_no_outcome_write");
+    }
+  });
+
+  it("future plan without live prompt → persist false", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: "I'll do it tonight",
+      classifierEventType: "user_yes",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_future_plan",
+      commitmentId: "commit-1",
+      rawBody: "I'll do it tonight",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("no commitment id unchanged", () => {
+    const inboundMeaning = substantiveCompletionMeaning("I hit the goal");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_no_commit",
+      commitmentId: "",
+      rawBody: "I hit the goal",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toEqual({ persist: false, skipReason: "no_commitment_id" });
+  });
+
+  it("idempotency key unchanged for substantive completion", async () => {
+    insertMock.mockReturnValue({
+      select: () => ({
+        maybeSingle: async () => ({ data: { id: "evt-1" }, error: null }),
+      }),
+    });
+    const body = "I hit the goal";
+    const result = await persistInboundAccountabilityOutcomeEvent({
+      commitmentId: "commit-1",
+      clerkUserId: "user-1",
+      messageSid: "SM_substantive_idem",
+      rawBody: body,
+      eventType: "user_yes",
+      branch: "main",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      liveAccountabilityPromptDetected: false,
+      proofMeta: null,
+      payloadJson: {},
+    });
+    expect(result).toMatchObject({ status: "inserted", eventType: "user_yes" });
+    if (result.status === "inserted") {
+      expect(result.idempotencyKey).toBe("v2_user_yes:SM_substantive_idem");
+    }
+  });
+});

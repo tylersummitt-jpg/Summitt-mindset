@@ -3,6 +3,7 @@
  * Bare ambiguous inbound cannot attach to accountability unless unanswered check_sent is fresh OR message is self-contained.
  */
 
+import { isSubstantiveSelfReportedCompletionForProof } from "@/lib/inbound-self-reported-completion";
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import { messageHasKeywordPartialLanguage } from "@/lib/v2-sms-accountability";
 
@@ -97,6 +98,7 @@ export type IsSelfContainedAccountabilityAnswerArgs = {
 export function isSelfContainedAccountabilityAnswer(args: IsSelfContainedAccountabilityAnswerArgs): boolean {
   const raw = normalizeInbound(args.text);
   if (!raw) return false;
+  if (isSubstantiveSelfReportedCompletionForProof(raw)) return true;
   if (raw.length < 22) return false;
   const words = raw.split(" ").filter(Boolean);
   if (words.length < 4) return false;

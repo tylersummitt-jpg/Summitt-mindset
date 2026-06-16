@@ -268,3 +268,59 @@ describe("true accountability misses — still write_user_no", () => {
     expect(facts.persistence_decision).toBe("write_user_no");
   });
 });
+
+const TYLER_DISTRIBUTION_COMPLETION =
+  "I got my distribution done today! I hit the goal! Woo hoo!";
+
+describe("substantive self-reported completion — persistence carve-out", () => {
+  const openQuestionRoute = { open_question_owns_turn: true };
+
+  it("Tyler exact string with open question → write_user_yes_today", () => {
+    const facts = meaningFor(TYLER_DISTRIBUTION_COMPLETION, badClassifier, openQuestionRoute);
+    expect(facts.relationship_meaning).toBe("reported_completion");
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+    expect(facts.reason).toBe("substantive_self_reported_completion");
+  });
+
+  it("I hit the goal with open question → write_user_yes_today", () => {
+    const facts = meaningFor("I hit the goal", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+    expect(facts.reason).toBe("substantive_self_reported_completion");
+  });
+
+  it("I got my distribution done today with open question pending → write_user_yes_today", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: "I got my distribution done today",
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: "What happened with your distribution plan?",
+    });
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+    expect(facts.reason).toBe("substantive_self_reported_completion");
+  });
+
+  it("I completed my run today with open question → write_user_yes_today", () => {
+    const facts = meaningFor("I completed my run today", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+    expect(facts.reason).toBe("substantive_self_reported_completion");
+  });
+
+  it("bare Yes with open question → no_outcome_write", () => {
+    const facts = meaningFor("yes", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
+  it("future plan → no_outcome_write", () => {
+    const facts = meaningFor("I'll do it tonight", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
+  it("compound future + completed today → write_user_yes_today", () => {
+    const facts = meaningFor(
+      "I'm going to run tomorrow. I completed my run today.",
+      badClassifier,
+      openQuestionRoute
+    );
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+  });
+});
