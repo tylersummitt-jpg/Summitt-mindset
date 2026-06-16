@@ -272,6 +272,12 @@ describe("true accountability misses — still write_user_no", () => {
 const TYLER_DISTRIBUTION_COMPLETION =
   "I got my distribution done today! I hit the goal! Woo hoo!";
 
+const BROOKE_STEPS_COMPLETION =
+  "I got my 10,000 steps today though! And I did it before we had a birthday party to go to";
+
+const TENNESSEE_FUTURE_CONFIDENCE =
+  "We're heading to Tennessee on Thursday. We live in Ohio and we're driving to Tennessee with all three kids so it'll throw us off our routine a little bit but I should still be able to hit the goals";
+
 describe("substantive self-reported completion — persistence carve-out", () => {
   const openQuestionRoute = { open_question_owns_turn: true };
 
@@ -280,6 +286,42 @@ describe("substantive self-reported completion — persistence carve-out", () =>
     expect(facts.relationship_meaning).toBe("reported_completion");
     expect(facts.persistence_decision).toBe("write_user_yes_today");
     expect(facts.reason).toBe("substantive_self_reported_completion");
+  });
+
+  it("Brooke exact string with open question → write_user_yes_today (today anchor beats before-clause)", () => {
+    const facts = meaningFor(BROOKE_STEPS_COMPLETION, badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+    expect(facts.reason).toBe("substantive_self_reported_completion");
+  });
+
+  it("Tennessee future-confidence trip → not write_user_yes_today", () => {
+    const facts = meaningFor(TENNESSEE_FUTURE_CONFIDENCE, badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).not.toBe("write_user_yes_today");
+  });
+
+  it("I got my steps in today with open question → write_user_yes_today", () => {
+    const facts = meaningFor("I got my steps in today", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+  });
+
+  it("I got in 2 miles today with open question → write_user_yes_today", () => {
+    const facts = meaningFor("I got in 2 miles today", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+  });
+
+  it("I got my run in with open question → write_user_yes_today", () => {
+    const facts = meaningFor("I got my run in", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+  });
+
+  it("I should be able to hit the goal → no_outcome_write", () => {
+    const facts = meaningFor("I should be able to hit the goal", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).not.toBe("write_user_yes_today");
+  });
+
+  it("I'll get it done later → no_outcome_write", () => {
+    const facts = meaningFor("I'll get it done later", badClassifier, openQuestionRoute);
+    expect(facts.persistence_decision).not.toBe("write_user_yes_today");
   });
 
   it("I hit the goal with open question → write_user_yes_today", () => {
@@ -322,5 +364,26 @@ describe("substantive self-reported completion — persistence carve-out", () =>
       openQuestionRoute
     );
     expect(facts.persistence_decision).toBe("write_user_yes_today");
+  });
+});
+
+describe("sleep/phone cousin audit — miss not implemented in this slice", () => {
+  const SLEEP_PHONE_BODY =
+    "Ok I got in bed at 11:45. I didn't fall asleep until 1:30. I did stay on my phone past 9:30";
+
+  it("documents current classification for sleep/phone example", () => {
+    const facts = buildInboundMeaningFacts({
+      rawInbound: SLEEP_PHONE_BODY,
+      classifierEventType: "user_no",
+      routePriority: { open_question_owns_turn: true },
+      openQuestionPending: true,
+      latestOpenQuestion: "Were you off your phone by 9:30 tonight?",
+      effectiveAsk: "off phone by 9:30",
+      behaviorStatement: "No phone after 9:30pm",
+    });
+    // Current: "I did stay on my phone" can false-promote to reported_completion via i-did-* pattern.
+    // With open_question_owns_turn, persistence is no_outcome_write regardless.
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+    expect(facts.reason).toBe("open_question_route_owns_turn");
   });
 });

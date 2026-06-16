@@ -885,10 +885,16 @@ function resolveSubstantiveSelfReportedCompletionPersistence(args: {
   }
 
   if (args.meaning.temporal_scope === "yesterday" || args.meaning.temporal_scope === "past") {
-    return {
-      persistence_decision: "ack_only",
-      reason: "substantive_self_reported_past_completion",
-    };
+    const hasCompletedTodayAnchor =
+      inboundHasExplicitCompletionClause(args.raw) &&
+      (/\b(today|this morning|this evening)\b/i.test(args.raw) ||
+        /\b(i\s+)?did\s+it\b/i.test(args.raw));
+    if (!hasCompletedTodayAnchor) {
+      return {
+        persistence_decision: "ack_only",
+        reason: "substantive_self_reported_past_completion",
+      };
+    }
   }
   if (args.meaning.temporal_scope === "future") {
     const hasCompletedTodayClause =

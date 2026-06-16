@@ -7,6 +7,7 @@ import {
   inboundHasExplicitCompletionClause,
   inboundHasExplicitMissClause,
   inboundHasExplicitPartialClause,
+  looksLikeFutureOrConditionalCompletionLanguage,
 } from "@/lib/inbound-short-answer-clauses";
 import { classifyInboundSmsSafetyTier } from "@/lib/sms-inbound-safety";
 import { SMS_SUBSCRIPTION_BILLING_INTEGRITY_RE } from "@/lib/sms-relationship-exit-intent";
@@ -56,9 +57,19 @@ export function isSubstantiveSelfReportedCompletionForProof(raw: string): boolea
   if (inboundHasExplicitMissClause(t) && !inboundHasExplicitCompletionClause(t)) return false;
   if (inboundHasExplicitPartialClause(t) && !inboundHasExplicitCompletionClause(t)) return false;
 
-  if (inboundHasExplicitCompletionClause(t)) return true;
+  if (inboundHasExplicitCompletionClause(t)) {
+    if (
+      looksLikeFutureOrConditionalCompletionLanguage(t) &&
+      !/\b(today|this morning|this evening)\b/i.test(t) &&
+      !/\b(did\s+it|got\s+my|got\s+in|completed|finished)\b/i.test(t)
+    ) {
+      return false;
+    }
+    return true;
+  }
 
   if (hasFuturePlanIntentLanguage(t)) return false;
+  if (looksLikeFutureOrConditionalCompletionLanguage(t)) return false;
 
   return false;
 }

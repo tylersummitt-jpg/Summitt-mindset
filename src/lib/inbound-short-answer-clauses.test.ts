@@ -19,10 +19,23 @@ describe("inbound-short-answer-clauses — explicit completion expansion", () =>
     "I finished my goal",
     "Did my hour today",
     "Just finished another 2 miles",
+    "I got my 10,000 steps today",
+    "I got my 10,000 steps in today",
+    "I got my steps in today",
+    "I got in 2 miles today",
+    "I got my run in",
+    "I got my workout in",
+    "I did it before we had a birthday party",
   ];
 
   it.each(completionCases)("%s has explicit completion clause", (text) => {
     expect(inboundHasExplicitCompletionClause(text)).toBe(true);
+  });
+
+  it("future confidence trip does not have explicit completion clause", () => {
+    const text =
+      "We're heading to Tennessee on Thursday. We live in Ohio and we're driving to Tennessee with all three kids so it'll throw us off our routine a little bit but I should still be able to hit the goals";
+    expect(inboundHasExplicitCompletionClause(text)).toBe(false);
   });
 });
 

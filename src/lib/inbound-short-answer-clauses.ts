@@ -36,13 +36,22 @@ export function splitInboundClauses(text: string): string[] {
 function clauseHasExplicitCompletion(clause: string): boolean {
   const t = clause.trim();
   if (!t || extractCompletionDisqualifiers(t).length > 0) return false;
+  if (looksLikeFutureOrConditionalCompletionLanguage(t)) return false;
   if (/\bhit\s+(the|my|today'?s?)\s+goal\b/i.test(t)) return true;
   if (/\bgot\s+(the\s+)?goal\s+done\b/i.test(t)) return true;
   if (/\bgot\s+my\s+[\w',-]{2,48}\s+done(\s+today)?\b/i.test(t)) return true;
   if (/\b(got\s+my|got\s+(the\s+)?\d+|reached|hit\s+my)\b[^.!?]{0,48}\b(steps|hours|calls|reps?|workout)\b/i.test(t)) {
     return true;
   }
+  if (/\bgot\s+my\s+[\d,.]+\s+steps\b/i.test(t)) return true;
+  if (/\bgot\s+my\s+(steps|run|walk|workout|calls|distribution|mileage)\s+in\b/i.test(t)) {
+    return true;
+  }
+  if (/\bgot\s+my\s+[\d,.]+\s+miles?\s+in\b/i.test(t)) return true;
+  if (/\bgot\s+in\s+[\d,.]+\s+miles?\b/i.test(t)) return true;
+  if (/\bgot\s+(the\s+)?[\d,.]+\s+miles?\s+done\b/i.test(t)) return true;
   if (/\b(got\s+my\s+[^.!?]{2,40}\s+in\s+today)\b/i.test(t)) return true;
+  if (/\b(i\s+)?did\s+it\s+before\b/i.test(t)) return true;
   if (/\bcompleted\s+(my\s+[\w',-]+|today'?s?\s+commitment)\b/i.test(t)) return true;
   if (/\bfinished\s+(my\s+[\w',-]+|another)\b/i.test(t)) return true;
   if (/\bdid\s+my\s+hour\b/i.test(t)) return true;
@@ -55,6 +64,26 @@ function clauseHasExplicitCompletion(clause: string): boolean {
     return true;
   }
   if (/\b(completed|finished)\s+(my\s+|the\s+)?/i.test(t) && /\b(today|this morning)\b/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+/** Future confidence / intent to complete — not proof of completed-today. */
+export function looksLikeFutureOrConditionalCompletionLanguage(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\bshould\s+(still\s+)?be\s+able\s+to\b/i.test(t)) return true;
+  if (/\b(might|may|could|would|hope\s+to|try\s+to)\s+(still\s+)?(hit|get|finish|complete)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(i'?ll|i will|going to|gonna|plan to)\b[^.!?]{0,40}\b(hit|get|finish|complete|done)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(haven'?t|have not)\s+hit\b/i.test(t)) return true;
+  if (/\bnot\s+yet\b/i.test(t) && /\b(hit|done|finish|complete)\b/i.test(t)) return true;
+  if (/\b(get|hit)\s+it\s+done\s+later\b/i.test(t)) return true;
+  if (/\bhit\s+the\s+goals?\b/i.test(t) && /\b(should|will|going to|gonna|thursday|tomorrow|later)\b/i.test(t)) {
     return true;
   }
   return false;

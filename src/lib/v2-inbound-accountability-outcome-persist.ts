@@ -417,7 +417,7 @@ function evaluateShouldPersistWithMeaning(
           e.includes("explicit") ||
           e.includes("saca_short_affirm")
       ) ||
-      /\b(did it|got my|completed|finished|i did|hit the goal|hit my goal)\b/i.test(raw));
+      /\b(did it|got my|got in|completed|finished|i did|hit the goal|hit my goal|steps)\b/i.test(raw));
   const sacaShortOutcomeBypass =
     (persistence === "write_user_yes_today" ||
       persistence === "write_user_no" ||

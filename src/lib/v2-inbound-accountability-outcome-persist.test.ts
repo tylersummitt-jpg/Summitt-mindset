@@ -1222,6 +1222,12 @@ describe("substantive self-reported completion — persist without live prompt",
   const TYLER_DISTRIBUTION_COMPLETION =
     "I got my distribution done today! I hit the goal! Woo hoo!";
 
+  const BROOKE_STEPS_COMPLETION =
+    "I got my 10,000 steps today though! And I did it before we had a birthday party to go to";
+
+  const TENNESSEE_FUTURE_CONFIDENCE =
+    "We're heading to Tennessee on Thursday. We live in Ohio and we're driving to Tennessee with all three kids so it'll throw us off our routine a little bit but I should still be able to hit the goals";
+
   function substantiveCompletionMeaning(rawBody: string) {
     return buildInboundMeaningFacts({
       rawInbound: rawBody,
@@ -1248,6 +1254,41 @@ describe("substantive self-reported completion — persist without live prompt",
       inboundMeaning,
     });
     expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("Brooke exact string without live prompt → persist user_yes", () => {
+    const inboundMeaning = substantiveCompletionMeaning(BROOKE_STEPS_COMPLETION);
+    expect(inboundMeaning.persistence_decision).toBe("write_user_yes_today");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_brooke_steps",
+      commitmentId: "commit-1",
+      rawBody: BROOKE_STEPS_COMPLETION,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("Tennessee future-confidence trip without live prompt → no user_yes", () => {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: TENNESSEE_FUTURE_CONFIDENCE,
+      classifierEventType: "user_yes",
+      routePriority: { open_question_owns_turn: true },
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_tennessee_trip",
+      commitmentId: "commit-1",
+      rawBody: TENNESSEE_FUTURE_CONFIDENCE,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
   });
 
   it("I hit the goal without live prompt → persist user_yes", () => {
