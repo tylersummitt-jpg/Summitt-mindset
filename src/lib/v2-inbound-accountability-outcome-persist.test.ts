@@ -1211,6 +1211,59 @@ describe("coach-context correction — persist backstop", () => {
     expect(result.persist).toBe(true);
     if (result.persist) expect(result.resolvedEventType).toBe("user_no");
   });
+
+  it("onboarding dispute does not persist user_no", () => {
+    const raw =
+      "Thanks I did 15 minutes of onboarding and you didn't ask me anything about what I chose. Did the onboarding matter?";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_no",
+    });
+    expect(inboundMeaning.persistence_decision).toBe("no_outcome_write");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_onboarding_dispute",
+      commitmentId: "commit-1",
+      rawBody: raw,
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("meaning_no_outcome_write");
+    }
+  });
+
+  it("backstop blocks forced write_user_no on onboarding dispute", () => {
+    const raw = "You didn't ask me about what I chose.";
+    const forcedWrite = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_no",
+    });
+    const inboundMeaning = {
+      ...forcedWrite,
+      persistence_decision: "write_user_no" as const,
+      relationship_meaning: "miss" as const,
+    };
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_forced_onboarding",
+      commitmentId: "commit-1",
+      rawBody: raw,
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(["coach_context_correction_not_miss", "onboarding_process_dispute_not_miss"]).toContain(
+        result.skipReason
+      );
+    }
+  });
 });
 
 describe("substantive self-reported completion — persist without live prompt", () => {

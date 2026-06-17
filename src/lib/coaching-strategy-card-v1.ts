@@ -4227,6 +4227,14 @@ function buildWeeklyMustDoMustNotDo(
     must_not_do.push("Do not shame silence or missed days during a planned pause week.");
   }
 
+  const distinctMissDays =
+    wp.distinct_missed_day_count ?? wp.missed_count;
+  if (distinctMissDays < 2) {
+    must_not_do.push(
+      'Do not say "couple missed", "few missed", "several missed", "two missed", "two misses", "missed two days", or similar exact multi-miss count language unless distinct valid miss-day count is at least 2.'
+    );
+  }
+
   return {
     must_do: must_do.slice(0, MAX_MUST_DO),
     must_not_do: [...new Set(must_not_do)].slice(0, MAX_MUST_NOT_DO),

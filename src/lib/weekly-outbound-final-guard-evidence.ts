@@ -21,7 +21,11 @@ export type WeeklyOutboundProofGuardFacts = {
   weekStart: string;
   weekEnd: string;
   completedCount: number;
+  /** Distinct valid local miss days for claim permission. */
   missedCount: number;
+  rawMissedCount: number;
+  distinctMissedDayCount: number;
+  exactMissCountClaimReliable: boolean;
   partialCount: number;
   silentWeek: boolean;
   roughWeek: boolean;
@@ -75,6 +79,21 @@ export function inferHasProofOrKnownOutcomeForWeekly(args: {
   return false;
 }
 
+/** Sync miss telemetry with no_count for tests and fixtures. */
+export function alignWeeklyProofPackMissTelemetry(
+  pack: V2WeeklyProofPack
+): V2WeeklyProofPack {
+  const no = pack.no_count;
+  return {
+    ...pack,
+    raw_user_no_count: pack.raw_user_no_count ?? no,
+    distinct_user_no_day_count: pack.distinct_user_no_day_count ?? no,
+    false_or_suspect_user_no_count: pack.false_or_suspect_user_no_count ?? 0,
+    unknown_day_user_no_count: pack.unknown_day_user_no_count ?? 0,
+    exact_miss_day_count_reliable: pack.exact_miss_day_count_reliable ?? true,
+  };
+}
+
 export function buildWeeklyOutboundProofGuardFactsFromPack(
   pack: V2WeeklyProofPack,
   roughWeek?: boolean
@@ -85,7 +104,10 @@ export function buildWeeklyOutboundProofGuardFactsFromPack(
     weekStart: pack.week_start,
     weekEnd: pack.week_end,
     completedCount: pack.yes_count,
-    missedCount: pack.no_count,
+    missedCount: pack.distinct_user_no_day_count,
+    rawMissedCount: pack.raw_user_no_count,
+    distinctMissedDayCount: pack.distinct_user_no_day_count,
+    exactMissCountClaimReliable: pack.exact_miss_day_count_reliable,
     partialCount: pack.partial_count,
     silentWeek: pack.silent_week,
     roughWeek: resolvedRough,

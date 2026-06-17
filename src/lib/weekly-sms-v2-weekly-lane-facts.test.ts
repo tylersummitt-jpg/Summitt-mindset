@@ -6,6 +6,7 @@ vi.mock("@/lib/supabase-server", () => ({
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { V2SmsConversationContextPack } from "@/lib/v2-sms-conversation-context";
 import type { V2WeeklyProofPack } from "@/lib/v2-weekly-proof-sms";
+import { alignWeeklyProofPackMissTelemetry } from "@/lib/weekly-outbound-final-guard-evidence";
 import {
   MEMORY_PRIORITY_RULES,
   slimMemoryPacketForFacts,
@@ -64,7 +65,7 @@ function packBase(overrides?: Partial<V2WeeklyProofPack>): V2WeeklyProofPack {
     proof_moment_hints: ["Logged early Tuesday"],
     pattern_events_newest_first: [],
   };
-  return { ...p, ...overrides };
+  return alignWeeklyProofPackMissTelemetry({ ...p, ...overrides });
 }
 
 describe("buildWeeklyV3OutboundFactsForV2WeeklyProof", () => {
@@ -116,6 +117,29 @@ describe("buildWeeklyV3OutboundFactsForV2WeeklyProof", () => {
     expect(f.weekly_proof.completed_count).toBe(4);
     expect(f.weekly_proof.old_weekly_proof_body_preview).toContain("OLD PROOF");
     expect(f.thread.recent_transcript_lines.length).toBeGreaterThan(0);
+  });
+
+  it("maps distinct miss-day count not raw user_no rows", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({
+        no_count: 1,
+        raw_user_no_count: 2,
+        distinct_user_no_day_count: 1,
+        false_or_suspect_user_no_count: 1,
+      }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+    });
+    expect(f.weekly_proof.missed_count).toBe(1);
+    expect(f.weekly_proof.raw_missed_count).toBe(2);
+    expect(f.weekly_proof.distinct_missed_day_count).toBe(1);
   });
 
   it("includes victory_background when provided", () => {

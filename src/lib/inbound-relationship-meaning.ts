@@ -15,6 +15,7 @@ import {
   inboundHasExplicitPartialClause,
   inboundHasPlanConfirmationClause,
   looksLikeCoachContextCorrectionOrMetaDispute,
+  looksLikeOnboardingProcessDispute,
 } from "@/lib/inbound-short-answer-clauses";
 import {
   detectShortAnswerPartialLanguage,
@@ -145,6 +146,7 @@ function looksLikeUserQuestion(text: string): boolean {
 function looksLikeMissStatement(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
+  if (looksLikeCoachContextCorrectionOrMetaDispute(t)) return false;
   if (looksLikePartialAttempt(t)) return false;
   if (/\b(didn'?t|did not|didnt|never|not done|haven'?t|have not|no[, ]+i didn'?t)\b/i.test(t)) {
     return true;
@@ -381,7 +383,11 @@ export function deriveInboundRelationshipMeaning(
       relationship_meaning: "answer_to_prior_question",
       temporal_scope,
       confidence: "high",
-      evidence: ["coach_context_correction_not_miss"],
+      evidence: [
+        looksLikeOnboardingProcessDispute(raw)
+          ? "onboarding_process_dispute_not_miss"
+          : "coach_context_correction_not_miss",
+      ],
       disqualifiers,
     };
   }
@@ -436,7 +442,11 @@ export function deriveInboundRelationshipMeaning(
     };
   }
 
-  if (looksLikeUserQuestion(raw) && !isReportedCompletionRelationshipCandidate(raw)) {
+  if (
+    looksLikeUserQuestion(raw) &&
+    (!isReportedCompletionRelationshipCandidate(raw, saca) ||
+      looksLikeOnboardingProcessDispute(raw))
+  ) {
     return {
       relationship_meaning: "question",
       temporal_scope,

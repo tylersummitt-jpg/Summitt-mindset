@@ -15,6 +15,18 @@ import { pickWave7DailyEvolutionAction } from "@/lib/v2-sms-evolution-signal";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
+import {
+  tallyWeeklyUserNoDays,
+  type WeeklyUserNoRow,
+} from "@/lib/v2-weekly-proof-miss-tally";
+
+export type { WeeklyUserNoRow } from "@/lib/v2-weekly-proof-miss-tally";
+export {
+  deriveUserNoLocalDayKey,
+  extractInboundBodyFromUserNoPayload,
+  isSuspectFalseUserNoPayload,
+  tallyWeeklyUserNoDays,
+} from "@/lib/v2-weekly-proof-miss-tally";
 
 export const V2_WEEKLY_PROOF_AI_MODEL = "gpt-4o-mini";
 export const V2_WEEKLY_PROOF_PROMPT_VERSION = "v2_weekly_proof_v1";
@@ -66,6 +78,7 @@ export type V2WeeklyProofPack = {
   week_start: string;
   week_end: string;
   yes_count: number;
+  /** Distinct valid local accountability miss days — use for weekly miss claims. */
   no_count: number;
   partial_count: number;
   check_sent_count: number;
@@ -89,6 +102,16 @@ export type V2WeeklyProofPack = {
     created_at?: string;
     payload_json?: Record<string, unknown> | null;
   }>;
+  /** Raw user_no row count this week (telemetry). */
+  raw_user_no_count: number;
+  /** Distinct local accountability miss days after dedupe and suspect exclusion. */
+  distinct_user_no_day_count: number;
+  /** user_no rows flagged as coach/onboarding/process dispute. */
+  false_or_suspect_user_no_count: number;
+  /** Valid miss rows without a derivable local day key. */
+  unknown_day_user_no_count: number;
+  /** False when suspect/unknown rows prevent exact multi-day miss claims. */
+  exact_miss_day_count_reliable: boolean;
 };
 
 export function validateV2WeeklyProofSmsBody(body: string): boolean {
@@ -170,7 +193,7 @@ export async function buildV2WeeklyProofPack(args: {
   }
 
   let yes = 0;
-  let no = 0;
+  let noRaw = 0;
   let partial = 0;
   let checks = 0;
   let blockers = 0;
@@ -180,6 +203,7 @@ export async function buildV2WeeklyProofPack(args: {
     occurred_at: string;
     payload_json?: Record<string, unknown> | null;
   }[] = [];
+  const userNoRows: WeeklyUserNoRow[] = [];
   const proofMomentHints: string[] = [];
   const proofLinesSeen = new Set<string>();
 
@@ -211,8 +235,13 @@ export async function buildV2WeeklyProofPack(args: {
     }
 
     if (et === "user_yes") yes += 1;
-    else if (et === "user_no") no += 1;
-    else if (et === "user_partial") partial += 1;
+    else if (et === "user_no") {
+      noRaw += 1;
+      userNoRows.push({
+        occurred_at: String(row.occurred_at),
+        payload_json: pj,
+      });
+    } else if (et === "user_partial") partial += 1;
     else if (et === "check_sent") checks += 1;
     else if (et === "blocker_captured") {
       blockers += 1;
@@ -224,7 +253,10 @@ export async function buildV2WeeklyProofPack(args: {
     }
   }
 
-  const responseCount = yes + no + partial;
+  const userNoTally = tallyWeeklyUserNoDays({ rows: userNoRows, timezone: tz });
+  const no = userNoTally.distinct_user_no_day_count;
+
+  const responseCount = yes + noRaw + partial;
   const silentWeek = checks >= 1 && responseCount === 0;
   const comeback = detectComebackAfterMiss(weekEventsAsc.map((e) => ({ event_type: e.event_type })));
 
@@ -282,6 +314,11 @@ export async function buildV2WeeklyProofPack(args: {
     weekly_evolution_coaching_line,
     proof_moment_hints: proofMomentHints,
     pattern_events_newest_first: [...weekEventsAsc].reverse(),
+    raw_user_no_count: userNoTally.raw_user_no_count,
+    distinct_user_no_day_count: userNoTally.distinct_user_no_day_count,
+    false_or_suspect_user_no_count: userNoTally.false_or_suspect_user_no_count,
+    unknown_day_user_no_count: userNoTally.unknown_day_user_no_count,
+    exact_miss_day_count_reliable: userNoTally.exact_miss_day_count_reliable,
   };
 }
 
@@ -343,6 +380,10 @@ function buildWeeklyProofUserPrompt(
   lines.push(`- week_end_date: ${pack.week_end}`);
   lines.push(`- user_yes_count: ${pack.yes_count}`);
   lines.push(`- user_no_count: ${pack.no_count}`);
+  lines.push(`- user_no_raw_row_count: ${pack.raw_user_no_count}`);
+  lines.push(`- user_no_distinct_miss_day_count: ${pack.distinct_user_no_day_count}`);
+  lines.push(`- user_no_false_or_suspect_count: ${pack.false_or_suspect_user_no_count}`);
+  lines.push(`- exact_miss_day_count_reliable: ${pack.exact_miss_day_count_reliable}`);
   lines.push(`- user_partial_count: ${pack.partial_count}`);
   lines.push(`- check_sent_count: ${pack.check_sent_count}`);
   lines.push(`- response_total (yes+no+partial): ${pack.response_count}`);

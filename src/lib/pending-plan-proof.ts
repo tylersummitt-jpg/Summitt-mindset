@@ -102,6 +102,10 @@ export function inferTemporalScopeFromInbound(text: string): "today" | "yesterda
 function isReportedCompletionClauseCandidate(clause: string): boolean {
   const t = clause.trim();
   if (!t) return false;
+  if (/\bi\s+did\s+\d+\s+minutes?\s+of\s+onboarding\b/i.test(t)) return false;
+  if (/\bonboarding\b/i.test(t) && !/\b(hit|goal|steps|commitment|workout|run|walk)\b/i.test(t)) {
+    return false;
+  }
   if (hasFuturePlanIntentLanguage(t) && !/\b(got my|got\s+\d+|completed|finished|did it)\b/i.test(t)) {
     return false;
   }

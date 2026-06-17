@@ -22,6 +22,7 @@ import {
   inboundHasExplicitPartialClause,
   inboundHasExplicitAccountabilityMissClause,
   looksLikeCoachContextCorrectionOrMetaDispute,
+  looksLikeOnboardingProcessDispute,
 } from "@/lib/inbound-short-answer-clauses";
 import {
   isNonOutcomePlanPriorQuestionType,
@@ -84,7 +85,9 @@ export type InboundOutcomePersistSkipReason =
   | "turn_understanding_satisfied_ask_no_proof"
   | "plan_or_proposal_ack_backstop"
   | "plan_or_proposal_rejection_backstop"
-  | "coach_context_correction_not_miss";
+  | "coach_context_correction_not_miss"
+  | "coach_process_dispute_not_miss"
+  | "onboarding_process_dispute_not_miss";
 
 export type InboundOutcomePersistResult =
   | {
@@ -284,13 +287,33 @@ function evaluateUserNoPersistBackstop(args: {
     looksLikeCoachContextCorrectionOrMetaDispute(raw) &&
     !inboundHasExplicitAccountabilityMissClause(raw)
   ) {
+    return looksLikeOnboardingProcessDispute(raw)
+      ? "onboarding_process_dispute_not_miss"
+      : "coach_context_correction_not_miss";
+  }
+
+  if (
+    args.inboundMeaning.evidence.some((e) =>
+      e.includes("onboarding_process_dispute_not_miss")
+    )
+  ) {
+    return "onboarding_process_dispute_not_miss";
+  }
+
+  if (
+    args.inboundMeaning.evidence.some((e) =>
+      e.includes("coach_context_correction_not_miss")
+    )
+  ) {
     return "coach_context_correction_not_miss";
   }
 
   if (
-    args.inboundMeaning.evidence.some((e) => e.includes("coach_context_correction_not_miss"))
+    args.inboundMeaning.evidence.some((e) =>
+      e.includes("coach_process_dispute_not_miss")
+    )
   ) {
-    return "coach_context_correction_not_miss";
+    return "coach_process_dispute_not_miss";
   }
 
   if (inboundHasExplicitMissClause(raw)) return null;

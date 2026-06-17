@@ -129,4 +129,17 @@ describe("buildProofMomentForAccountabilityOutcome — user_no proof gate", () =
     expect(meta?.proof_moment_type).toBe("honest_miss");
     expect(meta?.user_visible_proof_line).toContain("told the truth about the miss");
   });
+
+  it("onboarding/process complaint does not create honest_miss proof", () => {
+    const raw =
+      "Thanks I did 15 minutes of onboarding and you didn't ask me anything about what I chose. Did the onboarding matter?";
+    const meta = buildProofMomentForAccountabilityOutcome({
+      finalEventType: "user_no",
+      eventsNewestFirst: [],
+      isRepairOutcome: false,
+      userMessageCharCount: raw.length,
+      rawBody: raw,
+    });
+    expect(meta).toBeNull();
+  });
 });

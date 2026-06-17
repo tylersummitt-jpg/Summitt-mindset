@@ -4,6 +4,7 @@ import {
   inboundHasExplicitCompletionClause,
   inboundHasExplicitMissClause,
   looksLikeCoachContextCorrectionOrMetaDispute,
+  looksLikeOnboardingProcessDispute,
 } from "@/lib/inbound-short-answer-clauses";
 
 describe("inbound-short-answer-clauses — explicit completion expansion", () => {
@@ -59,5 +60,42 @@ describe("inbound-short-answer-clauses — accountability miss vs meta-correctio
   it("didn't mean that is meta-correction not miss", () => {
     expect(inboundHasExplicitAccountabilityMissClause("I didn't mean that")).toBe(false);
     expect(looksLikeCoachContextCorrectionOrMetaDispute("I didn't mean that")).toBe(true);
+  });
+});
+
+describe("inbound-short-answer-clauses — onboarding/coach-process disputes", () => {
+  const ONBOARDING_DISPUTE =
+    "Thanks I did 15 minutes of onboarding and you didn't ask me anything about what I chose. Did the onboarding matter?";
+
+  it("onboarding dispute is coach/meta not accountability miss", () => {
+    expect(looksLikeOnboardingProcessDispute(ONBOARDING_DISPUTE)).toBe(true);
+    expect(looksLikeCoachContextCorrectionOrMetaDispute(ONBOARDING_DISPUTE)).toBe(true);
+    expect(inboundHasExplicitAccountabilityMissClause(ONBOARDING_DISPUTE)).toBe(false);
+  });
+
+  it.each([
+    "You didn't ask me about what I chose.",
+    "Did the onboarding matter?",
+    "Why didn't you ask me about my onboarding answers?",
+    "You did not ask me anything about what I chose",
+  ])("%s is coach/process dispute not miss", (text) => {
+    expect(looksLikeCoachContextCorrectionOrMetaDispute(text)).toBe(true);
+    expect(inboundHasExplicitAccountabilityMissClause(text)).toBe(false);
+  });
+
+  it.each([
+    "I didn't do it today.",
+    "I didn't hit my steps today.",
+    "I did not get it today because this is the first day of vacation",
+    "I missed it.",
+    "Didn't happen.",
+    "I skipped it.",
+  ])("%s remains explicit accountability miss", (text) => {
+    expect(inboundHasExplicitAccountabilityMissClause(text)).toBe(true);
+    expect(looksLikeCoachContextCorrectionOrMetaDispute(text)).toBe(false);
+  });
+
+  it("onboarding minutes alone is not substantive goal completion", () => {
+    expect(inboundHasExplicitCompletionClause("I did 15 minutes of onboarding")).toBe(false);
   });
 });

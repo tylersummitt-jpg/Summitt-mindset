@@ -29,6 +29,12 @@ const INVENTED_PROGRESS_RE =
 const STRONG_WEEK_OVERPRAISE_RE =
   /\b(?:crushing\s+it|amazing\s+week|perfect\s+week|incredible\s+week|best\s+week)\b/i;
 
+const EXACT_MULTI_MISS_COUNT_RE =
+  /\b(a few days missed|several days missed|a couple missed|couple missed|a few missed|few missed|several missed|a few misses|few misses|several misses|two missed|2 missed|two misses|missed two days|missed 2 days|missed a few|missed several)\b/i;
+
+export const WEEKLY_FALSE_EXACT_MISS_COUNT_NO_SEND =
+  "weekly_false_exact_miss_count_after_unified_guard" as const;
+
 const FALSE_GOAL_CHANGE_RE =
   /\b(?:goal(?:'s)?\s+(?:has\s+been\s+)?(?:updated|changed|locked\s+in)|commitment(?:'s)?\s+(?:has\s+been\s+)?(?:updated|changed|locked\s+in|tightened|replaced)|(?:updated|changed)\s+your\s+(?:goal|commitment)|i(?:'ve| have)\s+(?:updated|changed)\s+(?:your\s+)?(?:goal|commitment)|(?:new|updated)\s+(?:commitment|focus|goal|bar)\s+(?:is\s+)?(?:active|set|live|in effect))\b/i;
 
@@ -155,6 +161,17 @@ export function evaluatePostUnifiedGuardWeeklyProofTruthRecheck(
       noSendReason: WEEKLY_FALSE_STREAK_OR_PROGRESS_NO_SEND,
       violations: ["unsupported_strong_week_claim"],
     };
+  }
+
+  if (EXACT_MULTI_MISS_COUNT_RE.test(body)) {
+    const distinct = wp.distinctMissedDayCount ?? wp.missedCount;
+    if (distinct < 2 || !wp.exactMissCountClaimReliable) {
+      return {
+        blocked: true,
+        noSendReason: WEEKLY_FALSE_EXACT_MISS_COUNT_NO_SEND,
+        violations: ["false_exact_multi_miss_count_claim"],
+      };
+    }
   }
 
   if (FALSE_GOAL_CHANGE_RE.test(body)) {

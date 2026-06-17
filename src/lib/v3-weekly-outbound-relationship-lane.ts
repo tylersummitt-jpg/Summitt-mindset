@@ -112,6 +112,12 @@ export type WeeklyV3ProofFacts = {
   week_end: string;
   completed_count: number;
   missed_count: number;
+  /** Raw user_no rows before day dedupe (telemetry). */
+  raw_missed_count?: number;
+  distinct_missed_day_count?: number;
+  false_or_suspect_missed_count?: number;
+  unknown_day_missed_count?: number;
+  exact_miss_day_count_reliable?: boolean;
   partial_count: number;
   blocker_count: number;
   proof_moment_hints: string[];

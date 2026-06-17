@@ -26,6 +26,7 @@ import {
 } from "@/lib/inbound-final-body-truth-guard";
 import { RAPID_NEAR_DUPLICATE_REPLY_NO_SEND } from "@/lib/inbound-near-duplicate-reply-policy";
 import type { V2WeeklyProofPack } from "@/lib/v2-weekly-proof-sms";
+import { alignWeeklyProofPackMissTelemetry } from "@/lib/weekly-outbound-final-guard-evidence";
 
 vi.mock("@/lib/inbound-final-body-truth-guard", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/inbound-final-body-truth-guard")>();
@@ -75,7 +76,7 @@ const PASS_TRUTH = {
 };
 
 function packBase(overrides?: Partial<V2WeeklyProofPack>): V2WeeklyProofPack {
-  return {
+  return alignWeeklyProofPackMissTelemetry({
     week_start: "2026-05-04",
     week_end: "2026-05-10",
     yes_count: 4,
@@ -95,7 +96,7 @@ function packBase(overrides?: Partial<V2WeeklyProofPack>): V2WeeklyProofPack {
     proof_moment_hints: ["Logged early Tuesday"],
     pattern_events_newest_first: [],
     ...overrides,
-  };
+  });
 }
 
 function weeklyGuardArgs(

@@ -60,6 +60,10 @@ function clauseHasExplicitCompletion(clause: string): boolean {
     if (/\b(did not|didn't|almost|wish|plan to)\b/i.test(t)) return false;
     return true;
   }
+  if (/\bi\s+did\s+\d+\s+minutes?\s+of\s+onboarding\b/i.test(t)) return false;
+  if (/\bonboarding\b/i.test(t) && !/\b(hit|goal|steps|commitment|workout|run|walk)\b/i.test(t)) {
+    return false;
+  }
   if (/\b(i\s+)?did\s+(the\s+|my\s+)?\w+/i.test(t) && /\b(today|this morning|tonight)\b/i.test(t)) {
     return true;
   }
@@ -118,11 +122,32 @@ function clauseHasExplicitMiss(clause: string): boolean {
   return false;
 }
 
-/** Coach disputing prior coach wording — not an accountability miss. */
+/** Onboarding / coach-process dispute — not an accountability miss. */
+export function looksLikeOnboardingProcessDispute(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  return (
+    /\b(did|does)\s+(the|my)\s+onboarding\s+matter\b/i.test(t) ||
+    /\bonboarding\s+matter\b/i.test(t) ||
+    /\bwhat\s+i\s+chose\s+in\s+onboarding\b/i.test(t) ||
+    /\bmy\s+onboarding\s+answers?\b/i.test(t) ||
+    /\b(didn'?t|did not)\s+ask\s+(me\s+)?(anything\s+)?about\s+(what\s+i\s+chose|onboarding|my\s+onboarding)/i.test(
+      t
+    ) ||
+    /\bwhy\s+(didn'?t|did not)\s+you\s+ask\s+me\s+about\s+(onboarding|my\s+onboarding)/i.test(t) ||
+    /\bwhy\s+did\s+you\s+not\s+ask\s+me\s+about\s+(onboarding|my\s+onboarding)/i.test(t) ||
+    (/\bonboarding\b/i.test(t) &&
+      /\b(you\s+(didn'?t|did not)\s+ask|didn'?t\s+ask\s+me|did\s+not\s+ask\s+me)\b/i.test(t))
+  );
+}
+
+/** Coach disputing prior coach wording or process — not an accountability miss. */
 export function looksLikeCoachContextCorrectionOrMetaDispute(raw: string): boolean {
   const t = raw.trim();
   if (!t) return false;
   if (inboundHasExplicitAccountabilityMissClause(t)) return false;
+
+  if (looksLikeOnboardingProcessDispute(t)) return true;
 
   return (
     /\b(didn'?t|did not|didnt)\s+say\b/i.test(t) ||
@@ -137,7 +162,12 @@ export function looksLikeCoachContextCorrectionOrMetaDispute(raw: string): boole
     /\bno,?\s+i\s+was\s+asking\s+why\b/i.test(t) ||
     /\bi'?m\s+correcting\s+you\b/i.test(t) ||
     /\b(didn'?t|did not)\s+say\s+i\s+would\b/i.test(t) ||
-    /\b(didn'?t|did not)\s+say\s+that\b/i.test(t)
+    /\b(didn'?t|did not)\s+say\s+that\b/i.test(t) ||
+    /\byou\s+(didn'?t|did not)\s+ask\b/i.test(t) ||
+    /\b(didn'?t|did not)\s+ask\s+me\b/i.test(t) ||
+    /\b(didn'?t|did not)\s+ask\s+(me\s+)?anything\s+about\b/i.test(t) ||
+    /\byou\s+(didn'?t|did not)\s+ask\s+me\s+anything\s+about\s+what\s+i\s+chose\b/i.test(t) ||
+    /\b(didn'?t|did not)\s+ask\s+about\s+what\s+i\s+chose\b/i.test(t)
   );
 }
 

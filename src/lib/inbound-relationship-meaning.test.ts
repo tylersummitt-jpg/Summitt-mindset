@@ -387,3 +387,49 @@ describe("sleep/phone cousin audit — miss not implemented in this slice", () =
     expect(facts.reason).toBe("open_question_route_owns_turn");
   });
 });
+
+describe("onboarding/coach-process disputes — no user_no", () => {
+  const ONBOARDING_DISPUTE =
+    "Thanks I did 15 minutes of onboarding and you didn't ask me anything about what I chose. Did the onboarding matter?";
+
+  it("production onboarding dispute is question/answer not miss", () => {
+    const facts = meaningFor(ONBOARDING_DISPUTE, { eventType: "user_no" });
+    expect(["question", "answer_to_prior_question"]).toContain(facts.relationship_meaning);
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+    expect(facts.evidence).toContain("onboarding_process_dispute_not_miss");
+  });
+
+  it.each([
+    "You didn't ask me about what I chose.",
+    "Did the onboarding matter?",
+    "Why didn't you ask me about my onboarding answers?",
+  ])("%s → no_outcome_write", (text) => {
+    const facts = meaningFor(text, { eventType: "user_no" });
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
+  it.each([
+    "I didn't do it today.",
+    "I didn't hit my steps today.",
+    "I did not get it today because this is the first day of vacation",
+  ])("%s → write_user_no preserved", (text) => {
+    const facts = meaningFor(text, { eventType: "user_no" });
+    expect(facts.relationship_meaning).toBe("miss");
+    expect(facts.persistence_decision).toBe("write_user_no");
+  });
+
+  it("I did not say that meta-correction still no_outcome_write", () => {
+    const facts = meaningFor("I did not say that", { eventType: "user_no" });
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
+  it("No I won't proposal rejection still no_outcome_write", () => {
+    const facts = meaningFor("No I won't", { eventType: "user_no" });
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
+  it("substantive completion fix still write_user_yes_today", () => {
+    const facts = meaningFor("I got my steps in today");
+    expect(facts.persistence_decision).toBe("write_user_yes_today");
+  });
+});
