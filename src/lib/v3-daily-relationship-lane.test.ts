@@ -203,6 +203,68 @@ describe("produceDailyV3RelationshipSms prompt guidance (plan proof + timing anc
     );
   });
 
+  it("zero-question mode uses statement-only guidance and omits open-question outcome asks", async () => {
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          last_5_coach_questions: [
+            "What's the first step you'll take today to fit in that five-minute stretch during lunch?",
+          ],
+        },
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "plan_confirmation",
+          do_not_repeat_asks: [
+            "Did you stand and stretch for five minutes at lunch today?",
+          ],
+          evidence_preview: "yes at lunch",
+          source: "daily_satisfied_ask_context",
+          occurred_at: "2026-06-14",
+          persistence_note: "satisfied",
+          stale_ask_risk: true,
+        },
+      }),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).toContain("ZERO-QUESTION DAILY MODE IS ACTIVE");
+    expect(systemMsg).toContain("zero questions required");
+    expect(systemMsg).toContain("ZERO-QUESTION MODE");
+    expect(systemMsg).not.toContain("OPEN QUESTION / LATEST ANSWER PRIORITY (read");
+    expect(systemMsg).not.toMatch(/Ask whether the planned action happened/i);
+    expect(systemMsg).not.toMatch(/What happened with the plan today/i);
+  });
+
+  it("low-repeat Daily C1 still includes normal open-question guidance", async () => {
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          last_5_coach_questions: [],
+          latest_outbound_sms: null,
+        },
+        daily_satisfied_ask_context: undefined,
+        accountability: {
+          ...baseFacts().accountability,
+          prior_outcome: null,
+          days_since_last_user_outcome: 0,
+          blocker_preview: null,
+          pending_plan_proof: undefined,
+        },
+      }),
+      telemetry_fact_sources: ["test_fixture"],
+    });
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.find(
+      (m: { role: string }) => m.role === "system"
+    )?.content as string;
+    expect(systemMsg).not.toContain("ZERO-QUESTION DAILY MODE IS ACTIVE");
+    expect(systemMsg).toContain("OPEN QUESTION / LATEST ANSWER PRIORITY");
+    expect(systemMsg).toMatch(/at most one question/i);
+  });
+
   it("Test 10 — repairs overconfident anchor wording via post-validate path", async () => {
     const pending = {
       active: true as const,

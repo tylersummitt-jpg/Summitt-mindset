@@ -2516,7 +2516,7 @@ function dailyC1RecentCoachQuestionCount(ctx: DailyC1StrategyCardBuildContext): 
   ).length;
 }
 
-/** True when satisfied/DNR/recent-ask context makes another question likely to stale-repeat or memory-block. */
+/** True when recent-thread context makes another question likely to stale-repeat or memory-block. */
 export function dailyC1HasHighRepeatRisk(ctx: DailyC1StrategyCardBuildContext): boolean {
   if (hasSatisfiedRecentAsk(ctx)) return true;
   if (ctx.facts.daily_satisfied_ask_context?.stale_ask_risk === true) return true;
@@ -2527,14 +2527,10 @@ export function dailyC1HasHighRepeatRisk(ctx: DailyC1StrategyCardBuildContext): 
   const recentUnanswered = (ctx.openLoops.recent_unanswered_coach_questions ?? []).filter(
     (q) => q.trim().length >= 12
   );
-  if (recentUnanswered.length > 0 && (hasSatisfiedRecentAsk(ctx) || doNotRepeatCount > 0)) {
-    return true;
-  }
+  if (recentUnanswered.length > 0) return true;
 
   const recentCoachQCount = dailyC1RecentCoachQuestionCount(ctx);
-  if (recentCoachQCount > 0 && (hasSatisfiedRecentAsk(ctx) || doNotRepeatCount > 0)) {
-    return true;
-  }
+  if (recentCoachQCount > 0) return true;
 
   return false;
 }

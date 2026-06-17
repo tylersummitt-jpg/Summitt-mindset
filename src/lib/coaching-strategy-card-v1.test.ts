@@ -1645,6 +1645,10 @@ describe("Daily C1 Strategy Card v1", () => {
         local_time_iso: "2026-06-15T06:01:00-04:00",
         relationship_profile_summary: null,
       },
+      thread_memory: {
+        ...dailyFacts().thread_memory,
+        last_5_coach_questions: [],
+      },
       accountability: {
         ...dailyFacts().accountability,
         prior_outcome: null,
@@ -1667,6 +1671,10 @@ describe("Daily C1 Strategy Card v1", () => {
 
   it("obstacle_recovery with known miss allows retrospective blocker language", () => {
     const facts = dailyFacts({
+      thread_memory: {
+        ...dailyFacts().thread_memory,
+        last_5_coach_questions: [],
+      },
       accountability: {
         ...dailyFacts().accountability,
         prior_outcome: "user_no",
@@ -1696,6 +1704,10 @@ describe("Daily C1 Strategy Card v1", () => {
         timezone: "America/New_York",
         local_time_iso: "2026-06-15T06:01:00-04:00",
         relationship_profile_summary: null,
+      },
+      thread_memory: {
+        ...dailyFacts().thread_memory,
+        last_5_coach_questions: [],
       },
       accountability: {
         ...dailyFacts().accountability,
@@ -1782,6 +1794,10 @@ describe("Daily C1 Strategy Card v1", () => {
     const card = buildDailyC1StrategyCardV1({
       ctx: buildDailyCtx(
         dailyFacts({
+          thread_memory: {
+            ...dailyFacts().thread_memory,
+            last_5_coach_questions: [],
+          },
           accountability: {
             ...dailyFacts().accountability,
             prior_outcome: null,
@@ -2143,6 +2159,38 @@ describe("Daily C1 Strategy Card v1", () => {
       expect(card.writer_constraints.max_questions).toBe(1);
       expect(card.server_truth_summary.daily_zero_question_required).toBe(false);
       expect(card.must_do.join(" ")).not.toMatch(/Do not ask a question in this SMS/i);
+    });
+
+    it("high repeat risk from last_5_coach_questions alone without satisfied ask", () => {
+      const ctx = buildDailyCtx(
+        dailyFacts({
+          daily_satisfied_ask_context: undefined,
+          thread_memory: {
+            ...dailyFacts().thread_memory,
+            last_5_coach_questions: [
+              "What's the first step you'll take today to fit in that five-minute stretch during lunch?",
+            ],
+          },
+        }),
+        { withSatisfiedAsk: false }
+      );
+      expect(dailyC1HasHighRepeatRisk(ctx)).toBe(true);
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.writer_constraints.max_questions).toBe(0);
+      expect(card.server_truth_summary.daily_high_repeat_risk).toBe(true);
+      expect(card.server_truth_summary.daily_zero_question_required).toBe(true);
+    });
+
+    it("high repeat risk from recent_unanswered_coach_questions alone", () => {
+      const ctx = buildDailyCtx(dailyFacts({ daily_satisfied_ask_context: undefined }), {
+        withSatisfiedAsk: false,
+      });
+      ctx.openLoops.recent_unanswered_coach_questions = [
+        "When will you start the distribution block today?",
+      ];
+      expect(dailyC1HasHighRepeatRisk(ctx)).toBe(true);
+      const card = buildDailyC1StrategyCardV1({ ctx });
+      expect(card.writer_constraints.max_questions).toBe(0);
     });
 
     it("stale detect-only guard still no-sends stale candidates unchanged", () => {

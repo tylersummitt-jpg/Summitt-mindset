@@ -42,6 +42,8 @@ import { slimDailySatisfiedAskContextForTelemetry } from "@/lib/daily-satisfied-
 import { applyDailyStaleAskDetectOnly } from "@/lib/daily-stale-ask-guard";
 import {
   buildDailyOpenQuestionAnswerPriorityGuidance,
+  buildDailyZeroQuestionOpenQuestionStatementGuidance,
+  buildDailyZeroQuestionPendingPlanProofGuardrails,
   buildPendingPlanProofLaneGuardrails,
   buildPendingPlanProofVoiceRepairInstruction,
   detectPendingPlanProofVoiceViolations,
@@ -94,6 +96,7 @@ import {
   validateAndRepairDailyC3RefreshStrategyCardV1,
   validateAndRepairDailyContractPromptStrategyCardV1,
 } from "@/lib/coaching-strategy-card-v1";
+import type { StrategyCardV1 } from "@/lib/coaching-strategy-card-v1";
 import type { TemporalContractV1, TemporalReferencedEventV1 } from "@/lib/sms-temporal-contract-v1";
 import {
   buildReferencedEventsFromDailySources,
@@ -127,6 +130,28 @@ import {
 } from "@/lib/v3-daily-contract-proposal-semantic";
 
 const DAILY_LANE_MAX_CHARS = 300;
+
+/** Top-level system rules when Strategy Card requires zero questions (prompt only). */
+export function buildDailyZeroQuestionModeSystemRules(): string {
+  return `
+ZERO-QUESTION DAILY MODE IS ACTIVE (Strategy Card authority — overrides generic open-question guidance below):
+- The final SMS must be a statement-only coaching touch.
+- Do not ask a question. Do not use a question mark.
+- Do not use hidden question commands such as tell me, let me know, reply with, name the blocker, choose one, or send me.
+- Do not ask for proof, evidence, outcome, first step, blocker, strategy, or whether the plan happened.
+- Do not re-ask or paraphrase recent coach questions from structured_recent_truth.last_5_coach_questions or avoid_repeating.
+- Use one concrete no-question coaching move rooted in the current goal, recent thread, and identity when natural.
+- A good zero-question SMS can acknowledge the thread, protect today's next honest action, and challenge the user without asking for a reply.`;
+}
+
+function resolveDailyZeroQuestionModeFromCard(card: StrategyCardV1 | null): boolean {
+  if (!card) return false;
+  return (
+    card.writer_constraints.max_questions === 0 ||
+    card.server_truth_summary.daily_zero_question_required === true ||
+    card.server_truth_summary.daily_high_repeat_risk === true
+  );
+}
 
 /** Wrapper must not restate server-owned binding instructional phrases (contract_prompt only). */
 export const DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT = [
@@ -1087,6 +1112,7 @@ export async function produceDailyV3RelationshipSms(
 
   let strategyCardUserAppendix = "";
   let strategyCardPromptGuidance = "";
+  let validatedDailyC1Card: StrategyCardV1 | null = null;
   const strategyCardC1Eligible = isDailyC1StrategyCardEligible(laneFacts);
   const strategyCardC2Eligible = isDailyC2StrategyCardEligible(laneFacts);
   const strategyCardC3RefreshEligible = isDailyC3RefreshStrategyCardEligible(laneFacts);
@@ -1104,6 +1130,7 @@ export async function produceDailyV3RelationshipSms(
       }
     );
     const validated = validateAndRepairDailyC1StrategyCardV1(draftCard, strategyCtx);
+    validatedDailyC1Card = validated.card;
     strategyCardUserAppendix = strategyCardV1UserPromptAppendix(validated.card);
     strategyCardPromptGuidance = buildStrategyCardV1PromptGuidance();
     Object.assign(baseMeta, strategyCardV1MetaForTelemetry(validated, strategyCtx));
@@ -1145,33 +1172,59 @@ export async function produceDailyV3RelationshipSms(
     strategyCardC3RefreshEligible ||
     strategyCardC3PendingEligible;
 
+  const dailyZeroQuestionMode = resolveDailyZeroQuestionModeFromCard(validatedDailyC1Card);
+  if (dailyZeroQuestionMode) {
+    Object.assign(baseMeta, { daily_zero_question_mode_active: true });
+  }
+
+  const dailyQuestionConstraintLine = dailyZeroQuestionMode
+    ? "zero questions required — write one statement-only coaching touch (no question mark, no hidden ask)"
+    : strategyCardC1Eligible
+      ? "at most one question (zero questions okay when closing, protecting, encouraging, or planning) or one concrete action"
+      : "one clear question or one concrete action";
+  const dailyAccountabilityHumanLanguageLine = dailyZeroQuestionMode
+    ? "- Use human accountability language in statements — not interrogation (no did you / what happened / what got in the way / can you phrasing)."
+    : '- Never expose internal accountability labels in visible SMS (partial, yes/no/partial, done/partial/missed, user_yes, user_no, user_partial, classification, route). Use human language: "did it happen or did something get in the way?", "did you get it done, start it, or miss it?", "what happened with the plan?"';
+  const dailyOpenQuestionGuidance = dailyZeroQuestionMode
+    ? buildDailyZeroQuestionOpenQuestionStatementGuidance()
+    : buildDailyOpenQuestionAnswerPriorityGuidance();
+  const dailyPendingPlanGuardrails = dailyZeroQuestionMode
+    ? buildDailyZeroQuestionPendingPlanProofGuardrails(laneFacts.accountability.pending_plan_proof)
+    : buildPendingPlanProofLaneGuardrails(laneFacts.accountability.pending_plan_proof);
+  const dailySatisfiedAskAdvanceLine = dailyZeroQuestionMode
+    ? "- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, acknowledge their answer in a statement and move forward — do not repeat or paraphrase do_not_repeat_asks."
+    : strategyCardC1Eligible
+      ? ""
+      : "- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.";
+
   const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
 
 RULES:
+${dailyZeroQuestionMode ? buildDailyZeroQuestionModeSystemRules() : ""}
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy old template wording or paraphrase labeled machine drafts.
 ${buildRelationshipPacketPromptGuidance()}
 ${strategyCardPromptGuidance}
 - When structured_recent_truth.projection_used is true, latest_open_question and latest_answer_after_open_question are server-owned durable projection — they beat runtime guesses and previews.
 - recent_exact_thread (when present) is the highest-priority transcript — it outranks coaching summaries and older transcript blocks when they conflict.
 ${strategyCardC1Eligible ? buildDailyC1StrategyCardDemotedPromptRules() : ""}
-${strategyCardC1Eligible ? "" : `- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.`}
-${buildDailyOpenQuestionAnswerPriorityGuidance()}
-${strategyCardC1Eligible ? "" : `- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.`}
+${strategyCardC1Eligible || dailyZeroQuestionMode ? "" : `- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.`}
+${dailyOpenQuestionGuidance}
+${dailySatisfiedAskAdvanceLine}
 - If thread_memory.latest_open_question is already answered in recent exact thread with proof/outcome (not only a forward plan while pending_plan_proof is active), advance from that answer.
-${strategyCardC1Eligible ? "" : `- Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.`}
+${strategyCardC1Eligible || dailyZeroQuestionMode ? "" : `- Do not use "Welcome back" unless accountability.reentry_active is true or silence context truly warrants a comeback line.`}
 - Avoid repeating the prior day's opener or the same coach question from recent exact thread.
 - Anchor to the user's real commitment (effective ask + state), without pasting raw title or behavior_statement as a quoted phrase or "Did [raw] happen today?" / "Did you protect [raw]?" style checks.
-- One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, ${strategyCardC1Eligible ? "at most one question (zero questions okay when closing, protecting, encouraging, or planning) or one concrete action" : "one clear question or one concrete action"}.
-- Never expose internal accountability labels in visible SMS (partial, yes/no/partial, done/partial/missed, user_yes, user_no, user_partial, classification, route). Use human language: "did it happen or did something get in the way?", "did you get it done, start it, or miss it?", "what happened with the plan?"
+- One short SMS, max ${DAILY_LANE_MAX_CHARS} characters, no newlines, ${dailyQuestionConstraintLine}.
+${dailyAccountabilityHumanLanguageLine}
 - No generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope your", "checking in" as filler).
-${strategyCardC1Eligible ? "" : `- If facts say reentry/comeback after silence, acknowledge return briefly before the ask.`}
+${strategyCardC1Eligible || dailyZeroQuestionMode ? "" : `- If facts say reentry/comeback after silence, acknowledge return briefly before the ask.`}
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
 ${buildThreadFreshnessPromptGuidance()}
 ${buildVictoryBackgroundLaneGuardrails()}
 ${buildSmsPatternSignalLaneGuardrails()}
 ${buildSmsGoalAdjustmentLaneGuardrails()}
 ${buildPlannedInterruptionLaneGuardrails()}
-${buildPendingPlanProofLaneGuardrails(laneFacts.accountability.pending_plan_proof)}
+${dailyPendingPlanGuardrails}
 ${buildTimingAnchorMemoryLaneGuardrails(laneFacts.accountability.timing_anchor_memory)}
 ${routeSpecificSystemAddendum(laneFacts, {
   strategyCardC2Active: strategyCardC2Eligible,

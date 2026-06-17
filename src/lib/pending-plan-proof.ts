@@ -311,6 +311,17 @@ export function derivePendingPlanProof(args: DerivePendingPlanProofArgs): Pendin
   };
 }
 
+/** Daily lane: statement-only guidance when Strategy Card requires zero questions. */
+export function buildDailyZeroQuestionOpenQuestionStatementGuidance(): string {
+  return `
+OPEN QUESTION / LATEST ANSWER PRIORITY — ZERO-QUESTION MODE (read accountability.pending_plan_proof and accountability.timing_anchor_memory in facts):
+- Strategy Card requires a statement-only SMS. Do not ask whether the plan happened, what got in the way, or for proof/outcome.
+- If accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof. Protect that plan with a concrete statement — acknowledge what they committed to and name today's honest standard or next action without interrogating.
+- Do not re-ask the same open accountability question. Do not use tell me, let me know, reply with, name the blocker, choose one, or send me.
+- Do not praise completion, focus, follow-through, or being back on track unless proof exists in facts.
+- A stated plan is not completion. Intention is not proof.`;
+}
+
 /** Daily lane: how to treat open-question answers vs pending plan proof (facts JSON holds truth). */
 export function buildDailyOpenQuestionAnswerPriorityGuidance(): string {
   return `
@@ -325,6 +336,24 @@ OPEN QUESTION / LATEST ANSWER PRIORITY (read accountability.pending_plan_proof a
 3. Else if thread_memory.latest_answer_after_open_question exists but reads as a forward plan (future intent, timing window, "I will/I'll…") and outcome is still unknown: do not treat the answer as proof. Apply timing_anchor_memory confidence rules if active. Prefer truth-closing over new advice when uncertain.
 4. Else if thread_memory.open_question_pending is false and latest_answer_after_open_question is set: you may move forward from that answer — do not ask that open question again.
 - A stated plan is not completion. Intention is not proof.`;
+}
+
+/** Statement-only pending-plan guardrails when zero-question mode is active. */
+export function buildDailyZeroQuestionPendingPlanProofGuardrails(
+  pending: PendingPlanProofFact | null | undefined
+): string {
+  if (!pending?.active) return "";
+  const anchorNote = pending.anchor_phrase_hint
+    ? ` Timing detail from their plan (apply timing_anchor_memory confidence — do NOT assume daily recurrence): ${JSON.stringify(pending.anchor_phrase_hint)}.`
+    : "";
+  return `
+PENDING PLAN PROOF — ZERO-QUESTION MODE (facts only — do not say these labels in SMS):
+- accountability.pending_plan_proof.active is true: the prior user reply was a plan/intention, not proof.
+- Protect the stated plan with a concrete accountability statement for ${JSON.stringify(pending.plan_for_day_key)} — do not ask whether it happened or what got in the way.
+- Do not ask them to schedule/plan/calendar it again. Do not use question marks or hidden asks (tell me, let me know, reply with).
+- You may reference a timing detail only as a dated or tentative window; use accountability.timing_anchor_memory.confidence_level if present.
+- Do NOT treat the timing anchor as a recurring daily habit unless timing_anchor_memory supports it.
+- Do NOT praise focus, completion, being back on track, or follow-through unless proof exists in facts.${anchorNote}`;
 }
 
 export function buildPendingPlanProofLaneGuardrails(pending: PendingPlanProofFact | null | undefined): string {
