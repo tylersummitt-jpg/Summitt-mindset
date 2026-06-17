@@ -1,132 +1,168 @@
 # SMS Soak Debug SQL Guide
 
-Read-only daily runbook for Phase 4 soak/tuning. **No production code changes** — run queries in Supabase SQL editor only.
+Read-only post-deploy soak runbook for Summitt Mindset SMS. **No production code changes** — run queries in Supabase SQL editor only.
 
-## File
+## Files
 
-[`supabase/manual/sms_soak_debug_pack.sql`](../../supabase/manual/sms_soak_debug_pack.sql)
+| File | Version | Use |
+|------|---------|-----|
+| [`supabase/manual/sms_soak_debug_pack_v1_3.sql`](../../supabase/manual/sms_soak_debug_pack_v1_3.sql) | **v1.3 (recommended)** | Full 15-query pack + Q16 Slice 1/2 scorecard |
+| [`supabase/manual/sms_soak_debug_pack.sql`](../../supabase/manual/sms_soak_debug_pack.sql) | v1.2 | Legacy 10-query consolidated pack |
 
-## Daily workflow
+## Before you run
 
-1. Open the SQL pack and set `day_start` / `day_end` in each query's `bounds` CTE (America/New_York).
-2. Run **Query 1** first — lane/route/no-send rollup.
-3. If something looks off, run **Queries 2–6** for timeline, bodies, no-sends, inbound pairing, and per-user scoreboard.
-4. Use **Queries 7–10** only when a specific guard/repair/outcome/packet issue appears.
+1. Wait until **Vercel is green** after Slice 1 + Slice 2 deploy.
+2. Let the system collect **24–48 hours** of post-deploy `sms_send_events` rows.
+3. Open `sms_soak_debug_pack_v1_3.sql` and change the `bounds` CTE in each query:
+   - **Queries 2–16:** post-deploy window (default `2026-06-17` → `2026-06-20` ET, exclusive end)
+   - **Query 1:** wider thread window (default `2026-06-10` → `2026-06-20` ET)
+4. Run **one query at a time** in Supabase SQL editor.
+5. Export CSV for any query with rows. If no rows: note **"Query X: no rows."**
 
-Export CSV from Supabase → share with ChatGPT review → Cursor read-only root-cause audit → tiny hallway fix only if warranted.
+## Recommended analysis order
 
-## Core queries (6)
-
-| # | Name | Purpose |
-|---|------|---------|
-| 1 | `sms_day_health_rollup` | One row per lane × route × strategy card × conversation intent × no-send reason |
-| 2 | `sms_day_unified_timeline` | Chronological all-user timeline |
-| 3 | `sms_day_visible_bodies` | User-visible SMS copy with FVG/guard/Twilio context |
-| 4 | `sms_day_no_send_details` | Skips/blocks with repair and stale/memory metadata |
-| 5 | `sms_day_inbound_pairing` | Inbound text → job → reply/no-send |
-| 6 | `sms_day_user_scoreboard` | One row per user with counts and last-known state |
-
-## Optional deep-dives (4)
-
-| # | Name | When to run |
-|---|------|-------------|
-| 7 | `state_sensitive_routes` | Contract, pending, refresh, guided-shrink routes |
-| 8 | `repair_helper_diagnostics` | Stale-ask, memory-repeat, thread-freshness, post-validate, FVG |
-| 9 | `suspected_false_outcome_events` | Heuristic bad user_yes/no/partial vs inbound text |
-| 10 | `packet_strategy_context_health` | Packet truncation, thread inclusion, proof permissions |
-
-## JSON paths (canonical)
-
-Strategy card fields — COALESCE across:
-
-- `metadata.relationship_packet_observability.strategy_card_*`
-- `metadata.strategy_card_*` (top-level)
-- `metadata.daily_v3_lane.*` / `weekly_lane_metadata.*` / `inbound_v3_lane.*`
-- `metadata.extras.*` when present
-
-Daily C1 intent (v1.2): `strategy_card_daily_conversation_intent` plus compact `stale_ask_avoidance_*` counts.
-
-No-send / guard:
-
-- `metadata.daily_v3_lane.no_send_reason`
-- `metadata.final_voice_gate.*`
-- `metadata.voice_send_decision.*`
-- `metadata.unified_final_product_law_guard.*`
-
-Visible send semantics (daily):
-
-- `visible_sent` / `twilio_send_attempted` in `voice_send_decision` or top-level metadata
-- Also infer from `status IN ('sent','delivered','queued','accepted','sending')`, `message_sid`, or `note = 'sent_to_twilio'`
-
-## Replaces old process
-
-Previously ~15 separate exports from `sms_relationship_packet_observability.sql` plus ad-hoc slices (FVG, no-send, stale-ask, memory-repeat, dashboard rollup, legacy fallback, shadow disagreements, etc.).
-
-This pack consolidates into **6 standard daily queries + 4 optional deep-dives**, with consistent `bounds` CTEs and COALESCE paths.
-
-Still available for specialized audits (not duplicated here):
-
-- `supabase/manual/sms_relationship_packet_observability.sql` — packet/repair/FVG detail sections
-- `supabase/manual/lane_post_validate_repair_audit.sql`
-- `supabase/manual/memory_repeat_strategy_mismatch_audit.sql`
-- `supabase/manual/meaning_interpreter_shadow_reports.sql`
-
-## Data gaps
-
-- **Shadow disagreements** — use `meaning_interpreter_shadow_reports.sql` (Query G in old pack).
-- **Legacy fallback volume** — partial coverage in Query 1 route filters; full legacy slice still in old observability file section F.
-- **Onboarding / transactional SMS** — not in this pack (different tables/paths).
-- **Pre-consolidation rows** — older rows may lack nested `relationship_packet_observability`; COALESCE falls back to lane blobs but some fields may be null.
-- **Query 9 suspects** — regex heuristics only; not ground truth.
-
-## Safety
-
-- SELECT-only. No migrations, views, or schema changes.
-- All-users; no Brooke or user-specific filters.
-- No Twilio/send/persistence/runtime changes.
-
-## v1.1 — inbound telemetry join (June 2026)
-
-`sms_inbound_coach_jobs` has no metadata column. Core queries enrich inbound rows via **inbound turn telemetry**:
-
-```sql
-LEFT JOIN LATERAL (
-  SELECT ev.payload_json AS tel
-  FROM v2_commitment_event ev
-  WHERE ev.event_type = 'sms_memory_signal'
-    AND ev.payload_json->>'inbound_turn_telemetry' = 'true'
-    AND ev.payload_json->>'message_sid' = j.message_sid
-  ORDER BY ev.occurred_at DESC
-  LIMIT 1
-) it ON TRUE
+```text
+Q16  post_deploy_slice1_slice2_scorecard   ← start here
+Q2   sms_health_rollup
+Q3   eligible_no_send_details
+Q4   visible_sms_bodies
+Q6   memory_repeat_diagnostics
+Q7   stale_thread_freshness_diagnostics
+Q8   zero_question_compliance
+Q12  inbound_pairing_and_ghosting
+Q14  user_level_no_send_scoreboard
+Q15  route_side_room_legacy_fallback_audit
+Then as needed: Q1, Q5, Q9, Q10, Q11, Q13
 ```
 
-**Do not** join on `v2_user_reply:{message_sid}` — that idempotency key does not match telemetry rows.
+## Query list (v1.3)
 
-### Inbound SQL inference (job table only)
+| # | Export name | Purpose |
+|---|-------------|---------|
+| 1 | `Q1_weekly_thread_timeline_all_users.csv` | Full user threads (daily, weekly, inbound) |
+| 2 | `Q2_sms_health_rollup.csv` | Health rollup with **eligible denominator** |
+| 3 | `Q3_eligible_no_send_details.csv` | Eligible no-sends with candidate/repair bodies |
+| 4 | `Q4_visible_sms_bodies.csv` | Visible daily/weekly/inbound bodies |
+| 5 | `Q5_daily_c1_intent_and_no_send_rollup.csv` | C1 intent × send/no-send |
+| 6 | `Q6_memory_repeat_diagnostics.csv` | Memory anti-repeat + **Slice 2 skip** |
+| 7 | `Q7_stale_thread_freshness_diagnostics.csv` | Stale ask + thread freshness |
+| 8 | `Q8_zero_question_compliance.csv` | Zero-question visible violations |
+| 9 | `Q9_hidden_question_cousin_scan.csv` | Hidden question commands (all visible) |
+| 10 | `Q10_robot_language_scan.csv` | Recommit/menu/robot language |
+| 11 | `Q11_weekly_sms_audit.csv` | Weekly miss-count / recommit audit |
+| 12 | `Q12_inbound_pairing_and_ghosting.csv` | Inbound → reply ghosting |
+| 13 | `Q13_final_guard_product_law_blocks.csv` | Final guard / product-law blocks |
+| 14 | `Q14_user_level_no_send_scoreboard.csv` | Per-user no-send scoreboard |
+| 15 | `Q15_route_side_room_legacy_fallback_audit.csv` | Side-room / legacy / fallback |
+| 16 | `Q16_post_deploy_slice1_slice2_scorecard.csv` | **Compact post-deploy dashboard** |
 
-| Field | Rule |
-|-------|------|
-| `visible_sent` | `status = 'sent'` AND `outbound_message_sid` IS NOT NULL |
-| `twilio_send_attempted` | `outbound_message_sid` IS NOT NULL |
-| `route_purpose` / strategy card | COALESCE from `it.tel->>'route_purpose'`, `strategy_card_*`, etc. |
-| `no_send_reason` | job status + `unified_final_guard_no_send_reason` + `last_error` |
+## What “eligible coaching no-send” means
 
-Telemetry payload is written pre-Twilio by `insertInboundTurnTelemetryBestEffort` (`inbound_turn_telemetry:{message_sid}`). Older rows may lack new compact lane fields until new inbound traffic soaks.
+A row is **eligible** when it is **not** a legitimate skip:
 
-## v1.2 — Daily C1 conversation intent observability (June 2026)
+- not fully on V2
+- no active commitment
+- STOP / unsubscribed
+- compliance / safety / crisis
+- duplicate, tapback, invalid phone
+- outside send window
+- intentionally suppressed active inbound thread
 
-Adds COALESCE paths for soak SQL (counts only — no raw satisfied-ask labels or person names):
+**Eligible no-send** = eligible row that is **not** `visible_sent`.
 
+Stale/memory/thread/final-guard no-sends **count** — those are the fixable product-system failures we measure.
+
+**Excluded** from eligible denominator (not counted as coaching failure).
+
+## Visible send classification (daily)
+
+A row is **visible_sent** when:
+
+- `body_preview` is non-empty (expanded coalesce including `daily_v3_lane`, `v3_brain`, `accepted` paths), **and**
+- `status` matches `sent|delivered|queued|success|accepted|sending` **or** `message_sid` is set **or** `metadata.note = 'sent_to_twilio'`, **and**
+- no blocking `no_send_reason` / `skip_source`
+
+`status='accepted'` with body counts as visible unless a clear no-send reason says otherwise.
+
+## Success / failure thresholds
+
+| Metric | Target | Meaning |
+|--------|--------|---------|
+| Eligible no-send rate | **~1%** | Target zone |
+| Eligible no-send rate | **<5%** | Acceptable intermediate |
+| Eligible no-send rate | **<15%** | Improving but not done |
+| Eligible no-send rate | **≥15%** | Still high — keep measuring |
+| Memory/thread share of eligible no-sends | **>10–15%** | Thread freshness hardening |
+| `thread_freshness_stale_blocked` top reason | dominant | Thread freshness slice |
+| Zero-question visible violations (Q8) | **>0** | Zero-question validator or card alignment |
+| `memory_repeat_repair_skipped_zero_question_mode` | present + total no-send falling | Slice 2 working |
+| `memory_repeat_repair_skipped` + no-send still high | — | Writer/card/thread still needs work |
+
+### Baseline (pre-patch)
+
+June 16–17 soak showed roughly **52%** and **73%** eligible no-send. Compare post-deploy using the **same eligible definition** and window length.
+
+## Decision tree → next code slice
+
+| SQL signal | Next slice |
+|------------|------------|
+| Q16 `next_recommended_slice` = `thread_freshness_zero_question_hardening` | Thread freshness zero-question hardening |
+| Q8 violations > 0 | Zero-question validator or Strategy Card alignment |
+| High `stale_ask_blocks`, low memory/thread repair | Strategy Card JSON / demoted-rule cleanup |
+| Large `pending_resolution_blocks` | Pending_resolution verbatim slice |
+| Q12 meaningful inbound no-replies / contradiction | Inbound contradiction / ghosting |
+| Eligible no-send <5%, Slice 2 skip telemetry present | **Keep soaking** before next code |
+| SQL cannot see accepted sends or skip telemetry | SQL observability patch only |
+
+## Slice 1 telemetry (prompt / card)
+
+Measured via COALESCE across `relationship_packet_observability`, `daily_v3_lane`, `v3_brain`:
+
+- `daily_zero_question_mode_active`
+- `strategy_card_zero_question_required`
+- `strategy_card_high_repeat_risk`
 - `strategy_card_daily_conversation_intent`
-- `strategy_card_local_date` / `strategy_card_local_weekday` / `strategy_card_is_new_accountability_day`
-- `stale_ask_avoidance_has_satisfied_recent_ask` and compact label counts
-- `relationship_anchor_available_count` / `relationship_anchor_recently_used_count`
 
-Telemetry is emitted from `strategyCardV1MetaForTelemetry` and whitelisted in `RELATIONSHIP_PACKET_OBSERVABILITY_KEYS`. Rows before deploy will have null intent fields.
+**Q5, Q8, Q16** are primary Slice 1 reads.
 
-Queries updated: **1, 3, 4, 6, 8, 10**.
+## Slice 2 telemetry (memory repair skip)
 
-Query 1 adds `direct_outcome_check_count`, `relationship_anchor_bridge_count`, and stale/memory no-send counts grouped by intent.
+Measured via:
 
-Post-deploy soak: run Query 1 first, then Query 4 for no-sends by intent, Query 3 for visible bodies by intent.
+- `memory_repeat_repair_skipped_zero_question_mode`
+- `memory_repeat_repair_skipped_reason` (`repair_disabled_zero_question_mode`)
+- `memory_repeat_no_send_reason` (`repair_disabled_zero_question_mode`)
+- `repeat_repair_attempted` (lane only, expect `false`)
+
+**Q6, Q3, Q16** are primary Slice 2 reads.
+
+## Body coalesce paths (v1.3)
+
+**Visible daily body:** top-level `sms_body` / `body` / `final_body` / `body_preview`, then `metadata.*`, `voice_send_decision`, `final_voice_gate`, `daily_v3_lane`, `v3_brain`.
+
+**Candidate:** `daily_v3_lane.v3_candidate_body`, `v3_brain.v3_candidate_body`.
+
+**Memory repaired:** `daily_v3_lane.memory_repeat_repaired_body_preview`, `v3_brain`, observability.
+
+**Thread freshness repaired:** `daily_v3_lane.thread_freshness_repaired_body_preview`, `v3_brain`.
+
+All queries include `raw_json` for manual inspection.
+
+## Still available (specialized)
+
+- `supabase/manual/sms_relationship_packet_observability.sql`
+- `supabase/manual/memory_repeat_strategy_mismatch_audit.sql`
+- `supabase/manual/lane_post_validate_repair_audit.sql`
+- `supabase/manual/truth_spine_certification_pack.sql` (truth spine, not daily soak)
+
+## Data gaps / limitations
+
+- Pre-consolidation rows may lack nested `relationship_packet_observability`; COALESCE falls back to `daily_v3_lane`.
+- `repeat_repair_attempted` and `v3_candidate_body` are **lane-only** (not whitelisted to observability).
+- Regex scans (Q8–Q10) are heuristics, not ground truth.
+- `sms_inbound_coach_jobs` has no `metadata` column; inbound pairing uses job columns + LATERAL nearest job.
+- Q16 `next_recommended_slice` is advisory — confirm with Q2–Q8 before coding.
+
+## Workflow
+
+Export CSVs → share with review → read-only root-cause audit → **one hallway fix** only if SQL warrants it. Do not weaken guards or force-send to improve rates.
