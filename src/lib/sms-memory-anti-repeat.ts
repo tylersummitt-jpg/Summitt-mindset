@@ -1081,6 +1081,8 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
   validateAfterRepair: (body: string) => Promise<{ ok: true } | { ok: false; noSendReason: string; extraMeta?: Record<string, unknown> }>;
   additionalRepairInstruction?: string | null;
   noSendReason?: string;
+  /** When false, detect-only on violation — no OpenAI repair (default true). */
+  openAiRepairEnabled?: boolean;
 }): Promise<MemoryRepeatGuardResult> {
   const blockedNoSendReason = args.noSendReason ?? "thread_memory_repeat_blocked";
 
@@ -1126,6 +1128,33 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
               anti_repeat_exemption_reason: "close_prior_plan_loop_outcome_question",
             }
           : {}),
+      },
+    };
+  }
+
+  if (args.openAiRepairEnabled === false) {
+    return {
+      outcome: "no_send",
+      noSendReason: blockedNoSendReason,
+      metadata: {
+        memory_repeat_guard_attempted: true,
+        memory_repeat_guard_succeeded: false,
+        memory_repeat_guard_reason: firstViolation.reason,
+        repeated_phrases: firstViolation.repeatedPhrases,
+        repeated_question: firstViolation.repeatedQuestion,
+        memory_repeat_original_body_preview:
+          original.length > 220 ? `${original.slice(0, 219)}…` : original,
+        memory_repeat_repaired_body_preview: null,
+        memory_repeat_no_send_reason: "repair_disabled_zero_question_mode",
+        memory_repeat_repair_skipped_zero_question_mode: true,
+        memory_repeat_repair_skipped_reason: "repair_disabled_zero_question_mode",
+        repeat_detected: true,
+        repeat_repair_attempted: false,
+        repeat_repair_strategy: null,
+        repeat_repair_succeeded: false,
+        repeat_repair_failed_reason: null,
+        repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
+        forced_second_repair_attempted: false,
       },
     };
   }

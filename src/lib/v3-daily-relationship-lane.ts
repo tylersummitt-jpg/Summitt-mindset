@@ -1770,6 +1770,7 @@ used_facts (string[]), safety_notes (string[])`;
     factsJson: laneFacts,
     detectInput: buildAntiRepeatDetectArgsFromDailyFacts(laneFacts, body),
     enabled: shouldRunDailyMemoryRepeatGuard(laneFacts),
+    openAiRepairEnabled: !dailyZeroQuestionMode,
     validateAfterRepair: async (candidate) => {
       const after = collectDailyPostValidateVoiceViolations(
         candidate,

@@ -619,6 +619,96 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
     expect(validateAfterRepair).toHaveBeenCalledTimes(1);
     expect(validateAfterRepair).toHaveBeenCalledWith(frameShiftRepair);
   });
+
+  describe("openAiRepairEnabled", () => {
+    it("no-sends without OpenAI repair when openAiRepairEnabled is false", async () => {
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: paraphraseRepair,
+        factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+        detectInput,
+        enabled: true,
+        openAiRepairEnabled: false,
+        validateAfterRepair: async () => ({ ok: true }),
+      });
+
+      expect(repairMock).not.toHaveBeenCalled();
+      expect(r.outcome).toBe("no_send");
+      expect(r.noSendReason).toBe("thread_memory_repeat_blocked");
+      expect(r.metadata.memory_repeat_no_send_reason).toBe("repair_disabled_zero_question_mode");
+      expect(r.metadata.memory_repeat_repair_skipped_zero_question_mode).toBe(true);
+      expect(r.metadata.memory_repeat_repair_skipped_reason).toBe(
+        "repair_disabled_zero_question_mode"
+      );
+      expect(r.metadata.repeat_repair_attempted).toBe(false);
+    });
+
+    it("preserves existing repair path when openAiRepairEnabled is true", async () => {
+      repairMock.mockResolvedValueOnce({
+        body: frameShiftRepair,
+        openAiOk: true,
+        metadata: {
+          lane_repair_used_strategy: "binary_truth_check",
+          repeat_repair_strategy: "binary_truth_check",
+        },
+      });
+
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: paraphraseRepair,
+        factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+        detectInput,
+        enabled: true,
+        openAiRepairEnabled: true,
+        validateAfterRepair: async () => ({ ok: true }),
+      });
+
+      expect(repairMock).toHaveBeenCalledTimes(1);
+      expect(r.outcome).toBe("ok");
+    });
+
+    it("preserves existing repair path when openAiRepairEnabled is undefined", async () => {
+      repairMock.mockResolvedValueOnce({
+        body: frameShiftRepair,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "binary_truth_check" },
+      });
+
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: paraphraseRepair,
+        factsJson: {},
+        detectInput,
+        enabled: true,
+        validateAfterRepair: async () => ({ ok: true }),
+      });
+
+      expect(repairMock).toHaveBeenCalledTimes(1);
+      expect(r.outcome).toBe("ok");
+    });
+
+    it("passes through clean body when openAiRepairEnabled is false", async () => {
+      const clean = "Today protect two hours of deep work before noon — that is the standard.";
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: clean,
+        factsJson: {},
+        detectInput,
+        enabled: true,
+        openAiRepairEnabled: false,
+        validateAfterRepair: async () => ({ ok: true }),
+      });
+
+      expect(repairMock).not.toHaveBeenCalled();
+      expect(r.outcome).toBe("ok");
+      expect(r.body).toBe(clean);
+      expect(r.metadata.memory_repeat_guard_attempted).toBe(false);
+    });
+  });
 });
 
 describe("fresh_angle_v2 repeat repair", () => {

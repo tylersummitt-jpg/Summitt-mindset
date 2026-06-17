@@ -238,6 +238,110 @@ describe("produceDailyV3RelationshipSms prompt guidance (plan proof + timing anc
     expect(systemMsg).not.toMatch(/What happened with the plan today/i);
   });
 
+  it("zero-question mode skips memory OpenAI repair on repeat violation", async () => {
+    const priorQ =
+      "What's the first step you'll take today to fit in that five-minute stretch during lunch?";
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: priorQ,
+              no_send_reason: null,
+              turn_purpose: "daily_accountability",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          last_5_coach_questions: [priorQ],
+          do_not_repeat_hints: [priorQ],
+        },
+      }),
+      telemetry_fact_sources: ["test_zero_question_memory_skip"],
+    });
+
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("thread_memory_repeat_blocked");
+    expect(r.metadata.daily_zero_question_mode_active).toBe(true);
+    expect(r.metadata.memory_repeat_repair_skipped_zero_question_mode).toBe(true);
+    expect(r.metadata.memory_repeat_no_send_reason).toBe("repair_disabled_zero_question_mode");
+  });
+
+  it("low-repeat daily preserves memory OpenAI repair on repeat violation", async () => {
+    const priorQ =
+      "As you think about being kind to yourself today, what nurturing action can you take? Reflect on something that feels supportive and share your plan!";
+    const paraphraseRepair =
+      "What nurturing action are you considering today to show yourself kindness? Your commitment to self-care is important.";
+    const repaired = "Did you take one small supportive step today — yes, partial, or not yet?";
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                should_send: true,
+                body: paraphraseRepair,
+                no_send_reason: null,
+                turn_purpose: "daily_accountability",
+                voice_confidence: 0.8,
+                used_facts: [],
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                body: repaired,
+                used_strategy: "binary_truth_check",
+                safety_notes: [],
+              }),
+            },
+          },
+        ],
+      });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          last_5_coach_questions: [],
+          do_not_repeat_hints: [priorQ],
+        },
+        daily_satisfied_ask_context: undefined,
+        accountability: {
+          ...baseFacts().accountability,
+          prior_outcome: null,
+          days_since_last_user_outcome: 0,
+          blocker_preview: null,
+          pending_plan_proof: undefined,
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+
+    expect(createMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(r.metadata.memory_repeat_guard_attempted).toBe(true);
+    expect(r.metadata.repeat_repair_attempted).toBe(true);
+    expect(r.metadata.memory_repeat_repair_skipped_zero_question_mode).toBeUndefined();
+    expect(r.metadata.daily_zero_question_mode_active).toBeUndefined();
+  });
+
   it("low-repeat Daily C1 still includes normal open-question guidance", async () => {
     await produceDailyV3RelationshipSms({
       facts: baseFacts({
