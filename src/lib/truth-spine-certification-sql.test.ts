@@ -16,10 +16,30 @@ const REQUIRED_QUERY_NAMES = [
   "next_sms_truth_usage_certification",
   "no_send_truth_loss_certification",
   "certification_scoreboard",
+  "Q13_known_fixture_drilldown",
+];
+
+const V11_MARKERS = [
+  "known_fix_cutover_at_user_yes",
+  "known_fix_cutover_at_meta_process",
+  "known_fix_cutover_at_weekly_miss_count",
+  "classified_inbound",
+  "classified_with_diag",
+  "expected_persistence_decision",
+  "cert_diagnostic",
+  "fix_era",
+  "historical_pre_fix_observation",
+  "current_code_failure_candidate",
+  "expected_write_but_missing",
+  "false_outcome_written",
+  "outcome_written_ok",
+  "expected_no_write_and_none_written",
+  "is_known_historical_fixture",
+  "Do NOT call pre-fix rows current bugs",
 ];
 
 describe("truth_spine_certification_pack.sql", () => {
-  it("is read-only, bounded, all-users, and includes all certification queries", async () => {
+  it("is read-only, bounded, all-users, v1.1 current-code-aware", async () => {
     const sql = await readFile(SQL_PATH, "utf8");
     const upper = sql.toUpperCase();
 
@@ -28,9 +48,10 @@ describe("truth_spine_certification_pack.sql", () => {
     expect(upper).not.toMatch(/\bDELETE\b/);
     expect(upper).not.toMatch(/\bALTER\b/);
     expect(upper).not.toMatch(/\bDROP\b/);
-    expect(upper).not.toMatch(/\bCREATE\b/);
+    expect(upper).not.toMatch(/\bCREATE TABLE\b/);
+    expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql.match(/WITH bounds AS/g)?.length).toBe(12);
+    expect(sql.match(/WITH bounds AS/g)?.length).toBe(13);
 
     expect(sql).not.toMatch(/Brooke/i);
     expect(sql).not.toMatch(/Tyler/i);
@@ -39,6 +60,10 @@ describe("truth_spine_certification_pack.sql", () => {
 
     for (const name of REQUIRED_QUERY_NAMES) {
       expect(sql).toContain(name);
+    }
+
+    for (const marker of V11_MARKERS) {
+      expect(sql).toContain(marker);
     }
 
     expect(sql).toContain("to_jsonb(m)");
@@ -52,6 +77,7 @@ describe("truth_spine_certification_pack.sql", () => {
     expect(sql).not.toMatch(/\bs\.sms_body\b/);
     expect(sql).not.toMatch(/\bc\.effective_ask\b/);
 
+    expect(sql).toContain("2026-06-17 00:00:00 America/New_York");
     expect(sql).toContain("2026-06-11 00:00:00 America/New_York");
     expect(sql).toContain("2026-06-18 00:00:00 America/New_York");
   });
