@@ -17,6 +17,7 @@
 --   - Slice 1 telemetry: daily_zero_question_mode_active, high_repeat_risk, etc.
 --   - Slice 2 telemetry: memory_repeat_repair_skipped_*, repeat_repair_attempted
 --   - Query 16 post-deploy scorecard with decision columns
+--   - Query 1 local ET time-of-day columns + time_of_day_copy_risk for send/receive review
 --
 -- Guide: src/sms-review-place/SMS_SOAK_DEBUG_SQL_GUIDE.md
 -- Prior pack preserved: supabase/manual/sms_soak_debug_pack.sql (v1.2)
@@ -27,6 +28,7 @@
 -- QUERY 1 — weekly_thread_timeline_all_users
 -- Purpose: See actual user/coach threads across daily, weekly, inbound, coach replies.
 -- Export as Q1_weekly_thread_timeline_all_users.csv
+-- Q1 includes local ET time-of-day + time_of_day_copy_risk for morning/evening copy review.
 -- =============================================================================
 
 WITH bounds AS (
@@ -37,11 +39,18 @@ WITH bounds AS (
 inbound_messages AS (
   SELECT
     COALESCE(
-      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'received_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'updated_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'inserted_at', '')::timestamptz
     ) AS event_at,
+    CASE
+      WHEN NULLIF(to_jsonb(m)->>'received_at', '') IS NOT NULL THEN 'received_at'
+      WHEN NULLIF(to_jsonb(m)->>'created_at', '') IS NOT NULL THEN 'created_at'
+      WHEN NULLIF(to_jsonb(m)->>'updated_at', '') IS NOT NULL THEN 'updated_at'
+      WHEN NULLIF(to_jsonb(m)->>'inserted_at', '') IS NOT NULL THEN 'inserted_at'
+      ELSE 'unknown'
+    END AS event_time_basis,
     'user_inbound'::text AS event_source,
     COALESCE(to_jsonb(m)->>'clerk_user_id', to_jsonb(m)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
     COALESCE(to_jsonb(m)->>'message_sid', to_jsonb(m)#>>'{metadata,message_sid}') AS message_sid,
@@ -61,14 +70,14 @@ inbound_messages AS (
   FROM sms_inbound_messages m
   CROSS JOIN bounds b
   WHERE COALESCE(
-      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'received_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'updated_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'inserted_at', '')::timestamptz
     ) >= b.window_start
     AND COALESCE(
-      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'received_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'updated_at', '')::timestamptz,
       NULLIF(to_jsonb(m)->>'inserted_at', '')::timestamptz
     ) < b.window_end
@@ -76,10 +85,18 @@ inbound_messages AS (
 inbound_replies AS (
   SELECT
     COALESCE(
-      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz
     ) AS event_at,
+    CASE
+      WHEN NULLIF(to_jsonb(j)->>'processed_at', '') IS NOT NULL THEN 'processed_at'
+      WHEN NULLIF(to_jsonb(j)->>'sent_at', '') IS NOT NULL THEN 'sent_at'
+      WHEN NULLIF(to_jsonb(j)->>'created_at', '') IS NOT NULL THEN 'created_at'
+      WHEN NULLIF(to_jsonb(j)->>'updated_at', '') IS NOT NULL THEN 'updated_at'
+      ELSE 'unknown'
+    END AS event_time_basis,
     'coach_inbound_reply'::text AS event_source,
     COALESCE(to_jsonb(j)->>'clerk_user_id', to_jsonb(j)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
     COALESCE(to_jsonb(j)->>'outbound_message_sid', to_jsonb(j)->>'message_sid') AS message_sid,
@@ -97,23 +114,33 @@ inbound_replies AS (
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
   WHERE COALESCE(
-      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz
     ) >= b.window_start
     AND COALESCE(
-      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz
     ) < b.window_end
 ),
 daily_outbound AS (
   SELECT
     COALESCE(
-      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(s)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(s)->>'updated_at', '')::timestamptz
     ) AS event_at,
+    CASE
+      WHEN NULLIF(to_jsonb(s)->>'sent_at', '') IS NOT NULL THEN 'sent_at'
+      WHEN NULLIF(to_jsonb(s)->>'processed_at', '') IS NOT NULL THEN 'processed_at'
+      WHEN NULLIF(to_jsonb(s)->>'created_at', '') IS NOT NULL THEN 'created_at'
+      WHEN NULLIF(to_jsonb(s)->>'updated_at', '') IS NOT NULL THEN 'updated_at'
+      ELSE 'unknown'
+    END AS event_time_basis,
     'coach_daily_outbound'::text AS event_source,
     COALESCE(to_jsonb(s)->>'clerk_user_id', to_jsonb(s)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
     COALESCE(to_jsonb(s)->>'message_sid', to_jsonb(s)->>'outbound_message_sid', to_jsonb(s)#>>'{metadata,message_sid}') AS message_sid,
@@ -166,24 +193,33 @@ daily_outbound AS (
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
-      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(s)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(s)->>'updated_at', '')::timestamptz
     ) >= b.window_start
     AND COALESCE(
-      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(s)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(s)->>'updated_at', '')::timestamptz
     ) < b.window_end
 ),
 weekly_outbound AS (
   SELECT
     COALESCE(
-      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
     ) AS event_at,
+    CASE
+      WHEN NULLIF(to_jsonb(w)->>'sent_at', '') IS NOT NULL THEN 'sent_at'
+      WHEN NULLIF(to_jsonb(w)->>'processed_at', '') IS NOT NULL THEN 'processed_at'
+      WHEN NULLIF(to_jsonb(w)->>'created_at', '') IS NOT NULL THEN 'created_at'
+      WHEN NULLIF(to_jsonb(w)->>'updated_at', '') IS NOT NULL THEN 'updated_at'
+      ELSE 'unknown'
+    END AS event_time_basis,
     'coach_weekly_outbound'::text AS event_source,
     COALESCE(to_jsonb(w)->>'clerk_user_id', to_jsonb(w)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
     COALESCE(to_jsonb(w)->>'message_sid', to_jsonb(w)->>'outbound_message_sid', to_jsonb(w)#>>'{metadata,message_sid}') AS message_sid,
@@ -207,15 +243,15 @@ weekly_outbound AS (
   FROM sms_weekly_send_events w
   CROSS JOIN bounds b
   WHERE COALESCE(
-      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
     ) >= b.window_start
     AND COALESCE(
-      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
       NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
     ) < b.window_end
 ),
@@ -227,7 +263,19 @@ thread_events AS (
 )
 SELECT
   (event_at AT TIME ZONE 'America/New_York')::date AS local_day,
+  TO_CHAR(event_at AT TIME ZONE 'America/New_York', 'HH24:MI:SS') AS local_time_et,
+  EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York')::int AS local_hour_et,
+  EXTRACT(MINUTE FROM event_at AT TIME ZONE 'America/New_York')::int AS local_minute_et,
+  TO_CHAR(event_at AT TIME ZONE 'America/New_York', 'Dy HH12:MI AM') AS local_day_time_et,
+  CASE
+    WHEN EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York') BETWEEN 5 AND 8 THEN 'early_morning_5_8'
+    WHEN EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York') BETWEEN 9 AND 11 THEN 'morning_9_11'
+    WHEN EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York') BETWEEN 12 AND 16 THEN 'midday_12_16'
+    WHEN EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York') BETWEEN 17 AND 20 THEN 'evening_17_20'
+    ELSE 'night_21_4'
+  END AS local_daypart_et,
   event_at,
+  event_time_basis,
   clerk_user_id,
   event_source,
   status,
@@ -235,6 +283,23 @@ SELECT
   daily_zero_question_mode_active,
   memory_repeat_repair_skipped_zero_question_mode,
   no_send_reason,
+  CASE
+    WHEN event_source LIKE 'coach_%'
+     AND EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York') < 10
+     AND body_preview ~* '(did you|what did you|how did it go|what happened|proof|evidence|outcome|actually do|did it happen|hit your goal)'
+    THEN 'morning_outcome_question_review'
+
+    WHEN event_source LIKE 'coach_%'
+     AND EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York') >= 17
+     AND body_preview ~* '(what.*plan|first step|next step|will you|going to|before today ends|get.*done today|plan.*today|how will you)'
+    THEN 'evening_plan_question_review'
+
+    WHEN event_source LIKE 'coach_%'
+     AND body_preview ~* '(did you hit your goal|reply yes|reply no|would you like to recommit|same line for a week)'
+    THEN 'robot_or_recommit_review'
+
+    ELSE ''
+  END AS time_of_day_copy_risk,
   message_sid,
   body_preview,
   raw_json

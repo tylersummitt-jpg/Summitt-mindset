@@ -11,6 +11,7 @@ import {
   RECENT_WINS_DISPLAY_LIMIT,
   victoryMomentProofTimeMs,
   deriveMergedProofMomentsFromEventWindow,
+  getRecentProofCategoryLabel,
   getRecentProofDedupeKey,
   inferRecentProofCategory,
   normalizeProofTextForComparison,
@@ -157,6 +158,102 @@ describe("blocker_captured proof derivation", () => {
       reactivationEnteredAt: null,
     });
     expect(merged).toHaveLength(0);
+  });
+});
+
+describe("proof-backed user_yes comeback after miss — no composite honesty", () => {
+  const comebackQuote = "I got it done today!";
+  const comebackMeaning = "You came back after the miss.";
+
+  function proofBackedComebackAfterMissFixture() {
+    return {
+      eventRowsFull: [
+        {
+          id: "evt-prior-no",
+          event_type: "user_no",
+          occurred_at: "2026-06-18T11:00:00.000Z",
+          payload_json: {
+            proof_moment: true,
+            user_visible_proof_line: "You told the truth about the miss — that matters.",
+            message: "I didn't get to it",
+          },
+        },
+        {
+          id: "evt-yes-comeback",
+          event_type: "user_yes",
+          occurred_at: "2026-06-18T12:02:02.716Z",
+          payload_json: {
+            proof_moment: true,
+            proof_moment_type: "comeback_after_miss",
+            proof_quote: comebackQuote,
+            message: comebackQuote,
+            user_visible_proof_line: comebackMeaning,
+            proof_meaning_line: comebackMeaning,
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    };
+  }
+
+  it("does not emit composite:honesty for proof-backed comeback_after_miss user_yes", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow(proofBackedComebackAfterMissFixture());
+    expect(merged.some((m) => m.id.startsWith("composite:honesty:"))).toBe(false);
+    const yesMoment = merged.find((m) => m.id === "evt-yes-comeback");
+    expect(yesMoment).toBeTruthy();
+    expect(yesMoment!.body).toBe(comebackMeaning);
+    expect(yesMoment!.body).not.toBe("You got honest and stayed in it.");
+    expect(yesMoment!.quote).toBe(comebackQuote);
+  });
+
+  it("does not map proof-backed comeback yes to told_the_truth label", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow(proofBackedComebackAfterMissFixture());
+    const yesMoment = merged.find((m) => m.id === "evt-yes-comeback");
+    expect(yesMoment).toBeTruthy();
+    expect(inferRecentProofCategory(yesMoment!)).not.toBe("told_the_truth");
+    expect(getRecentProofCategoryLabel(yesMoment!)).not.toBe("Told the truth");
+  });
+
+  it("preserves honest miss user_no when no following proof-backed comeback", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "evt-honest-no-only",
+          event_type: "user_no",
+          occurred_at: "2026-05-10T12:00:00Z",
+          payload_json: {
+            proof_moment: true,
+            user_visible_proof_line: "You told the truth about the miss — that matters.",
+          },
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.headline).toBe("Honest miss");
+    expect(inferRecentProofCategory(merged[0]!)).toBe("told_the_truth");
+  });
+
+  it("still emits composite honesty for yes after no without proof-backed comeback payload", () => {
+    const { merged } = deriveMergedProofMomentsFromEventWindow({
+      eventRowsFull: [
+        {
+          id: "evt-no-unproofed",
+          event_type: "user_no",
+          occurred_at: "2026-06-18T11:00:00.000Z",
+          payload_json: {},
+        },
+        {
+          id: "evt-yes-bare",
+          event_type: "user_yes",
+          occurred_at: "2026-06-18T12:00:00.000Z",
+          payload_json: {},
+        },
+      ],
+      reactivationEnteredAt: null,
+    });
+    expect(merged.some((m) => m.id === "composite:honesty:evt-yes-bare")).toBe(true);
+    expect(merged.some((m) => m.id === "evt-yes-bare")).toBe(false);
   });
 });
 

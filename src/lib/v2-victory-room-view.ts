@@ -984,6 +984,16 @@ function sortAsc(a: EventRow, b: EventRow): number {
   return new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime();
 }
 
+/** Spine-owned completion comeback — project the user_yes row; do not composite into honest-miss copy. */
+function isProofBackedCompletionComebackYes(row: EventRow): boolean {
+  if (row.event_type !== "user_yes") return false;
+  const payload = parsePayload(row);
+  if (!hasPersistedProofLine(payload)) return false;
+  const pt =
+    typeof payload.proof_moment_type === "string" ? payload.proof_moment_type.trim() : "";
+  return pt === "comeback_after_miss";
+}
+
 function findHonestyComebackMoment(rowsAsc: EventRow[]): VictoryMoment | null {
   let lastPair: { yes: EventRow; prior: EventRow } | null = null;
   for (let i = 0; i < rowsAsc.length; i++) {
@@ -999,6 +1009,7 @@ function findHonestyComebackMoment(rowsAsc: EventRow[]): VictoryMoment | null {
     }
   }
   if (!lastPair) return null;
+  if (isProofBackedCompletionComebackYes(lastPair.yes)) return null;
   return {
     id: `composite:honesty:${lastPair.yes.id}`,
     occurredAt: lastPair.yes.occurred_at,
@@ -1060,13 +1071,15 @@ function findAllHonestyMoments(rowsAsc: EventRow[]): VictoryMoment[] {
     for (let j = i - 1; j >= 0; j--) {
       const prev = rowsAsc[j];
       if (prev.event_type === "user_no" || prev.event_type === "user_partial") {
-        out.push({
-          id: `composite:honesty:${ev.id}`,
-          occurredAt: ev.occurred_at,
-          headline: "Honesty",
-          body: "You got honest and stayed in it.",
-          groundedInEventTypes: [prev.event_type, "user_yes"],
-        });
+        if (!isProofBackedCompletionComebackYes(ev)) {
+          out.push({
+            id: `composite:honesty:${ev.id}`,
+            occurredAt: ev.occurred_at,
+            headline: "Honesty",
+            body: "You got honest and stayed in it.",
+            groundedInEventTypes: [prev.event_type, "user_yes"],
+          });
+        }
         break;
       }
       if (prev.event_type === "user_yes") break;
