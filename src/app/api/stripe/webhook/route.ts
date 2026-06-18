@@ -8,6 +8,7 @@ import {
 } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { notifyCoachSubscribedInternal } from "@/lib/notify-coach-subscribed";
+import { notifyMemberSubscribedInternal } from "@/lib/notify-member-subscribed";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -297,6 +298,61 @@ export async function POST(req: NextRequest) {
         } catch (notifyErr) {
           console.warn(
             "[webhook] coach subscription notify unexpected:",
+            notifyErr
+          );
+        }
+      }
+
+      if (
+        !isCoachAcquisitionFromStripe &&
+        entitled &&
+        subscriptionId &&
+        customerId
+      ) {
+        try {
+          let memberName = "not provided";
+          let memberEmail = "not found";
+          try {
+            const clerkUser = await getClerkUser(userId);
+            const primaryId = clerkUser.primary_email_address_id;
+            const emails = clerkUser.email_addresses ?? [];
+            const primary = emails.find((e) => e.id === primaryId);
+            memberEmail =
+              primary?.email_address ??
+              emails[0]?.email_address ??
+              "not found";
+            const fn = clerkUser.first_name?.trim() ?? "";
+            const ln = clerkUser.last_name?.trim() ?? "";
+            memberName =
+              [fn, ln].filter(Boolean).join(" ") || "not provided";
+          } catch (clerkErr) {
+            console.warn(
+              "[webhook] member subscription notify: could not load Clerk user",
+              clerkErr
+            );
+          }
+
+          const memberPhone =
+            typeof existing?.phoneNumber === "string" &&
+            existing.phoneNumber.trim()
+              ? existing.phoneNumber.trim()
+              : "not provided";
+
+          await notifyMemberSubscribedInternal({
+            memberName,
+            memberEmail,
+            memberPhone,
+            clerkUserId: userId,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+            subscriptionStatus: subscription.status,
+            checkoutSessionId: session.id,
+            plan,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (notifyErr) {
+          console.warn(
+            "[webhook] member subscription notify unexpected:",
             notifyErr
           );
         }
