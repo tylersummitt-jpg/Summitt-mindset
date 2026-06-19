@@ -136,6 +136,7 @@ export type DeriveInboundRelationshipMeaningArgs = {
 function looksLikeUserQuestion(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
+  if (hasFuturePlanIntentLanguage(t)) return false;
   if (/\?\s*$/.test(t)) return true;
   if (/^(did|do|does|can|could|would|will|is|are|was|were|what|when|where|who|how|why)\b/i.test(t)) {
     return true;

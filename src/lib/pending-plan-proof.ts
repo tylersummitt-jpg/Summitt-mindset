@@ -55,10 +55,28 @@ function normWords(text: string, minLen = 4): string[] {
     .filter((w) => w.length >= minLen);
 }
 
+/** Bare future commitment without explicit I will/I'll - e.g. "Will do more cardio later". */
+export function hasBareFutureWillPlanLanguage(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\b(already|did it|got it done|finished|completed|i did|i got|i finished)\b/i.test(t)) {
+    return false;
+  }
+  const hasFutureTiming =
+    /\b(later|tonight|tomorrow|after work|after my|this evening|next week|end of day|after shift)\b/i.test(
+      t
+    );
+  if (!hasFutureTiming) return false;
+  if (/^will\s+[a-z]/i.test(t)) return true;
+  if (/\bwill\s+(do|get|run|handle|take|finish|complete|work|try|make)\b/i.test(t)) return true;
+  return false;
+}
+
 export function hasFuturePlanIntentLanguage(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
   if (/\b(i'?ll|i will|planned to|plan to|going to|gonna)\b/i.test(t)) return true;
+  if (hasBareFutureWillPlanLanguage(t)) return true;
   if (/\bmake it happen\b/i.test(t) && /\b(today|tomorrow|after|when)\b/i.test(t)) return true;
   if (/\btoday after\b/i.test(t)) return true;
   if (/\bafter\s+.{2,60}\b(gets back|returns|workout|meeting|call|shift|leaves)\b/i.test(t)) return true;
@@ -82,6 +100,9 @@ export function extractCompletionDisqualifiers(text: string): string[] {
     if (re.test(t) && !found.includes(label)) found.push(label);
   }
   if (/\b(i did|i made)\s+a\s+plan\b/i.test(t) && !found.includes("plan_intent")) {
+    found.push("plan_intent");
+  }
+  if (hasBareFutureWillPlanLanguage(t) && !found.includes("plan_intent")) {
     found.push("plan_intent");
   }
   return found;

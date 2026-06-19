@@ -22,6 +22,7 @@ import {
   reconcileLegacyAccountabilityEventTypeFromMeaning,
   type InboundMeaningFacts,
 } from "@/lib/inbound-relationship-meaning";
+import { hasFuturePlanIntentLanguage } from "@/lib/pending-plan-proof";
 import {
   applySmsMemoryAntiRepeatGuard,
   buildAntiRepeatDetectArgsFromInboundFacts,
@@ -1201,6 +1202,8 @@ export type InboundV3RelationshipFacts = {
   identity_edit?: InboundV3IdentityEditFacts | null;
   memory_repeat_escalation?: InboundPriorMemoryRepeatNoSendContext | null;
   inbound_meaning: InboundMeaningFacts;
+  /** Compact server-derived truth summary for writer dominance over stale thread context. */
+  inbound_resolved_truth?: InboundResolvedTruth | null;
   /** Server-reconciled OpenAI turn understanding (advisory; persistence still server-owned). */
   turn_understanding?: ReconciledTurnUnderstanding | null;
   suggested_coaching_move: string;
@@ -1232,6 +1235,44 @@ export type InboundCoachingMoveSource =
   | "open_question"
   | "deterministic"
   | "thread_correction";
+
+export type InboundResolvedOutcome =
+  | "completed"
+  | "missed"
+  | "partial"
+  | "none"
+  | "unclear";
+
+export type InboundResolvedTemporalScope =
+  | "today"
+  | "future"
+  | "past"
+  | "unspecified"
+  | "unclear";
+
+export type InboundRequiredReplyMove =
+  | "acknowledge_completion"
+  | "protect_future_plan"
+  | "close_loop_on_answered_ask"
+  | "acknowledge_partial"
+  | "acknowledge_miss_without_shame"
+  | "acknowledge_blocker"
+  | "clarify_once"
+  | "general_support";
+
+export type InboundResolvedTruth = {
+  latest_user_text: string;
+  resolved_outcome: InboundResolvedOutcome;
+  temporal_scope: InboundResolvedTemporalScope;
+  plan_detected: boolean;
+  blocker_detected: boolean;
+  answered_recent_ask: boolean;
+  satisfied_recent_ask: boolean;
+  persistence_decision: string | null;
+  required_reply_move: InboundRequiredReplyMove;
+  max_questions_override?: 0 | 1;
+  must_not_do: string[];
+};
 
 export type DerivedInboundCoachingMove = {
   move: string;
@@ -2248,6 +2289,7 @@ export async function produceInboundV3RelationshipSms(
     unavailable_windows: args.facts.thread.unavailable_windows,
     voice_writer_chain: ["v3_inbound_relationship_lane", "north_star_validator", "final_voice_gate"],
     ...slimTurnUnderstandingMetadata(args.facts.turn_understanding),
+    ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
   };
 
   const empty = (reason: string, openAiOk: boolean, extra?: Record<string, unknown>): InboundV3RelationshipLaneResult => ({
@@ -2341,7 +2383,7 @@ ${strategyCardPromptGuidance}
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
-${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${strategyCardEligible ? "" : buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${singleMissRecoveryGuidance}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
+${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${args.facts.inbound_resolved_truth ? buildInboundResolvedTruthPromptGuidance() : ""}${buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${singleMissRecoveryGuidance}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -2967,6 +3009,214 @@ PROOF_CALLOUT (v2_accountability.proof_callout_hint when present):
 `;
 }
 
+function mapMeaningTemporalToResolved(
+  scope: InboundMeaningFacts["temporal_scope"]
+): InboundResolvedTemporalScope {
+  if (scope === "today") return "today";
+  if (scope === "future") return "future";
+  if (scope === "yesterday" || scope === "past") return "past";
+  if (scope === "unclear") return "unclear";
+  return "unspecified";
+}
+
+function deriveResolvedOutcome(args: {
+  inboundMeaning: InboundMeaningFacts;
+  finalEventType: string | null;
+  planDetected: boolean;
+  isCompletion: boolean;
+}): InboundResolvedOutcome {
+  const { inboundMeaning, finalEventType, planDetected, isCompletion } = args;
+  if (isCompletion) return "completed";
+  if (
+    inboundMeaning.persistence_decision === "write_user_no" ||
+    inboundMeaning.relationship_meaning === "miss" ||
+    finalEventType === "user_no"
+  ) {
+    return "missed";
+  }
+  if (
+    inboundMeaning.persistence_decision === "write_user_partial" ||
+    inboundMeaning.relationship_meaning === "partial_attempt" ||
+    finalEventType === "user_partial"
+  ) {
+    return "partial";
+  }
+  if (planDetected || inboundMeaning.relationship_meaning === "plan_made") {
+    return "none";
+  }
+  if (
+    inboundMeaning.relationship_meaning === "uncertain" ||
+    inboundMeaning.relationship_meaning === "unknown" ||
+    inboundMeaning.relationship_meaning === "question"
+  ) {
+    return "unclear";
+  }
+  return "unclear";
+}
+
+/** Server-derived compact truth for inbound writer — not a second interpreter. */
+export function deriveInboundResolvedTruth(args: {
+  latestUserText: string;
+  inboundMeaning: InboundMeaningFacts;
+  finalEventType: string | null;
+  turnUnderstanding?: ReconciledTurnUnderstanding | null;
+  blockerSignal?: boolean;
+  missSignal?: boolean;
+  thread: Pick<
+    InboundV3RelationshipFacts["thread"],
+    | "short_ack_should_not_reask_question"
+    | "memory_correction_should_use_prior_user_answer"
+    | "current_inbound_is_short_acknowledgement"
+  >;
+  gatedMode?: string | null;
+}): InboundResolvedTruth {
+  const raw = args.latestUserText.trim();
+  const meaning = args.inboundMeaning;
+  const tu = args.turnUnderstanding;
+  const tuAuthoritative = tu != null && isTurnUnderstandingAuthoritative(tu);
+
+  const isTodayCompletion =
+    meaning.persistence_decision === "write_user_yes_today" ||
+    (meaning.relationship_meaning === "reported_completion" &&
+      meaning.temporal_scope !== "yesterday" &&
+      meaning.temporal_scope !== "past" &&
+      meaning.persistence_decision !== "ack_only");
+  const isPastReportedCompletion =
+    meaning.relationship_meaning === "reported_completion" &&
+    (meaning.temporal_scope === "yesterday" || meaning.temporal_scope === "past") &&
+    meaning.persistence_decision === "ack_only";
+  const isCompletion =
+    isTodayCompletion ||
+    isPastReportedCompletion ||
+    (args.finalEventType === "user_yes" &&
+      meaning.persistence_decision !== "no_outcome_write" &&
+      !hasFuturePlanIntentLanguage(raw));
+
+  const planDetected =
+    !isCompletion &&
+    (meaning.relationship_meaning === "plan_made" ||
+      hasFuturePlanIntentLanguage(raw) ||
+      (meaning.temporal_scope === "future" && meaning.persistence_decision === "no_outcome_write"));
+
+  const blockerDetected =
+    args.blockerSignal === true ||
+    meaning.relationship_meaning === "blocker" ||
+    (meaning.relationship_meaning === "miss" &&
+      raw.length >= 12 &&
+      /\b(because|blocked|couldn'?t|didn'?t have|no time|ran out)\b/i.test(raw));
+
+  const answeredRecentAsk =
+    tuAuthoritative && tu!.last_ask_satisfied === "yes"
+      ? true
+      : args.thread.short_ack_should_not_reask_question ||
+        args.thread.memory_correction_should_use_prior_user_answer ||
+        meaning.relationship_meaning === "answer_to_prior_question";
+
+  const satisfiedRecentAsk =
+    (tuAuthoritative && tu!.last_ask_satisfied === "yes") ||
+    (answeredRecentAsk &&
+      raw.length >= 12 &&
+      !args.thread.current_inbound_is_short_acknowledgement &&
+      meaning.relationship_meaning !== "plan_made" &&
+      !planDetected);
+
+  const temporalScope = mapMeaningTemporalToResolved(meaning.temporal_scope);
+  const resolvedOutcome = deriveResolvedOutcome({
+    inboundMeaning: meaning,
+    finalEventType: args.finalEventType,
+    planDetected,
+    isCompletion,
+  });
+
+  const mustNotDo: string[] = [];
+  let requiredReplyMove: InboundRequiredReplyMove = "general_support";
+  let maxQuestionsOverride: 0 | 1 | undefined;
+
+  if (isCompletion) {
+    requiredReplyMove = "acknowledge_completion";
+    maxQuestionsOverride = 0;
+    mustNotDo.push(
+      "Do not treat this completion as a plan or planning step.",
+      "Do not ask whether it already happened.",
+      "Do not ask for proof or evidence again on this turn.",
+      "Do not reference an older plan question as if the user has not answered today's outcome."
+    );
+    if (isPastReportedCompletion) {
+      mustNotDo.push("Do not claim today's goal is already complete.");
+    }
+  } else if (planDetected) {
+    requiredReplyMove = "protect_future_plan";
+    maxQuestionsOverride = 0;
+    mustNotDo.push(
+      "Do not ask whether it already happened.",
+      "Do not treat this future plan as completion proof or user_yes.",
+      "Do not ask Did you do it or any outcome triad question."
+    );
+  } else if (satisfiedRecentAsk || (answeredRecentAsk && raw.length >= 15)) {
+    requiredReplyMove = "close_loop_on_answered_ask";
+    maxQuestionsOverride = 0;
+    mustNotDo.push(
+      "Do not ask the same evidence or proof question again.",
+      "Do not ask what evidence or what specific changes if the user just provided them.",
+      "Do not ask a generic follow-up question just because a question slot is available."
+    );
+  } else if (resolvedOutcome === "partial") {
+    requiredReplyMove = "acknowledge_partial";
+    mustNotDo.push("Do not call partial work full completion.");
+  } else if (resolvedOutcome === "missed") {
+    requiredReplyMove = "acknowledge_miss_without_shame";
+    if (blockerDetected) {
+      mustNotDo.push("Do not ask again what got in the way — the user already named it.");
+    }
+  } else if (blockerDetected) {
+    requiredReplyMove = "acknowledge_blocker";
+    mustNotDo.push("Do not ask again what blocked them if they already named the blocker.");
+  } else if (
+    meaning.relationship_meaning === "uncertain" ||
+    meaning.relationship_meaning === "question" ||
+    args.gatedMode === "clarify"
+  ) {
+    requiredReplyMove = "clarify_once";
+  }
+
+  return {
+    latest_user_text: raw,
+    resolved_outcome: resolvedOutcome,
+    temporal_scope: temporalScope,
+    plan_detected: planDetected,
+    blocker_detected: blockerDetected,
+    answered_recent_ask: answeredRecentAsk,
+    satisfied_recent_ask: satisfiedRecentAsk,
+    persistence_decision: meaning.persistence_decision ?? null,
+    required_reply_move: requiredReplyMove,
+    ...(maxQuestionsOverride != null ? { max_questions_override: maxQuestionsOverride } : {}),
+    must_not_do: [...new Set(mustNotDo)].slice(0, 8),
+  };
+}
+
+export function buildInboundResolvedTruthPromptGuidance(): string {
+  return `
+INBOUND_RESOLVED_TRUTH (structured_recent_truth.inbound_resolved_truth — authoritative_current):
+- LATEST RESOLVED INBOUND TRUTH WINS over older open questions, stale summaries, prior plan context, and background memory.
+- Use required_reply_move as the coaching move for this reply.
+- Honor must_not_do exactly — do not paraphrase forbidden asks into new wording.
+- When max_questions_override is 0, write statement-only SMS: no question mark and no ask-shaped commands.`;
+}
+
+export function inboundResolvedTruthTelemetryMeta(
+  rt: InboundResolvedTruth | null | undefined
+): Record<string, unknown> {
+  if (!rt) return {};
+  return {
+    inbound_resolved_truth_emitted: true,
+    inbound_required_reply_move: rt.required_reply_move,
+    inbound_resolved_outcome: rt.resolved_outcome,
+    inbound_resolved_temporal_scope: rt.temporal_scope,
+    inbound_truth_max_questions_override: rt.max_questions_override ?? null,
+    inbound_truth_guardrails_applied: true,
+  };
+}
+
 /** Assembles JSON-safe facts for {@link produceInboundV3RelationshipSms} (no upstream prose). */
 export function buildInboundV3RelationshipFacts(args: BuildInboundV3RelationshipFactsArgs): InboundV3RelationshipFacts {
   const reqVerb: string[] = [
@@ -3358,6 +3608,25 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
   if (derivedMove.conversation_brain_fallback_suppressed_by_turn_understanding != null) {
     facts.conversation_brain_fallback_suppressed_by_turn_understanding =
       derivedMove.conversation_brain_fallback_suppressed_by_turn_understanding;
+  }
+  facts.inbound_resolved_truth = deriveInboundResolvedTruth({
+    latestUserText: args.coalescedInboundText,
+    inboundMeaning: effectiveInboundMeaning,
+    finalEventType: reconciledFinalEventType,
+    turnUnderstanding: turnReconciled,
+    blockerSignal: args.northStarPacket.blockerSignal === true,
+    missSignal: args.northStarPacket.missSignal === true,
+    thread: threadMemory,
+    gatedMode: args.gatedDecision.mode,
+  });
+  const rt = facts.inbound_resolved_truth;
+  if (rt && rt.required_reply_move !== "general_support") {
+    const truthSummary =
+      `Latest inbound resolved truth wins: ${rt.required_reply_move}. ` +
+      "Respond to the user's latest text — do not answer a stale open question instead.";
+    facts.constraints.required_meaning_summary = facts.constraints.required_meaning_summary
+      ? `${facts.constraints.required_meaning_summary} ${truthSummary}`
+      : truthSummary;
   }
   return facts;
 }

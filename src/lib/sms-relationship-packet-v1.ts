@@ -18,7 +18,10 @@ import {
   buildTemporalContractV1,
 } from "@/lib/sms-temporal-contract-v1";
 import { isTurnUnderstandingAuthoritative } from "@/lib/openai-relationship-turn-understanding-v1";
-import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+import type {
+  InboundResolvedTruth,
+  InboundV3RelationshipFacts,
+} from "@/lib/v3-inbound-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
@@ -131,6 +134,7 @@ export type RelationshipPacketTurnUnderstandingSection = {
 
 export type RelationshipPacketStructuredRecentTruth = {
   turn_understanding?: RelationshipPacketTurnUnderstandingSection | null;
+  inbound_resolved_truth?: (InboundResolvedTruth & { authority: "authoritative_current" }) | null;
   daily_satisfied_ask_context?: {
     has_satisfied_recent_ask: boolean;
     satisfied_ask_type: string;
@@ -672,7 +676,16 @@ function buildStructuredTruthInbound(f: InboundV3RelationshipFacts): Relationshi
   const mp = f.thread.memory_packet;
   const reqVerb = f.constraints.required_verbatim_substrings ?? [];
   const tu = f.turn_understanding;
+  const rt = f.inbound_resolved_truth;
   return {
+    ...(rt
+      ? {
+          inbound_resolved_truth: {
+            authority: "authoritative_current" as const,
+            ...rt,
+          },
+        }
+      : {}),
     ...(tu && isTurnUnderstandingAuthoritative(tu)
       ? {
           turn_understanding: {

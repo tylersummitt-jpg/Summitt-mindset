@@ -1291,12 +1291,68 @@ function proposalActive(activePending: ActivePendingState, facts: InboundV3Relat
   return Boolean(facts.v2_accountability.goal_adjustment_mention_allowed);
 }
 
+function selectMoveFromInboundResolvedTruth(
+  rt: NonNullable<InboundV3RelationshipFacts["inbound_resolved_truth"]>
+): { type: StrategyCardMoveType; reason: string; confidence: "high" } | null {
+  switch (rt.required_reply_move) {
+    case "acknowledge_completion":
+      return {
+        type: "ack_completion",
+        reason: "Resolved inbound truth: user reported completion on this turn.",
+        confidence: "high",
+      };
+    case "protect_future_plan":
+      return {
+        type: "protect_existing_plan",
+        reason: "Resolved inbound truth: future plan — protect without outcome interrogation.",
+        confidence: "high",
+      };
+    case "close_loop_on_answered_ask":
+      return {
+        type: "close_loop",
+        reason: "Resolved inbound truth: prior ask satisfied — close the loop.",
+        confidence: "high",
+      };
+    case "acknowledge_partial":
+      return {
+        type: "ack_partial",
+        reason: "Resolved inbound truth: partial attempt.",
+        confidence: "high",
+      };
+    case "acknowledge_miss_without_shame":
+      return {
+        type: rt.blocker_detected ? "recover_today" : "ask_blocker",
+        reason: "Resolved inbound truth: honest miss — recover without shame.",
+        confidence: "high",
+      };
+    case "acknowledge_blocker":
+      return {
+        type: "recover_today",
+        reason: "Resolved inbound truth: blocker named — acknowledge and recover.",
+        confidence: "high",
+      };
+    case "clarify_once":
+      return {
+        type: "clarify",
+        reason: "Resolved inbound truth: one clarifying question only.",
+        confidence: "medium",
+      };
+    default:
+      return null;
+  }
+}
+
 function selectMoveType(ctx: StrategyCardBuildContext): {
   type: StrategyCardMoveType;
   reason: string;
   confidence: "low" | "medium" | "high";
 } {
   const { facts } = ctx;
+  const rt = facts.inbound_resolved_truth;
+  if (rt) {
+    const fromResolved = selectMoveFromInboundResolvedTruth(rt);
+    if (fromResolved) return fromResolved;
+  }
   const policy = facts.miss_adjustment_policy;
   const tu = facts.turn_understanding;
   const outcome = deriveOutcome(facts);
@@ -1420,6 +1476,22 @@ function buildMustDoMustNotDo(args: {
   const must_do: string[] = [];
   const must_not_do: string[] = [];
   const pendingKinds = activePendingKinds(args.ctx.activePending);
+  const rt = args.ctx.facts.inbound_resolved_truth;
+
+  if (rt) {
+    for (const item of rt.must_not_do) {
+      if (item.trim()) must_not_do.push(item.trim());
+    }
+    if (rt.required_reply_move === "acknowledge_completion") {
+      must_do.push("Acknowledge what the user reported they completed.");
+    }
+    if (rt.required_reply_move === "protect_future_plan") {
+      must_do.push("Briefly protect the future plan without interrogating whether it already happened.");
+    }
+    if (rt.required_reply_move === "close_loop_on_answered_ask") {
+      must_do.push("Acknowledge the answer or evidence and move one step forward.");
+    }
+  }
 
   if (args.policy?.single_miss_recovery_required) {
     must_do.push("Ask one honest recovery or blocker question.");
@@ -1525,6 +1597,10 @@ export function buildInboundNormalStrategyCardV1(args: {
 
   const allowed = buildAllowedClaims(ctx, outcome);
   const canCelebrate = allowed.completion && ctx.proofPermission.can_praise_consistency;
+  const rt = facts.inbound_resolved_truth;
+  const maxQuestions =
+    rt?.max_questions_override ??
+    (selected.type === "clarify" ? 1 : 1);
 
   const turnKind =
     facts.v2_accountability.final_event_type ??
@@ -1559,7 +1635,7 @@ export function buildInboundNormalStrategyCardV1(args: {
     must_not_do,
     allowed_claims: allowed,
     writer_constraints: {
-      max_questions: selected.type === "clarify" ? 1 : 1,
+      max_questions: maxQuestions,
       avoid_repeating,
       tone_posture: resolveTonePosture({
         moveType: selected.type,

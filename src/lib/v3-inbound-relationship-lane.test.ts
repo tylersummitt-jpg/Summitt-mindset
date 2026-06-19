@@ -32,14 +32,18 @@ import {
 import {
   buildConversationBrainFallbackFacts,
   buildInboundProofCalloutLaneGuardrails,
+  buildInboundResolvedTruthPromptGuidance,
   buildInboundV3RelationshipFacts,
   buildSeasonTransitionRouteAux,
   deriveInboundCoachingMoveForFacts,
+  deriveInboundResolvedTruth,
   detectTurnUnderstandingStaleAskViolation,
   produceInboundV3RelationshipSms,
   type InboundV3RelationshipFacts,
 } from "@/lib/v3-inbound-relationship-lane";
 import {
+  buildInboundNormalStrategyCardV1,
+  buildStrategyCardContextFromSnapshot,
   isArcClarifyStrategyCardEligible,
   isCentralPivotStrategyCardEligible,
   isInboundNormalStrategyCardEligible,
@@ -4225,5 +4229,318 @@ describe("Phase 4.5 Strategy Card v1 central pivot wiring", () => {
     expect(isInboundNormalStrategyCardEligible(facts)).toBe(false);
     expect(isOpenQuestionAnswerStrategyCardEligible(facts)).toBe(false);
     expect(isArcClarifyStrategyCardEligible(facts)).toBe(false);
+  });
+});
+
+describe("inbound resolved truth dominance", () => {
+  const env = { ...process.env };
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  afterEach(() => {
+    process.env = { ...env };
+    vi.clearAllMocks();
+  });
+
+  it("completion I did it — acknowledge_completion, zero questions, anti-plan guidance", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_rt",
+      preferredName: "Alex",
+      timezone: "America/New_York",
+      localTimeIso: "2026-06-18T14:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Daily workout",
+      userMessageRaw: "I did it",
+      coalescedInboundText: "I did it",
+      suppressedMessageSids: [],
+      transcriptLines: [
+        "Coach: What tasks will you outline for tomorrow?",
+        "User: I did it",
+      ],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "What tasks will you outline for tomorrow?",
+        latestOpenQuestion: "What tasks will you outline for tomorrow?",
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_yes" },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "normal_inbound_reply",
+    });
+    const rt = facts.inbound_resolved_truth!;
+    expect(rt.required_reply_move).toBe("acknowledge_completion");
+    expect(rt.max_questions_override).toBe(0);
+    expect(rt.must_not_do.some((m) => /plan/i.test(m))).toBe(true);
+    expect(rt.must_not_do.some((m) => /already happened/i.test(m))).toBe(true);
+    expect(facts.constraints.required_meaning_summary).toMatch(/Latest inbound resolved truth wins/i);
+    expect(buildInboundResolvedTruthPromptGuidance()).toMatch(/LATEST RESOLVED INBOUND TRUTH WINS/i);
+  });
+
+  it("future plan Will do more cardio later — protect_future_plan, no user_yes", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_rt",
+      preferredName: "Alex",
+      timezone: "America/New_York",
+      localTimeIso: "2026-06-18T14:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Cardio daily",
+      userMessageRaw: "Will do more cardio later",
+      coalescedInboundText: "Will do more cardio later",
+      suppressedMessageSids: [],
+      transcriptLines: ["Coach: Did you get your cardio in?", "User: Will do more cardio later"],
+      northStarPacket: { source: "sms_inbound_coach", latestOutboundBody: "Did you get your cardio in?" },
+      gatedDecision: {
+        ...baseGatedDecision(),
+        final_event_type: null,
+        should_write_outcome_event: false,
+        mode: "clarify",
+      },
+      deterministicEventType: "other",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "normal_inbound_reply",
+    });
+    expect(facts.inbound_meaning.relationship_meaning).toBe("plan_made");
+    expect(facts.inbound_meaning.persistence_decision).toBe("no_outcome_write");
+    const rt = facts.inbound_resolved_truth!;
+    expect(rt.required_reply_move).toBe("protect_future_plan");
+    expect(rt.max_questions_override).toBe(0);
+    expect(rt.plan_detected).toBe(true);
+    expect(rt.must_not_do.some((m) => /already happened/i.test(m))).toBe(true);
+  });
+
+  it("answered evidence — close_loop_on_answered_ask, zero questions", () => {
+    const evidence =
+      "They seem to be working well with each other throughout the shift and communicating better.";
+    const priorAsk = "What evidence do you see of improved team communication?";
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        user_turn_summary: "User gave team interaction evidence.",
+        relationship_meaning: "answer_to_prior_question",
+        temporal_scope: "today",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "evidence_provided",
+        response_intent: "close_loop_no_new_action",
+        do_not_repeat_asks: [priorAsk],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "no_outcome_write",
+        confidence: 0.9,
+        uncertainty_flags: [],
+        evidence_quotes: [evidence.slice(0, 40)],
+        persistence_note: "answered",
+      },
+      deterministicMeaning: buildInboundMeaningFacts({
+        rawInbound: evidence,
+        classifierEventType: "other",
+        latestOpenQuestion: priorAsk,
+        openQuestionPending: true,
+      }),
+      latestCoachQuestion: priorAsk,
+    });
+    const rt = deriveInboundResolvedTruth({
+      latestUserText: evidence,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: evidence,
+        classifierEventType: "other",
+        latestOpenQuestion: priorAsk,
+        openQuestionPending: true,
+      }),
+      finalEventType: null,
+      turnUnderstanding: tu,
+      thread: {
+        short_ack_should_not_reask_question: false,
+        memory_correction_should_use_prior_user_answer: false,
+        current_inbound_is_short_acknowledgement: false,
+      },
+    });
+    expect(rt.required_reply_move).toBe("close_loop_on_answered_ask");
+    expect(rt.max_questions_override).toBe(0);
+    expect(rt.satisfied_recent_ask).toBe(true);
+    expect(rt.must_not_do.some((m) => /evidence/i.test(m))).toBe(true);
+  });
+
+  it("unclear inbound — no max_questions_override zero", () => {
+    const rt = deriveInboundResolvedTruth({
+      latestUserText: "Hmm not sure",
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: "Hmm not sure",
+        classifierEventType: "other",
+      }),
+      finalEventType: null,
+      thread: {
+        short_ack_should_not_reask_question: false,
+        memory_correction_should_use_prior_user_answer: false,
+        current_inbound_is_short_acknowledgement: false,
+      },
+    });
+    expect(rt.required_reply_move).toBe("clarify_once");
+    expect(rt.max_questions_override).toBeUndefined();
+  });
+
+  it("true miss — acknowledge_miss_without_shame preserved", () => {
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_rt",
+      preferredName: "Alex",
+      timezone: "America/New_York",
+      localTimeIso: "2026-06-18T14:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Daily workout",
+      userMessageRaw: "I missed it today",
+      coalescedInboundText: "I missed it today",
+      suppressedMessageSids: [],
+      transcriptLines: ["Coach: How did it go?", "User: I missed it today"],
+      northStarPacket: { source: "sms_inbound_coach", latestOutboundBody: "How did it go?" },
+      gatedDecision: {
+        ...baseGatedDecision(),
+        final_event_type: "user_no",
+        should_write_outcome_event: true,
+      },
+      deterministicEventType: "user_no",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "normal_inbound_reply",
+    });
+    expect(facts.inbound_resolved_truth?.required_reply_move).toBe("acknowledge_miss_without_shame");
+    expect(facts.inbound_resolved_truth?.resolved_outcome).toBe("missed");
+    expect(facts.inbound_resolved_truth?.max_questions_override).toBeUndefined();
+  });
+
+  it("Strategy Card keeps TU guardrails and applies max_questions 0 for completion", async () => {
+    createMock.mockClear();
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Good work getting it done today.",
+              no_send_reason: null,
+              turn_purpose: "ack_completion",
+              voice_confidence: 0.9,
+              used_facts: ["inbound_resolved_truth"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_rt",
+      preferredName: "Alex",
+      timezone: "America/New_York",
+      localTimeIso: "2026-06-18T14:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Daily workout",
+      userMessageRaw: "I did it",
+      coalescedInboundText: "I did it",
+      suppressedMessageSids: [],
+      transcriptLines: ["Coach: Plan for tomorrow?", "User: I did it"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "Plan for tomorrow?",
+        latestOpenQuestion: "Plan for tomorrow?",
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "normal_inbound_reply",
+    });
+    expect(isInboundNormalStrategyCardEligible(facts)).toBe(true);
+    const ctx = buildStrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: {
+          data: {
+            can_claim_proof: false,
+            can_reference_victory_room: false,
+            can_claim_completion: true,
+            can_claim_miss: true,
+            can_claim_partial: true,
+            can_praise_consistency: true,
+          },
+        },
+        open_loops_and_do_not_repeat: {
+          data: { satisfied_asks: [], do_not_repeat_asks: [], do_not_repeat_phrases: [] },
+        },
+        active_pending_state: { items: [], source: "none" },
+      },
+    });
+    const card = buildInboundNormalStrategyCardV1({ ctx });
+    expect(card.writer_constraints.max_questions).toBe(0);
+    expect(card.move.type).toBe("ack_completion");
+    const lane = await produceInboundV3RelationshipSms({ facts, telemetry_fact_sources: [] });
+    expect(createMock).toHaveBeenCalled();
+    expect(lane.metadata.inbound_resolved_truth_emitted).toBe(true);
+    expect(lane.metadata.inbound_required_reply_move).toBe("acknowledge_completion");
+    const systemPrompts = createMock.mock.calls
+      .map(
+        (call) =>
+          call[0]?.messages?.find((m: { role: string }) => m.role === "system")?.content as
+            | string
+            | undefined
+      )
+      .filter(Boolean);
+    expect(systemPrompts.some((p) => /LATEST RESOLVED INBOUND TRUTH WINS/i.test(p!))).toBe(true);
+    expect(systemPrompts.some((p) => /TURN_UNDERSTANDING/i.test(p!))).toBe(true);
+    expect(systemPrompts.some((p) => /last_ask_satisfied/i.test(p!))).toBe(true);
   });
 });

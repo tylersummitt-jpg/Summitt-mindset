@@ -357,6 +357,23 @@ describe("substantive self-reported completion — persistence carve-out", () =>
     expect(facts.persistence_decision).toBe("no_outcome_write");
   });
 
+  it("bare Will do X later → plan_made / no_outcome_write", () => {
+    const facts = meaningFor("Will do more cardio later", badClassifier);
+    expect(facts.relationship_meaning).toBe("plan_made");
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+    expect(facts.temporal_scope).toBe("future");
+  });
+
+  it.each([
+    "Will run later",
+    "Will get it done tonight",
+    "Will handle it after work",
+  ])("%s → plan_made", (text) => {
+    const facts = meaningFor(text, badClassifier);
+    expect(facts.relationship_meaning).toBe("plan_made");
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
   it("compound future + completed today → write_user_yes_today", () => {
     const facts = meaningFor(
       "I'm going to run tomorrow. I completed my run today.",
