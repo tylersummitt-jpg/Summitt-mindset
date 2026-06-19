@@ -14,6 +14,7 @@ import type { InboundOutcomePersistResult } from "@/lib/v2-inbound-accountabilit
 export type NoSendOutcomePersistTelemetryContext = {
   shortAnswerContext?: ShortAnswerContextAuthority | null;
   inboundMeaning?: InboundMeaningFacts | null;
+  noSendReason?: string | null;
 };
 
 export function isShortAnswerOutcomeAuthorizedForPersist(
@@ -51,10 +52,58 @@ export function shouldAttemptNoSendOutcomePersist(
   return isShortAnswerOutcomeAuthorizedForPersist(userMessage, context);
 }
 
+export function buildInboundTruthPersistOutcomeTelemetry(
+  persistResult: InboundOutcomePersistResult,
+  args: {
+    stage: "before_writer" | "on_no_send";
+    persistenceDecision?: string | null;
+    noSendReason?: string | null;
+  }
+): Record<string, unknown> {
+  const persisted =
+    persistResult.status === "inserted" || persistResult.status === "duplicate";
+  const attempted = true;
+  const base: Record<string, unknown> = {
+    inbound_truth_persist_stage: args.stage,
+    ...(args.persistenceDecision != null
+      ? { persistence_decision_at_no_send: args.persistenceDecision }
+      : {}),
+    ...(args.noSendReason != null ? { inbound_reply_no_send_reason: args.noSendReason } : {}),
+    ...(persistResult.status === "skipped"
+      ? { inbound_truth_persist_skipped_reason: persistResult.skipReason }
+      : {}),
+    ...(persisted
+      ? {
+          inbound_truth_persist_event_type: persistResult.eventType,
+          ...(persistResult.status === "inserted"
+            ? { inbound_truth_persist_event_id: persistResult.eventId }
+            : {}),
+        }
+      : {}),
+  };
+
+  if (args.stage === "before_writer") {
+    return {
+      ...base,
+      inbound_truth_persist_attempted_before_writer: attempted,
+      inbound_truth_persist_succeeded_before_writer: persisted,
+    };
+  }
+
+  return {
+    ...base,
+    inbound_truth_persist_attempted_on_no_send: attempted,
+    inbound_truth_persist_succeeded_on_no_send: persisted,
+  };
+}
+
 export function buildExplicitOutcomeBeforeNoSendTelemetry(
   userMessage: string,
   persistResult: InboundOutcomePersistResult,
-  context?: NoSendOutcomePersistTelemetryContext
+  context?: NoSendOutcomePersistTelemetryContext & {
+    persistenceDecision?: string | null;
+    noSendReason?: string | null;
+  }
 ): Record<string, unknown> {
   const saca =
     context?.shortAnswerContext ??
@@ -68,6 +117,11 @@ export function buildExplicitOutcomeBeforeNoSendTelemetry(
     persistResult.status === "inserted" || persistResult.status === "duplicate";
 
   return {
+    ...buildInboundTruthPersistOutcomeTelemetry(persistResult, {
+      stage: "on_no_send",
+      persistenceDecision: context?.inboundMeaning?.persistence_decision ?? null,
+      noSendReason: context?.noSendReason ?? null,
+    }),
     explicit_outcome_detected: explicitDetected,
     short_answer_outcome_authorized: shortAnswerAuthorized,
     prior_question_type: saca?.prior_question_type ?? null,

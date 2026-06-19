@@ -13,7 +13,11 @@ describe("inbound turn understanding route invariants", () => {
     const calls = [...src.matchAll(/tryPersistInboundAccountabilityOutcomeBeforeSend\(\{[\s\S]*?\}\);/g)];
     expect(calls.length).toBeGreaterThanOrEqual(8);
     for (const m of calls) {
-      expect(m[0]).toContain("turnUnderstandingContext:");
+      const hasTuContext =
+        m[0].includes("turnUnderstandingContext:") ||
+        (m[0].includes("...args") &&
+          src.includes("async function attemptPreWriterExplicitOutcomePersist"));
+      expect(hasTuContext).toBe(true);
     }
   });
 
@@ -51,6 +55,26 @@ describe("inbound turn understanding route invariants", () => {
     expect(oqIdx).toBeGreaterThan(0);
     const oqBlock = src.slice(oqIdx - 800, oqIdx + 200);
     expect(oqBlock).toContain("cancelInboundV3LaneNoSendWithExplicitOutcomePersist");
+  });
+
+  it("main path attempts pre-writer persist before inbound lane writer", () => {
+    const mainPreWriterIdx = src.indexOf('await attemptPreWriterExplicitOutcomePersist({\n      branch: "main"');
+    expect(mainPreWriterIdx).toBeGreaterThan(0);
+    const block = src.slice(mainPreWriterIdx, mainPreWriterIdx + 900);
+    expect(block).toContain('branch: "main"');
+    expect(block).toContain("produceInboundV3RelationshipSms");
+    expect(block.indexOf("produceInboundV3RelationshipSms")).toBeGreaterThan(
+      block.indexOf("attemptPreWriterExplicitOutcomePersist")
+    );
+  });
+
+  it("open question FVG-only no-send persists explicit outcome before cancel", () => {
+    const warnIdx = src.indexOf("v3_open_question_final_voice_suppressed");
+    expect(warnIdx).toBeGreaterThan(0);
+    const block = src.slice(warnIdx - 2200, warnIdx + 200);
+    expect(block).toContain("persistExplicitOutcomeBeforeReplyNoSend");
+    expect(block).toContain("final_voice_gate_no_send");
+    expect(block).toContain("markJobFinal");
   });
 
   it("G: open-question path uses applyUnifiedSmsFinalProductLawGuard", () => {

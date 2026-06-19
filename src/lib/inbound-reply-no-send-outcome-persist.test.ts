@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import {
   buildExplicitOutcomeBeforeNoSendTelemetry,
+  buildInboundTruthPersistOutcomeTelemetry,
   isShortAnswerOutcomeAuthorizedForPersist,
 } from "@/lib/inbound-reply-no-send-outcome-persist";
 import { resolveShortAnswerContextAuthority } from "@/lib/inbound-short-answer-context";
@@ -427,6 +428,38 @@ describe("lane no-send explicit outcome persistence eligibility", () => {
     expect(telemetry.explicit_outcome_detected).toBe(true);
     expect(telemetry.explicit_outcome_persisted_before_no_send).toBe(true);
     expect(telemetry.outcome_persist_skip_reason_before_no_send).toBeUndefined();
+  });
+});
+
+describe("buildInboundTruthPersistOutcomeTelemetry", () => {
+  it("before_writer success telemetry", () => {
+    const telemetry = buildInboundTruthPersistOutcomeTelemetry(
+      {
+        status: "inserted",
+        eventType: "user_yes",
+        eventId: "evt-1",
+        idempotencyKey: "v2_user_yes:SM1",
+        overrideGatedNoWrite: true,
+      },
+      { stage: "before_writer", persistenceDecision: "write_user_yes_today" }
+    );
+    expect(telemetry.inbound_truth_persist_attempted_before_writer).toBe(true);
+    expect(telemetry.inbound_truth_persist_succeeded_before_writer).toBe(true);
+    expect(telemetry.inbound_truth_persist_event_type).toBe("user_yes");
+    expect(telemetry.persistence_decision_at_no_send).toBe("write_user_yes_today");
+  });
+
+  it("on_no_send skip telemetry", () => {
+    const telemetry = buildInboundTruthPersistOutcomeTelemetry(
+      { status: "skipped", skipReason: "meaning_no_outcome_write" },
+      { stage: "on_no_send", noSendReason: "turn_understanding_stale_ask_blocked" }
+    );
+    expect(telemetry.inbound_truth_persist_attempted_on_no_send).toBe(true);
+    expect(telemetry.inbound_truth_persist_succeeded_on_no_send).toBe(false);
+    expect(telemetry.inbound_truth_persist_skipped_reason).toBe("meaning_no_outcome_write");
+    expect(telemetry.inbound_reply_no_send_reason).toBe(
+      "turn_understanding_stale_ask_blocked"
+    );
   });
 });
 

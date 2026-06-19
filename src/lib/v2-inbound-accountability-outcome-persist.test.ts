@@ -14,6 +14,8 @@ import {
   shouldPersistInboundAccountabilityOutcome,
   resolveInboundAccountabilityOutcomeEventType,
   canBypassClarifyGateForExplicitNonYesOutcome,
+  shouldApplySubstantiveCompletionBaselinePersistOverride,
+  inboundTruthPersistPayloadFromShouldResult,
 } from "@/lib/v2-inbound-accountability-outcome-persist";
 
 function familyTurnProposal(): OpenAIRelationshipTurnUnderstandingV1 {
@@ -1457,5 +1459,240 @@ describe("substantive self-reported completion — persist without live prompt",
     if (result.status === "inserted") {
       expect(result.idempotencyKey).toBe("v2_user_yes:SM_substantive_idem");
     }
+  });
+});
+
+describe("no-send truth persistence hardening", () => {
+  const noLivePromptCtx = {
+    has_live_accountability_prompt: false,
+    self_contained_accountability_answer: false,
+  };
+
+  const STRETCHING_COMPLETION =
+    "I did my stretching and exercising early today";
+
+  function stretchingMeaning() {
+    return buildInboundMeaningFacts({
+      rawInbound: STRETCHING_COMPLETION,
+      classifierEventType: "user_partial",
+      classifierNormalizedHint: "unclear",
+    });
+  }
+
+  it("substantive stretching completion persists without live prompt", () => {
+    const inboundMeaning = stretchingMeaning();
+    expect(inboundMeaning.persistence_decision).toBe("write_user_yes_today");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_stretch_pre_writer",
+      commitmentId: "commit-1",
+      rawBody: STRETCHING_COMPLETION,
+      classifierEventType: "user_partial",
+      classifierNormalizedHint: "unclear",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+    if (result.persist) {
+      expect(inboundTruthPersistPayloadFromShouldResult(result)).toMatchObject({
+        server_allows_persistence_at_no_send: true,
+        inbound_truth_persist_event_type: "user_yes",
+      });
+    }
+  });
+
+  it("substantive completion survives TU narrow via baseline override", () => {
+    const inboundMeaning = stretchingMeaning();
+    expect(inboundMeaning.persistence_decision).toBe("write_user_yes_today");
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+        user_turn_summary: "User reported stretching and exercise done early today.",
+        evidence_quotes: [STRETCHING_COMPLETION.slice(0, 40)],
+        relationship_meaning: "reported_completion",
+        answered_last_coach_ask: "yes",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "evidence_provided",
+        do_not_repeat_asks: ["Did you stretch today?"],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+        response_intent: "close_loop_no_new_action",
+        temporal_scope: "today",
+        reported_for_day_key: null,
+        confidence: 0.9,
+        uncertainty_flags: [],
+        route_priority_recommendation: "none",
+        safety_or_support_flags: [],
+      },
+      deterministicMeaning: inboundMeaning,
+      latestCoachQuestion: "Did you stretch today?",
+    });
+    tu.reconciled_persistence_decision = "no_outcome_write";
+
+    const baseline = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_stretch_base",
+      commitmentId: "commit-1",
+      rawBody: STRETCHING_COMPLETION,
+      classifierEventType: "user_partial",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    const narrowed = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_stretch_base",
+      commitmentId: "commit-1",
+      rawBody: STRETCHING_COMPLETION,
+      classifierEventType: "user_partial",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+
+    expect(baseline.persist).toBe(true);
+    expect(narrowed.persist).toBe(true);
+    if (narrowed.persist) {
+      expect(narrowed.baselinePersistOverride).toBe("substantive_completion");
+      expect(narrowed.baselinePersistOverrideReason).toBe(
+        "baseline_substantive_completion_survives_tu_narrow"
+      );
+    }
+    expect(
+      shouldApplySubstantiveCompletionBaselinePersistOverride({
+        rawBody: STRETCHING_COMPLETION,
+        inboundMeaning,
+        baselineResult: baseline,
+        narrowedResult: {
+          persist: false,
+          skipReason: "meaning_no_outcome_write",
+        },
+      })
+    ).toBe(true);
+  });
+
+  it("future plan Will do more cardio later does not persist user_yes", () => {
+    const body = "Will do more cardio later";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_partial",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_future_plan",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_partial",
+      gatedDecision: defaultGatedDecision("user_partial", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("onboarding meta dispute does not persist user_no", () => {
+    const body = "Did onboarding matter? You didn't ask me about what I chose.";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_no",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_onboarding_meta",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("bare Yes without context remains guarded", () => {
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_bare_yes",
+      commitmentId: "commit-1",
+      rawBody: "Yes",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: "Yes",
+        classifierEventType: "user_yes",
+        openQuestionPending: false,
+      }),
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("pre-writer then no-send fallback duplicate is safe", async () => {
+    insertMock.mockReturnValue({
+      select: () => ({
+        maybeSingle: async () => ({ data: { id: "evt-dup" }, error: null }),
+      }),
+    });
+    const body = STRETCHING_COMPLETION;
+    const inboundMeaning = stretchingMeaning();
+    const args = {
+      messageSid: "SM_pre_then_nosend",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_partial" as const,
+      classifierNormalizedHint: "unclear" as const,
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      laneExclusion: "none" as const,
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+    };
+    const should = shouldPersistInboundAccountabilityOutcome(args);
+    expect(should.persist).toBe(true);
+
+    const first = await persistInboundAccountabilityOutcomeEvent({
+      commitmentId: "commit-1",
+      clerkUserId: "user-1",
+      messageSid: "SM_pre_then_nosend",
+      rawBody: body,
+      eventType: "user_yes",
+      branch: "main",
+      classifierEventType: "user_partial",
+      classifierNormalizedHint: "unclear",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      liveAccountabilityPromptDetected: false,
+      overrideGatedNoWrite: true,
+      proofMeta: null,
+      payloadJson: { inbound_truth_persist_stage: "before_writer" },
+    });
+    expect(first.status).toBe("inserted");
+
+    insertMock.mockReturnValue({
+      select: () => ({
+        maybeSingle: async () => ({
+          data: null,
+          error: { code: "23505", message: "duplicate key" },
+        }),
+      }),
+    });
+    const second = await persistInboundAccountabilityOutcomeEvent({
+      commitmentId: "commit-1",
+      clerkUserId: "user-1",
+      messageSid: "SM_pre_then_nosend",
+      rawBody: body,
+      eventType: "user_yes",
+      branch: "main",
+      classifierEventType: "user_partial",
+      classifierNormalizedHint: "unclear",
+      gatedDecision: clarifyGatedNoOutcomeWrite,
+      liveAccountabilityPromptDetected: false,
+      overrideGatedNoWrite: true,
+      proofMeta: null,
+      payloadJson: { lane_no_send_before_final_guard: true },
+      idempotencyKey: "v2_user_yes:SM_pre_then_nosend",
+    });
+    expect(second.status).toBe("duplicate");
   });
 });

@@ -202,6 +202,8 @@ export type ShouldPersistInboundAccountabilityOutcomeArgs = {
   turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
 };
 
+export type InboundTruthPersistBaselineOverride = "substantive_completion";
+
 export type ShouldPersistInboundAccountabilityOutcomeResult =
   | {
       persist: true;
@@ -209,12 +211,51 @@ export type ShouldPersistInboundAccountabilityOutcomeResult =
       liveAccountabilityPromptDetected: boolean;
       overrideGatedNoWrite: boolean;
       turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
+      baselinePersistOverride?: InboundTruthPersistBaselineOverride;
+      baselinePersistOverrideReason?: string;
     }
   | {
       persist: false;
       skipReason: InboundOutcomePersistSkipReason;
       turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
     };
+
+/** Baseline substantive completion survives authoritative TU narrow to no_outcome_write. */
+export function shouldApplySubstantiveCompletionBaselinePersistOverride(args: {
+  rawBody: string;
+  inboundMeaning: InboundMeaningFacts;
+  baselineResult: ShouldPersistInboundAccountabilityOutcomeResult;
+  narrowedResult: ShouldPersistInboundAccountabilityOutcomeResult;
+}): boolean {
+  if (!args.baselineResult.persist || args.narrowedResult.persist) return false;
+  if (args.inboundMeaning.persistence_decision !== "write_user_yes_today") return false;
+  const raw = args.rawBody.trim();
+  if (!isSubstantiveSelfReportedCompletionForProof(raw)) return false;
+  if (evaluateUserYesPersistBackstop({ raw, inboundMeaning: args.inboundMeaning })) return false;
+  return true;
+}
+
+export function inboundTruthPersistPayloadFromShouldResult(
+  should: ShouldPersistInboundAccountabilityOutcomeResult
+): Record<string, unknown> {
+  if (!should.persist) {
+    return {
+      server_allows_persistence_at_no_send: false,
+      inbound_truth_persist_skipped_reason: should.skipReason,
+    };
+  }
+  const payload: Record<string, unknown> = {
+    server_allows_persistence_at_no_send: true,
+    inbound_truth_persist_event_type: should.resolvedEventType,
+  };
+  if (should.baselinePersistOverride) {
+    payload.inbound_truth_persist_baseline_override = should.baselinePersistOverride;
+  }
+  if (should.baselinePersistOverrideReason) {
+    payload.inbound_truth_persist_override_reason = should.baselinePersistOverrideReason;
+  }
+  return payload;
+}
 
 function evaluateUserYesPersistBackstop(args: {
   raw: string;
@@ -563,6 +604,29 @@ export function shouldPersistInboundAccountabilityOutcome(
   });
 
   if (!narrowedResult.persist) {
+    if (
+      baselineResult.persist &&
+      shouldApplySubstantiveCompletionBaselinePersistOverride({
+        rawBody: raw,
+        inboundMeaning,
+        baselineResult,
+        narrowedResult,
+      })
+    ) {
+      const overrideGuard = buildTurnUnderstandingPersistGuardMeta({
+        turn: tu,
+        baselinePersistence: inboundMeaning.persistence_decision,
+        effectivePersistence: tu.reconciled_persistence_decision,
+        persistAllowed: true,
+        guardReason: null,
+      });
+      return {
+        ...baselineResult,
+        turnUnderstandingPersistGuard: overrideGuard,
+        baselinePersistOverride: "substantive_completion",
+        baselinePersistOverrideReason: "baseline_substantive_completion_survives_tu_narrow",
+      };
+    }
     return { ...narrowedResult, turnUnderstandingPersistGuard: guard };
   }
 

@@ -261,7 +261,10 @@ import {
 import {
   resolveShortAnswerContextAuthority,
 } from "@/lib/inbound-short-answer-context";
-import { buildExplicitOutcomeBeforeNoSendTelemetry } from "@/lib/inbound-reply-no-send-outcome-persist";
+import {
+  buildExplicitOutcomeBeforeNoSendTelemetry,
+  buildInboundTruthPersistOutcomeTelemetry,
+} from "@/lib/inbound-reply-no-send-outcome-persist";
 import { insertInboundTurnTelemetryBestEffort } from "@/lib/inbound-turn-telemetry";
 import {
   isInboundTurnUnderstandingContextAuthoritative,
@@ -273,6 +276,7 @@ import {
 import { buildTemporalContractForInbound } from "@/lib/sms-temporal-contract-v1";
 import {
   inboundMeaningPayloadForOutcomePersist,
+  inboundTruthPersistPayloadFromShouldResult,
   isClearAccountabilityCompletionReply,
   laneExclusionFromGatedMode,
   logInboundOutcomePersistAttempt,
@@ -2677,6 +2681,7 @@ async function tryPersistInboundAccountabilityOutcomeBeforeSend(
     payloadJson: {
       ...(args.payloadJson ?? {}),
       ...inboundMeaningPayloadForOutcomePersist(inboundMeaning),
+      ...inboundTruthPersistPayloadFromShouldResult(should),
       ...inboundTurnUnderstandingContextMetadata(tuCtx),
       ...(should.turnUnderstandingPersistGuard ?? {}),
       turn_understanding_applied_to_persist: Boolean(
@@ -2736,10 +2741,45 @@ async function persistExplicitOutcomeBeforeReplyNoSend(
   telemetry: Record<string, unknown>;
 }> {
   const persistResult = await tryPersistInboundAccountabilityOutcomeBeforeSend(args);
+  const meaning =
+    args.inboundMeaningForPersist ??
+    args.turnUnderstandingContext?.inboundMeaningForPersist ??
+    null;
+  const payload = args.payloadJson ?? {};
+  const noSendReason =
+    typeof payload.inbound_reply_no_send_reason === "string"
+      ? payload.inbound_reply_no_send_reason
+      : typeof payload.lane_no_send_reason === "string"
+        ? payload.lane_no_send_reason
+        : null;
   return {
     persistResult,
-    telemetry: buildExplicitOutcomeBeforeNoSendTelemetry(args.userMessage, persistResult),
+    telemetry: buildExplicitOutcomeBeforeNoSendTelemetry(args.userMessage, persistResult, {
+      inboundMeaning: meaning,
+      noSendReason,
+    }),
   };
+}
+
+async function attemptPreWriterExplicitOutcomePersist(
+  args: InboundOutcomePersistOrchestrationArgs
+): Promise<Record<string, unknown>> {
+  const persistResult = await tryPersistInboundAccountabilityOutcomeBeforeSend({
+    ...args,
+    payloadJson: {
+      ...(args.payloadJson ?? {}),
+      inbound_truth_persist_attempted_before_writer: true,
+      inbound_truth_persist_stage: "before_writer",
+      inbound_truth_persist_reason: "server_safe_explicit_outcome_before_writer",
+    },
+  });
+  return buildInboundTruthPersistOutcomeTelemetry(persistResult, {
+    stage: "before_writer",
+    persistenceDecision:
+      args.inboundMeaningForPersist?.persistence_decision ??
+      args.turnUnderstandingContext?.inboundMeaningForPersist?.persistence_decision ??
+      null,
+  });
 }
 
 async function cancelInboundV3LaneNoSendWithExplicitOutcomePersist(args: {
@@ -3303,6 +3343,20 @@ async function processV2NormalInboundOutcome(
           : {}),
       });
 
+      await attemptPreWriterExplicitOutcomePersist({
+        branch: "open_question",
+        job,
+        userId,
+        commitment,
+        userMessage,
+        eventType,
+        normalizedHint,
+        gatedDecision: V3_REFINE_ONLY_GATED,
+        recentEvents,
+        effectiveBehavior,
+        turnUnderstandingContext: inboundTurnUnderstandingCtx,
+      });
+
       const openLaneRes = await produceInboundV3RelationshipSms({
         facts: oqInboundFacts,
         commitmentRow: commitment,
@@ -3440,6 +3494,24 @@ async function processV2NormalInboundOutcome(
       });
 
       if (!openVoicePack.voice.shouldSend) {
+        const fvgNoSendReason = openVoicePack.voice.skipReason ?? "final_voice_gate_no_send";
+        const { telemetry: persistTelemetryOqFvg } = await persistExplicitOutcomeBeforeReplyNoSend({
+          branch: "open_question",
+          job,
+          userId,
+          commitment,
+          userMessage,
+          eventType,
+          normalizedHint,
+          gatedDecision: V3_REFINE_ONLY_GATED,
+          recentEvents,
+          effectiveBehavior,
+          turnUnderstandingContext: inboundTurnUnderstandingCtx,
+          payloadJson: {
+            final_voice_gate_no_send: true,
+            inbound_reply_no_send_reason: fvgNoSendReason,
+          },
+        });
         await markJobFinal({
           messageSid: job.message_sid,
           status: "cancelled",
@@ -3459,6 +3531,7 @@ async function processV2NormalInboundOutcome(
             },
             final_voice_gate: openVoicePack.voice.metadata,
             should_send: false,
+            ...persistTelemetryOqFvg,
           }),
           nextRetry: farFutureIso(),
         });
@@ -5869,6 +5942,21 @@ async function processV2NormalInboundOutcome(
         overlayConsentPending: isV2PendingProposalValid(commitment),
         gatedOutcome: gatedDecision.final_event_type ?? eventType,
       }),
+    });
+
+    await attemptPreWriterExplicitOutcomePersist({
+      branch: "main",
+      job,
+      userId,
+      commitment,
+      userMessage,
+      eventType,
+      normalizedHint,
+      gatedDecision,
+      recentEvents,
+      effectiveBehavior,
+      proofMeta: accountabilityProofMoment,
+      turnUnderstandingContext: inboundTurnUnderstandingCtx,
     });
 
     const laneRes = await produceInboundV3RelationshipSms({
