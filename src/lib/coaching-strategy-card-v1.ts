@@ -1335,7 +1335,7 @@ function selectMoveFromInboundResolvedTruth(
       return {
         type: "clarify",
         reason: "Resolved inbound truth: one clarifying question only.",
-        confidence: "medium",
+        confidence: "high",
       };
     default:
       return null;
