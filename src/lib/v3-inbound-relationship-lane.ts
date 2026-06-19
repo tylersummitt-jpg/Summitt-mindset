@@ -2020,6 +2020,36 @@ type InboundPostRepairValidation =
     };
 
 /** Re-run inbound-specific gates on a candidate body (e.g. after lane repair). */
+export function detectInboundResolvedTruthZeroQuestionViolation(
+  body: string,
+  rt: InboundResolvedTruth | null | undefined
+): { violation: boolean; reason: string | null } {
+  if (!rt || rt.max_questions_override !== 0) {
+    return { violation: false, reason: null };
+  }
+  const zeroQuestionMoves: InboundRequiredReplyMove[] = [
+    "acknowledge_completion",
+    "close_loop_on_answered_ask",
+    "protect_future_plan",
+  ];
+  if (!zeroQuestionMoves.includes(rt.required_reply_move)) {
+    return { violation: false, reason: null };
+  }
+  const b = body.trim();
+  if (!b) return { violation: false, reason: null };
+  if (/\?/.test(b)) {
+    return { violation: true, reason: "question_mark_with_zero_questions_override" };
+  }
+  if (
+    /\b(did you|do you|have you|will you|can you|what proof|what evidence|how did it go|what got in the way|what small step|what's next|what is next|how are you feeling|what did you experience|what does .{0,40} look like)\b/i.test(
+      b
+    )
+  ) {
+    return { violation: true, reason: "ask_shaped_phrase_with_zero_questions_override" };
+  }
+  return { violation: false, reason: null };
+}
+
 function validateInboundLaneCandidateBody(
   body: string,
   args: InboundV3RelationshipLaneInput
@@ -2062,6 +2092,20 @@ function validateInboundLaneCandidateBody(
       laneStage: "forbidden_substring_after_repair",
       safetySuffix: `forbidden_hit:${badSub.slice(0, 80)}`,
       extraMeta: { v3_candidate_body: body, forbidden_hit: badSub.slice(0, 120) },
+    };
+  }
+  const zeroQ = detectInboundResolvedTruthZeroQuestionViolation(body, args.facts.inbound_resolved_truth);
+  if (zeroQ.violation) {
+    return {
+      ok: false,
+      noSendReason: "inbound_resolved_truth_zero_question_violation",
+      laneStage: "inbound_resolved_truth_zero_question_validation_failed",
+      safetySuffix: zeroQ.reason ?? "resolved_truth_zero_questions",
+      extraMeta: {
+        v3_candidate_body: body,
+        inbound_resolved_truth_zero_question_reason: zeroQ.reason,
+        ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
+      },
     };
   }
   const staleAsk = detectTurnUnderstandingStaleAskViolation(body, args.facts);
@@ -2818,6 +2862,29 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     }
   }
 
+  const zeroQFinal = detectInboundResolvedTruthZeroQuestionViolation(body, args.facts.inbound_resolved_truth);
+  if (zeroQFinal.violation) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: "inbound_resolved_truth_zero_question_violation",
+      replySource: "v3_inbound_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes: [...safetyNotes, zeroQFinal.reason ?? "resolved_truth_zero_questions"],
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: "inbound_resolved_truth_zero_question_validation_failed",
+        v3_candidate_body: body,
+        inbound_resolved_truth_zero_question_reason: zeroQFinal.reason,
+        ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
+      },
+      openAiOk: true,
+    };
+  }
+
   const missReq = validateRequiredVerbatimSubstrings(body, args.facts.constraints.required_verbatim_substrings);
   if (missReq != null) {
     return {
@@ -3200,7 +3267,10 @@ INBOUND_RESOLVED_TRUTH (structured_recent_truth.inbound_resolved_truth — autho
 - LATEST RESOLVED INBOUND TRUTH WINS over older open questions, stale summaries, prior plan context, and background memory.
 - Use required_reply_move as the coaching move for this reply.
 - Honor must_not_do exactly — do not paraphrase forbidden asks into new wording.
-- When max_questions_override is 0, write statement-only SMS: no question mark and no ask-shaped commands.`;
+- When max_questions_override is 0, write statement-only SMS: no question mark and no ask-shaped commands.
+- acknowledge_completion: acknowledge what the user completed; max_questions 0; never ask whether it already happened, never ask for proof/evidence again, never turn completion into tomorrow planning.
+- close_loop_on_answered_ask: the user already answered — close the loop; max_questions 0; never repeat the prior ask or ask for the same evidence again.
+- protect_future_plan: preserve the future plan as plan/open loop; max_questions 0; never ask "did you do it?" or treat the plan as completion proof.`;
 }
 
 export function inboundResolvedTruthTelemetryMeta(

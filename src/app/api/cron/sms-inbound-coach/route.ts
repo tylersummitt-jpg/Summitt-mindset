@@ -2635,6 +2635,9 @@ async function tryPersistInboundAccountabilityOutcomeBeforeSend(
     activeReplyContext,
     inboundMeaning,
     turnUnderstandingReconciled,
+    commitmentBehaviorStatement: args.commitment.behavior_statement,
+    effectiveAsk: args.effectiveBehavior,
+    commitmentTitle: args.commitment.title,
   });
 
   logInboundOutcomePersistAttempt({
@@ -2787,6 +2790,7 @@ async function cancelInboundV3LaneNoSendWithExplicitOutcomePersist(args: {
   messageSid: string;
   persist: InboundOutcomePersistOrchestrationArgs;
   laneExtras?: Record<string, unknown>;
+  preWriterTelemetry?: Record<string, unknown> | null;
   logKey: string;
   logContext: Record<string, unknown>;
 }): Promise<InboundOutcomePersistResult> {
@@ -2803,6 +2807,7 @@ async function cancelInboundV3LaneNoSendWithExplicitOutcomePersist(args: {
     status: "cancelled",
     lastError: formatInboundV3LaneNoSendLastError(args.lane, {
       ...args.laneExtras,
+      ...(args.preWriterTelemetry ?? {}),
       ...telemetry,
     }),
     nextRetry: farFutureIso(),
@@ -3343,7 +3348,7 @@ async function processV2NormalInboundOutcome(
           : {}),
       });
 
-      await attemptPreWriterExplicitOutcomePersist({
+      const preWriterTelemetryOq = await attemptPreWriterExplicitOutcomePersist({
         branch: "open_question",
         job,
         userId,
@@ -3408,6 +3413,7 @@ async function processV2NormalInboundOutcome(
         await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
           lane: openLaneRes,
           messageSid: job.message_sid,
+          preWriterTelemetry: preWriterTelemetryOq,
           persist: {
             branch: "open_question",
             job,
@@ -5944,7 +5950,7 @@ async function processV2NormalInboundOutcome(
       }),
     });
 
-    await attemptPreWriterExplicitOutcomePersist({
+    const preWriterTelemetryMain = await attemptPreWriterExplicitOutcomePersist({
       branch: "main",
       job,
       userId,
@@ -5985,6 +5991,7 @@ async function processV2NormalInboundOutcome(
       await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
         lane: laneRes,
         messageSid: job.message_sid,
+        preWriterTelemetry: preWriterTelemetryMain,
         persist: {
           branch: "main",
           job,

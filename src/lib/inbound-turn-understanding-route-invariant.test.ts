@@ -58,14 +58,24 @@ describe("inbound turn understanding route invariants", () => {
   });
 
   it("main path attempts pre-writer persist before inbound lane writer", () => {
-    const mainPreWriterIdx = src.indexOf('await attemptPreWriterExplicitOutcomePersist({\n      branch: "main"');
+    const mainPreWriterIdx = src.indexOf('const preWriterTelemetryMain = await attemptPreWriterExplicitOutcomePersist({');
     expect(mainPreWriterIdx).toBeGreaterThan(0);
-    const block = src.slice(mainPreWriterIdx, mainPreWriterIdx + 900);
+    const block = src.slice(mainPreWriterIdx, mainPreWriterIdx + 1200);
     expect(block).toContain('branch: "main"');
     expect(block).toContain("produceInboundV3RelationshipSms");
     expect(block.indexOf("produceInboundV3RelationshipSms")).toBeGreaterThan(
       block.indexOf("attemptPreWriterExplicitOutcomePersist")
     );
+    expect(block).toContain("preWriterTelemetryMain");
+  });
+
+  it("main lane cancel merges pre-writer telemetry into last_error", () => {
+    const idx = src.indexOf("preWriterTelemetry: preWriterTelemetryMain");
+    expect(idx).toBeGreaterThan(0);
+    const helperIdx = src.indexOf("preWriterTelemetry?: Record<string, unknown> | null");
+    expect(helperIdx).toBeGreaterThan(0);
+    const helperBlock = src.slice(helperIdx, helperIdx + 900);
+    expect(helperBlock).toContain("...(args.preWriterTelemetry ?? {})");
   });
 
   it("open question FVG-only no-send persists explicit outcome before cancel", () => {

@@ -1484,12 +1484,19 @@ function buildMustDoMustNotDo(args: {
     }
     if (rt.required_reply_move === "acknowledge_completion") {
       must_do.push("Acknowledge what the user reported they completed.");
+      must_not_do.push("Do not ask whether it already happened or ask for proof again.");
+      must_not_do.push("Do not turn completion into tomorrow planning or a new accountability question.");
     }
     if (rt.required_reply_move === "protect_future_plan") {
       must_do.push("Briefly protect the future plan without interrogating whether it already happened.");
+      must_not_do.push('Do not ask "did you do it?" or treat the future plan as completion proof.');
     }
     if (rt.required_reply_move === "close_loop_on_answered_ask") {
       must_do.push("Acknowledge the answer or evidence and move one step forward.");
+      must_not_do.push("Do not repeat the prior ask or ask for the same evidence again.");
+    }
+    if (rt.max_questions_override === 0) {
+      must_not_do.push("Write statement-only SMS — no question mark and no ask-shaped follow-up.");
     }
   }
 
@@ -1707,6 +1714,21 @@ function validateSharedStrategyCardV1(
 
   if (card.move.reason.length > MAX_REASON_CHARS) {
     reasons.push("reason_too_long");
+  }
+
+  const rt = ctx.facts.inbound_resolved_truth;
+  if (rt?.max_questions_override === 0) {
+    if (card.writer_constraints.max_questions !== 0) {
+      reasons.push("resolved_truth_max_questions_zero");
+    }
+    if (
+      (rt.required_reply_move === "acknowledge_completion" ||
+        rt.required_reply_move === "close_loop_on_answered_ask" ||
+        rt.required_reply_move === "protect_future_plan") &&
+      (card.move.type === "clarify" || card.move.type === "ask_blocker")
+    ) {
+      reasons.push("resolved_truth_forbids_question_move");
+    }
   }
 
   if (card.writer_constraints.max_questions > 1 && card.move.type !== "clarify") {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isSubstantiveSelfReportedCompletionForProof } from "@/lib/inbound-self-reported-completion";
+import {
+  isCommitmentAlignedRoutineStatusUpdateCompletion,
+  isSubstantiveSelfReportedCompletionForProof,
+} from "@/lib/inbound-self-reported-completion";
 
 const TYLER_DISTRIBUTION_COMPLETION =
   "I got my distribution done today! I hit the goal! Woo hoo!";
@@ -70,5 +73,56 @@ describe("isSubstantiveSelfReportedCompletionForProof", () => {
 
   it.each(falseCases)("%s → false", (text) => {
     expect(isSubstantiveSelfReportedCompletionForProof(text)).toBe(false);
+  });
+});
+
+describe("isCommitmentAlignedRoutineStatusUpdateCompletion", () => {
+  const wakeCommitment = {
+    commitmentBehaviorStatement: "Wake up on time without snoozing",
+    effectiveAsk: "Get out of bed when the alarm goes off",
+  };
+  const readingCommitment = {
+    commitmentBehaviorStatement: "Read for 30 minutes before bed",
+    effectiveAsk: "Read tonight",
+  };
+  const statusText = "Getting up, showered, and ready for the day";
+
+  it("allows wake-up/shower routine status when commitment aligns", () => {
+    expect(
+      isCommitmentAlignedRoutineStatusUpdateCompletion({
+        raw: statusText,
+        ...wakeCommitment,
+      })
+    ).toBe(true);
+    expect(isSubstantiveSelfReportedCompletionForProof(statusText, wakeCommitment)).toBe(true);
+  });
+
+  it("blocks the same status update when commitment does not align", () => {
+    expect(
+      isCommitmentAlignedRoutineStatusUpdateCompletion({
+        raw: statusText,
+        ...readingCommitment,
+      })
+    ).toBe(false);
+    expect(isSubstantiveSelfReportedCompletionForProof(statusText, readingCommitment)).toBe(false);
+  });
+
+  it("blocks future-intent routine phrasing", () => {
+    expect(
+      isCommitmentAlignedRoutineStatusUpdateCompletion({
+        raw: "I will get up and shower later",
+        ...wakeCommitment,
+      })
+    ).toBe(false);
+  });
+
+  it("blocks scheduling/time answer Yes at 2pm", () => {
+    expect(
+      isCommitmentAlignedRoutineStatusUpdateCompletion({
+        raw: "Yes at 2pm",
+        ...wakeCommitment,
+      })
+    ).toBe(false);
+    expect(isSubstantiveSelfReportedCompletionForProof("Yes at 2pm", wakeCommitment)).toBe(false);
   });
 });

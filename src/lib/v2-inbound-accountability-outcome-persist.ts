@@ -200,6 +200,9 @@ export type ShouldPersistInboundAccountabilityOutcomeArgs = {
   > | null;
   inboundMeaning?: InboundMeaningFacts | null;
   turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
+  commitmentBehaviorStatement?: string | null;
+  effectiveAsk?: string | null;
+  commitmentTitle?: string | null;
 };
 
 export type InboundTruthPersistBaselineOverride = "substantive_completion";
@@ -220,17 +223,41 @@ export type ShouldPersistInboundAccountabilityOutcomeResult =
       turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
     };
 
+function substantiveCompletionContextFromPersistArgs(
+  args: Pick<
+    ShouldPersistInboundAccountabilityOutcomeArgs,
+    "commitmentBehaviorStatement" | "effectiveAsk" | "commitmentTitle"
+  >
+) {
+  return {
+    commitmentBehaviorStatement: args.commitmentBehaviorStatement ?? null,
+    effectiveAsk: args.effectiveAsk ?? null,
+    commitmentTitle: args.commitmentTitle ?? null,
+  };
+}
+
 /** Baseline substantive completion survives authoritative TU narrow to no_outcome_write. */
 export function shouldApplySubstantiveCompletionBaselinePersistOverride(args: {
   rawBody: string;
   inboundMeaning: InboundMeaningFacts;
   baselineResult: ShouldPersistInboundAccountabilityOutcomeResult;
   narrowedResult: ShouldPersistInboundAccountabilityOutcomeResult;
+  commitmentBehaviorStatement?: string | null;
+  effectiveAsk?: string | null;
+  commitmentTitle?: string | null;
 }): boolean {
   if (!args.baselineResult.persist || args.narrowedResult.persist) return false;
   if (args.inboundMeaning.persistence_decision !== "write_user_yes_today") return false;
   const raw = args.rawBody.trim();
-  if (!isSubstantiveSelfReportedCompletionForProof(raw)) return false;
+  if (
+    !isSubstantiveSelfReportedCompletionForProof(raw, {
+      commitmentBehaviorStatement: args.commitmentBehaviorStatement,
+      effectiveAsk: args.effectiveAsk,
+      commitmentTitle: args.commitmentTitle,
+    })
+  ) {
+    return false;
+  }
   if (evaluateUserYesPersistBackstop({ raw, inboundMeaning: args.inboundMeaning })) return false;
   return true;
 }
@@ -469,7 +496,10 @@ function evaluateShouldPersistWithMeaning(
 
   const livePrompt = args.activeReplyContext?.has_live_accountability_prompt === true;
   const selfContained = args.activeReplyContext?.self_contained_accountability_answer === true;
-  const substantiveSelfReportedCompletion = isSubstantiveSelfReportedCompletionForProof(raw);
+  const substantiveSelfReportedCompletion = isSubstantiveSelfReportedCompletionForProof(
+    raw,
+    substantiveCompletionContextFromPersistArgs(args)
+  );
   const todayCompletionBypass =
     persistence === "write_user_yes_today" &&
     inboundMeaning.relationship_meaning === "reported_completion" &&
@@ -611,6 +641,7 @@ export function shouldPersistInboundAccountabilityOutcome(
         inboundMeaning,
         baselineResult,
         narrowedResult,
+        ...substantiveCompletionContextFromPersistArgs(args),
       })
     ) {
       const overrideGuard = buildTurnUnderstandingPersistGuardMeta({

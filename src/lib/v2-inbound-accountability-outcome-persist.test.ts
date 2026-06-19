@@ -1574,6 +1574,115 @@ describe("no-send truth persistence hardening", () => {
     ).toBe(true);
   });
 
+  it("commitment-aligned routine status update survives TU narrow when wake-up commitment aligns", () => {
+    const body = "Getting up, showered, and ready for the day";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_partial",
+    });
+    const meaningForPersist: typeof inboundMeaning = {
+      ...inboundMeaning,
+      persistence_decision: "write_user_yes_today",
+      relationship_meaning: "reported_completion",
+    };
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+        user_turn_summary: "User reported morning routine progress.",
+        evidence_quotes: [body.slice(0, 40)],
+        relationship_meaning: "reported_completion",
+        answered_last_coach_ask: "yes",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "evidence_provided",
+        do_not_repeat_asks: ["How are you feeling about waking up on time?"],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+        response_intent: "close_loop_no_new_action",
+        temporal_scope: "today",
+        reported_for_day_key: null,
+        confidence: 0.9,
+        uncertainty_flags: [],
+        route_priority_recommendation: "none",
+        safety_or_support_flags: [],
+      },
+      deterministicMeaning: meaningForPersist,
+      latestCoachQuestion: "How are you feeling about waking up on time?",
+    });
+    tu.reconciled_persistence_decision = "no_outcome_write";
+
+    const persistArgs = {
+      messageSid: "SM_routine_status",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_partial" as const,
+      gatedDecision: defaultGatedDecision("user_partial", "test"),
+      laneExclusion: "none" as const,
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning: meaningForPersist,
+      commitmentBehaviorStatement: "Wake up on time without snoozing",
+      effectiveAsk: "Get out of bed when the alarm goes off",
+    };
+    const baseline = shouldPersistInboundAccountabilityOutcome(persistArgs);
+    const narrowed = shouldPersistInboundAccountabilityOutcome({
+      ...persistArgs,
+      turnUnderstandingReconciled: tu,
+    });
+    expect(baseline.persist).toBe(true);
+    expect(narrowed.persist).toBe(true);
+    if (narrowed.persist) {
+      expect(narrowed.baselinePersistOverride).toBe("substantive_completion");
+    }
+  });
+
+  it("same routine status update does not persist when commitment does not align", () => {
+    const body = "Getting up, showered, and ready for the day";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_partial",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_routine_mismatch",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_partial",
+      gatedDecision: defaultGatedDecision("user_partial", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning: {
+        ...inboundMeaning,
+        persistence_decision: "write_user_yes_today",
+        relationship_meaning: "reported_completion",
+      },
+      commitmentBehaviorStatement: "Read for 30 minutes before bed",
+      effectiveAsk: "Read tonight",
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("Yes at 2pm scheduling answer does not persist user_yes", () => {
+    const body = "Yes at 2pm";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: "Does 2pm work for your call?",
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_yes_2pm",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      commitmentBehaviorStatement: "Weekly family connection",
+      effectiveAsk: "Put one family connection on the calendar",
+    });
+    expect(result.persist).toBe(false);
+  });
+
   it("future plan Will do more cardio later does not persist user_yes", () => {
     const body = "Will do more cardio later";
     const inboundMeaning = buildInboundMeaningFacts({

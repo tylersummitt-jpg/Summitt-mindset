@@ -37,6 +37,7 @@ import {
   buildSeasonTransitionRouteAux,
   deriveInboundCoachingMoveForFacts,
   deriveInboundResolvedTruth,
+  detectInboundResolvedTruthZeroQuestionViolation,
   detectTurnUnderstandingStaleAskViolation,
   produceInboundV3RelationshipSms,
   type InboundV3RelationshipFacts,
@@ -772,8 +773,13 @@ describe("produceInboundV3RelationshipSms", () => {
       facts,
       telemetry_fact_sources: ["test_fixture"],
     });
-    expect(r.shouldSend).toBe(true);
-    expect(r.body.toLowerCase()).not.toContain("what story will you dictate today");
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+    expect(r.noSendReason).toBe("inbound_resolved_truth_zero_question_violation");
+    expect(r.metadata.lane_stage).toBe(
+      "inbound_resolved_truth_zero_question_validation_failed"
+    );
+    expect(r.metadata.inbound_required_reply_move).toBe("close_loop_on_answered_ask");
     expect(createMock.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -4542,5 +4548,41 @@ describe("inbound resolved truth dominance", () => {
     expect(systemPrompts.some((p) => /LATEST RESOLVED INBOUND TRUTH WINS/i.test(p!))).toBe(true);
     expect(systemPrompts.some((p) => /TURN_UNDERSTANDING/i.test(p!))).toBe(true);
     expect(systemPrompts.some((p) => /last_ask_satisfied/i.test(p!))).toBe(true);
+  });
+});
+
+describe("inbound resolved truth zero-question guard", () => {
+  it("blocks ask-shaped body when max_questions_override is 0 for acknowledge_completion", () => {
+    const rt = {
+      latest_user_text: "I did it",
+      resolved_outcome: "completed" as const,
+      temporal_scope: "today" as const,
+      plan_detected: false,
+      blocker_detected: false,
+      answered_recent_ask: false,
+      satisfied_recent_ask: false,
+      persistence_decision: "write_user_yes_today",
+      required_reply_move: "acknowledge_completion" as const,
+      max_questions_override: 0 as const,
+      must_not_do: ["Do not ask whether it already happened."],
+    };
+    const bad = detectInboundResolvedTruthZeroQuestionViolation(
+      "Nice work today. Did you hit your goal?",
+      rt
+    );
+    expect(bad.violation).toBe(true);
+    const ok = detectInboundResolvedTruthZeroQuestionViolation(
+      "Nice work getting that done today.",
+      rt
+    );
+    expect(ok.violation).toBe(false);
+  });
+
+  it("prompt guidance forbids proof re-ask and tomorrow planning on completion", () => {
+    const guidance = buildInboundResolvedTruthPromptGuidance();
+    expect(guidance).toMatch(/acknowledge_completion/i);
+    expect(guidance).toMatch(/never ask whether it already happened/i);
+    expect(guidance).toMatch(/close_loop_on_answered_ask/i);
+    expect(guidance).toMatch(/protect_future_plan/i);
   });
 });
