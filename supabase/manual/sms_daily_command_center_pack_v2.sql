@@ -1,11 +1,17 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.1
+-- SMS DAILY COMMAND CENTER PACK v2.2
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 13 queries.
 --
+-- v2.2 reliability (June 2026):
+--   - Safe last_error extraction: regex + metadata paths only (never last_error::jsonb).
+--   - Coach-body near-duplicate telemetry in Q01/Q03/Q04 + timeline flag in Q02.
+--   - Expanded goal-change / amend-goals regex in Q07/Q09.
+--   - Q13 sanity when coach-body telemetry exists in raw_json but extract fields blank.
+--
 -- v2.1 reliability (June 19 soak):
 --   - Eligible denominator excludes legitimate skip statuses (not only no_send_reason).
---   - Inbound job last_error JSON + regex extraction for no-send reason and truth metadata.
+--   - Inbound job last_error regex extraction for no-send reason and truth metadata.
 --   - Safer inbound pairing: message_sid > raw_body > nearest future job within 60m.
 --   - No-send truth-loss treats cancelled as no-send using extracted reason.
 --   - Q11/Q12 classify from extracted no_send_reason (stale ask vs pending/guard).
@@ -84,7 +90,28 @@ send_base AS (
       NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,daily_v3_lane,final_body}'), ''),
       NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,v3_brain,body}'), ''),
       ''
-    ) AS body_preview
+    ) AS body_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,v3_brain,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,coach_body_near_duplicate_detected}',
+      ''
+    ) AS coach_body_near_duplicate_detected,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,v3_brain,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,daily_coach_body_near_duplicate_blocked}',
+      ''
+    ) AS daily_coach_body_near_duplicate_blocked,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,memory_repeat_no_send_reason}',
+      ''
+    ) AS memory_repeat_no_send_reason
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -132,6 +159,22 @@ daily_agg AS (
         AND body_preview ~* '\?|\b(tell me|let me know|reply with|name the blocker|choose one|send me|what|how|why|when|did you|do you|will you|can you)\b'
     ) AS zero_question_visible_violations,
     COUNT(*) FILTER (WHERE eligible_coaching_row AND NOT visible_sent AND no_send_reason ~* '(memory|repeat|freshness|stale|thread)') AS memory_thread_stale_blocks,
+    COUNT(*) FILTER (
+      WHERE eligible_coaching_row AND NOT visible_sent
+        AND memory_repeat_no_send_reason = 'coach_body_near_duplicate'
+    ) AS coach_body_near_duplicate_no_send_count,
+    COUNT(*) FILTER (
+      WHERE coach_body_near_duplicate_detected ~* 'true'
+        OR daily_coach_body_near_duplicate_blocked ~* 'true'
+        OR memory_repeat_no_send_reason = 'coach_body_near_duplicate'
+    ) AS daily_coach_body_near_duplicate_block_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND body_preview <> ''
+        AND (
+          body_preview ~* '(aim for another hour.{0,40}(focused work|keep progressing)|deepen your engagement with your students|reflect on how to deepen.{0,40}students)'
+        )
+    ) AS daily_duplicate_or_stagnation_sent_review_count,
     COUNT(*) FILTER (
       WHERE visible_sent AND body_preview ~* '(did you hit your goal|reply yes|reply no|would you like to recommit|same line for a week)'
     ) AS robot_recommit_language_count,
@@ -238,8 +281,13 @@ SELECT
   v.victory_room_projection_failure_count,
   d.robot_recommit_language_count,
   d.time_of_day_copy_risk_count,
+  d.coach_body_near_duplicate_no_send_count,
+  d.daily_coach_body_near_duplicate_block_count,
+  d.daily_duplicate_or_stagnation_sent_review_count,
   tr.top_no_send_reasons,
   CASE
+    WHEN d.coach_body_near_duplicate_no_send_count > 0 THEN 'daily_coach_body_anti_repeat_monitor'
+    WHEN d.daily_duplicate_or_stagnation_sent_review_count > 0 THEN 'daily_thread_stagnation_writer_freshness'
     WHEN d.zero_question_visible_violations > 0 THEN 'zero_question_validator_or_card_alignment'
     WHEN d.memory_thread_stale_blocks::numeric / NULLIF(d.eligible_no_sends, 0) > 0.10 THEN 'thread_freshness_zero_question_hardening'
     WHEN t.no_send_truth_loss_count > 0 THEN 'inbound_no_send_truth_persistence'
@@ -497,6 +545,13 @@ thread_events AS (
   UNION ALL SELECT * FROM inbound_replies
   UNION ALL SELECT * FROM daily_outbound
   UNION ALL SELECT * FROM weekly_outbound
+),
+thread_with_prev AS (
+  SELECT
+    te.*,
+    LAG(te.body_preview) FILTER (WHERE te.event_source LIKE 'coach_%')
+      OVER (PARTITION BY te.clerk_user_id ORDER BY te.event_at) AS prev_coach_body_preview
+  FROM thread_events te
 )
 SELECT
   (event_at AT TIME ZONE 'America/New_York')::date AS local_day,
@@ -547,8 +602,39 @@ SELECT
     THEN 'completion_treated_as_plan_review'
     ELSE ''
   END AS time_of_day_copy_risk,
+  CASE
+    WHEN event_source LIKE 'coach_%'
+     AND prev_coach_body_preview IS NOT NULL
+     AND body_preview <> ''
+     AND (
+       body_preview ~* 'aim for another hour'
+       AND prev_coach_body_preview ~* 'aim for another hour'
+     ) THEN true
+    WHEN event_source LIKE 'coach_%'
+     AND prev_coach_body_preview IS NOT NULL
+     AND body_preview <> ''
+     AND (
+       body_preview ~* '(reflect on how to deepen|deepen your engagement with your students)'
+       AND prev_coach_body_preview ~* '(reflect on how to deepen|deepen your engagement with your students)'
+     ) THEN true
+    WHEN event_source LIKE 'coach_%'
+     AND prev_coach_body_preview IS NOT NULL
+     AND LENGTH(body_preview) >= 48
+     AND LENGTH(prev_coach_body_preview) >= 48
+     AND LEFT(REGEXP_REPLACE(LOWER(body_preview), '[^a-z0-9 ]', '', 'g'), 100)
+         = LEFT(REGEXP_REPLACE(LOWER(prev_coach_body_preview), '[^a-z0-9 ]', '', 'g'), 100)
+     THEN true
+    WHEN event_source LIKE 'coach_%'
+     AND prev_coach_body_preview IS NOT NULL
+     AND LENGTH(body_preview) >= 64
+     AND LENGTH(prev_coach_body_preview) >= 64
+     AND SUBSTRING(REGEXP_REPLACE(LOWER(body_preview), '[^a-z0-9 ]', '', 'g') FROM 20 FOR 80)
+         = SUBSTRING(REGEXP_REPLACE(LOWER(prev_coach_body_preview), '[^a-z0-9 ]', '', 'g') FROM 20 FOR 80)
+     THEN true
+    ELSE false
+  END AS near_duplicate_to_previous_coach_sms,
   raw_json
-FROM thread_events
+FROM thread_with_prev
 WHERE event_at IS NOT NULL
 ORDER BY clerk_user_id, event_at;
 
@@ -631,6 +717,54 @@ send_rows AS (
       to_jsonb(s)#>>'{metadata,repeated_phrases}',
       ''
     ) AS repeated_phrases,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,v3_brain,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,coach_body_near_duplicate_detected}',
+      ''
+    ) AS coach_body_near_duplicate_detected,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,v3_brain,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,daily_coach_body_near_duplicate_blocked}',
+      ''
+    ) AS daily_coach_body_near_duplicate_blocked,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,memory_repeat_no_send_reason}',
+      ''
+    ) AS memory_repeat_no_send_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_repair_skipped_reason}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,memory_repeat_repair_skipped_reason}',
+      to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_repair_skipped_reason}',
+      to_jsonb(s)#>>'{metadata,memory_repeat_repair_skipped_reason}',
+      ''
+    ) AS memory_repeat_repair_skipped_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,v3_brain,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,prior_coach_body_preview}',
+      ''
+    ) AS prior_coach_body_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_guard_reason}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,memory_repeat_guard_reason}',
+      to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_guard_reason}',
+      to_jsonb(s)#>>'{metadata,memory_repeat_guard_reason}',
+      ''
+    ) AS memory_repeat_guard_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,repeat_repair_attempted}',
+      to_jsonb(s)#>>'{metadata,v3_brain,repeat_repair_attempted}',
+      to_jsonb(s)#>>'{metadata,repeat_repair_attempted}',
+      ''
+    ) AS repeat_repair_attempted,
     COALESCE(to_jsonb(s)->>'status', '') AS status,
     COALESCE(to_jsonb(s)->>'message_sid', to_jsonb(s)->>'outbound_message_sid', to_jsonb(s)#>>'{metadata,message_sid}', '') AS message_sid,
     COALESCE(to_jsonb(s)#>>'{metadata,note}', '') AS note,
@@ -701,6 +835,13 @@ SELECT
   LEFT(thread_freshness_repaired_body, 1000) AS thread_freshness_repaired_body,
   stale_phrase,
   repeated_phrases,
+  coach_body_near_duplicate_detected,
+  daily_coach_body_near_duplicate_blocked,
+  memory_repeat_no_send_reason,
+  memory_repeat_repair_skipped_reason,
+  LEFT(prior_coach_body_preview, 500) AS prior_coach_body_preview,
+  memory_repeat_guard_reason,
+  repeat_repair_attempted,
   user_repeated_no_send_count,
   eligible_classification,
   raw_json
@@ -760,6 +901,41 @@ rows AS (
       to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_repair_skipped_reason}',
       ''
     ) AS memory_repeat_repair_skipped_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,v3_brain,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,coach_body_near_duplicate_detected}',
+      ''
+    ) AS coach_body_near_duplicate_detected,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,v3_brain,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,daily_coach_body_near_duplicate_blocked}',
+      ''
+    ) AS daily_coach_body_near_duplicate_blocked,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,memory_repeat_no_send_reason}',
+      ''
+    ) AS memory_repeat_no_send_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,v3_brain,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,prior_coach_body_preview}',
+      ''
+    ) AS prior_coach_body_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_guard_reason}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,memory_repeat_guard_reason}',
+      to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_guard_reason}',
+      to_jsonb(s)#>>'{metadata,memory_repeat_guard_reason}',
+      ''
+    ) AS memory_repeat_guard_reason,
     COALESCE(
       to_jsonb(s)#>>'{metadata,daily_v3_lane,repeat_repair_attempted}',
       to_jsonb(s)#>>'{metadata,v3_brain,repeat_repair_attempted}',
@@ -838,6 +1014,11 @@ SELECT
   no_send_reason,
   memory_repeat_repair_skipped_zero_question_mode,
   memory_repeat_repair_skipped_reason,
+  coach_body_near_duplicate_detected,
+  daily_coach_body_near_duplicate_blocked,
+  memory_repeat_no_send_reason,
+  LEFT(prior_coach_body_preview, 500) AS prior_coach_body_preview,
+  memory_repeat_guard_reason,
   repeat_repair_attempted,
   thread_freshness_repair_succeeded,
   thread_freshness_violation_reason,
@@ -851,8 +1032,14 @@ SELECT
   (memory_repaired_body ~* '\?|\b(tell me|let me know|reply with|what|how|why|when|did you|do you|will you|can you)\b') AS memory_repaired_question_shape,
   (final_body ~* '\?|\b(tell me|let me know|reply with|what|how|why|when|did you|do you|will you|can you)\b') AS final_question_shape,
   CASE
+    WHEN memory_repeat_no_send_reason = 'coach_body_near_duplicate'
+      OR coach_body_near_duplicate_detected ~* 'true'
+      OR daily_coach_body_near_duplicate_blocked ~* 'true'
+      OR memory_repeat_guard_reason = 'repeated_recent_coach_body'
+      THEN 'coach_body_near_duplicate_block'
     WHEN memory_repeat_repair_skipped_zero_question_mode ~* 'true' THEN 'slice2_repair_skipped_zero_question'
     WHEN memory_repeat_repair_skipped_reason = 'repair_disabled_zero_question_mode' THEN 'slice2_direct_no_send'
+    WHEN memory_repeat_repair_skipped_reason = 'coach_body_near_duplicate_no_repair' THEN 'coach_body_near_duplicate_block'
     WHEN memory_repaired_body <> '' THEN 'memory_repair_attempted'
     WHEN no_send_reason ~* 'memory|repeat' OR lane_stage ~* 'memory|repeat' THEN 'memory_repeat_blocked'
     WHEN no_send_reason ~* 'stale' OR stale_phrase <> '' THEN 'stale_ask_block'
@@ -863,6 +1050,10 @@ SELECT
 FROM rows
 WHERE memory_repeat_repair_skipped_zero_question_mode ~* 'true'
    OR memory_repeat_repair_skipped_reason <> ''
+   OR coach_body_near_duplicate_detected ~* 'true'
+   OR daily_coach_body_near_duplicate_blocked ~* 'true'
+   OR memory_repeat_no_send_reason = 'coach_body_near_duplicate'
+   OR memory_repeat_guard_reason = 'repeated_recent_coach_body'
    OR repeat_repair_attempted ~* 'true'
    OR memory_repaired_body <> ''
    OR thread_freshness_repair_succeeded ~* 'true'
@@ -1152,11 +1343,6 @@ jobs_raw AS (
       ''
     ) AS reply_body,
     COALESCE(to_jsonb(j)->>'last_error', '') AS last_error_raw,
-    CASE
-      WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{'
-      THEN (to_jsonb(j)->>'last_error')::jsonb
-      ELSE NULL::jsonb
-    END AS last_error_json,
     COALESCE(to_jsonb(j)#>>'{metadata,route_purpose}', to_jsonb(j)#>>'{metadata,branch_name}', '') AS route_or_branch,
     to_jsonb(j) AS raw_job_json
   FROM sms_inbound_coach_jobs j
@@ -1178,64 +1364,48 @@ jobs AS (
     COALESCE(
       NULLIF(BTRIM(to_jsonb(j.raw_job_json)->>'no_send_reason'), ''),
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,no_send_reason}'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'no_send_reason'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_reply_no_send_reason'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'lane_no_send_reason'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'unified_final_guard_no_send_reason'), ''),
-      NULLIF(BTRIM(j.last_error_json#>>'{lane_metadata,no_send_reason}'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_reply_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(j.last_error_raw, '"lane_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(j.last_error_raw, '"unified_final_guard_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"tag"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS actual_job_no_send_reason,
     COALESCE(
-      NULLIF(BTRIM(j.last_error_json->>'tag'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"tag"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS actual_job_no_send_tag,
     COALESCE(
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,inbound_required_reply_move}'), ''),
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,v3_inbound_lane,inbound_required_reply_move}'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_required_reply_move'), ''),
-      NULLIF(BTRIM(j.last_error_json#>>'{lane_metadata,inbound_required_reply_move}'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_required_reply_move"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS inbound_required_reply_move,
     COALESCE(
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,inbound_resolved_outcome}'), ''),
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,v3_inbound_lane,inbound_resolved_outcome}'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_resolved_outcome'), ''),
-      NULLIF(BTRIM(j.last_error_json#>>'{lane_metadata,inbound_resolved_outcome}'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_resolved_outcome"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS inbound_resolved_outcome,
     COALESCE(
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,inbound_resolved_temporal_scope}'), ''),
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,v3_inbound_lane,inbound_resolved_temporal_scope}'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_resolved_temporal_scope'), ''),
-      NULLIF(BTRIM(j.last_error_json#>>'{lane_metadata,inbound_resolved_temporal_scope}'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_resolved_temporal_scope"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS inbound_resolved_temporal_scope,
     COALESCE(
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,inbound_truth_max_questions_override}'), ''),
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,v3_inbound_lane,inbound_truth_max_questions_override}'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_truth_max_questions_override'), ''),
-      NULLIF(BTRIM(j.last_error_json#>>'{lane_metadata,inbound_truth_max_questions_override}'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_truth_max_questions_override"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS inbound_truth_max_questions_override,
     COALESCE(
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,inbound_truth_guardrails_applied}'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_truth_guardrails_applied'), ''),
-      NULLIF(BTRIM(j.last_error_json#>>'{lane_metadata,inbound_truth_guardrails_applied}'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_truth_guardrails_applied"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS inbound_truth_guardrails_applied,
     COALESCE(
       NULLIF(BTRIM(j.raw_job_json#>>'{metadata,inbound_resolved_truth_emitted}'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_resolved_truth_emitted'), ''),
-      NULLIF(BTRIM(j.last_error_json#>>'{lane_metadata,inbound_resolved_truth_emitted}'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_resolved_truth_emitted"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS inbound_resolved_truth_emitted
@@ -1480,7 +1650,7 @@ classified_inbound AS (
     CASE
       WHEN ib.inbound_body_preview ~* '(^|\s)(stop|unsubscribe|help|start)\b' THEN 'safety_or_support_candidate'
       WHEN ib.inbound_body_preview ~* '(onboarding|didn''?t ask me|did not ask me|did the onboarding matter|you didn''?t ask|coach forgot|process dispute|you said.*didn''?t)' THEN 'meta_process_candidate'
-      WHEN ib.inbound_body_preview ~* '(change my goal|lower the bar|raise the bar|shrink|replace.*goal|adjust my goal)' THEN 'goal_change_candidate'
+      WHEN ib.inbound_body_preview ~* '(amend|re-?state|restated?)\s+(the\s+)?(old\s+)?goals?|reset\s+(the\s+)?(old\s+)?goals?|old\s+goals?|revise\s+(the\s+)?goals?|update\s+(the\s+)?goals?|adjust\s+(the\s+)?goals?|alter\s+(the\s+)?goals?|change\s+(the\s+)?goals?|change\s+my\s+goal|new\s+goal|different\s+goal|goal\s+no\s+longer\s+fits|ready\s+for\s+a\s+new\s+goal|raise\s+the\s+bar|lower\s+the\s+bar|shrink\s+the\s+goal|make\s+it\s+(easier|harder)|replace.*goal|adjust\s+my\s+goal|need\s+to\s+amend|re-?state\s+old\s+goals?' THEN 'goal_change_candidate'
       WHEN ib.inbound_body_preview ~* '(got in the way|threw me off|blocker|rain|meetings|forgot my shoes|travel|sick|kids)' THEN 'blocker_candidate'
       WHEN ib.inbound_body_preview ~* '(i''?ll|i will|tomorrow|before breakfast|after work|setting my shoes|planning to|going to run|gonna run)' THEN 'plan_candidate'
       WHEN ib.inbound_body_preview ~* '(only did|half|started but didn''?t|did \d+ of \d+|some of it|part of it)' THEN 'partial_candidate'
@@ -1530,6 +1700,7 @@ classified_inbound AS (
         NULLIF(BTRIM(tel.payload_json->>'inbound_meaning_persistence'), '')
       ) IN ('no_outcome_write', 'ack_only', 'defer_to_pending_resolution', 'defer_to_contract_consent') THEN 'no_outcome_write'
       WHEN ib.inbound_body_preview ~* '(onboarding|didn''?t ask me|did the onboarding matter)' THEN 'no_outcome_write'
+      WHEN ib.inbound_body_preview ~* '(amend|re-?state|restated?)\s+(the\s+)?(old\s+)?goals?|reset\s+(the\s+)?(old\s+)?goals?|old\s+goals?|revise\s+(the\s+)?goals?|update\s+(the\s+)?goals?|adjust\s+(the\s+)?goals?|alter\s+(the\s+)?goals?|change\s+(the\s+)?goals?|change\s+my\s+goal|new\s+goal|different\s+goal|goal\s+no\s+longer\s+fits|ready\s+for\s+a\s+new\s+goal|raise\s+the\s+bar|lower\s+the\s+bar|shrink\s+the\s+goal|make\s+it\s+(easier|harder)|replace.*goal|adjust\s+my\s+goal|need\s+to\s+amend|re-?state\s+old\s+goals?' THEN 'no_outcome_write'
       WHEN ib.inbound_body_preview ~* '(i''?ll|i will|tomorrow|going to run|planning to)' THEN 'no_outcome_write'
       WHEN COALESCE(
         NULLIF(BTRIM(tel.payload_json->>'server_reconciled_persistence_decision'), ''),
@@ -1569,7 +1740,7 @@ classified_with_diag AS (
     c.*,
     CASE
       WHEN c.fix_era = 'pre_known_fix_window' AND c.is_known_historical_fixture IS NOT NULL THEN 'historical_pre_fix_observation'
-      WHEN c.candidate_family IN ('meta_process_candidate', 'plan_candidate', 'safety_or_support_candidate')
+      WHEN c.candidate_family IN ('meta_process_candidate', 'plan_candidate', 'safety_or_support_candidate', 'goal_change_candidate')
         AND (c.persisted_user_yes OR c.persisted_user_no OR c.persisted_user_partial) THEN 'false_outcome_written'
       WHEN c.persistence_decision IS NULL AND c.server_reconciled_persistence_decision IS NULL
         AND c.candidate_family NOT IN ('other', 'emotional_state_candidate', 'important_memory_candidate') THEN 'telemetry_missing'
@@ -1660,12 +1831,7 @@ inbound_base AS (
       280
     ) AS inbound_body_preview,
     COALESCE(to_jsonb(j)->>'status', '') AS job_status,
-    COALESCE(to_jsonb(j)->>'last_error', '') AS last_error_raw,
-    CASE
-      WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{'
-      THEN (to_jsonb(j)->>'last_error')::jsonb
-      ELSE NULL::jsonb
-    END AS last_error_json
+    COALESCE(to_jsonb(j)->>'last_error', '') AS last_error_raw
   FROM sms_inbound_messages m
   FULL OUTER JOIN sms_inbound_coach_jobs j
     ON j.message_sid = to_jsonb(m)->>'message_sid'
@@ -1695,12 +1861,10 @@ job_extracted AS (
   SELECT
     ib.*,
     COALESCE(
-      NULLIF(BTRIM(ib.last_error_json->>'no_send_reason'), ''),
-      NULLIF(BTRIM(ib.last_error_json->>'inbound_reply_no_send_reason'), ''),
-      NULLIF(BTRIM(ib.last_error_json->>'lane_no_send_reason'), ''),
-      NULLIF(BTRIM(ib.last_error_json->>'unified_final_guard_no_send_reason'), ''),
       NULLIF(BTRIM((regexp_match(ib.last_error_raw, '"no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       NULLIF(BTRIM((regexp_match(ib.last_error_raw, '"inbound_reply_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(ib.last_error_raw, '"lane_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(ib.last_error_raw, '"unified_final_guard_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS actual_job_no_send_reason,
     (ib.job_status ~* 'cancelled') AS job_is_cancelled_no_send
@@ -1720,30 +1884,31 @@ enriched AS (
       NULLIF(BTRIM(tel.payload_json->>'no_send_reason'), ''),
       NULLIF(BTRIM(tel.payload_json->>'unified_final_guard_no_send_reason'), ''),
       NULLIF(BTRIM(tel.payload_json->>'inbound_reply_no_send_reason'), ''),
-      NULLIF(BTRIM(je.last_error_json->>'inbound_reply_no_send_reason'), ''),
+      NULLIF(BTRIM(tel.payload_json->>'inbound_reply_no_send_reason'), ''),
+      NULLIF(BTRIM((regexp_match(je.last_error_raw, '"inbound_reply_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS no_send_reason_resolved,
     COALESCE(
       (tel.payload_json->>'inbound_truth_persist_attempted_before_writer')::boolean,
-      (je.last_error_json->>'inbound_truth_persist_attempted_before_writer')::boolean,
+      COALESCE((regexp_match(je.last_error_raw, '"inbound_truth_persist_attempted_before_writer"\s*:\s*(true|false)'))[1] = 'true', FALSE),
       (outcome.payload_json->>'inbound_truth_persist_attempted_before_writer')::boolean,
       FALSE
     ) AS persist_attempted_before_writer,
     COALESCE(
       (tel.payload_json->>'inbound_truth_persist_attempted_on_no_send')::boolean,
-      (je.last_error_json->>'inbound_truth_persist_attempted_on_no_send')::boolean,
+      COALESCE((regexp_match(je.last_error_raw, '"inbound_truth_persist_attempted_on_no_send"\s*:\s*(true|false)'))[1] = 'true', FALSE),
       (outcome.payload_json->>'inbound_truth_persist_attempted_on_no_send')::boolean,
       FALSE
     ) AS persist_attempted_on_no_send,
     COALESCE(
       (tel.payload_json->>'inbound_truth_persist_succeeded_before_writer')::boolean,
-      (je.last_error_json->>'inbound_truth_persist_succeeded_before_writer')::boolean,
+      COALESCE((regexp_match(je.last_error_raw, '"inbound_truth_persist_succeeded_before_writer"\s*:\s*(true|false)'))[1] = 'true', FALSE),
       (outcome.payload_json->>'inbound_truth_persist_succeeded_before_writer')::boolean,
       FALSE
     ) AS persist_succeeded_before_writer,
     COALESCE(
       (tel.payload_json->>'inbound_truth_persist_succeeded_on_no_send')::boolean,
-      (je.last_error_json->>'inbound_truth_persist_succeeded_on_no_send')::boolean,
+      COALESCE((regexp_match(je.last_error_raw, '"inbound_truth_persist_succeeded_on_no_send"\s*:\s*(true|false)'))[1] = 'true', FALSE),
       (outcome.payload_json->>'inbound_truth_persist_succeeded_on_no_send')::boolean,
       FALSE
     ) AS persist_succeeded_on_no_send,
@@ -1896,7 +2061,7 @@ inbound_base AS (
         NULLIF(BTRIM(to_jsonb(m)->>'body'), ''),
         NULLIF(BTRIM(to_jsonb(j)->>'raw_body'), ''),
         ''
-      ) ~* '(change my goal|lower the bar|raise the bar|shrink|replace.*goal|adjust my goal)' THEN 'goal_change'
+      ) ~* '(amend|re-?state|restated?)\s+(the\s+)?(old\s+)?goals?|reset\s+(the\s+)?(old\s+)?goals?|old\s+goals?|revise\s+(the\s+)?goals?|update\s+(the\s+)?goals?|adjust\s+(the\s+)?goals?|alter\s+(the\s+)?goals?|change\s+(the\s+)?goals?|change\s+my\s+goal|new\s+goal|different\s+goal|goal\s+no\s+longer\s+fits|ready\s+for\s+a\s+new\s+goal|raise\s+the\s+bar|lower\s+the\s+bar|shrink\s+the\s+goal|make\s+it\s+(easier|harder)|replace.*goal|adjust\s+my\s+goal|need\s+to\s+amend|re-?state\s+old\s+goals?' THEN 'goal_change'
       WHEN COALESCE(
         NULLIF(BTRIM(to_jsonb(m)->>'raw_body'), ''),
         NULLIF(BTRIM(to_jsonb(m)->>'body'), ''),
@@ -2477,26 +2642,24 @@ rows AS (
     '',
     COALESCE(
       NULLIF(BTRIM(to_jsonb(j)#>>'{metadata,no_send_reason}'), ''),
-      NULLIF(BTRIM((CASE WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{' THEN (to_jsonb(j)->>'last_error')::jsonb ELSE NULL END)->>'no_send_reason'), ''),
-      NULLIF(BTRIM((CASE WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{' THEN (to_jsonb(j)->>'last_error')::jsonb ELSE NULL END)->>'inbound_reply_no_send_reason'), ''),
       NULLIF(BTRIM((regexp_match(COALESCE(to_jsonb(j)->>'last_error', ''), '"no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(COALESCE(to_jsonb(j)->>'last_error', ''), '"inbound_reply_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ),
     COALESCE(
       NULLIF(BTRIM(to_jsonb(j)#>>'{metadata,no_send_reason}'), ''),
-      NULLIF(BTRIM((CASE WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{' THEN (to_jsonb(j)->>'last_error')::jsonb ELSE NULL END)->>'no_send_reason'), ''),
-      NULLIF(BTRIM((CASE WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{' THEN (to_jsonb(j)->>'last_error')::jsonb ELSE NULL END)->>'inbound_reply_no_send_reason'), ''),
       NULLIF(BTRIM((regexp_match(COALESCE(to_jsonb(j)->>'last_error', ''), '"no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(COALESCE(to_jsonb(j)->>'last_error', ''), '"inbound_reply_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ),
     '',
     COALESCE(
-      NULLIF(BTRIM((CASE WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{' THEN (to_jsonb(j)->>'last_error')::jsonb ELSE NULL END)->>'unified_final_guard_no_send_reason'), ''),
       NULLIF(BTRIM((regexp_match(COALESCE(to_jsonb(j)->>'last_error', ''), '"unified_final_guard_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ),
     COALESCE(
-      NULLIF(BTRIM((CASE WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{' THEN (to_jsonb(j)->>'last_error')::jsonb ELSE NULL END)->>'final_guard_violations'), ''),
+      NULLIF(BTRIM((regexp_match(COALESCE(to_jsonb(j)->>'last_error', ''), '"final_guard_violations"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(COALESCE(to_jsonb(j)->>'last_error', ''), '"final_guard_violations"\s*:\s*\[([^\]]*)\]'))[1]), ''),
       ''
     ),
     COALESCE(
@@ -2600,7 +2763,7 @@ ORDER BY c.event_at DESC;
 -- QUERY 13 — observability_denominator_sanity_check
 -- Saved query name: SM_AUDIT_13_Denominator_Sanity
 -- Purpose: Telemetry completeness — rows that could make eligible/visible SQL denominators lie.
--- v2.1: per-issue impacted_query + severity so operators know which primary queries become unreliable.
+-- v2.2: coach-body duplicate telemetry sanity + per-issue impacted_query + severity.
 -- Default window: last 24 hours
 -- MANUAL DATE OVERRIDE (optional — replace bounds lines below):
 --   timestamptz '2026-06-17 00:00:00 America/New_York' AS window_start,
@@ -2659,6 +2822,34 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_guard_attempted}',
       ''
     ) AS memory_repeat_guard_attempted,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,v3_brain,coach_body_near_duplicate_detected}',
+      to_jsonb(s)#>>'{metadata,coach_body_near_duplicate_detected}',
+      ''
+    ) AS coach_body_near_duplicate_detected,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,v3_brain,daily_coach_body_near_duplicate_blocked}',
+      to_jsonb(s)#>>'{metadata,daily_coach_body_near_duplicate_blocked}',
+      ''
+    ) AS daily_coach_body_near_duplicate_blocked,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_no_send_reason}',
+      to_jsonb(s)#>>'{metadata,memory_repeat_no_send_reason}',
+      ''
+    ) AS memory_repeat_no_send_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,v3_brain,prior_coach_body_preview}',
+      to_jsonb(s)#>>'{metadata,prior_coach_body_preview}',
+      ''
+    ) AS prior_coach_body_preview,
     COALESCE(
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,thread_freshness_violation_reason}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,thread_freshness_violation_reason}',
@@ -2763,12 +2954,7 @@ inbound_jobs AS (
       ''
     ) AS job_raw_body,
     COALESCE(to_jsonb(j)->>'status', '') AS job_status,
-    COALESCE(to_jsonb(j)->>'last_error', '') AS last_error_raw,
-    CASE
-      WHEN COALESCE(to_jsonb(j)->>'last_error', '') ~ '^\s*\{'
-      THEN (to_jsonb(j)->>'last_error')::jsonb
-      ELSE NULL::jsonb
-    END AS last_error_json
+    COALESCE(to_jsonb(j)->>'last_error', '') AS last_error_raw
   FROM sms_inbound_coach_jobs j
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -2796,9 +2982,8 @@ inbound_pairing AS (
       ELSE 'no_job_found'
     END AS pairing_quality,
     COALESCE(
-      NULLIF(BTRIM(j.last_error_json->>'no_send_reason'), ''),
-      NULLIF(BTRIM(j.last_error_json->>'inbound_reply_no_send_reason'), ''),
       NULLIF(BTRIM((regexp_match(j.last_error_raw, '"no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
+      NULLIF(BTRIM((regexp_match(j.last_error_raw, '"inbound_reply_no_send_reason"\s*:\s*"([^"]+)"'))[1]), ''),
       ''
     ) AS actual_job_no_send_reason
   FROM inbounds i
@@ -2986,6 +3171,50 @@ issues AS (
   FROM classified_base cb
   WHERE NOT cb.has_body_path_coverage
     AND (cb.status ~* '(sent|delivered|accepted)' OR cb.message_sid <> '')
+
+  UNION ALL
+
+  SELECT
+    'Query 03 / 04 coach-body duplicate telemetry unreliable',
+    'warning',
+    'coach_body_duplicate_raw_json_only',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'raw_json mentions coach_body_near_duplicate but extracted coach_body_near_duplicate_detected / memory_repeat_no_send_reason / prior_coach_body_preview paths are empty'
+  FROM classified_base cb
+  WHERE cb.raw_json::text ~* 'coach_body_near_duplicate'
+    AND cb.coach_body_near_duplicate_detected = ''
+    AND cb.daily_coach_body_near_duplicate_blocked = ''
+    AND cb.memory_repeat_no_send_reason = ''
+    AND cb.prior_coach_body_preview = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 04 memory/thread freshness unreliable',
+    'warning',
+    'coach_body_duplicate_blocked_but_diagnostic_blank',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Coach-body near-duplicate telemetry present in metadata paths but Q04 may miss if lane_stage/no_send_reason paths differ'
+  FROM classified_base cb
+  WHERE (
+      cb.coach_body_near_duplicate_detected ~* 'true'
+      OR cb.daily_coach_body_near_duplicate_blocked ~* 'true'
+      OR cb.memory_repeat_no_send_reason = 'coach_body_near_duplicate'
+    )
+    AND cb.no_send_reason !~* 'memory|repeat|thread'
+    AND cb.memory_repeat_guard_attempted = ''
 ),
 agg AS (
   SELECT

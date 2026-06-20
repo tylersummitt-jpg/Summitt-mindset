@@ -1,4 +1,4 @@
-# SMS Daily Command Center — SQL Guide (v2.1)
+# SMS Daily Command Center — SQL Guide (v2.2)
 
 Read-only daily observability for Summitt Mindset SMS. **No production code changes** — run queries in Supabase SQL Editor only.
 
@@ -71,15 +71,15 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 
 | Query | What it answers | Points to code area |
 |-------|-----------------|---------------------|
-| **01 Command Center** | Eligible sends vs no-sends, rate, zero-question violations, memory/thread blocks, truth mismatches, VR failures, robot/time-of-day risks, `next_recommended_slice` | Daily lane, Strategy Card, eligible denominator |
-| **02 Thread Timeline** | Full user threads with ET daypart + copy-risk flags; inbound resolved-truth metadata on replies | Daily/weekly/inbound writers, time-of-day copy |
-| **03 Eligible No-Send** | Every eligible no-send + per-user repeat count, candidate/repair bodies | Lane no-send, memory repair, FVG |
-| **04 Memory / Thread** | Memory repeat skip (Slice 2), thread freshness repairs, question-shape on bodies | `daily_v3_lane` memory + thread freshness |
+| **01 Command Center** | Eligible sends vs no-sends, rate, zero-question violations, memory/thread blocks, coach-body duplicate blocks, truth mismatches, VR failures, robot/time-of-day risks, `next_recommended_slice` | Daily lane, Strategy Card, eligible denominator |
+| **02 Thread Timeline** | Full user threads with ET daypart + copy-risk flags; `near_duplicate_to_previous_coach_sms` review flag; inbound resolved-truth metadata on replies | Daily/weekly/inbound writers, time-of-day copy |
+| **03 Eligible No-Send** | Every eligible no-send + coach-body duplicate telemetry + per-user repeat count, candidate/repair bodies | Lane no-send, memory repeat, FVG |
+| **04 Memory / Thread** | Memory repeat skip (Slice 2), coach-body near-duplicate blocks, thread freshness repairs, question-shape on bodies | `daily_v3_lane` memory + thread freshness |
 | **05 Language Scan** | Zero-question violations, hidden questions, robot/recommit language (daily + weekly + inbound) | Strategy Card, Final Voice Gate, product-law guards |
 | **06 Inbound Pairing** | Ghosting, contradiction, completion→planning mismatch, resolved-truth continuity | `sms-inbound-coach` route, inbound lane |
-| **07 Truth Spine Cert** | Expected vs persisted outcomes, `cert_diagnostic`, known fixtures | `v2-inbound-accountability-outcome-persist`, meaning |
+| **07 Truth Spine Cert** | Expected vs persisted outcomes, `cert_diagnostic`, goal-change/amend-goals detection, known fixtures | `v2-inbound-accountability-outcome-persist`, meaning |
 | **08 No-Send Truth Loss** | Truth persisted despite no-send vs possible loss; pre-writer / on-no-send persist telemetry | No-send truth persistence (Case C) |
-| **09 Plans / Blockers / Goals** | Plans must not become proof; blockers captured; goal change not fake miss | Meaning backstops, blocker/contract paths |
+| **09 Plans / Blockers / Goals** | Plans must not become proof; blockers captured; amend/re-state/reset goal-change not fake miss | Meaning backstops, blocker/contract paths |
 | **10 Victory Room** | Spine proof → VR display eligibility; negative controls | Victory Room projection from spine |
 | **11 Weekly + Pending** | Weekly miss-count language, recommit/menu, pending verbatim, stuck state | Weekly writer, pending resolution |
 | **12 Final Guard / Side Room** | Product-law blocks vs telemetry-only noise vs raw_json false positives | Unified final guard, legacy/side paths |
