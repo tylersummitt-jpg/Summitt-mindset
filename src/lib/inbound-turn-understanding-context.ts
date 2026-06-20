@@ -447,11 +447,16 @@ function buildStaleAskCloseLoopRepairSystemInstruction(args: {
   const dnr = args.doNotRepeatAsks.slice(0, 4).join(" | ");
   const inboundPreview = args.rawInbound?.trim().slice(0, 200) ?? "";
   const meaning = args.reconciled?.reconciled_relationship_meaning ?? args.inboundMeaning?.relationship_meaning;
+  const goalChange = args.reconciled?.reconciled_goal_change_intent;
+  const goalChangeBridge =
+    goalChange?.authoritative && goalChange.detected
+      ? " GOAL-CHANGE BRIDGE: acknowledge amend/restate/reset/adjust intent; statement-only close-loop; do NOT ask what specific changes again; do NOT claim goal mutated."
+      : "";
   return `ANSWERED-PRIOR-ASK CLOSE-LOOP REPAIR: The draft repeats a coach question the user already answered.
 Rewrite as a short human close-loop acknowledgement of the user's answer.
 Do not re-ask the satisfied question or paraphrase it as a new ask.
 Do not ask another scheduling, commitment, or accountability question.
-Do not claim completion, proof saved, Victory, or any server state change.
+Do not claim completion, proof saved, Victory, or any server state change.${goalChangeBridge}
 Do NOT repeat or paraphrase these stale asks: ${dnr || args.repeatedPhrase || "prior satisfied ask"}.
 Latest inbound preview: ${inboundPreview || "(none)"}.
 Inbound meaning hint: ${meaning ?? "unclear"}.

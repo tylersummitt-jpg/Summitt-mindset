@@ -1805,3 +1805,46 @@ describe("no-send truth persistence hardening", () => {
     expect(second.status).toBe("duplicate");
   });
 });
+
+describe("goal-change outcome persist guard", () => {
+  it("does not persist user_yes when authoritative goal-change intent is present", () => {
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_goal_change_001",
+      commitmentId: "commit-1",
+      rawBody: "Yes we need to amend or re-state old goals",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      turnUnderstandingReconciled: {
+        proposal: null,
+        reconciled_relationship_meaning: "goal_adjustment_request",
+        reconciled_response_intent: "clarify_goal_change",
+        reconciled_persistence_decision: "no_outcome_write",
+        reconciled_do_not_repeat_asks: [],
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "unclear",
+        stale_ask_risk: true,
+        confidence: 0.82,
+        disagreement_flags: ["goal_change_not_outcome_write"],
+        interpreter_failed_reason: null,
+        stale_ask_avoided: true,
+        persistence_note: "test",
+        reconciled_goal_change_intent: {
+          authoritative: true,
+          detected: true,
+          adjustment_type: "amend",
+          source: "user_requested",
+          requires_confirmation: true,
+          proposed_new_goal_text: null,
+          evidence_quote: "amend or re-state old goals",
+          confidence: "high",
+          goal_change_not_outcome_write: true,
+          goal_change_no_state_mutation_without_confirmation: true,
+        },
+      },
+    });
+    expect(result.persist).toBe(false);
+    expect(result.skipReason).toBe("goal_change_not_outcome_write");
+  });
+});

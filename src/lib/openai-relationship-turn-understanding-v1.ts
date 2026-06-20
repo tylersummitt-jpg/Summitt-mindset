@@ -100,6 +100,52 @@ export type TurnUnderstandingRoutePriorityRecommendation =
   | "commitment_change"
   | "defer";
 
+export type TurnUnderstandingGoalAdjustmentType =
+  | "amend"
+  | "restate"
+  | "reset"
+  | "raise"
+  | "lower"
+  | "shrink"
+  | "replace"
+  | "new_goal"
+  | "blocker_focus"
+  | "unspecified"
+  | "none";
+
+export type TurnUnderstandingGoalChangeSource =
+  | "user_requested"
+  | "consistency_signal"
+  | "recurring_blocker"
+  | "none";
+
+export type TurnUnderstandingGoalChangeConfidenceLevel = "low" | "medium" | "high";
+
+/** OpenAI-proposed goal-change moment — advisory only; server confirms before any mutation. */
+export type TurnUnderstandingGoalChangeIntent = {
+  detected: boolean;
+  adjustment_type: TurnUnderstandingGoalAdjustmentType;
+  source: TurnUnderstandingGoalChangeSource;
+  requires_confirmation: boolean;
+  proposed_new_goal_text: string | null;
+  evidence_quote: string | null;
+  confidence: TurnUnderstandingGoalChangeConfidenceLevel;
+};
+
+/** Server-reconciled goal-change intent — authoritative when `authoritative` is true. */
+export type ReconciledGoalChangeIntent = {
+  authoritative: boolean;
+  detected: boolean;
+  adjustment_type: TurnUnderstandingGoalAdjustmentType;
+  source: TurnUnderstandingGoalChangeSource;
+  requires_confirmation: boolean;
+  proposed_new_goal_text: string | null;
+  evidence_quote: string | null;
+  confidence: TurnUnderstandingGoalChangeConfidenceLevel;
+  goal_change_not_outcome_write: true;
+  goal_change_no_state_mutation_without_confirmation: true;
+};
+
 export type OpenAIRelationshipTurnUnderstandingV1 = {
   version: typeof OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION;
   user_turn_summary: string;
@@ -119,6 +165,7 @@ export type OpenAIRelationshipTurnUnderstandingV1 = {
   uncertainty_flags: string[];
   route_priority_recommendation: TurnUnderstandingRoutePriorityRecommendation;
   safety_or_support_flags: string[];
+  goal_change_intent?: TurnUnderstandingGoalChangeIntent;
 };
 
 export type ReconciledTurnUnderstanding = {
@@ -140,6 +187,7 @@ export type ReconciledTurnUnderstanding = {
   turn_understanding_failed_safe_fallback?: boolean;
   turn_understanding_failed_safe_reason?: string | null;
   turn_understanding_failed_safe_do_not_repeat_asks?: string[];
+  reconciled_goal_change_intent: ReconciledGoalChangeIntent | null;
 };
 
 export type TurnUnderstandingPersistGuardMeta = {
@@ -303,6 +351,34 @@ const ROUTE_RECS = new Set([
   "defer",
 ]);
 
+const GOAL_ADJUSTMENT_TYPES = new Set<string>([
+  "amend",
+  "restate",
+  "reset",
+  "raise",
+  "lower",
+  "shrink",
+  "replace",
+  "new_goal",
+  "blocker_focus",
+  "unspecified",
+  "none",
+]);
+
+const GOAL_CHANGE_SOURCES = new Set<string>([
+  "user_requested",
+  "consistency_signal",
+  "recurring_blocker",
+  "none",
+]);
+
+const GOAL_CHANGE_CONFIDENCE_LEVELS = new Set<string>(["low", "medium", "high"]);
+
+const GOAL_CHANGE_AUTHORITATIVE_CONFIDENCE = new Set<TurnUnderstandingGoalChangeConfidenceLevel>([
+  "medium",
+  "high",
+]);
+
 function parseEnum<T extends string>(raw: unknown, allowed: Set<string>): T | null {
   return typeof raw === "string" && allowed.has(raw) ? (raw as T) : null;
 }
@@ -316,6 +392,199 @@ function parseStringArray(raw: unknown, maxItems: number, maxLen: number): strin
     if (out.length >= maxItems) break;
   }
   return out;
+}
+
+export function parseTurnUnderstandingGoalChangeIntent(
+  raw: unknown
+): TurnUnderstandingGoalChangeIntent | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.detected !== "boolean") return null;
+
+  const adjustment_type = parseEnum<TurnUnderstandingGoalAdjustmentType>(
+    o.adjustment_type,
+    GOAL_ADJUSTMENT_TYPES
+  );
+  const source = parseEnum<TurnUnderstandingGoalChangeSource>(o.source, GOAL_CHANGE_SOURCES);
+  const confidence = parseEnum<TurnUnderstandingGoalChangeConfidenceLevel>(
+    o.confidence,
+    GOAL_CHANGE_CONFIDENCE_LEVELS
+  );
+  if (!adjustment_type || !source || !confidence) return null;
+
+  const proposed_new_goal_text =
+    typeof o.proposed_new_goal_text === "string" && o.proposed_new_goal_text.trim()
+      ? truncateStore(o.proposed_new_goal_text, 200)
+      : null;
+  const evidence_quote =
+    typeof o.evidence_quote === "string" && o.evidence_quote.trim()
+      ? truncateStore(o.evidence_quote, 120)
+      : null;
+
+  return {
+    detected: o.detected,
+    adjustment_type,
+    source,
+    requires_confirmation: o.requires_confirmation !== false,
+    proposed_new_goal_text,
+    evidence_quote,
+    confidence,
+  };
+}
+
+/** Minimal server backstop when live interpreter failed — not a product brain. */
+export function inferMinimalGoalChangeIntentFromInbound(
+  rawInbound: string
+): TurnUnderstandingGoalChangeIntent | null {
+  const t = rawInbound.trim();
+  if (!t || t.length < 8) return null;
+
+  if (
+    /\b(thinking\s+about\s+goals?\s+generally|goals?\s+in\s+general|just\s+thinking\s+about\s+goals?)\b/i.test(
+      t
+    )
+  ) {
+    return null;
+  }
+
+  let adjustment_type: TurnUnderstandingGoalAdjustmentType = "unspecified";
+  if (/\b(amend|re-?state)\b.*\b(old\s+)?goals?\b/i.test(t) || /\bneed\s+to\s+amend\b/i.test(t)) {
+    adjustment_type = /\bre-?state\b/i.test(t) ? "restate" : "amend";
+  } else if (/\b(restate|re-state)\b.*\b(old\s+)?goals?\b/i.test(t)) {
+    adjustment_type = "restate";
+  } else if (/\breset\b.*\b(old\s+)?goals?\b/i.test(t) || /\breset\s+(the\s+)?goal\b/i.test(t)) {
+    adjustment_type = "reset";
+  } else if (/\b(too\s+easy|ready\s+for\s+more|raise\s+the\s+bar|every\s+day)\b/i.test(t)) {
+    adjustment_type = "raise";
+  } else if (/\b(too\s+hard|make\s+(this|it)\s+(smaller|easier)|can'?t\s+keep\s+up)\b/i.test(t)) {
+    adjustment_type = /\b(smaller|easier|shrink)\b/i.test(t) ? "shrink" : "lower";
+  } else if (/\b(no\s+longer\s+fits|different\s+goal|new\s+goal|replace\s+(the\s+)?goal)\b/i.test(t)) {
+    adjustment_type = /\bnew\s+goal\b/i.test(t) ? "new_goal" : "replace";
+  } else if (
+    /\b(blocker|getting\s+in\s+the\s+way|stopping\s+me)\b/i.test(t) &&
+    /\b(focus|target|goal|first)\b/i.test(t)
+  ) {
+    adjustment_type = "blocker_focus";
+  } else if (
+    /\b(change|adjust|revise|update|alter)\b.*\b(goal|goals|commitment|bar|standard)\b/i.test(t)
+  ) {
+    adjustment_type = "unspecified";
+  } else {
+    return null;
+  }
+
+  const evidenceMatch =
+    t.match(
+      /\b(yes[,.\s]+)?(we\s+)?need\s+to\s+(amend|re-?state)[^.!?]{0,60}/i
+    )?.[0] ??
+    t.match(/\b(amend|re-?state|reset|restate)[^.!?]{0,48}/i)?.[0] ??
+    t.slice(0, 80);
+
+  return {
+    detected: true,
+    adjustment_type,
+    source: "user_requested",
+    requires_confirmation: true,
+    proposed_new_goal_text: null,
+    evidence_quote: truncateStore(evidenceMatch, 120),
+    confidence: "medium",
+  };
+}
+
+export function isAuthoritativeReconciledGoalChangeIntent(
+  intent: ReconciledGoalChangeIntent | null | undefined
+): boolean {
+  return Boolean(intent?.authoritative && intent.detected && intent.adjustment_type !== "none");
+}
+
+export function buildReconciledGoalChangeIntent(args: {
+  proposalIntent: TurnUnderstandingGoalChangeIntent | null | undefined;
+  relationshipMeaning: TurnUnderstandingRelationshipMeaning;
+  overallConfidence: number;
+  fromFailedSafeFallback?: boolean;
+}): ReconciledGoalChangeIntent | null {
+  const proposal = args.proposalIntent;
+  const meaningSignalsGoalChange = args.relationshipMeaning === "goal_adjustment_request";
+
+  const detected =
+    proposal?.detected === true ||
+    (meaningSignalsGoalChange && args.overallConfidence >= LOW_CONFIDENCE_THRESHOLD);
+
+  if (!detected) return null;
+
+  const adjustment_type =
+    proposal?.adjustment_type && proposal.adjustment_type !== "none"
+      ? proposal.adjustment_type
+      : meaningSignalsGoalChange
+        ? "unspecified"
+        : "none";
+
+  if (adjustment_type === "none") return null;
+
+  const goalConfidence =
+    proposal?.confidence ??
+    (args.overallConfidence >= 0.75
+      ? "high"
+      : args.overallConfidence >= LOW_CONFIDENCE_THRESHOLD
+        ? "medium"
+        : "low");
+
+  const authoritative =
+    GOAL_CHANGE_AUTHORITATIVE_CONFIDENCE.has(goalConfidence) &&
+    (args.overallConfidence >= LOW_CONFIDENCE_THRESHOLD ||
+      proposal?.detected === true ||
+      args.fromFailedSafeFallback === true);
+
+  if (!authoritative) {
+    return {
+      authoritative: false,
+      detected: true,
+      adjustment_type,
+      source: proposal?.source ?? "user_requested",
+      requires_confirmation: true,
+      proposed_new_goal_text: proposal?.proposed_new_goal_text ?? null,
+      evidence_quote: proposal?.evidence_quote ?? null,
+      confidence: goalConfidence,
+      goal_change_not_outcome_write: true,
+      goal_change_no_state_mutation_without_confirmation: true,
+    };
+  }
+
+  return {
+    authoritative: true,
+    detected: true,
+    adjustment_type,
+    source: proposal?.source ?? (meaningSignalsGoalChange ? "user_requested" : "none"),
+    requires_confirmation: proposal?.requires_confirmation !== false,
+    proposed_new_goal_text: proposal?.proposed_new_goal_text ?? null,
+    evidence_quote: proposal?.evidence_quote ?? null,
+    confidence: goalConfidence,
+    goal_change_not_outcome_write: true,
+    goal_change_no_state_mutation_without_confirmation: true,
+  };
+}
+
+export function buildGoalChangeIntentTelemetry(
+  intent: ReconciledGoalChangeIntent | null | undefined
+): Record<string, unknown> {
+  if (!intent?.detected) {
+    return { goal_change_intent_detected: false };
+  }
+  return {
+    goal_change_intent_detected: true,
+    goal_change_authoritative: intent.authoritative,
+    goal_change_type: intent.adjustment_type,
+    goal_change_source: intent.source,
+    goal_change_confidence: intent.confidence,
+    goal_change_requires_confirmation: intent.requires_confirmation,
+    goal_change_proposed_text: intent.proposed_new_goal_text,
+    goal_change_evidence_quote: intent.evidence_quote,
+    goal_change_not_outcome_write: intent.goal_change_not_outcome_write,
+    goal_change_no_state_mutation_without_confirmation:
+      intent.goal_change_no_state_mutation_without_confirmation,
+    goal_change_routed_to_existing_handoff: intent.authoritative,
+    goal_change_pending_resolution_created: false,
+  };
 }
 
 export function parseOpenAIRelationshipTurnUnderstandingV1(
@@ -407,6 +676,11 @@ export function parseOpenAIRelationshipTurnUnderstandingV1(
       ? raw.reported_for_day_key.trim()
       : null;
 
+  const goal_change_intent =
+    raw.goal_change_intent != null
+      ? parseTurnUnderstandingGoalChangeIntent(raw.goal_change_intent)
+      : undefined;
+
   return {
     version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
     user_turn_summary,
@@ -426,6 +700,7 @@ export function parseOpenAIRelationshipTurnUnderstandingV1(
     uncertainty_flags,
     route_priority_recommendation,
     safety_or_support_flags,
+    ...(goal_change_intent != null ? { goal_change_intent } : {}),
   };
 }
 
@@ -452,7 +727,7 @@ export function buildTurnUnderstandingUserPrompt(args: BuildTurnUnderstandingPro
     "Interpret the user's latest inbound SMS for relationship turn understanding (shadow advisory — not final SMS).",
     "",
     "OUTPUT: Return ONLY valid JSON matching OpenAIRelationshipTurnUnderstandingV1:",
-    `{"version":"${OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION}","user_turn_summary":"...","evidence_quotes":["..."],"relationship_meaning":"...","answered_last_coach_ask":"yes|no|unclear","last_ask_satisfied":"yes|no|unclear","satisfaction_kind":"...","do_not_repeat_asks":["..."],"stale_ask_risk":false,"commitment_outcome_recommendation":"...","persistence_safety":"...","response_intent":"...","temporal_scope":"...","reported_for_day_key":null,"confidence":0.0,"uncertainty_flags":[],"route_priority_recommendation":"none","safety_or_support_flags":[]}`,
+    `{"version":"${OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION}","user_turn_summary":"...","evidence_quotes":["..."],"relationship_meaning":"...","answered_last_coach_ask":"yes|no|unclear","last_ask_satisfied":"yes|no|unclear","satisfaction_kind":"...","do_not_repeat_asks":["..."],"stale_ask_risk":false,"commitment_outcome_recommendation":"...","persistence_safety":"...","response_intent":"...","temporal_scope":"...","reported_for_day_key":null,"confidence":0.0,"uncertainty_flags":[],"route_priority_recommendation":"none","safety_or_support_flags":[],"goal_change_intent":{"detected":false,"adjustment_type":"none","source":"none","requires_confirmation":true,"proposed_new_goal_text":null,"evidence_quote":null,"confidence":"low"}}`,
     "",
     "RULES:",
     "- Propose meaning only. Do NOT write coach SMS.",
@@ -464,6 +739,16 @@ export function buildTurnUnderstandingUserPrompt(args: BuildTurnUnderstandingPro
     "- If uncertain, confidence < 0.55 and response_intent unclear_clarify.",
     "- evidence_quotes: at most 2 short spans from inbound only.",
     "- do_not_repeat_asks: at most 6 short normalized phrases.",
+    "",
+    "GOAL-CHANGE / GOAL-ADJUSTMENT (goal_change_intent — advisory only; server confirms before any mutation):",
+    "- Infer from natural language, not exact keywords. Examples (non-exhaustive): amend/re-state/reset old goals; goal too easy/hard; make it smaller; ready for more; goal no longer fits; blocker should be the target.",
+    "- Distinguish talking about goals in general (detected false) vs asking to change/adjust/restate/replace the current commitment.",
+    "- When goal_change_intent.detected is true: relationship_meaning should be goal_adjustment_request; commitment_outcome_recommendation must be no_outcome_write; persistence_safety must NOT be safe_to_write for user_yes/user_no/user_partial.",
+    "- Goal-change is NEVER user_yes, user_no, or user_partial proof — even if the message starts with yes.",
+    "- requires_confirmation is always true when detected. proposed_new_goal_text only when user gave a concrete new bar.",
+    "- adjustment_type: amend|restate|reset|raise|lower|shrink|replace|new_goal|blocker_focus|unspecified|none.",
+    "- source: user_requested unless coach-side consistency/blocker signals are explicit in thread.",
+    "- route_priority_recommendation commitment_change or pending_resolution when detected with medium/high goal_change_intent.confidence.",
     "",
     `proof_callout_claim_saved_allowed: ${args.proofCalloutClaimSavedAllowed}`,
     `deterministic_relationship_meaning: ${args.deterministicMeaning.relationship_meaning}`,
@@ -492,7 +777,8 @@ export function buildTurnUnderstandingUserPrompt(args: BuildTurnUnderstandingPro
 }
 
 const TURN_UNDERSTANDING_SYSTEM_PROMPT = `You interpret inbound SMS for a long-term coaching relationship.
-Return strict JSON only. Never write the coach's reply text.`;
+Return strict JSON only. Never write the coach's reply text.
+Goal-change intent is advisory only — never treat it as proof or permission to mutate the commitment.`;
 
 function getOpenAIClientOrNull(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -528,7 +814,7 @@ export async function callOpenAIRelationshipTurnUnderstandingV1(
       client,
       model,
       temperature: 0.25,
-      maxTokens: 520,
+      maxTokens: 680,
       primaryMessages: [
         { role: "system", content: TURN_UNDERSTANDING_SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
@@ -756,6 +1042,103 @@ export function resolveFailedSafePersistenceDecision(args: {
   return "no_outcome_write";
 }
 
+function applyAuthoritativeGoalChangeToReconciledFields(args: {
+  reconciled_relationship_meaning: TurnUnderstandingRelationshipMeaning;
+  reconciled_response_intent: TurnUnderstandingResponseIntent;
+  reconciled_persistence_decision: InboundPersistenceDecision;
+  last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk;
+  reconciled_goal_change_intent: ReconciledGoalChangeIntent;
+  disagreement_flags: string[];
+}): {
+  reconciled_relationship_meaning: TurnUnderstandingRelationshipMeaning;
+  reconciled_response_intent: TurnUnderstandingResponseIntent;
+  reconciled_persistence_decision: InboundPersistenceDecision;
+  last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk;
+  disagreement_flags: string[];
+} {
+  const flags = [...args.disagreement_flags, "goal_change_not_outcome_write"];
+  let response_intent = args.reconciled_response_intent;
+  if (
+    args.reconciled_goal_change_intent.authoritative &&
+    (response_intent === "ask_next_specific_step" ||
+      response_intent === "unclear_clarify" ||
+      response_intent === "acknowledge_completion")
+  ) {
+    response_intent = "clarify_goal_change";
+    flags.push("goal_change_intent_coaching_move");
+  }
+  if (
+    args.last_ask_satisfied === "yes" &&
+    args.reconciled_goal_change_intent.authoritative
+  ) {
+    response_intent = "clarify_goal_change";
+    flags.push("goal_change_prior_ask_satisfied_bridge");
+  }
+  return {
+    reconciled_relationship_meaning: "goal_adjustment_request",
+    reconciled_response_intent: response_intent,
+    reconciled_persistence_decision: "no_outcome_write",
+    last_ask_satisfied: args.last_ask_satisfied,
+    disagreement_flags: flags,
+  };
+}
+
+function finalizeReconciledGoalChange(args: {
+  proposal: OpenAIRelationshipTurnUnderstandingV1 | null;
+  reconciled_relationship_meaning: TurnUnderstandingRelationshipMeaning;
+  reconciled_response_intent: TurnUnderstandingResponseIntent;
+  reconciled_persistence_decision: InboundPersistenceDecision;
+  last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk;
+  confidence: number;
+  disagreement_flags: string[];
+  rawInboundForFallback?: string | null;
+  fromFailedSafeFallback?: boolean;
+}): {
+  reconciled_relationship_meaning: TurnUnderstandingRelationshipMeaning;
+  reconciled_response_intent: TurnUnderstandingResponseIntent;
+  reconciled_persistence_decision: InboundPersistenceDecision;
+  last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk;
+  reconciled_goal_change_intent: ReconciledGoalChangeIntent | null;
+  disagreement_flags: string[];
+} {
+  let proposalIntent = args.proposal?.goal_change_intent ?? null;
+  if (!proposalIntent?.detected && args.fromFailedSafeFallback && args.rawInboundForFallback) {
+    proposalIntent = inferMinimalGoalChangeIntentFromInbound(args.rawInboundForFallback);
+  }
+
+  const reconciled_goal_change_intent = buildReconciledGoalChangeIntent({
+    proposalIntent,
+    relationshipMeaning: args.reconciled_relationship_meaning,
+    overallConfidence: args.confidence,
+    fromFailedSafeFallback: args.fromFailedSafeFallback,
+  });
+
+  if (!isAuthoritativeReconciledGoalChangeIntent(reconciled_goal_change_intent)) {
+    return {
+      reconciled_relationship_meaning: args.reconciled_relationship_meaning,
+      reconciled_response_intent: args.reconciled_response_intent,
+      reconciled_persistence_decision: args.reconciled_persistence_decision,
+      last_ask_satisfied: args.last_ask_satisfied,
+      reconciled_goal_change_intent,
+      disagreement_flags: args.disagreement_flags,
+    };
+  }
+
+  const applied = applyAuthoritativeGoalChangeToReconciledFields({
+    reconciled_relationship_meaning: args.reconciled_relationship_meaning,
+    reconciled_response_intent: args.reconciled_response_intent,
+    reconciled_persistence_decision: args.reconciled_persistence_decision,
+    last_ask_satisfied: args.last_ask_satisfied,
+    reconciled_goal_change_intent: reconciled_goal_change_intent!,
+    disagreement_flags: args.disagreement_flags,
+  });
+
+  return {
+    ...applied,
+    reconciled_goal_change_intent: reconciled_goal_change_intent!,
+  };
+}
+
 export function buildInterpreterFailedSafeReconciled(args: {
   interpreterFailedReason: string;
   proposal: OpenAIRelationshipTurnUnderstandingV1 | null;
@@ -793,19 +1176,33 @@ export function buildInterpreterFailedSafeReconciled(args: {
     reconciled_response_intent = "tell_truth_and_recover";
   }
 
-  return {
+  const baseMeaning = hasCompletionClause
+    ? "reported_completion"
+    : mapDeterministicToTurnMeaning(args.deterministicMeaning.relationship_meaning);
+
+  const finalized = finalizeReconciledGoalChange({
     proposal: args.proposal,
-    reconciled_relationship_meaning: hasCompletionClause
-      ? "reported_completion"
-      : mapDeterministicToTurnMeaning(args.deterministicMeaning.relationship_meaning),
+    reconciled_relationship_meaning: baseMeaning,
     reconciled_response_intent,
     reconciled_persistence_decision,
-    reconciled_do_not_repeat_asks: do_not_repeat_asks,
     last_ask_satisfied: "unclear",
+    confidence: 0.35,
+    disagreement_flags: ["interpreter_failed_safe_fallback"],
+    rawInboundForFallback: args.rawInbound,
+    fromFailedSafeFallback: true,
+  });
+
+  return {
+    proposal: args.proposal,
+    reconciled_relationship_meaning: finalized.reconciled_relationship_meaning,
+    reconciled_response_intent: finalized.reconciled_response_intent,
+    reconciled_persistence_decision: finalized.reconciled_persistence_decision,
+    reconciled_do_not_repeat_asks: do_not_repeat_asks,
+    last_ask_satisfied: finalized.last_ask_satisfied,
     satisfaction_kind: "unclear",
     stale_ask_risk,
     confidence: 0.35,
-    disagreement_flags: ["interpreter_failed_safe_fallback"],
+    disagreement_flags: finalized.disagreement_flags,
     interpreter_failed_reason: args.interpreterFailedReason,
     stale_ask_avoided: stale_ask_risk && do_not_repeat_asks.length > 0,
     persistence_note:
@@ -813,6 +1210,7 @@ export function buildInterpreterFailedSafeReconciled(args: {
     turn_understanding_failed_safe_fallback: true,
     turn_understanding_failed_safe_reason: args.interpreterFailedReason,
     turn_understanding_failed_safe_do_not_repeat_asks: do_not_repeat_asks,
+    reconciled_goal_change_intent: finalized.reconciled_goal_change_intent,
   };
 }
 
@@ -840,6 +1238,7 @@ export function reconcileTurnUnderstanding(
       interpreter_failed_reason: null,
       stale_ask_avoided: false,
       persistence_note: "server kept deterministic persistence (hard route priority)",
+      reconciled_goal_change_intent: null,
     };
   }
 
@@ -859,6 +1258,7 @@ export function reconcileTurnUnderstanding(
       interpreter_failed_reason: failed ?? "no_proposal",
       stale_ask_avoided: false,
       persistence_note: "server kept deterministic persistence (interpreter unavailable)",
+      reconciled_goal_change_intent: null,
     };
   }
 
@@ -930,20 +1330,31 @@ export function reconcileTurnUnderstanding(
       ? `server persistence unchanged: ${reconciled_persistence_decision}`
       : `server adjusted persistence to ${reconciled_persistence_decision} (deterministic was ${det.persistence_decision})`;
 
-  return {
+  const finalized = finalizeReconciledGoalChange({
     proposal: p,
     reconciled_relationship_meaning,
     reconciled_response_intent,
     reconciled_persistence_decision,
-    reconciled_do_not_repeat_asks,
     last_ask_satisfied,
+    confidence,
+    disagreement_flags,
+  });
+
+  return {
+    proposal: p,
+    reconciled_relationship_meaning: finalized.reconciled_relationship_meaning,
+    reconciled_response_intent: finalized.reconciled_response_intent,
+    reconciled_persistence_decision: finalized.reconciled_persistence_decision,
+    reconciled_do_not_repeat_asks,
+    last_ask_satisfied: finalized.last_ask_satisfied,
     satisfaction_kind,
     stale_ask_risk,
     confidence,
-    disagreement_flags,
+    disagreement_flags: finalized.disagreement_flags,
     interpreter_failed_reason: null,
     stale_ask_avoided,
     persistence_note,
+    reconciled_goal_change_intent: finalized.reconciled_goal_change_intent,
   };
 }
 
@@ -1036,7 +1447,7 @@ TURN_UNDERSTANDING (structured_recent_truth.turn_understanding — authoritative
 - acknowledge_prior_ask_satisfied and close_loop_no_new_action are NOT proof saved and NOT Victory Room unless proof_victory_permission explicitly allows.
 - If response_intent is acknowledge_result_and_next_standard: acknowledge the user's reported result and their stated next standard; do NOT ask an old outcome triad (protected/partial/missed) they already answered.
 - If response_intent is unclear_clarify: one concise clarifying question — not the stale old coach ask.
-`;
+- If reconciled goal-change intent is authoritative: this is NOT proof/outcome; do NOT treat as user_yes/user_no; do NOT claim the goal changed; bridge toward commitment-change context without repeating prior goal-change clarification asks.`;
 }
 
 export function buildTurnUnderstandingPersistGuardMeta(args: {
@@ -1062,6 +1473,9 @@ export function shouldBlockClassifierYesForSatisfiedAsk(
   turn: ReconciledTurnUnderstanding,
   inboundMeaning: InboundMeaningFacts
 ): boolean {
+  if (isAuthoritativeReconciledGoalChangeIntent(turn.reconciled_goal_change_intent)) {
+    return true;
+  }
   if (turn.last_ask_satisfied !== "yes") return false;
   if (!SATISFACTION_KINDS_BLOCKING_CLASSIFIER_YES.has(turn.satisfaction_kind)) return false;
   if (shouldPromoteClarifyForReportedCompletionPersist({ inboundMeaning })) return false;
@@ -1105,6 +1519,7 @@ export function slimTurnUnderstandingMetadata(
             r.turn_understanding_failed_safe_do_not_repeat_asks ?? r.reconciled_do_not_repeat_asks,
         }
       : {}),
+    ...buildGoalChangeIntentTelemetry(r.reconciled_goal_change_intent),
   };
 }
 

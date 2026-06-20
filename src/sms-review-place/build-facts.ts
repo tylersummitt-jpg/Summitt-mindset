@@ -407,6 +407,7 @@ function buildOpenQuestionAnswerInboundFacts(args: {
           stale_ask_avoided: false,
           persistence_note: "clear open question answer",
           proposal: null,
+          reconciled_goal_change_intent: null,
         }
       : undefined;
 
@@ -426,6 +427,7 @@ function buildOpenQuestionAnswerInboundFacts(args: {
           stale_ask_avoided: false,
           persistence_note: "unclear open question answer",
           proposal: null,
+          reconciled_goal_change_intent: null,
         }
       : undefined;
 
@@ -445,6 +447,7 @@ function buildOpenQuestionAnswerInboundFacts(args: {
           stale_ask_avoided: false,
           persistence_note: "plan ack",
           proposal: null,
+          reconciled_goal_change_intent: null,
         }
       : undefined;
 
@@ -464,6 +467,7 @@ function buildOpenQuestionAnswerInboundFacts(args: {
           stale_ask_avoided: true,
           persistence_note: "satisfied open question",
           proposal: null,
+          reconciled_goal_change_intent: null,
         }
       : undefined;
 
@@ -902,6 +906,7 @@ function buildConversationBrainFallbackInboundFacts(args: {
           stale_ask_avoided: true,
           persistence_note: "legacy fallback TU suppress fixture",
           proposal: null,
+          reconciled_goal_change_intent: null,
         }
       : undefined;
 

@@ -14,7 +14,11 @@ vi.mock("openai", () => ({
 
 import {
   OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+  buildReconciledGoalChangeIntent,
+  inferMinimalGoalChangeIntentFromInbound,
+  isAuthoritativeReconciledGoalChangeIntent,
   parseOpenAIRelationshipTurnUnderstandingV1,
+  parseTurnUnderstandingGoalChangeIntent,
   reconcileTurnUnderstanding,
   runInboundRelationshipTurnUnderstanding,
   resolveInboundTurnUnderstandingSkipReason,
@@ -47,6 +51,32 @@ function makeValidProposal(
     safety_or_support_flags: [],
     ...overrides,
   };
+}
+
+function makeGoalChangeProposal(
+  overrides: Partial<OpenAIRelationshipTurnUnderstandingV1> = {}
+): OpenAIRelationshipTurnUnderstandingV1 {
+  return makeValidProposal({
+    relationship_meaning: "goal_adjustment_request",
+    response_intent: "clarify_goal_change",
+    commitment_outcome_recommendation: "no_outcome_write",
+    persistence_safety: "do_not_write_but_acknowledge",
+    answered_last_coach_ask: "yes",
+    last_ask_satisfied: "yes",
+    stale_ask_risk: true,
+    do_not_repeat_asks: ["what specific changes or adjustments are you considering"],
+    confidence: 0.82,
+    goal_change_intent: {
+      detected: true,
+      adjustment_type: "amend",
+      source: "user_requested",
+      requires_confirmation: true,
+      proposed_new_goal_text: null,
+      evidence_quote: "amend or re-state old goals",
+      confidence: "high",
+    },
+    ...overrides,
+  });
 }
 
 function meaningFor(text: string) {
@@ -373,5 +403,83 @@ describe("integration scenarios — reconciled intent", () => {
     });
     expect(r.last_ask_satisfied).toBe("no");
     expect(r.reconciled_response_intent).toBe("reinforce_plan_without_proof");
+  });
+});
+
+describe("goal_change_intent schema", () => {
+  it("parses goal_change_intent on amend/restate proposal", () => {
+    const p = makeGoalChangeProposal();
+    const parsed = parseOpenAIRelationshipTurnUnderstandingV1(
+      p as unknown as Record<string, unknown>
+    );
+    expect(parsed?.goal_change_intent?.detected).toBe(true);
+    expect(parsed?.goal_change_intent?.adjustment_type).toBe("amend");
+    expect(parsed?.goal_change_intent?.requires_confirmation).toBe(true);
+    expect(parsed?.goal_change_intent?.evidence_quote).toMatch(/amend|re-state/i);
+  });
+
+  it("inferMinimalGoalChangeIntentFromInbound detects amend/restate", () => {
+    const intent = inferMinimalGoalChangeIntentFromInbound(
+      "Yes we need to amend or re-state old goals"
+    );
+    expect(intent?.detected).toBe(true);
+    expect(["amend", "restate"]).toContain(intent?.adjustment_type);
+    expect(intent?.evidence_quote).toMatch(/amend|re-state/i);
+  });
+
+  it("inferMinimalGoalChangeIntentFromInbound detects reset", () => {
+    const intent = inferMinimalGoalChangeIntentFromInbound("Can we reset the old goal?");
+    expect(intent?.detected).toBe(true);
+    expect(intent?.adjustment_type).toBe("reset");
+  });
+
+  it("does not treat general goal talk as goal-change", () => {
+    expect(
+      inferMinimalGoalChangeIntentFromInbound("I was thinking about goals generally")
+    ).toBeNull();
+  });
+
+  it("reconcile preserves authoritative goal-change and blocks outcome write", () => {
+    const det = meaningFor("Yes we need to amend or re-state old goals");
+    const r = reconcileTurnUnderstanding({
+      proposal: makeGoalChangeProposal(),
+      deterministicMeaning: det,
+      latestCoachQuestion: "What specific changes or adjustments are you considering?",
+    });
+    expect(isAuthoritativeReconciledGoalChangeIntent(r.reconciled_goal_change_intent)).toBe(true);
+    expect(r.reconciled_persistence_decision).toBe("no_outcome_write");
+    expect(r.reconciled_relationship_meaning).toBe("goal_adjustment_request");
+    expect(r.reconciled_response_intent).toBe("clarify_goal_change");
+    expect(r.disagreement_flags).toContain("goal_change_not_outcome_write");
+  });
+
+  it("classifies raise/lower/replace goal-change types", () => {
+    for (const [body, type] of [
+      ["This goal is too easy", "raise"],
+      ["This goal is too hard", "lower"],
+      ["This goal no longer fits", "replace"],
+    ] as const) {
+      const intent = inferMinimalGoalChangeIntentFromInbound(body);
+      expect(intent?.detected).toBe(true);
+      expect(intent?.adjustment_type).toBe(type);
+    }
+  });
+
+  it("buildReconciledGoalChangeIntent requires confirmation", () => {
+    const intent = buildReconciledGoalChangeIntent({
+      proposalIntent: parseTurnUnderstandingGoalChangeIntent({
+        detected: true,
+        adjustment_type: "restate",
+        source: "user_requested",
+        requires_confirmation: true,
+        proposed_new_goal_text: null,
+        evidence_quote: "restate",
+        confidence: "medium",
+      }),
+      relationshipMeaning: "goal_adjustment_request",
+      overallConfidence: 0.7,
+    });
+    expect(intent?.requires_confirmation).toBe(true);
+    expect(intent?.goal_change_no_state_mutation_without_confirmation).toBe(true);
   });
 });

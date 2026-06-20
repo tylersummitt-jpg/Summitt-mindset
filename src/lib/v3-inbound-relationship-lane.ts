@@ -98,10 +98,15 @@ import { buildTemporalContractForInbound } from "@/lib/sms-temporal-contract-v1"
 import {
   buildTurnUnderstandingLaneGuardrails,
   coachingMoveFromReconciledResponseIntent,
+  isAuthoritativeReconciledGoalChangeIntent,
   isTurnUnderstandingAuthoritative,
   reconciledTurnUnderstandingOverridesOpenQuestionFacts,
   slimTurnUnderstandingMetadata,
+  type ReconciledGoalChangeIntent,
   type ReconciledTurnUnderstanding,
+  type TurnUnderstandingGoalAdjustmentType,
+  type TurnUnderstandingGoalChangeConfidenceLevel,
+  type TurnUnderstandingGoalChangeSource,
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
   buildPostValidateCloseLoopProtectPlanRepairInstruction,
@@ -819,6 +824,79 @@ export function buildCommitmentChangeContextFactsForHeuristicInbound(args: {
   };
 }
 
+/** Server-owned goal-change facts from authoritative Turn Understanding (no DB mutation). */
+export type InboundV3GoalChangeFacts = {
+  goal_change_intent_detected: true;
+  goal_change_type: TurnUnderstandingGoalAdjustmentType;
+  goal_change_source: TurnUnderstandingGoalChangeSource;
+  goal_change_confidence: TurnUnderstandingGoalChangeConfidenceLevel;
+  goal_change_requires_confirmation: true;
+  goal_change_proposed_text: string | null;
+  goal_change_evidence_quote: string | null;
+  goal_change_not_outcome_write: true;
+  goal_change_no_state_mutation_without_confirmation: true;
+  goal_change_routed_to_existing_handoff: boolean;
+  goal_change_pending_resolution_created: false;
+  prior_goal_change_ask_satisfied: boolean;
+  stale_ask_goal_change_bridge_eligible: boolean;
+};
+
+export function buildInboundV3GoalChangeFactsFromReconciledTurn(args: {
+  intent: ReconciledGoalChangeIntent;
+  priorGoalChangeAskSatisfied: boolean;
+}): InboundV3GoalChangeFacts {
+  return {
+    goal_change_intent_detected: true,
+    goal_change_type: args.intent.adjustment_type,
+    goal_change_source: args.intent.source,
+    goal_change_confidence: args.intent.confidence,
+    goal_change_requires_confirmation: true,
+    goal_change_proposed_text: args.intent.proposed_new_goal_text,
+    goal_change_evidence_quote: args.intent.evidence_quote,
+    goal_change_not_outcome_write: true,
+    goal_change_no_state_mutation_without_confirmation: true,
+    goal_change_routed_to_existing_handoff: args.intent.authoritative,
+    goal_change_pending_resolution_created: false,
+    prior_goal_change_ask_satisfied: args.priorGoalChangeAskSatisfied,
+    stale_ask_goal_change_bridge_eligible:
+      args.priorGoalChangeAskSatisfied && args.intent.authoritative,
+  };
+}
+
+export function buildCommitmentChangeContextFactsFromTuGoalChange(args: {
+  commitment: ActiveV2CommitmentRow;
+  userMessage: string;
+  messageSid: string;
+  gatedMode: string;
+  goalChangeFacts: InboundV3GoalChangeFacts;
+}): InboundV3CommitmentChangeContextFacts {
+  const snapParts = [
+    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
+    `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
+  ];
+  const preview = args.userMessage.trim().replace(/\s+/g, " ").slice(0, 320);
+  const typeLabel = args.goalChangeFacts.goal_change_type;
+  const req =
+    `Authoritative Turn Understanding detected user-initiated goal-change (${typeLabel}) — no Wave4 pending-resolution was created on this branch and no_state_change_taken is true. ` +
+    "Do NOT claim the written commitment row changed, do NOT claim a pending SMS update flow was started, and do NOT invent new commitment terms. " +
+    (args.goalChangeFacts.prior_goal_change_ask_satisfied
+      ? "The user already answered a prior goal-change clarification ask — write a short statement bridge acknowledging amend/restate/reset intent; max_questions 0; do NOT ask what specific changes or adjustments again."
+      : "Offer one honest next coaching move toward clarifying the new standard — not today's accountability proof.") +
+    " If unsafe or uncertain, return should_send false.";
+
+  return {
+    heuristic_commitment_change_intent: true,
+    gated_mode: args.gatedMode,
+    server_decision: "not_handoff",
+    current_commitment_snapshot: snapParts.join(" | "),
+    user_message_preview: preview,
+    requested_change_summary: `tu_goal_change:${typeLabel}`,
+    no_state_change_taken: true,
+    required_meaning_summary: req,
+    inbound_message_sid: args.messageSid,
+  };
+}
+
 /** Adaptive overlay proposal consent — server already applied/declined; legacy ACK is preview only. */
 export type InboundV3ContractConsentFacts = {
   consent_parse: "user_yes" | "user_no";
@@ -1084,6 +1162,7 @@ export type InboundV3RelationshipFacts = {
   adaptive_consent_clarification_facts?: InboundV3AdaptiveConsentClarificationFacts | null;
   commitment_change_facts?: InboundV3CommitmentChangeFacts | null;
   commitment_change_context_facts?: InboundV3CommitmentChangeContextFacts | null;
+  goal_change_facts?: InboundV3GoalChangeFacts | null;
   comms_preferences_facts?: InboundV3CommsPreferencesFacts | null;
   conversation_brain_fallback_facts?: InboundV3ConversationBrainFallbackFacts | null;
   /** Read-only Victory Room background (season label + Pat Read); non-speakable unless naturally relevant. */
@@ -1258,6 +1337,7 @@ export type InboundRequiredReplyMove =
   | "acknowledge_miss_without_shame"
   | "acknowledge_blocker"
   | "clarify_once"
+  | "goal_change_bridge"
   | "general_support";
 
 export type InboundResolvedTruth = {
@@ -1616,6 +1696,12 @@ export function deriveInboundCoachingMoveForFacts(
   if (f.adaptive_consent_clarification_facts) {
     return {
       move: "ask_clear_yes_or_no_for_pending_adaptive_proposal",
+      coaching_move_source: "hard_route",
+    };
+  }
+  if (f.goal_change_facts?.goal_change_intent_detected) {
+    return {
+      move: "respond_commitment_change_context_without_pending_resolution",
       coaching_move_source: "hard_route",
     };
   }
@@ -2031,6 +2117,7 @@ export function detectInboundResolvedTruthZeroQuestionViolation(
     "acknowledge_completion",
     "close_loop_on_answered_ask",
     "protect_future_plan",
+    "goal_change_bridge",
   ];
   if (!zeroQuestionMoves.includes(rt.required_reply_move)) {
     return { violation: false, reason: null };
@@ -3142,6 +3229,38 @@ export function deriveInboundResolvedTruth(args: {
   const tu = args.turnUnderstanding;
   const tuAuthoritative = tu != null && isTurnUnderstandingAuthoritative(tu);
 
+  const authoritativeGoalChange = tu?.reconciled_goal_change_intent;
+  if (isAuthoritativeReconciledGoalChangeIntent(authoritativeGoalChange)) {
+    const priorAskSatisfied =
+      tu!.last_ask_satisfied === "yes" ||
+      args.thread.memory_correction_should_use_prior_user_answer ||
+      args.thread.short_ack_should_not_reask_question;
+    const mustNotDo = [
+      "Do not treat this as proof, user_yes, user_no, or user_partial.",
+      "Do not mutate the goal or commitment without server confirmation.",
+      "Do not claim the goal was already changed or updated.",
+    ];
+    if (priorAskSatisfied) {
+      mustNotDo.push(
+        "Do not ask what specific changes or adjustments are you considering again.",
+        "Do not paraphrase the prior goal-change clarification ask as a new question."
+      );
+    }
+    return {
+      latest_user_text: raw,
+      resolved_outcome: "none",
+      temporal_scope: "unspecified",
+      plan_detected: false,
+      blocker_detected: false,
+      answered_recent_ask: priorAskSatisfied,
+      satisfied_recent_ask: priorAskSatisfied,
+      persistence_decision: "no_outcome_write",
+      required_reply_move: "goal_change_bridge",
+      max_questions_override: 0,
+      must_not_do: mustNotDo,
+    };
+  }
+
   const isTodayCompletion =
     meaning.persistence_decision === "write_user_yes_today" ||
     (meaning.relationship_meaning === "reported_completion" &&
@@ -3270,7 +3389,8 @@ INBOUND_RESOLVED_TRUTH (structured_recent_truth.inbound_resolved_truth — autho
 - When max_questions_override is 0, write statement-only SMS: no question mark and no ask-shaped commands.
 - acknowledge_completion: acknowledge what the user completed; max_questions 0; never ask whether it already happened, never ask for proof/evidence again, never turn completion into tomorrow planning.
 - close_loop_on_answered_ask: the user already answered — close the loop; max_questions 0; never repeat the prior ask or ask for the same evidence again.
-- protect_future_plan: preserve the future plan as plan/open loop; max_questions 0; never ask "did you do it?" or treat the plan as completion proof.`;
+- protect_future_plan: preserve the future plan as plan/open loop; max_questions 0; never ask "did you do it?" or treat the plan as completion proof.
+- goal_change_bridge: user-initiated goal amend/restate/reset/raise/lower/replace — NOT proof; max_questions 0 when prior ask satisfied; acknowledge intent and bridge toward commitment-change context without repeating prior goal-change clarification asks; never claim the goal mutated.`;
 }
 
 export function inboundResolvedTruthTelemetryMeta(
@@ -3321,16 +3441,16 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     args.conversationBrainFallbackFacts?.coaching_route_meaning_summary?.trim() ||
     null;
 
-  const routePurpose = args.routePurpose ?? "normal_inbound_reply";
+  const routePurposeInitial = args.routePurpose ?? "normal_inbound_reply";
   const threadMemoryBase = deriveInboundThreadMemoryCorrectionFields({
     recentTranscriptLines: args.transcriptLines,
     currentInbound: args.coalescedInboundText,
-    routePurpose,
+    routePurpose: routePurposeInitial,
   });
   const threadMemory = enhanceThreadCorrectionFromMemoryPacket(
     threadMemoryBase,
     args.relationshipMemoryPacket ?? undefined,
-    routePurpose
+    routePurposeInitial
   );
   const mp = args.relationshipMemoryPacket;
   const mergedDoNotRepeat = [...args.doNotRepeatHints, ...(mp?.do_not_repeat_phrases ?? [])];
@@ -3369,11 +3489,49 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
   });
 
   const turnReconciled = args.turnUnderstandingReconciled ?? null;
-  const persistenceForFacts =
+
+  let routePurpose = routePurposeInitial;
+  let commitmentChangeContextFacts = args.commitmentChangeContextFacts ?? null;
+  let goalChangeFacts: InboundV3GoalChangeFacts | null = null;
+
+  if (
+    turnReconciled &&
+    isAuthoritativeReconciledGoalChangeIntent(turnReconciled.reconciled_goal_change_intent)
+  ) {
+    const goalIntent = turnReconciled.reconciled_goal_change_intent!;
+    const priorGoalChangeAskSatisfied =
+      turnReconciled.last_ask_satisfied === "yes" ||
+      threadMemory.memory_correction_should_use_prior_user_answer ||
+      threadMemory.short_ack_should_not_reask_question;
+    goalChangeFacts = buildInboundV3GoalChangeFactsFromReconciledTurn({
+      intent: goalIntent,
+      priorGoalChangeAskSatisfied,
+    });
+    if (!commitmentChangeContextFacts) {
+      commitmentChangeContextFacts = buildCommitmentChangeContextFactsFromTuGoalChange({
+        commitment: args.commitment,
+        userMessage: args.coalescedInboundText,
+        messageSid: args.suppressedMessageSids[0] ?? "",
+        gatedMode: args.gatedDecision.mode,
+        goalChangeFacts,
+      });
+    }
+    if (routePurpose === "normal_inbound_reply") {
+      routePurpose = "commitment_change_context";
+    }
+  }
+
+  let persistenceForFacts =
     turnReconciled?.reconciled_persistence_decision ?? inboundMeaning.persistence_decision;
-  const effectiveInboundMeaning: InboundMeaningFacts =
-    turnReconciled != null
-      ? { ...inboundMeaning, persistence_decision: persistenceForFacts }
+  if (goalChangeFacts) {
+    persistenceForFacts = "no_outcome_write";
+  }
+  let effectiveInboundMeaning: InboundMeaningFacts =
+    turnReconciled != null || goalChangeFacts
+      ? {
+          ...inboundMeaning,
+          persistence_decision: persistenceForFacts,
+        }
       : inboundMeaning;
 
   const reconciledFinalEventType = reconcileLegacyAccountabilityEventTypeFromMeaning({
@@ -3396,7 +3554,9 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
     commitmentChangeRouteActive: Boolean(
       args.commitmentChangeFacts ||
         args.adaptiveConsentClarificationFacts ||
-        args.contractConsentFacts
+        args.contractConsentFacts ||
+        commitmentChangeContextFacts ||
+        goalChangeFacts
     ),
   });
 
@@ -3433,9 +3593,10 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       ? { adaptive_consent_clarification_facts: args.adaptiveConsentClarificationFacts }
       : {}),
     ...(args.commitmentChangeFacts != null ? { commitment_change_facts: args.commitmentChangeFacts } : {}),
-    ...(args.commitmentChangeContextFacts != null
-      ? { commitment_change_context_facts: args.commitmentChangeContextFacts }
+    ...(commitmentChangeContextFacts != null
+      ? { commitment_change_context_facts: commitmentChangeContextFacts }
       : {}),
+    ...(goalChangeFacts != null ? { goal_change_facts: goalChangeFacts } : {}),
     ...(args.commsPreferencesFacts != null
       ? { comms_preferences_facts: args.commsPreferencesFacts }
       : {}),
@@ -3653,6 +3814,15 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       if (t.length >= 12) forbidden.push(t.slice(0, Math.min(120, t.length)));
     }
     facts.constraints.forbidden_substrings = [...new Set(forbidden)];
+  }
+  if (goalChangeFacts?.stale_ask_goal_change_bridge_eligible) {
+    facts.constraints.forbidden_substrings = [
+      ...(facts.constraints.forbidden_substrings ?? []),
+      "what specific changes",
+      "adjustments are you considering",
+      "adjustments you have in mind",
+      "changes or adjustments",
+    ];
   }
   facts.thread_freshness = deriveRecentThreadFreshnessFacts({
     recentExactThreadText: mp?.recent_exact_thread_text ?? null,

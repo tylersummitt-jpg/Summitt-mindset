@@ -34,6 +34,7 @@ import {
 import { shortAnswerDisqualifiesOutcomeProof, normalizeShortAnswerText } from "@/lib/inbound-short-answer-polarity";
 import {
   buildTurnUnderstandingPersistGuardMeta,
+  isAuthoritativeReconciledGoalChangeIntent,
   isTurnUnderstandingAuthoritative,
   shouldBlockClassifierYesForSatisfiedAsk,
   type ReconciledTurnUnderstanding,
@@ -87,7 +88,8 @@ export type InboundOutcomePersistSkipReason =
   | "plan_or_proposal_rejection_backstop"
   | "coach_context_correction_not_miss"
   | "coach_process_dispute_not_miss"
-  | "onboarding_process_dispute_not_miss";
+  | "onboarding_process_dispute_not_miss"
+  | "goal_change_not_outcome_write";
 
 export type InboundOutcomePersistResult =
   | {
@@ -579,6 +581,20 @@ export function shouldPersistInboundAccountabilityOutcome(
 
   const baselineResult = evaluateShouldPersistWithMeaning(args, inboundMeaning);
   const tu = args.turnUnderstandingReconciled;
+  if (isAuthoritativeReconciledGoalChangeIntent(tu?.reconciled_goal_change_intent)) {
+    const guard = buildTurnUnderstandingPersistGuardMeta({
+      turn: tu!,
+      baselinePersistence: inboundMeaning.persistence_decision,
+      effectivePersistence: "no_outcome_write",
+      persistAllowed: false,
+      guardReason: "goal_change_not_outcome_write",
+    });
+    return {
+      persist: false,
+      skipReason: "goal_change_not_outcome_write",
+      turnUnderstandingPersistGuard: guard,
+    };
+  }
   if (!tu || !isTurnUnderstandingAuthoritative(tu)) {
     return baselineResult;
   }

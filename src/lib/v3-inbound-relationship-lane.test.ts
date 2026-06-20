@@ -17,7 +17,14 @@ vi.mock("openai", () => ({
   },
 }));
 
-import type { V2InboundGatedDecision } from "@/lib/v2-ai-inbound";
+import {
+  buildInboundMeaningFacts,
+  type InboundMeaningFacts,
+} from "@/lib/inbound-relationship-meaning";
+import {
+  OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+  reconcileTurnUnderstanding,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { isV3OwnedInboundReplySource } from "@/lib/v3-sms-brain";
 import { isV3RelationshipVoiceReplySource } from "@/lib/north-star-coach-sms";
@@ -4584,5 +4591,158 @@ describe("inbound resolved truth zero-question guard", () => {
     expect(guidance).toMatch(/never ask whether it already happened/i);
     expect(guidance).toMatch(/close_loop_on_answered_ask/i);
     expect(guidance).toMatch(/protect_future_plan/i);
+    expect(guidance).toMatch(/goal_change_bridge/i);
+  });
+});
+
+describe("goal-change Turn Understanding facts wiring", () => {
+  it("buildInboundV3RelationshipFacts wires goal_change bridge for amend/restate", () => {
+    const body = "Yes we need to amend or re-state old goals";
+    const det = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: null,
+    });
+    const tu = reconcileTurnUnderstanding({
+      proposal: {
+        version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+        user_turn_summary: "User wants to amend or re-state old goals.",
+        evidence_quotes: ["amend or re-state old goals"],
+        relationship_meaning: "goal_adjustment_request",
+        answered_last_coach_ask: "yes",
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "answered_no",
+        do_not_repeat_asks: ["what specific changes or adjustments are you considering"],
+        stale_ask_risk: true,
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "do_not_write_but_acknowledge",
+        response_intent: "clarify_goal_change",
+        temporal_scope: "today",
+        reported_for_day_key: null,
+        confidence: 0.84,
+        uncertainty_flags: [],
+        route_priority_recommendation: "commitment_change",
+        safety_or_support_flags: [],
+        goal_change_intent: {
+          detected: true,
+          adjustment_type: "amend",
+          source: "user_requested",
+          requires_confirmation: true,
+          proposed_new_goal_text: null,
+          evidence_quote: "amend or re-state old goals",
+          confidence: "high",
+        },
+      },
+      deterministicMeaning: det,
+      latestCoachQuestion: "What specific changes or adjustments are you considering?",
+    });
+
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "Alex",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Two hours deep work before noon",
+      userMessageRaw: body,
+      coalescedInboundText: body,
+      suppressedMessageSids: ["SM_GOAL_CHANGE"],
+      transcriptLines: [
+        "Coach: What specific changes or adjustments are you considering?",
+        `User: ${body}`,
+      ],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "What specific changes or adjustments are you considering?",
+        latestOpenQuestion: "What specific changes or adjustments are you considering?",
+        expectedReplySemantics: "proposal_yes_no",
+        latestOutboundWasDailyCheck: false,
+        missSignal: false,
+        blockerSignal: false,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_yes" },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false, suggested_move: null, confidence: null },
+      centralBrain: { enabled: false, suggested_move: null },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        latest_open_question: "What specific changes or adjustments are you considering?",
+        open_question_pending: true,
+      }),
+      turnUnderstandingReconciled: tu,
+    });
+
+    expect(facts.goal_change_facts?.goal_change_intent_detected).toBe(true);
+    expect(facts.route_purpose).toBe("commitment_change_context");
+    expect(facts.suggested_coaching_move).toBe(
+      "respond_commitment_change_context_without_pending_resolution"
+    );
+    expect(facts.inbound_resolved_truth?.required_reply_move).toBe("goal_change_bridge");
+    expect(facts.inbound_resolved_truth?.max_questions_override).toBe(0);
+    expect(facts.inbound_meaning.persistence_decision).toBe("no_outcome_write");
+    expect(facts.constraints.forbidden_substrings?.some((s) => /specific changes/i.test(s))).toBe(
+      true
+    );
+  });
+
+  it("deriveInboundResolvedTruth uses goal_change_bridge for authoritative goal-change", () => {
+    const body = "Yes we need to amend or re-state old goals";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: body,
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: null,
+    });
+    const rt = deriveInboundResolvedTruth({
+      latestUserText: body,
+      inboundMeaning,
+      finalEventType: null,
+      turnUnderstanding: {
+        proposal: null,
+        reconciled_relationship_meaning: "goal_adjustment_request",
+        reconciled_response_intent: "clarify_goal_change",
+        reconciled_persistence_decision: "no_outcome_write",
+        reconciled_do_not_repeat_asks: ["what specific changes"],
+        last_ask_satisfied: "yes",
+        satisfaction_kind: "unclear",
+        stale_ask_risk: true,
+        confidence: 0.8,
+        disagreement_flags: [],
+        interpreter_failed_reason: null,
+        stale_ask_avoided: true,
+        persistence_note: "test",
+        reconciled_goal_change_intent: {
+          authoritative: true,
+          detected: true,
+          adjustment_type: "amend",
+          source: "user_requested",
+          requires_confirmation: true,
+          proposed_new_goal_text: null,
+          evidence_quote: "amend or re-state old goals",
+          confidence: "high",
+          goal_change_not_outcome_write: true,
+          goal_change_no_state_mutation_without_confirmation: true,
+        },
+      },
+      thread: {
+        short_ack_should_not_reask_question: false,
+        memory_correction_should_use_prior_user_answer: false,
+        current_inbound_is_short_acknowledgement: false,
+      },
+    });
+    expect(rt.required_reply_move).toBe("goal_change_bridge");
+    expect(rt.max_questions_override).toBe(0);
+    expect(rt.must_not_do.some((m) => /user_yes/i.test(m))).toBe(true);
   });
 });

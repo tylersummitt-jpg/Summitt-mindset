@@ -329,6 +329,7 @@ function hasStrategyCardBlockingBranchFacts(facts: InboundV3RelationshipFacts): 
   if (facts.adaptive_consent_clarification_facts) return true;
   if (facts.commitment_change_facts) return true;
   if (facts.commitment_change_context_facts) return true;
+  if (facts.goal_change_facts) return true;
   if (facts.central_brain_pivot_facts) return true;
   if (facts.central_brain_blocker_pivot_facts) return true;
   if (facts.arc_clarification_facts) return true;
@@ -361,6 +362,7 @@ function hasArcClarifyBlockingBranchFacts(facts: InboundV3RelationshipFacts): bo
   if (facts.adaptive_consent_clarification_facts) return true;
   if (facts.commitment_change_facts) return true;
   if (facts.commitment_change_context_facts) return true;
+  if (facts.goal_change_facts) return true;
   if (facts.central_brain_pivot_facts) return true;
   if (facts.central_brain_blocker_pivot_facts) return true;
   if (facts.open_question_facts) return true;
