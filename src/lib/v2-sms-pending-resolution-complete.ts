@@ -326,6 +326,24 @@ export async function bootstrapSmsPendingConfirmationFromInbound(args: {
 
   const detectedIntent = pending.payload.detected_intent;
   let extracted = extractBootstrapCandidateForPending(raw, detectedIntent);
+
+  const payloadPreCandidate =
+    pending.kind === "commitment_tighten"
+      ? pending.payload.candidate_tightened_bar?.trim() ||
+        pending.payload.candidate_behavior_statement?.trim() ||
+        null
+      : pending.payload.candidate_new_bar?.trim() ||
+        pending.payload.candidate_behavior_statement?.trim() ||
+        null;
+
+  if (
+    payloadPreCandidate &&
+    !isUnsafeSmsGoalCandidateText(payloadPreCandidate) &&
+    !isVagueOrInvalidCandidateBar(payloadPreCandidate)
+  ) {
+    extracted = payloadPreCandidate;
+  }
+
   if (preferRichTextOverBareDuration(raw, extracted)) {
     extracted = null;
   }

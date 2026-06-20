@@ -190,7 +190,9 @@ import {
 import {
   applyWave4SmsCommitmentPendingResolution,
   buildSmsCommitmentChangeCoachReply,
+  buildTuGoalChangeHandoffTelemetry,
   deriveSmsCommitmentChangeIntent,
+  evaluateTuGoalChangePendingHandoff,
   shouldOpenCommitmentChangeHandoff,
   type V2SmsCommitmentIntentPack,
 } from "@/lib/v2-sms-commitment-change";
@@ -1799,6 +1801,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
   wave4PendingResult: Awaited<ReturnType<typeof applyWave4SmsCommitmentPendingResolution>>;
   shouldPersistNonOutcomeMemoryEvent: boolean;
   memorySignalStored: ReturnType<typeof buildStoredMemorySignalPayload> | null;
+  tuGoalChangeHandoffTelemetry?: Record<string, unknown> | null;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
   const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
@@ -1841,6 +1844,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
     server_state_transition_summary: args.commitmentChangeFacts.server_state_transition_summary,
     required_meaning_summary: args.commitmentChangeFacts.required_meaning_summary,
     required_verbatim_substrings: args.commitmentChangeFacts.required_verbatim_substrings ?? null,
+    ...(args.tuGoalChangeHandoffTelemetry ?? {}),
   });
 
   const handoffTruthPolicy = buildCommitmentHandoffNoSendTruthPolicyContext({
@@ -4663,17 +4667,29 @@ async function processV2NormalInboundOutcome(
     nowMs: Date.now(),
   });
 
+  const tuGoalChangePendingHandoffEval = evaluateTuGoalChangePendingHandoff({
+    reconciledGoalChangeIntent:
+      inboundTurnUnderstandingCtx.reconciled?.reconciled_goal_change_intent ?? null,
+    commitment,
+    userMessage,
+    plannedInterruptionActionable,
+    classificationEventType: eventType,
+  });
+
+  const identitySuppressesCommitmentHandoff = shouldSuppressCommitmentChangeHandoffForIdentity({
+    detection: identityEditDetection,
+    identityLaneActive: identityEditLaneActive,
+  });
+
   const openCommitmentChangeHandoff =
-    shouldOpenCommitmentChangeHandoff({
+    (shouldOpenCommitmentChangeHandoff({
       gatedMode: gatedDecision.mode,
       userMessage,
       plannedInterruptionActionable,
       classificationEventType: eventType,
     }) &&
-    !shouldSuppressCommitmentChangeHandoffForIdentity({
-      detection: identityEditDetection,
-      identityLaneActive: identityEditLaneActive,
-    });
+      !identitySuppressesCommitmentHandoff) ||
+    (tuGoalChangePendingHandoffEval.open && !identitySuppressesCommitmentHandoff);
 
   /** Wave-4 handoff uses its own lane entrypoint; main lane skips duplicate produce. */
   const normalInboundV3OwnershipEligible =
@@ -5534,12 +5550,14 @@ async function processV2NormalInboundOutcome(
   > | null = null;
 
   if (openCommitmentChangeHandoff && !plannedInterruptionActionable) {
-    handoffCommitmentIntentPack = deriveSmsCommitmentChangeIntent({
-      rawBody: userMessage,
-      interpretation: shadowInterpretationRaw,
-      goalAdjustmentMove: goalAdjustmentSignalPreHandoff.move,
-      plannedInterruptionActionable: false,
-    });
+    handoffCommitmentIntentPack =
+      tuGoalChangePendingHandoffEval.intentPack ??
+      deriveSmsCommitmentChangeIntent({
+        rawBody: userMessage,
+        interpretation: shadowInterpretationRaw,
+        goalAdjustmentMove: goalAdjustmentSignalPreHandoff.move,
+        plannedInterruptionActionable: false,
+      });
     if (handoffCommitmentIntentPack.intent !== "sms_soft_quit_or_frustration") {
       try {
         const prWave = await applyWave4SmsCommitmentPendingResolution({
@@ -6124,6 +6142,10 @@ async function processV2NormalInboundOutcome(
       wave4PendingResult: w4,
       shouldPersistNonOutcomeMemoryEvent,
       memorySignalStored,
+      tuGoalChangeHandoffTelemetry: buildTuGoalChangeHandoffTelemetry(
+        tuGoalChangePendingHandoffEval,
+        w4
+      ),
     });
     return;
   }

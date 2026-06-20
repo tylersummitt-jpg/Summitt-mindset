@@ -565,7 +565,13 @@ export function buildReconciledGoalChangeIntent(args: {
 }
 
 export function buildGoalChangeIntentTelemetry(
-  intent: ReconciledGoalChangeIntent | null | undefined
+  intent: ReconciledGoalChangeIntent | null | undefined,
+  pendingMeta?: {
+    pendingResolutionCreated?: boolean;
+    pendingKind?: string | null;
+    pendingSkipReason?: string | null;
+    handoffOpened?: boolean;
+  } | null
 ): Record<string, unknown> {
   if (!intent?.detected) {
     return { goal_change_intent_detected: false };
@@ -578,12 +584,16 @@ export function buildGoalChangeIntentTelemetry(
     goal_change_confidence: intent.confidence,
     goal_change_requires_confirmation: intent.requires_confirmation,
     goal_change_proposed_text: intent.proposed_new_goal_text,
+    goal_change_proposed_new_goal_text_present: Boolean(intent.proposed_new_goal_text?.trim()),
     goal_change_evidence_quote: intent.evidence_quote,
     goal_change_not_outcome_write: intent.goal_change_not_outcome_write,
     goal_change_no_state_mutation_without_confirmation:
       intent.goal_change_no_state_mutation_without_confirmation,
-    goal_change_routed_to_existing_handoff: intent.authoritative,
-    goal_change_pending_resolution_created: false,
+    goal_change_routed_to_existing_handoff:
+      pendingMeta?.handoffOpened ?? pendingMeta?.pendingResolutionCreated ?? intent.authoritative,
+    goal_change_pending_resolution_created: pendingMeta?.pendingResolutionCreated === true,
+    goal_change_pending_kind: pendingMeta?.pendingKind ?? null,
+    goal_change_pending_skip_reason: pendingMeta?.pendingSkipReason ?? null,
   };
 }
 

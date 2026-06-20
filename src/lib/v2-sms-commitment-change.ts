@@ -22,6 +22,11 @@ import {
 import type { SmsGoalAdjustmentMove } from "@/lib/sms-goal-adjustment-signal";
 import { isLikelyCommitmentChangeIntentTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 import { isStrongV2YesNoOutcome } from "@/lib/v2-sms-accountability";
+import {
+  isAuthoritativeReconciledGoalChangeIntent,
+  type ReconciledGoalChangeIntent,
+  type TurnUnderstandingGoalAdjustmentType,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 
 /** Server-owned SMS commitment-change intent (prompt/logging only; not shown to user). */
 export type V2SmsCommitmentServerIntent =
@@ -234,6 +239,236 @@ export function extractCandidateBarsFromSms(raw: string): {
 /**
  * Map AI shadow interpretation + heuristics to a server intent for SMS handling.
  */
+/** Slice 2A — TU types that may open Wave4 pending when a concrete bar is present. */
+const TU_CONCRETE_BAR_PENDING_TYPES = new Set<TurnUnderstandingGoalAdjustmentType>([
+  "replace",
+  "new_goal",
+  "raise",
+  "lower",
+  "shrink",
+  "blocker_focus",
+]);
+
+export type TuGoalChangePendingSkipReason =
+  | "not_authoritative"
+  | "deferred_slice_2b_type"
+  | "missing_proposed_bar"
+  | "unsafe_or_invalid_bar"
+  | "vague_candidate"
+  | "identical_to_current_bar"
+  | "existing_pending"
+  | "planned_interruption"
+  | "unsafe_inbound"
+  | "strong_outcome_classification"
+  | "no_active_commitment"
+  | "mapper_failed";
+
+export type TuGoalChangePendingHandoffEval = {
+  open: boolean;
+  skipReason: TuGoalChangePendingSkipReason | null;
+  intentPack: V2SmsCommitmentIntentPack | null;
+  validatedProposedBar: string | null;
+};
+
+function normalizeGoalBarForCompare(text: string): string {
+  return text.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function tuConfidenceToAiScore(
+  confidence: ReconciledGoalChangeIntent["confidence"]
+): number {
+  if (confidence === "high") return 0.9;
+  if (confidence === "medium") return 0.7;
+  return 0.5;
+}
+
+/** Server validation for TU proposed_new_goal_text — no DB writes. */
+export function validateTuProposedGoalBarText(args: {
+  proposedText: string | null | undefined;
+  currentBehaviorStatement: string | null | undefined;
+}): {
+  ok: boolean;
+  normalized: string | null;
+  skipReason: TuGoalChangePendingSkipReason | null;
+} {
+  const normalized = normalizeGoalBarForCompare(args.proposedText ?? "");
+  if (!normalized) {
+    return { ok: false, normalized: null, skipReason: "missing_proposed_bar" };
+  }
+  const display = args.proposedText!.trim().replace(/\s+/g, " ").slice(0, CANDIDATE_EXTRACT_MAX);
+  if (isUnsafeSmsGoalCandidateText(display)) {
+    return { ok: false, normalized: null, skipReason: "unsafe_or_invalid_bar" };
+  }
+  if (isVagueOrInvalidSmsGoalCandidate(display)) {
+    return { ok: false, normalized: null, skipReason: "vague_candidate" };
+  }
+  const current = normalizeGoalBarForCompare(args.currentBehaviorStatement ?? "");
+  if (current && current === normalizeGoalBarForCompare(display)) {
+    return { ok: false, normalized: null, skipReason: "identical_to_current_bar" };
+  }
+  return { ok: true, normalized: display, skipReason: null };
+}
+
+/**
+ * Maps authoritative reconciled TU goal-change (with validated bar) into existing Wave4 intent pack.
+ * Server-only — no OpenAI calls, no DB writes, no SMS copy.
+ */
+export function deriveIntentPackFromReconciledGoalChange(args: {
+  intent: ReconciledGoalChangeIntent;
+  validatedProposedBar: string;
+}): V2SmsCommitmentIntentPack | null {
+  const type = args.intent.adjustment_type;
+  if (!TU_CONCRETE_BAR_PENDING_TYPES.has(type)) return null;
+
+  const bar = args.validatedProposedBar.trim().replace(/\s+/g, " ").slice(0, CANDIDATE_EXTRACT_MAX);
+  if (!bar) return null;
+
+  const aiConfidence = tuConfidenceToAiScore(args.intent.confidence);
+
+  if (type === "lower" || type === "shrink") {
+    return {
+      intent: "sms_tighten_request",
+      candidateTightenedBar: bar,
+      candidateNewBar: null,
+      aiConfidence,
+    };
+  }
+
+  if (type === "raise") {
+    return {
+      intent: "sms_raise_bar_request",
+      candidateTightenedBar: null,
+      candidateNewBar: bar,
+      aiConfidence,
+    };
+  }
+
+  // replace, new_goal, blocker_focus
+  return {
+    intent: "sms_replace_request",
+    candidateTightenedBar: null,
+    candidateNewBar: bar,
+    aiConfidence,
+  };
+}
+
+export function shouldOpenTuGoalChangePendingHandoff(args: {
+  reconciledGoalChangeIntent: ReconciledGoalChangeIntent | null | undefined;
+  commitment: ActiveV2CommitmentRow | null | undefined;
+  userMessage: string;
+  plannedInterruptionActionable: boolean;
+  classificationEventType: "user_yes" | "user_no" | "user_partial" | null;
+}): boolean {
+  return evaluateTuGoalChangePendingHandoff(args).open;
+}
+
+/** Gate + mapper for TU concrete proposed bar → existing Wave4 pending hallway (Slice 2A). */
+export function evaluateTuGoalChangePendingHandoff(args: {
+  reconciledGoalChangeIntent: ReconciledGoalChangeIntent | null | undefined;
+  commitment: ActiveV2CommitmentRow | null | undefined;
+  userMessage: string;
+  plannedInterruptionActionable: boolean;
+  classificationEventType: "user_yes" | "user_no" | "user_partial" | null;
+}): TuGoalChangePendingHandoffEval {
+  const intent = args.reconciledGoalChangeIntent;
+  if (!isAuthoritativeReconciledGoalChangeIntent(intent)) {
+    return { open: false, skipReason: "not_authoritative", intentPack: null, validatedProposedBar: null };
+  }
+
+  if (!args.commitment?.id) {
+    return { open: false, skipReason: "no_active_commitment", intentPack: null, validatedProposedBar: null };
+  }
+
+  if (args.plannedInterruptionActionable) {
+    return { open: false, skipReason: "planned_interruption", intentPack: null, validatedProposedBar: null };
+  }
+
+  const body = args.userMessage.trim();
+  const safety = classifyInboundSmsSafetyTier(body, { fromPhone: null, messageSid: null });
+  if (safety.tier !== "safe") {
+    return { open: false, skipReason: "unsafe_inbound", intentPack: null, validatedProposedBar: null };
+  }
+
+  if (args.classificationEventType && isStrongV2YesNoOutcome(args.classificationEventType)) {
+    return {
+      open: false,
+      skipReason: "strong_outcome_classification",
+      intentPack: null,
+      validatedProposedBar: null,
+    };
+  }
+
+  if (!TU_CONCRETE_BAR_PENDING_TYPES.has(intent!.adjustment_type)) {
+    return {
+      open: false,
+      skipReason: "deferred_slice_2b_type",
+      intentPack: null,
+      validatedProposedBar: null,
+    };
+  }
+
+  if (getPendingResolutionOrNull(args.commitment)) {
+    return {
+      open: false,
+      skipReason: "existing_pending",
+      intentPack: null,
+      validatedProposedBar: null,
+    };
+  }
+
+  const validated = validateTuProposedGoalBarText({
+    proposedText: intent!.proposed_new_goal_text,
+    currentBehaviorStatement: args.commitment.behavior_statement,
+  });
+  if (!validated.ok || !validated.normalized) {
+    return {
+      open: false,
+      skipReason: validated.skipReason ?? "unsafe_or_invalid_bar",
+      intentPack: null,
+      validatedProposedBar: null,
+    };
+  }
+
+  const intentPack = deriveIntentPackFromReconciledGoalChange({
+    intent: intent!,
+    validatedProposedBar: validated.normalized,
+  });
+  if (!intentPack) {
+    return {
+      open: false,
+      skipReason: "mapper_failed",
+      intentPack: null,
+      validatedProposedBar: validated.normalized,
+    };
+  }
+
+  return {
+    open: true,
+    skipReason: null,
+    intentPack,
+    validatedProposedBar: validated.normalized,
+  };
+}
+
+export function buildTuGoalChangeHandoffTelemetry(
+  evalResult: TuGoalChangePendingHandoffEval,
+  wave4?: {
+    pendingApplied: boolean;
+    pendingKind: V2PendingResolutionKind | null;
+    skipReason: Wave4PendingSkipReason | null;
+  } | null
+): Record<string, unknown> {
+  return {
+    tu_goal_change_handoff_opened: evalResult.open,
+    goal_change_proposed_new_goal_text_present: Boolean(evalResult.validatedProposedBar),
+    goal_change_pending_skip_reason:
+      evalResult.skipReason ?? wave4?.skipReason ?? null,
+    goal_change_pending_resolution_created: wave4?.pendingApplied === true,
+    goal_change_pending_kind: wave4?.pendingKind ?? null,
+    goal_change_routed_to_existing_handoff: evalResult.open || wave4?.pendingApplied === true,
+  };
+}
+
 export function shouldOpenCommitmentChangeHandoff(args: {
   gatedMode: string;
   userMessage: string;
