@@ -103,6 +103,7 @@ function minimalMemoryPacket(
     recent_exact_thread_text: "",
     recent_exact_message_count: 0,
     recent_exact_thread_72h: emptyThread72h(),
+    recent_coach_body_do_not_repeat: [],
     relationship_memory_7d: emptyMemory7d(),
     relationship_memory_30d: emptyMemory30d(),
     last_outbound_full_body: null,

@@ -28,6 +28,7 @@ import { buildVictoryBackgroundLaneGuardrails } from "@/lib/sms-victory-backgrou
 import { deriveTimingAnchorMemory } from "@/lib/timing-anchor-memory";
 import {
   DEFAULT_CONTRACT_WRAPPER_MUST_NOT_REPEAT,
+  buildDailyRecentCoachBodyDoNotRepeatGuidance,
   detectContractWrapperDuplicates,
   deriveSuggestedCoachingMoveForDailyFacts,
   enrichDailyFactsWithThreadFreshness,
@@ -127,6 +128,38 @@ describe("deriveSuggestedCoachingMoveForDailyFacts", () => {
       },
     });
     expect(deriveSuggestedCoachingMoveForDailyFacts(f)).toBe("close_prior_plan_loop");
+  });
+});
+
+describe("buildDailyRecentCoachBodyDoNotRepeatGuidance", () => {
+  it("includes prior coach body previews when recent_coach_body_do_not_repeat is set", () => {
+    const prior =
+      "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
+    const guidance = buildDailyRecentCoachBodyDoNotRepeatGuidance(
+      baseFacts({
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          recent_coach_body_do_not_repeat: [
+            {
+              body: prior,
+              body_preview: prior.slice(0, 120),
+              sent_at: "2026-06-19T12:02:00.000Z",
+              at_local: "Jun 19, 7:02 AM",
+              source_table: "sms_send_events",
+              role: "coach",
+            },
+          ],
+        },
+      })
+    );
+    expect(guidance).toContain("RECENT COACH BODY DO-NOT-REPEAT");
+    expect(guidance).toContain("Do not repeat or lightly paraphrase");
+    expect(guidance).toContain("distribution yesterday");
+    expect(guidance).toContain("Jun 19, 7:02 AM");
+  });
+
+  it("returns empty string when no recent coach bodies", () => {
+    expect(buildDailyRecentCoachBodyDoNotRepeatGuidance(baseFacts())).toBe("");
   });
 });
 

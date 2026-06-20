@@ -57,6 +57,7 @@ import {
   slimMemoryPacketForFacts,
   type SmsRelationshipMemoryPacket,
 } from "@/lib/sms-relationship-memory-packet";
+import { extractRecentCoachBodiesForAntiRepeat } from "@/lib/sms-recent-coach-body-anti-repeat";
 
 const NOW = new Date("2026-05-18T12:00:00.000Z");
 
@@ -364,6 +365,65 @@ describe("buildSmsRelationshipMemoryPacket", () => {
   });
 });
 
+describe("extractRecentCoachBodiesForAntiRepeat", () => {
+  it("extracts sent coach bodies only with timestamps, excluding user and preview", () => {
+    const thread = {
+      messages: [
+        {
+          at: "2026-06-19T12:02:00.000Z",
+          at_local: "Jun 19, 7:02 AM",
+          at_local_timezone: "America/New_York",
+          local_day_key: "2026-06-19",
+          role: "user" as const,
+          body: "Done with distribution",
+          message_kind: null,
+          source_table: "sms_inbound_messages",
+          message_sid: "SMuser1",
+          delivery_status: "sent" as const,
+          is_exact_body: true,
+        },
+        {
+          at: "2026-06-19T12:02:00.000Z",
+          at_local: "Jun 19, 7:02 AM",
+          at_local_timezone: "America/New_York",
+          local_day_key: "2026-06-19",
+          role: "coach" as const,
+          body: "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.",
+          message_kind: "daily",
+          source_table: "sms_send_events",
+          message_sid: "SMcoach1",
+          delivery_status: "sent" as const,
+          is_exact_body: true,
+        },
+        {
+          at: "2026-06-19T11:00:00.000Z",
+          at_local: "Jun 19, 6:00 AM",
+          at_local_timezone: "America/New_York",
+          local_day_key: "2026-06-19",
+          role: "coach" as const,
+          body: "Preview only",
+          message_kind: "check_sent_preview",
+          source_table: "v2_commitment_event_check_sent",
+          message_sid: null,
+          delivery_status: "preview" as const,
+          is_exact_body: false,
+        },
+      ],
+      window_hours: 72 as const,
+      message_count: 3,
+      had_preview_messages: true,
+      had_system_no_send: false,
+    };
+
+    const bodies = extractRecentCoachBodiesForAntiRepeat(thread);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]!.role).toBe("coach");
+    expect(bodies[0]!.at_local).toBe("Jun 19, 7:02 AM");
+    expect(bodies[0]!.body).toContain("distribution yesterday");
+    expect(bodies[0]!.body_preview).toContain("distribution");
+  });
+});
+
 describe("buildSmsRelationshipMemoryPacket projection (M2B-4)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -545,6 +605,7 @@ function makeRbMemoryPacket(): SmsRelationshipMemoryPacket {
       had_preview_messages: false,
       had_system_no_send: false,
     },
+    recent_coach_body_do_not_repeat: [],
     relationship_memory_7d: {
       window_days: 7,
       built_at: NOW.toISOString(),

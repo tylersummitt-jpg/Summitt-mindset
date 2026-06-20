@@ -63,6 +63,8 @@ import {
   detectThreadFreshnessViolations,
   type ThreadFreshnessFacts,
 } from "@/lib/sms-thread-freshness";
+import type { RecentCoachBodyDoNotRepeat } from "@/lib/sms-recent-coach-body-anti-repeat";
+import { PROMPT_COACH_BODY_DO_NOT_REPEAT_MAX } from "@/lib/sms-recent-coach-body-anti-repeat";
 import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
@@ -151,6 +153,29 @@ function resolveDailyZeroQuestionModeFromCard(card: StrategyCardV1 | null): bool
     card.server_truth_summary.daily_zero_question_required === true ||
     card.server_truth_summary.daily_high_repeat_risk === true
   );
+}
+
+/** Compact writer authority: do not paraphrase recent coach SMS bodies from last 72h. */
+export function buildDailyRecentCoachBodyDoNotRepeatGuidance(
+  facts: DailyV3RelationshipFacts
+): string {
+  const bodies = facts.thread_memory.recent_coach_body_do_not_repeat ?? [];
+  if (!bodies.length) return "";
+
+  const lines = [
+    "",
+    "RECENT COACH BODY DO-NOT-REPEAT (authoritative — beats summaries and generic encouragement):",
+    "- Do not repeat or lightly paraphrase any coach SMS from the last 72 hours.",
+    "- If a prior coach text already praised the same proof and gave the same next action, choose a different honest move grounded in the current goal and recent thread.",
+  ];
+
+  const forPrompt = bodies.slice(-PROMPT_COACH_BODY_DO_NOT_REPEAT_MAX);
+  for (const b of forPrompt) {
+    const when = b.at_local?.trim() ? `[${b.at_local}] ` : "";
+    lines.push(`- ${when}Coach already sent: "${b.body_preview}"`);
+  }
+
+  return lines.join("\n");
 }
 
 /** Wrapper must not restate server-owned binding instructional phrases (contract_prompt only). */
@@ -247,6 +272,8 @@ export type DailyV3RelationshipFacts = {
     do_not_repeat_hints: string[];
     coaching_memory_snippet: string;
     recent_pattern_hints: string | null;
+    /** Sent coach SMS bodies from last 72h — anti-repeat guard + writer authority. */
+    recent_coach_body_do_not_repeat?: RecentCoachBodyDoNotRepeat[];
   };
   accountability: {
     daily_purpose: V2DailyMessagePurpose;
@@ -1208,6 +1235,7 @@ ${strategyCardPromptGuidance}
 - recent_exact_thread (when present) is the highest-priority transcript — it outranks coaching summaries and older transcript blocks when they conflict.
 ${strategyCardC1Eligible ? buildDailyC1StrategyCardDemotedPromptRules() : ""}
 ${strategyCardC1Eligible || dailyZeroQuestionMode ? "" : `- Do NOT ask the same question as any entry in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.`}
+${buildDailyRecentCoachBodyDoNotRepeatGuidance(laneFacts)}
 ${dailyOpenQuestionGuidance}
 ${dailySatisfiedAskAdvanceLine}
 - If thread_memory.latest_open_question is already answered in recent exact thread with proof/outcome (not only a forward plan while pending_plan_proof is active), advance from that answer.

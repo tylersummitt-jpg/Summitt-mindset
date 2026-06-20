@@ -25,6 +25,7 @@ import {
 } from "@/lib/sms-relationship-repair-snapshot-v1";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
+import { extractRecentCoachBodiesForAntiRepeat } from "@/lib/sms-recent-coach-body-anti-repeat";
 
 export {
   SMS_MEMORY_REPEAT_REPAIR_STRATEGIES,
@@ -119,6 +120,7 @@ export type SmsMemoryRepeatViolationReason =
   | "repeated_recent_question"
   | "repeated_answered_open_question"
   | "repeated_do_not_repeat_phrase"
+  | "repeated_recent_coach_body"
   | null;
 
 export type SmsMemoryRepeatViolation = {
@@ -207,6 +209,44 @@ function wordOverlapRatio(a: string, b: string): number {
   return overlap / aWords.length;
 }
 
+function contentWordsOver3(text: string): string[] {
+  return normalizeSmsMemoryRepeatText(text)
+    .split(" ")
+    .filter((w) => w.length > 3);
+}
+
+function sharedContentWordCount(a: string, b: string): number {
+  const bWords = new Set(contentWordsOver3(b));
+  let n = 0;
+  for (const w of contentWordsOver3(a)) if (bWords.has(w)) n += 1;
+  return n;
+}
+
+function symmetricWordOverlapRatio(a: string, b: string): number {
+  return (wordOverlapRatio(a, b) + wordOverlapRatio(b, a)) / 2;
+}
+
+/** Coach-body paraphrase check — stricter than generic SMS duplicate for statement dailies. */
+export function isNearDuplicateRecentCoachBody(a: string, b: string): boolean {
+  if (isNearExactDuplicateSms(a, b)) return true;
+  const an = normalizeSmsMemoryRepeatText(a);
+  const bn = normalizeSmsMemoryRepeatText(b);
+  if (an.length < MIN_PHRASE_CHARS || bn.length < MIN_PHRASE_CHARS) return false;
+
+  const shared = sharedContentWordCount(a, b);
+  const sym = symmetricWordOverlapRatio(a, b);
+  if (shared >= 8 && sym >= 0.72) return true;
+  if (shared >= 10 && sym >= 0.65) return true;
+
+  const shorter = an.length <= bn.length ? an : bn;
+  const longer = an.length > bn.length ? an : bn;
+  const tailStart = Math.floor(shorter.length * 0.2);
+  const tail = shorter.slice(tailStart);
+  if (tail.length >= 36 && longer.includes(tail)) return true;
+
+  return false;
+}
+
 function isProtectedByRequiredVerbatim(candidateNorm: string, required: string[]): boolean {
   for (const rv of required) {
     const rvn = normalizeSmsMemoryRepeatText(rv);
@@ -287,6 +327,8 @@ export function detectSmsMemoryRepeatViolation(args: {
   pendingPlanProofActive?: boolean;
   suggestedCoachingMove?: string | null;
   lastOutboundFullBody?: string | null;
+  /** Full sent coach SMS bodies from last 72h (daily anti-repeat). */
+  recentCoachBodiesForAntiRepeat?: Array<string | { body?: string }>;
   clearCompletionInbound?: boolean;
   latestInboundText?: string | null;
   priorNoSendContext?: InboundPriorMemoryRepeatNoSendContext | null;
@@ -377,6 +419,21 @@ export function detectSmsMemoryRepeatViolation(args: {
         reason = "repeated_do_not_repeat_phrase";
         repeatedPhrases.push(p.slice(0, 280));
         if (!repeatedQuestion && p.includes("?")) repeatedQuestion = p;
+      }
+    }
+  }
+
+  if (!reason) {
+    for (const entry of args.recentCoachBodiesForAntiRepeat ?? []) {
+      const priorBody = typeof entry === "string" ? entry.trim() : entry?.body?.trim() ?? "";
+      if (priorBody.length < MIN_PHRASE_CHARS) continue;
+      if (required.some((rv) => normalizeSmsMemoryRepeatText(priorBody).includes(normalizeSmsMemoryRepeatText(rv)))) {
+        continue;
+      }
+      if (isNearDuplicateRecentCoachBody(candidate, priorBody)) {
+        reason = "repeated_recent_coach_body";
+        repeatedPhrases.push(priorBody.slice(0, 280));
+        break;
       }
     }
   }
@@ -1053,10 +1110,14 @@ export function buildAntiRepeatDetectArgsFromDailyFacts(
   candidateBody: string
 ): Parameters<typeof detectSmsMemoryRepeatViolation>[0] {
   const tm = facts.thread_memory;
+  const coachBodies =
+    tm.recent_coach_body_do_not_repeat?.map((b) => b.body).filter(Boolean) ??
+    extractRecentCoachBodiesForAntiRepeat(tm.recent_exact_thread_72h).map((b) => b.body);
   return {
     candidateBody,
     lastCoachQuestions: tm.last_5_coach_questions ?? [],
     doNotRepeatPhrases: tm.do_not_repeat_hints ?? [],
+    recentCoachBodiesForAntiRepeat: coachBodies,
     answeredOpenQuestion: tm.latest_open_question ?? null,
     latestAnswerText: tm.latest_answer_after_open_question ?? null,
     requiredVerbatimSubstrings: facts.constraints.required_verbatim_substrings,
@@ -1128,6 +1189,38 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
               anti_repeat_exemption_reason: "close_prior_plan_loop_outcome_question",
             }
           : {}),
+      },
+    };
+  }
+
+  if (firstViolation.reason === "repeated_recent_coach_body") {
+    const priorPreview = firstViolation.repeatedPhrases[0] ?? null;
+    const preview =
+      priorPreview && priorPreview.length > 220 ? `${priorPreview.slice(0, 219)}…` : priorPreview;
+    return {
+      outcome: "no_send",
+      noSendReason: blockedNoSendReason,
+      metadata: {
+        memory_repeat_guard_attempted: true,
+        memory_repeat_guard_succeeded: false,
+        memory_repeat_guard_reason: firstViolation.reason,
+        repeated_phrases: firstViolation.repeatedPhrases,
+        repeated_question: null,
+        memory_repeat_original_body_preview:
+          original.length > 220 ? `${original.slice(0, 219)}…` : original,
+        memory_repeat_repaired_body_preview: null,
+        memory_repeat_no_send_reason: "coach_body_near_duplicate",
+        memory_repeat_repair_skipped_reason: "coach_body_near_duplicate_no_repair",
+        coach_body_near_duplicate_detected: true,
+        daily_coach_body_near_duplicate_blocked: true,
+        prior_coach_body_preview: preview,
+        repeat_detected: true,
+        repeat_repair_attempted: false,
+        repeat_repair_strategy: null,
+        repeat_repair_succeeded: false,
+        repeat_repair_failed_reason: null,
+        repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
+        forced_second_repair_attempted: false,
       },
     };
   }

@@ -27,6 +27,17 @@ import {
   type RecentExactThread72hResult,
 } from "@/lib/sms-recent-exact-thread-72h";
 import {
+  extractRecentCoachBodiesForAntiRepeat,
+  type RecentCoachBodyDoNotRepeat,
+} from "@/lib/sms-recent-coach-body-anti-repeat";
+
+export type { RecentCoachBodyDoNotRepeat } from "@/lib/sms-recent-coach-body-anti-repeat";
+export {
+  extractRecentCoachBodiesForAntiRepeat,
+  GUARD_COACH_BODY_ANTI_REPEAT_MAX,
+  PROMPT_COACH_BODY_DO_NOT_REPEAT_MAX,
+} from "@/lib/sms-recent-coach-body-anti-repeat";
+import {
   buildRelationshipMemory7d,
   type RelationshipMemory7dResult,
 } from "@/lib/sms-relationship-memory-7d";
@@ -126,6 +137,7 @@ export type SmsRelationshipMemoryPacket = {
   recent_exact_messages: SmsRelationshipMessage[];
   recent_exact_thread_text: string;
   recent_exact_thread_72h: RecentExactThread72hResult;
+  recent_coach_body_do_not_repeat: RecentCoachBodyDoNotRepeat[];
   relationship_memory_7d: RelationshipMemory7dResult;
   relationship_memory_30d: RelationshipMemory30dResult;
   last_outbound_full_body: string | null;
@@ -275,6 +287,7 @@ export type SlimSmsRelationshipMemoryPacketForFacts = {
   recent_exact_thread_text: string;
   recent_exact_message_count: number;
   recent_exact_thread_72h: RecentExactThread72hResult;
+  recent_coach_body_do_not_repeat: RecentCoachBodyDoNotRepeat[];
   relationship_memory_7d: RelationshipMemory7dResult;
   relationship_memory_30d: RelationshipMemory30dResult;
   last_outbound_full_body: string | null;
@@ -305,6 +318,7 @@ export function slimMemoryPacketForFacts(packet: SmsRelationshipMemoryPacket): S
     recent_exact_thread_text: packet.recent_exact_thread_text,
     recent_exact_message_count: packet.recent_exact_messages.length,
     recent_exact_thread_72h: packet.recent_exact_thread_72h,
+    recent_coach_body_do_not_repeat: packet.recent_coach_body_do_not_repeat,
     relationship_memory_7d: packet.relationship_memory_7d,
     relationship_memory_30d: packet.relationship_memory_30d,
     last_outbound_full_body: packet.last_outbound_full_body,
@@ -364,6 +378,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
   last_5_coach_questions: string[];
   last_5_user_answers: string[];
   memory_priority_rules: string[];
+  recent_coach_body_do_not_repeat: RecentCoachBodyDoNotRepeat[];
 } {
   const { packet } = args;
   const dnr = [
@@ -403,6 +418,7 @@ export function buildDailyThreadMemoryFromPacket(args: DailyThreadMemoryFromPack
     last_5_coach_questions: packet.last_5_coach_questions.map((q) => q.text),
     last_5_user_answers: packet.last_5_user_answers.map((a) => a.text),
     memory_priority_rules: [...packet.memory_priority_rules],
+    recent_coach_body_do_not_repeat: packet.recent_coach_body_do_not_repeat,
   };
 }
 
@@ -791,6 +807,8 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     accountabilityPhase: commitment?.accountability_phase ?? coachingMemory?.accountability_phase ?? null,
   });
 
+  const recent_coach_body_do_not_repeat = extractRecentCoachBodiesForAntiRepeat(recent_exact_thread_72h);
+
   return {
     clerk_user_id: args.clerkUserId,
     commitment_id: args.commitmentId ?? commitment?.id ?? null,
@@ -806,6 +824,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     recent_exact_messages,
     recent_exact_thread_text,
     recent_exact_thread_72h,
+    recent_coach_body_do_not_repeat,
     relationship_memory_7d,
     relationship_memory_30d,
     last_outbound_full_body,

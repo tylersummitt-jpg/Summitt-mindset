@@ -1612,6 +1612,37 @@ describe("Daily C1 Strategy Card v1", () => {
     expect(card.must_not_do.some((m) => /How did X go/i.test(m))).toBe(true);
   });
 
+  it("recent coach body do-not-repeat adds fresh-move must_do and must_not_do", () => {
+    const prior =
+      "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyCtx(
+        dailyFacts({
+          thread_memory: {
+            ...dailyFacts().thread_memory,
+            recent_coach_body_do_not_repeat: [
+              {
+                body: prior,
+                body_preview: prior.slice(0, 120),
+                sent_at: "2026-06-19T12:02:00.000Z",
+                at_local: "Jun 19, 7:02 AM",
+                source_table: "sms_send_events",
+                role: "coach",
+              },
+            ],
+          },
+        }),
+        { withSatisfiedAsk: false }
+      ),
+    });
+    expect(card.must_not_do.some((m) => /prior coach SMS from the last 72 hours/i.test(m))).toBe(true);
+    expect(card.must_not_do.some((m) => /same next action or CTA/i.test(m))).toBe(true);
+    expect(card.must_do.some((m) => /fresh honest coaching move/i.test(m))).toBe(true);
+    expect(card.writer_constraints.avoid_repeating.some((a) => a.startsWith("recent_coach_body:"))).toBe(
+      true
+    );
+  });
+
   it("plan-affirming satisfied ask selects plan_today or protect_existing_plan", () => {
     const card = buildDailyC1StrategyCardV1({
       ctx: buildDailyCtx(

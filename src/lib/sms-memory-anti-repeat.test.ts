@@ -115,6 +115,44 @@ describe("detectSmsMemoryRepeatViolation", () => {
     expect(v.hasViolation).toBe(true);
     expect(v.reason).toBe("repeated_do_not_repeat_phrase");
   });
+
+  const distributionPrior =
+    "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
+  const distributionCandidate =
+    "You've shown commitment by completing your distribution. Aim for another hour of focused work to keep progressing with your goals.";
+  const engagementPrior =
+    "As you focus on the process today, take a moment to reflect on how to deepen your engagement with your students. Your insights will help shape your approach moving forward.";
+  const engagementCandidate =
+    "As you focus on the process, reflect on how to deepen your engagement with your students; your insights will shape your approach moving forward.";
+  const freshDistributionCandidate =
+    "You got the distribution done. Today, protect the first 20 minutes before anything else can steal it.";
+
+  it("flags near-duplicate daily coach body (distribution screenshot case)", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      candidateBody: distributionCandidate,
+      recentCoachBodiesForAntiRepeat: [distributionPrior],
+    });
+    expect(v.hasViolation).toBe(true);
+    expect(v.reason).toBe("repeated_recent_coach_body");
+    expect(v.repeatedPhrases[0]).toContain("distribution yesterday");
+  });
+
+  it("flags near-duplicate statement coach body (student engagement case)", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      candidateBody: engagementCandidate,
+      recentCoachBodiesForAntiRepeat: [engagementPrior],
+    });
+    expect(v.hasViolation).toBe(true);
+    expect(v.reason).toBe("repeated_recent_coach_body");
+  });
+
+  it("allows fresh same-goal move with different CTA wording", () => {
+    const v = detectSmsMemoryRepeatViolation({
+      candidateBody: freshDistributionCandidate,
+      recentCoachBodiesForAntiRepeat: [distributionPrior],
+    });
+    expect(v.hasViolation).toBe(false);
+  });
 });
 
 describe("detectSmsMemoryRepeatViolation allowed callbacks (M2B-5 hardening)", () => {
@@ -621,6 +659,58 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
   });
 
   describe("openAiRepairEnabled", () => {
+    it("no-sends without OpenAI repair for coach body near-duplicate", async () => {
+      const prior =
+        "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
+      const candidate =
+        "You've shown commitment by completing your distribution. Aim for another hour of focused work to keep progressing with your goals.";
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: candidate,
+        factsJson: {},
+        detectInput: {
+          candidateBody: candidate,
+          recentCoachBodiesForAntiRepeat: [prior],
+        },
+        enabled: true,
+        openAiRepairEnabled: true,
+        validateAfterRepair: async () => ({ ok: true }),
+      });
+
+      expect(repairMock).not.toHaveBeenCalled();
+      expect(r.outcome).toBe("no_send");
+      expect(r.metadata.coach_body_near_duplicate_detected).toBe(true);
+      expect(r.metadata.daily_coach_body_near_duplicate_blocked).toBe(true);
+      expect(r.metadata.memory_repeat_no_send_reason).toBe("coach_body_near_duplicate");
+      expect(r.metadata.prior_coach_body_preview).toContain("distribution");
+    });
+
+    it("zero-question mode: coach body near-duplicate no-sends without OpenAI repair", async () => {
+      const prior =
+        "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
+      const candidate =
+        "You've shown commitment by completing your distribution. Aim for another hour of focused work to keep progressing with your goals.";
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: candidate,
+        factsJson: {},
+        detectInput: {
+          candidateBody: candidate,
+          recentCoachBodiesForAntiRepeat: [prior],
+        },
+        enabled: true,
+        openAiRepairEnabled: false,
+        validateAfterRepair: async () => ({ ok: true }),
+      });
+
+      expect(repairMock).not.toHaveBeenCalled();
+      expect(r.outcome).toBe("no_send");
+      expect(r.metadata.memory_repeat_no_send_reason).toBe("coach_body_near_duplicate");
+      expect(r.metadata.memory_repeat_repair_skipped_reason).toBe("coach_body_near_duplicate_no_repair");
+    });
+
     it("no-sends without OpenAI repair when openAiRepairEnabled is false", async () => {
       const r = await applySmsMemoryAntiRepeatGuard({
         routeKind: "daily",

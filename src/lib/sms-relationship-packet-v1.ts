@@ -184,6 +184,10 @@ export type RelationshipPacketStructuredRecentTruth = {
     has_satisfied_recent_ask: boolean;
   } | null;
   recent_thread_timeline_summary_72h?: DailyRecentThreadTimelineEntry[] | null;
+  recent_coach_body_do_not_repeat?: Array<{
+    body_preview: string;
+    at_local: string | null;
+  }> | null;
 };
 
 export type RelationshipPacketRecentExactThread72h = {
@@ -780,6 +784,16 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
       : {}),
     ...(staleAskAvoidanceSummary ? { stale_ask_avoidance_summary: staleAskAvoidanceSummary } : {}),
     ...(timeline.length ? { recent_thread_timeline_summary_72h: timeline } : {}),
+    ...(tm.recent_coach_body_do_not_repeat?.length
+      ? {
+          recent_coach_body_do_not_repeat: tm.recent_coach_body_do_not_repeat
+            .slice(-3)
+            .map((b) => ({
+              body_preview: b.body_preview,
+              at_local: b.at_local,
+            })),
+        }
+      : {}),
     thread_freshness: f.thread_freshness ?? null,
     latest_open_question: tm.latest_open_question ?? null,
     latest_answer_after_open_question: tm.latest_answer_after_open_question ?? null,

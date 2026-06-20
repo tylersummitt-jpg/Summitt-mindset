@@ -2832,6 +2832,13 @@ function collectDailyAvoidRepeating(ctx: DailyC1StrategyCardBuildContext): strin
     if (fp) items.push(fp);
   }
 
+  for (const coachBody of ctx.facts.thread_memory.recent_coach_body_do_not_repeat ?? []) {
+    const preview = coachBody.body_preview?.trim() || coachBody.body?.trim();
+    if (!preview) continue;
+    const sk = semanticAvoidKey("recent_coach_body", preview);
+    if (sk) items.push(sk);
+  }
+
   return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
 }
 
@@ -2895,6 +2902,17 @@ function buildDailyC1MustDoMustNotDo(args: {
     ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO,
     DAILY_TODAY_NOT_RENEWAL_MUST_NOT_DO,
   ];
+
+  const recentCoachBodies = ctx.facts.thread_memory.recent_coach_body_do_not_repeat ?? [];
+  if (recentCoachBodies.length > 0) {
+    must_not_do.push(
+      "Do not repeat or lightly paraphrase prior coach SMS from the last 72 hours.",
+      "Do not reuse yesterday's same next action or CTA when no new proof changes it."
+    );
+    must_do.push(
+      "Choose a fresh honest coaching move grounded in current goal and recent thread — not a light paraphrase of prior coach SMS."
+    );
+  }
 
   if (zeroQuestionRequired) {
     must_do.unshift(
