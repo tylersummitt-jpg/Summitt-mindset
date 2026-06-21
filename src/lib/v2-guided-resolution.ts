@@ -83,12 +83,17 @@ export type V2SmsPendingResolutionPayload = {
   tu_goal_change_type?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalAdjustmentType;
   tu_goal_change_source?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalChangeSource;
   tu_goal_change_confidence?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalChangeConfidenceLevel;
-  awaiting_candidate_reason?: "goal_change_without_concrete_bar";
+  awaiting_candidate_reason?: "goal_change_without_concrete_bar" | "accepted_coach_goal_evolution_invite";
   goal_change_requires_confirmation?: boolean;
   prior_goal_change_ask_satisfied?: boolean;
   stale_ask_goal_change_bridge_eligible?: boolean;
   no_outcome_write?: boolean;
   no_state_change_taken?: boolean;
+  coach_initiated_goal_evolution?: true;
+  accepted_invite_kind?: string | null;
+  accepted_invite_source?: string | null;
+  accepted_invite_sent_at?: string | null;
+  accepted_invite_evidence_summary?: string | null;
 };
 
 /** In-app proactive goal change (sets commitment_replace pending before canonical RPC). */

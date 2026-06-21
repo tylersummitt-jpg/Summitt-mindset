@@ -112,4 +112,35 @@ describe("buildCommitmentChangeInboundFactsFromWave4 — Slice A3", () => {
     expect(f.forbidden_substrings).toContain("what specific changes");
     expect(f.forbidden_substrings).toContain("changes or adjustments");
   });
+
+  it("Slice 3B accepted coach invite shell facts", () => {
+    const f = buildCommitmentChangeInboundFactsFromWave4({
+      intentPack: {
+        intent: "sms_raise_bar_request",
+        candidateTightenedBar: null,
+        candidateNewBar: null,
+        aiConfidence: 0.9,
+      },
+      commitment: baseCommitment(),
+      effectiveAsk: "Walk 20 minutes after dinner",
+      userMessage: "yes let's do it",
+      messageSid: "SMfacts4",
+      wave4: { pendingApplied: true, pendingKind: "commitment_replace", skipReason: null },
+      pendingResolutionApplyException: null,
+      legacyCommitmentChangeReplyPreview: "stub",
+      tuShellHandoff: {
+        mode: "awaiting_candidate_shell",
+        priorGoalChangeAskSatisfied: false,
+        staleAskGoalChangeBridgeEligible: false,
+        coachInviteAcceptance: {
+          invite_kind: "raise",
+          invite_source: "consistency",
+        },
+      },
+    });
+    expect(f.required_meaning_summary).toMatch(/Slice 3B accepted coach goal-evolution invite/i);
+    expect(f.required_meaning_summary).toMatch(/has NOT changed yet/i);
+    expect(f.required_meaning_summary).toMatch(/Do NOT treat acceptance as proof/i);
+    expect(f.required_meaning_summary).toMatch(/new daily bar/i);
+  });
 });

@@ -1,7 +1,7 @@
 /**
- * Slice 3A — coach-initiated goal evolution invite (daily SMS facts only).
- * Pure evaluator: no DB writes, no pending, no mutation, no OpenAI.
- * Slice 3B will handle user acceptance → existing 2B awaiting_candidate shell.
+ * Slice 3A/3B — coach-initiated goal evolution invite + inbound acceptance detection.
+ * Pure evaluators: no DB writes, no pending, no mutation, no OpenAI in this module.
+ * Slice 3B routes validated acceptance into existing 2A/2B Wave4 hallway (inbound route).
  */
 
 import type { ActiveV2CommitmentRow, V2EventRowForAi } from "@/lib/v2-commitment";
@@ -11,6 +11,8 @@ import { parseIsoMs } from "@/lib/v2-identity-anchor";
 import { isRefreshSessionActive } from "@/lib/v2-refresh-session";
 import type { SmsGoalAdjustmentSignalResult } from "@/lib/sms-goal-adjustment-signal";
 import type { SmsPatternSignalResult } from "@/lib/sms-pattern-signal";
+import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
+import type { TurnUnderstandingGoalAdjustmentType } from "@/lib/openai-relationship-turn-understanding-v1";
 
 export type CoachGoalEvolutionInviteKind =
   | "raise"
@@ -78,6 +80,25 @@ export const COACH_GOAL_EVOLUTION_BLOCKER_21D_MIN = 4;
 export const COACH_GOAL_EVOLUTION_BLOCKER_HIGH_CONFIDENCE_MIN = 3;
 export const COACH_GOAL_EVOLUTION_BLOCKER_WITH_NEG14_MIN = 2;
 export const COACH_GOAL_EVOLUTION_INVITE_MAX_ROLLING_14D = 1;
+export const COACH_GOAL_EVOLUTION_INVITE_ACCEPTANCE_TTL_MS = 72 * MS_DAY;
+
+export type CoachGoalEvolutionInviteKindForAcceptance = Exclude<
+  CoachGoalEvolutionInviteKind,
+  "none"
+>;
+
+export type RecentCoachGoalEvolutionInvite = {
+  found: boolean;
+  sent_at: string | null;
+  invite_kind: CoachGoalEvolutionInviteKindForAcceptance | null;
+  invite_source: string | null;
+  evidence_summary: string | null;
+  ttl_valid: boolean;
+  last_outbound_is_invite: boolean;
+  skip_reason?: string;
+};
+
+export type CoachInviteAcceptanceDisposition = "accepted" | "declined" | "ignored" | "skip";
 
 const RECENT_GOAL_CHANGE_COOLDOWN_MS =
   COACH_GOAL_EVOLUTION_RECENT_GOAL_CHANGE_COOLDOWN_DAYS * MS_DAY;
@@ -541,4 +562,184 @@ export function countYesOutcomes7dForCoachInvite(
     if (Number.isFinite(t) && t >= cutoff && t <= nowMs) n += 1;
   }
   return n;
+}
+
+const COACH_INVITE_ACCEPTANCE_KINDS = new Set<CoachGoalEvolutionInviteKindForAcceptance>([
+  "raise",
+  "new_chapter",
+  "shrink",
+  "reset",
+  "blocker_focus",
+]);
+
+function coachInviteTelemetryFromCheckSentPayload(
+  payload: Record<string, unknown>
+): {
+  action: string | null;
+  invite_kind: CoachGoalEvolutionInviteKindForAcceptance | null;
+  invite_source: string | null;
+  evidence_summary: string | null;
+} | null {
+  const ai = payloadRecord(payload.ai);
+  if (!ai) return null;
+  const v3Brain = payloadRecord(ai.v3_brain);
+  if (!v3Brain) return null;
+  const action =
+    typeof v3Brain.coach_goal_evolution_action === "string"
+      ? v3Brain.coach_goal_evolution_action
+      : null;
+  const kindRaw =
+    typeof v3Brain.coach_goal_evolution_invite_kind === "string"
+      ? v3Brain.coach_goal_evolution_invite_kind.trim()
+      : "";
+  const invite_kind = COACH_INVITE_ACCEPTANCE_KINDS.has(
+    kindRaw as CoachGoalEvolutionInviteKindForAcceptance
+  )
+    ? (kindRaw as CoachGoalEvolutionInviteKindForAcceptance)
+    : null;
+  const invite_source =
+    typeof v3Brain.coach_goal_evolution_invite_source === "string"
+      ? v3Brain.coach_goal_evolution_invite_source
+      : null;
+  const evidence_summary =
+    typeof v3Brain.coach_goal_evolution_evidence_summary === "string"
+      ? v3Brain.coach_goal_evolution_evidence_summary
+      : null;
+  return { action, invite_kind, invite_source, evidence_summary };
+}
+
+function emptyRecentCoachInvite(skip_reason?: string): RecentCoachGoalEvolutionInvite {
+  return {
+    found: false,
+    sent_at: null,
+    invite_kind: null,
+    invite_source: null,
+    evidence_summary: null,
+    ttl_valid: false,
+    last_outbound_is_invite: false,
+    ...(skip_reason ? { skip_reason } : {}),
+  };
+}
+
+function hasLaterCoachThreadMessageAfterInvite(
+  thread72h: RecentExactThread72hResult | null | undefined,
+  inviteAtMs: number
+): boolean {
+  if (!thread72h?.messages?.length) return false;
+  for (const m of thread72h.messages) {
+    if (m.role !== "coach") continue;
+    const t = new Date(m.at).getTime();
+    if (Number.isFinite(t) && t > inviteAtMs + 2000) return true;
+  }
+  return false;
+}
+
+/** Latest valid coach goal-evolution invite from recent events (Slice 3B). */
+export function deriveRecentCoachGoalEvolutionInviteFromEvents(args: {
+  eventsNewestFirst?: V2EventRowForAi[] | null;
+  commitment: ActiveV2CommitmentRow;
+  nowMs?: number;
+  lastOutboundSentAtMs?: number | null;
+  recentExactThread72h?: RecentExactThread72hResult | null;
+}): RecentCoachGoalEvolutionInvite {
+  const nowMs = args.nowMs ?? Date.now();
+  const events = args.eventsNewestFirst ?? [];
+
+  let mostRecentCheckSent: V2EventRowForAi | null = null;
+  let inviteEvent: V2EventRowForAi | null = null;
+  let inviteTelemetry: ReturnType<typeof coachInviteTelemetryFromCheckSentPayload> = null;
+
+  for (const e of events) {
+    if (e.event_type !== "check_sent") continue;
+    if (!mostRecentCheckSent) mostRecentCheckSent = e;
+    const p = payloadRecord(e.payload_json);
+    if (!p) continue;
+    const telemetry = coachInviteTelemetryFromCheckSentPayload(p);
+    if (telemetry?.action === "invite_only" && telemetry.invite_kind && !inviteEvent) {
+      inviteEvent = e;
+      inviteTelemetry = telemetry;
+    }
+  }
+
+  if (!inviteEvent || !inviteTelemetry?.invite_kind) {
+    return emptyRecentCoachInvite("no_recent_coach_invite");
+  }
+
+  const inviteAtMs = eventOccurredAtMs(inviteEvent.occurred_at);
+  if (inviteAtMs == null) {
+    return emptyRecentCoachInvite("invalid_invite_timestamp");
+  }
+
+  const ttl_valid = nowMs - inviteAtMs <= COACH_GOAL_EVOLUTION_INVITE_ACCEPTANCE_TTL_MS;
+  const base = {
+    found: true,
+    sent_at: inviteEvent.occurred_at,
+    invite_kind: inviteTelemetry.invite_kind,
+    invite_source: inviteTelemetry.invite_source,
+    evidence_summary: inviteTelemetry.evidence_summary,
+    ttl_valid,
+    last_outbound_is_invite: false,
+  };
+
+  if (!ttl_valid) {
+    return { ...base, skip_reason: "invite_ttl_expired" };
+  }
+
+  const latestCheckAt = mostRecentCheckSent
+    ? eventOccurredAtMs(mostRecentCheckSent.occurred_at)
+    : null;
+  const inviteIsLatestCheckSent =
+    latestCheckAt != null &&
+    mostRecentCheckSent === inviteEvent &&
+    Math.abs(latestCheckAt - inviteAtMs) <= 2000;
+
+  let last_outbound_is_invite = inviteIsLatestCheckSent;
+  if (
+    args.lastOutboundSentAtMs != null &&
+    Number.isFinite(args.lastOutboundSentAtMs) &&
+    args.lastOutboundSentAtMs > inviteAtMs + 2000
+  ) {
+    last_outbound_is_invite = false;
+  }
+  if (hasLaterCoachThreadMessageAfterInvite(args.recentExactThread72h, inviteAtMs)) {
+    last_outbound_is_invite = false;
+  }
+
+  if (!last_outbound_is_invite) {
+    return { ...base, last_outbound_is_invite: false, skip_reason: "later_coach_outbound_after_invite" };
+  }
+
+  const goalChangeAt = deriveRecentGoalChangeAtMs({
+    commitment: args.commitment,
+    eventsNewestFirst: events,
+    nowMs,
+  });
+  if (goalChangeAt != null && goalChangeAt > inviteAtMs) {
+    return {
+      ...base,
+      last_outbound_is_invite: false,
+      skip_reason: "goal_changed_since_invite",
+    };
+  }
+
+  return { ...base, last_outbound_is_invite: true };
+}
+
+export function mapCoachInviteKindToAdjustmentType(
+  inviteKind: CoachGoalEvolutionInviteKindForAcceptance
+): TurnUnderstandingGoalAdjustmentType {
+  switch (inviteKind) {
+    case "raise":
+      return "raise";
+    case "shrink":
+      return "shrink";
+    case "reset":
+      return "reset";
+    case "blocker_focus":
+      return "blocker_focus";
+    case "new_chapter":
+      return "reset";
+    default:
+      return "unspecified";
+  }
 }

@@ -29,6 +29,7 @@ import {
   type TurnUnderstandingGoalChangeSource,
   type TurnUnderstandingRelationshipMeaning,
 } from "@/lib/openai-relationship-turn-understanding-v1";
+import type { CoachInviteAcceptanceContext } from "@/lib/sms-coach-goal-evolution-acceptance";
 
 /** Server-owned SMS commitment-change intent (prompt/logging only; not shown to user). */
 export type V2SmsCommitmentServerIntent =
@@ -291,7 +292,9 @@ export type TuGoalChangePendingMode =
   | "awaiting_candidate_shell"
   | "skip";
 
-export type TuGoalChangePendingShellReason = "goal_change_without_concrete_bar";
+export type TuGoalChangePendingShellReason =
+  | "goal_change_without_concrete_bar"
+  | "accepted_coach_goal_evolution_invite";
 
 export type TuGoalChangePendingShellMetadata = {
   tu_goal_change_type: TurnUnderstandingGoalAdjustmentType;
@@ -303,6 +306,11 @@ export type TuGoalChangePendingShellMetadata = {
   stale_ask_goal_change_bridge_eligible: boolean;
   no_outcome_write: true;
   no_state_change_taken: true;
+  coach_initiated_goal_evolution?: true;
+  accepted_invite_kind?: string | null;
+  accepted_invite_source?: string | null;
+  accepted_invite_sent_at?: string | null;
+  accepted_invite_evidence_summary?: string | null;
 };
 
 export type TuGoalChangePendingSkipReason =
@@ -591,6 +599,8 @@ export function evaluateTuGoalChangePendingHandoff(args: {
   classificationEventType: "user_yes" | "user_no" | "user_partial" | null;
   relationshipMeaning?: TurnUnderstandingRelationshipMeaning | null;
   priorGoalChangeAskSatisfied?: boolean;
+  /** Slice 3B — validated coach invite acceptance may bypass bare yes/no outcome block. */
+  bypassStrongOutcomeForCoachInviteAcceptance?: boolean;
 }): TuGoalChangePendingHandoffEval {
   const intent = args.reconciledGoalChangeIntent;
   if (!isAuthoritativeReconciledGoalChangeIntent(intent)) {
@@ -611,7 +621,11 @@ export function evaluateTuGoalChangePendingHandoff(args: {
     return skipEval("unsafe_inbound");
   }
 
-  if (args.classificationEventType && isStrongV2YesNoOutcome(args.classificationEventType)) {
+  if (
+    args.classificationEventType &&
+    isStrongV2YesNoOutcome(args.classificationEventType) &&
+    !args.bypassStrongOutcomeForCoachInviteAcceptance
+  ) {
     return skipEval("strong_outcome_classification");
   }
 
@@ -684,7 +698,8 @@ export function buildTuGoalChangeHandoffTelemetry(
     pendingApplied: boolean;
     pendingKind: V2PendingResolutionKind | null;
     skipReason: Wave4PendingSkipReason | null;
-  } | null
+  } | null,
+  coachInviteExtra?: Record<string, unknown> | null
 ): Record<string, unknown> {
   return {
     tu_goal_change_handoff_opened: evalResult.open,
@@ -703,6 +718,59 @@ export function buildTuGoalChangeHandoffTelemetry(
     stale_ask_goal_change_bridge_eligible:
       evalResult.shellMetadata?.stale_ask_goal_change_bridge_eligible ?? null,
     tu_goal_change_type: evalResult.shellMetadata?.tu_goal_change_type ?? null,
+    coach_initiated_goal_evolution:
+      evalResult.shellMetadata?.coach_initiated_goal_evolution === true,
+    accepted_invite_kind: evalResult.shellMetadata?.accepted_invite_kind ?? null,
+    accepted_invite_source: evalResult.shellMetadata?.accepted_invite_source ?? null,
+    accepted_invite_sent_at: evalResult.shellMetadata?.accepted_invite_sent_at ?? null,
+    ...(coachInviteExtra ?? {}),
+  };
+}
+
+/** Slice 3B — validated coach invite acceptance → existing 2A/2B Wave4 hallway. */
+export function evaluateCoachAcceptedGoalEvolutionHandoff(args: {
+  acceptance: CoachInviteAcceptanceContext;
+  commitment: ActiveV2CommitmentRow;
+  userMessage: string;
+  plannedInterruptionActionable: boolean;
+  classificationEventType: "user_yes" | "user_no" | "user_partial" | null;
+}): TuGoalChangePendingHandoffEval {
+  if (args.acceptance.disposition !== "accepted" || !args.acceptance.reconciled_intent) {
+    return skipEval("not_authoritative");
+  }
+
+  const evalResult = evaluateTuGoalChangePendingHandoff({
+    reconciledGoalChangeIntent: args.acceptance.reconciled_intent,
+    commitment: args.commitment,
+    userMessage: args.userMessage,
+    plannedInterruptionActionable: args.plannedInterruptionActionable,
+    classificationEventType: args.classificationEventType,
+    relationshipMeaning: "goal_adjustment_request",
+    bypassStrongOutcomeForCoachInviteAcceptance: true,
+  });
+
+  if (!evalResult.open || !evalResult.shellMetadata) {
+    return evalResult;
+  }
+
+  const invite = args.acceptance.invite;
+  const shellMetadata: TuGoalChangePendingShellMetadata = {
+    ...evalResult.shellMetadata,
+    awaiting_candidate_reason: "accepted_coach_goal_evolution_invite",
+    coach_initiated_goal_evolution: true,
+    accepted_invite_kind: invite.invite_kind,
+    accepted_invite_source: invite.invite_source,
+    accepted_invite_sent_at: invite.sent_at,
+    accepted_invite_evidence_summary: invite.evidence_summary,
+  };
+
+  return {
+    ...evalResult,
+    pendingShellReason:
+      evalResult.mode === "awaiting_candidate_shell"
+        ? "accepted_coach_goal_evolution_invite"
+        : evalResult.pendingShellReason,
+    shellMetadata,
   };
 }
 
@@ -954,6 +1022,16 @@ export async function applyWave4SmsCommitmentPendingResolution(args: {
             args.shellMetadata.stale_ask_goal_change_bridge_eligible,
           no_outcome_write: args.shellMetadata.no_outcome_write,
           no_state_change_taken: args.shellMetadata.no_state_change_taken,
+          ...(args.shellMetadata.coach_initiated_goal_evolution === true
+            ? {
+                coach_initiated_goal_evolution: true as const,
+                accepted_invite_kind: args.shellMetadata.accepted_invite_kind ?? null,
+                accepted_invite_source: args.shellMetadata.accepted_invite_source ?? null,
+                accepted_invite_sent_at: args.shellMetadata.accepted_invite_sent_at ?? null,
+                accepted_invite_evidence_summary:
+                  args.shellMetadata.accepted_invite_evidence_summary ?? null,
+              }
+            : {}),
         }
       : {}),
     ...(kind === "commitment_replace"

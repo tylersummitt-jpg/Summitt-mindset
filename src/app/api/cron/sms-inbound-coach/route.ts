@@ -192,10 +192,17 @@ import {
   buildSmsCommitmentChangeCoachReply,
   buildTuGoalChangeHandoffTelemetry,
   deriveSmsCommitmentChangeIntent,
+  evaluateCoachAcceptedGoalEvolutionHandoff,
   evaluateTuGoalChangePendingHandoff,
   shouldOpenCommitmentChangeHandoff,
   type V2SmsCommitmentIntentPack,
 } from "@/lib/v2-sms-commitment-change";
+import {
+  evaluateCoachInviteAcceptanceContext,
+} from "@/lib/sms-coach-goal-evolution-acceptance";
+import {
+  deriveRecentCoachGoalEvolutionInviteFromEvents,
+} from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import {
   bootstrapSmsPendingConfirmationFromInbound,
   tryHandleSmsInboundPendingResolution,
@@ -4667,19 +4674,49 @@ async function processV2NormalInboundOutcome(
     nowMs: Date.now(),
   });
 
-  const tuGoalChangePendingHandoffEval = evaluateTuGoalChangePendingHandoff({
+  const coachInviteEvalNowMs = Date.now();
+  const recentCoachGoalEvolutionInvite = deriveRecentCoachGoalEvolutionInviteFromEvents({
+    eventsNewestFirst: recentEvents,
+    commitment,
+    nowMs: coachInviteEvalNowMs,
+    recentExactThread72h: inboundRelationshipMemoryPacket.recent_exact_thread_72h,
+  });
+
+  const coachInviteAcceptanceCtx = evaluateCoachInviteAcceptanceContext({
+    invite: recentCoachGoalEvolutionInvite,
+    userMessage,
+    commitment,
     reconciledGoalChangeIntent:
       inboundTurnUnderstandingCtx.reconciled?.reconciled_goal_change_intent ?? null,
-    commitment,
-    userMessage,
-    plannedInterruptionActionable,
-    classificationEventType: eventType,
     relationshipMeaning:
       inboundTurnUnderstandingCtx.reconciled?.reconciled_relationship_meaning ?? null,
-    priorGoalChangeAskSatisfied:
-      inboundTurnUnderstandingCtx.reconciled?.last_ask_satisfied === "yes" ||
-      inboundTurnUnderstandingCtx.reconciled?.stale_ask_risk === true,
+    classificationEventType: eventType,
+    plannedInterruptionActionable,
+    nowMs: coachInviteEvalNowMs,
   });
+
+  const tuGoalChangePendingHandoffEval =
+    coachInviteAcceptanceCtx.disposition === "accepted"
+      ? evaluateCoachAcceptedGoalEvolutionHandoff({
+          acceptance: coachInviteAcceptanceCtx,
+          commitment,
+          userMessage,
+          plannedInterruptionActionable,
+          classificationEventType: eventType,
+        })
+      : evaluateTuGoalChangePendingHandoff({
+          reconciledGoalChangeIntent:
+            inboundTurnUnderstandingCtx.reconciled?.reconciled_goal_change_intent ?? null,
+          commitment,
+          userMessage,
+          plannedInterruptionActionable,
+          classificationEventType: eventType,
+          relationshipMeaning:
+            inboundTurnUnderstandingCtx.reconciled?.reconciled_relationship_meaning ?? null,
+          priorGoalChangeAskSatisfied:
+            inboundTurnUnderstandingCtx.reconciled?.last_ask_satisfied === "yes" ||
+            inboundTurnUnderstandingCtx.reconciled?.stale_ask_risk === true,
+        });
 
   const identitySuppressesCommitmentHandoff = shouldSuppressCommitmentChangeHandoffForIdentity({
     detection: identityEditDetection,
@@ -6144,6 +6181,18 @@ async function processV2NormalInboundOutcome(
               staleAskGoalChangeBridgeEligible:
                 tuGoalChangePendingHandoffEval.shellMetadata?.stale_ask_goal_change_bridge_eligible ??
                 false,
+              coachInviteAcceptance:
+                tuGoalChangePendingHandoffEval.pendingShellReason ===
+                "accepted_coach_goal_evolution_invite"
+                  ? {
+                      invite_kind:
+                        tuGoalChangePendingHandoffEval.shellMetadata?.accepted_invite_kind ??
+                        coachInviteAcceptanceCtx.invite.invite_kind,
+                      invite_source:
+                        tuGoalChangePendingHandoffEval.shellMetadata?.accepted_invite_source ??
+                        coachInviteAcceptanceCtx.invite.invite_source,
+                    }
+                  : null,
             }
           : null,
     });
@@ -6160,10 +6209,23 @@ async function processV2NormalInboundOutcome(
       wave4PendingResult: w4,
       shouldPersistNonOutcomeMemoryEvent,
       memorySignalStored,
-      tuGoalChangeHandoffTelemetry: buildTuGoalChangeHandoffTelemetry(
-        tuGoalChangePendingHandoffEval,
-        w4
-      ),
+      tuGoalChangeHandoffTelemetry: {
+        ...buildTuGoalChangeHandoffTelemetry(
+          tuGoalChangePendingHandoffEval,
+          w4,
+          coachInviteAcceptanceCtx.disposition === "accepted"
+            ? {
+                ...coachInviteAcceptanceCtx.telemetry,
+                proactive_goal_change_handoff_opened: tuGoalChangePendingHandoffEval.open,
+                proactive_goal_change_pending_created: w4.pendingApplied === true,
+                proactive_goal_change_pending_kind: w4.pendingKind,
+              }
+            : coachInviteAcceptanceCtx.disposition === "declined" ||
+                coachInviteAcceptanceCtx.disposition === "ignored"
+              ? coachInviteAcceptanceCtx.telemetry
+              : null
+        ),
+      },
     });
     return;
   }

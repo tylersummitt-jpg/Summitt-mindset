@@ -675,6 +675,11 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     mode: "awaiting_candidate_shell";
     priorGoalChangeAskSatisfied: boolean;
     staleAskGoalChangeBridgeEligible: boolean;
+    /** Slice 3B — accepted coach goal-evolution invite shell. */
+    coachInviteAcceptance?: {
+      invite_kind: string | null;
+      invite_source: string | null;
+    } | null;
   } | null;
 }): InboundV3CommitmentChangeFacts {
   const legacy = args.legacyCommitmentChangeReplyPreview.trim();
@@ -754,6 +759,41 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
       );
     }
     reqLines.push("Do NOT treat this as completion proof, miss proof, or Victory Room proof.");
+  }
+  if (
+    args.tuShellHandoff?.mode === "awaiting_candidate_shell" &&
+    args.tuShellHandoff.coachInviteAcceptance
+  ) {
+    const kind = args.tuShellHandoff.coachInviteAcceptance.invite_kind ?? "goal_evolution";
+    reqLines.push(
+      "Slice 3B accepted coach goal-evolution invite: Coach previously invited goal evolution; the user accepted the conversation — the written commitment has NOT changed yet."
+    );
+    reqLines.push(
+      "Do NOT say the goal is now changed, raised, lowered, reset, or replaced. Do NOT treat acceptance as proof or as a miss."
+    );
+    reqLines.push(
+      "Do NOT use Reply YES/NO binding language or robot contract phrasing until actual confirmation state. Do NOT use fake Pat quotes."
+    );
+    reqLines.push(
+      "Ask exactly one fresh human question for the new daily bar the user will own; user names the bar, then confirms before any mutation."
+    );
+    if (kind === "raise" || kind === "new_chapter") {
+      reqLines.push(
+        "Invite kind raise/new_chapter: ask what new standard or daily bar they are willing to own — do not impose a number."
+      );
+    } else if (kind === "shrink") {
+      reqLines.push(
+        "Invite kind shrink: ask for the smaller honest daily bar they will keep — do not impose a number."
+      );
+    } else if (kind === "reset") {
+      reqLines.push(
+        "Invite kind reset: ask for one fresh clear daily bar for a clean start — do not impose wording."
+      );
+    } else if (kind === "blocker_focus") {
+      reqLines.push(
+        "Invite kind blocker_focus: ask what controllable blocker action becomes the target — user must name it."
+      );
+    }
   }
   if (bootPreview) {
     reqLines.push(
