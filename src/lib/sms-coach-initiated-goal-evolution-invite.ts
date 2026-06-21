@@ -73,7 +73,7 @@ export const COACH_GOAL_EVOLUTION_NEW_CHAPTER_NEG14_MAX = 1;
 export const COACH_GOAL_EVOLUTION_SHRINK_NEG14_MIN = 4;
 export const COACH_GOAL_EVOLUTION_SHRINK_WITH_BLOCKER_NEG14_MIN = 3;
 export const COACH_GOAL_EVOLUTION_RESET_NEG14_MIN = 5;
-export const COACH_GOAL_EVOLUTION_RESET_NO12_MIN = 3;
+export const COACH_GOAL_EVOLUTION_RESET_NO12_MIN = 4;
 export const COACH_GOAL_EVOLUTION_BLOCKER_21D_MIN = 4;
 export const COACH_GOAL_EVOLUTION_BLOCKER_HIGH_CONFIDENCE_MIN = 3;
 export const COACH_GOAL_EVOLUTION_BLOCKER_WITH_NEG14_MIN = 2;
@@ -392,6 +392,13 @@ export function evaluateCoachInitiatedGoalEvolutionInvite(args: {
   const evolutionReset = evAction === "replace_commitment";
   const evolutionShrink = evAction === "tighten_commitment" || evAction === "reframe_commitment";
 
+  /** Evolution replace alone (e.g. noIn12 >= 3) is weaker than coach reset bar — require corroboration. */
+  const evolutionReplaceResetCorroborated =
+    evolutionReset &&
+    (neg14 >= COACH_GOAL_EVOLUTION_SHRINK_NEG14_MIN ||
+      noIn12 >= COACH_GOAL_EVOLUTION_RESET_NO12_MIN ||
+      hasRecurringBlockerPatternForShrink(pattern));
+
   const blockerFocusEligible =
     Boolean(patternCanonical) &&
     (count21 >= COACH_GOAL_EVOLUTION_BLOCKER_21D_MIN ||
@@ -413,16 +420,18 @@ export function evaluateCoachInitiatedGoalEvolutionInvite(args: {
   const resetEligible =
     neg14 >= COACH_GOAL_EVOLUTION_RESET_NEG14_MIN ||
     noIn12 >= COACH_GOAL_EVOLUTION_RESET_NO12_MIN ||
-    evolutionReset;
+    evolutionReplaceResetCorroborated;
 
   if (resetEligible) {
     const conf: "medium" | "high" =
-      neg14 >= COACH_GOAL_EVOLUTION_RESET_NEG14_MIN || evolutionReset ? "high" : "medium";
+      neg14 >= COACH_GOAL_EVOLUTION_RESET_NEG14_MIN || evolutionReplaceResetCorroborated
+        ? "high"
+        : "medium";
     return inviteResult({
       invite_kind: "reset",
-      invite_source: evolutionReset ? "evolution_engine" : "repeated_miss",
+      invite_source: evolutionReplaceResetCorroborated ? "evolution_engine" : "repeated_miss",
       confidence: conf,
-      evidence_summary: evolutionReset
+      evidence_summary: evolutionReplaceResetCorroborated
         ? `evolution_engine:${evAction};neg14=${neg14};no12=${noIn12}`
         : noIn12 >= COACH_GOAL_EVOLUTION_RESET_NO12_MIN
           ? `repeated_miss:no12=${noIn12};neg14=${neg14}`

@@ -212,12 +212,25 @@ describe("evaluateCoachInitiatedGoalEvolutionInvite — final thresholds", () =>
     expect(result.should_invite).toBe(true);
   });
 
-  it("9 — noIn12 = 3 invites reset", () => {
+  it("9 — noIn12 = 3 alone does NOT invite reset", () => {
     const result = evaluateCoachInitiatedGoalEvolutionInvite({
       commitment: baseCommitment(),
       negativeOutcomes14d: 1,
       evolutionEvaluation: evolutionEval("keep_commitment", {
         user_no_count_last_12_outcomes: 3,
+      }),
+      nowMs: NOW_MS,
+    });
+    expect(result.should_invite).toBe(false);
+    expect(result.invite_kind).not.toBe("reset");
+  });
+
+  it("9b — noIn12 = 4 invites reset", () => {
+    const result = evaluateCoachInitiatedGoalEvolutionInvite({
+      commitment: baseCommitment(),
+      negativeOutcomes14d: 1,
+      evolutionEvaluation: evolutionEval("keep_commitment", {
+        user_no_count_last_12_outcomes: 4,
       }),
       nowMs: NOW_MS,
     });
@@ -361,7 +374,7 @@ describe("evaluateCoachInitiatedGoalEvolutionInvite — final thresholds", () =>
     expect(facts.current_goal_not_changed).toBe(true);
   });
 
-  it("evolution tighten invites shrink; replace invites reset", () => {
+  it("evolution tighten invites shrink; replace alone does not invite reset", () => {
     const shrink = evaluateCoachInitiatedGoalEvolutionInvite({
       commitment: baseCommitment(),
       negativeOutcomes14d: 0,
@@ -371,14 +384,63 @@ describe("evaluateCoachInitiatedGoalEvolutionInvite — final thresholds", () =>
     expect(shrink.invite_kind).toBe("shrink");
     expect(shrink.invite_source).toBe("evolution_engine");
 
-    const reset = evaluateCoachInitiatedGoalEvolutionInvite({
+    const resetWeak = evaluateCoachInitiatedGoalEvolutionInvite({
       commitment: baseCommitment(),
       negativeOutcomes14d: 0,
-      evolutionEvaluation: evolutionEval("replace_commitment"),
+      evolutionEvaluation: evolutionEval("replace_commitment", {
+        user_no_count_last_12_outcomes: 3,
+      }),
       nowMs: NOW_MS,
     });
-    expect(reset.invite_kind).toBe("reset");
-    expect(reset.invite_source).toBe("evolution_engine");
+    expect(resetWeak.should_invite).toBe(false);
+    expect(resetWeak.invite_kind).not.toBe("reset");
+  });
+
+  it("evolution replace with neg14 >= 4 invites reset", () => {
+    const result = evaluateCoachInitiatedGoalEvolutionInvite({
+      commitment: baseCommitment(),
+      negativeOutcomes14d: 4,
+      evolutionEvaluation: evolutionEval("replace_commitment", {
+        user_no_count_last_12_outcomes: 3,
+      }),
+      nowMs: NOW_MS,
+    });
+    expect(result.invite_kind).toBe("reset");
+    expect(result.invite_source).toBe("evolution_engine");
+    expect(result.should_invite).toBe(true);
+  });
+
+  it("evolution replace with noIn12 >= 4 invites reset", () => {
+    const result = evaluateCoachInitiatedGoalEvolutionInvite({
+      commitment: baseCommitment(),
+      negativeOutcomes14d: 1,
+      evolutionEvaluation: evolutionEval("replace_commitment", {
+        user_no_count_last_12_outcomes: 4,
+      }),
+      nowMs: NOW_MS,
+    });
+    expect(result.invite_kind).toBe("reset");
+    expect(result.should_invite).toBe(true);
+  });
+
+  it("evolution replace with recurring blocker invites reset", () => {
+    const result = evaluateCoachInitiatedGoalEvolutionInvite({
+      commitment: baseCommitment(),
+      negativeOutcomes14d: 2,
+      patternSignal: patternSignal({
+        canonical: "travel",
+        count21d: 3,
+        count14d: 2,
+        confidence: "medium",
+      }),
+      evolutionEvaluation: evolutionEval("replace_commitment", {
+        user_no_count_last_12_outcomes: 3,
+      }),
+      nowMs: NOW_MS,
+    });
+    expect(result.invite_kind).toBe("reset");
+    expect(result.invite_source).toBe("evolution_engine");
+    expect(result.should_invite).toBe(true);
   });
 });
 
