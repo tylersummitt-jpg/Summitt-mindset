@@ -69,7 +69,7 @@ function adaptiveEvidence(): OutcomeClaimEvidenceBundle {
     willPersistOutcomeThisTurn: false,
     missAdjustmentPolicy: null,
     finalEventType: null,
-    priorCoachBody: "Want this tighter ask? Reply YES or NO.",
+    priorCoachBody: "Want this tighter ask, or keep the current bar where it is?",
     priorCoachSentAt: "2026-06-01T12:00:00.000Z",
   };
 }

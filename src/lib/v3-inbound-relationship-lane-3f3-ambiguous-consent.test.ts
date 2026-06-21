@@ -10,7 +10,7 @@ describe("latestOutboundBodyContainsAdaptiveProposalBindingNeedle", () => {
   it("matches the same needle rule as contract consent routing", () => {
     expect(
       latestOutboundBodyContainsAdaptiveProposalBindingNeedle(
-        `Let’s simplify: ${proposal} Reply YES or NO.`,
+        `Let’s simplify: ${proposal} Are you good with that adjustment, or keep the current bar?`,
         proposal
       )
     ).toBe(true);

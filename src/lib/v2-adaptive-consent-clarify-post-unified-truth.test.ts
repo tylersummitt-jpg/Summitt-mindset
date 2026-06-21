@@ -19,7 +19,7 @@ const BASE_FACTS: InboundV3AdaptiveConsentClarificationFacts = {
   server_action_taken: "none",
   state_remains_pending: true,
   required_meaning_summary:
-    "Ask the user to reply with a clear YES or NO about the pending adaptive proposal only.",
+    "Ask whether they want the adjusted ask or to keep their current bar. Make clear the current bar has not changed yet. Ask for a clear decision in natural language.",
   legacy_clarification_preview: "preview",
   inbound_message_sid: "SMadaptive1",
 };

@@ -589,7 +589,7 @@ function enhanceThreadCorrectionFromMemoryPacket(
   };
 }
 
-/** Pending adaptive proposal — user has not given clear YES/NO; server has taken no consent action. */
+/** Pending adaptive proposal — user has not given clear consent; server has taken no consent action. */
 export type InboundV3AdaptiveConsentClarificationFacts = {
   latest_outbound_was_proposal: boolean;
   pending_proposal_valid: boolean;
@@ -2010,7 +2010,7 @@ ROUTE (${rp}): Wave 11 memory confirmation / decline / ambiguity. Server already
   }
   if (rp === "adaptive_proposal_consent_clarification") {
     return `
-ROUTE (adaptive_proposal_consent_clarification): A pending adaptive overlay proposal is on the table; the user has NOT clearly accepted or declined (server_action_taken none; state_remains_pending true). Use adaptive_consent_clarification_facts (inbound_parse, proposal_kind, proposal_text_digest, latest_outbound_was_proposal). legacy_clarification_preview is NON-SPEAKABLE stub copy — do not quote, imitate, or paste it. Do NOT treat this as today's accountability check outcome. Do NOT imply the overlay was accepted or declined. Ask for an explicit YES or NO about the proposal only. Honor constraints.required_meaning_summary. One short SMS; if unsafe or uncertain, return should_send false.`;
+ROUTE (adaptive_proposal_consent_clarification): A pending adaptive overlay proposal is on the table; the user has NOT clearly accepted or declined (server_action_taken none; state_remains_pending true). Use adaptive_consent_clarification_facts (inbound_parse, proposal_kind, proposal_text_digest, latest_outbound_was_proposal). legacy_clarification_preview is NON-SPEAKABLE stub copy — do not quote, imitate, or paste it. Do NOT treat this as today's accountability check outcome. Do NOT imply the overlay was accepted or declined. Ask for a clear natural decision about the adjusted proposal only — whether they want the adjusted ask or to keep the current bar. Do not use all-caps YES/NO menu language or phone-tree phrasing. Honor constraints.required_meaning_summary. One short SMS; if unsafe or uncertain, return should_send false.`;
   }
   if (rp === "commitment_change_handoff") {
     return `

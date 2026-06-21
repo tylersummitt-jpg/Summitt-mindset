@@ -2206,9 +2206,9 @@ async function handleAdaptiveProposalConsentAmbiguousInbound(
   });
   const digest = proposalText.length > 180 ? `${proposalText.slice(0, 177)}...` : proposalText;
   const legacyPreview =
-    "Reply YES or NO if you want this adjusted ask, or NO to keep your current bar.".slice(0, 500);
+    "Do you want me to hold you to the adjusted ask, or keep the current bar?".slice(0, 500);
   const requiredMeaning =
-    "Ask the user to reply with a clear YES or NO about the pending adaptive proposal only before any change. Do not imply they already accepted or declined. Do not treat this as answering today's accountability check.";
+    "Ask whether they want the adjusted ask or to keep their current bar. Make clear the current bar has not changed yet. Ask for a clear decision in natural language — do not use all-caps YES/NO menu phrasing or phone-tree wording. Do not imply they already accepted or declined. Do not treat this as answering today's accountability check.";
 
   const adaptiveConsentClarificationFacts: InboundV3AdaptiveConsentClarificationFacts = {
     latest_outbound_was_proposal: true,

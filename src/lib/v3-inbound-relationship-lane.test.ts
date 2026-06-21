@@ -1004,7 +1004,8 @@ describe("Phase 3F-3 adaptive_proposal_consent_clarification facts", () => {
         inbound_parse: "ambiguous",
         server_action_taken: "none",
         state_remains_pending: true,
-        required_meaning_summary: "Ask for YES or NO on the proposal.",
+        required_meaning_summary:
+          "Ask whether they want the adjusted ask or to keep their current bar. Make clear the current bar has not changed yet.",
         legacy_clarification_preview: "stub",
         inbound_message_sid: "SMxxx",
       },
@@ -1012,7 +1013,9 @@ describe("Phase 3F-3 adaptive_proposal_consent_clarification facts", () => {
 
     expect(facts.route_purpose).toBe("adaptive_proposal_consent_clarification");
     expect(facts.adaptive_consent_clarification_facts?.server_action_taken).toBe("none");
-    expect(facts.constraints.required_meaning_summary).toContain("YES or NO");
+    expect(facts.constraints.required_meaning_summary).toContain("current bar");
+    expect(facts.constraints.required_meaning_summary).not.toMatch(/reply with a clear yes/i);
+    expect(facts.constraints.required_meaning_summary).not.toMatch(/reply yes/i);
     expect(facts.suggested_coaching_move).toBe("ask_clear_yes_or_no_for_pending_adaptive_proposal");
   });
 });
