@@ -65,8 +65,39 @@ import {
   type ThreadFreshnessFacts,
 } from "@/lib/sms-thread-freshness";
 import type { RecentCoachBodyDoNotRepeat } from "@/lib/sms-recent-coach-body-anti-repeat";
-import { PROMPT_COACH_BODY_DO_NOT_REPEAT_MAX } from "@/lib/sms-recent-coach-body-anti-repeat";
+import {
+  extractRecentCoachBodiesForAntiRepeat,
+  PROMPT_COACH_BODY_DO_NOT_REPEAT_MAX,
+} from "@/lib/sms-recent-coach-body-anti-repeat";
+import {
+  buildDailyProofCalibrationPromptBlock,
+  dailyProofCalibrationTelemetry,
+  deriveDailyProofCalibration,
+  type DailyProofCalibration,
+} from "@/lib/sms-daily-proof-calibration";
+import {
+  buildDailyFreshMovePromptBlock,
+  dailyFreshMoveTelemetry,
+  deriveDailyFreshMoveFacts,
+  deriveFreshnessAvoidPhrasesForBrief,
+  detectDailyRepeatedCtaViolation,
+  type DailyFreshMoveFacts,
+} from "@/lib/sms-daily-fresh-move";
+import {
+  dailyUnsupportedPraiseTelemetry,
+  detectDailyUnsupportedPraiseViolation,
+} from "@/lib/sms-daily-unsupported-praise-validator";
 import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
+import {
+  buildRecentExactThreadForBrief,
+  type RecentExactThreadForBriefResult,
+} from "@/lib/sms-recent-exact-thread-72h";
+import {
+  buildDailySmsWritingBriefV1,
+  buildDailySmsWriterMessagesFromBrief,
+  dailyWritingBriefTelemetry,
+  useDailySmsWritingBriefV1,
+} from "@/lib/sms-daily-writing-brief-v1";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
 import {
@@ -320,6 +351,10 @@ export type DailyV3RelationshipFacts = {
   victory_background?: V3VictoryBackgroundFacts | null;
   /** Latest inbound satisfied-ask / do-not-repeat truth for daily stale-ask prevention. */
   daily_satisfied_ask_context?: DailySatisfiedAskContext | null;
+  /** Server-owned daily proof praise calibration (beats summaries). */
+  proof_calibration?: DailyProofCalibration | null;
+  /** Server-owned fresh-move / CTA do-not-repeat from recent coach bodies. */
+  fresh_move?: DailyFreshMoveFacts | null;
   /** Optional user-provided people context for relationship anchors (read-only). */
   relationship_anchor_sources?: RelationshipAnchorSources | null;
   suggested_coaching_move: string;
@@ -583,6 +618,57 @@ export function enrichDailyFactsWithThreadFreshness(facts: DailyV3RelationshipFa
     thread_freshness: threadFreshness,
     temporal_contract,
   };
+}
+
+/** Attach proof calibration + fresh-move facts after thread freshness (no I/O). */
+export function enrichDailyFactsWithProofCalibrationAndFreshMove(
+  facts: DailyV3RelationshipFacts
+): DailyV3RelationshipFacts {
+  const proof_calibration = deriveDailyProofCalibration({ facts });
+  const fresh_move = deriveDailyFreshMoveFacts(facts.thread_memory.recent_coach_body_do_not_repeat);
+  return { ...facts, proof_calibration, fresh_move };
+}
+
+export function applyDailyProofCalibrationSeatbelts(
+  body: string,
+  facts: DailyV3RelationshipFacts
+): { blocked: boolean; noSendReason: string | null; metadata: Record<string, unknown> } {
+  const cal = facts.proof_calibration;
+  if (cal) {
+    const praiseHit = detectDailyUnsupportedPraiseViolation({ body, calibration: cal });
+    if (praiseHit) {
+      return {
+        blocked: true,
+        noSendReason: "unsupported_praise_claim",
+        metadata: {
+          ...dailyUnsupportedPraiseTelemetry(praiseHit, cal),
+          lane_stage: "daily_unsupported_praise_blocked",
+        },
+      };
+    }
+  }
+  const fresh = facts.fresh_move ?? {
+    recent_cta_do_not_repeat: [],
+    recent_advice_do_not_repeat: [],
+    fresh_move_required: false,
+  };
+  const ctaHit = detectDailyRepeatedCtaViolation({
+    body,
+    freshMove: fresh,
+    newProofAllowsSameCta:
+      cal?.recent_completion_claim_allowed === true && (cal?.proof_age_days ?? 99) <= 0,
+  });
+  if (ctaHit) {
+    return {
+      blocked: true,
+      noSendReason: "thread_memory_repeat_blocked",
+      metadata: {
+        ...dailyFreshMoveTelemetry(fresh, ctaHit),
+        lane_stage: "daily_repeated_cta_blocked",
+      },
+    };
+  }
+  return { blocked: false, noSendReason: null, metadata: {} };
 }
 
 export function shouldRunDailyTemporalWordingGuard(facts: DailyV3RelationshipFacts): boolean {
@@ -1098,7 +1184,34 @@ function dailyLanePostValidateRepairExcluded(facts: DailyV3RelationshipFacts): b
 export async function produceDailyV3RelationshipSms(
   args: DailyV3RelationshipLaneInput
 ): Promise<DailyV3RelationshipLaneResult> {
-  const laneFacts = enrichDailyFactsWithThreadFreshness(args.facts);
+  let factsAfterThread = enrichDailyFactsWithThreadFreshness(args.facts);
+  const useWritingBrief = useDailySmsWritingBriefV1(factsAfterThread);
+  let briefThread: RecentExactThreadForBriefResult | null = null;
+
+  if (useWritingBrief) {
+    const nowForThread = Number.isFinite(new Date(factsAfterThread.user.local_time_iso).getTime())
+      ? new Date(factsAfterThread.user.local_time_iso)
+      : new Date();
+    briefThread = await buildRecentExactThreadForBrief({
+      clerkUserId: factsAfterThread.user.clerk_user_id,
+      commitmentId: factsAfterThread.commitment.id,
+      timezone: factsAfterThread.user.timezone,
+      now: nowForThread,
+    });
+    const coachBodies = extractRecentCoachBodiesForAntiRepeat(briefThread.timeline_7d);
+    factsAfterThread = {
+      ...factsAfterThread,
+      thread_memory: {
+        ...factsAfterThread.thread_memory,
+        recent_coach_body_do_not_repeat:
+          coachBodies.length > 0
+            ? coachBodies
+            : factsAfterThread.thread_memory.recent_coach_body_do_not_repeat,
+      },
+    };
+  }
+
+  const laneFacts = enrichDailyFactsWithProofCalibrationAndFreshMove(factsAfterThread);
   const baseMeta: Record<string, unknown> = {
     v3_brain_version: V3_BRAIN_VERSION,
     ...(laneFacts.temporal_contract
@@ -1114,6 +1227,9 @@ export async function produceDailyV3RelationshipSms(
     thread_freshness_used: Boolean(laneFacts.thread_freshness),
     thread_freshness_active_temporal_frame: laneFacts.thread_freshness?.active_temporal_frame ?? null,
     thread_freshness_completed_action_count: laneFacts.thread_freshness?.completed_actions.length ?? 0,
+    ...(laneFacts.proof_calibration
+      ? dailyProofCalibrationTelemetry(laneFacts.proof_calibration)
+      : {}),
   };
 
   const empty = (reason: string, openAiOk: boolean, extra?: Record<string, unknown>): DailyV3RelationshipLaneResult => ({
@@ -1231,10 +1347,46 @@ export async function produceDailyV3RelationshipSms(
       ? ""
       : "- If structured_recent_truth.turn_understanding or daily_satisfied_ask_context shows the user already satisfied the prior coach ask, do NOT repeat or paraphrase do_not_repeat_asks — acknowledge their answer and move to a non-stale next step or outcome-close question.";
 
-  const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
+  let system: string;
+  let user: string;
+
+  if (
+    useWritingBrief &&
+    validatedDailyC1Card &&
+    briefThread &&
+    laneFacts.proof_calibration
+  ) {
+    const freshnessPhrases = deriveFreshnessAvoidPhrasesForBrief(
+      laneFacts.thread_memory.recent_coach_body_do_not_repeat
+    );
+    const brief = buildDailySmsWritingBriefV1({
+      facts: laneFacts,
+      proof_calibration: laneFacts.proof_calibration,
+      strategy_card: validatedDailyC1Card,
+      thread: briefThread,
+      freshness_phrases: freshnessPhrases,
+      commitmentRow: args.commitmentRow ?? null,
+    });
+    const writerMsgs = buildDailySmsWriterMessagesFromBrief(brief);
+    system = writerMsgs.system;
+    user = writerMsgs.user;
+    Object.assign(
+      baseMeta,
+      dailyWritingBriefTelemetry({
+        brief,
+        writer_system_chars: writerMsgs.writer_system_chars,
+        writer_payload_chars: writerMsgs.writer_payload_chars,
+        writer_total_chars: writerMsgs.writer_total_chars,
+      })
+    );
+  } else {
+    system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated reminder app.
 
 RULES:
 ${dailyZeroQuestionMode ? buildDailyZeroQuestionModeSystemRules() : ""}
+${laneFacts.proof_calibration ? buildDailyProofCalibrationPromptBlock(laneFacts.proof_calibration) : ""}
+${laneFacts.fresh_move?.fresh_move_required ? buildDailyFreshMovePromptBlock(laneFacts.fresh_move) : ""}
+- Summaries in lower_authority_background, relationship_memory_7d, and relationship_memory_30d_or_season are background only (summary_authority=background_only). Do not convert summaries into praise unless structured_recent_truth.daily_proof_calibration allows it. Exact recent thread + daily proof calibration beat summaries (exact_thread_and_calibration_win=true).
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy old template wording or paraphrase labeled machine drafts.
 ${buildRelationshipPacketPromptGuidance()}
 ${strategyCardPromptGuidance}
@@ -1272,18 +1424,25 @@ should_send (boolean), body (string, empty if should_send false), no_send_reason
 turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[])`;
 
-  const writerUserPrompt = buildWriterUserPromptWithStrategyCard({
-    userPromptJson: relationshipPacket.userPromptJson,
-    strategyCardAppendix: strategyCardUserAppendix,
-    stripWhenCardActive: strategyCardDailyActive ? { lane: "daily" } : undefined,
-  });
-  if (writerUserPrompt.stripped_fields.length > 0) {
+    const writerUserPrompt = buildWriterUserPromptWithStrategyCard({
+      userPromptJson: relationshipPacket.userPromptJson,
+      strategyCardAppendix: strategyCardUserAppendix,
+      stripWhenCardActive: strategyCardDailyActive ? { lane: "daily" } : undefined,
+    });
+    if (writerUserPrompt.stripped_fields.length > 0) {
+      Object.assign(baseMeta, {
+        strategy_card_packet_writer_hints_stripped: true,
+        strategy_card_packet_stripped_fields: writerUserPrompt.stripped_fields,
+      });
+    }
+    user = writerUserPrompt.prompt;
     Object.assign(baseMeta, {
-      strategy_card_packet_writer_hints_stripped: true,
-      strategy_card_packet_stripped_fields: writerUserPrompt.stripped_fields,
+      writer_prompt_path: "legacy_packet_v1",
+      writer_system_chars: system.length,
+      writer_payload_chars: user.length,
+      writer_total_chars: system.length + user.length,
     });
   }
-  const user = writerUserPrompt.prompt;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;
@@ -1951,6 +2110,30 @@ used_facts (string[]), safety_notes (string[])`;
     if (Object.keys(staleAskGuard.metadata).length > 0) {
       successRepairExtra = { ...successRepairExtra, ...staleAskGuard.metadata };
     }
+  }
+
+  const proofSeatbelts = applyDailyProofCalibrationSeatbelts(body, laneFacts);
+  if (proofSeatbelts.blocked) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: proofSeatbelts.noSendReason ?? "lane_post_validate_blocked",
+      replySource: "v3_daily_relationship_lane",
+      turnPurpose: turnPurpose || "no_send",
+      voiceConfidence,
+      usedFacts,
+      safetyNotes,
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage: proofSeatbelts.metadata.lane_stage ?? "daily_proof_calibration_seatbelt_blocked",
+        v3_candidate_body: body,
+        ...successRepairExtra,
+        ...proofSeatbelts.metadata,
+        skip_source: "proof_calibration_seatbelt_no_send",
+      },
+      openAiOk: true,
+    };
   }
 
   const finalPraise = collectDailyPostValidateVoiceViolations(

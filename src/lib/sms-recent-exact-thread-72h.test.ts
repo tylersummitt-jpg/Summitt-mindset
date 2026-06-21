@@ -17,9 +17,11 @@ vi.mock("@/lib/v2-commitment", async (importOriginal) => {
 
 import {
   buildRecentExactThread72h,
+  capThreadMessagesForBrief,
   formatAtLocal,
   isSendEventTrulySent,
   RECENT_EXACT_THREAD_WINDOW_HOURS,
+  type RecentExactThread72hMessage,
 } from "@/lib/sms-recent-exact-thread-72h";
 
 const NOW = new Date("2026-05-18T12:00:00.000Z");
@@ -290,5 +292,66 @@ describe("buildRecentExactThread72h", () => {
     for (const m of result.messages) {
       expect(m.local_day_key).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
+  });
+});
+
+describe("capThreadMessagesForBrief", () => {
+  function msg(
+    partial: Partial<RecentExactThread72hMessage> & Pick<RecentExactThread72hMessage, "at" | "role" | "body">
+  ): RecentExactThread72hMessage {
+    return {
+      at_local: partial.at_local ?? "Sun Jun 20 9:00 AM",
+      at_local_timezone: TZ,
+      local_day_key: "2026-06-20",
+      message_kind: null,
+      source_table: "test",
+      message_sid: null,
+      delivery_status: partial.delivery_status ?? "sent",
+      is_exact_body: partial.is_exact_body ?? true,
+      ...partial,
+    };
+  }
+
+  it("includes Thursday coach CTA on Sunday when in extension window", () => {
+    const nowMs = new Date("2026-06-20T14:00:00.000Z").getTime();
+    const thursday = new Date("2026-06-17T13:02:00.000Z").toISOString();
+    const messages = [
+      msg({
+        at: thursday,
+        at_local: "Thu Jun 17 8:02 AM",
+        role: "coach",
+        body: "Aim for one hour of distribution today.",
+      }),
+    ];
+    const capped = capThreadMessagesForBrief(messages, nowMs);
+    expect(capped.some((m) => /one hour of distribution/i.test(m.body))).toBe(true);
+  });
+
+  it("excludes preview and no-send from writer brief thread", () => {
+    const nowMs = Date.now();
+    const messages = [
+      msg({
+        at: new Date(nowMs - 3600_000).toISOString(),
+        role: "coach",
+        body: "Preview only",
+        delivery_status: "preview",
+        is_exact_body: false,
+      }),
+      msg({
+        at: new Date(nowMs - 7200_000).toISOString(),
+        role: "system_no_send" as never,
+        body: "Skipped candidate",
+        delivery_status: "skipped",
+        is_exact_body: false,
+      }),
+      msg({
+        at: new Date(nowMs - 1800_000).toISOString(),
+        role: "user",
+        body: "Yes got it done.",
+      }),
+    ];
+    const capped = capThreadMessagesForBrief(messages, nowMs);
+    expect(capped).toHaveLength(1);
+    expect(capped[0]?.role).toBe("user");
   });
 });

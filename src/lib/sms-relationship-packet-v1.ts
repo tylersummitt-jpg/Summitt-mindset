@@ -4,6 +4,8 @@
  */
 
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { DailyProofCalibration } from "@/lib/sms-daily-proof-calibration";
+import type { DailyFreshMoveFacts } from "@/lib/sms-daily-fresh-move";
 import type { DailyCoachGoalEvolutionInviteFacts } from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
 import {
@@ -167,6 +169,15 @@ export type RelationshipPacketStructuredRecentTruth = {
     required_meaning_summary?: string | null;
     forbidden_substring_count?: number;
   };
+  daily_proof_calibration?: DailyProofCalibration | null;
+  daily_fresh_move?: Pick<
+    DailyFreshMoveFacts,
+    "recent_cta_do_not_repeat" | "recent_advice_do_not_repeat" | "fresh_move_required"
+  > | null;
+  summary_authority_note?: {
+    summary_authority: "background_only";
+    exact_thread_and_calibration_win: true;
+  };
   weekly_week_summary?: {
     completed_count?: number;
     missed_count?: number;
@@ -264,6 +275,8 @@ export type RelationshipPacketLowerAuthorityBackground = {
   legacy_suggestions_summary?: string | null;
   coaching_memory_snippet?: string | null;
   recent_transcript_or_context_block?: string | null;
+  summary_authority?: "background_only";
+  exact_thread_and_calibration_win?: boolean;
 };
 
 export type RelationshipPacketRelationshipAnchorsData = {
@@ -342,6 +355,8 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
+- structured_recent_truth.daily_proof_calibration is authoritative server truth for praise and proof recency — it beats coaching_memory_snippet and lower_authority_background on praise/consistency claims.
+- If structured_recent_truth.summary_authority_note is present, summaries are background_only; exact thread + daily_proof_calibration win on conflict.
 ${buildRelationshipAnchorsPromptGuidance()}
 ${buildDailyC1HighRepeatRiskPacketGuidance()}
 ${buildTemporalContractPromptGuidance()}
@@ -816,6 +831,20 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
     ...(f.accountability.coach_goal_evolution_invite
       ? { coach_goal_evolution_invite: f.accountability.coach_goal_evolution_invite }
       : {}),
+    ...(f.proof_calibration ? { daily_proof_calibration: f.proof_calibration } : {}),
+    ...(f.fresh_move?.fresh_move_required
+      ? {
+          daily_fresh_move: {
+            recent_cta_do_not_repeat: f.fresh_move.recent_cta_do_not_repeat,
+            recent_advice_do_not_repeat: f.fresh_move.recent_advice_do_not_repeat,
+            fresh_move_required: f.fresh_move.fresh_move_required,
+          },
+        }
+      : {}),
+    summary_authority_note: {
+      summary_authority: "background_only",
+      exact_thread_and_calibration_win: true,
+    },
   };
 }
 
@@ -1072,6 +1101,8 @@ function buildLowerAuthorityInbound(f: InboundV3RelationshipFacts): Relationship
 
 function buildLowerAuthorityDaily(f: DailyV3RelationshipFacts): RelationshipPacketLowerAuthorityBackground {
   return {
+    summary_authority: "background_only",
+    exact_thread_and_calibration_win: true,
     relationship_profile_summary: f.user.relationship_profile_summary,
     coaching_memory_snippet:
       f.thread_memory.coaching_memory_snippet?.trim() &&

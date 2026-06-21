@@ -27,6 +27,7 @@ import type {
 } from "@/lib/v3-inbound-relationship-lane";
 import { createHash } from "crypto";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { DailyProofCalibration, DailyProofPraiseAllowedLevel } from "@/lib/sms-daily-proof-calibration";
 import {
   buildRelationshipAnchors,
   detectRecentlyUsedRelationshipAnchorKeys,
@@ -179,6 +180,11 @@ export type StrategyCardV1 = {
     weekly_can_claim_proof?: boolean | null;
     weekly_can_reference_victory_room?: boolean | null;
     weekly_proof_state_written_before_sms?: boolean;
+    daily_proof_wins_7d?: number | null;
+    daily_proof_age_days?: number | null;
+    daily_praise_allowed_level?: DailyProofPraiseAllowedLevel | null;
+    daily_consistency_claim_allowed?: boolean | null;
+    daily_fresh_move_required?: boolean | null;
   };
   move: {
     type: StrategyCardMoveType;
@@ -2454,6 +2460,65 @@ const DAILY_C1_ALLOWED_MOVES: StrategyCardMoveType[] = [
   "other",
 ];
 
+export type DailySmsSuggestedMoveV1 = {
+  move: string;
+  posture: string;
+  max_questions: 0 | 1;
+  reason: string;
+  must_not_do: string[];
+  allowed_claims: { proof: boolean; victory_room: boolean };
+  subordinate_to: ["authoritative_truth", "recent_exact_thread"];
+};
+
+const SUGGESTED_MOVE_MUST_NOT_DO_MAX = 3;
+
+function pushSuggestedMustNotDo(list: string[], line: string): void {
+  const t = line.trim();
+  if (!t || list.length >= SUGGESTED_MOVE_MUST_NOT_DO_MAX) return;
+  if (list.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+  list.push(t.slice(0, 120));
+}
+
+/** Writer-facing compact move from internal Daily C1 Strategy Card. */
+export function buildSuggestedMoveFromDailyC1Card(
+  card: StrategyCardV1,
+  calibration: DailyProofCalibration | null | undefined
+): DailySmsSuggestedMoveV1 {
+  const must_not_do: string[] = [];
+
+  if (calibration && !calibration.strong_commitment_claim_allowed) {
+    pushSuggestedMustNotDo(
+      must_not_do,
+      "Do not say great commitment, strong commitment, or shown commitment"
+    );
+  }
+  if (calibration && !calibration.consistency_claim_allowed) {
+    pushSuggestedMustNotDo(
+      must_not_do,
+      "Do not imply consistency, on a roll, dominating, or kept showing up"
+    );
+  }
+  for (const item of card.must_not_do) {
+    pushSuggestedMustNotDo(must_not_do, item);
+  }
+
+  const maxQ = card.writer_constraints.max_questions;
+  const max_questions: 0 | 1 = maxQ <= 0 ? 0 : 1;
+
+  return {
+    move: card.move.type.slice(0, 40),
+    posture: card.writer_constraints.tone_posture.slice(0, 40),
+    max_questions,
+    reason: card.move.reason.trim().slice(0, 120),
+    must_not_do: must_not_do.slice(0, SUGGESTED_MOVE_MUST_NOT_DO_MAX),
+    allowed_claims: {
+      proof: card.allowed_claims.proof,
+      victory_room: card.allowed_claims.victory_room,
+    },
+    subordinate_to: ["authoritative_truth", "recent_exact_thread"],
+  };
+}
+
 export function isDailyC1StrategyCardEligible(facts: DailyV3RelationshipFacts): boolean {
   if (
     facts.route_kind !== "main_active_accountability" &&
@@ -2660,11 +2725,46 @@ function hasExtendedSilence(ctx: DailyC1StrategyCardBuildContext): boolean {
   return false;
 }
 
+function dailyC1ProofCalibration(ctx: DailyC1StrategyCardBuildContext): DailyProofCalibration | null {
+  return ctx.facts.proof_calibration ?? null;
+}
+
+function isDailyProofWeakStale(ctx: DailyC1StrategyCardBuildContext): boolean {
+  const cal = dailyC1ProofCalibration(ctx);
+  if (!cal) return false;
+  return (
+    cal.recent_proof_strength === "weak_stale" ||
+    (cal.praise_allowed_level === "capability_only" && (cal.proof_age_days ?? 0) >= 2)
+  );
+}
+
+export function dailyC1HasRecentPositiveProgress(ctx: DailyC1StrategyCardBuildContext): boolean {
+  return hasRecentPositiveProgress(ctx);
+}
+
 function hasRecentPositiveProgress(ctx: DailyC1StrategyCardBuildContext): boolean {
+  const cal = dailyC1ProofCalibration(ctx);
+  if (cal) {
+    if (cal.praise_allowed_level === "none" || cal.praise_allowed_level === "capability_only") {
+      return false;
+    }
+    if (cal.proof_age_days != null && cal.proof_age_days >= 2 && cal.wins_7d <= 2) {
+      return false;
+    }
+    if (
+      cal.praise_allowed_level === "specific_recent_proof" ||
+      cal.praise_allowed_level === "measured_progress" ||
+      cal.praise_allowed_level === "consistency" ||
+      cal.praise_allowed_level === "streak"
+    ) {
+      return true;
+    }
+  }
   const a = ctx.facts.accountability;
-  if (a.prior_outcome === "user_yes") return true;
-  if ((a.yes_streak_14d ?? 0) >= 2) return true;
-  if (a.proof_or_milestone_signal?.trim()) return true;
+  const proofAge = cal?.proof_age_days ?? a.days_since_last_user_outcome;
+  if (a.prior_outcome === "user_yes" && proofAge <= 1) return true;
+  if ((a.yes_streak_14d ?? 0) >= 3) return true;
+  if (a.proof_or_milestone_signal?.trim() && proofAge <= 1) return true;
   return false;
 }
 
@@ -2734,6 +2834,13 @@ export function selectDailyC1ConversationIntent(
 
   if (hasExtendedSilence(ctx)) {
     return "plan_today";
+  }
+
+  if (isDailyProofWeakStale(ctx)) {
+    if (ctx.facts.accountability.prior_outcome === "user_no") {
+      return "obstacle_recovery";
+    }
+    return ctx.facts.accountability.prior_outcome === "user_partial" ? "reflect_pattern" : "plan_today";
   }
 
   if (hasRecentPositiveProgress(ctx)) {
@@ -2841,6 +2948,15 @@ function collectDailyAvoidRepeating(ctx: DailyC1StrategyCardBuildContext): strin
     if (sk) items.push(sk);
   }
 
+  for (const item of ctx.facts.fresh_move?.recent_cta_do_not_repeat ?? []) {
+    const sk = semanticAvoidKey("recent_cta", item.phrase);
+    if (sk) items.push(sk);
+  }
+  for (const item of ctx.facts.fresh_move?.recent_advice_do_not_repeat ?? []) {
+    const sk = semanticAvoidKey("recent_advice", item.phrase);
+    if (sk) items.push(sk);
+  }
+
   return [...new Set(items)].slice(0, MAX_AVOID_REPEATING);
 }
 
@@ -2914,6 +3030,38 @@ function buildDailyC1MustDoMustNotDo(args: {
     must_do.push(
       "Choose a fresh honest coaching move grounded in current goal and recent thread — not a light paraphrase of prior coach SMS."
     );
+  }
+
+  const cal = dailyC1ProofCalibration(ctx);
+  if (cal) {
+    if (cal.consistency_claim_allowed === false) {
+      must_not_do.push(
+        "Do not say great commitment or strong commitment.",
+        "Do not say consistent, on a roll, dominating, or kept showing up.",
+        "Do not imply repeated follow-through beyond what proof allows.",
+        ...(cal.proof_age_days != null && cal.proof_age_days > 1
+          ? ["Do not say recently completed unless proof_age_days <= 1 and wording is precise."]
+          : [])
+      );
+    }
+    if (cal.praise_allowed_level === "capability_only") {
+      must_do.push(
+        "You may say the user has shown they can do it — then pivot to today's next honest win."
+      );
+      must_not_do.push("Do not praise consistency or measured progress on stale weak proof.");
+    }
+    if (cal.praise_allowed_level === "none") {
+      must_not_do.push("Do not praise proof, consistency, or commitment on this turn.");
+    }
+    for (const item of ctx.facts.fresh_move?.recent_cta_do_not_repeat ?? []) {
+      must_not_do.push(`Do not reuse CTA/advice: "${item.phrase}".`);
+    }
+    for (const item of ctx.facts.fresh_move?.recent_advice_do_not_repeat ?? []) {
+      must_not_do.push(`Do not reuse advice/tool: "${item.phrase}".`);
+    }
+    if (ctx.facts.fresh_move?.fresh_move_required) {
+      must_do.push("Choose a fresh honest move — do not repeat recent CTA/advice from prior coach SMS.");
+    }
   }
 
   if (zeroQuestionRequired) {
@@ -3194,6 +3342,15 @@ export function buildDailyC1StrategyCardV1(args: {
       daily_zero_question_reason: zeroQuestionRequired
         ? DAILY_C1_ZERO_QUESTION_REASON
         : null,
+      ...(ctx.facts.proof_calibration
+        ? {
+            daily_proof_wins_7d: ctx.facts.proof_calibration.wins_7d,
+            daily_proof_age_days: ctx.facts.proof_calibration.proof_age_days,
+            daily_praise_allowed_level: ctx.facts.proof_calibration.praise_allowed_level,
+            daily_consistency_claim_allowed: ctx.facts.proof_calibration.consistency_claim_allowed,
+            daily_fresh_move_required: ctx.facts.fresh_move?.fresh_move_required ?? false,
+          }
+        : {}),
     },
     move: {
       type: moveType,

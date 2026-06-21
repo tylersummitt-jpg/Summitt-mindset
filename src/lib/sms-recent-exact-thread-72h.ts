@@ -197,17 +197,134 @@ function toOutputMessage(entry: TimelineEntry, timezone: string): RecentExactThr
   };
 }
 
-export async function buildRecentExactThread72h(args: {
+export const BRIEF_THREAD_FLOOR_HOURS = 72;
+export const BRIEF_THREAD_EXTENSION_DAYS = 7;
+export const BRIEF_THREAD_EXTENSION_MS = BRIEF_THREAD_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+export const BRIEF_THREAD_MAX_MESSAGES = 25;
+export const BRIEF_THREAD_MAX_CHARS = 5000;
+export const BRIEF_THREAD_PER_MESSAGE_MAX = 320;
+
+export type RecentExactThreadBriefMessage = {
+  at_local: string;
+  role: "coach" | "user";
+  body: string;
+};
+
+export type RecentExactThreadForBriefResult = {
+  window: {
+    floor_hours: typeof BRIEF_THREAD_FLOOR_HOURS;
+    extension_days: typeof BRIEF_THREAD_EXTENSION_DAYS;
+    mode: "72h_floor_7d_extension_capped";
+  };
+  messages: RecentExactThreadBriefMessage[];
+  message_count: number;
+  char_count: number;
+  /** Full 7d timeline for coach-body freshness extraction. */
+  timeline_7d: RecentExactThread72hResult;
+};
+
+export type BuildRecentExactThreadArgs = {
   clerkUserId: string;
   commitmentId?: string | null;
   timezone: string;
   now?: Date;
   includeSystemNoSend?: boolean;
   preloadedCheckSentEvents?: V2EventRowForAi[];
-}): Promise<RecentExactThread72hResult> {
+};
+
+function isWriterFacingThreadMessage(m: RecentExactThread72hMessage): boolean {
+  if (m.role === "user") return true;
+  if (m.role === "coach") return m.delivery_status === "sent" && m.is_exact_body;
+  return false;
+}
+
+function truncateBriefBody(body: string, max = BRIEF_THREAD_PER_MESSAGE_MAX): string {
+  const t = body.trim().replace(/\r?\n/g, " ");
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+export function briefThreadMessageCharCount(messages: RecentExactThreadBriefMessage[]): number {
+  return messages.reduce((sum, m) => sum + m.body.length, 0);
+}
+
+function toBriefMessage(m: RecentExactThread72hMessage): RecentExactThreadBriefMessage {
+  return {
+    at_local: m.at_local,
+    role: m.role === "coach" ? "coach" : "user",
+    body: truncateBriefBody(m.body),
+  };
+}
+
+/** Cap writer-facing thread: 72h floor preserved, 7d extension until message/char caps. */
+export function capThreadMessagesForBrief(
+  messages: RecentExactThread72hMessage[],
+  nowMs: number
+): RecentExactThreadBriefMessage[] {
+  const floorMs = nowMs - BRIEF_THREAD_FLOOR_HOURS * 60 * 60 * 1000;
+
+  type Item = { msg: RecentExactThread72hMessage; ts: number; isFloor: boolean };
+  const items: Item[] = [];
+  for (const m of messages) {
+    if (!isWriterFacingThreadMessage(m)) continue;
+    const ts = Date.parse(m.at);
+    if (!Number.isFinite(ts)) continue;
+    items.push({ msg: m, ts, isFloor: ts >= floorMs });
+  }
+  items.sort((a, b) => a.ts - b.ts);
+
+  const floorItems = items.filter((i) => i.isFloor);
+  const extensionItems = items.filter((i) => !i.isFloor);
+
+  let chosen: Item[] = [...floorItems];
+  for (const ext of extensionItems) {
+    const candidate = [...chosen, ext];
+    const brief = candidate.map((i) => toBriefMessage(i.msg));
+    if (brief.length > BRIEF_THREAD_MAX_MESSAGES) break;
+    if (briefThreadMessageCharCount(brief) > BRIEF_THREAD_MAX_CHARS) break;
+    chosen = candidate;
+  }
+
+  let briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
+
+  const shrinkLongestCoachBody = (startIdx: number): boolean => {
+    let bestIdx = -1;
+    let bestLen = 0;
+    for (let i = startIdx; i < briefMsgs.length; i++) {
+      const m = briefMsgs[i]!;
+      if (m.role !== "coach" || m.body.length <= 80) continue;
+      if (m.body.length > bestLen) {
+        bestLen = m.body.length;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx < 0) return false;
+    const cur = briefMsgs[bestIdx]!;
+    const nextLen = Math.max(80, Math.floor(cur.body.length * 0.65));
+    briefMsgs[bestIdx] = { ...cur, body: truncateBriefBody(cur.body, nextLen) };
+    return true;
+  };
+
+  while (briefThreadMessageCharCount(briefMsgs) > BRIEF_THREAD_MAX_CHARS) {
+    if (shrinkLongestCoachBody(floorItems.length)) continue;
+    if (shrinkLongestCoachBody(0)) continue;
+    if (chosen.length > floorItems.length) {
+      chosen = chosen.slice(0, -1);
+      briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
+      continue;
+    }
+    break;
+  }
+
+  return briefMsgs;
+}
+
+async function buildRecentExactThreadWithWindowMs(
+  args: BuildRecentExactThreadArgs & { windowMs: number }
+): Promise<RecentExactThread72hResult> {
   const now = args.now ?? new Date();
   const nowMs = now.getTime();
-  const cutoffMs = nowMs - RECENT_EXACT_THREAD_WINDOW_MS;
+  const cutoffMs = nowMs - args.windowMs;
   const tz = resolveUserTimezone(args.timezone);
   const includeSystemNoSend = args.includeSystemNoSend === true;
 
@@ -441,14 +558,51 @@ export async function buildRecentExactThread72h(args: {
   const merged = dedupeTimeline(rich);
   const messages = merged.map((e) => toOutputMessage(e, tz));
 
+  const windowHours = Math.round(args.windowMs / (60 * 60 * 1000));
   return {
     messages,
-    window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+    window_hours:
+      windowHours === RECENT_EXACT_THREAD_WINDOW_HOURS
+        ? RECENT_EXACT_THREAD_WINDOW_HOURS
+        : (windowHours as typeof RECENT_EXACT_THREAD_WINDOW_HOURS),
     message_count: messages.length,
     had_preview_messages: messages.some((m) => m.delivery_status === "preview"),
     had_system_no_send: messages.some((m) => m.role === "system_no_send"),
     oldest_at: messages[0]?.at,
     newest_at: messages[messages.length - 1]?.at,
+  };
+}
+
+export async function buildRecentExactThread72h(
+  args: BuildRecentExactThreadArgs
+): Promise<RecentExactThread72hResult> {
+  return buildRecentExactThreadWithWindowMs({
+    ...args,
+    windowMs: RECENT_EXACT_THREAD_WINDOW_MS,
+  });
+}
+
+/** 7d fetch + 72h floor / capped extension for DailySmsWritingBriefV1. */
+export async function buildRecentExactThreadForBrief(
+  args: BuildRecentExactThreadArgs
+): Promise<RecentExactThreadForBriefResult> {
+  const now = args.now ?? new Date();
+  const timeline_7d = await buildRecentExactThreadWithWindowMs({
+    ...args,
+    windowMs: BRIEF_THREAD_EXTENSION_MS,
+    includeSystemNoSend: false,
+  });
+  const messages = capThreadMessagesForBrief(timeline_7d.messages, now.getTime());
+  return {
+    window: {
+      floor_hours: BRIEF_THREAD_FLOOR_HOURS,
+      extension_days: BRIEF_THREAD_EXTENSION_DAYS,
+      mode: "72h_floor_7d_extension_capped",
+    },
+    messages,
+    message_count: messages.length,
+    char_count: briefThreadMessageCharCount(messages),
+    timeline_7d,
   };
 }
 

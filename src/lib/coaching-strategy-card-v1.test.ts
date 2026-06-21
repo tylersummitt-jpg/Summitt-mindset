@@ -29,6 +29,7 @@ import {
   buildDailyC1StrategyCardContextFromSnapshot,
   buildDailyC1StrategyCardV1,
   buildDailyC1StrategyCardDemotedPromptRules,
+  selectDailyC1ConversationIntent,
   dailyC1HasHighRepeatRisk,
   DAILY_C1_ZERO_QUESTION_REASON,
   buildDailyC2StrategyCardContextFromSnapshot,
@@ -73,6 +74,10 @@ import { applyDailyStaleAskDetectOnly } from "@/lib/daily-stale-ask-guard";
 import type { OpenLoopsAndDoNotRepeatData } from "@/lib/sms-open-loops-and-do-not-repeat";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import {
+  deriveDailyProofCalibration,
+} from "@/lib/sms-daily-proof-calibration";
+import { deriveDailyFreshMoveFacts } from "@/lib/sms-daily-fresh-move";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 
 const PLAN_CONFIRMATION_Q =
@@ -3380,5 +3385,111 @@ describe("abstract commitment-renewal Strategy Card rules", () => {
     expect(card.must_not_do).toContain(ABSTRACT_COMMITMENT_RENEWAL_MUST_NOT_DO);
     expect(card.must_not_do).toContain(INBOUND_ANTI_GENERIC_RECOMMIT_MUST_NOT_DO);
     expect(card.must_not_do).toContain(ARC_TENTATIVE_OUTCOME_NOT_CONFIRMED_MUST_NOT_DO);
+  });
+});
+
+describe("Daily proof calibration — Strategy Card", () => {
+  function weakStaleDailyFacts(): DailyV3RelationshipFacts {
+    const base = {
+      route_kind: "main_active_accountability" as const,
+      accountability_day_key: "2026-06-20",
+      user: {
+        clerk_user_id: "u_cal",
+        preferred_name: "Tyler",
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-20T14:00:00.000Z",
+        relationship_profile_summary: "shown commitment recently",
+      },
+      commitment: {
+        id: "cmt_cal",
+        title: "Distribution",
+        behavior_statement: "One hour distribution",
+        effective_ask: "One hour distribution",
+        accountability_phase: "active_accountability",
+        identity_anchor_allowed: false,
+        identity_anchor_short: null,
+      },
+      thread_memory: {
+        latest_outbound_sms: null,
+        latest_inbound_sms: null,
+        recent_transcript_or_context_block: null,
+        latest_open_question: null,
+        do_not_repeat_hints: [],
+        coaching_memory_snippet: "User has shown commitment recently.",
+        recent_pattern_hints: null,
+        relationship_memory_7d: {
+          outcome_counts: { yes: 2, no: 1, partial: 0, unclear: 0 },
+          context_flags: { days_since_last_user_outcome: 3 },
+        } as never,
+      },
+      accountability: {
+        daily_purpose: "standard_accountability_check" as const,
+        server_strategy: "standard_check" as const,
+        next_move_type: "hold_standard" as const,
+        prior_outcome: "user_yes",
+        yes_streak_14d: 0,
+        no_count_14d: 1,
+        partial_count_14d: 0,
+        blocker_preview: null,
+        proof_or_milestone_signal: null,
+        silence_tier: "none",
+        unanswered_checks: 0,
+        days_since_last_user_outcome: 3,
+        reentry_active: false,
+        overlay_active: false,
+        evolution_pattern_hint: null,
+        contract_proposal_mode: false,
+      },
+      suggested_coaching_move: "ask_completion",
+      constraints: {
+        max_chars: 300,
+        one_sms: true,
+        no_raw_title_or_behavior_paste: true,
+        no_generic_motivation: true,
+        if_unsafe_return_no_send: true,
+      },
+    };
+    const proof_calibration = deriveDailyProofCalibration({ facts: base });
+    const fresh_move = deriveDailyFreshMoveFacts(base.thread_memory.recent_coach_body_do_not_repeat);
+    return { ...base, proof_calibration, fresh_move };
+  }
+
+  it("Test 2 — Strategy Card forbids false praise on weak stale proof", () => {
+    const facts = weakStaleDailyFacts();
+    const ctx = buildDailyC1StrategyCardContextFromSnapshot({
+      facts,
+      snapshot: {
+        proof_and_praise_permission: { data: baseProof({ can_claim_proof: true }) },
+        open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+        active_pending_state: { items: [] },
+      },
+    });
+    expect(selectDailyC1ConversationIntent(ctx)).not.toBe("celebrate_progress_honest");
+    expect(selectDailyC1ConversationIntent(ctx)).not.toBe("identity_encouragement");
+    const card = buildDailyC1StrategyCardV1({ ctx });
+    expect(card.must_not_do.some((m) => /great commitment/i.test(m))).toBe(true);
+    expect(card.must_not_do.some((m) => /on a roll/i.test(m))).toBe(true);
+    expect(["plan_today", "recover_today", "direct_outcome_check", "reflect_pattern"]).toContain(
+      card.server_truth_summary.daily_conversation_intent
+    );
+    expect(card.server_truth_summary.daily_praise_allowed_level).toBe("capability_only");
+  });
+
+  it("Test 10 — stale coaching summary cannot overpower calibration in card", () => {
+    const facts = weakStaleDailyFacts();
+    expect(facts.thread_memory.coaching_memory_snippet).toMatch(/shown commitment/i);
+    expect(facts.proof_calibration?.consistency_claim_allowed).toBe(false);
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyC1StrategyCardContextFromSnapshot({
+        facts,
+        snapshot: {
+          proof_and_praise_permission: { data: baseProof() },
+          open_loops_and_do_not_repeat: { data: emptyOpenLoops() },
+          active_pending_state: { items: [] },
+        },
+      }),
+    });
+    expect(card.must_not_do.some((m) => /consistent|great commitment/i.test(m))).toBe(true);
+    expect(deriveDailyProofCalibration({ facts }).praise_allowed_level).toBe("capability_only");
   });
 });

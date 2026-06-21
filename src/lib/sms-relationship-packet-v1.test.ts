@@ -25,6 +25,7 @@ import {
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import { enrichDailyFactsWithProofCalibrationAndFreshMove } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { RecentExactThread72hMessage, RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
@@ -1520,5 +1521,56 @@ describe("relationship anchors in packet", () => {
       }),
     });
     expect(packet.relationship_anchors).toBeUndefined();
+  });
+});
+
+describe("structured_recent_truth daily proof calibration", () => {
+  it("includes daily_proof_calibration and summary authority note", () => {
+    const facts = enrichDailyFactsWithProofCalibrationAndFreshMove(
+      minimalDailyFacts({
+        accountability: {
+          ...minimalDailyFacts().accountability,
+          prior_outcome: "user_yes",
+          yes_streak_14d: 0,
+          days_since_last_user_outcome: 3,
+        },
+        thread_memory: {
+          ...minimalDailyFacts().thread_memory,
+          relationship_memory_7d: {
+            window_days: 7,
+            built_at: "2026-06-20T12:00:00.000Z",
+            outcome_counts: { yes: 2, no: 1, partial: 0, blockers: 0, checks_sent: 3 },
+            wins: [],
+            misses: [],
+            partials: [],
+            comebacks: [],
+            blockers: [],
+            proof_moments: [],
+            open_loops: [],
+            direct_answer_history: [],
+            context_flags: { days_since_last_user_outcome: 3 },
+            meta: { item_count: 0, sources_used: ["test"] },
+          } as never,
+        },
+      })
+    );
+    const { packet } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: facts,
+    });
+    expect(packet.structured_recent_truth.data.daily_proof_calibration?.wins_7d).toBe(2);
+    expect(packet.structured_recent_truth.data.daily_proof_calibration?.praise_allowed_level).toBe(
+      "capability_only"
+    );
+    expect(packet.structured_recent_truth.data.summary_authority_note?.summary_authority).toBe(
+      "background_only"
+    );
+    expect(
+      packet.structured_recent_truth.data.summary_authority_note?.exact_thread_and_calibration_win
+    ).toBe(true);
+    if (packet.lower_authority_background) {
+      expect(packet.lower_authority_background.data.summary_authority).toBe("background_only");
+    }
+    expect(buildRelationshipPacketPromptGuidance()).toMatch(/daily_proof_calibration/);
   });
 });
