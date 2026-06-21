@@ -4674,6 +4674,11 @@ async function processV2NormalInboundOutcome(
     userMessage,
     plannedInterruptionActionable,
     classificationEventType: eventType,
+    relationshipMeaning:
+      inboundTurnUnderstandingCtx.reconciled?.reconciled_relationship_meaning ?? null,
+    priorGoalChangeAskSatisfied:
+      inboundTurnUnderstandingCtx.reconciled?.last_ask_satisfied === "yes" ||
+      inboundTurnUnderstandingCtx.reconciled?.stale_ask_risk === true,
   });
 
   const identitySuppressesCommitmentHandoff = shouldSuppressCommitmentChangeHandoffForIdentity({
@@ -5567,6 +5572,7 @@ async function processV2NormalInboundOutcome(
           messageSid: job.message_sid,
           rawBody: userMessage,
           intentPack: handoffCommitmentIntentPack,
+          shellMetadata: tuGoalChangePendingHandoffEval.shellMetadata,
         });
         wave4PendingResult = prWave;
         if (prWave.pendingApplied) {
@@ -6128,6 +6134,18 @@ async function processV2NormalInboundOutcome(
             candidatePreview: commitmentChangeBootstrapResult.candidate,
           }
         : null,
+      tuShellHandoff:
+        tuGoalChangePendingHandoffEval.mode === "awaiting_candidate_shell"
+          ? {
+              mode: "awaiting_candidate_shell",
+              priorGoalChangeAskSatisfied:
+                tuGoalChangePendingHandoffEval.shellMetadata?.prior_goal_change_ask_satisfied ??
+                false,
+              staleAskGoalChangeBridgeEligible:
+                tuGoalChangePendingHandoffEval.shellMetadata?.stale_ask_goal_change_bridge_eligible ??
+                false,
+            }
+          : null,
     });
     await persistCommitmentChangeHandoffLaneAndSend({
       job,

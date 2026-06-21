@@ -78,6 +78,17 @@ export type V2SmsPendingResolutionPayload = {
   season_mode?: "same_season_sync" | "new_chapter";
   season_mode_reason?: string | null;
   season_mode_set_at?: string | null;
+
+  /** Slice 2B — TU awaiting_candidate shell metadata (JSON-only; no migration). */
+  tu_goal_change_type?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalAdjustmentType;
+  tu_goal_change_source?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalChangeSource;
+  tu_goal_change_confidence?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalChangeConfidenceLevel;
+  awaiting_candidate_reason?: "goal_change_without_concrete_bar";
+  goal_change_requires_confirmation?: boolean;
+  prior_goal_change_ask_satisfied?: boolean;
+  stale_ask_goal_change_bridge_eligible?: boolean;
+  no_outcome_write?: boolean;
+  no_state_change_taken?: boolean;
 };
 
 /** In-app proactive goal change (sets commitment_replace pending before canonical RPC). */

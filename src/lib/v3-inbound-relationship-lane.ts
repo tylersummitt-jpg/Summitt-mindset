@@ -10,7 +10,10 @@ import OpenAI from "openai";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
 import type { V2InboundGatedDecision, V2InboundShadowInterpretationResult } from "@/lib/v2-ai-inbound";
-import type { V2SmsCommitmentIntentPack } from "@/lib/v2-sms-commitment-change";
+import {
+  GOAL_CHANGE_STALE_ASK_FORBIDDEN_SUBSTRINGS,
+  type V2SmsCommitmentIntentPack,
+} from "@/lib/v2-sms-commitment-change";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import {
   buildInboundMeaningFacts,
@@ -630,6 +633,8 @@ export type InboundV3CommitmentChangeFacts = {
   server_state_transition_summary: string;
   required_verbatim_substrings?: string[];
   required_meaning_summary: string;
+  /** When TU shell opens, forbid repeating stale goal-change clarify phrasing. */
+  forbidden_substrings?: string[];
   /** Non-speakable legacy Wave4 coach string — metadata only. */
   legacy_commitment_change_reply_preview: string;
   /** Non-speakable note that would have been merged in the old path — metadata only. */
@@ -665,6 +670,12 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
   /** Non-speakable legacy Wave4 coach string — pass from `buildSmsCommitmentChangeCoachReply` at the route layer. */
   legacyCommitmentChangeReplyPreview: string;
   bootstrapResult?: CommitmentChangeBootstrapFacts | null;
+  /** Slice 2B — awaiting_candidate shell without bootstrap. */
+  tuShellHandoff?: {
+    mode: "awaiting_candidate_shell";
+    priorGoalChangeAskSatisfied: boolean;
+    staleAskGoalChangeBridgeEligible: boolean;
+  } | null;
 }): InboundV3CommitmentChangeFacts {
   const legacy = args.legacyCommitmentChangeReplyPreview.trim();
   const legacyPreview = legacy.length > 500 ? `${legacy.slice(0, 497)}...` : legacy;
@@ -724,6 +735,26 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
       "detected_intent_type is sms_raise_bar_request: invite the user to name a harder daily bar and confirm — do not claim the goal was raised or changed before server confirmation."
     );
   }
+  if (args.intentPack.intent === "sms_tighten_request" && !bootPreview) {
+    reqLines.push(
+      "detected_intent_type is sms_tighten_request: invite the user to name a smaller honest daily bar — do not claim the goal was tightened or changed before server confirmation."
+    );
+  }
+  if (
+    args.tuShellHandoff?.mode === "awaiting_candidate_shell" &&
+    pendingCreated &&
+    !bootPreview
+  ) {
+    reqLines.push(
+      "Slice 2B awaiting_candidate shell: the user asked to change the current standard but did not name a new daily bar yet — acknowledge the current goal may need to change, make clear the written commitment has NOT changed yet, and ask exactly one fresh human question for the new daily bar/standard."
+    );
+    if (args.tuShellHandoff.priorGoalChangeAskSatisfied) {
+      reqLines.push(
+        "The user already answered a prior goal-change clarification ask — move forward; do NOT repeat prior goal-change clarify wording; ask for the new bar in fresh wording."
+      );
+    }
+    reqLines.push("Do NOT treat this as completion proof, miss proof, or Victory Room proof.");
+  }
   if (bootPreview) {
     reqLines.push(
       `Bootstrap awaiting_confirmation holds candidate preview only — user must confirm before any mutation (preview: ${bootPreview}).`
@@ -737,6 +768,11 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
 
   const requiredVerbatim =
     appendPreview && appendPreview.length > 0 ? [appendPreview] : undefined;
+
+  const forbiddenSubstrings =
+    args.tuShellHandoff?.staleAskGoalChangeBridgeEligible === true
+      ? [...GOAL_CHANGE_STALE_ASK_FORBIDDEN_SUBSTRINGS]
+      : undefined;
 
   return {
     detected_intent_type: args.intentPack.intent,
@@ -757,6 +793,7 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
         : null),
     server_state_transition_summary: serverSummary,
     ...(requiredVerbatim ? { required_verbatim_substrings: requiredVerbatim } : {}),
+    ...(forbiddenSubstrings?.length ? { forbidden_substrings: forbiddenSubstrings } : {}),
     required_meaning_summary: reqLines.join(" "),
     legacy_commitment_change_reply_preview: legacyPreview,
     append_note_preview: appendPreview,
@@ -3818,10 +3855,13 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
   if (goalChangeFacts?.stale_ask_goal_change_bridge_eligible) {
     facts.constraints.forbidden_substrings = [
       ...(facts.constraints.forbidden_substrings ?? []),
-      "what specific changes",
-      "adjustments are you considering",
-      "adjustments you have in mind",
-      "changes or adjustments",
+      ...GOAL_CHANGE_STALE_ASK_FORBIDDEN_SUBSTRINGS,
+    ];
+  }
+  if (args.commitmentChangeFacts?.forbidden_substrings?.length) {
+    facts.constraints.forbidden_substrings = [
+      ...(facts.constraints.forbidden_substrings ?? []),
+      ...args.commitmentChangeFacts.forbidden_substrings,
     ];
   }
   facts.thread_freshness = deriveRecentThreadFreshnessFacts({

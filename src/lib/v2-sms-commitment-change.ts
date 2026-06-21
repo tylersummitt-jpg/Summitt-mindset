@@ -26,6 +26,8 @@ import {
   isAuthoritativeReconciledGoalChangeIntent,
   type ReconciledGoalChangeIntent,
   type TurnUnderstandingGoalAdjustmentType,
+  type TurnUnderstandingGoalChangeSource,
+  type TurnUnderstandingRelationshipMeaning,
 } from "@/lib/openai-relationship-turn-understanding-v1";
 
 /** Server-owned SMS commitment-change intent (prompt/logging only; not shown to user). */
@@ -249,9 +251,62 @@ const TU_CONCRETE_BAR_PENDING_TYPES = new Set<TurnUnderstandingGoalAdjustmentTyp
   "blocker_focus",
 ]);
 
+/** Slice 2B — explicit amend/restate/reset always eligible for awaiting_candidate shell. */
+const TU_EXPLICIT_SHELL_TYPES = new Set<TurnUnderstandingGoalAdjustmentType>([
+  "amend",
+  "restate",
+  "reset",
+]);
+
+/** Slice 2B — adjust/replace types eligible when no valid bar but user asks to change standard. */
+const TU_ADJUSTMENT_SHELL_TYPES = new Set<TurnUnderstandingGoalAdjustmentType>([
+  "replace",
+  "new_goal",
+  "raise",
+  "lower",
+  "shrink",
+  "blocker_focus",
+  "unspecified",
+]);
+
+/** Slice 3 — coach-initiated progression uses same hallway later; block proactive sources in 2B. */
+const TU_PROACTIVE_GOAL_CHANGE_SOURCES = new Set<TurnUnderstandingGoalChangeSource>([
+  "consistency_signal",
+  "recurring_blocker",
+]);
+
+const MULTIPLE_GOALS_DEFER_RE =
+  /\b(add\s+(another|a\s+second)|also\s+(want|track|add)|second\s+goal|multiple\s+goals?|another\s+goal\s+(too|also)|nutrition\s+(goal|too))\b/i;
+
+/** Stale goal-change clarify phrases — handoff lane must not repeat when shell opens. */
+export const GOAL_CHANGE_STALE_ASK_FORBIDDEN_SUBSTRINGS = [
+  "what specific changes",
+  "adjustments are you considering",
+  "adjustments you have in mind",
+  "changes or adjustments",
+] as const;
+
+export type TuGoalChangePendingMode =
+  | "concrete_bar_pending"
+  | "awaiting_candidate_shell"
+  | "skip";
+
+export type TuGoalChangePendingShellReason = "goal_change_without_concrete_bar";
+
+export type TuGoalChangePendingShellMetadata = {
+  tu_goal_change_type: TurnUnderstandingGoalAdjustmentType;
+  tu_goal_change_source: TurnUnderstandingGoalChangeSource;
+  tu_goal_change_confidence: ReconciledGoalChangeIntent["confidence"];
+  awaiting_candidate_reason: TuGoalChangePendingShellReason;
+  goal_change_requires_confirmation: true;
+  prior_goal_change_ask_satisfied: boolean;
+  stale_ask_goal_change_bridge_eligible: boolean;
+  no_outcome_write: true;
+  no_state_change_taken: true;
+};
+
 export type TuGoalChangePendingSkipReason =
   | "not_authoritative"
-  | "deferred_slice_2b_type"
   | "missing_proposed_bar"
   | "unsafe_or_invalid_bar"
   | "vague_candidate"
@@ -261,13 +316,23 @@ export type TuGoalChangePendingSkipReason =
   | "unsafe_inbound"
   | "strong_outcome_classification"
   | "no_active_commitment"
-  | "mapper_failed";
+  | "mapper_failed"
+  | "shell_deferred_low_confidence"
+  | "shell_deferred_not_goal_change"
+  | "shell_deferred_avoidance_or_miss_only"
+  | "shell_deferred_multiple_goals"
+  | "shell_deferred_proactive_source"
+  | "shell_deferred_unspecified_no_evidence"
+  | "shell_deferred_general_goal_talk";
 
 export type TuGoalChangePendingHandoffEval = {
   open: boolean;
+  mode: TuGoalChangePendingMode;
   skipReason: TuGoalChangePendingSkipReason | null;
   intentPack: V2SmsCommitmentIntentPack | null;
   validatedProposedBar: string | null;
+  pendingShellReason: TuGoalChangePendingShellReason | null;
+  shellMetadata: TuGoalChangePendingShellMetadata | null;
 };
 
 function normalizeGoalBarForCompare(text: string): string {
@@ -352,101 +417,264 @@ export function deriveIntentPackFromReconciledGoalChange(args: {
   };
 }
 
+function hasCurrentGoalChangeEvidence(quote: string | null | undefined): boolean {
+  const q = (quote ?? "").trim().toLowerCase();
+  if (!q) return false;
+  return /\b(goal|bar|commitment|standard|reset|amend|restate|replace|raise|lower|shrink|too\s+(easy|hard)|no longer fits|doesn't fit|does not fit)\b/.test(
+    q
+  );
+}
+
+function isMissOrAvoidanceOnlyMeaning(
+  meaning: TurnUnderstandingRelationshipMeaning | null | undefined
+): boolean {
+  return (
+    meaning === "miss" ||
+    meaning === "partial_attempt" ||
+    meaning === "emotional_reflection"
+  );
+}
+
+/**
+ * Slice 2B — maps authoritative TU goal-change without valid bar into Wave4 intent pack (no candidates).
+ * Slice 3 may reuse this hallway for coach-initiated progression with the same shape.
+ */
+export function deriveAwaitingCandidateIntentPackFromReconciledGoalChange(args: {
+  intent: ReconciledGoalChangeIntent;
+}): V2SmsCommitmentIntentPack {
+  const type = args.intent.adjustment_type;
+  const aiConfidence = tuConfidenceToAiScore(args.intent.confidence);
+
+  if (type === "lower" || type === "shrink") {
+    return {
+      intent: "sms_tighten_request",
+      candidateTightenedBar: null,
+      candidateNewBar: null,
+      aiConfidence,
+    };
+  }
+
+  if (type === "raise") {
+    return {
+      intent: "sms_raise_bar_request",
+      candidateTightenedBar: null,
+      candidateNewBar: null,
+      aiConfidence,
+    };
+  }
+
+  return {
+    intent: "sms_change_unspecified",
+    candidateTightenedBar: null,
+    candidateNewBar: null,
+    aiConfidence,
+  };
+}
+
+function evaluateAwaitingCandidateShellEligibility(args: {
+  intent: ReconciledGoalChangeIntent;
+  userMessage: string;
+  relationshipMeaning?: TurnUnderstandingRelationshipMeaning | null;
+}): TuGoalChangePendingSkipReason | null {
+  const type = args.intent.adjustment_type;
+  const body = args.userMessage.trim();
+
+  if (args.intent.confidence === "low") {
+    return "shell_deferred_low_confidence";
+  }
+
+  if (TU_PROACTIVE_GOAL_CHANGE_SOURCES.has(args.intent.source)) {
+    return "shell_deferred_proactive_source";
+  }
+
+  if (MULTIPLE_GOALS_DEFER_RE.test(body)) {
+    return "shell_deferred_multiple_goals";
+  }
+
+  if (TU_EXPLICIT_SHELL_TYPES.has(type)) {
+    return null;
+  }
+
+  if (type === "unspecified") {
+    const meaningOk = args.relationshipMeaning === "goal_adjustment_request";
+    const evidenceOk = hasCurrentGoalChangeEvidence(args.intent.evidence_quote);
+    if (!meaningOk && !evidenceOk) {
+      return "shell_deferred_unspecified_no_evidence";
+    }
+    if (!meaningOk && evidenceOk) {
+      return null;
+    }
+    return null;
+  }
+
+  if (!TU_ADJUSTMENT_SHELL_TYPES.has(type)) {
+    return "shell_deferred_not_goal_change";
+  }
+
+  if (
+    isMissOrAvoidanceOnlyMeaning(args.relationshipMeaning) &&
+    type !== "blocker_focus" &&
+    !/\b(too\s+(easy|hard)|no longer fits|doesn't fit|does not fit|reset|amend|restate|change\s+(the\s+)?(goal|standard|bar))\b/i.test(
+      body
+    )
+  ) {
+    return "shell_deferred_avoidance_or_miss_only";
+  }
+
+  if (type === "raise" && args.relationshipMeaning === "reported_completion") {
+    return "shell_deferred_avoidance_or_miss_only";
+  }
+
+  if (
+    (type === "lower" || type === "shrink") &&
+    args.relationshipMeaning === "miss" &&
+    !/\b(too\s+hard|make\s+(it|this)\s+(smaller|easier|less)|lower|shrink|change\s+(the\s+)?(goal|standard|bar))\b/i.test(
+      body
+    )
+  ) {
+    return "shell_deferred_avoidance_or_miss_only";
+  }
+
+  return null;
+}
+
+function buildTuGoalChangeShellMetadata(args: {
+  intent: ReconciledGoalChangeIntent;
+  priorGoalChangeAskSatisfied: boolean;
+}): TuGoalChangePendingShellMetadata {
+  return {
+    tu_goal_change_type: args.intent.adjustment_type,
+    tu_goal_change_source: args.intent.source,
+    tu_goal_change_confidence: args.intent.confidence,
+    awaiting_candidate_reason: "goal_change_without_concrete_bar",
+    goal_change_requires_confirmation: true,
+    prior_goal_change_ask_satisfied: args.priorGoalChangeAskSatisfied,
+    stale_ask_goal_change_bridge_eligible:
+      args.priorGoalChangeAskSatisfied && args.intent.authoritative,
+    no_outcome_write: true,
+    no_state_change_taken: true,
+  };
+}
+
+function skipEval(
+  skipReason: TuGoalChangePendingSkipReason
+): TuGoalChangePendingHandoffEval {
+  return {
+    open: false,
+    mode: "skip",
+    skipReason,
+    intentPack: null,
+    validatedProposedBar: null,
+    pendingShellReason: null,
+    shellMetadata: null,
+  };
+}
+
 export function shouldOpenTuGoalChangePendingHandoff(args: {
   reconciledGoalChangeIntent: ReconciledGoalChangeIntent | null | undefined;
   commitment: ActiveV2CommitmentRow | null | undefined;
   userMessage: string;
   plannedInterruptionActionable: boolean;
   classificationEventType: "user_yes" | "user_no" | "user_partial" | null;
+  relationshipMeaning?: TurnUnderstandingRelationshipMeaning | null;
+  priorGoalChangeAskSatisfied?: boolean;
 }): boolean {
   return evaluateTuGoalChangePendingHandoff(args).open;
 }
 
-/** Gate + mapper for TU concrete proposed bar → existing Wave4 pending hallway (Slice 2A). */
+/** Gate + mapper for TU goal-change → existing Wave4 pending hallway (Slice 2A concrete bar, Slice 2B shell). */
 export function evaluateTuGoalChangePendingHandoff(args: {
   reconciledGoalChangeIntent: ReconciledGoalChangeIntent | null | undefined;
   commitment: ActiveV2CommitmentRow | null | undefined;
   userMessage: string;
   plannedInterruptionActionable: boolean;
   classificationEventType: "user_yes" | "user_no" | "user_partial" | null;
+  relationshipMeaning?: TurnUnderstandingRelationshipMeaning | null;
+  priorGoalChangeAskSatisfied?: boolean;
 }): TuGoalChangePendingHandoffEval {
   const intent = args.reconciledGoalChangeIntent;
   if (!isAuthoritativeReconciledGoalChangeIntent(intent)) {
-    return { open: false, skipReason: "not_authoritative", intentPack: null, validatedProposedBar: null };
+    return skipEval("not_authoritative");
   }
 
   if (!args.commitment?.id) {
-    return { open: false, skipReason: "no_active_commitment", intentPack: null, validatedProposedBar: null };
+    return skipEval("no_active_commitment");
   }
 
   if (args.plannedInterruptionActionable) {
-    return { open: false, skipReason: "planned_interruption", intentPack: null, validatedProposedBar: null };
+    return skipEval("planned_interruption");
   }
 
   const body = args.userMessage.trim();
   const safety = classifyInboundSmsSafetyTier(body, { fromPhone: null, messageSid: null });
   if (safety.tier !== "safe") {
-    return { open: false, skipReason: "unsafe_inbound", intentPack: null, validatedProposedBar: null };
+    return skipEval("unsafe_inbound");
   }
 
   if (args.classificationEventType && isStrongV2YesNoOutcome(args.classificationEventType)) {
-    return {
-      open: false,
-      skipReason: "strong_outcome_classification",
-      intentPack: null,
-      validatedProposedBar: null,
-    };
-  }
-
-  if (!TU_CONCRETE_BAR_PENDING_TYPES.has(intent!.adjustment_type)) {
-    return {
-      open: false,
-      skipReason: "deferred_slice_2b_type",
-      intentPack: null,
-      validatedProposedBar: null,
-    };
+    return skipEval("strong_outcome_classification");
   }
 
   if (getPendingResolutionOrNull(args.commitment)) {
-    return {
-      open: false,
-      skipReason: "existing_pending",
-      intentPack: null,
-      validatedProposedBar: null,
-    };
+    return skipEval("existing_pending");
   }
 
   const validated = validateTuProposedGoalBarText({
     proposedText: intent!.proposed_new_goal_text,
     currentBehaviorStatement: args.commitment.behavior_statement,
   });
-  if (!validated.ok || !validated.normalized) {
-    return {
-      open: false,
-      skipReason: validated.skipReason ?? "unsafe_or_invalid_bar",
-      intentPack: null,
-      validatedProposedBar: null,
-    };
-  }
 
-  const intentPack = deriveIntentPackFromReconciledGoalChange({
-    intent: intent!,
-    validatedProposedBar: validated.normalized,
-  });
-  if (!intentPack) {
-    return {
-      open: false,
-      skipReason: "mapper_failed",
-      intentPack: null,
+  if (validated.ok && validated.normalized && TU_CONCRETE_BAR_PENDING_TYPES.has(intent!.adjustment_type)) {
+    const intentPack = deriveIntentPackFromReconciledGoalChange({
+      intent: intent!,
       validatedProposedBar: validated.normalized,
+    });
+    if (!intentPack) {
+      return skipEval("mapper_failed");
+    }
+    return {
+      open: true,
+      mode: "concrete_bar_pending",
+      skipReason: null,
+      intentPack,
+      validatedProposedBar: validated.normalized,
+      pendingShellReason: null,
+      shellMetadata: null,
     };
   }
 
+  const proposedPresent = Boolean(intent!.proposed_new_goal_text?.trim());
+  if (
+    proposedPresent &&
+    !validated.ok &&
+    validated.skipReason &&
+    validated.skipReason !== "missing_proposed_bar"
+  ) {
+    return skipEval(validated.skipReason);
+  }
+
+  const shellDefer = evaluateAwaitingCandidateShellEligibility({
+    intent: intent!,
+    userMessage: body,
+    relationshipMeaning: args.relationshipMeaning,
+  });
+  if (shellDefer) {
+    return skipEval(shellDefer);
+  }
+
+  const intentPack = deriveAwaitingCandidateIntentPackFromReconciledGoalChange({ intent: intent! });
+  const priorAsk = args.priorGoalChangeAskSatisfied === true;
   return {
     open: true,
+    mode: "awaiting_candidate_shell",
     skipReason: null,
     intentPack,
-    validatedProposedBar: validated.normalized,
+    validatedProposedBar: null,
+    pendingShellReason: "goal_change_without_concrete_bar",
+    shellMetadata: buildTuGoalChangeShellMetadata({
+      intent: intent!,
+      priorGoalChangeAskSatisfied: priorAsk,
+    }),
   };
 }
 
@@ -460,12 +688,21 @@ export function buildTuGoalChangeHandoffTelemetry(
 ): Record<string, unknown> {
   return {
     tu_goal_change_handoff_opened: evalResult.open,
+    tu_goal_change_handoff_mode: evalResult.mode,
+    awaiting_candidate_reason: evalResult.pendingShellReason,
     goal_change_proposed_new_goal_text_present: Boolean(evalResult.validatedProposedBar),
     goal_change_pending_skip_reason:
       evalResult.skipReason ?? wave4?.skipReason ?? null,
     goal_change_pending_resolution_created: wave4?.pendingApplied === true,
     goal_change_pending_kind: wave4?.pendingKind ?? null,
     goal_change_routed_to_existing_handoff: evalResult.open || wave4?.pendingApplied === true,
+    goal_change_requires_confirmation: evalResult.shellMetadata?.goal_change_requires_confirmation ?? true,
+    goal_change_not_outcome_write: true,
+    goal_change_no_state_mutation_without_confirmation: true,
+    prior_goal_change_ask_satisfied: evalResult.shellMetadata?.prior_goal_change_ask_satisfied ?? null,
+    stale_ask_goal_change_bridge_eligible:
+      evalResult.shellMetadata?.stale_ask_goal_change_bridge_eligible ?? null,
+    tu_goal_change_type: evalResult.shellMetadata?.tu_goal_change_type ?? null,
   };
 }
 
@@ -653,6 +890,7 @@ export async function applyWave4SmsCommitmentPendingResolution(args: {
   messageSid: string;
   rawBody: string;
   intentPack: V2SmsCommitmentIntentPack;
+  shellMetadata?: TuGoalChangePendingShellMetadata | null;
 }): Promise<{
   pendingApplied: boolean;
   pendingKind: V2PendingResolutionKind | null;
@@ -704,6 +942,20 @@ export async function applyWave4SmsCommitmentPendingResolution(args: {
     ai_confidence: intentPack.aiConfidence,
     candidate_tightened_bar: intentPack.candidateTightenedBar,
     candidate_new_bar: intentPack.candidateNewBar,
+    ...(args.shellMetadata
+      ? {
+          tu_goal_change_type: args.shellMetadata.tu_goal_change_type,
+          tu_goal_change_source: args.shellMetadata.tu_goal_change_source,
+          tu_goal_change_confidence: args.shellMetadata.tu_goal_change_confidence,
+          awaiting_candidate_reason: args.shellMetadata.awaiting_candidate_reason,
+          goal_change_requires_confirmation: args.shellMetadata.goal_change_requires_confirmation,
+          prior_goal_change_ask_satisfied: args.shellMetadata.prior_goal_change_ask_satisfied,
+          stale_ask_goal_change_bridge_eligible:
+            args.shellMetadata.stale_ask_goal_change_bridge_eligible,
+          no_outcome_write: args.shellMetadata.no_outcome_write,
+          no_state_change_taken: args.shellMetadata.no_state_change_taken,
+        }
+      : {}),
     ...(kind === "commitment_replace"
       ? (() => {
           const season = deriveSeasonModeForSmsGoalChange({

@@ -11,6 +11,7 @@ vi.mock("@/lib/v2-refresh-session", () => ({
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { ReconciledGoalChangeIntent } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
+  deriveAwaitingCandidateIntentPackFromReconciledGoalChange,
   deriveIntentPackFromReconciledGoalChange,
   evaluateTuGoalChangePendingHandoff,
   shouldOpenTuGoalChangePendingHandoff,
@@ -69,7 +70,7 @@ function tuIntent(
   };
 }
 
-describe("TU concrete goal-change → Wave4 handoff gate (Slice 2A)", () => {
+describe("TU goal-change → Wave4 handoff gate (Slice 2A concrete bar)", () => {
   it("opens pending handoff for concrete replace/new_goal with proposed bar", () => {
     const intent = tuIntent({ adjustment_type: "new_goal" });
     expect(
@@ -90,7 +91,7 @@ describe("TU concrete goal-change → Wave4 handoff gate (Slice 2A)", () => {
     expect(pack?.candidateNewBar).toBe("run 3 miles every day");
   });
 
-  it("maps raise with concrete bar to sms_raise_bar_request", () => {
+  it("maps raise with concrete bar to sms_raise_bar_request (concrete_bar_pending)", () => {
     const intent = tuIntent({
       adjustment_type: "raise",
       proposed_new_goal_text: "run 3 miles a day",
@@ -101,8 +102,10 @@ describe("TU concrete goal-change → Wave4 handoff gate (Slice 2A)", () => {
       userMessage: "This is too easy. Let's make it 3 miles a day.",
       plannedInterruptionActionable: false,
       classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
     });
     expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("concrete_bar_pending");
     expect(evalResult.intentPack?.intent).toBe("sms_raise_bar_request");
     expect(evalResult.intentPack?.candidateNewBar).toMatch(/3 miles/i);
   });
@@ -118,45 +121,15 @@ describe("TU concrete goal-change → Wave4 handoff gate (Slice 2A)", () => {
       userMessage: "This is too hard. Make it 10 minutes a day.",
       plannedInterruptionActionable: false,
       classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
     });
     expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("concrete_bar_pending");
     expect(evalResult.intentPack?.intent).toBe("sms_tighten_request");
     expect(evalResult.intentPack?.candidateTightenedBar).toMatch(/10 minutes/i);
   });
 
-  it("does not open pending for amend/restate without bar (Slice 2B deferred)", () => {
-    const evalResult = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: tuIntent({
-        adjustment_type: "amend",
-        proposed_new_goal_text: null,
-      }),
-      commitment: baseCommitment(),
-      userMessage: "Yes we need to amend or re-state old goals.",
-      plannedInterruptionActionable: false,
-      classificationEventType: null,
-    });
-    expect(evalResult.open).toBe(false);
-    expect(evalResult.skipReason).toBe("deferred_slice_2b_type");
-  });
-
-  it("does not open pending for general goal talk", () => {
-    const evalResult = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: tuIntent({
-        authoritative: false,
-        adjustment_type: "unspecified",
-        proposed_new_goal_text: null,
-        confidence: "low",
-      }),
-      commitment: baseCommitment(),
-      userMessage: "I was thinking about goals generally.",
-      plannedInterruptionActionable: false,
-      classificationEventType: null,
-    });
-    expect(evalResult.open).toBe(false);
-    expect(evalResult.skipReason).toBe("not_authoritative");
-  });
-
-  it("rejects vague or unsafe proposed bars", () => {
+  it("rejects vague or unsafe proposed bars without opening shell", () => {
     expect(
       validateTuProposedGoalBarText({
         proposedText: "be better",
@@ -209,5 +182,216 @@ describe("TU concrete goal-change → Wave4 handoff gate (Slice 2A)", () => {
     });
     expect(evalResult.open).toBe(false);
     expect(evalResult.skipReason).toBe("identical_to_current_bar");
+  });
+});
+
+describe("TU goal-change awaiting_candidate shell (Slice 2B)", () => {
+  it("amend/restate opens awaiting_candidate shell", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "amend",
+        proposed_new_goal_text: null,
+        evidence_quote: "amend or re-state old goals",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "Yes we need to amend or re-state old goals.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+      priorGoalChangeAskSatisfied: true,
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.intentPack?.intent).toBe("sms_change_unspecified");
+    expect(evalResult.intentPack?.candidateNewBar).toBeNull();
+    expect(evalResult.pendingShellReason).toBe("goal_change_without_concrete_bar");
+    expect(evalResult.shellMetadata?.tu_goal_change_type).toBe("amend");
+    expect(evalResult.shellMetadata?.stale_ask_goal_change_bridge_eligible).toBe(true);
+  });
+
+  it("reset old goal opens awaiting_candidate shell", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "reset",
+        proposed_new_goal_text: null,
+        evidence_quote: "reset the old goal",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "Can we reset the old goal?",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.intentPack?.intent).toBe("sms_change_unspecified");
+  });
+
+  it("no-longer-fits opens awaiting_candidate shell", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: null,
+        evidence_quote: "goal no longer fits",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "This goal no longer fits.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.intentPack?.intent).toBe("sms_change_unspecified");
+  });
+
+  it("too easy without bar opens shell when authoritative goal adjustment", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "raise",
+        proposed_new_goal_text: null,
+        evidence_quote: "this is too easy",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "This is too easy.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.intentPack?.intent).toBe("sms_raise_bar_request");
+  });
+
+  it("too hard without bar opens shell when authoritative goal adjustment", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "shrink",
+        proposed_new_goal_text: null,
+        evidence_quote: "this is too hard",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "This is too hard.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.intentPack?.intent).toBe("sms_tighten_request");
+  });
+
+  it("blocker_focus without bar opens shell when user frames blocker as target", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "blocker_focus",
+        proposed_new_goal_text: null,
+        evidence_quote: "phone keeps derailing me",
+        source: "user_requested",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "My phone keeps derailing me. Maybe that is the goal.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.shellMetadata?.tu_goal_change_type).toBe("blocker_focus");
+  });
+
+  it("ordinary avoidance does NOT open shell", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        authoritative: false,
+        adjustment_type: "unspecified",
+        proposed_new_goal_text: null,
+        confidence: "low",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "I don't feel like doing it today.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "miss",
+    });
+    expect(evalResult.open).toBe(false);
+    expect(evalResult.skipReason).toBe("not_authoritative");
+  });
+
+  it("miss-only too hard without goal-change intent does NOT open shell", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "shrink",
+        proposed_new_goal_text: null,
+        evidence_quote: "hard day",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "Today was really hard.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "miss",
+    });
+    expect(evalResult.open).toBe(false);
+    expect(evalResult.skipReason).toBe("shell_deferred_avoidance_or_miss_only");
+  });
+
+  it("general goal talk does NOT open shell", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        authoritative: false,
+        adjustment_type: "unspecified",
+        proposed_new_goal_text: null,
+        confidence: "low",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "I was thinking about goals generally.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+    });
+    expect(evalResult.open).toBe(false);
+    expect(evalResult.skipReason).toBe("not_authoritative");
+  });
+
+  it("multiple goals deferred", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "new_goal",
+        proposed_new_goal_text: null,
+        evidence_quote: "add nutrition",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "I want to add nutrition too.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(false);
+    expect(evalResult.skipReason).toBe("shell_deferred_multiple_goals");
+  });
+
+  it("proactive consistency_signal does NOT open shell (Slice 3 deferred)", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "raise",
+        proposed_new_goal_text: null,
+        source: "consistency_signal",
+        evidence_quote: "keeps hitting goal",
+      }),
+      commitment: baseCommitment(),
+      userMessage: "I've been crushing it lately.",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "reported_completion",
+    });
+    expect(evalResult.open).toBe(false);
+    expect(evalResult.skipReason).toBe("shell_deferred_proactive_source");
+  });
+
+  it("deriveAwaitingCandidateIntentPack maps lower/shrink to sms_tighten_request", () => {
+    const pack = deriveAwaitingCandidateIntentPackFromReconciledGoalChange({
+      intent: tuIntent({ adjustment_type: "lower", proposed_new_goal_text: null }),
+    });
+    expect(pack.intent).toBe("sms_tighten_request");
+    expect(pack.candidateTightenedBar).toBeNull();
   });
 });
