@@ -13,6 +13,7 @@ import {
   deriveFreshnessAvoidPhrasesForBrief,
   type BriefFreshnessAvoidPhrase,
 } from "@/lib/sms-daily-fresh-move";
+import type { BriefThreadWindowTelemetry } from "@/lib/sms-recent-exact-thread-72h";
 import type { RecentExactThreadForBriefResult } from "@/lib/sms-recent-exact-thread-72h";
 import { buildActivePendingStateFromDailyFacts } from "@/lib/sms-active-pending-state";
 import type { RelationshipAnchorSources } from "@/lib/sms-relationship-anchors";
@@ -527,11 +528,184 @@ Write JSON only.`;
   };
 }
 
+export type DailyWritingBriefBuildStatus =
+  | "used"
+  | "skipped_non_c1_route"
+  | "skipped_required_verbatim"
+  | "skipped_missing_strategy_card"
+  | "skipped_missing_thread"
+  | "skipped_missing_proof_calibration"
+  | "skipped_error"
+  | "legacy_not_applicable";
+
+/** Pipe-separated freshness preview from prior coach CTA/advice only (max 3 × 60 chars). */
+export function buildFreshnessAvoidPhrasesPreview(
+  phrases: BriefFreshnessAvoidPhrase[]
+): string {
+  return phrases
+    .slice(0, 3)
+    .map((p) => truncateText(p.phrase, 60))
+    .filter(Boolean)
+    .join(" | ");
+}
+
+/** Why C1 daily fell back to legacy_packet_v1 (observability only). */
+export function deriveDailyWritingBriefFallbackTelemetry(args: {
+  facts: DailyV3RelationshipFacts;
+  validatedDailyC1Card: StrategyCardV1 | null;
+  briefThread: RecentExactThreadForBriefResult | null;
+  hasProofCalibration: boolean;
+}): Record<string, unknown> {
+  if ((args.facts.constraints.required_verbatim_substrings?.length ?? 0) > 0) {
+    return {
+      daily_writing_brief_build_status: "skipped_required_verbatim" satisfies DailyWritingBriefBuildStatus,
+      daily_writing_brief_skip_reason: "skipped_required_verbatim",
+    };
+  }
+
+  if (!isDailyC1StrategyCardEligible(args.facts)) {
+    return {
+      daily_writing_brief_build_status: "legacy_not_applicable" satisfies DailyWritingBriefBuildStatus,
+      daily_writing_brief_skip_reason: "skipped_non_c1_route",
+    };
+  }
+
+  if (!args.validatedDailyC1Card) {
+    return {
+      daily_writing_brief_build_status: "skipped_missing_strategy_card" satisfies DailyWritingBriefBuildStatus,
+      daily_writing_brief_skip_reason: "skipped_missing_strategy_card",
+    };
+  }
+  if (!args.briefThread) {
+    return {
+      daily_writing_brief_build_status: "skipped_missing_thread" satisfies DailyWritingBriefBuildStatus,
+      daily_writing_brief_skip_reason: "skipped_missing_thread",
+    };
+  }
+  if (!args.hasProofCalibration) {
+    return {
+      daily_writing_brief_build_status: "skipped_missing_proof_calibration" satisfies DailyWritingBriefBuildStatus,
+      daily_writing_brief_skip_reason: "skipped_missing_proof_calibration",
+    };
+  }
+
+  return {
+    daily_writing_brief_build_status: "skipped_error" satisfies DailyWritingBriefBuildStatus,
+    daily_writing_brief_skip_reason: "skipped_error",
+  };
+}
+
+/** Safe enum reasons for timing guidance (no raw user text or names). */
+export function deriveTimingGuidanceReasonForTelemetry(
+  brief: DailySmsWritingBriefV1
+): string | null {
+  const reasons: string[] = [];
+  const daypart = brief.authoritative_truth.local.local_daypart;
+  const guidance = brief.authoritative_truth.local.timing_copy_guidance ?? [];
+
+  if (daypart === "morning" && guidance.length > 0) {
+    reasons.push("morning_no_outcome_ask");
+  }
+  if ((daypart === "evening" || daypart === "late_night") && guidance.length > 0) {
+    reasons.push("evening_no_fresh_today_plan");
+  }
+  if (
+    brief.authoritative_truth.proof.proof_age_days != null &&
+    brief.authoritative_truth.proof.proof_age_days >= 1
+  ) {
+    reasons.push("stale_proof_no_recent_completion");
+  }
+  const timingAnchor = brief.open_loops.timing_anchor;
+  if (timingAnchor?.active) {
+    if (timingAnchor.confidence_level === "mentioned_once") {
+      reasons.push("timing_anchor_mentioned_once");
+    } else if (timingAnchor.confidence_level) {
+      reasons.push("timing_anchor_active");
+    }
+  }
+  return reasons.length ? truncateText(reasons.join("|"), 80) : null;
+}
+
+export function dailyWritingBriefTimingTelemetry(
+  brief: DailySmsWritingBriefV1
+): Record<string, unknown> {
+  const local = brief.authoritative_truth.local;
+  const guidanceCount = local.timing_copy_guidance?.length ?? 0;
+  const timingAnchor = brief.open_loops.timing_anchor;
+  const anchorActive = timingAnchor?.active === true;
+  const anchorConfidence = anchorActive
+    ? timingAnchor?.confidence_level ?? "none"
+    : "none";
+
+  return {
+    daily_local_daypart: local.local_daypart,
+    daily_timing_copy_guidance_count: guidanceCount,
+    daily_timing_anchor_active: anchorActive,
+    daily_timing_anchor_confidence: anchorConfidence,
+    daily_timing_guidance_present: guidanceCount > 0,
+    daily_timing_guidance_reason: deriveTimingGuidanceReasonForTelemetry(brief),
+  };
+}
+
+export function dailyWritingBriefDurableMemoryTelemetry(
+  brief: DailySmsWritingBriefV1
+): Record<string, unknown> {
+  const items = brief.durable_relationship_memory.items;
+  const peopleCount = items.filter(
+    (i) => i.kind === "person" || i.kind === "people_summary"
+  ).length;
+  const blockerCount = items.filter((i) => i.kind === "blocker_theme").length;
+
+  return {
+    daily_durable_memory_item_count: items.length,
+    daily_durable_people_count: peopleCount,
+    daily_durable_blocker_theme_count: blockerCount,
+    daily_durable_memory_background_only:
+      brief.durable_relationship_memory.authority === "background_only",
+    daily_durable_memory_has_identity_anchor: Boolean(brief.identity.identity_anchor),
+    daily_durable_memory_has_profile_hint: Boolean(brief.identity.profile_hint),
+  };
+}
+
+export function dailyWritingBriefExtendedTelemetry(args: {
+  brief: DailySmsWritingBriefV1;
+  threadWindow: BriefThreadWindowTelemetry;
+}): Record<string, unknown> {
+  const sm = args.brief.suggested_move;
+  const ol = args.brief.open_loops;
+  const preview = buildFreshnessAvoidPhrasesPreview(args.brief.freshness.avoid_phrases);
+  const activePendingKinds = ol.active_pending_kinds?.length ?? 0;
+
+  return {
+    daily_writing_brief_build_status: "used" satisfies DailyWritingBriefBuildStatus,
+    daily_suggested_move: truncateText(sm.move, 40),
+    daily_suggested_posture: truncateText(sm.posture, 40),
+    daily_suggested_max_questions: sm.max_questions,
+    daily_suggested_move_reason_preview:
+      truncateText(sm.reason, 120) || null,
+    daily_suggested_move_must_not_do_count: sm.must_not_do.length,
+    daily_freshness_avoid_phrases_preview: preview || null,
+    daily_open_loop_pending_active:
+      activePendingKinds > 0 ||
+      ol.pending_plan_active === true ||
+      ol.goal_evolution_invite?.should_invite === true,
+    daily_open_question_pending: ol.open_question_pending ?? false,
+    daily_satisfied_do_not_repeat_count: ol.satisfied_do_not_repeat?.length ?? 0,
+    daily_goal_evolution_invite_active: ol.goal_evolution_invite?.should_invite === true,
+    daily_pending_plan_active: ol.pending_plan_active === true,
+    daily_thread_freshness_do_not_reask_count: ol.thread_freshness_do_not_reask?.length ?? 0,
+    ...dailyWritingBriefTimingTelemetry(args.brief),
+    ...dailyWritingBriefDurableMemoryTelemetry(args.brief),
+    ...args.threadWindow,
+  };
+}
+
 export function dailyWritingBriefTelemetry(args: {
   brief: DailySmsWritingBriefV1;
   writer_system_chars: number;
   writer_payload_chars: number;
   writer_total_chars: number;
+  threadWindow?: BriefThreadWindowTelemetry;
 }): Record<string, unknown> {
   return {
     daily_writing_brief_version: DAILY_SMS_WRITING_BRIEF_VERSION,
@@ -543,5 +717,17 @@ export function dailyWritingBriefTelemetry(args: {
     daily_freshness_avoid_count: args.brief.freshness.avoid_phrases.length,
     daily_brief_thread_message_count: args.brief.recent_exact_thread.message_count,
     daily_brief_thread_char_count: args.brief.recent_exact_thread.char_count,
+    daily_brief_thread_window_mode: args.brief.recent_exact_thread.mode,
+    ...dailyWritingBriefExtendedTelemetry({
+      brief: args.brief,
+      threadWindow: args.threadWindow ?? {
+        daily_brief_thread_floor_message_count: args.brief.recent_exact_thread.message_count,
+        daily_brief_thread_extension_message_count: 0,
+        daily_brief_thread_oldest_at_local:
+          args.brief.recent_exact_thread.messages[0]?.at_local ?? null,
+        daily_brief_thread_newest_at_local:
+          args.brief.recent_exact_thread.messages.at(-1)?.at_local ?? null,
+      },
+    }),
   };
 }

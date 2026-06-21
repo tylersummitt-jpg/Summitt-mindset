@@ -1,4 +1,10 @@
-# SMS Daily Command Center — SQL Guide (v2.2)
+# SMS Daily Command Center — SQL Guide (v2.5)
+
+v2.5 adds **timing + durable memory** observability for DailySmsWritingBriefV1: `daily_local_daypart`, timing guidance counts/flags, timing anchor confidence, and durable memory item/people/blocker counts (no names) — on `metadata.relationship_packet_observability` for sent rows.
+
+v2.4 hardens **DailySmsWritingBriefV1** observability: `daily_writing_brief_build_status` / `daily_writing_brief_skip_reason` (why brief vs legacy), compact `daily_suggested_move` summary, thread window floor/extension counts and oldest/newest timestamps, pipe-separated `daily_freshness_avoid_phrases_preview`, and compact open-loop flags — all on `metadata.relationship_packet_observability` for sent rows.
+
+v2.3 adds **DailySmsWritingBriefV1** sent-row telemetry: `writer_prompt_path`, `daily_writing_brief_used`, proof calibration, freshness/thread counts, unsupported praise / repeated CTA seatbelt fields — readable from `metadata.relationship_packet_observability` on successful sends (not only `daily_v3_lane` no-sends).
 
 Read-only daily observability for Summitt Mindset SMS. **No production code changes** — run queries in Supabase SQL Editor only.
 

@@ -48,7 +48,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.2");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.5");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(13);
 
     for (const name of QUERY_HEADERS) {
@@ -109,5 +109,52 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toMatch(
       /skipped_\(not_fully_on_v2\|no_active_commitment\|duplicate\|tapback\|compliance\|safety\|crisis\|invalid_phone\|outside_send_window\|active_inbound_thread\)/
     );
+  });
+
+  it("includes DailySmsWritingBriefV1 observability markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("writer_prompt_path");
+    expect(sql).toContain("daily_writing_brief_used");
+    expect(sql).toContain("daily_writing_brief_build_status");
+    expect(sql).toContain("daily_writing_brief_skip_reason");
+    expect(sql).toContain("daily_suggested_move");
+    expect(sql).toContain("daily_freshness_avoid_phrases_preview");
+    expect(sql).toContain("daily_brief_thread_extension_message_count");
+    expect(sql).toContain("daily_open_loop_pending_active");
+    expect(sql).toContain("c1_brief_used_count");
+    expect(sql).toContain("c1_brief_fallback_count");
+    expect(sql).toContain("c1_brief_missing_reason_count");
+    expect(sql).toContain("extension_thread_used_count");
+    expect(sql).toContain("freshness_phrase_preview_present_count");
+    expect(sql).toContain("open_loop_active_count");
+    expect(sql).toContain("c1_legacy_without_skip_reason");
+    expect(sql).toContain("c1_brief_used_missing_suggested_move");
+    expect(sql).toContain("c1_brief_thread_counts_missing");
+    expect(sql).toContain("c1_freshness_count_without_preview");
+    expect(sql).toContain("c1_open_loop_flags_missing");
+    expect(sql).toContain("daily_local_daypart");
+    expect(sql).toContain("daily_timing_guidance_present");
+    expect(sql).toContain("daily_durable_memory_item_count");
+    expect(sql).toContain("daily_durable_people_count");
+    expect(sql).toContain("daily_durable_memory_background_only");
+    expect(sql).toContain("timing_guidance_present_count");
+    expect(sql).toContain("durable_memory_present_count");
+    expect(sql).toContain("durable_people_present_count");
+    expect(sql).toContain("c1_brief_missing_timing_observability");
+    expect(sql).toContain("c1_brief_missing_durable_memory_observability");
+    expect(sql).toContain("c1_brief_durable_memory_not_background_only");
+    expect(sql).toContain("c1_brief_missing_daypart");
+    expect(sql).toContain("daily_writing_brief_v1_sent_count");
+    expect(sql).toContain("legacy_packet_v1_sent_count");
+    expect(sql).toContain("daily_praise_allowed_level");
+    expect(sql).toContain("unsupported_praise_claim");
+    expect(sql).toContain("unsupported_praise_no_send_count");
+    expect(sql).toContain("repeated_cta_no_send_count");
+    expect(sql).toContain("repeated_cta_detected");
+    expect(sql).toContain("weak_proof_bad_praise_visible_count");
+    expect(sql).toContain("brief_telemetry_missing_on_c1_sent");
+    expect(sql).toContain("writer_total_chars_missing");
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });
 });

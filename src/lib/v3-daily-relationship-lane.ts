@@ -90,12 +90,14 @@ import {
 import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 import {
   buildRecentExactThreadForBrief,
+  deriveBriefThreadWindowTelemetry,
   type RecentExactThreadForBriefResult,
 } from "@/lib/sms-recent-exact-thread-72h";
 import {
   buildDailySmsWritingBriefV1,
   buildDailySmsWriterMessagesFromBrief,
   dailyWritingBriefTelemetry,
+  deriveDailyWritingBriefFallbackTelemetry,
   useDailySmsWritingBriefV1,
 } from "@/lib/sms-daily-writing-brief-v1";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
@@ -1370,6 +1372,13 @@ export async function produceDailyV3RelationshipSms(
     const writerMsgs = buildDailySmsWriterMessagesFromBrief(brief);
     system = writerMsgs.system;
     user = writerMsgs.user;
+    const nowForBriefThread = Number.isFinite(new Date(laneFacts.user.local_time_iso).getTime())
+      ? new Date(laneFacts.user.local_time_iso)
+      : new Date();
+    const threadWindow = deriveBriefThreadWindowTelemetry(
+      briefThread.timeline_7d.messages,
+      nowForBriefThread.getTime()
+    );
     Object.assign(
       baseMeta,
       dailyWritingBriefTelemetry({
@@ -1377,6 +1386,7 @@ export async function produceDailyV3RelationshipSms(
         writer_system_chars: writerMsgs.writer_system_chars,
         writer_payload_chars: writerMsgs.writer_payload_chars,
         writer_total_chars: writerMsgs.writer_total_chars,
+        threadWindow,
       })
     );
   } else {
@@ -1438,9 +1448,16 @@ used_facts (string[]), safety_notes (string[])`;
     user = writerUserPrompt.prompt;
     Object.assign(baseMeta, {
       writer_prompt_path: "legacy_packet_v1",
+      daily_writing_brief_used: false,
       writer_system_chars: system.length,
       writer_payload_chars: user.length,
       writer_total_chars: system.length + user.length,
+      ...deriveDailyWritingBriefFallbackTelemetry({
+        facts: laneFacts,
+        validatedDailyC1Card,
+        briefThread,
+        hasProofCalibration: Boolean(laneFacts.proof_calibration),
+      }),
     });
   }
 

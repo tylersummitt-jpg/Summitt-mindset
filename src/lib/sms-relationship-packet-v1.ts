@@ -1984,6 +1984,63 @@ const LANE_CONTEXT_OBSERVABILITY_KEYS = [
   "temporal_wording_repair_succeeded",
 ] as const;
 
+/** Compact DailySmsWritingBriefV1 + proof/freshness/seatbelt telemetry for sent-row SQL. */
+export const DAILY_WRITING_BRIEF_OBSERVABILITY_KEYS = [
+  "writer_prompt_path",
+  "daily_writing_brief_used",
+  "daily_writing_brief_version",
+  "daily_writing_brief_build_status",
+  "daily_writing_brief_skip_reason",
+  "writer_system_chars",
+  "writer_payload_chars",
+  "writer_total_chars",
+  "daily_proof_wins_7d",
+  "daily_proof_misses_7d",
+  "daily_proof_partials_7d",
+  "daily_proof_last_user_yes_age_days",
+  "daily_praise_allowed_level",
+  "daily_consistency_claim_allowed",
+  "daily_strong_commitment_claim_allowed",
+  "daily_freshness_avoid_count",
+  "daily_freshness_avoid_phrases_preview",
+  "daily_brief_thread_message_count",
+  "daily_brief_thread_char_count",
+  "daily_brief_thread_window_mode",
+  "daily_brief_thread_floor_message_count",
+  "daily_brief_thread_extension_message_count",
+  "daily_brief_thread_oldest_at_local",
+  "daily_brief_thread_newest_at_local",
+  "daily_suggested_move",
+  "daily_suggested_posture",
+  "daily_suggested_max_questions",
+  "daily_suggested_move_reason_preview",
+  "daily_suggested_move_must_not_do_count",
+  "daily_open_loop_pending_active",
+  "daily_open_question_pending",
+  "daily_satisfied_do_not_repeat_count",
+  "daily_goal_evolution_invite_active",
+  "daily_pending_plan_active",
+  "daily_thread_freshness_do_not_reask_count",
+  "daily_local_daypart",
+  "daily_timing_copy_guidance_count",
+  "daily_timing_anchor_active",
+  "daily_timing_anchor_confidence",
+  "daily_timing_guidance_present",
+  "daily_timing_guidance_reason",
+  "daily_durable_memory_item_count",
+  "daily_durable_people_count",
+  "daily_durable_blocker_theme_count",
+  "daily_durable_memory_background_only",
+  "daily_durable_memory_has_identity_anchor",
+  "daily_durable_memory_has_profile_hint",
+  "daily_unsupported_praise_detected",
+  "unsupported_praise_phrase",
+  "unsupported_praise_claim",
+  "daily_repeated_cta_detected",
+  "repeated_cta_phrase",
+  "daily_fresh_move_guard_blocked",
+] as const;
+
 function inferRepairSnapshotRepairSucceeded(metadata: Record<string, unknown>): boolean | null {
   if (metadata.lane_repair_succeeded === true) return true;
   if (metadata.lane_repair_succeeded === false) return false;
@@ -2010,6 +2067,7 @@ export function relationshipObservabilityFromLaneMetadata(
     ...RELATIONSHIP_PACKET_OBSERVABILITY_KEYS,
     ...REPAIR_SNAPSHOT_OBSERVABILITY_KEYS,
     ...LANE_CONTEXT_OBSERVABILITY_KEYS,
+    ...DAILY_WRITING_BRIEF_OBSERVABILITY_KEYS,
   ]) {
     if (metadata[key] !== undefined) out[key] = metadata[key];
   }

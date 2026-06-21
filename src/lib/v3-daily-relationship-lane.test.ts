@@ -26,7 +26,7 @@ vi.mock("openai", () => ({
   },
 }));
 
-import { DEFAULT_RELATIONSHIP_PACKET_BUDGET } from "@/lib/sms-relationship-packet-v1";
+import { DEFAULT_RELATIONSHIP_PACKET_BUDGET, relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { computeRecommitBindingText } from "@/lib/v2-adaptive-contract";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
@@ -3880,6 +3880,131 @@ describe("daily proof calibration lane", () => {
     expect(userMsg).toContain('"proof_age_days":3');
     expect(userMsg).toContain('"consistency_claim_allowed":false');
     expect(systemMsg).not.toContain("DAILY PROOF CALIBRATION");
+  });
+
+  it("C1 successful lane metadata exports brief observability for sent-row SQL", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "One honest win today — protect the first block.",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: weakStaleFacts(),
+      telemetry_fact_sources: ["test_brief_observability"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.writer_prompt_path).toBe("daily_writing_brief_v1");
+    expect(r.metadata.daily_writing_brief_used).toBe(true);
+    expect(r.metadata.daily_writing_brief_build_status).toBe("used");
+
+    const obs = relationshipObservabilityFromLaneMetadata(r.metadata);
+    expect(obs.writer_prompt_path).toBe("daily_writing_brief_v1");
+    expect(obs.daily_writing_brief_used).toBe(true);
+    expect(obs.daily_writing_brief_build_status).toBe("used");
+    expect(typeof obs.daily_suggested_move).toBe("string");
+    expect(typeof obs.daily_suggested_posture).toBe("string");
+    expect(obs.daily_suggested_max_questions).toBeDefined();
+    expect(typeof obs.daily_brief_thread_floor_message_count).toBe("number");
+    expect(typeof obs.daily_brief_thread_extension_message_count).toBe("number");
+    expect(typeof obs.writer_total_chars).toBe("number");
+    expect(obs.daily_praise_allowed_level).toBe("capability_only");
+    expect(obs.daily_proof_wins_7d).toBe(2);
+    expect(obs.daily_proof_last_user_yes_age_days).toBe(3);
+    expect(typeof obs.daily_freshness_avoid_count).toBe("number");
+    expect(typeof obs.daily_open_loop_pending_active).toBe("boolean");
+    expect(obs.daily_local_daypart).toBeDefined();
+    expect(typeof obs.daily_timing_guidance_present).toBe("boolean");
+    expect(typeof obs.daily_durable_memory_item_count).toBe("number");
+    expect(obs.daily_durable_memory_background_only).toBe(true);
+    expect(JSON.stringify(obs)).not.toMatch(/DAILY_SMS_WRITING_BRIEF_V1/);
+  });
+
+  it("legacy fallback on required_verbatim exports skip_reason observability", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Binding anchor text — one honest win today.",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const anchor = "Binding anchor text";
+    const r = await produceDailyV3RelationshipSms({
+      facts: weakStaleFacts({
+        constraints: { required_verbatim_substrings: [anchor] },
+      }),
+      telemetry_fact_sources: ["test_brief_fallback_observability"],
+    });
+
+    expect(r.metadata.writer_prompt_path).toBe("legacy_packet_v1");
+    expect(r.metadata.daily_writing_brief_used).toBe(false);
+    expect(r.metadata.daily_writing_brief_skip_reason).toBe("skipped_required_verbatim");
+
+    const obs = relationshipObservabilityFromLaneMetadata(r.metadata);
+    expect(obs.daily_writing_brief_skip_reason).toBe("skipped_required_verbatim");
+    expect(obs.daily_writing_brief_build_status).toBe("skipped_required_verbatim");
+    expect(obs.daily_writing_brief_used).toBe(false);
+  });
+
+  it("no-send lane metadata still retains full daily_v3_lane including brief telemetry", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "You've shown great commitment by completing your distribution recently.",
+              no_send_reason: null,
+              turn_purpose: "daily_check",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceDailyV3RelationshipSms({
+      facts: weakStaleFacts(),
+      telemetry_fact_sources: ["test_brief_nosend_observability"],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("unsupported_praise_claim");
+    expect(r.metadata.writer_prompt_path).toBe("daily_writing_brief_v1");
+    expect(r.metadata.daily_unsupported_praise_detected).toBe(true);
+
+    const obs = relationshipObservabilityFromLaneMetadata(r.metadata);
+    expect(obs.unsupported_praise_claim).toBe(true);
+    expect(obs.daily_unsupported_praise_detected).toBe(true);
   });
 
   it("Test 4 — unsupported praise seatbelt blocks without repair", () => {

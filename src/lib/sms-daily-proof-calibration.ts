@@ -252,6 +252,8 @@ export function dailyProofCalibrationTelemetry(
 ): Record<string, unknown> {
   return {
     daily_proof_wins_7d: cal.wins_7d,
+    daily_proof_misses_7d: cal.misses_7d,
+    daily_proof_partials_7d: cal.partials_7d,
     daily_proof_last_user_yes_age_days: cal.proof_age_days,
     daily_proof_recent_strength: cal.recent_proof_strength,
     daily_praise_allowed_level: cal.praise_allowed_level,

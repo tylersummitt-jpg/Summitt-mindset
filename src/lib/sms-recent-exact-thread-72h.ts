@@ -319,6 +319,44 @@ export function capThreadMessagesForBrief(
   return briefMsgs;
 }
 
+export type BriefThreadWindowTelemetry = {
+  daily_brief_thread_floor_message_count: number;
+  daily_brief_thread_extension_message_count: number;
+  daily_brief_thread_oldest_at_local: string | null;
+  daily_brief_thread_newest_at_local: string | null;
+};
+
+/** Compact thread-window gauges for SQL (no message bodies). */
+export function deriveBriefThreadWindowTelemetry(
+  messages: RecentExactThread72hMessage[],
+  nowMs: number
+): BriefThreadWindowTelemetry {
+  const floorMs = nowMs - BRIEF_THREAD_FLOOR_HOURS * 60 * 60 * 1000;
+  const capped = capThreadMessagesForBrief(messages, nowMs);
+  let floorCount = 0;
+  let extensionCount = 0;
+
+  for (const cap of capped) {
+    const match = messages.find(
+      (m) =>
+        isWriterFacingThreadMessage(m) &&
+        m.at_local === cap.at_local &&
+        (m.role === "coach" ? "coach" : "user") === cap.role
+    );
+    if (!match) continue;
+    const ts = Date.parse(match.at);
+    if (Number.isFinite(ts) && ts >= floorMs) floorCount += 1;
+    else extensionCount += 1;
+  }
+
+  return {
+    daily_brief_thread_floor_message_count: floorCount,
+    daily_brief_thread_extension_message_count: extensionCount,
+    daily_brief_thread_oldest_at_local: capped[0]?.at_local ?? null,
+    daily_brief_thread_newest_at_local: capped[capped.length - 1]?.at_local ?? null,
+  };
+}
+
 async function buildRecentExactThreadWithWindowMs(
   args: BuildRecentExactThreadArgs & { windowMs: number }
 ): Promise<RecentExactThread72hResult> {

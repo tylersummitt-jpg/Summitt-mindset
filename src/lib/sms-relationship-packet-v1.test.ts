@@ -1385,6 +1385,108 @@ describe("relationshipObservabilityFromLaneMetadata", () => {
     expect(JSON.stringify(obs)).not.toMatch(/two hours deep work before noon/i);
     expect(JSON.stringify(obs)).not.toMatch(/Nice — what made/i);
   });
+
+  it("exports DailySmsWritingBriefV1 compact telemetry for sent-row SQL", () => {
+    const obs = relationshipObservabilityFromLaneMetadata({
+      writer_prompt_path: "daily_writing_brief_v1",
+      daily_writing_brief_used: true,
+      daily_writing_brief_version: "1.0",
+      daily_writing_brief_build_status: "used",
+      writer_system_chars: 920,
+      writer_payload_chars: 6400,
+      writer_total_chars: 7320,
+      daily_proof_wins_7d: 2,
+      daily_proof_misses_7d: 1,
+      daily_proof_partials_7d: 0,
+      daily_proof_last_user_yes_age_days: 3,
+      daily_praise_allowed_level: "capability_only",
+      daily_consistency_claim_allowed: false,
+      daily_strong_commitment_claim_allowed: false,
+      daily_freshness_avoid_count: 2,
+      daily_freshness_avoid_phrases_preview: "one hour of distribution | timer or gentle sound",
+      daily_brief_thread_message_count: 4,
+      daily_brief_thread_char_count: 800,
+      daily_brief_thread_window_mode: "72h_floor_7d_extension_capped",
+      daily_brief_thread_floor_message_count: 3,
+      daily_brief_thread_extension_message_count: 1,
+      daily_brief_thread_oldest_at_local: "Jun 17 8:00 AM",
+      daily_brief_thread_newest_at_local: "Jun 20 9:00 AM",
+      daily_suggested_move: "hold_standard",
+      daily_suggested_posture: "steady_accountability",
+      daily_suggested_max_questions: 1,
+      daily_suggested_move_reason_preview: "Weak proof — capability framing only.",
+      daily_open_loop_pending_active: false,
+      daily_open_question_pending: false,
+      daily_local_daypart: "morning",
+      daily_timing_copy_guidance_count: 2,
+      daily_timing_anchor_active: false,
+      daily_timing_anchor_confidence: "none",
+      daily_timing_guidance_present: true,
+      daily_durable_memory_item_count: 1,
+      daily_durable_people_count: 1,
+      daily_durable_blocker_theme_count: 0,
+      daily_durable_memory_background_only: true,
+      route_purpose: "main_active_accountability",
+    });
+    expect(obs.writer_prompt_path).toBe("daily_writing_brief_v1");
+    expect(obs.daily_writing_brief_used).toBe(true);
+    expect(obs.daily_writing_brief_build_status).toBe("used");
+    expect(obs.daily_local_daypart).toBe("morning");
+    expect(obs.daily_timing_guidance_present).toBe(true);
+    expect(obs.daily_durable_memory_background_only).toBe(true);
+    expect(obs.daily_suggested_move).toBe("hold_standard");
+    expect(obs.daily_freshness_avoid_phrases_preview).toContain("distribution");
+    expect(obs.writer_total_chars).toBe(7320);
+    expect(obs.daily_praise_allowed_level).toBe("capability_only");
+    expect(obs.daily_proof_wins_7d).toBe(2);
+    expect(obs.daily_proof_last_user_yes_age_days).toBe(3);
+    expect(obs.daily_freshness_avoid_count).toBe(2);
+    const obsJson = JSON.stringify(obs);
+    expect(obsJson).not.toMatch(/DAILY_SMS_WRITING_BRIEF_V1/);
+    expect(obsJson).not.toMatch(/recent_exact_thread/);
+    expect(obsJson).not.toMatch(/"messages":\s*\[/);
+  });
+
+  it("exports legacy fallback skip_reason without claiming brief used", () => {
+    const obs = relationshipObservabilityFromLaneMetadata({
+      writer_prompt_path: "legacy_packet_v1",
+      daily_writing_brief_used: false,
+      daily_writing_brief_build_status: "skipped_required_verbatim",
+      daily_writing_brief_skip_reason: "skipped_required_verbatim",
+      route_purpose: "main_active_accountability",
+    });
+    expect(obs.writer_prompt_path).toBe("legacy_packet_v1");
+    expect(obs.daily_writing_brief_used).toBe(false);
+    expect(obs.daily_writing_brief_skip_reason).toBe("skipped_required_verbatim");
+    expect(obs.daily_writing_brief_version).toBeUndefined();
+  });
+
+  it("does not falsely claim daily_writing_brief_v1 on legacy lane metadata", () => {
+    const obs = relationshipObservabilityFromLaneMetadata({
+      writer_prompt_path: "legacy_packet_v1",
+      route_purpose: "pending_resolution",
+      relationship_packet_version: RELATIONSHIP_PACKET_VERSION,
+    });
+    expect(obs.writer_prompt_path).toBe("legacy_packet_v1");
+    expect(obs.daily_writing_brief_used).toBeUndefined();
+    expect(obs.daily_writing_brief_version).toBeUndefined();
+  });
+
+  it("exports unsupported praise and repeated CTA seatbelt telemetry when present", () => {
+    const obs = relationshipObservabilityFromLaneMetadata({
+      daily_unsupported_praise_detected: true,
+      unsupported_praise_phrase: "great commitment",
+      unsupported_praise_claim: true,
+      daily_repeated_cta_detected: true,
+      repeated_cta_phrase: "one hour of distribution",
+      daily_fresh_move_guard_blocked: true,
+      daily_praise_allowed_level: "capability_only",
+    });
+    expect(obs.unsupported_praise_claim).toBe(true);
+    expect(obs.daily_repeated_cta_detected).toBe(true);
+    expect(obs.daily_fresh_move_guard_blocked).toBe(true);
+    expect(obs.unsupported_praise_phrase).toBe("great commitment");
+  });
 });
 
 describe("stripCardSupersededWriterStrategyHintsFromUserPrompt (Phase 4.9a)", () => {

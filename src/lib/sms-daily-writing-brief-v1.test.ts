@@ -10,6 +10,10 @@ import {
   buildDailySmsWriterMessagesFromBrief,
   buildCompactTimingCopyGuidanceForBrief,
   buildDurableRelationshipMemoryForBrief,
+  buildFreshnessAvoidPhrasesPreview,
+  dailyWritingBriefExtendedTelemetry,
+  dailyWritingBriefTelemetry,
+  deriveDailyWritingBriefFallbackTelemetry,
   deriveLocalDaypartForBrief,
   useDailySmsWritingBriefV1,
 } from "@/lib/sms-daily-writing-brief-v1";
@@ -449,5 +453,262 @@ describe("compact timing guidance for brief", () => {
       ) ??
         brief.open_loops.timing_anchor?.anchor_phrase_hint?.includes("Brooke")
     ).toBe(true);
+  });
+
+  it("observability: build status used and suggested_move summary capped", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [
+          { role: "coach", body: "Prior coach line.", at_local: "Jun 17 8:00 AM" },
+        ],
+        message_count: 1,
+        char_count: 20,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: deriveFreshnessAvoidPhrasesForBrief(
+        facts.thread_memory.recent_coach_body_do_not_repeat
+      ),
+    });
+    const threadWindow = {
+      daily_brief_thread_floor_message_count: 1,
+      daily_brief_thread_extension_message_count: 0,
+      daily_brief_thread_oldest_at_local: "Jun 17 8:00 AM",
+      daily_brief_thread_newest_at_local: "Jun 17 8:00 AM",
+    };
+    const telemetry = dailyWritingBriefTelemetry({
+      brief,
+      writer_system_chars: 900,
+      writer_payload_chars: 5000,
+      writer_total_chars: 5900,
+      threadWindow,
+    });
+    expect(telemetry.daily_writing_brief_build_status).toBe("used");
+    expect(typeof telemetry.daily_suggested_move).toBe("string");
+    expect(typeof telemetry.daily_suggested_posture).toBe("string");
+    expect(telemetry.daily_suggested_max_questions).toBeDefined();
+    expect(JSON.stringify(telemetry)).not.toMatch(/must_not_do":\s*\[/);
+  });
+
+  it("observability: legacy fallback includes skip_reason for required_verbatim", () => {
+    const facts = baseFacts({
+      constraints: { required_verbatim_substrings: ["binding anchor text"] },
+    });
+    const fallback = deriveDailyWritingBriefFallbackTelemetry({
+      facts,
+      validatedDailyC1Card: null,
+      briefThread: null,
+      hasProofCalibration: false,
+    });
+    expect(fallback.daily_writing_brief_build_status).toBe("skipped_required_verbatim");
+    expect(fallback.daily_writing_brief_skip_reason).toBe("skipped_required_verbatim");
+  });
+
+  it("observability: freshness preview is pipe-separated and excludes user inbound", () => {
+    const coachOnly = deriveFreshnessAvoidPhrasesForBrief([
+      {
+        body: "Aim for one hour of distribution today.",
+        body_preview: "Aim for one hour of distribution today.",
+        sent_at: "2026-06-17T13:00:00.000Z",
+        at_local: "Thu Jun 17 8:00 AM",
+        source_table: "sms_send_events",
+        role: "coach",
+      },
+    ]);
+    const preview = buildFreshnessAvoidPhrasesPreview(coachOnly);
+    expect(preview).toContain("distribution");
+    expect(preview).not.toMatch(/user secret inbound/i);
+    const fromUserBodies = deriveFreshnessAvoidPhrasesForBrief([
+      {
+        body: "user secret inbound reply text",
+        body_preview: "user secret inbound reply text",
+        sent_at: "2026-06-18T13:00:00.000Z",
+        at_local: "Fri Jun 18 8:00 AM",
+        source_table: "sms_inbound_messages",
+        role: "user",
+      },
+    ]);
+    expect(fromUserBodies).toHaveLength(0);
+  });
+
+  it("observability: thread window gauges exported via telemetry", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [
+          { role: "coach", body: "Recent floor coach line.", at_local: "Jun 19 9:00 AM" },
+        ],
+        message_count: 2,
+        char_count: 120,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const telemetry = dailyWritingBriefTelemetry({
+      brief,
+      writer_system_chars: 900,
+      writer_payload_chars: 5000,
+      writer_total_chars: 5900,
+      threadWindow: {
+        daily_brief_thread_floor_message_count: 1,
+        daily_brief_thread_extension_message_count: 1,
+        daily_brief_thread_oldest_at_local: "Jun 10 9:00 AM",
+        daily_brief_thread_newest_at_local: "Jun 19 9:00 AM",
+      },
+    });
+    expect(telemetry.daily_brief_thread_floor_message_count).toBe(1);
+    expect(telemetry.daily_brief_thread_extension_message_count).toBe(1);
+    expect(telemetry.daily_brief_thread_oldest_at_local).toBe("Jun 10 9:00 AM");
+    expect(telemetry.daily_brief_thread_newest_at_local).toBe("Jun 19 9:00 AM");
+  });
+
+  it("observability: open-loop flags exported without raw text", () => {
+    const facts = baseFacts({
+      thread_memory: {
+        ...baseFacts().thread_memory,
+        latest_open_question: "Did you protect focus today?",
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const ext = dailyWritingBriefExtendedTelemetry({
+      brief,
+      threadWindow: {
+        daily_brief_thread_floor_message_count: 0,
+        daily_brief_thread_extension_message_count: 0,
+        daily_brief_thread_oldest_at_local: null,
+        daily_brief_thread_newest_at_local: null,
+      },
+    });
+    expect(typeof ext.daily_open_loop_pending_active).toBe("boolean");
+    expect(typeof ext.daily_open_question_pending).toBe("boolean");
+    expect(JSON.stringify(ext)).not.toMatch(/Did you protect focus today/i);
+    expect(JSON.stringify(ext)).not.toMatch(/open_loops":\s*\{/);
+  });
+
+  it("observability: timing telemetry includes daypart and guidance present", () => {
+    const facts = baseFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-20T14:00:00.000Z",
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const telemetry = dailyWritingBriefTelemetry({
+      brief,
+      writer_system_chars: 900,
+      writer_payload_chars: 5000,
+      writer_total_chars: 5900,
+    });
+    expect(telemetry.daily_local_daypart).toBe("morning");
+    expect(telemetry.daily_timing_guidance_present).toBe(true);
+    expect(telemetry.daily_timing_copy_guidance_count).toBeGreaterThan(0);
+    expect(JSON.stringify(telemetry)).not.toMatch(/Morning send:/);
+  });
+
+  it("observability: morning timing guidance produces count > 0", () => {
+    const facts = baseFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-20T14:00:00.000Z",
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const guidance = buildCompactTimingCopyGuidanceForBrief({ facts, proofCalibration: cal });
+    expect(guidance.length).toBeGreaterThan(0);
+    expect(guidance.some((g) => /Morning send/i.test(g))).toBe(true);
+  });
+
+  it("observability: evening timing guidance produces count > 0", () => {
+    const facts = baseFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-20T01:00:00.000Z",
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const guidance = buildCompactTimingCopyGuidanceForBrief({ facts, proofCalibration: cal });
+    expect(guidance.length).toBeGreaterThan(0);
+    expect(guidance.some((g) => /Evening send/i.test(g))).toBe(true);
+  });
+
+  it("observability: durable memory counts without exporting names", () => {
+    const facts = baseFacts({
+      relationship_anchor_sources: {
+        important_people: [
+          {
+            display_name: "Secret Spouse Name",
+            relationship_type: "spouse",
+            source: "onboarding",
+          },
+        ],
+        people_summary: null,
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const telemetry = dailyWritingBriefTelemetry({
+      brief,
+      writer_system_chars: 900,
+      writer_payload_chars: 5000,
+      writer_total_chars: 5900,
+    });
+    expect(telemetry.daily_durable_memory_item_count).toBeGreaterThan(0);
+    expect(telemetry.daily_durable_people_count).toBeGreaterThan(0);
+    expect(telemetry.daily_durable_memory_background_only).toBe(true);
+    const obsJson = JSON.stringify(telemetry);
+    expect(obsJson).not.toMatch(/Secret Spouse Name/i);
+    expect(obsJson).not.toMatch(/durable_relationship_memory/);
+    expect(obsJson).not.toMatch(/"items":\s*\[/);
   });
 });

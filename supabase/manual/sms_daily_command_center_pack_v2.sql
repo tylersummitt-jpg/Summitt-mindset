@@ -1,7 +1,24 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.2
+-- SMS DAILY COMMAND CENTER PACK v2.5
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 13 queries.
+--
+-- v2.5 DailySmsWritingBriefV1 timing + durable memory observability (June 2026):
+--   - daily_local_daypart, timing guidance counts/flags, timing anchor confidence.
+--   - Durable memory item/people/blocker counts (no names or full memory text).
+--   - Q01 counts: timing_guidance_present, durable_memory_present, durable_people_present.
+--   - Q13 sanity: missing timing/durable/daypart observability, background_only flag.
+--
+-- v2.4 DailySmsWritingBriefV1 observability hardening (June 2026):
+--   - daily_writing_brief_build_status / daily_writing_brief_skip_reason (brief vs legacy fallback).
+--   - Compact suggested_move, thread window floor/extension, freshness phrase preview, open-loop flags.
+--   - Q01 counts: c1_brief_used/fallback/missing_reason, extension thread, freshness preview, open-loop.
+--   - Q13 sanity: legacy without skip reason, brief-used missing suggested_move, thread counts, etc.
+--
+-- v2.3 DailySmsWritingBriefV1 observability (June 2026):
+--   - writer_prompt_path / daily_writing_brief_used on sent rows via relationship_packet_observability.
+--   - Proof calibration, freshness, thread counts, unsupported praise / repeated CTA seatbelt telemetry.
+--   - Q13 sanity for missing brief telemetry on visible C1 sends.
 --
 -- v2.2 reliability (June 2026):
 --   - Safe last_error extraction: regex + metadata paths only (never last_error::jsonb).
@@ -111,7 +128,77 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,v3_brain,memory_repeat_no_send_reason}',
       to_jsonb(s)#>>'{metadata,memory_repeat_no_send_reason}',
       ''
-    ) AS memory_repeat_no_send_reason
+    ) AS memory_repeat_no_send_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+      ''
+    ) AS writer_prompt_path,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_used}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_used}',
+      ''
+    ) AS daily_writing_brief_used,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_praise_allowed_level}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_praise_allowed_level}',
+      ''
+    ) AS daily_praise_allowed_level,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,unsupported_praise_claim}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,unsupported_praise_claim}',
+      ''
+    ) AS unsupported_praise_claim,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_repeated_cta_detected}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_repeated_cta_detected}',
+      ''
+    ) AS daily_repeated_cta_detected,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_build_status}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_build_status}',
+      ''
+    ) AS daily_writing_brief_build_status,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_skip_reason}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_skip_reason}',
+      ''
+    ) AS daily_writing_brief_skip_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_suggested_move}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_suggested_move}',
+      ''
+    ) AS daily_suggested_move,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_extension_message_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_extension_message_count}',
+      ''
+    ) AS daily_brief_thread_extension_message_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_phrases_preview}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_phrases_preview}',
+      ''
+    ) AS daily_freshness_avoid_phrases_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_open_loop_pending_active}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_open_loop_pending_active}',
+      ''
+    ) AS daily_open_loop_pending_active,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_timing_guidance_present}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_timing_guidance_present}',
+      ''
+    ) AS daily_timing_guidance_present,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_durable_memory_item_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_durable_memory_item_count}',
+      ''
+    ) AS daily_durable_memory_item_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_durable_people_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_durable_people_count}',
+      ''
+    ) AS daily_durable_people_count
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -185,7 +272,65 @@ daily_agg AS (
         OR (EXTRACT(HOUR FROM event_at AT TIME ZONE 'America/New_York') >= 17
           AND body_preview ~* '(what.*plan|first step|next step|will you|going to|plan.*today)')
       )
-    ) AS time_of_day_copy_risk_count
+    ) AS time_of_day_copy_risk_count,
+    COUNT(*) FILTER (WHERE visible_sent AND writer_prompt_path = 'daily_writing_brief_v1') AS daily_writing_brief_v1_sent_count,
+    COUNT(*) FILTER (WHERE visible_sent AND writer_prompt_path = 'legacy_packet_v1') AS legacy_packet_v1_sent_count,
+    COUNT(*) FILTER (WHERE visible_sent AND writer_prompt_path = '') AS unknown_writer_path_sent_count,
+    COUNT(*) FILTER (
+      WHERE eligible_coaching_row AND NOT visible_sent
+        AND (no_send_reason = 'unsupported_praise_claim' OR unsupported_praise_claim ~* 'true')
+    ) AS unsupported_praise_no_send_count,
+    COUNT(*) FILTER (
+      WHERE eligible_coaching_row AND NOT visible_sent
+        AND (
+          no_send_reason = 'thread_memory_repeat_blocked'
+          AND daily_repeated_cta_detected ~* 'true'
+        )
+    ) AS repeated_cta_no_send_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND daily_praise_allowed_level IN ('capability_only', 'none')
+        AND body_preview ~* '(great commitment|shown commitment|strong commitment|\bbeen consistent\b|\bon a roll\b|\bdominating\b|\bcrushing it\b|\bkept showing up\b)'
+    ) AS weak_proof_bad_praise_visible_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND writer_prompt_path = 'daily_writing_brief_v1'
+        AND daily_writing_brief_build_status = 'used'
+    ) AS c1_brief_used_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND writer_prompt_path = 'legacy_packet_v1'
+        AND route_kind IN ('main_active_accountability', 'low_pressure_reactivation')
+        AND daily_writing_brief_skip_reason <> ''
+        AND daily_writing_brief_skip_reason <> 'skipped_non_c1_route'
+    ) AS c1_brief_fallback_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND writer_prompt_path = 'legacy_packet_v1'
+        AND route_kind IN ('main_active_accountability', 'low_pressure_reactivation')
+        AND daily_writing_brief_skip_reason = ''
+    ) AS c1_brief_missing_reason_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND COALESCE(NULLIF(daily_brief_thread_extension_message_count, ''), '0')::int > 0
+    ) AS extension_thread_used_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent AND daily_freshness_avoid_phrases_preview <> ''
+    ) AS freshness_phrase_preview_present_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent AND daily_open_loop_pending_active ~* 'true'
+    ) AS open_loop_active_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent AND daily_timing_guidance_present ~* 'true'
+    ) AS timing_guidance_present_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND COALESCE(NULLIF(daily_durable_memory_item_count, ''), '0')::int > 0
+    ) AS durable_memory_present_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND COALESCE(NULLIF(daily_durable_people_count, ''), '0')::int > 0
+    ) AS durable_people_present_count
   FROM classified
 ),
 top_reasons AS (
@@ -284,8 +429,27 @@ SELECT
   d.coach_body_near_duplicate_no_send_count,
   d.daily_coach_body_near_duplicate_block_count,
   d.daily_duplicate_or_stagnation_sent_review_count,
+  d.daily_writing_brief_v1_sent_count,
+  d.legacy_packet_v1_sent_count,
+  d.unknown_writer_path_sent_count,
+  d.unsupported_praise_no_send_count,
+  d.repeated_cta_no_send_count,
+  d.weak_proof_bad_praise_visible_count,
+  d.c1_brief_used_count,
+  d.c1_brief_fallback_count,
+  d.c1_brief_missing_reason_count,
+  d.extension_thread_used_count,
+  d.freshness_phrase_preview_present_count,
+  d.open_loop_active_count,
+  d.timing_guidance_present_count,
+  d.durable_memory_present_count,
+  d.durable_people_present_count,
   tr.top_no_send_reasons,
   CASE
+    WHEN d.weak_proof_bad_praise_visible_count > 0 THEN 'daily_writing_brief_unsupported_praise_visible'
+    WHEN d.unsupported_praise_no_send_count > 0 THEN 'daily_writing_brief_unsupported_praise_seatbelt_monitor'
+    WHEN d.repeated_cta_no_send_count > 0 THEN 'daily_writing_brief_repeated_cta_seatbelt_monitor'
+    WHEN d.unknown_writer_path_sent_count > 0 AND d.visible_sends > 0 THEN 'daily_writing_brief_writer_path_telemetry_gap'
     WHEN d.coach_body_near_duplicate_no_send_count > 0 THEN 'daily_coach_body_anti_repeat_monitor'
     WHEN d.daily_duplicate_or_stagnation_sent_review_count > 0 THEN 'daily_thread_stagnation_writer_freshness'
     WHEN d.zero_question_visible_violations > 0 THEN 'zero_question_validator_or_card_alignment'
@@ -633,6 +797,286 @@ SELECT
      THEN true
     ELSE false
   END AS near_duplicate_to_previous_coach_sms,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+      raw_json#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+      ''
+    )
+    ELSE ''
+  END AS writer_prompt_path,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_writing_brief_used}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_writing_brief_used}',
+      ''
+    )
+    ELSE ''
+  END AS daily_writing_brief_used,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_praise_allowed_level}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_praise_allowed_level}',
+      ''
+    )
+    ELSE ''
+  END AS daily_praise_allowed_level,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_proof_wins_7d}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_proof_wins_7d}',
+      ''
+    )
+    ELSE ''
+  END AS daily_proof_wins_7d,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_proof_last_user_yes_age_days}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_proof_last_user_yes_age_days}',
+      ''
+    )
+    ELSE ''
+  END AS daily_proof_last_user_yes_age_days,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_freshness_avoid_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_freshness_avoid_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_message_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_char_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_char_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_char_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_unsupported_praise_detected}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_unsupported_praise_detected}',
+      ''
+    )
+    ELSE ''
+  END AS unsupported_praise_detected,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_repeated_cta_detected}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_repeated_cta_detected}',
+      ''
+    )
+    ELSE ''
+  END AS repeated_cta_detected,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_writing_brief_build_status}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_writing_brief_build_status}',
+      ''
+    )
+    ELSE ''
+  END AS daily_writing_brief_build_status,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_writing_brief_skip_reason}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_writing_brief_skip_reason}',
+      ''
+    )
+    ELSE ''
+  END AS daily_writing_brief_skip_reason,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_suggested_move}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_suggested_move}',
+      ''
+    )
+    ELSE ''
+  END AS daily_suggested_move,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_suggested_posture}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_suggested_posture}',
+      ''
+    )
+    ELSE ''
+  END AS daily_suggested_posture,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_suggested_max_questions}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_suggested_max_questions}',
+      ''
+    )
+    ELSE ''
+  END AS daily_suggested_max_questions,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_suggested_move_reason_preview}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_suggested_move_reason_preview}',
+      ''
+    )
+    ELSE ''
+  END AS daily_suggested_move_reason_preview,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_floor_message_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_floor_message_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_floor_message_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_extension_message_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_extension_message_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_extension_message_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_oldest_at_local}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_oldest_at_local}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_oldest_at_local,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_newest_at_local}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_newest_at_local,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_phrases_preview}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_freshness_avoid_phrases_preview}',
+      ''
+    )
+    ELSE ''
+  END AS daily_freshness_avoid_phrases_preview,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_open_loop_pending_active}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_open_loop_pending_active}',
+      ''
+    )
+    ELSE ''
+  END AS daily_open_loop_pending_active,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_open_question_pending}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_open_question_pending}',
+      ''
+    )
+    ELSE ''
+  END AS daily_open_question_pending,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_satisfied_do_not_repeat_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_satisfied_do_not_repeat_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_satisfied_do_not_repeat_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_goal_evolution_invite_active}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_goal_evolution_invite_active}',
+      ''
+    )
+    ELSE ''
+  END AS daily_goal_evolution_invite_active,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_pending_plan_active}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_pending_plan_active}',
+      ''
+    )
+    ELSE ''
+  END AS daily_pending_plan_active,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_local_daypart}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_local_daypart}',
+      ''
+    )
+    ELSE ''
+  END AS daily_local_daypart,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_timing_copy_guidance_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_timing_copy_guidance_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_timing_copy_guidance_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_timing_anchor_active}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_timing_anchor_active}',
+      ''
+    )
+    ELSE ''
+  END AS daily_timing_anchor_active,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_timing_anchor_confidence}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_timing_anchor_confidence}',
+      ''
+    )
+    ELSE ''
+  END AS daily_timing_anchor_confidence,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_timing_guidance_present}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_timing_guidance_present}',
+      ''
+    )
+    ELSE ''
+  END AS daily_timing_guidance_present,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_durable_memory_item_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_durable_memory_item_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_durable_memory_item_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_durable_people_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_durable_people_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_durable_people_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_durable_blocker_theme_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_durable_blocker_theme_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_durable_blocker_theme_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_durable_memory_background_only}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_durable_memory_background_only}',
+      ''
+    )
+    ELSE ''
+  END AS daily_durable_memory_background_only,
   raw_json
 FROM thread_with_prev
 WHERE event_at IS NOT NULL
@@ -765,6 +1209,126 @@ send_rows AS (
       to_jsonb(s)#>>'{metadata,repeat_repair_attempted}',
       ''
     ) AS repeat_repair_attempted,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+      ''
+    ) AS writer_prompt_path,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_used}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_used}',
+      ''
+    ) AS daily_writing_brief_used,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_praise_allowed_level}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_praise_allowed_level}',
+      ''
+    ) AS daily_praise_allowed_level,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,unsupported_praise_claim}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,unsupported_praise_claim}',
+      ''
+    ) AS unsupported_praise_claim,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_unsupported_praise_detected}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_unsupported_praise_detected}',
+      ''
+    ) AS daily_unsupported_praise_detected,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_repeated_cta_detected}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_repeated_cta_detected}',
+      ''
+    ) AS daily_repeated_cta_detected,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,repeated_cta_phrase}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,repeated_cta_phrase}',
+      ''
+    ) AS repeated_cta_phrase,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_fresh_move_guard_blocked}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_fresh_move_guard_blocked}',
+      ''
+    ) AS daily_fresh_move_guard_blocked,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_build_status}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_build_status}',
+      ''
+    ) AS daily_writing_brief_build_status,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_skip_reason}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_skip_reason}',
+      ''
+    ) AS daily_writing_brief_skip_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_suggested_move}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_suggested_move}',
+      ''
+    ) AS daily_suggested_move,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_suggested_posture}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_suggested_posture}',
+      ''
+    ) AS daily_suggested_posture,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_suggested_max_questions}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_suggested_max_questions}',
+      ''
+    ) AS daily_suggested_max_questions,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_suggested_move_reason_preview}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_suggested_move_reason_preview}',
+      ''
+    ) AS daily_suggested_move_reason_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_floor_message_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_floor_message_count}',
+      ''
+    ) AS daily_brief_thread_floor_message_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_extension_message_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_extension_message_count}',
+      ''
+    ) AS daily_brief_thread_extension_message_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_oldest_at_local}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_oldest_at_local}',
+      ''
+    ) AS daily_brief_thread_oldest_at_local,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_newest_at_local}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
+      ''
+    ) AS daily_brief_thread_newest_at_local,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_phrases_preview}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_phrases_preview}',
+      ''
+    ) AS daily_freshness_avoid_phrases_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_open_loop_pending_active}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_open_loop_pending_active}',
+      ''
+    ) AS daily_open_loop_pending_active,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_open_question_pending}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_open_question_pending}',
+      ''
+    ) AS daily_open_question_pending,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_satisfied_do_not_repeat_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_satisfied_do_not_repeat_count}',
+      ''
+    ) AS daily_satisfied_do_not_repeat_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_goal_evolution_invite_active}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_goal_evolution_invite_active}',
+      ''
+    ) AS daily_goal_evolution_invite_active,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_pending_plan_active}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_pending_plan_active}',
+      ''
+    ) AS daily_pending_plan_active,
     COALESCE(to_jsonb(s)->>'status', '') AS status,
     COALESCE(to_jsonb(s)->>'message_sid', to_jsonb(s)->>'outbound_message_sid', to_jsonb(s)#>>'{metadata,message_sid}', '') AS message_sid,
     COALESCE(to_jsonb(s)#>>'{metadata,note}', '') AS note,
@@ -842,6 +1406,30 @@ SELECT
   LEFT(prior_coach_body_preview, 500) AS prior_coach_body_preview,
   memory_repeat_guard_reason,
   repeat_repair_attempted,
+  writer_prompt_path,
+  daily_writing_brief_used,
+  daily_praise_allowed_level,
+  unsupported_praise_claim,
+  daily_unsupported_praise_detected,
+  daily_repeated_cta_detected,
+  repeated_cta_phrase,
+  daily_fresh_move_guard_blocked,
+  daily_writing_brief_build_status,
+  daily_writing_brief_skip_reason,
+  daily_suggested_move,
+  daily_suggested_posture,
+  daily_suggested_max_questions,
+  daily_suggested_move_reason_preview,
+  daily_brief_thread_floor_message_count,
+  daily_brief_thread_extension_message_count,
+  daily_brief_thread_oldest_at_local,
+  daily_brief_thread_newest_at_local,
+  daily_freshness_avoid_phrases_preview,
+  daily_open_loop_pending_active,
+  daily_open_question_pending,
+  daily_satisfied_do_not_repeat_count,
+  daily_goal_evolution_invite_active,
+  daily_pending_plan_active,
   user_repeated_no_send_count,
   eligible_classification,
   raw_json
@@ -2763,6 +3351,7 @@ ORDER BY c.event_at DESC;
 -- QUERY 13 — observability_denominator_sanity_check
 -- Saved query name: SM_AUDIT_13_Denominator_Sanity
 -- Purpose: Telemetry completeness — rows that could make eligible/visible SQL denominators lie.
+-- v2.3: DailySmsWritingBriefV1 sent-row telemetry sanity (writer_prompt_path, brief_used, writer_total_chars).
 -- v2.2: coach-body duplicate telemetry sanity + per-issue impacted_query + severity.
 -- Default window: last 24 hours
 -- MANUAL DATE OVERRIDE (optional — replace bounds lines below):
@@ -2850,6 +3439,86 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,prior_coach_body_preview}',
       ''
     ) AS prior_coach_body_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+      ''
+    ) AS writer_prompt_path,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_used}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_used}',
+      ''
+    ) AS daily_writing_brief_used,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,writer_total_chars}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,writer_total_chars}',
+      ''
+    ) AS writer_total_chars,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_praise_allowed_level}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_praise_allowed_level}',
+      ''
+    ) AS daily_praise_allowed_level,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_build_status}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_build_status}',
+      ''
+    ) AS daily_writing_brief_build_status,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writing_brief_skip_reason}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writing_brief_skip_reason}',
+      ''
+    ) AS daily_writing_brief_skip_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_suggested_move}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_suggested_move}',
+      ''
+    ) AS daily_suggested_move,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_floor_message_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_floor_message_count}',
+      ''
+    ) AS daily_brief_thread_floor_message_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_extension_message_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_extension_message_count}',
+      ''
+    ) AS daily_brief_thread_extension_message_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_count}',
+      ''
+    ) AS daily_freshness_avoid_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_phrases_preview}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_phrases_preview}',
+      ''
+    ) AS daily_freshness_avoid_phrases_preview,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_open_loop_pending_active}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_open_loop_pending_active}',
+      ''
+    ) AS daily_open_loop_pending_active,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_local_daypart}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_local_daypart}',
+      ''
+    ) AS daily_local_daypart,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_timing_guidance_present}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_timing_guidance_present}',
+      ''
+    ) AS daily_timing_guidance_present,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_durable_memory_item_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_durable_memory_item_count}',
+      ''
+    ) AS daily_durable_memory_item_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_durable_memory_background_only}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_durable_memory_background_only}',
+      ''
+    ) AS daily_durable_memory_background_only,
     COALESCE(
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,thread_freshness_violation_reason}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,thread_freshness_violation_reason}',
@@ -3215,6 +3884,266 @@ issues AS (
     )
     AND cb.no_send_reason !~* 'memory|repeat|thread'
     AND cb.memory_repeat_guard_attempted = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'brief_telemetry_missing_on_c1_sent',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Visible C1 daily send missing writer_prompt_path / daily_writing_brief_used in relationship_packet_observability paths'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.route_kind IN ('main_active_accountability', 'low_pressure_reactivation', '')
+    AND cb.writer_prompt_path = ''
+    AND cb.daily_writing_brief_used = ''
+    AND cb.raw_json::text ~* 'sent_to_twilio|v2_accountability'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'writer_prompt_path_unknown_on_visible_daily_send',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Visible daily send has empty writer_prompt_path — cannot confirm brief vs legacy hallway'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = ''
+    AND cb.body_preview <> ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'daily_writing_brief_used_missing',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'C1-eligible visible send missing daily_writing_brief_used telemetry'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.route_kind IN ('main_active_accountability', 'low_pressure_reactivation')
+    AND cb.daily_writing_brief_used = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'writer_total_chars_missing',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Visible daily send missing writer_total_chars — prompt size SQL may under-report'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_total_chars = ''
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_legacy_without_skip_reason',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'C1-eligible visible send used legacy_packet_v1 but daily_writing_brief_skip_reason is blank'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.route_kind IN ('main_active_accountability', 'low_pressure_reactivation')
+    AND cb.writer_prompt_path = 'legacy_packet_v1'
+    AND cb.daily_writing_brief_skip_reason = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_used_missing_suggested_move',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief build_status=used but daily_suggested_move telemetry missing'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_suggested_move = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_thread_counts_missing',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used but thread floor/extension counts missing from observability paths'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_brief_thread_floor_message_count = ''
+    AND cb.daily_brief_thread_extension_message_count = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_freshness_count_without_preview',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'daily_freshness_avoid_count > 0 but daily_freshness_avoid_phrases_preview blank'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND COALESCE(NULLIF(cb.daily_freshness_avoid_count, ''), '0')::int > 0
+    AND cb.daily_freshness_avoid_phrases_preview = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_open_loop_flags_missing',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used but daily_open_loop_pending_active flag missing from observability paths'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_open_loop_pending_active = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_missing_timing_observability',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used but daily_timing_guidance_present / daily_local_daypart missing from observability paths'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND (cb.daily_timing_guidance_present = '' OR cb.daily_local_daypart = '')
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_missing_durable_memory_observability',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used but daily_durable_memory_item_count missing from observability paths'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_durable_memory_item_count = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_durable_memory_not_background_only',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief durable memory telemetry reports daily_durable_memory_background_only is not true'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_durable_memory_background_only <> ''
+    AND cb.daily_durable_memory_background_only !~* 'true'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_missing_daypart',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used but daily_local_daypart missing — morning/evening copy-risk SQL may be blind'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_local_daypart = ''
 ),
 agg AS (
   SELECT
