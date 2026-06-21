@@ -32,6 +32,7 @@ import {
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
+import { buildCoachGoalEvolutionInviteLaneGuardrails } from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import {
   buildPlannedInterruptionLaneGuardrails,
 } from "@/lib/sms-planned-interruption";
@@ -121,6 +122,7 @@ import type {
   SmsGoalAdjustmentConfidence,
   SmsGoalAdjustmentMove,
 } from "@/lib/sms-goal-adjustment-signal";
+import type { DailyCoachGoalEvolutionInviteFacts } from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import {
   buildVictoryBackgroundLaneGuardrails,
   type V3VictoryBackgroundFacts,
@@ -298,6 +300,8 @@ export type DailyV3RelationshipFacts = {
     goal_adjustment_internal_hint?: string | null;
     goal_adjustment_requires_confirmation?: boolean;
     goal_adjustment_compatible_flow?: SmsGoalAdjustmentCompatibleFlow | null;
+    /** Slice 3A — coach-initiated goal evolution invite (invitation only; no pending/mutation). */
+    coach_goal_evolution_invite?: DailyCoachGoalEvolutionInviteFacts | null;
     planned_interruption_active?: boolean;
     planned_interruption_reason_category?: string | null;
     planned_interruption_resume_hint?: string | null;
@@ -374,6 +378,9 @@ export function deriveSuggestedCoachingMoveForDailyFacts(f: DailyV3RelationshipF
   if (f.accountability.pending_plan_proof?.active === true) return "close_prior_plan_loop";
   if (f.accountability.daily_purpose === "comeback_after_silence") return "acknowledge_comeback";
   if (f.accountability.next_move_type === "shrink_ask") return "invite_smaller_rep";
+  if (f.accountability.coach_goal_evolution_invite?.should_invite === true) {
+    return "invite_goal_evolution";
+  }
   if (f.accountability.next_move_type === "hold_standard") return "hold_standard";
   if (f.accountability.blocker_preview) return "ask_blocker";
   if (f.accountability.daily_purpose === "contract_overlay_proposal") return "propose_contract";
@@ -1251,6 +1258,7 @@ ${buildThreadFreshnessPromptGuidance()}
 ${buildVictoryBackgroundLaneGuardrails()}
 ${buildSmsPatternSignalLaneGuardrails()}
 ${buildSmsGoalAdjustmentLaneGuardrails()}
+${buildCoachGoalEvolutionInviteLaneGuardrails()}
 ${buildPlannedInterruptionLaneGuardrails()}
 ${dailyPendingPlanGuardrails}
 ${buildTimingAnchorMemoryLaneGuardrails(laneFacts.accountability.timing_anchor_memory)}

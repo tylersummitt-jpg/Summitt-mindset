@@ -22,6 +22,7 @@ import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { computeRecommitBindingText } from "@/lib/v2-adaptive-contract";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import { buildSmsGoalAdjustmentLaneGuardrails } from "@/lib/sms-goal-adjustment-signal";
+import { buildCoachGoalEvolutionInviteLaneGuardrails } from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import { buildPlannedInterruptionLaneGuardrails } from "@/lib/sms-planned-interruption";
 import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
 import { buildVictoryBackgroundLaneGuardrails } from "@/lib/sms-victory-background-context";
@@ -2700,6 +2701,7 @@ describe("daily V3 victory_background", () => {
     expect(systemMsg).toContain(buildVictoryBackgroundLaneGuardrails().trim().slice(0, 40));
     expect(systemMsg).toContain(buildSmsPatternSignalLaneGuardrails().trim().slice(0, 20));
     expect(systemMsg).toContain(buildSmsGoalAdjustmentLaneGuardrails().trim().slice(0, 20));
+    expect(systemMsg).toContain(buildCoachGoalEvolutionInviteLaneGuardrails().trim().slice(0, 24));
     expect(systemMsg).toContain(buildPlannedInterruptionLaneGuardrails().trim().slice(0, 24));
     expect(systemMsg).toMatch(/not a diagnosis/i);
     expect(systemMsg).toMatch(/not permission to mutate/i);

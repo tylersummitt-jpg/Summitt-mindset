@@ -4,6 +4,7 @@
  */
 
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { DailyCoachGoalEvolutionInviteFacts } from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
 import {
   buildStaleAskAvoidanceSummary,
@@ -188,6 +189,8 @@ export type RelationshipPacketStructuredRecentTruth = {
     body_preview: string;
     at_local: string | null;
   }> | null;
+  /** Slice 3A — coach-initiated goal evolution invite (invitation only; no pending/mutation). */
+  coach_goal_evolution_invite?: DailyCoachGoalEvolutionInviteFacts | null;
 };
 
 export type RelationshipPacketRecentExactThread72h = {
@@ -810,6 +813,9 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
       required_meaning_summary: null,
       forbidden_substring_count: 0,
     },
+    ...(f.accountability.coach_goal_evolution_invite
+      ? { coach_goal_evolution_invite: f.accountability.coach_goal_evolution_invite }
+      : {}),
   };
 }
 

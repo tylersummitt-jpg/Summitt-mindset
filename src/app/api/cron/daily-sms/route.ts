@@ -154,6 +154,12 @@ import {
   shouldSurfaceWave7EvolutionDailyPurpose,
 } from "@/lib/v2-sms-evolution-signal";
 import {
+  buildCoachGoalEvolutionInviteTelemetry,
+  countYesOutcomes7dForCoachInvite,
+  evaluateCoachInitiatedGoalEvolutionInvite,
+  mapCoachGoalEvolutionInviteToDailyFacts,
+} from "@/lib/sms-coach-initiated-goal-evolution-invite";
+import {
   buildPendingResolutionDailyReminderSms,
   clearPendingResolutionIfExpired,
   getPendingResolutionOrNull,
@@ -2441,6 +2447,45 @@ async function buildDailySmsContent(
     const canonicalProposalAskTrim = typeof canonicalDailyProposalAsk === "string" ? canonicalDailyProposalAsk.trim() : "";
     const requiredVerbatimMain: string[] = [];
 
+    const coachGoalEvolutionInviteEvalRaw = evaluateCoachInitiatedGoalEvolutionInvite({
+      commitment: active,
+      routeKind,
+      yesStreak14d: coachingMemoryRow?.yes_streak_14d ?? null,
+      yesCount7d: countYesOutcomes7dForCoachInvite(recentEvents, now.getTime()),
+      negativeOutcomes14d:
+        (coachingMemoryRow?.no_count_14d ?? 0) + (coachingMemoryRow?.partial_count_14d ?? 0),
+      goalAdjustmentSignal,
+      patternSignal,
+      evolutionEvaluation: evolutionEvaluationForGate,
+      plannedInterruptionActive,
+      refreshSessionActive,
+      overlayActive: overlayActiveForGate,
+      adaptiveProposalPending: proposalPendingForGate,
+      contractProposalMode,
+      shrinkOverlayEligible: shrinkProposalMode,
+      nextMoveShrinkAsk: outboundNextMove === "shrink_ask",
+      eventsNewestFirst: recentEvents,
+      nowMs: now.getTime(),
+    });
+    const coachGoalEvolutionInviteEval =
+      dailyPurpose === "evolution_pattern_check" && coachGoalEvolutionInviteEvalRaw.should_invite
+        ? {
+            ...coachGoalEvolutionInviteEvalRaw,
+            invite_detected: false,
+            invite_kind: "none" as const,
+            invite_source: "none" as const,
+            should_invite: false,
+            coach_goal_evolution_action: "defer" as const,
+            hold_standard_reason: "evolution_pattern_check_day",
+            evidence_summary: null,
+          }
+        : coachGoalEvolutionInviteEvalRaw;
+    const coachGoalEvolutionInviteFacts = mapCoachGoalEvolutionInviteToDailyFacts(
+      coachGoalEvolutionInviteEval
+    );
+    const coachGoalEvolutionInviteTelemetry =
+      buildCoachGoalEvolutionInviteTelemetry(coachGoalEvolutionInviteEval);
+
     const contractSemanticFacts: DailySemanticContractProposalFactsPacket | null =
       contractProposalMode && contractProposalKind && canonicalProposalAskTrim
         ? {
@@ -2526,6 +2571,7 @@ async function buildDailySmsContent(
         goal_adjustment_internal_hint: goalAdjustmentSignal.internalHint,
         goal_adjustment_requires_confirmation: goalAdjustmentSignal.requiresUserConfirmation,
         goal_adjustment_compatible_flow: goalAdjustmentSignal.compatibleFlow,
+        coach_goal_evolution_invite: coachGoalEvolutionInviteFacts,
         ...(plannedInterruptionActive
           ? {
               planned_interruption_active: true,
@@ -2590,6 +2636,7 @@ async function buildDailySmsContent(
       "pickWave7DailyEvolutionAction",
       "shouldSurfaceWave7EvolutionDailyPurpose",
       "loadSmsVictoryBackgroundContext",
+      "evaluateCoachInitiatedGoalEvolutionInvite",
     ];
     if (contractProposalMode && contractProposalKind === "shrink_ask") {
       telemetryUnified.push("buildV2ShrinkProposalOutboundSms");
@@ -2650,6 +2697,7 @@ async function buildDailySmsContent(
         coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
           buildCoachingBriefV1FromDailyFacts(factsUnified)
         ),
+        ...coachGoalEvolutionInviteTelemetry,
         ...(recommitSameVisibleContractSuppressed
           ? {
               recommit_same_visible_contract_suppressed: true,
