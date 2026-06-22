@@ -6,6 +6,7 @@ import {
 } from "@/lib/sms-daily-proof-calibration";
 import {
   deriveDailyFreshMoveFacts,
+  deriveFreshnessAvoidPhrasesForBrief,
   detectDailyRepeatedCtaViolation,
 } from "@/lib/sms-daily-fresh-move";
 import {
@@ -122,6 +123,39 @@ describe("daily fresh move extraction", () => {
       freshMove: fresh,
     });
     expect(violation).toBeNull();
+  });
+
+  it("extracts that hour of distribution from coach body", () => {
+    const fresh = deriveDailyFreshMoveFacts([
+      coachBody("Nice work yesterday. Aim for that hour of distribution today."),
+    ]);
+    expect(fresh.recent_cta_do_not_repeat.some((x) => /hour of distribution/i.test(x.phrase))).toBe(
+      true
+    );
+  });
+
+  it("ranks hour of distribution above maintaining concentration with goal context", () => {
+    const phrases = deriveFreshnessAvoidPhrasesForBrief(
+      [
+        coachBody("Keep maintaining that concentration through the afternoon."),
+        coachBody("Aim for that hour of distribution today."),
+      ],
+      { effectiveAsk: "One hour of distribution", behaviorStatement: "One hour of distribution" }
+    );
+    expect(phrases[0]?.phrase).toMatch(/hour of distribution/i);
+  });
+
+  it("extracts five minutes of prayer and wake without snoozing", () => {
+    const prayerFresh = deriveDailyFreshMoveFacts([
+      coachBody("Start with five minutes of prayer before you open email."),
+    ]);
+    expect(prayerFresh.recent_cta_do_not_repeat.some((x) => /five minutes of prayer/i.test(x.phrase))).toBe(
+      true
+    );
+    const snoozeFresh = deriveDailyFreshMoveFacts([
+      coachBody("Tomorrow, try to wake up without snoozing the alarm."),
+    ]);
+    expect(snoozeFresh.recent_cta_do_not_repeat.some((x) => /without snooz/i.test(x.phrase))).toBe(true);
   });
 });
 

@@ -96,20 +96,61 @@ function isComplianceInbound(raw: string): boolean {
   return /^(stop|start|help|unstop|cancel)$/i.test(low) && raw.trim().length <= 12;
 }
 
-function bodyFromSendEventRow(row: Record<string, unknown>): string {
-  if (typeof row.sms_body === "string" && row.sms_body.trim()) return row.sms_body.trim();
-  if (typeof row.body === "string" && row.body.trim()) return row.body.trim();
-  if (typeof row.message_body === "string" && row.message_body.trim()) return row.message_body.trim();
+function metaPathString(meta: Record<string, unknown>, path: string): string {
+  const parts = path.split(".");
+  let cur: unknown = meta;
+  for (const part of parts) {
+    if (!cur || typeof cur !== "object" || Array.isArray(cur)) return "";
+    cur = (cur as Record<string, unknown>)[part];
+  }
+  return typeof cur === "string" && cur.trim() ? cur.trim() : "";
+}
+
+function firstNonEmptyBody(...candidates: (string | undefined | null)[]): string {
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+  }
+  return "";
+}
+
+/** Mirror SQL visible body fallback paths for legacy sent rows. */
+export function bodyFromSendEventRow(row: Record<string, unknown>): string {
+  const top = firstNonEmptyBody(
+    typeof row.sms_body === "string" ? row.sms_body : undefined,
+    typeof row.body === "string" ? row.body : undefined,
+    typeof row.message_body === "string" ? row.message_body : undefined,
+    typeof row.final_body === "string" ? row.final_body : undefined,
+    typeof row.body_preview === "string" ? row.body_preview : undefined
+  );
+  if (top) return stripComplianceFooter(top);
+
   const meta = row.metadata;
   if (meta && typeof meta === "object" && !Array.isArray(meta)) {
     const m = meta as Record<string, unknown>;
-    if (typeof m.sms_body === "string" && m.sms_body.trim()) return m.sms_body.trim();
+    const nested = firstNonEmptyBody(
+      metaPathString(m, "sms_body"),
+      metaPathString(m, "body"),
+      metaPathString(m, "final_body"),
+      metaPathString(m, "body_preview"),
+      metaPathString(m, "voice_send_decision.body_preview"),
+      metaPathString(m, "voice_send_decision.north_star_visible_body"),
+      metaPathString(m, "final_voice_gate.final_voice_gate_body"),
+      metaPathString(m, "daily_v3_lane.final_body"),
+      metaPathString(m, "daily_v3_lane.body"),
+      metaPathString(m, "daily_v3_lane.body_preview"),
+      metaPathString(m, "v3_brain.final_body"),
+      metaPathString(m, "v3_brain.body")
+    );
+    if (nested) return stripComplianceFooter(nested);
   }
   return "";
 }
 
 function messageSidFromSendEventRow(row: Record<string, unknown>): string | null {
   if (typeof row.message_sid === "string" && row.message_sid.trim()) return row.message_sid.trim();
+  if (typeof row.outbound_message_sid === "string" && row.outbound_message_sid.trim()) {
+    return row.outbound_message_sid.trim();
+  }
   const meta = row.metadata;
   if (meta && typeof meta === "object" && !Array.isArray(meta)) {
     const m = meta as Record<string, unknown>;
@@ -118,18 +159,74 @@ function messageSidFromSendEventRow(row: Record<string, unknown>): string | null
   return null;
 }
 
-export function isSendEventTrulySent(row: Record<string, unknown>): boolean {
-  const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
-  if (SKIPPED_SEND_STATUSES.has(status) || status.startsWith("skipped_")) return false;
-  if (status === "sent" || status === "dry_run") return true;
-  const sid = messageSidFromSendEventRow(row);
-  if (sid) return true;
+const VISIBLE_SENT_STATUSES = new Set([
+  "sent",
+  "delivered",
+  "queued",
+  "accepted",
+  "sending",
+  "success",
+  "dry_run",
+]);
+
+function sendEventMetadata(row: Record<string, unknown>): Record<string, unknown> | null {
   const meta = row.metadata;
-  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
-    const m = meta as Record<string, unknown>;
-    if (m.twilio_send_attempted === true) return true;
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) return meta as Record<string, unknown>;
+  return null;
+}
+
+function isSendEventExplicitlyExcluded(row: Record<string, unknown>): boolean {
+  const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
+  if (SKIPPED_SEND_STATUSES.has(status) || status.startsWith("skipped_")) return true;
+  if (status === "cancelled") return true;
+
+  const meta = sendEventMetadata(row);
+  if (meta) {
+    const noSend = firstNonEmptyBody(
+      metaPathString(meta, "no_send_reason"),
+      metaPathString(meta, "voice_send_decision.no_send_reason"),
+      metaPathString(meta, "daily_v3_lane.no_send_reason")
+    );
+    if (noSend) return true;
+    const note = metaPathString(meta, "note");
+    if (note === "daily_v3_lane_no_send") return true;
   }
   return false;
+}
+
+/** Visible user-facing send classification (aligned with SQL visible_sent, not preview/no-send). */
+export function isSendEventTrulySent(row: Record<string, unknown>): boolean {
+  if (isSendEventExplicitlyExcluded(row)) return false;
+  const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
+  if (VISIBLE_SENT_STATUSES.has(status)) return true;
+  const sid = messageSidFromSendEventRow(row);
+  if (sid) return true;
+  const meta = sendEventMetadata(row);
+  if (meta) {
+    if (metaPathString(meta, "note") === "sent_to_twilio") return true;
+    if (meta.twilio_send_attempted === true) return true;
+  }
+  return false;
+}
+
+export function timestampFromSendEventRow(row: Record<string, unknown>): number {
+  const candidates: unknown[] = [
+    row.created_at,
+    row.sent_at,
+    row.processed_at,
+    row.updated_at,
+  ];
+  const meta = sendEventMetadata(row);
+  if (meta) {
+    candidates.push(meta.sent_at, meta.created_at, meta.updated_at);
+  }
+  for (const c of candidates) {
+    if (typeof c === "string") {
+      const ts = new Date(c).getTime();
+      if (Number.isFinite(ts) && ts > 0) return ts;
+    }
+  }
+  return 0;
 }
 
 function safeBody(raw: string): { body: string; body_truncated: boolean } {
@@ -234,7 +331,12 @@ export type BuildRecentExactThreadArgs = {
 
 function isWriterFacingThreadMessage(m: RecentExactThread72hMessage): boolean {
   if (m.role === "user") return true;
-  if (m.role === "coach") return m.delivery_status === "sent" && m.is_exact_body;
+  if (m.role === "coach") {
+    if (m.delivery_status === "preview" || m.delivery_status === "skipped" || m.delivery_status === "cancelled") {
+      return false;
+    }
+    return m.delivery_status === "sent";
+  }
   return false;
 }
 
@@ -256,15 +358,22 @@ function toBriefMessage(m: RecentExactThread72hMessage): RecentExactThreadBriefM
   };
 }
 
-/** Cap writer-facing thread: 72h floor preserved, 7d extension until message/char caps. */
-export function capThreadMessagesForBrief(
+type BriefCapItem = { msg: RecentExactThread72hMessage; ts: number; isFloor: boolean };
+
+export type CappedBriefThreadResult = {
+  messages: RecentExactThreadBriefMessage[];
+  floor_message_count: number;
+  extension_message_count: number;
+  oldest_at_local: string | null;
+  newest_at_local: string | null;
+};
+
+function collectWriterFacingItems(
   messages: RecentExactThread72hMessage[],
   nowMs: number
-): RecentExactThreadBriefMessage[] {
+): BriefCapItem[] {
   const floorMs = nowMs - BRIEF_THREAD_FLOOR_HOURS * 60 * 60 * 1000;
-
-  type Item = { msg: RecentExactThread72hMessage; ts: number; isFloor: boolean };
-  const items: Item[] = [];
+  const items: BriefCapItem[] = [];
   for (const m of messages) {
     if (!isWriterFacingThreadMessage(m)) continue;
     const ts = Date.parse(m.at);
@@ -272,17 +381,27 @@ export function capThreadMessagesForBrief(
     items.push({ msg: m, ts, isFloor: ts >= floorMs });
   }
   items.sort((a, b) => a.ts - b.ts);
+  return items;
+}
 
+/** Cap writer-facing thread: 72h floor preserved (newest 25), 7d extension until caps. */
+export function capThreadMessagesForBriefWithTelemetry(
+  messages: RecentExactThread72hMessage[],
+  nowMs: number
+): CappedBriefThreadResult {
+  const items = collectWriterFacingItems(messages, nowMs);
   const floorItems = items.filter((i) => i.isFloor);
   const extensionItems = items.filter((i) => !i.isFloor);
 
-  let chosen: Item[] = [...floorItems];
-  for (const ext of extensionItems) {
-    const candidate = [...chosen, ext];
-    const brief = candidate.map((i) => toBriefMessage(i.msg));
-    if (brief.length > BRIEF_THREAD_MAX_MESSAGES) break;
-    if (briefThreadMessageCharCount(brief) > BRIEF_THREAD_MAX_CHARS) break;
-    chosen = candidate;
+  let chosen: BriefCapItem[] =
+    floorItems.length > BRIEF_THREAD_MAX_MESSAGES
+      ? floorItems.slice(-BRIEF_THREAD_MAX_MESSAGES)
+      : [...floorItems];
+
+  if (chosen.length < BRIEF_THREAD_MAX_MESSAGES && extensionItems.length > 0) {
+    const room = BRIEF_THREAD_MAX_MESSAGES - chosen.length;
+    const extCandidates = extensionItems.slice(-room);
+    chosen = [...extCandidates, ...chosen].sort((a, b) => a.ts - b.ts);
   }
 
   let briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
@@ -305,18 +424,60 @@ export function capThreadMessagesForBrief(
     return true;
   };
 
+  const floorCountInChosen = () => chosen.filter((i) => i.isFloor).length;
+  const dropOldestExtension = (): boolean => {
+    const idx = chosen.findIndex((i) => !i.isFloor);
+    if (idx < 0) return false;
+    chosen = [...chosen.slice(0, idx), ...chosen.slice(idx + 1)];
+    briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
+    return true;
+  };
+
   while (briefThreadMessageCharCount(briefMsgs) > BRIEF_THREAD_MAX_CHARS) {
-    if (shrinkLongestCoachBody(floorItems.length)) continue;
+    if (shrinkLongestCoachBody(floorCountInChosen())) continue;
     if (shrinkLongestCoachBody(0)) continue;
-    if (chosen.length > floorItems.length) {
-      chosen = chosen.slice(0, -1);
+    if (dropOldestExtension()) continue;
+    if (chosen.length > 1) {
+      chosen = chosen.slice(1);
       briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
       continue;
     }
     break;
   }
 
-  return briefMsgs;
+  while (chosen.length > BRIEF_THREAD_MAX_MESSAGES) {
+    if (dropOldestExtension()) continue;
+    if (chosen.length > 1) {
+      chosen = chosen.slice(1);
+      briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
+      continue;
+    }
+    break;
+  }
+
+  const floorMs = nowMs - BRIEF_THREAD_FLOOR_HOURS * 60 * 60 * 1000;
+  let floorCount = 0;
+  let extensionCount = 0;
+  for (const item of chosen) {
+    if (item.ts >= floorMs) floorCount += 1;
+    else extensionCount += 1;
+  }
+
+  return {
+    messages: briefMsgs,
+    floor_message_count: floorCount,
+    extension_message_count: extensionCount,
+    oldest_at_local: chosen[0]?.msg.at_local ?? null,
+    newest_at_local: chosen[chosen.length - 1]?.msg.at_local ?? null,
+  };
+}
+
+/** Cap writer-facing thread: 72h floor preserved, 7d extension until message/char caps. */
+export function capThreadMessagesForBrief(
+  messages: RecentExactThread72hMessage[],
+  nowMs: number
+): RecentExactThreadBriefMessage[] {
+  return capThreadMessagesForBriefWithTelemetry(messages, nowMs).messages;
 }
 
 export type BriefThreadWindowTelemetry = {
@@ -331,29 +492,12 @@ export function deriveBriefThreadWindowTelemetry(
   messages: RecentExactThread72hMessage[],
   nowMs: number
 ): BriefThreadWindowTelemetry {
-  const floorMs = nowMs - BRIEF_THREAD_FLOOR_HOURS * 60 * 60 * 1000;
-  const capped = capThreadMessagesForBrief(messages, nowMs);
-  let floorCount = 0;
-  let extensionCount = 0;
-
-  for (const cap of capped) {
-    const match = messages.find(
-      (m) =>
-        isWriterFacingThreadMessage(m) &&
-        m.at_local === cap.at_local &&
-        (m.role === "coach" ? "coach" : "user") === cap.role
-    );
-    if (!match) continue;
-    const ts = Date.parse(match.at);
-    if (Number.isFinite(ts) && ts >= floorMs) floorCount += 1;
-    else extensionCount += 1;
-  }
-
+  const capped = capThreadMessagesForBriefWithTelemetry(messages, nowMs);
   return {
-    daily_brief_thread_floor_message_count: floorCount,
-    daily_brief_thread_extension_message_count: extensionCount,
-    daily_brief_thread_oldest_at_local: capped[0]?.at_local ?? null,
-    daily_brief_thread_newest_at_local: capped[capped.length - 1]?.at_local ?? null,
+    daily_brief_thread_floor_message_count: capped.floor_message_count,
+    daily_brief_thread_extension_message_count: capped.extension_message_count,
+    daily_brief_thread_oldest_at_local: capped.oldest_at_local,
+    daily_brief_thread_newest_at_local: capped.newest_at_local,
   };
 }
 
@@ -380,7 +524,9 @@ async function buildRecentExactThreadWithWindowMs(
       .limit(ROW_FETCH_LIMIT),
     supabaseServer
       .from("sms_send_events")
-      .select("sms_body, body, message_body, created_at, metadata, status, message_sid")
+      .select(
+        "sms_body, body, message_body, final_body, body_preview, created_at, sent_at, processed_at, updated_at, metadata, status, message_sid, outbound_message_sid"
+      )
       .eq("clerk_user_id", args.clerkUserId)
       .order("created_at", { ascending: false })
       .limit(ROW_FETCH_LIMIT),
@@ -409,10 +555,10 @@ async function buildRecentExactThreadWithWindowMs(
 
   for (const r of sendRows ?? []) {
     const row = r as Record<string, unknown>;
-    const ts = typeof row.created_at === "string" ? new Date(row.created_at).getTime() : 0;
+    const ts = timestampFromSendEventRow(row);
     if (!Number.isFinite(ts) || ts < cutoffMs) continue;
 
-    const bodyRaw = stripComplianceFooter(bodyFromSendEventRow(row));
+    const bodyRaw = bodyFromSendEventRow(row);
     if (!bodyRaw) continue;
 
     const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
@@ -438,7 +584,7 @@ async function buildRecentExactThreadWithWindowMs(
     }
 
     sendBodiesByTime.set(ts, bodyRaw);
-    const { body, body_truncated } = safeBody(bodyRaw);
+    const { body, body_truncated } = safeBody(stripComplianceFooter(bodyRaw));
     rich.push({
       t: ts,
       role: "coach",
@@ -630,16 +776,16 @@ export async function buildRecentExactThreadForBrief(
     windowMs: BRIEF_THREAD_EXTENSION_MS,
     includeSystemNoSend: false,
   });
-  const messages = capThreadMessagesForBrief(timeline_7d.messages, now.getTime());
+  const capped = capThreadMessagesForBriefWithTelemetry(timeline_7d.messages, now.getTime());
   return {
     window: {
       floor_hours: BRIEF_THREAD_FLOOR_HOURS,
       extension_days: BRIEF_THREAD_EXTENSION_DAYS,
       mode: "72h_floor_7d_extension_capped",
     },
-    messages,
-    message_count: messages.length,
-    char_count: briefThreadMessageCharCount(messages),
+    messages: capped.messages,
+    message_count: capped.messages.length,
+    char_count: briefThreadMessageCharCount(capped.messages),
     timeline_7d,
   };
 }

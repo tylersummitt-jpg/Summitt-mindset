@@ -66,7 +66,7 @@ import {
 } from "@/lib/sms-thread-freshness";
 import type { RecentCoachBodyDoNotRepeat } from "@/lib/sms-recent-coach-body-anti-repeat";
 import {
-  extractRecentCoachBodiesForAntiRepeat,
+  extractCoachBodiesFromBriefThread,
   PROMPT_COACH_BODY_DO_NOT_REPEAT_MAX,
 } from "@/lib/sms-recent-coach-body-anti-repeat";
 import {
@@ -627,7 +627,10 @@ export function enrichDailyFactsWithProofCalibrationAndFreshMove(
   facts: DailyV3RelationshipFacts
 ): DailyV3RelationshipFacts {
   const proof_calibration = deriveDailyProofCalibration({ facts });
-  const fresh_move = deriveDailyFreshMoveFacts(facts.thread_memory.recent_coach_body_do_not_repeat);
+  const fresh_move = deriveDailyFreshMoveFacts(facts.thread_memory.recent_coach_body_do_not_repeat, {
+    effectiveAsk: facts.commitment.effective_ask,
+    behaviorStatement: facts.commitment.behavior_statement,
+  });
   return { ...facts, proof_calibration, fresh_move };
 }
 
@@ -1200,7 +1203,7 @@ export async function produceDailyV3RelationshipSms(
       timezone: factsAfterThread.user.timezone,
       now: nowForThread,
     });
-    const coachBodies = extractRecentCoachBodiesForAntiRepeat(briefThread.timeline_7d);
+    const coachBodies = extractCoachBodiesFromBriefThread(briefThread, nowForThread.getTime());
     factsAfterThread = {
       ...factsAfterThread,
       thread_memory: {
@@ -1359,7 +1362,11 @@ export async function produceDailyV3RelationshipSms(
     laneFacts.proof_calibration
   ) {
     const freshnessPhrases = deriveFreshnessAvoidPhrasesForBrief(
-      laneFacts.thread_memory.recent_coach_body_do_not_repeat
+      laneFacts.thread_memory.recent_coach_body_do_not_repeat,
+      {
+        effectiveAsk: laneFacts.commitment.effective_ask,
+        behaviorStatement: laneFacts.commitment.behavior_statement,
+      }
     );
     const brief = buildDailySmsWritingBriefV1({
       facts: laneFacts,

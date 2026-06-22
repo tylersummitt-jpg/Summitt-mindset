@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.5)
+# SMS Daily Command Center — SQL Guide (v2.6)
+
+v2.6 adds **thread coverage + freshness extraction** sanity for DailySmsWritingBriefV1: empty brief thread with prior visible sends, thread over cap (>25), oldest/newest reversed telemetry, visible repeated CTA risk patterns, and freshness preview missed visible CTA — on `metadata.relationship_packet_observability` for sent rows.
 
 v2.5 adds **timing + durable memory** observability for DailySmsWritingBriefV1: `daily_local_daypart`, timing guidance counts/flags, timing anchor confidence, and durable memory item/people/blocker counts (no names) — on `metadata.relationship_packet_observability` for sent rows.
 

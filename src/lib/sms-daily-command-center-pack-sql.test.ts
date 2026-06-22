@@ -48,7 +48,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.5");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.6");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(13);
 
     for (const name of QUERY_HEADERS) {
@@ -145,6 +145,14 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("c1_brief_missing_durable_memory_observability");
     expect(sql).toContain("c1_brief_durable_memory_not_background_only");
     expect(sql).toContain("c1_brief_missing_daypart");
+    expect(sql).toContain("c1_brief_thread_over_cap");
+    expect(sql).toContain("c1_brief_empty_thread_with_prior_visible");
+    expect(sql).toContain("c1_freshness_missed_visible_cta");
+    expect(sql).toMatch(/hour\.\{0,30\}distribution/);
+    expect(sql).toContain("c1_brief_oldest_newest_reversed_count");
+    expect(sql).toContain("visible_repeated_cta_risk");
+    expect(sql).toContain("freshness_preview_missed_visible_cta");
+    expect(sql).toContain("repeated_cta_family");
     expect(sql).toContain("daily_writing_brief_v1_sent_count");
     expect(sql).toContain("legacy_packet_v1_sent_count");
     expect(sql).toContain("daily_praise_allowed_level");

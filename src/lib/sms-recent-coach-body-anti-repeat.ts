@@ -2,6 +2,10 @@
  * Recent sent coach SMS bodies from 72h thread — anti-repeat guard + writer authority (no I/O).
  */
 
+import {
+  capThreadMessagesForBriefWithTelemetry,
+  type RecentExactThreadForBriefResult,
+} from "@/lib/sms-recent-exact-thread-72h";
 import type { RecentExactThread72hResult } from "@/lib/sms-recent-exact-thread-72h";
 
 export type RecentCoachBodyDoNotRepeat = {
@@ -60,4 +64,48 @@ export function extractRecentCoachBodiesForAntiRepeat(
   }
 
   return collected.reverse();
+}
+
+/** Coach bodies from writer-facing capped brief thread (same pool as brief.recent_exact_thread). */
+export function extractCoachBodiesFromBriefThread(
+  brief: RecentExactThreadForBriefResult | null | undefined,
+  nowMs: number,
+  options?: { maxBodies?: number }
+): RecentCoachBodyDoNotRepeat[] {
+  const maxBodies = options?.maxBodies ?? GUARD_COACH_BODY_ANTI_REPEAT_MAX;
+  if (!brief?.timeline_7d?.messages?.length) return [];
+
+  const capped = capThreadMessagesForBriefWithTelemetry(brief.timeline_7d.messages, nowMs);
+  const timeline = brief.timeline_7d.messages;
+  const seen = new Set<string>();
+  const collected: RecentCoachBodyDoNotRepeat[] = [];
+
+  for (const cap of capped.messages) {
+    if (cap.role !== "coach") continue;
+    const match =
+      timeline.find(
+        (m) =>
+          m.role === "coach" &&
+          m.delivery_status === "sent" &&
+          m.at_local === cap.at_local &&
+          normCoachBodyDedupeKey(m.body).startsWith(normCoachBodyDedupeKey(cap.body).slice(0, 40))
+      ) ??
+      timeline.find((m) => m.role === "coach" && m.delivery_status === "sent" && m.at_local === cap.at_local);
+
+    const body = (match?.body ?? cap.body)?.trim();
+    if (!body || body.length < COACH_BODY_ANTI_REPEAT_MIN_CHARS) continue;
+    const key = normCoachBodyDedupeKey(body);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    collected.push({
+      body,
+      body_preview: coachBodyPreviewForAntiRepeat(body),
+      sent_at: match?.at ?? cap.at_local,
+      at_local: cap.at_local,
+      source_table: match?.source_table ?? "brief_writer_thread",
+      role: "coach",
+    });
+  }
+
+  return collected.slice(-maxBodies);
 }

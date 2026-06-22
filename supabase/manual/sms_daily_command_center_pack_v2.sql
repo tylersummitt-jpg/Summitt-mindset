@@ -1,7 +1,13 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.5
+-- SMS DAILY COMMAND CENTER PACK v2.6
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 13 queries.
+--
+-- v2.6 DailySmsWritingBriefV1 thread coverage + freshness extraction sanity (June 2026):
+--   - Q01 counts: empty brief thread with prior visible, thread over cap (>25), oldest/newest reversed, visible repeated CTA risk.
+--   - Q02 per-row flags: c1_brief_empty_thread_with_prior_visible, thread over cap, oldest/newest reversed, visible_repeated_cta_risk, freshness_preview_missed_visible_cta.
+--   - Q05 broadened visible CTA regex (hour/distribution, timer/gentle sound, snoozing, morning minutes).
+--   - Q13 sanity: thread over cap, oldest/newest reversed, empty thread with prior visible, freshness missed visible CTA.
 --
 -- v2.5 DailySmsWritingBriefV1 timing + durable memory observability (June 2026):
 --   - daily_local_daypart, timing guidance counts/flags, timing anchor confidence.
@@ -198,7 +204,23 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_durable_people_count}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_durable_people_count}',
       ''
-    ) AS daily_durable_people_count
+    ) AS daily_durable_people_count,
+    COALESCE(to_jsonb(s)->>'clerk_user_id', to_jsonb(s)#>>'{metadata,clerk_user_id}', '') AS clerk_user_id,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+      ''
+    ) AS daily_brief_thread_message_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_oldest_at_local}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_oldest_at_local}',
+      ''
+    ) AS daily_brief_thread_oldest_at_local,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_newest_at_local}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
+      ''
+    ) AS daily_brief_thread_newest_at_local
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -233,6 +255,15 @@ classified AS (
       ELSE false
     END AS visible_sent
   FROM send_base
+),
+classified_with_prior AS (
+  SELECT
+    c.*,
+    SUM(CASE WHEN c.visible_sent THEN 1 ELSE 0 END) OVER (
+      PARTITION BY c.clerk_user_id ORDER BY c.event_at
+      ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+    ) AS prior_visible_send_count
+  FROM classified c
 ),
 daily_agg AS (
   SELECT
@@ -330,8 +361,32 @@ daily_agg AS (
     COUNT(*) FILTER (
       WHERE visible_sent
         AND COALESCE(NULLIF(daily_durable_people_count, ''), '0')::int > 0
-    ) AS durable_people_present_count
-  FROM classified
+    ) AS durable_people_present_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND writer_prompt_path = 'daily_writing_brief_v1'
+        AND daily_writing_brief_build_status = 'used'
+        AND COALESCE(NULLIF(daily_brief_thread_message_count, ''), '0')::int <= 1
+        AND prior_visible_send_count > 0
+    ) AS c1_brief_empty_thread_with_prior_visible_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND writer_prompt_path = 'daily_writing_brief_v1'
+        AND COALESCE(NULLIF(daily_brief_thread_message_count, ''), '0')::int > 25
+    ) AS c1_brief_thread_over_cap_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND writer_prompt_path = 'daily_writing_brief_v1'
+        AND daily_brief_thread_oldest_at_local <> ''
+        AND daily_brief_thread_newest_at_local <> ''
+        AND to_timestamp(daily_brief_thread_oldest_at_local, 'Dy Mon DD HH12:MI AM')
+          > to_timestamp(daily_brief_thread_newest_at_local, 'Dy Mon DD HH12:MI AM')
+    ) AS c1_brief_oldest_newest_reversed_count,
+    COUNT(*) FILTER (
+      WHERE visible_sent
+        AND body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|another hour.{0,30}focused work|timer.{0,20}gentle sound|gentle sound.{0,20}timer|minutes.{0,30}morning|wake.{0,30}snooz)'
+    ) AS c1_visible_repeated_cta_risk_count
+  FROM classified_with_prior
 ),
 top_reasons AS (
   SELECT ARRAY_AGG(no_send_reason ORDER BY cnt DESC) AS top_no_send_reasons
@@ -444,6 +499,10 @@ SELECT
   d.timing_guidance_present_count,
   d.durable_memory_present_count,
   d.durable_people_present_count,
+  d.c1_brief_empty_thread_with_prior_visible_count,
+  d.c1_brief_thread_over_cap_count,
+  d.c1_brief_oldest_newest_reversed_count,
+  d.c1_visible_repeated_cta_risk_count,
   tr.top_no_send_reasons,
   CASE
     WHEN d.weak_proof_bad_praise_visible_count > 0 THEN 'daily_writing_brief_unsupported_praise_visible'
@@ -716,6 +775,20 @@ thread_with_prev AS (
     LAG(te.body_preview) FILTER (WHERE te.event_source LIKE 'coach_%')
       OVER (PARTITION BY te.clerk_user_id ORDER BY te.event_at) AS prev_coach_body_preview
   FROM thread_events te
+),
+thread_scored AS (
+  SELECT
+    t.*,
+    SUM(CASE
+      WHEN t.event_source LIKE 'coach_%'
+        AND t.body_preview <> ''
+        AND (t.status ~* '(sent|delivered|queued|success|accepted|sending)' OR t.message_sid <> '')
+      THEN 1 ELSE 0
+    END) OVER (
+      PARTITION BY t.clerk_user_id ORDER BY t.event_at
+      ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+    ) AS prior_visible_coach_count
+  FROM thread_with_prev t
 )
 SELECT
   (event_at AT TIME ZONE 'America/New_York')::date AS local_day,
@@ -1077,8 +1150,101 @@ SELECT
     )
     ELSE ''
   END AS daily_durable_memory_background_only,
+  CASE
+    WHEN event_source = 'coach_daily_outbound'
+      AND COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+        raw_json#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+        ''
+      ) = 'daily_writing_brief_v1'
+      AND COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_writing_brief_build_status}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_writing_brief_build_status}',
+        ''
+      ) = 'used'
+      AND COALESCE(
+        NULLIF(COALESCE(
+          raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+          raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+          ''
+        ), ''),
+        '0'
+      )::int <= 1
+      AND prior_visible_coach_count > 0
+    THEN true ELSE false
+  END AS c1_brief_empty_thread_with_prior_visible,
+  CASE
+    WHEN event_source = 'coach_daily_outbound'
+      AND COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+        raw_json#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+        ''
+      ) = 'daily_writing_brief_v1'
+      AND COALESCE(
+        NULLIF(COALESCE(
+          raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+          raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+          ''
+        ), ''),
+        '0'
+      )::int > 25
+    THEN true ELSE false
+  END AS c1_brief_thread_over_cap,
+  CASE
+    WHEN event_source = 'coach_daily_outbound'
+      AND COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_oldest_at_local}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_oldest_at_local}',
+        ''
+      ) <> ''
+      AND COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_newest_at_local}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
+        ''
+      ) <> ''
+      AND to_timestamp(
+        COALESCE(
+          raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_oldest_at_local}',
+          raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_oldest_at_local}',
+          ''
+        ),
+        'Dy Mon DD HH12:MI AM'
+      ) > to_timestamp(
+        COALESCE(
+          raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_newest_at_local}',
+          raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
+          ''
+        ),
+        'Dy Mon DD HH12:MI AM'
+      )
+    THEN true ELSE false
+  END AS c1_brief_oldest_newest_reversed,
+  CASE
+    WHEN event_source LIKE 'coach_%'
+      AND body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|another hour.{0,30}focused work|timer.{0,20}gentle sound|gentle sound.{0,20}timer|minutes.{0,30}morning|wake.{0,30}snooz)'
+      AND (
+        prev_coach_body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|another hour.{0,30}focused work|timer.{0,20}gentle sound|gentle sound.{0,20}timer|minutes.{0,30}morning|wake.{0,30}snooz)'
+        OR body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour)'
+      )
+    THEN true ELSE false
+  END AS visible_repeated_cta_risk,
+  CASE
+    WHEN event_source = 'coach_daily_outbound'
+      AND COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+        raw_json#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+        ''
+      ) = 'daily_writing_brief_v1'
+      AND prev_coach_body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|that hour.{0,20}distribution|the hour.{0,20}distribution)'
+      AND COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_phrases_preview}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_freshness_avoid_phrases_preview}',
+        ''
+      ) !~* '(hour.{0,30}distribution|distribution.{0,30}hour)'
+    THEN true ELSE false
+  END AS freshness_preview_missed_visible_cta,
   raw_json
-FROM thread_with_prev
+FROM thread_scored
 WHERE event_at IS NOT NULL
 ORDER BY clerk_user_id, event_at;
 
@@ -1837,7 +2003,20 @@ scanned AS (
         ELSE 'robotic_question'
       END
       ELSE NULL
-    END AS robot_family
+    END AS robot_family,
+    CASE
+      WHEN c.visible_sent
+       AND c.body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|another hour.{0,30}focused work|timer.{0,20}gentle sound|gentle sound.{0,20}timer|minutes.{0,30}morning|wake.{0,30}snooz)'
+      THEN CASE
+        WHEN c.body_preview ~* 'hour.{0,30}distribution' THEN 'hour_distribution_cta'
+        WHEN c.body_preview ~* 'another hour.{0,30}focused work' THEN 'another_hour_focused'
+        WHEN c.body_preview ~* 'timer.{0,20}gentle sound|gentle sound.{0,20}timer' THEN 'timer_gentle_sound'
+        WHEN c.body_preview ~* 'wake.{0,30}snooz' THEN 'wake_without_snooze'
+        WHEN c.body_preview ~* 'minutes.{0,30}morning' THEN 'morning_minutes'
+        ELSE 'visible_repeated_cta_review'
+      END
+      ELSE NULL
+    END AS repeated_cta_family
   FROM classified c
 )
 SELECT
@@ -1852,6 +2031,7 @@ SELECT
   zero_question_compliance,
   hidden_question_family,
   robot_family,
+  repeated_cta_family,
   raw_json
 FROM scanned s
 CROSS JOIN bounds b
@@ -1859,7 +2039,7 @@ WHERE s.event_at >= b.window_start
   AND s.event_at < b.window_end
   AND s.visible_sent
   AND s.body_preview <> ''
-  AND (s.zero_question_compliance IS NOT NULL OR s.hidden_question_family IS NOT NULL OR s.robot_family IS NOT NULL)
+  AND (s.zero_question_compliance IS NOT NULL OR s.hidden_question_family IS NOT NULL OR s.robot_family IS NOT NULL OR s.repeated_cta_family IS NOT NULL)
 ORDER BY event_at DESC;
 
 
@@ -3485,6 +3665,21 @@ send_base AS (
       ''
     ) AS daily_brief_thread_extension_message_count,
     COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+      ''
+    ) AS daily_brief_thread_message_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_oldest_at_local}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_oldest_at_local}',
+      ''
+    ) AS daily_brief_thread_oldest_at_local,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_newest_at_local}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
+      ''
+    ) AS daily_brief_thread_newest_at_local,
+    COALESCE(
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_count}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_count}',
       ''
@@ -4144,6 +4339,108 @@ issues AS (
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND cb.daily_local_daypart = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_thread_over_cap',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread_message_count telemetry exceeds cap of 25'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int > 25
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_oldest_newest_reversed',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread oldest_at_local is chronologically after newest_at_local'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_brief_thread_oldest_at_local <> ''
+    AND cb.daily_brief_thread_newest_at_local <> ''
+    AND to_timestamp(cb.daily_brief_thread_oldest_at_local, 'Dy Mon DD HH12:MI AM')
+      > to_timestamp(cb.daily_brief_thread_newest_at_local, 'Dy Mon DD HH12:MI AM')
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_empty_thread_with_prior_visible',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used with thread_message_count <= 1 despite prior visible coach sends in timeline'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int <= 1
+    AND EXISTS (
+      SELECT 1
+      FROM sms_send_events s2
+      WHERE COALESCE(to_jsonb(s2)->>'clerk_user_id', to_jsonb(s2)#>>'{metadata,clerk_user_id}', '') = cb.clerk_user_id
+        AND COALESCE(
+          NULLIF(to_jsonb(s2)->>'created_at', '')::timestamptz,
+          NULLIF(to_jsonb(s2)->>'sent_at', '')::timestamptz,
+          NULLIF(to_jsonb(s2)->>'updated_at', '')::timestamptz
+        ) < cb.event_at
+        AND COALESCE(
+          NULLIF(BTRIM(to_jsonb(s2)->>'sms_body'), ''),
+          NULLIF(BTRIM(to_jsonb(s2)->>'body'), ''),
+          NULLIF(BTRIM(to_jsonb(s2)->>'final_body'), ''),
+          NULLIF(BTRIM(to_jsonb(s2)#>>'{metadata,daily_v3_lane,final_body}'), ''),
+          ''
+        ) <> ''
+        AND (
+          COALESCE(to_jsonb(s2)->>'status', '') ~* '(sent|delivered|queued|success|accepted|sending)'
+          OR COALESCE(to_jsonb(s2)->>'message_sid', to_jsonb(s2)->>'outbound_message_sid', '') <> ''
+        )
+    )
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_freshness_missed_visible_cta',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Prior visible coach CTA (hour/distribution) not reflected in freshness_avoid_phrases_preview'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|that hour.{0,20}distribution|the hour.{0,20}distribution)'
+    AND cb.daily_freshness_avoid_phrases_preview !~* '(hour.{0,30}distribution|distribution.{0,30}hour)'
 ),
 agg AS (
   SELECT
