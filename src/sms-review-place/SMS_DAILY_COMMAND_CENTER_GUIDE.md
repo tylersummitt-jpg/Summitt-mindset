@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.8)
+# SMS Daily Command Center — SQL Guide (v2.9)
+
+v2.9 adds **Sunday daily suppression observability** for Slice B: when V2 weekly-eligible users would receive both daily accountability and Weekly Pat Pause on the same local Sunday, daily is intentionally skipped with `status = skipped_sunday_weekly_pause`. This is **not an error** — Weekly Pat Pause is the sole proactive Sunday touch. Q01 `skipped_sunday_weekly_pause_count` tracks suppressions; Q03 surfaces `no_send_reason` / `skip_source`; Q13 `sunday_daily_suppressed_before_weekly` warns when daily was suppressed but no visible weekly send arrived same local Sunday (check Q14 for weekly body). Q14 continues to exclude these rows (not visible user messages). Optional Q01 collision markers: `daily_visible_and_weekly_visible_same_sunday_count`, `sunday_daily_after_weekly_count`, `sunday_weekly_expected_but_daily_sent_count`.
 
 v2.8 adds **weekly SMS body observability**: SQL fallbacks for `metadata.north_star_gate.final_body` and related weekly paths so Q02/Q11/Q14 show Pat Pause bodies users actually received; Q01 `weekly_body_missing_with_sid_count` and Q13 `weekly_body_missing_with_sid` flag rows with SID but no extractable body. Forward weekly sends also log `metadata.sms_body` (Twilio-visible body with compliance footer).
 
@@ -26,7 +28,7 @@ Use this **14-query** pack for normal daily review. Keep the old packs for deep 
 
 | Lens | Queries | Use when |
 |------|---------|----------|
-| **System health / telemetry** | Q01, Q02, Q03, Q05, Q13 | Eligible sends, no-sends, copy-risk flags, **weekly_body_missing_with_sid**, denominator sanity, brief telemetry |
+| **System health / telemetry** | Q01, Q02, Q03, Q05, Q13 | Eligible sends, no-sends, copy-risk flags, **weekly_body_missing_with_sid**, **skipped_sunday_weekly_pause**, denominator sanity, brief telemetry |
 | **Human relationship review** | **Q14** | Did user/coach actually alternate in a real thread? Did daily send reflect prior user context? |
 
 **Q14 is read-only manual review.** Do not use it to mutate data, change routes, or drive automated product behavior.
@@ -183,6 +185,11 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 | (new) | **13** Denominator Sanity |
 | (new) | **14** Relationship Thread Review |
 | (new) | **v2.8** Weekly body paths (`north_star_gate.final_body`, `metadata.sms_body`) |
+| (new) | **v2.9** `skipped_sunday_weekly_pause` Sunday daily suppression before weekly |
+
+### `skipped_sunday_weekly_pause` (v2.9)
+
+Daily cron intentionally skips proactive accountability on local Sundays for V2 weekly-eligible users so **Weekly Pat Pause** is the sole proactive Sunday touch. Rows use `status = skipped_sunday_weekly_pause`, `metadata.no_send_reason = skipped_sunday_weekly_pause`, `metadata.skip_source = sunday_weekly_pause`. **Not an error.** Check **Q14** for the visible weekly Pat Pause body; check **Q13** `sunday_daily_suppressed_before_weekly` if suppression happened but weekly did not visibly send later the same Sunday.
 
 ---
 

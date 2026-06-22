@@ -99,6 +99,8 @@ import {
   getLatestV2AccountabilityOutcome,
   getRecentV2EventsForAi,
   updateReactivationLastSentAt,
+  type ActiveV2CommitmentRow,
+  type V2EventRowForAi,
 } from "@/lib/v2-commitment";
 import { maybeRecordV2WeakNoReplyFromPriorAccountabilityDay } from "@/lib/v2-send-time-weak-no-reply";
 import {
@@ -180,7 +182,13 @@ import {
   DAILY_POST_FVG_STALE_ASK_BLOCKED,
   DAILY_STALE_ASK_BLOCKED,
 } from "@/lib/daily-stale-ask-guard";
-import type { V2EventRowForAi } from "@/lib/v2-commitment";
+import {
+  buildSundayWeeklyPauseSkipMetadata,
+  isSundayWeeklyPatPauseEligible,
+  shouldSuppressDailyForSundayWeeklyPause,
+  SUNDAY_WEEKLY_PAUSE_SKIP_STATUS,
+} from "@/lib/sms-sunday-weekly-pause-eligibility";
+import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
@@ -2955,6 +2963,55 @@ async function resolveActiveV2CommitmentActivationAt(clerkUserId: string): Promi
   return null;
 }
 
+async function applySundayWeeklyPauseSuppressionIfNeeded(args: {
+  built: Extract<DailySmsBuilt, { ok: true }>;
+  clerkUserId: string;
+  todayKey: string;
+  localNow: Date;
+  timezone: string;
+  now: Date;
+  force: boolean;
+  fullyOnV2: boolean;
+  commitment: ActiveV2CommitmentRow | null;
+  commsPrefs: V2UserSmsCommsPreferencesRow | null;
+  existingMeta?: Record<string, unknown>;
+}): Promise<boolean> {
+  const routeKind = resolveDailyBuiltRouteKind(args.built);
+  const eligible = isSundayWeeklyPatPauseEligible({
+    localNow: args.localNow,
+    now: args.now,
+    fullyOnV2: args.fullyOnV2,
+    commitment: args.commitment,
+    commsPrefs: args.commsPrefs,
+  });
+  if (
+    !shouldSuppressDailyForSundayWeeklyPause({
+      routeKind,
+      eligible,
+      force: args.force,
+    })
+  ) {
+    return false;
+  }
+
+  await supabaseServer
+    .from("sms_send_events")
+    .update({
+      status: SUNDAY_WEEKLY_PAUSE_SKIP_STATUS,
+      metadata: buildSundayWeeklyPauseSkipMetadata({
+        routeKind,
+        todayKey: args.todayKey,
+        localNow: args.localNow,
+        timezone: args.timezone,
+        existingMeta: args.existingMeta,
+      }),
+    })
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("day_key", args.todayKey);
+
+  return true;
+}
+
 /**
  * ======================================================
  * Helper: try to reserve today's send slot
@@ -3140,6 +3197,7 @@ export async function GET(req: Request) {
     skippedUserWeekendPolicy: 0,
     twilioAccepted: 0,
     skippedNoSafeV3Voice: 0,
+    skippedSundayWeeklyPause: 0,
   };
 
   const { data: audienceQueryRows } = await supabaseServer
@@ -3551,6 +3609,25 @@ export async function GET(req: Request) {
               stats.failed += 1;
               stats.sendFailed += 1;
               stats.skippedUnexpected += 1;
+              continue;
+            }
+            if (
+              await applySundayWeeklyPauseSuppressionIfNeeded({
+                built,
+                clerkUserId: audienceUser.clerk_user_id,
+                todayKey,
+                localNow,
+                timezone,
+                now,
+                force,
+                fullyOnV2: skipLegacyDailyCompletionCheck,
+                commitment: activeForPolicy,
+                commsPrefs,
+                existingMeta,
+              })
+            ) {
+              stats.skippedSundayWeeklyPause += 1;
+              stats.skippedIntentional += 1;
               continue;
             }
             const smsBody = built.smsBody;
@@ -4203,6 +4280,24 @@ export async function GET(req: Request) {
         stats.failed += 1;
         stats.sendFailed += 1;
         stats.skippedUnexpected += 1;
+        continue;
+      }
+      if (
+        await applySundayWeeklyPauseSuppressionIfNeeded({
+          built: builtMain,
+          clerkUserId: audienceUser.clerk_user_id,
+          todayKey,
+          localNow,
+          timezone,
+          now,
+          force,
+          fullyOnV2: skipLegacyDailyCompletionCheck,
+          commitment: activeForPolicy,
+          commsPrefs,
+        })
+      ) {
+        stats.skippedSundayWeeklyPause += 1;
+        stats.skippedIntentional += 1;
         continue;
       }
       const smsBody = builtMain.smsBody;

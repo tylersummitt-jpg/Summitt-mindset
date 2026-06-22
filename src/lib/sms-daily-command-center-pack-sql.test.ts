@@ -50,7 +50,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.8");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.9");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
 
     for (const name of QUERY_HEADERS) {
@@ -109,7 +109,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toMatch(/reset/i);
     expect(sql).toMatch(/old\\s\+goals/i);
     expect(sql).toMatch(
-      /skipped_\(not_fully_on_v2\|no_active_commitment\|duplicate\|tapback\|compliance\|safety\|crisis\|invalid_phone\|outside_send_window\|active_inbound_thread\)/
+      /skipped_\(not_fully_on_v2\|no_active_commitment\|duplicate\|tapback\|compliance\|safety\|crisis\|invalid_phone\|outside_send_window\|active_inbound_thread\|sunday_weekly_pause\)/
     );
   });
 
@@ -196,6 +196,20 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("weekly_body_missing_with_sid_count");
     expect(sql).toContain("weekly_body_missing_with_sid");
     expect(sql).toContain("relationship_thread_review");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.9 Sunday weekly pause suppression observability markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("skipped_sunday_weekly_pause_count");
+    expect(sql).toContain("sunday_daily_suppressed_before_weekly");
+    expect(sql).toContain("daily_visible_and_weekly_visible_same_sunday_count");
+    expect(sql).toContain("sunday_daily_after_weekly_count");
+    expect(sql).toContain("sunday_weekly_expected_but_daily_sent_count");
+    expect(sql).toContain("skipped_sunday_weekly_pause");
+    expect(sql).toContain("sunday_weekly_pause");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });

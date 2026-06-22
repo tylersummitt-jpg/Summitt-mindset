@@ -1,7 +1,13 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.8
+-- SMS DAILY COMMAND CENTER PACK v2.9
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 14 queries.
+--
+-- v2.9 Sunday daily suppression before Weekly Pat Pause (June 2026):
+--   - Q01 skipped_sunday_weekly_pause_count + Sunday collision markers.
+--   - Q03/Q13 surface skipped_sunday_weekly_pause (intentional, not an error).
+--   - Q13 sunday_daily_suppressed_before_weekly when suppression without visible weekly same Sunday.
+--   - Eligible denominator excludes skipped_sunday_weekly_pause / sunday_weekly_pause skip_source.
 --
 -- v2.8 Weekly SMS body observability (June 2026):
 --   - Weekly body fallbacks: north_star_gate.final_body, v3_candidate_body, final_voice_gate, voice_send_decision.
@@ -247,10 +253,10 @@ classified AS (
   SELECT
     *,
     CASE
-      WHEN status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread)$'
+      WHEN status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread|sunday_weekly_pause)$'
         THEN false
-      WHEN no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread)'
-        OR skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window)'
+      WHEN no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread|skipped_sunday_weekly_pause)'
+        OR skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window|sunday_weekly_pause)'
       THEN false ELSE true
     END AS eligible_coaching_row,
     CASE
@@ -394,7 +400,12 @@ daily_agg AS (
     COUNT(*) FILTER (
       WHERE visible_sent
         AND body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|another hour.{0,30}focused work|timer.{0,20}gentle sound|gentle sound.{0,20}timer|minutes.{0,30}morning|wake.{0,30}snooz)'
-    ) AS c1_visible_repeated_cta_risk_count
+    ) AS c1_visible_repeated_cta_risk_count,
+    COUNT(*) FILTER (
+      WHERE status = 'skipped_sunday_weekly_pause'
+        OR no_send_reason = 'skipped_sunday_weekly_pause'
+        OR skip_source = 'sunday_weekly_pause'
+    ) AS skipped_sunday_weekly_pause_count
   FROM classified_with_prior
 ),
 top_reasons AS (
@@ -531,6 +542,59 @@ weekly_agg AS (
       AND body_preview = ''
     ) AS weekly_body_missing_with_sid_count
   FROM weekly_base
+),
+sunday_daily_visible AS (
+  SELECT
+    c.clerk_user_id,
+    (c.event_at AT TIME ZONE 'America/New_York')::date AS local_day,
+    c.event_at,
+    c.route_kind
+  FROM classified c
+  WHERE c.visible_sent
+    AND EXTRACT(DOW FROM c.event_at AT TIME ZONE 'America/New_York') = 0
+),
+sunday_weekly_visible AS (
+  SELECT
+    wb.clerk_user_id,
+    (wb.event_at AT TIME ZONE 'America/New_York')::date AS local_day,
+    wb.event_at
+  FROM weekly_base wb
+  WHERE (
+      wb.status ~* '(sent|delivered|queued|accepted|sending|success)'
+      OR wb.message_sid <> ''
+    )
+    AND wb.body_preview <> ''
+    AND EXTRACT(DOW FROM wb.event_at AT TIME ZONE 'America/New_York') = 0
+),
+sunday_collision_agg AS (
+  SELECT
+    (
+      SELECT COUNT(*)::int
+      FROM (
+        SELECT DISTINCT d.clerk_user_id, d.local_day
+        FROM sunday_daily_visible d
+        INNER JOIN sunday_weekly_visible w
+          ON w.clerk_user_id = d.clerk_user_id AND w.local_day = d.local_day
+      ) pairs
+    ) AS daily_visible_and_weekly_visible_same_sunday_count,
+    (
+      SELECT COUNT(*)::int
+      FROM sunday_daily_visible d
+      INNER JOIN sunday_weekly_visible w
+        ON w.clerk_user_id = d.clerk_user_id AND w.local_day = d.local_day
+       AND d.event_at > w.event_at
+    ) AS sunday_daily_after_weekly_count,
+    (
+      SELECT COUNT(*)::int
+      FROM sunday_daily_visible d
+      WHERE d.route_kind IN (
+        'main_active_accountability',
+        'low_pressure_reactivation',
+        'contract_prompt',
+        'refresh_identity',
+        'refresh_commitment'
+      )
+    ) AS sunday_weekly_expected_but_daily_sent_count
 )
 SELECT
   b.window_start,
@@ -568,9 +632,16 @@ SELECT
   d.c1_brief_thread_over_cap_count,
   d.c1_brief_oldest_newest_reversed_count,
   d.c1_visible_repeated_cta_risk_count,
+  d.skipped_sunday_weekly_pause_count,
+  sc.daily_visible_and_weekly_visible_same_sunday_count,
+  sc.sunday_daily_after_weekly_count,
+  sc.sunday_weekly_expected_but_daily_sent_count,
   wk.weekly_body_missing_with_sid_count,
   tr.top_no_send_reasons,
   CASE
+    WHEN sc.sunday_daily_after_weekly_count > 0 THEN 'sunday_daily_after_weekly_collision'
+    WHEN sc.daily_visible_and_weekly_visible_same_sunday_count > 0 THEN 'sunday_daily_weekly_double_touch'
+    WHEN sc.sunday_weekly_expected_but_daily_sent_count > 0 THEN 'sunday_suppressible_daily_still_visible'
     WHEN wk.weekly_body_missing_with_sid_count > 0 THEN 'weekly_body_observability_gap'
     WHEN d.weak_proof_bad_praise_visible_count > 0 THEN 'daily_writing_brief_unsupported_praise_visible'
     WHEN d.unsupported_praise_no_send_count > 0 THEN 'daily_writing_brief_unsupported_praise_seatbelt_monitor'
@@ -592,7 +663,8 @@ CROSS JOIN daily_agg d
 CROSS JOIN truth_agg t
 CROSS JOIN vr_agg v
 CROSS JOIN top_reasons tr
-CROSS JOIN weekly_agg wk;
+CROSS JOIN weekly_agg wk
+CROSS JOIN sunday_collision_agg sc;
 
 
 -- =============================================================================
@@ -1603,10 +1675,10 @@ classified AS (
   SELECT
     *,
     CASE
-      WHEN status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread)$'
+      WHEN status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread|sunday_weekly_pause)$'
         THEN false
-      WHEN no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread)'
-        OR skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window)'
+      WHEN no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread|skipped_sunday_weekly_pause)'
+        OR skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window|sunday_weekly_pause)'
       THEN false
       ELSE true
     END AS eligible_coaching_row,
@@ -3570,10 +3642,10 @@ classified AS (
   SELECT
     r.*,
     CASE
-      WHEN r.status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread)$'
+      WHEN r.status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread|sunday_weekly_pause)$'
         THEN false
-      WHEN r.no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread)'
-        OR r.skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window)'
+      WHEN r.no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread|skipped_sunday_weekly_pause)'
+        OR r.skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window|sunday_weekly_pause)'
       THEN false
       ELSE true
     END AS eligible_coaching_row,
@@ -3644,6 +3716,7 @@ ORDER BY c.event_at DESC;
 -- QUERY 13 — observability_denominator_sanity_check
 -- Saved query name: SM_AUDIT_13_Denominator_Sanity
 -- Purpose: Telemetry completeness — rows that could make eligible/visible SQL denominators lie.
+-- v2.9: sunday_daily_suppressed_before_weekly when daily suppressed but no visible weekly same local Sunday.
 -- v2.8: weekly_body_missing_with_sid warning rows (visible weekly send with empty body paths).
 -- v2.3: DailySmsWritingBriefV1 sent-row telemetry sanity (writer_prompt_path, brief_used, writer_total_chars).
 -- v2.2: coach-body duplicate telemetry sanity + per-issue impacted_query + severity.
@@ -3865,10 +3938,10 @@ classified_base AS (
   SELECT
     sb.*,
     CASE
-      WHEN sb.status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread)$'
+      WHEN sb.status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread|sunday_weekly_pause)$'
         THEN false
-      WHEN sb.no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread)'
-        OR sb.skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window)'
+      WHEN sb.no_send_reason ~* '(not.*v2|not_fully_on_v2|no_active_commitment|stopped|unsubscribed|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|skipped_not_time|skipped_active_inbound_thread|skipped_sunday_weekly_pause)'
+        OR sb.skip_source ~* '(not.*v2|not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|active_inbound_thread|outside_send_window|sunday_weekly_pause)'
       THEN false
       ELSE true
     END AS eligible_coaching_row,
@@ -4042,7 +4115,7 @@ issues AS (
     ''::text AS actual_job_no_send_reason,
     'Legitimate skip status would be counted eligible if status gate missing'::text AS diagnostic_detail
   FROM classified_base cb
-  WHERE cb.status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread)$'
+  WHERE cb.status ~* '^skipped_(not_fully_on_v2|no_active_commitment|duplicate|tapback|compliance|safety|crisis|invalid_phone|outside_send_window|active_inbound_thread|sunday_weekly_pause)$'
     AND cb.no_send_reason = ''
     AND cb.skip_source = ''
 
@@ -4621,6 +4694,40 @@ issues AS (
       OR w.message_sid <> ''
     )
     AND w.body_preview = ''
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 03 / 14 Sunday weekly pause',
+    'warning',
+    'sunday_daily_suppressed_before_weekly',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Daily intentionally suppressed for Sunday weekly pause but no visible weekly send same local Sunday — check Q14 for weekly body; user may have zero proactive touch'
+  FROM classified_base cb
+  WHERE (
+      cb.status = 'skipped_sunday_weekly_pause'
+      OR cb.no_send_reason = 'skipped_sunday_weekly_pause'
+      OR cb.skip_source = 'sunday_weekly_pause'
+    )
+    AND EXTRACT(DOW FROM cb.event_at AT TIME ZONE 'America/New_York') = 0
+    AND NOT EXISTS (
+      SELECT 1
+      FROM weekly_send_obs w
+      WHERE w.clerk_user_id = cb.clerk_user_id
+        AND (w.event_at AT TIME ZONE 'America/New_York')::date
+          = (cb.event_at AT TIME ZONE 'America/New_York')::date
+        AND (
+          w.status ~* '(sent|delivered|queued|accepted|sending|success)'
+          OR w.message_sid <> ''
+        )
+        AND w.body_preview <> ''
+    )
 ),
 agg AS (
   SELECT
