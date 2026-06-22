@@ -1,7 +1,12 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.6
+-- SMS DAILY COMMAND CENTER PACK v2.7
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
--- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 13 queries.
+-- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 14 queries.
+--
+-- v2.7 Relationship Thread Review (June 2026):
+--   - Q14 relationship_thread_review: chronological user/coach thread lens (visible rows only).
+--   - Unions inbound messages, inbound job user raw_body, coach replies, daily + weekly outbound.
+--   - Writer-aligned body paths, visible_sent classification, 5s user dedupe, brief/durable telemetry on daily rows.
 --
 -- v2.6 DailySmsWritingBriefV1 thread coverage + freshness extraction sanity (June 2026):
 --   - Q01 counts: empty brief thread with prior visible, thread over cap (>25), oldest/newest reversed, visible repeated CTA risk.
@@ -42,10 +47,10 @@
 --
 -- Rules:
 --   SELECT-only. No DDL/DML. No schema changes. Each query runs standalone.
---   Default window: last 24 hours (Query 02 timeline: last 9 days).
+--   Default window: last 24 hours (Query 02 + Query 14 timeline: last 9 days).
 --   Edit the bounds CTE in each query for manual date override.
 --
--- Saved-query names: SM_AUDIT_01_Command_Center … SM_AUDIT_13_Denominator_Sanity
+-- Saved-query names: SM_AUDIT_01_Command_Center … SM_AUDIT_14_Relationship_Thread_Review
 -- Guide: src/sms-review-place/SMS_DAILY_COMMAND_CENTER_GUIDE.md
 -- =============================================================================
 
@@ -4486,4 +4491,483 @@ WHERE i.issue_kind IS NOT NULL
 ORDER BY
   CASE i.severity WHEN 'blocker' THEN 1 WHEN 'warning' THEN 2 ELSE 3 END,
   i.event_at DESC NULLS LAST;
+
+
+-- =============================================================================
+-- QUERY 14 — relationship_thread_review
+-- Saved query name: SM_AUDIT_14_Relationship_Thread_Review
+-- Purpose: Chronological user/coach relationship thread for manual review (visible rows only).
+-- Default window: last 9 days
+-- MANUAL DATE OVERRIDE (optional — replace bounds lines below):
+--   timestamptz '2026-06-10 00:00:00 America/New_York' AS window_start,
+--   timestamptz '2026-06-19 00:00:00 America/New_York' AS window_end
+-- =============================================================================
+
+WITH bounds AS (
+  SELECT
+    now() - interval '9 days' AS window_start,
+    now() AS window_end
+),
+user_inbound AS (
+  SELECT
+    COALESCE(
+      NULLIF(to_jsonb(m)->>'received_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'inserted_at', '')::timestamptz
+    ) AS event_at,
+    'user_inbound'::text AS event_source,
+    'user'::text AS thread_role,
+    COALESCE(to_jsonb(m)->>'clerk_user_id', to_jsonb(m)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
+    COALESCE(to_jsonb(m)->>'message_sid', to_jsonb(m)#>>'{metadata,message_sid}', '') AS message_sid,
+    ''::text AS outbound_message_sid,
+    ''::text AS status,
+    ''::text AS route_kind,
+    ''::text AS note,
+    ''::text AS no_send_reason,
+    ''::text AS voice_no_send_reason,
+    ''::text AS lane_no_send_reason,
+    ''::text AS skip_source,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(m)->>'raw_body'), ''),
+      NULLIF(BTRIM(to_jsonb(m)->>'body'), ''),
+      NULLIF(BTRIM(to_jsonb(m)->>'message_body'), ''),
+      NULLIF(BTRIM(to_jsonb(m)#>>'{metadata,raw_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(m)#>>'{metadata,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(m)#>>'{metadata,message_body}'), ''),
+      ''
+    ), 1200) AS body_preview,
+    NULL::jsonb AS raw_json
+  FROM sms_inbound_messages m
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(m)->>'received_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'inserted_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(m)->>'received_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(m)->>'inserted_at', '')::timestamptz
+    ) < b.window_end
+),
+user_inbound_job AS (
+  SELECT
+    COALESCE(
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz
+    ) AS event_at,
+    'user_inbound_job'::text AS event_source,
+    'user'::text AS thread_role,
+    COALESCE(to_jsonb(j)->>'clerk_user_id', to_jsonb(j)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
+    COALESCE(to_jsonb(j)->>'message_sid', to_jsonb(j)#>>'{metadata,message_sid}', '') AS message_sid,
+    ''::text AS outbound_message_sid,
+    COALESCE(to_jsonb(j)->>'status', '') AS status,
+    COALESCE(to_jsonb(j)#>>'{metadata,route_purpose}', to_jsonb(j)#>>'{metadata,branch_name}', '') AS route_kind,
+    COALESCE(to_jsonb(j)#>>'{metadata,note}', '') AS note,
+    COALESCE(to_jsonb(j)->>'no_send_reason', to_jsonb(j)#>>'{metadata,no_send_reason}', '') AS no_send_reason,
+    COALESCE(to_jsonb(j)#>>'{metadata,voice_send_decision,no_send_reason}', '') AS voice_no_send_reason,
+    COALESCE(to_jsonb(j)#>>'{metadata,daily_v3_lane,no_send_reason}', '') AS lane_no_send_reason,
+    COALESCE(to_jsonb(j)#>>'{metadata,skip_source}', '') AS skip_source,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(j)->>'raw_body'), ''),
+      NULLIF(BTRIM(to_jsonb(j)#>>'{metadata,raw_body}'), ''),
+      ''
+    ), 1200) AS body_preview,
+    NULL::jsonb AS raw_json
+  FROM sms_inbound_coach_jobs j
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz
+    ) < b.window_end
+    AND COALESCE(
+      NULLIF(BTRIM(to_jsonb(j)->>'raw_body'), ''),
+      NULLIF(BTRIM(to_jsonb(j)#>>'{metadata,raw_body}'), ''),
+      ''
+    ) <> ''
+),
+coach_inbound_reply AS (
+  SELECT
+    COALESCE(
+      NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz
+    ) AS event_at,
+    'coach_inbound_reply'::text AS event_source,
+    'coach'::text AS thread_role,
+    COALESCE(to_jsonb(j)->>'clerk_user_id', to_jsonb(j)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
+    COALESCE(to_jsonb(j)->>'message_sid', to_jsonb(j)#>>'{metadata,message_sid}', '') AS message_sid,
+    COALESCE(to_jsonb(j)->>'outbound_message_sid', to_jsonb(j)#>>'{metadata,outbound_message_sid}', '') AS outbound_message_sid,
+    COALESCE(to_jsonb(j)->>'status', '') AS status,
+    COALESCE(to_jsonb(j)#>>'{metadata,route_purpose}', to_jsonb(j)#>>'{metadata,branch_name}', '') AS route_kind,
+    COALESCE(to_jsonb(j)#>>'{metadata,note}', '') AS note,
+    COALESCE(to_jsonb(j)->>'no_send_reason', to_jsonb(j)#>>'{metadata,no_send_reason}', '') AS no_send_reason,
+    COALESCE(to_jsonb(j)#>>'{metadata,voice_send_decision,no_send_reason}', '') AS voice_no_send_reason,
+    COALESCE(to_jsonb(j)#>>'{metadata,daily_v3_lane,no_send_reason}', '') AS lane_no_send_reason,
+    COALESCE(to_jsonb(j)#>>'{metadata,skip_source}', '') AS skip_source,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(j)->>'reply_body'), ''),
+      NULLIF(BTRIM(to_jsonb(j)#>>'{metadata,reply_body}'), ''),
+      ''
+    ), 1200) AS body_preview,
+    to_jsonb(j) AS raw_json
+  FROM sms_inbound_coach_jobs j
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(j)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz
+    ) < b.window_end
+),
+coach_daily_outbound AS (
+  SELECT
+    COALESCE(
+      NULLIF(to_jsonb(s)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'updated_at', '')::timestamptz
+    ) AS event_at,
+    'coach_daily_outbound'::text AS event_source,
+    'coach'::text AS thread_role,
+    COALESCE(to_jsonb(s)->>'clerk_user_id', to_jsonb(s)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
+    COALESCE(to_jsonb(s)->>'message_sid', to_jsonb(s)#>>'{metadata,message_sid}', '') AS message_sid,
+    COALESCE(to_jsonb(s)->>'outbound_message_sid', to_jsonb(s)#>>'{metadata,outbound_message_sid}', '') AS outbound_message_sid,
+    COALESCE(to_jsonb(s)->>'status', to_jsonb(s)#>>'{metadata,status}', '') AS status,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,route_kind}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,route_kind}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,strategy_card_route_kind}',
+      ''
+    ) AS route_kind,
+    COALESCE(to_jsonb(s)#>>'{metadata,note}', '') AS note,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,voice_send_decision,no_send_reason}',
+      to_jsonb(s)#>>'{metadata,no_send_reason}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,no_send_reason}',
+      to_jsonb(s)->>'no_send_reason',
+      ''
+    ) AS no_send_reason,
+    COALESCE(to_jsonb(s)#>>'{metadata,voice_send_decision,no_send_reason}', '') AS voice_no_send_reason,
+    COALESCE(to_jsonb(s)#>>'{metadata,daily_v3_lane,no_send_reason}', '') AS lane_no_send_reason,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,skip_source}',
+      to_jsonb(s)#>>'{metadata,voice_send_decision,skip_source}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,skip_source}',
+      ''
+    ) AS skip_source,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(s)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(s)->>'body'), ''),
+      NULLIF(BTRIM(to_jsonb(s)->>'message_body'), ''),
+      NULLIF(BTRIM(to_jsonb(s)->>'final_body'), ''),
+      NULLIF(BTRIM(to_jsonb(s)->>'body_preview'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,daily_v3_lane,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,daily_v3_lane,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,daily_v3_lane,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,v3_brain,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,v3_brain,body}'), ''),
+      ''
+    ), 1200) AS body_preview,
+    to_jsonb(s) AS raw_json
+  FROM sms_send_events s
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(s)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'updated_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(s)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'updated_at', '')::timestamptz
+    ) < b.window_end
+),
+coach_weekly_outbound AS (
+  SELECT
+    COALESCE(
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) AS event_at,
+    'coach_weekly_outbound'::text AS event_source,
+    'coach'::text AS thread_role,
+    COALESCE(to_jsonb(w)->>'clerk_user_id', to_jsonb(w)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
+    COALESCE(to_jsonb(w)->>'message_sid', to_jsonb(w)#>>'{metadata,message_sid}', '') AS message_sid,
+    COALESCE(to_jsonb(w)->>'outbound_message_sid', to_jsonb(w)#>>'{metadata,outbound_message_sid}', '') AS outbound_message_sid,
+    COALESCE(to_jsonb(w)->>'status', to_jsonb(w)#>>'{metadata,status}', '') AS status,
+    'weekly'::text AS route_kind,
+    COALESCE(to_jsonb(w)#>>'{metadata,note}', '') AS note,
+    COALESCE(to_jsonb(w)->>'no_send_reason', to_jsonb(w)#>>'{metadata,no_send_reason}', '') AS no_send_reason,
+    COALESCE(to_jsonb(w)#>>'{metadata,voice_send_decision,no_send_reason}', '') AS voice_no_send_reason,
+    COALESCE(to_jsonb(w)#>>'{metadata,daily_v3_lane,no_send_reason}', '') AS lane_no_send_reason,
+    COALESCE(to_jsonb(w)#>>'{metadata,skip_source}', '') AS skip_source,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(w)->>'body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'final_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'body_preview'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      ''
+    ), 1200) AS body_preview,
+    to_jsonb(w) AS raw_json
+  FROM sms_weekly_send_events w
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) < b.window_end
+),
+thread_union AS (
+  SELECT * FROM user_inbound
+  UNION ALL SELECT * FROM user_inbound_job
+  UNION ALL SELECT * FROM coach_inbound_reply
+  UNION ALL SELECT * FROM coach_daily_outbound
+  UNION ALL SELECT * FROM coach_weekly_outbound
+),
+classified AS (
+  SELECT
+    u.*,
+    CASE
+      WHEN u.thread_role = 'user'
+       AND u.body_preview <> ''
+       AND NOT (
+         LENGTH(BTRIM(u.body_preview)) <= 12
+         AND BTRIM(u.body_preview) ~* '^(stop|start|help|unstop|cancel)$'
+       )
+      THEN true
+      WHEN u.thread_role = 'coach'
+       AND u.body_preview <> ''
+       AND u.note <> 'daily_v3_lane_no_send'
+       AND u.no_send_reason = ''
+       AND u.voice_no_send_reason = ''
+       AND u.lane_no_send_reason = ''
+       AND u.skip_source = ''
+       AND NOT (u.status ~* '^(skipped|reserved|cancelled|canceled|preview|dry_run)$' OR u.status LIKE 'skipped_%')
+       AND (
+         u.status ~* '(sent|delivered|queued|accepted|sending|success)'
+         OR u.message_sid <> ''
+         OR u.outbound_message_sid <> ''
+         OR u.note = 'sent_to_twilio'
+       )
+       AND (
+         u.event_source <> 'coach_inbound_reply'
+         OR (
+           u.status ~* 'sent'
+           OR u.outbound_message_sid <> ''
+           OR COALESCE(to_jsonb(u.raw_json)->>'sent_at', '') <> ''
+         )
+       )
+      THEN true
+      ELSE false
+    END AS visible_relationship_row,
+    CASE
+      WHEN u.body_preview = '' THEN 'empty_body'
+      WHEN u.thread_role = 'user'
+       AND LENGTH(BTRIM(u.body_preview)) <= 12
+       AND BTRIM(u.body_preview) ~* '^(stop|start|help|unstop|cancel)$'
+      THEN 'compliance_command'
+      WHEN u.note = 'daily_v3_lane_no_send' THEN 'daily_v3_lane_no_send'
+      WHEN u.no_send_reason <> '' OR u.voice_no_send_reason <> '' OR u.lane_no_send_reason <> '' THEN 'no_send_reason'
+      WHEN u.skip_source <> '' THEN 'skip_source'
+      WHEN u.status ~* '^(skipped|reserved|cancelled|canceled|preview|dry_run)$' OR u.status LIKE 'skipped_%' THEN 'skipped_or_cancelled_or_preview'
+      WHEN u.thread_role = 'coach'
+       AND u.event_source = 'coach_inbound_reply'
+       AND NOT (
+         u.status ~* 'sent'
+         OR u.outbound_message_sid <> ''
+         OR COALESCE(to_jsonb(u.raw_json)->>'sent_at', '') <> ''
+       )
+      THEN 'inbound_reply_not_sent'
+      WHEN u.thread_role = 'coach'
+       AND NOT (
+         u.status ~* '(sent|delivered|queued|accepted|sending|success)'
+         OR u.message_sid <> ''
+         OR u.outbound_message_sid <> ''
+         OR u.note = 'sent_to_twilio'
+       )
+      THEN 'not_visible_sent'
+      ELSE ''
+    END AS exclusion_reason
+  FROM thread_union u
+  WHERE u.event_at IS NOT NULL
+),
+deduped AS (
+  SELECT
+    c.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY c.clerk_user_id, c.thread_role,
+        COALESCE(
+          NULLIF(c.message_sid, ''),
+          NULLIF(c.outbound_message_sid, ''),
+          c.event_at::text || '|' || c.event_source
+        )
+      ORDER BY c.event_at
+    ) AS coach_sid_dup_rank,
+    ROW_NUMBER() OVER (
+      PARTITION BY c.clerk_user_id, c.thread_role,
+        LEFT(REGEXP_REPLACE(LOWER(BTRIM(c.body_preview)), '[^a-z0-9 ]', '', 'g'), 100),
+        (EXTRACT(EPOCH FROM c.event_at)::bigint / 5)
+      ORDER BY
+        CASE c.event_source WHEN 'user_inbound' THEN 0 WHEN 'user_inbound_job' THEN 1 ELSE 0 END,
+        c.event_at
+    ) AS user_near_dup_rank
+  FROM classified c
+),
+visible_deduped AS (
+  SELECT
+    d.*,
+    CASE
+      WHEN NOT d.visible_relationship_row THEN d.exclusion_reason
+      WHEN d.thread_role = 'coach'
+       AND (d.message_sid <> '' OR d.outbound_message_sid <> '')
+       AND d.coach_sid_dup_rank > 1
+      THEN 'duplicate_message_sid'
+      WHEN d.thread_role = 'user'
+       AND d.user_near_dup_rank > 1
+      THEN 'duplicate_user_near_time'
+      ELSE d.exclusion_reason
+    END AS final_exclusion_reason,
+    CASE
+      WHEN NOT d.visible_relationship_row THEN false
+      WHEN d.thread_role = 'coach'
+       AND (d.message_sid <> '' OR d.outbound_message_sid <> '')
+       AND d.coach_sid_dup_rank > 1
+      THEN false
+      WHEN d.thread_role = 'user'
+       AND d.user_near_dup_rank > 1
+      THEN false
+      ELSE d.visible_relationship_row
+    END AS final_visible_relationship_row
+  FROM deduped d
+),
+thread_numbered AS (
+  SELECT
+    v.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY v.clerk_user_id
+      ORDER BY v.event_at, v.event_source, v.message_sid
+    ) AS thread_seq
+  FROM visible_deduped v
+  WHERE v.final_visible_relationship_row
+)
+SELECT
+  t.clerk_user_id,
+  t.thread_seq,
+  t.thread_role,
+  t.event_source,
+  t.event_at,
+  (t.event_at AT TIME ZONE 'America/New_York') AS event_at_et,
+  TO_CHAR(t.event_at AT TIME ZONE 'America/New_York', 'HH24:MI:SS') AS local_time_et,
+  t.message_sid,
+  t.status,
+  t.route_kind,
+  true AS visible_relationship_row,
+  t.final_exclusion_reason AS exclusion_reason,
+  t.body_preview,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,writer_prompt_path}',
+    t.raw_json#>>'{metadata,daily_v3_lane,writer_prompt_path}',
+    ''
+  ) ELSE '' END AS writer_prompt_path,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_writing_brief_used}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_writing_brief_used}',
+    ''
+  ) ELSE '' END AS daily_writing_brief_used,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_message_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_phrases_preview}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_freshness_avoid_phrases_preview}',
+    ''
+  ) ELSE '' END AS daily_freshness_avoid_phrases_preview,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_durable_memory_item_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_durable_memory_item_count}',
+    ''
+  ) ELSE '' END AS daily_durable_memory_item_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_durable_people_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_durable_people_count}',
+    ''
+  ) ELSE '' END AS daily_durable_people_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_durable_blocker_theme_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_durable_blocker_theme_count}',
+    ''
+  ) ELSE '' END AS daily_durable_blocker_theme_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_durable_memory_background_only}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_durable_memory_background_only}',
+    ''
+  ) ELSE '' END AS daily_durable_memory_background_only,
+  CASE
+    WHEN t.thread_role = 'user'
+     AND t.body_preview ~* '(because|matters|so that|reason why|why i|why this|why the)'
+    THEN true ELSE false
+  END AS user_stated_why_signal,
+  CASE
+    WHEN t.thread_role = 'user'
+     AND t.body_preview ~* '(my (wife|husband|partner|kids|children|son|daughter|mom|dad|mother|father)|for my )'
+    THEN true ELSE false
+  END AS user_stated_people_signal,
+  CASE
+    WHEN t.thread_role = 'user'
+     AND t.body_preview ~* '(busy|tired|distracted|can''?t|hard to|struggle|overwhelm|exhausted)'
+    THEN true ELSE false
+  END AS user_stated_blocker_signal,
+  CASE
+    WHEN t.thread_role = 'user'
+     AND t.body_preview ~* '(morning|evening|afternoon|night|after work|before bed|before work|weekend)'
+    THEN true ELSE false
+  END AS user_stated_timing_signal,
+  CASE
+    WHEN t.thread_role = 'user'
+     AND t.body_preview ~* '(i am|i want to be|as a |who i am|identity|kind of person)'
+    THEN true ELSE false
+  END AS user_stated_identity_signal
+FROM thread_numbered t
+ORDER BY t.clerk_user_id, t.thread_seq;
 

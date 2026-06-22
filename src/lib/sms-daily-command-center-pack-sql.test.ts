@@ -17,6 +17,7 @@ const QUERY_HEADERS = [
   "weekly_pending_state_sensitive_audit",
   "final_guard_product_law_side_room_audit",
   "observability_denominator_sanity_check",
+  "relationship_thread_review",
 ];
 
 const SAVED_QUERY_NAMES = [
@@ -33,10 +34,11 @@ const SAVED_QUERY_NAMES = [
   "SM_AUDIT_11_Weekly_Pending",
   "SM_AUDIT_12_Final_Guard_SideRoom",
   "SM_AUDIT_13_Denominator_Sanity",
+  "SM_AUDIT_14_Relationship_Thread_Review",
 ];
 
 describe("sms_daily_command_center_pack_v2.sql", () => {
-  it("exists, is read-only, and has exactly 13 standalone query headers", async () => {
+  it("exists, is read-only, and has exactly 14 standalone query headers", async () => {
     const sql = await readFile(SQL_PATH, "utf8");
     const upper = sql.toUpperCase();
 
@@ -48,8 +50,8 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.6");
-    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(13);
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.7");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
 
     for (const name of QUERY_HEADERS) {
       expect(sql).toContain(name);
@@ -58,7 +60,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
       expect(sql).toContain(saved);
     }
 
-    expect(sql.match(/WITH bounds AS/g)?.length).toBeGreaterThanOrEqual(13);
+    expect(sql.match(/WITH bounds AS/g)?.length).toBeGreaterThanOrEqual(14);
     expect(sql).not.toMatch(/Brooke/i);
     expect(sql).not.toMatch(/Tyler/i);
     expect(sql).not.toMatch(/clerk_user_id\s*=\s*'/);
@@ -163,6 +165,24 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("weak_proof_bad_praise_visible_count");
     expect(sql).toContain("brief_telemetry_missing_on_c1_sent");
     expect(sql).toContain("writer_total_chars_missing");
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.7 Relationship Thread Review markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("relationship_thread_review");
+    expect(sql).toContain("thread_role");
+    expect(sql).toContain("visible_relationship_row");
+    expect(sql).toContain("user_inbound_job");
+    expect(sql).toContain("coach_daily_outbound");
+    expect(sql).toContain("coach_inbound_reply");
+    expect(sql).toContain("coach_weekly_outbound");
+    expect(sql).toContain("daily_brief_thread_message_count");
+    expect(sql).toContain("daily_freshness_avoid_phrases_preview");
+    expect(sql).toContain("daily_durable_memory_item_count");
+    expect(sql).toContain("user_stated_why_signal");
+    expect(sql).toContain("SM_AUDIT_14_Relationship_Thread_Review");
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });
 });

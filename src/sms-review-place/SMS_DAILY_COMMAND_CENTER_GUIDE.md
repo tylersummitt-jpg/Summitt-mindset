@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.6)
+# SMS Daily Command Center — SQL Guide (v2.7)
+
+v2.7 adds **Query 14 — Relationship Thread Review**: a chronological user/coach thread lens (`user said → coach said → …`) for manual relationship-quality review. It unions inbound messages, inbound job user text, coach inbound replies, daily outbound, and weekly outbound with writer-aligned visible-row rules. Use Q14 when judging whether Coach understood the actual relationship thread — not for system health scorecards.
 
 v2.6 adds **thread coverage + freshness extraction** sanity for DailySmsWritingBriefV1: empty brief thread with prior visible sends, thread over cap (>25), oldest/newest reversed telemetry, visible repeated CTA risk patterns, and freshness preview missed visible CTA — on `metadata.relationship_packet_observability` for sent rows.
 
@@ -16,7 +18,16 @@ This replaces the old **29-query** daily process:
 - SMS Soak Debug Pack v1.3 (16 queries)
 - Truth Spine Certification Pack v1.1 (13 queries)
 
-Use this **13-query** pack for normal daily review. Keep the old packs for deep certification or historical forensics.
+Use this **14-query** pack for normal daily review. Keep the old packs for deep certification or historical forensics.
+
+### Which query for what?
+
+| Lens | Queries | Use when |
+|------|---------|----------|
+| **System health / telemetry** | Q01, Q02, Q03, Q05, Q13 | Eligible sends, no-sends, copy-risk flags, denominator sanity, brief telemetry |
+| **Human relationship review** | **Q14** | Did user/coach actually alternate in a real thread? Did daily send reflect prior user context? |
+
+**Q14 is read-only manual review.** Do not use it to mutate data, change routes, or drive automated product behavior.
 
 ---
 
@@ -42,13 +53,14 @@ Use this **13-query** pack for normal daily review. Keep the old packs for deep 
 | 11 | `SM_AUDIT_11_Weekly_Pending` | Last 24 hours |
 | 12 | `SM_AUDIT_12_Final_Guard_SideRoom` | Last 24 hours |
 | 13 | `SM_AUDIT_13_Denominator_Sanity` | Last 24 hours |
+| 14 | `SM_AUDIT_14_Relationship_Thread_Review` | Last **9 days** |
 
 ---
 
 ## Daily workflow (after a 24-hour soak)
 
 1. Wait until **Vercel is green** after any deploy you are measuring.
-2. Run saved queries **01 → 13** in order (or at minimum **01**, then drill into anything flagged).
+2. Run saved queries **01 → 14** in order (or at minimum **01**, then drill into anything flagged).
 3. For each query:
    - If it returns rows → export CSV or copy results.
    - If it returns **no rows** → write `Query N: no rows.` in your notes.
@@ -64,7 +76,7 @@ now() - interval '24 hours' AS window_start,
 now() AS window_end
 ```
 
-Query **02** uses `9 days` instead of `24 hours`.
+Query **02** and **14** use `9 days` instead of `24 hours`.
 
 To audit a fixed deploy window, replace with:
 
@@ -81,6 +93,7 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 |-------|-----------------|---------------------|
 | **01 Command Center** | Eligible sends vs no-sends, rate, zero-question violations, memory/thread blocks, coach-body duplicate blocks, truth mismatches, VR failures, robot/time-of-day risks, `next_recommended_slice` | Daily lane, Strategy Card, eligible denominator |
 | **02 Thread Timeline** | Full user threads with ET daypart + copy-risk flags; `near_duplicate_to_previous_coach_sms` review flag; inbound resolved-truth metadata on replies | Daily/weekly/inbound writers, time-of-day copy |
+| **14 Relationship Thread Review** | **Human-readable** user/coach alternating thread (visible rows only); brief/durable telemetry on daily coach rows; optional user memory-signal flags | Manual relationship-quality review; compare to what C1 brief writer should have seen |
 | **03 Eligible No-Send** | Every eligible no-send + coach-body duplicate telemetry + per-user repeat count, candidate/repair bodies | Lane no-send, memory repeat, FVG |
 | **04 Memory / Thread** | Memory repeat skip (Slice 2), coach-body near-duplicate blocks, thread freshness repairs, question-shape on bodies | `daily_v3_lane` memory + thread freshness |
 | **05 Language Scan** | Zero-question violations, hidden questions, robot/recommit language (daily + weekly + inbound) | Strategy Card, Final Voice Gate, product-law guards |
@@ -112,7 +125,8 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 
 ```text
 01  Command Center          ← start here
-02  Thread Timeline         ← film room (9-day window)
+14  Relationship Thread     ← film room for user/coach alternation (9-day window)
+02  Thread Timeline         ← copy-risk / telemetry on same window
 03  Eligible No-Send        ← if 01 shows no-send pressure
 06  Inbound Pairing         ← if inbound/truth flags in 01
 07  Truth Spine Cert        ← if truth mismatch count > 0
@@ -125,6 +139,13 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 12  Final Guard / Side Room
 13  Denominator Sanity      ← if metrics look impossible
 ```
+
+### Query 14 tips
+
+- Filter by `clerk_user_id` in Supabase when reviewing one user (pack has no hard-coded IDs).
+- Read `thread_seq` in order — expect `user` / `coach` alternation when the relationship is active.
+- On `coach_daily_outbound` rows, check `daily_brief_thread_message_count` and `daily_freshness_avoid_phrases_preview` against the prior thread.
+- `user_stated_*_signal` columns are review hints only (regex), not product gates.
 
 ---
 
@@ -158,6 +179,7 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 | Truth Q9 | **10** Victory Room |
 | Truth Q10 | folded into **06** and **08** |
 | (new) | **13** Denominator Sanity |
+| (new) | **14** Relationship Thread Review |
 
 ---
 
