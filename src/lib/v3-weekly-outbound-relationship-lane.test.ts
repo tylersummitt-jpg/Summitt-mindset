@@ -809,6 +809,7 @@ describe("produceWeeklyV3RelationshipSms", () => {
     });
     const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
     expect(systemMsg).toContain("planned_pause_week");
+    expect(systemMsg).toContain("NEVER say");
     expect(systemMsg).toContain("WEEKLY PAT PAUSE");
     expect(systemMsg).toContain("No YES/NO");
     expect(systemMsg).toContain("not failure");
@@ -835,9 +836,64 @@ describe("produceWeeklyV3RelationshipSms", () => {
 
   it("buildWeeklyPlannedInterruptionLaneGuardrails mentions no shame and no YES/NO menu", () => {
     const g = buildWeeklyPlannedInterruptionLaneGuardrails();
-    expect(g).toMatch(/not failure|honest context/i);
+    expect(g).toMatch(/NEVER say "planned pause"/i);
     expect(g).toMatch(/Do not shame silence/i);
     expect(g).toMatch(/No YES\/NO/i);
+  });
+
+  it("weeklyLaneLocalValidation blocks internal planned pause product labels", () => {
+    const facts = baseFacts();
+    expect(
+      weeklyLaneLocalValidation("As we honor this planned pause week, take a breath.", facts)
+    ).toContain("internal_planned_pause_label:planned pause week");
+    expect(
+      weeklyLaneLocalValidation("This week was a planned pause — rest up.", facts)
+    ).toContain("internal_planned_pause_label:this week was a planned pause");
+    expect(
+      weeklyLaneLocalValidation("Honor this planned pause and step back.", facts)
+    ).toContain("internal_planned_pause_label:honor this planned pause");
+  });
+
+  it("weeklyLaneLocalValidation allows natural pause language without product labels", () => {
+    const facts = baseFacts();
+    const hits = weeklyLaneLocalValidation(
+      "When you are back, one honest morning block is enough — take a breath and reset.",
+      facts
+    );
+    expect(hits.some((h) => h.startsWith("internal_planned_pause_label:"))).toBe(false);
+  });
+
+  it("does not send weekly body that leaks planned pause product labels", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson(
+              "As we honor this planned pause week, one honest morning block is enough next week."
+            ),
+          },
+        },
+      ],
+    });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        weekly_proof: {
+          ...baseFacts().weekly_proof,
+          planned_pause_week: true,
+          silent_week: true,
+        },
+        commitment: {
+          ...baseFacts().commitment,
+          planned_interruption_active: true,
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("lane_post_validate_blocked");
+    expect(r.metadata.blocked_reasons).toEqual(
+      expect.arrayContaining(["internal_planned_pause_label:planned pause week"])
+    );
   });
 
   it("system prompt includes weekly goal adjustment no-mutation guardrail", async () => {
@@ -874,10 +930,11 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(g).toMatch(/not a command/i);
   });
 
-  it("buildWeeklyGoalAdjustmentLaneGuardrails says pause_cadence honors pause", () => {
+  it("buildWeeklyGoalAdjustmentLaneGuardrails says pause_cadence without planned pause labels", () => {
     const g = buildWeeklyGoalAdjustmentLaneGuardrails();
     expect(g).toMatch(/pause_cadence|planned_interruption_active/i);
-    expect(g).toMatch(/avoid failure framing/i);
+    expect(g).toMatch(/not failure framing/i);
+    expect(g).toMatch(/never say "planned pause"/i);
   });
 
   it("builds when goal_adjustment fields absent", async () => {

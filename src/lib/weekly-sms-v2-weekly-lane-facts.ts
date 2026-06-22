@@ -27,6 +27,20 @@ import type { V2EventRowForAi } from "@/lib/v2-commitment";
 
 const MAX_WEEKLY_PROOF_MOMENT_HINTS = 2;
 
+function formatPlannedInterruptionEngagementSummary(planned: {
+  reasonCategory?: string | null;
+  resumeHint?: string | null;
+}): string {
+  const reason =
+    planned.reasonCategory && planned.reasonCategory !== "pause"
+      ? ` (${planned.reasonCategory.replace(/_/g, " ")})`
+      : "";
+  if (planned.resumeHint?.trim()) {
+    return `Replies may be sparse this week${reason}; resume around ${planned.resumeHint.trim()}`;
+  }
+  return `Replies may be sparse this week${reason} — keep reflection grounded without a normal weekly push`;
+}
+
 function buildLegacyWeeklyThreadFacts(args: {
   conv: V2SmsConversationContextPack | null;
   weeklySmsThreadAppend: string | null;
@@ -255,9 +269,7 @@ export function buildWeeklyV3OutboundFactsForV2WeeklyProof(args: {
   }).format(args.localNow);
 
   const smsEngagementSummary = plannedInterruptionActive
-    ? planned.resumeHint
-      ? `Planned pause this week (${planned.reasonCategory ?? "pause"}); resume around ${planned.resumeHint}`
-      : `Planned pause this week (${planned.reasonCategory ?? "pause"}); replies may be sparse`
+    ? formatPlannedInterruptionEngagementSummary(planned)
     : args.pack.response_count > 0
       ? `${args.pack.response_count} outcome replies this week`
       : args.pack.check_sent_count >= 1

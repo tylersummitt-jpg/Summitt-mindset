@@ -4489,13 +4489,14 @@ function buildWeeklyMustDoMustNotDo(
     must_not_do.push("Do not overstate progress beyond weekly counts.");
     must_not_do.push("Do not shame missed days.");
   } else if (moveType === "protect_existing_plan") {
-    must_do.push("Protect the current plan and acknowledge pause context if present.");
-    must_do.push("Honor planned pause — sparse replies are context, not failure.");
+    must_do.push("Protect the current plan when the week had less activity than usual.");
+    must_do.push("Treat sparse replies as honest context — not failure or avoidance.");
     must_not_do.push("Do not claim cadence or commitment already changed.");
   }
 
   if (wp.planned_pause_week) {
-    must_not_do.push("Do not shame silence or missed days during a planned pause week.");
+    must_not_do.push("Do not shame silence or missed days during a disrupted week.");
+    must_not_do.push('Do not say "planned pause", "planned pause week", or other internal product labels.');
   }
 
   const distinctMissDays =
@@ -4567,7 +4568,7 @@ export function buildWeeklyProofStrategyCardV1(args: {
     weekly_recover: "Rough week — recover with honesty, not shame or overpraise.",
     weekly_celebrate_earned: "Earned consistency — celebrate only to the level counts and permission allow.",
     weekly_reflect: "Mixed week — reflect honestly on the balance and next week.",
-    protect_existing_plan: "Planned pause week — protect the current plan without failure framing.",
+    protect_existing_plan: "Disrupted week — protect the current plan without failure framing.",
   };
 
   return {

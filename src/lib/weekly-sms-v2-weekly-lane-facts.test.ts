@@ -430,6 +430,33 @@ describe("buildWeeklyV3OutboundFactsForV2WeeklyProof", () => {
     expect(f.weekly_proof.planned_pause_week).toBe(true);
   });
 
+  it("does not put planned pause product labels in sms_engagement_summary", () => {
+    const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
+      clerkUserId: "u1",
+      commitment: commitment(),
+      effectiveAsk: "Morning hour",
+      pack: packBase({ silent_week: true, yes_count: 0, response_count: 0 }),
+      timezone: "UTC",
+      localNow: new Date("2026-05-10T17:00:00.000Z"),
+      conv: null,
+      weeklySmsThreadAppend: null,
+      oldWeeklyProofBodyPreview: "",
+      deterministicWeeklyBodyPreview: "",
+      plannedInterruption: {
+        occurredAt: "2026-05-08T12:00:00.000Z",
+        memorySignal: {
+          planned_interruption: true,
+          reason_category: "vacation",
+          resume_hint: "next week",
+          confidence: "high",
+        },
+      },
+    });
+    expect(f.user.sms_engagement_summary).toContain("Replies may be sparse");
+    expect(f.user.sms_engagement_summary!.toLowerCase()).not.toContain("planned pause");
+    expect(f.user.sms_engagement_summary).toContain("next week");
+  });
+
   it("keeps proof counts during planned interruption", () => {
     const f = buildWeeklyV3OutboundFactsForV2WeeklyProof({
       clerkUserId: "u1",

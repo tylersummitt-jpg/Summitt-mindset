@@ -199,6 +199,17 @@ const NEWSLETTERISH = [
   "your weekly report",
 ] as const;
 
+/** Internal product labels that must never appear in user-visible weekly SMS. */
+export const WEEKLY_PLANNED_PAUSE_LEAK_PHRASES = [
+  "planned pause week",
+  "planned pause",
+  "honor this planned pause",
+  "honor the planned pause",
+  "as we honor this planned pause",
+  "this week was a planned pause",
+  "planned_pause_week",
+] as const;
+
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) return null;
@@ -241,7 +252,7 @@ WEEKLY GOAL_ADJUSTMENT (Pat Pause):
 - Do not create a YES/NO menu or binding overlay proposal in weekly SMS.
 - If shrink_temporary, upstream, tighten_durable, or replace: gentle next-week consideration only — not action already taken.
 - If raise_bar: invitation to discuss raising the bar — not a command to change the goal.
-- If pause_cadence or planned_interruption_active: honor pause first; avoid failure framing for silence or misses.
+- If pause_cadence or planned_interruption_active: treat sparse replies as honest context — not failure framing; never say "planned pause" to the user.
 - Mention goal adjustment only when goal_adjustment_mention_allowed is true; never quote goal_adjustment_internal_hint verbatim.
 - If weekly_proof.proof_moment_hints are present, prioritize earned proof over goal-adjustment coaching.
 - Current Goal / effective ask stays primary; do not mention goal adjustment every week.`;
@@ -250,10 +261,11 @@ WEEKLY GOAL_ADJUSTMENT (Pat Pause):
 /** Weekly Pat Pause guardrails when planned interruption is active in facts. */
 export function buildWeeklyPlannedInterruptionLaneGuardrails(): string {
   return `${buildPlannedInterruptionLaneGuardrails()}
-WEEKLY PAT PAUSE (when commitment.planned_interruption_active or weekly_proof.planned_pause_week):
-- This is the Sunday weekly reflection rhythm — honor the pause as honest context, not failure or avoidance.
+WEEKLY PAT PAUSE (when commitment.planned_interruption_active or weekly_proof.planned_pause_week — INTERNAL FLAGS ONLY):
+- planned_pause_week and planned_interruption_* are internal telemetry — NEVER say "planned pause", "planned pause week", "honor this planned pause", or planned_pause_week to the user.
+- Sparse or silent replies may reflect travel, illness, or a disrupted week — name that plainly in normal human language if helpful; do not narrate product state.
 - Do not shame silence, missed days, or sparse replies during the interruption window.
-- Do not use blocker-capture style language for the pause week.
+- Do not use blocker-capture style language for a quiet week.
 - Prefer calm resume framing, one next-week standard, or a smaller version when helpful (use planned_interruption_resume_hint when present).
 - No YES/NO / PARTIAL menus. Current Goal / effective ask remains primary.
 - Do not claim cadence or commitment already changed unless facts show it.
@@ -307,6 +319,10 @@ export function weeklyLaneLocalValidation(body: string, facts: WeeklyV3OutboundF
 
   for (const m of PAT_PAUSE_TEMPLATE_MARKERS) {
     if (lower.includes(m)) hits.push("pat_pause_template_marker");
+  }
+
+  for (const ph of WEEKLY_PLANNED_PAUSE_LEAK_PHRASES) {
+    if (lower.includes(ph)) hits.push(`internal_planned_pause_label:${ph}`);
   }
 
   if (matchesMalformedDidRawPhraseHappenToday(t)) hits.push("daily_check_malformed_phrase");
@@ -467,7 +483,7 @@ export async function produceWeeklyV3RelationshipSms(
 
 RULES:
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy labeled machine drafts, template banks, or telemetry previews as your voice.
-- If current_turn.planned_pause_week is true, sparse or silent replies are planned context — not failure; do not shame missed days or quiet weeks.
+- If current_turn.planned_pause_week is true (internal flag — never say "planned pause" or repeat this label to the user), sparse or silent replies are context, not failure; do not shame missed days or quiet weeks.
 ${strategyCardWeeklyEligible ? "" : `- If current_turn.silent_week or current_turn.rough_week is true, be honest and useful without shaming. If there is not enough context for a genuinely useful weekly coaching text, return should_send false.`}
 ${strategyCardWeeklyEligible ? "" : `- If structured_recent_truth.weekly_week_summary lists proof_moment_hints, win_hints, or comeback_hints, acknowledgment must be specific and earned — not generic hype.`}
 - Do not repeat questions in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.

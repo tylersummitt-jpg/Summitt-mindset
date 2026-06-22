@@ -3305,6 +3305,31 @@ describe("Phase 4.8a weekly_proof_v2 Strategy Card v1", () => {
     expect(JSON.stringify(card)).not.toContain("UNIQUE_OLD_PROOF");
   });
 
+  it("planned interruption weekly card avoids planned pause product labels", () => {
+    const ctx = buildWeeklyCtx(
+      weeklyFacts({
+        commitment: {
+          ...weeklyFacts().commitment,
+          planned_interruption_active: true,
+          planned_interruption_reason_category: "vacation",
+        },
+        weekly_proof: {
+          ...weeklyFacts().weekly_proof,
+          planned_pause_week: true,
+          silent_week: true,
+        },
+      })
+    );
+    const card = buildWeeklyProofStrategyCardV1({ ctx });
+    expect(card.move.type).toBe("protect_existing_plan");
+    expect(card.move.reason.toLowerCase()).not.toContain("planned pause");
+    expect(card.must_do.join(" ").toLowerCase()).not.toContain("planned pause");
+    expect(card.must_do.join(" ")).toMatch(/sparse replies/i);
+    expect(
+      card.must_not_do.some((m) => /internal product labels/i.test(m))
+    ).toBe(true);
+  });
+
   it("eligibility requires weekly_proof_v2 with proof pack, excludes legacy branch", () => {
     expect(isWeeklyProofStrategyCardEligible(weeklyFacts())).toBe(true);
     expect(
