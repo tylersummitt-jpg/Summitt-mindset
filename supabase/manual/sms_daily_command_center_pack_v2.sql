@@ -1,7 +1,11 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.7
+-- SMS DAILY COMMAND CENTER PACK v2.8
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 14 queries.
+--
+-- v2.8 Weekly SMS body observability (June 2026):
+--   - Weekly body fallbacks: north_star_gate.final_body, v3_candidate_body, final_voice_gate, voice_send_decision.
+--   - Q01 weekly_body_missing_with_sid_count; Q13 weekly_body_missing_with_sid warning rows.
 --
 -- v2.7 Relationship Thread Review (June 2026):
 --   - Q14 relationship_thread_review: chronological user/coach thread lens (visible rows only).
@@ -471,6 +475,62 @@ vr_agg AS (
     WHERE ev.occurred_at >= b.window_start AND ev.occurred_at < b.window_end
       AND ev.event_type IN ('user_yes','user_no','user_partial')
   ) v
+),
+weekly_base AS (
+  SELECT
+    COALESCE(
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) AS event_at,
+    COALESCE(to_jsonb(w)->>'clerk_user_id', to_jsonb(w)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
+    COALESCE(to_jsonb(w)->>'status', '') AS status,
+    COALESCE(to_jsonb(w)->>'message_sid', to_jsonb(w)->>'outbound_message_sid', to_jsonb(w)#>>'{metadata,message_sid}', '') AS message_sid,
+    COALESCE(
+      NULLIF(BTRIM(to_jsonb(w)->>'body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'final_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'body_preview'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,original_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body_with_suffix}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
+      ''
+    ) AS body_preview
+  FROM sms_weekly_send_events w
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) < b.window_end
+),
+weekly_agg AS (
+  SELECT
+    COUNT(*) FILTER (
+      WHERE (
+        status ~* '(sent|delivered|queued|accepted|sending|success)'
+        OR message_sid <> ''
+      )
+      AND body_preview = ''
+    ) AS weekly_body_missing_with_sid_count
+  FROM weekly_base
 )
 SELECT
   b.window_start,
@@ -508,8 +568,10 @@ SELECT
   d.c1_brief_thread_over_cap_count,
   d.c1_brief_oldest_newest_reversed_count,
   d.c1_visible_repeated_cta_risk_count,
+  wk.weekly_body_missing_with_sid_count,
   tr.top_no_send_reasons,
   CASE
+    WHEN wk.weekly_body_missing_with_sid_count > 0 THEN 'weekly_body_observability_gap'
     WHEN d.weak_proof_bad_praise_visible_count > 0 THEN 'daily_writing_brief_unsupported_praise_visible'
     WHEN d.unsupported_praise_no_send_count > 0 THEN 'daily_writing_brief_unsupported_praise_seatbelt_monitor'
     WHEN d.repeated_cta_no_send_count > 0 THEN 'daily_writing_brief_repeated_cta_seatbelt_monitor'
@@ -529,7 +591,8 @@ FROM bounds b
 CROSS JOIN daily_agg d
 CROSS JOIN truth_agg t
 CROSS JOIN vr_agg v
-CROSS JOIN top_reasons tr;
+CROSS JOIN top_reasons tr
+CROSS JOIN weekly_agg wk;
 
 
 -- =============================================================================
@@ -744,6 +807,16 @@ weekly_outbound AS (
       NULLIF(BTRIM(to_jsonb(w)->>'body_preview'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body}'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,original_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body_with_suffix}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
       ''
     ), 1200) AS body_preview,
     COALESCE(to_jsonb(w)->>'status', to_jsonb(w)#>>'{metadata,status}', '') AS status,
@@ -1909,7 +1982,20 @@ visible AS (
     COALESCE(
       NULLIF(BTRIM(to_jsonb(w)->>'body'), ''),
       NULLIF(BTRIM(to_jsonb(w)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'final_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'body_preview'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,original_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body_with_suffix}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
       ''
     ),
     to_jsonb(w)
@@ -3106,6 +3192,14 @@ weekly AS (
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,original_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body_with_suffix}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
       ''
     ) AS body_preview,
     ''::text AS pending_resolution_kind,
@@ -3380,7 +3474,21 @@ rows AS (
     COALESCE(to_jsonb(w)#>>'{metadata,final_guard_violations}', ''),
     COALESCE(
       NULLIF(BTRIM(to_jsonb(w)->>'body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'final_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'body_preview'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,original_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body_with_suffix}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
       ''
     ),
     to_jsonb(w)
@@ -3536,6 +3644,7 @@ ORDER BY c.event_at DESC;
 -- QUERY 13 — observability_denominator_sanity_check
 -- Saved query name: SM_AUDIT_13_Denominator_Sanity
 -- Purpose: Telemetry completeness — rows that could make eligible/visible SQL denominators lie.
+-- v2.8: weekly_body_missing_with_sid warning rows (visible weekly send with empty body paths).
 -- v2.3: DailySmsWritingBriefV1 sent-row telemetry sanity (writer_prompt_path, brief_used, writer_total_chars).
 -- v2.2: coach-body duplicate telemetry sanity + per-issue impacted_query + severity.
 -- Default window: last 24 hours
@@ -3873,6 +3982,51 @@ inbound_pairing AS (
     ORDER BY pairing_rank ASC, j2.job_at ASC
     LIMIT 1
   ) j ON true
+),
+weekly_send_obs AS (
+  SELECT
+    COALESCE(
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) AS event_at,
+    COALESCE(to_jsonb(w)->>'clerk_user_id', to_jsonb(w)#>>'{metadata,clerk_user_id}') AS clerk_user_id,
+    COALESCE(to_jsonb(w)->>'status', '') AS status,
+    COALESCE(to_jsonb(w)->>'message_sid', to_jsonb(w)->>'outbound_message_sid', to_jsonb(w)#>>'{metadata,message_sid}', '') AS message_sid,
+    COALESCE(
+      NULLIF(BTRIM(to_jsonb(w)->>'body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'final_body'), ''),
+      NULLIF(BTRIM(to_jsonb(w)->>'body_preview'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,original_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body_with_suffix}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
+      ''
+    ) AS body_preview
+  FROM sms_weekly_send_events w
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(w)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'processed_at', '')::timestamptz,
+      NULLIF(to_jsonb(w)->>'updated_at', '')::timestamptz
+    ) < b.window_end
 ),
 issues AS (
   SELECT
@@ -4446,6 +4600,27 @@ issues AS (
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.body_preview ~* '(hour.{0,30}distribution|distribution.{0,30}hour|that hour.{0,20}distribution|the hour.{0,20}distribution)'
     AND cb.daily_freshness_avoid_phrases_preview !~* '(hour.{0,30}distribution|distribution.{0,30}hour)'
+
+  UNION ALL
+
+  SELECT
+    'Query 02 / 11 / 14 weekly body unreliable',
+    'warning',
+    'weekly_body_missing_with_sid',
+    w.event_at,
+    w.clerk_user_id,
+    w.status,
+    '',
+    '',
+    '',
+    '',
+    'Weekly row has Twilio SID or sent status but all known body paths are empty — Q14/thread review may hide Pat Pause text'
+  FROM weekly_send_obs w
+  WHERE (
+      w.status ~* '(sent|delivered|queued|accepted|sending|success)'
+      OR w.message_sid <> ''
+    )
+    AND w.body_preview = ''
 ),
 agg AS (
   SELECT
@@ -4738,6 +4913,14 @@ coach_weekly_outbound AS (
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
       NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,original_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_body_with_suffix}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_voice_gate,final_voice_gate_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,voice_send_decision,north_star_visible_body}'), ''),
       ''
     ), 1200) AS body_preview,
     to_jsonb(w) AS raw_json

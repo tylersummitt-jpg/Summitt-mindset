@@ -119,6 +119,13 @@ describe("weekly-sms V2 branch — durable thread memory projection wire", () =>
     expect(v2).toContain("stripped_compliance_footer: true");
   });
 
+  it("records metadata.sms_body on successful Twilio send update (operator-observable weekly body)", () => {
+    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
+    const v2 = v2WeeklySlice(src);
+    expect(v2).toContain("sms_body: finalBodyV2");
+    expect(v2).toContain("north_star_gate");
+  });
+
   it("projection helper is warn-only and not used on no-send, dry-run, or failed send paths", () => {
     const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
     const v2 = v2WeeklySlice(src);

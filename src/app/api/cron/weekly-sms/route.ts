@@ -676,6 +676,7 @@ export async function GET(req: Request) {
               status: messageV2.status,
               metadata: {
                 ...v2Metadata,
+                sms_body: finalBodyV2,
                 voice_send_decision: {
                   ...v2Metadata.voice_send_decision,
                   twilio_send_attempted: true,

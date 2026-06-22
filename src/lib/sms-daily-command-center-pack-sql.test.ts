@@ -50,7 +50,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.7");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.8");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
 
     for (const name of QUERY_HEADERS) {
@@ -183,6 +183,20 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("daily_durable_memory_item_count");
     expect(sql).toContain("user_stated_why_signal");
     expect(sql).toContain("SM_AUDIT_14_Relationship_Thread_Review");
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.8 weekly SMS body observability markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("north_star_gate,final_body");
+    expect(sql).toContain("north_star_gate,original_body");
+    expect(sql).toContain("v3_candidate_body");
+    expect(sql).toContain("final_voice_gate,final_body");
+    expect(sql).toContain("weekly_body_missing_with_sid_count");
+    expect(sql).toContain("weekly_body_missing_with_sid");
+    expect(sql).toContain("relationship_thread_review");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });
 });

@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.7)
+# SMS Daily Command Center — SQL Guide (v2.8)
+
+v2.8 adds **weekly SMS body observability**: SQL fallbacks for `metadata.north_star_gate.final_body` and related weekly paths so Q02/Q11/Q14 show Pat Pause bodies users actually received; Q01 `weekly_body_missing_with_sid_count` and Q13 `weekly_body_missing_with_sid` flag rows with SID but no extractable body. Forward weekly sends also log `metadata.sms_body` (Twilio-visible body with compliance footer).
 
 v2.7 adds **Query 14 — Relationship Thread Review**: a chronological user/coach thread lens (`user said → coach said → …`) for manual relationship-quality review. It unions inbound messages, inbound job user text, coach inbound replies, daily outbound, and weekly outbound with writer-aligned visible-row rules. Use Q14 when judging whether Coach understood the actual relationship thread — not for system health scorecards.
 
@@ -24,7 +26,7 @@ Use this **14-query** pack for normal daily review. Keep the old packs for deep 
 
 | Lens | Queries | Use when |
 |------|---------|----------|
-| **System health / telemetry** | Q01, Q02, Q03, Q05, Q13 | Eligible sends, no-sends, copy-risk flags, denominator sanity, brief telemetry |
+| **System health / telemetry** | Q01, Q02, Q03, Q05, Q13 | Eligible sends, no-sends, copy-risk flags, **weekly_body_missing_with_sid**, denominator sanity, brief telemetry |
 | **Human relationship review** | **Q14** | Did user/coach actually alternate in a real thread? Did daily send reflect prior user context? |
 
 **Q14 is read-only manual review.** Do not use it to mutate data, change routes, or drive automated product behavior.
@@ -180,6 +182,7 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 | Truth Q10 | folded into **06** and **08** |
 | (new) | **13** Denominator Sanity |
 | (new) | **14** Relationship Thread Review |
+| (new) | **v2.8** Weekly body paths (`north_star_gate.final_body`, `metadata.sms_body`) |
 
 ---
 
