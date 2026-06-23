@@ -6044,6 +6044,13 @@ async function processV2NormalInboundOutcome(
       facts: inboundFacts,
       commitmentRow: commitment,
       telemetry_fact_sources: laneTelemetryFactSources,
+      proof_persisted_before_writer:
+        preWriterTelemetryMain.inbound_truth_persist_succeeded_before_writer === true,
+      proof_persisted_event_type:
+        preWriterTelemetryMain.inbound_truth_persist_succeeded_before_writer === true &&
+        preWriterTelemetryMain.inbound_truth_persist_event_type === "user_yes"
+          ? "user_yes"
+          : null,
     });
 
     if (!laneRes.shouldSend || !laneRes.body.trim()) {

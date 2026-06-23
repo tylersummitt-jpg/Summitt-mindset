@@ -4749,3 +4749,377 @@ describe("goal-change Turn Understanding facts wiring", () => {
     expect(rt.must_not_do.some((m) => /user_yes/i.test(m))).toBe(true);
   });
 });
+
+describe("acknowledge_completion zero-question recovery after proof persist", () => {
+  const BROOKE_STEPS = "I got my 10,000 steps today";
+
+  function stepsCommitment(): ActiveV2CommitmentRow {
+    return {
+      ...baseCommitment(),
+      behavior_statement: "Walk 10,000 steps every day",
+      title: "10,000 steps",
+    };
+  }
+
+  function brookeStepsFacts() {
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: "user_brooke",
+      preferredName: "Brooke",
+      timezone: "America/New_York",
+      localTimeIso: "2026-06-22T20:06:00.000Z",
+      commitment: stepsCommitment(),
+      effectiveAsk: "Did you get your 10,000 steps today?",
+      userMessageRaw: BROOKE_STEPS,
+      coalescedInboundText: BROOKE_STEPS,
+      suppressedMessageSids: ["SM_brooke"],
+      transcriptLines: ["Coach: Did you get your steps today?", `User: ${BROOKE_STEPS}`],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "Did you get your steps today?",
+        latestOpenQuestion: "Did you get your steps today?",
+        proofSignal: true,
+        todayCompleted: true,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_yes" },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "normal_inbound_reply",
+    });
+  }
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  it("repair path sends statement-only ack when writer adds ask after factual completion line", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "10,000 steps logged for today. How did it feel?",
+              no_send_reason: null,
+              turn_purpose: "acknowledge_completion",
+              voice_confidence: 0.85,
+              used_facts: ["thread"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = brookeStepsFacts();
+    expect(facts.inbound_resolved_truth?.required_reply_move).toBe("acknowledge_completion");
+    expect(facts.inbound_resolved_truth?.max_questions_override).toBe(0);
+
+    const lane = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_brooke_steps_repair"],
+      proof_persisted_before_writer: true,
+      proof_persisted_event_type: "user_yes",
+    });
+    expect(lane.shouldSend).toBe(true);
+    expect(lane.body).not.toMatch(/\?/);
+    expect(lane.body).toMatch(/10,000 steps/i);
+    expect(lane.body).not.toMatch(/how did it feel/i);
+    expect(lane.metadata.zero_question_repair_attempted).toBe(true);
+    expect(lane.metadata.final_reply_source).toBe("zero_question_repair");
+    expect(lane.metadata.zero_question_completion_fallback_used).toBe(false);
+  });
+
+  it("uses fallback when repair cannot salvage writer body", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "How did it feel getting those steps in?",
+              no_send_reason: null,
+              turn_purpose: "acknowledge_completion",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const lane = await produceInboundV3RelationshipSms({
+      facts: brookeStepsFacts(),
+      telemetry_fact_sources: ["test_fallback"],
+      proof_persisted_before_writer: true,
+      proof_persisted_event_type: "user_yes",
+    });
+    expect(lane.shouldSend).toBe(true);
+    expect(lane.body).toBe("That counts — 10,000 steps today.");
+    expect(lane.metadata.zero_question_completion_fallback_used).toBe(true);
+    expect(lane.metadata.final_reply_source).toBe("zero_question_completion_fallback");
+  });
+
+  it("still no-sends M2B-5 already-told-you without proof persist context", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "What story will you dictate today?",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const rbTranscript = [
+      "Coach: What specific stories are you considering?",
+      "User: Sunday School, farm, songs Mother sang",
+      "Coach: Let's aim to dictate that story tomorrow.",
+      "User: I already told you",
+    ];
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "R.B.",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Dictate stories daily",
+      userMessageRaw: "I already told you",
+      coalescedInboundText: "I already told you",
+      suppressedMessageSids: [],
+      transcriptLines: rbTranscript,
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "What specific stories are you considering?",
+        latestOpenQuestion: "What specific stories are you considering?",
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      relationshipMemoryPacket: minimalRelationshipMemoryPacket({
+        recent_exact_thread_text: rbTranscript.join("\n"),
+        last_outbound_full_body: "What specific stories are you considering?",
+        last_inbound_full_body: "I already told you",
+        latest_open_question: "What specific stories are you considering?",
+        open_question_pending: false,
+      }),
+    });
+    const lane = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_m2b5"],
+    });
+    expect(lane.shouldSend).toBe(false);
+    expect(lane.metadata.zero_question_completion_fallback_used).not.toBe(true);
+    expect(lane.metadata.final_reply_source).not.toBe("zero_question_completion_fallback");
+    expect(lane.metadata.proof_persisted_before_zero_question_fallback).not.toBe(true);
+  });
+
+  it("does not use zero-question fallback without proof_persisted_before_writer", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Nice work. How did it feel?",
+              no_send_reason: null,
+              turn_purpose: "acknowledge_completion",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const lane = await produceInboundV3RelationshipSms({
+      facts: brookeStepsFacts(),
+      telemetry_fact_sources: ["test_no_proof"],
+      proof_persisted_before_writer: false,
+    });
+    expect(lane.metadata.zero_question_completion_fallback_used).not.toBe(true);
+    expect(lane.metadata.proof_persisted_before_zero_question_fallback).not.toBe(true);
+    expect(lane.metadata.final_reply_source).not.toBe("zero_question_completion_fallback");
+    if (lane.shouldSend) {
+      expect(lane.body).not.toMatch(/\?/);
+    }
+  });
+
+  it("does not use fallback for close_loop_on_answered_ask even with proof context", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "What story will you dictate today?",
+              no_send_reason: null,
+              turn_purpose: "inbound_turn",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_lane",
+      preferredName: "R.B.",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "Dictate stories daily",
+      userMessageRaw: "I already told you",
+      coalescedInboundText: "I already told you",
+      suppressedMessageSids: [],
+      transcriptLines: [
+        "Coach: What specific stories are you considering?",
+        "User: Sunday School, farm, songs Mother sang",
+        "User: I already told you",
+      ],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOpenQuestion: "What specific stories are you considering?",
+      },
+      gatedDecision: baseGatedDecision(),
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+    });
+    const lane = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_close_loop_no_fallback"],
+      proof_persisted_before_writer: true,
+      proof_persisted_event_type: "user_yes",
+    });
+    expect(lane.shouldSend).toBe(false);
+    expect(lane.metadata.zero_question_completion_fallback_used).not.toBe(true);
+    expect(lane.metadata.final_reply_source).not.toBe("zero_question_completion_fallback");
+  });
+
+  it("does not use fallback without proof_persisted_before_writer on off-goal brushing claim", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Nice — teeth brushed. How did that feel?",
+              no_send_reason: null,
+              turn_purpose: "acknowledge_completion",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const brushingCommitment = {
+      ...stepsCommitment(),
+      behavior_statement: "Brush teeth twice daily",
+      title: "Brush teeth",
+    };
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_brush",
+      preferredName: "Sam",
+      timezone: "America/New_York",
+      localTimeIso: "2026-06-22T20:06:00.000Z",
+      commitment: brushingCommitment,
+      effectiveAsk: "Did you brush your teeth today?",
+      userMessageRaw: "I brushed my teeth",
+      coalescedInboundText: "I brushed my teeth",
+      suppressedMessageSids: [],
+      transcriptLines: ["Coach: Did you brush?", "User: I brushed my teeth"],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "Did you brush?",
+        latestOpenQuestion: "Did you brush?",
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_yes" },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "normal_inbound_reply",
+    });
+    const lane = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_brushing_no_proof"],
+      proof_persisted_before_writer: false,
+    });
+    expect(lane.metadata.zero_question_completion_fallback_used).not.toBe(true);
+    expect(lane.metadata.proof_persisted_before_zero_question_fallback).not.toBe(true);
+  });
+});

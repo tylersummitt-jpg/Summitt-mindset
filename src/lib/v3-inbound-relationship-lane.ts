@@ -26,6 +26,7 @@ import {
   type InboundMeaningFacts,
 } from "@/lib/inbound-relationship-meaning";
 import { hasFuturePlanIntentLanguage } from "@/lib/pending-plan-proof";
+import { tryRecoverAcknowledgeCompletionZeroQuestionBody } from "@/lib/inbound-zero-question-completion-recovery";
 import {
   applySmsMemoryAntiRepeatGuard,
   buildAntiRepeatDetectArgsFromInboundFacts,
@@ -1442,6 +1443,9 @@ export type InboundV3RelationshipLaneInput = {
   telemetry_fact_sources: string[];
   /** Authoritative server row for row-backed active_pending_state (read-only context). */
   commitmentRow?: ActiveV2CommitmentRow | null;
+  /** Pre-writer outcome persist succeeded for this turn (main path). */
+  proof_persisted_before_writer?: boolean;
+  proof_persisted_event_type?: "user_yes" | "user_no" | "user_partial" | null;
 };
 
 export type InboundV3RelationshipLaneReplySource = "v3_inbound_relationship_lane";
@@ -2335,6 +2339,15 @@ function validateInboundLaneCandidateBody(
   return { ok: true };
 }
 
+function tryAcknowledgeCompletionZeroQuestionRecovery(
+  candidate: string,
+  args: InboundV3RelationshipLaneInput
+) {
+  return tryRecoverAcknowledgeCompletionZeroQuestionBody(candidate, args, (body) =>
+    validateInboundLaneCandidateBody(body, args).ok
+  );
+}
+
 function inboundValidateAfterPostRepair(
   body: string,
   args: InboundV3RelationshipLaneInput
@@ -2958,20 +2971,45 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
   });
 
   if (memoryRepeatGuard.outcome === "no_send") {
-    return empty(memoryRepeatGuard.noSendReason, true, {
-      lane_stage: "thread_memory_repeat_guard_failed",
-      v3_candidate_body: body,
-      ...laneOpenAiJsonMeta,
-      ...memoryRepeatGuard.metadata,
-    });
-  }
-
-  body = memoryRepeatGuard.body;
-  if (memoryRepeatGuard.metadata.memory_repeat_guard_succeeded === true) {
-    successLaneStage = "post_validate_repaired";
-    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
-  } else if (Object.keys(memoryRepeatGuard.metadata).length > 0) {
-    successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
+    const zeroQOnMemoryRepeatBlock = detectInboundResolvedTruthZeroQuestionViolation(
+      body,
+      args.facts.inbound_resolved_truth
+    );
+    if (zeroQOnMemoryRepeatBlock.violation) {
+      const recovered = tryAcknowledgeCompletionZeroQuestionRecovery(body, args);
+      if (recovered.ok) {
+        body = recovered.body;
+        successLaneStage = "post_validate_repaired";
+        successRepairExtra = {
+          ...successRepairExtra,
+          ...memoryRepeatGuard.metadata,
+          ...recovered.telemetry,
+        };
+      } else {
+        return empty(memoryRepeatGuard.noSendReason, true, {
+          lane_stage: "thread_memory_repeat_guard_failed",
+          v3_candidate_body: body,
+          ...laneOpenAiJsonMeta,
+          ...memoryRepeatGuard.metadata,
+          ...recovered.telemetry,
+        });
+      }
+    } else {
+      return empty(memoryRepeatGuard.noSendReason, true, {
+        lane_stage: "thread_memory_repeat_guard_failed",
+        v3_candidate_body: body,
+        ...laneOpenAiJsonMeta,
+        ...memoryRepeatGuard.metadata,
+      });
+    }
+  } else {
+    body = memoryRepeatGuard.body;
+    if (memoryRepeatGuard.metadata.memory_repeat_guard_succeeded === true) {
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
+    } else if (Object.keys(memoryRepeatGuard.metadata).length > 0) {
+      successRepairExtra = { ...successRepairExtra, ...memoryRepeatGuard.metadata };
+    }
   }
 
   const badSub = validateForbiddenSubstrings(body, args.facts.constraints.forbidden_substrings);
@@ -3028,25 +3066,33 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
   const zeroQFinal = detectInboundResolvedTruthZeroQuestionViolation(body, args.facts.inbound_resolved_truth);
   if (zeroQFinal.violation) {
-    return {
-      body: "",
-      shouldSend: false,
-      noSendReason: "inbound_resolved_truth_zero_question_violation",
-      replySource: "v3_inbound_relationship_lane",
-      turnPurpose: turnPurpose || "no_send",
-      voiceConfidence,
-      usedFacts,
-      safetyNotes: [...safetyNotes, zeroQFinal.reason ?? "resolved_truth_zero_questions"],
-      metadata: {
-        ...baseMeta,
-        ...laneOpenAiJsonMeta,
-        lane_stage: "inbound_resolved_truth_zero_question_validation_failed",
-        v3_candidate_body: body,
-        inbound_resolved_truth_zero_question_reason: zeroQFinal.reason,
-        ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
-      },
-      openAiOk: true,
-    };
+    const recovered = tryAcknowledgeCompletionZeroQuestionRecovery(body, args);
+    if (recovered.ok) {
+      body = recovered.body;
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = { ...successRepairExtra, ...recovered.telemetry };
+    } else {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "inbound_resolved_truth_zero_question_violation",
+        replySource: "v3_inbound_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, zeroQFinal.reason ?? "resolved_truth_zero_questions"],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "inbound_resolved_truth_zero_question_validation_failed",
+          v3_candidate_body: body,
+          inbound_resolved_truth_zero_question_reason: zeroQFinal.reason,
+          ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
+          ...recovered.telemetry,
+        },
+        openAiOk: true,
+      };
+    }
   }
 
   const missReq = validateRequiredVerbatimSubstrings(body, args.facts.constraints.required_verbatim_substrings);
@@ -3142,6 +3188,10 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       ...successRepairExtra,
       ...finalInboundPraise.praiseMetadata,
       praise_policy_context: buildInboundPraisePolicyArgs(body, args.facts),
+      final_reply_source:
+        typeof successRepairExtra.final_reply_source === "string"
+          ? successRepairExtra.final_reply_source
+          : "writer",
     },
     openAiOk: true,
   };
