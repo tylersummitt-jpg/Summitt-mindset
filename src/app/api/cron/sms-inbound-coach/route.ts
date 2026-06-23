@@ -205,6 +205,9 @@ import {
 } from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import {
   bootstrapSmsPendingConfirmationFromInbound,
+  mapPendingConfirmationParseToUserAnswerType,
+  parseSmsConfirmation,
+  pendingConfirmationParseReason,
   tryHandleSmsInboundPendingResolution,
 } from "@/lib/v2-sms-pending-resolution-complete";
 import {
@@ -10227,6 +10230,11 @@ async function processV2SmsInboundPendingResolution(
   const rawPr = (job.raw_body || "").trim();
   const cAfter = (await getActiveCommitment(userId)) ?? c;
   const classificationPr = classifyV2InboundReply(rawPr);
+  const pendingConfirmationParse = parseSmsConfirmation(rawPr);
+  const pendingConfirmationParseReasonText = pendingConfirmationParseReason(pendingConfirmationParse);
+  const pendingConfirmationClassifierDivergence =
+    classificationPr.eventType === "user_yes" &&
+    (pendingConfirmationParse === "ambiguous" || pendingConfirmationParse === "no");
   const pendingVisible = result.replyBody.trim();
   const snapshot = JSON.stringify({
     title: cAfter.title,
@@ -10250,10 +10258,13 @@ async function processV2SmsInboundPendingResolution(
   const pendingFacts: InboundV3PendingResolutionFacts = {
     resolution_type: pendBefore?.kind ?? "unknown",
     pending_action: pendBefore?.kind ?? "unknown",
-    user_answer_type: classificationPr.eventType,
+    user_answer_type: mapPendingConfirmationParseToUserAnswerType(pendingConfirmationParse),
     state_transition_summary: result.stateTransitionSummary,
     updated_commitment_snapshot: snapshot,
     legacy_pending_reply_preview: pendingVisible.slice(0, 500),
+    pending_confirmation_parse: pendingConfirmationParse,
+    pending_confirmation_parse_reason: pendingConfirmationParseReasonText,
+    pending_confirmation_classifier_divergence: pendingConfirmationClassifierDivergence,
   };
   const seasonTransitionFacts = buildInboundSeasonTransitionFacts(result.seasonMutation);
 
@@ -10273,6 +10284,7 @@ async function processV2SmsInboundPendingResolution(
     pendingResolutionFacts: pendingFacts,
     seasonTransitionFacts,
     pendingResolutionAppliedOverride: pendingResolutionAppliedForLane,
+    deterministicClassifierOverride: "user_partial",
   });
 
   const recentEventsPr = await getRecentV2EventsForAi(cAfter.id);
@@ -10318,6 +10330,7 @@ async function processV2SmsInboundPendingResolution(
     telemetry_fact_sources: [
       "getPendingResolutionOrNull",
       "tryHandleSmsInboundPendingResolution",
+      "parseSmsConfirmation",
       "classifyV2InboundReply",
       "v2_pending_resolution_legacy_reply_preview_only",
     ],
@@ -10328,7 +10341,7 @@ async function processV2SmsInboundPendingResolution(
     meaningShadow: buildPendingResolutionMeaningShadow({
       commitmentId: cAfter.id,
       pendingKind: pendBefore?.kind ?? null,
-      userAnswerType: classificationPr.eventType,
+      userAnswerType: mapPendingConfirmationParseToUserAnswerType(pendingConfirmationParse),
       pendingApplied: pendingResolutionAppliedForLane,
       pendingCleared,
       seasonMutationKind: result.seasonMutation?.ok

@@ -11,6 +11,7 @@ import {
   buildInboundPendingReplacementFactsFromCommitment,
   detectPendingReplacementStateTruthViolations,
   detectSeasonTransitionTruthViolations,
+  tryPendingReplaceActiveTruthFallback,
 } from "@/lib/v3-inbound-pending-replacement-truth";
 import {
   buildInboundV3RelationshipFacts,
@@ -217,7 +218,191 @@ describe("produceInboundV3RelationshipSms pending replace truth", () => {
     else process.env.OPENAI_API_KEY = prevOpenAi;
   });
 
-  it("no-sends when model coaches stale canonical bar during pending replace", async () => {
+  it("11: sends fallback containing candidate when writer omits candidate during pending replace", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Great work last night — I'll add that to your calendar going forward.",
+              no_send_reason: null,
+              turn_purpose: "pending_replace",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: false,
+            }),
+          },
+        },
+      ],
+    });
+
+    const legacyPreview =
+      "I'm still holding: Walk 10,000 steps. Tell me if that's the lock—or what you want instead.";
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_brooke",
+      preferredName: "Brooke",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "I will declutter a little at a time",
+      userMessageRaw: "Yes, confirm and accomplished last night.",
+      coalescedInboundText: "Yes, confirm and accomplished last night.",
+      suppressedMessageSids: [],
+      transcriptLines: ["User: Yes, confirm and accomplished last night."],
+      northStarPacket,
+      gatedDecision: V3_REFINE_ONLY_GATED,
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "pending_resolution",
+      branchName: "sms_pending_resolution_complete",
+      branchMigratedToLane: true,
+      pendingResolutionFacts: {
+        resolution_type: "commitment_replace",
+        pending_action: "commitment_replace",
+        user_answer_type: "pending_confirmation_ambiguous",
+        state_transition_summary:
+          "Confirmation ambiguous; pending remains awaiting_confirmation before visible SMS.",
+        updated_commitment_snapshot: "{}",
+        legacy_pending_reply_preview: legacyPreview,
+      },
+    });
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_stage).toBe("pending_replace_truth_fallback");
+    expect(r.metadata.pending_replace_truth_fallback_used).toBe(true);
+    expect(r.body.toLowerCase()).toMatch(/walk|10,?000|steps/);
+    expect(r.body.toLowerCase()).not.toMatch(/reply yes|reply no/);
+    expect(r.body.toLowerCase()).not.toMatch(/updated|changed|locked in your goal/);
+    expect(r.metadata.final_reply_source).toBe("pending_replace_truth_fallback");
+  });
+
+  it("12: fallback does not claim goal changed", async () => {
+    const prFacts = pendingReplacementFacts;
+    const fallback = tryPendingReplaceActiveTruthFallback({
+      pendingReplacementFacts: prFacts,
+      legacyPendingReplyPreview:
+        "I'm still holding: Walk 10,000 steps. Tell me if that's the lock—or what you want instead.",
+      stateTransitionSummary:
+        "Confirmation ambiguous; pending remains awaiting_confirmation before visible SMS.",
+      truthViolations: ["pending_replace_candidate_not_represented"],
+    });
+    expect(fallback.ok).toBe(true);
+    if (fallback.ok) {
+      expect(fallback.body.toLowerCase()).not.toMatch(/updated|changed your goal|commitment is updated/);
+    }
+  });
+
+  it("14: fallback is not used when pending_resolution_applied is true", () => {
+    const fallback = tryPendingReplaceActiveTruthFallback({
+      pendingReplacementFacts: { ...pendingReplacementFacts, pending_resolution_applied: true },
+      legacyPendingReplyPreview: "Done. Updated bar: Walk 10,000 steps.",
+      stateTransitionSummary: "SMS pending-resolution replace applied",
+      truthViolations: ["pending_replace_candidate_not_represented"],
+    });
+    expect(fallback.ok).toBe(false);
+    expect(fallback.reason).toBe("pending_not_active_or_applied");
+  });
+
+  it("15: constructs safe fallback when legacy lacks candidate but pending candidate exists", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Great work last night!",
+              no_send_reason: null,
+              turn_purpose: "pending_replace",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: false,
+            }),
+          },
+        },
+      ],
+    });
+
+    const facts = buildInboundV3RelationshipFacts({
+      clerkUserId: "user_brooke",
+      preferredName: "Brooke",
+      timezone: "America/Chicago",
+      localTimeIso: "2026-05-12T09:00:00.000Z",
+      commitment: baseCommitment(),
+      effectiveAsk: "I will declutter a little at a time",
+      userMessageRaw: "yes",
+      coalescedInboundText: "yes",
+      suppressedMessageSids: [],
+      transcriptLines: ["User: yes"],
+      northStarPacket,
+      gatedDecision: V3_REFINE_ONLY_GATED,
+      deterministicEventType: "user_partial",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "pending_resolution",
+      branchName: "sms_pending_resolution_complete",
+      branchMigratedToLane: true,
+      pendingResolutionFacts: {
+        resolution_type: "commitment_replace",
+        pending_action: "commitment_replace",
+        user_answer_type: "pending_confirmation_ambiguous",
+        state_transition_summary: "pending remains awaiting_confirmation",
+        updated_commitment_snapshot: "{}",
+        legacy_pending_reply_preview: "Thanks — noted.",
+      },
+    });
+
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test"],
+    });
+
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_stage).toBe("pending_replace_truth_fallback");
+    expect(r.metadata.pending_replace_truth_fallback_reason).toBe("constructed_safe_fallback");
+    expect(r.metadata.pending_replace_state_truth_blocked_reasons).toEqual(
+      expect.arrayContaining(["pending_replace_candidate_not_represented"])
+    );
+    expect(r.body.toLowerCase()).toMatch(/walk|10,?000|steps/);
+  });
+
+  it("uses fallback when model coaches stale canonical bar during pending replace", async () => {
     createMock.mockResolvedValueOnce({
       choices: [
         {
@@ -238,6 +423,8 @@ describe("produceInboundV3RelationshipSms pending replace truth", () => {
       ],
     });
 
+    const legacyPreview =
+      "I'm still holding: Walk 10,000 steps. Tell me if that's the lock—or what you want instead.";
     const facts = buildInboundV3RelationshipFacts({
       clerkUserId: "user_brooke",
       preferredName: "Brooke",
@@ -270,6 +457,15 @@ describe("produceInboundV3RelationshipSms pending replace truth", () => {
       routePurpose: "pending_resolution",
       branchName: "sms_pending_resolution_complete",
       branchMigratedToLane: true,
+      pendingResolutionFacts: {
+        resolution_type: "commitment_replace",
+        pending_action: "commitment_replace",
+        user_answer_type: "pending_confirmation_ambiguous",
+        state_transition_summary:
+          "Confirmation ambiguous; pending remains awaiting_confirmation before visible SMS.",
+        updated_commitment_snapshot: "{}",
+        legacy_pending_reply_preview: legacyPreview,
+      },
     });
 
     expect(facts.pending_replacement_facts?.pending_candidate_behavior_statement).toContain("Walk");
@@ -279,11 +475,12 @@ describe("produceInboundV3RelationshipSms pending replace truth", () => {
       telemetry_fact_sources: ["test"],
     });
 
-    expect(r.shouldSend).toBe(false);
-    expect(r.metadata.lane_stage).toBe("pending_replace_state_truth_blocked");
+    expect(r.shouldSend).toBe(true);
+    expect(r.metadata.lane_stage).toBe("pending_replace_truth_fallback");
     expect(r.metadata.pending_replace_state_truth_blocked_reasons).toEqual(
       expect.arrayContaining(["pending_replace_coaches_stale_canonical_bar"])
     );
+    expect(r.body.toLowerCase()).toMatch(/walk|10,?000|steps/);
   });
 
   it("sends when model reflects the pending candidate", async () => {

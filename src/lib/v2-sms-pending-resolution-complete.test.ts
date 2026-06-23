@@ -83,7 +83,12 @@ vi.mock("@/lib/v2-human-sms-brain/flags", () => ({
 }));
 
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
-import { tryHandleSmsInboundPendingResolution } from "@/lib/v2-sms-pending-resolution-complete";
+import {
+  parseSmsConfirmation,
+  mapPendingConfirmationParseToUserAnswerType,
+  tryHandleSmsInboundPendingResolution,
+} from "@/lib/v2-sms-pending-resolution-complete";
+import { derivePersistenceDecision } from "@/lib/inbound-relationship-meaning";
 
 function commitmentAwaitingConfirm(
   overrides: Partial<Record<string, unknown>> = {}
@@ -331,6 +336,125 @@ describe("tryHandleSmsInboundPendingResolution — replace YES", () => {
     if (r.handled) {
       expect(r.replyBody.toLowerCase()).not.toMatch(/\bcandidate\b|\bpending\b/);
       expect(r.replyBody).toMatch(/bar you asked for/i);
+    }
+  });
+});
+
+describe("parseSmsConfirmation — pending goal confirm language", () => {
+  it("1: compound yes confirm with accomplishment tail => yes", () => {
+    expect(
+      parseSmsConfirmation(
+        "Yes, confirm and accomplished last night. Put on calendar going forward."
+      )
+    ).toBe("yes");
+  });
+
+  it("2: Yes, confirm => yes", () => {
+    expect(parseSmsConfirmation("Yes, confirm")).toBe("yes");
+  });
+
+  it("3: Confirm => yes", () => {
+    expect(parseSmsConfirmation("Confirm")).toBe("yes");
+  });
+
+  it("4: Yes, that's right => yes", () => {
+    expect(parseSmsConfirmation("Yes, that's right")).toBe("yes");
+  });
+
+  it("5: Yes, but change it to 9 hours => not yes", () => {
+    expect(parseSmsConfirmation("Yes, but change it to 9 hours")).not.toBe("yes");
+  });
+
+  it("6: Yes, instead make it 9 hours => not yes", () => {
+    expect(parseSmsConfirmation("Yes, instead make it 9 hours")).not.toBe("yes");
+  });
+
+  it("7: No, change it => no", () => {
+    expect(parseSmsConfirmation("No, change it")).toBe("no");
+  });
+
+  it("does not treat bare yes+accomplishment without confirm language as yes", () => {
+    expect(parseSmsConfirmation("Yes, I accomplished it last night")).not.toBe("yes");
+  });
+
+  it("maps parse results to pending user_answer_type semantics", () => {
+    expect(mapPendingConfirmationParseToUserAnswerType("yes")).toBe("pending_confirmed");
+    expect(mapPendingConfirmationParseToUserAnswerType("ambiguous")).toBe(
+      "pending_confirmation_ambiguous"
+    );
+    expect(mapPendingConfirmationParseToUserAnswerType("no")).toBe("pending_rejected");
+  });
+});
+
+describe("tryHandleSmsInboundPendingResolution — compound yes/confirm", () => {
+  it("8: awaiting_confirmation + compound yes/confirm => RPC called and pending applied", async () => {
+    const c = commitmentAwaitingConfirm({
+      candidate_behavior_statement: "Aiming for 8 hours of sleep from 10pm to 6am",
+      candidate_new_bar: "Aiming for 8 hours of sleep from 10pm to 6am",
+    });
+    getActiveCommitmentMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...c,
+        behavior_statement: "Aiming for 8 hours of sleep from 10pm to 6am",
+        pending_resolution_kind: null,
+        pending_resolution_payload: null,
+      });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_confirm_compound",
+        raw_body: "Yes, confirm and accomplished last night. Put on calendar going forward.",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(true);
+      expect(r.pendingClearedBeforeSms).toBe(true);
+    }
+  });
+
+  it("9: accomplishment tail on pending route defers outcome persistence (no proof write)", () => {
+    const raw =
+      "Yes, confirm and accomplished last night. Put on calendar going forward.";
+    const persistence = derivePersistenceDecision({
+      meaning: {
+        relationship_meaning: "reported_completion",
+        temporal_scope: "past",
+        confidence: "high",
+        evidence: ["reported_completion_candidate"],
+        disqualifiers: [],
+      },
+      routePriority: { pending_resolution: true },
+      classifierEventType: "user_yes",
+      rawInbound: raw,
+    });
+    expect(persistence.persistence_decision).toBe("defer_to_pending_resolution");
+  });
+
+  it("10: Yes, but change... does not RPC and stays pending clarify", async () => {
+    const c = commitmentAwaitingConfirm({
+      candidate_behavior_statement: "Walk 20 minutes after dinner",
+      candidate_new_bar: "Walk 20 minutes after dinner",
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_change",
+        raw_body: "Yes, but change it to 9 hours",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    expect(rpcMock).not.toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.pendingStillActiveAfterPhase1).toBe(true);
+      expect(r.replyBody).toMatch(/what would work better|clear daily action/i);
     }
   });
 });

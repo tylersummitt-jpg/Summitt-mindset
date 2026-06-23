@@ -50,6 +50,7 @@ import {
   detectSeasonTransitionTruthViolations,
   pendingReplacementStateTruthNoSendReason,
   seasonTransitionTruthNoSendReason,
+  tryPendingReplaceActiveTruthFallback,
   type InboundV3PendingReplacementFacts,
   type InboundV3SeasonTransitionFacts,
 } from "@/lib/v3-inbound-pending-replacement-truth";
@@ -1022,6 +1023,9 @@ export type InboundV3PendingResolutionFacts = {
   updated_commitment_snapshot: string;
   /** Non-speakable legacy pending-resolution reply body. */
   legacy_pending_reply_preview: string;
+  pending_confirmation_parse?: "yes" | "no" | "ambiguous";
+  pending_confirmation_parse_reason?: string;
+  pending_confirmation_classifier_divergence?: boolean;
   required_verbatim_substrings?: string[];
   required_meaning_summary?: string | null;
 };
@@ -1637,6 +1641,9 @@ export function slimPendingResolutionFactsForTelemetry(
     resolution_type: f.resolution_type,
     pending_action: f.pending_action,
     user_answer_type: f.user_answer_type,
+    pending_confirmation_parse: f.pending_confirmation_parse ?? null,
+    pending_confirmation_parse_reason: f.pending_confirmation_parse_reason ?? null,
+    pending_confirmation_classifier_divergence: f.pending_confirmation_classifier_divergence ?? null,
     legacy_pending_reply_preview_len: f.legacy_pending_reply_preview.length,
     updated_commitment_snapshot_len: f.updated_commitment_snapshot.length,
     required_verbatim_count: f.required_verbatim_substrings?.length ?? 0,
@@ -2666,9 +2673,9 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       ? Math.max(0, Math.min(1, parsed.voice_confidence))
       : null;
   const usedFacts = asStringArray(parsed.used_facts);
-  const safetyNotes = asStringArray(parsed.safety_notes);
+  let safetyNotes = asStringArray(parsed.safety_notes);
   const bodyPreview = (s: string) => (s.length > 220 ? `${s.slice(0, 219)}…` : s);
-  let successLaneStage: "ok" | "post_validate_repaired" = "ok";
+  let successLaneStage: "ok" | "post_validate_repaired" | "pending_replace_truth_fallback" = "ok";
   let successRepairExtra: Record<string, unknown> = {};
 
   if (!shouldSend) {
@@ -3121,24 +3128,54 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
   if (prFacts?.pending_resolution_active && !prFacts.pending_resolution_applied) {
     const truthViolations = detectPendingReplacementStateTruthViolations(body, prFacts);
     if (truthViolations.length > 0) {
-      return {
-        body: "",
-        shouldSend: false,
-        noSendReason: pendingReplacementStateTruthNoSendReason(truthViolations),
-        replySource: "v3_inbound_relationship_lane",
-        turnPurpose: turnPurpose || "no_send",
-        voiceConfidence,
-        usedFacts,
-        safetyNotes: [...safetyNotes, ...truthViolations.map((v) => `blocked:${v}`)],
-        metadata: {
-          ...baseMeta,
-          ...laneOpenAiJsonMeta,
-          lane_stage: "pending_replace_state_truth_blocked",
-          v3_candidate_body: body,
+      const writerBodyBlocked = body;
+      const fallback = tryPendingReplaceActiveTruthFallback({
+        pendingReplacementFacts: prFacts,
+        legacyPendingReplyPreview: args.facts.pending_resolution_facts?.legacy_pending_reply_preview,
+        stateTransitionSummary: args.facts.pending_resolution_facts?.state_transition_summary,
+        truthViolations,
+      });
+      if (fallback.ok) {
+        body = fallback.body;
+        successLaneStage = "pending_replace_truth_fallback";
+        successRepairExtra = {
+          ...successRepairExtra,
+          final_reply_source: "pending_replace_truth_fallback",
+          pending_replace_truth_fallback_used: true,
+          pending_replace_truth_fallback_reason: fallback.reason,
+          pending_replace_truth_fallback_candidate_present: fallback.candidatePresent,
           pending_replace_state_truth_blocked_reasons: truthViolations,
-        },
-        openAiOk: true,
-      };
+          v3_writer_body_blocked: writerBodyBlocked,
+        };
+        safetyNotes = [
+          ...safetyNotes,
+          ...truthViolations.map((v) => `blocked:${v}`),
+          `pending_replace_truth_fallback:${fallback.reason}`,
+        ];
+      } else {
+        return {
+          body: "",
+          shouldSend: false,
+          noSendReason: pendingReplacementStateTruthNoSendReason(truthViolations),
+          replySource: "v3_inbound_relationship_lane",
+          turnPurpose: turnPurpose || "no_send",
+          voiceConfidence,
+          usedFacts,
+          safetyNotes: [...safetyNotes, ...truthViolations.map((v) => `blocked:${v}`)],
+          metadata: {
+            ...baseMeta,
+            ...laneOpenAiJsonMeta,
+            lane_stage: "pending_replace_state_truth_blocked",
+            v3_candidate_body: writerBodyBlocked,
+            pending_replace_state_truth_blocked_reasons: truthViolations,
+            pending_replace_truth_fallback_used: false,
+            pending_replace_truth_fallback_reason: fallback.reason,
+            pending_replace_truth_fallback_candidate_present: fallback.candidatePresent,
+            final_reply_source: "writer",
+          },
+          openAiOk: true,
+        };
+      }
     }
   }
 

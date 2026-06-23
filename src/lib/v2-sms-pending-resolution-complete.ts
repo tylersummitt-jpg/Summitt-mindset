@@ -76,7 +76,63 @@ function buildSmsPendingRpcHoldPreviewDraft(cand: string): string {
   return `I couldn't safely update that yet. I still have the bar you asked for: ${cand}. Send YES again, or send the cleaner version you want me to use.`;
 }
 
-export function parseSmsConfirmation(raw: string): "yes" | "no" | "ambiguous" {
+export type PendingConfirmationParse = "yes" | "no" | "ambiguous";
+
+const PENDING_CONFIRM_CONTRADICTION_RE =
+  /\b(but\s+change|except|instead|different|not\s+that|wrong|adjust|amend|revise)\b/i;
+
+const PENDING_CONFIRM_YES_PHRASE_RES: RegExp[] = [
+  /\bconfirm(ed)?\b/i,
+  /\block(?:\s+it)?\s+in\b/i,
+  /\b(that'?s|thats)\s+right\b/i,
+  /\bcorrect\b/i,
+  /\bsounds\s+good\b/i,
+  /\bgo\s+ahead\b/i,
+  /\bplease\s+do\b/i,
+  /\bmake\s+it\s+that\b/i,
+  /\bset\s+it\b/i,
+  /\bupdate\s+it\b/i,
+  /\bput\s+it\s+on\s+(?:the\s+)?calendar\b/i,
+  /\bdo\s+it\b/i,
+];
+
+function hasPendingConfirmContradiction(lower: string, trimmed: string): boolean {
+  if (PENDING_CONFIRM_CONTRADICTION_RE.test(lower)) return true;
+  if (/\b(don'?t|do not)\b/i.test(lower)) return true;
+  if (/^no[,.!\s]/i.test(trimmed)) return true;
+  if (/^yes[,.!\s].*\b(not\s+that|no)\b/i.test(lower)) return true;
+  return false;
+}
+
+function hasPendingConfirmYesLanguage(lower: string): boolean {
+  return PENDING_CONFIRM_YES_PHRASE_RES.some((re) => re.test(lower));
+}
+
+export function mapPendingConfirmationParseToUserAnswerType(
+  parse: PendingConfirmationParse
+): string {
+  switch (parse) {
+    case "yes":
+      return "pending_confirmed";
+    case "no":
+      return "pending_rejected";
+    case "ambiguous":
+      return "pending_confirmation_ambiguous";
+  }
+}
+
+export function pendingConfirmationParseReason(parse: PendingConfirmationParse): string {
+  switch (parse) {
+    case "yes":
+      return "pending_confirm_language_detected";
+    case "no":
+      return "pending_reject_language_detected";
+    case "ambiguous":
+      return "pending_confirm_unclear";
+  }
+}
+
+export function parseSmsConfirmation(raw: string): PendingConfirmationParse {
   const t = raw.trim();
   const lower = t.toLowerCase();
   if (!lower) return "ambiguous";
@@ -84,11 +140,21 @@ export function parseSmsConfirmation(raw: string): "yes" | "no" | "ambiguous" {
   if (/^(yes|yep|yeah|yup|y)$/i.test(t)) return "yes";
   if (/^(no|nope|nah|n)$/i.test(t)) return "no";
 
-  if (/\b(do it|that's right|thats right|correct|make it that|sounds good|go ahead|please do|lock it in)\b/i.test(lower)) {
-    if (/\b(no|not|wrong|change)\b/i.test(lower)) return "ambiguous";
+  if (/\b(not that|wrong|change it)\b/i.test(lower)) return "no";
+  // Compound "no, <alternative bar>" stays ambiguous — documented A3 limitation.
+  if (/^no,\s+/i.test(t) && !/\b(change it|not that|wrong)\b/i.test(lower)) {
+    return "ambiguous";
+  }
+  if (/^no[,.!\s]/i.test(t)) return "no";
+
+  if (hasPendingConfirmYesLanguage(lower)) {
+    if (hasPendingConfirmContradiction(lower, t)) return "ambiguous";
+    if (/\b(no|not|wrong|change)\b/i.test(lower) && !/\bconfirm(ed)?\b/i.test(lower)) {
+      return "ambiguous";
+    }
     return "yes";
   }
-  if (/\b(not that|wrong|change it)\b/i.test(lower)) return "no";
+
   return "ambiguous";
 }
 

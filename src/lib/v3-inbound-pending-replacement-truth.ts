@@ -237,6 +237,96 @@ export function computePendingCommitmentReplaceApplied(args: {
   return bodyRepresentsPendingCandidate(after, cand);
 }
 
+const PENDING_REPLACE_TRUTH_FALLBACK_VIOLATIONS = new Set([
+  "pending_replace_candidate_not_represented",
+  "pending_replace_coaches_stale_canonical_bar",
+  "pending_replace_false_applied_language",
+]);
+
+/** Human-safe clarify copy when pending replace is still active (no Reply YES/NO menu). */
+export function buildPendingReplaceSafeClarificationFallback(candidate: string): string {
+  const cand = candidate.trim();
+  return `I'm still holding: ${cand}. Tell me if that's the bar you want locked in, or what you want instead.`;
+}
+
+export function tryPendingReplaceActiveTruthFallback(args: {
+  pendingReplacementFacts: InboundV3PendingReplacementFacts;
+  legacyPendingReplyPreview?: string | null;
+  stateTransitionSummary?: string | null;
+  truthViolations: string[];
+}): {
+  ok: true;
+  body: string;
+  reason: string;
+  candidatePresent: true;
+} | {
+  ok: false;
+  reason: string;
+  candidatePresent: boolean;
+} {
+  const pr = args.pendingReplacementFacts;
+  if (!pr.pending_resolution_active || pr.pending_resolution_applied) {
+    return { ok: false, reason: "pending_not_active_or_applied", candidatePresent: false };
+  }
+
+  if (
+    !args.truthViolations.some((v) => PENDING_REPLACE_TRUTH_FALLBACK_VIOLATIONS.has(v))
+  ) {
+    return { ok: false, reason: "violations_not_fallback_eligible", candidatePresent: false };
+  }
+
+  const summary = (args.stateTransitionSummary ?? "").trim();
+  const pendingStillActive =
+    pr.pending_resolution_sms_state === "awaiting_confirmation" ||
+    pr.pending_resolution_sms_state === "awaiting_candidate" ||
+    /awaiting_confirmation|pending remains|still awaiting|ambiguous|not applied|clarify|active_clarify/i.test(
+      summary
+    );
+  if (!pendingStillActive) {
+    return { ok: false, reason: "pending_not_active_after_phase1", candidatePresent: false };
+  }
+
+  const candidate =
+    pr.pending_candidate_behavior_statement.trim() ||
+    pr.pending_candidate_new_bar?.trim() ||
+    "";
+  if (!candidate) {
+    return { ok: false, reason: "missing_candidate", candidatePresent: false };
+  }
+
+  let fallbackBody = (args.legacyPendingReplyPreview ?? "").trim();
+  if (!fallbackBody || !bodyRepresentsPendingCandidate(fallbackBody, candidate)) {
+    fallbackBody = buildPendingReplaceSafeClarificationFallback(candidate);
+  } else if (/reply\s+yes/i.test(fallbackBody)) {
+    fallbackBody = buildPendingReplaceSafeClarificationFallback(candidate);
+  }
+
+  if (!bodyRepresentsPendingCandidate(fallbackBody, candidate)) {
+    return { ok: false, reason: "fallback_lacks_candidate", candidatePresent: false };
+  }
+
+  const fallbackViolations = detectPendingReplacementStateTruthViolations(fallbackBody, pr);
+  if (fallbackViolations.length > 0) {
+    return {
+      ok: false,
+      reason: "fallback_still_violates_truth",
+      candidatePresent: bodyRepresentsPendingCandidate(fallbackBody, candidate),
+    };
+  }
+
+  const legacyTrim = (args.legacyPendingReplyPreview ?? "").trim();
+  let reason: string;
+  if (legacyTrim && fallbackBody === legacyTrim) {
+    reason = "legacy_pending_reply_preview";
+  } else if (/reply\s+yes/i.test(legacyTrim)) {
+    reason = "legacy_had_robot_menu_replaced";
+  } else {
+    reason = "constructed_safe_fallback";
+  }
+
+  return { ok: true, body: fallbackBody, reason, candidatePresent: true };
+}
+
 export function buildInboundPendingReplacementFactsFromCommitment(
   commitment: ActiveV2CommitmentRow,
   options?: { pendingResolutionApplied?: boolean }
