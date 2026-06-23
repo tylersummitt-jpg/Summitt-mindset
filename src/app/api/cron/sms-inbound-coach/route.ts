@@ -2606,6 +2606,7 @@ type InboundOutcomePersistOrchestrationArgs = {
   turnUnderstandingContext?: InboundTurnUnderstandingContext | null;
   turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
   inboundMeaningForPersist?: InboundMeaningFacts | null;
+  timezone?: string;
 };
 
 async function tryPersistInboundAccountabilityOutcomeBeforeSend(
@@ -2649,6 +2650,8 @@ async function tryPersistInboundAccountabilityOutcomeBeforeSend(
     commitmentBehaviorStatement: args.commitment.behavior_statement,
     effectiveAsk: args.effectiveBehavior,
     commitmentTitle: args.commitment.title,
+    recentEventsNewestFirst: args.recentEvents,
+    timezone: args.timezone ?? null,
   });
 
   logInboundOutcomePersistAttempt({
@@ -3435,6 +3438,7 @@ async function processV2NormalInboundOutcome(
             normalizedHint,
             gatedDecision: V3_REFINE_ONLY_GATED,
             recentEvents,
+            timezone,
             effectiveBehavior,
             turnUnderstandingContext: inboundTurnUnderstandingCtx,
           },
@@ -3693,6 +3697,7 @@ async function processV2NormalInboundOutcome(
             normalizedHint,
             gatedDecision: V3_REFINE_ONLY_GATED,
             recentEvents,
+            timezone,
             effectiveBehavior,
             turnUnderstandingContext: inboundTurnUnderstandingCtx,
             payloadJson: {
@@ -3717,6 +3722,7 @@ async function processV2NormalInboundOutcome(
         normalizedHint,
         gatedDecision: V3_REFINE_ONLY_GATED,
         recentEvents,
+        timezone,
         effectiveBehavior,
         turnUnderstandingContext: inboundTurnUnderstandingCtx,
         payloadJson: {
@@ -4056,6 +4062,7 @@ async function processV2NormalInboundOutcome(
           normalizedHint,
           gatedDecision: gdFallback,
           recentEvents,
+          timezone,
           effectiveBehavior,
           turnUnderstandingContext: inboundTurnUnderstandingCtx,
           payloadJson: {
@@ -4242,6 +4249,7 @@ async function processV2NormalInboundOutcome(
             normalizedHint,
             gatedDecision: gdFallback,
             recentEvents,
+            timezone,
             effectiveBehavior,
             turnUnderstandingContext: inboundTurnUnderstandingCtx,
             payloadJson: {
@@ -4960,6 +4968,7 @@ async function processV2NormalInboundOutcome(
           normalizedHint,
           gatedDecision,
           recentEvents,
+          timezone,
           effectiveBehavior,
           proofMeta: accountabilityProofMoment,
           turnUnderstandingContext: inboundTurnUnderstandingCtx,
@@ -5154,6 +5163,7 @@ async function processV2NormalInboundOutcome(
           normalizedHint,
           gatedDecision,
           recentEvents,
+          timezone,
           effectiveBehavior,
           proofMeta: accountabilityProofMoment,
           turnUnderstandingContext: inboundTurnUnderstandingCtx,
@@ -5175,6 +5185,7 @@ async function processV2NormalInboundOutcome(
       normalizedHint,
       gatedDecision,
       recentEvents,
+      timezone,
       effectiveBehavior,
       proofMeta: accountabilityProofMoment,
       turnUnderstandingContext: inboundTurnUnderstandingCtx,
@@ -5351,6 +5362,7 @@ async function processV2NormalInboundOutcome(
             normalizedHint,
             gatedDecision,
             recentEvents,
+            timezone,
             effectiveBehavior,
             proofMeta: accountabilityProofMoment,
             laneExclusion: "arc_clarify_only",
@@ -5551,6 +5563,7 @@ async function processV2NormalInboundOutcome(
             normalizedHint,
             gatedDecision,
             recentEvents,
+            timezone,
             effectiveBehavior,
             proofMeta: accountabilityProofMoment,
             turnUnderstandingContext: inboundTurnUnderstandingCtx,
@@ -5573,6 +5586,7 @@ async function processV2NormalInboundOutcome(
         normalizedHint,
         gatedDecision,
         recentEvents,
+        timezone,
         effectiveBehavior,
         proofMeta: accountabilityProofMoment,
         turnUnderstandingContext: inboundTurnUnderstandingCtx,
@@ -6063,6 +6077,7 @@ async function processV2NormalInboundOutcome(
           normalizedHint,
           gatedDecision,
           recentEvents,
+          timezone,
           effectiveBehavior,
           proofMeta: accountabilityProofMoment,
           turnUnderstandingContext: inboundTurnUnderstandingCtx,
@@ -7197,6 +7212,7 @@ async function processV2NormalInboundOutcome(
     normalizedHint,
     gatedDecision,
     recentEvents,
+    timezone,
     effectiveBehavior,
     proofMeta: accountabilityProofMoment,
     payloadJson: {
@@ -7742,6 +7758,7 @@ async function processV2BlockerCapture(
           normalizedHint: blockerClassification.normalizedHint ?? null,
           gatedDecision: V3_REFINE_ONLY_GATED,
           recentEvents: recentEventsForCentral,
+          timezone,
           effectiveBehavior: effectiveBlockerAsk,
         },
         laneExtras: {
@@ -8064,6 +8081,7 @@ async function processV2BlockerCapture(
         normalizedHint: blockerClassification.normalizedHint ?? null,
         gatedDecision: V3_REFINE_ONLY_GATED,
         recentEvents: recentEventsForCentral,
+        timezone,
         effectiveBehavior: effectiveBlockerAsk,
       },
       laneExtras: {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  evaluateCompletionAlignmentForProof,
   isCommitmentAlignedRoutineStatusUpdateCompletion,
   isSubstantiveSelfReportedCompletionForProof,
 } from "@/lib/inbound-self-reported-completion";
@@ -124,5 +125,36 @@ describe("isCommitmentAlignedRoutineStatusUpdateCompletion", () => {
       })
     ).toBe(false);
     expect(isSubstantiveSelfReportedCompletionForProof("Yes at 2pm", wakeCommitment)).toBe(false);
+  });
+});
+
+describe("completion alignment with active step commitment", () => {
+  const stepCommitment = {
+    commitmentBehaviorStatement: "Walk 10,000 steps every day",
+    effectiveAsk: "Did you get your 10,000 steps today?",
+    commitmentTitle: "10,000 steps",
+  };
+
+  it.each([
+    "I got my 10,000 steps today",
+    "I walked 10,000 steps",
+    "I got 10,000 steps by cleaning",
+  ])("%s → substantive + aligned", (text) => {
+    expect(isSubstantiveSelfReportedCompletionForProof(text, stepCommitment)).toBe(true);
+    expect(evaluateCompletionAlignmentForProof(text, stepCommitment).aligned).toBe(true);
+  });
+
+  it.each([
+    "I brushed my teeth today",
+    "Well I hit my goal of brushing my teeth",
+    "I completed my goal of brushing my teeth",
+    "I met my goal of brushing my teeth",
+  ])("%s → not substantive or not aligned", (text) => {
+    const substantive = isSubstantiveSelfReportedCompletionForProof(text, stepCommitment);
+    const alignment = evaluateCompletionAlignmentForProof(text, stepCommitment);
+    expect(substantive || alignment.aligned).toBe(false);
+    if (/\bgoal\s+of\b/i.test(text)) {
+      expect(alignment.skipReason).toBe("off_goal_completion_claim");
+    }
   });
 });

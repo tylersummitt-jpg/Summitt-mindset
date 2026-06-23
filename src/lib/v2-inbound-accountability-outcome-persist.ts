@@ -46,7 +46,14 @@ import {
 } from "@/lib/v2-sms-accountability";
 
 export { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
-import { isSubstantiveSelfReportedCompletionForProof } from "@/lib/inbound-self-reported-completion";
+import {
+  evaluateCompletionAlignmentForProof,
+  isSubstantiveSelfReportedCompletionForProof,
+  type CompletionAlignmentSkipReason,
+} from "@/lib/inbound-self-reported-completion";
+import { recentEventsIncludeUserYesOnLocalDay } from "@/lib/north-star-sms-context-packet";
+import { getDateKeyInTimezone } from "@/lib/timezone";
+import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import {
   isFutureForwardPlanInbound,
   isGoalIncreaseIntentClarifyInbound,
@@ -89,7 +96,17 @@ export type InboundOutcomePersistSkipReason =
   | "coach_context_correction_not_miss"
   | "coach_process_dispute_not_miss"
   | "onboarding_process_dispute_not_miss"
-  | "goal_change_not_outcome_write";
+  | "goal_change_not_outcome_write"
+  | "completion_mismatch_active_commitment"
+  | "off_goal_completion_claim"
+  | "same_day_user_yes_already_recorded";
+
+export type ProofSpinePersistTelemetry = {
+  completion_alignment_checked?: boolean;
+  completion_alignment_result?: "aligned" | "mismatched";
+  completion_alignment_skip_reason?: CompletionAlignmentSkipReason;
+  same_day_user_yes_already_recorded?: boolean;
+};
 
 export type InboundOutcomePersistResult =
   | {
@@ -205,6 +222,9 @@ export type ShouldPersistInboundAccountabilityOutcomeArgs = {
   commitmentBehaviorStatement?: string | null;
   effectiveAsk?: string | null;
   commitmentTitle?: string | null;
+  recentEventsNewestFirst?: V2EventRowForAi[];
+  timezone?: string | null;
+  localDayKey?: string | null;
 };
 
 export type InboundTruthPersistBaselineOverride = "substantive_completion";
@@ -218,11 +238,13 @@ export type ShouldPersistInboundAccountabilityOutcomeResult =
       turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
       baselinePersistOverride?: InboundTruthPersistBaselineOverride;
       baselinePersistOverrideReason?: string;
+      proofSpineTelemetry?: ProofSpinePersistTelemetry;
     }
   | {
       persist: false;
       skipReason: InboundOutcomePersistSkipReason;
       turnUnderstandingPersistGuard?: TurnUnderstandingPersistGuardMeta | null;
+      proofSpineTelemetry?: ProofSpinePersistTelemetry;
     };
 
 function substantiveCompletionContextFromPersistArgs(
@@ -267,15 +289,18 @@ export function shouldApplySubstantiveCompletionBaselinePersistOverride(args: {
 export function inboundTruthPersistPayloadFromShouldResult(
   should: ShouldPersistInboundAccountabilityOutcomeResult
 ): Record<string, unknown> {
+  const spineTelemetry = should.proofSpineTelemetry ?? {};
   if (!should.persist) {
     return {
       server_allows_persistence_at_no_send: false,
       inbound_truth_persist_skipped_reason: should.skipReason,
+      ...spineTelemetry,
     };
   }
   const payload: Record<string, unknown> = {
     server_allows_persistence_at_no_send: true,
     inbound_truth_persist_event_type: should.resolvedEventType,
+    ...spineTelemetry,
   };
   if (should.baselinePersistOverride) {
     payload.inbound_truth_persist_baseline_override = should.baselinePersistOverride;
@@ -284,6 +309,74 @@ export function inboundTruthPersistPayloadFromShouldResult(
     payload.inbound_truth_persist_override_reason = should.baselinePersistOverrideReason;
   }
   return payload;
+}
+
+function resolveLocalDayKeyForProofSpine(args: {
+  localDayKey?: string | null;
+  timezone?: string | null;
+  inboundMeaning: InboundMeaningFacts;
+}): string | null {
+  const fromMeaning =
+    args.inboundMeaning.reported_for_day_key?.trim() ||
+    args.inboundMeaning.spoken_local_day_key?.trim() ||
+    null;
+  if (fromMeaning) return fromMeaning;
+  if (args.localDayKey?.trim()) return args.localDayKey.trim();
+  const tz = args.timezone?.trim();
+  if (!tz) return null;
+  return getDateKeyInTimezone(new Date(), tz);
+}
+
+function evaluateUserYesProofSpineSafetyGates(args: {
+  raw: string;
+  persistArgs: ShouldPersistInboundAccountabilityOutcomeArgs;
+  inboundMeaning: InboundMeaningFacts;
+}):
+  | { persist: false; skipReason: InboundOutcomePersistSkipReason; proofSpineTelemetry: ProofSpinePersistTelemetry }
+  | { proofSpineTelemetry: ProofSpinePersistTelemetry }
+  | null {
+  const alignmentCtx = substantiveCompletionContextFromPersistArgs(args.persistArgs);
+  const alignment = evaluateCompletionAlignmentForProof(args.raw, alignmentCtx);
+  const alignmentTelemetry: ProofSpinePersistTelemetry = {
+    completion_alignment_checked: true,
+    completion_alignment_result: alignment.aligned ? "aligned" : "mismatched",
+    ...(alignment.skipReason ? { completion_alignment_skip_reason: alignment.skipReason } : {}),
+  };
+
+  if (!alignment.aligned && alignment.skipReason) {
+    const skipReason: InboundOutcomePersistSkipReason =
+      alignment.skipReason === "off_goal_completion_claim"
+        ? "off_goal_completion_claim"
+        : "completion_mismatch_active_commitment";
+    return {
+      persist: false,
+      skipReason,
+      proofSpineTelemetry: alignmentTelemetry,
+    };
+  }
+
+  const events = args.persistArgs.recentEventsNewestFirst;
+  const timezone = args.persistArgs.timezone?.trim();
+  const localDayKey = resolveLocalDayKeyForProofSpine({
+    localDayKey: args.persistArgs.localDayKey,
+    timezone: args.persistArgs.timezone,
+    inboundMeaning: args.inboundMeaning,
+  });
+
+  if (events && events.length > 0 && timezone && localDayKey) {
+    if (recentEventsIncludeUserYesOnLocalDay(events, timezone, localDayKey)) {
+      return {
+        persist: false,
+        skipReason: "same_day_user_yes_already_recorded",
+        proofSpineTelemetry: {
+          ...alignmentTelemetry,
+          same_day_user_yes_already_recorded: true,
+        },
+      };
+    }
+  }
+
+  return { proofSpineTelemetry: alignmentTelemetry };
 }
 
 function evaluateUserYesPersistBackstop(args: {
@@ -513,7 +606,7 @@ function evaluateShouldPersistWithMeaning(
           e.includes("explicit") ||
           e.includes("saca_short_affirm")
       ) ||
-      /\b(did it|got my|got in|completed|finished|i did|hit the goal|hit my goal|steps)\b/i.test(raw));
+      /\b(did it|got my|got in|completed|finished|i did|hit the goal|steps)\b/i.test(raw));
   const sacaShortOutcomeBypass =
     (persistence === "write_user_yes_today" ||
       persistence === "write_user_no" ||
@@ -557,6 +650,30 @@ function evaluateShouldPersistWithMeaning(
     if (backstop) {
       return { persist: false, skipReason: backstop };
     }
+  }
+
+  if (meaningEventType === "user_yes") {
+    const spineGate = evaluateUserYesProofSpineSafetyGates({
+      raw,
+      persistArgs: args,
+      inboundMeaning,
+    });
+    if (spineGate && "persist" in spineGate && spineGate.persist === false) {
+      return {
+        persist: false,
+        skipReason: spineGate.skipReason,
+        proofSpineTelemetry: spineGate.proofSpineTelemetry,
+      };
+    }
+    const proofSpineTelemetry =
+      spineGate && "proofSpineTelemetry" in spineGate ? spineGate.proofSpineTelemetry : undefined;
+    return {
+      persist: true,
+      resolvedEventType: meaningEventType,
+      liveAccountabilityPromptDetected: livePrompt,
+      overrideGatedNoWrite,
+      ...(proofSpineTelemetry ? { proofSpineTelemetry } : {}),
+    };
   }
 
   return {

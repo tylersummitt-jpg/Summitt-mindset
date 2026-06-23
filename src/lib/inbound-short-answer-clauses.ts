@@ -44,6 +44,7 @@ function clauseHasExplicitCompletion(clause: string): boolean {
     return true;
   }
   if (/\bgot\s+my\s+[\d,.]+\s+steps\b/i.test(t)) return true;
+  if (/\bwalked\s+[\d,.]+\s+steps\b/i.test(t)) return true;
   if (/\bgot\s+my\s+(steps|run|walk|workout|calls|distribution|mileage)\s+in\b/i.test(t)) {
     return true;
   }

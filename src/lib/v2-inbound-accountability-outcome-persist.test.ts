@@ -1848,3 +1848,232 @@ describe("goal-change outcome persist guard", () => {
     expect(result.skipReason).toBe("goal_change_not_outcome_write");
   });
 });
+
+describe("proof spine safety — commitment alignment and same-day duplicate suppress", () => {
+  const noLivePromptCtx = {
+    has_live_accountability_prompt: false,
+    self_contained_accountability_answer: false,
+  };
+
+  const STEP_COMMITMENT = {
+    commitmentBehaviorStatement: "Walk 10,000 steps every day",
+    effectiveAsk: "Did you get your 10,000 steps today?",
+    commitmentTitle: "10,000 steps",
+  };
+
+  const TZ = "America/New_York";
+
+  function stepCompletionMeaning(rawBody: string) {
+    return buildInboundMeaningFacts({
+      rawInbound: rawBody,
+      classifierEventType: "user_yes",
+      classifierNormalizedHint: "completion_detail",
+      openQuestionPending: true,
+      latestOpenQuestion: "Did you get your steps in today?",
+      routePriority: { open_question_owns_turn: true },
+    });
+  }
+
+  function shouldPersistStepProof(args: {
+    rawBody: string;
+    messageSid: string;
+    commitmentId?: string;
+    inboundMeaning?: ReturnType<typeof buildInboundMeaningFacts>;
+    recentEventsNewestFirst?: { event_type: string; occurred_at: string; payload_json: Record<string, unknown> }[];
+  }) {
+    const inboundMeaning = args.inboundMeaning ?? stepCompletionMeaning(args.rawBody);
+    return shouldPersistInboundAccountabilityOutcome({
+      messageSid: args.messageSid,
+      commitmentId: args.commitmentId ?? "commit-steps",
+      rawBody: args.rawBody,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+      ...STEP_COMMITMENT,
+      recentEventsNewestFirst: args.recentEventsNewestFirst,
+      timezone: TZ,
+    });
+  }
+
+  function priorUserYesTodayEvent() {
+    return {
+      event_type: "user_yes",
+      occurred_at: new Date().toISOString(),
+      payload_json: {},
+    };
+  }
+
+  it("step commitment + I got my 10,000 steps today → persist user_yes", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I got my 10,000 steps today",
+      messageSid: "SM_steps_1",
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("step commitment + I walked 10,000 steps → persist user_yes", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I walked 10,000 steps",
+      messageSid: "SM_steps_2",
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("step commitment + I got 10,000 steps by cleaning → persist user_yes", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I got 10,000 steps by cleaning",
+      messageSid: "SM_steps_3",
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("step commitment + I brushed my teeth today → no user_yes", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I brushed my teeth today",
+      messageSid: "SM_teeth_status",
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("step commitment + Well I hit my goal of brushing my teeth → no user_yes (off_goal)", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "Well I hit my goal of brushing my teeth",
+      messageSid: "SM_teeth_goal",
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("off_goal_completion_claim");
+      expect(result.proofSpineTelemetry?.completion_alignment_skip_reason).toBe(
+        "off_goal_completion_claim"
+      );
+    }
+  });
+
+  it("step commitment + I completed my goal of brushing my teeth → no user_yes", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I completed my goal of brushing my teeth",
+      messageSid: "SM_teeth_completed_goal",
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("off_goal_completion_claim");
+    }
+  });
+
+  it("existing same-day user_yes + repeated steps proof → no second user_yes", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I got my 10,000 steps today",
+      messageSid: "SM_steps_repeat",
+      recentEventsNewestFirst: [priorUserYesTodayEvent()],
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("same_day_user_yes_already_recorded");
+      expect(result.proofSpineTelemetry?.same_day_user_yes_already_recorded).toBe(true);
+    }
+  });
+
+  it("existing same-day user_yes + detail message → no second user_yes", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I did it by cleaning my house!",
+      messageSid: "SM_steps_detail",
+      recentEventsNewestFirst: [priorUserYesTodayEvent()],
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("same_day_user_yes_already_recorded");
+    }
+  });
+
+  it("different commitment_id same day with no prior events for that commitment → still persist", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I got my 10,000 steps today",
+      messageSid: "SM_other_commit",
+      commitmentId: "commit-other",
+      recentEventsNewestFirst: [],
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("user_no and user_partial persist paths are not blocked by alignment gate", () => {
+    const missMeaning = buildInboundMeaningFacts({
+      rawInbound: "No, I missed my steps today",
+      classifierEventType: "user_no",
+      openQuestionPending: true,
+      latestOpenQuestion: "Did you get your steps?",
+    });
+    const missResult = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_miss_steps",
+      commitmentId: "commit-steps",
+      rawBody: "No, I missed my steps today",
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: missMeaning,
+      ...STEP_COMMITMENT,
+      timezone: TZ,
+    });
+    expect(missResult).toMatchObject({ persist: true, resolvedEventType: "user_no" });
+
+    const partialMeaning = buildInboundMeaningFacts({
+      rawInbound: "I did half",
+      classifierEventType: "user_partial",
+      openQuestionPending: true,
+      latestOpenQuestion: "Did you get your steps?",
+    });
+    const partialResult = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_partial_steps",
+      commitmentId: "commit-steps",
+      rawBody: "I did half",
+      classifierEventType: "user_partial",
+      gatedDecision: defaultGatedDecision("user_partial", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: partialMeaning,
+      ...STEP_COMMITMENT,
+      timezone: TZ,
+    });
+    expect(partialResult).toMatchObject({ persist: true, resolvedEventType: "user_partial" });
+  });
+
+  it("live prompt + did it still persists user_yes", () => {
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_did_it_live",
+      commitmentId: "commit-steps",
+      rawBody: "I did it!",
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning: buildInboundMeaningFacts({
+        rawInbound: "I did it!",
+        classifierEventType: "user_yes",
+        openQuestionPending: true,
+        latestOpenQuestion: "Did you get your 10,000 steps today?",
+      }),
+      ...STEP_COMMITMENT,
+      timezone: TZ,
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
+  it("telemetry includes alignment fields on aligned persist", () => {
+    const result = shouldPersistStepProof({
+      rawBody: "I got my 10,000 steps today",
+      messageSid: "SM_telemetry",
+    });
+    expect(result.persist).toBe(true);
+    if (result.persist) {
+      expect(result.proofSpineTelemetry).toMatchObject({
+        completion_alignment_checked: true,
+        completion_alignment_result: "aligned",
+      });
+      const payload = inboundTruthPersistPayloadFromShouldResult(result);
+      expect(payload.completion_alignment_checked).toBe(true);
+      expect(payload.completion_alignment_result).toBe("aligned");
+    }
+  });
+});

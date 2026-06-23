@@ -57,6 +57,157 @@ const ROUTINE_COMMITMENT_THEME_RE =
 const ROUTINE_STATUS_COMPLETION_RE =
   /\b(getting\s+up|got\s+up|woke\s+up|i'?m\s+up|out\s+of\s+bed|showered|got\s+showered|getting\s+showered|took\s+a\s+shower|ready\s+for\s+(?:the\s+)?day|got\s+ready|getting\s+ready)\b/i;
 
+const STEP_THEME_RE =
+  /\b(steps?|walk(?:ing|ed)?|10,?000|ten\s+thousand|\d[\d,]*\s+steps?|miles?)\b/i;
+
+const DENTAL_ACTIVITY_RE = /\b(brush(?:ed|ing)?\s+(?:my\s+)?teeth|teeth|floss(?:ed|ing)?)\b/i;
+
+const EXPLICIT_GOAL_OF_RE =
+  /\b(?:hit|met|completed|finished|reached|achieved)\s+(?:the|my|today'?s?)\s+goal\s+of\s+(.+)/i;
+
+const ALIGNMENT_STOP_WORDS = new Set([
+  "the",
+  "my",
+  "a",
+  "an",
+  "of",
+  "to",
+  "for",
+  "and",
+  "or",
+  "today",
+  "tonight",
+  "though",
+  "well",
+  "this",
+  "morning",
+  "evening",
+  "goal",
+  "goals",
+]);
+
+function significantAlignmentTokens(text: string): Set<string> {
+  const tokens = text
+    .toLowerCase()
+    .replace(/[.!?]+$/g, "")
+    .split(/\W+/)
+    .filter((w) => w.length >= 3 && !ALIGNMENT_STOP_WORDS.has(w));
+  return new Set(tokens);
+}
+
+function tokenOverlapCount(a: string, b: string): number {
+  const ta = significantAlignmentTokens(a);
+  const tb = significantAlignmentTokens(b);
+  let overlap = 0;
+  for (const t of ta) {
+    if (tb.has(t)) overlap += 1;
+  }
+  return overlap;
+}
+
+function extractExplicitClaimedGoalObject(raw: string): string | null {
+  const m = raw.trim().match(EXPLICIT_GOAL_OF_RE);
+  if (!m?.[1]) return null;
+  return m[1]
+    .replace(/\b(today|tonight|this morning|this evening|though|well)\b/gi, "")
+    .replace(/[.!?]+$/g, "")
+    .trim();
+}
+
+function commitmentBlobFromContext(ctx: CompletionAlignmentContext): string {
+  return [ctx.commitmentBehaviorStatement, ctx.effectiveAsk, ctx.commitmentTitle]
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .join(" ")
+    .trim();
+}
+
+function claimedObjectAlignsWithCommitment(
+  claimedObject: string,
+  commitmentBlob: string,
+  rawMessage: string
+): boolean {
+  if (!claimedObject.trim() || !commitmentBlob.trim()) return true;
+
+  if (tokenOverlapCount(claimedObject, commitmentBlob) >= 1) return true;
+
+  const claimedLower = claimedObject.toLowerCase();
+  const blobLower = commitmentBlob.toLowerCase();
+  const commitmentIsSteps = STEP_THEME_RE.test(commitmentBlob);
+  const messageHasSteps = STEP_THEME_RE.test(rawMessage);
+  const claimedIsDental = DENTAL_ACTIVITY_RE.test(claimedObject);
+  const messageIsDental = DENTAL_ACTIVITY_RE.test(rawMessage);
+
+  if (commitmentIsSteps) {
+    if (STEP_THEME_RE.test(claimedObject) || messageHasSteps) return true;
+    if (claimedIsDental || (messageIsDental && !messageHasSteps)) return false;
+  }
+
+  if (ROUTINE_COMMITMENT_THEME_RE.test(commitmentBlob)) {
+    if (ROUTINE_STATUS_COMPLETION_RE.test(rawMessage) || ROUTINE_COMMITMENT_THEME_RE.test(claimedObject)) {
+      return true;
+    }
+  }
+
+  if (claimedLower.length >= 6 && blobLower.includes(claimedLower.slice(0, Math.min(claimedLower.length, 24)))) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasDominantOffGoalActivityWithoutAnchor(raw: string, commitmentBlob: string): boolean {
+  if (!commitmentBlob.trim()) return false;
+  if (!STEP_THEME_RE.test(commitmentBlob)) return false;
+  if (STEP_THEME_RE.test(raw)) return false;
+  if (DENTAL_ACTIVITY_RE.test(raw)) return true;
+  return false;
+}
+
+export type CompletionAlignmentContext = {
+  commitmentBehaviorStatement?: string | null;
+  effectiveAsk?: string | null;
+  commitmentTitle?: string | null;
+};
+
+export type CompletionAlignmentSkipReason =
+  | "completion_mismatch_active_commitment"
+  | "off_goal_completion_claim";
+
+export type CompletionAlignmentResult = {
+  checked: true;
+  aligned: boolean;
+  skipReason?: CompletionAlignmentSkipReason;
+};
+
+/**
+ * Narrow gate: block proof when the user names a different goal object than the active commitment.
+ * Generic "hit the goal" without naming a conflicting object stays aligned.
+ */
+export function evaluateCompletionAlignmentForProof(
+  raw: string,
+  ctx: CompletionAlignmentContext
+): CompletionAlignmentResult {
+  const t = raw.trim();
+  const commitmentBlob = commitmentBlobFromContext(ctx);
+  if (!t || !commitmentBlob) {
+    return { checked: true, aligned: true };
+  }
+
+  const explicitGoalObject = extractExplicitClaimedGoalObject(t);
+  if (explicitGoalObject) {
+    if (!claimedObjectAlignsWithCommitment(explicitGoalObject, commitmentBlob, t)) {
+      return { checked: true, aligned: false, skipReason: "off_goal_completion_claim" };
+    }
+    return { checked: true, aligned: true };
+  }
+
+  if (hasDominantOffGoalActivityWithoutAnchor(t, commitmentBlob)) {
+    return { checked: true, aligned: false, skipReason: "off_goal_completion_claim" };
+  }
+
+  return { checked: true, aligned: true };
+}
+
 export type CommitmentAlignedRoutineStatusArgs = {
   raw: string;
   commitmentBehaviorStatement?: string | null;
@@ -101,6 +252,15 @@ export type SubstantiveSelfReportedCompletionOptions = {
   commitmentTitle?: string | null;
 };
 
+function passesCommitmentAlignmentForProof(
+  raw: string,
+  options?: SubstantiveSelfReportedCompletionOptions
+): boolean {
+  if (!options) return true;
+  const alignment = evaluateCompletionAlignmentForProof(raw, options);
+  return alignment.aligned;
+}
+
 /**
  * True when inbound text is a self-contained, today-scoped completion report suitable for user_yes proof.
  */
@@ -130,6 +290,7 @@ export function isSubstantiveSelfReportedCompletionForProof(
     ) {
       return false;
     }
+    if (!passesCommitmentAlignmentForProof(t, options)) return false;
     return true;
   }
 
