@@ -17,18 +17,23 @@ vi.mock("@/lib/v2-commitment", async (importOriginal) => {
 
 import {
   bodyFromSendEventRow,
+  bodyFromWeeklySendEventRow,
   buildRecentExactThread72h,
   buildRecentExactThreadForBrief,
   BRIEF_THREAD_MAX_MESSAGES,
   capThreadMessagesForBrief,
   capThreadMessagesForBriefWithTelemetry,
+  createdAtFirstTimestampFromSendEventRow,
   deriveBriefThreadWindowTelemetry,
   formatAtLocal,
   isSendEventTrulySent,
   RECENT_EXACT_THREAD_WINDOW_HOURS,
+  timestampFromInboundMessageRow,
   timestampFromSendEventRow,
   type RecentExactThread72hMessage,
 } from "@/lib/sms-recent-exact-thread-72h";
+import { extractCoachBodiesFromBriefThread } from "@/lib/sms-recent-coach-body-anti-repeat";
+import { deriveFreshnessAvoidPhrasesForBrief } from "@/lib/sms-daily-fresh-move";
 
 const NOW = new Date("2026-05-18T12:00:00.000Z");
 const TZ = "America/Chicago";
@@ -38,6 +43,8 @@ function chain(rows: unknown[] | unknown | null) {
   const builder = {
     select: () => builder,
     eq: () => builder,
+    gte: () => builder,
+    not: () => builder,
     order: () => builder,
     limit: () => builder,
     maybeSingle: () => Promise.resolve(Array.isArray(rows) ? { data: rows[0] ?? null, error: null } : result),
@@ -48,6 +55,7 @@ function chain(rows: unknown[] | unknown | null) {
 
 function setupSupabaseTables(args: {
   sendRows?: unknown[];
+  weeklyRows?: unknown[];
   jobRows?: unknown[];
   inboundMsgRows?: unknown[];
   lastCtx?: unknown | null;
@@ -56,6 +64,8 @@ function setupSupabaseTables(args: {
     switch (table) {
       case "sms_send_events":
         return chain(args.sendRows ?? []);
+      case "sms_weekly_send_events":
+        return chain(args.weeklyRows ?? []);
       case "sms_inbound_coach_jobs":
         return chain(args.jobRows ?? []);
       case "sms_inbound_messages":
@@ -102,12 +112,40 @@ describe("isSendEventTrulySent", () => {
     ).toBe(false);
     expect(isSendEventTrulySent({ status: "cancelled", sms_body: "Hi" })).toBe(false);
   });
+
+  it("rejects dry_run and preview statuses", () => {
+    expect(isSendEventTrulySent({ status: "dry_run", sms_body: "Hi", message_sid: "SM1" })).toBe(
+      false
+    );
+    expect(isSendEventTrulySent({ status: "preview", sms_body: "Hi" })).toBe(false);
+  });
 });
 
 describe("timestampFromSendEventRow", () => {
   it("uses sent_at when created_at is missing", () => {
     const ts = timestampFromSendEventRow({ sent_at: "2026-06-21T10:00:00.000Z" });
     expect(ts).toBe(new Date("2026-06-21T10:00:00.000Z").getTime());
+  });
+
+  it("prefers sent_at over stale created_at when both exist", () => {
+    const row = {
+      created_at: "2026-06-10T10:00:00.000Z",
+      sent_at: "2026-06-21T14:00:00.000Z",
+    };
+    expect(timestampFromSendEventRow(row)).toBe(new Date("2026-06-21T14:00:00.000Z").getTime());
+    expect(createdAtFirstTimestampFromSendEventRow(row)).toBe(
+      new Date("2026-06-10T10:00:00.000Z").getTime()
+    );
+  });
+});
+
+describe("timestampFromInboundMessageRow", () => {
+  it("prefers received_at over created_at", () => {
+    const ts = timestampFromInboundMessageRow({
+      received_at: "2026-06-22T09:00:00.000Z",
+      created_at: "2026-06-20T09:00:00.000Z",
+    });
+    expect(ts).toBe(new Date("2026-06-22T09:00:00.000Z").getTime());
   });
 });
 
@@ -523,5 +561,154 @@ describe("buildRecentExactThreadForBrief visible send coverage", () => {
 
     expect(brief.messages.some((m) => /PREVIEW_ONLY/i.test(m.body))).toBe(false);
     expect(brief.timeline_7d.had_preview_messages).toBe(true);
+  });
+
+  it("includes row with stale created_at and recent sent_at in 7d brief thread", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "sent",
+          message_sid: "SM_STALE_CREATED",
+          created_at: "2026-06-10T08:00:00.000Z",
+          sent_at: "2026-06-21T14:00:00.000Z",
+          sms_body: "Distribution check after delayed send reservation.",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_rescue",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.message_count).toBeGreaterThanOrEqual(1);
+    expect(brief.messages.some((m) => /Distribution check after delayed/i.test(m.body))).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_effective_timestamp_rescue_count).toBeGreaterThan(
+      0
+    );
+    expect(brief.build_telemetry.daily_brief_thread_visible_send_candidate_count).toBeGreaterThan(0);
+  });
+
+  it("includes visible weekly row with metadata.north_star_gate.final_body", async () => {
+    setupSupabaseTables({
+      weeklyRows: [
+        {
+          status: "sent",
+          message_sid: "SM_WEEKLY",
+          sent_at: "2026-06-20T16:00:00.000Z",
+          created_at: "2026-06-18T16:00:00.000Z",
+          metadata: {
+            north_star_gate: { final_body: "Weekly Pat Pause — take a breath this Sunday." },
+          },
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_weekly",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.messages.some((m) => /Weekly Pat Pause/i.test(m.body))).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_weekly_candidate_count).toBe(1);
+    expect(bodyFromWeeklySendEventRow({
+      metadata: { north_star_gate: { final_body: "Weekly Pat Pause — take a breath this Sunday." } },
+    })).toMatch(/Weekly Pat Pause/i);
+  });
+
+  it("excludes skipped weekly no-send row", async () => {
+    setupSupabaseTables({
+      weeklyRows: [
+        {
+          status: "skipped_no_safe_v3_voice",
+          sent_at: "2026-06-20T16:00:00.000Z",
+          metadata: { north_star_gate: { final_body: "Should not appear" } },
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_weekly_skip",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.messages.some((m) => /Should not appear/i.test(m.body))).toBe(false);
+    expect(brief.build_telemetry.daily_brief_thread_filtered_out_count).toBeGreaterThan(0);
+  });
+
+  it("prefers received_at for inbound user message in brief thread", async () => {
+    setupSupabaseTables({
+      inboundMsgRows: [
+        {
+          raw_body: "Got the hour in last night.",
+          created_at: "2026-06-14T10:00:00.000Z",
+          received_at: "2026-06-21T22:00:00.000Z",
+          message_sid: "SM_IN_REC",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_in_rec",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.messages.some((m) => m.role === "user" && /Got the hour/i.test(m.body))).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_user_inbound_candidate_count).toBe(1);
+  });
+
+  it("freshness coach pool includes prior visible coach from brief thread", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "sent",
+          message_sid: "SM_CTA",
+          sent_at: "2026-06-21T10:00:00.000Z",
+          sms_body: "Aim for one hour of distribution work today before noon.",
+        },
+      ],
+    });
+
+    const now = new Date("2026-06-22T12:00:00.000Z");
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_fresh",
+      timezone: TZ,
+      now,
+    });
+    const coachBodies = extractCoachBodiesFromBriefThread(brief, now.getTime());
+    expect(coachBodies.length).toBeGreaterThan(0);
+    const freshness = deriveFreshnessAvoidPhrasesForBrief(coachBodies, {
+      effectiveAsk: "One hour of distribution",
+    });
+    expect(freshness.length).toBeGreaterThan(0);
+  });
+
+  it("build telemetry includes counts without message bodies", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "sent",
+          message_sid: "SM_TEL",
+          sent_at: "2026-06-21T10:00:00.000Z",
+          sms_body: "Telemetry test coach body with enough chars.",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_tel",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    const t = brief.build_telemetry;
+    expect(typeof t.daily_brief_thread_source_candidate_count).toBe("number");
+    expect(typeof t.daily_brief_thread_visible_send_candidate_count).toBe("number");
+    expect(JSON.stringify(t)).not.toMatch(/Telemetry test coach body/i);
+    expect(JSON.stringify(t)).not.toMatch(/recent_exact_thread/i);
   });
 });

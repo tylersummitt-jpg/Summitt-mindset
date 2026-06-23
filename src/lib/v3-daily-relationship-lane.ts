@@ -1394,6 +1394,7 @@ export async function produceDailyV3RelationshipSms(
         writer_payload_chars: writerMsgs.writer_payload_chars,
         writer_total_chars: writerMsgs.writer_total_chars,
         threadWindow,
+        threadBuild: briefThread.build_telemetry,
       })
     );
   } else {

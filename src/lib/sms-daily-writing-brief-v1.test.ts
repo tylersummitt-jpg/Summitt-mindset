@@ -572,6 +572,53 @@ describe("compact timing guidance for brief", () => {
     expect(telemetry.daily_brief_thread_newest_at_local).toBe("Jun 19 9:00 AM");
   });
 
+  it("observability: thread build counts exported without raw bodies", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [{ role: "coach", body: "Recent coach.", at_local: "Jun 19 9:00 AM" }],
+        message_count: 1,
+        char_count: 13,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+        build_telemetry: {
+          daily_brief_thread_source_candidate_count: 3,
+          daily_brief_thread_visible_send_candidate_count: 2,
+          daily_brief_thread_user_inbound_candidate_count: 1,
+          daily_brief_thread_weekly_candidate_count: 0,
+          daily_brief_thread_filtered_out_count: 1,
+          daily_brief_thread_filtered_out_reason_top: "timestamp_outside_window",
+          daily_brief_thread_effective_timestamp_rescue_count: 1,
+          daily_brief_thread_source_tables_present: "sms_inbound_messages|sms_send_events",
+        },
+      },
+      freshness_phrases: [],
+    });
+    const telemetryWithBuild = dailyWritingBriefTelemetry({
+      brief,
+      writer_system_chars: 900,
+      writer_payload_chars: 5000,
+      writer_total_chars: 5900,
+      threadBuild: {
+        daily_brief_thread_source_candidate_count: 3,
+        daily_brief_thread_visible_send_candidate_count: 2,
+        daily_brief_thread_user_inbound_candidate_count: 1,
+        daily_brief_thread_weekly_candidate_count: 0,
+        daily_brief_thread_filtered_out_count: 1,
+        daily_brief_thread_filtered_out_reason_top: "timestamp_outside_window",
+        daily_brief_thread_effective_timestamp_rescue_count: 1,
+        daily_brief_thread_source_tables_present: "sms_inbound_messages|sms_send_events",
+      },
+    });
+    expect(telemetryWithBuild.daily_brief_thread_source_candidate_count).toBe(3);
+    expect(telemetryWithBuild.daily_brief_thread_effective_timestamp_rescue_count).toBe(1);
+    expect(JSON.stringify(telemetryWithBuild)).not.toMatch(/Recent coach/i);
+  });
+
   it("observability: open-loop flags exported without raw text", () => {
     const facts = baseFacts({
       thread_memory: {

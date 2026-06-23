@@ -13,7 +13,7 @@ import {
   deriveFreshnessAvoidPhrasesForBrief,
   type BriefFreshnessAvoidPhrase,
 } from "@/lib/sms-daily-fresh-move";
-import type { BriefThreadWindowTelemetry } from "@/lib/sms-recent-exact-thread-72h";
+import type { BriefThreadBuildTelemetry, BriefThreadWindowTelemetry } from "@/lib/sms-recent-exact-thread-72h";
 import type { RecentExactThreadForBriefResult } from "@/lib/sms-recent-exact-thread-72h";
 import { buildActivePendingStateFromDailyFacts } from "@/lib/sms-active-pending-state";
 import type { RelationshipAnchorSources } from "@/lib/sms-relationship-anchors";
@@ -706,6 +706,7 @@ export function dailyWritingBriefTelemetry(args: {
   writer_payload_chars: number;
   writer_total_chars: number;
   threadWindow?: BriefThreadWindowTelemetry;
+  threadBuild?: BriefThreadBuildTelemetry;
 }): Record<string, unknown> {
   return {
     daily_writing_brief_version: DAILY_SMS_WRITING_BRIEF_VERSION,
@@ -718,6 +719,7 @@ export function dailyWritingBriefTelemetry(args: {
     daily_brief_thread_message_count: args.brief.recent_exact_thread.message_count,
     daily_brief_thread_char_count: args.brief.recent_exact_thread.char_count,
     daily_brief_thread_window_mode: args.brief.recent_exact_thread.mode,
+    ...(args.threadBuild ?? {}),
     ...dailyWritingBriefExtendedTelemetry({
       brief: args.brief,
       threadWindow: args.threadWindow ?? {

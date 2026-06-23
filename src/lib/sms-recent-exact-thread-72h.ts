@@ -60,8 +60,94 @@ type TimelineEntry = {
 const DEDUPE_WINDOW_MS = 5000;
 const NEAR_EXACT_SEND_MS = 120_000;
 const ROW_FETCH_LIMIT = 120;
+/** Extra fetch buffer so rows reserved early (stale created_at) but sent recently are retrieved. */
+const FETCH_BUFFER_MS = 7 * 24 * 60 * 60 * 1000;
 const PER_MESSAGE_SAFETY_CAP = 8000;
 const COACHING_OUTBOUND_KINDS = new Set(["coach", "question", "quote", "nudge", "weekly"]);
+
+export type BriefThreadFilterReason =
+  | "timestamp_outside_window"
+  | "empty_body"
+  | "not_truly_sent"
+  | "preview_or_skipped"
+  | "compliance_inbound";
+
+export type BriefThreadBuildTelemetry = {
+  daily_brief_thread_source_candidate_count: number;
+  daily_brief_thread_visible_send_candidate_count: number;
+  daily_brief_thread_user_inbound_candidate_count: number;
+  daily_brief_thread_weekly_candidate_count: number;
+  daily_brief_thread_filtered_out_count: number;
+  daily_brief_thread_filtered_out_reason_top: BriefThreadFilterReason | null;
+  daily_brief_thread_effective_timestamp_rescue_count: number;
+  daily_brief_thread_source_tables_present: string;
+};
+
+class ThreadBuildStats {
+  source_candidate_count = 0;
+  visible_send_candidate_count = 0;
+  user_inbound_candidate_count = 0;
+  weekly_candidate_count = 0;
+  filtered_out_count = 0;
+  effective_timestamp_rescue_count = 0;
+  private filteredReasons = new Map<BriefThreadFilterReason, number>();
+  private sourceTables = new Set<string>();
+
+  noteSourceTable(table: string) {
+    this.sourceTables.add(table);
+  }
+
+  recordFiltered(reason: BriefThreadFilterReason) {
+    this.filtered_out_count += 1;
+    this.filteredReasons.set(reason, (this.filteredReasons.get(reason) ?? 0) + 1);
+  }
+
+  toTelemetry(): BriefThreadBuildTelemetry {
+    let top: BriefThreadFilterReason | null = null;
+    let topN = 0;
+    for (const [reason, n] of this.filteredReasons) {
+      if (n > topN) {
+        top = reason;
+        topN = n;
+      }
+    }
+    return {
+      daily_brief_thread_source_candidate_count: this.source_candidate_count,
+      daily_brief_thread_visible_send_candidate_count: this.visible_send_candidate_count,
+      daily_brief_thread_user_inbound_candidate_count: this.user_inbound_candidate_count,
+      daily_brief_thread_weekly_candidate_count: this.weekly_candidate_count,
+      daily_brief_thread_filtered_out_count: this.filtered_out_count,
+      daily_brief_thread_filtered_out_reason_top: top,
+      daily_brief_thread_effective_timestamp_rescue_count: this.effective_timestamp_rescue_count,
+      daily_brief_thread_source_tables_present: [...this.sourceTables].sort().join("|"),
+    };
+  }
+}
+
+function firstValidTimestampMs(candidates: unknown[]): number {
+  for (const c of candidates) {
+    if (typeof c === "string") {
+      const ts = new Date(c).getTime();
+      if (Number.isFinite(ts) && ts > 0) return ts;
+    }
+  }
+  return 0;
+}
+
+function mergeUniqueRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const seen = new Set<string>();
+  const out: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    const sid = messageSidFromSendEventRow(row);
+    const key = sid
+      ? `sid:${sid}`
+      : `row:${String(row.created_at ?? "")}|${String(row.status ?? "")}|${String(row.sent_at ?? "")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
 
 const SKIPPED_SEND_STATUSES = new Set([
   "reserved",
@@ -166,8 +252,9 @@ const VISIBLE_SENT_STATUSES = new Set([
   "accepted",
   "sending",
   "success",
-  "dry_run",
 ]);
+
+const NON_VISIBLE_SEND_STATUSES = new Set(["dry_run", "preview", "canceled"]);
 
 function sendEventMetadata(row: Record<string, unknown>): Record<string, unknown> | null {
   const meta = row.metadata;
@@ -194,10 +281,43 @@ function isSendEventExplicitlyExcluded(row: Record<string, unknown>): boolean {
   return false;
 }
 
+/** Mirror Q14 weekly visible body fallback paths. */
+export function bodyFromWeeklySendEventRow(row: Record<string, unknown>): string {
+  const top = firstNonEmptyBody(
+    typeof row.body === "string" ? row.body : undefined,
+    typeof row.sms_body === "string" ? row.sms_body : undefined,
+    typeof row.final_body === "string" ? row.final_body : undefined,
+    typeof row.body_preview === "string" ? row.body_preview : undefined
+  );
+  if (top) return stripComplianceFooter(top);
+
+  const meta = row.metadata;
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+    const m = meta as Record<string, unknown>;
+    const nested = firstNonEmptyBody(
+      metaPathString(m, "body"),
+      metaPathString(m, "sms_body"),
+      metaPathString(m, "final_body"),
+      metaPathString(m, "body_preview"),
+      metaPathString(m, "north_star_gate.final_body"),
+      metaPathString(m, "north_star_gate.original_body"),
+      metaPathString(m, "v3_candidate_body"),
+      metaPathString(m, "final_voice_gate.final_body"),
+      metaPathString(m, "final_voice_gate.final_body_with_suffix"),
+      metaPathString(m, "final_voice_gate.final_voice_gate_body"),
+      metaPathString(m, "voice_send_decision.body_preview"),
+      metaPathString(m, "voice_send_decision.north_star_visible_body")
+    );
+    if (nested) return stripComplianceFooter(nested);
+  }
+  return "";
+}
+
 /** Visible user-facing send classification (aligned with SQL visible_sent, not preview/no-send). */
 export function isSendEventTrulySent(row: Record<string, unknown>): boolean {
   if (isSendEventExplicitlyExcluded(row)) return false;
   const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
+  if (NON_VISIBLE_SEND_STATUSES.has(status)) return false;
   if (VISIBLE_SENT_STATUSES.has(status)) return true;
   const sid = messageSidFromSendEventRow(row);
   if (sid) return true;
@@ -209,24 +329,58 @@ export function isSendEventTrulySent(row: Record<string, unknown>): boolean {
   return false;
 }
 
+/** Effective send time — Q14 order: sent_at before created_at. */
 export function timestampFromSendEventRow(row: Record<string, unknown>): number {
-  const candidates: unknown[] = [
-    row.created_at,
+  const meta = sendEventMetadata(row);
+  return firstValidTimestampMs([
     row.sent_at,
     row.processed_at,
+    row.created_at,
     row.updated_at,
-  ];
+    meta?.sent_at,
+    meta?.processed_at,
+    meta?.created_at,
+    meta?.updated_at,
+  ]);
+}
+
+/** Legacy created_at-only timestamp for rescue telemetry. */
+export function createdAtFirstTimestampFromSendEventRow(row: Record<string, unknown>): number {
   const meta = sendEventMetadata(row);
-  if (meta) {
-    candidates.push(meta.sent_at, meta.created_at, meta.updated_at);
-  }
-  for (const c of candidates) {
-    if (typeof c === "string") {
-      const ts = new Date(c).getTime();
-      if (Number.isFinite(ts) && ts > 0) return ts;
-    }
-  }
-  return 0;
+  return firstValidTimestampMs([row.created_at, row.updated_at, meta?.created_at, meta?.updated_at]);
+}
+
+export function timestampFromInboundMessageRow(row: Record<string, unknown>): number {
+  const meta =
+    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : null;
+  return firstValidTimestampMs([
+    row.received_at,
+    row.created_at,
+    row.updated_at,
+    row.inserted_at,
+    meta?.received_at,
+    meta?.created_at,
+    meta?.updated_at,
+  ]);
+}
+
+export function timestampFromCoachJobUserRow(row: Record<string, unknown>): number {
+  return firstValidTimestampMs([
+    row.created_at,
+    row.updated_at,
+    row.processed_at,
+  ]);
+}
+
+export function timestampFromCoachJobReplyRow(row: Record<string, unknown>): number {
+  return firstValidTimestampMs([
+    row.processed_at,
+    row.sent_at,
+    row.created_at,
+    row.updated_at,
+  ]);
 }
 
 function safeBody(raw: string): { body: string; body_truncated: boolean } {
@@ -318,6 +472,7 @@ export type RecentExactThreadForBriefResult = {
   char_count: number;
   /** Full 7d timeline for coach-body freshness extraction. */
   timeline_7d: RecentExactThread72hResult;
+  build_telemetry: BriefThreadBuildTelemetry;
 };
 
 export type BuildRecentExactThreadArgs = {
@@ -502,47 +657,115 @@ export function deriveBriefThreadWindowTelemetry(
 }
 
 async function buildRecentExactThreadWithWindowMs(
-  args: BuildRecentExactThreadArgs & { windowMs: number }
+  args: BuildRecentExactThreadArgs & { windowMs: number; stats?: ThreadBuildStats }
 ): Promise<RecentExactThread72hResult> {
   const now = args.now ?? new Date();
   const nowMs = now.getTime();
   const cutoffMs = nowMs - args.windowMs;
+  const fetchCutoffIso = new Date(cutoffMs - FETCH_BUFFER_MS).toISOString();
+  const windowCutoffIso = new Date(cutoffMs).toISOString();
   const tz = resolveUserTimezone(args.timezone);
   const includeSystemNoSend = args.includeSystemNoSend === true;
+  const stats = args.stats;
+
+  const sendSelect =
+    "sms_body, body, message_body, final_body, body_preview, created_at, sent_at, processed_at, updated_at, metadata, status, message_sid, outbound_message_sid";
+  const weeklySelect =
+    "body, sms_body, final_body, body_preview, created_at, sent_at, processed_at, updated_at, metadata, status, message_sid, outbound_message_sid";
 
   const [
-    { data: inboundMsgRows },
-    { data: sendRows },
-    { data: coachJobRows },
+    { data: inboundByCreated },
+    { data: inboundByReceived },
+    { data: sendByCreated },
+    { data: sendBySent },
+    { data: weeklyByCreated },
+    { data: weeklyBySent },
+    { data: coachJobByUpdated },
+    { data: coachJobBySent },
     { data: lastCtx },
   ] = await Promise.all([
     supabaseServer
       .from("sms_inbound_messages")
-      .select("raw_body, created_at, message_sid")
+      .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid")
       .eq("clerk_user_id", args.clerkUserId)
+      .gte("created_at", fetchCutoffIso)
+      .order("created_at", { ascending: false })
+      .limit(ROW_FETCH_LIMIT),
+    supabaseServer
+      .from("sms_inbound_messages")
+      .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid")
+      .eq("clerk_user_id", args.clerkUserId)
+      .gte("received_at", windowCutoffIso)
+      .order("received_at", { ascending: false })
+      .limit(ROW_FETCH_LIMIT),
+    supabaseServer
+      .from("sms_send_events")
+      .select(sendSelect)
+      .eq("clerk_user_id", args.clerkUserId)
+      .gte("created_at", fetchCutoffIso)
       .order("created_at", { ascending: false })
       .limit(ROW_FETCH_LIMIT),
     supabaseServer
       .from("sms_send_events")
-      .select(
-        "sms_body, body, message_body, final_body, body_preview, created_at, sent_at, processed_at, updated_at, metadata, status, message_sid, outbound_message_sid"
-      )
+      .select(sendSelect)
       .eq("clerk_user_id", args.clerkUserId)
+      .gte("sent_at", windowCutoffIso)
+      .order("sent_at", { ascending: false })
+      .limit(ROW_FETCH_LIMIT),
+    supabaseServer
+      .from("sms_weekly_send_events")
+      .select(weeklySelect)
+      .eq("clerk_user_id", args.clerkUserId)
+      .gte("created_at", fetchCutoffIso)
       .order("created_at", { ascending: false })
+      .limit(ROW_FETCH_LIMIT),
+    supabaseServer
+      .from("sms_weekly_send_events")
+      .select(weeklySelect)
+      .eq("clerk_user_id", args.clerkUserId)
+      .gte("sent_at", windowCutoffIso)
+      .order("sent_at", { ascending: false })
       .limit(ROW_FETCH_LIMIT),
     supabaseServer
       .from("sms_inbound_coach_jobs")
       .select(
-        "raw_body, reply_body, sent_at, updated_at, created_at, message_sid, status, outbound_message_sid"
+        "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid"
       )
       .eq("clerk_user_id", args.clerkUserId)
+      .gte("updated_at", fetchCutoffIso)
       .order("updated_at", { ascending: false })
+      .limit(ROW_FETCH_LIMIT),
+    supabaseServer
+      .from("sms_inbound_coach_jobs")
+      .select(
+        "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid"
+      )
+      .eq("clerk_user_id", args.clerkUserId)
+      .gte("sent_at", windowCutoffIso)
+      .order("sent_at", { ascending: false })
       .limit(ROW_FETCH_LIMIT),
     supabaseServer
       .from("sms_last_outbound_context")
       .select("sent_at, full_body, message_kind")
       .eq("clerk_user_id", args.clerkUserId)
       .maybeSingle(),
+  ]);
+
+  const inboundMsgRows = mergeUniqueRows([
+    ...((inboundByCreated ?? []) as Record<string, unknown>[]),
+    ...((inboundByReceived ?? []) as Record<string, unknown>[]),
+  ]);
+  const sendRows = mergeUniqueRows([
+    ...((sendByCreated ?? []) as Record<string, unknown>[]),
+    ...((sendBySent ?? []) as Record<string, unknown>[]),
+  ]);
+  const weeklyRows = mergeUniqueRows([
+    ...((weeklyByCreated ?? []) as Record<string, unknown>[]),
+    ...((weeklyBySent ?? []) as Record<string, unknown>[]),
+  ]);
+  const coachJobRows = mergeUniqueRows([
+    ...((coachJobByUpdated ?? []) as Record<string, unknown>[]),
+    ...((coachJobBySent ?? []) as Record<string, unknown>[]),
   ]);
 
   let checkSentEvents = args.preloadedCheckSentEvents;
@@ -553,25 +776,64 @@ async function buildRecentExactThreadWithWindowMs(
   const rich: TimelineEntry[] = [];
   const sendBodiesByTime = new Map<number, string>();
 
-  for (const r of sendRows ?? []) {
-    const row = r as Record<string, unknown>;
-    const ts = timestampFromSendEventRow(row);
-    if (!Number.isFinite(ts) || ts < cutoffMs) continue;
+  const noteEffectiveTimestampRescue = (row: Record<string, unknown>) => {
+    if (!stats) return;
+    const effectiveTs = timestampFromSendEventRow(row);
+    const createdFirstTs = createdAtFirstTimestampFromSendEventRow(row);
+    if (
+      createdFirstTs > 0 &&
+      createdFirstTs < cutoffMs &&
+      Number.isFinite(effectiveTs) &&
+      effectiveTs >= cutoffMs
+    ) {
+      stats.effective_timestamp_rescue_count += 1;
+    }
+  };
 
-    const bodyRaw = bodyFromSendEventRow(row);
-    if (!bodyRaw) continue;
+  const pushCoachSendRow = (
+    row: Record<string, unknown>,
+    source_table: "sms_send_events" | "sms_weekly_send_events",
+    message_kind: string
+  ) => {
+    if (stats) {
+      stats.source_candidate_count += 1;
+      stats.noteSourceTable(source_table);
+    }
+    noteEffectiveTimestampRescue(row);
+
+    const ts = timestampFromSendEventRow(row);
+    if (!Number.isFinite(ts) || ts < cutoffMs) {
+      stats?.recordFiltered("timestamp_outside_window");
+      return;
+    }
+
+    const bodyRaw =
+      source_table === "sms_weekly_send_events"
+        ? bodyFromWeeklySendEventRow(row)
+        : bodyFromSendEventRow(row);
+    if (!bodyRaw) {
+      stats?.recordFiltered("empty_body");
+      return;
+    }
 
     const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
     const trulySent = isSendEventTrulySent(row);
 
     if (!trulySent) {
+      if (stats) {
+        stats.recordFiltered(
+          status === "preview" || status.startsWith("skipped") || status === "dry_run"
+            ? "preview_or_skipped"
+            : "not_truly_sent"
+        );
+      }
       if (includeSystemNoSend && bodyRaw) {
         const { body, body_truncated } = safeBody(bodyRaw);
         rich.push({
           t: ts,
           role: "system_no_send",
           body,
-          source_table: "sms_send_events",
+          source_table,
           message_kind: status || "skipped",
           message_sid: messageSidFromSendEventRow(row),
           delivery_status: status.startsWith("skipped") ? "skipped" : "cancelled",
@@ -580,7 +842,14 @@ async function buildRecentExactThreadWithWindowMs(
           priority: 10,
         });
       }
-      continue;
+      return;
+    }
+
+    if (stats) {
+      stats.visible_send_candidate_count += 1;
+      if (source_table === "sms_weekly_send_events") {
+        stats.weekly_candidate_count += 1;
+      }
     }
 
     sendBodiesByTime.set(ts, bodyRaw);
@@ -589,33 +858,40 @@ async function buildRecentExactThreadWithWindowMs(
       t: ts,
       role: "coach",
       body,
-      source_table: "sms_send_events",
-      message_kind: "daily",
+      source_table,
+      message_kind,
       message_sid: messageSidFromSendEventRow(row),
       delivery_status: "sent",
       is_exact_body: true,
       body_truncated,
-      priority: 90,
+      priority: source_table === "sms_weekly_send_events" ? 88 : 90,
     });
+  };
+
+  for (const r of sendRows) {
+    pushCoachSendRow(r, "sms_send_events", "daily");
   }
 
-  for (const r of coachJobRows ?? []) {
-    const row = r as {
-      raw_body?: string | null;
-      reply_body?: string | null;
-      sent_at?: string | null;
-      updated_at?: string | null;
-      created_at?: string | null;
-      status?: string | null;
-      message_sid?: string | null;
-      outbound_message_sid?: string | null;
-    };
+  for (const r of weeklyRows) {
+    pushCoachSendRow(r, "sms_weekly_send_events", "weekly");
+  }
+
+  for (const r of coachJobRows) {
+    const row = r as Record<string, unknown>;
+    if (stats) {
+      stats.source_candidate_count += 1;
+      stats.noteSourceTable("sms_inbound_coach_jobs");
+    }
 
     const raw = typeof row.raw_body === "string" ? row.raw_body.trim() : "";
     if (raw) {
-      const tsRaw = row.created_at ?? row.updated_at;
-      const ts = typeof tsRaw === "string" ? new Date(tsRaw).getTime() : 0;
-      if (Number.isFinite(ts) && ts >= cutoffMs && !isComplianceInbound(raw)) {
+      const ts = timestampFromCoachJobUserRow(row);
+      if (!Number.isFinite(ts) || ts < cutoffMs) {
+        stats?.recordFiltered("timestamp_outside_window");
+      } else if (isComplianceInbound(raw)) {
+        stats?.recordFiltered("compliance_inbound");
+      } else {
+        if (stats) stats.user_inbound_candidate_count += 1;
         const { body, body_truncated } = safeBody(raw);
         rich.push({
           t: ts,
@@ -623,7 +899,10 @@ async function buildRecentExactThreadWithWindowMs(
           body,
           source_table: "sms_inbound_coach_jobs",
           message_kind: null,
-          message_sid: row.message_sid?.trim() || null,
+          message_sid:
+            typeof row.message_sid === "string" && row.message_sid.trim()
+              ? row.message_sid.trim()
+              : null,
           delivery_status: "sent",
           is_exact_body: true,
           body_truncated,
@@ -634,14 +913,20 @@ async function buildRecentExactThreadWithWindowMs(
 
     const reply = typeof row.reply_body === "string" ? row.reply_body.trim() : "";
     const sentLike =
-      Boolean(row.sent_at?.trim()) ||
+      Boolean(typeof row.sent_at === "string" && row.sent_at.trim()) ||
       row.status === "sent" ||
-      Boolean(row.outbound_message_sid?.trim());
+      Boolean(typeof row.outbound_message_sid === "string" && row.outbound_message_sid.trim());
 
     if (reply && sentLike) {
-      const tsRaw = row.sent_at ?? row.updated_at ?? row.created_at;
-      const ts = typeof tsRaw === "string" ? new Date(tsRaw).getTime() : 0;
-      if (Number.isFinite(ts) && ts >= cutoffMs) {
+      if (stats) {
+        stats.source_candidate_count += 1;
+        stats.noteSourceTable("sms_inbound_coach_jobs");
+      }
+      const ts = timestampFromCoachJobReplyRow(row);
+      if (!Number.isFinite(ts) || ts < cutoffMs) {
+        stats?.recordFiltered("timestamp_outside_window");
+      } else {
+        if (stats) stats.visible_send_candidate_count += 1;
         const { body, body_truncated } = safeBody(stripComplianceFooter(reply));
         rich.push({
           t: ts,
@@ -649,21 +934,41 @@ async function buildRecentExactThreadWithWindowMs(
           body,
           source_table: "sms_inbound_coach_jobs",
           message_kind: "coach",
-          message_sid: row.outbound_message_sid?.trim() || row.message_sid?.trim() || null,
+          message_sid:
+            (typeof row.outbound_message_sid === "string" ? row.outbound_message_sid.trim() : null) ||
+            (typeof row.message_sid === "string" ? row.message_sid.trim() : null),
           delivery_status: "sent",
           is_exact_body: true,
           body_truncated,
           priority: 100,
         });
       }
+    } else if (reply && stats) {
+      stats.recordFiltered("not_truly_sent");
     }
   }
 
-  for (const r of inboundMsgRows ?? []) {
-    const row = r as { raw_body?: string; created_at?: string; message_sid?: string };
+  for (const r of inboundMsgRows) {
+    const row = r as Record<string, unknown>;
+    if (stats) {
+      stats.source_candidate_count += 1;
+      stats.noteSourceTable("sms_inbound_messages");
+    }
     const raw = typeof row.raw_body === "string" ? row.raw_body.trim() : "";
-    const ts = typeof row.created_at === "string" ? new Date(row.created_at).getTime() : 0;
-    if (!raw || !Number.isFinite(ts) || ts < cutoffMs || isComplianceInbound(raw)) continue;
+    const ts = timestampFromInboundMessageRow(row);
+    if (!raw) {
+      stats?.recordFiltered("empty_body");
+      continue;
+    }
+    if (!Number.isFinite(ts) || ts < cutoffMs) {
+      stats?.recordFiltered("timestamp_outside_window");
+      continue;
+    }
+    if (isComplianceInbound(raw)) {
+      stats?.recordFiltered("compliance_inbound");
+      continue;
+    }
+    if (stats) stats.user_inbound_candidate_count += 1;
     const { body, body_truncated } = safeBody(raw);
     rich.push({
       t: ts,
@@ -671,7 +976,10 @@ async function buildRecentExactThreadWithWindowMs(
       body,
       source_table: "sms_inbound_messages",
       message_kind: null,
-      message_sid: typeof row.message_sid === "string" ? row.message_sid.trim() : null,
+      message_sid:
+        typeof row.message_sid === "string" && row.message_sid.trim()
+          ? row.message_sid.trim()
+          : null,
       delivery_status: "sent",
       is_exact_body: true,
       body_truncated,
@@ -709,6 +1017,7 @@ async function buildRecentExactThreadWithWindowMs(
     const row = lastCtx as { sent_at: string; full_body?: string; message_kind?: string };
     const kind = typeof row.message_kind === "string" ? row.message_kind : "transactional";
     if (COACHING_OUTBOUND_KINDS.has(kind)) {
+      stats?.noteSourceTable("sms_last_outbound_context");
       const raw = typeof row.full_body === "string" ? row.full_body : "";
       const ts = new Date(row.sent_at).getTime();
       if (raw.trim() && Number.isFinite(ts) && ts >= cutoffMs) {
@@ -771,10 +1080,12 @@ export async function buildRecentExactThreadForBrief(
   args: BuildRecentExactThreadArgs
 ): Promise<RecentExactThreadForBriefResult> {
   const now = args.now ?? new Date();
+  const stats = new ThreadBuildStats();
   const timeline_7d = await buildRecentExactThreadWithWindowMs({
     ...args,
     windowMs: BRIEF_THREAD_EXTENSION_MS,
     includeSystemNoSend: false,
+    stats,
   });
   const capped = capThreadMessagesForBriefWithTelemetry(timeline_7d.messages, now.getTime());
   return {
@@ -787,6 +1098,7 @@ export async function buildRecentExactThreadForBrief(
     message_count: capped.messages.length,
     char_count: briefThreadMessageCharCount(capped.messages),
     timeline_7d,
+    build_telemetry: stats.toTelemetry(),
   };
 }
 

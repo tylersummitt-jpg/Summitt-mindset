@@ -69,6 +69,16 @@ const EMPTY_BRIEF_THREAD_MOCK = {
     had_preview_messages: false,
     had_system_no_send: false,
   },
+  build_telemetry: {
+    daily_brief_thread_source_candidate_count: 0,
+    daily_brief_thread_visible_send_candidate_count: 0,
+    daily_brief_thread_user_inbound_candidate_count: 0,
+    daily_brief_thread_weekly_candidate_count: 0,
+    daily_brief_thread_filtered_out_count: 0,
+    daily_brief_thread_filtered_out_reason_top: null,
+    daily_brief_thread_effective_timestamp_rescue_count: 0,
+    daily_brief_thread_source_tables_present: "",
+  },
 };
 
 function setupBriefThreadMock(): void {
@@ -632,19 +642,7 @@ describe("produceDailyV3RelationshipSms", () => {
 
   beforeEach(() => {
     process.env.OPENAI_API_KEY = "test-key";
-    buildRecentExactThreadForBriefMock.mockResolvedValue({
-      window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
-      messages: [],
-      message_count: 0,
-      char_count: 0,
-      timeline_7d: {
-        messages: [],
-        window_hours: 168,
-        message_count: 0,
-        had_preview_messages: false,
-        had_system_no_send: false,
-      },
-    });
+    buildRecentExactThreadForBriefMock.mockResolvedValue(EMPTY_BRIEF_THREAD_MOCK);
   });
 
   it("returns lane result when OpenAI returns valid JSON with should_send true", async () => {
@@ -3794,19 +3792,7 @@ describe("daily proof calibration lane", () => {
   });
 
   beforeEach(() => {
-    buildRecentExactThreadForBriefMock.mockResolvedValue({
-      window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
-      messages: [],
-      message_count: 0,
-      char_count: 0,
-      timeline_7d: {
-        messages: [],
-        window_hours: 168,
-        message_count: 0,
-        had_preview_messages: false,
-        had_system_no_send: false,
-      },
-    });
+    buildRecentExactThreadForBriefMock.mockResolvedValue(EMPTY_BRIEF_THREAD_MOCK);
   });
 
   function minimalMemory7dForCalibration() {
