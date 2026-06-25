@@ -9,12 +9,16 @@ import {
   buildDailySmsWritingBriefV1,
   buildDailySmsWriterMessagesFromBrief,
   buildCompactTimingCopyGuidanceForBrief,
+  buildDailySmsBriefSystemPrompt,
   buildDurableRelationshipMemoryForBrief,
   buildFreshnessAvoidPhrasesPreview,
+  buildRelationshipAnchorsForBrief,
   dailyWritingBriefExtendedTelemetry,
   dailyWritingBriefTelemetry,
   deriveDailyWritingBriefFallbackTelemetry,
   deriveLocalDaypartForBrief,
+  FIRST_TEXT_STYLE_MICROGUIDE_V1,
+  neutralizeBriefSuggestedMoveReasonForWriter,
   useDailySmsWritingBriefV1,
 } from "@/lib/sms-daily-writing-brief-v1";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
@@ -282,7 +286,7 @@ describe("buildDailySmsWritingBriefV1", () => {
     expect(phrases.length).toBeLessThanOrEqual(3);
   });
 
-  it("preserves important people in durable memory", () => {
+  it("preserves important people in durable memory when anchors are empty", () => {
     const facts = baseFacts({
       relationship_anchor_sources: {
         important_people: [
@@ -299,6 +303,29 @@ describe("buildDailySmsWritingBriefV1", () => {
     const durable = buildDurableRelationshipMemoryForBrief({ facts, calibration: cal });
     expect(durable.items.some((i) => /Callie/i.test(i.text))).toBe(true);
     expect(durable.authority).toBe("background_only");
+  });
+
+  it("omits durable person items when relationship_anchors carries people", () => {
+    const facts = baseFacts({
+      relationship_anchor_sources: {
+        important_people: [
+          {
+            display_name: "Callie",
+            relationship_type: "spouse",
+            source: "onboarding",
+          },
+        ],
+        people_summary: null,
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const durable = buildDurableRelationshipMemoryForBrief({
+      facts,
+      calibration: cal,
+      suppressPersonItems: true,
+    });
+    expect(durable.items.some((i) => i.kind === "person")).toBe(false);
+    expect(durable.items.some((i) => /Callie/i.test(i.text))).toBe(false);
   });
 
   it("excludes shown commitment coaching snippet from durable memory", () => {
@@ -727,7 +754,7 @@ describe("compact timing guidance for brief", () => {
             source: "onboarding",
           },
         ],
-        people_summary: null,
+        people_summary: "Family-first accountability context",
       },
     });
     const cal = deriveDailyProofCalibration({ facts });
@@ -744,6 +771,8 @@ describe("compact timing guidance for brief", () => {
       },
       freshness_phrases: [],
     });
+    expect(brief.relationship_anchors.people).toHaveLength(1);
+    expect(brief.durable_relationship_memory.items.some((i) => i.kind === "person")).toBe(false);
     const telemetry = dailyWritingBriefTelemetry({
       brief,
       writer_system_chars: 900,
@@ -757,5 +786,346 @@ describe("compact timing guidance for brief", () => {
     expect(obsJson).not.toMatch(/Secret Spouse Name/i);
     expect(obsJson).not.toMatch(/durable_relationship_memory/);
     expect(obsJson).not.toMatch(/"items":\s*\[/);
+  });
+});
+
+const GENERIC_COPY_MODEL_PHRASE_RE =
+  /\bone honest (rep|step|win)\b|fresh opportunity|stay committed|make today count|different honest next step|first honest (rep|step)/i;
+
+function briefTruthTimingFreshnessStrings(brief: ReturnType<typeof buildDailySmsWritingBriefV1>): string {
+  const parts = [
+    brief.authoritative_truth.proof.summary_line,
+    ...(brief.authoritative_truth.local.timing_copy_guidance ?? []),
+    brief.freshness.note,
+  ];
+  return parts.join("\n");
+}
+
+function cleanStartFacts(overrides?: Partial<DailyV3RelationshipFacts>): DailyV3RelationshipFacts {
+  return baseFacts({
+    accountability: {
+      ...baseFacts().accountability,
+      prior_outcome: "none",
+      yes_streak_14d: 0,
+      no_count_14d: 0,
+      partial_count_14d: 0,
+      days_since_last_user_outcome: null,
+    },
+    thread_memory: {
+      ...baseFacts().thread_memory,
+      relationship_memory_7d: {
+        ...baseFacts().thread_memory.relationship_memory_7d,
+        outcome_counts: { yes: 0, no: 0, partial: 0, blockers: 0, checks_sent: 0 },
+        wins: [],
+        misses: [],
+        partials: [],
+        context_flags: { days_since_last_user_outcome: null },
+      },
+    },
+    ...overrides,
+  });
+}
+
+function johnFixtureFacts(): DailyV3RelationshipFacts {
+  return baseFacts({
+    user: {
+      ...baseFacts().user,
+      preferred_name: "John",
+      timezone: "America/Chicago",
+      local_time_iso: "2026-06-20T13:00:00.000Z",
+    },
+    commitment: {
+      ...baseFacts().commitment,
+      title: "10,000 steps",
+      behavior_statement: "Walk 10,000 steps",
+      effective_ask: "Walk 10,000 steps",
+      identity_anchor_allowed: true,
+      identity_anchor_short: "I move my body every day.",
+    },
+    relationship_anchor_sources: {
+      important_people: [
+        { display_name: "Brooke", relationship_type: "spouse", source: "onboarding" },
+        { display_name: "Breck", relationship_type: "child", source: "onboarding" },
+        { display_name: "Rocky", relationship_type: "child", source: "onboarding" },
+        { display_name: "Lakelyn", relationship_type: "child", source: "onboarding" },
+      ],
+      people_summary: null,
+    },
+  });
+}
+
+function distributionFixtureFacts(): DailyV3RelationshipFacts {
+  return baseFacts({
+    user: {
+      ...baseFacts().user,
+      preferred_name: "Maya",
+    },
+    commitment: {
+      ...baseFacts().commitment,
+      title: "Client outreach",
+      behavior_statement: "Send five thoughtful client follow-ups",
+      effective_ask: "Send five thoughtful client follow-ups",
+      identity_anchor_short: "I show up for my clients consistently.",
+    },
+    relationship_anchor_sources: {
+      important_people: [{ display_name: "Elena", relationship_type: "mentor", source: "onboarding" }],
+      people_summary: null,
+    },
+  });
+}
+
+describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
+  it("system prompt contains FirstTextStyleMicroguideV1 subordinate to truth and thread", () => {
+    const system = buildDailySmsBriefSystemPrompt({ maxChars: 300 });
+    expect(system).toContain("FIRST-TEXT STYLE");
+    expect(system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
+    expect(system).toMatch(/subordinate to authoritative_truth and recent_exact_thread/i);
+    expect(system).toMatch(/relationship_anchors are style hints only/i);
+  });
+
+  it("microguide is not duplicated in JSON brief payload", () => {
+    const facts = johnFixtureFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.user).not.toContain("FIRST-TEXT STYLE");
+    expect(writer.user).not.toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
+  });
+
+  it("relationship_anchors includes max 4 people with style_hint_only authority", () => {
+    const sources = {
+      important_people: [
+        { display_name: "Brooke", relationship_type: "spouse", source: "onboarding" as const },
+        { display_name: "Breck", relationship_type: "child", source: "onboarding" as const },
+        { display_name: "Rocky", relationship_type: "child", source: "onboarding" as const },
+        { display_name: "Lakelyn", relationship_type: "child", source: "onboarding" as const },
+        { display_name: "Extra", relationship_type: "friend", source: "onboarding" as const },
+      ],
+      people_summary: null,
+    };
+    const anchors = buildRelationshipAnchorsForBrief(sources);
+    expect(anchors.people).toHaveLength(4);
+    expect(anchors.people.map((p) => p.name)).toEqual(["Brooke", "Breck", "Rocky", "Lakelyn"]);
+    expect(anchors.authority).toBe("style_hint_only");
+    expect(anchors.usage).toBe("sparingly_when_it_deepens_meaning_never_guilt");
+    expect(JSON.stringify(anchors)).not.toMatch(/background_only|proof_moment|blocker/i);
+  });
+
+  it("relationship_anchors empty when no important people", () => {
+    const anchors = buildRelationshipAnchorsForBrief({ important_people: [], people_summary: null });
+    expect(anchors.people).toEqual([]);
+    expect(anchors.authority).toBe("style_hint_only");
+  });
+
+  it("clean-start brief truth/timing/freshness strings avoid generic copy-model phrases", () => {
+    const facts = cleanStartFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-20T13:00:00.000Z",
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    expect(cal.praise_allowed_level).toBe("none");
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const blob = briefTruthTimingFreshnessStrings(brief);
+    expect(blob).not.toMatch(GENERIC_COPY_MODEL_PHRASE_RE);
+    expect(cal.truth_summary_for_writer).toMatch(/one honest rep/i);
+    expect(brief.authoritative_truth.proof.summary_line).not.toMatch(/one honest rep/i);
+    expect(brief.authoritative_truth.proof.praise_allowed_level).toBe(cal.praise_allowed_level);
+    expect(brief.authoritative_truth.proof.wins_7d).toBe(cal.wins_7d);
+  });
+
+  it("John fixture: name, steps goal, and family in relationship_anchors with writer permission", () => {
+    const facts = johnFixtureFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    expect(brief.identity.preferred_name).toBe("John");
+    expect(brief.current_standard.effective_ask).toMatch(/10,000 steps/i);
+    expect(brief.relationship_anchors.people.map((p) => p.name)).toEqual([
+      "Brooke",
+      "Breck",
+      "Rocky",
+      "Lakelyn",
+    ]);
+    expect(brief.durable_relationship_memory.items.some((i) => i.kind === "person")).toBe(false);
+    expect(
+      brief.durable_relationship_memory.items.some((i) =>
+        /Brooke|Breck|Rocky|Lakelyn/i.test(i.text)
+      )
+    ).toBe(false);
+    expect(brief.relationship_anchors.authority).toBe("style_hint_only");
+    expect(brief.relationship_anchors.usage).toBe(
+      "sparingly_when_it_deepens_meaning_never_guilt"
+    );
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toMatch(/sparingly|style hints only/i);
+    expect(writer.system).toMatch(/No Reply YES\/NO|No robot menu/i);
+    expect(writer.system).toMatch(/no fake Pat quotes|No fake Pat quotes/i);
+    expect(writer.system).toMatch(/no third-person Pat/i);
+    expect(writer.user).toContain('"relationship_anchors"');
+    expect(writer.user).toContain("Brooke");
+  });
+
+  it("non-steps fixture: relationship_anchors without overfitting to steps", () => {
+    const facts = distributionFixtureFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    expect(brief.identity.preferred_name).toBe("Maya");
+    expect(brief.current_standard.effective_ask).toMatch(/client follow-ups/i);
+    expect(brief.relationship_anchors.people).toEqual([{ name: "Elena", role: "mentor" }]);
+  });
+
+  it("prompt size stays within budget after microguide", () => {
+    const facts = johnFixtureFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system.length).toBeLessThan(2200);
+    expect(writer.system.length + writer.user.length).toBeLessThan(8000);
+  });
+
+  it("neutralizes generic suggested_move.reason in brief payload", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    expect(minimalCard().move.reason).toMatch(/one honest rep/i);
+    expect(brief.suggested_move.reason).not.toMatch(/one honest rep/i);
+    expect(brief.suggested_move.reason).toMatch(/weak or stale proof/i);
+    expect(cal.praise_allowed_level).toBe("capability_only");
+    expect(brief.authoritative_truth.proof.praise_allowed_level).toBe(cal.praise_allowed_level);
+  });
+
+  it("preserves specific non-generic suggested_move.reason", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const card = {
+      ...minimalCard(),
+      move: {
+        ...minimalCard().move,
+        reason: "Close pending plan loop after Brooke workout window.",
+      },
+    };
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: card,
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    expect(brief.suggested_move.reason).toBe(
+      "Close pending plan loop after Brooke workout window."
+    );
+  });
+
+  it("brief JSON payload avoids generic honest-rep/step/win copy models", () => {
+    const facts = johnFixtureFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.user).not.toMatch(/\bone honest (rep|step|win)\b/i);
+    expect(writer.system).toMatch(/one honest step/);
+  });
+
+  it("neutralizeBriefSuggestedMoveReasonForWriter maps known generic patterns", () => {
+    expect(neutralizeBriefSuggestedMoveReasonForWriter("Weak stale proof — one honest rep today.")).toBe(
+      "Weak or stale proof; hold the current standard without praise."
+    );
+    expect(neutralizeBriefSuggestedMoveReasonForWriter("Fresh opportunity to reset.")).toBe(
+      "Use a fresh angle without overstating proof."
+    );
+    expect(
+      neutralizeBriefSuggestedMoveReasonForWriter("Close loop after school pickup.")
+    ).toBe("Close loop after school pickup.");
   });
 });

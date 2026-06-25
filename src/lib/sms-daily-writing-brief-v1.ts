@@ -23,6 +23,16 @@ import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane"
 
 const DAILY_BRIEF_MAX_CHARS = 300;
 const TIMING_GUIDANCE_MAX = 2;
+const RELATIONSHIP_ANCHOR_PEOPLE_MAX = 4;
+
+/** Style-only writer microguide — not duplicated in JSON brief payload. */
+export const FIRST_TEXT_STYLE_MICROGUIDE_V1 = `FIRST-TEXT STYLE — subordinate to authoritative_truth and recent_exact_thread:
+• Write one human SMS to someone you know; use their first name naturally when it fits.
+• Tie today's move to who they're becoming and the real standard, not the scoreboard alone.
+• Give one concrete first move for this morning; warm and direct, never soft or preachy.
+• Important people may appear only when they deepen meaning — never guilt, pressure, or "do it for them."
+• Avoid generic filler: checking in, you've got this, one honest step, stay committed, make today count.
+• No Reply YES/NO, no Pat quotes, no third-person Pat, no daily mini-sermon.`;
 
 export type BriefLocalDaypart = "morning" | "afternoon" | "evening" | "late_night";
 
@@ -108,6 +118,11 @@ export type DailySmsWritingBriefV1 = {
     };
   };
   suggested_move: DailySmsSuggestedMoveV1;
+  relationship_anchors: {
+    people: Array<{ name: string; role?: string }>;
+    authority: "style_hint_only";
+    usage: "sparingly_when_it_deepens_meaning_never_guilt";
+  };
   durable_relationship_memory: {
     authority: "background_only";
     items: Array<{ kind: string; text: string }>;
@@ -167,11 +182,11 @@ export function buildCompactTimingCopyGuidanceForBrief(args: {
 
   if (daypart === "morning") {
     out.push(
-      "Morning send: do not ask whether today's goal already happened — protect the first honest rep."
+      "Morning send: do not ask as if today's outcome already happened."
     );
   } else if (daypart === "evening" || daypart === "late_night") {
     out.push(
-      "Evening send: do not pitch fresh 'today' plans as if the day is wide open — aim at tomorrow's first honest step."
+      "Evening send: do not pitch fresh 'today' plans as if the day is wide open — frame tomorrow's move without assuming today is still open."
     );
   }
 
@@ -185,7 +200,7 @@ export function buildCompactTimingCopyGuidanceForBrief(args: {
     cal.proof_age_days >= 1 &&
     !cal.recent_completion_claim_allowed
   ) {
-    out.push("Do not imply the user already completed today's rep unless proof is from today.");
+    out.push("Do not imply the user already completed today's standard unless proof is from today.");
   }
 
   const timing = args.timingAnchor ?? args.facts.accountability.timing_anchor_memory;
@@ -216,11 +231,13 @@ function isDurableTextSafe(text: string): boolean {
 export function buildDurableRelationshipMemoryForBrief(args: {
   facts: DailyV3RelationshipFacts;
   calibration: DailyProofCalibration | null;
+  /** When relationship_anchors.people is populated, person list items belong there only. */
+  suppressPersonItems?: boolean;
 }): DailySmsWritingBriefV1["durable_relationship_memory"] {
   const items: Array<{ kind: string; text: string }> = [];
   const sources: RelationshipAnchorSources | null | undefined = args.facts.relationship_anchor_sources;
 
-  if (sources?.important_people?.length) {
+  if (!args.suppressPersonItems && sources?.important_people?.length) {
     for (const p of sources.important_people) {
       const name = p.display_name?.trim();
       if (!name) continue;
@@ -262,6 +279,99 @@ export function buildDurableRelationshipMemoryForBrief(args: {
 
   void args.calibration;
   return { authority: "background_only", items: items.slice(0, 12) };
+}
+
+/** Writer-facing proof summary for C1 brief — same calibration facts, neutral phrasing (no generic copy models). */
+export function buildBriefProofSummaryLineForWriter(cal: DailyProofCalibration): string {
+  const age =
+    cal.proof_age_days != null && Number.isFinite(cal.proof_age_days)
+      ? `${cal.proof_age_days} local day(s) ago`
+      : "unknown recency";
+
+  switch (cal.praise_allowed_level) {
+    case "none":
+      return "No wins recorded in the last 7 days. Do not praise proof, consistency, or commitment. Hold the current standard without praise.";
+    case "capability_only":
+      return `Only ${cal.wins_7d} win(s) in the last 7 days; last proof was ${age}. Do not praise consistency or great commitment. Capability acknowledgment allowed; hold today's standard without overstating proof.`;
+    case "specific_recent_proof":
+      return `${cal.wins_7d} win(s) in 7d with recent proof (${age}). Acknowledge that specific outcome only — do not imply consistency or a streak.`;
+    case "measured_progress":
+      return `${cal.wins_7d} wins in 7d with fresh proof (${age}). Measured progress praise is allowed; do not exaggerate into domination or habit language.`;
+    case "consistency":
+      return `Multiple recent wins (${cal.wins_7d} in 7d; proof ${age}). Consistency language is allowed if tied to actual behavior — not generic hype.`;
+    case "streak":
+    default:
+      return `Strong streak signal (${cal.wins_7d} wins in 7d; yes_streak_14d ${cal.yes_streak_14d}). Streak-true praise is allowed when specific.`;
+  }
+}
+
+export function buildRelationshipAnchorsForBrief(
+  sources: RelationshipAnchorSources | null | undefined
+): DailySmsWritingBriefV1["relationship_anchors"] {
+  const people: Array<{ name: string; role?: string }> = [];
+  if (sources?.important_people?.length) {
+    for (const p of sources.important_people) {
+      const name = p.display_name?.trim();
+      if (!name) continue;
+      const role = p.relationship_type?.trim();
+      people.push(
+        role
+          ? { name: truncateText(name, 40), role: truncateText(role, 24) }
+          : { name: truncateText(name, 40) }
+      );
+      if (people.length >= RELATIONSHIP_ANCHOR_PEOPLE_MAX) break;
+    }
+  }
+  return {
+    people,
+    authority: "style_hint_only",
+    usage: "sparingly_when_it_deepens_meaning_never_guilt",
+  };
+}
+
+/** C1 brief only — neutralize generic copy-model phrases in strategy-card move reason. */
+export function neutralizeBriefSuggestedMoveReasonForWriter(reason: string): string {
+  const t = reason.trim();
+  if (!t) return t;
+
+  const genericRe =
+    /\bone honest (rep|step|win)\b|\bhonest next step\b|\bfresh opportunity\b|\bstay committed\b|\bmake today count\b/i;
+  if (!genericRe.test(t)) return t.slice(0, 120);
+
+  if (/\bweak\b.*\bstale\b.*\bproof\b/i.test(t)) {
+    return "Weak or stale proof; hold the current standard without praise.".slice(0, 120);
+  }
+  if (/\bchoose a different honest next step\b/i.test(t)) {
+    return "Same bar is okay; vary the angle.".slice(0, 120);
+  }
+  if (/\bfresh opportunity\b/i.test(t)) {
+    return "Use a fresh angle without overstating proof.".slice(0, 120);
+  }
+  if (/\bone honest (rep|step|win)\b/i.test(t)) {
+    return "Hold the current standard without generic filler.".slice(0, 120);
+  }
+  if (/\bstay committed\b/i.test(t)) {
+    return "Hold the standard without hype.".slice(0, 120);
+  }
+  if (/\bmake today count\b/i.test(t)) {
+    return "Focus on today's standard, not slogans.".slice(0, 120);
+  }
+  if (/\bhonest next step\b/i.test(t)) {
+    return "Same bar is okay; vary the angle.".slice(0, 120);
+  }
+
+  return t.slice(0, 120);
+}
+
+export function buildSuggestedMoveForDailyWritingBrief(
+  card: StrategyCardV1,
+  calibration: DailyProofCalibration | null | undefined
+): DailySmsSuggestedMoveV1 {
+  const move = buildSuggestedMoveFromDailyC1Card(card, calibration);
+  return {
+    ...move,
+    reason: neutralizeBriefSuggestedMoveReasonForWriter(move.reason),
+  };
 }
 
 function deriveBriefPosture(facts: DailyV3RelationshipFacts): string {
@@ -391,6 +501,7 @@ export function buildDailySmsWritingBriefV1(
     facts: f,
     proofCalibration: cal,
   });
+  const relationship_anchors = buildRelationshipAnchorsForBrief(f.relationship_anchor_sources);
 
   return {
     brief_version: DAILY_SMS_WRITING_BRIEF_VERSION,
@@ -431,7 +542,7 @@ export function buildDailySmsWritingBriefV1(
         praise_allowed_level: cal.praise_allowed_level,
         consistency_claim_allowed: cal.consistency_claim_allowed,
         strong_commitment_claim_allowed: cal.strong_commitment_claim_allowed,
-        summary_line: truncateText(cal.truth_summary_for_writer, 200),
+        summary_line: truncateText(buildBriefProofSummaryLineForWriter(cal), 200),
       },
       claims: buildAuthoritativeClaims(args.strategy_card, cal),
       posture: deriveBriefPosture(f),
@@ -451,13 +562,15 @@ export function buildDailySmsWritingBriefV1(
     },
     freshness: {
       avoid_phrases: args.freshness_phrases.slice(0, 3),
-      note: "Same goal is fine — choose a different honest next step.",
+      note: "Same goal is fine; vary the angle, not the bar.",
     },
     open_loops: buildOpenLoopsForBrief({ facts: f, commitmentRow: args.commitmentRow }),
-    suggested_move: buildSuggestedMoveFromDailyC1Card(args.strategy_card, cal),
+    suggested_move: buildSuggestedMoveForDailyWritingBrief(args.strategy_card, cal),
+    relationship_anchors,
     durable_relationship_memory: buildDurableRelationshipMemoryForBrief({
       facts: f,
       calibration: cal,
+      suppressPersonItems: relationship_anchors.people.length > 0,
     }),
     style_guardrails: {
       one_sms: true,
@@ -489,12 +602,15 @@ export function buildDailySmsBriefSystemPrompt(args: {
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
 Use DAILY_SMS_WRITING_BRIEF_V1 as server truth. Write one human SMS.
-Authority order: authoritative_truth + recent_exact_thread > open_loops > suggested_move > durable_relationship_memory.
+Authority order: authoritative_truth + recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.
 suggested_move is a hint only — never override proof truth or exact thread.
+relationship_anchors are style hints only — never proof; use people sparingly and never as guilt.
 durable_relationship_memory is background only — never proof.
 ${questionLine}
 One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes. No generic motivation filler.
 ${extras.join("\n")}
+
+${FIRST_TEXT_STYLE_MICROGUIDE_V1}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),

@@ -762,6 +762,57 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.metadata.strategy_card_move_type).toBeTruthy();
   });
 
+  it("C1 Writing Brief: FirstTextStyleMicroguide and relationship_anchors in brief path", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "John — ten thousand steps starts with one lap before breakfast.",
+              no_send_reason: null,
+              turn_purpose: "daily_accountability",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        user: {
+          ...baseFacts().user,
+          preferred_name: "John",
+        },
+        commitment: {
+          ...baseFacts().commitment,
+          behavior_statement: "Walk 10,000 steps",
+          effective_ask: "Walk 10,000 steps",
+        },
+        relationship_anchor_sources: {
+          important_people: [
+            { display_name: "Brooke", relationship_type: "spouse", source: "onboarding" },
+            { display_name: "Breck", relationship_type: "child", source: "onboarding" },
+          ],
+          people_summary: null,
+        },
+      }),
+      telemetry_fact_sources: ["test_daily_writing_brief_style"],
+    });
+
+    const { systemMsg, userMsg } = getWriterPromptMessages();
+    expectC1WritingBriefPrompt({ systemMsg, userMsg });
+    expect(systemMsg).toContain("FIRST-TEXT STYLE");
+    expect(systemMsg).toMatch(/subordinate to authoritative_truth and recent_exact_thread/i);
+    expect(userMsg).toContain('"relationship_anchors"');
+    expect(userMsg).toContain('"style_hint_only"');
+    expect(userMsg).toContain("Brooke");
+    expect(userMsg).not.toContain("FIRST-TEXT STYLE");
+  });
+
   it("low_pressure_reactivation uses Writing Brief with reactivation posture", async () => {
     createMock.mockResolvedValue({
       choices: [
