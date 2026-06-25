@@ -50,7 +50,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.9");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.10");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
 
     for (const name of QUERY_HEADERS) {
@@ -195,6 +195,28 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("final_voice_gate,final_body");
     expect(sql).toContain("weekly_body_missing_with_sid_count");
     expect(sql).toContain("weekly_body_missing_with_sid");
+    expect(sql).toContain("relationship_thread_review");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.10 brief thread build filter telemetry markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("daily_brief_thread_source_candidate_count");
+    expect(sql).toContain("daily_brief_thread_visible_send_candidate_count");
+    expect(sql).toContain("daily_brief_thread_user_inbound_candidate_count");
+    expect(sql).toContain("daily_brief_thread_weekly_candidate_count");
+    expect(sql).toContain("daily_brief_thread_filtered_out_count");
+    expect(sql).toContain("daily_brief_thread_filtered_out_reason_top");
+    expect(sql).toContain("daily_brief_thread_effective_timestamp_rescue_count");
+    expect(sql).toContain("daily_brief_thread_source_tables_present");
+    expect(sql).toContain("c1_brief_empty_thread_with_candidates");
+    expect(sql).toContain("c1_brief_filtered_all_candidates");
+    expect(sql).toContain("c1_brief_effective_timestamp_rescue_present");
+    expect(sql).toContain("c1_brief_filter_reason_not_truly_sent");
+    expect(sql).toContain("c1_brief_filter_reason_empty_body");
+    expect(sql).toContain("c1_brief_filter_reason_timestamp_outside_window");
     expect(sql).toContain("relationship_thread_review");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);

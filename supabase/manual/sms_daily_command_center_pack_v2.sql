@@ -1,7 +1,13 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.9
+-- SMS DAILY COMMAND CENTER PACK v2.10
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 14 queries.
+--
+-- v2.10 DailySmsWritingBriefV1 thread build filter telemetry (June 2026):
+--   - Q02/Q13/Q14: source_candidate_count, visible_send_candidate_count, user_inbound_candidate_count,
+--     weekly_candidate_count, filtered_out_count, filtered_out_reason_top, effective_timestamp_rescue_count,
+--     source_tables_present (counts only — no raw thread text).
+--   - Q13 sanity: empty thread with candidates, filtered-all-candidates, rescue present, filter reason rows.
 --
 -- v2.9 Sunday daily suppression before Weekly Pat Pause (June 2026):
 --   - Q01 skipped_sunday_weekly_pause_count + Sunday collision markers.
@@ -235,7 +241,47 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_newest_at_local}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
       ''
-    ) AS daily_brief_thread_newest_at_local
+    ) AS daily_brief_thread_newest_at_local,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_source_candidate_count}',
+      ''
+    ) AS daily_brief_thread_source_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_visible_send_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_visible_send_candidate_count}',
+      ''
+    ) AS daily_brief_thread_visible_send_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_user_inbound_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_user_inbound_candidate_count}',
+      ''
+    ) AS daily_brief_thread_user_inbound_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_weekly_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_weekly_candidate_count}',
+      ''
+    ) AS daily_brief_thread_weekly_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_count}',
+      ''
+    ) AS daily_brief_thread_filtered_out_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_reason_top}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_reason_top}',
+      ''
+    ) AS daily_brief_thread_filtered_out_reason_top,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_effective_timestamp_rescue_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_effective_timestamp_rescue_count}',
+      ''
+    ) AS daily_brief_thread_effective_timestamp_rescue_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_tables_present}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_source_tables_present}',
+      ''
+    ) AS daily_brief_thread_source_tables_present
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -1084,6 +1130,70 @@ SELECT
     )
     ELSE ''
   END AS daily_brief_thread_char_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_candidate_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_candidate_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_source_candidate_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_visible_send_candidate_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_visible_send_candidate_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_visible_send_candidate_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_user_inbound_candidate_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_user_inbound_candidate_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_user_inbound_candidate_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_weekly_candidate_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_weekly_candidate_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_weekly_candidate_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_filtered_out_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_reason_top}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_reason_top}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_filtered_out_reason_top,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_effective_timestamp_rescue_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_effective_timestamp_rescue_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_effective_timestamp_rescue_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_tables_present}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_tables_present}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_source_tables_present,
   CASE
     WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
       raw_json#>>'{metadata,relationship_packet_observability,daily_unsupported_praise_detected}',
@@ -3716,6 +3826,7 @@ ORDER BY c.event_at DESC;
 -- QUERY 13 — observability_denominator_sanity_check
 -- Saved query name: SM_AUDIT_13_Denominator_Sanity
 -- Purpose: Telemetry completeness — rows that could make eligible/visible SQL denominators lie.
+-- v2.10: brief thread build filter telemetry sanity (source/filter/rescue counts, filter reason top).
 -- v2.9: sunday_daily_suppressed_before_weekly when daily suppressed but no visible weekly same local Sunday.
 -- v2.8: weekly_body_missing_with_sid warning rows (visible weekly send with empty body paths).
 -- v2.3: DailySmsWritingBriefV1 sent-row telemetry sanity (writer_prompt_path, brief_used, writer_total_chars).
@@ -3866,6 +3977,46 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_newest_at_local}',
       ''
     ) AS daily_brief_thread_newest_at_local,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_source_candidate_count}',
+      ''
+    ) AS daily_brief_thread_source_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_visible_send_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_visible_send_candidate_count}',
+      ''
+    ) AS daily_brief_thread_visible_send_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_user_inbound_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_user_inbound_candidate_count}',
+      ''
+    ) AS daily_brief_thread_user_inbound_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_weekly_candidate_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_weekly_candidate_count}',
+      ''
+    ) AS daily_brief_thread_weekly_candidate_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_count}',
+      ''
+    ) AS daily_brief_thread_filtered_out_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_reason_top}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_reason_top}',
+      ''
+    ) AS daily_brief_thread_filtered_out_reason_top,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_effective_timestamp_rescue_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_effective_timestamp_rescue_count}',
+      ''
+    ) AS daily_brief_thread_effective_timestamp_rescue_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_tables_present}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_source_tables_present}',
+      ''
+    ) AS daily_brief_thread_source_tables_present,
     COALESCE(
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_count}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_count}',
@@ -4659,6 +4810,129 @@ issues AS (
   SELECT
     'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
     'warning',
+    'c1_brief_empty_thread_with_candidates',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used with thread_message_count <= 1 but source_candidate_count > 0 — check filter telemetry'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int <= 1
+    AND COALESCE(NULLIF(cb.daily_brief_thread_source_candidate_count, ''), '0')::int > 0
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_filtered_all_candidates',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief build fetched candidates but visible_send_candidate_count = 0'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_source_candidate_count, ''), '0')::int > 0
+    AND COALESCE(NULLIF(cb.daily_brief_thread_visible_send_candidate_count, ''), '0')::int = 0
+    AND COALESCE(NULLIF(cb.daily_brief_thread_filtered_out_count, ''), '0')::int > 0
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_effective_timestamp_rescue_present',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread build used effective_timestamp_rescue_count > 0 (stale created_at rescued by sent_at)'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_effective_timestamp_rescue_count, ''), '0')::int > 0
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_filter_reason_not_truly_sent',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread filter top reason = not_truly_sent'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_brief_thread_filtered_out_reason_top = 'not_truly_sent'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_filter_reason_empty_body',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread filter top reason = empty_body'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_brief_thread_filtered_out_reason_top = 'empty_body'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_filter_reason_timestamp_outside_window',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread filter top reason = timestamp_outside_window'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_brief_thread_filtered_out_reason_top = 'timestamp_outside_window'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
     'c1_freshness_missed_visible_cta',
     cb.event_at,
     cb.clerk_user_id,
@@ -5208,6 +5482,46 @@ SELECT
     t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
     ''
   ) ELSE '' END AS daily_brief_thread_message_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_candidate_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_candidate_count}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_source_candidate_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_visible_send_candidate_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_visible_send_candidate_count}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_visible_send_candidate_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_user_inbound_candidate_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_user_inbound_candidate_count}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_user_inbound_candidate_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_weekly_candidate_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_weekly_candidate_count}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_weekly_candidate_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_count}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_filtered_out_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_reason_top}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_reason_top}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_filtered_out_reason_top,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_effective_timestamp_rescue_count}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_effective_timestamp_rescue_count}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_effective_timestamp_rescue_count,
+  CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
+    t.raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_tables_present}',
+    t.raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_tables_present}',
+    ''
+  ) ELSE '' END AS daily_brief_thread_source_tables_present,
   CASE WHEN t.event_source = 'coach_daily_outbound' THEN COALESCE(
     t.raw_json#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_phrases_preview}',
     t.raw_json#>>'{metadata,daily_v3_lane,daily_freshness_avoid_phrases_preview}',

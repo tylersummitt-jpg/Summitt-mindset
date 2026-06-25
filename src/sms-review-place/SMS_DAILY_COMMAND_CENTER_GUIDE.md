@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.9)
+# SMS Daily Command Center — SQL Guide (v2.10)
+
+v2.10 adds **DailySmsWritingBriefV1 thread build filter telemetry** on Q02/Q13/Q14 sent rows: `daily_brief_thread_source_candidate_count`, `visible_send_candidate_count`, `user_inbound_candidate_count`, `weekly_candidate_count`, `filtered_out_count`, `filtered_out_reason_top`, `effective_timestamp_rescue_count`, `source_tables_present` (counts only — no raw thread text). Q13 surfaces sanity rows: `c1_brief_empty_thread_with_candidates`, `c1_brief_filtered_all_candidates`, `c1_brief_effective_timestamp_rescue_present`, and per-reason filter diagnostics (`not_truly_sent`, `empty_body`, `timestamp_outside_window`). Use these when Q14 shows prior visible relationship rows but `daily_brief_thread_message_count` is 0 or 1.
 
 v2.9 adds **Sunday daily suppression observability** for Slice B: when V2 weekly-eligible users would receive both daily accountability and Weekly Pat Pause on the same local Sunday, daily is intentionally skipped with `status = skipped_sunday_weekly_pause`. This is **not an error** — Weekly Pat Pause is the sole proactive Sunday touch. Q01 `skipped_sunday_weekly_pause_count` tracks suppressions; Q03 surfaces `no_send_reason` / `skip_source`; Q13 `sunday_daily_suppressed_before_weekly` warns when daily was suppressed but no visible weekly send arrived same local Sunday (check Q14 for weekly body). Q14 continues to exclude these rows (not visible user messages). Optional Q01 collision markers: `daily_visible_and_weekly_visible_same_sunday_count`, `sunday_daily_after_weekly_count`, `sunday_weekly_expected_but_daily_sent_count`.
 
@@ -186,6 +188,11 @@ timestamptz '2026-06-18 00:00:00 America/New_York' AS window_end
 | (new) | **14** Relationship Thread Review |
 | (new) | **v2.8** Weekly body paths (`north_star_gate.final_body`, `metadata.sms_body`) |
 | (new) | **v2.9** `skipped_sunday_weekly_pause` Sunday daily suppression before weekly |
+| (new) | **v2.10** Brief thread build filter telemetry (source/filter/rescue counts on Q02/Q13/Q14) |
+
+### Brief thread filter telemetry (v2.10)
+
+On visible C1 brief sends, check `daily_brief_thread_source_candidate_count` vs `daily_brief_thread_message_count`. If source > 0 but message_count ≤ 1, read `daily_brief_thread_filtered_out_reason_top` and `daily_brief_thread_filtered_out_count`. Q13 flags: `c1_brief_empty_thread_with_candidates`, `c1_brief_filtered_all_candidates`, `c1_brief_effective_timestamp_rescue_present`, and per-reason filter rows. No raw thread text is exposed in these columns.
 
 ### `skipped_sunday_weekly_pause` (v2.9)
 

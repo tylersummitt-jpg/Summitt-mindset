@@ -100,6 +100,13 @@ describe("isSendEventTrulySent", () => {
         metadata: { voice_send_decision: { body_preview: "Legacy preview body" } },
       })
     ).toBe("Legacy preview body");
+    expect(
+      bodyFromSendEventRow({
+        status: "accepted",
+        message_sid: "SM_NS",
+        metadata: { north_star_gate: { final_body: "North star final body for thread." } },
+      })
+    ).toBe("North star final body for thread.");
   });
 
   it("rejects explicit no-send and cancelled rows", () => {
@@ -136,6 +143,36 @@ describe("timestampFromSendEventRow", () => {
     expect(createdAtFirstTimestampFromSendEventRow(row)).toBe(
       new Date("2026-06-10T10:00:00.000Z").getTime()
     );
+  });
+
+  it("prefers updated_at over stale created_at for sent-like rows without sent_at", () => {
+    const row = {
+      status: "accepted",
+      message_sid: "SM_UPDATED",
+      metadata: { note: "sent_to_twilio" },
+      created_at: "2026-06-10T08:00:00.000Z",
+      updated_at: "2026-06-21T14:00:00.000Z",
+    };
+    expect(timestampFromSendEventRow(row)).toBe(new Date("2026-06-21T14:00:00.000Z").getTime());
+  });
+
+  it("does not prefer updated_at for non-sent reserved rows", () => {
+    const row = {
+      status: "reserved",
+      created_at: "2026-06-10T08:00:00.000Z",
+      updated_at: "2026-06-21T14:00:00.000Z",
+    };
+    expect(timestampFromSendEventRow(row)).toBe(new Date("2026-06-10T08:00:00.000Z").getTime());
+  });
+
+  it("processed_at wins over created_at when sent_at is missing", () => {
+    const row = {
+      processed_at: "2026-06-21T12:00:00.000Z",
+      created_at: "2026-06-10T08:00:00.000Z",
+      status: "accepted",
+      message_sid: "SM_PROC",
+    };
+    expect(timestampFromSendEventRow(row)).toBe(new Date("2026-06-21T12:00:00.000Z").getTime());
   });
 });
 
@@ -685,6 +722,71 @@ describe("buildRecentExactThreadForBrief visible send coverage", () => {
       effectiveAsk: "One hour of distribution",
     });
     expect(freshness.length).toBeGreaterThan(0);
+  });
+
+  it("includes sent-like row with stale created_at and recent updated_at when sent_at missing", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "accepted",
+          message_sid: "SM_HIST_UPDATED",
+          created_at: "2026-06-10T08:00:00.000Z",
+          updated_at: "2026-06-21T14:00:00.000Z",
+          sms_body: "Historical daily body after Twilio send update.",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_hist_updated",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.message_count).toBeGreaterThanOrEqual(1);
+    expect(brief.messages.some((m) => /Historical daily body/i.test(m.body))).toBe(true);
+  });
+
+  it("excludes no-send row with north_star_gate body from writer thread", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "skipped_no_safe_v3_voice",
+          created_at: "2026-06-21T10:00:00.000Z",
+          metadata: { north_star_gate: { final_body: "Should not appear in brief thread." } },
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_ns_skip",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.messages.some((m) => /Should not appear/i.test(m.body))).toBe(false);
+    expect(brief.build_telemetry.daily_brief_thread_filtered_out_count).toBeGreaterThan(0);
+  });
+
+  it("includes sent row with body only at metadata.north_star_gate.final_body", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "accepted",
+          message_sid: "SM_NS_ONLY",
+          sent_at: "2026-06-21T10:00:00.000Z",
+          metadata: { north_star_gate: { final_body: "North star only body path for daily send." } },
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_ns_only",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.messages.some((m) => /North star only body/i.test(m.body))).toBe(true);
   });
 
   it("build telemetry includes counts without message bodies", async () => {

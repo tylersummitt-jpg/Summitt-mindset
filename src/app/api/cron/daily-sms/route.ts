@@ -628,6 +628,34 @@ async function withNorthStarDailyGate(
   return out;
 }
 
+/** Post-Twilio success fields for sms_send_events — sent_at powers brief thread sendBySent dual-fetch. */
+function dailySmsTwilioSuccessSendEventFields(args: {
+  localNow: Date;
+  messageSid: string;
+  twilioStatus: string;
+  smsBody: string;
+  metadata: Record<string, unknown>;
+}): {
+  message_sid: string;
+  status: string;
+  sms_body: string;
+  sent_at: string;
+  metadata: Record<string, unknown>;
+} {
+  const sentAtIso = args.localNow.toISOString();
+  return {
+    message_sid: args.messageSid,
+    status: args.twilioStatus,
+    sms_body: args.smsBody,
+    sent_at: sentAtIso,
+    metadata: {
+      ...args.metadata,
+      sent_at: sentAtIso,
+      twilio_send_attempted: true,
+    },
+  };
+}
+
 function dailySmsSentEventVoiceMetadata(
   built: Extract<DailySmsBuilt, { ok: true }>
 ): Record<string, unknown> {
@@ -3755,10 +3783,11 @@ export async function GET(req: Request) {
             }
 
             const retrySendWindow = localHourToSendWindow(localNow.getHours());
-            const retrySuccessPayload = {
-              message_sid: retryMessage.sid,
-              status: retryMessage.status,
-              sms_body: smsBody,
+            const retrySuccessPayload = dailySmsTwilioSuccessSendEventFields({
+              localNow,
+              messageSid: retryMessage.sid,
+              twilioStatus: retryMessage.status,
+              smsBody,
               metadata: {
                 ...existingMeta,
                 retry_count: retryCount + 1,
@@ -3784,7 +3813,7 @@ export async function GET(req: Request) {
                   : {}),
                 ...dailySmsSentEventVoiceMetadata(built),
               },
-            };
+            });
             let recordOk = false;
             const { error: retryUpdErr } = await supabaseServer
               .from("sms_send_events")
@@ -4440,10 +4469,11 @@ export async function GET(req: Request) {
 
       if (mainMessage) {
         const mainSendWindow = localHourToSendWindow(localNow.getHours());
-        const mainSuccessPayload = {
-          message_sid: mainMessage.sid,
-          status: mainMessage.status,
-          sms_body: smsBody,
+        const mainSuccessPayload = dailySmsTwilioSuccessSendEventFields({
+          localNow,
+          messageSid: mainMessage.sid,
+          twilioStatus: mainMessage.status,
+          smsBody,
           metadata: {
             note: "sent_to_twilio",
             timezone,
@@ -4467,7 +4497,7 @@ export async function GET(req: Request) {
               : {}),
             ...dailySmsSentEventVoiceMetadata(builtMain),
           },
-        };
+        });
         let recordOk = false;
         const { error: mainUpdErr } = await supabaseServer
           .from("sms_send_events")

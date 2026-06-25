@@ -218,9 +218,14 @@ export function bodyFromSendEventRow(row: Record<string, unknown>): string {
       metaPathString(m, "body"),
       metaPathString(m, "final_body"),
       metaPathString(m, "body_preview"),
+      metaPathString(m, "north_star_gate.final_body"),
+      metaPathString(m, "north_star_gate.original_body"),
+      metaPathString(m, "v3_candidate_body"),
+      metaPathString(m, "final_voice_gate.final_body"),
+      metaPathString(m, "final_voice_gate.final_body_with_suffix"),
+      metaPathString(m, "final_voice_gate.final_voice_gate_body"),
       metaPathString(m, "voice_send_decision.body_preview"),
       metaPathString(m, "voice_send_decision.north_star_visible_body"),
-      metaPathString(m, "final_voice_gate.final_voice_gate_body"),
       metaPathString(m, "daily_v3_lane.final_body"),
       metaPathString(m, "daily_v3_lane.body"),
       metaPathString(m, "daily_v3_lane.body_preview"),
@@ -329,16 +334,29 @@ export function isSendEventTrulySent(row: Record<string, unknown>): boolean {
   return false;
 }
 
-/** Effective send time — Q14 order: sent_at before created_at. */
+/** Effective send time — Q14 order: sent_at/processed_at first; sent-like rows prefer updated_at over stale created_at. */
 export function timestampFromSendEventRow(row: Record<string, unknown>): number {
   const meta = sendEventMetadata(row);
-  return firstValidTimestampMs([
+  const primaryTs = firstValidTimestampMs([
     row.sent_at,
     row.processed_at,
-    row.created_at,
-    row.updated_at,
     meta?.sent_at,
     meta?.processed_at,
+  ]);
+  if (primaryTs > 0) return primaryTs;
+
+  if (isSendEventTrulySent(row)) {
+    return firstValidTimestampMs([
+      row.updated_at,
+      row.created_at,
+      meta?.updated_at,
+      meta?.created_at,
+    ]);
+  }
+
+  return firstValidTimestampMs([
+    row.created_at,
+    row.updated_at,
     meta?.created_at,
     meta?.updated_at,
   ]);
