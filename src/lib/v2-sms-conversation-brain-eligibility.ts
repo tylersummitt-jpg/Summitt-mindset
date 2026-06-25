@@ -50,6 +50,85 @@ export function isLikelySmsComplianceOrOptOutTurn(raw: string): boolean {
   return false;
 }
 
+/** User completed the current goal chapter and wants to move on — not same-day proof only. */
+function hasGoalTransitionOverrideLanguage(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (/\bmove on\b/i.test(t)) return true;
+  if (/\b(want|would like)\s+to\s+(move on|work on)\b/i.test(t)) return true;
+  if (/\b(new goal|something else|work on something|different goal|new chapter|fresh start|clean slate)\b/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+/** Same-day goal completion proof — not a chapter/move-on transition unless overridden. */
+export function isSameDayGoalCompletionProofOnly(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (hasGoalTransitionOverrideLanguage(t)) return false;
+
+  if (
+    /\b(finished|completed|accomplished)\s+(my|the|today'?s)\s+goal\s+(today|this\s+morning)\b/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (/\b(finished|completed|accomplished)\s+the\s+goal\s+today\b/i.test(t)) return true;
+  if (/\b(finished|completed|accomplished)\s+today'?s\s+goal\b/i.test(t)) return true;
+  return false;
+}
+
+export function isUserCompletedGoalWantsToMoveOnLanguage(raw: string): boolean {
+  const t = raw.trim();
+  if (!t || t.length < 8) return false;
+
+  if (/\b(done for today|not focusing today|i'?m done today)\b/i.test(t) && !/\bmove on\b/i.test(t)) {
+    return false;
+  }
+  if (
+    /\b(completed it today|i did it today|finished it today)\b/i.test(t) &&
+    !/\b(move on|new goal|accomplished this goal)\b/i.test(t)
+  ) {
+    return false;
+  }
+
+  if (/\b(let'?s|lets)\s+move on from (this|the) goal\b/i.test(t)) return true;
+  if (/\bmove on from (this|the) goal\b/i.test(t)) return true;
+  if (/\b(i\s+)?(want|ready)\s+to\s+move on\b/i.test(t)) return true;
+  if (/\b(i'?m|i am)\s+ready\s+to\s+move on\b/i.test(t)) return true;
+  if (
+    /\b(accomplished|completed)\b[\s\S]{0,40}\b(and\s+)?(would like|want)\s+to\s+move on\b/i.test(t)
+  ) {
+    return true;
+  }
+  if (
+    /\bnot\s+focusing\s+on\b[\s\S]{0,48}\banymore\b/i.test(t) &&
+    /\b(goal|wake|snooz|bed|routine|commitment|standard|time)\b/i.test(t)
+  ) {
+    return true;
+  }
+
+  if (isSameDayGoalCompletionProofOnly(t)) return false;
+
+  if (/\b(accomplished|completed|finished)\s+(this|that|the|my)\s+goal\b/i.test(t)) return true;
+  if (/\b(this|that|the|my)\s+goal\s+is\s+(done|complete|completed|finished)\b/i.test(t)) return true;
+  return false;
+}
+
+/** Same-day proof/status — not a goal chapter / move-on transition. */
+export function isSameDayAccountabilityProofOnly(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (isUserCompletedGoalWantsToMoveOnLanguage(t)) return false;
+  if (/\b(done for today|not focusing today|i'?m done today)\b/i.test(t)) return true;
+  if (/\b(completed it today|i did it today|finished it today|knocked it out today)\b/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Conservative: obvious requests to change/replace/tighten/switch/rethink the commitment or goal.
  * Normal miss/partial/hard-day venting should stay false.
@@ -110,6 +189,8 @@ export function isLikelyCommitmentChangeIntentTurn(raw: string): boolean {
 
   if (/\brethink(ing)?\s+(my\s+)?(commitment|goal)\b/i.test(t)) return true;
   if (/\b(end|ending)\s+(this\s+)?(commitment|goal)\b/i.test(t)) return true;
+
+  if (isUserCompletedGoalWantsToMoveOnLanguage(t)) return true;
 
   return false;
 }

@@ -17,6 +17,7 @@ import {
   shouldOpenTuGoalChangePendingHandoff,
   validateTuProposedGoalBarText,
 } from "@/lib/v2-sms-commitment-change";
+import { inferMinimalGoalChangeIntentFromInbound } from "@/lib/openai-relationship-turn-understanding-v1";
 
 function baseCommitment(
   overrides: Partial<ActiveV2CommitmentRow> = {}
@@ -393,5 +394,311 @@ describe("TU goal-change awaiting_candidate shell (Slice 2B)", () => {
     });
     expect(pack.intent).toBe("sms_tighten_request");
     expect(pack.candidateTightenedBar).toBeNull();
+  });
+});
+
+describe("completed goal / move-on → awaiting_candidate shell", () => {
+  function wakeUpCommitment(): ActiveV2CommitmentRow {
+    return baseCommitment({
+      behavior_statement: "Get out of bed at planned wake time without snoozing",
+      title: "Wake up",
+    });
+  }
+
+  it("inferMinimalGoalChangeIntentFromInbound detects move on from this goal", () => {
+    const intent = inferMinimalGoalChangeIntentFromInbound("Let's move on from this goal");
+    expect(intent?.detected).toBe(true);
+    expect(intent?.source).toBe("user_requested");
+    expect(intent?.adjustment_type).toBe("replace");
+    expect(intent?.proposed_new_goal_text).toBeNull();
+  });
+
+  it("Let's move on from this goal opens awaiting_candidate_shell", () => {
+    const backstop = inferMinimalGoalChangeIntentFromInbound("Let's move on from this goal");
+    expect(backstop).not.toBeNull();
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: {
+        authoritative: true,
+        detected: true,
+        adjustment_type: backstop!.adjustment_type,
+        source: "user_requested",
+        requires_confirmation: true,
+        proposed_new_goal_text: null,
+        evidence_quote: backstop!.evidence_quote,
+        confidence: "medium",
+        goal_change_not_outcome_write: true,
+        goal_change_no_state_mutation_without_confirmation: true,
+      },
+      commitment: wakeUpCommitment(),
+      userMessage: "Let's move on from this goal",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.pendingShellReason).toBe("user_completed_goal_wants_new_bar");
+  });
+
+  it("I've completed that goal does not open concrete pending without a bar", () => {
+    const msg = "I've completed that goal";
+    const backstop = inferMinimalGoalChangeIntentFromInbound(msg);
+    expect(backstop?.detected).toBe(true);
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: {
+        authoritative: true,
+        detected: true,
+        adjustment_type: "replace",
+        source: "user_requested",
+        requires_confirmation: true,
+        proposed_new_goal_text: null,
+        evidence_quote: msg,
+        confidence: "medium",
+        goal_change_not_outcome_write: true,
+        goal_change_no_state_mutation_without_confirmation: true,
+      },
+      commitment: wakeUpCommitment(),
+      userMessage: msg,
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.shellMetadata?.no_outcome_write).toBe(true);
+  });
+
+  it("I've accomplished this goal and would like to move on opens user_requested handoff", () => {
+    const msg = "I've accomplished this goal and would like to move on";
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: null,
+        evidence_quote: msg,
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: msg,
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.pendingShellReason).toBe("user_completed_goal_wants_new_bar");
+    expect(evalResult.shellMetadata?.tu_goal_change_source).toBe("user_requested");
+  });
+
+  it("not focusing on wake up anymore opens completed-goal shell", () => {
+    const msg = "I'm not focusing on my wake up time anymore";
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: null,
+        evidence_quote: msg,
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: msg,
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.pendingShellReason).toBe("user_completed_goal_wants_new_bar");
+  });
+
+  it("Self discipline through daily tasks opens shell instead of vague_candidate skip", () => {
+    const msg = "Self discipline through daily tasks";
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: "self discipline through daily tasks",
+        evidence_quote: msg,
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: msg,
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+    expect(evalResult.skipReason).toBeNull();
+    expect(evalResult.pendingShellReason).toBe("vague_theme_needs_concrete_bar");
+  });
+
+  it("concrete new daily bar still opens concrete_bar_pending (2A)", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: "finish one task before bed every night",
+        evidence_quote: "finish one task before bed every night",
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: "finish one task before bed every night",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("concrete_bar_pending");
+    expect(evalResult.validatedProposedBar).toMatch(/finish one task/i);
+  });
+
+  it("bare yes without goal-transition context stays blocked", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: null,
+        evidence_quote: "yes",
+        confidence: "low",
+        authoritative: false,
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: "yes",
+      plannedInterruptionActionable: false,
+      classificationEventType: "user_yes",
+      relationshipMeaning: "reported_completion",
+    });
+    expect(evalResult.open).toBe(false);
+    expect(evalResult.skipReason).toBe("not_authoritative");
+  });
+
+  it("yes with prior goal-change context and authoritative replace intent can open shell", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: null,
+        evidence_quote: "ready to move on",
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: "Yes, I'm ready",
+      plannedInterruptionActionable: false,
+      classificationEventType: "user_yes",
+      relationshipMeaning: "goal_adjustment_request",
+      priorGoalChangeAskSatisfied: true,
+      recentThreadContext: "I've accomplished this goal and would like to move on",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+  });
+
+  it("user_no does not open goal-change handoff", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({ proposed_new_goal_text: null }),
+      commitment: wakeUpCommitment(),
+      userMessage: "no not today",
+      plannedInterruptionActionable: false,
+      classificationEventType: "user_no",
+      relationshipMeaning: "miss",
+    });
+    expect(evalResult.open).toBe(false);
+  });
+});
+
+describe("same-day goal proof vs move-on handoff", () => {
+  function wakeUpCommitment(): ActiveV2CommitmentRow {
+    return baseCommitment({
+      behavior_statement: "Get out of bed at planned wake time without snoozing",
+      title: "Wake up",
+    });
+  }
+
+  function evalHandoffForMessage(msg: string) {
+    const backstop = inferMinimalGoalChangeIntentFromInbound(msg);
+    return evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: backstop
+        ? {
+            authoritative: true,
+            detected: true,
+            adjustment_type: backstop.adjustment_type,
+            source: "user_requested",
+            requires_confirmation: true,
+            proposed_new_goal_text: backstop.proposed_new_goal_text,
+            evidence_quote: backstop.evidence_quote,
+            confidence: backstop.confidence,
+            goal_change_not_outcome_write: true,
+            goal_change_no_state_mutation_without_confirmation: true,
+          }
+        : null,
+      commitment: wakeUpCommitment(),
+      userMessage: msg,
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+  }
+
+  const sameDayProof = [
+    "I finished my goal today",
+    "I completed my goal today",
+    "I accomplished my goal today",
+    "I finished today's goal",
+  ];
+
+  it.each(sameDayProof)("same-day proof does not open awaiting_candidate_shell: %s", (msg) => {
+    expect(inferMinimalGoalChangeIntentFromInbound(msg)).toBeNull();
+    const evalResult = evalHandoffForMessage(msg);
+    expect(evalResult.open).toBe(false);
+  });
+
+  it("I got my 10,000 steps today does not open goal-change shell", () => {
+    const msg = "I got my 10,000 steps today";
+    expect(inferMinimalGoalChangeIntentFromInbound(msg)).toBeNull();
+    expect(evalHandoffForMessage(msg).open).toBe(false);
+  });
+
+  it("I finished this goal and want to move on opens awaiting_candidate_shell", () => {
+    const msg = "I finished this goal and want to move on";
+    const evalResult = evalHandoffForMessage(msg);
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+  });
+
+  it("I accomplished this goal and would like to move on opens awaiting_candidate_shell", () => {
+    const msg = "I've accomplished this goal and would like to move on";
+    const evalResult = evalHandoffForMessage(msg);
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("awaiting_candidate_shell");
+  });
+
+  it("not focusing on wake up anymore still opens goal-transition shell", () => {
+    const msg = "I'm not focusing on my wake up time anymore";
+    const evalResult = evalHandoffForMessage(msg);
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.pendingShellReason).toBe("user_completed_goal_wants_new_bar");
+  });
+
+  it("bare yes without transition still blocked", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: null,
+        evidence_quote: "yes",
+        confidence: "low",
+        authoritative: false,
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: "yes",
+      plannedInterruptionActionable: false,
+      classificationEventType: "user_yes",
+      relationshipMeaning: "reported_completion",
+    });
+    expect(evalResult.open).toBe(false);
+  });
+
+  it("concrete new daily bar still opens concrete_bar_pending (2A)", () => {
+    const evalResult = evaluateTuGoalChangePendingHandoff({
+      reconciledGoalChangeIntent: tuIntent({
+        adjustment_type: "replace",
+        proposed_new_goal_text: "finish one task before bed every night",
+        evidence_quote: "finish one task before bed every night",
+      }),
+      commitment: wakeUpCommitment(),
+      userMessage: "finish one task before bed every night",
+      plannedInterruptionActionable: false,
+      classificationEventType: null,
+      relationshipMeaning: "goal_adjustment_request",
+    });
+    expect(evalResult.open).toBe(true);
+    expect(evalResult.mode).toBe("concrete_bar_pending");
   });
 });

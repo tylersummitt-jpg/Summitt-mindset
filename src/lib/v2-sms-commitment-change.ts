@@ -20,7 +20,7 @@ import {
   isUnsafeSmsGoalCandidateText,
 } from "@/lib/sms-inbound-safety";
 import type { SmsGoalAdjustmentMove } from "@/lib/sms-goal-adjustment-signal";
-import { isLikelyCommitmentChangeIntentTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
+import { isLikelyCommitmentChangeIntentTurn, isUserCompletedGoalWantsToMoveOnLanguage } from "@/lib/v2-sms-conversation-brain-eligibility";
 import { isStrongV2YesNoOutcome } from "@/lib/v2-sms-accountability";
 import {
   isAuthoritativeReconciledGoalChangeIntent,
@@ -294,7 +294,98 @@ export type TuGoalChangePendingMode =
 
 export type TuGoalChangePendingShellReason =
   | "goal_change_without_concrete_bar"
-  | "accepted_coach_goal_evolution_invite";
+  | "accepted_coach_goal_evolution_invite"
+  | "user_completed_goal_wants_new_bar"
+  | "vague_theme_needs_concrete_bar";
+
+/** Forbidden coach phrases when user completed/moved on from the current goal. */
+export const OLD_GOAL_REASK_FORBIDDEN_SUBSTRINGS = [
+  "wake up without snoozing",
+  "wake-up time",
+  "get out of bed",
+  "snoozing tomorrow",
+  "stay committed to your wake",
+] as const;
+
+export function buildOldGoalReaskForbiddenSubstrings(args: {
+  behaviorStatement?: string | null;
+  effectiveAsk?: string | null;
+}): string[] {
+  const out = new Set<string>(OLD_GOAL_REASK_FORBIDDEN_SUBSTRINGS);
+  const phrase = (args.behaviorStatement ?? args.effectiveAsk ?? "").trim().replace(/\s+/g, " ");
+  if (phrase.length >= 15) {
+    out.add(phrase.slice(0, 80));
+  }
+  const lower = phrase.toLowerCase();
+  if (/\bwake\b/.test(lower) || /\bsnooz/.test(lower)) {
+    out.add("wake");
+    out.add("snooz");
+  }
+  return [...out];
+}
+
+function isBroadThemeNotConcreteDailyBar(text: string): boolean {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (!t) return false;
+  if (/\b(self discipline|discipline through|build discipline|work on discipline)\b/i.test(t)) {
+    return true;
+  }
+  if (/\b(focus on|work on)\b/i.test(t) && /\b(tasks?|discipline|mindset)\b/i.test(t) && t.length < 48) {
+    return true;
+  }
+  if (DURATION_BAR_RE.test(t)) return false;
+  if (
+    /\b(every\s+(day|morning|night)|each\s+(day|morning|night)|daily|before\s+bed|per\s+day)\b/i.test(t) &&
+    t.length >= 22
+  ) {
+    return false;
+  }
+  return false;
+}
+
+function resolveShellReasonForGoalTransition(args: {
+  userMessage: string;
+  hadVagueProposedBar: boolean;
+  intent: ReconciledGoalChangeIntent;
+}): TuGoalChangePendingShellReason {
+  if (isUserCompletedGoalWantsToMoveOnLanguage(args.userMessage)) {
+    return "user_completed_goal_wants_new_bar";
+  }
+  if (args.hadVagueProposedBar) {
+    return "vague_theme_needs_concrete_bar";
+  }
+  if (
+    args.intent.adjustment_type === "replace" ||
+    args.intent.adjustment_type === "reset" ||
+    args.intent.adjustment_type === "new_goal"
+  ) {
+    return "user_completed_goal_wants_new_bar";
+  }
+  return "goal_change_without_concrete_bar";
+}
+
+function shouldBypassStrongOutcomeForGoalTransition(args: {
+  userMessage: string;
+  intent: ReconciledGoalChangeIntent;
+  recentThreadContext?: string | null;
+  priorGoalChangeAskSatisfied?: boolean;
+}): boolean {
+  if (isUserCompletedGoalWantsToMoveOnLanguage(args.userMessage)) return true;
+  const thread = args.recentThreadContext?.trim();
+  if (thread && isUserCompletedGoalWantsToMoveOnLanguage(thread)) return true;
+  if (
+    args.priorGoalChangeAskSatisfied &&
+    (args.intent.adjustment_type === "replace" ||
+      args.intent.adjustment_type === "reset" ||
+      args.intent.adjustment_type === "new_goal" ||
+      args.intent.adjustment_type === "unspecified" ||
+      args.intent.adjustment_type === "amend" ||
+      args.intent.adjustment_type === "restate")
+  ) {
+    return true;
+  }
+  return false;
+}
 
 export type TuGoalChangePendingShellMetadata = {
   tu_goal_change_type: TurnUnderstandingGoalAdjustmentType;
@@ -549,12 +640,13 @@ function evaluateAwaitingCandidateShellEligibility(args: {
 function buildTuGoalChangeShellMetadata(args: {
   intent: ReconciledGoalChangeIntent;
   priorGoalChangeAskSatisfied: boolean;
+  awaitingCandidateReason: TuGoalChangePendingShellReason;
 }): TuGoalChangePendingShellMetadata {
   return {
     tu_goal_change_type: args.intent.adjustment_type,
     tu_goal_change_source: args.intent.source,
     tu_goal_change_confidence: args.intent.confidence,
-    awaiting_candidate_reason: "goal_change_without_concrete_bar",
+    awaiting_candidate_reason: args.awaitingCandidateReason,
     goal_change_requires_confirmation: true,
     prior_goal_change_ask_satisfied: args.priorGoalChangeAskSatisfied,
     stale_ask_goal_change_bridge_eligible:
@@ -601,6 +693,8 @@ export function evaluateTuGoalChangePendingHandoff(args: {
   priorGoalChangeAskSatisfied?: boolean;
   /** Slice 3B — validated coach invite acceptance may bypass bare yes/no outcome block. */
   bypassStrongOutcomeForCoachInviteAcceptance?: boolean;
+  /** Recent thread excerpt for completed-goal / move-on context on readiness replies. */
+  recentThreadContext?: string | null;
 }): TuGoalChangePendingHandoffEval {
   const intent = args.reconciledGoalChangeIntent;
   if (!isAuthoritativeReconciledGoalChangeIntent(intent)) {
@@ -621,10 +715,19 @@ export function evaluateTuGoalChangePendingHandoff(args: {
     return skipEval("unsafe_inbound");
   }
 
+  const bypassStrongOutcome =
+    args.bypassStrongOutcomeForCoachInviteAcceptance === true ||
+    shouldBypassStrongOutcomeForGoalTransition({
+      userMessage: body,
+      intent: intent!,
+      recentThreadContext: args.recentThreadContext,
+      priorGoalChangeAskSatisfied: args.priorGoalChangeAskSatisfied,
+    });
+
   if (
     args.classificationEventType &&
     isStrongV2YesNoOutcome(args.classificationEventType) &&
-    !args.bypassStrongOutcomeForCoachInviteAcceptance
+    !bypassStrongOutcome
   ) {
     return skipEval("strong_outcome_classification");
   }
@@ -633,10 +736,21 @@ export function evaluateTuGoalChangePendingHandoff(args: {
     return skipEval("existing_pending");
   }
 
-  const validated = validateTuProposedGoalBarText({
+  let intentForShell = intent!;
+  let hadVagueProposedBar = false;
+  const proposedPresent = Boolean(intent!.proposed_new_goal_text?.trim());
+  let validated = validateTuProposedGoalBarText({
     proposedText: intent!.proposed_new_goal_text,
     currentBehaviorStatement: args.commitment.behavior_statement,
   });
+
+  if (
+    validated.ok &&
+    validated.normalized &&
+    isBroadThemeNotConcreteDailyBar(validated.normalized)
+  ) {
+    validated = { ok: false, normalized: null, skipReason: "vague_candidate" };
+  }
 
   if (validated.ok && validated.normalized && TU_CONCRETE_BAR_PENDING_TYPES.has(intent!.adjustment_type)) {
     const intentPack = deriveIntentPackFromReconciledGoalChange({
@@ -657,8 +771,27 @@ export function evaluateTuGoalChangePendingHandoff(args: {
     };
   }
 
-  const proposedPresent = Boolean(intent!.proposed_new_goal_text?.trim());
   if (
+    proposedPresent &&
+    !validated.ok &&
+    validated.skipReason === "vague_candidate"
+  ) {
+    const proposedText = (intent!.proposed_new_goal_text ?? "").trim();
+    const redirectVagueToShell =
+      hadVagueProposedBar ||
+      isUserCompletedGoalWantsToMoveOnLanguage(body) ||
+      isBroadThemeNotConcreteDailyBar(proposedText) ||
+      Boolean(
+        args.recentThreadContext?.trim() &&
+          isUserCompletedGoalWantsToMoveOnLanguage(args.recentThreadContext)
+      );
+    if (redirectVagueToShell) {
+      hadVagueProposedBar = true;
+      intentForShell = { ...intent!, proposed_new_goal_text: null };
+    } else {
+      return skipEval("vague_candidate");
+    }
+  } else if (
     proposedPresent &&
     !validated.ok &&
     validated.skipReason &&
@@ -668,7 +801,7 @@ export function evaluateTuGoalChangePendingHandoff(args: {
   }
 
   const shellDefer = evaluateAwaitingCandidateShellEligibility({
-    intent: intent!,
+    intent: intentForShell,
     userMessage: body,
     relationshipMeaning: args.relationshipMeaning,
   });
@@ -676,7 +809,12 @@ export function evaluateTuGoalChangePendingHandoff(args: {
     return skipEval(shellDefer);
   }
 
-  const intentPack = deriveAwaitingCandidateIntentPackFromReconciledGoalChange({ intent: intent! });
+  const shellReason = resolveShellReasonForGoalTransition({
+    userMessage: body,
+    hadVagueProposedBar,
+    intent: intentForShell,
+  });
+  const intentPack = deriveAwaitingCandidateIntentPackFromReconciledGoalChange({ intent: intentForShell });
   const priorAsk = args.priorGoalChangeAskSatisfied === true;
   return {
     open: true,
@@ -684,10 +822,11 @@ export function evaluateTuGoalChangePendingHandoff(args: {
     skipReason: null,
     intentPack,
     validatedProposedBar: null,
-    pendingShellReason: "goal_change_without_concrete_bar",
+    pendingShellReason: shellReason,
     shellMetadata: buildTuGoalChangeShellMetadata({
-      intent: intent!,
+      intent: intentForShell,
       priorGoalChangeAskSatisfied: priorAsk,
+      awaitingCandidateReason: shellReason,
     }),
   };
 }
@@ -705,6 +844,13 @@ export function buildTuGoalChangeHandoffTelemetry(
     tu_goal_change_handoff_opened: evalResult.open,
     tu_goal_change_handoff_mode: evalResult.mode,
     awaiting_candidate_reason: evalResult.pendingShellReason,
+    goal_change_handoff_reason: evalResult.pendingShellReason,
+    user_completed_goal_wants_new_bar:
+      evalResult.pendingShellReason === "user_completed_goal_wants_new_bar",
+    old_goal_reask_blocked_after_move_on:
+      evalResult.open &&
+      (evalResult.pendingShellReason === "user_completed_goal_wants_new_bar" ||
+        evalResult.pendingShellReason === "vague_theme_needs_concrete_bar"),
     goal_change_proposed_new_goal_text_present: Boolean(evalResult.validatedProposedBar),
     goal_change_pending_skip_reason:
       evalResult.skipReason ?? wave4?.skipReason ?? null,
@@ -856,7 +1002,9 @@ export function deriveSmsCommitmentChangeIntent(args: {
   const replaceLike =
     /\b(new\s+goal|replace|different\s+goal|doesn'?t\s+fit|does\s+not\s+fit|change\s+(the\s+)?goal|switch\s+to|not\s+the\s+right\s+goal)\b/i.test(
       lower
-    ) || ai?.intent === "commitment_change_request";
+    ) ||
+    isUserCompletedGoalWantsToMoveOnLanguage(raw) ||
+    ai?.intent === "commitment_change_request";
 
   const tightenLike =
     /\b(smaller|too\s+much|lower\s+(the\s+)?bar|tighten|scale\s+it\s+down|make\s+it\s+easier|less\s+time|overwhelming)\b/i.test(

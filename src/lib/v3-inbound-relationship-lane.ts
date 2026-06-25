@@ -12,6 +12,8 @@ import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
 import type { V2InboundGatedDecision, V2InboundShadowInterpretationResult } from "@/lib/v2-ai-inbound";
 import {
   GOAL_CHANGE_STALE_ASK_FORBIDDEN_SUBSTRINGS,
+  buildOldGoalReaskForbiddenSubstrings,
+  type TuGoalChangePendingShellReason,
   type V2SmsCommitmentIntentPack,
 } from "@/lib/v2-sms-commitment-change";
 import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
@@ -677,6 +679,7 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     mode: "awaiting_candidate_shell";
     priorGoalChangeAskSatisfied: boolean;
     staleAskGoalChangeBridgeEligible: boolean;
+    awaitingCandidateReason?: TuGoalChangePendingShellReason | null;
     /** Slice 3B — accepted coach goal-evolution invite shell. */
     coachInviteAcceptance?: {
       invite_kind: string | null;
@@ -762,6 +765,17 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     }
     reqLines.push("Do NOT treat this as completion proof, miss proof, or Victory Room proof.");
   }
+  const awaitingReason = args.tuShellHandoff?.awaitingCandidateReason;
+  if (
+    args.tuShellHandoff?.mode === "awaiting_candidate_shell" &&
+    (awaitingReason === "user_completed_goal_wants_new_bar" ||
+      awaitingReason === "vague_theme_needs_concrete_bar")
+  ) {
+    reqLines.push(
+      "User completed or is done with the current goal and wants to move on — do NOT coach the old daily bar or ask how they will achieve the previous standard.",
+      "Ask exactly one fresh human question for the new concrete daily bar they will own; broad themes are not enough."
+    );
+  }
   if (
     args.tuShellHandoff?.mode === "awaiting_candidate_shell" &&
     args.tuShellHandoff.coachInviteAcceptance
@@ -811,10 +825,21 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
   const requiredVerbatim =
     appendPreview && appendPreview.length > 0 ? [appendPreview] : undefined;
 
-  const forbiddenSubstrings =
-    args.tuShellHandoff?.staleAskGoalChangeBridgeEligible === true
-      ? [...GOAL_CHANGE_STALE_ASK_FORBIDDEN_SUBSTRINGS]
-      : undefined;
+  const forbiddenSubstrings: string[] = [];
+  if (args.tuShellHandoff?.staleAskGoalChangeBridgeEligible === true) {
+    forbiddenSubstrings.push(...GOAL_CHANGE_STALE_ASK_FORBIDDEN_SUBSTRINGS);
+  }
+  if (
+    args.tuShellHandoff?.awaitingCandidateReason === "user_completed_goal_wants_new_bar" ||
+    args.tuShellHandoff?.awaitingCandidateReason === "vague_theme_needs_concrete_bar"
+  ) {
+    forbiddenSubstrings.push(
+      ...buildOldGoalReaskForbiddenSubstrings({
+        behaviorStatement: args.commitment.behavior_statement,
+        effectiveAsk: args.effectiveAsk,
+      })
+    );
+  }
 
   return {
     detected_intent_type: args.intentPack.intent,
@@ -835,7 +860,7 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
         : null),
     server_state_transition_summary: serverSummary,
     ...(requiredVerbatim ? { required_verbatim_substrings: requiredVerbatim } : {}),
-    ...(forbiddenSubstrings?.length ? { forbidden_substrings: forbiddenSubstrings } : {}),
+    ...(forbiddenSubstrings.length ? { forbidden_substrings: forbiddenSubstrings } : {}),
     required_meaning_summary: reqLines.join(" "),
     legacy_commitment_change_reply_preview: legacyPreview,
     append_note_preview: appendPreview,

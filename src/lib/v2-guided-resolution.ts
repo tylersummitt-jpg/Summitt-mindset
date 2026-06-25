@@ -83,7 +83,7 @@ export type V2SmsPendingResolutionPayload = {
   tu_goal_change_type?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalAdjustmentType;
   tu_goal_change_source?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalChangeSource;
   tu_goal_change_confidence?: import("@/lib/openai-relationship-turn-understanding-v1").TurnUnderstandingGoalChangeConfidenceLevel;
-  awaiting_candidate_reason?: "goal_change_without_concrete_bar" | "accepted_coach_goal_evolution_invite";
+  awaiting_candidate_reason?: "goal_change_without_concrete_bar" | "accepted_coach_goal_evolution_invite" | "user_completed_goal_wants_new_bar" | "vague_theme_needs_concrete_bar";
   goal_change_requires_confirmation?: boolean;
   prior_goal_change_ask_satisfied?: boolean;
   stale_ask_goal_change_bridge_eligible?: boolean;

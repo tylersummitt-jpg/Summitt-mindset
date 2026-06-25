@@ -143,4 +143,36 @@ describe("buildCommitmentChangeInboundFactsFromWave4 — Slice A3", () => {
     expect(f.required_meaning_summary).toMatch(/Do NOT treat acceptance as proof/i);
     expect(f.required_meaning_summary).toMatch(/new daily bar/i);
   });
+
+  it("completed-goal move-on shell forbids old wake-up coaching", () => {
+    const f = buildCommitmentChangeInboundFactsFromWave4({
+      intentPack: {
+        intent: "sms_change_unspecified",
+        candidateTightenedBar: null,
+        candidateNewBar: null,
+        aiConfidence: 0.9,
+      },
+      commitment: {
+        ...baseCommitment(),
+        behavior_statement: "Get out of bed at planned wake time without snoozing",
+        title: "Wake up",
+      },
+      effectiveAsk: "Get out of bed at planned wake time without snoozing",
+      userMessage: "I've accomplished this goal and would like to move on",
+      messageSid: "SMfacts5",
+      wave4: { pendingApplied: true, pendingKind: "commitment_replace", skipReason: null },
+      pendingResolutionApplyException: null,
+      legacyCommitmentChangeReplyPreview: "stub",
+      tuShellHandoff: {
+        mode: "awaiting_candidate_shell",
+        priorGoalChangeAskSatisfied: false,
+        staleAskGoalChangeBridgeEligible: false,
+        awaitingCandidateReason: "user_completed_goal_wants_new_bar",
+      },
+    });
+    expect(f.required_meaning_summary).toMatch(/do NOT coach the old daily bar/i);
+    expect(f.required_meaning_summary).toMatch(/new concrete daily bar/i);
+    expect(f.forbidden_substrings).toContain("wake up without snoozing");
+    expect(f.forbidden_substrings).toContain("get out of bed");
+  });
 });

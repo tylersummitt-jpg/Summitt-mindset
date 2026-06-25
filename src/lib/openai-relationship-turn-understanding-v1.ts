@@ -5,6 +5,7 @@
 import OpenAI from "openai";
 
 import type { InboundMeaningFacts, InboundPersistenceDecision } from "@/lib/inbound-relationship-meaning";
+import { isUserCompletedGoalWantsToMoveOnLanguage } from "@/lib/v2-sms-conversation-brain-eligibility";
 import type { InboundMeaningRoutePriority } from "@/lib/inbound-relationship-meaning";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import { shouldPromoteClarifyForReportedCompletionPersist } from "@/lib/inbound-relationship-meaning";
@@ -447,6 +448,18 @@ export function inferMinimalGoalChangeIntentFromInbound(
     return null;
   }
 
+  if (isUserCompletedGoalWantsToMoveOnLanguage(t)) {
+    return {
+      detected: true,
+      adjustment_type: /\b(reset|fresh start|clean slate)\b/i.test(t) ? "reset" : "replace",
+      source: "user_requested",
+      requires_confirmation: true,
+      proposed_new_goal_text: null,
+      evidence_quote: truncateStore(t.slice(0, 80), 120),
+      confidence: "medium",
+    };
+  }
+
   let adjustment_type: TurnUnderstandingGoalAdjustmentType = "unspecified";
   if (/\b(amend|re-?state)\b.*\b(old\s+)?goals?\b/i.test(t) || /\bneed\s+to\s+amend\b/i.test(t)) {
     adjustment_type = /\bre-?state\b/i.test(t) ? "restate" : "amend";
@@ -751,7 +764,7 @@ export function buildTurnUnderstandingUserPrompt(args: BuildTurnUnderstandingPro
     "- do_not_repeat_asks: at most 6 short normalized phrases.",
     "",
     "GOAL-CHANGE / GOAL-ADJUSTMENT (goal_change_intent — advisory only; server confirms before any mutation):",
-    "- Infer from natural language, not exact keywords. Examples (non-exhaustive): amend/re-state/reset old goals; goal too easy/hard; make it smaller; ready for more; goal no longer fits; blocker should be the target.",
+    "- Infer from natural language, not exact keywords. Examples (non-exhaustive): amend/re-state/reset old goals; goal too easy/hard; make it smaller; ready for more; goal no longer fits; user completed the current goal and wants to move on to a new daily bar.",
     "- Distinguish talking about goals in general (detected false) vs asking to change/adjust/restate/replace the current commitment.",
     "- When goal_change_intent.detected is true: relationship_meaning should be goal_adjustment_request; commitment_outcome_recommendation must be no_outcome_write; persistence_safety must NOT be safe_to_write for user_yes/user_no/user_partial.",
     "- Goal-change is NEVER user_yes, user_no, or user_partial proof — even if the message starts with yes.",
@@ -912,6 +925,7 @@ export type ReconcileTurnUnderstandingArgs = {
   routePriority?: InboundMeaningRoutePriority;
   latestCoachQuestion?: string | null;
   interpreterFailedReason?: string | null;
+  inboundBody?: string | null;
 };
 
 function hardRoutePriorityOverridesProposal(routePriority?: InboundMeaningRoutePriority): boolean {
@@ -1112,7 +1126,7 @@ function finalizeReconciledGoalChange(args: {
   disagreement_flags: string[];
 } {
   let proposalIntent = args.proposal?.goal_change_intent ?? null;
-  if (!proposalIntent?.detected && args.fromFailedSafeFallback && args.rawInboundForFallback) {
+  if (!proposalIntent?.detected && args.rawInboundForFallback) {
     proposalIntent = inferMinimalGoalChangeIntentFromInbound(args.rawInboundForFallback);
   }
 
@@ -1348,6 +1362,7 @@ export function reconcileTurnUnderstanding(
     last_ask_satisfied,
     confidence,
     disagreement_flags,
+    rawInboundForFallback: args.inboundBody ?? null,
   });
 
   return {
@@ -1616,6 +1631,7 @@ export async function runInboundRelationshipTurnUnderstanding(
     routePriority,
     latestCoachQuestion: coachQ,
     interpreterFailedReason: openAi.ok ? null : openAi.reason,
+    inboundBody: args.inboundBody,
   });
   return { ...reconciled, interpreter_latency_ms: openAi.latencyMs };
 }

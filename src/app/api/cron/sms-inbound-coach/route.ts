@@ -4727,6 +4727,12 @@ async function processV2NormalInboundOutcome(
           priorGoalChangeAskSatisfied:
             inboundTurnUnderstandingCtx.reconciled?.last_ask_satisfied === "yes" ||
             inboundTurnUnderstandingCtx.reconciled?.stale_ask_risk === true,
+          recentThreadContext:
+            inboundRelationshipMemoryPacket.recent_exact_thread_72h?.messages
+              ?.map((m) => m.body)
+              .filter(Boolean)
+              .slice(-6)
+              .join("\n") ?? null,
         });
 
   const identitySuppressesCommitmentHandoff = shouldSuppressCommitmentChangeHandoffForIdentity({
@@ -6206,6 +6212,8 @@ async function processV2NormalInboundOutcome(
               staleAskGoalChangeBridgeEligible:
                 tuGoalChangePendingHandoffEval.shellMetadata?.stale_ask_goal_change_bridge_eligible ??
                 false,
+              awaitingCandidateReason:
+                tuGoalChangePendingHandoffEval.shellMetadata?.awaiting_candidate_reason ?? null,
               coachInviteAcceptance:
                 tuGoalChangePendingHandoffEval.pendingShellReason ===
                 "accepted_coach_goal_evolution_invite"

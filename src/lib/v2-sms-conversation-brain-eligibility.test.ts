@@ -4,6 +4,8 @@ import {
   countRecentClarifyStyleHeuristic,
   isLikelyCommitmentChangeIntentTurn,
   isLikelySmsComplianceOrOptOutTurn,
+  isSameDayGoalCompletionProofOnly,
+  isUserCompletedGoalWantsToMoveOnLanguage,
   shouldUseSmsConversationBrainControl,
 } from "@/lib/v2-sms-conversation-brain-eligibility";
 
@@ -192,6 +194,41 @@ describe("isLikelySmsComplianceOrOptOutTurn (brain gate)", () => {
     expect(isLikelySmsComplianceOrOptOutTurn("I missed today")).toBe(false);
     expect(isLikelySmsComplianceOrOptOutTurn("I need help tomorrow")).toBe(false);
     expect(isLikelySmsComplianceOrOptOutTurn("This was hard")).toBe(false);
+  });
+});
+
+describe("completed-goal move-on vs same-day proof", () => {
+  const sameDayProofOnly = [
+    "I finished my goal today",
+    "I completed my goal today",
+    "I accomplished my goal today",
+    "finished the goal today",
+    "completed the goal today",
+    "I finished today's goal",
+    "I completed today's goal",
+    "I accomplished today's goal",
+    "I finished my goal this morning",
+    "I completed my goal this morning",
+  ];
+
+  it.each(sameDayProofOnly)("does not treat same-day proof as move-on: %s", (s) => {
+    expect(isSameDayGoalCompletionProofOnly(s)).toBe(true);
+    expect(isUserCompletedGoalWantsToMoveOnLanguage(s)).toBe(false);
+    expect(isLikelyCommitmentChangeIntentTurn(s)).toBe(false);
+  });
+
+  const moveOn = [
+    "I finished this goal and want to move on",
+    "I completed that goal and want to move on",
+    "I've accomplished this goal and would like to move on",
+    "I've completed my goal of waking up on time and built consistency in that process",
+    "I'm not focusing on my wake up time anymore",
+    "Let's move on from this goal",
+    "This goal is done and I want to work on something else",
+  ];
+
+  it.each(moveOn)("still treats goal transition as move-on: %s", (s) => {
+    expect(isUserCompletedGoalWantsToMoveOnLanguage(s)).toBe(true);
   });
 });
 
