@@ -8,6 +8,7 @@ import type {
   InboundV3RelationshipFacts,
   InboundV3RelationshipLaneInput,
 } from "@/lib/v3-inbound-relationship-lane";
+import { detectExplicitAlignedInboundCompletion } from "@/lib/inbound-self-reported-completion";
 import { classifyInboundSmsSafetyTier } from "@/lib/sms-inbound-safety";
 import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 
@@ -139,20 +140,31 @@ export function buildZeroQuestionCompletionFallbackAck(
 export function isAcknowledgeCompletionZeroQuestionRecoveryEligible(
   args: InboundV3RelationshipLaneInput
 ): boolean {
-  const rt = args.facts.inbound_resolved_truth;
-  if (!rt || rt.max_questions_override !== 0) return false;
-  if (rt.required_reply_move !== "acknowledge_completion") return false;
-  if (args.proof_persisted_before_writer !== true) return false;
-  if (args.proof_persisted_event_type !== "user_yes") return false;
-
-  if (args.facts.goal_change_facts?.goal_change_intent_detected) return false;
-
   const raw = args.facts.thread.coalesced_inbound_text?.trim() ?? "";
   if (!raw) return false;
   if (isLikelySmsComplianceOrOptOutTurn(raw)) return false;
   const safety = classifyInboundSmsSafetyTier(raw);
   if (safety.tier === "crisis" || safety.tier === "harmful_request") return false;
+  if (args.facts.goal_change_facts?.goal_change_intent_detected) return false;
 
+  const rt = args.facts.inbound_resolved_truth;
+  const proofPersisted =
+    args.proof_persisted_before_writer === true && args.proof_persisted_event_type === "user_yes";
+  const explicitAligned = detectExplicitAlignedInboundCompletion(raw, {
+    commitmentBehaviorStatement: args.facts.commitment.behavior_statement ?? null,
+    effectiveAsk: args.facts.commitment.effective_ask ?? null,
+    commitmentTitle: args.facts.commitment.title ?? null,
+  });
+
+  if (proofPersisted) {
+    if (!rt || rt.max_questions_override !== 0) return false;
+    if (rt.required_reply_move !== "acknowledge_completion") return false;
+    return true;
+  }
+
+  if (!explicitAligned) return false;
+  if (rt?.required_reply_move === "acknowledge_miss_without_shame") return false;
+  if (rt?.required_reply_move === "acknowledge_partial") return false;
   return true;
 }
 
@@ -170,16 +182,37 @@ export function tryRecoverAcknowledgeCompletionZeroQuestionBody(
     return { ok: false, telemetry: baseTelemetry };
   }
 
-  const rt = args.facts.inbound_resolved_truth!;
+  const rt = args.facts.inbound_resolved_truth;
+  const proofPersisted =
+    args.proof_persisted_before_writer === true && args.proof_persisted_event_type === "user_yes";
   const telemetry: ZeroQuestionCompletionRecoveryTelemetry = {
     ...baseTelemetry,
     zero_question_repair_attempted: true,
-    proof_persisted_before_zero_question_fallback: true,
+    proof_persisted_before_zero_question_fallback: proofPersisted,
   };
+
+  const zeroQuestionRt: InboundResolvedTruth | null =
+    rt && rt.max_questions_override === 0
+      ? rt
+      : proofPersisted && rt
+        ? rt
+        : {
+            latest_user_text: args.facts.thread.coalesced_inbound_text?.trim() ?? "",
+            resolved_outcome: "completed",
+            temporal_scope: "today",
+            plan_detected: false,
+            blocker_detected: false,
+            answered_recent_ask: false,
+            satisfied_recent_ask: false,
+            persistence_decision: "write_user_yes_today",
+            required_reply_move: "acknowledge_completion",
+            max_questions_override: 0,
+            must_not_do: [],
+          };
 
   const repaired = repairZeroQuestionCompletionStatement(candidate);
   if (repaired) {
-    if (bodyPassesZeroQuestionRules(repaired, rt) && validateBody(repaired)) {
+    if (bodyPassesZeroQuestionRules(repaired, zeroQuestionRt) && validateBody(repaired)) {
       return {
         ok: true,
         body: repaired,
@@ -195,7 +228,7 @@ export function tryRecoverAcknowledgeCompletionZeroQuestionBody(
 
   const fallback = buildZeroQuestionCompletionFallbackAck(args.facts);
   if (fallback) {
-    if (bodyPassesZeroQuestionRules(fallback, rt) && validateBody(fallback)) {
+    if (bodyPassesZeroQuestionRules(fallback, zeroQuestionRt) && validateBody(fallback)) {
       return {
         ok: true,
         body: fallback,

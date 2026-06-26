@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  inboundHasExplicitAccountabilityMissClause,
   inboundHasExplicitCompletionClause,
+  inboundHasExplicitAccountabilityMissClause,
   inboundHasExplicitMissClause,
   looksLikeCoachContextCorrectionOrMetaDispute,
   looksLikeOnboardingProcessDispute,
+  splitInboundClauses,
 } from "@/lib/inbound-short-answer-clauses";
 
 describe("inbound-short-answer-clauses — explicit completion expansion", () => {
@@ -30,6 +31,29 @@ describe("inbound-short-answer-clauses — explicit completion expansion", () =>
   ];
 
   it.each(completionCases)("%s has explicit completion clause", (text) => {
+    expect(inboundHasExplicitCompletionClause(text)).toBe(true);
+  });
+
+  const BROOKE_COALESCED =
+    "I got my goal this morning while walking the dogs\nI hit 10000 steps already";
+
+  it("coalesced newline body splits into separate clauses", () => {
+    expect(splitInboundClauses(BROOKE_COALESCED)).toEqual([
+      "I got my goal this morning while walking the dogs",
+      "I hit 10000 steps already",
+    ]);
+  });
+
+  it.each([
+    "I hit 10000 steps already",
+    "I hit 10,000 steps already",
+    "hit 10000 steps",
+    "I got 10000 steps",
+    "I reached 10,000 steps",
+    "I got my steps in",
+    "I got my step goal",
+    BROOKE_COALESCED,
+  ])("%s has explicit completion clause", (text) => {
     expect(inboundHasExplicitCompletionClause(text)).toBe(true);
   });
 

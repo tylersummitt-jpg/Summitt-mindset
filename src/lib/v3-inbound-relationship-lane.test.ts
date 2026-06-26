@@ -5123,3 +5123,98 @@ describe("acknowledge_completion zero-question recovery after proof persist", ()
     expect(lane.metadata.proof_persisted_before_zero_question_fallback).not.toBe(true);
   });
 });
+
+describe("Brooke coalesced completion contradiction guard", () => {
+  const BROOKE_COALESCED =
+    "I got my goal this morning while walking the dogs\nI hit 10000 steps already";
+
+  function brookeCoalescedFacts() {
+    return buildInboundV3RelationshipFacts({
+      clerkUserId: "user_brooke",
+      preferredName: "Brooke",
+      timezone: "America/New_York",
+      localTimeIso: "2026-06-26T16:00:00.000Z",
+      commitment: {
+        ...baseCommitment(),
+        behavior_statement: "Walk 10,000 steps every day",
+        title: "10,000 steps",
+      },
+      effectiveAsk: "Did you get your 10,000 steps today?",
+      userMessageRaw: BROOKE_COALESCED,
+      coalescedInboundText: BROOKE_COALESCED,
+      suppressedMessageSids: ["SM5df156d868b91beac22a85ef00537e8a"],
+      transcriptLines: [
+        "Coach: Did you get your steps today?",
+        `User: ${BROOKE_COALESCED}`,
+      ],
+      northStarPacket: {
+        source: "sms_inbound_coach",
+        latestOutboundBody: "Did you get your steps today?",
+        latestOpenQuestion: "Did you get your steps today?",
+        proofSignal: true,
+        todayCompleted: true,
+      },
+      gatedDecision: { ...baseGatedDecision(), final_event_type: "user_yes" },
+      deterministicEventType: "user_yes",
+      doNotRepeatHints: [],
+      relationshipProfileSummary: null,
+      conversationBrain: { enabled: false },
+      centralBrain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forcedFutureStretchIntentActive: false,
+      wave11MemoryConfirmationPending: false,
+      accountabilityProofHint: null,
+      rejectedTimeCandidates: [],
+      unavailableWindows: [],
+      routePurpose: "normal_inbound_reply",
+    });
+  }
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+  });
+
+  it("repairs contradictory writer body for coalesced Brooke step completion", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Good hitting 10,000 steps this morning while walking the dogs! What do you think kept you from reaching your full goal today?",
+              no_send_reason: null,
+              turn_purpose: "acknowledge_completion",
+              voice_confidence: 0.85,
+              used_facts: ["thread"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = brookeCoalescedFacts();
+    expect(facts.inbound_resolved_truth?.required_reply_move).toBe("acknowledge_completion");
+    const lane = await produceInboundV3RelationshipSms({
+      facts,
+      telemetry_fact_sources: ["test_brooke_coalesced_contradiction"],
+      proof_persisted_before_writer: true,
+      proof_persisted_event_type: "user_yes",
+    });
+    expect(lane.shouldSend).toBe(true);
+    expect(lane.body).not.toMatch(/kept you from reaching your full goal/i);
+    expect(lane.body).not.toMatch(/\?/);
+    expect(lane.metadata.explicit_aligned_completion_detected).toBe(true);
+    expect(
+      lane.metadata.completion_contradiction_guard_applied === true ||
+        lane.metadata.zero_question_repair_succeeded === true ||
+        lane.metadata.zero_question_completion_fallback_used === true
+    ).toBe(true);
+  });
+});

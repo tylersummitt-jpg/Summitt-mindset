@@ -9,6 +9,28 @@ import type { ShortAnswerContextAuthority } from "@/lib/inbound-short-answer-con
 import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
 
+/** Compact resolved-truth / proof telemetry for soak SQL on sent turns. */
+export const INBOUND_TURN_TELEMETRY_TRUTH_KEYS = [
+  "inbound_resolved_outcome",
+  "inbound_required_reply_move",
+  "inbound_resolved_temporal_scope",
+  "inbound_truth_max_questions_override",
+  "inbound_resolved_truth_emitted",
+  "inbound_truth_guardrails_applied",
+  "proof_persisted_before_writer",
+  "proof_persisted_event_type",
+  "inbound_truth_persist_succeeded_before_writer",
+  "inbound_truth_persist_event_type",
+  "inbound_truth_persist_skipped_reason",
+  "completion_alignment_result",
+  "completion_alignment_skip_reason",
+  "same_day_user_yes_already_recorded",
+  "final_reply_source",
+  "explicit_aligned_completion_detected",
+  "completion_contradiction_guard_applied",
+  "completion_contradiction_guard_reason",
+] as const;
+
 /** Compact lane / packet fields safe for soak SQL — no prompts, packets, or snapshots. */
 export const INBOUND_TURN_TELEMETRY_COMPACT_KEYS = [
   "route_purpose",
@@ -59,7 +81,34 @@ export type InboundTurnTelemetryArgs = {
   branchName?: string | null;
   /** True when a visible send is intended immediately after telemetry insert (pre-Twilio). */
   visibleSentIntended?: boolean;
+  preWriterTelemetry?: Record<string, unknown> | null;
 };
+
+export function compactInboundTurnTruthTelemetry(
+  laneMetadata?: Record<string, unknown> | null,
+  preWriterTelemetry?: Record<string, unknown> | null
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  const absorb = (src: Record<string, unknown> | null | undefined) => {
+    if (src == null || typeof src !== "object") return;
+    for (const key of INBOUND_TURN_TELEMETRY_TRUTH_KEYS) {
+      if (src[key] !== undefined && merged[key] === undefined) {
+        merged[key] = src[key];
+      }
+    }
+  };
+  absorb(laneMetadata);
+  absorb(preWriterTelemetry);
+  if (preWriterTelemetry?.inbound_truth_persist_succeeded_before_writer === true) {
+    merged.proof_persisted_before_writer = true;
+    if (typeof preWriterTelemetry.inbound_truth_persist_event_type === "string") {
+      merged.proof_persisted_event_type = preWriterTelemetry.inbound_truth_persist_event_type;
+    }
+  } else if (preWriterTelemetry?.inbound_truth_persist_succeeded_before_writer === false) {
+    merged.proof_persisted_before_writer = false;
+  }
+  return merged;
+}
 
 export function compactInboundTurnTelemetryLaneFields(
   args: Pick<
@@ -113,6 +162,7 @@ export async function insertInboundTurnTelemetryBestEffort(
   if (!messageSid || !commitmentId) return;
 
   const laneFields = compactInboundTurnTelemetryLaneFields(args);
+  const truthFields = compactInboundTurnTruthTelemetry(args.laneMetadata, args.preWriterTelemetry);
 
   const payload: Record<string, unknown> = {
     inbound_turn_telemetry: true,
@@ -138,6 +188,7 @@ export async function insertInboundTurnTelemetryBestEffort(
     inbound_meaning_relationship: args.inboundMeaning?.relationship_meaning ?? null,
     inbound_meaning_persistence: args.inboundMeaning?.persistence_decision ?? null,
     ...laneFields,
+    ...truthFields,
     ...(args.truthGuardMetadata ?? {}),
     ...(args.tuGuardMetadata ?? {}),
   };

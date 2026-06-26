@@ -6,7 +6,9 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   compactInboundTurnTelemetryLaneFields,
+  compactInboundTurnTruthTelemetry,
   INBOUND_TURN_TELEMETRY_COMPACT_KEYS,
+  INBOUND_TURN_TELEMETRY_TRUTH_KEYS,
 } from "@/lib/inbound-turn-telemetry";
 
 describe("compactInboundTurnTelemetryLaneFields", () => {
@@ -51,5 +53,32 @@ describe("compactInboundTurnTelemetryLaneFields", () => {
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("strategy_card_route_kind");
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("relationship_packet_version");
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("active_pending_state_source");
+  });
+});
+
+describe("compactInboundTurnTruthTelemetry", () => {
+  it("merges lane and pre-writer truth fields without raw thread leakage", () => {
+    const truth = compactInboundTurnTruthTelemetry(
+      {
+        inbound_resolved_outcome: "completed",
+        inbound_required_reply_move: "acknowledge_completion",
+        explicit_aligned_completion_detected: true,
+        final_reply_source: "completion_contradiction_repair",
+        coalesced_inbound_body: "should not copy",
+      },
+      {
+        inbound_truth_persist_succeeded_before_writer: true,
+        inbound_truth_persist_event_type: "user_yes",
+        completion_alignment_result: "aligned",
+      }
+    );
+    expect(truth.inbound_resolved_outcome).toBe("completed");
+    expect(truth.inbound_required_reply_move).toBe("acknowledge_completion");
+    expect(truth.explicit_aligned_completion_detected).toBe(true);
+    expect(truth.proof_persisted_before_writer).toBe(true);
+    expect(truth.proof_persisted_event_type).toBe("user_yes");
+    expect(truth.completion_alignment_result).toBe("aligned");
+    expect(truth).not.toHaveProperty("coalesced_inbound_body");
+    expect(INBOUND_TURN_TELEMETRY_TRUTH_KEYS).toContain("completion_contradiction_guard_applied");
   });
 });

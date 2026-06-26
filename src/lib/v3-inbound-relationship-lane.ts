@@ -30,6 +30,12 @@ import {
 import { hasFuturePlanIntentLanguage } from "@/lib/pending-plan-proof";
 import { tryRecoverAcknowledgeCompletionZeroQuestionBody } from "@/lib/inbound-zero-question-completion-recovery";
 import {
+  completionAlignmentContextFromInboundFacts,
+  detectExplicitAlignedInboundCompletion,
+  detectInboundCompletionContradictionViolation,
+  tryRecoverInboundCompletionContradictionBody,
+} from "@/lib/inbound-completion-contradiction-guard";
+import {
   applySmsMemoryAntiRepeatGuard,
   buildAntiRepeatDetectArgsFromInboundFacts,
   detectSmsMemoryRepeatViolation,
@@ -2380,6 +2386,16 @@ function tryAcknowledgeCompletionZeroQuestionRecovery(
   );
 }
 
+function tryInboundCompletionContradictionRecovery(
+  candidate: string,
+  args: InboundV3RelationshipLaneInput
+) {
+  return tryRecoverInboundCompletionContradictionBody(candidate, args, (body) => {
+    if (!validateInboundLaneCandidateBody(body, args).ok) return false;
+    return !detectInboundCompletionContradictionViolation(body, args.facts).violation;
+  });
+}
+
 function inboundValidateAfterPostRepair(
   body: string,
   args: InboundV3RelationshipLaneInput
@@ -2540,6 +2556,10 @@ export async function produceInboundV3RelationshipSms(
     suppressed_message_sids: args.facts.thread.suppressed_message_sids,
     rejected_time_candidates: args.facts.thread.rejected_time_candidates,
     unavailable_windows: args.facts.thread.unavailable_windows,
+    explicit_aligned_completion_detected: detectExplicitAlignedInboundCompletion(
+      args.facts.thread.coalesced_inbound_text ?? "",
+      completionAlignmentContextFromInboundFacts(args.facts)
+    ),
     voice_writer_chain: ["v3_inbound_relationship_lane", "north_star_validator", "final_voice_gate"],
     ...slimTurnUnderstandingMetadata(args.facts.turn_understanding),
     ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
@@ -3121,6 +3141,37 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           inbound_resolved_truth_zero_question_reason: zeroQFinal.reason,
           ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
           ...recovered.telemetry,
+        },
+        openAiOk: true,
+      };
+    }
+  }
+
+  const completionContradiction = detectInboundCompletionContradictionViolation(body, args.facts);
+  if (completionContradiction.violation) {
+    const contradictionRecovered = tryInboundCompletionContradictionRecovery(body, args);
+    if (contradictionRecovered.ok) {
+      body = contradictionRecovered.body;
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = { ...successRepairExtra, ...contradictionRecovered.telemetry };
+    } else {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "inbound_completion_contradiction_violation",
+        replySource: "v3_inbound_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, completionContradiction.reason ?? "completion_contradiction"],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "inbound_completion_contradiction_validation_failed",
+          v3_candidate_body: body,
+          inbound_completion_contradiction_reason: completionContradiction.reason,
+          ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
+          ...contradictionRecovered.telemetry,
         },
         openAiOk: true,
       };

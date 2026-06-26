@@ -1327,6 +1327,27 @@ describe("substantive self-reported completion — persist without live prompt",
     expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
   });
 
+  it("Brooke coalesced burst body without live prompt → persist user_yes", () => {
+    const BROOKE_COALESCED =
+      "I got my goal this morning while walking the dogs\nI hit 10000 steps already";
+    const inboundMeaning = substantiveCompletionMeaning(BROOKE_COALESCED);
+    expect(inboundMeaning.persistence_decision).toBe("write_user_yes_today");
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SMf529d49a0b59295aba7d4c292c7e3a4b",
+      commitmentId: "commit-1",
+      rawBody: BROOKE_COALESCED,
+      classifierEventType: "user_partial",
+      gatedDecision: defaultGatedDecision("user_partial", "test"),
+      laneExclusion: "none",
+      activeReplyContext: noLivePromptCtx,
+      inboundMeaning,
+      commitmentBehaviorStatement: "Walk 10,000 steps every day",
+      effectiveAsk: "Did you get your 10,000 steps today?",
+      commitmentTitle: "10,000 steps",
+    });
+    expect(result).toMatchObject({ persist: true, resolvedEventType: "user_yes" });
+  });
+
   it("Tennessee future-confidence trip without live prompt → no user_yes", () => {
     const inboundMeaning = buildInboundMeaningFacts({
       rawInbound: TENNESSEE_FUTURE_CONFIDENCE,

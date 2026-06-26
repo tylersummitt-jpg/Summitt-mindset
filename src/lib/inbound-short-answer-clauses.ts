@@ -23,13 +23,39 @@ export type InboundClauseAnalysis = {
 const CLAUSE_SPLIT_RE =
   /[!.;]+|\s+and\s+also\s+|\s+i\s+also\s+|\s+but\s+|\s+however\s+/i;
 
-export function splitInboundClauses(text: string): string[] {
-  const t = text.trim();
+const NEWLINE_CLAUSE_SPLIT_RE = /\r?\n+/;
+
+/** Explicit step-count completion — shared by clause analysis and reported-completion candidate. */
+export function clauseMatchesExplicitStepCountCompletion(clause: string): boolean {
+  const t = clause.trim();
+  if (!t) return false;
+  if (/\b(hit|reached|got)\s+[\d,.]+\s+steps\b/i.test(t)) return true;
+  if (/\bgot\s+my\s+step\s+goal\b/i.test(t)) return true;
+  return false;
+}
+
+function splitSegmentIntoClauses(segment: string): string[] {
+  const t = segment.trim();
   if (!t) return [];
   const parts = t
     .split(CLAUSE_SPLIT_RE)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+  return parts.length > 0 ? parts : [t];
+}
+
+export function splitInboundClauses(text: string): string[] {
+  const t = text.trim();
+  if (!t) return [];
+  const newlineSegments = t
+    .split(NEWLINE_CLAUSE_SPLIT_RE)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const segments = newlineSegments.length > 0 ? newlineSegments : [t];
+  const parts: string[] = [];
+  for (const segment of segments) {
+    parts.push(...splitSegmentIntoClauses(segment));
+  }
   return parts.length > 0 ? parts : [t];
 }
 
@@ -44,6 +70,7 @@ function clauseHasExplicitCompletion(clause: string): boolean {
     return true;
   }
   if (/\bgot\s+my\s+[\d,.]+\s+steps\b/i.test(t)) return true;
+  if (clauseMatchesExplicitStepCountCompletion(t)) return true;
   if (/\bwalked\s+[\d,.]+\s+steps\b/i.test(t)) return true;
   if (/\bgot\s+my\s+(steps|run|walk|workout|calls|distribution|mileage)\s+in\b/i.test(t)) {
     return true;

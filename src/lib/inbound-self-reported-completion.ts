@@ -208,6 +208,17 @@ export function evaluateCompletionAlignmentForProof(
   return { checked: true, aligned: true };
 }
 
+/** Explicit on-goal completion in inbound/coalesced body — alignment-checked when commitment context exists. */
+export function detectExplicitAlignedInboundCompletion(
+  raw: string,
+  alignmentCtx?: CompletionAlignmentContext | null
+): boolean {
+  const t = raw.trim();
+  if (!t || !inboundHasExplicitCompletionClause(t)) return false;
+  if (!alignmentCtx) return true;
+  return evaluateCompletionAlignmentForProof(t, alignmentCtx).aligned;
+}
+
 export type CommitmentAlignedRoutineStatusArgs = {
   raw: string;
   commitmentBehaviorStatement?: string | null;

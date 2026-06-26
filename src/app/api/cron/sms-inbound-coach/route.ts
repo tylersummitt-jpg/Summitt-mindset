@@ -5676,6 +5676,7 @@ async function processV2NormalInboundOutcome(
 
   let inboundRelationshipLane: InboundV3RelationshipLaneResult | null = null;
   let mainInboundMissAdjustmentPolicy: MissAdjustmentPolicyResult | null = null;
+  let preWriterTelemetryMain: Record<string, unknown> = {};
   if (normalInboundV3OwnershipEligible) {
     const forcedCoachSmsForFacts =
       conversationBrainControlTurn == null
@@ -6040,7 +6041,7 @@ async function processV2NormalInboundOutcome(
       }),
     });
 
-    const preWriterTelemetryMain = await attemptPreWriterExplicitOutcomePersist({
+    preWriterTelemetryMain = await attemptPreWriterExplicitOutcomePersist({
       branch: "main",
       job,
       userId,
@@ -7429,6 +7430,7 @@ async function processV2NormalInboundOutcome(
           : null,
     visibleSentIntended: true,
     branch: "main",
+    preWriterTelemetry: preWriterTelemetryMain,
   };
 
   if (!persisted) {

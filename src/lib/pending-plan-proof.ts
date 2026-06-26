@@ -12,6 +12,7 @@ import {
 } from "@/lib/timing-anchor-memory";
 import {
   inboundHasExplicitCompletionClause,
+  clauseMatchesExplicitStepCountCompletion,
   splitInboundClauses,
 } from "@/lib/inbound-short-answer-clauses";
 import type { ShortAnswerContextAuthority } from "@/lib/inbound-short-answer-context";
@@ -131,6 +132,7 @@ function isReportedCompletionClauseCandidate(clause: string): boolean {
     return false;
   }
   if (extractCompletionDisqualifiers(t).length > 0) return false;
+  if (clauseMatchesExplicitStepCountCompletion(t)) return true;
   if (/\b(i did|i got it done|finished|completed|it happened|done[, ]+yes|yes[, ]+done|made it happen)\b/i.test(t)) {
     return true;
   }
@@ -140,6 +142,7 @@ function isReportedCompletionClauseCandidate(clause: string): boolean {
   }
   if (/\b(i\s+)?got\s+(it\s+)?done\b/i.test(t)) return true;
   if (/\b(hit my|reached|got my)\s+[\w',-]+\s+(goal|steps|hours|calls)\b/i.test(t)) return true;
+  if (/\b(hit|reached|got)\s+[\d,.]+\s+steps\b/i.test(t)) return true;
   if (/\b(got\s+my\s+[^.!?]{2,48}\s+in\s+today)\b/i.test(t)) return true;
   if (/\b(i got|got)\s+(my\s+)?(two|2|\d+)\s+hours?\s+in\b/i.test(t)) return true;
   if (/\b(i\s+)?did\s+the\s+\w+/i.test(t)) return true;

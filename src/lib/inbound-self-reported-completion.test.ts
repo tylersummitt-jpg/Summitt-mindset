@@ -158,3 +158,38 @@ describe("completion alignment with active step commitment", () => {
     }
   });
 });
+
+describe("Brooke coalesced step completion", () => {
+  const stepCommitment = {
+    commitmentBehaviorStatement: "Walk 10,000 steps every day",
+    effectiveAsk: "Did you get your 10,000 steps today?",
+    commitmentTitle: "10,000 steps",
+  };
+
+  const BROOKE_COALESCED =
+    "I got my goal this morning while walking the dogs\nI hit 10000 steps already";
+
+  it("Brooke exact coalesced body is substantive aligned completion", () => {
+    expect(isSubstantiveSelfReportedCompletionForProof(BROOKE_COALESCED, stepCommitment)).toBe(
+      true
+    );
+    expect(evaluateCompletionAlignmentForProof(BROOKE_COALESCED, stepCommitment).aligned).toBe(
+      true
+    );
+  });
+
+  it("I hit 10000 steps already alone is substantive for step commitment", () => {
+    expect(
+      isSubstantiveSelfReportedCompletionForProof("I hit 10000 steps already", stepCommitment)
+    ).toBe(true);
+  });
+
+  it("got my goal this morning alone without step metric is not substantive", () => {
+    expect(
+      isSubstantiveSelfReportedCompletionForProof(
+        "I got my goal this morning while walking the dogs",
+        stepCommitment
+      )
+    ).toBe(false);
+  });
+});

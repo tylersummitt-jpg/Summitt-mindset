@@ -184,8 +184,8 @@ describe("tryRecoverAcknowledgeCompletionZeroQuestionBody", () => {
     }
   });
 
-  it("does not recover without proof_persisted_before_writer", () => {
-    const facts = stepCompletionFacts("I got my 10,000 steps today");
+  it("does not recover without proof_persisted_before_writer unless explicit aligned completion", () => {
+    const facts = stepCompletionFacts("Sounds good, thanks");
     const result = tryRecoverAcknowledgeCompletionZeroQuestionBody(
       "Nice. How did it feel?",
       laneInput(facts, { persisted: false }),
@@ -193,6 +193,21 @@ describe("tryRecoverAcknowledgeCompletionZeroQuestionBody", () => {
     );
     expect(result.ok).toBe(false);
     expect(result.telemetry.zero_question_repair_attempted).toBe(false);
+
+    const brookeCoalesced =
+      "I got my goal this morning while walking the dogs\nI hit 10000 steps already";
+    const brookeFacts = stepCompletionFacts(brookeCoalesced);
+    expect(
+      isAcknowledgeCompletionZeroQuestionRecoveryEligible(
+        laneInput(brookeFacts, { persisted: false })
+      )
+    ).toBe(true);
+    const brookeRecover = tryRecoverAcknowledgeCompletionZeroQuestionBody(
+      "Good hitting 10,000 steps. What kept you from reaching your full goal?",
+      laneInput(brookeFacts, { persisted: false }),
+      () => true
+    );
+    expect(brookeRecover.ok).toBe(true);
   });
 
   it("uses fallback when praise-only writer body cannot produce valid repair", () => {
@@ -277,12 +292,7 @@ describe("tryRecoverAcknowledgeCompletionZeroQuestionBody", () => {
       isAcknowledgeCompletionZeroQuestionRecoveryEligible({
         ...base,
         proof_persisted_before_writer: false,
-      })
-    ).toBe(false);
-    expect(
-      isAcknowledgeCompletionZeroQuestionRecoveryEligible({
-        ...base,
-        proof_persisted_event_type: null,
+        facts: stepCompletionFacts("Sounds good"),
       })
     ).toBe(false);
     const wrongMove = {
