@@ -52,7 +52,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.11");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.12");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
 
     for (const name of QUERY_HEADERS) {
@@ -241,7 +241,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
   it("includes v2.11 Twilio DB reconciliation and duplicate-send monitor markers in the pack", async () => {
     const sql = await readFile(SQL_PATH, "utf8");
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.11");
+    expect(sql).toContain("v2.11 Twilio");
     expect(sql).toContain("twilio_db_reconciliation_and_duplicate_send_monitor");
     expect(sql).toContain("SM_AUDIT_15_Twilio_DB_Reconciliation_And_Duplicate_Send_Monitor");
     expect(sql).toContain("twilio_sids(sid, twilio_created_at, twilio_body_preview)");
@@ -250,6 +250,22 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("duplicate_send_monitor");
     expect(sql).toContain("missing_from_db");
     expect(sql).toContain("sms_last_outbound_context");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.12 notebook fetch reliability observability markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("v2.12 DailySmsWritingBriefV1 notebook fetch reliability");
+    expect(sql).toContain("daily_brief_thread_fetch_error_count");
+    expect(sql).toContain("daily_brief_thread_fetch_error_sources");
+    expect(sql).toContain("daily_brief_thread_fetch_error_top");
+    expect(sql).toContain("daily_brief_thread_fallback_used");
+    expect(sql).toContain("daily_brief_thread_fallback_source_count");
+    expect(sql).toContain("c1_brief_thread_fetch_error");
+    expect(sql).toContain("c1_brief_fallback_only_thread");
+    expect(sql).toContain("c1_brief_empty_thread_with_fetch_error");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });

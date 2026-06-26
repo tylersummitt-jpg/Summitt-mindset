@@ -630,7 +630,6 @@ async function withNorthStarDailyGate(
 
 /** Post-Twilio success fields for sms_send_events — metadata.sent_at for notebook thread timestamps. */
 function dailySmsTwilioSuccessSendEventFields(args: {
-  localNow: Date;
   messageSid: string;
   twilioStatus: string;
   smsBody: string;
@@ -641,7 +640,7 @@ function dailySmsTwilioSuccessSendEventFields(args: {
   sms_body: string;
   metadata: Record<string, unknown>;
 } {
-  const sentAtIso = args.localNow.toISOString();
+  const sentAtIso = new Date().toISOString();
   return {
     message_sid: args.messageSid,
     status: args.twilioStatus,
@@ -3904,7 +3903,6 @@ export async function GET(req: Request) {
 
             const retrySendWindow = localHourToSendWindow(localNow.getHours());
             const retrySuccessPayload = dailySmsTwilioSuccessSendEventFields({
-              localNow,
               messageSid: retryMessage.sid,
               twilioStatus: retryMessage.status,
               smsBody,
@@ -4558,7 +4556,6 @@ export async function GET(req: Request) {
       if (mainMessage) {
         const mainSendWindow = localHourToSendWindow(localNow.getHours());
         const mainSuccessPayload = dailySmsTwilioSuccessSendEventFields({
-          localNow,
           messageSid: mainMessage.sid,
           twilioStatus: mainMessage.status,
           smsBody,

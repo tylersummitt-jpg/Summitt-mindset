@@ -1,7 +1,12 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.11
+-- SMS DAILY COMMAND CENTER PACK v2.12
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 15 queries.
+--
+-- v2.12 DailySmsWritingBriefV1 notebook fetch reliability (June 2026):
+--   - Q01/Q02/Q13: fetch_error_count/sources/top, fallback_used, fallback_source_count.
+--   - Q13 sanity: c1_brief_thread_fetch_error, c1_brief_fallback_only_thread,
+--     c1_brief_empty_thread_with_fetch_error.
 --
 -- v2.11 Twilio ↔ DB reconciliation + duplicate-send monitor (June 2026):
 --   - Q15 SM_AUDIT_15: paste Twilio SIDs into CTE; flag missing_from_db; duplicate-send risk rows.
@@ -285,7 +290,32 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_tables_present}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_source_tables_present}',
       ''
-    ) AS daily_brief_thread_source_tables_present
+    ) AS daily_brief_thread_source_tables_present,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_count}',
+      ''
+    ) AS daily_brief_thread_fetch_error_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_sources}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_sources}',
+      ''
+    ) AS daily_brief_thread_fetch_error_sources,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_top}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_top}',
+      ''
+    ) AS daily_brief_thread_fetch_error_top,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_used}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_used}',
+      ''
+    ) AS daily_brief_thread_fallback_used,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_source_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_source_count}',
+      ''
+    ) AS daily_brief_thread_fallback_source_count
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -1198,6 +1228,46 @@ SELECT
     )
     ELSE ''
   END AS daily_brief_thread_source_tables_present,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_fetch_error_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_sources}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_sources}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_fetch_error_sources,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_top}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_top}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_fetch_error_top,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_used}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_used}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_fallback_used,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_source_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_source_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_fallback_source_count,
   CASE
     WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
       raw_json#>>'{metadata,relationship_packet_observability,daily_unsupported_praise_detected}',
@@ -4022,6 +4092,31 @@ send_base AS (
       ''
     ) AS daily_brief_thread_source_tables_present,
     COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_count}',
+      ''
+    ) AS daily_brief_thread_fetch_error_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_sources}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_sources}',
+      ''
+    ) AS daily_brief_thread_fetch_error_sources,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_top}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_top}',
+      ''
+    ) AS daily_brief_thread_fetch_error_top,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_used}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_used}',
+      ''
+    ) AS daily_brief_thread_fallback_used,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_source_count}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_source_count}',
+      ''
+    ) AS daily_brief_thread_fallback_source_count,
+    COALESCE(
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_count}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_count}',
       ''
@@ -4808,6 +4903,70 @@ issues AS (
           OR COALESCE(to_jsonb(s2)->>'message_sid', to_jsonb(s2)->>'outbound_message_sid', '') <> ''
         )
     )
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_thread_fetch_error',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used but thread builder reported fetch_error_count > 0 — notebook may be incomplete'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_fetch_error_count, ''), '0')::int > 0
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_fallback_only_thread',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread_count <= 1 with fallback_used and source_candidate_count = 0 — likely sms_last_outbound_context only'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int <= 1
+    AND COALESCE(NULLIF(cb.daily_brief_thread_source_candidate_count, ''), '0')::int = 0
+    AND cb.daily_brief_thread_fallback_used ~* 'true'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_fallback_source_count, ''), '0')::int > 0
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_empty_thread_with_fetch_error',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief used with empty thread and fetch_error_count > 0 — schema/query failure likely'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int = 0
+    AND COALESCE(NULLIF(cb.daily_brief_thread_fetch_error_count, ''), '0')::int > 0
 
   UNION ALL
 

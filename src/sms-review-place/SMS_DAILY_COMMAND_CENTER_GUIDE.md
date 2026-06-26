@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.11)
+# SMS Daily Command Center — SQL Guide (v2.12)
+
+v2.12 adds **notebook fetch reliability telemetry** for DailySmsWritingBriefV1: `daily_brief_thread_fetch_error_count`, `fetch_error_sources`, `fetch_error_top`, `fallback_used`, `fallback_source_count` on Q01/Q02 sent rows. Q13 sanity rows: `c1_brief_thread_fetch_error` (fetch failed — notebook may be incomplete), `c1_brief_fallback_only_thread` (thread_count ≤ 1 with fallback and zero source candidates — likely `sms_last_outbound_context` only), `c1_brief_empty_thread_with_fetch_error`. Use when `source_candidate_count = 0` but Q14 shows prior visible coach rows.
 
 v2.11 adds **Query 15 — Twilio ↔ DB Reconciliation + Duplicate Send Monitor** (`SM_AUDIT_15_Twilio_DB_Reconciliation_And_Duplicate_Send_Monitor`). Use after suspected duplicate or hidden sends (e.g. Twilio shows outbound SMS missing from normal DB tables). **Mode A:** paste Twilio `MessageSid` values into the `twilio_sids` CTE `VALUES` rows and run — any row with `missing_from_db = true` is **P0** (orphan Twilio send). **Mode B:** automatic risk monitor for duplicate clusters within 15 minutes, `metadata.twilio_message_sid` on retry-risk statuses, `twilio_db_primary_update_failed`, attempted-send without top-level `message_sid`, no-send rows with top SID, `recovered_at` rows, and daily rows missing operator-visible body. Body previews capped at 300 chars; no mutation.
 

@@ -28,10 +28,14 @@ import {
   formatAtLocal,
   isSendEventTrulySent,
   RECENT_EXACT_THREAD_WINDOW_HOURS,
+  SMS_SEND_EVENTS_THREAD_SELECT,
+  SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT,
   timestampFromInboundMessageRow,
   timestampFromSendEventRow,
   type RecentExactThread72hMessage,
 } from "@/lib/sms-recent-exact-thread-72h";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { extractCoachBodiesFromBriefThread } from "@/lib/sms-recent-coach-body-anti-repeat";
 import { deriveFreshnessAvoidPhrasesForBrief } from "@/lib/sms-daily-fresh-move";
 
@@ -812,5 +816,115 @@ describe("buildRecentExactThreadForBrief visible send coverage", () => {
     expect(typeof t.daily_brief_thread_visible_send_candidate_count).toBe("number");
     expect(JSON.stringify(t)).not.toMatch(/Telemetry test coach body/i);
     expect(JSON.stringify(t)).not.toMatch(/recent_exact_thread/i);
+  });
+
+  it("uses schema-safe send select without top-level sent_at column", () => {
+    expect(SMS_SEND_EVENTS_THREAD_SELECT).not.toMatch(/\bsent_at\b/);
+    expect(SMS_SEND_EVENTS_THREAD_SELECT).not.toMatch(/\bprocessed_at\b/);
+    expect(SMS_SEND_EVENTS_THREAD_SELECT).not.toMatch(/\bupdated_at\b/);
+    expect(SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT).not.toMatch(/\bsent_at\b/);
+    const src = readFileSync(join(process.cwd(), "src/lib/sms-recent-exact-thread-72h.ts"), "utf8");
+    expect(src).not.toMatch(/from\("sms_send_events"\)[\s\S]{0,500}\.gte\("sent_at"/);
+  });
+
+  it("builds multi-message thread from metadata.sent_at rows without top-level sent_at", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "accepted",
+          message_sid: "SM_META_1",
+          created_at: "2026-06-10T10:00:00.000Z",
+          metadata: {
+            sent_at: "2026-06-20T09:00:00.000Z",
+            daily_v3_lane: { final_body: "June 20 distribution check-in body." },
+          },
+        },
+        {
+          status: "accepted",
+          message_sid: "SM_META_2",
+          created_at: "2026-06-21T10:00:00.000Z",
+          metadata: {
+            sent_at: "2026-06-21T14:00:00.000Z",
+            sms_body: "June 21 coach follow-up with enough body text.",
+          },
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_meta_ts",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBeGreaterThan(1);
+    expect(brief.message_count).toBeGreaterThan(1);
+  });
+
+  it("records fetch errors without raw thread text and still uses other sources", async () => {
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "sms_send_events") {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          gte: () => builder,
+          order: () => builder,
+          limit: () =>
+            Promise.resolve({
+              data: null,
+              error: { code: "42703", message: "column sent_at does not exist" },
+            }),
+        };
+        return builder;
+      }
+      if (table === "sms_inbound_messages") {
+        return chain([
+          {
+            raw_body: "User reply while send fetch failed.",
+            created_at: "2026-06-21T10:00:00.000Z",
+            received_at: "2026-06-21T10:00:00.000Z",
+            message_sid: "SM_USER_ERR",
+          },
+        ]);
+      }
+      return chain([]);
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_fetch_err",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBeGreaterThan(0);
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_sources).toContain("sms_send_events");
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_top).toBe("42703");
+    expect(JSON.stringify(brief.build_telemetry)).not.toMatch(/column sent_at does not exist/);
+    expect(brief.build_telemetry.daily_brief_thread_user_inbound_candidate_count).toBe(1);
+  });
+
+  it("marks fallback-only thread in telemetry", async () => {
+    setupSupabaseTables({
+      sendRows: [],
+      lastCtx: {
+        sent_at: "2026-06-21T14:00:00.000Z",
+        full_body: "Last outbound context coach body for fallback only.",
+        message_kind: "coach",
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_fallback",
+      timezone: TZ,
+      now: new Date("2026-06-22T12:00:00.000Z"),
+    });
+
+    expect(brief.message_count).toBe(1);
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBe(0);
+    expect(brief.build_telemetry.daily_brief_thread_fallback_used).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_fallback_source_count).toBe(1);
+    expect(brief.build_telemetry.daily_brief_thread_source_tables_present).toContain(
+      "sms_last_outbound_context"
+    );
   });
 });

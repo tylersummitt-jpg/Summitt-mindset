@@ -62,6 +62,16 @@ const NEAR_EXACT_SEND_MS = 120_000;
 const ROW_FETCH_LIMIT = 120;
 /** Extra fetch buffer so rows reserved early (stale created_at) but sent recently are retrieved. */
 const FETCH_BUFFER_MS = 7 * 24 * 60 * 60 * 1000;
+/** Schema-safe created_at lookback for send-event tables (no top-level sent_at filter). */
+const SEND_FETCH_BUFFER_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** Schema-safe columns for sms_send_events — no optional top-level sent_at/processed_at/updated_at. */
+export const SMS_SEND_EVENTS_THREAD_SELECT =
+  "sms_body, body, message_body, final_body, body_preview, created_at, metadata, status, message_sid, outbound_message_sid";
+
+/** Schema-safe columns for sms_weekly_send_events — no optional top-level sent_at/processed_at/updated_at. */
+export const SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT =
+  "body, sms_body, final_body, body_preview, created_at, metadata, status, message_sid, outbound_message_sid";
 const PER_MESSAGE_SAFETY_CAP = 8000;
 const COACHING_OUTBOUND_KINDS = new Set(["coach", "question", "quote", "nudge", "weekly"]);
 
@@ -81,6 +91,11 @@ export type BriefThreadBuildTelemetry = {
   daily_brief_thread_filtered_out_reason_top: BriefThreadFilterReason | null;
   daily_brief_thread_effective_timestamp_rescue_count: number;
   daily_brief_thread_source_tables_present: string;
+  daily_brief_thread_fetch_error_count: number;
+  daily_brief_thread_fetch_error_sources: string;
+  daily_brief_thread_fetch_error_top: string | null;
+  daily_brief_thread_fallback_used: boolean;
+  daily_brief_thread_fallback_source_count: number;
 };
 
 class ThreadBuildStats {
@@ -90,8 +105,12 @@ class ThreadBuildStats {
   weekly_candidate_count = 0;
   filtered_out_count = 0;
   effective_timestamp_rescue_count = 0;
+  fetch_error_count = 0;
+  fallback_source_count = 0;
+  private fetch_error_top: string | null = null;
   private filteredReasons = new Map<BriefThreadFilterReason, number>();
   private sourceTables = new Set<string>();
+  private fetchErrorSources = new Set<string>();
 
   noteSourceTable(table: string) {
     this.sourceTables.add(table);
@@ -100,6 +119,19 @@ class ThreadBuildStats {
   recordFiltered(reason: BriefThreadFilterReason) {
     this.filtered_out_count += 1;
     this.filteredReasons.set(reason, (this.filteredReasons.get(reason) ?? 0) + 1);
+  }
+
+  recordFetchError(source: string, compactMessage: string) {
+    this.fetch_error_count += 1;
+    this.fetchErrorSources.add(source);
+    if (!this.fetch_error_top) {
+      const code = compactMessage.split(":")[0]?.trim() || "fetch_error";
+      this.fetch_error_top = code.slice(0, 80);
+    }
+  }
+
+  recordFallback() {
+    this.fallback_source_count += 1;
   }
 
   toTelemetry(): BriefThreadBuildTelemetry {
@@ -120,8 +152,52 @@ class ThreadBuildStats {
       daily_brief_thread_filtered_out_reason_top: top,
       daily_brief_thread_effective_timestamp_rescue_count: this.effective_timestamp_rescue_count,
       daily_brief_thread_source_tables_present: [...this.sourceTables].sort().join("|"),
+      daily_brief_thread_fetch_error_count: this.fetch_error_count,
+      daily_brief_thread_fetch_error_sources: [...this.fetchErrorSources].sort().join("|"),
+      daily_brief_thread_fetch_error_top: this.fetch_error_top,
+      daily_brief_thread_fallback_used: this.fallback_source_count > 0,
+      daily_brief_thread_fallback_source_count: this.fallback_source_count,
     };
   }
+}
+
+function compactSupabaseFetchError(err: unknown): string {
+  if (!err || typeof err !== "object") return String(err).slice(0, 200);
+  const e = err as { message?: string; code?: string };
+  return [e.code, e.message].filter(Boolean).join(": ").slice(0, 200);
+}
+
+async function supabaseFetchRows(
+  source: string,
+  query: PromiseLike<{ data: unknown; error: unknown }>,
+  stats?: ThreadBuildStats
+): Promise<Record<string, unknown>[]> {
+  const { data, error } = await query;
+  if (error) {
+    const compact = compactSupabaseFetchError(error);
+    console.warn(`[recent-exact-thread] fetch failed: ${source}`, { error: compact });
+    stats?.recordFetchError(source, compact);
+    return [];
+  }
+  if (data == null) return [];
+  return Array.isArray(data) ? (data as Record<string, unknown>[]) : [data as Record<string, unknown>];
+}
+
+async function supabaseFetchMaybeSingle(
+  source: string,
+  query: PromiseLike<{ data: unknown; error: unknown }>,
+  stats?: ThreadBuildStats
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await query;
+  if (error) {
+    const compact = compactSupabaseFetchError(error);
+    console.warn(`[recent-exact-thread] fetch failed: ${source}`, { error: compact });
+    stats?.recordFetchError(source, compact);
+    return null;
+  }
+  return data && typeof data === "object" && !Array.isArray(data)
+    ? (data as Record<string, unknown>)
+    : null;
 }
 
 function firstValidTimestampMs(candidates: unknown[]): number {
@@ -681,110 +757,106 @@ async function buildRecentExactThreadWithWindowMs(
   const nowMs = now.getTime();
   const cutoffMs = nowMs - args.windowMs;
   const fetchCutoffIso = new Date(cutoffMs - FETCH_BUFFER_MS).toISOString();
+  const sendFetchCutoffIso = new Date(nowMs - SEND_FETCH_BUFFER_MS).toISOString();
   const windowCutoffIso = new Date(cutoffMs).toISOString();
   const tz = resolveUserTimezone(args.timezone);
   const includeSystemNoSend = args.includeSystemNoSend === true;
   const stats = args.stats;
 
-  const sendSelect =
-    "sms_body, body, message_body, final_body, body_preview, created_at, sent_at, processed_at, updated_at, metadata, status, message_sid, outbound_message_sid";
-  const weeklySelect =
-    "body, sms_body, final_body, body_preview, created_at, sent_at, processed_at, updated_at, metadata, status, message_sid, outbound_message_sid";
-
   const [
-    { data: inboundByCreated },
-    { data: inboundByReceived },
-    { data: sendByCreated },
-    { data: sendBySent },
-    { data: weeklyByCreated },
-    { data: weeklyBySent },
-    { data: coachJobByUpdated },
-    { data: coachJobBySent },
-    { data: lastCtx },
+    inboundByCreated,
+    inboundByReceived,
+    sendByCreated,
+    weeklyByCreated,
+    coachJobByUpdated,
+    coachJobBySent,
+    lastCtx,
   ] = await Promise.all([
-    supabaseServer
-      .from("sms_inbound_messages")
-      .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid")
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("created_at", fetchCutoffIso)
-      .order("created_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_inbound_messages")
-      .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid")
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("received_at", windowCutoffIso)
-      .order("received_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_send_events")
-      .select(sendSelect)
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("created_at", fetchCutoffIso)
-      .order("created_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_send_events")
-      .select(sendSelect)
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("sent_at", windowCutoffIso)
-      .order("sent_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_weekly_send_events")
-      .select(weeklySelect)
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("created_at", fetchCutoffIso)
-      .order("created_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_weekly_send_events")
-      .select(weeklySelect)
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("sent_at", windowCutoffIso)
-      .order("sent_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_inbound_coach_jobs")
-      .select(
-        "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid"
-      )
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("updated_at", fetchCutoffIso)
-      .order("updated_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_inbound_coach_jobs")
-      .select(
-        "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid"
-      )
-      .eq("clerk_user_id", args.clerkUserId)
-      .gte("sent_at", windowCutoffIso)
-      .order("sent_at", { ascending: false })
-      .limit(ROW_FETCH_LIMIT),
-    supabaseServer
-      .from("sms_last_outbound_context")
-      .select("sent_at, full_body, message_kind")
-      .eq("clerk_user_id", args.clerkUserId)
-      .maybeSingle(),
+    supabaseFetchRows(
+      "sms_inbound_messages:created_at",
+      supabaseServer
+        .from("sms_inbound_messages")
+        .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid")
+        .eq("clerk_user_id", args.clerkUserId)
+        .gte("created_at", fetchCutoffIso)
+        .order("created_at", { ascending: false })
+        .limit(ROW_FETCH_LIMIT),
+      stats
+    ),
+    supabaseFetchRows(
+      "sms_inbound_messages:received_at",
+      supabaseServer
+        .from("sms_inbound_messages")
+        .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid")
+        .eq("clerk_user_id", args.clerkUserId)
+        .gte("received_at", windowCutoffIso)
+        .order("received_at", { ascending: false })
+        .limit(ROW_FETCH_LIMIT),
+      stats
+    ),
+    supabaseFetchRows(
+      "sms_send_events",
+      supabaseServer
+        .from("sms_send_events")
+        .select(SMS_SEND_EVENTS_THREAD_SELECT)
+        .eq("clerk_user_id", args.clerkUserId)
+        .gte("created_at", sendFetchCutoffIso)
+        .order("created_at", { ascending: false })
+        .limit(ROW_FETCH_LIMIT),
+      stats
+    ),
+    supabaseFetchRows(
+      "sms_weekly_send_events",
+      supabaseServer
+        .from("sms_weekly_send_events")
+        .select(SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT)
+        .eq("clerk_user_id", args.clerkUserId)
+        .gte("created_at", sendFetchCutoffIso)
+        .order("created_at", { ascending: false })
+        .limit(ROW_FETCH_LIMIT),
+      stats
+    ),
+    supabaseFetchRows(
+      "sms_inbound_coach_jobs:updated_at",
+      supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .select(
+          "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid"
+        )
+        .eq("clerk_user_id", args.clerkUserId)
+        .gte("updated_at", fetchCutoffIso)
+        .order("updated_at", { ascending: false })
+        .limit(ROW_FETCH_LIMIT),
+      stats
+    ),
+    supabaseFetchRows(
+      "sms_inbound_coach_jobs:sent_at",
+      supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .select(
+          "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid"
+        )
+        .eq("clerk_user_id", args.clerkUserId)
+        .gte("sent_at", windowCutoffIso)
+        .order("sent_at", { ascending: false })
+        .limit(ROW_FETCH_LIMIT),
+      stats
+    ),
+    supabaseFetchMaybeSingle(
+      "sms_last_outbound_context",
+      supabaseServer
+        .from("sms_last_outbound_context")
+        .select("sent_at, full_body, message_kind")
+        .eq("clerk_user_id", args.clerkUserId)
+        .maybeSingle(),
+      stats
+    ),
   ]);
 
-  const inboundMsgRows = mergeUniqueRows([
-    ...((inboundByCreated ?? []) as Record<string, unknown>[]),
-    ...((inboundByReceived ?? []) as Record<string, unknown>[]),
-  ]);
-  const sendRows = mergeUniqueRows([
-    ...((sendByCreated ?? []) as Record<string, unknown>[]),
-    ...((sendBySent ?? []) as Record<string, unknown>[]),
-  ]);
-  const weeklyRows = mergeUniqueRows([
-    ...((weeklyByCreated ?? []) as Record<string, unknown>[]),
-    ...((weeklyBySent ?? []) as Record<string, unknown>[]),
-  ]);
-  const coachJobRows = mergeUniqueRows([
-    ...((coachJobByUpdated ?? []) as Record<string, unknown>[]),
-    ...((coachJobBySent ?? []) as Record<string, unknown>[]),
-  ]);
+  const inboundMsgRows = mergeUniqueRows([...inboundByCreated, ...inboundByReceived]);
+  const sendRows = mergeUniqueRows([...sendByCreated]);
+  const weeklyRows = mergeUniqueRows([...weeklyByCreated]);
+  const coachJobRows = mergeUniqueRows([...coachJobByUpdated, ...coachJobBySent]);
 
   let checkSentEvents = args.preloadedCheckSentEvents;
   if (!checkSentEvents && args.commitmentId) {
@@ -1031,7 +1103,7 @@ async function buildRecentExactThreadWithWindowMs(
     }
   }
 
-  if (lastCtx && typeof (lastCtx as { sent_at?: string }).sent_at === "string") {
+  if (lastCtx && typeof lastCtx.sent_at === "string") {
     const row = lastCtx as { sent_at: string; full_body?: string; message_kind?: string };
     const kind = typeof row.message_kind === "string" ? row.message_kind : "transactional";
     if (COACHING_OUTBOUND_KINDS.has(kind)) {
@@ -1048,6 +1120,7 @@ async function buildRecentExactThreadWithWindowMs(
             normDedupeKey(e.body) === normDedupeKey(cleaned)
         );
         if (!alreadyCoach) {
+          stats?.recordFallback();
           const { body, body_truncated } = safeBody(cleaned);
           rich.push({
             t: ts,

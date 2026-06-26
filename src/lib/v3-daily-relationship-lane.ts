@@ -1194,9 +1194,7 @@ export async function produceDailyV3RelationshipSms(
   let briefThread: RecentExactThreadForBriefResult | null = null;
 
   if (useWritingBrief) {
-    const nowForThread = Number.isFinite(new Date(factsAfterThread.user.local_time_iso).getTime())
-      ? new Date(factsAfterThread.user.local_time_iso)
-      : new Date();
+    const nowForThread = new Date();
     briefThread = await buildRecentExactThreadForBrief({
       clerkUserId: factsAfterThread.user.clerk_user_id,
       commitmentId: factsAfterThread.commitment.id,
@@ -1379,9 +1377,7 @@ export async function produceDailyV3RelationshipSms(
     const writerMsgs = buildDailySmsWriterMessagesFromBrief(brief);
     system = writerMsgs.system;
     user = writerMsgs.user;
-    const nowForBriefThread = Number.isFinite(new Date(laneFacts.user.local_time_iso).getTime())
-      ? new Date(laneFacts.user.local_time_iso)
-      : new Date();
+    const nowForBriefThread = new Date();
     const threadWindow = deriveBriefThreadWindowTelemetry(
       briefThread.timeline_7d.messages,
       nowForBriefThread.getTime()

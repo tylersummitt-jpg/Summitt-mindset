@@ -7,6 +7,19 @@ const ROUTE_PATH = join(process.cwd(), "src/app/api/cron/daily-sms/route.ts");
 describe("daily-sms Twilio success sms_send_events payload", () => {
   const src = readFileSync(ROUTE_PATH, "utf8");
 
+  it("metadata.sent_at uses true server instant, not localNow", () => {
+    const helperStart = src.indexOf("function dailySmsTwilioSuccessSendEventFields");
+    expect(helperStart).toBeGreaterThan(-1);
+    const helperEnd = src.indexOf("function compactSupabaseErrorMessage", helperStart);
+    const helperBlock = src.slice(helperStart, helperEnd);
+    expect(helperBlock).toMatch(/const sentAtIso = new Date\(\)\.toISOString\(\)/);
+    expect(helperBlock).not.toMatch(/localNow/);
+  });
+
+  it("preserves metadata.local_time for user wall-clock display", () => {
+    expect(src).toMatch(/local_time:\s*localNow\.toISOString\(\)/);
+  });
+
   it("does not write top-level sent_at on success payload", () => {
     const helperStart = src.indexOf("function dailySmsTwilioSuccessSendEventFields");
     expect(helperStart).toBeGreaterThan(-1);
