@@ -628,7 +628,7 @@ async function withNorthStarDailyGate(
   return out;
 }
 
-/** Post-Twilio success fields for sms_send_events — sent_at powers brief thread sendBySent dual-fetch. */
+/** Post-Twilio success fields for sms_send_events — metadata.sent_at for notebook thread timestamps. */
 function dailySmsTwilioSuccessSendEventFields(args: {
   localNow: Date;
   messageSid: string;
@@ -639,7 +639,6 @@ function dailySmsTwilioSuccessSendEventFields(args: {
   message_sid: string;
   status: string;
   sms_body: string;
-  sent_at: string;
   metadata: Record<string, unknown>;
 } {
   const sentAtIso = args.localNow.toISOString();
@@ -647,13 +646,130 @@ function dailySmsTwilioSuccessSendEventFields(args: {
     message_sid: args.messageSid,
     status: args.twilioStatus,
     sms_body: args.smsBody,
-    sent_at: sentAtIso,
     metadata: {
       ...args.metadata,
       sent_at: sentAtIso,
       twilio_send_attempted: true,
+      twilio_message_sid: args.messageSid,
+      message_sid: args.messageSid,
+      sms_body: args.smsBody,
+      final_sms_body: args.smsBody,
+      twilio_status: args.twilioStatus,
     },
   };
+}
+
+function compactSupabaseErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object") return String(err).slice(0, 500);
+  const e = err as { message?: string; code?: string };
+  return [e.code, e.message].filter(Boolean).join(": ").slice(0, 500);
+}
+
+/** True when Twilio SID is persisted top-level or in metadata (post-send idempotency guard). */
+function hasAnyTwilioSidOnSendEvent(row: {
+  message_sid?: unknown;
+  metadata?: unknown;
+}): boolean {
+  const topSid = row.message_sid;
+  if (typeof topSid === "string" && topSid.trim().length > 0) return true;
+  const meta =
+    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : null;
+  if (!meta) return false;
+  for (const key of ["message_sid", "twilio_message_sid", "outbound_message_sid"] as const) {
+    const v = meta[key];
+    if (typeof v === "string" && v.trim().length > 0) return true;
+  }
+  return false;
+}
+
+type RecordDailyTwilioSuccessResult = {
+  recordOk: boolean;
+  usedFallback: boolean;
+  orphanLogged: boolean;
+};
+
+async function recordDailyTwilioSuccessOrFallback(args: {
+  clerkUserId: string;
+  dayKey: string;
+  pathLabel: "main" | "retry";
+  primaryPayload: ReturnType<typeof dailySmsTwilioSuccessSendEventFields>;
+  messageSid: string;
+  smsBody: string;
+  twilioStatus: string;
+}): Promise<RecordDailyTwilioSuccessResult> {
+  const { error: primaryErr } = await supabaseServer
+    .from("sms_send_events")
+    .update(args.primaryPayload)
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("day_key", args.dayKey);
+
+  if (!primaryErr) {
+    return { recordOk: true, usedFallback: false, orphanLogged: false };
+  }
+
+  const primaryErrorStr = compactSupabaseErrorMessage(primaryErr);
+  console.error(
+    `[daily-sms] sms_send_events primary update failed after Twilio success (${args.pathLabel} path)`,
+    {
+      clerk_user_id: args.clerkUserId,
+      day_key: args.dayKey,
+      message_sid: args.messageSid,
+      error: primaryErr,
+    }
+  );
+
+  const baseMeta = args.primaryPayload.metadata;
+  const fallbackMetadata: Record<string, unknown> = {
+    ...baseMeta,
+    sent_at:
+      typeof baseMeta.sent_at === "string" && baseMeta.sent_at.trim()
+        ? baseMeta.sent_at
+        : new Date().toISOString(),
+    twilio_message_sid: args.messageSid,
+    message_sid: args.messageSid,
+    sms_body: args.smsBody,
+    final_sms_body: args.smsBody,
+    twilio_status: args.twilioStatus,
+    twilio_send_attempted: true,
+    twilio_db_primary_update_failed: true,
+    twilio_db_primary_update_error: primaryErrorStr,
+    twilio_db_fallback_update_attempted: true,
+    note: "sent_to_twilio_db_update_recovered",
+  };
+
+  const { error: fallbackErr } = await supabaseServer
+    .from("sms_send_events")
+    .update({
+      status: args.twilioStatus,
+      metadata: fallbackMetadata,
+    })
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("day_key", args.dayKey);
+
+  if (!fallbackErr) {
+    console.warn("[daily-sms] Twilio success recorded via metadata-only fallback", {
+      clerk_user_id: args.clerkUserId,
+      day_key: args.dayKey,
+      message_sid: args.messageSid,
+      path: args.pathLabel,
+    });
+    return { recordOk: true, usedFallback: true, orphanLogged: false };
+  }
+
+  const fallbackErrorStr = compactSupabaseErrorMessage(fallbackErr);
+  console.error("[daily-sms] CRITICAL orphan Twilio send — primary and fallback DB updates failed", {
+    clerk_user_id: args.clerkUserId,
+    day_key: args.dayKey,
+    message_sid: args.messageSid,
+    sms_body_preview: args.smsBody.slice(0, 160),
+    twilio_status: args.twilioStatus,
+    path: args.pathLabel,
+    primary_error: primaryErrorStr,
+    fallback_error: fallbackErrorStr,
+  });
+  return { recordOk: false, usedFallback: true, orphanLogged: true };
 }
 
 function dailySmsSentEventVoiceMetadata(
@@ -3390,9 +3506,7 @@ export async function GET(req: Request) {
 
       // STEP 2 & 3: Handle existing row or proceed to reserve
       if (existingEvent) {
-        const messageSidRaw = existingEvent.message_sid;
-        const hasMessageSid =
-          typeof messageSidRaw === "string" && messageSidRaw.trim().length > 0;
+        const hasMessageSid = hasAnyTwilioSidOnSendEvent(existingEvent);
 
         // Unsent stuck "reserved" (insert succeeded, send/update never completed)
         if (existingEvent.status === "reserved" && !hasMessageSid) {
@@ -3432,8 +3546,14 @@ export async function GET(req: Request) {
           };
         }
 
-        // CASE A: send_failed with retries left
+        // CASE A: send_failed with retries left (never retry after Twilio SID is known)
         if (existingEvent.status === "send_failed") {
+          if (hasMessageSid) {
+            stats.alreadyReservedOrSentToday += 1;
+            stats.skippedIntentional += 1;
+            continue;
+          }
+
           const existingMeta = (existingEvent.metadata || {}) as Record<string, unknown>;
           const retryCount = typeof existingMeta.retry_count === "number" ? existingMeta.retry_count : 0;
 
@@ -3814,59 +3934,34 @@ export async function GET(req: Request) {
                 ...dailySmsSentEventVoiceMetadata(built),
               },
             });
-            let recordOk = false;
-            const { error: retryUpdErr } = await supabaseServer
-              .from("sms_send_events")
-              .update(retrySuccessPayload)
-              .eq("clerk_user_id", audienceUser.clerk_user_id)
-              .eq("day_key", todayKey);
-            if (!retryUpdErr) {
-              recordOk = true;
-            } else {
-              console.error(
-                "[daily-sms] sms_send_events update failed after Twilio success (retry path)",
-                {
-                  clerk_user_id: audienceUser.clerk_user_id,
-                  todayKey,
-                  message_sid: retryMessage.sid,
-                  error: retryUpdErr,
-                }
-              );
-              const { error: retryUpdErr2 } = await supabaseServer
-                .from("sms_send_events")
-                .update(retrySuccessPayload)
-                .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey);
-              if (!retryUpdErr2) {
-                recordOk = true;
-              } else {
-                console.error(
-                  "[daily-sms] sms_send_events second update failed after Twilio success (retry path)",
-                  {
-                    clerk_user_id: audienceUser.clerk_user_id,
-                    todayKey,
-                    message_sid: retryMessage.sid,
-                    error: retryUpdErr2,
-                  }
-                );
+            const recordResult = await recordDailyTwilioSuccessOrFallback({
+              clerkUserId: audienceUser.clerk_user_id,
+              dayKey: todayKey,
+              pathLabel: "retry",
+              primaryPayload: retrySuccessPayload,
+              messageSid: retryMessage.sid,
+              smsBody,
+              twilioStatus: retryMessage.status,
+            });
+            if (recordResult.recordOk) {
+              if (!recordResult.usedFallback) {
+                await writeV2SmsThreadMemoryAfterDailyV3Outbound({
+                  built,
+                  clerkUserId: audienceUser.clerk_user_id,
+                  sentBody: smsBody,
+                  messageSid: retryMessage.sid,
+                  sentAt: new Date(),
+                });
               }
-            }
-            if (recordOk) {
-              await writeV2SmsThreadMemoryAfterDailyV3Outbound({
-                built,
-                clerkUserId: audienceUser.clerk_user_id,
-                sentBody: smsBody,
-                messageSid: retryMessage.sid,
-                sentAt: new Date(),
-              });
               stats.sent += 1;
               stats.retried += 1;
-              if (built.v2ReactivationNudge && built.v2CommitmentId) {
+              if (!recordResult.usedFallback && built.v2ReactivationNudge && built.v2CommitmentId) {
                 await updateReactivationLastSentAt(built.v2CommitmentId);
                 await recomputeV2CoachingMemory(built.v2CommitmentId, {
                   reasonCode: "daily_sms_reactivation_nudge_sent",
                 });
               } else if (
+                !recordResult.usedFallback &&
                 v2AccountabilityRetry &&
                 !built.v2ReactivationNudge &&
                 built.v2CommitmentId &&
@@ -3877,6 +3972,7 @@ export async function GET(req: Request) {
                   reasonCode: "daily_sms_pending_resolution_reminder",
                 });
               } else if (
+                !recordResult.usedFallback &&
                 v2AccountabilityRetry &&
                 !built.v2ReactivationNudge &&
                 built.v2CommitmentId &&
@@ -3969,15 +4065,7 @@ export async function GET(req: Request) {
                   });
                 }
               }
-            } else {
-              console.error(
-                "[daily-sms] Twilio sent but failed to record sms_send_events",
-                {
-                  clerkUserId: audienceUser.clerk_user_id,
-                  dayKey: todayKey,
-                  messageSid: retryMessage.sid,
-                }
-              );
+            } else if (recordResult.orphanLogged) {
               stats.failed += 1;
               stats.sendFailed += 1;
               stats.skippedUnexpected += 1;
@@ -4498,58 +4586,33 @@ export async function GET(req: Request) {
             ...dailySmsSentEventVoiceMetadata(builtMain),
           },
         });
-        let recordOk = false;
-        const { error: mainUpdErr } = await supabaseServer
-          .from("sms_send_events")
-          .update(mainSuccessPayload)
-          .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
-        if (!mainUpdErr) {
-          recordOk = true;
-        } else {
-          console.error(
-            "[daily-sms] sms_send_events update failed after Twilio success (main path)",
-            {
-              clerk_user_id: audienceUser.clerk_user_id,
-              todayKey,
-              message_sid: mainMessage.sid,
-              error: mainUpdErr,
-            }
-          );
-          const { error: mainUpdErr2 } = await supabaseServer
-            .from("sms_send_events")
-            .update(mainSuccessPayload)
-            .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
-          if (!mainUpdErr2) {
-            recordOk = true;
-          } else {
-            console.error(
-              "[daily-sms] sms_send_events second update failed after Twilio success (main path)",
-              {
-                clerk_user_id: audienceUser.clerk_user_id,
-                todayKey,
-                message_sid: mainMessage.sid,
-                error: mainUpdErr2,
-              }
-            );
+        const recordResult = await recordDailyTwilioSuccessOrFallback({
+          clerkUserId: audienceUser.clerk_user_id,
+          dayKey: todayKey,
+          pathLabel: "main",
+          primaryPayload: mainSuccessPayload,
+          messageSid: mainMessage.sid,
+          smsBody,
+          twilioStatus: mainMessage.status,
+        });
+        if (recordResult.recordOk) {
+          if (!recordResult.usedFallback) {
+            await writeV2SmsThreadMemoryAfterDailyV3Outbound({
+              built: builtMain,
+              clerkUserId: audienceUser.clerk_user_id,
+              sentBody: smsBody,
+              messageSid: mainMessage.sid,
+              sentAt: new Date(),
+            });
           }
-        }
-        if (recordOk) {
-          await writeV2SmsThreadMemoryAfterDailyV3Outbound({
-            built: builtMain,
-            clerkUserId: audienceUser.clerk_user_id,
-            sentBody: smsBody,
-            messageSid: mainMessage.sid,
-            sentAt: new Date(),
-          });
           stats.sent += 1;
-          if (builtMain.v2ReactivationNudge && builtMain.v2CommitmentId) {
+          if (!recordResult.usedFallback && builtMain.v2ReactivationNudge && builtMain.v2CommitmentId) {
             await updateReactivationLastSentAt(builtMain.v2CommitmentId);
             await recomputeV2CoachingMemory(builtMain.v2CommitmentId, {
               reasonCode: "daily_sms_reactivation_nudge_sent",
             });
           } else if (
+            !recordResult.usedFallback &&
             v2AccountabilityMain &&
             !builtMain.v2ReactivationNudge &&
             builtMain.v2CommitmentId &&
@@ -4560,6 +4623,7 @@ export async function GET(req: Request) {
               reasonCode: "daily_sms_pending_resolution_reminder",
             });
           } else if (
+            !recordResult.usedFallback &&
             v2AccountabilityMain &&
             !builtMain.v2ReactivationNudge &&
             builtMain.v2CommitmentId &&
@@ -4652,15 +4716,7 @@ export async function GET(req: Request) {
               });
             }
           }
-        } else {
-          console.error(
-            "[daily-sms] Twilio sent but failed to record sms_send_events",
-            {
-              clerkUserId: audienceUser.clerk_user_id,
-              dayKey: todayKey,
-              messageSid: mainMessage.sid,
-            }
-          );
+        } else if (recordResult.orphanLogged) {
           stats.failed += 1;
           stats.sendFailed += 1;
           stats.skippedUnexpected += 1;

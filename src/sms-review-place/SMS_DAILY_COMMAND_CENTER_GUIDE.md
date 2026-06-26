@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.10)
+# SMS Daily Command Center — SQL Guide (v2.11)
+
+v2.11 adds **Query 15 — Twilio ↔ DB Reconciliation + Duplicate Send Monitor** (`SM_AUDIT_15_Twilio_DB_Reconciliation_And_Duplicate_Send_Monitor`). Use after suspected duplicate or hidden sends (e.g. Twilio shows outbound SMS missing from normal DB tables). **Mode A:** paste Twilio `MessageSid` values into the `twilio_sids` CTE `VALUES` rows and run — any row with `missing_from_db = true` is **P0** (orphan Twilio send). **Mode B:** automatic risk monitor for duplicate clusters within 15 minutes, `metadata.twilio_message_sid` on retry-risk statuses, `twilio_db_primary_update_failed`, attempted-send without top-level `message_sid`, no-send rows with top SID, `recovered_at` rows, and daily rows missing operator-visible body. Body previews capped at 300 chars; no mutation.
 
 v2.10 adds **DailySmsWritingBriefV1 thread build filter telemetry** on Q02/Q13/Q14 sent rows: `daily_brief_thread_source_candidate_count`, `visible_send_candidate_count`, `user_inbound_candidate_count`, `weekly_candidate_count`, `filtered_out_count`, `filtered_out_reason_top`, `effective_timestamp_rescue_count`, `source_tables_present` (counts only — no raw thread text). Q13 surfaces sanity rows: `c1_brief_empty_thread_with_candidates`, `c1_brief_filtered_all_candidates`, `c1_brief_effective_timestamp_rescue_present`, and per-reason filter diagnostics (`not_truly_sent`, `empty_body`, `timestamp_outside_window`). Use these when Q14 shows prior visible relationship rows but `daily_brief_thread_message_count` is 0 or 1.
 
@@ -24,7 +26,7 @@ This replaces the old **29-query** daily process:
 - SMS Soak Debug Pack v1.3 (16 queries)
 - Truth Spine Certification Pack v1.1 (13 queries)
 
-Use this **14-query** pack for normal daily review. Keep the old packs for deep certification or historical forensics.
+Use this **15-query** pack for normal daily review. Keep the old packs for deep certification or historical forensics.
 
 ### Which query for what?
 
@@ -32,6 +34,7 @@ Use this **14-query** pack for normal daily review. Keep the old packs for deep 
 |------|---------|----------|
 | **System health / telemetry** | Q01, Q02, Q03, Q05, Q13 | Eligible sends, no-sends, copy-risk flags, **weekly_body_missing_with_sid**, **skipped_sunday_weekly_pause**, denominator sanity, brief telemetry |
 | **Human relationship review** | **Q14** | Did user/coach actually alternate in a real thread? Did daily send reflect prior user context? |
+| **Twilio ↔ DB reconciliation** | **Q15** | Twilio shows sends missing from DB, duplicate coach texts within 15 minutes, or post-send DB update failures |
 
 **Q14 is read-only manual review.** Do not use it to mutate data, change routes, or drive automated product behavior.
 
@@ -60,13 +63,26 @@ Use this **14-query** pack for normal daily review. Keep the old packs for deep 
 | 12 | `SM_AUDIT_12_Final_Guard_SideRoom` | Last 24 hours |
 | 13 | `SM_AUDIT_13_Denominator_Sanity` | Last 24 hours |
 | 14 | `SM_AUDIT_14_Relationship_Thread_Review` | Last **9 days** |
+| 15 | `SM_AUDIT_15_Twilio_DB_Reconciliation_And_Duplicate_Send_Monitor` | Last **7 days** (Mode B); Mode A = paste Twilio SIDs |
+
+---
+
+## Query 15 — Twilio ↔ DB reconciliation (P0 ops)
+
+After suspected duplicate or hidden sends:
+
+1. Export Twilio Message SIDs + timestamps + body previews for the incident window.
+2. Open Query 15 in `sms_daily_command_center_pack_v2.sql`.
+3. Replace `PASTE_SID_HERE` rows in the `twilio_sids` CTE with real SIDs (add more `VALUES` rows as needed).
+4. Run the query. **`missing_from_db = true` means P0** — Twilio delivered but no row in `sms_send_events`, `sms_inbound_coach_jobs`, `sms_weekly_send_events`, or `sms_last_outbound_context`.
+5. Review Mode B rows (`duplicate_send_monitor`) for duplicate clusters, `twilio_db_primary_update_failed`, and metadata-SID retry risks without running Mode A.
 
 ---
 
 ## Daily workflow (after a 24-hour soak)
 
 1. Wait until **Vercel is green** after any deploy you are measuring.
-2. Run saved queries **01 → 14** in order (or at minimum **01**, then drill into anything flagged).
+2. Run saved queries **01 → 15** in order (or at minimum **01**, then drill into anything flagged).
 3. For each query:
    - If it returns rows → export CSV or copy results.
    - If it returns **no rows** → write `Query N: no rows.` in your notes.

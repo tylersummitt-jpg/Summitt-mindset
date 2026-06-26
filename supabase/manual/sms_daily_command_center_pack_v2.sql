@@ -1,7 +1,11 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.10
+-- SMS DAILY COMMAND CENTER PACK v2.11
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
--- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 14 queries.
+-- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 15 queries.
+--
+-- v2.11 Twilio ↔ DB reconciliation + duplicate-send monitor (June 2026):
+--   - Q15 SM_AUDIT_15: paste Twilio SIDs into CTE; flag missing_from_db; duplicate-send risk rows.
+--   - Surfaces metadata.twilio_message_sid, twilio_db_primary_update_failed, orphan-style gaps.
 --
 -- v2.10 DailySmsWritingBriefV1 thread build filter telemetry (June 2026):
 --   - Q02/Q13/Q14: source_candidate_count, visible_send_candidate_count, user_inbound_candidate_count,
@@ -5574,4 +5578,438 @@ SELECT
   END AS user_stated_identity_signal
 FROM thread_numbered t
 ORDER BY t.clerk_user_id, t.thread_seq;
+
+
+-- =============================================================================
+-- QUERY 15 — twilio_db_reconciliation_and_duplicate_send_monitor
+-- Saved query name: SM_AUDIT_15_Twilio_DB_Reconciliation_And_Duplicate_Send_Monitor
+-- Purpose: Twilio ↔ DB reconciliation (paste SIDs) + duplicate/hidden-send risk monitor.
+-- Default window: last 7 days for mode B
+-- Mode A: edit twilio_sids VALUES rows with Twilio export SIDs (P0 when missing_from_db).
+-- Mode B: automatic risk rows (duplicate_send_monitor) — no paste required.
+-- =============================================================================
+
+WITH bounds AS (
+  SELECT
+    now() - interval '7 days' AS window_start,
+    now() AS window_end
+),
+-- Mode A — paste Twilio SIDs from console/export (example rows; replace or add more):
+twilio_sids(sid, twilio_created_at, twilio_body_preview) AS (
+  VALUES
+    ('PASTE_SID_HERE'::text, timestamptz '2026-06-25 23:05:53+00', 'body preview from Twilio'::text)
+),
+sid_hits AS (
+  SELECT
+    t.sid,
+    t.twilio_created_at,
+    LEFT(t.twilio_body_preview, 300) AS twilio_body_preview,
+    'sms_send_events'::text AS found_table,
+    COALESCE(to_jsonb(s)->>'id', '') AS found_row_id,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(s)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,final_sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      ''
+    ), 300) AS found_body_preview
+  FROM twilio_sids t
+  INNER JOIN sms_send_events s
+    ON COALESCE(to_jsonb(s)->>'message_sid', '') = t.sid
+    OR COALESCE(to_jsonb(s)#>>'{metadata,message_sid}', '') = t.sid
+    OR COALESCE(to_jsonb(s)#>>'{metadata,twilio_message_sid}', '') = t.sid
+  UNION ALL
+  SELECT
+    t.sid,
+    t.twilio_created_at,
+    LEFT(t.twilio_body_preview, 300),
+    'sms_inbound_coach_jobs'::text,
+    COALESCE(to_jsonb(j)->>'message_sid', ''),
+    LEFT(COALESCE(NULLIF(BTRIM(to_jsonb(j)->>'reply_body'), ''), ''), 300)
+  FROM twilio_sids t
+  INNER JOIN sms_inbound_coach_jobs j
+    ON COALESCE(to_jsonb(j)->>'outbound_message_sid', '') = t.sid
+  UNION ALL
+  SELECT
+    t.sid,
+    t.twilio_created_at,
+    LEFT(t.twilio_body_preview, 300),
+    'sms_weekly_send_events'::text,
+    COALESCE(to_jsonb(w)->>'id', ''),
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,final_body}'), ''),
+      ''
+    ), 300)
+  FROM twilio_sids t
+  INNER JOIN sms_weekly_send_events w
+    ON COALESCE(to_jsonb(w)->>'message_sid', '') = t.sid
+    OR COALESCE(to_jsonb(w)#>>'{metadata,twilio_message_sid}', '') = t.sid
+  UNION ALL
+  SELECT
+    t.sid,
+    t.twilio_created_at,
+    LEFT(t.twilio_body_preview, 300),
+    'sms_last_outbound_context'::text,
+    COALESCE(to_jsonb(c)->>'clerk_user_id', ''),
+    LEFT(COALESCE(NULLIF(BTRIM(to_jsonb(c)->>'full_body'), ''), ''), 300)
+  FROM twilio_sids t
+  INNER JOIN sms_last_outbound_context c
+    ON COALESCE(to_jsonb(c)->>'twilio_message_sid', '') = t.sid
+),
+mode_a_reconciliation AS (
+  SELECT
+    'twilio_sid_reconciliation'::text AS duplicate_send_monitor,
+    t.sid,
+    COALESCE(h.found_table, ''::text) AS found_table,
+    COALESCE(h.found_row_id, ''::text) AS found_row_id,
+    COALESCE(h.found_body_preview, ''::text) AS found_body_preview,
+    (h.sid IS NULL) AS missing_from_db,
+    t.twilio_created_at,
+    LEFT(t.twilio_body_preview, 300) AS twilio_body_preview,
+    ''::text AS clerk_user_id,
+    ''::text AS day_key,
+    COALESCE(h.found_row_id, ''::text) AS row_id,
+    ''::text AS status,
+    t.sid AS top_message_sid,
+    ''::text AS metadata_twilio_message_sid,
+    ''::text AS twilio_db_primary_update_failed,
+    ''::text AS twilio_send_attempted,
+    ''::text AS recovered_at,
+    COALESCE(h.found_body_preview, ''::text) AS body_preview,
+    t.twilio_created_at AS event_at
+  FROM twilio_sids t
+  LEFT JOIN sid_hits h ON h.sid = t.sid
+),
+visible_coach_sends AS (
+  SELECT
+    COALESCE(to_jsonb(s)->>'clerk_user_id', '') AS clerk_user_id,
+    COALESCE(
+      NULLIF(to_jsonb(s)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)#>>'{metadata,sent_at}', '')::timestamptz,
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz
+    ) AS send_at,
+    'sms_send_events'::text AS source_table,
+    COALESCE(to_jsonb(s)->>'id', '') AS row_id,
+    COALESCE(to_jsonb(s)->>'status', '') AS status,
+    COALESCE(to_jsonb(s)->>'message_sid', '') AS top_message_sid,
+    COALESCE(to_jsonb(s)#>>'{metadata,twilio_message_sid}', '') AS metadata_twilio_message_sid,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(s)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,final_sms_body}'), ''),
+      ''
+    ), 300) AS body_preview
+  FROM sms_send_events s
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)#>>'{metadata,sent_at}', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)#>>'{metadata,sent_at}', '')::timestamptz
+    ) < b.window_end
+    AND (
+      COALESCE(to_jsonb(s)->>'message_sid', '') <> ''
+      OR COALESCE(to_jsonb(s)#>>'{metadata,twilio_message_sid}', '') <> ''
+      OR COALESCE(to_jsonb(s)#>>'{metadata,twilio_send_attempted}', '') = 'true'
+    )
+  UNION ALL
+  SELECT
+    COALESCE(to_jsonb(j)->>'clerk_user_id', ''),
+    COALESCE(
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz
+    ),
+    'sms_inbound_coach_jobs'::text,
+    COALESCE(to_jsonb(j)->>'message_sid', ''),
+    COALESCE(to_jsonb(j)->>'status', ''),
+    COALESCE(to_jsonb(j)->>'outbound_message_sid', ''),
+    '',
+    LEFT(COALESCE(NULLIF(BTRIM(to_jsonb(j)->>'reply_body'), ''), ''), 300)
+  FROM sms_inbound_coach_jobs j
+  CROSS JOIN bounds b
+  WHERE COALESCE(to_jsonb(j)->>'status', '') = 'sent'
+    AND COALESCE(to_jsonb(j)->>'outbound_message_sid', '') <> ''
+    AND COALESCE(
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(j)->>'sent_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'updated_at', '')::timestamptz,
+      NULLIF(to_jsonb(j)->>'created_at', '')::timestamptz
+    ) < b.window_end
+),
+duplicate_clusters AS (
+  SELECT
+    a.clerk_user_id,
+    COUNT(DISTINCT a.send_at)::int AS coach_send_count_15m,
+    MIN(LEAST(a.send_at, b.send_at)) AS cluster_start,
+    MAX(GREATEST(a.send_at, b.send_at)) AS cluster_end
+  FROM visible_coach_sends a
+  INNER JOIN visible_coach_sends b
+    ON a.clerk_user_id = b.clerk_user_id
+   AND a.send_at <= b.send_at
+   AND b.send_at - a.send_at <= interval '15 minutes'
+  WHERE a.send_at IS NOT NULL
+    AND b.send_at IS NOT NULL
+    AND a.body_preview <> ''
+    AND b.body_preview <> ''
+  GROUP BY a.clerk_user_id
+  HAVING COUNT(DISTINCT a.send_at) >= 2
+),
+daily_risk_rows AS (
+  SELECT
+    COALESCE(to_jsonb(s)->>'clerk_user_id', '') AS clerk_user_id,
+    COALESCE(to_jsonb(s)->>'day_key', '') AS day_key,
+    COALESCE(to_jsonb(s)->>'id', '') AS row_id,
+    COALESCE(to_jsonb(s)->>'status', '') AS status,
+    COALESCE(to_jsonb(s)->>'message_sid', '') AS top_message_sid,
+    COALESCE(to_jsonb(s)#>>'{metadata,twilio_message_sid}', '') AS metadata_twilio_message_sid,
+    COALESCE(to_jsonb(s)#>>'{metadata,twilio_db_primary_update_failed}', '') AS twilio_db_primary_update_failed,
+    COALESCE(to_jsonb(s)#>>'{metadata,twilio_send_attempted}', '') AS twilio_send_attempted,
+    COALESCE(to_jsonb(s)#>>'{metadata,recovered_at}', '') AS recovered_at,
+    LEFT(COALESCE(
+      NULLIF(BTRIM(to_jsonb(s)->>'sms_body'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,final_sms_body}'), ''),
+      NULLIF(BTRIM(to_jsonb(s)#>>'{metadata,voice_send_decision,body_preview}'), ''),
+      ''
+    ), 300) AS body_preview,
+    COALESCE(
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)#>>'{metadata,sent_at}', '')::timestamptz
+    ) AS event_at
+  FROM sms_send_events s
+  CROSS JOIN bounds b
+  WHERE COALESCE(
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)#>>'{metadata,sent_at}', '')::timestamptz
+    ) >= b.window_start
+    AND COALESCE(
+      NULLIF(to_jsonb(s)->>'created_at', '')::timestamptz,
+      NULLIF(to_jsonb(s)#>>'{metadata,sent_at}', '')::timestamptz
+    ) < b.window_end
+),
+mode_b_risk AS (
+  SELECT
+    'duplicate_cluster_15m'::text AS duplicate_send_monitor,
+    d.clerk_user_id,
+    ''::text AS day_key,
+    ''::text AS row_id,
+    ''::text AS status,
+    ''::text AS top_message_sid,
+    ''::text AS metadata_twilio_message_sid,
+    ''::text AS twilio_db_primary_update_failed,
+    ''::text AS twilio_send_attempted,
+    ''::text AS recovered_at,
+    ('coach_send_count_15m=' || d.coach_send_count_15m::text)::text AS body_preview,
+    d.cluster_start AS event_at,
+    false AS missing_from_db,
+    ''::text AS sid,
+    ''::text AS found_table,
+    ''::text AS found_row_id,
+    ''::text AS found_body_preview,
+    NULL::timestamptz AS twilio_created_at,
+    ''::text AS twilio_body_preview
+  FROM duplicate_clusters d
+  UNION ALL
+  SELECT
+    'metadata_sid_retry_risk'::text,
+    r.clerk_user_id,
+    r.day_key,
+    r.row_id,
+    r.status,
+    r.top_message_sid,
+    r.metadata_twilio_message_sid,
+    r.twilio_db_primary_update_failed,
+    r.twilio_send_attempted,
+    r.recovered_at,
+    r.body_preview,
+    r.event_at,
+    false,
+    '',
+    'sms_send_events',
+    r.row_id,
+    r.body_preview,
+    NULL,
+    ''
+  FROM daily_risk_rows r
+  WHERE r.status IN ('send_failed', 'reserved', 'skipped_no_safe_v3_voice')
+    AND r.metadata_twilio_message_sid <> ''
+  UNION ALL
+  SELECT
+    'twilio_db_primary_update_failed'::text,
+    r.clerk_user_id,
+    r.day_key,
+    r.row_id,
+    r.status,
+    r.top_message_sid,
+    r.metadata_twilio_message_sid,
+    r.twilio_db_primary_update_failed,
+    r.twilio_send_attempted,
+    r.recovered_at,
+    r.body_preview,
+    r.event_at,
+    false,
+    '',
+    'sms_send_events',
+    r.row_id,
+    r.body_preview,
+    NULL,
+    ''
+  FROM daily_risk_rows r
+  WHERE r.twilio_db_primary_update_failed = 'true'
+  UNION ALL
+  SELECT
+    'twilio_attempted_missing_top_sid'::text,
+    r.clerk_user_id,
+    r.day_key,
+    r.row_id,
+    r.status,
+    r.top_message_sid,
+    r.metadata_twilio_message_sid,
+    r.twilio_db_primary_update_failed,
+    r.twilio_send_attempted,
+    r.recovered_at,
+    r.body_preview,
+    r.event_at,
+    false,
+    '',
+    'sms_send_events',
+    r.row_id,
+    r.body_preview,
+    NULL,
+    ''
+  FROM daily_risk_rows r
+  WHERE r.twilio_send_attempted = 'true'
+    AND r.top_message_sid = ''
+  UNION ALL
+  SELECT
+    'no_send_with_top_sid'::text,
+    r.clerk_user_id,
+    r.day_key,
+    r.row_id,
+    r.status,
+    r.top_message_sid,
+    r.metadata_twilio_message_sid,
+    r.twilio_db_primary_update_failed,
+    r.twilio_send_attempted,
+    r.recovered_at,
+    r.body_preview,
+    r.event_at,
+    false,
+    '',
+    'sms_send_events',
+    r.row_id,
+    r.body_preview,
+    NULL,
+    ''
+  FROM daily_risk_rows r
+  WHERE r.status LIKE 'skipped%'
+    AND r.top_message_sid <> ''
+  UNION ALL
+  SELECT
+    'recovered_at_row'::text,
+    r.clerk_user_id,
+    r.day_key,
+    r.row_id,
+    r.status,
+    r.top_message_sid,
+    r.metadata_twilio_message_sid,
+    r.twilio_db_primary_update_failed,
+    r.twilio_send_attempted,
+    r.recovered_at,
+    r.body_preview,
+    r.event_at,
+    false,
+    '',
+    'sms_send_events',
+    r.row_id,
+    r.body_preview,
+    NULL,
+    ''
+  FROM daily_risk_rows r
+  WHERE r.recovered_at <> ''
+  UNION ALL
+  SELECT
+    'daily_missing_operator_body'::text,
+    r.clerk_user_id,
+    r.day_key,
+    r.row_id,
+    r.status,
+    r.top_message_sid,
+    r.metadata_twilio_message_sid,
+    r.twilio_db_primary_update_failed,
+    r.twilio_send_attempted,
+    r.recovered_at,
+    r.body_preview,
+    r.event_at,
+    false,
+    '',
+    'sms_send_events',
+    r.row_id,
+    r.body_preview,
+    NULL,
+    ''
+  FROM daily_risk_rows r
+  WHERE r.body_preview = ''
+    AND (
+      r.top_message_sid <> ''
+      OR r.metadata_twilio_message_sid <> ''
+      OR r.twilio_send_attempted = 'true'
+    )
+)
+SELECT
+  duplicate_send_monitor,
+  sid,
+  found_table,
+  found_row_id,
+  found_body_preview,
+  missing_from_db,
+  twilio_created_at,
+  twilio_body_preview,
+  clerk_user_id,
+  day_key,
+  row_id,
+  status,
+  top_message_sid,
+  metadata_twilio_message_sid,
+  twilio_db_primary_update_failed,
+  twilio_send_attempted,
+  recovered_at,
+  body_preview,
+  event_at
+FROM mode_a_reconciliation
+UNION ALL
+SELECT
+  duplicate_send_monitor,
+  sid,
+  found_table,
+  found_row_id,
+  found_body_preview,
+  missing_from_db,
+  twilio_created_at,
+  twilio_body_preview,
+  clerk_user_id,
+  day_key,
+  row_id,
+  status,
+  top_message_sid,
+  metadata_twilio_message_sid,
+  twilio_db_primary_update_failed,
+  twilio_send_attempted,
+  recovered_at,
+  body_preview,
+  event_at
+FROM mode_b_risk
+ORDER BY
+  CASE WHEN missing_from_db THEN 0 ELSE 1 END,
+  event_at DESC NULLS LAST,
+  duplicate_send_monitor,
+  sid;
 

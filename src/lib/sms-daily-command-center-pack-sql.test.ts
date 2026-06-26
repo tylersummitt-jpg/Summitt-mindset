@@ -18,6 +18,7 @@ const QUERY_HEADERS = [
   "final_guard_product_law_side_room_audit",
   "observability_denominator_sanity_check",
   "relationship_thread_review",
+  "twilio_db_reconciliation_and_duplicate_send_monitor",
 ];
 
 const SAVED_QUERY_NAMES = [
@@ -35,10 +36,11 @@ const SAVED_QUERY_NAMES = [
   "SM_AUDIT_12_Final_Guard_SideRoom",
   "SM_AUDIT_13_Denominator_Sanity",
   "SM_AUDIT_14_Relationship_Thread_Review",
+  "SM_AUDIT_15_Twilio_DB_Reconciliation_And_Duplicate_Send_Monitor",
 ];
 
 describe("sms_daily_command_center_pack_v2.sql", () => {
-  it("exists, is read-only, and has exactly 14 standalone query headers", async () => {
+  it("exists, is read-only, and has exactly 15 standalone query headers", async () => {
     const sql = await readFile(SQL_PATH, "utf8");
     const upper = sql.toUpperCase();
 
@@ -50,8 +52,8 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.10");
-    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.11");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
 
     for (const name of QUERY_HEADERS) {
       expect(sql).toContain(name);
@@ -60,7 +62,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
       expect(sql).toContain(saved);
     }
 
-    expect(sql.match(/WITH bounds AS/g)?.length).toBeGreaterThanOrEqual(14);
+    expect(sql.match(/WITH bounds AS/g)?.length).toBeGreaterThanOrEqual(15);
     expect(sql).not.toMatch(/Brooke/i);
     expect(sql).not.toMatch(/Tyler/i);
     expect(sql).not.toMatch(/clerk_user_id\s*=\s*'/);
@@ -196,7 +198,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("weekly_body_missing_with_sid_count");
     expect(sql).toContain("weekly_body_missing_with_sid");
     expect(sql).toContain("relationship_thread_review");
-    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });
 
@@ -218,7 +220,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("c1_brief_filter_reason_empty_body");
     expect(sql).toContain("c1_brief_filter_reason_timestamp_outside_window");
     expect(sql).toContain("relationship_thread_review");
-    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });
 
@@ -232,7 +234,23 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("sunday_weekly_expected_but_daily_sent_count");
     expect(sql).toContain("skipped_sunday_weekly_pause");
     expect(sql).toContain("sunday_weekly_pause");
-    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(14);
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.11 Twilio DB reconciliation and duplicate-send monitor markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.11");
+    expect(sql).toContain("twilio_db_reconciliation_and_duplicate_send_monitor");
+    expect(sql).toContain("SM_AUDIT_15_Twilio_DB_Reconciliation_And_Duplicate_Send_Monitor");
+    expect(sql).toContain("twilio_sids(sid, twilio_created_at, twilio_body_preview)");
+    expect(sql).toContain("twilio_db_primary_update_failed");
+    expect(sql).toContain("twilio_message_sid");
+    expect(sql).toContain("duplicate_send_monitor");
+    expect(sql).toContain("missing_from_db");
+    expect(sql).toContain("sms_last_outbound_context");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });
 });
