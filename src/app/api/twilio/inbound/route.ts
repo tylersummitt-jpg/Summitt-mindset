@@ -12,6 +12,7 @@ import {
   classifyInboundSmsSafetyTier,
 } from "@/lib/sms-inbound-safety";
 import { clearCommsPreferencesOnSmsResume } from "@/lib/v2-sms-comms-preferences";
+import { enqueueNormalCoachJobWithBurstQuiet } from "@/lib/sms-inbound-burst-pace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -171,11 +172,7 @@ const START_TWIML_BODY =
 
 /**
  * Coach-path durability: after sms_inbound_messages is stored, a job row MUST exist
- * before we return 200 TwiML. Inserts with retry + explicit SELECT verify; throws if
- * still missing so Twilio can retry the webhook.
- *
- * Eligibility is enforced by callers: resolved `sms_identities` row with SMS active (not
- * stopped) and Clerk `smsEnabled === true`. V2 accountability does not use `currentDay`.
+ * before we return 200 TwiML. Uses burst quiet window for normal coach replies.
  */
 async function ensureCoachJobPresent(args: {
   messageSid: string;
@@ -183,53 +180,7 @@ async function ensureCoachJobPresent(args: {
   fromPhone: string;
   rawBody: string;
 }): Promise<void> {
-  const row = {
-    message_sid: args.messageSid,
-    clerk_user_id: args.clerkUserId,
-    from_phone: args.fromPhone,
-    raw_body: args.rawBody,
-  };
-
-  const jobRowExists = async (): Promise<boolean> => {
-    const { data } = await supabaseServer
-      .from("sms_inbound_coach_jobs")
-      .select("message_sid")
-      .eq("message_sid", args.messageSid)
-      .maybeSingle();
-    return Boolean(data?.message_sid);
-  };
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const { error } = await supabaseServer.from("sms_inbound_coach_jobs").insert(row);
-    if (!error) break;
-    const code = (error as { code?: string })?.code;
-    if (code === "23505") break;
-    if (attempt === 1) throw error;
-  }
-
-  if (await jobRowExists()) return;
-
-  {
-    const { error } = await supabaseServer.from("sms_inbound_coach_jobs").insert(row);
-    if (error) {
-      const code = (error as { code?: string })?.code;
-      if (code !== "23505") throw error;
-    }
-  }
-
-  if (await jobRowExists()) return;
-
-  {
-    const { error } = await supabaseServer.from("sms_inbound_coach_jobs").insert(row);
-    if (error) {
-      const code = (error as { code?: string })?.code;
-      if (code !== "23505") throw error;
-    }
-  }
-
-  if (!(await jobRowExists())) {
-    throw new Error("sms_inbound_coach_jobs_missing_after_enqueue_and_verify");
-  }
+  await enqueueNormalCoachJobWithBurstQuiet(args);
 }
 
 async function runStopFlow(userId: string, from: string) {

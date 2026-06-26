@@ -483,6 +483,12 @@ import {
 } from "@/lib/v3-sms-learning";
 import { V3_REFINE_ONLY_GATED } from "@/lib/v3-sms-machine-refine";
 import { coalesceOlderPendingSplitJobsForClaimedJob } from "@/lib/sms-inbound-split-coalesce";
+import {
+  deferCoachJobForNewerPendingBurst,
+  deferCoachJobForUserInFlight,
+  findNewerReadyPendingCoachJobMessageSid,
+  findUserInFlightCoachJobMessageSid,
+} from "@/lib/sms-inbound-burst-pace";
 import { applyFinalVoiceOwnershipGate, type VoiceOwnershipResult } from "@/lib/v3-sms-voice-ownership";
 import { isAppleMessengerTapbackLine } from "@/lib/sms-imessage-reaction";
 
@@ -11967,6 +11973,48 @@ export async function GET(req: Request) {
 
   for (const row of candidates ?? []) {
     const job = row as JobRow;
+
+    const inFlightSid = await findUserInFlightCoachJobMessageSid(
+      job.clerk_user_id,
+      job.message_sid
+    );
+    if (inFlightSid) {
+      await deferCoachJobForUserInFlight({
+        messageSid: job.message_sid,
+        blockingMessageSid: inFlightSid,
+      });
+      console.info("[sms-inbound-coach] inbound_user_in_flight_deferred", {
+        message_sid: job.message_sid,
+        clerk_user_id: job.clerk_user_id,
+        blocking_message_sid: inFlightSid,
+      });
+      continue;
+    }
+
+    if (
+      job.status === "pending" &&
+      typeof job.created_at === "string" &&
+      job.created_at.trim()
+    ) {
+      const newerSid = await findNewerReadyPendingCoachJobMessageSid({
+        clerkUserId: job.clerk_user_id,
+        messageSid: job.message_sid,
+        createdAt: job.created_at,
+        nowIso,
+      });
+      if (newerSid) {
+        await deferCoachJobForNewerPendingBurst({
+          messageSid: job.message_sid,
+          newerMessageSid: newerSid,
+        });
+        console.info("[sms-inbound-coach] inbound_burst_newer_pending_deferred", {
+          message_sid: job.message_sid,
+          clerk_user_id: job.clerk_user_id,
+          newer_message_sid: newerSid,
+        });
+        continue;
+      }
+    }
 
     const { data: claimed } = await supabaseServer
       .from("sms_inbound_coach_jobs")
