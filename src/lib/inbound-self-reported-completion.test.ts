@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import {
   evaluateCompletionAlignmentForProof,
+  evaluateSemanticCompletionAlignmentFromTurnUnderstanding,
   isCommitmentAlignedRoutineStatusUpdateCompletion,
   isSubstantiveSelfReportedCompletionForProof,
 } from "@/lib/inbound-self-reported-completion";
+import {
+  OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+  reconcileTurnUnderstanding,
+  type OpenAIRelationshipTurnUnderstandingV1,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 
 const TYLER_DISTRIBUTION_COMPLETION =
   "I got my distribution done today! I hit the goal! Woo hoo!";
@@ -191,5 +198,229 @@ describe("Brooke coalesced step completion", () => {
         stepCommitment
       )
     ).toBe(false);
+  });
+});
+
+describe("evaluateSemanticCompletionAlignmentFromTurnUnderstanding", () => {
+  const prayerCtx = {
+    commitmentBehaviorStatement: "Pray for 10 minutes each morning",
+    effectiveAsk: "Did you pray today?",
+    commitmentTitle: "Morning prayer",
+  };
+
+  function tuFor(raw: string, overrides?: Partial<OpenAIRelationshipTurnUnderstandingV1>) {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const proposal: OpenAIRelationshipTurnUnderstandingV1 = {
+      version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+      user_turn_summary: "User prayed today.",
+      evidence_quotes: [raw],
+      relationship_meaning: "reported_completion",
+      answered_last_coach_ask: "yes",
+      last_ask_satisfied: "no",
+      satisfaction_kind: "not_satisfied",
+      do_not_repeat_asks: [],
+      stale_ask_risk: false,
+      commitment_outcome_recommendation: "write_user_yes_today",
+      persistence_safety: "safe_to_write",
+      response_intent: "acknowledge_completion",
+      temporal_scope: "today",
+      reported_for_day_key: null,
+      confidence: 0.92,
+      uncertainty_flags: [],
+      route_priority_recommendation: "none",
+      safety_or_support_flags: [],
+      ...overrides,
+    };
+    return reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: inboundMeaning,
+      inboundBody: raw,
+    });
+  }
+
+  it("returns high-confidence aligned completed_today for I prayed today", () => {
+    const raw = "I prayed today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result).toMatchObject({
+      checked: true,
+      completion_claimed: true,
+      alignment: "aligned",
+      confidence: "high",
+      tense: "completed_today",
+    });
+  });
+
+  it("blocks medium-confidence TU completion", () => {
+    const raw = "I prayed today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw, { confidence: 0.65 }),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.completion_claimed).toBe(true);
+    expect(result.confidence).toBe("medium");
+    expect(result.reason).toBe("tu_confidence_medium");
+  });
+
+  it("does not check when deterministic already write_user_yes_today", () => {
+    const raw = "I got my faith time in today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    expect(inboundMeaning.persistence_decision).toBe("write_user_yes_today");
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.checked).toBe(false);
+    expect(result.reason).toBe("deterministic_write_user_yes_already");
+  });
+
+  it("blocks high-confidence TU when evidence quotes are missing", () => {
+    const raw = "I prayed today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw, { evidence_quotes: [] }),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.reason).toBe("tu_evidence_not_grounded_in_inbound");
+    expect(result.completion_claimed).toBe(false);
+  });
+
+  it("blocks high-confidence TU when evidence quote is not present in inbound body", () => {
+    const raw = "I thought about praying.";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw, { evidence_quotes: ["I prayed today."] }),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.reason).toBe("tu_evidence_not_grounded_in_inbound");
+    expect(result.completion_claimed).toBe(false);
+  });
+
+  it("blocks high-confidence TU when evidence is model-invented paraphrase not in inbound", () => {
+    const raw = "I got time with the Lord this morn";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw, {
+        evidence_quotes: ["I spent time with God this morning"],
+      }),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.reason).toBe("tu_evidence_not_grounded_in_inbound");
+    expect(result.completion_claimed).toBe(false);
+  });
+
+  it("blocks semantic unlock when TU confidence is missing", () => {
+    const raw = "I prayed today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const tu = { ...tuFor(raw), confidence: Number.NaN };
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tu,
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.completion_claimed).toBe(true);
+    expect(result.confidence).toBe("low");
+    expect(result.reason).toBe("tu_confidence_low");
+  });
+
+  it("blocks semantic unlock at confidence 0.74 (below high threshold)", () => {
+    const raw = "I prayed today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw, { confidence: 0.74 }),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.completion_claimed).toBe(true);
+    expect(result.confidence).toBe("medium");
+    expect(result.reason).toBe("tu_confidence_medium");
+  });
+
+  it("blocks semantic unlock when temporal_scope is missing or unclear", () => {
+    const raw = "I prayed today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw, { temporal_scope: "unclear" }),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.reason).toBe("tu_temporal_unclear");
+    expect(result.completion_claimed).toBe(false);
+  });
+
+  it("blocks semantic unlock when persistence_safety is not safe_to_write", () => {
+    const raw = "I prayed today";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const result = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+      rawBody: raw,
+      ...prayerCtx,
+      reconciledTurnUnderstanding: tuFor(raw, { persistence_safety: "defer_to_server" }),
+      deterministicMeaning: inboundMeaning,
+    });
+    expect(result.reason).toBe("tu_persistence_defer_to_server");
+    expect(result.completion_claimed).toBe(false);
   });
 });

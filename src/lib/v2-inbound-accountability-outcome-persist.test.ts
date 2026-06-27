@@ -2098,3 +2098,595 @@ describe("proof spine safety — commitment alignment and same-day duplicate sup
     }
   });
 });
+
+describe("semantic turn-understanding completion alignment", () => {
+  type CommitmentCtx = {
+    commitmentBehaviorStatement: string;
+    effectiveAsk: string;
+    commitmentTitle: string;
+  };
+
+  function reconciledCompletionTu(
+    rawBody: string,
+    ctx: CommitmentCtx,
+    overrides?: Partial<OpenAIRelationshipTurnUnderstandingV1>
+  ) {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: rawBody,
+      classifierEventType: "user_yes",
+      behaviorStatement: ctx.commitmentBehaviorStatement,
+      effectiveAsk: ctx.effectiveAsk,
+      commitmentTitle: ctx.commitmentTitle,
+    });
+    const proposal: OpenAIRelationshipTurnUnderstandingV1 = {
+      version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+      user_turn_summary: `User completed today's commitment.`,
+      evidence_quotes: [rawBody],
+      relationship_meaning: "reported_completion",
+      answered_last_coach_ask: "yes",
+      last_ask_satisfied: "no",
+      satisfaction_kind: "not_satisfied",
+      do_not_repeat_asks: [],
+      stale_ask_risk: false,
+      commitment_outcome_recommendation: "write_user_yes_today",
+      persistence_safety: "safe_to_write",
+      response_intent: "acknowledge_completion",
+      temporal_scope: "today",
+      reported_for_day_key: null,
+      confidence: 0.92,
+      uncertainty_flags: [],
+      route_priority_recommendation: "none",
+      safety_or_support_flags: [],
+      ...overrides,
+    };
+    return {
+      inboundMeaning,
+      tu: reconcileTurnUnderstanding({
+        proposal,
+        deterministicMeaning: inboundMeaning,
+        inboundBody: rawBody,
+      }),
+    };
+  }
+
+  const noLivePromptCtx = {
+    has_live_accountability_prompt: false,
+    self_contained_accountability_answer: false,
+  };
+
+  function semanticPersistArgs(
+    rawBody: string,
+    ctx: CommitmentCtx,
+    tu: ReturnType<typeof reconcileTurnUnderstanding>,
+    inboundMeaning: ReturnType<typeof buildInboundMeaningFacts>,
+    extra?: Partial<Parameters<typeof shouldPersistInboundAccountabilityOutcome>[0]>
+  ) {
+    return {
+      messageSid: "SM_semantic_test",
+      commitmentId: "commit-1",
+      rawBody,
+      classifierEventType: "user_yes" as const,
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none" as const,
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+      commitmentBehaviorStatement: ctx.commitmentBehaviorStatement,
+      effectiveAsk: ctx.effectiveAsk,
+      commitmentTitle: ctx.commitmentTitle,
+      ...extra,
+    };
+  }
+
+  function semanticPersistArgsNoLive(
+    rawBody: string,
+    ctx: CommitmentCtx,
+    tu: ReturnType<typeof reconcileTurnUnderstanding>,
+    inboundMeaning: ReturnType<typeof buildInboundMeaningFacts>,
+    extra?: Partial<Parameters<typeof shouldPersistInboundAccountabilityOutcome>[0]>
+  ) {
+    return semanticPersistArgs(rawBody, ctx, tu, inboundMeaning, {
+      activeReplyContext: noLivePromptCtx,
+      ...extra,
+    });
+  }
+
+  const prayerCtx: CommitmentCtx = {
+    commitmentBehaviorStatement: "Pray for 10 minutes each morning",
+    effectiveAsk: "Did you pray today?",
+    commitmentTitle: "Morning prayer",
+  };
+
+  const readingCtx: CommitmentCtx = {
+    commitmentBehaviorStatement: "Read 10 pages each day",
+    effectiveAsk: "Did you read today?",
+    commitmentTitle: "Daily reading",
+  };
+
+  const ptCtx: CommitmentCtx = {
+    commitmentBehaviorStatement: "Do PT mobility exercises every morning",
+    effectiveAsk: "Did you do your mobility exercises?",
+    commitmentTitle: "PT mobility",
+  };
+
+  const relationshipCtx: CommitmentCtx = {
+    commitmentBehaviorStatement: "Have a 10-minute conversation with Kay",
+    effectiveAsk: "Did you talk to Kay today?",
+    commitmentTitle: "Kay conversation",
+  };
+
+  const daughterCtx: CommitmentCtx = {
+    commitmentBehaviorStatement: "Check in with my daughter daily",
+    effectiveAsk: "Did you check in with your daughter?",
+    commitmentTitle: "Daughter check-in",
+  };
+
+  const leadershipCtx: CommitmentCtx = {
+    commitmentBehaviorStatement: "Have players use positive words during drills",
+    effectiveAsk: "Did the team use positive words today?",
+    commitmentTitle: "Positive words",
+  };
+
+  const stepsCtx: CommitmentCtx = {
+    commitmentBehaviorStatement: "Walk 10,000 steps every day",
+    effectiveAsk: "Did you get your 10,000 steps today?",
+    commitmentTitle: "10,000 steps",
+  };
+
+  it("prayer: I got my faith time in today persists via deterministic path", () => {
+    const raw = "I got my faith time in today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+    expect(result).toMatchObject({ resolvedEventType: "user_yes" });
+  });
+
+  it("prayer: I prayed today persists via high-confidence TU semantic alignment", () => {
+    const raw = "I prayed today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+    expect(result).toMatchObject({
+      resolvedEventType: "user_yes",
+      baselinePersistOverride: "semantic_turn_understanding",
+    });
+    if (result.persist) {
+      expect(result.proofSpineTelemetry?.semantic_completion_source).toBe("turn_understanding");
+    }
+  });
+
+  it("prayer: I spent time with God this morning persists via TU semantic alignment", () => {
+    const raw = "I spent time with God this morning";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+    expect(result).toMatchObject({ resolvedEventType: "user_yes" });
+  });
+
+  it("prayer: I thought about praying does not persist", () => {
+    const raw = "I thought about praying";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+      relationship_meaning: "unclear",
+      commitment_outcome_recommendation: "no_outcome_write",
+      persistence_safety: "defer_to_server",
+      temporal_scope: "today",
+      confidence: 0.4,
+      evidence_quotes: ["thought about praying"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("prayer: I will pray later does not persist", () => {
+    const raw = "I'll pray later";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+      temporal_scope: "future",
+      commitment_outcome_recommendation: "no_outcome_write",
+      evidence_quotes: ["I'll pray later"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("reading: I read today persists via TU semantic alignment", () => {
+    const raw = "I read today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, readingCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, readingCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+    expect(result).toMatchObject({ resolvedEventType: "user_yes" });
+  });
+
+  it("reading: I got my pages in persists via TU semantic alignment", () => {
+    const raw = "I got my pages in";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, readingCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, readingCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+    expect(result).toMatchObject({ resolvedEventType: "user_yes" });
+  });
+
+  it("reading: I will read tonight does not persist", () => {
+    const raw = "I'll read tonight";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, readingCtx, {
+      temporal_scope: "future",
+      commitment_outcome_recommendation: "no_outcome_write",
+      evidence_quotes: ["I'll read tonight"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, readingCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("PT: I did my mobility persists via TU semantic alignment", () => {
+    const raw = "I did my mobility";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, ptCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, ptCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+    expect(result).toMatchObject({ resolvedEventType: "user_yes" });
+  });
+
+  it("PT: I stretched persists when TU aligns to mobility commitment", () => {
+    const raw = "I stretched";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, ptCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, ptCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+  });
+
+  it("PT: I will do it after dinner does not persist", () => {
+    const raw = "I'll do it after dinner";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, ptCtx, {
+      temporal_scope: "future",
+      commitment_outcome_recommendation: "no_outcome_write",
+      evidence_quotes: ["I'll do it after dinner"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, ptCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("relationship: I talked to Kay persists via TU semantic alignment", () => {
+    const raw = "I talked to Kay";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, relationshipCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, relationshipCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+  });
+
+  it("relationship: I checked in with my daughter persists when commitment matches", () => {
+    const raw = "I checked in with my daughter";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, daughterCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, daughterCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+  });
+
+  it("relationship: I thought about calling her does not persist", () => {
+    const raw = "I thought about calling her";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, daughterCtx, {
+      relationship_meaning: "unclear",
+      commitment_outcome_recommendation: "no_outcome_write",
+      confidence: 0.4,
+      evidence_quotes: ["thought about calling her"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, daughterCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("leadership: The players used positive words persists via TU semantic alignment", () => {
+    const raw = "The players used positive words";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, leadershipCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, leadershipCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+  });
+
+  it("leadership: I will do it at practice does not persist", () => {
+    const raw = "I'll do it at practice";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, leadershipCtx, {
+      temporal_scope: "future",
+      commitment_outcome_recommendation: "no_outcome_write",
+      evidence_quotes: ["I'll do it at practice"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, leadershipCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("regression: steps I hit 10000 steps today still user_yes deterministically", () => {
+    const raw = "I hit 10000 steps today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, stepsCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, stepsCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(true);
+    expect(result).toMatchObject({ resolvedEventType: "user_yes" });
+    if (result.persist) {
+      expect(result.baselinePersistOverride).not.toBe("semantic_turn_understanding");
+    }
+  });
+
+  it("regression: steps I brushed my teeth still no user_yes", () => {
+    const raw = "I brushed my teeth today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, stepsCtx, {
+      relationship_meaning: "reported_completion",
+      evidence_quotes: ["I brushed my teeth today"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, stepsCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("regression: steps brushing-teeth goal phrase still no user_yes", () => {
+    const raw = "I hit my goal of brushing my teeth";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, stepsCtx, {
+      evidence_quotes: ["I hit my goal of brushing my teeth"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, stepsCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  function priorUserYesTodayEvent() {
+    return {
+      event_type: "user_yes",
+      occurred_at: new Date().toISOString(),
+      payload_json: {},
+    };
+  }
+
+  it("regression: same-day duplicate user_yes still suppressed for semantic path", () => {
+    const raw = "I prayed today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx);
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning, {
+        recentEventsNewestFirst: [priorUserYesTodayEvent()],
+        timezone: "America/New_York",
+      })
+    );
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("same_day_user_yes_already_recorded");
+    }
+  });
+
+  it("regression: bare yes without live prompt still no user_yes", () => {
+    const raw = "yes";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: raw,
+      classifierEventType: "user_yes",
+      ...prayerCtx,
+    });
+    const tu = reconciledCompletionTu(raw, prayerCtx, {
+      evidence_quotes: ["yes"],
+    }).tu;
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_bare_yes",
+      commitmentId: "commit-1",
+      rawBody: raw,
+      classifierEventType: "user_yes",
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none",
+      activeReplyContext: {
+        has_live_accountability_prompt: false,
+        self_contained_accountability_answer: false,
+      },
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+      ...prayerCtx,
+    });
+    expect(result.persist).toBe(false);
+  });
+
+  it("medium-confidence TU completion does not persist", () => {
+    const raw = "I prayed today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+      confidence: 0.65,
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("high-confidence TU off-goal completion does not persist", () => {
+    const raw = "I brushed my teeth today";
+    const { inboundMeaning, tu } = reconciledCompletionTu(raw, stepsCtx, {
+      evidence_quotes: ["I brushed my teeth today"],
+    });
+    const result = shouldPersistInboundAccountabilityOutcome(
+      semanticPersistArgs(raw, stepsCtx, tu, inboundMeaning)
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  describe("evidence grounding", () => {
+    it("high-confidence TU with missing evidence quote does not persist user_yes", () => {
+      const raw = "I prayed today";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        evidence_quotes: [],
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+
+    it("high-confidence TU with evidence not in inbound body does not persist user_yes", () => {
+      const raw = "I thought about praying.";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        evidence_quotes: ["I prayed today."],
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+
+    it("high-confidence TU with model-invented paraphrase evidence does not persist user_yes", () => {
+      const raw = "I got time with the Lord this morn";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        evidence_quotes: ["I spent time with God this morning"],
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+  });
+
+  describe("no-live-prompt semantic policy", () => {
+    it("prayer: I prayed today persists without live prompt via semantic alignment", () => {
+      const raw = "I prayed today";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx);
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgsNoLive(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(true);
+      expect(result).toMatchObject({
+        resolvedEventType: "user_yes",
+        baselinePersistOverride: "semantic_turn_understanding",
+      });
+    });
+
+    it("reading: I read today persists without live prompt via semantic alignment", () => {
+      const raw = "I read today";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, readingCtx);
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgsNoLive(raw, readingCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(true);
+      expect(result).toMatchObject({
+        resolvedEventType: "user_yes",
+        baselinePersistOverride: "semantic_turn_understanding",
+      });
+    });
+
+    it("bare yes without live prompt does not persist user_yes", () => {
+      const raw = "yes";
+      const inboundMeaning = buildInboundMeaningFacts({
+        rawInbound: raw,
+        classifierEventType: "user_yes",
+        ...prayerCtx,
+      });
+      const tu = reconciledCompletionTu(raw, prayerCtx, {
+        evidence_quotes: ["yes"],
+      }).tu;
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgsNoLive(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+
+    it("I did it without live prompt does not broaden via semantic unlock", () => {
+      const raw = "I did it";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        evidence_quotes: ["I did it"],
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgsNoLive(raw, prayerCtx, tu, inboundMeaning)
+      );
+      if (inboundMeaning.persistence_decision === "write_user_yes_today") {
+        expect(result.persist).toBe(true);
+        expect(result.baselinePersistOverride).not.toBe("semantic_turn_understanding");
+      } else {
+        expect(result.persist).toBe(false);
+      }
+    });
+
+    it("I'll pray later without live prompt does not persist user_yes", () => {
+      const raw = "I'll pray later";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        temporal_scope: "future",
+        commitment_outcome_recommendation: "no_outcome_write",
+        evidence_quotes: ["I'll pray later"],
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgsNoLive(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+
+    it("steps: I brushed my teeth off-goal TU does not persist user_yes", () => {
+      const raw = "I brushed my teeth";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, stepsCtx, {
+        evidence_quotes: ["I brushed my teeth"],
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgsNoLive(raw, stepsCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+  });
+
+  describe("missing TU fields fail closed", () => {
+    it("TU missing confidence does not unlock semantic persist", () => {
+      const raw = "I prayed today";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx);
+      const tuMissingConfidence = { ...tu, confidence: Number.NaN };
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgs(raw, prayerCtx, tuMissingConfidence, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+
+    it("TU confidence 0.74 does not unlock semantic persist", () => {
+      const raw = "I prayed today";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        confidence: 0.74,
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+
+    it("TU missing temporal_scope does not unlock semantic persist", () => {
+      const raw = "I prayed today";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        temporal_scope: "unclear",
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+
+    it("TU persistence_safety defer_to_server does not unlock semantic persist", () => {
+      const raw = "I prayed today";
+      const { inboundMeaning, tu } = reconciledCompletionTu(raw, prayerCtx, {
+        persistence_safety: "defer_to_server",
+      });
+      const result = shouldPersistInboundAccountabilityOutcome(
+        semanticPersistArgs(raw, prayerCtx, tu, inboundMeaning)
+      );
+      expect(result.persist).toBe(false);
+    });
+  });
+});

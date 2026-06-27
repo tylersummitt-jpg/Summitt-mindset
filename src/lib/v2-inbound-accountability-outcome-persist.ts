@@ -48,7 +48,9 @@ import {
 export { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
 import {
   evaluateCompletionAlignmentForProof,
+  evaluateSemanticCompletionAlignmentFromTurnUnderstanding,
   isSubstantiveSelfReportedCompletionForProof,
+  semanticCompletionTelemetryFromEvaluation,
   type CompletionAlignmentSkipReason,
 } from "@/lib/inbound-self-reported-completion";
 import { recentEventsIncludeUserYesOnLocalDay } from "@/lib/north-star-sms-context-packet";
@@ -106,6 +108,19 @@ export type ProofSpinePersistTelemetry = {
   completion_alignment_result?: "aligned" | "mismatched";
   completion_alignment_skip_reason?: CompletionAlignmentSkipReason;
   same_day_user_yes_already_recorded?: boolean;
+  semantic_completion_checked?: boolean;
+  semantic_completion_source?: "deterministic" | "turn_understanding" | "none";
+  semantic_completion_claimed?: boolean;
+  semantic_completion_alignment?: "aligned" | "off_goal" | "ambiguous";
+  semantic_completion_confidence?: "high" | "medium" | "low";
+  semantic_completion_tense?:
+    | "completed_today"
+    | "future_plan"
+    | "partial"
+    | "unrelated"
+    | "ambiguous";
+  semantic_completion_object_preview?: string;
+  proof_persist_decision_reason?: string;
 };
 
 export type InboundOutcomePersistResult =
@@ -227,7 +242,9 @@ export type ShouldPersistInboundAccountabilityOutcomeArgs = {
   localDayKey?: string | null;
 };
 
-export type InboundTruthPersistBaselineOverride = "substantive_completion";
+export type InboundTruthPersistBaselineOverride =
+  | "substantive_completion"
+  | "semantic_turn_understanding";
 
 export type ShouldPersistInboundAccountabilityOutcomeResult =
   | {
@@ -307,6 +324,12 @@ export function inboundTruthPersistPayloadFromShouldResult(
   }
   if (should.baselinePersistOverrideReason) {
     payload.inbound_truth_persist_override_reason = should.baselinePersistOverrideReason;
+  }
+  if (spineTelemetry.semantic_completion_source === "turn_understanding") {
+    payload.semantic_completion_source = "turn_understanding";
+  } else {
+    payload.semantic_completion_checked = true;
+    payload.semantic_completion_source = "deterministic";
   }
   return payload;
 }
@@ -612,11 +635,15 @@ function evaluateShouldPersistWithMeaning(
       persistence === "write_user_no" ||
       persistence === "write_user_partial") &&
     inboundMeaning.evidence.some((e) => e.startsWith("saca_short_"));
+  const semanticTuCompletionBypass =
+    persistence === "write_user_yes_today" &&
+    inboundMeaning.reason === "semantic_turn_understanding_completion";
   const promptOk =
     livePrompt ||
     selfContained ||
     (persistence === "write_user_yes_today" && todayCompletionBypass) ||
-    sacaShortOutcomeBypass;
+    sacaShortOutcomeBypass ||
+    semanticTuCompletionBypass;
 
   if (!promptOk) {
     return { persist: false, skipReason: "no_live_accountability_prompt" };
@@ -684,6 +711,101 @@ function evaluateShouldPersistWithMeaning(
   };
 }
 
+function baselineAlreadyPersistedUserYes(
+  result: ShouldPersistInboundAccountabilityOutcomeResult
+): boolean {
+  return result.persist && result.resolvedEventType === "user_yes";
+}
+
+function trySemanticTurnUnderstandingCompletionPersist(
+  args: ShouldPersistInboundAccountabilityOutcomeArgs,
+  inboundMeaning: InboundMeaningFacts,
+  baselineResult: ShouldPersistInboundAccountabilityOutcomeResult,
+  tu: ReconciledTurnUnderstanding
+): ShouldPersistInboundAccountabilityOutcomeResult | null {
+  if (baselineAlreadyPersistedUserYes(baselineResult)) {
+    return null;
+  }
+
+  const semanticEval = evaluateSemanticCompletionAlignmentFromTurnUnderstanding({
+    rawBody: args.rawBody,
+    commitmentBehaviorStatement: args.commitmentBehaviorStatement,
+    effectiveAsk: args.effectiveAsk,
+    commitmentTitle: args.commitmentTitle,
+    reconciledTurnUnderstanding: tu,
+    deterministicMeaning: inboundMeaning,
+  });
+
+  const semanticTelemetry = semanticCompletionTelemetryFromEvaluation(
+    semanticEval,
+    semanticEval.reason
+  ) as ProofSpinePersistTelemetry;
+
+  if (
+    !semanticEval.checked ||
+    semanticEval.confidence !== "high" ||
+    !semanticEval.completion_claimed ||
+    semanticEval.alignment !== "aligned" ||
+    semanticEval.tense !== "completed_today"
+  ) {
+    return null;
+  }
+
+  const semanticMeaning: InboundMeaningFacts = {
+    ...inboundMeaning,
+    relationship_meaning: "reported_completion",
+    temporal_scope: "today",
+    confidence: "high",
+    evidence: [...inboundMeaning.evidence, "semantic_turn_understanding_completion"],
+    persistence_decision: "write_user_yes_today",
+    reason: "semantic_turn_understanding_completion",
+    sms_response_intent: "acknowledge_completion_and_next_step",
+  };
+
+  const semanticResult = evaluateShouldPersistWithMeaning(args, semanticMeaning);
+  if (!semanticResult.persist || semanticResult.resolvedEventType !== "user_yes") {
+    if (
+      !semanticResult.persist &&
+      semanticResult.skipReason === "same_day_user_yes_already_recorded"
+    ) {
+      return {
+        ...semanticResult,
+        proofSpineTelemetry: {
+          ...(semanticResult.proofSpineTelemetry ?? {}),
+          ...semanticTelemetry,
+          semantic_completion_source: "turn_understanding",
+          proof_persist_decision_reason: "same_day_user_yes_already_recorded",
+        },
+      };
+    }
+    return null;
+  }
+
+  const guard = buildTurnUnderstandingPersistGuardMeta({
+    turn: tu,
+    baselinePersistence: inboundMeaning.persistence_decision,
+    effectivePersistence: "write_user_yes_today",
+    persistAllowed: true,
+    guardReason: null,
+  });
+
+  return {
+    ...semanticResult,
+    turnUnderstandingPersistGuard: {
+      ...guard,
+      turn_understanding_applied_to_persist: true,
+    },
+    baselinePersistOverride: "semantic_turn_understanding",
+    baselinePersistOverrideReason: semanticEval.reason,
+    proofSpineTelemetry: {
+      ...(semanticResult.proofSpineTelemetry ?? {}),
+      ...semanticTelemetry,
+      semantic_completion_source: "turn_understanding",
+      proof_persist_decision_reason: semanticEval.reason,
+    },
+  };
+}
+
 export function shouldPersistInboundAccountabilityOutcome(
   args: ShouldPersistInboundAccountabilityOutcomeArgs
 ): ShouldPersistInboundAccountabilityOutcomeResult {
@@ -721,6 +843,18 @@ export function shouldPersistInboundAccountabilityOutcome(
     persistence_decision: tu.reconciled_persistence_decision,
   };
   const narrowedResult = evaluateShouldPersistWithMeaning(args, narrowedMeaning);
+
+  if (!baselineAlreadyPersistedUserYes(baselineResult)) {
+    const semanticPersist = trySemanticTurnUnderstandingCompletionPersist(
+      args,
+      inboundMeaning,
+      baselineResult,
+      tu
+    );
+    if (semanticPersist) {
+      return semanticPersist;
+    }
+  }
 
   if (narrowedResult.persist && !baselineResult.persist) {
     const guard = buildTurnUnderstandingPersistGuardMeta({

@@ -80,5 +80,24 @@ describe("compactInboundTurnTruthTelemetry", () => {
     expect(truth.completion_alignment_result).toBe("aligned");
     expect(truth).not.toHaveProperty("coalesced_inbound_body");
     expect(INBOUND_TURN_TELEMETRY_TRUTH_KEYS).toContain("completion_contradiction_guard_applied");
+    expect(INBOUND_TURN_TELEMETRY_TRUTH_KEYS).toContain("semantic_completion_source");
+    expect(INBOUND_TURN_TELEMETRY_TRUTH_KEYS).toContain("proof_persist_decision_reason");
+  });
+
+  it("merges semantic completion telemetry from pre-writer payload", () => {
+    const truth = compactInboundTurnTruthTelemetry(null, {
+      semantic_completion_checked: true,
+      semantic_completion_source: "turn_understanding",
+      semantic_completion_claimed: true,
+      semantic_completion_alignment: "aligned",
+      semantic_completion_confidence: "high",
+      semantic_completion_tense: "completed_today",
+      semantic_completion_object_preview: "I prayed today",
+      proof_persist_decision_reason: "semantic_turn_understanding_aligned_completed_today",
+    });
+    expect(truth.semantic_completion_source).toBe("turn_understanding");
+    expect(truth.proof_persist_decision_reason).toBe(
+      "semantic_turn_understanding_aligned_completed_today"
+    );
   });
 });

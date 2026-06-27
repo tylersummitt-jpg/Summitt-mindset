@@ -29,6 +29,14 @@ export const INBOUND_TURN_TELEMETRY_TRUTH_KEYS = [
   "explicit_aligned_completion_detected",
   "completion_contradiction_guard_applied",
   "completion_contradiction_guard_reason",
+  "semantic_completion_checked",
+  "semantic_completion_source",
+  "semantic_completion_claimed",
+  "semantic_completion_alignment",
+  "semantic_completion_confidence",
+  "semantic_completion_tense",
+  "semantic_completion_object_preview",
+  "proof_persist_decision_reason",
 ] as const;
 
 /** Compact lane / packet fields safe for soak SQL — no prompts, packets, or snapshots. */
