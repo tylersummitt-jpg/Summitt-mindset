@@ -70,6 +70,28 @@ export const INBOUND_TURN_TELEMETRY_COMPACT_KEYS = [
   "no_send_reason",
 ] as const;
 
+/** Writer finish/usage + stage body previews for malformed-reply diagnosis. */
+export const INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS = [
+  "writer_model",
+  "writer_finish_reason",
+  "writer_output_tokens",
+  "writer_prompt_tokens",
+  "writer_candidate_preview",
+  "post_north_star_body_preview",
+  "post_fvg_body_preview",
+  "final_body_before_integrity_preview",
+  "final_body_after_integrity_preview",
+  "final_sentence_integrity_checked",
+  "final_sentence_integrity_ok",
+  "final_sentence_integrity_reason",
+  "final_sentence_integrity_repair_applied",
+  "final_sentence_integrity_fallback_used",
+] as const;
+
+export function capInboundStageBodyPreview(body: string, max = 200): string {
+  return body.trim().slice(0, max);
+}
+
 export type InboundTurnTelemetryArgs = {
   commitmentId: string;
   clerkUserId: string;
@@ -90,6 +112,8 @@ export type InboundTurnTelemetryArgs = {
   /** True when a visible send is intended immediately after telemetry insert (pre-Twilio). */
   visibleSentIntended?: boolean;
   preWriterTelemetry?: Record<string, unknown> | null;
+  /** North Star / FVG / integrity stage previews (capped). */
+  stageTelemetry?: Record<string, unknown> | null;
 };
 
 export function compactInboundTurnTruthTelemetry(
@@ -162,6 +186,26 @@ export function compactInboundTurnTelemetryLaneFields(
   return merged;
 }
 
+export function compactInboundTurnWriterObservability(args: {
+  laneMetadata?: Record<string, unknown> | null;
+  stageTelemetry?: Record<string, unknown> | null;
+  guardMetadata?: Record<string, unknown> | null;
+}): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  const absorb = (src: Record<string, unknown> | null | undefined) => {
+    if (src == null || typeof src !== "object") return;
+    for (const key of INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS) {
+      if (src[key] !== undefined && merged[key] === undefined) {
+        merged[key] = src[key];
+      }
+    }
+  };
+  absorb(args.laneMetadata);
+  absorb(args.stageTelemetry);
+  absorb(args.guardMetadata);
+  return merged;
+}
+
 export async function insertInboundTurnTelemetryBestEffort(
   args: InboundTurnTelemetryArgs
 ): Promise<void> {
@@ -171,6 +215,11 @@ export async function insertInboundTurnTelemetryBestEffort(
 
   const laneFields = compactInboundTurnTelemetryLaneFields(args);
   const truthFields = compactInboundTurnTruthTelemetry(args.laneMetadata, args.preWriterTelemetry);
+  const writerObservability = compactInboundTurnWriterObservability({
+    laneMetadata: args.laneMetadata,
+    stageTelemetry: args.stageTelemetry,
+    guardMetadata: args.truthGuardMetadata,
+  });
 
   const payload: Record<string, unknown> = {
     inbound_turn_telemetry: true,
@@ -197,6 +246,7 @@ export async function insertInboundTurnTelemetryBestEffort(
     inbound_meaning_persistence: args.inboundMeaning?.persistence_decision ?? null,
     ...laneFields,
     ...truthFields,
+    ...writerObservability,
     ...(args.truthGuardMetadata ?? {}),
     ...(args.tuGuardMetadata ?? {}),
   };

@@ -104,16 +104,18 @@ import {
 } from "@/lib/v2-commitment";
 import { maybeRecordV2WeakNoReplyFromPriorAccountabilityDay } from "@/lib/v2-send-time-weak-no-reply";
 import {
+  buildDailySchedulingTelemetry,
+  evaluateDailySendTimeWindow,
+  isLocalCatchupHour,
+} from "@/lib/daily-sms-scheduling";
+import {
   fetchV2UserSendTimeProfile,
   formatReachabilityContextLine,
-  isV2LearnedSendWindowAllowed,
   localHourToSendWindow,
-  shouldUseLearnedSendTimeGate,
 } from "@/lib/v2-send-time-profile";
 import {
   fetchV2UserSmsCommsPreferences,
   isPauseActive,
-  resolveDailySendWindowPolicy,
   shouldApplyUserCadenceOverride,
   shouldSkipDailyForCommsPrefs,
 } from "@/lib/v2-sms-comms-preferences";
@@ -3062,20 +3064,8 @@ function logDailySmsCronAuthFailure(req: Request) {
  * - Cron runs every 5 minutes and may attempt multiple times within that hour; reservation
  *   (unique clerk_user_id + day_key) ensures only one SMS is sent.
  */
-const SEND_HOUR_BY_PREFERENCE = {
-  early_morning: 7,
-  morning: 7,
-  midday: 19,
-  evening: 19,
-} as const;
-
 const FIRST_14_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-const CATCHUP_START_HOUR_LOCAL = 19;
 const SAFE_LOCAL_CUTOFF_HOUR = 22;
-
-function isInSendWindow(local: Date, sendHour: number): boolean {
-  return local.getHours() === sendHour;
-}
 
 function isWithinFirst14Days(activationAt: string | null, now: Date): boolean {
   if (!activationAt) return false;
@@ -3084,10 +3074,6 @@ function isWithinFirst14Days(activationAt: string | null, now: Date): boolean {
   return now.getTime() - t < FIRST_14_DAYS_MS;
 }
 
-function isLocalCatchupWindow(local: Date): boolean {
-  const h = local.getHours();
-  return h >= CATCHUP_START_HOUR_LOCAL && h < SAFE_LOCAL_CUTOFF_HOUR;
-}
 
 async function resolveActiveV2CommitmentActivationAt(clerkUserId: string): Promise<string | null> {
   const { data, error } = await supabaseServer
@@ -3437,14 +3423,6 @@ export async function GET(req: Request) {
         : null;
 
       const pref = smsTimePreferenceFromClerkMetadata(md as Record<string, unknown>);
-      const sendHour =
-        SEND_HOUR_BY_PREFERENCE[pref as keyof typeof SEND_HOUR_BY_PREFERENCE] ?? 7;
-
-      const sendWindowPolicy = resolveDailySendWindowPolicy({
-        prefs: commsPrefs,
-        learnedProfile: learnedProfForWindow,
-        clerkSmsTimePreference: pref,
-      });
 
       // STEP 1: Read existing event before reserve (and before window check)
       stage = "query_send_events";
@@ -3456,37 +3434,33 @@ export async function GET(req: Request) {
         .maybeSingle();
 
       let existingEvent = existingRow;
+      const bypassWindowGate = Boolean(existingEvent) || force;
 
-      // Retries bypass send window; first-time sends require it.
-      let sendTimeWindowOk = isInSendWindow(localNow, sendHour);
-      if (!existingEvent && !force) {
-        if (sendWindowPolicy.useExplicitHour && sendWindowPolicy.explicitHour != null) {
-          sendTimeWindowOk = localNow.getHours() === sendWindowPolicy.explicitHour;
-        } else if (sendWindowPolicy.useExplicitWindow && sendWindowPolicy.explicitWindow) {
-          sendTimeWindowOk = isV2LearnedSendWindowAllowed(localNow, sendWindowPolicy.explicitWindow);
-        } else if (
-          sendWindowPolicy.useLearnedProfile &&
-          sendWindowPolicy.learnedProfile &&
-          shouldUseLearnedSendTimeGate(sendWindowPolicy.learnedProfile)
-        ) {
-          sendTimeWindowOk = isV2LearnedSendWindowAllowed(
-            localNow,
-            sendWindowPolicy.learnedProfile.preferred_window
-          );
-        }
-      }
+      const sendWindowEval = evaluateDailySendTimeWindow({
+        now,
+        timezone,
+        clerkSmsTimePreference: pref,
+        commsPrefs,
+        learnedProfile: learnedProfForWindow,
+        bypassWindowGate,
+      });
+      const computedLocalHour = sendWindowEval.computedLocalHour;
+
+      // Retries bypass send window; first-time sends require it (+ 7AM product floor).
+      let sendTimeWindowOk = sendWindowEval.sendTimeWindowOk;
 
       if (!existingEvent && !force && !sendTimeWindowOk) {
-        const localHour = localNow.getHours();
         const canCatchupNow =
-          isExpectedDailyAttemptUser && isLocalCatchupWindow(localNow);
+          isExpectedDailyAttemptUser && isLocalCatchupHour(computedLocalHour);
         if (canCatchupNow) {
           stats.catchupEligible += 1;
           stats.catchupAttempted += 1;
           sendTimeWindowOk = true;
         } else {
-          if (isExpectedDailyAttemptUser && localHour >= SAFE_LOCAL_CUTOFF_HOUR) {
+          if (isExpectedDailyAttemptUser && computedLocalHour >= SAFE_LOCAL_CUTOFF_HOUR) {
             stats.skippedPastSafeLocalCutoff += 1;
+          } else if (sendWindowEval.productFloorBlockedWithoutBypass) {
+            stats.skippedPreferredWindowWaiting += 1;
           } else {
             stats.skippedPreferredWindowWaiting += 1;
           }
@@ -3500,6 +3474,17 @@ export async function GET(req: Request) {
         stats.skippedNotTime += 1;
         continue;
       }
+
+      const retryOutsideWindow =
+        bypassWindowGate &&
+        !force &&
+        (!sendWindowEval.sendTimeWindowOkWithoutBypass ||
+          sendWindowEval.productFloorBlockedWithoutBypass);
+      const schedulingTelemetry = buildDailySchedulingTelemetry({
+        timezone,
+        evaluation: sendWindowEval,
+        retryOutsideWindow,
+      });
 
       stats.eligible += 1;
 
@@ -3610,7 +3595,7 @@ export async function GET(req: Request) {
               audienceUser.timezone
             );
             const built = builtRaw.ok
-              ? await withNorthStarDailyGate(builtRaw, { localHour: localNow.getHours() })
+              ? await withNorthStarDailyGate(builtRaw, { localHour: computedLocalHour })
               : builtRaw;
             if (!built.ok) {
               if (built.error === "v2_reactivation_not_due") {
@@ -3901,13 +3886,14 @@ export async function GET(req: Request) {
               continue;
             }
 
-            const retrySendWindow = localHourToSendWindow(localNow.getHours());
+            const retrySendWindow = localHourToSendWindow(computedLocalHour);
             const retrySuccessPayload = dailySmsTwilioSuccessSendEventFields({
               messageSid: retryMessage.sid,
               twilioStatus: retryMessage.status,
               smsBody,
               metadata: {
                 ...existingMeta,
+                ...schedulingTelemetry,
                 retry_count: retryCount + 1,
                 note: "retry_success",
                 timezone,
@@ -4255,7 +4241,7 @@ export async function GET(req: Request) {
         audienceUser.timezone
       );
       const builtMain = builtMainRaw.ok
-        ? await withNorthStarDailyGate(builtMainRaw, { localHour: localNow.getHours() })
+        ? await withNorthStarDailyGate(builtMainRaw, { localHour: computedLocalHour })
         : builtMainRaw;
       if (!builtMain.ok) {
         if (builtMain.error === "v2_reactivation_not_due") {
@@ -4554,12 +4540,13 @@ export async function GET(req: Request) {
       }
 
       if (mainMessage) {
-        const mainSendWindow = localHourToSendWindow(localNow.getHours());
+        const mainSendWindow = localHourToSendWindow(computedLocalHour);
         const mainSuccessPayload = dailySmsTwilioSuccessSendEventFields({
           messageSid: mainMessage.sid,
           twilioStatus: mainMessage.status,
           smsBody,
           metadata: {
+            ...schedulingTelemetry,
             note: "sent_to_twilio",
             timezone,
             local_time: localNow.toISOString(),

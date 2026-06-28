@@ -2694,7 +2694,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       parse: safeJsonParse,
     });
     parsed = jsonOut.value;
-    laneOpenAiJsonMeta = jsonOut.retryMeta as unknown as Record<string, unknown>;
+    laneOpenAiJsonMeta = { ...(jsonOut.retryMeta as unknown as Record<string, unknown>) };
   } catch (e) {
     return empty("openai_request_failed", true, {
       lane_stage: "openai_error",
@@ -2711,6 +2711,12 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
   const shouldSend = parsed.should_send === true;
   let body = typeof parsed.body === "string" ? parsed.body.replace(/\r?\n/g, " ").trim() : "";
+  if (body) {
+    laneOpenAiJsonMeta = {
+      ...laneOpenAiJsonMeta,
+      writer_candidate_preview: body.slice(0, 200),
+    };
+  }
   const noSendReason = typeof parsed.no_send_reason === "string" ? parsed.no_send_reason.trim() : null;
   const turnPurpose = typeof parsed.turn_purpose === "string" ? parsed.turn_purpose.trim() : "inbound_turn";
   const voiceConfidence =

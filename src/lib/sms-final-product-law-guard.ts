@@ -43,6 +43,10 @@ import {
   collectGenericRecommitSpecificBarSubstrings,
   evaluateGenericFutureRecommitmentProductLaw,
 } from "@/lib/sms-generic-future-recommitment-question-family";
+import {
+  compactFinalSentenceIntegrityTelemetry,
+  validateFinalSmsSentenceIntegrity,
+} from "@/lib/sms-final-sentence-integrity";
 
 export const SMS_FINAL_PRODUCT_LAW_GUARD_VERSION = "sms_final_product_law_v1" as const;
 
@@ -1219,6 +1223,66 @@ async function applyOutboundDailyC1Guard(
   });
 }
 
+export const FINAL_SENTENCE_INTEGRITY_NO_SEND = "final_sentence_integrity_failed" as const;
+
+function resolvePreGuardBodyPreview(args: UnifiedFinalGuardArgs): string {
+  return (
+    args.preGuardBodyPreview ??
+    args.normalCoachingFull?.body ??
+    args.outboundDaily?.body ??
+    args.outboundWeekly?.body ??
+    args.transactionalCoachingLimited?.body ??
+    args.candidateBody ??
+    ""
+  ).trim();
+}
+
+function applyFinalSentenceIntegrityGate(
+  result: UnifiedFinalGuardResult,
+  preBodyPreview: string
+): UnifiedFinalGuardResult {
+  if (!result.shouldSend || !result.body.trim()) {
+    return {
+      ...result,
+      metadata: {
+        ...result.metadata,
+        ...compactFinalSentenceIntegrityTelemetry({ ok: true }, preBodyPreview),
+      },
+    };
+  }
+
+  const integrity = validateFinalSmsSentenceIntegrity(result.body);
+  const integrityMeta = compactFinalSentenceIntegrityTelemetry(integrity, preBodyPreview);
+
+  if (!integrity.ok) {
+    return {
+      ...result,
+      should_send: false,
+      shouldSend: false,
+      no_send_reason: FINAL_SENTENCE_INTEGRITY_NO_SEND,
+      noSendReason: FINAL_SENTENCE_INTEGRITY_NO_SEND,
+      checks_run: [...result.checks_run, "final_sentence_integrity"],
+      metadata: {
+        ...result.metadata,
+        ...integrityMeta,
+      },
+    };
+  }
+
+  const body = integrity.repairedBody ?? result.body;
+  return {
+    ...result,
+    body,
+    checks_run: [...result.checks_run, "final_sentence_integrity"],
+    metadata: {
+      ...result.metadata,
+      ...integrityMeta,
+      post_unified_guard_body_preview: body.slice(0, 120),
+      sent_body_equals_guard_body: result.shouldSend && body.trim().length > 0,
+    },
+  };
+}
+
 export function compactUnifiedFinalGuardForTelemetry(
   result: UnifiedFinalGuardResult
 ): Record<string, unknown> {
@@ -1232,6 +1296,14 @@ export function compactUnifiedFinalGuardForTelemetry(
 }
 
 export async function applyUnifiedSmsFinalProductLawGuard(
+  args: UnifiedFinalGuardArgs
+): Promise<UnifiedFinalGuardResult> {
+  const preBody = resolvePreGuardBodyPreview(args);
+  const result = await applyUnifiedSmsFinalProductLawGuardCore(args);
+  return applyFinalSentenceIntegrityGate(result, preBody);
+}
+
+async function applyUnifiedSmsFinalProductLawGuardCore(
   args: UnifiedFinalGuardArgs
 ): Promise<UnifiedFinalGuardResult> {
   if (args.mode === "hard_route_bypass") {

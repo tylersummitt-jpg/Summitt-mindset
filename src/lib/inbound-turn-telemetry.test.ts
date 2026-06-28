@@ -5,10 +5,13 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import {
+  capInboundStageBodyPreview,
   compactInboundTurnTelemetryLaneFields,
   compactInboundTurnTruthTelemetry,
+  compactInboundTurnWriterObservability,
   INBOUND_TURN_TELEMETRY_COMPACT_KEYS,
   INBOUND_TURN_TELEMETRY_TRUTH_KEYS,
+  INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS,
 } from "@/lib/inbound-turn-telemetry";
 
 describe("compactInboundTurnTelemetryLaneFields", () => {
@@ -98,6 +101,60 @@ describe("compactInboundTurnTruthTelemetry", () => {
     expect(truth.semantic_completion_source).toBe("turn_understanding");
     expect(truth.proof_persist_decision_reason).toBe(
       "semantic_turn_understanding_aligned_completed_today"
+    );
+  });
+});
+
+describe("compactInboundTurnWriterObservability", () => {
+  it("includes writer finish_reason and usage from lane metadata", () => {
+    const fields = compactInboundTurnWriterObservability({
+      laneMetadata: {
+        writer_model: "gpt-4o-mini",
+        writer_finish_reason: "length",
+        writer_output_tokens: 42,
+        writer_prompt_tokens: 100,
+        writer_candidate_preview: "x".repeat(250),
+        system_prompt: "must not appear",
+      },
+    });
+    expect(fields.writer_finish_reason).toBe("length");
+    expect(fields.writer_output_tokens).toBe(42);
+    expect(fields.writer_prompt_tokens).toBe(100);
+    expect(String(fields.writer_candidate_preview).length).toBeLessThanOrEqual(250);
+    expect(fields).not.toHaveProperty("system_prompt");
+  });
+
+  it("merges stage previews and integrity telemetry from guard metadata", () => {
+    const long = "a".repeat(300);
+    const fields = compactInboundTurnWriterObservability({
+      stageTelemetry: {
+        post_north_star_body_preview: capInboundStageBodyPreview(long),
+        post_fvg_body_preview: capInboundStageBodyPreview(long),
+        final_body_before_integrity_preview: capInboundStageBodyPreview(long),
+      },
+      guardMetadata: {
+        final_body_after_integrity_preview: capInboundStageBodyPreview(long),
+        final_sentence_integrity_checked: true,
+        final_sentence_integrity_ok: true,
+        final_sentence_integrity_repair_applied: false,
+        raw_prompt: "secret",
+      },
+    });
+    expect(String(fields.post_north_star_body_preview).length).toBe(200);
+    expect(String(fields.post_fvg_body_preview).length).toBe(200);
+    expect(String(fields.final_body_before_integrity_preview).length).toBe(200);
+    expect(String(fields.final_body_after_integrity_preview).length).toBe(200);
+    expect(fields.final_sentence_integrity_checked).toBe(true);
+    expect(fields).not.toHaveProperty("raw_prompt");
+  });
+
+  it("whitelist covers writer observability keys", () => {
+    expect(INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS).toContain("writer_finish_reason");
+    expect(INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS).toContain(
+      "final_body_after_integrity_preview"
+    );
+    expect(INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS).toContain(
+      "final_sentence_integrity_repair_applied"
     );
   });
 });

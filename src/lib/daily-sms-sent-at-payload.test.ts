@@ -84,4 +84,12 @@ describe("daily-sms Twilio success sms_send_events payload", () => {
       /existingEvent\.status === "reserved" && !hasMessageSid/
     );
   });
+
+  it("scheduling gate uses evaluateDailySendTimeWindow, not toLocaleString hour", () => {
+    expect(src).toContain("evaluateDailySendTimeWindow");
+    expect(src).toContain("buildDailySchedulingTelemetry");
+    expect(src).not.toMatch(
+      /sendTimeWindowOk\s*=\s*isInSendWindow\(localNow/
+    );
+  });
 });

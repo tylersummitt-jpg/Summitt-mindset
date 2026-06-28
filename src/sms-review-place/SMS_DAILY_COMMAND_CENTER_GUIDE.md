@@ -218,6 +218,83 @@ On visible C1 brief sends, check `daily_brief_thread_source_candidate_count` vs 
 
 Daily cron intentionally skips proactive accountability on local Sundays for V2 weekly-eligible users so **Weekly Pat Pause** is the sole proactive Sunday touch. Rows use `status = skipped_sunday_weekly_pause`, `metadata.no_send_reason = skipped_sunday_weekly_pause`, `metadata.skip_source = sunday_weekly_pause`. **Not an error.** Check **Q14** for the visible weekly Pat Pause body; check **Q13** `sunday_daily_suppressed_before_weekly` if suppression happened but weekly did not visibly send later the same Sunday.
 
+### 7AM product floor + sentence integrity (manual SQL until pack v2.14)
+
+Daily `sms_send_events.metadata` now includes scheduling telemetry: `computed_local_hour`, `product_floor_hour`, `product_floor_blocked_send`, `send_window_policy_source`, `explicit_preferred_local_hour`, `learned_window`, `retry_outside_window`.
+
+Inbound/daily final bodies may include: `final_sentence_integrity_checked`, `final_sentence_integrity_ok`, `final_sentence_integrity_repair_applied`, `final_sentence_integrity_fallback_used`.
+
+Writer/stage observability on sent inbound turns (`v2_commitment_event.payload_json` where `event_type = sms_memory_signal`): `writer_model`, `writer_finish_reason`, `writer_output_tokens`, `writer_prompt_tokens`, `writer_candidate_preview`, `post_north_star_body_preview`, `post_fvg_body_preview`, `final_body_before_integrity_preview`, `final_body_after_integrity_preview`.
+
+**Early send before floor (last 24h):**
+
+```sql
+SELECT clerk_user_id, day_key,
+       metadata->>'sent_at' AS sent_at,
+       metadata->>'computed_local_hour' AS computed_local_hour,
+       metadata->>'send_window_policy_source' AS policy_source,
+       metadata->>'explicit_preferred_local_hour' AS explicit_hour,
+       LEFT(sms_body, 80) AS body_preview
+FROM sms_send_events
+WHERE COALESCE(metadata->>'sent_at', created_at::text)::timestamptz > now() - interval '24 hours'
+  AND message_sid IS NOT NULL
+  AND (metadata->>'computed_local_hour')::int < 7
+  AND COALESCE((metadata->>'explicit_preferred_local_hour')::int, 99) > 6;
+```
+
+**Sentence integrity repairs/blocks (inbound turn telemetry):**
+
+```sql
+SELECT clerk_user_id, created_at AS event_at,
+       payload_json->>'final_sentence_integrity_repair_applied' AS repaired,
+       payload_json->>'final_sentence_integrity_ok' AS integrity_ok,
+       payload_json->>'final_sentence_integrity_reason' AS reason,
+       payload_json->>'reply_body_preview' AS sent_preview
+FROM v2_commitment_event
+WHERE event_type = 'sms_memory_signal'
+  AND source = 'sms_inbound_coach'
+  AND created_at > now() - interval '24 hours'
+  AND (payload_json->>'inbound_turn_telemetry')::boolean IS TRUE
+  AND (
+    payload_json->>'final_sentence_integrity_repair_applied' = 'true'
+    OR payload_json->>'final_sentence_integrity_ok' = 'false'
+  );
+```
+
+**Writer finish_reason = length (possible token truncation):**
+
+```sql
+SELECT clerk_user_id, created_at AS event_at,
+       payload_json->>'writer_finish_reason' AS finish_reason,
+       payload_json->>'writer_output_tokens' AS output_tokens,
+       payload_json->>'writer_candidate_preview' AS writer_preview,
+       payload_json->>'final_body_after_integrity_preview' AS final_preview
+FROM v2_commitment_event
+WHERE event_type = 'sms_memory_signal'
+  AND source = 'sms_inbound_coach'
+  AND created_at > now() - interval '24 hours'
+  AND payload_json->>'writer_finish_reason' = 'length';
+```
+
+**Stage transition diff (writer vs final sent):**
+
+```sql
+SELECT clerk_user_id, created_at AS event_at,
+       payload_json->>'writer_candidate_preview' AS writer_candidate,
+       payload_json->>'post_north_star_body_preview' AS post_north_star,
+       payload_json->>'post_fvg_body_preview' AS post_fvg,
+       payload_json->>'final_body_before_integrity_preview' AS pre_integrity,
+       payload_json->>'final_body_after_integrity_preview' AS post_integrity,
+       payload_json->>'reply_body_preview' AS sent_preview
+FROM v2_commitment_event
+WHERE event_type = 'sms_memory_signal'
+  AND source = 'sms_inbound_coach'
+  AND created_at > now() - interval '24 hours'
+  AND payload_json->>'writer_candidate_preview' IS NOT NULL
+  AND payload_json->>'writer_candidate_preview'
+      <> COALESCE(payload_json->>'final_body_after_integrity_preview', '');
+```
+
 ---
 
 ## Legacy packs (still available)

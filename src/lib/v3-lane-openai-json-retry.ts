@@ -1,12 +1,38 @@
 import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type {
+  ChatCompletion,
+  ChatCompletionMessageParam,
+} from "openai/resources/chat/completions";
 
 export type LaneJsonRetryMeta = {
   lane_json_retry_attempted: boolean;
   lane_json_retry_succeeded: boolean;
   original_raw_preview: string;
   retry_raw_preview: string | null;
+  writer_model: string;
+  writer_finish_reason: string | null;
+  writer_output_tokens: number | null;
+  writer_prompt_tokens: number | null;
 };
+
+export function extractWriterUsageFromCompletion(
+  model: string,
+  completion: ChatCompletion
+): Pick<
+  LaneJsonRetryMeta,
+  "writer_model" | "writer_finish_reason" | "writer_output_tokens" | "writer_prompt_tokens"
+> {
+  return {
+    writer_model: model,
+    writer_finish_reason: completion.choices[0]?.finish_reason ?? null,
+    writer_output_tokens:
+      typeof completion.usage?.completion_tokens === "number"
+        ? completion.usage.completion_tokens
+        : null,
+    writer_prompt_tokens:
+      typeof completion.usage?.prompt_tokens === "number" ? completion.usage.prompt_tokens : null,
+  };
+}
 
 /**
  * One primary `chat.completions` JSON-object call; on invalid JSON from the model, one strict retry.
@@ -45,6 +71,7 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
     lane_json_retry_succeeded: false,
     original_raw_preview: preview(raw),
     retry_raw_preview: null,
+    ...extractWriterUsageFromCompletion(args.model, first),
   };
 
   const firstParse = args.parse(raw);
@@ -79,6 +106,10 @@ Return valid JSON only. No markdown code fences, no commentary before or after t
     lane_json_retry_succeeded: retryParse != null,
     original_raw_preview: preview(raw),
     retry_raw_preview: preview(rawRetry),
+    ...extractWriterUsageFromCompletion(
+      args.model,
+      retryParse != null ? second : first
+    ),
   };
 
   if (retryParse != null) {

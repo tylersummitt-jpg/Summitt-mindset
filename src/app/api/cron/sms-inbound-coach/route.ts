@@ -277,7 +277,10 @@ import {
   buildExplicitOutcomeBeforeNoSendTelemetry,
   buildInboundTruthPersistOutcomeTelemetry,
 } from "@/lib/inbound-reply-no-send-outcome-persist";
-import { insertInboundTurnTelemetryBestEffort } from "@/lib/inbound-turn-telemetry";
+import {
+  capInboundStageBodyPreview,
+  insertInboundTurnTelemetryBestEffort,
+} from "@/lib/inbound-turn-telemetry";
 import {
   isInboundTurnUnderstandingContextAuthoritative,
   emptyInboundTurnUnderstandingContext,
@@ -6905,6 +6908,7 @@ async function processV2NormalInboundOutcome(
     },
   });
   finalReplyBody = northStarInboundPack.visibleBody;
+  const postNorthStarBodyPreview = capInboundStageBodyPreview(finalReplyBody);
 
   const finalVoiceGate = await applyFinalVoiceOwnershipGate({
     proposedBody: finalReplyBody,
@@ -6924,6 +6928,7 @@ async function processV2NormalInboundOutcome(
     normalCoaching: true,
   });
   finalReplyBody = finalVoiceGate.body;
+  const postFvgBodyPreview = capInboundStageBodyPreview(finalReplyBody);
 
   const outcomeClaimEvidenceMain = buildInboundOutcomeClaimEvidence({
     userMessage,
@@ -6948,6 +6953,7 @@ async function processV2NormalInboundOutcome(
     missAdjustmentPolicy: mainInboundMissAdjustmentPolicy,
     finalEventType: resolved.meta.final_event_type ?? eventType,
   });
+  const finalBodyBeforeIntegrityPreview = capInboundStageBodyPreview(finalReplyBody);
   const finalGuardsMain = await applyUnifiedSmsFinalProductLawGuard({
     mode: "normal_coaching_full",
     surface: "inbound",
@@ -7023,6 +7029,7 @@ async function processV2NormalInboundOutcome(
     return;
   }
   finalReplyBody = finalGuardsMain.body;
+  const finalBodyAfterIntegrityPreview = capInboundStageBodyPreview(finalReplyBody);
 
   const aiTry = resolved.aiTry;
   const replyTemplateId = resolved.replyTemplateId;
@@ -7431,6 +7438,12 @@ async function processV2NormalInboundOutcome(
     visibleSentIntended: true,
     branch: "main",
     preWriterTelemetry: preWriterTelemetryMain,
+    stageTelemetry: {
+      post_north_star_body_preview: postNorthStarBodyPreview,
+      post_fvg_body_preview: postFvgBodyPreview,
+      final_body_before_integrity_preview: finalBodyBeforeIntegrityPreview,
+      final_body_after_integrity_preview: finalBodyAfterIntegrityPreview,
+    },
   };
 
   if (!persisted) {
