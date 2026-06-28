@@ -62,10 +62,6 @@ const NEAR_EXACT_SEND_MS = 120_000;
 const ROW_FETCH_LIMIT = 120;
 /** Bounded row cap for schema-adaptive select("*") fallback (no timestamp columns in query). */
 export const SCHEMA_ADAPTIVE_FALLBACK_LIMIT = 300;
-/** Extra fetch buffer so rows reserved early (stale created_at) but sent recently are retrieved. */
-const FETCH_BUFFER_MS = 7 * 24 * 60 * 60 * 1000;
-/** Schema-safe created_at lookback for send-event tables (no top-level sent_at filter). */
-const SEND_FETCH_BUFFER_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** Minimal inbound columns when timestamp filters are unavailable. */
 const SMS_INBOUND_MESSAGES_CLERK_SELECT =
@@ -108,6 +104,9 @@ export type BriefThreadBuildTelemetry = {
   daily_brief_thread_schema_fallback_sources: string;
   daily_brief_thread_fallback_used: boolean;
   daily_brief_thread_fallback_source_count: number;
+  daily_brief_thread_primary_fetch_strategy: string;
+  daily_brief_thread_primary_fetch_succeeded: boolean;
+  daily_brief_thread_recovered_source_rows: number;
 };
 
 class ThreadBuildStats {
@@ -120,6 +119,8 @@ class ThreadBuildStats {
   fetch_error_count = 0;
   fallback_source_count = 0;
   schema_fallback_used = false;
+  primary_fetch_strategy = "select_star";
+  primary_fetch_succeeded = false;
   private fetch_error_top: string | null = null;
   private filteredReasons = new Map<BriefThreadFilterReason, number>();
   private sourceTables = new Set<string>();
@@ -153,6 +154,10 @@ class ThreadBuildStats {
     this.schemaFallbackSources.add(sourceTable);
   }
 
+  recordPrimaryFetchSucceeded() {
+    this.primary_fetch_succeeded = true;
+  }
+
   toTelemetry(): BriefThreadBuildTelemetry {
     let top: BriefThreadFilterReason | null = null;
     let topN = 0;
@@ -178,6 +183,9 @@ class ThreadBuildStats {
       daily_brief_thread_schema_fallback_sources: [...this.schemaFallbackSources].sort().join("|"),
       daily_brief_thread_fallback_used: this.fallback_source_count > 0,
       daily_brief_thread_fallback_source_count: this.fallback_source_count,
+      daily_brief_thread_primary_fetch_strategy: this.primary_fetch_strategy,
+      daily_brief_thread_primary_fetch_succeeded: this.primary_fetch_succeeded,
+      daily_brief_thread_recovered_source_rows: this.source_candidate_count,
     };
   }
 }
@@ -210,6 +218,74 @@ export type SchemaAdaptiveFetchAttempt = {
   sourceLabel: string;
   run: () => PromiseLike<{ data: unknown; error: unknown }>;
 };
+
+/**
+ * Primary notebook fetch: bounded select("*") by clerk_user_id only.
+ * Timestamp/window filtering happens in TypeScript.
+ */
+export async function fetchRowsPrimarySelectStar(args: {
+  table: string;
+  clerkUserId: string;
+  stats?: ThreadBuildStats;
+  limit?: number;
+}): Promise<SchemaAdaptiveFetchResult> {
+  const limit = args.limit ?? SCHEMA_ADAPTIVE_FALLBACK_LIMIT;
+  const primaryLabel = `${args.table}:select_star_primary`;
+  const { data, error } = await supabaseServer
+    .from(args.table)
+    .select("*")
+    .eq("clerk_user_id", args.clerkUserId)
+    .limit(limit);
+
+  if (!error) {
+    args.stats?.recordPrimaryFetchSucceeded();
+    return { rows: rowsFromSupabaseData(data), schema_fallback_used: false };
+  }
+
+  const compact = compactSupabaseFetchError(error);
+  console.warn(`[recent-exact-thread] primary fetch failed: ${primaryLabel}`, { error: compact });
+  args.stats?.recordFetchError(primaryLabel, compact);
+
+  return fetchRowsSchemaAdaptive({
+    table: args.table,
+    clerkUserId: args.clerkUserId,
+    stats: args.stats,
+    attempts: [],
+    fallbackLimit: limit,
+  });
+}
+
+export async function fetchMaybeSinglePrimarySelectStar(args: {
+  table: string;
+  clerkUserId: string;
+  stats?: ThreadBuildStats;
+}): Promise<Record<string, unknown> | null> {
+  const primaryLabel = `${args.table}:select_star_primary`;
+  const { data, error } = await supabaseServer
+    .from(args.table)
+    .select("*")
+    .eq("clerk_user_id", args.clerkUserId)
+    .maybeSingle();
+
+  if (!error) {
+    args.stats?.recordPrimaryFetchSucceeded();
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      return data as Record<string, unknown>;
+    }
+    return null;
+  }
+
+  const compact = compactSupabaseFetchError(error);
+  console.warn(`[recent-exact-thread] primary fetch failed: ${primaryLabel}`, { error: compact });
+  args.stats?.recordFetchError(primaryLabel, compact);
+
+  return fetchMaybeSingleSchemaAdaptive({
+    table: args.table,
+    clerkUserId: args.clerkUserId,
+    stats: args.stats,
+    attempts: [],
+  });
+}
 
 /**
  * Try preferred Supabase queries; on undefined-column (42703) errors, fall through to safer
@@ -874,9 +950,6 @@ async function buildRecentExactThreadWithWindowMs(
   const now = args.now ?? new Date();
   const nowMs = now.getTime();
   const cutoffMs = nowMs - args.windowMs;
-  const fetchCutoffIso = new Date(cutoffMs - FETCH_BUFFER_MS).toISOString();
-  const sendFetchCutoffIso = new Date(nowMs - SEND_FETCH_BUFFER_MS).toISOString();
-  const windowCutoffIso = new Date(cutoffMs).toISOString();
   const tz = resolveUserTimezone(args.timezone);
   const includeSystemNoSend = args.includeSystemNoSend === true;
   const stats = args.stats;
@@ -888,155 +961,32 @@ async function buildRecentExactThreadWithWindowMs(
     coachJobFetch,
     lastCtx,
   ] = await Promise.all([
-    fetchRowsSchemaAdaptive({
+    fetchRowsPrimarySelectStar({
       table: "sms_inbound_messages",
       clerkUserId: args.clerkUserId,
       stats,
-      attempts: [
-        {
-          sourceLabel: "sms_inbound_messages:created_at",
-          run: () =>
-            supabaseServer
-              .from("sms_inbound_messages")
-              .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid, metadata")
-              .eq("clerk_user_id", args.clerkUserId)
-              .gte("created_at", fetchCutoffIso)
-              .order("created_at", { ascending: false })
-              .limit(ROW_FETCH_LIMIT),
-        },
-        {
-          sourceLabel: "sms_inbound_messages:received_at",
-          run: () =>
-            supabaseServer
-              .from("sms_inbound_messages")
-              .select("raw_body, created_at, received_at, updated_at, inserted_at, message_sid, metadata")
-              .eq("clerk_user_id", args.clerkUserId)
-              .gte("received_at", windowCutoffIso)
-              .order("received_at", { ascending: false })
-              .limit(ROW_FETCH_LIMIT),
-        },
-        {
-          sourceLabel: "sms_inbound_messages:clerk_only",
-          run: () =>
-            supabaseServer
-              .from("sms_inbound_messages")
-              .select(SMS_INBOUND_MESSAGES_CLERK_SELECT)
-              .eq("clerk_user_id", args.clerkUserId)
-              .limit(ROW_FETCH_LIMIT),
-        },
-      ],
+      limit: ROW_FETCH_LIMIT,
     }),
-    fetchRowsSchemaAdaptive({
+    fetchRowsPrimarySelectStar({
       table: "sms_send_events",
       clerkUserId: args.clerkUserId,
       stats,
-      attempts: [
-        {
-          sourceLabel: "sms_send_events:created_at",
-          run: () =>
-            supabaseServer
-              .from("sms_send_events")
-              .select(SMS_SEND_EVENTS_THREAD_SELECT)
-              .eq("clerk_user_id", args.clerkUserId)
-              .gte("created_at", sendFetchCutoffIso)
-              .order("created_at", { ascending: false })
-              .limit(ROW_FETCH_LIMIT),
-        },
-        {
-          sourceLabel: "sms_send_events:clerk_only",
-          run: () =>
-            supabaseServer
-              .from("sms_send_events")
-              .select(SMS_SEND_EVENTS_THREAD_SELECT)
-              .eq("clerk_user_id", args.clerkUserId)
-              .limit(SCHEMA_ADAPTIVE_FALLBACK_LIMIT),
-        },
-      ],
     }),
-    fetchRowsSchemaAdaptive({
+    fetchRowsPrimarySelectStar({
       table: "sms_weekly_send_events",
       clerkUserId: args.clerkUserId,
       stats,
-      attempts: [
-        {
-          sourceLabel: "sms_weekly_send_events:created_at",
-          run: () =>
-            supabaseServer
-              .from("sms_weekly_send_events")
-              .select(SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT)
-              .eq("clerk_user_id", args.clerkUserId)
-              .gte("created_at", sendFetchCutoffIso)
-              .order("created_at", { ascending: false })
-              .limit(ROW_FETCH_LIMIT),
-        },
-        {
-          sourceLabel: "sms_weekly_send_events:clerk_only",
-          run: () =>
-            supabaseServer
-              .from("sms_weekly_send_events")
-              .select(SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT)
-              .eq("clerk_user_id", args.clerkUserId)
-              .limit(SCHEMA_ADAPTIVE_FALLBACK_LIMIT),
-        },
-      ],
     }),
-    fetchRowsSchemaAdaptive({
+    fetchRowsPrimarySelectStar({
       table: "sms_inbound_coach_jobs",
       clerkUserId: args.clerkUserId,
       stats,
-      attempts: [
-        {
-          sourceLabel: "sms_inbound_coach_jobs:updated_at",
-          run: () =>
-            supabaseServer
-              .from("sms_inbound_coach_jobs")
-              .select(
-                "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid, metadata"
-              )
-              .eq("clerk_user_id", args.clerkUserId)
-              .gte("updated_at", fetchCutoffIso)
-              .order("updated_at", { ascending: false })
-              .limit(ROW_FETCH_LIMIT),
-        },
-        {
-          sourceLabel: "sms_inbound_coach_jobs:sent_at",
-          run: () =>
-            supabaseServer
-              .from("sms_inbound_coach_jobs")
-              .select(
-                "raw_body, reply_body, sent_at, processed_at, updated_at, created_at, message_sid, status, outbound_message_sid, metadata"
-              )
-              .eq("clerk_user_id", args.clerkUserId)
-              .gte("sent_at", windowCutoffIso)
-              .order("sent_at", { ascending: false })
-              .limit(ROW_FETCH_LIMIT),
-        },
-        {
-          sourceLabel: "sms_inbound_coach_jobs:clerk_only",
-          run: () =>
-            supabaseServer
-              .from("sms_inbound_coach_jobs")
-              .select(SMS_INBOUND_COACH_JOBS_CLERK_SELECT)
-              .eq("clerk_user_id", args.clerkUserId)
-              .limit(ROW_FETCH_LIMIT),
-        },
-      ],
+      limit: ROW_FETCH_LIMIT,
     }),
-    fetchMaybeSingleSchemaAdaptive({
+    fetchMaybeSinglePrimarySelectStar({
       table: "sms_last_outbound_context",
       clerkUserId: args.clerkUserId,
       stats,
-      attempts: [
-        {
-          sourceLabel: "sms_last_outbound_context",
-          run: () =>
-            supabaseServer
-              .from("sms_last_outbound_context")
-              .select("sent_at, full_body, message_kind")
-              .eq("clerk_user_id", args.clerkUserId)
-              .maybeSingle(),
-        },
-      ],
     }),
   ]);
 

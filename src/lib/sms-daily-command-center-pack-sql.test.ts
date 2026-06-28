@@ -52,7 +52,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.13");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.14");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
 
     for (const name of QUERY_HEADERS) {
@@ -266,6 +266,21 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("c1_brief_thread_fetch_error");
     expect(sql).toContain("c1_brief_fallback_only_thread");
     expect(sql).toContain("c1_brief_empty_thread_with_fetch_error");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.14 Sunday-before-writer and primary select(*) fetch markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("v2.14 Sunday-before-writer + notebook primary select(*) fetch");
+    expect(sql).toContain("daily_brief_thread_primary_fetch_strategy");
+    expect(sql).toContain("daily_brief_thread_primary_fetch_succeeded");
+    expect(sql).toContain("daily_brief_thread_recovered_source_rows");
+    expect(sql).toContain("sunday_suppression_applied_before_writer");
+    expect(sql).toContain("sunday_suppression_before_writer_count");
+    expect(sql).toContain("sunday_suppression_after_writer_or_writer_invoked");
+    expect(sql).toContain("sunday_suppression_after_writer_or_writer_invoked_count");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });

@@ -1221,6 +1221,7 @@ export async function produceDailyV3RelationshipSms(
       ? slimTemporalContractForTelemetry(laneFacts.temporal_contract)
       : {}),
     daily_v3_lane_used: true,
+    daily_writer_invoked: true,
     v3_lane_reply_source: "v3_daily_relationship_lane" satisfies DailyV3RelationshipLaneReplySource,
     old_daily_writer_used_as_voice: false,
     old_daily_writer_fact_sources: args.telemetry_fact_sources,

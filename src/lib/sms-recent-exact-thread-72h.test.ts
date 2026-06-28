@@ -60,17 +60,23 @@ function chain(rows: unknown[] | unknown | null) {
 }
 
 type SchemaAdaptiveTableConfig = {
-  /** Preferred queries return 42703 until select("*") fallback. */
+  /** @deprecated Primary path uses select("*") first; kept for safety-net fallback tests. */
   failPreferredWith42703?: boolean;
-  /** All queries including select("*") fail. */
+  /** All select("*") queries fail. */
   failAll?: boolean;
+  /** First select("*") fails with unexpected error; second succeeds (safety net). */
+  failPrimaryOnce?: boolean;
   fallbackRows?: unknown[];
   preferredRows?: unknown[];
 };
 
-function adaptiveChain(config: SchemaAdaptiveTableConfig) {
+function adaptiveChain(
+  config: SchemaAdaptiveTableConfig,
+  opts?: { starCallCountRef?: { count: number } }
+) {
   let selectCols = "";
   const err42703 = { data: null, error: { code: "42703", message: "column does not exist" } };
+  const errUnexpected = { data: null, error: { code: "500", message: "unexpected primary failure" } };
   const builder = {
     select: (cols: string) => {
       selectCols = cols;
@@ -84,6 +90,11 @@ function adaptiveChain(config: SchemaAdaptiveTableConfig) {
     maybeSingle: () => {
       if (config.failAll) return Promise.resolve(err42703);
       if (selectCols === "*") {
+        if (opts?.starCallCountRef) opts.starCallCountRef.count += 1;
+        const starCallCount = opts?.starCallCountRef?.count ?? 1;
+        if (config.failPrimaryOnce && starCallCount === 1) {
+          return Promise.resolve(errUnexpected);
+        }
         const row = config.fallbackRows?.[0] ?? null;
         return Promise.resolve({ data: row, error: null });
       }
@@ -97,6 +108,12 @@ function adaptiveChain(config: SchemaAdaptiveTableConfig) {
         return;
       }
       if (selectCols === "*") {
+        if (opts?.starCallCountRef) opts.starCallCountRef.count += 1;
+        const starCallCount = opts?.starCallCountRef?.count ?? 1;
+        if (config.failPrimaryOnce && starCallCount === 1) {
+          resolve(errUnexpected);
+          return;
+        }
         resolve({ data: config.fallbackRows ?? [], error: null });
         return;
       }
@@ -111,9 +128,15 @@ function adaptiveChain(config: SchemaAdaptiveTableConfig) {
 }
 
 function setupSchemaAdaptiveSupabase(tables: Record<string, SchemaAdaptiveTableConfig | undefined>) {
+  const starCallCounts = new Map<string, { count: number }>();
   supabaseFrom.mockImplementation((table: string) => {
     const cfg = tables[table];
-    if (cfg) return adaptiveChain(cfg);
+    if (cfg) {
+      if (!starCallCounts.has(table)) {
+        starCallCounts.set(table, { count: 0 });
+      }
+      return adaptiveChain(cfg, { starCallCountRef: starCallCounts.get(table)! });
+    }
     return chain([]);
   });
 }
@@ -990,7 +1013,7 @@ describe("buildRecentExactThreadForBrief visible send coverage", () => {
   });
 });
 
-describe("schema-adaptive notebook fetch", () => {
+describe("primary select(*) notebook fetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getRecentV2EventsForAi.mockResolvedValue([]);
@@ -998,10 +1021,122 @@ describe("schema-adaptive notebook fetch", () => {
 
   const NOW_BRIEF = new Date("2026-06-22T12:00:00.000Z");
 
-  it("sms_send_events: 42703 on preferred, select(*) fallback succeeds with source candidates", async () => {
+  it("primary select(*) succeeds for sms_send_events with zero fetch errors", async () => {
     setupSchemaAdaptiveSupabase({
       sms_send_events: {
-        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            status: "sent",
+            message_sid: "SM_PRIMARY_SEND",
+            metadata: {
+              sent_at: "2026-06-21T10:00:00.000Z",
+              sms_body: "Daily coach body from primary select star fetch.",
+            },
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_primary_send",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBe(0);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(false);
+    expect(brief.build_telemetry.daily_brief_thread_primary_fetch_strategy).toBe("select_star");
+    expect(brief.build_telemetry.daily_brief_thread_primary_fetch_succeeded).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBeGreaterThan(0);
+    expect(brief.messages.some((m) => /primary select star fetch/i.test(m.body))).toBe(true);
+  });
+
+  it("primary select(*) succeeds for sms_weekly_send_events, sms_inbound_messages, sms_inbound_coach_jobs", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_weekly_send_events: {
+        fallbackRows: [
+          {
+            status: "sent",
+            message_sid: "SM_WK",
+            metadata: { sent_at: "2026-06-21T10:00:00.000Z", sms_body: "Weekly Pat Pause body." },
+          },
+        ],
+      },
+      sms_inbound_messages: {
+        fallbackRows: [
+          {
+            raw_body: "User inbound on primary path.",
+            metadata: { received_at: "2026-06-21T10:00:00.000Z" },
+            message_sid: "SM_IN_PRIMARY",
+          },
+        ],
+      },
+      sms_inbound_coach_jobs: {
+        fallbackRows: [
+          {
+            raw_body: "User asked coach.",
+            reply_body: "Coach reply on primary path.",
+            metadata: { sent_at: "2026-06-21T10:00:00.000Z" },
+            status: "sent",
+            outbound_message_sid: "SM_JOB_PRIMARY",
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_primary_all",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBe(0);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(false);
+    expect(brief.build_telemetry.daily_brief_thread_user_inbound_candidate_count).toBe(1);
+    expect(brief.build_telemetry.daily_brief_thread_weekly_candidate_count).toBe(1);
+    expect(brief.messages.some((m) => m.role === "user")).toBe(true);
+  });
+
+  it("unexpected primary failure uses schema fallback safety net", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: {
+        failPrimaryOnce: true,
+        fallbackRows: [
+          {
+            status: "sent",
+            message_sid: "SM_SAFETY",
+            metadata: {
+              sent_at: "2026-06-21T09:00:00.000Z",
+              sms_body: "Recovered after primary select(*) failed unexpectedly.",
+            },
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_primary_fail_once",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBeGreaterThan(0);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBeGreaterThan(0);
+  });
+});
+
+describe("schema-adaptive notebook fetch safety net", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+  });
+
+  const NOW_BRIEF = new Date("2026-06-22T12:00:00.000Z");
+
+  it("sms_send_events: primary path succeeds without schema fallback", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: {
         fallbackRows: [
           {
             status: "sent",
@@ -1021,26 +1156,22 @@ describe("schema-adaptive notebook fetch", () => {
       now: NOW_BRIEF,
     });
 
-    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBeGreaterThan(0);
-    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
-    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_sources).toContain(
-      "sms_send_events"
-    );
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBe(0);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(false);
     expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBeGreaterThan(0);
     expect(brief.messages.some((m) => /Daily coach body from schema fallback/i.test(m.body))).toBe(
       true
     );
   });
 
-  it("sms_inbound_messages: 42703 on timestamp columns, fallback includes user message", async () => {
+  it("sms_inbound_messages: primary select(*) includes user message without schema fallback", async () => {
     setupSchemaAdaptiveSupabase({
       sms_inbound_messages: {
-        failPreferredWith42703: true,
         fallbackRows: [
           {
-            raw_body: "User reply recovered via schema fallback.",
+            raw_body: "User reply recovered via primary select star.",
             metadata: { received_at: "2026-06-21T10:00:00.000Z" },
-            message_sid: "SM_IN_FALLBACK",
+            message_sid: "SM_IN_PRIMARY",
           },
         ],
       },
@@ -1052,23 +1183,23 @@ describe("schema-adaptive notebook fetch", () => {
       now: NOW_BRIEF,
     });
 
-    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
-    expect(brief.messages.some((m) => m.role === "user" && /recovered via schema fallback/i.test(m.body))).toBe(
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(false);
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBe(0);
+    expect(brief.messages.some((m) => m.role === "user" && /primary select star/i.test(m.body))).toBe(
       true
     );
     expect(brief.build_telemetry.daily_brief_thread_user_inbound_candidate_count).toBe(1);
   });
 
-  it("sms_inbound_coach_jobs: 42703 on sent_at/updated_at, fallback includes coach reply", async () => {
+  it("sms_inbound_coach_jobs: primary select(*) includes coach reply", async () => {
     setupSchemaAdaptiveSupabase({
       sms_inbound_coach_jobs: {
-        failPreferredWith42703: true,
         fallbackRows: [
           {
             raw_body: "User asked about prayer.",
             reply_body: "Keep showing up — one day at a time.",
             status: "sent",
-            outbound_message_sid: "SM_REPLY_FB",
+            outbound_message_sid: "SM_REPLY_PRIMARY",
             metadata: { processed_at: "2026-06-21T11:00:00.000Z" },
           },
         ],
@@ -1081,24 +1212,23 @@ describe("schema-adaptive notebook fetch", () => {
       now: NOW_BRIEF,
     });
 
-    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(false);
     expect(brief.messages.some((m) => m.role === "coach" && /Keep showing up/i.test(m.body))).toBe(
       true
     );
     expect(brief.build_telemetry.daily_brief_thread_visible_send_candidate_count).toBeGreaterThan(0);
   });
 
-  it("sms_weekly_send_events: 42703 on preferred, fallback includes weekly coach message", async () => {
+  it("sms_weekly_send_events: primary select(*) includes weekly coach message", async () => {
     setupSchemaAdaptiveSupabase({
       sms_weekly_send_events: {
-        failPreferredWith42703: true,
         fallbackRows: [
           {
             status: "sent",
-            message_sid: "SM_WEEKLY_FB",
+            message_sid: "SM_WEEKLY_PRIMARY",
             metadata: {
               sent_at: "2026-06-20T16:00:00.000Z",
-              north_star_gate: { final_body: "Weekly Pat Pause from schema fallback." },
+              north_star_gate: { final_body: "Weekly Pat Pause from primary select star." },
             },
           },
         ],
@@ -1111,31 +1241,31 @@ describe("schema-adaptive notebook fetch", () => {
       now: NOW_BRIEF,
     });
 
-    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
-    expect(brief.messages.some((m) => /Weekly Pat Pause from schema fallback/i.test(m.body))).toBe(
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(false);
+    expect(brief.messages.some((m) => /Weekly Pat Pause from primary select star/i.test(m.body))).toBe(
       true
     );
     expect(brief.build_telemetry.daily_brief_thread_weekly_candidate_count).toBe(1);
   });
 
-  it("all preferred queries fail but select(*) fallback succeeds: errors recorded and candidates recovered", async () => {
+  it("primary failure on one table uses schema fallback safety net and records fetch errors", async () => {
     setupSchemaAdaptiveSupabase({
       sms_send_events: {
-        failPreferredWith42703: true,
+        failPrimaryOnce: true,
         fallbackRows: [
           {
             status: "sent",
             message_sid: "SM_ALL_FB",
             metadata: {
               sent_at: "2026-06-21T09:00:00.000Z",
-              sms_body: "Recovered after all preferred attempts failed.",
+              sms_body: "Recovered after primary select(*) failed unexpectedly.",
             },
           },
         ],
       },
-      sms_inbound_messages: { failPreferredWith42703: true, fallbackRows: [] },
-      sms_inbound_coach_jobs: { failPreferredWith42703: true, fallbackRows: [] },
-      sms_weekly_send_events: { failPreferredWith42703: true, fallbackRows: [] },
+      sms_inbound_messages: { fallbackRows: [] },
+      sms_inbound_coach_jobs: { fallbackRows: [] },
+      sms_weekly_send_events: { fallbackRows: [] },
     });
 
     const brief = await buildRecentExactThreadForBrief({

@@ -1,7 +1,13 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.13
+-- SMS DAILY COMMAND CENTER PACK v2.14
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 15 queries.
+--
+-- v2.14 Sunday-before-writer + notebook primary select(*) fetch (June 2026):
+--   - Q01/Q02/Q13: daily_brief_thread_primary_fetch_strategy/succeeded, recovered_source_rows.
+--   - Q01/Q03: sunday_suppression_applied_before_writer, daily_writer_invoked, sunday_suppression_after_writer.
+--   - Q13 C1 notebook sanity uses eligible_coaching_row (not only visible_sent).
+--   - Q13: sunday_suppression_after_writer_or_writer_invoked when Sunday pause ran after writer work.
 --
 -- v2.13 DailySmsWritingBriefV1 schema-adaptive notebook fetch (June 2026):
 --   - Q01/Q02/Q13: schema_fallback_used, schema_fallback_sources on brief thread telemetry.
@@ -330,7 +336,37 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_sources}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_sources}',
       ''
-    ) AS daily_brief_thread_schema_fallback_sources
+    ) AS daily_brief_thread_schema_fallback_sources,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_primary_fetch_strategy}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_primary_fetch_strategy}',
+      ''
+    ) AS daily_brief_thread_primary_fetch_strategy,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_primary_fetch_succeeded}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_primary_fetch_succeeded}',
+      ''
+    ) AS daily_brief_thread_primary_fetch_succeeded,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_recovered_source_rows}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_recovered_source_rows}',
+      ''
+    ) AS daily_brief_thread_recovered_source_rows,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,sunday_suppression_applied_before_writer}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,sunday_suppression_applied_before_writer}',
+      ''
+    ) AS sunday_suppression_applied_before_writer,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_writer_invoked}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writer_invoked}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writer_invoked}',
+      ''
+    ) AS daily_writer_invoked,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,sunday_suppression_after_writer}',
+      ''
+    ) AS sunday_suppression_after_writer
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -500,7 +536,17 @@ daily_agg AS (
       WHERE status = 'skipped_sunday_weekly_pause'
         OR no_send_reason = 'skipped_sunday_weekly_pause'
         OR skip_source = 'sunday_weekly_pause'
-    ) AS skipped_sunday_weekly_pause_count
+    ) AS skipped_sunday_weekly_pause_count,
+    COUNT(*) FILTER (
+      WHERE sunday_suppression_applied_before_writer ~* 'true'
+    ) AS sunday_suppression_before_writer_count,
+    COUNT(*) FILTER (
+      WHERE sunday_suppression_after_writer ~* 'true'
+        OR (
+          (status = 'skipped_sunday_weekly_pause' OR skip_source = 'sunday_weekly_pause')
+          AND daily_writer_invoked ~* 'true'
+        )
+    ) AS sunday_suppression_after_writer_or_writer_invoked_count
   FROM classified_with_prior
 ),
 top_reasons AS (
@@ -728,6 +774,8 @@ SELECT
   d.c1_brief_oldest_newest_reversed_count,
   d.c1_visible_repeated_cta_risk_count,
   d.skipped_sunday_weekly_pause_count,
+  d.sunday_suppression_before_writer_count,
+  d.sunday_suppression_after_writer_or_writer_invoked_count,
   sc.daily_visible_and_weekly_visible_same_sunday_count,
   sc.sunday_daily_after_weekly_count,
   sc.sunday_weekly_expected_but_daily_sent_count,
@@ -4158,6 +4206,36 @@ send_base AS (
       ''
     ) AS daily_brief_thread_schema_fallback_sources,
     COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_primary_fetch_strategy}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_primary_fetch_strategy}',
+      ''
+    ) AS daily_brief_thread_primary_fetch_strategy,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_primary_fetch_succeeded}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_primary_fetch_succeeded}',
+      ''
+    ) AS daily_brief_thread_primary_fetch_succeeded,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_recovered_source_rows}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_recovered_source_rows}',
+      ''
+    ) AS daily_brief_thread_recovered_source_rows,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,sunday_suppression_applied_before_writer}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,sunday_suppression_applied_before_writer}',
+      ''
+    ) AS sunday_suppression_applied_before_writer,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,daily_writer_invoked}',
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_writer_invoked}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_writer_invoked}',
+      ''
+    ) AS daily_writer_invoked,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,sunday_suppression_after_writer}',
+      ''
+    ) AS sunday_suppression_after_writer,
+    COALESCE(
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_count}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_count}',
       ''
@@ -4960,7 +5038,7 @@ issues AS (
     '',
     'Brief used but thread builder reported fetch_error_count > 0 — notebook may be incomplete'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_fetch_error_count, ''), '0')::int > 0
@@ -4978,9 +5056,9 @@ issues AS (
     cb.skip_source,
     '',
     '',
-    'Brief thread recovered via schema-adaptive select(*) fallback — preferred column query failed (42703)'
+    'Brief thread used schema-adaptive select(*) fallback — unexpected in steady state after primary select(*) fetch'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND cb.daily_brief_thread_schema_fallback_used ~* 'true'
@@ -5001,7 +5079,7 @@ issues AS (
     '',
     'Brief fetch_error_count > 0 and schema fallback did not recover source rows — notebook likely incomplete'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_fetch_error_count, ''), '0')::int > 0
@@ -5023,7 +5101,7 @@ issues AS (
     '',
     'Schema fallback ran but source_candidate_count = 0 — all sources failed or rows filtered out'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND cb.daily_brief_thread_schema_fallback_used ~* 'true'
@@ -5044,7 +5122,7 @@ issues AS (
     '',
     'Brief thread_count <= 1 with fallback_used and source_candidate_count = 0 — likely sms_last_outbound_context only'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int <= 1
@@ -5067,7 +5145,7 @@ issues AS (
     '',
     'Brief used with empty thread and fetch_error_count > 0 — schema/query failure likely'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int = 0
@@ -5088,7 +5166,7 @@ issues AS (
     '',
     'Brief used with thread_message_count <= 1 but source_candidate_count > 0 — check filter telemetry'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_message_count, ''), '0')::int <= 1
@@ -5109,7 +5187,7 @@ issues AS (
     '',
     'Brief build fetched candidates but visible_send_candidate_count = 0'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_source_candidate_count, ''), '0')::int > 0
@@ -5131,7 +5209,7 @@ issues AS (
     '',
     'Brief thread build used effective_timestamp_rescue_count > 0 (stale created_at rescued by sent_at)'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_effective_timestamp_rescue_count, ''), '0')::int > 0
@@ -5151,7 +5229,7 @@ issues AS (
     '',
     'Brief thread filter top reason = not_truly_sent'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND cb.daily_brief_thread_filtered_out_reason_top = 'not_truly_sent'
@@ -5171,7 +5249,7 @@ issues AS (
     '',
     'Brief thread filter top reason = empty_body'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND cb.daily_brief_thread_filtered_out_reason_top = 'empty_body'
@@ -5191,10 +5269,34 @@ issues AS (
     '',
     'Brief thread filter top reason = timestamp_outside_window'
   FROM classified_base cb
-  WHERE cb.visible_sent
+  WHERE cb.eligible_coaching_row
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND cb.daily_brief_thread_filtered_out_reason_top = 'timestamp_outside_window'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 03 / 14 Sunday weekly pause',
+    'warning',
+    'sunday_suppression_after_writer_or_writer_invoked',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Sunday weekly pause applied after writer work — daily_writer_invoked or sunday_suppression_after_writer set'
+  FROM classified_base cb
+  WHERE (
+      cb.sunday_suppression_after_writer ~* 'true'
+      OR (
+        (cb.status = 'skipped_sunday_weekly_pause' OR cb.skip_source = 'sunday_weekly_pause')
+        AND cb.daily_writer_invoked ~* 'true'
+      )
+    )
+    AND COALESCE(cb.sunday_suppression_applied_before_writer, '') !~* 'true'
 
   UNION ALL
 

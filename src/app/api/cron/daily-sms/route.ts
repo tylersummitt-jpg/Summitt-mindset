@@ -190,6 +190,7 @@ import {
   shouldSuppressDailyForSundayWeeklyPause,
   SUNDAY_WEEKLY_PAUSE_SKIP_STATUS,
 } from "@/lib/sms-sunday-weekly-pause-eligibility";
+import { applySundayWeeklyPauseBeforeWriterIfNeeded } from "@/lib/sms-daily-sunday-before-writer";
 import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
@@ -3127,12 +3128,15 @@ async function applySundayWeeklyPauseSuppressionIfNeeded(args: {
     .from("sms_send_events")
     .update({
       status: SUNDAY_WEEKLY_PAUSE_SKIP_STATUS,
+      sms_body: "",
       metadata: buildSundayWeeklyPauseSkipMetadata({
         routeKind,
         todayKey: args.todayKey,
         localNow: args.localNow,
         timezone: args.timezone,
         existingMeta: args.existingMeta,
+        beforeWriter: false,
+        writerInvoked: true,
       }),
     })
     .eq("clerk_user_id", args.clerkUserId)
@@ -3583,6 +3587,25 @@ export async function GET(req: Request) {
                 .eq("day_key", todayKey);
 
               stats.skippedActiveInboundThread += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+
+            if (
+              await applySundayWeeklyPauseBeforeWriterIfNeeded({
+                clerkUserId: audienceUser.clerk_user_id,
+                todayKey,
+                localNow,
+                timezone,
+                now,
+                force,
+                fullyOnV2: skipLegacyDailyCompletionCheck,
+                commitment: activeForPolicy,
+                commsPrefs,
+                existingMeta,
+              })
+            ) {
+              stats.skippedSundayWeeklyPause += 1;
               stats.skippedIntentional += 1;
               continue;
             }
@@ -4229,6 +4252,24 @@ export async function GET(req: Request) {
           .eq("day_key", todayKey);
 
         stats.skippedActiveInboundThread += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+
+      if (
+        await applySundayWeeklyPauseBeforeWriterIfNeeded({
+          clerkUserId: audienceUser.clerk_user_id,
+          todayKey,
+          localNow,
+          timezone,
+          now,
+          force,
+          fullyOnV2: skipLegacyDailyCompletionCheck,
+          commitment: activeForPolicy,
+          commsPrefs,
+        })
+      ) {
+        stats.skippedSundayWeeklyPause += 1;
         stats.skippedIntentional += 1;
         continue;
       }

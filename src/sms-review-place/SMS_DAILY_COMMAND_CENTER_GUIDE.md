@@ -1,4 +1,6 @@
-# SMS Daily Command Center — SQL Guide (v2.12)
+# SMS Daily Command Center — SQL Guide (v2.14)
+
+v2.14 adds **Sunday-before-writer suppression telemetry** (`sunday_suppression_applied_before_writer`, `daily_writer_invoked`, `daily_route_suppressed_before_writer`, `sunday_suppression_after_writer_or_writer_invoked_count`) and **primary notebook fetch telemetry** (`daily_brief_thread_primary_fetch_strategy`, `primary_fetch_succeeded`, `recovered_source_rows`). Q13 C1 notebook sanity rows now use `eligible_coaching_row` (not only `visible_sent`) so Sunday/no-send brief paths surface fetch issues. Steady-state expectation after deploy: `fetch_error_count = 0`, `schema_fallback_used = false`, `primary_fetch_succeeded = true` when history exists.
 
 v2.13 adds **schema-adaptive notebook fetch telemetry** for DailySmsWritingBriefV1: `daily_brief_thread_schema_fallback_used`, `schema_fallback_sources` on Q01/Q02 sent rows (distinct from `fallback_used`, which means `sms_last_outbound_context` only). Q13 sanity rows: `c1_brief_schema_fallback_used` (42703 recovered via select(*) fallback), `c1_brief_fetch_error_unrecovered` (fetch errors with zero source candidates and no schema fallback), `c1_brief_zero_source_candidates_after_schema_fallback`. Use when preferred column queries fail in production but bounded fallback still returns rows.
 

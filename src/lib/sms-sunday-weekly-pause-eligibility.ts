@@ -66,7 +66,11 @@ export function buildSundayWeeklyPauseSkipMetadata(args: {
   localNow: Date;
   timezone: string;
   existingMeta?: Record<string, unknown>;
+  beforeWriter?: boolean;
+  writerInvoked?: boolean;
 }): Record<string, unknown> {
+  const beforeWriter = args.beforeWriter === true;
+  const writerInvoked = args.writerInvoked === true;
   return {
     ...(args.existingMeta ?? {}),
     note: SUNDAY_WEEKLY_PAUSE_SKIP_REASON,
@@ -81,5 +85,13 @@ export function buildSundayWeeklyPauseSkipMetadata(args: {
     weekly_expected_send_window: SUNDAY_WEEKLY_EXPECTED_SEND_WINDOW,
     twilio_send_attempted: false,
     visible_sent: false,
+    sunday_suppression_applied_before_writer: beforeWriter,
+    daily_writer_invoked: writerInvoked,
+    daily_route_suppressed_before_writer: beforeWriter,
+    ...(beforeWriter
+      ? { daily_route_suppression_reason: SUNDAY_WEEKLY_PAUSE_SKIP_SOURCE }
+      : writerInvoked
+        ? { sunday_suppression_after_writer: true }
+        : {}),
   };
 }
