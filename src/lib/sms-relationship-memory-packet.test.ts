@@ -77,6 +77,7 @@ function chain(rows: unknown[] | unknown | null) {
 
 function setupSupabaseTables(args: {
   sendRows?: unknown[];
+  weeklyRows?: unknown[];
   jobRows?: unknown[];
   inboundMsgRows?: unknown[];
   lastCtx?: unknown | null;
@@ -88,6 +89,8 @@ function setupSupabaseTables(args: {
     switch (table) {
       case "sms_send_events":
         return chain(args.sendRows ?? []);
+      case "sms_weekly_send_events":
+        return chain(args.weeklyRows ?? []);
       case "sms_inbound_coach_jobs":
         return chain(args.jobRows ?? []);
       case "sms_inbound_messages":
@@ -157,6 +160,80 @@ describe("buildSmsRelationshipMemoryPacket", () => {
     expect(packet.recent_exact_thread_72h.window_hours).toBe(72);
     expect(packet.relationship_memory_7d.window_days).toBe(7);
     expect(packet.relationship_memory_30d.window_days).toBe(30);
+    expect(packet.meta.thread_build_telemetry?.daily_brief_thread_primary_fetch_succeeded).toBe(true);
+    expect(packet.meta.thread_build_telemetry?.daily_brief_thread_fetch_error_count).toBe(0);
+    expect(packet.meta.thread_build_telemetry?.daily_brief_thread_schema_fallback_used).toBe(false);
+    expect(
+      (packet.meta.thread_build_telemetry?.daily_brief_thread_source_candidate_count ?? 0) > 0
+    ).toBe(true);
+  });
+
+  it("records thread_build_telemetry on recent_exact_thread_72h", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          sms_body: "Coach body for weekly notebook telemetry.",
+          created_at: "2026-05-18T11:00:00.000Z",
+          status: "sent",
+        },
+      ],
+    });
+    const packet = await buildSmsRelationshipMemoryPacket({
+      clerkUserId: "user_weekly_telemetry",
+      timezone: "America/Chicago",
+      now: NOW,
+    });
+    expect(packet.recent_exact_thread_72h.build_telemetry?.daily_brief_thread_primary_fetch_strategy).toBe(
+      "select_star"
+    );
+    expect(packet.meta.thread_build_telemetry).toEqual(packet.recent_exact_thread_72h.build_telemetry);
+  });
+
+  it("weekly notebook telemetry marks exact-source packet as correct_notebook_verified", async () => {
+    const { buildWeeklyNotebookTelemetry } = await import("@/lib/sms-weekly-notebook-telemetry");
+    setupSupabaseTables({
+      sendRows: [
+        {
+          sms_body: "Coach exact weekly notebook line.",
+          created_at: "2026-05-18T11:00:00.000Z",
+          status: "sent",
+        },
+        {
+          sms_body: "Second coach line for thread depth.",
+          created_at: "2026-05-18T12:00:00.000Z",
+          status: "sent",
+        },
+      ],
+      inboundRows: [
+        {
+          raw_body: "User weekly reply.",
+          inserted_at: "2026-05-18T12:30:00.000Z",
+        },
+      ],
+    });
+    const packet = await buildSmsRelationshipMemoryPacket({
+      clerkUserId: "user_weekly_notebook_verified",
+      timezone: "America/Chicago",
+      now: NOW,
+    });
+    const telemetry = buildWeeklyNotebookTelemetry({
+      buildTelemetry: packet.meta.thread_build_telemetry ?? null,
+      memoryPacketUsed: true,
+      memoryPacketBuildFailed: false,
+      includedThreadMessageCount: packet.recent_exact_thread_72h.messages.length,
+      writerInvoked: true,
+      sourceBreakdown: {
+        recentExactThread72hMessages: packet.recent_exact_thread_72h.messages,
+        recentTranscriptLineCount: 0,
+        includedThreadMessageCount: packet.recent_exact_thread_72h.messages.length,
+        threadFallbackUsedInPacket: false,
+        legacyFallbackSourceInPacket: null,
+      },
+    });
+    expect(telemetry.weekly_thread_exact_source_message_count).toBeGreaterThan(0);
+    expect(telemetry.weekly_thread_legacy_transcript_fallback_used).toBe(false);
+    expect(telemetry.weekly_thread_correct_notebook_verified).toBe(true);
+    expect(telemetry.weekly_thread_notebook_failure_reason).toBe("none");
   });
 
   it("prefers full sms_send_events.sms_body over check_sent body_preview", async () => {

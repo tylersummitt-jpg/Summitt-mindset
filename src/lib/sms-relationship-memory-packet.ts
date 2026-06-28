@@ -24,6 +24,7 @@ import { deriveV3LearningSignalsFromContext } from "@/lib/v3-sms-learning";
 import {
   buildRecentExactThread72h,
   recentExactThreadTextFrom72hMessages,
+  type BriefThreadBuildTelemetry,
   type RecentExactThread72hResult,
 } from "@/lib/sms-recent-exact-thread-72h";
 import {
@@ -159,14 +160,15 @@ export type SmsRelationshipMemoryPacket = {
   do_not_repeat_phrases: SmsRelationshipDoNotRepeatHint[];
   memory_priority_rules: string[];
   relationship_anchor_sources: RelationshipAnchorSources;
-  meta: {
-    message_count: number;
-    thread_text_capped: boolean;
-    sources_used: string[];
-    built_at: string;
-    projection_used: boolean;
-    projection_load_failed: boolean;
-  };
+    meta: {
+      message_count: number;
+      thread_text_capped: boolean;
+      sources_used: string[];
+      built_at: string;
+      projection_used: boolean;
+      projection_load_failed: boolean;
+      thread_build_telemetry?: BriefThreadBuildTelemetry;
+    };
 };
 
 function normDedupeKey(text: string): string {
@@ -854,6 +856,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
       built_at: now.toISOString(),
       projection_used: projectionUsed,
       projection_load_failed: projectionLoadFailed,
+      thread_build_telemetry: recent_exact_thread_72h.build_telemetry,
     },
   };
 }

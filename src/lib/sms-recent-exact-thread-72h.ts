@@ -42,6 +42,8 @@ export type RecentExactThread72hResult = {
   had_system_no_send: boolean;
   oldest_at?: string;
   newest_at?: string;
+  /** Populated when thread build records fetch/filter stats (weekly memory packet, etc.). */
+  build_telemetry?: BriefThreadBuildTelemetry;
 };
 
 type TimelineEntry = {
@@ -1309,10 +1311,13 @@ async function buildRecentExactThreadWithWindowMs(
 export async function buildRecentExactThread72h(
   args: BuildRecentExactThreadArgs
 ): Promise<RecentExactThread72hResult> {
-  return buildRecentExactThreadWithWindowMs({
+  const stats = new ThreadBuildStats();
+  const result = await buildRecentExactThreadWithWindowMs({
     ...args,
     windowMs: RECENT_EXACT_THREAD_WINDOW_MS,
+    stats,
   });
+  return { ...result, build_telemetry: stats.toTelemetry() };
 }
 
 /** 7d fetch + 72h floor / capped extension for DailySmsWritingBriefV1. */

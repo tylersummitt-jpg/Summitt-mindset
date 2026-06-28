@@ -52,6 +52,12 @@ import { produceWeeklyV3RelationshipSms } from "@/lib/v3-weekly-outbound-relatio
 import { buildWeeklyV3OutboundFactsForV2WeeklyProof } from "@/lib/weekly-sms-v2-weekly-lane-facts";
 import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
 import { relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
+import {
+  buildWeeklyNotebookTelemetry,
+  buildWeeklyThreadSourceBreakdownInputFromFacts,
+  readIncludedThreadMessageCountFromWeeklyLaneMetadata,
+} from "@/lib/sms-weekly-notebook-telemetry";
+import type { BriefThreadBuildTelemetry } from "@/lib/sms-recent-exact-thread-72h";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -286,14 +292,21 @@ export async function GET(req: Request) {
         });
         const deterministicPreviewBody = buildDeterministicWeeklyProofBody(pack);
         let relationshipMemoryPacket = null;
+        let weeklyMemoryPacketBuildFailed = false;
+        let weeklyMemoryPacketThreadTelemetry: BriefThreadBuildTelemetry | null = null;
         try {
           const memoryPacket = await buildSmsRelationshipMemoryPacket({
             clerkUserId: user.id,
             commitmentId: commitment.id,
             now: localNow,
           });
+          weeklyMemoryPacketThreadTelemetry =
+            memoryPacket.meta.thread_build_telemetry ??
+            memoryPacket.recent_exact_thread_72h.build_telemetry ??
+            null;
           relationshipMemoryPacket = slimMemoryPacketForFacts(memoryPacket);
         } catch (e) {
+          weeklyMemoryPacketBuildFailed = true;
           console.warn("[weekly-sms] relationship_memory_packet_failed", {
             commitment_id: commitment.id,
             clerk_user_id: user.id,
@@ -365,6 +378,24 @@ export async function GET(req: Request) {
           telemetry_fact_sources: weeklyV3TelemetryFactSources,
         });
 
+        const includedThreadMessageCount = readIncludedThreadMessageCountFromWeeklyLaneMetadata(
+          weeklyLane.metadata
+        );
+        const weeklyNotebookTelemetry = buildWeeklyNotebookTelemetry({
+          buildTelemetry: weeklyMemoryPacketThreadTelemetry,
+          memoryPacketUsed: relationshipMemoryPacket != null,
+          memoryPacketBuildFailed: weeklyMemoryPacketBuildFailed,
+          includedThreadMessageCount,
+          writerInvoked: true,
+          sourceBreakdown: buildWeeklyThreadSourceBreakdownInputFromFacts({
+            recentExactThread72hMessages: weeklyFacts.thread.recent_exact_thread_72h?.messages,
+            recentTranscriptLineCount: weeklyFacts.thread.recent_transcript_lines.length,
+            hasRecentExactThreadText: Boolean(weeklyFacts.thread.recent_exact_thread_text?.trim()),
+            includedThreadMessageCount,
+            laneMetadata: weeklyLane.metadata,
+          }),
+        });
+
         const weeklyNorthStarCtx = buildWeeklySmsNorthStarContextPacket({
           commitmentId: commitment.id,
           behaviorStatement: commitment.behavior_statement,
@@ -405,8 +436,15 @@ export async function GET(req: Request) {
           legacy_weekly_branch: false,
           weekly_lane_no_send_reason: weeklyLane.noSendReason,
           weekly_lane_openai_ok: weeklyLane.openAiOk,
-          weekly_lane_metadata: weeklyLane.metadata,
-          relationship_packet_observability: relationshipObservabilityFromLaneMetadata(weeklyLane.metadata),
+          weekly_lane_metadata: {
+            ...weeklyLane.metadata,
+            ...weeklyNotebookTelemetry,
+          },
+          ...weeklyNotebookTelemetry,
+          relationship_packet_observability: {
+            ...relationshipObservabilityFromLaneMetadata(weeklyLane.metadata),
+            ...weeklyNotebookTelemetry,
+          },
         };
 
         if (!weeklyLane.shouldSend) {
