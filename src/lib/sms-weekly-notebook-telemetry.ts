@@ -331,6 +331,7 @@ export function buildWeeklyNotebookTelemetry(args: {
     args.writerInvoked &&
     threadFields.weekly_thread_primary_fetch_succeeded &&
     threadFields.weekly_thread_fetch_error_count === 0 &&
+    !threadFields.weekly_thread_schema_fallback_used &&
     sourceCandidates > 0 &&
     exactSourceMessageCount > 0 &&
     (messageCount ?? 0) > 1 &&

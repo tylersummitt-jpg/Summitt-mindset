@@ -13,6 +13,7 @@ import {
   INBOUND_TURN_TELEMETRY_TRUTH_KEYS,
   INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS,
 } from "@/lib/inbound-turn-telemetry";
+import { INBOUND_NOTEBOOK_OBSERVABILITY_KEYS } from "@/lib/sms-inbound-notebook-telemetry";
 
 describe("compactInboundTurnTelemetryLaneFields", () => {
   it("includes compact strategy and packet fields when provided on lane metadata", () => {
@@ -156,5 +157,18 @@ describe("compactInboundTurnWriterObservability", () => {
     expect(INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS).toContain(
       "final_sentence_integrity_repair_applied"
     );
+  });
+
+  it("absorbs inbound notebook observability from packetObservability", () => {
+    const packetObs: Record<string, unknown> = {
+      inbound_thread_correct_notebook_verified: true,
+      inbound_thread_notebook_failure_reason: "none",
+      inbound_context_packet_used: true,
+    };
+    const compact = compactInboundTurnTelemetryLaneFields({ packetObservability: packetObs });
+    expect(compact.inbound_thread_correct_notebook_verified).toBe(true);
+    expect(compact.inbound_thread_notebook_failure_reason).toBe("none");
+    expect(compact.inbound_context_packet_used).toBe(true);
+    expect(INBOUND_NOTEBOOK_OBSERVABILITY_KEYS).toContain("inbound_thread_fetch_error_count");
   });
 });

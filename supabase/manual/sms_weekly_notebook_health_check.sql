@@ -183,6 +183,7 @@ ORDER BY clerk_user_id;
 --   weekly_notebook_health = 'correct_notebook_verified'
 --
 -- Fail (known-history users): weekly_notebook_health must always be a named reason.
+-- schema_fallback_used is always a fail (not a verified correct notebook).
 --
 -- P1 telemetry bug (not a normal failure state):
 --   weekly_notebook_health = 'unclassified_notebook_failure'

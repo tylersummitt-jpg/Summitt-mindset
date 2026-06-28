@@ -440,6 +440,10 @@ import {
 } from "@/lib/sms-relationship-memory-packet";
 import { relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
 import {
+  attachInboundNotebookTelemetryToLaneMetadata,
+} from "@/lib/sms-inbound-notebook-telemetry";
+import type { BriefThreadBuildTelemetry } from "@/lib/sms-recent-exact-thread-72h";
+import {
   loadSmsVictoryBackgroundContext,
   mapSmsVictoryBackgroundToFacts,
   type V3VictoryBackgroundFacts,
@@ -2941,13 +2945,29 @@ async function processV2NormalInboundOutcome(
   });
 
   const recentEvents = await getRecentV2EventsForAi(commitment.id);
-  const inboundRelationshipMemoryPacket = slimMemoryPacketForFacts(
-    await buildSmsRelationshipMemoryPacket({
+  let inboundContextPacketThreadTelemetry: BriefThreadBuildTelemetry | null = null;
+  let inboundContextPacketBuildFailed = false;
+  let inboundRelationshipMemoryPacket: ReturnType<typeof slimMemoryPacketForFacts>;
+  try {
+    const fullInboundMemoryPacket = await buildSmsRelationshipMemoryPacket({
       clerkUserId: userId,
       commitmentId: commitment.id,
       timezone,
-    })
-  );
+    });
+    inboundContextPacketThreadTelemetry =
+      fullInboundMemoryPacket.meta.thread_build_telemetry ??
+      fullInboundMemoryPacket.recent_exact_thread_72h.build_telemetry ??
+      null;
+    inboundRelationshipMemoryPacket = slimMemoryPacketForFacts(fullInboundMemoryPacket);
+  } catch (memoryPacketErr) {
+    inboundContextPacketBuildFailed = true;
+    console.warn("[sms-inbound-coach] relationship_memory_packet_failed", {
+      clerk_user_id: userId,
+      commitment_id: commitment.id,
+      message: memoryPacketErr instanceof Error ? memoryPacketErr.message : String(memoryPacketErr),
+    });
+    throw memoryPacketErr;
+  }
 
   let victoryBackgroundFacts: V3VictoryBackgroundFacts | null = null;
   try {
@@ -6070,6 +6090,16 @@ async function processV2NormalInboundOutcome(
         preWriterTelemetryMain.inbound_truth_persist_event_type === "user_yes"
           ? "user_yes"
           : null,
+    });
+
+    attachInboundNotebookTelemetryToLaneMetadata({
+      laneMetadata: laneRes.metadata,
+      buildTelemetry: inboundContextPacketThreadTelemetry,
+      contextPacketUsed: true,
+      contextPacketBuildFailed: inboundContextPacketBuildFailed,
+      memoryPacket: inboundRelationshipMemoryPacket,
+      transcriptLines: mainTranscriptLines,
+      writerInvoked: true,
     });
 
     if (!laneRes.shouldSend || !laneRes.body.trim()) {

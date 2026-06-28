@@ -24,7 +24,7 @@ describe("sms_weekly_notebook_health_check.sql", () => {
     expect(sql).toContain("last_outbound_or_packet_fallback_used");
     expect(sql).toContain("unclassified_notebook_failure");
     expect(sql).toContain("P1 telemetry bug");
-
+    expect(sql).toContain("weekly_thread_schema_fallback_used");
     expect(sql).not.toMatch(/ELSE\s+'needs_review'/);
   });
 });

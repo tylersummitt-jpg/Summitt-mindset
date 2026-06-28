@@ -52,7 +52,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.14");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.15");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
 
     for (const name of QUERY_HEADERS) {
@@ -296,5 +296,19 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("c1_brief_zero_source_candidates_after_schema_fallback");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.15 daily notebook verification parity markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("v2.15 Daily notebook verification parity");
+    expect(sql).toContain("daily_thread_correct_notebook_verified");
+    expect(sql).toContain("daily_thread_notebook_failure_reason");
+    expect(sql).toContain("daily_thread_message_source_breakdown");
+    expect(sql).toContain("daily_thread_exact_source_message_count");
+    expect(sql).toContain("daily_notebook_health");
+    expect(sql).toContain("unclassified_notebook_failure");
+    expect(sql).not.toMatch(/ELSE\s+'needs_review'/);
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
   });
 });

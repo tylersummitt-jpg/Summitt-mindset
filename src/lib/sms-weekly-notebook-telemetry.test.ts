@@ -266,6 +266,32 @@ describe("sms-weekly-notebook-telemetry", () => {
     expect(telemetry.weekly_thread_notebook_failure_reason).toBe("fetch_error");
   });
 
+  it("schema_fallback_used prevents correct_notebook_verified", () => {
+    const telemetry = buildWeeklyNotebookTelemetry({
+      buildTelemetry: sampleBuildTelemetry({
+        daily_brief_thread_schema_fallback_used: true,
+        daily_brief_thread_schema_fallback_sources: "sms_send_events",
+      }),
+      memoryPacketUsed: true,
+      memoryPacketBuildFailed: false,
+      includedThreadMessageCount: 3,
+      writerInvoked: true,
+      sourceBreakdown: {
+        recentExactThread72hMessages: [
+          exactSourceMessage(),
+          exactSourceMessage({ role: "user", source_table: "sms_inbound_messages" }),
+          exactSourceMessage({ source_table: "sms_weekly_send_events" }),
+        ],
+        recentTranscriptLineCount: 0,
+        includedThreadMessageCount: 3,
+        threadFallbackUsedInPacket: false,
+        legacyFallbackSourceInPacket: null,
+      },
+    });
+    expect(telemetry.weekly_thread_correct_notebook_verified).toBe(false);
+    expect(telemetry.weekly_thread_notebook_failure_reason).toBe("schema_fallback_used");
+  });
+
   it("memory packet success writes weekly_thread_message_count and source candidates", () => {
     const telemetry = buildWeeklyNotebookTelemetry({
       buildTelemetry: sampleBuildTelemetry(),

@@ -1,7 +1,12 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.14
+-- SMS DAILY COMMAND CENTER PACK v2.15
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 15 queries.
+--
+-- v2.15 Daily notebook verification parity (June 2026):
+--   - Q02: daily_thread_correct_notebook_verified, daily_thread_notebook_failure_reason,
+--     daily_thread_message_source_breakdown, daily_thread_exact_source_message_count,
+--     daily_thread_last_outbound_fallback_message_count, daily_notebook_health diagnostic.
 --
 -- v2.14 Sunday-before-writer + notebook primary select(*) fetch (June 2026):
 --   - Q01/Q02/Q13: daily_brief_thread_primary_fetch_strategy/succeeded, recovered_source_rows.
@@ -1349,6 +1354,76 @@ SELECT
   END AS daily_brief_thread_schema_fallback_sources,
   CASE
     WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_correct_notebook_verified}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_correct_notebook_verified}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_correct_notebook_verified,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_notebook_failure_reason}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_notebook_failure_reason}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_notebook_failure_reason,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_message_source_breakdown}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_message_source_breakdown}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_message_source_breakdown,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_exact_source_message_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_exact_source_message_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_exact_source_message_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_last_outbound_fallback_message_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_last_outbound_fallback_message_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_last_outbound_fallback_message_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_filtered_out_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_filtered_out_count}',
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_count}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_count}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_filtered_out_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_filtered_out_reason_top}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_filtered_out_reason_top}',
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_filtered_out_reason_top}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_filtered_out_reason_top}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_filtered_out_reason_top,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_source_tables_present}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_source_tables_present}',
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_tables_present}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_tables_present}',
+      ''
+    )
+    ELSE ''
+  END AS daily_thread_source_tables_present,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
       raw_json#>>'{metadata,relationship_packet_observability,daily_unsupported_praise_detected}',
       raw_json#>>'{metadata,daily_v3_lane,daily_unsupported_praise_detected}',
       ''
@@ -1656,6 +1731,102 @@ SELECT
       ) !~* '(hour.{0,30}distribution|distribution.{0,30}hour)'
     THEN true ELSE false
   END AS freshness_preview_missed_visible_cta,
+  CASE
+    WHEN event_source <> 'coach_daily_outbound' THEN ''
+    WHEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_correct_notebook_verified}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_correct_notebook_verified}',
+      ''
+    ) ~* 'true' THEN 'correct_notebook_verified'
+    WHEN NULLIF(BTRIM(COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_thread_notebook_failure_reason}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_thread_notebook_failure_reason}',
+      ''
+    )), '') NOT IN ('', 'none')
+      THEN COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_thread_notebook_failure_reason}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_thread_notebook_failure_reason}',
+        ''
+      )
+    WHEN COALESCE(
+      NULLIF(COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_fetch_error_count}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_fetch_error_count}',
+        ''
+      ), '')::int,
+      0
+    ) > 0 THEN 'fetch_error'
+    WHEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_used}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_used}',
+      ''
+    ) ~* 'true' THEN 'schema_fallback_used'
+    WHEN COALESCE(
+      NULLIF(COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_candidate_count}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_candidate_count}',
+        ''
+      ), '')::int,
+      0
+    ) = 0
+      AND COALESCE(
+        NULLIF(COALESCE(
+          raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+          raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+          ''
+        ), '')::int,
+        0
+      ) > 0
+    THEN 'message_count_without_source_candidates'
+    WHEN COALESCE(
+      NULLIF(COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_candidate_count}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_candidate_count}',
+        ''
+      ), '')::int,
+      0
+    ) = 0 THEN 'no_source_candidates'
+    WHEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_used}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_used}',
+      ''
+    ) ~* 'true' THEN 'last_outbound_or_packet_fallback_used'
+    WHEN COALESCE(
+      NULLIF(COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_source_candidate_count}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_source_candidate_count}',
+        ''
+      ), '')::int,
+      0
+    ) > 0
+      AND COALESCE(
+        NULLIF(COALESCE(
+          raw_json#>>'{metadata,relationship_packet_observability,daily_thread_exact_source_message_count}',
+          raw_json#>>'{metadata,daily_v3_lane,daily_thread_exact_source_message_count}',
+          ''
+        ), '')::int,
+        0
+      ) = 0
+    THEN 'source_candidates_no_exact_messages'
+    WHEN COALESCE(
+      NULLIF(COALESCE(
+        raw_json#>>'{metadata,relationship_packet_observability,daily_thread_exact_source_message_count}',
+        raw_json#>>'{metadata,daily_v3_lane,daily_thread_exact_source_message_count}',
+        ''
+      ), '')::int,
+      0
+    ) > 0
+      AND COALESCE(
+        NULLIF(COALESCE(
+          raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_message_count}',
+          raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_message_count}',
+          ''
+        ), '')::int,
+        0
+      ) <= 1
+    THEN 'exact_thread_too_thin'
+    ELSE 'unclassified_notebook_failure'
+  END AS daily_notebook_health,
   raw_json
 FROM thread_scored
 WHERE event_at IS NOT NULL

@@ -100,6 +100,7 @@ import {
   deriveDailyWritingBriefFallbackTelemetry,
   useDailySmsWritingBriefV1,
 } from "@/lib/sms-daily-writing-brief-v1";
+import { buildDailyNotebookTelemetry } from "@/lib/sms-daily-notebook-telemetry";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
 import {
@@ -1392,6 +1393,14 @@ export async function produceDailyV3RelationshipSms(
         writer_total_chars: writerMsgs.writer_total_chars,
         threadWindow,
         threadBuild: briefThread.build_telemetry,
+      }),
+      buildDailyNotebookTelemetry({
+        buildTelemetry: briefThread.build_telemetry,
+        briefBuildStatus: "used",
+        messageCount: brief.recent_exact_thread.message_count,
+        exactSourceMessageCount: briefThread.exact_source_message_count,
+        lastOutboundFallbackMessageCount: briefThread.last_outbound_fallback_message_count,
+        writerInvoked: true,
       })
     );
   } else {

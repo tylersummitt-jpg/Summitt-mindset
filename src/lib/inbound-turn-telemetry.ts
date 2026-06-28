@@ -8,6 +8,7 @@ import { slimShortAnswerContextForTelemetry } from "@/lib/inbound-short-answer-c
 import type { ShortAnswerContextAuthority } from "@/lib/inbound-short-answer-context";
 import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
+import { INBOUND_NOTEBOOK_OBSERVABILITY_KEYS } from "@/lib/sms-inbound-notebook-telemetry";
 
 /** Compact resolved-truth / proof telemetry for soak SQL on sent turns. */
 export const INBOUND_TURN_TELEMETRY_TRUTH_KEYS = [
@@ -158,6 +159,11 @@ export function compactInboundTurnTelemetryLaneFields(
   const absorb = (src: Record<string, unknown> | null | undefined) => {
     if (src == null || typeof src !== "object") return;
     for (const key of INBOUND_TURN_TELEMETRY_COMPACT_KEYS) {
+      if (src[key] !== undefined && merged[key] === undefined) {
+        merged[key] = src[key];
+      }
+    }
+    for (const key of INBOUND_NOTEBOOK_OBSERVABILITY_KEYS) {
       if (src[key] !== undefined && merged[key] === undefined) {
         merged[key] = src[key];
       }

@@ -760,6 +760,9 @@ export type RecentExactThreadForBriefResult = {
   messages: RecentExactThreadBriefMessage[];
   message_count: number;
   char_count: number;
+  /** Writer-facing capped pool — exact DB sources vs last_outbound (telemetry only). */
+  exact_source_message_count: number;
+  last_outbound_fallback_message_count: number;
   /** Full 7d timeline for coach-body freshness extraction. */
   timeline_7d: RecentExactThread72hResult;
   build_telemetry: BriefThreadBuildTelemetry;
@@ -805,12 +808,38 @@ function toBriefMessage(m: RecentExactThread72hMessage): RecentExactThreadBriefM
 
 type BriefCapItem = { msg: RecentExactThread72hMessage; ts: number; isFloor: boolean };
 
+export const NOTEBOOK_EXACT_THREAD_SOURCE_TABLES = new Set([
+  "sms_send_events",
+  "sms_weekly_send_events",
+  "sms_inbound_messages",
+  "sms_inbound_coach_jobs",
+]);
+
+export function countExactAndLastOutboundFromThreadMessages(
+  messages: RecentExactThread72hMessage[]
+): {
+  exact_source_message_count: number;
+  last_outbound_fallback_message_count: number;
+} {
+  const coachUser = messages.filter((m) => m.role === "coach" || m.role === "user");
+  return {
+    exact_source_message_count: coachUser.filter((m) =>
+      NOTEBOOK_EXACT_THREAD_SOURCE_TABLES.has(m.source_table)
+    ).length,
+    last_outbound_fallback_message_count: coachUser.filter(
+      (m) => m.source_table === "sms_last_outbound_context"
+    ).length,
+  };
+}
+
 export type CappedBriefThreadResult = {
   messages: RecentExactThreadBriefMessage[];
   floor_message_count: number;
   extension_message_count: number;
   oldest_at_local: string | null;
   newest_at_local: string | null;
+  exact_source_message_count: number;
+  last_outbound_fallback_message_count: number;
 };
 
 function collectWriterFacingItems(
@@ -908,12 +937,18 @@ export function capThreadMessagesForBriefWithTelemetry(
     else extensionCount += 1;
   }
 
+  const sourceCounts = countExactAndLastOutboundFromThreadMessages(
+    chosen.map((i) => i.msg)
+  );
+
   return {
     messages: briefMsgs,
     floor_message_count: floorCount,
     extension_message_count: extensionCount,
     oldest_at_local: chosen[0]?.msg.at_local ?? null,
     newest_at_local: chosen[chosen.length - 1]?.msg.at_local ?? null,
+    exact_source_message_count: sourceCounts.exact_source_message_count,
+    last_outbound_fallback_message_count: sourceCounts.last_outbound_fallback_message_count,
   };
 }
 
@@ -1342,6 +1377,8 @@ export async function buildRecentExactThreadForBrief(
     messages: capped.messages,
     message_count: capped.messages.length,
     char_count: briefThreadMessageCharCount(capped.messages),
+    exact_source_message_count: capped.exact_source_message_count,
+    last_outbound_fallback_message_count: capped.last_outbound_fallback_message_count,
     timeline_7d,
     build_telemetry: stats.toTelemetry(),
   };

@@ -28,6 +28,7 @@ import type {
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
+import { INBOUND_NOTEBOOK_OBSERVABILITY_KEYS } from "@/lib/sms-inbound-notebook-telemetry";
 import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
   buildDailyTemporalAwarenessPromptGuidance,
@@ -2029,6 +2030,14 @@ export const DAILY_WRITING_BRIEF_OBSERVABILITY_KEYS = [
   "daily_brief_thread_primary_fetch_succeeded",
   "daily_brief_thread_recovered_source_rows",
   "daily_writer_invoked",
+  "daily_thread_correct_notebook_verified",
+  "daily_thread_notebook_failure_reason",
+  "daily_thread_message_source_breakdown",
+  "daily_thread_exact_source_message_count",
+  "daily_thread_last_outbound_fallback_message_count",
+  "daily_thread_filtered_out_count",
+  "daily_thread_filtered_out_reason_top",
+  "daily_thread_source_tables_present",
   "sunday_suppression_applied_before_writer",
   "daily_route_suppressed_before_writer",
   "daily_route_suppression_reason",
@@ -2117,6 +2126,7 @@ export function relationshipObservabilityFromLaneMetadata(
     ...REPAIR_SNAPSHOT_OBSERVABILITY_KEYS,
     ...LANE_CONTEXT_OBSERVABILITY_KEYS,
     ...DAILY_WRITING_BRIEF_OBSERVABILITY_KEYS,
+    ...INBOUND_NOTEBOOK_OBSERVABILITY_KEYS,
   ]) {
     if (metadata[key] !== undefined) out[key] = metadata[key];
   }
