@@ -52,7 +52,7 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(upper).not.toMatch(/\bCREATE\s+TABLE\b/);
     expect(upper).not.toMatch(/\bTRUNCATE\b/);
 
-    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.12");
+    expect(sql).toContain("SMS DAILY COMMAND CENTER PACK v2.13");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
 
     for (const name of QUERY_HEADERS) {
@@ -266,6 +266,19 @@ describe("sms_daily_command_center_pack_v2.sql", () => {
     expect(sql).toContain("c1_brief_thread_fetch_error");
     expect(sql).toContain("c1_brief_fallback_only_thread");
     expect(sql).toContain("c1_brief_empty_thread_with_fetch_error");
+    expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
+    expect(sql).not.toMatch(/last_error'\)::jsonb/i);
+  });
+
+  it("includes v2.13 schema-adaptive notebook fetch observability markers in the pack", async () => {
+    const sql = await readFile(SQL_PATH, "utf8");
+
+    expect(sql).toContain("v2.13 DailySmsWritingBriefV1 schema-adaptive notebook fetch");
+    expect(sql).toContain("daily_brief_thread_schema_fallback_used");
+    expect(sql).toContain("daily_brief_thread_schema_fallback_sources");
+    expect(sql).toContain("c1_brief_schema_fallback_used");
+    expect(sql).toContain("c1_brief_fetch_error_unrecovered");
+    expect(sql).toContain("c1_brief_zero_source_candidates_after_schema_fallback");
     expect(sql.match(/^-- QUERY \d{2} —/gm)?.length).toBe(15);
     expect(sql).not.toMatch(/last_error'\)::jsonb/i);
   });

@@ -2021,6 +2021,8 @@ export const DAILY_WRITING_BRIEF_OBSERVABILITY_KEYS = [
   "daily_brief_thread_fetch_error_count",
   "daily_brief_thread_fetch_error_sources",
   "daily_brief_thread_fetch_error_top",
+  "daily_brief_thread_schema_fallback_used",
+  "daily_brief_thread_schema_fallback_sources",
   "daily_brief_thread_fallback_used",
   "daily_brief_thread_fallback_source_count",
   "daily_suggested_move",

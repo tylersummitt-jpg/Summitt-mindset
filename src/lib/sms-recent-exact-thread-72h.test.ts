@@ -20,6 +20,7 @@ import {
   bodyFromWeeklySendEventRow,
   buildRecentExactThread72h,
   buildRecentExactThreadForBrief,
+  BRIEF_THREAD_MAX_CHARS,
   BRIEF_THREAD_MAX_MESSAGES,
   capThreadMessagesForBrief,
   capThreadMessagesForBriefWithTelemetry,
@@ -28,6 +29,7 @@ import {
   formatAtLocal,
   isSendEventTrulySent,
   RECENT_EXACT_THREAD_WINDOW_HOURS,
+  SCHEMA_ADAPTIVE_FALLBACK_LIMIT,
   SMS_SEND_EVENTS_THREAD_SELECT,
   SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT,
   timestampFromInboundMessageRow,
@@ -55,6 +57,65 @@ function chain(rows: unknown[] | unknown | null) {
     then: (resolve: (v: typeof result) => void) => resolve(result),
   };
   return builder;
+}
+
+type SchemaAdaptiveTableConfig = {
+  /** Preferred queries return 42703 until select("*") fallback. */
+  failPreferredWith42703?: boolean;
+  /** All queries including select("*") fail. */
+  failAll?: boolean;
+  fallbackRows?: unknown[];
+  preferredRows?: unknown[];
+};
+
+function adaptiveChain(config: SchemaAdaptiveTableConfig) {
+  let selectCols = "";
+  const err42703 = { data: null, error: { code: "42703", message: "column does not exist" } };
+  const builder = {
+    select: (cols: string) => {
+      selectCols = cols;
+      return builder;
+    },
+    eq: () => builder,
+    gte: () => builder,
+    not: () => builder,
+    order: () => builder,
+    limit: () => builder,
+    maybeSingle: () => {
+      if (config.failAll) return Promise.resolve(err42703);
+      if (selectCols === "*") {
+        const row = config.fallbackRows?.[0] ?? null;
+        return Promise.resolve({ data: row, error: null });
+      }
+      if (config.failPreferredWith42703) return Promise.resolve(err42703);
+      const row = config.preferredRows?.[0] ?? config.fallbackRows?.[0] ?? null;
+      return Promise.resolve({ data: row, error: null });
+    },
+    then: (resolve: (v: { data: unknown; error: unknown }) => void) => {
+      if (config.failAll) {
+        resolve(err42703);
+        return;
+      }
+      if (selectCols === "*") {
+        resolve({ data: config.fallbackRows ?? [], error: null });
+        return;
+      }
+      if (config.failPreferredWith42703) {
+        resolve(err42703);
+        return;
+      }
+      resolve({ data: config.preferredRows ?? config.fallbackRows ?? [], error: null });
+    },
+  };
+  return builder;
+}
+
+function setupSchemaAdaptiveSupabase(tables: Record<string, SchemaAdaptiveTableConfig | undefined>) {
+  supabaseFrom.mockImplementation((table: string) => {
+    const cfg = tables[table];
+    if (cfg) return adaptiveChain(cfg);
+    return chain([]);
+  });
 }
 
 function setupSupabaseTables(args: {
@@ -926,5 +987,319 @@ describe("buildRecentExactThreadForBrief visible send coverage", () => {
     expect(brief.build_telemetry.daily_brief_thread_source_tables_present).toContain(
       "sms_last_outbound_context"
     );
+  });
+});
+
+describe("schema-adaptive notebook fetch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+  });
+
+  const NOW_BRIEF = new Date("2026-06-22T12:00:00.000Z");
+
+  it("sms_send_events: 42703 on preferred, select(*) fallback succeeds with source candidates", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: {
+        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            status: "sent",
+            message_sid: "SM_FALLBACK_SEND",
+            metadata: {
+              sent_at: "2026-06-21T10:00:00.000Z",
+              sms_body: "Daily coach body from schema fallback fetch.",
+            },
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_schema_send",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBeGreaterThan(0);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_sources).toContain(
+      "sms_send_events"
+    );
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBeGreaterThan(0);
+    expect(brief.messages.some((m) => /Daily coach body from schema fallback/i.test(m.body))).toBe(
+      true
+    );
+  });
+
+  it("sms_inbound_messages: 42703 on timestamp columns, fallback includes user message", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_inbound_messages: {
+        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            raw_body: "User reply recovered via schema fallback.",
+            metadata: { received_at: "2026-06-21T10:00:00.000Z" },
+            message_sid: "SM_IN_FALLBACK",
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_schema_inbound",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
+    expect(brief.messages.some((m) => m.role === "user" && /recovered via schema fallback/i.test(m.body))).toBe(
+      true
+    );
+    expect(brief.build_telemetry.daily_brief_thread_user_inbound_candidate_count).toBe(1);
+  });
+
+  it("sms_inbound_coach_jobs: 42703 on sent_at/updated_at, fallback includes coach reply", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_inbound_coach_jobs: {
+        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            raw_body: "User asked about prayer.",
+            reply_body: "Keep showing up — one day at a time.",
+            status: "sent",
+            outbound_message_sid: "SM_REPLY_FB",
+            metadata: { processed_at: "2026-06-21T11:00:00.000Z" },
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_schema_job",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
+    expect(brief.messages.some((m) => m.role === "coach" && /Keep showing up/i.test(m.body))).toBe(
+      true
+    );
+    expect(brief.build_telemetry.daily_brief_thread_visible_send_candidate_count).toBeGreaterThan(0);
+  });
+
+  it("sms_weekly_send_events: 42703 on preferred, fallback includes weekly coach message", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_weekly_send_events: {
+        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            status: "sent",
+            message_sid: "SM_WEEKLY_FB",
+            metadata: {
+              sent_at: "2026-06-20T16:00:00.000Z",
+              north_star_gate: { final_body: "Weekly Pat Pause from schema fallback." },
+            },
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_schema_weekly",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
+    expect(brief.messages.some((m) => /Weekly Pat Pause from schema fallback/i.test(m.body))).toBe(
+      true
+    );
+    expect(brief.build_telemetry.daily_brief_thread_weekly_candidate_count).toBe(1);
+  });
+
+  it("all preferred queries fail but select(*) fallback succeeds: errors recorded and candidates recovered", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: {
+        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            status: "sent",
+            message_sid: "SM_ALL_FB",
+            metadata: {
+              sent_at: "2026-06-21T09:00:00.000Z",
+              sms_body: "Recovered after all preferred attempts failed.",
+            },
+          },
+        ],
+      },
+      sms_inbound_messages: { failPreferredWith42703: true, fallbackRows: [] },
+      sms_inbound_coach_jobs: { failPreferredWith42703: true, fallbackRows: [] },
+      sms_weekly_send_events: { failPreferredWith42703: true, fallbackRows: [] },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_all_fb",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBeGreaterThan(0);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(true);
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBeGreaterThan(0);
+  });
+
+  it("all preferred and fallback fail: fetch errors, zero source candidates", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: { failAll: true },
+      sms_inbound_messages: { failAll: true },
+      sms_inbound_coach_jobs: { failAll: true },
+      sms_weekly_send_events: { failAll: true },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_all_fail",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_fetch_error_count).toBeGreaterThan(0);
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBe(0);
+    expect(brief.build_telemetry.daily_brief_thread_schema_fallback_used).toBe(false);
+    expect(brief.message_count).toBe(0);
+  });
+
+  it("all sources fail but last_outbound_context fallback: fallback_used true, source_candidate_count 0", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: { failAll: true },
+      sms_inbound_messages: { failAll: true },
+      sms_inbound_coach_jobs: { failAll: true },
+      sms_weekly_send_events: { failAll: true },
+      sms_last_outbound_context: {
+        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            sent_at: "2026-06-21T14:00:00.000Z",
+            full_body: "Last outbound only after all source fetches failed.",
+            message_kind: "coach",
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_loc_only",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBe(0);
+    expect(brief.build_telemetry.daily_brief_thread_fallback_used).toBe(true);
+    expect(brief.message_count).toBe(1);
+  });
+
+  it("real source rows plus last_outbound: source_candidate_count > 0, last_outbound fallback not required", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "sent",
+          message_sid: "SM_REAL",
+          sent_at: "2026-06-21T10:00:00.000Z",
+          sms_body: "Real source row coach message.",
+        },
+      ],
+      lastCtx: {
+        sent_at: "2026-06-21T14:00:00.000Z",
+        full_body: "Duplicate last outbound should dedupe.",
+        message_kind: "coach",
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_real_plus_loc",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBeGreaterThan(0);
+    expect(brief.messages.some((m) => /Real source row coach/i.test(m.body))).toBe(true);
+  });
+
+  it("final thread cap stays <=25 messages and <=5000 chars", async () => {
+    const manyRows = Array.from({ length: 40 }, (_, i) => ({
+      status: "sent",
+      message_sid: `SM_CAP_${i}`,
+      metadata: {
+        sent_at: new Date(NOW_BRIEF.getTime() - i * 3600_000).toISOString(),
+        sms_body: `Coach cap message ${i} with enough body text for char accounting.`,
+      },
+    }));
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: { failPreferredWith42703: true, fallbackRows: manyRows },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_cap",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.message_count).toBeLessThanOrEqual(BRIEF_THREAD_MAX_MESSAGES);
+    expect(brief.char_count).toBeLessThanOrEqual(BRIEF_THREAD_MAX_CHARS);
+  });
+
+  it("skipped/preview/dry_run rows do not enter writer thread", async () => {
+    setupSchemaAdaptiveSupabase({
+      sms_send_events: {
+        failPreferredWith42703: true,
+        fallbackRows: [
+          {
+            status: "skipped_no_safe_v3_voice",
+            metadata: {
+              sent_at: "2026-06-21T10:00:00.000Z",
+              north_star_gate: { final_body: "Skipped no-send body must not appear." },
+            },
+          },
+          {
+            status: "preview",
+            metadata: {
+              sent_at: "2026-06-21T11:00:00.000Z",
+              sms_body: "Preview body must not appear.",
+            },
+          },
+          {
+            status: "dry_run",
+            message_sid: "SM_DRY",
+            metadata: {
+              sent_at: "2026-06-21T12:00:00.000Z",
+              sms_body: "Dry run body must not appear.",
+            },
+          },
+          {
+            status: "sent",
+            message_sid: "SM_GOOD",
+            metadata: {
+              sent_at: "2026-06-21T13:00:00.000Z",
+              sms_body: "Visible sent body only in writer thread.",
+            },
+          },
+        ],
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_filter",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.messages).toHaveLength(1);
+    expect(brief.messages[0]?.body).toMatch(/Visible sent body only/i);
+    expect(brief.messages.some((m) => /Skipped|Preview|Dry run/i.test(m.body))).toBe(false);
+  });
+
+  it("schema fallback limit is bounded", () => {
+    expect(SCHEMA_ADAPTIVE_FALLBACK_LIMIT).toBeLessThanOrEqual(300);
+    expect(SCHEMA_ADAPTIVE_FALLBACK_LIMIT).toBeGreaterThan(0);
   });
 });

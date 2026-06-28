@@ -1,7 +1,12 @@
 -- =============================================================================
--- SMS DAILY COMMAND CENTER PACK v2.12
+-- SMS DAILY COMMAND CENTER PACK v2.13
 -- Read-only observability for Summitt Mindset SMS (all users, no hard-coded personas).
 -- Replaces the 29-query daily process (16 SMS soak + 13 truth cert) with 15 queries.
+--
+-- v2.13 DailySmsWritingBriefV1 schema-adaptive notebook fetch (June 2026):
+--   - Q01/Q02/Q13: schema_fallback_used, schema_fallback_sources on brief thread telemetry.
+--   - Q13 sanity: c1_brief_schema_fallback_used, c1_brief_fetch_error_unrecovered,
+--     c1_brief_zero_source_candidates_after_schema_fallback.
 --
 -- v2.12 DailySmsWritingBriefV1 notebook fetch reliability (June 2026):
 --   - Q01/Q02/Q13: fetch_error_count/sources/top, fallback_used, fallback_source_count.
@@ -315,7 +320,17 @@ send_base AS (
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_fallback_source_count}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_fallback_source_count}',
       ''
-    ) AS daily_brief_thread_fallback_source_count
+    ) AS daily_brief_thread_fallback_source_count,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_used}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_used}',
+      ''
+    ) AS daily_brief_thread_schema_fallback_used,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_sources}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_sources}',
+      ''
+    ) AS daily_brief_thread_schema_fallback_sources
   FROM sms_send_events s
   CROSS JOIN bounds b
   WHERE COALESCE(
@@ -1268,6 +1283,22 @@ SELECT
     )
     ELSE ''
   END AS daily_brief_thread_fallback_source_count,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_used}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_used}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_schema_fallback_used,
+  CASE
+    WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
+      raw_json#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_sources}',
+      raw_json#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_sources}',
+      ''
+    )
+    ELSE ''
+  END AS daily_brief_thread_schema_fallback_sources,
   CASE
     WHEN event_source = 'coach_daily_outbound' THEN COALESCE(
       raw_json#>>'{metadata,relationship_packet_observability,daily_unsupported_praise_detected}',
@@ -4117,6 +4148,16 @@ send_base AS (
       ''
     ) AS daily_brief_thread_fallback_source_count,
     COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_used}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_used}',
+      ''
+    ) AS daily_brief_thread_schema_fallback_used,
+    COALESCE(
+      to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_brief_thread_schema_fallback_sources}',
+      to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_brief_thread_schema_fallback_sources}',
+      ''
+    ) AS daily_brief_thread_schema_fallback_sources,
+    COALESCE(
       to_jsonb(s)#>>'{metadata,relationship_packet_observability,daily_freshness_avoid_count}',
       to_jsonb(s)#>>'{metadata,daily_v3_lane,daily_freshness_avoid_count}',
       ''
@@ -4923,6 +4964,70 @@ issues AS (
     AND cb.writer_prompt_path = 'daily_writing_brief_v1'
     AND cb.daily_writing_brief_build_status = 'used'
     AND COALESCE(NULLIF(cb.daily_brief_thread_fetch_error_count, ''), '0')::int > 0
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'info',
+    'c1_brief_schema_fallback_used',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief thread recovered via schema-adaptive select(*) fallback — preferred column query failed (42703)'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_brief_thread_schema_fallback_used ~* 'true'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_source_candidate_count, ''), '0')::int > 0
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_fetch_error_unrecovered',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Brief fetch_error_count > 0 and schema fallback did not recover source rows — notebook likely incomplete'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_fetch_error_count, ''), '0')::int > 0
+    AND COALESCE(NULLIF(cb.daily_brief_thread_source_candidate_count, ''), '0')::int = 0
+    AND COALESCE(cb.daily_brief_thread_schema_fallback_used, '') !~* 'true'
+
+  UNION ALL
+
+  SELECT
+    'Query 01 / 02 DailySmsWritingBriefV1 telemetry unreliable',
+    'warning',
+    'c1_brief_zero_source_candidates_after_schema_fallback',
+    cb.event_at,
+    cb.clerk_user_id,
+    cb.status,
+    cb.no_send_reason,
+    cb.skip_source,
+    '',
+    '',
+    'Schema fallback ran but source_candidate_count = 0 — all sources failed or rows filtered out'
+  FROM classified_base cb
+  WHERE cb.visible_sent
+    AND cb.writer_prompt_path = 'daily_writing_brief_v1'
+    AND cb.daily_writing_brief_build_status = 'used'
+    AND cb.daily_brief_thread_schema_fallback_used ~* 'true'
+    AND COALESCE(NULLIF(cb.daily_brief_thread_source_candidate_count, ''), '0')::int = 0
 
   UNION ALL
 
