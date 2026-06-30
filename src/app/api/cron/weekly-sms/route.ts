@@ -717,12 +717,15 @@ export async function GET(req: Request) {
             },
           });
 
+          const sentAt = new Date();
+          const sentAtIso = sentAt.toISOString();
+
           const mem = await writeV2SmsThreadMemoryAfterWeeklyV3Outbound({
             commitmentId: commitment.id,
             clerkUserId: user.id,
             coachBodyForMemory: guardedWeeklyBody,
             messageSid: messageV2.sid,
-            sentAt: new Date(),
+            sentAt,
           });
 
           await supabaseServer
@@ -731,6 +734,7 @@ export async function GET(req: Request) {
               message_sid: messageV2.sid,
               status: messageV2.status,
               metadata: enrichWeeklyPersistenceMetadata(v2Metadata as Record<string, unknown>, {
+                sent_at: sentAtIso,
                 sms_body: finalBodyV2,
                 voice_send_decision: {
                   ...(v2Metadata.voice_send_decision as Record<string, unknown>),
