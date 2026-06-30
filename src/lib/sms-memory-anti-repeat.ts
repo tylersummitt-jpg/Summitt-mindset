@@ -1193,36 +1193,42 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     };
   }
 
-  if (firstViolation.reason === "repeated_recent_coach_body") {
-    const priorPreview = firstViolation.repeatedPhrases[0] ?? null;
+  const coachBodyParaphraseRepair =
+    firstViolation.reason === "repeated_recent_coach_body";
+
+  if (coachBodyParaphraseRepair) {
+    const priorBody = firstViolation.repeatedPhrases[0]?.trim() ?? "";
     const preview =
-      priorPreview && priorPreview.length > 220 ? `${priorPreview.slice(0, 219)}…` : priorPreview;
-    return {
-      outcome: "no_send",
-      noSendReason: blockedNoSendReason,
-      metadata: {
-        memory_repeat_guard_attempted: true,
-        memory_repeat_guard_succeeded: false,
-        memory_repeat_guard_reason: firstViolation.reason,
-        repeated_phrases: firstViolation.repeatedPhrases,
-        repeated_question: null,
-        memory_repeat_original_body_preview:
-          original.length > 220 ? `${original.slice(0, 219)}…` : original,
-        memory_repeat_repaired_body_preview: null,
-        memory_repeat_no_send_reason: "coach_body_near_duplicate",
-        memory_repeat_repair_skipped_reason: "coach_body_near_duplicate_no_repair",
-        coach_body_near_duplicate_detected: true,
-        daily_coach_body_near_duplicate_blocked: true,
-        prior_coach_body_preview: preview,
-        repeat_detected: true,
-        repeat_repair_attempted: false,
-        repeat_repair_strategy: null,
-        repeat_repair_succeeded: false,
-        repeat_repair_failed_reason: null,
-        repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
-        forced_second_repair_attempted: false,
-      },
-    };
+      priorBody && priorBody.length > 220 ? `${priorBody.slice(0, 219)}…` : priorBody;
+    if (priorBody && isNearExactDuplicateSms(original, priorBody)) {
+      return {
+        outcome: "no_send",
+        noSendReason: blockedNoSendReason,
+        metadata: {
+          memory_repeat_guard_attempted: true,
+          memory_repeat_guard_succeeded: false,
+          memory_repeat_guard_reason: firstViolation.reason,
+          repeated_phrases: firstViolation.repeatedPhrases,
+          repeated_question: null,
+          memory_repeat_original_body_preview:
+            original.length > 220 ? `${original.slice(0, 219)}…` : original,
+          memory_repeat_repaired_body_preview: null,
+          memory_repeat_no_send_reason: "coach_body_near_exact_duplicate",
+          memory_repeat_repair_skipped_reason: "coach_body_near_exact_duplicate_no_repair",
+          coach_body_near_exact_duplicate_detected: true,
+          coach_body_near_duplicate_detected: true,
+          daily_coach_body_near_duplicate_blocked: true,
+          prior_coach_body_preview: preview,
+          repeat_detected: true,
+          repeat_repair_attempted: false,
+          repeat_repair_strategy: null,
+          repeat_repair_succeeded: false,
+          repeat_repair_failed_reason: null,
+          repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
+          forced_second_repair_attempted: false,
+        },
+      };
+    }
   }
 
   if (args.openAiRepairEnabled === false) {
@@ -1278,6 +1284,19 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
     Boolean(firstViolation.repeatedQuestion) &&
     isNearExactDuplicateSms(firstViolation.repeatedQuestion!, original);
 
+  const coachBodyParaphraseRepairMeta = (): Record<string, unknown> =>
+    coachBodyParaphraseRepair
+      ? {
+          coach_body_paraphrase_repair_routed: true,
+          prior_coach_body_preview:
+            firstViolation.repeatedPhrases[0] != null
+              ? firstViolation.repeatedPhrases[0]!.length > 220
+                ? `${firstViolation.repeatedPhrases[0]!.slice(0, 219)}…`
+                : firstViolation.repeatedPhrases[0]
+              : null,
+        }
+      : {};
+
   const returnGuardSuccess = (
     repaired: string,
     forcedStrategy: SmsMemoryRepeatRepairStrategy,
@@ -1311,6 +1330,7 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
         repeat_repair_failed_reason: null,
         repeat_repair_system: SMS_MEMORY_REPEAT_REPAIR_SYSTEM,
         forced_second_repair_attempted: forcedSecondRepairAttempted,
+        ...coachBodyParaphraseRepairMeta(),
         ...repairOutMetadata,
         ...repairSnapshotMeta,
         ...labelMeta,
@@ -1429,6 +1449,15 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
           ? repairOut.metadata.repeat_repair_strategy
           : forcedStrategy ?? null;
 
+    const postValidateEarly = await args.validateAfterRepair(repaired);
+    if (!postValidateEarly.ok) {
+      lastFailedReason = "post_repair_validation_failed";
+      lastPostValidateNoSendReason = postValidateEarly.noSendReason;
+      lastPostValidateExtraMeta = postValidateEarly.extraMeta ?? {};
+      if (attemptIndex === 0) continue;
+      break;
+    }
+
     const strategyLabelMatched = repairBodyMatchesStrategy(repaired, forcedStrategy);
 
     if (!strategyLabelMatched) {
@@ -1461,14 +1490,6 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
           break;
         }
 
-        const postValidateOnMismatch = await args.validateAfterRepair(repaired);
-        if (!postValidateOnMismatch.ok) {
-          lastFailedReason = "post_repair_validation_failed";
-          lastPostValidateNoSendReason = postValidateOnMismatch.noSendReason;
-          lastPostValidateExtraMeta = postValidateOnMismatch.extraMeta ?? {};
-          break;
-        }
-
         return returnGuardSuccess(repaired, forcedStrategy, repairOut.metadata, repairSnapshotMeta, {
           repeat_repair_strategy_label_mismatch: true,
           repeat_repair_strategy_label_requested: forcedStrategy,
@@ -1494,14 +1515,6 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
       if (attemptIndex === 0) {
         continue;
       }
-      break;
-    }
-
-    const postValidate = await args.validateAfterRepair(repaired);
-    if (!postValidate.ok) {
-      lastFailedReason = "post_repair_validation_failed";
-      lastPostValidateNoSendReason = postValidate.noSendReason;
-      lastPostValidateExtraMeta = postValidate.extraMeta ?? {};
       break;
     }
 
@@ -1541,6 +1554,7 @@ export async function applySmsMemoryAntiRepeatGuard(args: {
         memory_repeat_repaired_body_preview: lastRepairedPreview,
         forced_second_repair_attempted: forcedSecondRepairAttempted,
         memory_repeat_guard_reason: firstViolation.reason,
+        ...coachBodyParaphraseRepairMeta(),
         ...lastPostValidateExtraMeta,
         ...lastRepairMetadata,
       }),

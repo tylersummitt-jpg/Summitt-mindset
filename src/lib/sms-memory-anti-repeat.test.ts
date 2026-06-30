@@ -659,11 +659,10 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
   });
 
   describe("openAiRepairEnabled", () => {
-    it("no-sends without OpenAI repair for coach body near-duplicate", async () => {
+    it("no-sends without OpenAI repair for near-exact coach body duplicate", async () => {
       const prior =
         "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
-      const candidate =
-        "You've shown commitment by completing your distribution. Aim for another hour of focused work to keep progressing with your goals.";
+      const candidate = prior;
       const r = await applySmsMemoryAntiRepeatGuard({
         routeKind: "daily",
         routePurpose: "main_active_accountability",
@@ -680,17 +679,50 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
 
       expect(repairMock).not.toHaveBeenCalled();
       expect(r.outcome).toBe("no_send");
-      expect(r.metadata.coach_body_near_duplicate_detected).toBe(true);
-      expect(r.metadata.daily_coach_body_near_duplicate_blocked).toBe(true);
-      expect(r.metadata.memory_repeat_no_send_reason).toBe("coach_body_near_duplicate");
+      expect(r.metadata.coach_body_near_exact_duplicate_detected).toBe(true);
+      expect(r.metadata.memory_repeat_no_send_reason).toBe("coach_body_near_exact_duplicate");
       expect(r.metadata.prior_coach_body_preview).toContain("distribution");
     });
 
-    it("zero-question mode: coach body near-duplicate no-sends without OpenAI repair", async () => {
+    it("attempts repair for coach body paraphrase instead of immediate no-send", async () => {
       const prior =
         "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
       const candidate =
         "You've shown commitment by completing your distribution. Aim for another hour of focused work to keep progressing with your goals.";
+      repairMock.mockResolvedValueOnce({
+        body: "Protect one focused hour on distribution before noon today.",
+        openAiOk: true,
+        metadata: {
+          lane_repair_used_strategy: "next_first_step",
+          repeat_repair_strategy: "next_first_step",
+        },
+      });
+
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: candidate,
+        factsJson: {},
+        detectInput: {
+          candidateBody: candidate,
+          recentCoachBodiesForAntiRepeat: [prior],
+        },
+        enabled: true,
+        openAiRepairEnabled: true,
+        validateAfterRepair: async () => ({ ok: true }),
+      });
+
+      expect(repairMock).toHaveBeenCalledTimes(1);
+      expect(r.outcome).toBe("ok");
+      expect(r.metadata.coach_body_paraphrase_repair_routed).toBe(true);
+      expect(r.metadata.repeat_repair_succeeded).toBe(true);
+      expect(r.metadata.prior_coach_body_preview).toContain("distribution");
+    });
+
+    it("zero-question mode: near-exact coach body still no-sends without OpenAI repair", async () => {
+      const prior =
+        "You completed your distribution yesterday, which shows your commitment. Aim for another hour of focused work today to keep progressing with your goals.";
+      const candidate = prior;
       const r = await applySmsMemoryAntiRepeatGuard({
         routeKind: "daily",
         routePurpose: "main_active_accountability",
@@ -707,8 +739,57 @@ describe("applySmsMemoryAntiRepeatGuard", () => {
 
       expect(repairMock).not.toHaveBeenCalled();
       expect(r.outcome).toBe("no_send");
-      expect(r.metadata.memory_repeat_no_send_reason).toBe("coach_body_near_duplicate");
-      expect(r.metadata.memory_repeat_repair_skipped_reason).toBe("coach_body_near_duplicate_no_repair");
+      expect(r.metadata.memory_repeat_no_send_reason).toBe("coach_body_near_exact_duplicate");
+      expect(r.metadata.memory_repeat_repair_skipped_reason).toBe(
+        "coach_body_near_exact_duplicate_no_repair"
+      );
+    });
+
+    it("rejects repaired body when validateAfterRepair fails for zero-question statement rule", async () => {
+      repairMock
+        .mockResolvedValueOnce({
+          body: "Did you take five minutes at lunch for that stretch today?",
+          openAiOk: true,
+          metadata: { lane_repair_used_strategy: "binary_truth_check" },
+        })
+        .mockResolvedValueOnce({
+          body: "What got in the way of the lunch stretch today?",
+          openAiOk: true,
+          metadata: { lane_repair_used_strategy: "barrier_check" },
+        });
+
+      const r = await applySmsMemoryAntiRepeatGuard({
+        routeKind: "daily",
+        routePurpose: "main_active_accountability",
+        body: paraphraseRepair,
+        factsJson: { commitment: { behavior_statement: "Self-care daily" } },
+        detectInput,
+        enabled: true,
+        openAiRepairEnabled: true,
+        validateAfterRepair: async (body) => {
+          if (/\?/.test(body)) {
+            return {
+              ok: false,
+              noSendReason: "thread_memory_repeat_blocked",
+              extraMeta: {
+                memory_repeat_no_send_reason: "zero_question_repair_violation",
+                daily_zero_question_repair_violation_reason:
+                  "daily_zero_question_repair_contains_question_mark",
+              },
+            };
+          }
+          return { ok: true };
+        },
+      });
+
+      expect(repairMock).toHaveBeenCalledTimes(2);
+      expect(r.outcome).toBe("no_send");
+      expect(r.noSendReason).toBe("thread_memory_repeat_blocked");
+      expect(r.metadata.memory_repeat_no_send_reason).toBe("zero_question_repair_violation");
+      expect(r.metadata.daily_zero_question_repair_violation_reason).toBe(
+        "daily_zero_question_repair_contains_question_mark"
+      );
+      expect(r.metadata.repeat_repair_attempted).toBe(true);
     });
 
     it("no-sends without OpenAI repair when openAiRepairEnabled is false", async () => {
@@ -1119,11 +1200,17 @@ describe("strategy label mismatch soft-accept (B/C hybrid)", () => {
   });
 
   it("D: validateAfterRepair failure no-sends with lane reason, not strategy mismatch", async () => {
-    repairMock.mockResolvedValueOnce({
-      body: eveningBarrierRepair,
-      openAiOk: true,
-      metadata: { lane_repair_used_strategy: "barrier_check" },
-    });
+    repairMock
+      .mockResolvedValueOnce({
+        body: eveningBarrierRepair,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "barrier_check" },
+      })
+      .mockResolvedValueOnce({
+        body: eveningBarrierRepair,
+        openAiOk: true,
+        metadata: { lane_repair_used_strategy: "identity_tie_back" },
+      });
 
     const r = await applySmsMemoryAntiRepeatGuard({
       routeKind: "daily",

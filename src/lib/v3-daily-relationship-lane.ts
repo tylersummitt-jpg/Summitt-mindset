@@ -182,6 +182,38 @@ ZERO-QUESTION DAILY MODE IS ACTIVE (Strategy Card authority — overrides generi
 - A good zero-question SMS can acknowledge the thread, protect today's next honest action, and challenge the user without asking for a reply.`;
 }
 
+/** Statement-only repair constraint when zero-question daily mode is active. */
+export function buildDailyMemoryRepeatZeroQuestionRepairInstruction(): string {
+  return [
+    "ZERO-QUESTION MEMORY REPAIR:",
+    "Rewrite as one statement-only coaching SMS.",
+    "No question marks.",
+    "No hidden asks.",
+    "Do not use did you / do you / have you / will you / can you / what happened / what got in the way / tell me / let me know phrasing.",
+    "Use one concrete next action in statement form tied to the current goal.",
+  ].join(" ");
+}
+
+/** Reject memory-repeat repair bodies that violate zero-question mode. */
+export function detectDailyZeroQuestionStatementRepairViolation(body: string): {
+  violation: boolean;
+  reason: string | null;
+} {
+  const b = body.trim();
+  if (!b) return { violation: false, reason: null };
+  if (/\?/.test(b)) {
+    return { violation: true, reason: "daily_zero_question_repair_contains_question_mark" };
+  }
+  if (
+    /\b(did you|do you|have you|will you|can you|what got in the way|what happened|tell me|let me know)\b/i.test(
+      b
+    )
+  ) {
+    return { violation: true, reason: "daily_zero_question_repair_ask_shaped_phrase" };
+  }
+  return { violation: false, reason: null };
+}
+
 function resolveDailyZeroQuestionModeFromCard(card: StrategyCardV1 | null): boolean {
   if (!card) return false;
   return (
@@ -1996,8 +2028,25 @@ used_facts (string[]), safety_notes (string[])`;
     factsJson: laneFacts,
     detectInput: buildAntiRepeatDetectArgsFromDailyFacts(laneFacts, body),
     enabled: shouldRunDailyMemoryRepeatGuard(laneFacts),
-    openAiRepairEnabled: !dailyZeroQuestionMode,
+    openAiRepairEnabled: true,
+    additionalRepairInstruction: dailyZeroQuestionMode
+      ? buildDailyMemoryRepeatZeroQuestionRepairInstruction()
+      : undefined,
     validateAfterRepair: async (candidate) => {
+      if (dailyZeroQuestionMode) {
+        const zeroQRepair = detectDailyZeroQuestionStatementRepairViolation(candidate);
+        if (zeroQRepair.violation) {
+          return {
+            ok: false,
+            noSendReason: "thread_memory_repeat_blocked",
+            extraMeta: {
+              memory_repeat_no_send_reason: "zero_question_repair_violation",
+              daily_zero_question_repair_violation_reason: zeroQRepair.reason,
+              memory_repeat_repair_skipped_zero_question_mode: false,
+            },
+          };
+        }
+      }
       const after = collectDailyPostValidateVoiceViolations(
         candidate,
         laneFacts,
