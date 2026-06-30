@@ -38,6 +38,37 @@ export type WeeklyNotebookFailureReason =
   | "send_not_visible_or_skipped"
   | "unclassified_notebook_failure";
 
+export type WeeklyNotebookVerdict = "verified" | "failed" | "not_applicable";
+
+export type WeeklyNotebookVerdictReason =
+  | "none"
+  | "exact_thread_too_thin"
+  | "source_candidates_filtered_out_empty_body"
+  | "no_source_candidates"
+  | "fetch_error"
+  | "schema_fallback_used"
+  | "memory_packet_build_failed"
+  | "memory_packet_not_used"
+  | "legacy_transcript_fallback_used"
+  | "brief_not_used"
+  | "writer_not_invoked"
+  | "lane_failed_before_writer"
+  | "no_history_expected"
+  | "unknown_missing_telemetry";
+
+export type WeeklyNotebookCanonicalTelemetry = {
+  weekly_notebook_verdict: WeeklyNotebookVerdict;
+  weekly_notebook_verdict_reason: WeeklyNotebookVerdictReason;
+  weekly_notebook_source_candidate_count: number | null;
+  weekly_notebook_exact_source_message_count: number | null;
+  weekly_notebook_thread_message_count: number | null;
+  weekly_notebook_filtered_out_reason_top: string | null;
+  weekly_notebook_memory_packet_used: boolean | null;
+  weekly_notebook_memory_packet_build_failed: boolean | null;
+  weekly_notebook_legacy_transcript_fallback_used: boolean | null;
+  weekly_notebook_writer_payload_included: boolean | null;
+};
+
 export type WeeklyNotebookTelemetry = {
   weekly_writer_invoked: boolean;
   weekly_thread_primary_fetch_strategy: string | null;
@@ -66,6 +97,237 @@ export type WeeklyNotebookTelemetry = {
   weekly_thread_filtered_out_reason_top: string | null;
   weekly_thread_source_tables_present: string;
 };
+
+export type WeeklyNotebookTelemetryWithVerdict = WeeklyNotebookTelemetry &
+  WeeklyNotebookCanonicalTelemetry;
+
+const LANE_FAILED_BEFORE_WRITER_STAGES = new Set([
+  "no_client",
+  "openai_error",
+  "parse",
+]);
+
+function readMetadataString(metadata: Record<string, unknown>, key: string): string | null {
+  const raw = metadata[key];
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return null;
+}
+
+function readMetadataBoolean(metadata: Record<string, unknown>, key: string): boolean | null {
+  const raw = metadata[key];
+  if (raw === true) return true;
+  if (raw === false) return false;
+  if (typeof raw === "string") {
+    const normalized = raw.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
+function readMetadataNumber(metadata: Record<string, unknown>, key: string): number | null {
+  const raw = metadata[key];
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+export function mapLegacyWeeklyNotebookFailureToVerdictReason(
+  legacy: string | null | undefined
+): WeeklyNotebookVerdictReason {
+  if (!legacy || legacy === "none") return "none";
+  switch (legacy) {
+    case "exact_thread_too_thin":
+      return "exact_thread_too_thin";
+    case "source_candidates_filtered_out_empty_body":
+      return "source_candidates_filtered_out_empty_body";
+    case "no_source_candidates":
+      return "no_source_candidates";
+    case "fetch_error":
+    case "primary_fetch_not_succeeded":
+      return "fetch_error";
+    case "schema_fallback_used":
+      return "schema_fallback_used";
+    case "memory_packet_build_failed":
+      return "memory_packet_build_failed";
+    case "memory_packet_not_used":
+      return "memory_packet_not_used";
+    case "legacy_transcript_fallback_used":
+      return "legacy_transcript_fallback_used";
+    case "writer_not_invoked":
+      return "writer_not_invoked";
+    case "telemetry_missing":
+      return "brief_not_used";
+    default:
+      return "unknown_missing_telemetry";
+  }
+}
+
+function weeklyNotebookCountsFromMetadata(metadata: Record<string, unknown>): Pick<
+  WeeklyNotebookCanonicalTelemetry,
+  | "weekly_notebook_source_candidate_count"
+  | "weekly_notebook_exact_source_message_count"
+  | "weekly_notebook_thread_message_count"
+  | "weekly_notebook_filtered_out_reason_top"
+  | "weekly_notebook_memory_packet_used"
+  | "weekly_notebook_memory_packet_build_failed"
+  | "weekly_notebook_legacy_transcript_fallback_used"
+  | "weekly_notebook_writer_payload_included"
+> {
+  const memoryPacketUsed = readMetadataBoolean(metadata, "weekly_memory_packet_used");
+  const writerInvoked = readMetadataBoolean(metadata, "weekly_writer_invoked");
+
+  return {
+    weekly_notebook_source_candidate_count: readMetadataNumber(
+      metadata,
+      "weekly_thread_source_candidate_count"
+    ),
+    weekly_notebook_exact_source_message_count: readMetadataNumber(
+      metadata,
+      "weekly_thread_exact_source_message_count"
+    ),
+    weekly_notebook_thread_message_count: readMetadataNumber(metadata, "weekly_thread_message_count"),
+    weekly_notebook_filtered_out_reason_top:
+      readMetadataString(metadata, "weekly_thread_filtered_out_reason_top"),
+    weekly_notebook_memory_packet_used: memoryPacketUsed,
+    weekly_notebook_memory_packet_build_failed: readMetadataBoolean(
+      metadata,
+      "weekly_memory_packet_build_failed"
+    ),
+    weekly_notebook_legacy_transcript_fallback_used: readMetadataBoolean(
+      metadata,
+      "weekly_thread_legacy_transcript_fallback_used"
+    ),
+    weekly_notebook_writer_payload_included:
+      memoryPacketUsed === true && writerInvoked === true
+        ? true
+        : memoryPacketUsed === false || writerInvoked === false
+          ? false
+          : null,
+  };
+}
+
+function hasWeeklyNotebookThreadCounts(metadata: Record<string, unknown>): boolean {
+  return (
+    readMetadataNumber(metadata, "weekly_thread_source_candidate_count") != null ||
+    readMetadataNumber(metadata, "weekly_thread_exact_source_message_count") != null ||
+    readMetadataNumber(metadata, "weekly_thread_message_count") != null
+  );
+}
+
+function isWeeklyNoHistoryExpected(metadata: Record<string, unknown>): boolean {
+  if (readMetadataBoolean(metadata, "weekly_no_history_expected") === true) return true;
+  const historyClass = readMetadataString(metadata, "weekly_notebook_history_class");
+  return historyClass === "no_history_expected";
+}
+
+/** Derive canonical weekly notebook verdict fields from lane / send-event metadata (telemetry only). */
+export function finalizeWeeklyNotebookVerdict(
+  metadata: Record<string, unknown>
+): WeeklyNotebookCanonicalTelemetry {
+  const counts = weeklyNotebookCountsFromMetadata(metadata);
+  const verified = readMetadataBoolean(metadata, "weekly_thread_correct_notebook_verified");
+  const failureReason = readMetadataString(metadata, "weekly_thread_notebook_failure_reason");
+  const writerInvoked = readMetadataBoolean(metadata, "weekly_writer_invoked");
+  const laneStage = readMetadataString(metadata, "lane_stage");
+  const legacyTranscriptFallback = readMetadataBoolean(
+    metadata,
+    "weekly_thread_legacy_transcript_fallback_used"
+  );
+  const memoryPacketBuildFailed = readMetadataBoolean(metadata, "weekly_memory_packet_build_failed");
+  const memoryPacketUsed = readMetadataBoolean(metadata, "weekly_memory_packet_used");
+
+  if (verified === true) {
+    return {
+      weekly_notebook_verdict: "verified",
+      weekly_notebook_verdict_reason: "none",
+      ...counts,
+    };
+  }
+
+  if (isWeeklyNoHistoryExpected(metadata)) {
+    return {
+      weekly_notebook_verdict: "not_applicable",
+      weekly_notebook_verdict_reason: "no_history_expected",
+      ...counts,
+    };
+  }
+
+  if (writerInvoked === false) {
+    return {
+      weekly_notebook_verdict: "not_applicable",
+      weekly_notebook_verdict_reason: "writer_not_invoked",
+      ...counts,
+    };
+  }
+
+  if (laneStage != null && LANE_FAILED_BEFORE_WRITER_STAGES.has(laneStage)) {
+    return {
+      weekly_notebook_verdict: "not_applicable",
+      weekly_notebook_verdict_reason: "lane_failed_before_writer",
+      ...counts,
+    };
+  }
+
+  if (memoryPacketBuildFailed === true) {
+    return {
+      weekly_notebook_verdict: "failed",
+      weekly_notebook_verdict_reason: "memory_packet_build_failed",
+      ...counts,
+    };
+  }
+
+  if (memoryPacketUsed === false) {
+    return {
+      weekly_notebook_verdict: "failed",
+      weekly_notebook_verdict_reason: "memory_packet_not_used",
+      ...counts,
+    };
+  }
+
+  if (legacyTranscriptFallback === true) {
+    return {
+      weekly_notebook_verdict: "failed",
+      weekly_notebook_verdict_reason: "legacy_transcript_fallback_used",
+      ...counts,
+    };
+  }
+
+  if (verified === false && failureReason && failureReason !== "none") {
+    return {
+      weekly_notebook_verdict: "failed",
+      weekly_notebook_verdict_reason: mapLegacyWeeklyNotebookFailureToVerdictReason(failureReason),
+      ...counts,
+    };
+  }
+
+  if (hasWeeklyNotebookThreadCounts(metadata)) {
+    return {
+      weekly_notebook_verdict: "failed",
+      weekly_notebook_verdict_reason: "unknown_missing_telemetry",
+      ...counts,
+    };
+  }
+
+  return {
+    weekly_notebook_verdict: writerInvoked === true ? "failed" : "not_applicable",
+    weekly_notebook_verdict_reason: "unknown_missing_telemetry",
+    ...counts,
+  };
+}
+
+/** Merge canonical weekly notebook verdict onto weekly V3 metadata (idempotent telemetry). */
+export function attachWeeklyNotebookVerdictToMetadata(
+  metadata: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    ...metadata,
+    ...finalizeWeeklyNotebookVerdict(metadata),
+  };
+}
 
 export type WeeklyThreadSourceBreakdownInput = {
   recentExactThread72hMessages?: RecentExactThread72hMessage[] | null;
@@ -275,7 +537,7 @@ export function buildWeeklyNotebookTelemetry(args: {
   includedThreadMessageCount: number | null;
   writerInvoked: boolean;
   sourceBreakdown?: WeeklyThreadSourceBreakdownInput;
-}): WeeklyNotebookTelemetry {
+}): WeeklyNotebookTelemetryWithVerdict {
   const threadFields = args.buildTelemetry
     ? mapBriefThreadBuildTelemetryToWeeklyNotebookFields(args.buildTelemetry)
     : {
@@ -358,7 +620,7 @@ export function buildWeeklyNotebookTelemetry(args: {
     filteredOutReasonTop: args.buildTelemetry?.daily_brief_thread_filtered_out_reason_top ?? null,
   });
 
-  return {
+  const legacyTelemetry: WeeklyNotebookTelemetry = {
     weekly_writer_invoked: args.writerInvoked,
     ...threadFields,
     weekly_thread_message_count: messageCount,
@@ -377,6 +639,18 @@ export function buildWeeklyNotebookTelemetry(args: {
     weekly_thread_legacy_transcript_fallback_used: legacyTranscriptFallbackUsed,
     weekly_thread_correct_notebook_verified: correctNotebookVerified,
     weekly_thread_notebook_failure_reason: notebookFailureReason,
+  };
+
+  return {
+    ...legacyTelemetry,
+    ...finalizeWeeklyNotebookVerdict({
+      ...legacyTelemetry,
+      weekly_thread_filtered_out_count: filteredOutCount,
+      weekly_thread_filtered_out_reason_top:
+        args.buildTelemetry?.daily_brief_thread_filtered_out_reason_top ?? null,
+      weekly_thread_source_tables_present:
+        threadFields.weekly_thread_source_tables_present,
+    }),
   };
 }
 

@@ -56,6 +56,7 @@ import {
   buildWeeklyNotebookTelemetry,
   buildWeeklyThreadSourceBreakdownInputFromFacts,
   readIncludedThreadMessageCountFromWeeklyLaneMetadata,
+  attachWeeklyNotebookVerdictToMetadata,
 } from "@/lib/sms-weekly-notebook-telemetry";
 import type { BriefThreadBuildTelemetry } from "@/lib/sms-recent-exact-thread-72h";
 
@@ -67,6 +68,20 @@ const ENV_SMS_DRY_RUN = process.env.SMS_DRY_RUN === "true";
 
 const WEEKLY_SMS_COMPLIANCE_FOOTER =
   "Reply STOP to opt out. Reply HELP for help.";
+
+function weeklyWriterInvokedFromLane(metadata: Record<string, unknown>): boolean {
+  const laneStage = metadata.lane_stage;
+  if (laneStage === "no_client") return false;
+  return laneStage != null && typeof laneStage === "string";
+}
+
+/** Re-finalize weekly notebook verdict after no-send / FVG metadata is merged (telemetry only). */
+function enrichWeeklyPersistenceMetadata(
+  base: Record<string, unknown>,
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return attachWeeklyNotebookVerdictToMetadata({ ...base, ...extra });
+}
 
 /**
  * ======================================================
@@ -381,12 +396,13 @@ export async function GET(req: Request) {
         const includedThreadMessageCount = readIncludedThreadMessageCountFromWeeklyLaneMetadata(
           weeklyLane.metadata
         );
+        const weeklyWriterInvoked = weeklyWriterInvokedFromLane(weeklyLane.metadata);
         const weeklyNotebookTelemetry = buildWeeklyNotebookTelemetry({
           buildTelemetry: weeklyMemoryPacketThreadTelemetry,
           memoryPacketUsed: relationshipMemoryPacket != null,
           memoryPacketBuildFailed: weeklyMemoryPacketBuildFailed,
           includedThreadMessageCount,
-          writerInvoked: true,
+          writerInvoked: weeklyWriterInvoked,
           sourceBreakdown: buildWeeklyThreadSourceBreakdownInputFromFacts({
             recentExactThread72hMessages: weeklyFacts.thread.recent_exact_thread_72h?.messages,
             recentTranscriptLineCount: weeklyFacts.thread.recent_transcript_lines.length,
@@ -423,7 +439,7 @@ export async function GET(req: Request) {
           weekly_evolution_note_used: Boolean(pack.weekly_evolution_coaching_line?.trim()),
         };
 
-        const weeklyV3MetaBase = {
+        const weeklyV3MetaBase = enrichWeeklyPersistenceMetadata({
           weekly_v3_lane_used: true,
           secondary_v3_lane_used: true,
           route_purpose: "weekly_proof_v2" as const,
@@ -436,15 +452,18 @@ export async function GET(req: Request) {
           legacy_weekly_branch: false,
           weekly_lane_no_send_reason: weeklyLane.noSendReason,
           weekly_lane_openai_ok: weeklyLane.openAiOk,
+          lane_stage: weeklyLane.metadata.lane_stage,
           weekly_lane_metadata: {
             ...weeklyLane.metadata,
             ...weeklyNotebookTelemetry,
           },
           ...weeklyNotebookTelemetry,
-          relationship_packet_observability: {
-            ...relationshipObservabilityFromLaneMetadata(weeklyLane.metadata),
-            ...weeklyNotebookTelemetry,
-          },
+        });
+        weeklyV3MetaBase.relationship_packet_observability = {
+          ...relationshipObservabilityFromLaneMetadata({
+            ...weeklyLane.metadata,
+            ...weeklyV3MetaBase,
+          }),
         };
 
         if (!weeklyLane.shouldSend) {
@@ -452,8 +471,7 @@ export async function GET(req: Request) {
             .from("sms_weekly_send_events")
             .update({
               status: "skipped_no_safe_v3_voice",
-              metadata: {
-                ...packTelemetryBase,
+              metadata: enrichWeeklyPersistenceMetadata(packTelemetryBase, {
                 ...weeklyV3MetaBase,
                 no_send_tag: "weekly_v3_lane_no_send",
                 no_send_reason: weeklyLane.noSendReason,
@@ -463,7 +481,7 @@ export async function GET(req: Request) {
                 compliance_footer_appended_after_fvg: false,
                 fvg_policy_classification: "relationship_coaching",
                 normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
-              },
+              }),
             })
             .eq("clerk_user_id", user.id)
             .eq("week_key", weekKeyV2);
@@ -504,8 +522,7 @@ export async function GET(req: Request) {
             .from("sms_weekly_send_events")
             .update({
               status: "skipped_no_safe_v3_voice",
-              metadata: {
-                ...packTelemetryBase,
+              metadata: enrichWeeklyPersistenceMetadata(packTelemetryBase, {
                 ...weeklyV3MetaBase,
                 no_send_tag: "final_voice_gate_no_send",
                 no_send_reason: voiceWeeklyV2.skipReason ?? null,
@@ -535,7 +552,7 @@ export async function GET(req: Request) {
                   blocked_reasons: voiceWeeklyV2.blockedReasons,
                   twilio_send_attempted: false,
                 },
-              },
+              }),
             })
             .eq("clerk_user_id", user.id)
             .eq("week_key", weekKeyV2);
@@ -577,8 +594,7 @@ export async function GET(req: Request) {
             .from("sms_weekly_send_events")
             .update({
               status: "skipped_no_safe_v3_voice",
-              metadata: {
-                ...packTelemetryBase,
+              metadata: enrichWeeklyPersistenceMetadata(packTelemetryBase, {
                 ...weeklyV3MetaBase,
                 no_send_tag: "unified_final_guard_no_send",
                 no_send_reason: unifiedGuard.noSendReason,
@@ -621,7 +637,7 @@ export async function GET(req: Request) {
                   blocked_reasons: voiceWeeklyV2.blockedReasons,
                   twilio_send_attempted: false,
                 },
-              },
+              }),
             })
             .eq("clerk_user_id", user.id)
             .eq("week_key", weekKeyV2);
@@ -632,8 +648,7 @@ export async function GET(req: Request) {
         const guardedWeeklyBody = unifiedGuard.body;
         const finalBodyV2 = appendPreservedSmsSuffix(guardedWeeklyBody, WEEKLY_SMS_COMPLIANCE_FOOTER);
 
-        const v2Metadata = {
-          ...packTelemetryBase,
+        const v2Metadata = enrichWeeklyPersistenceMetadata(packTelemetryBase, {
           ...weeklyV3MetaBase,
           no_send_tag: null,
           no_send_reason: null,
@@ -672,7 +687,10 @@ export async function GET(req: Request) {
           compliance_footer_appended_after_guard: true,
           fvg_policy_classification: "relationship_coaching",
           normal_coaching_policy_source: "phase4_2b_weekly_v2_lane_fail_closed",
-        };
+        });
+        v2Metadata.relationship_packet_observability = relationshipObservabilityFromLaneMetadata(
+          v2Metadata as Record<string, unknown>
+        );
 
         if (!isTwilioReady() || SMS_DRY_RUN) {
           await supabaseServer
@@ -712,18 +730,17 @@ export async function GET(req: Request) {
             .update({
               message_sid: messageV2.sid,
               status: messageV2.status,
-              metadata: {
-                ...v2Metadata,
+              metadata: enrichWeeklyPersistenceMetadata(v2Metadata as Record<string, unknown>, {
                 sms_body: finalBodyV2,
                 voice_send_decision: {
-                  ...v2Metadata.voice_send_decision,
+                  ...(v2Metadata.voice_send_decision as Record<string, unknown>),
                   twilio_send_attempted: true,
                 },
                 thread_memory_projection_written: mem.ok,
                 thread_memory_projection_error: mem.ok ? null : mem.error,
                 thread_memory_projection_source: "weekly_sms",
                 stripped_compliance_footer: true,
-              },
+              }),
             })
             .eq("clerk_user_id", user.id)
             .eq("week_key", weekKeyV2);
@@ -734,7 +751,9 @@ export async function GET(req: Request) {
             .from("sms_weekly_send_events")
             .update({
               status: "send_failed",
-              metadata: { ...v2Metadata, error: String(err) },
+              metadata: enrichWeeklyPersistenceMetadata(v2Metadata as Record<string, unknown>, {
+                error: String(err),
+              }),
             })
             .eq("clerk_user_id", user.id)
             .eq("week_key", weekKeyV2);

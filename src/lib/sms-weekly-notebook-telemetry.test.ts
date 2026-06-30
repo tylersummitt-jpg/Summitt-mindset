@@ -6,8 +6,10 @@ import type {
 } from "@/lib/sms-recent-exact-thread-72h";
 import {
   WEEKLY_NOTEBOOK_PAYLOAD_VERSION,
+  attachWeeklyNotebookVerdictToMetadata,
   buildWeeklyNotebookTelemetry,
   buildWeeklyThreadSourceBreakdownInputFromFacts,
+  finalizeWeeklyNotebookVerdict,
   mapBriefThreadBuildTelemetryToWeeklyNotebookFields,
   readIncludedThreadMessageCountFromWeeklyLaneMetadata,
 } from "@/lib/sms-weekly-notebook-telemetry";
@@ -78,7 +80,7 @@ describe("sms-weekly-notebook-telemetry", () => {
     expect(mapped.weekly_thread_source_tables_present).toContain("sms_send_events");
   });
 
-  it("verified notebook -> failure reason none", () => {
+  it("verified notebook -> failure reason none and canonical verdict", () => {
     const telemetry = buildWeeklyNotebookTelemetry({
       buildTelemetry: sampleBuildTelemetry(),
       memoryPacketUsed: true,
@@ -89,6 +91,8 @@ describe("sms-weekly-notebook-telemetry", () => {
     });
     expect(telemetry.weekly_thread_correct_notebook_verified).toBe(true);
     expect(telemetry.weekly_thread_notebook_failure_reason).toBe("none");
+    expect(telemetry.weekly_notebook_verdict).toBe("verified");
+    expect(telemetry.weekly_notebook_verdict_reason).toBe("none");
   });
 
   it("exact source rows yield correct_notebook_verified=true", () => {
@@ -347,5 +351,124 @@ describe("sms-weekly-notebook-telemetry", () => {
       readIncludedThreadMessageCountFromWeeklyLaneMetadata({ included_thread_message_count: 6 })
     ).toBe(6);
     expect(readIncludedThreadMessageCountFromWeeklyLaneMetadata({})).toBeNull();
+  });
+});
+
+describe("finalizeWeeklyNotebookVerdict", () => {
+  it("verified old keys → weekly_notebook_verdict verified / reason none", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_thread_correct_notebook_verified: true,
+      weekly_thread_notebook_failure_reason: "none",
+      weekly_thread_source_candidate_count: 5,
+      weekly_thread_exact_source_message_count: 3,
+      weekly_thread_message_count: 4,
+      weekly_memory_packet_used: true,
+      weekly_writer_invoked: true,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("verified");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("none");
+    expect(verdict.weekly_notebook_source_candidate_count).toBe(5);
+    expect(verdict.weekly_notebook_writer_payload_included).toBe(true);
+  });
+
+  it("false old keys with legacy_transcript_fallback_used → failed / legacy_transcript_fallback_used", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_thread_correct_notebook_verified: false,
+      weekly_thread_notebook_failure_reason: "legacy_transcript_fallback_used",
+      weekly_thread_legacy_transcript_fallback_used: true,
+      weekly_memory_packet_used: true,
+      weekly_thread_source_candidate_count: 0,
+      weekly_thread_exact_source_message_count: 0,
+      weekly_writer_invoked: true,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("failed");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("legacy_transcript_fallback_used");
+  });
+
+  it("false old keys with exact_thread_too_thin → failed / exact_thread_too_thin", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_thread_correct_notebook_verified: false,
+      weekly_thread_notebook_failure_reason: "exact_thread_too_thin",
+      weekly_thread_source_candidate_count: 17,
+      weekly_thread_exact_source_message_count: 1,
+      weekly_thread_message_count: 1,
+      weekly_memory_packet_used: true,
+      weekly_writer_invoked: true,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("failed");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("exact_thread_too_thin");
+  });
+
+  it("memory_packet_build_failed → failed / memory_packet_build_failed", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_memory_packet_build_failed: true,
+      weekly_memory_packet_used: false,
+      weekly_writer_invoked: true,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("failed");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("memory_packet_build_failed");
+  });
+
+  it("memory_packet_used false → failed / memory_packet_not_used", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_memory_packet_used: false,
+      weekly_memory_packet_build_failed: false,
+      weekly_writer_invoked: true,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("failed");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("memory_packet_not_used");
+  });
+
+  it("counts exist but no old verdict → failed / unknown_missing_telemetry", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_thread_source_candidate_count: 22,
+      weekly_thread_message_count: 15,
+      weekly_memory_packet_used: true,
+      weekly_writer_invoked: true,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("failed");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("unknown_missing_telemetry");
+    expect(verdict.weekly_notebook_source_candidate_count).toBe(22);
+    expect(verdict.weekly_notebook_thread_message_count).toBe(15);
+  });
+
+  it("writer not invoked → not_applicable / writer_not_invoked", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_writer_invoked: false,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("not_applicable");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("writer_not_invoked");
+  });
+
+  it("no_history_expected → not_applicable / no_history_expected", () => {
+    const verdict = finalizeWeeklyNotebookVerdict({
+      weekly_no_history_expected: true,
+      weekly_thread_legacy_transcript_fallback_used: true,
+      weekly_writer_invoked: true,
+    });
+    expect(verdict.weekly_notebook_verdict).toBe("not_applicable");
+    expect(verdict.weekly_notebook_verdict_reason).toBe("no_history_expected");
+  });
+
+  it("attachWeeklyNotebookVerdictToMetadata never leaves blank verdict", () => {
+    const cases: Record<string, unknown>[] = [
+      {},
+      { weekly_thread_correct_notebook_verified: true },
+      { weekly_thread_source_candidate_count: 3 },
+      { lane_stage: "no_client", weekly_writer_invoked: false },
+      {
+        weekly_thread_correct_notebook_verified: false,
+        weekly_thread_notebook_failure_reason: "legacy_transcript_fallback_used",
+        weekly_thread_legacy_transcript_fallback_used: true,
+        weekly_memory_packet_used: true,
+      },
+    ];
+    for (const meta of cases) {
+      const out = attachWeeklyNotebookVerdictToMetadata(meta);
+      expect(typeof out.weekly_notebook_verdict).toBe("string");
+      expect((out.weekly_notebook_verdict as string).length).toBeGreaterThan(0);
+      expect(typeof out.weekly_notebook_verdict_reason).toBe("string");
+      expect((out.weekly_notebook_verdict_reason as string).length).toBeGreaterThan(0);
+    }
   });
 });
