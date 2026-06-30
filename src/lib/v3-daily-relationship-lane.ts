@@ -100,7 +100,10 @@ import {
   deriveDailyWritingBriefFallbackTelemetry,
   useDailySmsWritingBriefV1,
 } from "@/lib/sms-daily-writing-brief-v1";
-import { buildDailyNotebookTelemetry } from "@/lib/sms-daily-notebook-telemetry";
+import {
+  attachDailyNotebookVerdictToMetadata,
+  buildDailyNotebookTelemetry,
+} from "@/lib/sms-daily-notebook-telemetry";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
 import {
@@ -1219,7 +1222,7 @@ function dailyLanePostValidateRepairExcluded(facts: DailyV3RelationshipFacts): b
  * Produces the next relationship SMS for any daily cron branch.
  * Fail-closed: no deterministic coaching fallback; OpenAI/parse/validation failures → shouldSend false.
  */
-export async function produceDailyV3RelationshipSms(
+async function produceDailyV3RelationshipSmsImpl(
   args: DailyV3RelationshipLaneInput
 ): Promise<DailyV3RelationshipLaneResult> {
   let factsAfterThread = enrichDailyFactsWithThreadFreshness(args.facts);
@@ -2248,6 +2251,16 @@ used_facts (string[]), safety_notes (string[])`;
       }),
     },
     openAiOk: true,
+  };
+}
+
+export async function produceDailyV3RelationshipSms(
+  args: DailyV3RelationshipLaneInput
+): Promise<DailyV3RelationshipLaneResult> {
+  const result = await produceDailyV3RelationshipSmsImpl(args);
+  return {
+    ...result,
+    metadata: attachDailyNotebookVerdictToMetadata(result.metadata ?? {}),
   };
 }
 

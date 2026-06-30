@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { BriefThreadBuildTelemetry } from "@/lib/sms-recent-exact-thread-72h";
 import {
+  attachDailyNotebookVerdictToMetadata,
   buildDailyNotebookTelemetry,
+  finalizeDailyNotebookVerdict,
+  mapLegacyNotebookFailureToVerdictReason,
   resolveDailyNotebookFailureReason,
 } from "@/lib/sms-daily-notebook-telemetry";
 
@@ -162,5 +165,108 @@ describe("sms-daily-notebook-telemetry", () => {
       briefBuildStatus: "skipped_missing_strategy_card",
     });
     expect(telemetry.daily_thread_notebook_failure_reason).toBe("daily_brief_not_used");
+  });
+});
+
+describe("finalizeDailyNotebookVerdict", () => {
+  it("verified old keys → notebook_verdict verified / reason none", () => {
+    const verdict = finalizeDailyNotebookVerdict({
+      daily_thread_correct_notebook_verified: true,
+      daily_thread_notebook_failure_reason: "none",
+      daily_brief_thread_source_candidate_count: 5,
+      daily_thread_exact_source_message_count: 3,
+      daily_brief_thread_message_count: 4,
+      writer_prompt_path: "daily_writing_brief_v1",
+      daily_writing_brief_used: true,
+    });
+    expect(verdict.notebook_verdict).toBe("verified");
+    expect(verdict.notebook_verdict_reason).toBe("none");
+    expect(verdict.notebook_source_candidate_count).toBe(5);
+    expect(verdict.notebook_writer_payload_included).toBe(true);
+  });
+
+  it("false old keys with exact_thread_too_thin → failed / exact_thread_too_thin", () => {
+    const verdict = finalizeDailyNotebookVerdict({
+      daily_thread_correct_notebook_verified: false,
+      daily_thread_notebook_failure_reason: "exact_thread_too_thin",
+      daily_brief_thread_source_candidate_count: 17,
+      daily_thread_exact_source_message_count: 1,
+      daily_brief_thread_message_count: 1,
+      daily_brief_thread_filtered_out_reason_top: "timestamp_outside_window",
+      daily_brief_thread_fallback_used: false,
+      writer_prompt_path: "daily_writing_brief_v1",
+    });
+    expect(verdict.notebook_verdict).toBe("failed");
+    expect(verdict.notebook_verdict_reason).toBe("exact_thread_too_thin");
+    expect(verdict.notebook_source_candidate_count).toBe(17);
+    expect(verdict.notebook_filtered_out_reason_top).toBe("timestamp_outside_window");
+  });
+
+  it("counts exist but no old verdict → failed / unknown_missing_telemetry", () => {
+    const verdict = finalizeDailyNotebookVerdict({
+      daily_brief_thread_source_candidate_count: 22,
+      daily_brief_thread_message_count: 15,
+      writer_prompt_path: "daily_writing_brief_v1",
+      daily_writer_invoked: true,
+    });
+    expect(verdict.notebook_verdict).toBe("failed");
+    expect(verdict.notebook_verdict_reason).toBe("unknown_missing_telemetry");
+    expect(verdict.notebook_source_candidate_count).toBe(22);
+    expect(verdict.notebook_brief_thread_message_count).toBe(15);
+  });
+
+  it("legacy path → not_applicable / legacy_path", () => {
+    const verdict = finalizeDailyNotebookVerdict({
+      writer_prompt_path: "legacy_packet_v1",
+      daily_writing_brief_used: false,
+      daily_writer_invoked: true,
+    });
+    expect(verdict.notebook_verdict).toBe("not_applicable");
+    expect(verdict.notebook_verdict_reason).toBe("legacy_path");
+    expect(verdict.notebook_writer_payload_included).toBe(false);
+  });
+
+  it("writer not invoked → not_applicable / writer_not_invoked", () => {
+    const verdict = finalizeDailyNotebookVerdict({
+      daily_writer_invoked: false,
+    });
+    expect(verdict.notebook_verdict).toBe("not_applicable");
+    expect(verdict.notebook_verdict_reason).toBe("writer_not_invoked");
+  });
+
+  it("attachDailyNotebookVerdictToMetadata never leaves blank verdict", () => {
+    const cases: Record<string, unknown>[] = [
+      {},
+      { daily_thread_correct_notebook_verified: true },
+      { daily_brief_thread_source_candidate_count: 3 },
+      { writer_prompt_path: "legacy_packet_v1" },
+      { lane_stage: "no_client", daily_writer_invoked: true },
+      {
+        daily_writing_brief_build_status: "skipped_required_verbatim",
+        daily_writing_brief_skip_reason: "skipped_required_verbatim",
+      },
+    ];
+    for (const meta of cases) {
+      const out = attachDailyNotebookVerdictToMetadata(meta);
+      expect(typeof out.notebook_verdict).toBe("string");
+      expect((out.notebook_verdict as string).length).toBeGreaterThan(0);
+      expect(typeof out.notebook_verdict_reason).toBe("string");
+      expect((out.notebook_verdict_reason as string).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("buildDailyNotebookTelemetry emits canonical fields with legacy fields", () => {
+    const telemetry = buildDailyNotebookTelemetry(healthyArgs);
+    expect(telemetry.notebook_verdict).toBe("verified");
+    expect(telemetry.notebook_verdict_reason).toBe("none");
+    expect(telemetry.daily_thread_correct_notebook_verified).toBe(true);
+  });
+
+  it("maps legacy failure reasons to canonical verdict reasons", () => {
+    expect(mapLegacyNotebookFailureToVerdictReason("daily_brief_not_used")).toBe("brief_not_used");
+    expect(mapLegacyNotebookFailureToVerdictReason("fetch_error")).toBe("fetch_error");
+    expect(mapLegacyNotebookFailureToVerdictReason("unclassified_notebook_failure")).toBe(
+      "unknown_missing_telemetry"
+    );
   });
 });

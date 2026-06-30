@@ -191,6 +191,7 @@ import {
   SUNDAY_WEEKLY_PAUSE_SKIP_STATUS,
 } from "@/lib/sms-sunday-weekly-pause-eligibility";
 import { applySundayWeeklyPauseBeforeWriterIfNeeded } from "@/lib/sms-daily-sunday-before-writer";
+import { attachDailyNotebookVerdictToMetadata } from "@/lib/sms-daily-notebook-telemetry";
 import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 import { buildDailyOutboundNorthStarContextPacket } from "@/lib/north-star-sms-context-packet";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
@@ -353,11 +354,12 @@ function enrichDailyLaneNoSendMeta(
   metadata: Record<string, unknown>,
   noSendReason: string | null
 ): Record<string, unknown> {
-  return {
+  const merged = attachDailyNotebookVerdictToMetadata({
     ...metadata,
     no_send_reason: noSendReason,
     skip_source: inferDailyLaneSkipSource(metadata),
-  };
+  });
+  return merged;
 }
 
 function praisePolicyContextFromLaneMetadata(
