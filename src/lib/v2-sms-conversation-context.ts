@@ -494,9 +494,9 @@ export async function buildV2SmsConversationContextPack(
         .maybeSingle(),
       supabaseServer
         .from("sms_inbound_messages")
-        .select("raw_body, created_at")
+        .select("raw_body, received_at")
         .eq("clerk_user_id", args.clerkUserId)
-        .order("created_at", { ascending: false })
+        .order("received_at", { ascending: false })
         .limit(8),
       supabaseServer
         .from("sms_send_events")
@@ -611,9 +611,9 @@ export async function buildV2SmsConversationContextPack(
   }
 
   for (const r of inboundRows.data ?? []) {
-    const row = r as { raw_body?: string; created_at?: string };
+    const row = r as { raw_body?: string; received_at?: string };
     const raw = typeof row.raw_body === "string" ? row.raw_body : "";
-    const ts = typeof row.created_at === "string" ? new Date(row.created_at).getTime() : 0;
+    const ts = typeof row.received_at === "string" ? new Date(row.received_at).getTime() : 0;
     const low = raw.trim().toLowerCase();
     if (/^(stop|start|help|unstop|cancel)$/i.test(low) && raw.trim().length <= 12) continue;
     const cleaned = truncate(raw, DEFAULT_LINE_CHARS);
