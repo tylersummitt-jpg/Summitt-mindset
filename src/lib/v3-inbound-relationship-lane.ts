@@ -25,6 +25,7 @@ import {
   inboundMeaningAuthorizesTodayCompleted,
   isInboundReportedCompletionForAntiGhost,
   reconcileLegacyAccountabilityEventTypeFromMeaning,
+  shouldUseAcknowledgeReflectionReplyMove,
   type InboundMeaningFacts,
 } from "@/lib/inbound-relationship-meaning";
 import { hasFuturePlanIntentLanguage } from "@/lib/pending-plan-proof";
@@ -35,6 +36,10 @@ import {
   detectInboundCompletionContradictionViolation,
   tryRecoverInboundCompletionContradictionBody,
 } from "@/lib/inbound-completion-contradiction-guard";
+import {
+  detectInboundReflectionReplyGuardViolations,
+  tryRecoverInboundReflectionReplyGuardBody,
+} from "@/lib/inbound-reflection-reply-guard";
 import {
   applySmsMemoryAntiRepeatGuard,
   buildAntiRepeatDetectArgsFromInboundFacts,
@@ -1451,6 +1456,7 @@ export type InboundRequiredReplyMove =
   | "acknowledge_blocker"
   | "clarify_once"
   | "goal_change_bridge"
+  | "acknowledge_reflection"
   | "general_support";
 
 export type InboundResolvedTruth = {
@@ -1897,7 +1903,8 @@ export function deriveInboundCoachingMoveForFacts(
 
   if (
     f.open_question_facts &&
-    !reconciledTurnUnderstandingOverridesOpenQuestionFacts(f.turn_understanding)
+    !reconciledTurnUnderstandingOverridesOpenQuestionFacts(f.turn_understanding) &&
+    f.inbound_meaning.relationship_meaning !== "reflective_share"
   ) {
     return {
       move: "respond_to_open_question_answer_natural",
@@ -2237,6 +2244,7 @@ export function detectInboundResolvedTruthZeroQuestionViolation(
     "close_loop_on_answered_ask",
     "protect_future_plan",
     "goal_change_bridge",
+    "acknowledge_reflection",
   ];
   if (!zeroQuestionMoves.includes(rt.required_reply_move)) {
     return { violation: false, reason: null };
@@ -2310,6 +2318,23 @@ function validateInboundLaneCandidateBody(
       extraMeta: {
         v3_candidate_body: body,
         inbound_resolved_truth_zero_question_reason: zeroQ.reason,
+        ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
+      },
+    };
+  }
+  const reflectionGuardViolations = detectInboundReflectionReplyGuardViolations(
+    body,
+    args.facts.inbound_resolved_truth
+  );
+  if (reflectionGuardViolations.length > 0) {
+    return {
+      ok: false,
+      noSendReason: "inbound_reflection_reply_guard_violation",
+      laneStage: "inbound_reflection_reply_guard_validation_failed",
+      safetySuffix: reflectionGuardViolations[0] ?? "reflection_reply_guard",
+      extraMeta: {
+        v3_candidate_body: body,
+        inbound_reflection_reply_guard_reasons: reflectionGuardViolations,
         ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
       },
     };
@@ -2393,6 +2418,17 @@ function tryInboundCompletionContradictionRecovery(
   return tryRecoverInboundCompletionContradictionBody(candidate, args, (body) => {
     if (!validateInboundLaneCandidateBody(body, args).ok) return false;
     return !detectInboundCompletionContradictionViolation(body, args.facts).violation;
+  });
+}
+
+async function tryInboundReflectionReplyGuardRecovery(
+  candidate: string,
+  args: InboundV3RelationshipLaneInput,
+  violations: string[]
+) {
+  return tryRecoverInboundReflectionReplyGuardBody(candidate, args, violations, (body) => {
+    if (!validateInboundLaneCandidateBody(body, args).ok) return false;
+    return detectInboundReflectionReplyGuardViolations(body, args.facts.inbound_resolved_truth).length === 0;
   });
 }
 
@@ -3184,6 +3220,44 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     }
   }
 
+  const reflectionGuardViolations = detectInboundReflectionReplyGuardViolations(
+    body,
+    args.facts.inbound_resolved_truth
+  );
+  if (reflectionGuardViolations.length > 0) {
+    const reflectionRecovered = await tryInboundReflectionReplyGuardRecovery(
+      body,
+      args,
+      reflectionGuardViolations
+    );
+    if (reflectionRecovered.ok) {
+      body = reflectionRecovered.body;
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = { ...successRepairExtra, ...reflectionRecovered.telemetry };
+    } else {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "inbound_reflection_reply_guard_violation",
+        replySource: "v3_inbound_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, ...reflectionGuardViolations.map((v) => `blocked:${v}`)],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "inbound_reflection_reply_guard_validation_failed",
+          v3_candidate_body: body,
+          inbound_reflection_reply_guard_reasons: reflectionGuardViolations,
+          ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
+          ...reflectionRecovered.telemetry,
+        },
+        openAiOk: true,
+      };
+    }
+  }
+
   const missReq = validateRequiredVerbatimSubstrings(body, args.facts.constraints.required_verbatim_substrings);
   if (missReq != null) {
     return {
@@ -3604,6 +3678,27 @@ export function deriveInboundResolvedTruth(args: {
     requiredReplyMove = "acknowledge_blocker";
     mustNotDo.push("Do not ask again what blocked them if they already named the blocker.");
   } else if (
+    shouldUseAcknowledgeReflectionReplyMove({
+      rawInbound: raw,
+      relationshipMeaning: meaning.relationship_meaning,
+      planDetected,
+      isCompletion,
+      blockerDetected,
+      resolvedOutcome,
+      satisfiedRecentAsk,
+      gatedMode: args.gatedMode,
+    })
+  ) {
+    requiredReplyMove = "acknowledge_reflection";
+    maxQuestionsOverride = 0;
+    mustNotDo.push(
+      "Do not ask Did you do it or any outcome triad question.",
+      "Do not ask what specific strategies, steps, or aspects.",
+      "Do not ask can you share more about as a generic worksheet follow-up.",
+      "Do not accountability-check or proof-check the user on this turn.",
+      "Acknowledge one specific detail from their message; optional light tie to identity or goal if already in thread."
+    );
+  } else if (
     meaning.relationship_meaning === "uncertain" ||
     meaning.relationship_meaning === "question" ||
     args.gatedMode === "clarify"
@@ -3636,7 +3731,8 @@ INBOUND_RESOLVED_TRUTH (structured_recent_truth.inbound_resolved_truth — autho
 - acknowledge_completion: acknowledge what the user completed; max_questions 0; never ask whether it already happened, never ask for proof/evidence again, never turn completion into tomorrow planning.
 - close_loop_on_answered_ask: the user already answered — close the loop; max_questions 0; never repeat the prior ask or ask for the same evidence again.
 - protect_future_plan: preserve the future plan as plan/open loop; max_questions 0; never ask "did you do it?" or treat the plan as completion proof.
-- goal_change_bridge: user-initiated goal amend/restate/reset/raise/lower/replace — NOT proof; max_questions 0 when prior ask satisfied; acknowledge intent and bridge toward commitment-change context without repeating prior goal-change clarification asks; never claim the goal mutated.`;
+- goal_change_bridge: user-initiated goal amend/restate/reset/raise/lower/replace — NOT proof; max_questions 0 when prior ask satisfied; acknowledge intent and bridge toward commitment-change context without repeating prior goal-change clarification asks; never claim the goal mutated.
+- acknowledge_reflection: user shared reflection, story, or meaning-making — NOT proof/plan/blocker; max_questions 0; acknowledge one specific detail they named; no Did you do it, no what specific strategies/steps/aspects, no generic can you share more about, no outcome triad or worksheet coaching.`;
 }
 
 export function inboundResolvedTruthTelemetryMeta(

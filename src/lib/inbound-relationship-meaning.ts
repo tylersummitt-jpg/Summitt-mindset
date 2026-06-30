@@ -49,6 +49,7 @@ export type InboundRelationshipMeaning =
   | "answer_to_prior_question"
   | "support_request"
   | "contract_consent"
+  | "reflective_share"
   | "uncertain"
   | "unknown";
 
@@ -72,6 +73,7 @@ export type InboundSmsResponseIntent =
   | "reinforce_plan_and_choose_first_step"
   | "answer_prior_question"
   | "clarify_gently"
+  | "acknowledge_reflection"
   | "normal_accountability";
 
 export type InboundMeaningRoutePriority = {
@@ -735,6 +737,16 @@ export function deriveInboundRelationshipMeaning(
     };
   }
 
+  if (looksLikeReflectiveStoryShare(raw)) {
+    return {
+      relationship_meaning: "reflective_share",
+      temporal_scope,
+      confidence: "medium",
+      evidence: ["reflective_story_share"],
+      disqualifiers: [],
+    };
+  }
+
   return {
     relationship_meaning: "unknown",
     temporal_scope,
@@ -742,6 +754,58 @@ export function deriveInboundRelationshipMeaning(
     evidence: ["no_clear_meaning_signal"],
     disqualifiers: [],
   };
+}
+
+const REFLECTIVE_STORY_SIGNAL_RE =
+  /\b(encourag|team\s+unity|unity|lift(ed)?\s+(others|them|the\s+team)|helping\s+others|supporting\s+(others|them|the\s+team)|leadership|leader\s+they|meaning|grateful|thankful|realized|learned|lesson|story|memor(y|ies)|perspective|reflect(ion|ing|ed)?|felt|feeling|proud\s+of\s+(them|her|him|the\s+team|my\s+team)|identity|who\s+i\s+want\s+to\s+be|what\s+matters|why\s+this\s+matters|inspire|inspired|mentor|mother|father|childhood|sunday\s+school)\b/i;
+
+const REFLECTIVE_NARRATIVE_RE =
+  /\b(i\s+(was|am)\s+(thinking|reflecting|remembering)|it\s+reminded\s+me|made\s+me\s+(think|realize|feel))\b/i;
+
+/** Substantive reflection/story/meaning-making share — not proof, plan, miss, or direct question. */
+export function looksLikeReflectiveStoryShare(rawInbound: string): boolean {
+  const raw = rawInbound.trim();
+  if (raw.length < 40) return false;
+  if (looksLikeBoundedYesNo(raw)) return false;
+  if (inboundHasExplicitCompletionClause(raw)) return false;
+  if (inboundHasExplicitMissClause(raw)) return false;
+  if (inboundHasExplicitPartialClause(raw)) return false;
+  if (hasFuturePlanIntentLanguage(raw)) return false;
+  if (looksLikeSupportCancelBillingIntent(raw)) return false;
+  if (/^(what|how|why|when|where|who|can you|could you|should i|do i|is it)\b/i.test(raw) && raw.length < 120) {
+    return false;
+  }
+  if (REFLECTIVE_STORY_SIGNAL_RE.test(raw) || REFLECTIVE_NARRATIVE_RE.test(raw)) {
+    return true;
+  }
+  const sentenceCount = raw.split(/[.!?]+/).filter((s) => s.trim().length >= 12).length;
+  return sentenceCount >= 2 && raw.length >= 80;
+}
+
+/** Whether inbound resolved truth should use acknowledge_reflection instead of general_support. */
+export function shouldUseAcknowledgeReflectionReplyMove(args: {
+  rawInbound: string;
+  relationshipMeaning: InboundRelationshipMeaning;
+  planDetected: boolean;
+  isCompletion: boolean;
+  blockerDetected: boolean;
+  resolvedOutcome: "completed" | "missed" | "partial" | "none" | "unclear";
+  satisfiedRecentAsk: boolean;
+  gatedMode?: string | null;
+}): boolean {
+  if (args.isCompletion || args.planDetected || args.blockerDetected) return false;
+  if (args.resolvedOutcome === "partial" || args.resolvedOutcome === "missed") return false;
+  if (args.satisfiedRecentAsk) return false;
+  if (args.gatedMode === "clarify") return false;
+  if (
+    args.relationshipMeaning === "question" ||
+    args.relationshipMeaning === "uncertain" ||
+    args.relationshipMeaning === "answer_to_prior_question"
+  ) {
+    return false;
+  }
+  if (args.relationshipMeaning === "reflective_share") return true;
+  return looksLikeReflectiveStoryShare(args.rawInbound);
 }
 
 /** Block short affirmative / future commitment from persisting as today's completion. */
@@ -1086,6 +1150,7 @@ export function derivePersistenceDecision(args: {
     case "uncertain":
     case "unknown":
     case "support_request":
+    case "reflective_share":
       return {
         persistence_decision: "no_outcome_write",
         reason: `meaning_${m}_no_spine_write`,
@@ -1133,6 +1198,8 @@ export function deriveSmsResponseIntent(args: {
       return { sms_response_intent: "clarify_gently" };
     case "blocker":
       return { sms_response_intent: "identify_blocker_or_next_move" };
+    case "reflective_share":
+      return { sms_response_intent: "acknowledge_reflection" };
     default:
       if (args.persistence.persistence_decision === "write_user_no") {
         return { sms_response_intent: "tell_truth_and_recover" };
@@ -1208,6 +1275,8 @@ export function coachingMoveFromSmsResponseIntent(intent: InboundSmsResponseInte
       return "respond_to_open_question_answer_natural";
     case "clarify_gently":
       return "clarify_intent";
+    case "acknowledge_reflection":
+      return "acknowledge_reflection";
     default:
       return null;
   }

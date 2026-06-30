@@ -760,6 +760,19 @@ describe("V3 generalized destructive scrub policy", () => {
     const damaged = "how does it feel to Would you like to adjust?";
     expect(detectBrokenMicroEditReason(damaged)).toBe("broken_micro_edit");
   });
+
+  it("inbound V3: did you get a chance does not rewrite to bare Did you do it?", () => {
+    const r = finalizeNorthStarCoachSms({
+      proposedBody: "Thanks for sharing that. Did you get a chance to finish the workout today?",
+      channel: "inbound_coach_reply",
+      latestInboundRaw:
+        "I spent time encouraging others on the team today and building unity among us.",
+      replySource: "v3_inbound_relationship_lane",
+    });
+    expect(r.visibleBody).not.toMatch(/\bDid you do it\?\b/);
+    expect(r.meta.blockedReasons).toContain("did_you_get_a_chance_requires_v3_repair");
+    expect(r.meta.requires_v3_repair).toBe(true);
+  });
 });
 
 describe("deriveFutureIntentHint", () => {

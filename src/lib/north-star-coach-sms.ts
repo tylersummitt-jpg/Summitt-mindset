@@ -713,7 +713,7 @@ function scrubCheckInWorkflow(
   const chanceRe = /did\s+you\s+get\s+a\s+chance[^.!?]*\?/gi;
   if (chanceRe.test(t)) {
     hits.push("did_you_get_a_chance_scrub");
-    if (dailyish && protectV3RelationshipVoice) {
+    if (protectV3RelationshipVoice) {
       requiresV3Repair = true;
       unsafeRewritePrevented = true;
       hits.push("did_you_get_a_chance_requires_v3_repair");

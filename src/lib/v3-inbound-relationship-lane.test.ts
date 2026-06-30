@@ -4423,6 +4423,33 @@ describe("inbound resolved truth dominance", () => {
     expect(rt.max_questions_override).toBeUndefined();
   });
 
+  it("reflective team-unity share — acknowledge_reflection with zero questions", () => {
+    const reflective =
+      "I spent time today encouraging others on the team and building unity. It reminded me why leadership matters to me.";
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: reflective,
+      classifierEventType: "other",
+    });
+    expect(inboundMeaning.relationship_meaning).toBe("reflective_share");
+    expect(inboundMeaning.sms_response_intent).toBe("acknowledge_reflection");
+    const rt = deriveInboundResolvedTruth({
+      latestUserText: reflective,
+      inboundMeaning,
+      finalEventType: null,
+      thread: {
+        short_ack_should_not_reask_question: false,
+        memory_correction_should_use_prior_user_answer: false,
+        current_inbound_is_short_acknowledgement: false,
+      },
+    });
+    expect(rt.required_reply_move).toBe("acknowledge_reflection");
+    expect(rt.max_questions_override).toBe(0);
+    expect(rt.must_not_do.some((m) => /Did you do it/i.test(m))).toBe(true);
+    expect(detectInboundResolvedTruthZeroQuestionViolation("Did you do it?", rt).violation).toBe(
+      true
+    );
+  });
+
   it("true miss — acknowledge_miss_without_shame preserved", () => {
     const facts = buildInboundV3RelationshipFacts({
       clerkUserId: "user_rt",

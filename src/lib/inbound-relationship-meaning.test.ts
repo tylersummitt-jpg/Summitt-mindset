@@ -450,3 +450,19 @@ describe("onboarding/coach-process disputes — no user_no", () => {
     expect(facts.persistence_decision).toBe("write_user_yes_today");
   });
 });
+
+describe("reflective_share meaning", () => {
+  it("classifies substantive team-unity reflection", () => {
+    const text =
+      "I spent time today encouraging others on the team and building unity. It reminded me why leadership matters.";
+    const facts = meaningFor(text);
+    expect(facts.relationship_meaning).toBe("reflective_share");
+    expect(facts.sms_response_intent).toBe("acknowledge_reflection");
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
+  it("does not classify short yes/no as reflective_share", () => {
+    const facts = meaningFor("Yes");
+    expect(facts.relationship_meaning).not.toBe("reflective_share");
+  });
+});
