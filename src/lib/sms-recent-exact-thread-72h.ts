@@ -65,6 +65,51 @@ const ROW_FETCH_LIMIT = 120;
 /** Bounded row cap for schema-adaptive select("*") fallback (no timestamp columns in query). */
 export const SCHEMA_ADAPTIVE_FALLBACK_LIMIT = 300;
 
+/** Production-verified ORDER BY specs for exact-thread source fetches (newest first). */
+export type ExactThreadSourceOrderSpec = {
+  column: string;
+  ascending: boolean;
+  nullsFirst?: boolean;
+};
+
+export const EXACT_THREAD_SOURCE_ORDER_BY: Record<string, ExactThreadSourceOrderSpec[]> = {
+  sms_send_events: [{ column: "created_at", ascending: false }],
+  sms_weekly_send_events: [{ column: "created_at", ascending: false }],
+  sms_inbound_messages: [{ column: "received_at", ascending: false }],
+  /**
+   * Coach replies: sent_at when present, else job activity time.
+   * Chained PostgREST order() calls — sent_at DESC (nulls last), then updated_at, then created_at.
+   */
+  sms_inbound_coach_jobs: [
+    { column: "sent_at", ascending: false, nullsFirst: false },
+    { column: "updated_at", ascending: false },
+    { column: "created_at", ascending: false },
+  ],
+};
+
+type SupabaseOrderableQuery<T> = {
+  order: (
+    column: string,
+    options?: { ascending?: boolean; nullsFirst?: boolean }
+  ) => T;
+};
+
+function applyExactThreadSourceOrder<T extends SupabaseOrderableQuery<T>>(
+  table: string,
+  query: T
+): T {
+  const specs = EXACT_THREAD_SOURCE_ORDER_BY[table];
+  if (!specs?.length) return query;
+  let next = query;
+  for (const spec of specs) {
+    next = next.order(spec.column, {
+      ascending: spec.ascending,
+      ...(spec.nullsFirst !== undefined ? { nullsFirst: spec.nullsFirst } : {}),
+    });
+  }
+  return next;
+}
+
 /** Minimal inbound columns when timestamp filters are unavailable. */
 const SMS_INBOUND_MESSAGES_CLERK_SELECT =
   "raw_body, message_sid, inserted_at, metadata";
@@ -222,7 +267,7 @@ export type SchemaAdaptiveFetchAttempt = {
 };
 
 /**
- * Primary notebook fetch: bounded select("*") by clerk_user_id only.
+ * Primary notebook fetch: bounded select("*") by clerk_user_id, newest rows first.
  * Timestamp/window filtering happens in TypeScript.
  */
 export async function fetchRowsPrimarySelectStar(args: {
@@ -233,11 +278,10 @@ export async function fetchRowsPrimarySelectStar(args: {
 }): Promise<SchemaAdaptiveFetchResult> {
   const limit = args.limit ?? SCHEMA_ADAPTIVE_FALLBACK_LIMIT;
   const primaryLabel = `${args.table}:select_star_primary`;
-  const { data, error } = await supabaseServer
-    .from(args.table)
-    .select("*")
-    .eq("clerk_user_id", args.clerkUserId)
-    .limit(limit);
+  const { data, error } = await applyExactThreadSourceOrder(
+    args.table,
+    supabaseServer.from(args.table).select("*").eq("clerk_user_id", args.clerkUserId)
+  ).limit(limit);
 
   if (!error) {
     args.stats?.recordPrimaryFetchSucceeded();
@@ -315,11 +359,10 @@ export async function fetchRowsSchemaAdaptive(args: {
 
   const fallbackLabel = `${args.table}:*`;
   const limit = args.fallbackLimit ?? SCHEMA_ADAPTIVE_FALLBACK_LIMIT;
-  const { data, error } = await supabaseServer
-    .from(args.table)
-    .select("*")
-    .eq("clerk_user_id", args.clerkUserId)
-    .limit(limit);
+  const { data, error } = await applyExactThreadSourceOrder(
+    args.table,
+    supabaseServer.from(args.table).select("*").eq("clerk_user_id", args.clerkUserId)
+  ).limit(limit);
 
   if (error) {
     const compact = compactSupabaseFetchError(error);

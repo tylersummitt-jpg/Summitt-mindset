@@ -30,6 +30,7 @@ import {
   isSendEventTrulySent,
   RECENT_EXACT_THREAD_WINDOW_HOURS,
   SCHEMA_ADAPTIVE_FALLBACK_LIMIT,
+  EXACT_THREAD_SOURCE_ORDER_BY,
   SMS_SEND_EVENTS_THREAD_SELECT,
   SMS_WEEKLY_SEND_EVENTS_THREAD_SELECT,
   timestampFromInboundMessageRow,
@@ -1431,5 +1432,142 @@ describe("schema-adaptive notebook fetch safety net", () => {
   it("schema fallback limit is bounded", () => {
     expect(SCHEMA_ADAPTIVE_FALLBACK_LIMIT).toBeLessThanOrEqual(300);
     expect(SCHEMA_ADAPTIVE_FALLBACK_LIMIT).toBeGreaterThan(0);
+  });
+});
+
+describe("exact-thread source ORDER BY (P4B Step 2)", () => {
+  type CapturedOrder = { column: string; ascending: boolean; nullsFirst?: boolean };
+  type TableCapture = { orders: CapturedOrder[]; limit?: number };
+
+  function capturingBuilder(table: string, rows: unknown[] | null, capture: TableCapture) {
+    const arrayRows = Array.isArray(rows) ? rows : [];
+    const single = Array.isArray(rows) ? null : rows;
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      gte: () => builder,
+      not: () => builder,
+      order: (column: string, options?: { ascending?: boolean; nullsFirst?: boolean }) => {
+        capture.orders.push({
+          column,
+          ascending: options?.ascending ?? true,
+          ...(options?.nullsFirst !== undefined ? { nullsFirst: options.nullsFirst } : {}),
+        });
+        return builder;
+      },
+      limit: (n: number) => {
+        capture.limit = n;
+        return builder;
+      },
+      maybeSingle: () => Promise.resolve({ data: single, error: null }),
+      then: (resolve: (v: { data: unknown; error: null }) => void) =>
+        resolve({ data: arrayRows, error: null }),
+    };
+    return builder;
+  }
+
+  const captures = new Map<string, TableCapture>();
+
+  function resetCaptures() {
+    captures.clear();
+    for (const table of [
+      "sms_send_events",
+      "sms_weekly_send_events",
+      "sms_inbound_messages",
+      "sms_inbound_coach_jobs",
+      "sms_last_outbound_context",
+    ]) {
+      captures.set(table, { orders: [] });
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+    resetCaptures();
+    supabaseFrom.mockImplementation((table: string) => {
+      const cap = captures.get(table) ?? { orders: [] };
+      if (!captures.has(table)) captures.set(table, cap);
+      if (table === "sms_last_outbound_context") {
+        return capturingBuilder(table, null, cap);
+      }
+      return capturingBuilder(table, [], cap);
+    });
+  });
+
+  it.each([
+    ["sms_send_events", EXACT_THREAD_SOURCE_ORDER_BY.sms_send_events],
+    ["sms_weekly_send_events", EXACT_THREAD_SOURCE_ORDER_BY.sms_weekly_send_events],
+    ["sms_inbound_messages", EXACT_THREAD_SOURCE_ORDER_BY.sms_inbound_messages],
+    ["sms_inbound_coach_jobs", EXACT_THREAD_SOURCE_ORDER_BY.sms_inbound_coach_jobs],
+  ] as const)("queries %s with production ORDER BY", async (table, expected) => {
+    await buildRecentExactThread72h({
+      clerkUserId: "user_order",
+      timezone: TZ,
+      now: NOW,
+    });
+    expect(captures.get(table)?.orders).toEqual([...expected]);
+  });
+
+  it("preserves ROW_FETCH_LIMIT for inbound and coach jobs", async () => {
+    await buildRecentExactThread72h({
+      clerkUserId: "user_limits",
+      timezone: TZ,
+      now: NOW,
+    });
+    expect(captures.get("sms_inbound_messages")?.limit).toBe(120);
+    expect(captures.get("sms_inbound_coach_jobs")?.limit).toBe(120);
+    expect(captures.get("sms_send_events")?.limit).toBe(300);
+    expect(captures.get("sms_weekly_send_events")?.limit).toBe(300);
+  });
+
+  it("still sorts merged thread chronologically after fetch", async () => {
+    supabaseFrom.mockImplementation((table: string) => {
+      switch (table) {
+        case "sms_send_events":
+          return chain([
+            {
+              sms_body: "Later daily coach.",
+              created_at: "2026-05-18T11:00:00.000Z",
+              status: "sent",
+              message_sid: "SM_LATE",
+            },
+            {
+              sms_body: "Earlier daily coach.",
+              created_at: "2026-05-18T09:00:00.000Z",
+              status: "sent",
+              message_sid: "SM_EARLY",
+            },
+          ]);
+        case "sms_inbound_coach_jobs":
+          return chain([
+            {
+              raw_body: "User text",
+              reply_body: "Mid coach reply.",
+              status: "sent",
+              sent_at: "2026-05-18T10:00:00.000Z",
+              created_at: "2026-05-18T10:00:00.000Z",
+              updated_at: "2026-05-18T10:00:00.000Z",
+              message_sid: "SM_MID",
+            },
+          ]);
+        default:
+          return chain([]);
+      }
+    });
+
+    const result = await buildRecentExactThread72h({
+      clerkUserId: "user_chrono",
+      timezone: TZ,
+      now: NOW,
+    });
+
+    const coachBodies = result.messages.filter((m) => m.role === "coach").map((m) => m.body);
+    const earlyIdx = coachBodies.findIndex((b) => /Earlier daily coach/i.test(b));
+    const midIdx = coachBodies.findIndex((b) => /Mid coach reply/i.test(b));
+    const lateIdx = coachBodies.findIndex((b) => /Later daily coach/i.test(b));
+    expect(earlyIdx).toBeGreaterThanOrEqual(0);
+    expect(midIdx).toBeGreaterThan(earlyIdx);
+    expect(lateIdx).toBeGreaterThan(midIdx);
   });
 });
