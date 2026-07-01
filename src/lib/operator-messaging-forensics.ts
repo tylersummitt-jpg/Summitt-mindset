@@ -125,15 +125,15 @@ export async function fetchOperatorMessagingForensics(
       .maybeSingle(),
     supabaseServer
       .from("sms_send_events")
-      .select("created_at, updated_at, day_key, status, message_sid, metadata")
+      .select("created_at, day_key, status, message_sid, metadata")
       .eq("clerk_user_id", clerkUserId)
       .order("created_at", { ascending: false })
       .limit(TAIL),
     supabaseServer
       .from("sms_inbound_messages")
-      .select("message_sid, phone_number, raw_body, created_at")
+      .select("message_sid, phone_number, raw_body, received_at")
       .eq("clerk_user_id", clerkUserId)
-      .order("created_at", { ascending: false })
+      .order("received_at", { ascending: false })
       .limit(TAIL),
     supabaseServer
       .from("sms_inbound_coach_jobs")
@@ -193,7 +193,7 @@ export async function fetchOperatorMessagingForensics(
     return {
       source: "sms_send_events",
       created_at: typeof r.created_at === "string" ? r.created_at : null,
-      updated_at: typeof r.updated_at === "string" ? r.updated_at : null,
+      updated_at: null,
       day_key: typeof r.day_key === "string" ? r.day_key : null,
       status: typeof r.status === "string" ? r.status : null,
       message_sid: typeof r.message_sid === "string" ? r.message_sid : null,
@@ -208,7 +208,7 @@ export async function fetchOperatorMessagingForensics(
     return {
       source: "sms_inbound_messages",
       message_sid: typeof r.message_sid === "string" ? r.message_sid : "",
-      occurred_at: typeof r.created_at === "string" ? r.created_at : null,
+      occurred_at: typeof r.received_at === "string" ? r.received_at : null,
       phone_number: typeof r.phone_number === "string" ? r.phone_number : null,
       body_preview: truncateSmsBody(raw, BODY_PREVIEW),
       raw_body: raw,

@@ -5,7 +5,7 @@
 // "completions" in rollups counts any spine activity today for V2; legacy users still use
 // `daily_completion_events` for that column name.
 // "inbound" rollups count rows in `sms_inbound_messages` (Twilio-delivered user SMS) today UTC—
-// not in-app `coach_conversations`.
+// filtered by `received_at`, not in-app `coach_conversations`.
 // Dual-write: `retention_staleness_basis`, `last_v2_spine_activity_at`, `hours_since_v2_spine` and
 // rollup `v2_spine_touches_today` / `legacy_daily_completion_touches_today` — see migration
 // 20260503120000_retention_reporting_truth_columns.sql and COMMENT ON in Supabase.
@@ -190,16 +190,16 @@ export async function GET(req: Request) {
       const dayStartIsoInbound = utcDayStartIsoFromDayKey(today);
       const { data: inboundSms } = await supabaseServer
         .from("sms_inbound_messages")
-        .select("created_at")
+        .select("received_at")
         .eq("clerk_user_id", u.id)
-        .gte("created_at", dayStartIsoInbound)
-        .order("created_at", { ascending: false })
+        .gte("received_at", dayStartIsoInbound)
+        .order("received_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      const smsInboundCreatedAt =
-        typeof inboundSms?.created_at === "string" ? inboundSms.created_at : null;
-      const hadSmsInboundToday = smsInboundCreatedAt !== null;
+      const smsInboundReceivedAt =
+        typeof inboundSms?.received_at === "string" ? inboundSms.received_at : null;
+      const hadSmsInboundToday = smsInboundReceivedAt !== null;
       if (hadSmsInboundToday) counts[mode].inbound += 1;
 
       // Update canonical per-user retention state (idempotent upsert)
@@ -211,7 +211,7 @@ export async function GET(req: Request) {
           days_since_last_completion: daysSince,
           last_completed_at: typeof md.lastCompletedAt === "string" ? md.lastCompletedAt : null,
           last_sms_sent_day_key: smsSent && smsSent.length > 0 ? today : null,
-          last_inbound_at: smsInboundCreatedAt,
+          last_inbound_at: smsInboundReceivedAt,
           silent_churn: silentChurn,
           risk_score: risk,
           updated_at: new Date().toISOString(),
@@ -275,7 +275,7 @@ export async function GET(req: Request) {
     day: today,
     counts,
     inbound_signal:
-      "Rollup inbound_count = user SMS stored in sms_inbound_messages (created_at >= UTC day start). Not coach_conversations.",
+      "Rollup inbound_count = user SMS stored in sms_inbound_messages (received_at >= UTC day start). Not coach_conversations.",
     staleness_model:
       "V2 path: hours since latest v2_commitment_event (fallback Clerk lastCompletedAt). Legacy path: hours since lastCompletedAt. Rollups completions_count = spine activity today (V2) or daily_completion_events (legacy). inbound_count = sms_inbound_messages today UTC. DB columns retention_staleness_basis, last_v2_spine_activity_at, hours_since_v2_spine (retention_signals) and v2_spine_touches_today, legacy_daily_completion_touches_today (rollups) document truth explicitly.",
   });

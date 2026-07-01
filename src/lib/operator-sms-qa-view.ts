@@ -123,11 +123,13 @@ function summaryFromMetadata(m: unknown): string {
   return bits.length ? bits.join(" · ") : "sms_send";
 }
 
-function coachBodyFromSendMetadata(m: unknown): string {
+function coachBodyFromSendRow(row: Record<string, unknown>): string {
+  const topLevel = row.sms_body;
+  if (typeof topLevel === "string" && topLevel.trim()) return topLevel;
+  const m = row.metadata;
   if (m == null || typeof m !== "object" || Array.isArray(m)) return "";
-  const r = m as Record<string, unknown>;
-  const b = r.sms_body;
-  return typeof b === "string" ? b : "";
+  const metaBody = (m as Record<string, unknown>).sms_body;
+  return typeof metaBody === "string" ? metaBody : "";
 }
 
 function extractSpineFlags(eventType: string, p: Record<string, unknown>): string[] {
@@ -246,14 +248,14 @@ function extractSpineFlags(eventType: string, p: Record<string, unknown>): strin
 }
 
 function mergeRecentUsers(
-  inbound: { clerk_user_id?: string; phone_number?: string | null; created_at?: string }[],
+  inbound: { clerk_user_id?: string; phone_number?: string | null; received_at?: string }[],
   sends: { clerk_user_id?: string; created_at?: string }[]
 ): OperatorSmsQaRecentUser[] {
   const best = new Map<string, { at: string; phone: string | null }>();
   for (const r of inbound) {
     const id = typeof r.clerk_user_id === "string" ? r.clerk_user_id.trim() : "";
     if (!id) continue;
-    const at = typeof r.created_at === "string" ? r.created_at : "";
+    const at = typeof r.received_at === "string" ? r.received_at : "";
     const ph = typeof r.phone_number === "string" ? r.phone_number : null;
     const prev = best.get(id);
     if (!prev || (at && at > prev.at)) best.set(id, { at: at || prev?.at || "", phone: ph ?? prev?.phone ?? null });
@@ -282,8 +284,8 @@ export async function loadOperatorSmsQaRecentUsers(args: {
   const [inRes, sRes] = await Promise.all([
     supabaseServer
       .from("sms_inbound_messages")
-      .select("clerk_user_id, phone_number, created_at")
-      .order("created_at", { ascending: false })
+      .select("clerk_user_id, phone_number, received_at")
+      .order("received_at", { ascending: false })
       .limit(RECENT_SCAN),
     supabaseServer
       .from("sms_send_events")
@@ -293,7 +295,7 @@ export async function loadOperatorSmsQaRecentUsers(args: {
   ]);
 
   let merged = mergeRecentUsers(
-    (inRes.data ?? []) as { clerk_user_id?: string; phone_number?: string | null; created_at?: string }[],
+    (inRes.data ?? []) as { clerk_user_id?: string; phone_number?: string | null; received_at?: string }[],
     (sRes.data ?? []) as { clerk_user_id?: string; created_at?: string }[]
   );
 
@@ -322,13 +324,13 @@ export async function loadOperatorSmsQaDetail(targetClerkUserId: string): Promis
     getActiveCommitment(target),
     supabaseServer
       .from("sms_inbound_messages")
-      .select("message_sid, raw_body, created_at")
+      .select("message_sid, raw_body, received_at")
       .eq("clerk_user_id", target)
-      .order("created_at", { ascending: false })
+      .order("received_at", { ascending: false })
       .limit(TIMELINE_LIMIT_EACH),
     supabaseServer
       .from("sms_send_events")
-      .select("created_at, metadata, message_sid, day_key, status")
+      .select("created_at, sms_body, metadata, message_sid, day_key, status")
       .eq("clerk_user_id", target)
       .order("created_at", { ascending: false })
       .limit(TIMELINE_LIMIT_EACH),
@@ -361,7 +363,7 @@ export async function loadOperatorSmsQaDetail(targetClerkUserId: string): Promis
     const r = row as Record<string, unknown>;
     const raw = typeof r.raw_body === "string" ? r.raw_body : "";
     const sid = typeof r.message_sid === "string" ? r.message_sid : "";
-    const at = typeof r.created_at === "string" ? r.created_at : "";
+    const at = typeof r.received_at === "string" ? r.received_at : "";
     if (at)
       timeline.push({
         at,
@@ -375,7 +377,7 @@ export async function loadOperatorSmsQaDetail(targetClerkUserId: string): Promis
     const r = row as Record<string, unknown>;
     const at = typeof r.created_at === "string" ? r.created_at : "";
     const meta = r.metadata;
-    const body = coachBodyFromSendMetadata(meta);
+    const body = coachBodyFromSendRow(r);
     const sid = typeof r.message_sid === "string" ? r.message_sid : "";
     const dk = typeof r.day_key === "string" ? r.day_key : "";
     if (at)
@@ -383,7 +385,7 @@ export async function loadOperatorSmsQaDetail(targetClerkUserId: string): Promis
         at,
         role: "coach",
         label: summaryFromMetadata(meta),
-        body: body || "(body in metadata.sms_body missing — see metadata in spine)",
+        body: body || "(body in sms_body/metadata missing — see metadata in spine)",
         ref: [sid && `message_sid=${sid}`, dk && `day_key=${dk}`].filter(Boolean).join(" · "),
       });
   }
