@@ -104,6 +104,10 @@ import {
   attachDailyNotebookVerdictToMetadata,
   buildDailyNotebookTelemetry,
 } from "@/lib/sms-daily-notebook-telemetry";
+import {
+  buildWriterOpenAiCapture,
+  type TylerTextOverviewWriterOpenAiCapture,
+} from "@/lib/tyler-text-overview-writer-capture";
 import type { RelationshipMemory7dResult } from "@/lib/sms-relationship-memory-7d";
 import type { RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
 import {
@@ -433,7 +437,11 @@ export type DailyV3RelationshipLaneResult = {
   safetyNotes: string[];
   metadata: Record<string, unknown>;
   openAiOk: boolean;
+  /** Exact OpenAI writer messages captured immediately before the lane writer call. */
+  writerOpenAiCapture?: TylerTextOverviewWriterOpenAiCapture | null;
 };
+
+const DAILY_V3_LANE_OPENAI_MODEL = "gpt-4o-mini" as const;
 
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -1272,7 +1280,12 @@ async function produceDailyV3RelationshipSmsImpl(
       : {}),
   };
 
-  const empty = (reason: string, openAiOk: boolean, extra?: Record<string, unknown>): DailyV3RelationshipLaneResult => ({
+  const empty = (
+    reason: string,
+    openAiOk: boolean,
+    extra?: Record<string, unknown>,
+    writerOpenAiCapture: TylerTextOverviewWriterOpenAiCapture | null = null
+  ): DailyV3RelationshipLaneResult => ({
     body: "",
     shouldSend: false,
     noSendReason: reason,
@@ -1283,6 +1296,7 @@ async function produceDailyV3RelationshipSmsImpl(
     safetyNotes: [],
     metadata: { ...baseMeta, ...extra },
     openAiOk,
+    writerOpenAiCapture,
   });
 
   const client = getOpenAIClient();
@@ -1512,16 +1526,23 @@ used_facts (string[]), safety_notes (string[])`;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;
+  const writerPromptPathForCapture =
+    typeof baseMeta.writer_prompt_path === "string" ? baseMeta.writer_prompt_path : null;
+  const writerOpenAiCapture = buildWriterOpenAiCapture({
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    model: DAILY_V3_LANE_OPENAI_MODEL,
+    writer_prompt_path: writerPromptPathForCapture,
+  });
   try {
     const jsonOut = await runLaneOpenAiJsonWithOneRetry<LaneModelJson>({
       client,
-      model: "gpt-4o-mini",
+      model: DAILY_V3_LANE_OPENAI_MODEL,
       temperature: 0.35,
       maxTokens: 220,
-      primaryMessages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
+      primaryMessages: writerOpenAiCapture.messages,
       jsonSchemaReminder:
         "Keys: should_send (boolean), body (string), no_send_reason (string|null), turn_purpose (string), voice_confidence (number 0-1 or null), used_facts (string[]), safety_notes (string[]).",
       parse: safeJsonParse,
@@ -1532,14 +1553,14 @@ used_facts (string[]), safety_notes (string[])`;
     return empty("openai_request_failed", true, {
       lane_stage: "openai_error",
       message: e instanceof Error ? e.message : String(e),
-    });
+    }, writerOpenAiCapture);
   }
 
   if (!parsed) {
     return empty("invalid_json", true, {
       lane_stage: "parse",
       ...laneOpenAiJsonMeta,
-    });
+    }, writerOpenAiCapture);
   }
 
   const shouldSend = parsed.should_send === true;
@@ -1573,15 +1594,16 @@ used_facts (string[]), safety_notes (string[])`;
         v3_candidate_body: "",
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body", ...laneOpenAiJsonMeta });
+    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body", ...laneOpenAiJsonMeta }, writerOpenAiCapture);
   }
   body = body.replace(/^["']|["']$/g, "").trim();
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta });
+    return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta }, writerOpenAiCapture);
   }
 
   const bindingVerbatim = dailyBindingVerbatimForRobotGuard(laneFacts);
@@ -1635,6 +1657,7 @@ used_facts (string[]), safety_notes (string[])`;
           ...robotConsentMenuExtra,
         },
         openAiOk: true,
+      writerOpenAiCapture,
       };
     }
     if (robotRepair) {
@@ -1674,6 +1697,7 @@ used_facts (string[]), safety_notes (string[])`;
           ...praiseMetadata,
         },
         openAiOk: true,
+      writerOpenAiCapture,
       };
     }
 
@@ -1764,6 +1788,7 @@ used_facts (string[]), safety_notes (string[])`;
           ...(repairLoop.extraMeta ?? {}),
         },
         openAiOk: true,
+      writerOpenAiCapture,
       };
     }
 
@@ -1826,6 +1851,7 @@ used_facts (string[]), safety_notes (string[])`;
             contract_wrapper_repair_succeeded: false,
           },
           openAiOk: true,
+        writerOpenAiCapture,
         };
       }
 
@@ -1882,6 +1908,7 @@ used_facts (string[]), safety_notes (string[])`;
             ...contractRepair.metadata,
           },
           openAiOk: true,
+        writerOpenAiCapture,
         };
       }
 
@@ -1917,6 +1944,7 @@ used_facts (string[]), safety_notes (string[])`;
         first_missing_verbatim_preview: missingVerb.slice(0, 120),
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
@@ -1943,6 +1971,7 @@ used_facts (string[]), safety_notes (string[])`;
         v3_candidate_body: body,
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
@@ -1976,6 +2005,7 @@ used_facts (string[]), safety_notes (string[])`;
         ...temporalGuard.metadata,
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
   body = temporalGuard.body;
@@ -2013,6 +2043,7 @@ used_facts (string[]), safety_notes (string[])`;
         ...freshnessGuard.metadata,
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
@@ -2143,6 +2174,7 @@ used_facts (string[]), safety_notes (string[])`;
         skip_source: "memory_repeat_no_send",
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
@@ -2187,6 +2219,7 @@ used_facts (string[]), safety_notes (string[])`;
           skip_source: "stale_ask_no_send",
         },
         openAiOk: true,
+      writerOpenAiCapture,
       };
     }
 
@@ -2216,6 +2249,7 @@ used_facts (string[]), safety_notes (string[])`;
         skip_source: "proof_calibration_seatbelt_no_send",
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
@@ -2251,6 +2285,7 @@ used_facts (string[]), safety_notes (string[])`;
       }),
     },
     openAiOk: true,
+  writerOpenAiCapture,
   };
 }
 
