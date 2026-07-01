@@ -3,6 +3,12 @@
 -- =============================================================================
 -- Run in Supabase SQL editor. SELECT-only — does not mutate data.
 --
+-- SUMMITT SMS SPINE SCHEMA RULES:
+-- sms_send_events: body = sms_body or metadata paths; send time = metadata->>'sent_at' fallback created_at. No top-level sent_at/body/updated_at.
+-- sms_weekly_send_events: body = metadata paths only; send time = metadata->>'sent_at' fallback created_at. No top-level body/sms_body/sent_at.
+-- sms_inbound_messages: raw_body + received_at only. No created_at/inserted_at/metadata.
+-- sms_inbound_coach_jobs: reply_body + sent_at/updated_at/created_at. No metadata.
+--
 -- v1.2 adds Daily C1 observability COALESCE paths:
 --   strategy_card_daily_conversation_intent, local day fields,
 --   stale_ask_avoidance_* counts, relationship anchor counts.
@@ -409,7 +415,7 @@ WITH bounds AS (
 ),
 timeline AS (
   SELECT
-    COALESCE(m.created_at, j.created_at) AS event_at,
+    COALESCE(m.received_at, j.sent_at, j.updated_at, j.created_at) AS event_at,
     COALESCE(m.clerk_user_id, j.clerk_user_id) AS clerk_user_id,
     'sms_inbound_messages'::text AS source_table,
     'inbound'::text AS direction,
@@ -427,8 +433,8 @@ timeline AS (
   FROM sms_inbound_messages m
   CROSS JOIN bounds b
   LEFT JOIN sms_inbound_coach_jobs j ON j.message_sid = m.message_sid
-  WHERE COALESCE(m.created_at, j.created_at) >= b.day_start
-    AND COALESCE(m.created_at, j.created_at) < b.day_end
+  WHERE COALESCE(m.received_at, j.sent_at, j.updated_at, j.created_at) >= b.day_start
+    AND COALESCE(m.received_at, j.sent_at, j.updated_at, j.created_at) < b.day_end
 
   UNION ALL
 
@@ -1161,7 +1167,7 @@ WITH bounds AS (
     timestamptz '2026-06-12 00:00:00 America/New_York' AS day_end
 )
 SELECT
-  COALESCE(m.created_at, j.created_at) AS inbound_at,
+  COALESCE(m.received_at, j.sent_at, j.updated_at, j.created_at) AS inbound_at,
   LEFT(COALESCE(m.raw_body, j.raw_body, ''), 240) AS user_text,
   COALESCE(m.message_sid, j.message_sid) AS inbound_message_sid,
   j.status AS job_status,
@@ -1210,8 +1216,8 @@ LEFT JOIN LATERAL (
   ORDER BY ev.occurred_at DESC
   LIMIT 1
 ) it ON TRUE
-WHERE COALESCE(m.created_at, j.created_at) >= b.day_start
-  AND COALESCE(m.created_at, j.created_at) < b.day_end
+WHERE COALESCE(m.received_at, j.sent_at, j.updated_at, j.created_at) >= b.day_start
+  AND COALESCE(m.received_at, j.sent_at, j.updated_at, j.created_at) < b.day_end
 ORDER BY inbound_at ASC;
 
 
@@ -1230,8 +1236,8 @@ inbound_msgs AS (
   SELECT m.clerk_user_id, COUNT(*) AS inbound_user_messages
   FROM sms_inbound_messages m
   CROSS JOIN bounds b
-  WHERE COALESCE(m.created_at, now()) >= b.day_start
-    AND COALESCE(m.created_at, now()) < b.day_end
+  WHERE COALESCE(m.received_at, now()) >= b.day_start
+    AND COALESCE(m.received_at, now()) < b.day_end
   GROUP BY m.clerk_user_id
 ),
 inbound_jobs AS (
@@ -1455,13 +1461,13 @@ last_events AS (
 
     SELECT
       m.clerk_user_id,
-      COALESCE(m.created_at, now()),
+      COALESCE(m.received_at, now()),
       LEFT(m.raw_body, 160),
       NULL, NULL, NULL
     FROM sms_inbound_messages m
     CROSS JOIN bounds b
-    WHERE COALESCE(m.created_at, now()) >= b.day_start
-      AND COALESCE(m.created_at, now()) < b.day_end
+    WHERE COALESCE(m.received_at, now()) >= b.day_start
+      AND COALESCE(m.received_at, now()) < b.day_end
   ) t
   ORDER BY t.clerk_user_id, t.event_at DESC
 )

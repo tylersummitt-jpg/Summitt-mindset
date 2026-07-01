@@ -1,6 +1,12 @@
 -- Weekly / Pat Pause notebook health check (read-only).
 -- Run in Supabase SQL Editor after Sunday noon sends.
 -- Replace week_key and clerk_user_id filters as needed.
+--
+-- SUMMITT SMS SPINE SCHEMA RULES:
+-- sms_send_events: body = sms_body or metadata paths; send time = metadata->>'sent_at' fallback created_at. No top-level sent_at/body/updated_at.
+-- sms_weekly_send_events: body = metadata paths only; send time = metadata->>'sent_at' fallback created_at. No top-level body/sms_body/sent_at.
+-- sms_inbound_messages: raw_body + received_at only. No created_at/inserted_at/metadata.
+-- sms_inbound_coach_jobs: reply_body + sent_at/updated_at/created_at. No metadata.
 
 WITH bounds AS (
   SELECT
@@ -11,6 +17,15 @@ weekly_rows AS (
     w.clerk_user_id,
     w.status,
     COALESCE(to_jsonb(w)->>'message_sid', to_jsonb(w)#>>'{metadata,message_sid}', '') AS message_sid,
+    COALESCE(
+      CASE
+        WHEN NULLIF(BTRIM(w.metadata->>'sent_at'), '') IS NOT NULL
+        THEN NULLIF(w.metadata->>'sent_at', '')::timestamptz
+      END,
+      w.created_at
+    ) AS effective_send_at,
+    COALESCE(to_jsonb(w)#>>'{metadata,weekly_notebook_verdict}', '') AS weekly_notebook_verdict,
+    COALESCE(to_jsonb(w)#>>'{metadata,weekly_notebook_verdict_reason}', '') AS weekly_notebook_verdict_reason,
     COALESCE(to_jsonb(w)#>>'{metadata,weekly_v3_lane_used}', '') AS weekly_v3_lane_used,
     COALESCE(
       to_jsonb(w)#>>'{metadata,weekly_writer_invoked}',
@@ -131,11 +146,11 @@ weekly_rows AS (
     ) AS included_thread_message_count,
     LEFT(
       COALESCE(
-        NULLIF(BTRIM(to_jsonb(w)->>'body'), ''),
-        NULLIF(BTRIM(to_jsonb(w)->>'sms_body'), ''),
-        NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,sms_body}'), ''),
-        NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,north_star_gate,final_body}'), ''),
-        NULLIF(BTRIM(to_jsonb(w)#>>'{metadata,v3_candidate_body}'), ''),
+        NULLIF(BTRIM(w.metadata->>'sms_body'), ''),
+        NULLIF(BTRIM(w.metadata#>>'{north_star_gate,final_body}'), ''),
+        NULLIF(BTRIM(w.metadata->>'v3_candidate_body'), ''),
+        NULLIF(BTRIM(w.metadata#>>'{weekly_v3_lane,final_body}'), ''),
+        NULLIF(BTRIM(w.metadata#>>'{weekly_v3_lane,body}'), ''),
         ''
       ),
       300
