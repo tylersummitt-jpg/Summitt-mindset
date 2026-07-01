@@ -528,10 +528,14 @@ describe("tyler-text-overview Phase 3 scope guards", () => {
     }
   });
 
-  it("no admin route files added", () => {
-    expect(() =>
-      readFileSync(join(process.cwd(), "src/app/api/admin/tyler-text-overview/route.ts"), "utf8")
-    ).toThrow();
+  it("admin routes use requireTylerAdmin (Phase 4)", () => {
+    for (const rel of [
+      "src/app/api/admin/tyler-text-overview/route.ts",
+      "src/app/api/admin/tyler-text-overview/[draftId]/route.ts",
+    ]) {
+      const src = readFileSync(join(process.cwd(), rel), "utf8");
+      expect(src).toContain("requireTylerAdmin");
+    }
   });
 });
 

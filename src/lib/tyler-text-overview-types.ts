@@ -51,3 +51,15 @@ export const TYLER_TEXT_OVERVIEW_NOTEBOOK_VERDICTS = [
 
 export type TylerTextOverviewNotebookVerdict =
   (typeof TYLER_TEXT_OVERVIEW_NOTEBOOK_VERDICTS)[number];
+
+/** Minimal admin UI row — no phone, verdict, or debug metadata. */
+export type TylerTextOverviewAdminDraftRow = {
+  draftId: string;
+  clerkUserId: string;
+  draftForDayKey: string;
+  currentBodyToSend: string | null;
+  writerOpenAiMessages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }>;
+};

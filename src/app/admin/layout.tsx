@@ -35,6 +35,12 @@ export default async function AdminLayout({
             <Link href="/admin/feedback" className="text-gray-700 underline hover:text-gray-900">
               Weekly feedback
             </Link>
+            <Link
+              href="/admin/tyler-text-overview"
+              className="text-gray-700 underline hover:text-gray-900"
+            >
+              Tyler Text Overview
+            </Link>
           </nav>
         </div>
       </header>
