@@ -5,6 +5,11 @@
 
 export const TYLER_TEXT_OVERVIEW_ENABLED_ENV = "TYLER_TEXT_OVERVIEW_ENABLED" as const;
 
+/** Single env gate for Tyler Text Overview runtime (noon generation, later send/admin phases). */
+export function isTylerTextOverviewEnabled(): boolean {
+  return process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] === "true";
+}
+
 export const SMS_DAILY_DRAFT_GENERATIONS_TABLE = "sms_daily_draft_generations" as const;
 export const SMS_DAILY_DRAFTS_TABLE = "sms_daily_drafts" as const;
 

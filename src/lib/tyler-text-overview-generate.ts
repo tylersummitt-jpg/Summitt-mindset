@@ -1,0 +1,603 @@
+import { buildDailySmsContent, type DailySmsBuilt } from "@/lib/daily-sms-build";
+import { getClerkUser } from "@/lib/clerk-rest";
+import { supabaseServer } from "@/lib/supabase-server";
+import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
+import { resolveTylerTextOverviewDraftForDayKey } from "@/lib/tyler-text-overview-draft-day-key";
+import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
+import {
+  isTylerTextOverviewEnabled,
+  SMS_DAILY_DRAFT_GENERATIONS_TABLE,
+  SMS_DAILY_DRAFTS_TABLE,
+  type TylerTextOverviewNotebookVerdict,
+} from "@/lib/tyler-text-overview-types";
+import { resolveSmsUserTimezone } from "@/lib/timezone";
+import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
+import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
+import { getActiveCommitment } from "@/lib/v2-commitment";
+import {
+  fetchV2UserSmsCommsPreferences,
+  shouldSkipDailyForCommsPrefs,
+} from "@/lib/v2-sms-comms-preferences";
+import { fetchV2UserSendTimeProfile } from "@/lib/v2-send-time-profile";
+
+export type TylerTextOverviewAudienceRow = {
+  clerk_user_id: string;
+  phone_number: string | null;
+  sms_enabled: boolean;
+  stopped_at: string | null;
+  timezone: string | null;
+  summitt_subscribed: boolean;
+};
+
+export type TylerTextOverviewGenerateStats = {
+  ok: boolean;
+  enabled: boolean;
+  scanned: number;
+  eligible: number;
+  generated: number;
+  generation_inserted: number;
+  current_drafts_upserted: number;
+  skipped_disabled: number;
+  skipped_audience: number;
+  skipped_not_v2: number;
+  skipped_comms_prefs: number;
+  build_failed: number;
+  insert_failed: number;
+  upsert_failed: number;
+  supersede_failed: number;
+  errors_preview: string[];
+};
+
+function emptyStats(overrides: Partial<TylerTextOverviewGenerateStats> = {}): TylerTextOverviewGenerateStats {
+  return {
+    ok: true,
+    enabled: false,
+    scanned: 0,
+    eligible: 0,
+    generated: 0,
+    generation_inserted: 0,
+    current_drafts_upserted: 0,
+    skipped_disabled: 0,
+    skipped_audience: 0,
+    skipped_not_v2: 0,
+    skipped_comms_prefs: 0,
+    build_failed: 0,
+    insert_failed: 0,
+    upsert_failed: 0,
+    supersede_failed: 0,
+    errors_preview: [],
+    ...overrides,
+  };
+}
+
+function readMetadataString(metadata: Record<string, unknown>, key: string): string | null {
+  const raw = metadata[key];
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return null;
+}
+
+function readMetadataNumber(metadata: Record<string, unknown>, key: string): number | null {
+  const raw = metadata[key];
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function metadataFromBuilt(built: DailySmsBuilt): Record<string, unknown> {
+  if (!built.ok && built.dailyLaneMeta) {
+    return built.dailyLaneMeta;
+  }
+  if (built.ok && built.v2AiPayload?.v3_brain && typeof built.v2AiPayload.v3_brain === "object") {
+    return built.v2AiPayload.v3_brain as Record<string, unknown>;
+  }
+  return {};
+}
+
+export function resolveTylerTextOverviewMachineNoSendReason(built: DailySmsBuilt): string | null {
+  if (built.ok) return null;
+  const meta = metadataFromBuilt(built);
+  const laneReason = readMetadataString(meta, "no_send_reason");
+  if (laneReason) return laneReason;
+  const skipSource = readMetadataString(meta, "skip_source");
+  if (skipSource) return skipSource;
+  return built.error;
+}
+
+export function resolveTylerTextOverviewRouteKind(built: DailySmsBuilt): string | null {
+  const meta = metadataFromBuilt(built);
+  return readMetadataString(meta, "route_purpose") ?? readMetadataString(meta, "route_kind");
+}
+
+export function resolveTylerTextOverviewNotebookFields(built: DailySmsBuilt): {
+  notebook_verdict: TylerTextOverviewNotebookVerdict;
+  notebook_verdict_reason: string;
+  notebook_source_candidate_count: number | null;
+  notebook_exact_source_message_count: number | null;
+  notebook_thread_message_count: number | null;
+  notebook_filtered_out_reason_top: string | null;
+} {
+  const meta = metadataFromBuilt(built);
+  const capturePresent = Boolean(built.writerOpenAiCapture?.messages?.length);
+
+  if (Object.keys(meta).length > 0) {
+    const verdictRaw = readMetadataString(meta, "notebook_verdict");
+    const verdict: TylerTextOverviewNotebookVerdict =
+      verdictRaw === "verified" || verdictRaw === "failed" || verdictRaw === "not_applicable"
+        ? verdictRaw
+        : "not_applicable";
+    return {
+      notebook_verdict: verdict,
+      notebook_verdict_reason:
+        readMetadataString(meta, "notebook_verdict_reason") ??
+        (capturePresent ? "unknown_missing_telemetry" : "writer_not_invoked"),
+      notebook_source_candidate_count: readMetadataNumber(meta, "notebook_source_candidate_count"),
+      notebook_exact_source_message_count: readMetadataNumber(
+        meta,
+        "notebook_exact_source_message_count"
+      ),
+      notebook_thread_message_count: readMetadataNumber(meta, "notebook_brief_thread_message_count"),
+      notebook_filtered_out_reason_top: readMetadataString(meta, "notebook_filtered_out_reason_top"),
+    };
+  }
+
+  if (!capturePresent) {
+    return {
+      notebook_verdict: "not_applicable",
+      notebook_verdict_reason: "writer_not_invoked",
+      notebook_source_candidate_count: null,
+      notebook_exact_source_message_count: null,
+      notebook_thread_message_count: null,
+      notebook_filtered_out_reason_top: null,
+    };
+  }
+
+  return {
+    notebook_verdict: "not_applicable",
+    notebook_verdict_reason: "unknown_missing_telemetry",
+    notebook_source_candidate_count: null,
+    notebook_exact_source_message_count: null,
+    notebook_thread_message_count: null,
+    notebook_filtered_out_reason_top: null,
+  };
+}
+
+export function buildTylerTextOverviewGenerationMetadata(args: {
+  built: DailySmsBuilt;
+  draftForDayKey: string;
+  capturePresent: boolean;
+}): Record<string, unknown> {
+  const meta = metadataFromBuilt(args.built);
+  return {
+    build_ok: args.built.ok,
+    build_error: args.built.ok ? null : args.built.error,
+    draft_for_day_key: args.draftForDayKey,
+    capture_present: args.capturePresent,
+    machine_no_send_reason: resolveTylerTextOverviewMachineNoSendReason(args.built),
+    route_kind: resolveTylerTextOverviewRouteKind(args.built),
+    lane_stage: readMetadataString(meta, "lane_stage"),
+    skip_source: readMetadataString(meta, "skip_source"),
+    v3_daily_relationship_lane: args.built.ok ? args.built.v3DailyRelationshipLane ?? null : null,
+    v3_daily_sms: args.built.ok ? args.built.v3DailySms ?? null : null,
+  };
+}
+
+function formatSendPrefSnapshot(
+  clerkSmsTimePreference: string,
+  commsPrefs: Awaited<ReturnType<typeof fetchV2UserSmsCommsPreferences>>
+): string {
+  const parts = [`clerk:${clerkSmsTimePreference}`];
+  if (commsPrefs?.preferred_send_window) {
+    parts.push(`window:${commsPrefs.preferred_send_window}`);
+  }
+  if (commsPrefs?.preferred_local_hour != null) {
+    parts.push(`hour:${commsPrefs.preferred_local_hour}`);
+  }
+  return parts.join("|");
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "23505") return true;
+  return (error.message ?? "").toLowerCase().includes("duplicate");
+}
+
+async function fetchNextGenerationNumber(
+  clerkUserId: string,
+  draftForDayKey: string
+): Promise<number> {
+  const { data, error } = await supabaseServer
+    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+    .select("generation_number")
+    .eq("clerk_user_id", clerkUserId)
+    .eq("draft_for_day_key", draftForDayKey)
+    .order("generation_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`generation_number_lookup_failed:${error.message}`);
+  }
+
+  const max = typeof data?.generation_number === "number" ? data.generation_number : 0;
+  return max + 1;
+}
+
+export type TylerTextOverviewGenerationInsertRow = {
+  clerk_user_id: string;
+  draft_for_day_key: string;
+  generation_number: number;
+  generation_reason: "noon_batch";
+  commitment_id: string | null;
+  machine_draft_body: string | null;
+  machine_should_send: boolean;
+  machine_no_send_reason: string | null;
+  writer_openai_messages: TylerTextOverviewWriterOpenAiMessage[];
+  writer_prompt_path: string | null;
+  writer_notebook_snapshot: null;
+  notebook_hash: string | null;
+  notebook_verdict: TylerTextOverviewNotebookVerdict;
+  notebook_verdict_reason: string;
+  notebook_source_candidate_count: number | null;
+  notebook_exact_source_message_count: number | null;
+  notebook_thread_message_count: number | null;
+  notebook_filtered_out_reason_top: string | null;
+  route_kind: string | null;
+  generation_metadata: Record<string, unknown>;
+  timezone_snapshot: string;
+  send_pref_snapshot: string;
+  machine_body_hash: string | null;
+};
+
+export function mapBuiltToTylerTextOverviewGenerationRow(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  generationNumber: number;
+  built: DailySmsBuilt;
+  commitmentId: string | null;
+  timezone: string;
+  sendPrefSnapshot: string;
+}): TylerTextOverviewGenerationInsertRow {
+  const machineBody = args.built.ok ? args.built.smsBody.trim() || null : null;
+  const capture = args.built.writerOpenAiCapture ?? null;
+  const notebook = resolveTylerTextOverviewNotebookFields(args.built);
+
+  return {
+    clerk_user_id: args.clerkUserId,
+    draft_for_day_key: args.draftForDayKey,
+    generation_number: args.generationNumber,
+    generation_reason: "noon_batch",
+    commitment_id: args.commitmentId,
+    machine_draft_body: machineBody,
+    machine_should_send: args.built.ok === true,
+    machine_no_send_reason: resolveTylerTextOverviewMachineNoSendReason(args.built),
+    writer_openai_messages: capture?.messages ?? [],
+    writer_prompt_path: capture?.writer_prompt_path ?? null,
+    writer_notebook_snapshot: null,
+    notebook_hash: capture?.notebook_hash ?? null,
+    notebook_verdict: notebook.notebook_verdict,
+    notebook_verdict_reason: notebook.notebook_verdict_reason,
+    notebook_source_candidate_count: notebook.notebook_source_candidate_count,
+    notebook_exact_source_message_count: notebook.notebook_exact_source_message_count,
+    notebook_thread_message_count: notebook.notebook_thread_message_count,
+    notebook_filtered_out_reason_top: notebook.notebook_filtered_out_reason_top,
+    route_kind: resolveTylerTextOverviewRouteKind(args.built),
+    generation_metadata: buildTylerTextOverviewGenerationMetadata({
+      built: args.built,
+      draftForDayKey: args.draftForDayKey,
+      capturePresent: Boolean(capture?.messages?.length),
+    }),
+    timezone_snapshot: args.timezone,
+    send_pref_snapshot: args.sendPrefSnapshot,
+    machine_body_hash: machineBody ? hashSmsSnippet(machineBody) : null,
+  };
+}
+
+async function insertGenerationRow(
+  row: TylerTextOverviewGenerationInsertRow
+): Promise<{ id: string } | { error: string }> {
+  let attempt = 0;
+  let generationNumber = row.generation_number;
+
+  while (attempt < 2) {
+    const payload = { ...row, generation_number: generationNumber };
+    const { data, error } = await supabaseServer
+      .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+      .insert(payload)
+      .select("id")
+      .single();
+
+    if (!error && data?.id) {
+      return { id: data.id as string };
+    }
+
+    if (isUniqueViolation(error) && attempt === 0) {
+      attempt += 1;
+      try {
+        generationNumber = await fetchNextGenerationNumber(row.clerk_user_id, row.draft_for_day_key);
+      } catch (lookupErr) {
+        return {
+          error:
+            lookupErr instanceof Error
+              ? lookupErr.message
+              : "generation_number_retry_lookup_failed",
+        };
+      }
+      continue;
+    }
+
+    return { error: error?.message ?? "generation_insert_failed" };
+  }
+
+  return { error: "generation_insert_retry_exhausted" };
+}
+
+async function supersedePriorGenerations(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  newGenerationId: string;
+  nowIso: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabaseServer
+    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+    .update({
+      superseded_by_generation_id: args.newGenerationId,
+      superseded_at: args.nowIso,
+    })
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("draft_for_day_key", args.draftForDayKey)
+    .neq("id", args.newGenerationId)
+    .is("superseded_at", null);
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+async function upsertCurrentDraft(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  generationId: string;
+  machineBody: string | null;
+  machineBodyHash: string | null;
+  nowIso: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabaseServer.from(SMS_DAILY_DRAFTS_TABLE).upsert(
+    {
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: args.draftForDayKey,
+      current_generation_id: args.generationId,
+      current_body_to_send: args.machineBody,
+      current_body_source: "machine",
+      edited_by_tyler: false,
+      edited_at: null,
+      edit_distance_chars: null,
+      machine_body_hash: args.machineBodyHash,
+      current_body_hash: args.machineBodyHash,
+      status: "current",
+      updated_at: args.nowIso,
+    },
+    { onConflict: "clerk_user_id,draft_for_day_key" }
+  );
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+export async function loadTylerTextOverviewAudienceRows(): Promise<TylerTextOverviewAudienceRow[]> {
+  const { data, error } = await supabaseServer
+    .from("sms_audience")
+    .select("clerk_user_id, phone_number, sms_enabled, stopped_at, timezone, summitt_subscribed")
+    .eq("summitt_subscribed", true)
+    .eq("sms_enabled", true);
+
+  if (error) {
+    throw new Error(`sms_audience_query_failed:${error.message}`);
+  }
+
+  return (data ?? []).filter(
+    (row): row is TylerTextOverviewAudienceRow =>
+      typeof row.clerk_user_id === "string" &&
+      row.clerk_user_id.trim().length > 0 &&
+      row.sms_enabled === true &&
+      row.summitt_subscribed === true &&
+      (row.stopped_at == null || row.stopped_at === "")
+  );
+}
+
+export async function generateTylerTextOverviewDraftForUser(args: {
+  audienceUser: TylerTextOverviewAudienceRow;
+  now: Date;
+}): Promise<
+  | {
+      ok: true;
+      draftForDayKey: string;
+      generationId: string;
+      built: DailySmsBuilt;
+      supersedeFailed: boolean;
+    }
+  | {
+      ok: false;
+      reason: "comms_prefs" | "not_v2" | "build_failed" | "insert_failed" | "upsert_failed";
+      error?: string;
+    }
+> {
+  const clerkUserId = args.audienceUser.clerk_user_id;
+  const user = await getClerkUser(clerkUserId);
+  const md = (user.public_metadata ?? {}) as Record<string, unknown>;
+
+  const tzResolved = resolveSmsUserTimezone({
+    clerkMetadataTimezone: md.timezone,
+    audienceTimezone: args.audienceUser.timezone,
+  });
+  const timezone = tzResolved.timezone;
+  const localNow = new Date(args.now.toLocaleString("en-US", { timeZone: timezone }));
+
+  const commsPrefs = await fetchV2UserSmsCommsPreferences(clerkUserId);
+  const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, args.now);
+  if (commsSkip.skip) {
+    return { ok: false, reason: "comms_prefs" };
+  }
+
+  const v2Status = await resolveUserFullyOnV2ForCutoverMessaging(clerkUserId);
+  if (!v2Status.fullyOnV2) {
+    return { ok: false, reason: "not_v2" };
+  }
+
+  const clerkSmsTimePreference = smsTimePreferenceFromClerkMetadata(md);
+  const learnedProfile = await fetchV2UserSendTimeProfile(clerkUserId);
+  const draftForDayKey = resolveTylerTextOverviewDraftForDayKey({
+    now: args.now,
+    timezone,
+    clerkSmsTimePreference,
+    commsPrefs,
+    learnedProfile,
+  });
+
+  const built = await buildDailySmsContent(clerkUserId, md, draftForDayKey, timezone, {
+    mode: "draft",
+  });
+
+  const activeCommitment = await getActiveCommitment(clerkUserId);
+  const commitmentId =
+    (built.ok ? built.v2CommitmentId : null) ?? activeCommitment?.id ?? null;
+  const sendPrefSnapshot = formatSendPrefSnapshot(clerkSmsTimePreference, commsPrefs);
+
+  let generationNumber: number;
+  try {
+    generationNumber = await fetchNextGenerationNumber(clerkUserId, draftForDayKey);
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "insert_failed",
+      error: e instanceof Error ? e.message : "generation_number_lookup_failed",
+    };
+  }
+
+  const generationRow = mapBuiltToTylerTextOverviewGenerationRow({
+    clerkUserId,
+    draftForDayKey,
+    generationNumber,
+    built,
+    commitmentId,
+    timezone,
+    sendPrefSnapshot,
+  });
+
+  const inserted = await insertGenerationRow(generationRow);
+  if ("error" in inserted) {
+    return { ok: false, reason: "insert_failed", error: inserted.error };
+  }
+
+  const nowIso = args.now.toISOString();
+  const supersede = await supersedePriorGenerations({
+    clerkUserId,
+    draftForDayKey,
+    newGenerationId: inserted.id,
+    nowIso,
+  });
+  if (!supersede.ok) {
+    console.warn("[tyler-text-overview] supersede_prior_generation_failed", {
+      clerk_user_id: clerkUserId,
+      draft_for_day_key: draftForDayKey,
+      message: supersede.error,
+    });
+  }
+
+  const machineBody = generationRow.machine_draft_body;
+  const upsert = await upsertCurrentDraft({
+    clerkUserId,
+    draftForDayKey,
+    generationId: inserted.id,
+    machineBody,
+    machineBodyHash: generationRow.machine_body_hash,
+    nowIso,
+  });
+  if (!upsert.ok) {
+    return { ok: false, reason: "upsert_failed", error: upsert.error };
+  }
+
+  return {
+    ok: true,
+    draftForDayKey,
+    generationId: inserted.id,
+    built,
+    supersedeFailed: !supersede.ok,
+  };
+}
+
+export async function generateTylerTextOverviewDailyDrafts(args: {
+  now?: Date;
+} = {}): Promise<TylerTextOverviewGenerateStats> {
+  if (!isTylerTextOverviewEnabled()) {
+    return emptyStats({ skipped_disabled: 1 });
+  }
+
+  const now = args.now ?? new Date();
+  const stats = emptyStats({ enabled: true });
+  const errors: string[] = [];
+
+  let audience: TylerTextOverviewAudienceRow[];
+  try {
+    audience = await loadTylerTextOverviewAudienceRows();
+  } catch (e) {
+    stats.ok = false;
+    stats.errors_preview.push(
+      e instanceof Error ? e.message : "sms_audience_query_failed"
+    );
+    return stats;
+  }
+
+  for (const audienceUser of audience) {
+    stats.scanned += 1;
+
+    if (audienceUser.stopped_at) {
+      stats.skipped_audience += 1;
+      continue;
+    }
+
+    try {
+      const result = await generateTylerTextOverviewDraftForUser({ audienceUser, now });
+      if (!result.ok) {
+        if (result.reason === "comms_prefs") {
+          stats.skipped_comms_prefs += 1;
+        } else if (result.reason === "not_v2") {
+          stats.skipped_not_v2 += 1;
+        } else if (result.reason === "insert_failed") {
+          stats.eligible += 1;
+          stats.insert_failed += 1;
+          if (result.error) errors.push(`${audienceUser.clerk_user_id}:insert:${result.error}`);
+        } else if (result.reason === "upsert_failed") {
+          stats.eligible += 1;
+          stats.upsert_failed += 1;
+          if (result.error) errors.push(`${audienceUser.clerk_user_id}:upsert:${result.error}`);
+        } else {
+          stats.build_failed += 1;
+          if (result.error) errors.push(`${audienceUser.clerk_user_id}:build:${result.error}`);
+        }
+        continue;
+      }
+
+      stats.eligible += 1;
+      stats.generated += 1;
+      stats.generation_inserted += 1;
+      stats.current_drafts_upserted += 1;
+      if (result.supersedeFailed) {
+        stats.supersede_failed += 1;
+      }
+    } catch (e) {
+      stats.build_failed += 1;
+      errors.push(
+        `${audienceUser.clerk_user_id}:unexpected:${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+  }
+
+  stats.errors_preview = errors.slice(0, 20);
+  return stats;
+}
