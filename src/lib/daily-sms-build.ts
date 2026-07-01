@@ -164,6 +164,11 @@ export type DailySmsBuildMode = "send" | "draft";
 
 export type BuildDailySmsContentOptions = {
   mode?: DailySmsBuildMode;
+  /**
+   * Tyler Text Overview Phase 5: when main accountability lane returns no-send,
+   * use this body for a guardable DailySmsBuilt shell (Tyler edit over machine no-send).
+   */
+  tylerTextOverviewOverrideBody?: string | null;
 };
 
 function assembleDailyThreadMemoryFromRelationshipPacket(
@@ -2199,14 +2204,24 @@ export async function buildDailySmsContent(
       telemetry_fact_sources: telemetryUnified,
     });
     if (!laneUnified.shouldSend || !laneUnified.body.trim()) {
-      return {
-        ok: false,
-        error: "daily_v3_lane_no_send",
-        dailyLaneMeta: enrichDailyLaneNoSendMeta(laneUnified.metadata, laneUnified.noSendReason),
-        writerOpenAiCapture: laneUnified.writerOpenAiCapture ?? null,
-      };
+      const tylerOverrideBody = options?.tylerTextOverviewOverrideBody?.trim();
+      if (
+        tylerOverrideBody &&
+        routeKind === "main_active_accountability" &&
+        !contractProposalMode
+      ) {
+        smsBody = tylerOverrideBody;
+      } else {
+        return {
+          ok: false,
+          error: "daily_v3_lane_no_send",
+          dailyLaneMeta: enrichDailyLaneNoSendMeta(laneUnified.metadata, laneUnified.noSendReason),
+          writerOpenAiCapture: laneUnified.writerOpenAiCapture ?? null,
+        };
+      }
+    } else {
+      smsBody = laneUnified.body;
     }
-    smsBody = laneUnified.body;
     v3DailySms = true;
     v3DailyDeterministicFallback = false;
     v3DailyRelationshipLane = true;

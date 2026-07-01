@@ -52,6 +52,35 @@ export const TYLER_TEXT_OVERVIEW_NOTEBOOK_VERDICTS = [
 export type TylerTextOverviewNotebookVerdict =
   (typeof TYLER_TEXT_OVERVIEW_NOTEBOOK_VERDICTS)[number];
 
+export const TYLER_TEXT_OVERVIEW_SEND_SOURCES = [
+  "machine_draft",
+  "tyler_edit",
+  "live_fallback_no_draft",
+  "live_fallback_stale",
+  "live_fallback_error",
+  "live_fallback_empty_body",
+  "live_fallback_special_branch",
+] as const;
+
+export type TylerTextOverviewSendSource = (typeof TYLER_TEXT_OVERVIEW_SEND_SOURCES)[number];
+
+/** Compact sms_send_events.metadata.tyler_text_overview block (Phase 5). */
+export type TylerTextOverviewSendMetadata = {
+  enabled: true;
+  draft_id: string | null;
+  generation_id: string | null;
+  draft_for_day_key: string;
+  send_source: TylerTextOverviewSendSource;
+  edited_by_tyler: boolean;
+  machine_body_hash: string | null;
+  current_body_hash: string | null;
+  final_body_sent_hash: string | null;
+  notebook_verdict_at_generation: string | null;
+  notebook_verdict_reason_at_generation: string | null;
+  stale: boolean;
+  stale_reason: string | null;
+};
+
 /** Minimal admin UI row — no phone, verdict, or debug metadata. */
 export type TylerTextOverviewAdminDraftRow = {
   draftId: string;

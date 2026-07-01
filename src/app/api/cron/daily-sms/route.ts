@@ -222,6 +222,15 @@ import {
   withPresentedDailyContractProposalAuditFields,
   type DailySmsBuilt,
 } from "@/lib/daily-sms-build";
+import {
+  finalizeTylerTextOverviewDraftAfterSend,
+  markTylerTextOverviewDraftSkippedAfterGuard,
+  markTylerTextOverviewDraftSkippedAfterLiveFallback,
+  mergeTylerTextOverviewSendMetadata,
+  prepareTylerTextOverviewDailyBuild,
+  withTylerTextOverviewFinalBodyOnContext,
+  type TylerTextOverviewSendContext,
+} from "@/lib/tyler-text-overview-send";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -505,6 +514,50 @@ async function withNorthStarDailyGate(
 }
 
 /** Post-Twilio success fields for sms_send_events — metadata.sent_at for notebook thread timestamps. */
+function tylerTextOverviewMetadataForSend(
+  ctx: TylerTextOverviewSendContext | null,
+  finalBodySent: string | null
+) {
+  return withTylerTextOverviewFinalBodyOnContext(ctx, finalBodySent)?.metadataBlock ?? null;
+}
+
+async function finalizeTylerTextOverviewAfterOutboundBestEffort(args: {
+  ctx: TylerTextOverviewSendContext | null;
+  draftBodyUsed: boolean;
+  clerkUserId: string;
+  dayKey: string;
+  smsBody: string;
+  messageSid: string;
+}): Promise<void> {
+  if (!args.ctx?.lookup.draft_id) return;
+  try {
+    if (args.draftBodyUsed) {
+      await finalizeTylerTextOverviewDraftAfterSend({
+        draftId: args.ctx.lookup.draft_id,
+        clerkUserId: args.clerkUserId,
+        dayKey: args.dayKey,
+        twilioMessageSid: args.messageSid,
+        finalBodySent: args.smsBody,
+      });
+      return;
+    }
+    if (args.ctx.lookup.send_source !== "live_fallback_no_draft") {
+      await markTylerTextOverviewDraftSkippedAfterLiveFallback({
+        draftId: args.ctx.lookup.draft_id,
+        clerkUserId: args.clerkUserId,
+        dayKey: args.dayKey,
+        finalBodySent: args.smsBody,
+      });
+    }
+  } catch (err) {
+    console.error("[daily-sms] tyler_text_overview draft finalize failed (non-blocking)", {
+      clerk_user_id: args.clerkUserId,
+      day_key: args.dayKey,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 function dailySmsTwilioSuccessSendEventFields(args: {
   messageSid: string;
   twilioStatus: string;
@@ -1425,12 +1478,22 @@ export async function GET(req: Request) {
             }
 
             stage = "build_content";
-            const builtRaw = await buildDailySmsContent(
-              audienceUser.clerk_user_id,
-              md as Record<string, unknown>,
-              todayKey,
-              audienceUser.timezone
-            );
+            const tylerTextOverviewBuild = await prepareTylerTextOverviewDailyBuild({
+              clerkUserId: audienceUser.clerk_user_id,
+              draftForDayKey: todayKey,
+              now,
+              build: (overrideBody) =>
+                buildDailySmsContent(
+                  audienceUser.clerk_user_id,
+                  md as Record<string, unknown>,
+                  todayKey,
+                  audienceUser.timezone,
+                  overrideBody ? { tylerTextOverviewOverrideBody: overrideBody } : undefined
+                ),
+            });
+            const builtRaw = tylerTextOverviewBuild.builtMainRaw;
+            const tylerTextOverviewCtx = tylerTextOverviewBuild.sendContext;
+            const tylerDraftBodyUsed = tylerTextOverviewBuild.draftBodyUsed;
             const built = builtRaw.ok
               ? await withNorthStarDailyGate(builtRaw, { localHour: computedLocalHour })
               : builtRaw;
@@ -1610,7 +1673,10 @@ export async function GET(req: Request) {
               const finalVoiceGateR = (built.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
               const patchR = withRelationshipPacketObservabilityOnVoiceSkipPatch(
                 dailySmsVoiceSkipEventPatch({
-                existingMeta: existingMeta,
+                existingMeta: mergeTylerTextOverviewSendMetadata(
+                  existingMeta,
+                  tylerTextOverviewMetadataForSend(tylerTextOverviewCtx, null)
+                ),
                 northStarGate: northStarGateR,
                 finalVoiceGate: finalVoiceGateR,
                 channel: (voiceSendDecisionRetry?.voice_channel as NorthStarCoachChannel | undefined) ?? "daily_outbound",
@@ -1675,6 +1741,13 @@ export async function GET(req: Request) {
                 .update(patchR)
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
                 .eq("day_key", todayKey);
+              if (tylerDraftBodyUsed && tylerTextOverviewCtx?.lookup.draft_id) {
+                await markTylerTextOverviewDraftSkippedAfterGuard({
+                  draftId: tylerTextOverviewCtx.lookup.draft_id,
+                  clerkUserId: audienceUser.clerk_user_id,
+                  dayKey: todayKey,
+                });
+              }
               stats.skippedNoSafeV3Voice += 1;
               stats.skippedIntentional += 1;
               continue;
@@ -1753,6 +1826,10 @@ export async function GET(req: Request) {
                   ? { pending_resolution_reminder: true, non_accountability_outbound: true }
                   : {}),
                 ...dailySmsSentEventVoiceMetadata(built),
+                ...mergeTylerTextOverviewSendMetadata(
+                  {},
+                  tylerTextOverviewMetadataForSend(tylerTextOverviewCtx, smsBody)
+                ),
               },
             });
             const recordResult = await recordDailyTwilioSuccessOrFallback({
@@ -1776,6 +1853,14 @@ export async function GET(req: Request) {
               }
               stats.sent += 1;
               stats.retried += 1;
+              await finalizeTylerTextOverviewAfterOutboundBestEffort({
+                ctx: tylerTextOverviewCtx,
+                draftBodyUsed: tylerDraftBodyUsed,
+                clerkUserId: audienceUser.clerk_user_id,
+                dayKey: todayKey,
+                smsBody,
+                messageSid: retryMessage.sid,
+              });
               if (!recordResult.usedFallback && built.v2ReactivationNudge && built.v2CommitmentId) {
                 await updateReactivationLastSentAt(built.v2CommitmentId);
                 await recomputeV2CoachingMemory(built.v2CommitmentId, {
@@ -2089,12 +2174,22 @@ export async function GET(req: Request) {
       }
 
       stage = "build_content";
-      const builtMainRaw = await buildDailySmsContent(
-        audienceUser.clerk_user_id,
-        md as Record<string, unknown>,
-        todayKey,
-        audienceUser.timezone
-      );
+      const tylerTextOverviewBuild = await prepareTylerTextOverviewDailyBuild({
+        clerkUserId: audienceUser.clerk_user_id,
+        draftForDayKey: todayKey,
+        now,
+        build: (overrideBody) =>
+          buildDailySmsContent(
+            audienceUser.clerk_user_id,
+            md as Record<string, unknown>,
+            todayKey,
+            audienceUser.timezone,
+            overrideBody ? { tylerTextOverviewOverrideBody: overrideBody } : undefined
+          ),
+      });
+      const builtMainRaw = tylerTextOverviewBuild.builtMainRaw;
+      const tylerTextOverviewCtx = tylerTextOverviewBuild.sendContext;
+      const tylerDraftBodyUsed = tylerTextOverviewBuild.draftBodyUsed;
       const builtMain = builtMainRaw.ok
         ? await withNorthStarDailyGate(builtMainRaw, { localHour: computedLocalHour })
         : builtMainRaw;
@@ -2267,7 +2362,10 @@ export async function GET(req: Request) {
         const finalVoiceGate = (builtMain.v2AiPayload?.final_voice_gate ?? {}) as Record<string, unknown>;
         const patch = withRelationshipPacketObservabilityOnVoiceSkipPatch(
           dailySmsVoiceSkipEventPatch({
-          existingMeta: { note: "reserved_by_cron" },
+          existingMeta: mergeTylerTextOverviewSendMetadata(
+            { note: "reserved_by_cron" },
+            tylerTextOverviewMetadataForSend(tylerTextOverviewCtx, null)
+          ),
           northStarGate,
           finalVoiceGate,
           channel: (voiceSendDecision?.voice_channel as NorthStarCoachChannel | undefined) ?? "daily_outbound",
@@ -2330,6 +2428,13 @@ export async function GET(req: Request) {
           .update(patch)
           .eq("clerk_user_id", audienceUser.clerk_user_id)
           .eq("day_key", todayKey);
+        if (tylerDraftBodyUsed && tylerTextOverviewCtx?.lookup.draft_id) {
+          await markTylerTextOverviewDraftSkippedAfterGuard({
+            draftId: tylerTextOverviewCtx.lookup.draft_id,
+            clerkUserId: audienceUser.clerk_user_id,
+            dayKey: todayKey,
+          });
+        }
         stats.skippedNoSafeV3Voice += 1;
         stats.skippedIntentional += 1;
         continue;
@@ -2423,6 +2528,10 @@ export async function GET(req: Request) {
               ? { pending_resolution_reminder: true, non_accountability_outbound: true }
               : {}),
             ...dailySmsSentEventVoiceMetadata(builtMain),
+            ...mergeTylerTextOverviewSendMetadata(
+              {},
+              tylerTextOverviewMetadataForSend(tylerTextOverviewCtx, smsBody)
+            ),
           },
         });
         const recordResult = await recordDailyTwilioSuccessOrFallback({
@@ -2445,6 +2554,14 @@ export async function GET(req: Request) {
             });
           }
           stats.sent += 1;
+          await finalizeTylerTextOverviewAfterOutboundBestEffort({
+            ctx: tylerTextOverviewCtx,
+            draftBodyUsed: tylerDraftBodyUsed,
+            clerkUserId: audienceUser.clerk_user_id,
+            dayKey: todayKey,
+            smsBody,
+            messageSid: mainMessage.sid,
+          });
           if (!recordResult.usedFallback && builtMain.v2ReactivationNudge && builtMain.v2CommitmentId) {
             await updateReactivationLastSentAt(builtMain.v2CommitmentId);
             await recomputeV2CoachingMemory(builtMain.v2CommitmentId, {
