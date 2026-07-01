@@ -81,6 +81,26 @@ export type TylerTextOverviewSendMetadata = {
   stale_reason: string | null;
 };
 
+/** Phase 6A stale refresh sweep stats. */
+export type TylerTextOverviewRefreshStaleStats = {
+  ok: boolean;
+  enabled: boolean;
+  generation_reason: TylerTextOverviewGenerationReason;
+  current_drafts_scanned: number;
+  stale_found: number;
+  refreshed: number;
+  skipped_not_stale: number;
+  skipped_audience: number;
+  skipped_not_v2: number;
+  skipped_comms_prefs: number;
+  build_failed: number;
+  insert_failed: number;
+  upsert_failed: number;
+  supersede_failed: number;
+  capped: boolean;
+  errors_preview: string[];
+};
+
 /** Minimal admin UI row — no phone, verdict, or debug metadata. */
 export type TylerTextOverviewAdminDraftRow = {
   draftId: string;

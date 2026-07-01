@@ -8,6 +8,7 @@ import {
   isTylerTextOverviewEnabled,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  type TylerTextOverviewGenerationReason,
   type TylerTextOverviewNotebookVerdict,
 } from "@/lib/tyler-text-overview-types";
 import { resolveSmsUserTimezone } from "@/lib/timezone";
@@ -229,7 +230,7 @@ export type TylerTextOverviewGenerationInsertRow = {
   clerk_user_id: string;
   draft_for_day_key: string;
   generation_number: number;
-  generation_reason: "noon_batch";
+  generation_reason: TylerTextOverviewGenerationReason;
   commitment_id: string | null;
   machine_draft_body: string | null;
   machine_should_send: boolean;
@@ -255,6 +256,7 @@ export function mapBuiltToTylerTextOverviewGenerationRow(args: {
   clerkUserId: string;
   draftForDayKey: string;
   generationNumber: number;
+  generationReason?: TylerTextOverviewGenerationReason;
   built: DailySmsBuilt;
   commitmentId: string | null;
   timezone: string;
@@ -268,7 +270,7 @@ export function mapBuiltToTylerTextOverviewGenerationRow(args: {
     clerk_user_id: args.clerkUserId,
     draft_for_day_key: args.draftForDayKey,
     generation_number: args.generationNumber,
-    generation_reason: "noon_batch",
+    generation_reason: args.generationReason ?? "noon_batch",
     commitment_id: args.commitmentId,
     machine_draft_body: machineBody,
     machine_should_send: args.built.ok === true,
@@ -389,6 +391,33 @@ async function upsertCurrentDraft(args: {
   return { ok: true };
 }
 
+export async function loadTylerTextOverviewAudienceRow(
+  clerkUserId: string
+): Promise<TylerTextOverviewAudienceRow | null> {
+  const { data, error } = await supabaseServer
+    .from("sms_audience")
+    .select("clerk_user_id, phone_number, sms_enabled, stopped_at, timezone, summitt_subscribed")
+    .eq("clerk_user_id", clerkUserId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`sms_audience_user_query_failed:${error.message}`);
+  }
+
+  if (
+    !data ||
+    typeof data.clerk_user_id !== "string" ||
+    !data.clerk_user_id.trim() ||
+    data.sms_enabled !== true ||
+    data.summitt_subscribed !== true ||
+    (data.stopped_at != null && data.stopped_at !== "")
+  ) {
+    return null;
+  }
+
+  return data as TylerTextOverviewAudienceRow;
+}
+
 export async function loadTylerTextOverviewAudienceRows(): Promise<TylerTextOverviewAudienceRow[]> {
   const { data, error } = await supabaseServer
     .from("sms_audience")
@@ -410,9 +439,81 @@ export async function loadTylerTextOverviewAudienceRows(): Promise<TylerTextOver
   );
 }
 
+export async function persistTylerTextOverviewDraftFromBuilt(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  generationReason: TylerTextOverviewGenerationReason;
+  built: DailySmsBuilt;
+  commitmentId: string | null;
+  timezone: string;
+  sendPrefSnapshot: string;
+  now: Date;
+}): Promise<
+  | { ok: true; generationId: string; supersedeFailed: boolean }
+  | { ok: false; reason: "insert_failed" | "upsert_failed"; error?: string }
+> {
+  let generationNumber: number;
+  try {
+    generationNumber = await fetchNextGenerationNumber(args.clerkUserId, args.draftForDayKey);
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "insert_failed",
+      error: e instanceof Error ? e.message : "generation_number_lookup_failed",
+    };
+  }
+
+  const generationRow = mapBuiltToTylerTextOverviewGenerationRow({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+    generationNumber,
+    generationReason: args.generationReason,
+    built: args.built,
+    commitmentId: args.commitmentId,
+    timezone: args.timezone,
+    sendPrefSnapshot: args.sendPrefSnapshot,
+  });
+
+  const inserted = await insertGenerationRow(generationRow);
+  if ("error" in inserted) {
+    return { ok: false, reason: "insert_failed", error: inserted.error };
+  }
+
+  const nowIso = args.now.toISOString();
+  const supersede = await supersedePriorGenerations({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+    newGenerationId: inserted.id,
+    nowIso,
+  });
+  if (!supersede.ok) {
+    console.warn("[tyler-text-overview] supersede_prior_generation_failed", {
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: args.draftForDayKey,
+      message: supersede.error,
+    });
+  }
+
+  const upsert = await upsertCurrentDraft({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+    generationId: inserted.id,
+    machineBody: generationRow.machine_draft_body,
+    machineBodyHash: generationRow.machine_body_hash,
+    nowIso,
+  });
+  if (!upsert.ok) {
+    return { ok: false, reason: "upsert_failed", error: upsert.error };
+  }
+
+  return { ok: true, generationId: inserted.id, supersedeFailed: !supersede.ok };
+}
+
 export async function generateTylerTextOverviewDraftForUser(args: {
   audienceUser: TylerTextOverviewAudienceRow;
   now: Date;
+  draftForDayKey?: string;
+  generationReason?: TylerTextOverviewGenerationReason;
 }): Promise<
   | {
       ok: true;
@@ -451,13 +552,15 @@ export async function generateTylerTextOverviewDraftForUser(args: {
 
   const clerkSmsTimePreference = smsTimePreferenceFromClerkMetadata(md);
   const learnedProfile = await fetchV2UserSendTimeProfile(clerkUserId);
-  const draftForDayKey = resolveTylerTextOverviewDraftForDayKey({
-    now: args.now,
-    timezone,
-    clerkSmsTimePreference,
-    commsPrefs,
-    learnedProfile,
-  });
+  const draftForDayKey =
+    args.draftForDayKey ??
+    resolveTylerTextOverviewDraftForDayKey({
+      now: args.now,
+      timezone,
+      clerkSmsTimePreference,
+      commsPrefs,
+      learnedProfile,
+    });
 
   const built = await buildDailySmsContent(clerkUserId, md, draftForDayKey, timezone, {
     mode: "draft",
@@ -468,66 +571,27 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     (built.ok ? built.v2CommitmentId : null) ?? activeCommitment?.id ?? null;
   const sendPrefSnapshot = formatSendPrefSnapshot(clerkSmsTimePreference, commsPrefs);
 
-  let generationNumber: number;
-  try {
-    generationNumber = await fetchNextGenerationNumber(clerkUserId, draftForDayKey);
-  } catch (e) {
-    return {
-      ok: false,
-      reason: "insert_failed",
-      error: e instanceof Error ? e.message : "generation_number_lookup_failed",
-    };
-  }
-
-  const generationRow = mapBuiltToTylerTextOverviewGenerationRow({
+  const persisted = await persistTylerTextOverviewDraftFromBuilt({
     clerkUserId,
     draftForDayKey,
-    generationNumber,
+    generationReason: args.generationReason ?? "noon_batch",
     built,
     commitmentId,
     timezone,
     sendPrefSnapshot,
+    now: args.now,
   });
 
-  const inserted = await insertGenerationRow(generationRow);
-  if ("error" in inserted) {
-    return { ok: false, reason: "insert_failed", error: inserted.error };
-  }
-
-  const nowIso = args.now.toISOString();
-  const supersede = await supersedePriorGenerations({
-    clerkUserId,
-    draftForDayKey,
-    newGenerationId: inserted.id,
-    nowIso,
-  });
-  if (!supersede.ok) {
-    console.warn("[tyler-text-overview] supersede_prior_generation_failed", {
-      clerk_user_id: clerkUserId,
-      draft_for_day_key: draftForDayKey,
-      message: supersede.error,
-    });
-  }
-
-  const machineBody = generationRow.machine_draft_body;
-  const upsert = await upsertCurrentDraft({
-    clerkUserId,
-    draftForDayKey,
-    generationId: inserted.id,
-    machineBody,
-    machineBodyHash: generationRow.machine_body_hash,
-    nowIso,
-  });
-  if (!upsert.ok) {
-    return { ok: false, reason: "upsert_failed", error: upsert.error };
+  if (!persisted.ok) {
+    return { ok: false, reason: persisted.reason, error: persisted.error };
   }
 
   return {
     ok: true,
     draftForDayKey,
-    generationId: inserted.id,
+    generationId: persisted.generationId,
     built,
-    supersedeFailed: !supersede.ok,
+    supersedeFailed: persisted.supersedeFailed,
   };
 }
 
