@@ -6,6 +6,7 @@ import { resolveTylerTextOverviewDraftForDayKey } from "@/lib/tyler-text-overvie
 import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
 import {
   isTylerTextOverviewEnabled,
+  isProtectedTtoCurrentDraftBody,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   type TylerTextOverviewGenerationReason,
@@ -359,6 +360,36 @@ async function supersedePriorGenerations(args: {
   return { ok: true };
 }
 
+async function loadExistingCurrentDraft(
+  clerkUserId: string,
+  draftForDayKey: string
+): Promise<{
+  status: string;
+  current_body_to_send: string | null;
+} | null> {
+  const { data, error } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select("status, current_body_to_send")
+    .eq("clerk_user_id", clerkUserId)
+    .eq("draft_for_day_key", draftForDayKey)
+    .eq("status", "current")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`current_draft_lookup_failed:${error.message}`);
+  }
+
+  if (!data || typeof data.status !== "string") {
+    return null;
+  }
+
+  return {
+    status: data.status,
+    current_body_to_send:
+      typeof data.current_body_to_send === "string" ? data.current_body_to_send : null,
+  };
+}
+
 async function upsertCurrentDraft(args: {
   clerkUserId: string;
   draftForDayKey: string;
@@ -366,7 +397,16 @@ async function upsertCurrentDraft(args: {
   machineBody: string | null;
   machineBodyHash: string | null;
   nowIso: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; protected?: boolean }> {
+  const existing = await loadExistingCurrentDraft(args.clerkUserId, args.draftForDayKey);
+  if (
+    existing &&
+    existing.status === "current" &&
+    isProtectedTtoCurrentDraftBody(existing.current_body_to_send)
+  ) {
+    return { ok: true, protected: true };
+  }
+
   const { error } = await supabaseServer.from(SMS_DAILY_DRAFTS_TABLE).upsert(
     {
       clerk_user_id: args.clerkUserId,
@@ -449,7 +489,7 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
   sendPrefSnapshot: string;
   now: Date;
 }): Promise<
-  | { ok: true; generationId: string; supersedeFailed: boolean }
+  | { ok: true; generationId: string; supersedeFailed: boolean; currentDraftProtected?: boolean }
   | { ok: false; reason: "insert_failed" | "upsert_failed"; error?: string }
 > {
   let generationNumber: number;
@@ -506,7 +546,12 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
     return { ok: false, reason: "upsert_failed", error: upsert.error };
   }
 
-  return { ok: true, generationId: inserted.id, supersedeFailed: !supersede.ok };
+  return {
+    ok: true,
+    generationId: inserted.id,
+    supersedeFailed: !supersede.ok,
+    currentDraftProtected: upsert.protected === true,
+  };
 }
 
 export async function generateTylerTextOverviewDraftForUser(args: {

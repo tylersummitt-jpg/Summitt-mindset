@@ -2,8 +2,19 @@ import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   isTylerTextOverviewEnabled,
+  isProtectedTtoCurrentDraftBody,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  TTO_CURRENT_DRAFT_FINAL_STALE_REASON,
+  TTO_CURRENT_DRAFT_ROUTE_CONFLICT,
+  TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT,
+  TTO_DRAFT_REVALIDATION_REASON_EMPTY,
+  TTO_DRAFT_REVALIDATION_REASON_MISSING,
+  TTO_DRAFT_REVALIDATION_REASON_NOT_CURRENT,
+  TTO_POST_TTO_GUARDS_SKIPPED,
+  type TtoDraftRevalidationFailureReason,
+  type TtoDraftRevalidationSkipStatus,
+  type TtoCurrentDraftRouteConflictReason,
   type TylerTextOverviewCurrentBodySource,
   type TylerTextOverviewSendMetadata,
   type TylerTextOverviewSendSource,
@@ -55,9 +66,172 @@ export type TylerTextOverviewDraftForSendResult = {
 export type TylerTextOverviewSendContext = {
   considered: boolean;
   draftBodyUsed: boolean;
+  postTtoWritersBypassed: boolean;
   lookup: TylerTextOverviewDraftForSendResult;
   metadataBlock: TylerTextOverviewSendMetadata | null;
 };
+
+export function normalizedTtoCurrentDraftSendBody(body: string): string {
+  return body.trim();
+}
+
+export function isTtoCurrentDraftPinEligible(
+  lookup: TylerTextOverviewDraftForSendResult
+): boolean {
+  return lookup.usable && isProtectedTtoCurrentDraftBody(lookup.current_body_to_send);
+}
+
+/** Current draft row with non-empty body for this send day (pin required if present). */
+export function hasProtectedTtoCurrentDraftForSendDay(
+  lookup: TylerTextOverviewDraftForSendResult | null | undefined
+): boolean {
+  if (!lookup?.draft_id) return false;
+  return isProtectedTtoCurrentDraftBody(lookup.current_body_to_send);
+}
+
+export function canPinTtoCurrentDraftForSend(args: {
+  lookup: TylerTextOverviewDraftForSendResult | null | undefined;
+  builtRaw: DailySmsBuilt;
+  draftBodyUsed: boolean;
+}): boolean {
+  return Boolean(
+    args.lookup &&
+      args.draftBodyUsed &&
+      isTtoCurrentDraftPinEligible(args.lookup) &&
+      args.builtRaw.ok &&
+      args.lookup.current_body_to_send
+  );
+}
+
+export type TtoCurrentDraftSendConflict = {
+  status:
+    | "skipped_tto_current_draft_special_branch_conflict"
+    | "skipped_tto_current_draft_route_conflict";
+  reason: TtoCurrentDraftRouteConflictReason;
+};
+
+/**
+ * Protected current draft exists but exact pin cannot apply — live send must not proceed.
+ */
+export function resolveTtoCurrentDraftSendConflict(args: {
+  lookup: TylerTextOverviewDraftForSendResult | null | undefined;
+  builtRaw: DailySmsBuilt;
+  draftBodyUsed: boolean;
+}): TtoCurrentDraftSendConflict | null {
+  if (!hasProtectedTtoCurrentDraftForSendDay(args.lookup)) {
+    return null;
+  }
+  if (canPinTtoCurrentDraftForSend(args)) {
+    return null;
+  }
+
+  if (args.builtRaw.ok && isDailySmsBuiltSpecialBranch(args.builtRaw)) {
+    return {
+      status: "skipped_tto_current_draft_special_branch_conflict",
+      reason: TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT,
+    };
+  }
+
+  return {
+    status: "skipped_tto_current_draft_route_conflict",
+    reason: TTO_CURRENT_DRAFT_ROUTE_CONFLICT,
+  };
+}
+
+export function buildTtoCurrentDraftConflictMetadataExtras(args: {
+  lookup: TylerTextOverviewDraftForSendResult;
+  conflict: TtoCurrentDraftSendConflict;
+  builtRaw: DailySmsBuilt;
+}): Partial<TylerTextOverviewSendMetadata> {
+  return {
+    tto_current_draft_protected: true,
+    live_fallback_used: false,
+    post_tto_writers_bypassed: false,
+    tto_current_draft_route_conflict_reason: args.conflict.reason,
+  };
+}
+
+export function buildTylerTextOverviewRouteConflictMetadata(args: {
+  lookup: TylerTextOverviewDraftForSendResult;
+  builtRaw: DailySmsBuilt;
+  draftBodyUsed: boolean;
+  conflict: TtoCurrentDraftSendConflict;
+}): TylerTextOverviewSendMetadata {
+  const effectiveSendSource = resolveTylerTextOverviewEffectiveSendSource({
+    lookup: args.lookup,
+    builtRaw: args.builtRaw,
+    draftBodyUsed: args.draftBodyUsed,
+  });
+  return {
+    ...buildTylerTextOverviewSendMetadata({
+      lookup: args.lookup,
+      effectiveSendSource,
+      finalBodySent: null,
+      postTtoWritersBypassed: false,
+    }),
+    ...buildTtoCurrentDraftConflictMetadataExtras({
+      lookup: args.lookup,
+      conflict: args.conflict,
+      builtRaw: args.builtRaw,
+    }),
+  };
+}
+
+export function assertTtoCurrentDraftBodyMatches(args: {
+  smsBody: string;
+  currentBodyToSend: string;
+}):
+  | { ok: true; normalizedBody: string }
+  | { ok: false; reason: "tto_current_draft_body_mismatch" } {
+  const expected = normalizedTtoCurrentDraftSendBody(args.currentBodyToSend);
+  const actual = normalizedTtoCurrentDraftSendBody(args.smsBody);
+  if (actual !== expected) {
+    return { ok: false, reason: "tto_current_draft_body_mismatch" };
+  }
+  return { ok: true, normalizedBody: expected };
+}
+
+export function buildTtoProtectedSendMetadataExtras(args: {
+  lookup: TylerTextOverviewDraftForSendResult;
+  finalBodySent: string;
+}): Partial<TylerTextOverviewSendMetadata> {
+  const normalized = normalizedTtoCurrentDraftSendBody(args.finalBodySent);
+  const currentHash = args.lookup.current_body_hash ?? hashSmsSnippet(normalized);
+  return {
+    tto_current_draft_protected: true,
+    post_tto_writers_bypassed: true,
+    sent_body_equals_current_body_to_send: true,
+    stale_check_ignored_reason: TTO_CURRENT_DRAFT_FINAL_STALE_REASON,
+    live_fallback_used: false,
+    post_tto_guards_skipped: [...TTO_POST_TTO_GUARDS_SKIPPED],
+    current_body_hash_at_send: currentHash,
+    final_body_sent_hash: hashSmsSnippet(normalized),
+  };
+}
+
+export async function applyDailySmsBuiltWithTtoPostWriterBypass(args: {
+  builtRaw: DailySmsBuilt;
+  lookup: TylerTextOverviewDraftForSendResult | null | undefined;
+  draftBodyUsed: boolean;
+  applyNorthStarGate: (built: Extract<DailySmsBuilt, { ok: true }>) => Promise<DailySmsBuilt>;
+}): Promise<{ built: DailySmsBuilt; postTtoWritersBypassed: boolean }> {
+  const pinEligible =
+    args.lookup && args.draftBodyUsed && isTtoCurrentDraftPinEligible(args.lookup);
+
+  if (!pinEligible || !args.builtRaw.ok || !args.lookup?.current_body_to_send) {
+    if (args.builtRaw.ok) {
+      return {
+        built: await args.applyNorthStarGate(args.builtRaw),
+        postTtoWritersBypassed: false,
+      };
+    }
+    return { built: args.builtRaw, postTtoWritersBypassed: false };
+  }
+
+  const pinnedBody = normalizedTtoCurrentDraftSendBody(args.lookup.current_body_to_send);
+  const built = applyTylerTextOverviewDraftBodyToBuilt(args.builtRaw, pinnedBody);
+  return { built, postTtoWritersBypassed: true };
+}
 
 function trimBody(raw: string | null | undefined): string | null {
   if (raw == null) return null;
@@ -234,7 +408,7 @@ export async function loadUsableTylerTextOverviewDraftForSend(args: {
     };
   }
 
-  let stale = false;
+  let inboundAfterGeneration = false;
   let staleReason: string | null = null;
   try {
     const inboundAfter = await fetchLatestInboundAfter({
@@ -242,7 +416,7 @@ export async function loadUsableTylerTextOverviewDraftForSend(args: {
       afterIso: generation.generated_at,
     });
     if (inboundAfter) {
-      stale = true;
+      inboundAfterGeneration = true;
       staleReason = "inbound_received_after_generation";
     }
   } catch (err) {
@@ -255,16 +429,6 @@ export async function loadUsableTylerTextOverviewDraftForSend(args: {
     };
   }
 
-  if (stale) {
-    return {
-      usable: false,
-      send_source: "live_fallback_stale",
-      stale: true,
-      stale_reason: staleReason,
-      ...baseFields,
-    };
-  }
-
   const send_source: TylerTextOverviewSendSource =
     draft.current_body_source === "tyler_edit" || draft.edited_by_tyler
       ? "tyler_edit"
@@ -273,8 +437,8 @@ export async function loadUsableTylerTextOverviewDraftForSend(args: {
   return {
     usable: true,
     send_source,
-    stale: false,
-    stale_reason: null,
+    stale: inboundAfterGeneration,
+    stale_reason: inboundAfterGeneration ? staleReason : null,
     ...baseFields,
   };
 }
@@ -335,13 +499,14 @@ export function buildTylerTextOverviewSendMetadata(args: {
   lookup: TylerTextOverviewDraftForSendResult;
   effectiveSendSource: TylerTextOverviewSendSource;
   finalBodySent?: string | null;
+  postTtoWritersBypassed?: boolean;
 }): TylerTextOverviewSendMetadata {
   const finalHash =
     args.finalBodySent && args.finalBodySent.trim()
       ? hashSmsSnippet(args.finalBodySent.trim())
       : null;
 
-  return {
+  const base: TylerTextOverviewSendMetadata = {
     enabled: true,
     draft_id: args.lookup.draft_id,
     generation_id: args.lookup.generation_id,
@@ -356,6 +521,18 @@ export function buildTylerTextOverviewSendMetadata(args: {
     stale: args.lookup.stale,
     stale_reason: args.lookup.stale_reason,
   };
+
+  if (args.postTtoWritersBypassed && args.finalBodySent?.trim()) {
+    return {
+      ...base,
+      ...buildTtoProtectedSendMetadataExtras({
+        lookup: args.lookup,
+        finalBodySent: args.finalBodySent,
+      }),
+    };
+  }
+
+  return base;
 }
 
 export function mergeTylerTextOverviewSendMetadata(
@@ -370,6 +547,7 @@ export function buildTylerTextOverviewSendContext(args: {
   lookup: TylerTextOverviewDraftForSendResult;
   builtRaw: DailySmsBuilt;
   draftBodyUsed: boolean;
+  postTtoWritersBypassed?: boolean;
   finalBodySent?: string | null;
 }): TylerTextOverviewSendContext | null {
   if (!isTylerTextOverviewEnabled()) return null;
@@ -383,11 +561,13 @@ export function buildTylerTextOverviewSendContext(args: {
   return {
     considered: true,
     draftBodyUsed: args.draftBodyUsed,
+    postTtoWritersBypassed: args.postTtoWritersBypassed ?? false,
     lookup: args.lookup,
     metadataBlock: buildTylerTextOverviewSendMetadata({
       lookup: args.lookup,
       effectiveSendSource,
       finalBodySent: args.finalBodySent ?? null,
+      postTtoWritersBypassed: args.postTtoWritersBypassed,
     }),
   };
 }
@@ -540,11 +720,7 @@ export async function prepareTylerTextOverviewDailyBuild(args: {
   });
 
   const overrideForBuild =
-    lookup.usable &&
-    lookup.current_body_to_send &&
-    (lookup.send_source === "tyler_edit" || lookup.edited_by_tyler)
-      ? lookup.current_body_to_send
-      : null;
+    lookup.usable && lookup.current_body_to_send ? lookup.current_body_to_send : null;
 
   let builtMainRaw = await args.build(overrideForBuild);
 
@@ -577,8 +753,9 @@ export async function prepareTylerTextOverviewDailyBuild(args: {
   return { builtMainRaw, sendContext, draftBodyUsed };
 }
 
-export function withTylerTextOverviewFinalBodyOnContext(
+export function withTylerTextOverviewPostWriterBypassOnContext(
   ctx: TylerTextOverviewSendContext | null,
+  postTtoWritersBypassed: boolean,
   finalBodySent: string | null
 ): TylerTextOverviewSendContext | null {
   if (!ctx) return null;
@@ -589,10 +766,282 @@ export function withTylerTextOverviewFinalBodyOnContext(
   });
   return {
     ...ctx,
+    postTtoWritersBypassed,
     metadataBlock: buildTylerTextOverviewSendMetadata({
       lookup: ctx.lookup,
       effectiveSendSource,
       finalBodySent,
+      postTtoWritersBypassed,
     }),
+  };
+}
+
+export function withTylerTextOverviewFinalBodyOnContext(
+  ctx: TylerTextOverviewSendContext | null,
+  finalBodySent: string | null
+): TylerTextOverviewSendContext | null {
+  return withTylerTextOverviewPostWriterBypassOnContext(
+    ctx,
+    ctx?.postTtoWritersBypassed ?? false,
+    finalBodySent
+  );
+}
+
+type TtoDraftRevalidationRow = {
+  current_body_to_send: string | null;
+  current_body_source: string;
+  edited_by_tyler: boolean;
+  current_body_hash: string | null;
+  status: string;
+};
+
+function parseTtoCurrentBodySource(
+  raw: string | null | undefined
+): TylerTextOverviewCurrentBodySource | null {
+  if (
+    raw === "machine" ||
+    raw === "tyler_edit" ||
+    raw === "live_fallback"
+  ) {
+    return raw;
+  }
+  return null;
+}
+
+function resolveTtoSendSourceFromDraftRow(row: TtoDraftRevalidationRow): TylerTextOverviewSendSource {
+  if (row.current_body_source === "tyler_edit" || row.edited_by_tyler) {
+    return "tyler_edit";
+  }
+  return "machine_draft";
+}
+
+async function fetchTtoDraftRowForRevalidation(args: {
+  draftId: string;
+  clerkUserId: string;
+  draftForDayKey: string;
+}): Promise<TtoDraftRevalidationRow | null> {
+  const { data, error } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select(
+      "current_body_to_send, current_body_source, edited_by_tyler, current_body_hash, status"
+    )
+    .eq("id", args.draftId)
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("draft_for_day_key", args.draftForDayKey)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`tyler_text_overview_revalidation_read_failed:${error.message}`);
+  }
+
+  if (!data) return null;
+  return data as TtoDraftRevalidationRow;
+}
+
+export function shouldRevalidateTtoCurrentDraftBeforeSend(args: {
+  tylerTextOverviewCtx: TylerTextOverviewSendContext | null;
+  tylerDraftBodyUsed: boolean;
+  built: DailySmsBuilt;
+}): boolean {
+  if (!isTylerTextOverviewEnabled()) return false;
+  return Boolean(
+    args.built.ok &&
+      args.tylerDraftBodyUsed &&
+      args.tylerTextOverviewCtx?.postTtoWritersBypassed &&
+      hasProtectedTtoCurrentDraftForSendDay(args.tylerTextOverviewCtx.lookup) &&
+      args.tylerTextOverviewCtx.lookup.draft_id
+  );
+}
+
+export type TtoDraftRevalidationSuccess = {
+  ok: true;
+  bodyToSend: string;
+  refreshed: boolean;
+  metadataExtras: Partial<TylerTextOverviewSendMetadata>;
+  lookupUpdates: Partial<TylerTextOverviewDraftForSendResult>;
+};
+
+export type TtoDraftRevalidationFailure = {
+  ok: false;
+  skipStatus: TtoDraftRevalidationSkipStatus;
+  reason: TtoDraftRevalidationFailureReason;
+  metadataExtras: Partial<TylerTextOverviewSendMetadata>;
+};
+
+export type TtoDraftRevalidationResult = TtoDraftRevalidationSuccess | TtoDraftRevalidationFailure;
+
+export function buildTtoRevalidationFailureMetadata(args: {
+  lookup: TylerTextOverviewDraftForSendResult;
+  reason: TtoDraftRevalidationFailureReason;
+  pinnedBody: string;
+}): Partial<TylerTextOverviewSendMetadata> {
+  const pinnedNormalized = normalizedTtoCurrentDraftSendBody(args.pinnedBody);
+  return {
+    tto_current_draft_protected: true,
+    live_fallback_used: false,
+    tto_current_draft_revalidated_before_twilio: true,
+    tto_current_draft_reloaded_before_twilio: true,
+    tto_current_draft_revalidation_failed: true,
+    tto_current_draft_revalidation_reason: args.reason,
+    current_body_source_at_send: args.lookup.current_body_source,
+    previous_loaded_body_hash: pinnedNormalized
+      ? hashSmsSnippet(pinnedNormalized)
+      : args.lookup.current_body_hash,
+  };
+}
+
+export function buildTtoRevalidationSuccessMetadataExtras(args: {
+  refreshed: boolean;
+  latestBody: string;
+  pinnedBody: string;
+  reloadedRow: TtoDraftRevalidationRow;
+}): Partial<TylerTextOverviewSendMetadata> {
+  const latestHash =
+    typeof args.reloadedRow.current_body_hash === "string"
+      ? args.reloadedRow.current_body_hash
+      : hashSmsSnippet(args.latestBody);
+  const pinnedNormalized = normalizedTtoCurrentDraftSendBody(args.pinnedBody);
+  return {
+    tto_current_draft_revalidated_before_twilio: true,
+    tto_current_draft_reloaded_before_twilio: true,
+    tto_current_draft_body_refreshed_before_twilio: args.refreshed,
+    sent_body_equals_current_body_to_send: true,
+    live_fallback_used: false,
+    current_body_hash_at_send: latestHash,
+    final_body_sent_hash: hashSmsSnippet(args.latestBody),
+    current_body_source_at_send: parseTtoCurrentBodySource(args.reloadedRow.current_body_source),
+    ...(args.refreshed && pinnedNormalized
+      ? { tto_current_draft_previous_body_hash: hashSmsSnippet(pinnedNormalized) }
+      : {}),
+  };
+}
+
+/**
+ * Read-only re-read of current TTO draft immediately before Twilio.
+ * Latest saved current_body_to_send wins over the earlier in-memory snapshot.
+ */
+export async function revalidateCurrentTtoDraftBodyBeforeSend(args: {
+  lookup: TylerTextOverviewDraftForSendResult;
+  pinnedBody: string;
+  clerkUserId: string;
+  draftForDayKey: string;
+}): Promise<TtoDraftRevalidationResult> {
+  const draftId = args.lookup.draft_id;
+  if (!draftId) {
+    return {
+      ok: false,
+      skipStatus: "skipped_tto_current_draft_revalidation_failed",
+      reason: TTO_DRAFT_REVALIDATION_REASON_MISSING,
+      metadataExtras: buildTtoRevalidationFailureMetadata({
+        lookup: args.lookup,
+        reason: TTO_DRAFT_REVALIDATION_REASON_MISSING,
+        pinnedBody: args.pinnedBody,
+      }),
+    };
+  }
+
+  const row = await fetchTtoDraftRowForRevalidation({
+    draftId,
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+  });
+
+  if (!row) {
+    return {
+      ok: false,
+      skipStatus: "skipped_tto_current_draft_revalidation_failed",
+      reason: TTO_DRAFT_REVALIDATION_REASON_MISSING,
+      metadataExtras: buildTtoRevalidationFailureMetadata({
+        lookup: args.lookup,
+        reason: TTO_DRAFT_REVALIDATION_REASON_MISSING,
+        pinnedBody: args.pinnedBody,
+      }),
+    };
+  }
+
+  if (row.status !== "current") {
+    return {
+      ok: false,
+      skipStatus: "skipped_tto_current_draft_no_longer_current",
+      reason: TTO_DRAFT_REVALIDATION_REASON_NOT_CURRENT,
+      metadataExtras: buildTtoRevalidationFailureMetadata({
+        lookup: args.lookup,
+        reason: TTO_DRAFT_REVALIDATION_REASON_NOT_CURRENT,
+        pinnedBody: args.pinnedBody,
+      }),
+    };
+  }
+
+  const latestBody = trimBody(row.current_body_to_send);
+  if (!latestBody) {
+    return {
+      ok: false,
+      skipStatus: "skipped_tto_current_draft_empty_on_revalidation",
+      reason: TTO_DRAFT_REVALIDATION_REASON_EMPTY,
+      metadataExtras: buildTtoRevalidationFailureMetadata({
+        lookup: args.lookup,
+        reason: TTO_DRAFT_REVALIDATION_REASON_EMPTY,
+        pinnedBody: args.pinnedBody,
+      }),
+    };
+  }
+
+  const pinnedNormalized = normalizedTtoCurrentDraftSendBody(args.pinnedBody);
+  const refreshed = pinnedNormalized !== latestBody;
+  const sendSource = resolveTtoSendSourceFromDraftRow(row);
+
+  return {
+    ok: true,
+    bodyToSend: latestBody,
+    refreshed,
+    metadataExtras: buildTtoRevalidationSuccessMetadataExtras({
+      refreshed,
+      latestBody,
+      pinnedBody: args.pinnedBody,
+      reloadedRow: row,
+    }),
+    lookupUpdates: {
+      current_body_to_send: latestBody,
+      current_body_source: parseTtoCurrentBodySource(row.current_body_source),
+      edited_by_tyler: Boolean(row.edited_by_tyler),
+      current_body_hash:
+        typeof row.current_body_hash === "string" ? row.current_body_hash : hashSmsSnippet(latestBody),
+      send_source: sendSource,
+    },
+  };
+}
+
+export function applyTtoDraftRevalidationSuccess(args: {
+  built: Extract<DailySmsBuilt, { ok: true }>;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext;
+  revalidation: TtoDraftRevalidationSuccess;
+}): {
+  built: Extract<DailySmsBuilt, { ok: true }>;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext;
+} {
+  const lookup: TylerTextOverviewDraftForSendResult = {
+    ...args.tylerTextOverviewCtx.lookup,
+    ...args.revalidation.lookupUpdates,
+    current_body_to_send: args.revalidation.bodyToSend,
+  };
+  const built = applyTylerTextOverviewDraftBodyToBuilt(
+    args.built,
+    args.revalidation.bodyToSend
+  );
+  const baseCtx = withTylerTextOverviewPostWriterBypassOnContext(
+    { ...args.tylerTextOverviewCtx, lookup },
+    true,
+    args.revalidation.bodyToSend
+  )!;
+  return {
+    built,
+    tylerTextOverviewCtx: {
+      ...baseCtx,
+      lookup,
+      metadataBlock: {
+        ...baseCtx.metadataBlock!,
+        ...args.revalidation.metadataExtras,
+      },
+    },
   };
 }

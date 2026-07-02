@@ -6,6 +6,7 @@ import {
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   isTylerTextOverviewEnabled,
+  isProtectedTtoCurrentDraftBody,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   type TylerTextOverviewGenerationReason,
@@ -35,6 +36,7 @@ type CurrentDraftRow = {
   draft_for_day_key: string;
   current_generation_id: string;
   status: string;
+  current_body_to_send: string | null;
 };
 
 type GenerationSnapshot = {
@@ -70,6 +72,7 @@ function emptyStats(
     insert_failed: 0,
     upsert_failed: 0,
     supersede_failed: 0,
+    skipped_protected_current_draft: 0,
     capped: false,
     errors_preview: [],
     ...overrides,
@@ -79,7 +82,9 @@ function emptyStats(
 async function loadCurrentDraftRows(): Promise<CurrentDraftRow[]> {
   const { data, error } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("id, clerk_user_id, draft_for_day_key, current_generation_id, status")
+    .select(
+      "id, clerk_user_id, draft_for_day_key, current_generation_id, status, current_body_to_send"
+    )
     .eq("status", "current");
 
   if (error) {
@@ -248,6 +253,12 @@ export async function refreshStaleTylerTextOverviewDrafts(args: {
   }
 
   for (const candidate of toRefresh) {
+    const protectedBody = currentDrafts.find((d) => d.id === candidate.draftId)?.current_body_to_send;
+    if (isProtectedTtoCurrentDraftBody(protectedBody)) {
+      stats.skipped_protected_current_draft += 1;
+      continue;
+    }
+
     let audienceUser: TylerTextOverviewAudienceRow | null;
     try {
       audienceUser = await loadTylerTextOverviewAudienceRow(candidate.clerkUserId);

@@ -105,6 +105,20 @@ function makeChain(handlers: {
       return { data: null, error: null };
     }
 
+    if (table === "sms_daily_drafts" && action === "select") {
+      let rows = db.drafts;
+      if (payload.clerk_user_id) {
+        rows = rows.filter((d) => d.clerk_user_id === payload.clerk_user_id);
+      }
+      if (payload.draft_for_day_key) {
+        rows = rows.filter((d) => d.draft_for_day_key === payload.draft_for_day_key);
+      }
+      if (payload.status) {
+        rows = rows.filter((d) => d.status === payload.status);
+      }
+      return { data: payload.maybeSingle ? rows[0] ?? null : rows, error: null };
+    }
+
     if (table === "sms_daily_drafts" && action === "upsert") {
       const row = payload.row as Record<string, unknown>;
       const idx = db.drafts.findIndex(
@@ -146,7 +160,10 @@ function makeChain(handlers: {
   self.is = vi.fn(() => self);
   self.order = vi.fn(() => self);
   self.limit = vi.fn(() => self);
-  self.maybeSingle = vi.fn(execute);
+  self.maybeSingle = vi.fn(() => {
+    state.payload.maybeSingle = true;
+    return execute();
+  });
   self.single = vi.fn(execute);
   self.insert = vi.fn((row: Record<string, unknown>) => {
     state.action = "insert";
@@ -451,7 +468,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.drafts[0]?.status).toBe("current");
   });
 
-  it("generation_number increments and machine body stays immutable on second run", async () => {
+  it("generation_number increments but protected current_body_to_send is not overwritten", async () => {
     setupHappyPath();
     await generateTylerTextOverviewDailyDrafts({
       now: new Date("2026-07-02T16:00:00.000Z"),
@@ -469,7 +486,61 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.generations[0]?.machine_draft_body).toBe(SUCCESS_BUILT.smsBody);
     expect(db.generations[1]?.machine_draft_body).toBe("Updated body should be new generation only");
     expect(db.drafts).toHaveLength(1);
-    expect(db.drafts[0]?.current_body_to_send).toBe("Updated body should be new generation only");
+    expect(db.drafts[0]?.current_body_to_send).toBe(SUCCESS_BUILT.smsBody);
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+  });
+
+  it("does not overwrite protected current machine draft on generate", async () => {
+    setupHappyPath();
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        status: "current",
+        current_body_to_send: "Existing machine draft",
+        current_body_source: "machine",
+        edited_by_tyler: false,
+      },
+    ];
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "New machine draft",
+    });
+    await generateTylerTextOverviewDailyDrafts({
+      now: new Date("2026-07-02T16:00:00.000Z"),
+    });
+    expect(db.drafts[0]?.current_body_to_send).toBe("Existing machine draft");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.generations).toHaveLength(1);
+    expect(db.generations[0]?.machine_draft_body).toBe("New machine draft");
+  });
+
+  it("does not overwrite protected tyler_edit draft on generate", async () => {
+    setupHappyPath();
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        status: "current",
+        current_body_to_send: "Tyler protected body",
+        current_body_source: "tyler_edit",
+        edited_by_tyler: true,
+        edited_at: "2026-07-02T18:00:00.000Z",
+        edit_distance_chars: 10,
+      },
+    ];
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "New machine draft",
+    });
+    await generateTylerTextOverviewDailyDrafts({
+      now: new Date("2026-07-02T16:00:00.000Z"),
+    });
+    expect(db.drafts[0]?.current_body_to_send).toBe("Tyler protected body");
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
+    expect(db.drafts[0]?.edit_distance_chars).toBe(10);
   });
 
   it("loadTylerTextOverviewAudienceRows excludes stopped users", async () => {

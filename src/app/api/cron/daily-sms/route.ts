@@ -223,12 +223,21 @@ import {
   type DailySmsBuilt,
 } from "@/lib/daily-sms-build";
 import {
+  applyDailySmsBuiltWithTtoPostWriterBypass,
+  applyTtoDraftRevalidationSuccess,
+  assertTtoCurrentDraftBodyMatches,
+  buildTylerTextOverviewRouteConflictMetadata,
+  buildTylerTextOverviewSendMetadata,
   finalizeTylerTextOverviewDraftAfterSend,
   markTylerTextOverviewDraftSkippedAfterGuard,
   markTylerTextOverviewDraftSkippedAfterLiveFallback,
   mergeTylerTextOverviewSendMetadata,
   prepareTylerTextOverviewDailyBuild,
+  revalidateCurrentTtoDraftBodyBeforeSend,
+  resolveTtoCurrentDraftSendConflict,
+  shouldRevalidateTtoCurrentDraftBeforeSend,
   withTylerTextOverviewFinalBodyOnContext,
+  withTylerTextOverviewPostWriterBypassOnContext,
   type TylerTextOverviewSendContext,
 } from "@/lib/tyler-text-overview-send";
 
@@ -519,6 +528,260 @@ function tylerTextOverviewMetadataForSend(
   finalBodySent: string | null
 ) {
   return withTylerTextOverviewFinalBodyOnContext(ctx, finalBodySent)?.metadataBlock ?? null;
+}
+
+async function applyDailySmsBuiltAfterTylerTextOverview(args: {
+  builtRaw: DailySmsBuilt;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext | null;
+  tylerDraftBodyUsed: boolean;
+  localHour: number;
+}): Promise<{ built: DailySmsBuilt; tylerTextOverviewCtx: TylerTextOverviewSendContext | null }> {
+  const gated = await applyDailySmsBuiltWithTtoPostWriterBypass({
+    builtRaw: args.builtRaw,
+    lookup: args.tylerTextOverviewCtx?.lookup,
+    draftBodyUsed: args.tylerDraftBodyUsed,
+    applyNorthStarGate: (built) => withNorthStarDailyGate(built, { localHour: args.localHour }),
+  });
+  return {
+    built: gated.built,
+    tylerTextOverviewCtx: withTylerTextOverviewPostWriterBypassOnContext(
+      args.tylerTextOverviewCtx,
+      gated.postTtoWritersBypassed,
+      gated.built.ok ? gated.built.smsBody : null
+    ),
+  };
+}
+
+async function blockSendOnTtoCurrentDraftRouteConflict(args: {
+  builtRaw: DailySmsBuilt;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext | null;
+  tylerDraftBodyUsed: boolean;
+  clerkUserId: string;
+  todayKey: string;
+  existingMeta: Record<string, unknown>;
+  timezone: string;
+  localNow: Date;
+}): Promise<boolean> {
+  const conflict = resolveTtoCurrentDraftSendConflict({
+    lookup: args.tylerTextOverviewCtx?.lookup,
+    builtRaw: args.builtRaw,
+    draftBodyUsed: args.tylerDraftBodyUsed,
+  });
+  if (!conflict || !args.tylerTextOverviewCtx?.lookup.draft_id) {
+    return false;
+  }
+
+  console.error("[daily-sms] tto_current_draft_route_conflict", {
+    clerk_user_id: args.clerkUserId,
+    day_key: args.todayKey,
+    draft_id: args.tylerTextOverviewCtx.lookup.draft_id,
+    conflict_reason: conflict.reason,
+    built_ok: args.builtRaw.ok,
+    built_error: args.builtRaw.ok ? null : args.builtRaw.error,
+    draft_body_used: args.tylerDraftBodyUsed,
+    send_source: args.tylerTextOverviewCtx.lookup.send_source,
+    route_kind: args.tylerTextOverviewCtx.lookup.route_kind,
+  });
+
+  const conflictMetadata = buildTylerTextOverviewRouteConflictMetadata({
+    lookup: args.tylerTextOverviewCtx.lookup,
+    builtRaw: args.builtRaw,
+    draftBodyUsed: args.tylerDraftBodyUsed,
+    conflict,
+  });
+
+  await supabaseServer
+    .from("sms_send_events")
+    .update({
+      status: conflict.status,
+      metadata: mergeTylerTextOverviewSendMetadata(
+        {
+          ...args.existingMeta,
+          note: conflict.reason,
+          timezone: args.timezone,
+          local_time: args.localNow.toISOString(),
+          twilio_send_attempted: false,
+        },
+        conflictMetadata
+      ),
+    })
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("day_key", args.todayKey);
+
+  await markTylerTextOverviewDraftSkippedAfterGuard({
+    draftId: args.tylerTextOverviewCtx.lookup.draft_id,
+    clerkUserId: args.clerkUserId,
+    dayKey: args.todayKey,
+  });
+
+  return true;
+}
+
+async function applyTtoCurrentDraftRevalidationBeforeTwilio(args: {
+  built: DailySmsBuilt;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext | null;
+  tylerDraftBodyUsed: boolean;
+  clerkUserId: string;
+  todayKey: string;
+  existingMeta: Record<string, unknown>;
+  timezone: string;
+  localNow: Date;
+}): Promise<{
+  built: DailySmsBuilt;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext | null;
+  blocked: boolean;
+}> {
+  if (
+    !shouldRevalidateTtoCurrentDraftBeforeSend({
+      tylerTextOverviewCtx: args.tylerTextOverviewCtx,
+      tylerDraftBodyUsed: args.tylerDraftBodyUsed,
+      built: args.built,
+    }) ||
+    !args.built.ok ||
+    !args.tylerTextOverviewCtx
+  ) {
+    return {
+      built: args.built,
+      tylerTextOverviewCtx: args.tylerTextOverviewCtx,
+      blocked: false,
+    };
+  }
+
+  const pinnedBody = args.built.smsBody;
+  const revalidation = await revalidateCurrentTtoDraftBodyBeforeSend({
+    lookup: args.tylerTextOverviewCtx.lookup,
+    pinnedBody,
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.todayKey,
+  });
+
+  if (!revalidation.ok) {
+    console.error("[daily-sms] tto_current_draft_revalidation_failed", {
+      clerk_user_id: args.clerkUserId,
+      day_key: args.todayKey,
+      draft_id: args.tylerTextOverviewCtx.lookup.draft_id,
+      revalidation_reason: revalidation.reason,
+      skip_status: revalidation.skipStatus,
+    });
+
+    const failureMetadata = buildTylerTextOverviewSendMetadata({
+      lookup: args.tylerTextOverviewCtx.lookup,
+      effectiveSendSource: args.tylerTextOverviewCtx.lookup.send_source,
+      finalBodySent: null,
+      postTtoWritersBypassed: true,
+    });
+
+    await supabaseServer
+      .from("sms_send_events")
+      .update({
+        status: revalidation.skipStatus,
+        metadata: mergeTylerTextOverviewSendMetadata(
+          {
+            ...args.existingMeta,
+            note: revalidation.reason,
+            timezone: args.timezone,
+            local_time: args.localNow.toISOString(),
+            twilio_send_attempted: false,
+          },
+          {
+            ...failureMetadata,
+            ...revalidation.metadataExtras,
+          }
+        ),
+      })
+      .eq("clerk_user_id", args.clerkUserId)
+      .eq("day_key", args.todayKey);
+
+    if (args.tylerTextOverviewCtx.lookup.draft_id) {
+      await markTylerTextOverviewDraftSkippedAfterGuard({
+        draftId: args.tylerTextOverviewCtx.lookup.draft_id,
+        clerkUserId: args.clerkUserId,
+        dayKey: args.todayKey,
+      });
+    }
+
+    return {
+      built: args.built,
+      tylerTextOverviewCtx: args.tylerTextOverviewCtx,
+      blocked: true,
+    };
+  }
+
+  const applied = applyTtoDraftRevalidationSuccess({
+    built: args.built,
+    tylerTextOverviewCtx: args.tylerTextOverviewCtx,
+    revalidation,
+  });
+
+  return {
+    built: applied.built,
+    tylerTextOverviewCtx: applied.tylerTextOverviewCtx,
+    blocked: false,
+  };
+}
+
+async function blockSendOnTtoCurrentDraftBodyMismatch(args: {
+  built: DailySmsBuilt;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext | null;
+  tylerDraftBodyUsed: boolean;
+  clerkUserId: string;
+  todayKey: string;
+  existingMeta: Record<string, unknown>;
+  timezone: string;
+  localNow: Date;
+}): Promise<boolean> {
+  if (
+    !args.tylerTextOverviewCtx?.postTtoWritersBypassed ||
+    !args.tylerDraftBodyUsed ||
+    !args.built.ok ||
+    !args.tylerTextOverviewCtx.lookup.current_body_to_send
+  ) {
+    return false;
+  }
+
+  const assertion = assertTtoCurrentDraftBodyMatches({
+    smsBody: args.built.smsBody,
+    currentBodyToSend: args.tylerTextOverviewCtx.lookup.current_body_to_send,
+  });
+  if (assertion.ok) {
+    return false;
+  }
+
+  console.error("[daily-sms] tto_current_draft_body_mismatch", {
+    clerk_user_id: args.clerkUserId,
+    day_key: args.todayKey,
+    draft_id: args.tylerTextOverviewCtx.lookup.draft_id,
+    current_body_hash: args.tylerTextOverviewCtx.lookup.current_body_hash,
+    sms_body_hash_preview: args.built.smsBody.slice(0, 40),
+    current_body_preview: args.tylerTextOverviewCtx.lookup.current_body_to_send.slice(0, 40),
+  });
+
+  await supabaseServer
+    .from("sms_send_events")
+    .update({
+      status: "skipped_tto_current_draft_body_mismatch",
+      metadata: mergeTylerTextOverviewSendMetadata(
+        {
+          ...args.existingMeta,
+          note: "tto_current_draft_body_mismatch",
+          timezone: args.timezone,
+          local_time: args.localNow.toISOString(),
+        },
+        tylerTextOverviewMetadataForSend(args.tylerTextOverviewCtx, null)
+      ),
+    })
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("day_key", args.todayKey);
+
+  if (args.tylerTextOverviewCtx.lookup.draft_id) {
+    await markTylerTextOverviewDraftSkippedAfterGuard({
+      draftId: args.tylerTextOverviewCtx.lookup.draft_id,
+      clerkUserId: args.clerkUserId,
+      dayKey: args.todayKey,
+    });
+  }
+
+  return true;
 }
 
 async function finalizeTylerTextOverviewAfterOutboundBestEffort(args: {
@@ -1492,11 +1755,32 @@ export async function GET(req: Request) {
                 ),
             });
             const builtRaw = tylerTextOverviewBuild.builtMainRaw;
-            const tylerTextOverviewCtx = tylerTextOverviewBuild.sendContext;
+            let tylerTextOverviewCtx = tylerTextOverviewBuild.sendContext;
             const tylerDraftBodyUsed = tylerTextOverviewBuild.draftBodyUsed;
-            const built = builtRaw.ok
-              ? await withNorthStarDailyGate(builtRaw, { localHour: computedLocalHour })
-              : builtRaw;
+            if (
+              await blockSendOnTtoCurrentDraftRouteConflict({
+                builtRaw,
+                tylerTextOverviewCtx,
+                tylerDraftBodyUsed,
+                clerkUserId: audienceUser.clerk_user_id,
+                todayKey,
+                existingMeta,
+                timezone,
+                localNow,
+              })
+            ) {
+              stats.skippedUnexpected += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+            const gatedBuild = await applyDailySmsBuiltAfterTylerTextOverview({
+              builtRaw,
+              tylerTextOverviewCtx,
+              tylerDraftBodyUsed,
+              localHour: computedLocalHour,
+            });
+            const built = gatedBuild.built;
+            tylerTextOverviewCtx = gatedBuild.tylerTextOverviewCtx;
             if (!built.ok) {
               if (built.error === "v2_reactivation_not_due") {
                 await supabaseServer
@@ -1662,8 +1946,43 @@ export async function GET(req: Request) {
               stats.skippedIntentional += 1;
               continue;
             }
-            const smsBody = built.smsBody;
-            const v2AccountabilityRetry = built.v2Accountability;
+            const revalidatedRetry = await applyTtoCurrentDraftRevalidationBeforeTwilio({
+              built,
+              tylerTextOverviewCtx,
+              tylerDraftBodyUsed,
+              clerkUserId: audienceUser.clerk_user_id,
+              todayKey,
+              existingMeta,
+              timezone,
+              localNow,
+            });
+            if (revalidatedRetry.blocked) {
+              stats.skippedUnexpected += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+            const builtAfterRevalidation = revalidatedRetry.built;
+            tylerTextOverviewCtx = revalidatedRetry.tylerTextOverviewCtx;
+            if (
+              await blockSendOnTtoCurrentDraftBodyMismatch({
+                built: builtAfterRevalidation,
+                tylerTextOverviewCtx,
+                tylerDraftBodyUsed,
+                clerkUserId: audienceUser.clerk_user_id,
+                todayKey,
+                existingMeta,
+                timezone,
+                localNow,
+              })
+            ) {
+              stats.skippedUnexpected += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+            const smsBody = builtAfterRevalidation.ok ? builtAfterRevalidation.smsBody : "";
+            const v2AccountabilityRetry = builtAfterRevalidation.ok
+              ? builtAfterRevalidation.v2Accountability
+              : undefined;
 
             if (isDailySmsWithheldByFinalVoiceGate(built)) {
               const voiceSendDecisionRetry = built.v2AiPayload?.voice_send_decision as
@@ -2188,11 +2507,32 @@ export async function GET(req: Request) {
           ),
       });
       const builtMainRaw = tylerTextOverviewBuild.builtMainRaw;
-      const tylerTextOverviewCtx = tylerTextOverviewBuild.sendContext;
+      let tylerTextOverviewCtx = tylerTextOverviewBuild.sendContext;
       const tylerDraftBodyUsed = tylerTextOverviewBuild.draftBodyUsed;
-      const builtMain = builtMainRaw.ok
-        ? await withNorthStarDailyGate(builtMainRaw, { localHour: computedLocalHour })
-        : builtMainRaw;
+      if (
+        await blockSendOnTtoCurrentDraftRouteConflict({
+          builtRaw: builtMainRaw,
+          tylerTextOverviewCtx,
+          tylerDraftBodyUsed,
+          clerkUserId: audienceUser.clerk_user_id,
+          todayKey,
+          existingMeta: { note: "reserved_by_cron" },
+          timezone,
+          localNow,
+        })
+      ) {
+        stats.skippedUnexpected += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+      const gatedMainBuild = await applyDailySmsBuiltAfterTylerTextOverview({
+        builtRaw: builtMainRaw,
+        tylerTextOverviewCtx,
+        tylerDraftBodyUsed,
+        localHour: computedLocalHour,
+      });
+      const builtMain = gatedMainBuild.built;
+      tylerTextOverviewCtx = gatedMainBuild.tylerTextOverviewCtx;
       if (!builtMain.ok) {
         if (builtMain.error === "v2_reactivation_not_due") {
           await supabaseServer
@@ -2351,8 +2691,43 @@ export async function GET(req: Request) {
         stats.skippedIntentional += 1;
         continue;
       }
-      const smsBody = builtMain.smsBody;
-      const v2AccountabilityMain = builtMain.v2Accountability;
+      const revalidatedMain = await applyTtoCurrentDraftRevalidationBeforeTwilio({
+        built: builtMain,
+        tylerTextOverviewCtx,
+        tylerDraftBodyUsed,
+        clerkUserId: audienceUser.clerk_user_id,
+        todayKey,
+        existingMeta: { note: "reserved_by_cron" },
+        timezone,
+        localNow,
+      });
+      if (revalidatedMain.blocked) {
+        stats.skippedUnexpected += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+      const builtMainAfterRevalidation = revalidatedMain.built;
+      tylerTextOverviewCtx = revalidatedMain.tylerTextOverviewCtx;
+      if (
+        await blockSendOnTtoCurrentDraftBodyMismatch({
+          built: builtMainAfterRevalidation,
+          tylerTextOverviewCtx,
+          tylerDraftBodyUsed,
+          clerkUserId: audienceUser.clerk_user_id,
+          todayKey,
+          existingMeta: { note: "reserved_by_cron" },
+          timezone,
+          localNow,
+        })
+      ) {
+        stats.skippedUnexpected += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+      const smsBody = builtMainAfterRevalidation.ok ? builtMainAfterRevalidation.smsBody : "";
+      const v2AccountabilityMain = builtMainAfterRevalidation.ok
+        ? builtMainAfterRevalidation.v2Accountability
+        : undefined;
 
       if (isDailySmsWithheldByFinalVoiceGate(builtMain)) {
         const voiceSendDecision = builtMain.v2AiPayload?.voice_send_decision as

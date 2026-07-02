@@ -306,6 +306,7 @@ function seedCurrentDraft(args: {
   machineBody?: string;
   tylerEdited?: boolean;
   status?: string;
+  emptySendBody?: boolean;
 }) {
   const draftForDayKey = args.draftForDayKey ?? "2026-07-03";
   const generatedAt = args.generatedAt ?? "2026-07-02T17:00:00.000Z";
@@ -330,7 +331,11 @@ function seedCurrentDraft(args: {
       clerk_user_id: AUDIENCE_USER.clerk_user_id,
       draft_for_day_key: draftForDayKey,
       current_generation_id: genId,
-      current_body_to_send: args.tylerEdited ? "Tyler edited body" : "Original machine body",
+      current_body_to_send: args.emptySendBody
+        ? null
+        : args.tylerEdited
+          ? "Tyler edited body"
+          : "Original machine body",
       current_body_source: args.tylerEdited ? "tyler_edit" : "machine",
       edited_by_tyler: args.tylerEdited ?? false,
       edited_at: args.tylerEdited ? "2026-07-02T18:00:00.000Z" : null,
@@ -440,7 +445,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("uses existing draft row draft_for_day_key, not recomputed day key", async () => {
     setupHappyPath();
-    seedCurrentDraft({ draftForDayKey: "2026-07-10" });
+    seedCurrentDraft({ draftForDayKey: "2026-07-10", emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,
@@ -469,7 +474,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("calls buildDailySmsContent with mode draft for stale users only", async () => {
     setupHappyPath();
-    seedCurrentDraft({});
+    seedCurrentDraft({ emptySendBody: true });
     db.drafts.push({
       id: "draft-fresh",
       clerk_user_id: "user_fresh",
@@ -509,7 +514,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("inserts new generation with generation_reason evening_sweep by default", async () => {
     setupHappyPath();
-    seedCurrentDraft({ tylerEdited: true });
+    seedCurrentDraft({ tylerEdited: true, emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,
@@ -525,7 +530,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("inserts new generation with generation_reason pre_send_stale_refresh when requested", async () => {
     setupHappyPath();
-    seedCurrentDraft({});
+    seedCurrentDraft({ emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,
@@ -538,7 +543,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("supersedes old generation", async () => {
     setupHappyPath();
-    seedCurrentDraft({});
+    seedCurrentDraft({ emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,
@@ -551,7 +556,24 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     expect(oldGen?.superseded_by_generation_id).toBeTruthy();
   });
 
-  it("upserts sms_daily_drafts to new generation", async () => {
+  it("skips refresh when protected current draft body exists", async () => {
+    setupHappyPath();
+    seedCurrentDraft({});
+    db.inbound = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        received_at: "2026-07-02T18:00:00.000Z",
+      },
+    ];
+    const stats = await refreshStaleTylerTextOverviewDrafts();
+    expect(stats.skipped_protected_current_draft).toBe(1);
+    expect(stats.refreshed).toBe(0);
+    expect(buildDailySmsContentMock).not.toHaveBeenCalled();
+    expect(db.drafts[0]?.current_body_to_send).toBe("Original machine body");
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-original");
+  });
+
+  it("does not overwrite protected machine draft on stale refresh", async () => {
     setupHappyPath();
     seedCurrentDraft({});
     db.inbound = [
@@ -561,11 +583,11 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
       },
     ];
     await refreshStaleTylerTextOverviewDrafts();
-    expect(db.drafts[0]?.current_body_to_send).toBe("After inbound refresh body");
-    expect(db.drafts[0]?.current_generation_id).not.toBe("gen-original");
+    expect(db.drafts[0]?.current_body_to_send).toBe("Original machine body");
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-original");
   });
 
-  it("resets Tyler edit fields", async () => {
+  it("does not overwrite protected tyler_edit on stale refresh", async () => {
     setupHappyPath();
     seedCurrentDraft({ tylerEdited: true });
     db.inbound = [
@@ -575,15 +597,31 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
       },
     ];
     await refreshStaleTylerTextOverviewDrafts();
-    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
-    expect(db.drafts[0]?.edited_at).toBeNull();
-    expect(db.drafts[0]?.edit_distance_chars).toBeNull();
-    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.current_body_to_send).toBe("Tyler edited body");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
+    expect(db.drafts[0]?.edit_distance_chars).toBe(12);
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+  });
+
+  it("refreshes only when current draft body is empty", async () => {
+    setupHappyPath();
+    seedCurrentDraft({ emptySendBody: true });
+    db.inbound = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        received_at: "2026-07-02T18:00:00.000Z",
+      },
+    ];
+    const stats = await refreshStaleTylerTextOverviewDrafts();
+    expect(stats.refreshed).toBe(1);
+    expect(stats.skipped_protected_current_draft).toBe(0);
+    expect(db.drafts[0]?.current_body_to_send).toBe("After inbound refresh body");
   });
 
   it("does not mutate old machine_draft_body", async () => {
     setupHappyPath();
-    seedCurrentDraft({ machineBody: "Immutable original body" });
+    seedCurrentDraft({ machineBody: "Immutable original body", emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,
@@ -597,7 +635,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("does not write sms_send_events", async () => {
     setupHappyPath();
-    seedCurrentDraft({});
+    seedCurrentDraft({ emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,
@@ -610,7 +648,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("does not call Twilio", async () => {
     setupHappyPath();
-    seedCurrentDraft({});
+    seedCurrentDraft({ emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,
@@ -625,7 +663,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
 
   it("returns stats", async () => {
     setupHappyPath();
-    seedCurrentDraft({});
+    seedCurrentDraft({ emptySendBody: true });
     db.inbound = [
       {
         clerk_user_id: AUDIENCE_USER.clerk_user_id,

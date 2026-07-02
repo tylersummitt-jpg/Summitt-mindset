@@ -4,18 +4,35 @@ import { join } from "node:path";
 
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import {
+  applyDailySmsBuiltWithTtoPostWriterBypass,
+  applyTtoDraftRevalidationSuccess,
   applyTylerTextOverviewDraftBodyToBuilt,
+  assertTtoCurrentDraftBodyMatches,
   buildTylerTextOverviewSendContext,
   buildTylerTextOverviewSendMetadata,
+  canPinTtoCurrentDraftForSend,
   finalizeTylerTextOverviewDraftAfterSend,
+  hasProtectedTtoCurrentDraftForSendDay,
   isDailySmsBuiltSpecialBranch,
   loadUsableTylerTextOverviewDraftForSend,
   markTylerTextOverviewDraftSkippedAfterGuard,
   mergeTylerTextOverviewSendMetadata,
   prepareTylerTextOverviewDailyBuild,
+  revalidateCurrentTtoDraftBodyBeforeSend,
+  resolveTtoCurrentDraftSendConflict,
+  shouldRevalidateTtoCurrentDraftBeforeSend,
   shouldApplyTylerTextOverviewDraftOverlay,
+  withTylerTextOverviewPostWriterBypassOnContext,
 } from "@/lib/tyler-text-overview-send";
-import { TYLER_TEXT_OVERVIEW_ENABLED_ENV } from "@/lib/tyler-text-overview-types";
+import {
+  TTO_CURRENT_DRAFT_ROUTE_CONFLICT,
+  TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT,
+  TTO_CURRENT_DRAFT_FINAL_STALE_REASON,
+  TTO_DRAFT_REVALIDATION_REASON_EMPTY,
+  TTO_DRAFT_REVALIDATION_REASON_MISSING,
+  TTO_DRAFT_REVALIDATION_REASON_NOT_CURRENT,
+  TYLER_TEXT_OVERVIEW_ENABLED_ENV,
+} from "@/lib/tyler-text-overview-types";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 const db = vi.hoisted(() => ({
@@ -31,12 +48,18 @@ function makeChain(state: { table: string; action: string; payload: Record<strin
     const { table, payload } = state;
 
     if (table === "sms_daily_drafts" && state.action === "select") {
-      let rows = db.drafts.filter(
-        (d) =>
-          d.clerk_user_id === payload.clerk_user_id &&
-          d.draft_for_day_key === payload.draft_for_day_key &&
-          d.status === payload.status
-      );
+      let rows = db.drafts.filter((d) => {
+        if (payload.clerk_user_id != null && d.clerk_user_id !== payload.clerk_user_id) {
+          return false;
+        }
+        if (payload.draft_for_day_key != null && d.draft_for_day_key !== payload.draft_for_day_key) {
+          return false;
+        }
+        if (payload.status != null && d.status !== payload.status) {
+          return false;
+        }
+        return true;
+      });
       if (payload.id) rows = rows.filter((d) => d.id === payload.id);
       return { data: payload.maybeSingle ? rows[0] ?? null : rows, error: null };
     }
@@ -236,7 +259,7 @@ describe("tyler-text-overview-send draft load", () => {
     expect(r.send_source).toBe("live_fallback_no_draft");
   });
 
-  it("stale draft → live_fallback_stale", async () => {
+  it("current draft remains usable despite inbound-after-generation stale condition", async () => {
     process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
     seedDraft();
     db.inbound = [
@@ -249,9 +272,11 @@ describe("tyler-text-overview-send draft load", () => {
       clerkUserId: "user_send",
       draftForDayKey: "2026-07-03",
     });
-    expect(r.usable).toBe(false);
-    expect(r.send_source).toBe("live_fallback_stale");
+    expect(r.usable).toBe(true);
+    expect(r.send_source).toBe("machine_draft");
+    expect(r.current_body_to_send).toBe(MACHINE_BODY);
     expect(r.stale).toBe(true);
+    expect(r.stale_reason).toBe("inbound_received_after_generation");
   });
 
   it("null/empty draft body → live_fallback_empty_body", async () => {
@@ -294,7 +319,9 @@ describe("tyler-text-overview-send draft load", () => {
       clerkUserId: "user_send",
       draftForDayKey: "2026-07-03",
     });
-    expect(stale.send_source).toBe("live_fallback_stale");
+    expect(stale.usable).toBe(true);
+    expect(stale.send_source).toBe("machine_draft");
+    expect(stale.stale).toBe(true);
   });
 });
 
@@ -351,6 +378,24 @@ describe("tyler-text-overview-send body overlay", () => {
     expect(r.sendContext?.metadataBlock?.send_source).toBe("machine_draft");
   });
 
+  it("machine draft override passed to build for no-send lane recovery", async () => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
+    seedDraft();
+    const buildMock = vi.fn(async (override: string | null) => {
+      if (override) return okBuiltMain(override);
+      return { ok: false, error: "daily_v3_lane_no_send" };
+    });
+    const r = await prepareTylerTextOverviewDailyBuild({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+      now: new Date("2026-07-03T12:00:00.000Z"),
+      build: buildMock,
+    });
+    expect(buildMock).toHaveBeenCalledWith(MACHINE_BODY);
+    expect(r.draftBodyUsed).toBe(true);
+    expect(r.builtMainRaw.ok && r.builtMainRaw.smsBody).toBe(MACHINE_BODY);
+  });
+
   it("Tyler edit over machine no-send passes override to build", async () => {
     process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
     seedDraft({ body: TYLER_BODY, source: "tyler_edit", edited: true });
@@ -367,6 +412,489 @@ describe("tyler-text-overview-send body overlay", () => {
     expect(buildMock).toHaveBeenCalledWith(TYLER_BODY);
     expect(r.draftBodyUsed).toBe(true);
     expect(r.builtMainRaw.ok && r.builtMainRaw.smsBody).toBe(TYLER_BODY);
+  });
+});
+
+describe("tyler-text-overview-send protected current draft send", () => {
+  const northStarMutator = vi.fn(async (built: Extract<DailySmsBuilt, { ok: true }>) => ({
+    ...built,
+    smsBody: "north star mutated body",
+  }));
+
+  beforeEach(() => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
+    seedDraft();
+    northStarMutator.mockClear();
+  });
+
+  it("bypasses post-TTO writers and keeps exact current_body_to_send for machine draft", async () => {
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    const builtRaw = okBuiltMain("live body from build");
+    const gated = await applyDailySmsBuiltWithTtoPostWriterBypass({
+      builtRaw,
+      lookup,
+      draftBodyUsed: true,
+      applyNorthStarGate: northStarMutator,
+    });
+    expect(gated.postTtoWritersBypassed).toBe(true);
+    expect(gated.built.ok && gated.built.smsBody).toBe(MACHINE_BODY);
+    expect(northStarMutator).not.toHaveBeenCalled();
+  });
+
+  it("bypasses post-TTO writers for tyler_edit draft", async () => {
+    seedDraft({ body: TYLER_BODY, source: "tyler_edit", edited: true });
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    const gated = await applyDailySmsBuiltWithTtoPostWriterBypass({
+      builtRaw: okBuiltMain("live body"),
+      lookup,
+      draftBodyUsed: true,
+      applyNorthStarGate: northStarMutator,
+    });
+    expect(gated.built.ok && gated.built.smsBody).toBe(TYLER_BODY);
+    expect(northStarMutator).not.toHaveBeenCalled();
+  });
+
+  it("still runs north star gate when no protected current draft pin", async () => {
+    const gated = await applyDailySmsBuiltWithTtoPostWriterBypass({
+      builtRaw: okBuiltMain("live body"),
+      lookup: null,
+      draftBodyUsed: false,
+      applyNorthStarGate: northStarMutator,
+    });
+    expect(gated.postTtoWritersBypassed).toBe(false);
+    expect(gated.built.ok && gated.built.smsBody).toBe("north star mutated body");
+    expect(northStarMutator).toHaveBeenCalledTimes(1);
+  });
+
+  it("assertTtoCurrentDraftBodyMatches blocks mutated body", () => {
+    const mismatch = assertTtoCurrentDraftBodyMatches({
+      smsBody: "mutated",
+      currentBodyToSend: MACHINE_BODY,
+    });
+    expect(mismatch.ok).toBe(false);
+    if (!mismatch.ok) {
+      expect(mismatch.reason).toBe("tto_current_draft_body_mismatch");
+    }
+    const ok = assertTtoCurrentDraftBodyMatches({
+      smsBody: `  ${MACHINE_BODY}  `,
+      currentBodyToSend: MACHINE_BODY,
+    });
+    expect(ok.ok).toBe(true);
+  });
+
+  it("protected metadata flags are set on send context", () => {
+    const ctx = withTylerTextOverviewPostWriterBypassOnContext(
+      buildTylerTextOverviewSendContext({
+        lookup: {
+          usable: true,
+          send_source: "machine_draft",
+          draft_id: "draft-1",
+          generation_id: "gen-1",
+          draft_for_day_key: "2026-07-03",
+          current_body_to_send: MACHINE_BODY,
+          current_body_source: "machine",
+          edited_by_tyler: false,
+          machine_body_hash: hashSmsSnippet(MACHINE_BODY),
+          current_body_hash: hashSmsSnippet(MACHINE_BODY),
+          notebook_verdict_at_generation: "verified",
+          notebook_verdict_reason_at_generation: "none",
+          route_kind: "main_active_accountability",
+          stale: true,
+          stale_reason: "inbound_received_after_generation",
+        },
+        builtRaw: okBuiltMain(MACHINE_BODY),
+        draftBodyUsed: true,
+      }),
+      true,
+      MACHINE_BODY
+    );
+    expect(ctx?.metadataBlock?.tto_current_draft_protected).toBe(true);
+    expect(ctx?.metadataBlock?.post_tto_writers_bypassed).toBe(true);
+    expect(ctx?.metadataBlock?.sent_body_equals_current_body_to_send).toBe(true);
+    expect(ctx?.metadataBlock?.stale_check_ignored_reason).toBe(
+      TTO_CURRENT_DRAFT_FINAL_STALE_REASON
+    );
+    expect(ctx?.metadataBlock?.live_fallback_used).toBe(false);
+    expect(ctx?.metadataBlock?.post_tto_guards_skipped).toContain("north_star_mutation");
+  });
+
+  const JULY2_BAD_STRINGS = [
+    "I will stay composed in the first stressful leadership moment I face today.",
+    "Paul, today, I will name three specific things I am grateful for in prayer.",
+    "I will text or call each day to help us get back on track and build your Victory Room together.",
+  ] as const;
+
+  it.each(JULY2_BAD_STRINGS)(
+    "only sends July 2 bad string when current_body_to_send exactly matches: %s",
+    async (badString) => {
+      seedDraft({ body: badString });
+      const lookup = await loadUsableTylerTextOverviewDraftForSend({
+        clerkUserId: "user_send",
+        draftForDayKey: "2026-07-03",
+      });
+      const gated = await applyDailySmsBuiltWithTtoPostWriterBypass({
+        builtRaw: okBuiltMain("behavior_statement leak"),
+        lookup,
+        draftBodyUsed: true,
+        applyNorthStarGate: northStarMutator,
+      });
+      expect(gated.built.ok && gated.built.smsBody).toBe(badString);
+      expect(gated.built.smsBody).not.toBe("behavior_statement leak");
+    }
+  );
+});
+
+describe("tyler-text-overview-send route conflict guard", () => {
+  beforeEach(() => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
+    seedDraft();
+  });
+
+  it("detects protected current draft on send day", async () => {
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(hasProtectedTtoCurrentDraftForSendDay(lookup)).toBe(true);
+  });
+
+  it("does not treat empty draft body as protected", async () => {
+    seedDraft({ body: "   " });
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(hasProtectedTtoCurrentDraftForSendDay(lookup)).toBe(false);
+  });
+
+  it("allows pin when main draft overlays successfully", async () => {
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    const builtRaw = okBuiltMain("live body");
+    expect(
+      canPinTtoCurrentDraftForSend({ lookup, builtRaw, draftBodyUsed: true })
+    ).toBe(true);
+    expect(
+      resolveTtoCurrentDraftSendConflict({ lookup, builtRaw, draftBodyUsed: true })
+    ).toBeNull();
+  });
+
+  it("blocks special-branch live build when protected draft pin would not apply", async () => {
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    const specialBuilt: Extract<DailySmsBuilt, { ok: true }> = {
+      ...okBuiltMain("refresh live body"),
+      v2RefreshOutboundPlan: {
+        kind: "identity_first",
+        session: { session_id: "s", step: "identity" },
+      },
+    };
+    const conflict = resolveTtoCurrentDraftSendConflict({
+      lookup,
+      builtRaw: specialBuilt,
+      draftBodyUsed: false,
+    });
+    expect(conflict?.status).toBe("skipped_tto_current_draft_special_branch_conflict");
+    expect(conflict?.reason).toBe(TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT);
+    expect(
+      shouldApplyTylerTextOverviewDraftOverlay({ lookup, builtRaw: specialBuilt })
+    ).toBe(false);
+  });
+
+  it("blocks build failure when protected current draft exists", async () => {
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    const builtRaw: DailySmsBuilt = { ok: false, error: "daily_v3_lane_no_send" };
+    const conflict = resolveTtoCurrentDraftSendConflict({
+      lookup,
+      builtRaw,
+      draftBodyUsed: false,
+    });
+    expect(conflict?.status).toBe("skipped_tto_current_draft_route_conflict");
+    expect(conflict?.reason).toBe(TTO_CURRENT_DRAFT_ROUTE_CONFLICT);
+  });
+
+  it("blocks when generation route_kind is not main but draft body exists", async () => {
+    seedDraft({ routeKind: "refresh" });
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(lookup.usable).toBe(false);
+    expect(hasProtectedTtoCurrentDraftForSendDay(lookup)).toBe(true);
+    const conflict = resolveTtoCurrentDraftSendConflict({
+      lookup,
+      builtRaw: okBuiltMain("live main body"),
+      draftBodyUsed: false,
+    });
+    expect(conflict?.status).toBe("skipped_tto_current_draft_route_conflict");
+  });
+
+  it("does not block when no current draft exists", () => {
+    expect(
+      resolveTtoCurrentDraftSendConflict({
+        lookup: {
+          usable: false,
+          send_source: "live_fallback_no_draft",
+          draft_id: null,
+          generation_id: null,
+          draft_for_day_key: "2026-07-03",
+          current_body_to_send: null,
+          current_body_source: null,
+          edited_by_tyler: false,
+          machine_body_hash: null,
+          current_body_hash: null,
+          notebook_verdict_at_generation: null,
+          notebook_verdict_reason_at_generation: null,
+          route_kind: null,
+          stale: false,
+          stale_reason: null,
+        },
+        builtRaw: okBuiltMain("live only"),
+        draftBodyUsed: false,
+      })
+    ).toBeNull();
+  });
+});
+
+describe("tyler-text-overview-send pre-twilio revalidation", () => {
+  const northStarMutator = vi.fn(async (built: Extract<DailySmsBuilt, { ok: true }>) => ({
+    ...built,
+    smsBody: "north star mutated body",
+  }));
+
+  beforeEach(() => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
+    seedDraft();
+    northStarMutator.mockClear();
+  });
+
+  async function pinnedSendState(initialBody: string) {
+    const lookup = await loadUsableTylerTextOverviewDraftForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    const gated = await applyDailySmsBuiltWithTtoPostWriterBypass({
+      builtRaw: okBuiltMain("live body from build"),
+      lookup,
+      draftBodyUsed: true,
+      applyNorthStarGate: northStarMutator,
+    });
+    const ctx = withTylerTextOverviewPostWriterBypassOnContext(
+      buildTylerTextOverviewSendContext({
+        lookup,
+        builtRaw: gated.built,
+        draftBodyUsed: true,
+      }),
+      true,
+      gated.built.ok ? gated.built.smsBody : null
+    );
+    return {
+      lookup,
+      built: gated.built,
+      ctx,
+      pinnedBody: initialBody,
+    };
+  }
+
+  it("revalidation same body keeps pinned body and metadata flags", async () => {
+    const { lookup, built, ctx, pinnedBody } = await pinnedSendState(MACHINE_BODY);
+    expect(built.ok && built.smsBody).toBe(MACHINE_BODY);
+
+    const revalidation = await revalidateCurrentTtoDraftBodyBeforeSend({
+      lookup,
+      pinnedBody,
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(revalidation.ok).toBe(true);
+    if (!revalidation.ok) return;
+    expect(revalidation.bodyToSend).toBe(MACHINE_BODY);
+    expect(revalidation.refreshed).toBe(false);
+    expect(revalidation.metadataExtras.tto_current_draft_revalidated_before_twilio).toBe(true);
+    expect(revalidation.metadataExtras.tto_current_draft_body_refreshed_before_twilio).toBe(false);
+    expect(northStarMutator).not.toHaveBeenCalled();
+
+    const applied = applyTtoDraftRevalidationSuccess({
+      built: built as Extract<DailySmsBuilt, { ok: true }>,
+      tylerTextOverviewCtx: ctx!,
+      revalidation,
+    });
+    expect(applied.built.smsBody).toBe(MACHINE_BODY);
+    expect(applied.tylerTextOverviewCtx.metadataBlock?.sent_body_equals_current_body_to_send).toBe(
+      true
+    );
+  });
+
+  it("revalidation newer body replaces pinned snapshot with latest saved body", async () => {
+    const { lookup, built, ctx, pinnedBody } = await pinnedSendState(MACHINE_BODY);
+    db.drafts[0].current_body_to_send = TYLER_BODY;
+    db.drafts[0].current_body_source = "tyler_edit";
+    db.drafts[0].edited_by_tyler = true;
+    db.drafts[0].current_body_hash = hashSmsSnippet(TYLER_BODY);
+
+    const revalidation = await revalidateCurrentTtoDraftBodyBeforeSend({
+      lookup,
+      pinnedBody,
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(revalidation.ok).toBe(true);
+    if (!revalidation.ok) return;
+    expect(revalidation.bodyToSend).toBe(TYLER_BODY);
+    expect(revalidation.refreshed).toBe(true);
+    expect(revalidation.metadataExtras.tto_current_draft_body_refreshed_before_twilio).toBe(true);
+    expect(revalidation.metadataExtras.tto_current_draft_previous_body_hash).toBe(
+      hashSmsSnippet(MACHINE_BODY)
+    );
+    expect(revalidation.metadataExtras.sent_body_equals_current_body_to_send).toBe(true);
+
+    const applied = applyTtoDraftRevalidationSuccess({
+      built: built as Extract<DailySmsBuilt, { ok: true }>,
+      tylerTextOverviewCtx: ctx!,
+      revalidation,
+    });
+    expect(applied.built.smsBody).toBe(TYLER_BODY);
+    expect(applied.built.smsBody).not.toBe(MACHINE_BODY);
+    expect(applied.tylerTextOverviewCtx.lookup.current_body_to_send).toBe(TYLER_BODY);
+    expect(applied.tylerTextOverviewCtx.metadataBlock?.final_body_sent_hash).toBe(
+      hashSmsSnippet(TYLER_BODY)
+    );
+  });
+
+  it("revalidation missing row returns explicit no-send reason", async () => {
+    const { lookup, pinnedBody } = await pinnedSendState(MACHINE_BODY);
+    db.drafts = [];
+
+    const revalidation = await revalidateCurrentTtoDraftBodyBeforeSend({
+      lookup,
+      pinnedBody,
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(revalidation.ok).toBe(false);
+    if (revalidation.ok) return;
+    expect(revalidation.skipStatus).toBe("skipped_tto_current_draft_revalidation_failed");
+    expect(revalidation.reason).toBe(TTO_DRAFT_REVALIDATION_REASON_MISSING);
+    expect(revalidation.metadataExtras.tto_current_draft_revalidation_failed).toBe(true);
+    expect(revalidation.metadataExtras.live_fallback_used).toBe(false);
+  });
+
+  it("revalidation no longer current returns explicit no-send reason", async () => {
+    const { lookup, pinnedBody } = await pinnedSendState(MACHINE_BODY);
+    db.drafts[0].status = "sent";
+
+    const revalidation = await revalidateCurrentTtoDraftBodyBeforeSend({
+      lookup,
+      pinnedBody,
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(revalidation.ok).toBe(false);
+    if (revalidation.ok) return;
+    expect(revalidation.skipStatus).toBe("skipped_tto_current_draft_no_longer_current");
+    expect(revalidation.reason).toBe(TTO_DRAFT_REVALIDATION_REASON_NOT_CURRENT);
+  });
+
+  it("revalidation empty body returns explicit no-send reason without live fallback", async () => {
+    const { lookup, pinnedBody } = await pinnedSendState(MACHINE_BODY);
+    db.drafts[0].current_body_to_send = "   ";
+
+    const revalidation = await revalidateCurrentTtoDraftBodyBeforeSend({
+      lookup,
+      pinnedBody,
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(revalidation.ok).toBe(false);
+    if (revalidation.ok) return;
+    expect(revalidation.skipStatus).toBe("skipped_tto_current_draft_empty_on_revalidation");
+    expect(revalidation.reason).toBe(TTO_DRAFT_REVALIDATION_REASON_EMPTY);
+    expect(revalidation.metadataExtras.live_fallback_used).toBe(false);
+  });
+
+  it("retry-path wiring revalidates before mismatch block", () => {
+    const route = readFileSync(
+      join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
+      "utf8"
+    );
+    const retrySection = route.slice(route.indexOf("const revalidatedRetry"));
+    expect(retrySection).toContain("applyTtoCurrentDraftRevalidationBeforeTwilio");
+    expect(retrySection.indexOf("applyTtoCurrentDraftRevalidationBeforeTwilio")).toBeLessThan(
+      retrySection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")
+    );
+    expect(retrySection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")).toBeLessThan(
+      retrySection.indexOf("sendSMS(")
+    );
+  });
+
+  it("main-path wiring revalidates before mismatch block", () => {
+    const route = readFileSync(
+      join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
+      "utf8"
+    );
+    const mainSection = route.slice(route.indexOf("const revalidatedMain"));
+    expect(mainSection).toContain("applyTtoCurrentDraftRevalidationBeforeTwilio");
+    expect(mainSection.indexOf("applyTtoCurrentDraftRevalidationBeforeTwilio")).toBeLessThan(
+      mainSection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")
+    );
+    expect(mainSection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")).toBeLessThan(
+      mainSection.indexOf("sendSMS(")
+    );
+  });
+
+  it("no revalidation when no protected current draft", () => {
+    expect(
+      shouldRevalidateTtoCurrentDraftBeforeSend({
+        tylerTextOverviewCtx: null,
+        tylerDraftBodyUsed: false,
+        built: okBuiltMain("live only"),
+      })
+    ).toBe(false);
+  });
+
+  it("no revalidation when TTO disabled", () => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "false";
+    expect(
+      shouldRevalidateTtoCurrentDraftBeforeSend({
+        tylerTextOverviewCtx: buildTylerTextOverviewSendContext({
+          lookup: {
+            usable: true,
+            send_source: "machine_draft",
+            draft_id: "draft-1",
+            generation_id: "gen-1",
+            draft_for_day_key: "2026-07-03",
+            current_body_to_send: MACHINE_BODY,
+            current_body_source: "machine",
+            edited_by_tyler: false,
+            machine_body_hash: null,
+            current_body_hash: null,
+            notebook_verdict_at_generation: null,
+            notebook_verdict_reason_at_generation: null,
+            route_kind: "main_active_accountability",
+            stale: false,
+            stale_reason: null,
+          },
+          builtRaw: okBuiltMain(MACHINE_BODY),
+          draftBodyUsed: true,
+          postTtoWritersBypassed: true,
+        }),
+        tylerDraftBodyUsed: true,
+        built: okBuiltMain(MACHINE_BODY),
+      })
+    ).toBe(false);
   });
 });
 

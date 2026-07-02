@@ -64,6 +64,53 @@ export const TYLER_TEXT_OVERVIEW_SEND_SOURCES = [
 
 export type TylerTextOverviewSendSource = (typeof TYLER_TEXT_OVERVIEW_SEND_SOURCES)[number];
 
+export const TTO_CURRENT_DRAFT_FINAL_STALE_REASON = "tto_current_draft_final" as const;
+
+export const TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT =
+  "tto_current_draft_special_branch_conflict" as const;
+
+export const TTO_CURRENT_DRAFT_ROUTE_CONFLICT = "tto_current_draft_route_conflict" as const;
+
+export type TtoCurrentDraftRouteConflictReason =
+  | typeof TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT
+  | typeof TTO_CURRENT_DRAFT_ROUTE_CONFLICT;
+
+export const TTO_POST_TTO_GUARDS_SKIPPED = [
+  "north_star_mutation",
+  "fvg_rewrite",
+  "unified_rewrite",
+  "live_build_body",
+] as const;
+
+export const TTO_DRAFT_REVALIDATION_REASON_MISSING =
+  "current_draft_missing_on_revalidation" as const;
+
+export const TTO_DRAFT_REVALIDATION_REASON_NOT_CURRENT =
+  "current_draft_no_longer_current" as const;
+
+export const TTO_DRAFT_REVALIDATION_REASON_EMPTY =
+  "current_draft_empty_on_revalidation" as const;
+
+export type TtoDraftRevalidationFailureReason =
+  | typeof TTO_DRAFT_REVALIDATION_REASON_MISSING
+  | typeof TTO_DRAFT_REVALIDATION_REASON_NOT_CURRENT
+  | typeof TTO_DRAFT_REVALIDATION_REASON_EMPTY;
+
+export const TTO_DRAFT_REVALIDATION_SKIP_STATUSES = [
+  "skipped_tto_current_draft_revalidation_failed",
+  "skipped_tto_current_draft_no_longer_current",
+  "skipped_tto_current_draft_empty_on_revalidation",
+] as const;
+
+export type TtoDraftRevalidationSkipStatus =
+  (typeof TTO_DRAFT_REVALIDATION_SKIP_STATUSES)[number];
+
+/** Non-empty trimmed TTO current draft body — protected from generate/refresh overwrite. */
+export function isProtectedTtoCurrentDraftBody(raw: string | null | undefined): boolean {
+  if (raw == null) return false;
+  return raw.trim().length > 0;
+}
+
 /** Compact sms_send_events.metadata.tyler_text_overview block (Phase 5). */
 export type TylerTextOverviewSendMetadata = {
   enabled: true;
@@ -79,6 +126,22 @@ export type TylerTextOverviewSendMetadata = {
   notebook_verdict_reason_at_generation: string | null;
   stale: boolean;
   stale_reason: string | null;
+  tto_current_draft_protected?: boolean;
+  post_tto_writers_bypassed?: boolean;
+  sent_body_equals_current_body_to_send?: boolean;
+  stale_check_ignored_reason?: typeof TTO_CURRENT_DRAFT_FINAL_STALE_REASON;
+  live_fallback_used?: boolean;
+  post_tto_guards_skipped?: readonly string[];
+  current_body_hash_at_send?: string | null;
+  tto_current_draft_route_conflict_reason?: TtoCurrentDraftRouteConflictReason;
+  tto_current_draft_revalidated_before_twilio?: boolean;
+  tto_current_draft_reloaded_before_twilio?: boolean;
+  tto_current_draft_body_refreshed_before_twilio?: boolean;
+  tto_current_draft_previous_body_hash?: string | null;
+  tto_current_draft_revalidation_failed?: boolean;
+  tto_current_draft_revalidation_reason?: TtoDraftRevalidationFailureReason;
+  previous_loaded_body_hash?: string | null;
+  current_body_source_at_send?: TylerTextOverviewCurrentBodySource | null;
 };
 
 /** Phase 6A stale refresh sweep stats. */
@@ -97,6 +160,7 @@ export type TylerTextOverviewRefreshStaleStats = {
   insert_failed: number;
   upsert_failed: number;
   supersede_failed: number;
+  skipped_protected_current_draft: number;
   capped: boolean;
   errors_preview: string[];
 };
