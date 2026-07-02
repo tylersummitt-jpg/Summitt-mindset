@@ -68,6 +68,19 @@ import {
   type InboundV3SeasonTransitionFacts,
 } from "@/lib/v3-inbound-pending-replacement-truth";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
+import {
+  buildInboundWriterOpenAiCapture,
+  compactInboundWriterCaptureTelemetry,
+  type InboundWriterOpenAiCapture,
+} from "@/lib/inbound-writer-capture";
+import {
+  applyInboundBriefMaxQuestionsGuard,
+  buildInboundBriefWriterSystemPrompt,
+  buildInboundBriefWriterUserPrompt,
+  detectInboundBriefMaxQuestionsViolation,
+  inboundBriefWriterPromptTelemetry,
+  type InboundReplyBriefV1,
+} from "@/lib/inbound-reply-brief-v1";
 import { V3_BRAIN_VERSION } from "@/lib/v3-sms-brain";
 import {
   buildSmsGoalAdjustmentLaneGuardrails,
@@ -1487,6 +1500,10 @@ export type InboundV3RelationshipLaneInput = {
   /** Pre-writer outcome persist succeeded for this turn (main path). */
   proof_persisted_before_writer?: boolean;
   proof_persisted_event_type?: "user_yes" | "user_no" | "user_partial" | null;
+  /** Compact inbound writer brief — main normal path; Strategy Card routes keep packet prompt. */
+  inboundReplyBriefV1?: InboundReplyBriefV1 | null;
+  /** True when main path brief build failed and packet fallback prompt is used. */
+  inboundReplyBriefBuildFailed?: boolean;
 };
 
 export type InboundV3RelationshipLaneReplySource = "v3_inbound_relationship_lane";
@@ -1502,6 +1519,8 @@ export type InboundV3RelationshipLaneResult = {
   safetyNotes: string[];
   metadata: Record<string, unknown>;
   openAiOk: boolean;
+  /** Exact OpenAI messages passed to the inbound writer (telemetry / replay). */
+  writerOpenAiCapture?: InboundWriterOpenAiCapture | null;
 };
 
 type LaneModelJson = {
@@ -2601,7 +2620,12 @@ export async function produceInboundV3RelationshipSms(
     ...inboundResolvedTruthTelemetryMeta(args.facts.inbound_resolved_truth),
   };
 
-  const empty = (reason: string, openAiOk: boolean, extra?: Record<string, unknown>): InboundV3RelationshipLaneResult => ({
+  const empty = (
+    reason: string,
+    openAiOk: boolean,
+    extra?: Record<string, unknown>,
+    writerOpenAiCapture: InboundWriterOpenAiCapture | null = null
+  ): InboundV3RelationshipLaneResult => ({
     body: "",
     shouldSend: false,
     noSendReason: reason,
@@ -2610,8 +2634,13 @@ export async function produceInboundV3RelationshipSms(
     voiceConfidence: null,
     usedFacts: [],
     safetyNotes: [],
-    metadata: { ...baseMeta, ...extra },
+    metadata: {
+      ...baseMeta,
+      ...extra,
+      ...compactInboundWriterCaptureTelemetry(writerOpenAiCapture),
+    },
     openAiOk,
+    writerOpenAiCapture,
   });
 
   const client = getOpenAIClient();
@@ -2669,7 +2698,9 @@ export async function produceInboundV3RelationshipSms(
     ? ""
     : buildSingleMissRecoveryLaneGuardrails(args.facts.miss_adjustment_policy);
 
-  const system = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
+  const useBriefWriterPrompt = args.inboundReplyBriefV1 != null;
+
+  const packetSystem = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
 
 RULES:
 - Use RELATIONSHIP_PACKET_V1 only as facts — never copy labeled machine drafts, template banks, or "prior hint" wording as your voice.
@@ -2711,7 +2742,61 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       strategy_card_packet_stripped_fields: writerUserPrompt.stripped_fields,
     });
   }
-  const user = writerUserPrompt.prompt;
+
+  let system: string;
+  let user: string;
+  let writerPromptPath: string;
+  let writerPromptMode: "brief" | "packet_fallback" | "packet";
+
+  if (useBriefWriterPrompt && args.inboundReplyBriefV1) {
+    system = buildInboundBriefWriterSystemPrompt({
+      maxChars: INBOUND_LANE_MAX_CHARS,
+      requiredVerbatimSubstrings: args.facts.constraints.required_verbatim_substrings,
+      forbiddenSubstrings: args.facts.constraints.forbidden_substrings,
+    });
+    user = buildInboundBriefWriterUserPrompt(args.inboundReplyBriefV1);
+    writerPromptPath = "v3_inbound_relationship_lane/inbound_reply_brief_v1";
+    writerPromptMode = "brief";
+  } else {
+    system = packetSystem;
+    user = writerUserPrompt.prompt;
+    writerPromptPath = args.inboundReplyBriefBuildFailed
+      ? "v3_inbound_relationship_lane/primary_fallback"
+      : "v3_inbound_relationship_lane/primary";
+    writerPromptMode = args.inboundReplyBriefBuildFailed ? "packet_fallback" : "packet";
+  }
+
+  Object.assign(
+    baseMeta,
+    inboundBriefWriterPromptTelemetry({
+      mode: writerPromptMode,
+      path: writerPromptPath,
+      userCharCount: user.length,
+    })
+  );
+
+  const activeInboundReplyBrief = useBriefWriterPrompt ? args.inboundReplyBriefV1 ?? null : null;
+
+  const primaryMessages: InboundWriterOpenAiCapture["messages"] = [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+  const writerOpenAiCapture = buildInboundWriterOpenAiCapture({
+    messages: primaryMessages,
+    model: "gpt-4o-mini",
+    writer_prompt_path: writerPromptPath,
+    relationship_packet_char_count: user.length,
+  });
+  Object.assign(baseMeta, compactInboundWriterCaptureTelemetry(writerOpenAiCapture));
+
+  const finishLane = (
+    partial: Omit<InboundV3RelationshipLaneResult, "writerOpenAiCapture">
+  ): InboundV3RelationshipLaneResult => ({
+    ...partial,
+    writerOpenAiCapture,
+  });
+  const finishEmpty = (reason: string, openAiOk: boolean, extra?: Record<string, unknown>) =>
+    empty(reason, openAiOk, extra, writerOpenAiCapture);
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;
@@ -2721,10 +2806,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       model: "gpt-4o-mini",
       temperature: 0.35,
       maxTokens: 220,
-      primaryMessages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
+      primaryMessages,
       jsonSchemaReminder:
         "Keys: should_send (boolean), body (string), no_send_reason (string|null), turn_purpose (string), voice_confidence (number 0-1 or null), used_facts (string[]), safety_notes (string[]), rejected_times_obeyed (boolean), split_messages_handled (boolean).",
       parse: safeJsonParse,
@@ -2732,14 +2814,14 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     parsed = jsonOut.value;
     laneOpenAiJsonMeta = { ...(jsonOut.retryMeta as unknown as Record<string, unknown>) };
   } catch (e) {
-    return empty("openai_request_failed", true, {
+    return finishEmpty("openai_request_failed", true, {
       lane_stage: "openai_error",
       message: e instanceof Error ? e.message : String(e),
     });
   }
 
   if (!parsed) {
-    return empty("invalid_json", true, {
+    return finishEmpty("invalid_json", true, {
       lane_stage: "parse",
       ...laneOpenAiJsonMeta,
     });
@@ -2764,9 +2846,43 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
   const bodyPreview = (s: string) => (s.length > 220 ? `${s.slice(0, 219)}…` : s);
   let successLaneStage: "ok" | "post_validate_repaired" | "pending_replace_truth_fallback" = "ok";
   let successRepairExtra: Record<string, unknown> = {};
+  let briefMaxQuestionsGuardBody: string | null = null;
+
+  const applyActiveBriefMaxQuestionsGuard = (candidate: string): string => {
+    if (!activeInboundReplyBrief) return candidate;
+    const briefGuard = applyInboundBriefMaxQuestionsGuard({
+      body: candidate,
+      brief: activeInboundReplyBrief,
+      validateBody: (guardCandidate) => {
+        if (guardCandidate.length > args.facts.constraints.max_chars) return false;
+        if (validateForbiddenSubstrings(guardCandidate, args.facts.constraints.forbidden_substrings) != null) {
+          return false;
+        }
+        if (
+          validateRequiredVerbatimSubstrings(
+            guardCandidate,
+            args.facts.constraints.required_verbatim_substrings
+          ) != null
+        ) {
+          return false;
+        }
+        const voice = evaluateInboundVoiceWithPraisePolicy(guardCandidate, args.facts);
+        const { hard } = partitionFinalVoiceBlockedReasons(voice.reasons);
+        return hard.length === 0;
+      },
+    });
+    if (briefGuard.telemetry.inbound_brief_max_questions_guard_applied) {
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = { ...successRepairExtra, ...briefGuard.telemetry };
+      safetyNotes = [...safetyNotes, "inbound_brief_max_questions_guard"];
+      briefMaxQuestionsGuardBody = briefGuard.body;
+      return briefGuard.body;
+    }
+    return candidate;
+  };
 
   if (!shouldSend) {
-    return {
+    return finishLane({
       body: "",
       shouldSend: false,
       noSendReason: noSendReason || "model_no_send",
@@ -2782,20 +2898,22 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
         v3_candidate_body: "",
       },
       openAiOk: true,
-    };
+    });
   }
 
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body", ...laneOpenAiJsonMeta });
+    return finishEmpty("empty_body_after_should_send", true, { lane_stage: "empty_body", ...laneOpenAiJsonMeta });
   }
   body = body.replace(/^["']|["']$/g, "").trim();
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta });
+    return finishEmpty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta });
   }
 
   if (body.length > args.facts.constraints.max_chars) {
-    return empty("over_max_chars", true, { lane_stage: "length", v3_candidate_body: body, ...laneOpenAiJsonMeta });
+    return finishEmpty("over_max_chars", true, { lane_stage: "length", v3_candidate_body: body, ...laneOpenAiJsonMeta });
   }
+
+  body = applyActiveBriefMaxQuestionsGuard(body);
 
   const staleAskEarly = detectTurnUnderstandingStaleAskViolation(body, args.facts);
   if (staleAskEarly.violation) {
@@ -2804,7 +2922,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       body = repairedEarly.body;
       laneOpenAiJsonMeta = { ...laneOpenAiJsonMeta, ...repairedEarly.repairMeta };
     } else {
-      return empty("turn_understanding_stale_ask_blocked", true, {
+      return finishEmpty("turn_understanding_stale_ask_blocked", true, {
         lane_stage: "turn_understanding_stale_ask_validation_failed",
         v3_candidate_body: body,
         turn_understanding_stale_ask_phrase: staleAskEarly.repeatedPhrase,
@@ -2818,7 +2936,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
   if (rt.length > 0) {
     const hit = validateNoRejectedTimeRepeat(body, rt);
     if (hit != null) {
-      return {
+      return finishLane({
         body: "",
         shouldSend: false,
         noSendReason: "rejected_time_repeated",
@@ -2834,7 +2952,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           v3_candidate_body: body,
         },
         openAiOk: true,
-      };
+      });
     }
   }
 
@@ -2845,7 +2963,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     const { repairable, hard } = partitionFinalVoiceBlockedReasons(blocked);
 
     if (hard.length > 0 || repairable.length === 0 || inboundLanePostValidateRepairExcluded(args.facts)) {
-      return {
+      return finishLane({
         body: "",
         shouldSend: false,
         noSendReason: "lane_post_validate_blocked",
@@ -2863,7 +2981,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           ...praiseMetadata,
         },
         openAiOk: true,
-      };
+      });
     }
 
     const originalCandidateSnapshot = body;
@@ -3032,7 +3150,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
   });
 
   if (freshnessGuard.outcome === "no_send") {
-    return empty(freshnessGuard.noSendReason, true, {
+    return finishEmpty(freshnessGuard.noSendReason, true, {
       lane_stage: "thread_freshness_guard_failed",
       v3_candidate_body: body,
       ...laneOpenAiJsonMeta,
@@ -3080,7 +3198,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           ...recovered.telemetry,
         };
       } else {
-        return empty(memoryRepeatGuard.noSendReason, true, {
+        return finishEmpty(memoryRepeatGuard.noSendReason, true, {
           lane_stage: "thread_memory_repeat_guard_failed",
           v3_candidate_body: body,
           ...laneOpenAiJsonMeta,
@@ -3088,8 +3206,20 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           ...recovered.telemetry,
         });
       }
+    } else if (
+      briefMaxQuestionsGuardBody &&
+      activeInboundReplyBrief &&
+      !detectInboundBriefMaxQuestionsViolation(briefMaxQuestionsGuardBody, activeInboundReplyBrief).violation
+    ) {
+      body = briefMaxQuestionsGuardBody;
+      successLaneStage = "post_validate_repaired";
+      successRepairExtra = {
+        ...successRepairExtra,
+        ...memoryRepeatGuard.metadata,
+        inbound_brief_max_questions_guard_memory_repeat_recovery: true,
+      };
     } else {
-      return empty(memoryRepeatGuard.noSendReason, true, {
+      return finishEmpty(memoryRepeatGuard.noSendReason, true, {
         lane_stage: "thread_memory_repeat_guard_failed",
         v3_candidate_body: body,
         ...laneOpenAiJsonMeta,
@@ -3157,6 +3287,8 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
       };
     }
   }
+
+  body = applyActiveBriefMaxQuestionsGuard(body);
 
   const zeroQFinal = detectInboundResolvedTruthZeroQuestionViolation(body, args.facts.inbound_resolved_truth);
   if (zeroQFinal.violation) {
@@ -3362,7 +3494,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 
   const finalInboundPraise = evaluateInboundVoiceWithPraisePolicy(body, args.facts);
 
-  return {
+  return finishLane({
     body,
     shouldSend: true,
     noSendReason: null,
@@ -3387,7 +3519,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
           : "writer",
     },
     openAiOk: true,
-  };
+  });
 }
 
 /** Structured last_error JSON when the inbound V3 relationship lane returns no-send. */

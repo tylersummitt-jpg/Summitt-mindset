@@ -1,0 +1,640 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  applyInboundBriefMaxQuestionsGuard,
+  buildInboundReplyBriefV1,
+  countFollowupQuestionsAskedOnDay,
+  deriveMaxQuestionsForBrief,
+  detectInboundBriefMaxQuestionsViolation,
+  type InboundReplyBriefV1,
+} from "@/lib/inbound-reply-brief-v1";
+import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
+
+const RECENT_EXACT_THREAD_WINDOW_HOURS = 72 as const;
+
+type GoldenThreadMessage = {
+  at: string;
+  at_local: string;
+  at_local_timezone: string;
+  local_day_key: string;
+  role: "coach" | "user" | "system_no_send";
+  body: string;
+  message_kind: string | null;
+  source_table: string;
+  message_sid: string | null;
+  delivery_status: "sent" | "cancelled" | "skipped" | "preview" | "unknown";
+  is_exact_body: boolean;
+};
+
+const DAY_KEY = "2026-06-15";
+
+function coachMsg(body: string, at = "2026-06-15T12:00:00.000Z"): GoldenThreadMessage {
+  return {
+    at,
+    at_local: "2026-06-15T08:00:00",
+    at_local_timezone: "America/Chicago",
+    local_day_key: DAY_KEY,
+    role: "coach",
+    body,
+    message_kind: "inbound_coach",
+    source_table: "v2_commitment_sms",
+    message_sid: "SM_coach",
+    delivery_status: "sent",
+    is_exact_body: true,
+  };
+}
+
+function userMsg(body: string, at = "2026-06-15T12:05:00.000Z"): GoldenThreadMessage {
+  return {
+    at,
+    at_local: "2026-06-15T08:05:00",
+    at_local_timezone: "America/Chicago",
+    local_day_key: DAY_KEY,
+    role: "user",
+    body,
+    message_kind: "inbound_user",
+    source_table: "sms_inbound_messages",
+    message_sid: "SM_user",
+    delivery_status: "sent",
+    is_exact_body: true,
+  };
+}
+
+function goldenFacts(
+  latestInbound: string,
+  overrides: Partial<InboundV3RelationshipFacts> = {}
+): InboundV3RelationshipFacts {
+  const priorCoach =
+    overrides.thread?.latest_outbound_coach_sms ??
+    overrides.thread?.most_recent_coach_question ??
+    null;
+  return {
+    route_kind: "main_active_accountability",
+    route_purpose: "normal_inbound_reply",
+    branch_migrated_to_lane: false,
+    user: {
+      clerk_user_id: "user_golden",
+      preferred_name: "Test",
+      timezone: "America/Chicago",
+      local_time_iso: "2026-06-15T14:00:00.000Z",
+      relationship_profile_summary: null,
+    },
+    commitment: {
+      id: "cmt_golden",
+      title: "Daily habit",
+      behavior_statement: "Complete the daily commitment",
+      effective_ask: "Complete the daily commitment",
+      accountability_phase: "active_accountability",
+    },
+    thread: {
+      latest_inbound_raw: latestInbound,
+      coalesced_inbound_text: latestInbound,
+      suppressed_message_sids: [],
+      recent_transcript_lines: [],
+      latest_outbound_coach_sms: priorCoach,
+      latest_open_question: priorCoach,
+      latest_answer_after_open_question: null,
+      expected_reply_semantics: null,
+      memory_authority: {
+        open_question_source: "none",
+        answer_source: "none",
+        projection_used: false,
+      },
+      do_not_repeat_hints: [],
+      rejected_time_candidates: [],
+      unavailable_windows: [],
+      current_inbound_is_already_told_you_correction: false,
+      current_inbound_is_short_acknowledgement: false,
+      most_recent_substantive_prior_user_message: null,
+      most_recent_coach_question: priorCoach,
+      memory_correction_should_use_prior_user_answer: false,
+      short_ack_should_not_reask_question: false,
+      memory_packet: {
+        recent_exact_thread_text: "",
+        recent_exact_thread_72h: {
+          messages: [],
+          window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+          message_count: 0,
+          had_preview_messages: false,
+          had_system_no_send: false,
+        },
+        relationship_memory_7d: {
+          window_days: 7,
+          built_at: "2026-06-15T12:00:00.000Z",
+          outcome_counts: { yes: 0, no: 0, partial: 0, blockers: 0, checks_sent: 0 },
+          wins: [],
+          misses: [],
+          partials: [],
+          comebacks: [],
+          blockers: [],
+          proof_moments: [],
+          open_loops: [],
+          direct_answer_history: [],
+          context_flags: {},
+          meta: { item_count: 0, sources_used: [] },
+        },
+        relationship_memory_30d: {
+          window_days: 30,
+          built_at: "2026-06-15T12:00:00.000Z",
+          commitment_id: "cmt_golden",
+          season: null,
+          outcome_counts_30d: {
+            yes: 0,
+            no: 0,
+            partial: 0,
+            blockers: 0,
+            checks_sent: 0,
+            overlay_activated: 0,
+            overlay_declined: 0,
+            reactivation_yes: 0,
+          },
+          recurring_blockers: [],
+          meaningful_proof: [],
+          adjustments: [],
+          goal_changes: [],
+          comebacks: [],
+          voice_preferences: null,
+          pat_read_snapshot: [],
+          meta: { item_count: 0, sources_used: [] },
+        },
+        recent_exact_message_count: 0,
+        last_outbound_full_body: priorCoach,
+        last_inbound_full_body: latestInbound,
+        last_substantive_user_message: latestInbound,
+        last_substantive_coach_message: priorCoach,
+        last_5_coach_questions: priorCoach ? [priorCoach] : [],
+        last_5_user_answers: [],
+        latest_open_question: priorCoach,
+        latest_answer_after_open_question: null,
+        open_question_pending: Boolean(priorCoach),
+        open_question_source: "none",
+        answer_source: "none",
+        projection_used: false,
+        latest_open_question_guess: null,
+        latest_answer_after_open_question_guess: null,
+        do_not_repeat_phrases: [],
+        memory_priority_rules: [],
+      },
+      ...overrides.thread,
+    },
+    v2_accountability: {
+      deterministic_classifier_event: "user_yes",
+      gated_mode: "use_deterministic",
+      final_event_type: "user_yes",
+      should_write_outcome_event: true,
+      reply_style: "normal_outcome",
+      proof_signal: false,
+      miss_signal: false,
+      blocker_signal: false,
+      today_completed: false,
+      future_intent_hint: null,
+      supplement_commitment_change_guidance: false,
+    },
+    legacy_suggestions: {
+      conversation_brain: { enabled: false },
+      central_brain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forced_future_stretch_intent_active: false,
+      wave11_memory_confirmation_pending: false,
+      accountability_proof_hint: null,
+    },
+    inbound_meaning: {
+      relationship_meaning: "reported_completion",
+      persistence_decision: "write_user_yes_today",
+      temporal_scope: "today",
+      sms_response_intent: "acknowledge_completion_and_next_step",
+      reason: "golden_fixture",
+      confidence: "high",
+      evidence: [],
+      disqualifiers: [],
+      spoken_local_day_key: DAY_KEY,
+      reported_for_day_key: DAY_KEY,
+      user_timezone: "America/Chicago",
+    },
+    suggested_coaching_move: "acknowledge_completion",
+    constraints: {
+      max_chars: 320,
+      one_sms: true,
+      no_generic_motivation: true,
+      no_quoted_or_truncated_echo_of_inbound: true,
+      if_unsafe_return_no_send: true,
+    },
+    ...overrides,
+  };
+}
+
+function expectMustNotDoIncludes(brief: InboundReplyBriefV1, phrase: RegExp | string) {
+  const joined = brief.reply_strategy.must_not_do.join(" ");
+  if (typeof phrase === "string") {
+    expect(joined.toLowerCase()).toContain(phrase.toLowerCase());
+  } else {
+    expect(joined).toMatch(phrase);
+  }
+}
+
+describe("buildInboundReplyBriefV1 golden fixtures", () => {
+  it("1 — Tyler kids compliments: close loop after detailed answer", () => {
+    const priorCoach = "What specific compliment did you give each of your kids today?";
+    const latest =
+      "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        thread: {
+          latest_outbound_coach_sms: priorCoach,
+          most_recent_coach_question: priorCoach,
+        },
+        inbound_resolved_truth: {
+          latest_user_text: latest,
+          resolved_outcome: "completed",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: true,
+          satisfied_recent_ask: true,
+          persistence_decision: "write_user_yes_today",
+          required_reply_move: "close_loop_on_answered_ask",
+          max_questions_override: 0,
+          must_not_do: ["Do not ask for proof or evidence again on this turn."],
+        },
+      }),
+    });
+
+    expect(["completion_proof", "answered_prior_question"]).toContain(brief.turn_type);
+    expect(brief.resolved_truth.answered_prior_question).toBe(true);
+    expect(brief.resolved_truth.goal_status_from_latest_message).toBe("completed");
+    expect(brief.question_policy.max_questions).toBe(0);
+    expectMustNotDoIncludes(brief, "what got in the way");
+  });
+
+  it("2 — Brooke false premise challenge", () => {
+    const latest = "How do you know I accomplished it yesterday?";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        inbound_meaning: {
+          relationship_meaning: "question",
+          persistence_decision: "no_outcome_write",
+          temporal_scope: "yesterday",
+          sms_response_intent: "clarify_gently",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+      }),
+    });
+
+    expect(brief.turn_type).toBe("false_premise_challenge");
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.reply_strategy.move).toBe("correct_false_premise");
+    expectMustNotDoIncludes(brief, "invent facts");
+    expectMustNotDoIncludes(brief, "double down");
+  });
+
+  it("3 — Paul gratitude repeat complaint", () => {
+    const latest = "Already answered that in the first reply.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        thread: {
+          latest_outbound_coach_sms: "What are three gratitudes from today?",
+          most_recent_coach_question: "What are three gratitudes from today?",
+        },
+        inbound_resolved_truth: {
+          latest_user_text: latest,
+          resolved_outcome: "none",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: true,
+          satisfied_recent_ask: true,
+          persistence_decision: "no_outcome_write",
+          required_reply_move: "close_loop_on_answered_ask",
+          max_questions_override: 0,
+          must_not_do: [],
+        },
+      }),
+    });
+
+    expect(["repeated_question_complaint", "answered_prior_question"]).toContain(brief.turn_type);
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.reply_strategy.move).toBe("acknowledge_already_answered");
+    expectMustNotDoIncludes(brief, "re-ask");
+  });
+
+  it("4 — Mandy asks for wisdom", () => {
+    const latest =
+      "Can you share some wisdom on relationships and balance? I could use your perspective.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        inbound_meaning: {
+          relationship_meaning: "question",
+          persistence_decision: "no_outcome_write",
+          temporal_scope: "unspecified",
+          sms_response_intent: "clarify_gently",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+      }),
+    });
+
+    expect(brief.turn_type).toBe("help_request");
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.reply_strategy.move).toBe("give_direct_help");
+  });
+
+  it("5 — Dara motivation struggle", () => {
+    const latest =
+      "I am struggling with motivation to do my exercises in the morning.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        inbound_meaning: {
+          relationship_meaning: "blocker",
+          persistence_decision: "no_outcome_write",
+          temporal_scope: "today",
+          sms_response_intent: "identify_blocker_or_next_move",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+      }),
+    });
+
+    expect(brief.turn_type).toBe("help_request");
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.reply_strategy.move).toBe("give_direct_help");
+    expectMustNotDoIncludes(brief, "no-send");
+  });
+
+  it("6 — Kathy thanks + lateral/core preference", () => {
+    const latest = "Thank you! I want to focus on lateral movements and core work.";
+    const priorCoach = "What kind of movement are you hoping to get in today?";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        thread: {
+          latest_outbound_coach_sms: priorCoach,
+          most_recent_coach_question: priorCoach,
+        },
+        inbound_resolved_truth: {
+          latest_user_text: latest,
+          resolved_outcome: "none",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: true,
+          satisfied_recent_ask: false,
+          persistence_decision: "no_outcome_write",
+          required_reply_move: "close_loop_on_answered_ask",
+          must_not_do: [],
+        },
+      }),
+    });
+
+    expect(["answered_prior_question", "reflection"]).toContain(brief.turn_type);
+    expect(brief.question_policy.max_questions).toBe(0);
+    expectMustNotDoIncludes(brief, "can you share more");
+  });
+
+  it("7 — Jordan thank-you", () => {
+    const latest = "Thank you I needed that!";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        inbound_meaning: {
+          relationship_meaning: "reflective_share",
+          persistence_decision: "ack_only",
+          temporal_scope: "today",
+          sms_response_intent: "acknowledge_reflection",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+        inbound_resolved_truth: {
+          latest_user_text: latest,
+          resolved_outcome: "none",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: false,
+          satisfied_recent_ask: false,
+          persistence_decision: "ack_only",
+          required_reply_move: "acknowledge_reflection",
+          max_questions_override: 0,
+          must_not_do: [],
+        },
+      }),
+    });
+
+    expect(brief.turn_type).toBe("thanks_acknowledgment");
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.reply_strategy.move).toBe("close_acknowledgment");
+  });
+
+  it("8 — Sandi early morning at work", () => {
+    const latest = "Not yet. It's only 7:16 a.m. and I'm at work.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        user: {
+          clerk_user_id: "user_golden",
+          preferred_name: "Sandi",
+          timezone: "America/Chicago",
+          local_time_iso: "2026-06-15T12:16:00.000Z",
+          relationship_profile_summary: null,
+        },
+        inbound_meaning: {
+          relationship_meaning: "miss",
+          persistence_decision: "no_outcome_write",
+          temporal_scope: "today",
+          sms_response_intent: "tell_truth_and_recover",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+      }),
+    });
+
+    expect(brief.turn_type).toBe("timing_context");
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.reply_strategy.move).toBe("timing_context_forward");
+    expectMustNotDoIncludes(brief, "too early");
+  });
+});
+
+describe("followup question policy", () => {
+  it("counts delivered coach questions on accountability day", () => {
+    const messages = [
+      coachMsg("Did the two hours happen before noon?"),
+      userMsg("Not yet"),
+      coachMsg("What got in the way?", "2026-06-15T13:00:00.000Z"),
+    ];
+    expect(countFollowupQuestionsAskedOnDay(messages, DAY_KEY)).toBe(2);
+  });
+
+  it("forces max_questions 0 when followup already used today", () => {
+    const policy = deriveMaxQuestionsForBrief({
+      turnType: "miss",
+      followupQuestionUsedToday: true,
+      completionHasDetails: false,
+    });
+    expect(policy.max_questions).toBe(0);
+    expect(policy.reason).toBe("followup_question_already_used_today");
+  });
+
+  it("forces max_questions 0 when inbound_resolved_truth.max_questions_override is 0", () => {
+    const withoutOverride = deriveMaxQuestionsForBrief({
+      turnType: "miss",
+      followupQuestionUsedToday: false,
+      completionHasDetails: false,
+    });
+    expect(withoutOverride.max_questions).toBe(1);
+
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("done", {
+        inbound_resolved_truth: {
+          latest_user_text: "done",
+          resolved_outcome: "completed",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: false,
+          satisfied_recent_ask: false,
+          persistence_decision: "write_user_yes_today",
+          required_reply_move: "acknowledge_completion",
+          max_questions_override: 0,
+          must_not_do: [],
+        },
+      }),
+    });
+
+    expect(brief.turn_type).toBe("completion_proof");
+    expect(
+      deriveMaxQuestionsForBrief({
+        turnType: "completion_proof",
+        followupQuestionUsedToday: false,
+        completionHasDetails: false,
+      }).max_questions
+    ).toBe(1);
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.question_policy.reason).toMatch(/resolved_truth_max_questions_override/);
+  });
+});
+
+describe("brief max questions guard", () => {
+  it("detects question mark when max_questions=0", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Thank you I needed that!", {
+        inbound_resolved_truth: {
+          latest_user_text: "Thank you I needed that!",
+          resolved_outcome: "none",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: false,
+          satisfied_recent_ask: false,
+          persistence_decision: "ack_only",
+          required_reply_move: "acknowledge_reflection",
+          max_questions_override: 0,
+          must_not_do: [],
+        },
+      }),
+    });
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(detectInboundBriefMaxQuestionsViolation("Glad that helped — how are you feeling?", brief).violation).toBe(
+      true
+    );
+  });
+
+  it("repairs or falls back without no-send", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Thank you I needed that!"),
+    });
+    const out = applyInboundBriefMaxQuestionsGuard({
+      body: "Glad that helped — how are you feeling today?",
+      brief,
+    });
+    expect(out.body).not.toMatch(/\?/);
+    expect(out.telemetry.inbound_brief_max_questions_guard_applied).toBe(true);
+  });
+
+  it("uses Jordan thanks fallback when repair empty", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Thank you I needed that!"),
+    });
+    const out = applyInboundBriefMaxQuestionsGuard({
+      body: "How are you feeling?",
+      brief,
+    });
+    expect(out.body).toBe("Good. Keep it simple today and let that be enough.");
+    expect(out.telemetry.inbound_brief_max_questions_guard_fallback_used).toBe(true);
+  });
+
+  it("uses Sandi timing fallback", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Not yet. It's only 7:16 a.m. and I'm at work."),
+    });
+    const out = applyInboundBriefMaxQuestionsGuard({
+      body: "Did you do it yet?",
+      brief,
+    });
+    expect(out.body).toContain("fair window");
+    expect(out.body).not.toMatch(/\?/);
+  });
+
+  it("uses Paul already-answered fallback for short ack + re-ask writer body", () => {
+    const latest = "Already answered that in the first reply.";
+    const priorCoach = "What are three gratitudes from today?";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(latest, {
+        thread: {
+          latest_outbound_coach_sms: priorCoach,
+          most_recent_coach_question: priorCoach,
+        },
+        inbound_resolved_truth: {
+          latest_user_text: latest,
+          resolved_outcome: "none",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: true,
+          satisfied_recent_ask: true,
+          persistence_decision: "no_outcome_write",
+          required_reply_move: "close_loop_on_answered_ask",
+          max_questions_override: 0,
+          must_not_do: [],
+        },
+      }),
+    });
+    const out = applyInboundBriefMaxQuestionsGuard({
+      body: "Thanks — what are three gratitudes from today?",
+      brief,
+    });
+    expect(out.body).toMatch(/already answered|answered the work in front of you/i);
+    expect(out.telemetry.inbound_brief_max_questions_guard_fallback_used).toBe(true);
+  });
+});
+
+describe("brief compactness", () => {
+  it("does not embed full relationship packet fields", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Thank you!", {
+        thread: {
+          memory_packet: {
+            recent_exact_thread_text: "x".repeat(5000),
+            coaching_memory_summary: "y".repeat(3000),
+          } as InboundV3RelationshipFacts["thread"]["memory_packet"],
+        },
+      }),
+    });
+    const serialized = JSON.stringify(brief);
+    expect(serialized.length).toBeLessThan(8000);
+    expect(serialized).not.toContain("relationship_memory_30d");
+    expect(brief.brief_version).toBe("inbound_reply_brief_v1");
+  });
+});

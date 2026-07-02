@@ -79,6 +79,15 @@ import { buildThreadFreshnessPromptGuidance } from "@/lib/sms-thread-freshness";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import * as relationshipPacketModule from "@/lib/sms-relationship-packet-v1";
 import { buildRelationshipPacketForOpenAI, DEFAULT_RELATIONSHIP_PACKET_BUDGET, relationshipObservabilityFromLaneMetadata } from "@/lib/sms-relationship-packet-v1";
+import {
+  hashWriterOpenAiMessages,
+} from "@/lib/inbound-writer-capture";
+import {
+  buildInboundReplyBriefV1,
+  applyInboundBriefMaxQuestionsGuard,
+  detectInboundBriefMaxQuestionsViolation,
+  INBOUND_REPLY_BRIEF_VERSION,
+} from "@/lib/inbound-reply-brief-v1";
 
 const emptyThread72h = {
   messages: [],
@@ -250,6 +259,173 @@ function baseFacts(overrides?: Partial<InboundV3RelationshipFacts>): InboundV3Re
   return { ...built, ...overrides };
 }
 
+const BRIEF_GOLDEN_DAY_KEY = "2026-06-15";
+
+function briefGoldenFacts(
+  latestInbound: string,
+  overrides: Partial<InboundV3RelationshipFacts> = {}
+): InboundV3RelationshipFacts {
+  const { thread: threadOverrides, ...restOverrides } = overrides;
+  const priorCoach =
+    threadOverrides?.latest_outbound_coach_sms ??
+    threadOverrides?.most_recent_coach_question ??
+    null;
+  return {
+    route_kind: "main_active_accountability",
+    route_purpose: "normal_inbound_reply",
+    branch_migrated_to_lane: false,
+    user: {
+      clerk_user_id: "user_golden",
+      preferred_name: "Test",
+      timezone: "America/Chicago",
+      local_time_iso: "2026-06-15T14:00:00.000Z",
+      relationship_profile_summary: null,
+    },
+    commitment: {
+      id: "cmt_golden",
+      title: "Daily habit",
+      behavior_statement: "Complete the daily commitment",
+      effective_ask: "Complete the daily commitment",
+      accountability_phase: "active_accountability",
+    },
+    thread: {
+      latest_inbound_raw: latestInbound,
+      coalesced_inbound_text: latestInbound,
+      suppressed_message_sids: [],
+      recent_transcript_lines: [],
+      latest_outbound_coach_sms: priorCoach,
+      latest_open_question: priorCoach,
+      latest_answer_after_open_question: null,
+      expected_reply_semantics: null,
+      memory_authority: {
+        open_question_source: "none",
+        answer_source: "none",
+        projection_used: false,
+      },
+      do_not_repeat_hints: [],
+      rejected_time_candidates: [],
+      unavailable_windows: [],
+      current_inbound_is_already_told_you_correction: false,
+      current_inbound_is_short_acknowledgement: false,
+      most_recent_substantive_prior_user_message: null,
+      most_recent_coach_question: priorCoach,
+      memory_correction_should_use_prior_user_answer: false,
+      short_ack_should_not_reask_question: false,
+      memory_packet: minimalRelationshipMemoryPacket({
+        last_outbound_full_body: priorCoach,
+        last_inbound_full_body: latestInbound,
+        last_substantive_user_message: latestInbound,
+        last_substantive_coach_message: priorCoach,
+        last_5_coach_questions: priorCoach ? [priorCoach] : [],
+        latest_open_question: priorCoach,
+        open_question_pending: Boolean(priorCoach),
+      }),
+      ...threadOverrides,
+    },
+    v2_accountability: {
+      deterministic_classifier_event: "user_yes",
+      gated_mode: "use_deterministic",
+      final_event_type: "user_yes",
+      should_write_outcome_event: true,
+      reply_style: "normal_outcome",
+      proof_signal: false,
+      miss_signal: false,
+      blocker_signal: false,
+      today_completed: false,
+      future_intent_hint: null,
+      supplement_commitment_change_guidance: false,
+    },
+    legacy_suggestions: {
+      conversation_brain: { enabled: false },
+      central_brain: { shadow_stored: false },
+      arc: { ambiguous_short_reply: false, clarification_required: false },
+      phase5a: {
+        central_tether_brain_enabled: false,
+        arc_clarify_brain_enabled: false,
+        inbound_stitched_final_enabled: false,
+      },
+      forced_future_stretch_intent_active: false,
+      wave11_memory_confirmation_pending: false,
+      accountability_proof_hint: null,
+    },
+    inbound_meaning: {
+      relationship_meaning: "reported_completion",
+      persistence_decision: "write_user_yes_today",
+      temporal_scope: "today",
+      sms_response_intent: "acknowledge_completion_and_next_step",
+      reason: "golden_fixture",
+      spoken_local_day_key: BRIEF_GOLDEN_DAY_KEY,
+      reported_for_day_key: BRIEF_GOLDEN_DAY_KEY,
+      user_timezone: "America/Chicago",
+      evidence: [],
+      disqualifiers: [],
+      confidence: "high",
+      ...(restOverrides.inbound_meaning ?? {}),
+    },
+    suggested_coaching_move: "acknowledge_completion",
+    constraints: {
+      max_chars: 320,
+      one_sms: true,
+      no_generic_motivation: true,
+      no_quoted_or_truncated_echo_of_inbound: true,
+      if_unsafe_return_no_send: true,
+      required_verbatim_substrings: [],
+      forbidden_substrings: [],
+    },
+    ...(() => {
+      const { inbound_meaning: _im, thread: _t, ...rest } = restOverrides;
+      return rest;
+    })(),
+  };
+}
+
+function mockInboundWriterJsonBody(body: string) {
+  createMock.mockResolvedValue({
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            should_send: true,
+            body,
+            no_send_reason: null,
+            turn_purpose: "inbound_ack",
+            voice_confidence: 0.8,
+            used_facts: [],
+            safety_notes: [],
+            rejected_times_obeyed: true,
+            split_messages_handled: true,
+          }),
+        },
+      },
+    ],
+  });
+}
+
+async function runBriefGuardLaneCase(args: {
+  facts: InboundV3RelationshipFacts;
+  badWriterBody: string;
+  telemetrySource: string;
+}) {
+  mockInboundWriterJsonBody(args.badWriterBody);
+  const brief = buildInboundReplyBriefV1({ facts: args.facts });
+  expect(brief.question_policy.max_questions).toBe(0);
+  return produceInboundV3RelationshipSms({
+    facts: args.facts,
+    inboundReplyBriefV1: brief,
+    telemetry_fact_sources: [args.telemetrySource],
+  });
+}
+
+function expectZeroQuestionGuardedBody(r: Awaited<ReturnType<typeof produceInboundV3RelationshipSms>>) {
+  expect(r.shouldSend).toBe(true);
+  expect(r.body).not.toMatch(/\?/);
+  expect(r.body).not.toMatch(/can you share/i);
+  expect(r.body).not.toMatch(/tell me more/i);
+  expect(r.body).not.toMatch(/what got in the way/i);
+  expect(r.body).not.toMatch(/did you/i);
+  expect(r.metadata.inbound_brief_max_questions_guard_applied).toBe(true);
+}
+
 describe("produceInboundV3RelationshipSms", () => {
   const env = { ...process.env };
 
@@ -294,6 +470,377 @@ describe("produceInboundV3RelationshipSms", () => {
     expect(r.metadata.old_inbound_writer_used_as_voice).toBe(false);
     expect(r.metadata.relationship_packet_version).toBe("1.8");
     expect(r.metadata.relationship_packet_budget_chars).toBe(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
+  });
+
+  it("writerOpenAiCapture uses packet prompt when no brief is passed", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Nice — what made the two hours stick today?",
+              no_send_reason: null,
+              turn_purpose: "inbound_ack",
+              voice_confidence: 0.8,
+              used_facts: ["thread", "commitment"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["inbound_writer_capture_test"],
+    });
+    const openAiMessages = createMock.mock.calls.at(-1)?.[0]?.messages as
+      | Array<{ role: string; content: string }>
+      | undefined;
+    expect(openAiMessages?.length).toBe(2);
+    expect(r.writerOpenAiCapture?.messages).toEqual(openAiMessages);
+    expect(r.writerOpenAiCapture?.writer_prompt_path).toBe("v3_inbound_relationship_lane/primary");
+    expect(openAiMessages?.[1]?.content).toContain("RELATIONSHIP_PACKET_V1");
+    expect(openAiMessages?.[1]?.content).not.toContain(INBOUND_REPLY_BRIEF_VERSION);
+    expect(r.metadata.inbound_writer_prompt_mode).toBe("packet");
+  });
+
+  it("uses INBOUND_REPLY_BRIEF_V1 as OpenAI user prompt on main path with brief", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "That's it — you named each kid clearly.",
+              no_send_reason: null,
+              turn_purpose: "inbound_ack",
+              voice_confidence: 0.8,
+              used_facts: ["brief"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = baseFacts({
+      thread: {
+        ...baseFacts().thread,
+        coalesced_inbound_text:
+          "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+        latest_inbound_raw:
+          "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+        most_recent_coach_question: "What specific compliment did you give each of your kids today?",
+        latest_outbound_coach_sms: "What specific compliment did you give each of your kids today?",
+      },
+      inbound_resolved_truth: {
+        latest_user_text:
+          "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+        resolved_outcome: "completed",
+        temporal_scope: "today",
+        plan_detected: false,
+        blocker_detected: false,
+        answered_recent_ask: true,
+        satisfied_recent_ask: true,
+        persistence_decision: "write_user_yes_today",
+        required_reply_move: "close_loop_on_answered_ask",
+        max_questions_override: 0,
+        must_not_do: [],
+      },
+    });
+    const brief = buildInboundReplyBriefV1({ facts });
+    expect(brief.question_policy.max_questions).toBe(0);
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      inboundReplyBriefV1: brief,
+      telemetry_fact_sources: ["inbound_brief_prompt_test"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(1);
+    const openAiMessages = createMock.mock.calls.at(-1)?.[0]?.messages as
+      | Array<{ role: string; content: string }>
+      | undefined;
+    expect(openAiMessages?.[1]?.content).toContain("INBOUND_REPLY_BRIEF_V1");
+    expect(openAiMessages?.[1]?.content).not.toContain("RELATIONSHIP_PACKET_V1");
+    expect(r.writerOpenAiCapture?.writer_prompt_path).toBe(
+      "v3_inbound_relationship_lane/inbound_reply_brief_v1"
+    );
+    expect(r.metadata.inbound_writer_prompt_mode).toBe("brief");
+    expect(r.shouldSend).toBe(true);
+  });
+
+  it("repairs writer question when brief max_questions=0 (Tyler-class)", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Thanks for that — what got in the way with those compliments?",
+              no_send_reason: null,
+              turn_purpose: "inbound_ack",
+              voice_confidence: 0.8,
+              used_facts: [],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const facts = baseFacts({
+      thread: {
+        ...baseFacts().thread,
+        coalesced_inbound_text:
+          "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+        latest_inbound_raw:
+          "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+        most_recent_coach_question: "What specific compliment did you give each of your kids today?",
+        latest_outbound_coach_sms: "What specific compliment did you give each of your kids today?",
+      },
+      inbound_resolved_truth: {
+        latest_user_text:
+          "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+        resolved_outcome: "completed",
+        temporal_scope: "today",
+        plan_detected: false,
+        blocker_detected: false,
+        answered_recent_ask: true,
+        satisfied_recent_ask: true,
+        persistence_decision: "write_user_yes_today",
+        required_reply_move: "close_loop_on_answered_ask",
+        max_questions_override: 0,
+        must_not_do: [],
+      },
+    });
+    const brief = buildInboundReplyBriefV1({ facts });
+    expect(brief.question_policy.max_questions).toBe(0);
+    const r = await produceInboundV3RelationshipSms({
+      facts,
+      inboundReplyBriefV1: brief,
+      telemetry_fact_sources: ["tyler_brief_guard_test"],
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).not.toMatch(/what got in the way/i);
+    expect(r.body).not.toMatch(/\?/);
+    expect(r.metadata.inbound_brief_max_questions_guard_applied).toBe(true);
+  });
+
+  it("uses exactly one OpenAI call with gpt-4o-mini on brief path", async () => {
+    mockInboundWriterJsonBody("That's it — you named each kid clearly.");
+    const facts = briefGoldenFacts(
+      "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+      {
+        thread: {
+          latest_outbound_coach_sms: "What specific compliment did you give each of your kids today?",
+          most_recent_coach_question: "What specific compliment did you give each of your kids today?",
+        },
+        inbound_resolved_truth: {
+          latest_user_text:
+            "Breck is Super Avenger Grateful Guy, Rocky is SuperHero Sweet Boy, Lakelyn is Joyful Girl.",
+          resolved_outcome: "completed",
+          temporal_scope: "today",
+          plan_detected: false,
+          blocker_detected: false,
+          answered_recent_ask: true,
+          satisfied_recent_ask: true,
+          persistence_decision: "write_user_yes_today",
+          required_reply_move: "close_loop_on_answered_ask",
+          max_questions_override: 0,
+          must_not_do: [],
+        },
+      }
+    );
+    const brief = buildInboundReplyBriefV1({ facts });
+    await produceInboundV3RelationshipSms({
+      facts,
+      inboundReplyBriefV1: brief,
+      telemetry_fact_sources: ["brief_single_call_test"],
+    });
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock.mock.calls[0]?.[0]?.model).toBe("gpt-4o-mini");
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("INBOUND_REPLY_BRIEF_V1");
+    expect(userMsg).not.toContain("RELATIONSHIP_PACKET_V1");
+  });
+
+  it("Paul-class: acknowledges already answered without re-ask", async () => {
+    const latest = "Already answered that in the first reply.";
+    const priorCoach = "What are three gratitudes from today?";
+    const facts = briefGoldenFacts(latest, {
+      thread: {
+        latest_outbound_coach_sms: priorCoach,
+        most_recent_coach_question: priorCoach,
+      },
+      inbound_resolved_truth: {
+        latest_user_text: latest,
+        resolved_outcome: "none",
+        temporal_scope: "today",
+        plan_detected: false,
+        blocker_detected: false,
+        answered_recent_ask: true,
+        satisfied_recent_ask: true,
+        persistence_decision: "no_outcome_write",
+        required_reply_move: "close_loop_on_answered_ask",
+        max_questions_override: 0,
+        must_not_do: [],
+      },
+    });
+    const r = await runBriefGuardLaneCase({
+      facts,
+      badWriterBody: "Thanks — what are three gratitudes from today?",
+      telemetrySource: "paul_brief_guard_test",
+    });
+    expectZeroQuestionGuardedBody(r);
+    expect(r.body).toMatch(/already answered|answered the work in front of you/i);
+  });
+
+  it("Mandy-class: gives direct help without clarification question", async () => {
+    const latest =
+      "Can you share some wisdom on relationships and balance? I could use your perspective.";
+    const facts = briefGoldenFacts(latest, {
+      inbound_meaning: {
+        relationship_meaning: "question",
+        persistence_decision: "no_outcome_write",
+        temporal_scope: "unspecified",
+        sms_response_intent: "clarify_gently",
+        route_priority: "normal",
+        spoken_local_day_key: BRIEF_GOLDEN_DAY_KEY,
+        reported_for_day_key: BRIEF_GOLDEN_DAY_KEY,
+        user_timezone: "America/Chicago",
+      },
+    });
+    const r = await runBriefGuardLaneCase({
+      facts,
+      badWriterBody: "Can you share more about what balance means for you?",
+      telemetrySource: "mandy_brief_guard_test",
+    });
+    expectZeroQuestionGuardedBody(r);
+    expect(r.body).toMatch(/first two minutes/i);
+  });
+
+  it("Jordan-class: closes warmly without accountability interrogation", async () => {
+    const latest = "Thank you I needed that!";
+    const facts = briefGoldenFacts(latest, {
+      inbound_meaning: {
+        relationship_meaning: "reflective_share",
+        persistence_decision: "ack_only",
+        temporal_scope: "today",
+        sms_response_intent: "acknowledge_reflection",
+        route_priority: "normal",
+        spoken_local_day_key: BRIEF_GOLDEN_DAY_KEY,
+        reported_for_day_key: BRIEF_GOLDEN_DAY_KEY,
+        user_timezone: "America/Chicago",
+      },
+      inbound_resolved_truth: {
+        latest_user_text: latest,
+        resolved_outcome: "none",
+        temporal_scope: "today",
+        plan_detected: false,
+        blocker_detected: false,
+        answered_recent_ask: false,
+        satisfied_recent_ask: false,
+        persistence_decision: "ack_only",
+        required_reply_move: "acknowledge_reflection",
+        max_questions_override: 0,
+        must_not_do: [],
+      },
+    });
+    const r = await runBriefGuardLaneCase({
+      facts,
+      badWriterBody: "Glad that helped — did you get your two hours in today?",
+      telemetrySource: "jordan_brief_guard_test",
+    });
+    expectZeroQuestionGuardedBody(r);
+    expect(r.body).toMatch(/keep it simple/i);
+  });
+
+  it("Sandi-class: timing context points forward without did-you-do-it", async () => {
+    const latest = "Not yet. It's only 7:16 a.m. and I'm at work.";
+    const facts = briefGoldenFacts(latest, {
+      user: {
+        clerk_user_id: "user_golden",
+        preferred_name: "Sandi",
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-15T12:16:00.000Z",
+        relationship_profile_summary: null,
+      },
+      inbound_meaning: {
+        relationship_meaning: "miss",
+        persistence_decision: "no_outcome_write",
+        temporal_scope: "today",
+        sms_response_intent: "tell_truth_and_recover",
+        route_priority: "normal",
+        spoken_local_day_key: BRIEF_GOLDEN_DAY_KEY,
+        reported_for_day_key: BRIEF_GOLDEN_DAY_KEY,
+        user_timezone: "America/Chicago",
+      },
+    });
+    const r = await runBriefGuardLaneCase({
+      facts,
+      badWriterBody: "Did you do it yet?",
+      telemetrySource: "sandi_brief_guard_test",
+    });
+    expectZeroQuestionGuardedBody(r);
+    expect(r.body).toMatch(/fair window/i);
+  });
+
+  it("Dara-class: motivation struggle gets direct help, not no-send", async () => {
+    const latest = "I am struggling with motivation to do my exercises in the morning.";
+    const facts = briefGoldenFacts(latest, {
+      inbound_meaning: {
+        relationship_meaning: "blocker",
+        persistence_decision: "no_outcome_write",
+        temporal_scope: "today",
+        sms_response_intent: "identify_blocker_or_next_move",
+        route_priority: "normal",
+        spoken_local_day_key: BRIEF_GOLDEN_DAY_KEY,
+        reported_for_day_key: BRIEF_GOLDEN_DAY_KEY,
+        user_timezone: "America/Chicago",
+      },
+    });
+    const r = await runBriefGuardLaneCase({
+      facts,
+      badWriterBody: "What got in the way with your morning exercises?",
+      telemetrySource: "dara_brief_guard_test",
+    });
+    expectZeroQuestionGuardedBody(r);
+    expect(r.body).toMatch(/first two minutes/i);
+  });
+
+  it("falls back to packet prompt when brief build failed flag is set", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Got it — thanks for the update.",
+              no_send_reason: null,
+              turn_purpose: "inbound_ack",
+              voice_confidence: 0.8,
+              used_facts: ["thread"],
+              safety_notes: [],
+              rejected_times_obeyed: true,
+              split_messages_handled: true,
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceInboundV3RelationshipSms({
+      facts: baseFacts(),
+      inboundReplyBriefBuildFailed: true,
+      telemetry_fact_sources: ["brief_fallback_test"],
+    });
+    const userMsg = createMock.mock.calls.at(-1)?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("RELATIONSHIP_PACKET_V1");
+    expect(r.metadata.inbound_writer_prompt_mode).toBe("packet_fallback");
+    expect(r.metadata.inbound_writer_prompt_path).toBe("v3_inbound_relationship_lane/primary_fallback");
   });
 
   it("passes commitmentRow into buildRelationshipPacketForOpenAI", async () => {

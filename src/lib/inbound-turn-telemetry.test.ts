@@ -6,9 +6,11 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   capInboundStageBodyPreview,
+  compactInboundReplyBriefTelemetry,
   compactInboundTurnTelemetryLaneFields,
   compactInboundTurnTruthTelemetry,
   compactInboundTurnWriterObservability,
+  INBOUND_REPLY_BRIEF_TELEMETRY_KEYS,
   INBOUND_TURN_TELEMETRY_COMPACT_KEYS,
   INBOUND_TURN_TELEMETRY_TRUTH_KEYS,
   INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS,
@@ -170,5 +172,32 @@ describe("compactInboundTurnWriterObservability", () => {
     expect(compact.inbound_thread_notebook_failure_reason).toBe("none");
     expect(compact.inbound_context_packet_used).toBe(true);
     expect(INBOUND_NOTEBOOK_OBSERVABILITY_KEYS).toContain("inbound_thread_fetch_error_count");
+  });
+});
+
+describe("compactInboundReplyBriefTelemetry", () => {
+  it("includes reply brief and writer capture keys without full brief blob", () => {
+    const fields = compactInboundReplyBriefTelemetry({
+      inbound_reply_brief_version: "inbound_reply_brief_v1",
+      inbound_reply_brief_turn_type: "thanks_acknowledgment",
+      inbound_reply_brief_move: "close_acknowledgment",
+      inbound_reply_brief_max_questions: 0,
+      inbound_followup_question_used_today: false,
+      inbound_answered_prior_question: false,
+      inbound_goal_status_from_latest_message: "none",
+      inbound_thanks_acknowledgment_detected: true,
+      inbound_writer_prompt_path: "v3_inbound_relationship_lane/primary",
+      inbound_writer_openai_messages_hash: "abc123",
+      inbound_relationship_packet_char_count: 12000,
+      inbound_reply_brief_v1: { should: "not copy nested log key" },
+      RELATIONSHIP_PACKET_V1: { huge: true },
+    });
+    expect(fields.inbound_reply_brief_turn_type).toBe("thanks_acknowledgment");
+    expect(fields.inbound_writer_openai_messages_hash).toBe("abc123");
+    expect(fields).not.toHaveProperty("RELATIONSHIP_PACKET_V1");
+    expect(fields).not.toHaveProperty("inbound_reply_brief_v1");
+    expect(INBOUND_REPLY_BRIEF_TELEMETRY_KEYS).toContain("inbound_reply_brief_max_questions");
+    expect(INBOUND_REPLY_BRIEF_TELEMETRY_KEYS).toContain("inbound_brief_max_questions_guard_applied");
+    expect(INBOUND_REPLY_BRIEF_TELEMETRY_KEYS).toContain("inbound_writer_prompt_mode");
   });
 });

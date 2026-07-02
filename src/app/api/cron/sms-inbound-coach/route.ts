@@ -353,6 +353,12 @@ import {
   compactCoachingBriefV1ForV3Brain,
 } from "@/lib/coaching-brief-v1";
 import {
+  attachInboundReplyBriefTelemetryToLaneMetadata,
+  buildInboundReplyBriefV1,
+  compactInboundReplyBriefV1ForTelemetry,
+  type InboundReplyBriefV1Log,
+} from "@/lib/inbound-reply-brief-v1";
+import {
   assertRequiredVerbatimSubstringsPresent,
   buildCommitmentChangeContextFactsForHeuristicInbound,
   buildCommitmentChangeInboundFactsFromWave4,
@@ -4629,6 +4635,7 @@ async function processV2NormalInboundOutcome(
   let v3DraftAttempt: Awaited<ReturnType<typeof produceV3InboundCoachDraft>> | null = null;
   let inboundCoachingBriefV1Log: ReturnType<typeof compactCoachingBriefV1ForV3Brain> | null =
     null;
+  let inboundReplyBriefV1Log: InboundReplyBriefV1Log | null = null;
 
   const northStarPktForV3 = buildInboundNorthStarContextPacket({
     commitmentId: commitment.id,
@@ -5998,6 +6005,19 @@ async function processV2NormalInboundOutcome(
     inboundCoachingBriefV1Log = compactCoachingBriefV1ForV3Brain(
       buildCoachingBriefV1FromInboundFacts(inboundFacts)
     );
+    let inboundReplyBriefV1: ReturnType<typeof buildInboundReplyBriefV1> | null = null;
+    let inboundReplyBriefBuildFailed = false;
+    try {
+      inboundReplyBriefV1 = buildInboundReplyBriefV1({ facts: inboundFacts });
+      inboundReplyBriefV1Log = compactInboundReplyBriefV1ForTelemetry(inboundReplyBriefV1);
+    } catch (briefErr) {
+      inboundReplyBriefBuildFailed = true;
+      console.warn("[sms-inbound-coach] inbound_reply_brief_build_failed", {
+        message_sid: job.message_sid,
+        commitment_id: commitment.id,
+        message: briefErr instanceof Error ? briefErr.message : String(briefErr),
+      });
+    }
 
     const laneTelemetryFactSources = [
       "classifyV2InboundReply",
@@ -6090,7 +6110,13 @@ async function processV2NormalInboundOutcome(
         preWriterTelemetryMain.inbound_truth_persist_event_type === "user_yes"
           ? "user_yes"
           : null,
+      inboundReplyBriefV1,
+      inboundReplyBriefBuildFailed,
     });
+
+    if (inboundReplyBriefV1) {
+      attachInboundReplyBriefTelemetryToLaneMetadata(laneRes.metadata, inboundReplyBriefV1);
+    }
 
     attachInboundNotebookTelemetryToLaneMetadata({
       laneMetadata: laneRes.metadata,
@@ -7165,6 +7191,9 @@ async function processV2NormalInboundOutcome(
             : {}),
           ...(inboundCoachingBriefV1Log != null
             ? { coaching_brief_v1: inboundCoachingBriefV1Log }
+            : {}),
+          ...(inboundReplyBriefV1Log != null
+            ? { inbound_reply_brief_v1: inboundReplyBriefV1Log }
             : {}),
         }
       : null;

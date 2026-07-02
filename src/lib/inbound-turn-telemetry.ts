@@ -10,6 +10,34 @@ import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
 import { INBOUND_NOTEBOOK_OBSERVABILITY_KEYS } from "@/lib/sms-inbound-notebook-telemetry";
 
+/** Compact inbound reply brief telemetry (Phase 1 — telemetry only, not writer input). */
+export const INBOUND_REPLY_BRIEF_TELEMETRY_KEYS = [
+  "inbound_reply_brief_version",
+  "inbound_reply_brief_turn_type",
+  "inbound_reply_brief_move",
+  "inbound_reply_brief_max_questions",
+  "inbound_followup_question_used_today",
+  "inbound_answered_prior_question",
+  "inbound_goal_status_from_latest_message",
+  "inbound_false_premise_challenge_detected",
+  "inbound_help_request_detected",
+  "inbound_thanks_acknowledgment_detected",
+  "inbound_repeated_question_complaint_detected",
+  "inbound_time_of_day_forward_only_detected",
+  "inbound_writer_prompt_path",
+  "inbound_writer_openai_messages_hash",
+  "inbound_relationship_packet_char_count",
+  "inbound_writer_capture_message_count",
+  "inbound_writer_prompt_mode",
+  "inbound_brief_max_questions_guard_applied",
+  "inbound_brief_max_questions_guard_repaired",
+  "inbound_brief_max_questions_guard_fallback_used",
+  "inbound_brief_max_questions_guard_reason",
+  "inbound_brief_max_questions_guard_original_body_preview",
+  "inbound_brief_max_questions_guard_final_body_preview",
+  "inbound_reply_brief_char_count",
+] as const;
+
 /** Compact resolved-truth / proof telemetry for soak SQL on sent turns. */
 export const INBOUND_TURN_TELEMETRY_TRUTH_KEYS = [
   "inbound_resolved_outcome",
@@ -117,6 +145,19 @@ export type InboundTurnTelemetryArgs = {
   stageTelemetry?: Record<string, unknown> | null;
 };
 
+export function compactInboundReplyBriefTelemetry(
+  laneMetadata?: Record<string, unknown> | null
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  if (laneMetadata == null || typeof laneMetadata !== "object") return merged;
+  for (const key of INBOUND_REPLY_BRIEF_TELEMETRY_KEYS) {
+    if (laneMetadata[key] !== undefined) {
+      merged[key] = laneMetadata[key];
+    }
+  }
+  return merged;
+}
+
 export function compactInboundTurnTruthTelemetry(
   laneMetadata?: Record<string, unknown> | null,
   preWriterTelemetry?: Record<string, unknown> | null
@@ -221,6 +262,7 @@ export async function insertInboundTurnTelemetryBestEffort(
 
   const laneFields = compactInboundTurnTelemetryLaneFields(args);
   const truthFields = compactInboundTurnTruthTelemetry(args.laneMetadata, args.preWriterTelemetry);
+  const replyBriefFields = compactInboundReplyBriefTelemetry(args.laneMetadata);
   const writerObservability = compactInboundTurnWriterObservability({
     laneMetadata: args.laneMetadata,
     stageTelemetry: args.stageTelemetry,
@@ -252,6 +294,7 @@ export async function insertInboundTurnTelemetryBestEffort(
     inbound_meaning_persistence: args.inboundMeaning?.persistence_decision ?? null,
     ...laneFields,
     ...truthFields,
+    ...replyBriefFields,
     ...writerObservability,
     ...(args.truthGuardMetadata ?? {}),
     ...(args.tuGuardMetadata ?? {}),
