@@ -14,6 +14,7 @@ import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-l
 import type { V2InboundEventType } from "@/lib/v2-sms-accountability";
 import {
   buildInterpreterFailedSafeReconciled,
+  enrichReconciledWithInboundRouteContract,
   isTurnUnderstandingAuthoritative,
   OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
   type OpenAIRelationshipTurnUnderstandingV1,
@@ -1035,15 +1036,23 @@ export async function runInboundTurnUnderstandingContext(
   }
 
   if (reconciled.interpreter_failed_reason) {
-    reconciled = buildInterpreterFailedSafeReconciled({
-      interpreterFailedReason: reconciled.interpreter_failed_reason,
-      proposal: reconciled.proposal,
-      deterministicMeaning: inboundMeaningForPersist,
-      latestCoachQuestion: args.latestOpenQuestion ?? args.lastCoachOutbound,
-      openQuestionPending: args.openQuestionPending,
-      rawInbound: args.inboundBody,
-      classifierEventType: args.classifierEventType,
-    });
+    reconciled = enrichReconciledWithInboundRouteContract(
+      buildInterpreterFailedSafeReconciled({
+        interpreterFailedReason: reconciled.interpreter_failed_reason,
+        proposal: reconciled.proposal,
+        deterministicMeaning: inboundMeaningForPersist,
+        latestCoachQuestion: args.latestOpenQuestion ?? args.lastCoachOutbound,
+        openQuestionPending: args.openQuestionPending,
+        rawInbound: args.inboundBody,
+        classifierEventType: args.classifierEventType,
+      }),
+      {
+        rawInbound: args.inboundBody,
+        openQuestionPending: args.openQuestionPending,
+        latestOpenQuestion: args.latestOpenQuestion,
+        classifierEventType: args.classifierEventType,
+      }
+    );
   }
 
   return {

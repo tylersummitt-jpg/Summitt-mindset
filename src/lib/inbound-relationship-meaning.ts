@@ -280,6 +280,17 @@ function looksLikeUncertainty(text: string): boolean {
   return false;
 }
 
+/** Prior coach ask explicitly requests a list, gratitude, proof, or named items (Phase 1 close-loop). */
+export function openQuestionAsksForListOrProofAnswer(
+  openQuestion: string | null | undefined
+): boolean {
+  const oq = openQuestion?.trim() ?? "";
+  if (!oq) return false;
+  return /\b(three|3|list|grateful|gratitude|thankful|things you|name|tell me|give me|share|proof|evidence|specific)\b/i.test(
+    oq
+  );
+}
+
 function looksLikeBoundedYesNo(text: string): boolean {
   const core = text.trim().toLowerCase().replace(/[.!?…]+$/g, "").trim();
   if (!core || core.length > 12) return false;
@@ -733,6 +744,22 @@ export function deriveInboundRelationshipMeaning(
       temporal_scope,
       confidence: "medium",
       evidence: ["bounded_yes_no"],
+      disqualifiers: [],
+    };
+  }
+
+  if (
+    args.openQuestionPending &&
+    openQuestionAsksForListOrProofAnswer(args.latestOpenQuestion) &&
+    raw.length >= 40 &&
+    (raw.split(/[.!?]+/).filter((s) => s.trim().length >= 12).length >= 2 ||
+      raw.split(/[,;]/).filter((p) => p.trim().length >= 8).length >= 2)
+  ) {
+    return {
+      relationship_meaning: "answer_to_prior_question",
+      temporal_scope,
+      confidence: "high",
+      evidence: ["open_question_multi_item_answer"],
       disqualifiers: [],
     };
   }

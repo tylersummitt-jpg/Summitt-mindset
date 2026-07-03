@@ -8,6 +8,10 @@ import {
   detectInboundBriefMaxQuestionsViolation,
   type InboundReplyBriefV1,
 } from "@/lib/inbound-reply-brief-v1";
+import {
+  enrichReconciledWithInboundRouteContract,
+  type ReconciledTurnUnderstanding,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 
 const RECENT_EXACT_THREAD_WINDOW_HOURS = 72 as const;
@@ -636,5 +640,82 @@ describe("brief compactness", () => {
     expect(serialized.length).toBeLessThan(8000);
     expect(serialized).not.toContain("relationship_memory_30d");
     expect(brief.brief_version).toBe("inbound_reply_brief_v1");
+  });
+});
+
+function phase1Reconciled(rawInbound: string, extra?: { openQuestionPending?: boolean; latestOpenQuestion?: string | null }) {
+  return enrichReconciledWithInboundRouteContract(
+    {
+      proposal: null,
+      reconciled_relationship_meaning: "unclear",
+      reconciled_response_intent: "unclear_clarify",
+      reconciled_persistence_decision: "no_outcome_write",
+      reconciled_do_not_repeat_asks: [],
+      last_ask_satisfied: "unclear",
+      satisfaction_kind: "unclear",
+      stale_ask_risk: false,
+      confidence: 0.8,
+      disagreement_flags: [],
+      interpreter_failed_reason: null,
+      stale_ask_avoided: false,
+      persistence_note: "test",
+      reconciled_goal_change_intent: null,
+    } satisfies ReconciledTurnUnderstanding,
+    {
+      rawInbound,
+      classifierEventType: "user_partial",
+      openQuestionPending: extra?.openQuestionPending,
+      latestOpenQuestion: extra?.latestOpenQuestion,
+    }
+  );
+}
+
+describe("Phase 1 route brief integration", () => {
+  it("Thanks for the advice → acknowledgment_no_reply, not help_request", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Thanks for the advice", {
+        turn_understanding: phase1Reconciled("Thanks for the advice"),
+      }),
+    });
+    expect(brief.route).toBe("acknowledgment_no_reply");
+    expect(brief.should_reply).toBe(false);
+    expect(brief.turn_type).toBe("thanks_acknowledgment");
+    expect(brief.turn_type).not.toBe("help_request");
+  });
+
+  it("win close loop brief has close_loop and zero questions", () => {
+    const text = "And I gave them compliments today. So we hit the goal!";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, { turn_understanding: phase1Reconciled(text) }),
+    });
+    expect(brief.route).toBe("win_close_loop");
+    expect(brief.close_loop).toBe(true);
+    expect(brief.question_policy.max_questions).toBe(0);
+    expect(brief.allow_generic_advice).toBe(false);
+  });
+
+  it("gratitude list → proof_answer_close_loop, not reflection", () => {
+    const text =
+      "Our family is healthy. We are provided with everything we need. My wife's family is doing well health wise.";
+    const openQ = "Name three things you are grateful for.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        thread: {
+          latest_open_question: openQ,
+          open_question_pending: true,
+          memory_packet: {
+            open_question_pending: true,
+            latest_open_question: openQ,
+          } as InboundV3RelationshipFacts["thread"]["memory_packet"],
+        },
+        turn_understanding: phase1Reconciled(text, {
+          openQuestionPending: true,
+          latestOpenQuestion: openQ,
+        }),
+      }),
+    });
+    expect(brief.route).toBe("proof_answer_close_loop");
+    expect(brief.turn_type).toBe("answered_prior_question");
+    expect(brief.turn_type).not.toBe("reflection");
   });
 });

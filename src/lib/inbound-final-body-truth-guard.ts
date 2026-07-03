@@ -3,6 +3,8 @@
  */
 
 import type { InboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
+import type { InboundRouteAllowedClaims } from "@/lib/openai-relationship-turn-understanding-v1";
+import { buildInboundRouteAllowedClaims } from "@/lib/openai-relationship-turn-understanding-v1";
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
 import type { ShortAnswerContextAuthority } from "@/lib/inbound-short-answer-context";
 import {
@@ -55,7 +57,17 @@ export type OutcomeClaimEvidenceBundle = {
   finalEventType?: string | null;
   priorCoachBody?: string | null;
   priorCoachSentAt?: string | null;
+  inboundAllowedClaims?: InboundRouteAllowedClaims | null;
 };
+
+export const UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND =
+  "unsupported_victory_room_claim_blocked" as const;
+
+const VICTORY_ROOM_DB_CLAIM_RE =
+  /\b(victory room|put (?:that|this|it) in your victory room|saved to (?:your )?victory room|logged as|saved as|that is recorded|it's recorded|i'?m putting that one in)\b/i;
+
+const RECORDED_CLAIM_RE =
+  /\b(recorded|logged as done|saved to|stored in)\b/i;
 
 const COMPLETION_CLAIM_RE =
   /\b(great to hear you\b.*\b(hit|got|completed|finished|nailed|crushed)|glad you\b.*\b(completed|finished|got|hit)|you\b.*\b(hit|got|completed|finished|nailed|crushed)\b[^.!?]{0,40}\b(steps|goal|calls|hours|workout|commitment)\b|you got it done|strong work getting|good work getting|that's proof|logged as done)\b/i;
@@ -159,10 +171,45 @@ export function detectUnsupportedAccountabilityClaimInOutbound(
   return null;
 }
 
+export function detectForbiddenVictoryRoomClaimInOutbound(
+  body: string,
+  allowedClaims: InboundRouteAllowedClaims | null | undefined
+): { phrase: string } | null {
+  const t = body.trim();
+  if (!t) return null;
+  if (allowedClaims?.can_reference_victory_room || allowedClaims?.can_claim_recorded) {
+    return null;
+  }
+  if (/\bwin column\b/i.test(t) && allowedClaims?.victory_room_language_mode === "metaphor_only") {
+    return null;
+  }
+  const m = t.match(VICTORY_ROOM_DB_CLAIM_RE) ?? t.match(RECORDED_CLAIM_RE);
+  if (!m) return null;
+  return { phrase: m[0]?.slice(0, 80) ?? "victory_room_claim" };
+}
+
+export function buildInboundAllowedClaimsForFinalGuard(args: {
+  routeContract?: import("@/lib/openai-relationship-turn-understanding-v1").InboundRouteContract | null;
+  persistedOutcomeThisTurn?: "user_yes" | "user_no" | "user_partial" | null;
+  proofPersistedBeforeWriter?: boolean;
+}): InboundRouteAllowedClaims {
+  return buildInboundRouteAllowedClaims({
+    routeContract: args.routeContract ?? null,
+    proofPersistedBeforeWriter:
+      args.proofPersistedBeforeWriter === true ||
+      args.persistedOutcomeThisTurn === "user_yes" ||
+      args.persistedOutcomeThisTurn === "user_partial",
+    proofPersistedEventType: args.persistedOutcomeThisTurn ?? null,
+  });
+}
+
 export type InboundFinalBodyTruthGuardResult = {
   body: string;
   shouldSend: boolean;
-  noSendReason: typeof UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND | null;
+  noSendReason:
+    | typeof UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND
+    | typeof UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND
+    | null;
   metadata: Record<string, unknown>;
 };
 
@@ -185,6 +232,37 @@ export async function applyInboundFinalBodyTruthGuard(
   };
 
   const violation = detectUnsupportedAccountabilityClaimInOutbound(args.body, args.evidence);
+  const vrViolation = detectForbiddenVictoryRoomClaimInOutbound(
+    args.body,
+    args.evidence.inboundAllowedClaims
+  );
+  if (!violation && !vrViolation) {
+    return {
+      body: args.body,
+      shouldSend: true,
+      noSendReason: null,
+      metadata: {
+        ...baseMeta,
+        unsupported_accountability_claim_violation_detected: false,
+        unsupported_victory_room_claim_violation_detected: false,
+      },
+    };
+  }
+
+  if (vrViolation && !violation) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND,
+      metadata: {
+        ...baseMeta,
+        unsupported_victory_room_claim_violation_detected: true,
+        unsupported_victory_room_claim_phrase: vrViolation.phrase,
+        unsupported_victory_room_claim_no_send_reason: UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND,
+      },
+    };
+  }
+
   if (!violation) {
     return {
       body: args.body,
@@ -193,6 +271,7 @@ export async function applyInboundFinalBodyTruthGuard(
       metadata: {
         ...baseMeta,
         unsupported_accountability_claim_violation_detected: false,
+        unsupported_victory_room_claim_violation_detected: false,
       },
     };
   }

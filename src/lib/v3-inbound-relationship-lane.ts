@@ -75,6 +75,7 @@ import {
 } from "@/lib/inbound-writer-capture";
 import {
   applyInboundBriefMaxQuestionsGuard,
+  applyInboundRouteAllowedClaimsToBrief,
   buildInboundBriefWriterSystemPrompt,
   buildInboundBriefWriterUserPrompt,
   detectInboundBriefMaxQuestionsViolation,
@@ -130,6 +131,7 @@ import {
   buildTurnUnderstandingLaneGuardrails,
   coachingMoveFromReconciledResponseIntent,
   isAuthoritativeReconciledGoalChangeIntent,
+  isPhase1AuthoritativeRouteContract,
   isTurnUnderstandingAuthoritative,
   reconciledTurnUnderstandingOverridesOpenQuestionFacts,
   slimTurnUnderstandingMetadata,
@@ -2648,6 +2650,30 @@ export async function produceInboundV3RelationshipSms(
     return empty("openai_unavailable", false, { lane_stage: "no_client" });
   }
 
+  const activeInboundReplyBrief =
+    args.inboundReplyBriefV1 != null
+      ? applyInboundRouteAllowedClaimsToBrief(args.inboundReplyBriefV1, {
+          proofPersistedBeforeWriter: args.proof_persisted_before_writer,
+          proofPersistedEventType: args.proof_persisted_event_type ?? null,
+        })
+      : null;
+
+  if (
+    activeInboundReplyBrief?.route === "acknowledgment_no_reply" &&
+    activeInboundReplyBrief.should_reply === false
+  ) {
+    return empty("pure_acknowledgment", true, {
+      lane_stage: "phase1_acknowledgment_no_reply",
+      inbound_route: activeInboundReplyBrief.route,
+      should_reply: false,
+      no_reply_reason: "pure_acknowledgment",
+      relationship_engagement: true,
+      outcome_to_persist: "none",
+      phase1_authoritative: activeInboundReplyBrief.phase1_authoritative,
+      writer_skipped: true,
+    });
+  }
+
   const relationshipPacket = buildRelationshipPacketForOpenAI({
     lane: "inbound",
     sourceFacts: args.facts,
@@ -2698,7 +2724,7 @@ export async function produceInboundV3RelationshipSms(
     ? ""
     : buildSingleMissRecoveryLaneGuardrails(args.facts.miss_adjustment_policy);
 
-  const useBriefWriterPrompt = args.inboundReplyBriefV1 != null;
+  const useBriefWriterPrompt = activeInboundReplyBrief != null;
 
   const packetSystem = `You are writing the NEXT SMS in one long coaching relationship (months of thread). This is not an isolated ticket, form submission, or chatbot reset.
 
@@ -2748,13 +2774,13 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
   let writerPromptPath: string;
   let writerPromptMode: "brief" | "packet_fallback" | "packet";
 
-  if (useBriefWriterPrompt && args.inboundReplyBriefV1) {
+  if (useBriefWriterPrompt && activeInboundReplyBrief) {
     system = buildInboundBriefWriterSystemPrompt({
       maxChars: INBOUND_LANE_MAX_CHARS,
       requiredVerbatimSubstrings: args.facts.constraints.required_verbatim_substrings,
       forbiddenSubstrings: args.facts.constraints.forbidden_substrings,
     });
-    user = buildInboundBriefWriterUserPrompt(args.inboundReplyBriefV1);
+    user = buildInboundBriefWriterUserPrompt(activeInboundReplyBrief);
     writerPromptPath = "v3_inbound_relationship_lane/inbound_reply_brief_v1";
     writerPromptMode = "brief";
   } else {
@@ -2775,7 +2801,7 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
     })
   );
 
-  const activeInboundReplyBrief = useBriefWriterPrompt ? args.inboundReplyBriefV1 ?? null : null;
+  const activeInboundReplyBriefForGuard = useBriefWriterPrompt ? activeInboundReplyBrief ?? null : null;
 
   const primaryMessages: InboundWriterOpenAiCapture["messages"] = [
     { role: "system", content: system },
@@ -3710,6 +3736,38 @@ export function deriveInboundResolvedTruth(args: {
       required_reply_move: "goal_change_bridge",
       max_questions_override: 0,
       must_not_do: mustNotDo,
+    };
+  }
+
+  const phase1Route = tu?.inbound_route_contract;
+  if (isPhase1AuthoritativeRouteContract(phase1Route)) {
+    const contract = phase1Route!;
+    let requiredReplyMove: InboundRequiredReplyMove = "general_support";
+    let resolvedOutcome: InboundResolvedOutcome = "none";
+    if (contract.route === "win_close_loop") {
+      requiredReplyMove = "acknowledge_completion";
+      resolvedOutcome = "completed";
+    } else if (contract.route === "proof_answer_close_loop") {
+      requiredReplyMove = "close_loop_on_answered_ask";
+      resolvedOutcome = contract.outcome === "win" ? "completed" : "none";
+    } else if (contract.route === "acknowledgment_no_reply") {
+      requiredReplyMove = "close_loop_on_answered_ask";
+      resolvedOutcome = "none";
+    }
+    return {
+      latest_user_text: raw,
+      resolved_outcome: resolvedOutcome,
+      temporal_scope: mapMeaningTemporalToResolved(meaning.temporal_scope),
+      plan_detected: false,
+      blocker_detected: false,
+      answered_recent_ask: contract.answered_prior_ask,
+      satisfied_recent_ask: contract.prior_ask_satisfied,
+      persistence_decision: contract.should_persist
+        ? meaning.persistence_decision ?? "no_outcome_write"
+        : "no_outcome_write",
+      required_reply_move: requiredReplyMove,
+      max_questions_override: contract.max_questions,
+      must_not_do: [...new Set(contract.forbidden_moves)].slice(0, 10),
     };
   }
 

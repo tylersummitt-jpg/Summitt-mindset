@@ -250,6 +250,7 @@ import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn
 import {
   type OutcomeClaimEvidenceBundle,
   UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
+  buildInboundAllowedClaimsForFinalGuard,
 } from "@/lib/inbound-final-body-truth-guard";
 import {
   applyUnifiedSmsFinalProductLawGuard,
@@ -2428,6 +2429,11 @@ function buildInboundOutcomeClaimEvidence(args: {
     finalEventType: args.finalEventType ?? null,
     priorCoachBody: priorCoachContext.priorCoachBody,
     priorCoachSentAt: priorCoachContext.priorCoachSentAt,
+    inboundAllowedClaims: buildInboundAllowedClaimsForFinalGuard({
+      routeContract: args.inboundTurnUnderstandingCtx?.reconciled?.inbound_route_contract ?? null,
+      persistedOutcomeThisTurn: args.persistedOutcomeThisTurn ?? null,
+      proofPersistedBeforeWriter: args.willPersistOutcomeThisTurn === true,
+    }),
   };
 }
 

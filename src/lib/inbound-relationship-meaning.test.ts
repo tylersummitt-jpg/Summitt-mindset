@@ -465,4 +465,18 @@ describe("reflective_share meaning", () => {
     const facts = meaningFor("Yes");
     expect(facts.relationship_meaning).not.toBe("reflective_share");
   });
+
+  it("open-question multi-item list answers prior ask instead of reflective_share", () => {
+    const text =
+      "Our family is healthy. We are provided with everything we need. My wife's family is doing well health wise.";
+    const facts = buildInboundMeaningFacts({
+      rawInbound: text,
+      classifierEventType: "user_partial",
+      classifierNormalizedHint: null,
+      openQuestionPending: true,
+      latestOpenQuestion: "Name three things you are grateful for.",
+    });
+    expect(facts.relationship_meaning).toBe("answer_to_prior_question");
+    expect(facts.relationship_meaning).not.toBe("reflective_share");
+  });
 });

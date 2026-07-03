@@ -1,8 +1,17 @@
 /**
- * INBOUND_REPLY_BRIEF_V1 — compact resolved-truth brief for inbound SMS (Phase 1 telemetry only).
- * Not consumed by the OpenAI writer yet.
+ * INBOUND_REPLY_BRIEF_V1 — compact resolved-truth brief for inbound SMS writer.
  */
 
+import type {
+  InboundPhase1Route,
+  InboundRouteAllowedClaims,
+  InboundRouteContract,
+} from "@/lib/openai-relationship-turn-understanding-v1";
+import {
+  buildInboundRouteAllowedClaims,
+  isPhase1AuthoritativeRouteContract,
+  looksLikeRealHelpRequest,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 import type {
   InboundV3RelationshipFacts,
   InboundRequiredReplyMove,
@@ -77,6 +86,17 @@ export type InboundReplyBriefV1 = {
   };
 
   thread_window: InboundReplyBriefThreadWindowMessage[];
+
+  route: InboundPhase1Route;
+  should_reply: boolean;
+  close_loop: boolean;
+  outcome_to_persist: "win" | "miss" | "partial" | "proof" | "none";
+  allowed_claims: InboundRouteAllowedClaims;
+  facts_to_reflect: string[];
+  allow_new_assignment: boolean;
+  allow_generic_advice: boolean;
+  forbidden_moves: string[];
+  phase1_authoritative: boolean;
 };
 
 export type InboundReplyBriefV1Log = {
@@ -92,6 +112,10 @@ export type InboundReplyBriefV1Log = {
   inbound_thanks_acknowledgment_detected: boolean;
   inbound_repeated_question_complaint_detected: boolean;
   inbound_time_of_day_forward_only_detected: boolean;
+  inbound_route: InboundPhase1Route;
+  inbound_should_reply: boolean;
+  inbound_close_loop: boolean;
+  inbound_phase1_authoritative: boolean;
 };
 
 const THREAD_WINDOW_MAX = 6;
@@ -212,14 +236,7 @@ function looksLikeTimingContext(text: string): boolean {
 }
 
 function looksLikeHelpRequest(text: string): boolean {
-  return (
-    /\b(help|advice|wisdom|guidance|tips|suggestions)\b/i.test(text) ||
-    /\bstruggling with\b/i.test(text) ||
-    /\bhow (can|do|should) i\b/i.test(text) ||
-    /\bwhat should i\b/i.test(text) ||
-    /\bcan you (help|share|suggest)\b/i.test(text) ||
-    /\bneed (help|advice|guidance)\b/i.test(text)
-  );
+  return looksLikeRealHelpRequest(text);
 }
 
 function looksLikeCompletionProofWithDetails(text: string): boolean {
@@ -314,6 +331,20 @@ function deriveTurnType(args: {
 }): InboundReplyBriefTurnType {
   const text = args.text.trim();
   const rt = args.facts.inbound_resolved_truth;
+  const routeContract = args.facts.turn_understanding?.inbound_route_contract;
+
+  if (isPhase1AuthoritativeRouteContract(routeContract)) {
+    switch (routeContract!.route) {
+      case "acknowledgment_no_reply":
+        return "thanks_acknowledgment";
+      case "win_close_loop":
+        return "completion_proof";
+      case "proof_answer_close_loop":
+        return "answered_prior_question";
+      default:
+        break;
+    }
+  }
 
   if (looksLikeRepeatedQuestionComplaint(text)) return "repeated_question_complaint";
   if (looksLikeFalsePremiseChallenge(text)) return "false_premise_challenge";
@@ -325,15 +356,15 @@ function deriveTurnType(args: {
   }
   if (looksLikeHelpRequest(text)) return "help_request";
 
+  if (looksLikeAnsweredPriorQuestion({ text, facts: args.facts })) {
+    return "answered_prior_question";
+  }
+
   if (
     rt?.required_reply_move === "acknowledge_reflection" ||
     args.facts.inbound_meaning.relationship_meaning === "reflective_share"
   ) {
     return "reflection";
-  }
-
-  if (looksLikeAnsweredPriorQuestion({ text, facts: args.facts })) {
-    return "answered_prior_question";
   }
 
   if (
@@ -399,8 +430,11 @@ function deriveMustNotDo(args: {
   }
 
   if (args.turnType === "help_request") {
-    out.push("Do not respond with clarification questions instead of help.");
-    out.push("Do not no-send on a help request.");
+    const route = args.facts.turn_understanding?.inbound_route_contract;
+    if (!isPhase1AuthoritativeRouteContract(route)) {
+      out.push("Do not respond with clarification questions instead of help.");
+      out.push("Do not no-send on a help request.");
+    }
   }
 
   if (args.turnType === "thanks_acknowledgment") {
@@ -516,6 +550,57 @@ function previousCoachMessage(facts: InboundV3RelationshipFacts): string | null 
   return null;
 }
 
+export function applyInboundRouteAllowedClaimsToBrief(
+  brief: InboundReplyBriefV1,
+  args: {
+    proofPersistedBeforeWriter?: boolean;
+    proofPersistedEventType?: "user_yes" | "user_no" | "user_partial" | null;
+  }
+): InboundReplyBriefV1 {
+  return {
+    ...brief,
+    allowed_claims: buildInboundRouteAllowedClaims({
+      routeContract: {
+        route: brief.route,
+        phase1_authoritative: brief.phase1_authoritative,
+        source: brief.phase1_authoritative ? "turn_understanding" : "none",
+        relationship_engagement: true,
+        outcome: brief.outcome_to_persist === "win" ? "win" : brief.outcome_to_persist === "proof" ? "proof" : "none",
+        answered_prior_ask: brief.resolved_truth.answered_prior_question,
+        prior_ask_satisfied: brief.resolved_truth.answered_prior_question,
+        should_persist: brief.outcome_to_persist !== "none",
+        should_reply: brief.should_reply,
+        close_loop: brief.close_loop,
+        max_questions: brief.question_policy.max_questions,
+        allow_new_assignment: brief.allow_new_assignment,
+        allow_generic_advice: brief.allow_generic_advice,
+        facts_to_reflect: brief.facts_to_reflect,
+        forbidden_moves: brief.forbidden_moves,
+        outcome_to_persist: brief.outcome_to_persist,
+      },
+      proofPersistedBeforeWriter: args.proofPersistedBeforeWriter,
+      proofPersistedEventType: args.proofPersistedEventType,
+    }),
+  };
+}
+
+function mapRouteContractToBriefMove(
+  routeContract: InboundRouteContract | null | undefined,
+  turnType: InboundReplyBriefTurnType,
+  requiredMove: InboundRequiredReplyMove | undefined
+): InboundReplyBriefReplyMove {
+  if (routeContract?.route === "win_close_loop") {
+    return "acknowledge_completion_and_close_loop";
+  }
+  if (routeContract?.route === "proof_answer_close_loop") {
+    return "acknowledge_already_answered";
+  }
+  if (routeContract?.route === "acknowledgment_no_reply") {
+    return "close_acknowledgment";
+  }
+  return mapRequiredReplyMoveToBriefMove(requiredMove, turnType);
+}
+
 export function buildInboundReplyBriefV1(args: {
   facts: InboundV3RelationshipFacts;
 }): InboundReplyBriefV1 {
@@ -524,6 +609,8 @@ export function buildInboundReplyBriefV1(args: {
     facts.thread.coalesced_inbound_text?.trim() ||
     facts.thread.latest_inbound_raw?.trim() ||
     "";
+  const routeContract = facts.turn_understanding?.inbound_route_contract ?? null;
+  const phase1Authoritative = isPhase1AuthoritativeRouteContract(routeContract);
   const accountabilityDayKey = resolveAccountabilityDayKeyForBrief(facts);
   const followupQuestionUsedToday = deriveFollowupQuestionUsedToday({
     facts,
@@ -534,15 +621,21 @@ export function buildInboundReplyBriefV1(args: {
     turnType === "answered_prior_question" ||
     turnType === "repeated_question_complaint" ||
     Boolean(facts.inbound_resolved_truth?.answered_recent_ask) ||
-    Boolean(facts.inbound_resolved_truth?.satisfied_recent_ask);
+    Boolean(facts.inbound_resolved_truth?.satisfied_recent_ask) ||
+    Boolean(routeContract?.prior_ask_satisfied);
   const completionHasDetails =
     turnType === "completion_proof" &&
     (looksLikeCompletionProofWithDetails(latestUserMessage) || answeredPriorQuestion);
-  const questionPolicyBase = deriveMaxQuestionsForBrief({
-    turnType,
-    followupQuestionUsedToday,
-    completionHasDetails,
-  });
+  const questionPolicyBase = phase1Authoritative
+    ? {
+        max_questions: routeContract!.max_questions,
+        reason: `phase1_route_${routeContract!.route}`,
+      }
+    : deriveMaxQuestionsForBrief({
+        turnType,
+        followupQuestionUsedToday,
+        completionHasDetails,
+      });
   const questionPolicy =
     facts.inbound_resolved_truth?.max_questions_override === 0 &&
     questionPolicyBase.max_questions !== 0
@@ -552,17 +645,33 @@ export function buildInboundReplyBriefV1(args: {
         }
       : questionPolicyBase;
   const goalStatus = mapGoalStatus(facts);
-  const replyMove = mapRequiredReplyMoveToBriefMove(
-    facts.inbound_resolved_truth?.required_reply_move,
-    turnType
-  );
-  const mustNotDo = deriveMustNotDo({
+  const replyMove = mapRouteContractToBriefMove(
+    routeContract,
     turnType,
-    facts,
-    answeredPriorQuestion,
-  });
+    facts.inbound_resolved_truth?.required_reply_move
+  );
+  const routeForbidden = routeContract?.forbidden_moves ?? [];
+  const mustNotDo = [
+    ...deriveMustNotDo({
+      turnType,
+      facts,
+      answeredPriorQuestion,
+    }),
+    ...routeForbidden,
+  ];
+  const uniqueMustNotDo = [...new Set(mustNotDo.map((s) => s.trim()).filter(Boolean))].slice(0, 12);
+  const route: InboundPhase1Route = routeContract?.route ?? "legacy_other";
+  const shouldReply = phase1Authoritative ? routeContract!.should_reply : true;
+  const closeLoop = phase1Authoritative ? routeContract!.close_loop : false;
+  const outcomeToPersist = phase1Authoritative
+    ? routeContract!.outcome_to_persist
+    : "none";
+  const factsToReflect =
+    phase1Authoritative && routeContract!.facts_to_reflect.length > 0
+      ? routeContract!.facts_to_reflect
+      : deriveExplicitFacts({ text: latestUserMessage, facts, turnType }).slice(0, 2);
 
-  return {
+  const brief: InboundReplyBriefV1 = {
     brief_version: INBOUND_REPLY_BRIEF_VERSION,
     latest_user_message: latestUserMessage.slice(0, 400),
     previous_coach_message: previousCoachMessage(facts),
@@ -585,10 +694,21 @@ export function buildInboundReplyBriefV1(args: {
     },
     reply_strategy: {
       move: replyMove,
-      must_not_do: mustNotDo,
+      must_not_do: uniqueMustNotDo,
     },
     thread_window: buildThreadWindow(facts),
+    route,
+    should_reply: shouldReply,
+    close_loop: closeLoop,
+    outcome_to_persist: outcomeToPersist,
+    allowed_claims: buildInboundRouteAllowedClaims({ routeContract }),
+    facts_to_reflect: factsToReflect,
+    allow_new_assignment: phase1Authoritative ? routeContract!.allow_new_assignment : true,
+    allow_generic_advice: phase1Authoritative ? routeContract!.allow_generic_advice : true,
+    forbidden_moves: uniqueMustNotDo,
+    phase1_authoritative: phase1Authoritative,
   };
+  return brief;
 }
 
 export function compactInboundReplyBriefV1ForTelemetry(
@@ -608,6 +728,10 @@ export function compactInboundReplyBriefV1ForTelemetry(
     inbound_repeated_question_complaint_detected:
       brief.turn_type === "repeated_question_complaint",
     inbound_time_of_day_forward_only_detected: brief.turn_type === "timing_context",
+    inbound_route: brief.route,
+    inbound_should_reply: brief.should_reply,
+    inbound_close_loop: brief.close_loop,
+    inbound_phase1_authoritative: brief.phase1_authoritative,
   };
 }
 
@@ -644,21 +768,30 @@ export function buildInboundBriefWriterSystemPrompt(args: {
 
   return `You are writing the NEXT SMS in one long coaching relationship.
 
+Your job is to complete the accountability loop, not keep the conversation going.
+
 Authority order:
-1. INBOUND_REPLY_BRIEF_V1.latest_user_message and resolved_truth
-2. reply_strategy.move and reply_strategy.must_not_do
-3. question_policy
-4. thread_window
+1. INBOUND_REPLY_BRIEF_V1.route, should_reply, close_loop, allowed_claims, and facts_to_reflect
+2. latest_user_message and resolved_truth
+3. reply_strategy.move and reply_strategy.must_not_do / forbidden_moves
+4. question_policy
 
 Rules:
-- Obey reply_strategy.move.
+- Obey route, should_reply, close_loop, and allowed_claims exactly.
+- If should_reply=false, return should_send false with empty body.
+- If close_loop=true, do not add a new assignment, new advice, or future planning.
+- If allowed_claims.can_reference_victory_room=false, do not mention Victory Room, recorded, logged, or saved.
+- If allowed_claims.victory_room_language_mode is metaphor_only, win-column language is ok; do not claim DB persistence.
+- For win_close_loop: warmly mark the win and stop — not a flat restatement.
+- For proof_answer_close_loop: reflect one specific detail from facts_to_reflect and stop.
+- Do not give generic advice after thanks/okay/good/sounds good closers.
 - Obey question_policy.max_questions.
 - If max_questions = 0, write a statement-only SMS: no question mark and no ask-shaped sentence.
 - Do not re-ask answered questions.
 - Do not treat completion/proof as a miss.
 - Do not ask "what got in the way" unless turn_type is miss or partial and max_questions = 1.
-- If help_request, give direct coaching help. Do not ask clarifying questions.
-- If thanks_acknowledgment, close warmly. No question.
+- If turn_type is help_request AND allow_generic_advice=true, give direct coaching help. Do not ask clarifying questions.
+- If thanks_acknowledgment or route is acknowledgment_no_reply, close warmly. No question.
 - If false_premise_challenge, correct the premise and repair trust. No question.
 - If repeated_question_complaint, acknowledge they already answered. No question.
 - If timing_context, acknowledge timing and point forward. No question.

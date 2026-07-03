@@ -7,14 +7,18 @@ import OpenAI from "openai";
 import type { InboundMeaningFacts, InboundPersistenceDecision } from "@/lib/inbound-relationship-meaning";
 import { isUserCompletedGoalWantsToMoveOnLanguage } from "@/lib/v2-sms-conversation-brain-eligibility";
 import type { InboundMeaningRoutePriority } from "@/lib/inbound-relationship-meaning";
-import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
-import { shouldPromoteClarifyForReportedCompletionPersist } from "@/lib/inbound-relationship-meaning";
+import {
+  buildInboundMeaningFacts,
+  openQuestionAsksForListOrProofAnswer,
+  shouldPromoteClarifyForReportedCompletionPersist,
+} from "@/lib/inbound-relationship-meaning";
 import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { classifyV2InboundReply, type V2InboundEventType } from "@/lib/v2-sms-accountability";
 import {
   inboundHasExplicitCompletionClause,
   inboundHasPlanConfirmationClause,
+  inboundExplicitOutcomeDetected,
   splitInboundClauses,
 } from "@/lib/inbound-short-answer-clauses";
 import { inboundSignalsCompletion } from "@/lib/north-star-coach-sms";
@@ -189,7 +193,471 @@ export type ReconciledTurnUnderstanding = {
   turn_understanding_failed_safe_reason?: string | null;
   turn_understanding_failed_safe_do_not_repeat_asks?: string[];
   reconciled_goal_change_intent: ReconciledGoalChangeIntent | null;
+  /** Phase 1 inbound route contract — authoritative for low-risk close-loop routes. */
+  inbound_route_contract?: InboundRouteContract | null;
 };
+
+export type InboundPhase1Route =
+  | "acknowledgment_no_reply"
+  | "win_close_loop"
+  | "proof_answer_close_loop"
+  | "legacy_other";
+
+export type InboundRouteOutcome = "win" | "miss" | "partial" | "proof" | "none" | "unclear";
+
+export type InboundVictoryRoomLanguageMode = "none" | "metaphor_only" | "recorded_allowed";
+
+export type InboundRouteAllowedClaims = {
+  can_claim_win: boolean;
+  can_claim_miss: boolean;
+  can_claim_partial: boolean;
+  can_claim_proof: boolean;
+  can_reference_victory_room: boolean;
+  can_claim_recorded: boolean;
+  can_claim_streak: boolean;
+  can_claim_consistency: boolean;
+  victory_room_language_mode: InboundVictoryRoomLanguageMode;
+};
+
+export type InboundRouteContract = {
+  route: InboundPhase1Route;
+  phase1_authoritative: boolean;
+  source: "server_backstop" | "turn_understanding" | "none";
+  relationship_engagement: boolean;
+  outcome: InboundRouteOutcome;
+  answered_prior_ask: boolean;
+  prior_ask_satisfied: boolean;
+  should_persist: boolean;
+  should_reply: boolean;
+  close_loop: boolean;
+  max_questions: 0 | 1;
+  allow_new_assignment: boolean;
+  allow_generic_advice: boolean;
+  facts_to_reflect: string[];
+  forbidden_moves: string[];
+  outcome_to_persist: "win" | "miss" | "partial" | "proof" | "none";
+};
+
+export const PHASE1_AUTHORITATIVE_ROUTES = new Set<InboundPhase1Route>([
+  "acknowledgment_no_reply",
+  "win_close_loop",
+  "proof_answer_close_loop",
+]);
+
+export function isPhase1AuthoritativeRouteContract(
+  contract: InboundRouteContract | null | undefined
+): boolean {
+  return Boolean(
+    contract?.phase1_authoritative &&
+      PHASE1_AUTHORITATIVE_ROUTES.has(contract.route)
+  );
+}
+
+export type MapTurnUnderstandingToInboundRouteContractArgs = {
+  rawInbound: string;
+  reconciled: ReconciledTurnUnderstanding;
+  openQuestionPending?: boolean;
+  latestOpenQuestion?: string | null;
+  classifierEventType?: V2InboundEventType;
+};
+
+export function looksLikeRealHelpRequest(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\b(thanks|thank you|appreciate)\b/i.test(t) && t.length <= 120) {
+    if (
+      /\b(thanks|thank you|appreciate)\b.*\b(for the advice|for your advice|for the help|for your help|for that|for this)\b/i.test(
+        t
+      )
+    ) {
+      return false;
+    }
+  }
+  if (/^(thanks|thank you|thx|ty|okay|ok|k|good|sounds good|got it|will do|appreciate it)[.!]*$/i.test(t)) {
+    return false;
+  }
+  return (
+    /\b(how (can|do|should) i|what should i|struggling with|need help with)\b/i.test(t) ||
+    /\bcan you (help|share|suggest)\b/i.test(t) ||
+    (/\?\s*$/.test(t) && t.length >= 20 && /\b(what|how|why|should)\b/i.test(t))
+  );
+}
+
+/** Mixed outcome/proof/friction language disqualifies pure closer no-reply. */
+export function messageDisqualifiesPureAcknowledgmentCloser(
+  rawInbound: string,
+  args?: { openQuestionPending?: boolean; latestOpenQuestion?: string | null }
+): boolean {
+  const t = rawInbound.trim();
+  if (!t) return true;
+  if (looksLikeRealHelpRequest(t)) return true;
+  if (inboundExplicitOutcomeDetected(t)) return true;
+  if (detectWinCloseLoopBackstop(t)) return true;
+  if (
+    detectProofAnswerCloseLoopBackstop({
+      rawInbound: t,
+      openQuestionPending: args?.openQuestionPending,
+      latestOpenQuestion: args?.latestOpenQuestion,
+    })
+  ) {
+    return true;
+  }
+  if (/\b(blocked|stuck|frustrated|overwhelmed|can't|cannot)\b/i.test(t) && t.length > 24) {
+    return true;
+  }
+  return false;
+}
+
+export function detectPureAcknowledgmentCloser(
+  rawInbound: string,
+  args?: { openQuestionPending?: boolean; latestOpenQuestion?: string | null }
+): boolean {
+  const t = rawInbound.trim();
+  if (!t || t.length > 120) return false;
+  if (messageDisqualifiesPureAcknowledgmentCloser(t, args)) return false;
+  if (/^[\p{Extended_Pictographic}\s.!]+$/u.test(t) && t.length <= 8) return true;
+  if (
+    /^(thanks|thank you|thx|ty|okay|ok|k|good|sounds good|got it|will do|appreciate it|appreciated|noted)[.!]*$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (/\b(thank you|thanks|appreciate|needed that)\b/i.test(t) && t.length <= 120) {
+    return true;
+  }
+  return false;
+}
+
+export function detectWinCloseLoopBackstop(rawInbound: string): boolean {
+  const raw = rawInbound.trim();
+  if (!raw || looksLikeRealHelpRequest(raw)) return false;
+  if (inboundHasExplicitCompletionClause(raw)) return true;
+  if (/\b(we hit the goal|hit the goal|i did it|got it done|got that done|knocked it out)\b/i.test(raw)) {
+    return true;
+  }
+  if (/\b(i finished it|i completed it|finished it|completed it)\b/i.test(raw)) {
+    return true;
+  }
+  if (
+    /\b(gave|compliment|compliments|told|said)\b/i.test(raw) &&
+    /\b(goal|hit|done|completed|finished)\b/i.test(raw)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function detectProofAnswerCloseLoopBackstop(args: {
+  rawInbound: string;
+  openQuestionPending?: boolean;
+  latestOpenQuestion?: string | null;
+}): boolean {
+  const raw = args.rawInbound.trim();
+  if (!raw || raw.length < 40) return false;
+  if (looksLikeRealHelpRequest(raw)) return false;
+  if (!args.openQuestionPending) return false;
+  if (!openQuestionAsksForListOrProofAnswer(args.latestOpenQuestion)) return false;
+  const sentenceCount = raw.split(/[.!?]+/).filter((s) => s.trim().length >= 12).length;
+  const listParts = raw.split(/[,;]/).filter((p) => p.trim().length >= 8).length;
+  return sentenceCount >= 2 || listParts >= 2;
+}
+
+function buildPhase1RouteContract(args: {
+  route: InboundPhase1Route;
+  source: InboundRouteContract["source"];
+  relationship_engagement: boolean;
+  outcome: InboundRouteOutcome;
+  answered_prior_ask: boolean;
+  prior_ask_satisfied: boolean;
+  should_persist: boolean;
+  should_reply: boolean;
+  close_loop: boolean;
+  max_questions: 0 | 1;
+  allow_new_assignment: boolean;
+  allow_generic_advice: boolean;
+  facts_to_reflect: string[];
+  forbidden_moves: string[];
+  outcome_to_persist: InboundRouteContract["outcome_to_persist"];
+}): InboundRouteContract {
+  const phase1 = PHASE1_AUTHORITATIVE_ROUTES.has(args.route);
+  return {
+    route: args.route,
+    phase1_authoritative: phase1,
+    source: args.source,
+    relationship_engagement: args.relationship_engagement,
+    outcome: args.outcome,
+    answered_prior_ask: args.answered_prior_ask,
+    prior_ask_satisfied: args.prior_ask_satisfied,
+    should_persist: args.should_persist,
+    should_reply: args.should_reply,
+    close_loop: args.close_loop,
+    max_questions: args.max_questions,
+    allow_new_assignment: args.allow_new_assignment,
+    allow_generic_advice: args.allow_generic_advice,
+    facts_to_reflect: args.facts_to_reflect.slice(0, 3),
+    forbidden_moves: args.forbidden_moves.slice(0, 10),
+    outcome_to_persist: args.outcome_to_persist,
+  };
+}
+
+function extractFactsToReflect(rawInbound: string, max = 2): string[] {
+  const raw = rawInbound.trim();
+  if (!raw) return [];
+  const parts = raw
+    .split(/[.!?]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 12);
+  if (parts.length >= 2) return parts.slice(0, max).map((s) => s.slice(0, 120));
+  if (parts.length === 1) return [parts[0]!.slice(0, 120)];
+  return [raw.slice(0, 120)];
+}
+
+export function mapTurnUnderstandingToInboundRouteContract(
+  args: MapTurnUnderstandingToInboundRouteContractArgs
+): InboundRouteContract {
+  const raw = args.rawInbound.trim();
+  const reconciled = args.reconciled;
+  const commonForbidden = [
+    "Do not ask a follow-up question when max_questions is 0.",
+    "Do not give generic advice or a new assignment after a close-loop route.",
+  ];
+
+  if (detectWinCloseLoopBackstop(raw)) {
+    const facts = extractFactsToReflect(raw);
+    return buildPhase1RouteContract({
+      route: "win_close_loop",
+      source: "server_backstop",
+      relationship_engagement: true,
+      outcome: "win",
+      answered_prior_ask: false,
+      prior_ask_satisfied: false,
+      should_persist: true,
+      should_reply: true,
+      close_loop: true,
+      max_questions: 0,
+      allow_new_assignment: false,
+      allow_generic_advice: false,
+      facts_to_reflect: facts,
+      forbidden_moves: [
+        ...commonForbidden,
+        "Do not ask what got in the way.",
+        "Do not ask for proof again.",
+        "Warmly mark the win — do not flatly restate only.",
+      ],
+      outcome_to_persist: "win",
+    });
+  }
+
+  if (
+    detectProofAnswerCloseLoopBackstop({
+      rawInbound: raw,
+      openQuestionPending: args.openQuestionPending,
+      latestOpenQuestion: args.latestOpenQuestion,
+    })
+  ) {
+    const facts = extractFactsToReflect(raw);
+    return buildPhase1RouteContract({
+      route: "proof_answer_close_loop",
+      source: "server_backstop",
+      relationship_engagement: true,
+      outcome: "proof",
+      answered_prior_ask: true,
+      prior_ask_satisfied: true,
+      should_persist: true,
+      should_reply: true,
+      close_loop: true,
+      max_questions: 0,
+      allow_new_assignment: false,
+      allow_generic_advice: false,
+      facts_to_reflect: facts,
+      forbidden_moves: [
+        ...commonForbidden,
+        "Do not re-ask the same gratitude or list question.",
+        "Do not give vague future gratitude advice.",
+        "Do not classify as reflective_share.",
+      ],
+      outcome_to_persist: "proof",
+    });
+  }
+
+  if (
+    detectPureAcknowledgmentCloser(raw, {
+      openQuestionPending: args.openQuestionPending,
+      latestOpenQuestion: args.latestOpenQuestion,
+    })
+  ) {
+    return buildPhase1RouteContract({
+      route: "acknowledgment_no_reply",
+      source: "server_backstop",
+      relationship_engagement: true,
+      outcome: "none",
+      answered_prior_ask: false,
+      prior_ask_satisfied: false,
+      should_persist: false,
+      should_reply: false,
+      close_loop: true,
+      max_questions: 0,
+      allow_new_assignment: false,
+      allow_generic_advice: false,
+      facts_to_reflect: [],
+      forbidden_moves: [
+        ...commonForbidden,
+        "Do not treat thanks or okay as a help request.",
+        "Do not send coaching advice on a pure closer.",
+      ],
+      outcome_to_persist: "none",
+    });
+  }
+
+  const tuAuthoritative = isTurnUnderstandingAuthoritative(reconciled);
+  const confidence = reconciled.confidence ?? 0;
+  if (tuAuthoritative && confidence >= LOW_CONFIDENCE_THRESHOLD) {
+    const intent = reconciled.reconciled_response_intent;
+    const lastAsk = reconciled.last_ask_satisfied;
+    if (
+      intent === "close_loop_no_new_action" &&
+      (detectPureAcknowledgmentCloser(raw, {
+        openQuestionPending: args.openQuestionPending,
+        latestOpenQuestion: args.latestOpenQuestion,
+      }) ||
+        raw.length <= 80)
+    ) {
+      return buildPhase1RouteContract({
+        route: "acknowledgment_no_reply",
+        source: "turn_understanding",
+        relationship_engagement: true,
+        outcome: "none",
+        answered_prior_ask: false,
+        prior_ask_satisfied: false,
+        should_persist: false,
+        should_reply: false,
+        close_loop: true,
+        max_questions: 0,
+        allow_new_assignment: false,
+        allow_generic_advice: false,
+        facts_to_reflect: [],
+        forbidden_moves: commonForbidden,
+        outcome_to_persist: "none",
+      });
+    }
+    if (
+      intent === "acknowledge_completion" ||
+      reconciled.reconciled_relationship_meaning === "reported_completion"
+    ) {
+      return buildPhase1RouteContract({
+        route: "win_close_loop",
+        source: "turn_understanding",
+        relationship_engagement: true,
+        outcome: "win",
+        answered_prior_ask: false,
+        prior_ask_satisfied: false,
+        should_persist: reconciled.reconciled_persistence_decision === "write_user_yes_today",
+        should_reply: true,
+        close_loop: true,
+        max_questions: 0,
+        allow_new_assignment: false,
+        allow_generic_advice: false,
+        facts_to_reflect: extractFactsToReflect(raw),
+        forbidden_moves: [
+          ...commonForbidden,
+          "Warmly mark the win and close.",
+        ],
+        outcome_to_persist: "win",
+      });
+    }
+    if (
+      (intent === "acknowledge_prior_ask_satisfied" || lastAsk === "yes") &&
+      (args.openQuestionPending || reconciled.reconciled_do_not_repeat_asks.length > 0)
+    ) {
+      return buildPhase1RouteContract({
+        route: "proof_answer_close_loop",
+        source: "turn_understanding",
+        relationship_engagement: true,
+        outcome: "proof",
+        answered_prior_ask: true,
+        prior_ask_satisfied: true,
+        should_persist:
+          reconciled.reconciled_persistence_decision === "write_user_yes_today" ||
+          reconciled.reconciled_persistence_decision === "write_user_partial",
+        should_reply: true,
+        close_loop: true,
+        max_questions: 0,
+        allow_new_assignment: false,
+        allow_generic_advice: false,
+        facts_to_reflect: extractFactsToReflect(raw),
+        forbidden_moves: [
+          ...commonForbidden,
+          "Reflect one specific detail from their answer and close.",
+        ],
+        outcome_to_persist: "proof",
+      });
+    }
+  }
+
+  return buildPhase1RouteContract({
+    route: "legacy_other",
+    source: "none",
+    relationship_engagement: raw.length > 0,
+    outcome: "unclear",
+    answered_prior_ask: reconciled.last_ask_satisfied === "yes",
+    prior_ask_satisfied: reconciled.last_ask_satisfied === "yes",
+    should_persist: false,
+    should_reply: true,
+    close_loop: false,
+    max_questions: 1,
+    allow_new_assignment: true,
+    allow_generic_advice: true,
+    facts_to_reflect: [],
+    forbidden_moves: [],
+    outcome_to_persist: "none",
+  });
+}
+
+export function enrichReconciledWithInboundRouteContract(
+  reconciled: ReconciledTurnUnderstanding,
+  args: Omit<MapTurnUnderstandingToInboundRouteContractArgs, "reconciled">
+): ReconciledTurnUnderstanding {
+  return {
+    ...reconciled,
+    inbound_route_contract: mapTurnUnderstandingToInboundRouteContract({
+      reconciled,
+      ...args,
+    }),
+  };
+}
+
+export function buildInboundRouteAllowedClaims(args: {
+  routeContract: InboundRouteContract | null | undefined;
+  proofPersistedBeforeWriter?: boolean;
+  proofPersistedEventType?: "user_yes" | "user_no" | "user_partial" | null;
+}): InboundRouteAllowedClaims {
+  const route = args.routeContract?.route ?? "legacy_other";
+  const persisted =
+    args.proofPersistedBeforeWriter === true &&
+    (args.proofPersistedEventType === "user_yes" ||
+      args.proofPersistedEventType === "user_partial");
+  const winRoute = route === "win_close_loop";
+  const proofRoute = route === "proof_answer_close_loop";
+  const canWin = persisted && winRoute;
+  const canProof = persisted && (winRoute || proofRoute);
+  const canReferenceVictoryRoom = canWin || (persisted && proofRoute);
+  return {
+    can_claim_win: canWin,
+    can_claim_miss: false,
+    can_claim_partial: persisted && args.proofPersistedEventType === "user_partial",
+    can_claim_proof: canProof,
+    can_reference_victory_room: canReferenceVictoryRoom,
+    can_claim_recorded: canReferenceVictoryRoom,
+    can_claim_streak: false,
+    can_claim_consistency: false,
+    victory_room_language_mode: canReferenceVictoryRoom
+      ? "recorded_allowed"
+      : winRoute || proofRoute
+        ? "metaphor_only"
+        : "none",
+  };
+}
 
 export type TurnUnderstandingPersistGuardMeta = {
   persistence_narrowed_by_turn_understanding: boolean;
@@ -1633,5 +2101,13 @@ export async function runInboundRelationshipTurnUnderstanding(
     interpreterFailedReason: openAi.ok ? null : openAi.reason,
     inboundBody: args.inboundBody,
   });
-  return { ...reconciled, interpreter_latency_ms: openAi.latencyMs };
+  return {
+    ...enrichReconciledWithInboundRouteContract(reconciled, {
+      rawInbound: args.inboundBody,
+      openQuestionPending: args.openQuestionPending,
+      latestOpenQuestion: args.latestOpenQuestion,
+      classifierEventType: args.classifierEventType,
+    }),
+    interpreter_latency_ms: openAi.latencyMs,
+  };
 }
