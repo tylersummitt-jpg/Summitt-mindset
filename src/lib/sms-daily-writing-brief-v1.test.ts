@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
 
 import type { StrategyCardV1 } from "@/lib/coaching-strategy-card-v1";
 import { buildSuggestedMoveFromDailyC1Card } from "@/lib/coaching-strategy-card-v1";
@@ -225,6 +229,43 @@ describe("useDailySmsWritingBriefV1", () => {
 });
 
 describe("buildDailySmsWritingBriefV1", () => {
+  it("includes compact silence_cadence without silence_note", () => {
+    const facts = baseFacts({
+      silence_cadence: {
+        route: "soft_reentry_day3",
+        silence_day: 3,
+        send_today: true,
+        no_send_reason: null,
+      },
+    });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: deriveDailyProofCalibration({ facts }),
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+
+    expect(brief.silence_cadence).toEqual({
+      route: "soft_reentry_day3",
+      silence_day: 3,
+      send_today: true,
+    });
+    expect((brief.authoritative_truth as Record<string, unknown>).silence_note).toBeUndefined();
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toMatch(/When silence_cadence route card is present/i);
+    expect(writer.system).toContain("soft_reentry_day3");
+    expect(writer.user).toContain('"silence_cadence"');
+    expect(writer.user).not.toContain("silence_note");
+  });
+
   it("folds weak proof into authoritative_truth and writer prompt shape", () => {
     const facts = baseFacts();
     const cal = deriveDailyProofCalibration({ facts });

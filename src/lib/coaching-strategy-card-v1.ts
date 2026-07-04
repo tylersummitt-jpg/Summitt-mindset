@@ -27,6 +27,11 @@ import type {
 } from "@/lib/v3-inbound-relationship-lane";
 import { createHash } from "crypto";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import {
+  SILENCE_CADENCE_ROUTE_CARDS,
+  silenceCadenceOverridesOldSilenceRouting,
+  type SilenceCadenceRoute,
+} from "@/lib/sms-silence-cadence-v1";
 import type { DailyProofCalibration, DailyProofPraiseAllowedLevel } from "@/lib/sms-daily-proof-calibration";
 import {
   buildRelationshipAnchors,
@@ -148,6 +153,8 @@ export type StrategyCardV1 = {
     daily_pending_plan_proof_active?: boolean;
     daily_reactivation?: boolean;
     daily_silence_tier?: string | null;
+    daily_silence_cadence_route?: string | null;
+    daily_silence_day?: number | null;
     daily_conversation_intent?: DailyC1ConversationIntent | null;
     local_date?: string | null;
     local_weekday?: string | null;
@@ -2714,7 +2721,28 @@ function isPlanAffirmingSatisfiedAsk(ctx: DailyC1StrategyCardBuildContext): bool
   return /\b(i'll|i will|plan|8pm|am|pm)\b/i.test(evidence);
 }
 
+function silenceCadenceMoveType(route: SilenceCadenceRoute): StrategyCardMoveType {
+  const card = SILENCE_CADENCE_ROUTE_CARDS[route];
+  if (card.max_questions === 0) return "recover_today";
+  if (card.allow_goal_adjustment_language) return "recover_today";
+  return "recover_today";
+}
+
+function buildDailyC1SilenceCadenceMustDoMustNotDo(route: SilenceCadenceRoute): {
+  must_do: string[];
+  must_not_do: string[];
+  max_questions: number;
+} {
+  const card = SILENCE_CADENCE_ROUTE_CARDS[route];
+  return {
+    must_do: card.must_do.slice(0, MAX_MUST_DO),
+    must_not_do: [...new Set(card.must_not_do)].slice(0, MAX_MUST_NOT_DO),
+    max_questions: card.max_questions,
+  };
+}
+
 function hasExtendedSilence(ctx: DailyC1StrategyCardBuildContext): boolean {
+  if (silenceCadenceOverridesOldSilenceRouting(ctx.facts.silence_cadence)) return false;
   const a = ctx.facts.accountability;
   const silence = ctx.noSendSilence?.silence_context;
   if (a.reentry_active || a.daily_purpose === "comeback_after_silence") return true;
@@ -2805,8 +2833,8 @@ export function selectDailyC1ConversationIntent(
 ): DailyC1ConversationIntent {
   const { facts } = ctx;
 
-  if (facts.route_kind === "low_pressure_reactivation") {
-    return "low_pressure_reentry";
+  if (silenceCadenceOverridesOldSilenceRouting(facts.silence_cadence)) {
+    return "plan_today";
   }
 
   if (facts.accountability.pending_plan_proof?.active === true) {
@@ -3077,7 +3105,7 @@ function buildDailyC1MustDoMustNotDo(args: {
     );
   }
 
-  if (ctx.facts.route_kind === "low_pressure_reactivation") {
+  if (ctx.facts.route_kind === "low_pressure_reactivation" && !silenceCadenceOverridesOldSilenceRouting(ctx.facts.silence_cadence)) {
     must_do.push("Low-pressure re-entry — one natural question at most.");
     must_do.push("Acknowledge quiet context only when appropriate, without guilt.");
     must_not_do.push("Do not scold or imply the user ignored undelivered messages.");
@@ -3222,6 +3250,12 @@ function resolveDailyC1TonePosture(args: {
   facts: DailyV3RelationshipFacts;
   moveType: StrategyCardMoveType;
 }): StrategyCardTonePosture {
+  if (silenceCadenceOverridesOldSilenceRouting(args.facts.silence_cadence)) {
+    const card = SILENCE_CADENCE_ROUTE_CARDS[args.facts.silence_cadence!.route];
+    if (card.tone === "firm_not_heavy" || card.tone === "direct_honest") return "warm_direct";
+    if (card.tone === "relationship_first") return "warm_direct";
+    return "warm_direct";
+  }
   if (args.facts.route_kind === "low_pressure_reactivation") {
     return "gentle_reentry";
   }
@@ -3287,11 +3321,12 @@ export function buildDailyC1StrategyCardV1(args: {
 }): StrategyCardV1 {
   const { ctx } = args;
   const { facts } = ctx;
-  const isReactivation = facts.route_kind === "low_pressure_reactivation";
+  const sc = facts.silence_cadence;
+  const isReactivation = false;
   const outcome = deriveDailyOutcomeFromPriorOutcome(facts.accountability.prior_outcome);
   const conversationIntent = selectDailyC1ConversationIntent(ctx);
-  const moveType = isReactivation
-    ? "reactivate_gently"
+  const moveType = sc && sc.route !== "normal_daily"
+    ? silenceCadenceMoveType(sc.route)
     : selectDailyC1MainMoveType(ctx, conversationIntent);
   const legacyMove = facts.suggested_coaching_move?.trim() || null;
   const legacyType = mapLegacyMoveToType(legacyMove ?? undefined);
@@ -3301,12 +3336,21 @@ export function buildDailyC1StrategyCardV1(args: {
   const highRepeatRisk = dailyC1HasHighRepeatRisk(ctx);
   const zeroQuestionRequired = dailyC1ZeroQuestionRequired(ctx);
 
-  const { must_do, must_not_do } = buildDailyC1MustDoMustNotDo({
-    moveType,
-    intent: conversationIntent,
-    ctx,
-    zeroQuestionRequired,
-  });
+  const silenceCadenceConstraints =
+    sc && sc.route !== "normal_daily"
+      ? buildDailyC1SilenceCadenceMustDoMustNotDo(sc.route)
+      : null;
+  const { must_do, must_not_do } = silenceCadenceConstraints
+    ? {
+        must_do: silenceCadenceConstraints.must_do,
+        must_not_do: silenceCadenceConstraints.must_not_do,
+      }
+    : buildDailyC1MustDoMustNotDo({
+        moveType,
+        intent: conversationIntent,
+        ctx,
+        zeroQuestionRequired,
+      });
   const avoid_repeating = collectDailyAvoidRepeating(ctx);
   const allowed = buildDailyC1AllowedClaims(ctx, outcome);
   const satisfiedFingerprints = (ctx.openLoops.satisfied_asks ?? [])
@@ -3330,8 +3374,9 @@ export function buildDailyC1StrategyCardV1(args: {
       daily_purpose: facts.accountability.daily_purpose ?? null,
       daily_prior_outcome: outcome,
       daily_pending_plan_proof_active: facts.accountability.pending_plan_proof?.active === true,
-      daily_reactivation: isReactivation,
-      daily_silence_tier: facts.accountability.silence_tier ?? null,
+      daily_reactivation: false,
+      daily_silence_cadence_route: sc?.route ?? null,
+      daily_silence_day: sc?.silence_day ?? null,
       daily_conversation_intent: conversationIntent,
       local_date: localDay.local_date,
       local_weekday: localDay.local_weekday,
@@ -3354,7 +3399,7 @@ export function buildDailyC1StrategyCardV1(args: {
     },
     move: {
       type: moveType,
-      priority: isReactivation ? "low" : "normal",
+      priority: sc && sc.route !== "normal_daily" ? "normal" : "normal",
       confidence: "high",
       reason: truncateText(dailyC1MoveReason(conversationIntent, moveType, ctx), MAX_REASON_CHARS),
     },
@@ -3362,7 +3407,11 @@ export function buildDailyC1StrategyCardV1(args: {
     must_not_do,
     allowed_claims: allowed,
     writer_constraints: {
-      max_questions: zeroQuestionRequired ? 0 : 1,
+      max_questions: silenceCadenceConstraints
+        ? silenceCadenceConstraints.max_questions
+        : zeroQuestionRequired
+          ? 0
+          : 1,
       avoid_repeating,
       tone_posture: resolveDailyC1TonePosture({ facts, moveType }),
     },
@@ -3394,7 +3443,11 @@ export function validateDailyC1StrategyCardV1(
   if (!DAILY_C1_ALLOWED_MOVES.includes(card.move.type)) {
     reasons.push("daily_c1_forbidden_move");
   }
-  if (card.route_kind === "low_pressure_reactivation" && card.move.type !== "reactivate_gently") {
+  if (
+    card.route_kind === "low_pressure_reactivation" &&
+    !silenceCadenceOverridesOldSilenceRouting(ctx.facts.silence_cadence) &&
+    card.move.type !== "reactivate_gently"
+  ) {
     reasons.push("reactivation_move_mismatch");
   }
   if (card.allowed_claims.proposal_active || card.allowed_claims.state_changed) {

@@ -274,6 +274,21 @@ const SUCCESS_BUILT: DailySmsBuilt = {
   },
 };
 
+const SILENCE_CADENCE_NO_SEND_BUILT: DailySmsBuilt = {
+  ok: false,
+  error: "silence_cadence_no_send",
+  dailyLaneMeta: {
+    silence_cadence_route: "no_send_space_day9",
+    silence_day: 9,
+    send_today: false,
+    intentional_space: true,
+    no_send_reason: "silence_cadence_space_day9",
+    skip_source: "silence_cadence_no_send",
+    lane_stage: "silence_cadence_no_send",
+    route_purpose: "main_active_accountability",
+  },
+};
+
 const NO_SEND_BUILT: DailySmsBuilt = {
   ok: false,
   error: "daily_v3_lane_no_send",
@@ -456,6 +471,20 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.drafts[0]?.current_body_to_send).toBe(SUCCESS_BUILT.smsBody);
     expect(db.drafts[0]?.current_body_source).toBe("machine");
     expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+  });
+
+  it("silence cadence no-send persists cadence metadata and machine_should_send=false", async () => {
+    setupHappyPath();
+    buildDailySmsContentMock.mockResolvedValue(SILENCE_CADENCE_NO_SEND_BUILT);
+    await generateTylerTextOverviewDailyDrafts();
+    expect(db.generations[0]?.machine_should_send).toBe(false);
+    expect(db.generations[0]?.machine_no_send_reason).toBe("silence_cadence_space_day9");
+    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
+    expect(meta.silence_cadence_route).toBe("no_send_space_day9");
+    expect(meta.silence_day).toBe(9);
+    expect(meta.send_today).toBe(false);
+    expect(meta.intentional_space).toBe(true);
+    expect(meta.no_send_reason).toBe("silence_cadence_space_day9");
   });
 
   it("no-send build still inserts generation with machine_should_send=false", async () => {

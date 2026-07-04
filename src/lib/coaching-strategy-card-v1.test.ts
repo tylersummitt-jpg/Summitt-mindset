@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
 
 import {
   ARC_CLARIFICATION_PREVIEW_NON_SPEAKABLE_MUST_NOT_DO,
@@ -1900,7 +1904,34 @@ describe("Daily C1 Strategy Card v1", () => {
     expect(card.move.type).toBe("protect_existing_plan");
   });
 
-  it("low_pressure_reactivation uses reactivate_gently", () => {
+  it("silence cadence route overrides reactivate_gently", () => {
+    const card = buildDailyC1StrategyCardV1({
+      ctx: buildDailyCtx(
+        dailyFacts({
+          route_kind: "main_active_accountability",
+          silence_cadence: {
+            route: "soft_reentry_day3",
+            silence_day: 3,
+            send_today: true,
+            no_send_reason: null,
+          },
+          suggested_coaching_move: "low_pressure_reactivation",
+          accountability: {
+            ...dailyFacts().accountability,
+            prior_outcome: null,
+            server_strategy: "reactivation_nudge",
+            silence_tier: "nudge",
+          },
+        })
+      ),
+    });
+    expect(card.move.type).not.toBe("reactivate_gently");
+    expect(card.move.type).toBe("recover_today");
+    expect(card.server_truth_summary.daily_silence_cadence_route).toBe("soft_reentry_day3");
+    expect(card.server_truth_summary.daily_reactivation).toBe(false);
+  });
+
+  it("low_pressure_reactivation without silence_cadence no longer uses reactivate_gently", () => {
     const card = buildDailyC1StrategyCardV1({
       ctx: buildDailyCtx(
         dailyFacts({
@@ -1914,11 +1945,8 @@ describe("Daily C1 Strategy Card v1", () => {
         })
       ),
     });
-    expect(card.move.type).toBe("reactivate_gently");
-    expect(card.writer_constraints.tone_posture).toBe("gentle_reentry");
-    expect(card.writer_constraints.max_questions).toBeLessThanOrEqual(1);
-    expect(card.allowed_claims.proof).toBe(false);
-    expect(card.allowed_claims.victory_room).toBe(false);
+    expect(card.move.type).not.toBe("reactivate_gently");
+    expect(card.server_truth_summary.daily_reactivation).toBe(false);
   });
 
   it("C1 eligibility excludes contract, pending, and refresh routes", () => {
@@ -1962,13 +1990,22 @@ describe("Daily C1 Strategy Card v1", () => {
     expect(card.writer_constraints.avoid_repeating.length).toBeGreaterThan(0);
   });
 
-  it("invalid card repairs to safe daily default", () => {
-    const ctx = buildDailyCtx(dailyFacts({ route_kind: "low_pressure_reactivation" }));
+  it("invalid card repairs to safe daily default with silence cadence", () => {
+    const ctx = buildDailyCtx(
+      dailyFacts({
+        silence_cadence: {
+          route: "find_obstacle_day6",
+          silence_day: 6,
+          send_today: true,
+          no_send_reason: null,
+        },
+      })
+    );
     const bad = buildDailyC1StrategyCardV1({ ctx });
     bad.move.type = "propose_adjustment";
     bad.allowed_claims.proposal_active = true;
     const result = validateAndRepairDailyC1StrategyCardV1(bad, ctx);
-    expect(result.card.move.type).toBe("reactivate_gently");
+    expect(result.card.move.type).not.toBe("reactivate_gently");
     expect(result.card.allowed_claims.proposal_active).toBe(false);
   });
 

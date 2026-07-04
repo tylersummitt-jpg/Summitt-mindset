@@ -39,6 +39,7 @@ import {
 import { buildSmsPatternSignalLaneGuardrails } from "@/lib/sms-pattern-signal";
 import type { DailySatisfiedAskContext } from "@/lib/daily-satisfied-ask-context";
 import type { RelationshipAnchorSources } from "@/lib/sms-relationship-anchors";
+import type { DailySilenceCadenceFacts } from "@/lib/sms-silence-cadence-v1";
 import { slimDailySatisfiedAskContextForTelemetry } from "@/lib/daily-satisfied-ask-context";
 import { applyDailyStaleAskDetectOnly } from "@/lib/daily-stale-ask-guard";
 import {
@@ -399,6 +400,8 @@ export type DailyV3RelationshipFacts = {
   fresh_move?: DailyFreshMoveFacts | null;
   /** Optional user-provided people context for relationship anchors (read-only). */
   relationship_anchor_sources?: RelationshipAnchorSources | null;
+  /** Silence Cadence V1 — single outbound silence/re-entry authority. */
+  silence_cadence?: DailySilenceCadenceFacts | null;
   suggested_coaching_move: string;
   constraints: {
     max_chars: number;
@@ -1233,6 +1236,35 @@ function dailyLanePostValidateRepairExcluded(facts: DailyV3RelationshipFacts): b
 async function produceDailyV3RelationshipSmsImpl(
   args: DailyV3RelationshipLaneInput
 ): Promise<DailyV3RelationshipLaneResult> {
+  const sc = args.facts.silence_cadence;
+  if (sc && !sc.send_today) {
+    return {
+      body: "",
+      shouldSend: false,
+      noSendReason: sc.no_send_reason ?? "silence_cadence_no_send",
+      replySource: "v3_daily_relationship_lane",
+      turnPurpose: "silence_cadence_no_send",
+      voiceConfidence: null,
+      usedFacts: [],
+      safetyNotes: [],
+      openAiOk: false,
+      metadata: {
+        silence_cadence_route: sc.route,
+        silence_day: sc.silence_day,
+        send_today: sc.send_today,
+        intentional_space: true,
+        no_send_reason: sc.no_send_reason,
+        skip_source: "silence_cadence_no_send",
+        lane_stage: "silence_cadence_no_send",
+        daily_writer_invoked: false,
+        v3_brain_version: V3_BRAIN_VERSION,
+        daily_v3_lane_used: true,
+        route_purpose: args.facts.route_kind,
+      },
+      writerOpenAiCapture: null,
+    };
+  }
+
   let factsAfterThread = enrichDailyFactsWithThreadFreshness(args.facts);
   const useWritingBrief = useDailySmsWritingBriefV1(factsAfterThread);
   let briefThread: RecentExactThreadForBriefResult | null = null;

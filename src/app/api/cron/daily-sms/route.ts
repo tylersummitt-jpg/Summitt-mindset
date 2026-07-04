@@ -79,18 +79,12 @@ import {
 } from "@/lib/v2-outbound-check-sent";
 import { loadV2CoachingMemoryForPrompt, recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
 import {
-  isReactivationNudgeDue,
-  parseCadenceLevelFromCheckSentPayload,
-  shouldEnterLowPressureReactivation,
-  V2_REACTIVATION_ENTRY_REASON,
-} from "@/lib/v2-reactivation";
-import {
   deriveV2CadencePayload,
   shouldSendV2CadenceToday,
   type V2CadencePayload,
 } from "@/lib/v2-cadence";
+import { resolveSilenceCadenceForDailyUser } from "@/lib/sms-silence-cadence-v1";
 import {
-  enterLowPressureReactivationMode,
   getActiveCommitment,
   hasRecentInboundAccountabilityExchange,
   getLastNV2CheckSentPayloads,
@@ -1435,6 +1429,7 @@ export async function GET(req: Request) {
     skippedOptedOut: 0,
     skippedAlreadyCompleted: 0,
     skippedCadence: 0,
+    skippedSilenceCadenceSpace: 0,
     skippedActiveInboundThread: 0,
     skippedReactivationCooldown: 0,
     skippedRefreshIdentityAwaiting: 0,
@@ -2304,8 +2299,8 @@ export async function GET(req: Request) {
         continue;
       }
 
-      // V2: optional transition into low-pressure reactivation + cadence gate (cadence suspended while paused).
-      stage = "v2_cadence_gate";
+      // Silence Cadence V1 gate + optional v2 cadence (normal_daily only).
+      stage = "silence_cadence_gate";
       let activeCadence = await getActiveCommitment(audienceUser.clerk_user_id);
       if (activeCadence?.behavior_statement?.trim()) {
         await clearStaleAdaptiveContractColumns(activeCadence.id);
@@ -2314,61 +2309,24 @@ export async function GET(req: Request) {
           activeCadence = refreshedCadence;
         }
         const nowCadence = new Date();
-        const nowMsGate = nowCadence.getTime();
 
-        const recentForPhase = await getRecentV2EventsForAi(activeCadence.id);
-        const silenceForPhase = deriveV2SilenceContext(recentForPhase, nowCadence);
-        const plannedForPhase = await loadRecentPlannedInterruptionSignalForCommitment({
-          commitmentId: activeCadence.id,
+        const silenceCadence = await resolveSilenceCadenceForDailyUser({
           clerkUserId: audienceUser.clerk_user_id,
-          now: nowCadence,
+          commitmentId: activeCadence.id,
+          commitmentStartedAt: activeCadence.started_at,
+          todayLocalDayKey: todayKey,
+          timezone,
         });
+
+        if (!silenceCadence.send_today) {
+          stats.skippedSilenceCadenceSpace += 1;
+          stats.skippedIntentional += 1;
+          continue;
+        }
 
         const userCadenceOverride = shouldApplyUserCadenceOverride(commsPrefs, nowCadence);
 
-        if (activeCadence.accountability_phase === "active_accountability") {
-          if (!isNewActive14Days) {
-            const lastTwoRows = await getLastNV2CheckSentPayloads(activeCadence.id, 2);
-            const lastTwoLevels = lastTwoRows.map((r) =>
-              parseCadenceLevelFromCheckSentPayload(r.payload_json)
-            );
-            if (
-              plannedForPhase == null &&
-              !isPauseActive(commsPrefs, nowCadence) &&
-              shouldEnterLowPressureReactivation({
-                phase: activeCadence.accountability_phase,
-                commitment: activeCadence,
-                nowMs: nowMsGate,
-                silence: silenceForPhase,
-                lastTwoCheckSentCadenceLevels: lastTwoLevels,
-                recentEventsNewestFirst: recentForPhase,
-              })
-            ) {
-              await enterLowPressureReactivationMode(activeCadence.id, V2_REACTIVATION_ENTRY_REASON);
-              await recomputeV2CoachingMemory(activeCadence.id, {
-                reasonCode: "daily_sms_enter_reactivation",
-              });
-              const reloadedAfterEnter = await getActiveCommitment(audienceUser.clerk_user_id);
-              if (reloadedAfterEnter?.behavior_statement?.trim()) {
-                activeCadence = reloadedAfterEnter;
-              }
-            }
-          }
-        }
-
-        if (activeCadence.accountability_phase === "low_pressure_reactivation") {
-          if (
-            !isReactivationNudgeDue({
-              reactivationEnteredAt: activeCadence.reactivation_entered_at,
-              reactivationLastSentAt: activeCadence.reactivation_last_sent_at,
-              nowMs: nowMsGate,
-            })
-          ) {
-            stats.skippedReactivationCooldown += 1;
-            stats.skippedIntentional += 1;
-            continue;
-          }
-        } else {
+        if (silenceCadence.route === "normal_daily") {
           const [recentCadence, lastCheckCadence, latestOutcomeCadence] = await Promise.all([
             getRecentV2EventsForAi(activeCadence.id),
             getLastV2CheckSentForCommitment(activeCadence.id),
@@ -2382,10 +2340,6 @@ export async function GET(req: Request) {
           const hasBlockerPreviewCadence = Boolean(
             blockerPreviewCadence && blockerPreviewCadence.trim().length > 0
           );
-          // Phase 1A product policy:
-          // - expected daily-attempt V2 users (new + normal active) should not be skipped by relax cadence.
-          // - reduced-contact skipping is preserved via low_pressure_reactivation branch above.
-          // - user cadence_override (Slice C) applies even for expected daily-attempt users.
           const cadencePayloadGate = deriveV2CadencePayload({
             eventsNewestFirst: recentCadence,
             now: nowCadence,

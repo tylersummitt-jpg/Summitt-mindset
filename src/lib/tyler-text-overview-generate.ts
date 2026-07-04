@@ -88,6 +88,12 @@ function readMetadataNumber(metadata: Record<string, unknown>, key: string): num
   return null;
 }
 
+function readMetadataBoolean(metadata: Record<string, unknown>, key: string): boolean | null {
+  const raw = metadata[key];
+  if (typeof raw === "boolean") return raw;
+  return null;
+}
+
 function metadataFromBuilt(built: DailySmsBuilt): Record<string, unknown> {
   if (!built.ok && built.dailyLaneMeta) {
     return built.dailyLaneMeta;
@@ -181,6 +187,11 @@ export function buildTylerTextOverviewGenerationMetadata(args: {
     route_kind: resolveTylerTextOverviewRouteKind(args.built),
     lane_stage: readMetadataString(meta, "lane_stage"),
     skip_source: readMetadataString(meta, "skip_source"),
+    silence_cadence_route: readMetadataString(meta, "silence_cadence_route"),
+    silence_day: readMetadataNumber(meta, "silence_day"),
+    send_today: readMetadataBoolean(meta, "send_today"),
+    intentional_space: readMetadataBoolean(meta, "intentional_space"),
+    no_send_reason: readMetadataString(meta, "no_send_reason"),
     v3_daily_relationship_lane: args.built.ok ? args.built.v3DailyRelationshipLane ?? null : null,
     v3_daily_sms: args.built.ok ? args.built.v3DailySms ?? null : null,
   };

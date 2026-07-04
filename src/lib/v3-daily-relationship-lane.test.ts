@@ -906,16 +906,16 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(userMsg).not.toContain("FIRST-TEXT STYLE");
   });
 
-  it("low_pressure_reactivation uses Writing Brief with reactivation posture", async () => {
+  it("silence cadence day 3 uses Writing Brief with route card authority", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
           message: {
             content: JSON.stringify({
               should_send: true,
-              body: "No pressure — when you're ready, one honest rep on distribution.",
+              body: "Still here — one honest rep on distribution when you can.",
               no_send_reason: null,
-              turn_purpose: "daily_reactivation",
+              turn_purpose: "soft_reentry_day3",
               voice_confidence: 0.75,
               used_facts: [],
               safety_notes: [],
@@ -927,23 +927,50 @@ describe("produceDailyV3RelationshipSms", () => {
 
     const r = await produceDailyV3RelationshipSms({
       facts: baseFacts({
-        route_kind: "low_pressure_reactivation",
+        silence_cadence: {
+          route: "soft_reentry_day3",
+          silence_day: 3,
+          send_today: true,
+          no_send_reason: null,
+        },
         accountability: {
           ...baseFacts().accountability,
-          server_strategy: "reactivation_nudge",
-          reentry_active: true,
+          server_strategy: "standard_check",
+          reentry_active: false,
         },
       }),
-      telemetry_fact_sources: ["test_low_pressure_brief"],
+      telemetry_fact_sources: ["test_silence_cadence_brief"],
     });
 
     const { systemMsg, userMsg } = getWriterPromptMessages();
     expectC1WritingBriefPrompt({ systemMsg, userMsg });
-    expect(userMsg).toContain('"route_kind":"low_pressure_reactivation"');
-    expect(userMsg).toMatch(/"posture":"reactivation"/);
-    expect(userMsg.length).toBeLessThan(9000);
+    expect(userMsg).toContain('"silence_cadence"');
+    expect(userMsg).toContain('"route":"soft_reentry_day3"');
+    expect(systemMsg).toMatch(/When silence_cadence route card is present/i);
+    expect(userMsg).not.toMatch(/"posture":"reactivation"/);
     expect(r.metadata.daily_writing_brief_used).toBe(true);
     expect(r.metadata.writer_prompt_path).toBe("daily_writing_brief_v1");
+  });
+
+  it("silence cadence no-send skips writer without OpenAI call", async () => {
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts({
+        silence_cadence: {
+          route: "no_send_space_day9",
+          silence_day: 9,
+          send_today: false,
+          no_send_reason: "silence_cadence_space_day9",
+        },
+      }),
+      telemetry_fact_sources: ["test_silence_cadence_no_send"],
+    });
+
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+    expect(r.noSendReason).toBe("silence_cadence_space_day9");
+    expect(createMock).not.toHaveBeenCalled();
+    expect(r.metadata.daily_writer_invoked).toBe(false);
+    expect(r.metadata.lane_stage).toBe("silence_cadence_no_send");
   });
 
   it("contract_prompt route attaches Daily C2 Strategy Card and keeps semantic facts", async () => {

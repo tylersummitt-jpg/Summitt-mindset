@@ -65,12 +65,13 @@ import {
 } from "@/lib/v2-refresh-session";
 import { reconcileCheckSentPostSendBookkeepingForCommitment } from "@/lib/v2-outbound-check-sent";
 import { loadV2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory";
+import { parseCadenceLevelFromCheckSentPayload } from "@/lib/v2-reactivation";
 import {
-  isReactivationNudgeDue,
-  parseCadenceLevelFromCheckSentPayload,
-  shouldEnterLowPressureReactivation,
-  V2_REACTIVATION_ENTRY_REASON,
-} from "@/lib/v2-reactivation";
+  buildSilenceCadenceNoSendLaneMeta,
+  resolveSilenceCadenceForDailyUser,
+  silenceCadenceOverridesOldSilenceRouting,
+  toDailySilenceCadenceFacts,
+} from "@/lib/sms-silence-cadence-v1";
 import {
   deriveV2CadencePayload,
   shouldSendV2CadenceToday,
@@ -482,287 +483,20 @@ export async function buildDailySmsContent(
       });
     }
 
-    if (active.accountability_phase === "low_pressure_reactivation") {
-      if (
-        !isReactivationNudgeDue({
-          reactivationEnteredAt: active.reactivation_entered_at,
-          reactivationLastSentAt: active.reactivation_last_sent_at,
-          nowMs: now.getTime(),
-        })
-      ) {
-        return { ok: false, error: "v2_reactivation_not_due" };
-      }
+    const silenceCadenceResult = await resolveSilenceCadenceForDailyUser({
+      clerkUserId,
+      commitmentId: active.id,
+      commitmentStartedAt: active.started_at,
+      todayLocalDayKey: accountabilityDayKey,
+      timezone,
+    });
+    const silenceCadenceFacts = toDailySilenceCadenceFacts(silenceCadenceResult);
 
-      const recentEvents = await getRecentV2EventsForAi(active.id);
-      const serverState = deriveV2CoachingState(recentEvents);
-      const silenceCtx = deriveV2SilenceContext(recentEvents, now);
-      const reentryCtx = deriveV2ReentryContext(recentEvents, now);
-      const pausedCadence = {
-        level: "every_3_days" as const,
-        reason_code: "paused_low_pressure_reactivation",
-        version: 1 as const,
-      };
-      const holdNextMove = {
-        type: "hold_standard" as const,
-        reason_code: "hold_while_reactivation",
-        version: 1 as const,
-      };
-
-      const { data: profileRowRe } = await supabaseServer
-        .from("user_profiles")
-        .select("preferred_name")
-        .eq("clerk_user_id", clerkUserId)
-        .maybeSingle();
-
-      const preferredNameRe =
-        typeof profileRowRe?.preferred_name === "string" ? profileRowRe.preferred_name : null;
-
-      const coachingMemoryRe = await loadV2CoachingMemoryForPrompt(active.id);
-
-      const overlayActiveRe = isV2AdaptiveOverlayActive(active, now.getTime());
-
-      let recentSmsContextBlock: string | null = null;
-      let reactConvPack: V2SmsConversationContextPack | null = null;
-      try {
-        reactConvPack = await buildV2SmsConversationContextPack({
-          clerkUserId,
-          commitmentId: active.id,
-          commitment: active,
-          timezone,
-          preloadedCoachingMemory: coachingMemoryRe,
-          preloadedEventsNewestFirst: recentEvents,
-        });
-        recentSmsContextBlock = reactConvPack.promptBlock;
-      } catch (e) {
-        console.warn("[daily-sms] sms_conversation_context_pack_failed", {
-          commitment_id: active.id,
-          message: e instanceof Error ? e.message : String(e),
-        });
-      }
-
-      const dailyPurposeRe = deriveV2DailyMessagePurpose({
-        contractProposalMode: false,
-        serverStrategy: "reactivation_nudge",
-        reentry: reentryCtx,
-        silence: silenceCtx,
-        serverState,
-        overlayActive: overlayActiveRe,
-        hasBlockerPreview: false,
-        eventsNewestFirst: recentEvents,
-        coachingMemory: coachingMemoryRe,
-        commitmentStartedAt: active.started_at,
-        nowMs: now.getTime(),
-        wave7SurfaceEvolution: false,
-      });
-
-      const stratRe = buildV2OutboundAccountabilitySmsForStrategy({
-        clerkUserId,
-        dayKey: accountabilityDayKey,
-        behaviorStatement: active.behavior_statement,
-        serverStrategy: "reactivation_nudge",
-        nextMove: "hold_standard",
-      });
-      const templateIdRe = stratRe.templateId;
-
-      const patternHintsRe = [
-        reactConvPack?.proofHighlight,
-        reactConvPack?.comebackSignal,
-        reactConvPack?.recentBlockerPattern,
-      ]
-        .filter((x): x is string => Boolean(x && typeof x === "string"))
-        .join(" | ");
-      const relationshipToneSummaryRe =
-        coachingMemoryRe?.sms_relationship_profile != null
-          ? JSON.stringify(coachingMemoryRe.sms_relationship_profile).slice(0, 240)
-          : null;
-
-      const relationshipMemoryPacketRe = await buildSmsRelationshipMemoryPacket({
-        clerkUserId,
-        commitmentId: active.id,
-        timezone,
-      });
-
-      const factsCoreReBase: DailyV3RelationshipFactsForMove = {
-        route_kind: "low_pressure_reactivation",
-        accountability_day_key: accountabilityDayKey,
-        user: {
-          clerk_user_id: clerkUserId,
-          preferred_name: preferredNameRe,
-          timezone,
-          local_time_iso: new Date(now.toLocaleString("en-US", { timeZone: timezone })).toISOString(),
-          relationship_profile_summary: relationshipToneSummaryRe,
-        },
-        commitment: {
-          id: active.id,
-          title: active.title,
-          behavior_statement: active.behavior_statement,
-          effective_ask: active.behavior_statement.trim(),
-          accountability_phase: active.accountability_phase,
-          identity_anchor_allowed: false,
-          identity_anchor_short: null,
-        },
-        thread_memory: assembleDailyThreadMemoryFromRelationshipPacket(relationshipMemoryPacketRe, {
-          convLatestOutbound: reactConvPack?.lastOutboundPreview ?? null,
-          convLatestInbound: reactConvPack?.lastInboundPreview ?? null,
-          recentTranscriptOrContextBlock: recentSmsContextBlock,
-          coachingMemorySnippet: buildCoachingMemorySnippetForDailyLane(coachingMemoryRe),
-          extraDoNotRepeatHints: deriveDoNotRepeatHintsFromCoachingMemory(coachingMemoryRe),
-          recentPatternHints: patternHintsRe.length > 0 ? patternHintsRe.slice(0, 480) : null,
-        }),
-        accountability: {
-          daily_purpose: dailyPurposeRe,
-          server_strategy: "reactivation_nudge",
-          next_move_type: "hold_standard",
-          prior_outcome: null,
-          yes_streak_14d: coachingMemoryRe?.yes_streak_14d ?? null,
-          no_count_14d: coachingMemoryRe?.no_count_14d ?? null,
-          partial_count_14d: coachingMemoryRe?.partial_count_14d ?? null,
-          blocker_preview: null,
-          proof_or_milestone_signal: null,
-          silence_tier: silenceCtx.tier,
-          unanswered_checks: silenceCtx.unanswered_checks,
-          days_since_last_user_outcome: silenceCtx.days_since_last_user_outcome,
-          reentry_active: reentryCtx.active,
-          overlay_active: overlayActiveRe,
-          evolution_pattern_hint: null,
-          contract_proposal_mode: false,
-        },
-        ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
-        relationship_anchor_sources: relationshipMemoryPacketRe.relationship_anchor_sources,
-      };
-      const factsCoreRe = enrichDailyFactsCoreWithPendingPlanProof(factsCoreReBase, {
-        eventsNewestFirst: recentEvents,
-        openQuestionAnsweredAt: relationshipMemoryPacketRe.open_question_answered_at,
-        userAnswersNewestFirst: relationshipMemoryPacketRe.last_5_user_answers.map((a) => ({
-          text: a.text,
-          answered_at: a.answered_at,
-        })),
-      });
-      const suggestedMoveRe = deriveSuggestedCoachingMoveForDailyFacts(factsCoreRe);
-      const factsRe: DailyV3RelationshipFacts = attachDailySatisfiedAskToFacts(
-        {
-          ...factsCoreRe,
-          suggested_coaching_move: suggestedMoveRe,
-          constraints: {
-            max_chars: 300,
-            one_sms: true,
-            no_raw_title_or_behavior_paste: true,
-            no_generic_motivation: true,
-            if_unsafe_return_no_send: true,
-          },
-        },
-        { recentEvents, packet: relationshipMemoryPacketRe }
-      );
-      const laneRe = await produceDailyV3RelationshipSms({
-        facts: factsRe,
-        commitmentRow: active,
-        telemetry_fact_sources: [
-          "deriveV2CoachingState",
-          "deriveV2SilenceContext",
-          "deriveV2ReentryContext",
-          "deriveV2DailyMessagePurpose",
-          "getRecentV2EventsForAi",
-          "loadV2CoachingMemoryForPrompt",
-          "buildV2SmsConversationContextPack",
-          "buildV2OutboundAccountabilitySmsForStrategy",
-        ],
-      });
-      if (!laneRe.shouldSend || !laneRe.body.trim()) {
-        return {
-          ok: false,
-          error: "daily_v3_lane_no_send",
-          dailyLaneMeta: enrichDailyLaneNoSendMeta(laneRe.metadata, laneRe.noSendReason),
-          writerOpenAiCapture: laneRe.writerOpenAiCapture ?? null,
-        };
-      }
-      const smsBodyRe = laneRe.body;
-      const aiPayloadRe = {
-        ...buildCheckSentAiPayload({
-          model: V2_OUTBOUND_AI_MODEL,
-          promptVersion: V2_OUTBOUND_AI_PROMPT_VERSION,
-          serverState,
-          serverStrategy: "reactivation_nudge",
-          message: smsBodyRe,
-          confidence: laneRe.voiceConfidence,
-          fallbackUsed: false,
-        }),
-        reply_source: "v3_daily_relationship_lane",
-        v3_brain: {
-          v3_brain_version: V3_BRAIN_VERSION,
-          v3_coach_reply_source: "v3_daily_relationship_lane",
-          v3_memory_used: true,
-          v3_daily_purpose: dailyPurposeRe,
-          v3_deterministic_fallback_used: false,
-          daily_v3_lane_used: true,
-          v3_lane_reply_source: "v3_daily_relationship_lane",
-          v3_lane_turn_purpose: laneRe.turnPurpose,
-          ...relationshipObservabilityFromLaneMetadata(laneRe.metadata),
-          v3_candidate_body: (laneRe.metadata.v3_candidate_body as string | undefined) ?? laneRe.body,
-          old_daily_writer_used_as_voice: false,
-          old_daily_writer_fact_sources: laneRe.metadata.old_daily_writer_fact_sources,
-          daily_facts_summary: laneRe.metadata.daily_facts_summary,
-          suggested_coaching_move: laneRe.metadata.suggested_coaching_move,
-          route_purpose: "low_pressure_reactivation",
-          voice_writer_chain: ["v3_daily_relationship_lane", "north_star_validator", "final_voice_gate"],
-          ...buildTimingAnchorBrainMetadata(
-            factsRe.accountability.timing_anchor_memory,
-            factsRe.accountability.pending_plan_proof
-          ),
-          coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
-            buildCoachingBriefV1FromDailyFacts(factsRe)
-          ),
-        },
-      };
-
-      const silencePayloadRe = {
-        tier: silenceCtx.tier,
-        unanswered_checks: silenceCtx.unanswered_checks,
-        days_since_last_user_outcome: silenceCtx.days_since_last_user_outcome,
-      };
-
+    if (!silenceCadenceResult.send_today) {
       return {
-        ok: true,
-        smsBody: smsBodyRe,
-        deliveryStateSnapshot: null,
-        day2SpecialUsed: false,
-        v2Accountability: true,
-        v2ReactivationNudge: true,
-        v2CommitmentId: active.id,
-        v2TemplateId: templateIdRe,
-        v2TemplateFamily: "reactivation",
-        v2PriorOutcome: null,
-        v2BlockerPreview: null,
-        v2AiPayload: aiPayloadRe,
-        v2SilencePayload: silencePayloadRe,
-        v2ReentryPayload: { active: reentryCtx.active },
-        v2NextMovePayload: {
-          type: holdNextMove.type,
-          reason_code: holdNextMove.reason_code,
-          version: holdNextMove.version,
-        },
-        v2CadencePayload: pausedCadence,
-        v2ContractProposalMode: false,
-        v2ContractProposalKind: null,
-        v2ProposalBindingText: null,
-        v2ContractProposalPayload: null,
-        v2EffectiveAskText: active.behavior_statement.trim(),
-        v3DailySms: true,
-        v3DailyDeterministicFallback: false,
-        v3DailyRelationshipLane: true,
-        v3PraisePolicyContext: praisePolicyContextFromLaneMetadata(laneRe.metadata),
-        dailySatisfiedAskContext: factsRe.daily_satisfied_ask_context ?? null,
-        dailyUnifiedGuardCtx: buildDailyOutboundUnifiedGuardCtx({
-          routeKind: "low_pressure_reactivation",
-          clerkUserId,
-          commitmentId: active.id,
-          priorCoachBody: relationshipMemoryPacketRe.last_outbound_full_body,
-          priorCoachSentAt: null,
-          lastInboundBody: relationshipMemoryPacketRe.last_inbound_full_body,
-          priorOutcome: null,
-          pendingPlanProof: factsRe.accountability.pending_plan_proof ?? null,
-          proofOrMilestoneSignal: factsRe.accountability.proof_or_milestone_signal ?? null,
-        }),
-        writerOpenAiCapture: laneRe.writerOpenAiCapture ?? null,
+        ok: false,
+        error: "silence_cadence_no_send",
+        dailyLaneMeta: buildSilenceCadenceNoSendLaneMeta(silenceCadenceResult),
       };
     }
 
@@ -1746,6 +1480,9 @@ export async function buildDailySmsContent(
       silence: silenceCtx,
       reentry: reentryCtx,
     });
+    if (silenceCadenceOverridesOldSilenceRouting(silenceCadenceFacts)) {
+      serverStrategy = baseStrategy;
+    }
     if (plannedInterruptionActive) {
       serverStrategy = dailyServerStrategyDuringPlannedInterruption(
         serverStrategy
@@ -1976,7 +1713,7 @@ export async function buildDailySmsContent(
       pendingRow: pendingEvolutionRec,
     });
 
-    const dailyPurpose = deriveV2DailyMessagePurpose({
+    const dailyPurposeRaw = deriveV2DailyMessagePurpose({
       contractProposalMode,
       serverStrategy,
       reentry: reentryCtx,
@@ -1991,6 +1728,9 @@ export async function buildDailySmsContent(
       wave7SurfaceEvolution: wave7Surface,
       patternRecurrenceEligible: smsPatternRecurrenceEligibleForDailyPurpose(patternSignal),
     });
+    const dailyPurpose = silenceCadenceOverridesOldSilenceRouting(silenceCadenceFacts)
+      ? ("standard_accountability_check" as const)
+      : dailyPurposeRaw;
 
     const evolutionHint =
       dailyPurpose === "evolution_pattern_check" && wave7Pick
@@ -2146,6 +1886,7 @@ export async function buildDailySmsContent(
         : {}),
       ...(victoryBackgroundFacts ? { victory_background: victoryBackgroundFacts } : {}),
       relationship_anchor_sources: relationshipMemoryPacketMain.relationship_anchor_sources,
+      silence_cadence: silenceCadenceFacts,
     };
     const factsCoreWithPlanProof = enrichDailyFactsCoreWithPendingPlanProof(factsCoreUnified, {
       eventsNewestFirst: recentEvents,
@@ -2262,6 +2003,9 @@ export async function buildDailySmsContent(
         coaching_brief_v1: compactCoachingBriefV1ForV3Brain(
           buildCoachingBriefV1FromDailyFacts(factsUnified)
         ),
+        silence_cadence_route: silenceCadenceFacts.route,
+        silence_day: silenceCadenceFacts.silence_day,
+        send_today: silenceCadenceFacts.send_today,
         ...coachGoalEvolutionInviteTelemetry,
         ...(recommitSameVisibleContractSuppressed
           ? {

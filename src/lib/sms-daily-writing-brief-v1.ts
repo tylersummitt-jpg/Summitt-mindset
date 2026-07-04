@@ -20,6 +20,12 @@ import type { RelationshipAnchorSources } from "@/lib/sms-relationship-anchors";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { TimingAnchorMemory } from "@/lib/timing-anchor-memory";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import type { DailySilenceCadenceFacts, SilenceCadenceRoute } from "@/lib/sms-silence-cadence-v1";
+import {
+  buildSilenceCadenceRouteCardPromptAppendix,
+  SILENCE_CADENCE_ROUTE_CARDS,
+  silenceCadenceOverridesOldSilenceRouting,
+} from "@/lib/sms-silence-cadence-v1";
 
 const DAILY_BRIEF_MAX_CHARS = 300;
 const TIMING_GUIDANCE_MAX = 2;
@@ -86,8 +92,12 @@ export type DailySmsWritingBriefV1 = {
       can_reference_victory_room: boolean;
     };
     posture: string;
-    silence_note?: string | null;
   };
+  silence_cadence: {
+    route: SilenceCadenceRoute;
+    silence_day: number;
+    send_today: boolean;
+  } | null;
   recent_exact_thread: RecentExactThreadForBriefResult["window"] & {
     messages: RecentExactThreadForBriefResult["messages"];
     message_count: number;
@@ -375,11 +385,9 @@ export function buildSuggestedMoveForDailyWritingBrief(
 }
 
 function deriveBriefPosture(facts: DailyV3RelationshipFacts): string {
-  if (facts.route_kind === "low_pressure_reactivation") return "reactivation";
+  if (silenceCadenceOverridesOldSilenceRouting(facts.silence_cadence)) return "hold_standard";
   if (facts.accountability.coach_goal_evolution_invite?.should_invite) return "invite_goal_evolution";
-  if (facts.accountability.reentry_active) return "recover";
   if (facts.accountability.pending_plan_proof?.active) return "plan_today";
-  if (facts.accountability.server_strategy === "reactivation_nudge") return "reactivation";
   return "hold_standard";
 }
 
@@ -546,14 +554,14 @@ export function buildDailySmsWritingBriefV1(
       },
       claims: buildAuthoritativeClaims(args.strategy_card, cal),
       posture: deriveBriefPosture(f),
-      silence_note:
-        f.accountability.unanswered_checks > 0
-          ? truncateText(
-              `${f.accountability.unanswered_checks} recent check(s) without user outcome`,
-              120
-            )
-          : null,
     },
+    silence_cadence: f.silence_cadence
+      ? {
+          route: f.silence_cadence.route,
+          silence_day: f.silence_cadence.silence_day,
+          send_today: f.silence_cadence.send_today,
+        }
+      : null,
     recent_exact_thread: {
       ...args.thread.window,
       messages: args.thread.messages,
@@ -587,10 +595,17 @@ export function buildDailySmsBriefSystemPrompt(args: {
   zeroQuestionMode: boolean;
   pendingPlanActive: boolean;
   goalEvolutionInvite: boolean;
+  silenceCadenceRoute?: SilenceCadenceRoute | null;
 }): string {
-  const questionLine = args.zeroQuestionMode
-    ? "Write one statement-only coaching touch — no question mark, no hidden ask."
-    : "At most one question, or one concrete action.";
+  const scRoute = args.silenceCadenceRoute;
+  const scCard = scRoute ? SILENCE_CADENCE_ROUTE_CARDS[scRoute] : null;
+  const maxQ = scCard?.max_questions;
+  const questionLine =
+    maxQ === 0 || args.zeroQuestionMode
+      ? "Write one statement-only coaching touch — no question mark, no hidden ask."
+      : maxQ === 1
+        ? "At most one question, or one concrete action."
+        : "At most one question, or one concrete action.";
   const extras: string[] = [];
   if (args.pendingPlanActive) {
     extras.push("- Pending plan proof is active: close the plan loop before a fresh accountability ask.");
@@ -598,12 +613,24 @@ export function buildDailySmsBriefSystemPrompt(args: {
   if (args.goalEvolutionInvite) {
     extras.push("- Goal evolution invite is allowed only as a soft invitation — no goal mutation.");
   }
+  const silenceCadenceBlock =
+    scRoute && scRoute !== "normal_daily"
+      ? `\n${buildSilenceCadenceRouteCardPromptAppendix(scRoute)}\n`
+      : "";
+
+  const authorityOrder =
+    scRoute && scRoute !== "normal_daily"
+      ? "Authority order when silence_cadence is present: silence_cadence route card > authoritative_truth + recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory."
+      : "Authority order: authoritative_truth + recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.";
 
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
 Use DAILY_SMS_WRITING_BRIEF_V1 as server truth. Write one human SMS.
-Authority order: authoritative_truth + recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.
-suggested_move is a hint only — never override proof truth or exact thread.
+${authorityOrder}
+When silence_cadence route card is present, it overrides old silence, reentry, reactivation, silence_note, and silence_nudge hints. current_standard still applies.
+Do not copy example shapes verbatim. Do not say no worries, please respond, or whenever you are ready before final_daily_mode_day14.
+${silenceCadenceBlock}
+suggested_move is a hint only — never override proof truth, exact thread, or silence_cadence route card.
 relationship_anchors are style hints only — never proof; use people sparingly and never as guilt.
 durable_relationship_memory is background only — never proof.
 ${questionLine}
@@ -630,6 +657,7 @@ export function buildDailySmsWriterMessagesFromBrief(brief: DailySmsWritingBrief
     zeroQuestionMode: brief.suggested_move.max_questions === 0,
     pendingPlanActive: brief.open_loops.pending_plan_active === true,
     goalEvolutionInvite: brief.open_loops.goal_evolution_invite?.should_invite === true,
+    silenceCadenceRoute: brief.silence_cadence?.route ?? null,
   });
   const user = `DAILY_SMS_WRITING_BRIEF_V1 (server truth — not copyable prose):
 ${JSON.stringify(brief)}
