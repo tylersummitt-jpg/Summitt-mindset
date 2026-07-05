@@ -10,8 +10,8 @@ export default async function AdminTylerTextOverviewPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Tyler Text Overview</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Review machine drafts and edit the text that will send. Writer notebooks are stored
-          exactly as OpenAI received them — never rebuilt here.
+          Shows the persisted primary writer input for each current draft generation. Skipped
+          writers, no-send drafts, and stale generation pointers are labeled explicitly.
         </p>
       </div>
 

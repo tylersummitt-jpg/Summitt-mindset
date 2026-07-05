@@ -165,7 +165,17 @@ export type TylerTextOverviewRefreshStaleStats = {
   errors_preview: string[];
 };
 
-/** Minimal admin UI row — no phone, verdict, or debug metadata. */
+import type {
+  TylerTextOverviewNotebookDisplayMode,
+  TylerTextOverviewNotebookFamily,
+} from "@/lib/tyler-text-overview-notebook-display";
+
+export type {
+  TylerTextOverviewNotebookDisplayMode,
+  TylerTextOverviewNotebookFamily,
+} from "@/lib/tyler-text-overview-notebook-display";
+
+/** Admin UI row — draft body + notebook provenance (no phone or raw debug blobs). */
 export type TylerTextOverviewAdminDraftRow = {
   draftId: string;
   clerkUserId: string;
@@ -175,4 +185,21 @@ export type TylerTextOverviewAdminDraftRow = {
     role: "system" | "user" | "assistant";
     content: string;
   }>;
+  currentGenerationId: string | null;
+  currentGenerationNumber: number | null;
+  latestGenerationId: string | null;
+  latestGenerationNumber: number | null;
+  isLatestGeneration: boolean | null;
+  writerPromptPath: string | null;
+  notebookHash: string | null;
+  notebookMessageCount: number;
+  notebookFamily: TylerTextOverviewNotebookFamily;
+  notebookDisplayMode: TylerTextOverviewNotebookDisplayMode;
+  machineShouldSend: boolean | null;
+  machineNoSendReason: string | null;
+  capturePresent: boolean | null;
+  silenceCadenceRoute: string | null;
+  silenceDay: number | null;
+  intentionalSpace: boolean | null;
+  laneStage: string | null;
 };

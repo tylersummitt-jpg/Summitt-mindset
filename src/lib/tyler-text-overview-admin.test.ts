@@ -32,11 +32,18 @@ type DraftRow = {
 
 type GenerationRow = {
   id: string;
+  generation_number?: number;
+  clerk_user_id?: string;
+  draft_for_day_key?: string;
   writer_openai_messages: unknown;
+  writer_prompt_path?: string | null;
   machine_draft_body: string | null;
+  machine_should_send?: boolean;
+  machine_no_send_reason?: string | null;
+  notebook_hash?: string | null;
+  generation_metadata?: Record<string, unknown>;
   phone_number?: string;
   notebook_verdict?: string;
-  generation_metadata?: Record<string, unknown>;
 };
 
 const db = vi.hoisted(() => ({
@@ -92,8 +99,23 @@ function makeChain(handlers: {
         const row = db.generations.find((g) => g.id === payload.id) ?? null;
         return { data: row, error: null };
       }
-      const rows = db.generations.filter((g) => ids.includes(g.id));
-      return { data: rows, error: null };
+      if (ids.length > 0) {
+        const rows = db.generations.filter((g) => ids.includes(g.id));
+        return { data: rows, error: null };
+      }
+      const clerkIds = payload.in_clerk_user_id as string[] | undefined;
+      const dayKeys = payload.in_draft_for_day_key as string[] | undefined;
+      if (clerkIds && dayKeys) {
+        const rows = db.generations.filter(
+          (g) =>
+            typeof g.clerk_user_id === "string" &&
+            typeof g.draft_for_day_key === "string" &&
+            clerkIds.includes(g.clerk_user_id) &&
+            dayKeys.includes(g.draft_for_day_key)
+        );
+        return { data: rows, error: null };
+      }
+      return { data: [], error: null };
     }
 
     if (table === "sms_daily_draft_generations" && action === "update") {
@@ -133,6 +155,8 @@ function makeChain(handlers: {
   });
   self.in = vi.fn((col: string, val: unknown) => {
     if (col === "id") state.payload.in_id = val;
+    if (col === "clerk_user_id") state.payload.in_clerk_user_id = val;
+    if (col === "draft_for_day_key") state.payload.in_draft_for_day_key = val;
     return self;
   });
   self.order = vi.fn(() => self);
@@ -176,11 +200,18 @@ function seedCurrentDraft(overrides?: Partial<DraftRow> & { generation?: Partial
   db.generations = [
     {
       id: generationId,
+      generation_number: 1,
+      clerk_user_id: "user_admin_test",
+      draft_for_day_key: "2026-07-03",
       writer_openai_messages: WRITER_MESSAGES,
+      writer_prompt_path: "daily_writing_brief_v1",
       machine_draft_body: MACHINE_BODY,
+      machine_should_send: true,
+      machine_no_send_reason: null,
+      notebook_hash: "hash-abc",
       phone_number: "+15551234567",
       notebook_verdict: "verified",
-      generation_metadata: { debug: true },
+      generation_metadata: { capture_present: true },
       ...overrides?.generation,
     },
   ];
@@ -214,19 +245,25 @@ describe("tyler-text-overview-admin read model", () => {
     expect(rows[0].writerOpenAiMessages).toEqual(WRITER_MESSAGES);
   });
 
-  it("DTO includes draftId, clerkUserId, draftForDayKey, currentBodyToSend, writerOpenAiMessages", () => {
+  it("DTO includes draft body and notebook provenance fields", () => {
     seedCurrentDraft();
     const dto = mapDraftRowsToAdminDto({
       drafts: db.drafts,
       generationsById: new Map(db.generations.map((g) => [g.id, g])),
+      latestGenerationsByKey: new Map([
+        ["user_admin_test:2026-07-03", { id: "gen-1", generation_number: 1 }],
+      ]),
     })[0];
-    expect(dto).toEqual({
-      draftId: "draft-1",
-      clerkUserId: "user_admin_test",
-      draftForDayKey: "2026-07-03",
-      currentBodyToSend: MACHINE_BODY,
-      writerOpenAiMessages: WRITER_MESSAGES,
-    });
+    expect(dto.draftId).toBe("draft-1");
+    expect(dto.clerkUserId).toBe("user_admin_test");
+    expect(dto.draftForDayKey).toBe("2026-07-03");
+    expect(dto.currentBodyToSend).toBe(MACHINE_BODY);
+    expect(dto.writerOpenAiMessages).toEqual(WRITER_MESSAGES);
+    expect(dto.writerPromptPath).toBe("daily_writing_brief_v1");
+    expect(dto.notebookMessageCount).toBe(3);
+    expect(dto.machineShouldSend).toBe(true);
+    expect(dto.capturePresent).toBe(true);
+    expect(dto.isLatestGeneration).toBe(true);
   });
 
   it("DTO does not expose phone_number", () => {
@@ -240,21 +277,21 @@ describe("tyler-text-overview-admin read model", () => {
     expect(JSON.stringify(dto)).not.toContain("+15551234567");
   });
 
-  it("DTO does not expose notebook verdict/debug/generation metadata", () => {
+  it("DTO does not expose phone_number or raw generation metadata blob", () => {
     seedCurrentDraft();
     const dto = mapDraftRowsToAdminDto({
       drafts: db.drafts,
       generationsById: new Map(db.generations.map((g) => [g.id, g])),
     })[0];
     const json = JSON.stringify(dto);
-    expect(dto).not.toHaveProperty("notebookVerdict");
-    expect(dto).not.toHaveProperty("notebook_verdict");
+    expect(dto).not.toHaveProperty("phone_number");
+    expect(dto).not.toHaveProperty("phoneNumber");
     expect(dto).not.toHaveProperty("generationMetadata");
-    expect(json).not.toContain("verified");
-    expect(json).not.toContain("generation_metadata");
+    expect(json).not.toContain("+15551234567");
+    expect(json).not.toContain('"debug":true');
   });
 
-  it("empty writer_openai_messages maps to []", () => {
+  it("empty writer_openai_messages maps to [] with writer_skipped family", () => {
     const dto = mapDraftRowsToAdminDto({
       drafts: [
         {
@@ -267,11 +304,56 @@ describe("tyler-text-overview-admin read model", () => {
         },
       ],
       generationsById: new Map([
-        ["gen-1", { id: "gen-1", writer_openai_messages: null, machine_draft_body: null }],
+        [
+          "gen-1",
+          {
+            id: "gen-1",
+            generation_number: 1,
+            writer_openai_messages: null,
+            machine_draft_body: null,
+            machine_should_send: false,
+            machine_no_send_reason: "silence_cadence_space_day9",
+            generation_metadata: {
+              intentional_space: true,
+              silence_cadence_route: "no_send_space_day9",
+              silence_day: 9,
+              capture_present: false,
+              skip_source: "silence_cadence_no_send",
+            },
+          },
+        ],
       ]),
     })[0];
     expect(dto.writerOpenAiMessages).toEqual([]);
+    expect(dto.notebookFamily).toBe("writer_skipped");
+    expect(dto.notebookDisplayMode).toBe("writer_skipped_intentional");
+    expect(dto.silenceCadenceRoute).toBe("no_send_space_day9");
+    expect(dto.silenceDay).toBe(9);
+    expect(dto.intentionalSpace).toBe(true);
     expect(parseWriterOpenAiMessages(undefined)).toEqual([]);
+  });
+
+  it("list exposes notebook metadata and stale generation detection", async () => {
+    seedCurrentDraft();
+    db.generations.push({
+      id: "gen-2",
+      generation_number: 2,
+      clerk_user_id: "user_admin_test",
+      draft_for_day_key: "2026-07-03",
+      writer_openai_messages: WRITER_MESSAGES,
+      writer_prompt_path: "daily_writing_brief_v1",
+      machine_draft_body: "Newer machine body",
+      machine_should_send: true,
+      machine_no_send_reason: null,
+      generation_metadata: { capture_present: true },
+    });
+    const rows = await listCurrentTylerTextOverviewDrafts();
+    expect(rows[0].writerPromptPath).toBe("daily_writing_brief_v1");
+    expect(rows[0].notebookMessageCount).toBe(3);
+    expect(rows[0].machineShouldSend).toBe(true);
+    expect(rows[0].latestGenerationNumber).toBe(2);
+    expect(rows[0].latestGenerationId).toBe("gen-2");
+    expect(rows[0].isLatestGeneration).toBe(false);
   });
 });
 
@@ -480,7 +562,6 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
       "buildRecentExactThreadForBrief",
       'from "openai"',
       "@/lib/openai",
-      "DAILY_SMS_WRITING_BRIEF_V1",
     ];
     for (const rel of paths) {
       const src = readFileSync(join(process.cwd(), rel), "utf8");

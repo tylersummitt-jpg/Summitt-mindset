@@ -2,12 +2,146 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  ADMIN_INTERPRETATION_LINE,
+  RAW_NOTEBOOK_SECTION_HEADING,
+  buildProvenanceExplanationBlocks,
+  getRawNotebookSectionCopy,
+} from "@/lib/tyler-text-overview-dashboard-sections";
+import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
 import type { TylerTextOverviewAdminDraftRow } from "@/lib/tyler-text-overview-types";
 
 type EditState = Record<string, string>;
 
 function notebookLabel(role: string): string {
   return role.toUpperCase();
+}
+
+function formatOptional(value: string | number | boolean | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  const explanationBlocks = buildProvenanceExplanationBlocks(row);
+
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3 text-xs text-gray-700">
+      {explanationBlocks.map((block, index) => {
+        if (block.kind === "warning") {
+          return (
+            <p
+              key={`${row.draftId}-prov-${index}`}
+              className="rounded border border-amber-200 bg-amber-50 px-2 py-2 text-amber-900"
+            >
+              {block.text}
+            </p>
+          );
+        }
+        if (block.kind === "detail") {
+          return (
+            <p key={`${row.draftId}-prov-${index}`} className="text-gray-700">
+              {block.text}
+            </p>
+          );
+        }
+        return (
+          <p
+            key={`${row.draftId}-prov-${index}`}
+            className={index === 0 ? "font-semibold text-gray-900" : "text-gray-600"}
+          >
+            {block.text}
+          </p>
+        );
+      })}
+
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <dt className="font-medium text-gray-500">Notebook family</dt>
+          <dd>{notebookFamilyLabel(row.notebookFamily)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">writer_prompt_path</dt>
+          <dd className="font-mono break-all">{formatOptional(row.writerPromptPath)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">Messages stored</dt>
+          <dd>{row.notebookMessageCount}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">capture_present</dt>
+          <dd>{formatOptional(row.capturePresent)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">Current generation</dt>
+          <dd className="font-mono break-all">
+            #{formatOptional(row.currentGenerationNumber)} ({formatOptional(row.currentGenerationId)})
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">Latest generation</dt>
+          <dd className="font-mono break-all">
+            #{formatOptional(row.latestGenerationNumber)} ({formatOptional(row.latestGenerationId)})
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">Is latest generation</dt>
+          <dd>{formatOptional(row.isLatestGeneration)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">machine_should_send</dt>
+          <dd>{formatOptional(row.machineShouldSend)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">machine_no_send_reason</dt>
+          <dd className="font-mono break-all">{formatOptional(row.machineNoSendReason)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">silence_cadence_route</dt>
+          <dd className="font-mono break-all">{formatOptional(row.silenceCadenceRoute)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">silence_day</dt>
+          <dd>{formatOptional(row.silenceDay)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">intentional_space</dt>
+          <dd>{formatOptional(row.intentionalSpace)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">lane_stage</dt>
+          <dd className="font-mono break-all">{formatOptional(row.laneStage)}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="font-medium text-gray-500">notebook_hash</dt>
+          <dd className="font-mono break-all">{formatOptional(row.notebookHash)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function NotebookMessagesSection({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  const { label, emptyMessage, messages } = getRawNotebookSectionCopy(row);
+
+  if (emptyMessage) {
+    return <p className="text-sm text-gray-600">{emptyMessage}</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {label ? <p className="text-xs text-gray-500">{label}</p> : null}
+      {messages.map((message, index) => (
+        <div key={`${row.draftId}-${index}`}>
+          <p className="text-xs font-semibold text-gray-600">{notebookLabel(message.role)}</p>
+          <pre className="mt-1 overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-800 whitespace-pre-wrap">
+            {message.content}
+          </pre>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function TylerTextOverviewDashboard() {
@@ -160,24 +294,17 @@ export default function TylerTextOverviewDashboard() {
 
               <section className="space-y-3 border-t border-gray-100 pt-5">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                  OpenAI writer notebook
+                  Notebook provenance
                 </h2>
-                {row.writerOpenAiMessages.length === 0 ? (
-                  <p className="text-sm text-gray-500">No writer notebook stored for this draft.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {row.writerOpenAiMessages.map((message, index) => (
-                      <div key={`${row.draftId}-${index}`}>
-                        <p className="text-xs font-semibold text-gray-600">
-                          {notebookLabel(message.role)}
-                        </p>
-                        <pre className="mt-1 overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-800 whitespace-pre-wrap">
-                          {message.content}
-                        </pre>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p className="text-xs text-gray-600">{ADMIN_INTERPRETATION_LINE}</p>
+                <NotebookProvenancePanel row={row} />
+              </section>
+
+              <section className="space-y-3 border-t border-gray-100 pt-5">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  {RAW_NOTEBOOK_SECTION_HEADING}
+                </h2>
+                <NotebookMessagesSection row={row} />
               </section>
             </li>
           ))}
