@@ -920,8 +920,12 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     const system = buildDailySmsBriefSystemPrompt({ maxChars: 300 });
     expect(system).toContain("FIRST-TEXT STYLE");
     expect(system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
-    expect(system).toMatch(/subordinate to authoritative_truth and recent_exact_thread/i);
+    expect(system).toMatch(/subordinate to relationship_read \(interpretive\)/i);
     expect(system).toMatch(/relationship_anchors are style hints only/i);
+    expect(system).toMatch(/relationship_read is the primary human-continuity guide/i);
+    expect(system).toMatch(/interpretive only/i);
+    expect(system).toMatch(/open_loops and freshness are structural guardrails/i);
+    expect(system).toMatch(/Prefer relationship_read\.today_best_move/i);
   });
 
   it("microguide is not duplicated in JSON brief payload", () => {
@@ -1082,8 +1086,8 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       freshness_phrases: [],
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system.length).toBeLessThan(2200);
-    expect(writer.system.length + writer.user.length).toBeLessThan(8000);
+    expect(writer.system.length).toBeLessThan(3100);
+    expect(writer.system.length + writer.user.length).toBeLessThan(8500);
   });
 
   it("neutralizes generic suggested_move.reason in brief payload", () => {
@@ -1168,5 +1172,143 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     expect(
       neutralizeBriefSuggestedMoveReasonForWriter("Close loop after school pickup.")
     ).toBe("Close loop after school pickup.");
+  });
+});
+
+describe("relationship_read in DAILY_SMS_WRITING_BRIEF_V1", () => {
+  function briefWithThread(
+    messages: Array<{ at_local: string; role: "coach" | "user"; body: string }>,
+    factsOverrides?: Partial<DailyV3RelationshipFacts>,
+    freshness_phrases: ReturnType<typeof deriveFreshnessAvoidPhrasesForBrief> = []
+  ) {
+    const facts = baseFacts(factsOverrides);
+    return buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: deriveDailyProofCalibration({ facts }),
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages,
+        message_count: messages.length,
+        char_count: messages.reduce((s, m) => s + m.body.length, 0),
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases,
+    });
+  }
+
+  it("relationship_read exists and appears immediately after identity in JSON", () => {
+    const brief = briefWithThread([
+      { at_local: "Thu 8:05 AM", role: "user", body: "Done for today." },
+    ]);
+    expect(brief.relationship_read.authority).toBe("interpretive_hint_not_proof");
+    const keys = Object.keys(brief);
+    expect(keys.indexOf("identity")).toBeLessThan(keys.indexOf("relationship_read"));
+    expect(keys.indexOf("relationship_read")).toBeLessThan(keys.indexOf("current_standard"));
+    expect(keys.indexOf("relationship_read")).toBeLessThan(keys.indexOf("authoritative_truth"));
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    const jsonStart = writer.user.indexOf("{");
+    const parsed = JSON.parse(writer.user.slice(jsonStart, writer.user.indexOf("\n\nWrite JSON")));
+    const parsedKeys = Object.keys(parsed);
+    expect(parsedKeys[parsedKeys.indexOf("identity") + 1]).toBe("relationship_read");
+  });
+
+  it("latest_user_signal from user thread; today_best_move not raw token", () => {
+    const brief = briefWithThread([
+      { at_local: "Thu 8:00 AM", role: "coach", body: "Focus hour today?" },
+      {
+        at_local: "Thu 8:05 AM",
+        role: "user",
+        body: "Not yet — wrapping up to eat lunch.",
+      },
+    ]);
+    expect(brief.relationship_read.latest_user_signal).toMatch(/lunch/i);
+    expect(brief.relationship_read.today_best_move).not.toBe(brief.suggested_move.move);
+    expect(brief.relationship_read.callback_worth_using).toMatch(/lunch/i);
+  });
+
+  it("family correction conflict and bad coach warning with freshness", () => {
+    const brief = briefWithThread(
+      [
+        {
+          at_local: "Wed 6:00 PM",
+          role: "user",
+          body: "No more family connections — we finished that.",
+        },
+      ],
+      {
+        commitment: {
+          ...baseFacts().commitment,
+          effective_ask: "Daily family connection",
+          behavior_statement: "Connect with family",
+        },
+      },
+      deriveFreshnessAvoidPhrasesForBrief(baseFacts().thread_memory.recent_coach_body_do_not_repeat)
+    );
+    expect(brief.relationship_read.possible_current_standard_conflict).toMatch(/family/i);
+    expect(
+      brief.relationship_read.avoid_because_user_corrected_us.some((a) => /family/i.test(a))
+    ).toBe(true);
+    expect(brief.relationship_read.bad_old_coach_copy_warning).toMatch(/stale wording/i);
+  });
+
+  it("silence cadence populates silence_route_human_read", () => {
+    const brief = briefWithThread([], {
+      silence_cadence: {
+        route: "cant_coach_silence_day5",
+        silence_day: 5,
+        send_today: true,
+        no_send_reason: null,
+      },
+    });
+    expect(brief.relationship_read.silence_route_human_read).toMatch(/coaching requires response/i);
+  });
+
+  it("demotes open_loops latest_answer when latest_user_signal present", () => {
+    const brief = briefWithThread([
+      { at_local: "Thu 8:05 AM", role: "user", body: "Yes, got my hour in." },
+    ], {
+      thread_memory: {
+        ...baseFacts().thread_memory,
+        latest_answer_after_open_question: "Yes, got my hour in.",
+      },
+    });
+    expect(brief.relationship_read.latest_user_signal).toBeTruthy();
+    expect(brief.open_loops.latest_answer).toBeUndefined();
+  });
+
+  it("payload growth stays reasonable vs baseline empty thread", () => {
+    const empty = buildDailySmsWriterMessagesFromBrief(
+      briefWithThread([])
+    );
+    const withSignal = buildDailySmsWriterMessagesFromBrief(
+      briefWithThread([
+        {
+          at_local: "Thu 8:05 AM",
+          role: "user",
+          body: "Not yet — lunch first, then I'll get the hour in.",
+        },
+      ])
+    );
+    const delta = withSignal.writer_payload_chars - empty.writer_payload_chars;
+    expect(delta).toBeLessThan(1200);
+    expect(JSON.stringify(briefWithThread([])).length).toBeLessThan(
+      JSON.stringify({
+        ...briefWithThread([]),
+        style_guardrails: {
+          one_sms: true,
+          no_robot_menu: true,
+          no_fake_pat_quotes: true,
+          no_generic_motivation: true,
+          summaries_background_only: true,
+        },
+      }).length + 900
+    );
+  });
+
+  it("does not include style_guardrails in brief JSON", () => {
+    const brief = briefWithThread([]);
+    expect("style_guardrails" in brief).toBe(false);
   });
 });

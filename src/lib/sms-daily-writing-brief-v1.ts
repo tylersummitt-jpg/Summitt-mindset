@@ -22,6 +22,11 @@ import type { TimingAnchorMemory } from "@/lib/timing-anchor-memory";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { DailySilenceCadenceFacts, SilenceCadenceRoute } from "@/lib/sms-silence-cadence-v1";
 import {
+  buildDailySmsRelationshipReadV1,
+  compactOpenLoopsForRelationshipRead,
+  type DailySmsRelationshipReadV1,
+} from "@/lib/sms-daily-relationship-read-v1";
+import {
   buildSilenceCadenceRouteCardPromptAppendix,
   SILENCE_CADENCE_ROUTE_CARDS,
   silenceCadenceOverridesOldSilenceRouting,
@@ -30,9 +35,10 @@ import {
 const DAILY_BRIEF_MAX_CHARS = 300;
 const TIMING_GUIDANCE_MAX = 2;
 const RELATIONSHIP_ANCHOR_PEOPLE_MAX = 4;
+const DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ = 4;
 
 /** Style-only writer microguide — not duplicated in JSON brief payload. */
-export const FIRST_TEXT_STYLE_MICROGUIDE_V1 = `FIRST-TEXT STYLE — subordinate to authoritative_truth and recent_exact_thread:
+export const FIRST_TEXT_STYLE_MICROGUIDE_V1 = `FIRST-TEXT STYLE — subordinate to relationship_read (interpretive), current_standard, and authoritative_truth:
 • Write one human SMS to someone you know; use their first name naturally when it fits.
 • Tie today's move to who they're becoming and the real standard, not the scoreboard alone.
 • Give one concrete first move for this morning; warm and direct, never soft or preachy.
@@ -56,6 +62,7 @@ export type DailySmsWritingBriefV1 = {
     identity_anchor?: string | null;
     profile_hint?: string | null;
   };
+  relationship_read: DailySmsRelationshipReadV1;
   current_standard: {
     effective_ask: string;
     behavior_statement?: string | null;
@@ -136,13 +143,6 @@ export type DailySmsWritingBriefV1 = {
   durable_relationship_memory: {
     authority: "background_only";
     items: Array<{ kind: string; text: string }>;
-  };
-  style_guardrails: {
-    one_sms: true;
-    no_robot_menu: true;
-    no_fake_pat_quotes: true;
-    no_generic_motivation: true;
-    summaries_background_only: true;
   };
 };
 
@@ -256,18 +256,18 @@ export function buildDurableRelationshipMemoryForBrief(args: {
       if (isDurableTextSafe(text)) {
         items.push({ kind: "person", text });
       }
-      if (items.length >= 12) break;
+      if (items.length >= DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ) break;
     }
   }
 
-  if (items.length < 12 && sources?.people_summary?.trim()) {
+  if (items.length < DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ && sources?.people_summary?.trim()) {
     const text = truncateText(sources.people_summary.trim(), 100);
     if (isDurableTextSafe(text)) {
       items.push({ kind: "people_summary", text });
     }
   }
 
-  if (items.length < 12 && args.facts.user.relationship_profile_summary?.trim()) {
+  if (items.length < DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ && args.facts.user.relationship_profile_summary?.trim()) {
     const text = truncateText(args.facts.user.relationship_profile_summary.trim(), 80);
     if (isDurableTextSafe(text)) {
       items.push({ kind: "tone", text });
@@ -275,7 +275,7 @@ export function buildDurableRelationshipMemoryForBrief(args: {
   }
 
   const blockers = args.facts.thread_memory.relationship_memory_30d?.recurring_blockers;
-  if (items.length < 12 && blockers?.length) {
+  if (items.length < DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ && blockers?.length) {
     for (const b of blockers.slice(0, 2)) {
       const theme = b.canonical?.trim();
       if (!theme) continue;
@@ -283,12 +283,15 @@ export function buildDurableRelationshipMemoryForBrief(args: {
       if (isDurableTextSafe(text)) {
         items.push({ kind: "blocker_theme", text });
       }
-      if (items.length >= 12) break;
+      if (items.length >= DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ) break;
     }
   }
 
   void args.calibration;
-  return { authority: "background_only", items: items.slice(0, 12) };
+  return {
+    authority: "background_only",
+    items: items.slice(0, DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ),
+  };
 }
 
 /** Writer-facing proof summary for C1 brief — same calibration facts, neutral phrasing (no generic copy models). */
@@ -505,11 +508,37 @@ export function buildDailySmsWritingBriefV1(
     timezone: f.user.timezone,
     localTimeIso: f.user.local_time_iso,
   });
-  const timingCopyGuidance = buildCompactTimingCopyGuidanceForBrief({
+  const relationship_anchors = buildRelationshipAnchorsForBrief(f.relationship_anchor_sources);
+  const open_loops_full = buildOpenLoopsForBrief({ facts: f, commitmentRow: args.commitmentRow });
+  const freshnessPhrases = args.freshness_phrases.slice(0, 3);
+  const timingCopyGuidanceForRead = buildCompactTimingCopyGuidanceForBrief({
     facts: f,
     proofCalibration: cal,
   });
-  const relationship_anchors = buildRelationshipAnchorsForBrief(f.relationship_anchor_sources);
+  const suggested_move = buildSuggestedMoveForDailyWritingBrief(args.strategy_card, cal);
+
+  const relationship_read = buildDailySmsRelationshipReadV1({
+    messages: args.thread.messages,
+    effectiveAsk: f.commitment.effective_ask,
+    behaviorStatement: f.commitment.behavior_statement,
+    localDaypart,
+    targetDate: localDate,
+    isNewAccountabilityDay:
+      args.strategy_card.server_truth_summary.is_new_accountability_day ?? true,
+    timingCopyGuidance: timingCopyGuidanceForRead,
+    silenceRoute: f.silence_cadence?.route ?? null,
+    freshnessPhrases,
+    openLoops: open_loops_full,
+    suggestedMove: suggested_move,
+    praiseAllowedLevel: cal.praise_allowed_level,
+    anchorNames: relationship_anchors.people.map((p) => p.name),
+    routeKind,
+  });
+
+  const open_loops = compactOpenLoopsForRelationshipRead(
+    open_loops_full,
+    Boolean(relationship_read.latest_user_signal)
+  ) as DailySmsWritingBriefV1["open_loops"];
 
   return {
     brief_version: DAILY_SMS_WRITING_BRIEF_VERSION,
@@ -523,6 +552,7 @@ export function buildDailySmsWritingBriefV1(
         ? truncateText(f.user.relationship_profile_summary, 80)
         : null,
     },
+    relationship_read,
     current_standard: {
       effective_ask: truncateText(f.commitment.effective_ask, 200),
       behavior_statement: truncateText(f.commitment.behavior_statement, 200) || null,
@@ -538,7 +568,9 @@ export function buildDailySmsWritingBriefV1(
         is_new_accountability_day:
           args.strategy_card.server_truth_summary.is_new_accountability_day ?? true,
         local_daypart: localDaypart,
-        ...(timingCopyGuidance.length ? { timing_copy_guidance: timingCopyGuidance } : {}),
+        ...(timingCopyGuidanceForRead.length
+          ? { timing_copy_guidance: timingCopyGuidanceForRead }
+          : {}),
       },
       proof: {
         wins_7d: cal.wins_7d,
@@ -569,24 +601,17 @@ export function buildDailySmsWritingBriefV1(
       char_count: args.thread.char_count,
     },
     freshness: {
-      avoid_phrases: args.freshness_phrases.slice(0, 3),
-      note: "Same goal is fine; vary the angle, not the bar.",
+      avoid_phrases: freshnessPhrases,
+      note: "Structural guardrail — see relationship_read for human reason.",
     },
-    open_loops: buildOpenLoopsForBrief({ facts: f, commitmentRow: args.commitmentRow }),
-    suggested_move: buildSuggestedMoveForDailyWritingBrief(args.strategy_card, cal),
+    open_loops,
+    suggested_move,
     relationship_anchors,
     durable_relationship_memory: buildDurableRelationshipMemoryForBrief({
       facts: f,
       calibration: cal,
       suppressPersonItems: relationship_anchors.people.length > 0,
     }),
-    style_guardrails: {
-      one_sms: true,
-      no_robot_menu: true,
-      no_fake_pat_quotes: true,
-      no_generic_motivation: true,
-      summaries_background_only: true,
-    },
   };
 }
 
@@ -620,17 +645,22 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
   const authorityOrder =
     scRoute && scRoute !== "normal_daily"
-      ? "Authority order when silence_cadence is present: silence_cadence route card > authoritative_truth + recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory."
-      : "Authority order: authoritative_truth + recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.";
+      ? "Authority order when silence_cadence is present: silence_cadence route card > current_standard + authoritative_truth > relationship_read (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory."
+      : "Authority order: current_standard + authoritative_truth > relationship_read (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.";
 
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
 Use DAILY_SMS_WRITING_BRIEF_V1 as server truth. Write one human SMS.
 ${authorityOrder}
+relationship_read is the primary human-continuity guide. It tells you what would make the user feel known today, what callback is worth using, what old wording to avoid, and the plain-English coaching move.
+relationship_read is interpretive only. It never authorizes proof, completion, misses, Victory Room, goal changes, or state changes. current_standard and authoritative_truth remain the source of truth.
+Prefer relationship_read.today_best_move over the raw suggested_move.move token for wording — suggested_move.move is structural backend metadata, not user-facing language.
+recent_exact_thread is exact transcript, but do not imitate stale or repeated coach copy when relationship_read.bad_old_coach_copy_warning is present.
+open_loops and freshness are structural guardrails. relationship_read summarizes the human meaning; follow relationship_read.today_best_move unless it conflicts with current_standard, authoritative_truth, safety, or route constraints.
 When silence_cadence route card is present, it overrides old silence, reentry, reactivation, silence_note, and silence_nudge hints. current_standard still applies.
 Do not copy example shapes verbatim. Do not say no worries, please respond, or whenever you are ready before final_daily_mode_day14.
 ${silenceCadenceBlock}
-suggested_move is a hint only — never override proof truth, exact thread, or silence_cadence route card.
+suggested_move is structural routing metadata — never override proof truth, exact thread, or silence_cadence route card.
 relationship_anchors are style hints only — never proof; use people sparingly and never as guilt.
 durable_relationship_memory is background only — never proof.
 ${questionLine}
