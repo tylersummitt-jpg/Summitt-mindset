@@ -9,6 +9,7 @@ import {
   isProtectedTtoCurrentDraftBody,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
   type TylerTextOverviewGenerationReason,
   type TylerTextOverviewRefreshStaleStats,
 } from "@/lib/tyler-text-overview-types";
@@ -85,7 +86,8 @@ async function loadCurrentDraftRows(): Promise<CurrentDraftRow[]> {
     .select(
       "id, clerk_user_id, draft_for_day_key, current_generation_id, status, current_body_to_send"
     )
-    .eq("status", "current");
+    .eq("status", "current")
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
   if (error) {
     throw new Error(`current_drafts_query_failed:${error.message}`);

@@ -55,6 +55,9 @@ const db = vi.hoisted(() => ({
 
 function filterDrafts(payload: Record<string, unknown>): DraftRow[] {
   let rows = db.drafts.filter((d) => d.status === (payload.status ?? d.status));
+  if (typeof payload.send_slot === "string") {
+    rows = rows.filter((d) => ((d as { send_slot?: string }).send_slot ?? "morning") === payload.send_slot);
+  }
   if (typeof payload.draft_for_day_key === "string") {
     rows = rows.filter((d) => d.draft_for_day_key === payload.draft_for_day_key);
   }
@@ -251,12 +254,13 @@ describe("tyler-text-overview-admin read model", () => {
       drafts: db.drafts,
       generationsById: new Map(db.generations.map((g) => [g.id, g])),
       latestGenerationsByKey: new Map([
-        ["user_admin_test:2026-07-03", { id: "gen-1", generation_number: 1 }],
+        ["user_admin_test:2026-07-03:morning", { id: "gen-1", generation_number: 1 }],
       ]),
     })[0];
     expect(dto.draftId).toBe("draft-1");
     expect(dto.clerkUserId).toBe("user_admin_test");
     expect(dto.draftForDayKey).toBe("2026-07-03");
+    expect(dto.sendSlot).toBe("morning");
     expect(dto.currentBodyToSend).toBe(MACHINE_BODY);
     expect(dto.writerOpenAiMessages).toEqual(WRITER_MESSAGES);
     expect(dto.writerPromptPath).toBe("daily_writing_brief_v1");

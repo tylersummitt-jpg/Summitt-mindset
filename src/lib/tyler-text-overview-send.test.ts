@@ -58,6 +58,9 @@ function makeChain(state: { table: string; action: string; payload: Record<strin
         if (payload.status != null && d.status !== payload.status) {
           return false;
         }
+        if (payload.send_slot != null && (d.send_slot ?? "morning") !== payload.send_slot) {
+          return false;
+        }
         return true;
       });
       if (payload.id) rows = rows.filter((d) => d.id === payload.id);
@@ -96,7 +99,10 @@ function makeChain(state: { table: string; action: string; payload: Record<strin
     if (table === "sms_send_events" && state.action === "select") {
       const row =
         db.sendEvents.find(
-          (e) => e.clerk_user_id === payload.clerk_user_id && e.day_key === payload.day_key
+          (e) =>
+            e.clerk_user_id === payload.clerk_user_id &&
+            e.day_key === payload.day_key &&
+            (e.send_slot ?? "morning") === (payload.send_slot ?? "morning")
         ) ?? null;
       return { data: row, error: null };
     }

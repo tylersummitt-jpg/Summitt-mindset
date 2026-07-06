@@ -9,6 +9,7 @@ import {
   isProtectedTtoCurrentDraftBody,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
   type TylerTextOverviewGenerationReason,
   type TylerTextOverviewNotebookVerdict,
 } from "@/lib/tyler-text-overview-types";
@@ -226,6 +227,7 @@ async function fetchNextGenerationNumber(
     .select("generation_number")
     .eq("clerk_user_id", clerkUserId)
     .eq("draft_for_day_key", draftForDayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .order("generation_number", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -241,6 +243,7 @@ async function fetchNextGenerationNumber(
 export type TylerTextOverviewGenerationInsertRow = {
   clerk_user_id: string;
   draft_for_day_key: string;
+  send_slot: typeof SMS_DAILY_PRODUCTION_SEND_SLOT;
   generation_number: number;
   generation_reason: TylerTextOverviewGenerationReason;
   commitment_id: string | null;
@@ -281,6 +284,7 @@ export function mapBuiltToTylerTextOverviewGenerationRow(args: {
   return {
     clerk_user_id: args.clerkUserId,
     draft_for_day_key: args.draftForDayKey,
+    send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
     generation_number: args.generationNumber,
     generation_reason: args.generationReason ?? "noon_batch",
     commitment_id: args.commitmentId,
@@ -362,6 +366,7 @@ async function supersedePriorGenerations(args: {
     })
     .eq("clerk_user_id", args.clerkUserId)
     .eq("draft_for_day_key", args.draftForDayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .neq("id", args.newGenerationId)
     .is("superseded_at", null);
 
@@ -383,6 +388,7 @@ async function loadExistingCurrentDraft(
     .select("status, current_body_to_send")
     .eq("clerk_user_id", clerkUserId)
     .eq("draft_for_day_key", draftForDayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .eq("status", "current")
     .maybeSingle();
 
@@ -422,6 +428,7 @@ async function upsertCurrentDraft(args: {
     {
       clerk_user_id: args.clerkUserId,
       draft_for_day_key: args.draftForDayKey,
+      send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
       current_generation_id: args.generationId,
       current_body_to_send: args.machineBody,
       current_body_source: "machine",
@@ -433,7 +440,7 @@ async function upsertCurrentDraft(args: {
       status: "current",
       updated_at: args.nowIso,
     },
-    { onConflict: "clerk_user_id,draft_for_day_key" }
+    { onConflict: "clerk_user_id,draft_for_day_key,send_slot" }
   );
 
   if (error) {

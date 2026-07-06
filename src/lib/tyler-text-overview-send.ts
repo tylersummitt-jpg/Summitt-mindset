@@ -5,6 +5,7 @@ import {
   isProtectedTtoCurrentDraftBody,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
   TTO_CURRENT_DRAFT_FINAL_STALE_REASON,
   TTO_CURRENT_DRAFT_ROUTE_CONFLICT,
   TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT,
@@ -309,6 +310,7 @@ export async function loadUsableTylerTextOverviewDraftForSend(args: {
     )
     .eq("clerk_user_id", clerkUserId)
     .eq("draft_for_day_key", draftForDayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .eq("status", "current")
     .maybeSingle();
 
@@ -581,6 +583,7 @@ async function resolveSmsSendEventIdForDay(args: {
     .select("id")
     .eq("clerk_user_id", args.clerkUserId)
     .eq("day_key", args.dayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .maybeSingle();
 
   if (error) {
@@ -828,6 +831,7 @@ async function fetchTtoDraftRowForRevalidation(args: {
     .eq("id", args.draftId)
     .eq("clerk_user_id", args.clerkUserId)
     .eq("draft_for_day_key", args.draftForDayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .maybeSingle();
 
   if (error) {

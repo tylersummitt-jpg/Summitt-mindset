@@ -56,9 +56,12 @@ function makeChain(handlers: {
     if (table === "sms_daily_draft_generations" && action === "select") {
       const clerk = payload.clerk_user_id as string;
       const day = payload.draft_for_day_key as string;
-      const rows = db.generations.filter(
+      let rows = db.generations.filter(
         (g) => g.clerk_user_id === clerk && g.draft_for_day_key === day
       );
+      if (payload.send_slot) {
+        rows = rows.filter((g) => g.send_slot === payload.send_slot);
+      }
       const max = rows.reduce(
         (m, g) => Math.max(m, Number(g.generation_number ?? 0)),
         0
@@ -75,6 +78,7 @@ function makeChain(handlers: {
         (g) =>
           g.clerk_user_id === row.clerk_user_id &&
           g.draft_for_day_key === row.draft_for_day_key &&
+          g.send_slot === row.send_slot &&
           g.generation_number === row.generation_number
       );
       if (dup) {
@@ -116,6 +120,9 @@ function makeChain(handlers: {
       if (payload.status) {
         rows = rows.filter((d) => d.status === payload.status);
       }
+      if (payload.send_slot) {
+        rows = rows.filter((d) => (d.send_slot ?? "morning") === payload.send_slot);
+      }
       return { data: payload.maybeSingle ? rows[0] ?? null : rows, error: null };
     }
 
@@ -124,7 +131,8 @@ function makeChain(handlers: {
       const idx = db.drafts.findIndex(
         (d) =>
           d.clerk_user_id === row.clerk_user_id &&
-          d.draft_for_day_key === row.draft_for_day_key
+          d.draft_for_day_key === row.draft_for_day_key &&
+          (d.send_slot ?? "morning") === (row.send_slot ?? "morning")
       );
       if (idx >= 0) {
         db.drafts[idx] = { ...db.drafts[idx], ...row };
@@ -471,6 +479,13 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.drafts[0]?.current_body_to_send).toBe(SUCCESS_BUILT.smsBody);
     expect(db.drafts[0]?.current_body_source).toBe("machine");
     expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+  });
+
+  it("writes send_slot morning on generation insert and draft upsert", async () => {
+    setupHappyPath();
+    await generateTylerTextOverviewDailyDrafts();
+    expect(db.generations[0]?.send_slot).toBe("morning");
+    expect(db.drafts[0]?.send_slot).toBe("morning");
   });
 
   it("silence cadence no-send persists cadence metadata and machine_should_send=false", async () => {

@@ -7,6 +7,7 @@ import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-over
 import {
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
   type TylerTextOverviewAdminDraftRow,
 } from "@/lib/tyler-text-overview-types";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
@@ -15,6 +16,7 @@ type DraftDbRow = {
   id: string;
   clerk_user_id: string;
   draft_for_day_key: string;
+  send_slot?: string;
   current_generation_id: string;
   current_body_to_send: string | null;
   status: string;
@@ -33,6 +35,7 @@ type GenerationDbRow = {
   route_kind?: string | null;
   clerk_user_id?: string;
   draft_for_day_key?: string;
+  send_slot?: string;
 };
 
 type LatestGenerationRef = {
@@ -45,8 +48,8 @@ const WRITER_MESSAGE_ROLES = new Set(["system", "user", "assistant"]);
 const GENERATION_SELECT_COLUMNS =
   "id, generation_number, writer_openai_messages, writer_prompt_path, machine_draft_body, machine_should_send, machine_no_send_reason, notebook_hash, generation_metadata, route_kind, clerk_user_id, draft_for_day_key";
 
-function draftLatestGenKey(clerkUserId: string, draftForDayKey: string): string {
-  return `${clerkUserId}:${draftForDayKey}`;
+function draftLatestGenKey(clerkUserId: string, draftForDayKey: string, sendSlot: string): string {
+  return `${clerkUserId}:${draftForDayKey}:${sendSlot}`;
 }
 
 function readMetadataString(metadata: Record<string, unknown>, key: string): string | null {
@@ -221,13 +224,16 @@ export function mapDraftRowsToAdminDto(args: {
   return args.drafts.map((draft) => {
     const generation = args.generationsById.get(draft.current_generation_id);
     const notebookFields = mapGenerationToNotebookFields(generation);
-    const latestKey = draftLatestGenKey(draft.clerk_user_id, draft.draft_for_day_key);
+    const sendSlot =
+      draft.send_slot === "evening_checkin" ? "evening_checkin" : SMS_DAILY_PRODUCTION_SEND_SLOT;
+    const latestKey = draftLatestGenKey(draft.clerk_user_id, draft.draft_for_day_key, sendSlot);
     const latest = args.latestGenerationsByKey?.get(latestKey) ?? null;
 
     return {
       draftId: draft.id,
       clerkUserId: draft.clerk_user_id,
       draftForDayKey: draft.draft_for_day_key,
+      sendSlot,
       currentBodyToSend: draft.current_body_to_send,
       ...notebookFields,
       latestGenerationId: latest?.id ?? notebookFields.currentGenerationId,
@@ -243,7 +249,13 @@ function buildLatestGenerationsByKey(
   drafts: DraftDbRow[]
 ): Map<string, LatestGenerationRef> {
   const allowedKeys = new Set(
-    drafts.map((d) => draftLatestGenKey(d.clerk_user_id, d.draft_for_day_key))
+    drafts.map((d) =>
+      draftLatestGenKey(
+        d.clerk_user_id,
+        d.draft_for_day_key,
+        d.send_slot === "evening_checkin" ? "evening_checkin" : SMS_DAILY_PRODUCTION_SEND_SLOT
+      )
+    )
   );
   const bestByKey = new Map<string, LatestGenerationRef>();
 
@@ -256,7 +268,9 @@ function buildLatestGenerationsByKey(
     ) {
       continue;
     }
-    const key = draftLatestGenKey(row.clerk_user_id, row.draft_for_day_key);
+    const sendSlot =
+      row.send_slot === "evening_checkin" ? "evening_checkin" : SMS_DAILY_PRODUCTION_SEND_SLOT;
+    const key = draftLatestGenKey(row.clerk_user_id, row.draft_for_day_key, sendSlot);
     if (!allowedKeys.has(key)) continue;
 
     const existing = bestByKey.get(key);
@@ -278,9 +292,10 @@ async function fetchLatestGenerationsForDrafts(
 
   const { data: generationRows, error } = await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-    .select("id, clerk_user_id, draft_for_day_key, generation_number")
+    .select("id, clerk_user_id, draft_for_day_key, generation_number, send_slot")
     .in("clerk_user_id", clerkUserIds)
-    .in("draft_for_day_key", draftForDayKeys);
+    .in("draft_for_day_key", draftForDayKeys)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
   if (error) {
     throw new Error(`tyler_text_overview_latest_generations_failed:${error.message}`);
@@ -294,8 +309,9 @@ export async function listCurrentTylerTextOverviewDrafts(args?: {
 }): Promise<TylerTextOverviewAdminDraftRow[]> {
   let query = supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("id, clerk_user_id, draft_for_day_key, current_generation_id, current_body_to_send, status")
+    .select("id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status")
     .eq("status", "current")
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .order("draft_for_day_key", { ascending: false })
     .order("clerk_user_id", { ascending: true });
 

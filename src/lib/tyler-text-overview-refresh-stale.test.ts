@@ -58,6 +58,9 @@ function makeChain(handlers: {
     if (table === "sms_daily_drafts" && action === "select") {
       let rows = db.drafts;
       if (payload.status) rows = rows.filter((d) => d.status === payload.status);
+      if (payload.send_slot) {
+        rows = rows.filter((d) => (d.send_slot ?? "morning") === payload.send_slot);
+      }
       if (payload.clerk_user_id) {
         rows = rows.filter((d) => d.clerk_user_id === payload.clerk_user_id);
       }
@@ -644,6 +647,37 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     ];
     await refreshStaleTylerTextOverviewDrafts();
     expect(db.smsSendEventsWrites).toBe(0);
+  });
+
+  it("Phase 1 scans only morning send_slot current drafts", async () => {
+    setupHappyPath();
+    db.drafts.push({
+      id: "draft-evening",
+      clerk_user_id: "user_evening",
+      draft_for_day_key: "2026-07-03",
+      current_generation_id: "gen-evening",
+      status: "current",
+      send_slot: "evening_checkin",
+      current_body_to_send: "Future slot",
+    });
+    db.generations.push({
+      id: "gen-evening",
+      clerk_user_id: "user_evening",
+      draft_for_day_key: "2026-07-03",
+      send_slot: "evening_checkin",
+      generated_at: "2026-07-02T12:00:00.000Z",
+      machine_draft_body: "Future slot",
+    });
+    seedCurrentDraft({ emptySendBody: true });
+    db.inbound = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        received_at: "2026-07-02T18:00:00.000Z",
+      },
+    ];
+    const stats = await refreshStaleTylerTextOverviewDrafts();
+    expect(stats.current_drafts_scanned).toBe(1);
+    expect(stats.refreshed).toBe(1);
   });
 
   it("does not call Twilio", async () => {

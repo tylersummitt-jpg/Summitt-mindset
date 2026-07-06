@@ -1,5 +1,6 @@
 /**
- * Daily SMS cron: V2 accountability outbound only (PR6). Reservation + `sms_send_events` unchanged.
+ * Daily SMS cron: V2 accountability outbound only (PR6).
+ * sms_send_events reservation is one row per (user, day_key, send_slot); Phase 1 writes morning only.
  */
 import crypto from "crypto";
 import { NextResponse } from "next/server";
@@ -234,6 +235,7 @@ import {
   withTylerTextOverviewPostWriterBypassOnContext,
   type TylerTextOverviewSendContext,
 } from "@/lib/tyler-text-overview-send";
+import { SMS_DAILY_PRODUCTION_SEND_SLOT } from "@/lib/tyler-text-overview-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -600,7 +602,8 @@ async function blockSendOnTtoCurrentDraftRouteConflict(args: {
       ),
     })
     .eq("clerk_user_id", args.clerkUserId)
-    .eq("day_key", args.todayKey);
+    .eq("day_key", args.todayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
   await markTylerTextOverviewDraftSkippedAfterGuard({
     draftId: args.tylerTextOverviewCtx.lookup.draft_id,
@@ -684,7 +687,8 @@ async function applyTtoCurrentDraftRevalidationBeforeTwilio(args: {
         ),
       })
       .eq("clerk_user_id", args.clerkUserId)
-      .eq("day_key", args.todayKey);
+      .eq("day_key", args.todayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
     if (args.tylerTextOverviewCtx.lookup.draft_id) {
       await markTylerTextOverviewDraftSkippedAfterGuard({
@@ -765,7 +769,8 @@ async function blockSendOnTtoCurrentDraftBodyMismatch(args: {
       ),
     })
     .eq("clerk_user_id", args.clerkUserId)
-    .eq("day_key", args.todayKey);
+    .eq("day_key", args.todayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
   if (args.tylerTextOverviewCtx.lookup.draft_id) {
     await markTylerTextOverviewDraftSkippedAfterGuard({
@@ -888,7 +893,8 @@ async function recordDailyTwilioSuccessOrFallback(args: {
     .from("sms_send_events")
     .update(args.primaryPayload)
     .eq("clerk_user_id", args.clerkUserId)
-    .eq("day_key", args.dayKey);
+    .eq("day_key", args.dayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
   if (!primaryErr) {
     return { recordOk: true, usedFallback: false, orphanLogged: false };
@@ -931,7 +937,8 @@ async function recordDailyTwilioSuccessOrFallback(args: {
       metadata: fallbackMetadata,
     })
     .eq("clerk_user_id", args.clerkUserId)
-    .eq("day_key", args.dayKey);
+    .eq("day_key", args.dayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
   if (!fallbackErr) {
     console.warn("[daily-sms] Twilio success recorded via metadata-only fallback", {
@@ -1264,7 +1271,8 @@ async function applySundayWeeklyPauseSuppressionIfNeeded(args: {
       }),
     })
     .eq("clerk_user_id", args.clerkUserId)
-    .eq("day_key", args.todayKey);
+    .eq("day_key", args.todayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
   return true;
 }
@@ -1274,9 +1282,10 @@ async function applySundayWeeklyPauseSuppressionIfNeeded(args: {
  * Helper: try to reserve today's send slot
  * ======================================================
  *
- * We rely on your unique index: (clerk_user_id, day_key)
+ * We rely on unique index: (clerk_user_id, day_key, send_slot)
+ * Phase 1 production writes send_slot = morning only.
  * - If insert succeeds: this run owns the send attempt.
- * - If insert fails due to unique violation: SMS already reserved/sent today, skip safely.
+ * - If insert fails due to unique violation: SMS already reserved/sent for this slot, skip safely.
  */
 async function reserveTodaySendOrSkip({
   userId,
@@ -1288,8 +1297,9 @@ async function reserveTodaySendOrSkip({
   const { error } = await supabaseServer.from("sms_send_events").insert({
     clerk_user_id: userId,
     day_key: todayKey,
+    send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
     status: "reserved",
-    metadata: { note: "reserved_by_cron" },
+    metadata: { note: "reserved_by_cron", send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT },
   });
 
   if (!error) return { reserved: true };
@@ -1311,6 +1321,7 @@ async function reserveTodaySendOrSkip({
     .select("id")
     .eq("clerk_user_id", userId)
     .eq("day_key", todayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
     .maybeSingle();
   if (existingAfterFail?.id) {
     console.warn("[daily-sms] reservation insert failed but row already exists", {
@@ -1560,6 +1571,7 @@ export async function GET(req: Request) {
         .select("id, status, metadata, message_sid")
         .eq("clerk_user_id", audienceUser.clerk_user_id)
         .eq("day_key", todayKey)
+        .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
         .maybeSingle();
 
       let existingEvent = existingRow;
@@ -1650,7 +1662,8 @@ export async function GET(req: Request) {
               metadata: recoveredMeta,
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
           existingEvent = {
             ...existingEvent,
@@ -1688,7 +1701,8 @@ export async function GET(req: Request) {
                     metadata: { ...existingMeta, note: "user_completed_today" },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
                 stats.skippedAlreadyCompleted += 1;
                 stats.skippedIntentional += 1;
                 continue;
@@ -1709,7 +1723,8 @@ export async function GET(req: Request) {
                   },
                 })
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey);
+                .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
               stats.skippedActiveInboundThread += 1;
               stats.skippedIntentional += 1;
@@ -1790,7 +1805,8 @@ export async function GET(req: Request) {
                     },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
                 stats.skippedReactivationCooldown += 1;
                 stats.skippedIntentional += 1;
                 continue;
@@ -1808,7 +1824,8 @@ export async function GET(req: Request) {
                     },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
                 stats.skippedRefreshIdentityAwaiting += 1;
                 stats.skippedIntentional += 1;
                 continue;
@@ -1826,7 +1843,8 @@ export async function GET(req: Request) {
                     },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
                 stats.skippedPendingResolutionRecentConfirmation += 1;
                 stats.skippedIntentional += 1;
                 continue;
@@ -1845,7 +1863,8 @@ export async function GET(req: Request) {
                     },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
                 stats.skippedNotFullyOnV2Daily += 1;
                 stats.skippedIntentional += 1;
                 continue;
@@ -1868,7 +1887,8 @@ export async function GET(req: Request) {
                     },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
                 stats.skippedNoSafeV3Voice += 1;
                 stats.skippedIntentional += 1;
                 continue;
@@ -1898,7 +1918,8 @@ export async function GET(req: Request) {
                     },
                   })
                   .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
                 stats.skippedNoSafeV3Voice += 1;
                 stats.skippedIntentional += 1;
                 continue;
@@ -1916,7 +1937,8 @@ export async function GET(req: Request) {
                   },
                 })
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey);
+                .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
               stats.failed += 1;
               stats.sendFailed += 1;
               stats.skippedUnexpected += 1;
@@ -2054,7 +2076,8 @@ export async function GET(req: Request) {
                 .from("sms_send_events")
                 .update(patchR)
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey);
+                .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
               if (tylerDraftBodyUsed && tylerTextOverviewCtx?.lookup.draft_id) {
                 await markTylerTextOverviewDraftSkippedAfterGuard({
                   draftId: tylerTextOverviewCtx.lookup.draft_id,
@@ -2103,7 +2126,8 @@ export async function GET(req: Request) {
                   },
                 })
                 .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey);
+                .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
               stats.failed += 1;
               stats.sendFailed += 1;
               stats.skippedUnexpected += 1;
@@ -2399,7 +2423,8 @@ export async function GET(req: Request) {
               metadata: { note: "user_completed_today" },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
           stats.skippedAlreadyCompleted += 1;
           stats.skippedIntentional += 1;
@@ -2421,7 +2446,8 @@ export async function GET(req: Request) {
             },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+                  .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
         stats.skippedActiveInboundThread += 1;
         stats.skippedIntentional += 1;
@@ -2500,7 +2526,8 @@ export async function GET(req: Request) {
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
           stats.skippedReactivationCooldown += 1;
           stats.skippedIntentional += 1;
           continue;
@@ -2517,7 +2544,8 @@ export async function GET(req: Request) {
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
           stats.skippedRefreshIdentityAwaiting += 1;
           stats.skippedIntentional += 1;
           continue;
@@ -2534,7 +2562,8 @@ export async function GET(req: Request) {
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
           stats.skippedPendingResolutionRecentConfirmation += 1;
           stats.skippedIntentional += 1;
           continue;
@@ -2552,7 +2581,8 @@ export async function GET(req: Request) {
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
           stats.skippedNotFullyOnV2Daily += 1;
           stats.skippedIntentional += 1;
           continue;
@@ -2574,7 +2604,8 @@ export async function GET(req: Request) {
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
           stats.skippedNoSafeV3Voice += 1;
           stats.skippedIntentional += 1;
           continue;
@@ -2604,7 +2635,8 @@ export async function GET(req: Request) {
               },
             })
             .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey);
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
           stats.skippedNoSafeV3Voice += 1;
           stats.skippedIntentional += 1;
           continue;
@@ -2621,7 +2653,8 @@ export async function GET(req: Request) {
             },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+                  .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
         stats.failed += 1;
         stats.sendFailed += 1;
         stats.skippedUnexpected += 1;
@@ -2756,7 +2789,8 @@ export async function GET(req: Request) {
           .from("sms_send_events")
           .update(patch)
           .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+                  .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
         if (tylerDraftBodyUsed && tylerTextOverviewCtx?.lookup.draft_id) {
           await markTylerTextOverviewDraftSkippedAfterGuard({
             draftId: tylerTextOverviewCtx.lookup.draft_id,
@@ -2783,7 +2817,8 @@ export async function GET(req: Request) {
             },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+                  .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
         if (SMS_DRY_RUN) stats.dryRun += 1;
         else {
@@ -2821,7 +2856,8 @@ export async function GET(req: Request) {
             },
           })
           .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey);
+                  .eq("day_key", todayKey)
+                  .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
         stats.failed += 1;
         stats.sendFailed += 1;

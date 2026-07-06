@@ -13,6 +13,21 @@ export function isTylerTextOverviewEnabled(): boolean {
 export const SMS_DAILY_DRAFT_GENERATIONS_TABLE = "sms_daily_draft_generations" as const;
 export const SMS_DAILY_DRAFTS_TABLE = "sms_daily_drafts" as const;
 
+/**
+ * Outbound SMS moment/purpose slots — NOT wall-clock send times.
+ * Future per-slot local schedules (e.g. morning 5–10 AM, evening_checkin 5–10 PM) will be
+ * user-configurable; send_slot identifies which product moment the message serves.
+ */
+export const SMS_DAILY_SEND_SLOTS = ["morning", "evening_checkin"] as const;
+export type SmsDailySendSlot = (typeof SMS_DAILY_SEND_SLOTS)[number];
+
+/**
+ * Phase 1 production slot: the current daily planning/accountability SMS.
+ * May send at different wall-clock hours via legacy Clerk smsTimePreference (e.g. evening = 19:00).
+ * evening_checkin is reserved for a future second check-in SMS — not implemented in Phase 1.
+ */
+export const SMS_DAILY_PRODUCTION_SEND_SLOT: SmsDailySendSlot = "morning";
+
 export const TYLER_TEXT_OVERVIEW_GENERATION_REASONS = [
   "noon_batch",
   "inbound_after_generation",
@@ -180,6 +195,8 @@ export type TylerTextOverviewAdminDraftRow = {
   draftId: string;
   clerkUserId: string;
   draftForDayKey: string;
+  /** Outbound moment slot (Phase 1: always morning / primary daily). Not wall-clock time. */
+  sendSlot: SmsDailySendSlot;
   currentBodyToSend: string | null;
   writerOpenAiMessages: Array<{
     role: "system" | "user" | "assistant";

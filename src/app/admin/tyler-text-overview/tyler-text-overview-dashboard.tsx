@@ -267,6 +267,12 @@ export default function TylerTextOverviewDashboard() {
                   <p className="mt-1 font-mono text-sm text-gray-900 break-all">{row.clerkUserId}</p>
                 </div>
                 <div>
+                  <p className="text-xs font-medium text-gray-500">Send slot</p>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {row.sendSlot === "morning" ? "morning / primary daily" : row.sendSlot}
+                  </p>
+                </div>
+                <div>
                   <label
                     className="text-xs font-medium text-gray-500"
                     htmlFor={`body-${row.draftId}`}
