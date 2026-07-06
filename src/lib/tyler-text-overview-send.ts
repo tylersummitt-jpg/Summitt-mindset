@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import {
   isTylerTextOverviewEnabled,
   isProtectedTtoCurrentDraftBody,
+  isProductionSendSlot,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
@@ -19,10 +20,47 @@ import {
   type TylerTextOverviewCurrentBodySource,
   type TylerTextOverviewSendMetadata,
   type TylerTextOverviewSendSource,
+  type SmsDailySendSlot,
 } from "@/lib/tyler-text-overview-types";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 const MAIN_ACCOUNTABILITY_ROUTE_KIND = "main_active_accountability";
+
+const PREVIEW_ONLY_DRAFT_SEND_REFUSED = "preview_only_draft_not_sendable" as const;
+
+async function loadDraftSendSlotForGuard(draftId: string): Promise<SmsDailySendSlot | null> {
+  const { data, error } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select("send_slot")
+    .eq("id", draftId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const slot = data.send_slot;
+  if (slot === SMS_DAILY_PRODUCTION_SEND_SLOT || slot === "evening_checkin") {
+    return slot;
+  }
+  return SMS_DAILY_PRODUCTION_SEND_SLOT;
+}
+
+export function isSendableTylerTextOverviewDraftSlot(
+  sendSlot: SmsDailySendSlot | string | null | undefined
+): boolean {
+  return isProductionSendSlot(sendSlot);
+}
+
+export async function assertSendableTylerTextOverviewDraft(args: {
+  draftId: string;
+}): Promise<{ ok: true } | { ok: false; error: typeof PREVIEW_ONLY_DRAFT_SEND_REFUSED }> {
+  const sendSlot = await loadDraftSendSlotForGuard(args.draftId);
+  if (sendSlot == null) {
+    return { ok: true };
+  }
+  if (!isSendableTylerTextOverviewDraftSlot(sendSlot)) {
+    return { ok: false, error: PREVIEW_ONLY_DRAFT_SEND_REFUSED };
+  }
+  return { ok: true };
+}
 
 type DraftRow = {
   id: string;
@@ -607,6 +645,11 @@ export async function finalizeTylerTextOverviewDraftAfterSend(args: {
   finalBodySent: string;
   now?: Date;
 }): Promise<{ ok: boolean; error?: string }> {
+  const guard = await assertSendableTylerTextOverviewDraft({ draftId: args.draftId });
+  if (!guard.ok) {
+    return { ok: false, error: guard.error };
+  }
+
   const nowIso = (args.now ?? new Date()).toISOString();
   const sendEventId = await resolveSmsSendEventIdForDay({
     clerkUserId: args.clerkUserId,
@@ -642,6 +685,15 @@ export async function markTylerTextOverviewDraftSkippedAfterGuard(args: {
   dayKey: string;
   now?: Date;
 }): Promise<void> {
+  const guard = await assertSendableTylerTextOverviewDraft({ draftId: args.draftId });
+  if (!guard.ok) {
+    console.warn("[tyler-text-overview-send] skipped guard on preview-only draft", {
+      draft_id: args.draftId,
+      reason: guard.error,
+    });
+    return;
+  }
+
   const nowIso = (args.now ?? new Date()).toISOString();
   const sendEventId = await resolveSmsSendEventIdForDay({
     clerkUserId: args.clerkUserId,
@@ -674,6 +726,15 @@ export async function markTylerTextOverviewDraftSkippedAfterLiveFallback(args: {
   finalBodySent: string | null;
   now?: Date;
 }): Promise<void> {
+  const guard = await assertSendableTylerTextOverviewDraft({ draftId: args.draftId });
+  if (!guard.ok) {
+    console.warn("[tyler-text-overview-send] skipped live fallback on preview-only draft", {
+      draft_id: args.draftId,
+      reason: guard.error,
+    });
+    return;
+  }
+
   const nowIso = (args.now ?? new Date()).toISOString();
   const sendEventId = await resolveSmsSendEventIdForDay({
     clerkUserId: args.clerkUserId,

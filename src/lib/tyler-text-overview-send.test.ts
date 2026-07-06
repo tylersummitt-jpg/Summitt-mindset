@@ -154,6 +154,8 @@ function seedDraft(overrides?: {
   source?: string;
   edited?: boolean;
   routeKind?: string;
+  sendSlot?: string;
+  draftId?: string;
 }) {
   db.generations = [
     {
@@ -167,7 +169,7 @@ function seedDraft(overrides?: {
   ];
   db.drafts = [
     {
-      id: "draft-1",
+      id: overrides?.draftId ?? "draft-1",
       clerk_user_id: "user_send",
       draft_for_day_key: "2026-07-03",
       current_generation_id: "gen-1",
@@ -177,6 +179,7 @@ function seedDraft(overrides?: {
       machine_body_hash: hashSmsSnippet(MACHINE_BODY),
       current_body_hash: hashSmsSnippet(overrides?.body ?? MACHINE_BODY),
       status: "current",
+      send_slot: overrides?.sendSlot ?? "morning",
     },
   ];
   db.inbound = [];
@@ -925,6 +928,30 @@ describe("tyler-text-overview-send finalize and metadata", () => {
     expect(db.drafts[0].twilio_message_sid).toBe("SM123");
     expect(db.drafts[0].final_body_sent).toBe(MACHINE_BODY);
     expect(db.drafts[0].source_sms_send_event_id).toBe("evt-1");
+  });
+
+  it("refuses finalize for evening_checkin preview draft", async () => {
+    seedDraft({ sendSlot: "evening_checkin", draftId: "draft-evening" });
+    const result = await finalizeTylerTextOverviewDraftAfterSend({
+      draftId: "draft-evening",
+      clerkUserId: "user_send",
+      dayKey: "2026-07-03",
+      twilioMessageSid: "SM123",
+      finalBodySent: MACHINE_BODY,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("preview_only_draft_not_sendable");
+    expect(db.drafts[0].status).toBe("current");
+  });
+
+  it("markTylerTextOverviewDraftSkippedAfterGuard ignores evening preview draft", async () => {
+    seedDraft({ sendSlot: "evening_checkin", draftId: "draft-evening" });
+    await markTylerTextOverviewDraftSkippedAfterGuard({
+      draftId: "draft-evening",
+      clerkUserId: "user_send",
+      dayKey: "2026-07-03",
+    });
+    expect(db.drafts[0].status).toBe("current");
   });
 
   it("success metadata includes tyler_text_overview block", () => {

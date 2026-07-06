@@ -34,8 +34,10 @@ import {
 import {
   buildSlotCoachingContext,
   type SlotCoachingContextV1,
+  type SlotCoachingPreviousOutbound,
 } from "@/lib/slot-coaching-context-v1";
 import {
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
   type SmsDailySendSlot,
 } from "@/lib/tyler-text-overview-types";
@@ -488,6 +490,13 @@ function buildAuthoritativeClaims(
   };
 }
 
+export type DailySmsWritingBriefOverrides = {
+  currentSendSlot?: SmsDailySendSlot;
+  slotDaypartOverride?: BriefLocalDaypart;
+  previousOutbound?: SlotCoachingPreviousOutbound | null;
+  userRepliesSincePreviousOutbound?: string[];
+};
+
 export type BuildDailySmsWritingBriefV1Args = {
   facts: DailyV3RelationshipFacts;
   proof_calibration: DailyProofCalibration;
@@ -495,6 +504,7 @@ export type BuildDailySmsWritingBriefV1Args = {
   thread: RecentExactThreadForBriefResult;
   freshness_phrases: BriefFreshnessAvoidPhrase[];
   commitmentRow?: ActiveV2CommitmentRow | null;
+  writing_brief_overrides?: DailySmsWritingBriefOverrides;
 };
 
 export function buildDailySmsWritingBriefV1(
@@ -516,10 +526,13 @@ export function buildDailySmsWritingBriefV1(
 
   const preferredName =
     truncateText(f.user.preferred_name?.trim() || "there", 40) || "there";
-  const localDaypart = deriveLocalDaypartForBrief({
-    timezone: f.user.timezone,
-    localTimeIso: f.user.local_time_iso,
-  });
+  const overrides = args.writing_brief_overrides;
+  const localDaypart =
+    overrides?.slotDaypartOverride ??
+    deriveLocalDaypartForBrief({
+      timezone: f.user.timezone,
+      localTimeIso: f.user.local_time_iso,
+    });
   const relationship_anchors = buildRelationshipAnchorsForBrief(f.relationship_anchor_sources);
   const open_loops_full = buildOpenLoopsForBrief({ facts: f, commitmentRow: args.commitmentRow });
   const freshnessPhrases = args.freshness_phrases.slice(0, 3);
@@ -552,9 +565,15 @@ export function buildDailySmsWritingBriefV1(
     Boolean(relationship_read.latest_user_signal)
   ) as DailySmsWritingBriefV1["open_loops"];
 
-  const current_send_slot: SmsDailySendSlot = SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const current_send_slot: SmsDailySendSlot =
+    overrides?.currentSendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const previousOutbound =
+    overrides?.previousOutbound ??
+    undefined;
   const slot_coaching_context = buildSlotCoachingContext({
     currentSlot: current_send_slot,
+    previousOutbound: previousOutbound ?? undefined,
+    userRepliesSincePreviousOutbound: overrides?.userRepliesSincePreviousOutbound,
     recentExactThread: args.thread.messages,
     pendingPlanProof: f.accountability.pending_plan_proof ?? null,
     timingAnchorMemory: f.accountability.timing_anchor_memory ?? null,
@@ -647,6 +666,7 @@ export function buildDailySmsBriefSystemPrompt(args: {
   pendingPlanActive: boolean;
   goalEvolutionInvite: boolean;
   silenceCadenceRoute?: SilenceCadenceRoute | null;
+  currentSendSlot?: SmsDailySendSlot;
 }): string {
   const scRoute = args.silenceCadenceRoute;
   const scCard = scRoute ? SILENCE_CADENCE_ROUTE_CARDS[scRoute] : null;
@@ -674,6 +694,11 @@ export function buildDailySmsBriefSystemPrompt(args: {
       ? "Authority order when silence_cadence is present: silence_cadence route card > current_standard + authoritative_truth > relationship_read (interpretive) > slot_coaching_context (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory."
       : "Authority order: current_standard + authoritative_truth > relationship_read (interpretive) > slot_coaching_context (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.";
 
+  const eveningSlotLine =
+    args.currentSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+      ? "This is the evening_checkin moment — continue the coaching thread from the morning slot and user replies since then; do not default to a generic \"Did you hit your goal?\" when slot_coaching_context gives a more specific thread.\n"
+      : "";
+
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
 Use DAILY_SMS_WRITING_BRIEF_V1 as server truth. Write one human SMS.
@@ -681,7 +706,7 @@ ${authorityOrder}
 relationship_read is the primary human-continuity guide. It tells you what would make the user feel known today, what callback is worth using, what old wording to avoid, and the plain-English coaching move.
 relationship_read is interpretive only. It never authorizes proof, completion, misses, Victory Room, goal changes, or state changes. current_standard and authoritative_truth remain the source of truth.
 slot_coaching_context is the same class: interpretive thread-role for this slot (not proof/send authority). Prefer specific active_coaching_thread/checkin_focus over a generic "Did you hit your goal?" loop.
-Prefer relationship_read.today_best_move over the raw suggested_move.move token for wording — suggested_move.move is structural backend metadata, not user-facing language.
+${eveningSlotLine}Prefer relationship_read.today_best_move over the raw suggested_move.move token for wording — suggested_move.move is structural backend metadata, not user-facing language.
 recent_exact_thread is exact transcript, but do not imitate stale or repeated coach copy when relationship_read.bad_old_coach_copy_warning is present.
 open_loops and freshness are structural guardrails. relationship_read summarizes the human meaning; follow relationship_read.today_best_move unless it conflicts with current_standard, authoritative_truth, safety, or route constraints.
 When silence_cadence route card is present, it overrides old silence, reentry, reactivation, silence_note, and silence_nudge hints. current_standard still applies.
@@ -715,6 +740,7 @@ export function buildDailySmsWriterMessagesFromBrief(brief: DailySmsWritingBrief
     pendingPlanActive: brief.open_loops.pending_plan_active === true,
     goalEvolutionInvite: brief.open_loops.goal_evolution_invite?.should_invite === true,
     silenceCadenceRoute: brief.silence_cadence?.route ?? null,
+    currentSendSlot: brief.current_send_slot,
   });
   const user = `DAILY_SMS_WRITING_BRIEF_V1 (server truth — not copyable prose):
 ${JSON.stringify(brief)}

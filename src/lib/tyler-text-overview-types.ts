@@ -28,6 +28,31 @@ export type SmsDailySendSlot = (typeof SMS_DAILY_SEND_SLOTS)[number];
  */
 export const SMS_DAILY_PRODUCTION_SEND_SLOT: SmsDailySendSlot = "morning";
 
+/** Preview-only slot — persisted in TTO tables; never sent in Phase 2B. */
+export const SMS_DAILY_EVENING_PREVIEW_SEND_SLOT: SmsDailySendSlot = "evening_checkin";
+
+export const SMS_DAILY_PREVIEW_ONLY_SEND_SLOTS = [
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+] as const satisfies ReadonlyArray<SmsDailySendSlot>;
+
+export type SmsDailyPreviewOnlySendSlot =
+  (typeof SMS_DAILY_PREVIEW_ONLY_SEND_SLOTS)[number];
+
+export function isPreviewOnlySendSlot(
+  slot: SmsDailySendSlot | string | null | undefined
+): slot is SmsDailyPreviewOnlySendSlot {
+  return (
+    slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT ||
+    (SMS_DAILY_PREVIEW_ONLY_SEND_SLOTS as readonly string[]).includes(slot ?? "")
+  );
+}
+
+export function isProductionSendSlot(
+  slot: SmsDailySendSlot | string | null | undefined
+): slot is typeof SMS_DAILY_PRODUCTION_SEND_SLOT {
+  return slot === SMS_DAILY_PRODUCTION_SEND_SLOT;
+}
+
 export const TYLER_TEXT_OVERVIEW_GENERATION_REASONS = [
   "noon_batch",
   "inbound_after_generation",

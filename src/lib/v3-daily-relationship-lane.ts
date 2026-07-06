@@ -425,6 +425,8 @@ export type DailyV3RelationshipLaneInput = {
   telemetry_fact_sources: string[];
   /** Authoritative server row for row-backed active_pending_state (read-only context). */
   commitmentRow?: import("@/lib/v2-commitment").ActiveV2CommitmentRow | null;
+  /** Optional slot/daypart overrides for evening preview or future multi-slot builds. */
+  writing_brief_overrides?: import("@/lib/sms-daily-writing-brief-v1").DailySmsWritingBriefOverrides;
 };
 
 export type DailyV3RelationshipLaneReplySource = "v3_daily_relationship_lane";
@@ -1456,6 +1458,7 @@ async function produceDailyV3RelationshipSmsImpl(
       thread: briefThread,
       freshness_phrases: freshnessPhrases,
       commitmentRow: args.commitmentRow ?? null,
+      writing_brief_overrides: args.writing_brief_overrides,
     });
     const writerMsgs = buildDailySmsWriterMessagesFromBrief(brief);
     system = writerMsgs.system;

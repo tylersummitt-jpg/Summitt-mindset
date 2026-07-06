@@ -11,10 +11,14 @@ import {
   mapBuiltToTylerTextOverviewGenerationRow,
   generateTylerTextOverviewDailyDrafts,
   generateTylerTextOverviewDraftForUser,
+  generateTylerTextOverviewEveningPreviewForUser,
   loadTylerTextOverviewAudienceRows,
 } from "@/lib/tyler-text-overview-generate";
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
-import { TYLER_TEXT_OVERVIEW_ENABLED_ENV } from "@/lib/tyler-text-overview-types";
+import {
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  TYLER_TEXT_OVERVIEW_ENABLED_ENV,
+} from "@/lib/tyler-text-overview-types";
 
 const buildDailySmsContentMock = vi.hoisted(() => vi.fn());
 const getClerkUserMock = vi.hoisted(() => vi.fn());
@@ -50,10 +54,24 @@ function makeChain(handlers: {
     const { table, action, payload } = state;
 
     if (table === "sms_audience" && action === "select") {
-      return { data: db.audience, error: null };
+      let rows = db.audience;
+      if (payload.clerk_user_id) {
+        rows = rows.filter((a) => a.clerk_user_id === payload.clerk_user_id);
+      }
+      if (payload.summitt_subscribed !== undefined) {
+        rows = rows.filter((a) => a.summitt_subscribed === payload.summitt_subscribed);
+      }
+      if (payload.sms_enabled !== undefined) {
+        rows = rows.filter((a) => a.sms_enabled === payload.sms_enabled);
+      }
+      return { data: payload.maybeSingle ? rows[0] ?? null : rows, error: null };
     }
 
     if (table === "sms_daily_draft_generations" && action === "select") {
+      if (payload.id) {
+        const row = db.generations.find((g) => g.id === payload.id) ?? null;
+        return { data: row, error: null };
+      }
       const clerk = payload.clerk_user_id as string;
       const day = payload.draft_for_day_key as string;
       let rows = db.generations.filter(
@@ -143,6 +161,9 @@ function makeChain(handlers: {
     }
 
     if (table === "sms_send_events") {
+      if (action === "select") {
+        return { data: null, error: null };
+      }
       db.smsSendEventsWrites += 1;
       return { data: null, error: null };
     }
@@ -690,5 +711,107 @@ describe("generateTylerTextOverviewDraftForUser direct", () => {
     expect(threadMemoryMock).not.toHaveBeenCalled();
     expect(checkSentInsertMock).not.toHaveBeenCalled();
     expect(db.v2EventWrites).toBe(0);
+  });
+});
+
+describe("generateTylerTextOverviewEveningPreviewForUser", () => {
+  beforeEach(() => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
+    db.generations = [];
+    db.drafts = [];
+    db.smsSendEventsWrites = 0;
+    vi.clearAllMocks();
+    setupHappyPath();
+  });
+
+  afterEach(() => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "false";
+  });
+
+  it("persists evening_checkin preview rows with metadata", async () => {
+    buildDailySmsContentMock.mockImplementation(
+      (_uid, _md, _day, _tz, options) => {
+        expect(options?.writingBriefOverrides?.currentSendSlot).toBe(
+          SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+        );
+        expect(options?.writingBriefOverrides?.slotDaypartOverride).toBe("evening");
+        return Promise.resolve({
+          ...SUCCESS_BUILT,
+          v2AiPayload: {
+            v3_brain: {
+              slot_coaching_context: {
+                version: "1",
+                current_slot: "evening_checkin",
+                previous_slot: "morning",
+                previous_outbound_summary: "Morning rep.",
+                user_replies_since_previous_outbound: null,
+                active_coaching_thread: "Thread focus: plan",
+                slot_role_recommendation: "truth_check",
+                checkin_focus: null,
+                should_send_recommendation: "writer_decides",
+                skip_reason_hint: null,
+              },
+              current_send_slot: "evening_checkin",
+            },
+          },
+        });
+      }
+    );
+
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(db.generations.some((g) => g.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
+      true
+    );
+    expect(db.drafts.some((d) => d.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(true);
+    expect(db.generations.some((g) => g.send_slot === "morning")).toBe(false);
+
+    const eveningGen = db.generations.find(
+      (g) => g.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+    );
+    const meta = eveningGen?.generation_metadata as Record<string, unknown>;
+    expect(meta.preview_only).toBe(true);
+    expect(meta.preview_slot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
+    expect(meta.morning_anchor_source).toBeTruthy();
+    expect(meta.current_send_slot).toBe("evening_checkin");
+    expect(db.smsSendEventsWrites).toBe(0);
+    expect(sendSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("morning and evening drafts coexist for same user/day", async () => {
+    db.generations.push({
+      id: "gen-morning",
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-03",
+      send_slot: "morning",
+      generation_number: 1,
+    });
+    db.drafts.push({
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-03",
+      send_slot: "morning",
+      status: "current",
+    });
+
+    buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
+    await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+
+    const morningDrafts = db.drafts.filter(
+      (d) => d.send_slot === "morning" && d.draft_for_day_key === "2026-07-03"
+    );
+    const eveningDrafts = db.drafts.filter(
+      (d) => d.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+    );
+    expect(morningDrafts.length).toBe(1);
+    expect(eveningDrafts.length).toBe(1);
   });
 });

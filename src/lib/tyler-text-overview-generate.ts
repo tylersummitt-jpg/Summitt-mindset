@@ -1,4 +1,8 @@
 import { buildDailySmsContent, type DailySmsBuilt } from "@/lib/daily-sms-build";
+import {
+  morningAnchorToPreviousOutbound,
+  resolveEveningPreviewMorningAnchor,
+} from "@/lib/evening-preview-context-v1";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
@@ -9,7 +13,9 @@ import {
   isProtectedTtoCurrentDraftBody,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
+  type SmsDailySendSlot,
   type TylerTextOverviewGenerationReason,
   type TylerTextOverviewNotebookVerdict,
 } from "@/lib/tyler-text-overview-types";
@@ -228,14 +234,15 @@ function isUniqueViolation(error: { code?: string; message?: string } | null): b
 
 async function fetchNextGenerationNumber(
   clerkUserId: string,
-  draftForDayKey: string
+  draftForDayKey: string,
+  sendSlot: SmsDailySendSlot = SMS_DAILY_PRODUCTION_SEND_SLOT
 ): Promise<number> {
   const { data, error } = await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
     .select("generation_number")
     .eq("clerk_user_id", clerkUserId)
     .eq("draft_for_day_key", draftForDayKey)
-    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
+    .eq("send_slot", sendSlot)
     .order("generation_number", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -251,7 +258,7 @@ async function fetchNextGenerationNumber(
 export type TylerTextOverviewGenerationInsertRow = {
   clerk_user_id: string;
   draft_for_day_key: string;
-  send_slot: typeof SMS_DAILY_PRODUCTION_SEND_SLOT;
+  send_slot: SmsDailySendSlot;
   generation_number: number;
   generation_reason: TylerTextOverviewGenerationReason;
   commitment_id: string | null;
@@ -284,15 +291,18 @@ export function mapBuiltToTylerTextOverviewGenerationRow(args: {
   commitmentId: string | null;
   timezone: string;
   sendPrefSnapshot: string;
+  sendSlot?: SmsDailySendSlot;
+  generationMetadataExtra?: Record<string, unknown>;
 }): TylerTextOverviewGenerationInsertRow {
   const machineBody = args.built.ok ? args.built.smsBody.trim() || null : null;
   const capture = args.built.writerOpenAiCapture ?? null;
   const notebook = resolveTylerTextOverviewNotebookFields(args.built);
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
 
   return {
     clerk_user_id: args.clerkUserId,
     draft_for_day_key: args.draftForDayKey,
-    send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    send_slot: sendSlot,
     generation_number: args.generationNumber,
     generation_reason: args.generationReason ?? "noon_batch",
     commitment_id: args.commitmentId,
@@ -310,11 +320,14 @@ export function mapBuiltToTylerTextOverviewGenerationRow(args: {
     notebook_thread_message_count: notebook.notebook_thread_message_count,
     notebook_filtered_out_reason_top: notebook.notebook_filtered_out_reason_top,
     route_kind: resolveTylerTextOverviewRouteKind(args.built),
-    generation_metadata: buildTylerTextOverviewGenerationMetadata({
-      built: args.built,
-      draftForDayKey: args.draftForDayKey,
-      capturePresent: Boolean(capture?.messages?.length),
-    }),
+    generation_metadata: {
+      ...buildTylerTextOverviewGenerationMetadata({
+        built: args.built,
+        draftForDayKey: args.draftForDayKey,
+        capturePresent: Boolean(capture?.messages?.length),
+      }),
+      ...(args.generationMetadataExtra ?? {}),
+    },
     timezone_snapshot: args.timezone,
     send_pref_snapshot: args.sendPrefSnapshot,
     machine_body_hash: machineBody ? hashSmsSnippet(machineBody) : null,
@@ -342,7 +355,11 @@ async function insertGenerationRow(
     if (isUniqueViolation(error) && attempt === 0) {
       attempt += 1;
       try {
-        generationNumber = await fetchNextGenerationNumber(row.clerk_user_id, row.draft_for_day_key);
+        generationNumber = await fetchNextGenerationNumber(
+          row.clerk_user_id,
+          row.draft_for_day_key,
+          row.send_slot
+        );
       } catch (lookupErr) {
         return {
           error:
@@ -363,6 +380,7 @@ async function insertGenerationRow(
 async function supersedePriorGenerations(args: {
   clerkUserId: string;
   draftForDayKey: string;
+  sendSlot: SmsDailySendSlot;
   newGenerationId: string;
   nowIso: string;
 }): Promise<{ ok: boolean; error?: string }> {
@@ -374,7 +392,7 @@ async function supersedePriorGenerations(args: {
     })
     .eq("clerk_user_id", args.clerkUserId)
     .eq("draft_for_day_key", args.draftForDayKey)
-    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
+    .eq("send_slot", args.sendSlot)
     .neq("id", args.newGenerationId)
     .is("superseded_at", null);
 
@@ -386,7 +404,8 @@ async function supersedePriorGenerations(args: {
 
 async function loadExistingCurrentDraft(
   clerkUserId: string,
-  draftForDayKey: string
+  draftForDayKey: string,
+  sendSlot: SmsDailySendSlot = SMS_DAILY_PRODUCTION_SEND_SLOT
 ): Promise<{
   status: string;
   current_body_to_send: string | null;
@@ -396,7 +415,7 @@ async function loadExistingCurrentDraft(
     .select("status, current_body_to_send")
     .eq("clerk_user_id", clerkUserId)
     .eq("draft_for_day_key", draftForDayKey)
-    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
+    .eq("send_slot", sendSlot)
     .eq("status", "current")
     .maybeSingle();
 
@@ -418,13 +437,21 @@ async function loadExistingCurrentDraft(
 async function upsertCurrentDraft(args: {
   clerkUserId: string;
   draftForDayKey: string;
+  sendSlot: SmsDailySendSlot;
   generationId: string;
   machineBody: string | null;
   machineBodyHash: string | null;
   nowIso: string;
+  respectProtectedMorningDraft?: boolean;
 }): Promise<{ ok: boolean; error?: string; protected?: boolean }> {
-  const existing = await loadExistingCurrentDraft(args.clerkUserId, args.draftForDayKey);
+  const existing = await loadExistingCurrentDraft(
+    args.clerkUserId,
+    args.draftForDayKey,
+    args.sendSlot
+  );
   if (
+    args.respectProtectedMorningDraft !== false &&
+    args.sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
     existing &&
     existing.status === "current" &&
     isProtectedTtoCurrentDraftBody(existing.current_body_to_send)
@@ -436,7 +463,7 @@ async function upsertCurrentDraft(args: {
     {
       clerk_user_id: args.clerkUserId,
       draft_for_day_key: args.draftForDayKey,
-      send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      send_slot: args.sendSlot,
       current_generation_id: args.generationId,
       current_body_to_send: args.machineBody,
       current_body_source: "machine",
@@ -514,13 +541,21 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
   timezone: string;
   sendPrefSnapshot: string;
   now: Date;
+  sendSlot?: SmsDailySendSlot;
+  generationMetadataExtra?: Record<string, unknown>;
+  respectProtectedMorningDraft?: boolean;
 }): Promise<
   | { ok: true; generationId: string; supersedeFailed: boolean; currentDraftProtected?: boolean }
   | { ok: false; reason: "insert_failed" | "upsert_failed"; error?: string }
 > {
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
   let generationNumber: number;
   try {
-    generationNumber = await fetchNextGenerationNumber(args.clerkUserId, args.draftForDayKey);
+    generationNumber = await fetchNextGenerationNumber(
+      args.clerkUserId,
+      args.draftForDayKey,
+      sendSlot
+    );
   } catch (e) {
     return {
       ok: false,
@@ -538,6 +573,8 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
     commitmentId: args.commitmentId,
     timezone: args.timezone,
     sendPrefSnapshot: args.sendPrefSnapshot,
+    sendSlot,
+    generationMetadataExtra: args.generationMetadataExtra,
   });
 
   const inserted = await insertGenerationRow(generationRow);
@@ -549,6 +586,7 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
   const supersede = await supersedePriorGenerations({
     clerkUserId: args.clerkUserId,
     draftForDayKey: args.draftForDayKey,
+    sendSlot,
     newGenerationId: inserted.id,
     nowIso,
   });
@@ -563,10 +601,12 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
   const upsert = await upsertCurrentDraft({
     clerkUserId: args.clerkUserId,
     draftForDayKey: args.draftForDayKey,
+    sendSlot,
     generationId: inserted.id,
     machineBody: generationRow.machine_draft_body,
     machineBodyHash: generationRow.machine_body_hash,
     nowIso,
+    respectProtectedMorningDraft: args.respectProtectedMorningDraft,
   });
   if (!upsert.ok) {
     return { ok: false, reason: "upsert_failed", error: upsert.error };
@@ -735,4 +775,146 @@ export async function generateTylerTextOverviewDailyDrafts(args: {
 
   stats.errors_preview = errors.slice(0, 20);
   return stats;
+}
+
+export type TylerTextOverviewEveningPreviewResult =
+  | {
+      ok: true;
+      draftForDayKey: string;
+      generationId: string;
+      built: DailySmsBuilt;
+      morningAnchorSource: string;
+      slotCoachingContext: Record<string, unknown> | null;
+    }
+  | {
+      ok: false;
+      reason:
+        | "disabled"
+        | "audience"
+        | "comms_prefs"
+        | "not_v2"
+        | "build_failed"
+        | "insert_failed"
+        | "upsert_failed";
+      error?: string;
+    };
+
+export async function generateTylerTextOverviewEveningPreviewForUser(args: {
+  clerkUserId: string;
+  draftForDayKey?: string;
+  now?: Date;
+}): Promise<TylerTextOverviewEveningPreviewResult> {
+  if (!isTylerTextOverviewEnabled()) {
+    return { ok: false, reason: "disabled" };
+  }
+
+  const clerkUserId = args.clerkUserId.trim();
+  if (!clerkUserId) {
+    return { ok: false, reason: "audience", error: "missing_clerk_user_id" };
+  }
+
+  const audienceUser = await loadTylerTextOverviewAudienceRow(clerkUserId);
+  if (!audienceUser) {
+    return { ok: false, reason: "audience", error: "user_not_in_sms_audience" };
+  }
+
+  const now = args.now ?? new Date();
+  const user = await getClerkUser(clerkUserId);
+  const md = (user.public_metadata ?? {}) as Record<string, unknown>;
+
+  const tzResolved = resolveSmsUserTimezone({
+    clerkMetadataTimezone: md.timezone,
+    audienceTimezone: audienceUser.timezone,
+  });
+  const timezone = tzResolved.timezone;
+  const localNow = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
+
+  const commsPrefs = await fetchV2UserSmsCommsPreferences(clerkUserId);
+  const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, now);
+  if (commsSkip.skip) {
+    return { ok: false, reason: "comms_prefs" };
+  }
+
+  const v2Status = await resolveUserFullyOnV2ForCutoverMessaging(clerkUserId);
+  if (!v2Status.fullyOnV2) {
+    return { ok: false, reason: "not_v2" };
+  }
+
+  const clerkSmsTimePreference = smsTimePreferenceFromClerkMetadata(md);
+  const learnedProfile = await fetchV2UserSendTimeProfile(clerkUserId);
+  const draftForDayKey =
+    args.draftForDayKey?.trim() ||
+    resolveTylerTextOverviewDraftForDayKey({
+      now,
+      timezone,
+      clerkSmsTimePreference,
+      commsPrefs,
+      learnedProfile,
+    });
+
+  const morningAnchor = await resolveEveningPreviewMorningAnchor({
+    clerkUserId,
+    draftForDayKey,
+    supabase: supabaseServer,
+  });
+
+  const previousOutbound = morningAnchorToPreviousOutbound(morningAnchor);
+
+  const built = await buildDailySmsContent(clerkUserId, md, draftForDayKey, timezone, {
+    mode: "draft",
+    writingBriefOverrides: {
+      currentSendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      slotDaypartOverride: "evening",
+      previousOutbound,
+      userRepliesSincePreviousOutbound: undefined,
+    },
+  });
+
+  const activeCommitment = await getActiveCommitment(clerkUserId);
+  const commitmentId =
+    (built.ok ? built.v2CommitmentId : null) ?? activeCommitment?.id ?? null;
+  const sendPrefSnapshot = formatSendPrefSnapshot(clerkSmsTimePreference, commsPrefs);
+
+  const previewMetadataExtra = {
+    preview_only: true,
+    preview_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+    morning_anchor_source: morningAnchor.source,
+    morning_anchor_sent: morningAnchor.sent,
+    morning_anchor_body_preview: morningAnchor.body?.slice(0, 160) ?? null,
+  };
+
+  const persisted = await persistTylerTextOverviewDraftFromBuilt({
+    clerkUserId,
+    draftForDayKey,
+    generationReason: "manual_regenerate",
+    built,
+    commitmentId,
+    timezone,
+    sendPrefSnapshot,
+    now,
+    sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+    generationMetadataExtra: previewMetadataExtra,
+    respectProtectedMorningDraft: false,
+  });
+
+  if (!persisted.ok) {
+    return { ok: false, reason: persisted.reason, error: persisted.error };
+  }
+
+  const meta = metadataFromBuilt(built);
+  const slotCtx =
+    meta.slot_coaching_context &&
+    typeof meta.slot_coaching_context === "object" &&
+    !Array.isArray(meta.slot_coaching_context)
+      ? (meta.slot_coaching_context as Record<string, unknown>)
+      : null;
+
+  return {
+    ok: true,
+    draftForDayKey,
+    generationId: persisted.generationId,
+    built,
+    morningAnchorSource: morningAnchor.source,
+    slotCoachingContext: slotCtx,
+  };
 }

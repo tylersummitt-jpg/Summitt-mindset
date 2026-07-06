@@ -160,6 +160,7 @@ import {
 } from "@/lib/v3-daily-contract-proposal-semantic";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import type { TylerTextOverviewWriterOpenAiCapture } from "@/lib/tyler-text-overview-writer-capture";
+import type { DailySmsWritingBriefOverrides } from "@/lib/sms-daily-writing-brief-v1";
 
 export type DailySmsBuildMode = "send" | "draft";
 
@@ -170,7 +171,23 @@ export type BuildDailySmsContentOptions = {
    * use this body for a guardable DailySmsBuilt shell (Tyler edit over machine no-send).
    */
   tylerTextOverviewOverrideBody?: string | null;
+  /** Slot/daypart + morning anchor overrides for evening TTO preview (Phase 2B). */
+  writingBriefOverrides?: DailySmsWritingBriefOverrides;
 };
+
+function dailyV3LaneInput(
+  facts: Parameters<typeof produceDailyV3RelationshipSms>[0]["facts"],
+  commitmentRow: Parameters<typeof produceDailyV3RelationshipSms>[0]["commitmentRow"],
+  telemetry_fact_sources: string[],
+  options?: BuildDailySmsContentOptions
+): Parameters<typeof produceDailyV3RelationshipSms>[0] {
+  return {
+    facts,
+    commitmentRow,
+    telemetry_fact_sources,
+    writing_brief_overrides: options?.writingBriefOverrides,
+  };
+}
 
 function assembleDailyThreadMemoryFromRelationshipPacket(
   packet: SmsRelationshipMemoryPacket,
@@ -711,17 +728,15 @@ export async function buildDailySmsContent(
         { recentEvents, packet: relationshipMemoryPacketPr }
       );
       const remTemplate = buildPendingResolutionDailyReminderSms(active);
-      const lanePr = await produceDailyV3RelationshipSms({
-        facts: factsPr,
-        commitmentRow: active,
-        telemetry_fact_sources: [
+      const lanePr = await produceDailyV3RelationshipSms(
+        dailyV3LaneInput(factsPr, active, [
           "getPendingResolutionOrNull",
           "getEffectiveCoachingAsk",
           "loadV2CoachingMemoryForPrompt",
           "buildV2SmsConversationContextPack",
           "buildPendingResolutionDailyReminderSms",
-        ],
-      });
+        ], options)
+      );
       if (!lanePr.shouldSend || !lanePr.body.trim()) {
         return {
           ok: false,
@@ -1042,10 +1057,8 @@ export async function buildDailySmsContent(
           },
           { recentEvents, packet: relationshipMemoryPacketRf }
         );
-        const laneRf = await produceDailyV3RelationshipSms({
-          facts: factsRf,
-          commitmentRow: active,
-          telemetry_fact_sources: [
+        const laneRf = await produceDailyV3RelationshipSms(
+          dailyV3LaneInput(factsRf, active, [
             "computeWave1ColdStartRefreshEligible",
             "buildRefreshStepIdentitySms",
             "loadV2CoachingMemoryForPrompt",
@@ -1053,8 +1066,8 @@ export async function buildDailySmsContent(
             "deriveV2CoachingState",
             "deriveV2SilenceContext",
             "deriveV2ReentryContext",
-          ],
-        });
+          ], options)
+        );
         if (!laneRf.shouldSend || !laneRf.body.trim()) {
           return {
             ok: false,
@@ -1311,10 +1324,8 @@ export async function buildDailySmsContent(
           },
           { recentEvents, packet: relationshipMemoryPacketC }
         );
-        const laneC = await produceDailyV3RelationshipSms({
-          facts: factsC,
-          commitmentRow: active,
-          telemetry_fact_sources: [
+        const laneC = await produceDailyV3RelationshipSms(
+          dailyV3LaneInput(factsC, active, [
             "buildRefreshStepCommitmentSms",
             "getEffectiveCoachingAsk",
             "loadV2CoachingMemoryForPrompt",
@@ -1322,8 +1333,8 @@ export async function buildDailySmsContent(
             "deriveV2CoachingState",
             "deriveV2SilenceContext",
             "deriveV2ReentryContext",
-          ],
-        });
+          ], options)
+        );
         if (!laneC.shouldSend || !laneC.body.trim()) {
           return {
             ok: false,
@@ -1939,11 +1950,9 @@ export async function buildDailySmsContent(
       telemetryUnified.push("buildV2OutboundAccountabilitySmsForStrategy");
     }
 
-    const laneUnified = await produceDailyV3RelationshipSms({
-      facts: factsUnified,
-      commitmentRow: active,
-      telemetry_fact_sources: telemetryUnified,
-    });
+    const laneUnified = await produceDailyV3RelationshipSms(
+      dailyV3LaneInput(factsUnified, active, telemetryUnified, options)
+    );
     if (!laneUnified.shouldSend || !laneUnified.body.trim()) {
       const tylerOverrideBody = options?.tylerTextOverviewOverrideBody?.trim();
       if (
