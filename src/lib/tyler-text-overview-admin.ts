@@ -9,7 +9,9 @@ import {
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
   type TylerTextOverviewAdminDraftRow,
+  type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
+import { parseSlotCoachingContextFromMetadata } from "@/lib/slot-coaching-context-v1";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 type DraftDbRow = {
@@ -150,6 +152,23 @@ export function levenshteinCharDistance(a: string, b: string): number {
   return prev[bLen];
 }
 
+function mapSlotCoachingContextPanel(
+  metadata: Record<string, unknown>
+): TylerTextOverviewSlotCoachingContextPanel | null {
+  const ctx = parseSlotCoachingContextFromMetadata(metadata.slot_coaching_context);
+  if (!ctx) return null;
+  return {
+    currentSlot: ctx.current_slot,
+    previousSlot: ctx.previous_slot,
+    activeCoachingThread: ctx.active_coaching_thread,
+    slotRoleRecommendation: ctx.slot_role_recommendation,
+    checkinFocus: ctx.checkin_focus,
+    userRepliesSincePreviousOutbound: ctx.user_replies_since_previous_outbound,
+    shouldSendRecommendation: ctx.should_send_recommendation,
+    skipReasonHint: ctx.skip_reason_hint,
+  };
+}
+
 function mapGenerationToNotebookFields(
   generation: GenerationDbRow | undefined
 ): Pick<
@@ -169,6 +188,7 @@ function mapGenerationToNotebookFields(
   | "silenceDay"
   | "intentionalSpace"
   | "laneStage"
+  | "slotCoachingContext"
 > {
   const writerOpenAiMessages = parseWriterOpenAiMessages(generation?.writer_openai_messages);
   const notebookMessageCount = writerOpenAiMessages.length;
@@ -213,6 +233,7 @@ function mapGenerationToNotebookFields(
     silenceDay: readMetadataNumber(metadata, "silence_day"),
     intentionalSpace,
     laneStage: readMetadataString(metadata, "lane_stage"),
+    slotCoachingContext: mapSlotCoachingContextPanel(metadata),
   };
 }
 

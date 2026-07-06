@@ -144,6 +144,62 @@ function NotebookMessagesSection({ row }: { row: TylerTextOverviewAdminDraftRow 
   );
 }
 
+function SlotCoachingContextPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  const ctx = row.slotCoachingContext;
+  if (!ctx) {
+    return (
+      <p className="text-sm text-gray-600">
+        No slot coaching context for this generation (writer brief may not have run).
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3 text-xs text-gray-700">
+      <p className="text-xs text-gray-600">
+        Notebook context for the coaching thread — interpretive guidance only, not a mandatory send
+        rule.
+      </p>
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <dt className="font-medium text-gray-500">current_slot</dt>
+          <dd className="font-mono">{formatOptional(ctx.currentSlot)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">previous_slot</dt>
+          <dd className="font-mono">{formatOptional(ctx.previousSlot)}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="font-medium text-gray-500">active_coaching_thread</dt>
+          <dd className="whitespace-pre-wrap">{formatOptional(ctx.activeCoachingThread)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">slot_role_recommendation</dt>
+          <dd className="font-mono">{formatOptional(ctx.slotRoleRecommendation)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">checkin_focus</dt>
+          <dd className="whitespace-pre-wrap">{formatOptional(ctx.checkinFocus)}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="font-medium text-gray-500">user_replies_since_previous_outbound</dt>
+          <dd className="whitespace-pre-wrap">
+            {formatOptional(ctx.userRepliesSincePreviousOutbound)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">should_send_recommendation</dt>
+          <dd className="font-mono">{formatOptional(ctx.shouldSendRecommendation)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">skip_reason_hint</dt>
+          <dd className="font-mono break-all">{formatOptional(ctx.skipReasonHint)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 export default function TylerTextOverviewDashboard() {
   const [rows, setRows] = useState<TylerTextOverviewAdminDraftRow[]>([]);
   const [availableDayKeys, setAvailableDayKeys] = useState<string[]>([]);
@@ -304,6 +360,13 @@ export default function TylerTextOverviewDashboard() {
                 </h2>
                 <p className="text-xs text-gray-600">{ADMIN_INTERPRETATION_LINE}</p>
                 <NotebookProvenancePanel row={row} />
+              </section>
+
+              <section className="space-y-3 border-t border-gray-100 pt-5">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  Slot coaching context
+                </h2>
+                <SlotCoachingContextPanel row={row} />
               </section>
 
               <section className="space-y-3 border-t border-gray-100 pt-5">

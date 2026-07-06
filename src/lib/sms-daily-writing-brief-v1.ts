@@ -31,6 +31,14 @@ import {
   SILENCE_CADENCE_ROUTE_CARDS,
   silenceCadenceOverridesOldSilenceRouting,
 } from "@/lib/sms-silence-cadence-v1";
+import {
+  buildSlotCoachingContext,
+  type SlotCoachingContextV1,
+} from "@/lib/slot-coaching-context-v1";
+import {
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
+  type SmsDailySendSlot,
+} from "@/lib/tyler-text-overview-types";
 
 const DAILY_BRIEF_MAX_CHARS = 300;
 const TIMING_GUIDANCE_MAX = 2;
@@ -63,6 +71,10 @@ export type DailySmsWritingBriefV1 = {
     profile_hint?: string | null;
   };
   relationship_read: DailySmsRelationshipReadV1;
+  /** Outbound moment/purpose for this generation (Phase 2A: always morning). Not wall-clock time. */
+  current_send_slot: SmsDailySendSlot;
+  /** Interpretive slot-to-slot coaching thread guidance — not proof authority. */
+  slot_coaching_context: SlotCoachingContextV1;
   current_standard: {
     effective_ask: string;
     behavior_statement?: string | null;
@@ -540,6 +552,18 @@ export function buildDailySmsWritingBriefV1(
     Boolean(relationship_read.latest_user_signal)
   ) as DailySmsWritingBriefV1["open_loops"];
 
+  const current_send_slot: SmsDailySendSlot = SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const slot_coaching_context = buildSlotCoachingContext({
+    currentSlot: current_send_slot,
+    recentExactThread: args.thread.messages,
+    pendingPlanProof: f.accountability.pending_plan_proof ?? null,
+    timingAnchorMemory: f.accountability.timing_anchor_memory ?? null,
+    silenceCadence: f.silence_cadence ?? null,
+    effectiveAsk: f.commitment.effective_ask,
+    openQuestionPending: open_loops.open_question_pending === true,
+    latestOpenQuestion: open_loops.latest_open_question ?? null,
+  });
+
   return {
     brief_version: DAILY_SMS_WRITING_BRIEF_VERSION,
     route_kind: routeKind,
@@ -553,6 +577,8 @@ export function buildDailySmsWritingBriefV1(
         : null,
     },
     relationship_read,
+    current_send_slot,
+    slot_coaching_context,
     current_standard: {
       effective_ask: truncateText(f.commitment.effective_ask, 200),
       behavior_statement: truncateText(f.commitment.behavior_statement, 200) || null,
@@ -645,8 +671,8 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
   const authorityOrder =
     scRoute && scRoute !== "normal_daily"
-      ? "Authority order when silence_cadence is present: silence_cadence route card > current_standard + authoritative_truth > relationship_read (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory."
-      : "Authority order: current_standard + authoritative_truth > relationship_read (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.";
+      ? "Authority order when silence_cadence is present: silence_cadence route card > current_standard + authoritative_truth > relationship_read (interpretive) > slot_coaching_context (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory."
+      : "Authority order: current_standard + authoritative_truth > relationship_read (interpretive) > slot_coaching_context (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.";
 
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
@@ -654,6 +680,7 @@ Use DAILY_SMS_WRITING_BRIEF_V1 as server truth. Write one human SMS.
 ${authorityOrder}
 relationship_read is the primary human-continuity guide. It tells you what would make the user feel known today, what callback is worth using, what old wording to avoid, and the plain-English coaching move.
 relationship_read is interpretive only. It never authorizes proof, completion, misses, Victory Room, goal changes, or state changes. current_standard and authoritative_truth remain the source of truth.
+slot_coaching_context is the same class: interpretive thread-role for this slot (not proof/send authority). Prefer specific active_coaching_thread/checkin_focus over a generic "Did you hit your goal?" loop.
 Prefer relationship_read.today_best_move over the raw suggested_move.move token for wording — suggested_move.move is structural backend metadata, not user-facing language.
 recent_exact_thread is exact transcript, but do not imitate stale or repeated coach copy when relationship_read.bad_old_coach_copy_warning is present.
 open_loops and freshness are structural guardrails. relationship_read summarizes the human meaning; follow relationship_read.today_best_move unless it conflicts with current_standard, authoritative_truth, safety, or route constraints.
@@ -885,6 +912,9 @@ export function dailyWritingBriefTelemetry(args: {
   return {
     daily_writing_brief_version: DAILY_SMS_WRITING_BRIEF_VERSION,
     daily_writing_brief_used: true,
+    slot_coaching_context_role: args.brief.slot_coaching_context.slot_role_recommendation,
+    slot_coaching_context_send_rec: args.brief.slot_coaching_context.should_send_recommendation,
+    current_send_slot: args.brief.current_send_slot,
     writer_prompt_path: "daily_writing_brief_v1",
     writer_system_chars: args.writer_system_chars,
     writer_payload_chars: args.writer_payload_chars,

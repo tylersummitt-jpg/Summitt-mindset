@@ -338,7 +338,25 @@ describe("tyler-text-overview-admin read model", () => {
   });
 
   it("list exposes notebook metadata and stale generation detection", async () => {
-    seedCurrentDraft();
+    seedCurrentDraft({
+      generation: {
+        generation_metadata: {
+          capture_present: true,
+          slot_coaching_context: {
+            version: "1",
+            current_slot: "morning",
+            previous_slot: "evening_checkin",
+            previous_outbound_summary: "Set the 5 AM alarm now.",
+            user_replies_since_previous_outbound: null,
+            active_coaching_thread: "Thread focus: Wake up / alarm",
+            slot_role_recommendation: "wake_up_check",
+            checkin_focus: "Wake up / alarm",
+            should_send_recommendation: "writer_decides",
+            skip_reason_hint: null,
+          },
+        },
+      },
+    });
     db.generations.push({
       id: "gen-2",
       generation_number: 2,
@@ -355,6 +373,8 @@ describe("tyler-text-overview-admin read model", () => {
     expect(rows[0].writerPromptPath).toBe("daily_writing_brief_v1");
     expect(rows[0].notebookMessageCount).toBe(3);
     expect(rows[0].machineShouldSend).toBe(true);
+    expect(rows[0].slotCoachingContext?.slotRoleRecommendation).toBe("wake_up_check");
+    expect(rows[0].slotCoachingContext?.checkinFocus).toMatch(/wake/i);
     expect(rows[0].latestGenerationNumber).toBe(2);
     expect(rows[0].latestGenerationId).toBe("gen-2");
     expect(rows[0].isLatestGeneration).toBe(false);

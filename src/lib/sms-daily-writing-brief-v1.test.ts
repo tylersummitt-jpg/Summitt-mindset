@@ -1086,7 +1086,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       freshness_phrases: [],
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system.length).toBeLessThan(3100);
+    expect(writer.system.length).toBeLessThan(3250);
     expect(writer.system.length + writer.user.length).toBeLessThan(8500);
   });
 
@@ -1310,5 +1310,59 @@ describe("relationship_read in DAILY_SMS_WRITING_BRIEF_V1", () => {
   it("does not include style_guardrails in brief JSON", () => {
     const brief = briefWithThread([]);
     expect("style_guardrails" in brief).toBe(false);
+  });
+});
+
+describe("slot_coaching_context in DAILY_SMS_WRITING_BRIEF_V1", () => {
+  function briefWithThread(
+    messages: Array<{ at_local: string; role: "coach" | "user"; body: string }>
+  ) {
+    const facts = baseFacts();
+    return buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: deriveDailyProofCalibration({ facts }),
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages,
+        message_count: messages.length,
+        char_count: messages.reduce((s, m) => s + m.body.length, 0),
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+  }
+
+  it("includes current_send_slot morning and slot_coaching_context", () => {
+    const brief = briefWithThread([]);
+    expect(brief.current_send_slot).toBe("morning");
+    expect(brief.slot_coaching_context.version).toBe("1");
+    expect(brief.slot_coaching_context.current_slot).toBe("morning");
+  });
+
+  it("slot_coaching_context appears after relationship_read in JSON", () => {
+    const brief = briefWithThread([
+      {
+        at_local: "Mon 7:00 AM",
+        role: "coach",
+        body: "Today's rep: give one real compliment to each kid before bedtime.",
+      },
+    ]);
+    const keys = Object.keys(brief);
+    expect(keys.indexOf("relationship_read")).toBeLessThan(keys.indexOf("slot_coaching_context"));
+    expect(keys.indexOf("slot_coaching_context")).toBeLessThan(keys.indexOf("current_standard"));
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toMatch(/slot_coaching_context is the same class/i);
+    expect(writer.system).toMatch(/generic "Did you hit your goal\?" loop/i);
+    expect(writer.system).not.toMatch(/OUTPUT:.*intended_rep/s);
+  });
+
+  it("relationship_read is unchanged alongside slot_coaching_context", () => {
+    const brief = briefWithThread([
+      { at_local: "Thu 8:05 AM", role: "user", body: "Done for today." },
+    ]);
+    expect(brief.relationship_read.authority).toBe("interpretive_hint_not_proof");
+    expect(brief.slot_coaching_context.slot_role_recommendation).toBeTruthy();
   });
 });

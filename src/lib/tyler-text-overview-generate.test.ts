@@ -278,6 +278,19 @@ const SUCCESS_BUILT: DailySmsBuilt = {
       notebook_exact_source_message_count: 2,
       notebook_brief_thread_message_count: 4,
       notebook_filtered_out_reason_top: null,
+      current_send_slot: "morning",
+      slot_coaching_context: {
+        version: "1",
+        current_slot: "morning",
+        previous_slot: null,
+        previous_outbound_summary: null,
+        user_replies_since_previous_outbound: null,
+        active_coaching_thread: "Fresh day — set a concrete rep or move, not a generic goal loop.",
+        slot_role_recommendation: "set_today_rep",
+        checkin_focus: null,
+        should_send_recommendation: "writer_decides",
+        skip_reason_hint: null,
+      },
     },
   },
 };
@@ -479,6 +492,12 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.drafts[0]?.current_body_to_send).toBe(SUCCESS_BUILT.smsBody);
     expect(db.drafts[0]?.current_body_source).toBe("machine");
     expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
+    expect(meta.slot_coaching_context).toMatchObject({
+      current_slot: "morning",
+      slot_role_recommendation: "set_today_rep",
+    });
+    expect(meta.current_send_slot).toBe("morning");
   });
 
   it("writes send_slot morning on generation insert and draft upsert", async () => {

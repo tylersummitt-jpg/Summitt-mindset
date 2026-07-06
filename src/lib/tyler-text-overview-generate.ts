@@ -95,6 +95,12 @@ function readMetadataBoolean(metadata: Record<string, unknown>, key: string): bo
   return null;
 }
 
+function readMetadataObject(metadata: Record<string, unknown>, key: string): unknown {
+  const raw = metadata[key];
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw;
+  return null;
+}
+
 function metadataFromBuilt(built: DailySmsBuilt): Record<string, unknown> {
   if (!built.ok && built.dailyLaneMeta) {
     return built.dailyLaneMeta;
@@ -195,6 +201,8 @@ export function buildTylerTextOverviewGenerationMetadata(args: {
     no_send_reason: readMetadataString(meta, "no_send_reason"),
     v3_daily_relationship_lane: args.built.ok ? args.built.v3DailyRelationshipLane ?? null : null,
     v3_daily_sms: args.built.ok ? args.built.v3DailySms ?? null : null,
+    slot_coaching_context: readMetadataObject(meta, "slot_coaching_context"),
+    current_send_slot: readMetadataString(meta, "current_send_slot"),
   };
 }
 

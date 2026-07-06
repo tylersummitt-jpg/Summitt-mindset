@@ -219,4 +219,17 @@ export type TylerTextOverviewAdminDraftRow = {
   silenceDay: number | null;
   intentionalSpace: boolean | null;
   laneStage: string | null;
+  slotCoachingContext: TylerTextOverviewSlotCoachingContextPanel | null;
+};
+
+/** Read-only TTO panel — notebook context, not mandatory send rules. */
+export type TylerTextOverviewSlotCoachingContextPanel = {
+  currentSlot: SmsDailySendSlot | null;
+  previousSlot: SmsDailySendSlot | null;
+  activeCoachingThread: string | null;
+  slotRoleRecommendation: string | null;
+  checkinFocus: string | null;
+  userRepliesSincePreviousOutbound: string | null;
+  shouldSendRecommendation: string | null;
+  skipReasonHint: string | null;
 };

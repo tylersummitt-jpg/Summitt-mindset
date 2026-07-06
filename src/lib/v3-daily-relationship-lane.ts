@@ -1475,6 +1475,10 @@ async function produceDailyV3RelationshipSmsImpl(
         threadWindow,
         threadBuild: briefThread.build_telemetry,
       }),
+      {
+        slot_coaching_context: brief.slot_coaching_context,
+        current_send_slot: brief.current_send_slot,
+      },
       buildDailyNotebookTelemetry({
         buildTelemetry: briefThread.build_telemetry,
         briefBuildStatus: "used",
