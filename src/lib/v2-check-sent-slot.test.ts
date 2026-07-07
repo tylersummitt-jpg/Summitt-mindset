@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCheckSentIdempotencyKey,
   checkSentIdempotencyKey,
   legacyCheckSentIdempotencyKey,
   parseCheckSentSendSlot,
@@ -53,6 +54,12 @@ describe("v2-check-sent-slot", () => {
       null
     );
   });
+
+  it("buildCheckSentIdempotencyKey aliases checkSentIdempotencyKey", () => {
+    expect(buildCheckSentIdempotencyKey(COMMITMENT, DAY, "morning")).toBe(
+      checkSentIdempotencyKey(COMMITMENT, DAY, "morning")
+    );
+  });
 });
 
 describe("phase 2C-1 migration", () => {
@@ -66,6 +73,18 @@ describe("phase 2C-1 migration", () => {
     expect(migration).toMatch(/v2_check_sent:%s:%s:%s/);
     expect(migration).toMatch(/v_legacy_idempotency_key/);
     expect(migration).toMatch(/'send_slot', v_send_slot/);
+  });
+
+  it("does not use explicit SAVEPOINT transaction control (Supabase PL/pgSQL safe)", () => {
+    expect(migration).not.toMatch(/\bSAVEPOINT\b/i);
+    expect(migration).not.toMatch(/ROLLBACK\s+TO\s+SAVEPOINT/i);
+    expect(migration).not.toMatch(/\bRELEASE\s+SAVEPOINT\b/i);
+  });
+
+  it("uses nested BEGIN EXCEPTION blocks for proposal partial-write safety", () => {
+    expect(migration).toMatch(/v2_check_sent_prop_repair_conflict/);
+    expect(migration).toMatch(/v2_check_sent_prop_fresh_conflict/);
+    expect(migration).toMatch(/EXCEPTION[\s\S]*WHEN OTHERS THEN/);
   });
 
   it("morning outbound bookkeeping includes send_slot in buildStandardCheckSentPayload", () => {

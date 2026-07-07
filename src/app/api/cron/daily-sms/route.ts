@@ -73,7 +73,7 @@ import {
   type V2RefreshOutboundPlan,
 } from "@/lib/v2-refresh-session";
 import {
-  checkSentIdempotencyKey,
+  insertV2CheckSentEventBestEffort,
   onV2StandardCheckSentOutboundSendSuccess,
   reconcileCheckSentPostSendBookkeepingForCommitment,
   type V2CheckSentExpectedReplySemantics,
@@ -1060,63 +1060,6 @@ async function writeV2SmsThreadMemoryAfterDailyV3Outbound(args: {
       commitment_id: args.built.v2CommitmentId,
       clerk_user_id: args.clerkUserId,
       error: result.error,
-    });
-  }
-}
-
-async function insertV2CheckSentEventBestEffort(args: {
-  commitmentId: string;
-  clerkUserId: string;
-  dayKey: string;
-  templateId: number;
-  messageSid: string;
-  bodyPreview: string;
-  templateFamily: "standard" | "recovery";
-  sendSlot?: typeof SMS_DAILY_PRODUCTION_SEND_SLOT;
-  priorOutcome?: string | null;
-  blockerPreview?: string | null;
-  silence?: Record<string, unknown> | null;
-  reentry?: Record<string, unknown> | null;
-  nextMove?: Record<string, unknown> | null;
-  ai?: Record<string, unknown> | null;
-  cadence?: V2CadencePayload | null;
-  contractProposal?: Record<string, unknown> | null;
-  coachingRefresh?: Record<string, unknown> | null;
-}): Promise<void> {
-  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
-  const { error } = await supabaseServer.from("v2_commitment_event").insert({
-    commitment_id: args.commitmentId,
-    clerk_user_id: args.clerkUserId,
-    event_type: "check_sent",
-    source: "sms_v2_accountability",
-    payload_json: {
-      day_key: args.dayKey,
-      send_slot: sendSlot,
-      template_id: args.templateId,
-      template_family: args.templateFamily,
-      channel: "sms",
-      message_sid: args.messageSid,
-      body_preview: args.bodyPreview,
-      ...(args.priorOutcome != null ? { prior_outcome: args.priorOutcome } : {}),
-      ...(args.blockerPreview != null && args.blockerPreview.length > 0
-        ? { blocker_preview: args.blockerPreview }
-        : {}),
-      ...(args.silence ? { silence: args.silence } : {}),
-      ...(args.reentry ? { reentry: args.reentry } : {}),
-      ...(args.nextMove ? { next_move: args.nextMove } : {}),
-      ...(args.ai ? { ai: args.ai } : {}),
-      ...(args.cadence ? { cadence: args.cadence } : {}),
-      ...(args.contractProposal ? { contract_proposal: args.contractProposal } : {}),
-      ...(args.coachingRefresh ? { coaching_refresh: args.coachingRefresh } : {}),
-    },
-    idempotency_key: checkSentIdempotencyKey(args.commitmentId, args.dayKey, sendSlot),
-  });
-  if (error) {
-    const code = (error as { code?: string }).code;
-    if (code === "23505") return;
-    console.error("[daily-sms] v2 check_sent insert failed", {
-      clerk_user_id: args.clerkUserId,
-      message: error.message,
     });
   }
 }

@@ -3,7 +3,9 @@ import {
   SMS_DAILY_PRODUCTION_SEND_SLOT,
   type SmsDailySendSlot,
 } from "@/lib/tyler-text-overview-types";
+import type { V2CadencePayload } from "@/lib/v2-cadence";
 import {
+  buildCheckSentIdempotencyKey,
   checkSentIdempotencyKey,
   legacyCheckSentIdempotencyKey,
   parseCheckSentSendSlot,
@@ -13,7 +15,12 @@ import {
   type V2ContractOverlayProposalKind,
 } from "./v2-check-payload-contract-parse";
 
-export { checkSentIdempotencyKey, legacyCheckSentIdempotencyKey, parseCheckSentSendSlot };
+export {
+  buildCheckSentIdempotencyKey,
+  checkSentIdempotencyKey,
+  legacyCheckSentIdempotencyKey,
+  parseCheckSentSendSlot,
+};
 
 export { parseContractOverlayProposalFromCheckPayload, type V2ContractOverlayProposalKind };
 
@@ -358,6 +365,91 @@ async function hasCheckSentByIdempotencyKey(idempotencyKey: string): Promise<boo
     .limit(1)
     .maybeSingle();
   return Boolean(data?.id);
+}
+
+export { hasCheckSentForCommitmentDaySlot };
+
+export type InsertV2CheckSentEventBestEffortArgs = {
+  commitmentId: string;
+  clerkUserId: string;
+  dayKey: string;
+  templateId: number;
+  messageSid: string;
+  bodyPreview: string;
+  templateFamily: "standard" | "recovery";
+  sendSlot?: SmsDailySendSlot;
+  priorOutcome?: string | null;
+  blockerPreview?: string | null;
+  silence?: Record<string, unknown> | null;
+  reentry?: Record<string, unknown> | null;
+  nextMove?: Record<string, unknown> | null;
+  ai?: Record<string, unknown> | null;
+  cadence?: V2CadencePayload | null;
+  contractProposal?: Record<string, unknown> | null;
+  coachingRefresh?: Record<string, unknown> | null;
+};
+
+/**
+ * Best-effort direct check_sent insert (coaching-refresh path only).
+ * Always writes slot-scoped idempotency keys; morning dedupes legacy day-only rows.
+ */
+export async function insertV2CheckSentEventBestEffort(
+  args: InsertV2CheckSentEventBestEffortArgs
+): Promise<void> {
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+  if (
+    await hasCheckSentForCommitmentDaySlot({
+      commitmentId: args.commitmentId,
+      dayKey: args.dayKey,
+      sendSlot,
+    })
+  ) {
+    return;
+  }
+
+  const idempotencyKey = buildCheckSentIdempotencyKey(
+    args.commitmentId,
+    args.dayKey,
+    sendSlot
+  );
+
+  const { error } = await supabaseServer.from("v2_commitment_event").insert({
+    commitment_id: args.commitmentId,
+    clerk_user_id: args.clerkUserId,
+    event_type: "check_sent",
+    source: "sms_v2_accountability",
+    payload_json: {
+      day_key: args.dayKey,
+      send_slot: sendSlot,
+      template_id: args.templateId,
+      template_family: args.templateFamily,
+      channel: "sms",
+      message_sid: args.messageSid,
+      body_preview: args.bodyPreview,
+      ...(args.priorOutcome != null ? { prior_outcome: args.priorOutcome } : {}),
+      ...(args.blockerPreview != null && args.blockerPreview.length > 0
+        ? { blocker_preview: args.blockerPreview }
+        : {}),
+      ...(args.silence ? { silence: args.silence } : {}),
+      ...(args.reentry ? { reentry: args.reentry } : {}),
+      ...(args.nextMove ? { next_move: args.nextMove } : {}),
+      ...(args.ai ? { ai: args.ai } : {}),
+      ...(args.cadence ? { cadence: args.cadence } : {}),
+      ...(args.contractProposal ? { contract_proposal: args.contractProposal } : {}),
+      ...(args.coachingRefresh ? { coaching_refresh: args.coachingRefresh } : {}),
+    },
+    idempotency_key: idempotencyKey,
+  });
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "23505") return;
+    console.error("[v2-check-sent] direct check_sent insert failed", {
+      clerk_user_id: args.clerkUserId,
+      commitment_id: args.commitmentId,
+      idempotency_key: idempotencyKey,
+      message: error.message,
+    });
+  }
 }
 
 export async function reconcileCheckSentPostSendBookkeepingForCommitment(args: {

@@ -184,49 +184,54 @@ BEGIN
       'proposal_ttl_hours', 48
     );
 
-    SAVEPOINT v2_prop_repair;
-
-    INSERT INTO v2_commitment_event (
-      commitment_id,
-      clerk_user_id,
-      event_type,
-      occurred_at,
-      source,
-      payload_json,
-      idempotency_key
-    )
-    VALUES (
-      p_commitment_id,
-      p_clerk_user_id,
-      'contract_overlay_proposed',
-      p_now,
-      'sms_v2_accountability',
-      v_proposed_payload,
-      v_proposed_key
-    );
-
-    UPDATE v2_commitment
-    SET
-      adaptive_proposal_text = v_proposal_plain,
-      adaptive_proposal_created_at = p_now,
-      adaptive_proposal_expires_at = v_proposal_expires,
-      updated_at = p_now
-    WHERE id = p_commitment_id
-      AND clerk_user_id = p_clerk_user_id
-      AND status = 'active'
-      AND (
-        (adaptive_proposal_text IS NULL AND adaptive_ask_text IS NULL)
-        OR trim(coalesce(adaptive_proposal_text, '')) = v_proposal_plain
+    BEGIN
+      INSERT INTO v2_commitment_event (
+        commitment_id,
+        clerk_user_id,
+        event_type,
+        occurred_at,
+        source,
+        payload_json,
+        idempotency_key
+      )
+      VALUES (
+        p_commitment_id,
+        p_clerk_user_id,
+        'contract_overlay_proposed',
+        p_now,
+        'sms_v2_accountability',
+        v_proposed_payload,
+        v_proposed_key
       );
 
-    GET DIAGNOSTICS v_updated = ROW_COUNT;
-    IF v_updated = 0 THEN
-      ROLLBACK TO SAVEPOINT v2_prop_repair;
-      RETURN QUERY SELECT 'state_conflict'::TEXT;
-    ELSE
-      RELEASE SAVEPOINT v2_prop_repair;
-      RETURN QUERY SELECT 'applied'::TEXT;
-    END IF;
+      UPDATE v2_commitment
+      SET
+        adaptive_proposal_text = v_proposal_plain,
+        adaptive_proposal_created_at = p_now,
+        adaptive_proposal_expires_at = v_proposal_expires,
+        updated_at = p_now
+      WHERE id = p_commitment_id
+        AND clerk_user_id = p_clerk_user_id
+        AND status = 'active'
+        AND (
+          (adaptive_proposal_text IS NULL AND adaptive_ask_text IS NULL)
+          OR trim(coalesce(adaptive_proposal_text, '')) = v_proposal_plain
+        );
+
+      GET DIAGNOSTICS v_updated = ROW_COUNT;
+      IF v_updated = 0 THEN
+        RAISE EXCEPTION 'v2_check_sent_prop_repair_conflict';
+      END IF;
+    EXCEPTION
+      WHEN OTHERS THEN
+        IF SQLERRM = 'v2_check_sent_prop_repair_conflict' THEN
+          RETURN QUERY SELECT 'state_conflict'::TEXT;
+          RETURN;
+        END IF;
+        RAISE;
+    END;
+
+    RETURN QUERY SELECT 'applied'::TEXT;
     RETURN;
   END IF;
 
@@ -236,7 +241,114 @@ BEGIN
       RETURN QUERY SELECT 'state_conflict'::TEXT;
       RETURN;
     END IF;
-    SAVEPOINT v2_prop_fresh;
+
+    v_proposed_payload := jsonb_build_object(
+      'contract_kind', v_contract_kind,
+      'proposal_text', v_proposal_plain,
+      'proposal_expires_at', v_proposal_expires,
+      'day_key', v_day_key,
+      'message_sid', v_message_sid,
+      'proposal_ttl_hours', 48
+    );
+
+    BEGIN
+      INSERT INTO v2_check_sent_outbound_intent_snapshot (
+        commitment_id,
+        clerk_user_id,
+        day_key,
+        message_sid,
+        template_id,
+        template_family,
+        body_preview,
+        effective_ask_text,
+        prompt_kind,
+        expected_reply_semantics,
+        check_payload_json,
+        idempotency_key,
+        source_wrapped_at
+      )
+      VALUES (
+        p_commitment_id,
+        p_clerk_user_id,
+        v_day_key,
+        v_message_sid,
+        p_template_id,
+        v_template_family,
+        left(coalesce(p_body_preview, ''), 160),
+        left(coalesce(p_effective_ask_text, ''), 240),
+        v_prompt_kind,
+        v_expected_reply_semantics,
+        v_payload,
+        v_idempotency_key,
+        p_now
+      )
+      ON CONFLICT (idempotency_key) DO NOTHING;
+
+      INSERT INTO v2_commitment_event (
+        commitment_id,
+        clerk_user_id,
+        event_type,
+        occurred_at,
+        source,
+        payload_json,
+        idempotency_key
+      )
+      VALUES (
+        p_commitment_id,
+        p_clerk_user_id,
+        'check_sent',
+        p_now,
+        'sms_v2_accountability',
+        v_payload,
+        v_idempotency_key
+      );
+
+      INSERT INTO v2_commitment_event (
+        commitment_id,
+        clerk_user_id,
+        event_type,
+        occurred_at,
+        source,
+        payload_json,
+        idempotency_key
+      )
+      VALUES (
+        p_commitment_id,
+        p_clerk_user_id,
+        'contract_overlay_proposed',
+        p_now,
+        'sms_v2_accountability',
+        v_proposed_payload,
+        v_proposed_key
+      );
+
+      UPDATE v2_commitment
+      SET
+        adaptive_proposal_text = v_proposal_plain,
+        adaptive_proposal_created_at = p_now,
+        adaptive_proposal_expires_at = v_proposal_expires,
+        updated_at = p_now
+      WHERE id = p_commitment_id
+        AND clerk_user_id = p_clerk_user_id
+        AND status = 'active'
+        AND adaptive_proposal_text IS NULL
+        AND adaptive_ask_text IS NULL;
+
+      GET DIAGNOSTICS v_updated = ROW_COUNT;
+      IF v_updated = 0 THEN
+        RAISE EXCEPTION 'v2_check_sent_prop_fresh_conflict';
+      END IF;
+    EXCEPTION
+      WHEN OTHERS THEN
+        IF SQLERRM = 'v2_check_sent_prop_fresh_conflict' THEN
+          RETURN QUERY SELECT 'state_conflict'::TEXT;
+          RETURN;
+        END IF;
+        RAISE;
+    END;
+
+    RETURN QUERY SELECT 'applied'::TEXT;
+    RETURN;
   END IF;
 
   INSERT INTO v2_check_sent_outbound_intent_snapshot (
@@ -289,56 +401,6 @@ BEGIN
     v_payload,
     v_idempotency_key
   );
-
-  IF p_include_contract_overlay_proposal THEN
-    v_proposed_payload := jsonb_build_object(
-      'contract_kind', v_contract_kind,
-      'proposal_text', v_proposal_plain,
-      'proposal_expires_at', v_proposal_expires,
-      'day_key', v_day_key,
-      'message_sid', v_message_sid,
-      'proposal_ttl_hours', 48
-    );
-
-    INSERT INTO v2_commitment_event (
-      commitment_id,
-      clerk_user_id,
-      event_type,
-      occurred_at,
-      source,
-      payload_json,
-      idempotency_key
-    )
-    VALUES (
-      p_commitment_id,
-      p_clerk_user_id,
-      'contract_overlay_proposed',
-      p_now,
-      'sms_v2_accountability',
-      v_proposed_payload,
-      v_proposed_key
-    );
-
-    UPDATE v2_commitment
-    SET
-      adaptive_proposal_text = v_proposal_plain,
-      adaptive_proposal_created_at = p_now,
-      adaptive_proposal_expires_at = v_proposal_expires,
-      updated_at = p_now
-    WHERE id = p_commitment_id
-      AND clerk_user_id = p_clerk_user_id
-      AND status = 'active'
-      AND adaptive_proposal_text IS NULL
-      AND adaptive_ask_text IS NULL;
-
-    GET DIAGNOSTICS v_updated = ROW_COUNT;
-    IF v_updated = 0 THEN
-      ROLLBACK TO SAVEPOINT v2_prop_fresh;
-      RETURN QUERY SELECT 'state_conflict'::TEXT;
-      RETURN;
-    END IF;
-    RELEASE SAVEPOINT v2_prop_fresh;
-  END IF;
 
   RETURN QUERY SELECT 'applied'::TEXT;
 END;

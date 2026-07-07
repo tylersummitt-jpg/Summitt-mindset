@@ -12,6 +12,20 @@ export function checkSentIdempotencyKey(
   return `v2_check_sent:${commitmentId}:${dayKey}:${sendSlot}`;
 }
 
+/** Preferred name for new writes — alias of {@link checkSentIdempotencyKey}. */
+export const buildCheckSentIdempotencyKey = checkSentIdempotencyKey;
+
+/** Morning dedupe must honor both slot-scoped and legacy day-only keys. */
+export function morningCheckSentDedupeIdempotencyKeys(
+  commitmentId: string,
+  dayKey: string
+): [slotScopedKey: string, legacyKey: string] {
+  return [
+    checkSentIdempotencyKey(commitmentId, dayKey, SMS_DAILY_PRODUCTION_SEND_SLOT),
+    legacyCheckSentIdempotencyKey(commitmentId, dayKey),
+  ];
+}
+
 /** Pre–Phase 2C-1 day-only key; morning dedup still honors this. */
 export function legacyCheckSentIdempotencyKey(commitmentId: string, dayKey: string): string {
   return `v2_check_sent:${commitmentId}:${dayKey}`;
