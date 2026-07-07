@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { V3_REFINE_ONLY_GATED } from "@/lib/v3-sms-machine-refine";
 import { defaultGatedDecision } from "@/lib/v2-ai-inbound";
+import { buildV2ActiveReplyContext } from "@/lib/v2-active-reply-context";
 import { isClearAccountabilityCompletionReply } from "@/lib/v2-inbound-accountability-completion";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import {
@@ -2688,5 +2689,139 @@ describe("semantic turn-understanding completion alignment", () => {
       );
       expect(result.persist).toBe(false);
     });
+  });
+});
+
+describe("Phase 2C-1 — slot-aware accountability spine", () => {
+  const distributionCtx = {
+    commitmentTitle: "Distribution",
+    behaviorStatement: "Spend an hour on distribution for the SaaS app.",
+    effectiveAsk: "Spend an hour on distribution for the SaaS app.",
+  };
+
+  const eveningThenMorningEvents = [
+    {
+      event_type: "check_sent",
+      occurred_at: "2026-07-07T23:00:00.000Z",
+      payload_json: {
+        send_slot: "evening_checkin",
+        body_preview: "Evening check — did you follow through on distribution today?",
+      },
+    },
+    {
+      event_type: "user_yes",
+      occurred_at: "2026-07-07T15:00:00.000Z",
+      payload_json: {},
+    },
+    {
+      event_type: "check_sent",
+      occurred_at: "2026-07-07T14:00:00.000Z",
+      payload_json: {
+        send_slot: "morning",
+        body_preview: "Morning check — distribution hour today?",
+      },
+    },
+  ] as never[];
+
+  function slotPersistArgs(
+    rawBody: string,
+    activeReplyContext: ReturnType<typeof buildV2ActiveReplyContext>,
+    overrides?: Partial<OpenAIRelationshipTurnUnderstandingV1>
+  ) {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: rawBody,
+      classifierEventType: "user_yes",
+      behaviorStatement: distributionCtx.behaviorStatement,
+      effectiveAsk: distributionCtx.effectiveAsk,
+      commitmentTitle: distributionCtx.commitmentTitle,
+    });
+    const proposal: OpenAIRelationshipTurnUnderstandingV1 = {
+      version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+      user_turn_summary: rawBody,
+      evidence_quotes: [rawBody],
+      relationship_meaning: "reported_completion",
+      answered_last_coach_ask: "yes",
+      last_ask_satisfied: "no",
+      satisfaction_kind: "not_satisfied",
+      do_not_repeat_asks: [],
+      stale_ask_risk: false,
+      commitment_outcome_recommendation: "write_user_yes_today",
+      persistence_safety: "safe_to_write",
+      response_intent: "acknowledge_completion",
+      temporal_scope: "today",
+      reported_for_day_key: null,
+      confidence: 0.92,
+      uncertainty_flags: [],
+      route_priority_recommendation: "none",
+      safety_or_support_flags: [],
+      ...overrides,
+    };
+    const tu = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: inboundMeaning,
+      inboundBody: rawBody,
+    });
+    return {
+      messageSid: "SM_slot_test",
+      commitmentId: "commit-slot",
+      rawBody,
+      classifierEventType: "user_yes" as const,
+      gatedDecision: defaultGatedDecision("user_yes", "test"),
+      laneExclusion: "none" as const,
+      activeReplyContext,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+      commitmentBehaviorStatement: distributionCtx.behaviorStatement,
+      effectiveAsk: distributionCtx.effectiveAsk,
+      commitmentTitle: distributionCtx.commitmentTitle,
+    };
+  }
+
+  it("will do after morning-only live prompt does not persist user_yes", () => {
+    const morningOnlyEvents = [
+      {
+        event_type: "check_sent",
+        occurred_at: "2026-07-07T14:00:00.000Z",
+        payload_json: { send_slot: "morning", body_preview: "Morning check" },
+      },
+    ] as never[];
+    const activeReplyContext = buildV2ActiveReplyContext({
+      inboundText: "I'll do it after dinner",
+      eventsNewestFirst: morningOnlyEvents,
+      ...distributionCtx,
+    });
+    expect(activeReplyContext.latest_outbound_send_slot).toBe("morning");
+    expect(activeReplyContext.active_check_sent_send_slot).toBe("morning");
+
+    const result = shouldPersistInboundAccountabilityOutcome(
+      slotPersistArgs("I'll do it after dinner", activeReplyContext, {
+        temporal_scope: "future",
+        commitment_outcome_recommendation: "no_outcome_write",
+        relationship_meaning: "plan_or_intent",
+        response_intent: "acknowledge_plan",
+      })
+    );
+    expect(result.persist).toBe(false);
+  });
+
+  it("done after evening check can persist when evening prompt is live", () => {
+    const activeReplyContext = buildV2ActiveReplyContext({
+      inboundText: "done",
+      eventsNewestFirst: eveningThenMorningEvents,
+      nowMs: Date.parse("2026-07-07T23:30:00.000Z"),
+      ...distributionCtx,
+    });
+    expect(activeReplyContext.latest_outbound_send_slot).toBe("evening_checkin");
+    expect(activeReplyContext.active_check_sent_send_slot).toBe("evening_checkin");
+    expect(activeReplyContext.has_live_accountability_prompt).toBe(true);
+
+    const result = shouldPersistInboundAccountabilityOutcome(
+      slotPersistArgs("done", activeReplyContext, {
+        evidence_quotes: ["done"],
+        commitment_outcome_recommendation: "write_user_yes_today",
+      })
+    );
+    expect(result.persist).toBe(true);
+    expect(result.resolvedEventType).toBe("user_yes");
   });
 });

@@ -73,6 +73,7 @@ import {
   type V2RefreshOutboundPlan,
 } from "@/lib/v2-refresh-session";
 import {
+  checkSentIdempotencyKey,
   onV2StandardCheckSentOutboundSendSuccess,
   reconcileCheckSentPostSendBookkeepingForCommitment,
   type V2CheckSentExpectedReplySemantics,
@@ -1071,6 +1072,7 @@ async function insertV2CheckSentEventBestEffort(args: {
   messageSid: string;
   bodyPreview: string;
   templateFamily: "standard" | "recovery";
+  sendSlot?: typeof SMS_DAILY_PRODUCTION_SEND_SLOT;
   priorOutcome?: string | null;
   blockerPreview?: string | null;
   silence?: Record<string, unknown> | null;
@@ -1081,6 +1083,7 @@ async function insertV2CheckSentEventBestEffort(args: {
   contractProposal?: Record<string, unknown> | null;
   coachingRefresh?: Record<string, unknown> | null;
 }): Promise<void> {
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
   const { error } = await supabaseServer.from("v2_commitment_event").insert({
     commitment_id: args.commitmentId,
     clerk_user_id: args.clerkUserId,
@@ -1088,6 +1091,7 @@ async function insertV2CheckSentEventBestEffort(args: {
     source: "sms_v2_accountability",
     payload_json: {
       day_key: args.dayKey,
+      send_slot: sendSlot,
       template_id: args.templateId,
       template_family: args.templateFamily,
       channel: "sms",
@@ -1105,7 +1109,7 @@ async function insertV2CheckSentEventBestEffort(args: {
       ...(args.contractProposal ? { contract_proposal: args.contractProposal } : {}),
       ...(args.coachingRefresh ? { coaching_refresh: args.coachingRefresh } : {}),
     },
-    idempotency_key: `v2_check_sent:${args.commitmentId}:${args.dayKey}`,
+    idempotency_key: checkSentIdempotencyKey(args.commitmentId, args.dayKey, sendSlot),
   });
   if (error) {
     const code = (error as { code?: string }).code;

@@ -241,6 +241,7 @@ import {
   buildV2ActiveReplyContext,
   isV2ActiveReplyContextEnabled,
 } from "@/lib/v2-active-reply-context";
+import { resolveInboundCheckSentPrompt } from "@/lib/v2-inbound-check-sent-context";
 import {
   buildInboundMeaningFacts,
   buildInboundMeaningRoutePriorityFromV3BuildArgs,
@@ -3091,12 +3092,10 @@ async function processV2NormalInboundOutcome(
   }
 
   const adaptiveProposalPending = isV2PendingProposalValid(commitment);
-  const latestCheckEv = recentEvents.find((e) => e.event_type === "check_sent");
-  const checkPayload = latestCheckEv?.payload_json ?? {};
-  const lastOutboundSmsPreview =
-    typeof checkPayload.body_preview === "string" && checkPayload.body_preview.trim().length > 0
-      ? checkPayload.body_preview.trim().slice(0, 260)
-      : null;
+  const inboundCheckSent = resolveInboundCheckSentPrompt(recentEvents);
+  const latestCheckEv = inboundCheckSent.checkEvent;
+  const checkPayload = inboundCheckSent.checkPayload;
+  const lastOutboundSmsPreview = inboundCheckSent.lastOutboundSmsPreview;
 
   const blockerEv = recentEvents.find((e) => e.event_type === "blocker_captured");
   const blockerPayload = blockerEv?.payload_json;
@@ -7636,12 +7635,10 @@ async function processV2BlockerCapture(
     fetchLatestAwaitingMemoryConfirmation(commitment.id),
   ]);
 
-  const latestCheckEvBlock = recentEventsForCentral.find((e) => e.event_type === "check_sent");
-  const checkPayloadBlock = latestCheckEvBlock?.payload_json ?? {};
-  const lastOutboundBlockPreview =
-    typeof checkPayloadBlock.body_preview === "string" && checkPayloadBlock.body_preview.trim().length > 0
-      ? checkPayloadBlock.body_preview.trim().slice(0, 260)
-      : null;
+  const inboundCheckSentBlock = resolveInboundCheckSentPrompt(recentEventsForCentral);
+  const latestCheckEvBlock = inboundCheckSentBlock.checkEvent;
+  const checkPayloadBlock = inboundCheckSentBlock.checkPayload;
+  const lastOutboundBlockPreview = inboundCheckSentBlock.lastOutboundSmsPreview;
 
   let blockerMemoryStored: Record<string, unknown> | null = null;
   if (blockerMemoryTry && convPackBlocker) {
@@ -8888,12 +8885,10 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     preloadedEventsNewestFirst: recentEvents,
   });
   const classification = classifyV2InboundReply(args.inboundRaw.trim());
-  const latestCheckEv = recentEvents.find((e) => e.event_type === "check_sent");
-  const checkPayload = (latestCheckEv?.payload_json ?? {}) as Record<string, unknown>;
-  const lastOut =
-    typeof checkPayload.body_preview === "string" && checkPayload.body_preview.trim().length > 0
-      ? checkPayload.body_preview.trim().slice(0, 260)
-      : null;
+  const inboundCheckSentLane = resolveInboundCheckSentPrompt(recentEvents);
+  const latestCheckEv = inboundCheckSentLane.checkEvent;
+  const checkPayload = inboundCheckSentLane.checkPayload as Record<string, unknown>;
+  const lastOut = inboundCheckSentLane.lastOutboundSmsPreview;
   const preferredName = await fetchPreferredNameForInboundLane(args.userId);
   const northStarFinalEventType =
     args.gatedDecisionOverride != null
@@ -11329,12 +11324,10 @@ async function runBlockerPendingPreCaptureGate(args: {
   ]);
   const slimPacket = slimMemoryPacketForFacts(memoryPacket);
 
-  const latestCheckEv = recentEvents.find((e) => e.event_type === "check_sent");
-  const checkPayload = latestCheckEv?.payload_json ?? {};
-  const lastOutboundSmsPreview =
-    typeof checkPayload.body_preview === "string" && checkPayload.body_preview.trim().length > 0
-      ? checkPayload.body_preview.trim().slice(0, 260)
-      : null;
+  const inboundCheckSentFacts = resolveInboundCheckSentPrompt(recentEvents);
+  const latestCheckEv = inboundCheckSentFacts.checkEvent;
+  const checkPayload = inboundCheckSentFacts.checkPayload;
+  const lastOutboundSmsPreview = inboundCheckSentFacts.lastOutboundSmsPreview;
 
   const openQ =
     args.latestOpenQuestion?.trim() || slimPacket.latest_open_question?.trim() || null;

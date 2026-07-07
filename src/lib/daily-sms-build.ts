@@ -3,6 +3,7 @@
  * mode "send" preserves production side effects; mode "draft" is side-effect free for Tyler Text Overview.
  */
 import { supabaseServer } from "@/lib/supabase-server";
+import { SMS_DAILY_PRODUCTION_SEND_SLOT, type SmsDailySendSlot } from "@/lib/tyler-text-overview-types";
 import { resolveSmsUserTimezone } from "@/lib/timezone";
 import {
   deriveSmsGoalAdjustmentSignal,
@@ -359,6 +360,7 @@ export async function resolveV2BlockerPreviewForOutbound(args: {
 }
 
 export function buildStandardCheckSentPayload(args: {
+  sendSlot?: SmsDailySendSlot;
   priorOutcome?: string | null;
   blockerPreview?: string | null;
   silence?: Record<string, unknown> | null;
@@ -368,7 +370,9 @@ export function buildStandardCheckSentPayload(args: {
   cadence?: V2CadencePayload | null;
   contractProposal?: Record<string, unknown> | null;
 }): Record<string, unknown> {
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
   return {
+    send_slot: sendSlot,
     ...(args.priorOutcome != null ? { prior_outcome: args.priorOutcome } : {}),
     ...(args.blockerPreview != null && args.blockerPreview.length > 0
       ? { blocker_preview: args.blockerPreview }

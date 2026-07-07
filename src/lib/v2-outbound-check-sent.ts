@@ -1,8 +1,19 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import {
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
+  type SmsDailySendSlot,
+} from "@/lib/tyler-text-overview-types";
+import {
+  checkSentIdempotencyKey,
+  legacyCheckSentIdempotencyKey,
+  parseCheckSentSendSlot,
+} from "@/lib/v2-check-sent-slot";
+import {
   parseContractOverlayProposalFromCheckPayload,
   type V2ContractOverlayProposalKind,
 } from "./v2-check-payload-contract-parse";
+
+export { checkSentIdempotencyKey, legacyCheckSentIdempotencyKey, parseCheckSentSendSlot };
 
 export { parseContractOverlayProposalFromCheckPayload, type V2ContractOverlayProposalKind };
 
@@ -52,12 +63,24 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function checkSentIdempotencyKey(commitmentId: string, dayKey: string): string {
-  return `v2_check_sent:${commitmentId}:${dayKey}`;
-}
-
 function contractOverlayProposedIdempotencyKey(commitmentId: string, dayKey: string): string {
   return `v2_contract_overlay_proposed:${commitmentId}:${dayKey}`;
+}
+
+async function hasCheckSentForCommitmentDaySlot(args: {
+  commitmentId: string;
+  dayKey: string;
+  sendSlot?: SmsDailySendSlot;
+}): Promise<boolean> {
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const slotKey = checkSentIdempotencyKey(args.commitmentId, args.dayKey, sendSlot);
+  if (await hasCheckSentByIdempotencyKey(slotKey)) return true;
+  if (sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT) {
+    return hasCheckSentByIdempotencyKey(
+      legacyCheckSentIdempotencyKey(args.commitmentId, args.dayKey)
+    );
+  }
+  return false;
 }
 
 async function hasProposalOutboundBundleComplete(args: {
@@ -65,15 +88,14 @@ async function hasProposalOutboundBundleComplete(args: {
   dayKey: string;
   expectedProposalText: string;
 }): Promise<boolean> {
-  const checkKey = checkSentIdempotencyKey(args.commitmentId, args.dayKey);
   const proposedKey = contractOverlayProposedIdempotencyKey(args.commitmentId, args.dayKey);
-  const { data: checkEv } = await supabaseServer
-    .from("v2_commitment_event")
-    .select("id")
-    .eq("idempotency_key", checkKey)
-    .eq("event_type", "check_sent")
-    .maybeSingle();
-  if (!checkEv?.id) return false;
+  if (!(await hasCheckSentForCommitmentDaySlot({
+    commitmentId: args.commitmentId,
+    dayKey: args.dayKey,
+    sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+  }))) {
+    return false;
+  }
   const { data: proposedEv } = await supabaseServer
     .from("v2_commitment_event")
     .select("id")
@@ -117,6 +139,12 @@ export async function applyCheckSentPostSendBookkeepingMutation(args: {
     args.proposalText.trim().length > 0 &&
     (args.contractKind === "shrink_ask" || args.contractKind === "recommit_same");
 
+  const sendSlot = parseCheckSentSendSlot(args.checkPayloadJson ?? {});
+  const checkPayloadJson = {
+    ...(args.checkPayloadJson ?? {}),
+    send_slot: sendSlot,
+  };
+
   const { data, error } = await supabaseServer.rpc(
     "v2_apply_check_sent_post_send_bookkeeping_mutation",
     {
@@ -130,7 +158,7 @@ export async function applyCheckSentPostSendBookkeepingMutation(args: {
       p_effective_ask_text: args.effectiveAskText.slice(0, 240),
       p_prompt_kind: args.promptKind,
       p_expected_reply_semantics: args.expectedReplySemantics,
-      p_check_payload_json: args.checkPayloadJson ?? {},
+      p_check_payload_json: checkPayloadJson,
       p_now: new Date().toISOString(),
       p_include_contract_overlay_proposal: include,
       p_proposal_text: include ? args.proposalText!.trim() : null,
@@ -297,6 +325,10 @@ function inferFallbackFromSmsSendEvent(raw: Record<string, unknown>): V2CheckSen
       : "standard_accountability";
   const expectedReplySemantics =
     promptKind === "contract_overlay_proposal" ? "proposal_yes_no" : "yes_no_partial";
+  const sendSlot = parseCheckSentSendSlot(
+    metadata,
+    typeof raw.send_slot === "string" ? raw.send_slot : null
+  );
 
   return {
     commitmentId,
@@ -311,8 +343,8 @@ function inferFallbackFromSmsSendEvent(raw: Record<string, unknown>): V2CheckSen
       typeof raw.sms_body === "string" ? raw.sms_body.slice(0, 240) : "",
     promptKind,
     expectedReplySemantics,
-    payloadJson: {},
-    idempotencyKey: checkSentIdempotencyKey(commitmentId, dayKey),
+    payloadJson: { send_slot: sendSlot },
+    idempotencyKey: checkSentIdempotencyKey(commitmentId, dayKey, sendSlot),
     source: "heuristic_sms_send_events",
   };
 }
@@ -363,7 +395,7 @@ export async function reconcileCheckSentPostSendBookkeepingForCommitment(args: {
 
   const { data: recentSendRows } = await supabaseServer
     .from("sms_send_events")
-    .select("clerk_user_id,day_key,status,message_sid,sms_body,metadata,created_at")
+    .select("clerk_user_id,day_key,status,message_sid,sms_body,metadata,send_slot,created_at")
     .eq("clerk_user_id", args.clerkUserId)
     .eq("status", "sent")
     .order("created_at", { ascending: false })
@@ -407,7 +439,13 @@ export async function reconcileCheckSentPostSendBookkeepingForCommitment(args: {
       ) {
         continue;
       }
-    } else if (await hasCheckSentByIdempotencyKey(snapshot.idempotency_key)) {
+    } else if (
+      await hasCheckSentForCommitmentDaySlot({
+        commitmentId: snapshot.commitment_id,
+        dayKey: snapshot.day_key,
+        sendSlot: parseCheckSentSendSlot(snapshot.check_payload_json, snapshot.idempotency_key),
+      })
+    ) {
       continue;
     }
 
@@ -454,7 +492,15 @@ export async function reconcileCheckSentPostSendBookkeepingForCommitment(args: {
       if (seen.has(fallback.idempotencyKey)) continue;
       seen.add(fallback.idempotencyKey);
 
-      if (await hasCheckSentByIdempotencyKey(fallback.idempotencyKey)) continue;
+      if (
+        await hasCheckSentForCommitmentDaySlot({
+          commitmentId: fallback.commitmentId,
+          dayKey: fallback.dayKey,
+          sendSlot: parseCheckSentSendSlot(fallback.payloadJson, fallback.idempotencyKey),
+        })
+      ) {
+        continue;
+      }
       attempted += 1;
       heuristicFallbackAttempted += 1;
 

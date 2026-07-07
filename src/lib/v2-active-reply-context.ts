@@ -5,6 +5,8 @@
 
 import { isSubstantiveSelfReportedCompletionForProof } from "@/lib/inbound-self-reported-completion";
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
+import { resolveAccountabilityPromptLiveState } from "@/lib/v2-inbound-check-sent-context";
+import type { SmsDailySendSlot } from "@/lib/tyler-text-overview-types";
 import { messageHasKeywordPartialLanguage } from "@/lib/v2-sms-accountability";
 
 const ACCOUNTABILITY_PROMPT_FRESH_MS = 36 * 60 * 60 * 1000;
@@ -13,11 +15,6 @@ const ACCOUNTABILITY_PROMPT_FRESH_MS = 36 * 60 * 60 * 1000;
 export function isV2ActiveReplyContextEnabled(): boolean {
   const v = process.env.V2_ACTIVE_REPLY_CONTEXT_ENABLED?.trim().toLowerCase();
   return v === "true" || v === "1";
-}
-
-function parseEventMs(iso: string): number {
-  const n = Date.parse(iso);
-  return Number.isFinite(n) ? n : 0;
 }
 
 function normalizeInbound(t: string): string {
@@ -161,6 +158,8 @@ export type V2ActiveReplyContext = {
   accountability_prompt_sent_at: string | null;
   accountability_prompt_age_minutes: number | null;
   latest_outcome_at: string | null;
+  latest_outbound_send_slot: SmsDailySendSlot | null;
+  active_check_sent_send_slot: SmsDailySendSlot | null;
   should_allow_bare_accountability_score: boolean;
   should_force_clarification_for_ambiguous_short_reply: boolean;
   clarification_reason: string | null;
@@ -169,30 +168,13 @@ export type V2ActiveReplyContext = {
 export function buildV2ActiveReplyContext(args: BuildV2ActiveReplyContextArgs): V2ActiveReplyContext {
   const nowMs = args.nowMs ?? Date.now();
 
-  let latestCheckAt: string | null = null;
-  let latestCheckMs = 0;
-  let latestOutcomeAt: string | null = null;
-  let latestOutcomeMs = 0;
-
-  for (const e of args.eventsNewestFirst) {
-    if (e.event_type === "check_sent" && !latestCheckAt) {
-      latestCheckAt = e.occurred_at;
-      latestCheckMs = parseEventMs(e.occurred_at);
-      continue;
-    }
-    if (
-      (e.event_type === "user_yes" || e.event_type === "user_no" || e.event_type === "user_partial") &&
-      !latestOutcomeAt
-    ) {
-      latestOutcomeAt = e.occurred_at;
-      latestOutcomeMs = parseEventMs(e.occurred_at);
-    }
-    if (latestCheckAt && latestOutcomeAt) break;
-  }
-
-  const has_live_accountability_prompt =
-    Boolean(latestCheckAt && latestCheckMs > 0) &&
-    (!latestOutcomeAt || latestOutcomeMs <= 0 || latestCheckMs > latestOutcomeMs);
+  const liveState = resolveAccountabilityPromptLiveState(args.eventsNewestFirst);
+  const latestCheckAt = liveState.latestCheckAt;
+  const latestCheckMs = liveState.latestCheckMs;
+  const latestOutcomeAt = liveState.latestOutcomeAt;
+  const has_live_accountability_prompt = liveState.hasLiveAccountabilityPrompt;
+  const latest_outbound_send_slot = liveState.latestOutboundSendSlot;
+  const active_check_sent_send_slot = liveState.activeCheckSentSendSlot;
 
   let live_accountability_prompt_reason: string | null = null;
   if (has_live_accountability_prompt && latestCheckAt) {
@@ -244,6 +226,8 @@ export function buildV2ActiveReplyContext(args: BuildV2ActiveReplyContextArgs): 
     accountability_prompt_sent_at: latestCheckAt,
     accountability_prompt_age_minutes,
     latest_outcome_at: latestOutcomeAt,
+    latest_outbound_send_slot,
+    active_check_sent_send_slot,
     should_allow_bare_accountability_score,
     should_force_clarification_for_ambiguous_short_reply,
     clarification_reason,
