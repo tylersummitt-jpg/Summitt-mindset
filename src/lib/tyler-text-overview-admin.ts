@@ -7,10 +7,23 @@ import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-over
 import {
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
+  type SmsDailySendSlot,
   type TylerTextOverviewAdminDraftRow,
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
+
+export const PREVIEW_ONLY_DRAFT_NOT_EDITABLE = "preview_only_draft_not_editable" as const;
+
+export function resolveAdminListSendSlot(
+  raw: string | null | undefined
+): SmsDailySendSlot {
+  if (raw === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
+    return SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
+  }
+  return SMS_DAILY_PRODUCTION_SEND_SLOT;
+}
 import { parseSlotCoachingContextFromMetadata } from "@/lib/slot-coaching-context-v1";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
@@ -152,6 +165,29 @@ export function levenshteinCharDistance(a: string, b: string): number {
   return prev[bLen];
 }
 
+function mapPreviewFieldsFromMetadata(
+  metadata: Record<string, unknown>
+): Pick<
+  TylerTextOverviewAdminDraftRow,
+  "previewOnly" | "morningAnchorSource" | "morningAnchorSent" | "morningAnchorBodyPreview"
+> {
+  const previewOnly = readMetadataBoolean(metadata, "preview_only") === true;
+  if (!previewOnly) {
+    return {
+      previewOnly: false,
+      morningAnchorSource: null,
+      morningAnchorSent: null,
+      morningAnchorBodyPreview: null,
+    };
+  }
+  return {
+    previewOnly: true,
+    morningAnchorSource: readMetadataString(metadata, "morning_anchor_source"),
+    morningAnchorSent: readMetadataBoolean(metadata, "morning_anchor_sent"),
+    morningAnchorBodyPreview: readMetadataString(metadata, "morning_anchor_body_preview"),
+  };
+}
+
 function mapSlotCoachingContextPanel(
   metadata: Record<string, unknown>
 ): TylerTextOverviewSlotCoachingContextPanel | null {
@@ -250,6 +286,9 @@ export function mapDraftRowsToAdminDto(args: {
     const latestKey = draftLatestGenKey(draft.clerk_user_id, draft.draft_for_day_key, sendSlot);
     const latest = args.latestGenerationsByKey?.get(latestKey) ?? null;
 
+    const metadata = parseGenerationMetadata(generation?.generation_metadata);
+    const previewFields = mapPreviewFieldsFromMetadata(metadata);
+
     return {
       draftId: draft.id,
       clerkUserId: draft.clerk_user_id,
@@ -257,6 +296,7 @@ export function mapDraftRowsToAdminDto(args: {
       sendSlot,
       currentBodyToSend: draft.current_body_to_send,
       ...notebookFields,
+      ...previewFields,
       latestGenerationId: latest?.id ?? notebookFields.currentGenerationId,
       latestGenerationNumber: latest?.generation_number ?? notebookFields.currentGenerationNumber,
       isLatestGeneration:
@@ -304,7 +344,8 @@ function buildLatestGenerationsByKey(
 }
 
 async function fetchLatestGenerationsForDrafts(
-  drafts: DraftDbRow[]
+  drafts: DraftDbRow[],
+  sendSlot: SmsDailySendSlot
 ): Promise<Map<string, LatestGenerationRef>> {
   if (drafts.length === 0) return new Map();
 
@@ -316,7 +357,7 @@ async function fetchLatestGenerationsForDrafts(
     .select("id, clerk_user_id, draft_for_day_key, generation_number, send_slot")
     .in("clerk_user_id", clerkUserIds)
     .in("draft_for_day_key", draftForDayKeys)
-    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
+    .eq("send_slot", sendSlot);
 
   if (error) {
     throw new Error(`tyler_text_overview_latest_generations_failed:${error.message}`);
@@ -327,12 +368,15 @@ async function fetchLatestGenerationsForDrafts(
 
 export async function listCurrentTylerTextOverviewDrafts(args?: {
   draftForDayKey?: string | null;
+  sendSlot?: SmsDailySendSlot;
 }): Promise<TylerTextOverviewAdminDraftRow[]> {
+  const sendSlot = args?.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+
   let query = supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
     .select("id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status")
     .eq("status", "current")
-    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
+    .eq("send_slot", sendSlot)
     .order("draft_for_day_key", { ascending: false })
     .order("clerk_user_id", { ascending: true });
 
@@ -357,7 +401,7 @@ export async function listCurrentTylerTextOverviewDrafts(args?: {
       .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
       .select(GENERATION_SELECT_COLUMNS)
       .in("id", generationIds),
-    fetchLatestGenerationsForDrafts(drafts),
+    fetchLatestGenerationsForDrafts(drafts, sendSlot),
   ]);
 
   if (generationResult.error) {
@@ -390,7 +434,9 @@ export async function updateTylerTextOverviewDraftBody(args: {
 
   const { data: draftRow, error: draftLoadError } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("id, clerk_user_id, draft_for_day_key, current_generation_id, current_body_to_send, status")
+    .select(
+      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
+    )
     .eq("id", draftId)
     .maybeSingle();
 
@@ -409,6 +455,18 @@ export async function updateTylerTextOverviewDraftBody(args: {
   const draft = draftRow as DraftDbRow;
   if (draft.status !== "current") {
     return { ok: false, error: "Draft is not current", status: 409 };
+  }
+
+  const draftSendSlot =
+    draft.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+      ? SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+      : SMS_DAILY_PRODUCTION_SEND_SLOT;
+  if (draftSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
+    return {
+      ok: false,
+      error: PREVIEW_ONLY_DRAFT_NOT_EDITABLE,
+      status: 409,
+    };
   }
 
   const { data: generationRow, error: generationLoadError } = await supabaseServer
@@ -475,7 +533,10 @@ export async function updateTylerTextOverviewDraftBody(args: {
     return { ok: false, error: "Draft update did not apply", status: 409 };
   }
 
-  const latestGenerationsByKey = await fetchLatestGenerationsForDrafts([updatedRow as DraftDbRow]);
+  const latestGenerationsByKey = await fetchLatestGenerationsForDrafts(
+    [updatedRow as DraftDbRow],
+    SMS_DAILY_PRODUCTION_SEND_SLOT
+  );
 
   return {
     ok: true,

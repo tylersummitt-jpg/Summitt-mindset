@@ -9,6 +9,8 @@ import {
   mapDraftRowsToAdminDto,
   normalizeTylerTextOverviewDraftBodyInput,
   parseWriterOpenAiMessages,
+  PREVIEW_ONLY_DRAFT_NOT_EDITABLE,
+  resolveAdminListSendSlot,
   updateTylerTextOverviewDraftBody,
 } from "@/lib/tyler-text-overview-admin";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
@@ -22,6 +24,7 @@ type DraftRow = {
   current_generation_id: string;
   current_body_to_send: string | null;
   status: string;
+  send_slot?: string;
   current_body_source?: string;
   edited_by_tyler?: boolean;
   edited_at?: string | null;
@@ -35,6 +38,7 @@ type GenerationRow = {
   generation_number?: number;
   clerk_user_id?: string;
   draft_for_day_key?: string;
+  send_slot?: string;
   writer_openai_messages: unknown;
   writer_prompt_path?: string | null;
   machine_draft_body: string | null;
@@ -109,13 +113,18 @@ function makeChain(handlers: {
       const clerkIds = payload.in_clerk_user_id as string[] | undefined;
       const dayKeys = payload.in_draft_for_day_key as string[] | undefined;
       if (clerkIds && dayKeys) {
-        const rows = db.generations.filter(
+        let rows = db.generations.filter(
           (g) =>
             typeof g.clerk_user_id === "string" &&
             typeof g.draft_for_day_key === "string" &&
             clerkIds.includes(g.clerk_user_id) &&
             dayKeys.includes(g.draft_for_day_key)
         );
+        if (typeof payload.send_slot === "string") {
+          rows = rows.filter(
+            (g) => (g.send_slot ?? "morning") === payload.send_slot
+          );
+        }
         return { data: rows, error: null };
       }
       return { data: [], error: null };
@@ -231,6 +240,19 @@ function seedCurrentDraft(overrides?: Partial<DraftRow> & { generation?: Partial
   ];
 }
 
+describe("resolveAdminListSendSlot", () => {
+  it("defaults invalid values to morning", () => {
+    expect(resolveAdminListSendSlot(undefined)).toBe("morning");
+    expect(resolveAdminListSendSlot(null)).toBe("morning");
+    expect(resolveAdminListSendSlot("bogus")).toBe("morning");
+    expect(resolveAdminListSendSlot("morning")).toBe("morning");
+  });
+
+  it("accepts evening_checkin", () => {
+    expect(resolveAdminListSendSlot("evening_checkin")).toBe("evening_checkin");
+  });
+});
+
 describe("tyler-text-overview-admin read model", () => {
   beforeEach(() => {
     db.drafts = [];
@@ -246,6 +268,61 @@ describe("tyler-text-overview-admin read model", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].draftId).toBe("draft-1");
     expect(rows[0].writerOpenAiMessages).toEqual(WRITER_MESSAGES);
+  });
+
+  it("list defaults to morning send_slot filter", async () => {
+    seedCurrentDraft();
+    db.drafts.push({
+      id: "draft-evening",
+      clerk_user_id: "user_evening",
+      draft_for_day_key: "2026-07-03",
+      current_generation_id: "gen-evening",
+      current_body_to_send: "Evening preview body",
+      status: "current",
+      send_slot: "evening_checkin",
+    });
+    db.generations.push({
+      id: "gen-evening",
+      generation_number: 1,
+      clerk_user_id: "user_evening",
+      draft_for_day_key: "2026-07-03",
+      send_slot: "evening_checkin",
+      writer_openai_messages: WRITER_MESSAGES,
+      machine_draft_body: "Evening preview body",
+      machine_should_send: true,
+      generation_metadata: { preview_only: true, morning_anchor_source: "send_event" },
+    });
+
+    const morningRows = await listCurrentTylerTextOverviewDrafts();
+    expect(morningRows).toHaveLength(1);
+    expect(morningRows[0].sendSlot).toBe("morning");
+
+    const eveningRows = await listCurrentTylerTextOverviewDrafts({
+      sendSlot: "evening_checkin",
+    });
+    expect(eveningRows).toHaveLength(1);
+    expect(eveningRows[0].sendSlot).toBe("evening_checkin");
+    expect(eveningRows[0].previewOnly).toBe(true);
+    expect(eveningRows[0].morningAnchorSource).toBe("send_event");
+  });
+
+  it("latest generation lookup is scoped by send_slot", async () => {
+    seedCurrentDraft();
+    db.generations.push({
+      id: "gen-2",
+      generation_number: 2,
+      clerk_user_id: "user_admin_test",
+      draft_for_day_key: "2026-07-03",
+      send_slot: "morning",
+      writer_openai_messages: WRITER_MESSAGES,
+      machine_draft_body: MACHINE_BODY,
+      machine_should_send: true,
+      generation_metadata: { capture_present: true },
+    });
+
+    const rows = await listCurrentTylerTextOverviewDrafts();
+    expect(rows[0].latestGenerationNumber).toBe(2);
+    expect(rows[0].isLatestGeneration).toBe(false);
   });
 
   it("DTO includes draft body and notebook provenance fields", () => {
@@ -496,6 +573,20 @@ describe("tyler-text-overview-admin save model", () => {
       expect(result.error).toContain("not current");
     }
   });
+
+  it("save rejects evening_checkin preview draft", async () => {
+    db.drafts[0].send_slot = "evening_checkin";
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body: "Should not save",
+      now,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.error).toBe(PREVIEW_ONLY_DRAFT_NOT_EDITABLE);
+    }
+  });
 });
 
 describe("tyler-text-overview-admin API auth", () => {
@@ -535,6 +626,65 @@ describe("tyler-text-overview-admin API auth", () => {
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.ok).toBe(false);
+  });
+
+  it("GET defaults sendSlot to morning", async () => {
+    requireTylerAdminMock.mockResolvedValue(undefined);
+    seedCurrentDraft();
+    const { GET } = await import("@/app/api/admin/tyler-text-overview/route");
+    const res = await GET(new Request("http://localhost/api/admin/tyler-text-overview"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(json.sendSlot).toBe("morning");
+  });
+
+  it("GET accepts send_slot=evening_checkin", async () => {
+    requireTylerAdminMock.mockResolvedValue(undefined);
+    seedCurrentDraft();
+    db.drafts = [];
+    db.drafts.push({
+      id: "draft-evening",
+      clerk_user_id: "user_evening",
+      draft_for_day_key: "2026-07-03",
+      current_generation_id: "gen-evening",
+      current_body_to_send: "Evening body",
+      status: "current",
+      send_slot: "evening_checkin",
+    });
+    db.generations = [
+      {
+        id: "gen-evening",
+        generation_number: 1,
+        clerk_user_id: "user_evening",
+        draft_for_day_key: "2026-07-03",
+        send_slot: "evening_checkin",
+        writer_openai_messages: WRITER_MESSAGES,
+        machine_draft_body: "Evening body",
+        machine_should_send: true,
+        generation_metadata: { preview_only: true },
+      },
+    ];
+    const { GET } = await import("@/app/api/admin/tyler-text-overview/route");
+    const res = await GET(
+      new Request(
+        "http://localhost/api/admin/tyler-text-overview?send_slot=evening_checkin"
+      )
+    );
+    const json = await res.json();
+    expect(json.sendSlot).toBe("evening_checkin");
+    expect(json.rows).toHaveLength(1);
+  });
+
+  it("GET invalid send_slot defaults to morning", async () => {
+    requireTylerAdminMock.mockResolvedValue(undefined);
+    seedCurrentDraft();
+    const { GET } = await import("@/app/api/admin/tyler-text-overview/route");
+    const res = await GET(
+      new Request("http://localhost/api/admin/tyler-text-overview?send_slot=not_a_slot")
+    );
+    const json = await res.json();
+    expect(json.sendSlot).toBe("morning");
   });
 });
 
@@ -629,5 +779,20 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     );
     expect(src).toContain("/api/admin/tyler-text-overview");
     expect(src).not.toContain("buildDailySmsContent");
+  });
+
+  it("dashboard has evening preview tab and safety UI", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("Morning / Primary Daily");
+    expect(src).toContain("Evening Preview");
+    expect(src).toContain("PREVIEW ONLY — NOT SENDABLE");
+    expect(src).toContain("/api/admin/tyler-text-overview/evening-preview");
+    expect(src).toContain("Generate Evening Preview");
+    expect(src).toContain("Would send if evening were live");
+    expect(src).toContain("Would skip because");
+    expect(src).not.toMatch(/Generate all|Bulk generate/i);
   });
 });

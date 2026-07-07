@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { listCurrentTylerTextOverviewDrafts } from "@/lib/tyler-text-overview-admin";
+import {
+  listCurrentTylerTextOverviewDrafts,
+  resolveAdminListSendSlot,
+} from "@/lib/tyler-text-overview-admin";
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 
 export const runtime = "nodejs";
@@ -25,9 +28,11 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const draftForDayKey = url.searchParams.get("draft_for_day_key");
+    const sendSlot = resolveAdminListSendSlot(url.searchParams.get("send_slot"));
 
     const rows = await listCurrentTylerTextOverviewDrafts({
       draftForDayKey,
+      sendSlot,
     });
 
     const availableDayKeys = [...new Set(rows.map((r) => r.draftForDayKey))].sort((a, b) =>
@@ -38,6 +43,7 @@ export async function GET(req: Request) {
       ok: true,
       rows,
       availableDayKeys,
+      sendSlot,
     });
   } catch (err) {
     console.error("[admin/tyler-text-overview] GET failed", err);

@@ -245,6 +245,11 @@ export type TylerTextOverviewAdminDraftRow = {
   intentionalSpace: boolean | null;
   laneStage: string | null;
   slotCoachingContext: TylerTextOverviewSlotCoachingContextPanel | null;
+  /** True when generation_metadata.preview_only is set (evening preview rows). */
+  previewOnly?: boolean;
+  morningAnchorSource?: string | null;
+  morningAnchorSent?: boolean | null;
+  morningAnchorBodyPreview?: string | null;
 };
 
 /** Read-only TTO panel — notebook context, not mandatory send rules. */

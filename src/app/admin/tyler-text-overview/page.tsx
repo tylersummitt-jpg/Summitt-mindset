@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 
 import TylerTextOverviewDashboard from "./tyler-text-overview-dashboard";
@@ -15,7 +17,9 @@ export default async function AdminTylerTextOverviewPage() {
         </p>
       </div>
 
-      <TylerTextOverviewDashboard />
+      <Suspense fallback={<p className="text-sm text-gray-500">Loading drafts…</p>}>
+        <TylerTextOverviewDashboard />
+      </Suspense>
     </div>
   );
 }
