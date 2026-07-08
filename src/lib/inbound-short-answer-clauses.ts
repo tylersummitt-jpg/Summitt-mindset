@@ -84,6 +84,7 @@ function clauseHasExplicitCompletion(clause: string): boolean {
   if (/\bfinished\s+(my\s+[\w',-]+|another)\b/i.test(t)) return true;
   if (/\bdid\s+my\s+hour\b/i.test(t)) return true;
   if (/\b(just\s+)?finished\s+another\b/i.test(t)) return true;
+  if (/^(done|completed)\.?$/i.test(t)) return true;
   if (/\b(i\s+)?(did\s+it|got\s+it\s+done|finished|completed|knocked\s+it\s+out)\b/i.test(t)) {
     if (/\b(did not|didn't|almost|wish|plan to)\b/i.test(t)) return false;
     return true;
@@ -146,8 +147,44 @@ function clauseHasExplicitMiss(clause: string): boolean {
   if (ACCOUNTABILITY_ACTION_AFTER_NEGATION_RE.test(t)) return true;
   if (/\b(missed|wasn'?t able|couldn'?t)\b/i.test(t)) return true;
   if (/\bnever\b/i.test(t) && !/\bnever\s+(said|meant)\b/i.test(t)) return true;
-  if (/^(no|nope|nah)\b/i.test(t) && /\b(miss|didn'?t|not)\b/i.test(t)) return true;
+  // Do not treat bare "not" as a miss ("No, that's not right" is correction, not accountability).
+  if (
+    /^(no|nope|nah)\b/i.test(t) &&
+    /\b(miss|didn'?t|did not|not done|haven'?t|have not)\b/i.test(t)
+  ) {
+    return true;
+  }
   return false;
+}
+
+/**
+ * Stale-goal / goal-mismatch / "wrong ask" correction language — not an accountability miss.
+ * Prefer this over classifier leading-"No" when deciding failed-safe persistence.
+ */
+export function looksLikeStaleGoalOrContextCorrection(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (inboundHasExplicitAccountabilityMissClause(t)) return false;
+
+  return (
+    /\bwrong\b/i.test(t) ||
+    /\bnot\s+my\s+goal\b/i.test(t) ||
+    /\bremoved\s+this\s+(accountability\s+)?goal\b/i.test(t) ||
+    /\bwe\s+removed\s+this\b/i.test(t) ||
+    /\bchanged\s+this\s+goal\b/i.test(t) ||
+    /\balready\s+changed\s+this\b/i.test(t) ||
+    /\bthat'?s\s+not\s+right\b/i.test(t) ||
+    /\bthat\s+is\s+not\s+right\b/i.test(t) ||
+    /\bincorrect\s+goal\b/i.test(t) ||
+    /\bold\s+goal\b/i.test(t) ||
+    /\bstale\s+goal\b/i.test(t) ||
+    /\bthat\s+is\s+not\s+the\s+goal\b/i.test(t) ||
+    /\bthat'?s\s+not\s+the\s+goal\b/i.test(t) ||
+    /\bthat'?s\s+not\s+my\s+(accountability\s+)?goal\b/i.test(t) ||
+    /\bthat\s+is\s+not\s+my\s+(accountability\s+)?goal\b/i.test(t) ||
+    /\bnot\s+my\s+(accountability\s+)?goal\s+anymore\b/i.test(t) ||
+    /\bgoal\s+anymore\b/i.test(t)
+  );
 }
 
 /** Onboarding / coach-process dispute — not an accountability miss. */
@@ -176,6 +213,7 @@ export function looksLikeCoachContextCorrectionOrMetaDispute(raw: string): boole
   if (inboundHasExplicitAccountabilityMissClause(t)) return false;
 
   if (looksLikeOnboardingProcessDispute(t)) return true;
+  if (looksLikeStaleGoalOrContextCorrection(t)) return true;
 
   return (
     /\b(didn'?t|did not|didnt)\s+say\b/i.test(t) ||

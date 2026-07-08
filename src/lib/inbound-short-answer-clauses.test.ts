@@ -3,8 +3,10 @@ import {
   inboundHasExplicitCompletionClause,
   inboundHasExplicitAccountabilityMissClause,
   inboundHasExplicitMissClause,
+  inboundHasExplicitPartialClause,
   looksLikeCoachContextCorrectionOrMetaDispute,
   looksLikeOnboardingProcessDispute,
+  looksLikeStaleGoalOrContextCorrection,
   splitInboundClauses,
 } from "@/lib/inbound-short-answer-clauses";
 
@@ -121,5 +123,36 @@ describe("inbound-short-answer-clauses — onboarding/coach-process disputes", (
 
   it("onboarding minutes alone is not substantive goal completion", () => {
     expect(inboundHasExplicitCompletionClause("I did 15 minutes of onboarding")).toBe(false);
+  });
+});
+
+describe("inbound-short-answer-clauses — stale-goal / obvious outcomes", () => {
+  it.each(["Completed.", "Done.", "Yes, I did it."])(
+    "%s has explicit completion clause",
+    (text) => {
+      expect(inboundHasExplicitCompletionClause(text)).toBe(true);
+    }
+  );
+
+  it.each([
+    "No, I missed it because I got distracted.",
+    "I didn't get it done because Netflix distracted me.",
+  ])("%s has explicit accountability miss clause", (text) => {
+    expect(inboundHasExplicitAccountabilityMissClause(text)).toBe(true);
+    expect(looksLikeStaleGoalOrContextCorrection(text)).toBe(false);
+  });
+
+  it.each(["Partially.", "I did part of it."])("%s has explicit partial clause", (text) => {
+    expect(inboundHasExplicitPartialClause(text)).toBe(true);
+  });
+
+  it.each([
+    "No, wrong. Mindset we removed this accountability goal.",
+    "No, that's not right.",
+    "That's not my goal anymore.",
+  ])("%s is stale-goal/context correction, not miss", (text) => {
+    expect(looksLikeStaleGoalOrContextCorrection(text)).toBe(true);
+    expect(looksLikeCoachContextCorrectionOrMetaDispute(text)).toBe(true);
+    expect(inboundHasExplicitAccountabilityMissClause(text)).toBe(false);
   });
 });

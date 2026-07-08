@@ -14,11 +14,15 @@ import {
 } from "@/lib/inbound-relationship-meaning";
 import type { TemporalContractV1 } from "@/lib/sms-temporal-contract-v1";
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
-import { classifyV2InboundReply, type V2InboundEventType } from "@/lib/v2-sms-accountability";
+import { type V2InboundEventType } from "@/lib/v2-sms-accountability";
 import {
   inboundHasExplicitCompletionClause,
+  inboundHasExplicitAccountabilityMissClause,
+  inboundHasExplicitPartialClause,
   inboundHasPlanConfirmationClause,
   inboundExplicitOutcomeDetected,
+  looksLikeStaleGoalOrContextCorrection,
+  looksLikeCoachContextCorrectionOrMetaDispute,
   splitInboundClauses,
 } from "@/lib/inbound-short-answer-clauses";
 import { inboundSignalsCompletion } from "@/lib/north-star-coach-sms";
@@ -173,6 +177,16 @@ export type OpenAIRelationshipTurnUnderstandingV1 = {
   goal_change_intent?: TurnUnderstandingGoalChangeIntent;
 };
 
+/** Safe, scrubbed diagnostics when OpenAI turn understanding fails (P0). */
+export type TurnUnderstandingFailureDiagnostics = {
+  tu_error_code: string;
+  tu_error_message_short: string | null;
+  tu_latency_ms: number | null;
+  tu_raw_preview?: string | null;
+  tu_sdk_status?: number | string | null;
+  tu_sdk_type?: string | null;
+};
+
 export type ReconciledTurnUnderstanding = {
   proposal: OpenAIRelationshipTurnUnderstandingV1 | null;
   reconciled_relationship_meaning: TurnUnderstandingRelationshipMeaning;
@@ -192,9 +206,14 @@ export type ReconciledTurnUnderstanding = {
   turn_understanding_failed_safe_fallback?: boolean;
   turn_understanding_failed_safe_reason?: string | null;
   turn_understanding_failed_safe_do_not_repeat_asks?: string[];
+  /** P0 failure diagnostics (scrubbed; never keys/prompts/full raw). */
+  turn_understanding_failure_diagnostics?: TurnUnderstandingFailureDiagnostics | null;
   reconciled_goal_change_intent: ReconciledGoalChangeIntent | null;
   /** Phase 1 inbound route contract — authoritative for low-risk close-loop routes. */
   inbound_route_contract?: InboundRouteContract | null;
+  /** Failed-safe: correction/stale-goal language blocked outcome write. */
+  correction_language_detected?: boolean;
+  blocked_outcome_reason?: string | null;
 };
 
 export type InboundPhase1Route =
@@ -1284,7 +1303,77 @@ export type CallTurnUnderstandingOpenAIResult =
       reason: string;
       model: string | null;
       latencyMs: number;
+      diagnostics: TurnUnderstandingFailureDiagnostics;
     };
+
+const TU_SECRET_SCRUB_RE =
+  /\b(sk-[a-zA-Z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._~+/=-]{8,}|api[_-]?key\s*[:=]\s*\S+)/gi;
+
+export function scrubTurnUnderstandingErrorMessage(raw: string, maxLen = 120): string {
+  const scrubbed = raw.replace(TU_SECRET_SCRUB_RE, "[redacted]").replace(/\s+/g, " ").trim();
+  if (scrubbed.length <= maxLen) return scrubbed;
+  return `${scrubbed.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
+function extractOpenAiSdkDiagnostics(err: unknown): {
+  message: string;
+  status: number | string | null;
+  type: string | null;
+} {
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : "unknown_error";
+  const anyErr = err as {
+    status?: unknown;
+    statusCode?: unknown;
+    code?: unknown;
+    type?: unknown;
+    error?: { type?: unknown; code?: unknown; message?: unknown };
+    name?: unknown;
+  } | null;
+  const status =
+    typeof anyErr?.status === "number" || typeof anyErr?.status === "string"
+      ? anyErr.status
+      : typeof anyErr?.statusCode === "number" || typeof anyErr?.statusCode === "string"
+        ? anyErr.statusCode
+        : null;
+  const type =
+    (typeof anyErr?.error?.type === "string" && anyErr.error.type) ||
+    (typeof anyErr?.type === "string" && anyErr.type) ||
+    (typeof anyErr?.code === "string" && anyErr.code) ||
+    (typeof anyErr?.name === "string" && anyErr.name) ||
+    null;
+  return { message, status, type };
+}
+
+function buildTurnUnderstandingFailureDiagnostics(args: {
+  reason: string;
+  latencyMs: number;
+  errorMessage?: string | null;
+  rawPreview?: string | null;
+  sdkStatus?: number | string | null;
+  sdkType?: string | null;
+}): TurnUnderstandingFailureDiagnostics {
+  const short =
+    args.errorMessage && args.errorMessage.trim()
+      ? scrubTurnUnderstandingErrorMessage(args.errorMessage, 120)
+      : null;
+  const rawPreview =
+    args.reason === "schema_validation_failed" && args.rawPreview
+      ? scrubTurnUnderstandingErrorMessage(args.rawPreview, 200)
+      : undefined;
+  return {
+    tu_error_code: args.reason,
+    tu_error_message_short: short,
+    tu_latency_ms: args.latencyMs,
+    ...(rawPreview !== undefined ? { tu_raw_preview: rawPreview } : {}),
+    ...(args.sdkStatus != null ? { tu_sdk_status: args.sdkStatus } : {}),
+    ...(args.sdkType ? { tu_sdk_type: args.sdkType } : {}),
+  };
+}
 
 export async function callOpenAIRelationshipTurnUnderstandingV1(
   promptArgs: BuildTurnUnderstandingPromptArgs
@@ -1293,7 +1382,18 @@ export async function callOpenAIRelationshipTurnUnderstandingV1(
   const model = TURN_UNDERSTANDING_OPENAI_MODEL;
   const client = getOpenAIClientOrNull();
   if (!client) {
-    return { ok: false, reason: "no_openai_key", model: null, latencyMs: Date.now() - started };
+    const latencyMs = Date.now() - started;
+    return {
+      ok: false,
+      reason: "no_openai_key",
+      model: null,
+      latencyMs,
+      diagnostics: buildTurnUnderstandingFailureDiagnostics({
+        reason: "no_openai_key",
+        latencyMs,
+        errorMessage: "OPENAI_API_KEY missing",
+      }),
+    };
   }
 
   const userPrompt = buildTurnUnderstandingUserPrompt(promptArgs);
@@ -1323,13 +1423,20 @@ export async function callOpenAIRelationshipTurnUnderstandingV1(
     });
 
     clearTimeout(timer);
+    const latencyMs = Date.now() - started;
 
     if (!jsonOut.value) {
       return {
         ok: false,
         reason: "schema_validation_failed",
         model,
-        latencyMs: Date.now() - started,
+        latencyMs,
+        diagnostics: buildTurnUnderstandingFailureDiagnostics({
+          reason: "schema_validation_failed",
+          latencyMs,
+          errorMessage: "turn understanding JSON failed schema validation",
+          rawPreview: jsonOut.retryMeta.original_raw_preview || jsonOut.raw,
+        }),
       };
     }
 
@@ -1337,16 +1444,27 @@ export async function callOpenAIRelationshipTurnUnderstandingV1(
       ok: true,
       proposal: jsonOut.value,
       model,
-      latencyMs: Date.now() - started,
+      latencyMs,
     };
   } catch (e) {
     clearTimeout(timer);
-    const msg = e instanceof Error ? e.message : String(e);
+    const latencyMs = Date.now() - started;
+    const sdk = extractOpenAiSdkDiagnostics(e);
+    const reason = sdk.message.toLowerCase().includes("abort")
+      ? "openai_timeout"
+      : "openai_request_failed";
     return {
       ok: false,
-      reason: msg.includes("abort") ? "openai_timeout" : "openai_request_failed",
+      reason,
       model,
-      latencyMs: Date.now() - started,
+      latencyMs,
+      diagnostics: buildTurnUnderstandingFailureDiagnostics({
+        reason,
+        latencyMs,
+        errorMessage: sdk.message,
+        sdkStatus: sdk.status,
+        sdkType: sdk.type,
+      }),
     };
   }
 }
@@ -1394,6 +1512,7 @@ export type ReconcileTurnUnderstandingArgs = {
   latestCoachQuestion?: string | null;
   interpreterFailedReason?: string | null;
   inboundBody?: string | null;
+  failureDiagnostics?: TurnUnderstandingFailureDiagnostics | null;
 };
 
 function hardRoutePriorityOverridesProposal(routePriority?: InboundMeaningRoutePriority): boolean {
@@ -1450,19 +1569,22 @@ export function isStrongServerOutcomeForFailedSafePersist(
 ): boolean {
   const t = raw.trim();
   if (!t) return false;
+  if (
+    looksLikeStaleGoalOrContextCorrection(t) ||
+    looksLikeCoachContextCorrectionOrMetaDispute(t)
+  ) {
+    return false;
+  }
+
   if (classifierEventType === "user_partial") {
-    const c = classifyV2InboundReply(t);
-    return c.eventType === "user_partial" && c.normalizedHint === "keyword_partial";
+    return inboundHasExplicitPartialClause(t);
   }
+
   if (classifierEventType === "user_no") {
-    const c = classifyV2InboundReply(t);
-    if (c.eventType !== "user_no") return false;
-    return (
-      c.normalizedHint === null ||
-      c.normalizedHint === "unclear" ||
-      Boolean(c.normalizedHint?.includes("honest"))
-    );
+    // Humble: only obvious self-contained accountability miss clauses — never leading "No," alone.
+    return inboundHasExplicitAccountabilityMissClause(t);
   }
+
   if (classifierEventType !== "user_yes") return false;
   if (/^(yes|y|yeah|yep|yup|sure|ok|okay)\.?$/i.test(t)) return false;
   if (inboundHasExplicitCompletionClause(t)) return true;
@@ -1508,6 +1630,13 @@ export function resolveFailedSafePersistenceDecision(args: {
   const det = args.deterministicMeaning.persistence_decision;
   const raw = args.rawInbound.trim();
 
+  if (
+    looksLikeStaleGoalOrContextCorrection(raw) ||
+    looksLikeCoachContextCorrectionOrMetaDispute(raw)
+  ) {
+    return "no_outcome_write";
+  }
+
   if (args.classifierEventType === "user_no" && isStrongServerOutcomeForFailedSafePersist(raw, "user_no")) {
     return "write_user_no";
   }
@@ -1524,11 +1653,21 @@ export function resolveFailedSafePersistenceDecision(args: {
     return "write_user_yes_today";
   }
 
+  // Also allow obvious miss/partial when deterministic meaning already decided that way,
+  // even if classifier event type drifted (e.g. miss classified as user_partial).
+  if (det === "write_user_no" && inboundHasExplicitAccountabilityMissClause(raw)) {
+    return "write_user_no";
+  }
+  if (det === "write_user_partial" && inboundHasExplicitPartialClause(raw)) {
+    return "write_user_partial";
+  }
+  if (det === "write_user_yes_today" && isStrongServerOutcomeForFailedSafePersist(raw, "user_yes")) {
+    return "write_user_yes_today";
+  }
+
+  // Humble: never passthrough write_user_no / write_user_partial without obvious self-contained language.
   if (det === "write_user_yes_today" && !isStrongServerOutcomeForFailedSafePersist(raw, "user_yes")) {
     return "no_outcome_write";
-  }
-  if (det === "write_user_no" || det === "write_user_partial") {
-    return det;
   }
   if (det === "ack_only") return "ack_only";
   return "no_outcome_write";
@@ -1639,6 +1778,7 @@ export function buildInterpreterFailedSafeReconciled(args: {
   openQuestionPending?: boolean;
   rawInbound: string;
   classifierEventType: V2InboundEventType;
+  failureDiagnostics?: TurnUnderstandingFailureDiagnostics | null;
 }): ReconciledTurnUnderstanding {
   const coachQ = args.latestCoachQuestion?.trim() ?? "";
   const substantive = isSubstantiveInboundForFailedSafe(args.rawInbound);
@@ -1646,6 +1786,9 @@ export function buildInterpreterFailedSafeReconciled(args: {
     substantive && (coachQ.length >= 12 || args.openQuestionPending === true);
   const do_not_repeat_asks =
     coachQ.length >= 12 ? [coachQ.slice(0, 160)] : [];
+  const correctionLanguage =
+    looksLikeStaleGoalOrContextCorrection(args.rawInbound) ||
+    looksLikeCoachContextCorrectionOrMetaDispute(args.rawInbound);
   const reconciled_persistence_decision = resolveFailedSafePersistenceDecision({
     deterministicMeaning: args.deterministicMeaning,
     rawInbound: args.rawInbound,
@@ -1664,7 +1807,10 @@ export function buildInterpreterFailedSafeReconciled(args: {
     hasPlanClause
   ) {
     reconciled_response_intent = "answer_user_question";
-  } else if (args.deterministicMeaning.relationship_meaning === "miss") {
+  } else if (
+    args.deterministicMeaning.relationship_meaning === "miss" &&
+    reconciled_persistence_decision === "write_user_no"
+  ) {
     reconciled_response_intent = "tell_truth_and_recover";
   }
 
@@ -1702,7 +1848,14 @@ export function buildInterpreterFailedSafeReconciled(args: {
     turn_understanding_failed_safe_fallback: true,
     turn_understanding_failed_safe_reason: args.interpreterFailedReason,
     turn_understanding_failed_safe_do_not_repeat_asks: do_not_repeat_asks,
+    turn_understanding_failure_diagnostics: args.failureDiagnostics ?? null,
     reconciled_goal_change_intent: finalized.reconciled_goal_change_intent,
+    ...(correctionLanguage && finalized.reconciled_persistence_decision === "no_outcome_write"
+      ? {
+          correction_language_detected: true,
+          blocked_outcome_reason: "goal_or_context_correction",
+        }
+      : {}),
   };
 }
 
@@ -1750,6 +1903,7 @@ export function reconcileTurnUnderstanding(
       interpreter_failed_reason: failed ?? "no_proposal",
       stale_ask_avoided: false,
       persistence_note: "server kept deterministic persistence (interpreter unavailable)",
+      turn_understanding_failure_diagnostics: args.failureDiagnostics ?? null,
       reconciled_goal_change_intent: null,
     };
   }
@@ -1985,6 +2139,7 @@ export function slimTurnUnderstandingMetadata(
   persistGuard?: TurnUnderstandingPersistGuardMeta | null
 ): Record<string, unknown> {
   if (!r) return { openai_turn_understanding_version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION };
+  const diag = r.turn_understanding_failure_diagnostics;
   return {
     openai_turn_understanding_version: OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
     ...(r.interpreter_latency_ms != null ? { interpreter_latency_ms: r.interpreter_latency_ms } : {}),
@@ -2010,6 +2165,22 @@ export function slimTurnUnderstandingMetadata(
             r.turn_understanding_failed_safe_reason ?? r.interpreter_failed_reason,
           turn_understanding_failed_safe_do_not_repeat_asks:
             r.turn_understanding_failed_safe_do_not_repeat_asks ?? r.reconciled_do_not_repeat_asks,
+        }
+      : {}),
+    ...(diag
+      ? {
+          tu_error_code: diag.tu_error_code,
+          tu_error_message_short: diag.tu_error_message_short,
+          tu_latency_ms: diag.tu_latency_ms,
+          ...(diag.tu_raw_preview != null ? { tu_raw_preview: diag.tu_raw_preview } : {}),
+          ...(diag.tu_sdk_status != null ? { tu_sdk_status: diag.tu_sdk_status } : {}),
+          ...(diag.tu_sdk_type ? { tu_sdk_type: diag.tu_sdk_type } : {}),
+        }
+      : {}),
+    ...(r.correction_language_detected
+      ? {
+          correction_language_detected: true,
+          blocked_outcome_reason: r.blocked_outcome_reason ?? "goal_or_context_correction",
         }
       : {}),
     ...buildGoalChangeIntentTelemetry(r.reconciled_goal_change_intent),
@@ -2100,6 +2271,7 @@ export async function runInboundRelationshipTurnUnderstanding(
     latestCoachQuestion: coachQ,
     interpreterFailedReason: openAi.ok ? null : openAi.reason,
     inboundBody: args.inboundBody,
+    failureDiagnostics: openAi.ok ? null : openAi.diagnostics,
   });
   return {
     ...enrichReconciledWithInboundRouteContract(reconciled, {

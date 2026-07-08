@@ -1045,6 +1045,7 @@ export async function runInboundTurnUnderstandingContext(
         openQuestionPending: args.openQuestionPending,
         rawInbound: args.inboundBody,
         classifierEventType: args.classifierEventType,
+        failureDiagnostics: reconciled.turn_understanding_failure_diagnostics ?? null,
       }),
       {
         rawInbound: args.inboundBody,

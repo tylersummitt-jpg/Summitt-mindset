@@ -1059,6 +1059,159 @@ describe("interpreter failed-safe persistence", () => {
     expect(result.persist).toBe(true);
     if (result.persist) expect(result.resolvedEventType).toBe("user_partial");
   });
+
+  function failedSafePersistCase(args: {
+    body: string;
+    classifierEventType: "user_yes" | "user_no" | "user_partial";
+    sid: string;
+  }) {
+    const inboundMeaning = buildInboundMeaningFacts({
+      rawInbound: args.body,
+      classifierEventType: args.classifierEventType,
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "openai_request_failed",
+      proposal: null,
+      deterministicMeaning: inboundMeaning,
+      rawInbound: args.body,
+      classifierEventType: args.classifierEventType,
+    });
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: args.sid,
+      commitmentId: "commit-1",
+      rawBody: args.body,
+      classifierEventType: args.classifierEventType,
+      gatedDecision: defaultGatedDecision(args.classifierEventType, "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+      turnUnderstandingReconciled: tu,
+    });
+    return { tu, result };
+  }
+
+  it.each([
+    { body: "Completed.", type: "user_yes" as const, sid: "SM_fs_completed" },
+    { body: "Done.", type: "user_yes" as const, sid: "SM_fs_done" },
+    { body: "Yes, I did it.", type: "user_yes" as const, sid: "SM_fs_yes_did" },
+  ])("$body → user_yes allowed under failed-safe", ({ body, type, sid }) => {
+    const { tu, result } = failedSafePersistCase({
+      body,
+      classifierEventType: type,
+      sid,
+    });
+    expect(tu.reconciled_persistence_decision).toBe("write_user_yes_today");
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_yes");
+  });
+
+  it.each([
+    {
+      body: "No, I missed it because I got distracted.",
+      type: "user_no" as const,
+      sid: "SM_fs_miss_because",
+    },
+    {
+      body: "I didn't get it done because Netflix distracted me.",
+      type: "user_partial" as const,
+      sid: "SM_fs_netflix",
+    },
+  ])("$body → user_no allowed under failed-safe", ({ body, type, sid }) => {
+    const { tu, result } = failedSafePersistCase({
+      body,
+      classifierEventType: type,
+      sid,
+    });
+    expect(tu.reconciled_persistence_decision).toBe("write_user_no");
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_no");
+  });
+
+  it.each([
+    { body: "Partially.", type: "user_partial" as const, sid: "SM_fs_partially" },
+    { body: "I did part of it.", type: "user_partial" as const, sid: "SM_fs_part_of" },
+  ])("$body → user_partial allowed under failed-safe", ({ body, type, sid }) => {
+    const { tu, result } = failedSafePersistCase({
+      body,
+      classifierEventType: type,
+      sid,
+    });
+    expect(tu.reconciled_persistence_decision).toBe("write_user_partial");
+    expect(result.persist).toBe(true);
+    if (result.persist) expect(result.resolvedEventType).toBe("user_partial");
+  });
+
+  it("No, wrong… removed this goal → no_outcome_write, no user_no, correction flags", () => {
+    const body = "No, wrong. Mindset we removed this accountability goal.";
+    const { tu, result } = failedSafePersistCase({
+      body,
+      classifierEventType: "user_no",
+      sid: "SM_fs_stale_goal",
+    });
+    expect(tu.reconciled_persistence_decision).toBe("no_outcome_write");
+    expect(tu.correction_language_detected).toBe(true);
+    expect(tu.blocked_outcome_reason).toBe("goal_or_context_correction");
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(["meaning_no_outcome_write", "goal_or_context_correction"]).toContain(
+        result.skipReason
+      );
+    }
+  });
+
+  it.each([
+    "Good suggestion & have made a list.",
+    "Sounds like a great plan I'm committed.",
+    "Ready.",
+  ])("%s with OpenAI failed → no_outcome_write", (body) => {
+    const { tu, result } = failedSafePersistCase({
+      body,
+      classifierEventType: "user_partial",
+      sid: `SM_fs_ctx_${body.slice(0, 12).replace(/\W+/g, "_")}`,
+    });
+    expect(tu.reconciled_persistence_decision).toBe("no_outcome_write");
+    expect(result.persist).toBe(false);
+  });
+
+  it.each([
+    { body: "No, that's not right.", type: "user_no" as const },
+    { body: "That's not my goal anymore.", type: "user_partial" as const },
+  ])("$body → no_outcome_write under failed-safe", ({ body, type }) => {
+    const { tu, result } = failedSafePersistCase({
+      body,
+      classifierEventType: type,
+      sid: `SM_fs_corr_${body.slice(0, 12).replace(/\W+/g, "_")}`,
+    });
+    expect(tu.reconciled_persistence_decision).toBe("no_outcome_write");
+    expect(tu.correction_language_detected).toBe(true);
+    expect(tu.blocked_outcome_reason).toBe("goal_or_context_correction");
+    expect(result.persist).toBe(false);
+  });
+
+  it("evaluateUserNoPersistBackstop blocks stale-goal even if meaning says write_user_no", () => {
+    const body = "No, wrong. Mindset we removed this accountability goal.";
+    const inboundMeaning: ReturnType<typeof buildInboundMeaningFacts> = {
+      ...buildInboundMeaningFacts({
+        rawInbound: body,
+        classifierEventType: "user_no",
+      }),
+      persistence_decision: "write_user_no",
+    };
+    const result = shouldPersistInboundAccountabilityOutcome({
+      messageSid: "SM_fs_backstop_stale",
+      commitmentId: "commit-1",
+      rawBody: body,
+      classifierEventType: "user_no",
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      laneExclusion: "none",
+      activeReplyContext: livePromptCtx,
+      inboundMeaning,
+    });
+    expect(result.persist).toBe(false);
+    if (!result.persist) {
+      expect(result.skipReason).toBe("goal_or_context_correction");
+    }
+  });
 });
 
 describe("resolveInboundAccountabilityOutcomeEventType", () => {

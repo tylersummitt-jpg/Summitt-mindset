@@ -23,6 +23,7 @@ import {
   inboundHasExplicitAccountabilityMissClause,
   looksLikeCoachContextCorrectionOrMetaDispute,
   looksLikeOnboardingProcessDispute,
+  looksLikeStaleGoalOrContextCorrection,
 } from "@/lib/inbound-short-answer-clauses";
 import {
   isNonOutcomePlanPriorQuestionType,
@@ -98,6 +99,7 @@ export type InboundOutcomePersistSkipReason =
   | "coach_context_correction_not_miss"
   | "coach_process_dispute_not_miss"
   | "onboarding_process_dispute_not_miss"
+  | "goal_or_context_correction"
   | "goal_change_not_outcome_write"
   | "completion_mismatch_active_commitment"
   | "off_goal_completion_claim"
@@ -469,13 +471,19 @@ function evaluateUserNoPersistBackstop(args: {
   const raw = args.raw.trim();
   if (args.inboundMeaning.persistence_decision !== "write_user_no") return null;
 
+  // Correction / stale-goal language must never persist user_no, even if upstream meaning says write_user_no.
   if (
-    looksLikeCoachContextCorrectionOrMetaDispute(raw) &&
-    !inboundHasExplicitAccountabilityMissClause(raw)
+    !inboundHasExplicitAccountabilityMissClause(raw) &&
+    (looksLikeStaleGoalOrContextCorrection(raw) ||
+      looksLikeCoachContextCorrectionOrMetaDispute(raw))
   ) {
-    return looksLikeOnboardingProcessDispute(raw)
-      ? "onboarding_process_dispute_not_miss"
-      : "coach_context_correction_not_miss";
+    if (looksLikeOnboardingProcessDispute(raw)) {
+      return "onboarding_process_dispute_not_miss";
+    }
+    if (looksLikeStaleGoalOrContextCorrection(raw)) {
+      return "goal_or_context_correction";
+    }
+    return "coach_context_correction_not_miss";
   }
 
   if (
@@ -484,6 +492,15 @@ function evaluateUserNoPersistBackstop(args: {
     )
   ) {
     return "onboarding_process_dispute_not_miss";
+  }
+
+  if (
+    args.inboundMeaning.evidence.some(
+      (e) =>
+        e.includes("goal_or_context_correction") || e.includes("stale_goal_correction")
+    )
+  ) {
+    return "goal_or_context_correction";
   }
 
   if (

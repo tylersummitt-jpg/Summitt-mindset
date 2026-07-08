@@ -14,15 +14,20 @@ vi.mock("openai", () => ({
 
 import {
   OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
+  buildInterpreterFailedSafeReconciled,
   buildReconciledGoalChangeIntent,
+  callOpenAIRelationshipTurnUnderstandingV1,
   inferMinimalGoalChangeIntentFromInbound,
   isAuthoritativeReconciledGoalChangeIntent,
   parseOpenAIRelationshipTurnUnderstandingV1,
   parseTurnUnderstandingGoalChangeIntent,
   reconcileTurnUnderstanding,
+  resolveFailedSafePersistenceDecision,
   runInboundRelationshipTurnUnderstanding,
   resolveInboundTurnUnderstandingSkipReason,
+  scrubTurnUnderstandingErrorMessage,
   shouldSkipInboundTurnUnderstandingRoute,
+  slimTurnUnderstandingMetadata,
   type OpenAIRelationshipTurnUnderstandingV1,
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
@@ -227,6 +232,7 @@ describe("runInboundRelationshipTurnUnderstanding", () => {
   });
 
   it("falls back when OpenAI fails without throwing", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
     openAiCreate.mockRejectedValue(new Error("network down"));
     const r = await runInboundRelationshipTurnUnderstanding({
       inboundBody: "Yes already on",
@@ -248,6 +254,167 @@ describe("runInboundRelationshipTurnUnderstanding", () => {
     expect(r).not.toBeNull();
     expect(r?.interpreter_failed_reason).toBeTruthy();
     expect(r?.reconciled_persistence_decision).toBeDefined();
+    expect(r?.turn_understanding_failure_diagnostics?.tu_error_code).toBe("openai_request_failed");
+    expect(r?.turn_understanding_failure_diagnostics?.tu_error_message_short).toMatch(/network/i);
+  });
+
+  it("attaches scrubbed diagnostics on openai_request_failed via callOpenAI", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    openAiCreate.mockRejectedValue(
+      Object.assign(new Error("Rate limit exceeded for sk-live-secretvalue12345"), {
+        status: 429,
+        error: { type: "rate_limit_error" },
+      })
+    );
+    const out = await callOpenAIRelationshipTurnUnderstandingV1({
+      inboundBody: "done",
+      lastCoachOutbound: null,
+      latestOpenQuestion: null,
+      latestAnswerAfterOpenQuestion: null,
+      openQuestionPending: false,
+      expectedReplySemantics: null,
+      effectiveAsk: "ask",
+      behaviorStatement: "behavior",
+      recentThreadExcerpt: "",
+      routePurpose: "normal_inbound_reply",
+      routePriority: {},
+      temporalContract: null,
+      proofCalloutClaimSavedAllowed: false,
+      deterministicMeaning: buildInboundMeaningFacts({
+        rawInbound: "done",
+        classifierEventType: "user_yes",
+      }),
+      classifierEventType: "user_yes",
+    });
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.reason).toBe("openai_request_failed");
+    expect(out.diagnostics.tu_error_code).toBe("openai_request_failed");
+    expect(out.diagnostics.tu_error_message_short).toContain("[redacted]");
+    expect(out.diagnostics.tu_error_message_short).not.toMatch(/sk-live/);
+    expect(out.diagnostics.tu_sdk_status).toBe(429);
+    expect(out.diagnostics.tu_sdk_type).toBe("rate_limit_error");
+    expect(out.diagnostics.tu_raw_preview).toBeUndefined();
+  });
+
+  it("attaches tu_raw_preview only on schema_validation_failed", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    openAiCreate.mockResolvedValue({
+      choices: [{ message: { content: '{"version":"not-valid"}' }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    });
+    const out = await callOpenAIRelationshipTurnUnderstandingV1({
+      inboundBody: "done",
+      lastCoachOutbound: null,
+      latestOpenQuestion: null,
+      latestAnswerAfterOpenQuestion: null,
+      openQuestionPending: false,
+      expectedReplySemantics: null,
+      effectiveAsk: "ask",
+      behaviorStatement: "behavior",
+      recentThreadExcerpt: "",
+      routePurpose: "normal_inbound_reply",
+      routePriority: {},
+      temporalContract: null,
+      proofCalloutClaimSavedAllowed: false,
+      deterministicMeaning: buildInboundMeaningFacts({
+        rawInbound: "done",
+        classifierEventType: "user_yes",
+      }),
+      classifierEventType: "user_yes",
+    });
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.reason).toBe("schema_validation_failed");
+    expect(out.diagnostics.tu_raw_preview).toBeTruthy();
+    expect((out.diagnostics.tu_raw_preview ?? "").length).toBeLessThanOrEqual(200);
+  });
+
+  it("scrubTurnUnderstandingErrorMessage redacts secrets and caps length", () => {
+    const long = `Bearer ${"x".repeat(200)} plus more text ${"y".repeat(50)}`;
+    const scrubbed = scrubTurnUnderstandingErrorMessage(long, 120);
+    expect(scrubbed).toContain("[redacted]");
+    expect(scrubbed.length).toBeLessThanOrEqual(120);
+  });
+
+  it("slimTurnUnderstandingMetadata pipes failure diagnostics + correction flags", () => {
+    const meaning = buildInboundMeaningFacts({
+      rawInbound: "No, that's not right.",
+      classifierEventType: "user_no",
+    });
+    const tu = buildInterpreterFailedSafeReconciled({
+      interpreterFailedReason: "openai_request_failed",
+      proposal: null,
+      deterministicMeaning: meaning,
+      rawInbound: "No, that's not right.",
+      classifierEventType: "user_no",
+      failureDiagnostics: {
+        tu_error_code: "openai_request_failed",
+        tu_error_message_short: "network down",
+        tu_latency_ms: 42,
+        tu_sdk_status: 500,
+        tu_sdk_type: "api_error",
+      },
+    });
+    const slim = slimTurnUnderstandingMetadata(tu);
+    expect(slim.tu_error_code).toBe("openai_request_failed");
+    expect(slim.tu_error_message_short).toBe("network down");
+    expect(slim.tu_latency_ms).toBe(42);
+    expect(slim.correction_language_detected).toBe(true);
+    expect(slim.blocked_outcome_reason).toBe("goal_or_context_correction");
+    expect(slim.server_reconciled_persistence_decision).toBe("no_outcome_write");
+  });
+
+  it("resolveFailedSafePersistenceDecision allows Done. and blocks contextual replies", () => {
+    const doneMeaning = buildInboundMeaningFacts({
+      rawInbound: "Done.",
+      classifierEventType: "user_yes",
+    });
+    expect(
+      resolveFailedSafePersistenceDecision({
+        deterministicMeaning: doneMeaning,
+        rawInbound: "Done.",
+        classifierEventType: "user_yes",
+      })
+    ).toBe("write_user_yes_today");
+
+    const readyMeaning = buildInboundMeaningFacts({
+      rawInbound: "Ready.",
+      classifierEventType: "user_partial",
+    });
+    expect(
+      resolveFailedSafePersistenceDecision({
+        deterministicMeaning: readyMeaning,
+        rawInbound: "Ready.",
+        classifierEventType: "user_partial",
+      })
+    ).toBe("no_outcome_write");
+  });
+
+  it("OpenAI success path still reconciles proposal persistence (not weakened)", () => {
+    const proposal = makeValidProposal({
+      commitment_outcome_recommendation: "ack_only",
+      persistence_safety: "safe_to_write",
+      relationship_meaning: "prior_ask_satisfied",
+      last_ask_satisfied: "yes",
+      confidence: 0.9,
+    });
+    const det = buildInboundMeaningFacts({
+      rawInbound: "Yes already on",
+      classifierEventType: "user_yes",
+      openQuestionPending: true,
+      latestOpenQuestion: "put one family connection on the calendar for tomorrow",
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      latestCoachQuestion: "put one family connection on the calendar for tomorrow",
+      interpreterFailedReason: null,
+      inboundBody: "Yes already on",
+    });
+    expect(r.interpreter_failed_reason).toBeNull();
+    expect(r.turn_understanding_failed_safe_fallback).toBeFalsy();
+    expect(r.reconciled_persistence_decision).not.toBe("write_user_yes_today");
   });
 
   it("uses abort signal and returns timeout reason on abort", async () => {
