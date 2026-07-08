@@ -255,6 +255,10 @@ function looksLikePlanMade(text: string): boolean {
   if (!t) return false;
   if (hasFuturePlanIntentLanguage(t)) return true;
   if (/\b(made a plan|making a plan|have a plan|my plan is)\b/i.test(t)) return true;
+  // Thin plan-ish language for no_outcome_write / DNR only — not Victory proof.
+  if (/\b(made a list|have made a list|made the list|got a list)\b/i.test(t)) return true;
+  if (/\bsounds like a great plan\b/i.test(t)) return true;
+  if (/\b(i'?m committed|i am committed)\b/i.test(t) && /\bplan\b/i.test(t)) return true;
   return false;
 }
 

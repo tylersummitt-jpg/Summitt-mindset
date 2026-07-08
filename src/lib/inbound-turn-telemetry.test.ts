@@ -1,21 +1,96 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/supabase-server", () => ({
-  supabaseServer: { from: vi.fn() },
+  supabaseServer: {
+    from: vi.fn(() => ({
+      insert: vi.fn(async () => ({ error: null })),
+    })),
+  },
 }));
 
+import { supabaseServer } from "@/lib/supabase-server";
 import {
   capInboundStageBodyPreview,
   compactInboundReplyBriefTelemetry,
   compactInboundTurnTelemetryLaneFields,
   compactInboundTurnTruthTelemetry,
   compactInboundTurnWriterObservability,
+  insertInboundTurnTelemetryBestEffort,
+  satisfiedAskTelemetryFieldsFromReconciled,
   INBOUND_REPLY_BRIEF_TELEMETRY_KEYS,
   INBOUND_TURN_TELEMETRY_COMPACT_KEYS,
   INBOUND_TURN_TELEMETRY_TRUTH_KEYS,
   INBOUND_TURN_TELEMETRY_WRITER_OBSERVABILITY_KEYS,
 } from "@/lib/inbound-turn-telemetry";
 import { INBOUND_NOTEBOOK_OBSERVABILITY_KEYS } from "@/lib/sms-inbound-notebook-telemetry";
+import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
+
+function minimalReconciled(
+  overrides: Partial<ReconciledTurnUnderstanding> = {}
+): ReconciledTurnUnderstanding {
+  return {
+    proposal: null,
+    reconciled_relationship_meaning: "plan_made",
+    reconciled_response_intent: "acknowledge_prior_ask_satisfied",
+    reconciled_persistence_decision: "no_outcome_write",
+    reconciled_do_not_repeat_asks: ["make a list of next steps"],
+    last_ask_satisfied: "yes",
+    satisfaction_kind: "plan_exists",
+    stale_ask_risk: true,
+    confidence: 0.9,
+    disagreement_flags: [],
+    interpreter_failed_reason: null,
+    stale_ask_avoided: true,
+    persistence_note: "test",
+    reconciled_goal_change_intent: null,
+    ...overrides,
+  };
+}
+
+describe("P2a satisfiedAskTelemetryFieldsFromReconciled", () => {
+  it("exports top-level last_ask_satisfied and do_not_repeat_asks", () => {
+    const fields = satisfiedAskTelemetryFieldsFromReconciled(minimalReconciled());
+    expect(fields).toEqual({
+      turn_understanding_last_ask_satisfied: "yes",
+      do_not_repeat_asks: ["make a list of next steps"],
+    });
+  });
+
+  it("returns empty object when reconciled is null", () => {
+    expect(satisfiedAskTelemetryFieldsFromReconciled(null)).toEqual({});
+  });
+});
+
+describe("P2a insertInboundTurnTelemetryBestEffort", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("persists top-level turn_understanding_last_ask_satisfied and do_not_repeat_asks", async () => {
+    const insert = vi.fn(async () => ({ error: null }));
+    vi.mocked(supabaseServer.from).mockReturnValue({ insert } as never);
+
+    await insertInboundTurnTelemetryBestEffort({
+      commitmentId: "c1",
+      clerkUserId: "u1",
+      messageSid: "SM_p2a",
+      rawBody: "Good suggestion & have made a list.",
+      replyBody: "Nice — list locked.",
+      turnUnderstandingReconciled: minimalReconciled(),
+      tuGuardMetadata: { do_not_repeat_asks: ["stale guard dnr"] },
+    });
+
+    expect(insert).toHaveBeenCalled();
+    const row = insert.mock.calls[0]?.[0] as {
+      payload_json: Record<string, unknown>;
+      event_type: string;
+    };
+    expect(row.event_type).toBe("sms_memory_signal");
+    expect(row.payload_json.turn_understanding_last_ask_satisfied).toBe("yes");
+    expect(row.payload_json.do_not_repeat_asks).toEqual(["make a list of next steps"]);
+    expect(row.payload_json.inbound_turn_telemetry).toBe(true);
+  });
+});
 
 describe("compactInboundTurnTelemetryLaneFields", () => {
   it("includes compact strategy and packet fields when provided on lane metadata", () => {

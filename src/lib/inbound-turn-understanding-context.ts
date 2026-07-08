@@ -1051,6 +1051,7 @@ export async function runInboundTurnUnderstandingContext(
         rawInbound: args.inboundBody,
         openQuestionPending: args.openQuestionPending,
         latestOpenQuestion: args.latestOpenQuestion,
+        lastCoachOutbound: args.lastCoachOutbound,
         classifierEventType: args.classifierEventType,
       }
     );

@@ -391,6 +391,39 @@ describe("runInboundRelationshipTurnUnderstanding", () => {
     ).toBe("no_outcome_write");
   });
 
+  it("P2b failed-safe close-loop for Ready / plan-committed with prior ask", () => {
+    const planAsk = "Make a short list of next steps for tomorrow";
+    for (const body of [
+      "Ready.",
+      "Good suggestion & have made a list.",
+      "Sounds like a great plan I'm committed.",
+    ]) {
+      const meaning = buildInboundMeaningFacts({
+        rawInbound: body,
+        classifierEventType: "user_partial",
+        openQuestionPending: true,
+        latestOpenQuestion: planAsk,
+      });
+      const tu = buildInterpreterFailedSafeReconciled({
+        interpreterFailedReason: "openai_request_failed",
+        proposal: null,
+        deterministicMeaning: meaning,
+        latestCoachQuestion: planAsk,
+        openQuestionPending: true,
+        rawInbound: body,
+        classifierEventType: "user_partial",
+      });
+      expect(tu.reconciled_persistence_decision).toBe("no_outcome_write");
+      expect(tu.last_ask_satisfied).toBe("yes");
+      expect(tu.reconciled_do_not_repeat_asks.some((a) => /list|steps/i.test(a))).toBe(true);
+      expect(["acknowledge_prior_ask_satisfied", "close_loop_no_new_action"]).toContain(
+        tu.reconciled_response_intent
+      );
+      expect(tu.reconciled_response_intent).not.toBe("tell_truth_and_recover");
+      expect(tu.reconciled_response_intent).not.toBe("identify_blocker");
+    }
+  });
+
   it("OpenAI success path still reconciles proposal persistence (not weakened)", () => {
     const proposal = makeValidProposal({
       commitment_outcome_recommendation: "ack_only",

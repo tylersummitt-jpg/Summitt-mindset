@@ -17,7 +17,7 @@ const CALENDAR_ASK =
 function telemetryEvent(overrides?: Partial<V2EventRowForAi["payload_json"]>): V2EventRowForAi {
   return {
     event_type: "sms_memory_signal",
-    occurred_at: "2026-06-04T18:00:00.000Z",
+    occurred_at: "2026-07-06T18:00:00.000Z",
     payload_json: {
       inbound_turn_telemetry: true,
       turn_understanding_last_ask_satisfied: "yes",
@@ -43,7 +43,7 @@ describe("resolveDailySatisfiedAskContext", () => {
     expect(ctx?.do_not_repeat_asks).toContain(CALENDAR_ASK);
     expect(ctx?.evidence_preview).toMatch(/Bond/i);
     expect(ctx?.satisfied_ask_type).toBe("plan_detail");
-    expect(ctx?.occurred_at).toBe("2026-06-04T18:00:00.000Z");
+    expect(ctx?.occurred_at).toBe("2026-07-06T18:00:00.000Z");
   });
 
   it("prefers inbound telemetry over lower-authority thread projection", () => {
@@ -96,6 +96,36 @@ describe("resolveDailySatisfiedAskContext", () => {
       })
     ).toBeNull();
   });
+
+  it("P2a: prefers top-level last_ask + DNR even when older nested guard fields differ", () => {
+    const ctx = resolveDailySatisfiedAskContext({
+      eventsNewestFirst: [
+        telemetryEvent({
+          turn_understanding_last_ask_satisfied: "yes",
+          do_not_repeat_asks: ["make your next life story list"],
+          turn_understanding_stale_ask_violation_detected: false,
+        }),
+      ],
+    });
+    expect(ctx?.source).toBe("inbound_turn_telemetry");
+    expect(ctx?.last_ask_satisfied).toBe("yes");
+    expect(ctx?.do_not_repeat_asks).toContain("make your next life story list");
+  });
+
+  it("P2a: older payloads with only DNR + stale risk still resolve", () => {
+    const ctx = resolveDailySatisfiedAskContext({
+      eventsNewestFirst: [
+        telemetryEvent({
+          // simulate older writer that never set last_ask
+          turn_understanding_last_ask_satisfied: undefined,
+          do_not_repeat_asks: [CALENDAR_ASK],
+          turn_understanding_stale_ask_violation_detected: true,
+        }),
+      ],
+    });
+    expect(ctx?.has_satisfied_recent_ask).toBe(true);
+    expect(ctx?.do_not_repeat_asks).toContain(CALENDAR_ASK);
+  });
 });
 
 describe("shouldSuppressSameBaseRecommitForSatisfiedPlan", () => {
@@ -111,7 +141,7 @@ describe("shouldSuppressSameBaseRecommitForSatisfiedPlan", () => {
       evidence_preview:
         "I think if I do distribution first thing in the morning, we'll get the 30 minutes done each day.",
       source: "inbound_turn_telemetry",
-      occurred_at: "2026-06-14T18:00:00.000Z",
+      occurred_at: "2026-07-06T18:00:00.000Z",
       last_ask_satisfied: "yes",
       stale_ask_risk: true,
       relationship_meaning: "plan_made",
@@ -212,7 +242,7 @@ describe("deriveRecommitSameVisibleContractRoutePolicy", () => {
       evidence_preview:
         "I think if I do distribution first thing in the morning, we'll get the 30 minutes done each day.",
       source: "inbound_turn_telemetry",
-      occurred_at: "2026-06-14T18:00:00.000Z",
+      occurred_at: "2026-07-06T18:00:00.000Z",
       last_ask_satisfied: "yes",
       stale_ask_risk: true,
       relationship_meaning: "plan_made",
@@ -273,7 +303,7 @@ describe("deriveRecommitSameVisibleContractRoutePolicy", () => {
       eventsNewestFirst: [
         {
           event_type: "sms_memory_signal",
-          occurred_at: "2026-06-14T18:00:00.000Z",
+          occurred_at: "2026-07-06T18:00:00.000Z",
           payload_json: {
             inbound_turn_telemetry: true,
             turn_understanding_last_ask_satisfied: "yes",
@@ -309,7 +339,7 @@ describe("slimDailySatisfiedAskContextForTelemetry", () => {
       do_not_repeat_asks: [CALENDAR_ASK],
       evidence_preview: "Call Bond about 12PM tomorrow",
       source: "inbound_turn_telemetry",
-      occurred_at: "2026-06-04T18:00:00.000Z",
+      occurred_at: "2026-07-06T18:00:00.000Z",
       last_ask_satisfied: "yes",
       stale_ask_risk: true,
       relationship_meaning: "plan_made",
@@ -324,7 +354,7 @@ describe("slimDailySatisfiedAskContextForTelemetry", () => {
       do_not_repeat_asks_count: 1,
       daily_satisfied_ask_context_source: "inbound_turn_telemetry",
       evidence_preview: "Call Bond about 12PM tomorrow",
-      occurred_at: "2026-06-04T18:00:00.000Z",
+      occurred_at: "2026-07-06T18:00:00.000Z",
       last_ask_satisfied: "yes",
       stale_ask_risk: true,
       prior_question_type: "plan_confirmation",

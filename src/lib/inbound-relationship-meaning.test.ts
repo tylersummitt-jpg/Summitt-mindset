@@ -374,6 +374,15 @@ describe("substantive self-reported completion — persistence carve-out", () =>
     expect(facts.persistence_decision).toBe("no_outcome_write");
   });
 
+  it.each([
+    "Good suggestion & have made a list.",
+    "Sounds like a great plan I'm committed.",
+  ])("P2b %s → plan_made / no_outcome_write (not user_yes)", (text) => {
+    const facts = meaningFor(text, { eventType: "user_partial", normalizedHint: "unclear" });
+    expect(facts.relationship_meaning).toBe("plan_made");
+    expect(facts.persistence_decision).toBe("no_outcome_write");
+  });
+
   it("compound future + completed today → write_user_yes_today", () => {
     const facts = meaningFor(
       "I'm going to run tomorrow. I completed my run today.",

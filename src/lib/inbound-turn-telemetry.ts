@@ -253,6 +253,32 @@ export function compactInboundTurnWriterObservability(args: {
   return merged;
 }
 
+/**
+ * P2a — top-level satisfied-ask fields for daily-satisfied-ask-context.
+ * Additive; older rows without these keys remain readable via defaults / fallbacks.
+ */
+export function satisfiedAskTelemetryFieldsFromReconciled(
+  reconciled: ReconciledTurnUnderstanding | null | undefined
+): {
+  turn_understanding_last_ask_satisfied: "yes" | "no" | "unclear";
+  do_not_repeat_asks: string[];
+} | Record<string, never> {
+  if (!reconciled) return {};
+  const lastAsk = reconciled.last_ask_satisfied;
+  const last =
+    lastAsk === "yes" || lastAsk === "no" || lastAsk === "unclear" ? lastAsk : "unclear";
+  const dnr = Array.isArray(reconciled.reconciled_do_not_repeat_asks)
+    ? reconciled.reconciled_do_not_repeat_asks
+        .map((s) => (typeof s === "string" ? s.trim() : ""))
+        .filter(Boolean)
+        .slice(0, 6)
+    : [];
+  return {
+    turn_understanding_last_ask_satisfied: last,
+    do_not_repeat_asks: dnr,
+  };
+}
+
 export async function insertInboundTurnTelemetryBestEffort(
   args: InboundTurnTelemetryArgs
 ): Promise<void> {
@@ -268,6 +294,10 @@ export async function insertInboundTurnTelemetryBestEffort(
     stageTelemetry: args.stageTelemetry,
     guardMetadata: args.truthGuardMetadata,
   });
+
+  const satisfiedAskFields = satisfiedAskTelemetryFieldsFromReconciled(
+    args.turnUnderstandingReconciled
+  );
 
   const payload: Record<string, unknown> = {
     inbound_turn_telemetry: true,
@@ -298,6 +328,8 @@ export async function insertInboundTurnTelemetryBestEffort(
     ...writerObservability,
     ...(args.truthGuardMetadata ?? {}),
     ...(args.tuGuardMetadata ?? {}),
+    // P2a: always win with reconciled TU fields so daily-satisfied-ask-context can read them.
+    ...satisfiedAskFields,
   };
 
   try {

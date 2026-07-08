@@ -277,6 +277,7 @@ export type MapTurnUnderstandingToInboundRouteContractArgs = {
   reconciled: ReconciledTurnUnderstanding;
   openQuestionPending?: boolean;
   latestOpenQuestion?: string | null;
+  lastCoachOutbound?: string | null;
   classifierEventType?: V2InboundEventType;
 };
 
@@ -380,6 +381,63 @@ export function detectProofAnswerCloseLoopBackstop(args: {
   const sentenceCount = raw.split(/[.!?]+/).filter((s) => s.trim().length >= 12).length;
   const listParts = raw.split(/[,;]/).filter((p) => p.trim().length >= 8).length;
   return sentenceCount >= 2 || listParts >= 2;
+}
+
+/**
+ * P2b — bare readiness when a prior ask is pending.
+ * Close-loop with a short reply (not silence). Never Victory; never ask_blocker.
+ * Does not fire when explicit miss language is present.
+ */
+export function detectReadinessCloseLoopBackstop(args: {
+  rawInbound: string;
+  openQuestionPending?: boolean;
+  latestOpenQuestion?: string | null;
+}): boolean {
+  const raw = args.rawInbound.trim();
+  if (!raw || raw.length > 40) return false;
+  if (!args.openQuestionPending && !(args.latestOpenQuestion?.trim().length)) return false;
+  if (looksLikeRealHelpRequest(raw)) return false;
+  if (inboundHasExplicitAccountabilityMissClause(raw)) return false;
+  if (inboundHasExplicitCompletionClause(raw)) return false;
+  if (inboundHasExplicitPartialClause(raw)) return false;
+  if (looksLikeStaleGoalOrContextCorrection(raw)) return false;
+  return /^(ready|i'?m ready|im ready|all set|let'?s go)[.!]*$/i.test(raw);
+}
+
+/**
+ * P2b — obvious plan/list/commitment language that closes a pending planning ask.
+ * Soft server backstop only: no_outcome_write (should_persist false). OpenAI still owns nuance when live.
+ */
+export function detectPlanCommitmentCloseLoopBackstop(args: {
+  rawInbound: string;
+  openQuestionPending?: boolean;
+  latestOpenQuestion?: string | null;
+  lastCoachOutbound?: string | null;
+}): boolean {
+  const raw = args.rawInbound.trim();
+  if (!raw || raw.length < 8) return false;
+  if (looksLikeRealHelpRequest(raw)) return false;
+  if (inboundHasExplicitAccountabilityMissClause(raw)) return false;
+  if (inboundHasExplicitCompletionClause(raw)) return false;
+  if (looksLikeStaleGoalOrContextCorrection(raw)) return false;
+
+  const prior =
+    (args.latestOpenQuestion?.trim() || args.lastCoachOutbound?.trim() || "").toLowerCase();
+  const priorLooksPlanOrList =
+    /\b(plan|list|calendar|schedule|ready|first step|commit)\b/i.test(prior) ||
+    openQuestionAsksForListOrProofAnswer(args.latestOpenQuestion);
+  const pending = args.openQuestionPending === true || priorLooksPlanOrList;
+  if (!pending) return false;
+
+  if (/\b(made a list|have made a list|made the list|got a list)\b/i.test(raw)) return true;
+  if (/\bsounds like a great plan\b/i.test(raw) && /\b(committed|commit)\b/i.test(raw)) {
+    return true;
+  }
+  if (/\b(i'?m committed|i am committed)\b/i.test(raw) && /\bplan\b/i.test(raw)) return true;
+  if (/\b(that'?s|that is)\s+what\s+i'?m\s+doing\b/i.test(raw) && prior.length >= 12) {
+    return true;
+  }
+  return false;
 }
 
 function buildPhase1RouteContract(args: {
@@ -529,11 +587,81 @@ export function mapTurnUnderstandingToInboundRouteContract(
     });
   }
 
+  // P2b — readiness / plan-commitment close-loop with a short reply (not silence, not ask_blocker).
+  if (
+    detectReadinessCloseLoopBackstop({
+      rawInbound: raw,
+      openQuestionPending: args.openQuestionPending,
+      latestOpenQuestion: args.latestOpenQuestion,
+    }) ||
+    detectPlanCommitmentCloseLoopBackstop({
+      rawInbound: raw,
+      openQuestionPending: args.openQuestionPending,
+      latestOpenQuestion: args.latestOpenQuestion,
+      lastCoachOutbound: args.lastCoachOutbound,
+    })
+  ) {
+    const facts = extractFactsToReflect(raw);
+    return buildPhase1RouteContract({
+      route: "proof_answer_close_loop",
+      source: "server_backstop",
+      relationship_engagement: true,
+      outcome: "none",
+      answered_prior_ask: true,
+      prior_ask_satisfied: true,
+      should_persist: false,
+      should_reply: true,
+      close_loop: true,
+      max_questions: 0,
+      allow_new_assignment: false,
+      allow_generic_advice: false,
+      facts_to_reflect: facts,
+      forbidden_moves: [
+        ...commonForbidden,
+        "Do not re-ask the same planning, list, calendar, or readiness question.",
+        "Do not ask what stopped them or what got in the way.",
+        "Acknowledge briefly and close the loop — no new assignment.",
+      ],
+      outcome_to_persist: "none",
+    });
+  }
+
   const tuAuthoritative = isTurnUnderstandingAuthoritative(reconciled);
   const confidence = reconciled.confidence ?? 0;
   if (tuAuthoritative && confidence >= LOW_CONFIDENCE_THRESHOLD) {
     const intent = reconciled.reconciled_response_intent;
     const lastAsk = reconciled.last_ask_satisfied;
+    // Ready./short close_loop: reply + close (P2b) — do not silent acknowledgment_no_reply when prior ask pending.
+    if (
+      intent === "close_loop_no_new_action" &&
+      detectReadinessCloseLoopBackstop({
+        rawInbound: raw,
+        openQuestionPending: args.openQuestionPending,
+        latestOpenQuestion: args.latestOpenQuestion,
+      })
+    ) {
+      return buildPhase1RouteContract({
+        route: "proof_answer_close_loop",
+        source: "turn_understanding",
+        relationship_engagement: true,
+        outcome: "none",
+        answered_prior_ask: true,
+        prior_ask_satisfied: true,
+        should_persist: false,
+        should_reply: true,
+        close_loop: true,
+        max_questions: 0,
+        allow_new_assignment: false,
+        allow_generic_advice: false,
+        facts_to_reflect: extractFactsToReflect(raw),
+        forbidden_moves: [
+          ...commonForbidden,
+          "Do not ask what stopped them or what got in the way.",
+          "Short ack that they are ready — close the loop.",
+        ],
+        outcome_to_persist: "none",
+      });
+    }
     if (
       intent === "close_loop_no_new_action" &&
       (detectPureAcknowledgmentCloser(raw, {
@@ -586,14 +714,24 @@ export function mapTurnUnderstandingToInboundRouteContract(
       });
     }
     if (
-      (intent === "acknowledge_prior_ask_satisfied" || lastAsk === "yes") &&
-      (args.openQuestionPending || reconciled.reconciled_do_not_repeat_asks.length > 0)
+      (intent === "acknowledge_prior_ask_satisfied" ||
+        intent === "close_loop_no_new_action" ||
+        intent === "reinforce_plan_without_proof" ||
+        lastAsk === "yes") &&
+      (args.openQuestionPending ||
+        reconciled.reconciled_do_not_repeat_asks.length > 0 ||
+        detectPlanCommitmentCloseLoopBackstop({
+          rawInbound: raw,
+          openQuestionPending: args.openQuestionPending,
+          latestOpenQuestion: args.latestOpenQuestion,
+          lastCoachOutbound: args.lastCoachOutbound,
+        }))
     ) {
       return buildPhase1RouteContract({
         route: "proof_answer_close_loop",
         source: "turn_understanding",
         relationship_engagement: true,
-        outcome: "proof",
+        outcome: "none",
         answered_prior_ask: true,
         prior_ask_satisfied: true,
         should_persist:
@@ -608,8 +746,13 @@ export function mapTurnUnderstandingToInboundRouteContract(
         forbidden_moves: [
           ...commonForbidden,
           "Reflect one specific detail from their answer and close.",
+          "Do not ask what stopped them or what got in the way.",
         ],
-        outcome_to_persist: "proof",
+        outcome_to_persist:
+          reconciled.reconciled_persistence_decision === "write_user_yes_today" ||
+          reconciled.reconciled_persistence_decision === "write_user_partial"
+            ? "proof"
+            : "none",
       });
     }
   }
@@ -1244,6 +1387,8 @@ export function buildTurnUnderstandingUserPrompt(args: BuildTurnUnderstandingPro
     "- Distinguish what the coach should acknowledge vs what the server may persist as proof/outcome.",
     "- Plans, already-scheduled, or currently-happening family/time can satisfy the prior coach ask without being proof.",
     "- If the user already answered or satisfied the last coach ask, set last_ask_satisfied yes and list normalized do_not_repeat_asks (coach question phrases to avoid repeating).",
+    "- Plan/list made, plan acceptance (\"I'm committed\"), readiness (\"Ready.\"), or \"that's what I'm doing\" after a planning/list ask: relationship_meaning plan_made|prior_ask_satisfied|direct_answer|already_scheduled_or_happening; last_ask_satisfied yes; response_intent acknowledge_prior_ask_satisfied or close_loop_no_new_action; commitment_outcome_recommendation no_outcome_write; persistence_safety defer_to_server. These are NOT Victory Room proof unless the coach explicitly asked for that exact list/proof and the user provided it as proof.",
+    "- Bare Ready with an open coach ask: readiness close-loop — not a miss, not identify_blocker, not unclear_clarify.",
     "- Do NOT infer proof saved or Victory Room unless explicitly allowed below.",
     "- If support/crisis/compliance, set route_priority_recommendation and safety_or_support_flags; persistence_safety defer_to_server.",
     "- If uncertain, confidence < 0.55 and response_intent unclear_clarify.",
@@ -1784,7 +1929,7 @@ export function buildInterpreterFailedSafeReconciled(args: {
   const substantive = isSubstantiveInboundForFailedSafe(args.rawInbound);
   const stale_ask_risk =
     substantive && (coachQ.length >= 12 || args.openQuestionPending === true);
-  const do_not_repeat_asks =
+  let do_not_repeat_asks =
     coachQ.length >= 12 ? [coachQ.slice(0, 160)] : [];
   const correctionLanguage =
     looksLikeStaleGoalOrContextCorrection(args.rawInbound) ||
@@ -1795,13 +1940,44 @@ export function buildInterpreterFailedSafeReconciled(args: {
     classifierEventType: args.classifierEventType,
   });
 
+  const readinessClose = detectReadinessCloseLoopBackstop({
+    rawInbound: args.rawInbound,
+    openQuestionPending: args.openQuestionPending,
+    latestOpenQuestion: args.latestCoachQuestion,
+  });
+  const planClose = detectPlanCommitmentCloseLoopBackstop({
+    rawInbound: args.rawInbound,
+    openQuestionPending: args.openQuestionPending,
+    latestOpenQuestion: args.latestCoachQuestion,
+    lastCoachOutbound: args.latestCoachQuestion,
+  });
+  const meaningfulNonOutcomeClose =
+    reconciled_persistence_decision === "no_outcome_write" &&
+    !correctionLanguage &&
+    (readinessClose ||
+      planClose ||
+      args.deterministicMeaning.relationship_meaning === "plan_made");
+
+  if (meaningfulNonOutcomeClose && coachQ.length >= 12 && do_not_repeat_asks.length === 0) {
+    do_not_repeat_asks = [coachQ.slice(0, 160)];
+  }
+
   const hasCompletionClause = inboundHasExplicitCompletionClause(args.rawInbound);
   const hasPlanClause = inboundHasPlanConfirmationClause(args.rawInbound);
   let reconciled_response_intent: TurnUnderstandingResponseIntent = "unclear_clarify";
+  let last_ask_satisfied: TurnUnderstandingAnsweredLastCoachAsk = "unclear";
+  let satisfaction_kind: TurnUnderstandingSatisfactionKind = "unclear";
+
   if (hasCompletionClause && reconciled_persistence_decision === "write_user_yes_today") {
     reconciled_response_intent = hasPlanClause
       ? "acknowledge_result_and_next_standard"
       : "acknowledge_completion";
+  } else if (meaningfulNonOutcomeClose) {
+    reconciled_response_intent = readinessClose
+      ? "close_loop_no_new_action"
+      : "acknowledge_prior_ask_satisfied";
+    last_ask_satisfied = "yes";
+    satisfaction_kind = readinessClose ? "unclear" : "plan_exists";
   } else if (
     args.deterministicMeaning.relationship_meaning === "answer_to_prior_question" ||
     hasPlanClause
@@ -1816,14 +1992,20 @@ export function buildInterpreterFailedSafeReconciled(args: {
 
   const baseMeaning = hasCompletionClause
     ? "reported_completion"
-    : mapDeterministicToTurnMeaning(args.deterministicMeaning.relationship_meaning);
+    : meaningfulNonOutcomeClose
+      ? readinessClose
+        ? "direct_answer"
+        : args.deterministicMeaning.relationship_meaning === "plan_made"
+          ? "plan_made"
+          : "prior_ask_satisfied"
+      : mapDeterministicToTurnMeaning(args.deterministicMeaning.relationship_meaning);
 
   const finalized = finalizeReconciledGoalChange({
     proposal: args.proposal,
     reconciled_relationship_meaning: baseMeaning,
     reconciled_response_intent,
     reconciled_persistence_decision,
-    last_ask_satisfied: "unclear",
+    last_ask_satisfied,
     confidence: 0.35,
     disagreement_flags: ["interpreter_failed_safe_fallback"],
     rawInboundForFallback: args.rawInbound,
@@ -1837,14 +2019,16 @@ export function buildInterpreterFailedSafeReconciled(args: {
     reconciled_persistence_decision: finalized.reconciled_persistence_decision,
     reconciled_do_not_repeat_asks: do_not_repeat_asks,
     last_ask_satisfied: finalized.last_ask_satisfied,
-    satisfaction_kind: "unclear",
-    stale_ask_risk,
+    satisfaction_kind,
+    stale_ask_risk: meaningfulNonOutcomeClose ? true : stale_ask_risk,
     confidence: 0.35,
     disagreement_flags: finalized.disagreement_flags,
     interpreter_failed_reason: args.interpreterFailedReason,
-    stale_ask_avoided: stale_ask_risk && do_not_repeat_asks.length > 0,
-    persistence_note:
-      "server failed-safe fallback: clarify without repeating prior ask; persistence only on strong clear outcomes",
+    stale_ask_avoided:
+      (meaningfulNonOutcomeClose || stale_ask_risk) && do_not_repeat_asks.length > 0,
+    persistence_note: meaningfulNonOutcomeClose
+      ? "server failed-safe: meaningful non-outcome close-loop; no Victory write; do not repeat prior ask"
+      : "server failed-safe fallback: clarify without repeating prior ask; persistence only on strong clear outcomes",
     turn_understanding_failed_safe_fallback: true,
     turn_understanding_failed_safe_reason: args.interpreterFailedReason,
     turn_understanding_failed_safe_do_not_repeat_asks: do_not_repeat_asks,
@@ -2278,6 +2462,7 @@ export async function runInboundRelationshipTurnUnderstanding(
       rawInbound: args.inboundBody,
       openQuestionPending: args.openQuestionPending,
       latestOpenQuestion: args.latestOpenQuestion,
+      lastCoachOutbound: args.lastCoachOutbound,
       classifierEventType: args.classifierEventType,
     }),
     interpreter_latency_ms: openAi.latencyMs,

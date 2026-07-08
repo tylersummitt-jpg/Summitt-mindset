@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildInboundRouteAllowedClaims,
+  detectPlanCommitmentCloseLoopBackstop,
   detectProofAnswerCloseLoopBackstop,
   detectPureAcknowledgmentCloser,
+  detectReadinessCloseLoopBackstop,
   detectWinCloseLoopBackstop,
   looksLikeRealHelpRequest,
   mapTurnUnderstandingToInboundRouteContract,
@@ -194,5 +196,68 @@ describe("Victory Room allowed claims via route mapper", () => {
     });
     expect(allowed.can_reference_victory_room).toBe(false);
     expect(allowed.victory_room_language_mode).not.toBe("recorded_allowed");
+  });
+});
+
+describe("P2b meaningful non-outcome close-loop routes", () => {
+  const PLAN_ASK = "Make a short list of your next life story steps for tomorrow";
+
+  it.each([
+    "Good suggestion & have made a list.",
+    "Sounds like a great plan I'm committed.",
+    "That's what I'm doing.",
+    "Ready.",
+  ])("%s → proof_answer_close_loop, max_questions 0, should_reply, no persist", (body) => {
+    const contract = mapTurnUnderstandingToInboundRouteContract({
+      rawInbound: body,
+      reconciled: minimalReconciled({
+        confidence: 0.2,
+        reconciled_response_intent: "unclear_clarify",
+        last_ask_satisfied: "unclear",
+      }),
+      openQuestionPending: true,
+      latestOpenQuestion: PLAN_ASK,
+      lastCoachOutbound: PLAN_ASK,
+    });
+    expect(contract.route).toBe("proof_answer_close_loop");
+    expect(contract.max_questions).toBe(0);
+    expect(contract.should_reply).toBe(true);
+    expect(contract.should_persist).toBe(false);
+    expect(contract.close_loop).toBe(true);
+    expect(contract.prior_ask_satisfied).toBe(true);
+    expect(contract.outcome_to_persist).toBe("none");
+    expect(contract.forbidden_moves.some((m) => /stopped|got in the way/i.test(m))).toBe(true);
+  });
+
+  it("Ready. does not use acknowledgment_no_reply silence when prior ask pending", () => {
+    expect(detectPureAcknowledgmentCloser("Ready.")).toBe(false);
+    const contract = mapTurnUnderstandingToInboundRouteContract({
+      rawInbound: "Ready.",
+      reconciled: minimalReconciled({
+        reconciled_response_intent: "close_loop_no_new_action",
+        last_ask_satisfied: "yes",
+        confidence: 0.9,
+      }),
+      openQuestionPending: true,
+      latestOpenQuestion: PLAN_ASK,
+    });
+    expect(contract.route).toBe("proof_answer_close_loop");
+    expect(contract.should_reply).toBe(true);
+  });
+
+  it("explicit miss still does not take readiness close-loop", () => {
+    const contract = mapTurnUnderstandingToInboundRouteContract({
+      rawInbound: "Ready. Wait I missed it.",
+      reconciled: minimalReconciled({ confidence: 0.2 }),
+      openQuestionPending: true,
+      latestOpenQuestion: PLAN_ASK,
+    });
+    // Too long / miss language → readiness backstop false; may be legacy or other
+    expect(detectReadinessCloseLoopBackstop({
+      rawInbound: "Ready. Wait I missed it.",
+      openQuestionPending: true,
+      latestOpenQuestion: PLAN_ASK,
+    })).toBe(false);
+    expect(contract.route).not.toBe("acknowledgment_no_reply");
   });
 });
