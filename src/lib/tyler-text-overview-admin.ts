@@ -10,9 +10,13 @@ import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
   type SmsDailySendSlot,
+  type TylerTextOverviewAdminCounts,
   type TylerTextOverviewAdminDraftRow,
+  type TylerTextOverviewDraftStatus,
+  type TylerTextOverviewRowState,
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
+import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 
 export const PREVIEW_ONLY_DRAFT_NOT_EDITABLE = "preview_only_draft_not_editable" as const;
 
@@ -27,6 +31,318 @@ export function resolveAdminListSendSlot(
 import { parseSlotCoachingContextFromMetadata } from "@/lib/slot-coaching-context-v1";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
+type SendableAudienceMember = {
+  clerkUserId: string;
+  phoneNumber: string;
+  timezone: string | null;
+  preferredName: string | null;
+};
+
+const DRAFT_OVERLAY_STATUS_PRIORITY: Record<string, number> = {
+  current: 0,
+  sent: 1,
+  skipped: 2,
+};
+
+const EMPTY_NOTEBOOK_FIELDS: Pick<
+  TylerTextOverviewAdminDraftRow,
+  | "writerOpenAiMessages"
+  | "currentGenerationId"
+  | "currentGenerationNumber"
+  | "latestGenerationId"
+  | "latestGenerationNumber"
+  | "isLatestGeneration"
+  | "writerPromptPath"
+  | "notebookHash"
+  | "notebookMessageCount"
+  | "notebookFamily"
+  | "notebookDisplayMode"
+  | "machineShouldSend"
+  | "machineNoSendReason"
+  | "capturePresent"
+  | "silenceCadenceRoute"
+  | "silenceDay"
+  | "intentionalSpace"
+  | "laneStage"
+  | "slotCoachingContext"
+> = {
+  writerOpenAiMessages: [],
+  currentGenerationId: null,
+  currentGenerationNumber: null,
+  latestGenerationId: null,
+  latestGenerationNumber: null,
+  isLatestGeneration: null,
+  writerPromptPath: null,
+  notebookHash: null,
+  notebookMessageCount: 0,
+  notebookFamily: "writer_skipped",
+  notebookDisplayMode: "writer_skipped_unknown",
+  machineShouldSend: null,
+  machineNoSendReason: null,
+  capturePresent: null,
+  silenceCadenceRoute: null,
+  silenceDay: null,
+  intentionalSpace: null,
+  laneStage: null,
+  slotCoachingContext: null,
+};
+
+export function resolveTylerTextOverviewRowState(
+  draftStatus: string | null | undefined
+): TylerTextOverviewRowState {
+  if (!draftStatus) return "no_draft_yet";
+  if (draftStatus === "current") return "draft_current";
+  if (draftStatus === "sent") return "draft_sent";
+  if (draftStatus === "skipped") return "draft_skipped";
+  return "draft_other";
+}
+
+export function pickTylerTextOverviewDraftOverlay(
+  drafts: DraftDbRow[],
+  draftForDayKey?: string | null
+): DraftDbRow | null {
+  if (drafts.length === 0) return null;
+
+  const dayKey = draftForDayKey?.trim();
+  if (dayKey) {
+    return drafts.find((draft) => draft.draft_for_day_key === dayKey) ?? null;
+  }
+
+  return [...drafts].sort((a, b) => {
+    const priorityA = DRAFT_OVERLAY_STATUS_PRIORITY[a.status] ?? 99;
+    const priorityB = DRAFT_OVERLAY_STATUS_PRIORITY[b.status] ?? 99;
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    return b.draft_for_day_key.localeCompare(a.draft_for_day_key);
+  })[0];
+}
+
+export function matchesTylerTextOverviewSearchQuery(
+  row: TylerTextOverviewAdminDraftRow,
+  rawQuery: string | null | undefined
+): boolean {
+  const query = rawQuery?.trim().toLowerCase();
+  if (!query) return true;
+
+  const haystacks = [
+    row.clerkUserId,
+    row.preferredName,
+    row.phoneNumber,
+    row.draftForDayKey,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.toLowerCase());
+
+  return haystacks.some((value) => value.includes(query));
+}
+
+export function computeTylerTextOverviewAdminCounts(
+  rows: TylerTextOverviewAdminDraftRow[]
+): TylerTextOverviewAdminCounts {
+  let noDraftYet = 0;
+  let draftCurrent = 0;
+  let draftSent = 0;
+  let draftSkipped = 0;
+  let machineShouldSendTrue = 0;
+  let machineShouldSendFalse = 0;
+
+  for (const row of rows) {
+    switch (row.rowState) {
+      case "no_draft_yet":
+        noDraftYet += 1;
+        break;
+      case "draft_current":
+        draftCurrent += 1;
+        break;
+      case "draft_sent":
+        draftSent += 1;
+        break;
+      case "draft_skipped":
+        draftSkipped += 1;
+        break;
+      default:
+        break;
+    }
+
+    if (row.machineShouldSend === true) machineShouldSendTrue += 1;
+    if (row.machineShouldSend === false) machineShouldSendFalse += 1;
+  }
+
+  return {
+    sendableUsers: rows.length,
+    noDraftYet,
+    draftCurrent,
+    draftSent,
+    draftSkipped,
+    machineShouldSendTrue,
+    machineShouldSendFalse,
+  };
+}
+
+function emptyTylerTextOverviewAdminCounts(): TylerTextOverviewAdminCounts {
+  return {
+    sendableUsers: 0,
+    noDraftYet: 0,
+    draftCurrent: 0,
+    draftSent: 0,
+    draftSkipped: 0,
+    machineShouldSendTrue: 0,
+    machineShouldSendFalse: 0,
+  };
+}
+
+function isSendableSmsAudienceRow(row: Record<string, unknown>): boolean {
+  if (typeof row.clerk_user_id !== "string" || !row.clerk_user_id.trim()) return false;
+  if (row.summitt_subscribed !== true) return false;
+  if (row.sms_enabled !== true) return false;
+  const phone = row.phone_number;
+  if (typeof phone !== "string" || !phone.trim()) return false;
+  const stoppedAt = row.stopped_at;
+  if (stoppedAt != null && stoppedAt !== "") return false;
+  return true;
+}
+
+export async function loadSendableTylerTextOverviewAudienceMembers(
+  now: Date = new Date()
+): Promise<SendableAudienceMember[]> {
+  const { data: audienceRows, error: audienceError } = await supabaseServer
+    .from("sms_audience")
+    .select("clerk_user_id, phone_number, timezone, sms_enabled, stopped_at, summitt_subscribed")
+    .eq("summitt_subscribed", true)
+    .eq("sms_enabled", true);
+
+  if (audienceError) {
+    throw new Error(`tyler_text_overview_sendable_audience_failed:${audienceError.message}`);
+  }
+
+  const smsEligible = (audienceRows ?? []).filter(isSendableSmsAudienceRow);
+  if (smsEligible.length === 0) return [];
+
+  const clerkUserIds = [...new Set(smsEligible.map((row) => row.clerk_user_id as string))];
+
+  const [commitmentResult, prefsResult, profileResult] = await Promise.all([
+    supabaseServer
+      .from("v2_commitment")
+      .select("clerk_user_id, behavior_statement, status")
+      .eq("status", "active")
+      .in("clerk_user_id", clerkUserIds),
+    supabaseServer
+      .from("v2_user_sms_comms_preferences")
+      .select("clerk_user_id, pause_until")
+      .in("clerk_user_id", clerkUserIds),
+    supabaseServer
+      .from("user_profiles")
+      .select("clerk_user_id, preferred_name")
+      .in("clerk_user_id", clerkUserIds),
+  ]);
+
+  if (commitmentResult.error) {
+    throw new Error(
+      `tyler_text_overview_sendable_v2_failed:${commitmentResult.error.message}`
+    );
+  }
+
+  const activeV2UserIds = new Set<string>();
+  for (const row of commitmentResult.data ?? []) {
+    if (typeof row.clerk_user_id !== "string") continue;
+    const behavior =
+      typeof row.behavior_statement === "string" ? row.behavior_statement.trim() : "";
+    if (behavior.length > 0) {
+      activeV2UserIds.add(row.clerk_user_id);
+    }
+  }
+
+  const prefsByUserId = new Map<string, V2UserSmsCommsPreferencesRow>();
+  if (!prefsResult.error) {
+    for (const row of prefsResult.data ?? []) {
+      if (typeof row.clerk_user_id !== "string") continue;
+      prefsByUserId.set(row.clerk_user_id, {
+        clerk_user_id: row.clerk_user_id,
+        pause_until: typeof row.pause_until === "string" ? row.pause_until : null,
+      } as V2UserSmsCommsPreferencesRow);
+    }
+  }
+
+  const preferredNameByUserId = new Map<string, string>();
+  if (!profileResult.error) {
+    for (const row of profileResult.data ?? []) {
+      if (typeof row.clerk_user_id !== "string") continue;
+      const name = typeof row.preferred_name === "string" ? row.preferred_name.trim() : "";
+      if (name) preferredNameByUserId.set(row.clerk_user_id, name);
+    }
+  }
+
+  const members: SendableAudienceMember[] = [];
+  for (const row of smsEligible) {
+    const clerkUserId = row.clerk_user_id as string;
+    if (!activeV2UserIds.has(clerkUserId)) continue;
+    if (isPauseActive(prefsByUserId.get(clerkUserId) ?? null, now)) continue;
+
+    members.push({
+      clerkUserId,
+      phoneNumber: (row.phone_number as string).trim(),
+      timezone: typeof row.timezone === "string" ? row.timezone : null,
+      preferredName: preferredNameByUserId.get(clerkUserId) ?? null,
+    });
+  }
+
+  members.sort((a, b) => {
+    const nameCmp = (a.preferredName ?? "").localeCompare(b.preferredName ?? "");
+    if (nameCmp !== 0) return nameCmp;
+    return a.clerkUserId.localeCompare(b.clerkUserId);
+  });
+
+  return members;
+}
+
+function mapAudienceOverlayToAdminRow(args: {
+  member: SendableAudienceMember;
+  sendSlot: SmsDailySendSlot;
+  draft: DraftDbRow | null;
+  generation: GenerationDbRow | undefined;
+  latestGenerationsByKey?: Map<string, LatestGenerationRef>;
+  overlayDayKey?: string | null;
+}): TylerTextOverviewAdminDraftRow {
+  const { member, sendSlot, draft, generation, latestGenerationsByKey, overlayDayKey } = args;
+
+  if (!draft) {
+    return {
+      draftId: null,
+      clerkUserId: member.clerkUserId,
+      preferredName: member.preferredName,
+      phoneNumber: member.phoneNumber,
+      timezone: member.timezone,
+      rowState: "no_draft_yet",
+      draftForDayKey: overlayDayKey?.trim() ?? "",
+      sendSlot,
+      draftStatus: "current",
+      sentAt: null,
+      finalBodySent: null,
+      twilioMessageSid: null,
+      sourceSmsSendEventId: null,
+      currentBodyToSend: null,
+      ...EMPTY_NOTEBOOK_FIELDS,
+      previewOnly: sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      morningAnchorSource: null,
+      morningAnchorSent: null,
+      morningAnchorBodyPreview: null,
+    };
+  }
+
+  const mapped = mapDraftRowsToAdminDto({
+    drafts: [draft],
+    generationsById: generation ? new Map([[generation.id, generation]]) : new Map(),
+    latestGenerationsByKey,
+    audienceByUserId: new Map([[member.clerkUserId, member]]),
+  })[0];
+
+  return {
+    ...mapped,
+    preferredName: member.preferredName,
+    phoneNumber: member.phoneNumber,
+    timezone: member.timezone,
+    rowState: resolveTylerTextOverviewRowState(draft.status),
+  };
+}
 type DraftDbRow = {
   id: string;
   clerk_user_id: string;
@@ -35,6 +351,10 @@ type DraftDbRow = {
   current_generation_id: string;
   current_body_to_send: string | null;
   status: string;
+  sent_at?: string | null;
+  final_body_sent?: string | null;
+  twilio_message_sid?: string | null;
+  source_sms_send_event_id?: string | null;
 };
 
 type GenerationDbRow = {
@@ -166,12 +486,14 @@ export function levenshteinCharDistance(a: string, b: string): number {
 }
 
 function mapPreviewFieldsFromMetadata(
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  draftStatus: string
 ): Pick<
   TylerTextOverviewAdminDraftRow,
   "previewOnly" | "morningAnchorSource" | "morningAnchorSent" | "morningAnchorBodyPreview"
 > {
-  const previewOnly = readMetadataBoolean(metadata, "preview_only") === true;
+  const previewOnly =
+    draftStatus !== "sent" && readMetadataBoolean(metadata, "preview_only") === true;
   if (!previewOnly) {
     return {
       previewOnly: false,
@@ -277,6 +599,7 @@ export function mapDraftRowsToAdminDto(args: {
   drafts: DraftDbRow[];
   generationsById: Map<string, GenerationDbRow>;
   latestGenerationsByKey?: Map<string, LatestGenerationRef>;
+  audienceByUserId?: Map<string, SendableAudienceMember>;
 }): TylerTextOverviewAdminDraftRow[] {
   return args.drafts.map((draft) => {
     const generation = args.generationsById.get(draft.current_generation_id);
@@ -287,13 +610,32 @@ export function mapDraftRowsToAdminDto(args: {
     const latest = args.latestGenerationsByKey?.get(latestKey) ?? null;
 
     const metadata = parseGenerationMetadata(generation?.generation_metadata);
-    const previewFields = mapPreviewFieldsFromMetadata(metadata);
+    const previewFields = mapPreviewFieldsFromMetadata(metadata, draft.status);
+    const audience = args.audienceByUserId?.get(draft.clerk_user_id);
 
     return {
       draftId: draft.id,
       clerkUserId: draft.clerk_user_id,
+      preferredName: audience?.preferredName ?? null,
+      phoneNumber: audience?.phoneNumber ?? null,
+      timezone: audience?.timezone ?? null,
+      rowState: resolveTylerTextOverviewRowState(draft.status),
       draftForDayKey: draft.draft_for_day_key,
       sendSlot,
+      draftStatus: (
+        ["current", "sent", "skipped", "superseded"] as const
+      ).includes(draft.status as TylerTextOverviewDraftStatus)
+        ? (draft.status as TylerTextOverviewDraftStatus)
+        : "current",
+      sentAt: typeof draft.sent_at === "string" ? draft.sent_at : null,
+      finalBodySent:
+        typeof draft.final_body_sent === "string" ? draft.final_body_sent : null,
+      twilioMessageSid:
+        typeof draft.twilio_message_sid === "string" ? draft.twilio_message_sid : null,
+      sourceSmsSendEventId:
+        typeof draft.source_sms_send_event_id === "string"
+          ? draft.source_sms_send_event_id
+          : null,
       currentBodyToSend: draft.current_body_to_send,
       ...notebookFields,
       ...previewFields,
@@ -372,13 +714,21 @@ export async function listCurrentTylerTextOverviewDrafts(args?: {
 }): Promise<TylerTextOverviewAdminDraftRow[]> {
   const sendSlot = args?.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
 
+  const draftSelectColumns =
+    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
+
   let query = supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status")
-    .eq("status", "current")
+    .select(draftSelectColumns)
     .eq("send_slot", sendSlot)
     .order("draft_for_day_key", { ascending: false })
     .order("clerk_user_id", { ascending: true });
+
+  if (sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
+    query = query.in("status", ["current", "sent"]);
+  } else {
+    query = query.eq("status", "current");
+  }
 
   const dayKey = args?.draftForDayKey?.trim();
   if (dayKey) {
@@ -416,6 +766,120 @@ export async function listCurrentTylerTextOverviewDrafts(args?: {
   }
 
   return mapDraftRowsToAdminDto({ drafts, generationsById, latestGenerationsByKey });
+}
+
+export async function listSendableTylerTextOverviewRows(args?: {
+  draftForDayKey?: string | null;
+  sendSlot?: SmsDailySendSlot;
+  searchQuery?: string | null;
+  now?: Date;
+}): Promise<{
+  rows: TylerTextOverviewAdminDraftRow[];
+  counts: TylerTextOverviewAdminCounts;
+  availableDayKeys: string[];
+}> {
+  const sendSlot = args?.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const dayKey = args?.draftForDayKey?.trim() || null;
+  const searchQuery = args?.searchQuery?.trim() || null;
+  const now = args?.now ?? new Date();
+
+  const audience = await loadSendableTylerTextOverviewAudienceMembers(now);
+  if (audience.length === 0) {
+    return {
+      rows: [],
+      counts: emptyTylerTextOverviewAdminCounts(),
+      availableDayKeys: [],
+    };
+  }
+
+  const audienceByUserId = new Map(audience.map((member) => [member.clerkUserId, member]));
+  const clerkUserIds = audience.map((member) => member.clerkUserId);
+
+  const draftSelectColumns =
+    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
+
+  const { data: draftRows, error: draftError } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select(draftSelectColumns)
+    .eq("send_slot", sendSlot)
+    .in("clerk_user_id", clerkUserIds)
+    .in("status", ["current", "sent", "skipped"]);
+
+  if (draftError) {
+    throw new Error(`tyler_text_overview_drafts_list_failed:${draftError.message}`);
+  }
+
+  const drafts = (draftRows ?? []) as DraftDbRow[];
+  const draftsByUserId = new Map<string, DraftDbRow[]>();
+  const availableDayKeySet = new Set<string>();
+
+  for (const draft of drafts) {
+    availableDayKeySet.add(draft.draft_for_day_key);
+    const existing = draftsByUserId.get(draft.clerk_user_id) ?? [];
+    existing.push(draft);
+    draftsByUserId.set(draft.clerk_user_id, existing);
+  }
+
+  const overlayDrafts: DraftDbRow[] = [];
+  for (const member of audience) {
+    const userDrafts = draftsByUserId.get(member.clerkUserId) ?? [];
+    const overlay = pickTylerTextOverviewDraftOverlay(userDrafts, dayKey);
+    if (overlay) overlayDrafts.push(overlay);
+  }
+
+  const generationIds = [
+    ...new Set(overlayDrafts.map((draft) => draft.current_generation_id).filter(Boolean)),
+  ];
+
+  const [generationResult, latestGenerationsByKey] = await Promise.all([
+    generationIds.length > 0
+      ? supabaseServer
+          .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+          .select(GENERATION_SELECT_COLUMNS)
+          .in("id", generationIds)
+      : Promise.resolve({ data: [], error: null }),
+    fetchLatestGenerationsForDrafts(overlayDrafts, sendSlot),
+  ]);
+
+  if (generationResult.error) {
+    throw new Error(
+      `tyler_text_overview_generations_list_failed:${generationResult.error.message}`
+    );
+  }
+
+  const generationsById = new Map<string, GenerationDbRow>();
+  for (const row of generationResult.data ?? []) {
+    if (typeof row.id === "string") {
+      generationsById.set(row.id, row as GenerationDbRow);
+    }
+  }
+
+  const rows = audience.map((member) => {
+    const userDrafts = draftsByUserId.get(member.clerkUserId) ?? [];
+    const overlay = pickTylerTextOverviewDraftOverlay(userDrafts, dayKey);
+    const generation = overlay
+      ? generationsById.get(overlay.current_generation_id)
+      : undefined;
+
+    return mapAudienceOverlayToAdminRow({
+      member,
+      sendSlot,
+      draft: overlay,
+      generation,
+      latestGenerationsByKey,
+      overlayDayKey: dayKey,
+    });
+  });
+
+  const filteredRows = searchQuery
+    ? rows.filter((row) => matchesTylerTextOverviewSearchQuery(row, searchQuery))
+    : rows;
+
+  return {
+    rows: filteredRows,
+    counts: computeTylerTextOverviewAdminCounts(filteredRows),
+    availableDayKeys: [...availableDayKeySet].sort((a, b) => b.localeCompare(a)),
+  };
 }
 
 export type UpdateTylerTextOverviewDraftBodyResult =

@@ -83,6 +83,26 @@ export const TYLER_TEXT_OVERVIEW_DRAFT_STATUSES = [
 
 export type TylerTextOverviewDraftStatus = (typeof TYLER_TEXT_OVERVIEW_DRAFT_STATUSES)[number];
 
+export const TYLER_TEXT_OVERVIEW_ROW_STATES = [
+  "no_draft_yet",
+  "draft_current",
+  "draft_sent",
+  "draft_skipped",
+  "draft_other",
+] as const;
+
+export type TylerTextOverviewRowState = (typeof TYLER_TEXT_OVERVIEW_ROW_STATES)[number];
+
+export type TylerTextOverviewAdminCounts = {
+  sendableUsers: number;
+  noDraftYet: number;
+  draftCurrent: number;
+  draftSent: number;
+  draftSkipped: number;
+  machineShouldSendTrue: number;
+  machineShouldSendFalse: number;
+};
+
 export const TYLER_TEXT_OVERVIEW_NOTEBOOK_VERDICTS = [
   "verified",
   "failed",
@@ -215,13 +235,22 @@ export type {
   TylerTextOverviewNotebookFamily,
 } from "@/lib/tyler-text-overview-notebook-display";
 
-/** Admin UI row — draft body + notebook provenance (no phone or raw debug blobs). */
+/** Admin UI row — sendable audience member with optional draft overlay. */
 export type TylerTextOverviewAdminDraftRow = {
-  draftId: string;
+  draftId: string | null;
   clerkUserId: string;
+  preferredName: string | null;
+  phoneNumber: string | null;
+  timezone: string | null;
+  rowState: TylerTextOverviewRowState;
   draftForDayKey: string;
   /** Outbound moment slot (Phase 1: always morning / primary daily). Not wall-clock time. */
   sendSlot: SmsDailySendSlot;
+  draftStatus: TylerTextOverviewDraftStatus;
+  sentAt: string | null;
+  finalBodySent: string | null;
+  twilioMessageSid: string | null;
+  sourceSmsSendEventId: string | null;
   currentBodyToSend: string | null;
   writerOpenAiMessages: Array<{
     role: "system" | "user" | "assistant";

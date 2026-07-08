@@ -881,6 +881,19 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     morning_anchor_source: morningAnchor.source,
     morning_anchor_sent: morningAnchor.sent,
     morning_anchor_body_preview: morningAnchor.body?.slice(0, 160) ?? null,
+    ...(built.ok && commitmentId
+      ? {
+          v2_outbound_snapshot: {
+            v2_commitment_id: commitmentId,
+            v2_template_id: built.v2TemplateId,
+            v2_template_family:
+              built.v2TemplateFamily === "recovery" ? "recovery" : "standard",
+            v2_effective_ask_text: built.v2EffectiveAskText ?? built.smsBody,
+            v2_prior_outcome: built.v2PriorOutcome ?? null,
+            v2_blocker_preview: built.v2BlockerPreview ?? null,
+          },
+        }
+      : {}),
   };
 
   const persisted = await persistTylerTextOverviewDraftFromBuilt({

@@ -111,11 +111,12 @@ describe("sms_daily_send_slot — no evening_checkin in production code paths", 
     expect(src).toContain('onConflict: "clerk_user_id,draft_for_day_key,send_slot"');
   });
 
-  it("generate does not assign evening_checkin", () => {
+  it("evening live send module uses evening_checkin send slot", () => {
     const src = readFileSync(
-      join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
+      join(process.cwd(), "src/lib/tyler-text-overview-evening-send.ts"),
       "utf8"
     );
-    expect(src).not.toMatch(/send_slot:\s*["']evening_checkin["']/);
+    expect(src).toContain("SMS_DAILY_EVENING_PREVIEW_SEND_SLOT");
+    expect(src).toMatch(/send_slot:\s*SMS_DAILY_EVENING_PREVIEW_SEND_SLOT/);
   });
 });

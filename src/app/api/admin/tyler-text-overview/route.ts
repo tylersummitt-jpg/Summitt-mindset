@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
-  listCurrentTylerTextOverviewDrafts,
+  listSendableTylerTextOverviewRows,
   resolveAdminListSendSlot,
 } from "@/lib/tyler-text-overview-admin";
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
@@ -29,19 +29,18 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const draftForDayKey = url.searchParams.get("draft_for_day_key");
     const sendSlot = resolveAdminListSendSlot(url.searchParams.get("send_slot"));
+    const searchQuery = url.searchParams.get("q") ?? url.searchParams.get("search");
 
-    const rows = await listCurrentTylerTextOverviewDrafts({
+    const { rows, counts, availableDayKeys } = await listSendableTylerTextOverviewRows({
       draftForDayKey,
       sendSlot,
+      searchQuery,
     });
-
-    const availableDayKeys = [...new Set(rows.map((r) => r.draftForDayKey))].sort((a, b) =>
-      b.localeCompare(a)
-    );
 
     return NextResponse.json({
       ok: true,
       rows,
+      counts,
       availableDayKeys,
       sendSlot,
     });
