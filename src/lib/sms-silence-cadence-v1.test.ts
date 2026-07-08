@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { dayKeyOffset } from "@/lib/sms-temporal-contract-v1";
 import {
+  buildSilenceCadenceRouteCardPromptAppendix,
   deriveSilenceCadenceV1,
   routeForSilenceDay,
+  SILENCE_CADENCE_ROUTE_CARDS,
   type SilenceCadenceRoute,
 } from "@/lib/sms-silence-cadence-v1";
 import { fetchLastAnyUserReplyAt } from "@/lib/sms-last-any-user-reply";
@@ -146,6 +148,34 @@ describe("deriveSilenceCadenceV1 schedule", () => {
   it("day 36+ -> dormant_no_send_other, send false", () => {
     expectRoute(36, "dormant_no_send_other", false, "silence_cadence_dormant_other");
     expectRoute(40, "dormant_no_send_other", false, "silence_cadence_dormant_other");
+  });
+});
+
+describe("silence route card wording", () => {
+  it("relationship_check_day10 does not seed annoying apology copy", () => {
+    const card = SILENCE_CADENCE_ROUTE_CARDS.relationship_check_day10;
+    expect(card.writer_purpose).not.toMatch(/not annoying but user must participate/i);
+    expect(card.writer_purpose).toMatch(/honest relationship check/i);
+    expect(card.must_do.join(" ")).not.toMatch(/not trying to be annoying/i);
+    expect(card.must_do.join(" ")).toMatch(/whether-they-are-still-in/i);
+  });
+
+  it("global must_not_do blocks app navigation and annoying apology language", () => {
+    const card = SILENCE_CADENCE_ROUTE_CARDS.normal_daily;
+    const joined = card.must_not_do.join(" ").toLowerCase();
+    expect(joined).toMatch(/victory room/);
+    expect(joined).toMatch(/please respond/);
+    expect(joined).toMatch(/whenever you are ready/);
+    expect(joined).toMatch(/not trying to be annoying/);
+  });
+
+  it("goal-adjustment day7 allows spoken recommit/adjust question only", () => {
+    const card = SILENCE_CADENCE_ROUTE_CARDS.recommit_or_adjust_day7;
+    expect(card.allow_goal_adjustment_language).toBe(true);
+    expect(card.must_do.join(" ")).toMatch(/recommit to this goal or adjust it/i);
+    expect(card.must_not_do.join(" ")).toMatch(/victory room/i);
+    const appendix = buildSilenceCadenceRouteCardPromptAppendix("recommit_or_adjust_day7");
+    expect(appendix).not.toMatch(/go to the app/i);
   });
 });
 

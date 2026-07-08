@@ -87,7 +87,7 @@ describe("buildDailySmsRelationshipReadV1", () => {
       })
     );
     expect(read.callback_worth_using).toMatch(/lunch/i);
-    expect(read.what_would_make_user_feel_known).toMatch(/lunch|meal|guilt/i);
+    expect(read.what_would_make_user_feel_known).toBe("light_meal_callback");
   });
 
   it("user correction vs current_standard populates conflict and avoid", () => {
@@ -105,7 +105,7 @@ describe("buildDailySmsRelationshipReadV1", () => {
       })
     );
     expect(read.possible_current_standard_conflict).toMatch(/family/i);
-    expect(read.avoid_because_user_corrected_us.some((a) => /family/i.test(a))).toBe(true);
+    expect(read.avoid_because_user_corrected_us).toContain("correction:do_not_repeat");
   });
 
   it("bad_old_coach_copy_warning when freshness phrases exist", () => {
@@ -123,15 +123,14 @@ describe("buildDailySmsRelationshipReadV1", () => {
     expect(read.bad_old_coach_copy_warning).toMatch(/stale wording/i);
   });
 
-  it("today_best_move is plain English, not the move token", () => {
+  it("today_best_move is a compact coaching focus token, not the raw move token", () => {
     const read = buildDailySmsRelationshipReadV1(
       baseArgs({
         suggestedMove: suggestedMove({ move: "hold_standard", reason: "Hold bar." }),
         praiseAllowedLevel: "none",
       })
     );
-    expect(read.today_best_move).not.toBe("hold_standard");
-    expect(read.today_best_move!.length).toBeGreaterThan(10);
+    expect(read.today_best_move).toBe("hold_standard_no_hype");
   });
 
   it("silence cadence day5 populates silence_route_human_read and today_best_move", () => {
@@ -140,8 +139,8 @@ describe("buildDailySmsRelationshipReadV1", () => {
         silenceRoute: "cant_coach_silence_day5",
       })
     );
-    expect(read.silence_route_human_read).toMatch(/coaching requires response/i);
-    expect(read.today_best_move).toMatch(/coaching requires response|relationship accountability/i);
+    expect(read.silence_route_human_read).toBe("confirm_still_in");
+    expect(read.today_best_move).toBe("confirm_still_in");
   });
 
   it("weekly reflection in thread on normal daily warns in today_best_move", () => {
@@ -157,7 +156,7 @@ describe("buildDailySmsRelationshipReadV1", () => {
         ]),
       })
     );
-    expect(read.today_best_move).toMatch(/do not turn it into weekly reflection/i);
+    expect(read.today_best_move).toBe("daily_not_weekly");
   });
 
   it("send_target_day_context warns about target day and morning framing", () => {

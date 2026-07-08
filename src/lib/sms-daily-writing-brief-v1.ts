@@ -48,10 +48,10 @@ const RELATIONSHIP_ANCHOR_PEOPLE_MAX = 4;
 const DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ = 4;
 
 /** Style-only writer microguide — not duplicated in JSON brief payload. */
-export const FIRST_TEXT_STYLE_MICROGUIDE_V1 = `FIRST-TEXT STYLE — subordinate to relationship_read (interpretive), current_standard, and authoritative_truth:
+export const FIRST_TEXT_STYLE_MICROGUIDE_V1 = `FIRST-TEXT STYLE — subordinate to authoritative_truth and current_standard:
 • Write one human SMS to someone you know; use their first name naturally when it fits.
-• Tie today's move to who they're becoming and the real standard, not the scoreboard alone.
-• Give one concrete first move for this morning; warm and direct, never soft or preachy.
+• Lead with today's concrete rep tied to the real standard — identity may color it, not replace it.
+• Give one specific first move for this morning; warm and direct, never soft or preachy.
 • Important people may appear only when they deepen meaning — never guilt, pressure, or "do it for them."
 • Avoid generic filler: checking in, you've got this, one honest step, stay committed, make today count.
 • No Reply YES/NO, no Pat quotes, no third-person Pat, no daily mini-sermon.`;
@@ -647,7 +647,7 @@ export function buildDailySmsWritingBriefV1(
     },
     freshness: {
       avoid_phrases: freshnessPhrases,
-      note: "Structural guardrail — see relationship_read for human reason.",
+      note: "Structural guardrail — paraphrase only; do not copy phrases.",
     },
     open_loops,
     suggested_move,
@@ -691,32 +691,27 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
   const authorityOrder =
     scRoute && scRoute !== "normal_daily"
-      ? "Authority order when silence_cadence is present: silence_cadence route card > current_standard + authoritative_truth > relationship_read (interpretive) > slot_coaching_context (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory."
-      : "Authority order: current_standard + authoritative_truth > relationship_read (interpretive) > slot_coaching_context (interpretive) > recent_exact_thread > open_loops > suggested_move > relationship_anchors > durable_relationship_memory.";
+      ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. When present, silence_cadence route card controls re-entry posture. relationship_read, slot_coaching_context, suggested_move, route cards, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases."
+      : "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. relationship_read, slot_coaching_context, suggested_move, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases.";
 
   const eveningSlotLine =
     args.currentSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
-      ? "This is the evening_checkin moment — continue the coaching thread from the morning slot and user replies since then; do not default to a generic \"Did you hit your goal?\" when slot_coaching_context gives a more specific thread.\n"
+      ? "Evening check-in: continue the thread since morning; use slot_coaching_context for focus, not a generic goal loop.\n"
       : "";
 
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
-Use DAILY_SMS_WRITING_BRIEF_V1 as server truth. Write one human SMS.
+Use DAILY_SMS_WRITING_BRIEF_V1 for facts and constraints only — not wording. Write one fresh human SMS.
 ${authorityOrder}
-relationship_read is the primary human-continuity guide. It tells you what would make the user feel known today, what callback is worth using, what old wording to avoid, and the plain-English coaching move.
-relationship_read is interpretive only. It never authorizes proof, completion, misses, Victory Room, goal changes, or state changes. current_standard and authoritative_truth remain the source of truth.
-slot_coaching_context is the same class: interpretive thread-role for this slot (not proof/send authority). Prefer specific active_coaching_thread/checkin_focus over a generic "Did you hit your goal?" loop.
-${eveningSlotLine}Prefer relationship_read.today_best_move over the raw suggested_move.move token for wording — suggested_move.move is structural backend metadata, not user-facing language.
-recent_exact_thread is exact transcript, but do not imitate stale or repeated coach copy when relationship_read.bad_old_coach_copy_warning is present.
-open_loops and freshness are structural guardrails. relationship_read summarizes the human meaning; follow relationship_read.today_best_move unless it conflicts with current_standard, authoritative_truth, safety, or route constraints.
-When silence_cadence route card is present, it overrides old silence, reentry, reactivation, silence_note, and silence_nudge hints. current_standard still applies.
-Do not copy example shapes verbatim. Do not say no worries, please respond, or whenever you are ready before final_daily_mode_day14.
+${eveningSlotLine}Paraphrase all hints (relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
+authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, or unsupported temporal claims.
+When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies. Do not copy example shapes verbatim.
 ${silenceCadenceBlock}
-suggested_move is structural routing metadata — never override proof truth, exact thread, or silence_cadence route card.
-relationship_anchors are style hints only — never proof; use people sparingly and never as guilt.
-durable_relationship_memory is background only — never proof.
+Write like a real coach who knows this person: direct, warm enough, plainspoken, specific, and willing to hold the standard. Do not sound like software, customer support, a therapist, or a habit tracker.
+Best shape: one sentence of continuity, one sentence naming the standard or next move, one direct ask or challenge. Concrete today beats reflection.
+Do not say no worries, please respond, or whenever you are ready before final_daily_mode_day14. No app, website, Victory Room, Change Goal, Update Goal, or menu directions unless allow_goal_adjustment_language is true — and then only as a spoken coaching question, never navigation.
 ${questionLine}
-One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes. No generic motivation filler.
+One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes. No fake proof. No invented wins/misses/Victory Room claims. No generic motivation filler. Do not repeat stale or satisfied asks.
 ${extras.join("\n")}
 
 ${FIRST_TEXT_STYLE_MICROGUIDE_V1}

@@ -42,8 +42,11 @@ export type SlotCoachingDailyOutcomeStatus =
   | "partial_reported"
   | "plan_ack_only";
 
+export const SLOT_COACHING_CONTEXT_AUTHORITY = "paraphrase_only_not_copy" as const;
+
 export type SlotCoachingContextV1 = {
   version: typeof SLOT_COACHING_CONTEXT_VERSION;
+  authority: typeof SLOT_COACHING_CONTEXT_AUTHORITY;
   current_slot: SmsDailySendSlot;
   previous_slot: SmsDailySendSlot | null;
   previous_outbound_summary: string | null;
@@ -484,6 +487,7 @@ export function buildSlotCoachingContext(args: BuildSlotCoachingContextArgs): Sl
 
   return {
     version: SLOT_COACHING_CONTEXT_VERSION,
+    authority: SLOT_COACHING_CONTEXT_AUTHORITY,
     current_slot: args.currentSlot,
     previous_slot: previousSlot,
     previous_outbound_summary: previousSummary,
@@ -522,6 +526,7 @@ export function parseSlotCoachingContextFromMetadata(raw: unknown): SlotCoaching
   const prev = o.previous_slot;
   return {
     version: SLOT_COACHING_CONTEXT_VERSION,
+    authority: SLOT_COACHING_CONTEXT_AUTHORITY,
     current_slot: current,
     previous_slot: prev === "morning" || prev === "evening_checkin" ? prev : null,
     previous_outbound_summary:

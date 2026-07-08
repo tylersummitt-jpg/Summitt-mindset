@@ -916,16 +916,20 @@ function distributionFixtureFacts(): DailyV3RelationshipFacts {
 }
 
 describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
-  it("system prompt contains FirstTextStyleMicroguideV1 subordinate to truth and thread", () => {
+  it("system prompt contains FirstTextStyleMicroguideV1 and paraphrase-only rules", () => {
     const system = buildDailySmsBriefSystemPrompt({ maxChars: 300 });
     expect(system).toContain("FIRST-TEXT STYLE");
     expect(system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
-    expect(system).toMatch(/subordinate to relationship_read \(interpretive\)/i);
-    expect(system).toMatch(/relationship_anchors are style hints only/i);
-    expect(system).toMatch(/relationship_read is the primary human-continuity guide/i);
-    expect(system).toMatch(/interpretive only/i);
-    expect(system).toMatch(/open_loops and freshness are structural guardrails/i);
-    expect(system).toMatch(/Prefer relationship_read\.today_best_move/i);
+    expect(system).toMatch(/subordinate to authoritative_truth and current_standard/i);
+    expect(system).not.toMatch(/Prefer relationship_read\.today_best_move/i);
+    expect(system).not.toMatch(/primary human-continuity guide/i);
+    expect(system).toMatch(/Paraphrase all hints/i);
+    expect(system).toMatch(/Do not paste notebook phrases/i);
+    expect(system).toMatch(/No app, website, Victory Room/i);
+    expect(system).toMatch(/No fake Pat quotes/i);
+    expect(system).toMatch(/No fake proof/i);
+    expect(system).toMatch(/should_send \(boolean\)/);
+    expect(system).toMatch(/safety_notes \(string\[\]\)/);
   });
 
   it("microguide is not duplicated in JSON brief payload", () => {
@@ -1040,11 +1044,11 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       "sparingly_when_it_deepens_meaning_never_guilt"
     );
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system).toMatch(/sparingly|style hints only/i);
     expect(writer.system).toMatch(/No Reply YES\/NO|No robot menu/i);
     expect(writer.system).toMatch(/no fake Pat quotes|No fake Pat quotes/i);
     expect(writer.system).toMatch(/no third-person Pat/i);
     expect(writer.user).toContain('"relationship_anchors"');
+    expect(writer.user).toContain("style_hint_only");
     expect(writer.user).toContain("Brooke");
   });
 
@@ -1201,7 +1205,7 @@ describe("relationship_read in DAILY_SMS_WRITING_BRIEF_V1", () => {
     const brief = briefWithThread([
       { at_local: "Thu 8:05 AM", role: "user", body: "Done for today." },
     ]);
-    expect(brief.relationship_read.authority).toBe("interpretive_hint_not_proof");
+    expect(brief.relationship_read.authority).toBe("paraphrase_only_not_copy");
     const keys = Object.keys(brief);
     expect(keys.indexOf("identity")).toBeLessThan(keys.indexOf("relationship_read"));
     expect(keys.indexOf("relationship_read")).toBeLessThan(keys.indexOf("current_standard"));
@@ -1248,7 +1252,9 @@ describe("relationship_read in DAILY_SMS_WRITING_BRIEF_V1", () => {
     );
     expect(brief.relationship_read.possible_current_standard_conflict).toMatch(/family/i);
     expect(
-      brief.relationship_read.avoid_because_user_corrected_us.some((a) => /family/i.test(a))
+      brief.relationship_read.avoid_because_user_corrected_us.some((a) =>
+        /correction:do_not_repeat/i.test(a)
+      )
     ).toBe(true);
     expect(brief.relationship_read.bad_old_coach_copy_warning).toMatch(/stale wording/i);
   });
@@ -1262,7 +1268,7 @@ describe("relationship_read in DAILY_SMS_WRITING_BRIEF_V1", () => {
         no_send_reason: null,
       },
     });
-    expect(brief.relationship_read.silence_route_human_read).toMatch(/coaching requires response/i);
+    expect(brief.relationship_read.silence_route_human_read).toBe("confirm_still_in");
   });
 
   it("demotes open_loops latest_answer when latest_user_signal present", () => {
@@ -1337,6 +1343,7 @@ describe("slot_coaching_context in DAILY_SMS_WRITING_BRIEF_V1", () => {
     const brief = briefWithThread([]);
     expect(brief.current_send_slot).toBe("morning");
     expect(brief.slot_coaching_context.version).toBe("1");
+    expect(brief.slot_coaching_context.authority).toBe("paraphrase_only_not_copy");
     expect(brief.slot_coaching_context.current_slot).toBe("morning");
   });
 
@@ -1353,8 +1360,8 @@ describe("slot_coaching_context in DAILY_SMS_WRITING_BRIEF_V1", () => {
     expect(keys.indexOf("slot_coaching_context")).toBeLessThan(keys.indexOf("current_standard"));
 
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system).toMatch(/slot_coaching_context is the same class/i);
-    expect(writer.system).toMatch(/generic "Did you hit your goal\?" loop/i);
+    expect(writer.system).toMatch(/Paraphrase all hints/i);
+    expect(writer.system).not.toMatch(/Prefer relationship_read\.today_best_move/i);
     expect(writer.system).not.toMatch(/OUTPUT:.*intended_rep/s);
   });
 
@@ -1362,7 +1369,7 @@ describe("slot_coaching_context in DAILY_SMS_WRITING_BRIEF_V1", () => {
     const brief = briefWithThread([
       { at_local: "Thu 8:05 AM", role: "user", body: "Done for today." },
     ]);
-    expect(brief.relationship_read.authority).toBe("interpretive_hint_not_proof");
+    expect(brief.relationship_read.authority).toBe("paraphrase_only_not_copy");
     expect(brief.slot_coaching_context.slot_role_recommendation).toBeTruthy();
   });
 });

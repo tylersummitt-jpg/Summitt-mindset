@@ -21,7 +21,7 @@ export type RelationshipReadFreshnessPhrase = {
   at_local?: string | null;
 };
 
-export const DAILY_RELATIONSHIP_READ_AUTHORITY = "interpretive_hint_not_proof" as const;
+export const DAILY_RELATIONSHIP_READ_AUTHORITY = "paraphrase_only_not_copy" as const;
 
 export type DailySmsRelationshipReadV1 = {
   authority: typeof DAILY_RELATIONSHIP_READ_AUTHORITY;
@@ -200,60 +200,50 @@ function buildFeelKnownInstruction(args: {
   openQuestionPending: boolean;
 }): string | null {
   if (args.avoidCorrections.length > 0) {
-    const topic = args.avoidCorrections[0]!;
-    return clip(
-      `Honor their correction — do not repeat or re-ask about ${topic.replace(/^Do not (?:repeat|mention|re-ask)\s*/i, "").slice(0, 60)}.`,
-      CAP.what_would_make_user_feel_known
-    );
+    return clip("honor_correction", CAP.what_would_make_user_feel_known);
   }
   if (args.callback && MEAL_CALLBACK_RE.test(args.callback)) {
-    return clip(
-      "Use lunch/meal as a light callback without guilt or re-asking the standard.",
-      CAP.what_would_make_user_feel_known
-    );
+    return clip("light_meal_callback", CAP.what_would_make_user_feel_known);
   }
   if (args.callback && LIST_CALLBACK_RE.test(args.callback)) {
-    return clip(
-      "Acknowledge the list before giving today's rep — they did planning work.",
-      CAP.what_would_make_user_feel_known
-    );
+    return clip("ack_list_then_rep", CAP.what_would_make_user_feel_known);
   }
   if (args.latestUserSignal && CORRECTION_RE.test(args.latestUserSignal)) {
-    return clip(
-      "Show you heard the correction — adjust wording, do not argue with server standard labels.",
-      CAP.what_would_make_user_feel_known
-    );
+    return clip("heard_correction", CAP.what_would_make_user_feel_known);
   }
   if (args.openQuestionPending) {
-    return clip(
-      "Close the open loop naturally — do not stack another unrelated ask.",
-      CAP.what_would_make_user_feel_known
-    );
+    return clip("close_open_loop", CAP.what_would_make_user_feel_known);
   }
   if (args.latestUserSignal) {
-    return clip(
-      "Reference their latest words briefly so the text feels continuous, not broadcast.",
-      CAP.what_would_make_user_feel_known
-    );
+    return clip("brief_continuity", CAP.what_would_make_user_feel_known);
   }
   return null;
 }
 
+const SILENCE_ROUTE_FOCUS_TOKEN: Partial<Record<SilenceCadenceRoute, string>> = {
+  soft_reentry_day3: "doorway_back",
+  clean_reset_day4: "reset_after_silence",
+  cant_coach_silence_day5: "confirm_still_in",
+  find_obstacle_day6: "name_blocker",
+  recommit_or_adjust_day7: "recommit_or_adjust",
+  pat_style_challenge_day8: "challenge_drift",
+  relationship_check_day10: "confirm_still_in",
+  honest_decision_day12: "recommit_or_adjust",
+  final_daily_mode_day14: "final_daily_mode",
+  weekly_reentry_day21: "warm_reentry",
+};
+
 const SILENCE_ROUTE_HUMAN_READ: Partial<Record<SilenceCadenceRoute, string>> = {
-  soft_reentry_day3:
-    "Easy doorway back: one honest sentence about where things stand — no lecture.",
-  clean_reset_day4: "Clean reset: remove guilt, hold the standard, one thing for today.",
-  cant_coach_silence_day5:
-    "Relationship accountability: coaching requires response — do not give generic reflection.",
-  find_obstacle_day6: "Ask what is actually getting in the way — human, not a menu.",
-  recommit_or_adjust_day7: "Force clarity: recommit or adjust — one honest choice.",
-  pat_style_challenge_day8:
-    "Challenge drift cleanly without attacking the person — accountability moment.",
-  relationship_check_day10:
-    "Honest relationship check: not annoying, but participation is required.",
-  honest_decision_day12: "Decision point: does this goal still matter right now?",
-  final_daily_mode_day14: "Final daily mode: direct, no soft opt-out language.",
-  weekly_reentry_day21: "Warm re-entry: one honest rep, not a big comeback speech.",
+  soft_reentry_day3: "doorway_back",
+  clean_reset_day4: "reset_after_silence",
+  cant_coach_silence_day5: "confirm_still_in",
+  find_obstacle_day6: "name_blocker",
+  recommit_or_adjust_day7: "recommit_or_adjust",
+  pat_style_challenge_day8: "challenge_drift",
+  relationship_check_day10: "honest_relationship_check",
+  honest_decision_day12: "goal_still_matters",
+  final_daily_mode_day14: "final_daily_mode",
+  weekly_reentry_day21: "warm_reentry",
 };
 
 function buildSilenceRouteHumanRead(route: SilenceCadenceRoute | null | undefined): string | null {
@@ -281,58 +271,44 @@ function moveTokenToPlainEnglish(
   }
 ): string {
   if (args.silenceRoute && args.silenceRoute !== "normal_daily") {
-    const human = buildSilenceRouteHumanRead(args.silenceRoute);
-    if (human) return clip(human, CAP.today_best_move);
+    const token = SILENCE_ROUTE_FOCUS_TOKEN[args.silenceRoute];
+    if (token) return clip(token, CAP.today_best_move);
   }
 
   if (args.weeklyReflectionInThread && args.normalDailyTarget) {
-    return clip(
-      "This is the daily accountability text — do not turn it into weekly reflection; one concrete rep for today.",
-      CAP.today_best_move
-    );
+    return clip("daily_not_weekly", CAP.today_best_move);
   }
 
   if (args.pendingPlanActive) {
-    return clip(
-      "Close the pending plan loop before a fresh accountability ask.",
-      CAP.today_best_move
-    );
+    return clip("close_plan_loop", CAP.today_best_move);
   }
 
   if (args.openQuestionPending && args.maxQuestions === 0) {
-    return clip("Close the loop without another question.", CAP.today_best_move);
+    return clip("close_loop", CAP.today_best_move);
   }
 
   const token = move.trim().toLowerCase();
-  const reasonTrim = reason.trim();
 
   if (token === "hold_standard") {
     if (args.praiseLevel === "none" || args.praiseLevel === "capability_only") {
-      return clip(
-        "Hold the standard without praising consistency or overstating proof.",
-        CAP.today_best_move
-      );
+      return clip("hold_standard_no_hype", CAP.today_best_move);
     }
-    return clip("Give one concrete next rep for today tied to the standard.", CAP.today_best_move);
+    return clip("ask_first_rep", CAP.today_best_move);
   }
   if (token === "recover_today") {
-    return clip("Acknowledge the miss briefly, then one recoverable move for today.", CAP.today_best_move);
+    return clip("reset_after_miss", CAP.today_best_move);
   }
   if (token === "clarify") {
-    return clip("Ask one clarifying question only if the thread truly needs it.", CAP.today_best_move);
+    return clip("clarify_once", CAP.today_best_move);
   }
   if (token === "celebrate_proof") {
-    return clip("Acknowledge the specific proof — do not inflate into streak hype.", CAP.today_best_move);
+    return clip("proof_not_promise", CAP.today_best_move);
   }
   if (token === "invite_goal_evolution") {
-    return clip("Soft invitation to evolve the goal — no mutation in this SMS.", CAP.today_best_move);
+    return clip("soft_goal_invite", CAP.today_best_move);
   }
 
-  if (reasonTrim && !/\bhold_standard\b/i.test(reasonTrim)) {
-    return clip(reasonTrim, CAP.today_best_move);
-  }
-
-  return clip("One human coaching touch tied to today's standard.", CAP.today_best_move);
+  return clip("ask_first_rep", CAP.today_best_move);
 }
 
 function detectAvoidBecauseUserCorrected(args: {
@@ -354,13 +330,13 @@ function detectAvoidBecauseUserCorrected(args: {
 
   for (const m of userMessagesFromThread(args.messages).slice(-5)) {
     if (!CORRECTION_RE.test(m.body)) continue;
-    push(`Do not repeat: ${m.body.trim()}`);
+    push("correction:do_not_repeat");
     if (out.length >= CAP.avoid_max) break;
   }
 
   for (const item of [...args.satisfiedDoNotRepeat, ...args.threadFreshnessDoNotReask]) {
     if (!item.trim()) continue;
-    push(`Do not re-ask: ${item.trim()}`);
+    push("dnr:do_not_reask");
     if (out.length >= CAP.avoid_max) break;
   }
 

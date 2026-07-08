@@ -899,10 +899,10 @@ describe("produceDailyV3RelationshipSms", () => {
     const { systemMsg, userMsg } = getWriterPromptMessages();
     expectC1WritingBriefPrompt({ systemMsg, userMsg });
     expect(systemMsg).toContain("FIRST-TEXT STYLE");
-    expect(systemMsg).toMatch(/subordinate to relationship_read \(interpretive\)/i);
+    expect(systemMsg).toMatch(/subordinate to authoritative_truth and current_standard/i);
     expect(userMsg).toContain('"relationship_anchors"');
     expect(userMsg).toContain('"relationship_read"');
-    expect(userMsg).toContain('"interpretive_hint_not_proof"');
+    expect(userMsg).toContain('"paraphrase_only_not_copy"');
     expect(userMsg).toContain("Brooke");
     expect(userMsg).not.toContain("FIRST-TEXT STYLE");
   });
