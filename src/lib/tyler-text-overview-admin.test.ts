@@ -1157,7 +1157,8 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
       "src/lib/tyler-text-overview-admin.ts",
       "src/app/api/admin/tyler-text-overview/route.ts",
       "src/app/api/admin/tyler-text-overview/[draftId]/route.ts",
-      "src/app/admin/tyler-text-overview/page.tsx",
+      "src/app/admin/tyler-text-overview/morning/page.tsx",
+      "src/app/admin/tyler-text-overview/evening/page.tsx",
       "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx",
     ];
     const forbiddenImports = [
@@ -1202,7 +1203,8 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
       "src/lib/tyler-text-overview-admin.ts",
       "src/app/api/admin/tyler-text-overview/route.ts",
       "src/app/api/admin/tyler-text-overview/[draftId]/route.ts",
-      "src/app/admin/tyler-text-overview/page.tsx",
+      "src/app/admin/tyler-text-overview/morning/page.tsx",
+      "src/app/admin/tyler-text-overview/evening/page.tsx",
       "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx",
       "src/lib/tyler-text-overview-types.ts",
     ];
@@ -1215,7 +1217,8 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
 
   it("admin page and API routes use requireTylerAdmin", () => {
     for (const rel of [
-      "src/app/admin/tyler-text-overview/page.tsx",
+      "src/app/admin/tyler-text-overview/morning/page.tsx",
+      "src/app/admin/tyler-text-overview/evening/page.tsx",
       "src/app/api/admin/tyler-text-overview/route.ts",
       "src/app/api/admin/tyler-text-overview/[draftId]/route.ts",
     ]) {
@@ -1241,21 +1244,36 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(src).toContain("Sendable audience");
     expect(src).toContain('placeholder="Name, phone, or clerk_user_id"');
     expect(src).toContain("rowStateLabel");
+    expect(src).toContain("adminCountLabel");
   });
 
-  it("dashboard has evening preview tab and safety UI", () => {
-    const src = readFileSync(
+  it("two-page TTO split: morning and evening pages with fixed sendSlot", () => {
+    const morningPage = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/morning/page.tsx"),
+      "utf8"
+    );
+    const eveningPage = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/evening/page.tsx"),
+      "utf8"
+    );
+    const rootPage = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/page.tsx"),
+      "utf8"
+    );
+    const dashboard = readFileSync(
       join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
       "utf8"
     );
-    expect(src).toContain("Morning / Primary Daily");
-    expect(src).toContain("Evening Preview");
-    expect(src).toContain("manual send enabled for admin");
-    expect(src).toContain("/api/admin/tyler-text-overview/evening-preview");
-    expect(src).toContain("/api/admin/tyler-text-overview/evening-send");
-    expect(src).toContain("Send Evening Text");
-    expect(src).toContain("Would send if evening were live");
-    expect(src).toContain("Would skip because");
-    expect(src).not.toMatch(/Generate all|Bulk generate/i);
+
+    expect(rootPage).toContain("redirect(");
+    expect(morningPage).toContain('sendSlot={SMS_DAILY_PRODUCTION_SEND_SLOT}');
+    expect(eveningPage).toContain('sendSlot={SMS_DAILY_EVENING_PREVIEW_SEND_SLOT}');
+    expect(dashboard).not.toContain('searchParams.get("send_slot")');
+    expect(dashboard).not.toContain("role=\"tablist\"");
+    expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-preview");
+    expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-send");
+    expect(dashboard).toContain("Send Evening Text");
+    expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
+    expect(dashboard).not.toMatch(/Generate all|Bulk generate/i);
   });
 });

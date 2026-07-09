@@ -1,25 +1,12 @@
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
-import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
+import { resolveTylerTextOverviewRootRedirectPath } from "@/lib/tyler-text-overview-dashboard-copy";
 
-import TylerTextOverviewDashboard from "./tyler-text-overview-dashboard";
-
-export default async function AdminTylerTextOverviewPage() {
-  await requireTylerAdmin();
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Tyler Text Overview</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Shows the persisted primary writer input for each current draft generation. Skipped
-          writers, no-send drafts, and stale generation pointers are labeled explicitly.
-        </p>
-      </div>
-
-      <Suspense fallback={<p className="text-sm text-gray-500">Loading drafts…</p>}>
-        <TylerTextOverviewDashboard />
-      </Suspense>
-    </div>
-  );
+export default async function AdminTylerTextOverviewRootPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolved = searchParams ? await searchParams : {};
+  redirect(resolveTylerTextOverviewRootRedirectPath(resolved));
 }

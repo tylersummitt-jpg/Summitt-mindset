@@ -5,6 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  adminCountLabel,
+  buildSiblingTylerTextOverviewPageHref,
+  buildTylerTextOverviewEveningPageHref,
+  EVENING_TTO_MANUAL_BANNER,
+  EVENING_TTO_NO_PREVIEW_COPY,
+  isEveningDashboardSendSlot,
+  MORNING_TTO_AUTHORITY_BANNER,
+  rowStateLabel,
+  type TylerTextOverviewDashboardSendSlot,
+} from "@/lib/tyler-text-overview-dashboard-copy";
+import {
   ADMIN_INTERPRETATION_LINE,
   RAW_NOTEBOOK_SECTION_HEADING,
   buildProvenanceExplanationBlocks,
@@ -14,16 +25,17 @@ import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display"
 import type {
   TylerTextOverviewAdminCounts,
   TylerTextOverviewAdminDraftRow,
-  TylerTextOverviewRowState,
 } from "@/lib/tyler-text-overview-types";
-import { SMS_DAILY_EVENING_PREVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
+import {
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
+} from "@/lib/tyler-text-overview-types";
 
 type EditState = Record<string, string>;
-type SendSlotTab = "morning" | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
 
-const EVENING_PREVIEW_BANNER_TITLE = "Evening check-in — manual send enabled for admin.";
-const EVENING_PREVIEW_BANNER_BODY =
-  "Review evening previews here, then send one row at a time via Twilio. Morning / primary daily SMS is unchanged.";
+export type TylerTextOverviewDashboardProps = {
+  sendSlot: TylerTextOverviewDashboardSendSlot;
+};
 
 function isEveningDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
   return row.draftStatus === "sent" || row.sentAt != null;
@@ -31,21 +43,6 @@ function isEveningDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
 
 function rowListKey(row: TylerTextOverviewAdminDraftRow): string {
   return `${row.clerkUserId}:${row.sendSlot}:${row.draftForDayKey}:${row.draftId ?? "no-draft"}`;
-}
-
-function rowStateLabel(rowState: TylerTextOverviewRowState): string {
-  switch (rowState) {
-    case "no_draft_yet":
-      return "No draft yet";
-    case "draft_current":
-      return "Current draft";
-    case "draft_sent":
-      return "Sent";
-    case "draft_skipped":
-      return "Skipped / no-send";
-    default:
-      return "Other";
-  }
 }
 
 function isMorningDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
@@ -64,13 +61,6 @@ function canSendEveningRow(row: TylerTextOverviewAdminDraftRow): boolean {
   if (row.machineShouldSend !== true) return false;
   const body = row.currentBodyToSend?.trim();
   return Boolean(body);
-}
-
-function resolveSendSlotTab(raw: string | null): SendSlotTab {
-  if (raw === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
-    return SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
-  }
-  return "morning";
 }
 
 function isEveningPreviewRow(row: TylerTextOverviewAdminDraftRow): boolean {
@@ -315,20 +305,20 @@ function SlotCoachingContextPanel({ row }: { row: TylerTextOverviewAdminDraftRow
   );
 }
 
-function buildTabHref(sendSlot: SendSlotTab, draftForDayKey: string): string {
-  const params = new URLSearchParams();
-  params.set("send_slot", sendSlot);
-  if (draftForDayKey) {
-    params.set("draft_for_day_key", draftForDayKey);
-  }
-  return `/admin/tyler-text-overview?${params.toString()}`;
-}
+const ADMIN_COUNT_KEYS: (keyof TylerTextOverviewAdminCounts)[] = [
+  "sendableUsers",
+  "noDraftYet",
+  "draftCurrent",
+  "draftSent",
+  "draftSkipped",
+  "machineShouldSendTrue",
+  "machineShouldSendFalse",
+];
 
-export default function TylerTextOverviewDashboard() {
+export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOverviewDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeSendSlot = resolveSendSlotTab(searchParams.get("send_slot"));
-  const isEveningTab = activeSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
+  const isEveningPage = isEveningDashboardSendSlot(sendSlot);
 
   const [rows, setRows] = useState<TylerTextOverviewAdminDraftRow[]>([]);
   const [counts, setCounts] = useState<TylerTextOverviewAdminCounts | null>(null);
@@ -353,11 +343,11 @@ export default function TylerTextOverviewDashboard() {
   }
 
   const load = useCallback(
-    async (dayKey: string, sendSlot: SendSlotTab, query: string) => {
+    async (dayKey: string, slot: TylerTextOverviewDashboardSendSlot, query: string) => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        params.set("send_slot", sendSlot);
+        params.set("send_slot", slot);
         if (dayKey) {
           params.set("draft_for_day_key", dayKey);
         }
@@ -397,8 +387,8 @@ export default function TylerTextOverviewDashboard() {
   );
 
   useEffect(() => {
-    load(selectedDayKey, activeSendSlot, searchQuery);
-  }, [load, selectedDayKey, activeSendSlot, searchQuery]);
+    load(selectedDayKey, sendSlot, searchQuery);
+  }, [load, selectedDayKey, sendSlot, searchQuery]);
 
   async function saveDraft(row: TylerTextOverviewAdminDraftRow) {
     if (!row.draftId) return;
@@ -460,13 +450,12 @@ export default function TylerTextOverviewDashboard() {
       }
 
       showToast("Evening preview generated.");
-      const params = new URLSearchParams();
-      params.set("send_slot", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
-      if (selectedDayKey || dayKey) {
-        params.set("draft_for_day_key", selectedDayKey || dayKey || "");
+      const effectiveDayKey = selectedDayKey || dayKey || "";
+      if (isEveningPage) {
+        await load(effectiveDayKey, sendSlot, searchQuery);
+      } else {
+        router.push(buildTylerTextOverviewEveningPageHref(effectiveDayKey));
       }
-      router.push(`/admin/tyler-text-overview?${params.toString()}`);
-      await load(selectedDayKey || dayKey || "", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT, searchQuery);
     } catch (err) {
       console.error("Failed to generate evening preview", err);
       showToast("Evening preview generation failed.");
@@ -493,7 +482,7 @@ export default function TylerTextOverviewDashboard() {
       }
 
       showToast("Evening text sent.");
-      await load(selectedDayKey, activeSendSlot, searchQuery);
+      await load(selectedDayKey, sendSlot, searchQuery);
     } catch (err) {
       console.error("Failed to send evening draft", err);
       showToast("Evening send failed.");
@@ -502,12 +491,15 @@ export default function TylerTextOverviewDashboard() {
     }
   }
 
-  const morningTabHref = buildTabHref("morning", selectedDayKey);
-  const eveningTabHref = buildTabHref(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT, selectedDayKey);
+  const siblingPageHref = buildSiblingTylerTextOverviewPageHref({
+    page: isEveningPage ? "morning" : "evening",
+    draftForDayKey: selectedDayKey,
+  });
+  const siblingPageLabel = isEveningPage ? "Morning Text Overview →" : "Evening Text Overview →";
 
   return (
     <div className="space-y-6">
-      {confirmSendRow ? (
+      {isEveningPage && confirmSendRow ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           role="dialog"
@@ -554,46 +546,27 @@ export default function TylerTextOverviewDashboard() {
         </p>
       ) : null}
 
-      <div
-        className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1"
-        role="tablist"
-        aria-label="Send slot"
-      >
-        <Link
-          href={morningTabHref}
-          role="tab"
-          aria-selected={!isEveningTab}
-          className={`rounded-md px-4 py-2 text-sm font-medium ${
-            !isEveningTab
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-600 hover:text-gray-900"
-          }`}
-        >
-          Morning / Primary Daily
-        </Link>
-        <Link
-          href={eveningTabHref}
-          role="tab"
-          aria-selected={isEveningTab}
-          className={`rounded-md px-4 py-2 text-sm font-medium ${
-            isEveningTab
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-600 hover:text-gray-900"
-          }`}
-        >
-          Evening Preview
-        </Link>
-      </div>
-
-      {isEveningTab ? (
+      {isEveningPage ? (
         <div
           className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
           role="alert"
         >
-          <p className="font-semibold">{EVENING_PREVIEW_BANNER_TITLE}</p>
-          <p className="mt-1">{EVENING_PREVIEW_BANNER_BODY}</p>
+          <p>{EVENING_TTO_MANUAL_BANNER}</p>
         </div>
-      ) : null}
+      ) : (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="alert"
+        >
+          <p>{MORNING_TTO_AUTHORITY_BANNER}</p>
+        </div>
+      )}
+
+      <p className="text-sm">
+        <Link href={siblingPageHref} className="font-medium text-gray-900 underline">
+          {siblingPageLabel}
+        </Link>
+      </p>
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="block text-sm">
@@ -627,34 +600,14 @@ export default function TylerTextOverviewDashboard() {
         <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
           <p className="font-medium text-gray-900">Sendable audience</p>
           <dl className="mt-2 grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            <div>
-              <dt className="text-xs text-gray-500">Sendable</dt>
-              <dd className="font-semibold">{counts.sendableUsers}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">No draft</dt>
-              <dd>{counts.noDraftYet}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Current</dt>
-              <dd>{counts.draftCurrent}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Sent</dt>
-              <dd>{counts.draftSent}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Skipped</dt>
-              <dd>{counts.draftSkipped}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Would send</dt>
-              <dd>{counts.machineShouldSendTrue}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Would skip</dt>
-              <dd>{counts.machineShouldSendFalse}</dd>
-            </div>
+            {ADMIN_COUNT_KEYS.map((key) => (
+              <div key={key}>
+                <dt className="text-xs text-gray-500">{adminCountLabel(key, sendSlot)}</dt>
+                <dd className={key === "sendableUsers" ? "font-semibold" : undefined}>
+                  {counts[key]}
+                </dd>
+              </div>
+            ))}
           </dl>
         </div>
       ) : null}
@@ -662,15 +615,14 @@ export default function TylerTextOverviewDashboard() {
       {loading ? (
         <p className="text-sm text-gray-500">Loading sendable users…</p>
       ) : rows.length === 0 ? (
-        isEveningTab ? (
+        isEveningPage ? (
           <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-700 space-y-3">
             <p>No sendable users match this filter.</p>
+            <p>{EVENING_TTO_NO_PREVIEW_COPY}</p>
             <p>
-              Evening previews can be generated from the{" "}
-              <Link href={morningTabHref} className="font-medium text-gray-900 underline">
-                Morning / Primary Daily
-              </Link>{" "}
-              tab or on rows here once a user appears.
+              <Link href={siblingPageHref} className="font-medium text-gray-900 underline">
+                Morning Text Overview →
+              </Link>
             </p>
           </div>
         ) : (
@@ -686,7 +638,8 @@ export default function TylerTextOverviewDashboard() {
               (eveningSent || morningSent) && row.finalBodySent?.trim()
                 ? row.finalBodySent
                 : row.currentBodyToSend;
-            const showReadOnlyBody = eveningRow || morningSent || !canEditMorningDraft(row);
+            const showReadOnlyBody =
+              isEveningPage || morningSent || !canEditMorningDraft(row);
 
             return (
               <li
@@ -699,7 +652,7 @@ export default function TylerTextOverviewDashboard() {
                       Admin only
                     </h2>
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
-                      {rowStateLabel(row.rowState)}
+                      {rowStateLabel(row.rowState, sendSlot)}
                     </span>
                     {morningSent ? (
                       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
@@ -743,7 +696,7 @@ export default function TylerTextOverviewDashboard() {
                             </>
                           )}
                         </>
-                      ) : row.sendSlot === "morning" ? (
+                      ) : row.sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT ? (
                         "morning / primary daily"
                       ) : (
                         row.sendSlot
@@ -806,19 +759,7 @@ export default function TylerTextOverviewDashboard() {
                       </>
                     )}
                   </div>
-                  {!isEveningTab && row.clerkUserId?.trim() ? (
-                    <button
-                      type="button"
-                      className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                      disabled={generatingUserId === row.clerkUserId}
-                      onClick={() => generateEveningPreview(row)}
-                    >
-                      {generatingUserId === row.clerkUserId
-                        ? "Generating…"
-                        : "Generate Evening Preview"}
-                    </button>
-                  ) : null}
-                  {isEveningTab &&
+                  {isEveningPage &&
                   eveningRow &&
                   !eveningSent &&
                   row.clerkUserId?.trim() ? (
@@ -830,8 +771,12 @@ export default function TylerTextOverviewDashboard() {
                         onClick={() => generateEveningPreview(row)}
                       >
                         {generatingUserId === row.clerkUserId
-                          ? "Regenerating…"
-                          : "Regenerate Evening Preview"}
+                          ? row.rowState === "no_draft_yet"
+                            ? "Generating…"
+                            : "Regenerating…"
+                          : row.rowState === "no_draft_yet"
+                            ? "Generate Evening Preview"
+                            : "Regenerate Evening Preview"}
                       </button>
                       <button
                         type="button"
@@ -845,10 +790,10 @@ export default function TylerTextOverviewDashboard() {
                   ) : null}
                 </section>
 
-                {eveningRow ? (
+                {isEveningPage && eveningRow ? (
                   <section className="space-y-3 border-t border-gray-100 pt-5">
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                      Morning anchor
+                      Morning anchor (context only)
                     </h2>
                     <MorningAnchorPanel row={row} />
                   </section>
