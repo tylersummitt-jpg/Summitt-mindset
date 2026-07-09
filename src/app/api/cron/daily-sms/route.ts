@@ -221,9 +221,11 @@ import {
 import {
   applyDailySmsBuiltWithTtoPostWriterBypass,
   applyTtoDraftRevalidationSuccess,
+  assertMorningTtoDraftAuthoritativeForSend,
   assertTtoCurrentDraftBodyMatches,
   buildTylerTextOverviewRouteConflictMetadata,
   buildTylerTextOverviewSendMetadata,
+  evaluateMorningTtoAuthoritativeFailClosed,
   finalizeTylerTextOverviewDraftAfterSend,
   markTylerTextOverviewDraftSkippedAfterGuard,
   markTylerTextOverviewDraftSkippedAfterLiveFallback,
@@ -234,6 +236,8 @@ import {
   shouldRevalidateTtoCurrentDraftBeforeSend,
   withTylerTextOverviewFinalBodyOnContext,
   withTylerTextOverviewPostWriterBypassOnContext,
+  type MorningTtoAuthoritativeGateSuccess,
+  type MorningTtoAuthoritativeSkipReason,
   type TylerTextOverviewSendContext,
 } from "@/lib/tyler-text-overview-send";
 import { SMS_DAILY_PRODUCTION_SEND_SLOT } from "@/lib/tyler-text-overview-types";
@@ -525,6 +529,149 @@ function tylerTextOverviewMetadataForSend(
   finalBodySent: string | null
 ) {
   return withTylerTextOverviewFinalBodyOnContext(ctx, finalBodySent)?.metadataBlock ?? null;
+}
+
+function incrementMorningTtoAuthoritativeSkipStat(
+  stats: {
+    skippedTtoNoCurrentMorningDraft: number;
+    skippedTtoBlankMorningBody: number;
+    skippedTtoMissingGeneration: number;
+    skippedTtoMachineShouldSendFalse: number;
+    skippedTtoRouteNotEligibleV1: number;
+    skippedTtoAuthoritativeFailClosed: number;
+  },
+  reason: MorningTtoAuthoritativeSkipReason | "tto_live_fallback_blocked" | "tto_draft_body_not_used" | "tto_lookup_not_usable" | "tto_authoritative_body_mismatch"
+): void {
+  switch (reason) {
+    case "tto_no_current_morning_draft":
+      stats.skippedTtoNoCurrentMorningDraft += 1;
+      break;
+    case "tto_blank_morning_body":
+      stats.skippedTtoBlankMorningBody += 1;
+      break;
+    case "tto_missing_generation":
+      stats.skippedTtoMissingGeneration += 1;
+      break;
+    case "tto_machine_should_send_false":
+      stats.skippedTtoMachineShouldSendFalse += 1;
+      break;
+    case "tto_route_not_eligible_v1":
+      stats.skippedTtoRouteNotEligibleV1 += 1;
+      break;
+    case "tto_live_fallback_blocked":
+    case "tto_draft_body_not_used":
+    case "tto_lookup_not_usable":
+    case "tto_authoritative_body_mismatch":
+      stats.skippedTtoAuthoritativeFailClosed += 1;
+      break;
+    default:
+      break;
+  }
+}
+
+async function recordMorningTtoAuthoritativeGateFailure(args: {
+  clerkUserId: string;
+  todayKey: string;
+  reason: string;
+  hasSendEventRow: boolean;
+  existingMeta?: Record<string, unknown>;
+  retryCount?: number;
+  timezone: string;
+  localNow: Date;
+  gateMetadata?: Record<string, unknown>;
+}): Promise<void> {
+  console.log("[daily-sms] morning_tto_authoritative_gate_blocked", {
+    clerk_user_id: args.clerkUserId,
+    day_key: args.todayKey,
+    reason: args.reason,
+    has_send_event_row: args.hasSendEventRow,
+    ...(args.gateMetadata ?? {}),
+  });
+
+  if (!args.hasSendEventRow) {
+    return;
+  }
+
+  await supabaseServer
+    .from("sms_send_events")
+    .update({
+      status: "send_failed",
+      metadata: {
+        ...(args.existingMeta ?? {}),
+        note: args.reason,
+        tto_authoritative_gate: true,
+        tto_authoritative_skip_reason: args.reason,
+        draft_for_day_key: args.todayKey,
+        send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        ...(args.gateMetadata ?? {}),
+        retry_count: args.retryCount ?? 0,
+        timezone: args.timezone,
+        local_time: args.localNow.toISOString(),
+      },
+    })
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("day_key", args.todayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
+}
+
+async function blockMorningTtoAuthoritativeBeforeTwilio(args: {
+  gate: MorningTtoAuthoritativeGateSuccess;
+  draftBodyUsed: boolean;
+  tylerTextOverviewCtx: TylerTextOverviewSendContext | null;
+  smsBody: string;
+  clerkUserId: string;
+  todayKey: string;
+  existingMeta: Record<string, unknown>;
+  retryCount?: number;
+  timezone: string;
+  localNow: Date;
+}): Promise<
+  | { blocked: false }
+  | { blocked: true; reason: "tto_live_fallback_blocked" | "tto_draft_body_not_used" | "tto_lookup_not_usable" | "tto_authoritative_body_mismatch" }
+> {
+  const failClosed = evaluateMorningTtoAuthoritativeFailClosed({
+    gate: args.gate,
+    draftBodyUsed: args.draftBodyUsed,
+    lookup: args.tylerTextOverviewCtx?.lookup,
+    smsBody: args.smsBody,
+  });
+  if (failClosed.ok) {
+    return { blocked: false };
+  }
+
+  console.error("[daily-sms] morning_tto_authoritative_fail_closed", {
+    clerk_user_id: args.clerkUserId,
+    day_key: args.todayKey,
+    reason: failClosed.reason,
+    draft_body_used: args.draftBodyUsed,
+    lookup_usable: args.tylerTextOverviewCtx?.lookup.usable ?? null,
+    send_source: args.tylerTextOverviewCtx?.lookup.send_source ?? null,
+  });
+
+  await recordMorningTtoAuthoritativeGateFailure({
+    clerkUserId: args.clerkUserId,
+    todayKey: args.todayKey,
+    reason: failClosed.reason,
+    hasSendEventRow: true,
+    existingMeta: mergeTylerTextOverviewSendMetadata(args.existingMeta, {
+      tto_authoritative_gate: true,
+      tto_authoritative_skip_reason: failClosed.reason,
+      draft_for_day_key: args.todayKey,
+      send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      draftBodyUsed: args.draftBodyUsed,
+      send_source: args.tylerTextOverviewCtx?.lookup.send_source ?? null,
+      current_body_source: args.tylerTextOverviewCtx?.lookup.current_body_source ?? null,
+      edited_by_tyler: args.tylerTextOverviewCtx?.lookup.edited_by_tyler ?? null,
+    }),
+    retryCount: args.retryCount,
+    timezone: args.timezone,
+    localNow: args.localNow,
+    gateMetadata: {
+      tyler_edit_override: args.gate.tylerEdited,
+      route_kind: args.gate.generation.route_kind ?? null,
+    },
+  });
+  return { blocked: true, reason: failClosed.reason };
 }
 
 async function applyDailySmsBuiltAfterTylerTextOverview(args: {
@@ -1414,6 +1561,12 @@ export async function GET(req: Request) {
     twilioAccepted: 0,
     skippedNoSafeV3Voice: 0,
     skippedSundayWeeklyPause: 0,
+    skippedTtoNoCurrentMorningDraft: 0,
+    skippedTtoBlankMorningBody: 0,
+    skippedTtoMissingGeneration: 0,
+    skippedTtoMachineShouldSendFalse: 0,
+    skippedTtoRouteNotEligibleV1: 0,
+    skippedTtoAuthoritativeFailClosed: 0,
   };
 
   const { data: audienceQueryRows } = await supabaseServer
@@ -1697,6 +1850,28 @@ export async function GET(req: Request) {
               continue;
             }
 
+            stage = "morning_tto_authoritative_gate";
+            const morningTtoAuthoritativeGateRetry = await assertMorningTtoDraftAuthoritativeForSend({
+              clerkUserId: audienceUser.clerk_user_id,
+              draftForDayKey: todayKey,
+            });
+            if (!morningTtoAuthoritativeGateRetry.ok) {
+              await recordMorningTtoAuthoritativeGateFailure({
+                clerkUserId: audienceUser.clerk_user_id,
+                todayKey,
+                reason: morningTtoAuthoritativeGateRetry.reason,
+                hasSendEventRow: true,
+                existingMeta,
+                retryCount,
+                timezone,
+                localNow,
+                gateMetadata: morningTtoAuthoritativeGateRetry.metadata,
+              });
+              incrementMorningTtoAuthoritativeSkipStat(stats, morningTtoAuthoritativeGateRetry.reason);
+              stats.skippedIntentional += 1;
+              continue;
+            }
+
             stage = "build_content";
             const tylerTextOverviewBuild = await prepareTylerTextOverviewDailyBuild({
               clerkUserId: audienceUser.clerk_user_id,
@@ -1940,6 +2115,23 @@ export async function GET(req: Request) {
               })
             ) {
               stats.skippedUnexpected += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+            const failClosedRetry = await blockMorningTtoAuthoritativeBeforeTwilio({
+                gate: morningTtoAuthoritativeGateRetry,
+                draftBodyUsed: tylerDraftBodyUsed,
+                tylerTextOverviewCtx,
+                smsBody: builtAfterRevalidation.ok ? builtAfterRevalidation.smsBody : "",
+                clerkUserId: audienceUser.clerk_user_id,
+                todayKey,
+                existingMeta,
+                retryCount,
+                timezone,
+                localNow,
+              });
+            if (failClosedRetry.blocked) {
+              incrementMorningTtoAuthoritativeSkipStat(stats, failClosedRetry.reason);
               stats.skippedIntentional += 1;
               continue;
             }
@@ -2333,6 +2525,26 @@ export async function GET(req: Request) {
         }
       }
 
+      stage = "morning_tto_authoritative_gate";
+      const morningTtoAuthoritativeGateMain = await assertMorningTtoDraftAuthoritativeForSend({
+        clerkUserId: audienceUser.clerk_user_id,
+        draftForDayKey: todayKey,
+      });
+      if (!morningTtoAuthoritativeGateMain.ok) {
+        await recordMorningTtoAuthoritativeGateFailure({
+          clerkUserId: audienceUser.clerk_user_id,
+          todayKey,
+          reason: morningTtoAuthoritativeGateMain.reason,
+          hasSendEventRow: false,
+          timezone,
+          localNow,
+          gateMetadata: morningTtoAuthoritativeGateMain.metadata,
+        });
+        incrementMorningTtoAuthoritativeSkipStat(stats, morningTtoAuthoritativeGateMain.reason);
+        stats.skippedIntentional += 1;
+        continue;
+      }
+
       // STEP 3: Only reserve if no row exists
       stage = "reserve";
       const reservation = await reserveTodaySendOrSkip({
@@ -2655,6 +2867,22 @@ export async function GET(req: Request) {
         })
       ) {
         stats.skippedUnexpected += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+      const failClosedMain = await blockMorningTtoAuthoritativeBeforeTwilio({
+        gate: morningTtoAuthoritativeGateMain,
+        draftBodyUsed: tylerDraftBodyUsed,
+        tylerTextOverviewCtx,
+        smsBody: builtMainAfterRevalidation.ok ? builtMainAfterRevalidation.smsBody : "",
+        clerkUserId: audienceUser.clerk_user_id,
+        todayKey,
+        existingMeta: { note: "reserved_by_cron" },
+        timezone,
+        localNow,
+      });
+      if (failClosedMain.blocked) {
+        incrementMorningTtoAuthoritativeSkipStat(stats, failClosedMain.reason);
         stats.skippedIntentional += 1;
         continue;
       }

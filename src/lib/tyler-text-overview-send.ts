@@ -28,6 +28,192 @@ const MAIN_ACCOUNTABILITY_ROUTE_KIND = "main_active_accountability";
 
 const PREVIEW_ONLY_DRAFT_SEND_REFUSED = "preview_only_draft_not_sendable" as const;
 
+export type MorningTtoAuthoritativeSkipReason =
+  | "tto_no_current_morning_draft"
+  | "tto_blank_morning_body"
+  | "tto_missing_generation"
+  | "tto_machine_should_send_false"
+  | "tto_route_not_eligible_v1";
+
+export type MorningTtoAuthoritativeFailClosedReason =
+  | "tto_live_fallback_blocked"
+  | "tto_draft_body_not_used"
+  | "tto_lookup_not_usable"
+  | "tto_authoritative_body_mismatch";
+
+type AuthoritativeDraftRow = DraftRow & { send_slot?: string };
+
+type AuthoritativeGenerationRow = GenerationRow & {
+  machine_should_send?: boolean | null;
+};
+
+export type MorningTtoAuthoritativeGateSuccess = {
+  ok: true;
+  bodyToSend: string;
+  draft: AuthoritativeDraftRow;
+  generation: AuthoritativeGenerationRow;
+  tylerEdited: boolean;
+};
+
+export type MorningTtoAuthoritativeGateResult =
+  | MorningTtoAuthoritativeGateSuccess
+  | {
+      ok: false;
+      reason: MorningTtoAuthoritativeSkipReason;
+      metadata?: Record<string, unknown>;
+    };
+
+export function isTylerEditTtoDraftOverride(draft: {
+  edited_by_tyler: boolean;
+  current_body_source: string;
+}): boolean {
+  return draft.edited_by_tyler === true || draft.current_body_source === "tyler_edit";
+}
+
+export function isLiveFallbackTtoSendSource(source: string | null | undefined): boolean {
+  if (source == null || source === "") return false;
+  return (
+    source.startsWith("live_fallback") ||
+    source === "live_fallback_no_draft" ||
+    source === "live_fallback_empty_body" ||
+    source === "live_fallback_special_branch"
+  );
+}
+
+export async function assertMorningTtoDraftAuthoritativeForSend(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+}): Promise<MorningTtoAuthoritativeGateResult> {
+  const draftForDayKey = args.draftForDayKey.trim();
+  const clerkUserId = args.clerkUserId.trim();
+
+  const { data: draftRow, error: draftError } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select(
+      "id, clerk_user_id, draft_for_day_key, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, machine_body_hash, current_body_hash, status, send_slot"
+    )
+    .eq("clerk_user_id", clerkUserId)
+    .eq("draft_for_day_key", draftForDayKey)
+    .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
+    .eq("status", "current")
+    .maybeSingle();
+
+  if (draftError) {
+    return {
+      ok: false,
+      reason: "tto_no_current_morning_draft",
+      metadata: { draft_error: draftError.message },
+    };
+  }
+
+  if (!draftRow) {
+    return { ok: false, reason: "tto_no_current_morning_draft" };
+  }
+
+  const draft = draftRow as AuthoritativeDraftRow;
+  const body = trimBody(draft.current_body_to_send);
+  if (!body) {
+    return {
+      ok: false,
+      reason: "tto_blank_morning_body",
+      metadata: { draft_id: draft.id },
+    };
+  }
+
+  const generationId =
+    typeof draft.current_generation_id === "string" ? draft.current_generation_id.trim() : "";
+  if (!generationId) {
+    return {
+      ok: false,
+      reason: "tto_missing_generation",
+      metadata: { draft_id: draft.id },
+    };
+  }
+
+  const { data: generationRow, error: generationError } = await supabaseServer
+    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+    .select(
+      "id, generated_at, machine_body_hash, notebook_verdict, notebook_verdict_reason, route_kind, machine_should_send"
+    )
+    .eq("id", generationId)
+    .maybeSingle();
+
+  if (generationError || !generationRow) {
+    return {
+      ok: false,
+      reason: "tto_missing_generation",
+      metadata: {
+        draft_id: draft.id,
+        current_generation_id: generationId,
+        generation_error: generationError?.message ?? null,
+      },
+    };
+  }
+
+  const generation = generationRow as AuthoritativeGenerationRow;
+  const tylerEdited = isTylerEditTtoDraftOverride(draft);
+
+  if (generation.machine_should_send === false && !tylerEdited) {
+    return {
+      ok: false,
+      reason: "tto_machine_should_send_false",
+      metadata: {
+        draft_id: draft.id,
+        generation_id: generation.id,
+        route_kind: generation.route_kind,
+      },
+    };
+  }
+
+  const routeKindTrimmed =
+    typeof generation.route_kind === "string" ? generation.route_kind.trim() : "";
+  const routeEligibleForV1 =
+    routeKindTrimmed === "" || routeKindTrimmed === MAIN_ACCOUNTABILITY_ROUTE_KIND;
+  if (!routeEligibleForV1 && !tylerEdited) {
+    return {
+      ok: false,
+      reason: "tto_route_not_eligible_v1",
+      metadata: {
+        draft_id: draft.id,
+        generation_id: generation.id,
+        route_kind: generation.route_kind ?? null,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    bodyToSend: body,
+    draft,
+    generation,
+    tylerEdited,
+  };
+}
+
+export function evaluateMorningTtoAuthoritativeFailClosed(args: {
+  gate: MorningTtoAuthoritativeGateSuccess;
+  draftBodyUsed: boolean;
+  lookup: TylerTextOverviewDraftForSendResult | null | undefined;
+  smsBody: string;
+}): { ok: true } | { ok: false; reason: MorningTtoAuthoritativeFailClosedReason } {
+  if (!args.draftBodyUsed) {
+    return { ok: false, reason: "tto_draft_body_not_used" };
+  }
+  if (!args.lookup?.usable) {
+    return { ok: false, reason: "tto_lookup_not_usable" };
+  }
+  if (isLiveFallbackTtoSendSource(args.lookup.send_source)) {
+    return { ok: false, reason: "tto_live_fallback_blocked" };
+  }
+  if (
+    normalizedTtoCurrentDraftSendBody(args.smsBody) !==
+    normalizedTtoCurrentDraftSendBody(args.gate.bodyToSend)
+  ) {
+    return { ok: false, reason: "tto_authoritative_body_mismatch" };
+  }
+  return { ok: true };
+}
+
 async function loadDraftSendSlotForGuard(draftId: string): Promise<SmsDailySendSlot | null> {
   const { data, error } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
@@ -439,6 +625,15 @@ export async function loadUsableTylerTextOverviewDraftForSend(args: {
     baseFields.route_kind != null &&
     baseFields.route_kind !== MAIN_ACCOUNTABILITY_ROUTE_KIND
   ) {
+    if (isTylerEditTtoDraftOverride(draft)) {
+      return {
+        usable: true,
+        send_source: "tyler_edit",
+        stale: false,
+        stale_reason: null,
+        ...baseFields,
+      };
+    }
     return {
       usable: false,
       send_source: "live_fallback_special_branch",
@@ -501,10 +696,13 @@ export function shouldApplyTylerTextOverviewDraftOverlay(args: {
 }): boolean {
   if (!args.lookup.usable || !args.lookup.current_body_to_send) return false;
   if (!args.builtRaw.ok) return false;
-  if (isDailySmsBuiltSpecialBranch(args.builtRaw)) return false;
+  const tylerEdited =
+    args.lookup.edited_by_tyler || args.lookup.current_body_source === "tyler_edit";
+  if (isDailySmsBuiltSpecialBranch(args.builtRaw) && !tylerEdited) return false;
   if (
     args.lookup.route_kind != null &&
-    args.lookup.route_kind !== MAIN_ACCOUNTABILITY_ROUTE_KIND
+    args.lookup.route_kind !== MAIN_ACCOUNTABILITY_ROUTE_KIND &&
+    !tylerEdited
   ) {
     return false;
   }

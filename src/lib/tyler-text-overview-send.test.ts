@@ -1107,6 +1107,8 @@ describe("tyler-text-overview Phase 5 scope guards", () => {
     );
     expect(route).toContain("prepareTylerTextOverviewDailyBuild");
     expect(route).toContain("finalizeTylerTextOverviewAfterOutboundBestEffort");
+    expect(route).toContain("assertMorningTtoDraftAuthoritativeForSend");
+    expect(route).toContain("blockMorningTtoAuthoritativeBeforeTwilio");
     expect(route).not.toContain("tyler-text-overview-generate");
   });
 });
