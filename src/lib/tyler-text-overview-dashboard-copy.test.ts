@@ -7,6 +7,9 @@ import {
   buildSiblingTylerTextOverviewPageHref,
   EVENING_TTO_NON_TODAY_WARNING,
   EVENING_TTO_NO_PREVIEW_COPY,
+  EVENING_TTO_REGENERATE_OVERWRITE_COPY,
+  EVENING_TTO_SAVE_BEFORE_SEND_COPY,
+  EVENING_TTO_SAVE_ONLY_COPY,
   getTylerTextOverviewAdminLocalDayKey,
   MORNING_TTO_AUTHORITY_BANNER,
   resolveEveningTtoInitialSelectedDayKey,
@@ -302,5 +305,19 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("EVENING_TTO_NON_TODAY_WARNING");
     expect(EVENING_TTO_NON_TODAY_WARNING).toContain("non-today date");
     expect(EVENING_TTO_NO_PREVIEW_COPY).toContain("No evening preview");
+  });
+
+  it("evening page supports Save Evening Text with dirty-send guard", () => {
+    expect(dashboard).toContain("canEditEveningDraft");
+    expect(dashboard).toContain("Save Evening Text");
+    expect(dashboard).toContain("EVENING_TTO_SAVE_ONLY_COPY");
+    expect(dashboard).toContain("EVENING_TTO_SAVE_BEFORE_SEND_COPY");
+    expect(dashboard).toContain("EVENING_TTO_REGENERATE_OVERWRITE_COPY");
+    expect(dashboard).toContain("isEveningDraftDirty");
+    expect(dashboard).toContain("canSendThisEvening");
+    expect(EVENING_TTO_SAVE_ONLY_COPY).toContain("does not send");
+    expect(EVENING_TTO_SAVE_BEFORE_SEND_COPY).toContain("Save changes");
+    expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).toContain("replace saved edits");
+    expect(dashboard).not.toContain("showReadOnlyBody =\n              isEveningPage ||");
   });
 });

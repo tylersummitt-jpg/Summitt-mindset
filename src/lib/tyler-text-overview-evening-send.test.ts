@@ -338,6 +338,47 @@ describe("tyler-text-overview-evening-send", () => {
     expect(result.refusalCode).toBe("machine_should_send_false");
   });
 
+  it("sends edited current_body_to_send and finalizes that body", async () => {
+    const edited = "Tyler edited evening check-in body.";
+    seedEveningDraft({
+      current_body_to_send: edited,
+      edited_by_tyler: true,
+      current_body_source: "tyler_edit",
+    });
+    const result = await sendTylerTextOverviewEveningDraft({
+      draftId: "draft-evening-1",
+      requestedByClerkUserId: "admin_tyler",
+      mode: "manual_one",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(sendSmsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ body: edited })
+    );
+    expect(result.finalBodySent).toBe(edited);
+    expect(db.drafts[0].final_body_sent).toBe(edited);
+    expect(db.sendEvents[0].sms_body).toBe(edited);
+    expect(onCheckSentMock.mock.calls[0]?.[0].smsBody).toBe(edited);
+  });
+
+  it("machine_should_send=false still blocks when draft is Tyler-edited", async () => {
+    seedEveningDraft({
+      current_body_to_send: "Edited but machine said no",
+      edited_by_tyler: true,
+      current_body_source: "tyler_edit",
+    });
+    db.generations[0].machine_should_send = false;
+    const result = await sendTylerTextOverviewEveningDraft({
+      draftId: "draft-evening-1",
+      requestedByClerkUserId: "admin_tyler",
+      mode: "manual_one",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("machine_should_send_false");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+  });
+
   it("refuses no phone", async () => {
     db.audience[0].phone_number = "";
     const result = await sendTylerTextOverviewEveningDraft({

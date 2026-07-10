@@ -21,6 +21,14 @@ export const EVENING_TTO_NO_PREVIEW_COPY =
 export const EVENING_TTO_NON_TODAY_WARNING =
   "You are viewing an evening preview for a non-today date. Do not send unless this is intentional.";
 
+export const EVENING_TTO_SAVE_ONLY_COPY =
+  "Save updates the draft only. It does not send.";
+
+export const EVENING_TTO_SAVE_BEFORE_SEND_COPY = "Save changes before sending.";
+
+export const EVENING_TTO_REGENERATE_OVERWRITE_COPY =
+  "Regenerate may replace saved edits.";
+
 export type TylerTextOverviewDashboardSendSlot =
   | typeof SMS_DAILY_PRODUCTION_SEND_SLOT
   | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;

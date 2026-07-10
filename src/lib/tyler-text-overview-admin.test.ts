@@ -14,7 +14,6 @@ import {
   normalizeTylerTextOverviewDraftBodyInput,
   parseWriterOpenAiMessages,
   pickTylerTextOverviewDraftOverlay,
-  PREVIEW_ONLY_DRAFT_NOT_EDITABLE,
   resolveAdminListSendSlot,
   resolveTylerTextOverviewRowState,
   updateTylerTextOverviewDraftBody,
@@ -746,8 +745,25 @@ describe("tyler-text-overview-admin save model", () => {
     }
   });
 
-  it("save rejects evening_checkin preview draft", async () => {
+  it("save allows current evening_checkin preview draft", async () => {
     db.drafts[0].send_slot = "evening_checkin";
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body: "Evening Tyler edit",
+      now,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(db.drafts[0].current_body_to_send).toBe("Evening Tyler edit");
+    expect(db.drafts[0].edited_by_tyler).toBe(true);
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0].current_generation_id).toBe("gen-1");
+    expect(result.row.sendSlot).toBe("evening_checkin");
+  });
+
+  it("save rejects sent evening_checkin draft", async () => {
+    db.drafts[0].send_slot = "evening_checkin";
+    db.drafts[0].status = "sent";
     const result = await updateTylerTextOverviewDraftBody({
       draftId: "draft-1",
       body: "Should not save",
@@ -756,7 +772,22 @@ describe("tyler-text-overview-admin save model", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(409);
-      expect(result.error).toBe(PREVIEW_ONLY_DRAFT_NOT_EDITABLE);
+      expect(result.error).toContain("not current");
+    }
+  });
+
+  it("save rejects non-current evening_checkin draft", async () => {
+    db.drafts[0].send_slot = "evening_checkin";
+    db.drafts[0].status = "skipped";
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body: "Should not save",
+      now,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.error).toContain("not current");
     }
   });
 });
@@ -1273,6 +1304,8 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-preview");
     expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-send");
     expect(dashboard).toContain("Send Evening Text");
+    expect(dashboard).toContain("Save Evening Text");
+    expect(dashboard).toContain("canEditEveningDraft");
     expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
     expect(dashboard).not.toMatch(/Generate all|Bulk generate/i);
   });

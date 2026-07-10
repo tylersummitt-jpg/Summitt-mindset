@@ -925,13 +925,6 @@ export async function updateTylerTextOverviewDraftBody(args: {
     draft.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
       ? SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
       : SMS_DAILY_PRODUCTION_SEND_SLOT;
-  if (draftSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
-    return {
-      ok: false,
-      error: PREVIEW_ONLY_DRAFT_NOT_EDITABLE,
-      status: 409,
-    };
-  }
 
   const { data: generationRow, error: generationLoadError } = await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
@@ -982,7 +975,9 @@ export async function updateTylerTextOverviewDraftBody(args: {
     })
     .eq("id", draftId)
     .eq("status", "current")
-    .select("id, clerk_user_id, draft_for_day_key, current_generation_id, current_body_to_send, status")
+    .select(
+      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
+    )
     .maybeSingle();
 
   if (updateError) {
@@ -997,15 +992,20 @@ export async function updateTylerTextOverviewDraftBody(args: {
     return { ok: false, error: "Draft update did not apply", status: 409 };
   }
 
+  const dtoDraft = {
+    ...(updatedRow as DraftDbRow),
+    send_slot: draftSendSlot,
+  };
+
   const latestGenerationsByKey = await fetchLatestGenerationsForDrafts(
-    [updatedRow as DraftDbRow],
-    SMS_DAILY_PRODUCTION_SEND_SLOT
+    [dtoDraft],
+    draftSendSlot
   );
 
   return {
     ok: true,
     row: mapDraftRowsToAdminDto({
-      drafts: [updatedRow as DraftDbRow],
+      drafts: [dtoDraft],
       generationsById: new Map([[generation.id, generation]]),
       latestGenerationsByKey,
     })[0],

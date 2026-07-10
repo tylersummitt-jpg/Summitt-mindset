@@ -11,6 +11,9 @@ import {
   EVENING_TTO_MANUAL_BANNER,
   EVENING_TTO_NON_TODAY_WARNING,
   EVENING_TTO_NO_PREVIEW_COPY,
+  EVENING_TTO_REGENERATE_OVERWRITE_COPY,
+  EVENING_TTO_SAVE_BEFORE_SEND_COPY,
+  EVENING_TTO_SAVE_ONLY_COPY,
   isEveningDashboardSendSlot,
   MORNING_TTO_AUTHORITY_BANNER,
   resolveEveningTtoInitialSelectedDayKey,
@@ -56,18 +59,34 @@ function canEditMorningDraft(row: TylerTextOverviewAdminDraftRow): boolean {
   return row.rowState === "draft_current" && Boolean(row.draftId);
 }
 
-function canSendEveningRow(row: TylerTextOverviewAdminDraftRow): boolean {
+function isEveningPreviewRow(row: TylerTextOverviewAdminDraftRow): boolean {
+  return row.sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT || row.previewOnly === true;
+}
+
+/** Option A: editable only when current, unsent, and machine_should_send=true. */
+function canEditEveningDraft(row: TylerTextOverviewAdminDraftRow): boolean {
   if (!row.draftId) return false;
   if (!isEveningPreviewRow(row)) return false;
   if (isEveningDraftSent(row)) return false;
   if (row.draftStatus !== "current") return false;
   if (row.machineShouldSend !== true) return false;
+  return true;
+}
+
+function canSendEveningRow(row: TylerTextOverviewAdminDraftRow): boolean {
+  if (!canEditEveningDraft(row)) return false;
   const body = row.currentBodyToSend?.trim();
   return Boolean(body);
 }
 
-function isEveningPreviewRow(row: TylerTextOverviewAdminDraftRow): boolean {
-  return row.sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT || row.previewOnly === true;
+function isEveningDraftDirty(
+  row: TylerTextOverviewAdminDraftRow,
+  edits: EditState
+): boolean {
+  if (!row.draftId) return false;
+  const local = edits[row.draftId] ?? "";
+  const saved = row.currentBodyToSend ?? "";
+  return local !== saved;
 }
 
 function notebookLabel(role: string): string {
@@ -666,12 +685,16 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             const eveningRow = isEveningPreviewRow(row);
             const eveningSent = eveningRow && isEveningDraftSent(row);
             const morningSent = !eveningRow && isMorningDraftSent(row);
+            const eveningEditable = isEveningPage && canEditEveningDraft(row);
+            const morningEditable = !isEveningPage && canEditMorningDraft(row) && !morningSent;
+            const canEditBody = eveningEditable || morningEditable;
+            const eveningDirty = eveningEditable && isEveningDraftDirty(row, edits);
+            const canSendThisEvening =
+              canSendEveningRow(row) && !eveningDirty && sendingDraftId !== row.draftId;
             const readOnlyBody =
               (eveningSent || morningSent) && row.finalBodySent?.trim()
                 ? row.finalBodySent
                 : row.currentBodyToSend;
-            const showReadOnlyBody =
-              isEveningPage || morningSent || !canEditMorningDraft(row);
 
             return (
               <li
@@ -763,7 +786,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   ) : null}
                   <div>
                     <p className="text-xs font-medium text-gray-500">current_body_to_send</p>
-                    {showReadOnlyBody ? (
+                    {!canEditBody ? (
                       <pre className="mt-1 w-full min-h-[96px] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap">
                         {readOnlyBody ?? (row.rowState === "no_draft_yet" ? "—" : "—")}
                       </pre>
@@ -780,13 +803,25 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                             }))
                           }
                         />
+                        {eveningEditable ? (
+                          <p className="mt-1 text-xs text-gray-600">{EVENING_TTO_SAVE_ONLY_COPY}</p>
+                        ) : null}
+                        {eveningDirty ? (
+                          <p className="mt-1 text-xs font-medium text-amber-800">
+                            {EVENING_TTO_SAVE_BEFORE_SEND_COPY}
+                          </p>
+                        ) : null}
                         <button
                           type="button"
                           className="mt-2 rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                           disabled={savingDraftId === row.draftId}
                           onClick={() => saveDraft(row)}
                         >
-                          {savingDraftId === row.draftId ? "Saving…" : "Save"}
+                          {savingDraftId === row.draftId
+                            ? "Saving…"
+                            : eveningEditable
+                              ? "Save Evening Text"
+                              : "Save"}
                         </button>
                       </>
                     )}
@@ -810,10 +845,15 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                             ? "Generate Evening Preview"
                             : "Regenerate Evening Preview"}
                       </button>
+                      {row.rowState !== "no_draft_yet" ? (
+                        <p className="text-xs text-gray-600">
+                          {EVENING_TTO_REGENERATE_OVERWRITE_COPY}
+                        </p>
+                      ) : null}
                       <button
                         type="button"
                         className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                        disabled={!canSendEveningRow(row) || sendingDraftId === row.draftId}
+                        disabled={!canSendThisEvening}
                         onClick={() => setConfirmSendRow(row)}
                       >
                         {sendingDraftId === row.draftId ? "Sending…" : "Send Evening Text"}
