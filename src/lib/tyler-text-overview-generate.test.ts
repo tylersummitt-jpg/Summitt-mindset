@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { buildWriterOpenAiCapture } from "@/lib/tyler-text-overview-writer-capture";
 import {
   resolveTylerTextOverviewDraftForDayKey,
+  resolveTylerTextOverviewEveningDraftForDayKey,
   isTylerTextOverviewEveningStyleSendUser,
 } from "@/lib/tyler-text-overview-draft-day-key";
 import {
@@ -433,6 +434,27 @@ describe("resolveTylerTextOverviewDraftForDayKey", () => {
   });
 });
 
+describe("resolveTylerTextOverviewEveningDraftForDayKey", () => {
+  it("8 PM Eastern July 9 → user-local today 2026-07-09 (no rollover)", () => {
+    const key = resolveTylerTextOverviewEveningDraftForDayKey({
+      now: new Date("2026-07-10T00:00:00.000Z"), // 8:00 PM ET July 9
+      timezone: "America/New_York",
+    });
+    expect(key).toBe("2026-07-09");
+  });
+
+  it("morning noon helper still rolls morning-style users to tomorrow at 8 PM ET", () => {
+    const morningKey = resolveTylerTextOverviewDraftForDayKey({
+      now: new Date("2026-07-10T00:00:00.000Z"), // 8:00 PM ET July 9
+      timezone: "America/New_York",
+      clerkSmsTimePreference: "morning",
+      commsPrefs: null,
+      learnedProfile: null,
+    });
+    expect(morningKey).toBe("2026-07-10");
+  });
+});
+
 describe("generateTylerTextOverviewDailyDrafts", () => {
   const env = { ...process.env };
 
@@ -813,5 +835,40 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     );
     expect(morningDrafts.length).toBe(1);
     expect(eveningDrafts.length).toBe(1);
+  });
+
+  it("defaults to user-local today at 8 PM ET without morning rollover", async () => {
+    buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      now: new Date("2026-07-10T00:00:00.000Z"), // 8:00 PM ET July 9
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draftForDayKey).toBe("2026-07-09");
+    expect(buildDailySmsContentMock).toHaveBeenCalledWith(
+      AUDIENCE_USER.clerk_user_id,
+      expect.any(Object),
+      "2026-07-09",
+      "America/New_York",
+      expect.objectContaining({
+        mode: "draft",
+        writingBriefOverrides: expect.objectContaining({
+          currentSendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        }),
+      })
+    );
+  });
+
+  it("respects explicit draftForDayKey even when local evening would be today", async () => {
+    buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-10",
+      now: new Date("2026-07-10T00:00:00.000Z"), // 8:00 PM ET July 9
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draftForDayKey).toBe("2026-07-10");
   });
 });

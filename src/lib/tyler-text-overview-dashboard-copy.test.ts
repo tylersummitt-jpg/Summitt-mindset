@@ -186,4 +186,14 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("buildTylerTextOverviewEveningPageHref");
     expect(dashboard).not.toMatch(/router\.push\([^)]*send_slot/);
   });
+
+  it("evening Generate/Regenerate prefers selectedDayKey and omits stale row day when blank", () => {
+    expect(dashboard).toContain("isEveningPage");
+    expect(dashboard).toMatch(
+      /const dayKey = isEveningPage\s*\?\s*selectedDayKey\.trim\(\) \|\| undefined/
+    );
+    expect(dashboard).not.toMatch(
+      /const dayKey = row\.draftForDayKey\?\.trim\(\) \|\| selectedDayKey\.trim\(\) \|\| undefined/
+    );
+  });
 });

@@ -74,3 +74,18 @@ export function resolveTylerTextOverviewDraftForDayKey(
   }
   return todayKey;
 }
+
+export type ResolveTylerTextOverviewEveningDraftForDayKeyArgs = {
+  now: Date;
+  timezone: string;
+};
+
+/**
+ * Accountability day for evening_checkin previews: user-local calendar today.
+ * No morning/noon rollover and no tomorrow shift — evening asks about today's goal.
+ */
+export function resolveTylerTextOverviewEveningDraftForDayKey(
+  args: ResolveTylerTextOverviewEveningDraftForDayKeyArgs
+): string {
+  return getDateKeyInTimezone(args.now, args.timezone);
+}

@@ -6,7 +6,10 @@ import {
 import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
-import { resolveTylerTextOverviewDraftForDayKey } from "@/lib/tyler-text-overview-draft-day-key";
+import {
+  resolveTylerTextOverviewDraftForDayKey,
+  resolveTylerTextOverviewEveningDraftForDayKey,
+} from "@/lib/tyler-text-overview-draft-day-key";
 import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
 import {
   isTylerTextOverviewEnabled,
@@ -841,15 +844,11 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   }
 
   const clerkSmsTimePreference = smsTimePreferenceFromClerkMetadata(md);
-  const learnedProfile = await fetchV2UserSendTimeProfile(clerkUserId);
   const draftForDayKey =
     args.draftForDayKey?.trim() ||
-    resolveTylerTextOverviewDraftForDayKey({
+    resolveTylerTextOverviewEveningDraftForDayKey({
       now,
       timezone,
-      clerkSmsTimePreference,
-      commsPrefs,
-      learnedProfile,
     });
 
   const morningAnchor = await resolveEveningPreviewMorningAnchor({

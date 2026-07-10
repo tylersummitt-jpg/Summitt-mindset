@@ -430,7 +430,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
       return;
     }
 
-    const dayKey = row.draftForDayKey?.trim() || selectedDayKey.trim() || undefined;
+    // Evening page: explicit filter/URL day wins; blank "All current days" omits day so
+    // the server resolves user-local today (never pass a stale/tomorrow row day).
+    // Morning page (legacy path): keep prior row → filter precedence.
+    const dayKey = isEveningPage
+      ? selectedDayKey.trim() || undefined
+      : row.draftForDayKey?.trim() || selectedDayKey.trim() || undefined;
 
     setGeneratingUserId(row.clerkUserId);
     try {
