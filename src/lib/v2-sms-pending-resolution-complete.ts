@@ -263,9 +263,10 @@ export function extractDeterministicDailyBarCandidate(raw: string): string | nul
     const story = trimmed.slice(0, BEHAVIOR_MAX);
     return isVagueOrInvalidCandidateBar(story) ? null : story;
   }
-  if (trimmed.length >= 3 && trimmed.length <= BEHAVIOR_MAX && !isVagueOrInvalidCandidateBar(trimmed)) {
-    return trimmed;
-  }
+
+  // No raw full-body fallback: meta goal-change requests and other unstructured
+  // inbound must not become candidate_behavior_statement. Concrete bars come from
+  // structured extractors above, TU/AI/meaning interpreter, or an existing pending candidate.
   return null;
 }
 
@@ -416,10 +417,13 @@ function extractBootstrapCandidateForPending(
 
 /**
  * Slice A3 — same-turn promotion after Wave 4 creates awaiting_candidate pending.
+ * Never promotes raw inbound alone: requires structured extract or existing payload candidate.
  */
 export async function bootstrapSmsPendingConfirmationFromInbound(args: {
   commitment: ActiveV2CommitmentRow;
   rawBody: string;
+  /** When Wave4 opened an awaiting_candidate shell with no concrete bar, skip raw-body promotion. */
+  openedAsAwaitingCandidateShell?: boolean;
 }): Promise<SmsPendingBootstrapResult> {
   const pending = getPendingResolutionOrNull(args.commitment);
   if (!pending?.payload || pending.payload.source !== "sms_inbound") {
@@ -461,6 +465,12 @@ export async function bootstrapSmsPendingConfirmationFromInbound(args: {
   if (preferRichTextOverBareDuration(raw, extracted)) {
     extracted = null;
   }
+
+  // Shell opened without a concrete bar: do not promote unless structured extract (or payload) found one.
+  if (args.openedAsAwaitingCandidateShell === true && !payloadPreCandidate && !extracted) {
+    return { promoted: false, candidate: null, skipReason: "shell_without_concrete_candidate" };
+  }
+
   if (
     detectedIntent === "sms_raise_bar_request" &&
     (!extracted || isSmsRaiseBarCommandOnlyText(extracted))
@@ -1188,12 +1198,16 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     extracted = null;
   }
 
-  let candidateRaw = meaningInterpreterAcceptedBar ?? extracted ?? rawFull;
+  // Never fall back to raw inbound as the candidate — only structured extract, meaning interpreter, or AI.
+  let candidateRaw: string | null = meaningInterpreterAcceptedBar ?? extracted ?? null;
   let deterministicGood =
-    !isVagueOrInvalidCandidateBar(candidateRaw) && clampCandidateForKind(kind, candidateRaw) !== null;
+    Boolean(candidateRaw) &&
+    !isVagueOrInvalidCandidateBar(candidateRaw!) &&
+    clampCandidateForKind(kind, candidateRaw!) !== null;
 
   if (meaningInterpreterAcceptedBar) {
     deterministicGood = true;
+    candidateRaw = meaningInterpreterAcceptedBar;
   }
 
   let aiMeta: {
@@ -1318,7 +1332,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     );
   }
 
-  const clamped = clampCandidateForKind(kind, candidateRaw);
+  const clamped = clampCandidateForKind(kind, candidateRaw!);
   if (!clamped) {
     const clampDraft =
       kind === "commitment_tighten"
@@ -1345,7 +1359,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     );
   }
 
-  if (isUnsafeSmsGoalCandidateText(clamped) || isUnsafeSmsGoalCandidateText(candidateRaw)) {
+  if (isUnsafeSmsGoalCandidateText(clamped) || isUnsafeSmsGoalCandidateText(candidateRaw!)) {
     const unsafeSafety = classifyInboundSmsSafetyTier(clamped);
     const unsafeDraft =
       buildInboundSmsSafetyReplyBody(unsafeSafety) ??

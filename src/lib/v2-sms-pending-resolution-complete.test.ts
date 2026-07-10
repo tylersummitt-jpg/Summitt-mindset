@@ -421,16 +421,134 @@ describe("candidate hygiene — acknowledgments and meta change-requests", () =>
     expect(extractDeterministicDailyBarCandidate(text)).toBeNull();
   });
 
-  it("accepts concrete compliment goal as candidate", () => {
-    const concrete = "I want to give each kid one genuine compliment every day";
+  it("does not treat unstructured desire phrasing as a deterministic candidate (no full-body fallback)", () => {
+    const unstructured = "I want to give each kid one genuine compliment every day";
+    expect(isAcknowledgmentOrMetaChangeRequestOnly(unstructured)).toBe(false);
+    // Without a structured cue (change-to / duration / agree-to), raw body is not a candidate.
+    expect(extractDeterministicDailyBarCandidate(unstructured)).toBeNull();
+  });
+
+  it("extracts concrete clause from change-my-goal-to framing", () => {
+    const concrete = "Change my goal to give each kid one genuine compliment every day";
     expect(isAcknowledgmentOrMetaChangeRequestOnly(concrete)).toBe(false);
-    expect(isVagueOrInvalidCandidateBar(concrete)).toBe(false);
     expect(extractDeterministicDailyBarCandidate(concrete)).toMatch(/compliment/i);
   });
 
   it("strips I agree to wrapper and keeps concrete clause", () => {
     const msg = "I agree to give each kid one genuine compliment every day";
     expect(isAcknowledgmentOrMetaChangeRequestOnly(msg)).toBe(false);
+    const extracted = extractDeterministicDailyBarCandidate(msg);
+    expect(extracted).toMatch(/give each kid one genuine compliment every day/i);
+    expect(extracted).not.toMatch(/^i agree/i);
+  });
+});
+
+describe("no raw full-body fallback for candidate_behavior_statement", () => {
+  it("A — shell + meta goal-change request does not promote raw body to CBS", async () => {
+    const raw = "I want to change my goal, please.";
+    expect(extractDeterministicDailyBarCandidate(raw)).toBeNull();
+
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      detected_intent: "sms_change_unspecified",
+      raw_user_text: raw,
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+      awaiting_candidate_reason: "goal_change_without_concrete_bar",
+    });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_meta_please", raw_body: raw },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.pendingStillActiveAfterPhase1).toBe(true);
+      expect(r.replyBody.toLowerCase()).toMatch(/hold you to|clear daily|what exactly/i);
+    }
+
+    // No merge that writes candidate_behavior_statement from raw body.
+    for (const call of mergeMock.mock.calls) {
+      const mergeFn = call[0]?.merge as
+        | ((prev: Record<string, unknown>) => Record<string, unknown>)
+        | undefined;
+      if (!mergeFn) continue;
+      const merged = mergeFn({
+        source: "sms_inbound",
+        detected_intent: "sms_change_unspecified",
+        raw_user_text: raw,
+        inbound_message_sid: "SMpr_meta_please",
+        ai_confidence: null,
+        sms_state: "awaiting_candidate",
+        candidate_behavior_statement: null,
+        candidate_new_bar: null,
+      });
+      expect(merged.candidate_behavior_statement ?? null).not.toBe(raw);
+      expect(merged.sms_state).not.toBe("awaiting_confirmation");
+    }
+  });
+
+  it("B — change-my-goal-to concrete clause extracts and can promote", async () => {
+    const raw = "Change my goal to walking 10,000 steps every day.";
+    const extracted = extractDeterministicDailyBarCandidate(raw);
+    expect(extracted).toMatch(/walking 10,?000 steps every day/i);
+    expect(extracted).not.toMatch(/^change my goal/i);
+
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      detected_intent: "sms_replace_request",
+      raw_user_text: raw,
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_concrete_change", raw_body: raw },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).toMatch(/hold you to|change the focus|raise the/);
+    }
+    expect(mergeMock).toHaveBeenCalled();
+    const mergeFn = mergeMock.mock.calls[0]![0].merge as (prev: Record<string, unknown>) => Record<
+      string,
+      unknown
+    >;
+    const merged = mergeFn({
+      source: "sms_inbound",
+      detected_intent: "sms_replace_request",
+      raw_user_text: raw,
+      inbound_message_sid: "SMpr_concrete_change",
+      ai_confidence: null,
+      sms_state: "awaiting_candidate",
+    });
+    expect(merged.sms_state).toBe("awaiting_confirmation");
+    expect(String(merged.candidate_behavior_statement)).toMatch(/walking 10,?000 steps every day/i);
+    expect(String(merged.candidate_behavior_statement)).not.toBe(raw);
+  });
+
+  it("C — duration-anchored concrete bar still extracts", () => {
+    const raw = "Walk 20 minutes after dinner.";
+    expect(extractDeterministicDailyBarCandidate(raw)).toMatch(/20 minutes/i);
+  });
+
+  it("E — raw full-body alone is never a deterministic candidate source", () => {
+    expect(extractDeterministicDailyBarCandidate("I want to change my goal, please.")).toBeNull();
+    expect(extractDeterministicDailyBarCandidate("Please change my current goal somehow.")).toBeNull();
+    expect(extractDeterministicDailyBarCandidate("I'd like a different focus going forward.")).toBeNull();
+  });
+
+  it("F — I agree to concrete clause still extracts", () => {
+    const msg = "I agree to give each kid one genuine compliment every day";
     const extracted = extractDeterministicDailyBarCandidate(msg);
     expect(extracted).toMatch(/give each kid one genuine compliment every day/i);
     expect(extracted).not.toMatch(/^i agree/i);

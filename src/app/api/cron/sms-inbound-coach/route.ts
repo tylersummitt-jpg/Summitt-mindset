@@ -5686,6 +5686,8 @@ async function processV2NormalInboundOutcome(
           commitmentChangeBootstrapResult = await bootstrapSmsPendingConfirmationFromInbound({
             commitment: reloadedForBootstrap,
             rawBody: userMessage,
+            openedAsAwaitingCandidateShell:
+              tuGoalChangePendingHandoffEval.mode === "awaiting_candidate_shell",
           });
         }
         console.info("[wave4-sms-commitment] pending_resolution", {

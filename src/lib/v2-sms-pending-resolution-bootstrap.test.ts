@@ -196,4 +196,48 @@ describe("bootstrapSmsPendingConfirmationFromInbound", () => {
     expect(r.promoted).toBe(true);
     expect(r.candidate).toMatch(/30 minutes of walking after dinner/i);
   });
+
+  it("A — shell without concrete bar does not promote meta goal-change raw body", async () => {
+    const raw = "I want to change my goal, please.";
+    const c = commitmentWithPending({
+      source: "sms_inbound",
+      detected_intent: "sms_change_unspecified",
+      raw_user_text: raw,
+      inbound_message_sid: "SMboot_shell",
+      ai_confidence: null,
+      sms_state: "awaiting_candidate",
+      candidate_new_bar: null,
+      candidate_behavior_statement: null,
+    });
+    const r = await bootstrapSmsPendingConfirmationFromInbound({
+      commitment: c,
+      rawBody: raw,
+      openedAsAwaitingCandidateShell: true,
+    });
+    expect(r.promoted).toBe(false);
+    expect(r.skipReason).toBe("shell_without_concrete_candidate");
+    expect(mergeSmsPendingResolutionPayload).not.toHaveBeenCalled();
+  });
+
+  it("B — shell + structured change-to clause still promotes concrete candidate", async () => {
+    const raw = "Change my goal to walking 10,000 steps every day.";
+    const c = commitmentWithPending({
+      source: "sms_inbound",
+      detected_intent: "sms_replace_request",
+      raw_user_text: raw,
+      inbound_message_sid: "SMboot_concrete",
+      ai_confidence: null,
+      sms_state: "awaiting_candidate",
+      candidate_new_bar: null,
+      candidate_behavior_statement: null,
+    });
+    const r = await bootstrapSmsPendingConfirmationFromInbound({
+      commitment: c,
+      rawBody: raw,
+      openedAsAwaitingCandidateShell: true,
+    });
+    expect(r.promoted).toBe(true);
+    expect(r.candidate).toMatch(/walking 10,?000 steps every day/i);
+    expect(r.candidate).not.toBe(raw);
+  });
 });
