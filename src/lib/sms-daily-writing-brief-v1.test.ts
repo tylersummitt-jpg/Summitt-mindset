@@ -10,6 +10,8 @@ import { deriveDailyProofCalibration } from "@/lib/sms-daily-proof-calibration";
 import { deriveFreshnessAvoidPhrasesForBrief } from "@/lib/sms-daily-fresh-move";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import {
+  applyCoachingSituationConflicts,
+  buildCoachingSituationForBrief,
   buildDailySmsWritingBriefV1,
   buildDailySmsWriterMessagesFromBrief,
   buildCompactTimingCopyGuidanceForBrief,
@@ -21,6 +23,7 @@ import {
   dailyWritingBriefTelemetry,
   deriveDailyWritingBriefFallbackTelemetry,
   deriveLocalDaypartForBrief,
+  detectFitOrCorrectionConflictFromAssembledSemantics,
   FIRST_TEXT_STYLE_MICROGUIDE_V1,
   neutralizeBriefSuggestedMoveReasonForWriter,
   useDailySmsWritingBriefV1,
@@ -1090,7 +1093,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       freshness_phrases: [],
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system.length).toBeLessThan(3250);
+    expect(writer.system.length).toBeLessThan(3400);
     expect(writer.system.length + writer.user.length).toBeLessThan(8500);
   });
 
@@ -1371,5 +1374,288 @@ describe("slot_coaching_context in DAILY_SMS_WRITING_BRIEF_V1", () => {
     ]);
     expect(brief.relationship_read.authority).toBe("paraphrase_only_not_copy");
     expect(brief.slot_coaching_context.slot_role_recommendation).toBeTruthy();
+  });
+});
+
+describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
+  function meetingAskCommitment() {
+    return {
+      ...baseFacts().commitment,
+      effective_ask: "I will start one meeting on time with a clear agenda",
+      behavior_statement: "Start one meeting on time with a clear agenda",
+      title: "Meeting kickoff",
+    };
+  }
+
+  function briefFor(args: {
+    messages: Array<{ at_local: string; role: "coach" | "user"; body: string }>;
+    factsOverrides?: Partial<DailyV3RelationshipFacts>;
+    freshness_phrases?: ReturnType<typeof deriveFreshnessAvoidPhrasesForBrief>;
+    strategy_card?: StrategyCardV1;
+    writing_brief_overrides?: Parameters<typeof buildDailySmsWritingBriefV1>[0]["writing_brief_overrides"];
+  }) {
+    const facts = baseFacts(args.factsOverrides);
+    return buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: deriveDailyProofCalibration({ facts }),
+      strategy_card: args.strategy_card ?? minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: args.messages,
+        message_count: args.messages.length,
+        char_count: args.messages.reduce((s, m) => s + m.body.length, 0),
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: args.freshness_phrases ?? [],
+      writing_brief_overrides: args.writing_brief_overrides,
+    });
+  }
+
+  it("Mayes-style correction + stale copy → fit repair, demote set_today_rep, allow one question", () => {
+    const ask = "I will start one meeting on time with a clear agenda";
+    const brief = briefFor({
+      messages: [
+        {
+          at_local: "Thu 7:00 AM",
+          role: "coach",
+          body: "Mayes, kick off that meeting with a clear agenda today.",
+        },
+        {
+          at_local: "Thu 7:10 AM",
+          role: "user",
+          body: "These messages are not relevant",
+        },
+      ],
+      factsOverrides: { commitment: meetingAskCommitment() },
+      freshness_phrases: [
+        {
+          phrase: "kick off that meeting with a clear agenda",
+          source_body_preview: "Mayes, kick off that meeting with a clear agenda today.",
+          at_local: "Thu 7:00 AM",
+        },
+      ],
+      strategy_card: {
+        ...minimalCard(),
+        move: {
+          type: "close_loop",
+          priority: "normal",
+          confidence: "high",
+          reason: "Prior ask was answered — close the loop without re-asking.",
+        },
+        writer_constraints: {
+          max_questions: 0,
+          avoid_repeating: [],
+          tone_posture: "warm_direct",
+        },
+      },
+      writing_brief_overrides: {
+        previousOutbound: {
+          body: "Mayes, kick off that meeting with a clear agenda today.",
+          inferred_slot: "morning",
+        },
+      },
+    });
+
+    expect(brief.relationship_read.what_would_make_user_feel_known).toBe("honor_correction");
+    expect(
+      brief.relationship_read.avoid_because_user_corrected_us.some((a) =>
+        /correction:/i.test(a)
+      )
+    ).toBe(true);
+    expect(brief.relationship_read.bad_old_coach_copy_warning).toMatch(/stale wording/i);
+
+    expect(["fit_in_question", "repair_recent_correction"]).toContain(
+      brief.coaching_situation.kind
+    );
+    expect(brief.coaching_situation.current_standard_status).toBe(
+      "stored_but_fit_in_question"
+    );
+    expect(brief.coaching_situation.writer_posture).toBe(
+      "repair_fit_before_accountability"
+    );
+    expect(brief.coaching_situation.authority).toBe("semantic_context_not_copy");
+    expect(brief.coaching_situation.basis.length).toBeLessThanOrEqual(5);
+    expect(brief.coaching_situation.semantic_notes.length).toBeLessThanOrEqual(5);
+
+    expect(brief.current_standard.effective_ask).toBe(ask);
+    expect(brief.slot_coaching_context.slot_role_recommendation).not.toBe("set_today_rep");
+    expect(brief.slot_coaching_context.checkin_focus).not.toBe(ask);
+    if (brief.slot_coaching_context.checkin_focus) {
+      expect(brief.slot_coaching_context.checkin_focus.toLowerCase()).not.toContain(
+        "meeting on time"
+      );
+    }
+    expect(brief.suggested_move.max_questions).toBe(1);
+    expect(
+      brief.suggested_move.must_not_do.some((m) =>
+        /until fit\/relevance is repaired/i.test(m)
+      )
+    ).toBe(true);
+    expect(brief.authoritative_truth.claims.can_claim_proof).toBe(true);
+    expect(JSON.stringify(brief)).not.toMatch(/Change Goal|Update Goal|open the app/i);
+  });
+
+  it("normal accountability regression keeps active posture and allows set_today_rep", () => {
+    const brief = briefFor({
+      messages: [],
+      writing_brief_overrides: {
+        previousOutbound: null,
+      },
+    });
+    expect(brief.coaching_situation.kind).toBe("normal_accountability");
+    expect(brief.coaching_situation.current_standard_status).toBe("active");
+    expect(brief.coaching_situation.writer_posture).toBe("run_accountability");
+    expect(brief.slot_coaching_context.slot_role_recommendation).toBe("set_today_rep");
+  });
+
+  it("DNR close-loop without fit conflict keeps max_questions 0 and no repair posture", () => {
+    const brief = briefFor({
+      messages: [
+        { at_local: "Thu 8:00 AM", role: "coach", body: "What time will you protect the hour?" },
+        { at_local: "Thu 8:05 AM", role: "user", body: "After lunch at 1pm." },
+      ],
+      factsOverrides: {
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "plan_detail",
+          do_not_repeat_asks: ["What time will you protect the hour?"],
+          evidence_preview: "After lunch at 1pm.",
+          source: "inbound_turn_telemetry",
+          occurred_at: "2026-06-20T13:00:00.000Z",
+          last_ask_satisfied: "yes",
+          stale_ask_risk: true,
+          relationship_meaning: "plan_made",
+          response_intent: "acknowledge_prior_ask_satisfied",
+          prior_question_type: "plan_confirmation",
+          outcome_proof_eligible: false,
+          persistence_note: "Satisfied-ask context only.",
+        },
+        thread_memory: {
+          ...baseFacts().thread_memory,
+          latest_open_question: "What time will you protect the hour?",
+          latest_answer_after_open_question: "After lunch at 1pm.",
+          open_question_pending: false,
+          do_not_repeat_hints: ["What time will you protect the hour?"],
+        },
+      },
+      strategy_card: {
+        ...minimalCard(),
+        move: {
+          type: "close_loop",
+          priority: "normal",
+          confidence: "high",
+          reason: "Prior ask was answered — close the loop without re-asking.",
+        },
+        writer_constraints: {
+          max_questions: 0,
+          avoid_repeating: [],
+          tone_posture: "warm_direct",
+        },
+      },
+    });
+
+    expect(brief.coaching_situation.writer_posture).not.toBe(
+      "repair_fit_before_accountability"
+    );
+    expect(brief.coaching_situation.current_standard_status).toBe("active");
+    expect(brief.suggested_move.max_questions).toBe(0);
+    expect(brief.recent_turn_semantics?.relationship_meaning).toBe("plan_made");
+    expect(brief.recent_turn_semantics?.authority).toBe("semantic_context_not_copy");
+  });
+
+  it("Brooke-style steps goal does not hard-code walking-only or cleaning→steps", () => {
+    const stepsAsk = "Hit 10,000 steps today";
+    const brief = briefFor({
+      messages: [
+        {
+          at_local: "Thu 8:00 AM",
+          role: "coach",
+          body: "Brooke, how's the step goal going this morning?",
+        },
+        {
+          at_local: "Thu 8:05 AM",
+          role: "user",
+          body: "I actually didn't walk- I cleaned the house! Haha",
+        },
+      ],
+      factsOverrides: {
+        commitment: {
+          ...baseFacts().commitment,
+          effective_ask: stepsAsk,
+          behavior_statement: "10,000 steps",
+          title: "Steps",
+        },
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: true,
+          satisfied_ask_type: "direct_answer",
+          do_not_repeat_asks: ["how's the step goal going this morning?"],
+          evidence_preview: "I actually didn't walk- I cleaned the house! Haha",
+          source: "inbound_turn_telemetry",
+          occurred_at: "2026-06-20T13:00:00.000Z",
+          last_ask_satisfied: "yes",
+          stale_ask_risk: true,
+          relationship_meaning: "direct_answer",
+          response_intent: "acknowledge_prior_ask_satisfied",
+          prior_question_type: null,
+          outcome_proof_eligible: false,
+          persistence_note: "Satisfied-ask context only.",
+        },
+      },
+    });
+
+    expect(brief.current_standard.effective_ask).toBe(stepsAsk);
+    const blob = JSON.stringify(brief.coaching_situation);
+    expect(blob).not.toMatch(/instead of walking/i);
+    expect(blob).not.toMatch(/cleaning counts as steps/i);
+    expect(brief.authoritative_truth.claims.can_claim_completion).toBe(false);
+    expect(brief.coaching_situation.writer_posture).not.toBe(
+      "repair_fit_before_accountability"
+    );
+  });
+
+  it("prompt treats coaching_situation as semantic context with fit-repair and method-open guidance", () => {
+    const brief = briefFor({
+      messages: [
+        {
+          at_local: "Thu 7:10 AM",
+          role: "user",
+          body: "These messages are not relevant",
+        },
+      ],
+      factsOverrides: { commitment: meetingAskCommitment() },
+      freshness_phrases: [
+        {
+          phrase: "meeting with a clear agenda",
+          source_body_preview: "Start the meeting with a clear agenda.",
+          at_local: "Wed 7:00 AM",
+        },
+      ],
+      strategy_card: {
+        ...minimalCard(),
+        writer_constraints: {
+          max_questions: 0,
+          avoid_repeating: [],
+          tone_posture: "warm_direct",
+        },
+      },
+    });
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toMatch(/coaching_situation is semantic context/i);
+    expect(writer.system).toMatch(/stored_but_fit_in_question|repair_fit_before_accountability/i);
+    expect(writer.system).toMatch(/do not assume one method is the only way/i);
+    expect(writer.system).toMatch(/No app, website, Victory Room/i);
+    expect(writer.system).toMatch(/Do not repeat stale or satisfied asks/i);
+    expect(writer.system).toMatch(/No fake proof/i);
+    expect(writer.system).toMatch(
+      /OUTPUT: strict JSON only with keys:\nshould_send \(boolean\), body \(string/
+    );
+
+    const helpersSrc = [
+      applyCoachingSituationConflicts.toString(),
+      buildCoachingSituationForBrief.toString(),
+      detectFitOrCorrectionConflictFromAssembledSemantics.toString(),
+    ].join("\n");
+    expect(helpersSrc).not.toMatch(/not relevant|not my goal|stop asking/i);
   });
 });

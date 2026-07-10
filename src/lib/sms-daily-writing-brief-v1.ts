@@ -64,6 +64,49 @@ export type DailySmsWritingBriefRouteKind =
   | "main_active_accountability"
   | "low_pressure_reactivation";
 
+export const COACHING_SITUATION_AUTHORITY = "semantic_context_not_copy" as const;
+
+export type CoachingSituationKind =
+  | "normal_accountability"
+  | "fit_in_question"
+  | "repair_recent_correction"
+  | "close_prior_answer"
+  | "proof_check"
+  | "plan_check"
+  | "silence_reentry";
+
+export type CoachingSituationStandardStatus =
+  | "active"
+  | "stored_but_fit_in_question"
+  | "stored_but_method_open";
+
+export type CoachingSituationWriterPosture =
+  | "run_accountability"
+  | "repair_fit_before_accountability"
+  | "honor_correction_then_continue"
+  | "close_loop_no_new_ask"
+  | "ask_for_plan"
+  | "ask_for_proof";
+
+export type DailySmsCoachingSituationV1 = {
+  authority: typeof COACHING_SITUATION_AUTHORITY;
+  kind: CoachingSituationKind;
+  current_standard_status: CoachingSituationStandardStatus;
+  writer_posture: CoachingSituationWriterPosture;
+  basis: string[];
+  semantic_notes: string[];
+};
+
+export type DailySmsRecentTurnSemanticsV1 = {
+  authority: typeof COACHING_SITUATION_AUTHORITY;
+  relationship_meaning?: string | null;
+  response_intent?: string | null;
+  evidence_preview?: string | null;
+  last_ask_satisfied?: "yes" | "no" | "unclear" | null;
+  satisfied_ask_type?: string | null;
+  source?: string | null;
+};
+
 export type DailySmsWritingBriefV1 = {
   brief_version: typeof DAILY_SMS_WRITING_BRIEF_VERSION;
   route_kind: DailySmsWritingBriefRouteKind;
@@ -73,6 +116,10 @@ export type DailySmsWritingBriefV1 = {
     profile_hint?: string | null;
   };
   relationship_read: DailySmsRelationshipReadV1;
+  /** Compact semantic situation — not copy, not a route engine. */
+  coaching_situation: DailySmsCoachingSituationV1;
+  /** Optional pass-through of already-loaded satisfied-ask / TU tokens. */
+  recent_turn_semantics?: DailySmsRecentTurnSemanticsV1;
   /** Outbound moment/purpose for this generation (Phase 2A: always morning). Not wall-clock time. */
   current_send_slot: SmsDailySendSlot;
   /** Interpretive slot-to-slot coaching thread guidance — not proof authority. */
@@ -507,6 +554,297 @@ export type BuildDailySmsWritingBriefV1Args = {
   writing_brief_overrides?: DailySmsWritingBriefOverrides;
 };
 
+const COACHING_SITUATION_BASIS_MAX = 5;
+const COACHING_SITUATION_NOTES_MAX = 5;
+const COACHING_SITUATION_LABEL_MAX = 48;
+
+function pushSituationLabel(list: string[], label: string, max: number): void {
+  const t = label.trim().slice(0, COACHING_SITUATION_LABEL_MAX);
+  if (!t) return;
+  const key = t.toLowerCase();
+  if (list.some((x) => x.toLowerCase() === key)) return;
+  if (list.length >= max) return;
+  list.push(t);
+}
+
+function hasCorrectionAvoidToken(avoid: string[]): boolean {
+  return avoid.some((a) => a.toLowerCase().includes("correction:"));
+}
+
+/** Stale-copy warning from freshness/duplicate coach — not the correction-avoid fallback alone. */
+function hasFreshnessOrDuplicateStaleCopyWarning(warning: string | null | undefined): boolean {
+  const w = warning?.trim() ?? "";
+  if (!w) return false;
+  return /stale wording|repeated the same ask/i.test(w);
+}
+
+function satisfiedAskIndicatesFitRepair(
+  sac: DailyV3RelationshipFacts["daily_satisfied_ask_context"]
+): boolean {
+  if (!sac) return false;
+  const meaning = sac.relationship_meaning?.trim().toLowerCase() ?? "";
+  const intent = sac.response_intent?.trim().toLowerCase() ?? "";
+  return meaning === "goal_adjustment_request" || intent === "clarify_goal_change";
+}
+
+/**
+ * Detect fit/correction conflict from already-assembled semantic tokens only.
+ * Does not scan raw inbound text or match user phrases.
+ */
+export function detectFitOrCorrectionConflictFromAssembledSemantics(args: {
+  relationship_read: DailySmsRelationshipReadV1;
+  daily_satisfied_ask_context?: DailyV3RelationshipFacts["daily_satisfied_ask_context"];
+}): boolean {
+  const read = args.relationship_read;
+  const feel = read.what_would_make_user_feel_known;
+  const honor =
+    feel === "honor_correction" || feel === "heard_correction";
+  const correctionAvoid = hasCorrectionAvoidToken(read.avoid_because_user_corrected_us);
+  const standardConflict = Boolean(read.possible_current_standard_conflict?.trim());
+  const staleCopy = hasFreshnessOrDuplicateStaleCopyWarning(read.bad_old_coach_copy_warning);
+  const tuRepair = satisfiedAskIndicatesFitRepair(args.daily_satisfied_ask_context);
+
+  if (tuRepair) return true;
+  if (standardConflict) return true;
+  // Mayes-style: correction token(s) plus freshness/duplicate stale-copy warning.
+  if ((honor || correctionAvoid) && staleCopy) return true;
+  return false;
+}
+
+export function buildRecentTurnSemanticsForBrief(
+  sac: DailyV3RelationshipFacts["daily_satisfied_ask_context"]
+): DailySmsRecentTurnSemanticsV1 | undefined {
+  if (!sac?.has_satisfied_recent_ask) return undefined;
+  const out: DailySmsRecentTurnSemanticsV1 = {
+    authority: COACHING_SITUATION_AUTHORITY,
+  };
+  if (sac.relationship_meaning?.trim()) {
+    out.relationship_meaning = truncateText(sac.relationship_meaning, 80);
+  }
+  if (sac.response_intent?.trim()) {
+    out.response_intent = truncateText(sac.response_intent, 80);
+  }
+  if (sac.evidence_preview?.trim()) {
+    out.evidence_preview = truncateText(sac.evidence_preview, 120);
+  }
+  if (sac.last_ask_satisfied) {
+    out.last_ask_satisfied = sac.last_ask_satisfied;
+  }
+  if (sac.satisfied_ask_type) {
+    out.satisfied_ask_type = sac.satisfied_ask_type;
+  }
+  if (sac.source) {
+    out.source = sac.source;
+  }
+  return out;
+}
+
+export function buildCoachingSituationForBrief(args: {
+  relationship_read: DailySmsRelationshipReadV1;
+  suggested_move: DailySmsSuggestedMoveV1;
+  open_loops: DailySmsWritingBriefV1["open_loops"];
+  silence_cadence: DailySmsWritingBriefV1["silence_cadence"];
+  daily_satisfied_ask_context?: DailyV3RelationshipFacts["daily_satisfied_ask_context"];
+  freshness_avoid_count: number;
+}): DailySmsCoachingSituationV1 {
+  const basis: string[] = [];
+  const semantic_notes: string[] = [];
+  const read = args.relationship_read;
+  const fitConflict = detectFitOrCorrectionConflictFromAssembledSemantics({
+    relationship_read: read,
+    daily_satisfied_ask_context: args.daily_satisfied_ask_context,
+  });
+  const silenceActive =
+    Boolean(args.silence_cadence) && args.silence_cadence!.route !== "normal_daily";
+  const pendingPlan = args.open_loops.pending_plan_active === true;
+  const closeLoopMove = args.suggested_move.move === "close_loop";
+  const feel = read.what_would_make_user_feel_known;
+  const honor = feel === "honor_correction" || feel === "heard_correction";
+  const standardConflict = Boolean(read.possible_current_standard_conflict?.trim());
+  const tuRepair = satisfiedAskIndicatesFitRepair(args.daily_satisfied_ask_context);
+
+  if (silenceActive) {
+    pushSituationLabel(basis, `silence:${args.silence_cadence!.route}`, COACHING_SITUATION_BASIS_MAX);
+    return {
+      authority: COACHING_SITUATION_AUTHORITY,
+      kind: "silence_reentry",
+      current_standard_status: "active",
+      writer_posture: "run_accountability",
+      basis,
+      semantic_notes,
+    };
+  }
+
+  if (fitConflict) {
+    if (feel) pushSituationLabel(basis, `feel_known:${feel}`, COACHING_SITUATION_BASIS_MAX);
+    if (hasCorrectionAvoidToken(read.avoid_because_user_corrected_us)) {
+      pushSituationLabel(basis, "avoid:correction", COACHING_SITUATION_BASIS_MAX);
+    }
+    if (hasFreshnessOrDuplicateStaleCopyWarning(read.bad_old_coach_copy_warning)) {
+      pushSituationLabel(basis, "stale_coach_copy", COACHING_SITUATION_BASIS_MAX);
+    }
+    if (standardConflict) {
+      pushSituationLabel(basis, "standard_conflict", COACHING_SITUATION_BASIS_MAX);
+    }
+    if (tuRepair) {
+      pushSituationLabel(basis, "tu:goal_fit", COACHING_SITUATION_BASIS_MAX);
+    }
+    if (args.freshness_avoid_count > 0) {
+      pushSituationLabel(basis, "freshness_avoid", COACHING_SITUATION_BASIS_MAX);
+    }
+    pushSituationLabel(semantic_notes, "fit_or_relevance_in_question", COACHING_SITUATION_NOTES_MAX);
+    pushSituationLabel(semantic_notes, "do_not_coach_standard_as_rep", COACHING_SITUATION_NOTES_MAX);
+    const kind: CoachingSituationKind =
+      standardConflict || tuRepair ? "fit_in_question" : "repair_recent_correction";
+    return {
+      authority: COACHING_SITUATION_AUTHORITY,
+      kind,
+      current_standard_status: "stored_but_fit_in_question",
+      writer_posture: "repair_fit_before_accountability",
+      basis,
+      semantic_notes,
+    };
+  }
+
+  if (pendingPlan) {
+    pushSituationLabel(basis, "pending_plan", COACHING_SITUATION_BASIS_MAX);
+    return {
+      authority: COACHING_SITUATION_AUTHORITY,
+      kind: "plan_check",
+      current_standard_status: "active",
+      writer_posture: "ask_for_plan",
+      basis,
+      semantic_notes,
+    };
+  }
+
+  if (closeLoopMove) {
+    pushSituationLabel(basis, "suggested_move:close_loop", COACHING_SITUATION_BASIS_MAX);
+    if (args.open_loops.satisfied_do_not_repeat?.length) {
+      pushSituationLabel(basis, "dnr_present", COACHING_SITUATION_BASIS_MAX);
+    }
+    return {
+      authority: COACHING_SITUATION_AUTHORITY,
+      kind: "close_prior_answer",
+      current_standard_status: "active",
+      writer_posture: "close_loop_no_new_ask",
+      basis,
+      semantic_notes,
+    };
+  }
+
+  if (honor) {
+    pushSituationLabel(basis, `feel_known:${feel}`, COACHING_SITUATION_BASIS_MAX);
+    return {
+      authority: COACHING_SITUATION_AUTHORITY,
+      kind: "normal_accountability",
+      current_standard_status: "active",
+      writer_posture: "honor_correction_then_continue",
+      basis,
+      semantic_notes,
+    };
+  }
+
+  pushSituationLabel(basis, "default_active", COACHING_SITUATION_BASIS_MAX);
+  return {
+    authority: COACHING_SITUATION_AUTHORITY,
+    kind: "normal_accountability",
+    current_standard_status: "active",
+    writer_posture: "run_accountability",
+    basis,
+    semantic_notes,
+  };
+}
+
+function normalizeFocusCompare(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function checkinFocusRepeatsStandard(
+  checkinFocus: string | null | undefined,
+  effectiveAsk: string
+): boolean {
+  const focus = checkinFocus?.trim() ?? "";
+  const ask = effectiveAsk.trim();
+  if (!focus || !ask) return false;
+  const a = normalizeFocusCompare(focus);
+  const b = normalizeFocusCompare(ask);
+  if (a === b) return true;
+  if (a.length >= 12 && b.includes(a)) return true;
+  if (b.length >= 12 && a.includes(b)) return true;
+  return false;
+}
+
+function pushRepairMustNotDo(list: string[], line: string): void {
+  const t = line.trim().slice(0, 120);
+  if (!t) return;
+  if (list.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+  list.push(t);
+}
+
+/**
+ * Resolve notebook contradictions for repair posture.
+ * Does not mutate goals, send/no-send, or classify inbound text.
+ */
+export function applyCoachingSituationConflicts(args: {
+  coaching_situation: DailySmsCoachingSituationV1;
+  slot_coaching_context: SlotCoachingContextV1;
+  suggested_move: DailySmsSuggestedMoveV1;
+  current_standard_effective_ask: string;
+}): {
+  coaching_situation: DailySmsCoachingSituationV1;
+  slot_coaching_context: SlotCoachingContextV1;
+  suggested_move: DailySmsSuggestedMoveV1;
+} {
+  const situation = args.coaching_situation;
+  let slot = args.slot_coaching_context;
+  let move = args.suggested_move;
+
+  if (situation.writer_posture !== "repair_fit_before_accountability") {
+    return {
+      coaching_situation: situation,
+      slot_coaching_context: slot,
+      suggested_move: move,
+    };
+  }
+
+  if (slot.slot_role_recommendation === "set_today_rep") {
+    slot = { ...slot, slot_role_recommendation: "truth_check" };
+  }
+
+  if (checkinFocusRepeatsStandard(slot.checkin_focus, args.current_standard_effective_ask)) {
+    slot = { ...slot, checkin_focus: null };
+  }
+
+  const must_not_do = [...move.must_not_do];
+  pushRepairMustNotDo(
+    must_not_do,
+    "Do not run normal accountability on current_standard until fit/relevance is repaired"
+  );
+  pushRepairMustNotDo(must_not_do, "Do not repeat satisfied or stale coach asks");
+  pushRepairMustNotDo(must_not_do, "Do not use app or menu navigation");
+  pushRepairMustNotDo(must_not_do, "Do not claim the goal changed");
+  pushRepairMustNotDo(must_not_do, "Do not claim proof unless authoritative_truth allows it");
+
+  move = {
+    ...move,
+    max_questions: 1,
+    must_not_do: must_not_do.slice(0, 5),
+  };
+
+  const basis = [...situation.basis];
+  pushSituationLabel(basis, "conflict_demote_set_today_rep", COACHING_SITUATION_BASIS_MAX);
+  if (move.max_questions === 1) {
+    pushSituationLabel(basis, "repair_allows_one_question", COACHING_SITUATION_BASIS_MAX);
+  }
+
+  return {
+    coaching_situation: { ...situation, basis: basis.slice(0, COACHING_SITUATION_BASIS_MAX) },
+    slot_coaching_context: slot,
+    suggested_move: move,
+  };
+}
+
 export function buildDailySmsWritingBriefV1(
   args: BuildDailySmsWritingBriefV1Args
 ): DailySmsWritingBriefV1 {
@@ -583,6 +921,40 @@ export function buildDailySmsWritingBriefV1(
     latestOpenQuestion: open_loops.latest_open_question ?? null,
   });
 
+  const current_standard = {
+    effective_ask: truncateText(f.commitment.effective_ask, 200),
+    behavior_statement: truncateText(f.commitment.behavior_statement, 200) || null,
+    accountability_phase: truncateText(f.commitment.accountability_phase, 40),
+    max_chars: f.constraints.max_chars ?? DAILY_BRIEF_MAX_CHARS,
+  };
+
+  const silence_cadence = f.silence_cadence
+    ? {
+        route: f.silence_cadence.route,
+        silence_day: f.silence_cadence.silence_day,
+        send_today: f.silence_cadence.send_today,
+      }
+    : null;
+
+  let coaching_situation = buildCoachingSituationForBrief({
+    relationship_read,
+    suggested_move,
+    open_loops,
+    silence_cadence,
+    daily_satisfied_ask_context: f.daily_satisfied_ask_context,
+    freshness_avoid_count: freshnessPhrases.length,
+  });
+
+  const conflictResolved = applyCoachingSituationConflicts({
+    coaching_situation,
+    slot_coaching_context,
+    suggested_move,
+    current_standard_effective_ask: current_standard.effective_ask,
+  });
+  coaching_situation = conflictResolved.coaching_situation;
+
+  const recent_turn_semantics = buildRecentTurnSemanticsForBrief(f.daily_satisfied_ask_context);
+
   return {
     brief_version: DAILY_SMS_WRITING_BRIEF_VERSION,
     route_kind: routeKind,
@@ -596,14 +968,11 @@ export function buildDailySmsWritingBriefV1(
         : null,
     },
     relationship_read,
+    coaching_situation,
+    ...(recent_turn_semantics ? { recent_turn_semantics } : {}),
     current_send_slot,
-    slot_coaching_context,
-    current_standard: {
-      effective_ask: truncateText(f.commitment.effective_ask, 200),
-      behavior_statement: truncateText(f.commitment.behavior_statement, 200) || null,
-      accountability_phase: truncateText(f.commitment.accountability_phase, 40),
-      max_chars: f.constraints.max_chars ?? DAILY_BRIEF_MAX_CHARS,
-    },
+    slot_coaching_context: conflictResolved.slot_coaching_context,
+    current_standard,
     authoritative_truth: {
       local: {
         date: localDate,
@@ -632,13 +1001,7 @@ export function buildDailySmsWritingBriefV1(
       claims: buildAuthoritativeClaims(args.strategy_card, cal),
       posture: deriveBriefPosture(f),
     },
-    silence_cadence: f.silence_cadence
-      ? {
-          route: f.silence_cadence.route,
-          silence_day: f.silence_cadence.silence_day,
-          send_today: f.silence_cadence.send_today,
-        }
-      : null,
+    silence_cadence,
     recent_exact_thread: {
       ...args.thread.window,
       messages: args.thread.messages,
@@ -650,7 +1013,7 @@ export function buildDailySmsWritingBriefV1(
       note: "Structural guardrail — paraphrase only; do not copy phrases.",
     },
     open_loops,
-    suggested_move,
+    suggested_move: conflictResolved.suggested_move,
     relationship_anchors,
     durable_relationship_memory: buildDurableRelationshipMemoryForBrief({
       facts: f,
@@ -667,6 +1030,7 @@ export function buildDailySmsBriefSystemPrompt(args: {
   goalEvolutionInvite: boolean;
   silenceCadenceRoute?: SilenceCadenceRoute | null;
   currentSendSlot?: SmsDailySendSlot;
+  coachingSituation?: DailySmsCoachingSituationV1 | null;
 }): string {
   const scRoute = args.silenceCadenceRoute;
   const scCard = scRoute ? SILENCE_CADENCE_ROUTE_CARDS[scRoute] : null;
@@ -684,6 +1048,27 @@ export function buildDailySmsBriefSystemPrompt(args: {
   if (args.goalEvolutionInvite) {
     extras.push("- Goal evolution invite is allowed only as a soft invitation — no goal mutation.");
   }
+  const cs = args.coachingSituation;
+  const repairFit =
+    cs?.writer_posture === "repair_fit_before_accountability" ||
+    cs?.current_standard_status === "stored_but_fit_in_question";
+  if (cs) {
+    extras.push(
+      "- coaching_situation is semantic context, not copy — paraphrase tokens only."
+    );
+  }
+  if (repairFit) {
+    extras.push(
+      "- stored_but_fit_in_question / repair_fit_before_accountability: do not run normal accountability on current_standard until fit is repaired."
+    );
+    if (!args.zeroQuestionMode) {
+      extras.push("- One direct fit/relevance question when allowed — not a stale goal rep.");
+    }
+    extras.push("- Do not lead with today's rep on current_standard while fit is in question.");
+  }
+  extras.push(
+    "- Outcome standards: if method is open/unclear, do not assume one method is the only way."
+  );
   const silenceCadenceBlock =
     scRoute && scRoute !== "normal_daily"
       ? `\n${buildSilenceCadenceRouteCardPromptAppendix(scRoute)}\n`
@@ -691,21 +1076,25 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
   const authorityOrder =
     scRoute && scRoute !== "normal_daily"
-      ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. When present, silence_cadence route card controls re-entry posture. relationship_read, slot_coaching_context, suggested_move, route cards, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases."
-      : "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. relationship_read, slot_coaching_context, suggested_move, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases.";
+      ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. When present, silence_cadence route card controls re-entry posture. coaching_situation, relationship_read, slot_coaching_context, suggested_move, route cards, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases."
+      : "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. coaching_situation, relationship_read, slot_coaching_context, suggested_move, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases.";
 
   const eveningSlotLine =
     args.currentSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
       ? "Evening check-in: continue the thread since morning; use slot_coaching_context for focus, not a generic goal loop.\n"
       : "";
 
+  const styleBlock = repairFit
+    ? `${FIRST_TEXT_STYLE_MICROGUIDE_V1}\n• Exception when fit is in question: do not lead with a concrete rep on current_standard; repair fit/relevance first.`
+    : FIRST_TEXT_STYLE_MICROGUIDE_V1;
+
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
 Use DAILY_SMS_WRITING_BRIEF_V1 for facts and constraints only — not wording. Write one fresh human SMS.
 ${authorityOrder}
-${eveningSlotLine}Paraphrase all hints (relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
+${eveningSlotLine}Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
 authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, or unsupported temporal claims.
-When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies. Do not copy example shapes verbatim.
+When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies as stored truth. Do not copy example shapes verbatim.
 ${silenceCadenceBlock}
 Write like a real coach who knows this person: direct, warm enough, plainspoken, specific, and willing to hold the standard. Do not sound like software, customer support, a therapist, or a habit tracker.
 Best shape: one sentence of continuity, one sentence naming the standard or next move, one direct ask or challenge. Concrete today beats reflection.
@@ -714,7 +1103,7 @@ ${questionLine}
 One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes. No fake proof. No invented wins/misses/Victory Room claims. No generic motivation filler. Do not repeat stale or satisfied asks.
 ${extras.join("\n")}
 
-${FIRST_TEXT_STYLE_MICROGUIDE_V1}
+${styleBlock}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -736,6 +1125,7 @@ export function buildDailySmsWriterMessagesFromBrief(brief: DailySmsWritingBrief
     goalEvolutionInvite: brief.open_loops.goal_evolution_invite?.should_invite === true,
     silenceCadenceRoute: brief.silence_cadence?.route ?? null,
     currentSendSlot: brief.current_send_slot,
+    coachingSituation: brief.coaching_situation,
   });
   const user = `DAILY_SMS_WRITING_BRIEF_V1 (server truth — not copyable prose):
 ${JSON.stringify(brief)}
