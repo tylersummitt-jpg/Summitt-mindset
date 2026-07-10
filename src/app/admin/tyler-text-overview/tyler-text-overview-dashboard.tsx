@@ -9,9 +9,12 @@ import {
   buildSiblingTylerTextOverviewPageHref,
   buildTylerTextOverviewEveningPageHref,
   EVENING_TTO_MANUAL_BANNER,
+  EVENING_TTO_NON_TODAY_WARNING,
   EVENING_TTO_NO_PREVIEW_COPY,
   isEveningDashboardSendSlot,
   MORNING_TTO_AUTHORITY_BANNER,
+  resolveEveningTtoInitialSelectedDayKey,
+  shouldShowEveningNonTodayWarning,
   rowStateLabel,
   type TylerTextOverviewDashboardSendSlot,
 } from "@/lib/tyler-text-overview-dashboard-copy";
@@ -323,9 +326,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const [rows, setRows] = useState<TylerTextOverviewAdminDraftRow[]>([]);
   const [counts, setCounts] = useState<TylerTextOverviewAdminCounts | null>(null);
   const [availableDayKeys, setAvailableDayKeys] = useState<string[]>([]);
-  const [selectedDayKey, setSelectedDayKey] = useState<string>(
-    () => searchParams.get("draft_for_day_key") ?? ""
-  );
+  const [selectedDayKey, setSelectedDayKey] = useState<string>(() => {
+    const fromUrl = searchParams.get("draft_for_day_key");
+    if (isEveningPage) {
+      return resolveEveningTtoInitialSelectedDayKey({ searchParamDayKey: fromUrl });
+    }
+    return fromUrl ?? "";
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [edits, setEdits] = useState<EditState>({});
   const [loading, setLoading] = useState(true);
@@ -501,6 +508,17 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     draftForDayKey: selectedDayKey,
   });
   const siblingPageLabel = isEveningPage ? "Morning Text Overview →" : "Evening Text Overview →";
+  const showEveningNonTodayWarning =
+    isEveningPage && shouldShowEveningNonTodayWarning(selectedDayKey);
+  const dayFilterOptions = (() => {
+    const keys = [...availableDayKeys];
+    const selected = selectedDayKey.trim();
+    if (selected && !keys.includes(selected)) {
+      keys.push(selected);
+      keys.sort((a, b) => b.localeCompare(a));
+    }
+    return keys;
+  })();
 
   return (
     <div className="space-y-6">
@@ -567,6 +585,15 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         </div>
       )}
 
+      {showEveningNonTodayWarning ? (
+        <div
+          className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-950"
+          role="alert"
+        >
+          <p>{EVENING_TTO_NON_TODAY_WARNING}</p>
+        </div>
+      ) : null}
+
       <p className="text-sm">
         <Link href={siblingPageHref} className="font-medium text-gray-900 underline">
           {siblingPageLabel}
@@ -582,7 +609,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             onChange={(e) => setSelectedDayKey(e.target.value)}
           >
             <option value="">All current days</option>
-            {availableDayKeys.map((dayKey) => (
+            {dayFilterOptions.map((dayKey) => (
               <option key={dayKey} value={dayKey}>
                 {dayKey}
               </option>

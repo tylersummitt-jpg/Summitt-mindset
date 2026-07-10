@@ -5,10 +5,15 @@ import { join } from "node:path";
 import {
   adminCountLabel,
   buildSiblingTylerTextOverviewPageHref,
+  EVENING_TTO_NON_TODAY_WARNING,
   EVENING_TTO_NO_PREVIEW_COPY,
+  getTylerTextOverviewAdminLocalDayKey,
   MORNING_TTO_AUTHORITY_BANNER,
+  resolveEveningTtoInitialSelectedDayKey,
+  resolveSiblingLinkDraftForDayKey,
   resolveTylerTextOverviewRootRedirectPath,
   rowStateLabel,
+  shouldShowEveningNonTodayWarning,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -72,12 +77,90 @@ describe("tyler-text-overview-dashboard-copy adminCountLabel", () => {
   });
 });
 
+describe("tyler-text-overview-dashboard-copy evening day defaults", () => {
+  const eveningNow = new Date("2026-07-10T01:00:00.000Z"); // 9 PM ET July 9
+  const todayEt = "2026-07-09";
+  const tomorrowEt = "2026-07-10";
+
+  it("admin local day key is Eastern calendar day", () => {
+    expect(getTylerTextOverviewAdminLocalDayKey(eveningNow)).toBe(todayEt);
+  });
+
+  it("Evening with no draft_for_day_key defaults to admin-local today", () => {
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: null,
+        now: eveningNow,
+      })
+    ).toBe(todayEt);
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: "",
+        now: eveningNow,
+      })
+    ).toBe(todayEt);
+  });
+
+  it("Evening with explicit draft_for_day_key respects it", () => {
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: tomorrowEt,
+        now: eveningNow,
+      })
+    ).toBe(tomorrowEt);
+  });
+
+  it("non-today warning when selected day is not admin-local today", () => {
+    expect(shouldShowEveningNonTodayWarning(tomorrowEt, eveningNow)).toBe(true);
+    expect(shouldShowEveningNonTodayWarning(todayEt, eveningNow)).toBe(false);
+    expect(shouldShowEveningNonTodayWarning("", eveningNow)).toBe(true);
+  });
+
+  it("Morning → Evening sibling link drops tomorrow morning day", () => {
+    expect(
+      resolveSiblingLinkDraftForDayKey({
+        page: "evening",
+        draftForDayKey: tomorrowEt,
+        now: eveningNow,
+      })
+    ).toBeUndefined();
+    expect(
+      buildSiblingTylerTextOverviewPageHref({
+        page: "evening",
+        draftForDayKey: tomorrowEt,
+        now: eveningNow,
+      })
+    ).toBe("/admin/tyler-text-overview/evening");
+  });
+
+  it("Morning → Evening sibling link keeps same-day key", () => {
+    expect(
+      buildSiblingTylerTextOverviewPageHref({
+        page: "evening",
+        draftForDayKey: todayEt,
+        now: eveningNow,
+      })
+    ).toBe(`/admin/tyler-text-overview/evening?draft_for_day_key=${todayEt}`);
+  });
+
+  it("Evening → Morning sibling link still preserves day", () => {
+    expect(
+      buildSiblingTylerTextOverviewPageHref({
+        page: "morning",
+        draftForDayKey: tomorrowEt,
+        now: eveningNow,
+      })
+    ).toBe(`/admin/tyler-text-overview/morning?draft_for_day_key=${tomorrowEt}`);
+  });
+});
+
 describe("tyler-text-overview-dashboard-copy routing helpers", () => {
   it("buildSiblingTylerTextOverviewPageHref preserves draft_for_day_key only", () => {
     expect(
       buildSiblingTylerTextOverviewPageHref({
         page: "evening",
         draftForDayKey: "2026-07-09",
+        now: new Date("2026-07-10T01:00:00.000Z"),
       })
     ).toBe("/admin/tyler-text-overview/evening?draft_for_day_key=2026-07-09");
     expect(buildSiblingTylerTextOverviewPageHref({ page: "morning" })).toBe(
@@ -103,12 +186,28 @@ describe("tyler-text-overview-dashboard-copy routing helpers", () => {
       })
     ).toBe("/admin/tyler-text-overview/morning?draft_for_day_key=2026-07-09&q=tyler");
     expect(
-      resolveTylerTextOverviewRootRedirectPath({
-        send_slot: "evening_checkin",
-        draft_for_day_key: "2026-07-09",
-        search: "alice",
-      })
+      resolveTylerTextOverviewRootRedirectPath(
+        {
+          send_slot: "evening_checkin",
+          draft_for_day_key: "2026-07-09",
+          search: "alice",
+        },
+        new Date("2026-07-10T01:00:00.000Z")
+      )
     ).toBe("/admin/tyler-text-overview/evening?draft_for_day_key=2026-07-09&q=alice");
+  });
+
+  it("root redirect to evening drops non-today draft_for_day_key", () => {
+    expect(
+      resolveTylerTextOverviewRootRedirectPath(
+        {
+          send_slot: "evening_checkin",
+          draft_for_day_key: "2026-07-10",
+          q: "dennis",
+        },
+        new Date("2026-07-10T01:00:00.000Z")
+      )
+    ).toBe("/admin/tyler-text-overview/evening?q=dennis");
   });
 
   it("unknown send_slot defaults to morning", () => {
@@ -195,5 +294,13 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).not.toMatch(
       /const dayKey = row\.draftForDayKey\?\.trim\(\) \|\| selectedDayKey\.trim\(\) \|\| undefined/
     );
+  });
+
+  it("evening defaults selected day to admin-local today and warns on non-today", () => {
+    expect(dashboard).toContain("resolveEveningTtoInitialSelectedDayKey");
+    expect(dashboard).toContain("shouldShowEveningNonTodayWarning");
+    expect(dashboard).toContain("EVENING_TTO_NON_TODAY_WARNING");
+    expect(EVENING_TTO_NON_TODAY_WARNING).toContain("non-today date");
+    expect(EVENING_TTO_NO_PREVIEW_COPY).toContain("No evening preview");
   });
 });
