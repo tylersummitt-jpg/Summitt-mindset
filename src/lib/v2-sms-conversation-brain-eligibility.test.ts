@@ -137,6 +137,10 @@ describe("isLikelyCommitmentChangeIntentTurn", () => {
     "this goal is too easy",
     "raise the bar",
     "make it harder",
+    "I want a change",
+    "I need a change",
+    "change it",
+    "let's change it",
   ];
 
   it.each(yes)("matches commitment-change phrasing: %s", (s) => {
@@ -159,6 +163,7 @@ describe("isLikelyCommitmentChangeIntentTurn", () => {
     "done",
     "yes",
     "no",
+    "I agree",
     "not today",
     "I did it",
     "missed it",

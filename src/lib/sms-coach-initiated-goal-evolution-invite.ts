@@ -634,16 +634,155 @@ function hasLaterCoachThreadMessageAfterInvite(
   return false;
 }
 
+/**
+ * Narrow system-outbound intent: last coach ask was a goal-change invitation
+ * (including TTO/freeform), not a proposed concrete new bar.
+ * Not inbound phrase routing.
+ */
+export function isCoachOutboundGoalChangeInvitation(body: string): boolean {
+  const t = body.trim().replace(/\s+/g, " ");
+  if (!t || t.length > 500) return false;
+  // Must be about changing the goal/standard, and invite a response — not name a new concrete bar.
+  const asksToChangeGoal =
+    /\b(time to change (our|your|the) goal|change (our|your|the) goal|change (our|your|the) (daily )?standard|ready (to|for) (a )?(new|different) (goal|standard|chapter)|new chapter)\b/i.test(
+      t
+    ) || /\bi think it'?s time to change (our|your|the) goal\b/i.test(t);
+  if (!asksToChangeGoal) return false;
+  const invitesResponse =
+    /\?/.test(t) ||
+    /\b(what do you think|want to|ready to|should we|shall we|agree|how does that sound)\b/i.test(t);
+  if (!invitesResponse) return false;
+  // If the coach already proposed a concrete replacement bar, this is not a bare invite.
+  if (
+    /\b(change (our|your|the) goal to|new goal:|goal should be|hold you to)\b/i.test(t) &&
+    /\b(every day|each day|minutes?|steps?|walk|read|compliment)\b/i.test(t)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function latestCoachThreadMessage(
+  thread72h: RecentExactThread72hResult | null | undefined
+): { at: string; body: string; atMs: number } | null {
+  if (!thread72h?.messages?.length) return null;
+  let best: { at: string; body: string; atMs: number } | null = null;
+  for (const m of thread72h.messages) {
+    if (m.role !== "coach") continue;
+    const atMs = new Date(m.at).getTime();
+    if (!Number.isFinite(atMs)) continue;
+    if (!best || atMs > best.atMs) {
+      best = { at: m.at, body: m.body, atMs };
+    }
+  }
+  return best;
+}
+
+function tryDeriveFreeformLastOutboundGoalChangeInvite(args: {
+  nowMs: number;
+  commitment: ActiveV2CommitmentRow;
+  eventsNewestFirst: V2EventRowForAi[];
+  recentExactThread72h?: RecentExactThread72hResult | null;
+  lastOutboundFullBody?: string | null;
+  lastOutboundSentAtMs?: number | null;
+}): RecentCoachGoalEvolutionInvite | null {
+  const lastCoach = latestCoachThreadMessage(args.recentExactThread72h);
+  const bodyFromThread = lastCoach?.body?.trim() || null;
+  const bodyFromArg = args.lastOutboundFullBody?.trim() || null;
+  const body = bodyFromArg || bodyFromThread;
+  if (!body || !isCoachOutboundGoalChangeInvitation(body)) return null;
+
+  let atMs: number | null = null;
+  let sent_at: string | null = null;
+  if (
+    bodyFromArg &&
+    args.lastOutboundSentAtMs != null &&
+    Number.isFinite(args.lastOutboundSentAtMs)
+  ) {
+    atMs = args.lastOutboundSentAtMs;
+    sent_at = new Date(atMs).toISOString();
+  } else if (lastCoach && (!bodyFromArg || bodyFromArg === bodyFromThread)) {
+    atMs = lastCoach.atMs;
+    sent_at = lastCoach.at;
+  } else if (lastCoach && bodyFromArg === lastCoach.body.trim()) {
+    atMs = lastCoach.atMs;
+    sent_at = lastCoach.at;
+  } else if (bodyFromArg) {
+    // Last-outbound body alone (e.g. TTO) — treat as current ask; TTL uses now when sentAt unknown.
+    atMs = args.lastOutboundSentAtMs ?? args.nowMs;
+    sent_at = new Date(atMs).toISOString();
+  }
+
+  if (atMs == null || !sent_at) return null;
+
+  const ttl_valid = args.nowMs - atMs <= COACH_GOAL_EVOLUTION_INVITE_ACCEPTANCE_TTL_MS;
+  if (!ttl_valid) {
+    return {
+      found: true,
+      sent_at,
+      invite_kind: "reset",
+      invite_source: "none",
+      evidence_summary: "freeform_last_outbound_goal_change_invitation",
+      ttl_valid: false,
+      last_outbound_is_invite: false,
+      skip_reason: "invite_ttl_expired",
+    };
+  }
+
+  const goalChangeAt = deriveRecentGoalChangeAtMs({
+    commitment: args.commitment,
+    eventsNewestFirst: args.eventsNewestFirst,
+    nowMs: args.nowMs,
+  });
+  if (goalChangeAt != null && goalChangeAt > atMs) {
+    return {
+      found: true,
+      sent_at,
+      invite_kind: "reset",
+      invite_source: "none",
+      evidence_summary: "freeform_last_outbound_goal_change_invitation",
+      ttl_valid: true,
+      last_outbound_is_invite: false,
+      skip_reason: "goal_changed_since_invite",
+    };
+  }
+
+  return {
+    found: true,
+    sent_at,
+    invite_kind: "reset",
+    invite_source: "none",
+    evidence_summary: "freeform_last_outbound_goal_change_invitation",
+    ttl_valid: true,
+    last_outbound_is_invite: true,
+  };
+}
+
 /** Latest valid coach goal-evolution invite from recent events (Slice 3B). */
 export function deriveRecentCoachGoalEvolutionInviteFromEvents(args: {
   eventsNewestFirst?: V2EventRowForAi[] | null;
   commitment: ActiveV2CommitmentRow;
   nowMs?: number;
   lastOutboundSentAtMs?: number | null;
+  lastOutboundFullBody?: string | null;
   recentExactThread72h?: RecentExactThread72hResult | null;
 }): RecentCoachGoalEvolutionInvite {
   const nowMs = args.nowMs ?? Date.now();
   const events = args.eventsNewestFirst ?? [];
+
+  // Prefer freeform last-coach goal-change invitation (TTO / edited outbound) when it is
+  // the active last ask — structured invite_only telemetry is not required.
+  const freeform = tryDeriveFreeformLastOutboundGoalChangeInvite({
+    nowMs,
+    commitment: args.commitment,
+    eventsNewestFirst: events,
+    recentExactThread72h: args.recentExactThread72h,
+    lastOutboundFullBody: args.lastOutboundFullBody,
+    lastOutboundSentAtMs: args.lastOutboundSentAtMs,
+  });
+  if (freeform?.last_outbound_is_invite) {
+    return freeform;
+  }
 
   let mostRecentCheckSent: V2EventRowForAi | null = null;
   let inviteEvent: V2EventRowForAi | null = null;
@@ -662,12 +801,12 @@ export function deriveRecentCoachGoalEvolutionInviteFromEvents(args: {
   }
 
   if (!inviteEvent || !inviteTelemetry?.invite_kind) {
-    return emptyRecentCoachInvite("no_recent_coach_invite");
+    return freeform ?? emptyRecentCoachInvite("no_recent_coach_invite");
   }
 
   const inviteAtMs = eventOccurredAtMs(inviteEvent.occurred_at);
   if (inviteAtMs == null) {
-    return emptyRecentCoachInvite("invalid_invite_timestamp");
+    return freeform ?? emptyRecentCoachInvite("invalid_invite_timestamp");
   }
 
   const ttl_valid = nowMs - inviteAtMs <= COACH_GOAL_EVOLUTION_INVITE_ACCEPTANCE_TTL_MS;
@@ -682,7 +821,7 @@ export function deriveRecentCoachGoalEvolutionInviteFromEvents(args: {
   };
 
   if (!ttl_valid) {
-    return { ...base, skip_reason: "invite_ttl_expired" };
+    return freeform ?? { ...base, skip_reason: "invite_ttl_expired" };
   }
 
   const latestCheckAt = mostRecentCheckSent
@@ -706,7 +845,13 @@ export function deriveRecentCoachGoalEvolutionInviteFromEvents(args: {
   }
 
   if (!last_outbound_is_invite) {
-    return { ...base, last_outbound_is_invite: false, skip_reason: "later_coach_outbound_after_invite" };
+    return (
+      freeform ?? {
+        ...base,
+        last_outbound_is_invite: false,
+        skip_reason: "later_coach_outbound_after_invite",
+      }
+    );
   }
 
   const goalChangeAt = deriveRecentGoalChangeAtMs({
@@ -715,11 +860,13 @@ export function deriveRecentCoachGoalEvolutionInviteFromEvents(args: {
     nowMs,
   });
   if (goalChangeAt != null && goalChangeAt > inviteAtMs) {
-    return {
-      ...base,
-      last_outbound_is_invite: false,
-      skip_reason: "goal_changed_since_invite",
-    };
+    return (
+      freeform ?? {
+        ...base,
+        last_outbound_is_invite: false,
+        skip_reason: "goal_changed_since_invite",
+      }
+    );
   }
 
   return { ...base, last_outbound_is_invite: true };

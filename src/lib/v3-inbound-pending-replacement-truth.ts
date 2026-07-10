@@ -246,7 +246,7 @@ const PENDING_REPLACE_TRUTH_FALLBACK_VIOLATIONS = new Set([
 /** Human-safe clarify copy when pending replace is still active (no Reply YES/NO menu). */
 export function buildPendingReplaceSafeClarificationFallback(candidate: string): string {
   const cand = candidate.trim();
-  return `I'm still holding: ${cand}. Tell me if that's the bar you want locked in, or what you want instead.`;
+  return `Still holding this goal: ${cand}. Is that what you want me to hold you to, or what do you want instead?`;
 }
 
 export function tryPendingReplaceActiveTruthFallback(args: {
@@ -295,7 +295,13 @@ export function tryPendingReplaceActiveTruthFallback(args: {
   }
 
   let fallbackBody = (args.legacyPendingReplyPreview ?? "").trim();
-  if (!fallbackBody || !bodyRepresentsPendingCandidate(fallbackBody, candidate)) {
+  const legacyHasInternalJargon =
+    /\b(the lock|locked in|i'?m still holding:)\b/i.test(fallbackBody);
+  if (
+    !fallbackBody ||
+    !bodyRepresentsPendingCandidate(fallbackBody, candidate) ||
+    legacyHasInternalJargon
+  ) {
     fallbackBody = buildPendingReplaceSafeClarificationFallback(candidate);
   } else if (/reply\s+yes/i.test(fallbackBody)) {
     fallbackBody = buildPendingReplaceSafeClarificationFallback(candidate);

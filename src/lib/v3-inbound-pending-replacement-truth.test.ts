@@ -9,6 +9,7 @@ import {
   bodyCoachesStaleCanonicalBar,
   bodyRepresentsPendingCandidate,
   buildInboundPendingReplacementFactsFromCommitment,
+  buildPendingReplaceSafeClarificationFallback,
   detectPendingReplacementStateTruthViolations,
   detectSeasonTransitionTruthViolations,
   tryPendingReplaceActiveTruthFallback,
@@ -311,7 +312,16 @@ describe("produceInboundV3RelationshipSms pending replace truth", () => {
     expect(fallback.ok).toBe(true);
     if (fallback.ok) {
       expect(fallback.body.toLowerCase()).not.toMatch(/updated|changed your goal|commitment is updated/);
+      expect(fallback.body.toLowerCase()).not.toMatch(/the lock|locked in|i'?m still holding:/);
+      expect(fallback.body.toLowerCase()).toMatch(/hold you to|what do you want instead/);
     }
+  });
+
+  it("user-visible pending fallback has no lock / I'm still holding jargon", () => {
+    const body = buildPendingReplaceSafeClarificationFallback("Walk 10,000 steps");
+    expect(body.toLowerCase()).not.toMatch(/the lock|locked in|i'?m still holding:|candidate bar|daily bar/);
+    expect(body.toLowerCase()).toMatch(/goal|hold you to|what do you want instead/);
+    expect(body).toMatch(/Walk 10,000 steps/);
   });
 
   it("14: fallback is not used when pending_resolution_applied is true", () => {

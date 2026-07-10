@@ -4732,6 +4732,8 @@ async function processV2NormalInboundOutcome(
     commitment,
     nowMs: coachInviteEvalNowMs,
     recentExactThread72h: inboundRelationshipMemoryPacket.recent_exact_thread_72h,
+    lastOutboundFullBody:
+      inboundRelationshipMemoryPacket.last_outbound_full_body ?? lastOutboundSmsPreview,
   });
 
   const coachInviteAcceptanceCtx = evaluateCoachInviteAcceptanceContext({

@@ -782,11 +782,11 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
     !bootPreview
   ) {
     reqLines.push(
-      "Slice 2B awaiting_candidate shell: the user asked to change the current standard but did not name a new daily bar yet — acknowledge the current goal may need to change, make clear the written commitment has NOT changed yet, and ask exactly one fresh human question for the new daily bar/standard."
+      "Slice 2B awaiting_candidate shell: the user asked to change the current standard but did not name a new daily goal yet — acknowledge the current goal may need to change, make clear the written commitment has NOT changed yet, and ask exactly one fresh human question for the new goal/standard to hold them to."
     );
     if (args.tuShellHandoff.priorGoalChangeAskSatisfied) {
       reqLines.push(
-        "The user already answered a prior goal-change clarification ask — move forward; do NOT repeat prior goal-change clarify wording; ask for the new bar in fresh wording."
+        "The user already answered a prior goal-change clarification ask — move forward; do NOT repeat prior goal-change clarify wording; ask for the new goal in fresh wording."
       );
     }
     reqLines.push("Do NOT treat this as completion proof, miss proof, or Victory Room proof.");
@@ -798,8 +798,8 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
       awaitingReason === "vague_theme_needs_concrete_bar")
   ) {
     reqLines.push(
-      "User completed or is done with the current goal and wants to move on — do NOT coach the old daily bar or ask how they will achieve the previous standard.",
-      "Ask exactly one fresh human question for the new concrete daily bar they will own; broad themes are not enough."
+      "User completed or is done with the current goal and wants to move on — do NOT coach the old goal/standard or ask how they will achieve the previous standard.",
+      "Ask exactly one fresh human question for the new concrete daily goal they will own; broad themes are not enough."
     );
   }
   if (
@@ -817,11 +817,11 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
       "Do NOT use Reply YES/NO binding language or robot contract phrasing until actual confirmation state. Do NOT use fake Pat quotes."
     );
     reqLines.push(
-      "Ask exactly one fresh human question for the new daily bar the user will own; user names the bar, then confirms before any mutation."
+      "Ask exactly one fresh human question for the new goal/standard the user will own; user names the goal, then confirms before any mutation."
     );
     if (kind === "raise" || kind === "new_chapter") {
       reqLines.push(
-        "Invite kind raise/new_chapter: ask what new standard or daily bar they are willing to own — do not impose a number."
+        "Invite kind raise/new_chapter: ask what new standard or daily goal they are willing to own — do not impose a number."
       );
     } else if (kind === "shrink") {
       reqLines.push(

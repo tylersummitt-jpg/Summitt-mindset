@@ -68,6 +68,25 @@ export function isVagueOrInvalidSmsGoalCandidate(text: string): boolean {
   if (!t || t.length < 3) return true;
   if (/^(be better|do better|try harder|just\s+be|more)$/i.test(t)) return true;
   if (/^(feel healthier|be happier)$/i.test(t)) return true;
+  // Acknowledgments / meta change-requests are not goals (hygiene; not a conversation router).
+  if (
+    /^(yes|yeah|yep|yup|y|no|nope|ok|okay|sure|i\s+agree|sounds\s+good)[\s.!?]*$/i.test(t)
+  ) {
+    return true;
+  }
+  if (
+    /^(i\s+(want|need)\s+a\s+change|change\s+it|let'?s\s+change(\s+it)?|i\s+want\s+to\s+change(\s+my\s+goal)?|that\s+goal\s+isn'?t\s+right|not\s+that\s+goal|what\s+is\s+the\s+lock|what\s+does\s+(the\s+)?lock\s+mean)[\s.!?]*$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (
+    /\b(what\s+(is|does)\s+(the\s+)?lock|what\s+i\s+agree|the\s+lock)\b/i.test(t) &&
+    !/\b(every\s+day|each\s+day|daily|minutes?|steps?|walk|read|compliment|pray|call|write)\b/i.test(t)
+  ) {
+    return true;
+  }
   return false;
 }
 

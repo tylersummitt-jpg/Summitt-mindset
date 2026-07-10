@@ -87,6 +87,9 @@ import {
   parseSmsConfirmation,
   mapPendingConfirmationParseToUserAnswerType,
   tryHandleSmsInboundPendingResolution,
+  isVagueOrInvalidCandidateBar,
+  isAcknowledgmentOrMetaChangeRequestOnly,
+  extractDeterministicDailyBarCandidate,
 } from "@/lib/v2-sms-pending-resolution-complete";
 import { derivePersistenceDecision } from "@/lib/inbound-relationship-meaning";
 
@@ -306,7 +309,7 @@ describe("tryHandleSmsInboundPendingResolution — replace YES", () => {
     });
     expect(r.handled).toBe(true);
     expect(rpcMock).not.toHaveBeenCalled();
-    expect(r.replyBody).toMatch(/harder daily bar/i);
+    expect(r.replyBody).toMatch(/harder goal/i);
   });
 
   it("NO returns to awaiting candidate without RPC", async () => {
@@ -335,7 +338,7 @@ describe("tryHandleSmsInboundPendingResolution — replace YES", () => {
     expect(r.handled).toBe(true);
     if (r.handled) {
       expect(r.replyBody.toLowerCase()).not.toMatch(/\bcandidate\b|\bpending\b/);
-      expect(r.replyBody).toMatch(/bar you asked for/i);
+      expect(r.replyBody).toMatch(/goal you asked for/i);
     }
   });
 });
@@ -377,12 +380,155 @@ describe("parseSmsConfirmation — pending goal confirm language", () => {
     expect(parseSmsConfirmation("Yes, I accomplished it last night")).not.toBe("yes");
   });
 
+  it("I agree / sounds good confirm existing pending candidate", () => {
+    expect(parseSmsConfirmation("I agree")).toBe("yes");
+    expect(parseSmsConfirmation("I agree.")).toBe("yes");
+    expect(parseSmsConfirmation("sounds good")).toBe("yes");
+  });
+
   it("maps parse results to pending user_answer_type semantics", () => {
     expect(mapPendingConfirmationParseToUserAnswerType("yes")).toBe("pending_confirmed");
     expect(mapPendingConfirmationParseToUserAnswerType("ambiguous")).toBe(
       "pending_confirmation_ambiguous"
     );
     expect(mapPendingConfirmationParseToUserAnswerType("no")).toBe("pending_rejected");
+  });
+});
+
+describe("candidate hygiene — acknowledgments and meta change-requests", () => {
+  it.each([
+    "I agree",
+    "I agree.",
+    "yes",
+    "yeah",
+    "yep",
+    "sounds good",
+    "ok",
+    "okay",
+    "I want a change",
+    "I need a change",
+    "change it",
+    "let's change it",
+    "I want to change my goal",
+    "that goal isn't right",
+    "not that goal",
+    "what is the lock",
+    "what does lock mean",
+    "What I agree what is the lock?",
+  ])("rejects standalone invalid candidate: %s", (text) => {
+    expect(isAcknowledgmentOrMetaChangeRequestOnly(text)).toBe(true);
+    expect(isVagueOrInvalidCandidateBar(text)).toBe(true);
+    expect(extractDeterministicDailyBarCandidate(text)).toBeNull();
+  });
+
+  it("accepts concrete compliment goal as candidate", () => {
+    const concrete = "I want to give each kid one genuine compliment every day";
+    expect(isAcknowledgmentOrMetaChangeRequestOnly(concrete)).toBe(false);
+    expect(isVagueOrInvalidCandidateBar(concrete)).toBe(false);
+    expect(extractDeterministicDailyBarCandidate(concrete)).toMatch(/compliment/i);
+  });
+
+  it("strips I agree to wrapper and keeps concrete clause", () => {
+    const msg = "I agree to give each kid one genuine compliment every day";
+    expect(isAcknowledgmentOrMetaChangeRequestOnly(msg)).toBe(false);
+    const extracted = extractDeterministicDailyBarCandidate(msg);
+    expect(extracted).toMatch(/give each kid one genuine compliment every day/i);
+    expect(extracted).not.toMatch(/^i agree/i);
+  });
+});
+
+describe("pending confirmation — I agree confirms existing candidate, not as candidate text", () => {
+  it("awaiting_confirmation + I agree applies existing candidate via RPC", async () => {
+    const cand = "give each kid one genuine compliment every day";
+    const c = commitmentAwaitingConfirm({
+      candidate_behavior_statement: cand,
+      candidate_new_bar: cand,
+    });
+    getActiveCommitmentMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...c,
+        behavior_statement: cand,
+        pending_resolution_kind: null,
+        pending_resolution_payload: null,
+      });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_i_agree_confirm", raw_body: "I agree" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    expect(rpcMock).toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(true);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/i'?m still holding|the lock|locked in/);
+    }
+  });
+
+  it("awaiting_candidate + I agree does not promote I agree as candidate", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_i_agree_no_cand", raw_body: "I agree." },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).toMatch(/hold you to|clear daily|what exactly/i);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/i'?m still holding|the lock|locked in/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/i agree/);
+    }
+  });
+
+  it("awaiting_candidate + I want a change asks for new goal without lock jargon", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_want_change", raw_body: "I want a change" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/i'?m still holding|the lock|locked in/);
+      expect(r.replyBody.toLowerCase()).toMatch(/hold you to|clear daily|what exactly/i);
+    }
+  });
+
+  it("confusion about lock does not become candidate and avoids lock jargon", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_lock_confusion",
+        raw_body: "What I agree what is the lock?",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/\block\b|i'?m still holding/);
+      expect(r.replyBody.toLowerCase()).toMatch(/hold you to|clear daily|what exactly/i);
+    }
   });
 });
 
@@ -478,12 +624,12 @@ describe("tryHandleSmsInboundPendingResolution — replace confirmation preview"
 
     expect(r.handled).toBe(true);
     if (r.handled) {
-      expect(r.replyBody.toLowerCase()).toMatch(/raise the bar/);
-      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment/);
+      expect(r.replyBody.toLowerCase()).toMatch(/raise the (bar|standard)|hold you to that/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment|the lock|locked in/);
     }
   });
 
-  it("new_chapter confirmation preview uses focus/lock-in wording", async () => {
+  it("new_chapter confirmation preview uses focus / hold-you-to wording", async () => {
     const c = commitmentAwaitingConfirm({
       sms_state: "awaiting_candidate",
       detected_intent: "sms_replace_request",
@@ -504,8 +650,8 @@ describe("tryHandleSmsInboundPendingResolution — replace confirmation preview"
 
     expect(r.handled).toBe(true);
     if (r.handled) {
-      expect(r.replyBody.toLowerCase()).toMatch(/change the focus|lock that in/);
-      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment/);
+      expect(r.replyBody.toLowerCase()).toMatch(/change the focus|hold you to that/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment|lock that in|the lock/);
     }
   });
 });

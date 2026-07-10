@@ -152,6 +152,10 @@ export function isLikelyCommitmentChangeIntentTurn(raw: string): boolean {
     return true;
   }
 
+  // Meta change-request without a concrete new bar (opens awaiting_candidate; not a candidate itself).
+  if (/^(i\s+)?(want|need)\s+a\s+change\.?$/i.test(t)) return true;
+  if (/^(let'?s\s+)?change\s+it\.?$/i.test(t)) return true;
+
   if (/\b(i\s+)?need\s+(to\s+)?change\s+(my\s+)?goal\b/i.test(t)) return true;
   if (/\bcan\s+we\s+switch\s+(my\s+)?(the\s+)?(commitment|from)\b/i.test(t)) return true;
   if (/\bswitch\s+from\b/i.test(t)) return true;

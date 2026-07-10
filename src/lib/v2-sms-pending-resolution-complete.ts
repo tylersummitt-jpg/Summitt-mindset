@@ -73,7 +73,7 @@ const AI_REASONING_STORE_MAX = 220;
 
 /** Non-speakable legacy preview when bundled RPC fails after YES — V3 owns final wording. */
 function buildSmsPendingRpcHoldPreviewDraft(cand: string): string {
-  return `I couldn't safely update that yet. I still have the bar you asked for: ${cand}. Send YES again, or send the cleaner version you want me to use.`;
+  return `I couldn't safely update that yet. I still have the goal you asked for: ${cand}. Send YES again, or send the cleaner version you want me to use.`;
 }
 
 export type PendingConfirmationParse = "yes" | "no" | "ambiguous";
@@ -87,6 +87,7 @@ const PENDING_CONFIRM_YES_PHRASE_RES: RegExp[] = [
   /\b(that'?s|thats)\s+right\b/i,
   /\bcorrect\b/i,
   /\bsounds\s+good\b/i,
+  /\bi\s+agree\b/i,
   /\bgo\s+ahead\b/i,
   /\bplease\s+do\b/i,
   /\bmake\s+it\s+that\b/i,
@@ -138,6 +139,7 @@ export function parseSmsConfirmation(raw: string): PendingConfirmationParse {
   if (!lower) return "ambiguous";
 
   if (/^(yes|yep|yeah|yup|y)$/i.test(t)) return "yes";
+  if (/^(i\s+agree|sounds\s+good|ok|okay)\.?!?$/i.test(t)) return "yes";
   if (/^(no|nope|nah|n)$/i.test(t)) return "no";
 
   if (/\b(not that|wrong|change it)\b/i.test(lower)) return "no";
@@ -167,6 +169,7 @@ function shouldAttemptAiCandidateExtraction(raw: string): boolean {
   const t = raw.trim();
   if (t.length < 5) return false;
   if (looksLikeCancellation(t)) return false;
+  if (isAcknowledgmentOrMetaChangeRequestOnly(t)) return false;
   if (t.length <= 20) {
     const conf = parseSmsConfirmation(t);
     if (conf === "yes" || conf === "no") return false;
@@ -174,13 +177,41 @@ function shouldAttemptAiCandidateExtraction(raw: string): boolean {
   return true;
 }
 
-const RESERVED_CANDIDATE = /^(yes|no|yep|nope|same|idk|i\s*dk|maybe|ok|okay|nah|sure|n\/a)$/i;
+const RESERVED_CANDIDATE =
+  /^(yes|yeah|yep|yup|y|no|nope|nah|n|same|idk|i\s*dk|maybe|ok|okay|k|sure|n\/a|i\s+agree|sounds\s+good)$/i;
+
+/** Standalone acknowledgments / meta change-requests — never valid candidate goals by themselves. */
+const META_CHANGE_REQUEST_ONLY_RE =
+  /^(i\s+(want|need)\s+a\s+change|change\s+it|let'?s\s+change(\s+it)?|i\s+want\s+to\s+change(\s+my\s+goal)?|that\s+goal\s+isn'?t\s+right|not\s+that\s+goal|what\s+is\s+the\s+lock|what\s+does\s+(the\s+)?lock\s+mean)[\s.!?]*$/i;
+
+/**
+ * Candidate hygiene: short acknowledgments and meta change-requests are not goals.
+ * Does not route conversation — only invalidates candidate_behavior_statement values.
+ * "I agree to [concrete behavior]" remains eligible via the concrete clause.
+ */
+export function isAcknowledgmentOrMetaChangeRequestOnly(text: string): boolean {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (!t) return true;
+  const bare = t.replace(/[.!?]+$/g, "").trim();
+  if (RESERVED_CANDIDATE.test(bare)) return true;
+  if (META_CHANGE_REQUEST_ONLY_RE.test(t)) return true;
+  if (/^(i\s+agree|sounds\s+good|yes|yeah|yep|yup|ok|okay|sure)[\s.!?]*$/i.test(t)) return true;
+  // Confusion about internal jargon without a concrete daily behavior.
+  if (
+    /\b(what\s+(is|does)\s+(the\s+)?lock|what\s+i\s+agree|the\s+lock)\b/i.test(t) &&
+    !/\b(every\s+day|each\s+day|daily|minutes?|steps?|walk|read|compliment|pray|call|write)\b/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
 
 export function isVagueOrInvalidCandidateBar(text: string): boolean {
   const t = text.trim().replace(/\s+/g, " ");
   if (isIdentityLikeGoalCandidate(t)) return true;
   if (!t || t.length < 3) return true;
   if (t.length > BEHAVIOR_MAX) return true;
+  if (isAcknowledgmentOrMetaChangeRequestOnly(t)) return true;
   if (RESERVED_CANDIDATE.test(t)) return true;
   if (/^(be better|do better|try harder|just\s+be|more)$/i.test(t)) return true;
   if (/^(my kids|our kids|the kids|whatever)$/i.test(t)) return true;
@@ -195,6 +226,7 @@ export function isVagueOrInvalidCandidateBar(text: string): boolean {
 export function extractDeterministicDailyBarCandidate(raw: string): string | null {
   const trimmed = raw.trim().replace(/\s+/g, " ");
   if (!trimmed) return null;
+  if (isAcknowledgmentOrMetaChangeRequestOnly(trimmed)) return null;
 
   const durEx = extractDurationAnchoredBarPhrase(trimmed, BEHAVIOR_MAX);
   if (durEx.mode === "deferred") {
@@ -209,16 +241,32 @@ export function extractDeterministicDailyBarCandidate(raw: string): string | nul
         preview: durEx.phrase.slice(0, 100),
       });
     }
-    return durEx.phrase;
+    if (!isVagueOrInvalidCandidateBar(durEx.phrase)) return durEx.phrase;
   }
 
   const heur = extractCandidateBarsFromSms(trimmed);
-  if (heur.candidateNewBar?.trim()) return heur.candidateNewBar.trim();
-  if (heur.candidateTightenedBar?.trim()) return heur.candidateTightenedBar.trim();
-  if (/\b(one\s+story|one\s+page|a\s+chapter)\b/i.test(trimmed) && trimmed.length <= 200) {
-    return trimmed.slice(0, BEHAVIOR_MAX);
+  if (heur.candidateNewBar?.trim() && !isVagueOrInvalidCandidateBar(heur.candidateNewBar)) {
+    return heur.candidateNewBar.trim();
   }
-  return trimmed.length >= 3 && trimmed.length <= BEHAVIOR_MAX ? trimmed : null;
+  if (heur.candidateTightenedBar?.trim() && !isVagueOrInvalidCandidateBar(heur.candidateTightenedBar)) {
+    return heur.candidateTightenedBar.trim();
+  }
+
+  // "I agree to [concrete daily behavior]" — strip ack wrapper; keep the behavior clause.
+  const agreeTo = trimmed.match(/^i\s+agree\s+(?:to|that)\s+(.+)$/i);
+  if (agreeTo?.[1]?.trim()) {
+    const clause = agreeTo[1].trim().replace(/\s+/g, " ").slice(0, BEHAVIOR_MAX);
+    if (clause.length >= 8 && !isVagueOrInvalidCandidateBar(clause)) return clause;
+  }
+
+  if (/\b(one\s+story|one\s+page|a\s+chapter)\b/i.test(trimmed) && trimmed.length <= 200) {
+    const story = trimmed.slice(0, BEHAVIOR_MAX);
+    return isVagueOrInvalidCandidateBar(story) ? null : story;
+  }
+  if (trimmed.length >= 3 && trimmed.length <= BEHAVIOR_MAX && !isVagueOrInvalidCandidateBar(trimmed)) {
+    return trimmed;
+  }
+  return null;
 }
 
 function clampCandidateForKind(kind: V2PendingResolutionKind, text: string): string | null {
@@ -643,7 +691,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       const raiseNeedsBar =
         payload.detected_intent === "sms_raise_bar_request";
       const lostDraft = raiseNeedsBar
-        ? "What harder daily bar should I hold you to? One clear action—then tell me YES when it's right."
+        ? "What harder goal should I hold you to? One clear action—then tell me YES when it's right."
         : "I lost track of the candidate—what exactly should I hold you to tomorrow? One clear action.";
       return pendingHandled(
         await phase1PendingReply({
@@ -681,7 +729,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         message_sid: args.job.message_sid,
         raw_text_preview: rawPreview,
       });
-      const ambDraft = `I’m still holding: ${cand}. Tell me if that’s the lock—or what you want instead.`;
+      const ambDraft = `Still holding this goal: ${cand}. Is that what you want me to hold you to, or what do you want instead?`;
       return pendingHandled(
         await phase1PendingReply({
           machineDraft: ambDraft,
@@ -716,7 +764,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         }),
       });
       if (!merged.ok) {
-        const glitchDraft = "Something glitched—try naming the bar again in one short sentence.";
+        const glitchDraft = "Something glitched—try naming the goal again in one short sentence.";
         return pendingHandled(
           await phase1PendingReply({
             machineDraft: glitchDraft,
@@ -1248,7 +1296,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       ai_candidate_extraction: aiMeta,
     });
     const vagueDraft =
-      "I need the new bar to be one clear action. What exactly should I hold you to tomorrow?";
+      "I need one clear daily action. What exactly should I hold you to tomorrow?";
     return pendingHandled(
       await phase1PendingReply({
         machineDraft: vagueDraft,
@@ -1399,7 +1447,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   });
 
   if (kind === "commitment_tighten") {
-    const tightenPromptDraft = `I can tighten it to: ${clamped}. Should I make that the new daily bar?`;
+    const tightenPromptDraft = `I can tighten it to: ${clamped}. Should I make that the new goal?`;
     return pendingHandled(
       await phase1PendingReply({
         machineDraft: tightenPromptDraft,
@@ -1428,8 +1476,8 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   });
   const replacePromptDraft =
     replaceSeasonResolved.mode === "new_chapter"
-      ? `I can change the focus to: ${clamped}. Want to lock that in?`
-      : `I can raise the bar to: ${clamped}. Want me to hold you to that?`;
+      ? `I can change the focus to: ${clamped}. Want me to hold you to that?`
+      : `I can raise the standard to: ${clamped}. Want me to hold you to that?`;
   return pendingHandled(
     await phase1PendingReply({
       machineDraft: replacePromptDraft,

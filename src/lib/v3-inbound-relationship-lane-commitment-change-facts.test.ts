@@ -107,7 +107,7 @@ describe("buildCommitmentChangeInboundFactsFromWave4 — Slice A3", () => {
     });
     expect(f.pending_resolution_created).toBe(true);
     expect(f.required_meaning_summary).toMatch(/awaiting_candidate shell/i);
-    expect(f.required_meaning_summary).toMatch(/new daily bar/i);
+    expect(f.required_meaning_summary).toMatch(/new (daily )?goal/i);
     expect(f.required_meaning_summary).toMatch(/has NOT changed yet/i);
     expect(f.forbidden_substrings).toContain("what specific changes");
     expect(f.forbidden_substrings).toContain("changes or adjustments");
@@ -141,7 +141,7 @@ describe("buildCommitmentChangeInboundFactsFromWave4 — Slice A3", () => {
     expect(f.required_meaning_summary).toMatch(/Slice 3B accepted coach goal-evolution invite/i);
     expect(f.required_meaning_summary).toMatch(/has NOT changed yet/i);
     expect(f.required_meaning_summary).toMatch(/Do NOT treat acceptance as proof/i);
-    expect(f.required_meaning_summary).toMatch(/new daily bar/i);
+    expect(f.required_meaning_summary).toMatch(/new goal\/standard/i);
   });
 
   it("completed-goal move-on shell forbids old wake-up coaching", () => {
@@ -170,8 +170,8 @@ describe("buildCommitmentChangeInboundFactsFromWave4 — Slice A3", () => {
         awaitingCandidateReason: "user_completed_goal_wants_new_bar",
       },
     });
-    expect(f.required_meaning_summary).toMatch(/do NOT coach the old daily bar/i);
-    expect(f.required_meaning_summary).toMatch(/new concrete daily bar/i);
+    expect(f.required_meaning_summary).toMatch(/do NOT coach the old goal\/standard/i);
+    expect(f.required_meaning_summary).toMatch(/new concrete daily goal/i);
     expect(f.forbidden_substrings).toContain("wake up without snoozing");
     expect(f.forbidden_substrings).toContain("get out of bed");
   });

@@ -34,14 +34,14 @@ const COACH_INVITE_DECLINE_RE =
   /\b(no|nah|nope|not now|not yet|don't change|dont change|do not change|keep (the )?current|stay with (this|it)|i'?m good|leave it|keep it the same)\b/i;
 
 const COACH_INVITE_ACCEPTANCE_PHRASE_RE =
-  /\b(yes|yeah|yep|let'?s do it|sounds good|that sounds right|i'?m ready|let'?s change|raise it|reset it|shrink it|make it smaller|focus on the blocker|new chapter|raise the standard)\b/i;
+  /\b(yes|yeah|yep|i\s+agree|let'?s\s+do\s+it|sounds\s+good|that\s+sounds\s+right|i'?m\s+ready|let'?s\s+change|raise\s+it|reset\s+it|shrink\s+it|make\s+it\s+smaller|focus\s+on\s+the\s+blocker|new\s+chapter|raise\s+the\s+standard)\b/i;
 
 const COACH_INVITE_IGNORE_ACCOUNTABILITY_RE =
   /\b(done|did it|missed|didn't|did not|travel|sick|vacation|thanks|thank you|tonight|tomorrow|later today)\b/i;
 
 function isBareAffirmativeReply(body: string): boolean {
   const t = body.trim().toLowerCase();
-  return /^(yes|yeah|yep|yup|y|sure|ok|okay|k)\.?!?$/i.test(t);
+  return /^(yes|yeah|yep|yup|y|sure|ok|okay|k|i agree|sounds good|that works)\.?!?$/i.test(t);
 }
 
 export function buildCoachInviteAcceptedReconciledGoalChangeIntent(args: {

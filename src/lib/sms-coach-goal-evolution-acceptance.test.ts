@@ -399,3 +399,81 @@ describe("user-initiated amend still works (18-19)", () => {
     expect(evalResult.mode).toBe("concrete_bar_pending");
   });
 });
+
+describe("freeform last-outbound goal-change invitation (TTO)", () => {
+  it("detects TTO-style invite from last outbound body", () => {
+    const invite = deriveRecentCoachGoalEvolutionInviteFromEvents({
+      eventsNewestFirst: [],
+      commitment: baseCommitment(),
+      nowMs: NOW_MS,
+      lastOutboundFullBody:
+        "Tyler, I think it's time to change our goal. What do you think?",
+      lastOutboundSentAtMs: NOW_MS - 60_000,
+    });
+    expect(invite.found).toBe(true);
+    expect(invite.last_outbound_is_invite).toBe(true);
+    expect(invite.evidence_summary).toBe("freeform_last_outbound_goal_change_invitation");
+  });
+
+  it.each(["I agree.", "yes", "sounds good"])(
+    "freeform invite + %s → awaiting_candidate shell (no candidate from ack)",
+    (userMessage) => {
+      const invite = deriveRecentCoachGoalEvolutionInviteFromEvents({
+        eventsNewestFirst: [],
+        commitment: baseCommitment({
+          behavior_statement: "Give each kid a genuine compliment every day",
+        }),
+        nowMs: NOW_MS,
+        lastOutboundFullBody:
+          "Tyler, I think it's time to change our goal. What do you think?",
+        lastOutboundSentAtMs: NOW_MS - 60_000,
+      });
+      const acceptance = evaluateCoachInviteAcceptanceContext({
+        invite,
+        userMessage,
+        commitment: baseCommitment({
+          behavior_statement: "Give each kid a genuine compliment every day",
+        }),
+        classificationEventType: "user_yes",
+        plannedInterruptionActionable: false,
+        nowMs: NOW_MS,
+      });
+      expect(acceptance.disposition).toBe("accepted");
+      expect(acceptance.concrete_bar_present).toBe(false);
+      expect(acceptance.proposed_bar_text).toBeNull();
+      const handoff = evaluateCoachAcceptedGoalEvolutionHandoff({
+        acceptance,
+        commitment: baseCommitment({
+          behavior_statement: "Give each kid a genuine compliment every day",
+        }),
+        userMessage,
+        plannedInterruptionActionable: false,
+        classificationEventType: "user_yes",
+      });
+      expect(handoff.open).toBe(true);
+      expect(handoff.mode).toBe("awaiting_candidate_shell");
+      expect(handoff.validatedProposedBar).toBeNull();
+      expect(handoff.pendingShellReason).toBe("accepted_coach_goal_evolution_invite");
+    }
+  );
+
+  it("non-invite last outbound + I agree does not open invite acceptance", () => {
+    const invite = deriveRecentCoachGoalEvolutionInviteFromEvents({
+      eventsNewestFirst: [],
+      commitment: baseCommitment(),
+      nowMs: NOW_MS,
+      lastOutboundFullBody: "Did you give each kid a genuine compliment today?",
+      lastOutboundSentAtMs: NOW_MS - 60_000,
+    });
+    expect(invite.last_outbound_is_invite).toBe(false);
+    const acceptance = evaluateCoachInviteAcceptanceContext({
+      invite,
+      userMessage: "I agree",
+      commitment: baseCommitment(),
+      classificationEventType: "user_yes",
+      plannedInterruptionActionable: false,
+      nowMs: NOW_MS,
+    });
+    expect(acceptance.disposition).toBe("skip");
+  });
+});
