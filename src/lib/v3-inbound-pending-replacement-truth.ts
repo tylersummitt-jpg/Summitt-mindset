@@ -136,6 +136,40 @@ export function bodyCoachesStaleCanonicalBar(
   return canonTokens.some((t) => t.length >= 5 && bodyL.includes(t));
 }
 
+/**
+ * Awaiting-candidate hallway with no concrete candidate yet: old goal is suspended.
+ * Block assigning it as today's action or asking how the new idea "fits" the old goal.
+ */
+export function bodyCoachesSuspendedCanonicalInHallway(
+  body: string,
+  canonical: string
+): boolean {
+  const bodyL = normalizeText(body);
+  if (
+    /\b(fit(?:s)?\s+with\s+(?:your\s+)?(?:current\s+)?(?:commitment|goal)|clarify how (?:this|that) fits|how (?:does |can )?(?:this|that|lifting|it) fit|integrat(?:e|ing).{0,60}(?:current|running|cardio|routine))\b/i.test(
+      body
+    )
+  ) {
+    return true;
+  }
+  const canonTokens = significantTokens(canonical).filter((t) => t.length >= 5);
+  if (canonTokens.length === 0) return false;
+  const tokenHits = canonTokens.filter((t) => bodyL.includes(t)).length;
+  if (
+    /\bfor today\b/i.test(body) &&
+    tokenHits >= 1
+  ) {
+    return true;
+  }
+  if (tokenHits < Math.min(2, canonTokens.length)) return false;
+  if (/\b(new goal|instead|replac|what (?:new |do you want)|hold you to)\b/i.test(bodyL)) {
+    return false;
+  }
+  return /\b(focus on|keep doing|continue|do one|without being asked|current commitment)\b/i.test(
+    body
+  );
+}
+
 export function detectPendingReplacementStateTruthViolations(
   body: string,
   facts: InboundV3PendingReplacementFacts
@@ -163,6 +197,12 @@ export function detectPendingReplacementStateTruthViolations(
       if (canonical && bodyCoachesStaleCanonicalBar(norm, canonical, candidate)) {
         hits.push("pending_replace_coaches_stale_canonical_bar");
       }
+    } else if (
+      canonical &&
+      facts.pending_resolution_sms_state === "awaiting_candidate" &&
+      bodyCoachesSuspendedCanonicalInHallway(norm, canonical)
+    ) {
+      hits.push("pending_replace_coaches_stale_canonical_bar");
     }
   }
 
@@ -246,7 +286,10 @@ const PENDING_REPLACE_TRUTH_FALLBACK_VIOLATIONS = new Set([
 /** Human-safe clarify copy when pending replace is still active (no Reply YES/NO menu). */
 export function buildPendingReplaceSafeClarificationFallback(candidate: string): string {
   const cand = candidate.trim();
-  return `Still holding this goal: ${cand}. Is that what you want me to hold you to, or what do you want instead?`;
+  if (!cand) {
+    return "Got it. What new goal do you want me to hold you to?";
+  }
+  return `Do you want your new goal to be: ${cand}?`;
 }
 
 export function tryPendingReplaceActiveTruthFallback(args: {
@@ -291,12 +334,32 @@ export function tryPendingReplaceActiveTruthFallback(args: {
     pr.pending_candidate_new_bar?.trim() ||
     "";
   if (!candidate) {
-    return { ok: false, reason: "missing_candidate", candidatePresent: false };
+    if (pr.pending_resolution_sms_state !== "awaiting_candidate") {
+      return { ok: false, reason: "missing_candidate", candidatePresent: false };
+    }
+    let hallwayBody = (args.legacyPendingReplyPreview ?? "").trim();
+    if (
+      !hallwayBody ||
+      bodyCoachesSuspendedCanonicalInHallway(hallwayBody, pr.canonical_behavior_statement) ||
+      /\b(the lock|locked in|i'?m still holding|let'?s confirm)\b/i.test(hallwayBody)
+    ) {
+      hallwayBody = buildPendingReplaceSafeClarificationFallback("");
+    }
+    const hallwayViolations = detectPendingReplacementStateTruthViolations(hallwayBody, pr);
+    if (hallwayViolations.length > 0) {
+      return { ok: false, reason: "fallback_still_violates_truth", candidatePresent: false };
+    }
+    return {
+      ok: true,
+      body: hallwayBody,
+      reason: "awaiting_candidate_hallway_fallback",
+      candidatePresent: true,
+    };
   }
 
   let fallbackBody = (args.legacyPendingReplyPreview ?? "").trim();
   const legacyHasInternalJargon =
-    /\b(the lock|locked in|i'?m still holding:)\b/i.test(fallbackBody);
+    /\b(the lock|locked in|i'?m still holding:|let'?s confirm)\b/i.test(fallbackBody);
   if (
     !fallbackBody ||
     !bodyRepresentsPendingCandidate(fallbackBody, candidate) ||
@@ -350,17 +413,31 @@ export function buildInboundPendingReplacementFactsFromCommitment(
     payload.candidate_behavior_statement?.trim() ||
     payload.candidate_new_bar?.trim() ||
     "";
-  if (!candidate) return null;
+  // Goal-change hallway: awaiting_candidate with no concrete candidate still outranks
+  // normal old-goal coaching. awaiting_confirmation without a candidate is invalid — skip.
+  if (!candidate && smsState !== "awaiting_candidate") return null;
 
   const applied = options?.pendingResolutionApplied === true;
   const requiredMeaning = applied
     ? "Canonical commitment was updated on the server — you may acknowledge the new bar honestly. Do not contradict updated_commitment_snapshot or pending_resolution_facts."
-    : [
-        "pending_replacement_facts: the pending candidate bar is the user-facing truth for this SMS.",
-        "canonical_behavior_statement is background only — do NOT coach it as the current daily bar.",
-        "Do NOT say goal/commitment updated, changed, locked in, or applied unless pending_resolution_applied is true.",
-        "If confirmation is still needed, ask naturally about the pending candidate (not the old bar).",
-      ].join(" ");
+    : candidate
+      ? [
+          "pending_replacement_facts: the pending candidate is the user-facing goal truth for this SMS.",
+          "canonical_behavior_statement is background only — do NOT coach it as today's action or current daily goal.",
+          "Do NOT say goal/commitment updated, changed, locked in, or applied unless pending_resolution_applied is true.",
+          "Do NOT ask how the new goal fits with the old/current commitment.",
+          "Ask naturally whether they want the pending candidate as their new goal. Prefer: Do you want your new goal to be: [candidate]?",
+          "Forbidden user-visible words: lock, locked in, bar, Let's confirm, candidate bar.",
+        ].join(" ")
+      : [
+          "pending_replacement_facts: goal-change hallway is open (awaiting_candidate, no concrete candidate yet).",
+          "The old/canonical goal is suspended for coaching — do NOT assign it as today's action.",
+          "Do NOT coach canonical_behavior_statement. Do NOT ask how a new idea fits with the old goal.",
+          "Stay in the replacement hallway: ask what new goal to hold them to, or one narrowing question about the replacement direction.",
+          "If grief/emotion is present, respond humanly and keep the ask gentle.",
+          "Do NOT say goal/commitment updated, changed, locked in, or applied.",
+          "Forbidden user-visible words: lock, locked in, bar, Let's confirm, candidate bar, align with your current needs.",
+        ].join(" ");
 
   return {
     pending_resolution_active: true,

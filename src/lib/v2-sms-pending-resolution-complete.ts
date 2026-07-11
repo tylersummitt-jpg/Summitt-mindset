@@ -270,6 +270,261 @@ export function extractDeterministicDailyBarCandidate(raw: string): string | nul
   return null;
 }
 
+function capitalizeHallwayAction(action: string): string {
+  const a = action.trim().toLowerCase();
+  if (!a) return action;
+  return a.charAt(0).toUpperCase() + a.slice(1);
+}
+
+function normalizeHallwayActionVerb(raw: string): string {
+  const a = raw.trim().toLowerCase();
+  if (a === "life" || a === "lifting" || a === "lifts") return "lift";
+  if (a === "walking" || a === "walks") return "walk";
+  if (a === "running" || a === "runs") return "run";
+  if (a === "working" || a === "workouts" || a === "workout") return "workout";
+  if (a === "training" || a === "trains") return "train";
+  if (a === "exercising" || a === "exercises") return "exercise";
+  return a.replace(/ing$/, "").replace(/s$/, "") || a;
+}
+
+function isConcreteHallwayClause(clause: string): boolean {
+  const t = clause.trim();
+  if (!t || t.length < 8) return false;
+  if (
+    /\b(more active|become more fit|get(?:ting)? (?:fit|healthy)|in shape|healthier|better)\b/i.test(
+      t
+    ) &&
+    !/\b(\d+|times?\s+(?:a|per)|minutes?|steps?|miles?|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
+      t
+    )
+  ) {
+    return false;
+  }
+  return /\b(\d+|every\s+day|each\s+day|daily|weekly|per\s+week|times?\s+(?:a|per)|minutes?|steps?|miles?|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
+    t
+  );
+}
+
+const WEEKDAY_TOKEN_RE =
+  /\b(mondays?|tuesdays?|wednesdays?|thursdays?|fridays?|saturdays?|sundays?|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\b/gi;
+
+const WEEKDAY_CANON: Record<string, string> = {
+  mon: "Monday",
+  monday: "Monday",
+  mondays: "Monday",
+  tue: "Tuesday",
+  tues: "Tuesday",
+  tuesday: "Tuesday",
+  tuesdays: "Tuesday",
+  wed: "Wednesday",
+  wednesday: "Wednesday",
+  wednesdays: "Wednesday",
+  thu: "Thursday",
+  thur: "Thursday",
+  thurs: "Thursday",
+  thursday: "Thursday",
+  thursdays: "Thursday",
+  fri: "Friday",
+  friday: "Friday",
+  fridays: "Friday",
+  sat: "Saturday",
+  saturday: "Saturday",
+  saturdays: "Saturday",
+  sun: "Sunday",
+  sunday: "Sunday",
+  sundays: "Sunday",
+};
+
+export function extractWeekdaysFromInbound(raw: string): string[] {
+  const found: string[] = [];
+  const seen = new Set<string>();
+  for (const m of raw.matchAll(WEEKDAY_TOKEN_RE)) {
+    const key = m[1]!.toLowerCase();
+    const canon = WEEKDAY_CANON[key];
+    if (canon && !seen.has(canon)) {
+      seen.add(canon);
+      found.push(canon);
+    }
+  }
+  return found;
+}
+
+function formatWeekdayList(days: string[]): string {
+  if (days.length === 0) return "";
+  if (days.length === 1) return days[0]!;
+  if (days.length === 2) return `${days[0]} and ${days[1]}`;
+  return `${days.slice(0, -1).join(", ")}, and ${days[days.length - 1]}`;
+}
+
+/** True when inbound is mostly weekday clarification (optionally with light connectors). */
+export function isMostlyWeekdayClarification(raw: string): boolean {
+  const t = raw.trim().replace(/\s+/g, " ");
+  if (!t || t.length > 80) return false;
+  const days = extractWeekdaysFromInbound(t);
+  if (days.length === 0) return false;
+  const stripped = t
+    .replace(WEEKDAY_TOKEN_RE, " ")
+    .replace(/\b(on|and|&|,|each|every|week|the|days?)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.length <= 8;
+}
+
+/**
+ * Stronger concrete-bar extract used ONLY while sms_state is awaiting_candidate
+ * on commitment_replace. Must not be used for normal non-pending inbound.
+ */
+export function extractAwaitingCandidateHallwayBar(raw: string): string | null {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  if (!trimmed) return null;
+  if (isAcknowledgmentOrMetaChangeRequestOnly(trimmed)) return null;
+
+  const det = extractDeterministicDailyBarCandidate(trimmed);
+  if (det) return det;
+
+  const freqAction = trimmed.match(
+    /\b(lift|life|walk|run|read|pray|write|call|workout|train|exercise|swim|bike|cycle)(?:ing|s)?\s+(?:weights?\s+)?(\d{1,2})\s+times?\s+(?:a|per)\s+week\b/i
+  );
+  if (freqAction) {
+    const action = normalizeHallwayActionVerb(freqAction[1]!);
+    const bar = `${capitalizeHallwayAction(action)} ${freqAction[2]} times per week`;
+    if (!isVagueOrInvalidCandidateBar(bar)) return bar;
+  }
+
+  const wantFreq = trimmed.match(
+    /\b(?:i\s+)?(?:just\s+)?want\s+to\s+(?:do\s+(?:the\s+)?)?(lift|life|walk|run|workout|train|exercise)(?:ing|s|ed)?\s+(?:weights?\s+)?(\d{1,2})\s+times?\s+(?:a|per)\s+week\b/i
+  );
+  if (wantFreq) {
+    const action = normalizeHallwayActionVerb(wantFreq[1]!);
+    const bar = `${capitalizeHallwayAction(action)} ${wantFreq[2]} times per week`;
+    if (!isVagueOrInvalidCandidateBar(bar)) return bar;
+  }
+
+  const numActionPerWeek = trimmed.match(
+    /\b(?:do\s+(?:the\s+)?)?(\d{1,2})\s+(lift|life|walk|run|workout|train)(?:s|ing)?\s+per\s+week\b/i
+  );
+  if (numActionPerWeek) {
+    const action = normalizeHallwayActionVerb(numActionPerWeek[2]!);
+    const bar = `${capitalizeHallwayAction(action)} ${numActionPerWeek[1]} times per week`;
+    if (!isVagueOrInvalidCandidateBar(bar)) return bar;
+  }
+
+  const actionOnDays = trimmed.match(
+    /\b(lift|walk|run|train|workout)(?:ing|s)?\s+(?:weights?\s+)?on\s+(.+)$/i
+  );
+  if (actionOnDays) {
+    const days = extractWeekdaysFromInbound(actionOnDays[2]!);
+    if (days.length > 0) {
+      const action = normalizeHallwayActionVerb(actionOnDays[1]!);
+      const bar = `${capitalizeHallwayAction(action)} on ${formatWeekdayList(days)} each week`;
+      if (!isVagueOrInvalidCandidateBar(bar)) return bar;
+    }
+  }
+
+  const newGoalToBe = trimmed.match(
+    /\b(?:my\s+)?new\s+goal\s+to\s+be\s+(.{8,180}?)(?:[.!?]|$)/i
+  );
+  if (newGoalToBe?.[1]?.trim()) {
+    const clause = newGoalToBe[1].trim().replace(/\s+/g, " ").slice(0, BEHAVIOR_MAX);
+    if (isConcreteHallwayClause(clause) && !isVagueOrInvalidCandidateBar(clause)) return clause;
+  }
+
+  const changeGoalTo = trimmed.match(
+    /\bchange\s+(?:my\s+)?goal\s+to\s+(.{8,180}?)(?:[.!?]|$)/i
+  );
+  if (changeGoalTo?.[1]?.trim()) {
+    const clause = changeGoalTo[1].trim().replace(/\s+/g, " ").slice(0, BEHAVIOR_MAX);
+    if (isConcreteHallwayClause(clause) && !isVagueOrInvalidCandidateBar(clause)) return clause;
+  }
+
+  return null;
+}
+
+export function tryMergeWeekdaysIntoCandidate(
+  existingCandidate: string,
+  rawInbound: string
+): string | null {
+  if (!isMostlyWeekdayClarification(rawInbound)) return null;
+  const days = extractWeekdaysFromInbound(rawInbound);
+  if (days.length === 0) return null;
+  const existing = existingCandidate.trim();
+  const dayPhrase = formatWeekdayList(days);
+  if (/\blift/i.test(existing)) {
+    return `Lift on ${dayPhrase} each week`;
+  }
+  if (/\b(walk|run|train|workout|exercise)/i.test(existing)) {
+    const verbMatch = existing.match(/\b(walk|run|train|workout|exercise)\b/i);
+    const verb = capitalizeHallwayAction(normalizeHallwayActionVerb(verbMatch?.[1] ?? "workout"));
+    return `${verb} on ${dayPhrase} each week`;
+  }
+  if (existing) {
+    const base = existing.replace(/\.$/, "");
+    return `${base} on ${dayPhrase}`;
+  }
+  return null;
+}
+
+export function isBroadReplacementDirection(raw: string): boolean {
+  const t = raw.trim();
+  if (!t || extractAwaitingCandidateHallwayBar(t)) return false;
+  const lower = t.toLowerCase();
+  const direction =
+    /\b(more active|more fit|in shape|get(?:ting)? (?:fit|healthy)|start scheduling|throughout the week|become more)\b/i.test(
+      lower
+    );
+  const domain = /\b(workout|work outs?|exercise|active|fit|fitness|health)\b/i.test(lower);
+  return direction && domain;
+}
+
+export function buildBroadDirectionHallwayDraft(raw: string): string {
+  if (/\bschedule/i.test(raw) && /\bworkout/i.test(raw)) {
+    return "Good. Should your new goal be scheduling workouts each week, or completing workouts each week?";
+  }
+  return "Got it. What new goal do you want me to hold you to — one clear action I can check?";
+}
+
+export function isReplacementNotMergeLanguage(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  return (
+    /\b(instead of|switch(?:ing)? (?:my )?focus|don'?t want to (?:run|do cardio|keep)|rather than)\b/i.test(
+      t
+    ) ||
+    /\b(?:lift|lifting).{0,50}instead of (?:cardio|running)\b/i.test(t) ||
+    /\binstead of (?:cardio|running).{0,50}(?:lift|lifting)\b/i.test(t)
+  );
+}
+
+export function buildReplacementNotMergeHallwayDraft(raw: string): string {
+  if (/\blift/i.test(raw)) {
+    return "Got it — lifting instead of the old goal. How many times per week do you want me to hold you to lifting?";
+  }
+  return "Got it — we're replacing the old goal. What new goal do you want me to hold you to?";
+}
+
+function looksEmotionalGriefContext(raw: string): boolean {
+  return /\b(griev(?:e|ing|ed)?|loss of|passed away|died|heartbroken|mourning|funeral|upset with)\b/i.test(
+    raw
+  );
+}
+
+function buildAwaitingCandidateVagueHallwayDraft(raw: string): string {
+  if (looksEmotionalGriefContext(raw)) {
+    return "I'm sorry. We can change the goal. What is one small thing that would actually help you this week?";
+  }
+  if (isBroadReplacementDirection(raw)) {
+    return buildBroadDirectionHallwayDraft(raw);
+  }
+  if (isReplacementNotMergeLanguage(raw)) {
+    return buildReplacementNotMergeHallwayDraft(raw);
+  }
+  return "Got it. What new goal do you want me to hold you to?";
+}
+
+function buildReplaceConfirmationAskDraft(candidate: string): string {
+  return `Do you want your new goal to be: ${candidate.trim()}?`;
+}
+
 function clampCandidateForKind(kind: V2PendingResolutionKind, text: string): string | null {
   const t = text.trim().replace(/\s+/g, " ");
   if (kind === "commitment_tighten") {
@@ -727,6 +982,59 @@ export async function tryHandleSmsInboundPendingResolution(args: {
 
     const conf = parseSmsConfirmation(rawFull);
     if (conf === "ambiguous") {
+      const refined =
+        kind === "commitment_replace"
+          ? tryMergeWeekdaysIntoCandidate(cand, rawFull)
+          : null;
+      if (refined && refined !== cand) {
+        const mergedDays = await mergeSmsPendingResolutionPayload({
+          commitmentId: c.id,
+          merge: (prev) => ({
+            ...prev,
+            sms_state: "awaiting_confirmation",
+            candidate_behavior_statement: refined,
+            candidate_new_bar: refined,
+            raw_user_text: rawFull.slice(0, RAW_LOG_MAX),
+            confirmation_prompt_sent_at: new Date().toISOString(),
+          }),
+        });
+        if (mergedDays.ok) {
+          const daysAsk = buildReplaceConfirmationAskDraft(refined);
+          logSmsPending({
+            pending_resolution_sms_state: "awaiting_confirmation",
+            detected_candidate: refined,
+            confirmation: "prompted",
+            mutation_attempted: false,
+            mutation_success: false,
+            rpc: null,
+            old_commitment_id: c.id,
+            new_commitment_id: null,
+            message_sid: args.job.message_sid,
+            raw_text_preview: rawPreview,
+            weekday_refine: true,
+          });
+          return pendingHandled(
+            await phase1PendingReply({
+              machineDraft: daysAsk,
+              brainCase: "pending_resolution_confirmation_prompt",
+              allowVictoryRoomPhrase: false,
+              currentBarSummary,
+              safeFallback: daysAsk,
+            }),
+            {
+              pendingNoSendPolicyBranch: "pending_active_clarify",
+              pendingResolutionKind: kind,
+              pendingStateMutatedBeforeSms: true,
+              pendingClearedBeforeSms: false,
+              pendingStillActiveAfterPhase1: true,
+              pendingResolutionApplied: false,
+              pendingProgressed: true,
+              stateTransitionSummary:
+                "Weekday clarification merged into candidate; pending remains awaiting_confirmation before visible SMS.",
+            }
+          );
+        }
+      }
       logSmsPending({
         pending_resolution_sms_state: "awaiting_confirmation",
         detected_candidate: cand,
@@ -739,7 +1047,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         message_sid: args.job.message_sid,
         raw_text_preview: rawPreview,
       });
-      const ambDraft = `Still holding this goal: ${cand}. Is that what you want me to hold you to, or what do you want instead?`;
+      const ambDraft = buildReplaceConfirmationAskDraft(cand);
       return pendingHandled(
         await phase1PendingReply({
           machineDraft: ambDraft,
@@ -1193,7 +1501,24 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     }
   }
 
-  let extracted = extractDeterministicDailyBarCandidate(rawFull);
+  let extracted =
+    smsState === "awaiting_candidate" && kind === "commitment_replace"
+      ? extractAwaitingCandidateHallwayBar(rawFull)
+      : extractDeterministicDailyBarCandidate(rawFull);
+  if (
+    !extracted &&
+    smsState === "awaiting_candidate" &&
+    kind === "commitment_replace" &&
+    isMostlyWeekdayClarification(rawFull)
+  ) {
+    const priorCand =
+      payload.candidate_behavior_statement?.trim() ||
+      payload.candidate_new_bar?.trim() ||
+      "";
+    if (priorCand) {
+      extracted = tryMergeWeekdaysIntoCandidate(priorCand, rawFull);
+    }
+  }
   if (!meaningInterpreterAcceptedBar && preferRichTextOverBareDuration(rawFull, extracted)) {
     extracted = null;
   }
@@ -1310,7 +1635,9 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       ai_candidate_extraction: aiMeta,
     });
     const vagueDraft =
-      "I need one clear daily action. What exactly should I hold you to tomorrow?";
+      kind === "commitment_replace"
+        ? buildAwaitingCandidateVagueHallwayDraft(rawFull)
+        : "I need one clear daily action. What exactly should I hold you to tomorrow?";
     return pendingHandled(
       await phase1PendingReply({
         machineDraft: vagueDraft,
@@ -1483,15 +1810,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       }
     );
   }
-  const replaceSeasonResolved = resolveSeasonModeForPendingReplace({
-    payload,
-    candidateBar: clamped,
-    currentBehaviorStatement: c.behavior_statement,
-  });
-  const replacePromptDraft =
-    replaceSeasonResolved.mode === "new_chapter"
-      ? `I can change the focus to: ${clamped}. Want me to hold you to that?`
-      : `I can raise the standard to: ${clamped}. Want me to hold you to that?`;
+  const replacePromptDraft = buildReplaceConfirmationAskDraft(clamped);
   return pendingHandled(
     await phase1PendingReply({
       machineDraft: replacePromptDraft,

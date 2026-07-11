@@ -104,11 +104,105 @@ describe("buildInboundPendingReplacementFactsFromCommitment", () => {
     expect(facts?.pending_resolution_applied).toBe(false);
   });
 
+  it("returns hallway facts for awaiting_candidate with empty candidate (outranks old-goal coaching)", () => {
+    const facts = buildInboundPendingReplacementFactsFromCommitment(
+      baseCommitment({
+        behavior_statement: "I will run 2 miles a day",
+        pending_resolution_payload: {
+          source: "sms_inbound",
+          sms_state: "awaiting_candidate",
+          detected_intent: "sms_replace_request",
+          raw_user_text: "I want to change my goal",
+          inbound_message_sid: "SM_hall",
+          ai_confidence: null,
+          candidate_behavior_statement: null,
+          candidate_new_bar: null,
+        },
+      })
+    );
+    expect(facts).not.toBeNull();
+    expect(facts?.pending_resolution_sms_state).toBe("awaiting_candidate");
+    expect(facts?.pending_candidate_behavior_statement).toBe("");
+    expect(facts?.required_meaning_summary).toMatch(/suspended|hallway|do NOT coach canonical/i);
+    expect(facts?.required_meaning_summary).toMatch(/fits with the old/i);
+  });
+
   it("returns null when pending is not commitment_replace", () => {
     const facts = buildInboundPendingReplacementFactsFromCommitment(
       baseCommitment({ pending_resolution_kind: "commitment_tighten" })
     );
     expect(facts).toBeNull();
+  });
+});
+
+describe("detectPendingReplacementStateTruthViolations — empty-candidate hallway", () => {
+  it("blocks old-goal for-today coaching while awaiting_candidate with no candidate", () => {
+    const facts = buildInboundPendingReplacementFactsFromCommitment(
+      baseCommitment({
+        behavior_statement: "I will do one small helpful act for my wife today without being asked.",
+        pending_resolution_payload: {
+          source: "sms_inbound",
+          sms_state: "awaiting_candidate",
+          detected_intent: "sms_replace_request",
+          raw_user_text: "more active",
+          inbound_message_sid: "SM_x",
+          ai_confidence: null,
+          candidate_behavior_statement: null,
+          candidate_new_bar: null,
+        },
+      })
+    )!;
+    const hits = detectPendingReplacementStateTruthViolations(
+      "It's great you're looking to be more active! For today, focus on doing one small helpful act for Civia without being asked.",
+      facts
+    );
+    expect(hits).toContain("pending_replace_coaches_stale_canonical_bar");
+  });
+
+  it("blocks fit-with-old-goal clarification loops", () => {
+    const facts = buildInboundPendingReplacementFactsFromCommitment(
+      baseCommitment({
+        behavior_statement: "I will run 2 miles a day",
+        pending_resolution_payload: {
+          source: "sms_inbound",
+          sms_state: "awaiting_candidate",
+          detected_intent: "sms_replace_request",
+          raw_user_text: "lift",
+          inbound_message_sid: "SM_y",
+          ai_confidence: null,
+          candidate_behavior_statement: null,
+          candidate_new_bar: null,
+        },
+      })
+    )!;
+    const hits = detectPendingReplacementStateTruthViolations(
+      "Let's clarify how this fits with your current commitment to running 2 miles a day.",
+      facts
+    );
+    expect(hits).toContain("pending_replace_coaches_stale_canonical_bar");
+  });
+
+  it("allows a pure hallway ask with no old-goal assignment", () => {
+    const facts = buildInboundPendingReplacementFactsFromCommitment(
+      baseCommitment({
+        behavior_statement: "I will run 2 miles a day",
+        pending_resolution_payload: {
+          source: "sms_inbound",
+          sms_state: "awaiting_candidate",
+          detected_intent: "sms_replace_request",
+          raw_user_text: "change",
+          inbound_message_sid: "SM_z",
+          ai_confidence: null,
+          candidate_behavior_statement: null,
+          candidate_new_bar: null,
+        },
+      })
+    )!;
+    const hits = detectPendingReplacementStateTruthViolations(
+      "Got it. What new goal do you want me to hold you to?",
+      facts
+    );
+    expect(hits).toEqual([]);
   });
 });
 
@@ -312,15 +406,15 @@ describe("produceInboundV3RelationshipSms pending replace truth", () => {
     expect(fallback.ok).toBe(true);
     if (fallback.ok) {
       expect(fallback.body.toLowerCase()).not.toMatch(/updated|changed your goal|commitment is updated/);
-      expect(fallback.body.toLowerCase()).not.toMatch(/the lock|locked in|i'?m still holding:/);
-      expect(fallback.body.toLowerCase()).toMatch(/hold you to|what do you want instead/);
+      expect(fallback.body.toLowerCase()).not.toMatch(/the lock|locked in|i'?m still holding:|let'?s confirm/);
+      expect(fallback.body.toLowerCase()).toMatch(/new goal|hold you to/);
     }
   });
 
   it("user-visible pending fallback has no lock / I'm still holding jargon", () => {
     const body = buildPendingReplaceSafeClarificationFallback("Walk 10,000 steps");
-    expect(body.toLowerCase()).not.toMatch(/the lock|locked in|i'?m still holding:|candidate bar|daily bar/);
-    expect(body.toLowerCase()).toMatch(/goal|hold you to|what do you want instead/);
+    expect(body.toLowerCase()).not.toMatch(/the lock|locked in|i'?m still holding:|candidate bar|daily bar|let'?s confirm/);
+    expect(body.toLowerCase()).toMatch(/new goal|hold you to/);
     expect(body).toMatch(/Walk 10,000 steps/);
   });
 

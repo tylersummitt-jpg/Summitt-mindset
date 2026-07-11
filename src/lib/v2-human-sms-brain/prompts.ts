@@ -4,23 +4,23 @@ import type { HumanSmsBrainCase } from "@/lib/v2-human-sms-brain/types";
 export function brainCaseInstruction(brainCase: HumanSmsBrainCase): string {
   switch (brainCase) {
     case "pending_resolution_confirmation_prompt":
-      return "Rewrite as one short SMS asking for a clear yes/no to adopt the stated bar. No jargon.";
+      return "Rewrite as one short SMS asking if this should be their new goal. Prefer: Do you want your new goal to be: [candidate]? Never say Let's confirm, lock, locked in, or bar. No jargon.";
     case "pending_resolution_replace_applied":
-      return "Rewrite as a short confirmation that their daily bar is updated starting tomorrow. Warm, direct.";
+      return "Rewrite as a short confirmation that their daily goal is updated starting tomorrow. Warm, direct.";
     case "pending_resolution_tighten_applied":
       return "Rewrite as a short confirmation the smaller ask is active for now. No technical overlay language.";
     case "pending_resolution_clarify_candidate":
-      return "Rewrite as one clarifying question only—user needs to be clearer about their daily bar.";
+      return "Rewrite as one clarifying question only about the new goal they want — not the old goal. Do not ask how it fits with the current commitment.";
     case "pending_resolution_ambiguous_confirm":
-      return "Rewrite to ask yes/no plainly while reflecting the candidate bar.";
+      return "Rewrite to ask plainly whether the stated candidate should be their new goal. Prefer: Do you want your new goal to be: [candidate]? Never say Let's confirm, lock, or bar.";
     case "pending_resolution_no_problem_reenter":
-      return "Rewrite inviting them to name a better daily bar—plain English.";
+      return "Rewrite inviting them to name a better daily goal—plain English. No lock/bar jargon.";
     case "pending_resolution_lost_candidate":
-      return "Rewrite asking for one clear daily action—no internal words.";
+      return "Rewrite asking for one clear action as their new goal—no internal words.";
     case "pending_resolution_rpc_error_hold":
       return "Rewrite that we could not save from here but still have their wording—reassuring, short.";
     case "pending_resolution_vague_need_detail":
-      return "Rewrite asking for one measurable daily action.";
+      return "Rewrite staying in the goal-change hallway: ask what new goal to hold them to, or one narrowing question about the replacement direction. Do NOT assign or continue the old goal. Do NOT ask how a new idea fits with the old commitment. Never say Let's confirm, lock, locked in, or bar. If grief/emotion is present, respond humanly and keep the ask gentle.";
     case "pending_resolution_unsafe_candidate":
       return "Rewrite MACHINE_DRAFT: unsafe commitment candidate blocked by server—short safety redirect only. Do not adopt or soften the unsafe bar. Invite a safe daily commitment. No internal jargon.";
     case "contract_consent_overlay_yes_ack":

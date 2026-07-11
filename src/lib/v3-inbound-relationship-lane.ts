@@ -2070,7 +2070,7 @@ ROUTE (${rp}): Guided refresh-session SMS. Server already applied refresh_state 
   if (rp === "pending_resolution") {
     return (
       `
-ROUTE (pending_resolution): SMS pending guided-resolution turn. Use pending_resolution_facts (resolution_type, pending_action, user_answer_type, state_transition_summary, updated_commitment_snapshot), pending_replacement_facts, and season_transition_facts when present. legacy_pending_reply_preview is NON-SPEAKABLE machine copy — do not quote, imitate, or paste it. If pending_replacement_facts.pending_resolution_applied is false: the pending candidate bar is user-facing truth — do NOT coach canonical_behavior_statement as current; do NOT say goal/commitment updated/changed/locked in. If pending_resolution_applied is true: canonical commitment was updated — you may acknowledge honestly. Honor required_verbatim_substrings / required_meaning_summary. One SMS.` +
+ROUTE (pending_resolution): SMS pending guided-resolution turn. Use pending_resolution_facts (resolution_type, pending_action, user_answer_type, state_transition_summary, updated_commitment_snapshot), pending_replacement_facts, and season_transition_facts when present. legacy_pending_reply_preview is NON-SPEAKABLE machine copy — do not quote, imitate, or paste it. If pending_replacement_facts.pending_resolution_applied is false: stay in the goal-change hallway — do NOT coach canonical_behavior_statement as today's action; do NOT ask how a new idea fits with the old commitment; do NOT say goal/commitment updated/changed/locked in. If there is a pending candidate, ask whether that should be the new goal (prefer "Do you want your new goal to be: …?"). If awaiting_candidate with no candidate yet, ask what new goal to hold them to. Never write "Let's confirm". If pending_resolution_applied is true: canonical commitment was updated — you may acknowledge honestly. Honor required_verbatim_substrings / required_meaning_summary. One SMS.` +
       buildSeasonTransitionRouteAux(f)
     );
   }
@@ -2163,8 +2163,15 @@ STOP/HELP/START remain Twilio compliance outside this lane.`;
 function buildPendingReplacementRouteAux(f: InboundV3RelationshipFacts): string {
   const pr = f.pending_replacement_facts;
   if (!pr?.pending_resolution_active) return "";
+  const hasCandidate = Boolean(
+    pr.pending_candidate_behavior_statement?.trim() || pr.pending_candidate_new_bar?.trim()
+  );
+  if (!hasCandidate && pr.pending_resolution_sms_state === "awaiting_candidate") {
+    return `
+PENDING_COMMITMENT_REPLACE_TRUTH (goal-change hallway): pending_resolution_applied is false and there is no concrete candidate yet. The old/canonical goal is suspended — do NOT assign it as today's action, do NOT coach canonical_behavior_statement, and do NOT ask how a new idea fits with the old commitment. Ask what new goal to hold them to (or one gentle narrowing question). Prefer human language: goal / new goal / hold you to. Never say lock, locked in, bar, Let's confirm, or candidate bar.`;
+  }
   return `
-PENDING_COMMITMENT_REPLACE_TRUTH: pending_replacement_facts.pending_candidate_behavior_statement is the user-facing daily bar while pending_resolution_applied is false. canonical_behavior_statement is background only — do not coach it as the active bar. Do not say goal/commitment updated/changed/locked in/applied unless pending_resolution_applied is true. If confirmation is needed, ask naturally about the candidate bar (e.g. walking 10,000 steps), not the old commitment.`;
+PENDING_COMMITMENT_REPLACE_TRUTH: pending_replacement_facts.pending_candidate_behavior_statement is the user-facing goal while pending_resolution_applied is false. canonical_behavior_statement is background only — do not coach it as today's action. Do not ask how the new goal fits with the old/current commitment. Do not say goal/commitment updated/changed/locked in/applied unless pending_resolution_applied is true. If confirmation is needed, ask: Do you want your new goal to be: [candidate]? Never say Let's confirm, lock, locked in, or bar.`;
 }
 
 const INBOUND_THREAD_FRESHNESS_EXCLUDED_ROUTE_PURPOSES = new Set<InboundV3RoutePurpose>([

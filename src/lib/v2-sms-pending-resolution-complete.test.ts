@@ -90,6 +90,7 @@ import {
   isVagueOrInvalidCandidateBar,
   isAcknowledgmentOrMetaChangeRequestOnly,
   extractDeterministicDailyBarCandidate,
+  extractAwaitingCandidateHallwayBar,
 } from "@/lib/v2-sms-pending-resolution-complete";
 import { derivePersistenceDecision } from "@/lib/inbound-relationship-meaning";
 
@@ -516,7 +517,8 @@ describe("no raw full-body fallback for candidate_behavior_statement", () => {
     expect(r.handled).toBe(true);
     if (r.handled) {
       expect(r.pendingResolutionApplied).toBe(false);
-      expect(r.replyBody.toLowerCase()).toMatch(/hold you to|change the focus|raise the/);
+      expect(r.replyBody.toLowerCase()).toMatch(/new goal|hold you to/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/let'?s confirm|\block\b|locked in/);
     }
     expect(mergeMock).toHaveBeenCalled();
     const mergeFn = mergeMock.mock.calls[0]![0].merge as (prev: Record<string, unknown>) => Record<
@@ -724,7 +726,7 @@ describe("tryHandleSmsInboundPendingResolution — compound yes/confirm", () => 
 });
 
 describe("tryHandleSmsInboundPendingResolution — replace confirmation preview", () => {
-  it("same_season_sync confirmation preview does not say new commitment", async () => {
+  it("same_season_sync confirmation preview asks about new goal without lock jargon", async () => {
     const c = commitmentAwaitingConfirm({
       sms_state: "awaiting_candidate",
       detected_intent: "sms_raise_bar_request",
@@ -742,12 +744,12 @@ describe("tryHandleSmsInboundPendingResolution — replace confirmation preview"
 
     expect(r.handled).toBe(true);
     if (r.handled) {
-      expect(r.replyBody.toLowerCase()).toMatch(/raise the (bar|standard)|hold you to that/);
-      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment|the lock|locked in/);
+      expect(r.replyBody.toLowerCase()).toMatch(/do you want your new goal to be/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment|the lock|locked in|let'?s confirm/);
     }
   });
 
-  it("new_chapter confirmation preview uses focus / hold-you-to wording", async () => {
+  it("new_chapter confirmation preview asks about new goal without lock jargon", async () => {
     const c = commitmentAwaitingConfirm({
       sms_state: "awaiting_candidate",
       detected_intent: "sms_replace_request",
@@ -768,8 +770,302 @@ describe("tryHandleSmsInboundPendingResolution — replace confirmation preview"
 
     expect(r.handled).toBe(true);
     if (r.handled) {
-      expect(r.replyBody.toLowerCase()).toMatch(/change the focus|hold you to that/);
-      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment|lock that in|the lock/);
+      expect(r.replyBody.toLowerCase()).toMatch(/do you want your new goal to be/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/new commitment|lock that in|the lock|let'?s confirm/);
+    }
+  });
+});
+
+describe("goal-change hallway — awaiting_candidate outranks old-goal coaching", () => {
+  it("A — concrete frequency: lift 2 times a week → awaiting_confirmation, no running fit loop", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    c.behavior_statement = "I will run 2 miles a day";
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_hall_a", raw_body: "I want to lift 2 times a week" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    expect(mergeMock).toHaveBeenCalled();
+    const mergeFn = mergeMock.mock.calls[0]![0].merge as (prev: Record<string, unknown>) => Record<
+      string,
+      unknown
+    >;
+    const merged = mergeFn({
+      source: "sms_inbound",
+      detected_intent: "sms_replace_request",
+      raw_user_text: "I want to lift 2 times a week",
+      inbound_message_sid: "SMpr_hall_a",
+      ai_confidence: null,
+      sms_state: "awaiting_candidate",
+    });
+    expect(merged.sms_state).toBe("awaiting_confirmation");
+    expect(String(merged.candidate_behavior_statement)).toMatch(/lift 2 times per week/i);
+    if (r.handled) {
+      expect(r.replyBody.toLowerCase()).toMatch(/do you want your new goal to be/);
+      expect(r.replyBody.toLowerCase()).toMatch(/lift/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/run 2 miles|fit with|for today/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/let'?s confirm|\block\b|locked in|\bbar\b/);
+    }
+  });
+
+  it("B — restated concrete preference: just want to do the 2 lift per week", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    c.behavior_statement = "I will run 2 miles a day";
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_hall_b", raw_body: "I just want to do the 2 lift per week" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    const mergeFn = mergeMock.mock.calls[0]![0].merge as (prev: Record<string, unknown>) => Record<
+      string,
+      unknown
+    >;
+    const merged = mergeFn({
+      source: "sms_inbound",
+      detected_intent: "sms_replace_request",
+      raw_user_text: "x",
+      inbound_message_sid: "SMpr_hall_b",
+      ai_confidence: null,
+      sms_state: "awaiting_candidate",
+    });
+    expect(merged.sms_state).toBe("awaiting_confirmation");
+    expect(String(merged.candidate_behavior_statement)).toMatch(/lift 2 times per week/i);
+    if (r.handled) {
+      expect(r.replyBody.toLowerCase()).not.toMatch(/run 2 miles|fit with running/);
+    }
+  });
+
+  it("C — replacement-not-merge: instead of cardio stays in hallway", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    c.behavior_statement = "I will run 2 miles a day";
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_hall_c",
+        raw_body:
+          "I don't want to I want to switch my focus to lifting weights instead of cardio now.",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.pendingStillActiveAfterPhase1).toBe(true);
+      expect(r.replyBody.toLowerCase()).toMatch(/lift|new goal|hold you to/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/fit with|for today|run 2 miles/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/let'?s confirm/);
+    }
+  });
+
+  it("D — broad fitness direction: no Civia/old-goal action; narrowing question", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    c.behavior_statement =
+      "I will do one small helpful act for my wife today without being asked.";
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_hall_d",
+        raw_body:
+          "I want my new goal to be more active and start scheduling workouts to do throughout the week to become more fit and in shape",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingStillActiveAfterPhase1).toBe(true);
+      expect(r.replyBody.toLowerCase()).toMatch(/scheduling workouts|completing workouts|new goal/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/civia|helpful act|wife|for today/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/fit with your current/);
+    }
+  });
+
+  it("E — weekdays refine existing candidate without Let's confirm", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_confirmation",
+      candidate_behavior_statement: "Lift 2 times this week",
+      candidate_new_bar: "Lift 2 times this week",
+    });
+    c.behavior_statement = "I will run 2 miles a day";
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_hall_e", raw_body: "Tuesdays and Thursday" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    expect(mergeMock).toHaveBeenCalled();
+    const mergeFn = mergeMock.mock.calls[0]![0].merge as (prev: Record<string, unknown>) => Record<
+      string,
+      unknown
+    >;
+    const merged = mergeFn({
+      source: "sms_inbound",
+      detected_intent: "sms_replace_request",
+      raw_user_text: "x",
+      inbound_message_sid: "SMpr_hall_e",
+      ai_confidence: null,
+      sms_state: "awaiting_confirmation",
+      candidate_behavior_statement: "Lift 2 times this week",
+    });
+    expect(String(merged.candidate_behavior_statement)).toMatch(/tuesday/i);
+    expect(String(merged.candidate_behavior_statement)).toMatch(/thursday/i);
+    if (r.handled) {
+      expect(r.replyBody.toLowerCase()).toMatch(/do you want your new goal to be/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/let'?s confirm|\block\b|locked in|\bbar\b/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/run 2 miles|for today/);
+    }
+  });
+
+  it("F — confirmation wording avoids forbidden final-gate phrases", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_hall_f", raw_body: "Walk 20 minutes after dinner" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.replyBody.toLowerCase()).toMatch(/do you want your new goal to be/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/let'?s confirm|\block\b|locked in|\bcandidate bar\b|\bdaily bar\b/);
+    }
+  });
+
+  it("G — Yes confirms existing candidate and does not replace CBS with Yes", async () => {
+    const c = commitmentAwaitingConfirm({
+      candidate_behavior_statement: "Lift 2 times per week",
+      candidate_new_bar: "Lift 2 times per week",
+    });
+    getActiveCommitmentMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...c,
+        behavior_statement: "Lift 2 times per week",
+        pending_resolution_kind: null,
+        pending_resolution_payload: null,
+      });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_hall_g", raw_body: "Yes" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    expect(rpcMock).toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(true);
+    }
+    for (const call of mergeMock.mock.calls) {
+      const mergeArg = call[0] as { merge?: (prev: Record<string, unknown>) => Record<string, unknown> };
+      if (typeof mergeArg?.merge === "function") {
+        const out = mergeArg.merge({
+          source: "sms_inbound",
+          detected_intent: "sms_replace_request",
+          raw_user_text: "Yes",
+          inbound_message_sid: "SMpr_hall_g",
+          ai_confidence: null,
+          sms_state: "awaiting_confirmation",
+          candidate_behavior_statement: "Lift 2 times per week",
+        });
+        expect(String(out.candidate_behavior_statement ?? "Lift 2 times per week")).not.toMatch(
+          /^yes$/i
+        );
+      }
+    }
+  });
+
+  it("H — meta-change text still does not become candidate", async () => {
+    const raw = "I want to change my goal, please.";
+    expect(extractDeterministicDailyBarCandidate(raw)).toBeNull();
+    expect(extractAwaitingCandidateHallwayBar(raw)).toBeNull();
+
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+      awaiting_candidate_reason: "goal_change_without_concrete_bar",
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_hall_h", raw_body: raw },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).toMatch(/new goal|hold you to/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/i want to change my goal/);
+    }
+  });
+
+  it("I — raw body is not candidate when no structured extract", () => {
+    expect(extractDeterministicDailyBarCandidate("I want to change my goal, please.")).toBeNull();
+    expect(extractAwaitingCandidateHallwayBar("something vague about goals maybe")).toBeNull();
+  });
+
+  it("J — non-pending deterministic extract does not over-extract want-to lift", () => {
+    expect(extractDeterministicDailyBarCandidate("I want to lift 2 times a week")).toBeNull();
+    expect(extractAwaitingCandidateHallwayBar("I want to lift 2 times a week")).toMatch(
+      /lift 2 times per week/i
+    );
+  });
+
+  it("grief/emotion hallway ask stays gentle and does not assign old goal", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_hall_grief",
+        raw_body: "I am grieving my loss of my 16 year old dog.",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.replyBody.toLowerCase()).toMatch(/sorry|help you|small thing|change the goal/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/align with your current needs|for today/);
     }
   });
 });
