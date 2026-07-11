@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
-import { generateTylerTextOverviewEveningPreviewForUser } from "@/lib/tyler-text-overview-generate";
+import {
+  generateTylerTextOverviewEveningPreviewForUser,
+  resolveTylerTextOverviewMachineNoSendReason,
+} from "@/lib/tyler-text-overview-generate";
 import { SMS_DAILY_EVENING_PREVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
 
 export const runtime = "nodejs";
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
 
     const previewBody = result.built.ok ? result.built.smsBody : null;
     const machineShouldSend = result.built.ok;
+    const machineNoSendReason = resolveTylerTextOverviewMachineNoSendReason(result.built);
 
     return NextResponse.json({
       ok: true,
@@ -75,6 +79,7 @@ export async function POST(req: Request) {
       generation_id: result.generationId,
       machine_should_send: machineShouldSend,
       machine_draft_body: previewBody,
+      machine_no_send_reason: machineNoSendReason,
       morning_anchor_source: result.morningAnchorSource,
       slot_coaching_context: result.slotCoachingContext,
     });

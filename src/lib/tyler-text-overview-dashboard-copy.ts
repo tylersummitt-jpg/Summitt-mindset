@@ -29,6 +29,10 @@ export const EVENING_TTO_SAVE_BEFORE_SEND_COPY = "Save changes before sending.";
 export const EVENING_TTO_REGENERATE_OVERWRITE_COPY =
   "Regenerate may replace saved edits.";
 
+export const EVENING_TTO_NO_BODY_GENERATED_COPY = "No evening text body generated.";
+
+export const EVENING_TTO_NOT_SENDABLE_LABEL = "Not sendable";
+
 export type TylerTextOverviewDashboardSendSlot =
   | typeof SMS_DAILY_PRODUCTION_SEND_SLOT
   | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
@@ -37,6 +41,75 @@ export function isEveningDashboardSendSlot(
   sendSlot: TylerTextOverviewDashboardSendSlot
 ): boolean {
   return sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
+}
+
+/**
+ * Send busy only when a real draft id matches — never treat null===null as sending.
+ */
+export function isEveningSendBusy(args: {
+  draftId: string | null | undefined;
+  sendingDraftId: string | null | undefined;
+}): boolean {
+  const draftId = args.draftId?.trim() ?? "";
+  if (!draftId) return false;
+  return args.sendingDraftId === draftId;
+}
+
+export function eveningSendButtonLabel(isSending: boolean): string {
+  return isSending ? "Sending…" : "Send Evening Text";
+}
+
+export function eveningGenerateButtonLabel(args: {
+  isGenerating: boolean;
+  hasPreview: boolean;
+}): string {
+  if (args.isGenerating) {
+    return args.hasPreview ? "Regenerating…" : "Generating…";
+  }
+  return args.hasPreview ? "Regenerate Evening Preview" : "Generate Evening Preview";
+}
+
+/** Toast after evening-preview POST succeeds (including valid no-send / null-body). */
+export function formatEveningPreviewGenerateSuccessToast(args: {
+  machineShouldSend: boolean | null | undefined;
+  machineDraftBody: string | null | undefined;
+  machineNoSendReason?: string | null;
+}): string {
+  const body = args.machineDraftBody?.trim() ?? "";
+  const reason = args.machineNoSendReason?.trim() ?? "";
+
+  if (args.machineShouldSend === false) {
+    const parts = ["Evening preview saved as not sendable."];
+    if (reason) parts.push(`Reason: ${reason}`);
+    if (!body) parts.push("No text body was generated for this preview.");
+    return parts.join(" ");
+  }
+
+  if (!body) {
+    return "Evening preview generated. No text body was generated for this preview.";
+  }
+
+  return "Evening preview generated.";
+}
+
+/** Empty / no-send body panel copy for Evening TTO (not a fake message body). */
+export function formatEveningEmptyBodyPanelCopy(args: {
+  machineShouldSend: boolean | null | undefined;
+  machineNoSendReason?: string | null;
+}): { primary: string; secondary: string | null } {
+  const reason = args.machineNoSendReason?.trim() || null;
+  if (args.machineShouldSend === false) {
+    return {
+      primary: EVENING_TTO_NOT_SENDABLE_LABEL,
+      secondary: reason
+        ? `Reason: ${reason}`
+        : EVENING_TTO_NO_BODY_GENERATED_COPY,
+    };
+  }
+  return {
+    primary: EVENING_TTO_NO_BODY_GENERATED_COPY,
+    secondary: reason ? `Reason: ${reason}` : null,
+  };
 }
 
 export function getTylerTextOverviewAdminLocalDayKey(now: Date = new Date()): string {

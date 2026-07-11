@@ -8,13 +8,18 @@ import {
   adminCountLabel,
   buildSiblingTylerTextOverviewPageHref,
   buildTylerTextOverviewEveningPageHref,
+  eveningGenerateButtonLabel,
+  eveningSendButtonLabel,
   EVENING_TTO_MANUAL_BANNER,
   EVENING_TTO_NON_TODAY_WARNING,
   EVENING_TTO_NO_PREVIEW_COPY,
   EVENING_TTO_REGENERATE_OVERWRITE_COPY,
   EVENING_TTO_SAVE_BEFORE_SEND_COPY,
   EVENING_TTO_SAVE_ONLY_COPY,
+  formatEveningEmptyBodyPanelCopy,
+  formatEveningPreviewGenerateSuccessToast,
   isEveningDashboardSendSlot,
+  isEveningSendBusy,
   MORNING_TTO_AUTHORITY_BANNER,
   resolveEveningTtoInitialSelectedDayKey,
   shouldShowEveningNonTodayWarning,
@@ -480,7 +485,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         return;
       }
 
-      showToast("Evening preview generated.");
+      showToast(
+        formatEveningPreviewGenerateSuccessToast({
+          machineShouldSend: json.machine_should_send,
+          machineDraftBody: json.machine_draft_body,
+          machineNoSendReason: json.machine_no_send_reason,
+        })
+      );
       const effectiveDayKey = selectedDayKey || dayKey || "";
       if (isEveningPage) {
         await load(effectiveDayKey, sendSlot, searchQuery);
@@ -572,10 +583,18 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
               <button
                 type="button"
                 className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                disabled={sendingDraftId === confirmSendRow.draftId}
+                disabled={isEveningSendBusy({
+                  draftId: confirmSendRow.draftId,
+                  sendingDraftId,
+                })}
                 onClick={() => sendEveningDraft(confirmSendRow)}
               >
-                {sendingDraftId === confirmSendRow.draftId ? "Sending…" : "Send Evening Text"}
+                {eveningSendButtonLabel(
+                  isEveningSendBusy({
+                    draftId: confirmSendRow.draftId,
+                    sendingDraftId,
+                  })
+                )}
               </button>
             </div>
           </div>
@@ -689,12 +708,32 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             const morningEditable = !isEveningPage && canEditMorningDraft(row) && !morningSent;
             const canEditBody = eveningEditable || morningEditable;
             const eveningDirty = eveningEditable && isEveningDraftDirty(row, edits);
+            const isSendingThisEvening = isEveningSendBusy({
+              draftId: row.draftId,
+              sendingDraftId,
+            });
+            const isGeneratingThisEvening =
+              Boolean(row.clerkUserId?.trim()) && generatingUserId === row.clerkUserId;
             const canSendThisEvening =
-              canSendEveningRow(row) && !eveningDirty && sendingDraftId !== row.draftId;
+              canSendEveningRow(row) && !eveningDirty && !isSendingThisEvening;
             const readOnlyBody =
               (eveningSent || morningSent) && row.finalBodySent?.trim()
                 ? row.finalBodySent
                 : row.currentBodyToSend;
+            const eveningEmptyBodyCopy =
+              isEveningPage &&
+              eveningRow &&
+              !(
+                readOnlyBody?.trim() ||
+                (row.draftId ? edits[row.draftId]?.trim() : "")
+              )
+                ? row.rowState === "no_draft_yet"
+                  ? { primary: EVENING_TTO_NO_PREVIEW_COPY, secondary: null }
+                  : formatEveningEmptyBodyPanelCopy({
+                      machineShouldSend: row.machineShouldSend,
+                      machineNoSendReason: row.machineNoSendReason,
+                    })
+                : null;
 
             return (
               <li
@@ -787,9 +826,20 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   <div>
                     <p className="text-xs font-medium text-gray-500">current_body_to_send</p>
                     {!canEditBody ? (
-                      <pre className="mt-1 w-full min-h-[96px] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap">
-                        {readOnlyBody ?? (row.rowState === "no_draft_yet" ? "—" : "—")}
-                      </pre>
+                      eveningEmptyBodyCopy ? (
+                        <div className="mt-1 w-full min-h-[96px] rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600 space-y-1">
+                          <p className="font-medium text-gray-800">{eveningEmptyBodyCopy.primary}</p>
+                          {eveningEmptyBodyCopy.secondary ? (
+                            <p className="text-xs text-gray-600 font-mono break-all">
+                              {eveningEmptyBodyCopy.secondary}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <pre className="mt-1 w-full min-h-[96px] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap">
+                          {readOnlyBody ?? "—"}
+                        </pre>
+                      )
                     ) : (
                       <>
                         <textarea
@@ -834,16 +884,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       <button
                         type="button"
                         className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                        disabled={generatingUserId === row.clerkUserId}
+                        disabled={isGeneratingThisEvening}
                         onClick={() => generateEveningPreview(row)}
                       >
-                        {generatingUserId === row.clerkUserId
-                          ? row.rowState === "no_draft_yet"
-                            ? "Generating…"
-                            : "Regenerating…"
-                          : row.rowState === "no_draft_yet"
-                            ? "Generate Evening Preview"
-                            : "Regenerate Evening Preview"}
+                        {eveningGenerateButtonLabel({
+                          isGenerating: isGeneratingThisEvening,
+                          hasPreview: row.rowState !== "no_draft_yet",
+                        })}
                       </button>
                       {row.rowState !== "no_draft_yet" ? (
                         <p className="text-xs text-gray-600">
@@ -856,7 +903,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                         disabled={!canSendThisEvening}
                         onClick={() => setConfirmSendRow(row)}
                       >
-                        {sendingDraftId === row.draftId ? "Sending…" : "Send Evening Text"}
+                        {eveningSendButtonLabel(isSendingThisEvening)}
                       </button>
                     </>
                   ) : null}

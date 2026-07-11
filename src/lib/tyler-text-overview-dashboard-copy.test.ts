@@ -5,12 +5,19 @@ import { join } from "node:path";
 import {
   adminCountLabel,
   buildSiblingTylerTextOverviewPageHref,
+  eveningGenerateButtonLabel,
+  eveningSendButtonLabel,
   EVENING_TTO_NON_TODAY_WARNING,
+  EVENING_TTO_NO_BODY_GENERATED_COPY,
   EVENING_TTO_NO_PREVIEW_COPY,
+  EVENING_TTO_NOT_SENDABLE_LABEL,
   EVENING_TTO_REGENERATE_OVERWRITE_COPY,
   EVENING_TTO_SAVE_BEFORE_SEND_COPY,
   EVENING_TTO_SAVE_ONLY_COPY,
+  formatEveningEmptyBodyPanelCopy,
+  formatEveningPreviewGenerateSuccessToast,
   getTylerTextOverviewAdminLocalDayKey,
+  isEveningSendBusy,
   MORNING_TTO_AUTHORITY_BANNER,
   resolveEveningTtoInitialSelectedDayKey,
   resolveSiblingLinkDraftForDayKey,
@@ -77,6 +84,105 @@ describe("tyler-text-overview-dashboard-copy adminCountLabel", () => {
     expect(adminCountLabel("machineShouldSendFalse", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
       "Would skip"
     );
+  });
+});
+
+describe("tyler-text-overview-dashboard-copy evening send/generate UI helpers", () => {
+  it("isEveningSendBusy is false when draftId is null even if sendingDraftId is null", () => {
+    expect(
+      isEveningSendBusy({ draftId: null, sendingDraftId: null })
+    ).toBe(false);
+    expect(
+      isEveningSendBusy({ draftId: undefined, sendingDraftId: null })
+    ).toBe(false);
+    expect(
+      isEveningSendBusy({ draftId: "", sendingDraftId: null })
+    ).toBe(false);
+  });
+
+  it("isEveningSendBusy is true only when real draftId matches sendingDraftId", () => {
+    expect(
+      isEveningSendBusy({ draftId: "draft-1", sendingDraftId: "draft-1" })
+    ).toBe(true);
+    expect(
+      isEveningSendBusy({ draftId: "draft-1", sendingDraftId: "draft-2" })
+    ).toBe(false);
+    expect(
+      isEveningSendBusy({ draftId: "draft-1", sendingDraftId: null })
+    ).toBe(false);
+  });
+
+  it("eveningSendButtonLabel never says Sending when not busy", () => {
+    expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
+    expect(eveningSendButtonLabel(true)).toBe("Sending…");
+  });
+
+  it("eveningGenerateButtonLabel covers generate/regenerate loading", () => {
+    expect(eveningGenerateButtonLabel({ isGenerating: false, hasPreview: false })).toBe(
+      "Generate Evening Preview"
+    );
+    expect(eveningGenerateButtonLabel({ isGenerating: true, hasPreview: false })).toBe(
+      "Generating…"
+    );
+    expect(eveningGenerateButtonLabel({ isGenerating: false, hasPreview: true })).toBe(
+      "Regenerate Evening Preview"
+    );
+    expect(eveningGenerateButtonLabel({ isGenerating: true, hasPreview: true })).toBe(
+      "Regenerating…"
+    );
+  });
+
+  it("formatEveningPreviewGenerateSuccessToast explains no-send and null body", () => {
+    expect(
+      formatEveningPreviewGenerateSuccessToast({
+        machineShouldSend: false,
+        machineDraftBody: null,
+        machineNoSendReason: "already_user_yes_today",
+      })
+    ).toContain("not sendable");
+    expect(
+      formatEveningPreviewGenerateSuccessToast({
+        machineShouldSend: false,
+        machineDraftBody: null,
+        machineNoSendReason: "already_user_yes_today",
+      })
+    ).toContain("Reason: already_user_yes_today");
+    expect(
+      formatEveningPreviewGenerateSuccessToast({
+        machineShouldSend: false,
+        machineDraftBody: null,
+        machineNoSendReason: "already_user_yes_today",
+      })
+    ).toContain("No text body was generated");
+    expect(
+      formatEveningPreviewGenerateSuccessToast({
+        machineShouldSend: true,
+        machineDraftBody: "How did the walk go?",
+      })
+    ).toBe("Evening preview generated.");
+  });
+
+  it("formatEveningEmptyBodyPanelCopy avoids misleading dash body", () => {
+    expect(
+      formatEveningEmptyBodyPanelCopy({
+        machineShouldSend: false,
+        machineNoSendReason: "paused",
+      })
+    ).toEqual({
+      primary: EVENING_TTO_NOT_SENDABLE_LABEL,
+      secondary: "Reason: paused",
+    });
+    expect(
+      formatEveningEmptyBodyPanelCopy({
+        machineShouldSend: null,
+        machineNoSendReason: null,
+      })
+    ).toEqual({
+      primary: EVENING_TTO_NO_BODY_GENERATED_COPY,
+      secondary: null,
+    });
+    expect(EVENING_TTO_NO_BODY_GENERATED_COPY).not.toBe("—");
+    expect(EVENING_TTO_NO_BODY_GENERATED_COPY).not.toBe("-");
   });
 });
 
@@ -272,9 +378,15 @@ describe("tyler-text-overview two-page UI wiring", () => {
 
   it("evening dashboard keeps manual send controls and cross-link", () => {
     expect(dashboard).toContain("EVENING_TTO_MANUAL_BANNER");
-    expect(dashboard).toContain("Generate Evening Preview");
-    expect(dashboard).toContain("Regenerate Evening Preview");
-    expect(dashboard).toContain("Send Evening Text");
+    expect(dashboard).toContain("eveningGenerateButtonLabel");
+    expect(dashboard).toContain("eveningSendButtonLabel");
+    expect(eveningGenerateButtonLabel({ isGenerating: false, hasPreview: false })).toBe(
+      "Generate Evening Preview"
+    );
+    expect(eveningGenerateButtonLabel({ isGenerating: false, hasPreview: true })).toBe(
+      "Regenerate Evening Preview"
+    );
+    expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
     expect(dashboard).toContain("Morning Text Overview →");
     expect(dashboard).toContain("EVENING_TTO_NO_PREVIEW_COPY");
   });
@@ -319,5 +431,24 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(EVENING_TTO_SAVE_BEFORE_SEND_COPY).toContain("Save changes");
     expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).toContain("replace saved edits");
     expect(dashboard).not.toContain("showReadOnlyBody =\n              isEveningPage ||");
+  });
+
+  it("evening Send busy state never treats null draftId as sending", () => {
+    expect(dashboard).toContain("isEveningSendBusy");
+    expect(dashboard).toContain("eveningSendButtonLabel");
+    expect(dashboard).toContain("isSendingThisEvening");
+    expect(dashboard).not.toMatch(
+      /\{sendingDraftId === row\.draftId \? "Sending…" : "Send Evening Text"\}/
+    );
+    expect(dashboard).not.toMatch(/sendingDraftId !== row\.draftId/);
+  });
+
+  it("evening Generate loading is independent of Send Sending label", () => {
+    expect(dashboard).toContain("generatingUserId");
+    expect(dashboard).toContain("eveningGenerateButtonLabel");
+    expect(dashboard).toContain("isGeneratingThisEvening");
+    expect(dashboard).toContain("formatEveningPreviewGenerateSuccessToast");
+    expect(dashboard).toContain("formatEveningEmptyBodyPanelCopy");
+    expect(dashboard).toContain("machine_no_send_reason");
   });
 });

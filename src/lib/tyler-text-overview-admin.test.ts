@@ -1303,7 +1303,8 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(dashboard).not.toContain("role=\"tablist\"");
     expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-preview");
     expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-send");
-    expect(dashboard).toContain("Send Evening Text");
+    expect(dashboard).toContain("eveningSendButtonLabel");
+    expect(dashboard).toContain("isEveningSendBusy");
     expect(dashboard).toContain("Save Evening Text");
     expect(dashboard).toContain("canEditEveningDraft");
     expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
