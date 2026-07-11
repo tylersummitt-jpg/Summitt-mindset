@@ -1920,6 +1920,19 @@ describe("inbound V3 proof_callout_hint (Slice 2)", () => {
     expect(g).toMatch(/Do not force/i);
     expect(g).toMatch(/proof_callout_claim_saved_allowed/i);
     expect(g).toMatch(/second paragraph/i);
+    expect(g).toMatch(/soft Victory Room/i);
+    expect(g).toMatch(/concrete detail/i);
+    expect(g).toMatch(/Victory Room material|belongs in your Victory Room/i);
+    expect(g).not.toMatch(/append.*Victory Room|post-send|deterministic append/i);
+  });
+
+  it("Kathy-style multi-activity proof encourages soft VR + concrete detail, not hard save claim", () => {
+    const g = buildInboundProofCalloutLaneGuardrails();
+    const instruction = INBOUND_PROOF_CALLOUT_LANE_INSTRUCTION;
+    expect(g).toMatch(/30-minute walks|resistance bands/i);
+    expect(instruction).toMatch(/soft Victory Room/i);
+    expect(instruction).toMatch(/Do not claim proof was already saved|logged|added|recorded/i);
+    expect(instruction).toMatch(/omit on tiny acknowledgments/i);
   });
 
   it("buildInboundV3RelationshipFacts attaches proof_callout_hint on v2_accountability", () => {

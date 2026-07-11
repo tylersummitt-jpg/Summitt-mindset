@@ -63,11 +63,29 @@ export type OutcomeClaimEvidenceBundle = {
 export const UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND =
   "unsupported_victory_room_claim_blocked" as const;
 
-const VICTORY_ROOM_DB_CLAIM_RE =
-  /\b(victory room|put (?:that|this|it) in your victory room|saved to (?:your )?victory room|logged as|saved as|that is recorded|it's recorded|i'?m putting that one in)\b/i;
+/**
+ * Hard Victory Room / persistence claims — only when recorded_allowed / can_reference_victory_room.
+ * Soft identity mentions ("belongs in your Victory Room") are NOT matched here.
+ */
+const VICTORY_ROOM_HARD_CLAIM_RE =
+  /\b(?:i(?:'?m| am) adding|i(?:'?ve| have) added|i(?:'?ll| will) add|adding that|added that|(?:i\s+)?saved (?:that |this |it )?(?:to )?(?:your )?victory room|(?:i\s+)?logged (?:that |this |it )?(?:in |to )?(?:your )?victory room|(?:i\s+)?recorded (?:that |this |it )?(?:in |to )?(?:your )?victory room|saved to (?:your )?victory room|logged (?:as |in |to )?(?:your )?victory room|that(?:'?s| is) now in (?:your )?victory room|that is in your victory room|it(?:'?s| is) (?:now )?in your victory room|put (?:that|this|it) in(?:to)? your victory room|putting (?:that|this|it) in(?:to)? (?:your )?victory room|stored in (?:your )?victory room|i'?m putting that in(?:to)? (?:your )?victory room)\b/i;
 
 const RECORDED_CLAIM_RE =
   /\b(recorded|logged as done|saved to|stored in)\b/i;
+
+const VICTORY_ROOM_ANY_MENTION_RE = /\bvictory room\b/i;
+
+function resolveVictoryRoomLanguageMode(
+  allowedClaims: InboundRouteAllowedClaims | null | undefined
+): "none" | "metaphor_only" | "recorded_allowed" {
+  if (allowedClaims?.victory_room_language_mode === "recorded_allowed") return "recorded_allowed";
+  if (allowedClaims?.victory_room_language_mode === "metaphor_only") return "metaphor_only";
+  if (allowedClaims?.victory_room_language_mode === "none") return "none";
+  if (allowedClaims?.can_reference_victory_room || allowedClaims?.can_claim_recorded) {
+    return "recorded_allowed";
+  }
+  return "none";
+}
 
 const COMPLETION_CLAIM_RE =
   /\b(great to hear you\b.*\b(hit|got|completed|finished|nailed|crushed)|glad you\b.*\b(completed|finished|got|hit)|you\b.*\b(hit|got|completed|finished|nailed|crushed)\b[^.!?]{0,40}\b(steps|goal|calls|hours|workout|commitment)\b|you got it done|strong work getting|good work getting|that's proof|logged as done)\b/i;
@@ -177,15 +195,39 @@ export function detectForbiddenVictoryRoomClaimInOutbound(
 ): { phrase: string } | null {
   const t = body.trim();
   if (!t) return null;
-  if (allowedClaims?.can_reference_victory_room || allowedClaims?.can_claim_recorded) {
+
+  const mode = resolveVictoryRoomLanguageMode(allowedClaims);
+  const hardVr = VICTORY_ROOM_HARD_CLAIM_RE.test(t);
+  const anyVr = VICTORY_ROOM_ANY_MENTION_RE.test(t);
+  const hardRecordedPersistence =
+    RECORDED_CLAIM_RE.test(t) &&
+    (anyVr || /\b(saved to|stored in|logged as)\b/i.test(t));
+
+  if (mode === "recorded_allowed") {
     return null;
   }
-  if (/\bwin column\b/i.test(t) && allowedClaims?.victory_room_language_mode === "metaphor_only") {
+
+  if (mode === "metaphor_only") {
+    // Soft / identity Victory Room language is allowed; hard saved/logged/adding claims are not.
+    if (/\bwin column\b/i.test(t) && !hardVr && !hardRecordedPersistence) {
+      return null;
+    }
+    if (hardVr || hardRecordedPersistence) {
+      const m = t.match(VICTORY_ROOM_HARD_CLAIM_RE) ?? t.match(RECORDED_CLAIM_RE);
+      return { phrase: m?.[0]?.slice(0, 80) ?? "victory_room_hard_claim" };
+    }
     return null;
   }
-  const m = t.match(VICTORY_ROOM_DB_CLAIM_RE) ?? t.match(RECORDED_CLAIM_RE);
-  if (!m) return null;
-  return { phrase: m[0]?.slice(0, 80) ?? "victory_room_claim" };
+
+  // none — any Victory Room mention or hard persistence claim is blocked.
+  if (anyVr || hardVr || hardRecordedPersistence) {
+    const m =
+      t.match(VICTORY_ROOM_HARD_CLAIM_RE) ??
+      t.match(VICTORY_ROOM_ANY_MENTION_RE) ??
+      t.match(RECORDED_CLAIM_RE);
+    return { phrase: m?.[0]?.slice(0, 80) ?? "victory_room_claim" };
+  }
+  return null;
 }
 
 export function buildInboundAllowedClaimsForFinalGuard(args: {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyInboundBriefMaxQuestionsGuard,
+  buildInboundBriefWriterSystemPrompt,
   buildInboundReplyBriefV1,
   countFollowupQuestionsAskedOnDay,
   deriveMaxQuestionsForBrief,
@@ -692,6 +693,30 @@ describe("Phase 1 route brief integration", () => {
     expect(brief.close_loop).toBe(true);
     expect(brief.question_policy.max_questions).toBe(0);
     expect(brief.allow_generic_advice).toBe(false);
+  });
+
+  it("win without persist → metaphor_only soft VR; vague check-in does not force VR", () => {
+    const winBrief = buildInboundReplyBriefV1({
+      facts: goldenFacts("I did it today", {
+        turn_understanding: phase1Reconciled("I did it today"),
+      }),
+    });
+    expect(winBrief.allowed_claims.victory_room_language_mode).toBe("metaphor_only");
+    expect(winBrief.allowed_claims.can_reference_victory_room).toBe(false);
+
+    const system = buildInboundBriefWriterSystemPrompt({ maxChars: 320 });
+    expect(system).toMatch(/metaphor_only: soft Victory Room/i);
+    expect(system).toMatch(/optional and encouraged/i);
+    expect(system).not.toMatch(/do not mention Victory Room when.*metaphor_only/i);
+
+    const vagueBrief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Things are going well.", {
+        turn_understanding: phase1Reconciled("Things are going well."),
+      }),
+    });
+    expect(vagueBrief.allowed_claims.victory_room_language_mode).not.toBe("recorded_allowed");
+    // D: vague positivity is not a win/proof route that requires VR
+    expect(vagueBrief.route).not.toBe("win_close_loop");
   });
 
   it("gratitude list → proof_answer_close_loop, not reflection", () => {

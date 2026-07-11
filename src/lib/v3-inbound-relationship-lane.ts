@@ -3652,12 +3652,13 @@ export type BuildInboundV3RelationshipFactsArgs = {
 export function buildInboundProofCalloutLaneGuardrails(): string {
   return `
 PROOF_CALLOUT (v2_accountability.proof_callout_hint when present):
-- Optional background only — not required copy.
-- If proof_callout_hint.eligible is true, you MAY briefly mention Victory Room or proof naturally in the same SMS (one short clause).
-- Do not force a mention; omit if the reply is already complete.
+- Optional background only — not required copy. Encourage soft Victory Room identity language on meaningful proof/wins; do not force it on every reply.
+- If proof_callout_hint.eligible is true, you MAY briefly mention Victory Room naturally in the same SMS (one short clause), paraphrasing examples like: belongs in your Victory Room / Victory Room material / kind of proof that goes in the Victory Room.
+- When you mention Victory Room, name at least one concrete detail from the user's proof (e.g. two 30-minute walks plus resistance bands).
+- Do not force a mention; omit if the reply is already complete or the inbound was only a vague check-in.
 - Do not use a second paragraph solely for a system callout.
-- Do not claim proof was saved, logged, or stored unless proof_callout_claim_saved_allowed is true (inbound lane: false before server insert).
-- Never paste proof_callout_hint.instruction verbatim; paraphrase naturally.
+- Do not claim proof was saved, logged, added, recorded, or "now in" Victory Room unless proof_callout_claim_saved_allowed is true (inbound lane: false before server insert). Soft identity language does not require that flag.
+- Never paste proof_callout_hint.instruction verbatim; paraphrase naturally. Vary wording — do not reuse one fixed Victory Room sentence every time.
 `;
 }
 

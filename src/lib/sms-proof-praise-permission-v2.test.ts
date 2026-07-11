@@ -14,12 +14,14 @@ describe("buildProofAndPraisePermissionV2", () => {
     expect(meta.proof_permission_emitted).toBe(true);
   });
 
-  it("no evidence → proof/Victory forbidden", () => {
+  it("no evidence → proof/Victory hard claims forbidden; bare Victory Room not forbidden", () => {
     const { section } = buildProofAndPraisePermissionV2({ surface: "daily" });
     expect(section.data.can_claim_proof).toBe(false);
     expect(section.data.can_reference_victory_room).toBe(false);
     expect(section.data.forbidden_proof_claims.length).toBeGreaterThan(0);
-    expect(section.data.forbidden_proof_claims).toContain("Victory Room");
+    expect(section.data.forbidden_proof_claims).toContain("saved to Victory Room");
+    expect(section.data.forbidden_proof_claims).toContain("I'm adding that to your Victory Room");
+    expect(section.data.forbidden_proof_claims).not.toContain("Victory Room");
   });
 
   it("effort praise allowed even when proof forbidden", () => {

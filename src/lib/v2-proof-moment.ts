@@ -342,7 +342,7 @@ export type InboundV3ProofCalloutHint = {
 };
 
 export const INBOUND_PROOF_CALLOUT_LANE_INSTRUCTION =
-  "If natural, briefly acknowledge this moment as proof and that it may belong in Victory Room (one short clause in the same SMS, not a second paragraph). Do not force it. Do not claim proof was already saved or logged unless proof_callout_claim_saved_allowed is true.";
+  "If natural, briefly acknowledge this proof/win and optionally use soft Victory Room identity language (paraphrase — e.g. belongs in your Victory Room / Victory Room material / kind of proof that goes in the Victory Room). Name at least one concrete detail from the user's message when you mention Victory Room. Do not force it; omit on tiny acknowledgments. Do not claim proof was already saved, logged, added, or recorded unless proof_callout_claim_saved_allowed is true.";
 
 /**
  * Server-only: whether a Victory / proof mention is appropriate (no deterministic SMS line).

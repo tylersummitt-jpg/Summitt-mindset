@@ -186,7 +186,7 @@ describe("Victory Room allowed claims via route mapper", () => {
     expect(allowed.can_reference_victory_room).toBe(true);
   });
 
-  it("forbids Victory Room reference without persistence", () => {
+  it("forbids Victory Room hard reference without persistence (metaphor_only still possible)", () => {
     const allowed = buildInboundRouteAllowedClaims({
       routeContract: mapTurnUnderstandingToInboundRouteContract({
         rawInbound: "I did it today",
@@ -196,6 +196,7 @@ describe("Victory Room allowed claims via route mapper", () => {
     });
     expect(allowed.can_reference_victory_room).toBe(false);
     expect(allowed.victory_room_language_mode).not.toBe("recorded_allowed");
+    expect(allowed.victory_room_language_mode).toBe("metaphor_only");
   });
 });
 

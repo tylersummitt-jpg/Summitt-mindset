@@ -84,6 +84,24 @@ describe("buildInboundProofCalloutHint", () => {
     });
     expect(JSON.stringify(hint)).not.toMatch(/I'm saving that as proof/i);
   });
+
+  it("encourages soft Victory Room identity language without hard saved/logged claims or fixed append", () => {
+    const hint = buildInboundProofCalloutHint({
+      proofMeta: strongYesProof,
+      eventsNewestFirst: [],
+      shouldWriteOutcomeEvent: true,
+    });
+    expect(hint?.instruction).toMatch(/soft Victory Room/i);
+    expect(hint?.instruction).toMatch(/Victory Room material|belongs in your Victory Room/i);
+    expect(hint?.instruction).toMatch(/concrete detail/i);
+    expect(hint?.instruction).not.toMatch(/I'm adding that to your Victory Room/i);
+    expect(hint?.proof_callout_claim_saved_allowed).toBe(false);
+    const callout = decideVictoryRoomSmsCallout({
+      proofMeta: strongYesProof,
+      eventsNewestFirst: [],
+    });
+    expect(callout.appendToReply).toBeNull();
+  });
 });
 
 describe("proofMomentPayloadFields", () => {

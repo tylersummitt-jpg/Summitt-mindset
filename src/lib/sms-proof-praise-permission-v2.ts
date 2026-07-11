@@ -16,12 +16,23 @@ export const PROOF_PRAISE_EVIDENCE_MAX_ITEMS = 5 as const;
 export const PROOF_PRAISE_QUOTE_MAX_CHARS = 160 as const;
 
 export const DEFAULT_FORBIDDEN_PROOF_CLAIMS = [
-  "Victory Room",
+  "saved to Victory Room",
+  "I'm adding that to your Victory Room",
+  "I saved that to your Victory Room",
+  "logged as proof",
   "saved as proof",
   "that's proof",
-  "logged as proof",
   "counts as proof",
   "you proved",
+] as const;
+
+/** Soft identity VR is not forbidden; hard saved/logged/adding claims are. */
+export const HARD_VICTORY_ROOM_FORBIDDEN_CLAIMS = [
+  "saved to Victory Room",
+  "I'm adding that to your Victory Room",
+  "I saved that to your Victory Room",
+  "That's now in your Victory Room",
+  "logged in your Victory Room",
 ] as const;
 
 export type ProofPraiseClaimType =
@@ -145,7 +156,13 @@ function forbiddenWhenDisallowed(args: {
   canReferenceVictoryRoom: boolean;
 }): string[] {
   if (args.canClaimProof && args.canReferenceVictoryRoom) return [];
-  return [...DEFAULT_FORBIDDEN_PROOF_CLAIMS];
+  // Soft "Victory Room" identity language is not listed here — final guard + reply brief
+  // own soft vs hard. Keep hard persistence / fake-proof phrases blocked when disallowed.
+  const out = new Set<string>([...DEFAULT_FORBIDDEN_PROOF_CLAIMS]);
+  if (!args.canReferenceVictoryRoom) {
+    for (const p of HARD_VICTORY_ROOM_FORBIDDEN_CLAIMS) out.add(p);
+  }
+  return [...out];
 }
 
 function buildWriterGuidance(data: Pick<
@@ -765,7 +782,8 @@ export function buildProofAndPraisePermissionV2(
 export function buildProofAndPraisePermissionV2PromptGuidance(): string {
   return `- proof_and_praise_permission is writer guidance only — not final send permission; finalization_context means server validates send separately.
 - Effort praise (encouragement without claiming outcomes) is allowed when can_praise_effort=true even if can_claim_proof=false.
-- Do not claim completion, miss, partial, proof, or Victory Room unless the matching can_claim_* or allowed_outbound_claims flag is true.
-- Do not say saved to Victory Room, that counts as proof, logged as proof, or similar unless can_reference_victory_room / can_claim_proof allows it; when forbidden_proof_claims is non-empty, treat those phrases as off limits.
+- Do not claim completion, miss, partial, or proof unless the matching can_claim_* or allowed_outbound_claims flag is true.
+- Soft Victory Room identity language (belongs in / material / kind of proof) may still be appropriate on meaningful inbound wins when the inbound lane marks metaphor_only — that is owned by inbound allowed_claims / final guard, not by forbidding the words "Victory Room" here.
+- Do not say saved to Victory Room, I'm adding that to your Victory Room, logged as proof, or similar hard persistence claims unless can_reference_victory_room is true; when forbidden_proof_claims is non-empty, treat those phrases as off limits.
 - Completion claims and proof claims are different: completing the bar is not the same as calling something proof or a Victory Room moment.`;
 }

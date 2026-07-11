@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {},
+}));
+
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
 import {
   OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
@@ -8,9 +12,12 @@ import {
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
   applyInboundCoachFinalBodyGuards,
+  detectForbiddenVictoryRoomClaimInOutbound,
   detectUnsupportedAccountabilityClaimInOutbound,
   evidenceAllowsOutcomeClaim,
+  UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND,
 } from "@/lib/inbound-final-body-truth-guard";
+import type { InboundRouteAllowedClaims } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
   deriveAdjustmentProposalAllowedByEvidence,
   PREMATURE_ADJUSTMENT_PROPOSAL_NO_SEND,
@@ -526,5 +533,108 @@ describe("applyInboundCoachFinalBodyGuards near duplicate (Step F)", () => {
     expect(r.truthGuard?.shouldSend).toBe(true);
     expect(r.nearDuplicateGuard?.shouldSend).toBe(true);
     expect(r.body).toBe("Good — locked in.");
+  });
+});
+
+function claims(mode: InboundRouteAllowedClaims["victory_room_language_mode"]): InboundRouteAllowedClaims {
+  const recorded = mode === "recorded_allowed";
+  return {
+    can_claim_win: recorded,
+    can_claim_miss: false,
+    can_claim_partial: false,
+    can_claim_proof: recorded,
+    can_reference_victory_room: recorded,
+    can_claim_recorded: recorded,
+    can_claim_streak: false,
+    can_claim_consistency: false,
+    victory_room_language_mode: mode,
+  };
+}
+
+describe("soft vs hard Victory Room final-body truth guard", () => {
+  const NOW = Date.parse("2026-06-07T12:00:00.000Z");
+  const softKathy =
+    "That's real work — two walks and resistance bands. That's Victory Room material.";
+  const softVariants = [
+    softKathy,
+    "That belongs in your Victory Room — two 30-minute walks plus bands.",
+    "That's the kind of proof that goes in the Victory Room.",
+    "That's a Victory Room kind of win — you walked twice and hit bands.",
+    "That should be in the Victory Room.",
+    "That's the kind of thing you keep in the Victory Room.",
+  ];
+  const hardVariants = [
+    "I'm adding that to your Victory Room.",
+    "I saved that to your Victory Room.",
+    "That's now in your Victory Room.",
+    "I logged that in your Victory Room.",
+    "I'll add that to your Victory Room.",
+    "I put that in your Victory Room.",
+  ];
+
+  beforeEach(() => {
+    repairMock.mockReset();
+  });
+
+  it("A: soft Victory Room allowed in metaphor_only", () => {
+    for (const body of softVariants) {
+      expect(detectForbiddenVictoryRoomClaimInOutbound(body, claims("metaphor_only"))).toBeNull();
+    }
+  });
+
+  it("B: hard claim blocked in metaphor_only", () => {
+    for (const body of hardVariants) {
+      expect(detectForbiddenVictoryRoomClaimInOutbound(body, claims("metaphor_only"))).not.toBeNull();
+    }
+  });
+
+  it("C: hard claim allowed in recorded_allowed", () => {
+    for (const body of hardVariants) {
+      expect(detectForbiddenVictoryRoomClaimInOutbound(body, claims("recorded_allowed"))).toBeNull();
+    }
+    expect(detectForbiddenVictoryRoomClaimInOutbound(softKathy, claims("recorded_allowed"))).toBeNull();
+  });
+
+  it("G: none mode blocks any Victory Room mention", () => {
+    expect(detectForbiddenVictoryRoomClaimInOutbound(softKathy, claims("none"))).not.toBeNull();
+    expect(
+      detectForbiddenVictoryRoomClaimInOutbound(
+        "I'm adding that to your Victory Room.",
+        claims("none")
+      )
+    ).not.toBeNull();
+    expect(
+      detectForbiddenVictoryRoomClaimInOutbound("Nice work on the walks.", claims("none"))
+    ).toBeNull();
+  });
+
+  it("soft Kathy body passes full final guard under metaphor_only", async () => {
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: softKathy,
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      nowMs: NOW,
+      evidence: {
+        rawInbound:
+          "The weather cooperated. I walked twice for 30 minutes each. Then did resistance band work.",
+        inboundAllowedClaims: claims("metaphor_only"),
+      },
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe(softKathy);
+    expect(r.noSendReason).not.toBe(UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND);
+  });
+
+  it("hard claim cancelled by full final guard under metaphor_only", async () => {
+    const r = await applyInboundCoachFinalBodyGuards({
+      body: "I'm adding that to your Victory Room.",
+      turnUnderstandingContext: emptyInboundTurnUnderstandingContext(),
+      nowMs: NOW,
+      evidence: {
+        rawInbound: "I walked twice for 30 minutes each.",
+        inboundAllowedClaims: claims("metaphor_only"),
+      },
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe(UNSUPPORTED_VICTORY_ROOM_CLAIM_NO_SEND);
   });
 });
