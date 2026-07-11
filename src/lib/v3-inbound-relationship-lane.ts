@@ -808,7 +808,7 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
   ) {
     const kind = args.tuShellHandoff.coachInviteAcceptance.invite_kind ?? "goal_evolution";
     reqLines.push(
-      "Slice 3B accepted coach goal-evolution invite: Coach previously invited goal evolution; the user accepted the conversation — the written commitment has NOT changed yet."
+      "Slice 3B accepted coach goal-evolution invite: Coach previously invited goal evolution; the user continued that conversation — the written commitment has NOT changed yet."
     );
     reqLines.push(
       "Do NOT say the goal is now changed, raised, lowered, reset, or replaced. Do NOT treat acceptance as proof or as a miss."
@@ -817,8 +817,21 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
       "Do NOT use Reply YES/NO binding language or robot contract phrasing until actual confirmation state. Do NOT use fake Pat quotes."
     );
     reqLines.push(
-      "Ask exactly one fresh human question for the new goal/standard the user will own; user names the goal, then confirms before any mutation."
+      "Do NOT use acknowledge_reflection-only coaching (e.g. only appreciating positivity). Stay in the goal-change hallway."
     );
+    const userMsg = args.userMessage?.trim() ?? "";
+    const substantiveDirection =
+      userMsg.length >= 24 &&
+      !/^(yes|yeah|yep|yup|y|sure|ok|okay|k|i agree|sounds good|that works)\.?!?$/i.test(userMsg);
+    if (substantiveDirection) {
+      reqLines.push(
+        "The user already named a replacement direction in this reply — acknowledge that direction briefly, then ask exactly one narrowing question to make a concrete daily goal (what to hold them to). Do not ignore their answer."
+      );
+    } else {
+      reqLines.push(
+        "Ask exactly one fresh human question for the new goal/standard the user will own; user names the goal, then confirms before any mutation."
+      );
+    }
     if (kind === "raise" || kind === "new_chapter") {
       reqLines.push(
         "Invite kind raise/new_chapter: ask what new standard or daily goal they are willing to own — do not impose a number."

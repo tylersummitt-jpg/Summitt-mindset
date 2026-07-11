@@ -10,6 +10,7 @@ import type {
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
   extractCandidateBarsFromSms,
+  extractDurationAnchoredBarPhrase,
   validateTuProposedGoalBarText,
 } from "@/lib/v2-sms-commitment-change";
 import {
@@ -31,7 +32,7 @@ export type CoachInviteAcceptanceContext = {
 };
 
 const COACH_INVITE_DECLINE_RE =
-  /\b(no|nah|nope|not now|not yet|don't change|dont change|do not change|keep (the )?current|stay with (this|it)|i'?m good|leave it|keep it the same)\b/i;
+  /\b(no|nah|nope|not now|not yet|never\s*mind|nevermind|don't change|dont change|do not change|keep (the |my )?(current|same)|stay with (this|it)|i'?m good|leave it|keep it the same|i don'?t want to change)\b/i;
 
 const COACH_INVITE_ACCEPTANCE_PHRASE_RE =
   /\b(yes|yeah|yep|i\s+agree|let'?s\s+do\s+it|sounds\s+good|that\s+sounds\s+right|i'?m\s+ready|let'?s\s+change|raise\s+it|reset\s+it|shrink\s+it|make\s+it\s+smaller|focus\s+on\s+the\s+blocker|new\s+chapter|raise\s+the\s+standard)\b/i;
@@ -39,9 +40,114 @@ const COACH_INVITE_ACCEPTANCE_PHRASE_RE =
 const COACH_INVITE_IGNORE_ACCOUNTABILITY_RE =
   /\b(done|did it|missed|didn't|did not|travel|sick|vacation|thanks|thank you|tonight|tomorrow|later today)\b/i;
 
+const INVITE_NOISE_ONLY_RE =
+  /^(❤️|👍|😂|🙏|ok|okay|k|thanks|thank you|thx|ty)\.?$/i;
+
+const INVITE_COMPLIANCE_ONLY_RE = /^(stop|start|help|unstop|unsubscribe|cancel|end)$/i;
+
+const BEHAVIOR_EXTRACT_MAX = 180;
+
 function isBareAffirmativeReply(body: string): boolean {
   const t = body.trim().toLowerCase();
   return /^(yes|yeah|yep|yup|y|sure|ok|okay|k|i agree|sounds good|that works)\.?!?$/i.test(t);
+}
+
+/**
+ * Substantive answer to a live goal-change invite (not yes/decline/noise).
+ * Invite-scoped referent grounding — not a general phrase router.
+ */
+export function isSubstantiveGoalChangeInviteContinuation(body: string): boolean {
+  const t = body.trim().replace(/\s+/g, " ");
+  if (!t || t.length < 12) return false;
+  if (isBareAffirmativeReply(t)) return false;
+  if (COACH_INVITE_DECLINE_RE.test(t)) return false;
+  if (INVITE_NOISE_ONLY_RE.test(t)) return false;
+  if (INVITE_COMPLIANCE_ONLY_RE.test(t)) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length < 3 && t.length < 24) return false;
+  return true;
+}
+
+/**
+ * Invite-only concrete-bar helpers. Never returns the raw full inbound as a candidate.
+ * Prefer concise normalized goals when the reply names clear daily actions.
+ */
+export function tryNormalizeInviteScopedConcreteBar(raw: string): string | null {
+  const t = raw.trim().replace(/\s+/g, " ");
+  if (!t || t.length < 12) return null;
+  if (isBareAffirmativeReply(t)) return null;
+  if (COACH_INVITE_DECLINE_RE.test(t)) return null;
+  if (INVITE_NOISE_ONLY_RE.test(t) || INVITE_COMPLIANCE_ONLY_RE.test(t)) return null;
+
+  const hasPositiveComment =
+    /\b(?:always\s+)?give\s+a\s+positive\s+comment\b|\bone\s+positive\s+comment\b|\bpositive\s+comment\s+each\s+day\b/i.test(
+      t
+    );
+  const hasSelfTalk = /\bpositive\s+self[- ]?talk\b/i.test(t);
+  if (hasPositiveComment && hasSelfTalk) {
+    return "Give one positive comment and practice positive self-talk each day";
+  }
+  if (hasPositiveComment) {
+    return "Give one positive comment each day";
+  }
+  if (hasSelfTalk) {
+    return "Practice positive self-talk each day";
+  }
+
+  return null;
+}
+
+function resolveInviteAcceptanceProposedBar(args: {
+  userMessage: string;
+  commitment: ActiveV2CommitmentRow;
+  tuProposedBar: string | null;
+}): { concrete: boolean; proposed: string | null } {
+  const body = args.userMessage.trim();
+  const extracted = extractCandidateBarsFromSms(body);
+  const fromSms = extracted.candidateNewBar ?? extracted.candidateTightenedBar;
+  const dur = extractDurationAnchoredBarPhrase(body, BEHAVIOR_EXTRACT_MAX);
+  const fromDuration =
+    dur.phrase && dur.mode !== "deferred" ? dur.phrase.trim().replace(/\s+/g, " ") : null;
+  const fromInviteScope = tryNormalizeInviteScopedConcreteBar(body);
+
+  const candidates = [args.tuProposedBar, fromSms, fromDuration, fromInviteScope].filter(
+    (x): x is string => Boolean(x?.trim())
+  );
+
+  for (const candidate of candidates) {
+    // Never accept the full raw inbound as CBS unless it was already a structured extract.
+    if (candidate === body && !fromSms && !fromDuration && !fromInviteScope) {
+      continue;
+    }
+    if (fromInviteScope && candidate === fromInviteScope) {
+      const validatedInvite = validateTuProposedGoalBarText({
+        proposedText: candidate,
+        currentBehaviorStatement: args.commitment.behavior_statement,
+      });
+      if (validatedInvite.ok && validatedInvite.normalized) {
+        return { concrete: true, proposed: validatedInvite.normalized };
+      }
+      continue;
+    }
+    const validated = validateTuProposedGoalBarText({
+      proposedText: candidate,
+      currentBehaviorStatement: args.commitment.behavior_statement,
+    });
+    if (validated.ok && validated.normalized) {
+      // Reject raw full-body pollution: structured extract must be shorter/cleaner than rambling raw.
+      if (
+        validated.normalized === body &&
+        body.length > 90 &&
+        !fromSms &&
+        !fromDuration
+      ) {
+        continue;
+      }
+      return { concrete: true, proposed: validated.normalized };
+    }
+  }
+
+  return { concrete: false, proposed: null };
 }
 
 export function buildCoachInviteAcceptedReconciledGoalChangeIntent(args: {
@@ -52,14 +158,18 @@ export function buildCoachInviteAcceptedReconciledGoalChangeIntent(args: {
 }): ReconciledGoalChangeIntent {
   const inviteKind = args.invite.invite_kind!;
   const tuType = args.tuIntent?.adjustment_type;
-  const adjustment_type =
-    tuType && tuType !== "none" && tuType !== "unspecified"
-      ? tuType
-      : mapCoachInviteKindToAdjustmentType(inviteKind);
   const proposed =
     args.proposedBarText?.trim() ||
     args.tuIntent?.proposed_new_goal_text?.trim() ||
     null;
+  let adjustment_type =
+    tuType && tuType !== "none" && tuType !== "unspecified"
+      ? tuType
+      : mapCoachInviteKindToAdjustmentType(inviteKind);
+  // Freeform invites map to reset (shell-only). A concrete bar after invite is a replace candidate.
+  if (proposed && (adjustment_type === "reset" || adjustment_type === "unspecified")) {
+    adjustment_type = "replace";
+  }
 
   return {
     authoritative: true,
@@ -165,14 +275,13 @@ export function evaluateCoachInviteAcceptanceContext(args: {
 
   const tuIntent = args.reconciledGoalChangeIntent ?? null;
   const tuBar = tuIntent?.proposed_new_goal_text?.trim() ?? null;
-  const extracted = extractCandidateBarsFromSms(body);
-  const extractedBar = extracted.candidateNewBar ?? extracted.candidateTightenedBar;
-  const validatedBar = validateTuProposedGoalBarText({
-    proposedText: tuBar ?? extractedBar,
-    currentBehaviorStatement: args.commitment.behavior_statement,
+  const resolvedBar = resolveInviteAcceptanceProposedBar({
+    userMessage: body,
+    commitment: args.commitment,
+    tuProposedBar: tuBar,
   });
-  const concrete_bar_present = validatedBar.ok && Boolean(validatedBar.normalized);
-  const proposed_bar_text = concrete_bar_present ? validatedBar.normalized : null;
+  const concrete_bar_present = resolvedBar.concrete;
+  const proposed_bar_text = resolvedBar.proposed;
 
   if (COACH_INVITE_DECLINE_RE.test(body)) {
     return {
@@ -192,11 +301,14 @@ export function evaluateCoachInviteAcceptanceContext(args: {
 
   const bareYes = isBareAffirmativeReply(body);
   const phraseAcceptance = COACH_INVITE_ACCEPTANCE_PHRASE_RE.test(body);
+  const substantiveContinuation =
+    invite.last_outbound_is_invite && isSubstantiveGoalChangeInviteContinuation(body);
   const ignoreAccountability =
     !tuAcceptsGoalChange &&
     !phraseAcceptance &&
     !concrete_bar_present &&
     !bareYes &&
+    !substantiveContinuation &&
     (args.relationshipMeaning === "reported_completion" ||
       args.relationshipMeaning === "miss" ||
       args.relationshipMeaning === "partial_attempt" ||
@@ -215,7 +327,8 @@ export function evaluateCoachInviteAcceptanceContext(args: {
     concrete_bar_present ||
     tuAcceptsGoalChange ||
     phraseAcceptance ||
-    (bareYes && invite.last_outbound_is_invite);
+    (bareYes && invite.last_outbound_is_invite) ||
+    substantiveContinuation;
 
   if (!accepted) {
     return {
