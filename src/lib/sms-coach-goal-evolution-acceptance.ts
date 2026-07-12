@@ -106,8 +106,8 @@ function resolveInviteAcceptanceProposedBar(args: {
   const extracted = extractCandidateBarsFromSms(body);
   const fromSms = extracted.candidateNewBar ?? extracted.candidateTightenedBar;
   const dur = extractDurationAnchoredBarPhrase(body, BEHAVIOR_EXTRACT_MAX);
-  const fromDuration =
-    dur.phrase && dur.mode !== "deferred" ? dur.phrase.trim().replace(/\s+/g, " ") : null;
+  // phrase is non-null only for bare|widened; deferred/none return phrase: null
+  const fromDuration = dur.phrase ? dur.phrase.trim().replace(/\s+/g, " ") : null;
   const fromInviteScope = tryNormalizeInviteScopedConcreteBar(body);
 
   const candidates = [args.tuProposedBar, fromSms, fromDuration, fromInviteScope].filter(
