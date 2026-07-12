@@ -16,7 +16,14 @@ import type {
   InboundV3RelationshipFacts,
   InboundRequiredReplyMove,
 } from "@/lib/v3-inbound-relationship-lane";
-import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
+import type {
+  RecentExactThread72hMessage,
+  RecentExactThreadDeliveryEvidence,
+} from "@/lib/sms-recent-exact-thread-72h";
+import {
+  filterWriterFacingExactThreadMessages,
+  toWriterFacingBriefMessage,
+} from "@/lib/sms-recent-exact-thread-72h";
 
 export const INBOUND_REPLY_BRIEF_VERSION = "inbound_reply_brief_v1" as const;
 
@@ -56,6 +63,9 @@ export type InboundReplyBriefThreadWindowMessage = {
   role: "coach" | "user";
   at_local?: string;
   body: string;
+  source_table: string;
+  delivery_evidence: RecentExactThreadDeliveryEvidence;
+  message_sid?: string;
 };
 
 export type InboundReplyBriefV1 = {
@@ -518,15 +528,19 @@ export function deriveMaxQuestionsForBrief(args: {
 
 function buildThreadWindow(facts: InboundV3RelationshipFacts): InboundReplyBriefThreadWindowMessage[] {
   const messages = facts.thread.memory_packet?.recent_exact_thread_72h?.messages ?? [];
+  const writerFacing = filterWriterFacingExactThreadMessages(messages);
   const window: InboundReplyBriefThreadWindowMessage[] = [];
-  for (let i = messages.length - 1; i >= 0 && window.length < THREAD_WINDOW_MAX; i--) {
-    const m = messages[i]!;
-    if (m.role === "system_no_send") continue;
+  for (let i = writerFacing.length - 1; i >= 0 && window.length < THREAD_WINDOW_MAX; i--) {
+    const m = writerFacing[i]!;
     if (m.role !== "coach" && m.role !== "user") continue;
+    const lean = toWriterFacingBriefMessage(m);
     window.unshift({
-      role: m.role,
-      ...(m.at_local?.trim() ? { at_local: m.at_local.trim() } : {}),
-      body: m.body.slice(0, 280),
+      role: lean.role,
+      ...(lean.at_local.trim() ? { at_local: lean.at_local.trim() } : {}),
+      body: lean.body.slice(0, 280),
+      source_table: lean.source_table,
+      delivery_evidence: lean.delivery_evidence,
+      ...(lean.message_sid ? { message_sid: lean.message_sid } : {}),
     });
   }
   return window;
@@ -540,7 +554,9 @@ function previousCoachMessage(facts: InboundV3RelationshipFacts): string | null 
     null;
   if (fromThread?.trim()) return fromThread.trim().slice(0, 320);
 
-  const messages = facts.thread.memory_packet?.recent_exact_thread_72h?.messages ?? [];
+  const messages = filterWriterFacingExactThreadMessages(
+    facts.thread.memory_packet?.recent_exact_thread_72h?.messages ?? []
+  );
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
     if (m.role !== "coach") continue;

@@ -26,8 +26,10 @@ import {
   capThreadMessagesForBriefWithTelemetry,
   createdAtFirstTimestampFromSendEventRow,
   deriveBriefThreadWindowTelemetry,
+  filterWriterFacingExactThreadMessages,
   formatAtLocal,
   isSendEventTrulySent,
+  isWriterFacingExactThreadMessage,
   RECENT_EXACT_THREAD_WINDOW_HOURS,
   SCHEMA_ADAPTIVE_FALLBACK_LIMIT,
   EXACT_THREAD_SOURCE_ORDER_BY,
@@ -298,6 +300,78 @@ describe("timestampFromInboundMessageRow", () => {
   });
 });
 
+describe("isWriterFacingExactThreadMessage / filterWriterFacingExactThreadMessages", () => {
+  function msg(
+    partial: Partial<RecentExactThread72hMessage> &
+      Pick<RecentExactThread72hMessage, "role" | "body" | "source_table" | "delivery_status">
+  ): RecentExactThread72hMessage {
+    return {
+      at: "2026-05-18T11:00:00.000Z",
+      at_local: "May 18, 6:00 AM",
+      at_local_timezone: TZ,
+      local_day_key: "2026-05-18",
+      message_kind: null,
+      message_sid: null,
+      is_exact_body: true,
+      ...partial,
+    };
+  }
+
+  it("A: excludes sms_last_outbound_context / is_fallback_context from writer-facing projection", () => {
+    const fallback = msg({
+      role: "coach",
+      body: "Fallback last outbound pretending to be thread",
+      source_table: "sms_last_outbound_context",
+      delivery_status: "sent",
+      is_fallback_context: true,
+      message_sid: "SM_FALLBACK",
+    });
+    const flagged = msg({
+      role: "coach",
+      body: "Flagged fallback without last_outbound table",
+      source_table: "sms_send_events",
+      delivery_status: "sent",
+      is_fallback_context: true,
+      message_sid: "SM_FLAG",
+    });
+    expect(isWriterFacingExactThreadMessage(fallback)).toBe(false);
+    expect(isWriterFacingExactThreadMessage(flagged)).toBe(false);
+    expect(filterWriterFacingExactThreadMessages([fallback, flagged])).toEqual([]);
+  });
+
+  it("B: excludes delivery_status preview / check_sent preview from writer-facing projection", () => {
+    const preview = msg({
+      role: "coach",
+      body: "ORPHAN_PREVIEW_ONLY",
+      source_table: "v2_events",
+      delivery_status: "preview",
+      is_exact_body: false,
+    });
+    expect(isWriterFacingExactThreadMessage(preview)).toBe(false);
+    expect(filterWriterFacingExactThreadMessages([preview])).toEqual([]);
+  });
+
+  it("keeps strongly evidenced coach sent + user inbound", () => {
+    const coach = msg({
+      role: "coach",
+      body: "Real sent coach SMS",
+      source_table: "sms_send_events",
+      delivery_status: "sent",
+      message_sid: "SM_REAL",
+      delivery_evidence: "message_sid_present",
+    });
+    const user = msg({
+      role: "user",
+      body: "Real user SMS",
+      source_table: "sms_inbound_messages",
+      delivery_status: "sent",
+      message_sid: "SM_USER",
+      delivery_evidence: "inbound_received",
+    });
+    expect(filterWriterFacingExactThreadMessages([coach, user])).toEqual([coach, user]);
+  });
+});
+
 describe("buildRecentExactThread72h", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -402,7 +476,7 @@ describe("buildRecentExactThread72h", () => {
     expect(result.messages.some((m) => m.body === "SHORT_PREVIEW_ONLY")).toBe(false);
   });
 
-  it("includes orphan preview only as delivery_status preview", async () => {
+  it("excludes orphan check_sent preview from writer-facing 72h messages", async () => {
     setupSupabaseTables({});
     getRecentV2EventsForAi.mockResolvedValue([
       {
@@ -419,10 +493,82 @@ describe("buildRecentExactThread72h", () => {
       now: NOW,
     });
 
-    const preview = result.messages.find((m) => m.body.includes("ORPHAN_PREVIEW"));
-    expect(preview?.delivery_status).toBe("preview");
-    expect(preview?.is_exact_body).toBe(false);
+    expect(result.messages.some((m) => m.body.includes("ORPHAN_PREVIEW"))).toBe(false);
     expect(result.had_preview_messages).toBe(true);
+  });
+
+  it("C/D weekly packet path: excludes fallback/preview but keeps real sent weekly/daily/inbound", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          sms_body: "REAL_DAILY_SENT_BODY",
+          created_at: "2026-05-18T10:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_DAILY_REAL",
+        },
+      ],
+      weeklyRows: [
+        {
+          sms_body: "REAL_WEEKLY_SENT_BODY",
+          created_at: "2026-05-17T18:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_WEEKLY_REAL",
+        },
+      ],
+      inboundMsgRows: [
+        {
+          raw_body: "REAL_USER_INBOUND_BODY",
+          received_at: "2026-05-18T11:00:00.000Z",
+          message_sid: "SM_USER_REAL",
+        },
+      ],
+      lastCtx: {
+        full_body: "FALLBACK_LAST_OUTBOUND_BODY",
+        sent_at: "2026-05-18T09:00:00.000Z",
+        message_kind: "question",
+      },
+    });
+    getRecentV2EventsForAi.mockResolvedValue([
+      {
+        event_type: "check_sent",
+        occurred_at: "2026-05-18T10:30:00.000Z",
+        payload_json: { body_preview: "CHECK_SENT_PREVIEW_ONLY" },
+      },
+    ]);
+
+    const result = await buildRecentExactThread72h({
+      clerkUserId: "user_weekly_align",
+      commitmentId: "cmt_1",
+      timezone: TZ,
+      now: NOW,
+    });
+
+    expect(result.messages.some((m) => /FALLBACK_LAST_OUTBOUND|CHECK_SENT_PREVIEW/i.test(m.body))).toBe(
+      false
+    );
+    expect(result.messages.some((m) => m.source_table === "sms_last_outbound_context")).toBe(false);
+    expect(result.messages.some((m) => m.delivery_status === "preview")).toBe(false);
+    expect(result.messages.some((m) => m.body.includes("REAL_DAILY_SENT_BODY"))).toBe(true);
+    expect(result.messages.some((m) => m.body.includes("REAL_WEEKLY_SENT_BODY"))).toBe(true);
+    expect(result.messages.some((m) => m.body.includes("REAL_USER_INBOUND_BODY"))).toBe(true);
+  });
+
+  it("I: draft tables are never queried for 72h writer-facing thread", async () => {
+    const queried: string[] = [];
+    supabaseFrom.mockImplementation((table: string) => {
+      queried.push(table);
+      return chain([]);
+    });
+
+    await buildRecentExactThread72h({
+      clerkUserId: "user_no_drafts",
+      timezone: TZ,
+      now: NOW,
+    });
+
+    expect(queried).not.toContain("sms_daily_drafts");
+    expect(queried).not.toContain("sms_daily_draft_generations");
+    expect(queried.some((t) => /draft/i.test(t))).toBe(false);
   });
 
   it("does not include skipped/reserved sms_send_events as coach messages by default", async () => {

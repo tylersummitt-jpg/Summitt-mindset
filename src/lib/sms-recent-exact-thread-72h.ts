@@ -892,6 +892,18 @@ function isWriterFacingThreadMessage(m: RecentExactThread72hMessage): boolean {
   return false;
 }
 
+/** Shared writer-facing predicate (daily brief, weekly packet 72h, inbound thread_window). */
+export function isWriterFacingExactThreadMessage(m: RecentExactThread72hMessage): boolean {
+  return isWriterFacingThreadMessage(m);
+}
+
+/** Keep only actual SMS rows safe for OpenAI writer notebooks. */
+export function filterWriterFacingExactThreadMessages(
+  messages: RecentExactThread72hMessage[]
+): RecentExactThread72hMessage[] {
+  return messages.filter(isWriterFacingExactThreadMessage);
+}
+
 function truncateBriefBody(body: string, max = BRIEF_THREAD_PER_MESSAGE_MAX): string {
   const t = body.trim().replace(/\r?\n/g, " ");
   if (t.length <= max) return t;
@@ -925,6 +937,13 @@ function toBriefMessage(m: RecentExactThread72hMessage): RecentExactThreadBriefM
     out.is_fallback_context = true;
   }
   return out;
+}
+
+/** Lean provenance projection used by daily brief + inbound thread_window. */
+export function toWriterFacingBriefMessage(
+  m: RecentExactThread72hMessage
+): RecentExactThreadBriefMessage {
+  return toBriefMessage(m);
 }
 
 type BriefCapItem = { msg: RecentExactThread72hMessage; ts: number; isFloor: boolean };
@@ -1480,7 +1499,16 @@ export async function buildRecentExactThread72h(
     windowMs: RECENT_EXACT_THREAD_WINDOW_MS,
     stats,
   });
-  return { ...result, build_telemetry: stats.toTelemetry() };
+  // Weekly + inbound packet consumers use this result as writer-facing thread.
+  const writerFacing = filterWriterFacingExactThreadMessages(result.messages);
+  return {
+    ...result,
+    messages: writerFacing,
+    message_count: writerFacing.length,
+    oldest_at: writerFacing[0]?.at,
+    newest_at: writerFacing[writerFacing.length - 1]?.at,
+    build_telemetry: stats.toTelemetry(),
+  };
 }
 
 /** 7d fetch + 72h floor / capped extension for DailySmsWritingBriefV1. */

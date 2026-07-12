@@ -18,6 +18,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import { isV3RelationshipVoiceReplySource } from "@/lib/north-star-coach-sms";
+import { filterWriterFacingExactThreadMessages } from "@/lib/sms-recent-exact-thread-72h";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
@@ -705,6 +706,95 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(systemMsg).not.toMatch(
       /If current_turn\.silent_week or current_turn\.rough_week is true, be honest and useful without shaming/
     );
+  });
+
+  it("C/D: weekly OpenAI packet thread excludes fallback/preview; keeps real sent messages", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("Carry one clear thread into next week."),
+          },
+        },
+      ],
+    });
+    // Production weekly packet messages come from buildRecentExactThread72h (writer-facing filter).
+    const writerFacingMessages = filterWriterFacingExactThreadMessages([
+      {
+        at: "2026-05-10T09:00:00.000Z",
+        at_local: "May 10, 4:00 AM",
+        at_local_timezone: "America/Chicago",
+        local_day_key: "2026-05-10",
+        role: "coach",
+        body: "FALLBACK_LAST_OUTBOUND_WEEKLY",
+        message_kind: null,
+        source_table: "sms_last_outbound_context",
+        message_sid: "SM_FB",
+        delivery_status: "sent",
+        is_exact_body: true,
+        is_fallback_context: true,
+      },
+      {
+        at: "2026-05-10T10:00:00.000Z",
+        at_local: "May 10, 5:00 AM",
+        at_local_timezone: "America/Chicago",
+        local_day_key: "2026-05-10",
+        role: "coach",
+        body: "REAL_WEEKLY_SENT_IN_PACKET",
+        message_kind: null,
+        source_table: "sms_weekly_send_events",
+        message_sid: "SM_WEEKLY",
+        delivery_status: "sent",
+        is_exact_body: true,
+      },
+      {
+        at: "2026-05-10T10:05:00.000Z",
+        at_local: "May 10, 5:05 AM",
+        at_local_timezone: "America/Chicago",
+        local_day_key: "2026-05-10",
+        role: "user",
+        body: "REAL_USER_IN_PACKET",
+        message_kind: null,
+        source_table: "sms_inbound_messages",
+        message_sid: "SM_USER",
+        delivery_status: "sent",
+        is_exact_body: true,
+      },
+      {
+        at: "2026-05-10T10:10:00.000Z",
+        at_local: "May 10, 5:10 AM",
+        at_local_timezone: "America/Chicago",
+        local_day_key: "2026-05-10",
+        role: "coach",
+        body: "CHECK_SENT_PREVIEW_WEEKLY",
+        message_kind: null,
+        source_table: "v2_events",
+        message_sid: null,
+        delivery_status: "preview",
+        is_exact_body: false,
+      },
+    ]);
+    await produceWeeklyV3RelationshipSms({
+      facts: baseFacts({
+        thread: {
+          ...baseFacts().thread,
+          memory_packet_used: true,
+          recent_exact_thread_72h: {
+            window_hours: 72,
+            message_count: writerFacingMessages.length,
+            had_preview_messages: true,
+            had_system_no_send: false,
+            messages: writerFacingMessages,
+          },
+        },
+      }),
+      telemetry_fact_sources: [],
+    });
+    const userMsg = createMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userMsg).toContain("REAL_WEEKLY_SENT_IN_PACKET");
+    expect(userMsg).toContain("REAL_USER_IN_PACKET");
+    expect(userMsg).not.toContain("FALLBACK_LAST_OUTBOUND_WEEKLY");
+    expect(userMsg).not.toContain("CHECK_SENT_PREVIEW_WEEKLY");
   });
 
   it("repairs repeated prior answered question on weekly (M2B-6)", async () => {

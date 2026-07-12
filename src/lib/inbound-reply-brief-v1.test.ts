@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
 
 import {
   applyInboundBriefMaxQuestionsGuard,
@@ -742,5 +746,180 @@ describe("Phase 1 route brief integration", () => {
     expect(brief.route).toBe("proof_answer_close_loop");
     expect(brief.turn_type).toBe("answered_prior_question");
     expect(brief.turn_type).not.toBe("reflection");
+  });
+});
+
+describe("inbound thread_window writer-facing actual SMS", () => {
+  function threadMsg(
+    partial: Partial<GoldenThreadMessage> &
+      Pick<GoldenThreadMessage, "role" | "body" | "source_table" | "delivery_status"> & {
+        delivery_evidence?: string;
+        is_fallback_context?: boolean;
+      }
+  ): GoldenThreadMessage & { delivery_evidence?: string; is_fallback_context?: boolean } {
+    return {
+      at: "2026-06-15T12:00:00.000Z",
+      at_local: "2026-06-15T08:00:00",
+      at_local_timezone: "America/Chicago",
+      local_day_key: DAY_KEY,
+      message_kind: null,
+      message_sid: null,
+      is_exact_body: true,
+      ...partial,
+    };
+  }
+
+  it("E/F: excludes fallback/preview and preserves lean provenance on thread_window", () => {
+    const current = "Current inbound once only.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(current, {
+        thread: {
+          memory_packet: {
+            recent_exact_thread_72h: {
+              window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+              message_count: 5,
+              had_preview_messages: true,
+              had_system_no_send: false,
+              messages: [
+                threadMsg({
+                  role: "coach",
+                  body: "FALLBACK_LAST_OUTBOUND",
+                  source_table: "sms_last_outbound_context",
+                  delivery_status: "sent",
+                  is_fallback_context: true,
+                  message_sid: "SM_FALLBACK",
+                }),
+                threadMsg({
+                  at: "2026-06-15T11:00:00.000Z",
+                  at_local: "2026-06-15T07:00:00",
+                  role: "coach",
+                  body: "Real prior coach SMS",
+                  source_table: "sms_send_events",
+                  delivery_status: "sent",
+                  message_sid: "SM_COACH_REAL",
+                  delivery_evidence: "message_sid_present",
+                }),
+                threadMsg({
+                  at: "2026-06-15T11:30:00.000Z",
+                  at_local: "2026-06-15T07:30:00",
+                  role: "coach",
+                  body: "CHECK_SENT_PREVIEW",
+                  source_table: "v2_events",
+                  delivery_status: "preview",
+                  is_exact_body: false,
+                }),
+                threadMsg({
+                  at: "2026-06-15T12:05:00.000Z",
+                  at_local: "2026-06-15T08:05:00",
+                  role: "user",
+                  body: current,
+                  source_table: "sms_inbound_messages",
+                  delivery_status: "sent",
+                  message_sid: "SM_USER_NOW",
+                  delivery_evidence: "inbound_received",
+                }),
+              ],
+            },
+          } as InboundV3RelationshipFacts["thread"]["memory_packet"],
+        },
+      }),
+    });
+
+    expect(brief.thread_window.some((m) => /FALLBACK_LAST_OUTBOUND|CHECK_SENT_PREVIEW/i.test(m.body))).toBe(
+      false
+    );
+    expect(brief.thread_window.some((m) => m.source_table === "sms_last_outbound_context")).toBe(false);
+
+    const coach = brief.thread_window.find((m) => m.body.includes("Real prior coach SMS"));
+    expect(coach).toMatchObject({
+      role: "coach",
+      source_table: "sms_send_events",
+      delivery_evidence: "message_sid_present",
+      message_sid: "SM_COACH_REAL",
+      at_local: "2026-06-15T07:00:00",
+    });
+
+    const userHits = brief.thread_window.filter((m) => m.role === "user" && m.body === current);
+    expect(userHits).toHaveLength(1);
+    expect(userHits[0]).toMatchObject({
+      source_table: "sms_inbound_messages",
+      delivery_evidence: "inbound_received",
+      message_sid: "SM_USER_NOW",
+    });
+  });
+
+  it("G: current inbound message appears exactly once in thread_window", () => {
+    const current = "Exactly once inbound body.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(current, {
+        thread: {
+          memory_packet: {
+            recent_exact_thread_72h: {
+              window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+              message_count: 1,
+              had_preview_messages: false,
+              had_system_no_send: false,
+              messages: [
+                threadMsg({
+                  role: "user",
+                  body: current,
+                  source_table: "sms_inbound_messages",
+                  delivery_status: "sent",
+                  message_sid: "SM_ONCE",
+                  delivery_evidence: "inbound_received",
+                }),
+              ],
+            },
+          } as InboundV3RelationshipFacts["thread"]["memory_packet"],
+        },
+      }),
+    });
+    expect(brief.thread_window.filter((m) => m.body === current)).toHaveLength(1);
+    expect(brief.thread_window.filter((m) => m.role === "user")).toHaveLength(1);
+  });
+
+  it("H: unsent generated inbound reply_body does not appear in thread_window", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("User said this.", {
+        thread: {
+          memory_packet: {
+            recent_exact_thread_72h: {
+              window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+              message_count: 2,
+              had_preview_messages: false,
+              had_system_no_send: false,
+              messages: [
+                threadMsg({
+                  role: "user",
+                  body: "User said this.",
+                  source_table: "sms_inbound_messages",
+                  delivery_status: "sent",
+                  message_sid: "SM_U",
+                  delivery_evidence: "inbound_received",
+                }),
+                threadMsg({
+                  role: "coach",
+                  body: "UNSENT_GENERATED_REPLY_BODY",
+                  source_table: "sms_inbound_coach_jobs",
+                  delivery_status: "cancelled",
+                  message_sid: null,
+                  is_exact_body: true,
+                }),
+                threadMsg({
+                  role: "coach",
+                  body: "ANOTHER_UNSENT_REPLY",
+                  source_table: "sms_inbound_coach_jobs",
+                  delivery_status: "skipped",
+                  message_sid: null,
+                }),
+              ],
+            },
+          } as InboundV3RelationshipFacts["thread"]["memory_packet"],
+        },
+      }),
+    });
+    expect(brief.thread_window.some((m) => /UNSENT_GENERATED_REPLY|ANOTHER_UNSENT_REPLY/i.test(m.body))).toBe(
+      false
+    );
   });
 });
