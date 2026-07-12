@@ -239,17 +239,40 @@ export function deriveLocalDaypartForBrief(args: {
   return "late_night";
 }
 
+/**
+ * Writer-facing daypart: current_send_slot wins over generation wall-clock.
+ * Explicit slotDaypartOverride still wins (evening preview).
+ */
+export function resolveWriterFacingDaypartForBrief(args: {
+  currentSendSlot: SmsDailySendSlot;
+  slotDaypartOverride?: BriefLocalDaypart;
+  timezone: string;
+  localTimeIso: string;
+}): BriefLocalDaypart {
+  if (args.slotDaypartOverride) return args.slotDaypartOverride;
+  if (args.currentSendSlot === "morning") return "morning";
+  if (args.currentSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) return "evening";
+  return deriveLocalDaypartForBrief({
+    timezone: args.timezone,
+    localTimeIso: args.localTimeIso,
+  });
+}
+
 /** Max 2 short timing strings — replaces giant legacy TIMING ANCHOR block on C1 brief path. */
 export function buildCompactTimingCopyGuidanceForBrief(args: {
   facts: DailyV3RelationshipFacts;
   proofCalibration: DailyProofCalibration;
   timingAnchor?: TimingAnchorMemory | null;
+  /** Slot-aware daypart; when omitted, falls back to wall-clock (legacy callers). */
+  daypart?: BriefLocalDaypart;
 }): string[] {
   const out: string[] = [];
-  const daypart = deriveLocalDaypartForBrief({
-    timezone: args.facts.user.timezone,
-    localTimeIso: args.facts.user.local_time_iso,
-  });
+  const daypart =
+    args.daypart ??
+    deriveLocalDaypartForBrief({
+      timezone: args.facts.user.timezone,
+      localTimeIso: args.facts.user.local_time_iso,
+    });
 
   if (daypart === "morning") {
     out.push(
@@ -865,18 +888,21 @@ export function buildDailySmsWritingBriefV1(
   const preferredName =
     truncateText(f.user.preferred_name?.trim() || "there", 40) || "there";
   const overrides = args.writing_brief_overrides;
-  const localDaypart =
-    overrides?.slotDaypartOverride ??
-    deriveLocalDaypartForBrief({
-      timezone: f.user.timezone,
-      localTimeIso: f.user.local_time_iso,
-    });
+  const current_send_slot: SmsDailySendSlot =
+    overrides?.currentSendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const localDaypart = resolveWriterFacingDaypartForBrief({
+    currentSendSlot: current_send_slot,
+    slotDaypartOverride: overrides?.slotDaypartOverride,
+    timezone: f.user.timezone,
+    localTimeIso: f.user.local_time_iso,
+  });
   const relationship_anchors = buildRelationshipAnchorsForBrief(f.relationship_anchor_sources);
   const open_loops_full = buildOpenLoopsForBrief({ facts: f, commitmentRow: args.commitmentRow });
   const freshnessPhrases = args.freshness_phrases.slice(0, 3);
   const timingCopyGuidanceForRead = buildCompactTimingCopyGuidanceForBrief({
     facts: f,
     proofCalibration: cal,
+    daypart: localDaypart,
   });
   const suggested_move = buildSuggestedMoveForDailyWritingBrief(args.strategy_card, cal);
 
@@ -903,8 +929,6 @@ export function buildDailySmsWritingBriefV1(
     Boolean(relationship_read.latest_user_signal)
   ) as DailySmsWritingBriefV1["open_loops"];
 
-  const current_send_slot: SmsDailySendSlot =
-    overrides?.currentSendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
   const previousOutbound =
     overrides?.previousOutbound ??
     undefined;
@@ -1023,6 +1047,12 @@ export function buildDailySmsWritingBriefV1(
   };
 }
 
+export const MORNING_SLOT_WRITER_LINE =
+  "Morning slot: write as a start-of-day accountability text for the target day. Ask for today's plan or next action; do not ask the user to reflect on a completed day or whether today's action already happened. Do not say \"tomorrow\" unless the notebook explicitly says the relevant event is tomorrow. Treat past methods in the thread as past context, not today's plan, unless the user restated them.\n";
+
+export const EVENING_SLOT_WRITER_LINE =
+  "Evening check-in: continue the thread since morning; use slot_coaching_context for focus, not a generic goal loop.\n";
+
 export function buildDailySmsBriefSystemPrompt(args: {
   maxChars: number;
   zeroQuestionMode: boolean;
@@ -1081,7 +1111,12 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
   const eveningSlotLine =
     args.currentSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
-      ? "Evening check-in: continue the thread since morning; use slot_coaching_context for focus, not a generic goal loop.\n"
+      ? EVENING_SLOT_WRITER_LINE
+      : "";
+  const morningSlotLine =
+    !eveningSlotLine &&
+    (args.currentSendSlot == null || args.currentSendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT)
+      ? MORNING_SLOT_WRITER_LINE
       : "";
 
   const styleBlock = repairFit
@@ -1092,7 +1127,7 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
 Use DAILY_SMS_WRITING_BRIEF_V1 for facts and constraints only — not wording. Write one fresh human SMS.
 ${authorityOrder}
-${eveningSlotLine}Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
+${morningSlotLine}${eveningSlotLine}Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
 authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, or unsupported temporal claims.
 When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies as stored truth. Do not copy example shapes verbatim.
 ${silenceCadenceBlock}

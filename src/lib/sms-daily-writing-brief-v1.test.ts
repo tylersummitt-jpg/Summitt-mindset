@@ -24,10 +24,17 @@ import {
   deriveDailyWritingBriefFallbackTelemetry,
   deriveLocalDaypartForBrief,
   detectFitOrCorrectionConflictFromAssembledSemantics,
+  EVENING_SLOT_WRITER_LINE,
   FIRST_TEXT_STYLE_MICROGUIDE_V1,
+  MORNING_SLOT_WRITER_LINE,
   neutralizeBriefSuggestedMoveReasonForWriter,
+  resolveWriterFacingDaypartForBrief,
   useDailySmsWritingBriefV1,
 } from "@/lib/sms-daily-writing-brief-v1";
+import {
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
+} from "@/lib/tyler-text-overview-types";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import { deriveTimingAnchorMemory } from "@/lib/timing-anchor-memory";
 
@@ -1097,8 +1104,8 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       freshness_phrases: [],
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system.length).toBeLessThan(3400);
-    expect(writer.system.length + writer.user.length).toBeLessThan(8500);
+    expect(writer.system.length).toBeLessThan(3800);
+    expect(writer.system.length + writer.user.length).toBeLessThan(8900);
   });
 
   it("neutralizes generic suggested_move.reason in brief payload", () => {
@@ -1661,6 +1668,221 @@ describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
       detectFitOrCorrectionConflictFromAssembledSemantics.toString(),
     ].join("\n");
     expect(helpersSrc).not.toMatch(/not relevant|not my goal|stop asking/i);
+  });
+});
+
+describe("morning slot truth (current_send_slot controls daypart)", () => {
+  function emptyThread() {
+    return {
+      window: {
+        floor_hours: 72 as const,
+        extension_days: 7 as const,
+        mode: "72h_floor_7d_extension_capped" as const,
+      },
+      messages: [] as Array<{
+        at_local: string;
+        role: "coach" | "user";
+        body: string;
+        source_table: string;
+        delivery_evidence:
+          | "message_sid_present"
+          | "outbound_message_sid_present"
+          | "status_sent_with_timestamp"
+          | "inbound_received"
+          | "fallback_last_outbound";
+      }>,
+      message_count: 0,
+      char_count: 0,
+      timeline_7d: { messages: [], window_hours: 168 as const, message_count: 0 },
+    };
+  }
+
+  it("A: morning brief includes start-of-day guidance and morningSlotLine", () => {
+    const facts = baseFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/New_York",
+        local_time_iso: "2026-07-12T12:00:00.000Z",
+      },
+      accountability_day_key: "2026-07-12",
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: emptyThread(),
+      freshness_phrases: [],
+    });
+    expect(brief.current_send_slot).toBe(SMS_DAILY_PRODUCTION_SEND_SLOT);
+    expect(brief.authoritative_truth.local.local_daypart).toBe("morning");
+    expect(
+      brief.authoritative_truth.local.timing_copy_guidance?.some((g) => /Morning send/i.test(g))
+    ).toBe(true);
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toContain(MORNING_SLOT_WRITER_LINE.trim());
+    expect(writer.system).toMatch(/start-of-day accountability/i);
+  });
+
+  it("B: morning generated at night still uses morning guidance, not evening/tomorrow framing", () => {
+    const facts = baseFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/New_York",
+        // July 11 late evening ET — wall-clock evening/late_night
+        local_time_iso: "2026-07-12T03:30:00.000Z",
+      },
+      accountability_day_key: "2026-07-12",
+    });
+    expect(
+      deriveLocalDaypartForBrief({
+        timezone: facts.user.timezone,
+        localTimeIso: facts.user.local_time_iso,
+      })
+    ).toMatch(/evening|late_night/);
+    expect(
+      resolveWriterFacingDaypartForBrief({
+        currentSendSlot: "morning",
+        timezone: facts.user.timezone,
+        localTimeIso: facts.user.local_time_iso,
+      })
+    ).toBe("morning");
+
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: emptyThread(),
+      freshness_phrases: [],
+      writing_brief_overrides: { currentSendSlot: "morning" },
+    });
+
+    expect(brief.authoritative_truth.local.local_daypart).toBe("morning");
+    expect(brief.authoritative_truth.local.local_time_iso).toBe(facts.user.local_time_iso);
+    expect(
+      brief.authoritative_truth.local.timing_copy_guidance?.some((g) => /Morning send/i.test(g))
+    ).toBe(true);
+    expect(
+      brief.authoritative_truth.local.timing_copy_guidance?.some((g) => /Evening send/i.test(g))
+    ).toBe(false);
+    expect(brief.relationship_read.send_target_day_context).toMatch(/Morning\//i);
+    expect(brief.relationship_read.send_target_day_context).toMatch(
+      /do not imply today's outcome already happened|Morning\/prospec/i
+    );
+    expect(brief.relationship_read.send_target_day_context).not.toMatch(/prefer tomorrow/i);
+
+    const guidance = buildCompactTimingCopyGuidanceForBrief({
+      facts,
+      proofCalibration: cal,
+      daypart: "morning",
+    });
+    expect(guidance.some((g) => /Morning send/i.test(g))).toBe(true);
+    expect(guidance.some((g) => /Evening send|tomorrow's move/i.test(g))).toBe(false);
+  });
+
+  it("C/D/E: morning system line forbids completed-day reflection, tomorrow drift, and past-method-as-plan", () => {
+    const system = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+      currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    });
+    expect(system).toContain(MORNING_SLOT_WRITER_LINE.trim());
+    expect(system).toMatch(/do not ask the user to reflect on a completed day/i);
+    expect(system).toMatch(/whether today's action already happened/i);
+    expect(system).toMatch(
+      /Do not say "tomorrow" unless the notebook explicitly says the relevant event is tomorrow/i
+    );
+    expect(system).toMatch(
+      /past methods in the thread as past context, not today's plan, unless the user restated them/i
+    );
+    expect(system).not.toContain(EVENING_SLOT_WRITER_LINE.trim());
+  });
+
+  it("F: evening_checkin keeps evening guidance and is not flattened to morning", () => {
+    const facts = baseFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/New_York",
+        local_time_iso: "2026-07-12T12:00:00.000Z", // wall-clock morning
+      },
+      accountability_day_key: "2026-07-12",
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: emptyThread(),
+      freshness_phrases: [],
+      writing_brief_overrides: {
+        currentSendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        slotDaypartOverride: "evening",
+      },
+    });
+
+    expect(brief.current_send_slot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
+    expect(brief.authoritative_truth.local.local_daypart).toBe("evening");
+    expect(
+      brief.authoritative_truth.local.timing_copy_guidance?.some((g) => /Evening send/i.test(g))
+    ).toBe(true);
+    expect(
+      brief.authoritative_truth.local.timing_copy_guidance?.some((g) => /Morning send/i.test(g))
+    ).toBe(false);
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toContain(EVENING_SLOT_WRITER_LINE.trim());
+    expect(writer.system).not.toContain(MORNING_SLOT_WRITER_LINE.trim());
+  });
+
+  it("G: actual morning wall-clock + morning slot still yields morning guidance", () => {
+    const facts = baseFacts({
+      user: {
+        ...baseFacts().user,
+        timezone: "America/Chicago",
+        local_time_iso: "2026-06-20T13:00:00.000Z",
+      },
+    });
+    expect(
+      deriveLocalDaypartForBrief({
+        timezone: facts.user.timezone,
+        localTimeIso: facts.user.local_time_iso,
+      })
+    ).toBe("morning");
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: emptyThread(),
+      freshness_phrases: [],
+    });
+    expect(brief.authoritative_truth.local.local_daypart).toBe("morning");
+    expect(
+      brief.authoritative_truth.local.timing_copy_guidance?.some((g) => /Morning send/i.test(g))
+    ).toBe(true);
+  });
+
+  it("H: no second thread block or bulky timing section keys", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: emptyThread(),
+      freshness_phrases: [],
+    });
+    const keys = Object.keys(brief);
+    expect(keys).toContain("recent_exact_thread");
+    expect(keys).toContain("current_send_slot");
+    expect(keys).not.toContain("actual_sent_thread");
+    expect(keys).not.toContain("delivered_thread");
+    expect(keys).not.toContain("verified_thread");
+    expect(keys).not.toContain("morning_slot_policy");
+    expect(keys).not.toContain("slot_truth_block");
   });
 });
 
