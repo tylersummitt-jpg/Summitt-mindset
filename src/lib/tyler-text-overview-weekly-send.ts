@@ -1,5 +1,5 @@
 /**
- * Weekly TTO manual one-row send — draft-authoritative only.
+ * Weekly TTO draft-authoritative send — manual + cron share this core.
  * Never live-builds. Never calls weekly writers. Never writes check_sent / sms_send_events.
  */
 
@@ -21,11 +21,16 @@ import {
 } from "@/lib/v2-sms-comms-preferences";
 import { appendPreservedSmsSuffix } from "@/lib/v3-sms-voice-ownership";
 
-/** Same footer string as /api/cron/weekly-sms (duplicated intentionally — do not import from cron). */
+/** Same footer string as historical weekly-sms (duplicated intentionally). */
 export const WEEKLY_TTO_COMPLIANCE_FOOTER =
   "Reply STOP to opt out. Reply HELP for help.";
 
 export const WEEKLY_TTO_MANUAL_SEND_SOURCE = "weekly_tto_manual" as const;
+export const WEEKLY_TTO_CRON_SEND_SOURCE = "weekly_tto_cron" as const;
+
+export type WeeklyTtoSendSource =
+  | typeof WEEKLY_TTO_MANUAL_SEND_SOURCE
+  | typeof WEEKLY_TTO_CRON_SEND_SOURCE;
 
 export type WeeklyTtoManualSendRefusalCode =
   | "no_draft"
@@ -35,6 +40,7 @@ export type WeeklyTtoManualSendRefusalCode =
   | "week_key_mismatch"
   | "blank_body"
   | "machine_should_send_false"
+  | "ambiguous_weekly_draft"
   | "duplicate_weekly_send"
   | "no_phone"
   | "sms_disabled"
@@ -46,6 +52,16 @@ export type WeeklyTtoManualSendRefusalCode =
   | "twilio_failed"
   | "reservation_failed"
   | "post_send_bookkeeping_failed";
+
+/** Cron-facing skip reasons (authority failures). */
+export type WeeklyTtoCronAuthoritySkipReason =
+  | "skipped_tto_no_current_weekly_draft"
+  | "skipped_tto_blank_weekly_body"
+  | "skipped_tto_missing_generation"
+  | "skipped_tto_machine_should_send_false"
+  | "skipped_tto_week_key_mismatch"
+  | "skipped_tto_ambiguous_weekly_draft"
+  | "skipped_tto_wrong_slot";
 
 export type WeeklyTtoManualSendResult =
   | {
@@ -114,39 +130,58 @@ export function buildWeeklyTtoFinalBodyWithFooter(bodyWithoutFooter: string): st
   return appendPreservedSmsSuffix(bodyWithoutFooter.trim(), WEEKLY_TTO_COMPLIANCE_FOOTER);
 }
 
-export async function assertWeeklyTtoDraftAuthoritativeForManualSend(args: {
-  draftId: string;
-  weekKey?: string | null;
+export function mapWeeklyTtoRefusalToCronSkipReason(
+  code: WeeklyTtoManualSendRefusalCode
+): WeeklyTtoCronAuthoritySkipReason | "skipped_duplicate_weekly_send" | "skipped_missing_twilio" | "failed" | null {
+  switch (code) {
+    case "no_draft":
+    case "draft_not_current":
+      return "skipped_tto_no_current_weekly_draft";
+    case "blank_body":
+      return "skipped_tto_blank_weekly_body";
+    case "missing_generation":
+      return "skipped_tto_missing_generation";
+    case "machine_should_send_false":
+      return "skipped_tto_machine_should_send_false";
+    case "week_key_mismatch":
+      return "skipped_tto_week_key_mismatch";
+    case "ambiguous_weekly_draft":
+      return "skipped_tto_ambiguous_weekly_draft";
+    case "wrong_slot":
+      return "skipped_tto_wrong_slot";
+    case "duplicate_weekly_send":
+      return "skipped_duplicate_weekly_send";
+    case "twilio_not_ready":
+      return "skipped_missing_twilio";
+    case "twilio_failed":
+    case "reservation_failed":
+    case "post_send_bookkeeping_failed":
+    case "no_phone":
+    case "sms_disabled":
+    case "stopped_or_unsubscribed":
+    case "paused_or_canceled":
+    case "not_fully_on_v2":
+    case "no_commitment":
+      return "failed";
+    default:
+      return null;
+  }
+}
+
+async function materializeAuthoritativeDraftFromRows(args: {
+  draftRow: Record<string, unknown>;
+  generationRow: Record<string, unknown>;
+  weekKeyRequired?: string | null;
 }): Promise<
   | { ok: true; draft: WeeklyTtoAuthoritativeDraft }
   | { ok: false; result: WeeklyTtoManualSendResult }
 > {
-  const draftId = args.draftId.trim();
-  if (!draftId) {
-    return { ok: false, result: refuse("no_draft", "Missing draft id") };
-  }
-
-  const { data: draftRow, error: draftError } = await supabaseServer
-    .from(SMS_DAILY_DRAFTS_TABLE)
-    .select(
-      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
-    )
-    .eq("id", draftId)
-    .maybeSingle();
-
-  if (draftError) {
-    return {
-      ok: false,
-      result: refuse("no_draft", `draft_load_failed:${draftError.message}`, { draftId }),
-    };
-  }
-  if (!draftRow) {
-    return { ok: false, result: refuse("no_draft", "Draft not found", { draftId }) };
-  }
-
+  const draftRow = args.draftRow;
+  const generationRow = args.generationRow;
   const clerkUserId =
     typeof draftRow.clerk_user_id === "string" ? draftRow.clerk_user_id.trim() : "";
-  const base = { draftId: String(draftRow.id), clerkUserId };
+  const draftId = String(draftRow.id ?? "");
+  const base = { draftId, clerkUserId };
 
   if (draftRow.send_slot !== SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT) {
     return {
@@ -158,38 +193,6 @@ export async function assertWeeklyTtoDraftAuthoritativeForManualSend(args: {
     return {
       ok: false,
       result: refuse("draft_not_current", "Draft is not current", base),
-    };
-  }
-
-  const generationId =
-    typeof draftRow.current_generation_id === "string"
-      ? draftRow.current_generation_id.trim()
-      : "";
-  if (!generationId) {
-    return {
-      ok: false,
-      result: refuse("missing_generation", "Draft has no current_generation_id", base),
-    };
-  }
-
-  const { data: generationRow, error: generationError } = await supabaseServer
-    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-    .select(
-      "id, send_slot, machine_should_send, machine_no_send_reason, commitment_id, generation_metadata, timezone_snapshot"
-    )
-    .eq("id", generationId)
-    .maybeSingle();
-
-  if (generationError || !generationRow) {
-    return {
-      ok: false,
-      result: refuse(
-        "missing_generation",
-        generationError
-          ? `generation_load_failed:${generationError.message}`
-          : "Current generation not found",
-        base
-      ),
     };
   }
 
@@ -205,13 +208,11 @@ export async function assertWeeklyTtoDraftAuthoritativeForManualSend(args: {
   if (!weekKey) {
     return {
       ok: false,
-      result: refuse("week_key_mismatch", "Generation metadata is missing week_key", {
-        ...base,
-      }),
+      result: refuse("week_key_mismatch", "Generation metadata is missing week_key", base),
     };
   }
 
-  const requestedWeekKey = args.weekKey?.trim() || "";
+  const requestedWeekKey = args.weekKeyRequired?.trim() || "";
   if (requestedWeekKey && requestedWeekKey !== weekKey) {
     return {
       ok: false,
@@ -278,6 +279,210 @@ export async function assertWeeklyTtoDraftAuthoritativeForManualSend(args: {
   };
 }
 
+export async function assertWeeklyTtoDraftAuthoritativeForManualSend(args: {
+  draftId: string;
+  weekKey?: string | null;
+}): Promise<
+  | { ok: true; draft: WeeklyTtoAuthoritativeDraft }
+  | { ok: false; result: WeeklyTtoManualSendResult }
+> {
+  const draftId = args.draftId.trim();
+  if (!draftId) {
+    return { ok: false, result: refuse("no_draft", "Missing draft id") };
+  }
+
+  const { data: draftRow, error: draftError } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select(
+      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
+    )
+    .eq("id", draftId)
+    .maybeSingle();
+
+  if (draftError) {
+    return {
+      ok: false,
+      result: refuse("no_draft", `draft_load_failed:${draftError.message}`, { draftId }),
+    };
+  }
+  if (!draftRow) {
+    return { ok: false, result: refuse("no_draft", "Draft not found", { draftId }) };
+  }
+
+  const generationId =
+    typeof draftRow.current_generation_id === "string"
+      ? draftRow.current_generation_id.trim()
+      : "";
+  if (!generationId) {
+    return {
+      ok: false,
+      result: refuse("missing_generation", "Draft has no current_generation_id", {
+        draftId: String(draftRow.id),
+        clerkUserId:
+          typeof draftRow.clerk_user_id === "string" ? draftRow.clerk_user_id.trim() : "",
+      }),
+    };
+  }
+
+  const { data: generationRow, error: generationError } = await supabaseServer
+    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+    .select(
+      "id, send_slot, machine_should_send, machine_no_send_reason, commitment_id, generation_metadata, timezone_snapshot"
+    )
+    .eq("id", generationId)
+    .maybeSingle();
+
+  if (generationError || !generationRow) {
+    return {
+      ok: false,
+      result: refuse(
+        "missing_generation",
+        generationError
+          ? `generation_load_failed:${generationError.message}`
+          : "Current generation not found",
+        {
+          draftId: String(draftRow.id),
+          clerkUserId:
+            typeof draftRow.clerk_user_id === "string" ? draftRow.clerk_user_id.trim() : "",
+        }
+      ),
+    };
+  }
+
+  return materializeAuthoritativeDraftFromRows({
+    draftRow: draftRow as Record<string, unknown>,
+    generationRow: generationRow as Record<string, unknown>,
+    weekKeyRequired: args.weekKey,
+  });
+}
+
+/**
+ * Cron authority: load the single current weekly_review draft for user+week_key.
+ * week_key (generation_metadata) is the send truth — not draft_for_day_key alone.
+ */
+export async function assertWeeklyTtoDraftAuthoritativeForCronSend(args: {
+  clerkUserId: string;
+  weekKey: string;
+}): Promise<
+  | { ok: true; draft: WeeklyTtoAuthoritativeDraft }
+  | { ok: false; result: WeeklyTtoManualSendResult }
+> {
+  const clerkUserId = args.clerkUserId.trim();
+  const weekKey = args.weekKey.trim();
+  if (!clerkUserId) {
+    return { ok: false, result: refuse("no_draft", "Missing clerk_user_id") };
+  }
+  if (!weekKey) {
+    return {
+      ok: false,
+      result: refuse("week_key_mismatch", "Missing week_key", { clerkUserId }),
+    };
+  }
+
+  const { data: draftRows, error: draftError } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select(
+      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
+    )
+    .eq("clerk_user_id", clerkUserId)
+    .eq("send_slot", SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT)
+    .eq("status", "current");
+
+  if (draftError) {
+    return {
+      ok: false,
+      result: refuse("no_draft", `draft_load_failed:${draftError.message}`, {
+        clerkUserId,
+        weekKey,
+      }),
+    };
+  }
+
+  const rows = Array.isArray(draftRows) ? draftRows : [];
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      result: refuse("no_draft", "No current weekly_review draft", {
+        clerkUserId,
+        weekKey,
+      }),
+    };
+  }
+
+  const matched: Array<{
+    draftRow: Record<string, unknown>;
+    generationRow: Record<string, unknown>;
+  }> = [];
+
+  for (const draftRow of rows) {
+    const generationId =
+      typeof draftRow.current_generation_id === "string"
+        ? draftRow.current_generation_id.trim()
+        : "";
+    if (!generationId) continue;
+
+    const { data: generationRow, error: generationError } = await supabaseServer
+      .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+      .select(
+        "id, send_slot, machine_should_send, machine_no_send_reason, commitment_id, generation_metadata, timezone_snapshot"
+      )
+      .eq("id", generationId)
+      .maybeSingle();
+
+    if (generationError || !generationRow) continue;
+
+    const metadata = asRecord(generationRow.generation_metadata) ?? {};
+    const metaWeekKey = readMetadataString(metadata, "week_key");
+    if (metaWeekKey !== weekKey) continue;
+
+    matched.push({
+      draftRow: draftRow as Record<string, unknown>,
+      generationRow: generationRow as Record<string, unknown>,
+    });
+  }
+
+  if (matched.length === 0) {
+    // Distinguish: had current drafts but none for this week_key vs missing generation/body later
+    const anyWithGeneration = rows.some(
+      (r) => typeof r.current_generation_id === "string" && r.current_generation_id.trim()
+    );
+    if (!anyWithGeneration) {
+      return {
+        ok: false,
+        result: refuse("missing_generation", "Current draft missing generation", {
+          clerkUserId,
+          weekKey,
+        }),
+      };
+    }
+    return {
+      ok: false,
+      result: refuse(
+        "week_key_mismatch",
+        `No current weekly_review draft for week_key ${weekKey}`,
+        { clerkUserId, weekKey }
+      ),
+    };
+  }
+
+  if (matched.length > 1) {
+    return {
+      ok: false,
+      result: refuse(
+        "ambiguous_weekly_draft",
+        `Multiple current weekly_review drafts for week_key ${weekKey}`,
+        { clerkUserId, weekKey }
+      ),
+    };
+  }
+
+  return materializeAuthoritativeDraftFromRows({
+    draftRow: matched[0].draftRow,
+    generationRow: matched[0].generationRow,
+    weekKeyRequired: weekKey,
+  });
+}
+
 async function evaluateWeeklyManualSendEligibility(args: {
   clerkUserId: string;
   draftId: string;
@@ -335,12 +540,13 @@ async function reserveWeeklySmsSendEvent(args: {
   weekEnd: string | null;
   draftForDayKey: string;
   timezone: string | null;
+  sendSource: WeeklyTtoSendSource;
 }): Promise<
   | { ok: true; eventId: string }
   | { ok: false; result: WeeklyTtoManualSendResult }
 > {
   const reserveMetadata = {
-    send_source: WEEKLY_TTO_MANUAL_SEND_SOURCE,
+    send_source: args.sendSource,
     draft_id: args.draftId,
     generation_id: args.generationId,
     week_key: args.weekKey,
@@ -348,7 +554,10 @@ async function reserveWeeklySmsSendEvent(args: {
     week_end: args.weekEnd,
     draft_for_day_key: args.draftForDayKey,
     timezone: args.timezone,
-    note: "reserved_by_weekly_tto_manual_send",
+    note:
+      args.sendSource === WEEKLY_TTO_CRON_SEND_SOURCE
+        ? "reserved_by_weekly_tto_cron"
+        : "reserved_by_weekly_tto_manual_send",
   };
 
   const { data, error } = await supabaseServer
@@ -438,14 +647,18 @@ async function updateGenerationMetadataAfterWeeklySend(args: {
   sentAtIso: string;
   bodyWithoutFooter: string;
   finalBody: string;
+  sendSource: WeeklyTtoSendSource;
 }): Promise<void> {
   await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
     .update({
       generation_metadata: {
         ...args.existingMetadata,
-        weekly_tto_manual_sent: true,
-        send_source: WEEKLY_TTO_MANUAL_SEND_SOURCE,
+        weekly_tto_sent: true,
+        ...(args.sendSource === WEEKLY_TTO_MANUAL_SEND_SOURCE
+          ? { weekly_tto_manual_sent: true }
+          : { weekly_tto_cron_sent: true }),
+        send_source: args.sendSource,
         sms_weekly_send_event_id: args.weeklySendEventId,
         twilio_message_sid: args.twilioMessageSid,
         sent_at: args.sentAtIso,
@@ -457,27 +670,35 @@ async function updateGenerationMetadataAfterWeeklySend(args: {
     .eq("id", args.generationId);
 }
 
-export async function sendWeeklyTtoDraftManually(args: {
-  draftId: string;
-  weekKey?: string | null;
-  requestedByClerkUserId: string;
+/**
+ * Shared send core after authority has already passed.
+ * phoneTo: required for cron (from sms_identities); optional for manual (audience reload).
+ */
+export async function sendWeeklyTtoDraftAuthoritative(args: {
+  draft: WeeklyTtoAuthoritativeDraft;
+  sendSource: WeeklyTtoSendSource;
+  phoneTo: string;
+  requestedByClerkUserId?: string | null;
   now?: Date;
 }): Promise<WeeklyTtoManualSendResult> {
   const now = args.now ?? new Date();
-  const authoritative = await assertWeeklyTtoDraftAuthoritativeForManualSend({
-    draftId: args.draftId,
-    weekKey: args.weekKey,
-  });
-  if (!authoritative.ok) return authoritative.result;
+  const draft = args.draft;
+  const phone = args.phoneTo.trim();
+  if (!phone) {
+    return refuse("no_phone", "User has no phone number", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
 
-  const draft = authoritative.draft;
-  const eligibilityBlock = await evaluateWeeklyManualSendEligibility({
-    clerkUserId: draft.clerkUserId,
-    draftId: draft.draftId,
-    weekKey: draft.weekKey,
-    now,
-  });
-  if (eligibilityBlock) return eligibilityBlock;
+  if (!isTwilioReady()) {
+    return refuse("twilio_not_ready", "Twilio is not configured", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
 
   let commitmentId = draft.commitmentId;
   if (!commitmentId) {
@@ -500,31 +721,9 @@ export async function sendWeeklyTtoDraftManually(args: {
     weekEnd: draft.weekEnd,
     draftForDayKey: draft.draftForDayKey,
     timezone: draft.timezone,
+    sendSource: args.sendSource,
   });
   if (!reservation.ok) return reservation.result;
-
-  const audience = await loadTylerTextOverviewAudienceRow(draft.clerkUserId);
-  const phone =
-    typeof audience?.phone_number === "string" ? audience.phone_number.trim() : "";
-  if (!phone) {
-    await supabaseServer
-      .from("sms_weekly_send_events")
-      .update({
-        status: "send_failed",
-        metadata: {
-          send_source: WEEKLY_TTO_MANUAL_SEND_SOURCE,
-          draft_id: draft.draftId,
-          error: "no_phone_after_reserve",
-        },
-      })
-      .eq("clerk_user_id", draft.clerkUserId)
-      .eq("week_key", draft.weekKey);
-    return refuse("no_phone", "User has no phone number", {
-      draftId: draft.draftId,
-      clerkUserId: draft.clerkUserId,
-      weekKey: draft.weekKey,
-    });
-  }
 
   const bodyWithoutFooter = draft.bodyWithoutFooter;
   const finalBody = buildWeeklyTtoFinalBodyWithFooter(bodyWithoutFooter);
@@ -549,7 +748,7 @@ export async function sendWeeklyTtoDraftManually(args: {
       .update({
         status: "send_failed",
         metadata: {
-          send_source: WEEKLY_TTO_MANUAL_SEND_SOURCE,
+          send_source: args.sendSource,
           draft_id: draft.draftId,
           generation_id: draft.generationId,
           week_key: draft.weekKey,
@@ -561,7 +760,9 @@ export async function sendWeeklyTtoDraftManually(args: {
           draft_excludes_compliance_footer: WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER,
           twilio_send_attempted: true,
           error: message,
-          requested_by_clerk_user_id: args.requestedByClerkUserId,
+          ...(args.requestedByClerkUserId
+            ? { requested_by_clerk_user_id: args.requestedByClerkUserId }
+            : {}),
         },
       })
       .eq("clerk_user_id", draft.clerkUserId)
@@ -579,7 +780,7 @@ export async function sendWeeklyTtoDraftManually(args: {
   const sentAtIso = sentAt.toISOString();
 
   const successMetadata = {
-    send_source: WEEKLY_TTO_MANUAL_SEND_SOURCE,
+    send_source: args.sendSource,
     draft_id: draft.draftId,
     generation_id: draft.generationId,
     week_key: draft.weekKey,
@@ -594,8 +795,10 @@ export async function sendWeeklyTtoDraftManually(args: {
     stripped_compliance_footer: true,
     twilio_send_attempted: true,
     visible_sent: true,
-    requested_by_clerk_user_id: args.requestedByClerkUserId,
     sms_weekly_send_event_id: reservation.eventId,
+    ...(args.requestedByClerkUserId
+      ? { requested_by_clerk_user_id: args.requestedByClerkUserId }
+      : {}),
   };
 
   const { error: eventUpdateError } = await supabaseServer
@@ -613,6 +816,7 @@ export async function sendWeeklyTtoDraftManually(args: {
       draft_id: draft.draftId,
       error: eventUpdateError.message,
       twilio_message_sid: twilioMessageSid,
+      send_source: args.sendSource,
     });
   }
 
@@ -628,6 +832,7 @@ export async function sendWeeklyTtoDraftManually(args: {
       draft_id: draft.draftId,
       error: draftFinalize.error,
       twilio_message_sid: twilioMessageSid,
+      send_source: args.sendSource,
     });
     return refuse(
       "post_send_bookkeeping_failed",
@@ -650,6 +855,7 @@ export async function sendWeeklyTtoDraftManually(args: {
     sentAtIso,
     bodyWithoutFooter,
     finalBody,
+    sendSource: args.sendSource,
   });
 
   const mem = await upsertCommitmentSmsThreadMemoryFromOutbound({
@@ -666,6 +872,7 @@ export async function sendWeeklyTtoDraftManually(args: {
       draft_id: draft.draftId,
       error: mem.error,
       twilio_message_sid: twilioMessageSid,
+      send_source: args.sendSource,
     });
   }
 
@@ -679,4 +886,66 @@ export async function sendWeeklyTtoDraftManually(args: {
     finalBodySent: finalBody,
     bodyWithoutFooter,
   };
+}
+
+export async function sendWeeklyTtoDraftManually(args: {
+  draftId: string;
+  weekKey?: string | null;
+  requestedByClerkUserId: string;
+  now?: Date;
+}): Promise<WeeklyTtoManualSendResult> {
+  const now = args.now ?? new Date();
+  const authoritative = await assertWeeklyTtoDraftAuthoritativeForManualSend({
+    draftId: args.draftId,
+    weekKey: args.weekKey,
+  });
+  if (!authoritative.ok) return authoritative.result;
+
+  const draft = authoritative.draft;
+  const eligibilityBlock = await evaluateWeeklyManualSendEligibility({
+    clerkUserId: draft.clerkUserId,
+    draftId: draft.draftId,
+    weekKey: draft.weekKey,
+    now,
+  });
+  if (eligibilityBlock) return eligibilityBlock;
+
+  const audience = await loadTylerTextOverviewAudienceRow(draft.clerkUserId);
+  const phone =
+    typeof audience?.phone_number === "string" ? audience.phone_number.trim() : "";
+  if (!phone) {
+    return refuse("no_phone", "User has no phone number", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
+
+  return sendWeeklyTtoDraftAuthoritative({
+    draft,
+    sendSource: WEEKLY_TTO_MANUAL_SEND_SOURCE,
+    phoneTo: phone,
+    requestedByClerkUserId: args.requestedByClerkUserId,
+    now,
+  });
+}
+
+export async function sendWeeklyTtoDraftViaCron(args: {
+  clerkUserId: string;
+  weekKey: string;
+  phoneTo: string;
+  now?: Date;
+}): Promise<WeeklyTtoManualSendResult> {
+  const authoritative = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+    clerkUserId: args.clerkUserId,
+    weekKey: args.weekKey,
+  });
+  if (!authoritative.ok) return authoritative.result;
+
+  return sendWeeklyTtoDraftAuthoritative({
+    draft: authoritative.draft,
+    sendSource: WEEKLY_TTO_CRON_SEND_SOURCE,
+    phoneTo: args.phoneTo,
+    now: args.now,
+  });
 }

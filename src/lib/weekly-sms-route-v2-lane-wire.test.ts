@@ -1,187 +1,114 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 
 const REPO = path.join(__dirname, "..", "..");
+const ROUTE = path.join(REPO, "src/app/api/cron/weekly-sms/route.ts");
+const SEND = path.join(REPO, "src/lib/tyler-text-overview-weekly-send.ts");
+const WEEKLY_GENERATE = path.join(REPO, "src/lib/tyler-text-overview-weekly-generate.ts");
 
-describe("weekly-sms V2 proof branch — Phase 4.2B wire (static + NS)", () => {
-  it("route imports and calls produceWeeklyV3RelationshipSms for V2 weekly proof path", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).toContain("produceWeeklyV3RelationshipSms");
-    expect(src).toContain("buildWeeklyV3OutboundFactsForV2WeeklyProof");
-    expect(src).toContain('replySource: "v3_weekly_relationship_lane"');
+const FORBIDDEN_CRON_LIVE_BUILD = [
+  "buildV2WeeklyProofPack",
+  "generateV2WeeklyProofSmsBody",
+  "buildDeterministicWeeklyProofBody",
+  "produceWeeklyV3RelationshipSms",
+  "finalizeNorthStarCoachSmsAsync",
+  "applyFinalVoiceOwnershipGate",
+  "applyUnifiedSmsFinalProductLawGuard",
+  "generateWeeklySmsReflection",
+  "buildWeeklyV3OutboundFactsForV2WeeklyProof",
+  "buildSmsRelationshipMemoryPacket",
+  "buildV2SmsConversationContextPack",
+  "loadSmsVictoryBackgroundContext",
+  "north-star-coach-sms-openai",
+  "v3-weekly-outbound-relationship-lane",
+  "v2-weekly-proof-sms",
+];
+
+describe("weekly-sms is Weekly TTO draft-authoritative (static)", () => {
+  const src = fs.readFileSync(ROUTE, "utf8");
+
+  it("documents draft-authoritative invariant", () => {
+    expect(src).toContain("weekly-sms is Weekly TTO draft-authoritative");
+    expect(src).toContain("This route must not live-build weekly SMS bodies");
+    expect(src).toContain("tto_draft_authoritative: true");
   });
 
-  it("V2 weekly branch does not call overlay or pending resolution mutations", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2Start = src.indexOf("if (v2Gate.fullyOnV2)");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    const v2 = src.slice(v2Start, legacyStart);
-    expect(v2).not.toMatch(/setPendingResolution\s*\(/);
-    expect(v2).not.toMatch(/insertSmsPlannedInterruptionMemorySignal/);
-    expect(v2).not.toMatch(/contractProposalMode/);
-    expect(v2).toContain("buildWeeklyV3OutboundFactsForV2WeeklyProof");
+  it("does not import or call live-build / OpenAI / proof / lane builders", () => {
+    for (const forbidden of FORBIDDEN_CRON_LIVE_BUILD) {
+      expect(src).not.toContain(forbidden);
+    }
   });
 
-  it("V2 weekly branch loads planned interruption before weekly facts build", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2Start = src.indexOf("if (v2Gate.fullyOnV2)");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    const v2 = src.slice(v2Start, legacyStart);
-    expect(v2).toContain("loadRecentPlannedInterruptionSignalForCommitment");
-    expect(v2).toContain("plannedInterruption: plannedInterruptionRow");
-    const loadIdx = v2.indexOf("loadRecentPlannedInterruptionSignalForCommitment");
-    const factsIdx = v2.indexOf("buildWeeklyV3OutboundFactsForV2WeeklyProof");
-    expect(loadIdx).toBeGreaterThanOrEqual(0);
-    expect(factsIdx).toBeGreaterThan(loadIdx);
+  it("uses Weekly TTO cron authority + shared send core", () => {
+    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(src).toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(src).toContain("WEEKLY_TTO_CRON_SEND_SOURCE");
+    expect(src).toContain("getWeekKey");
   });
 
-  it("weekly-sms route does not use refineMachineSmsBodyWithV3RefineLane (Phase 4.2C legacy deprecated)", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).not.toContain("refineMachineSmsBodyWithV3RefineLane");
-    const v2Start = src.indexOf("if (v2Gate.fullyOnV2)");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    expect(v2Start).toBeGreaterThanOrEqual(0);
-    expect(legacyStart).toBeGreaterThan(v2Start);
-    const v2Slice = src.slice(v2Start, legacyStart);
-    expect(v2Slice).not.toContain("PAT_PAUSE_INTROS");
-    expect(v2Slice).not.toContain("weekly_pat_pause");
+  it("force only bypasses Sunday noon window", () => {
+    expect(src).toContain('url.searchParams.get("force") === "1"');
+    expect(src).toContain("shouldSendNow");
+    expect(src).toMatch(/if\s*\(\s*!force\s*&&\s*!shouldSendNow/);
+    // force never skips authority
+    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
   });
 
-  it("V2 weekly proof segment passes weekly lane body to North Star (not precomposed Pat Pause + proof)", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).toMatch(/proposedBody:\s*weeklyLane\.body\.trim\(\)/);
-    expect(src).not.toMatch(/preGateWeeklyV2/);
+  it("dryRun is side-effect free (no reserve / Twilio / finalize)", () => {
+    expect(src).toContain('url.searchParams.get("dryRun") === "1"');
+    expect(src).toContain("dryRunWouldSend");
+    // dryRun branch must not call shared send core
+    const dryStart = src.indexOf("if (dryRun)");
+    expect(dryStart).toBeGreaterThanOrEqual(0);
+    const dryEnd = src.indexOf("if (!isTwilioReady())", dryStart);
+    expect(dryEnd).toBeGreaterThan(dryStart);
+    const drySlice = src.slice(dryStart, dryEnd);
+    expect(drySlice).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(drySlice).toContain("dryRunWouldSend");
+    expect(drySlice).not.toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(drySlice).not.toContain("sendSMS");
+    expect(drySlice).not.toContain('from("sms_weekly_send_events")');
   });
 
-  it("North Star OpenAI full finalizer is skipped for v3_weekly_relationship_lane on weekly_sms (telemetry)", async () => {
-    delete process.env.OPENAI_API_KEY;
-    const r = await finalizeNorthStarCoachSmsAsync({
-      proposedBody: "Lane body from weekly V3 relationship lane.",
-      channel: "weekly_sms",
-      replySource: "v3_weekly_relationship_lane",
-      contextPacket: { source: "weekly_sms", effectiveAskText: "Morning hour" },
-    });
-    expect(r.meta.openaiAttempted).toBe(false);
-    expect(r.meta.north_star_openai_mode).toBe("disabled_for_v3_voice");
+  it("does not write sms_send_events or check_sent", () => {
+    expect(src).not.toContain('from("sms_send_events")');
+    expect(src).not.toContain("onV2StandardCheckSent");
+    expect(src).not.toContain("v2_commitment_event");
+    expect(src).not.toContain('event_type: "check_sent"');
   });
 
-  it("sms_weekly_send_events insert + duplicate skip patterns unchanged in route source", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).toContain('.from("sms_weekly_send_events")');
-    expect(src).toContain('status: "reserved"');
-    expect(src).toContain("skippedV2WeeklyDuplicate");
+  it("does not generate Weekly TTO drafts in cron", () => {
+    expect(src).not.toContain("generateTylerTextOverviewWeeklyDraft");
+    expect(src).not.toContain("tyler-text-overview-weekly-generate");
   });
 });
 
-describe("weekly-sms V2 branch — durable thread memory projection wire", () => {
-  function v2WeeklySlice(src: string): string {
-    const v2Start = src.indexOf("if (v2Gate.fullyOnV2)");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    expect(v2Start).toBeGreaterThanOrEqual(0);
-    expect(legacyStart).toBeGreaterThan(v2Start);
-    return src.slice(v2Start, legacyStart);
-  }
+describe("weekly-sms send core still draft-authoritative", () => {
+  const sendSrc = fs.readFileSync(SEND, "utf8");
 
-  it("imports upsert and defines writeV2SmsThreadMemoryAfterWeeklyV3Outbound", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).toContain("upsertCommitmentSmsThreadMemoryFromOutbound");
-    expect(src).toContain("writeV2SmsThreadMemoryAfterWeeklyV3Outbound");
-    expect(src).toContain('source: "weekly_sms"');
+  it("cron send_source is weekly_tto_cron", () => {
+    expect(sendSrc).toContain('WEEKLY_TTO_CRON_SEND_SOURCE = "weekly_tto_cron"');
+    expect(sendSrc).toContain("sendWeeklyTtoDraftViaCron");
+    expect(sendSrc).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
   });
 
-  it("calls projection helper after sendSMS with guardedWeeklyBody (not finalBodyV2)", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2 = v2WeeklySlice(src);
-    const sendIdx = v2.indexOf("await sendSMS(");
-    const memIdx = v2.indexOf("writeV2SmsThreadMemoryAfterWeeklyV3Outbound");
-    expect(sendIdx).toBeGreaterThanOrEqual(0);
-    expect(memIdx).toBeGreaterThan(sendIdx);
-    expect(v2).toMatch(/coachBodyForMemory:\s*guardedWeeklyBody/);
-    expect(v2).not.toMatch(/coachBodyForMemory:\s*finalBodyV2/);
+  it("shared core does not live-build", () => {
+    for (const forbidden of [
+      "buildV2WeeklyProofPack",
+      "produceWeeklyV3RelationshipSms",
+      "finalizeNorthStarCoachSmsAsync",
+    ]) {
+      expect(sendSrc).not.toContain(forbidden);
+    }
   });
+});
 
-  it("still appends compliance footer to finalBodyV2 for Twilio send after unified guard", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2 = v2WeeklySlice(src);
-    expect(v2).toContain("appendPreservedSmsSuffix(guardedWeeklyBody, WEEKLY_SMS_COMPLIANCE_FOOTER)");
-    expect(v2).toMatch(/body:\s*finalBodyV2/);
-    expect(v2).toContain('mode: "outbound_weekly"');
-  });
-
-  it("records thread memory projection metadata on successful send update", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2 = v2WeeklySlice(src);
-    expect(v2).toContain("thread_memory_projection_written: mem.ok");
-    expect(v2).toContain("thread_memory_projection_error: mem.ok ? null : mem.error");
-    expect(v2).toContain('thread_memory_projection_source: "weekly_sms"');
-    expect(v2).toContain("stripped_compliance_footer: true");
-  });
-
-  it("records metadata.sms_body on successful Twilio send update (operator-observable weekly body)", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2 = v2WeeklySlice(src);
-    expect(v2).toContain("sms_body: finalBodyV2");
-    expect(v2).toContain("north_star_gate");
-  });
-
-  it("projection helper is warn-only and not used on no-send, dry-run, or failed send paths", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2 = v2WeeklySlice(src);
-
-    const laneNoSendStart = v2.indexOf("if (!weeklyLane.shouldSend)");
-    const laneNoSendEnd = v2.indexOf("const gatedWeeklyV2");
-    expect(laneNoSendStart).toBeGreaterThanOrEqual(0);
-    expect(laneNoSendEnd).toBeGreaterThan(laneNoSendStart);
-    expect(v2.slice(laneNoSendStart, laneNoSendEnd)).not.toContain(
-      "writeV2SmsThreadMemoryAfterWeeklyV3Outbound"
-    );
-
-    const fvgNoSendStart = v2.indexOf("if (!voiceWeeklyV2.shouldSend)");
-    const fvgNoSendEnd = v2.indexOf("const finalBodyV2");
-    expect(fvgNoSendStart).toBeGreaterThanOrEqual(0);
-    expect(fvgNoSendEnd).toBeGreaterThan(fvgNoSendStart);
-    expect(v2.slice(fvgNoSendStart, fvgNoSendEnd)).not.toContain(
-      "writeV2SmsThreadMemoryAfterWeeklyV3Outbound"
-    );
-
-    const dryRunStart = v2.indexOf("if (!isTwilioReady() || SMS_DRY_RUN)");
-    const sendTryStart = v2.indexOf("const messageV2 = await sendSMS");
-    expect(dryRunStart).toBeGreaterThanOrEqual(0);
-    expect(sendTryStart).toBeGreaterThan(dryRunStart);
-    expect(v2.slice(dryRunStart, sendTryStart)).not.toContain(
-      "writeV2SmsThreadMemoryAfterWeeklyV3Outbound"
-    );
-
-    const catchStart = v2.indexOf('status: "send_failed"');
-    expect(catchStart).toBeGreaterThanOrEqual(0);
-    expect(v2.slice(catchStart)).not.toContain("writeV2SmsThreadMemoryAfterWeeklyV3Outbound");
-
-    const fullSrc = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(fullSrc).toContain("v2_sms_thread_memory_outbound_upsert_failed");
-    const helperStart = fullSrc.indexOf("async function writeV2SmsThreadMemoryAfterWeeklyV3Outbound");
-    const helperEnd = fullSrc.indexOf("export async function GET");
-    expect(helperStart).toBeGreaterThanOrEqual(0);
-    expect(helperEnd).toBeGreaterThan(helperStart);
-    expect(fullSrc.slice(helperStart, helperEnd)).not.toMatch(/\bthrow\b/);
-  });
-
-  it("legacy deprecated branch does not call projection helper", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    const legacy = src.slice(legacyStart);
-    expect(legacy).not.toContain("writeV2SmsThreadMemoryAfterWeeklyV3Outbound");
-    expect(legacy).not.toContain('source: "weekly_sms"');
-  });
-
-  it("duplicate reservation skip path does not call projection helper", () => {
-    const src = fs.readFileSync(path.join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    const v2 = v2WeeklySlice(src);
-    const dupStart = v2.indexOf("if (v2ResErr)");
-    const dupEnd = v2.indexOf("const pack = await buildV2WeeklyProofPack");
-    expect(dupStart).toBeGreaterThanOrEqual(0);
-    expect(dupEnd).toBeGreaterThan(dupStart);
-    expect(v2.slice(dupStart, dupEnd)).not.toContain("writeV2SmsThreadMemoryAfterWeeklyV3Outbound");
+describe("weekly TTO generation may still use live builders (generation-only)", () => {
+  it("weekly generate still imports proof pack / lane for draft creation", () => {
+    const gen = fs.readFileSync(WEEKLY_GENERATE, "utf8");
+    expect(gen).toContain("buildV2WeeklyProofPack");
+    expect(gen).toContain("produceWeeklyV3RelationshipSms");
+    expect(gen).toContain("Never sends SMS");
   });
 });

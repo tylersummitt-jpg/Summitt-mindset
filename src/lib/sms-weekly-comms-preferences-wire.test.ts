@@ -3,33 +3,29 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROUTE = path.join(process.cwd(), "src/app/api/cron/weekly-sms/route.ts");
+const SEND = path.join(process.cwd(), "src/lib/tyler-text-overview-weekly-send.ts");
 
-describe("weekly-sms — comms preferences wire", () => {
+describe("weekly-sms — comms preferences wire (TTO cutover)", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
+  const send = fs.readFileSync(SEND, "utf8");
 
-  it("loads prefs before weekly reservation", () => {
-    const v2Start = src.indexOf("if (v2Gate.fullyOnV2)");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    const v2 = src.slice(v2Start, legacyStart);
-    expect(v2).toContain("fetchV2UserSmsCommsPreferences");
-    expect(v2).toContain("shouldSkipWeeklyForCommsPrefs");
-    const loadIdx = v2.indexOf("fetchV2UserSmsCommsPreferences");
-    const insertIdx = v2.indexOf('.from("sms_weekly_send_events")');
+  it("loads prefs before TTO authority / send", () => {
+    expect(src).toContain("fetchV2UserSmsCommsPreferences");
+    expect(src).toContain("shouldSkipWeeklyForCommsPrefs");
+    const loadIdx = src.indexOf("fetchV2UserSmsCommsPreferences");
+    const authIdx = src.indexOf("assertWeeklyTtoDraftAuthoritativeForCronSend");
     expect(loadIdx).toBeGreaterThanOrEqual(0);
-    expect(insertIdx).toBeGreaterThan(loadIdx);
+    expect(authIdx).toBeGreaterThan(loadIdx);
   });
 
-  it("pause skip before sms_weekly_send_events insert", () => {
+  it("pause skip still counted", () => {
     expect(src).toContain("skippedV2WeeklyUserPause");
   });
 
-  it("weekly projection writer unchanged", () => {
-    expect(src).toContain("buildV2WeeklyProofPack");
-    expect(src).toContain("buildWeeklyV3OutboundFactsForV2WeeklyProof");
-  });
-
-  it("compliance footer unchanged", () => {
-    expect(src).toContain("WEEKLY_SMS_COMPLIANCE_FOOTER");
-    expect(src).toContain("Reply STOP to opt out");
+  it("live builders are gone from cron; footer lives in shared send core", () => {
+    expect(src).not.toContain("buildV2WeeklyProofPack");
+    expect(src).not.toContain("buildWeeklyV3OutboundFactsForV2WeeklyProof");
+    expect(send).toContain("WEEKLY_TTO_COMPLIANCE_FOOTER");
+    expect(send).toContain("Reply STOP to opt out");
   });
 });

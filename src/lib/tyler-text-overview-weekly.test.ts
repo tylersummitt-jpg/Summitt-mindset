@@ -175,12 +175,13 @@ describe("weekly page / copy", () => {
   });
 });
 
-describe("weekly slice does not touch forbidden paths", () => {
-  it("weekly-sms cron route unchanged by this feature (still exists, no TTO import)", () => {
+describe("weekly slice weekly-sms cutover contracts", () => {
+  it("weekly-sms cron is TTO draft-authoritative (no live-build)", () => {
     const src = readFileSync(join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).not.toContain("tyler-text-overview-weekly");
-    expect(src).not.toContain("weekly_review");
-    expect(src).toContain("produceWeeklyV3RelationshipSms");
+    expect(src).toContain("tyler-text-overview-weekly-send");
+    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(src).not.toContain("produceWeeklyV3RelationshipSms");
+    expect(src).not.toContain("buildV2WeeklyProofPack");
   });
 
   it("vercel.json still schedules weekly-sms and was not rewritten for TTO send", () => {

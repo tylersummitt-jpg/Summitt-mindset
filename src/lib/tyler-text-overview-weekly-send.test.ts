@@ -3,10 +3,14 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  assertWeeklyTtoDraftAuthoritativeForCronSend,
   assertWeeklyTtoDraftAuthoritativeForManualSend,
   buildWeeklyTtoFinalBodyWithFooter,
+  sendWeeklyTtoDraftAuthoritative,
   sendWeeklyTtoDraftManually,
+  sendWeeklyTtoDraftViaCron,
   WEEKLY_TTO_COMPLIANCE_FOOTER,
+  WEEKLY_TTO_CRON_SEND_SOURCE,
   WEEKLY_TTO_MANUAL_SEND_SOURCE,
 } from "@/lib/tyler-text-overview-weekly-send";
 import {
@@ -103,6 +107,15 @@ function makeChain(state: {
     if (table === "sms_daily_drafts" && state.action === "select") {
       let rows = [...db.drafts];
       if (payload.id) rows = rows.filter((d) => d.id === payload.id);
+      if (payload.clerk_user_id) {
+        rows = rows.filter((d) => d.clerk_user_id === payload.clerk_user_id);
+      }
+      if (payload.send_slot) {
+        rows = rows.filter((d) => d.send_slot === payload.send_slot);
+      }
+      if (payload.status) {
+        rows = rows.filter((d) => d.status === payload.status);
+      }
       return { data: payload.maybeSingle ? rows[0] ?? null : rows, error: null };
     }
 
@@ -522,6 +535,172 @@ describe("sendWeeklyTtoDraftManually", () => {
   });
 });
 
+describe("assertWeeklyTtoDraftAuthoritativeForCronSend", () => {
+  beforeEach(() => {
+    seedWeeklyDraft();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("loads current weekly_review draft by clerk_user_id + week_key", async () => {
+    const result = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.draftId).toBe("draft-weekly-1");
+    expect(result.draft.bodyWithoutFooter).toBe(WEEKLY_BODY);
+  });
+
+  it("no draft = no_draft", async () => {
+    db.drafts = [];
+    const result = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.result.refusalCode).toBe("no_draft");
+  });
+
+  it("week_key mismatch blocks", async () => {
+    const result = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: "2026-W28",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.result.refusalCode).toBe("week_key_mismatch");
+  });
+
+  it("ambiguous multiple current drafts for same week blocks", async () => {
+    db.drafts.push({
+      id: "draft-weekly-2",
+      clerk_user_id: "user_weekly",
+      draft_for_day_key: "2026-07-12",
+      send_slot: "weekly_review",
+      current_generation_id: "gen-weekly-2",
+      current_body_to_send: "Second draft",
+      status: "current",
+    });
+    db.generations.push({
+      id: "gen-weekly-2",
+      send_slot: "weekly_review",
+      commitment_id: COMMITMENT_ID,
+      machine_should_send: true,
+      generation_metadata: { week_key: WEEK_KEY },
+    });
+    const result = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.result.refusalCode).toBe("ambiguous_weekly_draft");
+  });
+
+  it("blank body / machine false / missing generation block", async () => {
+    seedWeeklyDraft({ draft: { current_body_to_send: "  " } });
+    let result = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.result.refusalCode).toBe("blank_body");
+
+    seedWeeklyDraft({ generation: { machine_should_send: false } });
+    result = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.result.refusalCode).toBe("machine_should_send_false");
+
+    seedWeeklyDraft({ draft: { current_generation_id: null } });
+    result = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.result.refusalCode).toBe("missing_generation");
+  });
+});
+
+describe("sendWeeklyTtoDraftViaCron / shared core", () => {
+  beforeEach(() => {
+    seedWeeklyDraft();
+    sendSmsMock.mockReset();
+    sendSmsMock.mockResolvedValue({ sid: "SM-cron-1", status: "accepted" });
+    isTwilioReadyMock.mockReturnValue(true);
+    getActiveCommitmentMock.mockResolvedValue({ id: COMMITMENT_ID });
+    upsertThreadMemoryMock.mockResolvedValue({ ok: true });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("cron send uses send_source weekly_tto_cron and footer body", async () => {
+    const result = await sendWeeklyTtoDraftViaCron({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+      phoneTo: "+15551234567",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(sendSmsMock).toHaveBeenCalledTimes(1);
+    expect(sendSmsMock.mock.calls[0]?.[0].body).toBe(
+      buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY)
+    );
+    expect(sendSmsMock.mock.calls[0]?.[0].lastOutbound.messageKind).toBe("weekly");
+    expect(db.weeklyEvents[0].metadata).toMatchObject({
+      send_source: WEEKLY_TTO_CRON_SEND_SOURCE,
+      body_without_footer: WEEKLY_BODY,
+    });
+    expect(db.drafts[0].status).toBe("sent");
+    expect(db.drafts[0].final_body_sent).toBe(buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY));
+  });
+
+  it("manual-sent duplicate blocks cron before Twilio", async () => {
+    db.weeklyEvents.push({
+      id: "existing-manual",
+      clerk_user_id: "user_weekly",
+      week_key: WEEK_KEY,
+      status: "accepted",
+      metadata: { send_source: WEEKLY_TTO_MANUAL_SEND_SOURCE },
+    });
+    const result = await sendWeeklyTtoDraftViaCron({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+      phoneTo: "+15551234567",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("duplicate_weekly_send");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("shared core does not double-append footer", async () => {
+    const auth = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+    });
+    expect(auth.ok).toBe(true);
+    if (!auth.ok) return;
+    await sendWeeklyTtoDraftAuthoritative({
+      draft: auth.draft,
+      sendSource: WEEKLY_TTO_CRON_SEND_SOURCE,
+      phoneTo: "+15551234567",
+    });
+    const body = sendSmsMock.mock.calls[0]?.[0].body as string;
+    const footerCount = body.split(WEEKLY_TTO_COMPLIANCE_FOOTER).length - 1;
+    expect(footerCount).toBe(1);
+  });
+});
+
 describe("weekly send route / UI static contracts", () => {
   it("route exists and is POST-only one-row", () => {
     const routePath = join(
@@ -587,12 +766,12 @@ describe("weekly send route / UI static contracts", () => {
 });
 
 describe("weekly send does not touch forbidden paths", () => {
-  it("weekly-sms cron still live-builds and has no TTO send import", () => {
+  it("weekly-sms cron is TTO draft-authoritative and imports weekly-send", () => {
     const src = readFileSync(join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).not.toContain("tyler-text-overview-weekly-send");
-    expect(src).not.toContain("weekly_review");
-    expect(src).toContain("produceWeeklyV3RelationshipSms");
-    expect(src).toContain("buildV2WeeklyProofPack");
+    expect(src).toContain("tyler-text-overview-weekly-send");
+    expect(src).not.toContain("produceWeeklyV3RelationshipSms");
+    expect(src).not.toContain("buildV2WeeklyProofPack");
+    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
   });
 
   it("vercel.json unchanged for weekly", () => {

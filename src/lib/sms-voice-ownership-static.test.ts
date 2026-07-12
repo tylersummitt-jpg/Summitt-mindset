@@ -175,35 +175,30 @@ describe("SMS Voice Ownership — sms-inbound-coach route", () => {
 
 describe("SMS Voice Ownership — weekly-sms route", () => {
   const weekly = readSrc("src/app/api/cron/weekly-sms/route.ts");
+  const weeklySend = readSrc("src/lib/tyler-text-overview-weekly-send.ts");
 
-  it("uses V3 weekly relationship lane on V2 proof branch", () => {
-    expect(weekly).toContain("produceWeeklyV3RelationshipSms");
-    expect(weekly).toContain("weekly_v3_lane_used: true");
+  it("is Weekly TTO draft-authoritative (no live V3 lane / FVG in cron)", () => {
+    expect(weekly).toContain("weekly-sms is Weekly TTO draft-authoritative");
+    expect(weekly).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(weekly).toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(weekly).not.toContain("produceWeeklyV3RelationshipSms");
+    expect(weekly).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(weekly).not.toContain("finalizeNorthStarCoachSmsAsync");
+    expect(weekly).not.toContain("buildV2WeeklyProofPack");
   });
 
-  it("applies FVG with normalCoaching: true before send", () => {
-    expect(weekly).toContain("applyFinalVoiceOwnershipGate");
-    expect(weekly).toContain("finalizeNorthStarCoachSmsAsync");
-    expect(weekly).toMatch(/normalCoaching:\s*true/);
-    expect(weekly).toContain('fvg_policy_classification: "relationship_coaching"');
+  it("does not live-build or send deterministic weekly preview bodies from cron", () => {
+    expect(weekly).not.toContain("generateV2WeeklyProofSmsBody");
+    expect(weekly).not.toContain("buildDeterministicWeeklyProofBody");
+    expect(weekly).not.toMatch(/\bsendSMS\s*\(/);
   });
 
-  it("does not send deterministic weekly preview bodies via Twilio", () => {
-    assertNoForbiddenBuilderInSendBlocks(weekly, "weekly-sms", ["generateV2WeeklyProofSmsBody"]);
-    expect(weekly).toMatch(/deterministicPreviewBody\s*=\s*buildDeterministicWeeklyProofBody/);
-    expect(weekly).toMatch(/body:\s*finalBodyV2/);
-    expect(weekly).not.toMatch(/sendSMS[\s\S]{0,500}?body:\s*deterministicPreviewBody/);
-    expect(weekly).not.toMatch(/sendSMS[\s\S]{0,500}?body:\s*oldProofPreviewBody/);
-    expect(weekly).not.toMatch(/sendSMS[\s\S]{0,500}?body:\s*weeklyLane\.body/);
-  });
-
-  it("appends only compliance footer after FVG; thread memory uses pre-footer body", () => {
-    expect(weekly).toContain("WEEKLY_SMS_COMPLIANCE_FOOTER");
-    expect(weekly).toMatch(
-      /appendPreservedSmsSuffix\(voiceWeeklyV2\.body,\s*WEEKLY_SMS_COMPLIANCE_FOOTER\)/
-    );
-    expect(weekly).toMatch(/coachBodyForMemory:\s*voiceWeeklyV2\.body/);
-    expect(weekly).toContain("stripped_compliance_footer: true");
+  it("footer + thread memory stay in shared send core (pre-footer memory)", () => {
+    expect(weeklySend).toContain("WEEKLY_TTO_COMPLIANCE_FOOTER");
+    expect(weeklySend).toContain("appendPreservedSmsSuffix");
+    expect(weeklySend).toContain('source: "weekly_sms"');
+    expect(weeklySend).toContain("sentBody: bodyWithoutFooter");
+    expect(weeklySend).toContain("stripped_compliance_footer: true");
   });
 });
 
@@ -225,12 +220,14 @@ describe("SMS Voice Ownership — legacy template libraries (must not become sen
     expect(daily).not.toContain("tryGenerateV2OutboundMessage");
   });
 
-  it("v2-weekly-proof-sms deterministic builder is preview-only in weekly route", () => {
+  it("v2-weekly-proof-sms deterministic builder remains generation-only (not in weekly cron)", () => {
     const lib = readSrc("src/lib/v2-weekly-proof-sms.ts");
     expect(lib).toContain("buildDeterministicWeeklyProofBody");
     const weekly = readSrc("src/app/api/cron/weekly-sms/route.ts");
-    expect(weekly).toContain("deterministicWeeklyBodyPreview");
-    assertNoForbiddenBuilderInSendBlocks(weekly, "weekly-sms (deterministic preview guard)");
+    expect(weekly).not.toContain("buildDeterministicWeeklyProofBody");
+    expect(weekly).not.toContain("deterministicWeeklyBodyPreview");
+    const gen = readSrc("src/lib/tyler-text-overview-weekly-generate.ts");
+    expect(gen).toContain("buildDeterministicWeeklyProofBody");
   });
 
   it("v2-proof-moment uses V3 hint builder — no deterministic append helper", () => {

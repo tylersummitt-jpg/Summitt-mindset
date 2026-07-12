@@ -17,7 +17,8 @@ export const SMS_VOICE_OWNERSHIP_ALLOWED_DETERMINISTIC = {
   twilioStopHelpStart: "Twilio inbound STOP/HELP/START TwiML (not sendSMS)",
   safetyRedirects: "sms-inbound-safety SAFETY_COPY crisis/harm/brand redirects",
   onboardingConsent: "onboarding/sms transactional consent (bypasses FVG by design)",
-  weeklyComplianceFooter: "weekly-sms WEEKLY_SMS_COMPLIANCE_FOOTER via appendPreservedSmsSuffix after FVG",
+  weeklyComplianceFooter:
+    "Weekly TTO send WEEKLY_TTO_COMPLIANCE_FOOTER via appendPreservedSmsSuffix at send-time (draft body excludes footer)",
   bindingVerbatim: "binding_text_verbatim / required consent needles in contract_prompt & guided proposal",
   guidedAdaptiveContract: "v2-adaptive-contract shrink proposal with V3 refine + FVG + binding needle",
 } as const;

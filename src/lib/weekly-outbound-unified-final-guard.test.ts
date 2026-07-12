@@ -305,31 +305,17 @@ describe("Phase 2.3-B outbound_weekly unified guard", () => {
     ).rejects.toThrow(/not activated/);
   });
 
-  it("15: weekly route wires unified guard after FVG before compliance footer", () => {
+  it("15: weekly-sms cron no longer wires unified guard (TTO draft-authoritative)", () => {
     const src = fs.readFileSync(WEEKLY_ROUTE, "utf8");
-    const v2Start = src.indexOf("if (v2Gate.fullyOnV2)");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    const v2 = src.slice(v2Start, legacyStart);
-    const fvgIdx = v2.indexOf("applyFinalVoiceOwnershipGate");
-    const guardIdx = v2.indexOf('mode: "outbound_weekly"');
-    const footerIdx = v2.indexOf("appendPreservedSmsSuffix");
-    const twilioIdx = v2.indexOf("await sendSMS(");
-    expect(guardIdx).toBeGreaterThan(fvgIdx);
-    expect(footerIdx).toBeGreaterThan(guardIdx);
-    expect(twilioIdx).toBeGreaterThan(footerIdx);
-    expect(v2).toContain("guardedWeeklyBody");
-    expect(v2).toContain("skip_source: \"unified_final_guard_no_send\"");
-    expect(v2).toContain("visible_sent: false");
-    expect(v2).toContain("compliance_footer_appended_after_guard: true");
-    expect(v2).not.toContain('mode: "outbound_daily"');
+    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(src).toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(src).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(src).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(src).not.toContain("guardedWeeklyBody");
+    expect(src).not.toContain("generateWeeklySmsReflection");
   });
 
-  it("16: legacy weekly branches still skipped / not wired to unified guard", () => {
-    const src = fs.readFileSync(WEEKLY_ROUTE, "utf8");
-    const legacyStart = src.indexOf("await generateWeeklySmsReflection");
-    const legacy = src.slice(legacyStart);
-    expect(legacy).toContain("skipped_legacy_weekly_deprecated");
-    expect(legacy).not.toContain("outbound_weekly");
+  it("16: unified guard weekly route-purpose wiring still defined for library use", () => {
     expect(isOutboundWeeklyWiredRoutePurpose("weekly_legacy_reflection")).toBe(false);
     expect(isOutboundWeeklyWiredRoutePurpose("weekly_proof_v2")).toBe(true);
   });

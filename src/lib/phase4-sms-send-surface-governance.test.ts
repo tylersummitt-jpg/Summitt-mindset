@@ -27,6 +27,8 @@ export const PRODUCTION_SMS_SEND_CALLER_ALLOWLIST = new Set<string>([
   "src/app/api/cron/daily-sms/route.ts",
   "src/app/api/cron/sms-inbound-coach/route.ts",
   "src/app/api/cron/weekly-sms/route.ts",
+  "src/lib/tyler-text-overview-weekly-send.ts",
+  "src/lib/tyler-text-overview-evening-send.ts",
   "src/app/api/onboarding/sms/route.ts",
   "src/lib/v2-adaptive-contract.ts",
 ]);
@@ -97,14 +99,14 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
     file: "src/app/api/cron/weekly-sms/route.ts",
     classification: "relationship_coaching" as const,
     canBypassRelationshipLane: false,
-    requiresFvg: true,
+    requiresFvg: false,
     requiresFailClosedWhenCoaching: true,
-    usesNorthStar: true,
-    usesFvg: true,
+    usesNorthStar: false,
+    usesFvg: false,
     normalCoachingPattern:
-      "Phase 4.2B+: V2 weekly proof uses v3_weekly_relationship_lane + NS + FVG (normalCoaching: true). Phase 4.2C: legacy weekly is deprecated no-send until fullyOnV2.",
+      "Weekly TTO draft-authoritative: cron sends only persisted weekly_review current_body_to_send (+ STOP/HELP footer) via tyler-text-overview-weekly-send. No live-build / NS / FVG in cron. Voice ownership runs at Weekly TTO generation time.",
     notNormalCoachingBypassRisk:
-      "Resolved in Phase 4.1 — no longer gates FVG on Boolean(legacyCommitment?.id); metadata records fvg_policy_classification.",
+      "Cron must not live-build; force=1 bypasses window only; dryRun is side-effect free.",
     phase4Action: "migrate_visible_body_to_outbound_v3_relationship_lane",
   },
   {
@@ -310,12 +312,14 @@ describe("Phase 4.0 — secondary outbound FVG policy matrix (static)", () => {
 });
 
 describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relationship sends)", () => {
-  it("weekly-sms V2 proof branch uses normalCoaching: true (legacy weekly deprecated — no legacy FVG path)", () => {
+  it("weekly-sms is Weekly TTO draft-authoritative (no FVG/NS live-build in cron)", () => {
     const weekly = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(weekly).not.toMatch(/normalCoaching:\s*Boolean\(legacyCommitment\?\.id\)/);
-    const trueMatches = weekly.match(/normalCoaching:\s*true/g);
-    expect(trueMatches?.length ?? 0).toBeGreaterThanOrEqual(1);
-    expect(weekly).toContain('fvg_policy_classification: "relationship_coaching"');
+    expect(weekly).toContain("weekly-sms is Weekly TTO draft-authoritative");
+    expect(weekly).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(weekly).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(weekly).not.toContain("finalizeNorthStarCoachSmsAsync");
+    expect(weekly).not.toMatch(/normalCoaching:\s*true/);
+    expect(weekly).not.toContain("produceWeeklyV3RelationshipSms");
   });
 
   it("followup-sms and missed-yesterday-sms are Phase 4.3 deprecated (no send / NS / FVG)", () => {
@@ -379,7 +383,7 @@ describe("Phase 4.9b — send caller surface authority registry linkage", () => 
   const COACHING_SEND_CALLERS = [
     "src/app/api/cron/sms-inbound-coach/route.ts",
     "src/app/api/cron/daily-sms/route.ts",
-    "src/app/api/cron/weekly-sms/route.ts",
+    "src/lib/tyler-text-overview-weekly-send.ts",
     "src/lib/v2-adaptive-contract.ts",
   ] as const;
 

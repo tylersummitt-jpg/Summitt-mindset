@@ -237,7 +237,10 @@ const ACTIVE_STRATEGY_CARD_SURFACES: readonly SmsSurfaceAuthorityEntry[] = [
     disposition: "active",
     reason: "Weekly proof lane with Weekly Strategy Card.",
     action: CARD_ACTION,
-    send_caller_files: ["src/app/api/cron/weekly-sms/route.ts"],
+    send_caller_files: [
+      "src/app/api/cron/weekly-sms/route.ts",
+      "src/lib/tyler-text-overview-weekly-send.ts",
+    ],
   },
 ];
 
