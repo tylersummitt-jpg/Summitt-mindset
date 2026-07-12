@@ -5,6 +5,12 @@ type SyncParams = {
   userId: string;
   phoneNumber?: string | null;
   smsEnabled?: boolean | null;
+  /**
+   * Audience stop timestamp.
+   * - string → set `stopped_at`
+   * - null → clear `stopped_at` (START / resume)
+   * - undefined → leave `stopped_at` unchanged
+   */
   stoppedAt?: string | null;
   timezone?: string | null;
   smsTimePreference?: string | null;
@@ -60,6 +66,16 @@ async function resolveAudiencePhoneNumber(
   return typeof p === "string" && p.trim().length > 0 ? p.trim() : null;
 }
 
+/** Apply stopped_at only when the caller explicitly passed stoppedAt (including null to clear). */
+export function applyStoppedAtToAudiencePayload(
+  payload: Record<string, unknown>,
+  stoppedAt: string | null | undefined
+): void {
+  if (stoppedAt !== undefined) {
+    payload.stopped_at = stoppedAt;
+  }
+}
+
 export async function syncSmsAudience(params: SyncParams): Promise<void> {
   const {
     userId,
@@ -83,7 +99,7 @@ export async function syncSmsAudience(params: SyncParams): Promise<void> {
       summitt_subscribed: resolvedSubscribed,
     };
     if (smsEnabled != null) updatePayload.sms_enabled = smsEnabled;
-    if (stoppedAt != null) updatePayload.stopped_at = stoppedAt;
+    applyStoppedAtToAudiencePayload(updatePayload, stoppedAt);
     if (timezone != null) updatePayload.timezone = timezone;
     if (smsTimePreference != null)
       updatePayload.sms_time_preference = smsTimePreference;
@@ -106,7 +122,7 @@ export async function syncSmsAudience(params: SyncParams): Promise<void> {
   };
 
   if (smsEnabled != null) payload.sms_enabled = smsEnabled;
-  if (stoppedAt != null) payload.stopped_at = stoppedAt;
+  applyStoppedAtToAudiencePayload(payload, stoppedAt);
   if (timezone != null) payload.timezone = timezone;
   if (smsTimePreference != null)
     payload.sms_time_preference = smsTimePreference;

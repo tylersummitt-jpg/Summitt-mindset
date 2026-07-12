@@ -1489,7 +1489,6 @@ async function mergeEligibleAudienceFromIdentities(
       userId: uid,
       phoneNumber: phone.trim(),
       smsEnabled: true,
-      stoppedAt: null,
       timezone: typeof md.timezone === "string" ? md.timezone : null,
       smsTimePreference:
         typeof md.smsTimePreference === "string" ? md.smsTimePreference : null,

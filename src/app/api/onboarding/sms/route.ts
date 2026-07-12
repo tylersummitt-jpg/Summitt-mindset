@@ -332,7 +332,6 @@ export async function POST(req: Request) {
       userId: userId,
       phoneNumber: phoneForSync,
       smsEnabled: smsEnabled,
-      stoppedAt: null,
       timezone: null,
       smsTimePreference: smsTimePreference,
       summittSubscribed: null

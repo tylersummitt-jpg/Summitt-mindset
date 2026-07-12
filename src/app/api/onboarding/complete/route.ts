@@ -46,7 +46,6 @@ async function healSmsAudience(
       userId,
       phoneNumber: (existing?.phoneNumber as string) ?? null,
       smsEnabled: hasValidSms,
-      stoppedAt: null,
       timezone,
       smsTimePreference: existingSmsTimePreference ?? "morning",
       summittSubscribed: null,

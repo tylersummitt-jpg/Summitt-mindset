@@ -75,7 +75,6 @@ export async function POST(req: Request) {
     userId,
     phoneNumber: metadata?.phoneNumber ?? null,
     smsEnabled: metadata?.smsEnabled ?? null,
-    stoppedAt: null,
     timezone: metadata?.timezone ?? null,
     smsTimePreference: metadata?.smsTimePreference ?? null,
     summittSubscribed: false,
