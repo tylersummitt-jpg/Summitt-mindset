@@ -156,7 +156,70 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.metadata.v3_lane_reply_source).toBe("v3_weekly_relationship_lane");
   });
 
-  it("no API key → shouldSend false, empty body", async () => {
+  it("writerOpenAiCapture.messages match OpenAI primaryMessages exactly (system+user)", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson(
+              "You protected mornings four times. What is one guardrail for next week?"
+            ),
+          },
+        },
+      ],
+    });
+
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["v2_weekly_proof_pack_fixture"],
+    });
+
+    const openAiMessages = createMock.mock.calls[0]?.[0]?.messages as
+      | Array<{ role: string; content: string }>
+      | undefined;
+    expect(openAiMessages?.length).toBe(2);
+    expect(openAiMessages?.[0]?.role).toBe("system");
+    expect(openAiMessages?.[1]?.role).toBe("user");
+    expect(openAiMessages?.[1]?.content).toContain("RELATIONSHIP_PACKET_V1");
+    expect(r.writerOpenAiCapture).not.toBeNull();
+    expect(r.writerOpenAiCapture?.messages).toEqual(openAiMessages);
+    expect(r.writerOpenAiCapture?.messages[0]?.role).toBe("system");
+    expect(r.writerOpenAiCapture?.messages[1]?.role).toBe("user");
+    expect(r.writerOpenAiCapture?.writer_prompt_path).toBe("v3_weekly_relationship_lane");
+    expect(r.writerOpenAiCapture?.messages.some((m) => m.role === "assistant")).toBe(false);
+  });
+
+  it("model_no_send still returns exact writer input capture (no assistant fabrication)", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: false,
+              body: "",
+              no_send_reason: "not_enough_context",
+              route_purpose: "weekly_proof_v2",
+              voice_confidence: 0.4,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.writerOpenAiCapture?.messages.length).toBe(2);
+    expect(r.writerOpenAiCapture?.messages[0]?.role).toBe("system");
+    expect(r.writerOpenAiCapture?.messages[1]?.role).toBe("user");
+    expect(r.writerOpenAiCapture?.messages.every((m) => m.role !== "assistant")).toBe(true);
+  });
+
+  it("no API key → shouldSend false, empty body, null writerOpenAiCapture", async () => {
     delete process.env.OPENAI_API_KEY;
     const r = await produceWeeklyV3RelationshipSms({
       facts: baseFacts(),
@@ -166,6 +229,7 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(r.body).toBe("");
     expect(r.noSendReason).toBe("openai_unavailable");
     expect(r.openAiOk).toBe(false);
+    expect(r.writerOpenAiCapture).toBeNull();
   });
 
   it("invalid JSON on first completion succeeds after one strict JSON retry", async () => {

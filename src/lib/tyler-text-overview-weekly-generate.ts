@@ -46,7 +46,6 @@ import {
   loadTylerTextOverviewAudienceRow,
   persistTylerTextOverviewDraftFromBuilt,
 } from "@/lib/tyler-text-overview-generate";
-import type { TylerTextOverviewWriterOpenAiCapture } from "@/lib/tyler-text-overview-writer-capture";
 import {
   isTylerTextOverviewEnabled,
   SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
@@ -86,31 +85,12 @@ export type TylerTextOverviewWeeklyGenerateResult =
       error?: string;
     };
 
-function weeklyLaneCapture(
-  lane: Awaited<ReturnType<typeof produceWeeklyV3RelationshipSms>>
-): TylerTextOverviewWriterOpenAiCapture {
-  const candidate =
-    typeof lane.metadata.v3_candidate_body === "string"
-      ? lane.metadata.v3_candidate_body
-      : lane.body;
-  const messages: TylerTextOverviewWriterOpenAiCapture["messages"] = [];
-  if (lane.openAiOk && candidate.trim()) {
-    messages.push({
-      role: "assistant",
-      content: candidate.trim(),
-    });
-  }
-  return {
-    messages,
-    writer_prompt_path: WEEKLY_TTO_WRITER_PROMPT_PATH,
-  };
-}
-
-function builtFromWeeklyLane(args: {
+/** Persist exact weekly writer OpenAI input from the lane capture (system+user). */
+export function builtFromWeeklyLane(args: {
   lane: Awaited<ReturnType<typeof produceWeeklyV3RelationshipSms>>;
   commitmentId: string;
 }): DailySmsBuilt {
-  const capture = weeklyLaneCapture(args.lane);
+  const capture = args.lane.writerOpenAiCapture ?? null;
   if (args.lane.shouldSend && args.lane.body.trim()) {
     return {
       ok: true,

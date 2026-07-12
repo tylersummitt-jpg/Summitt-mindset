@@ -30,9 +30,8 @@ import {
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   ADMIN_INTERPRETATION_LINE,
-  RAW_NOTEBOOK_SECTION_HEADING,
-  buildProvenanceExplanationBlocks,
-  getRawNotebookSectionCopy,
+  buildWeeklyProvenanceExplanationBlocks,
+  getWeeklyRawNotebookSectionCopy,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
 import type {
@@ -56,6 +55,10 @@ const COUNT_KEYS: Array<keyof TylerTextOverviewAdminCounts> = [
 function formatOptional(value: string | null | undefined): string {
   const t = value?.trim();
   return t ? t : "—";
+}
+
+function notebookRoleLabel(role: string): string {
+  return role.toUpperCase();
 }
 
 function isWeeklyDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
@@ -512,8 +515,8 @@ export default function TylerTextOverviewWeeklyDashboard() {
                       machineNoSendReason: row.machineNoSendReason,
                     })
                 : null;
-            const provenance = buildProvenanceExplanationBlocks(row);
-            const rawNotebook = getRawNotebookSectionCopy(row);
+            const provenance = buildWeeklyProvenanceExplanationBlocks(row);
+            const rawNotebook = getWeeklyRawNotebookSectionCopy(row);
 
             return (
               <li
@@ -677,37 +680,58 @@ export default function TylerTextOverviewWeeklyDashboard() {
                         </li>
                       ))}
                     </ul>
+                    <dl className="grid gap-2 text-xs text-gray-700 sm:grid-cols-2">
+                      <div>
+                        <dt className="font-medium text-gray-500">writer_prompt_path</dt>
+                        <dd className="font-mono break-all">
+                          {formatOptional(row.writerPromptPath)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-gray-500">machine_should_send</dt>
+                        <dd className="font-mono">
+                          {row.machineShouldSend == null ? "—" : String(row.machineShouldSend)}
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="font-medium text-gray-500">machine_no_send_reason</dt>
+                        <dd className="font-mono break-all">
+                          {formatOptional(row.machineNoSendReason)}
+                        </dd>
+                      </div>
+                    </dl>
                     <p className="text-xs text-gray-500">
                       Notebook family: {notebookFamilyLabel(row.notebookFamily)}
                     </p>
                   </section>
                 ) : null}
 
-                {row.writerOpenAiMessages?.length ? (
-                  <section className="space-y-2 border-t border-gray-100 pt-4">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      {RAW_NOTEBOOK_SECTION_HEADING}
-                    </h3>
-                    {rawNotebook.label ? (
-                      <p className="text-xs text-gray-600">{rawNotebook.label}</p>
-                    ) : null}
-                    <pre className="max-h-64 overflow-auto rounded bg-gray-50 p-3 text-[11px] font-mono whitespace-pre-wrap">
-                      {JSON.stringify(rawNotebook.messages, null, 2)}
-                    </pre>
-                    {row.writerPromptPath ? (
-                      <p className="text-xs font-mono text-gray-500">
-                        writer_prompt_path: {row.writerPromptPath}
-                      </p>
-                    ) : null}
-                  </section>
-                ) : rawNotebook.emptyMessage ? (
-                  <section className="space-y-2 border-t border-gray-100 pt-4">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      {RAW_NOTEBOOK_SECTION_HEADING}
-                    </h3>
+                <section className="space-y-2 border-t border-gray-100 pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {rawNotebook.heading}
+                  </h3>
+                  {rawNotebook.emptyMessage ? (
                     <p className="text-xs text-gray-600">{rawNotebook.emptyMessage}</p>
-                  </section>
-                ) : null}
+                  ) : (
+                    <>
+                      {rawNotebook.label ? (
+                        <p className="text-xs text-gray-600">{rawNotebook.label}</p>
+                      ) : null}
+                      <div className="space-y-3">
+                        {rawNotebook.messages.map((message, index) => (
+                          <div key={`${row.draftId ?? row.clerkUserId}-nb-${index}`}>
+                            <p className="text-xs font-semibold text-gray-600">
+                              {notebookRoleLabel(message.role)}
+                            </p>
+                            <pre className="mt-1 max-h-64 overflow-auto rounded bg-gray-50 p-3 text-[11px] font-mono whitespace-pre-wrap text-gray-800">
+                              {message.content}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </section>
               </li>
             );
           })}

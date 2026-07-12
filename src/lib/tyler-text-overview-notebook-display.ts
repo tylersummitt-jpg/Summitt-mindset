@@ -32,6 +32,27 @@ function isSilenceCadenceSkip(args: {
   return skip.includes("silence_cadence");
 }
 
+/** True when persisted messages are the exact primary OpenAI system+user input. */
+export function hasExactPrimaryWriterInput(
+  messages: TylerTextOverviewWriterOpenAiMessage[]
+): boolean {
+  return (
+    messages.length >= 2 &&
+    messages[0]?.role === "system" &&
+    messages[1]?.role === "user"
+  );
+}
+
+/**
+ * Legacy Weekly TTO rows stored the assistant candidate body as writer_openai_messages.
+ * Those must not be labeled as exact writer input.
+ */
+export function isLegacyAssistantOnlyWriterCapture(
+  messages: TylerTextOverviewWriterOpenAiMessage[]
+): boolean {
+  return messages.length > 0 && messages.every((m) => m.role === "assistant");
+}
+
 export function deriveNotebookFamily(args: {
   messageCount: number;
   writerPromptPath: string | null;

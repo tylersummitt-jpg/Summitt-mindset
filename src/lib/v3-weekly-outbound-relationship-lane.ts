@@ -47,9 +47,16 @@ import {
   buildVictoryBackgroundLaneGuardrails,
   type V3VictoryBackgroundFacts,
 } from "@/lib/sms-victory-background-context";
+import {
+  buildWriterOpenAiCapture,
+  type TylerTextOverviewWriterOpenAiCapture,
+} from "@/lib/tyler-text-overview-writer-capture";
 
 /** Aligns with {@link detectFinalVoiceBlockedReasons} `too_long` guard for post-FVG compatibility. */
 const WEEKLY_V3_LANE_MAX_CHARS = 320;
+
+const WEEKLY_V3_LANE_OPENAI_MODEL = "gpt-4o-mini" as const;
+const WEEKLY_V3_WRITER_PROMPT_PATH = "v3_weekly_relationship_lane" as const;
 
 const WEEKLY_LANE_REPAIR_SYSTEM_INSTRUCTION = `This is a weekly reflection/proof SMS in an ongoing coaching relationship — NOT a daily check-in.
 - Do not echo or paraphrase old_weekly_proof_body_preview, deterministic_weekly_body_preview, legacy_reflection_preview, or legacy_template_preview.
@@ -182,6 +189,8 @@ export type WeeklyV3RelationshipLaneResult = {
   safetyNotes: string[];
   metadata: Record<string, unknown>;
   openAiOk: boolean;
+  /** Exact primary OpenAI system+user input when the writer was invoked; null if messages were never built. */
+  writerOpenAiCapture: TylerTextOverviewWriterOpenAiCapture | null;
 };
 
 const PAT_PAUSE_TEMPLATE_MARKERS = [
@@ -426,7 +435,8 @@ export async function produceWeeklyV3RelationshipSms(
   const empty = (
     reason: string,
     openAiOk: boolean,
-    extra?: Record<string, unknown>
+    extra?: Record<string, unknown>,
+    writerOpenAiCapture: TylerTextOverviewWriterOpenAiCapture | null = null
   ): WeeklyV3RelationshipLaneResult => ({
     body: "",
     shouldSend: false,
@@ -447,6 +457,7 @@ export async function produceWeeklyV3RelationshipSms(
       ...extra,
     },
     openAiOk,
+    writerOpenAiCapture,
   });
 
   const client = getOpenAIClient();
@@ -527,33 +538,43 @@ safety_notes (string[])`;
 
   let laneOpenAiJsonMeta: Record<string, unknown> = {};
   let parsed: LaneModelJson | null = null;
+  const writerOpenAiCapture = buildWriterOpenAiCapture({
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    model: WEEKLY_V3_LANE_OPENAI_MODEL,
+    writer_prompt_path: WEEKLY_V3_WRITER_PROMPT_PATH,
+  });
   try {
     const jsonOut = await runLaneOpenAiJsonWithOneRetry<LaneModelJson>({
       client,
-      model: "gpt-4o-mini",
+      model: WEEKLY_V3_LANE_OPENAI_MODEL,
       temperature: 0.35,
       maxTokens: 420,
-      primaryMessages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
+      primaryMessages: writerOpenAiCapture.messages,
       jsonSchemaReminder: `Keys: should_send (boolean), body (string), no_send_reason (string|null), route_purpose (string, must equal "${routePurpose}"), voice_confidence (number 0-1 or null), used_facts (string[]), safety_notes (string[]).`,
       parse: safeJsonParse,
     });
     parsed = jsonOut.value;
     laneOpenAiJsonMeta = jsonOut.retryMeta as unknown as Record<string, unknown>;
   } catch (e) {
-    return empty("openai_request_failed", true, {
-      lane_stage: "openai_error",
-      message: e instanceof Error ? e.message : String(e),
-    });
+    return empty(
+      "openai_request_failed",
+      true,
+      {
+        lane_stage: "openai_error",
+        message: e instanceof Error ? e.message : String(e),
+      },
+      writerOpenAiCapture
+    );
   }
 
   if (!parsed) {
     return empty("invalid_json", true, {
       lane_stage: "parse",
       ...laneOpenAiJsonMeta,
-    });
+    }, writerOpenAiCapture);
   }
 
   const modelRoute = typeof parsed.route_purpose === "string" ? parsed.route_purpose.trim() : "";
@@ -562,7 +583,7 @@ safety_notes (string[])`;
       lane_stage: "route_purpose",
       model_route_purpose: modelRoute || null,
       ...laneOpenAiJsonMeta,
-    });
+    }, writerOpenAiCapture);
   }
 
   const shouldSendModel = parsed.should_send === true;
@@ -599,12 +620,18 @@ safety_notes (string[])`;
         safety_notes: safetyNotes,
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
   body = body.replace(/^["']|["']$/g, "").trim();
   if (!body) {
-    return empty("empty_body_after_should_send", true, { lane_stage: "empty_body", ...laneOpenAiJsonMeta });
+    return empty(
+      "empty_body_after_should_send",
+      true,
+      { lane_stage: "empty_body", ...laneOpenAiJsonMeta },
+      writerOpenAiCapture
+    );
   }
 
   const initialValidate = weeklyPostValidateHits(body, f);
@@ -636,6 +663,7 @@ safety_notes (string[])`;
           safety_notes: [...safetyNotes, ...blockedReasons],
         },
         openAiOk: true,
+        writerOpenAiCapture,
       };
     }
 
@@ -697,6 +725,7 @@ safety_notes (string[])`;
           ...repairLoop.telemetry,
         },
         openAiOk: true,
+        writerOpenAiCapture,
       };
     }
 
@@ -759,6 +788,7 @@ safety_notes (string[])`;
         ...memoryRepeatGuard.metadata,
       },
       openAiOk: true,
+      writerOpenAiCapture,
     };
   }
 
@@ -806,5 +836,6 @@ safety_notes (string[])`;
       }),
     },
     openAiOk: true,
+    writerOpenAiCapture,
   };
 }

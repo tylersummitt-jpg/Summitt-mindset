@@ -3,10 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   deriveNotebookDisplayMode,
   deriveNotebookFamily,
+  hasExactPrimaryWriterInput,
+  isLegacyAssistantOnlyWriterCapture,
   notebookDisplayHeadline,
   notebookDisplaySubtext,
   notebookFamilyLabel,
 } from "@/lib/tyler-text-overview-notebook-display";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const BRIEF_USER = {
   role: "user" as const,
@@ -19,6 +23,22 @@ const LEGACY_USER = {
 };
 
 const SYSTEM = { role: "system" as const, content: "You are a coach." };
+
+describe("hasExactPrimaryWriterInput / legacy assistant-only", () => {
+  it("detects exact system+user primary input", () => {
+    expect(hasExactPrimaryWriterInput([SYSTEM, LEGACY_USER])).toBe(true);
+    expect(hasExactPrimaryWriterInput([])).toBe(false);
+    expect(hasExactPrimaryWriterInput([{ role: "assistant", content: "hi" }])).toBe(false);
+  });
+
+  it("detects legacy assistant-only weekly captures", () => {
+    expect(
+      isLegacyAssistantOnlyWriterCapture([{ role: "assistant", content: "candidate body" }])
+    ).toBe(true);
+    expect(isLegacyAssistantOnlyWriterCapture([SYSTEM, LEGACY_USER])).toBe(false);
+    expect(isLegacyAssistantOnlyWriterCapture([])).toBe(false);
+  });
+});
 
 describe("deriveNotebookFamily", () => {
   it("daily_writing_brief_v1 + 2 messages => daily_sms_writing_brief_v1", () => {
@@ -144,5 +164,18 @@ describe("notebook labels", () => {
     expect(notebookFamilyLabel("daily_sms_writing_brief_v1")).toContain("Brief");
     expect(notebookDisplayHeadline("exact_primary_input")).toContain("Exact primary");
     expect(notebookDisplaySubtext("writer_skipped_intentional")).toContain("intentional no-send");
+  });
+});
+
+describe("morning dashboard unchanged by weekly helpers", () => {
+  it("morning dashboard still uses shared morning notebook helpers only", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("getRawNotebookSectionCopy");
+    expect(src).not.toContain("getWeeklyRawNotebookSectionCopy");
+    expect(src).toContain("buildProvenanceExplanationBlocks");
+    expect(src).not.toContain("buildWeeklyProvenanceExplanationBlocks");
   });
 });
