@@ -552,6 +552,9 @@ function incrementMorningTtoAuthoritativeSkipStat(
     case "tto_missing_generation":
       stats.skippedTtoMissingGeneration += 1;
       break;
+    case "tto_generation_send_slot_mismatch":
+      stats.skippedTtoAuthoritativeFailClosed += 1;
+      break;
     case "tto_machine_should_send_false":
       stats.skippedTtoMachineShouldSendFalse += 1;
       break;

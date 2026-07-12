@@ -31,7 +31,12 @@ const db = vi.hoisted(() => ({
 const EVENING_BODY = "How did your evening check-in go today?";
 const COMMITMENT_ID = "commit-evening-1";
 
-function seedEveningDraft(overrides?: Partial<Record<string, unknown>>) {
+function seedEveningDraft(
+  overrides?: Partial<Record<string, unknown>> & {
+    generation?: Partial<Record<string, unknown>>;
+  }
+) {
+  const { generation: generationOverrides, ...draftOverrides } = overrides ?? {};
   db.drafts = [
     {
       id: "draft-evening-1",
@@ -42,7 +47,7 @@ function seedEveningDraft(overrides?: Partial<Record<string, unknown>>) {
       current_body_to_send: EVENING_BODY,
       status: "current",
       updated_at: new Date().toISOString(),
-      ...overrides,
+      ...draftOverrides,
     },
   ];
   db.generations = [
@@ -50,6 +55,7 @@ function seedEveningDraft(overrides?: Partial<Record<string, unknown>>) {
       id: "gen-evening-1",
       commitment_id: COMMITMENT_ID,
       machine_should_send: true,
+      send_slot: "evening_checkin",
       generated_at: new Date().toISOString(),
       generation_metadata: {
         preview_only: true,
@@ -65,6 +71,7 @@ function seedEveningDraft(overrides?: Partial<Record<string, unknown>>) {
           v2_blocker_preview: null,
         },
       },
+      ...generationOverrides,
     },
   ];
   db.sendEvents = [];
@@ -249,6 +256,58 @@ describe("tyler-text-overview-evening-send", () => {
     expect(db.sendEvents).toHaveLength(1);
     expect(db.sendEvents[0].send_slot).toBe("evening_checkin");
     expect(db.sendEvents[0].message_sid).toBe("SM-evening-1");
+  });
+
+  it("refuses a morning draft id before Twilio / reservation", async () => {
+    db.drafts = [
+      {
+        id: "draft-morning-1",
+        clerk_user_id: "user_evening",
+        draft_for_day_key: "2026-07-03",
+        send_slot: "morning",
+        current_generation_id: "gen-morning-1",
+        current_body_to_send: "Morning body",
+        status: "current",
+        updated_at: new Date().toISOString(),
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-morning-1",
+        commitment_id: COMMITMENT_ID,
+        machine_should_send: true,
+        send_slot: "morning",
+        generated_at: new Date().toISOString(),
+        generation_metadata: {},
+      },
+    ];
+
+    const result = await sendTylerTextOverviewEveningDraft({
+      draftId: "draft-morning-1",
+      requestedByClerkUserId: "admin_tyler",
+      mode: "manual_one",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("wrong_send_slot");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+    expect(onCheckSentMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses draft/generation send_slot mismatch before Twilio / reservation", async () => {
+    seedEveningDraft({ generation: { send_slot: "morning" } });
+    const result = await sendTylerTextOverviewEveningDraft({
+      draftId: "draft-evening-1",
+      requestedByClerkUserId: "admin_tyler",
+      mode: "manual_one",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("generation_send_slot_mismatch");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+    expect(onCheckSentMock).not.toHaveBeenCalled();
   });
 
   it("updates sms_daily_drafts sent fields and generation preview_only=false", async () => {

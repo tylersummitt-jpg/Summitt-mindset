@@ -87,6 +87,7 @@ function seedDraft(overrides?: {
   routeKind?: string | null;
   machineShouldSend?: boolean;
   generationId?: string | null;
+  generationSendSlot?: string;
 }) {
   const generationId = overrides?.generationId === null ? "" : overrides?.generationId ?? "gen-1";
   const routeKind =
@@ -105,6 +106,7 @@ function seedDraft(overrides?: {
             notebook_verdict_reason: "none",
             route_kind: routeKind,
             machine_should_send: overrides?.machineShouldSend ?? true,
+            send_slot: overrides?.generationSendSlot ?? "morning",
           },
         ];
   db.drafts = [
@@ -223,6 +225,30 @@ describe("assertMorningTtoDraftAuthoritativeForSend", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("tto_missing_generation");
+  });
+
+  it("generation send_slot mismatch → tto_generation_send_slot_mismatch", async () => {
+    seedDraft({ generationSendSlot: "evening_checkin" });
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("tto_generation_send_slot_mismatch");
+      expect(r.metadata?.draft_slot).toBe("morning");
+      expect(r.metadata?.generation_slot).toBe("evening_checkin");
+    }
+  });
+
+  it("generation send_slot weekly_review → tto_generation_send_slot_mismatch", async () => {
+    seedDraft({ generationSendSlot: "weekly_review" });
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("tto_generation_send_slot_mismatch");
   });
 
   it("machine_should_send=false without Tyler edit → tto_machine_should_send_false", async () => {

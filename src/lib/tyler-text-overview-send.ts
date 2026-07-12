@@ -4,9 +4,11 @@ import {
   isTylerTextOverviewEnabled,
   isProtectedTtoCurrentDraftBody,
   isProductionSendSlot,
+  parseSmsDailySendSlot,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
+  SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
   TTO_CURRENT_DRAFT_FINAL_STALE_REASON,
   TTO_CURRENT_DRAFT_ROUTE_CONFLICT,
   TTO_CURRENT_DRAFT_SPECIAL_BRANCH_CONFLICT,
@@ -32,6 +34,7 @@ export type MorningTtoAuthoritativeSkipReason =
   | "tto_no_current_morning_draft"
   | "tto_blank_morning_body"
   | "tto_missing_generation"
+  | "tto_generation_send_slot_mismatch"
   | "tto_machine_should_send_false"
   | "tto_route_not_eligible_v1";
 
@@ -45,6 +48,7 @@ type AuthoritativeDraftRow = DraftRow & { send_slot?: string };
 
 type AuthoritativeGenerationRow = GenerationRow & {
   machine_should_send?: boolean | null;
+  send_slot?: string | null;
 };
 
 export type MorningTtoAuthoritativeGateSuccess = {
@@ -133,7 +137,7 @@ export async function assertMorningTtoDraftAuthoritativeForSend(args: {
   const { data: generationRow, error: generationError } = await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
     .select(
-      "id, generated_at, machine_body_hash, notebook_verdict, notebook_verdict_reason, route_kind, machine_should_send"
+      "id, generated_at, machine_body_hash, notebook_verdict, notebook_verdict_reason, route_kind, machine_should_send, send_slot"
     )
     .eq("id", generationId)
     .maybeSingle();
@@ -151,6 +155,30 @@ export async function assertMorningTtoDraftAuthoritativeForSend(args: {
   }
 
   const generation = generationRow as AuthoritativeGenerationRow;
+  const draftSlot =
+    typeof draft.send_slot === "string" && draft.send_slot.trim()
+      ? draft.send_slot.trim()
+      : SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const generationSlot =
+    typeof generation.send_slot === "string" && generation.send_slot.trim()
+      ? generation.send_slot.trim()
+      : null;
+  if (
+    generationSlot !== SMS_DAILY_PRODUCTION_SEND_SLOT ||
+    draftSlot !== SMS_DAILY_PRODUCTION_SEND_SLOT
+  ) {
+    return {
+      ok: false,
+      reason: "tto_generation_send_slot_mismatch",
+      metadata: {
+        draft_id: draft.id,
+        generation_id: generation.id,
+        draft_slot: draftSlot,
+        generation_slot: generationSlot,
+      },
+    };
+  }
+
   const tylerEdited = isTylerEditTtoDraftOverride(draft);
 
   if (generation.machine_should_send === false && !tylerEdited) {
@@ -214,19 +242,31 @@ export function evaluateMorningTtoAuthoritativeFailClosed(args: {
   return { ok: true };
 }
 
-async function loadDraftSendSlotForGuard(draftId: string): Promise<SmsDailySendSlot | null> {
+/**
+ * Resolve draft send_slot for morning finalize/skip guards.
+ * Never maps weekly_review or unknown slots to morning.
+ * Returns:
+ * - { found: false } when the draft row is missing
+ * - { found: true, sendSlot } for known slots
+ * - { found: true, sendSlot: null } for unparseable/unknown slots
+ */
+export async function loadDraftSendSlotForGuard(draftId: string): Promise<
+  | { found: false }
+  | { found: true; sendSlot: SmsDailySendSlot | null; rawSendSlot: string | null }
+> {
   const { data, error } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
     .select("send_slot")
     .eq("id", draftId)
     .maybeSingle();
 
-  if (error || !data) return null;
-  const slot = data.send_slot;
-  if (slot === SMS_DAILY_PRODUCTION_SEND_SLOT || slot === "evening_checkin") {
-    return slot;
-  }
-  return SMS_DAILY_PRODUCTION_SEND_SLOT;
+  if (error || !data) return { found: false };
+  const raw =
+    typeof data.send_slot === "string" && data.send_slot.trim()
+      ? data.send_slot.trim()
+      : null;
+  const parsed = parseSmsDailySendSlot(raw);
+  return { found: true, sendSlot: parsed, rawSendSlot: raw };
 }
 
 export function isSendableTylerTextOverviewDraftSlot(
@@ -238,11 +278,18 @@ export function isSendableTylerTextOverviewDraftSlot(
 export async function assertSendableTylerTextOverviewDraft(args: {
   draftId: string;
 }): Promise<{ ok: true } | { ok: false; error: typeof PREVIEW_ONLY_DRAFT_SEND_REFUSED }> {
-  const sendSlot = await loadDraftSendSlotForGuard(args.draftId);
-  if (sendSlot == null) {
+  const loaded = await loadDraftSendSlotForGuard(args.draftId);
+  if (!loaded.found) {
     return { ok: true };
   }
-  if (!isSendableTylerTextOverviewDraftSlot(sendSlot)) {
+  // weekly_review / evening_checkin / unknown must not be treated as morning-sendable.
+  if (loaded.sendSlot == null) {
+    return { ok: false, error: PREVIEW_ONLY_DRAFT_SEND_REFUSED };
+  }
+  if (loaded.sendSlot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT) {
+    return { ok: false, error: PREVIEW_ONLY_DRAFT_SEND_REFUSED };
+  }
+  if (!isSendableTylerTextOverviewDraftSlot(loaded.sendSlot)) {
     return { ok: false, error: PREVIEW_ONLY_DRAFT_SEND_REFUSED };
   }
   return { ok: true };

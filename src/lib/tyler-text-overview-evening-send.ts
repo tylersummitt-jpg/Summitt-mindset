@@ -26,6 +26,7 @@ export type TylerTextOverviewEveningSendRefusalCode =
   | "draft_not_found"
   | "draft_not_current"
   | "wrong_send_slot"
+  | "generation_send_slot_mismatch"
   | "preview_body_missing"
   | "machine_should_send_false"
   | "already_sent_evening_today"
@@ -85,6 +86,7 @@ type EveningGenerationRow = {
   machine_should_send: boolean | null;
   generation_metadata: Record<string, unknown> | null;
   generated_at: string | null;
+  send_slot: string | null;
 };
 
 type V2OutboundSnapshot = {
@@ -217,7 +219,7 @@ export async function loadEveningDraftBundleForSend(draftId: string): Promise<
 
   const { data: generationRow, error: generationError } = await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-    .select("id, commitment_id, machine_should_send, generation_metadata, generated_at")
+    .select("id, commitment_id, machine_should_send, generation_metadata, generated_at, send_slot")
     .eq("id", draft.current_generation_id)
     .maybeSingle();
 
@@ -229,6 +231,25 @@ export async function loadEveningDraftBundleForSend(draftId: string): Promise<
         clerkUserId: draft.clerk_user_id,
         draftForDayKey: draft.draft_for_day_key,
       }),
+    };
+  }
+
+  const generationSlot =
+    typeof generationRow.send_slot === "string" && generationRow.send_slot.trim()
+      ? generationRow.send_slot.trim()
+      : null;
+  if (generationSlot !== SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
+    return {
+      ok: false,
+      refusal: refuse(
+        "generation_send_slot_mismatch",
+        "Generation send_slot is not evening_checkin",
+        {
+          draftId: draft.id,
+          clerkUserId: draft.clerk_user_id,
+          draftForDayKey: draft.draft_for_day_key,
+        }
+      ),
     };
   }
 
@@ -247,6 +268,7 @@ export async function loadEveningDraftBundleForSend(draftId: string): Promise<
       generation_metadata: metadata,
       generated_at:
         typeof generationRow.generated_at === "string" ? generationRow.generated_at : null,
+      send_slot: generationSlot,
     },
   };
 }

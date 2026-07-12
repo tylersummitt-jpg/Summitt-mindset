@@ -7,6 +7,7 @@ import {
   applyDailySmsBuiltWithTtoPostWriterBypass,
   applyTtoDraftRevalidationSuccess,
   applyTylerTextOverviewDraftBodyToBuilt,
+  assertSendableTylerTextOverviewDraft,
   assertTtoCurrentDraftBodyMatches,
   buildTylerTextOverviewSendContext,
   buildTylerTextOverviewSendMetadata,
@@ -14,6 +15,7 @@ import {
   finalizeTylerTextOverviewDraftAfterSend,
   hasProtectedTtoCurrentDraftForSendDay,
   isDailySmsBuiltSpecialBranch,
+  loadDraftSendSlotForGuard,
   loadUsableTylerTextOverviewDraftForSend,
   markTylerTextOverviewDraftSkippedAfterGuard,
   mergeTylerTextOverviewSendMetadata,
@@ -942,6 +944,36 @@ describe("tyler-text-overview-send finalize and metadata", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toBe("preview_only_draft_not_sendable");
     expect(db.drafts[0].status).toBe("current");
+  });
+
+  it("refuses finalize for weekly_review draft (does not map weekly → morning)", async () => {
+    seedDraft({ sendSlot: "weekly_review", draftId: "draft-weekly" });
+    const result = await finalizeTylerTextOverviewDraftAfterSend({
+      draftId: "draft-weekly",
+      clerkUserId: "user_send",
+      dayKey: "2026-07-03",
+      twilioMessageSid: "SM123",
+      finalBodySent: MACHINE_BODY,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("preview_only_draft_not_sendable");
+    expect(db.drafts[0].status).toBe("current");
+  });
+
+  it("loadDraftSendSlotForGuard never maps weekly_review to morning", async () => {
+    seedDraft({ sendSlot: "weekly_review", draftId: "draft-weekly" });
+    const loaded = await loadDraftSendSlotForGuard("draft-weekly");
+    expect(loaded.found).toBe(true);
+    if (!loaded.found) return;
+    expect(loaded.sendSlot).toBe("weekly_review");
+    expect(loaded.rawSendSlot).toBe("weekly_review");
+  });
+
+  it("assertSendableTylerTextOverviewDraft refuses unknown send_slot", async () => {
+    seedDraft({ sendSlot: "not_a_real_slot", draftId: "draft-weird" });
+    const result = await assertSendableTylerTextOverviewDraft({ draftId: "draft-weird" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe("preview_only_draft_not_sendable");
   });
 
   it("markTylerTextOverviewDraftSkippedAfterGuard ignores evening preview draft", async () => {
