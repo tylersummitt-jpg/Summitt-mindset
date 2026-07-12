@@ -168,8 +168,12 @@ function setupSupabaseTables(args: {
 }
 
 describe("isSendEventTrulySent", () => {
-  it("accepts sent status and rejects reserved/skipped", () => {
-    expect(isSendEventTrulySent({ status: "sent", sms_body: "Hi" })).toBe(true);
+  it("accepts strong delivery evidence and rejects reserved/skipped", () => {
+    expect(
+      isSendEventTrulySent({ status: "sent", sent_at: "2026-06-21T10:00:00.000Z", sms_body: "Hi" })
+    ).toBe(true);
+    expect(isSendEventTrulySent({ status: "sent", message_sid: "SM1", sms_body: "Hi" })).toBe(true);
+    expect(isSendEventTrulySent({ status: "sent", sms_body: "Hi" })).toBe(false);
     expect(isSendEventTrulySent({ status: "reserved", sms_body: "Hi" })).toBe(false);
     expect(isSendEventTrulySent({ status: "skipped_no_safe_v3_voice", sms_body: "Hi" })).toBe(false);
     expect(isSendEventTrulySent({ status: "reserved", message_sid: "SM1", sms_body: "Hi" })).toBe(false);
@@ -196,6 +200,25 @@ describe("isSendEventTrulySent", () => {
         metadata: { north_star_gate: { final_body: "North star final body for thread." } },
       })
     ).toBe("North star final body for thread.");
+  });
+
+  it("rejects queued/accepted/sending/twilio_send_attempted without SID", () => {
+    expect(isSendEventTrulySent({ status: "queued", sms_body: "Hi" })).toBe(false);
+    expect(isSendEventTrulySent({ status: "accepted", sms_body: "Hi" })).toBe(false);
+    expect(isSendEventTrulySent({ status: "sending", sms_body: "Hi" })).toBe(false);
+    expect(
+      isSendEventTrulySent({
+        status: "reserved",
+        sms_body: "Hi",
+        metadata: { twilio_send_attempted: true },
+      })
+    ).toBe(false);
+    expect(
+      isSendEventTrulySent({
+        sms_body: "Hi",
+        metadata: { twilio_send_attempted: true },
+      })
+    ).toBe(false);
   });
 
   it("rejects explicit no-send and cancelled rows", () => {
@@ -328,11 +351,13 @@ describe("buildRecentExactThread72h", () => {
           sms_body: "Old daily",
           created_at: "2026-05-10T11:00:00.000Z",
           status: "sent",
+          message_sid: "SM_OLD",
         },
         {
           sms_body: "Recent daily",
           created_at: "2026-05-18T11:00:00.000Z",
           status: "sent",
+          message_sid: "SM_RECENT",
         },
       ],
     });
@@ -354,6 +379,7 @@ describe("buildRecentExactThread72h", () => {
           sms_body: "FULL_DAILY_BODY_" + "x".repeat(80),
           created_at: "2026-05-18T10:00:00.000Z",
           status: "sent",
+          message_sid: "SM_FULL",
         },
       ],
     });
@@ -1004,13 +1030,17 @@ describe("buildRecentExactThreadForBrief visible send coverage", () => {
       now: new Date("2026-06-22T12:00:00.000Z"),
     });
 
-    expect(brief.message_count).toBe(1);
+    expect(brief.message_count).toBe(0);
+    expect(brief.last_outbound_fallback_message_count).toBe(0);
     expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBe(0);
     expect(brief.build_telemetry.daily_brief_thread_fallback_used).toBe(true);
     expect(brief.build_telemetry.daily_brief_thread_fallback_source_count).toBe(1);
     expect(brief.build_telemetry.daily_brief_thread_source_tables_present).toContain(
       "sms_last_outbound_context"
     );
+    expect(
+      brief.timeline_7d.messages.some((m) => m.source_table === "sms_last_outbound_context")
+    ).toBe(true);
   });
 });
 
@@ -1326,7 +1356,8 @@ describe("schema-adaptive notebook fetch safety net", () => {
 
     expect(brief.build_telemetry.daily_brief_thread_source_candidate_count).toBe(0);
     expect(brief.build_telemetry.daily_brief_thread_fallback_used).toBe(true);
-    expect(brief.message_count).toBe(1);
+    expect(brief.message_count).toBe(0);
+    expect(brief.last_outbound_fallback_message_count).toBe(0);
   });
 
   it("real source rows plus last_outbound: source_candidate_count > 0, last_outbound fallback not required", async () => {
@@ -1569,5 +1600,213 @@ describe("exact-thread source ORDER BY (P4B Step 2)", () => {
     expect(earlyIdx).toBeGreaterThanOrEqual(0);
     expect(midIdx).toBeGreaterThan(earlyIdx);
     expect(lateIdx).toBeGreaterThan(midIdx);
+  });
+});
+
+describe("recent_exact_thread actual SMS provenance (writer-facing)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+  });
+
+  const NOW_BRIEF = new Date("2026-06-22T12:00:00.000Z");
+
+  it("A: inbound raw_body appears exactly once", async () => {
+    setupSupabaseTables({
+      inboundMsgRows: [
+        {
+          raw_body: "I'm going to play sports with the kids",
+          received_at: "2026-06-21T15:00:00.000Z",
+          message_sid: "SM_USER_A",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_a",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    const matches = brief.messages.filter(
+      (m) => m.role === "user" && m.body === "I'm going to play sports with the kids"
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.source_table).toBe("sms_inbound_messages");
+    expect(matches[0]?.delivery_evidence).toBe("inbound_received");
+    expect(matches[0]?.message_sid).toBe("SM_USER_A");
+  });
+
+  it("B: sent daily outbound with SID appears exactly once", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "sent",
+          message_sid: "SM_DAILY_B",
+          sent_at: "2026-06-21T14:00:00.000Z",
+          sms_body: "Get your mind right! 10,000 steps!",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_b",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    const matches = brief.messages.filter(
+      (m) => m.role === "coach" && /10,000 steps/i.test(m.body)
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.source_table).toBe("sms_send_events");
+    expect(matches[0]?.delivery_evidence).toBe("message_sid_present");
+    expect(matches[0]?.message_sid).toBe("SM_DAILY_B");
+    expect(matches[0]?.is_fallback_context).toBeUndefined();
+  });
+
+  it("C: sent inbound coach reply with outbound_message_sid appears exactly once", async () => {
+    setupSupabaseTables({
+      jobRows: [
+        {
+          raw_body: "Yes",
+          reply_body: "It's great to see your commitment to another win!",
+          status: "sent",
+          sent_at: "2026-06-21T16:00:00.000Z",
+          created_at: "2026-06-21T15:59:00.000Z",
+          message_sid: "SM_IN_C",
+          outbound_message_sid: "SM_OUT_C",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_c",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    const coachMatches = brief.messages.filter(
+      (m) => m.role === "coach" && /commitment to another win/i.test(m.body)
+    );
+    expect(coachMatches).toHaveLength(1);
+    expect(coachMatches[0]?.source_table).toBe("sms_inbound_coach_jobs");
+    expect(coachMatches[0]?.delivery_evidence).toBe("outbound_message_sid_present");
+    expect(coachMatches[0]?.message_sid).toBe("SM_OUT_C");
+  });
+
+  it("D: queued/accepted/sending/twilio_send_attempted-only without SID do not appear", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "queued",
+          created_at: "2026-06-21T14:00:00.000Z",
+          sms_body: "QUEUED_NO_SID_BODY",
+        },
+        {
+          status: "accepted",
+          created_at: "2026-06-21T14:01:00.000Z",
+          sms_body: "ACCEPTED_NO_SID_BODY",
+        },
+        {
+          status: "sending",
+          created_at: "2026-06-21T14:02:00.000Z",
+          sms_body: "SENDING_NO_SID_BODY",
+        },
+        {
+          created_at: "2026-06-21T14:03:00.000Z",
+          sms_body: "ATTEMPTED_ONLY_BODY",
+          metadata: { twilio_send_attempted: true },
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_d",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.messages.some((m) => /QUEUED_NO_SID|ACCEPTED_NO_SID|SENDING_NO_SID|ATTEMPTED_ONLY/i.test(m.body))).toBe(
+      false
+    );
+  });
+
+  it("E: draft tables are never queried for recent_exact_thread", async () => {
+    const queried: string[] = [];
+    supabaseFrom.mockImplementation((table: string) => {
+      queried.push(table);
+      return chain([]);
+    });
+
+    await buildRecentExactThreadForBrief({
+      clerkUserId: "user_e",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(queried).not.toContain("sms_daily_drafts");
+    expect(queried).not.toContain("sms_daily_draft_generations");
+    expect(queried.some((t) => /draft/i.test(t))).toBe(false);
+  });
+
+  it("G: recent_exact_thread messages preserve lean provenance", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          status: "sent",
+          message_sid: "SM_PROV",
+          sent_at: "2026-06-21T14:00:00.000Z",
+          sms_body: "Provenance coach line.",
+        },
+      ],
+      inboundMsgRows: [
+        {
+          raw_body: "Provenance user line.",
+          received_at: "2026-06-21T15:00:00.000Z",
+          message_sid: "SM_PROV_USER",
+        },
+      ],
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_g",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.messages.length).toBe(2);
+    for (const m of brief.messages) {
+      expect(m).toHaveProperty("at_local");
+      expect(m).toHaveProperty("role");
+      expect(m).toHaveProperty("body");
+      expect(m).toHaveProperty("source_table");
+      expect(m).toHaveProperty("delivery_evidence");
+      expect(Object.keys(m).sort()).toEqual(
+        expect.arrayContaining(["at_local", "role", "body", "source_table", "delivery_evidence", "message_sid"])
+      );
+      expect(m).not.toHaveProperty("is_fallback_context");
+    }
+  });
+
+  it("H: sms_last_outbound_context fallback is excluded from writer-facing recent_exact_thread", async () => {
+    setupSupabaseTables({
+      lastCtx: {
+        sent_at: "2026-06-21T14:00:00.000Z",
+        full_body: "Fallback last outbound must not be writer-facing actual thread.",
+        message_kind: "coach",
+      },
+    });
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_h",
+      timezone: TZ,
+      now: NOW_BRIEF,
+    });
+
+    expect(brief.messages).toHaveLength(0);
+    expect(brief.last_outbound_fallback_message_count).toBe(0);
+    expect(brief.messages.some((m) => m.is_fallback_context)).toBe(false);
+    expect(brief.build_telemetry.daily_brief_thread_fallback_used).toBe(true);
   });
 });

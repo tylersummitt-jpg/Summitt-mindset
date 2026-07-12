@@ -19,6 +19,14 @@ export type RecentExactThread72hDeliveryStatus =
   | "preview"
   | "unknown";
 
+/** Lean delivery proof for writer-facing recent_exact_thread messages. */
+export type RecentExactThreadDeliveryEvidence =
+  | "message_sid_present"
+  | "outbound_message_sid_present"
+  | "status_sent_with_timestamp"
+  | "inbound_received"
+  | "fallback_last_outbound";
+
 export type RecentExactThread72hMessage = {
   at: string;
   at_local: string;
@@ -32,6 +40,8 @@ export type RecentExactThread72hMessage = {
   delivery_status: RecentExactThread72hDeliveryStatus;
   is_exact_body: boolean;
   body_truncated?: boolean;
+  delivery_evidence?: RecentExactThreadDeliveryEvidence;
+  is_fallback_context?: boolean;
 };
 
 export type RecentExactThread72hResult = {
@@ -57,6 +67,8 @@ type TimelineEntry = {
   is_exact_body: boolean;
   body_truncated: boolean;
   priority: number;
+  delivery_evidence?: RecentExactThreadDeliveryEvidence;
+  is_fallback_context?: boolean;
 };
 
 const DEDUPE_WINDOW_MS = 5000;
@@ -543,16 +555,50 @@ function messageSidFromSendEventRow(row: Record<string, unknown>): string | null
   return null;
 }
 
-const VISIBLE_SENT_STATUSES = new Set([
-  "sent",
-  "delivered",
-  "queued",
-  "accepted",
-  "sending",
-  "success",
-]);
+/** Strong status bucket: requires sent_at/processed_at when no Twilio SID. */
+const STRONG_STATUS_WITH_TIMESTAMP = new Set(["sent", "delivered", "success"]);
 
 const NON_VISIBLE_SEND_STATUSES = new Set(["dry_run", "preview", "canceled"]);
+
+function sendEventDeliveryTimestampMs(row: Record<string, unknown>): number {
+  const meta = sendEventMetadata(row);
+  return firstValidTimestampMs([
+    row.sent_at,
+    row.processed_at,
+    meta?.sent_at,
+    meta?.processed_at,
+  ]);
+}
+
+/**
+ * Writer-facing / actual-thread coach delivery gate.
+ * SID present, OR status sent|delivered|success with sent_at/processed_at.
+ * queued / accepted / sending / twilio_send_attempted-only without SID do not qualify.
+ */
+export function isSendEventStrongDeliveryEvidence(row: Record<string, unknown>): boolean {
+  if (isSendEventExplicitlyExcluded(row)) return false;
+  const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
+  if (NON_VISIBLE_SEND_STATUSES.has(status)) return false;
+
+  const sid = messageSidFromSendEventRow(row);
+  if (sid) {
+    return true;
+  }
+
+  if (STRONG_STATUS_WITH_TIMESTAMP.has(status) && sendEventDeliveryTimestampMs(row) > 0) {
+    return true;
+  }
+
+  return false;
+}
+
+export function deliveryEvidenceForSendEventRow(
+  row: Record<string, unknown>
+): RecentExactThreadDeliveryEvidence | null {
+  if (!isSendEventStrongDeliveryEvidence(row)) return null;
+  if (messageSidFromSendEventRow(row)) return "message_sid_present";
+  return "status_sent_with_timestamp";
+}
 
 function sendEventMetadata(row: Record<string, unknown>): Record<string, unknown> | null {
   const meta = row.metadata;
@@ -611,20 +657,12 @@ export function bodyFromWeeklySendEventRow(row: Record<string, unknown>): string
   return "";
 }
 
-/** Visible user-facing send classification (aligned with SQL visible_sent, not preview/no-send). */
+/**
+ * Actual-thread coach delivery classification for exact SMS thread construction.
+ * Strong evidence only: Twilio SID, or status sent|delivered|success with sent_at/processed_at.
+ */
 export function isSendEventTrulySent(row: Record<string, unknown>): boolean {
-  if (isSendEventExplicitlyExcluded(row)) return false;
-  const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
-  if (NON_VISIBLE_SEND_STATUSES.has(status)) return false;
-  if (VISIBLE_SENT_STATUSES.has(status)) return true;
-  const sid = messageSidFromSendEventRow(row);
-  if (sid) return true;
-  const meta = sendEventMetadata(row);
-  if (meta) {
-    if (metaPathString(meta, "note") === "sent_to_twilio") return true;
-    if (meta.twilio_send_attempted === true) return true;
-  }
-  return false;
+  return isSendEventStrongDeliveryEvidence(row);
 }
 
 /** Effective send time — Q14 order: sent_at/processed_at first; sent-like rows prefer updated_at over stale created_at. */
@@ -702,18 +740,33 @@ export function timestampFromCoachJobReplyRow(row: Record<string, unknown>): num
   ]);
 }
 
-function coachJobReplySentLike(row: Record<string, unknown>, reply: string): boolean {
-  if (!reply.trim()) return false;
-  if (row.status === "sent") return true;
-  if (typeof row.outbound_message_sid === "string" && row.outbound_message_sid.trim()) return true;
-  if (typeof row.sent_at === "string" && row.sent_at.trim()) return true;
-  if (typeof row.processed_at === "string" && row.processed_at.trim()) return true;
+/** Strong inbound-coach reply gate: outbound SID, or status sent|delivered|success with sent_at. */
+export function coachJobReplyStrongDeliveryEvidence(
+  row: Record<string, unknown>,
+  reply: string
+): RecentExactThreadDeliveryEvidence | null {
+  if (!reply.trim()) return null;
+
+  if (typeof row.outbound_message_sid === "string" && row.outbound_message_sid.trim()) {
+    return "outbound_message_sid_present";
+  }
+
+  const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
+  if (!STRONG_STATUS_WITH_TIMESTAMP.has(status)) return null;
+
   const meta =
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>)
       : null;
-  if (meta && typeof meta.sent_at === "string" && meta.sent_at.trim()) return true;
-  return false;
+  const hasTs =
+    firstValidTimestampMs([
+      row.sent_at,
+      row.processed_at,
+      meta?.sent_at,
+      meta?.processed_at,
+    ]) > 0;
+  if (!hasTs) return null;
+  return "status_sent_with_timestamp";
 }
 
 function safeBody(raw: string): { body: string; body_truncated: boolean } {
@@ -778,6 +831,8 @@ function toOutputMessage(entry: TimelineEntry, timezone: string): RecentExactThr
     delivery_status: entry.delivery_status,
     is_exact_body: entry.is_exact_body,
     ...(entry.body_truncated ? { body_truncated: true } : {}),
+    ...(entry.delivery_evidence ? { delivery_evidence: entry.delivery_evidence } : {}),
+    ...(entry.is_fallback_context ? { is_fallback_context: true } : {}),
   };
 }
 
@@ -792,6 +847,10 @@ export type RecentExactThreadBriefMessage = {
   at_local: string;
   role: "coach" | "user";
   body: string;
+  source_table: string;
+  delivery_evidence: RecentExactThreadDeliveryEvidence;
+  message_sid?: string;
+  is_fallback_context?: true;
 };
 
 export type RecentExactThreadForBriefResult = {
@@ -821,6 +880,8 @@ export type BuildRecentExactThreadArgs = {
 };
 
 function isWriterFacingThreadMessage(m: RecentExactThread72hMessage): boolean {
+  if (m.source_table === "sms_last_outbound_context") return false;
+  if (m.is_fallback_context) return false;
   if (m.role === "user") return true;
   if (m.role === "coach") {
     if (m.delivery_status === "preview" || m.delivery_status === "skipped" || m.delivery_status === "cancelled") {
@@ -842,11 +903,28 @@ export function briefThreadMessageCharCount(messages: RecentExactThreadBriefMess
 }
 
 function toBriefMessage(m: RecentExactThread72hMessage): RecentExactThreadBriefMessage {
-  return {
+  const delivery_evidence: RecentExactThreadDeliveryEvidence =
+    m.delivery_evidence ??
+    (m.role === "user"
+      ? "inbound_received"
+      : m.message_sid
+        ? "message_sid_present"
+        : "status_sent_with_timestamp");
+
+  const out: RecentExactThreadBriefMessage = {
     at_local: m.at_local,
     role: m.role === "coach" ? "coach" : "user",
     body: truncateBriefBody(m.body),
+    source_table: m.source_table,
+    delivery_evidence,
   };
+  if (m.message_sid?.trim()) {
+    out.message_sid = m.message_sid.trim();
+  }
+  if (m.is_fallback_context) {
+    out.is_fallback_context = true;
+  }
+  return out;
 }
 
 type BriefCapItem = { msg: RecentExactThread72hMessage; ts: number; isFloor: boolean };
@@ -1124,9 +1202,10 @@ async function buildRecentExactThreadWithWindowMs(
     }
 
     const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
-    const trulySent = isSendEventTrulySent(row);
+    const trulySent = isSendEventStrongDeliveryEvidence(row);
+    const deliveryEvidence = deliveryEvidenceForSendEventRow(row);
 
-    if (!trulySent) {
+    if (!trulySent || !deliveryEvidence) {
       if (stats) {
         stats.recordFiltered(
           status === "preview" || status.startsWith("skipped") || status === "dry_run"
@@ -1172,6 +1251,7 @@ async function buildRecentExactThreadWithWindowMs(
       is_exact_body: true,
       body_truncated,
       priority: source_table === "sms_weekly_send_events" ? 88 : 90,
+      delivery_evidence: deliveryEvidence,
     });
   };
 
@@ -1214,14 +1294,15 @@ async function buildRecentExactThreadWithWindowMs(
           is_exact_body: true,
           body_truncated,
           priority: 95,
+          delivery_evidence: "inbound_received",
         });
       }
     }
 
     const reply = typeof row.reply_body === "string" ? row.reply_body.trim() : "";
-    const sentLike = coachJobReplySentLike(row, reply);
+    const replyEvidence = coachJobReplyStrongDeliveryEvidence(row, reply);
 
-    if (reply && sentLike) {
+    if (reply && replyEvidence) {
       if (stats) {
         stats.source_candidate_count += 1;
         stats.noteSourceTable("sms_inbound_coach_jobs");
@@ -1245,6 +1326,7 @@ async function buildRecentExactThreadWithWindowMs(
           is_exact_body: true,
           body_truncated,
           priority: 100,
+          delivery_evidence: replyEvidence,
         });
       }
     } else if (reply && stats) {
@@ -1288,6 +1370,7 @@ async function buildRecentExactThreadWithWindowMs(
       is_exact_body: true,
       body_truncated,
       priority: 50,
+      delivery_evidence: "inbound_received",
     });
   }
 
@@ -1362,6 +1445,8 @@ async function buildRecentExactThreadWithWindowMs(
             is_exact_body: true,
             body_truncated,
             priority: 35,
+            delivery_evidence: "fallback_last_outbound",
+            is_fallback_context: true,
           });
         }
       }

@@ -1076,8 +1076,8 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
   const authorityOrder =
     scRoute && scRoute !== "normal_daily"
-      ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. When present, silence_cadence route card controls re-entry posture. coaching_situation, relationship_read, slot_coaching_context, suggested_move, route cards, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases."
-      : "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread controls continuity. coaching_situation, relationship_read, slot_coaching_context, suggested_move, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases.";
+      ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations. When present, silence_cadence route card controls re-entry posture. coaching_situation, relationship_read, slot_coaching_context, suggested_move, route cards, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases."
+      : "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations. coaching_situation, relationship_read, slot_coaching_context, suggested_move, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases.";
 
   const eveningSlotLine =
     args.currentSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT

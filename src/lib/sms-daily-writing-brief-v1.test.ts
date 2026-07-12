@@ -928,6 +928,10 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     expect(system).not.toMatch(/primary human-continuity guide/i);
     expect(system).toMatch(/Paraphrase all hints/i);
     expect(system).toMatch(/Do not paste notebook phrases/i);
+    expect(system).toMatch(
+      /recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations/
+    );
+    expect(system).not.toMatch(/actual_sent_thread|delivered_thread|verified_thread/);
     expect(system).toMatch(/No app, website, Victory Room/i);
     expect(system).toMatch(/No fake Pat quotes/i);
     expect(system).toMatch(/No fake proof/i);
@@ -1657,5 +1661,63 @@ describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
       detectFitOrCorrectionConflictFromAssembledSemantics.toString(),
     ].join("\n");
     expect(helpersSrc).not.toMatch(/not relevant|not my goal|stop asking/i);
+  });
+});
+
+describe("recent_exact_thread is the only actual SMS thread block", () => {
+  it("F: brief has recent_exact_thread only — no second thread list keys", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        messages: [
+          {
+            at_local: "Thu Jun 17 8:00 AM",
+            role: "coach",
+            body: "Did you protect the hour?",
+            source_table: "sms_send_events",
+            delivery_evidence: "message_sid_present",
+            message_sid: "SM_ONLY",
+          },
+          {
+            at_local: "Thu Jun 17 8:05 AM",
+            role: "user",
+            body: "Yes.",
+            source_table: "sms_inbound_messages",
+            delivery_evidence: "inbound_received",
+            message_sid: "SM_USER_ONLY",
+          },
+        ],
+        message_count: 2,
+        char_count: 40,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+
+    const keys = Object.keys(brief);
+    expect(keys).toContain("recent_exact_thread");
+    expect(keys).not.toContain("actual_sent_thread");
+    expect(keys).not.toContain("delivered_thread");
+    expect(keys).not.toContain("verified_thread");
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.user).toContain("recent_exact_thread");
+    expect(writer.user).not.toMatch(/"actual_sent_thread"|"delivered_thread"|"verified_thread"/);
+    expect(writer.system).toMatch(
+      /recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations/
+    );
+
+    for (const m of brief.recent_exact_thread.messages) {
+      expect(m.source_table).toBeTruthy();
+      expect(m.delivery_evidence).toBeTruthy();
+      expect(m.at_local).toBeTruthy();
+      expect(m.role).toMatch(/^(coach|user)$/);
+      expect(m.body).toBeTruthy();
+    }
   });
 });
