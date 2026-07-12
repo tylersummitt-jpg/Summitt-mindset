@@ -407,6 +407,10 @@ describe("resolveAdminListSendSlot", () => {
   it("accepts evening_checkin", () => {
     expect(resolveAdminListSendSlot("evening_checkin")).toBe("evening_checkin");
   });
+
+  it("accepts weekly_review without coercing to morning", () => {
+    expect(resolveAdminListSendSlot("weekly_review")).toBe("weekly_review");
+  });
 });
 
 describe("tyler-text-overview-admin read model", () => {
@@ -759,6 +763,30 @@ describe("tyler-text-overview-admin save model", () => {
     expect(db.drafts[0].current_body_source).toBe("tyler_edit");
     expect(db.drafts[0].current_generation_id).toBe("gen-1");
     expect(result.row.sendSlot).toBe("evening_checkin");
+  });
+
+  it("save allows current weekly_review draft and preserves send_slot", async () => {
+    db.drafts[0].send_slot = "weekly_review";
+    db.generations[0].send_slot = "weekly_review";
+    db.generations[0].generation_metadata = {
+      week_key: "2026-W28",
+      week_start: "2026-07-06",
+      week_end: "2026-07-12",
+      send_slot: "weekly_review",
+    };
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body: "Weekly Tyler edit",
+      now,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(db.drafts[0].current_body_to_send).toBe("Weekly Tyler edit");
+    expect(db.drafts[0].edited_by_tyler).toBe(true);
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0].current_generation_id).toBe("gen-1");
+    expect(result.row.sendSlot).toBe("weekly_review");
+    expect(result.row.weekKey).toBe("2026-W28");
   });
 
   it("save rejects sent evening_checkin draft", async () => {

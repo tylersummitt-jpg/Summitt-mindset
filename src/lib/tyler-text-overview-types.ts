@@ -18,7 +18,7 @@ export const SMS_DAILY_DRAFTS_TABLE = "sms_daily_drafts" as const;
  * Future per-slot local schedules (e.g. morning 5–10 AM, evening_checkin 5–10 PM) will be
  * user-configurable; send_slot identifies which product moment the message serves.
  */
-export const SMS_DAILY_SEND_SLOTS = ["morning", "evening_checkin"] as const;
+export const SMS_DAILY_SEND_SLOTS = ["morning", "evening_checkin", "weekly_review"] as const;
 export type SmsDailySendSlot = (typeof SMS_DAILY_SEND_SLOTS)[number];
 
 /**
@@ -31,12 +31,35 @@ export const SMS_DAILY_PRODUCTION_SEND_SLOT: SmsDailySendSlot = "morning";
 /** Preview-only slot — persisted in TTO tables; never sent in Phase 2B. */
 export const SMS_DAILY_EVENING_PREVIEW_SEND_SLOT: SmsDailySendSlot = "evening_checkin";
 
+/**
+ * Weekly TTO draft slot — draft/review/edit only until weekly send cutover.
+ * Does not use sms_send_events; future send truth is sms_weekly_send_events.
+ */
+export const SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT: SmsDailySendSlot = "weekly_review";
+
 export const SMS_DAILY_PREVIEW_ONLY_SEND_SLOTS = [
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
 ] as const satisfies ReadonlyArray<SmsDailySendSlot>;
 
 export type SmsDailyPreviewOnlySendSlot =
   (typeof SMS_DAILY_PREVIEW_ONLY_SEND_SLOTS)[number];
+
+export function isSmsDailySendSlot(
+  slot: string | null | undefined
+): slot is SmsDailySendSlot {
+  return (SMS_DAILY_SEND_SLOTS as readonly string[]).includes(slot ?? "");
+}
+
+/**
+ * Parse a known TTO send_slot. Unknown values return null — never silently coerce to morning.
+ */
+export function parseSmsDailySendSlot(
+  slot: string | null | undefined
+): SmsDailySendSlot | null {
+  const v = typeof slot === "string" ? slot.trim() : "";
+  if (isSmsDailySendSlot(v)) return v;
+  return null;
+}
 
 export function isPreviewOnlySendSlot(
   slot: SmsDailySendSlot | string | null | undefined
@@ -51,6 +74,12 @@ export function isProductionSendSlot(
   slot: SmsDailySendSlot | string | null | undefined
 ): slot is typeof SMS_DAILY_PRODUCTION_SEND_SLOT {
   return slot === SMS_DAILY_PRODUCTION_SEND_SLOT;
+}
+
+export function isWeeklyReviewSendSlot(
+  slot: SmsDailySendSlot | string | null | undefined
+): slot is typeof SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT {
+  return slot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT;
 }
 
 export const TYLER_TEXT_OVERVIEW_GENERATION_REASONS = [
@@ -279,6 +308,10 @@ export type TylerTextOverviewAdminDraftRow = {
   morningAnchorSource?: string | null;
   morningAnchorSent?: boolean | null;
   morningAnchorBodyPreview?: string | null;
+  /** Weekly TTO period fields from generation_metadata. */
+  weekKey?: string | null;
+  weekStart?: string | null;
+  weekEnd?: string | null;
 };
 
 /** Read-only TTO panel — notebook context, not mandatory send rules. */

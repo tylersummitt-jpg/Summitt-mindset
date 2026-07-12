@@ -5,6 +5,7 @@ import {
 } from "@/lib/tyler-text-overview-notebook-display";
 import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
 import {
+  parseSmsDailySendSlot,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -20,12 +21,24 @@ import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-c
 
 export const PREVIEW_ONLY_DRAFT_NOT_EDITABLE = "preview_only_draft_not_editable" as const;
 
+/**
+ * Resolve admin list send_slot. Unknown values default to morning for list filtering only.
+ * Known slots (including weekly_review) are preserved — never coerce weekly_review → morning.
+ */
 export function resolveAdminListSendSlot(
   raw: string | null | undefined
 ): SmsDailySendSlot {
-  if (raw === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
-    return SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
-  }
+  const parsed = parseSmsDailySendSlot(raw);
+  if (parsed) return parsed;
+  return SMS_DAILY_PRODUCTION_SEND_SLOT;
+}
+
+/** Map DB send_slot onto known SmsDailySendSlot without silently remapping weekly_review. */
+export function mapDbSendSlotToAdminDto(
+  raw: string | null | undefined
+): SmsDailySendSlot {
+  const parsed = parseSmsDailySendSlot(raw);
+  if (parsed) return parsed;
   return SMS_DAILY_PRODUCTION_SEND_SLOT;
 }
 import { parseSlotCoachingContextFromMetadata } from "@/lib/slot-coaching-context-v1";
@@ -510,6 +523,16 @@ function mapPreviewFieldsFromMetadata(
   };
 }
 
+function mapWeeklyPeriodFieldsFromMetadata(
+  metadata: Record<string, unknown>
+): Pick<TylerTextOverviewAdminDraftRow, "weekKey" | "weekStart" | "weekEnd"> {
+  return {
+    weekKey: readMetadataString(metadata, "week_key"),
+    weekStart: readMetadataString(metadata, "week_start"),
+    weekEnd: readMetadataString(metadata, "week_end"),
+  };
+}
+
 function mapSlotCoachingContextPanel(
   metadata: Record<string, unknown>
 ): TylerTextOverviewSlotCoachingContextPanel | null {
@@ -604,13 +627,13 @@ export function mapDraftRowsToAdminDto(args: {
   return args.drafts.map((draft) => {
     const generation = args.generationsById.get(draft.current_generation_id);
     const notebookFields = mapGenerationToNotebookFields(generation);
-    const sendSlot =
-      draft.send_slot === "evening_checkin" ? "evening_checkin" : SMS_DAILY_PRODUCTION_SEND_SLOT;
+    const sendSlot = mapDbSendSlotToAdminDto(draft.send_slot);
     const latestKey = draftLatestGenKey(draft.clerk_user_id, draft.draft_for_day_key, sendSlot);
     const latest = args.latestGenerationsByKey?.get(latestKey) ?? null;
 
     const metadata = parseGenerationMetadata(generation?.generation_metadata);
     const previewFields = mapPreviewFieldsFromMetadata(metadata, draft.status);
+    const weeklyPeriodFields = mapWeeklyPeriodFieldsFromMetadata(metadata);
     const audience = args.audienceByUserId?.get(draft.clerk_user_id);
 
     return {
@@ -639,6 +662,7 @@ export function mapDraftRowsToAdminDto(args: {
       currentBodyToSend: draft.current_body_to_send,
       ...notebookFields,
       ...previewFields,
+      ...weeklyPeriodFields,
       latestGenerationId: latest?.id ?? notebookFields.currentGenerationId,
       latestGenerationNumber: latest?.generation_number ?? notebookFields.currentGenerationNumber,
       isLatestGeneration:
@@ -656,7 +680,7 @@ function buildLatestGenerationsByKey(
       draftLatestGenKey(
         d.clerk_user_id,
         d.draft_for_day_key,
-        d.send_slot === "evening_checkin" ? "evening_checkin" : SMS_DAILY_PRODUCTION_SEND_SLOT
+        mapDbSendSlotToAdminDto(d.send_slot)
       )
     )
   );
@@ -671,8 +695,7 @@ function buildLatestGenerationsByKey(
     ) {
       continue;
     }
-    const sendSlot =
-      row.send_slot === "evening_checkin" ? "evening_checkin" : SMS_DAILY_PRODUCTION_SEND_SLOT;
+    const sendSlot = mapDbSendSlotToAdminDto(row.send_slot);
     const key = draftLatestGenKey(row.clerk_user_id, row.draft_for_day_key, sendSlot);
     if (!allowedKeys.has(key)) continue;
 
@@ -921,10 +944,7 @@ export async function updateTylerTextOverviewDraftBody(args: {
     return { ok: false, error: "Draft is not current", status: 409 };
   }
 
-  const draftSendSlot =
-    draft.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
-      ? SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
-      : SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const draftSendSlot = mapDbSendSlotToAdminDto(draft.send_slot);
 
   const { data: generationRow, error: generationLoadError } = await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)

@@ -215,7 +215,7 @@ export function buildTylerTextOverviewGenerationMetadata(args: {
   };
 }
 
-function formatSendPrefSnapshot(
+export function formatSendPrefSnapshot(
   clerkSmsTimePreference: string,
   commsPrefs: Awaited<ReturnType<typeof fetchV2UserSmsCommsPreferences>>
 ): string {

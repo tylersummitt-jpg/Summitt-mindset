@@ -24,6 +24,7 @@ import {
   resolveEveningTtoInitialSelectedDayKey,
   shouldShowEveningNonTodayWarning,
   rowStateLabel,
+  tylerTextOverviewNavPages,
   type TylerTextOverviewDashboardSendSlot,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
@@ -538,6 +539,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     draftForDayKey: selectedDayKey,
   });
   const siblingPageLabel = isEveningPage ? "Morning Text Overview →" : "Evening Text Overview →";
+  const navPages = tylerTextOverviewNavPages(isEveningPage ? "evening" : "morning");
   const showEveningNonTodayWarning =
     isEveningPage && shouldShowEveningNonTodayWarning(selectedDayKey);
   const dayFilterOptions = (() => {
@@ -636,6 +638,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         <Link href={siblingPageHref} className="font-medium text-gray-900 underline">
           {siblingPageLabel}
         </Link>
+        {navPages
+          .filter((p) => p.page === "weekly")
+          .map((p) => (
+            <Link key={p.page} href={p.href} className="ml-3 font-medium text-gray-900 underline">
+              Weekly Text Overview →
+            </Link>
+          ))}
       </p>
 
       <div className="flex flex-wrap items-end gap-3">

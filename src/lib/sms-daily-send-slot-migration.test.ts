@@ -28,9 +28,8 @@ describe("sms_daily_send_slot phase 1 migration", () => {
   });
 
   it("adds CHECK constraints for morning and evening_checkin", () => {
-    for (const slot of SMS_DAILY_SEND_SLOTS) {
-      expect(migration).toContain(`'${slot}'`);
-    }
+    expect(migration).toContain("'morning'");
+    expect(migration).toContain("'evening_checkin'");
   });
 
   it("replaces generations unique with user/day/slot/gen", () => {
@@ -71,6 +70,11 @@ describe("sms_daily_send_slot phase 1 constants", () => {
   it("evening_checkin is reserved but not production slot", () => {
     expect(SMS_DAILY_SEND_SLOTS).toContain("evening_checkin");
     expect(SMS_DAILY_PRODUCTION_SEND_SLOT).not.toBe("evening_checkin");
+  });
+
+  it("weekly_review is a known send slot but not production morning", () => {
+    expect(SMS_DAILY_SEND_SLOTS).toContain("weekly_review");
+    expect(SMS_DAILY_PRODUCTION_SEND_SLOT).not.toBe("weekly_review");
   });
 
   it("legacy smsTimePreference evening still maps to hour 19", () => {
@@ -118,5 +122,20 @@ describe("sms_daily_send_slot — no evening_checkin in production code paths", 
     );
     expect(src).toContain("SMS_DAILY_EVENING_PREVIEW_SEND_SLOT");
     expect(src).toMatch(/send_slot:\s*SMS_DAILY_EVENING_PREVIEW_SEND_SLOT/);
+  });
+});
+
+describe("sms_daily_send_slot weekly_review migration", () => {
+  const WEEKLY_MIGRATION = join(
+    process.cwd(),
+    "supabase/migrations/20260712120000_sms_daily_send_slot_weekly_review.sql"
+  );
+
+  it("expands drafts and generations CHECK for weekly_review only", () => {
+    const migration = readFileSync(WEEKLY_MIGRATION, "utf8");
+    expect(migration).toContain("weekly_review");
+    expect(migration).toContain("sms_daily_drafts_send_slot_check");
+    expect(migration).toContain("sms_daily_draft_generations_send_slot_check");
+    expect(migration).not.toMatch(/ALTER TABLE sms_send_events/i);
   });
 });
