@@ -120,9 +120,11 @@ describe("weekly page / copy", () => {
   });
 
   it("banner and next-cutover copy required", () => {
-    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("manual one-row send");
-    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("/api/cron/weekly-sms is not cut over yet");
-    expect(WEEKLY_TTO_NEXT_CUTOVER_COPY).toContain("draft-authoritative");
+    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("draft-authoritative");
+    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("only sends current Weekly TTO drafts");
+    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("machine_should_send=false");
+    expect(WEEKLY_TTO_NEXT_CUTOVER_COPY).toContain("Generate Missing Weekly Drafts");
+    expect(WEEKLY_TTO_NEXT_CUTOVER_COPY).toContain("does not send texts");
     const dash = readFileSync(
       join(REPO, "src/app/admin/tyler-text-overview/tyler-text-overview-weekly-dashboard.tsx"),
       "utf8"
@@ -139,6 +141,8 @@ describe("weekly page / copy", () => {
     expect(dash).toContain("weeklySendButtonLabel");
     expect(dash).toContain("weekly-send");
     expect(dash).toContain("isWeeklyManualSendEligible");
+    expect(dash).toContain("weekly-generate-all");
+    expect(dash).toContain("weeklyGenerateMissingButtonLabel");
     expect(dash).not.toContain("Send all");
     expect(weeklySendButtonLabel(false)).toBe("Send Weekly Text");
   });

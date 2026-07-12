@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   adminCountLabel,
   formatWeeklyEmptyBodyPanelCopy,
+  formatWeeklyGenerateMissingSummaryToast,
   formatWeeklyGenerateSuccessToast,
   isWeeklyManualSendEligible,
   isWeeklySendBusy,
@@ -14,9 +15,13 @@ import {
   rowStateLabel,
   tylerTextOverviewNavPages,
   weeklyGenerateButtonLabel,
+  weeklyGenerateMissingButtonLabel,
   weeklySendButtonLabel,
   WEEKLY_TTO_AUTHORITY_BANNER,
   WEEKLY_TTO_FOOTER_AT_SEND_COPY,
+  WEEKLY_TTO_GENERATE_MISSING_CONFIRM_COPY,
+  WEEKLY_TTO_GENERATE_MISSING_CONFIRM_TITLE,
+  WEEKLY_TTO_GENERATE_MISSING_HELP_COPY,
   WEEKLY_TTO_MANUAL_SEND_NOTE,
   WEEKLY_TTO_NEXT_CUTOVER_COPY,
   WEEKLY_TTO_REGENERATE_OVERWRITE_COPY,
@@ -91,6 +96,8 @@ export default function TylerTextOverviewWeeklyDashboard() {
   const [loading, setLoading] = useState(true);
   const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
   const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
+  const [generatingMissingAll, setGeneratingMissingAll] = useState(false);
+  const [confirmGenerateMissing, setConfirmGenerateMissing] = useState(false);
   const [sendingDraftId, setSendingDraftId] = useState<string | null>(null);
   const [confirmSendRow, setConfirmSendRow] = useState<TylerTextOverviewAdminDraftRow | null>(
     null
@@ -219,6 +226,42 @@ export default function TylerTextOverviewWeeklyDashboard() {
     }
   }
 
+  async function generateMissingWeeklyDrafts() {
+    setConfirmGenerateMissing(false);
+    setGeneratingMissingAll(true);
+    try {
+      const res = await fetch("/api/admin/tyler-text-overview/weekly-generate-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "missing_only" }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        showToast(json.error || "Generate missing weekly drafts failed.");
+        return;
+      }
+      showToast(
+        formatWeeklyGenerateMissingSummaryToast({
+          generated: Number(json.generated) || 0,
+          skippedExistingCurrent: Number(json.skipped_existing_current) || 0,
+          skippedSent: Number(json.skipped_sent) || 0,
+          skippedAlreadyWeeklyEvent: Number(json.skipped_already_weekly_event) || 0,
+          failed: Number(json.failed) || 0,
+        })
+      );
+      const errorsPreview = Array.isArray(json.errors_preview) ? json.errors_preview : [];
+      if (errorsPreview.length > 0) {
+        console.warn("[Weekly TTO] generate-missing errors_preview", errorsPreview);
+      }
+      await load(selectedDayKey, searchQuery);
+    } catch (err) {
+      console.error("Failed to generate missing weekly drafts", err);
+      showToast("Generate missing weekly drafts failed.");
+    } finally {
+      setGeneratingMissingAll(false);
+    }
+  }
+
   async function sendWeeklyDraft(row: TylerTextOverviewAdminDraftRow) {
     if (!row.draftId) return;
     setSendingDraftId(row.draftId);
@@ -259,6 +302,43 @@ export default function TylerTextOverviewWeeklyDashboard() {
 
   return (
     <div className="space-y-6">
+      {confirmGenerateMissing ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="weekly-generate-missing-confirm-title"
+        >
+          <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-lg space-y-4">
+            <h2
+              id="weekly-generate-missing-confirm-title"
+              className="text-lg font-semibold text-gray-900"
+            >
+              {WEEKLY_TTO_GENERATE_MISSING_CONFIRM_TITLE}
+            </h2>
+            <p className="text-sm text-gray-700">{WEEKLY_TTO_GENERATE_MISSING_CONFIRM_COPY}</p>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900"
+                onClick={() => setConfirmGenerateMissing(false)}
+                disabled={generatingMissingAll}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded border border-gray-900 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
+                disabled={generatingMissingAll}
+                onClick={() => generateMissingWeeklyDrafts()}
+              >
+                {weeklyGenerateMissingButtonLabel(generatingMissingAll)}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {confirmSendRow ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -336,6 +416,20 @@ export default function TylerTextOverviewWeeklyDashboard() {
           </Link>
         ))}
       </nav>
+
+      <div className="rounded-md border border-gray-200 bg-white px-4 py-3 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="rounded border border-gray-900 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
+            disabled={generatingMissingAll || Boolean(generatingUserId) || loading}
+            onClick={() => setConfirmGenerateMissing(true)}
+          >
+            {weeklyGenerateMissingButtonLabel(generatingMissingAll)}
+          </button>
+        </div>
+        <p className="text-sm text-gray-700">{WEEKLY_TTO_GENERATE_MISSING_HELP_COPY}</p>
+      </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm text-gray-700">
