@@ -9,6 +9,7 @@ import {
   WEEKLY_TTO_NEXT_CUTOVER_COPY,
   formatWeeklyGenerateSuccessToast,
   weeklyGenerateButtonLabel,
+  weeklySendButtonLabel,
   resolveTylerTextOverviewRootRedirectPath,
   rowStateLabel,
 } from "@/lib/tyler-text-overview-dashboard-copy";
@@ -119,9 +120,9 @@ describe("weekly page / copy", () => {
   });
 
   it("banner and next-cutover copy required", () => {
-    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("does not send yet");
-    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("/api/cron/weekly-sms");
-    expect(WEEKLY_TTO_NEXT_CUTOVER_COPY).toContain("manual one-row weekly send");
+    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("manual one-row send");
+    expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("/api/cron/weekly-sms is not cut over yet");
+    expect(WEEKLY_TTO_NEXT_CUTOVER_COPY).toContain("draft-authoritative");
     const dash = readFileSync(
       join(REPO, "src/app/admin/tyler-text-overview/tyler-text-overview-weekly-dashboard.tsx"),
       "utf8"
@@ -130,13 +131,16 @@ describe("weekly page / copy", () => {
     expect(dash).toContain("WEEKLY_TTO_NEXT_CUTOVER_COPY");
   });
 
-  it("has no Send Weekly Text button", () => {
+  it("has Send Weekly Text for manual one-row send", () => {
     const dash = readFileSync(
       join(REPO, "src/app/admin/tyler-text-overview/tyler-text-overview-weekly-dashboard.tsx"),
       "utf8"
     );
-    expect(dash).not.toContain("Send Weekly Text");
-    expect(dash).not.toContain("weekly-send");
+    expect(dash).toContain("weeklySendButtonLabel");
+    expect(dash).toContain("weekly-send");
+    expect(dash).toContain("isWeeklyManualSendEligible");
+    expect(dash).not.toContain("Send all");
+    expect(weeklySendButtonLabel(false)).toBe("Send Weekly Text");
   });
 
   it("weekly generate labels are weekly-specific", () => {

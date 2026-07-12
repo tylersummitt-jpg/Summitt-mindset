@@ -36,13 +36,21 @@ export const EVENING_TTO_NO_BODY_GENERATED_COPY = "No evening text body generate
 export const EVENING_TTO_NOT_SENDABLE_LABEL = "Not sendable";
 
 export const WEEKLY_TTO_AUTHORITY_BANNER =
-  "Weekly TTO drafts are the future authority for weekly SMS, but this page does not send yet. The existing /api/cron/weekly-sms live send path is not changed by this slice. Do not assume weekly drafts are live until the send cutover is completed.";
+  "Weekly TTO now supports manual one-row send. Existing /api/cron/weekly-sms is not cut over yet. Manual send will use this saved draft body and reserve sms_weekly_send_events for this user/week.";
 
 export const WEEKLY_TTO_NEXT_CUTOVER_COPY =
-  "Next cutover step: manual one-row weekly send, then weekly-sms cron becomes draft-authoritative.";
+  "Next cutover step: make /api/cron/weekly-sms draft-authoritative using Weekly TTO. Cron still live-builds today.";
 
 export const WEEKLY_TTO_SAVE_ONLY_COPY =
   "Save updates the draft only. It does not send.";
+
+export const WEEKLY_TTO_SAVE_BEFORE_SEND_COPY = "Save changes before sending.";
+
+export const WEEKLY_TTO_MANUAL_SEND_NOTE =
+  "Manual send uses this saved Weekly TTO body. It does not change the weekly cron yet.";
+
+export const WEEKLY_TTO_FOOTER_AT_SEND_COPY =
+  "STOP/HELP footer will be added at send-time.";
 
 export const WEEKLY_TTO_REGENERATE_OVERWRITE_COPY =
   "Regenerate may replace saved edits.";
@@ -50,7 +58,6 @@ export const WEEKLY_TTO_REGENERATE_OVERWRITE_COPY =
 export const WEEKLY_TTO_NO_BODY_GENERATED_COPY = "No weekly text body generated.";
 
 export const WEEKLY_TTO_NOT_SENDABLE_LABEL = "Not sendable";
-
 export type TylerTextOverviewDashboardSendSlot =
   | typeof SMS_DAILY_PRODUCTION_SEND_SLOT
   | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
@@ -82,10 +89,46 @@ export function isEveningSendBusy(args: {
   return args.sendingDraftId === draftId;
 }
 
+export function isWeeklySendBusy(args: {
+  draftId: string | null | undefined;
+  sendingDraftId: string | null | undefined;
+}): boolean {
+  const draftId = args.draftId?.trim() ?? "";
+  if (!draftId) return false;
+  return args.sendingDraftId === draftId;
+}
+
 export function eveningSendButtonLabel(isSending: boolean): string {
   return isSending ? "Sending…" : "Send Evening Text";
 }
 
+export function weeklySendButtonLabel(isSending: boolean): string {
+  return isSending ? "Sending Weekly Text…" : "Send Weekly Text";
+}
+
+/**
+ * Eligible for Weekly TTO manual one-row send (UI gate; server re-checks authority).
+ */
+export function isWeeklyManualSendEligible(args: {
+  rowState: TylerTextOverviewRowState | null | undefined;
+  draftStatus: string | null | undefined;
+  sendSlot: string | null | undefined;
+  draftId: string | null | undefined;
+  currentBodyToSend: string | null | undefined;
+  machineShouldSend: boolean | null | undefined;
+  dirty: boolean;
+  sending: boolean;
+}): boolean {
+  if (args.rowState !== "draft_current") return false;
+  if (args.draftStatus !== "current") return false;
+  if (args.sendSlot !== SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT) return false;
+  if (!args.draftId?.trim()) return false;
+  if (!(args.currentBodyToSend?.trim() ?? "")) return false;
+  if (args.machineShouldSend !== true) return false;
+  if (args.dirty) return false;
+  if (args.sending) return false;
+  return true;
+}
 export function eveningGenerateButtonLabel(args: {
   isGenerating: boolean;
   hasPreview: boolean;

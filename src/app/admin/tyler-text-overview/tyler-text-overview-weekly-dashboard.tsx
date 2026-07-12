@@ -8,13 +8,19 @@ import {
   adminCountLabel,
   formatWeeklyEmptyBodyPanelCopy,
   formatWeeklyGenerateSuccessToast,
+  isWeeklyManualSendEligible,
+  isWeeklySendBusy,
   resolveWeeklyTtoInitialSelectedDayKey,
   rowStateLabel,
   tylerTextOverviewNavPages,
   weeklyGenerateButtonLabel,
+  weeklySendButtonLabel,
   WEEKLY_TTO_AUTHORITY_BANNER,
+  WEEKLY_TTO_FOOTER_AT_SEND_COPY,
+  WEEKLY_TTO_MANUAL_SEND_NOTE,
   WEEKLY_TTO_NEXT_CUTOVER_COPY,
   WEEKLY_TTO_REGENERATE_OVERWRITE_COPY,
+  WEEKLY_TTO_SAVE_BEFORE_SEND_COPY,
   WEEKLY_TTO_SAVE_ONLY_COPY,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
@@ -47,12 +53,17 @@ function formatOptional(value: string | null | undefined): string {
   return t ? t : "—";
 }
 
+function isWeeklyDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
+  return row.rowState === "draft_sent" || row.draftStatus === "sent";
+}
+
 function canEditWeeklyDraft(row: TylerTextOverviewAdminDraftRow): boolean {
   return (
     row.rowState === "draft_current" &&
     row.draftStatus === "current" &&
     Boolean(row.draftId) &&
-    row.sendSlot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT
+    row.sendSlot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT &&
+    !isWeeklyDraftSent(row)
   );
 }
 
@@ -80,6 +91,10 @@ export default function TylerTextOverviewWeeklyDashboard() {
   const [loading, setLoading] = useState(true);
   const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
   const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
+  const [sendingDraftId, setSendingDraftId] = useState<string | null>(null);
+  const [confirmSendRow, setConfirmSendRow] = useState<TylerTextOverviewAdminDraftRow | null>(
+    null
+  );
   const [toast, setToast] = useState<string | null>(null);
 
   function showToast(message: string) {
@@ -170,6 +185,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
 
   async function generateWeeklyDraft(row: TylerTextOverviewAdminDraftRow) {
     if (!row.clerkUserId?.trim()) return;
+    if (isWeeklyDraftSent(row)) return;
     if (canEditWeeklyDraft(row) && isWeeklyDraftDirty(row, edits)) {
       showToast("Save or discard edits before regenerating.");
       return;
@@ -203,6 +219,34 @@ export default function TylerTextOverviewWeeklyDashboard() {
     }
   }
 
+  async function sendWeeklyDraft(row: TylerTextOverviewAdminDraftRow) {
+    if (!row.draftId) return;
+    setSendingDraftId(row.draftId);
+    setConfirmSendRow(null);
+    try {
+      const res = await fetch("/api/admin/tyler-text-overview/weekly-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_id: row.draftId,
+          ...(row.weekKey?.trim() ? { week_key: row.weekKey.trim() } : {}),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        showToast(json.message || json.error || json.refusalCode || "Weekly send failed.");
+        return;
+      }
+      showToast("Weekly text sent.");
+      await load(selectedDayKey, searchQuery);
+    } catch (err) {
+      console.error("Failed to send weekly draft", err);
+      showToast("Weekly send failed.");
+    } finally {
+      setSendingDraftId(null);
+    }
+  }
+
   const dayFilterOptions = (() => {
     const keys = [...availableDayKeys];
     const selected = selectedDayKey.trim();
@@ -215,6 +259,62 @@ export default function TylerTextOverviewWeeklyDashboard() {
 
   return (
     <div className="space-y-6">
+      {confirmSendRow ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="weekly-send-confirm-title"
+        >
+          <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-lg space-y-4">
+            <h2 id="weekly-send-confirm-title" className="text-lg font-semibold text-gray-900">
+              Send weekly text?
+            </h2>
+            <p className="text-sm text-gray-700">
+              Send this saved Weekly TTO draft to{" "}
+              <span className="font-mono">{confirmSendRow.clerkUserId}</span>
+              {confirmSendRow.weekKey?.trim() ? (
+                <>
+                  {" "}
+                  for <span className="font-mono">{confirmSendRow.weekKey}</span>
+                </>
+              ) : null}
+              ? This sends a real SMS via Twilio. It cannot be unsent.
+            </p>
+            <p className="text-sm text-gray-700">{WEEKLY_TTO_MANUAL_SEND_NOTE}</p>
+            <p className="text-sm font-medium text-gray-800">{WEEKLY_TTO_FOOTER_AT_SEND_COPY}</p>
+            <pre className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap">
+              {confirmSendRow.currentBodyToSend ?? "—"}
+            </pre>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900"
+                onClick={() => setConfirmSendRow(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                disabled={isWeeklySendBusy({
+                  draftId: confirmSendRow.draftId,
+                  sendingDraftId,
+                })}
+                onClick={() => sendWeeklyDraft(confirmSendRow)}
+              >
+                {weeklySendButtonLabel(
+                  isWeeklySendBusy({
+                    draftId: confirmSendRow.draftId,
+                    sendingDraftId,
+                  })
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {toast ? (
         <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
           {toast}
@@ -285,13 +385,32 @@ export default function TylerTextOverviewWeeklyDashboard() {
       ) : (
         <ul className="space-y-8">
           {rows.map((row) => {
+            const sent = isWeeklyDraftSent(row);
             const editable = canEditWeeklyDraft(row);
             const dirty = editable && isWeeklyDraftDirty(row, edits);
             const isGenerating =
               Boolean(row.clerkUserId?.trim()) && generatingUserId === row.clerkUserId;
+            const isSending = isWeeklySendBusy({
+              draftId: row.draftId,
+              sendingDraftId,
+            });
+            const canSend = isWeeklyManualSendEligible({
+              rowState: row.rowState,
+              draftStatus: row.draftStatus,
+              sendSlot: row.sendSlot,
+              draftId: row.draftId,
+              currentBodyToSend: row.currentBodyToSend,
+              machineShouldSend: row.machineShouldSend,
+              dirty,
+              sending: isSending,
+            });
             const hasDraft = row.rowState !== "no_draft_yet";
+            const readOnlyBody =
+              sent && row.finalBodySent?.trim()
+                ? row.finalBodySent
+                : row.currentBodyToSend;
             const emptyCopy =
-              !(row.currentBodyToSend?.trim() || (row.draftId ? edits[row.draftId]?.trim() : ""))
+              !(readOnlyBody?.trim() || (row.draftId ? edits[row.draftId]?.trim() : ""))
                 ? row.rowState === "no_draft_yet"
                   ? { primary: "No weekly draft yet.", secondary: null }
                   : formatWeeklyEmptyBodyPanelCopy({
@@ -312,9 +431,15 @@ export default function TylerTextOverviewWeeklyDashboard() {
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
                       {rowStateLabel(row.rowState, sendSlot)}
                     </span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800">
-                      weekly_review · DRAFT ONLY
-                    </span>
+                    {sent ? (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
+                        SENT
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800">
+                        weekly_review · MANUAL SEND
+                      </span>
+                    )}
                   </div>
                   {row.preferredName ? (
                     <div>
@@ -358,7 +483,9 @@ export default function TylerTextOverviewWeeklyDashboard() {
                   </dl>
 
                   <div>
-                    <p className="text-xs font-medium text-gray-500">current_body_to_send</p>
+                    <p className="text-xs font-medium text-gray-500">
+                      {sent ? "final_body_sent / current_body_to_send" : "current_body_to_send"}
+                    </p>
                     {!editable ? (
                       emptyCopy ? (
                         <div className="mt-1 w-full min-h-[96px] rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600 space-y-1">
@@ -371,7 +498,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
                         </div>
                       ) : (
                         <pre className="mt-1 w-full min-h-[96px] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap">
-                          {row.currentBodyToSend ?? "—"}
+                          {readOnlyBody ?? "—"}
                         </pre>
                       )
                     ) : (
@@ -387,9 +514,10 @@ export default function TylerTextOverviewWeeklyDashboard() {
                           }
                         />
                         <p className="mt-1 text-xs text-gray-600">{WEEKLY_TTO_SAVE_ONLY_COPY}</p>
+                        <p className="mt-1 text-xs text-gray-600">{WEEKLY_TTO_MANUAL_SEND_NOTE}</p>
                         {dirty ? (
                           <p className="mt-1 text-xs font-medium text-amber-800">
-                            Unsaved edits — save before regenerating.
+                            {WEEKLY_TTO_SAVE_BEFORE_SEND_COPY}
                           </p>
                         ) : null}
                         <button
@@ -404,12 +532,30 @@ export default function TylerTextOverviewWeeklyDashboard() {
                     )}
                   </div>
 
-                  {row.clerkUserId?.trim() ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canSend ? (
+                      <button
+                        type="button"
+                        className="rounded bg-emerald-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                        disabled={isSending}
+                        onClick={() => setConfirmSendRow(row)}
+                      >
+                        {weeklySendButtonLabel(isSending)}
+                      </button>
+                    ) : null}
+                    {editable && dirty ? (
+                      <p className="text-xs font-medium text-amber-800">
+                        {WEEKLY_TTO_SAVE_BEFORE_SEND_COPY}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {row.clerkUserId?.trim() && !sent ? (
                     <div className="space-y-1">
                       <button
                         type="button"
                         className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                        disabled={isGenerating || dirty}
+                        disabled={isGenerating || dirty || isSending}
                         onClick={() => generateWeeklyDraft(row)}
                       >
                         {weeklyGenerateButtonLabel({
