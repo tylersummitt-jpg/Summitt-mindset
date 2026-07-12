@@ -1,9 +1,7 @@
-import { clerkSendHourFromPreference } from "@/lib/daily-sms-scheduling";
 import { dayKeyOffset } from "@/lib/sms-temporal-contract-v1";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 import {
   getLocalHourInTimezone,
-  shouldUseLearnedSendTimeGate,
   type V2UserSendTimeProfileRow,
 } from "@/lib/v2-send-time-profile";
 import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
@@ -11,52 +9,22 @@ import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preference
 export type ResolveTylerTextOverviewDraftForDayKeyArgs = {
   now: Date;
   timezone: string;
+  /**
+   * Kept for call-site compatibility. Morning TTO day-key no longer branches on
+   * legacy evening-style send preference — evening_checkin uses a separate helper.
+   */
   clerkSmsTimePreference: string;
   commsPrefs: V2UserSmsCommsPreferencesRow | null;
   learnedProfile: V2UserSendTimeProfileRow | null;
 };
 
+/** Morning TTO / noon generate: roll to tomorrow from this local hour onward. */
 const MORNING_ROLLOVER_LOCAL_HOUR = 11;
-const EVENING_ROLLOVER_LOCAL_HOUR = 22;
-
-export function isTylerTextOverviewEveningStyleSendUser(
-  args: Pick<
-    ResolveTylerTextOverviewDraftForDayKeyArgs,
-    "clerkSmsTimePreference" | "commsPrefs" | "learnedProfile"
-  >
-): boolean {
-  const window = args.commsPrefs?.preferred_send_window;
-  if (window === "evening" || window === "midday" || window === "afternoon") {
-    return true;
-  }
-
-  const explicitHour = args.commsPrefs?.preferred_local_hour;
-  if (explicitHour != null && explicitHour >= 17) {
-    return true;
-  }
-
-  const clerkHour = clerkSendHourFromPreference(args.clerkSmsTimePreference);
-  if (clerkHour >= 17) {
-    return true;
-  }
-
-  const learned = args.learnedProfile;
-  if (learned && shouldUseLearnedSendTimeGate(learned)) {
-    const learnedWindow = learned.preferred_window;
-    if (
-      learnedWindow === "evening" ||
-      learnedWindow === "midday" ||
-      learnedWindow === "afternoon"
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 /**
- * Per-user accountability day key for Tyler Text Overview noon draft generation.
+ * Per-user accountability day key for Tyler Text Overview morning draft generation.
+ * Always uses morning-style rollover (local hour ≥ 11 → tomorrow).
+ * Legacy evening/midday send preferences must not change Morning TTO day-key.
  * Must match the key passed to buildDailySmsContent for that preview.
  */
 export function resolveTylerTextOverviewDraftForDayKey(
@@ -64,12 +32,8 @@ export function resolveTylerTextOverviewDraftForDayKey(
 ): string {
   const todayKey = getDateKeyInTimezone(args.now, args.timezone);
   const localHour = getLocalHourInTimezone(args.now, args.timezone);
-  const eveningUser = isTylerTextOverviewEveningStyleSendUser(args);
-  const rolloverHour = eveningUser
-    ? EVENING_ROLLOVER_LOCAL_HOUR
-    : MORNING_ROLLOVER_LOCAL_HOUR;
 
-  if (localHour >= rolloverHour) {
+  if (localHour >= MORNING_ROLLOVER_LOCAL_HOUR) {
     return dayKeyOffset(todayKey, 1);
   }
   return todayKey;

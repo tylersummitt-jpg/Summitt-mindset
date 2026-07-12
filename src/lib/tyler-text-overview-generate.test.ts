@@ -6,7 +6,6 @@ import { buildWriterOpenAiCapture } from "@/lib/tyler-text-overview-writer-captu
 import {
   resolveTylerTextOverviewDraftForDayKey,
   resolveTylerTextOverviewEveningDraftForDayKey,
-  isTylerTextOverviewEveningStyleSendUser,
 } from "@/lib/tyler-text-overview-draft-day-key";
 import {
   mapBuiltToTylerTextOverviewGenerationRow,
@@ -393,27 +392,42 @@ describe("resolveTylerTextOverviewDraftForDayKey", () => {
     expect(key).toBe("2026-07-03");
   });
 
-  it("evening user before 22 local → today", () => {
-    expect(
-      isTylerTextOverviewEveningStyleSendUser({
-        clerkSmsTimePreference: "evening",
-        commsPrefs: null,
-        learnedProfile: null,
-      })
-    ).toBe(true);
+  it("legacy evening-style at 8:30 PM ET July 11 → Morning TTO day 2026-07-12", () => {
     const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-02T21:00:00.000Z"), // 17:00 ET
+      now: new Date("2026-07-12T00:30:00.000Z"), // 8:30 PM ET July 11
       timezone: "America/New_York",
       clerkSmsTimePreference: "evening",
       commsPrefs: { preferred_send_window: "evening" } as never,
       learnedProfile: null,
     });
-    expect(key).toBe("2026-07-02");
+    expect(key).toBe("2026-07-12");
   });
 
-  it("evening user after 22 local → tomorrow", () => {
+  it("morning-style at 8:30 PM ET July 11 → Morning TTO day 2026-07-12", () => {
     const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-03T02:30:00.000Z"), // 22:30 ET on July 2
+      now: new Date("2026-07-12T00:30:00.000Z"), // 8:30 PM ET July 11
+      timezone: "America/New_York",
+      clerkSmsTimePreference: "morning",
+      commsPrefs: null,
+      learnedProfile: null,
+    });
+    expect(key).toBe("2026-07-12");
+  });
+
+  it("legacy evening-style before morning rollover (8 AM local) → today", () => {
+    const key = resolveTylerTextOverviewDraftForDayKey({
+      now: new Date("2026-07-11T12:00:00.000Z"), // 8:00 AM ET July 11
+      timezone: "America/New_York",
+      clerkSmsTimePreference: "evening",
+      commsPrefs: { preferred_send_window: "evening" } as never,
+      learnedProfile: null,
+    });
+    expect(key).toBe("2026-07-11");
+  });
+
+  it("legacy evening-style no longer stays on today until 22:00", () => {
+    const key = resolveTylerTextOverviewDraftForDayKey({
+      now: new Date("2026-07-02T21:00:00.000Z"), // 17:00 ET
       timezone: "America/New_York",
       clerkSmsTimePreference: "evening",
       commsPrefs: { preferred_send_window: "evening" } as never,
@@ -443,7 +457,15 @@ describe("resolveTylerTextOverviewEveningDraftForDayKey", () => {
     expect(key).toBe("2026-07-09");
   });
 
-  it("morning noon helper still rolls morning-style users to tomorrow at 8 PM ET", () => {
+  it("8:30 PM ET July 11 → evening_checkin stays 2026-07-11", () => {
+    const key = resolveTylerTextOverviewEveningDraftForDayKey({
+      now: new Date("2026-07-12T00:30:00.000Z"), // 8:30 PM ET July 11
+      timezone: "America/New_York",
+    });
+    expect(key).toBe("2026-07-11");
+  });
+
+  it("morning noon helper rolls all users to tomorrow at 8 PM ET (including legacy evening)", () => {
     const morningKey = resolveTylerTextOverviewDraftForDayKey({
       now: new Date("2026-07-10T00:00:00.000Z"), // 8:00 PM ET July 9
       timezone: "America/New_York",
@@ -452,6 +474,15 @@ describe("resolveTylerTextOverviewEveningDraftForDayKey", () => {
       learnedProfile: null,
     });
     expect(morningKey).toBe("2026-07-10");
+
+    const legacyEveningKey = resolveTylerTextOverviewDraftForDayKey({
+      now: new Date("2026-07-10T00:00:00.000Z"),
+      timezone: "America/New_York",
+      clerkSmsTimePreference: "evening",
+      commsPrefs: { preferred_send_window: "evening" } as never,
+      learnedProfile: null,
+    });
+    expect(legacyEveningKey).toBe("2026-07-10");
   });
 });
 
@@ -733,6 +764,22 @@ describe("generateTylerTextOverviewDraftForUser direct", () => {
     expect(threadMemoryMock).not.toHaveBeenCalled();
     expect(checkSentInsertMock).not.toHaveBeenCalled();
     expect(db.v2EventWrites).toBe(0);
+  });
+
+  it("legacy evening preference at 8:30 PM ET July 11 uses Morning TTO day 2026-07-12", async () => {
+    setupHappyPath();
+    getClerkUserMock.mockResolvedValue({
+      public_metadata: { timezone: "America/New_York", smsTimePreference: "evening" },
+    });
+    fetchCommsMock.mockResolvedValue({ preferred_send_window: "evening" });
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-12T00:30:00.000Z"), // 8:30 PM ET July 11
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draftForDayKey).toBe("2026-07-12");
+    expect(db.drafts[0]?.draft_for_day_key).toBe("2026-07-12");
   });
 });
 
