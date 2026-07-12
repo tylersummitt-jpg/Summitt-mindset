@@ -922,4 +922,41 @@ describe("inbound thread_window writer-facing actual SMS", () => {
       false
     );
   });
+
+  it("E: thread_window includes more than 6 messages and caps at 20", () => {
+    const messages = [];
+    for (let i = 0; i < 24; i++) {
+      messages.push(
+        threadMsg({
+          at: `2026-06-15T${String(10 + Math.floor(i / 60)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}:00.000Z`,
+          at_local: `2026-06-15T0${i % 10}:00:00`,
+          role: i % 2 === 0 ? "coach" : "user",
+          body: `Window line ${i}`,
+          source_table: i % 2 === 0 ? "sms_send_events" : "sms_inbound_messages",
+          delivery_status: "sent",
+          message_sid: `SM_W_${i}`,
+          delivery_evidence: i % 2 === 0 ? "message_sid_present" : "inbound_received",
+        })
+      );
+    }
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Window line 23", {
+        thread: {
+          memory_packet: {
+            recent_exact_thread_72h: {
+              window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+              message_count: messages.length,
+              had_preview_messages: false,
+              had_system_no_send: false,
+              messages,
+            },
+          } as InboundV3RelationshipFacts["thread"]["memory_packet"],
+        },
+      }),
+    });
+    expect(brief.thread_window.length).toBeGreaterThan(6);
+    expect(brief.thread_window.length).toBeLessThanOrEqual(20);
+    expect(brief.thread_window.at(-1)?.body).toBe("Window line 23");
+    expect(brief.thread_window[0]?.body).toBe("Window line 4");
+  });
 });

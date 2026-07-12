@@ -29,7 +29,7 @@ import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationshi
 import type { ThreadFreshnessFacts } from "@/lib/sms-thread-freshness";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import { INBOUND_NOTEBOOK_OBSERVABILITY_KEYS } from "@/lib/sms-inbound-notebook-telemetry";
-import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
+import { EXACT_THREAD_WINDOW_HOURS_BY_PATH, RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
   buildDailyTemporalAwarenessPromptGuidance,
   buildRecentThreadTimelineSummary72h,
@@ -206,7 +206,8 @@ export type RelationshipPacketStructuredRecentTruth = {
 };
 
 export type RelationshipPacketRecentExactThread72h = {
-  window_hours: typeof RECENT_EXACT_THREAD_WINDOW_HOURS;
+  /** Actual inclusion window hours (legacy field name; value is not always 72). */
+  window_hours: number;
   messages: RecentExactThread72hMessage[];
   message_count: number;
   had_preview_messages: boolean;
@@ -589,7 +590,7 @@ function resolveRecentThread72hWeekly(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: t72.window_hours ?? EXACT_THREAD_WINDOW_HOURS_BY_PATH.weekly,
         messages: t72.messages,
         message_count: t72.message_count,
         had_preview_messages: t72.had_preview_messages,
@@ -603,7 +604,7 @@ function resolveRecentThread72hWeekly(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: EXACT_THREAD_WINDOW_HOURS_BY_PATH.weekly,
         messages: [],
         message_count: 0,
         had_preview_messages: threadHasPreviewLine(lines),
@@ -618,7 +619,7 @@ function resolveRecentThread72hWeekly(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: EXACT_THREAD_WINDOW_HOURS_BY_PATH.weekly,
         messages: [],
         message_count: 0,
         had_preview_messages: threadHasPreviewLine(lines),
@@ -857,7 +858,7 @@ function resolveRecentThread72hInbound(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: t72.window_hours ?? EXACT_THREAD_WINDOW_HOURS_BY_PATH.inbound,
         messages: t72.messages,
         message_count: t72.message_count,
         had_preview_messages: t72.had_preview_messages,
@@ -871,7 +872,7 @@ function resolveRecentThread72hInbound(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: EXACT_THREAD_WINDOW_HOURS_BY_PATH.inbound,
         messages: [],
         message_count: 0,
         had_preview_messages: threadHasPreviewLine(lines),
@@ -886,7 +887,7 @@ function resolveRecentThread72hInbound(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: EXACT_THREAD_WINDOW_HOURS_BY_PATH.inbound,
         messages: [],
         message_count: 0,
         had_preview_messages: threadHasPreviewLine(lines),
@@ -907,7 +908,7 @@ function resolveRecentThread72hDaily(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: t72.window_hours ?? EXACT_THREAD_WINDOW_HOURS_BY_PATH.daily,
         messages: t72.messages,
         message_count: t72.message_count,
         had_preview_messages: t72.had_preview_messages,
@@ -921,7 +922,7 @@ function resolveRecentThread72hDaily(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: EXACT_THREAD_WINDOW_HOURS_BY_PATH.daily,
         messages: [],
         message_count: 0,
         had_preview_messages: threadHasPreviewLine(lines),
@@ -937,7 +938,7 @@ function resolveRecentThread72hDaily(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+        window_hours: EXACT_THREAD_WINDOW_HOURS_BY_PATH.daily,
         messages: [],
         message_count: 0,
         had_preview_messages: threadHasPreviewLine(lines),
@@ -1552,7 +1553,7 @@ export function buildRelationshipPacketForOpenAI(args: {
     relationship_packet_truncated: truncatedSections.length > 0 || size > budget,
     truncated_sections: truncatedSections,
     included_thread_message_count: threadCount,
-    included_thread_window_hours: threadSection ? RECENT_EXACT_THREAD_WINDOW_HOURS : null,
+    included_thread_window_hours: threadSection ? threadSection.window_hours : null,
     included_thread_oldest_at:
       threadSection?.messages[0]?.at ?? null,
     included_thread_newest_at:

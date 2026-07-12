@@ -418,12 +418,12 @@ describe("buildRecentExactThread72h", () => {
     expect(result.messages.every((m, i, arr) => i === 0 || arr[i - 1]!.at <= m.at)).toBe(true);
   });
 
-  it("excludes messages older than 72 hours", async () => {
+  it("excludes messages older than 7 days", async () => {
     setupSupabaseTables({
       sendRows: [
         {
           sms_body: "Old daily",
-          created_at: "2026-05-10T11:00:00.000Z",
+          created_at: "2026-05-01T11:00:00.000Z",
           status: "sent",
           message_sid: "SM_OLD",
         },
@@ -440,10 +440,60 @@ describe("buildRecentExactThread72h", () => {
       clerkUserId: "user_1",
       timezone: TZ,
       now: NOW,
+      path: "inbound",
     });
 
     expect(result.messages.some((m) => m.body.includes("Old daily"))).toBe(false);
     expect(result.messages.some((m) => m.body.includes("Recent daily"))).toBe(true);
+    expect(result.window_hours).toBe(168);
+  });
+
+  it("A: daily/inbound path includes messages older than 72h within 7d", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          sms_body: "FOUR_DAY_OLD_WITHIN_7D",
+          created_at: "2026-05-14T12:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_4D",
+          sent_at: "2026-05-14T12:00:00.000Z",
+        },
+      ],
+    });
+
+    const result = await buildRecentExactThread72h({
+      clerkUserId: "user_1",
+      timezone: TZ,
+      now: NOW,
+      path: "daily",
+    });
+
+    expect(result.window_hours).toBe(168);
+    expect(result.messages.some((m) => m.body.includes("FOUR_DAY_OLD_WITHIN_7D"))).toBe(true);
+  });
+
+  it("C: weekly path includes messages older than 72h within 10d", async () => {
+    setupSupabaseTables({
+      weeklyRows: [
+        {
+          sms_body: "EIGHT_DAY_OLD_WEEKLY",
+          created_at: "2026-05-10T12:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_8D_WEEKLY",
+          sent_at: "2026-05-10T12:00:00.000Z",
+        },
+      ],
+    });
+
+    const result = await buildRecentExactThread72h({
+      clerkUserId: "user_1",
+      timezone: TZ,
+      now: NOW,
+      path: "weekly",
+    });
+
+    expect(result.window_hours).toBe(240);
+    expect(result.messages.some((m) => m.body.includes("EIGHT_DAY_OLD_WEEKLY"))).toBe(true);
   });
 
   it("prefers exact sent coach body over check_sent preview", async () => {
@@ -752,26 +802,47 @@ describe("capThreadMessagesForBrief", () => {
     expect(capped.messages[capped.messages.length - 1]?.body).toBe("Floor message 27");
   });
 
-  it("floor plus extension stays within cap and includes extension when room", () => {
+  it("7d floor includes older-than-72h messages and extension_message_count stays 0", () => {
     const nowMs = new Date("2026-06-22T12:00:00.000Z").getTime();
-    const floorMs = nowMs - 24 * 60 * 60 * 1000;
-    const extensionMs = nowMs - 5 * 24 * 60 * 60 * 1000;
+    const within7d = nowMs - 5 * 24 * 60 * 60 * 1000;
     const messages = [
       msg({
-        at: new Date(extensionMs).toISOString(),
+        at: new Date(within7d).toISOString(),
         role: "coach",
-        body: "Thursday CTA extension",
+        body: "Thursday CTA within 7d",
+        message_sid: "SM_THU",
       }),
       msg({
-        at: new Date(floorMs).toISOString(),
+        at: new Date(nowMs - 24 * 60 * 60 * 1000).toISOString(),
         role: "user",
         body: "Recent user reply",
       }),
     ];
     const capped = capThreadMessagesForBriefWithTelemetry(messages, nowMs);
     expect(capped.messages.length).toBeLessThanOrEqual(BRIEF_THREAD_MAX_MESSAGES);
-    expect(capped.extension_message_count).toBeGreaterThan(0);
+    expect(capped.extension_message_count).toBe(0);
+    expect(capped.floor_message_count).toBe(2);
     expect(capped.messages.some((m) => /Thursday CTA/i.test(m.body))).toBe(true);
+  });
+
+  it("B/F: caps preserve newest messages when over message limit", () => {
+    const nowMs = new Date("2026-06-22T12:00:00.000Z").getTime();
+    const messages: RecentExactThread72hMessage[] = [];
+    for (let i = 0; i < 30; i++) {
+      messages.push(
+        msg({
+          at: new Date(nowMs - (30 - i) * 60_000).toISOString(),
+          at_local: `msg ${i}`,
+          role: i % 2 === 0 ? "coach" : "user",
+          body: `Cap msg ${i}`,
+          message_sid: i % 2 === 0 ? `SM_${i}` : null,
+        })
+      );
+    }
+    const capped = capThreadMessagesForBriefWithTelemetry(messages, nowMs);
+    expect(capped.messages).toHaveLength(BRIEF_THREAD_MAX_MESSAGES);
+    expect(capped.messages[0]?.body).toBe("Cap msg 5");
+    expect(capped.messages.at(-1)?.body).toBe("Cap msg 29");
   });
 
   it("oldest/newest telemetry is monotonic and floor plus extension equals message count", () => {

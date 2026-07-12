@@ -2963,6 +2963,7 @@ async function processV2NormalInboundOutcome(
   let inboundRelationshipMemoryPacket: ReturnType<typeof slimMemoryPacketForFacts>;
   try {
     const fullInboundMemoryPacket = await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "inbound",
       clerkUserId: userId,
       commitmentId: commitment.id,
       timezone,
@@ -3359,6 +3360,7 @@ async function processV2NormalInboundOutcome(
 
       const openQuestionMemoryPacket = slimMemoryPacketForFacts(
         await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "inbound",
           clerkUserId: userId,
           commitmentId: commitment.id,
           timezone,
@@ -7593,6 +7595,7 @@ async function processV2BlockerCapture(
   const blockerCoachingMemory = await loadV2CoachingMemoryForPrompt(commitment.id);
   const blockerRelationshipMemoryPacket = slimMemoryPacketForFacts(
     await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "inbound",
       clerkUserId: userId,
       commitmentId: commitment.id,
       timezone,
@@ -8858,6 +8861,7 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
 
   const relationshipMemoryPacket = slimMemoryPacketForFacts(
     await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "inbound",
       clerkUserId: args.userId,
       commitmentId: args.commitment.id,
       timezone: args.timezone,
@@ -11321,6 +11325,7 @@ async function runBlockerPendingPreCaptureGate(args: {
   const [recentEvents, memoryPacket] = await Promise.all([
     getRecentV2EventsForAi(args.commitment.id),
     buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "inbound",
       clerkUserId: args.userId,
       commitmentId: args.commitment.id,
       timezone: args.timezone,

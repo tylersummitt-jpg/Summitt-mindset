@@ -128,7 +128,7 @@ export type InboundReplyBriefV1Log = {
   inbound_phase1_authoritative: boolean;
 };
 
-const THREAD_WINDOW_MAX = 6;
+const THREAD_WINDOW_MAX = 20;
 
 function extractQuestionClause(coachMessage: string): string | null {
   const msg = coachMessage.trim();
@@ -791,6 +791,7 @@ Authority order:
 2. latest_user_message and resolved_truth
 3. reply_strategy.move and reply_strategy.must_not_do / forbidden_moves
 4. question_policy
+5. thread_window (exact SMS continuity — prioritize newest messages)
 
 Rules:
 - Obey route, should_reply, close_loop, and allowed_claims exactly.

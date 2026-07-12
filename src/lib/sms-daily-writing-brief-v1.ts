@@ -1127,6 +1127,7 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
 Use DAILY_SMS_WRITING_BRIEF_V1 for facts and constraints only — not wording. Write one fresh human SMS.
 ${authorityOrder}
+Use recent_exact_thread for continuity, but prioritize the newest messages when deciding what to say next.
 ${morningSlotLine}${eveningSlotLine}Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
 authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, or unsupported temporal claims.
 When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies as stored truth. Do not copy example shapes verbatim.

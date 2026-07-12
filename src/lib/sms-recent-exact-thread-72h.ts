@@ -1,5 +1,6 @@
 /**
- * Relationship Packet v1.6 — true 72-hour exact SMS thread (read-only, no schema).
+ * Exact SMS thread builder for OpenAI writers (read-only, no schema).
+ * Field name recent_exact_thread_72h is legacy; window_hours metadata is authoritative.
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
@@ -7,8 +8,24 @@ import { getRecentV2EventsForAi, type V2EventRowForAi } from "@/lib/v2-commitmen
 import { getLocalDayKeyForTimestamp } from "@/lib/sms-temporal-contract-v1";
 import { resolveUserTimezone } from "@/lib/timezone";
 
-export const RECENT_EXACT_THREAD_WINDOW_HOURS = 72;
+/** Writer path for path-specific exact-thread windows. */
+export type ExactThreadWriterPath = "daily" | "weekly" | "inbound";
+
+export const EXACT_THREAD_WINDOW_HOURS_BY_PATH = {
+  daily: 7 * 24,
+  weekly: 10 * 24,
+  inbound: 7 * 24,
+} as const;
+
+export function exactThreadWindowHoursForPath(path: ExactThreadWriterPath): number {
+  return EXACT_THREAD_WINDOW_HOURS_BY_PATH[path];
+}
+
+/** Default / inbound+daily window hours (legacy export name; value is no longer 72). */
+export const RECENT_EXACT_THREAD_WINDOW_HOURS = EXACT_THREAD_WINDOW_HOURS_BY_PATH.inbound;
 export const RECENT_EXACT_THREAD_WINDOW_MS = RECENT_EXACT_THREAD_WINDOW_HOURS * 60 * 60 * 1000;
+export const WEEKLY_EXACT_THREAD_WINDOW_HOURS = EXACT_THREAD_WINDOW_HOURS_BY_PATH.weekly;
+export const WEEKLY_EXACT_THREAD_WINDOW_MS = WEEKLY_EXACT_THREAD_WINDOW_HOURS * 60 * 60 * 1000;
 
 export type RecentExactThread72hRole = "coach" | "user" | "system_no_send";
 
@@ -46,7 +63,8 @@ export type RecentExactThread72hMessage = {
 
 export type RecentExactThread72hResult = {
   messages: RecentExactThread72hMessage[];
-  window_hours: typeof RECENT_EXACT_THREAD_WINDOW_HOURS;
+  /** Actual inclusion window in hours (may be 168 daily/inbound or 240 weekly). */
+  window_hours: number;
   message_count: number;
   had_preview_messages: boolean;
   had_system_no_send: boolean;
@@ -836,12 +854,15 @@ function toOutputMessage(entry: TimelineEntry, timezone: string): RecentExactThr
   };
 }
 
-export const BRIEF_THREAD_FLOOR_HOURS = 72;
-export const BRIEF_THREAD_EXTENSION_DAYS = 7;
-export const BRIEF_THREAD_EXTENSION_MS = BRIEF_THREAD_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+/** Daily/evening brief: 7-day exact thread floor (not optional post-72h fill). */
+export const BRIEF_THREAD_FLOOR_HOURS = EXACT_THREAD_WINDOW_HOURS_BY_PATH.daily;
+/** @deprecated Extension fill removed — 7d is the floor. Kept for telemetry compat (always 0). */
+export const BRIEF_THREAD_EXTENSION_DAYS = 0;
+export const BRIEF_THREAD_EXTENSION_MS = BRIEF_THREAD_FLOOR_HOURS * 60 * 60 * 1000;
 export const BRIEF_THREAD_MAX_MESSAGES = 25;
 export const BRIEF_THREAD_MAX_CHARS = 5000;
 export const BRIEF_THREAD_PER_MESSAGE_MAX = 320;
+export const BRIEF_THREAD_WINDOW_MODE = "7d_capped" as const;
 
 export type RecentExactThreadBriefMessage = {
   at_local: string;
@@ -857,7 +878,7 @@ export type RecentExactThreadForBriefResult = {
   window: {
     floor_hours: typeof BRIEF_THREAD_FLOOR_HOURS;
     extension_days: typeof BRIEF_THREAD_EXTENSION_DAYS;
-    mode: "72h_floor_7d_extension_capped";
+    mode: typeof BRIEF_THREAD_WINDOW_MODE;
   };
   messages: RecentExactThreadBriefMessage[];
   message_count: number;
@@ -877,6 +898,10 @@ export type BuildRecentExactThreadArgs = {
   now?: Date;
   includeSystemNoSend?: boolean;
   preloadedCheckSentEvents?: V2EventRowForAi[];
+  /** Path-specific window (daily 7d / weekly 10d / inbound 7d). */
+  path?: ExactThreadWriterPath;
+  /** Override hours when set (takes precedence over path). */
+  windowHours?: number;
 };
 
 function isWriterFacingThreadMessage(m: RecentExactThread72hMessage): boolean {
@@ -992,31 +1017,23 @@ function collectWriterFacingItems(
     if (!isWriterFacingThreadMessage(m)) continue;
     const ts = Date.parse(m.at);
     if (!Number.isFinite(ts)) continue;
-    items.push({ msg: m, ts, isFloor: ts >= floorMs });
+    // 7d is the floor — only include messages inside the window.
+    if (ts < floorMs) continue;
+    items.push({ msg: m, ts, isFloor: true });
   }
   items.sort((a, b) => a.ts - b.ts);
   return items;
 }
 
-/** Cap writer-facing thread: 72h floor preserved (newest 25), 7d extension until caps. */
+/** Cap writer-facing thread: 7d floor, newest preserved (drop oldest under message/char caps). */
 export function capThreadMessagesForBriefWithTelemetry(
   messages: RecentExactThread72hMessage[],
   nowMs: number
 ): CappedBriefThreadResult {
   const items = collectWriterFacingItems(messages, nowMs);
-  const floorItems = items.filter((i) => i.isFloor);
-  const extensionItems = items.filter((i) => !i.isFloor);
 
   let chosen: BriefCapItem[] =
-    floorItems.length > BRIEF_THREAD_MAX_MESSAGES
-      ? floorItems.slice(-BRIEF_THREAD_MAX_MESSAGES)
-      : [...floorItems];
-
-  if (chosen.length < BRIEF_THREAD_MAX_MESSAGES && extensionItems.length > 0) {
-    const room = BRIEF_THREAD_MAX_MESSAGES - chosen.length;
-    const extCandidates = extensionItems.slice(-room);
-    chosen = [...extCandidates, ...chosen].sort((a, b) => a.ts - b.ts);
-  }
+    items.length > BRIEF_THREAD_MAX_MESSAGES ? items.slice(-BRIEF_THREAD_MAX_MESSAGES) : [...items];
 
   let briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
 
@@ -1038,43 +1055,22 @@ export function capThreadMessagesForBriefWithTelemetry(
     return true;
   };
 
-  const floorCountInChosen = () => chosen.filter((i) => i.isFloor).length;
-  const dropOldestExtension = (): boolean => {
-    const idx = chosen.findIndex((i) => !i.isFloor);
-    if (idx < 0) return false;
-    chosen = [...chosen.slice(0, idx), ...chosen.slice(idx + 1)];
+  const dropOldest = (): boolean => {
+    if (chosen.length <= 1) return false;
+    chosen = chosen.slice(1);
     briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
     return true;
   };
 
   while (briefThreadMessageCharCount(briefMsgs) > BRIEF_THREAD_MAX_CHARS) {
-    if (shrinkLongestCoachBody(floorCountInChosen())) continue;
     if (shrinkLongestCoachBody(0)) continue;
-    if (dropOldestExtension()) continue;
-    if (chosen.length > 1) {
-      chosen = chosen.slice(1);
-      briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
-      continue;
-    }
+    if (dropOldest()) continue;
     break;
   }
 
   while (chosen.length > BRIEF_THREAD_MAX_MESSAGES) {
-    if (dropOldestExtension()) continue;
-    if (chosen.length > 1) {
-      chosen = chosen.slice(1);
-      briefMsgs = chosen.map((i) => toBriefMessage(i.msg));
-      continue;
-    }
+    if (dropOldest()) continue;
     break;
-  }
-
-  const floorMs = nowMs - BRIEF_THREAD_FLOOR_HOURS * 60 * 60 * 1000;
-  let floorCount = 0;
-  let extensionCount = 0;
-  for (const item of chosen) {
-    if (item.ts >= floorMs) floorCount += 1;
-    else extensionCount += 1;
   }
 
   const sourceCounts = countExactAndLastOutboundFromThreadMessages(
@@ -1083,8 +1079,8 @@ export function capThreadMessagesForBriefWithTelemetry(
 
   return {
     messages: briefMsgs,
-    floor_message_count: floorCount,
-    extension_message_count: extensionCount,
+    floor_message_count: chosen.length,
+    extension_message_count: 0,
     oldest_at_local: chosen[0]?.msg.at_local ?? null,
     newest_at_local: chosen[chosen.length - 1]?.msg.at_local ?? null,
     exact_source_message_count: sourceCounts.exact_source_message_count,
@@ -1092,7 +1088,7 @@ export function capThreadMessagesForBriefWithTelemetry(
   };
 }
 
-/** Cap writer-facing thread: 72h floor preserved, 7d extension until message/char caps. */
+/** Cap writer-facing thread: 7d floor, newest preserved under message/char caps. */
 export function capThreadMessagesForBrief(
   messages: RecentExactThread72hMessage[],
   nowMs: number
@@ -1478,10 +1474,7 @@ async function buildRecentExactThreadWithWindowMs(
   const windowHours = Math.round(args.windowMs / (60 * 60 * 1000));
   return {
     messages,
-    window_hours:
-      windowHours === RECENT_EXACT_THREAD_WINDOW_HOURS
-        ? RECENT_EXACT_THREAD_WINDOW_HOURS
-        : (windowHours as typeof RECENT_EXACT_THREAD_WINDOW_HOURS),
+    window_hours: windowHours,
     message_count: messages.length,
     had_preview_messages: messages.some((m) => m.delivery_status === "preview"),
     had_system_no_send: messages.some((m) => m.role === "system_no_send"),
@@ -1490,13 +1483,24 @@ async function buildRecentExactThreadWithWindowMs(
   };
 }
 
+function resolveExactThreadWindowMs(args: BuildRecentExactThreadArgs): number {
+  if (typeof args.windowHours === "number" && Number.isFinite(args.windowHours) && args.windowHours > 0) {
+    return args.windowHours * 60 * 60 * 1000;
+  }
+  if (args.path) {
+    return exactThreadWindowHoursForPath(args.path) * 60 * 60 * 1000;
+  }
+  return RECENT_EXACT_THREAD_WINDOW_MS;
+}
+
 export async function buildRecentExactThread72h(
   args: BuildRecentExactThreadArgs
 ): Promise<RecentExactThread72hResult> {
   const stats = new ThreadBuildStats();
+  const windowMs = resolveExactThreadWindowMs(args);
   const result = await buildRecentExactThreadWithWindowMs({
     ...args,
-    windowMs: RECENT_EXACT_THREAD_WINDOW_MS,
+    windowMs,
     stats,
   });
   // Weekly + inbound packet consumers use this result as writer-facing thread.
@@ -1511,7 +1515,7 @@ export async function buildRecentExactThread72h(
   };
 }
 
-/** 7d fetch + 72h floor / capped extension for DailySmsWritingBriefV1. */
+/** 7d exact thread + capped newest-preserving selection for DailySmsWritingBriefV1. */
 export async function buildRecentExactThreadForBrief(
   args: BuildRecentExactThreadArgs
 ): Promise<RecentExactThreadForBriefResult> {
@@ -1519,6 +1523,7 @@ export async function buildRecentExactThreadForBrief(
   const stats = new ThreadBuildStats();
   const timeline_7d = await buildRecentExactThreadWithWindowMs({
     ...args,
+    path: args.path ?? "daily",
     windowMs: BRIEF_THREAD_EXTENSION_MS,
     includeSystemNoSend: false,
     stats,
@@ -1528,7 +1533,7 @@ export async function buildRecentExactThreadForBrief(
     window: {
       floor_hours: BRIEF_THREAD_FLOOR_HOURS,
       extension_days: BRIEF_THREAD_EXTENSION_DAYS,
-      mode: "72h_floor_7d_extension_capped",
+      mode: BRIEF_THREAD_WINDOW_MODE,
     },
     messages: capped.messages,
     message_count: capped.messages.length,

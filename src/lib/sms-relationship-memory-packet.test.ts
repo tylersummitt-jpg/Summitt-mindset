@@ -129,7 +129,9 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: "Daily check: did you get your two hours in?",
           created_at: "2026-05-18T11:00:00.000Z",
+          sent_at: "2026-05-18T11:00:00.000Z",
           status: "sent",
+          message_sid: "SM_DAILY_1",
         },
       ],
       jobRows: [
@@ -140,6 +142,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
           sent_at: "2026-05-18T11:30:00.000Z",
           created_at: "2026-05-18T11:29:00.000Z",
           updated_at: "2026-05-18T11:31:00.000Z",
+          outbound_message_sid: "SM_REPLY_1",
         },
       ],
     });
@@ -157,7 +160,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
       true
     );
     expect(packet.recent_exact_messages.some((m) => m.speaker === "coach" && m.is_exact_body)).toBe(true);
-    expect(packet.recent_exact_thread_72h.window_hours).toBe(72);
+    expect(packet.recent_exact_thread_72h.window_hours).toBe(168);
     expect(packet.relationship_memory_7d.window_days).toBe(7);
     expect(packet.relationship_memory_30d.window_days).toBe(30);
     expect(packet.meta.thread_build_telemetry?.daily_brief_thread_primary_fetch_succeeded).toBe(true);
@@ -174,7 +177,9 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: "Coach body for weekly notebook telemetry.",
           created_at: "2026-05-18T11:00:00.000Z",
+          sent_at: "2026-05-18T11:00:00.000Z",
           status: "sent",
+          message_sid: "SM_WEEKLY_TELEM",
         },
       ],
     });
@@ -196,18 +201,23 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: "Coach exact weekly notebook line.",
           created_at: "2026-05-18T11:00:00.000Z",
+          sent_at: "2026-05-18T11:00:00.000Z",
           status: "sent",
+          message_sid: "SM_WN1",
         },
         {
           sms_body: "Second coach line for thread depth.",
           created_at: "2026-05-18T12:00:00.000Z",
+          sent_at: "2026-05-18T12:00:00.000Z",
           status: "sent",
+          message_sid: "SM_WN2",
         },
       ],
-      inboundRows: [
+      inboundMsgRows: [
         {
           raw_body: "User weekly reply.",
-          inserted_at: "2026-05-18T12:30:00.000Z",
+          received_at: "2026-05-18T12:30:00.000Z",
+          message_sid: "SM_WN_USER",
         },
       ],
     });
@@ -215,7 +225,9 @@ describe("buildSmsRelationshipMemoryPacket", () => {
       clerkUserId: "user_weekly_notebook_verified",
       timezone: "America/Chicago",
       now: NOW,
+      exactThreadPath: "weekly",
     });
+    expect(packet.recent_exact_thread_72h.window_hours).toBe(240);
     const telemetry = buildWeeklyNotebookTelemetry({
       buildTelemetry: packet.meta.thread_build_telemetry ?? null,
       memoryPacketUsed: true,
@@ -243,7 +255,9 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: fullBody,
           created_at: "2026-05-18T10:00:00.000Z",
+          sent_at: "2026-05-18T10:00:00.000Z",
           status: "sent",
+          message_sid: "SM_FULL_DAILY",
         },
       ],
     });
@@ -273,7 +287,9 @@ describe("buildSmsRelationshipMemoryPacket", () => {
         {
           sms_body: "Coach question: what is your smallest win today?",
           created_at: "2026-05-18T11:50:00.000Z",
+          sent_at: "2026-05-18T11:50:00.000Z",
           status: "sent",
+          message_sid: "SM_SMALLEST_WIN",
         },
       ],
       lastCtx: {
@@ -306,12 +322,14 @@ describe("buildSmsRelationshipMemoryPacket", () => {
           status: "sent",
           sent_at: "2026-05-18T11:10:00.000Z",
           updated_at: "2026-05-18T11:10:00.000Z",
+          outbound_message_sid: "SM_Q1",
         },
         {
           reply_body: "How did yesterday go?",
           status: "sent",
           sent_at: "2026-05-18T10:00:00.000Z",
           updated_at: "2026-05-18T10:00:00.000Z",
+          outbound_message_sid: "SM_Q2",
         },
       ],
     });
@@ -438,7 +456,7 @@ describe("buildSmsRelationshipMemoryPacket", () => {
       expect(m.body.length).toBeLessThanOrEqual(8000);
     }
     expect(packet.recent_exact_thread_text.length).toBeLessThanOrEqual(11_000);
-    expect(packet.recent_exact_thread_72h.window_hours).toBe(72);
+    expect(packet.recent_exact_thread_72h.window_hours).toBe(168);
   });
 });
 

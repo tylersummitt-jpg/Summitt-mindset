@@ -197,6 +197,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
       clerkUserId,
       commitmentId: commitment.id,
       now: localNow,
+      exactThreadPath: "weekly",
     });
     relationshipMemoryPacket = slimMemoryPacketForFacts(memoryPacket);
   } catch (e) {

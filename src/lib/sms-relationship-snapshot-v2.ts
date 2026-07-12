@@ -46,8 +46,8 @@ import {
   type ProofAndPraisePermissionV2Section,
 } from "@/lib/sms-proof-praise-permission-v2";
 
-const SNAPSHOT_THREAD_WINDOW_HOURS = 72 as const;
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
+import { RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import type { InboundV3RelationshipFacts } from "@/lib/v3-inbound-relationship-lane";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
@@ -73,7 +73,8 @@ export const RELATIONSHIP_SNAPSHOT_AUTHORITY_HIERARCHY = [
 ] as const;
 
 export type SnapshotRecentExactThread72hData = {
-  window_hours: typeof SNAPSHOT_THREAD_WINDOW_HOURS;
+  /** Actual inclusion window hours from the thread section (not a hardcoded 72). */
+  window_hours: number;
   messages: RecentExactThread72hMessage[];
   message_count: number;
   had_preview_messages: boolean;
@@ -119,7 +120,7 @@ export type RelationshipSnapshotV2 = {
 export type RelationshipSnapshotV2Meta = {
   relationship_snapshot_version: typeof RELATIONSHIP_SNAPSHOT_V2_VERSION;
   included_thread_message_count: number;
-  included_thread_window_hours: typeof SNAPSHOT_THREAD_WINDOW_HOURS;
+  included_thread_window_hours: number;
   had_preview_messages: boolean;
   had_system_no_send: boolean;
   active_pending_state_item_count: number;
@@ -162,7 +163,7 @@ export function normalizeStructuredRecentExactThread72hForV2(
     return {
       authority: "authoritative_recent_thread",
       data: {
-        window_hours: SNAPSHOT_THREAD_WINDOW_HOURS,
+        window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
         messages: [],
         message_count: 0,
         had_preview_messages: false,
@@ -179,7 +180,7 @@ export function normalizeStructuredRecentExactThread72hForV2(
   return {
     authority: "authoritative_recent_thread",
     data: {
-      window_hours: section.data.window_hours ?? SNAPSHOT_THREAD_WINDOW_HOURS,
+      window_hours: section.data.window_hours ?? RECENT_EXACT_THREAD_WINDOW_HOURS,
       messages,
       message_count: section.data.message_count ?? messages.length,
       had_preview_messages: section.data.had_preview_messages ?? false,
@@ -351,7 +352,7 @@ export function buildRelationshipSnapshotV2(args: {
   const meta: RelationshipSnapshotV2Meta = {
     relationship_snapshot_version: RELATIONSHIP_SNAPSHOT_V2_VERSION,
     included_thread_message_count: threadSection.data.message_count,
-    included_thread_window_hours: SNAPSHOT_THREAD_WINDOW_HOURS,
+    included_thread_window_hours: threadSection.data.window_hours,
     had_preview_messages: threadSection.data.had_preview_messages,
     had_system_no_send: threadSection.data.had_system_no_send,
     active_pending_state_item_count: args.activePendingState.items.length,

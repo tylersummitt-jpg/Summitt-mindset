@@ -650,6 +650,7 @@ export async function buildDailySmsContent(
         .join(" | ");
 
       const relationshipMemoryPacketPr = await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "daily",
         clerkUserId,
         commitmentId: active.id,
         timezone,
@@ -985,6 +986,7 @@ export async function buildDailySmsContent(
           .join(" | ");
 
         const relationshipMemoryPacketRf = await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "daily",
           clerkUserId,
           commitmentId: active.id,
           timezone,
@@ -1252,6 +1254,7 @@ export async function buildDailySmsContent(
           .join(" | ");
 
         const relationshipMemoryPacketC = await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "daily",
           clerkUserId,
           commitmentId: active.id,
           timezone,
@@ -1463,6 +1466,7 @@ export async function buildDailySmsContent(
     });
 
     const relationshipMemoryPacketMain = await buildSmsRelationshipMemoryPacket({
+      exactThreadPath: "daily",
       clerkUserId,
       commitmentId: active.id,
       timezone,

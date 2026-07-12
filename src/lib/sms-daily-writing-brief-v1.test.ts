@@ -253,7 +253,7 @@ describe("buildDailySmsWritingBriefV1", () => {
       proof_calibration: deriveDailyProofCalibration({ facts }),
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -284,7 +284,7 @@ describe("buildDailySmsWritingBriefV1", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [
           {
             at_local: "Thu Jun 17 8:02 AM",
@@ -421,7 +421,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -516,7 +516,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -541,7 +541,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [
           { role: "coach", body: "Prior coach line.", at_local: "Jun 17 8:00 AM" },
         ],
@@ -622,7 +622,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [
           { role: "coach", body: "Recent floor coach line.", at_local: "Jun 19 9:00 AM" },
         ],
@@ -658,7 +658,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [{ role: "coach", body: "Recent coach.", at_local: "Jun 19 9:00 AM" }],
         message_count: 1,
         char_count: 13,
@@ -710,7 +710,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -747,7 +747,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -814,7 +814,7 @@ describe("compact timing guidance for brief", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -954,7 +954,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1007,7 +1007,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1031,7 +1031,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1074,7 +1074,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1095,7 +1095,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1104,7 +1104,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       freshness_phrases: [],
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system.length).toBeLessThan(3800);
+    expect(writer.system.length).toBeLessThan(3900);
     expect(writer.system.length + writer.user.length).toBeLessThan(8900);
   });
 
@@ -1116,7 +1116,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1146,7 +1146,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: card,
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1167,7 +1167,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [],
         message_count: 0,
         char_count: 0,
@@ -1205,7 +1205,7 @@ describe("relationship_read in DAILY_SMS_WRITING_BRIEF_V1", () => {
       proof_calibration: deriveDailyProofCalibration({ facts }),
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages,
         message_count: messages.length,
         char_count: messages.reduce((s, m) => s + m.body.length, 0),
@@ -1343,7 +1343,7 @@ describe("slot_coaching_context in DAILY_SMS_WRITING_BRIEF_V1", () => {
       proof_calibration: deriveDailyProofCalibration({ facts }),
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages,
         message_count: messages.length,
         char_count: messages.reduce((s, m) => s + m.body.length, 0),
@@ -1411,7 +1411,7 @@ describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
       proof_calibration: deriveDailyProofCalibration({ facts }),
       strategy_card: args.strategy_card ?? minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: args.messages,
         message_count: args.messages.length,
         char_count: args.messages.reduce((s, m) => s + m.body.length, 0),
@@ -1675,9 +1675,9 @@ describe("morning slot truth (current_send_slot controls daypart)", () => {
   function emptyThread() {
     return {
       window: {
-        floor_hours: 72 as const,
-        extension_days: 7 as const,
-        mode: "72h_floor_7d_extension_capped" as const,
+        floor_hours: 168 as const,
+        extension_days: 0 as const,
+        mode: "7d_capped" as const,
       },
       messages: [] as Array<{
         at_local: string;
@@ -1895,7 +1895,7 @@ describe("recent_exact_thread is the only actual SMS thread block", () => {
       proof_calibration: cal,
       strategy_card: minimalCard(),
       thread: {
-        window: { floor_hours: 72, extension_days: 7, mode: "72h_floor_7d_extension_capped" },
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
         messages: [
           {
             at_local: "Thu Jun 17 8:00 AM",

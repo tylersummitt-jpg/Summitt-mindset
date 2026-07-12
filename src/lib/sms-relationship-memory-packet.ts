@@ -25,6 +25,7 @@ import {
   buildRecentExactThread72h,
   recentExactThreadTextFrom72hMessages,
   type BriefThreadBuildTelemetry,
+  type ExactThreadWriterPath,
   type RecentExactThread72hResult,
 } from "@/lib/sms-recent-exact-thread-72h";
 import {
@@ -507,6 +508,8 @@ export async function buildSmsRelationshipMemoryPacket(args: {
   timezone?: string;
   maxMessages?: number;
   now?: Date;
+  /** Path-specific exact thread window (daily/inbound 7d, weekly 10d). */
+  exactThreadPath?: ExactThreadWriterPath;
 }): Promise<SmsRelationshipMemoryPacket> {
   const now = args.now ?? new Date();
   const nowMs = now.getTime();
@@ -566,6 +569,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     commitmentId: args.commitmentId,
     timezone: args.timezone ?? "America/New_York",
     now,
+    path: args.exactThreadPath ?? "inbound",
     preloadedCheckSentEvents: events,
   });
 

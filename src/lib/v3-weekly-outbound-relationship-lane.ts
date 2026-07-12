@@ -500,6 +500,7 @@ ${strategyCardWeeklyEligible ? "" : `- If structured_recent_truth.weekly_week_su
 - Do not repeat questions in structured_recent_truth.last_5_coach_questions unless the user clearly has not answered and you briefly acknowledge that.
 - If structured_recent_truth.open_question_pending is false and structured_recent_truth.latest_answer_after_open_question is set, move forward from that answer — do not ask that open question again.
 - Bring back meaningful user language from recent_exact_thread_72h naturally when useful; do not re-ask for information they already gave.
+- Use the exact thread for continuity, but prioritize the newest messages when deciding what to say next.
 ${strategyCardWeeklyEligible ? "" : `- Do not use "Welcome back" unless silent_week / reentry context in the packet truly supports it.`}
 ${strategyCardWeeklyEligible ? "" : `- At most one useful question in the body, or none if a question would feel forced.`}
 - One short SMS, max ${WEEKLY_V3_LANE_MAX_CHARS} characters, single line or very short paragraphs; no markdown, bullets, or "Coach:" prefix.
