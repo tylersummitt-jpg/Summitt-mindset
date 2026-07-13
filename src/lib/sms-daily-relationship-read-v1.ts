@@ -7,6 +7,8 @@ import type { RecentExactThreadBriefMessage } from "@/lib/sms-recent-exact-threa
 import type { SilenceCadenceRoute } from "@/lib/sms-silence-cadence-v1";
 import { SILENCE_CADENCE_ROUTE_CARDS } from "@/lib/sms-silence-cadence-v1";
 import {
+  isAmbiguousRelatedProgressRelationshipMeaning,
+  isAmbiguousRelatedProgressResponseIntent,
   isCoachingFitFeedbackRelationshipMeaning,
   isCoachingFitFeedbackResponseIntent,
 } from "@/lib/openai-relationship-turn-understanding-v1";
@@ -587,6 +589,34 @@ export function buildDailySmsRelationshipReadV1(
       what_would_make_user_feel_known: clip("repair_fit", CAP.what_would_make_user_feel_known),
       today_best_move: clip("repair_fit_before_accountability", CAP.today_best_move),
       avoid_because_user_corrected_us: fitAvoid.slice(0, CAP.avoid_max),
+      bad_old_coach_copy_warning,
+      possible_current_standard_conflict,
+      silence_route_human_read,
+      send_target_day_context,
+    };
+  }
+
+  const ambiguousRelatedProgress =
+    isAmbiguousRelatedProgressRelationshipMeaning(
+      args.assembledTurnSemantics?.relationship_meaning
+    ) ||
+    isAmbiguousRelatedProgressResponseIntent(args.assembledTurnSemantics?.response_intent);
+
+  if (ambiguousRelatedProgress) {
+    const progressSignal =
+      args.assembledTurnSemantics?.evidence_preview?.trim() || latest_user_signal;
+    return {
+      authority: DAILY_RELATIONSHIP_READ_AUTHORITY,
+      latest_user_signal: progressSignal
+        ? clip(progressSignal, CAP.latest_user_signal)
+        : latest_user_signal,
+      callback_worth_using,
+      what_would_make_user_feel_known: clip(
+        "concretize_related_effort",
+        CAP.what_would_make_user_feel_known
+      ),
+      today_best_move: clip("clarify_before_drift", CAP.today_best_move),
+      avoid_because_user_corrected_us,
       bad_old_coach_copy_warning,
       possible_current_standard_conflict,
       silence_route_human_read,

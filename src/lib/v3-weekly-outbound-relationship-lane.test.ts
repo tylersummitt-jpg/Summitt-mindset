@@ -22,6 +22,7 @@ import { filterWriterFacingExactThreadMessages } from "@/lib/sms-recent-exact-th
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
+  buildWeeklyAmbiguousRelatedProgressLaneGuardrails,
   buildWeeklyCoachingFitRepairLaneGuardrails,
   buildWeeklyGoalAdjustmentLaneGuardrails,
   buildWeeklyPlannedInterruptionLaneGuardrails,
@@ -1119,6 +1120,37 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(g).toMatch(/repair\/recalibrate before a normal weekly recap/i);
     expect(g).toMatch(/coaching_fit_feedback/i);
     expect(g).toMatch(/Do not open with performance recap/i);
+  });
+
+  it("H — weekly system prompt includes ambiguous related progress guidance", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson(
+              "You were creating this week — what one finished task moves the business forward next?"
+            ),
+          },
+        },
+      ],
+    });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(true);
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("WEEKLY AMBIGUOUS RELATED PROGRESS");
+    expect(systemMsg).toMatch(/ambiguous_related_progress|clarify_completion_or_concretize_action/i);
+    expect(systemMsg).toMatch(/without claiming proof/i);
+  });
+
+  it("buildWeeklyAmbiguousRelatedProgressLaneGuardrails acknowledges effort without proof or miss", () => {
+    const g = buildWeeklyAmbiguousRelatedProgressLaneGuardrails();
+    expect(g).toMatch(/ambiguous_related_progress/i);
+    expect(g).toMatch(/without claiming proof/i);
+    expect(g).toMatch(/Do not overstate it as a miss/i);
+    expect(g).toMatch(/concrete measurable next step/i);
   });
 
   it("builds when goal_adjustment fields absent", async () => {

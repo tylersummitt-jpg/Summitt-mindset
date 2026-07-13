@@ -1546,6 +1546,53 @@ describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
     expect(brief.relationship_read.bad_old_coach_copy_warning).toBeNull();
   });
 
+  it("G — semantic TU ambiguous_related_progress triggers clarify_before_drift, not get-back-on-track", () => {
+    const brief = briefFor({
+      messages: [
+        {
+          at_local: "Thu 9:00 AM",
+          role: "user",
+          body: "I've been so busy creating.",
+        },
+      ],
+      factsOverrides: {
+        commitment: {
+          ...meetingAskCommitment(),
+          effective_ask: "Finish one task moving art/t-shirt business forward",
+          behavior_statement: "Finish one task moving art/t-shirt business forward",
+          title: "Art/t-shirt business",
+        },
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: false,
+          satisfied_ask_type: "unknown",
+          do_not_repeat_asks: [
+            "Did you finish one task moving the art/t-shirt business forward today?",
+          ],
+          evidence_preview: "I've been so busy creating.",
+          source: "inbound_turn_telemetry",
+          occurred_at: "2026-06-20T14:00:00.000Z",
+          last_ask_satisfied: "unclear",
+          stale_ask_risk: true,
+          relationship_meaning: "ambiguous_related_progress",
+          response_intent: "clarify_completion_or_concretize_action",
+          prior_question_type: null,
+          outcome_proof_eligible: false,
+          persistence_note: "Ambiguous related progress from turn understanding.",
+        },
+      },
+    });
+
+    expect(brief.coaching_situation.writer_posture).toBe("clarify_before_drift");
+    expect(brief.coaching_situation.kind).toBe("ambiguous_related_progress");
+    expect(brief.recent_turn_semantics?.relationship_meaning).toBe("ambiguous_related_progress");
+    expect(brief.relationship_read.today_best_move).toBe("clarify_before_drift");
+    expect(brief.suggested_move.max_questions).toBe(1);
+    expect(
+      brief.suggested_move.must_not_do.some((m) => /miss|get-back-on-track|drift/i.test(m))
+    ).toBe(true);
+    expect(JSON.stringify(brief.coaching_situation)).not.toMatch(/get back on track/i);
+  });
+
   it("normal accountability regression keeps active posture and allows set_today_rep", () => {
     const brief = briefFor({
       messages: [],

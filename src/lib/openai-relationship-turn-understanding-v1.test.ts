@@ -29,6 +29,7 @@ import {
   shouldSkipInboundTurnUnderstandingRoute,
   slimTurnUnderstandingMetadata,
   isCoachingFitFeedbackReconciled,
+  isAmbiguousRelatedProgressReconciled,
   enrichReconciledWithInboundRouteContract,
   type OpenAIRelationshipTurnUnderstandingV1,
 } from "@/lib/openai-relationship-turn-understanding-v1";
@@ -332,6 +333,186 @@ describe("coaching_fit_feedback semantic signal", () => {
     expect(reconciled.inbound_route_contract?.forbidden_moves?.join(" ")).toMatch(
       /Repair coaching fit/i
     );
+  });
+});
+
+function makeAmbiguousRelatedProgressProposal(
+  userSummary: string,
+  evidenceQuote: string,
+  overrides: Partial<OpenAIRelationshipTurnUnderstandingV1> = {}
+): OpenAIRelationshipTurnUnderstandingV1 {
+  return makeValidProposal({
+    user_turn_summary: userSummary,
+    evidence_quotes: [evidenceQuote],
+    relationship_meaning: "ambiguous_related_progress",
+    response_intent: "clarify_completion_or_concretize_action",
+    answered_last_coach_ask: "unclear",
+    last_ask_satisfied: "unclear",
+    satisfaction_kind: "unclear",
+    commitment_outcome_recommendation: "no_outcome_write",
+    persistence_safety: "do_not_write_but_acknowledge",
+    stale_ask_risk: true,
+    do_not_repeat_asks: ["Did you finish one task moving the art business forward today?"],
+    confidence: 0.84,
+    ...overrides,
+  });
+}
+
+describe("ambiguous_related_progress semantic signal", () => {
+  it("parses ambiguous_related_progress and clarify_completion_or_concretize_action enums", () => {
+    const p = makeAmbiguousRelatedProgressProposal(
+      "User may be doing related work.",
+      "busy creating"
+    );
+    expect(parseOpenAIRelationshipTurnUnderstandingV1(p as unknown as Record<string, unknown>)).toEqual(
+      p
+    );
+  });
+
+  it.each([
+    ["I've been so busy creating.", "busy creating"],
+    ["I spent the afternoon working on ideas for the shirts.", "working on ideas for the shirts"],
+  ])("A/B reconciles goal-relative ambiguous progress: %s", (inbound, quote) => {
+    const det = meaningFor(inbound);
+    const proposal = makeAmbiguousRelatedProgressProposal(
+      `User related effort unclear completion: ${inbound}`,
+      quote
+    );
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      latestCoachQuestion: "Did you finish one task moving the art/t-shirt business forward today?",
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).toBe("ambiguous_related_progress");
+    expect(r.reconciled_response_intent).toBe("clarify_completion_or_concretize_action");
+    expect(r.reconciled_persistence_decision).toBe("no_outcome_write");
+    expect(r.disagreement_flags).toContain("ambiguous_related_progress_no_outcome");
+    expect(isAmbiguousRelatedProgressReconciled(r)).toBe(true);
+  });
+
+  it("C — vague busyness proposal without related-progress meaning does not force the signal", () => {
+    const inbound = "I've been busy.";
+    const det = meaningFor(inbound);
+    const proposal = makeValidProposal({
+      relationship_meaning: "unclear",
+      response_intent: "unclear_clarify",
+      user_turn_summary: "User says they have been busy.",
+      evidence_quotes: ["I've been busy."],
+      commitment_outcome_recommendation: "no_outcome_write",
+      persistence_safety: "defer_to_server",
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).not.toBe("ambiguous_related_progress");
+    expect(isAmbiguousRelatedProgressReconciled(r)).toBe(false);
+  });
+
+  it("D — clear proof stays reported_completion, not ambiguous progress", () => {
+    const inbound = "I finished the shirt design and posted it.";
+    const det = meaningFor(inbound);
+    const proposal = makeValidProposal({
+      relationship_meaning: "reported_completion",
+      response_intent: "acknowledge_completion",
+      user_turn_summary: "User finished and posted a shirt design.",
+      evidence_quotes: ["finished the shirt design and posted it"],
+      last_ask_satisfied: "yes",
+      satisfaction_kind: "completed",
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).toBe("reported_completion");
+    expect(isAmbiguousRelatedProgressReconciled(r)).toBe(false);
+  });
+
+  it("E — clear miss stays miss, not ambiguous progress", () => {
+    const inbound = "I didn't do it.";
+    const det = meaningFor(inbound);
+    const proposal = makeValidProposal({
+      relationship_meaning: "miss",
+      response_intent: "tell_truth_and_recover",
+      user_turn_summary: "User missed the ask.",
+      evidence_quotes: ["didn't do it"],
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).toBe("miss");
+    expect(isAmbiguousRelatedProgressReconciled(r)).toBe(false);
+  });
+
+  it("I — forces no_outcome_write even if deterministic would write partial", () => {
+    const inbound = "I spent the afternoon working on ideas for the shirts.";
+    const det = meaningFor(inbound);
+    const proposal = makeAmbiguousRelatedProgressProposal(
+      "Related shirt-business effort, completion unclear.",
+      "working on ideas for the shirts",
+      {
+        commitment_outcome_recommendation: "write_user_partial",
+        persistence_safety: "safe_to_write",
+      }
+    );
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_persistence_decision).toBe("no_outcome_write");
+    expect(r.reconciled_relationship_meaning).toBe("ambiguous_related_progress");
+  });
+
+  it("J — phrase without creating still reconciles when TU says ambiguous_related_progress", () => {
+    const inbound = "I spent the afternoon working on ideas for the shirts.";
+    expect(inbound.toLowerCase()).not.toContain("creating");
+    const r = reconcileTurnUnderstanding({
+      proposal: makeAmbiguousRelatedProgressProposal(
+        "Related effort without creating keyword.",
+        "working on ideas for the shirts"
+      ),
+      deterministicMeaning: meaningFor(inbound),
+      inboundBody: inbound,
+    });
+    expect(isAmbiguousRelatedProgressReconciled(r)).toBe(true);
+  });
+
+  it("K — coaching-fit complaint stays coaching fit, not ambiguous progress", () => {
+    const inbound = "These messages aren't helpful.";
+    const r = reconcileTurnUnderstanding({
+      proposal: makeCoachingFitProposal("Coaching not landing.", "aren't helpful"),
+      deterministicMeaning: meaningFor(inbound),
+      inboundBody: inbound,
+    });
+    expect(isCoachingFitFeedbackReconciled(r)).toBe(true);
+    expect(isAmbiguousRelatedProgressReconciled(r)).toBe(false);
+  });
+
+  it("enriched route forbids miss/proof language for ambiguous related progress", () => {
+    const inbound = "I've been so busy creating.";
+    const reconciled = enrichReconciledWithInboundRouteContract(
+      reconcileTurnUnderstanding({
+        proposal: makeAmbiguousRelatedProgressProposal(
+          "Creating may relate to business goal.",
+          "busy creating"
+        ),
+        deterministicMeaning: meaningFor(inbound),
+        inboundBody: inbound,
+      }),
+      { rawInbound: inbound, classifierEventType: "user_partial" }
+    );
+    expect(isAmbiguousRelatedProgressReconciled(reconciled)).toBe(true);
+    expect(reconciled.inbound_route_contract?.should_persist).toBe(false);
+    expect(reconciled.inbound_route_contract?.forbidden_moves?.join(" ")).toMatch(
+      /possible related progress/i
+    );
+    expect(reconciled.inbound_route_contract?.forbidden_moves?.join(" ")).toMatch(/proof/i);
   });
 });
 

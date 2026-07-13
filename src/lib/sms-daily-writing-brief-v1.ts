@@ -21,6 +21,8 @@ import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { TimingAnchorMemory } from "@/lib/timing-anchor-memory";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
 import {
+  isAmbiguousRelatedProgressRelationshipMeaning,
+  isAmbiguousRelatedProgressResponseIntent,
   isCoachingFitFeedbackRelationshipMeaning,
   isCoachingFitFeedbackResponseIntent,
 } from "@/lib/openai-relationship-turn-understanding-v1";
@@ -74,6 +76,7 @@ export type CoachingSituationKind =
   | "normal_accountability"
   | "fit_in_question"
   | "repair_recent_correction"
+  | "ambiguous_related_progress"
   | "close_prior_answer"
   | "proof_check"
   | "plan_check"
@@ -87,6 +90,7 @@ export type CoachingSituationStandardStatus =
 export type CoachingSituationWriterPosture =
   | "run_accountability"
   | "repair_fit_before_accountability"
+  | "clarify_before_drift"
   | "honor_correction_then_continue"
   | "close_loop_no_new_ask"
   | "ask_for_plan"
@@ -619,6 +623,16 @@ function satisfiedAskIndicatesFitRepair(
   );
 }
 
+function satisfiedAskIndicatesAmbiguousRelatedProgress(
+  sac: DailyV3RelationshipFacts["daily_satisfied_ask_context"]
+): boolean {
+  if (!sac) return false;
+  return (
+    isAmbiguousRelatedProgressRelationshipMeaning(sac.relationship_meaning) ||
+    isAmbiguousRelatedProgressResponseIntent(sac.response_intent)
+  );
+}
+
 /**
  * Detect fit/correction conflict from already-assembled semantic tokens only.
  * Does not scan raw inbound text or match user phrases.
@@ -650,7 +664,10 @@ export function buildRecentTurnSemanticsForBrief(
   const coachingFit =
     isCoachingFitFeedbackRelationshipMeaning(sac.relationship_meaning) ||
     isCoachingFitFeedbackResponseIntent(sac.response_intent);
-  if (!sac.has_satisfied_recent_ask && !coachingFit) return undefined;
+  const ambiguousProgress =
+    isAmbiguousRelatedProgressRelationshipMeaning(sac.relationship_meaning) ||
+    isAmbiguousRelatedProgressResponseIntent(sac.response_intent);
+  if (!sac.has_satisfied_recent_ask && !coachingFit && !ambiguousProgress) return undefined;
   const out: DailySmsRecentTurnSemanticsV1 = {
     authority: COACHING_SITUATION_AUTHORITY,
   };
@@ -698,6 +715,9 @@ export function buildCoachingSituationForBrief(args: {
   const honor = feel === "honor_correction" || feel === "heard_correction";
   const standardConflict = Boolean(read.possible_current_standard_conflict?.trim());
   const tuRepair = satisfiedAskIndicatesFitRepair(args.daily_satisfied_ask_context);
+  const tuAmbiguous = satisfiedAskIndicatesAmbiguousRelatedProgress(
+    args.daily_satisfied_ask_context
+  );
 
   if (silenceActive) {
     pushSituationLabel(basis, `silence:${args.silence_cadence!.route}`, COACHING_SITUATION_BASIS_MAX);
@@ -737,6 +757,20 @@ export function buildCoachingSituationForBrief(args: {
       kind,
       current_standard_status: "stored_but_fit_in_question",
       writer_posture: "repair_fit_before_accountability",
+      basis,
+      semantic_notes,
+    };
+  }
+
+  if (tuAmbiguous) {
+    pushSituationLabel(basis, "tu:ambiguous_related_progress", COACHING_SITUATION_BASIS_MAX);
+    pushSituationLabel(semantic_notes, "related_effort_completion_unclear", COACHING_SITUATION_NOTES_MAX);
+    pushSituationLabel(semantic_notes, "clarify_before_drift", COACHING_SITUATION_NOTES_MAX);
+    return {
+      authority: COACHING_SITUATION_AUTHORITY,
+      kind: "ambiguous_related_progress",
+      current_standard_status: "active",
+      writer_posture: "clarify_before_drift",
       basis,
       semantic_notes,
     };
@@ -837,6 +871,24 @@ export function applyCoachingSituationConflicts(args: {
   let move = args.suggested_move;
 
   if (situation.writer_posture !== "repair_fit_before_accountability") {
+    if (situation.writer_posture === "clarify_before_drift") {
+      const must_not_do = [...move.must_not_do];
+      pushRepairMustNotDo(must_not_do, "Do not accuse miss or get-back-on-track drift");
+      pushRepairMustNotDo(must_not_do, "Do not claim proof or completion for unclear related effort");
+      pushRepairMustNotDo(
+        must_not_do,
+        "Ask one clarifying or concretizing question for a finished task"
+      );
+      return {
+        coaching_situation: situation,
+        slot_coaching_context: slot,
+        suggested_move: {
+          ...move,
+          max_questions: 1,
+          must_not_do: must_not_do.slice(0, 5),
+        },
+      };
+    }
     return {
       coaching_situation: situation,
       slot_coaching_context: slot,
@@ -1102,6 +1154,7 @@ export function buildDailySmsBriefSystemPrompt(args: {
   const repairFit =
     cs?.writer_posture === "repair_fit_before_accountability" ||
     cs?.current_standard_status === "stored_but_fit_in_question";
+  const clarifyBeforeDrift = cs?.writer_posture === "clarify_before_drift";
   if (cs) {
     extras.push(
       "- coaching_situation is semantic context, not copy — paraphrase tokens only."
@@ -1115,6 +1168,17 @@ export function buildDailySmsBriefSystemPrompt(args: {
       extras.push("- One direct fit/relevance question when allowed — not a stale goal rep.");
     }
     extras.push("- Do not lead with today's rep on current_standard while fit is in question.");
+  }
+  if (clarifyBeforeDrift) {
+    extras.push(
+      "- clarify_before_drift / ambiguous_related_progress: acknowledge possible related progress; do not accuse miss or get-back-on-track."
+    );
+    if (!args.zeroQuestionMode) {
+      extras.push(
+        "- Ask one clarifying or concretizing question that turns broad effort into one finished task."
+      );
+    }
+    extras.push("- Do not claim proof or completion while completion is unclear.");
   }
   extras.push(
     "- Outcome standards: if method is open/unclear, do not assume one method is the only way."

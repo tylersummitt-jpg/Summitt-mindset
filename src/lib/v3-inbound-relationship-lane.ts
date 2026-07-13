@@ -130,6 +130,7 @@ import { buildTemporalContractForInbound } from "@/lib/sms-temporal-contract-v1"
 import {
   buildTurnUnderstandingLaneGuardrails,
   coachingMoveFromReconciledResponseIntent,
+  isAmbiguousRelatedProgressReconciled,
   isAuthoritativeReconciledGoalChangeIntent,
   isPhase1AuthoritativeRouteContract,
   isTurnUnderstandingAuthoritative,
@@ -3677,9 +3678,14 @@ function deriveResolvedOutcome(args: {
   finalEventType: string | null;
   planDetected: boolean;
   isCompletion: boolean;
+  turnUnderstanding?: ReconciledTurnUnderstanding | null;
 }): InboundResolvedOutcome {
   const { inboundMeaning, finalEventType, planDetected, isCompletion } = args;
   if (isCompletion) return "completed";
+  // TU ambiguous related progress must not become partial/miss from classifier user_partial alone.
+  if (isAmbiguousRelatedProgressReconciled(args.turnUnderstanding)) {
+    return "unclear";
+  }
   if (
     inboundMeaning.persistence_decision === "write_user_no" ||
     inboundMeaning.relationship_meaning === "miss" ||
@@ -3792,6 +3798,27 @@ export function deriveInboundResolvedTruth(args: {
     };
   }
 
+  if (isAmbiguousRelatedProgressReconciled(tu)) {
+    return {
+      latest_user_text: raw,
+      resolved_outcome: "unclear",
+      temporal_scope: mapMeaningTemporalToResolved(meaning.temporal_scope),
+      plan_detected: false,
+      blocker_detected: false,
+      answered_recent_ask: false,
+      satisfied_recent_ask: false,
+      persistence_decision: "no_outcome_write",
+      required_reply_move: "clarify_once",
+      max_questions_override: 1,
+      must_not_do: [
+        "Acknowledge possible related progress — do not accuse a miss or drift.",
+        "Do not claim proof, completion, or Victory Room.",
+        "Do not ask what got in the way unless the user named a blocker.",
+        "Ask one clarifying or concretizing question that turns broad effort into a finished task.",
+      ],
+    };
+  }
+
   const isTodayCompletion =
     meaning.persistence_decision === "write_user_yes_today" ||
     (meaning.relationship_meaning === "reported_completion" &&
@@ -3843,6 +3870,7 @@ export function deriveInboundResolvedTruth(args: {
     finalEventType: args.finalEventType,
     planDetected,
     isCompletion,
+    turnUnderstanding: tu,
   });
 
   const mustNotDo: string[] = [];

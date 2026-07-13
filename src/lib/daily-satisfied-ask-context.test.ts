@@ -230,6 +230,77 @@ describe("coaching_fit_feedback telemetry pass-through", () => {
   });
 });
 
+function ambiguousRelatedProgressTelemetryEvent(
+  overrides?: Partial<V2EventRowForAi["payload_json"]>
+): V2EventRowForAi {
+  return {
+    event_type: "sms_memory_signal",
+    occurred_at: "2026-07-09T15:00:00.000Z",
+    payload_json: {
+      inbound_turn_telemetry: true,
+      turn_understanding_relationship_meaning: "ambiguous_related_progress",
+      turn_understanding_response_intent: "clarify_completion_or_concretize_action",
+      turn_understanding_last_ask_satisfied: "unclear",
+      do_not_repeat_asks: [
+        "Did you finish one task moving the art/t-shirt business forward today?",
+      ],
+      raw_body_preview: "I've been so busy creating.",
+      outcome_proof_eligible: false,
+      ...overrides,
+    },
+  };
+}
+
+describe("ambiguous_related_progress telemetry pass-through", () => {
+  it("maps inbound_turn_telemetry ambiguous_related_progress into DailySatisfiedAskContext", () => {
+    const ctx = resolveDailySatisfiedAskContext({
+      eventsNewestFirst: [ambiguousRelatedProgressTelemetryEvent()],
+    });
+
+    expect(ctx).not.toBeNull();
+    expect(ctx?.source).toBe("inbound_turn_telemetry");
+    expect(ctx?.relationship_meaning).toBe("ambiguous_related_progress");
+    expect(ctx?.response_intent).toBe("clarify_completion_or_concretize_action");
+    expect(ctx?.evidence_preview).toBe("I've been so busy creating.");
+    expect(ctx?.has_satisfied_recent_ask).toBe(false);
+    expect(ctx?.outcome_proof_eligible).toBe(false);
+    expect(isPlanAffirmingDailySatisfiedAskContext(ctx)).toBe(false);
+    expect(ctx?.persistence_note).toMatch(/not proof|clarify\/concretize/i);
+  });
+
+  it("J — uses stored TU enum, not creating phrase authority", () => {
+    const ctx = resolveDailySatisfiedAskContext({
+      eventsNewestFirst: [
+        ambiguousRelatedProgressTelemetryEvent({
+          raw_body_preview: "I spent the afternoon working on ideas for the shirts.",
+        }),
+      ],
+    });
+    expect(ctx?.relationship_meaning).toBe("ambiguous_related_progress");
+    expect(ctx?.evidence_preview?.toLowerCase()).not.toContain("creating");
+  });
+
+  it("does not infer ambiguous progress from creating preview when TU meaning is miss", () => {
+    const ctx = resolveDailySatisfiedAskContext({
+      eventsNewestFirst: [
+        {
+          event_type: "sms_memory_signal",
+          occurred_at: "2026-07-09T15:00:00.000Z",
+          payload_json: {
+            inbound_turn_telemetry: true,
+            turn_understanding_relationship_meaning: "miss",
+            turn_understanding_response_intent: "tell_truth_and_recover",
+            turn_understanding_last_ask_satisfied: "no",
+            raw_body_preview: "I've been so busy creating.",
+            outcome_proof_eligible: false,
+          },
+        },
+      ],
+    });
+    expect(ctx?.relationship_meaning).not.toBe("ambiguous_related_progress");
+  });
+});
+
 describe("shouldSuppressSameBaseRecommitForSatisfiedPlan", () => {
   const baseBar = "One hour of distribution per day";
 

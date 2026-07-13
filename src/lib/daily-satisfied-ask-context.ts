@@ -4,7 +4,10 @@
 
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import { hasFuturePlanIntentLanguage } from "@/lib/pending-plan-proof";
-import { isCoachingFitFeedbackRelationshipMeaning } from "@/lib/openai-relationship-turn-understanding-v1";
+import {
+  isAmbiguousRelatedProgressRelationshipMeaning,
+  isCoachingFitFeedbackRelationshipMeaning,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 
 export type DailySatisfiedAskType =
   | "plan_detail"
@@ -142,16 +145,73 @@ function contextFromCoachingFitTelemetryEvent(
   };
 }
 
+function contextFromAmbiguousRelatedProgressTelemetryEvent(
+  e: V2EventRowForAi,
+  payload: Record<string, unknown>
+): DailySatisfiedAskContext | null {
+  const relationshipMeaning = asTrimmedString(payload.turn_understanding_relationship_meaning, 120);
+  if (!isAmbiguousRelatedProgressRelationshipMeaning(relationshipMeaning)) return null;
+
+  const dnr = mergeDoNotRepeat(
+    parseStringArrayField(payload.do_not_repeat_asks),
+    parseStringArrayField(payload.turn_understanding_failed_safe_do_not_repeat_asks)
+  );
+  const evidencePreview =
+    asTrimmedString(payload.raw_body_preview, 220) ??
+    asTrimmedString(payload.message, 220) ??
+    null;
+  const responseIntent =
+    asTrimmedString(payload.turn_understanding_response_intent, 120) ??
+    "clarify_completion_or_concretize_action";
+
+  return {
+    has_satisfied_recent_ask: false,
+    satisfied_ask_type: "unknown",
+    do_not_repeat_asks: dnr,
+    evidence_preview: evidencePreview,
+    source: "inbound_turn_telemetry",
+    occurred_at: e.occurred_at,
+    last_ask_satisfied: "unclear",
+    stale_ask_risk: true,
+    relationship_meaning: "ambiguous_related_progress",
+    response_intent: responseIntent,
+    prior_question_type: null,
+    outcome_proof_eligible: false,
+    persistence_note:
+      "Ambiguous related progress from turn understanding — clarify/concretize before drift; not proof, miss, or outcome write.",
+  };
+}
+
 function isCoachingFitResolutionTelemetry(payload: Record<string, unknown>): boolean {
   const meaning = asTrimmedString(payload.turn_understanding_relationship_meaning, 120)?.toLowerCase();
   const intent = asTrimmedString(payload.turn_understanding_response_intent, 120)?.toLowerCase();
   if (meaning === "goal_adjustment_request" || intent === "clarify_goal_change") return true;
   if (meaning && meaning !== "coaching_fit_feedback" && payload.inbound_turn_telemetry === true) {
-    if (meaning === "direct_answer" || meaning === "prior_ask_satisfied" || meaning === "plan_made") {
+    if (
+      meaning === "direct_answer" ||
+      meaning === "prior_ask_satisfied" ||
+      meaning === "plan_made" ||
+      meaning === "ambiguous_related_progress"
+    ) {
       return true;
     }
   }
   return false;
+}
+
+function isAmbiguousRelatedProgressResolutionTelemetry(payload: Record<string, unknown>): boolean {
+  const meaning = asTrimmedString(payload.turn_understanding_relationship_meaning, 120)?.toLowerCase();
+  if (!meaning || meaning === "ambiguous_related_progress") return false;
+  if (payload.inbound_turn_telemetry !== true) return false;
+  return (
+    meaning === "reported_completion" ||
+    meaning === "miss" ||
+    meaning === "direct_answer" ||
+    meaning === "prior_ask_satisfied" ||
+    meaning === "plan_made" ||
+    meaning === "goal_adjustment_request" ||
+    meaning === "coaching_fit_feedback"
+  );
 }
 
 function contextFromTelemetryEvent(
@@ -281,6 +341,31 @@ export function resolveDailySatisfiedAskContext(
     }
   }
   if (coachingFitCtx) return coachingFitCtx;
+
+  let ambiguousProgressCtx: DailySatisfiedAskContext | null = null;
+  let ambiguousProgressIndex = -1;
+  for (const [index, e] of (args.eventsNewestFirst ?? []).entries()) {
+    if (!isRecentEnough(e.occurred_at, nowMs)) break;
+    const payload = e.payload_json ?? {};
+    if (payload.inbound_turn_telemetry !== true) continue;
+    if (
+      isAmbiguousRelatedProgressResolutionTelemetry(payload) &&
+      ambiguousProgressIndex >= 0 &&
+      index < ambiguousProgressIndex
+    ) {
+      ambiguousProgressCtx = null;
+      ambiguousProgressIndex = -1;
+      continue;
+    }
+    if (!ambiguousProgressCtx) {
+      const progressCtx = contextFromAmbiguousRelatedProgressTelemetryEvent(e, payload);
+      if (progressCtx) {
+        ambiguousProgressCtx = progressCtx;
+        ambiguousProgressIndex = index;
+      }
+    }
+  }
+  if (ambiguousProgressCtx) return ambiguousProgressCtx;
 
   for (const e of args.eventsNewestFirst ?? []) {
     if (!isRecentEnough(e.occurred_at, nowMs)) break;

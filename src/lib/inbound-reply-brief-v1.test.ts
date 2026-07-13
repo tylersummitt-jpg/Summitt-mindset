@@ -1102,3 +1102,126 @@ describe("coaching_fit_repair inbound brief", () => {
     expect(src).not.toMatch(/body\.includes\s*\(\s*["']relevant["']\s*\)/);
   });
 });
+
+function ambiguousRelatedProgressReconciled(
+  rawInbound: string,
+  overrides: Partial<ReconciledTurnUnderstanding> = {}
+): ReconciledTurnUnderstanding {
+  return enrichReconciledWithInboundRouteContract(
+    {
+      proposal: null,
+      reconciled_relationship_meaning: "ambiguous_related_progress",
+      reconciled_response_intent: "clarify_completion_or_concretize_action",
+      reconciled_persistence_decision: "no_outcome_write",
+      reconciled_do_not_repeat_asks: [
+        "Did you finish one task moving the art/t-shirt business forward today?",
+      ],
+      last_ask_satisfied: "unclear",
+      satisfaction_kind: "unclear",
+      stale_ask_risk: true,
+      confidence: 0.84,
+      disagreement_flags: ["ambiguous_related_progress_no_outcome"],
+      interpreter_failed_reason: null,
+      stale_ask_avoided: false,
+      persistence_note: "test ambiguous related progress",
+      reconciled_goal_change_intent: null,
+      ...overrides,
+    } satisfies ReconciledTurnUnderstanding,
+    { rawInbound, classifierEventType: "user_partial" }
+  );
+}
+
+describe("ambiguous_related_progress inbound brief", () => {
+  it("F — ambiguous related progress yields clarify/concretize, not miss recovery", () => {
+    const text = "I've been so busy creating.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        turn_understanding: ambiguousRelatedProgressReconciled(text),
+        v2_accountability: { miss_signal: true },
+        inbound_meaning: {
+          relationship_meaning: "unknown",
+          persistence_decision: "no_outcome_write",
+          temporal_scope: "today",
+          sms_response_intent: "clarify_gently",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+      }),
+    });
+    expect(brief.turn_type).toBe("ambiguous_related_progress");
+    expect(brief.reply_strategy.move).toBe("clarify_completion_or_concretize_action");
+    expect(brief.question_policy.max_questions).toBe(1);
+    expect(brief.turn_type).not.toBe("miss");
+    expect(brief.turn_type).not.toBe("partial");
+    expect(brief.reply_strategy.move).not.toBe("ask_one_blocker");
+    expect(brief.reply_strategy.must_not_do.join(" ")).toMatch(/possible related progress/i);
+    expect(brief.reply_strategy.must_not_do.join(" ")).toMatch(/proof/i);
+  });
+
+  it("J — phrase without creating still routes via TU", () => {
+    const text = "I spent the afternoon working on ideas for the shirts.";
+    expect(text.toLowerCase()).not.toContain("creating");
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        turn_understanding: ambiguousRelatedProgressReconciled(text),
+        v2_accountability: { miss_signal: true },
+      }),
+    });
+    expect(brief.turn_type).toBe("ambiguous_related_progress");
+  });
+
+  it("J — creating in body with wrong TU meaning does not force ambiguous progress", () => {
+    const text = "I've been so busy creating.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        inbound_meaning: {
+          relationship_meaning: "miss",
+          persistence_decision: "write_user_no",
+          temporal_scope: "today",
+          sms_response_intent: "tell_truth_and_recover",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+        v2_accountability: { miss_signal: true },
+      }),
+    });
+    expect(brief.turn_type).not.toBe("ambiguous_related_progress");
+  });
+
+  it("K — clear miss stays miss", () => {
+    const text = "No, I didn't get to it today.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        inbound_meaning: {
+          relationship_meaning: "miss",
+          persistence_decision: "write_user_no",
+          temporal_scope: "today",
+          sms_response_intent: "tell_truth_and_recover",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+        v2_accountability: { miss_signal: true },
+      }),
+    });
+    expect(brief.turn_type).toBe("miss");
+    expect(brief.turn_type).not.toBe("ambiguous_related_progress");
+  });
+
+  it("writer system prompt includes ambiguous_related_progress guidance", () => {
+    const system = buildInboundBriefWriterSystemPrompt({ maxChars: 320 });
+    expect(system).toMatch(/ambiguous_related_progress/i);
+    expect(system).toMatch(/concretizing question/i);
+  });
+
+  it("no creating phrase router in brief module", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/inbound-reply-brief-v1.ts"), "utf8");
+    expect(src).not.toMatch(/includes\s*\(\s*["']creating["']\s*\)/);
+    expect(src).not.toMatch(/body\.includes\s*\(\s*["']creating["']\s*\)/);
+  });
+});

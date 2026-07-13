@@ -180,4 +180,19 @@ describe("buildDailySmsRelationshipReadV1", () => {
     expect(read.what_would_make_user_feel_known).toBe("repair_fit");
     expect(read.avoid_because_user_corrected_us).toContain("coaching_fit:unresolved");
   });
+
+  it("assembled TU ambiguous_related_progress elevates clarify_before_drift posture", () => {
+    const read = buildDailySmsRelationshipReadV1(
+      baseArgs({
+        assembledTurnSemantics: {
+          relationship_meaning: "ambiguous_related_progress",
+          response_intent: "clarify_completion_or_concretize_action",
+          evidence_preview: "I spent the afternoon working on ideas for the shirts.",
+        },
+      })
+    );
+    expect(read.latest_user_signal).toMatch(/working on ideas for the shirts/i);
+    expect(read.today_best_move).toBe("clarify_before_drift");
+    expect(read.what_would_make_user_feel_known).toBe("concretize_related_effort");
+  });
 });

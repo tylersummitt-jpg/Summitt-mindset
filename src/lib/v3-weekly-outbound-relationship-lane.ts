@@ -276,6 +276,15 @@ export function buildWeeklyCoachingFitRepairLaneGuardrails(): string {
 - Do not open with performance recap or accountability triad while fit is unresolved.`;
 }
 
+/** Weekly ambiguous related progress — acknowledge effort without proof or miss overstatement. */
+export function buildWeeklyAmbiguousRelatedProgressLaneGuardrails(): string {
+  return `WEEKLY AMBIGUOUS RELATED PROGRESS:
+- If structured_recent_truth.turn_understanding shows relationship_meaning ambiguous_related_progress or response_intent clarify_completion_or_concretize_action, the user described goal-related effort with unclear completion.
+- Acknowledge the effort/process without claiming proof, completion, or Victory Room.
+- Do not overstate it as a miss or get-back-on-track failure.
+- Invite one concrete measurable next step for the coming week when useful.`;
+}
+
 /** Weekly Pat Pause guardrails when planned interruption is active in facts. */
 export function buildWeeklyPlannedInterruptionLaneGuardrails(): string {
   return `${buildPlannedInterruptionLaneGuardrails()}
@@ -523,6 +532,7 @@ ${strategyCardPromptGuidance}
 ${buildVictoryBackgroundLaneGuardrails()}
 ${buildWeeklyGoalAdjustmentLaneGuardrails()}
 ${buildWeeklyCoachingFitRepairLaneGuardrails()}
+${buildWeeklyAmbiguousRelatedProgressLaneGuardrails()}
 ${f.commitment.planned_interruption_active || f.weekly_proof.planned_pause_week ? buildWeeklyPlannedInterruptionLaneGuardrails() : ""}
 
 OUTPUT: strict JSON only with keys:
