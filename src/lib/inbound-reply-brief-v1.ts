@@ -729,10 +729,25 @@ export function buildInboundReplyBriefV1(args: {
       ? routeContract!.facts_to_reflect
       : deriveExplicitFacts({ text: latestUserMessage, facts, turnType }).slice(0, 2);
 
+  const threadWindow = buildThreadWindow(facts);
+  const previousCoach = previousCoachMessage(facts);
+  // Omit when thread_window already carries the same coach line (exact thread is the transcript).
+  const previousCoachDeduped =
+    previousCoach &&
+    threadWindow.some((m) => {
+      if (m.role !== "coach") return false;
+      const body = m.body.trim();
+      if (!body) return false;
+      const prevCap = previousCoach.slice(0, body.length);
+      return body === previousCoach.slice(0, 280) || body === prevCap || previousCoach.startsWith(body);
+    })
+      ? null
+      : previousCoach;
+
   const brief: InboundReplyBriefV1 = {
     brief_version: INBOUND_REPLY_BRIEF_VERSION,
     latest_user_message: latestUserMessage.slice(0, 400),
-    previous_coach_message: previousCoachMessage(facts),
+    previous_coach_message: previousCoachDeduped,
     current_goal:
       facts.commitment.effective_ask?.trim() ||
       facts.commitment.behavior_statement?.trim() ||
@@ -754,7 +769,7 @@ export function buildInboundReplyBriefV1(args: {
       move: replyMove,
       must_not_do: uniqueMustNotDo,
     },
-    thread_window: buildThreadWindow(facts),
+    thread_window: threadWindow,
     route,
     should_reply: shouldReply,
     close_loop: closeLoop,
@@ -873,7 +888,15 @@ rejected_times_obeyed (boolean), split_messages_handled (boolean)`;
 }
 
 export function serializeInboundReplyBriefForWriterPrompt(brief: InboundReplyBriefV1): string {
-  return JSON.stringify(brief);
+  const mustNot = brief.reply_strategy.must_not_do;
+  const forbiddenIdentical =
+    brief.forbidden_moves.length === mustNot.length &&
+    brief.forbidden_moves.every((m, i) => m === mustNot[i]);
+  const forWriter: Record<string, unknown> = { ...brief };
+  if (forbiddenIdentical) {
+    delete forWriter.forbidden_moves;
+  }
+  return JSON.stringify(forWriter);
 }
 
 export function buildInboundBriefWriterUserPrompt(brief: InboundReplyBriefV1): string {

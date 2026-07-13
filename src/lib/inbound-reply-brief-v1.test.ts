@@ -13,6 +13,7 @@ import {
   countFollowupQuestionsAskedOnDay,
   deriveMaxQuestionsForBrief,
   detectInboundBriefMaxQuestionsViolation,
+  serializeInboundReplyBriefForWriterPrompt,
   type InboundReplyBriefV1,
 } from "@/lib/inbound-reply-brief-v1";
 import {
@@ -878,6 +879,57 @@ describe("inbound thread_window writer-facing actual SMS", () => {
     });
     expect(brief.thread_window.filter((m) => m.body === current)).toHaveLength(1);
     expect(brief.thread_window.filter((m) => m.role === "user")).toHaveLength(1);
+  });
+
+  it("omits previous_coach_message when thread_window already has that coach line", () => {
+    const coachBody = "Did the two hours happen?";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Yes before noon.", {
+        thread: {
+          latest_outbound_coach_sms: coachBody,
+          memory_packet: {
+            recent_exact_thread_72h: {
+              window_hours: RECENT_EXACT_THREAD_WINDOW_HOURS,
+              message_count: 2,
+              had_preview_messages: false,
+              had_system_no_send: false,
+              messages: [
+                threadMsg({
+                  role: "coach",
+                  body: coachBody,
+                  source_table: "v2_commitment_sms",
+                  delivery_status: "sent",
+                  message_sid: "SM_COACH_DUP",
+                  delivery_evidence: "twilio_sent",
+                }),
+                threadMsg({
+                  role: "user",
+                  body: "Yes before noon.",
+                  source_table: "sms_inbound_messages",
+                  delivery_status: "sent",
+                  message_sid: "SM_USER_DUP",
+                  delivery_evidence: "inbound_received",
+                }),
+              ],
+            },
+          } as InboundV3RelationshipFacts["thread"]["memory_packet"],
+        },
+      }),
+    });
+    expect(brief.thread_window.some((m) => m.role === "coach" && m.body === coachBody)).toBe(true);
+    expect(brief.previous_coach_message).toBeNull();
+    expect(brief.thread_window.filter((m) => m.body === "Yes before noon.")).toHaveLength(1);
+  });
+
+  it("writer JSON omits forbidden_moves when identical to reply_strategy.must_not_do", () => {
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts("Thanks for checking in."),
+    });
+    expect(brief.forbidden_moves).toEqual(brief.reply_strategy.must_not_do);
+    const writerJson = serializeInboundReplyBriefForWriterPrompt(brief);
+    expect(writerJson).toContain("must_not_do");
+    expect(writerJson).not.toContain('"forbidden_moves"');
+    expect(writerJson).toContain("thread_window");
   });
 
   it("H: unsent generated inbound reply_body does not appear in thread_window", () => {

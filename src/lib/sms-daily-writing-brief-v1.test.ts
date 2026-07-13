@@ -320,7 +320,7 @@ describe("buildDailySmsWritingBriefV1", () => {
       "authoritative_truth",
       "recent_exact_thread",
     ]);
-    expect(brief.suggested_move.must_not_do.length).toBeLessThanOrEqual(3);
+    expect(brief.suggested_move.must_not_do.length).toBe(0);
   });
 
   it("freshness catches timer or gentle sound", () => {
@@ -931,9 +931,10 @@ function distributionFixtureFacts(): DailyV3RelationshipFacts {
 describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
   it("system prompt contains FirstTextStyleMicroguideV1 and paraphrase-only rules", () => {
     const system = buildDailySmsBriefSystemPrompt({ maxChars: 300 });
-    expect(system).toContain("FIRST-TEXT STYLE");
     expect(system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
-    expect(system).toMatch(/subordinate to authoritative_truth and current_standard/i);
+    expect(system).toMatch(/VOICE: Write one human SMS in Coach Pat's voice/i);
+    expect(system).not.toMatch(/FIRST-TEXT STYLE/i);
+    expect(system).not.toMatch(/Lead with today's concrete rep/i);
     expect(system).not.toMatch(/Prefer relationship_read\.today_best_move/i);
     expect(system).not.toMatch(/primary human-continuity guide/i);
     expect(system).toMatch(/Paraphrase all hints/i);
@@ -1063,7 +1064,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
     expect(writer.system).toMatch(/No Reply YES\/NO|No robot menu/i);
     expect(writer.system).toMatch(/no fake Pat quotes|No fake Pat quotes/i);
-    expect(writer.system).toMatch(/no third-person Pat/i);
+    expect(writer.system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
     expect(writer.user).toContain('"relationship_anchors"');
     expect(writer.user).toContain("style_hint_only");
     expect(writer.user).toContain("Brooke");
@@ -1180,7 +1181,8 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
     expect(writer.user).not.toMatch(/\bone honest (rep|step|win)\b/i);
-    expect(writer.system).toMatch(/one honest step/);
+    expect(writer.system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
+    expect(writer.system).not.toMatch(/Lead with today's concrete rep/i);
   });
 
   it("neutralizeBriefSuggestedMoveReasonForWriter maps known generic patterns", () => {
@@ -1505,6 +1507,10 @@ describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
         /until fit\/relevance is repaired/i.test(m)
       )
     ).toBe(true);
+    expect(brief.suggested_move.must_not_do.length).toBeLessThanOrEqual(2);
+    expect(brief.suggested_move.move).not.toMatch(
+      /recover_today|ask_first_rep|set_today_rep|plan_today|direct_outcome_check/i
+    );
     expect(brief.authoritative_truth.claims.can_claim_proof).toBe(true);
     expect(JSON.stringify(brief)).not.toMatch(/Change Goal|Update Goal|open the app/i);
   });
@@ -1593,6 +1599,7 @@ describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
     expect(
       brief.suggested_move.must_not_do.some((m) => /miss|get-back-on-track|drift/i.test(m))
     ).toBe(true);
+    expect(brief.suggested_move.must_not_do.length).toBeLessThanOrEqual(2);
     expect(JSON.stringify(brief.coaching_situation)).not.toMatch(/get back on track/i);
   });
 
@@ -2177,6 +2184,219 @@ describe("temporal precision and stale-method clarity", () => {
       currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
     });
     expect(pendingExtra).not.toMatch(/sport|kid|brooke|what sport/i);
+  });
+});
+
+describe("daily notebook simplification around exact thread", () => {
+  function buildBriefWithMessages(
+    messages: Array<{
+      at_local: string;
+      role: "coach" | "user";
+      body: string;
+      source_table?: string;
+      delivery_evidence?:
+        | "message_sid_present"
+        | "outbound_message_sid_present"
+        | "status_sent_with_timestamp"
+        | "inbound_received"
+        | "fallback_last_outbound";
+      message_sid?: string;
+    }>,
+    factsOverrides?: Partial<DailyV3RelationshipFacts>
+  ) {
+    const facts = baseFacts(factsOverrides);
+    const cal = deriveDailyProofCalibration({ facts });
+    return buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
+        messages: messages.map((m) => ({
+          at_local: m.at_local,
+          role: m.role,
+          body: m.body,
+          source_table: m.source_table ?? "sms_inbound_messages",
+          delivery_evidence: m.delivery_evidence ?? "inbound_received",
+          ...(m.message_sid ? { message_sid: m.message_sid } : {}),
+        })),
+        message_count: messages.length,
+        char_count: messages.reduce((s, m) => s + m.body.length, 0),
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+      writing_brief_overrides: {
+        previousOutbound: {
+          body: "Enjoy playing sports with the kids today!",
+          at_local: "Jul 10, 2026, 8:00 AM",
+          inferred_slot: "morning",
+        },
+      },
+    });
+  }
+
+  it("A: recent_exact_thread remains with provenance", () => {
+    const brief = buildBriefWithMessages([
+      {
+        at_local: "Jul 10, 2026, 8:00 AM",
+        role: "coach",
+        body: "What's the plan?",
+        source_table: "sms_send_events",
+        delivery_evidence: "message_sid_present",
+        message_sid: "SM_A",
+      },
+      {
+        at_local: "Jul 10, 2026, 8:05 AM",
+        role: "user",
+        body: "I'll organize the receipts after lunch.",
+        source_table: "sms_inbound_messages",
+        delivery_evidence: "inbound_received",
+      },
+    ]);
+    expect(brief.recent_exact_thread.messages.length).toBe(2);
+    expect(brief.recent_exact_thread.messages[0]).toMatchObject({
+      source_table: "sms_send_events",
+      delivery_evidence: "message_sid_present",
+      message_sid: "SM_A",
+    });
+    expect(brief.recent_exact_thread.mode).toBe("7d_capped");
+  });
+
+  it("B/C: writer-facing slot omits active_coaching_thread and previous_outbound_summary", () => {
+    const brief = buildBriefWithMessages([
+      {
+        at_local: "Jul 10, 2026, 8:00 AM",
+        role: "coach",
+        body: "Enjoy playing sports with the kids today!",
+        source_table: "sms_send_events",
+        delivery_evidence: "message_sid_present",
+        message_sid: "SM_SPORT",
+      },
+      {
+        at_local: "Jul 10, 2026, 6:00 PM",
+        role: "user",
+        body: "Got my 10,000 steps.",
+      },
+    ]);
+    expect(brief.slot_coaching_context.active_coaching_thread).toBeNull();
+    expect(brief.slot_coaching_context.previous_outbound_summary).toBeNull();
+    expect(brief.slot_coaching_context.slot_role_recommendation).toBeTruthy();
+    expect(brief.slot_coaching_context.current_slot).toBe("morning");
+    expect(brief.recent_exact_thread.messages.some((m) => /sports with the kids/i.test(m.body))).toBe(
+      true
+    );
+    expect(JSON.stringify({ active: brief.slot_coaching_context.active_coaching_thread })).not.toMatch(
+      /sports|Thread focus/i
+    );
+    expect(
+      JSON.stringify({ prev: brief.slot_coaching_context.previous_outbound_summary })
+    ).not.toMatch(/sports/i);
+  });
+
+  it("D/E: voice line is short and does not lead with today's concrete rep", () => {
+    const normal = buildDailySmsWriterMessagesFromBrief(buildBriefWithMessages([]));
+    expect(normal.system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
+    expect(normal.system).not.toMatch(/Lead with today's concrete rep/i);
+    expect(normal.system).not.toMatch(/Exception when fit is in question/i);
+
+    const repairSystem = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+      currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      coachingSituation: {
+        authority: "semantic_context_not_copy",
+        kind: "fit_in_question",
+        current_standard_status: "stored_but_fit_in_question",
+        writer_posture: "repair_fit_before_accountability",
+        basis: ["fit"],
+        semantic_notes: [],
+      },
+    });
+    expect(repairSystem).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
+    expect(repairSystem).toMatch(
+      /Do not lead with today's rep on current_standard while fit is in question/i
+    );
+    expect(repairSystem).not.toMatch(/Lead with today's concrete rep/i);
+  });
+
+  it("F: suggested_move.must_not_do empty for normal accountability; system keeps hard safety", () => {
+    const brief = buildBriefWithMessages([]);
+    expect(brief.suggested_move.must_not_do).toEqual([]);
+    expect(brief.suggested_move.move).toBeTruthy();
+    expect(brief.suggested_move.max_questions).toBeDefined();
+    expect(brief.suggested_move.subordinate_to).toEqual([
+      "authoritative_truth",
+      "recent_exact_thread",
+    ]);
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toMatch(/No fake proof/i);
+    expect(writer.system).toMatch(/authoritative_truth\.claims never authorize proof/i);
+  });
+
+  it("G/H: stale method and weekly plan ask live only in exact thread, not slot thread summaries", () => {
+    const brief = buildBriefWithMessages([
+      {
+        at_local: "Jul 9, 2026, 9:00 AM",
+        role: "coach",
+        body: "What's the plan for this week?",
+        source_table: "sms_weekly_send_events",
+        delivery_evidence: "message_sid_present",
+        message_sid: "SM_WEEK",
+      },
+      {
+        at_local: "Jul 10, 2026, 8:00 AM",
+        role: "coach",
+        body: "Enjoy playing sports with the kids today!",
+        source_table: "sms_send_events",
+        delivery_evidence: "message_sid_present",
+        message_sid: "SM_SPORT",
+      },
+      {
+        at_local: "Jul 10, 2026, 8:10 AM",
+        role: "user",
+        body: "I'll organize the receipts after lunch.",
+      },
+    ]);
+    expect(brief.slot_coaching_context.active_coaching_thread).toBeNull();
+    expect(brief.slot_coaching_context.previous_outbound_summary).toBeNull();
+    expect(
+      brief.recent_exact_thread.messages.some((m) => /plan for this week/i.test(m.body))
+    ).toBe(true);
+    expect(
+      brief.recent_exact_thread.messages.some((m) => /sports with the kids/i.test(m.body))
+    ).toBe(true);
+  });
+
+  it("I: silence route cards still appear for non-normal silence", () => {
+    const facts = baseFacts({
+      silence_cadence: {
+        route: "final_daily_mode_day14",
+        silence_day: 14,
+        send_today: true,
+        no_send_reason: null,
+      } as never,
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toMatch(/SILENCE_CADENCE_ROUTE_CARD/i);
+    expect(writer.system).toMatch(/final_daily_mode_day14/);
+    expect(writer.system).toContain(FIRST_TEXT_STYLE_MICROGUIDE_V1);
+    expect(writer.system).not.toMatch(/Lead with today's concrete rep/i);
   });
 });
 

@@ -481,7 +481,7 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(userPromptJson).toContain("relationship_memory_30d_or_season");
     expect(userPromptJson).not.toContain("coaching_summary");
     expect(userPromptJson.length).toBeLessThanOrEqual(DEFAULT_RELATIONSHIP_PACKET_BUDGET);
-    expect(meta.included_thread_window_hours).toBe(72);
+    expect(meta.included_thread_window_hours).toBe(RECENT_EXACT_THREAD_WINDOW_HOURS);
     expect(meta.included_memory_7d_window_days).toBe(7);
     expect(meta.included_memory_30d_window_days).toBe(30);
   });
@@ -596,17 +596,26 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(userPromptJson).toContain("can_imply_today_missed");
   });
 
-  it("daily packet exposes compact recent_thread_timeline_summary_72h", () => {
+  it("omits recent_thread_timeline_summary_72h when recent_exact_thread_72h is present", () => {
     const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
       lane: "daily",
       sourceFacts: minimalDailyFacts(),
     });
-    const timeline = packet.structured_recent_truth.data.recent_thread_timeline_summary_72h;
-    expect(timeline?.length).toBeGreaterThan(0);
-    expect(timeline?.[0]?.role).toMatch(/coach|user/);
-    expect(timeline?.[0]?.local_day_relation).toBeDefined();
-    expect(timeline?.[0]?.body_preview.length).toBeGreaterThan(0);
-    expect(userPromptJson).toContain("recent_thread_timeline_summary_72h");
+    expect(packet.recent_exact_thread_72h?.data.messages.length).toBeGreaterThan(0);
+    expect(packet.structured_recent_truth.data.recent_thread_timeline_summary_72h).toBeUndefined();
+    expect(userPromptJson).not.toContain("recent_thread_timeline_summary_72h");
+    expect(userPromptJson).toContain("recent_exact_thread_72h");
+  });
+
+  it("writer-facing daily packet omits coaching_memory_snippet beside exact thread", () => {
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: minimalDailyFacts(),
+    });
+    expect(packet.recent_exact_thread_72h?.data.messages.length).toBeGreaterThan(0);
+    expect(packet.lower_authority_background?.data.coaching_memory_snippet).toBeUndefined();
+    expect(userPromptJson).not.toContain("coaching_memory_snippet");
+    expect(userPromptJson).not.toContain("COACHING_MEMORY");
   });
 
   it("stale_ask_avoidance_summary omitted when no satisfied or DNR context", () => {
@@ -653,7 +662,8 @@ describe("buildRelationshipPacketForOpenAI", () => {
     expect(packet.structured_recent_truth.data.stale_ask_avoidance_summary?.has_satisfied_recent_ask).toBe(
       true
     );
-    expect(packet.lower_authority_background?.data.coaching_memory_snippet?.length ?? 0).toBeLessThan(500);
+    expect(packet.lower_authority_background?.data.coaching_memory_snippet).toBeUndefined();
+    expect(packet.recent_exact_thread_72h?.data.messages.length).toBeGreaterThan(0);
   });
 
   it("inbound and daily share the same relationship_memory_30d_or_season shape", () => {
@@ -1029,13 +1039,31 @@ describe("buildRelationshipPacketForOpenAI", () => {
       true
     );
     expect(packet.relationship_memory_7d?.data.window_days).toBe(7);
-    expect(packet.relationship_memory_30d_or_season?.data.window_days).toBe(30);
+    // 30d may be budget-trimmed ahead of thread; when present it keeps the 30d window.
+    if (packet.relationship_memory_30d_or_season) {
+      expect(packet.relationship_memory_30d_or_season.data.window_days).toBe(30);
+    }
     expect(packet.canonical_state.data.constraints?.weekly_anti_shame?.anti_shame_required).toBe(true);
+    expect(packet.lower_authority_background?.data.coaching_memory_snippet).toBeUndefined();
+    expect(userPromptJson).not.toContain("coaching_memory_snippet");
+    expect(userPromptJson).not.toContain("recent_thread_timeline_summary_72h");
+    expect(userPromptJson).toContain("recent_exact_thread_72h");
+    expect(userPromptJson).toContain("weekly_week_summary");
+    expect(packet.structured_recent_truth.data.weekly_week_summary?.completed_count).toBeDefined();
+    expect(
+      packet.canonical_state.data.effective_ask || packet.canonical_state.data.behavior_statement
+    ).toBeTruthy();
+    expect(
+      packet.structured_recent_truth.data.last_5_coach_questions !== undefined ||
+        packet.structured_recent_truth.data.do_not_repeat_phrases !== undefined
+    ).toBe(true);
     expect(userPromptJson).toContain("RELATIONSHIP_PACKET_V1");
     expect(userPromptJson).not.toContain("WEEKLY_FACTS_JSON");
     expect(meta.included_thread_window_hours).toBe(RECENT_EXACT_THREAD_WINDOW_HOURS);
     expect(meta.included_memory_7d_window_days).toBe(RELATIONSHIP_MEMORY_7D_WINDOW_DAYS);
-    expect(meta.included_memory_30d_window_days).toBe(RELATIONSHIP_MEMORY_30D_WINDOW_DAYS);
+    if (packet.relationship_memory_30d_or_season) {
+      expect(meta.included_memory_30d_window_days).toBe(RELATIONSHIP_MEMORY_30D_WINDOW_DAYS);
+    }
   });
 
   it("weekly packet trims relationship_memory_30d before thread under budget pressure", () => {
@@ -1572,7 +1600,7 @@ describe("buildRelationshipPacketPromptGuidance", () => {
     expect(guidance).toContain("DAILY_C1_HIGH_REPEAT_RISK");
     expect(guidance).toMatch(/relationship notebook/i);
     expect(guidance).toMatch(/temporal awareness/i);
-    expect(guidance).toMatch(/recent thread timeline/i);
+    expect(guidance).toMatch(/recent_exact_thread_72h/i);
     expect(guidance).toMatch(/no-question coaching touch/i);
     expect(guidance).toMatch(/tell me, let me know, reply with/i);
     expect(guidance).not.toMatch(/Say this/i);

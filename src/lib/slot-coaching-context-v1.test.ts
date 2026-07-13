@@ -9,6 +9,7 @@ import {
   extractPreviousOutboundFromThread,
   extractUserRepliesSincePreviousOutbound,
   inferPreviousSlotFromOutboundBody,
+  toWriterFacingSlotCoachingContext,
   type SlotCoachingThreadMessage,
 } from "@/lib/slot-coaching-context-v1";
 function thread(messages: SlotCoachingThreadMessage[]) {
@@ -209,5 +210,25 @@ describe("thread helpers", () => {
       "Plan?"
     );
     expect(replies).toEqual(["After lunch.", "Maybe."]);
+  });
+
+  it("toWriterFacingSlotCoachingContext nulls interpretive thread echo", () => {
+    const ctx = buildSlotCoachingContext({
+      currentSlot: "morning",
+      recentExactThread: thread([
+        {
+          at_local: "Mon 7:00 AM",
+          role: "coach",
+          body: "Enjoy playing sports with the kids today!",
+        },
+      ]),
+    });
+    expect(ctx.active_coaching_thread).toBeTruthy();
+    expect(ctx.previous_outbound_summary).toBeTruthy();
+    const writerFacing = toWriterFacingSlotCoachingContext(ctx);
+    expect(writerFacing.active_coaching_thread).toBeNull();
+    expect(writerFacing.previous_outbound_summary).toBeNull();
+    expect(writerFacing.slot_role_recommendation).toBe(ctx.slot_role_recommendation);
+    expect(writerFacing.current_slot).toBe("morning");
   });
 });

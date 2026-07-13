@@ -500,6 +500,17 @@ export function buildSlotCoachingContext(args: BuildSlotCoachingContextArgs): Sl
   };
 }
 
+/** Strip interpretive thread echo — recent_exact_thread is the only writer transcript. */
+export function toWriterFacingSlotCoachingContext(
+  ctx: SlotCoachingContextV1
+): SlotCoachingContextV1 {
+  return {
+    ...ctx,
+    previous_outbound_summary: null,
+    active_coaching_thread: null,
+  };
+}
+
 export function parseSlotCoachingContextFromMetadata(raw: unknown): SlotCoachingContextV1 | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;

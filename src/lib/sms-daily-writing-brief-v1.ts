@@ -39,6 +39,7 @@ import {
 } from "@/lib/sms-silence-cadence-v1";
 import {
   buildSlotCoachingContext,
+  toWriterFacingSlotCoachingContext,
   type SlotCoachingContextV1,
   type SlotCoachingPreviousOutbound,
 } from "@/lib/slot-coaching-context-v1";
@@ -54,13 +55,8 @@ const RELATIONSHIP_ANCHOR_PEOPLE_MAX = 4;
 const DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ = 4;
 
 /** Style-only writer microguide — not duplicated in JSON brief payload. */
-export const FIRST_TEXT_STYLE_MICROGUIDE_V1 = `FIRST-TEXT STYLE — subordinate to authoritative_truth and current_standard:
-• Write one human SMS to someone you know; use their first name naturally when it fits.
-• Lead with today's concrete rep tied to the real standard — identity may color it, not replace it.
-• Give one specific first move for this morning; warm and direct, never soft or preachy.
-• Important people may appear only when they deepen meaning — never guilt, pressure, or "do it for them."
-• Avoid generic filler: checking in, you've got this, one honest step, stay committed, make today count.
-• No Reply YES/NO, no Pat quotes, no third-person Pat, no daily mini-sermon.`;
+export const FIRST_TEXT_STYLE_MICROGUIDE_V1 =
+  "VOICE: Write one human SMS in Coach Pat's voice — direct, plainspoken, specific, rooted in the current standard or relationship moment; not software, customer support, therapy, or generic motivation.";
 
 export type BriefLocalDaypart = "morning" | "afternoon" | "evening" | "late_night";
 
@@ -478,7 +474,63 @@ export function buildSuggestedMoveForDailyWritingBrief(
   return {
     ...move,
     reason: neutralizeBriefSuggestedMoveReasonForWriter(move.reason),
+    // System prompt + authoritative_truth own hard safety; avoid duplicate must_not_do noise.
+    must_not_do: [],
   };
+}
+
+/** Competing normal-accountability move names that conflict with higher-priority postures. */
+const COMPETING_NORMAL_ACCOUNTABILITY_MOVE_RE =
+  /\b(recover_today|ask_first_rep|set_today_rep|plan_today|direct_outcome_check)\b/i;
+
+function alignSuggestedMoveToCoachingSituation(
+  move: DailySmsSuggestedMoveV1,
+  situation: DailySmsCoachingSituationV1
+): DailySmsSuggestedMoveV1 {
+  const posture = situation.writer_posture;
+  const kind = situation.kind;
+  const highPriority =
+    posture === "repair_fit_before_accountability" ||
+    posture === "close_loop_no_new_ask" ||
+    posture === "clarify_before_drift" ||
+    kind === "silence_reentry";
+
+  if (!highPriority) {
+    return { ...move, must_not_do: [] };
+  }
+
+  let next = { ...move, must_not_do: [] as string[] };
+  if (COMPETING_NORMAL_ACCOUNTABILITY_MOVE_RE.test(next.move)) {
+    next = {
+      ...next,
+      move: posture === "clarify_before_drift" ? "clarify" : posture.slice(0, 40),
+      reason: truncateText(`Follow coaching_situation (${posture})`, 120),
+    };
+  }
+
+  if (posture === "repair_fit_before_accountability") {
+    next = {
+      ...next,
+      max_questions: 1,
+      must_not_do: [
+        "Do not run normal accountability on current_standard until fit/relevance is repaired",
+      ],
+    };
+  } else if (posture === "clarify_before_drift") {
+    next = {
+      ...next,
+      max_questions: 1,
+      must_not_do: ["Do not accuse miss or get-back-on-track drift"],
+    };
+  } else if (posture === "close_loop_no_new_ask") {
+    next = {
+      ...next,
+      max_questions: 0,
+      must_not_do: [],
+    };
+  }
+
+  return next;
 }
 
 function deriveBriefPosture(facts: DailyV3RelationshipFacts): string {
@@ -850,13 +902,6 @@ function checkinFocusRepeatsStandard(
   return false;
 }
 
-function pushRepairMustNotDo(list: string[], line: string): void {
-  const t = line.trim().slice(0, 120);
-  if (!t) return;
-  if (list.some((x) => x.toLowerCase() === t.toLowerCase())) return;
-  list.push(t);
-}
-
 /**
  * Resolve notebook contradictions for repair posture.
  * Does not mutate goals, send/no-send, or classify inbound text.
@@ -873,66 +918,29 @@ export function applyCoachingSituationConflicts(args: {
 } {
   const situation = args.coaching_situation;
   let slot = args.slot_coaching_context;
-  let move = args.suggested_move;
+  let move = alignSuggestedMoveToCoachingSituation(args.suggested_move, situation);
 
-  if (situation.writer_posture !== "repair_fit_before_accountability") {
-    if (situation.writer_posture === "clarify_before_drift") {
-      const must_not_do = [...move.must_not_do];
-      pushRepairMustNotDo(must_not_do, "Do not accuse miss or get-back-on-track drift");
-      pushRepairMustNotDo(must_not_do, "Do not claim proof or completion for unclear related effort");
-      pushRepairMustNotDo(
-        must_not_do,
-        "Ask one clarifying or concretizing question for a finished task"
-      );
-      return {
-        coaching_situation: situation,
-        slot_coaching_context: slot,
-        suggested_move: {
-          ...move,
-          max_questions: 1,
-          must_not_do: must_not_do.slice(0, 5),
-        },
-      };
+  if (situation.writer_posture === "repair_fit_before_accountability") {
+    if (slot.slot_role_recommendation === "set_today_rep") {
+      slot = { ...slot, slot_role_recommendation: "truth_check" };
+    }
+    if (checkinFocusRepeatsStandard(slot.checkin_focus, args.current_standard_effective_ask)) {
+      slot = { ...slot, checkin_focus: null };
+    }
+    const basis = [...situation.basis];
+    pushSituationLabel(basis, "conflict_demote_set_today_rep", COACHING_SITUATION_BASIS_MAX);
+    if (move.max_questions === 1) {
+      pushSituationLabel(basis, "repair_allows_one_question", COACHING_SITUATION_BASIS_MAX);
     }
     return {
-      coaching_situation: situation,
+      coaching_situation: { ...situation, basis: basis.slice(0, COACHING_SITUATION_BASIS_MAX) },
       slot_coaching_context: slot,
       suggested_move: move,
     };
   }
 
-  if (slot.slot_role_recommendation === "set_today_rep") {
-    slot = { ...slot, slot_role_recommendation: "truth_check" };
-  }
-
-  if (checkinFocusRepeatsStandard(slot.checkin_focus, args.current_standard_effective_ask)) {
-    slot = { ...slot, checkin_focus: null };
-  }
-
-  const must_not_do = [...move.must_not_do];
-  pushRepairMustNotDo(
-    must_not_do,
-    "Do not run normal accountability on current_standard until fit/relevance is repaired"
-  );
-  pushRepairMustNotDo(must_not_do, "Do not repeat satisfied or stale coach asks");
-  pushRepairMustNotDo(must_not_do, "Do not use app or menu navigation");
-  pushRepairMustNotDo(must_not_do, "Do not claim the goal changed");
-  pushRepairMustNotDo(must_not_do, "Do not claim proof unless authoritative_truth allows it");
-
-  move = {
-    ...move,
-    max_questions: 1,
-    must_not_do: must_not_do.slice(0, 5),
-  };
-
-  const basis = [...situation.basis];
-  pushSituationLabel(basis, "conflict_demote_set_today_rep", COACHING_SITUATION_BASIS_MAX);
-  if (move.max_questions === 1) {
-    pushSituationLabel(basis, "repair_allows_one_question", COACHING_SITUATION_BASIS_MAX);
-  }
-
   return {
-    coaching_situation: { ...situation, basis: basis.slice(0, COACHING_SITUATION_BASIS_MAX) },
+    coaching_situation: situation,
     slot_coaching_context: slot,
     suggested_move: move,
   };
@@ -1072,7 +1080,9 @@ export function buildDailySmsWritingBriefV1(
     coaching_situation,
     ...(recent_turn_semantics ? { recent_turn_semantics } : {}),
     current_send_slot,
-    slot_coaching_context: conflictResolved.slot_coaching_context,
+    slot_coaching_context: toWriterFacingSlotCoachingContext(
+      conflictResolved.slot_coaching_context
+    ),
     current_standard,
     authoritative_truth: {
       local: {
@@ -1214,9 +1224,7 @@ export function buildDailySmsBriefSystemPrompt(args: {
       ? MORNING_SLOT_WRITER_LINE
       : "";
 
-  const styleBlock = repairFit
-    ? `${FIRST_TEXT_STYLE_MICROGUIDE_V1}\n• Exception when fit is in question: do not lead with a concrete rep on current_standard; repair fit/relevance first.`
-    : FIRST_TEXT_STYLE_MICROGUIDE_V1;
+  const styleBlock = FIRST_TEXT_STYLE_MICROGUIDE_V1;
 
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 

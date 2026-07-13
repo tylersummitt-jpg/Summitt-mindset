@@ -32,7 +32,6 @@ import { INBOUND_NOTEBOOK_OBSERVABILITY_KEYS } from "@/lib/sms-inbound-notebook-
 import { EXACT_THREAD_WINDOW_HOURS_BY_PATH, RECENT_EXACT_THREAD_WINDOW_HOURS } from "@/lib/sms-recent-exact-thread-72h";
 import {
   buildDailyTemporalAwarenessPromptGuidance,
-  buildRecentThreadTimelineSummary72h,
   deriveDailyTemporalAwarenessSummary,
   deriveIsNewAccountabilityDayFromThread,
   weekdayFromAccountabilityDayKey,
@@ -357,8 +356,9 @@ RELATIONSHIP_PACKET_AUTHORITY (read relationship_packet_v1 sections — beats st
 - If structured_recent_truth.thread_freshness lists completed_actions or do_not_reask_topics, do NOT re-ask those topics.
 - If structured_recent_truth gives active_temporal_frame, respect it (do not shift to today/tomorrow without user movement).
 - lower_authority_background and coaching summaries are tone/context only — not proof of what happened.
-- structured_recent_truth.daily_proof_calibration is authoritative server truth for praise and proof recency — it beats coaching_memory_snippet and lower_authority_background on praise/consistency claims.
+- structured_recent_truth.daily_proof_calibration is authoritative server truth for praise and proof recency — it beats lower_authority_background on praise/consistency claims.
 - If structured_recent_truth.summary_authority_note is present, summaries are background_only; exact thread + daily_proof_calibration win on conflict.
+- Do not treat coaching_memory_snippet or timeline summaries as the SMS transcript — recent_exact_thread_72h is the literal thread when present.
 ${buildRelationshipAnchorsPromptGuidance()}
 ${buildDailyC1HighRepeatRiskPacketGuidance()}
 ${buildTemporalContractPromptGuidance()}
@@ -370,7 +370,7 @@ ${buildRelationshipSnapshotV2PromptGuidance()}`;
 export function buildDailyC1HighRepeatRiskPacketGuidance(): string {
   return `
 DAILY_C1_HIGH_REPEAT_RISK (when stale_ask_avoidance_summary, daily_satisfied_ask_context, or avoid_repeating shows recent satisfied/repeated asks):
-- Treat RELATIONSHIP_PACKET_V1 as the relationship notebook: read temporal awareness, recent thread timeline, current goal/standard, identity, stale/do-not-repeat context, and relationship anchors only if naturally useful before writing.
+- Treat RELATIONSHIP_PACKET_V1 as the relationship notebook: read temporal awareness, recent_exact_thread_72h, current goal/standard, identity, stale/do-not-repeat context, and relationship anchors only if naturally useful before writing.
 - Then write one fresh, human, no-question coaching touch: concrete action, protect plan, close loop, identity reminder, low-pressure reentry, or relational bridge into action — not another question or question-shaped command.
 - Do not paraphrase satisfied asks, do_not_reask_labels, or recent_coach_question_labels into planning, outcome, blocker, evidence, or strategy phrasing.
 - Do not use tell me, let me know, reply with, name the blocker, choose one, or send me as a substitute for a question mark.`;
@@ -690,9 +690,7 @@ function resolveMemory30dWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketMem
 function buildLowerAuthorityWeekly(f: WeeklyV3OutboundFacts): RelationshipPacketLowerAuthorityBackground {
   return {
     relationship_profile_summary: f.user.sms_engagement_summary ?? null,
-    coaching_memory_snippet: f.thread.coaching_memory_snippet
-      ? truncateText(f.thread.coaching_memory_snippet, 600)
-      : null,
+    // coaching_memory_snippet intentionally omitted — recent_exact_thread_72h is the transcript.
   };
 }
 
@@ -783,10 +781,8 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
   const turnUnderstanding =
     sac?.has_satisfied_recent_ask === true ? turnUnderstandingFromDailySatisfiedAskContext(sac) : null;
   const staleAskAvoidanceSummary = buildStaleAskAvoidanceSummaryFromDailyFacts(f);
-  const timeline = buildRecentThreadTimelineSummary72h({
-    messages: tm.recent_exact_thread_72h?.messages,
-    accountabilityDayKey: f.accountability_day_key,
-  });
+  // Timeline prose summary omitted when exact thread exists on the packet (built below).
+  // Keep last_5_coach_questions as concise DNR labels — not a second transcript.
   return {
     ...(turnUnderstanding ? { turn_understanding: turnUnderstanding } : {}),
     ...(sac?.has_satisfied_recent_ask
@@ -803,7 +799,6 @@ function buildStructuredTruthDaily(f: DailyV3RelationshipFacts): RelationshipPac
         }
       : {}),
     ...(staleAskAvoidanceSummary ? { stale_ask_avoidance_summary: staleAskAvoidanceSummary } : {}),
-    ...(timeline.length ? { recent_thread_timeline_summary_72h: timeline } : {}),
     ...(tm.recent_coach_body_do_not_repeat?.length
       ? {
           recent_coach_body_do_not_repeat: tm.recent_coach_body_do_not_repeat
@@ -1106,14 +1101,8 @@ function buildLowerAuthorityDaily(f: DailyV3RelationshipFacts): RelationshipPack
     summary_authority: "background_only",
     exact_thread_and_calibration_win: true,
     relationship_profile_summary: f.user.relationship_profile_summary,
-    coaching_memory_snippet:
-      f.thread_memory.coaching_memory_snippet?.trim() &&
-      !f.thread_memory.coaching_memory_snippet.includes("COACHING_MEMORY (background only")
-        ? truncateText(f.thread_memory.coaching_memory_snippet, 600)
-        : null,
-    recent_transcript_or_context_block: f.thread_memory.recent_transcript_or_context_block
-      ? truncateText(f.thread_memory.recent_transcript_or_context_block, 400)
-      : null,
+    // coaching_memory_snippet / recent_transcript_or_context_block omitted —
+    // recent_exact_thread_72h is the only writer-facing transcript.
   };
 }
 
