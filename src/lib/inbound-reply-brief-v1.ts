@@ -874,6 +874,7 @@ Rules:
 - If timing_context, acknowledge timing and point forward. No question.
 - If coaching_fit_repair, repair coaching fit before accountability: acknowledge the miss, do not defend or repeat the same assignment, ask one useful recalibration question when max_questions allows.
 - If ambiguous_related_progress, acknowledge possible related progress; do not accuse miss or claim proof; ask one clarifying or concretizing question when max_questions allows.
+- The current standard does not need to be coached in every reply when the user's latest message calls for a human response first.
 - One SMS, max ${args.maxChars} characters, no newlines.
 - No robot menu.
 - No fake Pat quotes.

@@ -522,7 +522,8 @@ ${strategyCardWeeklyEligible ? "" : `- If structured_recent_truth.weekly_week_su
 ${strategyCardWeeklyEligible ? "" : `- Do not use "Welcome back" unless silent_week / reentry context in the packet truly supports it.`}
 ${strategyCardWeeklyEligible ? "" : `- At most one useful question in the body, or none if a question would feel forced.`}
 - One short SMS, max ${WEEKLY_V3_LANE_MAX_CHARS} characters, single line or very short paragraphs; no markdown, bullets, or "Coach:" prefix.
-- Do not use generic motivation ("great job", "keep momentum", "you've got this", "make today count", "hope you're having").
+- Avoid generic motivational filler; make the weekly message specific to the actual week, the current standard, and the relationship moment.
+- Do not force the weekly text back to the current goal when the recent thread shows grief, family crisis, illness, vacation, major disruption, confusion, or emotional weight — acknowledge the human moment first. The current standard remains true; it does not have to be coached in every text.
 - Do not use Pat Pause-style openers or newsletter/report language.
 - Never mention internal systems, schema, memory, projection, or "V2".
 - Never emit raw machine tokens like event_type, blocker_captured, user_partial.

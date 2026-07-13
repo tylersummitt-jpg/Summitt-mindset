@@ -715,6 +715,11 @@ describe("Phase 1 route brief integration", () => {
     expect(system).toMatch(/metaphor_only: soft Victory Room/i);
     expect(system).toMatch(/optional and encouraged/i);
     expect(system).not.toMatch(/do not mention Victory Room when.*metaphor_only/i);
+    expect(system).toMatch(
+      /current standard does not need to be coached in every reply when the user's latest message calls for a human response first/i
+    );
+    expect(system).toMatch(/Obey question_policy\.max_questions/);
+    expect(system).not.toMatch(/crisis_human_first_route|vacation_mode|emotion_state_machine/);
 
     const vagueBrief = buildInboundReplyBriefV1({
       facts: goldenFacts("Things are going well.", {

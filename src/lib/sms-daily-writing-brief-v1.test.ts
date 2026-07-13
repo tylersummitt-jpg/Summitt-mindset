@@ -26,6 +26,7 @@ import {
   detectFitOrCorrectionConflictFromAssembledSemantics,
   EVENING_SLOT_WRITER_LINE,
   FIRST_TEXT_STYLE_MICROGUIDE_V1,
+  HUMAN_FIRST_RELATIONSHIP_MOMENT_WRITER_LINE,
   MORNING_SLOT_WRITER_LINE,
   TEMPORAL_CONTINUITY_WRITER_LINE,
   neutralizeBriefSuggestedMoveReasonForWriter,
@@ -948,6 +949,60 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     expect(system).toMatch(/No fake proof/i);
     expect(system).toMatch(/should_send \(boolean\)/);
     expect(system).toMatch(/safety_notes \(string\[\]\)/);
+  });
+
+  it("loosens style leash while keeping truth/safety hard", () => {
+    const normal = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+    });
+    expect(normal).toMatch(
+      /recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations/
+    );
+    expect(normal).toMatch(/authoritative_truth\.claims never authorize proof/i);
+    expect(normal).toMatch(/No fake proof/i);
+    expect(normal).toMatch(/No invented wins\/misses\/Victory Room claims/i);
+    expect(normal).toMatch(/No app, website, Victory Room/i);
+    expect(normal).toContain(TEMPORAL_CONTINUITY_WRITER_LINE.trim());
+    expect(normal).toContain(HUMAN_FIRST_RELATIONSHIP_MOMENT_WRITER_LINE);
+    expect(normal).toMatch(/grief, family crisis, illness, vacation/i);
+    expect(normal).toMatch(/does not have to be coached in every single text/i);
+    expect(normal).not.toMatch(/Best shape: one sentence of continuity/i);
+    expect(normal).toMatch(
+      /Usually aim for one clear ask or one concrete next move, but let the relationship moment determine the shape/i
+    );
+    expect(normal).toMatch(/Avoid generic motivational filler and pleading soft-closes/i);
+    expect(normal).not.toMatch(/you've got this/i);
+    expect(normal).not.toMatch(/make today count/i);
+    expect(normal).not.toMatch(/one honest step/i);
+    expect(normal).not.toMatch(/Do not say no worries, please respond, or whenever you are ready/i);
+    expect(normal).toMatch(
+      /Use one clear ask unless route guidance says no question\. Route max_questions remains hard/i
+    );
+    expect(normal).not.toMatch(/At most one question, or one concrete action/i);
+    expect(normal).not.toMatch(/crisis_human_first_route|vacation_mode|relapse_detector|emotion_state_machine/);
+    expect((normal.match(/VOICE: Write one human SMS/g) ?? []).length).toBe(1);
+
+    const zeroQ = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: true,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+    });
+    expect(zeroQ).toMatch(/statement-only coaching touch/i);
+    expect(zeroQ).toMatch(/Route max_questions is hard/i);
+
+    const silenceZero = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+      silenceCadenceRoute: "final_daily_mode_day14",
+    });
+    expect(silenceZero).toMatch(/statement-only coaching touch/i);
+    expect(silenceZero).toMatch(/max_questions: 0/);
   });
 
   it("microguide is not duplicated in JSON brief payload", () => {

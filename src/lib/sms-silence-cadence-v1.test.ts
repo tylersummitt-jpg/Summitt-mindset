@@ -5,6 +5,7 @@ import {
   deriveSilenceCadenceV1,
   routeForSilenceDay,
   SILENCE_CADENCE_ROUTE_CARDS,
+  SILENCE_CADENCE_SHARED_HARD_SAFETY,
   type SilenceCadenceRoute,
 } from "@/lib/sms-silence-cadence-v1";
 import { fetchLastAnyUserReplyAt } from "@/lib/sms-last-any-user-reply";
@@ -160,21 +161,38 @@ describe("silence route card wording", () => {
     expect(card.must_do.join(" ")).toMatch(/whether-they-are-still-in/i);
   });
 
-  it("global must_not_do blocks app navigation and annoying apology language", () => {
-    const card = SILENCE_CADENCE_ROUTE_CARDS.normal_daily;
-    const joined = card.must_not_do.join(" ").toLowerCase();
+  it("shared hard safety blocks app navigation and anti-guilt rules once", () => {
+    const joined = SILENCE_CADENCE_SHARED_HARD_SAFETY.join(" ").toLowerCase();
     expect(joined).toMatch(/victory room/);
-    expect(joined).toMatch(/please respond/);
-    expect(joined).toMatch(/whenever you are ready/);
-    expect(joined).toMatch(/not trying to be annoying/);
+    expect(joined).toMatch(/guilt or shame/);
+    expect(joined).toMatch(/customer-servicey/);
+    expect(joined).not.toMatch(/please respond/);
+    expect(joined).not.toMatch(/whenever you are ready/);
+    expect(joined).not.toMatch(/not trying to be annoying/);
+    expect(joined).not.toMatch(/no worries/);
+  });
+
+  it("route cards keep route-specific must_not_do without repeating global phrase laundry lists", () => {
+    const day3 = SILENCE_CADENCE_ROUTE_CARDS.soft_reentry_day3;
+    const day7 = SILENCE_CADENCE_ROUTE_CARDS.recommit_or_adjust_day7;
+    expect(day3.must_not_do.length).toBeLessThanOrEqual(4);
+    expect(day7.must_not_do.length).toBeLessThanOrEqual(4);
+    expect(day3.must_not_do.join(" ").toLowerCase()).not.toMatch(/please respond/);
+    expect(day7.must_not_do.join(" ").toLowerCase()).not.toMatch(/whenever you are ready/);
+    const appendix = buildSilenceCadenceRouteCardPromptAppendix("recommit_or_adjust_day7");
+    expect(appendix).toMatch(/shared_hard_safety/i);
+    expect(appendix).toMatch(/victory room/i);
+    expect(appendix).toMatch(/guilt or shame/i);
+    expect(appendix).not.toMatch(/go to the app/i);
+    expect(appendix.match(/do not say no worries/gi)?.length ?? 0).toBe(0);
   });
 
   it("goal-adjustment day7 allows spoken recommit/adjust question only", () => {
     const card = SILENCE_CADENCE_ROUTE_CARDS.recommit_or_adjust_day7;
     expect(card.allow_goal_adjustment_language).toBe(true);
     expect(card.must_do.join(" ")).toMatch(/recommit to this goal or adjust it/i);
-    expect(card.must_not_do.join(" ")).toMatch(/victory room/i);
     const appendix = buildSilenceCadenceRouteCardPromptAppendix("recommit_or_adjust_day7");
+    expect(appendix).toMatch(/victory room/i);
     expect(appendix).not.toMatch(/go to the app/i);
   });
 });

@@ -56,11 +56,11 @@ export type DailySilenceCadenceFacts = {
   no_send_reason: string | null;
 };
 
-const GLOBAL_MUST_NOT_DO = [
-  "do not say no worries",
-  "do not say please respond",
-  "do not say whenever you are ready",
-  "do not say I am not trying to be annoying",
+/**
+ * Shared hard safety for silence routes — referenced once in the prompt appendix.
+ * Style phrase bans live in the daily system voice principle, not on every card.
+ */
+export const SILENCE_CADENCE_SHARED_HARD_SAFETY = [
   "do not guilt or shame",
   "do not beg",
   "do not insult",
@@ -69,11 +69,6 @@ const GLOBAL_MUST_NOT_DO = [
   "do not sound customer-servicey",
   "do not mention apps, websites, Victory Room, Change Goal, Update Goal, or menu directions",
   "do not copy example shapes verbatim",
-] as const;
-
-const BEFORE_DAY_14_MUST_NOT = [
-  "do not say whenever you are ready",
-  "do not say good luck",
 ] as const;
 
 export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCadenceRouteCard> = {
@@ -86,7 +81,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
     allow_goal_adjustment_language: false,
     current_standard_reference: "yes",
     must_do: ["follow current_standard"],
-    must_not_do: [...GLOBAL_MUST_NOT_DO],
+    must_not_do: [],
     example_shape_id: null,
   },
   soft_reentry_day3: {
@@ -101,7 +96,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
       "acknowledge they do not need a long explanation",
       "ask one honest sentence about where things stand today",
     ],
-    must_not_do: [...GLOBAL_MUST_NOT_DO, ...BEFORE_DAY_14_MUST_NOT, "do not say no worries"],
+    must_not_do: ["do not lecture or stack accountability asks"],
     example_shape_id: "shape_day3",
   },
   clean_reset_day4: {
@@ -117,11 +112,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
       "remind them they made a commitment",
       "ask one thing they can do today",
     ],
-    must_not_do: [
-      ...GLOBAL_MUST_NOT_DO,
-      ...BEFORE_DAY_14_MUST_NOT,
-      "do not say it is okay if you are not ready",
-    ],
+    must_not_do: ["do not say it is okay if you are not ready"],
     example_shape_id: "shape_day4",
   },
   cant_coach_silence_day5: {
@@ -136,7 +127,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
       "be honest that coaching requires response",
       "ask what needs to happen to get back on track",
     ],
-    must_not_do: [...GLOBAL_MUST_NOT_DO, ...BEFORE_DAY_14_MUST_NOT],
+    must_not_do: ["do not pile on missed-day shame"],
     example_shape_id: "shape_day5",
   },
   find_obstacle_day6: {
@@ -148,7 +139,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
     allow_goal_adjustment_language: false,
     current_standard_reference: "light",
     must_do: ["ask what is actually getting in the way", "ask like a human not a menu"],
-    must_not_do: [...GLOBAL_MUST_NOT_DO, ...BEFORE_DAY_14_MUST_NOT, "do not use multiple choice letters"],
+    must_not_do: ["do not use multiple choice letters"],
     example_shape_id: "shape_day6",
   },
   recommit_or_adjust_day7: {
@@ -163,7 +154,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
       "ask one spoken question: recommit to this goal or adjust it",
       "hold the standard without guilt",
     ],
-    must_not_do: [...GLOBAL_MUST_NOT_DO, ...BEFORE_DAY_14_MUST_NOT],
+    must_not_do: ["do not turn the ask into an app or menu direction"],
     example_shape_id: "shape_day7",
   },
   pat_style_challenge_day8: {
@@ -178,7 +169,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
       "call out the pattern without attacking the person",
       "ask for the next step they are willing to take today",
     ],
-    must_not_do: [...GLOBAL_MUST_NOT_DO, ...BEFORE_DAY_14_MUST_NOT, "do not say you failed"],
+    must_not_do: ["do not say you failed"],
     example_shape_id: "shape_day8",
   },
   no_send_space_day9: {
@@ -202,17 +193,11 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
     allow_goal_adjustment_language: false,
     current_standard_reference: "light",
     must_do: [
-      "be brief and respectful",
-      "do not apologize for coaching",
-      "name the silence briefly",
+      "be brief and respectful; name the silence briefly",
       "ask one direct whether-they-are-still-in question",
       "hold the standard without guilt",
     ],
-    must_not_do: [
-      ...GLOBAL_MUST_NOT_DO,
-      ...BEFORE_DAY_14_MUST_NOT,
-      "do not say unsubscribe if you want",
-    ],
+    must_not_do: ["do not say unsubscribe if you want"],
     example_shape_id: "shape_day10",
   },
   no_send_space_day11: {
@@ -239,7 +224,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
       "ask one spoken question whether the goal still matters or needs adjusting",
       "hold the standard without guilt",
     ],
-    must_not_do: [...GLOBAL_MUST_NOT_DO, ...BEFORE_DAY_14_MUST_NOT],
+    must_not_do: ["do not stack a second accountability ask"],
     example_shape_id: "shape_day12",
   },
   no_send_space_day13: {
@@ -266,12 +251,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
       "say daily chasing is stopping",
       "leave the door open to text when ready for one honest rep",
     ],
-    must_not_do: [
-      ...GLOBAL_MUST_NOT_DO,
-      "do not sound abandoned",
-      "do not sound passive aggressive",
-      "do not say good luck",
-    ],
+    must_not_do: ["do not sound abandoned", "do not say good luck"],
     example_shape_id: "shape_day14",
   },
   dormant_no_send_days15_20: {
@@ -295,7 +275,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
     allow_goal_adjustment_language: false,
     current_standard_reference: "light",
     must_do: ["offer one honest rep", "ask for the next step"],
-    must_not_do: [...GLOBAL_MUST_NOT_DO, "do not sound needy"],
+    must_not_do: ["do not sound needy"],
     example_shape_id: "shape_day21",
   },
   weekly_identity_day28: {
@@ -307,7 +287,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
     allow_goal_adjustment_language: false,
     current_standard_reference: "light",
     must_do: ["remind identity is built in hard moments", "ask if they want to restart today"],
-    must_not_do: [...GLOBAL_MUST_NOT_DO],
+    must_not_do: ["do not lecture about the silent stretch"],
     example_shape_id: "shape_day28",
   },
   weekly_value_check_day35: {
@@ -319,7 +299,7 @@ export const SILENCE_CADENCE_ROUTE_CARDS: Record<SilenceCadenceRoute, SilenceCad
     allow_goal_adjustment_language: true,
     current_standard_reference: "light",
     must_do: ["ask what they want to do about accountability or the goal"],
-    must_not_do: [...GLOBAL_MUST_NOT_DO],
+    must_not_do: ["do not turn the ask into an app or menu direction"],
     example_shape_id: "shape_day35",
   },
   dormant_no_send_other: {
@@ -449,10 +429,14 @@ export function buildSilenceCadenceRouteCardPromptAppendix(route: SilenceCadence
     `writer_purpose: ${card.writer_purpose}`,
     `max_questions: ${card.max_questions}`,
     `current_standard_reference: ${card.current_standard_reference}`,
+    "shared_hard_safety (once — not route-specific style bans):",
+    ...SILENCE_CADENCE_SHARED_HARD_SAFETY.map((m) => `- ${m}`),
     "must_do:",
     ...card.must_do.map((m) => `- ${m}`),
-    "must_not_do:",
-    ...card.must_not_do.map((m) => `- ${m}`),
+    "must_not_do (route-specific only):",
+    ...(card.must_not_do.length
+      ? card.must_not_do.map((m) => `- ${m}`)
+      : ["- (none beyond shared_hard_safety)"]),
   ];
   if (card.example_shape_id) {
     lines.push(`example_shape_id: ${card.example_shape_id} (do not copy verbatim)`);

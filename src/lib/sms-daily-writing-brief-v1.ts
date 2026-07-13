@@ -56,7 +56,11 @@ const DURABLE_MEMORY_MAX_WITH_RELATIONSHIP_READ = 4;
 
 /** Style-only writer microguide — not duplicated in JSON brief payload. */
 export const FIRST_TEXT_STYLE_MICROGUIDE_V1 =
-  "VOICE: Write one human SMS in Coach Pat's voice — direct, plainspoken, specific, rooted in the current standard or relationship moment; not software, customer support, therapy, or generic motivation.";
+  "VOICE: Write one human SMS in Coach Pat's voice — direct, warm enough, plainspoken, and specific to this person and moment.";
+
+/** Writer principle only — not a route, classifier, or state machine. */
+export const HUMAN_FIRST_RELATIONSHIP_MOMENT_WRITER_LINE =
+  "Do not force every SMS back to the current goal when the user's latest context calls for a human response first. If the recent thread shows grief, family crisis, illness, vacation, major disruption, confusion, or emotional weight, prioritize a brief human check-in, care, or grounding question before accountability. The current standard remains true, but it does not have to be coached in every single text. Being human is part of the coaching relationship.";
 
 export type BriefLocalDaypart = "morning" | "afternoon" | "evening" | "late_night";
 
@@ -1158,10 +1162,8 @@ export function buildDailySmsBriefSystemPrompt(args: {
   const maxQ = scCard?.max_questions;
   const questionLine =
     maxQ === 0 || args.zeroQuestionMode
-      ? "Write one statement-only coaching touch — no question mark, no hidden ask."
-      : maxQ === 1
-        ? "At most one question, or one concrete action."
-        : "At most one question, or one concrete action.";
+      ? "Write one statement-only coaching touch — no question mark, no hidden ask. Route max_questions is hard."
+      : "Use one clear ask unless route guidance says no question. Route max_questions remains hard.";
   const extras: string[] = [];
   if (args.pendingPlanActive) {
     extras.push(
@@ -1235,11 +1237,12 @@ ${morningSlotLine}${eveningSlotLine}${TEMPORAL_CONTINUITY_WRITER_LINE}Paraphrase
 authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, or unsupported temporal claims.
 When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies as stored truth. Do not copy example shapes verbatim.
 ${silenceCadenceBlock}
-Write like a real coach who knows this person: direct, warm enough, plainspoken, specific, and willing to hold the standard. Do not sound like software, customer support, a therapist, or a habit tracker.
-Best shape: one sentence of continuity, one sentence naming the standard or next move, one direct ask or challenge. Concrete today beats reflection.
-Do not say no worries, please respond, or whenever you are ready before final_daily_mode_day14. No app, website, Victory Room, Change Goal, Update Goal, or menu directions unless allow_goal_adjustment_language is true — and then only as a spoken coaching question, never navigation.
+${HUMAN_FIRST_RELATIONSHIP_MOMENT_WRITER_LINE}
+Usually aim for one clear ask or one concrete next move, but let the relationship moment determine the shape.
+Avoid generic motivational filler and pleading soft-closes; prefer specific continuity, the current standard, or the real relationship moment.
+No app, website, Victory Room, Change Goal, Update Goal, or menu directions unless allow_goal_adjustment_language is true — and then only as a spoken coaching question, never navigation.
 ${questionLine}
-One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes. No fake proof. No invented wins/misses/Victory Room claims. No generic motivation filler. Do not repeat stale or satisfied asks.
+One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes. No fake proof. No invented wins/misses/Victory Room claims. Do not repeat stale or satisfied asks.
 ${extras.join("\n")}
 
 ${styleBlock}
