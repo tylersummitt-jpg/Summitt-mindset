@@ -645,6 +645,7 @@ export function compactOpenLoopsForRelationshipRead(
     latest_open_question?: string | null;
     goal_evolution_invite?: { should_invite: boolean; invite_kind?: string | null; invite_reason?: string | null } | null;
     pending_plan_summary?: string | null;
+    pending_plan_for_day_key?: string | null;
     timing_anchor?: {
       active: boolean;
       confidence_level: string | null;
@@ -665,6 +666,9 @@ export function compactOpenLoopsForRelationshipRead(
     pending_plan_active: openLoops.pending_plan_active === true,
     ...(openLoops.pending_plan_active && openLoops.pending_plan_summary
       ? { pending_plan_summary: openLoops.pending_plan_summary }
+      : {}),
+    ...(openLoops.pending_plan_active && openLoops.pending_plan_for_day_key?.trim()
+      ? { pending_plan_for_day_key: openLoops.pending_plan_for_day_key.trim() }
       : {}),
     goal_evolution_invite: openLoops.goal_evolution_invite ?? null,
     ...(openLoops.thread_freshness_do_not_reask?.length

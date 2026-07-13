@@ -191,6 +191,8 @@ export type DailySmsWritingBriefV1 = {
     satisfied_do_not_repeat?: string[];
     pending_plan_active?: boolean;
     pending_plan_summary?: string | null;
+    /** Prior local day the unresolved plan was for — not a fresh today_plan. */
+    pending_plan_for_day_key?: string | null;
     goal_evolution_invite?: {
       should_invite: boolean;
       invite_kind?: string | null;
@@ -549,6 +551,9 @@ function buildOpenLoopsForBrief(args: {
       ? truncateText(pendingPlan.plan_summary_hint ?? pendingPlan.source_answer_preview ?? "", 120) ||
         null
       : null,
+    ...(pendingPlan?.active && pendingPlan.plan_for_day_key?.trim()
+      ? { pending_plan_for_day_key: pendingPlan.plan_for_day_key.trim() }
+      : {}),
     goal_evolution_invite: goalEvolutionInvite,
     ...(threadFreshnessDnR.length ? { thread_freshness_do_not_reask: threadFreshnessDnR } : {}),
     ...(timingAnchor ? { timing_anchor: timingAnchor } : {}),
@@ -1120,10 +1125,14 @@ export function buildDailySmsWritingBriefV1(
 }
 
 export const MORNING_SLOT_WRITER_LINE =
-  "Morning slot: write as a start-of-day accountability text for the target day. Ask for today's plan or next action; do not ask the user to reflect on a completed day or whether today's action already happened. Do not say \"tomorrow\" unless the notebook explicitly says the relevant event is tomorrow. Treat past methods in the thread as past context, not today's plan, unless the user restated them.\n";
+  "Morning slot: write as a start-of-day accountability text for the target day. Ask for today's plan or next action; do not ask the user to reflect on a completed day or whether today's action already happened. Do not say \"tomorrow\" unless the notebook explicitly says the relevant event is tomorrow.\n";
 
 export const EVENING_SLOT_WRITER_LINE =
   "Evening check-in: continue the thread since morning; use slot_coaching_context for focus, not a generic goal loop.\n";
+
+/** Shared temporal hierarchy — past continuity vs today's plan; precise day-age when clear. */
+export const TEMPORAL_CONTINUITY_WRITER_LINE =
+  "Past methods or proof in the thread are background continuity, not today's plan. Do not treat a method from a prior local day as today's plan unless the user restated it for the target day or open_loops marks an unresolved prior-day plan to close. Time-correct callbacks are good; invented current assignments are not. When at_local and the target date make timing clear, prefer \"yesterday,\" \"two days ago,\" or \"earlier this week\" over vague timing like \"the other day.\"\n";
 
 export function buildDailySmsBriefSystemPrompt(args: {
   maxChars: number;
@@ -1145,7 +1154,9 @@ export function buildDailySmsBriefSystemPrompt(args: {
         : "At most one question, or one concrete action.";
   const extras: string[] = [];
   if (args.pendingPlanActive) {
-    extras.push("- Pending plan proof is active: close the plan loop before a fresh accountability ask.");
+    extras.push(
+      "- Pending plan is an unresolved prior-day plan loop (see open_loops.pending_plan_for_day_key) — close that outcome loop; do not treat it as a fresh today plan."
+    );
   }
   if (args.goalEvolutionInvite) {
     extras.push("- Goal evolution invite is allowed only as a soft invitation — no goal mutation.");
@@ -1212,7 +1223,7 @@ export function buildDailySmsBriefSystemPrompt(args: {
 Use DAILY_SMS_WRITING_BRIEF_V1 for facts and constraints only — not wording. Write one fresh human SMS.
 ${authorityOrder}
 Use recent_exact_thread for continuity, but prioritize the newest messages when deciding what to say next.
-${morningSlotLine}${eveningSlotLine}Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
+${morningSlotLine}${eveningSlotLine}${TEMPORAL_CONTINUITY_WRITER_LINE}Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
 authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, or unsupported temporal claims.
 When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies as stored truth. Do not copy example shapes verbatim.
 ${silenceCadenceBlock}

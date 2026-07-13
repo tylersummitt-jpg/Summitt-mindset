@@ -27,6 +27,7 @@ import {
   EVENING_SLOT_WRITER_LINE,
   FIRST_TEXT_STYLE_MICROGUIDE_V1,
   MORNING_SLOT_WRITER_LINE,
+  TEMPORAL_CONTINUITY_WRITER_LINE,
   neutralizeBriefSuggestedMoveReasonForWriter,
   resolveWriterFacingDaypartForBrief,
   useDailySmsWritingBriefV1,
@@ -525,6 +526,8 @@ describe("compact timing guidance for brief", () => {
       freshness_phrases: [],
     });
     expect(brief.open_loops.timing_anchor?.confidence_level).toBe("mentioned_once");
+    expect(brief.open_loops.pending_plan_active).toBe(true);
+    expect(brief.open_loops.pending_plan_for_day_key).toBe("2026-06-17");
     expect(
       brief.authoritative_truth.local.timing_copy_guidance?.some((g) =>
         /mentioned once|tentative wording/i.test(g)
@@ -1104,8 +1107,8 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       freshness_phrases: [],
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system.length).toBeLessThan(3900);
-    expect(writer.system.length + writer.user.length).toBeLessThan(8900);
+    expect(writer.system.length).toBeLessThan(4500);
+    expect(writer.system.length + writer.user.length).toBeLessThan(9500);
   });
 
   it("neutralizes generic suggested_move.reason in brief payload", () => {
@@ -1877,13 +1880,14 @@ describe("morning slot truth (current_send_slot controls daypart)", () => {
       currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
     });
     expect(system).toContain(MORNING_SLOT_WRITER_LINE.trim());
+    expect(system).toContain(TEMPORAL_CONTINUITY_WRITER_LINE.trim());
     expect(system).toMatch(/do not ask the user to reflect on a completed day/i);
     expect(system).toMatch(/whether today's action already happened/i);
     expect(system).toMatch(
       /Do not say "tomorrow" unless the notebook explicitly says the relevant event is tomorrow/i
     );
     expect(system).toMatch(
-      /past methods in the thread as past context, not today's plan, unless the user restated them/i
+      /Past methods or proof in the thread are background continuity, not today's plan/i
     );
     expect(system).not.toContain(EVENING_SLOT_WRITER_LINE.trim());
   });
@@ -1921,6 +1925,7 @@ describe("morning slot truth (current_send_slot controls daypart)", () => {
 
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
     expect(writer.system).toContain(EVENING_SLOT_WRITER_LINE.trim());
+    expect(writer.system).toContain(TEMPORAL_CONTINUITY_WRITER_LINE.trim());
     expect(writer.system).not.toContain(MORNING_SLOT_WRITER_LINE.trim());
   });
 
@@ -1970,6 +1975,208 @@ describe("morning slot truth (current_send_slot controls daypart)", () => {
     expect(keys).not.toContain("verified_thread");
     expect(keys).not.toContain("morning_slot_policy");
     expect(keys).not.toContain("slot_truth_block");
+  });
+});
+
+describe("temporal precision and stale-method clarity", () => {
+  function emptyThread() {
+    return {
+      window: {
+        floor_hours: 168 as const,
+        extension_days: 0 as const,
+        mode: "7d_capped" as const,
+      },
+      messages: [] as Array<{
+        at_local: string;
+        role: "coach" | "user";
+        body: string;
+        source_table: string;
+        delivery_evidence:
+          | "message_sid_present"
+          | "outbound_message_sid_present"
+          | "status_sent_with_timestamp"
+          | "inbound_received"
+          | "fallback_last_outbound";
+      }>,
+      message_count: 0,
+      char_count: 0,
+      timeline_7d: { messages: [], window_hours: 168 as const, message_count: 0 },
+    };
+  }
+
+  function assertTemporalContinuityGuidance(system: string) {
+    expect(system).toContain(TEMPORAL_CONTINUITY_WRITER_LINE.trim());
+    expect(system).toMatch(
+      /Past methods or proof in the thread are background continuity, not today's plan/i
+    );
+    expect(system).toMatch(
+      /unless the user restated it for the target day or open_loops marks an unresolved prior-day plan to close/i
+    );
+    expect(system).toMatch(/Time-correct callbacks are good; invented current assignments are not/i);
+    expect(system).toMatch(/prefer "yesterday," "two days ago," or "earlier this week"/i);
+    expect(system).toMatch(/vague timing like "the other day\."/i);
+  }
+
+  it("A/B: morning prompt treats past methods as continuity and prefers precise day-age wording", () => {
+    const system = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+      currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    });
+    expect(system).toContain(MORNING_SLOT_WRITER_LINE.trim());
+    assertTemporalContinuityGuidance(system);
+  });
+
+  it("C/F: prior-day method in thread is not framed as today_plan; domain-agnostic admin example", () => {
+    const facts = baseFacts({
+      accountability_day_key: "2026-07-12",
+      thread_memory: {
+        ...baseFacts().thread_memory,
+        latest_answer_after_open_question:
+          "Yesterday I planned to organize the receipts this afternoon.",
+        open_question_pending: false,
+      },
+      accountability: {
+        ...baseFacts().accountability,
+        pending_plan_proof: undefined,
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
+        messages: [
+          {
+            at_local: "Jul 11, 2026, 8:00 AM",
+            role: "user",
+            body: "Yesterday I planned to organize the receipts this afternoon.",
+            source_table: "sms_inbound_messages",
+            delivery_evidence: "inbound_received",
+          },
+          {
+            at_local: "Jul 11, 2026, 6:00 PM",
+            role: "user",
+            body: "Got the receipts filed — done.",
+            source_table: "sms_inbound_messages",
+            delivery_evidence: "inbound_received",
+          },
+        ],
+        message_count: 2,
+        char_count: 120,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+
+    expect(brief.open_loops.pending_plan_active).toBe(false);
+    expect(brief.open_loops.pending_plan_for_day_key).toBeUndefined();
+    expect(brief).not.toHaveProperty("today_plan");
+    expect(Object.keys(brief.open_loops)).not.toContain("today_plan");
+    expect(brief.authoritative_truth.posture).not.toBe("plan_today");
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    assertTemporalContinuityGuidance(writer.system);
+    expect(writer.system).not.toMatch(/Pending plan is an unresolved prior-day plan loop/i);
+    // Domain-agnostic: guidance is semantic hierarchy, not domain phrase routing.
+    expect(TEMPORAL_CONTINUITY_WRITER_LINE).not.toMatch(/receipt|sport|kid/i);
+  });
+
+  it("D: restatement for the target day remains allowed as today's plan", () => {
+    const system = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+      currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    });
+    assertTemporalContinuityGuidance(system);
+    expect(system).toMatch(/unless the user restated it for the target day/i);
+    expect(system).not.toMatch(/never use a restated method/i);
+    expect(system).not.toMatch(/forbid.*today.*restat/i);
+  });
+
+  it("E: unresolved pending plan exposes prior-day key and is not framed as fresh today plan", () => {
+    const pending = {
+      active: true as const,
+      plan_summary_hint: "organize receipts after lunch",
+      anchor_phrase_hint: "after lunch",
+      anchor_key: "after|lunch",
+      plan_for_day_key: "2026-07-11",
+      source_answer_preview: "I'll organize the receipts after lunch.",
+      recurrence_confidence: "unknown" as const,
+      outcome_known: false as const,
+    };
+    const facts = baseFacts({
+      accountability_day_key: "2026-07-12",
+      accountability: {
+        ...baseFacts().accountability,
+        pending_plan_proof: pending,
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: emptyThread(),
+      freshness_phrases: [],
+    });
+
+    expect(brief.open_loops.pending_plan_active).toBe(true);
+    expect(brief.open_loops.pending_plan_for_day_key).toBe("2026-07-11");
+    expect(brief.open_loops.pending_plan_summary).toMatch(/organize the receipts|organize receipts/i);
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).toMatch(
+      /Pending plan is an unresolved prior-day plan loop \(see open_loops\.pending_plan_for_day_key\)/i
+    );
+    expect(writer.system).toMatch(/do not treat it as a fresh today plan/i);
+    expect(JSON.stringify(brief)).toContain('"pending_plan_for_day_key":"2026-07-11"');
+  });
+
+  it("E2: after proof clears pending, brief does not keep prior method as pending today plan", () => {
+    const facts = baseFacts({
+      accountability_day_key: "2026-07-12",
+      accountability: {
+        ...baseFacts().accountability,
+        pending_plan_proof: undefined,
+        prior_outcome: "user_yes",
+        days_since_last_user_outcome: 0,
+      },
+    });
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: emptyThread(),
+      freshness_phrases: [],
+    });
+    expect(brief.open_loops.pending_plan_active).toBe(false);
+    expect(brief.open_loops.pending_plan_for_day_key).toBeUndefined();
+    expect(brief.open_loops.pending_plan_summary == null).toBe(true);
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.system).not.toMatch(/Pending plan is an unresolved prior-day plan loop/i);
+    assertTemporalContinuityGuidance(writer.system);
+  });
+
+  it("I: temporal guidance has no domain-specific phrase routing", () => {
+    expect(TEMPORAL_CONTINUITY_WRITER_LINE).not.toMatch(/sport|kid|brooke|receipt|what sport/i);
+    expect(MORNING_SLOT_WRITER_LINE).not.toMatch(/sport|kid|brooke|what sport/i);
+    const pendingExtra = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: true,
+      goalEvolutionInvite: false,
+      currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    });
+    expect(pendingExtra).not.toMatch(/sport|kid|brooke|what sport/i);
   });
 });
 
