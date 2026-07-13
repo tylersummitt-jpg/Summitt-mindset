@@ -56,7 +56,7 @@ export function deriveSeasonModeForSmsGoalChange(args: {
   candidateBar?: string | null;
   currentBehaviorStatement?: string | null;
 }): DeriveSeasonModeResult {
-  const raw = args.rawBody.trim();
+  const raw = (args.rawBody ?? "").trim();
   const candidate = (args.candidateBar ?? "").trim();
   const current = (args.currentBehaviorStatement ?? "").trim();
 

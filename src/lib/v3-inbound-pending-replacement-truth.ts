@@ -87,6 +87,17 @@ const FALSE_APPLIED_UPDATE_PATTERNS: RegExp[] = [
   /\bcommitment\s+is\s+updated\b/i,
 ];
 
+/** Premature coaching of the candidate as if already active (before mutation). */
+const PREMATURE_CANDIDATE_ACTIVE_COACHING_PATTERNS: RegExp[] = [
+  /\b(?:first|next)\s+move\b/i,
+  /\bwhat(?:'s|\s+is)\s+your\s+(?:first\s+move|plan)\b/i,
+  /\bwhat(?:'s|\s+is)\s+the\s+plan\b/i,
+  /\bi(?:'ll| will)\s+hold\s+you\s+to\s+(?:that|it|this)\s+now\b/i,
+  /\byour\s+new\s+goal\s+is\b/i,
+  /\bis\s+a\s+great\s+goal\b/i,
+  /\bgreat\s+goal\b.{0,80}\b(?:first\s+move|what(?:'s|\s+is)\s+your\s+plan)\b/i,
+];
+
 const FALSE_SEASON_TRANSITION_PATTERNS: RegExp[] = [
   /\bchapter (?:is )?(?:closed|over|done|ended)\b/i,
   /\bseason (?:is )?(?:closed|started|over|ended|complete)\b/i,
@@ -170,6 +181,25 @@ export function bodyCoachesSuspendedCanonicalInHallway(
   );
 }
 
+/**
+ * True when body coaches the pending candidate as if already active
+ * (first-move / plan / locked-in coaching) before mutation.
+ */
+export function bodyCoachesPendingCandidateAsActive(body: string): boolean {
+  const norm = body.trim();
+  if (!norm) return false;
+  // Confirmation asks are allowed even if they mention the candidate.
+  if (
+    /\bdo\s+you\s+want\b/i.test(norm) ||
+    /\bis\s+this\s+the\s+new\b/i.test(norm) ||
+    /\bbefore\s+i\s+hold\s+you\s+to\b/i.test(norm) ||
+    /\bmake\s+that\s+your\s+new\s+goal\b/i.test(norm)
+  ) {
+    return false;
+  }
+  return PREMATURE_CANDIDATE_ACTIVE_COACHING_PATTERNS.some((re) => re.test(norm));
+}
+
 export function detectPendingReplacementStateTruthViolations(
   body: string,
   facts: InboundV3PendingReplacementFacts
@@ -191,6 +221,9 @@ export function detectPendingReplacementStateTruthViolations(
       "";
     const canonical = facts.canonical_behavior_statement.trim();
     if (candidate) {
+      if (bodyCoachesPendingCandidateAsActive(norm)) {
+        hits.push("pending_replace_coaches_candidate_as_active");
+      }
       if (!bodyRepresentsPendingCandidate(norm, candidate)) {
         hits.push("pending_replace_candidate_not_represented");
       }
@@ -245,6 +278,9 @@ export function pendingReplacementStateTruthNoSendReason(violations: string[]): 
   if (violations.includes("pending_replace_false_applied_language")) {
     return "pending_replace_false_applied_language";
   }
+  if (violations.includes("pending_replace_coaches_candidate_as_active")) {
+    return "pending_replace_coaches_candidate_as_active";
+  }
   if (violations.includes("pending_replace_coaches_stale_canonical_bar")) {
     return "pending_replace_coaches_stale_canonical_bar";
   }
@@ -281,6 +317,7 @@ const PENDING_REPLACE_TRUTH_FALLBACK_VIOLATIONS = new Set([
   "pending_replace_candidate_not_represented",
   "pending_replace_coaches_stale_canonical_bar",
   "pending_replace_false_applied_language",
+  "pending_replace_coaches_candidate_as_active",
 ]);
 
 /** Human-safe clarify copy when pending replace is still active (no Reply YES/NO menu). */
@@ -363,7 +400,8 @@ export function tryPendingReplaceActiveTruthFallback(args: {
   if (
     !fallbackBody ||
     !bodyRepresentsPendingCandidate(fallbackBody, candidate) ||
-    legacyHasInternalJargon
+    legacyHasInternalJargon ||
+    bodyCoachesPendingCandidateAsActive(fallbackBody)
   ) {
     fallbackBody = buildPendingReplaceSafeClarificationFallback(candidate);
   } else if (/reply\s+yes/i.test(fallbackBody)) {

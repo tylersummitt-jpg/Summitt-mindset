@@ -75,10 +75,13 @@ export function isVagueOrInvalidSmsGoalCandidate(text: string): boolean {
     return true;
   }
   if (
-    /^(i\s+(want|need)\s+a\s+change|change\s+it|let'?s\s+change(\s+it)?|i\s+want\s+to\s+change(\s+my\s+goal)?|that\s+goal\s+isn'?t\s+right|not\s+that\s+goal|what\s+is\s+the\s+lock|what\s+does\s+(the\s+)?lock\s+mean)[\s.!?]*$/i.test(
+    /^(yes[,.\s]+)?(i'?m\s+thinking\s+i\s+need\s+a\s+change|i\s+think\s+i\s+need\s+(a\s+change|to\s+change(\s+my\s+goal)?)|i\s+(want|need)\s+a\s+change|change\s+it|let'?s\s+change(\s+it)?|i\s+(want|need)\s+to\s+change(\s+my\s+goal)?|i\s+(want|need)\s+a\s+different\s+goal|can\s+we\s+change(\s+my)?\s+goal|that\s+goal\s+isn'?t\s+right|not\s+that\s+goal|what\s+is\s+the\s+lock|what\s+does\s+(the\s+)?lock\s+mean)[\s.!?]*$/i.test(
       t
     )
   ) {
+    return true;
+  }
+  if (/^(be healthier|healthier|better|more consistent|something different)$/i.test(t)) {
     return true;
   }
   if (
@@ -188,11 +191,39 @@ export function extractCandidateBarsFromSms(raw: string): {
   }
 
   const changeGoalTo = t.match(
-    /\bchange\s+(?:my\s+|the\s+)?(?:goal|commitment)\s+to\s+(.{3,180}?)(?:[.!?]|$)/i
+    /\b(?:(?:i\s+)?(?:want|need)\s+to\s+)?change\s+(?:my\s+|the\s+)?(?:goal|commitment)\s+to\s+(.{3,180}?)(?:[.!?]|$)/i
   );
   if (changeGoalTo?.[1]?.trim()) {
     const bar = sliceCandidateClause(changeGoalTo[1]!);
-    if (!isIdentityLikeGoalCandidate(bar)) {
+    if (!isIdentityLikeGoalCandidate(bar) && !isVagueOrInvalidSmsGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
+
+  const wantMyGoalToBe = t.match(
+    /\b(?:i\s+)?(?:just\s+)?want\s+(?:my\s+)?(?:new\s+)?goal\s+to\s+be\s+(.{3,180}?)(?:[.!?]|$)/i
+  );
+  if (wantMyGoalToBe?.[1]?.trim()) {
+    const bar = sliceCandidateClause(wantMyGoalToBe[1]!);
+    if (!isIdentityLikeGoalCandidate(bar) && !isVagueOrInvalidSmsGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
+
+  const makeMyGoal = t.match(/\bmake\s+(?:my\s+)?goal\s+(.{3,180}?)(?:[.!?]|$)/i);
+  if (makeMyGoal?.[1]?.trim()) {
+    const bar = sliceCandidateClause(makeMyGoal[1]!);
+    if (!isIdentityLikeGoalCandidate(bar) && !isVagueOrInvalidSmsGoalCandidate(bar)) {
+      return { candidateTightenedBar: null, candidateNewBar: bar };
+    }
+  }
+
+  const changeItTo = t.match(
+    /\b(?:can\s+you\s+|please\s+)?change\s+it\s+to\s+(.{3,180}?)(?:[.!?]|$)/i
+  );
+  if (changeItTo?.[1]?.trim() && !/\b(?:my\s+|the\s+)?new\s+goal\b/i.test(changeItTo[1]!)) {
+    const bar = sliceCandidateClause(changeItTo[1]!);
+    if (!isIdentityLikeGoalCandidate(bar) && !isVagueOrInvalidSmsGoalCandidate(bar)) {
       return { candidateTightenedBar: null, candidateNewBar: bar };
     }
   }

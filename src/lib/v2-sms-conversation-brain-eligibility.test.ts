@@ -141,6 +141,10 @@ describe("isLikelyCommitmentChangeIntentTurn", () => {
     "I need a change",
     "change it",
     "let's change it",
+    "I'm thinking I need a change",
+    "I think I need to change my goal",
+    "I need a different goal",
+    "Can we change my goal?",
   ];
 
   it.each(yes)("matches commitment-change phrasing: %s", (s) => {
@@ -170,6 +174,8 @@ describe("isLikelyCommitmentChangeIntentTurn", () => {
     "this week is impossible",
     "pause me until Monday",
     "I'm traveling this week",
+    "change",
+    "I need a change of scenery",
   ];
 
   it.each(no)("does not match normal accountability / venting: %s", (s) => {

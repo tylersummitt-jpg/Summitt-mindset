@@ -387,6 +387,19 @@ describe("parseSmsConfirmation — pending goal confirm language", () => {
     expect(parseSmsConfirmation("sounds good")).toBe("yes");
   });
 
+  it("Victory Room still-says + change to my new goal confirms pending candidate", () => {
+    expect(
+      parseSmsConfirmation(
+        "My goal in my victory room still says 10,000 steps. Can you change it to my new goal?"
+      )
+    ).toBe("yes");
+    expect(parseSmsConfirmation("Can you change it to my new goal?")).toBe("yes");
+  });
+
+  it("change it to a concrete alternative is not apply-pending confirmation", () => {
+    expect(parseSmsConfirmation("Can you change it to waking up before my kids?")).not.toBe("yes");
+  });
+
   it("maps parse results to pending user_answer_type semantics", () => {
     expect(mapPendingConfirmationParseToUserAnswerType("yes")).toBe("pending_confirmed");
     expect(mapPendingConfirmationParseToUserAnswerType("ambiguous")).toBe(
@@ -720,7 +733,10 @@ describe("tryHandleSmsInboundPendingResolution — compound yes/confirm", () => 
     if (r.handled) {
       expect(r.pendingResolutionApplied).toBe(false);
       expect(r.pendingStillActiveAfterPhase1).toBe(true);
-      expect(r.replyBody).toMatch(/what would work better|clear daily action/i);
+      // Not YES-apply: either reject/re-ask, or promote the alternative to a new confirmation ask.
+      expect(r.replyBody).toMatch(
+        /what would work better|clear daily action|do you want your new goal|9 hours/i
+      );
     }
   });
 });
@@ -1067,5 +1083,206 @@ describe("goal-change hallway — awaiting_candidate outranks old-goal coaching"
       expect(r.replyBody.toLowerCase()).toMatch(/sorry|help you|small thing|change the goal/);
       expect(r.replyBody.toLowerCase()).not.toMatch(/align with your current needs|for today/);
     }
+  });
+});
+
+describe("goal-change hallway — lifestyle candidate + confirm-before-coach", () => {
+  it.each([
+    "Yes I want to change my goal",
+    "I need to change my goal",
+    "I want a different goal",
+    "change it",
+    "I want a change",
+    "yes",
+    "I agree",
+    "be healthier",
+    "better",
+    "something different",
+  ])("meta/vague is not a hallway candidate: %s", (raw) => {
+    expect(isAcknowledgmentOrMetaChangeRequestOnly(raw) || isVagueOrInvalidCandidateBar(raw)).toBe(
+      true
+    );
+    expect(extractAwaitingCandidateHallwayBar(raw)).toBeNull();
+    expect(extractDeterministicDailyBarCandidate(raw)).toBeNull();
+  });
+
+  it.each([
+    ["I want my goal to be waking up before my kids.", /waking up before my kids/i],
+    ["I want my new goal to be reading before bed.", /reading before bed/i],
+    [
+      "I need to change my goal to calling two customers before lunch.",
+      /calling two customers before lunch/i,
+    ],
+    ["Make my goal getting to bed by 9:30.", /getting to bed by 9:?30/i],
+    ["Can you change it to waking up before my kids?", /waking up before my kids/i],
+  ])("extracts lifestyle replacement candidate: %s", (raw, expected) => {
+    expect(extractAwaitingCandidateHallwayBar(raw)).toMatch(expected);
+    expect(extractDeterministicDailyBarCandidate(raw)).toMatch(expected);
+  });
+
+  it("stores lifestyle candidate pending and asks confirmation (no first-move coaching)", async () => {
+    const raw = "I want my goal to be waking up before my kids.";
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_lifestyle_cand", raw_body: raw },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).toMatch(/do you want your new goal/i);
+      expect(r.replyBody.toLowerCase()).toMatch(/waking up before my kids/i);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/first move|what'?s your plan/);
+    }
+    let advanced = false;
+    for (const call of mergeMock.mock.calls) {
+      const mergeFn = call[0]?.merge as
+        | ((prev: Record<string, unknown>) => Record<string, unknown>)
+        | undefined;
+      if (!mergeFn) continue;
+      const merged = mergeFn({
+        source: "sms_inbound",
+        sms_state: "awaiting_candidate",
+        candidate_behavior_statement: null,
+        candidate_new_bar: null,
+        raw_user_text: raw,
+      });
+      if (merged.sms_state === "awaiting_confirmation") {
+        advanced = true;
+        expect(String(merged.candidate_behavior_statement)).toMatch(/waking up before my kids/i);
+      }
+    }
+    expect(advanced).toBe(true);
+  });
+
+  it("Victory Room complaint with pending candidate applies via confirmed mutation path", async () => {
+    const cand = "waking up before my kids";
+    const c = commitmentAwaitingConfirm({
+      candidate_behavior_statement: cand,
+      candidate_new_bar: cand,
+    });
+    getActiveCommitmentMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...c,
+        behavior_statement: cand,
+        pending_resolution_kind: null,
+        pending_resolution_payload: null,
+      });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_vr_complaint_apply",
+        raw_body:
+          "My goal in my victory room still says 10,000 steps. Can you change it to my new goal?",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    expect(rpcMock).toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(true);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/couldn'?t safely update/);
+    }
+  });
+
+  it("Victory Room complaint with no pending candidate asks for/confirm new goal; does not invent", async () => {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+    });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: {
+        message_sid: "SMpr_vr_complaint_no_cand",
+        raw_body:
+          "My goal in my victory room still says 10,000 steps. Can you change it to my new goal?",
+      },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    expect(rpcMock).not.toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).toMatch(/hold you to|what new goal|clear daily|what exactly/i);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/updated|changed your goal|locked in/);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/waking up before/);
+    }
+  });
+
+  it("mutation failure does not claim the goal changed", async () => {
+    const cand = "waking up before my kids";
+    const c = commitmentAwaitingConfirm({
+      candidate_behavior_statement: cand,
+      candidate_new_bar: cand,
+    });
+    rpcMock.mockResolvedValueOnce({ data: null, error: { message: "boom", code: "xx" } });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_rpc_fail", raw_body: "Yes" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+
+    expect(r.handled).toBe(true);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).toMatch(/couldn'?t safely update|still have the goal/i);
+      expect(r.replyBody.toLowerCase()).not.toMatch(/goal (?:has been )?(?:updated|changed|locked in)/i);
+    }
+  });
+
+  it("after successful mutation, current_standard source reads new behavior_statement", async () => {
+    const cand = "waking up before my kids";
+    const c2 = {
+      ...commitmentAwaitingConfirm({
+        candidate_behavior_statement: cand,
+        candidate_new_bar: cand,
+      }),
+      behavior_statement: "10,000 steps",
+    };
+    getActiveCommitmentMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...c2,
+        behavior_statement: cand,
+        pending_resolution_kind: null,
+        pending_resolution_payload: null,
+      });
+
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMpr_after_mut", raw_body: "Yes" },
+      clerkUserId: "user_pr",
+      commitment: c2,
+    });
+    expect(r.handled).toBe(true);
+    expect(rpcMock).toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(true);
+    }
+    const afterCalls = getActiveCommitmentMock.mock.results.filter((x) => x.type === "return");
+    const after = await afterCalls[afterCalls.length - 1]!.value;
+    expect(after?.behavior_statement).toMatch(/waking up before my kids/i);
+  });
+
+  it("Victory Room display source is v2_commitment via getActiveCommitment", async () => {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const viewSrc = await fs.readFile(
+      path.join(process.cwd(), "src/lib/v2-victory-room-view.ts"),
+      "utf8"
+    );
+    expect(viewSrc).toMatch(/getActiveCommitment/);
+    expect(viewSrc).toMatch(/from\("v2_commitment"\)|getActiveCommitment/);
   });
 });

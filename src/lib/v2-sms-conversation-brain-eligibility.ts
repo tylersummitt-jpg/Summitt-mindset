@@ -155,8 +155,14 @@ export function isLikelyCommitmentChangeIntentTurn(raw: string): boolean {
   // Meta change-request without a concrete new bar (opens awaiting_candidate; not a candidate itself).
   if (/^(i\s+)?(want|need)\s+a\s+change\.?$/i.test(t)) return true;
   if (/^(let'?s\s+)?change\s+it\.?$/i.test(t)) return true;
+  // Soft hallway openers — still meta, not a concrete candidate.
+  if (/\bi'?m\s+thinking\s+i\s+need\s+a\s+change\b/i.test(t)) return true;
+  if (/\bi\s+think\s+i\s+need\s+(a\s+change|to\s+change)\b/i.test(t)) return true;
+  if (/\bi\s+think\s+i\s+need\s+to\s+change\s+(my\s+|the\s+)?goal\b/i.test(t)) return true;
+  if (/^(i'?m\s+)?thinking\s+(i\s+need|about)\s+a\s+change\.?$/i.test(t)) return true;
 
   if (/\b(i\s+)?need\s+(to\s+)?change\s+(my\s+)?goal\b/i.test(t)) return true;
+  if (/\bcan\s+we\s+change\s+(my\s+|the\s+)?goal\b/i.test(t)) return true;
   if (/\bcan\s+we\s+switch\s+(my\s+)?(the\s+)?(commitment|from)\b/i.test(t)) return true;
   if (/\bswitch\s+from\b/i.test(t)) return true;
   if (/\b(replace|tighten)\s+(this\s+)?(commitment|goal)\b/i.test(t)) return true;

@@ -224,6 +224,52 @@ describe("detectPendingReplacementStateTruthViolations", () => {
     expect(hits).toEqual([]);
   });
 
+  it("blocks first-move coaching of pending candidate before mutation", () => {
+    const facts: InboundV3PendingReplacementFacts = {
+      ...pendingReplacementFacts,
+      pending_candidate_behavior_statement: "waking up before my kids",
+      pending_candidate_new_bar: "waking up before my kids",
+      canonical_behavior_statement: "10,000 steps",
+    };
+    const hits = detectPendingReplacementStateTruthViolations(
+      "Waking up before your kids is a great goal! What’s your first move this morning?",
+      facts
+    );
+    expect(hits).toContain("pending_replace_coaches_candidate_as_active");
+  });
+
+  it("blocks I'll-hold-you-to-that-now coaching while pending", () => {
+    const hits = detectPendingReplacementStateTruthViolations(
+      "Walk 10,000 steps — I'll hold you to that now.",
+      pendingReplacementFacts
+    );
+    expect(hits).toContain("pending_replace_coaches_candidate_as_active");
+  });
+
+  it("truth fallback repairs premature coaching into confirmation ask", () => {
+    const facts: InboundV3PendingReplacementFacts = {
+      ...pendingReplacementFacts,
+      pending_candidate_behavior_statement: "waking up before my kids",
+      pending_candidate_new_bar: "waking up before my kids",
+    };
+    const body =
+      "Waking up before your kids is a great goal! What’s your first move this morning?";
+    const violations = detectPendingReplacementStateTruthViolations(body, facts);
+    const fallback = tryPendingReplaceActiveTruthFallback({
+      pendingReplacementFacts: facts,
+      legacyPendingReplyPreview: body,
+      stateTransitionSummary:
+        "Candidate saved; pending advanced to awaiting_confirmation before visible SMS.",
+      truthViolations: violations,
+    });
+    expect(fallback.ok).toBe(true);
+    if (fallback.ok) {
+      expect(fallback.body.toLowerCase()).toMatch(/do you want your new goal/i);
+      expect(fallback.body.toLowerCase()).toMatch(/waking up before my kids/i);
+      expect(fallback.body.toLowerCase()).not.toMatch(/first move/);
+    }
+  });
+
   it("allows applied language when pending_resolution_applied is true", () => {
     const hits = detectPendingReplacementStateTruthViolations(
       "Done — your commitment is updated to Walk 10,000 steps.",

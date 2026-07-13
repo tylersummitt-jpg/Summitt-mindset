@@ -97,6 +97,39 @@ const PENDING_CONFIRM_YES_PHRASE_RES: RegExp[] = [
   /\bdo\s+it\b/i,
 ];
 
+/**
+ * While awaiting_confirmation with a stored candidate: user asks to apply "my new goal"
+ * or complains the displayed goal still shows the old bar.
+ * Does not invent candidates — only confirms an existing pending candidate.
+ */
+export function looksLikeApplyPendingCandidateRequest(raw: string): boolean {
+  const t = raw.trim().replace(/\s+/g, " ");
+  if (!t) return false;
+  if (
+    /\b(?:can\s+you\s+|please\s+)?(?:change|update)\s+it\s+to\s+(?:my\s+|the\s+)?new\s+goal\b/i.test(t)
+  ) {
+    return true;
+  }
+  if (
+    /\b(victory\s+room|still\s+says|still\s+shows|hasn'?t\s+updated|didn'?t\s+change|not\s+updated)\b/i.test(
+      t
+    ) &&
+    /\b(change|update|make|set|fix)\b/i.test(t) &&
+    /\b(goal|it|new)\b/i.test(t)
+  ) {
+    const toClause = t.match(/\b(?:change|update)\s+it\s+to\s+(.+)$/i);
+    if (
+      toClause?.[1] &&
+      !/\b(?:my\s+|the\s+)?new\s+goal\b/i.test(toClause[1]) &&
+      toClause[1].trim().length >= 8
+    ) {
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 function hasPendingConfirmContradiction(lower: string, trimmed: string): boolean {
   if (PENDING_CONFIRM_CONTRADICTION_RE.test(lower)) return true;
   if (/\b(don'?t|do not)\b/i.test(lower)) return true;
@@ -142,12 +175,25 @@ export function parseSmsConfirmation(raw: string): PendingConfirmationParse {
   if (/^(i\s+agree|sounds\s+good|ok|okay)\.?!?$/i.test(t)) return "yes";
   if (/^(no|nope|nah|n)$/i.test(t)) return "no";
 
-  if (/\b(not that|wrong|change it)\b/i.test(lower)) return "no";
+  // Reject "change it" alone — but not "change it to …" or apply-new-goal language.
+  if (/\b(not that|wrong)\b/i.test(lower)) return "no";
+  if (
+    /\bchange\s+it\b/i.test(lower) &&
+    !/\bchange\s+it\s+to\b/i.test(lower) &&
+    !/\b(?:my\s+|the\s+)?new\s+goal\b/i.test(lower)
+  ) {
+    return "no";
+  }
   // Compound "no, <alternative bar>" stays ambiguous — documented A3 limitation.
   if (/^no,\s+/i.test(t) && !/\b(change it|not that|wrong)\b/i.test(lower)) {
     return "ambiguous";
   }
   if (/^no[,.!\s]/i.test(t)) return "no";
+
+  if (looksLikeApplyPendingCandidateRequest(t)) {
+    if (hasPendingConfirmContradiction(lower, t)) return "ambiguous";
+    return "yes";
+  }
 
   if (hasPendingConfirmYesLanguage(lower)) {
     if (hasPendingConfirmContradiction(lower, t)) return "ambiguous";
@@ -182,7 +228,7 @@ const RESERVED_CANDIDATE =
 
 /** Standalone acknowledgments / meta change-requests — never valid candidate goals by themselves. */
 const META_CHANGE_REQUEST_ONLY_RE =
-  /^(i\s+(want|need)\s+a\s+change|change\s+it|let'?s\s+change(\s+it)?|i\s+want\s+to\s+change(\s+my\s+goal)?|that\s+goal\s+isn'?t\s+right|not\s+that\s+goal|what\s+is\s+the\s+lock|what\s+does\s+(the\s+)?lock\s+mean)[\s.!?]*$/i;
+  /^(yes[,.\s]+)?(i'?m\s+thinking\s+i\s+need\s+a\s+change|i\s+think\s+i\s+need\s+(a\s+change|to\s+change(\s+my\s+goal)?)|i\s+(want|need)\s+a\s+change|change\s+it|let'?s\s+change(\s+it)?|i\s+(want|need)\s+to\s+change(\s+my\s+goal)?|i\s+(want|need)\s+a\s+different\s+goal|can\s+we\s+change(\s+my)?\s+goal|that\s+goal\s+isn'?t\s+right|not\s+that\s+goal|what\s+is\s+the\s+lock|what\s+does\s+(the\s+)?lock\s+mean)[\s.!?]*$/i;
 
 /**
  * Candidate hygiene: short acknowledgments and meta change-requests are not goals.
@@ -214,6 +260,7 @@ export function isVagueOrInvalidCandidateBar(text: string): boolean {
   if (isAcknowledgmentOrMetaChangeRequestOnly(t)) return true;
   if (RESERVED_CANDIDATE.test(t)) return true;
   if (/^(be better|do better|try harder|just\s+be|more)$/i.test(t)) return true;
+  if (/^(be healthier|healthier|better|more consistent|something different)$/i.test(t)) return true;
   if (/^(my kids|our kids|the kids|whatever)$/i.test(t)) return true;
   if (/^i\s*(don'?t|do not)\s*know\.?$/i.test(t)) return true;
   if (/^(feel healthier|be happier)$/i.test(t)) return true;
@@ -287,20 +334,33 @@ function normalizeHallwayActionVerb(raw: string): string {
   return a.replace(/ing$/, "").replace(/s$/, "") || a;
 }
 
+/**
+ * Inside commitment_replace awaiting_candidate, a clear behavior phrase can be concrete
+ * without numbers/cadence. Still reject outcome-only/vague health language.
+ */
 function isConcreteHallwayClause(clause: string): boolean {
   const t = clause.trim();
   if (!t || t.length < 8) return false;
+  if (isVagueOrInvalidCandidateBar(t)) return false;
   if (
-    /\b(more active|become more fit|get(?:ting)? (?:fit|healthy)|in shape|healthier|better)\b/i.test(
+    /\b(more active|become more fit|get(?:ting)? (?:fit|healthy)|in shape|healthier|better|more consistent|something different)\b/i.test(
       t
     ) &&
-    !/\b(\d+|times?\s+(?:a|per)|minutes?|steps?|miles?|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
+    !/\b(\d+|times?\s+(?:a|per)|minutes?|steps?|miles?|walk|read|wake|waking|call|bed|before|after|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
       t
     )
   ) {
     return false;
   }
-  return /\b(\d+|every\s+day|each\s+day|daily|weekly|per\s+week|times?\s+(?:a|per)|minutes?|steps?|miles?|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
+  if (
+    /\b(\d+|every\s+day|each\s+day|daily|weekly|per\s+week|times?\s+(?:a|per)|minutes?|steps?|miles?|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  // Lifestyle / timed behavior without a number (e.g. waking up before my kids).
+  return /\b(wak(?:e|ing)|get(?:ting)?\s+up|read(?:ing)?|call(?:ing)?|walk(?:ing)?|tak(?:e|ing)|get(?:ting)?\s+to\s+bed|before|after|by\s+\d)\b/i.test(
     t
   );
 }
@@ -421,6 +481,14 @@ export function extractAwaitingCandidateHallwayBar(raw: string): string | null {
     }
   }
 
+  const wantGoalToBe = trimmed.match(
+    /\b(?:i\s+)?(?:just\s+)?want\s+(?:my\s+)?(?:new\s+)?goal\s+to\s+be\s+(.{8,180}?)(?:[.!?]|$)/i
+  );
+  if (wantGoalToBe?.[1]?.trim()) {
+    const clause = wantGoalToBe[1].trim().replace(/\s+/g, " ").slice(0, BEHAVIOR_MAX);
+    if (isConcreteHallwayClause(clause) && !isVagueOrInvalidCandidateBar(clause)) return clause;
+  }
+
   const newGoalToBe = trimmed.match(
     /\b(?:my\s+)?new\s+goal\s+to\s+be\s+(.{8,180}?)(?:[.!?]|$)/i
   );
@@ -430,10 +498,24 @@ export function extractAwaitingCandidateHallwayBar(raw: string): string | null {
   }
 
   const changeGoalTo = trimmed.match(
-    /\bchange\s+(?:my\s+)?goal\s+to\s+(.{8,180}?)(?:[.!?]|$)/i
+    /\b(?:(?:i\s+)?(?:want|need)\s+to\s+)?change\s+(?:my\s+)?goal\s+to\s+(.{8,180}?)(?:[.!?]|$)/i
   );
   if (changeGoalTo?.[1]?.trim()) {
     const clause = changeGoalTo[1].trim().replace(/\s+/g, " ").slice(0, BEHAVIOR_MAX);
+    if (isConcreteHallwayClause(clause) && !isVagueOrInvalidCandidateBar(clause)) return clause;
+  }
+
+  const makeMyGoal = trimmed.match(/\bmake\s+(?:my\s+)?goal\s+(.{8,180}?)(?:[.!?]|$)/i);
+  if (makeMyGoal?.[1]?.trim()) {
+    const clause = makeMyGoal[1].trim().replace(/\s+/g, " ").slice(0, BEHAVIOR_MAX);
+    if (isConcreteHallwayClause(clause) && !isVagueOrInvalidCandidateBar(clause)) return clause;
+  }
+
+  const changeItTo = trimmed.match(
+    /\b(?:can\s+you\s+|please\s+)?change\s+it\s+to\s+(.{8,180}?)(?:[.!?]|$)/i
+  );
+  if (changeItTo?.[1]?.trim() && !/\b(?:my\s+|the\s+)?new\s+goal\b/i.test(changeItTo[1]!)) {
+    const clause = changeItTo[1].trim().replace(/\s+/g, " ").slice(0, BEHAVIOR_MAX);
     if (isConcreteHallwayClause(clause) && !isVagueOrInvalidCandidateBar(clause)) return clause;
   }
 
@@ -1035,6 +1117,67 @@ export async function tryHandleSmsInboundPendingResolution(args: {
           );
         }
       }
+
+      // "Yes, but change it to <concrete>" — keep awaiting_confirmation with the new candidate.
+      if (kind === "commitment_replace") {
+        const altRaw =
+          extractAwaitingCandidateHallwayBar(rawFull) ||
+          extractDeterministicDailyBarCandidate(rawFull);
+        const altClamped =
+          altRaw && !isVagueOrInvalidCandidateBar(altRaw)
+            ? clampCandidateForKind(kind, altRaw)
+            : null;
+        if (altClamped && altClamped.trim().toLowerCase() !== cand.trim().toLowerCase()) {
+          const mergedAlt = await mergeSmsPendingResolutionPayload({
+            commitmentId: c.id,
+            merge: (prev) => ({
+              ...prev,
+              sms_state: "awaiting_confirmation",
+              candidate_behavior_statement: altClamped,
+              candidate_new_bar: altClamped,
+              raw_user_text: rawFull.slice(0, RAW_LOG_MAX),
+              confirmation_prompt_sent_at: new Date().toISOString(),
+            }),
+          });
+          if (mergedAlt.ok) {
+            const altAsk = buildReplaceConfirmationAskDraft(altClamped);
+            logSmsPending({
+              pending_resolution_sms_state: "awaiting_confirmation",
+              detected_candidate: altClamped,
+              confirmation: "prompted",
+              mutation_attempted: false,
+              mutation_success: false,
+              rpc: null,
+              old_commitment_id: c.id,
+              new_commitment_id: null,
+              message_sid: args.job.message_sid,
+              raw_text_preview: rawPreview,
+              candidate_refined_on_ambiguous_confirm: true,
+            });
+            return pendingHandled(
+              await phase1PendingReply({
+                machineDraft: altAsk,
+                brainCase: "pending_resolution_confirmation_prompt",
+                allowVictoryRoomPhrase: false,
+                currentBarSummary,
+                safeFallback: altAsk,
+              }),
+              {
+                pendingNoSendPolicyBranch: "pending_active_clarify",
+                pendingResolutionKind: kind,
+                pendingStateMutatedBeforeSms: true,
+                pendingClearedBeforeSms: false,
+                pendingStillActiveAfterPhase1: true,
+                pendingResolutionApplied: false,
+                pendingProgressed: true,
+                stateTransitionSummary:
+                  "Ambiguous confirm offered a concrete alternative; pending remains awaiting_confirmation before visible SMS.",
+              }
+            );
+          }
+        }
+      }
+
       logSmsPending({
         pending_resolution_sms_state: "awaiting_confirmation",
         detected_candidate: cand,
