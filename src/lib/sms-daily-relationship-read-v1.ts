@@ -6,6 +6,10 @@
 import type { RecentExactThreadBriefMessage } from "@/lib/sms-recent-exact-thread-72h";
 import type { SilenceCadenceRoute } from "@/lib/sms-silence-cadence-v1";
 import { SILENCE_CADENCE_ROUTE_CARDS } from "@/lib/sms-silence-cadence-v1";
+import {
+  isCoachingFitFeedbackRelationshipMeaning,
+  isCoachingFitFeedbackResponseIntent,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 
 export type RelationshipReadLocalDaypart = "morning" | "afternoon" | "evening" | "late_night";
 
@@ -467,6 +471,12 @@ function detectWeeklyReflectionInThread(messages: RecentExactThreadBriefMessage[
   );
 }
 
+export type AssembledTurnSemanticsForRead = {
+  relationship_meaning?: string | null;
+  response_intent?: string | null;
+  evidence_preview?: string | null;
+};
+
 export type BuildDailySmsRelationshipReadV1Args = {
   messages: RecentExactThreadBriefMessage[];
   effectiveAsk: string;
@@ -488,6 +498,8 @@ export type BuildDailySmsRelationshipReadV1Args = {
   praiseAllowedLevel: string;
   anchorNames: string[];
   routeKind: string;
+  /** Authoritative assembled TU semantics — not raw phrase matching. */
+  assembledTurnSemantics?: AssembledTurnSemanticsForRead | null;
 };
 
 export function buildDailySmsRelationshipReadV1(
@@ -555,6 +567,32 @@ export function buildDailySmsRelationshipReadV1(
     targetDate: args.targetDate,
     timingCopyGuidance: args.timingCopyGuidance,
   });
+
+  const coachingFitUnresolved =
+    isCoachingFitFeedbackRelationshipMeaning(args.assembledTurnSemantics?.relationship_meaning) ||
+    isCoachingFitFeedbackResponseIntent(args.assembledTurnSemantics?.response_intent);
+
+  if (coachingFitUnresolved) {
+    const fitSignal =
+      args.assembledTurnSemantics?.evidence_preview?.trim() || latest_user_signal;
+    const fitAvoid = [...avoid_because_user_corrected_us];
+    const fitToken = clip("coaching_fit:unresolved", CAP.avoid_item);
+    if (fitToken && !fitAvoid.some((a) => a.toLowerCase() === fitToken.toLowerCase())) {
+      fitAvoid.unshift(fitToken);
+    }
+    return {
+      authority: DAILY_RELATIONSHIP_READ_AUTHORITY,
+      latest_user_signal: fitSignal ? clip(fitSignal, CAP.latest_user_signal) : latest_user_signal,
+      callback_worth_using,
+      what_would_make_user_feel_known: clip("repair_fit", CAP.what_would_make_user_feel_known),
+      today_best_move: clip("repair_fit_before_accountability", CAP.today_best_move),
+      avoid_because_user_corrected_us: fitAvoid.slice(0, CAP.avoid_max),
+      bad_old_coach_copy_warning,
+      possible_current_standard_conflict,
+      silence_route_human_read,
+      send_target_day_context,
+    };
+  }
 
   return {
     authority: DAILY_RELATIONSHIP_READ_AUTHORITY,

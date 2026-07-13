@@ -4,6 +4,7 @@
 
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
 import { hasFuturePlanIntentLanguage } from "@/lib/pending-plan-proof";
+import { isCoachingFitFeedbackRelationshipMeaning } from "@/lib/openai-relationship-turn-understanding-v1";
 
 export type DailySatisfiedAskType =
   | "plan_detail"
@@ -103,6 +104,54 @@ function inferSatisfiedAskType(args: {
   }
   if (ev.length >= 12) return "direct_answer";
   return "unknown";
+}
+
+function contextFromCoachingFitTelemetryEvent(
+  e: V2EventRowForAi,
+  payload: Record<string, unknown>
+): DailySatisfiedAskContext | null {
+  const relationshipMeaning = asTrimmedString(payload.turn_understanding_relationship_meaning, 120);
+  if (!isCoachingFitFeedbackRelationshipMeaning(relationshipMeaning)) return null;
+
+  const dnr = mergeDoNotRepeat(
+    parseStringArrayField(payload.do_not_repeat_asks),
+    parseStringArrayField(payload.turn_understanding_failed_safe_do_not_repeat_asks)
+  );
+  const evidencePreview =
+    asTrimmedString(payload.raw_body_preview, 220) ??
+    asTrimmedString(payload.message, 220) ??
+    null;
+  const responseIntent =
+    asTrimmedString(payload.turn_understanding_response_intent, 120) ?? "repair_coaching_fit";
+
+  return {
+    has_satisfied_recent_ask: false,
+    satisfied_ask_type: "unknown",
+    do_not_repeat_asks: dnr,
+    evidence_preview: evidencePreview,
+    source: "inbound_turn_telemetry",
+    occurred_at: e.occurred_at,
+    last_ask_satisfied: "unclear",
+    stale_ask_risk: true,
+    relationship_meaning: "coaching_fit_feedback",
+    response_intent: responseIntent,
+    prior_question_type: null,
+    outcome_proof_eligible: false,
+    persistence_note:
+      "Coaching-fit correction from turn understanding — repair fit before normal accountability; not proof or outcome write.",
+  };
+}
+
+function isCoachingFitResolutionTelemetry(payload: Record<string, unknown>): boolean {
+  const meaning = asTrimmedString(payload.turn_understanding_relationship_meaning, 120)?.toLowerCase();
+  const intent = asTrimmedString(payload.turn_understanding_response_intent, 120)?.toLowerCase();
+  if (meaning === "goal_adjustment_request" || intent === "clarify_goal_change") return true;
+  if (meaning && meaning !== "coaching_fit_feedback" && payload.inbound_turn_telemetry === true) {
+    if (meaning === "direct_answer" || meaning === "prior_ask_satisfied" || meaning === "plan_made") {
+      return true;
+    }
+  }
+  return false;
 }
 
 function contextFromTelemetryEvent(
@@ -211,6 +260,27 @@ export function resolveDailySatisfiedAskContext(
   args: ResolveDailySatisfiedAskContextArgs
 ): DailySatisfiedAskContext | null {
   const nowMs = Date.now();
+  let coachingFitCtx: DailySatisfiedAskContext | null = null;
+  let coachingFitIndex = -1;
+
+  for (const [index, e] of (args.eventsNewestFirst ?? []).entries()) {
+    if (!isRecentEnough(e.occurred_at, nowMs)) break;
+    const payload = e.payload_json ?? {};
+    if (payload.inbound_turn_telemetry !== true) continue;
+    if (isCoachingFitResolutionTelemetry(payload) && coachingFitIndex >= 0 && index < coachingFitIndex) {
+      coachingFitCtx = null;
+      coachingFitIndex = -1;
+      continue;
+    }
+    if (!coachingFitCtx) {
+      const fitCtx = contextFromCoachingFitTelemetryEvent(e, payload);
+      if (fitCtx) {
+        coachingFitCtx = fitCtx;
+        coachingFitIndex = index;
+      }
+    }
+  }
+  if (coachingFitCtx) return coachingFitCtx;
 
   for (const e of args.eventsNewestFirst ?? []) {
     if (!isRecentEnough(e.occurred_at, nowMs)) break;

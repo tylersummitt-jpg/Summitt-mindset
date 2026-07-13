@@ -1506,6 +1506,46 @@ describe("coaching_situation in DAILY_SMS_WRITING_BRIEF_V1", () => {
     expect(JSON.stringify(brief)).not.toMatch(/Change Goal|Update Goal|open the app/i);
   });
 
+  it("D — semantic TU coaching_fit alone triggers repair_fit_before_accountability without stale-copy regex", () => {
+    const brief = briefFor({
+      messages: [
+        {
+          at_local: "Thu 9:00 AM",
+          role: "user",
+          body: "This isn't helpful for what I'm dealing with.",
+        },
+      ],
+      factsOverrides: {
+        commitment: meetingAskCommitment(),
+        daily_satisfied_ask_context: {
+          has_satisfied_recent_ask: false,
+          satisfied_ask_type: "unknown",
+          do_not_repeat_asks: ["Did you start the meeting with a clear agenda today?"],
+          evidence_preview: "This isn't helpful for what I'm dealing with.",
+          source: "inbound_turn_telemetry",
+          occurred_at: "2026-06-20T14:00:00.000Z",
+          last_ask_satisfied: "unclear",
+          stale_ask_risk: true,
+          relationship_meaning: "coaching_fit_feedback",
+          response_intent: "repair_coaching_fit",
+          prior_question_type: null,
+          outcome_proof_eligible: false,
+          persistence_note: "Coaching-fit correction from turn understanding.",
+        },
+      },
+    });
+
+    expect(brief.coaching_situation.writer_posture).toBe("repair_fit_before_accountability");
+    expect(brief.coaching_situation.current_standard_status).toBe("stored_but_fit_in_question");
+    expect(brief.coaching_situation.kind).toBe("fit_in_question");
+    expect(brief.recent_turn_semantics?.relationship_meaning).toBe("coaching_fit_feedback");
+    expect(brief.relationship_read.today_best_move).toBe("repair_fit_before_accountability");
+    expect(brief.relationship_read.avoid_because_user_corrected_us).toContain(
+      "coaching_fit:unresolved"
+    );
+    expect(brief.relationship_read.bad_old_coach_copy_warning).toBeNull();
+  });
+
   it("normal accountability regression keeps active posture and allows set_today_rep", () => {
     const brief = briefFor({
       messages: [],

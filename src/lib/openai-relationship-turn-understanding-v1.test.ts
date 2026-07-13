@@ -28,6 +28,8 @@ import {
   scrubTurnUnderstandingErrorMessage,
   shouldSkipInboundTurnUnderstandingRoute,
   slimTurnUnderstandingMetadata,
+  isCoachingFitFeedbackReconciled,
+  enrichReconciledWithInboundRouteContract,
   type OpenAIRelationshipTurnUnderstandingV1,
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import { buildInboundMeaningFacts } from "@/lib/inbound-relationship-meaning";
@@ -223,6 +225,113 @@ describe("reconcileTurnUnderstanding", () => {
     });
     expect(r.disagreement_flags).toContain("openai_outcome_write_declined");
     expect(r.reconciled_persistence_decision).not.toBe("write_user_yes_today");
+  });
+});
+
+function makeCoachingFitProposal(
+  userSummary: string,
+  evidenceQuote: string,
+  overrides: Partial<OpenAIRelationshipTurnUnderstandingV1> = {}
+): OpenAIRelationshipTurnUnderstandingV1 {
+  return makeValidProposal({
+    user_turn_summary: userSummary,
+    evidence_quotes: [evidenceQuote],
+    relationship_meaning: "coaching_fit_feedback",
+    response_intent: "repair_coaching_fit",
+    answered_last_coach_ask: "no",
+    last_ask_satisfied: "no",
+    satisfaction_kind: "not_satisfied",
+    commitment_outcome_recommendation: "no_outcome_write",
+    persistence_safety: "do_not_write_but_acknowledge",
+    stale_ask_risk: true,
+    do_not_repeat_asks: ["Did you start the meeting with a clear agenda today?"],
+    confidence: 0.86,
+    ...overrides,
+  });
+}
+
+describe("coaching_fit_feedback semantic signal", () => {
+  it("parses coaching_fit_feedback and repair_coaching_fit enums", () => {
+    const p = makeCoachingFitProposal("User says texts miss the mark.", "not helpful");
+    expect(parseOpenAIRelationshipTurnUnderstandingV1(p as unknown as Record<string, unknown>)).toEqual(
+      p
+    );
+  });
+
+  it.each([
+    ["These messages are not relevant.", "not relevant"],
+    ["This isn't helpful for what I'm dealing with.", "not helpful"],
+    ["You're missing what I actually need.", "missing what I actually need"],
+  ])("reconciles coaching fit from phrasing: %s", (inbound, quote) => {
+    const det = meaningFor(inbound);
+    const proposal = makeCoachingFitProposal(`User coaching-fit: ${inbound}`, quote);
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      latestCoachQuestion: "Did you start the meeting with a clear agenda today?",
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).toBe("coaching_fit_feedback");
+    expect(r.reconciled_response_intent).toBe("repair_coaching_fit");
+    expect(r.reconciled_persistence_decision).toBe("no_outcome_write");
+    expect(r.disagreement_flags).toContain("coaching_fit_feedback_repair");
+    expect(isCoachingFitFeedbackReconciled(r)).toBe(true);
+  });
+
+  it("does not phrase-route on the word relevant alone in reconcile (miss stays miss)", () => {
+    const det = meaningFor("I didn't do it today");
+    const proposal = makeValidProposal({
+      relationship_meaning: "miss",
+      response_intent: "tell_truth_and_recover",
+      user_turn_summary: "User missed today.",
+      evidence_quotes: ["didn't do it today"],
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      inboundBody: "I didn't do it today",
+    });
+    expect(r.reconciled_relationship_meaning).toBe("miss");
+    expect(isCoachingFitFeedbackReconciled(r)).toBe(false);
+  });
+
+  it("goal-change authoritative intent wins over coaching_fit proposal", () => {
+    const det = meaningFor("I want to change my goal");
+    const proposal = makeCoachingFitProposal("User wants goal change.", "change my goal", {
+      goal_change_intent: {
+        detected: true,
+        adjustment_type: "replace",
+        source: "user_requested",
+        requires_confirmation: true,
+        proposed_new_goal_text: null,
+        evidence_quote: "change my goal",
+        confidence: "high",
+      },
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: det,
+      inboundBody: "I want to change my goal",
+    });
+    expect(r.reconciled_relationship_meaning).toBe("goal_adjustment_request");
+    expect(isCoachingFitFeedbackReconciled(r)).toBe(false);
+  });
+
+  it("enriched route contract forbids continuing same assignment for coaching fit", () => {
+    const inbound = "These feel generic.";
+    const reconciled = enrichReconciledWithInboundRouteContract(
+      reconcileTurnUnderstanding({
+        proposal: makeCoachingFitProposal("Generic coaching complaint.", "feel generic"),
+        deterministicMeaning: meaningFor(inbound),
+        inboundBody: inbound,
+      }),
+      { rawInbound: inbound, classifierEventType: "user_partial" }
+    );
+    expect(isCoachingFitFeedbackReconciled(reconciled)).toBe(true);
+    expect(reconciled.inbound_route_contract?.allow_new_assignment).toBe(false);
+    expect(reconciled.inbound_route_contract?.forbidden_moves?.join(" ")).toMatch(
+      /Repair coaching fit/i
+    );
   });
 });
 

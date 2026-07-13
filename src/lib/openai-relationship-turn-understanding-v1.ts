@@ -49,6 +49,7 @@ export type TurnUnderstandingRelationshipMeaning =
   | "prior_ask_satisfied"
   | "reported_metric_or_result"
   | "goal_adjustment_request"
+  | "coaching_fit_feedback"
   | "support_request"
   | "emotional_reflection"
   | "direct_answer"
@@ -90,6 +91,7 @@ export type TurnUnderstandingResponseIntent =
   | "acknowledge_result_and_next_standard"
   | "ask_next_specific_step"
   | "close_loop_no_new_action"
+  | "repair_coaching_fit"
   | "unclear_clarify";
 
 export type TurnUnderstandingTemporalScope =
@@ -629,6 +631,32 @@ export function mapTurnUnderstandingToInboundRouteContract(
   const tuAuthoritative = isTurnUnderstandingAuthoritative(reconciled);
   const confidence = reconciled.confidence ?? 0;
   if (tuAuthoritative && confidence >= LOW_CONFIDENCE_THRESHOLD) {
+    if (isCoachingFitFeedbackReconciled(reconciled)) {
+      return buildPhase1RouteContract({
+        route: "legacy_other",
+        source: "turn_understanding",
+        relationship_engagement: true,
+        outcome: "none",
+        answered_prior_ask: false,
+        prior_ask_satisfied: false,
+        should_persist: false,
+        should_reply: true,
+        close_loop: false,
+        max_questions: 1,
+        allow_new_assignment: false,
+        allow_generic_advice: false,
+        facts_to_reflect: extractFactsToReflect(raw),
+        forbidden_moves: [
+          ...commonForbidden,
+          "Repair coaching fit before normal accountability.",
+          "Acknowledge the coaching miss — do not defend the system.",
+          "Do not continue the same assignment as if nothing happened.",
+          "Ask one useful recalibration question (what is off or whether the goal is still right).",
+          "Do not ask what got in the way or run outcome triad on the standard.",
+        ],
+        outcome_to_persist: "none",
+      });
+    }
     const intent = reconciled.reconciled_response_intent;
     const lastAsk = reconciled.last_ask_satisfied;
     // Ready./short close_loop: reply + close (P2b) — do not silent acknowledgment_no_reply when prior ask pending.
@@ -921,6 +949,7 @@ const RELATIONSHIP_MEANINGS = new Set<string>([
   "prior_ask_satisfied",
   "reported_metric_or_result",
   "goal_adjustment_request",
+  "coaching_fit_feedback",
   "support_request",
   "emotional_reflection",
   "direct_answer",
@@ -966,6 +995,7 @@ const RESPONSE_INTENTS = new Set([
   "acknowledge_result_and_next_standard",
   "ask_next_specific_step",
   "close_loop_no_new_action",
+  "repair_coaching_fit",
   "unclear_clarify",
 ]);
 
@@ -1404,6 +1434,13 @@ export function buildTurnUnderstandingUserPrompt(args: BuildTurnUnderstandingPro
     "- adjustment_type: amend|restate|reset|raise|lower|shrink|replace|new_goal|blocker_focus|unspecified|none.",
     "- source: user_requested unless coach-side consistency/blocker signals are explicit in thread.",
     "- route_priority_recommendation commitment_change or pending_resolution when detected with medium/high goal_change_intent.confidence.",
+    "",
+    "COACHING-FIT / RELEVANCE REPAIR (relationship_meaning coaching_fit_feedback — semantic, not keywords):",
+    "- Use when the user is correcting the coaching relationship: the texts feel off, generic, not helpful, missing what they need, or not fitting their life/goal — NOT a normal miss, NOT a goal-change request, NOT timing preference, NOT emotional hardship alone.",
+    "- Examples (non-exhaustive): \"These messages are not relevant\"; \"This isn't helpful for what I'm dealing with\"; \"You're missing what I actually need\"; \"This doesn't fit my goal\"; \"These feel generic\"; \"The coaching is off.\"",
+    "- NOT coaching_fit_feedback: \"I didn't do it today\" (miss); \"I want to change my goal\" (goal_adjustment_request); STOP/opt-out; \"Text me later\" (timing); ambiguous progress; support/emotional share without fit complaint.",
+    "- When coaching_fit_feedback: relationship_meaning coaching_fit_feedback; response_intent repair_coaching_fit; commitment_outcome_recommendation no_outcome_write; persistence_safety do_not_write_but_acknowledge or defer_to_server; last_ask_satisfied usually unclear or no.",
+    "- List the prior coach assignment/ask in do_not_repeat_asks when the user says coaching is not landing — do not repeat that push.",
     "",
     `proof_callout_claim_saved_allowed: ${args.proofCalloutClaimSavedAllowed}`,
     `deterministic_relationship_meaning: ${args.deterministicMeaning.relationship_meaning}`,
@@ -2106,7 +2143,7 @@ export function reconcileTurnUnderstanding(
     disagreement_flags.push("route_priority_advisory_only");
   }
 
-  if (confidence < LOW_CONFIDENCE_THRESHOLD) {
+  if (confidence < LOW_CONFIDENCE_THRESHOLD && p.relationship_meaning !== "coaching_fit_feedback") {
     reconciled_response_intent = "unclear_clarify";
     disagreement_flags.push("low_confidence_clarify");
     if (stale_ask_risk && coachQ.length >= 12) {
@@ -2114,7 +2151,24 @@ export function reconcileTurnUnderstanding(
     }
   }
 
-  if (last_ask_satisfied === "yes") {
+  if (
+    p.relationship_meaning === "coaching_fit_feedback" ||
+    p.response_intent === "repair_coaching_fit"
+  ) {
+    reconciled_relationship_meaning = "coaching_fit_feedback";
+    reconciled_response_intent = "repair_coaching_fit";
+    reconciled_persistence_decision = "no_outcome_write";
+    disagreement_flags.push("coaching_fit_feedback_repair");
+    if (coachQ.length >= 12) {
+      const snippet = coachQ.slice(0, 160);
+      if (!reconciled_do_not_repeat_asks.some((x) => x.includes(snippet.slice(0, 40)))) {
+        reconciled_do_not_repeat_asks.unshift(snippet);
+      }
+    }
+    stale_ask_risk = true;
+  }
+
+  if (last_ask_satisfied === "yes" && reconciled_relationship_meaning !== "coaching_fit_feedback") {
     if (
       reconciled_response_intent === "ask_next_specific_step" ||
       reconciled_response_intent === "reinforce_plan_without_proof"
@@ -2151,6 +2205,11 @@ export function reconcileTurnUnderstanding(
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, MAX_DO_NOT_REPEAT);
+
+  if (reconciled_relationship_meaning === "coaching_fit_feedback") {
+    reconciled_response_intent = "repair_coaching_fit";
+    reconciled_persistence_decision = "no_outcome_write";
+  }
 
   const stale_ask_avoided =
     last_ask_satisfied === "yes" && reconciled_do_not_repeat_asks.length > 0 && stale_ask_risk;
@@ -2248,9 +2307,40 @@ export function coachingMoveFromReconciledResponseIntent(
       return "close_loop_no_new_action";
     case "unclear_clarify":
       return "clarify_intent";
+    case "repair_coaching_fit":
+      return "repair_coaching_fit_before_accountability";
     default:
       return null;
   }
+}
+
+/** True when reconciled TU semantically flags coaching fit / relevance repair (not goal-change). */
+export function isCoachingFitFeedbackReconciled(
+  tu: ReconciledTurnUnderstanding | null | undefined
+): boolean {
+  if (!tu) return false;
+  if (isAuthoritativeReconciledGoalChangeIntent(tu.reconciled_goal_change_intent)) {
+    return false;
+  }
+  if (tu.reconciled_relationship_meaning === "goal_adjustment_request") {
+    return false;
+  }
+  return (
+    tu.reconciled_relationship_meaning === "coaching_fit_feedback" ||
+    tu.reconciled_response_intent === "repair_coaching_fit"
+  );
+}
+
+export function isCoachingFitFeedbackRelationshipMeaning(
+  meaning: string | null | undefined
+): boolean {
+  return meaning?.trim() === "coaching_fit_feedback";
+}
+
+export function isCoachingFitFeedbackResponseIntent(
+  intent: string | null | undefined
+): boolean {
+  return intent?.trim() === "repair_coaching_fit";
 }
 
 export function buildRelationshipPacketTurnUnderstanding(
@@ -2278,6 +2368,7 @@ TURN_UNDERSTANDING (structured_recent_truth.turn_understanding — authoritative
 - acknowledge_prior_ask_satisfied and close_loop_no_new_action are NOT proof saved and NOT Victory Room unless proof_victory_permission explicitly allows.
 - If response_intent is acknowledge_result_and_next_standard: acknowledge the user's reported result and their stated next standard; do NOT ask an old outcome triad (protected/partial/missed) they already answered.
 - If response_intent is unclear_clarify: one concise clarifying question — not the stale old coach ask.
+- If relationship_meaning is coaching_fit_feedback or response_intent is repair_coaching_fit: repair coaching fit before normal accountability — acknowledge the miss, do not defend or repeat the same assignment, ask one useful recalibration question (what is off or whether the goal is still right).
 - If reconciled goal-change intent is authoritative: this is NOT proof/outcome; do NOT treat as user_yes/user_no; do NOT claim the goal changed; bridge toward commitment-change context without repeating prior goal-change clarification asks.`;
 }
 

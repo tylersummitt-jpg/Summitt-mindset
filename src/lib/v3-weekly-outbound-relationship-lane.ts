@@ -267,6 +267,15 @@ WEEKLY GOAL_ADJUSTMENT (Pat Pause):
 - Current Goal / effective ask stays primary; do not mention goal adjustment every week.`;
 }
 
+/** Weekly coaching-fit repair — recalibrate before business-as-usual recap when TU shows unresolved fit correction. */
+export function buildWeeklyCoachingFitRepairLaneGuardrails(): string {
+  return `WEEKLY COACHING-FIT REPAIR:
+- If structured_recent_truth.turn_understanding shows relationship_meaning coaching_fit_feedback or response_intent repair_coaching_fit, the user corrected that coaching is not landing — repair/recalibrate before a normal weekly recap.
+- Acknowledge the miss; do not defend prior texts or repeat the same assignment push.
+- Ask at most one useful recalibration question (what is off or whether the goal is still right) when a question would help.
+- Do not open with performance recap or accountability triad while fit is unresolved.`;
+}
+
 /** Weekly Pat Pause guardrails when planned interruption is active in facts. */
 export function buildWeeklyPlannedInterruptionLaneGuardrails(): string {
   return `${buildPlannedInterruptionLaneGuardrails()}
@@ -513,6 +522,7 @@ ${buildRelationshipPacketPromptGuidance()}
 ${strategyCardPromptGuidance}
 ${buildVictoryBackgroundLaneGuardrails()}
 ${buildWeeklyGoalAdjustmentLaneGuardrails()}
+${buildWeeklyCoachingFitRepairLaneGuardrails()}
 ${f.commitment.planned_interruption_active || f.weekly_proof.planned_pause_week ? buildWeeklyPlannedInterruptionLaneGuardrails() : ""}
 
 OUTPUT: strict JSON only with keys:

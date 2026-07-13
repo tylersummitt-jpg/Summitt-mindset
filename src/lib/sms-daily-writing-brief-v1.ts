@@ -20,6 +20,10 @@ import type { RelationshipAnchorSources } from "@/lib/sms-relationship-anchors";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { TimingAnchorMemory } from "@/lib/timing-anchor-memory";
 import type { DailyV3RelationshipFacts } from "@/lib/v3-daily-relationship-lane";
+import {
+  isCoachingFitFeedbackRelationshipMeaning,
+  isCoachingFitFeedbackResponseIntent,
+} from "@/lib/openai-relationship-turn-understanding-v1";
 import type { DailySilenceCadenceFacts, SilenceCadenceRoute } from "@/lib/sms-silence-cadence-v1";
 import {
   buildDailySmsRelationshipReadV1,
@@ -607,7 +611,12 @@ function satisfiedAskIndicatesFitRepair(
   if (!sac) return false;
   const meaning = sac.relationship_meaning?.trim().toLowerCase() ?? "";
   const intent = sac.response_intent?.trim().toLowerCase() ?? "";
-  return meaning === "goal_adjustment_request" || intent === "clarify_goal_change";
+  return (
+    meaning === "goal_adjustment_request" ||
+    intent === "clarify_goal_change" ||
+    isCoachingFitFeedbackRelationshipMeaning(meaning) ||
+    isCoachingFitFeedbackResponseIntent(intent)
+  );
 }
 
 /**
@@ -637,7 +646,11 @@ export function detectFitOrCorrectionConflictFromAssembledSemantics(args: {
 export function buildRecentTurnSemanticsForBrief(
   sac: DailyV3RelationshipFacts["daily_satisfied_ask_context"]
 ): DailySmsRecentTurnSemanticsV1 | undefined {
-  if (!sac?.has_satisfied_recent_ask) return undefined;
+  if (!sac) return undefined;
+  const coachingFit =
+    isCoachingFitFeedbackRelationshipMeaning(sac.relationship_meaning) ||
+    isCoachingFitFeedbackResponseIntent(sac.response_intent);
+  if (!sac.has_satisfied_recent_ask && !coachingFit) return undefined;
   const out: DailySmsRecentTurnSemanticsV1 = {
     authority: COACHING_SITUATION_AUTHORITY,
   };
@@ -710,7 +723,7 @@ export function buildCoachingSituationForBrief(args: {
       pushSituationLabel(basis, "standard_conflict", COACHING_SITUATION_BASIS_MAX);
     }
     if (tuRepair) {
-      pushSituationLabel(basis, "tu:goal_fit", COACHING_SITUATION_BASIS_MAX);
+      pushSituationLabel(basis, "tu:coaching_fit", COACHING_SITUATION_BASIS_MAX);
     }
     if (args.freshness_avoid_count > 0) {
       pushSituationLabel(basis, "freshness_avoid", COACHING_SITUATION_BASIS_MAX);
@@ -922,6 +935,13 @@ export function buildDailySmsWritingBriefV1(
     praiseAllowedLevel: cal.praise_allowed_level,
     anchorNames: relationship_anchors.people.map((p) => p.name),
     routeKind,
+    assembledTurnSemantics: f.daily_satisfied_ask_context
+      ? {
+          relationship_meaning: f.daily_satisfied_ask_context.relationship_meaning,
+          response_intent: f.daily_satisfied_ask_context.response_intent,
+          evidence_preview: f.daily_satisfied_ask_context.evidence_preview,
+        }
+      : null,
   });
 
   const open_loops = compactOpenLoopsForRelationshipRead(

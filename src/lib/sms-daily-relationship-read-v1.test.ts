@@ -164,4 +164,20 @@ describe("buildDailySmsRelationshipReadV1", () => {
     expect(read.send_target_day_context).toMatch(/accountability day/i);
     expect(read.send_target_day_context).toMatch(/Morning|outcome already happened/i);
   });
+
+  it("assembled TU coaching_fit semantics elevate repair posture without phrase regex", () => {
+    const read = buildDailySmsRelationshipReadV1(
+      baseArgs({
+        assembledTurnSemantics: {
+          relationship_meaning: "coaching_fit_feedback",
+          response_intent: "repair_coaching_fit",
+          evidence_preview: "You're missing what I actually need.",
+        },
+      })
+    );
+    expect(read.latest_user_signal).toBe("You're missing what I actually need.");
+    expect(read.today_best_move).toBe("repair_fit_before_accountability");
+    expect(read.what_would_make_user_feel_known).toBe("repair_fit");
+    expect(read.avoid_because_user_corrected_us).toContain("coaching_fit:unresolved");
+  });
 });

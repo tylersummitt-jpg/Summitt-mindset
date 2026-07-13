@@ -22,6 +22,7 @@ import { filterWriterFacingExactThreadMessages } from "@/lib/sms-recent-exact-th
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import type { WeeklyV3OutboundFacts } from "@/lib/v3-weekly-outbound-relationship-lane";
 import {
+  buildWeeklyCoachingFitRepairLaneGuardrails,
   buildWeeklyGoalAdjustmentLaneGuardrails,
   buildWeeklyPlannedInterruptionLaneGuardrails,
   produceWeeklyV3RelationshipSms,
@@ -1089,6 +1090,35 @@ describe("produceWeeklyV3RelationshipSms", () => {
     expect(g).toMatch(/pause_cadence|planned_interruption_active/i);
     expect(g).toMatch(/not failure framing/i);
     expect(g).toMatch(/never say "planned pause"/i);
+  });
+
+  it("E — weekly system prompt includes coaching-fit repair before recap guidance", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: validWeeklyJson("Before we recap — is the current goal still the right target?"),
+          },
+        },
+      ],
+    });
+    const r = await produceWeeklyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+    });
+    expect(r.shouldSend).toBe(true);
+    const systemMsg = createMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemMsg).toContain("WEEKLY COACHING-FIT REPAIR");
+    expect(systemMsg).toMatch(/coaching_fit_feedback|repair_coaching_fit/i);
+    expect(systemMsg).toMatch(/before a normal weekly recap/i);
+    expect(systemMsg).not.toMatch(/body\.includes\s*\(\s*["']relevant["']\s*\)/);
+  });
+
+  it("buildWeeklyCoachingFitRepairLaneGuardrails says repair before business-as-usual recap", () => {
+    const g = buildWeeklyCoachingFitRepairLaneGuardrails();
+    expect(g).toMatch(/repair\/recalibrate before a normal weekly recap/i);
+    expect(g).toMatch(/coaching_fit_feedback/i);
+    expect(g).toMatch(/Do not open with performance recap/i);
   });
 
   it("builds when goal_adjustment fields absent", async () => {

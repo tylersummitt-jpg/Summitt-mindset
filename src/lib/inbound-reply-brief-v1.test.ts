@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: vi.fn() },
@@ -958,5 +960,145 @@ describe("inbound thread_window writer-facing actual SMS", () => {
     expect(brief.thread_window.length).toBeLessThanOrEqual(20);
     expect(brief.thread_window.at(-1)?.body).toBe("Window line 23");
     expect(brief.thread_window[0]?.body).toBe("Window line 4");
+  });
+});
+
+function coachingFitReconciled(
+  rawInbound: string,
+  overrides: Partial<ReconciledTurnUnderstanding> = {}
+): ReconciledTurnUnderstanding {
+  return enrichReconciledWithInboundRouteContract(
+    {
+      proposal: null,
+      reconciled_relationship_meaning: "coaching_fit_feedback",
+      reconciled_response_intent: "repair_coaching_fit",
+      reconciled_persistence_decision: "no_outcome_write",
+      reconciled_do_not_repeat_asks: ["Did you start the meeting with a clear agenda today?"],
+      last_ask_satisfied: "no",
+      satisfaction_kind: "not_satisfied",
+      stale_ask_risk: true,
+      confidence: 0.86,
+      disagreement_flags: ["coaching_fit_feedback_repair"],
+      interpreter_failed_reason: null,
+      stale_ask_avoided: true,
+      persistence_note: "test coaching fit",
+      reconciled_goal_change_intent: null,
+      ...overrides,
+    } satisfies ReconciledTurnUnderstanding,
+    { rawInbound, classifierEventType: "user_partial" }
+  );
+}
+
+describe("coaching_fit_repair inbound brief", () => {
+  it("C — coaching-fit TU yields repair move before accountability", () => {
+    const text = "This isn't helpful for what I'm dealing with.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, { turn_understanding: coachingFitReconciled(text) }),
+    });
+    expect(brief.turn_type).toBe("coaching_fit_repair");
+    expect(brief.reply_strategy.move).toBe("repair_coaching_fit_before_accountability");
+    expect(brief.question_policy.max_questions).toBe(1);
+    expect(brief.reply_strategy.must_not_do.join(" ")).toMatch(/Repair coaching fit/i);
+    expect(brief.reply_strategy.must_not_do.join(" ")).toMatch(/same assignment/i);
+  });
+
+  it("B — phrase without relevant still routes via TU not body.includes", () => {
+    const text = "You're missing what I actually need.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, { turn_understanding: coachingFitReconciled(text) }),
+    });
+    expect(brief.turn_type).toBe("coaching_fit_repair");
+    expect(text.toLowerCase()).not.toContain("relevant");
+  });
+
+  it("F — goal-change request stays goal-change path, not coaching fit repair", () => {
+    const text = "I want to change my goal";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        turn_understanding: coachingFitReconciled(text, {
+          reconciled_relationship_meaning: "goal_adjustment_request",
+          reconciled_response_intent: "clarify_goal_change",
+          reconciled_goal_change_intent: {
+            authoritative: true,
+            detected: true,
+            adjustment_type: "replace",
+            source: "user_requested",
+            requires_confirmation: true,
+            proposed_new_goal_text: null,
+            evidence_quote: "change my goal",
+            confidence: "high",
+            goal_change_not_outcome_write: true,
+            goal_change_no_state_mutation_without_confirmation: true,
+          },
+        }),
+      }),
+    });
+    expect(brief.turn_type).not.toBe("coaching_fit_repair");
+  });
+
+  it("G — STOP does not become coaching fit repair", () => {
+    const text = "STOP";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        inbound_meaning: {
+          relationship_meaning: "unknown",
+          persistence_decision: "ack_only",
+          temporal_scope: "today",
+          sms_response_intent: "clarify_gently",
+          route_priority: { compliance_or_stop: true },
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+      }),
+    });
+    expect(brief.turn_type).not.toBe("coaching_fit_repair");
+  });
+
+  it("G — timing preference does not become coaching fit repair", () => {
+    const text = "Not yet. It's only 7:16 a.m. and I'm at work.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        turn_understanding: coachingFitReconciled(text, {
+          reconciled_relationship_meaning: "unclear",
+          reconciled_response_intent: "unclear_clarify",
+        }),
+      }),
+    });
+    expect(brief.turn_type).toBe("timing_context");
+    expect(brief.turn_type).not.toBe("coaching_fit_repair");
+  });
+
+  it("H — normal miss does not become coaching fit repair", () => {
+    const text = "No, I didn't get to it today.";
+    const brief = buildInboundReplyBriefV1({
+      facts: goldenFacts(text, {
+        inbound_meaning: {
+          relationship_meaning: "miss",
+          persistence_decision: "write_user_no",
+          temporal_scope: "today",
+          sms_response_intent: "tell_truth_and_recover",
+          route_priority: "normal",
+          spoken_local_day_key: DAY_KEY,
+          reported_for_day_key: DAY_KEY,
+          user_timezone: "America/Chicago",
+        },
+        v2_accountability: { miss_signal: true },
+      }),
+    });
+    expect(brief.turn_type).toBe("miss");
+    expect(brief.turn_type).not.toBe("coaching_fit_repair");
+  });
+
+  it("writer system prompt includes coaching_fit_repair guidance", () => {
+    const system = buildInboundBriefWriterSystemPrompt({ maxChars: 320 });
+    expect(system).toMatch(/coaching_fit_repair/i);
+    expect(system).toMatch(/recalibration question/i);
+  });
+
+  it("I — no deterministic relevant phrase routing in brief module", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/inbound-reply-brief-v1.ts"), "utf8");
+    expect(src).not.toMatch(/includes\s*\(\s*["']relevant["']\s*\)/);
+    expect(src).not.toMatch(/body\.includes\s*\(\s*["']relevant["']\s*\)/);
   });
 });

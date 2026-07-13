@@ -9,6 +9,7 @@ import type {
 } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
   buildInboundRouteAllowedClaims,
+  isCoachingFitFeedbackReconciled,
   isPhase1AuthoritativeRouteContract,
   looksLikeRealHelpRequest,
 } from "@/lib/openai-relationship-turn-understanding-v1";
@@ -37,6 +38,7 @@ export type InboundReplyBriefTurnType =
   | "false_premise_challenge"
   | "repeated_question_complaint"
   | "timing_context"
+  | "coaching_fit_repair"
   | "reflection"
   | "unclear";
 
@@ -57,6 +59,7 @@ export type InboundReplyBriefReplyMove =
   | "acknowledge_already_answered"
   | "timing_context_forward"
   | "reflect_and_close"
+  | "repair_coaching_fit_before_accountability"
   | "clarify_once";
 
 export type InboundReplyBriefThreadWindowMessage = {
@@ -305,6 +308,7 @@ function mapRequiredReplyMoveToBriefMove(
   turnType: InboundReplyBriefTurnType
 ): InboundReplyBriefReplyMove {
   if (turnType === "false_premise_challenge") return "correct_false_premise";
+  if (turnType === "coaching_fit_repair") return "repair_coaching_fit_before_accountability";
   if (turnType === "repeated_question_complaint" || turnType === "answered_prior_question") {
     return "acknowledge_already_answered";
   }
@@ -354,6 +358,10 @@ function deriveTurnType(args: {
       default:
         break;
     }
+  }
+
+  if (isCoachingFitFeedbackReconciled(args.facts.turn_understanding)) {
+    return "coaching_fit_repair";
   }
 
   if (looksLikeRepeatedQuestionComplaint(text)) return "repeated_question_complaint";
@@ -457,6 +465,13 @@ function deriveMustNotDo(args: {
     out.push("Do not ask Did you do it before the user has had a fair window.");
   }
 
+  if (args.turnType === "coaching_fit_repair") {
+    out.push("Repair coaching fit before normal accountability.");
+    out.push("Acknowledge the coaching miss — do not defend the system.");
+    out.push("Do not continue the same assignment as if nothing happened.");
+    out.push("Do not ask what got in the way or run outcome triad on the standard.");
+  }
+
   if (args.turnType === "reflection" || args.turnType === "help_request") {
     out.push('Do not use generic "can you share more" worksheet follow-ups.');
   }
@@ -474,6 +489,9 @@ function deriveExplicitFacts(args: {
   if (rt?.plan_detected) out.push("User stated a future plan — not completion proof.");
   if (rt?.blocker_detected) out.push("User named a blocker.");
   if (args.turnType === "timing_context") out.push("User says it is too early to judge today's outcome.");
+  if (args.turnType === "coaching_fit_repair") {
+    out.push("User says coaching texts are not landing — fit/relevance repair needed.");
+  }
   if (args.turnType === "false_premise_challenge") {
     out.push("User challenges coach premise about prior completion.");
   }
@@ -521,6 +539,8 @@ export function deriveMaxQuestionsForBrief(args: {
       return { max_questions: 0, reason: "answered_prior_question_close_loop" };
     case "reflection":
       return { max_questions: 0, reason: "reflection_close_loop" };
+    case "coaching_fit_repair":
+      return { max_questions: 1, reason: "coaching_fit_one_recalibration_question" };
     default:
       return { max_questions: 1, reason: "unclear_one_clarify_allowed" };
   }
@@ -815,6 +835,7 @@ Rules:
 - If false_premise_challenge, correct the premise and repair trust. No question.
 - If repeated_question_complaint, acknowledge they already answered. No question.
 - If timing_context, acknowledge timing and point forward. No question.
+- If coaching_fit_repair, repair coaching fit before accountability: acknowledge the miss, do not defend or repeat the same assignment, ask one useful recalibration question when max_questions allows.
 - One SMS, max ${args.maxChars} characters, no newlines.
 - No robot menu.
 - No fake Pat quotes.
