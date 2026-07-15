@@ -305,7 +305,7 @@ export default async function HomePage() {
                   </div>
                   <div className="flex flex-col gap-3 md:gap-4">
                     <p className="text-sm text-white/80 drop-shadow-sm">
-                      Then $19.99 a month • Cancel anytime
+                      Then $29 a month • Cancel anytime
                     </p>
                     <ul
                       className={heroValuePropGridClass}

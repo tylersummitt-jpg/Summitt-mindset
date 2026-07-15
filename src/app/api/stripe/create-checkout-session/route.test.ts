@@ -118,8 +118,10 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     vi.resetModules();
     vi.clearAllMocks();
     process.env.STRIPE_SECRET_KEY = "sk_test_checkout";
-    process.env.STRIPE_PRICE_ID_MONTHLY = "price_m";
-    process.env.STRIPE_PRICE_ID_ANNUAL = "price_a";
+    process.env.STRIPE_PRICE_ID_MONTHLY = "price_1TtRauHP6uKt4BBoupJRggJ2";
+    process.env.STRIPE_PRICE_ID_ANNUAL = "price_1TtRdEHP6uKt4BBo0Ex8Xw8a";
+    process.env.STRIPE_LEGACY_PRICE_IDS =
+      "price_1SzRiNHP6uKt4BBok7FrpmQY,price_1SZY92HP6uKt4BBo9gP2ZMXb";
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 
     authMock.mockResolvedValue({ userId: "user_1" });
@@ -265,5 +267,171 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
       url: "https://checkout.stripe.test/session",
     });
     expect(createSessionMock).toHaveBeenCalled();
+  });
+
+  it("monthly plan maps to STRIPE_PRICE_ID_MONTHLY only", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({ data: [] });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({
+          plan: "monthly",
+          priceId: "price_attacker",
+          amount: 1,
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const createArg = createSessionMock.mock.calls[0][0] as {
+      line_items: { price: string }[];
+    };
+    expect(createArg.line_items).toEqual([
+      { price: "price_1TtRauHP6uKt4BBoupJRggJ2", quantity: 1 },
+    ]);
+  });
+
+  it("annual plan maps to STRIPE_PRICE_ID_ANNUAL only", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({ data: [] });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "annual", price: "price_attacker" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const createArg = createSessionMock.mock.calls[0][0] as {
+      line_items: { price: string }[];
+    };
+    expect(createArg.line_items).toEqual([
+      { price: "price_1TtRdEHP6uKt4BBo0Ex8Xw8a", quantity: 1 },
+    ]);
+  });
+
+  it("rejects non monthly/annual plan without creating a session", async () => {
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "price_1TtRauHP6uKt4BBoupJRggJ2" }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("Path B: legacy Price ID (no metadata) still blocks as already_subscribed", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({
+      data: [
+        makeSub({
+          status: "active",
+          metadata: {},
+          items: {
+            data: [
+              {
+                current_period_end: 2_000_000_000,
+                price: {
+                  id: "price_1SzRiNHP6uKt4BBok7FrpmQY",
+                  recurring: { interval: "month" },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("already_subscribed");
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("Path B: unrelated Price ID without metadata does not block Checkout", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({
+      data: [
+        makeSub({
+          status: "active",
+          metadata: {},
+          items: {
+            data: [
+              {
+                current_period_end: 2_000_000_000,
+                price: {
+                  id: "price_unrelated_other_product",
+                  recurring: { interval: "month" },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock).toHaveBeenCalled();
+  });
+
+  it("Path B: metadata.userId recognition remains valid without Price match", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({
+      data: [
+        makeSub({
+          status: "active",
+          metadata: { userId: "user_1" },
+          items: {
+            data: [
+              {
+                current_period_end: 2_000_000_000,
+                price: {
+                  id: "price_unrelated_other_product",
+                  recurring: { interval: "month" },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("already_subscribed");
   });
 });

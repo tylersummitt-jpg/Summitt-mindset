@@ -19,16 +19,22 @@ describe("paused membership UX wiring (source)", () => {
     expect(page).toContain("ManageMembershipButton");
   });
 
-  it("subscribe shows resume panel for paused and keeps current prices", () => {
+  it("subscribe shows resume panel for paused and Phase 2 public prices", () => {
     const panel = read("src/app/subscribe/subscribe-checkout-panel.tsx");
     expect(panel).toContain("showPausedResume");
     expect(panel).toContain("Your membership is paused.");
     expect(panel).toContain("Resume your existing membership to continue on the same plan.");
     expect(panel).toContain('body?.error === "membership_paused"');
-    expect(panel).toContain("$19.99");
-    expect(panel).toContain("$120");
-    expect(panel).toContain("Founding Member Monthly");
-    expect(panel).toContain("Save 50% vs. monthly.");
+    expect(panel).toContain("$29");
+    expect(panel).toContain("$249");
+    expect(panel).toContain("Save $99 · about 28% vs monthly");
+    expect(panel).toContain(">Monthly</p>");
+    expect(panel).toContain(">Annual</p>");
+    expect(panel).not.toContain("$19.99");
+    expect(panel).not.toContain("$120");
+    expect(panel).not.toContain("Founding Member");
+    expect(panel).not.toContain("Lowest price locked in");
+    expect(panel).not.toContain("Save 50%");
   });
 
   it("post-sign-in routes paused users to Account", () => {
@@ -43,8 +49,9 @@ describe("paused membership UX wiring (source)", () => {
     expect(nav).toContain("!isSubscribed && !isPaused");
   });
 
-  it("home page pricing copy unchanged in Phase 1", () => {
+  it("home page shows Phase 2 monthly pricing copy", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toContain("Then $19.99 a month • Cancel anytime");
+    expect(home).toContain("Then $29 a month • Cancel anytime");
+    expect(home).not.toContain("$19.99");
   });
 });

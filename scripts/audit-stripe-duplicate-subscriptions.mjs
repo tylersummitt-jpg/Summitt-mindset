@@ -12,6 +12,7 @@
  *   STRIPE_SECRET_KEY
  *   STRIPE_PRICE_ID_MONTHLY (optional but improves matching)
  *   STRIPE_PRICE_ID_ANNUAL  (optional but improves matching)
+ *   STRIPE_LEGACY_PRICE_IDS (optional comma-separated grandfathered Price IDs)
  */
 
 import { readFileSync, existsSync } from "fs";
@@ -45,6 +46,35 @@ loadEnvLocal();
 
 const monthlyPriceId = process.env.STRIPE_PRICE_ID_MONTHLY || "";
 const annualPriceId = process.env.STRIPE_PRICE_ID_ANNUAL || "";
+const legacyPriceIdsCsv = process.env.STRIPE_LEGACY_PRICE_IDS || "";
+
+/** Match src/lib/stripe-recognized-price-ids.ts parse + allowlist behavior. */
+function parseStripePriceIdList(raw) {
+  if (raw == null || typeof raw !== "string") return [];
+  const seen = new Set();
+  const out = [];
+  for (const part of raw.split(",")) {
+    const id = part.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function getRecognizedSummittPriceIds() {
+  const ids = new Set();
+  for (const raw of [monthlyPriceId, annualPriceId]) {
+    const id = typeof raw === "string" ? raw.trim() : "";
+    if (id) ids.add(id);
+  }
+  for (const id of parseStripePriceIdList(legacyPriceIdsCsv)) {
+    ids.add(id);
+  }
+  return ids;
+}
+
+const recognizedPriceIds = getRecognizedSummittPriceIds();
 
 function isLikelySummittSubscription(sub) {
   const mdPlan = sub.metadata?.plan;
@@ -52,10 +82,7 @@ function isLikelySummittSubscription(sub) {
   const mdUser = sub.metadata?.userId;
   if (typeof mdUser === "string" && mdUser.trim().length > 0) return true;
   const pid = sub.items?.data?.[0]?.price?.id;
-  if (typeof pid === "string") {
-    if (monthlyPriceId && pid === monthlyPriceId) return true;
-    if (annualPriceId && pid === annualPriceId) return true;
-  }
+  if (typeof pid === "string" && recognizedPriceIds.has(pid)) return true;
   return false;
 }
 

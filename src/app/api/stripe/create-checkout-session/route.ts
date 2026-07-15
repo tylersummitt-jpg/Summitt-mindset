@@ -14,6 +14,7 @@ import {
   resolvePlanFromSubscription,
   type SummittMembershipClass,
 } from "@/lib/summitt-subscription-membership";
+import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
 
 export const runtime = "nodejs";
 
@@ -49,8 +50,12 @@ function isLikelySummittSubscription(
   if (mdPlan === "monthly" || mdPlan === "annual") return true;
   const pid = sub.items.data[0]?.price?.id;
   if (typeof pid === "string") {
-    if (monthlyPriceId && pid === monthlyPriceId) return true;
-    if (annualPriceId && pid === annualPriceId) return true;
+    const recognized = getRecognizedSummittPriceIds({
+      monthly: monthlyPriceId,
+      annual: annualPriceId,
+      legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
+    });
+    if (recognized.has(pid)) return true;
   }
   return false;
 }
