@@ -51,6 +51,7 @@ export function Navbar() {
     subscribedRaw === "true" ||
     plan === "monthly" ||
     plan === "annual";
+  const isPaused = plan === "paused";
 
   // Close mobile menu when resizing to desktop
   useEffect(() => {
@@ -94,7 +95,7 @@ export function Navbar() {
     { href: "/ask-pat", label: "Ask Pat", key: "ask-pat" },
     { href: "/film-room", label: "Film Room", key: "film-room" },
     { href: "/user", label: "Account", key: "user" },
-    ...(!isSubscribed
+    ...(!isSubscribed && !isPaused
       ? [{ href: "/subscribe", label: "Subscribe", key: "subscribe" }]
       : []),
   ];

@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 
 import ManageMembershipButton from "@/components/manage-membership-button";
+import ResumeMembershipButton from "@/components/resume-membership-button";
 import {
   utBody,
   utCard,
@@ -36,11 +37,12 @@ function AccountMembershipRows() {
   const planRaw = md?.summittPlan;
   const planStr = typeof planRaw === "string" ? planRaw : "";
   const subscribed = md?.summittSubscribed === true;
+  const isPaused = planStr === "paused";
 
   let status: string;
   if (!isLoaded) {
     status = "—";
-  } else if (planStr === "paused") {
+  } else if (isPaused) {
     status = "Paused";
   } else if (subscribed) {
     status = "Active";
@@ -55,7 +57,7 @@ function AccountMembershipRows() {
     plan = "Monthly";
   } else if (planStr === "yearly" || planStr === "annual") {
     plan = "Yearly";
-  } else if (planStr === "paused") {
+  } else if (isPaused) {
     plan = "Paused";
   } else if (planStr.trim() !== "") {
     plan = capitalizeDisplay(planStr);
@@ -64,16 +66,30 @@ function AccountMembershipRows() {
   }
 
   return (
-    <div className="grid w-fit max-w-full grid-cols-[auto_auto] gap-x-8 gap-y-1">
-      <span className="text-stone-400">Membership Status</span>
-      <span className="font-medium text-stone-100">{status}</span>
-      <span className="text-stone-400">Plan</span>
-      <span className="font-medium text-stone-100">{plan}</span>
+    <div className="space-y-3">
+      <div className="grid w-fit max-w-full grid-cols-[auto_auto] gap-x-8 gap-y-1">
+        <span className="text-stone-400">Membership Status</span>
+        <span className="font-medium text-stone-100">{status}</span>
+        <span className="text-stone-400">Plan</span>
+        <span className="font-medium text-stone-100">{plan}</span>
+      </div>
+      {isPaused ? (
+        <div className="space-y-2 max-w-md">
+          <p className="text-sm text-stone-300">
+            Your membership is paused. Resume to continue on your existing plan.
+          </p>
+          <ResumeMembershipButton variant="account" />
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function AccountTopCard() {
+  const { user, isLoaded } = useUser();
+  const md = user?.publicMetadata as Record<string, unknown> | undefined;
+  const isPaused = isLoaded && md?.summittPlan === "paused";
+
   return (
     <div className={`w-full text-sm text-left ${utCard}`}>
       <section className="space-y-2 px-4 py-4">
@@ -100,9 +116,11 @@ function AccountTopCard() {
           <Link href="/sign-out" className={utSecondaryBtn}>
             Sign out
           </Link>
-          <div className="w-full sm:w-auto [&>div]:w-full sm:[&>div]:w-auto [&_button]:w-full sm:[&_button]:w-auto [&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-stone-100 [&_button]:hover:bg-white [&_button]:hover:text-gray-900">
-            <ManageMembershipButton />
-          </div>
+          {!isPaused ? (
+            <div className="w-full sm:w-auto [&>div]:w-full sm:[&>div]:w-auto [&_button]:w-full sm:[&_button]:w-auto [&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-stone-100 [&_button]:hover:bg-white [&_button]:hover:text-gray-900">
+              <ManageMembershipButton />
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

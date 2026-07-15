@@ -85,6 +85,9 @@ export default async function PostSignInPage() {
 
   const isSubscribed = isSubscribedFromMetadata(effectiveMd);
   if (!isSubscribed) {
+    if (effectiveMd?.summittPlan === "paused") {
+      redirect("/user");
+    }
     redirect(
       effectiveMd.acquisitionSource === "coach"
         ? "/subscribe?from=post-sign-in&src=coach"

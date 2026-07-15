@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trackCoachInitiateCheckout } from "@/lib/meta-pixel";
+import ResumeMembershipButton from "@/components/resume-membership-button";
 
 type Plan = "monthly" | "annual";
 
@@ -27,10 +28,18 @@ export default function SubscribeCheckoutPanel() {
     ? "/subscribe?src=coach"
     : "/subscribe";
 
+  const md =
+    user?.publicMetadata && typeof user.publicMetadata === "object"
+      ? (user.publicMetadata as Record<string, unknown>)
+      : null;
+  const pausedFromClerk = md?.summittPlan === "paused";
+
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forcePausedUi, setForcePausedUi] = useState(false);
   const initiateCheckoutFiredForAttemptRef = useRef(false);
 
+  const showPausedResume = Boolean(isSignedIn && (pausedFromClerk || forcePausedUi));
   const disabled = useMemo(() => loadingPlan !== null, [loadingPlan]);
 
   async function handleCheckout(plan: Plan) {
@@ -77,6 +86,12 @@ export default function SubscribeCheckoutPanel() {
 
         if (res.status === 409) {
           const body = await res.json().catch(() => ({}));
+          if (body?.error === "membership_paused" || body?.action === "resume") {
+            setForcePausedUi(true);
+            setError(null);
+            setLoadingPlan(null);
+            return;
+          }
           const msg =
             typeof body?.message === "string"
               ? body.message
@@ -125,6 +140,22 @@ export default function SubscribeCheckoutPanel() {
       }
       setLoadingPlan(null);
     }
+  }
+
+  if (showPausedResume) {
+    return (
+      <div className="w-full max-w-lg mx-auto md:mx-0 space-y-4">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 space-y-3 text-left">
+          <p className="text-lg font-semibold text-[var(--text)]">
+            Your membership is paused.
+          </p>
+          <p className="text-sm text-[var(--muted)]">
+            Resume your existing membership to continue on the same plan.
+          </p>
+          <ResumeMembershipButton variant="subscribe" />
+        </div>
+      </div>
+    );
   }
 
   return (

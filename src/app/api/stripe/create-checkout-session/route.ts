@@ -6,6 +6,14 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { maySetCoachAcquisitionSource } from "@/lib/coach-attribution";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import {
+  checkoutBlockErrorForClass,
+  classifySummittMembership,
+  isCheckoutBlockedMembershipClass,
+  isSummittEntitledFromSubscription,
+  resolvePlanFromSubscription,
+  type SummittMembershipClass,
+} from "@/lib/summitt-subscription-membership";
 
 export const runtime = "nodejs";
 
@@ -26,35 +34,6 @@ const ALLOWED_SRC = new Set(["coach"]);
 
 function isTruthySubscribed(raw: unknown): boolean {
   return raw === true || raw === "true";
-}
-
-function resolvePlanFromSubscription(
-  sub: Stripe.Subscription
-): "monthly" | "annual" | "unknown" {
-  const interval = sub.items.data[0]?.price?.recurring?.interval;
-  if (interval === "year") return "annual";
-  if (interval === "month") return "monthly";
-  return "unknown";
-}
-
-/**
- * True when this subscription should block creating a new Checkout (duplicate prevention).
- * Includes past_due so users must fix payment on the existing sub or contact support.
- * Billing-paused subs are excluded (same as product entitlement elsewhere).
- */
-function isBlockingSubscriptionStatus(sub: Stripe.Subscription): boolean {
-  if (sub.pause_collection != null) return false;
-  return (
-    sub.status === "active" ||
-    sub.status === "trialing" ||
-    sub.status === "past_due"
-  );
-}
-
-/** Clerk summittSubscribed flag — aligned with webhook: only active/trialing, not past_due. */
-function isSummittSubscribedForClerk(sub: Stripe.Subscription): boolean {
-  if (sub.pause_collection != null) return false;
-  return sub.status === "active" || sub.status === "trialing";
 }
 
 /**
@@ -80,10 +59,12 @@ type BlockingHit = {
   subscription: Stripe.Subscription;
   customerId: string;
   source: "clerk_stripe_customer_id" | "stripe_email_lookup";
+  classification: SummittMembershipClass;
 };
 
 /**
- * Find any Summitt-like subscription (active, trialing, or past_due) for this user email
+ * Find any Summitt-like subscription that should block Checkout
+ * (entitled, past_due, or paused_recoverable) for this user email
  * and/or Clerk-linked Stripe customer.
  */
 async function findBlockingSummittSubscription(args: {
@@ -101,11 +82,12 @@ async function findBlockingSummittSubscription(args: {
     customerId: string,
     source: BlockingHit["source"]
   ) => {
-    if (!isBlockingSubscriptionStatus(sub)) return;
+    const classification = classifySummittMembership(sub);
+    if (!isCheckoutBlockedMembershipClass(classification)) return;
     if (!isLikelySummittSubscription(sub, clerkUserId)) return;
     if (seenSubIds.has(sub.id)) return;
     seenSubIds.add(sub.id);
-    candidates.push({ subscription: sub, customerId, source });
+    candidates.push({ subscription: sub, customerId, source, classification });
   };
 
   if (existingCustomerId) {
@@ -133,13 +115,13 @@ async function findBlockingSummittSubscription(args: {
   if (candidates.length === 0) return null;
 
   candidates.sort((a, b) => {
-    const rank = (s: Stripe.Subscription) => {
-      if (s.status === "active") return 0;
-      if (s.status === "trialing") return 1;
-      if (s.status === "past_due") return 2;
+    const rank = (c: SummittMembershipClass) => {
+      if (c === "entitled") return 0;
+      if (c === "past_due_recoverable") return 1;
+      if (c === "paused_recoverable") return 2;
       return 3;
     };
-    const r = rank(a.subscription) - rank(b.subscription);
+    const r = rank(a.classification) - rank(b.classification);
     if (r !== 0) return r;
     const endA = a.subscription.items.data[0]?.current_period_end ?? 0;
     const endB = b.subscription.items.data[0]?.current_period_end ?? 0;
@@ -229,26 +211,19 @@ export async function POST(req: Request) {
     if (existingSubscriptionId) {
       try {
         const existingSub = await stripe.subscriptions.retrieve(existingSubscriptionId);
-        if (
-          existingSub.status === "active" ||
-          existingSub.status === "trialing" ||
-          existingSub.status === "past_due"
-        ) {
+        const classification = classifySummittMembership(existingSub);
+        const blockBody = checkoutBlockErrorForClass(classification);
+        if (blockBody) {
           console.log(
-            "[stripe/create-checkout-session] blocked: user already has active, trialing, or past_due subscription (Clerk stripeSubscriptionId)",
+            "[stripe/create-checkout-session] blocked: Clerk stripeSubscriptionId classification",
             {
               userId,
               stripeSubscriptionId: existingSub.id,
               status: existingSub.status,
+              classification,
             }
           );
-          return NextResponse.json(
-            {
-              error: "already_subscribed",
-              message: "You already have an active Summitt Mindset membership.",
-            },
-            { status: 409 }
-          );
+          return NextResponse.json(blockBody, { status: 409 });
         }
       } catch (retrieveErr) {
         const mdSaysActive =
@@ -292,26 +267,35 @@ export async function POST(req: Request) {
     if (blockingHit) {
       const sub = blockingHit.subscription;
       const planResolved = resolvePlanFromSubscription(sub);
-      const summittSubscribed = isSummittSubscribedForClerk(sub);
+      const summittSubscribed = isSummittEntitledFromSubscription(sub);
+      const classification = blockingHit.classification;
+      const blockBody = checkoutBlockErrorForClass(classification);
 
       console.warn(
-        "[stripe/create-checkout-session] blocked: Summitt subscription (active, trialing, or past_due) found via Stripe customer/email scan",
+        "[stripe/create-checkout-session] blocked: Summitt subscription found via Stripe customer/email scan",
         {
           userId,
           stripeCustomerId: blockingHit.customerId,
           stripeSubscriptionId: sub.id,
           status: sub.status,
+          classification,
           source: blockingHit.source,
         }
       );
 
       try {
-        await updateClerkPublicMetadata(userId, {
-          summittSubscribed: summittSubscribed,
-          summittPlan: planResolved === "unknown" ? null : planResolved,
+        const clerkPatch: Record<string, unknown> = {
+          summittSubscribed,
           stripeCustomerId: blockingHit.customerId,
           stripeSubscriptionId: sub.id,
-        });
+        };
+        if (classification === "paused_recoverable") {
+          clerkPatch.summittPlan = "paused";
+        } else {
+          clerkPatch.summittPlan =
+            planResolved === "unknown" ? null : planResolved;
+        }
+        await updateClerkPublicMetadata(userId, clerkPatch);
       } catch (reconcileErr) {
         console.error(
           "[stripe/create-checkout-session] reconcile Clerk from Stripe subscription failed",
@@ -339,7 +323,7 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json(
-        {
+        blockBody ?? {
           error: "already_subscribed",
           message: "You already have an active Summitt Mindset membership.",
         },
