@@ -76,14 +76,8 @@ export function VictoryRoomTopCard({
           {commitment.behavior_statement?.trim() ? (
             <p className={`${vrBodyLarge} mt-3 font-medium`}>{commitment.behavior_statement}</p>
           ) : (
-            <p className={`${vrBodyLarge} mt-3 font-medium`}>{commitment.title}</p>
+            <p className={`${vrBodyMuted} mt-3`}>No current goal set yet.</p>
           )}
-          {commitment.title?.trim() &&
-          commitment.behavior_statement?.trim() &&
-          commitment.title.trim().toLowerCase() !==
-            commitment.behavior_statement.trim().toLowerCase() ? (
-            <p className="mt-2 text-sm text-stone-500">{commitment.title}</p>
-          ) : null}
           {showUpdateGoalLink ? (
             <div className="mt-5">
               <Link href="/dashboard/update-goal" className={vrFoundationBtn}>

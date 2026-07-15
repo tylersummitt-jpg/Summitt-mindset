@@ -97,24 +97,17 @@ export default async function DashboardPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
               Current goal
             </h2>
-            <p className="mt-2 text-base font-semibold text-gray-900">{commitment.title}</p>
-            {showSplitAsk ? (
-              <>
-                <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
-                  <span className="font-medium text-gray-900">Your commitment: </span>
-                  {commitment.behavior_statement}
-                </p>
-                <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-[var(--muted)]">
-                  <span className="font-medium text-gray-900">Coach Pat is checking in on today: </span>
-                  {effectiveAsk}
-                </p>
-              </>
+            {normalizedBaseAsk ? (
+              <p className="mt-2 text-base font-semibold text-gray-900">{normalizedBaseAsk}</p>
             ) : (
-              <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-[var(--muted)]">
-                <span className="font-medium text-gray-900">Coach Pat is checking in on: </span>
-                {commitment.behavior_statement}
-              </p>
+              <p className="mt-2 text-base text-[var(--muted)]">No current goal set yet.</p>
             )}
+            {showSplitAsk ? (
+              <p className="mt-5 border-t border-gray-100 pt-5 text-sm leading-relaxed text-[var(--muted)]">
+                <span className="font-medium text-gray-900">Coach Pat is checking in on today: </span>
+                {effectiveAsk}
+              </p>
+            ) : null}
             {commitment.accountability_phase === "low_pressure_reactivation" ? (
               <p className="mt-4 border-l-2 border-amber-300 pl-3 text-xs italic leading-relaxed text-[var(--muted)]">
                 You&apos;re in a low-pressure reactivation window—texts stay light until you re-engage.
