@@ -281,6 +281,11 @@ export type TylerTextOverviewAdminDraftRow = {
   twilioMessageSid: string | null;
   sourceSmsSendEventId: string | null;
   currentBodyToSend: string | null;
+  /** Persisted body source; Tyler Save sets tyler_edit. */
+  currentBodySource: TylerTextOverviewCurrentBodySource | null;
+  /** True after Tyler Save in TTO (Morning: absolute send approval for non-empty body). */
+  editedByTyler: boolean;
+  editedAt: string | null;
   writerOpenAiMessages: Array<{
     role: "system" | "user" | "assistant";
     content: string;

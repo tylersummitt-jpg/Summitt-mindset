@@ -12,7 +12,65 @@ import {
 export const TYLER_TEXT_OVERVIEW_ADMIN_TIMEZONE = "America/New_York";
 
 export const MORNING_TTO_AUTHORITY_BANNER =
-  "Morning SMS is draft-authoritative. Users without a current morning draft, blank body, missing generation, machine_should_send=false, or non-main route will not receive a morning text unless you edit the draft. Run morning TTO generation before the send window.";
+  "Morning SMS is draft-authoritative. Clicking Save on a non-empty Morning TTO body is Tyler approval: that exact body sends if normal delivery gates pass — even when machine_should_send=false. Blank saved body means no text. Machine no-send without a Tyler Save still blocks. Run morning TTO generation before the send window.";
+
+export const MORNING_TTO_TYLER_APPROVED_COPY =
+  "Tyler-approved: this saved Morning TTO body will send if normal delivery gates pass.";
+
+export const MORNING_TTO_MACHINE_BLOCKED_TYLER_APPROVED_COPY =
+  "Machine blocked this draft before review, but Tyler saved a replacement. Tyler’s saved body wins.";
+
+export const MORNING_TTO_MACHINE_BLOCKED_NO_TYLER_SAVE_COPY =
+  "Blocked by machine. It will not send unless Tyler saves a body.";
+
+export const MORNING_TTO_BLANK_BODY_COPY =
+  "Blank saved body: no text will send.";
+
+export const MORNING_TTO_SAVE_TOAST_APPROVED =
+  "Saved. Tyler-approved body will send if normal delivery gates pass.";
+
+export const MORNING_TTO_SAVE_TOAST_BLANK =
+  "Saved blank. This user will not receive a morning text.";
+
+/** Morning row sendability copy for the control-room UI. */
+export function formatMorningTtoSendabilityCopy(args: {
+  editedByTyler: boolean | null | undefined;
+  currentBodySource?: string | null;
+  currentBodyToSend: string | null | undefined;
+  machineShouldSend: boolean | null | undefined;
+}): string | null {
+  const body = args.currentBodyToSend?.trim() ?? "";
+  const tylerApproved =
+    args.editedByTyler === true || args.currentBodySource === "tyler_edit";
+
+  if (!body) {
+    if (tylerApproved) {
+      return MORNING_TTO_BLANK_BODY_COPY;
+    }
+    if (args.machineShouldSend === false) {
+      return MORNING_TTO_MACHINE_BLOCKED_NO_TYLER_SAVE_COPY;
+    }
+    return null;
+  }
+
+  if (tylerApproved) {
+    if (args.machineShouldSend === false) {
+      return MORNING_TTO_MACHINE_BLOCKED_TYLER_APPROVED_COPY;
+    }
+    return MORNING_TTO_TYLER_APPROVED_COPY;
+  }
+
+  if (args.machineShouldSend === false) {
+    return MORNING_TTO_MACHINE_BLOCKED_NO_TYLER_SAVE_COPY;
+  }
+
+  return null;
+}
+
+export function formatMorningTtoSaveToast(normalizedBody: string | null | undefined): string {
+  const body = typeof normalizedBody === "string" ? normalizedBody.trim() : "";
+  return body ? MORNING_TTO_SAVE_TOAST_APPROVED : MORNING_TTO_SAVE_TOAST_BLANK;
+}
 
 export const EVENING_TTO_MANUAL_BANNER =
   "Evening check-in — manual send only. Generate a preview, review it, then send one row at a time via Twilio. Morning / primary daily SMS is unchanged.";

@@ -18,6 +18,8 @@ import {
   EVENING_TTO_SAVE_ONLY_COPY,
   formatEveningEmptyBodyPanelCopy,
   formatEveningPreviewGenerateSuccessToast,
+  formatMorningTtoSaveToast,
+  formatMorningTtoSendabilityCopy,
   isEveningDashboardSendSlot,
   isEveningSendBusy,
   MORNING_TTO_AUTHORITY_BANNER,
@@ -448,7 +450,11 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           [updated.draftId as string]: updated.currentBodyToSend ?? "",
         }));
       }
-      showToast("Saved.");
+      if (!isEveningPage) {
+        showToast(formatMorningTtoSaveToast(updated.currentBodyToSend));
+      } else {
+        showToast("Saved.");
+      }
     } catch (err) {
       console.error("Failed to save draft", err);
       showToast("Save failed.");
@@ -743,6 +749,15 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       machineNoSendReason: row.machineNoSendReason,
                     })
                 : null;
+            const morningSendabilityCopy =
+              !isEveningPage && !morningSent
+                ? formatMorningTtoSendabilityCopy({
+                    editedByTyler: row.editedByTyler,
+                    currentBodySource: row.currentBodySource,
+                    currentBodyToSend: row.currentBodyToSend,
+                    machineShouldSend: row.machineShouldSend,
+                  })
+                : null;
 
             return (
               <li
@@ -834,6 +849,19 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   ) : null}
                   <div>
                     <p className="text-xs font-medium text-gray-500">current_body_to_send</p>
+                    {morningSendabilityCopy ? (
+                      <p
+                        className={`mt-1 mb-2 rounded border px-2 py-2 text-xs ${
+                          morningSendabilityCopy.includes("will not send") ||
+                          morningSendabilityCopy.startsWith("Blank") ||
+                          morningSendabilityCopy.startsWith("Blocked by machine")
+                            ? "border-amber-200 bg-amber-50 text-amber-900"
+                            : "border-green-200 bg-green-50 text-green-900"
+                        }`}
+                      >
+                        {morningSendabilityCopy}
+                      </p>
+                    ) : null}
                     {!canEditBody ? (
                       eveningEmptyBodyCopy ? (
                         <div className="mt-1 w-full min-h-[96px] rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600 space-y-1">

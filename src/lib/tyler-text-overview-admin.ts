@@ -333,6 +333,9 @@ function mapAudienceOverlayToAdminRow(args: {
       twilioMessageSid: null,
       sourceSmsSendEventId: null,
       currentBodyToSend: null,
+      currentBodySource: null,
+      editedByTyler: false,
+      editedAt: null,
       ...EMPTY_NOTEBOOK_FIELDS,
       previewOnly: sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
       morningAnchorSource: null,
@@ -363,6 +366,9 @@ type DraftDbRow = {
   send_slot?: string;
   current_generation_id: string;
   current_body_to_send: string | null;
+  current_body_source?: string | null;
+  edited_by_tyler?: boolean | null;
+  edited_at?: string | null;
   status: string;
   sent_at?: string | null;
   final_body_sent?: string | null;
@@ -456,6 +462,10 @@ export function parseWriterOpenAiMessages(raw: unknown): TylerTextOverviewWriter
   return out;
 }
 
+/**
+ * Compare saved body vs machine draft body (edit-distance / telemetry only).
+ * Morning send authority does NOT use body inequality — Save itself is Tyler approval.
+ */
 export function computeTylerTextOverviewEdited(args: {
   normalizedBody: string | null;
   machineDraftBody: string | null;
@@ -467,6 +477,15 @@ export function computeTylerTextOverviewEdited(args: {
     return true;
   }
   return args.normalizedBody !== args.machineDraftBody;
+}
+
+/**
+ * Any intentional TTO Save marks Tyler approval metadata.
+ * Non-empty + Tyler approval → Morning cron may send despite machine_should_send=false.
+ * Blank + Tyler approval → still no send (blank-body gate).
+ */
+export function isTylerTextOverviewSaveApproval(): boolean {
+  return true;
 }
 
 /** Levenshtein edit distance for Tyler draft edit telemetry. */
@@ -660,6 +679,14 @@ export function mapDraftRowsToAdminDto(args: {
           ? draft.source_sms_send_event_id
           : null,
       currentBodyToSend: draft.current_body_to_send,
+      currentBodySource:
+        draft.current_body_source === "machine" ||
+        draft.current_body_source === "tyler_edit" ||
+        draft.current_body_source === "live_fallback"
+          ? draft.current_body_source
+          : null,
+      editedByTyler: draft.edited_by_tyler === true,
+      editedAt: typeof draft.edited_at === "string" ? draft.edited_at : null,
       ...notebookFields,
       ...previewFields,
       ...weeklyPeriodFields,
@@ -738,7 +765,7 @@ export async function listCurrentTylerTextOverviewDrafts(args?: {
   const sendSlot = args?.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
 
   const draftSelectColumns =
-    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
+    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, edited_at, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
 
   let query = supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
@@ -819,7 +846,7 @@ export async function listSendableTylerTextOverviewRows(args?: {
   const clerkUserIds = audience.map((member) => member.clerkUserId);
 
   const draftSelectColumns =
-    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
+    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, edited_at, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
 
   const { data: draftRows, error: draftError } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
@@ -969,26 +996,26 @@ export async function updateTylerTextOverviewDraftBody(args: {
   const machineDraftBody =
     typeof generation.machine_draft_body === "string" ? generation.machine_draft_body : null;
 
-  const edited = computeTylerTextOverviewEdited({
-    normalizedBody,
-    machineDraftBody,
-  });
+  // Save = Tyler approval. Do not require body ≠ machine_draft_body.
+  const tylerApproved = isTylerTextOverviewSaveApproval();
 
   const now = args.now ?? new Date();
   const nowIso = now.toISOString();
   const currentBodyHash = normalizedBody ? hashSmsSnippet(normalizedBody) : null;
   const editDistanceChars =
-    edited && normalizedBody != null && machineDraftBody != null
+    normalizedBody != null && machineDraftBody != null
       ? levenshteinCharDistance(machineDraftBody, normalizedBody)
-      : null;
+      : normalizedBody == null && machineDraftBody != null
+        ? machineDraftBody.length
+        : null;
 
   const { data: updatedRow, error: updateError } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
     .update({
       current_body_to_send: normalizedBody,
-      current_body_source: edited ? "tyler_edit" : "machine",
-      edited_by_tyler: edited,
-      edited_at: edited ? nowIso : null,
+      current_body_source: tylerApproved ? "tyler_edit" : "machine",
+      edited_by_tyler: tylerApproved,
+      edited_at: tylerApproved ? nowIso : null,
       edit_distance_chars: editDistanceChars,
       current_body_hash: currentBodyHash,
       updated_at: nowIso,
@@ -996,7 +1023,7 @@ export async function updateTylerTextOverviewDraftBody(args: {
     .eq("id", draftId)
     .eq("status", "current")
     .select(
-      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
+      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, edited_at, status"
     )
     .maybeSingle();
 

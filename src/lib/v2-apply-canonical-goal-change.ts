@@ -11,6 +11,7 @@ import {
   type SmsGoalSeasonMutationResult,
 } from "@/lib/v2-sms-goal-season-mutation";
 import type { SmsSeasonMode } from "@/lib/v2-sms-season-mode";
+import { invalidateVictorySnapshotsAfterCanonicalGoalChange } from "@/lib/v2-victory-snapshot-invalidation";
 
 export type ApplyCanonicalGoalChangeArgs = {
   clerkUserId: string;
@@ -73,6 +74,32 @@ export async function applyCanonicalGoalChangeWithSeasonMutation(
       messageSid: args.proofMessageSid,
       messagePreview: args.behaviorStatement,
       kind: "commitment_replaced",
+    });
+  }
+
+  // Goal mutation already succeeded — never block on snapshot cleanup failure.
+  // same_season_sync: clears stale current-goal Pat/Principles for the in-place id.
+  // new_chapter: clears any rows on the new active id; old commitment history remains.
+  try {
+    const inv = await invalidateVictorySnapshotsAfterCanonicalGoalChange({
+      clerkUserId: args.clerkUserId,
+      oldCommitmentId: mapped.oldCommitmentId,
+      newCommitmentId: mapped.newCommitmentId,
+    });
+    if (!inv.ok) {
+      console.error("[v2-apply-canonical-goal-change] victory snapshot invalidation failed", {
+        clerk_user_id: args.clerkUserId,
+        old_commitment_id: mapped.oldCommitmentId,
+        new_commitment_id: mapped.newCommitmentId,
+        error: inv.error,
+      });
+    }
+  } catch (e) {
+    console.error("[v2-apply-canonical-goal-change] victory snapshot invalidation threw", {
+      clerk_user_id: args.clerkUserId,
+      old_commitment_id: mapped.oldCommitmentId,
+      new_commitment_id: mapped.newCommitmentId,
+      message: e instanceof Error ? e.message : String(e),
     });
   }
 

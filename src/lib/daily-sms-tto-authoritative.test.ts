@@ -279,6 +279,52 @@ describe("assertMorningTtoDraftAuthoritativeForSend", () => {
     }
   });
 
+  it("daily_lane_stale_ask_blocked + Tyler-saved non-empty body → sends", async () => {
+    seedDraft({
+      body: TYLER_BODY,
+      source: "tyler_edit",
+      edited: true,
+      machineShouldSend: false,
+    });
+    // machine_no_send_reason is not consulted by the gate — override wins.
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.tylerEdited).toBe(true);
+  });
+
+  it("lane_post_validate_blocked + Tyler-saved non-empty body → sends", async () => {
+    seedDraft({
+      body: TYLER_BODY,
+      source: "tyler_edit",
+      edited: true,
+      machineShouldSend: false,
+    });
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.bodyToSend).toBe(TYLER_BODY);
+  });
+
+  it("Tyler-saved blank body → tto_blank_morning_body", async () => {
+    seedDraft({
+      body: "   ",
+      source: "tyler_edit",
+      edited: true,
+      machineShouldSend: false,
+    });
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("tto_blank_morning_body");
+  });
+
   it("main_active_accountability + machine_should_send=true → ok", async () => {
     const r = await assertMorningTtoDraftAuthoritativeForSend({
       clerkUserId: "user_send",

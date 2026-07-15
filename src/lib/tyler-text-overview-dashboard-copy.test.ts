@@ -19,6 +19,14 @@ import {
   getTylerTextOverviewAdminLocalDayKey,
   isEveningSendBusy,
   MORNING_TTO_AUTHORITY_BANNER,
+  MORNING_TTO_BLANK_BODY_COPY,
+  MORNING_TTO_MACHINE_BLOCKED_NO_TYLER_SAVE_COPY,
+  MORNING_TTO_MACHINE_BLOCKED_TYLER_APPROVED_COPY,
+  MORNING_TTO_SAVE_TOAST_APPROVED,
+  MORNING_TTO_SAVE_TOAST_BLANK,
+  MORNING_TTO_TYLER_APPROVED_COPY,
+  formatMorningTtoSaveToast,
+  formatMorningTtoSendabilityCopy,
   resolveEveningTtoInitialSelectedDayKey,
   resolveSiblingLinkDraftForDayKey,
   resolveTylerTextOverviewRootRedirectPath,
@@ -373,7 +381,63 @@ describe("tyler-text-overview two-page UI wiring", () => {
   it("morning dashboard shows authority banner and evening cross-link", () => {
     expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
     expect(MORNING_TTO_AUTHORITY_BANNER).toContain("draft-authoritative");
+    expect(MORNING_TTO_AUTHORITY_BANNER).toContain("Tyler approval");
+    expect(dashboard).toContain("formatMorningTtoSendabilityCopy");
+    expect(dashboard).toContain("formatMorningTtoSaveToast");
     expect(dashboard).toContain("Evening Text Overview →");
+  });
+
+  it("formatMorningTtoSendabilityCopy covers Tyler-approved and machine-blocked states", () => {
+    expect(
+      formatMorningTtoSendabilityCopy({
+        editedByTyler: true,
+        currentBodySource: "tyler_edit",
+        currentBodyToSend: "Hello",
+        machineShouldSend: true,
+      })
+    ).toBe(MORNING_TTO_TYLER_APPROVED_COPY);
+
+    expect(
+      formatMorningTtoSendabilityCopy({
+        editedByTyler: true,
+        currentBodySource: "tyler_edit",
+        currentBodyToSend: "Hello",
+        machineShouldSend: false,
+      })
+    ).toBe(MORNING_TTO_MACHINE_BLOCKED_TYLER_APPROVED_COPY);
+
+    expect(
+      formatMorningTtoSendabilityCopy({
+        editedByTyler: false,
+        currentBodySource: "machine",
+        currentBodyToSend: "Hello",
+        machineShouldSend: false,
+      })
+    ).toBe(MORNING_TTO_MACHINE_BLOCKED_NO_TYLER_SAVE_COPY);
+
+    expect(
+      formatMorningTtoSendabilityCopy({
+        editedByTyler: true,
+        currentBodySource: "tyler_edit",
+        currentBodyToSend: "  ",
+        machineShouldSend: false,
+      })
+    ).toBe(MORNING_TTO_BLANK_BODY_COPY);
+
+    expect(
+      formatMorningTtoSendabilityCopy({
+        editedByTyler: false,
+        currentBodySource: "machine",
+        currentBodyToSend: null,
+        machineShouldSend: false,
+      })
+    ).toBe(MORNING_TTO_MACHINE_BLOCKED_NO_TYLER_SAVE_COPY);
+  });
+
+  it("formatMorningTtoSaveToast reflects sendability", () => {
+    expect(formatMorningTtoSaveToast("Body text")).toBe(MORNING_TTO_SAVE_TOAST_APPROVED);
+    expect(formatMorningTtoSaveToast("   ")).toBe(MORNING_TTO_SAVE_TOAST_BLANK);
+    expect(formatMorningTtoSaveToast(null)).toBe(MORNING_TTO_SAVE_TOAST_BLANK);
   });
 
   it("evening dashboard keeps manual send controls and cross-link", () => {

@@ -71,6 +71,7 @@ export function isTylerEditTtoDraftOverride(draft: {
   edited_by_tyler: boolean;
   current_body_source: string;
 }): boolean {
+  // Morning absolute authority: any Tyler-save metadata wins over machine_should_send=false.
   return draft.edited_by_tyler === true || draft.current_body_source === "tyler_edit";
 }
 
@@ -181,6 +182,8 @@ export async function assertMorningTtoDraftAuthoritativeForSend(args: {
 
   const tylerEdited = isTylerEditTtoDraftOverride(draft);
 
+  // Machine may block before TTO review (stale ask, post-validate, etc.).
+  // Once Tyler Saves a non-empty body, machine_should_send=false must not veto.
   if (generation.machine_should_send === false && !tylerEdited) {
     return {
       ok: false,

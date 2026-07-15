@@ -82,6 +82,23 @@ vi.mock("@/lib/v2-human-sms-brain/flags", () => ({
   shouldRunHumanSmsPipelineForPendingResolution: vi.fn(() => false),
 }));
 
+vi.mock("@/lib/v2-victory-snapshot-invalidation", () => ({
+  invalidateVictorySnapshotsAfterCanonicalGoalChange: vi.fn(async () => ({
+    ok: true,
+    patReadDeleted: 0,
+    principlesDeleted: 0,
+    seasonSummaryDeleted: 0,
+    error: null,
+  })),
+  invalidateVictoryCurrentGoalSnapshots: vi.fn(async () => ({
+    ok: true,
+    patReadDeleted: 0,
+    principlesDeleted: 0,
+    seasonSummaryDeleted: 0,
+    error: null,
+  })),
+}));
+
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import {
   parseSmsConfirmation,

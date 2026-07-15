@@ -6,12 +6,14 @@ const {
   recomputeMock,
   proofInsertMock,
   unsafeMock,
+  invalidateMock,
 } = vi.hoisted(() => ({
   rpcMock: vi.fn(),
   clearStaleMock: vi.fn(),
   recomputeMock: vi.fn(),
   proofInsertMock: vi.fn(),
   unsafeMock: vi.fn(),
+  invalidateMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase-server", () => ({
@@ -32,6 +34,11 @@ vi.mock("@/lib/v2-proof-moment", () => ({
 
 vi.mock("@/lib/sms-inbound-safety", () => ({
   isUnsafeSmsGoalCandidateText: unsafeMock,
+}));
+
+vi.mock("@/lib/v2-victory-snapshot-invalidation", () => ({
+  invalidateVictorySnapshotsAfterCanonicalGoalChange: (...args: unknown[]) =>
+    invalidateMock(...args),
 }));
 
 import { applyCanonicalGoalChangeWithSeasonMutation } from "@/lib/v2-apply-canonical-goal-change";
@@ -72,9 +79,16 @@ describe("applyCanonicalGoalChangeWithSeasonMutation", () => {
     clearStaleMock.mockResolvedValue(undefined);
     recomputeMock.mockResolvedValue(undefined);
     proofInsertMock.mockResolvedValue(true);
+    invalidateMock.mockResolvedValue({
+      ok: true,
+      patReadDeleted: 1,
+      principlesDeleted: 1,
+      seasonSummaryDeleted: 0,
+      error: null,
+    });
   });
 
-  it("calls season RPC with same_season_sync", async () => {
+  it("calls season RPC with same_season_sync and invalidates Victory snapshots after success", async () => {
     rpcMock.mockResolvedValue({
       data: [
         {
@@ -112,6 +126,68 @@ describe("applyCanonicalGoalChangeWithSeasonMutation", () => {
       p_now: expect.any(String),
     });
     expect(proofInsertMock).not.toHaveBeenCalled();
+    expect(invalidateMock).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      oldCommitmentId: "cmt_1",
+      newCommitmentId: "cmt_1",
+    });
+  });
+
+  it("does not invalidate Victory snapshots when RPC fails", async () => {
+    rpcMock.mockResolvedValue({
+      data: [{ result: "stale_commitment" }],
+      error: null,
+    });
+
+    const r = await applyCanonicalGoalChangeWithSeasonMutation({
+      clerkUserId: "user_1",
+      commitment: baseCommitment,
+      behaviorStatement: "Walk 20 minutes",
+      seasonMode: "same_season_sync",
+      idempotencyKey: "k-fail",
+      proofMessageSid: "k-fail",
+      memoryReasonCode: "app_goal_change",
+    });
+
+    expect(r.ok).toBe(false);
+    expect(invalidateMock).not.toHaveBeenCalled();
+  });
+
+  it("still returns success when snapshot invalidation fails", async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        {
+          result: "applied",
+          commitment_replace_applied: false,
+          old_commitment_id: "cmt_1",
+          new_commitment_id: "cmt_1",
+          season_transition_applied: true,
+          season_transition_action: "same_season_sync",
+          same_season_goal_snapshot_synced: true,
+          idempotent_replay: false,
+        },
+      ],
+      error: null,
+    });
+    invalidateMock.mockResolvedValue({
+      ok: false,
+      patReadDeleted: 0,
+      principlesDeleted: 0,
+      seasonSummaryDeleted: 0,
+      error: "pat_read:boom",
+    });
+
+    const r = await applyCanonicalGoalChangeWithSeasonMutation({
+      clerkUserId: "user_1",
+      commitment: baseCommitment,
+      behaviorStatement: "Walk 20 minutes",
+      seasonMode: "same_season_sync",
+      idempotencyKey: "k-inv-fail",
+      proofMessageSid: "k-inv-fail",
+      memoryReasonCode: "app_goal_change",
+    });
+    expect(r.ok).toBe(true);
+    expect(invalidateMock).toHaveBeenCalled();
   });
 
   it("inserts proof on new_chapter apply", async () => {

@@ -17,6 +17,7 @@ import {
   resolveAdminListSendSlot,
   resolveTylerTextOverviewRowState,
   updateTylerTextOverviewDraftBody,
+  isTylerTextOverviewSaveApproval,
 } from "@/lib/tyler-text-overview-admin";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
@@ -704,10 +705,10 @@ describe("tyler-text-overview-admin save model", () => {
     );
   });
 
-  it("save exact machine body resets source to machine and edited_by_tyler=false", async () => {
-    db.drafts[0].current_body_source = "tyler_edit";
-    db.drafts[0].edited_by_tyler = true;
-    db.drafts[0].edited_at = now.toISOString();
+  it("save exact machine body still marks Tyler approval (Save = approve)", async () => {
+    db.drafts[0].current_body_source = "machine";
+    db.drafts[0].edited_by_tyler = false;
+    db.drafts[0].edited_at = null;
 
     await updateTylerTextOverviewDraftBody({
       draftId: "draft-1",
@@ -715,16 +716,34 @@ describe("tyler-text-overview-admin save model", () => {
       now,
     });
 
-    expect(db.drafts[0].current_body_source).toBe("machine");
-    expect(db.drafts[0].edited_by_tyler).toBe(false);
-    expect(db.drafts[0].edited_at).toBeNull();
-    expect(computeTylerTextOverviewEdited({
-      normalizedBody: normalizeTylerTextOverviewDraftBodyInput(MACHINE_BODY),
-      machineDraftBody: MACHINE_BODY,
-    })).toBe(false);
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0].edited_by_tyler).toBe(true);
+    expect(db.drafts[0].edited_at).toBe(now.toISOString());
+    expect(db.drafts[0].edit_distance_chars).toBe(0);
+    // Telemetry helper still reports equality separately from save approval.
+    expect(
+      computeTylerTextOverviewEdited({
+        normalizedBody: normalizeTylerTextOverviewDraftBodyInput(MACHINE_BODY),
+        machineDraftBody: MACHINE_BODY,
+      })
+    ).toBe(false);
   });
 
-  it("save empty body stores null and is allowed", async () => {
+  it("save non-empty body when machine_draft_body is null marks Tyler approval", async () => {
+    db.generations[0].machine_draft_body = null;
+    db.generations[0].machine_should_send = false;
+    db.generations[0].machine_no_send_reason = "daily_lane_stale_ask_blocked";
+    await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body: "Tyler wrote after machine blocked",
+      now,
+    });
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0].edited_by_tyler).toBe(true);
+    expect(db.drafts[0].current_body_to_send).toBe("Tyler wrote after machine blocked");
+  });
+
+  it("save blank body marks Tyler save metadata but stores null body", async () => {
     const result = await updateTylerTextOverviewDraftBody({
       draftId: "draft-1",
       body: "   ",
@@ -733,6 +752,12 @@ describe("tyler-text-overview-admin save model", () => {
     expect(result.ok).toBe(true);
     expect(db.drafts[0].current_body_to_send).toBeNull();
     expect(db.drafts[0].current_body_hash).toBeNull();
+    expect(db.drafts[0].edited_by_tyler).toBe(true);
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+  });
+
+  it("isTylerTextOverviewSaveApproval is always true", () => {
+    expect(isTylerTextOverviewSaveApproval()).toBe(true);
   });
 
   it("save rejects non-current draft", async () => {
@@ -1149,6 +1174,9 @@ describe("tyler-text-overview sendable audience coverage", () => {
           twilioMessageSid: null,
           sourceSmsSendEventId: null,
           currentBodyToSend: null,
+          currentBodySource: null,
+          editedByTyler: false,
+          editedAt: null,
           writerOpenAiMessages: [],
           currentGenerationId: null,
           currentGenerationNumber: null,
