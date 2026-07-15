@@ -5,8 +5,7 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import {
-  getPendingResolutionOrNull,
-  isPendingResolutionExpired,
+  hasUnexpiredPendingResolutionForDailyRoute,
   shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation,
 } from "@/lib/v2-guided-resolution";
 import { isReactivationNudgeDue } from "@/lib/v2-reactivation";
@@ -57,8 +56,7 @@ export async function resolvePlannedDailyRouteKindForSundaySuppression(args: {
 
   if (
     active.accountability_phase === "active_accountability" &&
-    getPendingResolutionOrNull(active) &&
-    !isPendingResolutionExpired(active, nowMs)
+    hasUnexpiredPendingResolutionForDailyRoute(active, nowMs)
   ) {
     const recentConfirm = shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation({
       row: active,

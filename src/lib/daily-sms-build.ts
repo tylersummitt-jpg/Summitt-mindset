@@ -138,7 +138,7 @@ import {
   buildPendingResolutionDailyReminderSms,
   clearPendingResolutionIfExpired,
   getPendingResolutionOrNull,
-  isPendingResolutionExpired,
+  hasUnexpiredPendingResolutionForDailyRoute,
   shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation,
   type V2SmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
@@ -566,8 +566,7 @@ export async function buildDailySmsContent(
 
     if (
       active.accountability_phase === "active_accountability" &&
-      getPendingResolutionOrNull(active) &&
-      !isPendingResolutionExpired(active, now.getTime())
+      hasUnexpiredPendingResolutionForDailyRoute(active, now.getTime())
     ) {
       const recentConfirm = shouldSkipPendingResolutionDailyReminderDueToRecentConfirmation({
         row: active,

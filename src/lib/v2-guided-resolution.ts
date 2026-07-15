@@ -300,6 +300,19 @@ export function isPendingResolutionExpired(row: ActiveV2CommitmentRow, nowMs: nu
 }
 
 /**
+ * Daily route gate: true only when pending columns form a parseable pending
+ * resolution that has not yet expired. Expired / incomplete rows must not enter
+ * pending_resolution daily drafts (call clearPendingResolutionIfExpired separately
+ * for write-back cleanup on live builds).
+ */
+export function hasUnexpiredPendingResolutionForDailyRoute(
+  row: ActiveV2CommitmentRow,
+  nowMs: number
+): boolean {
+  return Boolean(getPendingResolutionOrNull(row) && !isPendingResolutionExpired(row, nowMs));
+}
+
+/**
  * If TTL passed, clear pending columns. Returns true if a row was updated.
  */
 export async function clearPendingResolutionIfExpired(

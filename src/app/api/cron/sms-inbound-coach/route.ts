@@ -183,6 +183,7 @@ import {
   buildGuidedResolutionChangeHandoffSms,
   buildGuidedResolutionNewHandoffSms,
   buildGuidedTightenHandoffSms,
+  clearPendingResolutionIfExpired,
   getPendingResolutionOrNull,
   isSmsInboundPendingResolutionActionable,
   mergeSmsPendingResolutionPayload,
@@ -10308,6 +10309,13 @@ async function processV2SmsInboundPendingResolution(
   let c = commitment;
   const reloaded = await getActiveCommitment(userId);
   if (reloaded) c = reloaded;
+
+  // Write-back clear expired pending BEFORE the actionable early-return so ghost
+  // columns cannot linger when inbound decides the pending is no longer actionable.
+  const clearedExpired = await clearPendingResolutionIfExpired(c.id, c);
+  if (clearedExpired) {
+    c = (await getActiveCommitment(userId)) ?? c;
+  }
 
   if (!isSmsInboundPendingResolutionActionable(c)) {
     return false;
