@@ -278,3 +278,57 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Known risks: RISK-22 (duplicate Clerk user), RISK-23 (Client Trust repeated challenge), RISK-01/03 (session persistence + 7-day ceiling).
 - What must NOT be repeated: do not re-decide DEC-018/DEC-021; do not create the mobile repo; do not change Clerk settings or upgrade Clerk Pro.
 - What must NOT be touched: SMS system, `supabaseServer`, secrets, `vercel.json`, Clerk/Stripe app code, Victory Room app code, env files, packages/lockfiles. Do not treat `server.url` as settled production. Do not edit both repos in one task without explicit authorization.
+
+---
+
+## SESSION 4 — 2026-07-17 — Mobile-repo bootstrap plan & iPhone POC plan recorded (APP-067–APP-070 added)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git` (current-business website/SMS repo).
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git remote -v`: `origin https://github.com/tylersummitt-jpg/Summitt-mindset.git` (fetch + push)
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `988e392fb01fee9ad4faac485afe60904b31688d`
+- Mobile repository (`summitt-mindset-mobile`): **STILL NOT CREATED** (DEC-013; APP-059). **No app code exists.**
+
+### Repository state (WEBSITE repo — independent verdict)
+- Current branch: `main`
+- HEAD at session start: `988e392fb01fee9ad4faac485afe60904b31688d` (clean)
+- Exact `git status --short`:
+  ```
+   M docs/mobile-app-master-plan.md
+   M docs/mobile-app-session-handoff.md
+  ```
+- Staged?: No · Committed?: No · Pushed?: No · Branched?: No · Migrations?: No
+- Untracked files: None
+- Non-Git configuration changes: None
+- `git add .` safety verdict (SAFE/UNSAFE + why): **SAFE** — across the entire website-repository worktree, the only pending changes are the two documentation files under `docs/`. No application code, config, env, lockfiles, packages, or protected systems were touched.
+- Mobile repository `git` verdict: **N/A** — `summitt-mindset-mobile` does not exist yet.
+
+### What changed this session
+- **Documentation only** — edited exactly two files: `docs/mobile-app-master-plan.md` and `docs/mobile-app-session-handoff.md`.
+- **No application code, packages, configs, lockfiles, environment files, or Clerk settings changed.** No repo created. No Capacitor/native project. No Xcode. No iPhone POC begun.
+- Recorded the completed read-only audit "IPHONE PROOF OF CONCEPT AND MOBILE REPOSITORY BOOTSTRAP PLAN" as the new master-plan section "iPhone POC + mobile bootstrap plan — 2026-07-17" (bootstrap plan, `.gitignore` categories + prohibited secrets, architecture POC plan + comparison matrix, 20-item iPhone POC checklist with evidence, Google-origin test-account decision, two-stage session/Client Trust plan, Apple tooling by phase, go/no-go + fallback sequence).
+- Added tasks **APP-067, APP-068, APP-069, APP-070** (all **NOT STARTED**); updated dependencies (APP-059 → APP-067 → APP-068; APP-069 before APP-008; APP-008 depends on APP-059+APP-067+APP-069; APP-070 during APP-008; APP-021 remains the formal production-architecture decision).
+- Updated status banner (version 1.3, phase, current assigned IDs, exact next task) and the version note; updated §9 critical path + dependencies; APP-059 note set to EXACT NEXT TASK and no longer gated on APP-021.
+
+### Task status snapshot
+- **APP-067 through APP-070: NOT STARTED.**
+- **APP-059: NOT STARTED** (exact next task — Tyler creates the empty private repo).
+- No app-implementation task is IN PROGRESS.
+
+### Architecture safety
+- **`Capacitor server.url` is NOT approved as settled production architecture** anywhere in the plan. Capacitor is only the leading candidate; native WKWebView/Android WebView is the fallback; APP-021 chooses the production shell after POC evidence.
+
+### Protected systems (still fully untouched)
+- SMS system: `src/lib/*sms*`, `src/lib/v2-*`, `src/lib/v3-*`, `src/app/api/cron/*`, `src/app/api/twilio/*`, `src/app/api/sms/*`, `vercel.json` crons. **Website and SMS systems remain untouched.**
+- Server-only/secret code: `supabaseServer`, service-role key, Clerk/Stripe/OpenAI/Twilio secrets, env files. Clerk **settings unchanged**.
+- Product surfaces: Victory Room, Ask Pat, Film Room, onboarding — no change. Packages/lockfiles: unchanged.
+
+### Exact resume point
+- Next task: **APP-059** — Tyler creates the **empty private** `summitt-mindset-mobile` GitHub repository (manually unless authenticated tooling is explicitly available/authorized), followed by **APP-067** guardrail-document bootstrap (`README.md`, `.gitignore`, `docs/mobile-repo-guardrails.md`, `docs/mobile-session-handoff.md`, `docs/architecture-decision.md`).
+- **Tyler must manually create the empty private GitHub repository unless authenticated tooling is explicitly available.**
+- Every future handoff records both repositories' relevant HEAD hashes.
+- Dependencies: APP-007 (COMPLETE); APP-069 (Google-origin test-account baseline) must precede APP-008; APP-021 remains the production-architecture decision.
+- What must NOT be repeated: do not re-decide DEC-018/DEC-021; do not create the mobile repo in this website repo; do not change Clerk settings; do not treat `server.url` as settled production; do not edit both repos in one task without explicit authorization.
+- What must NOT be touched: SMS system, `supabaseServer`, secrets, `vercel.json`, Clerk/Stripe app code, Victory Room app code, env files, packages/lockfiles.
