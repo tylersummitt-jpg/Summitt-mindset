@@ -206,3 +206,75 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Known risks: If social logins are enabled, Apple 4.8 triggers (RISK-02, U12) and OAuth-in-WebView return handling (U3) becomes in-scope.
 - What must NOT be repeated: Do not re-run APP-003–APP-006; do not create the mobile repo yet; do not begin any shell implementation.
 - What must NOT be touched: SMS system, `supabaseServer`, server secrets, `vercel.json`, Clerk/Stripe app code, Victory Room app code, env files, packages/lockfiles. Do not treat `server.url` as settled production. Do not edit both repositories in one task without explicit authorization.
+
+---
+
+## SESSION 3 — 2026-07-17 — APP-007 + APP-061 complete, DEC-018 ACTIVE, long-session standard (DEC-021)
+
+### Session summary
+- Date: 2026-07-17
+- Tasks attempted (IDs): APP-007, APP-061 (documentation/decision using confirmed Clerk dashboard truth)
+- Tasks completed (IDs): **APP-007 COMPLETE**, **APP-061 COMPLETE** (evidence = "APP-007 login posture — 2026-07-17" section; confirmed 2026-07-17 Clerk dashboard screenshots + repo audit)
+- Decisions recorded: **DEC-018 ACTIVE** (app-only first-party email-code auth, same Clerk instance); **DEC-021 ACTIVE** (7-day lifetime rejected; 180d min / ~1yr preferred)
+- New tasks added: APP-062 (Clerk Pro pricing/capability — Tyler), APP-063 (decide final lifetime), APP-064 (change Clerk max lifetime — separately approved), APP-065 (verify lifetime iPhone+Android), APP-066 (Client Trust not repeatedly challenging)
+- Tasks partially completed: None
+- Tasks blocked: None
+- Actual focused hours: NOT RECORDED
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git` (current-business website/SMS repo).
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git remote -v`: `origin https://github.com/tylersummitt-jpg/Summitt-mindset.git` (fetch + push)
+- `git branch --show-current`: `main`
+- Mobile repository (`summitt-mindset-mobile`): **STILL NOT CREATED** (DEC-013; APP-059).
+
+### Repository state (WEBSITE repo — independent verdict)
+- Current branch: `main`
+- HEAD at session start: `9c32f204b3ee82c2cb4a46117440855007ccbce6` (clean; prior sessions' doc edits already committed)
+- Exact `git status --short`:
+  ```
+   M docs/mobile-app-master-plan.md
+   M docs/mobile-app-session-handoff.md
+  ```
+- Staged?: No · Committed?: No · Pushed?: No · Branched?: No · Migrations?: No
+- Untracked files: None
+- Non-Git configuration changes: None
+- `git add .` safety verdict (SAFE/UNSAFE + why): **SAFE** — evaluating the entire website-repository worktree, the only pending changes are the two documentation files under `docs/`. No application code, config, env, lockfiles, packages, or protected systems were touched.
+- Mobile repository `git` verdict: **N/A** — `summitt-mindset-mobile` does not exist yet.
+
+### Confirmed app-only email-code posture (DEC-018 ACTIVE)
+- App V1 authenticates via Clerk **email verification code** on the **same** Clerk instance; **no Google/social shown in the app**; **Sign in with Apple not required** in V1.
+- **Google remains unchanged on the website.**
+- Existing Google-origin users sign in with the same verified email + one-time code → same `clerk_user_id` (**must be POC-proven**, not asserted as proven).
+- Prohibited: second Clerk instance, separate user pool, global Google removal, duplicate users, native separate identity system, any app login that changes website behavior.
+
+### Long-session standard (DEC-021)
+- **7-day session lifetime is rejected for production.** Members must stay signed in for months: **min 180 days, ~1 year preferred**, inactivity off unless evidence supports change.
+- **Clerk Pro likely required** to extend max lifetime — recorded as an **operating expense, not engineering hours**. **No upgrade or setting change was performed this session.** Future Tyler action APP-062 verifies Clerk Pro pricing + allowed max-lifetime behavior.
+- Never promise users they stay signed in "forever."
+
+### What changed this session
+- **Documentation only** — edited exactly two files: `docs/mobile-app-master-plan.md` and `docs/mobile-app-session-handoff.md`.
+- **No application code, packages, configs, lockfiles, environment files, or Clerk settings changed.**
+- Added "APP-007 login posture — 2026-07-17" section (dashboard truth, repo behavior, Path A/B/C, mechanism hierarchy, 15-item iPhone POC acceptance criteria); updated status banner, §1, §3, §5 (U1/U3/U12), §6 (Clerk Pro note), §7 (Phase 2/3/6), §8 (APP-007/APP-061 COMPLETE, APP-029 DEFERRED, APP-041 deletion note, new APP-062–066), §9, §10 (DEC-018 ACTIVE, DEC-021), §11 (RISK-03 updated, RISK-22/23 added), §17 (Checkpoints A/D/E), §19 (next task).
+
+### Testing state
+- Automated checks run: doc-only — task-ID uniqueness (APP-000..APP-066); APP-007 & APP-061 COMPLETE; no IN PROGRESS implementation task; scans confirming no "second Clerk instance" / "globally remove Google" recommendation and no acceptance of a 7-day production lifetime; `git status --short` scope. No app tests (no app code touched).
+- Manual device checks: None. iOS/Android build status: Not started. Vercel: Unchanged.
+
+### External state
+- Apple Developer: Not started. Google Play: Not started (APP-060 pending). TestFlight/closed-track/store-review: Not started.
+- Required Tyler actions: APP-062 (Clerk Pro pricing/max-lifetime), APP-060 (Play account type/date), device testing later.
+
+### Protected systems (still fully untouched)
+- SMS system: `src/lib/*sms*`, `src/lib/v2-*`, `src/lib/v3-*`, `src/app/api/cron/*`, `src/app/api/twilio/*`, `src/app/api/sms/*`, `vercel.json` crons.
+- Server-only/secret code: `supabaseServer`, service-role key, Clerk/Stripe/OpenAI/Twilio secrets, env files. Clerk **settings unchanged**.
+- Product surfaces: Victory Room, Ask Pat, Film Room, onboarding — no change. Packages/lockfiles: unchanged.
+
+### Exact resume point
+- Next task: **Read-only audit of the iPhone POC + `summitt-mindset-mobile` bootstrap sequence** (precursor to APP-008 / APP-059). No implementation, no packages, no repo creation, no Clerk changes.
+- Exact next action: plan the disposable Phase-2 iPhone POC (carrying the 15-item login acceptance criteria with a real Google-origin subscribed account) and the eventual mobile-repo bootstrap, as a read-only audit.
+- Dependencies: APP-007 (COMPLETE), APP-021/APP-059 upcoming.
+- Known risks: RISK-22 (duplicate Clerk user), RISK-23 (Client Trust repeated challenge), RISK-01/03 (session persistence + 7-day ceiling).
+- What must NOT be repeated: do not re-decide DEC-018/DEC-021; do not create the mobile repo; do not change Clerk settings or upgrade Clerk Pro.
+- What must NOT be touched: SMS system, `supabaseServer`, secrets, `vercel.json`, Clerk/Stripe app code, Victory Room app code, env files, packages/lockfiles. Do not treat `server.url` as settled production. Do not edit both repos in one task without explicit authorization.

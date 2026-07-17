@@ -1,5 +1,5 @@
 # SUMMITT MINDSET — MOBILE APP MASTER PLAN
-*Project-control document. Version 1.1. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth).*
+*Project-control document. Version 1.2. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth). v1.2 (2026-07-17): completed APP-007 + APP-061 with confirmed Clerk dashboard truth; DEC-018 set ACTIVE (app-only first-party email auth on the same Clerk instance); recorded the long-session launch standard (7-day lifetime rejected; 180-day min / ~1yr preferred) and the Google-origin-user POC acceptance criteria.*
 
 ---
 
@@ -7,15 +7,17 @@
 
 | Field | Value |
 |---|---|
-| Plan version | 1.1 |
+| Plan version | 1.2 |
 | Last verified date | 2026-07-17 |
-| Current phase | Phase 1 — Platform-policy verification (findings recorded) |
-| Current assigned task IDs | APP-003, APP-004, APP-005, APP-006 |
-| Last completed task IDs | APP-003, APP-004, APP-005, APP-006 |
+| Current phase | Phase 1 — Platform-policy + login-posture verification (COMPLETE) |
+| Current assigned task IDs | APP-007, APP-061 |
+| Last completed task IDs | APP-007, APP-061 |
 | Current blocker | None |
 | Production shell architecture | **UNRESOLVED — pending proof of concept.** Capacitor is the leading candidate. `server.url` is NOT approved as final production implementation (it is Capacitor's dev/live-reload configuration). |
+| V1 login posture | **DECIDED (DEC-018 ACTIVE):** app-only first-party **email verification-code** auth on the **same** Clerk instance. Website keeps Google unchanged. App shows no Google/social → no Sign in with Apple needed in V1. Google-origin users sign in by verified-email code (must be POC-proven). |
+| Session-lifetime standard | **7-day lifetime REJECTED for production.** Launch requirement: stay signed in for months — **min 180 days, ~1 year preferred**, inactivity off. Likely needs **Clerk Pro** (operating expense, not eng hours). Final value pending plan verification + security review + real-device proof. |
 | Mobile repository | Separate repo `summitt-mindset-mobile` — **not yet created**. This document lives in the website/SMS repo. |
-| Exact next task | **APP-007** — Check the Clerk dashboard for enabled login methods (email vs social). Requires Tyler + Clerk dashboard. |
+| Exact next task | Read-only audit of the **iPhone proof-of-concept + `summitt-mindset-mobile` bootstrap sequence** (precursor to APP-008 / APP-059). No implementation, no repo creation. |
 
 > **How to use this document:** This is the single durable control document for the mobile-app project. It is designed so a brand-new ChatGPT conversation or a fresh Cursor session can resume with zero prior context. Read this file plus `docs/mobile-app-session-handoff.md` before doing anything. Never mark a task COMPLETE without recorded evidence. Move every scope addition to the parking lot (§12). Do not touch the SMS system. The production mobile shell lives in a **separate repository** (`summitt-mindset-mobile`); every task must confirm repository identity before editing (see DEC-013–DEC-017).
 
@@ -26,6 +28,8 @@
 - **SMS is the primary product value.** The app must not modify, proxy, intercept, or endanger the Twilio SMS system (`src/app/api/cron/*`, `src/app/api/twilio/*`, `src/app/api/sms/*`, and the ~600-file SMS brain under `src/lib/`).
 - **Victory Room is the secondary product value** and is the app's landing destination (`/dashboard/victory-room`).
 - **The app exists to remove friction in reaching Victory Room** — tap icon, stay signed in, land in Victory Room. Nothing more in V1.
+- **The member signs in once and stays signed in for months.** A forced sign-in every week or every month is unacceptable. The current Clerk 7-day maximum session lifetime is **rejected for production** (see §3 launch requirement + DEC-021); target min 180 days / ~1 year preferred.
+- **App login is first-party email only.** V1 authenticates via Clerk **email verification code** on the **same** Clerk instance (no Google/social shown in the app); the **website keeps Google unchanged**. Never a second Clerk instance, never a separate user pool, never globally remove Google (DEC-018).
 - **The website remains the product.** The live Next.js app at `https://summittmindset.com` is the single source of product truth.
 - **The app is a doorway into the website**, not a second product.
 - **One shared web experience must be preserved.** No duplicated screens in native code.
@@ -65,10 +69,11 @@
 - iOS + Android **native shell (Capacitor leading candidate; final architecture pending POC — DEC-020)** that **renders the live Summitt Mindset member experience** so web changes appear automatically. Lives in the separate `summitt-mindset-mobile` repo.
 - Launches to **Victory Room** (`/dashboard/victory-room`); unauthenticated users hit the existing `/sign-in` → `/post-sign-in` flow and end at Victory Room.
 - **Clerk session persists** across force-close/reopen (no repeated logins) to the agreed standard (see Checkpoint A pass criteria).
+- **Long-session launch requirement (non-negotiable):** *The mobile app does not ship with a seven-day session lifetime. A normal member must remain signed in for a long-term period measured in months.* Minimum acceptable target **180 days**; preferred **~1 year**; inactivity timeout stays **off** unless later evidence supports changing it. Final value requires Clerk-plan verification, security review, and real-device proof; **do not promise users they stay signed in forever**; a forced sign-in every week or month is not acceptable. (DEC-021; likely requires Clerk Pro — see §6.)
 - **Entitlement recognized** unchanged (Clerk `publicMetadata.summittSubscribed`/`summittPlan`).
 - Core reused surfaces load and function: **Victory Room (primary), Ask Pat, Film Room/Vimeo, Account** (`/user`).
 - **No in-app selling in V1.** V1 does **not** show the Stripe checkout inside the app. Existing web subscribers access their membership normally; unsubscribed users receive a **neutral inactive-membership state** (no purchase UI). *(APP-004 finding; do not rely on reader-app classification; external-purchase language is storefront-dependent and must be re-verified before submission.)*
-- **First-party email authentication is the preferred V1 login posture** (avoids triggering Apple's Sign in with Apple equivalent-login requirement). **CANDIDATE — pending APP-007** (Clerk-dashboard verification of which login methods are enabled); do not finalize before APP-007.
+- **App-only first-party email authentication (DECIDED — DEC-018 ACTIVE).** The app shows Clerk **email verification code** (password optional) on the **same** Clerk production instance and **does not** show Google/social. The **website keeps Google unchanged**. Because the app offers no social login, **Sign in with Apple is not required in V1** (Apple 4.8 not triggered). Existing Google-origin users sign in with the **same verified email + a one-time code**, resolving to the **same `clerk_user_id`** (must be POC-proven — see "APP-007 login posture — 2026-07-17" and Checkpoint A). Never create a second Clerk instance, never a separate user pool, never globally disable Google.
 - **In-app account deletion action** (moved into Required for V1 per APP-005). Apple 5.1.1(v) requires an in-app deletion path when the app supports account creation, and Google requires both an in-app path and an external web resource. The current `data-deletion` page is **email-request only and is insufficient** as the complete app deletion flow. *(Design/implementation deferred to APP-041 — do not build deletion code now.)*
 - App icon + splash screen + correct app name.
 - Safe-area/status-bar handling; Android hardware back button behaves sanely.
@@ -77,7 +82,7 @@
 - Store listings (privacy nutrition labels / Play data-safety) that are **accurate** to the SMS/AI/journal data flows.
 
 ### Required only if Apple or Google demands it
-- **Sign in with Apple** (only if Clerk exposes third-party/social logins such as Google in the sign-in UI — that triggers Apple 4.8 equivalent-login). *Verify Clerk dashboard (APP-007) + current Apple policy.*
+- **Sign in with Apple** — **NOT required in V1** because the app offers no Google/social login (DEC-018 ACTIVE; APP-007 confirmed Google is enabled on the shared instance but the app hides it). Becomes required only if the app later chooses to show Google/social (revisit trigger on DEC-018). *Re-verify current Apple 4.8 policy if that ever changes.*
 - **Store-compliant handling of web checkout beyond the neutral inactive state** — external-purchase messaging/links, or (worst case) native IAP. Storefront-dependent (US external-link allowance differs from other storefronts). *Verify current Apple 3.1.1 / 3.1.1(a) / external-purchase-link + Google Play Billing policy before submission.*
 - Web-push or native push **only** if required to clear "minimum functionality" (4.2).
 
@@ -186,15 +191,68 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 
 ---
 
+## APP-007 login posture — 2026-07-17
+
+*Completed under APP-007 (login-method verification) and APP-061 (posture decision). Evidence: confirmed production Clerk dashboard screenshots supplied by Tyler 2026-07-17 + repository audit. APP-007 actual hours = `NOT RECORDED`.*
+
+### Confirmed production Clerk truth (2026-07-17)
+- **Email:** sign-up + sign-in ENABLED; **email verification code** ENABLED for both; email verification **link** DISABLED.
+- **Password:** sign-up ENABLED; add-password ENABLED.
+- **Social/SSO:** **Google ENABLED and used for sign-in**; **Sign in with Apple NOT enabled**; no other social; no enterprise SSO.
+- **Phone / Username / Passkeys:** all DISABLED.
+- **Client Trust:** ENABLED — new-device sign-ins require extra verification.
+- **Sessions:** maximum lifetime ENABLED at **7 days** (control labeled **Pro**; dashboard shows a possible range up to 10 years); inactivity timeout DISABLED; multi-session DISABLED; no custom JWT templates.
+- **Account deletion:** "Allow users to delete their account" ENABLED, but the dashboard warns it may affect **new users only** unless "Apply to existing users" is used; **existing-user deletion permission remains UNKNOWN**.
+
+### Repository behavior (verified)
+- Sign-in `src/app/sign-in/[[...sign-in]]/page.tsx` and sign-up `src/app/sign-up/[[...sign-up]]/page.tsx` render Clerk `<SignIn/>`/`<SignUp/>` with **no provider list, no `appearance`/`elements`, no `oauthFlow`** → **provider visibility is 100% dashboard-controlled on a single shared Clerk instance.** The **same `<SignIn/>` screen would show Google in both the website and a future WebView app.**
+- The backend keys identity on **`clerk_user_id`** (`src/lib/clerk-rest.ts`; Supabase `user_profiles`, SMS memory, Stripe metadata, journal), and entitlement lives in Clerk `publicMetadata`. **A duplicate Clerk user would orphan a member from their data/entitlement** (RISK-22).
+
+### V1 login decision (DEC-018 ACTIVE)
+App V1 uses **app-only first-party email authentication on the SAME Clerk instance**: email verification code is the universal factor (password optional); Google is not shown in the app; Sign in with Apple is not required (no social in app); the website keeps Google unchanged. Existing Google-origin users sign in with their **same verified email + one-time code**, which resolves to their **existing `clerk_user_id`** (identifier-first, email is the shared identifier). **Not proven until the real-device POC passes.**
+
+### Path comparison (recorded)
+- **Path A — app-only email (CHOSEN):** cleanest, safest. No SIWA, no OAuth-in-WebView return, one user pool, website untouched, lowest maintenance.
+- **Path B — add Sign in with Apple + keep Google in app (REJECTED for V1):** materially more complex — Apple Developer Services ID/key, Clerk provider config, OAuth + WebView callback return handling (the U3/RISK-02 hard problem), and account-linking. Only if product later requires social in-app.
+- **Path C — globally remove Google (PROHIBITED):** harms existing web users who depend on Google; is a website product change; disfavored unless evidence proves no existing user depends on Google.
+
+### APP-061 mechanism hierarchy (decision recorded; implementation deferred)
+1. **Preferred:** a dedicated app sign-in route/surface using a **custom/headless Clerk `useSignIn` flow**, email verification code first, **same Clerk production instance**, no Google/social shown.
+2. **Acceptable fallback:** an app-specific Clerk sign-in presentation that **genuinely removes** social from the app without globally changing the website. Do **not** rely on fragile CSS-only hiding unless no better supported approach exists.
+3. **Prohibited:** separate Clerk instance; global removal of Google; duplicating users; native auth that creates a separate identity system; any app login that changes normal website behavior.
+
+### iPhone POC acceptance criteria (to execute in Phase 2 — do NOT implement now)
+Use at least one **real test account that originally used Google sign-in, is currently subscribed, and has real Victory Room/member data.** Verify:
+1. App shows **email verification-code** login **without Google**.
+2. User enters the **same Google-associated email**.
+3. Clerk **sends and accepts** the email code.
+4. Clerk resolves to the **same existing `clerk_user_id`**.
+5. **No duplicate** Clerk user is created.
+6. **Subscription entitlement** remains recognized.
+7. **Victory Room** shows the correct existing data (Current Goal, history, SMS relationship state intact).
+8. Closing and reopening the app **preserves the session**.
+9. **Force-closing** and reopening **preserves the session**.
+10. Client Trust verification occurs **no more than expected for a first new-device sign-in**.
+11. Reopening the app **does not repeatedly** trigger a new-device challenge.
+12. The app **lands directly in Victory Room**.
+13. The session remains valid **across multiple days**.
+14. After the Clerk lifetime is increased in a later approved task, the session remains usable **within the selected long-term window**.
+15. **Expired sessions degrade to a clean login screen** — never a blank screen or redirect loop.
+
+Equivalent critical checks (1–13, 15) are added to the Android POC (Phase 3).
+
+---
+
 ## 5. BIGGEST UNKNOWNS (ranked)
 
 > All platform-policy items are **LABELED: REQUIRES CURRENT-DOCUMENTATION VERIFICATION** — do not treat as settled fact.
 
 **U1 — Clerk session persistence inside iOS WKWebView (HIGHEST).**
 - *Why:* The entire "stay signed in, no re-login" promise depends on Clerk cookies/session surviving in WKWebView across force-close. Clerk is cookie/session based (`@clerk/nextjs`).
+- *Two distinct factors:* **(a)** does the WebView persist the session cookie across force-close? and **(b)** the Clerk **maximum session lifetime** ceiling — currently **7 days**, which is **rejected for production** (DEC-021). Even perfect cookie persistence cannot exceed the lifetime ceiling, so the long-session standard (min 180 days / ~1yr) requires raising the Clerk lifetime (likely **Clerk Pro**) in a separately-approved settings task (APP-064) and re-verifying on device (APP-065).
 - *Test early:* Phase 2 (first thing).
 - *Cheapest test:* throwaway Capacitor iOS app loading the live `/sign-in`, log in, force-close, reopen, hit `/dashboard/victory-room`.
-- *Pass:* reopening lands in Victory Room without re-login for at least a normal session lifetime.
+- *Pass:* reopening lands in Victory Room without re-login for at least a normal session lifetime; and (later) stays signed in across the selected long-term window.
 - *Fail consequence:* users re-login constantly → core value destroyed.
 - *Backup:* Clerk WebView/native guidance, custom cookie persistence config, or (last resort) `@clerk/clerk-expo`-style native auth (major scope change). *REQUIRES CLERK-DOC VERIFICATION.*
 - *Hours at risk:* 10–24.
@@ -202,11 +260,9 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 **U2 — Clerk session persistence inside Android WebView.**
 - Same as U1 for Android WebView (different cookie/storage behavior). Test in Phase 3. Hours at risk: 6–16.
 
-**U3 — Clerk OAuth / social-login behavior in WebView.**
-- *Why:* If Clerk sign-in offers Google (or other social) login, OAuth opens an external browser/redirect that may not return cleanly to the WebView; also triggers Sign in with Apple requirement. Repo shows Clerk `<SignIn/>` but **social providers are configured in the Clerk dashboard, not in code** — cannot verify from repo.
-- *Test:* Phase 2, alongside email login.
-- *Pass:* whichever login methods you enable complete and return to the app.
-- *Fail:* OAuth dead-ends. *Backup:* restrict app login to email/password + email code; hide social in app; or implement in-app-browser (`@capacitor/browser`) return handling. *REQUIRES CLERK-DASHBOARD + APPLE-DOC VERIFICATION.* Hours at risk: 4–16.
+**U3 — Clerk OAuth / social-login behavior in WebView. RESOLVED for V1 (2026-07-17).**
+- *Finding (APP-007):* Google IS enabled on the shared Clerk instance and Apple is NOT. But **V1 hides social in the app and uses email-code only (DEC-018 ACTIVE)**, so **OAuth-in-WebView return handling is out of scope for V1** and Sign in with Apple is not required. The website keeps Google. OAuth-return work (APP-029) is only needed if the app ever chooses to show social (DEC-018 revisit trigger).
+- *Residual to prove:* an existing **Google-origin** user can sign in by **email code** without creating a duplicate (RISK-22) — covered by the Phase 2 POC acceptance criteria. Hours at risk (V1): ~0–4.
 
 **U4 — Redirect/callback behavior (middleware, post-sign-in, subscribe returns).**
 - *Why:* `middleware.ts` redirects unauth → `/sign-in`; `post-sign-in` chains redirects; Stripe returns to `/subscribe/success`. Redirect chains can loop or break in a WebView.
@@ -238,7 +294,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 
 **U11 — Account deletion compliance. VERIFIED 2026-07-17 — resolved into a requirement.** Apple 5.1.1(v) requires an **in-app deletion path** when the app supports account creation; Google requires **both** in-app **and** an external web resource. Current page is email-only (`data-deletion/page.tsx`) and is **insufficient**. **In-app deletion is now Required for V1** (§3, APP-041). Hours at risk: 3–12. *(No longer an open unknown; it is scoped work.)*
 
-**U12 — Sign in with Apple requirement. VERIFIED 2026-07-17 (trigger confirmed; conditional on APP-007).** Apple 4.8 requires an equivalent login option **only if** third-party/social login (e.g., Google) is offered. **First-party email auth avoids the trigger** and is the preferred V1 posture — CANDIDATE pending APP-007 (Clerk dashboard). Hours at risk: 0–10. **VERIFY at APP-007.**
+**U12 — Sign in with Apple requirement. RESOLVED 2026-07-17.** APP-007 confirmed Google is enabled (Apple not). Because **V1 shows no social in the app** (DEC-018 ACTIVE), Apple 4.8 is **not triggered** and **SIWA is not required in V1**. Hours at risk (V1): 0. Revisit only if the app later adds social login.
 
 **U13 — Vimeo playback in WebView.** iframe autoplay/inline/fullscreen quirks on iOS. Test Phase 2/8. Backup: `allowsInlineMediaPlayback` config. Hours at risk: 2–10.
 
@@ -296,6 +352,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 - **New planning language (current responsible range):** **working target ≈ 115 focused hours; current responsible range ≈ 115–150 focused hours.** "The 115-hour app" is preserved as the **project shorthand** for the full polished middle-path version.
 - **Reason:** APP-003–APP-006 confirmed that **in-app account deletion is now Required for V1** (not conditional) and that **push notifications** may be needed as a 4.2 rejection response; the **production shell architecture is unresolved pending POC** (Capacitor vs native shell), which adds comparison/decision effort; and Google's **12-tester/14-day** closed-testing rule may apply. The estimate **must be revised again after the architecture + Clerk-session POC**.
 - **Explicitly separate (not folded into the range):** native IAP, native authentication, or any Apple-required major native feature are **separately-approved scope expansions**, not part of this range. Store-review *waiting* remains excluded.
+- **Clerk Pro is an operating expense, not engineering hours.** Raising the Clerk maximum session lifetime beyond the current 7 days (to meet the months-long standard, DEC-021) likely requires **Clerk Pro** (the max-lifetime control is labeled Pro). Changing the number is ~0 engineering hours; the cost is a **subscription/plan decision for Tyler** (APP-062 verifies current pricing + allowed max-lifetime behavior). Do not conflate plan cost with build hours.
 - **False-precision caveat:** this is a planning range, not a promise. Treat the single-number total in the table as the working-target midpoint, not a commitment.
 
 ---
@@ -339,7 +396,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 ### Phase 2 — Throwaway iPhone proof of concept (~6h)
 - **Goal:** Kill or confirm the top risks (U1, U3, U4, U6, U10, U13) on real iOS hardware.
 - **Why now:** Do the scariest test before serious investment.
-- **Scope (must test):** website loads; Clerk **email** login; **session persists after force-close/reopen**; reaches Victory Room; authenticated API call (Ask Pat); Vimeo plays; external links behave; a **subscribed test account** sees entitlement; note OAuth if enabled.
+- **Scope (must test):** website loads; Clerk **email verification-code** login **with no Google shown**; **session persists after force-close/reopen**; reaches Victory Room; authenticated API call (Ask Pat); Vimeo plays; external links behave; a **subscribed test account** sees entitlement. **Must use a real account that originally used Google sign-in, is subscribed, and has real member data**, and run the full **15-item iPhone POC acceptance criteria** in "APP-007 login posture — 2026-07-17" (same-`clerk_user_id` resolution, no duplicate user, entitlement/VR/Current Goal/history/SMS state intact, Client Trust single challenge, multi-day session, clean expiry).
 - **Non-scope:** Icons, splash, store setup, polish, Android. **This POC is disposable — it must NOT become production architecture, and it does not settle the production shell (Phase 4 decides that).**
 - **Repo areas:** none in the website; a *separate, disposable* throwaway project **outside** the Next.js repo (and separate from the eventual `summitt-mindset-mobile` production repo).
 - **Accounts:** Apple ID for local device run (free provisioning ok); a test Clerk user (subscribed).
@@ -355,7 +412,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 
 ### Phase 3 — Android proof of concept (~4h)
 - **Goal:** Repeat Phase 2 critical tests on Android WebView (U2).
-- **Scope:** same checklist on Android emulator + one real device.
+- **Scope:** same checklist on Android emulator + one real device, **including the equivalent critical login-posture checks** (email-code login with no Google, same-`clerk_user_id` resolution for a Google-origin subscribed account, no duplicate user, entitlement/VR intact, session persists across force-close, Client Trust not repeatedly challenged, multi-day session, clean expiry — items 1–13 & 15 of the iPhone POC acceptance criteria).
 - **Non-scope:** production setup, polish.
 - **Accounts:** none (local run).
 - **DoD:** Android checklist recorded PASS/FAIL.
@@ -388,8 +445,8 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 - **Before next phase:** stable shell.
 
 ### Phase 6 — Authentication & session hardening (~10h)
-- **Goal:** Make Clerk login + persistence robust to the agreed standard (U1–U4).
-- **Scope:** configure WebView cookie/storage persistence; handle OAuth return if social enabled; ensure no redirect loops in `/sign-in`→`/post-sign-in`→VR; confirm entitlement recognized.
+- **Goal:** Make Clerk login + persistence robust to the agreed standard (U1–U4) using the **app-only email-code posture (DEC-018 ACTIVE)** — no Google/social shown in the app; website unchanged.
+- **Scope:** implement the chosen APP-061 mechanism (preferred: dedicated app sign-in surface / headless `useSignIn`, email-code first, same Clerk instance); configure WebView cookie/storage persistence; ensure no redirect loops in `/sign-in`→`/post-sign-in`→VR; confirm entitlement recognized; confirm Google-origin users resolve to the same `clerk_user_id` (no duplicate). **OAuth-return handling (APP-029) is NOT in V1 scope** unless social is later added. Session-lifetime is a separate track (APP-062–APP-066).
 - **Non-scope:** rewriting auth natively (only if POC proved necessary → separate decision).
 - **Repo areas:** Capacitor config; possibly app-gated site tweak (behind app signal) for OAuth return; **do not** change Clerk core web behavior.
 - **Accounts:** Clerk dashboard (allowed origins / redirect URLs may need the app scheme).
@@ -509,7 +566,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 | APP-004 | 1 | WEBSITE | Verify Apple 3.1.1 / 3.1.1(a) external-purchase-link + reader (3.1.3) rules | COMPLETE | 1 | NOT RECORDED | APP-002 | "Policy verification — 2026-07-17" section + official sources | V1 = no in-app selling; storefront-dependent; re-verify before submission |
 | APP-005 | 1 | WEBSITE | Verify Apple account-deletion (5.1.1(v)) + Sign in with Apple (4.8) triggers | COMPLETE | 0.5 | NOT RECORDED | APP-002 | "Policy verification — 2026-07-17" section + official sources | In-app deletion now Required for V1; email-login avoids 4.8 |
 | APP-006 | 1 | WEBSITE | Verify Google Play Billing + account deletion + data safety + new-account closed-test rules | COMPLETE | 0.5 | NOT RECORDED | APP-002 | "Policy verification — 2026-07-17" section + official sources | 12-tester/14-day rule may apply; Tyler must confirm account (APP-060) |
-| APP-007 | 1 | WEBSITE | Check Clerk dashboard: which login methods are enabled (email/social) | NOT STARTED | 0.5 | | APP-005 | | **EXACT NEXT TASK.** Tyler + Clerk dashboard; decides 4.8/OAuth posture |
+| APP-007 | 1 | WEBSITE | Check Clerk dashboard: which login methods are enabled (email/social) | COMPLETE | 0.5 | NOT RECORDED | APP-005 | "APP-007 login posture — 2026-07-17" section (confirmed 2026-07-17 dashboard screenshots + repo audit) | Google enabled, Apple not, email-code enabled, 7-day lifetime, Client Trust on, deletion new-users-only/existing unknown |
 | APP-008 | 2 | POC | Create disposable throwaway iOS POC (NOT `summitt-mindset-mobile`, NOT production); repo-identity precheck | NOT STARTED | 1.5 | | APP-004,APP-007 | | Disposable; does not settle production shell |
 | APP-009 | 2 | POC | Load production URL `/dashboard/victory-room` on iOS device | NOT STARTED | 0.5 | | APP-008 | | |
 | APP-010 | 2 | POC | Test Clerk email login on iOS | NOT STARTED | 0.5 | | APP-009 | | U3 |
@@ -531,7 +588,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 | APP-026 | 5 | MOBILE | Loading indicator for remote load | NOT STARTED | 1 | | APP-023 | | |
 | APP-027 | 6 | MOBILE | WebView cookie/storage persistence config (iOS) | NOT STARTED | 3 | | APP-023 | | U1 |
 | APP-028 | 6 | MOBILE | WebView cookie/storage persistence config (Android) | NOT STARTED | 2 | | APP-023 | | U2 |
-| APP-029 | 6 | MOBILE | OAuth/social return handling (if social enabled) | NOT STARTED | 3 | | APP-007,APP-027 | | U3; may be DEFERRED if email-only (APP-061) |
+| APP-029 | 6 | MOBILE | OAuth/social return handling (if social enabled) | DEFERRED | 3 | | APP-007,APP-027 | APP-007/APP-061 chose app-only email (DEC-018 ACTIVE) | NOT in V1 scope — app shows no social; revisit only if DEC-018 changes |
 | APP-030 | 6 | MOBILE | Verify no redirect loop `/sign-in`→`/post-sign-in`→VR | NOT STARTED | 2 | | APP-027 | | U4 |
 | APP-031 | 7 | MOBILE | Set cold-launch start to Victory Room | NOT STARTED | 1 | | APP-030 | | |
 | APP-032 | 7 | MOBILE | Verify unauth cold-launch returns to VR post-login | NOT STARTED | 2 | | APP-031 | | |
@@ -543,7 +600,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 | APP-038 | 9 | MOBILE | Handle `target="_blank"` links (no blank dead-ends) | NOT STARTED | 1.5 | | APP-037 | | onboarding/sms + marketing |
 | APP-039 | 9 | MOBILE | Deep links (SMS/marketing → app) | NOT STARTED | 1.5 | | APP-037 | | DEFERRABLE |
 | APP-040 | 10 | MOBILE | Store-compliant subscribe/purchase messaging in app (V1 = neutral inactive-membership state, no in-app selling) | NOT STARTED | 4 | | APP-004,APP-021 | | U8/U9 |
-| APP-041 | 10 | WEBSITE | In-app account-deletion action — **REQUIRED before submission** (Apple 5.1.1(v)/Google) | NOT STARTED | 3 | | APP-005 | | Keep away from SMS tables; no longer conditional |
+| APP-041 | 10 | WEBSITE | In-app account-deletion action — **REQUIRED before submission** (Apple 5.1.1(v)/Google) | NOT STARTED | 3 | | APP-005 | | Keep away from SMS tables; no longer conditional. **Clerk user deletion alone is NOT full account deletion** — future deletion audit must cover Clerk, Supabase, Stripe, Twilio, journals, SMS relationship memory, consent records, and any legally-retained records. Confirm Clerk "apply to existing users" (existing-user permission currently UNKNOWN). Do not implement in a documentation task. |
 | APP-042 | 10 | WEBSITE | Draft accurate privacy/data-safety content | NOT STARTED | 2 | | APP-005,APP-006 | | Tyler + forms |
 | APP-043 | 11 | MOBILE | Integrate crash reporting in shell | NOT STARTED | 2.5 | | APP-022 | | |
 | APP-044 | 11 | MOBILE | Minimal analytics events (launch/login/VR/error) | NOT STARTED | 2 | | APP-043 | | |
@@ -563,7 +620,12 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 | APP-058 | all | WEBSITE | Maintain master plan + handoff each session | NOT STARTED | 3 | | APP-000 | | ongoing |
 | APP-059 | 5 | MOBILE | Create/bootstrap the `summitt-mindset-mobile` repository (repo-identity + `.gitignore` + no secrets); own git verdict | NOT STARTED | 1 | | APP-021 | | Repo not yet created; blocks APP-022 |
 | APP-060 | 1 | WEBSITE | Tyler confirms Google Play account type + creation date (12-tester/14-day applicability) | NOT STARTED | 0.5 | | APP-006 | | Tyler + Play Console |
-| APP-061 | 6 | WEBSITE | Finalize V1 login posture (email-only vs social) after APP-007; record decision | NOT STARTED | 0.5 | | APP-007 | | Confirms/settles DEC-018 |
+| APP-061 | 6 | WEBSITE | Finalize V1 login posture (email-only vs social) after APP-007; record decision | COMPLETE | 0.5 | NOT RECORDED | APP-007 | "APP-007 login posture — 2026-07-17" section: DEC-018 ACTIVE (app-only email-code, same instance); mechanism hierarchy + 15-item POC acceptance criteria recorded. Documentation/decision only — implementation is Phase 6 |
+| APP-062 | 1 | WEBSITE | Tyler verifies current Clerk Pro pricing + allowed maximum-lifetime behavior | NOT STARTED | 0.5 | | APP-007 | | Operating expense, not eng hours; needed for DEC-021 long-session standard |
+| APP-063 | 4 | WEBSITE | Decide final production session lifetime after POC evidence (target 180d min / ~1yr) | NOT STARTED | 0.5 | | APP-017,APP-062 | | Security review + POC evidence; do not promise "forever" |
+| APP-064 | 6 | MOBILE | Change Clerk maximum session lifetime — **separately-approved Clerk-settings task** | NOT STARTED | 0.5 | | APP-063 | | Affects website too; change carefully; not part of this or any doc task |
+| APP-065 | 6 | MOBILE | Verify the new lifetime on iPhone + Android (stays signed in across long-term window) | NOT STARTED | 1 | | APP-064 | | Must pass before store submission |
+| APP-066 | 6 | MOBILE | Confirm Client Trust does not repeatedly challenge the same app installation | NOT STARTED | 1 | | APP-027,APP-028 | | RISK-23; tie to WebView `__client` cookie persistence |
 
 ---
 
@@ -572,8 +634,9 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 - **Critical path:** APP-000 → APP-003/004/005/006 (policy, COMPLETE) → **APP-007 (Clerk dashboard)** → APP-008..017 (iOS POC) → APP-021 (go/no-go **+ shell architecture**) → **APP-059 (create mobile repo)** → APP-022/023 (shell) → APP-027/028/030 (auth+session) → APP-031/032 (VR routing) → **APP-041 (in-app deletion, required)** + APP-040 (purchase compliance) → APP-049/050 (TestFlight) / APP-051/052 (closed track) → APP-053/054 & APP-055 (submit) → APP-056 (review) → launch.
 - **Repo ownership on the path:** planning/policy/deletion-endpoint/docs are **WEBSITE**; shell/config/store builds are **MOBILE** (`summitt-mindset-mobile`); POC tasks are disposable **POC** projects. No task edits both repos without explicit authorization (DEC-016).
 - **New dependencies:** APP-022 now depends on **APP-059** (mobile repo must exist first). APP-051/052 depend on **APP-060** (Play account confirmation). APP-053/APP-055 depend on **APP-041** (in-app deletion required before submission). APP-061 depends on APP-007.
+- **Session-lifetime chain (must complete before store submission — before APP-053/APP-055):** APP-062 (Clerk Pro pricing/capability) → APP-063 (decide final lifetime, needs POC evidence APP-017) → APP-064 (change Clerk max lifetime, separately approved) → APP-065 (verify on iPhone+Android) + APP-066 (Client Trust not repeatedly challenging). The 7-day default is rejected for production (DEC-021), so a launched app must have completed APP-064/APP-065.
 - **Parallelizable:** Android POC (APP-018..020) alongside finishing iOS notes; icons/splash (APP-046/047) alongside auth; analytics/crash (APP-043/044) alongside member-surface testing; store copy/screenshots drafting (APP-042/048) alongside compliance; APP-060 (Tyler confirms Play account) anytime after APP-006.
-- **Require Tyler:** APP-007 (Clerk dashboard), APP-042/048 (privacy + screenshots), all device testing, all store-account tasks.
+- **Require Tyler:** APP-007 (Clerk dashboard — done), APP-060 (Play account), APP-062 (Clerk Pro pricing/capability), APP-063 (final lifetime decision), APP-042/048 (privacy + screenshots), all device testing, all store-account tasks.
 - **Require Apple Developer access:** APP-049, APP-050, APP-053, APP-054.
 - **Require Google Play access:** APP-051, APP-052, APP-055.
 - **Require Clerk configuration:** APP-007, APP-029, APP-030 (allowed origins/redirect URLs).
@@ -605,7 +668,8 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 | DEC-015 | **App-related website changes require their own website-repo audit + implementation cycle** | Prevents mobile work from silently changing the live product | 2026-07-17 | ACTIVE | — |
 | DEC-016 | **Every task confirms repo identity before editing; every repo gets its own `git status --short` + `git add .` verdict; no task edits both repos unless explicitly authorized** | Cross-repo safety | 2026-07-17 | ACTIVE | — |
 | DEC-017 | **No website secrets or server-only code may be copied into the mobile repo** | Security; shell talks to site only over HTTPS | 2026-07-17 | ACTIVE | — |
-| DEC-018 | **CANDIDATE:** V1 login = first-party email authentication (avoid Apple 4.8 Sign in with Apple trigger) | APP-005 finding; social login triggers 4.8 | 2026-07-17 | CANDIDATE — pending APP-007/APP-061 | APP-007 shows social logins enabled |
+| DEC-018 | **V1 mobile authentication uses app-only first-party email authentication on the same Clerk instance.** Google remains on the website. The app does not show Google or other social providers. Email verification code is the universal login factor. | Avoids Apple 4.8 trigger; avoids Sign in with Apple work in V1; avoids OAuth/WebView callback complexity; preserves one user pool + existing Clerk identities; protects website users who depend on Google; supports Google-origin users via verified-email code sign-in (pending POC proof). Confirmed by APP-007 (Google enabled, Apple not, email-code enabled) + APP-061. | 2026-07-17 | **ACTIVE** | POC creates duplicate users; existing Google users cannot authenticate via email code; Apple rejects the posture; Clerk cannot support a clean app-only email surface; product strategy later requires social login in the app |
+| DEC-021 | **7-day session lifetime is rejected for production; the app must keep members signed in for months.** Minimum 180 days, ~1 year preferred, inactivity off unless evidence supports change. | The tap-and-stay-signed-in promise is core value; a weekly/monthly forced re-login is unacceptable. Final value pending Clerk-plan verification (APP-062), security review, and real-device proof (APP-065). Likely requires Clerk Pro (operating expense). Never promise "forever." | 2026-07-17 | ACTIVE | Security review requires shorter; Clerk plan cannot support target; POC shows persistence issues |
 | DEC-019 | **CANDIDATE:** iPhone-first sequencing; hide all in-app purchasing in V1 (neutral inactive-membership state) | APP-003/APP-004 posture; lowers Apple risk | 2026-07-17 | CANDIDATE — confirm at Phase 4/Checkpoint D | Policy re-verification changes posture |
 | DEC-020 | **Production shell architecture is UNRESOLVED pending POC.** Candidates: (a) Capacitor + purpose-built production WebView, (b) minimal direct native iOS `WKWebView` + Android WebView shell, (c) superior evidence-backed hybrid. `server.url` NOT approved as production. Do NOT pivot to React Native or duplicate screens. Decision made at Phase 4 on: Clerk session persistence, auto live updates, native nav/link handling, App Store posture, maintenance burden | Official Capacitor docs place `server.url` in dev/live-reload; production uses compiled `webDir`. Prior audit wrongly recorded `server.url` as settled production | 2026-07-17 | ACTIVE (open) | Phase 4 architecture checkpoint resolves it |
 
@@ -617,7 +681,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 |---|---|---|---|---|---|---|---|---|
 | RISK-01 | Clerk session fails in WebView | Med | Critical | POC login/persist fails | WebView cookie config; Clerk WebView guidance | Native auth adaptation (major) | Tyler+Cursor | OPEN |
 | RISK-02 | OAuth callback fails in WebView | Med | High | Social login dead-ends in POC | In-app-browser return handling; email-only in app | Hide social in app | Tyler+Cursor | OPEN |
-| RISK-03 | Repeated sign-ins / session expiry | Med | High | Users re-login on reopen | Token refresh + persistence tuning | Extend session; document standard | Cursor | OPEN |
+| RISK-03 | Repeated sign-ins / session expiry (incl. 7-day lifetime ceiling) | Med | High | Users re-login on reopen or every 7 days | Token refresh + persistence tuning; raise Clerk max lifetime to months (APP-064, likely Clerk Pro); DEC-021 standard | Extend session; document standard | Cursor+Tyler | OPEN |
 | RISK-04 | Apple 4.2 minimum-functionality rejection | Med-High | High | Reviewer cites "just a website" | Add native features (push), members-only framing | Add push; richer native shell | Tyler | OPEN |
 | RISK-05 | Apple 3.1.1 payment rejection | Med | High | Reviewer flags web checkout | V1 shows **no in-app selling** (neutral inactive state); do NOT rely on reader-app classification; external purchase **links** are **storefront-dependent** (broader US latitude under 3.1.1(a), restricted elsewhere) — re-verify per storefront before submission | Native IAP (+30–40h) | Tyler | OPEN |
 | RISK-06 | Google payment-policy issue | Low-Med | Med | Play flags external billing | Same reader posture | Play Billing | Tyler | OPEN |
@@ -636,6 +700,8 @@ See DEC-020 (decision log) and RISK-19 (risk register). Every place that previou
 | RISK-19 | **Premature commitment to a development-oriented remote-server config (`server.url`) as production** | Med | High | Plans/tasks treat `server.url` as the settled production mechanism before Phase 4 | Keep architecture unresolved until POC (DEC-020); `server.url` only for disposable POC; production mechanism chosen at Phase 4 with recorded justification | Adopt native `WKWebView`/Android WebView shell or Capacitor `webDir`-based production build | Cursor+Tyler | OPEN |
 | RISK-20 | **Cross-repo contamination / secret leakage between website and `summitt-mindset-mobile`** | Med | High | App code appears in website repo, or website secrets/server code appear in mobile repo | Repo-identity precheck every task (DEC-016); no shared secrets (DEC-017); per-repo git verdicts | Revert offending commit; rotate any leaked secret | Cursor+Tyler | OPEN |
 | RISK-21 | **Google Play 12-tester / 14-day closed-testing delay for new personal accounts** | Med | Med | Play Console blocks production until closed test completes | Confirm account type/creation date early (APP-060); recruit 12 testers ahead of Android submission | Sequence iPhone-first; start Android closed test early | Tyler | OPEN |
+| RISK-22 | **Duplicate Clerk user orphans a member from data/entitlement** (all backend keyed on `clerk_user_id`) | Med | Critical | App sign-in of a Google-origin user creates a new Clerk id → empty/unsubscribed state | App-only **email-code** sign-in resolves the existing account by verified email (DEC-018); POC acceptance criteria explicitly verify same `clerk_user_id`, no duplicate, entitlement intact | Clerk account-linking config; block app sign-up; support-assisted merge | Tyler+Cursor | OPEN |
+| RISK-23 | **Client Trust repeatedly challenges the app WebView as a "new device"** | Med | Med | Recurring email-code challenges on reopen | Persist Clerk `__client`/device cookie in WebView (APP-027/028); verify APP-066 | Adjust Client Trust posture; document standard | Cursor+Tyler | OPEN |
 
 ---
 
@@ -786,11 +852,11 @@ Deferred: push, native IAP, deep links, offline, redesigns (see parking lot). Re
 ## 17. GO/NO-GO CHECKPOINTS
 
 **Checkpoint A — After iPhone POC (Phase 2).**
-- *Evidence:* iOS POC results table (APP-017).
-- *Pass:* website loads; email login works; **session persists after force-close**; reaches VR; API call works; Vimeo plays; entitlement recognized.
-- *Fail:* session doesn't persist OR login unusable.
+- *Evidence:* iOS POC results table (APP-017), run against a **real Google-origin, subscribed, data-bearing account** using the 15-item acceptance criteria in "APP-007 login posture — 2026-07-17".
+- *Pass:* app shows **email-code login with no Google**; the Google-origin user signs in by email code and resolves to the **same `clerk_user_id`** (no duplicate); entitlement + Victory Room + Current Goal + history + SMS state intact; **session persists after force-close**; Client Trust challenges only once for the new device (not repeatedly); session valid across multiple days; expiry degrades to a clean login (no blank/redirect loop); reaches VR; API call works; Vimeo plays.
+- *Fail:* session doesn't persist, login unusable, duplicate user created, entitlement lost, or repeated new-device challenges.
 - *Decides:* Tyler.
-- *If fail:* try Clerk WebView config/guidance; if still failing, reconsider architecture (native auth adaptation or PWA fallback).
+- *If fail:* try Clerk WebView config/guidance and account-linking; if still failing, reconsider architecture (native auth adaptation or PWA fallback).
 - *Revise hours?* Yes if auth needs custom work.
 
 **Checkpoint B — After Android POC (Phase 3).**
@@ -800,11 +866,11 @@ Deferred: push, native IAP, deep links, offline, redesigns (see parking lot). Re
 - *Evidence:* A+B passed; **Phase 4 production-shell architecture selected (DEC-020 resolved)**; DEC-004 confirmed; `summitt-mindset-mobile` repo created (APP-059). *Pass:* both platforms viable; architecture chosen with rationale; estimate confirmed/revised. *Fail:* unresolved auth or undecided architecture. *Decides:* Tyler. *If fail:* stay in POC or pivot. *Revise hours?* Yes if scope changed.
 
 **Checkpoint D — Before Apple submission (Phase 15).**
-- *Evidence:* TestFlight primary-flow pass; compliance checklist green — **in-app account deletion (APP-041) present and working**, **no in-app selling** (neutral inactive-membership state), App Privacy accurate, external-purchase/reader posture re-verified for the target storefront.
-- *Pass:* flow works on TestFlight; policy posture defensible; deletion + no-in-app-selling confirmed. *Fail:* unresolved 3.1.1/4.2/deletion, or missing in-app deletion. *Decides:* Tyler. *If fail:* add native feature (e.g., push) or adjust posture before submitting. *Revise hours?* Yes if adding push/IAP.
+- *Evidence:* TestFlight primary-flow pass; compliance checklist green — **in-app account deletion (APP-041) present and working**, **no in-app selling** (neutral inactive-membership state), App Privacy accurate, external-purchase/reader posture re-verified for the target storefront; **long-session lifetime raised and verified (APP-064/APP-065 complete — no 7-day forced re-login)**.
+- *Pass:* flow works on TestFlight; policy posture defensible; deletion + no-in-app-selling confirmed; session-lifetime standard met. *Fail:* unresolved 3.1.1/4.2/deletion, missing in-app deletion, or still on 7-day lifetime. *Decides:* Tyler. *If fail:* add native feature (e.g., push) or adjust posture before submitting. *Revise hours?* Yes if adding push/IAP.
 
 **Checkpoint E — Before Google submission (Phase 16).**
-- *Evidence:* closed-track pass (**including the 12-tester/14-day requirement if APP-060 shows it applies**); Data Safety accurate; **in-app account deletion present + external web deletion resource available**; no outside-billing selling in V1. *Pass:* flow works; billing + deletion + data-safety posture compliant. *Fail:* billing/data-safety/deletion issues, or unmet testing requirement. *Decides:* Tyler. *If fail:* fix before submit. *Revise hours?* Possibly.
+- *Evidence:* closed-track pass (**including the 12-tester/14-day requirement if APP-060 shows it applies**); Data Safety accurate; **in-app account deletion present + external web deletion resource available**; no outside-billing selling in V1; **long-session lifetime verified on Android (APP-065)**. *Pass:* flow works; billing + deletion + data-safety + session-lifetime posture compliant. *Fail:* billing/data-safety/deletion issues, unmet testing requirement, or still on 7-day lifetime. *Decides:* Tyler. *If fail:* fix before submit. *Revise hours?* Possibly.
 
 ---
 
@@ -863,8 +929,8 @@ APP-000, APP-001, APP-002, APP-003, APP-004, APP-005, APP-006, APP-007, APP-008,
 Two files: `docs/mobile-app-master-plan.md` (spine + task tracker + decision log + risk register + parking lot) and `docs/mobile-app-session-handoff.md` (append-only session log). Split decision log / risk register into their own files only if they outgrow a screen.
 
 ### EXACT NEXT CURSOR PROMPT
-The next controlled task is **APP-007** (Phase 1 — check the Clerk dashboard for which login methods are enabled: email vs social). APP-003–APP-006 are COMPLETE (see "Policy verification — 2026-07-17"). APP-007 requires Tyler + the Clerk dashboard; it decides the Sign in with Apple (4.8) and OAuth posture and feeds candidate decision DEC-018/APP-061. It does not begin any shell implementation and does not create the `summitt-mindset-mobile` repo.
+APP-003–APP-007 and APP-061 are COMPLETE; DEC-018 is ACTIVE (app-only email-code login) and the long-session standard is recorded (DEC-021). The next controlled task is a **read-only audit of the iPhone proof-of-concept + `summitt-mindset-mobile` bootstrap sequence** (planning the disposable POC of Phase 2 and the eventual repo creation of APP-059) — **no implementation, no packages, no repo creation, no Clerk changes.** It precedes APP-008 / APP-059 and must carry the Phase-2 15-item login acceptance criteria (real Google-origin subscribed account) and the DEC-021 session-lifetime track (APP-062–APP-066).
 
 ---
 
-*End of master plan v1.1. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*
+*End of master plan v1.2. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*
