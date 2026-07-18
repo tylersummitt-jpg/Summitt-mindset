@@ -457,9 +457,9 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Docs: APP-041B1 COMPLETE in repo (not deployed); APP-041B parent IN PROGRESS; APP-041 not COMPLETE.
 
 ### Exact resume point
-- Current: **APP-041B2a** in worktree only (see SESSION 9).
-- After final approval: **`git add .` → commit and push → controlled apply of B1 + B2a migrations → non-production/staging validation** before any public deletion endpoint. Do **not** begin B3 immediately after commit.
-- What must NOT be claimed: account deletion works; migration applied to production; APP-041B/APP-041/B2a complete or deployed.
+- Current: **APP-041B1 + APP-041B2a COMPLETE applied/validated** (see SESSION 10).
+- Exact next: **read-only next-slice audit** (B2b vs B3). Do **not** jump into code; do **not** assume B3 is automatically next.
+- What must NOT be claimed: account deletion works end-to-end; APP-041B/APP-041 complete; any real account was deleted.
 
 ---
 
@@ -472,8 +472,8 @@ Each implementation session appends one new entry at the **bottom** of this file
 - `git rev-parse HEAD` (session start): `69e4930dd4708c22e005823671f6a6c52d43acd1`
 - Mobile repository: **not edited**.
 
-### What changed (uncommitted / unapplied)
-- Migration `20260718130000_account_deletion_sms_suppress.sql` — suppress RPC + CAS `sms_result` + atomic `sms_binding_removed` marker (**not executed** against production).
+### What changed (session record — later committed/applied; see SESSION 10)
+- Migration `20260718130000_account_deletion_sms_suppress.sql` — suppress RPC + CAS `sms_result` + atomic `sms_binding_removed` marker.
 - `suppressSmsForDeletion` orchestrator + deletion guards; START/onboarding/audience anti-resurrection.
 - Coach-job cancel of all nonterminal statuses; shared final pre-send eligibility helper for **both** `commitAndSendInboundCoachReply` and `processInboundSmsSafetyShortCircuit`.
 - Blocked START returns empty TwiML ack (not rejoined wording); STOP unchanged.
@@ -481,7 +481,36 @@ Each implementation session appends one new entry at the **bottom** of this file
 - **No** public deletion API, UI, reauth, Stripe cancel, Clerk user delete, app-data purge, phone hash/HMAC, evidence table, or fake STOP.
 
 ### Exact resume point
-- Exact next action after final approval: **(1)** `git add .` **(2)** commit and push **(3)** controlled application of B1 + B2a migrations **(4)** non-production/staging validation before any public deletion endpoint **(5)** only then the next APP-041 slice.
-- Do **not** begin B3 immediately after commit.
-- APP-041 and APP-041B remain **IN PROGRESS**. Do **not** mark B2a deployed or complete in production.
-- What must NOT be claimed: any user can delete an account; SMS unlink migration applied; B2a production-ready without final approval.
+- Superseded by SESSION 10 (committed/pushed + production apply + validation).
+
+---
+
+## SESSION 10 — 2026-07-18 — APP-041B1/B2a production migration apply + validation (docs)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD`: `723bc6b299230bdf320cc4e6ad04a277507c8d5b`
+- Mobile repository: **not edited**.
+
+### What was recorded (documentation only this session)
+- APP-041B1 committed/pushed earlier; APP-041B2a committed/pushed (HEAD lineage ending `723bc6b…`).
+- Production Supabase applied in order (Success / No rows returned):
+  1. `20260718120000_account_deletion_requests.sql`
+  2. `20260718130000_account_deletion_sms_suppress.sql`
+- Objects verified: `account_deletion_requests`; `acquire_account_deletion_lease`; 16-arg `cas_account_deletion_request`; `suppress_sms_for_account_deletion`.
+- Permissions verified (all three RPCs): anon=false, authenticated=false, service_role=true; CAS+suppress `SECURITY INVOKER`; old 14-arg CAS replaced.
+- Transactional validation: fake Clerk user id only inside `BEGIN`…`ROLLBACK`; real lease → suppressing_sms → suppress RPC `already_absent` → sms_suppressed/`already_done` → lock cleared → ROLLBACK; cleanup zero rows in deletion/identity/audience/coach-job tables.
+- **No real user data touched.**
+
+### Status precision
+- APP-041B1: **COMPLETE and applied/validated**
+- APP-041B2a: **COMPLETE and applied/validated**
+- APP-041B parent: **IN PROGRESS**
+- APP-041 parent: **IN PROGRESS**
+- No public deletion endpoint, Delete Account UI, reauth, Stripe cancel, Clerk delete, or app-data purge. No real account can initiate this workflow.
+
+### Exact resume point
+- Exact next action: **read-only next-slice audit** — inspect remaining work after applied B2a and choose safest next slice (**APP-041B2b** remaining resurrection/regression hardening **or** **APP-041B3** Stripe cancellation/webhook guards). Do **not** jump into code; do **not** assume B3 is automatically next.
+- What must NOT be claimed: APP-041 complete; end-to-end account deletion works; any real account/SMS identity/subscription was deleted or canceled.
