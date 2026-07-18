@@ -332,3 +332,35 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Dependencies: APP-007 (COMPLETE); APP-069 (Google-origin test-account baseline) must precede APP-008; APP-021 remains the production-architecture decision.
 - What must NOT be repeated: do not re-decide DEC-018/DEC-021; do not create the mobile repo in this website repo; do not change Clerk settings; do not treat `server.url` as settled production; do not edit both repos in one task without explicit authorization.
 - What must NOT be touched: SMS system, `supabaseServer`, secrets, `vercel.json`, Clerk/Stripe app code, Victory Room app code, env files, packages/lockfiles.
+
+---
+
+## SESSION 5 — 2026-07-18 — Record Clerk Pro + 180-day production session decision (APP-062–064 COMPLETE; APP-065 IN PROGRESS)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `d242c30a242112c9d7264ebb0a3f10537a7061b0`
+- Mobile repository: exists separately; **not edited** this session.
+
+### Repository state (WEBSITE)
+- Exact `git status --short` (after this documentation session):
+  ```
+   M docs/mobile-app-master-plan.md
+   M docs/mobile-app-session-handoff.md
+  ```
+- Staged?: No · Committed?: No · Pushed?: No
+- `git add .` safety verdict: **SAFE** — documentation only under `docs/`.
+
+### What changed
+- Documentation only in the website repo.
+- Recorded APP-062, APP-063, APP-064 **COMPLETE**; APP-065 **IN PROGRESS**.
+- Added **DEC-022** (180-day max lifetime; inactivity off; Pro upgrade facts).
+- Clarified: prior 7-day ceiling was **Hobby Dashboard** config, not website code; no app/shell code change required.
+- Short-cycle post-change iPhone force-close/reopen → Victory Room PASS recorded; **180-day elapsed persistence explicitly not claimed**.
+
+### Exact resume point
+- Next: **APP-065** elapsed-time long-session validation (do not close from short-cycle alone).
+- Parallel: APP-010, APP-016, APP-069, APP-041.
+- What must NOT be claimed: multi-month / full 180-day persistence proven; session permanent/indefinite.
