@@ -1,5 +1,5 @@
 # SUMMITT MINDSET — MOBILE APP MASTER PLAN
-*Project-control document. Version 1.3. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth). v1.2 (2026-07-17): completed APP-007 + APP-061 with confirmed Clerk dashboard truth; DEC-018 set ACTIVE (app-only first-party email auth on the same Clerk instance); recorded the long-session launch standard (7-day lifetime rejected; 180-day min / ~1yr preferred) and the Google-origin-user POC acceptance criteria. v1.3 (2026-07-17): recorded the mobile-repository bootstrap plan + iPhone POC plan ("iPhone POC + mobile bootstrap plan — 2026-07-17"); added APP-067–APP-070; set exact next task to APP-059 (Tyler creates empty private repo) → APP-067.*
+*Project-control document. Version 1.4.1. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth). v1.2 (2026-07-17): completed APP-007 + APP-061 with confirmed Clerk dashboard truth; DEC-018 set ACTIVE (app-only first-party email auth on the same Clerk instance); recorded the long-session launch standard (7-day lifetime rejected; 180-day min / ~1yr preferred) and the Google-origin-user POC acceptance criteria. v1.3 (2026-07-17): recorded the mobile-repository bootstrap plan + iPhone POC plan ("iPhone POC + mobile bootstrap plan — 2026-07-17"); added APP-067–APP-070; set exact next task to APP-059 (Tyler creates empty private repo) → APP-067. v1.4 (2026-07-17): recorded APP-008 Stage 1 physical-device live-shell POC PASS + APP-070 architecture observations; Candidate A2 is the evidence-backed leading architecture; APP-021 remains open (Android Checkpoint B + formal Phase-4 selection + estimate revise still unmet); Clerk long-session remains a production blocker. v1.4.1 (2026-07-17): strict-completion correction — APP-010 and APP-016 restored to NOT STARTED (Stage 1 observations preserved; full original acceptance stacks not formally proven); APP-008 clarified as intentional evolution into `summitt-mindset-mobile`.*
 
 ---
 
@@ -7,17 +7,17 @@
 
 | Field | Value |
 |---|---|
-| Plan version | 1.3 |
+| Plan version | 1.4.1 |
 | Last verified date | 2026-07-17 |
-| Current phase | Phase 1 complete → preparing Phase 2 (iPhone POC) + Phase 5 repo bootstrap |
-| Current assigned task IDs | (planning recorded) APP-067, APP-068, APP-069, APP-070 |
-| Last completed task IDs | APP-007, APP-061 |
-| Current blocker | None |
-| Production shell architecture | **UNRESOLVED — pending proof of concept.** Capacitor is the leading candidate. `server.url` is NOT approved as final production implementation (it is Capacitor's dev/live-reload configuration). |
-| V1 login posture | **DECIDED (DEC-018 ACTIVE):** app-only first-party **email verification-code** auth on the **same** Clerk instance. Website keeps Google unchanged. App shows no Google/social → no Sign in with Apple needed in V1. Google-origin users sign in by verified-email code (must be POC-proven). |
-| Session-lifetime standard | **7-day lifetime REJECTED for production.** Launch requirement: stay signed in for months — **min 180 days, ~1 year preferred**, inactivity off. Likely needs **Clerk Pro** (operating expense, not eng hours). Final value pending plan verification + security review + real-device proof. |
-| Mobile repository | Separate repo `summitt-mindset-mobile` — **not yet created**. This document lives in the website/SMS repo. |
-| Exact next task | **APP-059** — Tyler creates the empty **private** `summitt-mindset-mobile` GitHub repository (manually unless authenticated tooling is explicitly confirmed), followed by **APP-067** guardrail-document bootstrap. No app/native/Capacitor project; no packages; no Clerk changes. |
+| Current phase | Phase 2 Stage 1 iPhone live-shell POC **PASS** → next: Clerk long-session + remaining Phase-2 formal closures (APP-010, APP-016) + production readiness (APP-021 still open) |
+| Current assigned task IDs | APP-062 (next major), APP-010, APP-016, APP-041, APP-015, APP-018–APP-021, APP-069 |
+| Last completed task IDs | APP-008 (Stage 1 PASS), APP-009, APP-011–APP-014, APP-017, APP-059, APP-070 |
+| Current blocker | **Clerk 7-day max session lifetime** remains a production blocker (DEC-021). **APP-010** (full email-login acceptance stack) and **APP-016** (formal entitlement verification) remain open. Account deletion (APP-041) remains Required for V1. Android unstarted. APP-021 formal architecture decision still open. |
+| Production shell architecture | **Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift `LiveShellViewController` + one native `WKWebView` inside the Capacitor-generated iOS project; live site loaded by the native controller; **no `server.url`**). Candidate B (bare native WKWebView) remains fallback only. **APP-021 not yet COMPLETE** — formal Phase-4 selection + estimate revise + Android path still open. Production use of Capacitor `server.url` remains **prohibited**. |
+| V1 login posture | **DECIDED (DEC-018 ACTIVE):** app-only first-party **email verification-code** auth on the **same** Clerk instance. Website keeps Google unchanged. Stage 1: email-code login **worked** on-device and Victory Room loaded afterward — **valuable evidence, but APP-010 remains NOT STARTED** until the full acceptance stack is formally recorded (Google not shown, Google-origin baseline, same Clerk identity vs APP-069, formal duplicate-user check, relationship-state continuity). Google OAuth remains outside intended V1 app-only email posture. |
+| Session-lifetime standard | **7-day lifetime REJECTED for production.** Force-close + reboot persistence **passed** on-device (Stage 1 / APP-011). **Multi-week / multi-month persistence is NOT claimed.** Long-session configuration (APP-062→APP-065) remains a **production blocker**. Client Trust formal requirements remain with APP-066 / Checkpoint A — **not** claimed as fully passed. |
+| Mobile repository | Separate repo `summitt-mindset-mobile` — **exists**; Stage 1 physical-device POC was run from it (intentional evolution from the original throwaway-outside-repo assumption — see APP-008 notes). This document lives in the website/SMS repo. Do not edit the mobile repo from website-doc tasks. |
+| Exact next task | **APP-062** — Tyler verifies current Clerk Pro pricing + allowed maximum-lifetime behavior (opens the long-session chain APP-062→APP-063→APP-064→APP-065). **Also remain open for later formal evidence closure:** **APP-010**, **APP-016**, and **APP-069**. Parallel: **APP-041** account-deletion design/requirements. Android (APP-018+) only when the iOS path is sufficiently stable. |
 
 > **How to use this document:** This is the single durable control document for the mobile-app project. It is designed so a brand-new ChatGPT conversation or a fresh Cursor session can resume with zero prior context. Read this file plus `docs/mobile-app-session-handoff.md` before doing anything. Never mark a task COMPLETE without recorded evidence. Move every scope addition to the parking lot (§12). Do not touch the SMS system. The production mobile shell lives in a **separate repository** (`summitt-mindset-mobile`); every task must confirm repository identity before editing (see DEC-013–DEC-017).
 
@@ -33,20 +33,20 @@
 - **The website remains the product.** The live Next.js app at `https://summittmindset.com` is the single source of product truth.
 - **The app is a doorway into the website**, not a second product.
 - **One shared web experience must be preserved.** No duplicated screens in native code.
-- **Website changes must automatically appear in the app.** The shell must render the live Summitt Mindset member experience so future website changes appear automatically without a new store submission. **The exact production load mechanism is unresolved and will be chosen at the proof-of-concept architecture checkpoint** — it is NOT assumed to be Capacitor `server.url` (that is a dev/live-reload configuration, not approved production truth).
+- **Website changes must automatically appear in the app.** The shell must render the live Summitt Mindset member experience so future website changes appear automatically without a new store submission. **Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift live `WKWebView` inside the Capacitor-generated iOS project). **APP-021 has not formally closed the production decision.** Capacitor `server.url` remains **prohibited** for production.
 - **The goal is not a native redesign.** No Victory Room / Ask Pat / Film Room redesign as part of this project.
 - **The production mobile shell lives in a separate repository** (`summitt-mindset-mobile`); this website/SMS repo remains the current-business source of truth.
 
 ### PERMANENT MISSION STATEMENT (paste at the top of every future Cursor prompt)
 
-> **Summitt Mindset Mobile App Mission:** We are building a polished iPhone + Android app that is a high-quality native shell around the live Summitt Mindset member experience (`https://summittmindset.com`) — NOT a separate native rewrite. The shell must render the live site so web changes appear automatically without a new store submission. **Capacitor is the leading candidate** for project management, native plugins, and shell functionality, but the final production shell architecture is **unresolved pending proof of concept** (candidates: Capacitor with a purpose-built production WebView; a minimal direct native iOS `WKWebView` + Android WebView shell; or a superior evidence-backed production-safe hybrid). `server.url` is NOT approved as the final production implementation. The app must let a member tap the icon, stay signed in via Clerk, and land directly in Victory Room (`/dashboard/victory-room`). The production shell lives in a **separate repo** (`summitt-mindset-mobile`); this is the website/SMS repo. We are NOT building native screens, NOT duplicating website screens, NOT pivoting to React Native, NOT redesigning any product surface, NOT touching the SMS system, and NOT adding features just because mobile apps usually have them. Every task must be justified by: "Is this required to let a member download the app, tap the icon, remain signed in, and enter the existing Victory Room safely and reliably?"
+> **Summitt Mindset Mobile App Mission:** We are building a polished iPhone + Android app that is a high-quality native shell around the live Summitt Mindset member experience (`https://summittmindset.com`) — NOT a separate native rewrite. The shell must render the live site so web changes appear automatically without a new store submission. **Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift `LiveShellViewController` + one native `WKWebView` inside the Capacitor-generated iOS project; live load by the native controller; no CapBridge as the visible root). Candidate B (bare native WKWebView/Android WebView) remains the fallback only if a later blocker appears. **APP-021 formal Phase-4 close is still open.** Capacitor `server.url` is NOT approved as the final production implementation. The app must let a member tap the icon, stay signed in via Clerk, and land directly in Victory Room (`/dashboard/victory-room`). The production shell lives in a **separate repo** (`summitt-mindset-mobile`); this is the website/SMS repo. We are NOT building native screens, NOT duplicating website screens, NOT pivoting to React Native, NOT redesigning any product surface, NOT touching the SMS system, and NOT adding features just because mobile apps usually have them. Every task must be justified by: "Is this required to let a member download the app, tap the icon, remain signed in, and enter the existing Victory Room safely and reliably?"
 
 ---
 
 ## 2. NON-NEGOTIABLE ARCHITECTURE PRINCIPLES
 
 1. **One product codebase + a separate shell repository.** The Next.js website is the product and must preserve the one-codebase strategy. The mobile shell is a thin native wrapper that **must live in its own dedicated repository** (`summitt-mindset-mobile`) — never inside this website/SMS repo. No website secrets or server code may be copied into the mobile repo.
-2. **Reuse the website directly** by rendering the live site so deploys to Vercel appear in the app automatically. The **exact production load mechanism is a proof-of-concept decision (see §7 Phase 2/4, DEC-020)** — Capacitor is the leading candidate, but `server.url` (a dev/live-reload setting) is NOT approved as final production truth, and a minimal direct native `WKWebView`/Android WebView shell remains a candidate.
+2. **Reuse the website directly** by rendering the live site so deploys to Vercel appear in the app automatically. **Candidate A2 is the selected leading architecture based on current physical-device evidence** (see APP-070 / DEC-020). Capacitor `server.url` (a dev/live-reload setting) is **NOT** approved production truth. Candidate B (bare native `WKWebView`/Android WebView) remains fallback only. **APP-021 formal close still open.**
 3. **Do not duplicate screens natively and do not pivot to React Native.** No native Victory Room, Ask Pat, Film Room, account, or auth screens; no RN rewrite. Any architecture decision must preserve the one-codebase product strategy.
 4. **Keep server secrets and server-only code on the server.** Never move `supabaseServer` (`src/lib/supabase-server.ts`, `import "server-only"`, service-role key), Clerk secret, Stripe secret, OpenAI, or Twilio into the app bundle. The app only ever talks to the site over HTTPS.
 5. **Do not disturb SMS.** No app task may edit `src/lib/*sms*`, `src/lib/v2-*`, `src/lib/v3-*`, `src/app/api/cron/*`, `src/app/api/twilio/*`, or `vercel.json` crons. SMS is off-limits.
@@ -59,7 +59,7 @@
 12. **Every task confirms repository identity before editing** (`git rev-parse --show-toplevel`, `git remote -v`, `git branch --show-current`, `git status --short`) and stops without editing if the repo is wrong.
 13. **Every repository receives its own `git status --short` and its own `git add .` safety verdict.** Verdicts are per-repo; a clean website repo says nothing about the mobile repo and vice versa.
 14. **No website secrets, `.env` values, or server-only code (e.g., `supabaseServer`, service-role keys, Clerk/Stripe/OpenAI/Twilio secrets) may be copied into the mobile repository.** The shell talks to the site only over HTTPS.
-15. **The final production shell architecture stays unresolved until the POC checkpoint decides it** (§7 Phase 4); no phase may hard-code a production dependency on `server.url` before then.
+15. **Candidate A2 is the selected leading architecture based on current physical-device evidence**; formal production close remains **APP-021**. No phase may hard-code a production dependency on `server.url`.
 
 ---
 
@@ -180,14 +180,14 @@ The prior audit described production use of `Capacitor server.url = https://summ
 
 1. The production mobile shell will live in a **separate repository** tentatively named `summitt-mindset-mobile`.
 2. The shell must **render the live Summitt Mindset member experience** so future website changes automatically appear in the app.
-3. **Capacitor remains a candidate** (leading) for project management, native plugins, and shell functionality.
-4. **`server.url` is NOT approved** as the final production implementation.
-5. The **final production architecture is unresolved** until the proof of concept compares: (a) Capacitor with a purpose-built production WebView; (b) a minimal direct native iOS `WKWebView` + Android WebView shell; (c) any superior production-safe hybrid architecture supported by evidence.
+3. **Capacitor remains a candidate** for the generated iOS/Android project host; **Candidate A2** (custom Swift live `WKWebView` inside that project) is the evidence-backed **leading** architecture after Stage 1.
+4. **`server.url` is NOT approved** as the final production implementation — production use remains **prohibited**.
+5. **APP-021 formal close remains open.** Stage 1 evidence selects Candidate A2 as leading; Candidate B (bare native WKWebView/Android WebView) remains fallback only if a later blocker appears.
 6. Do **not** pivot to React Native or duplicate website screens.
-7. The POC must determine which shell provides: reliable Clerk session persistence, automatic live website updates, proper native navigation/link handling, the strongest App Store approval posture, and the lowest maintenance burden.
+7. Remaining APP-021 gates: Android Checkpoint B (or explicit iOS-first amendment), estimate confirm/revise, and formal DEC-020 close.
 8. Any architecture decision must preserve the one-codebase product strategy.
 
-See DEC-020 (decision log) and RISK-19 (risk register). Every place that previously presented `server.url` as settled production truth has been reclassified — see the final response §5 for the change list.
+See DEC-020 (decision log) and RISK-19 (risk register). Stage 1 evidence is recorded in "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17".
 
 ---
 
@@ -379,6 +379,100 @@ Run against a **real dedicated subscribed test account originally created throug
 
 ---
 
+## APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17
+
+*Documentation-only record in the website master tracker. Evidence was manually verified on a **physical iPhone** in the separate `summitt-mindset-mobile` repository. No private identifiers (email, Clerk user id, codes, Apple/Team IDs, device UDID, Ask Pat content, Victory Room/goal text, screenshots, cookies, or trace IDs) are stored here. SMS behavior and website product logic were **not** changed by the mobile POC.*
+
+### APP-008 implementation-location clarification (intentional evolution)
+- Original Phase-2 plan assumed a **disposable throwaway** POC **outside** the eventual production mobile repo.
+- Stage 1 was instead implemented in the dedicated **`summitt-mindset-mobile`** repository.
+- That location change is an **intentional evolution**, documented here — not silent rewrite of history.
+- **APP-008 COMPLETE** reflects the working physical-device POC and its recorded results (below).
+- **APP-069 remains separately governed** by its own acceptance criteria and stays **NOT STARTED** unless/until its baseline capture is formally completed. This documentation task does **not** complete APP-069.
+
+### Architecture tested (APP-070)
+- Capacitor-generated iOS project
+- Custom Swift `LiveShellViewController`
+- Exactly one native `WKWebView`
+- `WKWebsiteDataStore.default()`
+- Live website loaded **directly by the native controller**
+- **No Capacitor `server.url`**
+- Victory Room as initial destination
+- Existing website remains the product / source of truth
+
+### Candidate selection language
+**Candidate A2 is the selected leading architecture based on current physical-device evidence:** a custom Swift `WKWebView` live shell inside the Capacitor-generated iOS project (not CapBridge as the visible root).
+
+**Why A2 leads (evidence-backed, not risk-free):**
+- One persistent native `WKWebView`
+- First-party Clerk session survived ordinary lifecycle, force-close, and full iPhone reboot testing
+- Live website remains the single product source of truth
+- No duplicated native product screens
+- No `server.url` dependency
+- Video, forms, keyboard, navigation, one controlled write (Ask Pat), and offline retry worked on-device
+- Preserves Capacitor-generated project structure for later native capabilities while avoiding CapBridge as the visible root
+
+**Candidate B** (bare native WKWebView / Android WebView shell) remains the **fallback only if a later blocker appears**. Production use of Capacitor `server.url` remains **prohibited**.
+
+**This does not mean all production risks are resolved.** APP-021 (formal Phase-4 go/no-go + architecture selection + estimate confirm/revise) remains **open**.
+
+### Stage 1 verified results (APP-008 — PASS)
+| # | Result | Status |
+|---|---|---|
+| 1 | Live Summitt Mindset sign-in page rendered inside the app | PASS |
+| 2 | Email verification-code authentication succeeded for the existing test account | PASS |
+| 3 | Victory Room loaded with expected test-account data | PASS |
+| 4 | No duplicate-user symptom was observed | PASS |
+| 5 | Immediate force-close persistence passed | PASS |
+| 6 | Repeated force-close and reopen passed | PASS |
+| 7 | Full iPhone reboot persistence passed | PASS |
+| 8 | No visible sign-in flash occurred | PASS |
+| 9 | No white or blank launch screen occurred | PASS |
+| 10 | No unusual launch delay was observed | PASS |
+| 11 | Internal navigation remained inside the app | PASS |
+| 12 | Film Room video playback passed | PASS |
+| 13 | Audio, play/pause, full-screen, and exit from full-screen passed | PASS |
+| 14 | Ask Pat layout and keyboard behavior passed | PASS |
+| 15 | One controlled Ask Pat submission returned exactly one response with no observed duplicate submission | PASS |
+| 16 | Offline launch displayed the designed connection-error state instead of a blank screen | PASS |
+| 17 | Restoring connectivity and tapping Try Again returned to Victory Room while preserving authentication | PASS |
+| 18 | Account/settings and visible test-account information appeared correct | PASS |
+| 19 | Left-edge back navigation behaved normally | PASS |
+| 20 | Backgrounding and resuming the app behaved normally | PASS |
+
+**APP-008 Stage 1 live-shell POC: PASS.** **APP-070: COMPLETE** (architecture tested + observations recorded above).
+
+### Strict completion truth (v1.4.1)
+- **COMPLETE means the task’s original acceptance criteria were fully satisfied.** Stage 1 observations alone do not close every related Phase-2 task.
+- **APP-010 remains NOT STARTED.** Email verification-code authentication **worked** on a physical iPhone and Victory Room loaded afterward — that evidence is preserved and is **not** invalid. The broader pre-existing acceptance stack is **not** formally recorded as proven: app-only sign-in posture with Google not shown; confirmation against the Google-origin baseline; exact same Clerk user identity against the APP-069 baseline; formal duplicate-user verification; relevant existing relationship-state continuity.
+- **APP-016 remains NOT STARTED.** The existing subscribed test account reached the expected authenticated Victory Room and account surfaces — that observation is preserved and does **not** mean entitlement failed. Entitlement recognition was **inferred from UI access**, not formally verified against authoritative Clerk/`publicMetadata` (or equivalent) truth, the recorded baseline, or an unsubscribed negative control.
+- **Do not imply:** all Phase-2 authentication acceptance is closed; same-Clerk-user identity was formally proven; entitlement verification is complete; APP-069 was completed; every Client Trust requirement passed.
+
+### Explicit claim boundaries (do NOT over-claim)
+- **Not claimed:** multi-week or multi-month persistence; that Clerk’s current 7-day maximum session lifetime is resolved; Google OAuth support; Android support; account deletion completion; push notifications; full external-link coverage; complete App Store readiness; exhaustive testing of every website page; exhaustive testing of every member-data write; that SMS behavior was exercised or changed; that APP-010 / APP-016 / APP-069 are complete; that Client Trust formal gates fully passed.
+- **Preserved production blockers / open work:** Clerk long-session configuration (APP-062→APP-065) remains a **production blocker**; **APP-010** and **APP-016** require later formal evidence closure; **APP-069** remains open; account deletion (APP-041) remains a **production requirement**; Android remains **unstarted**; Google OAuth remains outside the intended V1 app-only email posture; external-link handling was **not meaningfully exercised** (APP-015 remains open); longer-duration persistence remains **unproven**; broader production-readiness and App Store work remains; SMS behavior and website product logic were **not** changed by the mobile POC.
+
+### APP-021 status after this evidence
+**APP-021 remains NOT STARTED / open.** Evidence supports selecting Candidate A2 as the **leading** architecture, but the master plan’s Phase-4 acceptance criteria are not fully met yet.
+
+**Smallest remaining requirement for APP-021:**
+1. Formally record Checkpoint A closure against APP-017 evidence (this section) **after** APP-010 / APP-016 formal closures are decided or explicitly scoped out of Checkpoint A, **and**
+2. Either complete Android Checkpoint B (APP-018→APP-020) **or** explicitly amend APP-021 dependencies to allow an **iOS-first** architecture selection with Android deferred, **and**
+3. Confirm or revise the hour estimate with recorded reason, **and**
+4. Update DEC-020 from “open / unresolved” to the formal selected production shell.
+
+Until those steps are done, do **not** treat DEC-020 as closed and do **not** mark APP-021 COMPLETE.
+
+### Next master-plan work block (priority order)
+1. **Clerk long-session resolution** — APP-062 → APP-063 → APP-064 → APP-065 (production blocker; **exact next major task = APP-062**).
+2. **Later formal Phase-2 evidence closure (do not drop from remaining work):** **APP-010** (full email-login acceptance stack), **APP-016** (formal entitlement verification), **APP-069** (private Google-origin baseline capture).
+3. **Account deletion requirements/design** — APP-041 (Required for V1 / store submission).
+4. **Remaining production-readiness and App Store requirements** — privacy/data-safety (APP-042), purchase messaging (APP-040), icons/splash/screenshots, TestFlight path (APP-049+), etc.
+5. **Broader controlled physical-device testing** — including APP-015 external-link policy when a natural link surface is available; multi-day session checks; Client Trust (APP-066) — **not** claimed as already fully passed.
+6. **Android only when the iOS path is sufficiently stable** — APP-018→APP-020 (and later Android production shell work).
+
+---
+
 ## 5. BIGGEST UNKNOWNS (ranked)
 
 > All platform-policy items are **LABELED: REQUIRES CURRENT-DOCUMENTATION VERIFICATION** — do not treat as settled fact.
@@ -386,27 +480,29 @@ Run against a **real dedicated subscribed test account originally created throug
 **U1 — Clerk session persistence inside iOS WKWebView (HIGHEST).**
 - *Why:* The entire "stay signed in, no re-login" promise depends on Clerk cookies/session surviving in WKWebView across force-close. Clerk is cookie/session based (`@clerk/nextjs`).
 - *Two distinct factors:* **(a)** does the WebView persist the session cookie across force-close? and **(b)** the Clerk **maximum session lifetime** ceiling — currently **7 days**, which is **rejected for production** (DEC-021). Even perfect cookie persistence cannot exceed the lifetime ceiling, so the long-session standard (min 180 days / ~1yr) requires raising the Clerk lifetime (likely **Clerk Pro**) in a separately-approved settings task (APP-064) and re-verifying on device (APP-065).
-- *Test early:* Phase 2 (first thing).
+- *Stage 1 evidence (2026-07-17):* Factor **(a) PASS** on physical iPhone under Candidate A2 — immediate force-close, repeated force-close, and **full reboot** persistence passed; no sign-in flash; offline retry preserved auth. Factor **(b) remains OPEN / production blocker** — 7-day lifetime not resolved; multi-week/multi-month persistence **not claimed**.
+- *Test early:* Phase 2 (first thing) — Stage 1 done for (a).
 - *Cheapest test:* throwaway Capacitor iOS app loading the live `/sign-in`, log in, force-close, reopen, hit `/dashboard/victory-room`.
 - *Pass:* reopening lands in Victory Room without re-login for at least a normal session lifetime; and (later) stays signed in across the selected long-term window.
 - *Fail consequence:* users re-login constantly → core value destroyed.
 - *Backup:* Clerk WebView/native guidance, custom cookie persistence config, or (last resort) `@clerk/clerk-expo`-style native auth (major scope change). *REQUIRES CLERK-DOC VERIFICATION.*
-- *Hours at risk:* 10–24.
+- *Hours at risk:* 10–24 (remaining risk is primarily lifetime configuration + long-duration proof, not short-cycle cookie survival).
 
 **U2 — Clerk session persistence inside Android WebView.**
-- Same as U1 for Android WebView (different cookie/storage behavior). Test in Phase 3. Hours at risk: 6–16.
+- Same as U1 for Android WebView (different cookie/storage behavior). Test in Phase 3. **Android remains unstarted.** Hours at risk: 6–16.
 
 **U3 — Clerk OAuth / social-login behavior in WebView. RESOLVED for V1 (2026-07-17).**
 - *Finding (APP-007):* Google IS enabled on the shared Clerk instance and Apple is NOT. But **V1 hides social in the app and uses email-code only (DEC-018 ACTIVE)**, so **OAuth-in-WebView return handling is out of scope for V1** and Sign in with Apple is not required. The website keeps Google. OAuth-return work (APP-029) is only needed if the app ever chooses to show social (DEC-018 revisit trigger).
-- *Residual to prove:* an existing **Google-origin** user can sign in by **email code** without creating a duplicate (RISK-22) — covered by the Phase 2 POC acceptance criteria. Hours at risk (V1): ~0–4.
+- *Stage 1 residual (APP-010 still OPEN):* email-code login for the existing test account **worked** on-device and Victory Room loaded afterward — valuable evidence, **not** invalid. **APP-010 remains NOT STARTED** because the full acceptance stack is not formally recorded (Google not shown; Google-origin baseline; same Clerk identity vs APP-069; formal duplicate-user verification; relationship-state continuity). Google OAuth remains **outside** intended V1 app-only email posture. Hours at risk (V1): ~0–4.
 
 **U4 — Redirect/callback behavior (middleware, post-sign-in, subscribe returns).**
 - *Why:* `middleware.ts` redirects unauth → `/sign-in`; `post-sign-in` chains redirects; Stripe returns to `/subscribe/success`. Redirect chains can loop or break in a WebView.
-- *Test:* Phase 2. *Pass:* full logged-out→VR chain completes. *Backup:* app-signal-gated simplified entry route. Hours at risk: 3–10.
+- *Stage 1:* live sign-in → Victory Room path worked on-device; broader subscribe-return chains not exhaustively claimed. *Pass:* full logged-out→VR chain completes. *Backup:* app-signal-gated simplified entry route. Hours at risk: 3–10.
 
 **U5 — Which production shell renders the live site best (architecture unresolved)?**
 - *Why:* The "auto-update" mandate requires the shell to render the live site. **This does NOT dictate `server.url`** — that is Capacitor's dev/live-reload config, not approved production truth (see Architecture correction 2026-07-17, DEC-020). The POC must compare Capacitor-with-production-WebView vs a minimal native `WKWebView`/Android WebView shell (and any superior hybrid). Rendering the live site maximizes reuse but increases Apple 4.2 "just a website" risk.
-- *Test:* Phase 1 (policy, done) + Phase 2/4 (technical + architecture decision). *Pass:* a candidate loads reliably, persists Clerk sessions, handles navigation/links, and is store-defensible. *Backup:* native-shell candidate; add native features. Hours at risk: 4–12. **VERIFY at Phase 4 checkpoint.**
+- *Stage 1 evidence (2026-07-17):* **Candidate A2** (custom Swift `LiveShellViewController` + one native `WKWebView` inside Capacitor-generated iOS project; live load by native controller; **no `server.url`**) is the **selected leading architecture based on current physical-device evidence**. Candidate B remains fallback only. **APP-021 / DEC-020 formal close still open** (Android Checkpoint B + estimate revise unmet).
+- *Test:* Phase 1 (policy, done) + Phase 2/4 (technical + architecture decision). *Pass:* a candidate loads reliably, persists Clerk sessions, handles navigation/links, and is store-defensible. *Backup:* native-shell candidate; add native features. Hours at risk: 4–12. **VERIFY at Phase 4 checkpoint (APP-021).**
 
 **U6 — Cookies & middleware inside the wrapper (credentialed same-origin fetch).**
 - *Why:* Client fetches (`ask-pat-client.tsx` uses `fetch("/api/ask-pat")`; subscribe uses `credentials: "include"`). WebView cookie policy must allow these.
@@ -426,7 +522,7 @@ Run against a **real dedicated subscribed test account originally created throug
 **U9 — Google Play subscription policy. VERIFIED 2026-07-17 (region-dependent, re-verify before submission).**
 - *Finding (APP-006):* Existing subscribers access previously purchased membership; do **not** sell subscriptions via outside billing in V1; Play Billing rules differ from Apple and external-billing latitude is region-dependent. Hours at risk: 4–20. **Re-VERIFY before submission.**
 
-**U10 — Web-purchased subscription access inside app.** Structurally fine (entitlement in Clerk metadata via webhook). Verify in Phase 2 with a subscribed test account. Hours at risk: 1–3.
+**U10 — Web-purchased subscription access inside app.** Structurally fine (entitlement in Clerk metadata via webhook). Verify in Phase 2 with a subscribed test account. Hours at risk: 1–3. *Stage 1:* subscribed test account reached expected authenticated VR/account surfaces (UI-inferred). **APP-016 remains NOT STARTED** — formal Clerk/`publicMetadata` (or equivalent) verification, baseline compare, and negative control not recorded.
 
 **U11 — Account deletion compliance. VERIFIED 2026-07-17 — resolved into a requirement.** Apple 5.1.1(v) requires an **in-app deletion path** when the app supports account creation; Google requires **both** in-app **and** an external web resource. Current page is email-only (`data-deletion/page.tsx`) and is **insufficient**. **In-app deletion is now Required for V1** (§3, APP-041). Hours at risk: 3–12. *(No longer an open unknown; it is scoped work.)*
 
@@ -703,20 +799,20 @@ Run against a **real dedicated subscribed test account originally created throug
 | APP-005 | 1 | WEBSITE | Verify Apple account-deletion (5.1.1(v)) + Sign in with Apple (4.8) triggers | COMPLETE | 0.5 | NOT RECORDED | APP-002 | "Policy verification — 2026-07-17" section + official sources | In-app deletion now Required for V1; email-login avoids 4.8 |
 | APP-006 | 1 | WEBSITE | Verify Google Play Billing + account deletion + data safety + new-account closed-test rules | COMPLETE | 0.5 | NOT RECORDED | APP-002 | "Policy verification — 2026-07-17" section + official sources | 12-tester/14-day rule may apply; Tyler must confirm account (APP-060) |
 | APP-007 | 1 | WEBSITE | Check Clerk dashboard: which login methods are enabled (email/social) | COMPLETE | 0.5 | NOT RECORDED | APP-005 | "APP-007 login posture — 2026-07-17" section (confirmed 2026-07-17 dashboard screenshots + repo audit) | Google enabled, Apple not, email-code enabled, 7-day lifetime, Client Trust on, deletion new-users-only/existing unknown |
-| APP-008 | 2 | POC | Create disposable throwaway iOS POC (NOT `summitt-mindset-mobile`, NOT production); repo-identity precheck | NOT STARTED | 1.5 | | APP-059,APP-067,APP-069 | | Disposable; does not settle production shell. **Requires the Google-origin test-account baseline (APP-069) first.** APP-070 is recorded during this task |
-| APP-009 | 2 | POC | Load production URL `/dashboard/victory-room` on iOS device | NOT STARTED | 0.5 | | APP-008 | | |
-| APP-010 | 2 | POC | Test Clerk email login on iOS | NOT STARTED | 0.5 | | APP-009 | | U3 |
-| APP-011 | 2 | POC | Test session persistence after iOS force-close/reopen | NOT STARTED | 0.5 | | APP-010 | | U1 (critical) |
-| APP-012 | 2 | POC | Test reaching Victory Room authed on iOS | NOT STARTED | 0.5 | | APP-011 | | |
-| APP-013 | 2 | POC | Test authenticated API call (Ask Pat) on iOS | NOT STARTED | 0.5 | | APP-012 | | U6 |
-| APP-014 | 2 | POC | Test Vimeo playback on iOS | NOT STARTED | 0.5 | | APP-012 | | U13 |
-| APP-015 | 2 | POC | Test external-link behavior on iOS | NOT STARTED | 0.5 | | APP-012 | | U15 |
-| APP-016 | 2 | POC | Test subscribed-account entitlement recognized on iOS | NOT STARTED | 0.5 | | APP-012 | | U10 |
-| APP-017 | 2 | POC | Record iOS POC results table + captures | NOT STARTED | 0.5 | | APP-009,APP-010,APP-011,APP-012,APP-013,APP-014,APP-015,APP-016 | | Feeds Checkpoint A |
-| APP-018 | 3 | POC | Create throwaway Android POC + run emulator/device | NOT STARTED | 1.5 | | APP-017 | | |
+| APP-008 | 2 | POC | Create disposable throwaway iOS POC (NOT production); repo-identity precheck | COMPLETE | 1.5 | NOT RECORDED | APP-059,APP-067,APP-069 | "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17" | **Stage 1 live-shell POC: PASS** on physical iPhone. **Intentional evolution:** implemented in dedicated `summitt-mindset-mobile` (not the original throwaway-outside-repo assumption). Completion reflects the working physical-device POC + recorded results. Does **not** mark APP-069 complete; does not settle APP-021 / DEC-020 |
+| APP-009 | 2 | POC | Load production URL `/dashboard/victory-room` on iOS device | COMPLETE | 0.5 | NOT RECORDED | APP-008 | Stage 1 evidence § results 1, 3 | Live site + Victory Room initial destination verified |
+| APP-010 | 2 | POC | Test Clerk email login on iOS | NOT STARTED | 0.5 | | APP-009 | Stage 1 evidence § results 1–2 (preserved): email verification-code auth **worked** on physical iPhone; Victory Room loaded afterward | **OPEN.** Stage 1 email-code test remains valuable and is **not** invalid. FULL acceptance stack **not** formally recorded as proven: app-only posture with Google not shown; Google-origin baseline confirmation; exact same Clerk user identity vs APP-069 baseline; formal duplicate-user verification; relationship-state continuity. Google OAuth not claimed |
+| APP-011 | 2 | POC | Test session persistence after iOS force-close/reopen | COMPLETE | 0.5 | NOT RECORDED | APP-010 | Stage 1 evidence § results 5–7, 20 | Force-close, repeated force-close, and full reboot PASS. Multi-week/month NOT claimed; 7-day lifetime still a blocker. (Depends-on APP-010 reflects sequence; APP-010 formal acceptance remains separately open) |
+| APP-012 | 2 | POC | Test reaching Victory Room authed on iOS | COMPLETE | 0.5 | NOT RECORDED | APP-011 | Stage 1 evidence § results 3, 17–18 | VR + account/settings appeared correct |
+| APP-013 | 2 | POC | Test authenticated API call (Ask Pat) on iOS | COMPLETE | 0.5 | NOT RECORDED | APP-012 | Stage 1 evidence § results 14–15 | Layout/keyboard PASS; one controlled submission → one response; no private content recorded |
+| APP-014 | 2 | POC | Test Vimeo playback on iOS | COMPLETE | 0.5 | NOT RECORDED | APP-012 | Stage 1 evidence § results 12–13 | Film Room playback + audio/play-pause/fullscreen PASS |
+| APP-015 | 2 | POC | Test external-link behavior on iOS | NOT STARTED | 0.5 | | APP-012 | | **Not meaningfully exercised** — tested surfaces exposed no natural external link. Remains open |
+| APP-016 | 2 | POC | Test subscribed-account entitlement recognized on iOS | NOT STARTED | 0.5 | | APP-012 | Stage 1 evidence § results 3, 18 (preserved): existing subscribed test account reached expected authenticated Victory Room and account surfaces | **OPEN.** Does **not** claim entitlement failed. Entitlement recognition was **inferred from UI access**, not formally verified against Clerk/`publicMetadata` (or equivalent) truth, the recorded APP-069 baseline, or an unsubscribed negative control |
+| APP-017 | 2 | POC | Record iOS POC results table + captures | COMPLETE | 0.5 | NOT RECORDED | APP-009,APP-011,APP-012,APP-013,APP-014 | "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17" (20-row results table) | Feeds Checkpoint A. No private captures committed to Git. Records Stage 1 observations including login/entitlement UI outcomes; **APP-010, APP-015, APP-016 remain open** for formal acceptance closure |
+| APP-018 | 3 | POC | Create throwaway Android POC + run emulator/device | NOT STARTED | 1.5 | | APP-017 | | Android remains unstarted — defer until iOS path is sufficiently stable |
 | APP-019 | 3 | POC | Repeat critical checklist on Android (login/persist/VR/API/Vimeo) | NOT STARTED | 2 | | APP-018 | | U2 |
 | APP-020 | 3 | POC | Record Android POC results table | NOT STARTED | 0.5 | | APP-019 | | Feeds Checkpoint B |
-| APP-021 | 4 | WEBSITE | Architecture go/no-go **+ production-shell selection** + estimate confirm/revise | NOT STARTED | 1 | | APP-017,APP-020 | | Checkpoint (§17); resolves DEC-020 |
+| APP-021 | 4 | WEBSITE | Architecture go/no-go **+ production-shell selection** + estimate confirm/revise | NOT STARTED | 1 | | APP-017,APP-020 | | **OPEN.** Candidate A2 is evidence-backed **leading** architecture, but Phase-4 criteria not fully met: Android Checkpoint B unmet (or needs explicit iOS-first amendment), estimate not yet revised, DEC-020 not formally closed. See evidence § "APP-021 status" |
 | APP-022 | 5 | MOBILE | Bootstrap the separate `summitt-mindset-mobile` repo + create production shell (iOS+Android) per Phase-4 architecture, bundle IDs; repo-identity precheck | NOT STARTED | 3 | | APP-021,APP-059 | | Depends on APP-059 repo creation |
 | APP-023 | 5 | MOBILE | Configure the Phase-4-selected production load mechanism (render live site) — NOT assumed `server.url` | NOT STARTED | 1 | | APP-022 | | `server.url` only with recorded Phase-4 justification |
 | APP-024 | 5 | MOBILE | Status bar + safe-area handling both platforms | NOT STARTED | 2 | | APP-023 | | |
@@ -754,32 +850,32 @@ Run against a **real dedicated subscribed test account originally created throug
 | APP-056 | 17 | MOBILE | Respond to review feedback (buffer) | NOT STARTED | 7 | | APP-054,APP-055 | | |
 | APP-057 | 18 | MOBILE | Define post-launch monitoring + web-deploy smoke check | NOT STARTED | 3 | | APP-056 | | U17; smoke check touches website repo (separate cycle) |
 | APP-058 | all | WEBSITE | Maintain master plan + handoff each session | NOT STARTED | 3 | | APP-000 | | ongoing |
-| APP-059 | 5 | MOBILE/TYLER | Create the **empty private** `summitt-mindset-mobile` GitHub repository (Tyler creates it manually unless authenticated tooling is explicitly confirmed); clone outside the website repo | NOT STARTED | 1 | | APP-061 | | **EXACT NEXT TASK.** Empty repo only — no app/native/Capacitor; blocks APP-067 and APP-022. Can proceed now (does not wait for APP-021) |
+| APP-059 | 5 | MOBILE/TYLER | Create the **empty private** `summitt-mindset-mobile` GitHub repository (Tyler creates it manually unless authenticated tooling is explicitly confirmed); clone outside the website repo | COMPLETE | 1 | NOT RECORDED | APP-061 | Stage 1 POC ran from the separate mobile repository | Repo exists; Stage 1 physical-device evidence recorded in website master plan. Website-doc tasks must not edit the mobile repo |
 | APP-060 | 1 | WEBSITE | Tyler confirms Google Play account type + creation date (12-tester/14-day applicability) | NOT STARTED | 0.5 | | APP-006 | | Tyler + Play Console |
 | APP-061 | 6 | WEBSITE | Finalize V1 login posture (email-only vs social) after APP-007; record decision | COMPLETE | 0.5 | NOT RECORDED | APP-007 | "APP-007 login posture — 2026-07-17" section: DEC-018 ACTIVE (app-only email-code, same instance); mechanism hierarchy + 15-item POC acceptance criteria recorded. Documentation/decision only — implementation is Phase 6 |
-| APP-062 | 1 | WEBSITE | Tyler verifies current Clerk Pro pricing + allowed maximum-lifetime behavior | NOT STARTED | 0.5 | | APP-007 | | Operating expense, not eng hours; needed for DEC-021 long-session standard |
-| APP-063 | 4 | WEBSITE | Decide final production session lifetime after POC evidence (target 180d min / ~1yr) | NOT STARTED | 0.5 | | APP-017,APP-062 | | Security review + POC evidence; do not promise "forever" |
+| APP-062 | 1 | WEBSITE | Tyler verifies current Clerk Pro pricing + allowed maximum-lifetime behavior | NOT STARTED | 0.5 | | APP-007 | | **EXACT NEXT TASK.** Operating expense, not eng hours; needed for DEC-021 long-session standard. Production blocker chain starts here |
+| APP-063 | 4 | WEBSITE | Decide final production session lifetime after POC evidence (target 180d min / ~1yr) | NOT STARTED | 0.5 | | APP-017,APP-062 | | Security review + POC evidence; do not promise "forever". Stage 1 proved short-cycle persistence only |
 | APP-064 | 6 | MOBILE | Change Clerk maximum session lifetime — **separately-approved Clerk-settings task** | NOT STARTED | 0.5 | | APP-063 | | Affects website too; change carefully; not part of this or any doc task |
-| APP-065 | 6 | MOBILE | Verify the new lifetime on iPhone + Android (stays signed in across long-term window) | NOT STARTED | 1 | | APP-064 | | Must pass before store submission |
+| APP-065 | 6 | MOBILE | Verify the new lifetime on iPhone + Android (stays signed in across long-term window) | NOT STARTED | 1 | | APP-064 | | Must pass before store submission. Multi-month persistence still unproven |
 | APP-066 | 6 | MOBILE | Confirm Client Trust does not repeatedly challenge the same app installation | NOT STARTED | 1 | | APP-027,APP-028 | | RISK-23; tie to WebView `__client` cookie persistence |
-| APP-067 | 5 | MOBILE | Add mobile-repo `README.md`, `.gitignore`, `docs/mobile-repo-guardrails.md`, `docs/mobile-session-handoff.md`, `docs/architecture-decision.md` (decision placeholder) | NOT STARTED | 1 | | APP-059 | | Guardrail-document bootstrap; no app/native/Capacitor code. Follows APP-059. Own repo-identity + `git add .` verdict in the mobile repo |
-| APP-068 | 5 | MOBILE | Record the architecture comparison matrix in `docs/architecture-decision.md`; **final choice pending Phase 4 (APP-021)** | NOT STARTED | 0.5 | | APP-067 | | Documents Capacitor vs native WKWebView/Android WebView; does NOT select production shell (APP-021 does) |
-| APP-069 | 2 | TYLER | Capture a **private** Google-origin subscribed test-account baseline (clerk_user_id, primary email, publicMetadata entitlement, Victory Room/goal state, total Clerk user count) | NOT STARTED | 0.5 | | APP-007 | | **Must complete before APP-008.** Capture privately; do NOT commit email/codes/tokens/screenshots to Git |
-| APP-070 | 2 | POC | Record which shell architecture was tested and the observations (evidence for APP-021) | NOT STARTED | 0.5 | | APP-008 | | Occurs during APP-008; feeds APP-021 go/no-go. Redact PII; raw evidence not committed to Git |
+| APP-067 | 5 | MOBILE | Add mobile-repo `README.md`, `.gitignore`, `docs/mobile-repo-guardrails.md`, `docs/mobile-session-handoff.md`, `docs/architecture-decision.md` (decision placeholder) | NOT STARTED | 1 | | APP-059 | | Guardrail-document bootstrap in the mobile repo. Status in mobile repo may already be ahead — confirm in a mobile-repo task; do not edit mobile repo from this website-doc session |
+| APP-068 | 5 | MOBILE | Record the architecture comparison matrix in `docs/architecture-decision.md`; **final choice pending Phase 4 (APP-021)** | NOT STARTED | 0.5 | | APP-067 | | Website master plan now records Candidate A2 as leading (APP-070); mobile-repo matrix still to sync. Final choice remains APP-021 |
+| APP-069 | 2 | TYLER | Capture a **private** Google-origin subscribed test-account baseline (clerk_user_id, primary email, publicMetadata entitlement, Victory Room/goal state, total Clerk user count) | NOT STARTED | 0.5 | | APP-007 | | Capture privately; do NOT commit email/codes/tokens/screenshots to Git. Stage 1 used an existing test account — **APP-069 was NOT completed** by Stage 1 / this documentation correction. Required for formal APP-010 / APP-016 closure |
+| APP-070 | 2 | POC | Record which shell architecture was tested and the observations (evidence for APP-021) | COMPLETE | 0.5 | NOT RECORDED | APP-008 | "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17" | Candidate A2 leading; Candidate B fallback; `server.url` prohibited. Feeds APP-021 but does not close it |
 
 ---
 
 ## 9. DEPENDENCY MAP
 
-- **Critical path:** APP-000 → APP-003/004/005/006 (policy, COMPLETE) → **APP-007 (Clerk dashboard, COMPLETE)** → **APP-059 (create empty private mobile repo)** → **APP-067 (guardrail-doc bootstrap)** → **APP-069 (Google-origin test-account baseline)** → APP-008..017 (iOS POC; APP-070 recorded during APP-008) → APP-021 (go/no-go **+ shell architecture**) → APP-022/023 (shell) → APP-027/028/030 (auth+session) → APP-031/032 (VR routing) → **APP-041 (in-app deletion, required)** + APP-040 (purchase compliance) → APP-049/050 (TestFlight) / APP-051/052 (closed track) → APP-053/054 & APP-055 (submit) → APP-056 (review) → launch.
+- **Critical path:** APP-000 → APP-003/004/005/006 (policy, COMPLETE) → **APP-007 (Clerk dashboard, COMPLETE)** → **APP-059 (mobile repo, COMPLETE)** → **APP-008 Stage 1 iPhone live-shell POC (PASS) + APP-070 (COMPLETE; Candidate A2 leading)** → **APP-062→APP-065 (Clerk long-session — production blocker)** + later formal closures **APP-010 / APP-016 / APP-069** + **APP-041 (account deletion)** → APP-021 (formal Phase-4 architecture close — still OPEN) → APP-022/023 (production shell harden) → broader device/App Store path → Android (APP-018+) when iOS is sufficiently stable → launch.
 - **Repo ownership on the path:** planning/policy/deletion-endpoint/docs are **WEBSITE**; shell/config/store builds are **MOBILE** (`summitt-mindset-mobile`); POC tasks are disposable **POC** projects. No task edits both repos without explicit authorization (DEC-016).
-- **New dependencies (v1.3):** **APP-059** (create empty private mobile repo) is the **exact next task** and can proceed now — it no longer waits for APP-021. **APP-067** (guardrail-doc bootstrap) follows **APP-059**. **APP-068** (architecture comparison matrix) follows **APP-067**; the final production shell choice remains with **APP-021**. **APP-069** (Google-origin test-account baseline) must complete before **APP-008**. **APP-008** depends on **APP-059, APP-067, and APP-069**. **APP-070** (record shell tested + observations) occurs during **APP-008** and feeds APP-021. APP-022 still depends on **APP-059** (mobile repo must exist first) and **APP-021** (production shell chosen). APP-051/052 depend on **APP-060** (Play account confirmation). APP-053/APP-055 depend on **APP-041** (in-app deletion required before submission). APP-061 depends on APP-007. **APP-021 remains the formal production-architecture decision** and is made only after POC evidence.
-- **Session-lifetime chain (must complete before store submission — before APP-053/APP-055):** APP-062 (Clerk Pro pricing/capability) → APP-063 (decide final lifetime, needs POC evidence APP-017) → APP-064 (change Clerk max lifetime, separately approved) → APP-065 (verify on iPhone+Android) + APP-066 (Client Trust not repeatedly challenging). The 7-day default is rejected for production (DEC-021), so a launched app must have completed APP-064/APP-065.
-- **Parallelizable:** Android POC (APP-018..020) alongside finishing iOS notes; icons/splash (APP-046/047) alongside auth; analytics/crash (APP-043/044) alongside member-surface testing; store copy/screenshots drafting (APP-042/048) alongside compliance; APP-060 (Tyler confirms Play account) anytime after APP-006.
-- **Require Tyler:** APP-007 (Clerk dashboard — done), APP-060 (Play account), APP-062 (Clerk Pro pricing/capability), APP-063 (final lifetime decision), APP-042/048 (privacy + screenshots), all device testing, all store-account tasks.
+- **v1.4.1 dependency notes:** Stage 1 iPhone evidence recorded; **APP-070 COMPLETE**; **APP-010 and APP-016 restored to NOT STARTED** (strict completion — Stage 1 observations preserved, full acceptance stacks open); **APP-069 remains NOT STARTED**; **APP-021 remains OPEN**. **APP-062 is the exact next major task** (Clerk Pro / max-lifetime verification). Do not drop APP-010 / APP-016 from remaining-work view. **APP-041** remains Required for V1. **APP-015** (external links) remains open. Android APP-018+ deferred until iOS path is sufficiently stable. APP-022 still depends on **APP-021** (formal production shell chosen) and the existing mobile repo. APP-053/APP-055 depend on **APP-041** and **APP-064/APP-065**.
+- **Session-lifetime chain (must complete before store submission — before APP-053/APP-055):** APP-062 (Clerk Pro pricing/capability) → APP-063 (decide final lifetime) → APP-064 (change Clerk max lifetime, separately approved) → APP-065 (verify on iPhone+Android) + APP-066 (Client Trust not repeatedly challenging). The 7-day default is rejected for production (DEC-021). Stage 1 proved short-cycle cookie/lifecycle persistence only — **not** multi-month persistence. **Client Trust formal pass is not claimed** from Stage 1 alone.
+- **Parallelizable:** APP-041 (deletion design) alongside APP-062; later formal APP-010 / APP-016 / APP-069 evidence closure alongside; privacy/data-safety drafting (APP-042) alongside; Android POC (APP-018..020) only after iOS is stable enough; icons/splash later.
+- **Require Tyler:** APP-062 (Clerk Pro pricing/capability), APP-063 (final lifetime decision), APP-060 (Play account), APP-042/048 (privacy + screenshots), all device testing, all store-account tasks.
 - **Require Apple Developer access:** APP-049, APP-050, APP-053, APP-054.
 - **Require Google Play access:** APP-051, APP-052, APP-055.
-- **Require Clerk configuration:** APP-007, APP-029, APP-030 (allowed origins/redirect URLs).
+- **Require Clerk configuration:** APP-007, APP-029, APP-030 (allowed origins/redirect URLs); **APP-064** (max lifetime change — separately approved).
 - **Require DNS/domain changes:** *only if* you adopt an `app.summittmindset.com` alias (APP-023) — otherwise none.
 - **Require production deployments:** none for core wrapper; only if an app-signal helper is added to the site (Phase 5/6/7) or a deletion endpoint (APP-041).
 - **Require current policy research:** APP-003..006.
@@ -794,7 +890,7 @@ Run against a **real dedicated subscribed test account originally created throug
 | DEC-001 | Website remains the product | Single source of truth; startup pivots frequently | 2026-07-17 | ACTIVE | Fundamental strategy change |
 | DEC-002 | SMS remains primary value; app must not touch it | SMS is the core product (`lib/` + crons) | 2026-07-17 | ACTIVE | Product priority change |
 | DEC-003 | Victory Room is the app landing destination | Second-most valuable surface | 2026-07-17 | ACTIVE | VR deprecated/renamed |
-| DEC-004 | Capacitor is the **leading candidate** shell (not React Native) | Reuse 100% of RSC UI; RN = full rewrite. Reclassified from "confirmed" to "leading candidate pending POC" (see DEC-020) | 2026-07-17 | ACTIVE (amended) | POC fails (Checkpoint A/B) |
+| DEC-004 | Capacitor-generated project remains the iOS shell host; **Candidate A2** (custom Swift live `WKWebView`) is the evidence-backed **leading** architecture (amended from generic "Capacitor leading candidate") | Stage 1 physical-device POC PASS (APP-008/APP-070). Final APP-021 close still open | 2026-07-17 | ACTIVE (amended; pending APP-021) | APP-021 formal close; later blocker forces Candidate B |
 | DEC-005 | ~~Load production remotely via `server.url`~~ **AMENDED:** render the live site so web changes auto-appear; production load mechanism is **UNRESOLVED pending POC** — `server.url` is a dev/live-reload config and is **NOT approved production truth** | "Web changes appear automatically" mandate remains; but `server.url` was wrongly recorded as settled production. See Architecture correction 2026-07-17 + DEC-020 | 2026-07-17 | AMENDED — superseded by DEC-020 | Phase 4 architecture decision |
 | DEC-006 | One shared website codebase; no native screens | Avoid second product | 2026-07-17 | ACTIVE | — |
 | DEC-007 | Push notifications deferred unless required for approval | Not needed for core flow; SMS covers it | 2026-07-17 | ACTIVE | Apple 4.2 rejection requires it |
@@ -811,7 +907,7 @@ Run against a **real dedicated subscribed test account originally created throug
 | DEC-018 | **V1 mobile authentication uses app-only first-party email authentication on the same Clerk instance.** Google remains on the website. The app does not show Google or other social providers. Email verification code is the universal login factor. | Avoids Apple 4.8 trigger; avoids Sign in with Apple work in V1; avoids OAuth/WebView callback complexity; preserves one user pool + existing Clerk identities; protects website users who depend on Google; supports Google-origin users via verified-email code sign-in (pending POC proof). Confirmed by APP-007 (Google enabled, Apple not, email-code enabled) + APP-061. | 2026-07-17 | **ACTIVE** | POC creates duplicate users; existing Google users cannot authenticate via email code; Apple rejects the posture; Clerk cannot support a clean app-only email surface; product strategy later requires social login in the app |
 | DEC-021 | **7-day session lifetime is rejected for production; the app must keep members signed in for months.** Minimum 180 days, ~1 year preferred, inactivity off unless evidence supports change. | The tap-and-stay-signed-in promise is core value; a weekly/monthly forced re-login is unacceptable. Final value pending Clerk-plan verification (APP-062), security review, and real-device proof (APP-065). Likely requires Clerk Pro (operating expense). Never promise "forever." | 2026-07-17 | ACTIVE | Security review requires shorter; Clerk plan cannot support target; POC shows persistence issues |
 | DEC-019 | **CANDIDATE:** iPhone-first sequencing; hide all in-app purchasing in V1 (neutral inactive-membership state) | APP-003/APP-004 posture; lowers Apple risk | 2026-07-17 | CANDIDATE — confirm at Phase 4/Checkpoint D | Policy re-verification changes posture |
-| DEC-020 | **Production shell architecture is UNRESOLVED pending POC.** Candidates: (a) Capacitor + purpose-built production WebView, (b) minimal direct native iOS `WKWebView` + Android WebView shell, (c) superior evidence-backed hybrid. `server.url` NOT approved as production. Do NOT pivot to React Native or duplicate screens. Decision made at Phase 4 on: Clerk session persistence, auto live updates, native nav/link handling, App Store posture, maintenance burden | Official Capacitor docs place `server.url` in dev/live-reload; production uses compiled `webDir`. Prior audit wrongly recorded `server.url` as settled production | 2026-07-17 | ACTIVE (open) | Phase 4 architecture checkpoint resolves it |
+| DEC-020 | **Production shell architecture: Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift `LiveShellViewController` + one native `WKWebView` inside Capacitor-generated iOS project; live site loaded by native controller; **no `server.url`**). Candidate B (bare native WKWebView/Android WebView) remains fallback only if a later blocker appears. Production `server.url` remains **prohibited**. **Formal APP-021 close still OPEN** (Android Checkpoint B unmet unless iOS-first amendment; estimate confirm/revise unmet). Do NOT pivot to React Native or duplicate screens | Stage 1 iPhone POC PASS + APP-070 observations (2026-07-17). Prior unresolved candidates (a)/(b)/(c) narrowed to A2 leading | 2026-07-17 | ACTIVE (leading selected; formal close pending APP-021) | APP-021 Phase-4 checkpoint formally closes DEC-020 |
 
 ---
 
@@ -819,13 +915,13 @@ Run against a **real dedicated subscribed test account originally created throug
 
 | Risk ID | Risk | Prob | Impact | Early warning | Mitigation | Fallback | Owner | Status |
 |---|---|---|---|---|---|---|---|---|
-| RISK-01 | Clerk session fails in WebView | Med | Critical | POC login/persist fails | WebView cookie config; Clerk WebView guidance | Native auth adaptation (major) | Tyler+Cursor | OPEN |
+| RISK-01 | Clerk session fails in WebView | Low-Med (iOS short-cycle reduced) | Critical | POC login/persist fails | WebView cookie config; Clerk WebView guidance | Native auth adaptation (major) | Tyler+Cursor | **PARTIALLY MITIGATED (iOS Stage 1 PASS)** — force-close + reboot persistence passed under A2; long-session lifetime (RISK-03) and Android (U2) remain OPEN |
 | RISK-02 | OAuth callback fails in WebView | Med | High | Social login dead-ends in POC | In-app-browser return handling; email-only in app | Hide social in app | Tyler+Cursor | OPEN |
 | RISK-03 | Repeated sign-ins / session expiry (incl. 7-day lifetime ceiling) | Med | High | Users re-login on reopen or every 7 days | Token refresh + persistence tuning; raise Clerk max lifetime to months (APP-064, likely Clerk Pro); DEC-021 standard | Extend session; document standard | Cursor+Tyler | OPEN |
 | RISK-04 | Apple 4.2 minimum-functionality rejection | Med-High | High | Reviewer cites "just a website" | Add native features (push), members-only framing | Add push; richer native shell | Tyler | OPEN |
 | RISK-05 | Apple 3.1.1 payment rejection | Med | High | Reviewer flags web checkout | V1 shows **no in-app selling** (neutral inactive state); do NOT rely on reader-app classification; external purchase **links** are **storefront-dependent** (broader US latitude under 3.1.1(a), restricted elsewhere) — re-verify per storefront before submission | Native IAP (+30–40h) | Tyler | OPEN |
 | RISK-06 | Google payment-policy issue | Low-Med | Med | Play flags external billing | Same reader posture | Play Billing | Tyler | OPEN |
-| RISK-07 | Vimeo WebView playback issue | Low-Med | Med | POC video won't play inline | `allowsInlineMediaPlayback`, fullscreen config | Native player (deferred) | Cursor | OPEN |
+| RISK-07 | Vimeo WebView playback issue | Low (iOS Stage 1 reduced) | Med | POC video won't play inline | `allowsInlineMediaPlayback`, fullscreen config | Native player (deferred) | Cursor | **PARTIALLY MITIGATED (iOS Stage 1 PASS)** — Film Room playback + fullscreen passed; Android untested |
 | RISK-08 | External-link/new-window dead-ends | Med | Med | Blank screens on `_blank` links | In-app vs system-browser policy | Force system browser | Cursor | OPEN |
 | RISK-09 | Website update breaks the app | Med | High | App breaks with no store change | Web-deploy smoke check; app-signal awareness | Roll back web deploy | Tyler | OPEN |
 | RISK-10 | Production domain outage takes app down | Low | High | Site down = app blank | Offline/error screen; status monitoring | Error screen + retry | Tyler | OPEN |
@@ -927,7 +1023,7 @@ Run git rev-parse --show-toplevel; git remote -v; git branch --show-current; git
 <WEBSITE (Summitt-mindset.git) | MOBILE (summitt-mindset-mobile) | disposable POC project>
 
 [ARCHITECTURE NOTE]
-Production shell architecture is UNRESOLVED pending the Phase 4 POC (DEC-020). Capacitor is the leading candidate; `server.url` is NOT approved production truth. Do not hard-code a production `server.url` dependency before Phase 4.
+Candidate A2 is the selected leading architecture based on current physical-device evidence (custom Swift live WKWebView inside Capacitor-generated iOS project). APP-021 formal close still open. Capacitor `server.url` is NOT approved production truth. Do not hard-code a production `server.url` dependency.
 
 [CURRENT PHASE]
 Phase <N> — <name>
@@ -992,7 +1088,8 @@ Deferred: push, native IAP, deep links, offline, redesigns (see parking lot). Re
 ## 17. GO/NO-GO CHECKPOINTS
 
 **Checkpoint A — After iPhone POC (Phase 2).**
-- *Evidence:* iOS POC results table (APP-017), run against a **real Google-origin, subscribed, data-bearing account** using the 15-item acceptance criteria in "APP-007 login posture — 2026-07-17".
+- *Evidence:* iOS POC results table (APP-017), recorded in "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17", run against an existing subscribed test account using email-code auth (DEC-018).
+- *Stage 1 status (2026-07-17 / corrected v1.4.1):* **PASS for short-cycle live-shell gates that have COMPLETE tasks** — Victory Room load (APP-009), force-close + reboot persistence (APP-011), Ask Pat (APP-013), Film Room/Vimeo (APP-014), offline/retry, internal navigation; results table recorded (APP-017). Email-code login **worked** and subscribed UI access was observed, but **APP-010 and APP-016 remain NOT STARTED** (full auth / formal entitlement stacks not closed). **Not claimed:** same-Clerk-user identity formally proven; entitlement metadata verified; APP-069 complete; all Phase-2 authentication acceptance closed; every Client Trust requirement passed; multi-day/multi-month persistence; external-link coverage (APP-015 still open); Clerk 7-day lifetime resolution; Android; account deletion; App Store readiness.
 - *Pass:* app shows **email-code login with no Google**; the Google-origin user signs in by email code and resolves to the **same `clerk_user_id`** (no duplicate); entitlement + Victory Room + Current Goal + history + SMS state intact; **session persists after force-close**; Client Trust challenges only once for the new device (not repeatedly); session valid across multiple days; expiry degrades to a clean login (no blank/redirect loop); reaches VR; API call works; Vimeo plays.
 - *Fail:* session doesn't persist, login unusable, duplicate user created, entitlement lost, or repeated new-device challenges.
 - *Decides:* Tyler.
@@ -1039,28 +1136,28 @@ Deferred: push, native IAP, deep links, offline, redesigns (see parking lot). Re
 ## 19. FINAL VERDICT
 
 ### RECOMMENDED ARCHITECTURE
-**A polished iOS + Android native shell that renders the live `https://summittmindset.com` member experience**, opening to `/dashboard/victory-room`, built in a **separate repository** (`summitt-mindset-mobile`). **Capacitor is the leading candidate** (clean native-plugin path for status bar, splash, deep links, push; satisfies the "web changes appear automatically" mandate) — but the **final production shell architecture is UNRESOLVED pending the Phase 4 proof of concept (DEC-020)**, which compares (a) Capacitor with a purpose-built production WebView, (b) a minimal direct native iOS `WKWebView` + Android WebView shell, and (c) any superior evidence-backed production-safe hybrid, judged on Clerk session persistence, automatic live updates, native nav/link handling, App Store posture, and maintenance burden. **`server.url` is NOT approved as the production implementation** — it is Capacitor's dev/live-reload configuration; ordinary production Capacitor apps ship compiled assets via `webDir`. React Native is explicitly rejected (it would discard the entire server-rendered UI), and website screens must not be duplicated. Confirm Apple's tolerance for a shell that renders a website (RISK-04) early; mitigate by keeping it members-only and adding a native feature if review demands it.
+**A polished iOS + Android native shell that renders the live `https://summittmindset.com` member experience**, opening to `/dashboard/victory-room`, built in a **separate repository** (`summitt-mindset-mobile`). **Candidate A2 is the selected leading architecture based on current physical-device evidence:** custom Swift `LiveShellViewController` hosting exactly one native `WKWebView` (`WKWebsiteDataStore.default()`) inside the Capacitor-generated iOS project, loading the live website directly — **not** CapBridge as the visible root, and **not** Capacitor `server.url`. Candidate B (bare native WKWebView/Android WebView) remains the fallback only if a later blocker appears. **APP-021 has not formally closed DEC-020** — Android Checkpoint B, estimate confirm/revise, and an explicit Phase-4 decision remain. React Native is explicitly rejected; website screens must not be duplicated. Stage 1 iPhone POC **PASS** (APP-008/APP-070) does **not** resolve Clerk long-session (DEC-021), account deletion (APP-041), Android, external-link policy, or App Store readiness. Confirm Apple's tolerance for a shell that renders a website (RISK-04) early; mitigate by keeping it members-only and adding a native feature if review demands it.
 
 ### VERIFIED CURRENT BASELINE
-Next.js **16.0.5** App Router; **84 pages, 78 API routes, ~8 client pages** (overwhelmingly RSC); Clerk `@clerk/nextjs` ^6.35.5 (`layout.tsx`, `middleware.ts`); Victory Room at `/dashboard/victory-room` (`force-dynamic`, `currentUser()` gate → `/sign-in`); canonical post-login router `post-sign-in/page.tsx` → `MEMBER_APP_HOME_PATH` = `/dashboard/victory-room`; entitlement in Clerk `publicMetadata`; Stripe **web checkout** via full-page redirect; Supabase **service-role server-only** (`supabase-server.ts`); Vimeo **iframe**; SMS = Twilio + crons + huge `lib/` brain; `data-deletion` is **email-only**; domain `https://summittmindset.com`; **no PWA, no Capacitor/RN, no app icons**. (Re-verified 2026-07-17 — see "Baseline verification — 2026-07-17".)
+Next.js **16.0.5** App Router; **84 pages, 78 API routes, ~8 client pages** (overwhelmingly RSC); Clerk `@clerk/nextjs` ^6.35.5 (`layout.tsx`, `middleware.ts`); Victory Room at `/dashboard/victory-room` (`force-dynamic`, `currentUser()` gate → `/sign-in`); canonical post-login router `post-sign-in/page.tsx` → `MEMBER_APP_HOME_PATH` = `/dashboard/victory-room`; entitlement in Clerk `publicMetadata`; Stripe **web checkout** via full-page redirect; Supabase **service-role server-only** (`supabase-server.ts`); Vimeo **iframe**; SMS = Twilio + crons + huge `lib/` brain; `data-deletion` is **email-only**; domain `https://summittmindset.com`; mobile shell lives in separate `summitt-mindset-mobile` (Stage 1 POC evidence recorded 2026-07-17). Website repo still has **no** PWA/Capacitor/RN product code. (Baseline re-verified 2026-07-17 — see "Baseline verification — 2026-07-17"; Stage 1 architecture evidence in "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17".)
 
 ### MOST-LIKELY TOTAL HOURS
-**Working target ≈ 115 focused hours; current responsible range ≈ 115–150 focused hours** (best ~70, conservative ~258). "The 115-hour app" is preserved as project shorthand for the full polished middle-path version. Range widened 2026-07-17 because in-app account deletion is now Required (not conditional), push may be needed for 4.2, the production shell architecture is unresolved pending POC, and Google's 12-tester/14-day rule may apply (see §6 Estimate revision). Engineering ~65–70h; Tyler setup/testing/store ~45–50h. **Excludes** store-review waiting, push, and native IAP; native IAP / native auth / any Apple-required major native feature are **separately-approved scope expansions**. Estimate must be revised again after the architecture + Clerk-session POC.
+**Working target ≈ 115 focused hours; current responsible range ≈ 115–150 focused hours** (best ~70, conservative ~258). "The 115-hour app" is preserved as project shorthand for the full polished middle-path version. Range widened 2026-07-17 because in-app account deletion is now Required (not conditional), push may be needed for 4.2, the production shell architecture is unresolved pending POC, and Google's 12-tester/14-day rule may apply (see §6 Estimate revision). Engineering ~65–70h; Tyler setup/testing/store ~45–50h. **Excludes** store-review waiting, push, and native IAP; native IAP / native auth / any Apple-required major native feature are **separately-approved scope expansions**. Estimate must still be formally confirmed/revised at **APP-021** after Android path decision + remaining readiness work; Stage 1 did not close that revise step.
 
 ### HOURS BY PHASE
 P0 ~3 · P1 ~3 · P2 ~6 · P3 ~4 · P4 ~1 · P5 ~10 · P6 ~10 · P7 ~3 · P8 ~6 · P9 ~6 · P10 ~10 · P11 ~9 · P12 ~5 · P13 ~5 · P14 ~5 · P15 ~5 · P16 ~4 · P17 ~7 · P18 ~3 (+~2 ongoing docs). ≈ **115h**.
 
 ### CRITICAL PATH
-Master plan → policy verify → **iPhone POC (Clerk session persistence)** → go/no-go → shell → auth/session hardening → direct-to-VR routing → purchase-compliance → TestFlight/closed-track → submissions → review responses → launch.
+Master plan → policy verify → **iPhone Stage 1 POC PASS (Candidate A2 leading)** → **Clerk long-session (APP-062→065)** + later formal **APP-010 / APP-016 / APP-069** closures + **account deletion (APP-041)** → formal APP-021 close → production harden / App Store → Android when iOS stable → launch.
 
 ### FIRST GO/NO-GO TEST
-**Does the Clerk session persist in an iOS WKWebView after force-close/reopen and land the user in Victory Room without re-login?** (Checkpoint A / APP-011.) Everything depends on this; test it before any production build.
+**Does the Clerk session persist in an iOS WKWebView after force-close/reopen and land the user in Victory Room without re-login?** (Checkpoint A / APP-011.) **Stage 1: PASS** (including full reboot). Remaining go/no-go for production: long-session lifetime (DEC-021), formal APP-010 / APP-016 closure, account deletion, App Store posture, Android.
 
 ### BIGGEST TECHNICAL RISK
-**Clerk session persistence + OAuth inside the WebView** (RISK-01/RISK-02). If it fails, the "stay signed in" value evaporates and hours could roughly double.
+**Clerk long-session lifetime ceiling (7 days) + Android WebView unknown** (RISK-03 / U2). Short-cycle iOS persistence under A2 is evidence-backed; multi-month persistence and Android remain unproven. OAuth-in-WebView is out of V1 scope (DEC-018).
 
 ### BIGGEST STORE-REVIEW RISK
-**Apple** — the combination of **4.2 minimum-functionality** (a shell that renders a website) and **3.1.1** (in-app path leading to Stripe web checkout). Both **REQUIRE CURRENT APPLE-DOC VERIFICATION** and may force adding push and/or reworking purchase messaging.
+**Apple** — the combination of **4.2 minimum-functionality** (a shell that renders a website) and **3.1.1** (in-app path leading to Stripe web checkout). Both **REQUIRE CURRENT APPLE-DOC VERIFICATION** and may force adding push and/or reworking purchase messaging. **Account deletion (APP-041) remains Required before submission.**
 
 ### FIRST TEN TASK IDS
 APP-000, APP-001, APP-002, APP-003, APP-004, APP-005, APP-006, APP-007, APP-008, APP-009.
