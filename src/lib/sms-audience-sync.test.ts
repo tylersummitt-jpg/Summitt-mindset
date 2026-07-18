@@ -16,6 +16,17 @@ vi.mock("@/lib/supabase-server", () => ({
       if (table === "sms_audience") {
         return { upsert: upsertMock, update: updateMock };
       }
+      if (table === "account_deletion_requests") {
+        return {
+          select: () => ({
+            eq: () => ({
+              neq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
       return {};
     }),
   },
@@ -24,6 +35,8 @@ vi.mock("@/lib/supabase-server", () => ({
 vi.mock("@/lib/clerk-rest", () => ({
   getClerkPublicMetadata: vi.fn(async () => ({ summittSubscribed: true })),
 }));
+
+vi.mock("server-only", () => ({}));
 
 import {
   applyStoppedAtToAudiencePayload,

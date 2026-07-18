@@ -457,6 +457,31 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Docs: APP-041B1 COMPLETE in repo (not deployed); APP-041B parent IN PROGRESS; APP-041 not COMPLETE.
 
 ### Exact resume point
-- Current: **APP-041B1 safety correction** (resume bound to `current_step`; required active lease; atomic lease/CAS RPCs using DB `now()`). Worktree only — not committed/deployed/applied.
-- After B1 approval: read-only `sms_identities` nullability/unique check, then **APP-041B2**; **no** public initiate until APP-041C.
-- What must NOT be claimed: account deletion works; migration applied to production; APP-041B/APP-041 complete.
+- Current: **APP-041B2a** in worktree only (see SESSION 9).
+- After final approval: **`git add .` → commit and push → controlled apply of B1 + B2a migrations → non-production/staging validation** before any public deletion endpoint. Do **not** begin B3 immediately after commit.
+- What must NOT be claimed: account deletion works; migration applied to production; APP-041B/APP-041/B2a complete or deployed.
+
+---
+
+## SESSION 9 — 2026-07-18 — APP-041B2a local SMS unlink foundation (worktree only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `69e4930dd4708c22e005823671f6a6c52d43acd1`
+- Mobile repository: **not edited**.
+
+### What changed (uncommitted / unapplied)
+- Migration `20260718130000_account_deletion_sms_suppress.sql` — suppress RPC + CAS `sms_result` + atomic `sms_binding_removed` marker (**not executed** against production).
+- `suppressSmsForDeletion` orchestrator + deletion guards; START/onboarding/audience anti-resurrection.
+- Coach-job cancel of all nonterminal statuses; shared final pre-send eligibility helper for **both** `commitAndSendInboundCoachReply` and `processInboundSmsSafetyShortCircuit`.
+- Blocked START returns empty TwiML ack (not rejoined wording); STOP unchanged.
+- Unlink ≠ STOP; no phone/PII in step evidence.
+- **No** public deletion API, UI, reauth, Stripe cancel, Clerk user delete, app-data purge, phone hash/HMAC, evidence table, or fake STOP.
+
+### Exact resume point
+- Exact next action after final approval: **(1)** `git add .` **(2)** commit and push **(3)** controlled application of B1 + B2a migrations **(4)** non-production/staging validation before any public deletion endpoint **(5)** only then the next APP-041 slice.
+- Do **not** begin B3 immediately after commit.
+- APP-041 and APP-041B remain **IN PROGRESS**. Do **not** mark B2a deployed or complete in production.
+- What must NOT be claimed: any user can delete an account; SMS unlink migration applied; B2a production-ready without final approval.

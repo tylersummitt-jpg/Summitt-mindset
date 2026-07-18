@@ -106,6 +106,10 @@ vi.mock("@/lib/sms-audience-sync", () => ({
   syncSmsAudience: (...args: unknown[]) => syncSmsAudienceMock(...args),
 }));
 
+vi.mock("@/lib/account-deletion/deletion-guards", () => ({
+  hasUnresolvedAccountDeletionRequest: vi.fn(async () => false),
+}));
+
 vi.mock("@/lib/sms-daily-delivery-body", () => ({
   loadOrCreateSmsDeliveryState: vi.fn(async () => ({ data: {}, error: null })),
 }));

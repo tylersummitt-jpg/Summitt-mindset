@@ -42,6 +42,8 @@ export const ACQUIRE_ACCOUNT_DELETION_LEASE_RPC =
   "acquire_account_deletion_lease" as const;
 export const CAS_ACCOUNT_DELETION_REQUEST_RPC =
   "cas_account_deletion_request" as const;
+export const SUPPRESS_SMS_FOR_ACCOUNT_DELETION_RPC =
+  "suppress_sms_for_account_deletion" as const;
 
 export type AccountDeletionRepoResult<T> =
   | { ok: true; value: T }
@@ -78,6 +80,8 @@ export type TransitionAccountDeletionInput = {
   /** Test-only clock for in-memory store; Postgres CAS uses server now(). */
   now?: Date;
   stepNote?: { code?: string; ok?: boolean };
+  /** When set, persists sms_result via CAS (B2a). */
+  smsResult?: AccountDeletionRequestRow["sms_result"];
 };
 
 export type RecordAccountDeletionFailureInput = {
@@ -103,6 +107,8 @@ type CasPatch = {
   completed_at?: string | null;
   clear_errors?: boolean;
   release_lock?: boolean;
+  sms_result?: AccountDeletionRequestRow["sms_result"];
+  set_sms_result?: boolean;
 };
 
 /** Test-injectable store surface (in-memory or Supabase/RPC mock). */
@@ -317,6 +323,7 @@ function createInMemoryStore(): Store {
       }
       if (current.lock_owner !== lockOwner) return null;
       if (leaseExpiredInMemory(current, now, leaseMs)) return null;
+      if (patch.set_sms_result && patch.sms_result == null) return null;
       const ts = nowIso(now);
       const next: AccountDeletionRequestRow = {
         ...current,
@@ -334,6 +341,9 @@ function createInMemoryStore(): Store {
         completed_at: patch.completed_at ?? current.completed_at,
         lock_owner: patch.release_lock ? null : current.lock_owner,
         locked_at: patch.release_lock ? null : current.locked_at,
+        sms_result: patch.set_sms_result
+          ? (patch.sms_result ?? null)
+          : current.sms_result,
         id: current.id,
         clerk_user_id: current.clerk_user_id,
         idempotency_key: current.idempotency_key,
@@ -485,6 +495,8 @@ function createSupabaseStore(): Store {
           p_completed_at: patch.completed_at ?? null,
           p_clear_errors: patch.clear_errors ?? false,
           p_release_lock: patch.release_lock ?? false,
+          p_sms_result: patch.set_sms_result ? (patch.sms_result ?? null) : null,
+          p_set_sms_result: patch.set_sms_result ?? false,
         }
       );
       if (error) throw error;
@@ -847,6 +859,18 @@ export async function transitionAccountDeletionRequest(
     last_error_detail: null,
   };
 
+  if (input.smsResult !== undefined) {
+    if (input.smsResult == null) {
+      return {
+        ok: false,
+        code: "invalid_argument",
+        message: "smsResult must be a non-null allowed value when set",
+      };
+    }
+    patch.set_sms_result = true;
+    patch.sms_result = input.smsResult;
+  }
+
   if (input.fromStatus === "failed_retryable") {
     patch.last_retry_at = ts;
   }
@@ -870,6 +894,93 @@ export async function transitionAccountDeletionRequest(
       ok: false,
       code: "cas_conflict",
       message: "Transition lost a race or lease is not active",
+    };
+  }
+  return { ok: true, value: updated };
+}
+
+/**
+ * Same-status leased patch (steps / optional sms_result) for durable markers
+ * before slow external work (e.g. Clerk). Does not advance the state machine.
+ */
+export async function patchAccountDeletionRequestWhileLeased(input: {
+  requestId: string;
+  expectedStatus: AccountDeletionStatus;
+  lockOwner: string;
+  steps: AccountDeletionStepsJson;
+  smsResult?: AccountDeletionRequestRow["sms_result"];
+  leaseMs?: number;
+  expectedOrchestrationVersion?: number;
+  now?: Date;
+}): Promise<AccountDeletionRepoResult<AccountDeletionRequestRow>> {
+  const lockOwnerCheck = requireLockOwner(input.lockOwner);
+  if (!lockOwnerCheck.ok) return lockOwnerCheck;
+
+  if (input.smsResult !== undefined && input.smsResult == null) {
+    return {
+      ok: false,
+      code: "invalid_argument",
+      message: "smsResult must be a non-null allowed value when set",
+    };
+  }
+
+  const leaseMs = input.leaseMs ?? DEFAULT_ACCOUNT_DELETION_LEASE_MS;
+  const now = input.now ?? new Date();
+  const store = getStore();
+  const row = await store.findById(input.requestId);
+  if (!row) {
+    return { ok: false, code: "not_found", message: "Request not found" };
+  }
+  if (row.status !== input.expectedStatus) {
+    return {
+      ok: false,
+      code: "cas_conflict",
+      message: `Expected status ${input.expectedStatus}, found ${row.status}`,
+    };
+  }
+  if (row.lock_owner !== lockOwnerCheck.value) {
+    return {
+      ok: false,
+      code: "lease_not_held",
+      message: "Caller does not hold the lease",
+    };
+  }
+
+  const expectedVersion =
+    input.expectedOrchestrationVersion ?? row.orchestration_version;
+  if (row.orchestration_version !== expectedVersion) {
+    return {
+      ok: false,
+      code: "unsupported_orchestration_version",
+      message: "Orchestration version mismatch",
+    };
+  }
+
+  const patch: CasPatch = {
+    status: row.status,
+    current_step: row.current_step,
+    steps: input.steps,
+  };
+  if (input.smsResult !== undefined) {
+    patch.set_sms_result = true;
+    patch.sms_result = input.smsResult;
+  }
+
+  const updated = await store.casWithActiveLease({
+    requestId: row.id,
+    expectedStatus: input.expectedStatus,
+    expectedOrchestrationVersion: expectedVersion,
+    lockOwner: lockOwnerCheck.value,
+    leaseMs,
+    now,
+    patch,
+  });
+
+  if (!updated) {
+    return {
+      ok: false,
+      code: "cas_conflict",
+      message: "Leased patch lost a race or lease is not active",
     };
   }
   return { ok: true, value: updated };

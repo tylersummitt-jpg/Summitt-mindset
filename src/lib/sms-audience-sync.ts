@@ -1,5 +1,6 @@
 import { supabaseServer } from "./supabase-server";
 import { getClerkPublicMetadata } from "./clerk-rest";
+import { hasUnresolvedAccountDeletionRequest } from "./account-deletion/deletion-guards";
 
 type SyncParams = {
   userId: string;
@@ -86,6 +87,45 @@ export async function syncSmsAudience(params: SyncParams): Promise<void> {
     smsTimePreference,
     summittSubscribed,
   } = params;
+
+  const unresolvedDeletion = await hasUnresolvedAccountDeletionRequest(userId);
+  if (unresolvedDeletion) {
+    // APP-041B2a: never re-enable or clear STOP while deletion is unresolved.
+    // Update-only disable path; never upsert from identity phone.
+    if (smsEnabled === true || stoppedAt === null) {
+      console.warn(
+        "[syncSmsAudience] blocked enable/clear-stop during account deletion",
+        userId
+      );
+      return;
+    }
+
+    const resolvedSubscribed = await resolveSummittSubscribedFlag(
+      userId,
+      summittSubscribed
+    );
+    const updatePayload: Record<string, unknown> = {
+      summitt_subscribed: resolvedSubscribed,
+      sms_enabled: false,
+    };
+    if (stoppedAt !== undefined) {
+      applyStoppedAtToAudiencePayload(updatePayload, stoppedAt);
+    }
+    if (timezone != null) updatePayload.timezone = timezone;
+    if (smsTimePreference != null) {
+      updatePayload.sms_time_preference = smsTimePreference;
+    }
+
+    const { error } = await supabaseServer
+      .from("sms_audience")
+      .update(updatePayload)
+      .eq("clerk_user_id", userId);
+
+    if (error) {
+      console.error("[syncSmsAudience] deletion-aware update failed", error);
+    }
+    return;
+  }
 
   const resolvedSubscribed = await resolveSummittSubscribedFlag(
     userId,

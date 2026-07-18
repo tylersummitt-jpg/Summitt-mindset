@@ -791,6 +791,65 @@ describe("account deletion repository (in-memory)", () => {
     expect(missed.ok).toBe(false);
     if (!missed.ok) expect(missed.code).toBe("cas_conflict");
   });
+
+  it("25. CAS sms_result: omit preserves; valid sets; null rejects", async () => {
+    const { patchAccountDeletionRequestWhileLeased } = await import(
+      "./repository"
+    );
+    const { id } = await createAndLease({
+      clerkUserId: "user_sms_cas",
+      idempotencyKey: "sms_cas",
+      lockOwner: "w",
+    });
+
+    const noSet = await transitionAccountDeletionRequest({
+      requestId: id,
+      fromStatus: "requested",
+      toStatus: "suppressing_sms",
+      lockOwner: "w",
+    });
+    expect(noSet.ok).toBe(true);
+    if (!noSet.ok) return;
+    expect(noSet.value.sms_result).toBeNull();
+
+    const setOk = await transitionAccountDeletionRequest({
+      requestId: id,
+      fromStatus: "suppressing_sms",
+      toStatus: "sms_suppressed",
+      lockOwner: "w",
+      smsResult: "ok",
+    });
+    expect(setOk.ok).toBe(true);
+    if (!setOk.ok) return;
+    expect(setOk.value.sms_result).toBe("ok");
+
+    const preserve = await patchAccountDeletionRequestWhileLeased({
+      requestId: id,
+      expectedStatus: "sms_suppressed",
+      lockOwner: "w",
+      steps: {
+        ...setOk.value.steps,
+        marker: { at: new Date().toISOString(), ok: true, code: "noop" },
+      },
+    });
+    expect(preserve.ok).toBe(true);
+    if (!preserve.ok) return;
+    expect(preserve.value.sms_result).toBe("ok");
+
+    const nullReject = await transitionAccountDeletionRequest({
+      requestId: id,
+      fromStatus: "sms_suppressed",
+      toStatus: "canceling_subscription",
+      lockOwner: "w",
+      smsResult: null as unknown as "ok",
+    });
+    expect(nullReject.ok).toBe(false);
+    if (!nullReject.ok) expect(nullReject.code).toBe("invalid_argument");
+
+    const afterReject = await getAccountDeletionRequestById(id);
+    expect(afterReject?.sms_result).toBe("ok");
+    expect(afterReject?.status).toBe("sms_suppressed");
+  });
 });
 
 describe("account deletion Supabase RPC construction", () => {
@@ -907,6 +966,8 @@ describe("account deletion Supabase RPC construction", () => {
         p_new_current_step: "suppressing_sms",
         p_clear_errors: true,
         p_release_lock: false,
+        p_sms_result: null,
+        p_set_sms_result: false,
       })
     );
   });

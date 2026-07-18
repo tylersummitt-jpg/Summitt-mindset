@@ -5,6 +5,7 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
+import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
 import { loadOrCreateSmsDeliveryState } from "@/lib/sms-daily-delivery-body";
 import {
   onboardingTransactionalConsentLatchFields,
@@ -82,6 +83,13 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
       });
+    }
+
+    if (await hasUnresolvedAccountDeletionRequest(userId)) {
+      return new Response(
+        JSON.stringify({ error: "Account deletion in progress." }),
+        { status: 409 }
+      );
     }
 
     const publicMd = await getClerkPublicMetadata(userId);

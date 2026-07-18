@@ -4,6 +4,7 @@ import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
+import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { splitIntoChunks, buildTwimlResponse } from "@/lib/twilio";
@@ -218,7 +219,19 @@ function inboundSafetyTwimlResponse(body: string, fromPhone: string, messageSid:
   return twiml(reply);
 }
 
-async function runStartFlow(userId: string, from: string) {
+async function runStartFlow(
+  userId: string,
+  from: string
+): Promise<"restarted" | "blocked_account_deleting"> {
+  // APP-041B2a: do not revive SMS while account deletion is unresolved.
+  if (await hasUnresolvedAccountDeletionRequest(userId)) {
+    console.warn(
+      "[twilio/inbound] START ignored: unresolved account deletion",
+      { clerk_user_id: userId }
+    );
+    return "blocked_account_deleting";
+  }
+
   await supabaseServer
     .from("sms_identities")
     .update({
@@ -243,6 +256,7 @@ async function runStartFlow(userId: string, from: string) {
     smsTimePreference: null,
     summittSubscribed: null,
   });
+  return "restarted";
 }
 
 /* =====================================================
@@ -307,7 +321,10 @@ export async function POST(req: Request) {
         }
 
         if (isStartCommand(body)) {
-          await runStartFlow(userId, from);
+          const startOutcome = await runStartFlow(userId, from);
+          if (startOutcome === "blocked_account_deleting") {
+            return fastAckTwiml();
+          }
           return twiml(START_TWIML_BODY);
         }
 
@@ -355,7 +372,10 @@ export async function POST(req: Request) {
     }
 
     if (isStartCommand(body)) {
-      await runStartFlow(userId, from);
+      const startOutcome = await runStartFlow(userId, from);
+      if (startOutcome === "blocked_account_deleting") {
+        return fastAckTwiml();
+      }
       return twiml(START_TWIML_BODY);
     }
 

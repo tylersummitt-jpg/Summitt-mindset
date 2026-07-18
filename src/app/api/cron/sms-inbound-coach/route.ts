@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { checkInboundCoachSmsEligibility } from "@/lib/account-deletion/inbound-coach-send-eligibility";
 import {
   isLikelyCommitmentChangeIntentTurn,
   isLikelySmsComplianceOrOptOutTurn,
@@ -11258,6 +11259,48 @@ async function processInboundSmsSafetyShortCircuit(
     !job.outbound_message_sid
   ) {
     if (isTwilioReady()) {
+      const eligibility = await checkInboundCoachSmsEligibility({
+        clerkUserId: userId,
+        destinationPhone: job.from_phone,
+        messageSid: job.message_sid,
+        expectedJobStatuses: [
+          "pending",
+          "processing",
+          "generating_reply",
+          "reply_ready",
+          "sending",
+        ],
+      });
+      if (!eligibility.ok) {
+        recordInboundMeaningShadowSuppressedNoSend({
+          job,
+          userId,
+          commitmentId: commitmentId ?? "",
+          skipReason: "safety_turn",
+          rawBody: raw,
+          lastErrorTag: eligibility.lastErrorCode,
+          routeOverride: MEANING_INTERPRETER_ROUTES.safety_short_circuit_skipped,
+          extraFacts: buildSkippedMeaningShadowFacts({
+            skipReason: "safety_turn",
+            jobFinalStatus: "cancelled",
+            lastErrorTag: eligibility.lastErrorCode,
+            safetyTier: safety.tier,
+          }),
+        });
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: eligibility.lastErrorCode,
+          nextRetry: farFutureIso(),
+        });
+        console.info("[sms-inbound-coach] inbound_safety_send_blocked", {
+          ...safety.logSafe,
+          clerk_user_id: userId,
+          reason: eligibility.reason,
+          safety_reply_sent: false,
+        });
+        return true;
+      }
       try {
         const sendResult = await sendSMSChunked({
           to: job.from_phone,
@@ -11778,6 +11821,9 @@ async function commitAndSendInboundCoachReply(
 
   if (!sendClaim) {
     const j = (await loadJob(job.message_sid)) ?? job;
+    if (j.status === "cancelled") {
+      return;
+    }
     if (j.status === "sending" && j.outbound_message_sid) {
       await supabaseServer
         .from("sms_inbound_coach_jobs")
@@ -11810,6 +11856,23 @@ async function commitAndSendInboundCoachReply(
   const latestForSend = (await loadJob(job.message_sid)) ?? job;
   const toPhone = latestForSend.from_phone;
   const bodyToSend = (latestForSend.reply_body || "").trim() || replyBody;
+
+  // APP-041B2a: final eligibility gate immediately before Twilio (in-flight workers).
+  const eligibility = await checkInboundCoachSmsEligibility({
+    clerkUserId: userId,
+    destinationPhone: toPhone,
+    messageSid: job.message_sid,
+    expectedJobStatuses: ["sending"],
+  });
+  if (!eligibility.ok) {
+    await markJobFinal({
+      messageSid: job.message_sid,
+      status: "cancelled",
+      lastError: eligibility.lastErrorCode,
+      nextRetry: farFutureIso(),
+    });
+    return;
+  }
 
   console.log("[sms-inbound-coach] sending sms", job.message_sid);
   const sendResult = await sendSMSChunked({
