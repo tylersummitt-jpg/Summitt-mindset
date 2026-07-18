@@ -438,3 +438,25 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Next: **APP-041B planning (read-only)** — deletion-state schema, ordered table matrix, Stripe/SMS/Clerk contract, failure/retry, migration + test plan. **Do not implement.**
 - Parallel: APP-065 (IN PROGRESS), APP-015, APP-066, APP-021 planning gates.
 - What must NOT be claimed: APP-041 complete; deletion implemented; legal retention finalized; Clerk self-delete sufficient.
+
+---
+
+## SESSION 8 — 2026-07-18 — APP-041B1 durable deletion-state foundation (no endpoint)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `b252efef3deaeea4e3afd72d99c288db11eacaf2`
+- Mobile repository: **not edited**.
+
+### What changed
+- Additive migration `account_deletion_requests` (not executed against production).
+- `src/lib/account-deletion/` types, transitions, sanitize, repository + vitest.
+- **No** HTTP delete routes, UI, reauth, SMS/Stripe/Clerk/purge/cron.
+- Docs: APP-041B1 COMPLETE in repo (not deployed); APP-041B parent IN PROGRESS; APP-041 not COMPLETE.
+
+### Exact resume point
+- Current: **APP-041B1 safety correction** (resume bound to `current_step`; required active lease; atomic lease/CAS RPCs using DB `now()`). Worktree only — not committed/deployed/applied.
+- After B1 approval: read-only `sms_identities` nullability/unique check, then **APP-041B2**; **no** public initiate until APP-041C.
+- What must NOT be claimed: account deletion works; migration applied to production; APP-041B/APP-041 complete.
