@@ -400,3 +400,41 @@ Each implementation session appends one new entry at the **bottom** of this file
 ### Exact resume point
 - Next actionable work: choose from **APP-041**, **APP-015**, **APP-066**, or **APP-021** planning gates (Android Checkpoint B OR explicit approved iOS-first amendment + estimate confirm/revise + DEC-020 close). Keep **APP-065** IN PROGRESS (elapsed-time).
 - What must NOT be claimed: 180-day elapsed persistence proven; Android parity; exhaustive account-data testing; full Client Trust; App Store readiness.
+
+---
+
+## SESSION 7 — 2026-07-18 — APP-041A COMPLETE (deletion audit + live schema/Clerk verification)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `c21b9ffa466ecdd4da15ca84ecdbb12293e2f0a7`
+- Mobile repository: exists separately; **not edited** this session.
+
+### Repository state (WEBSITE)
+- Exact `git status --short` (after this documentation session):
+  ```
+   M docs/mobile-app-master-plan.md
+   M docs/mobile-app-session-handoff.md
+  ```
+- Staged?: No · Committed?: No · Pushed?: No
+- `git add .` safety verdict: **SAFE** — documentation only under `docs/`.
+
+### What changed
+- Documentation only.
+- Recorded completed APP-041 repository account-deletion audit.
+- **APP-041A COMPLETE** — production Clerk deletion setting inspected; existing-user behavior confirmed; “Apply to existing users” **not** clicked; no Clerk setting changed; three read-only Supabase `information_schema` queries completed; no production data/schema changed.
+- **APP-041 parent IN PROGRESS**; APP-041B–F **NOT STARTED**.
+- **DEC-023 APPROVED-FOR-IMPLEMENTATION** (not implemented): website-owned coordinated deletion; SMS suppress first; Stripe cancel before Clerk-last; retain STOP/consent + financial records; retry/anti-resurrection.
+- Corrected SMS principle (narrow deliberate SMS handling — not “keep away from SMS tables”).
+- Estimate: APP-041 ≈ **24–40h** total (remaining ≈ **22–36h** after APP-041A); obsolete **3h** retired; project responsible range ≈ **130–175h** (115-hour shorthand preserved).
+
+### Privacy / production safety
+- No user IDs, emails, phones, Stripe IDs, row values, screenshots, secrets, or tokens written.
+- No production data, settings, or schema changed.
+
+### Exact resume point
+- Next: **APP-041B planning (read-only)** — deletion-state schema, ordered table matrix, Stripe/SMS/Clerk contract, failure/retry, migration + test plan. **Do not implement.**
+- Parallel: APP-065 (IN PROGRESS), APP-015, APP-066, APP-021 planning gates.
+- What must NOT be claimed: APP-041 complete; deletion implemented; legal retention finalized; Clerk self-delete sufficient.

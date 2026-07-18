@@ -1,5 +1,5 @@
 # SUMMITT MINDSET — MOBILE APP MASTER PLAN
-*Project-control document. Version 1.5.1. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth). v1.2 (2026-07-17): completed APP-007 + APP-061 with confirmed Clerk dashboard truth; DEC-018 set ACTIVE (app-only first-party email auth on the same Clerk instance); recorded the long-session launch standard (7-day lifetime rejected; 180-day min / ~1yr preferred) and the Google-origin-user POC acceptance criteria. v1.3 (2026-07-17): recorded the mobile-repository bootstrap plan + iPhone POC plan ("iPhone POC + mobile bootstrap plan — 2026-07-17"); added APP-067–APP-070; set exact next task to APP-059 (Tyler creates empty private repo) → APP-067. v1.4 (2026-07-17): recorded APP-008 Stage 1 physical-device live-shell POC PASS + APP-070 architecture observations; Candidate A2 is the evidence-backed leading architecture; APP-021 remains open (Android Checkpoint B + formal Phase-4 selection + estimate revise still unmet); Clerk long-session remains a production blocker. v1.4.1 (2026-07-17): strict-completion correction — APP-010 and APP-016 restored to NOT STARTED (Stage 1 observations preserved; full original acceptance stacks not formally proven); APP-008 clarified as intentional evolution into `summitt-mindset-mobile`. v1.5 (2026-07-18): recorded APP-062–APP-064 COMPLETE — production Clerk upgraded Hobby→Pro ($20/mo annual); max lifetime set to **180 days** (inactivity off); no website/mobile code change. APP-065 IN PROGRESS (elapsed-time validation still open; short-cycle post-change force-close/reopen PASS only). v1.5.1 (2026-07-18): APP-010, APP-016, APP-069 COMPLETE after Tyler privately verified the Google-origin baseline comparison PASS (no private identifiers committed); Checkpoint A identity/entitlement gates closed; APP-065 remains IN PROGRESS.*
+*Project-control document. Version 1.5.2. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth). v1.2 (2026-07-17): completed APP-007 + APP-061 with confirmed Clerk dashboard truth; DEC-018 set ACTIVE (app-only first-party email auth on the same Clerk instance); recorded the long-session launch standard (7-day lifetime rejected; 180-day min / ~1yr preferred) and the Google-origin-user POC acceptance criteria. v1.3 (2026-07-17): recorded the mobile-repository bootstrap plan + iPhone POC plan ("iPhone POC + mobile bootstrap plan — 2026-07-17"); added APP-067–APP-070; set exact next task to APP-059 (Tyler creates empty private repo) → APP-067. v1.4 (2026-07-17): recorded APP-008 Stage 1 physical-device live-shell POC PASS + APP-070 architecture observations; Candidate A2 is the evidence-backed leading architecture; APP-021 remains open (Android Checkpoint B + formal Phase-4 selection + estimate revise still unmet); Clerk long-session remains a production blocker. v1.4.1 (2026-07-17): strict-completion correction — APP-010 and APP-016 restored to NOT STARTED (Stage 1 observations preserved; full original acceptance stacks not formally proven); APP-008 clarified as intentional evolution into `summitt-mindset-mobile`. v1.5 (2026-07-18): recorded APP-062–APP-064 COMPLETE — production Clerk upgraded Hobby→Pro ($20/mo annual); max lifetime set to **180 days** (inactivity off); no website/mobile code change. APP-065 IN PROGRESS (elapsed-time validation still open; short-cycle post-change force-close/reopen PASS only). v1.5.1 (2026-07-18): APP-010, APP-016, APP-069 COMPLETE after Tyler privately verified the Google-origin baseline comparison PASS (no private identifiers committed); Checkpoint A identity/entitlement gates closed; APP-065 remains IN PROGRESS. v1.5.2 (2026-07-18): APP-041 account-deletion audit recorded; APP-041A COMPLETE (live Supabase schema + Clerk Dashboard verification, read-only); APP-041 parent IN PROGRESS with phases APP-041B–F NOT STARTED; DEC-023 APPROVED-FOR-IMPLEMENTATION (not implemented); obsolete 3h APP-041 estimate replaced by ~24–40h planning range.*
 
 ---
 
@@ -7,17 +7,17 @@
 
 | Field | Value |
 |---|---|
-| Plan version | 1.5.1 |
+| Plan version | 1.5.2 |
 | Last verified date | 2026-07-18 |
-| Current phase | Phase-2 iPhone auth/entitlement formal closures **COMPLETE** (APP-010/016/069) → **APP-065** elapsed-time validation IN PROGRESS; production readiness (APP-021 still open) |
-| Current assigned task IDs | APP-065 (IN PROGRESS), APP-041, APP-015, APP-066, APP-018–APP-021 |
-| Last completed task IDs | APP-010, APP-016, APP-069, APP-062, APP-063, APP-064 (also: APP-008 Stage 1 PASS, APP-009, APP-011–APP-014, APP-017, APP-059, APP-070) |
-| Current blocker | **APP-065** elapsed-time / long-session proof still open (do **not** claim 180-day persistence proven). Account deletion (APP-041) Required for V1. APP-015 external links open. Android unstarted. APP-021 formal architecture decision still open. |
+| Current phase | **APP-041** account deletion **IN PROGRESS** (APP-041A COMPLETE → next is APP-041B planning); **APP-065** elapsed-time validation IN PROGRESS; APP-021 still open |
+| Current assigned task IDs | APP-065 (IN PROGRESS), APP-041 (IN PROGRESS; next APP-041B planning), APP-015, APP-066, APP-018–APP-021 |
+| Last completed task IDs | APP-041A, APP-010, APP-016, APP-069, APP-062, APP-063, APP-064 (also: APP-008 Stage 1 PASS, APP-009, APP-011–APP-014, APP-017, APP-059, APP-070) |
+| Current blocker | **APP-065** elapsed-time / long-session proof still open (do **not** claim 180-day persistence proven). **APP-041** Required for V1 — parent IN PROGRESS; implementation not started (next: APP-041B planning). APP-015 external links open. Android unstarted. APP-021 formal architecture decision still open. |
 | Production shell architecture | **Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift `LiveShellViewController` + one native `WKWebView` inside the Capacitor-generated iOS project; live site loaded by the native controller; **no `server.url`**). Candidate B (bare native WKWebView) remains fallback only. **APP-021 not yet COMPLETE** — Android Checkpoint B OR explicit iOS-first amendment, estimate confirm/revise, and formal DEC-020 close still required. Production use of Capacitor `server.url` remains **prohibited**. |
 | V1 login posture | **DECIDED (DEC-018 ACTIVE):** app-only first-party **email verification-code** auth on the **same** Clerk instance. Website keeps Google unchanged. **APP-010 COMPLETE:** intended email-code posture on physical iPhone; same existing Clerk identity confirmed; no duplicate Clerk user; relationship/member state intact (Tyler privately verified APP-069 baseline comparison PASS — no private identifiers committed). Google OAuth remains outside intended V1 app-only email posture. |
 | Session-lifetime standard | **Production Clerk Dashboard configured:** maximum lifetime **ENABLED at 180 days**; inactivity timeout **DISABLED** (DEC-022; APP-062–064 COMPLETE). **Not permanent / not indefinite.** Website application code never enforced a 7-day limit. Short-cycle force-close/reopen after the change **PASS**. **Multi-month / full 180-day elapsed persistence is NOT proven** — that is **APP-065 (IN PROGRESS)**. Client Trust formal requirements remain with APP-066. |
 | Mobile repository | Separate repo `summitt-mindset-mobile` — **exists**; Stage 1 physical-device POC was run from it (intentional evolution from the original throwaway-outside-repo assumption — see APP-008 notes). This document lives in the website/SMS repo. Do not edit the mobile repo from website-doc tasks. |
-| Exact next task | Choose next actionable work from: **APP-065** (elapsed-time long-session; keep IN PROGRESS), **APP-041** (account deletion), **APP-015** (external links), **APP-066** (Client Trust), or **APP-021** planning gates (Android Checkpoint B OR iOS-first amendment + estimate revise + DEC-020 close). |
+| Exact next task | **APP-041B planning (read-only):** convert verified schema into deletion-state schema, ordered table action matrix, Stripe/SMS/Clerk orchestration contract, failure/retry states, migration + test plan — **do not implement yet**. Parallel: **APP-065** (elapsed-time; keep IN PROGRESS), **APP-015**, **APP-066**, or **APP-021** planning gates. |
 
 > **How to use this document:** This is the single durable control document for the mobile-app project. It is designed so a brand-new ChatGPT conversation or a fresh Cursor session can resume with zero prior context. Read this file plus `docs/mobile-app-session-handoff.md` before doing anything. Never mark a task COMPLETE without recorded evidence. Move every scope addition to the parking lot (§12). Do not touch the SMS system. The production mobile shell lives in a **separate repository** (`summitt-mindset-mobile`); every task must confirm repository identity before editing (see DEC-013–DEC-017).
 
@@ -74,7 +74,7 @@
 - Core reused surfaces load and function: **Victory Room (primary), Ask Pat, Film Room/Vimeo, Account** (`/user`).
 - **No in-app selling in V1.** V1 does **not** show the Stripe checkout inside the app. Existing web subscribers access their membership normally; unsubscribed users receive a **neutral inactive-membership state** (no purchase UI). *(APP-004 finding; do not rely on reader-app classification; external-purchase language is storefront-dependent and must be re-verified before submission.)*
 - **App-only first-party email authentication (DECIDED — DEC-018 ACTIVE).** The app shows Clerk **email verification code** (password optional) on the **same** Clerk production instance and **does not** show Google/social. The **website keeps Google unchanged**. Because the app offers no social login, **Sign in with Apple is not required in V1** (Apple 4.8 not triggered). Existing Google-origin users sign in with the **same verified email + a one-time code**, resolving to the **same existing Clerk identity** (**APP-010 / APP-069 COMPLETE** — Tyler privately verified; no private identifiers committed). Never create a second Clerk instance, never a separate user pool, never globally disable Google.
-- **In-app account deletion action** (moved into Required for V1 per APP-005). Apple 5.1.1(v) requires an in-app deletion path when the app supports account creation, and Google requires both an in-app path and an external web resource. The current `data-deletion` page is **email-request only and is insufficient** as the complete app deletion flow. *(Design/implementation deferred to APP-041 — do not build deletion code now.)*
+- **In-app account deletion action** (moved into Required for V1 per APP-005). Apple 5.1.1(v) requires an in-app deletion path when the app supports account creation, and Google requires both an in-app path and an external web resource. The current `data-deletion` page is **email-request only and is insufficient** as the complete app deletion flow. **APP-041 parent is IN PROGRESS** (APP-041A COMPLETE 2026-07-18); **DEC-023 APPROVED-FOR-IMPLEMENTATION** (not implemented). Do **not** build deletion code until APP-041B planning closes. **SMS principle:** do not broadly refactor or endanger the SMS system; a complete deletion workflow must narrowly and deliberately handle SMS audience, identity, pending-job, consent, STOP, and resurrection behavior; required STOP/opt-out evidence must not be blindly destroyed; no implementation phase may proceed without narrow tests proving other users’ SMS behavior remains unchanged.
 - App icon + splash screen + correct app name.
 - Safe-area/status-bar handling; Android hardware back button behaves sanely.
 - Basic loading + network-error state so a failed load isn't a white screen.
@@ -203,7 +203,7 @@ See DEC-020 (decision log) and RISK-19 (risk register). Stage 1 evidence is reco
 - **Client Trust:** ENABLED — new-device sign-ins require extra verification.
 - **Sessions (as of APP-007, 2026-07-17):** maximum lifetime was ENABLED at **7 days** on Hobby (control labeled **Pro**); inactivity timeout DISABLED; multi-session DISABLED; no custom JWT templates.
 - **Sessions (updated 2026-07-18 — DEC-022 / APP-062–064):** production workspace upgraded Hobby → **Pro** ($20/month billed annually; no optional add-ons). Maximum lifetime **ENABLED at 180 days**; inactivity timeout **DISABLED**. **No website or mobile-shell code change.** Short-cycle post-change iPhone force-close/reopen → Victory Room **PASS**. **180-day elapsed persistence not proven** (APP-065).
-- **Account deletion:** "Allow users to delete their account" ENABLED, but the dashboard warns it may affect **new users only** unless "Apply to existing users" is used; **existing-user deletion permission remains UNKNOWN**.
+- **Account deletion (updated 2026-07-18 — APP-041A):** "Allow users to delete their account" is **ENABLED**. Clerk states that changing this setting affects **new users only**. Existing users can be overridden individually in their user profile; an **"Apply to existing users"** action is available. Tyler **did not** click "Apply to existing users" and **did not** change any Clerk setting. Clerk’s built-in self-delete is **not approved** as the complete Summitt Mindset deletion workflow (not coordinated with Stripe, Supabase, or SMS). See "APP-041 account deletion — 2026-07-18" and DEC-023.
 
 ### Repository behavior (verified)
 - Sign-in `src/app/sign-in/[[...sign-in]]/page.tsx` and sign-up `src/app/sign-up/[[...sign-up]]/page.tsx` render Clerk `<SignIn/>`/`<SignUp/>` with **no provider list, no `appearance`/`elements`, no `oauthFlow`** → **provider visibility is 100% dashboard-controlled on a single shared Clerk instance.** The **same `<SignIn/>` screen would show Google in both the website and a future WebView app.**
@@ -241,6 +241,100 @@ Use at least one **real test account that originally used Google sign-in, is cur
 15. **Expired sessions degrade to a clean login screen** — never a blank screen or redirect loop.
 
 Equivalent critical checks (1–13, 15) are added to the Android POC (Phase 3).
+
+---
+
+## APP-041 account deletion — 2026-07-18
+
+*Documentation-only record. No deletion implementation, migration, Clerk/Stripe/Twilio setting change, or production data/schema mutation occurred. No private identifiers are stored here.*
+
+### Status
+- **APP-041 (parent):** **IN PROGRESS** — Required for V1; **not COMPLETE**.
+- **APP-041A:** **COMPLETE** (live-schema + Clerk Dashboard verification).
+- **APP-041B–APP-041F:** **NOT STARTED**.
+- Exact next action: **APP-041B planning (read-only)** — not implementation.
+
+### Repository audit conclusions (read-only)
+- No complete store-compliant account-deletion system exists today.
+- `/data-deletion` is an email/support-request resource, not an authenticated deletion workflow; retain and eventually improve it as Google’s **external** deletion resource.
+- Account UX today: `/user` (Clerk `<UserProfile />` + membership) and cancel/pause membership APIs — **no coordinated delete**.
+- **Clerk-only deletion is incomplete and unsafe:** would leave application data, could leave Stripe billing active, and can orphan SMS identity/state (including phone uniqueness / START–STOP behavior).
+- User identity is primarily keyed by **`clerk_user_id`** across app tables; Stripe customer/subscription IDs live in Clerk `publicMetadata`; SMS also uses `phone_number`.
+- Deletion cannot rely on one universal parent-user row or one automatic cascade across the whole database.
+
+### Clerk Dashboard verification (Tyler, 2026-07-18) — APP-041A evidence
+- Inspected production Clerk Dashboard only.
+- “Allow users to delete their account” is **ENABLED**.
+- Clerk explicitly states changing this setting affects **new users only**.
+- Existing users can be overridden individually; **"Apply to existing users"** is available.
+- Tyler **did not** click “Apply to existing users.”
+- Tyler **did not** change any Clerk setting.
+- Built-in Clerk self-delete is **not** the approved complete product workflow.
+
+### Live Supabase schema verification (Tyler, 2026-07-18) — APP-041A evidence
+Tyler ran **three read-only** `information_schema` queries in the production Supabase SQL Editor. **No production rows were viewed.** No inserts, updates, deletes, schema changes, functions, or migrations were executed.
+
+| Query | Structural finding (no row content recorded) |
+|---|---|
+| 1 — user-linked columns | User-linked data is distributed across many public-schema tables. Most application records use `clerk_user_id`; some SMS records also use `phone_number`. |
+| 2 — foreign keys / delete rules | Some `v2_commitment` child relationships use **ON DELETE CASCADE** (coaching memory, SMS thread memory, commitment events/intake, seasons, goal-coherence, Victory Room snapshots, and related). **RESTRICT** relationships involving `user_identity_version` require ordered cleanup. Other relationships use **SET NULL** / **NO ACTION**. Many legacy/application user-linked tables have **no** FK that would auto-clean from one parent deletion → orchestrator needs an explicit table-by-table plan. |
+| 3 — PKs / uniques | Several one-row-per-user tables are keyed by or unique on `clerk_user_id` (profile, SMS-state, retention, summary, preference, shipping, and related). **`sms_identities`** has strict phone/user uniqueness (phone is a unique identifying key; Clerk binding is unique). Many other tables are multi-row per user and need scoped `clerk_user_id` cleanup. SMS phone binding requires deliberate release/tombstone plus STOP/consent retention — not blind delete. |
+
+**Evidence classes (keep distinct):**
+- **Repository-proven usage** — tables/code paths found in the website repo audit.
+- **Live-schema structural verification** — column/FK/unique behavior confirmed via `information_schema` (APP-041A).
+- **Unresolved final purge semantics** — exact delete vs anonymize vs retain per table is **not** finalized.
+- **Legal/retention decisions** — still open (parallelizable; not blockers to APP-041A).
+
+### DEC-023 — Recommended V1 deletion architecture (**APPROVED-FOR-IMPLEMENTATION**, not IMPLEMENTED)
+One **website-owned** deletion flow usable in normal browsers and inside the iPhone WKWebView (no native-only delete UI required for V1):
+1. Authenticate; deliberate confirmation; recent reauthentication.
+2. Target **only** the authenticated user’s own account (never a client-supplied user id as authority).
+3. Durably mark deletion pending / record status.
+4. **Suppress outbound SMS first** (audience, identity, pending jobs); do not broadly refactor SMS.
+5. Cancel any active or paused Stripe subscription **before** identity deletion.
+6. Scoped application-data purge or anonymization (explicit table matrix — APP-041B).
+7. Retain required financial records and STOP/opt-out / consent evidence appropriately.
+8. Delete the **Clerk** user **last**.
+9. Terminate the session; show completion state.
+10. Idempotent retry/reconciliation for partial failure.
+11. Deletion-aware webhook/cron protections to prevent entitlement/SMS **resurrection**.
+
+`/data-deletion` remains Google’s external resource and should be improved later (APP-041F), not removed.
+
+### SMS principle (replaces “keep away from SMS tables”)
+- Do **not** broadly refactor or endanger the SMS system.
+- A complete deletion workflow **must** narrowly and deliberately handle SMS audience, identity, pending-job, consent, STOP, and resurrection behavior.
+- Required STOP/opt-out evidence must **not** be blindly destroyed.
+- No implementation phase may proceed without narrow tests proving **other users’** SMS behavior remains unchanged.
+
+### Legal / retention open questions (parallelizable — not APP-041A blockers)
+- SMS STOP/opt-out evidence retention period
+- Stripe customer retention versus deletion
+- Financial/tax-record retention
+- Refunds on account deletion
+- Testimonials and feedback retention
+- Admin/CRM-note treatment
+- Challenge-participant email treatment
+- Whether a grace/undo period is desired
+
+*Not legal advice — confirm with counsel/accountant as needed.*
+
+### Phase breakdown and hours
+| Phase | Scope | Status | Est. focused hours |
+|---|---|---|---|
+| APP-041A | Live schema + Clerk Dashboard verification | **COMPLETE** | 2–4 |
+| APP-041B | Durable deletion state + backend orchestrator | NOT STARTED | 8–14 |
+| APP-041C | Account UI + deliberate confirmation + reauthentication | NOT STARTED | 3–5 |
+| APP-041D | Stripe/SMS race and resurrection hardening | NOT STARTED | 4–8 |
+| APP-041E | Automated tests + physical-iPhone validation | NOT STARTED | 6–10 |
+| APP-041F | Privacy/store documentation + final evidence | NOT STARTED | 1–2 |
+| **APP-041 total** | Parent workstream | **IN PROGRESS** | **≈ 24–40** |
+
+Remaining after APP-041A: approximately **22–36** focused hours. Obsolete tracker estimate of **3 hours** is retired.
+
+### Exact next action
+**APP-041B planning (read-only):** convert verified schema into (1) exact deletion-state schema, (2) exact ordered table action matrix, (3) exact Stripe/SMS/Clerk orchestration contract, (4) exact failure/retry states, (5) exact migration and test plan. **Do not implement APP-041B in a planning-only task.**
 
 ---
 
@@ -492,7 +586,7 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 
 ### Next master-plan work block (priority order)
 1. **APP-065** — honest **elapsed-time** long-session validation (IN PROGRESS). Short-cycle post-180-day-config force-close/reopen already PASS; do not close APP-065 on that alone.
-2. **Account deletion requirements/design** — APP-041 (Required for V1 / store submission).
+2. **APP-041** — account deletion parent **IN PROGRESS** (APP-041A COMPLETE). Exact next: **APP-041B planning** (not implementation).
 3. **APP-015** — external-link policy when a natural link surface is available.
 4. **APP-066** — Client Trust formal confirmation (**not** claimed as already fully passed).
 5. **APP-021 planning gates** — Android Checkpoint B **or** explicit approved iOS-first dependency amendment + estimate confirm/revise + formal DEC-020 close.
@@ -553,7 +647,7 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 
 **U10 — Web-purchased subscription access inside app.** Structurally fine (entitlement in Clerk metadata via webhook). **APP-016 COMPLETE (2026-07-18):** subscribed entitlement matched the private baseline (formally verified, not UI-inferred only); subscribed account reached expected Victory Room/account surfaces; existing member data preserved. Tyler privately verified; **no private identifiers committed**. Hours at risk (formal entitlement residual): ~0. Unsubscribed negative control and exhaustive member-data coverage remain outside this closure.
 
-**U11 — Account deletion compliance. VERIFIED 2026-07-17 — resolved into a requirement.** Apple 5.1.1(v) requires an **in-app deletion path** when the app supports account creation; Google requires **both** in-app **and** an external web resource. Current page is email-only (`data-deletion/page.tsx`) and is **insufficient**. **In-app deletion is now Required for V1** (§3, APP-041). Hours at risk: 3–12. *(No longer an open unknown; it is scoped work.)*
+**U11 — Account deletion compliance. VERIFIED 2026-07-17 — requirement; architecture sized 2026-07-18.** Apple 5.1.1(v) requires an **in-app deletion path** when the app supports account creation; Google requires **both** in-app **and** an external web resource. Current page is email-only (`data-deletion/page.tsx`) and is **insufficient**. **APP-041 parent IN PROGRESS**; **APP-041A COMPLETE**; DEC-023 **APPROVED-FOR-IMPLEMENTATION** (not implemented). Planning range **≈ 24–40 focused hours** (obsolete 3h tracker estimate retired). Hours remaining after APP-041A: **≈ 22–36**.
 
 **U12 — Sign in with Apple requirement. RESOLVED 2026-07-17.** APP-007 confirmed Google is enabled (Apple not). Because **V1 shows no social in the app** (DEC-018 ACTIVE), Apple 4.8 is **not triggered** and **SIWA is not required in V1**. Hours at risk (V1): 0. Revisit only if the app later adds social login.
 
@@ -615,6 +709,15 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 - **Explicitly separate (not folded into the range):** native IAP, native authentication, or any Apple-required major native feature are **separately-approved scope expansions**, not part of this range. Store-review *waiting* remains excluded.
 - **Clerk Pro is an operating expense, not engineering hours.** Raising the Clerk maximum session lifetime beyond the Hobby 7-day ceiling required **Clerk Pro** (Custom session lifetime). **APP-062–064 COMPLETE (2026-07-18):** production upgraded to Pro at **$20/month billed annually**; max lifetime set to **180 days**; inactivity off; **no website/mobile code change**. Remaining work is **APP-065** elapsed-time proof (not eng hours for the setting itself).
 - **False-precision caveat:** this is a planning range, not a promise. Treat the single-number total in the table as the working-target midpoint, not a commitment.
+
+### Estimate revision — 2026-07-18 (APP-041 sized after audit + APP-041A)
+
+- **Prior APP-041 tracker line item:** **3 focused hours** (obsolete; understated orchestration reality).
+- **Prior responsible project range:** ≈ **115–150** focused hours (v1.1 revision already treated deletion as Required, but with a thin placeholder).
+- **New APP-041 planning range:** approximately **24–40 focused hours** total (APP-041A 2–4 COMPLETE; APP-041B 8–14; APP-041C 3–5; APP-041D 4–8; APP-041E 6–10; APP-041F 1–2). Remaining after APP-041A: ≈ **22–36**.
+- **Newly discovered effort vs prior 3h line item:** roughly **+21–37 focused hours** of coordinated website deletion work (Stripe cancel, SMS kill/tombstone/resurrection guards, multi-table purge, Clerk-last, retry) — distinct from work already completed (policy, Stage 1 POC, Clerk Pro/180-day config, APP-010/016/069).
+- **Updated responsible project range:** working target shorthand remains **"the 115-hour app"**; current responsible range ≈ **130–175 focused hours** (widened only to absorb the newly sized APP-041 orchestration band; not false precision).
+- **Not claimed:** APP-041 implemented; overall project re-baselined to a single new midpoint; push/native IAP folded in.
 
 ---
 
@@ -861,7 +964,13 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 | APP-038 | 9 | MOBILE | Handle `target="_blank"` links (no blank dead-ends) | NOT STARTED | 1.5 | | APP-037 | | onboarding/sms + marketing |
 | APP-039 | 9 | MOBILE | Deep links (SMS/marketing → app) | NOT STARTED | 1.5 | | APP-037 | | DEFERRABLE |
 | APP-040 | 10 | MOBILE | Store-compliant subscribe/purchase messaging in app (V1 = neutral inactive-membership state, no in-app selling) | NOT STARTED | 4 | | APP-004,APP-021 | | U8/U9 |
-| APP-041 | 10 | WEBSITE | In-app account-deletion action — **REQUIRED before submission** (Apple 5.1.1(v)/Google) | NOT STARTED | 3 | | APP-005 | | Keep away from SMS tables; no longer conditional. **Clerk user deletion alone is NOT full account deletion** — future deletion audit must cover Clerk, Supabase, Stripe, Twilio, journals, SMS relationship memory, consent records, and any legally-retained records. Confirm Clerk "apply to existing users" (existing-user permission currently UNKNOWN). Do not implement in a documentation task. |
+| APP-041 | 10 | WEBSITE | In-app account-deletion **parent workstream** — **REQUIRED before submission** (Apple 5.1.1(v)/Google) | IN PROGRESS | 24–40 | | APP-005 | "APP-041 account deletion — 2026-07-18"; DEC-023 | Parent only — **not COMPLETE**. Phases APP-041A–F. Obsolete est. 3h retired. **SMS:** do not broadly refactor/endanger SMS; narrowly handle audience/identity/jobs/consent/STOP/resurrection; do not blindly destroy STOP evidence; prove other users unchanged. Clerk-only delete is **not** full deletion |
+| APP-041A | 10 | WEBSITE | Live Supabase schema + Clerk Dashboard verification (read-only) | COMPLETE | 2–4 | NOT RECORDED | APP-041 | "APP-041 account deletion — 2026-07-18" | Repo audit + three read-only `information_schema` queries + Clerk inspect. No settings/data/schema changed. Existing-user apply **not** clicked. Implementation contract may now be designed from real schema evidence |
+| APP-041B | 10 | WEBSITE | Durable deletion state + backend orchestrator | NOT STARTED | 8–14 | | APP-041A | | **Next exact action is planning-only:** deletion-state schema, ordered table matrix, Stripe/SMS/Clerk contract, failure/retry, migration + test plan. Do **not** implement in a planning task |
+| APP-041C | 10 | WEBSITE | Account UI + deliberate confirmation + reauthentication | NOT STARTED | 3–5 | | APP-041B | | Website flow must work in browser + iPhone WKWebView |
+| APP-041D | 10 | WEBSITE | Stripe/SMS race and resurrection hardening | NOT STARTED | 4–8 | | APP-041B | | Webhook/cron/inbound guards; narrow SMS tests |
+| APP-041E | 10 | WEBSITE | Automated tests + physical-iPhone validation | NOT STARTED | 6–10 | | APP-041C,APP-041D | | No private evidence in Git |
+| APP-041F | 10 | WEBSITE | Privacy/store documentation + final evidence | NOT STARTED | 1–2 | | APP-041E | | Improve `/data-deletion` as Google external resource; align privacy/terms |
 | APP-042 | 10 | WEBSITE | Draft accurate privacy/data-safety content | NOT STARTED | 2 | | APP-005,APP-006 | | Tyler + forms |
 | APP-043 | 11 | MOBILE | Integrate crash reporting in shell | NOT STARTED | 2.5 | | APP-022 | | |
 | APP-044 | 11 | MOBILE | Minimal analytics events (launch/login/VR/error) | NOT STARTED | 2 | | APP-043 | | |
@@ -896,11 +1005,12 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 
 ## 9. DEPENDENCY MAP
 
-- **Critical path:** APP-000 → APP-003/004/005/006 (policy, COMPLETE) → **APP-007 (Clerk dashboard, COMPLETE)** → **APP-059 (mobile repo, COMPLETE)** → **APP-008 Stage 1 iPhone live-shell POC (PASS) + APP-070 (COMPLETE; Candidate A2 leading)** → **APP-062–064 COMPLETE (Clerk Pro + 180-day max lifetime)** → **APP-010 / APP-016 / APP-069 COMPLETE (private baseline PASS)** → **APP-065 IN PROGRESS (elapsed-time validation)** + **APP-041 (account deletion)** → APP-021 (formal Phase-4 architecture close — still OPEN) → APP-022/023 (production shell harden) → broader device/App Store path → Android (APP-018+) when iOS is sufficiently stable → launch.
+- **Critical path:** APP-000 → APP-003/004/005/006 (policy, COMPLETE) → **APP-007 (Clerk dashboard, COMPLETE)** → **APP-059 (mobile repo, COMPLETE)** → **APP-008 Stage 1 iPhone live-shell POC (PASS) + APP-070 (COMPLETE; Candidate A2 leading)** → **APP-062–064 COMPLETE (Clerk Pro + 180-day max lifetime)** → **APP-010 / APP-016 / APP-069 COMPLETE (private baseline PASS)** → **APP-065 IN PROGRESS** + **APP-041 IN PROGRESS** (APP-041A COMPLETE; next APP-041B planning) → APP-021 (formal Phase-4 architecture close — still OPEN) → APP-022/023 (production shell harden) → broader device/App Store path → Android (APP-018+) when iOS is sufficiently stable → launch.
 - **Repo ownership on the path:** planning/policy/deletion-endpoint/docs are **WEBSITE**; shell/config/store builds are **MOBILE** (`summitt-mindset-mobile`); POC tasks are disposable **POC** projects. No task edits both repos without explicit authorization (DEC-016).
-- **v1.5.1 dependency notes:** **APP-062, APP-063, APP-064 COMPLETE** (production Clerk Hobby→Pro; max lifetime **180 days**; inactivity off; no website/mobile code). **APP-010, APP-016, APP-069 COMPLETE** (Tyler privately verified baseline comparison PASS; no private identifiers committed). **APP-065 IN PROGRESS** — elapsed-time only; short-cycle post-change reopen already PASS. **APP-021 remains OPEN** (needs Android Checkpoint B **or** explicit approved iOS-first amendment + estimate confirm/revise + formal DEC-020 close). **APP-041** remains Required for V1. **APP-015** (external links) remains open. **APP-066** (Client Trust) remains open. Android APP-018+ deferred until iOS path is sufficiently stable. APP-022 still depends on **APP-021**. APP-053/APP-055 depend on **APP-041** and **APP-065**.
+- **v1.5.2 dependency notes:** **APP-062–064 COMPLETE**. **APP-010/016/069 COMPLETE**. **APP-065 IN PROGRESS**. **APP-041 IN PROGRESS** (APP-041A COMPLETE; APP-041B–F NOT STARTED; DEC-023 APPROVED-FOR-IMPLEMENTATION, not implemented; planning range ≈24–40h). **APP-021 remains OPEN**. **APP-015** and **APP-066** remain open. Android APP-018+ deferred until iOS path is sufficiently stable. APP-022 still depends on **APP-021**. APP-053/APP-055 depend on **APP-041** and **APP-065**.
 - **Session-lifetime chain:** APP-062 (COMPLETE) → APP-063 (COMPLETE) → APP-064 (COMPLETE) → **APP-065 (IN PROGRESS)** + APP-066 (Client Trust). Former Hobby **7-day** Dashboard ceiling replaced by **180-day** max lifetime (DEC-022). Website code never enforced 7 days. Short-cycle cookie/lifecycle persistence proven; **elapsed 180-day persistence not proven**. **Client Trust formal pass is not claimed** from Stage 1 alone.
-- **Parallelizable:** APP-041 (deletion design) alongside APP-065; APP-015 / APP-066 alongside; privacy/data-safety drafting (APP-042) alongside; Android POC (APP-018..020) only after iOS is stable enough; icons/splash later.
+- **APP-041 chain:** APP-041A (COMPLETE) → APP-041B (orchestrator; next = planning) → APP-041C (UI) → APP-041D (race hardening) → APP-041E (tests/iPhone) → APP-041F (privacy/store evidence). Parent stays IN PROGRESS until F closes.
+- **Parallelizable:** APP-041B planning alongside APP-065; APP-015 / APP-066 alongside; privacy/data-safety drafting (APP-042) alongside; Android POC (APP-018..020) only after iOS is stable enough; icons/splash later. Legal/retention questions parallel — not blockers to APP-041A (already complete) or APP-041B planning.
 - **Require Tyler:** APP-065 (elapsed-time device checks), APP-060 (Play account), APP-042/048 (privacy + screenshots), all device testing, all store-account tasks.
 - **Require Apple Developer access:** APP-049, APP-050, APP-053, APP-054.
 - **Require Google Play access:** APP-051, APP-052, APP-055.
@@ -936,6 +1046,7 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 | DEC-018 | **V1 mobile authentication uses app-only first-party email authentication on the same Clerk instance.** Google remains on the website. The app does not show Google or other social providers. Email verification code is the universal login factor. | Avoids Apple 4.8 trigger; avoids Sign in with Apple work in V1; avoids OAuth/WebView callback complexity; preserves one user pool + existing Clerk identities; protects website users who depend on Google; supports Google-origin users via verified-email code sign-in (**APP-010 / APP-069 COMPLETE** — same existing Clerk identity confirmed; no duplicate; no private identifiers committed). Confirmed by APP-007 (Google enabled, Apple not, email-code enabled) + APP-061 + private baseline PASS. | 2026-07-17 | **ACTIVE** | Existing Google users cannot authenticate via email code on a future account; Apple rejects the posture; Clerk cannot support a clean app-only email surface; product strategy later requires social login in the app |
 | DEC-021 | **7-day session lifetime is rejected for production; members must stay signed in for months.** | The tap-and-stay-signed-in promise is core value; a weekly/monthly forced re-login is unacceptable. Never promise "forever." | 2026-07-17 | ACTIVE (product standard) | Security review requires shorter; elapsed-time proof fails (APP-065) |
 | DEC-022 | **Production Clerk maximum session lifetime = 180 days; inactivity timeout remains DISABLED.** Workspace upgraded Hobby → Pro ($20/mo annual; Custom session lifetime included; no optional add-ons). Applies to website browsers and iOS WKWebView (same production Clerk instance). Intended to reduce recurring login friction while retaining periodic secure reauthentication at expiry/revocation. **No website or mobile-shell code change.** APP-065 remains responsible for honest elapsed-time validation — short-cycle post-change force-close/reopen PASS does **not** prove 180-day persistence. | APP-062–064 completed 2026-07-18 via production Clerk Dashboard; prior 7-day ceiling was Hobby Dashboard max-lifetime (not app code) | 2026-07-18 | **ACTIVE** | APP-065 fails; security review shortens; plan/pricing changes |
+| DEC-023 | **V1 account deletion is a website-owned coordinated workflow (APPROVED-FOR-IMPLEMENTATION — not IMPLEMENTED).** Authenticated self-only delete; deliberate confirmation + reauth; durable pending status; SMS suppression first; Stripe cancel before identity delete; scoped purge/anonymize; retain required STOP/consent + financial records; Clerk delete last; session terminate; idempotent retry; deletion-aware webhook/cron anti-resurrection. `/data-deletion` remains Google external resource. Clerk Dashboard self-delete alone is **not** sufficient. | APP-041 repository audit + APP-041A live schema/Clerk verification (2026-07-18); store requirements APP-005 | 2026-07-18 | **APPROVED-FOR-IMPLEMENTATION** | Legal/retention answers change order; implementation evidence fails; store policy change |
 | DEC-019 | **CANDIDATE:** iPhone-first sequencing; hide all in-app purchasing in V1 (neutral inactive-membership state) | APP-003/APP-004 posture; lowers Apple risk | 2026-07-17 | CANDIDATE — confirm at Phase 4/Checkpoint D | Policy re-verification changes posture |
 | DEC-020 | **Production shell architecture: Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift `LiveShellViewController` + one native `WKWebView` inside Capacitor-generated iOS project; live site loaded by native controller; **no `server.url`**). Candidate B (bare native WKWebView/Android WebView) remains fallback only if a later blocker appears. Production `server.url` remains **prohibited**. **Formal APP-021 close still OPEN** (Android Checkpoint B unmet unless iOS-first amendment; estimate confirm/revise unmet). Do NOT pivot to React Native or duplicate screens | Stage 1 iPhone POC PASS + APP-070 observations (2026-07-17). Prior unresolved candidates (a)/(b)/(c) narrowed to A2 leading | 2026-07-17 | ACTIVE (leading selected; formal close pending APP-021) | APP-021 Phase-4 checkpoint formally closes DEC-020 |
 
@@ -1173,13 +1284,13 @@ Deferred: push, native IAP, deep links, offline, redesigns (see parking lot). Re
 Next.js **16.0.5** App Router; **84 pages, 78 API routes, ~8 client pages** (overwhelmingly RSC); Clerk `@clerk/nextjs` ^6.35.5 (`layout.tsx`, `middleware.ts`); Victory Room at `/dashboard/victory-room` (`force-dynamic`, `currentUser()` gate → `/sign-in`); canonical post-login router `post-sign-in/page.tsx` → `MEMBER_APP_HOME_PATH` = `/dashboard/victory-room`; entitlement in Clerk `publicMetadata`; Stripe **web checkout** via full-page redirect; Supabase **service-role server-only** (`supabase-server.ts`); Vimeo **iframe**; SMS = Twilio + crons + huge `lib/` brain; `data-deletion` is **email-only**; domain `https://summittmindset.com`; mobile shell lives in separate `summitt-mindset-mobile` (Stage 1 POC evidence recorded 2026-07-17). Website repo still has **no** PWA/Capacitor/RN product code. (Baseline re-verified 2026-07-17 — see "Baseline verification — 2026-07-17"; Stage 1 architecture evidence in "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17".)
 
 ### MOST-LIKELY TOTAL HOURS
-**Working target ≈ 115 focused hours; current responsible range ≈ 115–150 focused hours** (best ~70, conservative ~258). "The 115-hour app" is preserved as project shorthand for the full polished middle-path version. Range widened 2026-07-17 because in-app account deletion is now Required (not conditional), push may be needed for 4.2, the production shell architecture is unresolved pending POC, and Google's 12-tester/14-day rule may apply (see §6 Estimate revision). Engineering ~65–70h; Tyler setup/testing/store ~45–50h. **Excludes** store-review waiting, push, and native IAP; native IAP / native auth / any Apple-required major native feature are **separately-approved scope expansions**. Estimate must still be formally confirmed/revised at **APP-021** after Android path decision + remaining readiness work; Stage 1 did not close that revise step.
+**Working target shorthand remains ≈ 115 focused hours ("the 115-hour app"); current responsible range ≈ 130–175 focused hours** (best ~70, conservative ~258). Range widened again 2026-07-18 because APP-041 orchestration was newly sized at **≈ 24–40 focused hours** (obsolete 3h tracker estimate retired; see §6 Estimate revision 2026-07-18). Prior 115–150 band already treated deletion as Required but understated implementation depth. Engineering ~65–70h baseline + APP-041 band; Tyler setup/testing/store ~45–50h. **Excludes** store-review waiting, push, and native IAP; native IAP / native auth / any Apple-required major native feature are **separately-approved scope expansions**. Estimate must still be formally confirmed/revised at **APP-021** after Android path decision + remaining readiness work; Stage 1 did not close that revise step.
 
 ### HOURS BY PHASE
 P0 ~3 · P1 ~3 · P2 ~6 · P3 ~4 · P4 ~1 · P5 ~10 · P6 ~10 · P7 ~3 · P8 ~6 · P9 ~6 · P10 ~10 · P11 ~9 · P12 ~5 · P13 ~5 · P14 ~5 · P15 ~5 · P16 ~4 · P17 ~7 · P18 ~3 (+~2 ongoing docs). ≈ **115h**.
 
 ### CRITICAL PATH
-Master plan → policy verify → **iPhone Stage 1 POC PASS (Candidate A2 leading)** → **Clerk Pro + 180-day max lifetime (APP-062–064 COMPLETE)** → **APP-010 / APP-016 / APP-069 COMPLETE (private baseline PASS)** → **APP-065 elapsed-time validation (IN PROGRESS)** + **account deletion (APP-041)** → formal APP-021 close → production harden / App Store → Android when iOS stable → launch.
+Master plan → policy verify → **iPhone Stage 1 POC PASS (Candidate A2 leading)** → **Clerk Pro + 180-day max lifetime (APP-062–064 COMPLETE)** → **APP-010 / APP-016 / APP-069 COMPLETE (private baseline PASS)** → **APP-065 elapsed-time validation (IN PROGRESS)** + **APP-041 IN PROGRESS** (APP-041A COMPLETE; next APP-041B planning) → formal APP-021 close → production harden / App Store → Android when iOS stable → launch.
 
 ### FIRST GO/NO-GO TEST
 **Does the Clerk session persist in an iOS WKWebView after force-close/reopen and land the user in Victory Room without re-login?** (Checkpoint A / APP-011.) **Stage 1: PASS** (including full reboot). Production max lifetime now **180 days** (DEC-022); short-cycle post-change reopen PASS. Identity continuity, no-duplicate-user, and subscribed entitlement formally verified (APP-010 / APP-016 / APP-069 COMPLETE). Remaining: **APP-065 elapsed-time proof**, APP-015, Client Trust, account deletion, App Store posture, Android.
@@ -1197,8 +1308,8 @@ APP-000, APP-001, APP-002, APP-003, APP-004, APP-005, APP-006, APP-007, APP-008,
 Two files: `docs/mobile-app-master-plan.md` (spine + task tracker + decision log + risk register + parking lot) and `docs/mobile-app-session-handoff.md` (append-only session log). Split decision log / risk register into their own files only if they outgrow a screen.
 
 ### EXACT NEXT CURSOR PROMPT
-APP-010, APP-016, and APP-069 are **COMPLETE** (Tyler privately verified the Google-origin baseline comparison PASS; no private identifiers committed). APP-062–APP-064 remain COMPLETE (production Clerk Pro; max lifetime **180 days**; inactivity off; DEC-022). **APP-065 is IN PROGRESS** — honest **elapsed-time** long-session validation (do not mark COMPLETE from short-cycle reopen alone). Choose next actionable work from: **APP-041** (account deletion), **APP-015** (external links), **APP-066** (Client Trust), or **APP-021** planning gates (Android Checkpoint B OR explicit approved iOS-first amendment + estimate confirm/revise + formal DEC-020 close). Do **not** mark APP-021 COMPLETE.
+**APP-041A is COMPLETE.** APP-041 parent remains **IN PROGRESS**. Exact next APP-041 action: **APP-041B planning (read-only)** — convert verified schema into deletion-state schema, ordered table action matrix, Stripe/SMS/Clerk orchestration contract, failure/retry states, migration + test plan. **Do not implement deletion.** Parallel: **APP-065** (elapsed-time; keep IN PROGRESS), **APP-015**, **APP-066**, or **APP-021** planning gates. Do **not** mark APP-041 or APP-021 COMPLETE.
 
 ---
 
-*End of master plan v1.5.1. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*
+*End of master plan v1.5.2. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*
