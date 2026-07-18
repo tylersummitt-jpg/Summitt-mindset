@@ -364,3 +364,39 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Next: **APP-065** elapsed-time long-session validation (do not close from short-cycle alone).
 - Parallel: APP-010, APP-016, APP-069, APP-041.
 - What must NOT be claimed: multi-month / full 180-day persistence proven; session permanent/indefinite.
+
+---
+
+## SESSION 6 — 2026-07-18 — Close APP-010 / APP-016 / APP-069 (private baseline PASS)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `9eb6e1b57bbcbaaa23df9bb95db561bcf2513a01`
+- Mobile repository: exists separately; **not edited** this session.
+
+### Repository state (WEBSITE)
+- Exact `git status --short` (after this documentation session):
+  ```
+   M docs/mobile-app-master-plan.md
+   M docs/mobile-app-session-handoff.md
+  ```
+- Staged?: No · Committed?: No · Pushed?: No
+- `git add .` safety verdict: **SAFE** — documentation only under `docs/`.
+
+### What changed
+- Documentation only in the website repo.
+- **APP-069 COMPLETE** — Tyler privately verified the Google-origin subscribed test-account baseline comparison; comparison **passed**; **no private identifiers committed**.
+- **APP-010 COMPLETE** — intended email-code login posture; same existing Clerk identity confirmed; no duplicate Clerk user; relationship/member state intact.
+- **APP-016 COMPLETE** — subscribed entitlement matched private baseline (formally verified, not UI-inferred only); member data preserved.
+- Checkpoint A updated: identity continuity, no-duplicate-user, and subscribed entitlement formally verified; short-cycle iPhone shell/auth/member-surface evidence PASS.
+- Dependency / next-work language updated so APP-010 / APP-016 / APP-069 are no longer treated as open.
+- **APP-065 remains IN PROGRESS.** APP-015, APP-021, APP-041, APP-066, Android remain open. APP-021 not marked COMPLETE.
+
+### Privacy
+- No email address, Clerk user ID, metadata values, user counts, goal text, Victory Room content, screenshots, codes, or tokens written to Git.
+
+### Exact resume point
+- Next actionable work: choose from **APP-041**, **APP-015**, **APP-066**, or **APP-021** planning gates (Android Checkpoint B OR explicit approved iOS-first amendment + estimate confirm/revise + DEC-020 close). Keep **APP-065** IN PROGRESS (elapsed-time).
+- What must NOT be claimed: 180-day elapsed persistence proven; Android parity; exhaustive account-data testing; full Client Trust; App Store readiness.
