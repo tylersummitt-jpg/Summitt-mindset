@@ -457,8 +457,8 @@ Each implementation session appends one new entry at the **bottom** of this file
 - Docs: APP-041B1 COMPLETE in repo (not deployed); APP-041B parent IN PROGRESS; APP-041 not COMPLETE.
 
 ### Exact resume point
-- Current: **APP-041B1 + APP-041B2a COMPLETE applied/validated** (see SESSION 10).
-- Exact next: **read-only next-slice audit** (B2b vs B3). Do **not** jump into code; do **not** assume B3 is automatically next.
+- Current: **APP-041B3a IMPLEMENTED — PENDING REVIEW** (see SESSION 11). B1+B2a applied/validated.
+- Exact next: **review B3a → APP-041B3b**. B2b deferred.
 - What must NOT be claimed: account deletion works end-to-end; APP-041B/APP-041 complete; any real account was deleted.
 
 ---
@@ -512,5 +512,32 @@ Each implementation session appends one new entry at the **bottom** of this file
 - No public deletion endpoint, Delete Account UI, reauth, Stripe cancel, Clerk delete, or app-data purge. No real account can initiate this workflow.
 
 ### Exact resume point
-- Exact next action: **read-only next-slice audit** — inspect remaining work after applied B2a and choose safest next slice (**APP-041B2b** remaining resurrection/regression hardening **or** **APP-041B3** Stripe cancellation/webhook guards). Do **not** jump into code; do **not** assume B3 is automatically next.
-- What must NOT be claimed: APP-041 complete; end-to-end account deletion works; any real account/SMS identity/subscription was deleted or canceled.
+- Superseded by SESSION 11 (APP-041B3a implemented in worktree; pending review).
+
+---
+
+## SESSION 11 — 2026-07-18 — APP-041B3a Stripe cancellation orchestration (worktree only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `a980aaeb3708b137465d486237580b3fb8aad0af`
+- Mobile repository: **not edited**.
+
+### What changed (worktree only — not staged/committed/pushed)
+- Migration `20260718140000_account_deletion_cas_stripe_result.sql` — extend CAS with optional `stripe_result` (18-arg; service_role only). **Not applied.**
+- `cancelStripeSubscriptionsForDeletion` server-only orchestrator (lease/CAS; discover Summitt subs; immediate cancel; distinct from churn).
+- **Ownership corrections (post review):** customer retrieve ownership gate; foreign subscription `userId` excluded; plan-only metadata not sufficient for cancel; all subscription items scanned for recognized prices; `stripeSubscriptionId` recovery when customer id missing; `skipped` reserved for no handles + no credible membership evidence.
+- Repository CAS/`recordAccountDeletionFailure` support for `stripe_result`.
+- Focused mocks-only tests (no real Stripe credentials / cancels).
+- Docs: B3a **IMPLEMENTED — PENDING REVIEW**; APP-041 / APP-041B remain **IN PROGRESS**.
+
+### Explicit non-claims
+- No migration applied; no real Stripe subscription touched; no public deletion endpoint/UI; ordinary churn route unchanged; end-to-end deletion does **not** work.
+
+### Status precision
+- APP-041B3a: **IMPLEMENTED — PENDING REVIEW**
+- APP-041B / APP-041: **IN PROGRESS**
+- APP-041B2b: **deferred**
+- Exact next: **review B3a → APP-041B3b** (webhook/checkout/resume anti-resurrection)

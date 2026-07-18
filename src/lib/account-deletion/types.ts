@@ -63,6 +63,8 @@ export type AccountDeletionStepsJson = Record<
     code?: string;
     from?: string;
     to?: string;
+    /** Optional sanitized freeform note (may include Stripe object ids; never secrets). */
+    detail?: string;
   }
 >;
 

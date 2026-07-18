@@ -79,9 +79,11 @@ export type TransitionAccountDeletionInput = {
   expectedOrchestrationVersion?: number;
   /** Test-only clock for in-memory store; Postgres CAS uses server now(). */
   now?: Date;
-  stepNote?: { code?: string; ok?: boolean };
+  stepNote?: { code?: string; ok?: boolean; detail?: string };
   /** When set, persists sms_result via CAS (B2a). */
   smsResult?: AccountDeletionRequestRow["sms_result"];
+  /** When set, persists stripe_result via CAS (B3a). */
+  stripeResult?: AccountDeletionRequestRow["stripe_result"];
 };
 
 export type RecordAccountDeletionFailureInput = {
@@ -95,6 +97,10 @@ export type RecordAccountDeletionFailureInput = {
   leaseMs?: number;
   expectedOrchestrationVersion?: number;
   now?: Date;
+  /** When set, persists stripe_result via CAS (B3a). */
+  stripeResult?: AccountDeletionRequestRow["stripe_result"];
+  /** Optional sanitized progress note merged into the failure step. */
+  stepDetail?: string | null;
 };
 
 type CasPatch = {
@@ -109,6 +115,8 @@ type CasPatch = {
   release_lock?: boolean;
   sms_result?: AccountDeletionRequestRow["sms_result"];
   set_sms_result?: boolean;
+  stripe_result?: AccountDeletionRequestRow["stripe_result"];
+  set_stripe_result?: boolean;
 };
 
 /** Test-injectable store surface (in-memory or Supabase/RPC mock). */
@@ -324,6 +332,7 @@ function createInMemoryStore(): Store {
       if (current.lock_owner !== lockOwner) return null;
       if (leaseExpiredInMemory(current, now, leaseMs)) return null;
       if (patch.set_sms_result && patch.sms_result == null) return null;
+      if (patch.set_stripe_result && patch.stripe_result == null) return null;
       const ts = nowIso(now);
       const next: AccountDeletionRequestRow = {
         ...current,
@@ -344,6 +353,9 @@ function createInMemoryStore(): Store {
         sms_result: patch.set_sms_result
           ? (patch.sms_result ?? null)
           : current.sms_result,
+        stripe_result: patch.set_stripe_result
+          ? (patch.stripe_result ?? null)
+          : current.stripe_result,
         id: current.id,
         clerk_user_id: current.clerk_user_id,
         idempotency_key: current.idempotency_key,
@@ -497,6 +509,10 @@ function createSupabaseStore(): Store {
           p_release_lock: patch.release_lock ?? false,
           p_sms_result: patch.set_sms_result ? (patch.sms_result ?? null) : null,
           p_set_sms_result: patch.set_sms_result ?? false,
+          p_stripe_result: patch.set_stripe_result
+            ? (patch.stripe_result ?? null)
+            : null,
+          p_set_stripe_result: patch.set_stripe_result ?? false,
         }
       );
       if (error) throw error;
@@ -847,6 +863,13 @@ export async function transitionAccountDeletionRequest(
       code: input.stepNote?.code,
       from: input.fromStatus,
       to: input.toStatus,
+      ...(input.stepNote?.detail
+        ? {
+            detail:
+              sanitizeAccountDeletionErrorDetail(input.stepNote.detail) ??
+              undefined,
+          }
+        : {}),
     },
   };
 
@@ -869,6 +892,18 @@ export async function transitionAccountDeletionRequest(
     }
     patch.set_sms_result = true;
     patch.sms_result = input.smsResult;
+  }
+
+  if (input.stripeResult !== undefined) {
+    if (input.stripeResult == null) {
+      return {
+        ok: false,
+        code: "invalid_argument",
+        message: "stripeResult must be a non-null allowed value when set",
+      };
+    }
+    patch.set_stripe_result = true;
+    patch.stripe_result = input.stripeResult;
   }
 
   if (input.fromStatus === "failed_retryable") {
@@ -909,6 +944,7 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
   lockOwner: string;
   steps: AccountDeletionStepsJson;
   smsResult?: AccountDeletionRequestRow["sms_result"];
+  stripeResult?: AccountDeletionRequestRow["stripe_result"];
   leaseMs?: number;
   expectedOrchestrationVersion?: number;
   now?: Date;
@@ -921,6 +957,13 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
       ok: false,
       code: "invalid_argument",
       message: "smsResult must be a non-null allowed value when set",
+    };
+  }
+  if (input.stripeResult !== undefined && input.stripeResult == null) {
+    return {
+      ok: false,
+      code: "invalid_argument",
+      message: "stripeResult must be a non-null allowed value when set",
     };
   }
 
@@ -964,6 +1007,10 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
   if (input.smsResult !== undefined) {
     patch.set_sms_result = true;
     patch.sms_result = input.smsResult;
+  }
+  if (input.stripeResult !== undefined) {
+    patch.set_stripe_result = true;
+    patch.stripe_result = input.stripeResult;
   }
 
   const updated = await store.casWithActiveLease({
@@ -1058,8 +1105,31 @@ export async function recordAccountDeletionFailure(
       code: input.errorCode,
       from: input.fromStatus,
       to: toStatus,
+      ...(input.stepDetail
+        ? { detail: sanitizeAccountDeletionErrorDetail(input.stepDetail) ?? undefined }
+        : {}),
     },
   };
+
+  const patch: CasPatch = {
+    status: toStatus,
+    current_step: input.terminal ? toStatus : retryStep,
+    steps,
+    last_error_code: input.errorCode.slice(0, 120),
+    last_error_detail: detail,
+    release_lock: true,
+  };
+  if (input.stripeResult !== undefined) {
+    if (input.stripeResult == null) {
+      return {
+        ok: false,
+        code: "invalid_argument",
+        message: "stripeResult must be a non-null allowed value when set",
+      };
+    }
+    patch.set_stripe_result = true;
+    patch.stripe_result = input.stripeResult;
+  }
 
   const updated = await store.casWithActiveLease({
     requestId: row.id,
@@ -1068,14 +1138,7 @@ export async function recordAccountDeletionFailure(
     lockOwner: lockOwnerCheck.value,
     leaseMs,
     now,
-    patch: {
-      status: toStatus,
-      current_step: input.terminal ? toStatus : retryStep,
-      steps,
-      last_error_code: input.errorCode.slice(0, 120),
-      last_error_detail: detail,
-      release_lock: true,
-    },
+    patch,
   });
 
   if (!updated) {
