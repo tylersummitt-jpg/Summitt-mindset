@@ -864,5 +864,33 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 ### Exact next
 - Complete D0 migration-first SOP above; only then resume APP-041D1 Clerk deletion-last (injected)
 
+## SESSION 23 — 2026-07-19 — APP-041D0 COMPLETE + APP-041D1 Clerk deletion-last (worktree)
+
+### Repository identity
+- HEAD at D1 start: `0c3fe21f888be68111a2f807a3aca4d91ec2eba6` (D0 COMPLETE)
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### D0 COMPLETE (recorded)
+- Commit: `0c3fe21f888be68111a2f807a3aca4d91ec2eba6`
+- Migration applied; PostgREST schema cache reloaded; 22-arg signature/security/permissions verified
+- Legacy 20-key compatibility smoke passed; zero synthetic residue
+
+### D1 what changed
+- `clerk-deletion-adapter.ts` — narrow injected adapter contract (no real Clerk SDK)
+- `orchestrate-clerk-deletion.ts` — server-only `app_data_purged → deleting_clerk → completed`
+- Durable compact marker `steps.clerk_delete_rpc` (`provider:clerk`; codes `deleted`|`already_absent`)
+- **Safety corrections (pre-stage):** require valid C3 `app_data_purge_rpc` marker before irreversible adapter; Clerk-marker-first reconciliation ignores stale caller version; never persist raw `adapterResult.code` (allowlisted internal error codes only); adapter uses `row.clerk_user_id`; finalization rechecks ownership + C3 marker
+- Tests: stateful in-memory + fake adapter (eligibility, marker, failure, reconciliation, crash window, lease, safety, irreversible-step corrections)
+- No route/worker/cron/UI; no migration; no production SQL; no real Clerk call
+
+### Status
+- **APP-041D0:** COMPLETE
+- **APP-041D1:** IMPLEMENTED — PENDING REVIEW
+- Adapter remains injected/fake only; residual provider-success-before-marker crash window documented
+
+### Exact next
+- Review D1 → trusted worker/reconciler → admin recovery → authenticated initiation + reauthentication → user-facing deletion UI later
+
 ### Explicit non-claims
-- Migration not applied; schema cache not reloaded; compatibility smoke not completed; D0 not complete; D1 not started; Clerk deletion not live; users cannot delete accounts; app-store compliance not complete
+- Clerk deletion is not live; no real Clerk user deleted; users cannot delete accounts; end-to-end deletion not complete; app-store compliance not complete; worker automation does not exist
