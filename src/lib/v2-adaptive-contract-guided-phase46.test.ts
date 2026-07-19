@@ -75,6 +75,16 @@ vi.mock("@/lib/twilio", () => ({
   sendSMS: sendSMSMock,
 }));
 
+vi.mock("@/lib/account-deletion/deletion-guards", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/account-deletion/deletion-guards")>();
+  return {
+    ...actual,
+    evaluateOutboundSmsForAccountDeletion: vi.fn(async () => ({
+      decision: "allowed" as const,
+    })),
+  };
+});
+
 vi.mock("@/lib/v2-sms-accountability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/v2-sms-accountability")>();
   return {
@@ -206,12 +216,18 @@ function stubCommitment(): ActiveV2CommitmentRow {
 describe("Phase 4.6 — guided contract proposal SMS (snapshot + needle + metadata)", () => {
   const envSnapshot = { ...process.env };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env = { ...envSnapshot };
     delete process.env.SMS_DRY_RUN;
     vi.clearAllMocks();
     commitmentEventInserts.length = 0;
     getV2CommitmentByIdForCoachingMock.mockResolvedValue(stubCommitment());
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValue({
+      decision: "allowed",
+    });
     buildShrinkMock.mockResolvedValue({
       body: `Let’s simplify for a bit: ${BINDING} Want me to hold you to that? A clear yes or no is enough.`,
       northStarReplySource: "v3_adaptive_proposal_refined",
@@ -380,6 +396,46 @@ describe("Phase 4.6 — guided contract proposal SMS (snapshot + needle + metada
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error("expected failure");
     expect(r.error).toBe("sms_send_failed");
+    expect(commitmentEventInserts.length).toBe(0);
+  });
+
+  it("APP-041B2b lookup_failed rolls back proposal and does not claim sent", async () => {
+    const { AccountDeletionOutboundSmsError } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    sendSMSMock.mockRejectedValueOnce(
+      new AccountDeletionOutboundSmsError("lookup_failed")
+    );
+    const r = await proposeShrinkAskFromGuidedResolution({
+      commitmentId: "cmt_guided_phase46",
+      clerkUserId: "user_phase46",
+      proposalBindingText: BINDING,
+      originalBehaviorStatement: stubCommitment().behavior_statement,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("expected failure");
+    expect(r.error).toBe("deletion_lookup_failed");
+    expect(commitmentEventInserts.length).toBe(0);
+  });
+
+  it("APP-041B2b blocked_due_to_deletion early → no Twilio, no sent-state", async () => {
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValueOnce({
+      decision: "blocked_due_to_deletion",
+      scope: "unresolved",
+    });
+    const r = await proposeShrinkAskFromGuidedResolution({
+      commitmentId: "cmt_guided_phase46",
+      clerkUserId: "user_phase46",
+      proposalBindingText: BINDING,
+      originalBehaviorStatement: stubCommitment().behavior_statement,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("expected failure");
+    expect(r.error).toBe("account_deletion_blocks_sms");
+    expect(sendSMSMock).not.toHaveBeenCalled();
     expect(commitmentEventInserts.length).toBe(0);
   });
 

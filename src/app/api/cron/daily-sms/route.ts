@@ -12,6 +12,11 @@ import { resolveUserTimezone, getDateKeyInTimezone, resolveSmsUserTimezone } fro
 import { slimTemporalContractForTelemetry } from "@/lib/sms-temporal-contract-v1";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import {
+  evaluateOutboundSmsForAccountDeletion,
+  isAccountDeletionOutboundSmsError,
+  reservedSendEventPatchForDeletionError,
+} from "@/lib/account-deletion/deletion-guards";
+import {
   deriveSmsGoalAdjustmentSignal,
   smsGoalAdjustmentShrinkOverlayEligible,
 } from "@/lib/sms-goal-adjustment-signal";
@@ -1476,6 +1481,12 @@ async function mergeEligibleAudienceFromIdentities(
     if (!uid || typeof phone !== "string" || !phone.trim()) continue;
     if (seen.has(uid)) continue;
 
+    // APP-041B2b: never heal/push deleting users into the in-memory send set.
+    const deletionGate = await evaluateOutboundSmsForAccountDeletion(uid);
+    if (deletionGate.decision !== "allowed") {
+      continue;
+    }
+
     let user;
     try {
       user = await getClerkUser(uid);
@@ -1498,14 +1509,42 @@ async function mergeEligibleAudienceFromIdentities(
       summittSubscribed: true,
     });
 
+    // Re-check after sync: sync may no-op during deletion; do not push blindly.
+    const afterSync = await evaluateOutboundSmsForAccountDeletion(uid);
+    if (afterSync.decision !== "allowed") {
+      continue;
+    }
+
+    const { data: audienceRow } = await supabaseServer
+      .from("sms_audience")
+      .select("clerk_user_id, phone_number, sms_enabled, stopped_at, timezone, summitt_subscribed")
+      .eq("clerk_user_id", uid)
+      .maybeSingle();
+
+    if (
+      !audienceRow ||
+      audienceRow.sms_enabled !== true ||
+      typeof audienceRow.stopped_at === "string" ||
+      audienceRow.summitt_subscribed !== true ||
+      typeof audienceRow.phone_number !== "string" ||
+      !audienceRow.phone_number.trim()
+    ) {
+      continue;
+    }
+
     mergedCount += 1;
     seen.add(uid);
     result.push({
       clerk_user_id: uid,
-      phone_number: phone.trim(),
+      phone_number: audienceRow.phone_number.trim(),
       sms_enabled: true,
       stopped_at: null,
-      timezone: typeof md.timezone === "string" ? md.timezone : null,
+      timezone:
+        typeof audienceRow.timezone === "string"
+          ? audienceRow.timezone
+          : typeof md.timezone === "string"
+            ? md.timezone
+            : null,
       summitt_subscribed: true,
     });
   }
@@ -1572,6 +1611,8 @@ export async function GET(req: Request) {
     skippedTtoMachineShouldSendFalse: 0,
     skippedTtoRouteNotEligibleV1: 0,
     skippedTtoAuthoritativeFailClosed: 0,
+    skippedAccountDeletion: 0,
+    skippedDeletionLookupFailed: 0,
   };
 
   const { data: audienceQueryRows } = await supabaseServer
@@ -1597,6 +1638,27 @@ export async function GET(req: Request) {
 
   for (const audienceUser of audienceUsers) {
       stats.scanned += 1;
+
+      // APP-041B2b: early skip so we do not do expensive work for deleting users.
+      // Transport still re-checks immediately before messages.create.
+      const earlyDeletion = await evaluateOutboundSmsForAccountDeletion(
+        audienceUser.clerk_user_id
+      );
+      if (earlyDeletion.decision === "blocked_due_to_deletion") {
+        stats.skippedAccountDeletion += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+      if (earlyDeletion.decision === "lookup_failed") {
+        stats.skippedDeletionLookupFailed += 1;
+        stats.skippedUnexpected += 1;
+        // No send_event written — later cron pass in-window can retry.
+        continue;
+      }
+      if (earlyDeletion.decision === "missing_clerk_user_id") {
+        stats.skippedUnexpected += 1;
+        continue;
+      }
 
       let stage = "getClerkUser";
       try {
@@ -2255,6 +2317,36 @@ export async function GET(req: Request) {
               });
               stats.twilioAccepted += 1;
             } catch (err) {
+              if (isAccountDeletionOutboundSmsError(err)) {
+                const patch = reservedSendEventPatchForDeletionError(err);
+                await supabaseServer
+                  .from("sms_send_events")
+                  .update({
+                    status: patch.status,
+                    metadata: {
+                      ...existingMeta,
+                      note: patch.note,
+                      twilio_send_attempted: false,
+                      timezone,
+                      local_time: localNow.toISOString(),
+                    },
+                  })
+                  .eq("clerk_user_id", audienceUser.clerk_user_id)
+                  .eq("day_key", todayKey)
+                  .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
+                if (patch.metricCategory === "blocked_due_to_deletion") {
+                  stats.skippedAccountDeletion += 1;
+                  stats.skippedIntentional += 1;
+                } else if (patch.metricCategory === "deletion_lookup_failed") {
+                  stats.skippedDeletionLookupFailed += 1;
+                  stats.skippedUnexpected += 1;
+                  // send_failed keeps the existing daily retry path (CASE A).
+                } else {
+                  // missing_clerk_user_id — data integrity, not deletion, not Twilio.
+                  stats.skippedUnexpected += 1;
+                }
+                continue;
+              }
               const newRetryCount = retryCount + 1;
               await supabaseServer
                 .from("sms_send_events")
@@ -3024,6 +3116,35 @@ export async function GET(req: Request) {
         });
         stats.twilioAccepted += 1;
       } catch (err) {
+        if (isAccountDeletionOutboundSmsError(err)) {
+          const patch = reservedSendEventPatchForDeletionError(err);
+          await supabaseServer
+            .from("sms_send_events")
+            .update({
+              status: patch.status,
+              metadata: {
+                note: patch.note,
+                twilio_send_attempted: false,
+                retry_count: 0,
+                timezone,
+                local_time: localNow.toISOString(),
+              },
+            })
+            .eq("clerk_user_id", audienceUser.clerk_user_id)
+            .eq("day_key", todayKey)
+            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
+          if (patch.metricCategory === "blocked_due_to_deletion") {
+            stats.skippedAccountDeletion += 1;
+            stats.skippedIntentional += 1;
+          } else if (patch.metricCategory === "deletion_lookup_failed") {
+            stats.skippedDeletionLookupFailed += 1;
+            stats.skippedUnexpected += 1;
+            // send_failed keeps the existing daily retry path (CASE A).
+          } else {
+            stats.skippedUnexpected += 1;
+          }
+          continue;
+        }
         await supabaseServer
           .from("sms_send_events")
           .update({

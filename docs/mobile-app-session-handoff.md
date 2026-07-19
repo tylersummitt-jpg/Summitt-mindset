@@ -612,3 +612,63 @@ Each implementation session appends one new entry at the **bottom** of this file
 - **D** Clerk deletion-last orchestration and recovery design
 
 Protect SMS/billing behavior; prefer the smallest independently testable slice; do not jump to public UI; do not assume initiation endpoint is automatically next.
+
+---
+
+## SESSION 14 — 2026-07-19 — APP-041B2b outbound SMS final-send hardening (worktree only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- HEAD at session start: `4432ce5a6463d790f4523027a1b64d974c4126a3`
+- Mobile repository: **not edited**.
+
+### What changed (worktree only — not staged/committed/pushed)
+- Shared `evaluateOutboundSmsForAccountDeletion` (any deletion row incl. completed blocks; lookup_failed fail-closed at transport).
+- Transport-level guard in `sendSMS` immediately before `messages.create`.
+- Daily self-heal cannot reinsert deleting users; daily/weekly/evening/guided/onboarding/admin paths hardened.
+- **Retry semantics correction:** intentional `blocked_due_to_deletion` → terminal skip/cancel; `lookup_failed` → fail-closed at transport and **not** labeled as intentional deletion (path recovery differs — see SESSION 15/16); `missing_clerk_user_id` → fail-closed data-integrity (terminal where identity cannot self-heal).
+- Stuck/failed/completed deletion rows can suppress SMS until admin recovery (intentional; unchanged semantics).
+- **No migration. No real Twilio/Stripe/Clerk/Supabase call. No public deletion capability.**
+
+### Status precision
+- APP-041B2b: **IMPLEMENTED — PENDING FINAL COMMIT**
+- APP-041 / APP-041B: **IN PROGRESS**
+- Exact next after B2b completion: **purge/anonymization inventory freeze and foundation planning**
+
+## SESSION 15 — 2026-07-19 — APP-041B2b lookup_failed retry-semantics correction (worktree only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- HEAD unchanged: `4432ce5a6463d790f4523027a1b64d974c4126a3`
+- Mobile repository: **not edited**.
+
+### Correction scope
+- Split caller handling of `AccountDeletionOutboundSmsError` outcomes (classifiers + `reservedSendEventPatchForDeletionError` / `dispositionInboundCoachDeletionSendError`).
+- **Inbound coach:** `lookup_failed` → job `failed` with `next_retry_at`; worker **automatically** selects and retries. Blocked/missing remain terminal cancelled.
+- **Daily SMS:** `lookup_failed` → `send_failed` (not `skipped_account_deletion`); existing CASE A may **automatically** retry on later cron passes in the same send window/day (subject to existing attempt/window limits).
+- **Weekly SMS:** early lookup (before reservation) creates no event → another Sunday-window cron tick can retry; **post-reservation** `send_failed` is **not** auto-reclaimed (unique weekly event remains) → operator/admin event reset + resend, or next weekly period. Matches pre-existing Twilio-provider-failure posture.
+- **Evening/admin SMS:** early lookup can be retried by admin before reservation; **post-reservation** `send_failed` needs operator/admin event reset + resend (not an automatic retry engine). Matches pre-existing Twilio-provider-failure posture.
+- **Onboarding:** blocked → 409; lookup/missing → HTTP 500 → client retry; no successful-send latch.
+- **Guided:** proposal rollback → guided action can be invoked again; no false sent-state.
+- Docs honesty: stuck/failed/completed rows suppress SMS; lookup failure is not evidence of deletion.
+
+### Status
+- APP-041B2b remains **IMPLEMENTED — PENDING FINAL COMMIT**
+- Next after B2b completion: purge inventory/foundation. No public deletion.
+
+## SESSION 16 — 2026-07-19 — APP-041B2b docs-only recovery-precision correction
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- HEAD unchanged: `4432ce5a6463d790f4523027a1b64d974c4126a3`
+- Mobile repository: **not edited**.
+
+### What changed
+- Documentation only (`docs/mobile-app-master-plan.md`, `docs/mobile-app-session-handoff.md`).
+- Replaced blanket “retryable” wording with path-specific automatic vs operator/manual recovery.
+- No application code or tests edited.
+
+### Status
+- APP-041B2b: **IMPLEMENTED — PENDING FINAL COMMIT**
+- No migration. No external action. No public deletion capability.
+- Exact next after B2b completion: **purge/anonymization inventory freeze and foundation planning**

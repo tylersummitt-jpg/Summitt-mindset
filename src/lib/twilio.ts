@@ -2,6 +2,10 @@
 
 import Twilio from "twilio";
 import { supabaseServer } from "@/lib/supabase-server";
+import {
+  AccountDeletionOutboundSmsError,
+  assertOutboundSmsAllowedForAccountDeletion,
+} from "@/lib/account-deletion/deletion-guards";
 
 /**
  * ======================================================
@@ -10,6 +14,10 @@ import { supabaseServer } from "@/lib/supabase-server";
  *
  * - Prefer Messaging Service (A2P compliant)
  * - Fallback to TWILIO_PHONE_NUMBER only if needed
+ *
+ * APP-041B2b: final deletion check runs immediately before messages.create
+ * when a Clerk user id is present (or required). DB check + Twilio accept are
+ * not atomic; this is the narrowest enforceable last line of defense.
  */
 
 /**
@@ -225,6 +233,28 @@ export async function sendSMS({
     throw new Error(
       "Missing TWILIO_MESSAGING_SERVICE_SID and TWILIO_PHONE_NUMBER"
     );
+  }
+
+  // APP-041B2b: all production Phase-4 senders pass clerkUserId. Fail closed
+  // when identity context is missing — never call Twilio for an unbound user send.
+  const clerkUserId =
+    typeof lastOutbound?.clerkUserId === "string"
+      ? lastOutbound.clerkUserId.trim()
+      : "";
+  if (!clerkUserId) {
+    console.warn(
+      "[twilio] sendSMS refused: missing_clerk_user_id_for_outbound_sms"
+    );
+    throw new AccountDeletionOutboundSmsError("missing_clerk_user_id");
+  }
+
+  try {
+    await assertOutboundSmsAllowedForAccountDeletion(clerkUserId);
+  } catch (err) {
+    if (err instanceof AccountDeletionOutboundSmsError) {
+      console.warn("[twilio] sendSMS terminal non-send", { code: err.code });
+    }
+    throw err;
   }
 
   const message = await client.messages.create(

@@ -106,9 +106,16 @@ vi.mock("@/lib/sms-audience-sync", () => ({
   syncSmsAudience: (...args: unknown[]) => syncSmsAudienceMock(...args),
 }));
 
-vi.mock("@/lib/account-deletion/deletion-guards", () => ({
-  hasUnresolvedAccountDeletionRequest: vi.fn(async () => false),
-}));
+vi.mock("@/lib/account-deletion/deletion-guards", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/account-deletion/deletion-guards")>();
+  return {
+    ...actual,
+    hasUnresolvedAccountDeletionRequest: vi.fn(async () => false),
+    evaluateOutboundSmsForAccountDeletion: vi.fn(async () => ({
+      decision: "allowed" as const,
+    })),
+  };
+});
 
 vi.mock("@/lib/sms-daily-delivery-body", () => ({
   loadOrCreateSmsDeliveryState: vi.fn(async () => ({ data: {}, error: null })),
@@ -234,6 +241,12 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
     syncSmsAudienceMock.mockResolvedValue(undefined);
     sendSMSMock.mockResolvedValue({ sid: "SM_onb_test" });
     isTwilioReadyMock.mockReturnValue(true);
+    const { evaluateOutboundSmsForAccountDeletion, hasUnresolvedAccountDeletionRequest } =
+      await import("@/lib/account-deletion/deletion-guards");
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValue({
+      decision: "allowed",
+    });
+    vi.mocked(hasUnresolvedAccountDeletionRequest).mockResolvedValue(false);
   });
 
   it("returns 200 without sendSMS when Twilio is not ready (onboarding still succeeds)", async () => {
@@ -451,6 +464,52 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
     expect(clerkMetadataState.value.onboardingTransactionalConsentSmsPhoneE164).toBe(
       "+15551234567"
     );
+  });
+
+  it("APP-041B2b blocked_due_to_deletion → 409, no send, no latch", async () => {
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValueOnce({
+      decision: "blocked_due_to_deletion",
+      scope: "unresolved",
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      postOnboardingSms({
+        smsEnabled: true,
+        smsDisclosureAccepted: true,
+        phoneNumber: "5551234567",
+      })
+    );
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.error).toBe("account_deletion_in_progress");
+    expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(clerkMetadataState.value.onboardingTransactionalConsentSmsSentAt).toBeUndefined();
+  });
+
+  it("APP-041B2b lookup_failed → 500 retryable, not deletion-in-progress", async () => {
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValueOnce({
+      decision: "lookup_failed",
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      postOnboardingSms({
+        smsEnabled: true,
+        smsDisclosureAccepted: true,
+        phoneNumber: "5551234567",
+      })
+    );
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe("sms_temporarily_unavailable");
+    expect(json.error).not.toBe("account_deletion_in_progress");
+    expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(clerkMetadataState.value.onboardingTransactionalConsentSmsSentAt).toBeUndefined();
   });
 
   it("Twilio not ready first does not latch; second request sends", async () => {

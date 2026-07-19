@@ -2,6 +2,11 @@ import { buildStandardCheckSentPayload } from "@/lib/daily-sms-build";
 import { recentEventsIncludeUserYesOnLocalDay } from "@/lib/north-star-sms-context-packet";
 import { supabaseServer } from "@/lib/supabase-server";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
+import {
+  evaluateOutboundSmsForAccountDeletion,
+  isAccountDeletionOutboundSmsError,
+  reservedSendEventPatchForDeletionError,
+} from "@/lib/account-deletion/deletion-guards";
 import { loadTylerTextOverviewAudienceRow } from "@/lib/tyler-text-overview-generate";
 import {
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
@@ -43,6 +48,9 @@ export type TylerTextOverviewEveningSendRefusalCode =
   | "stale_preview"
   | "reservation_failed"
   | "twilio_failed"
+  | "account_deletion_blocks_sms"
+  | "deletion_lookup_failed"
+  | "missing_clerk_user_id_for_outbound_sms"
   | "post_send_bookkeeping_failed";
 
 export type TylerTextOverviewEveningSendResult =
@@ -286,6 +294,30 @@ export async function evaluateEveningSendEligibility(args: {
     clerkUserId: draft.clerk_user_id,
     draftForDayKey: draft.draft_for_day_key,
   };
+
+  const deletion = await evaluateOutboundSmsForAccountDeletion(draft.clerk_user_id);
+  if (deletion.decision === "blocked_due_to_deletion") {
+    return refuse("account_deletion_blocks_sms", "Account deletion blocks SMS", {
+      ...base,
+      recoverable: false,
+    });
+  }
+  if (deletion.decision === "lookup_failed") {
+    return refuse("deletion_lookup_failed", "Account deletion lookup failed", {
+      ...base,
+      recoverable: true,
+    });
+  }
+  if (deletion.decision === "missing_clerk_user_id") {
+    return refuse(
+      "missing_clerk_user_id_for_outbound_sms",
+      "Missing Clerk user id for outbound SMS",
+      {
+        ...base,
+        recoverable: false,
+      }
+    );
+  }
 
   const body = args.bodyToSend.trim();
   if (!body) {
@@ -707,6 +739,46 @@ export async function sendTylerTextOverviewEveningDraft(args: {
     twilioMessageSid = message.sid;
     twilioStatus = typeof message.status === "string" ? message.status : "sent";
   } catch (err) {
+    if (isAccountDeletionOutboundSmsError(err)) {
+      const patch = reservedSendEventPatchForDeletionError(err);
+      await supabaseServer
+        .from("sms_send_events")
+        .update({
+          status: patch.status,
+          metadata: {
+            ...generationMetadata,
+            send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+            preview_only: false,
+            tto_draft_id: draft.id,
+            send_mode: args.mode,
+            twilio_send_attempted: false,
+            note: patch.note,
+          },
+        })
+        .eq("id", smsSendEventId);
+      if (patch.metricCategory === "blocked_due_to_deletion") {
+        return refuse("account_deletion_blocks_sms", err.code, {
+          draftId: draft.id,
+          clerkUserId: draft.clerk_user_id,
+          draftForDayKey: draft.draft_for_day_key,
+          recoverable: false,
+        });
+      }
+      if (patch.metricCategory === "deletion_lookup_failed") {
+        return refuse("deletion_lookup_failed", err.code, {
+          draftId: draft.id,
+          clerkUserId: draft.clerk_user_id,
+          draftForDayKey: draft.draft_for_day_key,
+          recoverable: true,
+        });
+      }
+      return refuse("missing_clerk_user_id_for_outbound_sms", err.code, {
+        draftId: draft.id,
+        clerkUserId: draft.clerk_user_id,
+        draftForDayKey: draft.draft_for_day_key,
+        recoverable: false,
+      });
+    }
     const message = err instanceof Error ? err.message : String(err);
     await supabaseServer
       .from("sms_send_events")

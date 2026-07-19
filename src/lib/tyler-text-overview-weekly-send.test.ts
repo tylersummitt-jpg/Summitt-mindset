@@ -233,6 +233,16 @@ vi.mock("@/lib/twilio", () => ({
   isTwilioReady: isTwilioReadyMock,
 }));
 
+vi.mock("@/lib/account-deletion/deletion-guards", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/account-deletion/deletion-guards")>();
+  return {
+    ...actual,
+    evaluateOutboundSmsForAccountDeletion: vi.fn(async () => ({
+      decision: "allowed" as const,
+    })),
+  };
+});
+
 vi.mock("@/lib/tyler-text-overview-generate", () => ({
   loadTylerTextOverviewAudienceRow: loadAudienceMock,
 }));
@@ -349,7 +359,7 @@ describe("assertWeeklyTtoDraftAuthoritativeForManualSend", () => {
 });
 
 describe("sendWeeklyTtoDraftManually", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     seedWeeklyDraft();
     sendSmsMock.mockReset();
     sendSmsMock.mockResolvedValue({ sid: "SM-weekly-1", status: "queued" });
@@ -367,6 +377,12 @@ describe("sendWeeklyTtoDraftManually", () => {
     isPauseActiveMock.mockReturnValue(false);
     getActiveCommitmentMock.mockResolvedValue({ id: COMMITMENT_ID });
     upsertThreadMemoryMock.mockResolvedValue({ ok: true });
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValue({
+      decision: "allowed",
+    });
   });
 
   afterEach(() => {
@@ -456,6 +472,52 @@ describe("sendWeeklyTtoDraftManually", () => {
     if (result.ok) return;
     expect(result.refusalCode).toBe("twilio_failed");
     expect(db.weeklyEvents[0].status).toBe("send_failed");
+    expect(db.drafts[0].status).toBe("current");
+    expect(db.drafts[0].final_body_sent).toBeUndefined();
+  });
+
+  it("APP-041B2b blocked_due_to_deletion → terminal skipped_account_deletion, no Twilio", async () => {
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValueOnce({
+      decision: "blocked_due_to_deletion",
+      scope: "unresolved",
+    });
+
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("account_deletion_blocks_sms");
+    expect(result.recoverable).toBe(false);
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.weeklyEvents).toHaveLength(0);
+    expect(db.drafts[0].status).toBe("current");
+  });
+
+  it("APP-041B2b lookup_failed after reserve → send_failed retryable, not skipped_account_deletion", async () => {
+    const { AccountDeletionOutboundSmsError } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    sendSmsMock.mockRejectedValueOnce(
+      new AccountDeletionOutboundSmsError("lookup_failed")
+    );
+
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("deletion_lookup_failed");
+    expect(result.recoverable).toBe(true);
+    expect(db.weeklyEvents[0].status).toBe("send_failed");
+    expect((db.weeklyEvents[0].metadata as { note?: string }).note).toBe(
+      "deletion_lookup_failed"
+    );
     expect(db.drafts[0].status).toBe("current");
     expect(db.drafts[0].final_body_sent).toBeUndefined();
   });

@@ -4,6 +4,11 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { checkInboundCoachSmsEligibility } from "@/lib/account-deletion/inbound-coach-send-eligibility";
 import {
+  dispositionInboundCoachDeletionSendError,
+  isAccountDeletionOutboundSmsError,
+  isIntentionalDeletionSmsBlock,
+} from "@/lib/account-deletion/deletion-guards";
+import {
   isLikelyCommitmentChangeIntentTurn,
   isLikelySmsComplianceOrOptOutTurn,
   shouldUseSmsConversationBrainControl,
@@ -11315,11 +11320,28 @@ async function processInboundSmsSafetyShortCircuit(
             ? sendResult.firstSid
             : null;
       } catch (e) {
-        console.error("[sms-inbound-coach] inbound_safety_send_failed", {
-          message_sid: job.message_sid,
-          reason_code: safety.reasonCode,
-          message: e instanceof Error ? e.message : String(e),
-        });
+        if (isAccountDeletionOutboundSmsError(e)) {
+          const disposition = dispositionInboundCoachDeletionSendError(e);
+          if (disposition.action === "retryable_rethrow") {
+            // lookup_failed: do not cancel — let the worker retry when DB recovers.
+            throw disposition.error;
+          }
+          console.warn("[sms-inbound-coach] inbound_safety_send_blocked_deletion", {
+            message_sid: job.message_sid,
+            code: e.code,
+            metric: isIntentionalDeletionSmsBlock(e)
+              ? "blocked_due_to_deletion"
+              : "missing_clerk_user_id",
+          });
+          // Intentional deletion / missing identity: fall through to terminal cancel.
+        } else {
+          console.error("[sms-inbound-coach] inbound_safety_send_failed", {
+            message_sid: job.message_sid,
+            reason_code: safety.reasonCode,
+            message: e instanceof Error ? e.message : String(e),
+            metric: "twilio_provider_failure",
+          });
+        }
       }
     }
   }
@@ -11875,14 +11897,47 @@ async function commitAndSendInboundCoachReply(
   }
 
   console.log("[sms-inbound-coach] sending sms", job.message_sid);
-  const sendResult = await sendSMSChunked({
-    to: toPhone,
-    body: bodyToSend,
-    lastOutbound: {
-      clerkUserId: userId,
-      messageKind: "coach",
-    },
-  });
+  let sendResult;
+  try {
+    sendResult = await sendSMSChunked({
+      to: toPhone,
+      body: bodyToSend,
+      lastOutbound: {
+        clerkUserId: userId,
+        messageKind: "coach",
+      },
+    });
+  } catch (sendErr) {
+    if (isAccountDeletionOutboundSmsError(sendErr)) {
+      const disposition = dispositionInboundCoachDeletionSendError(sendErr);
+      if (disposition.action === "retryable_rethrow") {
+        // lookup_failed: no Twilio call; keep retryable via outer job failure path.
+        // Do not far-future cancel — DB recovery must be able to deliver the reply.
+        console.warn("[sms-inbound-coach] send deferred (deletion_lookup_failed)", {
+          message_sid: job.message_sid,
+          code: sendErr.code,
+          metric: "deletion_lookup_failed",
+        });
+        throw disposition.error;
+      }
+      // blocked_due_to_deletion or missing_clerk_user_id (data-integrity): terminal.
+      await markJobFinal({
+        messageSid: job.message_sid,
+        status: "cancelled",
+        lastError: disposition.lastError,
+        nextRetry: farFutureIso(),
+      });
+      console.warn("[sms-inbound-coach] send cancelled (account deletion)", {
+        message_sid: job.message_sid,
+        code: disposition.lastError,
+        metric: isIntentionalDeletionSmsBlock(sendErr)
+          ? "blocked_due_to_deletion"
+          : "missing_clerk_user_id",
+      });
+      return;
+    }
+    throw sendErr;
+  }
 
   const sid =
     sendResult.firstSid && sendResult.firstSid.length > 0

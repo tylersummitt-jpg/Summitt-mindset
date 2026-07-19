@@ -189,6 +189,16 @@ vi.mock("@/lib/twilio", () => ({
   isTwilioReady: isTwilioReadyMock,
 }));
 
+vi.mock("@/lib/account-deletion/deletion-guards", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/account-deletion/deletion-guards")>();
+  return {
+    ...actual,
+    evaluateOutboundSmsForAccountDeletion: vi.fn(async () => ({
+      decision: "allowed" as const,
+    })),
+  };
+});
+
 vi.mock("@/lib/v2-outbound-check-sent", () => ({
   onV2StandardCheckSentOutboundSendSuccess: onCheckSentMock,
 }));
@@ -215,7 +225,7 @@ vi.mock("@/lib/north-star-sms-context-packet", () => ({
 }));
 
 describe("tyler-text-overview-evening-send", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     seedEveningDraft();
     sendSmsMock.mockReset();
     sendSmsMock.mockResolvedValue({ sid: "SM-evening-1", status: "queued" });
@@ -235,6 +245,12 @@ describe("tyler-text-overview-evening-send", () => {
     isPauseActiveMock.mockReturnValue(false);
     getActiveCommitmentMock.mockResolvedValue({ id: COMMITMENT_ID });
     recentYesMock.mockReturnValue(false);
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValue({
+      decision: "allowed",
+    });
   });
 
   afterEach(() => {
@@ -574,6 +590,50 @@ describe("tyler-text-overview-evening-send", () => {
     expect(db.drafts[0].status).toBe("current");
     expect(db.sendEvents[0].status).toBe("send_failed");
     expect(onCheckSentMock).not.toHaveBeenCalled();
+  });
+
+  it("APP-041B2b blocked_due_to_deletion → terminal refuse, no Twilio", async () => {
+    const { evaluateOutboundSmsForAccountDeletion } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValueOnce({
+      decision: "blocked_due_to_deletion",
+      scope: "unresolved",
+    });
+    const result = await sendTylerTextOverviewEveningDraft({
+      draftId: "draft-evening-1",
+      requestedByClerkUserId: "admin_tyler",
+      mode: "manual_one",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("account_deletion_blocks_sms");
+    expect(result.recoverable).toBe(false);
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+  });
+
+  it("APP-041B2b lookup_failed after reserve → send_failed retryable, not skipped_account_deletion", async () => {
+    const { AccountDeletionOutboundSmsError } = await import(
+      "@/lib/account-deletion/deletion-guards"
+    );
+    sendSmsMock.mockRejectedValueOnce(
+      new AccountDeletionOutboundSmsError("lookup_failed")
+    );
+    const result = await sendTylerTextOverviewEveningDraft({
+      draftId: "draft-evening-1",
+      requestedByClerkUserId: "admin_tyler",
+      mode: "manual_one",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("deletion_lookup_failed");
+    expect(result.recoverable).toBe(true);
+    expect(db.sendEvents[0].status).toBe("send_failed");
+    expect((db.sendEvents[0].metadata as { note?: string }).note).toBe(
+      "deletion_lookup_failed"
+    );
+    expect(db.drafts[0].status).toBe("current");
   });
 
   it("post-send bookkeeping failure does not re-send Twilio", async () => {

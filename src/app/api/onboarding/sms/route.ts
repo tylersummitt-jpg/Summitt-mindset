@@ -5,7 +5,12 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
-import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
+import {
+  ACCOUNT_DELETION_IN_PROGRESS_BODY,
+  evaluateOutboundSmsForAccountDeletion,
+  hasUnresolvedAccountDeletionRequest,
+  isAccountDeletionOutboundSmsError,
+} from "@/lib/account-deletion/deletion-guards";
 import { loadOrCreateSmsDeliveryState } from "@/lib/sms-daily-delivery-body";
 import {
   onboardingTransactionalConsentLatchFields,
@@ -278,6 +283,30 @@ export async function POST(req: Request) {
           "Summitt Mindset";
 
         try {
+          // APP-041B2b: second check after identity/phone work, before send.
+          const preSendDeletion = await evaluateOutboundSmsForAccountDeletion(
+            userId
+          );
+          if (preSendDeletion.decision === "blocked_due_to_deletion") {
+            return new Response(
+              JSON.stringify(ACCOUNT_DELETION_IN_PROGRESS_BODY),
+              { status: 409 }
+            );
+          }
+          if (
+            preSendDeletion.decision === "lookup_failed" ||
+            preSendDeletion.decision === "missing_clerk_user_id"
+          ) {
+            // Neutral retryable server error — do not claim deletion is in progress.
+            return new Response(
+              JSON.stringify({
+                error: "sms_temporarily_unavailable",
+                message: "Please try again.",
+              }),
+              { status: 500 }
+            );
+          }
+
           const twilioMessage = await sendSMS({
             to: normalizedPhone,
             body: confirm,
@@ -303,6 +332,22 @@ export async function POST(req: Request) {
                 : null,
           });
         } catch (e) {
+          if (isAccountDeletionOutboundSmsError(e)) {
+            if (e.outcome === "blocked_due_to_deletion") {
+              return new Response(
+                JSON.stringify(ACCOUNT_DELETION_IN_PROGRESS_BODY),
+                { status: 409 }
+              );
+            }
+            // lookup_failed or missing_clerk_user_id — no latch; client may retry.
+            return new Response(
+              JSON.stringify({
+                error: "sms_temporarily_unavailable",
+                message: "Please try again.",
+              }),
+              { status: 500 }
+            );
+          }
           // Never block onboarding if Twilio fails; do not latch so retry can send again.
           console.warn("[onboarding/sms] transactional_confirmation_send_failed", {
             transactional_sms: true,

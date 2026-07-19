@@ -10,6 +10,13 @@ import {
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { buildV2ShrinkProposalOutboundSms } from "@/lib/v2-sms-accountability";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
+import {
+  evaluateOutboundSmsForAccountDeletion,
+  isAccountDeletionOutboundSmsError,
+  isDeletionLookupFailure,
+  isIntentionalDeletionSmsBlock,
+  isMissingOutboundSmsIdentity,
+} from "@/lib/account-deletion/deletion-guards";
 import { finalizeNorthStarCoachSmsAsync } from "@/lib/north-star-coach-sms-openai";
 import { applyFinalVoiceOwnershipGate } from "@/lib/v3-sms-voice-ownership";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
@@ -440,6 +447,20 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
     return { ok: false, error: "twilio_not_configured" };
   }
 
+  // APP-041B2b: early deletion check before expensive generation / reservation.
+  const earlyDeletion = await evaluateOutboundSmsForAccountDeletion(
+    args.clerkUserId
+  );
+  if (earlyDeletion.decision === "blocked_due_to_deletion") {
+    return { ok: false, error: "account_deletion_blocks_sms" };
+  }
+  if (earlyDeletion.decision === "lookup_failed") {
+    return { ok: false, error: "deletion_lookup_failed" };
+  }
+  if (earlyDeletion.decision === "missing_clerk_user_id") {
+    return { ok: false, error: "missing_clerk_user_id_for_outbound_sms" };
+  }
+
   const { data: ident } = await supabaseServer
     .from("sms_identities")
     .select("phone_number, sms_enabled, stopped_at")
@@ -636,6 +657,25 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
         return { ok: false, error: "guided_contract_binding_needle_missing" };
       }
       bindingNeedleVerified = true;
+      // Final deletion check immediately before send (transport also re-checks).
+      const preSendDeletion = await evaluateOutboundSmsForAccountDeletion(
+        args.clerkUserId
+      );
+      if (preSendDeletion.decision !== "allowed") {
+        await rollbackGuidedContractProposalReservation({
+          commitmentId: args.commitmentId,
+          proposalBindingText: args.proposalBindingText,
+        });
+        return {
+          ok: false,
+          error:
+            preSendDeletion.decision === "lookup_failed"
+              ? "deletion_lookup_failed"
+              : preSendDeletion.decision === "missing_clerk_user_id"
+                ? "missing_clerk_user_id_for_outbound_sms"
+                : "account_deletion_blocks_sms",
+        };
+      }
       const msg = await sendSMS({
         to: phone,
         body: finalGuidedBody,
@@ -652,6 +692,27 @@ export async function proposeShrinkAskFromGuidedResolution(args: {
         commitmentId: args.commitmentId,
         proposalBindingText: args.proposalBindingText,
       });
+      if (isAccountDeletionOutboundSmsError(e)) {
+        console.warn(
+          "[v2-adaptive-contract] proposeShrinkAskFromGuidedResolution deletion non-send",
+          {
+            code: e.code,
+            metric: isIntentionalDeletionSmsBlock(e)
+              ? "blocked_due_to_deletion"
+              : isDeletionLookupFailure(e)
+                ? "deletion_lookup_failed"
+                : "missing_clerk_user_id",
+          }
+        );
+        return {
+          ok: false,
+          error: isDeletionLookupFailure(e)
+            ? "deletion_lookup_failed"
+            : isMissingOutboundSmsIdentity(e)
+              ? "missing_clerk_user_id_for_outbound_sms"
+              : "account_deletion_blocks_sms",
+        };
+      }
       console.error("[v2-adaptive-contract] proposeShrinkAskFromGuidedResolution send failed", e);
       return { ok: false, error: "sms_send_failed" };
     }
