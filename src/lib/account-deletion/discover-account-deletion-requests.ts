@@ -106,6 +106,24 @@ export function effectiveDiscoveryEligibilityMs(
 }
 
 /**
+ * Single-row discoverability using the same eligibility rules as the selector/SQL.
+ * Does not mutate, acquire leases, or call providers.
+ */
+export function isAccountDeletionRequestDiscoverable(
+  row: AccountDeletionRequestRow,
+  now: Date,
+  leaseMs: number = ACCOUNT_DELETION_DISCOVERY_DEFAULT_LEASE_MS
+): boolean {
+  return (
+    selectAccountDeletionRequestIdsForReconcile([row], {
+      limit: 1,
+      leaseMs,
+      now,
+    }).length === 1
+  );
+}
+
+/**
  * Pure mirror of list_account_deletion_requests_for_reconcile eligibility + order.
  * Returns request IDs only. Invalid limit/lease → empty array (SQL-compatible).
  */

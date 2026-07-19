@@ -192,6 +192,13 @@ export type AccountDeletionStore = {
     now: Date;
   }): Promise<string[]>;
   /**
+   * APP-041E4a: bounded admin list (raw rows for sanitization). Read-only.
+   */
+  listForAdmin(input: {
+    limit: number;
+    status: AccountDeletionStatus | "all";
+  }): Promise<AccountDeletionRequestRow[]>;
+  /**
    * Test-only seed for arbitrary row shapes (in-memory). Supabase throws.
    */
   seedForTests(row: AccountDeletionRequestRow): Promise<AccountDeletionRequestRow>;
@@ -265,6 +272,19 @@ function mapRow(raw: Record<string, unknown>): AccountDeletionRequestRow {
       (raw.clerk_result as AccountDeletionRequestRow["clerk_result"]) ?? null,
     idempotency_key: String(raw.idempotency_key),
   };
+}
+
+/**
+ * APP-041E4a admin list mapper. Omits unused sensitive columns from SELECT
+ * (idempotency_key, last_error_detail). Placeholders satisfy the shared row
+ * type; they are never copied into the sanitized admin view model.
+ */
+function mapAdminListRow(raw: Record<string, unknown>): AccountDeletionRequestRow {
+  return mapRow({
+    ...raw,
+    last_error_detail: null,
+    idempotency_key: "",
+  });
 }
 
 function leaseExpiredInMemory(
@@ -465,6 +485,26 @@ function createInMemoryStore(): Store {
         leaseMs,
         now,
       });
+    },
+    async listForAdmin({ limit, status }) {
+      const all = Array.from(rows.values()).map((r) => ({
+        ...r,
+        steps: { ...r.steps },
+      }));
+      const filtered =
+        status === "all" ? all : all.filter((r) => r.status === status);
+      filtered.sort((a, b) => {
+        const au = Date.parse(a.updated_at);
+        const bu = Date.parse(b.updated_at);
+        if (au !== bu) return bu - au;
+        if (a.id < b.id) return 1;
+        if (a.id > b.id) return -1;
+        return 0;
+      });
+      return filtered.slice(0, limit).map((r) => ({
+        ...r,
+        steps: { ...r.steps },
+      }));
     },
     async seedForTests(row) {
       const copy: AccountDeletionRequestRow = {
@@ -679,6 +719,49 @@ function createSupabaseStore(): Store {
         ids.push(id);
       }
       return ids;
+    },
+    async listForAdmin({ limit, status }) {
+      // Explicit column list. last_error_detail and idempotency_key omitted —
+      // unused for sanitized admin view / canonical marker checks.
+      // steps retained server-side only for production marker readers.
+      let query = supabaseServer
+        .from("account_deletion_requests")
+        .select(
+          [
+            "id",
+            "clerk_user_id",
+            "orchestration_version",
+            "status",
+            "current_step",
+            "steps",
+            "attempt_count",
+            "locked_at",
+            "lock_owner",
+            "created_at",
+            "updated_at",
+            "completed_at",
+            "last_retry_at",
+            "last_error_code",
+            "sms_result",
+            "stripe_result",
+            "purge_result",
+            "clerk_result",
+          ].join(",")
+        )
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit);
+
+      if (status !== "all") {
+        query = query.eq("status", status);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data) return [];
+      return (data as unknown as Record<string, unknown>[]).map((raw) =>
+        mapAdminListRow(raw)
+      );
     },
     async seedForTests() {
       throw new Error("seedForTests_in_memory_only");
@@ -1456,4 +1539,15 @@ export async function seedAccountDeletionRequestForTests(
   row: AccountDeletionRequestRow
 ): Promise<AccountDeletionRequestRow> {
   return getStore().seedForTests(row);
+}
+
+/**
+ * APP-041E4a — bounded raw rows for admin sanitization (service-role SELECT).
+ * Prefer listAccountDeletionRequestsForAdmin for the sanitized view model.
+ */
+export async function listAccountDeletionRequestRowsForAdmin(input: {
+  limit: number;
+  status: AccountDeletionStatus | "all";
+}): Promise<AccountDeletionRequestRow[]> {
+  return getStore().listForAdmin(input);
 }

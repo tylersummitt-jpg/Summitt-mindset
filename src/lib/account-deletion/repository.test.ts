@@ -759,6 +759,9 @@ describe("account deletion repository (in-memory)", () => {
       async listIdsForReconcile() {
         return [];
       },
+      async listForAdmin() {
+        return [];
+      },
       async seedForTests(row: AccountDeletionRequestRow) {
         return row;
       },

@@ -1000,3 +1000,34 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Explicit non-claims
 - Discovery migration is not applied; scheduler does not exist; cron is not active; automatic deletion does not work; users cannot delete accounts; no real account deleted; end-to-end deletion not complete; store compliance not complete
+
+## SESSION 28 — 2026-07-19 — APP-041E3b production apply + APP-041E4a admin observability (worktree)
+
+### Repository identity
+- E3b COMPLETE commit: `939a86b0cfe6337d86a2ab7c96724b469f66e3a8`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### E3b production truth
+- Migration `20260719140000_list_account_deletion_requests_for_reconcile.sql` **applied**
+- Schema cache reloaded; structural verification passed
+- Synthetic rollback validation passed; **zero synthetic residue**
+- Live discovery returned **no rows**
+- No scheduler/cron/automatic processing
+
+### E4a what changed (worktree; pending review)
+- Tyler-only read-only page `/admin/account-deletions`
+- Sanitized admin view model (masked Clerk id; no raw steps/detail/idempotency)
+- Structural consistency + lease + discoverability indicators
+- Admin nav link only under `/admin` layout
+- **No** mutations, recovery controls, cron, scheduler, provider calls, or reconciler invocation
+
+### Status
+- **APP-041E3b:** COMPLETE (`939a86b0cfe6337d86a2ab7c96724b469f66e3a8`)
+- **APP-041E4a:** IMPLEMENTED — PENDING REVIEW
+
+### Exact next
+- Review E4a → commit/deploy E4a → production Tyler access smoke → only later design disabled scheduler route → authenticated initiation later
+
+### Explicit non-claims
+- Users cannot delete accounts; automatic processing does not exist; admin cannot retry/unlock/process; end-to-end deletion not active; store compliance not complete; no real account deleted

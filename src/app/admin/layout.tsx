@@ -41,6 +41,12 @@ export default async function AdminLayout({
             >
               Tyler Text Overview
             </Link>
+            <Link
+              href="/admin/account-deletions"
+              className="text-gray-700 underline hover:text-gray-900"
+            >
+              Account Deletions
+            </Link>
           </nav>
         </div>
       </header>
