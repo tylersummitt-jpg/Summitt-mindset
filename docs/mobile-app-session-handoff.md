@@ -969,10 +969,34 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Status
 - **APP-041E2:** COMPLETE (`f024a7e56bc278bd8efc7e06e38fdff433cdca7c`)
-- **APP-041E3a:** IMPLEMENTED — PENDING REVIEW
+- **APP-041E3a:** COMPLETE (`bee7a09ed23b795a5bc41641c4ceebbe48e3b107`)
 
 ### Exact next
-- Review E3a → discovery RPC/helper → admin read-only observability → disabled cron route only after those are reviewed → authenticated initiation + reauthentication → user-facing deletion UI later
+- Review E3a was completed in-repo; next: APP-041E3b bounded ID-only discovery
 
 ### Explicit non-claims
 - Scheduler does not exist; cron is not active; real Clerk deletion was not tested externally; live deletion is not enabled; account deletion is not end-to-end complete; app-store compliance is not complete; no automatic deletion; no real user deletion
+
+## SESSION 27 — 2026-07-19 — APP-041E3b bounded account-deletion request discovery (worktree)
+
+### Repository identity
+- HEAD at E3b start: `bee7a09ed23b795a5bc41641c4ceebbe48e3b107` (E3a COMPLETE)
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### E3b what changed
+- Migration `20260719140000_list_account_deletion_requests_for_reconcile.sql` (NOT APPLIED) — IDs-only; service-role only; SECURITY INVOKER
+- Pure selector + in-memory mirror (`discover-account-deletion-requests.ts`)
+- Repository helper `listAccountDeletionRequestIdsForReconcile` (RPC + validation; no mutation)
+- Deterministic ordering; expired-lease filter matching acquire; V1 failed_retryable backoff
+- No processing, provider calls, route, cron, scanner loop, admin UI, or automatic deletion
+
+### Status
+- **APP-041E3a:** COMPLETE (`bee7a09ed23b795a5bc41641c4ceebbe48e3b107`)
+- **APP-041E3b:** IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW
+
+### Exact next
+- Review E3b → controlled migration apply/verification → read-only admin observability → disabled cron route only later → authenticated initiation later
+
+### Explicit non-claims
+- Discovery migration is not applied; scheduler does not exist; cron is not active; automatic deletion does not work; users cannot delete accounts; no real account deleted; end-to-end deletion not complete; store compliance not complete

@@ -20,6 +20,9 @@ import { randomUUID } from "node:crypto";
 
 import { supabaseServer } from "@/lib/supabase-server";
 
+import {
+  selectAccountDeletionRequestIdsForReconcile,
+} from "./discover-account-deletion-requests";
 import { sanitizeAccountDeletionErrorDetail } from "./sanitize";
 import {
   isLegalAccountDeletionTransition,
@@ -46,6 +49,12 @@ export const SUPPRESS_SMS_FOR_ACCOUNT_DELETION_RPC =
   "suppress_sms_for_account_deletion" as const;
 export const PURGE_APP_DATA_FOR_ACCOUNT_DELETION_RPC =
   "purge_app_data_for_account_deletion" as const;
+export const LIST_ACCOUNT_DELETION_REQUESTS_FOR_RECONCILE_RPC =
+  "list_account_deletion_requests_for_reconcile" as const;
+
+/** Loose UUID shape check for discovery RPC rows (no PII). */
+const DISCOVERY_REQUEST_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AccountDeletionRepoResult<T> =
   | { ok: true; value: T }
@@ -173,6 +182,19 @@ export type AccountDeletionStore = {
     expectedOrchestrationVersion: number;
     now: Date;
   }): Promise<AccountDeletionRequestRow | null>;
+  /**
+   * APP-041E3b: bounded ID-only discovery. No mutation / lease acquire.
+   * Invalid limit/leaseMs → empty list (SQL-compatible fail-closed).
+   */
+  listIdsForReconcile(input: {
+    limit: number | null | undefined;
+    leaseMs: number | null | undefined;
+    now: Date;
+  }): Promise<string[]>;
+  /**
+   * Test-only seed for arbitrary row shapes (in-memory). Supabase throws.
+   */
+  seedForTests(row: AccountDeletionRequestRow): Promise<AccountDeletionRequestRow>;
 };
 
 type Store = AccountDeletionStore;
@@ -433,6 +455,25 @@ function createInMemoryStore(): Store {
       rows.set(requestId, next);
       return { ...next, steps: { ...next.steps } };
     },
+    async listIdsForReconcile({ limit, leaseMs, now }) {
+      const all = Array.from(rows.values()).map((r) => ({
+        ...r,
+        steps: { ...r.steps },
+      }));
+      return selectAccountDeletionRequestIdsForReconcile(all, {
+        limit,
+        leaseMs,
+        now,
+      });
+    },
+    async seedForTests(row) {
+      const copy: AccountDeletionRequestRow = {
+        ...row,
+        steps: { ...row.steps },
+      };
+      rows.set(copy.id, copy);
+      return { ...copy, steps: { ...copy.steps } };
+    },
   };
 }
 
@@ -608,6 +649,39 @@ function createSupabaseStore(): Store {
         .maybeSingle();
       if (error) throw error;
       return data ? mapRow(data as Record<string, unknown>) : null;
+    },
+    async listIdsForReconcile({ limit, leaseMs, now }) {
+      const { data, error } = await supabaseServer.rpc(
+        LIST_ACCOUNT_DELETION_REQUESTS_FOR_RECONCILE_RPC,
+        {
+          p_limit: limit ?? null,
+          p_lease_ms: leaseMs ?? null,
+          p_now: now.toISOString(),
+        }
+      );
+      if (error) throw error;
+      if (data == null) return [];
+      if (!Array.isArray(data)) {
+        throw new Error("invalid_discovery_rpc_shape");
+      }
+      const ids: string[] = [];
+      const seen = new Set<string>();
+      for (const row of data) {
+        if (!row || typeof row !== "object") {
+          throw new Error("invalid_discovery_rpc_row");
+        }
+        const id = (row as { request_id?: unknown }).request_id;
+        if (typeof id !== "string" || !DISCOVERY_REQUEST_ID_RE.test(id)) {
+          throw new Error("invalid_discovery_request_id");
+        }
+        if (seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+      }
+      return ids;
+    },
+    async seedForTests() {
+      throw new Error("seedForTests_in_memory_only");
     },
   };
 }
@@ -1322,4 +1396,64 @@ export async function markAccountDeletionCompleted(input: {
       ? { clerkResult: input.clerkResult }
       : {}),
   });
+}
+
+export type ListAccountDeletionRequestIdsForReconcileInput = {
+  /** Positive limit; null/undefined → default 1. <1 → empty. >10 → clamped to 10. */
+  limit?: number | null;
+  /** Lease window ms; null/undefined → 120000. Out of [1000,3600000] → empty. */
+  leaseMs?: number | null;
+  /**
+   * Trusted service-role / test clock. Future production callers should
+   * normally omit this (RPC default now()) or pass an authoritative server time.
+   */
+  now?: Date;
+};
+
+/**
+ * APP-041E3b — bounded ID-only discovery. Calls discovery RPC (or in-memory mirror).
+ * Does not acquire leases, mutate state, or invoke providers/reconciler.
+ */
+export async function listAccountDeletionRequestIdsForReconcile(
+  input: ListAccountDeletionRequestIdsForReconcileInput = {}
+): Promise<AccountDeletionRepoResult<{ requestIds: string[] }>> {
+  try {
+    const ids = await getStore().listIdsForReconcile({
+      limit: input.limit,
+      leaseMs: input.leaseMs,
+      now: input.now ?? new Date(),
+    });
+
+    const requestIds: string[] = [];
+    const seen = new Set<string>();
+    for (const id of ids) {
+      if (typeof id !== "string" || !DISCOVERY_REQUEST_ID_RE.test(id)) {
+        return {
+          ok: false,
+          code: "internal_error",
+          message: "Discovery returned a malformed request id",
+        };
+      }
+      if (seen.has(id)) continue;
+      seen.add(id);
+      requestIds.push(id);
+    }
+
+    return { ok: true, value: { requestIds } };
+  } catch {
+    return {
+      ok: false,
+      code: "internal_error",
+      message: "Account deletion discovery failed",
+    };
+  }
+}
+
+/**
+ * Test-only: seed an arbitrary account_deletion_requests row into the in-memory store.
+ */
+export async function seedAccountDeletionRequestForTests(
+  row: AccountDeletionRequestRow
+): Promise<AccountDeletionRequestRow> {
+  return getStore().seedForTests(row);
 }

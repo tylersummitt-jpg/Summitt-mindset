@@ -744,6 +744,9 @@ describe("account deletion repository (in-memory)", () => {
       async findUnresolvedByUser() {
         return null;
       },
+      async findAnyByUser() {
+        return null;
+      },
       async acquireLease() {
         return null;
       },
@@ -752,6 +755,12 @@ describe("account deletion repository (in-memory)", () => {
       },
       async releaseLease() {
         return null;
+      },
+      async listIdsForReconcile() {
+        return [];
+      },
+      async seedForTests(row: AccountDeletionRequestRow) {
+        return row;
       },
       async findByUserAndIdempotency(clerkUserId: string, key: string) {
         if (clerkUserId === "user_race" && key === "same") {
