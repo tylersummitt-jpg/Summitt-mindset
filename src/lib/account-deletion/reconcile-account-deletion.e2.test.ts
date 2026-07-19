@@ -822,7 +822,16 @@ describe("APP-041E2 trusted execution safety", () => {
           hits.push(file);
         }
       }
-      expect(hits).toEqual([]);
+      // E4b disabled cron may call executeTrusted; factory/lower entry stay out of app.
+      expect(hits).toEqual([
+        join(APP_DIR, "api/cron/account-deletions/route.ts"),
+      ]);
+      const cronSrc = readFileSync(hits[0], "utf8");
+      expect(cronSrc).toContain("executeTrustedAccountDeletionReconcile");
+      expect(cronSrc).not.toContain(
+        "createTrustedAccountDeletionReconcilerDependencies"
+      );
+      expect(cronSrc).not.toContain("reconcileAccountDeletionRequest(");
     });
   });
 });

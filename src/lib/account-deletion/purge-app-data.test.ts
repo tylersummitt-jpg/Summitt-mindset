@@ -414,7 +414,7 @@ describe("purgeAppDataForDeletion repository helper", () => {
     }
   });
 
-  it("23. does not create a public deletion endpoint", () => {
+  it("23. does not create a public deletion initiation endpoint", () => {
     const purgeSrc = readFileSync(
       join(process.cwd(), "src/lib/account-deletion/purge-app-data.ts"),
       "utf8"
@@ -434,7 +434,14 @@ describe("purgeAppDataForDeletion repository helper", () => {
     const routes = walk(apiDir).filter((p) =>
       /account-deletion|delete-account|data-deletion-initiate/i.test(p)
     );
-    expect(routes).toEqual([]);
+    // E4b may add a private disabled cron route; public initiation remains forbidden.
+    expect(routes).toEqual([
+      join(apiDir, "cron/account-deletions/route.ts"),
+    ]);
+    const cronSrc = readFileSync(routes[0], "utf8");
+    expect(cronSrc).toContain("validateCronSecretRequest");
+    expect(cronSrc).toContain("ACCOUNT_DELETION_SCHEDULER_ENABLED");
+    expect(cronSrc).not.toContain('"use server"');
   });
 });
 

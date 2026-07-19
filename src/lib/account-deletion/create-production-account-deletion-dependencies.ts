@@ -1,5 +1,5 @@
 /**
- * APP-041E3a — unreachable production dependency factory (server-only).
+ * APP-041E3a — production dependency factory (server-only).
  *
  * Builds a frozen AccountDeletionReconcilerDependencies bundle from fully
  * explicit inputs. Kill-switch defaults closed (enabled !== true).
@@ -13,10 +13,8 @@
  * - invoke the reconciler
  * - create routes/cron/UI
  *
- * Future scheduler must pass enabled:true only after the scheduler
- * kill-switch + admin observability gates (later slices). This module remains
- * unreachable from src/app until then.
- *
+ * APP-041E4b scheduler may pass enabled:true only after its own exact-string
+ * env kill switch and successful discovery of exactly one request ID.
  * Prefer executeTrustedAccountDeletionReconcile with the returned bundle.
  */
 

@@ -1031,3 +1031,36 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Explicit non-claims
 - Users cannot delete accounts; automatic processing does not exist; admin cannot retry/unlock/process; end-to-end deletion not active; store compliance not complete; no real account deleted
+
+## SESSION 29 — 2026-07-19 — APP-041E4a COMPLETE + APP-041E4b disabled scheduler route (worktree)
+
+### Repository identity
+- E4a COMPLETE commit: `66c04f022a4fa0714a61b646b9675dadf5fa1869`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### E4a production truth
+- `/admin/account-deletions` deployed
+- Tyler-only access smoke passed
+- Read-only warning visible; all counts zero; no deletion requests recorded
+- No mutations / no automatic deletion
+
+### E4b what changed (worktree; pending review)
+- Private authenticated Node route `/api/cron/account-deletions` (GET only)
+- `runtime = "nodejs"`; `dynamic = "force-dynamic"`
+- Exact-string kill switch: `ACCOUNT_DELETION_SCHEDULER_ENABLED === "true"`
+- Batch size 1; lease 120000 ms; one request / one stage
+- Injectable core + production dependency builder (explicit env → frozen E3a bundle)
+- **No** `vercel.json` change; **no** Vercel Cron schedule
+- Kill switch defaults off — deployed does **not** mean activated
+- Manual authenticated invocation while disabled performs **no** work
+
+### Status
+- **APP-041E4a:** COMPLETE (`66c04f022a4fa0714a61b646b9675dadf5fa1869`)
+- **APP-041E4b:** IMPLEMENTED — DISABLED — PENDING REVIEW
+
+### Exact next
+- Independent E4b review → commit/deploy while disabled → unauthorized/disabled production smoke → only later consider adding a cron schedule with switch still off → activation requires separate explicit approval
+
+### Explicit non-claims
+- Scheduler is not active; automatic deletion does not work; users cannot initiate deletion; no real account was deleted; store compliance is not complete; cron has not been configured; kill switch is not enabled

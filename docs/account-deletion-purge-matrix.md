@@ -312,19 +312,21 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041E2:** **COMPLETE** at `f024a7e56bc278bd8efc7e06e38fdff433cdca7c` — trusted execution safety foundation: thrown/malformed stage normalization; `createTrustedAccountDeletionReconcilerDependencies` frozen bundle; `executeTrustedAccountDeletionReconcile` one-request boundary. No live provider factory. No route/cron/scheduler/scanner. No real Clerk call. No automatic deletion.
 
-**APP-041E3 architecture verdict:** Vercel Cron + private Node route + bounded ID-only discovery + one-stage reconciler (kill switch default off; batch 1 initially; admin observability before live enablement). Discovery RPC is live in production. Route/cron still not implemented.
+**APP-041E3 architecture verdict:** Vercel Cron + private Node route + bounded ID-only discovery + one-stage reconciler (kill switch default off; batch 1 initially; admin observability before live enablement). Discovery RPC is live in production. E4b private route exists but remains disabled (no Vercel Cron schedule; kill switch off).
 
 **APP-041E3a:** **COMPLETE** at `bee7a09ed23b795a5bc41641c4ceebbe48e3b107` — unreachable production-safe stage wiring: trusted SMS/Stripe/purge stage factories; Clerk REST deletion adapter (uninvoked); `createProductionAccountDeletionReconcilerDependencies` fail-closed kill switch. **No** route/cron/discovery/admin UI. **No** automatic deletion.
 
 **APP-041E3b:** **COMPLETE** at `939a86b0cfe6337d86a2ab7c96724b469f66e3a8` — service-role-only bounded ID-only discovery (`list_account_deletion_requests_for_reconcile` + `listAccountDeletionRequestIdsForReconcile`). Production migration `20260719140000_…` applied; schema cache reloaded; structural verification passed; synthetic rollback validation passed; zero synthetic residue; live discovery returned no rows. **No** processing, provider calls, lease acquisition, route/cron/scanner, or automatic deletion.
 
-**APP-041E4a:** **IMPLEMENTED — PENDING REVIEW** — Tyler-only read-only admin observability at `/admin/account-deletions`. Sanitized view model only (masked Clerk id; no raw steps/detail/idempotency). Structural consistency + lease + discoverability indicators. **No** mutations, recovery controls, cron, scheduler, or automatic deletion.
+**APP-041E4a:** **COMPLETE** at `66c04f022a4fa0714a61b646b9675dadf5fa1869` — Tyler-only read-only admin observability at `/admin/account-deletions`. Production smoke passed (Tyler-only access; read-only warning; all counts zero; no deletion requests recorded). Sanitized view model only. **No** mutations, recovery controls, or automatic deletion.
+
+**APP-041E4b:** **IMPLEMENTED — DISABLED — PENDING REVIEW** — private authenticated Node route `/api/cron/account-deletions` (GET; `runtime=nodejs`; `force-dynamic`). Exact-string kill switch `ACCOUNT_DELETION_SCHEDULER_ENABLED==="true"`; batch size 1; one request / one stage via `executeTrustedAccountDeletionReconcile`. **No** `vercel.json` change; **no** Vercel Cron schedule; kill switch defaults off; deployed ≠ activated; **no** automatic deletion; **no** real deletion executed.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Next after E4a review:** commit/deploy E4a → production Tyler access smoke → only later design disabled scheduler route → authenticated initiation later.
+**Next after E4b review:** commit/deploy E4b while disabled → unauthorized/disabled production smoke → only later consider adding a cron schedule with switch still off → activation requires separate explicit approval → authenticated initiation later.
 
-Do **not** claim: users can delete accounts; automatic processing exists; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
+Do **not** claim: users can delete accounts; scheduler is active; automatic deletion works; cron is configured; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 

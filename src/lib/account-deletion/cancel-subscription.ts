@@ -126,8 +126,14 @@ export class ConfigurationError extends Error {
   }
 }
 
-function createProductionStripeClient(): DeletionStripeClient {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
+/**
+ * Explicit Stripe client for trusted scheduler wiring.
+ * Callers must pass the secret; this never reads process.env.
+ */
+export function createDeletionStripeClientFromSecretKey(
+  secretKey: string
+): DeletionStripeClient {
+  const key = typeof secretKey === "string" ? secretKey.trim() : "";
   if (!key) {
     throw new ConfigurationError("stripe_secret_missing");
   }
@@ -142,6 +148,12 @@ function createProductionStripeClient(): DeletionStripeClient {
       cancel: (id) => stripe.subscriptions.cancel(id),
     },
   };
+}
+
+function createProductionStripeClient(): DeletionStripeClient {
+  return createDeletionStripeClientFromSecretKey(
+    process.env.STRIPE_SECRET_KEY ?? ""
+  );
 }
 
 function isStripeRetryable(err: unknown): boolean {

@@ -867,7 +867,13 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
           hits.push(file);
         }
       }
-      expect(hits).toEqual([]);
+      // E4b disabled cron imports the trusted boundary module path only.
+      expect(hits).toEqual([
+        join(APP_DIR, "api/cron/account-deletions/route.ts"),
+      ]);
+      const cronSrc = readFileSync(hits[0], "utf8");
+      expect(cronSrc).toContain("executeTrustedAccountDeletionReconcile");
+      expect(cronSrc).not.toContain("reconcileAccountDeletionRequest(");
     });
   });
 

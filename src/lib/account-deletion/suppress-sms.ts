@@ -125,6 +125,21 @@ async function bestEffortClearClerkSmsMetadata(
 }
 
 /**
+ * Explicit production SMS deps for trusted scheduler wiring.
+ * Captures the live RPC + soft-fail metadata clearer without ambient defaults
+ * inside createProductionAccountDeletionReconcilerDependencies.
+ */
+export function getProductionAccountDeletionSmsDependencies(): {
+  suppressSmsData: SuppressSmsDataFn;
+  clearClerkDeletionMetadata: ClearClerkDeletionMetadataFn;
+} {
+  return {
+    suppressSmsData: callSuppressSmsRpc,
+    clearClerkDeletionMetadata: bestEffortClearClerkSmsMetadata,
+  };
+}
+
+/**
  * Suppress live SMS binding for an account-deletion request.
  * Requires a valid lockOwner; acquires/releases the B1 lease around the work.
  */

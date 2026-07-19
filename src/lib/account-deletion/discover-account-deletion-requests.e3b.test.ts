@@ -894,7 +894,7 @@ describe("APP-041E3b pure selector fidelity + no-processing proof", () => {
     ).toEqual(["00000000-0000-4000-8000-000000000902"]);
   });
 
-  it("55. no route/cron/vercel discovery wiring", () => {
+  it("55. discovery wiring only on disabled E4b cron; no vercel schedule", () => {
     const vercel = readFileSync(VERCEL_JSON, "utf8");
     expect(vercel).not.toMatch(/account-deletion|list_account_deletion/i);
 
@@ -911,11 +911,12 @@ describe("APP-041E3b pure selector fidelity + no-processing proof", () => {
       }
       return out;
     }
+    const allowed = join(APP_DIR, "api/cron/account-deletions/route.ts");
     const hits: string[] = [];
     for (const file of [...walk(APP_DIR), ...walk(COMPONENTS_DIR)]) {
       const text = readFileSync(file, "utf8");
       if (markers.some((m) => text.includes(m))) hits.push(file);
     }
-    expect(hits).toEqual([]);
+    expect(hits).toEqual([allowed]);
   });
 });

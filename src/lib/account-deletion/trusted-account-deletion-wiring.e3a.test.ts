@@ -588,7 +588,7 @@ describe("APP-041E3a immutability + entrypoint", () => {
 });
 
 describe("APP-041E3a public/unreachable proof", () => {
-  it("48–52. no route/cron/scanner/vercel change; wiring server-only", () => {
+  it("48–52. no vercel schedule; factory markers stay out of app/components", () => {
     const vercel = readFileSync(VERCEL_JSON, "utf8");
     expect(vercel).not.toMatch(/account-deletion/);
 
@@ -606,6 +606,7 @@ describe("APP-041E3a public/unreachable proof", () => {
       return out;
     }
 
+    // E4b route may exist, but these factory symbols must not be inlined in app.
     const markers = [
       "createProductionAccountDeletionReconcilerDependencies",
       "createClerkRestDeletionAdapter",
