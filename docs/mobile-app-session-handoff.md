@@ -938,10 +938,41 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Status
 - **APP-041E1:** COMPLETE (`3c4e6f07cf1d3246dc31fb83703ffb245abf6ea9`)
-- **APP-041E2:** IMPLEMENTED — PENDING REVIEW
+- **APP-041E2:** COMPLETE (`f024a7e56bc278bd8efc7e06e38fdff433cdca7c`)
 
 ### Exact next
-- Review E2 → decide/implement trusted scheduler architecture → production-safe stage dependency adapters/wiring → admin recovery/observability → authenticated initiation + reauthentication → user-facing deletion UI later
+- Review E2 was completed in-repo; E3 architecture decided (Vercel Cron + private Node route + bounded ID-only discovery + one-stage reconciler). Next: APP-041E3a unreachable production-safe stage wiring.
 
 ### Explicit non-claims
 - Scheduler is not running; worker is not deployed; live provider wiring does not exist; users cannot delete accounts; real Clerk deletion does not work; end-to-end deletion not complete; app-store compliance not complete
+
+## SESSION 26 — 2026-07-19 — APP-041E3a unreachable production-safe stage wiring (worktree)
+
+### Repository identity
+- HEAD at E3a start: `f024a7e56bc278bd8efc7e06e38fdff433cdca7c` (E2 COMPLETE)
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### E3 architecture verdict
+- Vercel Cron → private Node route → bounded ID-only discovery → one-request/one-stage reconciler
+- Kill switch default off; batch 1 initially; admin observability before live enablement
+- **Not implemented in E3a** (no route/cron/discovery/admin UI)
+
+### E3a what changed
+- Trusted SMS stage factory requiring explicit suppress + metadata deps; soft-fail logs no longer include clerkUserId
+- Trusted Stripe stage factory requiring explicit client + recognizedPriceIds + getPublicMetadata (no createProductionStripeClient)
+- Trusted purge stage factory requiring explicit purgeFn (no default live RPC)
+- Clerk REST deletion adapter (`createClerkRestDeletionAdapter`) — explicit secret/fetch/timeout; mocked-fetch tests only; not invoked
+- `createProductionAccountDeletionReconcilerDependencies` — fail-closed unless `enabled === true`; no process.env; no provider calls
+- clerkAdapter copy/freeze immutability in trusted bundle
+- Preferred entrypoint documented: `executeTrustedAccountDeletionReconcile`
+
+### Status
+- **APP-041E2:** COMPLETE (`f024a7e56bc278bd8efc7e06e38fdff433cdca7c`)
+- **APP-041E3a:** IMPLEMENTED — PENDING REVIEW
+
+### Exact next
+- Review E3a → discovery RPC/helper → admin read-only observability → disabled cron route only after those are reviewed → authenticated initiation + reauthentication → user-facing deletion UI later
+
+### Explicit non-claims
+- Scheduler does not exist; cron is not active; real Clerk deletion was not tested externally; live deletion is not enabled; account deletion is not end-to-end complete; app-store compliance is not complete; no automatic deletion; no real user deletion

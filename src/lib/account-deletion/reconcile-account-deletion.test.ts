@@ -529,7 +529,9 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       expect(args.lockOwner).toBe("lock-owner-exact");
       expect(args.leaseMs).toBe(45_000);
       expect(args.expectedOrchestrationVersion).toBe(1);
-      expect(args.adapter).toBe(adapter);
+      // E3a: trusted bundle copies/freezes adapter; still invokes captured deleteUser.
+      expect(args.adapter).not.toBe(adapter);
+      expect(Object.isFrozen(args.adapter)).toBe(true);
       // No alternate clerk id on worker input type / call site
       expect(result).not.toHaveProperty("clerkUserId");
     });

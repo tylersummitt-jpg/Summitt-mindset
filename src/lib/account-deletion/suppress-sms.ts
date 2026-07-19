@@ -29,12 +29,36 @@ import type { AccountDeletionRequestRow } from "./types";
 /** Durable, phone-free marker written by suppress_sms_for_account_deletion RPC. */
 export const SMS_BINDING_REMOVED_STEP = "sms_binding_removed" as const;
 
+/** Atomic SMS unlink (RPC). Trusted stages inject this; production uses default. */
+export type SuppressSmsDataFn = (input: {
+  clerkUserId: string;
+  requestId: string;
+}) => Promise<"removed" | "already_absent">;
+
+/**
+ * Best-effort Clerk SMS metadata cleanup.
+ * Returns true on success; false on soft-fail (must not recreate identity).
+ */
+export type ClearClerkDeletionMetadataFn = (
+  clerkUserId: string
+) => Promise<boolean>;
+
 export type SuppressSmsForDeletionInput = {
   requestId: string;
   clerkUserId: string;
   lockOwner: string;
   leaseMs?: number;
   now?: Date;
+  /**
+   * Optional injection for tests / trusted scheduler wiring.
+   * When omitted, production uses the live Supabase suppress RPC.
+   */
+  suppressSmsData?: SuppressSmsDataFn;
+  /**
+   * Optional injection for tests / trusted scheduler wiring.
+   * When omitted, production uses best-effort Clerk metadata clear.
+   */
+  clearClerkDeletionMetadata?: ClearClerkDeletionMetadataFn;
 };
 
 export type SuppressSmsForDeletionValue = {
@@ -90,10 +114,11 @@ async function bestEffortClearClerkSmsMetadata(
       ["phoneNumber"]
     );
     return true;
-  } catch (e) {
+  } catch {
+    // Soft-fail only — never log durable user ids, PII, body, or raw error.
     console.error(
       "[suppressSmsForDeletion] Clerk SMS metadata cleanup failed (soft)",
-      { clerkUserId, error: e }
+      { code: "clerk_sms_metadata_cleanup_failed" }
     );
     return false;
   }
@@ -118,6 +143,9 @@ export async function suppressSmsForDeletion(
 
   const leaseMs = input.leaseMs ?? DEFAULT_ACCOUNT_DELETION_LEASE_MS;
   const now = input.now ?? new Date();
+  const suppressSmsData = input.suppressSmsData ?? callSuppressSmsRpc;
+  const clearClerkDeletionMetadata =
+    input.clearClerkDeletionMetadata ?? bestEffortClearClerkSmsMetadata;
 
   const existing = await getAccountDeletionRequestById(input.requestId);
   if (!existing) {
@@ -206,15 +234,18 @@ export async function suppressSmsForDeletion(
       } else {
         row = fresh;
         try {
-          suppressResult = await callSuppressSmsRpc({
+          suppressResult = await suppressSmsData({
             clerkUserId,
             requestId: input.requestId,
           });
           // Reload so sms_binding_removed written inside the RPC is visible.
           const afterRpc = await getAccountDeletionRequestById(input.requestId);
           if (afterRpc) row = afterRpc;
-        } catch (e) {
-          console.error("[suppressSmsForDeletion] RPC failed", e);
+        } catch {
+          // Never log raw provider error, durable user ids, PII, or body.
+          console.error("[suppressSmsForDeletion] RPC failed", {
+            code: "sms_suppress_rpc_failed",
+          });
           earlyFailure = {
             ok: false,
             code: "internal_error",
@@ -225,7 +256,7 @@ export async function suppressSmsForDeletion(
     }
 
     if (!earlyFailure && !finalRow && suppressResult) {
-      const clerkOk = await bestEffortClearClerkSmsMetadata(clerkUserId);
+      const clerkOk = await clearClerkDeletionMetadata(clerkUserId);
       clerkMetadataWarning = !clerkOk;
 
       const priorRemoved = hadPriorBindingRemoval(row);

@@ -310,15 +310,17 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041E1:** **COMPLETE** at `3c4e6f07cf1d3246dc31fb83703ffb245abf6ea9` — trusted one-request / one-stage reconciler (`reconcile-account-deletion.ts`). Server-only; required injected stage functions (no live SMS/Stripe/purge/Clerk defaults). No scheduler/cron/route. No batch scanner. No real Clerk call. No public initiation/UI.
 
-**APP-041E2:** **IMPLEMENTED — PENDING REVIEW** — trusted execution safety foundation: thrown/malformed stage normalization; `createTrustedAccountDeletionReconcilerDependencies` frozen bundle; `executeTrustedAccountDeletionReconcile` one-request boundary. No live provider factory. No route/cron/scheduler/scanner. No real Clerk call. No automatic deletion.
+**APP-041E2:** **COMPLETE** at `f024a7e56bc278bd8efc7e06e38fdff433cdca7c` — trusted execution safety foundation: thrown/malformed stage normalization; `createTrustedAccountDeletionReconcilerDependencies` frozen bundle; `executeTrustedAccountDeletionReconcile` one-request boundary. No live provider factory. No route/cron/scheduler/scanner. No real Clerk call. No automatic deletion.
+
+**APP-041E3 architecture verdict:** Vercel Cron + private Node route + bounded ID-only discovery + one-stage reconciler (kill switch default off; batch 1 initially; admin observability before live enablement). **Not implemented in E3a.**
+
+**APP-041E3a:** **IMPLEMENTED — PENDING REVIEW** — unreachable production-safe stage wiring: trusted SMS/Stripe/purge stage factories (explicit deps only); Clerk REST deletion adapter (mocked-fetch tests only; not invoked); `createProductionAccountDeletionReconcilerDependencies` fail-closed kill switch; clerkAdapter copy/freeze immutability. **No** route/cron/discovery/admin UI. **No** automatic deletion. **No** real user deletion. Real Clerk adapter exists but is not invoked from any entrypoint.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**E1/E2 note:** production `suppressSmsForDeletion` is not DI-safe (hard-wires Supabase + Clerk metadata). Reconciler never default-calls it; future trusted entrypoint must inject a safe wrapper or add SMS DI before scheduling.
+**Next after E3a review:** discovery RPC/helper → admin read-only observability → disabled cron route only after those are reviewed → authenticated initiation later.
 
-**Next after E2 review:** decide and implement trusted scheduler architecture → production-safe stage dependency adapters/wiring → admin recovery/observability → authenticated initiation + reauthentication → user-facing deletion UI later.
-
-Do **not** claim: scheduler is running; worker is deployed; live provider wiring exists; users can delete accounts; real Clerk deletion works; end-to-end deletion is complete; app-store compliance is complete.
+Do **not** claim: scheduler exists; cron is active; real Clerk deletion was tested externally; live deletion is enabled; account deletion is end-to-end complete; app-store compliance is complete.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 

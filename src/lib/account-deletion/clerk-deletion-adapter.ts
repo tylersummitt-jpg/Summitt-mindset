@@ -2,11 +2,11 @@
  * APP-041D1 — Clerk deletion adapter contract (server-only).
  *
  * Narrow boundary for irreversible Clerk user deletion LAST in the deletion
- * pipeline. APP-041D1 ships the contract + injected fakes only.
+ * pipeline. D1 ships the contract + injected fakes.
  *
- * Do NOT wire a real Clerk SDK client, users.deleteUser production call,
- * Clerk REST endpoint, production adapter, or expose email/phone/metadata/
- * sessions/tokens/raw bodies in this slice.
+ * APP-041E3a adds an unreachable REST adapter in
+ * `clerk-rest-deletion-adapter.ts` (explicit secret/fetch/timeout only).
+ * Do NOT invoke it from routes, cron, or ambient production wiring yet.
  */
 
 import "server-only";

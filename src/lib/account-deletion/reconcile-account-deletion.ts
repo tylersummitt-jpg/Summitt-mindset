@@ -1,5 +1,5 @@
 /**
- * APP-041E1/E2 — trusted one-request / one-stage account-deletion reconciler.
+ * APP-041E1/E2/E3a — trusted one-request / one-stage account-deletion reconciler.
  *
  * Server-only internal foundation. Not a public HTTP entrypoint, background
  * job, queue consumer, or user-facing API.
@@ -7,9 +7,15 @@
  * E1: one request, one stage, required injected stage functions.
  * E2: thrown/malformed stage normalization; explicit trusted dependency bundle;
  *     executeTrustedAccountDeletionReconcile execution boundary.
+ * E3a: unreachable production stage wiring lives in separate modules; this file
+ *     still never constructs live Stripe/Clerk/Supabase clients.
+ *
+ * Entrypoint clarity:
+ * - Future production/scheduler callers MUST use executeTrustedAccountDeletionReconcile.
+ * - reconcileAccountDeletionRequest remains lower-level internal/test compatibility.
  *
  * Never defaults to live orchestrators. Never constructs Stripe/Clerk/Supabase
- * clients. SMS production orchestrator is not DI-safe — do not auto-wire it.
+ * clients. SMS production orchestrator is not auto-wired here.
  */
 
 import "server-only";
@@ -193,6 +199,10 @@ function isValidLeaseMs(leaseMs: number): boolean {
 /**
  * Build a frozen trusted dependency bundle. Rejects missing/invalid deps.
  * No live provider construction or environment auto-wiring.
+ *
+ * clerkAdapter is copied: the deleteUser function reference is captured at
+ * construction so later mutation of the caller's adapter object cannot change
+ * the trusted bundle's behavior.
  */
 export function createTrustedAccountDeletionReconcilerDependencies(
   input: CreateTrustedAccountDeletionReconcilerDependenciesInput
@@ -220,12 +230,18 @@ export function createTrustedAccountDeletionReconcilerDependencies(
     throw new Error("invalid_reconciler_dependencies");
   }
 
+  // Capture function refs now — do not retain a mutable shared adapter object.
+  const deleteUserFn = input.clerkAdapter.deleteUser;
+  const clerkAdapter: ClerkDeletionAdapter = Object.freeze({
+    deleteUser: (args: { clerkUserId: string }) => deleteUserFn(args),
+  });
+
   return Object.freeze({
     suppressSms: input.suppressSms,
     cancelStripe: input.cancelStripe,
     purgeAppData: input.purgeAppData,
     deleteClerk: input.deleteClerk,
-    clerkAdapter: input.clerkAdapter,
+    clerkAdapter,
   });
 }
 
@@ -578,7 +594,11 @@ export async function reconcileAccountDeletionRequest(
 
 /**
  * Trusted one-request execution boundary for future scheduler/admin callers.
- * Re-validates the dependency bundle, then delegates to the reconciler.
+ *
+ * Preferred production/scheduler entrypoint. Re-validates the dependency
+ * bundle, then delegates to reconcileAccountDeletionRequest (lower-level
+ * internal/test compatibility only — schedulers must not call it directly).
+ *
  * Does not scan, schedule, or mutate durable state itself.
  */
 export async function executeTrustedAccountDeletionReconcile(
