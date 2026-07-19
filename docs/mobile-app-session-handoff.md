@@ -672,3 +672,50 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - APP-041B2b: **IMPLEMENTED — PENDING FINAL COMMIT**
 - No migration. No external action. No public deletion capability.
 - Exact next after B2b completion: **purge/anonymization inventory freeze and foundation planning**
+
+## SESSION 17 — 2026-07-19 — APP-041C1 purge/anonymization policy freeze (docs only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- Path: `/Users/tylersummitt/Desktop/summitt-app`
+- HEAD at freeze (unchanged): `61f615a0837535a06e2b392c8126226f94163616`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### What changed
+- Documentation only:
+  - **New:** `docs/account-deletion-purge-matrix.md` — canonical APP-041C data-deletion specification
+  - Updated: `docs/mobile-app-master-plan.md` (v1.5.10)
+  - Updated: `docs/mobile-app-session-handoff.md` (this entry)
+- **No** application code, tests, migrations, staging, commit, or push.
+- **No** SQL executed; **no** Clerk / Stripe / Supabase / Twilio / OpenAI / Vercel calls.
+- **No** public account-deletion endpoint or UI.
+
+### Product-policy authority
+- Tyler delegated product-policy decisions to the driver for this freeze.
+- Fixed decisions recorded in the matrix (authoritative for V1 unless later legal counsel requires change):
+  - STOP minimum evidence (SID + timestamp + command token + one-way phone hash; indefinite V1; no fabricate)
+  - SMS / coaching / profile DELETE (catalogs untouched)
+  - Testimonials: delete unapproved; anonymize approved+consent to quote-only; else delete
+  - Admin notes: delete narrative; optional non-PII flags only
+  - Shipping: delete app PII
+  - Stripe: cancel only; retain customer/financial history externally; leave webhook dedupe
+  - Clerk last; retain raw `clerk_user_id` on ADR tombstone
+  - Challenge participants: reliable email match only
+  - Shared/product + external systems classified
+- Dependency order, architecture freeze (service-role purge RPC), state-machine/`purge_result` CAS gap, privacy-copy requirements, and C2 entry criteria recorded.
+
+### Status
+- **APP-041B2b:** **COMPLETE**, committed and pushed at `61f615a0837535a06e2b392c8126226f94163616`
+- **APP-041C1:** **IMPLEMENTED — PENDING REVIEW** (docs only)
+- **APP-041C2 / APP-041C3:** **NOT STARTED**
+- **APP-041:** **IN PROGRESS**
+- Current business and current users remain protected (no purge execution; no public initiation).
+
+### Explicit non-claims
+- Purge is **not** implemented; purge SQL does **not** exist; no real data was deleted.
+- Privacy policy was **not** updated; legal review did **not** occur.
+- Public account deletion does **not** work; store compliance is **not** complete.
+
+### Exact next
+- After review/commit of C1: controlled **APP-041C2** (20-arg CAS `purge_result` migration + service-role purge RPC + tests). No public endpoint/UI in C2.
