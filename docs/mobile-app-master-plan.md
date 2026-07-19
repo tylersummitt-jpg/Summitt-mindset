@@ -1,5 +1,5 @@
 # SUMMITT MINDSET — MOBILE APP MASTER PLAN
-*Project-control document. Version 1.5.7. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth). v1.2 (2026-07-17): completed APP-007 + APP-061 with confirmed Clerk dashboard truth; DEC-018 set ACTIVE (app-only first-party email auth on the same Clerk instance); recorded the long-session launch standard (7-day lifetime rejected; 180-day min / ~1yr preferred) and the Google-origin-user POC acceptance criteria. v1.3 (2026-07-17): recorded the mobile-repository bootstrap plan + iPhone POC plan ("iPhone POC + mobile bootstrap plan — 2026-07-17"); added APP-067–APP-070; set exact next task to APP-059 (Tyler creates empty private repo) → APP-067. v1.4 (2026-07-17): recorded APP-008 Stage 1 physical-device live-shell POC PASS + APP-070 architecture observations; Candidate A2 is the evidence-backed leading architecture; APP-021 remains open (Android Checkpoint B + formal Phase-4 selection + estimate revise still unmet); Clerk long-session remains a production blocker. v1.4.1 (2026-07-17): strict-completion correction — APP-010 and APP-016 restored to NOT STARTED (Stage 1 observations preserved; full original acceptance stacks not formally proven); APP-008 clarified as intentional evolution into `summitt-mindset-mobile`. v1.5 (2026-07-18): recorded APP-062–APP-064 COMPLETE — production Clerk upgraded Hobby→Pro ($20/mo annual); max lifetime set to **180 days** (inactivity off); no website/mobile code change. APP-065 IN PROGRESS (elapsed-time validation still open; short-cycle post-change force-close/reopen PASS only). v1.5.1 (2026-07-18): APP-010, APP-016, APP-069 COMPLETE after Tyler privately verified the Google-origin baseline comparison PASS (no private identifiers committed); Checkpoint A identity/entitlement gates closed; APP-065 remains IN PROGRESS. v1.5.2 (2026-07-18): APP-041 account-deletion audit recorded; APP-041A COMPLETE (live Supabase schema + Clerk Dashboard verification, read-only); APP-041 parent IN PROGRESS with phases APP-041B–F NOT STARTED; DEC-023 APPROVED-FOR-IMPLEMENTATION (not implemented); obsolete 3h APP-041 estimate replaced by ~24–40h planning range. v1.5.3 (2026-07-18): APP-041B1 COMPLETE in repository (not deployed) — `account_deletion_requests` migration + typed repository/tests; no endpoint/UI/SMS/Stripe/Clerk/purge; APP-041B parent IN PROGRESS. v1.5.4 (2026-07-18): **APP-041B2a** local SMS unlink + anti-resurrection foundation **in worktree only** (migration not applied; not committed/deployed); no public deletion capability; unlink ≠ STOP; coach-job final-send guard; APP-041 and APP-041B remain IN PROGRESS. v1.5.5 (2026-07-18): APP-041B1 + APP-041B2a **committed/pushed and applied to production Supabase**; structural + permission + transactional ROLLBACK validation PASS (fake clerk id only; no real user data touched); APP-041 / APP-041B remain IN PROGRESS; no public deletion capability. v1.5.7 (2026-07-18): **APP-041B3b** Stripe anti-resurrection **IMPLEMENTED — PENDING REVIEW** in worktree only (no migration); B3a treated COMPLETE applied/validated; APP-041 remains IN PROGRESS.*
+*Project-control document. Version 1.5.8. Created 2026-07-17. Read-only-audit basis. v1.1 (2026-07-17): recorded APP-003–APP-006 policy findings, the separate-mobile-repository decision, and the production-architecture correction (`server.url` is NOT approved production truth). v1.2 (2026-07-17): completed APP-007 + APP-061 with confirmed Clerk dashboard truth; DEC-018 set ACTIVE (app-only first-party email auth on the same Clerk instance); recorded the long-session launch standard (7-day lifetime rejected; 180-day min / ~1yr preferred) and the Google-origin-user POC acceptance criteria. v1.3 (2026-07-17): recorded the mobile-repository bootstrap plan + iPhone POC plan ("iPhone POC + mobile bootstrap plan — 2026-07-17"); added APP-067–APP-070; set exact next task to APP-059 (Tyler creates empty private repo) → APP-067. v1.4 (2026-07-17): recorded APP-008 Stage 1 physical-device live-shell POC PASS + APP-070 architecture observations; Candidate A2 is the evidence-backed leading architecture; APP-021 remains open (Android Checkpoint B + formal Phase-4 selection + estimate revise still unmet); Clerk long-session remains a production blocker. v1.4.1 (2026-07-17): strict-completion correction — APP-010 and APP-016 restored to NOT STARTED (Stage 1 observations preserved; full original acceptance stacks not formally proven); APP-008 clarified as intentional evolution into `summitt-mindset-mobile`. v1.5 (2026-07-18): recorded APP-062–APP-064 COMPLETE — production Clerk upgraded Hobby→Pro ($20/mo annual); max lifetime set to **180 days** (inactivity off); no website/mobile code change. APP-065 IN PROGRESS (elapsed-time validation still open; short-cycle post-change force-close/reopen PASS only). v1.5.1 (2026-07-18): APP-010, APP-016, APP-069 COMPLETE after Tyler privately verified the Google-origin baseline comparison PASS (no private identifiers committed); Checkpoint A identity/entitlement gates closed; APP-065 remains IN PROGRESS. v1.5.2 (2026-07-18): APP-041 account-deletion audit recorded; APP-041A COMPLETE (live Supabase schema + Clerk Dashboard verification, read-only); APP-041 parent IN PROGRESS with phases APP-041B–F NOT STARTED; DEC-023 APPROVED-FOR-IMPLEMENTATION (not implemented); obsolete 3h APP-041 estimate replaced by ~24–40h planning range. v1.5.3 (2026-07-18): APP-041B1 COMPLETE in repository (not deployed) — `account_deletion_requests` migration + typed repository/tests; no endpoint/UI/SMS/Stripe/Clerk/purge; APP-041B parent IN PROGRESS. v1.5.4 (2026-07-18): **APP-041B2a** local SMS unlink + anti-resurrection foundation **in worktree only** (migration not applied; not committed/deployed); no public deletion capability; unlink ≠ STOP; coach-job final-send guard; APP-041 and APP-041B remain IN PROGRESS. v1.5.5 (2026-07-18): APP-041B1 + APP-041B2a **committed/pushed and applied to production Supabase**; structural + permission + transactional ROLLBACK validation PASS (fake clerk id only; no real user data touched); APP-041 / APP-041B remain IN PROGRESS; no public deletion capability. v1.5.7 (2026-07-18): **APP-041B3b** Stripe anti-resurrection **IMPLEMENTED — PENDING REVIEW** in worktree only (no migration); B3a treated COMPLETE applied/validated; APP-041 remains IN PROGRESS. v1.5.8 (2026-07-18): **APP-041B3b COMPLETE** — independently reviewed, corrected, committed, pushed, merged at `aab8b02d804c162797e7cdb853acfe49ef4ecd89`; no migration; no public deletion capability; exact next is a read-only remaining-slices audit.*
 
 ---
 
@@ -7,17 +7,17 @@
 
 | Field | Value |
 |---|---|
-| Plan version | 1.5.7 |
+| Plan version | 1.5.8 |
 | Last verified date | 2026-07-18 |
-| Current phase | **APP-041** IN PROGRESS (APP-041A COMPLETE; **APP-041B1**+**B2a**+**B3a** COMPLETE applied/validated; **APP-041B3b** IMPLEMENTED — PENDING REVIEW in worktree only — Stripe anti-resurrection; **no public deletion capability**); **APP-065** IN PROGRESS; APP-021 still open |
-| Current assigned task IDs | APP-041B3b review, APP-065 (IN PROGRESS), APP-041 (IN PROGRESS), APP-015, APP-066, APP-018–APP-021 |
-| Last completed task IDs | APP-041B2a, APP-041B1, APP-041A, APP-010, APP-016, APP-069, APP-062, APP-063, APP-064 (also: APP-008 Stage 1 PASS, APP-009, APP-011–APP-014, APP-017, APP-059, APP-070) |
-| Current blocker | **APP-065** elapsed-time proof still open. **APP-041** Required for V1 — parent IN PROGRESS; **no user account can currently initiate deletion** (no public delete API / UI / reauth; B1+B2a live; B3a worktree-only pending review). APP-015 open. Android unstarted. APP-021 open. |
+| Current phase | **APP-041** IN PROGRESS (APP-041A COMPLETE; **APP-041B1**+**B2a**+**B3a**+**B3b** COMPLETE committed/pushed; **no public deletion capability**); **APP-065** IN PROGRESS; APP-021 still open |
+| Current assigned task IDs | APP-041 remaining-slices audit, APP-065 (IN PROGRESS), APP-041 (IN PROGRESS), APP-015, APP-066, APP-018–APP-021 |
+| Last completed task IDs | APP-041B3b, APP-041B3a, APP-041B2a, APP-041B1, APP-041A, APP-010, APP-016, APP-069, APP-062, APP-063, APP-064 (also: APP-008 Stage 1 PASS, APP-009, APP-011–APP-014, APP-017, APP-059, APP-070) |
+| Current blocker | **APP-065** elapsed-time proof still open. **APP-041** Required for V1 — parent IN PROGRESS; **no user account can currently initiate deletion** (no public delete API / UI / reauth; B1–B3b live in repo; B3a migration applied). APP-015 open. Android unstarted. APP-021 open. |
 | Production shell architecture | **Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift `LiveShellViewController` + one native `WKWebView` inside the Capacitor-generated iOS project; live site loaded by the native controller; **no `server.url`**). Candidate B (bare native WKWebView) remains fallback only. **APP-021 not yet COMPLETE** — Android Checkpoint B OR explicit iOS-first amendment, estimate confirm/revise, and formal DEC-020 close still required. Production use of Capacitor `server.url` remains **prohibited**. |
 | V1 login posture | **DECIDED (DEC-018 ACTIVE):** app-only first-party **email verification-code** auth on the **same** Clerk instance. Website keeps Google unchanged. **APP-010 COMPLETE:** intended email-code posture on physical iPhone; same existing Clerk identity confirmed; no duplicate Clerk user; relationship/member state intact (Tyler privately verified APP-069 baseline comparison PASS — no private identifiers committed). Google OAuth remains outside intended V1 app-only email posture. |
 | Session-lifetime standard | **Production Clerk Dashboard configured:** maximum lifetime **ENABLED at 180 days**; inactivity timeout **DISABLED** (DEC-022; APP-062–064 COMPLETE). **Not permanent / not indefinite.** Website application code never enforced a 7-day limit. Short-cycle force-close/reopen after the change **PASS**. **Multi-month / full 180-day elapsed persistence is NOT proven** — that is **APP-065 (IN PROGRESS)**. Client Trust formal requirements remain with APP-066. |
 | Mobile repository | Separate repo `summitt-mindset-mobile` — **exists**; Stage 1 physical-device POC was run from it (intentional evolution from the original throwaway-outside-repo assumption — see APP-008 notes). This document lives in the website/SMS repo. Do not edit the mobile repo from website-doc tasks. |
-| Exact next task | **Review APP-041B3b**, then production-safe validation/docs, then next deletion slice (purge/Clerk). **APP-041B2b** remains **deferred**. Do **not** claim end-to-end deletion works. Parallel: **APP-065**, **APP-015**, **APP-066**, **APP-021** planning. |
+| Exact next task | **Read-only audit** choosing the next smallest safe APP-041 slice (Options A–D below). Do **not** jump to public UI. Do **not** claim end-to-end deletion works. Parallel: **APP-065**, **APP-015**, **APP-066**, **APP-021** planning. |
 
 > **How to use this document:** This is the single durable control document for the mobile-app project. It is designed so a brand-new ChatGPT conversation or a fresh Cursor session can resume with zero prior context. Read this file plus `docs/mobile-app-session-handoff.md` before doing anything. Never mark a task COMPLETE without recorded evidence. Move every scope addition to the parking lot (§12). Do not touch the SMS system. The production mobile shell lives in a **separate repository** (`summitt-mindset-mobile`); every task must confirm repository identity before editing (see DEC-013–DEC-017).
 
@@ -253,13 +253,39 @@ Equivalent critical checks (1–13, 15) are added to the Android POC (Phase 3).
 - **APP-041A:** **COMPLETE** (live-schema + Clerk Dashboard verification).
 - **APP-041B1:** **COMPLETE and applied/validated** — durable `account_deletion_requests` + lease/CAS RPCs in production. **No** public endpoint, UI, reauth, Stripe cancel, Clerk delete, purge, or cron.
 - **APP-041B2a:** **COMPLETE and applied/validated** — atomic local SMS unlink RPC + orchestrator helper, anti-resurrection guards (audience sync / START / onboarding), nonterminal coach-job cancellation, live `sms_identities` removal, final inbound-coach pre-send eligibility gates (main + safety short-circuit), START blocked acknowledgment (no false “rejoined”), atomic `steps.sms_binding_removed` (no phone/PII). **No public deletion capability** — no user account can currently initiate deletion.
-- **APP-041B3a:** **COMPLETE and applied/validated** — server-only Stripe cancellation orchestration with ownership gates; CAS `stripe_result` (18-arg) applied in production. **No** public endpoint/UI.
-- **APP-041B3b:** **IMPLEMENTED — PENDING REVIEW** (worktree only) — Stripe/checkout/resume/pause/cancel anti-resurrection. **Webhook lookup failures are retryable** (release current `stripe_webhook_events` row → 500); intentional deletion blocks remain **200** with dedupe retained. **`customer.subscription.updated` during deletion cannot restore access via `summittPlan`** (preferred safe write: `summittSubscribed=false` + `summittPlan=null` only). Second deletion checks before entitlement-increasing Clerk/SMS writes reduce race windows; Stripe/Postgres/Clerk remain non-atomic. **Completed and failed/stuck deletion rows intentionally block** membership unlock until a future admin recovery path exists. **No migration.** **No** public endpoint/UI.
+- **APP-041B3a:** **COMPLETE, committed, pushed; migration applied and verified** — server-only Stripe cancellation orchestration with ownership gates; CAS `stripe_result` (18-arg) applied in production. **No** public endpoint/UI.
+- **APP-041B3b:** **COMPLETE, committed and pushed** at `aab8b02d804c162797e7cdb853acfe49ef4ecd89` (`feat: prevent Stripe entitlement resurrection during deletion`) — independently reviewed and corrected before merge. **No migration** created or required. **No** public endpoint/UI. **No** real Stripe/Clerk/Supabase/Twilio action during implementation/testing.
 - **Unlink ≠ STOP:** B2a deletes live `sms_identities` / `sms_audience` binding; it does **not** invent STOP rows. Real STOP evidence remains in existing `sms_inbound_messages`.
 - **Rejected for B2a:** phone hash / HMAC secret / new opt-out evidence table / fake STOP evidence.
-- **APP-041B (parent orchestrator):** **IN PROGRESS** (B1–B3a live; B3b pending review; purge / Clerk delete not started; no public initiate).
+- **APP-041B (parent orchestrator):** **IN PROGRESS** (B1–B3b live in repo; B3a migration applied; purge / Clerk delete / public initiate not started).
 - **APP-041C–APP-041F:** **NOT STARTED**.
-- Exact next action: **review APP-041B3b**, then production-safe validation/documentation, then next deletion slice. **APP-041B2b** remains **deferred**. Do **not** claim end-to-end deletion works.
+- Exact next action: **read-only remaining-slices audit** (Options A–D). Do **not** claim end-to-end deletion works.
+
+### APP-041B3b protections (COMPLETE at `aab8b02…`)
+- Checkout creation, checkout confirmation, and resume membership blocked during account deletion.
+- Normal pause/cancel routes blocked during deletion so they do not compete with deletion orchestration.
+- Entitlement-increasing Stripe webhook writes blocked during deletion; completed deletion rows also block late entitlement restoration.
+- Entitlement-decreasing events may still safely lock access.
+- Non-entitled `customer.subscription.updated` during deletion writes only `summittSubscribed=false` + `summittPlan=null` (active plan metadata cannot act as an entitlement side channel).
+- Webhook deletion lookup failure is retryable: current event dedupe row released → HTTP 500 → Stripe may retry.
+- Intentional deletion blocks: retain dedupe → HTTP 200 → no entitlement restoration.
+- Second deletion checks immediately before entitlement-increasing Clerk/SMS writes.
+- Ordinary users without a deletion row retain existing checkout, billing, and webhook behavior.
+
+### Still not implemented (do not claim otherwise)
+- Public account-deletion API; user-facing Delete Account UI; reauthentication requirement
+- Orchestration that automatically runs B2a/B3a; application-data purge/anonymization; Clerk user deletion
+- Completion/reconciliation worker; admin recovery for failed/stuck deletion requests
+- APP-041B2b remaining outbound SMS cron/send hardening; real end-to-end deletion test
+- App-store deletion compliance (not complete until end-to-end deletion is proven)
+
+### Known risks (honest)
+- Stripe, Supabase, and Clerk are **not** one atomic transaction.
+- Stripe checkout/resume may complete before a second deletion guard; local entitlement restoration is still blocked.
+- Failed/stuck deletion rows block membership management until an admin recovery process exists.
+- Completed deletion rows intentionally block late entitlement restoration.
+- Webhook dedupe remains insert-before-handler; lookup failure uses targeted dedupe release.
+- Residual SMS cron/send paths still rely partly on row absence and remain **APP-041B2b** hardening.
 
 ### Implemented backend foundation (B1 + B2a — live in production DB)
 - Durable deletion-request state (`account_deletion_requests`)
@@ -352,7 +378,7 @@ One **website-owned** deletion flow usable in normal browsers and inside the iPh
 | APP-041B1 | Durable state migration + repository + tests (no endpoint) | **COMPLETE applied/validated** | ~3–5 of B band |
 | APP-041B2a | Local SMS unlink + anti-resurrection + coach final-send gates (no public API) | **COMPLETE applied/validated** | ~4–6 of B band |
 | APP-041B3a | Stripe cancellation orchestration (no public API; distinct from churn) | **COMPLETE applied/validated** | ~3–5 of B band |
-| APP-041B3b | Stripe/checkout/resume anti-resurrection guards (no public API) | **IMPLEMENTED — PENDING REVIEW** (worktree only; no migration) | ~2–4 of B band |
+| APP-041B3b | Stripe/checkout/resume anti-resurrection guards (no public API) | **COMPLETE** (`aab8b02…`; no migration) | ~2–4 of B band |
 | APP-041B | Durable deletion state + backend orchestrator (parent) | **IN PROGRESS** | 8–14 |
 | APP-041C | Account UI + deliberate confirmation + reauthentication | NOT STARTED | 3–5 |
 | APP-041D | Stripe/SMS race and resurrection hardening | NOT STARTED | 4–8 |
@@ -360,10 +386,16 @@ One **website-owned** deletion flow usable in normal browsers and inside the iPh
 | APP-041F | Privacy/store documentation + final evidence | NOT STARTED | 1–2 |
 | **APP-041 total** | Parent workstream | **IN PROGRESS** | **≈ 24–40** |
 
-Remaining after APP-041A: approximately **22–36** focused hours (B1+B2a consumed part of the B band). Obsolete tracker estimate of **3 hours** is retired.
+Remaining after APP-041A: approximately **22–36** focused hours (B1–B3b consumed part of the B band). Obsolete tracker estimate of **3 hours** is retired.
 
 ### Exact next action
-**Review APP-041B3b**, then production-safe validation/docs, then next deletion slice. **APP-041B2b** remains **deferred**. **Do not** expose `POST /api/account/delete` until APP-041C. **Do not** claim account deletion works end-to-end.
+**Read-only audit** to choose the next smallest safe APP-041 slice. Inspect the actual state machine and remaining requirements; identify prerequisites and dependency order; protect current SMS and billing behavior; choose the smallest independently testable next slice. **Do not** jump to public UI. **Do not** assume the initiation endpoint is automatically next. **Do not** claim store compliance until end-to-end deletion is proven.
+
+**Audit options (compare):**
+- **A** — APP-041B2b remaining outbound SMS cron/send anti-race hardening
+- **B** — Account-deletion orchestration API foundation (authenticated server-only initiation, reauthentication design, durable request creation; **no UI yet**)
+- **C** — App-data purge/anonymization inventory and execution foundation
+- **D** — Clerk deletion-last orchestration and recovery design
 ---
 
 ## Production Clerk 180-day session decision — 2026-07-18
@@ -614,7 +646,7 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 
 ### Next master-plan work block (priority order)
 1. **APP-065** — honest **elapsed-time** long-session validation (IN PROGRESS). Short-cycle post-180-day-config force-close/reopen already PASS; do not close APP-065 on that alone.
-2. **APP-041** — account deletion parent **IN PROGRESS** (APP-041A COMPLETE; **APP-041B1** + **APP-041B2a** + **APP-041B3a** COMPLETE applied/validated; **APP-041B3b** IMPLEMENTED — PENDING REVIEW in worktree only). Exact next: **review APP-041B3b**. B2b deferred. No public deletion capability.
+2. **APP-041** — account deletion parent **IN PROGRESS** (APP-041A COMPLETE; **APP-041B1** + **APP-041B2a** + **APP-041B3a** + **APP-041B3b** COMPLETE). Exact next: **read-only remaining-slices audit** (Options A–D). No public deletion capability.
 3. **APP-015** — external-link policy when a natural link surface is available.
 4. **APP-066** — Client Trust formal confirmation (**not** claimed as already fully passed).
 5. **APP-021 planning gates** — Android Checkpoint B **or** explicit approved iOS-first dependency amendment + estimate confirm/revise + formal DEC-020 close.
@@ -1338,8 +1370,8 @@ APP-000, APP-001, APP-002, APP-003, APP-004, APP-005, APP-006, APP-007, APP-008,
 Two files: `docs/mobile-app-master-plan.md` (spine + task tracker + decision log + risk register + parking lot) and `docs/mobile-app-session-handoff.md` (append-only session log). Split decision log / risk register into their own files only if they outgrow a screen.
 
 ### EXACT NEXT CURSOR PROMPT
-**APP-041B1**, **APP-041B2a**, and **APP-041B3a** are **COMPLETE applied/validated** in production. **APP-041B3b** is **IMPLEMENTED — PENDING REVIEW** in the worktree only (webhook retry-safe lookup failures; `summittPlan` side-channel closed during deletion; second-check race hardening; **no migration**; no public deletion capability). APP-041 / APP-041B remain **IN PROGRESS**. Exact next: **review APP-041B3b**; **APP-041B2b** remains deferred. Parallel: APP-065, APP-015, APP-066, APP-021 planning. Do **not** mark APP-041 COMPLETE. Do **not** claim end-to-end deletion works.
+**APP-041B1**, **APP-041B2a**, **APP-041B3a**, and **APP-041B3b** are **COMPLETE** (B3a migration applied/verified; B3b at `aab8b02d804c162797e7cdb853acfe49ef4ecd89`; **no B3b migration**; no public deletion capability). APP-041 / APP-041B remain **IN PROGRESS**. Exact next: **read-only remaining-slices audit** comparing Options A (B2b SMS cron hardening), B (orchestration API foundation, no UI), C (purge/anonymization foundation), D (Clerk deletion-last + recovery). Parallel: APP-065, APP-015, APP-066, APP-021 planning. Do **not** mark APP-041 COMPLETE. Do **not** claim end-to-end deletion works.
 
 ---
 
-*End of master plan v1.5.5. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*
+*End of master plan v1.5.8. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*

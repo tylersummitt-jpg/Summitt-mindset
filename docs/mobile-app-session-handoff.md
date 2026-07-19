@@ -563,10 +563,10 @@ Each implementation session appends one new entry at the **bottom** of this file
 - No public deletion endpoint/UI; B3a not auto-invoked; end-to-end deletion does **not** work; no real Stripe action; Stripe/Postgres/Clerk are **not** atomic (second guard prevents local unlock only).
 
 ### Status precision
-- APP-041B3b: **IMPLEMENTED — PENDING REVIEW**
+- APP-041B3b: **IMPLEMENTED — PENDING REVIEW** (historical; superseded by SESSION 13 — **COMPLETE**)
 - APP-041B3a: **COMPLETE and applied/validated**
 - APP-041B / APP-041: **IN PROGRESS**
-- Exact next: **review B3b** → validation/docs → next deletion slice (purge/Clerk). B2b deferred.
+- Exact next: superseded by SESSION 13 (remaining-slices audit)
 
 ---
 
@@ -577,4 +577,38 @@ Each implementation session appends one new entry at the **bottom** of this file
 2. Non-entitled `customer.subscription.updated` during deletion cannot restore access through `summittPlan` / active Stripe linkage (preferred patch: `summittSubscribed=false`, `summittPlan=null`).
 3. Second deletion checks immediately before entitlement-increasing Clerk/SMS writes on confirm-checkout, resume, create-checkout reconcile, and entitled webhook paths.
 4. Docs note: completed and failed/stuck deletion rows continue to block membership unlock; admin recovery remains future work.
-5. **No migration. No production action. No public deletion capability.** APP-041B3b remains **IMPLEMENTED — PENDING REVIEW**.
+5. **No migration. No production action. No public deletion capability.** (Superseded by SESSION 13 — B3b COMPLETE.)
+
+---
+
+## SESSION 13 — 2026-07-18 — APP-041B3b CLOSED (docs only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD`: `aab8b02d804c162797e7cdb853acfe49ef4ecd89`
+- Commit: `feat: prevent Stripe entitlement resurrection during deletion`
+- Mobile repository: **not edited**.
+
+### What closed
+- APP-041B3b: implemented → independently reviewed → corrected → **committed, pushed, merged** into main at the HEAD above.
+- Protections: checkout create/confirm, resume, pause/cancel, and entitlement-increasing webhooks blocked during deletion; completed rows block late restore; decreasing events may still lock; non-entitled `subscription.updated` during deletion writes only `summittSubscribed=false` + `summittPlan=null`; lookup_failed releases current dedupe + 500; intentional blocks retain dedupe + 200; second checks before increasing Clerk/SMS writes.
+- **No migration.** **No** production external Stripe/Clerk/Supabase/Twilio action during B3b work. **No** public deletion capability.
+
+### Status precision
+- APP-041B3a: **COMPLETE**, committed, pushed, migration applied and verified
+- APP-041B3b: **COMPLETE**, committed and pushed
+- APP-041B / APP-041: **IN PROGRESS**
+
+### Explicit non-claims
+- Account deletion does **not** work end-to-end; no real account can initiate deletion; no real Stripe cancel / Clerk delete / purge via deletion workflow; app-store deletion compliance is **not** complete.
+
+### Exact next action
+**Read-only audit** choosing the next smallest safe APP-041 slice among:
+- **A** APP-041B2b outbound SMS cron/send anti-race hardening
+- **B** Orchestration API foundation (auth + reauth design + durable request; no UI)
+- **C** App-data purge/anonymization inventory + execution foundation
+- **D** Clerk deletion-last orchestration and recovery design
+
+Protect SMS/billing behavior; prefer the smallest independently testable slice; do not jump to public UI; do not assume initiation endpoint is automatically next.
