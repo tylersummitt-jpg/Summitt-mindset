@@ -130,6 +130,13 @@ export type AccountDeletionStore = {
   findUnresolvedByUser(
     clerkUserId: string
   ): Promise<AccountDeletionRequestRow | null>;
+  /**
+   * Any deletion row for the user (unresolved preferred; else most recent
+   * including completed). Used by entitlement anti-resurrection (B3b).
+   */
+  findAnyByUser(
+    clerkUserId: string
+  ): Promise<AccountDeletionRequestRow | null>;
   acquireLease(input: {
     requestId: string;
     lockOwner: string;
@@ -285,6 +292,22 @@ function createInMemoryStore(): Store {
         }
       }
       return null;
+    },
+    async findAnyByUser(clerkUserId) {
+      let best: AccountDeletionRequestRow | null = null;
+      for (const row of rows.values()) {
+        if (row.clerk_user_id !== clerkUserId) continue;
+        if (row.status !== "completed") {
+          return { ...row, steps: { ...row.steps } };
+        }
+        if (
+          !best ||
+          Date.parse(row.updated_at) > Date.parse(best.updated_at)
+        ) {
+          best = row;
+        }
+      }
+      return best ? { ...best, steps: { ...best.steps } } : null;
     },
     async acquireLease({ requestId, lockOwner, leaseMs, now }) {
       const current = rows.get(requestId);
@@ -469,6 +492,19 @@ function createSupabaseStore(): Store {
       if (error) throw error;
       return data ? mapRow(data as Record<string, unknown>) : null;
     },
+    async findAnyByUser(clerkUserId) {
+      const unresolved = await this.findUnresolvedByUser(clerkUserId);
+      if (unresolved) return unresolved;
+      const { data, error } = await supabaseServer
+        .from("account_deletion_requests")
+        .select("*")
+        .eq("clerk_user_id", clerkUserId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? mapRow(data as Record<string, unknown>) : null;
+    },
     async acquireLease({ requestId, lockOwner, leaseMs }) {
       const { data, error } = await supabaseServer.rpc(
         ACQUIRE_ACCOUNT_DELETION_LEASE_RPC,
@@ -584,6 +620,18 @@ export async function getUnresolvedAccountDeletionRequestForUser(
   const trimmed = clerkUserId.trim();
   if (!trimmed) return null;
   return getStore().findUnresolvedByUser(trimmed);
+}
+
+/**
+ * Any account_deletion_requests row for the user (unresolved preferred,
+ * otherwise latest including completed). Used by B3b entitlement guards.
+ */
+export async function getAnyAccountDeletionRequestForUser(
+  clerkUserId: string
+): Promise<AccountDeletionRequestRow | null> {
+  const trimmed = clerkUserId.trim();
+  if (!trimmed) return null;
+  return getStore().findAnyByUser(trimmed);
 }
 
 /**

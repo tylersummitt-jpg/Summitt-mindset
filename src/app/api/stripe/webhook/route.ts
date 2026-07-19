@@ -11,8 +11,48 @@ import { notifyCoachSubscribedInternal } from "@/lib/notify-coach-subscribed";
 import { notifyMemberSubscribedInternal } from "@/lib/notify-member-subscribed";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
+import {
+  evaluateEntitlementIncreasingWebhookWrite,
+  type EntitlementRestorationDecision,
+} from "@/lib/account-deletion/deletion-guards";
+import { releaseStripeWebhookEventDedupe } from "@/lib/stripe-webhook-dedupe";
 
 export const runtime = "nodejs";
+
+/**
+ * Entitlement-increase gate for webhooks (after dedupe insert).
+ * - blocked_due_to_deletion → keep dedupe, caller returns 200
+ * - lookup_failed → release this event_id only, caller returns 500 (Stripe retries)
+ * - allowed → proceed (caller should recheck immediately before Clerk/SMS unlock)
+ *
+ * Stripe / Postgres / Clerk are not one atomic transaction.
+ */
+async function gateEntitlementIncreasingWebhook(
+  eventId: string,
+  userId: string
+): Promise<
+  | { outcome: "proceed" }
+  | { outcome: "ack_blocked"; decision: EntitlementRestorationDecision }
+  | { outcome: "retry_lookup_failed" }
+> {
+  const decision = await evaluateEntitlementIncreasingWebhookWrite(userId);
+  if (decision.decision === "allowed") {
+    return { outcome: "proceed" };
+  }
+  if (decision.decision === "lookup_failed") {
+    await releaseStripeWebhookEventDedupe(eventId);
+    console.warn(
+      "[webhook] entitlement gate lookup_failed; released dedupe for retry",
+      { event_id: eventId }
+    );
+    return { outcome: "retry_lookup_failed" };
+  }
+  console.warn(
+    "[webhook] entitlement restore blocked (account deletion); ack no-op",
+    { event_id: eventId, scope: decision.scope }
+  );
+  return { outcome: "ack_blocked", decision };
+}
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -218,6 +258,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      const firstGate = await gateEntitlementIncreasingWebhook(event.id, userId);
+      if (firstGate.outcome === "ack_blocked") {
+        return NextResponse.json({ received: true });
+      }
+      if (firstGate.outcome === "retry_lookup_failed") {
+        return new NextResponse("Webhook lookup failed", { status: 500 });
+      }
+
       // Ensure Stripe customer has metadata too (backup for future events)
       try {
         await stripe.customers.update(customerId, {
@@ -236,6 +284,15 @@ export async function POST(req: NextRequest) {
       const isCoachAcquisitionFromStripe =
         sessionMd?.summittAcquisition === "coach" ||
         subMd?.summittAcquisition === "coach";
+
+      // Second guard: deletion may have begun after first gate / Stripe reads.
+      const secondGate = await gateEntitlementIncreasingWebhook(event.id, userId);
+      if (secondGate.outcome === "ack_blocked") {
+        return NextResponse.json({ received: true });
+      }
+      if (secondGate.outcome === "retry_lookup_failed") {
+        return new NextResponse("Webhook lookup failed", { status: 500 });
+      }
 
       await updateClerkPublicMetadata(userId, {
         summittSubscribed: entitled,
@@ -375,6 +432,62 @@ export async function POST(req: NextRequest) {
       const plan = resolvePlanFromSubscription(subscription);
       const entitled = isSummittEntitledFromSubscription(subscription);
 
+      // Deletion-aware branch (any status row blocks restoration side channels).
+      // Preferred safe write when !entitled during deletion: only
+      // summittSubscribed=false + summittPlan=null (no active plan / Stripe linkage /
+      // SMS enable). Entitled + deletion → intentional full no-op (keep dedupe, 200).
+      const deletionDecision =
+        await evaluateEntitlementIncreasingWebhookWrite(userId);
+      if (deletionDecision.decision === "lookup_failed") {
+        await releaseStripeWebhookEventDedupe(event.id);
+        console.warn(
+          "[webhook] subscription.updated lookup_failed; released dedupe for retry",
+          { event_id: event.id }
+        );
+        return new NextResponse("Webhook lookup failed", { status: 500 });
+      }
+      if (deletionDecision.decision === "blocked_due_to_deletion") {
+        if (entitled) {
+          console.warn(
+            "[webhook] customer.subscription.updated: skip entitlement restore (account deletion)",
+            { scope: deletionDecision.scope }
+          );
+          return NextResponse.json({ received: true });
+        }
+        await updateClerkPublicMetadata(userId, {
+          summittSubscribed: false,
+          summittPlan: null,
+        });
+        const existingBlocked = await getClerkPublicMetadata(userId);
+        await syncSmsAudience({
+          userId: userId,
+          phoneNumber: existingBlocked?.phoneNumber ?? null,
+          smsEnabled: existingBlocked?.smsEnabled ?? null,
+          timezone: existingBlocked?.timezone ?? null,
+          smsTimePreference: existingBlocked?.smsTimePreference ?? null,
+          summittSubscribed: false,
+        });
+        console.log(
+          "✅ customer.subscription.updated → deletion-safe false/null only",
+          userId
+        );
+        return NextResponse.json({ received: true });
+      }
+
+      if (entitled) {
+        // Second guard immediately before entitlement-increasing Clerk/SMS writes.
+        const secondGate = await gateEntitlementIncreasingWebhook(
+          event.id,
+          userId
+        );
+        if (secondGate.outcome === "ack_blocked") {
+          return NextResponse.json({ received: true });
+        }
+        if (secondGate.outcome === "retry_lookup_failed") {
+          return new NextResponse("Webhook lookup failed", { status: 500 });
+        }
+      }
+
       const clerkPatch: Record<string, unknown> = {
         summittSubscribed: entitled,
         stripeCustomerId:
@@ -489,6 +602,27 @@ export async function POST(req: NextRequest) {
       const entitled = isSummittEntitledFromSubscription(subscription);
 
       if (entitled) {
+        const firstGate = await gateEntitlementIncreasingWebhook(
+          event.id,
+          userId
+        );
+        if (firstGate.outcome === "ack_blocked") {
+          return NextResponse.json({ received: true });
+        }
+        if (firstGate.outcome === "retry_lookup_failed") {
+          return new NextResponse("Webhook lookup failed", { status: 500 });
+        }
+        // Second guard immediately before unlock writes.
+        const secondGate = await gateEntitlementIncreasingWebhook(
+          event.id,
+          userId
+        );
+        if (secondGate.outcome === "ack_blocked") {
+          return NextResponse.json({ received: true });
+        }
+        if (secondGate.outcome === "retry_lookup_failed") {
+          return new NextResponse("Webhook lookup failed", { status: 500 });
+        }
         console.log("✅ Payment restored → unlocking access", userId);
       } else {
         console.log(

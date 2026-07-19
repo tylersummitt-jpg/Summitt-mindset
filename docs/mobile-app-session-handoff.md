@@ -537,7 +537,44 @@ Each implementation session appends one new entry at the **bottom** of this file
 - No migration applied; no real Stripe subscription touched; no public deletion endpoint/UI; ordinary churn route unchanged; end-to-end deletion does **not** work.
 
 ### Status precision
-- APP-041B3a: **IMPLEMENTED — PENDING REVIEW**
+- APP-041B3a: **COMPLETE and applied/validated** (see production apply; HEAD lineage including `852fc62…`)
 - APP-041B / APP-041: **IN PROGRESS**
 - APP-041B2b: **deferred**
-- Exact next: **review B3a → APP-041B3b** (webhook/checkout/resume anti-resurrection)
+- Exact next: superseded by SESSION 12 (APP-041B3b)
+
+---
+
+## SESSION 12 — 2026-07-18 — APP-041B3b Stripe anti-resurrection (worktree only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- `git rev-parse --show-toplevel`: `/Users/tylersummitt/Desktop/summitt-app`
+- `git branch --show-current`: `main`
+- `git rev-parse HEAD` (session start): `852fc6264cfaf26735831a80eafb1def2f3cfabd`
+- Mobile repository: **not edited**.
+
+### What changed (worktree only — not staged/committed/pushed)
+- Shared entitlement guard: blocks restore on **unresolved or completed** deletion rows; lookup failure fails closed on unlock paths.
+- HTTP: create-checkout, confirm-checkout, resume, pause, cancel → neutral 409 during deletion; no Stripe mutation on early gate.
+- Webhook: intentional deletion block → **200** + dedupe retained; **lookup_failed → release current event dedupe + 500** (retryable). `subscription.updated` during deletion writes only `summittSubscribed=false` + `summittPlan=null` (no active plan / Stripe linkage restore). Second deletion checks before entitlement-increasing Clerk/SMS writes.
+- Focused mocks-only tests. **No migration.**
+
+### Explicit non-claims
+- No public deletion endpoint/UI; B3a not auto-invoked; end-to-end deletion does **not** work; no real Stripe action; Stripe/Postgres/Clerk are **not** atomic (second guard prevents local unlock only).
+
+### Status precision
+- APP-041B3b: **IMPLEMENTED — PENDING REVIEW**
+- APP-041B3a: **COMPLETE and applied/validated**
+- APP-041B / APP-041: **IN PROGRESS**
+- Exact next: **review B3b** → validation/docs → next deletion slice (purge/Clerk). B2b deferred.
+
+---
+
+## SESSION 12b — 2026-07-18 — APP-041B3b controlled correction (webhook retry + plan side-channel)
+
+### Correction summary
+1. Webhook deletion **lookup failures** are no longer intentional 200 no-ops: release **only** the current `event_id` from `stripe_webhook_events`, return **500**, so Stripe can redeliver when the DB recovers. Intentional deletion blocks remain **200** with dedupe retained.
+2. Non-entitled `customer.subscription.updated` during deletion cannot restore access through `summittPlan` / active Stripe linkage (preferred patch: `summittSubscribed=false`, `summittPlan=null`).
+3. Second deletion checks immediately before entitlement-increasing Clerk/SMS writes on confirm-checkout, resume, create-checkout reconcile, and entitled webhook paths.
+4. Docs note: completed and failed/stuck deletion rows continue to block membership unlock; admin recovery remains future work.
+5. **No migration. No production action. No public deletion capability.** APP-041B3b remains **IMPLEMENTED — PENDING REVIEW**.

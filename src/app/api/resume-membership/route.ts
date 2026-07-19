@@ -11,6 +11,10 @@ import {
   isSummittEntitledFromSubscription,
   resolvePlanFromSubscription,
 } from "@/lib/summitt-subscription-membership";
+import {
+  ACCOUNT_DELETION_IN_PROGRESS_BODY,
+  assertEntitlementMutationAllowedForAccountDeletion,
+} from "@/lib/account-deletion/deletion-guards";
 
 export const runtime = "nodejs";
 
@@ -34,6 +38,10 @@ type SuccessCode = "resumed" | "already_active";
 /**
  * Write Clerk + SMS from an authoritative Stripe subscription.
  * Does not mutate Stripe. Returns a NextResponse on Clerk failure; null on success.
+ *
+ * Callers must run a second deletion guard immediately before this when the write
+ * can increase entitlement. Stripe resume may already have succeeded; this helper
+ * only prevents local Clerk/SMS unlock (Stripe/Postgres/Clerk are not atomic).
  */
 async function reconcileMembershipFromStripeSubscription(args: {
   userId: string;
@@ -48,6 +56,24 @@ async function reconcileMembershipFromStripeSubscription(args: {
   const plan = resolvePlanFromSubscription(subscription);
   const verifiedCustomerId =
     customerIdFromSubscription(subscription) || fallbackCustomerId;
+
+  if (entitled) {
+    const secondGate =
+      await assertEntitlementMutationAllowedForAccountDeletion(userId);
+    if (!secondGate.ok) {
+      if (secondGate.code === "lookup_failed") {
+        console.error(
+          "[resume-membership] second deletion lookup failed; fail closed (no Clerk unlock)"
+        );
+        return json({ ok: false, error: "Internal Server Error" }, 500);
+      }
+      console.warn(
+        "[resume-membership] deletion began before Clerk unlock; Stripe may already be resumed",
+        { userId, subscriptionId: subscription.id, code }
+      );
+      return json({ ...ACCOUNT_DELETION_IN_PROGRESS_BODY, ok: false }, 409);
+    }
+  }
 
   try {
     await updateClerkPublicMetadata(userId, {
@@ -98,6 +124,18 @@ export async function POST() {
 
   if (!userId) {
     return json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  const deletionGate =
+    await assertEntitlementMutationAllowedForAccountDeletion(userId);
+  if (!deletionGate.ok) {
+    if (deletionGate.code === "lookup_failed") {
+      console.error(
+        "[resume-membership] account deletion lookup failed; fail closed"
+      );
+      return json({ ok: false, error: "Internal Server Error" }, 500);
+    }
+    return json({ ...ACCOUNT_DELETION_IN_PROGRESS_BODY, ok: false }, 409);
   }
 
   const user = await currentUser();

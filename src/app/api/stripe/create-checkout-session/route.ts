@@ -15,6 +15,10 @@ import {
   type SummittMembershipClass,
 } from "@/lib/summitt-subscription-membership";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
+import {
+  ACCOUNT_DELETION_IN_PROGRESS_BODY,
+  assertEntitlementMutationAllowedForAccountDeletion,
+} from "@/lib/account-deletion/deletion-guards";
 
 export const runtime = "nodejs";
 
@@ -149,6 +153,20 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const deletionGate =
+      await assertEntitlementMutationAllowedForAccountDeletion(userId);
+    if (!deletionGate.ok) {
+      if (deletionGate.code === "lookup_failed") {
+        console.error(
+          "[stripe/create-checkout-session] account deletion lookup failed; fail closed"
+        );
+        return new NextResponse("Internal Server Error", { status: 500 });
+      }
+      return NextResponse.json(ACCOUNT_DELETION_IN_PROGRESS_BODY, {
+        status: 409,
+      });
     }
 
     const user = await currentUser();
@@ -299,6 +317,21 @@ export async function POST(req: Request) {
         } else {
           clerkPatch.summittPlan =
             planResolved === "unknown" ? null : planResolved;
+        }
+        // Second guard: Stripe scan already found a sub; only skip local entitlement
+        // restore if deletion began mid-flight (Stripe/Postgres/Clerk are not atomic).
+        const secondGate =
+          await assertEntitlementMutationAllowedForAccountDeletion(userId);
+        if (!secondGate.ok) {
+          if (secondGate.code === "lookup_failed") {
+            console.error(
+              "[stripe/create-checkout-session] reconcile second deletion lookup failed; fail closed"
+            );
+            return new NextResponse("Internal Server Error", { status: 500 });
+          }
+          return NextResponse.json(ACCOUNT_DELETION_IN_PROGRESS_BODY, {
+            status: 409,
+          });
         }
         await updateClerkPublicMetadata(userId, clerkPatch);
       } catch (reconcileErr) {

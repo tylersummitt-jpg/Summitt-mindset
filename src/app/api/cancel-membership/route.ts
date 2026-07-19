@@ -4,6 +4,10 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
+import {
+  ACCOUNT_DELETION_IN_PROGRESS_BODY,
+  assertEntitlementMutationAllowedForAccountDeletion,
+} from "@/lib/account-deletion/deletion-guards";
 
 export const runtime = "nodejs";
 
@@ -20,6 +24,23 @@ export async function POST(req: Request) {
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const deletionGate =
+    await assertEntitlementMutationAllowedForAccountDeletion(userId);
+  if (!deletionGate.ok) {
+    if (deletionGate.code === "lookup_failed") {
+      console.error(
+        "[cancel-membership] account deletion lookup failed; fail closed"
+      );
+      return NextResponse.json(
+        { error: "Internal Server Error" },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json(ACCOUNT_DELETION_IN_PROGRESS_BODY, {
+      status: 409,
+    });
   }
 
   const user = await currentUser();

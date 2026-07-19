@@ -19,6 +19,16 @@ vi.mock("@/lib/sms-audience-sync", () => ({
   syncSmsAudience: (...args: unknown[]) => syncSmsAudienceMock(...args),
 }));
 
+const assertDeletionMock = vi.fn();
+vi.mock("@/lib/account-deletion/deletion-guards", () => ({
+  ACCOUNT_DELETION_IN_PROGRESS_BODY: {
+    error: "account_deletion_in_progress",
+    message: "This action is unavailable.",
+  },
+  assertEntitlementMutationAllowedForAccountDeletion: (...args: unknown[]) =>
+    assertDeletionMock(...args),
+}));
+
 const retrieveMock = vi.fn();
 const updateMock = vi.fn();
 
@@ -73,6 +83,7 @@ describe("POST /api/resume-membership", () => {
     });
     updateClerkPublicMetadataMock.mockResolvedValue(undefined);
     syncSmsAudienceMock.mockResolvedValue(undefined);
+    assertDeletionMock.mockResolvedValue({ ok: true });
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -332,6 +343,60 @@ describe("POST /api/resume-membership", () => {
     expect(await res.json()).toEqual({ ok: false, code: "clerk_error" });
     expect(updateMock).toHaveBeenCalledTimes(1);
     expect(updateMock.mock.calls[0][1]).toEqual({ pause_collection: null });
+    expect(syncSmsAudienceMock).not.toHaveBeenCalled();
+  });
+
+  it("B3b: unresolved deletion → 409, no Stripe call, no Clerk unlock", async () => {
+    assertDeletionMock.mockResolvedValue({
+      ok: false,
+      code: "account_deletion_in_progress",
+    });
+    const { POST } = await import("./route");
+    const res = await POST();
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "account_deletion_in_progress",
+      ok: false,
+    });
+    expect(retrieveMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(syncSmsAudienceMock).not.toHaveBeenCalled();
+  });
+
+  it("B3b: deletion lookup failure → 500 fail closed", async () => {
+    assertDeletionMock.mockResolvedValue({
+      ok: false,
+      code: "lookup_failed",
+    });
+    const { POST } = await import("./route");
+    const res = await POST();
+    expect(res.status).toBe(500);
+    expect(retrieveMock).not.toHaveBeenCalled();
+  });
+
+  it("10. second-check race: Stripe may resume, second check blocks → no Clerk/SMS unlock", async () => {
+    assertDeletionMock
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValue({
+        ok: false,
+        code: "account_deletion_in_progress",
+      });
+    retrieveMock.mockResolvedValue(pausedSub());
+    updateMock.mockResolvedValue(
+      pausedSub({ pause_collection: null, status: "active" })
+    );
+    const { POST } = await import("./route");
+    const res = await POST();
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "account_deletion_in_progress",
+      ok: false,
+    });
+    expect(updateMock).toHaveBeenCalledWith("sub_paused", {
+      pause_collection: null,
+    });
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
     expect(syncSmsAudienceMock).not.toHaveBeenCalled();
   });
 });

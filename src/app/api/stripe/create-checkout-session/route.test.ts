@@ -29,6 +29,16 @@ vi.mock("@/lib/coach-attribution", () => ({
   maySetCoachAcquisitionSource: () => false,
 }));
 
+const assertDeletionMock = vi.fn();
+vi.mock("@/lib/account-deletion/deletion-guards", () => ({
+  ACCOUNT_DELETION_IN_PROGRESS_BODY: {
+    error: "account_deletion_in_progress",
+    message: "This action is unavailable.",
+  },
+  assertEntitlementMutationAllowedForAccountDeletion: (...args: unknown[]) =>
+    assertDeletionMock(...args),
+}));
+
 const retrieveMock = vi.fn();
 const listSubsMock = vi.fn();
 const listCustomersMock = vi.fn();
@@ -117,6 +127,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    assertDeletionMock.mockResolvedValue({ ok: true });
     process.env.STRIPE_SECRET_KEY = "sk_test_checkout";
     process.env.STRIPE_PRICE_ID_MONTHLY = "price_1TtRauHP6uKt4BBoupJRggJ2";
     process.env.STRIPE_PRICE_ID_ANNUAL = "price_1TtRdEHP6uKt4BBo0Ex8Xw8a";
@@ -433,5 +444,43 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     );
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe("already_subscribed");
+  });
+
+  it("B3b: unresolved deletion → 409, no Stripe session create", async () => {
+    assertDeletionMock.mockResolvedValue({
+      ok: false,
+      code: "account_deletion_in_progress",
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "account_deletion_in_progress",
+      message: "This action is unavailable.",
+    });
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(retrieveMock).not.toHaveBeenCalled();
+    expect(listSubsMock).not.toHaveBeenCalled();
+  });
+
+  it("B3b: deletion lookup failure → 500 fail closed, no Stripe", async () => {
+    assertDeletionMock.mockResolvedValue({
+      ok: false,
+      code: "lookup_failed",
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(500);
+    expect(createSessionMock).not.toHaveBeenCalled();
   });
 });

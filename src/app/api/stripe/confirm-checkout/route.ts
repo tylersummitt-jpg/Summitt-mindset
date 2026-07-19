@@ -5,6 +5,10 @@ import Stripe from "stripe";
 import { auth } from "@clerk/nextjs/server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import {
+  ACCOUNT_DELETION_IN_PROGRESS_BODY,
+  assertEntitlementMutationAllowedForAccountDeletion,
+} from "@/lib/account-deletion/deletion-guards";
 
 export const runtime = "nodejs";
 
@@ -41,6 +45,20 @@ export async function POST(req: Request) {
 
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const deletionGate =
+      await assertEntitlementMutationAllowedForAccountDeletion(userId);
+    if (!deletionGate.ok) {
+      if (deletionGate.code === "lookup_failed") {
+        console.error(
+          "[stripe/confirm-checkout] account deletion lookup failed; fail closed"
+        );
+        return new NextResponse("Internal Server Error", { status: 500 });
+      }
+      return NextResponse.json(ACCOUNT_DELETION_IN_PROGRESS_BODY, {
+        status: 409,
+      });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -130,6 +148,24 @@ export async function POST(req: Request) {
         isActive,
         idempotent: true,
       });
+    }
+
+    // Second guard before entitlement-increasing Clerk write. Stripe session may
+    // already exist; this only prevents local unlock if deletion began mid-flight.
+    if (isActive) {
+      const secondGate =
+        await assertEntitlementMutationAllowedForAccountDeletion(userId);
+      if (!secondGate.ok) {
+        if (secondGate.code === "lookup_failed") {
+          console.error(
+            "[stripe/confirm-checkout] second deletion lookup failed; fail closed"
+          );
+          return new NextResponse("Internal Server Error", { status: 500 });
+        }
+        return NextResponse.json(ACCOUNT_DELETION_IN_PROGRESS_BODY, {
+          status: 409,
+        });
+      }
     }
 
     // 🔥 Immediately patch Clerk metadata
