@@ -886,11 +886,37 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Status
 - **APP-041D0:** COMPLETE
-- **APP-041D1:** IMPLEMENTED — PENDING REVIEW
+- **APP-041D1:** COMPLETE at `8dcf2e3037f7af49e8e31a784d6fa835eb6e4147`
 - Adapter remains injected/fake only; residual provider-success-before-marker crash window documented
 
 ### Exact next
-- Review D1 → trusted worker/reconciler → admin recovery → authenticated initiation + reauthentication → user-facing deletion UI later
+- Review D1 was completed in-repo; next slice APP-041E1 (trusted reconciler)
 
 ### Explicit non-claims
 - Clerk deletion is not live; no real Clerk user deleted; users cannot delete accounts; end-to-end deletion not complete; app-store compliance not complete; worker automation does not exist
+
+## SESSION 24 — 2026-07-19 — APP-041E1 trusted reconciler foundation (worktree)
+
+### Repository identity
+- HEAD at E1 start: `8dcf2e3037f7af49e8e31a784d6fa835eb6e4147` (D1 COMPLETE)
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### E1 what changed
+- `reconcile-account-deletion.ts` — server-only `reconcileAccountDeletionRequest`
+- One request ID per invocation; routes by durable `status` / `current_step`
+- Exactly one injected stage per invocation (SMS / Stripe / purge / Clerk)
+- Required stage function DI — no defaults to live orchestrators
+- Clerk adapter passed only into the Clerk stage
+- Narrow safe status projection in results; no provider/raw DB objects
+- No scheduler/cron/route/batch scanner; no migration; no production SQL; no real Clerk call
+
+### Status
+- **APP-041D1:** COMPLETE (`8dcf2e3037f7af49e8e31a784d6fa835eb6e4147`)
+- **APP-041E1:** IMPLEMENTED — PENDING REVIEW
+
+### Exact next
+- Review E1 → trusted scheduler/worker entrypoint → admin recovery/observability → authenticated initiation + reauthentication → user-facing deletion UI later
+
+### Explicit non-claims
+- Worker is not running; account deletion is not live; users cannot delete accounts; real Clerk deletion does not exist; end-to-end deletion not complete; app-store compliance not complete
