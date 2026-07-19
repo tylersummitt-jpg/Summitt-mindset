@@ -800,3 +800,39 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Explicit non-claims
 - Migrations not applied; transactional DB validation not completed; public account deletion does not work; legal review not completed; real user deletion not tested; legacy email-only challenge rows may remain
+
+## SESSION 21 — 2026-07-19 — APP-041C2 COMPLETE + APP-041C3 orchestrator (worktree)
+
+### Repository identity
+- Base HEAD at C3 start: `176da7011ade7698a9b738485f629bde239b838a` (C2 COMPLETE)
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### C2 production validation (completed before C3)
+- Migrations applied; 20-arg CAS + purge RPC verified
+- Fake target/survivor transactional ROLLBACK passed
+- Wrong-user conflict / survivor survival / STOP tombstone / already_absent / zero-residue
+
+### C3 what changed
+- `src/lib/account-deletion/orchestrate-app-data-purge.ts` — server-only orchestrator
+- Tests: `orchestrate-app-data-purge.test.ts`
+- Docs: matrix, master plan, this handoff
+
+### C3 post-review correction (worktree, unstaged)
+- After purge RPC `purged`/`already_absent`, persist durable non-PII `steps.app_data_purge_rpc` via `patchAccountDeletionRequestWhileLeased` before final CAS
+- Marker is **compact** (`limitations:0;categories:N;deleted_total:T` only; hard cap 120 chars) and does **not** use `sanitizeAccountDeletionErrorDetail` (avoids truncate/redact stuck state on large C2 count maps)
+- Retry with valid marker → skip purge RPC; reconcile `app_data_purged` only; use fresh `orchestration_version` (ignore stale caller pin post-purge)
+- Residual window: purge success before marker write may re-call purge → `already_absent` (not exactly-once)
+- `app_data_purged` early-return skips lease acquire
+- Matrix banner/§9 updated (C2 applied+validated; C3 still pending review)
+
+### Status
+- **APP-041C2:** COMPLETE
+- **APP-041C3:** IMPLEMENTED — PENDING REVIEW
+- No public initiation/UI; no Clerk deletion; no worker/cron; no real user deletion
+
+### Exact next
+- Review C3 → Clerk deletion-last adapter/foundation → worker/reconciler → admin recovery → later authenticated initiation/UI
+
+### Explicit non-claims
+- Account deletion is not end-to-end complete; users cannot delete accounts; app-store compliance not complete; Clerk deletion does not exist; real account deletion not tested

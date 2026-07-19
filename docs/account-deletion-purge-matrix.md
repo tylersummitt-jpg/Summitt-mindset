@@ -1,13 +1,13 @@
 # APP-041C1 — Account deletion purge / anonymization matrix
 
-**Status:** IMPLEMENTED — PENDING REVIEW (documentation only)
+**Status:** C1 COMPLETE; **C2 COMPLETE** (applied + production-validated); **C3 IMPLEMENTED — PENDING REVIEW**
 **Canonical for:** APP-041C data-deletion specification
-**Repository HEAD at freeze:** `61f615a0837535a06e2b392c8126226f94163616`
+**Repository HEAD at C2 complete:** `176da7011ade7698a9b738485f629bde239b838a`
 **Date:** 2026-07-19
 
-This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. It does **not** implement SQL, migrations, RPCs, Clerk/Stripe/Twilio actions, or public deletion UI.
+This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. C2 purge SQL/RPC is applied and was validated with transactional fake-user target/survivor + post-rollback zero-residue proof. C3 is a server-only orchestrator in the worktree (pending review). This document does **not** authorize public deletion UI.
 
-**Do not claim:** purge is implemented; real data was deleted; privacy policy was updated; legal review occurred; public deletion works; store compliance is complete.
+**Do not claim:** end-to-end account deletion works; real user data was deleted in validation; privacy policy was updated; legal review occurred; public deletion works; store compliance is complete; C3 is reviewed/approved.
 
 ---
 
@@ -245,9 +245,10 @@ If table volume makes one transaction unsafe, **C2 review** may split only high-
 
 **Existing column:** `purge_result` ∈ `pending | ok | skipped | already_done | failed`.
 
-**APP-041C2 (in-repo, not applied):**
+**APP-041C2 (applied + validated in production):**
 - 20-arg CAS: `20260719120000_account_deletion_cas_purge_result.sql`
 - Purge RPC + STOP tombstone + challenge clerk column: `20260719121000_account_deletion_purge_app_data.sql`
+- Fake target/survivor transactional ROLLBACK validation passed; post-rollback zero-residue proof passed.
 
 **Live schema verification (production `information_schema`, confirmed):**
 
@@ -299,29 +300,28 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 ## 8. C2 status / entry criteria
 
-**APP-041C2:** **IMPLEMENTED — PENDING FINAL REVIEW** (worktree; migrations not applied; no production data touched).
+**APP-041C2:** **COMPLETE** (committed `176da7011ade7698a9b738485f629bde239b838a`; migrations applied; fake-user transactional validation + post-rollback zero-residue passed).
 
-Production-schema alignment + ownership-safe challenge cleanup: STOP tombstone; delete-all testimonials; challenge DELETE by clerk only; legacy email-only challenge rows non-blocking.
+**APP-041C3:** **IMPLEMENTED — PENDING REVIEW** (server-only `orchestrateAppDataPurge`; no public initiation/UI; no Clerk deletion; no worker/cron).
 
-**Before apply:** independent final code review + controlled migration apply + fake-user transactional ROLLBACK + wrong-user survival + timeout/lock observation.
+**Next after C3 review:** Clerk deletion-last adapter/foundation → worker/reconciler → admin recovery → only later authenticated initiation/UI.
 
-**APP-041C3:** NOT STARTED (must honor incomplete ⇒ no `app_data_purged`).
+Do **not** claim end-to-end account deletion, store compliance, or that users can delete accounts.
 
 ---
 
 ## 9. Explicit non-claims
 
-This freeze / C2 foundation does **not** mean:
+C2 migrations are **applied** and were structurally verified in production; transactional fake-user target/survivor validation and post-rollback zero-residue proof **passed**. That does **not** mean:
 
-- purge SQL was applied or ran against production
 - any real user data was deleted
-- transactional DB validation completed
 - privacy policy was updated
 - legal counsel reviewed the schedule
 - public account deletion works
 - app-store deletion compliance is complete
 - Clerk or Stripe customers were deleted
 - all legacy email-only challenge rows were removed
-- migration is safe to apply yet
-- C2 is COMPLETE (pending final review + DB validation)
+- C3 is reviewed/approved or publicly reachable
 - end-to-end deletion works
+- a worker/cron initiates deletion
+- users can self-serve account deletion today
