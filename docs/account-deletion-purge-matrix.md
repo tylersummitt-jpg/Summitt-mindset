@@ -308,15 +308,17 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041D1:** **COMPLETE** at `8dcf2e3037f7af49e8e31a784d6fa835eb6e4147` — server-only Clerk deletion-last adapter contract + orchestrator (`clerk-deletion-adapter.ts`, `orchestrate-clerk-deletion.ts`). Injected fake adapter only. Durable `clerk_delete_rpc` marker. No real Clerk API call. No public initiation/UI.
 
-**APP-041E1:** **IMPLEMENTED — PENDING REVIEW** — trusted one-request / one-stage reconciler (`reconcile-account-deletion.ts`). Server-only; required injected stage functions (no live SMS/Stripe/purge/Clerk defaults). No scheduler/cron/route. No batch scanner. No real Clerk call. No public initiation/UI.
+**APP-041E1:** **COMPLETE** at `3c4e6f07cf1d3246dc31fb83703ffb245abf6ea9` — trusted one-request / one-stage reconciler (`reconcile-account-deletion.ts`). Server-only; required injected stage functions (no live SMS/Stripe/purge/Clerk defaults). No scheduler/cron/route. No batch scanner. No real Clerk call. No public initiation/UI.
+
+**APP-041E2:** **IMPLEMENTED — PENDING REVIEW** — trusted execution safety foundation: thrown/malformed stage normalization; `createTrustedAccountDeletionReconcilerDependencies` frozen bundle; `executeTrustedAccountDeletionReconcile` one-request boundary. No live provider factory. No route/cron/scheduler/scanner. No real Clerk call. No automatic deletion.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**E1 note:** production `suppressSmsForDeletion` is not DI-safe (hard-wires Supabase + Clerk metadata). E1 never default-calls it; future trusted entrypoint must inject a safe wrapper or add SMS DI before scheduling.
+**E1/E2 note:** production `suppressSmsForDeletion` is not DI-safe (hard-wires Supabase + Clerk metadata). Reconciler never default-calls it; future trusted entrypoint must inject a safe wrapper or add SMS DI before scheduling.
 
-**Next after E1 review:** trusted scheduler/worker entrypoint → admin recovery/observability → authenticated initiation + reauthentication → user-facing deletion UI later.
+**Next after E2 review:** decide and implement trusted scheduler architecture → production-safe stage dependency adapters/wiring → admin recovery/observability → authenticated initiation + reauthentication → user-facing deletion UI later.
 
-Do **not** claim: worker is running; account deletion is live; users can delete accounts; real Clerk deletion exists; end-to-end deletion is complete; app-store compliance is complete.
+Do **not** claim: scheduler is running; worker is deployed; live provider wiring exists; users can delete accounts; real Clerk deletion works; end-to-end deletion is complete; app-store compliance is complete.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 

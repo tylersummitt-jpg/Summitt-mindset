@@ -17,12 +17,13 @@ import {
 import {
   ACCOUNT_DELETION_MAX_LEASE_MS,
   ACCOUNT_DELETION_MIN_LEASE_MS,
+  createTrustedAccountDeletionReconcilerDependencies,
   reconcileAccountDeletionRequest,
   type AccountDeletionReconcileStage,
+  type AccountDeletionReconcilerDependencies,
   type CancelStripeStageFn,
   type DeleteClerkStageFn,
   type PurgeAppDataStageFn,
-  type ReconcileAccountDeletionRequestInput,
   type SuppressSmsStageFn,
 } from "./reconcile-account-deletion";
 import {
@@ -152,10 +153,12 @@ function buildStages(log: CallLog, overrides?: {
   stripe?: CancelStripeStageFn;
   purge?: PurgeAppDataStageFn;
   clerk?: DeleteClerkStageFn;
-}): Pick<
-  ReconcileAccountDeletionRequestInput,
-  "suppressSms" | "cancelStripe" | "purgeAppData" | "deleteClerk"
-> {
+}): {
+  suppressSms: SuppressSmsStageFn;
+  cancelStripe: CancelStripeStageFn;
+  purgeAppData: PurgeAppDataStageFn;
+  deleteClerk: DeleteClerkStageFn;
+} {
   const suppressSms: SuppressSmsStageFn =
     overrides?.sms ??
     (async (input) => {
@@ -258,6 +261,25 @@ function trackingAdapter(log: CallLog): ClerkDeletionAdapter {
   };
 }
 
+
+function buildDeps(
+  log: CallLog,
+  overrides?: {
+    sms?: SuppressSmsStageFn;
+    stripe?: CancelStripeStageFn;
+    purge?: PurgeAppDataStageFn;
+    clerk?: DeleteClerkStageFn;
+  },
+  clerkAdapter?: ClerkDeletionAdapter
+): AccountDeletionReconcilerDependencies {
+  const stages = buildStages(log, overrides);
+  return createTrustedAccountDeletionReconcilerDependencies({
+    ...stages,
+    clerkAdapter: clerkAdapter ?? trackingAdapter(log),
+  });
+}
+
+
 describe("APP-041E1 reconcileAccountDeletionRequest", () => {
   beforeEach(() => {
     useInMemoryAccountDeletionStoreForTests();
@@ -330,7 +352,6 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
     for (const c of cases) {
       it(c.name, async () => {
         const log = emptyLog();
-        const stages = buildStages(log);
         let id: string;
         if (c.status === "failed_terminal") {
           id = await seedToStatus("user_ft", `k-${c.status}`, "suppressing_sms");
@@ -352,8 +373,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
         const result = await reconcileAccountDeletionRequest({
           requestId: id,
           lockOwner: "worker-e1",
-          ...stages,
-          clerkAdapter: trackingAdapter(log),
+          dependencies: buildDeps(log),
         });
 
         expect(result.outcome).toBe(c.outcome);
@@ -390,7 +410,6 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
     for (const [i, c] of cases.entries()) {
       it(`${11 + i}. failed_retryable + ${c.step} → ${c.expectStage}`, async () => {
         const log = emptyLog();
-        const stages = buildStages(log);
         const id = await seedFailedRetryable(
           "user_fr",
           `fr-${c.step}`,
@@ -399,8 +418,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
         const result = await reconcileAccountDeletionRequest({
           requestId: id,
           lockOwner: "worker-e1",
-          ...stages,
-          clerkAdapter: trackingAdapter(log),
+          dependencies: buildDeps(log),
         });
         expect(result.outcome).toBe("advanced");
         if (c.expectStage === "sms") expect(log.sms).toBe(1);
@@ -414,7 +432,6 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
 
     it("15. failed_retryable + illegal current_step → fail closed", async () => {
       const log = emptyLog();
-      const stages = buildStages(log);
       const id = await seedFailedRetryable(
         "user_fr_bad",
         "fr-bad",
@@ -433,11 +450,10 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
         });
 
       const result = await reconcileAccountDeletionRequest({
-        requestId: id,
-        lockOwner: "worker-e1",
-        ...stages,
-        clerkAdapter: trackingAdapter(log),
-      });
+          requestId: id,
+          lockOwner: "worker-e1",
+          dependencies: buildDeps(log),
+        });
       spy.mockRestore();
       expect(result.outcome).toBe("no_action");
       expect(log.sms + log.stripe + log.purge + log.clerk).toBe(0);
@@ -487,11 +503,13 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
         requestId: id,
         lockOwner: "lock-owner-exact",
         leaseMs: 45_000,
-        suppressSms: stages.suppressSms,
-        cancelStripe: stages.cancelStripe,
-        purgeAppData: stages.purgeAppData,
-        deleteClerk,
-        clerkAdapter: adapter,
+        dependencies: createTrustedAccountDeletionReconcilerDependencies({
+          suppressSms: stages.suppressSms,
+          cancelStripe: stages.cancelStripe,
+          purgeAppData: stages.purgeAppData,
+          deleteClerk,
+          clerkAdapter: adapter,
+        }),
       });
 
       expect(result.outcome).toBe("advanced");
@@ -520,14 +538,12 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
   describe("one-stage boundary", () => {
     it("23–27. successful SMS does not call Stripe/purge/Clerk; exactly one max", async () => {
       const log = emptyLog();
-      const stages = buildStages(log);
       const id = await seedToStatus("user_one", "one-sms", "requested");
       await reconcileAccountDeletionRequest({
-        requestId: id,
-        lockOwner: "w",
-        ...stages,
-        clerkAdapter: trackingAdapter(log),
-      });
+          requestId: id,
+          lockOwner: "w",
+          dependencies: buildDeps(log),
+        });
       expect(log.sms).toBe(1);
       expect(log.stripe).toBe(0);
       expect(log.purge).toBe(0);
@@ -536,32 +552,28 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
 
     it("24. successful Stripe does not call purge/Clerk", async () => {
       const log = emptyLog();
-      const stages = buildStages(log);
       const id = await seedToStatus("user_one", "one-stripe", "sms_suppressed");
       await reconcileAccountDeletionRequest({
-        requestId: id,
-        lockOwner: "w",
-        ...stages,
-        clerkAdapter: trackingAdapter(log),
-      });
+          requestId: id,
+          lockOwner: "w",
+          dependencies: buildDeps(log),
+        });
       expect(log.stripe).toBe(1);
       expect(log.sms + log.purge + log.clerk).toBe(0);
     });
 
     it("25. successful purge does not call Clerk", async () => {
       const log = emptyLog();
-      const stages = buildStages(log);
       const id = await seedToStatus(
         "user_one",
         "one-purge",
         "subscription_canceled"
       );
       await reconcileAccountDeletionRequest({
-        requestId: id,
-        lockOwner: "w",
-        ...stages,
-        clerkAdapter: trackingAdapter(log),
-      });
+          requestId: id,
+          lockOwner: "w",
+          dependencies: buildDeps(log),
+        });
       expect(log.purge).toBe(1);
       expect(log.clerk).toBe(0);
     });
@@ -574,8 +586,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result).toEqual(
         expect.objectContaining({ outcome: "advanced", stage: "stripe" })
@@ -607,8 +618,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log, { purge }),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, { purge }, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result.outcome).toBe("advanced");
       if (result.outcome === "advanced") {
@@ -623,8 +633,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result.outcome).toBe("already_done");
       expect(log.sms + log.stripe + log.purge + log.clerk).toBe(0);
@@ -641,8 +650,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log, { sms }),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, { sms }, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result).toEqual({
         outcome: "conflict",
@@ -662,8 +670,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log, { stripe }),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, { stripe }, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result).toEqual({
         outcome: "conflict",
@@ -683,8 +690,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log, { purge }),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, { purge }, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result).toEqual({
         outcome: "retryable_failure",
@@ -704,8 +710,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log, { clerk }),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, { clerk }, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result).toEqual({
         outcome: "conflict",
@@ -719,8 +724,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: "00000000-0000-4000-8000-000000000099",
         lockOwner: "w",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result).toEqual({ outcome: "not_found" });
       expect(log.sms + log.stripe + log.purge + log.clerk).toBe(0);
@@ -732,8 +736,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       const json = JSON.stringify(result);
       expect(json).not.toMatch(/stripe\.|twilio|Bearer |sk_live|phone|email@/i);
@@ -753,8 +756,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: "   ",
         lockOwner: "w",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result.outcome).toBe("conflict");
       expect(log.sms + log.stripe + log.purge + log.clerk).toBe(0);
@@ -766,8 +768,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "  ",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result.outcome).toBe("conflict");
       expect(log.sms + log.stripe + log.purge + log.clerk).toBe(0);
@@ -789,8 +790,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
           requestId: id,
           lockOwner: "w",
           leaseMs,
-          ...buildStages(log),
-          clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+          dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
         });
         expect(result.outcome).toBe("conflict");
         expect(log.sms + log.stripe + log.purge + log.clerk).toBe(0);
@@ -802,8 +802,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: "11111111-1111-4111-8111-111111111111",
         lockOwner: "w",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       expect(result).toEqual({ outcome: "not_found" });
     });
@@ -825,8 +824,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const result = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "w",
-        ...buildStages(log),
-        clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
+        dependencies: buildDeps(log, undefined, createFixedClerkDeletionAdapter({ outcome: "deleted" })),
       });
       spy.mockRestore();
       expect(result.outcome).toBe("no_action");
@@ -989,18 +987,18 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
         };
       };
 
-      const deps = {
+      const dependencies = createTrustedAccountDeletionReconcilerDependencies({
         suppressSms,
         cancelStripe,
         purgeAppData,
         deleteClerk,
         clerkAdapter: createFixedClerkDeletionAdapter({ outcome: "deleted" }),
-      };
+      });
 
       const inv1 = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "worker-1",
-        ...deps,
+        dependencies,
       });
       expect(inv1.outcome).toBe("advanced");
       if (inv1.outcome === "advanced") {
@@ -1015,7 +1013,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const inv2 = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "worker-2",
-        ...deps,
+        dependencies,
       });
       expect(inv2.outcome).toBe("advanced");
       if (inv2.outcome === "advanced") {
@@ -1030,7 +1028,7 @@ describe("APP-041E1 reconcileAccountDeletionRequest", () => {
       const inv3 = await reconcileAccountDeletionRequest({
         requestId: id,
         lockOwner: "worker-3",
-        ...deps,
+        dependencies,
       });
       expect(inv3.outcome).toBe("already_done");
       expect(log).toMatchObject({ purge: 1, clerk: 1, sms: 0, stripe: 0 });

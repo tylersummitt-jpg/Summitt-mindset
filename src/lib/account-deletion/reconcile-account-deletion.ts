@@ -1,14 +1,15 @@
 /**
- * APP-041E1 — trusted one-request / one-stage account-deletion reconciler.
+ * APP-041E1/E2 — trusted one-request / one-stage account-deletion reconciler.
  *
  * Server-only internal foundation. Not a public HTTP entrypoint, background
  * job, queue consumer, or user-facing API.
- * Callers must inject stage functions; this module never instantiates Stripe,
- * Clerk, or Supabase clients and never defaults to live orchestrators.
  *
- * SMS (`suppressSmsForDeletion`) is not DI-safe today (hard-wires Supabase RPC +
- * Clerk metadata). Wire a test/fake stage or a future DI-safe wrapper — do not
- * default-call the production SMS orchestrator from here.
+ * E1: one request, one stage, required injected stage functions.
+ * E2: thrown/malformed stage normalization; explicit trusted dependency bundle;
+ *     executeTrustedAccountDeletionReconcile execution boundary.
+ *
+ * Never defaults to live orchestrators. Never constructs Stripe/Clerk/Supabase
+ * clients. SMS production orchestrator is not DI-safe — do not auto-wire it.
  */
 
 import "server-only";
@@ -38,6 +39,7 @@ import type {
 } from "./suppress-sms";
 import { isProcessingAccountDeletionStatus } from "./transitions";
 import {
+  isAccountDeletionStatus,
   toAccountDeletionSafeStatusProjection,
   type AccountDeletionErrorCode,
   type AccountDeletionRequestRow,
@@ -53,6 +55,32 @@ import type {
 /** Matches CAS / lease RPC bounds (1s … 1h). */
 export const ACCOUNT_DELETION_MIN_LEASE_MS = 1000;
 export const ACCOUNT_DELETION_MAX_LEASE_MS = 3_600_000;
+
+export const STAGE_THREW_CODES = {
+  sms: "sms_stage_threw",
+  stripe: "stripe_stage_threw",
+  purge: "purge_stage_threw",
+  clerk: "clerk_stage_threw",
+} as const;
+
+export const STAGE_INVALID_RESULT_CODES = {
+  sms: "sms_stage_invalid_result",
+  stripe: "stripe_stage_invalid_result",
+  purge: "purge_stage_invalid_result",
+  clerk: "clerk_stage_invalid_result",
+} as const;
+
+const RECOGNIZED_ERROR_CODES: ReadonlySet<string> = new Set<AccountDeletionErrorCode>([
+  "conflict_unresolved_exists",
+  "not_found",
+  "illegal_transition",
+  "unsupported_orchestration_version",
+  "lease_held",
+  "lease_not_held",
+  "cas_conflict",
+  "invalid_argument",
+  "internal_error",
+]);
 
 export type AccountDeletionReconcileStage =
   | "sms"
@@ -103,23 +131,33 @@ export type DeleteClerkStageFn = (
   input: OrchestrateClerkDeletionInput
 ) => Promise<AccountDeletionRepoResult<OrchestrateClerkDeletionValue>>;
 
+/**
+ * Explicit trusted dependency bundle. No live provider defaults.
+ * Construct only via createTrustedAccountDeletionReconcilerDependencies.
+ */
+export type AccountDeletionReconcilerDependencies = Readonly<{
+  suppressSms: SuppressSmsStageFn;
+  cancelStripe: CancelStripeStageFn;
+  purgeAppData: PurgeAppDataStageFn;
+  deleteClerk: DeleteClerkStageFn;
+  clerkAdapter: ClerkDeletionAdapter;
+}>;
+
+export type CreateTrustedAccountDeletionReconcilerDependenciesInput = {
+  suppressSms: SuppressSmsStageFn;
+  cancelStripe: CancelStripeStageFn;
+  purgeAppData: PurgeAppDataStageFn;
+  deleteClerk: DeleteClerkStageFn;
+  clerkAdapter: ClerkDeletionAdapter;
+};
+
 export type ReconcileAccountDeletionRequestInput = {
   requestId: string;
   lockOwner: string;
   leaseMs?: number;
   now?: Date;
-  /** Required. Never defaults to production suppressSmsForDeletion. */
-  suppressSms: SuppressSmsStageFn;
-  /** Required. Never defaults to production cancelStripeSubscriptionsForDeletion. */
-  cancelStripe: CancelStripeStageFn;
-  /** Required. Never defaults to production orchestrateAppDataPurge. */
-  purgeAppData: PurgeAppDataStageFn;
-  /** Required. Never defaults to production orchestrateClerkDeletion. */
-  deleteClerk: DeleteClerkStageFn;
-  /**
-   * Passed only into `deleteClerk`. Worker never invokes the adapter itself.
-   */
-  clerkAdapter: ClerkDeletionAdapter;
+  /** Required validated bundle — never defaults to live orchestrators. */
+  dependencies: AccountDeletionReconcilerDependencies;
   /** Optional passthrough when wiring a Stripe-capable cancelStripe stage. */
   stripe?: DeletionStripeClient;
   getPublicMetadata?: CancelStripeSubscriptionsForDeletionInput["getPublicMetadata"];
@@ -129,6 +167,13 @@ export type ReconcileAccountDeletionRequestInput = {
     input: PurgeAppDataForDeletionInput
   ) => Promise<AccountDeletionRepoResult<PurgeAppDataForDeletionValue>>;
 };
+
+/**
+ * Narrow internal execution boundary for a future trusted scheduler.
+ * One request, one stage, required dependency bundle — no HTTP/cron objects.
+ */
+export type ExecuteTrustedAccountDeletionReconcileInput =
+  ReconcileAccountDeletionRequestInput;
 
 type RoutedStage = AccountDeletionReconcileStage;
 
@@ -143,6 +188,45 @@ function isValidLeaseMs(leaseMs: number): boolean {
     leaseMs >= ACCOUNT_DELETION_MIN_LEASE_MS &&
     leaseMs <= ACCOUNT_DELETION_MAX_LEASE_MS
   );
+}
+
+/**
+ * Build a frozen trusted dependency bundle. Rejects missing/invalid deps.
+ * No live provider construction or environment auto-wiring.
+ */
+export function createTrustedAccountDeletionReconcilerDependencies(
+  input: CreateTrustedAccountDeletionReconcilerDependenciesInput
+): AccountDeletionReconcilerDependencies {
+  if (!input || typeof input !== "object") {
+    throw new Error("invalid_reconciler_dependencies");
+  }
+  if (typeof input.suppressSms !== "function") {
+    throw new Error("invalid_reconciler_dependencies");
+  }
+  if (typeof input.cancelStripe !== "function") {
+    throw new Error("invalid_reconciler_dependencies");
+  }
+  if (typeof input.purgeAppData !== "function") {
+    throw new Error("invalid_reconciler_dependencies");
+  }
+  if (typeof input.deleteClerk !== "function") {
+    throw new Error("invalid_reconciler_dependencies");
+  }
+  if (
+    !input.clerkAdapter ||
+    typeof input.clerkAdapter !== "object" ||
+    typeof input.clerkAdapter.deleteUser !== "function"
+  ) {
+    throw new Error("invalid_reconciler_dependencies");
+  }
+
+  return Object.freeze({
+    suppressSms: input.suppressSms,
+    cancelStripe: input.cancelStripe,
+    purgeAppData: input.purgeAppData,
+    deleteClerk: input.deleteClerk,
+    clerkAdapter: input.clerkAdapter,
+  });
 }
 
 /**
@@ -214,8 +298,6 @@ function mapRepoFailure(
   if (code === "internal_error") {
     return { outcome: "retryable_failure", stage, code };
   }
-  // cas_conflict, lease_held, lease_not_held, illegal_transition,
-  // invalid_argument, unsupported_orchestration_version, conflict_unresolved_exists
   return { outcome: "conflict", stage, code };
 }
 
@@ -228,16 +310,140 @@ function mapStageSuccess(args: {
   if (row.status === "completed" && alreadyDoneOutcome) {
     return { outcome: "already_done", request: project(row) };
   }
-  // Stage success or nonterminal already_done → advanced (one stage progressed
-  // or confirmed). Whole-deletion already_done only when durable completed was
-  // observed without claiming completion from a non-Clerk stage alone.
   return { outcome: "advanced", stage, request: project(row) };
+}
+
+function looksLikeRequestRow(value: unknown): value is AccountDeletionRequestRow {
+  if (!value || typeof value !== "object") return false;
+  const r = value as Record<string, unknown>;
+  return (
+    typeof r.id === "string" &&
+    r.id.length > 0 &&
+    typeof r.clerk_user_id === "string" &&
+    typeof r.orchestration_version === "number" &&
+    isAccountDeletionStatus(r.status) &&
+    isAccountDeletionStatus(r.current_step)
+  );
+}
+
+type ParsedStageOk = {
+  kind: "ok";
+  row: AccountDeletionRequestRow;
+  alreadyDoneOutcome: boolean;
+};
+
+type ParsedStageResult =
+  | ParsedStageOk
+  | { kind: "fail"; code: AccountDeletionErrorCode }
+  | { kind: "invalid" };
+
+function parseStageResult(
+  raw: unknown,
+  stage: RoutedStage
+): ParsedStageResult {
+  if (raw == null || typeof raw !== "object") {
+    return { kind: "invalid" };
+  }
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.ok !== "boolean") {
+    return { kind: "invalid" };
+  }
+
+  if (obj.ok === false) {
+    if (
+      typeof obj.code !== "string" ||
+      !RECOGNIZED_ERROR_CODES.has(obj.code)
+    ) {
+      return { kind: "invalid" };
+    }
+    return { kind: "fail", code: obj.code as AccountDeletionErrorCode };
+  }
+
+  const value = obj.value;
+  if (!value || typeof value !== "object") {
+    return { kind: "invalid" };
+  }
+  const v = value as Record<string, unknown>;
+  if (!looksLikeRequestRow(v.row)) {
+    return { kind: "invalid" };
+  }
+
+  if (stage === "purge") {
+    if (v.outcome !== "app_data_purged" && v.outcome !== "already_done") {
+      return { kind: "invalid" };
+    }
+    return {
+      kind: "ok",
+      row: v.row,
+      alreadyDoneOutcome: v.outcome === "already_done",
+    };
+  }
+
+  if (stage === "clerk") {
+    if (v.outcome !== "completed" && v.outcome !== "already_done") {
+      return { kind: "invalid" };
+    }
+    return {
+      kind: "ok",
+      row: v.row,
+      alreadyDoneOutcome: v.outcome === "already_done",
+    };
+  }
+
+  // sms / stripe — row is enough for reconciler mapping
+  return { kind: "ok", row: v.row, alreadyDoneOutcome: false };
+}
+
+function stageThrewResult(
+  stage: RoutedStage
+): AccountDeletionReconcileResult {
+  return {
+    outcome: "retryable_failure",
+    stage,
+    code: STAGE_THREW_CODES[stage],
+  };
+}
+
+function stageInvalidResult(
+  stage: RoutedStage
+): AccountDeletionReconcileResult {
+  return {
+    outcome: "retryable_failure",
+    stage,
+    code: STAGE_INVALID_RESULT_CODES[stage],
+  };
+}
+
+async function invokeStageSafely(
+  stage: RoutedStage,
+  invoke: () => Promise<unknown>
+): Promise<AccountDeletionReconcileResult> {
+  let raw: unknown;
+  try {
+    raw = await invoke();
+  } catch {
+    // Never expose thrown value, message, or stack.
+    return stageThrewResult(stage);
+  }
+
+  const parsed = parseStageResult(raw, stage);
+  if (parsed.kind === "invalid") {
+    return stageInvalidResult(stage);
+  }
+  if (parsed.kind === "fail") {
+    return mapRepoFailure(parsed.code, stage);
+  }
+  return mapStageSuccess({
+    stage,
+    row: parsed.row,
+    alreadyDoneOutcome: parsed.alreadyDoneOutcome,
+  });
 }
 
 /**
  * Inspect one durable account-deletion request and invoke exactly one injected
  * stage orchestrator for its current state. Idempotent; lease/CAS remain inside
- * the stage functions.
+ * the stage functions. Thrown/malformed stage outputs become retryable_failure.
  */
 export async function reconcileAccountDeletionRequest(
   input: ReconcileAccountDeletionRequestInput
@@ -265,22 +471,12 @@ export async function reconcileAccountDeletionRequest(
     };
   }
 
-  if (
-    typeof input.suppressSms !== "function" ||
-    typeof input.cancelStripe !== "function" ||
-    typeof input.purgeAppData !== "function" ||
-    typeof input.deleteClerk !== "function"
-  ) {
-    return {
-      outcome: "conflict",
-      code: "invalid_argument",
-    };
-  }
-
-  if (
-    !input.clerkAdapter ||
-    typeof input.clerkAdapter.deleteUser !== "function"
-  ) {
+  let dependencies: AccountDeletionReconcilerDependencies;
+  try {
+    dependencies = createTrustedAccountDeletionReconcilerDependencies(
+      input.dependencies
+    );
+  } catch {
     return {
       outcome: "conflict",
       code: "invalid_argument",
@@ -325,65 +521,68 @@ export async function reconcileAccountDeletionRequest(
   const stage = routed;
 
   if (stage === "sms") {
-    const result = await input.suppressSms({
-      requestId,
-      clerkUserId,
-      lockOwner,
-      leaseMs,
-      now,
-    });
-    if (!result.ok) return mapRepoFailure(result.code, stage);
-    return mapStageSuccess({ stage, row: result.value.row });
+    return invokeStageSafely(stage, () =>
+      dependencies.suppressSms({
+        requestId,
+        clerkUserId,
+        lockOwner,
+        leaseMs,
+        now,
+      })
+    );
   }
 
   if (stage === "stripe") {
-    const result = await input.cancelStripe({
-      requestId,
-      clerkUserId,
-      lockOwner,
-      leaseMs,
-      now,
-      expectedOrchestrationVersion,
-      stripe: input.stripe,
-      getPublicMetadata: input.getPublicMetadata,
-      recognizedPriceIds: input.recognizedPriceIds,
-    });
-    if (!result.ok) return mapRepoFailure(result.code, stage);
-    return mapStageSuccess({ stage, row: result.value.row });
+    return invokeStageSafely(stage, () =>
+      dependencies.cancelStripe({
+        requestId,
+        clerkUserId,
+        lockOwner,
+        leaseMs,
+        now,
+        expectedOrchestrationVersion,
+        stripe: input.stripe,
+        getPublicMetadata: input.getPublicMetadata,
+        recognizedPriceIds: input.recognizedPriceIds,
+      })
+    );
   }
 
   if (stage === "purge") {
-    const result = await input.purgeAppData({
+    return invokeStageSafely(stage, () =>
+      dependencies.purgeAppData({
+        requestId,
+        clerkUserId,
+        lockOwner,
+        leaseMs,
+        now,
+        expectedOrchestrationVersion,
+        purgeFn: input.purgeFn,
+      })
+    );
+  }
+
+  // stage === "clerk"
+  return invokeStageSafely(stage, () =>
+    dependencies.deleteClerk({
       requestId,
       clerkUserId,
       lockOwner,
       leaseMs,
       now,
       expectedOrchestrationVersion,
-      purgeFn: input.purgeFn,
-    });
-    if (!result.ok) return mapRepoFailure(result.code, stage);
-    return mapStageSuccess({
-      stage,
-      row: result.value.row,
-      alreadyDoneOutcome: result.value.outcome === "already_done",
-    });
-  }
+      adapter: dependencies.clerkAdapter,
+    })
+  );
+}
 
-  // stage === "clerk"
-  const result = await input.deleteClerk({
-    requestId,
-    clerkUserId,
-    lockOwner,
-    leaseMs,
-    now,
-    expectedOrchestrationVersion,
-    adapter: input.clerkAdapter,
-  });
-  if (!result.ok) return mapRepoFailure(result.code, stage);
-  return mapStageSuccess({
-    stage,
-    row: result.value.row,
-    alreadyDoneOutcome: result.value.outcome === "already_done",
-  });
+/**
+ * Trusted one-request execution boundary for future scheduler/admin callers.
+ * Re-validates the dependency bundle, then delegates to the reconciler.
+ * Does not scan, schedule, or mutate durable state itself.
+ */
+export async function executeTrustedAccountDeletionReconcile(
+  input: ExecuteTrustedAccountDeletionReconcileInput
+): Promise<AccountDeletionReconcileResult> {
+  return reconcileAccountDeletionRequest(input);
 }

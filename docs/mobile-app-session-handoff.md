@@ -913,10 +913,35 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Status
 - **APP-041D1:** COMPLETE (`8dcf2e3037f7af49e8e31a784d6fa835eb6e4147`)
-- **APP-041E1:** IMPLEMENTED — PENDING REVIEW
+- **APP-041E1:** COMPLETE (`3c4e6f07cf1d3246dc31fb83703ffb245abf6ea9`)
 
 ### Exact next
-- Review E1 → trusted scheduler/worker entrypoint → admin recovery/observability → authenticated initiation + reauthentication → user-facing deletion UI later
+- Review E1 was completed in-repo; next slice APP-041E2 (execution safety)
 
 ### Explicit non-claims
 - Worker is not running; account deletion is not live; users cannot delete accounts; real Clerk deletion does not exist; end-to-end deletion not complete; app-store compliance not complete
+
+## SESSION 25 — 2026-07-19 — APP-041E2 trusted execution safety foundation (worktree)
+
+### Repository identity
+- HEAD at E2 start: `3c4e6f07cf1d3246dc31fb83703ffb245abf6ea9` (E1 COMPLETE)
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### E2 what changed
+- Thrown stage exceptions → stage-specific `*_stage_threw` retryable_failure (no raw message/stack)
+- Malformed stage results → stage-specific `*_stage_invalid_result` retryable_failure
+- `createTrustedAccountDeletionReconcilerDependencies` — frozen explicit bundle; no live defaults
+- `executeTrustedAccountDeletionReconcile` — one-request execution boundary (delegates to reconciler)
+- Reconciler requires validated `dependencies` bundle
+- No live provider factory; no route/cron/scheduler/scanner; no real Clerk call
+
+### Status
+- **APP-041E1:** COMPLETE (`3c4e6f07cf1d3246dc31fb83703ffb245abf6ea9`)
+- **APP-041E2:** IMPLEMENTED — PENDING REVIEW
+
+### Exact next
+- Review E2 → decide/implement trusted scheduler architecture → production-safe stage dependency adapters/wiring → admin recovery/observability → authenticated initiation + reauthentication → user-facing deletion UI later
+
+### Explicit non-claims
+- Scheduler is not running; worker is not deployed; live provider wiring does not exist; users cannot delete accounts; real Clerk deletion does not work; end-to-end deletion not complete; app-store compliance not complete
