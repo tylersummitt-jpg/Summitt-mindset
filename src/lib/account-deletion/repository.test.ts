@@ -970,6 +970,8 @@ describe("account deletion Supabase RPC construction", () => {
         p_set_sms_result: false,
         p_stripe_result: null,
         p_set_stripe_result: false,
+        p_purge_result: null,
+        p_set_purge_result: false,
       })
     );
   });

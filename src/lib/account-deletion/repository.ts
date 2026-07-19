@@ -44,6 +44,8 @@ export const CAS_ACCOUNT_DELETION_REQUEST_RPC =
   "cas_account_deletion_request" as const;
 export const SUPPRESS_SMS_FOR_ACCOUNT_DELETION_RPC =
   "suppress_sms_for_account_deletion" as const;
+export const PURGE_APP_DATA_FOR_ACCOUNT_DELETION_RPC =
+  "purge_app_data_for_account_deletion" as const;
 
 export type AccountDeletionRepoResult<T> =
   | { ok: true; value: T }
@@ -84,6 +86,8 @@ export type TransitionAccountDeletionInput = {
   smsResult?: AccountDeletionRequestRow["sms_result"];
   /** When set, persists stripe_result via CAS (B3a). */
   stripeResult?: AccountDeletionRequestRow["stripe_result"];
+  /** When set, persists purge_result via CAS (C2). */
+  purgeResult?: AccountDeletionRequestRow["purge_result"];
 };
 
 export type RecordAccountDeletionFailureInput = {
@@ -99,6 +103,8 @@ export type RecordAccountDeletionFailureInput = {
   now?: Date;
   /** When set, persists stripe_result via CAS (B3a). */
   stripeResult?: AccountDeletionRequestRow["stripe_result"];
+  /** When set, persists purge_result via CAS (C2). */
+  purgeResult?: AccountDeletionRequestRow["purge_result"];
   /** Optional sanitized progress note merged into the failure step. */
   stepDetail?: string | null;
 };
@@ -117,6 +123,8 @@ type CasPatch = {
   set_sms_result?: boolean;
   stripe_result?: AccountDeletionRequestRow["stripe_result"];
   set_stripe_result?: boolean;
+  purge_result?: AccountDeletionRequestRow["purge_result"];
+  set_purge_result?: boolean;
 };
 
 /** Test-injectable store surface (in-memory or Supabase/RPC mock). */
@@ -356,6 +364,7 @@ function createInMemoryStore(): Store {
       if (leaseExpiredInMemory(current, now, leaseMs)) return null;
       if (patch.set_sms_result && patch.sms_result == null) return null;
       if (patch.set_stripe_result && patch.stripe_result == null) return null;
+      if (patch.set_purge_result && patch.purge_result == null) return null;
       const ts = nowIso(now);
       const next: AccountDeletionRequestRow = {
         ...current,
@@ -379,6 +388,9 @@ function createInMemoryStore(): Store {
         stripe_result: patch.set_stripe_result
           ? (patch.stripe_result ?? null)
           : current.stripe_result,
+        purge_result: patch.set_purge_result
+          ? (patch.purge_result ?? null)
+          : current.purge_result,
         id: current.id,
         clerk_user_id: current.clerk_user_id,
         idempotency_key: current.idempotency_key,
@@ -549,6 +561,10 @@ function createSupabaseStore(): Store {
             ? (patch.stripe_result ?? null)
             : null,
           p_set_stripe_result: patch.set_stripe_result ?? false,
+          p_purge_result: patch.set_purge_result
+            ? (patch.purge_result ?? null)
+            : null,
+          p_set_purge_result: patch.set_purge_result ?? false,
         }
       );
       if (error) throw error;
@@ -954,6 +970,18 @@ export async function transitionAccountDeletionRequest(
     patch.stripe_result = input.stripeResult;
   }
 
+  if (input.purgeResult !== undefined) {
+    if (input.purgeResult == null) {
+      return {
+        ok: false,
+        code: "invalid_argument",
+        message: "purgeResult must be a non-null allowed value when set",
+      };
+    }
+    patch.set_purge_result = true;
+    patch.purge_result = input.purgeResult;
+  }
+
   if (input.fromStatus === "failed_retryable") {
     patch.last_retry_at = ts;
   }
@@ -993,6 +1021,7 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
   steps: AccountDeletionStepsJson;
   smsResult?: AccountDeletionRequestRow["sms_result"];
   stripeResult?: AccountDeletionRequestRow["stripe_result"];
+  purgeResult?: AccountDeletionRequestRow["purge_result"];
   leaseMs?: number;
   expectedOrchestrationVersion?: number;
   now?: Date;
@@ -1012,6 +1041,13 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
       ok: false,
       code: "invalid_argument",
       message: "stripeResult must be a non-null allowed value when set",
+    };
+  }
+  if (input.purgeResult !== undefined && input.purgeResult == null) {
+    return {
+      ok: false,
+      code: "invalid_argument",
+      message: "purgeResult must be a non-null allowed value when set",
     };
   }
 
@@ -1059,6 +1095,10 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
   if (input.stripeResult !== undefined) {
     patch.set_stripe_result = true;
     patch.stripe_result = input.stripeResult;
+  }
+  if (input.purgeResult !== undefined) {
+    patch.set_purge_result = true;
+    patch.purge_result = input.purgeResult;
   }
 
   const updated = await store.casWithActiveLease({
@@ -1177,6 +1217,17 @@ export async function recordAccountDeletionFailure(
     }
     patch.set_stripe_result = true;
     patch.stripe_result = input.stripeResult;
+  }
+  if (input.purgeResult !== undefined) {
+    if (input.purgeResult == null) {
+      return {
+        ok: false,
+        code: "invalid_argument",
+        message: "purgeResult must be a non-null allowed value when set",
+      };
+    }
+    patch.set_purge_result = true;
+    patch.purge_result = input.purgeResult;
   }
 
   const updated = await store.casWithActiveLease({

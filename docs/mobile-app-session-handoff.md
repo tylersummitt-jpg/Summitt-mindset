@@ -719,3 +719,84 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Exact next
 - After review/commit of C1: controlled **APP-041C2** (20-arg CAS `purge_result` migration + service-role purge RPC + tests). No public endpoint/UI in C2.
+
+## SESSION 18 — 2026-07-19 — APP-041C2 purge RPC + CAS foundation (worktree only)
+
+### Repository identity
+- This repository: **WEBSITE** — `Summitt-mindset.git`
+- Path: `/Users/tylersummitt/Desktop/summitt-app`
+- HEAD unchanged: `8e5d73bba72291cbbc2ba71fc98b0ccccbc7a5b2`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### What changed
+- Migrations (created, **not applied**):
+  - `supabase/migrations/20260719120000_account_deletion_cas_purge_result.sql` — 20-arg CAS + `purge_result`
+  - `supabase/migrations/20260719121000_account_deletion_purge_app_data.sql` — STOP additive columns + `purge_app_data_for_account_deletion`
+- Code: `src/lib/account-deletion/purge-app-data.ts`; CAS callers updated for `p_set_purge_result=false` by default
+- Tests: `src/lib/account-deletion/purge-app-data.test.ts` (+ repository CAS arg expectation)
+- Docs: matrix, master plan v1.5.11, this handoff
+
+### Explicit exclusions / limitations
+- No public endpoint/UI/worker; no Clerk delete; no Stripe customer delete; no external calls
+- No automatic CAS to `app_data_purged` (C3)
+- Challenge participants require trusted email arg; otherwise limitation category only
+- No local DB harness — live apply must use controlled fake-user ROLLBACK validation
+- High-volume tables (`v2_commitment_event`, SMS thread memory) remain single-transaction for now (120s statement_timeout)
+
+### Status
+- **APP-041C1:** COMPLETE (`8e5d73b…`)
+- **APP-041C2:** **IMPLEMENTED — PENDING REVIEW**
+- **APP-041C3:** NOT STARTED
+- **APP-041:** IN PROGRESS
+- Current business/users remain protected (migrations not applied; no purge execution)
+
+### Exact next
+- Review C2 → controlled migration application + fake-user transactional ROLLBACK validation → C3 orchestrator
+
+## SESSION 19 — 2026-07-19 — APP-041C2 controlled safety correction (worktree only)
+
+### Repository identity
+- HEAD unchanged: `8e5d73bba72291cbbc2ba71fc98b0ccccbc7a5b2`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### Corrections (post REVISE review)
+- **Challenge:** no DELETE/UPDATE; no trusted email; limitation `challenge_participant_cleanup_deferred`
+- **STOP:** dedicated `sms_opt_out_tombstones` (message_sid PK, received_at, opt_out_command_token); no phone hash; inbound rows deleted after copy
+- **Testimonials:** DELETE all for user (no anonymize)
+- **Admin notes:** DELETE entire row
+- **Outcomes:** nonempty limitations ⇒ `incomplete` only; helper rejects purged/already_absent with limitations; `purgeOutcomeBlocksAppDataPurged` for C3
+- CAS 20-arg migration unchanged
+
+### Status
+- APP-041C2: **IMPLEMENTED — PENDING REVIEW** (superseded by SESSION 20)
+- Migrations **not applied**; no real data touched; no public deletion
+- Live `information_schema` + fake-user ROLLBACK still required before apply
+- Challenge ownership design still required before purge can return purged/already_absent
+
+### Explicit non-claims
+- Full purge coverage not complete; challenge data not deleted; migration not safe to apply yet; end-to-end deletion does not work
+
+## SESSION 20 — 2026-07-19 — APP-041C2 production-schema + ownership-safe challenge (worktree only)
+
+### Repository identity
+- HEAD unchanged: `8e5d73bba72291cbbc2ba71fc98b0ccccbc7a5b2`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### What changed
+- **Live schema incorporated:** `sms_inbound_messages` (message_sid UNIQUE NOT NULL; clerk/phone NOT NULL; raw_body nullable) → dedicated STOP tombstone + source DELETE; `testimonials` (no consent field) → DELETE all
+- **Challenge:** additive nullable `clerk_user_id` + partial index; purge `DELETE WHERE clerk_user_id = v_clerk` only; count `challenge_rows_deleted`
+- **Legacy email-only challenge rows:** out of band; do **not** block `purged`/`already_absent`
+- **Write paths:** public signup/cron remain anonymous (clerk NULL; no guess); comment on signup
+- Removed `challenge_participant_cleanup_deferred` / always-incomplete path
+- Docs: matrix, master plan, this handoff
+
+### Status
+- APP-041C2: **IMPLEMENTED — PENDING FINAL REVIEW**
+- Migrations **not applied**; no real data touched; no public deletion
+- Before apply: independent final code review + controlled apply + fake-user ROLLBACK + wrong-user survival + timeout/lock observation
+
+### Explicit non-claims
+- Migrations not applied; transactional DB validation not completed; public account deletion does not work; legal review not completed; real user deletion not tested; legacy email-only challenge rows may remain

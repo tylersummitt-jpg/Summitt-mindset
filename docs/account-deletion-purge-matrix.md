@@ -1,9 +1,9 @@
 # APP-041C1 — Account deletion purge / anonymization matrix
 
-**Status:** IMPLEMENTED — PENDING REVIEW (documentation only)  
-**Canonical for:** APP-041C data-deletion specification  
-**Repository HEAD at freeze:** `61f615a0837535a06e2b392c8126226f94163616`  
-**Date:** 2026-07-19  
+**Status:** IMPLEMENTED — PENDING REVIEW (documentation only)
+**Canonical for:** APP-041C data-deletion specification
+**Repository HEAD at freeze:** `61f615a0837535a06e2b392c8126226f94163616`
+**Date:** 2026-07-19
 
 This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. It does **not** implement SQL, migrations, RPCs, Clerk/Stripe/Twilio actions, or public deletion UI.
 
@@ -17,18 +17,20 @@ Unless later legal counsel requires a change:
 
 ### 1.1 STOP / opt-out evidence
 
-Retain **only** minimum evidence that an opt-out occurred:
+Retain **only** minimum evidence that an opt-out occurred (V1 C2 correction):
 
-| Retain | Do not retain in tombstone evidence |
+| Retain | Do not retain |
 |---|---|
 | Twilio `message_sid` | Raw E.164 phone number |
 | `received_at` timestamp | Full inbound message body |
-| Normalized command token (e.g. `STOP`) | Broader SMS conversation |
-| One-way phone-number hash | User name, Clerk metadata, coaching content |
+| Normalized command token (e.g. `STOP`) | Phone hash / HMAC |
+| | Clerk user ID, name, email, coaching content |
 
+- **Storage:** dedicated `sms_opt_out_tombstones` table (not in-place inbound anonymization).
 - **Retention period:** indefinite for V1 until legal counsel provides a schedule.
 - Account deletion ≠ TCPA/STOP suppression.
 - **Do not fabricate** STOP evidence during deletion (B2a unlink ≠ STOP).
+- **No phone hash in V1** (enumerable / practically reversible without a pepper architecture).
 
 ### 1.2 SMS data
 
@@ -44,23 +46,19 @@ Retain **only** minimum evidence that an opt-out occurred:
 
 ### 1.4 Testimonials
 
-| Kind | Action |
-|---|---|
-| Unapproved/private | **DELETE** completely |
-| Approved/published with valid publication consent | **ANONYMIZE:** remove Clerk ID, name/display attribution, email/phone/identity; **retain quote only** |
-| Approved but consent unverifiable | **DELETE** quote |
+**V1 C2:** DELETE all testimonial rows for the deleting user (approved and unapproved).
 
-Do not preserve hidden attribution.
+Do not anonymize or retain quotes. Consent is not durably stored per row; approval ≠ publication consent.
 
 ### 1.5 Admin customer relationship notes
 
-**Delete:** free-text coaching notes, narrative CRM notes, sensitive details, user-specific comments.
+**V1 C2:** DELETE the entire row (including clerk PK and structured flags).
 
-**Optionally retain:** non-PII operational flags only (e.g. fulfillment completed, quote-book sent). No narrative text.
+Do not retain clerk-keyed identity linkage in the coaching DB after purge.
 
 ### 1.6 Shipping and fulfillment
 
-**Delete from application tables:** recipient name, shipping address, email, phone, delivery instructions, fulfillment reminder email snapshots.
+**Delete from application tables:** recipient name, shipping address, email, phone, delivery instructions, fulfillment reminder email snapshots (delete rows).
 
 Completed financial/fulfillment evidence remains only in proper **external** systems—not as coaching-DB PII.
 
@@ -87,8 +85,13 @@ Sanitize/remove: raw error payloads, message bodies, phones, emails, quotes, fre
 
 ### 1.10 Challenge participants
 
-- If row can be **reliably** matched to deleting user’s known email → **DELETE**.
-- If not reliably matchable → **do not** broad/fuzzy delete; record limitation for later cleanup.
+**V1 C2:** additive nullable `challenge_participants.clerk_user_id` (no email backfill).
+
+- **Purge:** `DELETE FROM challenge_participants WHERE clerk_user_id = <bound clerk>` only.
+- **Do not** delete by email, fuzzy-match, or trusted-email parameter.
+- **Legacy email-only rows** (`clerk_user_id IS NULL`) are anonymous/historical marketing records with **no provable Clerk ownership**. They are **out of band** for account-bound purge and **do not** force `incomplete` or block `app_data_purged`.
+- Public challenge signup remains anonymous → leaves `clerk_user_id` NULL (do not guess).
+- Informational count only: `challenge_rows_deleted` (non-PII).
 
 ### 1.11 Shared / product data — never touch
 
@@ -129,8 +132,9 @@ Public privacy copy must disclose lawful/operational retention accurately (see �
 | `sms_weekly_send_events` | clerk | SMS ledger | DELETE | — | all | Step 5 | Weekly ledger | C2 | — |
 | `sms_daily_drafts` | clerk | SMS drafts | DELETE | — | all | Step 6 (before gens if FK) | Draft bodies | C2 | FK-safe order |
 | `sms_daily_draft_generations` | clerk | SMS drafts + OpenAI JSON | DELETE | — | all incl. `writer_openai_messages` | Step 6 | Prompt capture | C2 | — |
-| `sms_inbound_messages` (STOP) | clerk/phone | STOP evidence | ANONYMIZE / RETAIN LEGAL/COMPLIANCE | message_sid, received_at, normalized command token, one-way phone hash | raw E.164, full body, conversation | Step 7 | Minimum opt-out proof | C2 | Do not fabricate STOP |
-| `sms_inbound_messages` (non-STOP) | clerk/phone | SMS inbound | DELETE | — | all | Step 7 | Conversational | C2 | — |
+| `sms_inbound_messages` (STOP) | clerk/phone | STOP evidence | **COPY → tombstone then DELETE** | — (row deleted) | all inbound columns | Step 7 | Prefer dedicated tombstone | C2 | No in-place phone blanking |
+| `sms_opt_out_tombstones` | message_sid PK | STOP evidence | RETAIN LEGAL/COMPLIANCE | message_sid, received_at, opt_out_command_token | phone, clerk, body, hash | Step 7 insert | Minimum opt-out proof | C2 | No phone hash in V1 |
+| `sms_inbound_messages` (all target-user) | clerk | SMS inbound | DELETE | — | all | Step 7 after tombstone insert | Conversational + STOP source rows | C2 | After STOP copy |
 | `sms_audience_pref_backup` | likely clerk | backup | DELETE if present | — | all | With SMS mid | Stale backup PII | C2 | Confirm live; delete-if-present |
 | `sms_daily_stats` | day_key | aggregate | SHARED/DO NOT TOUCH | all | — | Never | Not user-keyed | — | — |
 | `journal_entries` | clerk | user content | DELETE | — | all | Step 8 | Promised deletable | C2 | — |
@@ -173,13 +177,12 @@ Public privacy copy must disclose lawful/operational retention accurately (see �
 | Remaining V2 orphans | clerk | V2 | DELETE | — | all | Step 12 | Safety net | C2 | — |
 | `user_profiles` | clerk | profile | DELETE | — | all | Step 13 | Primary PII | C2 | — |
 | `user_identity_version` | clerk | identity history | DELETE | — | all | Step 14 | After RESTRICT cleared | C2 | Order-critical |
-| `testimonials` (unapproved) | clerk | marketing | DELETE | — | all | Step 15 | Private | C2 | — |
-| `testimonials` (approved + consent) | clerk | marketing | ANONYMIZE | quote only | clerk_user_id, display_name, email/phone/identity | Step 15 | Publication consent | C2 | No hidden attribution |
-| `testimonials` (approved, no consent) | clerk | marketing | DELETE | — | all | Step 15 | Consent unverifiable | C2 | — |
-| `admin_customer_relationship_notes` | clerk PK | CRM | ANONYMIZE / DELETE narrative | optional non-PII flags only (e.g. sent_quotes_book) | tyler_notes and all narrative/PII | Step 15 | Ops flags only | C2 | No free text |
-| `coach_shipping_addresses` | clerk | fulfillment PII | DELETE | — | name, address, email, phone, notes, instructions | Step 15 | App DB must not keep PII | C2 | External systems hold finance |
-| `quotes_book_fulfillment_reminders` | clerk | fulfillment | DELETE | — | email_snapshot, name snapshot, all | Step 15 | Email snapshots | C2 | — |
-| `challenge_participants` | **email** (no clerk) | marketing | DELETE if reliable email match | — | matched rows | Step 15 | No fuzzy match | C2 | Unmatched → log limitation |
+| `testimonials` (all for user) | clerk | marketing | DELETE | — | all incl. quote | Step 15 | Consent not on-row | C2 | No anonymize in V1 |
+| `admin_customer_relationship_notes` | clerk PK | CRM | DELETE | — | entire row | Step 15 | Clerk-keyed identity | C2 | Flags not retained in V1 |
+| `coach_shipping_addresses` | clerk | fulfillment PII | DELETE | — | all | Step 15 | App DB must not keep PII | C2 | — |
+| `quotes_book_fulfillment_reminders` | clerk | fulfillment | DELETE if present | — | all | Step 15 | Email snapshots | C2 | Optional table |
+| `challenge_participants` (clerk-bound) | clerk (nullable col) | marketing | DELETE where clerk matches | — | all for that clerk | Step 15 | Exact ownership only | C2 | No email delete |
+| `challenge_participants` (legacy email-only) | email / NULL clerk | marketing | **OUT OF BAND** | row retained | — | Never in C2 | Not attributable | later ownership design | Does **not** block purge |
 | `stripe_webhook_events` | event_id | Stripe dedupe | SHARED/DO NOT TOUCH | all | — | Never | Shared | — | — |
 | `retention_daily_rollups` | day aggregates | analytics | SHARED/DO NOT TOUCH | all | — | Never | Not user-keyed | — | — |
 | `film_videos` | — | catalog | SHARED/DO NOT TOUCH | all | — | Never | Product | — | — |
@@ -197,23 +200,23 @@ Public privacy copy must disclose lawful/operational retention accurately (see �
 
 ## 4. Proposed Supabase purge operation order
 
-1. Validate deletion request ID, Clerk user ID, active lease, expected version, and `purging_app_data` state.  
-2. Delete `sms_identities` and `sms_audience` if still present.  
-3. Delete `sms_inbound_coach_jobs`.  
-4. Delete `sms_last_outbound_context` and `sms_delivery_state`.  
-5. Delete `sms_send_events` and `sms_weekly_send_events`.  
-6. Delete SMS drafts and generations in FK-safe order.  
-7. Transform `sms_inbound_messages`: retain only minimum STOP evidence; delete non-STOP; remove raw phone/body from retained evidence.  
-8. Delete non-V2 user content (journals, summaries, Ask Pat/chat, Coach Pat notes, feedback, winback/retention, achievements, prompts/reflections, usage/preferences).  
-9. Delete V2 soft-linked data.  
-10. Delete RESTRICT children (`goal_coherence_log`, user accountability seasons, related).  
-11. Delete `v2_commitment` and cascade/explicit children.  
-12. Delete remaining `important_people` and V2 orphans.  
-13. Delete `user_profiles`.  
-14. Delete `user_identity_version`.  
-15. Apply testimonial / admin-note / shipping / challenge decisions.  
-16. Preserve and sanitize `account_deletion_requests` tombstone.  
-17. **CAS outside the purge RPC:** `purge_result=ok|already_done`; status/current_step=`app_data_purged`.
+1. Validate deletion request ID, Clerk user ID, active lease, expected version, and `purging_app_data` state.
+2. Delete `sms_identities` and `sms_audience` if still present.
+3. Delete `sms_inbound_coach_jobs`.
+4. Delete `sms_last_outbound_context` and `sms_delivery_state`.
+5. Delete `sms_send_events` and `sms_weekly_send_events`.
+6. Delete SMS drafts and generations in FK-safe order.
+7. Transform STOP: insert matching STOP rows into `sms_opt_out_tombstones` (SID + received_at + token; ON CONFLICT DO NOTHING); then DELETE all target-user `sms_inbound_messages`.
+8. Delete non-V2 user content (journals, summaries, Ask Pat/chat, Coach Pat notes, feedback, winback/retention, achievements, prompts/reflections, usage/preferences).
+9. Delete V2 soft-linked data.
+10. Delete RESTRICT children (`goal_coherence_log`, user accountability seasons, related).
+11. Delete `v2_commitment` and cascade/explicit children.
+12. Delete remaining `important_people` and V2 orphans.
+13. Delete `user_profiles`.
+14. Delete `user_identity_version`.
+15. Delete testimonials (all), admin-note rows (entire), shipping/reminders. Delete `challenge_participants` **only** where `clerk_user_id` matches (legacy NULL-clerk rows untouched).
+16. Preserve `account_deletion_requests` tombstone (CAS sanitize later).
+17. Return counts; if **blocking** limitations nonempty → `incomplete` (CAS to `app_data_purged` remains outside and must not run). Informational counts (e.g. `challenge_rows_deleted`) are not limitations.
 
 **Never in this transaction:** Clerk deletion; Stripe customer deletion; Twilio provider-log deletion; shared catalog deletion; public API/UI actions.
 
@@ -221,16 +224,16 @@ Public privacy copy must disclose lawful/operational retention accurately (see �
 
 ## 5. Architecture freeze (later C2)
 
-- One **service-role-only**, allowlisted Supabase purge RPC  
-- One atomic Supabase transaction where feasible  
-- No dynamic SQL  
-- Exact request / user / lease / version binding  
-- Idempotent delete-if-present / anonymize-if-present  
-- Transaction rollback on failure  
-- Counts/categories only in returned JSON (no PII)  
-- CAS state transition **outside** the purge RPC  
-- External systems in later stepwise orchestration  
-- Clerk deletion last  
+- One **service-role-only**, allowlisted Supabase purge RPC
+- One atomic Supabase transaction where feasible
+- No dynamic SQL
+- Exact request / user / lease / version binding
+- Idempotent delete-if-present / anonymize-if-present
+- Transaction rollback on failure
+- Counts/categories only in returned JSON (no PII)
+- CAS state transition **outside** the purge RPC
+- External systems in later stepwise orchestration
+- Clerk deletion last
 
 If table volume makes one transaction unsafe, **C2 review** may split only high-volume tables into bounded batches. Do not change that in C1.
 
@@ -238,15 +241,43 @@ If table volume makes one transaction unsafe, **C2 review** may split only high-
 
 ## 6. State-machine / schema fit
 
-**Existing statuses:** `purging_app_data`, `app_data_purged` (and full B1 machine).  
+**Existing statuses:** `purging_app_data`, `app_data_purged` (and full B1 machine).
 
-**Existing column:** `purge_result` ∈ `pending | ok | skipped | already_done | failed`.  
+**Existing column:** `purge_result` ∈ `pending | ok | skipped | already_done | failed`.
 
-**Current limitation:** 18-argument CAS persists SMS + Stripe results only.  
+**APP-041C2 (in-repo, not applied):**
+- 20-arg CAS: `20260719120000_account_deletion_cas_purge_result.sql`
+- Purge RPC + STOP tombstone + challenge clerk column: `20260719121000_account_deletion_purge_app_data.sql`
 
-**C2 requires:** additive **20-argument** CAS migration (`p_purge_result`, `p_set_purge_result`).  
+**Live schema verification (production `information_schema`, confirmed):**
 
-**C1 does not create this migration.**
+`sms_inbound_messages`:
+- `message_sid` text NOT NULL UNIQUE
+- `clerk_user_id` text NOT NULL
+- `phone_number` text NOT NULL
+- `raw_body` text NULL
+- `received_at` timestamptz NOT NULL
+
+→ Justifies dedicated STOP tombstone + source-row deletion (no in-place anonymize).
+
+`testimonials`:
+- `clerk_user_id` text NOT NULL
+- `quote` text NOT NULL
+- no durable publication-consent field (`approved` is not consent)
+
+→ Justifies delete-all testimonial policy.
+
+**STOP evidence:** dedicated `sms_opt_out_tombstones` (`message_sid` PK, `received_at`, `opt_out_command_token` CHECK stop|unsubscribe|cancel|end). No phone/clerk/body/hash. Insert STOP rows then DELETE all target inbound.
+
+**Testimonials:** DELETE all for user (no anonymize).
+
+**Admin notes:** DELETE entire row.
+
+**Challenge:** nullable `clerk_user_id` + partial index; purge `DELETE … WHERE clerk_user_id = v_clerk` only. Legacy email-only rows out of band; do not block success outcomes.
+
+**Purge outcomes:** `purged` | `already_absent` | `conflict` | `incomplete`. Blocking limitations nonempty ⇒ **`incomplete` only**. Unlinked legacy challenge rows are **not** limitations. C3 must not CAS `app_data_purged` on incomplete/conflict (`purgeOutcomeBlocksAppDataPurged`).
+
+**CAS to `app_data_purged`:** outside purge RPC (C3).
 
 ---
 
@@ -254,47 +285,43 @@ If table volume makes one transaction unsafe, **C2 review** may split only high-
 
 Before **public** initiation/UI is released, update privacy and `/data-deletion` copy to disclose:
 
-- minimum STOP evidence retention  
-- Stripe financial-record retention  
-- approved testimonial anonymization  
-- deletion tombstone retention  
-- external provider retention  
-- deletion timing and retry behavior  
+- minimum STOP evidence retention (SID + timestamp + command token; no phone hash)
+- Stripe financial-record retention
+- testimonials fully deleted (no quote retention in V1)
+- deletion tombstone retention
+- challenge: clerk-bound rows deleted; legacy anonymous/email-only challenge records may remain until a separate ownership-resolution design
+- external provider retention
+- deletion timing and retry behavior
 
 Copy update does **not** block private, unreachable C2 implementation and testing.
 
 ---
 
-## 8. C2 entry criteria
+## 8. C2 status / entry criteria
 
-C2 is safe to begin only after this matrix is **reviewed and committed**.
+**APP-041C2:** **IMPLEMENTED — PENDING FINAL REVIEW** (worktree; migrations not applied; no production data touched).
 
-C2 should include:
+Production-schema alignment + ownership-safe challenge cleanup: STOP tombstone; delete-all testimonials; challenge DELETE by clerk only; legacy email-only challenge rows non-blocking.
 
-- additive CAS `purge_result` migration (20-arg)  
-- service-role-only purge RPC  
-- repository helper  
-- fake/rollback tests  
-- wrong-user isolation  
-- idempotency  
-- FK-order validation  
-- STOP evidence transformation  
-- shared-data survival tests  
-- no external actions  
-- no public endpoint/UI  
+**Before apply:** independent final code review + controlled migration apply + fake-user transactional ROLLBACK + wrong-user survival + timeout/lock observation.
 
-**APP-041C2 / C3:** NOT STARTED.
+**APP-041C3:** NOT STARTED (must honor incomplete ⇒ no `app_data_purged`).
 
 ---
 
 ## 9. Explicit non-claims
 
-This freeze does **not** mean:
+This freeze / C2 foundation does **not** mean:
 
-- purge SQL exists or ran  
-- any real user data was deleted  
-- privacy policy was updated  
-- legal counsel reviewed the schedule  
-- public account deletion works  
-- app-store deletion compliance is complete  
-- Clerk or Stripe customers were deleted  
+- purge SQL was applied or ran against production
+- any real user data was deleted
+- transactional DB validation completed
+- privacy policy was updated
+- legal counsel reviewed the schedule
+- public account deletion works
+- app-store deletion compliance is complete
+- Clerk or Stripe customers were deleted
+- all legacy email-only challenge rows were removed
+- migration is safe to apply yet
+- C2 is COMPLETE (pending final review + DB validation)
+- end-to-end deletion works

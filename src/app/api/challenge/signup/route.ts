@@ -22,6 +22,8 @@ export async function POST(request: Request) {
     );
   }
 
+  // Public/anonymous marketing signup — no Clerk session. Leave clerk_user_id
+  // NULL (do not guess). Legacy email-only rows stay outside account-bound purge.
   const { error } = await supabaseServer
     .from("challenge_participants")
     .insert({
