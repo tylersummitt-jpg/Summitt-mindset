@@ -19,6 +19,8 @@ import {
   acquireAccountDeletionLease,
   createAccountDeletionRequest,
   getAccountDeletionRequestById,
+  markAccountDeletionCompleted,
+  patchAccountDeletionRequestWhileLeased,
   recordAccountDeletionFailure,
   releaseAccountDeletionLease,
   transitionAccountDeletionRequest,
@@ -38,6 +40,14 @@ import {
 const MIGRATION = join(
   process.cwd(),
   "supabase/migrations/20260718120000_account_deletion_requests.sql"
+);
+const D0_CAS_MIGRATION = join(
+  process.cwd(),
+  "supabase/migrations/20260719130000_account_deletion_cas_clerk_result.sql"
+);
+const C2_CAS_MIGRATION = join(
+  process.cwd(),
+  "supabase/migrations/20260719120000_account_deletion_cas_purge_result.sql"
 );
 
 async function createAndLease(opts: {
@@ -907,7 +917,7 @@ describe("account deletion Supabase RPC construction", () => {
     });
   });
 
-  it("casWithActiveLease calls cas_account_deletion_request RPC", async () => {
+  it("casWithActiveLease omits clerkResult → p_clerk_result null and p_set_clerk_result false", async () => {
     const row = {
       id: "22222222-2222-2222-2222-222222222222",
       clerk_user_id: "user_rpc2",
@@ -972,6 +982,8 @@ describe("account deletion Supabase RPC construction", () => {
         p_set_stripe_result: false,
         p_purge_result: null,
         p_set_purge_result: false,
+        p_clerk_result: null,
+        p_set_clerk_result: false,
       })
     );
   });
@@ -1015,5 +1027,347 @@ describe("account deletion Supabase RPC construction", () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("lease_held");
+  });
+});
+
+describe("APP-041D0 clerk_result CAS migration (static)", () => {
+  const sql = readFileSync(D0_CAS_MIGRATION, "utf8");
+  const c2 = readFileSync(C2_CAS_MIGRATION, "utf8");
+  const SIG20 =
+    "UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN";
+  const SIG22 = `${SIG20}, TEXT, BOOLEAN`;
+
+  it("drops 20-arg and defensive 22-arg signatures; creates one 22-arg function", () => {
+    expect(sql).toContain(
+      `DROP FUNCTION IF EXISTS public.cas_account_deletion_request(\n  ${SIG20}\n)`
+    );
+    expect(sql).toContain(
+      `DROP FUNCTION IF EXISTS public.cas_account_deletion_request(\n  ${SIG22}\n)`
+    );
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.cas_account_deletion_request");
+    expect(sql).toContain("p_purge_result TEXT DEFAULT NULL");
+    expect(sql).toContain("p_set_purge_result BOOLEAN DEFAULT false");
+    expect(sql).toContain("p_clerk_result TEXT DEFAULT NULL");
+    expect(sql).toContain("p_set_clerk_result BOOLEAN DEFAULT false");
+    // clerk args appended after purge args
+    const purgeIdx = sql.indexOf("p_set_purge_result BOOLEAN DEFAULT false");
+    const clerkIdx = sql.indexOf("p_clerk_result TEXT DEFAULT NULL");
+    expect(purgeIdx).toBeGreaterThan(0);
+    expect(clerkIdx).toBeGreaterThan(purgeIdx);
+  });
+
+  it("preserves SECURITY INVOKER, search_path, and service_role-only grants", () => {
+    expect(sql).toContain("SECURITY INVOKER");
+    expect(sql).toContain("SET search_path = public");
+    expect(sql).toContain(
+      `REVOKE ALL ON FUNCTION public.cas_account_deletion_request(${SIG22}) FROM PUBLIC`
+    );
+    expect(sql).toContain(
+      `REVOKE ALL ON FUNCTION public.cas_account_deletion_request(${SIG22}) FROM anon`
+    );
+    expect(sql).toContain(
+      `REVOKE ALL ON FUNCTION public.cas_account_deletion_request(${SIG22}) FROM authenticated`
+    );
+    expect(sql).toContain(
+      `GRANT EXECUTE ON FUNCTION public.cas_account_deletion_request(${SIG22}) TO service_role`
+    );
+  });
+
+  it("validates clerk_result enums and preserves when set=false", () => {
+    expect(sql).toMatch(
+      /IF p_set_clerk_result THEN[\s\S]*p_clerk_result NOT IN \('pending', 'ok', 'skipped', 'already_done', 'failed'\)/
+    );
+    expect(sql).toContain(
+      "clerk_result = CASE\n      WHEN p_set_clerk_result THEN p_clerk_result\n      ELSE r.clerk_result\n    END"
+    );
+    // SMS/Stripe/purge semantics remain
+    expect(sql).toContain("p_set_sms_result");
+    expect(sql).toContain("p_set_stripe_result");
+    expect(sql).toContain("p_set_purge_result");
+    for (const pred of [
+      "r.id = p_request_id",
+      "r.status = p_expected_status",
+      "r.orchestration_version = p_expected_orchestration_version",
+      "r.lock_owner = v_owner",
+    ]) {
+      expect(sql).toContain(pred);
+      expect(c2).toContain(pred);
+    }
+  });
+
+  it("orders after C2 purge_result CAS migration", () => {
+    expect(
+      "20260719130000_account_deletion_cas_clerk_result.sql" >
+        "20260719120000_account_deletion_cas_purge_result.sql"
+    ).toBe(true);
+  });
+});
+
+describe("APP-041D0 clerk_result repository wiring", () => {
+  beforeEach(() => {
+    useInMemoryAccountDeletionStoreForTests();
+  });
+
+  it("undefined clerkResult preserves; pending sets; null rejects; completion sets ok", async () => {
+    const { id } = await createAndLease({
+      clerkUserId: "user_d0_3",
+      idempotencyKey: "kd03",
+      lockOwner: "w",
+    });
+    const path: Array<{
+      from: AccountDeletionStatus;
+      to: AccountDeletionStatus;
+      sms?: AccountDeletionRequestRow["sms_result"];
+      stripe?: AccountDeletionRequestRow["stripe_result"];
+      purge?: AccountDeletionRequestRow["purge_result"];
+      clerk?: AccountDeletionRequestRow["clerk_result"];
+    }> = [
+      { from: "requested", to: "suppressing_sms", sms: "pending" },
+      { from: "suppressing_sms", to: "sms_suppressed", sms: "ok" },
+      { from: "sms_suppressed", to: "canceling_subscription", stripe: "pending" },
+      {
+        from: "canceling_subscription",
+        to: "subscription_canceled",
+        stripe: "ok",
+      },
+      { from: "subscription_canceled", to: "purging_app_data", purge: "pending" },
+      { from: "purging_app_data", to: "app_data_purged", purge: "ok" },
+      {
+        from: "app_data_purged",
+        to: "deleting_clerk",
+        clerk: "pending",
+      },
+    ];
+    for (const s of path) {
+      const t = await transitionAccountDeletionRequest({
+        requestId: id,
+        fromStatus: s.from,
+        toStatus: s.to,
+        lockOwner: "w",
+        ...(s.sms !== undefined ? { smsResult: s.sms } : {}),
+        ...(s.stripe !== undefined ? { stripeResult: s.stripe } : {}),
+        ...(s.purge !== undefined ? { purgeResult: s.purge } : {}),
+        ...(s.clerk !== undefined ? { clerkResult: s.clerk } : {}),
+      });
+      expect(t.ok).toBe(true);
+    }
+    const pending = await getAccountDeletionRequestById(id);
+    expect(pending?.status).toBe("deleting_clerk");
+    expect(pending?.clerk_result).toBe("pending");
+    expect(pending?.sms_result).toBe("ok");
+    expect(pending?.stripe_result).toBe("ok");
+    expect(pending?.purge_result).toBe("ok");
+
+    const preserve = await patchAccountDeletionRequestWhileLeased({
+      requestId: id,
+      expectedStatus: "deleting_clerk",
+      lockOwner: "w",
+      steps: {
+        ...pending!.steps,
+        marker: { at: new Date().toISOString(), ok: true, code: "noop" },
+      },
+    });
+    expect(preserve.ok).toBe(true);
+    if (!preserve.ok) return;
+    expect(preserve.value.clerk_result).toBe("pending");
+
+    const nullReject = await transitionAccountDeletionRequest({
+      requestId: id,
+      fromStatus: "deleting_clerk",
+      toStatus: "completed",
+      lockOwner: "w",
+      clerkResult: null as unknown as "ok",
+    });
+    expect(nullReject.ok).toBe(false);
+    if (!nullReject.ok) expect(nullReject.code).toBe("invalid_argument");
+    expect((await getAccountDeletionRequestById(id))?.clerk_result).toBe(
+      "pending"
+    );
+
+    const completedOk = await markAccountDeletionCompleted({
+      requestId: id,
+      fromStatus: "deleting_clerk",
+      lockOwner: "w",
+      clerkResult: "ok",
+    });
+    expect(completedOk.ok).toBe(true);
+    if (!completedOk.ok) return;
+    expect(completedOk.value.status).toBe("completed");
+    expect(completedOk.value.clerk_result).toBe("ok");
+    expect(completedOk.value.sms_result).toBe("ok");
+    expect(completedOk.value.purge_result).toBe("ok");
+  });
+
+  it("failure recorder sets clerk_result=failed without overwriting SMS/Stripe/purge", async () => {
+    useInMemoryAccountDeletionStoreForTests();
+    const { id } = await createAndLease({
+      clerkUserId: "user_d0_fail",
+      idempotencyKey: "kd0f",
+      lockOwner: "w",
+    });
+    const path: Array<{
+      from: AccountDeletionStatus;
+      to: AccountDeletionStatus;
+      sms?: AccountDeletionRequestRow["sms_result"];
+      stripe?: AccountDeletionRequestRow["stripe_result"];
+      purge?: AccountDeletionRequestRow["purge_result"];
+      clerk?: AccountDeletionRequestRow["clerk_result"];
+    }> = [
+      { from: "requested", to: "suppressing_sms", sms: "pending" },
+      { from: "suppressing_sms", to: "sms_suppressed", sms: "ok" },
+      { from: "sms_suppressed", to: "canceling_subscription", stripe: "pending" },
+      {
+        from: "canceling_subscription",
+        to: "subscription_canceled",
+        stripe: "already_done",
+      },
+      { from: "subscription_canceled", to: "purging_app_data", purge: "pending" },
+      { from: "purging_app_data", to: "app_data_purged", purge: "already_done" },
+      { from: "app_data_purged", to: "deleting_clerk", clerk: "pending" },
+    ];
+    for (const s of path) {
+      const t = await transitionAccountDeletionRequest({
+        requestId: id,
+        fromStatus: s.from,
+        toStatus: s.to,
+        lockOwner: "w",
+        ...(s.sms !== undefined ? { smsResult: s.sms } : {}),
+        ...(s.stripe !== undefined ? { stripeResult: s.stripe } : {}),
+        ...(s.purge !== undefined ? { purgeResult: s.purge } : {}),
+        ...(s.clerk !== undefined ? { clerkResult: s.clerk } : {}),
+      });
+      expect(t.ok).toBe(true);
+    }
+
+    const failed = await recordAccountDeletionFailure({
+      requestId: id,
+      fromStatus: "deleting_clerk",
+      terminal: false,
+      errorCode: "clerk_delete_retryable",
+      errorDetail: "transient",
+      lockOwner: "w",
+      clerkResult: "failed",
+    });
+    expect(failed.ok).toBe(true);
+    if (!failed.ok) return;
+    expect(failed.value.status).toBe("failed_retryable");
+    expect(failed.value.current_step).toBe("deleting_clerk");
+    expect(failed.value.clerk_result).toBe("failed");
+    expect(failed.value.sms_result).toBe("ok");
+    expect(failed.value.stripe_result).toBe("already_done");
+    expect(failed.value.purge_result).toBe("already_done");
+  });
+
+  it("completion can set clerk_result=already_done", async () => {
+    useInMemoryAccountDeletionStoreForTests();
+    const { id } = await createAndLease({
+      clerkUserId: "user_d0_ad",
+      idempotencyKey: "kd0ad",
+      lockOwner: "w",
+    });
+    const path: Array<{
+      from: AccountDeletionStatus;
+      to: AccountDeletionStatus;
+      sms?: AccountDeletionRequestRow["sms_result"];
+      stripe?: AccountDeletionRequestRow["stripe_result"];
+      purge?: AccountDeletionRequestRow["purge_result"];
+      clerk?: AccountDeletionRequestRow["clerk_result"];
+    }> = [
+      { from: "requested", to: "suppressing_sms", sms: "pending" },
+      { from: "suppressing_sms", to: "sms_suppressed", sms: "ok" },
+      { from: "sms_suppressed", to: "canceling_subscription", stripe: "pending" },
+      {
+        from: "canceling_subscription",
+        to: "subscription_canceled",
+        stripe: "ok",
+      },
+      { from: "subscription_canceled", to: "purging_app_data", purge: "pending" },
+      { from: "purging_app_data", to: "app_data_purged", purge: "ok" },
+      { from: "app_data_purged", to: "deleting_clerk", clerk: "pending" },
+    ];
+    for (const s of path) {
+      const t = await transitionAccountDeletionRequest({
+        requestId: id,
+        fromStatus: s.from,
+        toStatus: s.to,
+        lockOwner: "w",
+        ...(s.sms !== undefined ? { smsResult: s.sms } : {}),
+        ...(s.stripe !== undefined ? { stripeResult: s.stripe } : {}),
+        ...(s.purge !== undefined ? { purgeResult: s.purge } : {}),
+        ...(s.clerk !== undefined ? { clerkResult: s.clerk } : {}),
+      });
+      expect(t.ok).toBe(true);
+    }
+
+    const done = await markAccountDeletionCompleted({
+      requestId: id,
+      fromStatus: "deleting_clerk",
+      lockOwner: "w",
+      clerkResult: "already_done",
+    });
+    expect(done.ok).toBe(true);
+    if (!done.ok) return;
+    expect(done.value.clerk_result).toBe("already_done");
+    expect(done.value.status).toBe("completed");
+  });
+
+  it("RPC transition with clerkResult=pending sends set=true and exact clerk args", async () => {
+    useSupabaseAccountDeletionStoreForTests();
+    rpcMock.mockReset();
+    fromMock.mockReset();
+    const row = {
+      id: "44444444-4444-4444-4444-444444444444",
+      clerk_user_id: "user_rpc4",
+      orchestration_version: 1,
+      status: "app_data_purged",
+      current_step: "app_data_purged",
+      steps: {},
+      attempt_count: 1,
+      locked_at: "2026-07-19T12:00:00.000Z",
+      lock_owner: "worker-rpc",
+      created_at: "2026-07-19T12:00:00.000Z",
+      updated_at: "2026-07-19T12:00:00.000Z",
+      completed_at: null,
+      last_retry_at: null,
+      last_error_code: null,
+      last_error_detail: null,
+      sms_result: "ok",
+      stripe_result: "ok",
+      purge_result: "ok",
+      clerk_result: null,
+      idempotency_key: "k4",
+    };
+    const updated = {
+      ...row,
+      status: "deleting_clerk",
+      current_step: "deleting_clerk",
+      clerk_result: "pending",
+    };
+    fromMock.mockImplementation(() => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: row, error: null }),
+        }),
+      }),
+    }));
+    rpcMock.mockResolvedValue({ data: [updated], error: null });
+
+    const withPending = await transitionAccountDeletionRequest({
+      requestId: row.id,
+      fromStatus: "app_data_purged",
+      toStatus: "deleting_clerk",
+      lockOwner: "worker-rpc",
+      clerkResult: "pending",
+    });
+    expect(withPending.ok).toBe(true);
+    expect(rpcMock).toHaveBeenCalledWith(
+      CAS_ACCOUNT_DELETION_REQUEST_RPC,
+      expect.objectContaining({
+        p_clerk_result: "pending",
+        p_set_clerk_result: true,
+        p_set_purge_result: false,
+        p_purge_result: null,
+      })
+    );
   });
 });

@@ -1,6 +1,6 @@
 # APP-041C1 — Account deletion purge / anonymization matrix
 
-**Status:** C1 COMPLETE; **C2 COMPLETE** (applied + production-validated); **C3 IMPLEMENTED — PENDING REVIEW**
+**Status:** C1 COMPLETE; **C2 COMPLETE** (applied + production-validated); **C3 COMPLETE** (`7f1a7e022a50f123c3dbf82b510a0ef5f2bf40ee`); **D0 IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW**
 **Canonical for:** APP-041C data-deletion specification
 **Repository HEAD at C2 complete:** `176da7011ade7698a9b738485f629bde239b838a`
 **Date:** 2026-07-19
@@ -302,11 +302,25 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041C2:** **COMPLETE** (committed `176da7011ade7698a9b738485f629bde239b838a`; migrations applied; fake-user transactional validation + post-rollback zero-residue passed).
 
-**APP-041C3:** **IMPLEMENTED — PENDING REVIEW** (server-only `orchestrateAppDataPurge`; no public initiation/UI; no Clerk deletion; no worker/cron).
+**APP-041C3:** **COMPLETE** (committed `7f1a7e022a50f123c3dbf82b510a0ef5f2bf40ee`; server-only `orchestrateAppDataPurge`; compact durable marker; no public initiation/UI; no Clerk deletion; no worker/cron).
 
-**Next after C3 review:** Clerk deletion-last adapter/foundation → worker/reconciler → admin recovery → only later authenticated initiation/UI.
+**APP-041D0:** **IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW** (22-arg CAS + repository `clerkResult` wiring). Does **not** include Clerk adapter/orchestrator. **D1 remains blocked** until D0 is reviewed, migration-first applied, schema-cache verified, legacy 20-key smoke passed, and 22-key app code is only then deployed.
 
-Do **not** claim end-to-end account deletion, store compliance, or that users can delete accounts.
+### APP-041D0 production rollout SOP (migration-first required)
+
+**migration-first is required. code-first is prohibited. Racing the migration against a Vercel deploy is prohibited.** Do not keep 20- and 22-argument overloads together (default-arg matching can become ambiguous). Reverting production to the 20-arg function while 22-key app code is live is unsafe.
+
+1. Review and approve D0 code/migration.
+2. Do **not** allow the 22-argument repository code to reach production yet (hold/block the app deploy that ships 22 named RPC keys).
+3. Apply `supabase/migrations/20260719130000_account_deletion_cas_clerk_result.sql` in a controlled production SQL session.
+4. Reload/verify PostgREST schema cache: run `NOTIFY pgrst, 'reload schema';` (mandatory manual apply step; not embedded in the migration) or confirm the hosted platform reloaded it.
+5. Structurally verify production: old 20-arg function absent; exactly one 22-arg function; first 20 parameters unchanged; Clerk params at positions 21–22; `SECURITY INVOKER`; `search_path=public`; anon/authenticated execute false; service_role execute true.
+6. Controlled legacy-compatibility smoke using only the original 20 named RPC keys (synthetic/fake request, rollback-safe): call succeeds; `clerk_result` preserved because `p_set_clerk_result` defaults false.
+7. Only after steps 3–6 succeed may the 22-key repository code be deployed.
+8. Verify a 22-key call on a fake/rollback-safe path.
+9. Resume APP-041D1 only after all of the above.
+
+**Not yet done / do not claim:** migration applied; schema cache reloaded; compatibility smoke completed; D0 complete; D1 started; end-to-end account deletion; store compliance; users can delete accounts.
 
 ---
 

@@ -438,14 +438,17 @@ describe("purgeAppDataForDeletion repository helper", () => {
   });
 });
 
-describe("CAS callers pass purge args with set=false by default", () => {
-  it("documents RPC constant and 20-arg defaults in repository source", () => {
+describe("CAS callers pass purge/clerk args with set=false by default", () => {
+  it("documents RPC constant and result-field defaults in repository source", () => {
     const repo = readFileSync(
       join(process.cwd(), "src/lib/account-deletion/repository.ts"),
       "utf8"
     );
     expect(repo).toContain(
       "p_set_purge_result: patch.set_purge_result ?? false"
+    );
+    expect(repo).toContain(
+      "p_set_clerk_result: patch.set_clerk_result ?? false"
     );
     expect(repo).toContain(CAS_ACCOUNT_DELETION_REQUEST_RPC);
     expect(repo).toContain(PURGE_APP_DATA_FOR_ACCOUNT_DELETION_RPC);

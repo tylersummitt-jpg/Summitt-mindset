@@ -88,6 +88,8 @@ export type TransitionAccountDeletionInput = {
   stripeResult?: AccountDeletionRequestRow["stripe_result"];
   /** When set, persists purge_result via CAS (C2). */
   purgeResult?: AccountDeletionRequestRow["purge_result"];
+  /** When set, persists clerk_result via CAS (D0). */
+  clerkResult?: AccountDeletionRequestRow["clerk_result"];
 };
 
 export type RecordAccountDeletionFailureInput = {
@@ -105,6 +107,8 @@ export type RecordAccountDeletionFailureInput = {
   stripeResult?: AccountDeletionRequestRow["stripe_result"];
   /** When set, persists purge_result via CAS (C2). */
   purgeResult?: AccountDeletionRequestRow["purge_result"];
+  /** When set, persists clerk_result via CAS (D0). */
+  clerkResult?: AccountDeletionRequestRow["clerk_result"];
   /** Optional sanitized progress note merged into the failure step. */
   stepDetail?: string | null;
 };
@@ -125,6 +129,8 @@ type CasPatch = {
   set_stripe_result?: boolean;
   purge_result?: AccountDeletionRequestRow["purge_result"];
   set_purge_result?: boolean;
+  clerk_result?: AccountDeletionRequestRow["clerk_result"];
+  set_clerk_result?: boolean;
 };
 
 /** Test-injectable store surface (in-memory or Supabase/RPC mock). */
@@ -365,6 +371,7 @@ function createInMemoryStore(): Store {
       if (patch.set_sms_result && patch.sms_result == null) return null;
       if (patch.set_stripe_result && patch.stripe_result == null) return null;
       if (patch.set_purge_result && patch.purge_result == null) return null;
+      if (patch.set_clerk_result && patch.clerk_result == null) return null;
       const ts = nowIso(now);
       const next: AccountDeletionRequestRow = {
         ...current,
@@ -391,6 +398,9 @@ function createInMemoryStore(): Store {
         purge_result: patch.set_purge_result
           ? (patch.purge_result ?? null)
           : current.purge_result,
+        clerk_result: patch.set_clerk_result
+          ? (patch.clerk_result ?? null)
+          : current.clerk_result,
         id: current.id,
         clerk_user_id: current.clerk_user_id,
         idempotency_key: current.idempotency_key,
@@ -565,6 +575,10 @@ function createSupabaseStore(): Store {
             ? (patch.purge_result ?? null)
             : null,
           p_set_purge_result: patch.set_purge_result ?? false,
+          p_clerk_result: patch.set_clerk_result
+            ? (patch.clerk_result ?? null)
+            : null,
+          p_set_clerk_result: patch.set_clerk_result ?? false,
         }
       );
       if (error) throw error;
@@ -982,6 +996,18 @@ export async function transitionAccountDeletionRequest(
     patch.purge_result = input.purgeResult;
   }
 
+  if (input.clerkResult !== undefined) {
+    if (input.clerkResult == null) {
+      return {
+        ok: false,
+        code: "invalid_argument",
+        message: "clerkResult must be a non-null allowed value when set",
+      };
+    }
+    patch.set_clerk_result = true;
+    patch.clerk_result = input.clerkResult;
+  }
+
   if (input.fromStatus === "failed_retryable") {
     patch.last_retry_at = ts;
   }
@@ -1022,6 +1048,7 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
   smsResult?: AccountDeletionRequestRow["sms_result"];
   stripeResult?: AccountDeletionRequestRow["stripe_result"];
   purgeResult?: AccountDeletionRequestRow["purge_result"];
+  clerkResult?: AccountDeletionRequestRow["clerk_result"];
   leaseMs?: number;
   expectedOrchestrationVersion?: number;
   now?: Date;
@@ -1048,6 +1075,13 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
       ok: false,
       code: "invalid_argument",
       message: "purgeResult must be a non-null allowed value when set",
+    };
+  }
+  if (input.clerkResult !== undefined && input.clerkResult == null) {
+    return {
+      ok: false,
+      code: "invalid_argument",
+      message: "clerkResult must be a non-null allowed value when set",
     };
   }
 
@@ -1099,6 +1133,10 @@ export async function patchAccountDeletionRequestWhileLeased(input: {
   if (input.purgeResult !== undefined) {
     patch.set_purge_result = true;
     patch.purge_result = input.purgeResult;
+  }
+  if (input.clerkResult !== undefined) {
+    patch.set_clerk_result = true;
+    patch.clerk_result = input.clerkResult;
   }
 
   const updated = await store.casWithActiveLease({
@@ -1229,6 +1267,17 @@ export async function recordAccountDeletionFailure(
     patch.set_purge_result = true;
     patch.purge_result = input.purgeResult;
   }
+  if (input.clerkResult !== undefined) {
+    if (input.clerkResult == null) {
+      return {
+        ok: false,
+        code: "invalid_argument",
+        message: "clerkResult must be a non-null allowed value when set",
+      };
+    }
+    patch.set_clerk_result = true;
+    patch.clerk_result = input.clerkResult;
+  }
 
   const updated = await store.casWithActiveLease({
     requestId: row.id,
@@ -1257,6 +1306,8 @@ export async function markAccountDeletionCompleted(input: {
   leaseMs?: number;
   expectedOrchestrationVersion?: number;
   now?: Date;
+  /** Optional explicit clerk_result; caller must supply provider truth (ok|already_done). */
+  clerkResult?: AccountDeletionRequestRow["clerk_result"];
 }): Promise<AccountDeletionRepoResult<AccountDeletionRequestRow>> {
   return transitionAccountDeletionRequest({
     requestId: input.requestId,
@@ -1267,5 +1318,8 @@ export async function markAccountDeletionCompleted(input: {
     expectedOrchestrationVersion: input.expectedOrchestrationVersion,
     now: input.now,
     stepNote: { ok: true, code: "completed" },
+    ...(input.clerkResult !== undefined
+      ? { clerkResult: input.clerkResult }
+      : {}),
   });
 }

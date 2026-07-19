@@ -9,15 +9,15 @@
 |---|---|
 | Plan version | 1.5.11 |
 | Last verified date | 2026-07-19 |
-| Current phase | **APP-041** IN PROGRESS (APP-041A COMPLETE; **B1**+**B2a**+**B2b**+**B3a**+**B3b** COMPLETE; **APP-041C1** COMPLETE; **APP-041C2** COMPLETE/applied+validated; **APP-041C3** IMPLEMENTED — PENDING REVIEW — **no public deletion capability**); **APP-065** IN PROGRESS; APP-021 still open |
-| Current assigned task IDs | APP-041C3 review, Clerk-last foundation (next), APP-065 (IN PROGRESS), APP-041 (IN PROGRESS), APP-015, APP-066, APP-018–APP-021 |
-| Last completed task IDs | APP-041C1, APP-041B2b, APP-041B3b, APP-041B3a, APP-041B2a, APP-041B1, APP-041A, APP-010, APP-016, APP-069, APP-062, APP-063, APP-064 (also: APP-008 Stage 1 PASS, APP-009, APP-011–APP-014, APP-017, APP-059, APP-070) |
+| Current phase | **APP-041** IN PROGRESS (APP-041A COMPLETE; **B1**+**B2a**+**B2b**+**B3a**+**B3b** COMPLETE; **APP-041C1** COMPLETE; **APP-041C2** COMPLETE/applied+validated; **APP-041C3** COMPLETE at `7f1a7e0…`; **APP-041D0** IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW — **no public deletion capability**); **APP-065** IN PROGRESS; APP-021 still open |
+| Current assigned task IDs | APP-041D0 review/apply, APP-041D1 (blocked on D0), APP-065 (IN PROGRESS), APP-041 (IN PROGRESS), APP-015, APP-066, APP-018–APP-021 |
+| Last completed task IDs | APP-041C3, APP-041C2, APP-041C1, APP-041B2b, APP-041B3b, APP-041B3a, APP-041B2a, APP-041B1, APP-041A, APP-010, APP-016, APP-069, APP-062, APP-063, APP-064 (also: APP-008 Stage 1 PASS, APP-009, APP-011–APP-014, APP-017, APP-059, APP-070) |
 | Current blocker | **APP-065** elapsed-time proof still open. **APP-041** Required for V1 — parent IN PROGRESS; **no user account can currently initiate deletion**. APP-015 open. Android unstarted. APP-021 open. |
 | Production shell architecture | **Candidate A2 is the selected leading architecture based on current physical-device evidence** (custom Swift `LiveShellViewController` + one native `WKWebView` inside the Capacitor-generated iOS project; live site loaded by the native controller; **no `server.url`**). Candidate B (bare native WKWebView) remains fallback only. **APP-021 not yet COMPLETE** — Android Checkpoint B OR explicit iOS-first amendment, estimate confirm/revise, and formal DEC-020 close still required. Production use of Capacitor `server.url` remains **prohibited**. |
 | V1 login posture | **DECIDED (DEC-018 ACTIVE):** app-only first-party **email verification-code** auth on the **same** Clerk instance. Website keeps Google unchanged. **APP-010 COMPLETE:** intended email-code posture on physical iPhone; same existing Clerk identity confirmed; no duplicate Clerk user; relationship/member state intact (Tyler privately verified APP-069 baseline comparison PASS — no private identifiers committed). Google OAuth remains outside intended V1 app-only email posture. |
 | Session-lifetime standard | **Production Clerk Dashboard configured:** maximum lifetime **ENABLED at 180 days**; inactivity timeout **DISABLED** (DEC-022; APP-062–064 COMPLETE). **Not permanent / not indefinite.** Website application code never enforced a 7-day limit. Short-cycle force-close/reopen after the change **PASS**. **Multi-month / full 180-day elapsed persistence is NOT proven** — that is **APP-065 (IN PROGRESS)**. Client Trust formal requirements remain with APP-066. |
 | Mobile repository | Separate repo `summitt-mindset-mobile` — **exists**; Stage 1 physical-device POC was run from it (intentional evolution from the original throwaway-outside-repo assumption — see APP-008 notes). This document lives in the website/SMS repo. Do not edit the mobile repo from website-doc tasks. |
-| Exact next task | **Review APP-041C3**, then Clerk deletion-last adapter/foundation → worker/reconciler → admin recovery → only later authenticated initiation/UI. Do **not** jump to public UI. Do **not** claim end-to-end deletion works. Parallel: **APP-065**, **APP-015**, **APP-066**, **APP-021** planning. |
+| Exact next task | **APP-041D0 migration-first rollout:** approve → hold 22-key app deploy → apply `20260719130000_…` → `NOTIFY pgrst, 'reload schema'` → structural verify → legacy 20-key smoke → only then deploy 22-key code → 22-key smoke → then APP-041D1. **code-first prohibited.** Do **not** jump to public UI. Parallel: **APP-065**, **APP-015**, **APP-066**, **APP-021**. |
 
 > **How to use this document:** This is the single durable control document for the mobile-app project. It is designed so a brand-new ChatGPT conversation or a fresh Cursor session can resume with zero prior context. Read this file plus `docs/mobile-app-session-handoff.md` before doing anything. Never mark a task COMPLETE without recorded evidence. Move every scope addition to the parking lot (§12). Do not touch the SMS system. The production mobile shell lives in a **separate repository** (`summitt-mindset-mobile`); every task must confirm repository identity before editing (see DEC-013–DEC-017).
 
@@ -258,8 +258,9 @@ Equivalent critical checks (1–13, 15) are added to the Android POC (Phase 3).
 - **APP-041B2b:** **COMPLETE, committed and pushed** at `61f615a0837535a06e2b392c8126226f94163616` — final transport-level outbound SMS deletion guard in `sendSMS`; daily self-heal cannot reinsert deleting users; daily/weekly/evening/guided/onboarding/admin paths hardened; inbound coach B2a + transport defense. Intentional deletion blocks terminal; lookup failures fail-closed at transport with path-specific recovery (see known risks). **No migration.** **No** public initiation.
 - **APP-041C1:** **COMPLETE** (committed/pushed at `8e5d73bba72291cbbc2ba71fc98b0ccccbc7a5b2`) — canonical purge/anonymization policy freeze in `docs/account-deletion-purge-matrix.md`.
 - **APP-041C2:** **COMPLETE** at `176da7011ade7698a9b738485f629bde239b838a` — migrations applied + fake-user transactional validation + post-rollback zero-residue. STOP tombstone; delete-all testimonials; challenge DELETE by exact `clerk_user_id` only.
-- **APP-041C3:** **IMPLEMENTED — PENDING REVIEW** (worktree) — `orchestrateAppDataPurge` advances `subscription_canceled` → `purging_app_data` → `app_data_purged` via C2 helper. **No public endpoint/UI. No Clerk delete. No worker/cron. No real user deletion.**
-- Exact next action: **review APP-041C3** → Clerk-last foundation → worker/reconciler → admin recovery → later authenticated initiation/UI. Canonical matrix: `docs/account-deletion-purge-matrix.md`.
+- **APP-041C3:** **COMPLETE** (`7f1a7e022a50f123c3dbf82b510a0ef5f2bf40ee`) — server-only purge orchestrator + compact durable marker. **No public endpoint/UI. No Clerk delete. No worker/cron.**
+- **APP-041D0:** **IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW** — 22-arg CAS + repository `clerkResult` wiring. No Clerk adapter/orchestrator. D1 blocked until migration-first apply + schema-cache verify + 20-key smoke + 22-key deploy/smoke.
+- Exact next action: **D0 migration-first SOP** (see purge matrix §8) — **not** commit/push-then-apply under auto-deploy. Then D1 Clerk-last (injected) → worker/reconciler → admin recovery → later authenticated initiation/UI. Canonical matrix: `docs/account-deletion-purge-matrix.md`.
 
 ### APP-041B3b protections (COMPLETE at `aab8b02…`)
 - Checkout creation, checkout confirmation, and resume membership blocked during account deletion.
@@ -390,7 +391,8 @@ One **website-owned** deletion flow usable in normal browsers and inside the iPh
 | APP-041B | Durable deletion state + backend orchestrator (parent) | **IN PROGRESS** | 8–14 |
 | APP-041C1 | Purge/anonymization policy + dependency freeze (docs only) | **COMPLETE** (`8e5d73b…`) | ~1–2 |
 | APP-041C2 | Server-only purge RPC + CAS `purge_result` wiring (no public API) | **COMPLETE** | ~4–8 |
-| APP-041C3 | Application purge orchestrator (no public initiation) | **IMPLEMENTED — PENDING REVIEW** | ~2–4 |
+| APP-041C3 | Application purge orchestrator (no public initiation) | **COMPLETE** | ~2–4 |
+| APP-041D0 | CAS `clerk_result` foundation (22-arg) | **IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW** | ~1–2 |
 | APP-041C | Account UI + deliberate confirmation + reauthentication (**distinct** from C1–C3 purge slices) | NOT STARTED | 3–5 |
 | APP-041D | Stripe/SMS race and resurrection hardening | NOT STARTED | 4–8 |
 | APP-041E | Automated tests + physical-iPhone validation | NOT STARTED | 6–10 |
@@ -400,7 +402,7 @@ One **website-owned** deletion flow usable in normal browsers and inside the iPh
 Remaining after APP-041A: approximately **22–36** focused hours (B1–B3b consumed part of the B band). Obsolete tracker estimate of **3 hours** is retired.
 
 ### Exact next action
-**Review APP-041C3**, then Clerk deletion-last → worker/reconciler → admin recovery → later authenticated initiation/UI. **Do not** jump to public UI. **Do not** claim store compliance until end-to-end deletion is proven.
+**APP-041D0 migration-first rollout** (required): approve → hold 22-key production app deploy → apply CAS migration → `NOTIFY pgrst, 'reload schema'` → structural verify → legacy 20-key smoke → deploy 22-key code → 22-key smoke → then APP-041D1. **code-first prohibited; do not race migration vs Vercel.** Canonical SOP: `docs/account-deletion-purge-matrix.md` §8. **Do not** jump to public UI. **Do not** claim store compliance until end-to-end deletion is proven.
 ---
 
 ## Production Clerk 180-day session decision — 2026-07-18
@@ -651,7 +653,7 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 
 ### Next master-plan work block (priority order)
 1. **APP-065** — honest **elapsed-time** long-session validation (IN PROGRESS). Short-cycle post-180-day-config force-close/reopen already PASS; do not close APP-065 on that alone.
-2. **APP-041** — account deletion parent **IN PROGRESS** (B1–B3b + B2b + C1 + **C2 COMPLETE**; **C3** IMPLEMENTED — PENDING REVIEW). Exact next: **review C3 → Clerk-last**. No public deletion capability. Canonical matrix: `docs/account-deletion-purge-matrix.md`.
+2. **APP-041** — account deletion parent **IN PROGRESS** (B1–B3b + B2b + C1 + **C2 COMPLETE**; **C3 COMPLETE**; **D0** migration not applied — pending review). Exact next: **D0 migration-first SOP → D1**. No public deletion capability. Canonical matrix: `docs/account-deletion-purge-matrix.md`.
 3. **APP-015** — external-link policy when a natural link surface is available.
 4. **APP-066** — Client Trust formal confirmation (**not** claimed as already fully passed).
 5. **APP-021 planning gates** — Android Checkpoint B **or** explicit approved iOS-first dependency amendment + estimate confirm/revise + formal DEC-020 close.
@@ -1039,7 +1041,8 @@ Until those steps are done, do **not** treat DEC-020 as closed and do **not** ma
 | APP-041B3b | 10 | WEBSITE | Stripe entitlement anti-resurrection (no public API) | COMPLETE | ~2–4 of B band | NOT RECORDED | APP-041B3a | HEAD `aab8b02…` | **Committed/pushed.** No migration. No public deletion |
 | APP-041C1 | 10 | WEBSITE | Purge/anonymization policy + dependency freeze (docs only) | COMPLETE | ~1–2 | NOT RECORDED | APP-041B2b | `docs/account-deletion-purge-matrix.md`; HEAD `8e5d73b…` | **Committed/pushed.** Docs only at C1. |
 | APP-041C2 | 10 | WEBSITE | Server-only purge RPC + CAS `purge_result` (no public API) | COMPLETE | ~4–8 | | APP-041C1 | migrations `20260719120000_…` + `20260719121000_…` **applied + validated** | Fake-user ROLLBACK + zero-residue passed. No public endpoint. No Clerk delete. |
-| APP-041C3 | 10 | WEBSITE | Application purge orchestrator (no public initiation) | IMPLEMENTED — PENDING REVIEW | ~2–4 | | APP-041C2 | `orchestrate-app-data-purge.ts` | Worktree; no public endpoint; no Clerk delete |
+| APP-041C3 | 10 | WEBSITE | Application purge orchestrator (no public initiation) | COMPLETE | ~2–4 | | APP-041C2 | `orchestrate-app-data-purge.ts` | `7f1a7e0…`; no public endpoint; no Clerk delete |
+| APP-041D0 | 10 | WEBSITE | CAS clerk_result foundation | IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW | ~1–2 | | APP-041C3 | `20260719130000_account_deletion_cas_clerk_result.sql` | Worktree; migration-first apply SOP; do not deploy 22-key code before apply+verify |
 | APP-041C | 10 | WEBSITE | Account UI + deliberate confirmation + reauthentication | NOT STARTED | 3–5 | | APP-041B | | Website flow must work in browser + iPhone WKWebView; required before any public delete initiate route |
 | APP-041D | 10 | WEBSITE | Stripe/SMS race and resurrection hardening | NOT STARTED | 4–8 | | APP-041B | | Webhook/cron/inbound guards; narrow SMS tests |
 | APP-041E | 10 | WEBSITE | Automated tests + physical-iPhone validation | NOT STARTED | 6–10 | | APP-041C,APP-041D | | No private evidence in Git |
@@ -1381,7 +1384,7 @@ APP-000, APP-001, APP-002, APP-003, APP-004, APP-005, APP-006, APP-007, APP-008,
 Two files: `docs/mobile-app-master-plan.md` (spine + task tracker + decision log + risk register + parking lot) and `docs/mobile-app-session-handoff.md` (append-only session log). Split decision log / risk register into their own files only if they outgrow a screen.
 
 ### EXACT NEXT CURSOR PROMPT
-**APP-041B1**, **APP-041B2a**, **APP-041B2b**, **APP-041B3a**, **APP-041B3b**, **APP-041C1**, and **APP-041C2** are **COMPLETE**. **APP-041C3** is **IMPLEMENTED — PENDING REVIEW** (server-only purge orchestrator in worktree; **no public initiation**; no Clerk delete). APP-041 / APP-041B remain **IN PROGRESS**. Exact next: **review C3 → Clerk-last foundation**. Parallel: APP-065, APP-015, APP-066, APP-021 planning. Do **not** mark APP-041 COMPLETE. Do **not** claim end-to-end deletion works.
+**APP-041B1**, **APP-041B2a**, **APP-041B2b**, **APP-041B3a**, **APP-041B3b**, **APP-041C1**, **APP-041C2**, and **APP-041C3** are **COMPLETE**. **APP-041D0** is **IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW**. APP-041 / APP-041B remain **IN PROGRESS**. Exact next: **D0 migration-first SOP** (hold 22-key deploy → apply → schema cache → 20-key smoke → deploy 22-key → then D1). **code-first prohibited.** Parallel: APP-065, APP-015, APP-066, APP-021 planning. Do **not** mark APP-041 COMPLETE. Do **not** claim end-to-end deletion works.
 
 ---
 

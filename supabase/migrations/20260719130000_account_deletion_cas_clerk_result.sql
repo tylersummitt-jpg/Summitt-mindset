@@ -1,0 +1,146 @@
+-- APP-041D0: extend CAS to optionally persist clerk_result (mirrors C2 purge_result).
+-- Additive only. Does NOT delete Clerk, expose HTTP, create workers, or purge app data.
+-- Migration created for review; DO NOT apply until independently reviewed.
+-- Rollout: migration-first REQUIRED (see docs/account-deletion-purge-matrix.md §8).
+-- After apply, manually run: NOTIFY pgrst, 'reload schema';
+-- then structural verify + legacy 20-key smoke BEFORE deploying 22-key app code.
+-- Do NOT embed NOTIFY here (project migrations do not use that convention).
+--
+-- Rollback (before production use):
+--   DROP FUNCTION IF EXISTS public.cas_account_deletion_request(UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN);
+--   -- then restore prior CAS signature from 20260719120000_account_deletion_cas_purge_result.sql
+
+-- Current in-repo C2 signature (20 params):
+--   UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB,
+--   TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN
+-- New signature adds p_clerk_result + p_set_clerk_result (22 params).
+
+DROP FUNCTION IF EXISTS public.cas_account_deletion_request(
+  UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN
+);
+DROP FUNCTION IF EXISTS public.cas_account_deletion_request(
+  UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN
+);
+
+CREATE OR REPLACE FUNCTION public.cas_account_deletion_request(
+  p_request_id UUID,
+  p_expected_status TEXT,
+  p_expected_orchestration_version INTEGER,
+  p_lock_owner TEXT,
+  p_lease_ms INTEGER,
+  p_new_status TEXT,
+  p_new_current_step TEXT,
+  p_steps JSONB,
+  p_last_error_code TEXT DEFAULT NULL,
+  p_last_error_detail TEXT DEFAULT NULL,
+  p_last_retry_at TIMESTAMPTZ DEFAULT NULL,
+  p_completed_at TIMESTAMPTZ DEFAULT NULL,
+  p_clear_errors BOOLEAN DEFAULT false,
+  p_release_lock BOOLEAN DEFAULT false,
+  p_sms_result TEXT DEFAULT NULL,
+  p_set_sms_result BOOLEAN DEFAULT false,
+  p_stripe_result TEXT DEFAULT NULL,
+  p_set_stripe_result BOOLEAN DEFAULT false,
+  p_purge_result TEXT DEFAULT NULL,
+  p_set_purge_result BOOLEAN DEFAULT false,
+  p_clerk_result TEXT DEFAULT NULL,
+  p_set_clerk_result BOOLEAN DEFAULT false
+)
+RETURNS SETOF public.account_deletion_requests
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+DECLARE
+  v_owner TEXT := trim(coalesce(p_lock_owner, ''));
+  v_lease_ms INTEGER := coalesce(p_lease_ms, 120000);
+BEGIN
+  IF p_request_id IS NULL
+     OR length(v_owner) = 0
+     OR p_expected_status IS NULL
+     OR p_new_status IS NULL
+     OR p_new_current_step IS NULL
+     OR p_steps IS NULL
+     OR p_expected_orchestration_version IS NULL THEN
+    RETURN;
+  END IF;
+  IF v_lease_ms < 1000 OR v_lease_ms > 3600000 THEN
+    RETURN;
+  END IF;
+  IF p_set_sms_result THEN
+    IF p_sms_result IS NULL
+       OR p_sms_result NOT IN ('pending', 'ok', 'skipped', 'already_done', 'failed') THEN
+      RETURN;
+    END IF;
+  END IF;
+  IF p_set_stripe_result THEN
+    IF p_stripe_result IS NULL
+       OR p_stripe_result NOT IN ('pending', 'ok', 'skipped', 'already_done', 'failed') THEN
+      RETURN;
+    END IF;
+  END IF;
+  IF p_set_purge_result THEN
+    IF p_purge_result IS NULL
+       OR p_purge_result NOT IN ('pending', 'ok', 'skipped', 'already_done', 'failed') THEN
+      RETURN;
+    END IF;
+  END IF;
+  IF p_set_clerk_result THEN
+    IF p_clerk_result IS NULL
+       OR p_clerk_result NOT IN ('pending', 'ok', 'skipped', 'already_done', 'failed') THEN
+      RETURN;
+    END IF;
+  END IF;
+
+  RETURN QUERY
+  UPDATE public.account_deletion_requests AS r
+  SET
+    status = p_new_status,
+    current_step = p_new_current_step,
+    steps = p_steps,
+    updated_at = now(),
+    last_error_code = CASE
+      WHEN p_clear_errors THEN NULL
+      ELSE coalesce(p_last_error_code, r.last_error_code)
+    END,
+    last_error_detail = CASE
+      WHEN p_clear_errors THEN NULL
+      ELSE coalesce(p_last_error_detail, r.last_error_detail)
+    END,
+    last_retry_at = coalesce(p_last_retry_at, r.last_retry_at),
+    completed_at = coalesce(p_completed_at, r.completed_at),
+    lock_owner = CASE WHEN p_release_lock THEN NULL ELSE r.lock_owner END,
+    locked_at = CASE WHEN p_release_lock THEN NULL ELSE r.locked_at END,
+    sms_result = CASE
+      WHEN p_set_sms_result THEN p_sms_result
+      ELSE r.sms_result
+    END,
+    stripe_result = CASE
+      WHEN p_set_stripe_result THEN p_stripe_result
+      ELSE r.stripe_result
+    END,
+    purge_result = CASE
+      WHEN p_set_purge_result THEN p_purge_result
+      ELSE r.purge_result
+    END,
+    clerk_result = CASE
+      WHEN p_set_clerk_result THEN p_clerk_result
+      ELSE r.clerk_result
+    END
+  WHERE r.id = p_request_id
+    AND r.status = p_expected_status
+    AND r.orchestration_version = p_expected_orchestration_version
+    AND r.lock_owner = v_owner
+    AND r.locked_at IS NOT NULL
+    AND r.locked_at >= (now() - (v_lease_ms::double precision * INTERVAL '1 millisecond'))
+  RETURNING r.*;
+END;
+$$;
+
+COMMENT ON FUNCTION public.cas_account_deletion_request(UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN) IS
+  'APP-041D0: CAS with optional non-null sms_result, stripe_result, purge_result, and clerk_result. Active lease + server now(). Service-role only.';
+
+REVOKE ALL ON FUNCTION public.cas_account_deletion_request(UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.cas_account_deletion_request(UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN) FROM anon;
+REVOKE ALL ON FUNCTION public.cas_account_deletion_request(UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.cas_account_deletion_request(UUID, TEXT, INTEGER, TEXT, INTEGER, TEXT, TEXT, JSONB, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, BOOLEAN, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN, TEXT, BOOLEAN) TO service_role;

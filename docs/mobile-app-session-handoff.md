@@ -836,3 +836,33 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Explicit non-claims
 - Account deletion is not end-to-end complete; users cannot delete accounts; app-store compliance not complete; Clerk deletion does not exist; real account deletion not tested
+
+## SESSION 22 — 2026-07-19 — APP-041C3 COMPLETE + APP-041D0 clerk_result CAS (worktree)
+
+### Repository identity
+- HEAD: `7f1a7e022a50f123c3dbf82b510a0ef5f2bf40ee` (C3 COMPLETE)
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### D0 what changed
+- Migration `20260719130000_account_deletion_cas_clerk_result.sql` — 22-arg CAS adds `p_clerk_result` / `p_set_clerk_result` (mirrors purge_result; **not applied**)
+- Repository: `clerkResult` on transition / leased patch / failure recorder / optional completion helper; in-memory + Supabase CAS mirrors
+- Tests: D0 static migration + repository wiring; existing account-deletion suite green
+
+### Status
+- **APP-041C3:** COMPLETE
+- **APP-041D0:** IMPLEMENTED — MIGRATION NOT APPLIED — PENDING REVIEW
+- **APP-041D1:** blocked until D0 migration-first apply + schema-cache verify + 20-key smoke + 22-key deploy/smoke
+- No Clerk adapter/orchestrator; no real Clerk call; no public initiation/UI; no worker/cron
+
+### Rollout (corrected — migration-first required)
+- **Required:** migration-first. **Prohibited:** code-first; racing migration vs Vercel deploy; keeping 20- and 22-arg overloads; reverting to 20-arg while 22-key code is live.
+- **Why:** old 20-key callers can invoke the new 22-arg function (Clerk args are trailing defaults). New 22-key callers cannot invoke the old 20-arg function. PostgREST schema cache must see the new function before 22-key app deploy.
+- **SOP:** approve → hold 22-key production app deploy → apply `20260719130000_account_deletion_cas_clerk_result.sql` → `NOTIFY pgrst, 'reload schema';` (mandatory manual step; not in migration) → structural verify (one 22-arg fn; grants; SECURITY INVOKER; search_path) → legacy 20-key smoke (preserves `clerk_result`) → deploy 22-key code → 22-key smoke → then D1.
+- Canonical detail: `docs/account-deletion-purge-matrix.md` §8.
+
+### Exact next
+- Complete D0 migration-first SOP above; only then resume APP-041D1 Clerk deletion-last (injected)
+
+### Explicit non-claims
+- Migration not applied; schema cache not reloaded; compatibility smoke not completed; D0 not complete; D1 not started; Clerk deletion not live; users cannot delete accounts; app-store compliance not complete
