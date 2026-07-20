@@ -63,6 +63,14 @@ export function Navbar() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // Native-app sign-in surface: suppress website marketing chrome in WKWebView.
+  if (
+    pathname === "/app/sign-in" ||
+    (pathname?.startsWith("/app/sign-in/") ?? false)
+  ) {
+    return null;
+  }
+
   const startFreeTrialHref = isCoachLeadershipKitPath(pathname)
     ? SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT
     : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;

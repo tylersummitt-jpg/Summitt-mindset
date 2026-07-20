@@ -1339,3 +1339,34 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Historical note
 - SESSION 35 and earlier entries that say F4b pending/uncommitted, “no real E2E,” “APP-021 open,” or POC-only identity are **historical** and **superseded** by this SESSION 36 reconciliation and master-plan v1.5.12.
+## SESSION 37 — 2026-07-20 — App-specific `/app/sign-in` email-code surface (website)
+
+### Session summary
+- Date: 2026-07-20
+- Tasks attempted (IDs): APP-061 preferred mechanism implementation (website `/app/sign-in`)
+- Tasks completed (IDs): website `/app/sign-in` custom Clerk `useSignIn` email-code flow (DEC-018)
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `d306acc7645d6abb1037e544d72bffaabfe16d84`
+- Mobile repository: **not edited**
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Public `/app/sign-in` implements preferred APP-061 custom `useSignIn` email verification-code flow on the **same** Clerk production instance.
+2. No Google / Apple / social buttons on `/app/sign-in`.
+3. Normal website `/sign-in` unchanged; Google may remain there.
+4. Signed-in visitors and successful email-code sign-in redirect to `/dashboard/victory-room`.
+5. Arbitrary external `redirect_url` query params are ignored on `/app/sign-in`.
+6. **Sign in with Apple not added for V1.**
+7. **Next required slice:** point the mobile WKWebView start URL at `/app/sign-in` (mobile-repo change — not done here).
+
+### Explicit non-claims
+- Mobile start URL / LiveShellViewController not changed
+- Physical-device proof of `/app/sign-in` inside the native shell not claimed
+- Sign in with Apple not added
+- Google not globally disabled

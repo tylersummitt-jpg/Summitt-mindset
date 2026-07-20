@@ -67,6 +67,8 @@ const isPublicRoute = createRouteMatcher([
   // Clerk auth pages should always be public
   "/sign-in(.*)",
   "/sign-up(.*)",
+  // Native-app email-code sign-in (DEC-018 / APP-061) — same Clerk instance
+  "/app/sign-in(.*)",
 
   // Webhooks must be public
   "/api/webhooks(.*)",
