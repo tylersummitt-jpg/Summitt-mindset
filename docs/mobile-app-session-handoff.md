@@ -1273,3 +1273,69 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Explicit non-claims
 - Deletion testing has not begun; scheduler is not enabled; test mode is not enabled; a designated account does not exist in env; public deletion is not available; store compliance is not complete; no real deletion request created
+
+---
+
+## SESSION 36 — 2026-07-20 — Documentation reconciliation (v1.5.12)
+
+### Session summary
+- Date: 2026-07-20
+- Tasks attempted (IDs): documentation reconciliation — APP-021, APP-022 identity, APP-041F4b/E2E, DEC-019/020/023
+- Tasks completed (IDs): docs-only status reconciliation (no application code)
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `e56b9f14fa86afb6d608d2f6d6c48da167d8b523`
+- Mobile path: `/Users/tylersummitt/Desktop/summitt-mindset-mobile` (**read-only this session**)
+- Mobile branch: `main`
+- Mobile HEAD discovered: `5aba6f2333eec0c28b97a6659eb867241cb797ff` — `configure mobile app identity` (2026-07-20)
+- Mobile worktree: clean
+- Staged?: no
+- Committed?: no (docs worktree only)
+- Pushed?: no
+
+### Authoritative facts recorded
+1. **Candidate A2 FORMALLY ACCEPTED for V1 iOS-first** (APP-021 COMPLETE / DEC-020 CLOSED for iOS). Android deferred/unvalidated; no Android project.
+2. **Production mobile identity** (mobile `5aba6f2…`): display name **Summitt Mindset**; Apple bundle ID **com.summittmindset.app**; intended Android package **com.summittmindset.app**. POC identity removed from active config. Portal App ID / Play reservation **not** claimed.
+3. **APP-041F4b COMPLETE** at website `e56b9f1…`.
+4. **APP-041 controlled production E2E PASS (2026-07-20)** on disposable designated test account: request via hidden designated-test UI → SMS suppress → live Stripe trial cancel → Supabase purge → Clerk delete last → `completed`/`completed`; consistency ok; lease released; no error code. Sanitized: 28 purgeable rows / 18 nonzero tables; active trial + SMS + real Supabase data; zero prior deletion requests. **No private identifiers recorded.**
+5. Temporary test env vars removed afterward (`ACCOUNT_DELETION_SCHEDULER_ENABLED`, `ACCOUNT_DELETION_TEST_MODE_ENABLED`, `ACCOUNT_DELETION_TEST_CLERK_USER_ID`); `ACCOUNT_DELETION_INITIATION_ENABLED` remains absent; production redeployed green. **Public deletion intentionally disabled.**
+6. Auth (DEC-018) and payments (no in-app selling) postures preserved. Dedicated app-specific sign-in mechanism still not claimed complete.
+7. Platform sequence: Apple/iOS first → Android later when iOS sufficiently stable.
+
+### Docs changed
+- `docs/mobile-app-master-plan.md` → v1.5.12
+- `docs/mobile-app-session-handoff.md` (this entry)
+- `docs/account-deletion-purge-matrix.md`
+
+### Status after reconciliation
+- APP-021: **COMPLETE** (iOS-first A2)
+- APP-022: **COMPLETE** for iOS identity + existing A2 shell (Android project not added)
+- APP-041F4b: **COMPLETE**
+- APP-041 controlled E2E: **PASS**
+- APP-041 parent: **IN PROGRESS** (store-facing privacy/docs + public activation remaining)
+- DEC-019: **ACTIVE** (iOS-first)
+- DEC-020: **ACTIVE (CLOSED for V1 iOS)**
+- DEC-023: **ACTIVE (backend proven; public activation open)**
+
+### Exact next
+1. Finish APP-041 store-facing privacy/deletion documentation
+2. Implement/verify app-specific email-only sign-in/access
+3. Verify deletion discoverability in the native shell before public activation
+4. iOS production hardening / privacy / assets
+5. Apple Developer / App Store Connect / TestFlight
+6. Android later
+
+### Explicit non-claims
+- Public deletion is not enabled
+- Apple Developer enrollment / App Store Connect app / TestFlight / Apple submission not claimed complete
+- Android project / Play Console not claimed
+- App-specific sign-in surface implementation not claimed complete
+- Store icons/screenshots / privacy forms not claimed complete
+- IAP / Play Billing not claimed
+- 180-day elapsed session persistence (APP-065) not proven
+
+### Historical note
+- SESSION 35 and earlier entries that say F4b pending/uncommitted, “no real E2E,” “APP-021 open,” or POC-only identity are **historical** and **superseded** by this SESSION 36 reconciliation and master-plan v1.5.12.

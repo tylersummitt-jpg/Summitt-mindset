@@ -1,13 +1,13 @@
 # APP-041C1 — Account deletion purge / anonymization matrix
 
-**Status:** C1 COMPLETE; **C2 COMPLETE** (applied + production-validated); **C3 COMPLETE** (`7f1a7e022a50f123c3dbf82b510a0ef5f2bf40ee`); **D0 COMPLETE** (`0c3fe21f888be68111a2f807a3aca4d91ec2eba6`); **D1 IMPLEMENTED — PENDING REVIEW**
+**Status:** C1–C3 COMPLETE; D0–D1 COMPLETE; E1–E4d COMPLETE; F1 APPROVED; F2–F4b COMPLETE; **controlled production E2E PASS (2026-07-20)**; **public initiation intentionally disabled**
 **Canonical for:** APP-041C data-deletion specification
-**Repository HEAD at C2 complete:** `176da7011ade7698a9b738485f629bde239b838a`
-**Date:** 2026-07-19
+**Website HEAD at F4b COMPLETE:** `e56b9f14fa86afb6d608d2f6d6c48da167d8b523`
+**Date:** 2026-07-19 (matrix freeze); **reconciled 2026-07-20**
 
-This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. C2 purge SQL/RPC is applied and was validated with transactional fake-user target/survivor + post-rollback zero-residue proof. C3 is a server-only orchestrator in the worktree (pending review). This document does **not** authorize public deletion UI.
+This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. C2 purge SQL/RPC is applied and was validated with transactional fake-user target/survivor + post-rollback zero-residue proof. The coordinated pipeline was additionally proven on a disposable production account (2026-07-20). This document does **not** authorize public deletion UI.
 
-**Do not claim:** end-to-end account deletion works; real user data was deleted in validation; privacy policy was updated; legal review occurred; public deletion works; store compliance is complete; C3 is reviewed/approved.
+**Do not claim:** public account deletion is enabled; privacy policy was updated; legal review occurred; store compliance package is complete; portal apps are reserved.
 
 ---
 
@@ -334,13 +334,17 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041F4a:** **COMPLETE** at `066d0045c2495a75dd5b1992816a10fba142cf0d` — pre-activation initiation hardening: strict existing-row coherence via canonical structural consistency; wrapper race coverage; route body override rejection; runtime UI/reverification tests; focus/keyboard hardening; `/user` `force-dynamic`. Production build green; Danger Zone remains hidden; both flags remain off; **no** real deletion request created.
 
-**APP-041F4b:** **IMPLEMENTED — INERT — PENDING REVIEW** — designated test-account allowlist foundation: centralized public vs designated-test initiation access; exact Clerk user ID + exact `ACCOUNT_DELETION_TEST_MODE_ENABLED` + scheduler required for test path; shared by route and `/user`. **No** environment variables configured; **no** real test account chosen; **no** real deletion request created; public initiation remains off; scheduler remains off; Danger Zone remains hidden.
+**APP-041F4b:** **COMPLETE** at `e56b9f14fa86afb6d608d2f6d6c48da167d8b523` — designated test-account allowlist foundation: centralized public vs designated-test initiation access; exact Clerk user ID + exact `ACCOUNT_DELETION_TEST_MODE_ENABLED` + scheduler required for test path; shared by route and `/user`.
+
+**APP-041 controlled production E2E:** **PASS (2026-07-20)** — disposable designated test account completed the full coordinated workflow (request via hidden designated-test UI → SMS suppression → live Stripe trial cancellation → Supabase purge → Clerk deletion last → `completed`/`completed`; consistency ok; lease released; no error code). Sanitized preconditions: active live Stripe trial; active SMS number; real production Supabase data; 28 pre-deletion purgeable rows across 18 nonzero tables; zero pre-existing deletion requests. **No private identifiers recorded here.**
+
+**Post-E2E production state:** temporary env vars `ACCOUNT_DELETION_SCHEDULER_ENABLED`, `ACCOUNT_DELETION_TEST_MODE_ENABLED`, and `ACCOUNT_DELETION_TEST_CLERK_USER_ID` were **removed**; `ACCOUNT_DELETION_INITIATION_ENABLED` remains **absent**; production redeployed green. **Public account deletion remains intentionally disabled.**
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Next after F4b review:** independent F4b review → commit/deploy inert → choose/create disposable designated test account → prepare controlled environment-variable window → execute one end-to-end test only after explicit approval → no public activation yet.
+**Exact next (store-facing):** finish APP-041 privacy/deletion documentation (privacy wording, retained-data explanation, improve `/data-deletion` as Google’s external resource) → verify deletion discoverability in the native shell → only later explicitly approved public activation. Do **not** rebuild the deletion backend.
 
-Do **not** claim: users can delete accounts; initiation is enabled; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted; a real deletion was tested; deletion testing has begun; test mode is enabled; a designated account exists.
+Do **not** claim: public initiation is enabled; users can self-serve delete today; store compliance is complete; privacy policy was updated; Apple/Google portals reserved apps; Android exists.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 
@@ -350,16 +354,15 @@ Do **not** claim: users can delete accounts; initiation is enabled; scheduler is
 
 ## 9. Explicit non-claims
 
-C2 migrations are **applied** and were structurally verified in production; transactional fake-user target/survivor validation and post-rollback zero-residue proof **passed**. That does **not** mean:
+C2 migrations are **applied** and were structurally verified in production; transactional fake-user target/survivor validation and post-rollback zero-residue proof **passed**. The **2026-07-20 controlled disposable-account E2E** additionally proved the live coordinated pipeline (SMS → Stripe → purge → Clerk last) on a real disposable production account.
 
-- any real user data was deleted
+That does **not** mean:
+
+- public account deletion is enabled today
 - privacy policy was updated
 - legal counsel reviewed the schedule
-- public account deletion works
-- app-store deletion compliance is complete
-- Clerk or Stripe customers were deleted
-- all legacy email-only challenge rows were removed
-- C3 is reviewed/approved or publicly reachable
-- end-to-end deletion works
-- a worker/cron initiates deletion
-- users can self-serve account deletion today
+- app-store deletion compliance package is complete
+- all legacy email-only challenge rows were removed across the entire product
+- users can self-serve account deletion without designated-test or public flags
+- Apple App Store Connect / Google Play apps are reserved
+- Android deletion parity was tested
