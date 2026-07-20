@@ -4,7 +4,7 @@
  * Twilio, or real deletion requests.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,10 +62,24 @@ const REAUTH = join(
   ROOT,
   "src/lib/account-deletion/verify-account-deletion-reauthentication.ts"
 );
+const MIDDLEWARE = join(ROOT, "src/middleware.ts");
 const USER_PAGE = join(ROOT, "src/app/user/[[...user]]/page.tsx");
+const CANCEL_PAGE = join(ROOT, "src/app/cancel/page.tsx");
+const ADMIN_DELETIONS_PAGE = join(
+  ROOT,
+  "src/app/admin/account-deletions/page.tsx"
+);
 const VERCEL = join(ROOT, "vercel.json");
 const USER_ID = "user_f2_test_owner";
 const OTHER_USER = "user_f2_other";
+
+/** Parse string literals from middleware createRouteMatcher([...]). */
+function middlewarePublicRoutePatterns(): string[] {
+  const src = readFileSync(MIDDLEWARE, "utf8");
+  const block = src.match(/createRouteMatcher\(\[([\s\S]*?)\]\)/);
+  expect(block).not.toBeNull();
+  return [...(block![1].matchAll(/"([^"]+)"/g))].map((m) => m[1]);
+}
 
 function allowReauth() {
   return vi.fn(async () => ({ ok: true as const }));
@@ -568,7 +582,7 @@ describe("APP-041F2 route wrapper", () => {
     }
   });
 
-  it("1–5 + 50. unauthenticated → 401 no-store; no create", async () => {
+  it("1–5 + 50. unauthenticated → 401 JSON no-store; no redirect/reauth/create", async () => {
     authMock.mockResolvedValue({ userId: null, has: undefined });
     const { POST } = await import("@/app/api/account/delete/route");
     const res = await POST(
@@ -578,6 +592,9 @@ describe("APP-041F2 route wrapper", () => {
       })
     );
     expect(res.status).toBe(401);
+    expect(res.status).not.toBe(307);
+    expect(res.status).not.toBe(302);
+    expect(res.headers.get("Location")).toBeNull();
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     expect(await res.json()).toEqual({ ok: false, code: "unauthorized" });
     expect(createMock).not.toHaveBeenCalled();
@@ -689,8 +706,49 @@ describe("APP-041F2 route wrapper", () => {
   });
 });
 
+describe("APP-041F2 middleware pass-through (exact path)", () => {
+  it("exact /api/account/delete allowlisted; no account wildcard; pages stay protected", async () => {
+    const { createRouteMatcher } = await vi.importActual<
+      typeof import("@clerk/nextjs/server")
+    >("@clerk/nextjs/server");
+    const patterns = middlewarePublicRoutePatterns();
+
+    expect(patterns).toContain("/api/account/delete");
+    expect(patterns.filter((p) => p.includes("/api/account"))).toEqual([
+      "/api/account/delete",
+    ]);
+    expect(
+      patterns.some((p) => p === "/api/account(.*)" || p === "/api/(.*)")
+    ).toBe(false);
+    expect(patterns.some((p) => p.includes("/user"))).toBe(false);
+    expect(patterns.some((p) => p.includes("/cancel"))).toBe(false);
+    expect(patterns.some((p) => p.includes("/admin"))).toBe(false);
+    expect(patterns.some((p) => p.includes("/dashboard"))).toBe(false);
+
+    const isPublicRoute = createRouteMatcher(patterns);
+    const req = (path: string) =>
+      ({
+        nextUrl: { pathname: path },
+      }) as Parameters<typeof isPublicRoute>[0];
+
+    expect(isPublicRoute(req("/api/account/delete"))).toBe(true);
+    expect(isPublicRoute(req("/api/account/delete/extra"))).toBe(false);
+    expect(isPublicRoute(req("/api/account"))).toBe(false);
+    expect(isPublicRoute(req("/api/account/other"))).toBe(false);
+    expect(isPublicRoute(req("/user"))).toBe(false);
+    expect(isPublicRoute(req("/cancel"))).toBe(false);
+    expect(isPublicRoute(req("/admin/account-deletions"))).toBe(false);
+    expect(isPublicRoute(req("/dashboard"))).toBe(false);
+
+    // Pages remain auth-gated in app code as well (defense in depth).
+    expect(readFileSync(USER_PAGE, "utf8")).toMatch(/auth|Clerk|user/i);
+    expect(readFileSync(CANCEL_PAGE, "utf8")).toContain('redirect("/sign-in")');
+    expect(existsSync(ADMIN_DELETIONS_PAGE)).toBe(true);
+  });
+});
+
 describe("APP-041F2 no-scope / reachability proofs", () => {
-  it("51–60. no inline stages/providers/UI/vercel/migration", () => {
+  it("51–60. no inline stages/providers/UI/vercel/migration; flags off", () => {
     for (const file of [ROUTE, CORE, WRAPPER, REAUTH]) {
       const src = readFileSync(file, "utf8");
       expect(src).not.toMatch(
@@ -700,6 +758,12 @@ describe("APP-041F2 no-scope / reachability proofs", () => {
       expect(src).not.toContain('"use server"');
       expect(src).not.toMatch(/signOut|revokeSession|sessions\.revoke/);
     }
+
+    const middlewareSrc = readFileSync(MIDDLEWARE, "utf8");
+    expect(middlewareSrc).toContain('"/api/account/delete"');
+    expect(middlewareSrc).not.toMatch(
+      /executeTrustedAccountDeletionReconcile|suppressSmsForDeletion|acquireAccountDeletionLease/
+    );
 
     const routeSrc = readFileSync(ROUTE, "utf8");
     expect(routeSrc).toContain('export const runtime = "nodejs"');
@@ -726,6 +790,8 @@ describe("APP-041F2 no-scope / reachability proofs", () => {
     expect(process.env[ACCOUNT_DELETION_INITIATION_ENABLED_ENV]).not.toBe(
       "true"
     );
-    // Do not assert scheduler env in this process beyond "not forcing true here".
+    expect(process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV]).not.toBe(
+      "true"
+    );
   });
 });

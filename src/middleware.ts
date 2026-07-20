@@ -14,16 +14,19 @@ import {
  * Clerk Middleware — Public Routes (CANONICAL)
  * ======================================================
  *
- * Public (no Clerk session required):
+ * Public / middleware pass-through (no Clerk session redirect):
  * - Marketing pages + policies
  * - Auth pages
  * - Webhooks (Stripe, etc.)
  * - Twilio (verification + incoming webhooks)
  * - Cron jobs (Vercel cron -> our server auth, not Clerk)
+ * - Exact POST /api/account/delete (APP-041F2): route owns auth/401 JSON
  *
  * NOTE:
  * Cron + Twilio must be public because they are server-to-server calls.
  * We secure them inside the route with secrets/signatures.
+ * /api/account/delete pass-through is NOT unauthenticated mutation —
+ * the handler still requires auth().userId.
  */
 
 const isPublicRoute = createRouteMatcher([
@@ -80,6 +83,10 @@ const isPublicRoute = createRouteMatcher([
 
   // ✅ Twilio routes must be public (secured by Twilio signature inside handler)
   "/api/twilio(.*)",
+
+  // APP-041F2: middleware pass-through only (exact path). Route still owns
+  // auth().userId → 401 JSON; not an unauthenticated mutation allow.
+  "/api/account/delete",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
