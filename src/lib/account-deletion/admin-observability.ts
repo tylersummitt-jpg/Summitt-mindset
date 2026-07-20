@@ -7,7 +7,8 @@
  * Structural consistency priority (first match wins):
  * 1. unsupported_version
  * 2. malformed_lease
- * 3. completed_at_mismatch (completed missing completed_at, or non-completed with completed_at)
+ * 3. completed_at_mismatch (malformed completed_at; completed missing completed_at;
+ *    or non-completed with completed_at)
  * 4. missing_clerk_marker (completed without canonical valid Clerk marker)
  * 5. illegal_status_step
  * 6. missing_purge_marker (statuses that require a canonical valid purge marker,
@@ -250,6 +251,13 @@ export function evaluateAccountDeletionStructuralConsistency(
     return {
       structurallyConsistent: false,
       inconsistencyCode: "malformed_lease",
+    };
+  }
+
+  if (row.completed_at != null && Number.isNaN(Date.parse(row.completed_at))) {
+    return {
+      structurallyConsistent: false,
+      inconsistencyCode: "completed_at_mismatch",
     };
   }
 

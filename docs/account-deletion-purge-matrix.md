@@ -330,13 +330,15 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041F2:** **COMPLETE** at `f69b7ff1c76491eb32fb354a4dcb239daf91f20f` — authenticated idempotent initiation foundation: `POST /api/account/delete`; dual gate; server-derived identity/key; exact `DELETE`; Clerk `has({ reverification: "strict" })` fail-closed; middleware exact pass-through for route-owned 401. Production smoke: unauthenticated HTTP 401 `unauthorized`; authenticated flags-off HTTP 503 `account_deletion_initiation_disabled`. **No** real deletion request created; both flags remain off; scheduler processing remains disabled.
 
-**APP-041F3:** **IMPLEMENTED — HIDDEN — PENDING REVIEW** — `/user` Danger Zone UI behind exact `ACCOUNT_DELETION_INITIATION_ENABLED === "true"`; Clerk client `useReverification`; two-step consequences + typed `DELETE` confirmation; POST only to `/api/account/delete`; **no** public visibility while initiation flag off; backend remains dual-gated; **no** real deletion request created; **no** scheduler enablement.
+**APP-041F3:** **COMPLETE** at `ad3fc20d8ecb9022ec3195fb4f1b093aeb6ab7fd` — `/user` Danger Zone behind exact `ACCOUNT_DELETION_INITIATION_ENABLED === "true"`; Clerk `useReverification`; browser-safe initiation contract (client/server boundary); Vercel build passed; production `/user` smoke: no Danger zone / Delete account UI while flag off. Backend remains dual-gated; both flags remain off; **no** real deletion request created.
+
+**APP-041F4a:** **IMPLEMENTED — HIDDEN — PENDING REVIEW** — pre-activation initiation hardening: strict existing-row coherence via canonical structural consistency; wrapper race coverage; route body override rejection; runtime UI/reverification tests; focus/keyboard hardening; `/user` `force-dynamic`. Both flags remain off; **no** public visibility; **no** real deletion request created; **no** scheduler enablement; **no** designated test-account allowlist yet.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Next after F3 review:** independent F3 review → commit/deploy hidden → production proof Danger Zone absent while flag off → controlled F4 designated test-account plan → no public activation yet.
+**Next after F4a review:** independent F4a review → commit/deploy hidden → repeat hidden production smoke → design designated test-account allowlist and controlled F4b test window → no public activation yet.
 
-Do **not** claim: users can delete accounts; initiation is enabled; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
+Do **not** claim: users can delete accounts; initiation is enabled; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted; a real deletion was tested.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 

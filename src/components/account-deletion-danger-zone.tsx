@@ -2,6 +2,7 @@
 
 /**
  * APP-041F3 — Account deletion Danger Zone (UI gate only).
+ * APP-041F4a — focus/keyboard hardening + unauthorized submit polish.
  *
  * Mounted by the server Account page only when the initiation flag is
  * exactly enabled. Backend remains dual-gated. No Clerk IDs, request IDs,
@@ -60,8 +61,14 @@ export default function AccountDeletionDangerZone() {
   const panelId = useId();
   const inputId = useId();
   const liveId = useId();
+  const consequencesHeadingId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const consequencesHeadingRef = useRef<HTMLHeadingElement>(null);
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const confirmationInputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
+  const prevUiStateRef = useRef<AccountDeletionDangerZoneUiState>("idle");
 
   const [uiState, setUiState] =
     useState<AccountDeletionDangerZoneUiState>("idle");
@@ -113,6 +120,32 @@ export default function AccountDeletionDangerZone() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [resetFlow, uiState]);
 
+  // Focus management on step transitions (inline panel — not a dialog).
+  useEffect(() => {
+    const prev = prevUiStateRef.current;
+    prevUiStateRef.current = uiState;
+    if (prev === uiState) return;
+
+    queueMicrotask(() => {
+      if (uiState === "consequences" && prev === "idle") {
+        (consequencesHeadingRef.current ?? continueRef.current)?.focus();
+        return;
+      }
+      if (uiState === "confirmation" && prev === "consequences") {
+        confirmationInputRef.current?.focus();
+        return;
+      }
+      if (
+        uiState === "accepted" ||
+        uiState === "existing" ||
+        uiState === "already_completed" ||
+        uiState === "disabled"
+      ) {
+        resultRef.current?.focus();
+      }
+    });
+  }, [uiState]);
+
   const onSubmit = useCallback(async () => {
     if (!canSubmitAccountDeletionConfirmation(uiState, confirmationInput)) {
       return;
@@ -127,6 +160,11 @@ export default function AccountDeletionDangerZone() {
       const body = await enhancedPost();
       const mapped = mapAccountDeletionInitiationResponse(body);
       if (mapped.redirectToSignIn) {
+        // Leave submitting before navigation so delayed/blocked redirects
+        // do not leave a stuck "Submitting…" control.
+        setMessage(mapped.message);
+        setUiState("error");
+        inFlightRef.current = false;
         window.location.assign("/sign-in");
         return;
       }
@@ -193,7 +231,12 @@ export default function AccountDeletionDangerZone() {
             uiState === "submitting" ||
             uiState === "error" ? (
               <>
-                <h3 className="font-semibold text-stone-100">
+                <h3
+                  id={consequencesHeadingId}
+                  ref={consequencesHeadingRef}
+                  tabIndex={-1}
+                  className="font-semibold text-stone-100 outline-none"
+                >
                   {ACCOUNT_DELETION_CONSEQUENCES_TITLE}
                 </h3>
                 <p className={utBody}>{ACCOUNT_DELETION_CONSEQUENCES_INTRO}</p>
@@ -219,6 +262,7 @@ export default function AccountDeletionDangerZone() {
                   Cancel
                 </button>
                 <button
+                  ref={continueRef}
                   type="button"
                   className="inline-flex w-full justify-center rounded-md border border-red-400/50 bg-red-900/40 px-5 py-2 text-sm font-semibold text-red-50 transition hover:bg-red-800/50 focus:outline-none focus:ring-2 focus:ring-red-400/60 focus:ring-offset-2 focus:ring-offset-[#111827] sm:w-auto"
                   onClick={openConfirmation}
@@ -236,6 +280,7 @@ export default function AccountDeletionDangerZone() {
                   {ACCOUNT_DELETION_CONFIRM_INSTRUCTION}
                 </label>
                 <input
+                  ref={confirmationInputRef}
                   id={inputId}
                   type="text"
                   name="account-deletion-confirmation"
@@ -293,7 +338,9 @@ export default function AccountDeletionDangerZone() {
 
         {resultOpen ? (
           <div
-            className="mt-4 space-y-3 border-t border-red-500/25 pt-4"
+            ref={resultRef}
+            tabIndex={-1}
+            className="mt-4 space-y-3 border-t border-red-500/25 pt-4 outline-none"
             role="status"
             aria-live="polite"
             id={liveId}

@@ -29,10 +29,16 @@ import {
   createAccountDeletionRequest,
   getUnresolvedAccountDeletionRequestForUser,
   markAccountDeletionCompleted,
+  patchAccountDeletionRequestWhileLeased,
   recordAccountDeletionFailure,
   transitionAccountDeletionRequest,
   useInMemoryAccountDeletionStoreForTests,
 } from "./repository";
+import { APP_DATA_PURGE_RPC_STEP } from "./orchestrate-app-data-purge";
+import {
+  CLERK_DELETE_RPC_MARKER_DETAIL,
+  CLERK_DELETE_RPC_STEP,
+} from "./orchestrate-clerk-deletion";
 import {
   ACCOUNT_DELETION_CONFIRMATION_VALUE,
   ACCOUNT_DELETION_INITIATION_DISABLED_CODE,
@@ -447,6 +453,27 @@ describe("APP-041F2 idempotent initiation wrapper (in-memory)", () => {
       });
       expect(t.ok).toBe(true);
     }
+    const at = new Date().toISOString();
+    const withMarkers = await patchAccountDeletionRequestWhileLeased({
+      requestId: created.value.row.id,
+      expectedStatus: "deleting_clerk",
+      lockOwner: "account-deletion-cron:f2",
+      steps: {
+        [APP_DATA_PURGE_RPC_STEP]: {
+          at,
+          ok: true,
+          code: "purged",
+          detail: "limitations:0;categories:1;deleted_total:1",
+        },
+        [CLERK_DELETE_RPC_STEP]: {
+          at,
+          ok: true,
+          code: "deleted",
+          detail: CLERK_DELETE_RPC_MARKER_DETAIL,
+        },
+      },
+    });
+    expect(withMarkers.ok).toBe(true);
     const done = await markAccountDeletionCompleted({
       requestId: created.value.row.id,
       fromStatus: "deleting_clerk",

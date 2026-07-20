@@ -7,7 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    environmentMatchGlobs: [
+      // Prefer projects later; matchGlobs still works for this slice.
+      ["**/*.runtime.test.tsx", "jsdom"],
+    ],
   },
   resolve: {
     alias: {

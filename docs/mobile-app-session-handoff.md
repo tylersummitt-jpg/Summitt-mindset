@@ -1171,3 +1171,34 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Explicit non-claims
 - Users cannot delete accounts; initiation is not enabled; Danger Zone is not publicly visible; scheduler processing is not active; no real deletion request created; store compliance is not complete; both flags are not enabled
+
+## SESSION 34 — 2026-07-20 — APP-041F4a pre-activation initiation hardening (worktree)
+
+### Repository identity
+- F3 COMPLETE commit: `ad3fc20d8ecb9022ec3195fb4f1b093aeb6ab7fd`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### F3 production truth
+- Deployed hidden; Vercel build passed; `/user` smoke: no Danger zone / Delete account UI
+- Both flags off; no real deletion request created; scheduler processing disabled
+
+### F4a what changed (worktree; pending review)
+- Strict existing-row coherence via `evaluateAccountDeletionStructuralConsistency` (incl. malformed `completed_at`)
+- Wrapper identity check + race/fake coverage; route rejects extra `userId`/`idempotencyKey`
+- Runtime UI + mocked `useReverification` tests (jsdom + Testing Library)
+- Focus/keyboard hardening; unauthorized leaves submitting before `/sign-in`
+- `/user` exports `force-dynamic`
+- Both flags remain off; no migration; no vercel.json change; no real deletion request
+
+### Status
+- **APP-041F3:** COMPLETE (`ad3fc20d8ecb9022ec3195fb4f1b093aeb6ab7fd`)
+- **APP-041F4a:** IMPLEMENTED — HIDDEN — PENDING REVIEW
+- **APP-041F2:** COMPLETE
+- **APP-041F1:** APPROVED
+
+### Exact next
+- Independent F4a review → commit/deploy hidden → repeat hidden production smoke → design designated test-account allowlist and controlled F4b test window → no public activation yet
+
+### Explicit non-claims
+- Users cannot delete accounts; initiation is not enabled; Danger Zone is not publicly visible; scheduler processing is not active; no real deletion request created; no real deletion was tested; store compliance is not complete; both flags are not enabled

@@ -6,10 +6,14 @@
  *
  * Returns sanitized outcomes for the initiation route — never raw rows, IDs,
  * or Supabase errors.
+ *
+ * APP-041F4a: existing-row classification reuses canonical structural
+ * consistency (admin/orchestrator invariants). Incoherent rows → conflict.
  */
 
 import "server-only";
 
+import { evaluateAccountDeletionStructuralConsistency } from "./admin-observability";
 import {
   createAccountDeletionRequest,
   getUnresolvedAccountDeletionRequestForUser,
@@ -17,8 +21,6 @@ import {
 import type { AccountDeletionInitiationCreateOutcome } from "./run-account-deletion-initiation";
 import {
   ACCOUNT_DELETION_ORCHESTRATION_VERSION,
-  ACCOUNT_DELETION_SUPPORTED_ORCHESTRATION_VERSIONS,
-  isAccountDeletionStatus,
   type AccountDeletionRequestRow,
 } from "./types";
 
@@ -28,34 +30,26 @@ export function accountDeletionInitiationIdempotencyKey(
   return `account-delete:v1:${clerkUserId}`;
 }
 
-function isSupportedOrchestrationVersion(version: number): boolean {
-  return (
-    ACCOUNT_DELETION_SUPPORTED_ORCHESTRATION_VERSIONS as readonly number[]
-  ).includes(version);
-}
-
 /**
  * Structural coherence for initiation classification.
- * Status and current_step must be known vocabulary; version must be supported.
- * failed_retryable intentionally may have status ≠ current_step.
+ * Delegates to evaluateAccountDeletionStructuralConsistency (canonical):
+ * version, lease shape, status/step pairs, completed_at, purge/Clerk markers.
+ * Does not mutate or repair incoherent rows.
  */
 export function isCoherentAccountDeletionInitiationRow(
   row: AccountDeletionRequestRow
 ): boolean {
-  if (!isSupportedOrchestrationVersion(row.orchestration_version)) {
-    return false;
-  }
-  if (!isAccountDeletionStatus(row.status)) return false;
-  if (!isAccountDeletionStatus(row.current_step)) return false;
-  if (row.status === "completed" && row.current_step !== "completed") {
-    return false;
-  }
-  return true;
+  return evaluateAccountDeletionStructuralConsistency(row)
+    .structurallyConsistent;
 }
 
 function classifyExistingRow(
-  row: AccountDeletionRequestRow
+  row: AccountDeletionRequestRow,
+  expectedClerkUserId: string
 ): AccountDeletionInitiationCreateOutcome {
+  if (row.clerk_user_id !== expectedClerkUserId) {
+    return "conflict";
+  }
   if (!isCoherentAccountDeletionInitiationRow(row)) {
     return "conflict";
   }
@@ -97,6 +91,7 @@ export async function initiateAccountDeletionRequestForUser(
     if (result.value.created) {
       const row = result.value.row;
       if (
+        row.clerk_user_id !== trimmed ||
         !isCoherentAccountDeletionInitiationRow(row) ||
         row.status !== "requested" ||
         row.current_step !== "requested"
@@ -105,7 +100,7 @@ export async function initiateAccountDeletionRequestForUser(
       }
       return "created_new";
     }
-    return classifyExistingRow(result.value.row);
+    return classifyExistingRow(result.value.row, trimmed);
   }
 
   if (result.code === "conflict_unresolved_exists") {
@@ -118,7 +113,7 @@ export async function initiateAccountDeletionRequestForUser(
     if (!unresolved) {
       return "internal_error";
     }
-    return classifyExistingRow(unresolved);
+    return classifyExistingRow(unresolved, trimmed);
   }
 
   if (result.code === "unsupported_orchestration_version") {

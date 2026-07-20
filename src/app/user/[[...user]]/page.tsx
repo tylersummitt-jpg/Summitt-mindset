@@ -8,7 +8,12 @@ import UserAccountClient from "./user-account-client";
  * initiation flag is exactly "true". Backend remains dual-gated
  * (initiation AND scheduler). Flag value is never serialized to the
  * client — absence means hidden.
+ *
+ * force-dynamic: evaluate the exact initiation flag per request/runtime
+ * and avoid statically baking user Account UI visibility.
  */
+export const dynamic = "force-dynamic";
+
 export default function UserProfilePage() {
   const showDangerZone =
     process.env[ACCOUNT_DELETION_INITIATION_ENABLED_ENV] === "true";
