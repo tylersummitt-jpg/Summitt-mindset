@@ -4,14 +4,18 @@
  * Deployed does not mean activated:
  * - ACCOUNT_DELETION_INITIATION_ENABLED must be exactly "true"
  * - ACCOUNT_DELETION_SCHEDULER_ENABLED must be exactly "true"
- * - Both flags remain off in production for F2
- * - No Account-page UI / public navigation links to this route
+ * - Both flags remain off in production for F2/F3
+ * - Danger Zone UI (F3) is separately gated by initiation flag only
  *
  * When disabled or unauthorized: no repository call, no providers, no stages.
  * When enabled (future): durable request only — no inline deletion stages.
+ *
+ * Reauth: when Clerk reports missing strict reverification, return Clerk's
+ * reverification hint JSON so client useReverification can challenge + retry.
+ * Missing/unavailable has() stays sanitized fail-closed (no mutation).
  */
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, reverificationError } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { initiateAccountDeletionRequestForUser } from "@/lib/account-deletion/initiate-account-deletion-request";
@@ -34,6 +38,17 @@ function jsonResponse(
   status: number
 ): NextResponse {
   return NextResponse.json(body, { status, headers: NO_STORE_HEADERS });
+}
+
+/** Clerk useReverification-compatible 403 (no-store). */
+function clerkReverificationResponse(): NextResponse {
+  return new NextResponse(JSON.stringify(reverificationError("strict")), {
+    status: 403,
+    headers: {
+      "Content-Type": "application/json",
+      ...NO_STORE_HEADERS,
+    },
+  });
 }
 
 export async function POST(req: Request) {
@@ -78,6 +93,15 @@ export async function POST(req: Request) {
     createOrGetRequest: (clerkUserId) =>
       initiateAccountDeletionRequestForUser(clerkUserId),
   });
+
+  // F3 client useReverification requires Clerk hint shape (not sanitized code).
+  if (result.body.code === "reauth_required") {
+    return clerkReverificationResponse();
+  }
+  // Unavailable has()/throw — sanitized; no mutation occurred.
+  if (result.body.code === "reauth_unavailable") {
+    return jsonResponse({ ok: false, code: "reauth_required" }, 403);
+  }
 
   return jsonResponse(result.body, result.httpStatus);
 }

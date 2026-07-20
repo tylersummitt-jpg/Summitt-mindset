@@ -40,6 +40,7 @@ export type AccountDeletionInitiationCode =
   | typeof ACCOUNT_DELETION_INITIATION_DISABLED_CODE
   | "unauthorized"
   | "reauth_required"
+  | "reauth_unavailable"
   | "invalid_confirmation"
   | "accepted_new"
   | "accepted_existing"
@@ -162,10 +163,17 @@ export async function runAccountDeletionInitiation(
   try {
     reauth = await input.verifyReauthentication();
   } catch {
-    return response(403, false, "reauth_required");
+    return response(403, false, "reauth_unavailable");
   }
   if (!reauth || typeof reauth !== "object" || reauth.ok !== true) {
-    return response(403, false, "reauth_required");
+    const code =
+      reauth &&
+      typeof reauth === "object" &&
+      "code" in reauth &&
+      reauth.code === "reauth_unavailable"
+        ? "reauth_unavailable"
+        : "reauth_required";
+    return response(403, false, code);
   }
 
   let outcome: AccountDeletionInitiationCreateOutcome;

@@ -283,7 +283,7 @@ describe("APP-041F2 initiation core fail-closed order", () => {
     );
     expect(threw).toEqual({
       httpStatus: 403,
-      body: { ok: false, code: "reauth_required" },
+      body: { ok: false, code: "reauth_unavailable" },
     });
     expect(create).not.toHaveBeenCalled();
     expect(JSON.stringify(threw.body)).not.toContain("clerk boom");
@@ -543,9 +543,15 @@ describe("APP-041F2 route wrapper", () => {
     vi.doMock("@/lib/supabase-server", () => ({
       supabaseServer: { from: vi.fn(), rpc: vi.fn() },
     }));
-    vi.doMock("@clerk/nextjs/server", () => ({
-      auth: (...args: unknown[]) => authMock(...args),
-    }));
+    vi.doMock("@clerk/nextjs/server", async () => {
+      const actual = await vi.importActual<typeof import("@clerk/nextjs/server")>(
+        "@clerk/nextjs/server"
+      );
+      return {
+        ...actual,
+        auth: (...args: unknown[]) => authMock(...args),
+      };
+    });
     vi.doMock(
       "@/lib/account-deletion/initiate-account-deletion-request",
       () => ({
@@ -684,7 +690,7 @@ describe("APP-041F2 route wrapper", () => {
     expect(createMock).not.toHaveBeenCalledWith(OTHER_USER);
   });
 
-  it("26–27. reauth failure → 403; no create", async () => {
+  it("26–27. reauth failure → Clerk reverification hint 403; no create", async () => {
     authMock.mockResolvedValue({ userId: USER_ID, has: () => false });
     process.env[ACCOUNT_DELETION_INITIATION_ENABLED_ENV] = "true";
     process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV] = "true";
@@ -698,10 +704,34 @@ describe("APP-041F2 route wrapper", () => {
       })
     );
     expect(res.status).toBe(403);
-    expect(await res.json()).toEqual({
-      ok: false,
-      code: "reauth_required",
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    const body = await res.json();
+    expect(body).toEqual({
+      clerk_error: {
+        type: "forbidden",
+        reason: "reverification-error",
+        metadata: { reverification: "strict" },
+      },
     });
+    expect(body).not.toHaveProperty("ok");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("reauth_unavailable → sanitized 403; no create", async () => {
+    authMock.mockResolvedValue({ userId: USER_ID, has: undefined });
+    process.env[ACCOUNT_DELETION_INITIATION_ENABLED_ENV] = "true";
+    process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV] = "true";
+    reauthMock.mockReturnValue({ ok: false, code: "reauth_unavailable" });
+    const { POST } = await import("@/app/api/account/delete/route");
+    const res = await POST(
+      new Request("http://localhost/api/account/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirmation: "DELETE" }),
+      })
+    );
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ ok: false, code: "reauth_required" });
     expect(createMock).not.toHaveBeenCalled();
   });
 });
@@ -776,7 +806,11 @@ describe("APP-041F2 no-scope / reachability proofs", () => {
     expect(routeSrc).toContain('Cache-Control": "no-store"');
 
     const userSrc = readFileSync(USER_PAGE, "utf8");
-    expect(userSrc).not.toMatch(/Danger zone|Delete account|\/api\/account\/delete/i);
+    // F3: Danger Zone mounts only behind exact initiation === "true".
+    expect(userSrc).toContain('=== "true"');
+    expect(userSrc).toContain("AccountDeletionDangerZone");
+    expect(userSrc).not.toMatch(/Danger zone|Delete account/i);
+    expect(userSrc).not.toContain("/api/account/delete");
 
     const vercel = readFileSync(VERCEL, "utf8");
     expect(vercel).not.toMatch(/\/api\/account\/delete/);

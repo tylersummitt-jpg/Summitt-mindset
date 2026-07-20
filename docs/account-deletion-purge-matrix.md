@@ -328,13 +328,15 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041F1:** **APPROVED** — architecture decision for user-facing initiation: `/user` Danger zone (later); `POST /api/account/delete`; dual exact-string flags; durable request only; no inline stages; Clerk reverification; no self-serve undo in V1.
 
-**APP-041F2:** **IMPLEMENTED — UNREACHABLE — PENDING REVIEW** — authenticated idempotent initiation foundation: `POST /api/account/delete`; dual gate `ACCOUNT_DELETION_INITIATION_ENABLED === "true"` AND `ACCOUNT_DELETION_SCHEDULER_ENABLED === "true"`; server-derived Clerk identity + idempotency key `account-delete:v1:${userId}`; exact confirmation `DELETE`; durable request only; Clerk `has({ reverification: "strict" })` fail-closed; **no** Account UI; **no** public navigation; both flags remain off; scheduler remains disabled for processing; **no** real deletion request created.
+**APP-041F2:** **COMPLETE** at `f69b7ff1c76491eb32fb354a4dcb239daf91f20f` — authenticated idempotent initiation foundation: `POST /api/account/delete`; dual gate; server-derived identity/key; exact `DELETE`; Clerk `has({ reverification: "strict" })` fail-closed; middleware exact pass-through for route-owned 401. Production smoke: unauthenticated HTTP 401 `unauthorized`; authenticated flags-off HTTP 503 `account_deletion_initiation_disabled`. **No** real deletion request created; both flags remain off; scheduler processing remains disabled.
+
+**APP-041F3:** **IMPLEMENTED — HIDDEN — PENDING REVIEW** — `/user` Danger Zone UI behind exact `ACCOUNT_DELETION_INITIATION_ENABLED === "true"`; Clerk client `useReverification`; two-step consequences + typed `DELETE` confirmation; POST only to `/api/account/delete`; **no** public visibility while initiation flag off; backend remains dual-gated; **no** real deletion request created; **no** scheduler enablement.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Next after F2 review:** independent F2 review → commit/deploy unreachable → unauthorized + disabled production smoke → F3 Danger Zone UI behind initiation flag → controlled F4 test before any public activation.
+**Next after F3 review:** independent F3 review → commit/deploy hidden → production proof Danger Zone absent while flag off → controlled F4 designated test-account plan → no public activation yet.
 
-Do **not** claim: users can delete accounts; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
+Do **not** claim: users can delete accounts; initiation is enabled; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 

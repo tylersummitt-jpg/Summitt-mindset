@@ -1132,11 +1132,42 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Status
 - **APP-041F1:** APPROVED
-- **APP-041F2:** IMPLEMENTED — UNREACHABLE — PENDING REVIEW
+- **APP-041F2:** COMPLETE (`f69b7ff1c76491eb32fb354a4dcb239daf91f20f`) — superseded pending-review note; production 401+503 smoke passed
 - **APP-041E4d:** COMPLETE (`33e54e8debcaf1c6390604ac77f68d5662ab24cc`)
 
 ### Exact next
-- Independent F2 review → commit/deploy unreachable → unauthorized + disabled production smoke → F3 Danger Zone UI behind initiation flag → controlled F4 before any public activation
+- Independent F3 review → commit/deploy hidden → production proof Danger Zone absent while flag off → controlled F4 before any public activation
 
 ### Explicit non-claims
 - Users cannot delete accounts; initiation is not publicly available; scheduler processing is not active; no real deletion request created; store compliance is not complete; both flags are not enabled
+
+## SESSION 33 — 2026-07-20 — APP-041F3 Account Danger Zone UI (worktree)
+
+### Repository identity
+- F2 COMPLETE commit: `f69b7ff1c76491eb32fb354a4dcb239daf91f20f`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### F2 production truth
+- Unauthenticated POST `/api/account/delete` → HTTP 401 `{ ok:false, code:"unauthorized" }`
+- Authenticated flags-off → HTTP 503 `{ ok:false, code:"account_deletion_initiation_disabled" }`
+- No real deletion request created; both flags off; scheduler processing disabled
+
+### F3 what changed (worktree; pending review)
+- `/user` Danger Zone UI behind exact `ACCOUNT_DELETION_INITIATION_ENABLED === "true"` (server page gate; render nothing when false)
+- Clerk client `useReverification` wraps POST `/api/account/delete`
+- Two-step consequences + typed exact `DELETE` confirmation; sanitized response mapping
+- Minimal F2 route compatibility: `reauth_required` returns Clerk reverification hint JSON for `useReverification`
+- Backend remains dual-gated; no migration; no vercel.json change; no UI reachability while flag off
+- No real deletion request created; both flags remain off
+
+### Status
+- **APP-041F2:** COMPLETE (`f69b7ff1c76491eb32fb354a4dcb239daf91f20f`)
+- **APP-041F3:** IMPLEMENTED — HIDDEN — PENDING REVIEW
+- **APP-041F1:** APPROVED
+
+### Exact next
+- Independent F3 review → commit/deploy hidden → production proof Danger Zone absent while initiation flag off → controlled F4 designated test-account plan → no public activation yet
+
+### Explicit non-claims
+- Users cannot delete accounts; initiation is not enabled; Danger Zone is not publicly visible; scheduler processing is not active; no real deletion request created; store compliance is not complete; both flags are not enabled
