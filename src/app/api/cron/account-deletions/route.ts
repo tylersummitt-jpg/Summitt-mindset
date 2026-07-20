@@ -1,5 +1,5 @@
 /**
- * APP-041E4b — private Node route foundation for future scheduled reconciliation.
+ * APP-041E4b/E4c — private Node route foundation for future scheduled reconciliation.
  *
  * Deployed does not mean activated:
  * - ACCOUNT_DELETION_SCHEDULER_ENABLED must be exactly "true"
@@ -8,6 +8,8 @@
  *
  * When disabled or unauthorized: no discovery, no dependency construction,
  * no reconciler, no providers, no mutations.
+ *
+ * Production discovery omits caller clock so PostgreSQL DEFAULT now() applies.
  */
 
 import { NextResponse } from "next/server";
@@ -27,10 +29,19 @@ import { listAccountDeletionRequestIdsForReconcile } from "@/lib/account-deletio
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
+
+function jsonResponse(
+  body: unknown,
+  status: number
+): NextResponse {
+  return NextResponse.json(body, { status, headers: NO_STORE_HEADERS });
+}
+
 export async function GET(req: Request) {
   // 1. Cron auth first — never reveal kill-switch state on failure.
   if (!validateCronSecretRequest(req)) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return jsonResponse({ ok: false }, 401);
   }
 
   const enabled = isAccountDeletionSchedulerEnabled(
@@ -40,10 +51,10 @@ export async function GET(req: Request) {
   const result = await runAccountDeletionSchedulerInvocation({
     enabled,
     discover: async () => {
+      // Production: limit + leaseMs only. No now → RPC omits p_now → Postgres now().
       const discovery = await listAccountDeletionRequestIdsForReconcile({
         limit: ACCOUNT_DELETION_SCHEDULER_BATCH_SIZE,
         leaseMs: ACCOUNT_DELETION_SCHEDULER_LEASE_MS,
-        // Omit caller clock — repository uses authoritative server Date.
       });
       if (!discovery.ok) return { ok: false };
       return { ok: true, requestIds: discovery.value.requestIds };
@@ -59,5 +70,5 @@ export async function GET(req: Request) {
       }),
   });
 
-  return NextResponse.json(result.body, { status: result.httpStatus });
+  return jsonResponse(result.body, result.httpStatus);
 }

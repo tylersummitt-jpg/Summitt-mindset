@@ -761,7 +761,28 @@ describe("APP-041E3b repository helper", () => {
     rpcMock.mockReset();
   });
 
-  it("47. exact RPC args", async () => {
+  it("47a. production RPC omits p_now (Postgres DEFAULT now())", async () => {
+    useSupabaseAccountDeletionStoreForTests();
+    rpcMock.mockResolvedValueOnce({ data: [], error: null });
+    const result = await listAccountDeletionRequestIdsForReconcile({
+      limit: 1,
+      leaseMs: 120_000,
+    });
+    expect(result.ok).toBe(true);
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    expect(rpcMock).toHaveBeenCalledWith(
+      LIST_ACCOUNT_DELETION_REQUESTS_FOR_RECONCILE_RPC,
+      {
+        p_limit: 1,
+        p_lease_ms: 120_000,
+      }
+    );
+    const args = rpcMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(args).not.toHaveProperty("p_now");
+    expect(Object.keys(args).sort()).toEqual(["p_lease_ms", "p_limit"]);
+  });
+
+  it("47b. explicit test clock still sends p_now when supplied", async () => {
     useSupabaseAccountDeletionStoreForTests();
     rpcMock.mockResolvedValueOnce({ data: [], error: null });
     const now = new Date("2026-07-19T12:00:00.000Z");
@@ -771,7 +792,6 @@ describe("APP-041E3b repository helper", () => {
       now,
     });
     expect(result.ok).toBe(true);
-    expect(rpcMock).toHaveBeenCalledTimes(1);
     expect(rpcMock).toHaveBeenCalledWith(
       LIST_ACCOUNT_DELETION_REQUESTS_FOR_RECONCILE_RPC,
       {

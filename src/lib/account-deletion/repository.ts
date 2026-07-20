@@ -185,11 +185,15 @@ export type AccountDeletionStore = {
   /**
    * APP-041E3b: bounded ID-only discovery. No mutation / lease acquire.
    * Invalid limit/leaseMs → empty list (SQL-compatible fail-closed).
+   *
+   * `now` is optional:
+   * - omit for production Supabase path → RPC omits p_now → SQL DEFAULT now()
+   * - supply only for in-memory / trusted test clocks
    */
   listIdsForReconcile(input: {
     limit: number | null | undefined;
     leaseMs: number | null | undefined;
-    now: Date;
+    now?: Date;
   }): Promise<string[]>;
   /**
    * APP-041E4a: bounded admin list (raw rows for sanitization). Read-only.
@@ -480,10 +484,11 @@ function createInMemoryStore(): Store {
         ...r,
         steps: { ...r.steps },
       }));
+      // In-memory mirror needs a concrete clock; production Supabase omits now.
       return selectAccountDeletionRequestIdsForReconcile(all, {
         limit,
         leaseMs,
-        now,
+        now: now ?? new Date(),
       });
     },
     async listForAdmin({ limit, status }) {
@@ -691,13 +696,22 @@ function createSupabaseStore(): Store {
       return data ? mapRow(data as Record<string, unknown>) : null;
     },
     async listIdsForReconcile({ limit, leaseMs, now }) {
+      // Production callers omit `now` so p_now is absent and PostgreSQL
+      // DEFAULT now() applies. Never send null/undefined for p_now.
+      const rpcArgs: {
+        p_limit: number | null;
+        p_lease_ms: number | null;
+        p_now?: string;
+      } = {
+        p_limit: limit ?? null,
+        p_lease_ms: leaseMs ?? null,
+      };
+      if (now !== undefined) {
+        rpcArgs.p_now = now.toISOString();
+      }
       const { data, error } = await supabaseServer.rpc(
         LIST_ACCOUNT_DELETION_REQUESTS_FOR_RECONCILE_RPC,
-        {
-          p_limit: limit ?? null,
-          p_lease_ms: leaseMs ?? null,
-          p_now: now.toISOString(),
-        }
+        rpcArgs
       );
       if (error) throw error;
       if (data == null) return [];
@@ -1487,8 +1501,13 @@ export type ListAccountDeletionRequestIdsForReconcileInput = {
   /** Lease window ms; null/undefined → 120000. Out of [1000,3600000] → empty. */
   leaseMs?: number | null;
   /**
-   * Trusted service-role / test clock. Future production callers should
-   * normally omit this (RPC default now()) or pass an authoritative server time.
+   * Optional deterministic clock for in-memory / trusted tests only.
+   *
+   * Production / scheduler callers MUST omit this. When omitted on the
+   * Supabase store path, the RPC args exclude `p_now` entirely so
+   * PostgreSQL `DEFAULT now()` applies (never Node `new Date()`).
+   *
+   * Do not pass null — omit the key instead.
    */
   now?: Date;
 };
@@ -1496,6 +1515,9 @@ export type ListAccountDeletionRequestIdsForReconcileInput = {
 /**
  * APP-041E3b — bounded ID-only discovery. Calls discovery RPC (or in-memory mirror).
  * Does not acquire leases, mutate state, or invoke providers/reconciler.
+ *
+ * Clock: omit `now` for production (Postgres now()). Supply `now` only for
+ * deterministic in-memory / test clocks.
  */
 export async function listAccountDeletionRequestIdsForReconcile(
   input: ListAccountDeletionRequestIdsForReconcileInput = {}
@@ -1504,7 +1526,7 @@ export async function listAccountDeletionRequestIdsForReconcile(
     const ids = await getStore().listIdsForReconcile({
       limit: input.limit,
       leaseMs: input.leaseMs,
-      now: input.now ?? new Date(),
+      ...(input.now !== undefined ? { now: input.now } : {}),
     });
 
     const requestIds: string[] = [];

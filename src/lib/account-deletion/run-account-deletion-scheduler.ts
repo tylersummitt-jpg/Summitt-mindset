@@ -1,5 +1,5 @@
 /**
- * APP-041E4b — injectable account-deletion scheduler invocation core.
+ * APP-041E4b/E4c — injectable account-deletion scheduler invocation core.
  *
  * Fail-closed order (testable):
  * 1. kill switch (caller evaluates exact "true")
@@ -11,6 +11,11 @@
  *
  * Does not authenticate (route wrapper owns cron auth).
  * Does not read environment. Does not construct providers itself.
+ *
+ * Response counts (APP-041E4c):
+ * - discovered: number of request IDs selected for attempted reconciliation
+ * - attempted: number of reconciler invocations completed (any outcome)
+ *   Does NOT mean a stage advanced unless code === "advanced".
  */
 
 import "server-only";
@@ -46,7 +51,7 @@ export type AccountDeletionSchedulerBody = {
   enabled: boolean;
   code: string;
   discovered?: number;
-  processed?: number;
+  attempted?: number;
 };
 
 export type AccountDeletionSchedulerInvocationResult = {
@@ -109,14 +114,14 @@ function noWorkResult(): AccountDeletionSchedulerInvocationResult {
       enabled: true,
       code: "no_work",
       discovered: 0,
-      processed: 0,
+      attempted: 0,
     },
   };
 }
 
 function internalError(args: {
   discovered: number;
-  processed: number;
+  attempted: number;
 }): AccountDeletionSchedulerInvocationResult {
   return {
     httpStatus: 500,
@@ -125,7 +130,7 @@ function internalError(args: {
       enabled: true,
       code: "internal_error",
       discovered: args.discovered,
-      processed: args.processed,
+      attempted: args.attempted,
     },
   };
 }
@@ -145,35 +150,35 @@ export async function runAccountDeletionSchedulerInvocation(
   try {
     discovered = await input.discover();
   } catch {
-    return internalError({ discovered: 0, processed: 0 });
+    return internalError({ discovered: 0, attempted: 0 });
   }
 
   if (!discovered.ok) {
-    return internalError({ discovered: 0, processed: 0 });
+    return internalError({ discovered: 0, attempted: 0 });
   }
 
   const ids = discovered.requestIds;
   if (!Array.isArray(ids)) {
-    return internalError({ discovered: 0, processed: 0 });
+    return internalError({ discovered: 0, attempted: 0 });
   }
   if (ids.length === 0) {
     return noWorkResult();
   }
   if (ids.length !== 1) {
     // Fail closed — never process when discovery violates batch=1.
-    return internalError({ discovered: 0, processed: 0 });
+    return internalError({ discovered: 0, attempted: 0 });
   }
 
   const requestId = ids[0];
   if (typeof requestId !== "string" || requestId.length < 1) {
-    return internalError({ discovered: 0, processed: 0 });
+    return internalError({ discovered: 0, attempted: 0 });
   }
 
   let dependencies: AccountDeletionReconcilerDependencies;
   try {
     dependencies = input.createDependencies();
   } catch {
-    return internalError({ discovered: 1, processed: 0 });
+    return internalError({ discovered: 1, attempted: 0 });
   }
 
   const lockOwner = (input.createWorkerId ?? defaultWorkerId)();
@@ -182,7 +187,7 @@ export async function runAccountDeletionSchedulerInvocation(
     !lockOwner.startsWith("account-deletion-cron:") ||
     lockOwner.includes(requestId)
   ) {
-    return internalError({ discovered: 1, processed: 0 });
+    return internalError({ discovered: 1, attempted: 0 });
   }
 
   let reconcileResult: AccountDeletionReconcileResult;
@@ -194,12 +199,12 @@ export async function runAccountDeletionSchedulerInvocation(
       dependencies,
     });
   } catch {
-    return internalError({ discovered: 1, processed: 1 });
+    return internalError({ discovered: 1, attempted: 1 });
   }
 
   const code = sanitizeReconcileOutcome(reconcileResult);
   if (code === "internal_error") {
-    return internalError({ discovered: 1, processed: 1 });
+    return internalError({ discovered: 1, attempted: 1 });
   }
 
   return {
@@ -209,7 +214,7 @@ export async function runAccountDeletionSchedulerInvocation(
       enabled: true,
       code,
       discovered: 1,
-      processed: 1,
+      attempted: 1,
     },
   };
 }

@@ -1,11 +1,11 @@
 /**
- * APP-041E4b — disabled account-deletion scheduler route foundation tests.
+ * APP-041E4b/E4c — disabled account-deletion scheduler route foundation tests.
  * Injected fakes only — no live Supabase, Stripe, Clerk, Twilio, or real deletion.
  */
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase-server", () => ({
@@ -18,6 +18,7 @@ vi.mock("@/lib/supabase-server", () => ({
 import {
   ACCOUNT_DELETION_SCHEDULER_BATCH_SIZE,
   ACCOUNT_DELETION_SCHEDULER_DISABLED_CODE,
+  ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV,
   ACCOUNT_DELETION_SCHEDULER_LEASE_MS,
   isAccountDeletionSchedulerEnabled,
   runAccountDeletionSchedulerInvocation,
@@ -42,8 +43,14 @@ const BUILDER = join(
   ROOT,
   "src/lib/account-deletion/build-production-account-deletion-scheduler-dependencies.ts"
 );
+const REPO = join(ROOT, "src/lib/account-deletion/repository.ts");
+const MIGRATION = join(
+  ROOT,
+  "supabase/migrations/20260719140000_list_account_deletion_requests_for_reconcile.sql"
+);
 const VERCEL = join(ROOT, "vercel.json");
 const REQUEST_ID = "00000000-0000-4000-8000-00000000e4b1";
+const WORKER_ID = "account-deletion-cron:test-opaque";
 
 function frozenBundle(): AccountDeletionReconcilerDependencies {
   return createTrustedAccountDeletionReconcilerDependencies({
@@ -102,23 +109,38 @@ function baseInput(
         clerkResult: null,
       },
     }),
-    createWorkerId: () => "account-deletion-cron:test-opaque",
+    createWorkerId: () => WORKER_ID,
     ...overrides,
   };
 }
 
-describe("APP-041E4b kill switch", () => {
-  it("11–16. only exact string true enables", () => {
-    expect(isAccountDeletionSchedulerEnabled(undefined)).toBe(false);
-    expect(isAccountDeletionSchedulerEnabled(null)).toBe(false);
-    expect(isAccountDeletionSchedulerEnabled("")).toBe(false);
-    expect(isAccountDeletionSchedulerEnabled("false")).toBe(false);
-    expect(isAccountDeletionSchedulerEnabled("TRUE")).toBe(false);
-    expect(isAccountDeletionSchedulerEnabled("1")).toBe(false);
+describe("APP-041E4c kill switch", () => {
+  it("27–40. only exact string true enables; no trim/lowercase", () => {
+    const disabled = [
+      undefined,
+      null,
+      "",
+      "false",
+      "FALSE",
+      "TRUE",
+      "1",
+      " true",
+      "true ",
+      " true ",
+      "True",
+      "\ntrue",
+      "true\n",
+    ] as const;
+    for (const raw of disabled) {
+      expect(isAccountDeletionSchedulerEnabled(raw)).toBe(false);
+    }
     expect(isAccountDeletionSchedulerEnabled("true")).toBe(true);
+    const src = readFileSync(CORE, "utf8");
+    expect(src).toMatch(/return raw === "true"/);
+    expect(src).not.toMatch(/\.trim\(\)|toLowerCase\(|Boolean\(/);
   });
 
-  it("17–20. disabled skips discovery/deps/reconcile; sanitized body", async () => {
+  it("disabled skips discovery/deps/reconcile; no counts; no processed key", async () => {
     const discover = vi.fn(async () => ({ ok: true as const, requestIds: [] }));
     const createDependencies = vi.fn(() => frozenBundle());
     const reconcile = vi.fn(async () => ({ outcome: "not_found" as const }));
@@ -141,26 +163,72 @@ describe("APP-041E4b kill switch", () => {
       enabled: false,
       code: ACCOUNT_DELETION_SCHEDULER_DISABLED_CODE,
     });
+    expect(result.body).not.toHaveProperty("discovered");
+    expect(result.body).not.toHaveProperty("attempted");
+    expect(result.body).not.toHaveProperty("processed");
     expect(JSON.stringify(result.body)).not.toContain(REQUEST_ID);
   });
 });
 
-describe("APP-041E4b discovery", () => {
-  it("21–24. enabled discovers once with batch=1 / lease=120000 constants", async () => {
-    expect(ACCOUNT_DELETION_SCHEDULER_BATCH_SIZE).toBe(1);
-    expect(ACCOUNT_DELETION_SCHEDULER_LEASE_MS).toBe(120_000);
+describe("APP-041E4c discovery failures", () => {
+  it("21–26. throw / ok:false / malformed / >1 → internal_error; no deps/reconcile", async () => {
+    const cases: Array<{
+      name: string;
+      discover: RunAccountDeletionSchedulerInvocationInput["discover"];
+    }> = [
+      {
+        name: "throw",
+        discover: async () => {
+          throw new Error("secret discovery boom user_x");
+        },
+      },
+      {
+        name: "ok:false",
+        discover: async () => ({ ok: false }),
+      },
+      {
+        name: "malformed null",
+        discover: async () =>
+          ({ ok: true, requestIds: null }) as never,
+      },
+      {
+        name: ">1 IDs",
+        discover: async () => ({
+          ok: true,
+          requestIds: [REQUEST_ID, "00000000-0000-4000-8000-00000000e4b2"],
+        }),
+      },
+    ];
 
-    const discover = vi.fn(async () => ({
-      ok: true as const,
-      requestIds: [] as string[],
-    }));
-    await runAccountDeletionSchedulerInvocation(
-      baseInput({ discover, createDependencies: vi.fn(() => frozenBundle()) })
-    );
-    expect(discover).toHaveBeenCalledTimes(1);
+    for (const c of cases) {
+      const createDependencies = vi.fn(() => frozenBundle());
+      const reconcile = vi.fn(async () => ({ outcome: "not_found" as const }));
+      const result = await runAccountDeletionSchedulerInvocation(
+        baseInput({
+          discover: c.discover,
+          createDependencies,
+          reconcile,
+        })
+      );
+      expect(createDependencies, c.name).not.toHaveBeenCalled();
+      expect(reconcile, c.name).not.toHaveBeenCalled();
+      expect(result, c.name).toEqual({
+        httpStatus: 500,
+        body: {
+          ok: false,
+          enabled: true,
+          code: "internal_error",
+          discovered: 0,
+          attempted: 0,
+        },
+      });
+      expect(JSON.stringify(result), c.name).not.toContain(REQUEST_ID);
+      expect(JSON.stringify(result), c.name).not.toMatch(/secret|boom|user_/i);
+      expect(result.body, c.name).not.toHaveProperty("processed");
+    }
   });
 
-  it("25–27. zero IDs → no_work; no deps/reconcile", async () => {
+  it("8. no_work → discovered:0 attempted:0", async () => {
     const createDependencies = vi.fn(() => frozenBundle());
     const reconcile = vi.fn(async () => ({ outcome: "not_found" as const }));
     const result = await runAccountDeletionSchedulerInvocation(
@@ -179,122 +247,19 @@ describe("APP-041E4b discovery", () => {
         enabled: true,
         code: "no_work",
         discovered: 0,
-        processed: 0,
+        attempted: 0,
       },
     });
   });
 
-  it("28–29. discovery error → internal_error; no deps", async () => {
-    const createDependencies = vi.fn(() => frozenBundle());
-    const result = await runAccountDeletionSchedulerInvocation(
-      baseInput({
-        discover: async () => ({ ok: false }),
-        createDependencies,
-      })
-    );
-    expect(createDependencies).not.toHaveBeenCalled();
-    expect(result.body).toMatchObject({
-      ok: false,
-      enabled: true,
-      code: "internal_error",
-      discovered: 0,
-      processed: 0,
-    });
-    expect(result.httpStatus).toBe(500);
-  });
-
-  it("30. malformed discovery result fails closed", async () => {
-    const result = await runAccountDeletionSchedulerInvocation(
-      baseInput({
-        discover: async () =>
-          ({ ok: true, requestIds: null }) as never,
-      })
-    );
-    expect(result.body.code).toBe("internal_error");
-    expect(result.body.processed).toBe(0);
-  });
-
-  it("31–32. more than one ID fails closed; ID absent from response", async () => {
-    const createDependencies = vi.fn(() => frozenBundle());
-    const reconcile = vi.fn(
-      async (): Promise<AccountDeletionReconcileResult> => ({
-        outcome: "not_found",
-      })
-    );
-    const result = await runAccountDeletionSchedulerInvocation(
-      baseInput({
-        discover: async () => ({
-          ok: true,
-          requestIds: [REQUEST_ID, "00000000-0000-4000-8000-00000000e4b2"],
-        }),
-        createDependencies,
-        reconcile,
-      })
-    );
-    expect(createDependencies).not.toHaveBeenCalled();
-    expect(reconcile).not.toHaveBeenCalled();
-    expect(result.body.code).toBe("internal_error");
-    expect(result.body.processed).toBe(0);
-    expect(JSON.stringify(result)).not.toContain(REQUEST_ID);
+  it("batch/lease constants", () => {
+    expect(ACCOUNT_DELETION_SCHEDULER_BATCH_SIZE).toBe(1);
+    expect(ACCOUNT_DELETION_SCHEDULER_LEASE_MS).toBe(120_000);
   });
 });
 
-describe("APP-041E4b dependencies + reconcile", () => {
-  it("33–34. factory once after discovery; order discover→factory→reconcile", async () => {
-    const order: string[] = [];
-    const createDependencies = vi.fn(() => {
-      order.push("factory");
-      return frozenBundle();
-    });
-    const reconcile = vi.fn(
-      async (input): Promise<AccountDeletionReconcileResult> => {
-        order.push("reconcile");
-        expect(input.requestId).toBe(REQUEST_ID);
-        expect(input.leaseMs).toBe(120_000);
-        expect(Object.isFrozen(input.dependencies)).toBe(true);
-        return { outcome: "already_done", request: {
-          requestId: REQUEST_ID,
-          status: "completed",
-          currentStep: "completed",
-          orchestrationVersion: 1,
-          attemptCount: 1,
-          createdAt: "2026-07-19T00:00:00.000Z",
-          updatedAt: "2026-07-19T00:00:00.000Z",
-          completedAt: "2026-07-19T00:00:00.000Z",
-          lastRetryAt: null,
-          lastErrorCode: null,
-          smsResult: "ok",
-          stripeResult: "ok",
-          purgeResult: "ok",
-          clerkResult: "ok",
-        } };
-      }
-    );
-
-    const result = await runAccountDeletionSchedulerInvocation(
-      baseInput({
-        discover: async () => {
-          order.push("discover");
-          return { ok: true, requestIds: [REQUEST_ID] };
-        },
-        createDependencies,
-        reconcile,
-      })
-    );
-
-    expect(order).toEqual(["discover", "factory", "reconcile"]);
-    expect(createDependencies).toHaveBeenCalledTimes(1);
-    expect(reconcile).toHaveBeenCalledTimes(1);
-    expect(result.body).toEqual({
-      ok: true,
-      enabled: true,
-      code: "already_done",
-      discovered: 1,
-      processed: 1,
-    });
-  });
-
-  it("35–36. factory failure sanitized; no raw config", async () => {
+describe("APP-041E4c attempted semantics + unknown outcomes", () => {
+  it("9. factory failure → discovered:1 attempted:0; no processed", async () => {
     const result = await runAccountDeletionSchedulerInvocation(
       baseInput({
         createDependencies: () => {
@@ -307,63 +272,148 @@ describe("APP-041E4b dependencies + reconcile", () => {
       enabled: true,
       code: "internal_error",
       discovered: 1,
-      processed: 0,
+      attempted: 0,
     });
+    expect(result.body).not.toHaveProperty("processed");
     expect(JSON.stringify(result)).not.toMatch(/STRIPE|sk_live|missing/i);
   });
 
-  it("37–38. frozen bundle preserved; builder not eager at core import", async () => {
-    const bundle = frozenBundle();
-    expect(Object.isFrozen(bundle)).toBe(true);
-    const coreSrc = readFileSync(CORE, "utf8");
-    expect(coreSrc).not.toContain("buildProductionAccountDeletionSchedulerDependencies");
-    expect(coreSrc).not.toContain("process.env");
+  it("10–13. allowlisted outcomes → attempted:1; code is honest", async () => {
+    for (const outcome of [
+      "advanced",
+      "already_done",
+      "no_action",
+      "retryable_failure",
+      "conflict",
+      "not_found",
+    ] as const) {
+      const reconcile = vi.fn(
+        async (): Promise<AccountDeletionReconcileResult> => {
+          if (outcome === "advanced") {
+            return {
+              outcome: "advanced",
+              stage: "sms",
+              request: {
+                requestId: REQUEST_ID,
+                status: "sms_suppressed",
+                currentStep: "sms_suppressed",
+                orchestrationVersion: 1,
+                attemptCount: 0,
+                createdAt: "2026-07-19T00:00:00.000Z",
+                updatedAt: "2026-07-19T00:00:00.000Z",
+                completedAt: null,
+                lastRetryAt: null,
+                lastErrorCode: null,
+                smsResult: "ok",
+                stripeResult: null,
+                purgeResult: null,
+                clerkResult: null,
+              },
+            };
+          }
+          if (outcome === "already_done") {
+            return {
+              outcome: "already_done",
+              request: {
+                requestId: REQUEST_ID,
+                status: "completed",
+                currentStep: "completed",
+                orchestrationVersion: 1,
+                attemptCount: 1,
+                createdAt: "2026-07-19T00:00:00.000Z",
+                updatedAt: "2026-07-19T00:00:00.000Z",
+                completedAt: "2026-07-19T00:00:00.000Z",
+                lastRetryAt: null,
+                lastErrorCode: null,
+                smsResult: "ok",
+                stripeResult: "ok",
+                purgeResult: "ok",
+                clerkResult: "ok",
+              },
+            };
+          }
+          if (outcome === "no_action") {
+            return { outcome: "no_action", reason: "failed_terminal" };
+          }
+          if (outcome === "retryable_failure") {
+            return { outcome: "retryable_failure", code: "lease_held" };
+          }
+          if (outcome === "conflict") {
+            return { outcome: "conflict", code: "cas_conflict" };
+          }
+          return { outcome: "not_found" };
+        }
+      );
+      const result = await runAccountDeletionSchedulerInvocation(
+        baseInput({ reconcile })
+      );
+      expect(reconcile).toHaveBeenCalledTimes(1);
+      expect(result.httpStatus).toBe(200);
+      expect(result.body).toEqual({
+        ok: true,
+        enabled: true,
+        code: outcome,
+        discovered: 1,
+        attempted: 1,
+      });
+      expect(result.body).not.toHaveProperty("processed");
+      expect(JSON.stringify(result)).not.toContain(REQUEST_ID);
+      expect(JSON.stringify(result)).not.toContain(WORKER_ID);
+      expect(JSON.stringify(result)).not.toMatch(/lease_held|cas_conflict|failed_terminal/);
+    }
   });
 
-  it("39–45. one reconcile; no loop; retryable not retried; exception sanitized", async () => {
-    const reconcile = vi.fn(async () => ({
-      outcome: "retryable_failure" as const,
-      code: "lease_held",
-    }));
-    const once = await runAccountDeletionSchedulerInvocation(
-      baseInput({ reconcile })
-    );
-    expect(reconcile).toHaveBeenCalledTimes(1);
-    expect(once.body.code).toBe("retryable_failure");
-    expect(once.body.processed).toBe(1);
-    expect(JSON.stringify(once)).not.toContain("lease_held");
-    expect(JSON.stringify(once)).not.toContain(REQUEST_ID);
-
-    const boom = await runAccountDeletionSchedulerInvocation(
+  it("14. reconciler throw → discovered:1 attempted:1", async () => {
+    const result = await runAccountDeletionSchedulerInvocation(
       baseInput({
         reconcile: async () => {
           throw new Error("stack\nprovider body user@x.com");
         },
       })
     );
-    expect(boom.body.code).toBe("internal_error");
-    expect(JSON.stringify(boom)).not.toMatch(/stack|provider|@|user_/i);
+    expect(result).toEqual({
+      httpStatus: 500,
+      body: {
+        ok: false,
+        enabled: true,
+        code: "internal_error",
+        discovered: 1,
+        attempted: 1,
+      },
+    });
+    expect(JSON.stringify(result)).not.toMatch(/stack|provider|@|user_/i);
   });
 
-  it("46–48. worker opaque; not returned; no request/user id", async () => {
-    let seenOwner = "";
-    await runAccountDeletionSchedulerInvocation(
+  it("17–20. unknown / malformed outcome → internal_error; raw absent", async () => {
+    const unknown = await runAccountDeletionSchedulerInvocation(
       baseInput({
-        createWorkerId: () => "account-deletion-cron:opaque-token-xyz",
-        reconcile: async (input) => {
-          seenOwner = input.lockOwner;
-          return { outcome: "no_action", reason: "terminal" };
-        },
+        reconcile: async () =>
+          ({ outcome: "totally_unknown_code", detail: "secret" }) as never,
       })
     );
-    expect(seenOwner).toBe("account-deletion-cron:opaque-token-xyz");
-    expect(seenOwner).not.toContain(REQUEST_ID);
-    expect(seenOwner).not.toMatch(/user_/);
-  });
-});
+    expect(unknown).toEqual({
+      httpStatus: 500,
+      body: {
+        ok: false,
+        enabled: true,
+        code: "internal_error",
+        discovered: 1,
+        attempted: 1,
+      },
+    });
+    expect(JSON.stringify(unknown)).not.toMatch(/totally_unknown|secret/);
 
-describe("APP-041E4b responses", () => {
-  it("49–56. allowlisted keys only; status codes", async () => {
+    const malformed = await runAccountDeletionSchedulerInvocation(
+      baseInput({
+        reconcile: async () => null as never,
+      })
+    );
+    expect(malformed.body.code).toBe("internal_error");
+    expect(malformed.body.attempted).toBe(1);
+    expect(malformed.httpStatus).toBe(500);
+  });
+
+  it("15–16. allowlisted keys only; no processed anywhere in core source", async () => {
     const disabled = await runAccountDeletionSchedulerInvocation(
       baseInput({ enabled: false })
     );
@@ -373,60 +423,96 @@ describe("APP-041E4b responses", () => {
       "ok",
     ]);
 
-    const noWork = await runAccountDeletionSchedulerInvocation(
+    const attempted = await runAccountDeletionSchedulerInvocation(baseInput());
+    expect(Object.keys(attempted.body).sort()).toEqual([
+      "attempted",
+      "code",
+      "discovered",
+      "enabled",
+      "ok",
+    ]);
+
+    const coreSrc = readFileSync(CORE, "utf8");
+    expect(coreSrc).not.toMatch(/\bprocessed\b/);
+    expect(coreSrc).toContain("attempted");
+  });
+
+  it("order discover→factory→reconcile once", async () => {
+    const order: string[] = [];
+    const createDependencies = vi.fn(() => {
+      order.push("factory");
+      return frozenBundle();
+    });
+    const reconcile = vi.fn(async () => {
+      order.push("reconcile");
+      return { outcome: "not_found" as const };
+    });
+    await runAccountDeletionSchedulerInvocation(
       baseInput({
-        discover: async () => ({ ok: true, requestIds: [] }),
+        discover: async () => {
+          order.push("discover");
+          return { ok: true, requestIds: [REQUEST_ID] };
+        },
+        createDependencies,
+        reconcile,
       })
     );
-    expect(Object.keys(noWork.body).sort()).toEqual([
-      "code",
-      "discovered",
-      "enabled",
-      "ok",
-      "processed",
-    ]);
-
-    const processed = await runAccountDeletionSchedulerInvocation(baseInput());
-    expect(Object.keys(processed.body).sort()).toEqual([
-      "code",
-      "discovered",
-      "enabled",
-      "ok",
-      "processed",
-    ]);
-    expect(processed.httpStatus).toBe(200);
-
-    const internal = await runAccountDeletionSchedulerInvocation(
-      baseInput({ discover: async () => ({ ok: false }) })
-    );
-    expect(Object.keys(internal.body).sort()).toEqual([
-      "code",
-      "discovered",
-      "enabled",
-      "ok",
-      "processed",
-    ]);
-    expect(internal.httpStatus).toBe(500);
-    const raw = JSON.stringify(internal);
-    expect(raw).not.toMatch(/stack|last_error_detail|"detail"|\"steps\"/i);
-    expect(raw).not.toContain(REQUEST_ID);
+    expect(order).toEqual(["discover", "factory", "reconcile"]);
+    expect(createDependencies).toHaveBeenCalledTimes(1);
+    expect(reconcile).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("APP-041E4b route wrapper auth", () => {
+describe("APP-041E4c production clock source proof", () => {
+  it("1–6. production RPC omits p_now; SQL default now(); route omits now", () => {
+    const repoSrc = readFileSync(REPO, "utf8");
+    expect(repoSrc).toContain("if (now !== undefined)");
+    expect(repoSrc).toContain("rpcArgs.p_now = now.toISOString()");
+    expect(repoSrc).toContain(
+      "...(input.now !== undefined ? { now: input.now } : {})"
+    );
+    // Discovery public helper must not default to Node new Date().
+    const discoveryStart = repoSrc.indexOf(
+      "export async function listAccountDeletionRequestIdsForReconcile"
+    );
+    const discoveryFn = repoSrc.slice(discoveryStart, discoveryStart + 900);
+    expect(discoveryFn).toContain(
+      "...(input.now !== undefined ? { now: input.now } : {})"
+    );
+    expect(discoveryFn).not.toContain("input.now ?? new Date()");
+
+    const sql = readFileSync(MIGRATION, "utf8");
+    expect(sql).toMatch(/p_now TIMESTAMPTZ DEFAULT now\(\)/);
+
+    const routeSrc = readFileSync(ROUTE, "utf8");
+    expect(routeSrc).toContain("listAccountDeletionRequestIdsForReconcile({");
+    expect(routeSrc).toContain("limit: ACCOUNT_DELETION_SCHEDULER_BATCH_SIZE");
+    expect(routeSrc).toContain("leaseMs: ACCOUNT_DELETION_SCHEDULER_LEASE_MS");
+    expect(routeSrc).not.toMatch(/now\s*:/);
+    expect(routeSrc).not.toContain("new Date(");
+    expect(routeSrc).not.toMatch(
+      /searchParams\.get\([\"'](requestId|userId|limit|force|now)/
+    );
+  });
+});
+
+describe("APP-041E4c route wrapper auth + wiring", () => {
   const validateCronSecretMock = vi.hoisted(() => vi.fn());
-  const runCoreMock = vi.hoisted(() => vi.fn());
   const listDiscoverMock = vi.hoisted(() => vi.fn());
   const buildDepsMock = vi.hoisted(() => vi.fn());
   const reconcileMock = vi.hoisted(() => vi.fn());
+  const runCoreMock = vi.hoisted(() => vi.fn());
+
+  const prevEnabled = process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV];
 
   beforeEach(() => {
     vi.resetModules();
     validateCronSecretMock.mockReset();
-    runCoreMock.mockReset();
     listDiscoverMock.mockReset();
     buildDepsMock.mockReset();
     reconcileMock.mockReset();
+    runCoreMock.mockReset();
+    delete process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV];
 
     vi.doMock("server-only", () => ({}));
     vi.doMock("@/lib/supabase-server", () => ({
@@ -436,20 +522,6 @@ describe("APP-041E4b route wrapper auth", () => {
       validateCronSecretRequest: (...args: unknown[]) =>
         validateCronSecretMock(...args),
     }));
-    vi.doMock(
-      "@/lib/account-deletion/run-account-deletion-scheduler",
-      async () => {
-        const actual = await vi.importActual<
-          typeof import("./run-account-deletion-scheduler")
-        >("./run-account-deletion-scheduler");
-        return {
-          ...actual,
-          runAccountDeletionSchedulerInvocation: (
-            ...args: unknown[]
-          ) => runCoreMock(...args),
-        };
-      }
-    );
     vi.doMock("@/lib/account-deletion/repository", () => ({
       listAccountDeletionRequestIdsForReconcile: (...args: unknown[]) =>
         listDiscoverMock(...args),
@@ -465,13 +537,47 @@ describe("APP-041E4b route wrapper auth", () => {
       executeTrustedAccountDeletionReconcile: (...args: unknown[]) =>
         reconcileMock(...args),
     }));
+    // Default: real scheduler core (wiring tests). Auth test may override.
+    vi.doMock(
+      "@/lib/account-deletion/run-account-deletion-scheduler",
+      async () =>
+        vi.importActual<typeof import("./run-account-deletion-scheduler")>(
+          "./run-account-deletion-scheduler"
+        )
+    );
   });
 
-  it("1–7. auth failure blocks; no enabled leak; valid secret reaches core", async () => {
+  afterEach(() => {
+    if (prevEnabled === undefined) {
+      delete process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV];
+    } else {
+      process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV] = prevEnabled;
+    }
+  });
+
+  it("41. auth failure blocks; no enabled leak; Cache-Control no-store", async () => {
+    vi.doMock(
+      "@/lib/account-deletion/run-account-deletion-scheduler",
+      async () => {
+        const actual = await vi.importActual<
+          typeof import("./run-account-deletion-scheduler")
+        >("./run-account-deletion-scheduler");
+        return {
+          ...actual,
+          runAccountDeletionSchedulerInvocation: (
+            ...args: unknown[]
+          ) => runCoreMock(...args),
+        };
+      }
+    );
+
     validateCronSecretMock.mockReturnValue(false);
     const { GET } = await import("@/app/api/cron/account-deletions/route");
-    const res = await GET(new Request("http://localhost/api/cron/account-deletions"));
+    const res = await GET(
+      new Request("http://localhost/api/cron/account-deletions")
+    );
     expect(res.status).toBe(401);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
     const json = await res.json();
     expect(json).toEqual({ ok: false });
     expect(json).not.toHaveProperty("enabled");
@@ -479,26 +585,80 @@ describe("APP-041E4b route wrapper auth", () => {
     expect(listDiscoverMock).not.toHaveBeenCalled();
     expect(buildDepsMock).not.toHaveBeenCalled();
     expect(reconcileMock).not.toHaveBeenCalled();
+  });
 
+  it("42–50. enabled wiring: limit 1, lease 120000, no now, one each, ID absent", async () => {
+    // Real core + mocked discover/deps/reconcile — prove production closures.
     validateCronSecretMock.mockReturnValue(true);
-    runCoreMock.mockResolvedValue({
-      httpStatus: 200,
-      body: {
-        ok: true,
-        enabled: false,
-        code: ACCOUNT_DELETION_SCHEDULER_DISABLED_CODE,
-      },
+    process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV] = "true";
+
+    listDiscoverMock.mockResolvedValue({
+      ok: true,
+      value: { requestIds: [REQUEST_ID] },
     });
-    const { GET: GET2 } = await import(
-      "@/app/api/cron/account-deletions/route"
+    buildDepsMock.mockReturnValue(frozenBundle());
+    reconcileMock.mockResolvedValue({ outcome: "not_found" });
+
+    const { GET } = await import("@/app/api/cron/account-deletions/route");
+    const res = await GET(
+      new Request(
+        "http://localhost/api/cron/account-deletions?requestId=evil&limit=99&now=2020-01-01T00:00:00.000Z&userId=user_x"
+      )
     );
-    const res2 = await GET2(
+
+    expect(listDiscoverMock).toHaveBeenCalledTimes(1);
+    expect(listDiscoverMock).toHaveBeenCalledWith({
+      limit: 1,
+      leaseMs: 120_000,
+    });
+    const discoverArgs = listDiscoverMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(discoverArgs).not.toHaveProperty("now");
+    expect(Object.keys(discoverArgs).sort()).toEqual(["leaseMs", "limit"]);
+
+    expect(buildDepsMock).toHaveBeenCalledTimes(1);
+    expect(reconcileMock).toHaveBeenCalledTimes(1);
+    const reconcileArgs = reconcileMock.mock.calls[0]?.[0] as {
+      requestId: string;
+      lockOwner: string;
+      leaseMs: number;
+    };
+    expect(reconcileArgs.requestId).toBe(REQUEST_ID);
+    expect(reconcileArgs.leaseMs).toBe(120_000);
+    expect(reconcileArgs.lockOwner).toMatch(/^account-deletion-cron:/);
+    expect(reconcileArgs.lockOwner).not.toContain(REQUEST_ID);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    const body = await res.json();
+    expect(body).toEqual({
+      ok: true,
+      enabled: true,
+      code: "not_found",
+      discovered: 1,
+      attempted: 1,
+    });
+    expect(body).not.toHaveProperty("processed");
+    expect(JSON.stringify(body)).not.toContain(REQUEST_ID);
+    expect(JSON.stringify(body)).not.toContain(reconcileArgs.lockOwner);
+    expect(JSON.stringify(body)).not.toMatch(/user_x|evil/);
+  });
+
+  it("disabled env with valid secret: no discovery; no-store", async () => {
+    validateCronSecretMock.mockReturnValue(true);
+    // env unset → disabled
+    const { GET } = await import("@/app/api/cron/account-deletions/route");
+    const res = await GET(
       new Request("http://localhost/api/cron/account-deletions")
     );
-    expect(validateCronSecretMock).toHaveBeenCalled();
-    expect(runCoreMock).toHaveBeenCalledTimes(1);
-    expect(res2.status).toBe(200);
-    expect(await res2.json()).toEqual({
+    expect(listDiscoverMock).not.toHaveBeenCalled();
+    expect(buildDepsMock).not.toHaveBeenCalled();
+    expect(reconcileMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(await res.json()).toEqual({
       ok: true,
       enabled: false,
       code: ACCOUNT_DELETION_SCHEDULER_DISABLED_CODE,
@@ -512,14 +672,15 @@ describe("APP-041E4b route wrapper auth", () => {
     expect(src).toContain("export async function GET");
     expect(src).not.toMatch(/export async function (POST|PATCH|DELETE)/);
     expect(src).toContain("validateCronSecretRequest");
+    expect(src).toContain('Cache-Control": "no-store"');
     expect(src).not.toContain('"use server"');
   });
 });
 
-describe("APP-041E4b production builder + no-scope", () => {
-  it("57–68. no migration/vercel/cron schedule/mutation/public initiation/loop", () => {
+describe("APP-041E4c production builder + no-scope", () => {
+  it("55–60. no migration/vercel/cron schedule/mutation/public initiation/loop", () => {
     const migrations = readdirSync(join(ROOT, "supabase/migrations"));
-    expect(migrations.some((f) => /e4b|scheduler/i.test(f))).toBe(false);
+    expect(migrations.some((f) => /e4c|scheduler/i.test(f))).toBe(false);
 
     const vercel = readFileSync(VERCEL, "utf8");
     expect(vercel).not.toMatch(/account-deletion|account_deletion/i);
@@ -530,21 +691,19 @@ describe("APP-041E4b production builder + no-scope", () => {
       expect(src).not.toMatch(/for\s*\([^)]*of\s+.*requestIds/);
       expect(src).not.toMatch(/\bwhile\s*\(/);
       expect(src).not.toContain('"use server"');
-      expect(src).not.toMatch(
-        /searchParams\.get\([\"'](requestId|userId|limit|force)/
-      );
+      expect(src).not.toMatch(/\bprocessed\b/);
     }
 
     const routeSrc = readFileSync(ROUTE, "utf8");
     expect(routeSrc).toContain("ACCOUNT_DELETION_SCHEDULER_ENABLED");
     expect(routeSrc).toContain("listAccountDeletionRequestIdsForReconcile");
     expect(routeSrc).toContain("executeTrustedAccountDeletionReconcile");
-    expect(routeSrc).toContain("buildProductionAccountDeletionSchedulerDependencies");
+    expect(routeSrc).toContain(
+      "buildProductionAccountDeletionSchedulerDependencies"
+    );
     expect(routeSrc).not.toContain(
       "createProductionAccountDeletionReconcilerDependencies"
     );
-
-    // Factory markers stay out of app route text (builder owns them in lib).
     expect(routeSrc).not.toContain("createClerkRestDeletionAdapter");
   });
 
