@@ -324,13 +324,17 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041E4c:** **COMPLETE** at `1bc5b00ed368f08cc993492cc847fd38e97286f0` — activation-readiness cleanup: production discovery omits `p_now` (PostgreSQL `DEFAULT now()`); response counts use `discovered`/`attempted`; unknown reconciler outcomes fail closed; exact kill-switch edge tests; route wiring proves `limit:1` / `leaseMs:120000` / no caller clock; `Cache-Control: no-store`. Authorized disabled production smoke passed (HTTP 200 `account_deletion_scheduler_disabled`, `Cache-Control: no-store`). Switch remains off; **no** real deletion executed.
 
-**APP-041E4d:** **IMPLEMENTED — SCHEDULED BUT DISABLED — PENDING REVIEW** — Vercel Cron schedule for `/api/cron/account-deletions` every 5 minutes (`*/5 * * * *`). Kill switch remains off (`ACCOUNT_DELETION_SCHEDULER_ENABLED !== "true"`). Scheduled invocations are authenticated disabled no-ops: no discovery, no provider construction, no reconciler, no deletion processing. **No** env change; **no** second activation path; **no** real deletion executed.
+**APP-041E4d:** **COMPLETE** at `33e54e8debcaf1c6390604ac77f68d5662ab24cc` — Vercel Cron schedule for `/api/cron/account-deletions` every 5 minutes (`*/5 * * * *`). Production scheduled invocation observed (GET HTTP 200). Kill switch remains off (`ACCOUNT_DELETION_SCHEDULER_ENABLED !== "true"`). Scheduled invocations are authenticated disabled no-ops. **No** real deletion executed.
+
+**APP-041F1:** **APPROVED** — architecture decision for user-facing initiation: `/user` Danger zone (later); `POST /api/account/delete`; dual exact-string flags; durable request only; no inline stages; Clerk reverification; no self-serve undo in V1.
+
+**APP-041F2:** **IMPLEMENTED — UNREACHABLE — PENDING REVIEW** — authenticated idempotent initiation foundation: `POST /api/account/delete`; dual gate `ACCOUNT_DELETION_INITIATION_ENABLED === "true"` AND `ACCOUNT_DELETION_SCHEDULER_ENABLED === "true"`; server-derived Clerk identity + idempotency key `account-delete:v1:${userId}`; exact confirmation `DELETE`; durable request only; Clerk `has({ reverification: "strict" })` fail-closed; **no** Account UI; **no** public navigation; both flags remain off; scheduler remains disabled for processing; **no** real deletion request created.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Next after E4d review:** commit/deploy E4d → observe at least one scheduled disabled invocation in Vercel logs → confirm disabled response/no work → activation requires a separate explicit decision and approval → authenticated initiation later.
+**Next after F2 review:** independent F2 review → commit/deploy unreachable → unauthorized + disabled production smoke → F3 Danger Zone UI behind initiation flag → controlled F4 test before any public activation.
 
-Do **not** claim: users can delete accounts; scheduler is active for processing; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
+Do **not** claim: users can delete accounts; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 
