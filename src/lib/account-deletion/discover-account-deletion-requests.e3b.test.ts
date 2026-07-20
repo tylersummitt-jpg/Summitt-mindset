@@ -914,9 +914,17 @@ describe("APP-041E3b pure selector fidelity + no-processing proof", () => {
     ).toEqual(["00000000-0000-4000-8000-000000000902"]);
   });
 
-  it("55. discovery wiring only on disabled E4b cron; no vercel schedule", () => {
-    const vercel = readFileSync(VERCEL_JSON, "utf8");
-    expect(vercel).not.toMatch(/account-deletion|list_account_deletion/i);
+  it("55. discovery wiring only on cron route; E4d may schedule while disabled", () => {
+    const vercel = JSON.parse(readFileSync(VERCEL_JSON, "utf8")) as {
+      crons: Array<{ path: string; schedule: string }>;
+    };
+    const deletionCrons = vercel.crons.filter(
+      (c) => c.path === "/api/cron/account-deletions"
+    );
+    expect(deletionCrons.length).toBeLessThanOrEqual(1);
+    expect(readFileSync(VERCEL_JSON, "utf8")).not.toMatch(
+      /list_account_deletion/i
+    );
 
     const markers = [
       "listAccountDeletionRequestIdsForReconcile",

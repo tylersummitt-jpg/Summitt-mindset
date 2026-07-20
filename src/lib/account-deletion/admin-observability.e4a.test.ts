@@ -754,14 +754,24 @@ describe("APP-041E4a UI", () => {
 });
 
 describe("APP-041E4a no-scope proofs", () => {
-  it("51–60. no migration/cron/vercel/reconciler/provider/mutation wiring", () => {
+  it("51–60. no migration/reconciler/provider/mutation wiring (E4d may schedule cron)", () => {
     const migrations = readdirSync(join(process.cwd(), "supabase/migrations"));
     expect(migrations.some((f) => /e4a|admin_account_deletion/i.test(f))).toBe(
       false
     );
 
-    const vercel = readFileSync(VERCEL, "utf8");
-    expect(vercel).not.toMatch(/account-deletion|account_deletion/i);
+    // Admin observability must not configure Vercel; E4d may schedule the
+    // disabled /api/cron/account-deletions path separately.
+    for (const file of [PAGE, DASHBOARD, ADMIN_OBS, LIST_ADMIN]) {
+      expect(readFileSync(file, "utf8")).not.toContain("vercel.json");
+    }
+    const vercel = JSON.parse(readFileSync(VERCEL, "utf8")) as {
+      crons: Array<{ path: string; schedule: string }>;
+    };
+    const deletionCrons = vercel.crons.filter(
+      (c) => c.path === "/api/cron/account-deletions"
+    );
+    expect(deletionCrons.length).toBeLessThanOrEqual(1);
 
     for (const file of [PAGE, DASHBOARD, ADMIN_OBS, LIST_ADMIN]) {
       const src = readFileSync(file, "utf8");

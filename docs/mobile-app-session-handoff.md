@@ -1065,34 +1065,51 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 ### Explicit non-claims
 - Scheduler is not active; automatic deletion does not work; users cannot initiate deletion; no real account was deleted; store compliance is not complete; cron has not been configured; kill switch is not enabled
 
-## SESSION 30 — 2026-07-19 — APP-041E4c scheduler activation-readiness cleanup (worktree)
+## SESSION 30 — 2026-07-19 — APP-041E4c scheduler activation-readiness cleanup
 
 ### Repository identity
 - E4b COMPLETE commit: `f33e014603616f8e38d93946113c7cdf53d1bcb5`
+- E4c COMPLETE commit: `1bc5b00ed368f08cc993492cc847fd38e97286f0`
 - Branch: `main`
 - Mobile repository: **not edited**.
 
-### E4b production truth
-- Unauthorized smoke: HTTP 401 `{"ok":false}`
-- Authorized disabled smoke: HTTP 200 `account_deletion_scheduler_disabled`
-- No discovery / provider construction / reconciler / real deletion
-- No cron schedule; no `vercel.json` change; kill switch off
-
-### E4c what changed (worktree; pending review)
+### E4c production truth
+- Authorized disabled smoke: HTTP 200 `Cache-Control: no-store` + `account_deletion_scheduler_disabled`
 - Production discovery omits `p_now` → PostgreSQL `DEFAULT now()`
-- Response counts: `discovered` / `attempted` (replaced ambiguous `processed`)
+- Response counts: `discovered` / `attempted`
 - Unknown reconciler outcomes → `500 internal_error`
-- Exact kill-switch whitespace/case negatives tested
-- Route wiring proves `limit:1`, `leaseMs:120000`, no caller clock, query params ignored
-- `Cache-Control: no-store` on all scheduler responses
-- **No** cron schedule; switch remains off; **no** real deletion executed
+- Kill switch remains off; **no** real deletion executed
 
 ### Status
 - **APP-041E4b:** COMPLETE (`f33e014603616f8e38d93946113c7cdf53d1bcb5`)
-- **APP-041E4c:** IMPLEMENTED — DISABLED — PENDING REVIEW
+- **APP-041E4c:** COMPLETE (`1bc5b00ed368f08cc993492cc847fd38e97286f0`)
 
-### Exact next
-- Independent E4c review → commit/deploy while disabled → repeat unauthorized/disabled production smoke → only later consider adding a cron schedule with switch still off → activation requires separate explicit approval
+### Exact next (historical at E4c write time)
+- Independent E4c review → commit/deploy while disabled → only later consider adding a cron schedule with switch still off → activation requires separate explicit approval
 
 ### Explicit non-claims
-- Scheduler is not active; automatic deletion does not work; users cannot initiate deletion; no real account was deleted; store compliance is not complete; cron has not been configured; kill switch is not enabled
+- Scheduler is not active for processing; automatic deletion does not work; users cannot initiate deletion; no real account was deleted; store compliance is not complete; kill switch is not enabled
+
+## SESSION 31 — 2026-07-19 — APP-041E4d disabled Vercel cron scheduling (worktree)
+
+### Repository identity
+- E4c COMPLETE commit: `1bc5b00ed368f08cc993492cc847fd38e97286f0`
+- Branch: `main`
+- Mobile repository: **not edited**.
+
+### E4d what changed (worktree; pending review)
+- Added Vercel Cron schedule: `/api/cron/account-deletions` every 5 minutes (`*/5 * * * *`)
+- Existing cron entries preserved; exactly one account-deletion entry
+- Kill switch remains off (`ACCOUNT_DELETION_SCHEDULER_ENABLED !== "true"`)
+- Scheduled invocations are authenticated disabled no-ops: no discovery, no provider construction, no reconciler, no deletion processing
+- No env change; no second activation path; no route/core behavior change; no migration; no real deletion executed
+
+### Status
+- **APP-041E4c:** COMPLETE (`1bc5b00ed368f08cc993492cc847fd38e97286f0`)
+- **APP-041E4d:** IMPLEMENTED — SCHEDULED BUT DISABLED — PENDING REVIEW
+
+### Exact next
+- Independent E4d review → commit/deploy → observe at least one scheduled disabled invocation in Vercel logs → confirm disabled response/no work → activation requires a separate explicit decision and approval
+
+### Explicit non-claims
+- Scheduler is not active for processing; automatic deletion does not work; users cannot initiate deletion; no real account was deleted; store compliance is not complete; kill switch is not enabled

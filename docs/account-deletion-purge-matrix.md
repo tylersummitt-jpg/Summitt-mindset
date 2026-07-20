@@ -312,7 +312,7 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041E2:** **COMPLETE** at `f024a7e56bc278bd8efc7e06e38fdff433cdca7c` — trusted execution safety foundation: thrown/malformed stage normalization; `createTrustedAccountDeletionReconcilerDependencies` frozen bundle; `executeTrustedAccountDeletionReconcile` one-request boundary. No live provider factory. No route/cron/scheduler/scanner. No real Clerk call. No automatic deletion.
 
-**APP-041E3 architecture verdict:** Vercel Cron + private Node route + bounded ID-only discovery + one-stage reconciler (kill switch default off; batch 1 initially; admin observability before live enablement). Discovery RPC is live in production. E4b/E4c private route exists but remains disabled (no Vercel Cron schedule; kill switch off; Postgres-authoritative discovery clock).
+**APP-041E3 architecture verdict:** Vercel Cron + private Node route + bounded ID-only discovery + one-stage reconciler (kill switch default off; batch 1 initially; admin observability before live enablement). Discovery RPC is live in production. E4b/E4c private route is deployed; E4d adds a Vercel Cron schedule while the kill switch remains off (scheduled ≠ activated; Postgres-authoritative discovery clock).
 
 **APP-041E3a:** **COMPLETE** at `bee7a09ed23b795a5bc41641c4ceebbe48e3b107` — unreachable production-safe stage wiring: trusted SMS/Stripe/purge stage factories; Clerk REST deletion adapter (uninvoked); `createProductionAccountDeletionReconcilerDependencies` fail-closed kill switch. **No** route/cron/discovery/admin UI. **No** automatic deletion.
 
@@ -320,15 +320,17 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041E4a:** **COMPLETE** at `66c04f022a4fa0714a61b646b9675dadf5fa1869` — Tyler-only read-only admin observability at `/admin/account-deletions`. Production smoke passed (Tyler-only access; read-only warning; all counts zero; no deletion requests recorded). Sanitized view model only. **No** mutations, recovery controls, or automatic deletion.
 
-**APP-041E4b:** **COMPLETE** at `f33e014603616f8e38d93946113c7cdf53d1bcb5` — private authenticated Node route `/api/cron/account-deletions` deployed while disabled. Unauthorized smoke: HTTP 401 `{"ok":false}`. Authorized disabled smoke: HTTP 200 `account_deletion_scheduler_disabled`. **No** discovery/providers/reconciler; **no** cron schedule; **no** `vercel.json` change; kill switch off; **no** real deletion executed.
+**APP-041E4b:** **COMPLETE** at `f33e014603616f8e38d93946113c7cdf53d1bcb5` — private authenticated Node route `/api/cron/account-deletions` deployed while disabled. Unauthorized smoke: HTTP 401 `{"ok":false}`. Authorized disabled smoke: HTTP 200 `account_deletion_scheduler_disabled`. **No** discovery/providers/reconciler; kill switch off; **no** real deletion executed.
 
-**APP-041E4c:** **IMPLEMENTED — DISABLED — PENDING REVIEW** — activation-readiness cleanup: production discovery omits `p_now` (PostgreSQL `DEFAULT now()`); response counts use `discovered`/`attempted` (not stage-advanced); unknown reconciler outcomes fail closed; exact kill-switch whitespace/case negatives tested; route wiring proves `limit:1` / `leaseMs:120000` / no caller clock; `Cache-Control: no-store`. **No** cron schedule; switch remains off; **no** real deletion executed.
+**APP-041E4c:** **COMPLETE** at `1bc5b00ed368f08cc993492cc847fd38e97286f0` — activation-readiness cleanup: production discovery omits `p_now` (PostgreSQL `DEFAULT now()`); response counts use `discovered`/`attempted`; unknown reconciler outcomes fail closed; exact kill-switch edge tests; route wiring proves `limit:1` / `leaseMs:120000` / no caller clock; `Cache-Control: no-store`. Authorized disabled production smoke passed (HTTP 200 `account_deletion_scheduler_disabled`, `Cache-Control: no-store`). Switch remains off; **no** real deletion executed.
+
+**APP-041E4d:** **IMPLEMENTED — SCHEDULED BUT DISABLED — PENDING REVIEW** — Vercel Cron schedule for `/api/cron/account-deletions` every 5 minutes (`*/5 * * * *`). Kill switch remains off (`ACCOUNT_DELETION_SCHEDULER_ENABLED !== "true"`). Scheduled invocations are authenticated disabled no-ops: no discovery, no provider construction, no reconciler, no deletion processing. **No** env change; **no** second activation path; **no** real deletion executed.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Next after E4c review:** commit/deploy E4c while disabled → repeat unauthorized/disabled production smoke → only later consider adding a cron schedule with switch still off → activation requires separate explicit approval → authenticated initiation later.
+**Next after E4d review:** commit/deploy E4d → observe at least one scheduled disabled invocation in Vercel logs → confirm disabled response/no work → activation requires a separate explicit decision and approval → authenticated initiation later.
 
-Do **not** claim: users can delete accounts; scheduler is active; automatic deletion works; cron is configured; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
+Do **not** claim: users can delete accounts; scheduler is active for processing; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 

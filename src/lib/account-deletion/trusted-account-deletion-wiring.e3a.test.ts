@@ -588,9 +588,20 @@ describe("APP-041E3a immutability + entrypoint", () => {
 });
 
 describe("APP-041E3a public/unreachable proof", () => {
-  it("48–52. no vercel schedule; factory markers stay out of app/components", () => {
-    const vercel = readFileSync(VERCEL_JSON, "utf8");
-    expect(vercel).not.toMatch(/account-deletion/);
+  it("48–52. E4d may schedule disabled cron; factory markers stay out of app/components", () => {
+    const vercel = JSON.parse(readFileSync(VERCEL_JSON, "utf8")) as {
+      crons: Array<{ path: string; schedule: string }>;
+    };
+    const deletionCrons = vercel.crons.filter(
+      (c) => c.path === "/api/cron/account-deletions"
+    );
+    expect(deletionCrons.length).toBeLessThanOrEqual(1);
+    if (deletionCrons.length === 1) {
+      expect(deletionCrons[0]?.schedule).toBe("*/5 * * * *");
+    }
+    expect(readFileSync(VERCEL_JSON, "utf8")).not.toMatch(
+      /CRON_SECRET|ACCOUNT_DELETION_SCHEDULER/
+    );
 
     for (const file of [WIRING, STAGES, CLERK_ADAPTER]) {
       expect(readFileSync(file, "utf8")).toContain('import "server-only"');

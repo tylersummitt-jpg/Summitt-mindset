@@ -1,6 +1,7 @@
 /**
- * APP-041E4b/E4c — disabled account-deletion scheduler route foundation tests.
+ * APP-041E4b/E4c/E4d — disabled account-deletion scheduler route foundation tests.
  * Injected fakes only — no live Supabase, Stripe, Clerk, Twilio, or real deletion.
+ * E4d: Vercel Cron schedule may exist; kill switch remains off (scheduled ≠ activated).
  */
 
 import { readFileSync, readdirSync } from "node:fs";
@@ -678,12 +679,9 @@ describe("APP-041E4c route wrapper auth + wiring", () => {
 });
 
 describe("APP-041E4c production builder + no-scope", () => {
-  it("55–60. no migration/vercel/cron schedule/mutation/public initiation/loop", () => {
+  it("55–60. no migration/mutation/public initiation/loop (E4d owns vercel schedule)", () => {
     const migrations = readdirSync(join(ROOT, "supabase/migrations"));
     expect(migrations.some((f) => /e4c|scheduler/i.test(f))).toBe(false);
-
-    const vercel = readFileSync(VERCEL, "utf8");
-    expect(vercel).not.toMatch(/account-deletion|account_deletion/i);
 
     for (const file of [ROUTE, CORE, BUILDER]) {
       const src = readFileSync(file, "utf8");
@@ -721,5 +719,158 @@ describe("APP-041E4c production builder + no-scope", () => {
     }));
     await import("./build-production-account-deletion-scheduler-dependencies");
     expect(factory).not.toHaveBeenCalled();
+  });
+});
+
+describe("APP-041E4d disabled Vercel cron schedule", () => {
+  const PRESERVED_CRONS = [
+    { path: "/api/cron/daily-sms", schedule: "*/5 * * * *" },
+    { path: "/api/cron/weekly-sms", schedule: "*/5 * * * *" },
+    { path: "/api/cron/challenge", schedule: "0 * * * *" },
+    { path: "/api/cron/sms-inbound-coach", schedule: "* * * * *" },
+    { path: "/api/cron/quotes-book-fulfillment", schedule: "0 15 * * *" },
+  ] as const;
+
+  function loadCrons(): Array<{ path: string; schedule: string }> {
+    const parsed = JSON.parse(readFileSync(VERCEL, "utf8")) as {
+      crons: Array<{ path: string; schedule: string }>;
+    };
+    expect(Array.isArray(parsed.crons)).toBe(true);
+    return parsed.crons;
+  }
+
+  it("1–5. exactly one account-deletions cron; */5; existing entries preserved", () => {
+    const crons = loadCrons();
+    const deletion = crons.filter(
+      (c) => c.path === "/api/cron/account-deletions"
+    );
+    expect(deletion).toHaveLength(1);
+    expect(deletion[0]).toEqual({
+      path: "/api/cron/account-deletions",
+      schedule: "*/5 * * * *",
+    });
+
+    for (const expected of PRESERVED_CRONS) {
+      expect(crons).toContainEqual(expected);
+    }
+    expect(crons).toHaveLength(PRESERVED_CRONS.length + 1);
+
+    const vercelRaw = readFileSync(VERCEL, "utf8");
+    expect(vercelRaw).not.toMatch(
+      /CRON_SECRET|ACCOUNT_DELETION_SCHEDULER|sk_|Bearer /i
+    );
+    expect(
+      (vercelRaw.match(/\/api\/cron\/account-deletions/g) ?? []).length
+    ).toBe(1);
+  });
+
+  it("6–10. auth required; unset env → disabled no-op (no discovery/deps/reconcile)", async () => {
+    const validateCronSecretMock = vi.fn();
+    const listDiscoverMock = vi.fn();
+    const buildDepsMock = vi.fn();
+    const reconcileMock = vi.fn();
+    const prevEnabled = process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV];
+
+    vi.resetModules();
+    delete process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV];
+
+    vi.doMock("server-only", () => ({}));
+    vi.doMock("@/lib/supabase-server", () => ({
+      supabaseServer: { from: vi.fn(), rpc: vi.fn() },
+    }));
+    vi.doMock("@/lib/cron-auth", () => ({
+      validateCronSecretRequest: (...args: unknown[]) =>
+        validateCronSecretMock(...args),
+    }));
+    vi.doMock("@/lib/account-deletion/repository", () => ({
+      listAccountDeletionRequestIdsForReconcile: (...args: unknown[]) =>
+        listDiscoverMock(...args),
+    }));
+    vi.doMock(
+      "@/lib/account-deletion/build-production-account-deletion-scheduler-dependencies",
+      () => ({
+        buildProductionAccountDeletionSchedulerDependencies: () =>
+          buildDepsMock(),
+      })
+    );
+    vi.doMock("@/lib/account-deletion/reconcile-account-deletion", () => ({
+      executeTrustedAccountDeletionReconcile: (...args: unknown[]) =>
+        reconcileMock(...args),
+    }));
+    vi.doMock(
+      "@/lib/account-deletion/run-account-deletion-scheduler",
+      async () =>
+        vi.importActual<typeof import("./run-account-deletion-scheduler")>(
+          "./run-account-deletion-scheduler"
+        )
+    );
+
+    try {
+      validateCronSecretMock.mockReturnValue(false);
+      const { GET } = await import("@/app/api/cron/account-deletions/route");
+      const unauthorized = await GET(
+        new Request("http://localhost/api/cron/account-deletions")
+      );
+      expect(unauthorized.status).toBe(401);
+      expect(listDiscoverMock).not.toHaveBeenCalled();
+      expect(buildDepsMock).not.toHaveBeenCalled();
+      expect(reconcileMock).not.toHaveBeenCalled();
+
+      validateCronSecretMock.mockReturnValue(true);
+      const disabled = await GET(
+        new Request("http://localhost/api/cron/account-deletions")
+      );
+      expect(disabled.status).toBe(200);
+      expect(disabled.headers.get("Cache-Control")).toBe("no-store");
+      expect(await disabled.json()).toEqual({
+        ok: true,
+        enabled: false,
+        code: ACCOUNT_DELETION_SCHEDULER_DISABLED_CODE,
+      });
+      expect(listDiscoverMock).not.toHaveBeenCalled();
+      expect(buildDepsMock).not.toHaveBeenCalled();
+      expect(reconcileMock).not.toHaveBeenCalled();
+    } finally {
+      if (prevEnabled === undefined) {
+        delete process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV];
+      } else {
+        process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV] = prevEnabled;
+      }
+    }
+  });
+
+  it("11–20. no second switch/migration/admin mutation/public initiation", () => {
+    const coreSrc = readFileSync(CORE, "utf8");
+    expect(coreSrc).toMatch(/return raw === "true"/);
+    expect(coreSrc).not.toMatch(/\.trim\(\)|toLowerCase\(|Boolean\(/);
+    expect(coreSrc).toContain(ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV);
+    expect(coreSrc).not.toMatch(
+      /ACCOUNT_DELETION_SCHEDULER_FORCE|SCHEDULER_ACTIVE|AUTO_DELETE/
+    );
+
+    const routeSrc = readFileSync(ROUTE, "utf8");
+    expect(routeSrc).toContain("validateCronSecretRequest");
+    expect(routeSrc).toContain("isAccountDeletionSchedulerEnabled");
+    expect(routeSrc).not.toMatch(/searchParams\.get\([\"']cron_secret/);
+
+    const migrations = readdirSync(join(ROOT, "supabase/migrations"));
+    expect(migrations.some((f) => /e4d/i.test(f))).toBe(false);
+
+    for (const file of [
+      join(ROOT, "src/app/admin/account-deletions/page.tsx"),
+      join(
+        ROOT,
+        "src/app/admin/account-deletions/account-deletions-dashboard.tsx"
+      ),
+    ]) {
+      const src = readFileSync(file, "utf8");
+      expect(src).not.toMatch(/method:\s*[\"'](POST|PATCH|DELETE)[\"']/);
+      expect(src).not.toContain("executeTrustedAccountDeletionReconcile");
+      expect(src).not.toContain('"use server"');
+    }
+
+    expect(() =>
+      readFileSync(join(ROOT, "src/app/api/account-deletion/route.ts"), "utf8")
+    ).toThrow();
   });
 });
