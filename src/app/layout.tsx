@@ -67,6 +67,7 @@ export default function RootLayout({
                 <div className="flex flex-wrap gap-x-4 gap-y-2 underline">
                   <a href="/privacy" className="py-0.5">Privacy Policy</a>
                   <a href="/terms" className="py-0.5">Terms</a>
+                  <a href="/data-deletion" className="py-0.5">Data Deletion</a>
                   <a href="/sms" className="py-0.5">SMS Disclosure</a>
                   <a href="/twilio" className="py-0.5">SMS Opt-In (Twilio)</a>
                 </div>

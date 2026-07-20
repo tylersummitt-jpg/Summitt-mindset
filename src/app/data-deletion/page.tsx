@@ -1,61 +1,124 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import AccountDeletionAvailabilityNotice from "@/components/legal/AccountDeletionAvailabilityNotice";
+import {
+  ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE,
+  ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
+  ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
+  getAccountDeletionPublicAvailability,
+} from "@/lib/legal/account-deletion-public-availability";
+
+export const metadata: Metadata = {
+  title: "Data Deletion | Summitt Mindset",
+  description:
+    "How Summitt Mindset handles account deletion requests, what is removed, and what limited records may be retained.",
+};
+
 export default function DataDeletionPage() {
+  const availability = getAccountDeletionPublicAvailability();
+
   return (
-    <main className="max-w-3xl mx-auto py-12 sm:py-16 px-4 sm:px-6 space-y-10">
-      <header>
-        <h1 className="text-3xl sm:text-4xl font-bold mb-3">Data Deletion</h1>
-        <p className="text-gray-600 text-sm">
-          Last updated: March 14, 2026
+    <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
+      <header className="space-y-3">
+        <p className="text-sm text-[var(--muted)]">
+          Updated {ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE}
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">
+          Data deletion
+        </h1>
+        <p className="text-base leading-7 text-[var(--muted)] sm:text-lg">
+          This page explains how Summitt Mindset account deletion works, what
+          happens to your membership and app data, and how to get help.
         </p>
       </header>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">How to Request Deletion</h2>
-        <p className="text-gray-700">
-          You may request account and data deletion at any time by emailing{" "}
-          <a href="mailto:support@summittmindset.com" className="underline">
-            support@summittmindset.com
-          </a>
-          .
-        </p>
-      </section>
+      <div className="mt-8 space-y-8 text-[var(--text)]">
+        <AccountDeletionAvailabilityNotice />
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">What We May Delete</h2>
-        <p className="text-gray-700">
-          Upon verified request, we may delete the following categories of data:
-        </p>
-        <ul className="list-disc pl-5 text-gray-700 space-y-2">
-          <li>Account information (email, name, phone number)</li>
-          <li>Journal entries and daily reflections</li>
-          <li>SMS identity and opt-in records</li>
-          <li>Feedback and coaching conversation history</li>
-          <li>Subscription-related app records</li>
-        </ul>
-      </section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">
+            {availability.howToDeleteHeading}
+          </h2>
+          <p className="text-base leading-7 text-[var(--muted)]">
+            {availability.howToDeleteBody}
+          </p>
+        </section>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Payment Information</h2>
-        <p className="text-gray-700">
-          Payment card information is handled by Stripe and is not stored
-          directly by Summitt Mindset. To manage or delete payment data, use
-          your Stripe customer portal or contact us for assistance.
-        </p>
-      </section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">
+            Cancellation is not deletion
+          </h2>
+          <p className="text-base leading-7 text-[var(--muted)]">
+            Canceling membership stops future billing and ends paid access, but
+            it does not delete your account, journals, progress, or sign-in.
+            Account deletion is a separate, permanent action.
+          </p>
+        </section>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Identity Verification</h2>
-        <p className="text-gray-700">
-          Deletion requests may require identity verification to protect your
-          data. We will respond to your request as promptly as possible.
-        </p>
-      </section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">
+            What happens when an account is deleted
+          </h2>
+          <p className="text-base leading-7 text-[var(--muted)]">
+            Account deletion is permanent. When a deletion request is completed,
+            Summitt Mindset:
+          </p>
+          <ul className="list-disc space-y-2 pl-5 text-base leading-7 text-[var(--muted)]">
+            <li>Stops Summitt Mindset text messages for that account</li>
+            <li>Cancels an active or paused Summitt Mindset membership</li>
+            <li>
+              Deletes journals, progress, coaching history, preferences, and
+              related app data owned by the account
+            </li>
+            <li>Deletes the sign-in identity used to access the service</li>
+          </ul>
+        </section>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Contact</h2>
-        <p className="font-semibold">
-          support@summittmindset.com
-        </p>
-      </section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">
+            Limited records that may be retained
+          </h2>
+          <p className="text-base leading-7 text-[var(--muted)]">
+            We do not claim that every record is instantly or universally erased.
+            Limited information may be retained when required for:
+          </p>
+          <ul className="list-disc space-y-2 pl-5 text-base leading-7 text-[var(--muted)]">
+            <li>
+              Payment, tax, fraud, dispute, or other legal obligations
+            </li>
+            <li>SMS opt-out and messaging-compliance evidence</li>
+            <li>Account-deletion orchestration or audit evidence</li>
+            <li>
+              Enforcement of deletion or messaging preferences
+            </li>
+          </ul>
+          <p className="text-base leading-7 text-[var(--muted)]">
+            More detail is in our{" "}
+            <Link
+              href="/privacy"
+              className="underline underline-offset-4"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Need help?</h2>
+          <p className="text-base leading-7 text-[var(--muted)]">
+            Email{" "}
+            <a
+              href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF}
+              className="underline underline-offset-4 break-all"
+            >
+              {ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY}
+            </a>
+            . Include the email address on your account so we can locate the
+            right request.
+          </p>
+        </section>
+      </div>
     </main>
   );
 }
